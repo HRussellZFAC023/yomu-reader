@@ -22,6 +22,7 @@ import {
     computeSubtitleDrawerLayout,
     loadSubtitleDragOffsetFraction,
     loadTranscriptPanelSize,
+    reachableSubtitleBottomPercent,
     saveSubtitleDragOffsetFraction,
     saveTranscriptPanelSize,
     shouldUseCompactSubtitleDrawer,
@@ -350,9 +351,6 @@ function subtitleFrameTargetFontSize(root: HTMLElement, settings: ReaderSettings
 }
 
 const DEFAULT_SUBTITLE_BOTTOM_OFFSET = DEFAULT_SETTINGS.subtitleBottomOffset;
-function effectiveSubtitleBottomPercent(settings: ReaderSettings): number {
-    return settings.subtitleBottomOffset;
-}
 
 function setDocumentStylePropertyIfChanged(element: HTMLElement, property: string, value: string): boolean {
     if (element.style.getPropertyValue(property) === value) return false;
@@ -3357,7 +3355,27 @@ export class SubtitlePlayerController {
 
     private applyEffectiveSubtitleBottom(): void {
         if (!this.root) return;
-        this.root.style.setProperty('--subtitle-bottom', `${effectiveSubtitleBottomPercent(this.options.getSettings())}%`);
+        this.root.style.setProperty('--subtitle-bottom', `${this.effectiveSubtitleBottomPercent()}%`);
+    }
+
+    private effectiveSubtitleBottomPercent(preferred = this.options.getSettings().subtitleBottomOffset): number {
+        const root = this.root;
+        if (!root) return preferred;
+        const positionRect = root.getBoundingClientRect();
+        const viewport = subtitleVisibleViewportSize();
+        const visualViewport = window.visualViewport;
+        const viewportTop = visualViewport
+            && Math.round(visualViewport.width) === viewport.width
+            && Math.round(visualViewport.height) === viewport.height
+            ? visualViewport.offsetTop
+            : 0;
+        return reachableSubtitleBottomPercent({
+            preferredBottomPercent: preferred,
+            positionRect,
+            viewportTop,
+            viewportHeight: viewport.height,
+            subtitleHeight: root.querySelector<HTMLElement>('.jpdb-subtitle-text')?.getBoundingClientRect().height ?? 0,
+        });
     }
 
     private fitSubtitleTextToVideo(): void {
@@ -3780,7 +3798,7 @@ export class SubtitlePlayerController {
             mode: handle.matches(ASBPLAYER_SUBTITLE_DRAG_HANDLE_SELECTOR) ? 'transform' : 'bottom-offset',
             startY,
             startOffset: this.subtitleDragOffsetYPx,
-            startBottomOffset: this.options.getSettings().subtitleBottomOffset,
+            startBottomOffset: this.effectiveSubtitleBottomPercent(),
             referenceHeight: this.subtitlePositionReferenceHeight(dragFrame),
             bounds: this.subtitleDragOffsetBounds(dragFrame),
             lastClientY: startY,
@@ -3887,7 +3905,7 @@ export class SubtitlePlayerController {
     }
 
     private adjustSubtitleBottomOffsetByPixels(deltaY: number, dragFrame?: HTMLElement): void {
-        this.setSubtitleBottomOffset(this.options.getSettings().subtitleBottomOffset - (deltaY / this.subtitlePositionReferenceHeight(dragFrame)) * 100);
+        this.setSubtitleBottomOffset(this.effectiveSubtitleBottomPercent() - (deltaY / this.subtitlePositionReferenceHeight(dragFrame)) * 100);
     }
 
     private setSubtitleBottomOffset(value: number): void {
@@ -3975,6 +3993,8 @@ export class SubtitlePlayerController {
     }
 
     private clampedSubtitleBottomOffset(value: number): number {
+        const rootRect = this.root?.getBoundingClientRect();
+        if (rootRect && rootRect.height > 0) return Math.round(this.effectiveSubtitleBottomPercent(value));
         return Math.round(Math.min(Math.max(value, this.minSubtitleBottomOffsetPercent()), this.maxSubtitleBottomOffsetPercent()));
     }
 

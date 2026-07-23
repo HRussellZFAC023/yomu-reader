@@ -48,6 +48,7 @@ assertNoRemoteExecutableMetadata(code);
 assertNoRemoteExecutableLoaders(code);
 assertCompanionRequireSriHashes();
 assertCompanionBuildVersions();
+assertAnnotationsSplitBoundary();
 assertKanjiStudySplitBoundary();
 assertNoStandaloneLegacyCopy();
 assertAnkiRenderSplitBoundary();
@@ -192,6 +193,27 @@ function assertLocalDictionarySplitBoundary() {
   ]) {
     if (code.includes(signature)) fail(`ADR-0003 split regression: ${label} implementation leaked into ${USERSCRIPT_RELATIVE_PATH}.`);
     if (!companionCode.includes(signature)) fail(`ADR-0003 split regression: ${label} is missing from the settings-surface companion.`);
+  }
+}
+
+function assertAnnotationsSplitBoundary() {
+  const library = GREASY_FORK_LIBRARIES.find(candidate => candidate.id === 'annotations');
+  if (!library) fail('Yomu Annotations companion is missing from the Greasy Fork library manifest.');
+  const relativePath = `dist/${greasyForkLibraryPath(library.fileName)}`;
+  if (!fileExists(join(ROOT, relativePath))) fail(`${relativePath} is missing. Run npm run build first.`);
+  const companionCode = readText(join(ROOT, relativePath));
+  for (const signature of [
+    'function documentOverlay(',
+    'function anchorOwnsTopmostPoint(',
+    'registerYomuCompanion("annotations", {',
+  ]) {
+    if (!companionCode.includes(signature)) fail(`${relativePath} is missing annotation projection runtime: ${signature}`);
+  }
+  for (const signature of ['function documentOverlay(', 'function anchorOwnsTopmostPoint(']) {
+    if (code.includes(signature)) fail(`annotation projection implementation leaked into ${USERSCRIPT_RELATIVE_PATH}: ${signature}`);
+  }
+  if (!code.includes('yomuAnnotationsCompanion()?.syncProjectedReadings(owner, projections);')) {
+    fail(`${USERSCRIPT_RELATIVE_PATH} is missing the annotation companion facade.`);
   }
 }
 

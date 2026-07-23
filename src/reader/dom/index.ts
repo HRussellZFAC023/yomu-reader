@@ -1,5 +1,5 @@
 import { primaryCardState } from '../cards/state';
-import { cardStateProvenance } from './rendered-word-state';
+import { cardStateProvenance, setRenderedWordCardStatus } from './rendered-word-state';
 import { cardDeckMembership, cardDeckMembershipClassNames } from '../cards/deck-membership';
 import { HAS_JAPANESE, HAS_JAPANESE_LETTER, READER_ROOT_SELECTOR } from './constants';
 import {
@@ -50,7 +50,6 @@ import {
     safeElementMatches,
     selectorPairs,
     composedAncestorElement as composedParentElement,
-    YOUTUBE_FEEDBACK_CHROME_SELECTOR,
 } from './decoration-policy';
 
 export { isPassiveInteractionElement, isYouTubeHost } from './decoration-policy';
@@ -58,6 +57,13 @@ export type { DecorationState } from './decoration-policy';
 import type { DecorationState } from './decoration-policy';
 export { classifyDecoration, noteConstrainedRowLayoutSettled, resetDecorationPolicyCachesForTest, setReviewCardFrontPredicate } from './decoration-policy';
 import { escapeHtml, setInnerHtml } from './html';
+import {
+    clearProjectedReadings,
+    pruneProjectedReadings,
+    syncProjectedReadings,
+    type DetachedReadingProjection,
+} from './detached-reading-overlay';
+export { clearProjectedReadingsWithin } from './detached-reading-overlay';
 import { ensureReaderStylesForHost } from './shadow-styles';
 import { forEachScannedShadowRoot, watchPotentialOpenShadowRootHost } from './shadow-scan-registry';
 import { readerWordSurfaceText, sentenceAroundRange, sentenceAroundSurface, unwrapReaderWords } from './reader-word';
@@ -1551,17 +1557,30 @@ function elementHasOwnJapaneseText(element: HTMLElement): boolean {
     return false;
 }
 
-// Two structural cases are painted-but-not-content and must stay skipped even
-// when their box reports visible: interaction-feedback shapes carry transient
-// state text (押下中 = "pressing") that is never reading content, and a subtree
-// whose name is already supplied by a labelled ancestor (aria-label) is
-// collected through that ancestor's passive target — painting the hidden copy
-// would double-annotate the same reading (e.g. YouTube's aria-labelled
-// view-count row over its aria-hidden rolling-number spans).
+// Keep painted hidden copies out when an aria-label already supplies their
+// name, or when the nearest control paints another Japanese label outside the
+// hidden root. The latter catches transient feedback generically while keeping
+// a sole aria-hidden visual label annotatable.
 function isAriaHiddenAccessibleNameDuplicate(element: HTMLElement): boolean {
-    if (element.closest(YOUTUBE_FEEDBACK_CHROME_SELECTOR)) return true;
+    const hiddenRoot = element.closest<HTMLElement>('[aria-hidden="true"]');
+    if (!hiddenRoot) return false;
     const labelled = element.closest<HTMLElement>('[aria-label]');
-    return Boolean(labelled && labelled.getAttribute('aria-label')?.trim());
+    if (labelled?.getAttribute('aria-label')?.trim()) return true;
+    const control = hiddenRoot.closest<HTMLElement>(
+        `${PASSIVE_INTERACTION_SELECTOR},${COMPACT_PASSIVE_INTERACTION_SELECTOR}`,
+    );
+    return Boolean(control && controlHasVisibleJapaneseOutside(control, hiddenRoot));
+}
+
+function controlHasVisibleJapaneseOutside(control: HTMLElement, hiddenRoot: HTMLElement): boolean {
+    const walker = control.ownerDocument.createTreeWalker(control, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        if (hiddenRoot.contains(node) || !HAS_JAPANESE.test(node.textContent ?? '')) continue;
+        const parent = node.parentElement;
+        if (!parent || parent.closest('rt,rp,.jpdb-reader-detached-furi,[hidden],script,style,noscript,template')) continue;
+        if (isVisible(parent)) return true;
+    }
+    return false;
 }
 
 function isFragmentParagraphBoundary(
@@ -2076,7 +2095,6 @@ export function applyTokensToTextNode(target: TextTarget, tokens: JPDBToken[], s
     registerDestructivePaintTextNodes(fragment);
     target.node.replaceWith(fragment);
     styleDetachedReadingElements(target.parent, target.parent);
-    openSafeDetachedReadingClips(target.parent);
     stabilizeDetachedReadings(target.parent, closestRubyFragileConstrainedRow(target.parent));
     markRenderedScanTarget(target);
 }
@@ -2670,23 +2688,22 @@ function reuseCurrentTextMirror(host: HTMLElement, context: NonDestructiveMirror
     ].every(Boolean);
     if (!structureMatches || !existing) return false;
     const exactMatch = existing.dataset.renderSignature === context.signature;
-    // Dynamic component trees can schedule the same source twice: a fully
-    // hydrated public/Jiten pass, followed by a bounded provisional pass. The
-    // latter must not replace known readings/pitch with unknown placeholders.
-    // Preserve only a strictly richer render with identical source ranges and
-    // render settings; authoritative or genuinely different updates still take
-    // the ordinary replacement path.
-    if (!exactMatch && !existingMirrorStrictlyDominatesProvisionalRender(existing, context)) return false;
+    // Dynamic component trees can schedule the same source twice. Annotation
+    // facts are monotonic regardless of provider provenance: a sparse repaint
+    // cannot remove a reading or pitch fact already attached to the same source
+    // range, while richer or conflicting data takes the ordinary replacement
+    // path.
+    if (!exactMatch && !existingMirrorHasMoreCompleteAnnotations(existing, context)) return false;
+    if (!exactMatch) refreshRetainedMirrorCardStatus(existing, context);
     const state = textMirrorHosts.get(host);
     if (state) reassertTextMirrorHostStyles(host, state);
     if (context.detachedReadings || existing.dataset.yomuDetachedReadings === 'true') {
-        openSafeDetachedReadingClips(host);
         stabilizeDetachedReadings(existing, context.clipRow, true);
     }
     return true;
 }
 
-function existingMirrorStrictlyDominatesProvisionalRender(
+function existingMirrorHasMoreCompleteAnnotations(
     existing: HTMLElement,
     context: NonDestructiveMirrorRenderContext,
 ): boolean {
@@ -2694,51 +2711,116 @@ function existingMirrorStrictlyDominatesProvisionalRender(
     const incomingSettings = tokenIndependentMirrorSignature(context.signature);
     if (!existingSettings || existingSettings !== incomingSettings) return false;
 
-    const existingReadingLane = mirrorSignatureReadingLane(existing.dataset.renderSignature ?? '');
-    const incomingReadingLane = mirrorSignatureReadingLane(context.signature);
-    if (!existingReadingLane || !incomingReadingLane) return false;
+    const wordsByRange = indexMirrorWordsByRange(existing);
+    if (!wordsByRange) return false;
+    const matches = context.renderPlan.tokens
+        .map(token => matchMirrorWordRange(wordsByRange, token, context.renderPlan.text));
+    if (matches.some(match => match === null)) return false;
 
-    const tokens = context.renderPlan.tokens;
+    const rangeMatches = matches.filter(isMirrorWordRangeMatch);
+    const facts = rangeMatches.map(({ word, token }) => compareMirrorAnnotationFacts(word, token));
+    if (facts.some(comparison => !comparison.compatible)) return false;
+    return facts.some(comparison => comparison.existingIsRicher)
+        || mirrorHasAnnotatedOmittedRange(wordsByRange, rangeMatches);
+}
+
+interface MirrorWordRangeMatch {
+    key: string;
+    word: HTMLElement;
+    token: JPDBToken;
+}
+
+function indexMirrorWordsByRange(existing: HTMLElement): Map<string, HTMLElement> | null {
     const words = Array.from(existing.querySelectorAll<HTMLElement>('.jpdb-reader-word'));
-    if (!tokens.length || words.length !== tokens.length) return false;
+    if (!words.length) return null;
+    const indexed = new Map(words.map(word => [
+        mirrorRangeKey(word.dataset.tokenStart, word.dataset.tokenEnd),
+        word,
+    ]));
+    return indexed.size === words.length ? indexed : null;
+}
 
-    let strictlyRicher = false;
-    if (existingReadingLane !== incomingReadingLane) {
-        if (existingReadingLane === 'none' || incomingReadingLane !== 'none') return false;
-        strictlyRicher = true;
+function matchMirrorWordRange(
+    wordsByRange: ReadonlyMap<string, HTMLElement>,
+    token: JPDBToken,
+    text: string,
+): MirrorWordRangeMatch | null {
+    const key = mirrorRangeKey(token.start, token.end);
+    const word = wordsByRange.get(key);
+    const sameRange = word
+        && Number(word.dataset.tokenStart) === token.start
+        && Number(word.dataset.tokenEnd) === token.end;
+    const sameSurface = word?.dataset.surface === text.slice(token.start, token.end);
+    return word && sameRange && sameSurface ? { key, word, token } : null;
+}
+
+function mirrorRangeKey(start: string | number | undefined, end: string | number | undefined): string {
+    return `${start}:${end}`;
+}
+
+function isMirrorWordRangeMatch(match: MirrorWordRangeMatch | null): match is MirrorWordRangeMatch {
+    return match !== null;
+}
+
+type AnnotationFactComparison = 'same' | 'existing-richer' | 'incoming-richer' | 'conflict';
+
+interface MirrorAnnotationComparison {
+    compatible: boolean;
+    existingIsRicher: boolean;
+}
+
+function compareMirrorAnnotationFacts(word: HTMLElement, token: JPDBToken): MirrorAnnotationComparison {
+    const existingPitch = PITCH_CLASSES.has(word.dataset.pitchClass ?? '') ? word.dataset.pitchClass ?? '' : '';
+    const incomingPitch = PITCH_CLASSES.has(tokenPitchClass(token)) ? tokenPitchClass(token) : '';
+    const comparisons = [
+        compareAnnotationFact(renderedWordReading(word), renderedTokenReading(token)),
+        compareAnnotationFact(existingPitch, incomingPitch),
+        compareAnnotationFact(word.dataset.pitchAccent ?? '', token.card.pitchAccent.join('|')),
+    ];
+    return {
+        compatible: comparisons.every(annotationFactCanRetainExisting),
+        existingIsRicher: comparisons.includes('existing-richer'),
+    };
+}
+
+function compareAnnotationFact(existing: string, incoming: string): AnnotationFactComparison {
+    if (existing && incoming) return existing === incoming ? 'same' : 'conflict';
+    if (existing) return 'existing-richer';
+    if (incoming) return 'incoming-richer';
+    return 'same';
+}
+
+function annotationFactCanRetainExisting(comparison: AnnotationFactComparison): boolean {
+    return comparison === 'same' || comparison === 'existing-richer';
+}
+
+function mirrorHasAnnotatedOmittedRange(
+    wordsByRange: ReadonlyMap<string, HTMLElement>,
+    matches: MirrorWordRangeMatch[],
+): boolean {
+    const incomingRanges = new Set(matches.map(match => match.key));
+    return Array.from(wordsByRange).some(([key, word]) =>
+        !incomingRanges.has(key) && mirrorWordHasAnnotationFacts(word));
+}
+
+function mirrorWordHasAnnotationFacts(word: HTMLElement): boolean {
+    return Boolean(renderedWordReading(word)
+        || PITCH_CLASSES.has(word.dataset.pitchClass ?? '')
+        || word.dataset.pitchAccent);
+}
+
+function refreshRetainedMirrorCardStatus(
+    existing: HTMLElement,
+    context: NonDestructiveMirrorRenderContext,
+): void {
+    const wordsByRange = new Map<string, HTMLElement>(
+        Array.from(existing.querySelectorAll<HTMLElement>('.jpdb-reader-word'))
+            .map(word => [`${word.dataset.tokenStart}:${word.dataset.tokenEnd}`, word]),
+    );
+    for (const token of context.renderPlan.tokens) {
+        const word = wordsByRange.get(`${token.start}:${token.end}`);
+        if (word) setRenderedWordCardStatus(word, token.card);
     }
-    for (let index = 0; index < tokens.length; index += 1) {
-        const token = tokens[index];
-        const word = words[index];
-        if (!token || !word || cardStateProvenance(token.card) !== 'provisional') return false;
-        if (Number(word.dataset.tokenStart) !== token.start || Number(word.dataset.tokenEnd) !== token.end) return false;
-        const surface = context.renderPlan.text.slice(token.start, token.end);
-        if ((word.dataset.surface ?? '') !== surface) return false;
-
-        const incomingState = primaryCardState(token.card.cardState);
-        if (word.dataset.stateProvenance !== 'authoritative' && word.dataset.cardState !== incomingState) return false;
-
-        const existingReading = renderedWordReading(word);
-        const incomingReading = renderedTokenReading(token);
-        if (existingReading && incomingReading && existingReading !== incomingReading) return false;
-        if (!existingReading && incomingReading) return false;
-        if (existingReading && !incomingReading) strictlyRicher = true;
-
-        const existingPitch = word.dataset.pitchClass ?? '';
-        const incomingPitch = tokenPitchClass(token);
-        const existingHasPitch = PITCH_CLASSES.has(existingPitch);
-        const incomingHasPitch = PITCH_CLASSES.has(incomingPitch);
-        if (existingHasPitch && incomingHasPitch && existingPitch !== incomingPitch) return false;
-        if (!existingHasPitch && incomingHasPitch) return false;
-        if (existingHasPitch && !incomingHasPitch) strictlyRicher = true;
-
-        const existingPattern = word.dataset.pitchAccent ?? '';
-        const incomingPattern = token.card.pitchAccent.join('|');
-        if (existingPattern && incomingPattern && existingPattern !== incomingPattern) return false;
-        if (!existingPattern && incomingPattern) return false;
-        if (existingPattern && !incomingPattern) strictlyRicher = true;
-    }
-    return strictlyRicher;
 }
 
 function tokenIndependentMirrorSignature(signature: string): string | null {
@@ -2749,15 +2831,6 @@ function tokenIndependentMirrorSignature(signature: string): string | null {
         delete settings.tokens;
         delete settings.readings;
         return JSON.stringify(settings);
-    } catch {
-        return null;
-    }
-}
-
-function mirrorSignatureReadingLane(signature: string): string | null {
-    try {
-        const parsed = JSON.parse(signature) as { readings?: unknown };
-        return typeof parsed?.readings === 'string' ? parsed.readings : null;
     } catch {
         return null;
     }
@@ -2825,7 +2898,7 @@ function mountNonDestructiveTextMirror(
     try {
         styleTextMirror(mirror, host, false);
         if (controlMirror && !context.detachedReadings) stabilizeReadingFreeControlMirror(mirror, host);
-        styleConstrainedTextMirror(mirror, context.clipRow, context.detachedReadings);
+        styleConstrainedTextMirror(mirror, context.clipRow);
         mirror.append(renderTokenizedScanText(context.renderPlan.text, context.renderPlan.tokens, context.renderSettings, {
             parent: host,
             hasNativeRuby: targetHasNativeRuby(target),
@@ -2855,7 +2928,6 @@ function mountNonDestructiveTextMirror(
         styleAdditiveMirrorPaint(mirror);
         if (context.detachedReadings) {
             styleDetachedReadingElements(mirror, host);
-            openSafeDetachedReadingClips(host);
             stabilizeDetachedReadings(mirror, context.clipRow, true);
         }
         // Source projection needs live client rects. Batch it after paint rather
@@ -2910,72 +2982,164 @@ function stampProjectedRubySourceRanges(
 
 const SOURCE_FRAGMENT_CLASS = 'jpdb-reader-source-fragment';
 
+interface AdditiveMirrorProjectionContext {
+    host: HTMLElement;
+    source: ReturnType<typeof hostOriginalTextWithNodeOffsets>;
+    mirrorRect: DOMRect;
+    scaleX: number;
+    scaleY: number;
+    clipRow: HTMLElement | null;
+    clipRect: DOMRect | null;
+}
+
 /** Project decorations and readings onto the page-owned text fragments. The
  * mirror never tries to reproduce another renderer's CJK wrapping; Range is
  * the source of truth for every line fragment. */
 export function projectAdditiveTextMirror(mirror: HTMLElement, host: HTMLElement): void {
-    if (typeof Range !== 'function' || typeof Range.prototype.getClientRects !== 'function') return;
-    const source = hostOriginalTextWithNodeOffsets(host);
-    if (!host.isConnected || mirror.dataset.sourceText !== source.hostText) return;
+    const context = additiveMirrorProjectionContext(mirror, host);
+    if (!context) {
+        clearProjectedReadings(mirror);
+        return;
+    }
+    const readingProjections: DetachedReadingProjection[] = [];
+    const words = mirror.querySelectorAll<HTMLElement>(
+        '.jpdb-reader-word[data-yomu-source-start][data-yomu-source-end]',
+    );
+    const projected = Array.from(words)
+        .map(word => projectAdditiveMirrorWord(word, context, readingProjections))
+        .some(Boolean);
+    syncProjectedReadings(mirror, readingProjections);
+    if (projected) mirror.dataset.yomuSourceProjected = 'true';
+    else delete mirror.dataset.yomuSourceProjected;
+}
 
+function additiveMirrorProjectionContext(
+    mirror: HTMLElement,
+    host: HTMLElement,
+): AdditiveMirrorProjectionContext | null {
+    if (typeof Range !== 'function' || typeof Range.prototype.getClientRects !== 'function') return null;
+    const source = hostOriginalTextWithNodeOffsets(host);
+    if (!host.isConnected || mirror.dataset.sourceText !== source.hostText) return null;
+
+    const hostRect = host.getBoundingClientRect();
+    // An absolute child is laid out from the host's padding box. Match that
+    // containing block instead of the border box so a bordered control does
+    // not gain synthetic scroll overflow from the projection shell itself.
     mirror.style.setProperty('inset', '0 auto auto 0');
-    mirror.style.setProperty('width', `${host.offsetWidth || host.getBoundingClientRect().width}px`);
-    mirror.style.setProperty('height', `${host.offsetHeight || host.getBoundingClientRect().height}px`);
+    mirror.style.setProperty('width', `${host.clientWidth || hostRect.width}px`);
+    mirror.style.setProperty('height', `${host.clientHeight || hostRect.height}px`);
     mirror.style.setProperty('padding', '0');
     mirror.style.setProperty('transform', 'none');
     const mirrorRect = mirror.getBoundingClientRect();
-    if (mirrorRect.width <= 0 || mirrorRect.height <= 0) return;
-    const scaleX = mirror.offsetWidth > 0 ? mirrorRect.width / mirror.offsetWidth : 1;
-    const scaleY = mirror.offsetHeight > 0 ? mirrorRect.height / mirror.offsetHeight : 1;
-    const clipRect = closestRubyFragileConstrainedRow(host)?.getBoundingClientRect() ?? null;
+    if (mirrorRect.width <= 0 || mirrorRect.height <= 0) return null;
 
-    for (const word of mirror.querySelectorAll<HTMLElement>(
-        '.jpdb-reader-word[data-yomu-source-start][data-yomu-source-end]',
-    )) {
-        word.querySelectorAll(`.${SOURCE_FRAGMENT_CLASS}`).forEach(fragment => fragment.remove());
-        const start = Number.parseInt(word.dataset.yomuSourceStart ?? '', 10);
-        const end = Number.parseInt(word.dataset.yomuSourceEnd ?? '', 10);
-        const sourceRects = sourceClientRects(host, source.nodeOffsets, start, end);
-        const gradientWidth = sourceRects.reduce((width, rect) => width + rect.width / scaleX, 0);
-        let gradientOffset = 0;
-        const rects = sourceRects.map(rect => {
-            const projectedWidth = rect.width / scaleX;
-            const projection = { rect, gradientOffset };
-            gradientOffset += projectedWidth;
-            return projection;
-        }).filter(({ rect }) => !clipRect || rectsIntersect(rect, clipRect));
-        if (!rects.length) continue;
+    const clipRow = closestRubyFragileConstrainedRow(host);
+    return {
+        host,
+        source,
+        mirrorRect,
+        scaleX: mirror.offsetWidth > 0 ? mirrorRect.width / mirror.offsetWidth : 1,
+        scaleY: mirror.offsetHeight > 0 ? mirrorRect.height / mirror.offsetHeight : 1,
+        clipRow,
+        clipRect: clipRow?.getBoundingClientRect() ?? null,
+    };
+}
 
-        word.dataset.yomuSourceProjected = 'true';
-        word.style.setProperty('position', 'absolute', 'important');
-        word.style.setProperty('inset', '0', 'important');
-        word.style.setProperty('width', 'auto', 'important');
-        word.style.setProperty('height', 'auto', 'important');
-        word.style.setProperty('margin', '0', 'important');
-        for (const { rect, gradientOffset: fragmentGradientOffset } of rects) {
-            const fragment = document.createElement('span');
-            fragment.className = SOURCE_FRAGMENT_CLASS;
-            fragment.setAttribute('aria-hidden', 'true');
-            // Component pitch belongs to the complete word. Fragment-local
-            // coordinates keep one continuous gradient across source wraps,
-            // and exist before async pitch enrichment arrives.
-            fragment.style.setProperty('--jpdb-reader-source-gradient-width', `${gradientWidth}px`);
-            fragment.style.setProperty('--jpdb-reader-source-gradient-offset', `${-fragmentGradientOffset}px`);
-            positionProjectedElement(fragment, rect, mirrorRect, scaleX, scaleY);
-            word.append(fragment);
-        }
+function projectAdditiveMirrorWord(
+    word: HTMLElement,
+    context: AdditiveMirrorProjectionContext,
+    readings: DetachedReadingProjection[],
+): boolean {
+    delete word.dataset.yomuSourceProjected;
+    word.querySelectorAll(`.${SOURCE_FRAGMENT_CLASS}`).forEach(fragment => fragment.remove());
 
-        for (const ruby of word.querySelectorAll<HTMLElement>(
-            '.jpdb-reader-detached-ruby[data-yomu-source-start][data-yomu-source-end]',
-        )) {
-            const rubyStart = Number.parseInt(ruby.dataset.yomuSourceStart ?? '', 10);
-            const rubyEnd = Number.parseInt(ruby.dataset.yomuSourceEnd ?? '', 10);
-            const rubyRect = sourceClientRects(host, source.nodeOffsets, rubyStart, rubyEnd)
-                .find(rect => !clipRect || rectsIntersect(rect, clipRect));
-            if (rubyRect) positionProjectedElement(ruby, rubyRect, mirrorRect, scaleX, scaleY);
-        }
+    const start = Number.parseInt(word.dataset.yomuSourceStart ?? '', 10);
+    const end = Number.parseInt(word.dataset.yomuSourceEnd ?? '', 10);
+    const sourceRects = sourceClientRects(context.host, context.source.nodeOffsets, start, end);
+    const fragments = sourceFragmentProjections(sourceRects, context);
+    if (!fragments.length) return false;
+
+    styleProjectedSourceWord(word);
+    appendSourceFragments(word, fragments, sourceRects, context);
+    collectProjectedWordReadings(word, context, readings);
+    return true;
+}
+
+function sourceFragmentProjections(
+    sourceRects: DOMRect[],
+    context: AdditiveMirrorProjectionContext,
+): Array<{ rect: DOMRect; gradientOffset: number }> {
+    let gradientOffset = 0;
+    return sourceRects.map(rect => {
+        const projection = { rect, gradientOffset };
+        gradientOffset += rect.width / context.scaleX;
+        return projection;
+    }).filter(({ rect }) => !context.clipRect || rectsIntersect(rect, context.clipRect));
+}
+
+function styleProjectedSourceWord(word: HTMLElement): void {
+    word.dataset.yomuSourceProjected = 'true';
+    word.style.setProperty('position', 'absolute', 'important');
+    word.style.setProperty('inset', '0', 'important');
+    word.style.setProperty('width', 'auto', 'important');
+    word.style.setProperty('height', 'auto', 'important');
+    word.style.setProperty('margin', '0', 'important');
+}
+
+function appendSourceFragments(
+    word: HTMLElement,
+    fragments: Array<{ rect: DOMRect; gradientOffset: number }>,
+    sourceRects: DOMRect[],
+    context: AdditiveMirrorProjectionContext,
+): void {
+    const gradientWidth = sourceRects.reduce((width, rect) => width + rect.width / context.scaleX, 0);
+    for (const { rect, gradientOffset } of fragments) {
+        const fragment = word.ownerDocument.createElement('span');
+        fragment.className = SOURCE_FRAGMENT_CLASS;
+        fragment.setAttribute('aria-hidden', 'true');
+        // Component pitch belongs to the complete word. Fragment-local
+        // coordinates keep one continuous gradient across source wraps.
+        fragment.style.setProperty('--jpdb-reader-source-gradient-width', `${gradientWidth}px`);
+        fragment.style.setProperty('--jpdb-reader-source-gradient-offset', `${-gradientOffset}px`);
+        positionProjectedElement(fragment, rect, context.mirrorRect, context.scaleX, context.scaleY);
+        word.append(fragment);
     }
-    mirror.dataset.yomuSourceProjected = 'true';
+}
+
+function collectProjectedWordReadings(
+    word: HTMLElement,
+    context: AdditiveMirrorProjectionContext,
+    readings: DetachedReadingProjection[],
+): void {
+    const rubies = word.querySelectorAll<HTMLElement>(
+        '.jpdb-reader-detached-ruby[data-yomu-source-start][data-yomu-source-end]',
+    );
+    for (const ruby of rubies) {
+        const projection = projectedRubyReading(ruby, context);
+        if (projection) readings.push(projection);
+    }
+}
+
+function projectedRubyReading(
+    ruby: HTMLElement,
+    context: AdditiveMirrorProjectionContext,
+): DetachedReadingProjection | null {
+    const reading = ruby.querySelector<HTMLElement>('.jpdb-reader-detached-furi');
+    if (!reading) return null;
+    const start = Number.parseInt(ruby.dataset.yomuSourceStart ?? '', 10);
+    const end = Number.parseInt(ruby.dataset.yomuSourceEnd ?? '', 10);
+    const measure = (): DOMRect | null => {
+        if (!context.host.isConnected || pageConcealsTextMirrorHost(context.host)) return null;
+        const clipRect = context.clipRow?.getBoundingClientRect() ?? null;
+        return sourceClientRects(context.host, context.source.nodeOffsets, start, end)
+            .find(rect => !clipRect || rectsIntersect(rect, clipRect)) ?? null;
+    };
+    const rect = measure();
+    if (!rect) return null;
+    // Keep the invisible base wrapper aligned for lookup geometry, but paint
+    // its reading in the document overlay.
+    positionProjectedElement(ruby, rect, context.mirrorRect, context.scaleX, context.scaleY);
+    return { source: reading, anchor: context.host, rect, measure };
 }
 
 function sourceClientRects(
@@ -3058,11 +3222,42 @@ export function projectAdditiveTextMirrors(root: ParentNode = document): void {
     // Read every prose range before writing any line-height. A changed line
     // rhythm invalidates source rects, so projection continues next frame.
     if (settleTextMirrorReadingLanes(entries)) {
+        entries.forEach(({ mirror }) => clearProjectedReadings(mirror));
         scheduleAdditiveMirrorProjection(root);
         return;
     }
-    if (typeof Range !== 'function' || typeof Range.prototype.getClientRects !== 'function') return;
-    for (const { mirror, host } of entries) projectAdditiveTextMirror(mirror, host);
+    if (typeof Range === 'function' && typeof Range.prototype.getClientRects === 'function') {
+        for (const { mirror, host } of entries) projectAdditiveTextMirror(mirror, host);
+    }
+    projectInPlaceDetachedReadings(root);
+    const document = root instanceof Document ? root : root.ownerDocument;
+    if (document) pruneProjectedReadings(document);
+}
+
+function projectInPlaceDetachedReadings(root: ParentNode): void {
+    const owners = new Map<HTMLElement, DetachedReadingProjection[]>();
+    for (const wrapper of queryAllInAnnotationRoots(root, '.jpdb-reader-detached-ruby')) {
+        if (wrapper.closest('.jpdb-reader-additive-text-mirror')) continue;
+        const reading = wrapper.querySelector<HTMLElement>('.jpdb-reader-detached-furi');
+        const owner = wrapper.closest<HTMLElement>('.jpdb-reader-word');
+        if (!reading || !owner) continue;
+        const projections = owners.get(owner) ?? [];
+        owners.set(owner, projections);
+        const measure = (): DOMRect | null => {
+            if (!owner.isConnected || pageConcealsTextMirrorHost(owner)) return null;
+            const rect = wrapper.getBoundingClientRect();
+            const clip = closestRubyFragileConstrainedRow(owner)?.getBoundingClientRect();
+            return rect.width > 0
+                && rect.height > 0
+                && (!clip || rectsIntersect(rect, clip))
+                ? rect
+                : null;
+        };
+        const rect = measure();
+        if (!rect) continue;
+        projections.push({ source: reading, anchor: owner, rect, measure });
+    }
+    for (const [owner, projections] of owners) syncProjectedReadings(owner, projections);
 }
 
 function settleTextMirrorReadingLanes(entries: Array<{ mirror: HTMLElement; host: HTMLElement }>): boolean {
@@ -3234,12 +3429,9 @@ function sourceRectPointScore(rect: DOMRect, x: number, y: number): number | nul
     return dx * dx + dy * dy;
 }
 
-// A document stylesheet does not cross an open shadow boundary. Detached
-// readings therefore carry their essential geometry in the render contract as
-// inline styles too. The same pass runs in ordinary DOM, where it simply
-// duplicates the layout-critical subset of CSS and leaves visual theming to
-// the stylesheet. This keeps web-component controls, native buttons, and page
-// text on one structural path instead of introducing site-specific selectors.
+// A document stylesheet does not cross an open shadow boundary. Keep the
+// invisible base wrapper's layout contract inline, and retain the reading's
+// typography as source data for the document-owned projection overlay.
 function styleDetachedReadingElements(root: HTMLElement, host: HTMLElement): void {
     const detachedRubies = Array.from(root.querySelectorAll<HTMLElement>('.jpdb-reader-detached-ruby'));
     if (!detachedRubies.length) return;
@@ -3257,24 +3449,10 @@ function styleDetachedReadingElements(root: HTMLElement, host: HTMLElement): voi
     }
 
     for (const reading of root.querySelectorAll<HTMLElement>('.jpdb-reader-detached-furi')) {
-        setInlineStyleIfChanged(reading, 'position', 'absolute', 'important');
-        setInlineStyleIfChanged(reading, 'z-index', '2');
-        setInlineStyleIfChanged(reading, 'inset-inline-start', '50%');
-        // A Range rect describes the source line box, but CJK ink can overhang
-        // its top edge by about 2px. Preserve a small gap so source-projected
-        // readings cannot collide with their base in WebKit or Chromium.
-        setInlineStyleIfChanged(reading, 'inset-block-end', 'calc(100% + 5px)');
-        setInlineStyleIfChanged(reading, 'display', 'block', 'important');
-        setInlineStyleIfChanged(reading, 'width', 'max-content');
-        setInlineStyleIfChanged(reading, 'max-width', 'none');
+        setInlineStyleIfChanged(reading, 'display', 'none', 'important');
         setInlineStyleIfChanged(reading, 'font-size', `${readingFontSize}px`);
         setInlineStyleIfChanged(reading, 'font-weight', '700');
         setInlineStyleIfChanged(reading, 'line-height', '1', 'important');
-        setInlineStyleIfChanged(reading, 'white-space', 'nowrap', 'important');
-        setInlineStyleIfChanged(reading, 'word-break', 'keep-all', 'important');
-        setInlineStyleIfChanged(reading, 'overflow-wrap', 'normal', 'important');
-        setInlineStyleIfChanged(reading, 'transform', 'translateX(-50%)', 'important');
-        setInlineStyleIfChanged(reading, 'pointer-events', 'none');
         setInlineStyleIfChanged(reading, 'text-decoration', 'none', 'important');
         setInlineStyleIfChanged(reading, 'user-select', 'none');
         setInlineStyleIfChanged(reading, '-webkit-user-select', 'none');
@@ -3344,13 +3522,12 @@ function activeAdditiveDecorationSource(documentElement: HTMLElement): AdditiveD
     return active;
 }
 
-// Detached readings are geometry overlays, not ruby layout boxes. Keep only
-// words whose base intersects the authored clamp, then position each reading
-// above that base without changing the source line layout.
+// Detached readings are projected from exact source rectangles after layout.
+// This pass only filters bases outside an authored clamp and schedules that
+// projection; the hidden source readings never affect page geometry.
 function stabilizeDetachedReadings(root: HTMLElement, clipRow: HTMLElement | null, filterWordsToClip = false): void {
     if (filterWordsToClip && root.dataset.yomuSourceProjected !== 'true') filterDetachedWordsToClip(root, clipRow);
-
-    settleDetachedReadingLanes(Array.from(root.querySelectorAll<HTMLElement>('.jpdb-reader-detached-furi')));
+    scheduleAdditiveMirrorProjection(root.getRootNode() as ParentNode);
 }
 
 // Clip filtering is a reversible Yomu-owned verdict. A line-clamped surface
@@ -3378,265 +3555,17 @@ function filterDetachedWordsToClip(root: HTMLElement, clipRow: HTMLElement | nul
     }
 }
 
-const settledDetachedReadingGeometry = new WeakMap<HTMLElement, string>();
+const settledMirrorProjectionGeometry = new WeakMap<HTMLElement, string>();
 
-function detachedReadingSurfaceGeometrySignature(root: HTMLElement): string {
+function mirrorProjectionGeometrySignature(root: HTMLElement): string {
     const rect = root.getBoundingClientRect();
     return `${rect.left}:${rect.top}:${rect.width}:${rect.height}:${root.textContent ?? ''}`;
 }
 
-function exposeDetachedReadingCandidate(reading: HTMLElement): void {
-    delete reading.dataset.yomuDetachedReadingHidden;
-    reading.style.setProperty('display', 'block', 'important');
-}
 
-function settleDetachedReadingLanes(readings: HTMLElement[]): void {
-    // Visibility follows the user's furigana setting. Geometry stays anchored
-    // to the base characters; viewport/collision heuristics must never slide a
-    // reading away from the word it annotates.
-    readings.forEach(exposeDetachedReadingCandidate);
-}
-
-// A clip box may sit past a shadow boundary or a deep inline-wrapper chain.
-const DETACHED_READING_CLIP_ANCESTOR_LIMIT = 12;
-const DETACHED_READING_SAFE_CLIP_MAX_HEIGHT = 96;
-// Ceiling for the proven-single-line extension of the clip opener: covers
-// padded/flex-centred controls without ever opening full-height panels.
-const DETACHED_READING_SAFE_SINGLE_LINE_CLIP_MAX_HEIGHT = 320;
-const EXPANDABLE_CONTENT_CLIP_SELECTOR = [
-    'details',
-    '[aria-expanded]',
-    '[id*="expand" i]',
-    '[id*="collaps" i]',
-    '[class*="expand" i]',
-    '[class*="collaps" i]',
-].join(',');
-const EXPANDABLE_CONTENT_CONTAINER_SELECTOR = 'details,[role="region"],[role="group"],[role="tabpanel"],[role="dialog"]';
-// aria-expanded belongs on the disclosure control as well as appearing on
-// some framework-owned content regions. Recognise semantic and keyboard-
-// focusable trigger shapes, including tree and custom-link controls, while a
-// bare expanded region/panel remains protected from overflow opening.
-const EXPANDABLE_CONTENT_TRIGGER_SELECTOR = `${COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR},a[href],[role="link"],[role="menuitemcheckbox"],[role="menuitemradio"],[role="treeitem"],[tabindex]:not([tabindex="-1"]),[aria-haspopup]:not([aria-haspopup="false"]),[aria-expanded]`;
-const detachedReadingClipStyles = new WeakMap<HTMLElement, { value: string; priority: string }>();
-const detachedReadingClipGeometry = new WeakMap<HTMLElement, string>();
-
-// `aria-expanded` identifies the disclosure CONTROL, not the content panel it
-// toggles. Treating that attribute as panel ownership hid otherwise-safe menu
-// button readings as soon as the menu opened. Real expandable content carries
-// structural evidence (details or an expandable/collapsible host/id/class),
-// while trigger-shaped elements are excluded even if their name contains it.
-function isExpandableContentClip(element: HTMLElement): boolean {
-    if (element.matches(EXPANDABLE_CONTENT_CONTAINER_SELECTOR)) return true;
-    if (element.matches(EXPANDABLE_CONTENT_TRIGGER_SELECTOR)) return false;
-    return element.matches(EXPANDABLE_CONTENT_CLIP_SELECTOR)
-        || /(?:expand|collaps)/i.test(element.localName);
-}
-
-// A detached reading may sit a few pixels above its base. Open only compact
-// clip boxes whose BASE content fits the block axis and either fits the inline
-// axis or overruns it by less than one compact glyph. That tiny tolerance
-// covers authored mini-navigation labels whose measured text is 4–8px wider
-// than their paint box; opening overflow changes no geometry and reveals the
-// reading instead of shaving it off at the top. Real truncation and scroll
-// regions stay closed. The decision is structural and applies to buttons,
-// metadata, menu rows, and titles on any site.
-function openSafeDetachedReadingClips(element: HTMLElement): void {
-    // Always judge against the page-authored clip. Otherwise our own previous
-    // overflow:visible wins computed style forever and a safe->unsafe resize
-    // can never close again.
-    let current: HTMLElement | null = element;
-    for (let depth = 0; current && depth < DETACHED_READING_CLIP_ANCESTOR_LIMIT; depth += 1, current = composedParentElement(current)) {
-        if (!queryAllInAnnotationRoots(current, '.jpdb-reader-detached-furi').length) continue;
-        if (detachedReadingClipStyles.has(current)
-            && detachedReadingClipGeometry.get(current) === detachedReadingGeometrySignature(current)) continue;
-        if (detachedReadingClipStyles.has(current)) restoreDetachedReadingClip(current);
-        // Collapsible descriptions and accordions own their overflow. Opening
-        // it for an out-of-flow reading lets annotated paint escape the panel
-        // and overlap neighbouring media after expansion.
-        if (isExpandableContentClip(current)) {
-            restoreDetachedReadingClip(current);
-            continue;
-        }
-        const style = safeComputedStyle(current);
-        const clips = [style.overflow, style.overflowX, style.overflowY].some(value => value === 'hidden' || value === 'clip');
-        if (!clips) continue;
-        const rect = current.getBoundingClientRect();
-        const measured = current.clientWidth > 0 && current.clientHeight > 0;
-        const clamped = detachedClipRowIsMultiLineClamp(style);
-        const compact = rect.height > 0
-            && rect.height <= DETACHED_READING_SAFE_CLIP_MAX_HEIGHT
-            && !clamped;
-        const baseFits = measured && (detachedBaseContentFits(current)
-            || openedDetachedReadingChildFits(current));
-        // Flex-centred single-line controls (tall chips, banner buttons)
-        // blow the compact cap on padding alone. detachedBaseContentFits has
-        // already proven a single text line with nothing truncated, so
-        // opening is equally safe there; only genuinely tall panels stay
-        // closed via the outer cap.
-        const tallSingleLine = !compact
-            && rect.height > 0
-            && rect.height <= DETACHED_READING_SAFE_SINGLE_LINE_CLIP_MAX_HEIGHT
-            && !clamped
-            && measured
-            && detachedBaseContentFits(current);
-        if ((compact && baseFits) || tallSingleLine) openDetachedReadingClip(current);
-        else restoreDetachedReadingClip(current);
-    }
-}
-
-// A compact label can prove its own detached-reading lane safe before its
-// overflow-hidden parent row is visited. Range line boxes on that parent are
-// not reliable in every engine once the label has been fragment-painted, so
-// accept the already-verified child only when both its base and the parent's
-// complete scroll box still fit inside the parent. This opens the outer clip
-// without weakening the multi-line/truncated-row guard above.
-function openedDetachedReadingChildFits(box: HTMLElement): boolean {
-    const child = box.querySelector<HTMLElement>('[data-yomu-detached-reading-overflow="true"]');
-    if (!child || child === box) return false;
-    const boxRect = box.getBoundingClientRect();
-    const childRect = child.getBoundingClientRect();
-    return box.scrollWidth <= Math.max(box.clientWidth, boxRect.width) + 1
-        && box.scrollHeight <= Math.max(box.clientHeight, boxRect.height) + 1
-        && childRect.left >= boxRect.left - 1
-        && childRect.right <= boxRect.right + 1
-        && childRect.top >= boxRect.top - 1
-        && childRect.bottom <= boxRect.bottom + 1;
-}
-
-// A clip may only open when its base is a single text line. A multi-line
-// clamp (Google's 2-3 line result snippets, feed titles) has internal line
-// boundaries; opening it reveals line-2 readings that sit ON line 1 — the
-// "furigana painted over the text" class. The declared clamp is the cheap
-// early-out; the authoritative check counts real line boxes while readings
-// are hidden (detachedBaseContentFits), since padding and flex-centering make
-// box-height heuristics lie in both directions.
-function detachedClipRowIsMultiLineClamp(style: CSSStyleDeclaration): boolean {
-    const clamp = Number.parseInt(style.getPropertyValue('-webkit-line-clamp'), 10);
-    return Number.isFinite(clamp) && clamp > 1;
-}
-
-// Distinct line boxes of the box's text glyphs. A Range around an ELEMENT also
-// reports boxes for nested flex wrappers and SVG icons; treating those boxes as
-// text lines makes a one-line control look multi-line and keeps its safe reading
-// lane clipped. Measure text nodes directly so layout wrappers cannot vote.
-// Caller must have hidden out-of-flow readings first, or their text rects would
-// count as extra lines.
-function baseTextLineCount(box: HTMLElement): number {
-    const tops: number[] = [];
-    const walker = box.ownerDocument.createTreeWalker(box, NodeFilter.SHOW_TEXT);
-    const range = box.ownerDocument.createRange();
-    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-        range.selectNodeContents(node);
-        for (const lineRect of Array.from(range.getClientRects())) {
-            if (lineRect.width <= 0 || lineRect.height <= 0) continue;
-            if (!tops.some(top => Math.abs(top - lineRect.top) < 4)) tops.push(lineRect.top);
-        }
-    }
-    return tops.length;
-}
-
-function openDetachedReadingClip(box: HTMLElement): void {
-    if (!detachedReadingClipStyles.has(box)) {
-        detachedReadingClipStyles.set(box, {
-            value: box.style.getPropertyValue('overflow'),
-            priority: box.style.getPropertyPriority('overflow'),
-        });
-    }
-    if (box.dataset.yomuDetachedReadingOverflow !== 'true') box.dataset.yomuDetachedReadingOverflow = 'true';
-    // Inline is required for open Shadow DOM: document-level Yomu CSS cannot
-    // cross the component boundary. The saved value is restored on teardown.
-    setInlineStyleIfChanged(box, 'overflow', 'visible', 'important');
-    syncDetachedReadingRestVisibility(box);
-    detachedReadingClipGeometry.set(box, detachedReadingGeometrySignature(box));
-}
-
-function detachedReadingGeometrySignature(box: HTMLElement): string {
-    const rect = box.getBoundingClientRect();
-    return `${box.clientWidth}:${box.clientHeight}:${rect.width}:${rect.height}:${box.className}:${box.textContent ?? ''}`;
-}
-
-// Styling can run before the clip verdict lands. Keep the reading visible
-// whenever Yomu opens or restores its detached lane.
-function syncDetachedReadingRestVisibility(box: HTMLElement): void {
-    box.querySelectorAll<HTMLElement>('.jpdb-reader-detached-furi').forEach(reading => {
-        delete reading.dataset.yomuDetachedReadingHidden;
-        setInlineStyleIfChanged(reading, 'display', 'block', 'important');
-    });
-}
-
-function restoreDetachedReadingClip(box: HTMLElement): void {
-    const saved = detachedReadingClipStyles.get(box);
-    if (saved && box.style.getPropertyValue('overflow') === 'visible') {
-        if (saved.value) box.style.setProperty('overflow', saved.value, saved.priority);
-        else box.style.removeProperty('overflow');
-    }
-    detachedReadingClipStyles.delete(box);
-    detachedReadingClipGeometry.delete(box);
-    if (box.dataset.yomuDetachedReadingOverflow !== undefined) delete box.dataset.yomuDetachedReadingOverflow;
-    syncDetachedReadingRestVisibility(box);
-}
-
-function detachedBaseContentFits(box: HTMLElement): boolean {
-    // Additive mirrors are out-of-flow paint, but their overhanging absolute
-    // readings still contribute to scrollWidth/scrollHeight. Measure the
-    // page-owned base with the whole additive layer removed; destructive
-    // renders have no layer, so remove only their detached readings.
-    const overlays = Array.from(box.querySelectorAll<HTMLElement>('.jpdb-reader-additive-text-mirror'));
-    const detached = Array.from(box.querySelectorAll<HTMLElement>('.jpdb-reader-detached-furi'))
-        .filter(reading => !reading.closest('.jpdb-reader-additive-text-mirror'));
-    const hidden = [...overlays, ...detached];
-    const restores = hidden.map(element => ({
-        element,
-        display: element.style.getPropertyValue('display'),
-        priority: element.style.getPropertyPriority('display'),
-    }));
-    hidden.forEach(element => element.style.setProperty('display', 'none', 'important'));
-    try {
-        // Multi-line bases never open: line 2+ readings would paint on the
-        // line above once the clip is visible. Measured here, while the
-        // out-of-flow readings are hidden, so they cannot count as lines.
-        if (baseTextLineCount(box) > 1) return false;
-        const rect = box.getBoundingClientRect();
-        const inlineSize = Math.max(box.clientWidth, rect.width);
-        const blockSize = Math.max(box.clientHeight, rect.height);
-        const inlineOverrun = box.scrollWidth - inlineSize;
-        const blockOverrun = box.scrollHeight - blockSize;
-        const fontSize = Number.parseFloat(safeComputedStyle(box).fontSize) || 16;
-        const compactGlyphTolerance = Math.max(2, Math.min(8, fontSize * 0.8));
-        return inlineOverrun <= compactGlyphTolerance
-            && blockOverrun <= 1;
-    } finally {
-        for (const { element, display, priority } of restores) {
-            if (display) element.style.setProperty('display', display, priority);
-            else element.style.removeProperty('display');
-        }
-    }
-}
-
-function closeOrphanedDetachedReadingClips(element: HTMLElement): void {
-    let current: HTMLElement | null = element;
-    for (let depth = 0; current && depth < DETACHED_READING_CLIP_ANCESTOR_LIMIT; depth += 1, current = composedParentElement(current)) {
-        if (current.dataset.yomuDetachedReadingOverflow === 'true'
-            && !queryAllInAnnotationRoots(current, '.jpdb-reader-detached-furi').length) {
-            restoreDetachedReadingClip(current);
-        }
-    }
-}
-
-function styleConstrainedTextMirror(
-    mirror: HTMLElement,
-    clipRow: HTMLElement | null,
-    detachedReadings = false,
-): void {
+function styleConstrainedTextMirror(mirror: HTMLElement, clipRow: HTMLElement | null): void {
     if (!clipRow) return;
-    if (detachedReadings) {
-        const height = clipRow.clientHeight;
-        if (height > 0) mirror.style.setProperty('max-height', `${height}px`);
-        // Base text stays native and the additive mirror's words are filtered
-        // to the visible clamp box after mount. Keep overflow open solely so
-        // detached readings can occupy the spare leading above a glyph.
-        mirror.style.setProperty('overflow', 'visible');
-    } else constrainMirrorToClampBox(mirror, clipRow);
+    constrainMirrorToClampBox(mirror, clipRow);
 }
 
 function textMirrorClipMode(
@@ -3649,7 +3578,7 @@ function textMirrorClipMode(
     detachedReadings: boolean;
 } {
     const clipRow = closestRubyFragileConstrainedRow(host);
-    const hasReadings = renderPlan.tokens.some(token => token.rubies.length > 0 && shouldRenderRuby(
+    const hasReadings = renderPlan.tokens.some(token => shouldRenderRuby(
         renderPlan.text.slice(token.start, token.end), token, settings, !hasNativeRuby, true,
     ));
     // Every mirror is additive, so readings are always detached from the line
@@ -4548,24 +4477,17 @@ export function healTextMirrorPageVisibility(): void {
             continue;
         }
         healStuckHiddenTextMirror(host);
-        healLateClipConstrainedStamp(host);
+        refreshConstrainedMirrorProjection(host);
     }
 }
 
-// Clip classification runs at token-apply time, but framework chrome
-// (m.youtube hydration) often gets its clipping styles AFTER the mirror
-// rendered — the row classifies un-clipped once and the render-signature
-// short-circuit means it is never re-examined. A detached reading then sits
-// visible inside a closed ellipsis clip: its absolute width:max-content box
-// spills sideways, raises the row's scrollWidth, and iOS ellipsizes the
-// native base (共有 → 共…). Re-examine on every scan settle and then
-// re-project from the live source ranges.
-
-function healLateClipConstrainedStamp(host: HTMLElement): void {
+// Frameworks can apply their clamp after the first scan. Refresh the generic
+// clamp verdict and exact source projection when that geometry settles.
+function refreshConstrainedMirrorProjection(host: HTMLElement): void {
     const mirror = currentTextMirror(host);
     if (!mirror || mirror.dataset.yomuDetachedReadings !== 'true') return;
-    const geometry = detachedReadingSurfaceGeometrySignature(mirror);
-    if (settledDetachedReadingGeometry.get(host) === geometry) return;
+    const geometry = mirrorProjectionGeometrySignature(mirror);
+    if (settledMirrorProjectionGeometry.get(host) === geometry) return;
     const clipRow = closestRubyFragileConstrainedRow(host);
     if (clipRow && !clipRow.dataset.yomuClipConstrained) {
         const decoration = host.closest('[data-yomu-decoration]')?.getAttribute('data-yomu-decoration') as DecorationState | null;
@@ -4573,10 +4495,9 @@ function healLateClipConstrainedStamp(host: HTMLElement): void {
             ? 'content'
             : 'true';
     }
-    openSafeDetachedReadingClips(host);
     if (mirror.dataset.yomuSourceProjected !== 'true') filterDetachedWordsToClip(mirror, clipRow);
     projectAdditiveTextMirror(mirror, host);
-    settledDetachedReadingGeometry.set(host, detachedReadingSurfaceGeometrySignature(mirror));
+    settledMirrorProjectionGeometry.set(host, mirrorProjectionGeometrySignature(mirror));
 }
 
 function dispatchTextMirrorStale(host: HTMLElement): void {
@@ -4771,15 +4692,18 @@ function removeTextMirror(host: HTMLElement): void {
     // registered mirror-host ancestor) leaves a nested scan host's own mirror
     // untouched.
     const owned = ownedTextMirrors(host);
-    owned.forEach(mirror => mirror.remove());
+    owned.forEach(mirror => {
+        clearProjectedReadings(mirror);
+        mirror.remove();
+    });
     // A framework may have relocated the registered mirror OUTSIDE the host's
     // subtree (host sibling, another host's subtree, into or out of a shadow
     // root). The state carries a WeakRef to the exact mirror this host's apply
     // created, so teardown removes it wherever it landed — O(1), no document
     // or root-wide queries, and direction-agnostic across root boundaries.
     const tracked = state?.mirror?.deref();
+    if (tracked && !owned.includes(tracked)) clearProjectedReadings(tracked);
     if (tracked?.isConnected) tracked.remove();
-    closeOrphanedDetachedReadingClips(host);
     if (state) restoreTextMirrorHost(host, state);
     textMirrorHosts.delete(host);
 }
@@ -4797,7 +4721,7 @@ function syncTextMirrorVisibilityToPage(host: HTMLElement, mirror: HTMLElement):
 }
 
 function pageConcealsTextMirrorHost(host: HTMLElement): boolean {
-    for (let element = host.parentElement; element; element = element.parentElement) {
+    for (let element: HTMLElement | null = host; element; element = element.parentElement) {
         const style = safeComputedStyle(element);
         if (style.display === 'none' || style.visibility === 'hidden' || style.visibility === 'collapse') return true;
         // Fade-style concealment does not propagate through the visibility
@@ -5242,7 +5166,6 @@ function applyTokensToFragmentTarget(target: FragmentTextTarget, tokens: JPDBTok
     }
     applyTokensToIndexedFragmentTarget(renderTarget, safeTokens, furiganaSettingsForTarget(settings, target.parent), sentence);
     styleDetachedReadingElements(target.parent, target.parent);
-    openSafeDetachedReadingClips(target.parent);
     stabilizeDetachedReadings(target.parent, closestRubyFragileConstrainedRow(target.parent));
     markRenderedScanTarget(target);
 }
@@ -6264,13 +6187,12 @@ export function replaceRenderedWordFurigana(word: HTMLElement, surface: string, 
         // point. Once a real late reading exists, transition to the same
         // detached state used by an initially-known reading.
         mirror.dataset.yomuDetachedReadings = 'true';
-        styleConstrainedTextMirror(mirror, clipRow, true);
+        styleConstrainedTextMirror(mirror, clipRow);
         const sourceStart = Number.parseInt(word.dataset.yomuSourceStart ?? '', 10);
         if (Number.isFinite(sourceStart)) stampProjectedRubySourceRanges(word, surface, token, sourceStart);
     }
     styleDetachedReadingElements(renderSurface, host);
-    if (mirror) healLateClipConstrainedStamp(host);
-    openSafeDetachedReadingClips(renderSurface);
+    if (mirror) refreshConstrainedMirrorProjection(host);
     stabilizeDetachedReadings(renderSurface, clipRow, Boolean(mirror));
     return true;
 }
@@ -6279,11 +6201,9 @@ export function replaceRenderedWordFurigana(word: HTMLElement, surface: string, 
 export function clearRenderedWordFurigana(word: HTMLElement, surface: string): void {
     word.textContent = surface;
     word.classList.remove('jpdb-reader-has-furi');
+    clearProjectedReadings(word);
     const mirror = word.closest<HTMLElement>(READER_TEXT_MIRROR_SELECTOR);
-    if (!mirror) {
-        closeOrphanedDetachedReadingClips(word.parentElement ?? word);
-        return;
-    }
+    if (!mirror) return;
     const host = registeredTextMirrorHostFor(mirror) ?? mirror.parentElement ?? word;
     const clipRow = closestRubyFragileConstrainedRow(host);
     if (mirror.querySelector('.jpdb-reader-detached-furi')) {
@@ -6291,8 +6211,8 @@ export function clearRenderedWordFurigana(word: HTMLElement, surface: string): v
         return;
     }
     delete mirror.dataset.yomuDetachedReadings;
-    closeOrphanedDetachedReadingClips(host);
-    styleConstrainedTextMirror(mirror, clipRow, false);
+    clearProjectedReadings(mirror);
+    styleConstrainedTextMirror(mirror, clipRow);
 }
 
 export function inferredInflectedSurfaceRubies(surface: string, spelling: string, reading: string): JPDBToken['rubies'] {
@@ -6414,6 +6334,11 @@ function sourceTokenRubies(surface: string, token: JPDBToken): JPDBToken['rubies
             end: token.start + ruby.end,
         }));
     }
+    // A whole-card reading cannot be centred over only one fragment of a
+    // compound split across framework-owned leaves. Inflections returned
+    // above have an explicit surface alignment; every other spelling mismatch
+    // must wait for the exact-surface recovery lookup.
+    if (surface.trim() !== token.card.spelling.trim()) return [];
     return [{ text: reading, start: token.start, end: token.end, length: token.length }];
 }
 
@@ -7234,8 +7159,6 @@ export function releaseRubyRoomGrowth(root: ParentNode = document): number {
         delete box.dataset.yomuRubyRoomPadTop;
         rubyRoomGrowthRecords.delete(box);
     }
-    queryAllInAnnotationRoots(root, '[data-yomu-detached-reading-overflow="true"]')
-        .forEach(restoreDetachedReadingClip);
     return boxes.length;
 }
 

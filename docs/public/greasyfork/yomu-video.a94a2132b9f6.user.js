@@ -6131,7 +6131,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
         end: token.start + ruby.end
       }));
     }
-    if (surface.trim() !== token.card.spelling.trim()) return [];
     return [{ text: reading, start: token.start, end: token.end, length: token.length }];
   }
   function kanjiOnlyRubySegments(surface, token, ruby) {

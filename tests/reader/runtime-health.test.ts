@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const companions = vi.hoisted(() => ({
+    annotations: undefined as undefined | Record<string, unknown>,
     copy: undefined as undefined | Record<string, unknown>,
     dictionaries: undefined as undefined | Record<string, unknown>,
     study: undefined as undefined | Record<string, unknown>,
@@ -9,6 +10,7 @@ const companions = vi.hoisted(() => ({
 }));
 
 vi.mock('../../src/reader/companions/registry', () => ({
+    yomuAnnotationsCompanion: () => companions.annotations,
     yomuI18nCompanion: () => companions.copy,
     yomuLocalDictionaries: () => companions.dictionaries,
     yomuKanjiStudyCompanion: () => companions.study,
@@ -26,6 +28,7 @@ import {
 
 describe('Reader runtime service health', () => {
     beforeEach(() => {
+        companions.annotations = undefined;
         companions.copy = undefined;
         companions.dictionaries = undefined;
         companions.study = undefined;
@@ -51,11 +54,17 @@ describe('Reader runtime service health', () => {
             'mining',
             'anki',
             'bunpro',
+            'annotation-layout',
+            'pitch',
         ]));
         expect(readerRuntimeConforms(readReaderRuntimeHealth())).toBe(false);
     });
 
     it('publishes ready only when every companion-backed service is installed', () => {
+        companions.annotations = {
+            syncProjectedReadings() {},
+            clearProjectedReadings() {},
+        };
         companions.copy = { uiText() {} };
         companions.dictionaries = { YomitanDictionaryStore: class {} };
         companions.study = {

@@ -93,7 +93,9 @@ describe('clamped feed titles never grow (1.6.115 blocker)', () => {
         expect(mirror.classList.contains('jpdb-reader-clip-hover-mirror')).toBe(false);
         expect(mirror.style.getPropertyValue('visibility')).not.toBe('hidden');
         expect(mirror.style.maxHeight).toBe('44px');
-        expect(mirror.style.overflow).toBe('visible');
+        // The authored clamp stays intact. Detached readings are projected
+        // into the document-owned overlay instead of opening this mirror.
+        expect(mirror.style.overflow).toBe('hidden');
         expect(mirror.dataset.yomuDetachedReadings).toBe('true');
         expect(mirror.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('だいひょう');
         // Host line metrics preserved (a ruby-friendly ~1.78em line-height
@@ -133,7 +135,7 @@ describe('clamped feed titles never grow (1.6.115 blocker)', () => {
         const mirror = host.querySelector<HTMLElement>('.jpdb-reader-text-mirror')!;
         expect(mirror).toBeTruthy();
         expect(mirror.style.maxHeight).toBe('40px');
-        expect(mirror.style.overflow).toBe('visible');
+        expect(mirror.style.overflow).toBe('hidden');
         // Paint invariant: shorts title text keeps painting at rest.
         expect(host.style.getPropertyValue('visibility')).not.toBe('hidden');
         expect(mirror.style.getPropertyValue('visibility')).not.toBe('hidden');

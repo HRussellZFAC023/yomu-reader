@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 // Compact-control fidelity smoke: fixed-height chips/labels must keep their
-// authored width and height while detached furigana remains visible. A reading
-// wider than its base must not open intra-word gaps (新しい順 rendering as
-// "新 しい 順") or reintroduce an in-flow ruby lane. Chromium AND WebKit.
+// authored width, height, clipping, and scroll geometry while reader-owned
+// projected furigana remains visible. A reading wider than its base must not
+// open intra-word gaps (新しい順 rendering as "新 しい 順") or reintroduce an
+// in-flow ruby lane. Chromium AND WebKit.
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -18,6 +19,7 @@ const entryPath = path.join(tempDir, 'probe.ts');
 const bundlePath = path.join(tempDir, 'probe.js');
 
 writeFileSync(entryPath, `
+    import ${JSON.stringify(path.join(ROOT, 'src/reader/companions/annotations.ts'))};
     import {
         applyTokensToScanTarget,
         collectFragmentTextTargetsIn,
@@ -64,6 +66,7 @@ writeFileSync(entryPath, `
         if (!target) throw new Error('target not collected');
         applyTokensToScanTarget({ ...target, nonDestructive: nonDestructive || target.nonDestructive }, tokens(), { ...DEFAULT_SETTINGS, showFurigana: true, furiganaMode: 'all' });
         makeRoomForRubyInCroppedRows(document);
+        projectAdditiveTextMirrors(document);
     }
 
     function rectOfText(node: Node, start: number, end: number): DOMRect {
@@ -80,6 +83,83 @@ writeFileSync(entryPath, `
             if ((node.data ?? '').includes(text) && !node.parentElement?.closest('rt,.jpdb-reader-detached-furi')) return node;
         }
         throw new Error('text node not found: ' + text);
+    }
+
+    function visibleElement(element: HTMLElement): boolean {
+        const style = getComputedStyle(element);
+        const rect = element.getBoundingClientRect();
+        return style.display !== 'none'
+            && style.visibility !== 'hidden'
+            && rect.width > 0
+            && rect.height > 0;
+    }
+
+    function projectedReadingAssociations(root: ParentNode): Array<{
+        source: HTMLElement;
+        clone: HTMLElement;
+        base: HTMLElement;
+        sourceSurface: string;
+        sourceRange: string;
+        centerDelta: number;
+        baselineDelta: number;
+    }> {
+        const sources = [...root.querySelectorAll<HTMLElement>(
+            '.jpdb-reader-detached-furi:not([data-yomu-projected-reading="true"])',
+        )];
+        const available = new Set(
+            [...document.querySelectorAll<HTMLElement>('[data-yomu-projected-reading="true"]')]
+                .filter(visibleElement),
+        );
+        const associations = [];
+        for (const source of sources) {
+            const base = source.closest<HTMLElement>('.jpdb-reader-detached-ruby')
+                ?? source.closest<HTMLElement>('.jpdb-reader-word');
+            if (!base) continue;
+            const baseRect = base.getBoundingClientRect();
+            const candidates = [...available]
+                .filter(clone => clone.textContent === source.textContent)
+                .map(clone => {
+                    const rect = clone.getBoundingClientRect();
+                    return {
+                        clone,
+                        score: Math.abs((rect.left + rect.right - baseRect.left - baseRect.right) / 2)
+                            + Math.abs(rect.bottom - baseRect.top),
+                    };
+                })
+                .sort((left, right) => left.score - right.score);
+            const clone = candidates[0]?.clone;
+            if (!clone) continue;
+            available.delete(clone);
+            const cloneRect = clone.getBoundingClientRect();
+            const word = source.closest<HTMLElement>('.jpdb-reader-word');
+            associations.push({
+                source,
+                clone,
+                base,
+                sourceSurface: word?.dataset.surface ?? word?.dataset.expression ?? '',
+                sourceRange: \`\${word?.dataset.tokenStart ?? ''}:\${word?.dataset.tokenEnd ?? ''}\`,
+                centerDelta: (cloneRect.left + cloneRect.right - baseRect.left - baseRect.right) / 2,
+                baselineDelta: cloneRect.bottom - baseRect.top,
+            });
+        }
+        return associations;
+    }
+
+    function projectedReadingFor(source: HTMLElement | null): HTMLElement | null {
+        if (!source) return null;
+        const owner = source.closest<HTMLElement>('.jpdb-reader-word') ?? source.parentElement;
+        return owner
+            ? projectedReadingAssociations(owner).find(association => association.source === source)?.clone ?? null
+            : null;
+    }
+
+    function boxGeometry(element: HTMLElement) {
+        return {
+            overflow: getComputedStyle(element).overflow,
+            inlineOverflow: element.style.getPropertyValue('overflow'),
+            client: [element.clientWidth, element.clientHeight],
+            scroll: [element.scrollWidth, element.scrollHeight],
+        };
     }
 
     function readingIsClipped(reading: HTMLElement): boolean {
@@ -106,15 +186,13 @@ writeFileSync(entryPath, `
     }
 
     function readingBaseOverlap(root: Element): number {
-        const bases = [...root.querySelectorAll<HTMLElement>('.jpdb-reader-ruby-base')].map(base => base.getBoundingClientRect());
         let overlap = 0;
-        for (const reading of root.querySelectorAll<HTMLElement>('rt,.jpdb-reader-detached-furi')) {
-            const r = reading.getBoundingClientRect();
-            for (const b of bases) {
-                const width = Math.min(r.right, b.right) - Math.max(r.left, b.left);
-                const height = Math.min(r.bottom, b.bottom) - Math.max(r.top, b.top);
-                if (width > 0.5 && height > 0.5) overlap = Math.max(overlap, height);
-            }
+        for (const { clone, base } of projectedReadingAssociations(root)) {
+            const reading = clone.getBoundingClientRect();
+            const source = base.getBoundingClientRect();
+            const width = Math.min(reading.right, source.right) - Math.max(reading.left, source.left);
+            const height = Math.min(reading.bottom, source.bottom) - Math.max(reading.top, source.top);
+            if (width > 0.5 && height > 0.5) overlap = Math.max(overlap, height);
         }
         return overlap;
     }
@@ -128,6 +206,7 @@ writeFileSync(entryPath, `
             { card: card('表示', 'ひょうじ'), start: 3, end: 5, length: 2, rubies: [{ text: 'ひょうじ', start: 3, end: 5, length: 2 }], pitchClass: 'heiban', sentence: MORE_TEXT },
         ], { ...DEFAULT_SETTINGS, showFurigana: true, furiganaMode: 'all' });
         makeRoomForRubyInCroppedRows(document);
+        projectAdditiveTextMirrors(document);
     }
 
     function paintSingleWord(host: HTMLElement, sentence: string, spelling: string, reading: string): void {
@@ -140,6 +219,7 @@ writeFileSync(entryPath, `
             pitchClass: 'heiban', sentence,
         }], { ...DEFAULT_SETTINGS, showFurigana: true, furiganaMode: 'all' });
         makeRoomForRubyInCroppedRows(document);
+        projectAdditiveTextMirrors(document);
     }
 
     function paintDescriptionPreview(host: HTMLElement): void {
@@ -167,6 +247,7 @@ writeFileSync(entryPath, `
             },
         ], { ...DEFAULT_SETTINGS, showFurigana: true, furiganaMode: 'all' });
         makeRoomForRubyInCroppedRows(document);
+        projectAdditiveTextMirrors(document);
     }
 
     async function nextFrame(): Promise<void> {
@@ -215,8 +296,10 @@ writeFileSync(entryPath, `
         const reexpandedLineHeight = host.style.lineHeight;
 
         const mirror = host.querySelector<HTMLElement>(':scope > .jpdb-reader-text-mirror');
-        const reading = mirror?.querySelector<HTMLElement>('.jpdb-reader-detached-furi') ?? null;
+        const sourceReading = mirror?.querySelector<HTMLElement>('.jpdb-reader-detached-furi') ?? null;
+        const reading = projectedReadingFor(sourceReading);
         const wrapper = mirror?.querySelector<HTMLElement>('.jpdb-reader-detached-ruby') ?? null;
+        const readingAssociations = mirror ? projectedReadingAssociations(mirror) : [];
         const tokenRange = document.createRange();
         tokenRange.setStart(node, start);
         tokenRange.setEnd(node, start + 2);
@@ -230,6 +313,17 @@ writeFileSync(entryPath, `
         const result = {
             additiveMirror: Boolean(mirror?.classList.contains('jpdb-reader-additive-text-mirror')),
             detachedReadingCount: mirror?.querySelectorAll('.jpdb-reader-detached-furi').length ?? 0,
+            sourceReadingVisibleCount: mirror
+                ? [...mirror.querySelectorAll<HTMLElement>('.jpdb-reader-detached-furi')].filter(visibleElement).length
+                : 0,
+            projectedReadingCount: readingAssociations.length,
+            projectedReadings: readingAssociations.map(association => ({
+                text: association.clone.textContent ?? '',
+                sourceSurface: association.sourceSurface,
+                sourceRange: association.sourceRange,
+                centerDelta: association.centerDelta,
+                baselineDelta: association.baselineDelta,
+            })),
             fontSize: getComputedStyle(host).fontSize,
             reservedLineHeight: getComputedStyle(host).lineHeight,
             readingClearance: reading ? reading.getBoundingClientRect().top - previousLineBottom : -1,
@@ -370,13 +464,36 @@ writeFileSync(entryPath, `
             pitchClass, sentence: text,
         }], { ...DEFAULT_SETTINGS, showFurigana: true, furiganaMode: 'all' });
         makeRoomForRubyInCroppedRows(document);
+        projectAdditiveTextMirrors(document);
     }
 
-    function pitchWordSamples(scope: Element): { afterContent: string; decorationColor: string; rect: DOMRect }[] {
-        return [...scope.querySelectorAll<HTMLElement>('.jpdb-reader-word')].map(word => ({
-            afterContent: getComputedStyle(word, '::after').content,
-            decorationColor: getComputedStyle(word).textDecorationColor,
-            rect: word.getBoundingClientRect(),
+    function pitchWordSamples(scope: Element): { afterContent: string; decorationColor: string; rect: DOMRect; surface: string }[] {
+        return [...scope.querySelectorAll<HTMLElement>('.jpdb-reader-word')].map(word => {
+            // Source-projected word containers intentionally span the host's
+            // line box. Crowding belongs to the painted native glyph range,
+            // represented by its source fragment, not that positioning shell.
+            const fragment = word.querySelector<HTMLElement>('.jpdb-reader-source-fragment');
+            return {
+                afterContent: getComputedStyle(word, '::after').content,
+                decorationColor: getComputedStyle(word).textDecorationColor,
+                rect: fragment?.getBoundingClientRect() ?? word.getBoundingClientRect(),
+                surface: fragment ? 'source-fragment' : 'word',
+            };
+        });
+    }
+
+    function criticalReadingSamples(scope: Element): Array<{
+        text: string;
+        readingRect: DOMRect;
+        baseRect: DOMRect;
+    }> {
+        return projectedReadingAssociations(scope).map(association => ({
+            text: association.clone.textContent ?? '',
+            readingRect: association.clone.getBoundingClientRect(),
+            baseRect: association.source.closest('.jpdb-reader-word')
+                ?.querySelector<HTMLElement>('.jpdb-reader-source-fragment')
+                ?.getBoundingClientRect()
+                ?? association.base.getBoundingClientRect(),
         }));
     }
 
@@ -400,6 +517,9 @@ writeFileSync(entryPath, `
             return {
                 words1,
                 words2,
+                readings1: criticalReadingSamples(line1),
+                readings2: criticalReadingSamples(line2),
+                line2Rect,
                 line1WordCount: words1.length,
                 line2WordCount: words2.length,
                 line1ToLine2Clearance: words1.length ? line2Rect.top - Math.max(...words1.map(w => w.rect.bottom)) : -1,
@@ -466,10 +586,22 @@ writeFileSync(entryPath, `
             });
             const lateWord = words.find(word => word.textContent?.includes('質問')) ?? null;
             const mirrorStyle = mirror ? getComputedStyle(mirror) : null;
+            const readingAssociations = mirror ? projectedReadingAssociations(mirror) : [];
             return {
                 additiveMirror: Boolean(mirror?.classList.contains('jpdb-reader-additive-text-mirror')),
                 inlineRubyCount: mirror?.querySelectorAll('ruby,rt:not(.jpdb-reader-detached-furi)').length ?? -1,
                 detachedReadingCount: mirror?.querySelectorAll('.jpdb-reader-detached-furi').length ?? 0,
+                sourceReadingVisibleCount: mirror
+                    ? [...mirror.querySelectorAll<HTMLElement>('.jpdb-reader-detached-furi')].filter(visibleElement).length
+                    : 0,
+                projectedReadingCount: readingAssociations.length,
+                projectedReadings: readingAssociations.map(association => ({
+                    text: association.clone.textContent ?? '',
+                    sourceSurface: association.sourceSurface,
+                    sourceRange: association.sourceRange,
+                    centerDelta: association.centerDelta,
+                    baselineDelta: association.baselineDelta,
+                })),
                 nativeHostVisible: getComputedStyle(host).visibility !== 'hidden',
                 mirrorColor: mirrorStyle?.color ?? '',
                 mirrorTextFill: mirrorStyle?.webkitTextFillColor ?? '',
@@ -497,14 +629,18 @@ writeFileSync(entryPath, `
             const nativeBefore = findTextNode(label, ASK_TEXT);
             const baseBefore = rectOfText(nativeBefore, 0, 2);
             const chipBefore = chip.getBoundingClientRect();
+            const chipBoxBefore = boxGeometry(chip);
             paintSingleWord(label, ASK_TEXT, '質問', 'しつもん');
             const mirror = label.querySelector<HTMLElement>('.jpdb-reader-text-mirror');
             const word = mirror?.querySelector<HTMLElement>('.jpdb-reader-word') ?? null;
-            const reading = mirror?.querySelector<HTMLElement>('.jpdb-reader-detached-furi') ?? null;
+            const sourceReading = mirror?.querySelector<HTMLElement>('.jpdb-reader-detached-furi') ?? null;
+            const reading = projectedReadingFor(sourceReading);
+            const actionReadingAssociations = mirror ? projectedReadingAssociations(mirror) : [];
             const base = mirror?.querySelector<HTMLElement>('.jpdb-reader-ruby-base') ?? null;
             const nativeAfter = findTextNode(label, ASK_TEXT);
             const baseAfter = rectOfText(nativeAfter, 0, 2);
             const chipAfter = chip.getBoundingClientRect();
+            const chipBoxAfter = boxGeometry(chip);
 
             const metadata = document.getElementById('metadata-row')!;
             metadata.textContent = VIEW_TEXT;
@@ -512,41 +648,53 @@ writeFileSync(entryPath, `
             paintSingleWord(metadata, VIEW_TEXT, VIEW_TEXT, 'しちょう');
             const metadataReading = metadata.querySelector<HTMLElement>('.jpdb-reader-detached-furi');
             const metadataAfter = metadata.getBoundingClientRect();
-            const metadataUnsafeDisplay = metadataReading ? getComputedStyle(metadataReading).display : '';
+            const metadataProjectedBefore = projectedReadingFor(metadataReading);
             const foreign = document.getElementById('foreign-line')!;
             const metadataRectBeforeReflow = metadata.getBoundingClientRect();
             foreign.style.visibility = 'hidden';
             resetDecorationPolicyCachesForTest();
             healTextMirrorPageVisibility();
-            const metadataSafeDisplay = metadataReading ? getComputedStyle(metadataReading).display : '';
-            const metadataSafeHiddenReason = metadataReading?.dataset.yomuDetachedReadingHidden ?? '';
+            projectAdditiveTextMirrors(document);
+            const metadataProjectedSafe = projectedReadingFor(metadataReading);
             foreign.style.visibility = '';
             resetDecorationPolicyCachesForTest();
             healTextMirrorPageVisibility();
-            const metadataUnsafeAgainDisplay = metadataReading ? getComputedStyle(metadataReading).display : '';
-            const metadataUnsafeAgainHiddenReason = metadataReading?.dataset.yomuDetachedReadingHidden ?? '';
+            projectAdditiveTextMirrors(document);
+            const metadataProjectedAgain = projectedReadingFor(metadataReading);
             const metadataRectAfterReflow = metadata.getBoundingClientRect();
             return {
                 additiveMirror: Boolean(mirror?.classList.contains('jpdb-reader-additive-text-mirror')),
                 inlineRubyCount: mirror?.querySelectorAll('ruby,rt:not(.jpdb-reader-detached-furi)').length ?? -1,
                 detachedReadingCount: mirror?.querySelectorAll('.jpdb-reader-detached-furi').length ?? 0,
-                actionReadingHiddenReason: reading?.dataset.yomuDetachedReadingHidden ?? '',
-                actionReadingDisplay: reading ? getComputedStyle(reading).display : '',
+                sourceReadingVisibleCount: mirror
+                    ? [...mirror.querySelectorAll<HTMLElement>('.jpdb-reader-detached-furi')].filter(visibleElement).length
+                    : 0,
+                projectedReadingCount: actionReadingAssociations.length,
+                projectedReadings: actionReadingAssociations.map(association => ({
+                    text: association.clone.textContent ?? '',
+                    sourceSurface: association.sourceSurface,
+                    sourceRange: association.sourceRange,
+                    centerDelta: association.centerDelta,
+                    baselineDelta: association.baselineDelta,
+                })),
                 nativeTextNodePreserved: nativeAfter === nativeBefore,
                 nativeSourceText: nativeAfter.data,
                 nativeBaseCenterDelta: (baseAfter.top + baseAfter.bottom - baseBefore.top - baseBefore.bottom) / 2,
                 chipWidthGrowth: chipAfter.width - chipBefore.width,
                 chipHeightGrowth: chipAfter.height - chipBefore.height,
+                chipBoxBefore,
+                chipBoxAfter,
                 readingBaseClearance: reading && base ? base.getBoundingClientRect().top - reading.getBoundingClientRect().bottom : -1,
+                projectedReadingVisible: Boolean(reading && visibleElement(reading)),
+                projectedReadingClipped: reading ? readingIsClipped(reading) : true,
                 nativeUnderline: word ? getComputedStyle(word).textDecorationColor : '',
                 pseudoContent: word ? getComputedStyle(word, '::after').content : '',
                 underlineToChipBottom: word ? chipAfter.bottom - word.getBoundingClientRect().bottom : -1,
                 metadataReadingRetained: Boolean(metadataReading),
-                metadataReadingHiddenReason: metadataUnsafeAgainHiddenReason,
-                metadataUnsafeDisplay,
-                metadataSafeDisplay,
-                metadataSafeHiddenReason,
-                metadataUnsafeAgainDisplay,
+                metadataSourceReadingVisible: Boolean(metadataReading && visibleElement(metadataReading)),
+                metadataProjectedBefore: Boolean(metadataProjectedBefore && visibleElement(metadataProjectedBefore)),
+                metadataProjectedSafe: Boolean(metadataProjectedSafe && visibleElement(metadataProjectedSafe)),
+                metadataProjectedAgain: Boolean(metadataProjectedAgain && visibleElement(metadataProjectedAgain)),
                 metadataReflowTopDelta: metadataRectAfterReflow.top - metadataRectBeforeReflow.top,
                 metadataReflowHeightDelta: metadataRectAfterReflow.height - metadataRectBeforeReflow.height,
                 metadataHeightGrowth: metadataAfter.height - metadataBefore.height,
@@ -558,18 +706,23 @@ writeFileSync(entryPath, `
             const host = document.getElementById('late-host')!;
             host.textContent = '共有';
             paintSingleWord(host, '共有', '共有', 'きょうゆう');
-            const reading = host.querySelector<HTMLElement>('.jpdb-reader-detached-furi');
+            const sourceReading = host.querySelector<HTMLElement>('.jpdb-reader-detached-furi');
             host.style.setProperty('overflow', 'hidden');
             host.style.setProperty('text-overflow', 'ellipsis');
             host.style.setProperty('white-space', 'nowrap');
+            const boxBefore = boxGeometry(host);
             resetDecorationPolicyCachesForTest();
             healTextMirrorPageVisibility();
+            projectAdditiveTextMirrors(document);
+            const reading = projectedReadingFor(sourceReading);
+            const boxAfter = boxGeometry(host);
             return {
-                clipStamp: host.dataset.yomuClipConstrained ?? '',
-                overflowStamp: host.dataset.yomuDetachedReadingOverflow ?? '',
-                overflow: getComputedStyle(host).overflow,
-                readingDisplay: reading ? getComputedStyle(reading).display : '',
-                readingHiddenReason: reading?.dataset.yomuDetachedReadingHidden ?? '',
+                detachedReadingCount: host.querySelectorAll('.jpdb-reader-detached-furi').length,
+                sourceReadingVisibleCount: sourceReading && visibleElement(sourceReading) ? 1 : 0,
+                projectedReadingCount: reading ? 1 : 0,
+                projectedText: reading?.textContent ?? '',
+                boxBefore,
+                boxAfter,
                 readingClipped: reading ? readingIsClipped(reading) : true,
                 readingBaseOverlap: readingBaseOverlap(host),
             };
@@ -580,16 +733,34 @@ writeFileSync(entryPath, `
             const host = document.getElementById('more')!;
             host.textContent = MORE_TEXT;
             const before = host.getBoundingClientRect();
-            paintMore(host);
-            const rt = host.querySelector<HTMLElement>('rt,.jpdb-reader-detached-furi');
-            if (!rt) return { rtCount: 0, rtTopClip: 0, mirror: Boolean(host.querySelector('.jpdb-reader-text-mirror')) };
             const clipBox = document.getElementById('more-row')!;
+            const clipBoxBefore = boxGeometry(clipBox);
+            paintMore(host);
+            const sources = [...host.querySelectorAll<HTMLElement>('.jpdb-reader-detached-furi')];
+            const associations = projectedReadingAssociations(host);
+            const rt = associations[0]?.clone;
+            if (!rt) return {
+                rtCount: 0,
+                detachedReadingCount: sources.length,
+                projectedReadingCount: 0,
+                rtTopClip: 0,
+                mirror: Boolean(host.querySelector('.jpdb-reader-text-mirror')),
+            };
             const rtRect = rt.getBoundingClientRect();
             const after = host.getBoundingClientRect();
             return {
-                rtCount: host.querySelectorAll('rt,.jpdb-reader-detached-furi').length,
+                rtCount: associations.length,
                 inlineRubyCount: host.querySelectorAll('ruby,rt:not(.jpdb-reader-detached-furi)').length,
-                detachedReadingCount: host.querySelectorAll('.jpdb-reader-detached-furi').length,
+                detachedReadingCount: sources.length,
+                sourceReadingVisibleCount: sources.filter(visibleElement).length,
+                projectedReadingCount: associations.length,
+                projectedReadings: associations.map(association => ({
+                    text: association.clone.textContent ?? '',
+                    sourceSurface: association.sourceSurface,
+                    sourceRange: association.sourceRange,
+                    centerDelta: association.centerDelta,
+                    baselineDelta: association.baselineDelta,
+                })),
                 mirror: Boolean(host.querySelector('.jpdb-reader-text-mirror')),
                 rtTopClip: clipBox.getBoundingClientRect().top - rtRect.top,
                 rtHeight: rtRect.height,
@@ -597,12 +768,13 @@ writeFileSync(entryPath, `
                 readingBaseOverlap: readingBaseOverlap(host),
                 widthGrowth: after.width - before.width,
                 heightGrowth: after.height - before.height,
+                clipBoxBefore,
+                clipBoxAfter: boxGeometry(clipBox),
             };
         },
-        // A tab-style label whose line-height equals the fixed row height puts
-        // the mirrored reading flush against the overflow-hidden top edge —
-        // the "slightly cut off" iPad class. The room machinery must give the
-        // reading real clearance, not just grow the row downward.
+        // A tab-style label whose line-height equals the fixed row height used
+        // to clip its in-host reading. The projected clone must stay visible
+        // without opening or growing the authored row.
         runTabProbe() {
             setRubyDistortsConstrainedRowsForTest(null);
             removeNonDestructiveScanMirrors(document);
@@ -610,22 +782,36 @@ writeFileSync(entryPath, `
             const label = document.getElementById('tab-label')!;
             label.textContent = TEXT;
             const before = label.getBoundingClientRect();
+            const rowBoxBefore = boxGeometry(row);
             paintLabel(label);
             const scope = label.querySelector('.jpdb-reader-text-mirror') ?? label;
-            const rts = [...scope.querySelectorAll<HTMLElement>('rt,.jpdb-reader-detached-furi')];
+            const sources = [...scope.querySelectorAll<HTMLElement>('.jpdb-reader-detached-furi')];
+            const associations = projectedReadingAssociations(scope);
+            const rts = associations.map(association => association.clone);
             if (!rts.length) return { rtCount: 0, rtTopClip: 0 };
             const rtTop = Math.min(...rts.map(rt => rt.getBoundingClientRect().top));
             const after = label.getBoundingClientRect();
             return {
                 rtCount: rts.length,
                 inlineRubyCount: scope.querySelectorAll('ruby,rt:not(.jpdb-reader-detached-furi)').length,
-                detachedReadingCount: scope.querySelectorAll('.jpdb-reader-detached-furi').length,
+                detachedReadingCount: sources.length,
+                sourceReadingVisibleCount: sources.filter(visibleElement).length,
+                projectedReadingCount: associations.length,
+                projectedReadings: associations.map(association => ({
+                    text: association.clone.textContent ?? '',
+                    sourceSurface: association.sourceSurface,
+                    sourceRange: association.sourceRange,
+                    centerDelta: association.centerDelta,
+                    baselineDelta: association.baselineDelta,
+                })),
                 rtTopClip: row.getBoundingClientRect().top - rtTop,
                 readingClipped: rts.some(readingIsClipped),
                 readingClipAncestors: rts.flatMap(readingClipAncestors),
                 readingBaseOverlap: readingBaseOverlap(scope),
                 widthGrowth: after.width - before.width,
                 heightGrowth: after.height - before.height,
+                rowBoxBefore,
+                rowBoxAfter: boxGeometry(row),
             };
         },
         runChipMirrorProbe() {
@@ -635,24 +821,23 @@ writeFileSync(entryPath, `
             const label = document.getElementById('chip-label')!;
             label.textContent = TEXT;
             const chipBefore = chip.getBoundingClientRect();
+            const chipBoxBefore = boxGeometry(chip);
             const plainWidth = label.getBoundingClientRect().width;
             paintLabel(label, true);
             const mirror = label.querySelector<HTMLElement>('.jpdb-reader-text-mirror');
             const scope: Element = mirror ?? label;
             const words = [...scope.querySelectorAll<HTMLElement>('.jpdb-reader-word')];
-            const baseAtarashii = findTextNode(scope, '新');
-            const shii = findTextNode(scope, 'しい');
-            const jun = findTextNode(scope, '順');
-            const rectShin = rectOfText(baseAtarashii, baseAtarashii.data.indexOf('新'), baseAtarashii.data.indexOf('新') + 1);
-            const rectShii = rectOfText(shii, shii.data.indexOf('しい'), shii.data.indexOf('しい') + 2);
-            const rectJun = rectOfText(jun, jun.data.indexOf('順'), jun.data.indexOf('順') + 1);
+            // Base fidelity belongs to the page-owned source, not the invisible
+            // annotation wrappers whose projected words are absolute containers.
+            const nativeText = findTextNode(label, TEXT);
+            const rectShin = rectOfText(nativeText, 0, 1);
+            const rectShii = rectOfText(nativeText, 1, 3);
+            const rectJun = rectOfText(nativeText, 3, 4);
             const chipRect = chip.getBoundingClientRect();
-            const rts = [...scope.querySelectorAll<HTMLElement>('rt,.jpdb-reader-detached-furi')];
-            const visibleReadings = rts.filter(reading => {
-                const style = getComputedStyle(reading);
-                const rect = reading.getBoundingClientRect();
-                return style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0;
-            });
+            const sources = [...scope.querySelectorAll<HTMLElement>('.jpdb-reader-detached-furi')];
+            const associations = projectedReadingAssociations(scope);
+            const rts = associations.map(association => association.clone);
+            const visibleReadings = rts.filter(visibleElement);
             const rtTop = Math.min(...rts.map(rt => rt.getBoundingClientRect().top));
             const decoratedWidth = (mirror ?? label).getBoundingClientRect().width;
             const chipAfter = chip.getBoundingClientRect();
@@ -666,14 +851,24 @@ writeFileSync(entryPath, `
                 words: words.length,
                 rtCount: rts.length,
                 inlineRubyCount: scope.querySelectorAll('ruby,rt:not(.jpdb-reader-detached-furi)').length,
-                detachedReadingCount: scope.querySelectorAll('.jpdb-reader-detached-furi').length,
+                detachedReadingCount: sources.length,
+                sourceReadingVisibleCount: sources.filter(visibleElement).length,
+                projectedReadingCount: associations.length,
+                projectedReadings: associations.map(association => ({
+                    text: association.clone.textContent ?? '',
+                    sourceSurface: association.sourceSurface,
+                    sourceRange: association.sourceRange,
+                    centerDelta: association.centerDelta,
+                    baselineDelta: association.baselineDelta,
+                })),
                 visibleReadingCount: visibleReadings.length,
-                unsafeHiddenCount: rts.filter(reading => reading.dataset.yomuDetachedReadingHidden === 'unsafe-lane').length,
                 readingClipped: rts.some(readingIsClipped),
                 readingClipAncestors: rts.flatMap(readingClipAncestors),
                 readingBaseOverlap: readingBaseOverlap(scope),
                 chipWidthGrowth: chipAfter.width - chipBefore.width,
                 chipHeightGrowth: chipAfter.height - chipBefore.height,
+                chipBoxBefore,
+                chipBoxAfter: boxGeometry(chip),
                 visiblePitchUnderlines: words.filter(word => {
                     const color = getComputedStyle(word, '::after').borderBottomColor;
                     return color && color !== 'transparent' && color !== 'rgba(0, 0, 0, 0)';
@@ -783,141 +978,236 @@ const MAX_GEOMETRY_DELTA_PX = 0.5;
 // base with no visible gap. Larger penetration is a real collision.
 const MAX_FONT_BOX_CONTACT_PX = 2.5;
 
+function sameBoxGeometry(before, after) {
+    return before.overflow === after.overflow
+        && before.inlineOverflow === after.inlineOverflow
+        && before.client[0] === after.client[0]
+        && before.client[1] === after.client[1]
+        && before.scroll[0] === after.scroll[0]
+        && before.scroll[1] === after.scroll[1];
+}
+
+function projectedAssociationsAreAligned(associations) {
+    return associations.every(association => Math.abs(association.centerDelta) <= 1
+        && Math.abs(association.baselineDelta) <= 1);
+}
+
+function logProbe(name, label, result) {
+    console.log(`${name} ${label}:`, JSON.stringify(result));
+}
+
+function verifyChip(name, result) {
+    if (!result.mirror) fail(`${name}: compact closed control did not use the additive mirror path`, result);
+    if (result.detachedReadingCount < 1) fail(`${name}: compact control reading missing`, result);
+    if (result.sourceReadingVisibleCount !== 0) fail(`${name}: compact control source reading entered page layout`, result);
+    if (result.projectedReadingCount !== result.detachedReadingCount
+        || result.visibleReadingCount !== result.projectedReadingCount) fail(`${name}: compact control projected reading missing`, result);
+    if (!projectedAssociationsAreAligned(result.projectedReadings)) fail(`${name}: compact control projected reading lost its source range`, result);
+    if (result.inlineRubyCount !== 0) fail(`${name}: compact control used an in-flow ruby lane`, result);
+    if (Math.abs(result.chipWidthGrowth) > MAX_GEOMETRY_DELTA_PX || Math.abs(result.chipHeightGrowth) > MAX_GEOMETRY_DELTA_PX) fail(`${name}: compact control geometry changed`, result);
+    if (!sameBoxGeometry(result.chipBoxBefore, result.chipBoxAfter)) fail(`${name}: compact control changed authored overflow or scroll geometry`, result);
+    if (result.readingClipped) fail(`${name}: compact control reading is clipped`, result);
+    if (result.readingBaseOverlap > MAX_FONT_BOX_CONTACT_PX) fail(`${name}: compact control reading intrudes into its base`, result);
+    if (result.intraWordGap > MAX_GAP_PX) fail(`${name}: intra-word gap (新 | しい) too wide`, result);
+    if (result.interWordGap > MAX_GAP_PX) fail(`${name}: inter-word gap (しい | 順) too wide`, result);
+    if (result.visiblePitchUnderlines < result.words) fail(`${name}: compact annotation lost pitch underline`, result);
+}
+
+function verifyYouTubeGeometry(name, youtube) {
+    if (!youtube.additiveMirror || youtube.inlineRubyCount !== 0 || youtube.detachedReadingCount < 1) fail(`${name}: YouTube action chip did not use detached additive rendering`, youtube);
+    if (youtube.sourceReadingVisibleCount !== 0
+        || youtube.projectedReadingCount !== youtube.detachedReadingCount
+        || !youtube.projectedReadingVisible
+        || youtube.projectedReadingClipped) fail(`${name}: YouTube action chip did not project its furigana`, youtube);
+    if (!projectedAssociationsAreAligned(youtube.projectedReadings)) fail(`${name}: YouTube action chip reading lost its source range`, youtube);
+    if (!youtube.nativeTextNodePreserved || youtube.nativeSourceText !== '質問する') fail(`${name}: additive rendering replaced or changed the source text node`, youtube);
+    if (Math.abs(youtube.nativeBaseCenterDelta) > MAX_GEOMETRY_DELTA_PX) fail(`${name}: YouTube action chip base moved vertically`, youtube);
+    if (Math.abs(youtube.chipWidthGrowth) > MAX_GEOMETRY_DELTA_PX || Math.abs(youtube.chipHeightGrowth) > MAX_GEOMETRY_DELTA_PX) fail(`${name}: YouTube action chip geometry changed`, youtube);
+    if (!sameBoxGeometry(youtube.chipBoxBefore, youtube.chipBoxAfter)) fail(`${name}: YouTube action chip changed authored overflow or scroll geometry`, youtube);
+    if (youtube.readingBaseClearance < -MAX_FONT_BOX_CONTACT_PX) fail(`${name}: YouTube action chip furigana intrudes into its base`, youtube);
+    if (!youtube.nativeUnderline || youtube.nativeUnderline === 'transparent' || youtube.nativeUnderline === 'rgba(0, 0, 0, 0)' || youtube.pseudoContent !== 'none') fail(`${name}: YouTube mirror pitch underline is not glyph-anchored native decoration`, youtube);
+    if (youtube.underlineToChipBottom < 4) fail(`${name}: YouTube pitch underline fell to the chip edge`, youtube);
+    if (!youtube.metadataReadingRetained || youtube.metadataSourceReadingVisible) fail(`${name}: metadata source reading entered page layout`, youtube);
+    if (!youtube.metadataProjectedBefore || !youtube.metadataProjectedSafe || !youtube.metadataProjectedAgain) fail(`${name}: metadata projected furigana did not remain visible across reflow`, youtube);
+    if (Math.abs(youtube.metadataReflowTopDelta) > MAX_GEOMETRY_DELTA_PX || Math.abs(youtube.metadataReflowHeightDelta) > MAX_GEOMETRY_DELTA_PX) fail(`${name}: metadata reflow probe changed the source row geometry`, youtube);
+    if (Math.abs(youtube.metadataHeightGrowth) > MAX_GEOMETRY_DELTA_PX) fail(`${name}: metadata safety clearance grew its host row`, youtube);
+}
+
+function verifyLateClip(name, lateClip) {
+    if (lateClip.sourceReadingVisibleCount !== 0
+        || lateClip.projectedReadingCount !== lateClip.detachedReadingCount
+        || lateClip.projectedText !== 'きょうゆう'
+        || lateClip.readingClipped
+        || lateClip.readingBaseOverlap > MAX_FONT_BOX_CONTACT_PX) fail(`${name}: late compact clip did not project visible furigana`, lateClip);
+    if (!sameBoxGeometry(lateClip.boxBefore, lateClip.boxAfter)
+        || lateClip.boxAfter.overflow !== 'hidden'
+        || lateClip.boxAfter.inlineOverflow !== 'hidden') fail(`${name}: late compact clip opened or changed page-owned scroll geometry`, lateClip);
+}
+
+function verifyDescription(name, description) {
+    if (!description.additiveMirror || description.inlineRubyCount !== 0 || description.detachedReadingCount < 1) fail(`${name}: truncated description did not use detached additive rendering`, description);
+    if (description.sourceReadingVisibleCount !== 0 || description.projectedReadingCount < 1
+        || !projectedAssociationsAreAligned(description.projectedReadings)) fail(`${name}: truncated description did not use source-aligned projected readings`, description);
+    if (!description.nativeHostVisible) fail(`${name}: truncated description lost its native fallback text`, description);
+    // The semantic color intentionally inherits so detached readings follow
+    // late page-theme changes. Transparent text-fill hides the duplicate base.
+    if (!transparentPaint(description.mirrorTextFill)) fail(`${name}: additive description mirror painted a duplicate base copy`, description);
+    if (description.paintedWordContainers !== 0) fail(`${name}: projected word container painted a full-host highlight`, description);
+    if (description.paintedSourceFragments < 1) fail(`${name}: projected source fragments lost the normal highlight`, description);
+    if (description.lateWordVisibility !== 'hidden') fail(`${name}: off-clip description word remained paintable`, description);
+    if (description.visibleWordSummaryOverlaps !== 0) fail(`${name}: description annotation overlapped its summary sibling`, description);
+    if (Math.abs(description.previewHeightGrowth) > MAX_GEOMETRY_DELTA_PX || Math.abs(description.summaryTopShift) > MAX_GEOMETRY_DELTA_PX || Math.abs(description.summaryHeightGrowth) > MAX_GEOMETRY_DELTA_PX) fail(`${name}: expanded-description or summary geometry changed`, description);
+    if (description.previewOverflow !== 'hidden' || description.previewClientHeight !== 112 || description.previewScrollHeight <= description.previewClientHeight || description.mirrorMaxHeight !== '112px') fail(`${name}: authored 112px description clip was not preserved`, description);
+    if (description.mirrorCount !== 1 || description.cycleMirrorCounts.some(count => count !== 1)) fail(`${name}: repeated description disclosure stacked mirrors`, description);
+}
+
+function verifyExpandedDescription(name, expanded) {
+    if (!expanded.additiveMirror || expanded.detachedReadingCount < 1 || expanded.mirrorCount !== 1) fail(`${name}: expanded prose reading missing`, expanded);
+    if (expanded.sourceReadingVisibleCount !== 0
+        || expanded.projectedReadingCount !== expanded.detachedReadingCount
+        || !projectedAssociationsAreAligned(expanded.projectedReadings)) fail(`${name}: expanded prose did not use source-aligned projected readings`, expanded);
+    if (Number.parseFloat(expanded.reservedLineHeight) < Number.parseFloat(expanded.fontSize) * 2) fail(`${name}: expanded prose did not reserve a furigana lane`, expanded);
+    if (expanded.readingClearance < 1 || expanded.readingClipped) fail(`${name}: expanded prose furigana collides with the preceding line`, expanded);
+    if (expanded.projectedWrapperDecoration !== 'none') fail(`${name}: projected ruby retained the obsolete second underline`, expanded);
+    if (expanded.collapsedLineHeight !== expanded.originalInlineLineHeight) fail(`${name}: collapsed prose kept the expanded reading lane`, expanded);
+    if (Number.parseFloat(expanded.reexpandedLineHeight) < Number.parseFloat(expanded.fontSize) * 2) fail(`${name}: re-expanded prose did not restore its reading lane`, expanded);
+    if (!expanded.originalInlineLineHeight || expanded.restoredInlineLineHeight !== expanded.originalInlineLineHeight) fail(`${name}: expanded prose line-height did not restore cleanly`, expanded);
+}
+
+function verifySingleLineDescription(name, singleLine) {
+    if (singleLine.currentLineHeight !== singleLine.originalLineHeight || Math.abs(singleLine.heightGrowth) > MAX_GEOMETRY_DELTA_PX) fail(`${name}: single-line content grew a furigana lane`, singleLine);
+}
+
+function verifyCompoundPitch(name, compound) {
+    if (!compound.componentWord || !compound.projected || compound.fragmentCount < 2) fail(`${name}: wrapped compound pitch word was not source-projected on every line`, compound);
+    if (compound.wordAfterContent !== 'none' || compound.paintedFragments !== compound.fragmentCount) fail(`${name}: projected compound pitch gradient was lost`, compound);
+    if (compound.gradientWidths.some(width => !width || Number.parseFloat(width) <= 0)) fail(`${name}: projected compound gradient geometry is incomplete`, compound);
+    if (compound.gradientOffsets[0] !== '0px' || !compound.gradientOffsets.slice(1).some(offset => Number.parseFloat(offset) < 0)) fail(`${name}: wrapped compound gradient restarted on a later line`, compound);
+}
+
+function verifyCompactLabel(name, label, result, geometryBefore, geometryAfter) {
+    if (result.detachedReadingCount < 1) fail(`${name}: ${label} reading missing`, result);
+    if (result.sourceReadingVisibleCount !== 0
+        || result.projectedReadingCount !== result.detachedReadingCount
+        || !projectedAssociationsAreAligned(result.projectedReadings)) fail(`${name}: ${label} projected reading missing or misaligned`, result);
+    if (result.inlineRubyCount !== 0) fail(`${name}: ${label} used an in-flow ruby lane`, result);
+    if (Math.abs(result.widthGrowth) > MAX_GEOMETRY_DELTA_PX || Math.abs(result.heightGrowth) > MAX_GEOMETRY_DELTA_PX) fail(`${name}: ${label} geometry changed`, result);
+    if (!sameBoxGeometry(geometryBefore, geometryAfter)) fail(`${name}: ${label} changed authored overflow or scroll geometry`, result);
+    if (result.readingClipped) fail(`${name}: ${label} reading is clipped`, result);
+    if (result.readingBaseOverlap > MAX_FONT_BOX_CONTACT_PX) fail(`${name}: ${label} reading intrudes into its base`, result);
+}
+
+function verifyCriticalWords(name, label, words) {
+    for (const word of words) {
+        if (word.afterContent !== 'none') fail(`${name}: critical-css ${label} pitch ::after was not disabled`, word);
+        if (transparentPaint(word.decorationColor)) fail(`${name}: critical-css ${label} pitch underline is not visible`, word);
+    }
+}
+
+function verifyCriticalDescription(name, result) {
+    if (result.line1WordCount < 1 || result.line2WordCount < 1) fail(`${name}: critical-css description pitch words missing`, result);
+    verifyCriticalWords(name, 'description', [...result.words1, ...result.words2]);
+    if (result.line1ToLine2Clearance <= 0) fail(`${name}: critical-css description pitch underline crowds the following line`, result);
+}
+
+function verifyCriticalTitle(name, result) {
+    if (result.wordCount < 1) fail(`${name}: critical-css title pitch word missing`, result);
+    verifyCriticalWords(name, 'title', result.words);
+    if (result.titleToMetadataClearance <= 0) fail(`${name}: critical-css title pitch underline crowds the metadata row`, result);
+}
+
+async function openFixturePage(browser, url, body) {
+    const page = await browser.newPage();
+    page.setDefaultNavigationTimeout(90_000);
+    await page.route('https://www.youtube.com/**', route => route.fulfill({
+        status: 200,
+        contentType: 'text/html; charset=utf-8',
+        body,
+    }));
+    await page.goto(url, { waitUntil: 'domcontentloaded' });
+    return page;
+}
+
+async function runPrimaryProbes(name, browser) {
+    const page = await openFixturePage(browser, 'https://www.youtube.com/chip-mirror-smoke', FIXTURE);
+    await page.addStyleTag({ content: readFileSync(CSS_PATH, 'utf8') });
+    // Exercise source policy without requiring this focused smoke to rewrite
+    // generated distribution assets.
+    await page.addStyleTag({ content: readFileSync(READER_WORDS_CSS_PATH, 'utf8') });
+    await page.addScriptTag({ path: bundlePath });
+
+    const chip = await page.evaluate(() => window.runChipMirrorProbe());
+    logProbe(name, 'chip', chip);
+    verifyChip(name, chip);
+
+    const youtube = await page.evaluate(() => window.runYouTubeGeometryProbe());
+    logProbe(name, 'youtube geometry', youtube);
+    verifyYouTubeGeometry(name, youtube);
+
+    const lateClip = await page.evaluate(() => window.runLateClipProbe());
+    logProbe(name, 'late clip', lateClip);
+    verifyLateClip(name, lateClip);
+
+    const description = await page.evaluate(() => window.runYouTubeDescriptionClipProbe());
+    logProbe(name, 'youtube description', description);
+    verifyDescription(name, description);
+
+    const expandedCases = [
+        await page.evaluate(() => window.runExpandedDescriptionProbe()),
+        await page.evaluate(() => window.runSmallExpandedDescriptionProbe()),
+        await page.evaluate(() => window.runNaturalWrappedDescriptionProbe()),
+    ];
+    for (const expanded of expandedCases) {
+        logProbe(name, `expanded description ${expanded.fontSize}`, expanded);
+        verifyExpandedDescription(name, expanded);
+    }
+
+    const singleLineCases = [
+        await page.evaluate(() => window.runSingleLineDescriptionProbe()),
+        await page.evaluate(() => window.runMixedFontSingleLineProbe()),
+    ];
+    for (const singleLine of singleLineCases) {
+        logProbe(name, 'single-line description', singleLine);
+        verifySingleLineDescription(name, singleLine);
+    }
+
+    const compound = await page.evaluate(() => window.runProjectedCompoundPitchProbe());
+    logProbe(name, 'projected compound pitch', compound);
+    verifyCompoundPitch(name, compound);
+
+    const more = await page.evaluate(() => window.runShowMoreProbe());
+    logProbe(name, 'show-more', more);
+    verifyCompactLabel(name, 'show-more', more, more.clipBoxBefore, more.clipBoxAfter);
+
+    const tab = await page.evaluate(() => window.runTabProbe());
+    logProbe(name, 'tab', tab);
+    verifyCompactLabel(name, 'tab', tab, tab.rowBoxBefore, tab.rowBoxAfter);
+}
+
+async function runCriticalCssProbes(name, browser) {
+    const page = await openFixturePage(browser, 'https://www.youtube.com/critical-css-smoke', CRIT_FIXTURE);
+    try {
+        await page.addScriptTag({ path: bundlePath });
+        const criticalCss = await page.evaluate(() => window.CRITICAL_READER_CSS_TEXT);
+        await page.addStyleTag({ content: criticalCss });
+
+        const description = await page.evaluate(() => window.runCriticalCssDescriptionProbe());
+        logProbe(name, 'critical-css description', description);
+        verifyCriticalDescription(name, description);
+
+        const title = await page.evaluate(() => window.runCriticalCssTitleProbe());
+        logProbe(name, 'critical-css title', title);
+        verifyCriticalTitle(name, title);
+    } finally {
+        await page.close();
+    }
+}
+
 async function runEngine(name, browserType) {
     const browser = await browserType.launch({ headless: true });
     try {
-        const page = await browser.newPage();
-        page.setDefaultNavigationTimeout(90_000);
-        await page.route('https://www.youtube.com/**', route => route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: FIXTURE }));
-        await page.goto('https://www.youtube.com/chip-mirror-smoke', { waitUntil: 'domcontentloaded' });
-        await page.addStyleTag({ content: readFileSync(CSS_PATH, 'utf8') });
-        // Exercise the source policy without requiring this focused smoke to
-        // rewrite generated distribution assets.
-        await page.addStyleTag({ content: readFileSync(READER_WORDS_CSS_PATH, 'utf8') });
-        await page.addScriptTag({ path: bundlePath });
-        const result = await page.evaluate(() => window.runChipMirrorProbe());
-        console.log(`${name} chip:`, JSON.stringify(result));
-        if (!result.mirror) fail(`${name}: compact closed control did not use the additive mirror path`, result);
-        if (result.detachedReadingCount < 1) fail(`${name}: compact control reading missing`, result);
-        if (result.visibleReadingCount !== result.detachedReadingCount || result.unsafeHiddenCount !== 0) fail(`${name}: compact control hid a passive reading`, result);
-        if (result.inlineRubyCount !== 0) fail(`${name}: compact control used an in-flow ruby lane`, result);
-        if (Math.abs(result.chipWidthGrowth) > MAX_GEOMETRY_DELTA_PX || Math.abs(result.chipHeightGrowth) > MAX_GEOMETRY_DELTA_PX) fail(`${name}: compact control geometry changed`, result);
-        if (result.readingClipped) fail(`${name}: compact control reading is clipped`, result);
-        if (result.readingBaseOverlap > MAX_FONT_BOX_CONTACT_PX) fail(`${name}: compact control reading intrudes into its base`, result);
-        if (result.intraWordGap > MAX_GAP_PX) fail(`${name}: intra-word gap (新 | しい) too wide`, result);
-        if (result.interWordGap > MAX_GAP_PX) fail(`${name}: inter-word gap (しい | 順) too wide`, result);
-        if (result.visiblePitchUnderlines < result.words) fail(`${name}: compact annotation lost pitch underline`, result);
-        const youtube = await page.evaluate(() => window.runYouTubeGeometryProbe());
-        console.log(`${name} youtube geometry:`, JSON.stringify(youtube));
-        if (!youtube.additiveMirror || youtube.inlineRubyCount !== 0 || youtube.detachedReadingCount < 1) fail(`${name}: YouTube action chip did not use detached additive rendering`, youtube);
-        if (youtube.actionReadingHiddenReason || youtube.actionReadingDisplay === 'none') fail(`${name}: YouTube action chip hid its furigana`, youtube);
-        if (!youtube.nativeTextNodePreserved || youtube.nativeSourceText !== '質問する') fail(`${name}: additive rendering replaced or changed the source text node`, youtube);
-        if (Math.abs(youtube.nativeBaseCenterDelta) > MAX_GEOMETRY_DELTA_PX) fail(`${name}: YouTube action chip base moved vertically`, youtube);
-        if (Math.abs(youtube.chipWidthGrowth) > MAX_GEOMETRY_DELTA_PX || Math.abs(youtube.chipHeightGrowth) > MAX_GEOMETRY_DELTA_PX) fail(`${name}: YouTube action chip geometry changed`, youtube);
-        if (youtube.readingBaseClearance < -MAX_FONT_BOX_CONTACT_PX) fail(`${name}: YouTube action chip furigana intrudes into its base`, youtube);
-        if (!youtube.nativeUnderline || youtube.nativeUnderline === 'transparent' || youtube.nativeUnderline === 'rgba(0, 0, 0, 0)' || youtube.pseudoContent !== 'none') fail(`${name}: YouTube mirror pitch underline is not glyph-anchored native decoration`, youtube);
-        if (youtube.underlineToChipBottom < 4) fail(`${name}: YouTube pitch underline fell to the chip edge`, youtube);
-        if (!youtube.metadataReadingRetained || youtube.metadataReadingHiddenReason) fail(`${name}: close metadata furigana was hidden`, youtube);
-        if (youtube.metadataUnsafeDisplay === 'none' || youtube.metadataSafeDisplay === 'none' || youtube.metadataSafeHiddenReason
-            || youtube.metadataUnsafeAgainDisplay === 'none') {
-            fail(`${name}: metadata furigana did not remain visible across reflow`, youtube);
-        }
-        if (Math.abs(youtube.metadataReflowTopDelta) > MAX_GEOMETRY_DELTA_PX || Math.abs(youtube.metadataReflowHeightDelta) > MAX_GEOMETRY_DELTA_PX) fail(`${name}: metadata reflow probe changed the source row geometry`, youtube);
-        if (Math.abs(youtube.metadataHeightGrowth) > MAX_GEOMETRY_DELTA_PX) fail(`${name}: metadata safety clearance grew its host row`, youtube);
-        const lateClip = await page.evaluate(() => window.runLateClipProbe());
-        console.log(`${name} late clip:`, JSON.stringify(lateClip));
-        if (lateClip.clipStamp !== 'true' || lateClip.overflowStamp !== 'true' || lateClip.overflow !== 'visible') fail(`${name}: late compact clip was not classified and safely opened`, lateClip);
-        if (lateClip.readingDisplay === 'none' || lateClip.readingHiddenReason || lateClip.readingClipped
-            || lateClip.readingBaseOverlap > MAX_FONT_BOX_CONTACT_PX) fail(`${name}: late compact clip did not retain visible furigana`, lateClip);
-        const description = await page.evaluate(() => window.runYouTubeDescriptionClipProbe());
-        console.log(`${name} youtube description:`, JSON.stringify(description));
-        if (!description.additiveMirror || description.inlineRubyCount !== 0 || description.detachedReadingCount < 1) fail(`${name}: truncated description did not use detached additive rendering`, description);
-        if (!description.nativeHostVisible) fail(`${name}: truncated description lost its native fallback text`, description);
-        // The semantic color intentionally inherits so detached readings
-        // follow late page-theme changes. Transparent text-fill is the base
-        // glyph suppression channel.
-        if (!transparentPaint(description.mirrorTextFill)) fail(`${name}: additive description mirror painted a duplicate base copy`, description);
-        if (description.paintedWordContainers !== 0) fail(`${name}: projected word container painted a full-host highlight`, description);
-        if (description.paintedSourceFragments < 1) fail(`${name}: projected source fragments lost the normal highlight`, description);
-        if (description.lateWordVisibility !== 'hidden') fail(`${name}: off-clip description word remained paintable`, description);
-        if (description.visibleWordSummaryOverlaps !== 0) fail(`${name}: description annotation overlapped its summary sibling`, description);
-        if (Math.abs(description.previewHeightGrowth) > MAX_GEOMETRY_DELTA_PX || Math.abs(description.summaryTopShift) > MAX_GEOMETRY_DELTA_PX || Math.abs(description.summaryHeightGrowth) > MAX_GEOMETRY_DELTA_PX) fail(`${name}: expanded-description or summary geometry changed`, description);
-        if (description.previewOverflow !== 'hidden' || description.previewClientHeight !== 112 || description.previewScrollHeight <= description.previewClientHeight || description.mirrorMaxHeight !== '112px') fail(`${name}: authored 112px description clip was not preserved`, description);
-        if (description.mirrorCount !== 1 || description.cycleMirrorCounts.some(count => count !== 1)) fail(`${name}: repeated description disclosure stacked mirrors`, description);
-        const expandedCases = [
-            await page.evaluate(() => window.runExpandedDescriptionProbe()),
-            await page.evaluate(() => window.runSmallExpandedDescriptionProbe()),
-            await page.evaluate(() => window.runNaturalWrappedDescriptionProbe()),
-        ];
-        for (const expanded of expandedCases) {
-            console.log(`${name} expanded description ${expanded.fontSize}:`, JSON.stringify(expanded));
-            if (!expanded.additiveMirror || expanded.detachedReadingCount < 1 || expanded.mirrorCount !== 1) fail(`${name}: expanded prose reading missing`, expanded);
-            if (Number.parseFloat(expanded.reservedLineHeight) < Number.parseFloat(expanded.fontSize) * 2) fail(`${name}: expanded prose did not reserve a furigana lane`, expanded);
-            if (expanded.readingClearance < 1 || expanded.readingClipped) fail(`${name}: expanded prose furigana collides with the preceding line`, expanded);
-            if (expanded.projectedWrapperDecoration !== 'none') fail(`${name}: projected ruby retained the obsolete second underline`, expanded);
-            if (expanded.collapsedLineHeight !== expanded.originalInlineLineHeight) fail(`${name}: collapsed prose kept the expanded reading lane`, expanded);
-            if (Number.parseFloat(expanded.reexpandedLineHeight) < Number.parseFloat(expanded.fontSize) * 2) fail(`${name}: re-expanded prose did not restore its reading lane`, expanded);
-            if (!expanded.originalInlineLineHeight || expanded.restoredInlineLineHeight !== expanded.originalInlineLineHeight) fail(`${name}: expanded prose line-height did not restore cleanly`, expanded);
-        }
-        const singleLineCases = [
-            await page.evaluate(() => window.runSingleLineDescriptionProbe()),
-            await page.evaluate(() => window.runMixedFontSingleLineProbe()),
-        ];
-        for (const singleLine of singleLineCases) {
-            console.log(`${name} single-line description:`, JSON.stringify(singleLine));
-            if (singleLine.currentLineHeight !== singleLine.originalLineHeight || Math.abs(singleLine.heightGrowth) > MAX_GEOMETRY_DELTA_PX) fail(`${name}: single-line content grew a furigana lane`, singleLine);
-        }
-        const compound = await page.evaluate(() => window.runProjectedCompoundPitchProbe());
-        console.log(`${name} projected compound pitch:`, JSON.stringify(compound));
-        if (!compound.componentWord || !compound.projected || compound.fragmentCount < 2) fail(`${name}: wrapped compound pitch word was not source-projected on every line`, compound);
-        if (compound.wordAfterContent !== 'none' || compound.paintedFragments !== compound.fragmentCount) fail(`${name}: projected compound pitch gradient was lost`, compound);
-        if (compound.gradientWidths.some(width => !width || Number.parseFloat(width) <= 0)) fail(`${name}: projected compound gradient geometry is incomplete`, compound);
-        if (compound.gradientOffsets[0] !== '0px' || !compound.gradientOffsets.slice(1).some(offset => Number.parseFloat(offset) < 0)) fail(`${name}: wrapped compound gradient restarted on a later line`, compound);
-        const more = await page.evaluate(() => window.runShowMoreProbe());
-        console.log(`${name} show-more:`, JSON.stringify(more));
-        if (more.detachedReadingCount < 1) fail(`${name}: show-more reading missing`, more);
-        if (more.inlineRubyCount !== 0) fail(`${name}: show-more used an in-flow ruby lane`, more);
-        if (Math.abs(more.widthGrowth) > MAX_GEOMETRY_DELTA_PX || Math.abs(more.heightGrowth) > MAX_GEOMETRY_DELTA_PX) fail(`${name}: show-more geometry changed`, more);
-        if (more.readingClipped) fail(`${name}: show-more reading is clipped`, more);
-        if (more.readingBaseOverlap > MAX_FONT_BOX_CONTACT_PX) fail(`${name}: show-more reading intrudes into its base`, more);
-        const tab = await page.evaluate(() => window.runTabProbe());
-        console.log(`${name} tab:`, JSON.stringify(tab));
-        if (tab.detachedReadingCount < 1) fail(`${name}: tab reading missing`, tab);
-        if (tab.inlineRubyCount !== 0) fail(`${name}: tab used an in-flow ruby lane`, tab);
-        if (Math.abs(tab.widthGrowth) > MAX_GEOMETRY_DELTA_PX || Math.abs(tab.heightGrowth) > MAX_GEOMETRY_DELTA_PX) fail(`${name}: tab geometry changed`, tab);
-        if (tab.readingClipped) fail(`${name}: tab reading is clipped`, tab);
-        if (tab.rtTopClip < 0.75) fail(`${name}: tab reading stayed flush with the chip edge`, tab);
-        if (tab.readingBaseOverlap > MAX_FONT_BOX_CONTACT_PX) fail(`${name}: tab reading intrudes into its base`, tab);
-
-        const criticalPage = await browser.newPage();
-        try {
-            criticalPage.setDefaultNavigationTimeout(90_000);
-            await criticalPage.route('https://www.youtube.com/**', route => route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: CRIT_FIXTURE }));
-            await criticalPage.goto('https://www.youtube.com/critical-css-smoke', { waitUntil: 'domcontentloaded' });
-            await criticalPage.addScriptTag({ path: bundlePath });
-            const criticalCss = await criticalPage.evaluate(() => window.CRITICAL_READER_CSS_TEXT);
-            await criticalPage.addStyleTag({ content: criticalCss });
-
-            const descCritical = await criticalPage.evaluate(() => window.runCriticalCssDescriptionProbe());
-            console.log(`${name} critical-css description:`, JSON.stringify(descCritical));
-            if (descCritical.line1WordCount < 1 || descCritical.line2WordCount < 1) fail(`${name}: critical-css description pitch words missing`, descCritical);
-            for (const word of [...descCritical.words1, ...descCritical.words2]) {
-                if (word.afterContent !== 'none') fail(`${name}: critical-css description pitch ::after was not disabled`, word);
-                if (transparentPaint(word.decorationColor)) fail(`${name}: critical-css description pitch underline is not visible`, word);
-            }
-            if (descCritical.line1ToLine2Clearance <= 0) fail(`${name}: critical-css description pitch underline crowds the following line`, descCritical);
-
-            const titleCritical = await criticalPage.evaluate(() => window.runCriticalCssTitleProbe());
-            console.log(`${name} critical-css title:`, JSON.stringify(titleCritical));
-            if (titleCritical.wordCount < 1) fail(`${name}: critical-css title pitch word missing`, titleCritical);
-            for (const word of titleCritical.words) {
-                if (word.afterContent !== 'none') fail(`${name}: critical-css title pitch ::after was not disabled`, word);
-                if (transparentPaint(word.decorationColor)) fail(`${name}: critical-css title pitch underline is not visible`, word);
-            }
-            if (titleCritical.titleToMetadataClearance <= 0) fail(`${name}: critical-css title pitch underline crowds the metadata row`, titleCritical);
-        } finally {
-            await criticalPage.close();
-        }
+        await runPrimaryProbes(name, browser);
+        await runCriticalCssProbes(name, browser);
     } finally {
         await browser.close();
     }

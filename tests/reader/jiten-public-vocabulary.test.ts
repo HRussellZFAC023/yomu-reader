@@ -316,6 +316,47 @@ describe('JitenPublicVocabularyClient', () => {
         expect(requestJson.mock.calls.filter(([url]) => /\/vocabulary\/\d+\/\d+\/info/u.test(String(url)))).toHaveLength(5);
     });
 
+    it('finishes a compact annotation target when the detail cap lands inside it', async () => {
+        const prefixTerms = ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸', '仮'];
+        const targetTerms = ['並べ替え', '基準'];
+        const allTerms = [...prefixTerms, ...targetTerms];
+        const requestJson = vi.fn(async (url: string) => {
+            if (url.includes('/vocabulary/parse?')) {
+                expect(new URL(url).searchParams.get('text')).toBe(`${prefixTerms.join('\n')}\n並べ替え基準`);
+                return allTerms.map((term, index) => ({
+                    wordId: index + 1,
+                    readingIndex: 0,
+                    originalText: term,
+                }));
+            }
+            const match = url.match(/\/vocabulary\/(\d+)\/0\/info/u);
+            if (match) {
+                const index = Number(match[1]) - 1;
+                const annotatedReadings = [
+                    '甲[こう]', '乙[おつ]', '丙[へい]', '丁[てい]', '戊[ぼ]', '己[き]',
+                    '庚[こう]', '辛[しん]', '壬[じん]', '癸[き]', '仮[かり]',
+                    '並[なら]べ替[か]え', '基[き]準[じゅん]',
+                ];
+                return {
+                    wordId: index + 1,
+                    mainReading: { text: annotatedReadings[index] },
+                    definitions: [{ meanings: [`definition ${index}`] }],
+                    pitchAccents: [0],
+                };
+            }
+            throw new Error(`Unexpected URL: ${url}`);
+        });
+        const client = new JitenPublicVocabularyClient({ requestJsonImpl: requestJson });
+
+        const parsed = await client.parse([...prefixTerms, '並べ替え基準'], { detailLimit: 12 });
+
+        expect(parsed.at(-1)?.map(token => token.card)).toMatchObject([
+            { spelling: '並べ替え', reading: 'ならべかえ', pitchAccent: ['LHHHHH'] },
+            { spelling: '基準', reading: 'きじゅん', pitchAccent: ['LHHH'] },
+        ]);
+        expect(requestJson.mock.calls.filter(([url]) => /\/vocabulary\/\d+\/0\/info/u.test(String(url)))).toHaveLength(13);
+    });
+
     it('backs off after transient upstream failures so cold enrichment can skip Jiten quickly', async () => {
         const requestJson = vi.fn(async () => {
             throw new Error('Public Jiten request failed (503).');

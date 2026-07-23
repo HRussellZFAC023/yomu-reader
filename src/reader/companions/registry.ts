@@ -60,6 +60,12 @@ type ContextLabelFn = typeof import('../study/mining-context').contextLabel;
 type StudySourceControllerClass = typeof import('../study/sources').StudySourceController;
 
 interface YomuCompanionRegistry {
+    annotations?: {
+        clearProjectedReadings: typeof import('../dom/detached-reading-overlay-impl').clearProjectedReadings;
+        clearProjectedReadingsWithin: typeof import('../dom/detached-reading-overlay-impl').clearProjectedReadingsWithin;
+        pruneProjectedReadings: typeof import('../dom/detached-reading-overlay-impl').pruneProjectedReadings;
+        syncProjectedReadings: typeof import('../dom/detached-reading-overlay-impl').syncProjectedReadings;
+    };
     // The Bunpro provider suite (client, SRS adapter, word-state colouring,
     // token importer, definition section) ships in the Yomu Bunpro companion;
     // core keeps only the tiny status-attribute helper and type imports.
@@ -213,6 +219,10 @@ export function yomuAnkiCompanion(): NonNullable<YomuCompanionRegistry['anki']> 
 
 export function yomuVideoCompanionSlot(): YomuCompanionRegistry['video'] | undefined {
     return yomuCompanions().video;
+}
+
+export function yomuAnnotationsCompanion(): YomuCompanionRegistry['annotations'] | undefined {
+    return yomuCompanions().annotations;
 }
 
 export function yomuSubtitlePlayerController(): SubtitlePlayerControllerClass | undefined {

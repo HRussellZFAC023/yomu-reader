@@ -10,6 +10,10 @@ interface AcademyReaderCompanion {
 // core; loading only settings produces a visually present but hollow Reader.
 export const ACADEMY_READER_COMPANIONS = [
     {
+        fileName: 'greasyfork/yomu-annotations.user.js',
+        services: ['annotation-layout', 'pitch'],
+    },
+    {
         fileName: 'greasyfork/yomu-ui-copy.user.js',
         services: ['localization'],
     },

@@ -24,6 +24,10 @@ const CACHE_LIMIT = 800;
 const DETAIL_CONCURRENCY = 4;
 const LOOKUP_DETAIL_LIMIT = 12;
 const PARSE_DETAIL_LIMIT = LOOKUP_DETAIL_LIMIT;
+// A small parse target is one atomic annotation label. When the ordinary
+// detail cap lands inside it, finish that target so compounds cannot render
+// half-enriched; larger targets still stop at the configured limit.
+const PARSE_COMPLETE_TARGET_TOKEN_LIMIT = 6;
 const REQUEST_BACKOFF_INITIAL_MS = 30_000;
 const REQUEST_BACKOFF_MAX_MS = 5 * 60_000;
 const PARSE_TEXT_LIMIT = 1900;
@@ -254,7 +258,8 @@ export class JitenPublicVocabularyClient {
     private async hydrateParsedTokens(result: JPDBToken[][], limit: number): Promise<void> {
         const tokens = result.flat();
         if (!tokens.length || limit <= 0) return;
-        const cards = await this.hydrateCards(tokens.map(token => token.card), { detailLimit: limit });
+        const hydrationCards = parsedCardsWithinTargetBoundary(result, limit);
+        const cards = await this.hydrateCards(hydrationCards, { detailLimit: hydrationCards.length });
         if (!cards.size) return;
         for (const token of tokens) {
             const card = cards.get(parsedCardHydrationKey(token.card));
@@ -388,6 +393,34 @@ export class JitenPublicVocabularyClient {
     private noteSuccess(): void {
         sharedRequestBackoffMs = REQUEST_BACKOFF_INITIAL_MS;
     }
+}
+
+function parsedCardsWithinTargetBoundary(result: readonly JPDBToken[][], limit: number): JPDBCard[] {
+    const detailLimit = normalizedDetailLimit(limit);
+    const selected: JPDBCard[] = [];
+    const seen = new Set<string>();
+    for (const tokens of result) {
+        if (selected.length >= detailLimit) break;
+        const targetCards: JPDBCard[] = [];
+        const targetSeen = new Set<string>();
+        for (const { card } of tokens) {
+            const key = parsedCardHydrationKey(card);
+            if (seen.has(key) || targetSeen.has(key)) continue;
+            targetSeen.add(key);
+            targetCards.push(card);
+        }
+        const remaining = detailLimit - selected.length;
+        const selectedTargetCards = (
+            targetCards.length <= remaining || targetCards.length <= PARSE_COMPLETE_TARGET_TOKEN_LIMIT
+                ? targetCards
+                : targetCards.slice(0, remaining)
+        );
+        for (const card of selectedTargetCards) {
+            selected.push(card);
+            seen.add(parsedCardHydrationKey(card));
+        }
+    }
+    return selected;
 }
 
 function publicJitenCardFromDetail(payload: unknown, requestedTerm: string, fallback: PublicParseWord): JPDBCard | null {

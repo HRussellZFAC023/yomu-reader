@@ -533,20 +533,15 @@ function readableContextPassiveChromeElement(element: HTMLElement): HTMLElement 
 // constraints). Pure: marking side effects are returned to the caller.
 // ---------------------------------------------------------------------------
 
-const RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR = 'ytd-watch-metadata,ytm-watch-metadata,ytm-slim-video-metadata-section-renderer,ytm-expandable-video-description-body-renderer,ytm-structured-description-content-renderer,ytd-comment-view-model,ytd-comments,ytd-transcript-segment-renderer,ytm-transcript-segment-renderer,yt-live-chat-renderer,yt-live-chat-text-message-renderer,yt-live-chat-paid-message-renderer,yt-live-chat-membership-item-renderer';
-export const YOUTUBE_FEEDBACK_CHROME_SELECTOR = 'yt-touch-feedback-shape[aria-hidden=true],yt-interaction[aria-hidden=true]';
 export const COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR = `button,label,summary,${roleSelectors('button,tab,menuitem,option,checkbox,radio,switch,combobox')}`;
 const COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR = 'a[href], [role="link"]';
 const COMPACT_INTERACTIVE_CHROME_SELECTOR = `${COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR}, ${COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR}`;
 const COMPACT_INTERACTIVE_CHROME_CONTEXT_SELECTOR = `header,nav,footer,[role="banner"],[role="navigation"],[role="contentinfo"],[role="dialog"],[role="listbox"],[role="menu"],[role="menubar"],[role="tablist"],[role="toolbar"],[aria-modal="true"],${selectorPairs('account,chooser,dialog,dropdown,login,menu,modal,panel,picker,profile,signin,toolbar')}`;
-const MEDIA_CAROUSEL_CLASS_RE = /banner|carousel|rail|scroll|shelf|slick|slider|splide|swiper/i;
-const EXPLICIT_MEDIA_CAROUSEL_CLASS_RE = /carousel|rail|shelf|slick|slider|splide|swiper/i;
 const COMPACT_INTERACTIVE_CHROME_TEXT_LIMIT = 60;
 const COMPACT_INTERACTIVE_CHROME_MAX_WIDTH = 320;
 const COMPACT_INTERACTIVE_CHROME_MAX_HEIGHT = 96;
 const COMPACT_VERTICAL_CHROME_MAX_WIDTH = 96;
 const COMPACT_VERTICAL_CHROME_MAX_HEIGHT = 360;
-const COMPACT_MEDIA_CONTEXT_ANCESTOR_LIMIT = 10;
 const CONSTRAINED_NOTIFICATION_TEXT_LIMIT = 180;
 const CONSTRAINED_NOTIFICATION_MAX_HEIGHT = 150;
 const CONSTRAINED_NOTIFICATION_SELECTOR = `[role="alert"],[role="status"],[role="region"],[aria-live],${selectorPairs('alert,banner,notice,notification,snackbar,toast', ['class'])},${selectorPairs('assistant,prompt,question', ['class', 'id'])}`;
@@ -563,9 +558,6 @@ export interface CompactScanRubySuppression {
 
 export function compactScanRubySuppression(parent: HTMLElement): CompactScanRubySuppression {
     if (parent.closest(READER_ROOT_SELECTOR)) return { suppress: false, marks: [] };
-    if (shouldSuppressCompactMediaRuby(parent)) {
-        return { suppress: true, marks: [compactMediaPassiveChromeMark(parent)] };
-    }
     const marks: PassiveChromeMark[] = [];
     const notice = compactConstrainedNotificationElement(parent);
     if (notice) marks.push({ element: notice, atomic: true });
@@ -626,15 +618,6 @@ function compactMetadataChromeElement(parent: HTMLElement): HTMLElement | null {
         if (rect.height === 0 || rect.height <= COMPACT_INTERACTIVE_CHROME_MAX_HEIGHT) return current;
     }
     return null;
-}
-
-function compactMediaPassiveChromeMark(parent: HTMLElement): PassiveChromeMark {
-    const mediaLink = parent.closest<HTMLElement>('a[href],button,[role="link"],[role="button"]');
-    const host = mediaLink
-        ?? closestCompactMediaContext(parent)
-        ?? closestMediaCarousel(parent)?.element
-        ?? parent;
-    return { element: host, atomic: Boolean(mediaLink && isNavigationChromeContext(mediaLink)) };
 }
 
 export function applyPassiveChromeMarks(marks: PassiveChromeMark[]): void {
@@ -799,79 +782,12 @@ function hasNotificationActionPeer(container: HTMLElement, textElement: HTMLElem
     return Array.from(row.querySelectorAll<HTMLElement>(selector)).some(action => !container.contains(action));
 }
 
-// Media-card/carousel titles are CONTENT, not chrome: they keep furigana and
-// pitch decorations at rest (clipped rows grow via makeRoomForRubyInCroppedRows).
-// Only YouTube's feedback chrome rows still suppress ruby here — everything
-// else routes through the interactive-chrome checks above.
-function shouldSuppressCompactMediaRuby(parent: HTMLElement): boolean {
-    return isYouTubeFeedbackChromeLinkText(parent);
-}
-
 export function isYouTubeHost(): boolean {
     return isYouTubeAppHostname();
 }
 
-function isYouTubeFeedbackChromeLinkText(parent: HTMLElement): boolean {
-    if (parent.closest(RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR)) return false;
-    return Boolean(parent.closest(YOUTUBE_FEEDBACK_CHROME_SELECTOR));
-}
-
-function closestMediaCarousel(parent: HTMLElement): { element: HTMLElement; explicit: boolean } | null {
-    let current: HTMLElement | null = parent;
-    for (let depth = 0; current && current !== document.body && current !== document.documentElement && depth < 8; depth++) {
-        const match = mediaCarouselMatch(current);
-        if (match && mediaCarouselClipsHorizontally(current) && hasMediaPeer(current, parent)) return { element: current, explicit: match === 'explicit' };
-        current = current.parentElement;
-    }
-    return null;
-}
-
-function mediaCarouselMatch(element: HTMLElement): 'explicit' | 'implicit' | null {
-    const className = elementClassName(element);
-    if (EXPLICIT_MEDIA_CAROUSEL_CLASS_RE.test(className)
-        || element.hasAttribute('data-carousel')
-        || element.hasAttribute('data-slider')) return 'explicit';
-    return MEDIA_CAROUSEL_CLASS_RE.test(className) ? 'implicit' : null;
-}
-
-function mediaCarouselClipsHorizontally(element: HTMLElement): boolean {
-    const style = safeComputedStyle(element);
-    if (style.overflowX === 'hidden' || style.overflowX === 'clip') return true;
-    if ((style.overflowX === 'auto' || style.overflowX === 'scroll') && element.clientWidth > 0) return true;
-    return element.clientWidth > 0 && element.scrollWidth > element.clientWidth + 1;
-}
-
 export function isNavigationChromeContext(element: HTMLElement): boolean {
     return Boolean(element.closest('header,nav,footer,[role="banner"],[role="navigation"],[role="contentinfo"]'));
-}
-
-function closestCompactMediaContext(parent: HTMLElement): HTMLElement | null {
-    let current: HTMLElement | null = parent;
-    for (let depth = 0; current && current !== document.body && current !== document.documentElement && depth < COMPACT_MEDIA_CONTEXT_ANCESTOR_LIMIT; depth++) {
-        if (isReadableProseContext(current)) return null;
-        if (hasMediaPeer(current, parent) && isCompactMediaContext(current)) return current;
-        current = current.parentElement;
-    }
-    return null;
-}
-
-function hasMediaPeer(container: HTMLElement, textElement: HTMLElement): boolean {
-    return Array.from(container.querySelectorAll('img, picture, video, canvas')).some(media => {
-        if (!(media instanceof HTMLElement)) return false;
-        if (media.closest(READER_ROOT_SELECTOR)) return false;
-        return media !== textElement && !textElement.contains(media);
-    });
-}
-
-function isCompactMediaContext(element: HTMLElement): boolean {
-    const style = safeComputedStyle(element);
-    const rect = element.getBoundingClientRect();
-    if (element.matches('a[href], button, [role="link"], [role="button"]')) return true;
-    if (safeQuerySelector(element, 'a[href], button, [role="link"], [role="button"]')) return true;
-    const display = style.display;
-    const structured = display.includes('grid') || display.includes('flex') || display === 'block';
-    const compact = rect.width === 0 || rect.width <= 560;
-    return structured && compact;
 }
 
 // ---------------------------------------------------------------------------
@@ -993,31 +909,11 @@ const INTERACTIVE_LINK_SELECTOR = 'a[href],[role="link"]';
 // chrome-shaped ones. Menus/toolbars/tablists are unambiguous control rows.
 const INTERACTIVE_LINK_CONTEXT_SELECTOR = roleSelectors('menu,menubar,toolbar,tablist');
 
-// Site-unique DOM naming (allowed; the BEHAVIOR decision stays here in the
-// policy): subscribe buttons and mobile watch actions are always controls,
-// even inside content roots. Their readings use the detached channel so the
-// page's authored chip geometry remains unchanged.
-const YOUTUBE_SUBSCRIBE_CONTROL_SELECTOR = 'ytd-subscribe-button-renderer,ytm-subscribe-button-renderer,yt-subscribe-button-view-model,#subscribe-button';
-// Named YouTube content roots still classify their prose/metadata as content,
-// but real controls within them remain interactive-passive below. The hosted
-// docs menu retains its explicit inline-reading exception.
-const YOUTUBE_CONTENT_CHIP_ROOT_SELECTOR = [
-    'ytm-slim-video-metadata-section-renderer',
-    'ytm-expandable-video-description-body-renderer',
-    'ytm-structured-description-content-renderer',
-    // The watch info row (view count / likes) is metadata content despite its
-    // role=button wrapper.
-    'ytd-watch-info-text',
-    'yt-live-chat-viewer-engagement-message-renderer',
-    'yt-live-chat-restricted-participation-renderer',
-    'yt-live-chat-banner-renderer',
-    'yt-live-chat-ticker-renderer',
-].join(',');
-const CONTENT_CHIP_ROOT_SELECTOR = `${YOUTUBE_CONTENT_CHIP_ROOT_SELECTOR},.yomu-hosted-overflow-group`;
+const CONTENT_CHIP_ROOT_SELECTOR = '.yomu-hosted-overflow-group';
 // BookWalker viewer metadata (book title / description in the reader chrome)
 // is reading material; the header context would otherwise classify it as
 // compact chrome. Replaces the old profile-level ruby kill-switch.
-const NAMED_CONTENT_ROOT_SELECTOR = `${RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR},${CONTENT_CHIP_ROOT_SELECTOR},.viewer-title-bar,.bookTitleText,#bookDescription`;
+const NAMED_CONTENT_ROOT_SELECTOR = `${CONTENT_CHIP_ROOT_SELECTOR},.viewer-title-bar,.bookTitleText,#bookDescription`;
 
 export function interactivePassiveControl(element: Element): HTMLElement | null {
     const temporalMetadata = element.closest<HTMLElement>('time,[datetime]');
@@ -1162,11 +1058,6 @@ export function classifyDecoration(element: Element): DecorationState {
     if (reviewCardFrontPredicate?.(element)) return 'skip';
     const control = interactivePassiveControl(element);
     if (control) {
-        if (control.closest(YOUTUBE_SUBSCRIBE_CONTROL_SELECTOR)) return 'interactive-passive';
-        // A real YouTube button remains a control even when it lives inside a
-        // named reading-content root. Detached readings preserve the authored
-        // chip baseline/height; in-flow ruby shifts vertically centred labels.
-        if (control.closest(YOUTUBE_CONTENT_CHIP_ROOT_SELECTOR)) return 'interactive-passive';
         if (control.closest(CONTENT_CHIP_ROOT_SELECTOR)) return 'content-ruby';
         return 'interactive-passive';
     }

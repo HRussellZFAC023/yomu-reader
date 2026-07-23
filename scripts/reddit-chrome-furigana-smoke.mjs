@@ -12,7 +12,7 @@
 // The contract is visible annotation without geometry-changing ruby in controls
 // or compact metadata. Base text stays visible, buttons remain clickable, cards
 // do not grow, and only source ranges that actually contain Japanese are painted.
-import { mkdirSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import {
@@ -333,6 +333,7 @@ async function runEngine(engineName, browser) {
             css: readFileSync(CSS_PATH, 'utf8'),
         });
         await page.goto(`https://www.reddit.com${PAGE_PATH}`, { waitUntil: 'domcontentloaded' });
+        await page.evaluate(installProjectedReadingDiagnostics);
         const baseline = await page.evaluate(snapshotRedditLayout);
         await page.addStyleTag({ path: CSS_PATH });
         for (const companionPath of REQUIRED_COMPANION_PATHS) {
@@ -341,6 +342,7 @@ async function runEngine(engineName, browser) {
         await page.addScriptTag({ path: SCRIPT_PATH });
         const signInFrame = page.frame({ name: 'late-localizing-signin' });
         assert(signInFrame, `${engineName}: late-localizing sign-in frame was not available`);
+        await signInFrame.evaluate(installProjectedReadingDiagnostics);
         await signInFrame.addStyleTag({ path: CSS_PATH });
         for (const companionPath of REQUIRED_COMPANION_PATHS) {
             await signInFrame.addScriptTag({ path: companionPath });
@@ -367,17 +369,30 @@ async function runEngine(engineName, browser) {
             page.locator('#share .jpdb-reader-word').first().waitFor({ timeout: 20_000 }),
             page.locator('#clipped-reader-row .jpdb-reader-additive-text-mirror').waitFor({ timeout: 20_000, state: 'attached' }),
         ]);
-        await page.evaluate(() => {
-            document.querySelector('reddit-header-shell').shadowRoot
-                .querySelector('reddit-join-control').shadowRoot.querySelector('#join').textContent = '参加';
+        const localizedControlBoxes = await page.evaluate(() => {
+            const join = document.querySelector('reddit-header-shell').shadowRoot
+                .querySelector('reddit-join-control').shadowRoot.querySelector('#join');
+            join.textContent = '参加';
             document.querySelector('reddit-feed-control').shadowRoot.querySelector('#feed').textContent = 'フィード';
             const sortRoot = document.querySelector('reddit-sort-control').shadowRoot;
-            sortRoot.querySelector('#sort').textContent = '賛成票率順⌄';
+            const sort = sortRoot.querySelector('#sort');
+            sort.textContent = '賛成票率順⌄';
             sortRoot.querySelector('#menu-heading').textContent = '並べ替え基準';
             sortRoot.querySelector('#menu-hot').textContent = '注目順';
             sortRoot.querySelector('#menu-new').textContent = '新しい順';
             sortRoot.querySelector('#menu-votes').textContent = '賛成票数順';
+            const boxGeometry = element => ({
+                overflow: getComputedStyle(element).overflow,
+                inlineOverflow: element.style.getPropertyValue('overflow'),
+                client: [element.clientWidth, element.clientHeight],
+                scroll: [element.scrollWidth, element.scrollHeight],
+            });
+            return {
+                join: boxGeometry(join),
+                sort: boxGeometry(sort),
+            };
         });
+        Object.assign(baseline.controlBoxes, localizedControlBoxes);
         await signInFrame.locator('#google-signin').evaluate(button => {
             button.textContent = 'Google で続ける';
         });
@@ -389,17 +404,30 @@ async function runEngine(engineName, browser) {
             page.locator('.jpdb-reader-fab').waitFor({ timeout: 20_000 }),
             signInFrame.locator('#google-signin .jpdb-reader-word[data-expression="続ける"]').waitFor({ timeout: 20_000 }),
         ]);
-        const lateLocalizedSignIn = await signInFrame.locator('#google-signin').evaluate(button => ({
-            text: button.textContent?.trim() ?? '',
-            expressions: [...button.querySelectorAll('.jpdb-reader-word')]
-                .map(word => word.dataset.expression ?? ''),
-            words: button.querySelectorAll('.jpdb-reader-word').length,
-            furigana: button.querySelectorAll('.jpdb-reader-furi').length,
-            pitchWords: button.querySelectorAll('.jpdb-reader-word[data-pitch-class]:not([data-pitch-class="unknown"])').length,
-        }));
+        await signInFrame.waitForFunction(() => {
+            const button = document.querySelector('#google-signin');
+            const readings = window.__yomuProjectedReadingDiagnostics(button);
+            return readings.sources.length > 0
+                && readings.associations.length === readings.sources.length;
+        }, null, { timeout: 20_000 });
+        const lateLocalizedSignIn = await signInFrame.locator('#google-signin').evaluate(button => {
+            const readings = window.__yomuProjectedReadingDiagnostics(button);
+            return {
+                text: button.textContent?.trim() ?? '',
+                expressions: [...button.querySelectorAll('.jpdb-reader-word')]
+                    .map(word => word.dataset.expression ?? ''),
+                words: button.querySelectorAll('.jpdb-reader-word').length,
+                sourceFurigana: readings.sources.length,
+                sourceFuriganaVisible: readings.sources.filter(readings.visible).length,
+                projectedFurigana: readings.associations.length,
+                pitchWords: button.querySelectorAll('.jpdb-reader-word[data-pitch-class]:not([data-pitch-class="unknown"])').length,
+            };
+        });
         assert(lateLocalizedSignIn.expressions.includes('続ける')
             && lateLocalizedSignIn.words > 0
-            && lateLocalizedSignIn.furigana > 0
+            && lateLocalizedSignIn.sourceFurigana > 0
+            && lateLocalizedSignIn.sourceFuriganaVisible === 0
+            && lateLocalizedSignIn.projectedFurigana === lateLocalizedSignIn.sourceFurigana
             && lateLocalizedSignIn.pitchWords > 0,
         `${engineName}: a Latin embedded control was not enriched after Japanese localization`, lateLocalizedSignIn);
         await page.waitForTimeout(400);
@@ -484,12 +512,8 @@ async function runEngine(engineName, browser) {
         const screenshot = path.join(ARTIFACTS, `reddit-chrome-furigana-smoke-${engineName}.png`);
         await page.screenshot({ path: screenshot, fullPage: true });
         assertRedditRegression(engineName, baseline, snapshot, touchHover, pageErrors);
-        // The expanded 56px safety rows deliberately keep the opaque menu
-        // open for the regression snapshot. Close that fixture surface before
-        // exercising unrelated fixed popovers near the same mobile corner.
-        await page.evaluate(() => {
-            document.querySelector('reddit-sort-control').shadowRoot.querySelector('#sort-menu').hidden = true;
-        });
+        // snapshotRedditRegression closes the opaque menu after checking its
+        // own labels so the background-label assertions prove restoration.
         const fixedChrome = await exerciseCompensatedFixedChrome(page);
         assertCompensatedFixedChrome(engineName, fixedChrome);
         const videoAvoidance = await exerciseCompensatedVideoAvoidance(page);
@@ -711,7 +735,14 @@ function userscriptCompanionPaths(userscriptPath) {
             if (!match) return [];
             const fileName = path.basename(match[1]);
             assert(fileName === match[1], `Unsafe userscript companion path: ${match[1]}`);
-            return [path.join(ROOT, 'docs/public/greasyfork', fileName)];
+            const hostedPath = path.join(ROOT, 'docs/public/greasyfork', fileName);
+            if (existsSync(hostedPath)) return [hostedPath];
+
+            // A source-validation worktree can contain a freshly built core
+            // before the hosted, content-addressed copies are synchronized.
+            // Exercise the matching local companion rather than a stale hash.
+            const canonicalName = fileName.replace(/\.[a-f0-9]{12}(?=\.user\.js$)/u, '');
+            return [path.join(ROOT, 'dist/greasyfork', canonicalName)];
         });
 }
 
@@ -1408,6 +1439,56 @@ function rectanglesIntersect(left, right) {
         && left.top < right.bottom && left.bottom > right.top;
 }
 
+function installProjectedReadingDiagnostics() {
+    window.__yomuProjectedReadingDiagnostics = root => {
+        const visible = element => {
+            const style = getComputedStyle(element);
+            const rect = element.getBoundingClientRect();
+            return style.display !== 'none'
+                && style.visibility !== 'hidden'
+                && rect.width > 0
+                && rect.height > 0;
+        };
+        const sources = [...root.querySelectorAll(
+            '.jpdb-reader-detached-furi:not([data-yomu-projected-reading="true"])',
+        )];
+        const clones = [...document.querySelectorAll('[data-yomu-projected-reading="true"]')];
+        const available = new Set(clones.filter(visible));
+        const associations = [];
+        for (const source of sources) {
+            const base = source.closest('.jpdb-reader-detached-ruby')
+                ?? source.closest('.jpdb-reader-word');
+            if (!base) continue;
+            const baseRect = base.getBoundingClientRect();
+            const candidate = [...available]
+                .filter(clone => clone.textContent === source.textContent)
+                .map(clone => {
+                    const rect = clone.getBoundingClientRect();
+                    return {
+                        clone,
+                        score: Math.abs((rect.left + rect.right - baseRect.left - baseRect.right) / 2)
+                            + Math.abs(rect.bottom - baseRect.top),
+                    };
+                })
+                .sort((left, right) => left.score - right.score)[0]?.clone;
+            if (!candidate) continue;
+            available.delete(candidate);
+            const cloneRect = candidate.getBoundingClientRect();
+            const word = source.closest('.jpdb-reader-word');
+            associations.push({
+                source,
+                clone: candidate,
+                base,
+                sourceSurface: word?.dataset.surface ?? word?.dataset.expression ?? '',
+                sourceRange: `${word?.dataset.tokenStart ?? ''}:${word?.dataset.tokenEnd ?? ''}`,
+                centerDelta: (cloneRect.left + cloneRect.right - baseRect.left - baseRect.right) / 2,
+                baselineDelta: cloneRect.bottom - baseRect.top,
+            });
+        }
+        return { sources, clones, associations, visible };
+    };
+}
+
 
 function mockedYomuRequest(request, requestLog) {
     return mockJpdbApiRequest(request, requestLog, VOCABULARY, {
@@ -1422,13 +1503,21 @@ function snapshotRedditLayout() {
     const join = document.querySelector('reddit-header-shell').shadowRoot
         .querySelector('reddit-join-control').shadowRoot.querySelector('#join');
     const sort = document.querySelector('reddit-sort-control').shadowRoot.querySelector('#sort');
+    const create = document.querySelector('#create-post');
+    const share = document.querySelector('#share');
     return {
-        createHeight: document.querySelector('#create-post').getBoundingClientRect().height,
-        shareHeight: document.querySelector('#share').getBoundingClientRect().height,
+        createHeight: create.getBoundingClientRect().height,
+        shareHeight: share.getBoundingClientRect().height,
         cardHeight: card.height,
         cardToPostGap: post.top - card.bottom,
         joinTextCenterOffset: nativeTextCenterOffset(join),
         sortTextCenterOffset: nativeTextCenterOffset(sort),
+        controlBoxes: {
+            create: boxGeometry(create),
+            share: boxGeometry(share),
+            join: boxGeometry(join),
+            sort: boxGeometry(sort),
+        },
     };
 
     function nativeTextCenterOffset(element) {
@@ -1440,10 +1529,19 @@ function snapshotRedditLayout() {
         const box = element.getBoundingClientRect();
         return (text.top + text.bottom - box.top - box.bottom) / 2;
     }
+
+    function boxGeometry(element) {
+        return {
+            overflow: getComputedStyle(element).overflow,
+            inlineOverflow: element.style.getPropertyValue('overflow'),
+            client: [element.clientWidth, element.clientHeight],
+            scroll: [element.scrollWidth, element.scrollHeight],
+        };
+    }
 }
 
 async function snapshotRedditRegression(page) {
-    const specs = {
+    const backgroundSpecs = {
         create: ['#create-post', '投稿を作成'],
         join: ['#join', '参加'],
         feed: ['#feed', 'フィード'],
@@ -1453,26 +1551,37 @@ async function snapshotRedditRegression(page) {
         time: ['#post-meta', '時間前'],
         share: ['#share', '共有'],
         foreign: ['#foreign-jp', '共有'],
-        menuHeading: ['#menu-heading', '並べ替え基準'],
-        menuHot: ['#menu-hot', '注目順'],
-        menuNew: ['#menu-new', '新しい順'],
-        menuVotes: ['#menu-votes', '賛成票数順'],
         lateJoin: ['#late-join', '参加'],
         lateHydrate: ['#late-hydrate', 'フィード'],
         lateUpgrade: ['#late-upgrade', '並べ替え基準'],
     };
-    const labelEntries = await Promise.all(Object.entries(specs).map(async ([name, [selector, expected]]) => [
+    const menuSpecs = {
+        menuHeading: ['#menu-heading', '並べ替え基準'],
+        menuHot: ['#menu-hot', '注目順'],
+        menuNew: ['#menu-new', '新しい順'],
+        menuVotes: ['#menu-votes', '賛成票数順'],
+    };
+    const menuLabelEntries = await Promise.all(Object.entries(menuSpecs).map(async ([name, [selector, expected]]) => [
         name,
         await page.locator(selector).evaluate(snapshotRedditElement, expected),
     ]));
-    const [subreddit, punctuation, summary, menuSafety] = await Promise.all([
+    const menuSafety = await page.locator('reddit-sort-control').evaluate(snapshotSortMenuSafety);
+
+    await page.evaluate(async () => {
+        document.querySelector('reddit-sort-control').shadowRoot.querySelector('#sort-menu').hidden = true;
+        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    });
+    const backgroundLabelEntries = await Promise.all(Object.entries(backgroundSpecs).map(async ([name, [selector, expected]]) => [
+        name,
+        await page.locator(selector).evaluate(snapshotRedditElement, expected),
+    ]));
+    const [subreddit, punctuation, summary] = await Promise.all([
         page.locator('#subreddit').evaluate(snapshotRedditElement, null),
         page.locator('#punctuation').evaluate(snapshotRedditElement, null),
         page.evaluate(snapshotRedditPageSummary),
-        page.locator('reddit-sort-control').evaluate(snapshotSortMenuSafety),
     ]);
     return {
-        labels: Object.fromEntries(labelEntries),
+        labels: Object.fromEntries([...backgroundLabelEntries, ...menuLabelEntries]),
         rejected: {
             subredditWords: subreddit.wordCount,
             punctuationWords: punctuation.wordCount,
@@ -1504,12 +1613,10 @@ function snapshotRedditElement(element, expected) {
         const style = getComputedStyle(word);
         return [style.visibility !== 'hidden', style.opacity !== '0', wordRect.width > 0, wordRect.height > 0].every(Boolean);
     }).every(Boolean);
-    const readings = [...element.querySelectorAll('rt,.jpdb-reader-detached-furi')];
-    const visibleReadings = readings.filter(reading => {
-        const style = getComputedStyle(reading);
-        const box = reading.getBoundingClientRect();
-        return style.display !== 'none' && style.visibility !== 'hidden' && box.width > 0 && box.height > 0;
-    });
+    const projection = window.__yomuProjectedReadingDiagnostics(element);
+    const readings = projection.sources;
+    const projectedReadings = projection.associations.map(association => association.clone);
+    const visibleReadings = projectedReadings.filter(projection.visible);
     const decoratedWords = words.filter(word => {
         const surfaces = [word, ...word.querySelectorAll('.jpdb-reader-source-fragment')];
         return surfaces.some(surface => {
@@ -1566,26 +1673,29 @@ function snapshotRedditElement(element, expected) {
             && paintIsVisible(effectiveNativePaint),
         expressions: words.map(word => word.getAttribute('data-expression')),
         readingCount: readings.length,
+        projectedReadingCount: projectedReadings.length,
         visibleReadingCount: visibleReadings.length,
-        hiddenReadingCount: readings.length - visibleReadings.length,
-        safetyHiddenReadingCount: readings.filter(reading => reading.dataset.yomuDetachedReadingHidden === 'unsafe-lane').length,
-        hiddenReadingReasons: readings
-            .filter(reading => !visibleReadings.includes(reading))
-            .map(reading => reading.dataset.yomuDetachedReadingHidden ?? ''),
+        sourceReadingVisibleCount: readings.filter(projection.visible).length,
+        hiddenReadingCount: readings.length - projectedReadings.length,
         readingTexts: readings.map(reading => reading.textContent ?? ''),
+        projectedReadings: projection.associations.map(association => ({
+            text: association.clone.textContent ?? '',
+            sourceSurface: association.sourceSurface,
+            sourceRange: association.sourceRange,
+            centerDelta: association.centerDelta,
+            baselineDelta: association.baselineDelta,
+        })),
         nativeRubyCount: element.querySelectorAll('rt').length,
-        readingClipped: readings.some(readingIsClipped),
-        readingClipAncestors: readings.flatMap(readingClipAncestors),
-        readingBaseOverlap: readingBaseOverlap(element),
-        readingStyles: readings.map(reading => ({
-            lift: reading.style.getPropertyValue('--jpdb-reader-detached-lift'),
-            marginLeft: reading.style.marginLeft,
-            transform: getComputedStyle(reading).transform,
-            rect: reading.getBoundingClientRect().toJSON(),
+        readingClipped: projectedReadings.some(readingIsClipped),
+        readingClipAncestors: projectedReadings.flatMap(readingClipAncestors),
+        readingBaseOverlap: readingBaseOverlap(projection.associations),
+        readingStyles: projection.associations.map(association => ({
+            transform: getComputedStyle(association.clone).transform,
+            rect: association.clone.getBoundingClientRect().toJSON(),
+            sourceRect: association.base.getBoundingClientRect().toJSON(),
         })),
         overflow: getComputedStyle(element).overflow,
         inlineOverflow: element.style.getPropertyValue('overflow'),
-        detachedOverflowStamp: element.dataset.yomuDetachedReadingOverflow ?? '',
         client: [element.clientWidth, element.clientHeight],
         scroll: [element.scrollWidth, element.scrollHeight],
         rubyRoomCount: element.querySelectorAll('[data-yomu-ruby-room]').length
@@ -1629,16 +1739,14 @@ function snapshotRedditElement(element, expected) {
         return clipped;
     }
 
-    function readingBaseOverlap(root) {
-        const bases = [...root.querySelectorAll('.jpdb-reader-ruby-base')].map(base => base.getBoundingClientRect());
+    function readingBaseOverlap(associations) {
         let overlap = 0;
-        for (const reading of root.querySelectorAll('rt,.jpdb-reader-detached-furi')) {
-            const r = reading.getBoundingClientRect();
-            for (const b of bases) {
-                const width = Math.min(r.right, b.right) - Math.max(r.left, b.left);
-                const height = Math.min(r.bottom, b.bottom) - Math.max(r.top, b.top);
-                if (width > 0.5 && height > 0.5) overlap = Math.max(overlap, height);
-            }
+        for (const { clone, base } of associations) {
+            const reading = clone.getBoundingClientRect();
+            const source = base.getBoundingClientRect();
+            const width = Math.min(reading.right, source.right) - Math.max(reading.left, source.left);
+            const height = Math.min(reading.bottom, source.bottom) - Math.max(reading.top, source.top);
+            if (width > 0.5 && height > 0.5) overlap = Math.max(overlap, height);
         }
         return overlap;
     }
@@ -1646,24 +1754,24 @@ function snapshotRedditElement(element, expected) {
 
 function snapshotSortMenuSafety(host) {
     const menu = host.shadowRoot.querySelector('#sort-menu');
-    const readings = [...menu.querySelectorAll('.jpdb-reader-detached-furi')];
-    const visible = readings.filter(reading => {
-        const style = getComputedStyle(reading);
-        const rect = reading.getBoundingClientRect();
-        return style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0;
-    });
-    const bases = [...menu.querySelectorAll('.jpdb-reader-ruby-base')]
-        .filter(base => getComputedStyle(base).visibility !== 'hidden');
+    const projection = window.__yomuProjectedReadingDiagnostics(menu);
+    const readings = projection.sources;
+    const visible = projection.associations.map(association => association.clone)
+        .filter(projection.visible);
+    const menuClones = new Set(projection.associations.map(association => association.clone));
+    const menuRect = menu.getBoundingClientRect();
+    const backgroundReadingLeaks = [...document.querySelectorAll('[data-yomu-projected-reading="true"]')]
+        .filter(clone => !menuClones.has(clone)
+            && projection.visible(clone)
+            && rectanglesOverlap(clone.getBoundingClientRect(), menuRect));
     let readingBaseOverlap = 0;
     let readingReadingOverlap = 0;
-    for (const reading of visible) {
-        const readingRect = reading.getBoundingClientRect();
-        for (const base of bases) {
-            const baseRect = base.getBoundingClientRect();
-            const width = Math.min(readingRect.right, baseRect.right) - Math.max(readingRect.left, baseRect.left);
-            const height = Math.min(readingRect.bottom, baseRect.bottom) - Math.max(readingRect.top, baseRect.top);
-            if (width > 0.5 && height > 0.5) readingBaseOverlap = Math.max(readingBaseOverlap, height);
-        }
+    for (const { clone, base } of projection.associations) {
+        const readingRect = clone.getBoundingClientRect();
+        const baseRect = base.getBoundingClientRect();
+        const width = Math.min(readingRect.right, baseRect.right) - Math.max(readingRect.left, baseRect.left);
+        const height = Math.min(readingRect.bottom, baseRect.bottom) - Math.max(readingRect.top, baseRect.top);
+        if (width > 0.5 && height > 0.5) readingBaseOverlap = Math.max(readingBaseOverlap, height);
     }
     for (let index = 0; index < visible.length; index += 1) {
         for (let other = index + 1; other < visible.length; other += 1) {
@@ -1672,17 +1780,25 @@ function snapshotSortMenuSafety(host) {
             }
         }
     }
-    const hidden = readings.filter(reading => !visible.includes(reading));
     return {
         wordCount: menu.querySelectorAll('.jpdb-reader-word').length,
         readingCount: readings.length,
+        projectedReadingCount: projection.associations.length,
         visibleReadingCount: visible.length,
-        hiddenReadingCount: hidden.length,
-        hiddenReadingsKeepWord: hidden.every(reading => Boolean(reading.closest('.jpdb-reader-word'))),
-        hiddenReadingsKeepPitch: hidden.every(reading => Boolean(reading.closest('.jpdb-reader-word')?.dataset.pitchClass)),
+        sourceReadingVisibleCount: readings.filter(projection.visible).length,
+        hiddenReadingCount: readings.length - projection.associations.length,
         readingTexts: readings.map(reading => reading.textContent ?? ''),
+        projectedReadings: projection.associations.map(association => ({
+            text: association.clone.textContent ?? '',
+            sourceSurface: association.sourceSurface,
+            sourceRange: association.sourceRange,
+            centerDelta: association.centerDelta,
+            baselineDelta: association.baselineDelta,
+        })),
         readingBaseOverlap,
         readingReadingOverlap,
+        backgroundReadingLeakCount: backgroundReadingLeaks.length,
+        backgroundReadingLeakTexts: backgroundReadingLeaks.map(reading => reading.textContent ?? ''),
     };
 
     function rectanglesOverlap(left, right) {
@@ -1712,29 +1828,41 @@ async function snapshotTouchHoverSafety(page) {
 function touchHoverState(element) {
     const mirror = element.querySelector('.jpdb-reader-text-mirror');
     const style = getComputedStyle(element);
-    const readings = mirror ? [...mirror.querySelectorAll('rt,.jpdb-reader-detached-furi')] : [];
+    const projection = window.__yomuProjectedReadingDiagnostics(mirror ?? element);
+    const readings = projection.sources;
+    const projected = projection.associations.map(association => association.clone);
     const paintIsVisible = value => value !== 'transparent'
         && !/^rgba\([^)]*,\s*0(?:\.0+)?\s*\)$/.test(value)
         && !/\/\s*0(?:\.0+)?%?\s*\)$/.test(value);
-    const bases = mirror ? [...mirror.querySelectorAll('.jpdb-reader-ruby-base')].map(base => base.getBoundingClientRect()) : [];
-    const readingBaseOverlap = readings.reduce((overlap, reading) => {
-        const r = reading.getBoundingClientRect();
-        return bases.reduce((largest, b) => {
-            const width = Math.min(r.right, b.right) - Math.max(r.left, b.left);
-            const height = Math.min(r.bottom, b.bottom) - Math.max(r.top, b.top);
-            return width > 0.5 && height > 0.5 ? Math.max(largest, height) : largest;
-        }, overlap);
+    const readingBaseOverlap = projection.associations.reduce((overlap, { clone, base }) => {
+        const reading = clone.getBoundingClientRect();
+        const source = base.getBoundingClientRect();
+        const width = Math.min(reading.right, source.right) - Math.max(reading.left, source.left);
+        const height = Math.min(reading.bottom, source.bottom) - Math.max(reading.top, source.top);
+        return width > 0.5 && height > 0.5 ? Math.max(overlap, height) : overlap;
     }, 0);
     return {
         height: element.getBoundingClientRect().height,
         mirrorVisibility: mirror ? getComputedStyle(mirror).visibility : '',
-        visibleRuby: readings.filter(reading => getComputedStyle(reading).display !== 'none' && getComputedStyle(reading).visibility !== 'hidden').length,
-        detachedReadings: mirror?.querySelectorAll('.jpdb-reader-detached-furi').length ?? 0,
-        safetyHiddenReadings: readings.filter(reading => reading.dataset.yomuDetachedReadingHidden === 'unsafe-lane').length,
+        visibleRuby: projected.filter(projection.visible).length,
+        detachedReadings: readings.length,
+        projectedReadings: projection.associations.length,
+        sourceReadingVisibleCount: readings.filter(projection.visible).length,
+        projectedAssociations: projection.associations.map(association => ({
+            text: association.clone.textContent ?? '',
+            sourceSurface: association.sourceSurface,
+            sourceRange: association.sourceRange,
+            centerDelta: association.centerDelta,
+            baselineDelta: association.baselineDelta,
+        })),
         readingBaseOverlap,
         wordWhiteSpace: mirror?.querySelector('.jpdb-reader-word') ? getComputedStyle(mirror.querySelector('.jpdb-reader-word')).whiteSpace : '',
         mirrorClientWidth: mirror?.clientWidth ?? 0,
         mirrorScrollWidth: mirror?.scrollWidth ?? 0,
+        overflow: style.overflow,
+        inlineOverflow: element.style.getPropertyValue('overflow'),
+        client: [element.clientWidth, element.clientHeight],
+        scroll: [element.scrollWidth, element.scrollHeight],
         hostVisibility: style.visibility,
         hostPaintVisible: paintIsVisible(style.color) || paintIsVisible(style.webkitTextFillColor),
         color: style.color,
@@ -1746,6 +1874,9 @@ function snapshotRedditPageSummary() {
     const card = document.querySelector('#highlight-card').getBoundingClientRect();
     const post = document.querySelector('#post').getBoundingClientRect();
     const puck = document.querySelector('.jpdb-reader-fab');
+    const join = document.querySelector('reddit-header-shell').shadowRoot
+        .querySelector('reddit-join-control').shadowRoot.querySelector('#join');
+    const sort = document.querySelector('reddit-sort-control').shadowRoot.querySelector('#sort');
     const pageScale = outerWidth / innerWidth;
     const rawPuckRect = puck.getBoundingClientRect();
     const measuredPuckScale = puck.offsetWidth ? rawPuckRect.width / puck.offsetWidth : 1;
@@ -1758,6 +1889,7 @@ function snapshotRedditPageSummary() {
     const radialRects = radialItems.map(item => scalePlainRect(item.getBoundingClientRect(), compensatedRectScale));
     const radialCenters = radialRects.map(rect => ({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }));
     const visualViewportBottom = ((visualViewport?.offsetTop ?? 0) + (visualViewport?.height ?? innerHeight)) * pageScale;
+    const readingProjection = window.__yomuProjectedReadingDiagnostics(document);
     return {
         layout: {
             fixture: document.documentElement.dataset.yomuFixture,
@@ -1772,6 +1904,15 @@ function snapshotRedditPageSummary() {
             visualViewportScale: visualViewport?.scale ?? null,
             scrollWidth: document.documentElement.scrollWidth,
             rubyRoomCount: document.querySelectorAll('[data-yomu-ruby-room]').length,
+            projectedReadingCloneCount: readingProjection.clones.length,
+            visibleProjectedReadingCloneCount: readingProjection.clones.filter(readingProjection.visible).length,
+            detachedReadingOverlayCount: document.querySelectorAll('.jpdb-reader-detached-reading-overlay').length,
+            controlBoxes: {
+                create: boxGeometry(document.querySelector('#create-post')),
+                share: boxGeometry(document.querySelector('#share')),
+                join: boxGeometry(join),
+                sort: boxGeometry(sort),
+            },
         },
         overlay: {
             hostname: location.hostname,
@@ -1816,6 +1957,15 @@ function snapshotRedditPageSummary() {
             bottom: rect.bottom * scale,
             width: rect.width * scale,
             height: rect.height * scale,
+        };
+    }
+
+    function boxGeometry(element) {
+        return {
+            overflow: getComputedStyle(element).overflow,
+            inlineOverflow: element.style.getPropertyValue('overflow'),
+            client: [element.clientWidth, element.clientHeight],
+            scroll: [element.scrollWidth, element.scrollHeight],
         };
     }
 }
@@ -1876,7 +2026,7 @@ function assertRedditRegression(engineName, baseline, snapshot, touchHover, page
     assertOverlayScaleIsolation(engineName, snapshot.overlay);
     assertAnnotatedLabels(engineName, snapshot.labels);
     assertRejectedSourceRanges(engineName, snapshot.rejected);
-    assertStableFixtureLayout(engineName, baseline, snapshot.layout);
+    assertStableFixtureLayout(engineName, baseline, snapshot.layout, snapshot.menuSafety);
     assertSortMenuSafety(engineName, snapshot.menuSafety);
     assertForeignTextVisibility(engineName, snapshot.labels.foreign);
     assertControlBehavior(engineName, baseline, snapshot);
@@ -1905,8 +2055,13 @@ function assertAnnotatedLabels(engineName, labels) {
         if (name === 'feed' || name === 'lateHydrate') {
             assert(label.readingCount === 0, `${engineName}: ${name} duplicated an identical kana reading`, label);
         }
-        assert(label.visibleReadingCount === label.readingCount,
-            `${engineName}: ${name} retained hidden furigana`, label);
+        assert(label.sourceReadingVisibleCount === 0,
+            `${engineName}: ${name} source furigana entered page layout`, label);
+        assert(label.projectedReadingCount === label.readingCount
+            && label.visibleReadingCount === label.projectedReadingCount,
+        `${engineName}: ${name} lost a projected furigana clone`, label);
+        assert(projectedReadingsAreAligned(label.projectedReadings),
+            `${engineName}: ${name} projected furigana lost its source range`, label);
         const expectedPitchExpressions = label.expressions.filter(expression => MOCK_PITCH_EXPRESSIONS.has(expression));
         assert(expectedPitchExpressions.length > 0,
             `${engineName}: ${name} fixture has no pitch-bearing lexical expression`, label);
@@ -1927,8 +2082,8 @@ function assertAnnotatedLabels(engineName, labels) {
         assert(label.readingClipped === false, `${engineName}: ${name} furigana is clipped`, label);
         assert(label.readingBaseOverlap <= MAX_FONT_BOX_CONTACT_PX,
             `${engineName}: ${name} furigana intrudes into base text`, label);
-        assert(label.hiddenReadingCount === 0 && label.safetyHiddenReadingCount === 0,
-            `${engineName}: ${name} hid passive furigana`, label);
+        assert(label.hiddenReadingCount === 0,
+            `${engineName}: ${name} has source furigana without projected paint`, label);
         assert(label.rubyRoomCount === 0, `${engineName}: ${name} reserved ruby room`, label);
         assert(label.visibleWords, `${engineName}: ${name} annotation base is clipped or invisible`, label);
         for (const fragment of label.expected.split('・')) {
@@ -1937,7 +2092,8 @@ function assertAnnotatedLabels(engineName, labels) {
     }
     for (const name of ['create', 'join', 'sort', 'time', 'share']) {
         const label = labels[name];
-        assert(label.visibleReadingCount === label.readingCount,
+        assert(label.projectedReadingCount === label.readingCount
+            && label.visibleReadingCount === label.projectedReadingCount,
             `${engineName}: ${name} hid furigana`, label);
     }
 }
@@ -1948,29 +2104,49 @@ function assertRejectedSourceRanges(engineName, rejected) {
     assert(rejected.subredditText === 'r/singularity' && rejected.punctuationText === '…', `${engineName}: rejected source text changed`, rejected);
 }
 
-function assertStableFixtureLayout(engineName, baseline, layout) {
+function assertStableFixtureLayout(engineName, baseline, layout, menuSafety) {
     assert(Math.abs(layout.createHeight - baseline.createHeight) <= 1, `${engineName}: create button height changed`, { baseline, layout });
     assert(Math.abs(layout.shareHeight - baseline.shareHeight) <= 1, `${engineName}: share button height changed`, { baseline, layout });
     assert(Math.abs(layout.cardHeight - baseline.cardHeight) <= 1, `${engineName}: highlight card grew`, { baseline, layout });
     assert(layout.cardToPostGap <= baseline.cardToPostGap + 2, `${engineName}: a large gap appeared below the card`, { baseline, layout });
     assert(layout.scrollWidth <= layout.viewportWidth + 2, `${engineName}: annotations caused horizontal overflow`, layout);
     assert(layout.rubyRoomCount === 0, `${engineName}: Reddit fixture received ruby-room growth`, layout);
+    assert(layout.projectedReadingCloneCount > 0
+        && layout.projectedReadingCloneCount === layout.visibleProjectedReadingCloneCount
+            + menuSafety.projectedReadingCount
+        && layout.detachedReadingOverlayCount === 1,
+    `${engineName}: projected reading inventory did not retain exactly the closed menu clones`, layout);
+    for (const name of ['create', 'share', 'join', 'sort']) {
+        assert(boxGeometryMatches(baseline.controlBoxes[name], layout.controlBoxes[name]),
+            `${engineName}: ${name} changed authored overflow or scroll geometry`, {
+                before: baseline.controlBoxes[name],
+                after: layout.controlBoxes[name],
+            });
+    }
 }
 
 function assertSortMenuSafety(engineName, menuSafety) {
     assert(menuSafety.wordCount >= 4, `${engineName}: dynamically revealed shadow menu was not annotated`, menuSafety);
-    assert(menuSafety.hiddenReadingCount === 0 && menuSafety.visibleReadingCount === menuSafety.readingCount,
-        `${engineName}: a realistically spaced opaque menu retained hidden furigana`, menuSafety);
+    assert(menuSafety.sourceReadingVisibleCount === 0
+        && menuSafety.hiddenReadingCount === 0
+        && menuSafety.projectedReadingCount === menuSafety.readingCount
+        && menuSafety.visibleReadingCount === menuSafety.projectedReadingCount,
+    `${engineName}: a realistically spaced opaque menu lost projected furigana`, menuSafety);
+    assert(projectedReadingsAreAligned(menuSafety.projectedReadings),
+        `${engineName}: sort-menu projected furigana lost its source range`, menuSafety);
     assert(menuSafety.readingBaseOverlap <= MAX_FONT_BOX_CONTACT_PX && menuSafety.readingReadingOverlap === 0,
         `${engineName}: visible menu furigana intrudes into another reading or base line`, menuSafety);
+    assert(menuSafety.backgroundReadingLeakCount === 0,
+        `${engineName}: a page reading painted through the opaque sort menu`, menuSafety);
     assert(menuSafety.readingTexts.every(text => text && !text.includes('…') && !text.includes('...')),
         `${engineName}: unsafe furigana was truncated instead of preserved in full`, menuSafety);
 }
 
 function assertForeignTextVisibility(engineName, foreignLabel) {
-    assert(foreignLabel.visibleReadingCount === foreignLabel.readingCount
-        && foreignLabel.hiddenReadingCount === 0
-        && foreignLabel.safetyHiddenReadingCount === 0,
+    assert(foreignLabel.sourceReadingVisibleCount === 0
+        && foreignLabel.projectedReadingCount === foreignLabel.readingCount
+        && foreignLabel.visibleReadingCount === foreignLabel.projectedReadingCount
+        && foreignLabel.hiddenReadingCount === 0,
     `${engineName}: adjacent foreign text caused passive furigana to disappear`, foreignLabel);
     assert(foreignLabel.pitchWordCount > 0,
         `${engineName}: foreign-text adjacency removed pitch annotation`, foreignLabel);
@@ -1999,7 +2175,9 @@ function assertCoarsePointerInventory(engineName, touchHover) {
 }
 
 function assertCoarsePointerReadingSafety(engineName, touchHover) {
-    assert(touchHover.before.detachedReadings > 0 && ['before', 'hovered', 'after'].every(state => allReadingsVisible(touchHover[state])),
+    assert(touchHover.before.detachedReadings > 0
+        && ['before', 'hovered', 'after'].every(state => allReadingsVisible(touchHover[state])
+            && projectedReadingsAreAligned(touchHover[state].projectedAssociations)),
     `${engineName}: coarse-pointer mirror lost detached readings`, touchHover);
     assert(touchHover.hovered.visibleRuby === touchHover.before.visibleRuby
         && touchHover.after.visibleRuby === touchHover.before.visibleRuby,
@@ -2018,6 +2196,9 @@ function assertCoarsePointerGeometry(engineName, touchHover) {
     assert(Math.abs(touchHover.hovered.height - touchHover.before.height) <= 1
         && Math.abs(touchHover.after.height - touchHover.before.height) <= 1,
     `${engineName}: coarse-pointer hover changed row geometry`, touchHover);
+    assert(boxGeometryMatches(touchHover.before, touchHover.hovered)
+        && boxGeometryMatches(touchHover.before, touchHover.after),
+    `${engineName}: coarse-pointer hover changed authored overflow or scroll geometry`, touchHover);
 }
 
 function isLinuxWebKitPort(engineName) {
@@ -2025,7 +2206,24 @@ function isLinuxWebKitPort(engineName) {
 }
 
 function allReadingsVisible(state) {
-    return state.visibleRuby === state.detachedReadings && state.safetyHiddenReadings === 0;
+    return state.sourceReadingVisibleCount === 0
+        && state.projectedReadings === state.detachedReadings
+        && state.visibleRuby === state.projectedReadings;
+}
+
+function projectedReadingsAreAligned(readings) {
+    return readings.every(reading => Math.abs(reading.centerDelta) <= 1
+        && Math.abs(reading.baselineDelta) <= 1);
+}
+
+function boxGeometryMatches(before, after) {
+    return Boolean(before && after)
+        && before.overflow === after.overflow
+        && before.inlineOverflow === after.inlineOverflow
+        && before.client[0] === after.client[0]
+        && before.client[1] === after.client[1]
+        && before.scroll[0] === after.scroll[0]
+        && before.scroll[1] === after.scroll[1];
 }
 
 function nativeFallbackIsVisible(state) {

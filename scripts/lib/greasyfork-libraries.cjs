@@ -4,6 +4,13 @@ const greasyForkLibraryDir = 'greasyfork';
 
 const GREASY_FORK_LIBRARIES = [
   {
+    id: 'annotations',
+    label: 'Yomu Annotations',
+    entry: 'src/reader/companions/annotations.ts',
+    fileName: 'yomu-annotations.user.js',
+    globalName: 'YomuAnnotationsLibrary',
+  },
+  {
     id: 'anki',
     label: 'Yomu Anki',
     entry: 'src/reader/companions/anki.ts',

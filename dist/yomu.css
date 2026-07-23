@@ -1268,25 +1268,37 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   text-underline-offset: inherit !important;
   text-decoration-skip-ink: none !important;
 }
-.jpdb-reader-detached-furi {
-  position: absolute !important;
-  z-index: 2;
-  inset-inline-start: 50%;
-  /* Range-projected wrappers use the source line box, whose CJK ink can
-     overhang its top edge by about 2px in both WebKit and Chromium. Keep a
-     small physical gap so the detached reading never collides with that ink. */
-  inset-block-end: calc(100% + 5px);
+.jpdb-reader-detached-furi:not([data-yomu-projected-reading]) {
+  /* The source node retains reading/state data for repaint comparison, but
+     never enters the page's line, clip, scroll-width, or ellipsis geometry. */
+  display: none !important;
+}
+.jpdb-reader-detached-reading-overlay {
+  position: fixed !important;
+  inset: 0 !important;
+  overflow: visible !important;
+  pointer-events: none !important;
+  z-index: 2147482000 !important;
+  contain: layout style !important;
+}
+.jpdb-reader-projected-furi {
+  position: fixed !important;
   display: block !important;
-  width: max-content;
-  max-width: none;
-  font-size: clamp(6px, 0.46em, 0.62rem);
+  width: max-content !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
   line-height: 1 !important;
   white-space: nowrap !important;
   word-break: keep-all !important;
   overflow-wrap: normal !important;
-  transform: translateX(-50%) !important;
-  pointer-events: none;
+  -webkit-text-fill-color: currentColor !important;
   text-decoration: none !important;
+  pointer-events: none !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  visibility: visible !important;
 }
 
 /* Additive mirrors never own the only copy of a framework label. Native base
@@ -1428,9 +1440,6 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
    mirrored ruby word several pixels above its ordinary neighbour on WebKit.
    The synthetic channel is also continuous across segmented ruby and survives
    the atomic detached-ruby wrappers used by compact controls. */
-[data-yomu-detached-reading-overflow="true"] {
-  overflow: visible !important;
-}
 .jpdb-reader-ruby-base {
   display: inline;
   border-radius: 3px;

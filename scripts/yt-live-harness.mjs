@@ -6,14 +6,19 @@
 //
 // diagName selects a probe in DIAGS below. Env: YT_HEADLESS=1 for headless.
 import { createRequire } from 'node:module';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
+import { loadLocalEnv } from './lib/qa-env.mjs';
 
 const require = createRequire(import.meta.url);
 const { chromium } = require('playwright');
 
-const APP = '/Users/heru/Documents/Projects/yomu/apps/yomu-reader';
-const PROFILE = process.env.YT_PROFILE || '/tmp/yomu-signed-fresh';
+const APP = path.resolve(import.meta.dirname, '..');
+loadLocalEnv(APP);
+const PROFILE = process.env.YT_PROFILE?.trim();
+if (!PROFILE) {
+    throw new Error('Set YT_PROFILE to a cloned signed-in Playwright/Chrome profile.');
+}
 const DIST = process.env.YT_DIST || path.join(APP, 'dist');
 
 const diagName = process.argv[2] || 'overview';
@@ -27,31 +32,35 @@ function readDist(rel) {
     if (!existsSync(p)) throw new Error('missing dist file: ' + p);
     return readFileSync(p, 'utf8');
 }
-// Load order: companions before core (memory: video companion owns YouTube bits).
+const CORE_SCRIPT = readDist('yomu.user.js');
+// Mirror the exact built install graph: immutable hosted names in @require
+// resolve to the canonical companion files beside this candidate build.
+const COMPANION_SCRIPTS = [...CORE_SCRIPT.matchAll(
+    /^\/\/ @require https:\/\/yomureader\.com\/greasyfork\/([^#\s]+)(?:#\S+)?$/gmu,
+)].map(match => `greasyfork/${match[1].replace(/\.[0-9a-f]{12}(?=\.user\.js$)/u, '')}`);
 const SCRIPTS = [
-    'greasyfork/yomu-settings-surface.user.js',
-    'greasyfork/yomu-anki.user.js',
-    'greasyfork/yomu-kanji-study.user.js',
-    'greasyfork/yomu-video.user.js',
-    'greasyfork/yomu-ocr-manga.user.js',
-    'greasyfork/yomu-ui-copy.user.js',
-    'yomu.user.js',
-].map(rel => ({ rel, code: readDist(rel) }));
+    ...COMPANION_SCRIPTS.map(rel => ({ rel, code: readDist(rel) })),
+    { rel: 'yomu.user.js', code: CORE_SCRIPT },
+];
 const READER_CSS = readDist('yomu.css');
 
-// jpdb API key from .env (faithful furigana/colors).
-let jpdbKey = '';
-try {
-    const env = readFileSync(path.join(APP, '.env'), 'utf8');
-    jpdbKey = (env.match(/^YOMU_JPDB_API_KEY=(.*)$/m)?.[1] || '').trim();
-} catch { /* none */ }
+// Optional live JPDB key. loadLocalEnv follows the shared workspace/app paths.
+const jpdbKey = (process.env.YOMU_JPDB_API_KEY
+    || process.env.JPDB_API_KEY
+    || process.env.YOMU_TEST_API_KEY
+    || process.env.YOMU_PROFILE_API_KEY
+    || '').trim();
 
 const SETTINGS = {
     onboardingSeen: true,
     apiKey: jpdbKey,
     jpdbMiningEnabled: true,
     interfaceLanguage: 'en',
+    showFurigana: true,
+    furiganaMode: 'all',
+    showPitchAccent: true,
 };
+if (diagName === 'subtitlebound') SETTINGS.subtitleBottomOffset = -110;
 
 const DIAGS = {
     // Broad health check + which surfaces got decorated.
@@ -61,6 +70,320 @@ const DIAGS = {
         const mirrors = document.querySelectorAll('.jpdb-reader-text-mirror').length;
         const filtered = document.querySelectorAll('[data-yomu-youtube-filtered]').length;
         return { yomuPresent: Boolean(window.__yomuCompanions || words || mirrors), words, furi, mirrors, filtered };
+    },
+    annotations: async () => {
+        await new Promise(resolve => setTimeout(resolve, 7000));
+        const projections = Array.from(document.querySelectorAll('[data-yomu-projected-reading="true"]'))
+            .map(reading => {
+                const rect = reading.getBoundingClientRect();
+                const sourceLeft = Number(reading.dataset.yomuSourceLeft);
+                const sourceTop = Number(reading.dataset.yomuSourceTop);
+                const sourceWidth = Number(reading.dataset.yomuSourceWidth);
+                return {
+                    expression: reading.dataset.yomuExpression || '',
+                    reading: reading.textContent || '',
+                    display: getComputedStyle(reading).display,
+                    rect: { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom },
+                    source: { left: sourceLeft, top: sourceTop, width: sourceWidth },
+                    centerDelta: Math.round(((rect.left + rect.right) / 2 - sourceLeft - sourceWidth / 2) * 10) / 10,
+                    baseGap: Math.round((sourceTop - rect.bottom) * 10) / 10,
+                };
+            });
+        const words = Array.from(document.querySelectorAll('.jpdb-reader-word'))
+            .filter(word => /[぀-ヿ㐀-鿿]/.test(word.dataset.expression || word.dataset.surface || ''))
+            .map(word => {
+                const expression = word.dataset.expression || word.dataset.surface || '';
+                const reading = word.dataset.reading || '';
+                const renderedReadings = Array.from(word.querySelectorAll('rt,.jpdb-reader-detached-furi'))
+                    .map(node => ({
+                        text: node.textContent || '',
+                        display: getComputedStyle(node).display,
+                        kind: node.matches('rt') ? 'ruby' : 'detached',
+                    }));
+                return {
+                    expression,
+                    reading,
+                    pitchClass: word.dataset.pitchClass || '',
+                    renderedReadings,
+                    expectsReading: /[㐀-鿿]/.test(expression)
+                        && Boolean(reading)
+                        && reading !== expression,
+                };
+            });
+        const missingReadings = words
+            .filter(word => word.expectsReading && !word.renderedReadings.length)
+            .map(({ expression, reading, pitchClass }) => ({ expression, reading, pitchClass }));
+        return {
+            projections,
+            maxCenterDelta: Math.max(0, ...projections.map(item => Math.abs(item.centerDelta))),
+            maxBaseGap: Math.max(0, ...projections.map(item => Math.abs(item.baseGap))),
+            missingReadings,
+            words,
+        };
+    },
+    reddit: async () => {
+        const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+        const visible = element => {
+            const box = element.getBoundingClientRect();
+            const style = getComputedStyle(element);
+            return box.width > 0 && box.height > 0
+                && box.bottom > 0 && box.top < innerHeight
+                && style.display !== 'none' && style.visibility !== 'hidden';
+        };
+        const rect = box => ({
+            left: Math.round(box.left * 10) / 10,
+            top: Math.round(box.top * 10) / 10,
+            right: Math.round(box.right * 10) / 10,
+            bottom: Math.round(box.bottom * 10) / 10,
+            width: Math.round(box.width * 10) / 10,
+            height: Math.round(box.height * 10) / 10,
+        });
+        const findSortControl = () => Array.from(document.querySelectorAll('button,[role="button"],faceplate-dropdown-menu,shreddit-sort-dropdown'))
+            .filter(element => visible(element)
+                && /賛成票率順/.test(`${element.textContent || ''} ${element.getAttribute('aria-label') || ''}`))
+            .sort((first, second) => {
+                const firstBox = first.getBoundingClientRect();
+                const secondBox = second.getBoundingClientRect();
+                return firstBox.width * firstBox.height - secondBox.width * secondBox.height;
+            })[0] || null;
+        const samples = [];
+        for (let index = 0; index < 20; index += 1) {
+            const control = findSortControl();
+            const controlBox = control?.getBoundingClientRect();
+            const readings = controlBox
+                ? Array.from(document.querySelectorAll('[data-yomu-projected-reading="true"]'))
+                    .filter(reading => {
+                        const sourceLeft = Number(reading.dataset.yomuSourceLeft);
+                        const sourceTop = Number(reading.dataset.yomuSourceTop);
+                        return sourceLeft >= controlBox.left - 1
+                            && sourceLeft <= controlBox.right + 1
+                            && sourceTop >= controlBox.top - 1
+                            && sourceTop <= controlBox.bottom + 1;
+                    })
+                    .map(reading => {
+                        const readingBox = reading.getBoundingClientRect();
+                        const sourceLeft = Number(reading.dataset.yomuSourceLeft);
+                        const sourceTop = Number(reading.dataset.yomuSourceTop);
+                        const sourceWidth = Number(reading.dataset.yomuSourceWidth);
+                        return {
+                            expression: reading.dataset.yomuExpression || '',
+                            reading: reading.textContent || '',
+                            display: getComputedStyle(reading).display,
+                            rect: rect(readingBox),
+                            centerDelta: Math.round(((readingBox.left + readingBox.right) / 2 - sourceLeft - sourceWidth / 2) * 10) / 10,
+                            baseGap: Math.round((sourceTop - readingBox.bottom) * 10) / 10,
+                        };
+                    })
+                : [];
+            const words = control
+                ? Array.from(control.querySelectorAll('.jpdb-reader-word')).map(word => ({
+                    expression: word.dataset.expression || word.dataset.surface || '',
+                    reading: word.dataset.reading || '',
+                    pitchClass: word.dataset.pitchClass || '',
+                }))
+                : [];
+            samples.push({
+                index,
+                found: Boolean(control),
+                text: (control?.textContent || '').replace(/\s+/g, ' ').trim(),
+                rect: controlBox ? rect(controlBox) : null,
+                mirrorCount: control?.querySelectorAll('.jpdb-reader-text-mirror').length || 0,
+                words,
+                readings,
+                signature: JSON.stringify({
+                    words: words.map(word => `${word.expression}:${word.reading}:${word.pitchClass}`),
+                    readings: readings.map(reading => `${reading.expression}:${reading.reading}:${reading.display}:${reading.centerDelta}:${reading.baseGap}`),
+                }),
+            });
+            await sleep(500);
+        }
+        const japanese = /[぀-ヿ㐀-鿿]/;
+        const textNodes = [];
+        const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+            acceptNode: node => japanese.test(node.data)
+                && node.parentElement
+                && visible(node.parentElement)
+                && !node.parentElement.closest('script,style,noscript,.jpdb-reader-popover,.jpdb-reader-text-mirror,[data-yomu-projected-reading="true"],.jpdb-reader-detached-furi')
+                ? NodeFilter.FILTER_ACCEPT
+                : NodeFilter.FILTER_REJECT,
+        });
+        let node;
+        while ((node = walker.nextNode())) {
+            const text = node.data.replace(/\s+/g, ' ').trim();
+            if (!text) continue;
+            const parent = node.parentElement;
+            textNodes.push({
+                text: text.slice(0, 100),
+                annotated: Boolean(parent?.closest('.jpdb-reader-word')
+                    || parent?.querySelector('.jpdb-reader-word,.jpdb-reader-text-mirror')),
+            });
+        }
+        return {
+            href: location.href,
+            samples,
+            uniqueSignatures: Array.from(new Set(samples.map(sample => sample.signature))),
+            coverage: {
+                visibleJapaneseTextNodes: textNodes.length,
+                annotated: textNodes.filter(item => item.annotated).length,
+                missing: textNodes.filter(item => !item.annotated).slice(0, 30),
+                words: document.querySelectorAll('.jpdb-reader-word').length,
+                mirrors: document.querySelectorAll('.jpdb-reader-text-mirror').length,
+                projectedReadings: document.querySelectorAll('[data-yomu-projected-reading="true"]').length,
+            },
+        };
+    },
+    playback: async () => {
+        const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+        const video = document.querySelector('video');
+        await video?.play().catch(() => undefined);
+        video?.click();
+        await sleep(300);
+        const settings = document.querySelector('.ytp-settings-button,button[aria-label*="再生設定"],[aria-label*="Settings"]');
+        if (settings instanceof HTMLElement) settings.click();
+        await sleep(800);
+        const speed = Array.from(document.querySelectorAll('[role="menuitem"],.ytp-menuitem,button'))
+            .find(element => {
+                const box = element.getBoundingClientRect();
+                const label = `${element.textContent || ''} ${element.getAttribute('aria-label') || ''}`;
+                return box.width > 0 && box.height > 0
+                    && /再生速度|速度|Playback speed/i.test(label)
+                    && !/下げる|上げる|decrease|increase/i.test(label);
+            });
+        if (speed instanceof HTMLElement) speed.click();
+        await sleep(5000);
+        const rect = box => ({
+            left: Math.round(box.left * 100) / 100,
+            top: Math.round(box.top * 100) / 100,
+            right: Math.round(box.right * 100) / 100,
+            bottom: Math.round(box.bottom * 100) / 100,
+            width: Math.round(box.width * 100) / 100,
+            height: Math.round(box.height * 100) / 100,
+        });
+        const sourceRanges = [];
+        const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+            acceptNode: node => node.data.includes('倍') && !node.parentElement?.closest('script,style')
+                ? NodeFilter.FILTER_ACCEPT
+                : NodeFilter.FILTER_REJECT,
+        });
+        let sourceNode;
+        while ((sourceNode = walker.nextNode())) {
+            for (let offset = 0; (offset = sourceNode.data.indexOf('倍', offset)) >= 0; offset += 1) {
+                const range = document.createRange();
+                range.setStart(sourceNode, offset);
+                range.setEnd(sourceNode, offset + 1);
+                const parent = sourceNode.parentElement;
+                const rects = Array.from(range.getClientRects()).map(rect);
+                if (!rects.length) continue;
+                sourceRanges.push({
+                    text: sourceNode.data,
+                    visibility: parent ? getComputedStyle(parent).visibility : '',
+                    insideMirror: Boolean(parent?.closest('.jpdb-reader-text-mirror')),
+                    insideWord: Boolean(parent?.closest('.jpdb-reader-word')),
+                    insideReading: Boolean(parent?.closest('[data-yomu-projected-reading="true"],.jpdb-reader-detached-furi')),
+                    rects,
+                });
+            }
+        }
+        const rows = Array.from(document.querySelectorAll('[role="menuitem"],.ytp-menuitem,button,span,div'))
+            .filter(element => /倍/.test(element.textContent || '') && element.querySelector('.jpdb-reader-word,.jpdb-reader-text-mirror'))
+            .slice(0, 20)
+            .map(element => ({
+                text: (element.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 80),
+                words: Array.from(element.querySelectorAll('.jpdb-reader-word')).map(word => ({
+                    expression: word.dataset.expression || word.dataset.surface || '',
+                    reading: word.dataset.reading || '',
+                    pitchClass: word.dataset.pitchClass || '',
+                })),
+            }));
+        const projections = Array.from(document.querySelectorAll('[data-yomu-projected-reading="true"]'))
+            .filter(reading => reading.dataset.yomuExpression === '倍')
+            .map(reading => {
+                const readingRect = reading.getBoundingClientRect();
+                const sourceLeft = Number(reading.dataset.yomuSourceLeft);
+                const sourceTop = Number(reading.dataset.yomuSourceTop);
+                const sourceWidth = Number(reading.dataset.yomuSourceWidth);
+                const exactSources = sourceRanges
+                    .filter(source => !source.insideMirror && !source.insideReading)
+                    .flatMap(source => source.rects);
+                const exactSource = exactSources
+                    .sort((first, second) => {
+                        const firstDistance = Math.abs((first.left + first.right) / 2 - sourceLeft - sourceWidth / 2)
+                            + Math.abs(first.top - sourceTop);
+                        const secondDistance = Math.abs((second.left + second.right) / 2 - sourceLeft - sourceWidth / 2)
+                            + Math.abs(second.top - sourceTop);
+                        return firstDistance - secondDistance;
+                    })[0] || null;
+                return {
+                    reading: reading.textContent || '',
+                    exactSource,
+                    centerDelta: exactSource
+                        ? Math.round(((readingRect.left + readingRect.right) / 2
+                            - (exactSource.left + exactSource.right) / 2) * 10) / 10
+                        : null,
+                    baseGap: exactSource
+                        ? Math.round((exactSource.top - readingRect.bottom) * 10) / 10
+                        : null,
+                };
+            });
+        const readings = Array.from(document.querySelectorAll('[data-yomu-projected-reading="true"],.jpdb-reader-detached-furi'))
+            .filter(reading => reading.dataset.yomuExpression === '倍' || reading.textContent?.trim() === 'ばい')
+            .map(reading => ({
+                reading: reading.textContent || '',
+                expression: reading.dataset.yomuExpression || '',
+                display: getComputedStyle(reading).display,
+                rect: rect(reading.getBoundingClientRect()),
+            }));
+        return {
+            settingsOpened: Boolean(settings),
+            speedOpened: Boolean(speed),
+            rows,
+            projections,
+            readings,
+            sourceRanges,
+        };
+    },
+    subtitlebound: async () => {
+        const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+        const rect = element => {
+            const box = element?.getBoundingClientRect();
+            return box ? { left: box.left, top: box.top, right: box.right, bottom: box.bottom, width: box.width, height: box.height } : null;
+        };
+        const video = Array.from(document.querySelectorAll('video'))
+            .filter(element => {
+                const box = element.getBoundingClientRect();
+                return box.width > 0 && box.height > 0 && box.bottom > 0 && box.top < innerHeight;
+            })
+            .sort((first, second) => second.getBoundingClientRect().height - first.getBoundingClientRect().height)[0];
+        await video?.play().catch(() => undefined);
+        await sleep(5000);
+        const root = document.querySelector('.jpdb-subtitle-player');
+        const subtitle = root?.querySelector('.jpdb-subtitle-text');
+        const handle = root?.querySelector('[data-subtitle-drag-handle]');
+        const snapshot = () => {
+            const media = rect(video);
+            const overlay = rect(root);
+            const line = rect(subtitle);
+            return {
+                savedBottom: window.GM_getValue?.('jpdb-popup-reader-settings', {})?.subtitleBottomOffset,
+                effectiveBottom: root instanceof HTMLElement ? root.style.getPropertyValue('--subtitle-bottom') : '',
+                video: media,
+                root: overlay,
+                subtitle: line,
+                insideVideo: Boolean(media && line && line.top >= media.top - 1 && line.bottom <= media.bottom + 1),
+            };
+        };
+        const stale = snapshot();
+        for (let index = 0; index < 16; index += 1) {
+            handle?.dispatchEvent(new KeyboardEvent('keydown', { key: 'PageDown', bubbles: true, cancelable: true }));
+        }
+        await sleep(300);
+        return {
+            href: location.href,
+            text: (subtitle?.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 160),
+            hidden: root instanceof HTMLElement ? root.hidden : null,
+            stale,
+            afterPageDown: snapshot(),
+        };
     },
     // Title clipping: compare each mirror host box vs mirror box + clamp.
     titles: () => {
@@ -690,8 +1013,9 @@ async function runFullscreenExploration() {
 }
 
 let result;
+let diagnosticError = '';
 if (diagName === 'hover') {
-    try { result = await runHoverExploration(); } catch (e) { result = { hoverError: String(e) }; }
+    try { result = await runHoverExploration(); } catch (e) { diagnosticError = String(e); result = { hoverError: diagnosticError }; }
 } else if (diagName === 'rail') {
     try {
         const tap = await runRailTapExploration();
@@ -699,20 +1023,85 @@ if (diagName === 'hover') {
         result.tap = tap;
         result.drag = await runRailDragExploration();
         result.fullscreen = await runFullscreenExploration();
-    } catch (e) { result = { railError: String(e) }; }
+    } catch (e) { diagnosticError = String(e); result = { railError: diagnosticError }; }
+} else if (diagName === 'reddit') {
+    try {
+        const consentButtons = [
+            page.getByRole('button', { name: /すべて承諾|Accept All/i }).first(),
+            page.locator('button').filter({ hasText: /すべて.*承諾|Accept All/i }).first(),
+            page.getByText(/すべて.*承諾|Accept All/i).last(),
+        ];
+        let consentDismissed = false;
+        for (const consent of consentButtons) {
+            await consent.waitFor({ state: 'visible', timeout: 3500 }).catch(() => {});
+            if (!await consent.isVisible().catch(() => false)) continue;
+            await consent.click();
+            consentDismissed = true;
+            await page.waitForTimeout(2200);
+            break;
+        }
+        const close = page.getByRole('button', { name: /閉じる|Close/i }).first();
+        if (await close.isVisible().catch(() => false)) {
+            await close.click();
+            await page.waitForTimeout(1200);
+        }
+        result = await page.evaluate(probe);
+        result.consentDismissed = consentDismissed;
+    } catch (e) { diagnosticError = String(e); result = { redditError: diagnosticError }; }
 } else if (diagName === 'fullscreen') {
-    try { result = await runFullscreenExploration(); } catch (e) { result = { fullscreenError: String(e) }; }
+    try { result = await runFullscreenExploration(); } catch (e) { diagnosticError = String(e); result = { fullscreenError: diagnosticError }; }
 } else {
-    try { result = await page.evaluate(probe); } catch (e) { result = { evalError: String(e) }; }
+    try { result = await page.evaluate(probe); } catch (e) { diagnosticError = String(e); result = { evalError: diagnosticError }; }
 }
 
 const shot = path.join(APP, `qa-artifacts/yt-${diagName}-${width}x${height}.png`);
+mkdirSync(path.dirname(shot), { recursive: true });
 await page.screenshot({ path: shot, fullPage: false }).catch(() => {});
 
-console.log(JSON.stringify({ diag: diagName, url, viewport: `${width}x${height}`, jpdbKey: jpdbKey ? 'set' : 'none', result, consoleErrors: consoleErrors.slice(0, 8), shot }, null, 2));
+const validationError = diagnosticError || validateDiagnostic(diagName, result);
+console.log(JSON.stringify({
+    diag: diagName,
+    url,
+    viewport: `${width}x${height}`,
+    jpdbKey: jpdbKey ? 'set' : 'none',
+    result,
+    validationError: validationError || null,
+    consoleErrors: consoleErrors.slice(0, 8),
+    shot,
+}, null, 2));
 
 await Promise.race([
     ctx.close(),
     new Promise(resolve => setTimeout(resolve, 3000)),
 ]).catch(() => undefined);
-process.exit(0);
+if (validationError) {
+    console.error(`[yt-live-harness] FAIL ${diagName}: ${validationError}`);
+    process.exitCode = 1;
+}
+
+function validateDiagnostic(name, value) {
+    if (!value || typeof value !== 'object') return 'diagnostic returned no result';
+    if (name === 'overview' && !value.yomuPresent) return 'Yomu did not mount';
+    if (name === 'annotations') {
+        if (!value.projections?.length) return 'no projected readings were measured';
+        if (value.maxCenterDelta > 0.75 || value.maxBaseGap > 0.75) return 'projected readings drifted from their source ranges';
+    }
+    if (name === 'reddit') {
+        if (!value.samples?.length || value.samples.some(sample => !sample.found)) return 'Reddit sort control was not stable for every sample';
+        if (value.uniqueSignatures?.length !== 1) return 'Reddit annotation signature changed during sampling';
+        if (value.samples.some(sample => !sample.readings?.length)) return 'Reddit sort control lost its projected readings';
+    }
+    if (name === 'playback') {
+        if (!value.settingsOpened || !value.speedOpened) return 'YouTube playback-speed menus did not both open';
+        if (!value.rows?.length) return 'no annotated playback-speed row containing 倍 was found';
+        if (!value.projections?.length) return 'no ばい projection was found for 倍';
+        if (value.projections.some(projection => !projection.exactSource)) return 'no independent native 倍 range was found';
+        if (value.projections.some(projection => Math.abs(projection.centerDelta) > 0.75 || Math.abs(projection.baseGap) > 0.75)) {
+            return 'ばい was not aligned to the exact 倍 range';
+        }
+    }
+    if (name === 'subtitlebound') {
+        if (!value.stale?.insideVideo || !value.afterPageDown?.insideVideo) return 'subtitle line escaped the active video frame';
+    }
+    return '';
+}

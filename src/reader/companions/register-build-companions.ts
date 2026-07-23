@@ -1,3 +1,4 @@
+import './annotations';
 import './anki';
 import './bunpro';
 import './kanji-study';
