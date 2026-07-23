@@ -55,6 +55,13 @@ describe('Academy human interface', () => {
 
         expect(host.querySelector('.academy-brand')).toBeNull();
         expect(host.querySelector('.academy-network-state')).toBeNull();
+        const offlineNotice = host.querySelector<HTMLElement>('.academy-offline-notice')!;
+        expect(offlineNotice.hidden).toBe(true);
+        shell.setConnectivity?.(false);
+        expect(offlineNotice.hidden).toBe(false);
+        expect(offlineNotice.textContent).toContain('Keep learning here.');
+        shell.setConnectivity?.(true);
+        expect(offlineNotice.hidden).toBe(true);
         const utilityToggle = host.querySelector<HTMLElement>('.academy-utility-toggle')!;
         expect(utilityToggle.getAttribute('aria-label')).toBe('Menu');
         expect(utilityToggle.title).toBe('Menu');

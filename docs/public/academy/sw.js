@@ -1,4 +1,4 @@
-const VERSION = 'yomu-academy-shell-s1-d8b0cc18d273';
+const VERSION = 'yomu-academy-shell-s1-f98dd323d5a5';
 const AUDIO_CACHE = 'yomu-academy-audio-v1-2c25b06f971c';
 const AUDIO_PRECACHE_BYTES = 378672515;
 const AUDIO_QUOTA_HEADROOM_BYTES = 16777216;
@@ -69,11 +69,12 @@ const CORE = [
     '/greasyfork/yomu-settings-surface.user.js',
     '/greasyfork/yomu-kanji-study.user.js',
     '/greasyfork/yomu-anki.user.js',
+    '/greasyfork/yomu-bunpro.user.js',
     '/yomu-icon.svg',
     '/academy/',
     '/academy/index.html',
-    '/academy/app.js?v=s1-d8b0cc18d273',
-    '/academy/style.css?v=s1-d8b0cc18d273',
+    '/academy/app.js?v=s1-f98dd323d5a5',
+    '/academy/style.css?v=s1-f98dd323d5a5',
     '/academy/manifest.webmanifest',
     ...CAST_SPRITE_PRECACHE,
     '/academy/art/protagonists/quality-2__picker__v001.png',
@@ -575,7 +576,8 @@ self.addEventListener('fetch', event => {
         || url.pathname === '/greasyfork/yomu-ui-copy.user.js'
         || url.pathname === '/greasyfork/yomu-settings-surface.user.js'
         || url.pathname === '/greasyfork/yomu-kanji-study.user.js'
-        || url.pathname === '/greasyfork/yomu-anki.user.js';
+        || url.pathname === '/greasyfork/yomu-anki.user.js'
+        || url.pathname === '/greasyfork/yomu-bunpro.user.js';
     if (url.origin !== self.location.origin || (!url.pathname.startsWith('/academy/') && !isReaderRuntime)) return;
     if (url.pathname.startsWith('/academy/media/')) {
         if (!AUDIO_PRECACHE.includes(url.pathname)) return;

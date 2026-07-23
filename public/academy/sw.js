@@ -69,6 +69,7 @@ const CORE = [
     '/greasyfork/yomu-settings-surface.user.js',
     '/greasyfork/yomu-kanji-study.user.js',
     '/greasyfork/yomu-anki.user.js',
+    '/greasyfork/yomu-bunpro.user.js',
     '/yomu-icon.svg',
     '/academy/',
     '/academy/index.html',
@@ -575,7 +576,8 @@ self.addEventListener('fetch', event => {
         || url.pathname === '/greasyfork/yomu-ui-copy.user.js'
         || url.pathname === '/greasyfork/yomu-settings-surface.user.js'
         || url.pathname === '/greasyfork/yomu-kanji-study.user.js'
-        || url.pathname === '/greasyfork/yomu-anki.user.js';
+        || url.pathname === '/greasyfork/yomu-anki.user.js'
+        || url.pathname === '/greasyfork/yomu-bunpro.user.js';
     if (url.origin !== self.location.origin || (!url.pathname.startsWith('/academy/') && !isReaderRuntime)) return;
     if (url.pathname.startsWith('/academy/media/')) {
         if (!AUDIO_PRECACHE.includes(url.pathname)) return;

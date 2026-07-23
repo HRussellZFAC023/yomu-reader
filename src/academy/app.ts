@@ -107,6 +107,7 @@ export class AcademyApp {
         });
         this.shell.setNavigation(false);
         this.shell.setMuted(this.audio.settings.muted);
+        this.shell.setConnectivity?.(navigator.onLine);
     }
 
     async start(): Promise<void> {
@@ -164,6 +165,9 @@ export class AcademyApp {
                 routeHistory: [],
                 updatedAt: Date.now(),
             };
+            const url = new URL(location.href);
+            url.searchParams.delete('view');
+            history.replaceState(history.state, '', url);
         }
         if (this.checkpoint !== restoredCheckpoint) await this.persistence.checkpoint.save(this.checkpoint);
         this.shell.setPresentationMode(this.checkpoint.presentationMode);
@@ -211,8 +215,12 @@ export class AcademyApp {
         window.addEventListener('pointerdown', unlock, { once: true, capture: true, signal: this.lifecycle.signal });
         window.addEventListener('keydown', unlock, { once: true, capture: true, signal: this.lifecycle.signal });
         window.addEventListener('online', () => {
+            this.shell.setConnectivity?.(true);
             void this.audio.setTheme(this.audio.theme);
             void this.sync.resumeOnReconnect().then(() => this.checkpoint.route === 'profile-sync' ? this.render() : undefined);
+        }, { signal: this.lifecycle.signal });
+        window.addEventListener('offline', () => {
+            this.shell.setConnectivity?.(false);
         }, { signal: this.lifecycle.signal });
         document.addEventListener('visibilitychange', () => void this.audio.handleVisibility(document.hidden), { signal: this.lifecycle.signal });
         document.addEventListener(ACADEMY_ACCOUNT_ACTION_EVENT, event => {

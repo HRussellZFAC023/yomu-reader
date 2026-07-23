@@ -33,6 +33,7 @@ describe('Academy offline shell', () => {
             '/yomu.user.js',
             '/yomu.css',
             '/greasyfork/yomu-settings-surface.user.js',
+            '/greasyfork/yomu-bunpro.user.js',
             `/academy/app.js?v=${revision}`,
             '/academy/art/characters/rie/rie__neutral-glasses__front-near-front__halfbody__v001.png',
             '/academy/art/characters/rie/rie__happy-glasses__front-near-front__halfbody__v001.png',
@@ -87,6 +88,7 @@ describe('Academy offline shell', () => {
             '/academy/vendor/kanjivg/ATTRIBUTION.md',
         ]) expect(source).toContain(`'${required}'`);
         expect(source).toContain("url.pathname === '/yomu.user.js'");
+        expect(source).toContain("url.pathname === '/greasyfork/yomu-bunpro.user.js'");
         expect(source).toContain("url.pathname.startsWith('/academy/media/')");
     });
 

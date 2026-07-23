@@ -22527,8 +22527,42 @@ body:has(#yomu-academy) > .jpdb-reader-fab-radial {
     pointer-events: none;
 }
 
-.academy-root:has(.academy-access-screen) .academy-header {
+.academy-root:has(.academy-access-screen) .academy-utility {
     display: none;
+}
+
+.academy-offline-notice {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 8px;
+    min-height: 44px;
+    max-width: min(560px, calc(100vw - 82px));
+    padding: 7px 16px 7px 12px;
+    border-left: 4px solid var(--academy-accent);
+    color: var(--academy-paper);
+    background: rgba(19, 27, 24, 0.94);
+    box-shadow: 5px 6px 0 color-mix(in srgb, var(--academy-accent) 24%, transparent);
+    clip-path: polygon(0 0, 100% 0, calc(100% - 10px) 100%, 0 100%);
+    pointer-events: none;
+}
+
+.academy-offline-notice[hidden] {
+    display: none;
+}
+
+.academy-offline-notice-title {
+    color: var(--academy-accent);
+    font-size: 0.74rem;
+    font-weight: 850;
+    text-transform: uppercase;
+}
+
+.academy-offline-notice-body {
+    min-width: 0;
+    font-size: 0.78rem;
+    line-height: 1.25;
+    text-wrap: balance;
 }
 
 .academy-header-actions {
@@ -22848,6 +22882,17 @@ a.academy-chrome-button {
 @media (max-width: 700px) {
     .academy-header {
         gap: 8px;
+    }
+
+    .academy-offline-notice {
+        grid-template-columns: 1fr;
+        gap: 1px;
+        max-width: calc(100vw - 72px);
+        padding: 6px 14px 6px 10px;
+    }
+
+    .academy-offline-notice-body {
+        font-size: 0.7rem;
     }
 
     .academy-chrome-button {

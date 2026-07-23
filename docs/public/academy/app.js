@@ -339,6 +339,7 @@
       this.exportFallbackByteLimit = Number.isSafeInteger(options.exportFallbackByteLimit) && (options.exportFallbackByteLimit ?? 0) > 0 ? Math.min(options.exportFallbackByteLimit, ACADEMY_EXPORT_FALLBACK_MAX_BYTES) : ACADEMY_EXPORT_FALLBACK_MAX_BYTES;
       this.state = loadState(this.storage);
       this.account = this.state?.account ?? null;
+      if (this.state && !this.online()) this.phase = "offline";
     }
     storage;
     request;
@@ -425,7 +426,13 @@
           if (!this.state || this.awaitingPairProfile) return;
           await this.queueEvents(events);
           if (!this.persistOrReflect()) return;
-          if (this.phase !== "signed-out") this.scheduleSync();
+          if (this.phase === "signed-out") return;
+          if (!this.online()) {
+            this.phase = "offline";
+            this.error = null;
+            return;
+          }
+          this.scheduleSync();
         } finally {
           queuedIds.forEach((eventId) => this.queuedLocalEventIds.delete(eventId));
         }
@@ -447,6 +454,16 @@
     resumeOnReconnect() {
       return this.enqueue(async () => {
         if (!this.canResumeOnReconnect()) return this.status;
+        if (this.state?.profile.accountId) {
+          try {
+            this.account = await this.loadAccount();
+            this.entitlement = await this.loadEntitlement();
+          } catch (error) {
+            this.reflectSyncError(error);
+            this.persist();
+            return this.status;
+          }
+        }
         await this.syncNow();
         return this.status;
       });
@@ -16900,6 +16917,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     academyName: "よむ Academy",
     languageToggle: "日本語",
     utilityMenu: "Menu",
+    offlineNoticeTitle: "Offline",
+    offlineNoticeBody: "Keep learning here. Your progress will sync when you reconnect.",
     loading: "One moment…",
     retry: "Try again",
     continue: "Continue",
@@ -17183,6 +17202,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     academyName: "よむアカデミー",
     languageToggle: "English",
     utilityMenu: "メニュー",
+    offlineNoticeTitle: "オフライン",
+    offlineNoticeBody: "このまま学べます。記録は再接続したときに同期されます。",
     loading: "少々お待ちください…",
     retry: "もう一度",
     continue: "続ける",
@@ -41676,7 +41697,9 @@ ${spelling}`);
       ["academy-shell", "offline-cache"],
       { audio: "none", visual: "ui" },
       "Checkpoint and queued evidence survive an offline restart.",
-      "Installed build opens and explains unavailable network actions without a dead end."
+      "Installed build opens and explains unavailable network actions without a dead end.",
+      [],
+      VERIFIED_DELIVERY
     ),
     entry$P(
       "day:1:profile",
@@ -268440,7 +268463,15 @@ ${spelling}`);
       return { anchor, key: key2 };
     });
     utility.append(utilityToggle, actions);
-    header.append(utility);
+    const offlineNotice = element("div", "academy-offline-notice");
+    offlineNotice.hidden = true;
+    offlineNotice.setAttribute("role", "status");
+    offlineNotice.setAttribute("aria-live", "polite");
+    offlineNotice.setAttribute("aria-atomic", "true");
+    const offlineTitle = element("strong", "academy-offline-notice-title");
+    const offlineBody = element("span", "academy-offline-notice-body");
+    offlineNotice.append(offlineTitle, offlineBody);
+    header.append(utility, offlineNotice);
     const screen = element("main", "academy-screen-host");
     screen.id = "academy-screen";
     screen.tabIndex = -1;
@@ -268483,6 +268514,8 @@ ${spelling}`);
       languageButton.lang = language === "ja" ? "en" : "ja";
       setCopy(muteButton, language, muted ? "navAudioMuted" : "navAudioOn");
       muteButton.setAttribute("aria-pressed", String(muted));
+      offlineTitle.textContent = academyText(language, "offlineNoticeTitle");
+      offlineBody.textContent = academyText(language, "offlineNoticeBody");
       utilityLinks.forEach(({ anchor, key: key2 }) => setCopy(anchor, language, key2));
     };
     presentation2.addEventListener("click", () => {
@@ -268537,6 +268570,10 @@ ${spelling}`);
       setMuted(next) {
         muted = next;
         refreshCopy();
+      },
+      setConnectivity(online) {
+        offlineNotice.hidden = online;
+        root.dataset.connectivity = online ? "online" : "offline";
       },
       announce(message) {
         live.textContent = "";
@@ -268610,6 +268647,7 @@ ${spelling}`);
       });
       this.shell.setNavigation(false);
       this.shell.setMuted(this.audio.settings.muted);
+      this.shell.setConnectivity?.(navigator.onLine);
     }
     async start() {
       this.shell.replace(renderLoadingScreen(this.language));
@@ -268664,6 +268702,9 @@ ${spelling}`);
           routeHistory: [],
           updatedAt: Date.now()
         };
+        const url = new URL(location.href);
+        url.searchParams.delete("view");
+        history.replaceState(history.state, "", url);
       }
       if (this.checkpoint !== restoredCheckpoint) await this.persistence.checkpoint.save(this.checkpoint);
       this.shell.setPresentationMode(this.checkpoint.presentationMode);
@@ -268704,8 +268745,12 @@ ${spelling}`);
       window.addEventListener("pointerdown", unlock, { once: true, capture: true, signal: this.lifecycle.signal });
       window.addEventListener("keydown", unlock, { once: true, capture: true, signal: this.lifecycle.signal });
       window.addEventListener("online", () => {
+        this.shell.setConnectivity?.(true);
         void this.audio.setTheme(this.audio.theme);
         void this.sync.resumeOnReconnect().then(() => this.checkpoint.route === "profile-sync" ? this.render() : void 0);
+      }, { signal: this.lifecycle.signal });
+      window.addEventListener("offline", () => {
+        this.shell.setConnectivity?.(false);
       }, { signal: this.lifecycle.signal });
       document.addEventListener("visibilitychange", () => void this.audio.handleVisibility(document.hidden), { signal: this.lifecycle.signal });
       document.addEventListener(ACADEMY_ACCOUNT_ACTION_EVENT, (event) => {

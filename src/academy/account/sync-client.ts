@@ -155,6 +155,7 @@ export class AcademySyncClient {
             : ACADEMY_EXPORT_FALLBACK_MAX_BYTES;
         this.state = loadState(this.storage);
         this.account = this.state?.account ?? null;
+        if (this.state && !this.online()) this.phase = 'offline';
     }
 
     /**
@@ -228,7 +229,13 @@ export class AcademySyncClient {
                 if (!this.state || this.awaitingPairProfile) return;
                 await this.queueEvents(events);
                 if (!this.persistOrReflect()) return;
-                if (this.phase !== 'signed-out') this.scheduleSync();
+                if (this.phase === 'signed-out') return;
+                if (!this.online()) {
+                    this.phase = 'offline';
+                    this.error = null;
+                    return;
+                }
+                this.scheduleSync();
             } finally {
                 queuedIds.forEach(eventId => this.queuedLocalEventIds.delete(eventId));
             }
@@ -253,6 +260,16 @@ export class AcademySyncClient {
     resumeOnReconnect(): Promise<AcademySyncStatus> {
         return this.enqueue(async () => {
             if (!this.canResumeOnReconnect()) return this.status;
+            if (this.state?.profile.accountId) {
+                try {
+                    this.account = await this.loadAccount();
+                    this.entitlement = await this.loadEntitlement();
+                } catch (error) {
+                    this.reflectSyncError(error);
+                    this.persist();
+                    return this.status;
+                }
+            }
             await this.syncNow();
             return this.status;
         });

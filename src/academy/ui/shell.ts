@@ -18,6 +18,8 @@ export interface AcademyShell {
     setClassBoardAccess(access: AcademyClassBoardAccess): void;
     setPresentationMode(mode: AcademyPresentationMode): void;
     setMuted(muted: boolean): void;
+    /** Present only on the real app shell; older route-flow test shells may omit it. */
+    setConnectivity?(online: boolean): void;
     announce(message: string): void;
     dispose(): void;
 }
@@ -62,7 +64,15 @@ export function createAcademyShell(host: HTMLElement, options: AcademyShellOptio
         return { anchor, key };
     });
     utility.append(utilityToggle, actions);
-    header.append(utility);
+    const offlineNotice = element('div', 'academy-offline-notice');
+    offlineNotice.hidden = true;
+    offlineNotice.setAttribute('role', 'status');
+    offlineNotice.setAttribute('aria-live', 'polite');
+    offlineNotice.setAttribute('aria-atomic', 'true');
+    const offlineTitle = element('strong', 'academy-offline-notice-title');
+    const offlineBody = element('span', 'academy-offline-notice-body');
+    offlineNotice.append(offlineTitle, offlineBody);
+    header.append(utility, offlineNotice);
     const screen = element('main', 'academy-screen-host');
     screen.id = 'academy-screen';
     screen.tabIndex = -1;
@@ -112,6 +122,8 @@ export function createAcademyShell(host: HTMLElement, options: AcademyShellOptio
         languageButton.lang = language === 'ja' ? 'en' : 'ja';
         setCopy(muteButton, language, muted ? 'navAudioMuted' : 'navAudioOn');
         muteButton.setAttribute('aria-pressed', String(muted));
+        offlineTitle.textContent = academyText(language, 'offlineNoticeTitle');
+        offlineBody.textContent = academyText(language, 'offlineNoticeBody');
         utilityLinks.forEach(({ anchor, key }) => setCopy(anchor, language, key));
     };
     presentation.addEventListener('click', () => {
@@ -155,6 +167,10 @@ export function createAcademyShell(host: HTMLElement, options: AcademyShellOptio
         setClassBoardAccess(_access) {},
         setPresentationMode(next) { presentationMode = next; refreshCopy(); },
         setMuted(next) { muted = next; refreshCopy(); },
+        setConnectivity(online) {
+            offlineNotice.hidden = online;
+            root.dataset.connectivity = online ? 'online' : 'offline';
+        },
         announce(message) { live.textContent = ''; requestAnimationFrame(() => { live.textContent = message; }); },
         dispose() { lifecycle.abort(); document.documentElement.lang = previousDocumentLanguage; root.remove(); },
     };

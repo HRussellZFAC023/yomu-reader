@@ -98,6 +98,7 @@ describe('Academy encrypted profile sync client', () => {
         });
         expect(coldOfflineAcademy.hasCurrentAccountProjection).toBe(false);
         expect(coldOfflineAcademy.hasAcademyAccess).toBe(true);
+        expect(coldOfflineAcademy.status.phase).toBe('offline');
 
         const coldOnlineAcademy = new AcademySyncClient({
             events: createMemoryLearnerEventRepository(),
@@ -593,6 +594,45 @@ describe('Academy encrypted profile sync client', () => {
         expect(pushes).toHaveLength(1);
         expect(String(pushes[0]?.[1]?.body)).not.toContain('reconnect-review');
         expect(client.status.pending).toBe(0);
+    });
+
+    it('refreshes a cold-restored Academy account before flushing its offline queue', async () => {
+        let online = true;
+        const storage = memoryStorage();
+        const request = fakeApi({ accountId: ACCOUNT_ID, academyAccess: true });
+        const firstDevice = new AcademySyncClient({
+            events: createMemoryLearnerEventRepository(),
+            request,
+            storage,
+            online: () => online,
+        });
+        await firstDevice.connect();
+        await firstDevice.initializeAccountProfile();
+
+        online = false;
+        const offlineEvents = createMemoryLearnerEventRepository();
+        const restored = new AcademySyncClient({
+            events: offlineEvents,
+            request,
+            storage,
+            online: () => online,
+        });
+        await createSyncingLearnerEventRepository(offlineEvents, restored)
+            .append([reviewEvent('cold-offline-review')]);
+        await new Promise(resolve => setTimeout(resolve, 0));
+        expect(restored.status).toMatchObject({ phase: 'offline', pending: 1 });
+        expect(restored.hasCurrentAccountProjection).toBe(false);
+
+        const callsBeforeReconnect = request.mock.calls.length;
+        online = true;
+        expect((await restored.resumeOnReconnect()).phase).toBe('ready');
+
+        const reconnectCalls = request.mock.calls.slice(callsBeforeReconnect).map(([path]) => path);
+        expect(reconnectCalls.indexOf('/academy/api/account')).toBeGreaterThanOrEqual(0);
+        expect(reconnectCalls.indexOf('/academy/api/account')).toBeLessThan(reconnectCalls.indexOf('/academy/api/srs/push'));
+        expect(reconnectCalls.filter(path => path === '/academy/api/srs/push')).toHaveLength(1);
+        expect(restored.hasCurrentAccountProjection).toBe(true);
+        expect(restored.status.pending).toBe(0);
     });
 
     it('does not reconnect a signed-out/recovering account or provision an anonymous local learner', async () => {
