@@ -181,6 +181,7 @@ const CORE = [
     '/academy/audio/lesson-zero/sound-xingyu.opus',
     '/academy/audio/lesson-zero/sound-mika.opus',
     '/academy/audio/story-voice-playback.json',
+    '/academy/audio/story-pilot/s1e01-the-blank-atlas__rie-konbanwa__rie.opus',
     '/academy/audio/story-pilot/s1e02-margin-map__henry-presents__henry.opus',
     '/academy/audio/story-pilot/s1e02-margin-map__aakash-cant-use__aakash.opus',
     '/academy/audio/story-pilot/s1e14-two-answers__sophie-frame__sophie.opus',

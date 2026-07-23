@@ -87,9 +87,19 @@ describe('Academy voice production manifest', () => {
 
     it('publishes only exact locked story pilots and excludes stale output', () => {
         const pilots = manifest.entries.filter(entry => entry.status === 'locked' && entry.pilotOutput);
-        expect(pilots).toHaveLength(3);
+        expect(pilots.map(entry => entry.key).sort()).toEqual([
+            'line:blank-atlas:rie-konbanwa::foundation',
+            'line:margin-map:aakash-cant-use::n5',
+            'line:margin-map:henry-presents::n5',
+            'line:two-answers:sophie-frame::n4',
+        ]);
         expect(playback.schema).toBe('yomu-academy.story-voice-playback.v1');
-        expect(playback.entries).toHaveLength(3);
+        expect(playback.entries.map(entry => `${entry.lineId}::${entry.band}`).sort()).toEqual([
+            'line:blank-atlas:rie-konbanwa::foundation',
+            'line:margin-map:aakash-cant-use::n5',
+            'line:margin-map:henry-presents::n5',
+            'line:two-answers:sophie-frame::n4',
+        ]);
         expect(hostedPlayback).toEqual(playback);
         for (const entry of pilots) {
             expect(entry.pilotOutput, entry.key).toMatch(/^\/academy\/audio\//);

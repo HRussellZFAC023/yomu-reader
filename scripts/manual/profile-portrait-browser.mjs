@@ -92,7 +92,7 @@ async function verifyProfileJourney(testCase) {
     const submit = portrait.getByRole('button', { name: 'That’s me' });
     if (testCase.input === 'touch') await submit.tap();
     else await submit.click();
-    const rie = page.locator('.academy-rie-unlock-screen');
+    const rie = page.locator('.academy-rie-introduction-screen');
     await rie.waitFor();
     assert.equal(await rie.locator('input, textarea').count(), 0,
         `${testCase.name} first Rie scene must reuse the saved identity without another form`);
@@ -117,7 +117,7 @@ async function verifyProfileJourney(testCase) {
     assert.equal(restored.projection.learningReason, 'Read manga and talk with family');
     assert.equal(restored.projection.portraitId, 'quality-4');
     await assertResponsiveGeometry(page, testCase, 'restored-rie');
-    await assertAccessible(page, '.academy-rie-unlock-screen');
+    await assertAccessible(page, '.academy-rie-introduction-screen');
     await page.screenshot({ path: path.join(artifactDir, `${testCase.name}-restored-rie.png`) });
     assert.deepEqual(errors, [], `${testCase.name} browser console must stay clean`);
     await context.close();

@@ -2,6 +2,17 @@
   "schema": "yomu-academy.story-voice-playback.v1",
   "entries": [
     {
+      "lineId": "line:blank-atlas:rie-konbanwa",
+      "speakerId": "rie",
+      "japanese": "こんばんは。はじめまして。Rieです。",
+      "band": "foundation",
+      "sourceSha256": "f39b9ddce2b01e46166b7574c57a82f0705e817a17bfd170b5e292d7d7b683b6",
+      "assetSha256": "9a96c2ccab9e78262afeed7db49676665ea3911a817827ec4147540466962898",
+      "bytes": 24565,
+      "url": "/academy/audio/story-pilot/s1e01-the-blank-atlas__rie-konbanwa__rie.opus",
+      "reviewStatus": "locked"
+    },
+    {
       "lineId": "line:margin-map:henry-presents",
       "speakerId": "henry",
       "japanese": "見てください。ゆうべ、道の点にぜんぶ印をつけたんです。ぼくのシステムで、キーを覚えたら、全部読めます。",

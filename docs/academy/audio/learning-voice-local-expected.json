@@ -7,7 +7,7 @@
   "build": {
     "distApp": "dist/academy/app.js",
     "hostedApp": "docs/public/academy/app.js",
-    "appSha256": "146feedf775eed10fc0578107c53a2280a7d3e79c6dad84fc4c997dc07610f55",
+    "appSha256": "f3b813751f1590035d5ae9e5e8ee2582d98af90a53275e13afae2ee31c9ac633",
     "byteParityRequired": true
   },
   "runtimeSources": {
@@ -15,9 +15,9 @@
     "src/academy/audio/browser-speech.ts": "5d2da93a3b9abbd3a77e96ab324c0b5fa0654aa4fb29743244702b81853b7dce",
     "src/academy/audio/learning-voice.ts": "33928e0ffbdd05473d1571ec3e7d050c082d91be4c59d429e4491762e83c5619",
     "src/academy/audio/worker-tts.ts": "757804bcfea92880e4d9a13373a05e0c1a66933f72afa2f2b0e535cecfbc3548",
-    "src/academy/routing/world-flow.ts": "b76b18eae3699b8dbb44bde15b7cefde0a9a2b622d109383edcf77d73f8a59be",
+    "src/academy/routing/world-flow.ts": "7b22396169645a1863833a4b3a1df8dec14d29439ce587fd3d27b7f61df74c6c",
     "src/academy/ui/cafe-world.ts": "8f0ea99a7744127eee42ad05a14a2baa08407436d58a966c9aead1eb6fde9ec2",
-    "src/academy/ui/lesson-screen.ts": "1c4733899c27a6c162e24daf9ffaff60cc9813f134ea45304330dbf93169f9c8",
+    "src/academy/ui/lesson-screen.ts": "5ab77eff7ee274cc4f55a3870b3cacb9011922a1efc00e22f142d05b44bb0fb2",
     "src/academy/ui/world-screen.ts": "1a157bf0d5f9f50beaeda86a81c52070614a4a937ac930f431e814688d3f54e5"
   },
   "assets": {

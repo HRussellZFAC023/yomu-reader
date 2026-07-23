@@ -143,6 +143,7 @@
     "manual:academy-lesson-zero-sound": "node scripts/manual/lesson-zero-sound-browser.mjs",
     "manual:academy-bookshop": "node scripts/manual/bookshop-world-browser.mjs",
     "manual:academy-profile": "node scripts/manual/profile-portrait-browser.mjs",
+    "manual:academy-rie-introduction": "node scripts/manual/rie-introduction-browser.mjs",
     "manual:academy-greeting": "node scripts/manual/lesson-zero-greeting-browser.mjs",
     "manual:academy-vowels": "node scripts/manual/lesson-zero-vowel-browser.mjs",
     "manual:academy-vowel-writing": "node scripts/manual/lesson-zero-vowel-writing-browser.mjs",

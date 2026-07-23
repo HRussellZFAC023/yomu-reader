@@ -7,7 +7,7 @@
     },
     "locks": {
       "path": "docs/academy/audio/learning-voice-locks.json",
-      "sha256": "b0ca64f51c602a1f642bfcfdc28346a41e787595e037239c50d60639fc0a8fbb"
+      "sha256": "62f79da69e59b00e2715ff8d665afdf095b5b842d6a519115e3a90bb1bf82103"
     },
     "acceptance": {
       "path": "docs/academy/audio/learning-voice-acceptance.json",
@@ -24,9 +24,9 @@
     "acceptedLearningLines": 1,
     "codexAcceptedLearningLines": 1,
     "humanReviewedLearningLines": 0,
-    "locked": 3,
-    "productionReady": 4,
-    "pilotRendered": 4,
+    "locked": 4,
+    "productionReady": 5,
+    "pilotRendered": 5,
     "staleLocks": 1,
     "missingModels": 297
   },
@@ -255,15 +255,18 @@
       "reading": "こんばんは。はじめまして。Rieです。",
       "english": "Good evening. Nice to meet you. I'm Rie.",
       "sourceSha256": "f39b9ddce2b01e46166b7574c57a82f0705e817a17bfd170b5e292d7d7b683b6",
-      "status": "draft",
+      "status": "locked",
       "voiceModel": {
         "speaker": "rie",
         "model": "morioki",
         "uuid": "baaae3c0-7b22-4605-8ba5-80c959b41a48"
       },
       "pitch": {
-        "status": "unreviewed"
-      }
+        "status": "pilot-rendered",
+        "manualReview": "pending",
+        "evidence": "docs/academy/audio/rie-introduction-manifest.json"
+      },
+      "pilotOutput": "/academy/audio/story-pilot/s1e01-the-blank-atlas__rie-konbanwa__rie.opus"
     },
     {
       "key": "line:blank-atlas:rie-konbanwa::n5",

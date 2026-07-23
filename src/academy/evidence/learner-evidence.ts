@@ -84,6 +84,7 @@ export interface LearnerEvidence {
     initialize(): Promise<LearnerProjection>;
     refresh(): Promise<LearnerProjection>;
     saveProfile(profile: LearnerProfileSnapshot): Promise<{ firstIntroduction: boolean }>;
+    completeRieIntroduction(): Promise<{ recorded: boolean }>;
     chooseCurriculumEntry(choice: CurriculumEntryChoice): Promise<void>;
     savePlacement(result: OrientationMockResult): Promise<void>;
     recordEncounter(encounter: GroundedCharacterEncounter): Promise<void>;
@@ -164,25 +165,33 @@ class DefaultLearnerEvidence implements LearnerEvidence {
 
     saveProfile(profile: LearnerProfileSnapshot): Promise<{ firstIntroduction: boolean }> {
         return this.enqueue(async () => {
-            const firstIntroduction = !this.projection.unlockedAssets.includes('character:rie');
-            await this.record.recordMany([
-                { kind: 'profile-changed', profile },
-                ...(firstIntroduction ? [
-                    {
-                        kind: 'characters-encountered' as const,
-                        eventId: 'encounter:opening-rie-introduction',
-                        encounterId: 'opening-rie-introduction',
-                        sceneId: 'scene:opening-rie-introduction',
-                        attendeeIds: ['rie'],
-                    },
-                    { kind: 'asset-unlocked' as const, eventId: 'milestone:rie-introduction:asset', assetId: 'character:rie' },
-                    { kind: 'bond-changed' as const, eventId: 'milestone:rie-introduction:bond', characterId: 'rie', delta: 1 },
-                    { kind: 'relationship-chapter-unlocked' as const, eventId: 'milestone:rie-introduction:journal', characterId: 'rie', chapter: 1, majorTurn: 'recognition' as const },
-                    { kind: 'scene-completed' as const, eventId: 'milestone:rie-introduction:scene', sceneId: 'scene:opening-rie-introduction' },
-                ] : []),
-            ]);
+            const firstIntroduction = !this.projection.completedEncounterIds.includes('opening-rie-introduction');
+            await this.record.record({ kind: 'profile-changed', profile });
             await this.refreshNow();
             return { firstIntroduction };
+        });
+    }
+
+    completeRieIntroduction(): Promise<{ recorded: boolean }> {
+        return this.enqueue(async () => {
+            if (this.projection.completedEncounterIds.includes('opening-rie-introduction')) {
+                return { recorded: false };
+            }
+            await this.record.recordMany([
+                {
+                    kind: 'characters-encountered',
+                    eventId: 'encounter:opening-rie-introduction',
+                    encounterId: 'opening-rie-introduction',
+                    sceneId: 'scene:opening-rie-introduction',
+                    attendeeIds: ['rie'],
+                },
+                { kind: 'asset-unlocked', eventId: 'milestone:rie-introduction:asset', assetId: 'character:rie' },
+                { kind: 'bond-changed', eventId: 'milestone:rie-introduction:bond', characterId: 'rie', delta: 1 },
+                { kind: 'relationship-chapter-unlocked', eventId: 'milestone:rie-introduction:journal', characterId: 'rie', chapter: 1, majorTurn: 'recognition' },
+                { kind: 'scene-completed', eventId: 'milestone:rie-introduction:scene', sceneId: 'scene:opening-rie-introduction' },
+            ]);
+            await this.refreshNow();
+            return { recorded: true };
         });
     }
 

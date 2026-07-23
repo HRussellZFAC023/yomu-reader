@@ -46,7 +46,7 @@ import { renderAakashMemory } from '../ui/character-scenes';
 import { renderClassPathScreen } from '../ui/class-path-screen';
 import { renderClassBoardScreen } from '../ui/class-board-screen';
 import { renderDayEndScene } from '../ui/day-end-scene';
-import { renderOpeningMemory } from '../ui/lesson-screen';
+import { renderRieUnlockScreen } from '../ui/character-scenes';
 import { renderLoadingScreen } from '../ui/loading-screen';
 import { renderProfileSyncScreen } from '../ui/profile-sync-screen';
 import { openVocabularySheet, renderLibraryIntroduction, renderLibraryScreen } from '../ui/library-screen';
@@ -749,7 +749,16 @@ class WorldFlow implements AcademyRouteFlow {
 
     private replayOpening(context: AcademyRouteContext): void {
         context.shell.setNavigation(true, 'journal');
-        context.shell.replace(renderOpeningMemory(context.language, () => void context.go('journal')));
+        const voice = typeof this.options.audio.onEvent === 'function'
+            && typeof this.options.audio.beginExternalLesson === 'function'
+            ? createStoryVoicePlayback({ director: this.options.audio })
+            : undefined;
+        context.shell.replace(renderRieUnlockScreen({
+            language: context.language,
+            replay: true,
+            ...(voice ? { voice } : {}),
+            onComplete: () => void context.go('journal'),
+        }));
     }
 
     private replayAakash(context: AcademyRouteContext): void {

@@ -258,29 +258,6 @@ export function renderKanjiDeskScreen(
     return screen;
 }
 
-export function renderOpeningMemory(language: AcademyLanguage, onClose: () => void): HTMLElement {
-    const { screen, panel, content } = screenFrame({
-        language,
-        className: 'academy-memory-screen',
-        plate: 'classroom',
-        title: 'memoryTitle',
-        body: 'memoryBody',
-    });
-    panel.classList.add('academy-guide-panel');
-    panel.prepend(rieGuide(language));
-    const line = element('blockquote', 'academy-memory-line');
-    line.lang = 'ja';
-    line.dataset.speaker = 'rie';
-    line.textContent = '「こんばんは。ここ、空いていますよ。」';
-    const support = element('p', 'academy-support');
-    support.lang = 'en';
-    support.textContent = '“Good evening. This seat is free.”';
-    const close = copyButton(language, 'memoryReturn', 'academy-button academy-button-primary');
-    close.addEventListener('click', onClose);
-    content.append(line, support, close);
-    return screen;
-}
-
 function rieGuide(language: AcademyLanguage): HTMLElement {
     const cutout = element('div', 'academy-guide-cutout');
     cutout.dataset.speakerStage = 'rie';

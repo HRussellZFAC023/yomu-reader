@@ -73,10 +73,17 @@ export function normalizeResumeCheckpoint(
     let normalized = checkpoint;
     if (!projection.profile) normalized = transitionCheckpoint(normalized, { kind: 'reset', route: 'profile' }, now);
     else if (normalized.route === 'access' || normalized.route === 'profile') {
-        normalized = transitionCheckpoint(normalized, { kind: 'reset', route: 'start' }, now);
+        normalized = transitionCheckpoint(normalized, {
+            kind: 'reset',
+            route: rieIntroductionCompleted(projection) ? 'start' : 'rie-unlock',
+        }, now);
     }
     if (normalized.route === 'rie-unlock' && !projection.profile) {
         normalized = transitionCheckpoint(normalized, { kind: 'reset', route: 'profile' }, now);
+    } else if (normalized.route === 'rie-unlock' && rieIntroductionCompleted(projection)) {
+        normalized = transitionCheckpoint(normalized, { kind: 'reset', route: 'start' }, now);
+    } else if (normalized.route === 'start' && !rieIntroductionCompleted(projection)) {
+        normalized = transitionCheckpoint(normalized, { kind: 'reset', route: 'rie-unlock' }, now);
     }
     if (normalized.route === 'placement-result' && !projection.latestPlacement) {
         normalized = transitionCheckpoint(normalized, { kind: 'replace', route: 'placement-mock' }, now);
@@ -118,6 +125,10 @@ export function normalizeResumeCheckpoint(
         normalized = { ...normalized, routeHistory, updatedAt: now };
     }
     return normalized;
+}
+
+function rieIntroductionCompleted(projection: LearnerProjection): boolean {
+    return projection.completedEncounterIds.includes('opening-rie-introduction');
 }
 
 function transitionCheckpoint(

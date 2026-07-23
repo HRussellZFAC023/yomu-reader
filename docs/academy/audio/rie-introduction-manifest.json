@@ -1,0 +1,417 @@
+{
+  "schema": "yomu-academy.rie-introduction-voice.v1",
+  "qualityBoundary": "Automated canonical-source, pinned-model, synthesis-query, accent-phrase, duration, codec, channel, and hash verification; no human-audition claim.",
+  "source": {
+    "path": "src/academy/content/story-sources/s1e01-the-blank-atlas.v2.json",
+    "fileSha256": "38e9c80d432ad8611be0195d3f3227a99921392bed0a7d63c589f59ce6c2982c",
+    "chapterId": "s1e01-the-blank-atlas",
+    "sceneId": "scene:blank-atlas:arrival-greetings",
+    "lineId": "line:blank-atlas:rie-konbanwa",
+    "speakerId": "rie",
+    "band": "foundation",
+    "japanese": "こんばんは。はじめまして。Rieです。",
+    "reading": "こんばんは。はじめまして。Rieです。",
+    "english": "Good evening. Nice to meet you. I'm Rie.",
+    "sourceSha256": "f39b9ddce2b01e46166b7574c57a82f0705e817a17bfd170b5e292d7d7b683b6"
+  },
+  "spokenForm": {
+    "text": "こんばんは。はじめまして。りえです。",
+    "normalization": "The display name Rie is pronounced as りえ; no other source text changes."
+  },
+  "engine": {
+    "name": "AivisSpeech",
+    "version": "1.2.0"
+  },
+  "model": {
+    "uuid": "baaae3c0-7b22-4605-8ba5-80c959b41a48",
+    "name": "morioki",
+    "version": "1.0.0",
+    "architecture": "Style-Bert-VITS2 (JP-Extra)",
+    "format": "ONNX",
+    "speakerUuid": "396a746d-742f-4e43-b722-1182a7fab9af",
+    "speakerName": "morioki",
+    "styleId": 497929760,
+    "styleName": "ノーマル",
+    "payloadBytes": 251126564,
+    "payloadSha256": "352858a737b23fe0bd0b7bd73a4956be262aad9bb24a7bf0d1eae9a71a466469",
+    "licenseSha256": "841ec166f293db138d5e0ccacf2aaab71bb0eecdad128af8ab3378708e3259dc"
+  },
+  "synthesis": {
+    "queryOverrides": {
+      "speedScale": 0.96,
+      "pitchScale": -0.01,
+      "intonationScale": 1.06,
+      "volumeScale": 0.86,
+      "prePhonemeLength": 0.12,
+      "postPhonemeLength": 0.18,
+      "pauseLengthScale": 0.96
+    },
+    "querySha256": "2a7388e4ed682b3334b75c9c125d469e5d504abf7f1873741cced864a0a9a242",
+    "audioQuery": {
+      "accent_phrases": [
+        {
+          "moras": [
+            {
+              "text": "コ",
+              "consonant": "k",
+              "consonant_length": 0.0,
+              "vowel": "o",
+              "vowel_length": 0.0,
+              "pitch": 0.0
+            },
+            {
+              "text": "ン",
+              "consonant": null,
+              "consonant_length": null,
+              "vowel": "N",
+              "vowel_length": 0.0,
+              "pitch": 0.0
+            },
+            {
+              "text": "バ",
+              "consonant": "b",
+              "consonant_length": 0.0,
+              "vowel": "a",
+              "vowel_length": 0.0,
+              "pitch": 0.0
+            },
+            {
+              "text": "ン",
+              "consonant": null,
+              "consonant_length": null,
+              "vowel": "N",
+              "vowel_length": 0.0,
+              "pitch": 0.0
+            },
+            {
+              "text": "ワ",
+              "consonant": "w",
+              "consonant_length": 0.0,
+              "vowel": "a",
+              "vowel_length": 0.0,
+              "pitch": 0.0
+            },
+            {
+              "text": ".",
+              "consonant": null,
+              "consonant_length": null,
+              "vowel": "pau",
+              "vowel_length": 0.0,
+              "pitch": 0.0
+            }
+          ],
+          "accent": 5,
+          "pause_mora": null,
+          "is_interrogative": false
+        },
+        {
+          "moras": [
+            {
+              "text": "ハ",
+              "consonant": "h",
+              "consonant_length": 0.0,
+              "vowel": "a",
+              "vowel_length": 0.0,
+              "pitch": 0.0
+            },
+            {
+              "text": "ジ",
+              "consonant": "j",
+              "consonant_length": 0.0,
+              "vowel": "i",
+              "vowel_length": 0.0,
+              "pitch": 0.0
+            },
+            {
+              "text": "メ",
+              "consonant": "m",
+              "consonant_length": 0.0,
+              "vowel": "e",
+              "vowel_length": 0.0,
+              "pitch": 0.0
+            },
+            {
+              "text": "マ",
+              "consonant": "m",
+              "consonant_length": 0.0,
+              "vowel": "a",
+              "vowel_length": 0.0,
+              "pitch": 0.0
+            },
+            {
+              "text": "シ",
+              "consonant": "sh",
+              "consonant_length": 0.0,
+              "vowel": "i",
+              "vowel_length": 0.0,
+              "pitch": 0.0
+            },
+            {
+              "text": "テ",
+              "consonant": "t",
+              "consonant_length": 0.0,
+              "vowel": "e",
+              "vowel_length": 0.0,
+              "pitch": 0.0
+            },
+            {
+              "text": ".",
+              "consonant": null,
+              "consonant_length": null,
+              "vowel": "pau",
+              "vowel_length": 0.0,
+              "pitch": 0.0
+            }
+          ],
+          "accent": 4,
+          "pause_mora": null,
+          "is_interrogative": false
+        },
+        {
+          "moras": [
+            {
+              "text": "リ",
+              "consonant": "r",
+              "consonant_length": 0.0,
+              "vowel": "i",
+              "vowel_length": 0.0,
+              "pitch": 0.0
+            },
+            {
+              "text": "エ",
+              "consonant": null,
+              "consonant_length": null,
+              "vowel": "e",
+              "vowel_length": 0.0,
+              "pitch": 0.0
+            },
+            {
+              "text": "デ",
+              "consonant": "d",
+              "consonant_length": 0.0,
+              "vowel": "e",
+              "vowel_length": 0.0,
+              "pitch": 0.0
+            },
+            {
+              "text": "ス",
+              "consonant": "s",
+              "consonant_length": 0.0,
+              "vowel": "u",
+              "vowel_length": 0.0,
+              "pitch": 0.0
+            },
+            {
+              "text": ".",
+              "consonant": null,
+              "consonant_length": null,
+              "vowel": "pau",
+              "vowel_length": 0.0,
+              "pitch": 0.0
+            }
+          ],
+          "accent": 1,
+          "pause_mora": null,
+          "is_interrogative": false
+        }
+      ],
+      "speedScale": 0.96,
+      "intonationScale": 1.06,
+      "tempoDynamicsScale": 1.0,
+      "pitchScale": -0.01,
+      "volumeScale": 0.86,
+      "prePhonemeLength": 0.12,
+      "postPhonemeLength": 0.18,
+      "pauseLength": null,
+      "pauseLengthScale": 0.96,
+      "outputSamplingRate": 44100,
+      "outputStereo": false,
+      "kana": "こんばんは。はじめまして。りえです。"
+    },
+    "pitchTrace": [
+      {
+        "accentPhrase": 0,
+        "accent": 5,
+        "mora": 0,
+        "text": "コ",
+        "consonant": "k",
+        "vowel": "o",
+        "pitch": 0.0
+      },
+      {
+        "accentPhrase": 0,
+        "accent": 5,
+        "mora": 1,
+        "text": "ン",
+        "consonant": null,
+        "vowel": "N",
+        "pitch": 0.0
+      },
+      {
+        "accentPhrase": 0,
+        "accent": 5,
+        "mora": 2,
+        "text": "バ",
+        "consonant": "b",
+        "vowel": "a",
+        "pitch": 0.0
+      },
+      {
+        "accentPhrase": 0,
+        "accent": 5,
+        "mora": 3,
+        "text": "ン",
+        "consonant": null,
+        "vowel": "N",
+        "pitch": 0.0
+      },
+      {
+        "accentPhrase": 0,
+        "accent": 5,
+        "mora": 4,
+        "text": "ワ",
+        "consonant": "w",
+        "vowel": "a",
+        "pitch": 0.0
+      },
+      {
+        "accentPhrase": 0,
+        "accent": 5,
+        "mora": 5,
+        "text": ".",
+        "consonant": null,
+        "vowel": "pau",
+        "pitch": 0.0
+      },
+      {
+        "accentPhrase": 1,
+        "accent": 4,
+        "mora": 0,
+        "text": "ハ",
+        "consonant": "h",
+        "vowel": "a",
+        "pitch": 0.0
+      },
+      {
+        "accentPhrase": 1,
+        "accent": 4,
+        "mora": 1,
+        "text": "ジ",
+        "consonant": "j",
+        "vowel": "i",
+        "pitch": 0.0
+      },
+      {
+        "accentPhrase": 1,
+        "accent": 4,
+        "mora": 2,
+        "text": "メ",
+        "consonant": "m",
+        "vowel": "e",
+        "pitch": 0.0
+      },
+      {
+        "accentPhrase": 1,
+        "accent": 4,
+        "mora": 3,
+        "text": "マ",
+        "consonant": "m",
+        "vowel": "a",
+        "pitch": 0.0
+      },
+      {
+        "accentPhrase": 1,
+        "accent": 4,
+        "mora": 4,
+        "text": "シ",
+        "consonant": "sh",
+        "vowel": "i",
+        "pitch": 0.0
+      },
+      {
+        "accentPhrase": 1,
+        "accent": 4,
+        "mora": 5,
+        "text": "テ",
+        "consonant": "t",
+        "vowel": "e",
+        "pitch": 0.0
+      },
+      {
+        "accentPhrase": 1,
+        "accent": 4,
+        "mora": 6,
+        "text": ".",
+        "consonant": null,
+        "vowel": "pau",
+        "pitch": 0.0
+      },
+      {
+        "accentPhrase": 2,
+        "accent": 1,
+        "mora": 0,
+        "text": "リ",
+        "consonant": "r",
+        "vowel": "i",
+        "pitch": 0.0
+      },
+      {
+        "accentPhrase": 2,
+        "accent": 1,
+        "mora": 1,
+        "text": "エ",
+        "consonant": null,
+        "vowel": "e",
+        "pitch": 0.0
+      },
+      {
+        "accentPhrase": 2,
+        "accent": 1,
+        "mora": 2,
+        "text": "デ",
+        "consonant": "d",
+        "vowel": "e",
+        "pitch": 0.0
+      },
+      {
+        "accentPhrase": 2,
+        "accent": 1,
+        "mora": 3,
+        "text": "ス",
+        "consonant": "s",
+        "vowel": "u",
+        "pitch": 0.0
+      },
+      {
+        "accentPhrase": 2,
+        "accent": 1,
+        "mora": 4,
+        "text": ".",
+        "consonant": null,
+        "vowel": "pau",
+        "pitch": 0.0
+      }
+    ],
+    "wavSha256": "cd46b36c9265a0e73a65d6907579f99623295e5984a35b306e6df86bcb748788"
+  },
+  "asset": {
+    "runtimeUrl": "/academy/audio/story-pilot/s1e01-the-blank-atlas__rie-konbanwa__rie.opus",
+    "path": "public/academy/audio/story-pilot/s1e01-the-blank-atlas__rie-konbanwa__rie.opus",
+    "sha256": "9a96c2ccab9e78262afeed7db49676665ea3911a817827ec4147540466962898",
+    "bytes": 24565,
+    "codec": "opus",
+    "sampleRate": 48000,
+    "channels": 1,
+    "channelLayout": "mono",
+    "durationSeconds": 3.142,
+    "bitRate": 62539
+  },
+  "objectiveQa": {
+    "canonicalLineBound": true,
+    "displayAndSpokenFormsSeparated": true,
+    "modelAndStylePinned": true,
+    "accentPhrasesPreserved": true,
+    "deterministicQueryHashed": true,
+    "runtimeMediaVerified": true
+  }
+}

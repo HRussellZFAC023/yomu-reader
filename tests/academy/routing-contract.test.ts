@@ -39,6 +39,27 @@ describe('Academy resume route contract', () => {
         expect(themeForRoute('profile')).toBe('opening.invitation');
     });
 
+    it('resumes the one-time Rie meeting until it is complete, then keeps it out of the live route', () => {
+        const profile = event({
+            kind: 'profile-changed',
+            profile: { displayName: 'Mina', learningReason: 'Speak with friends', portraitId: 'quality-2' },
+        } as LearnerEvent, 1);
+        const before = projectLearnerRecord([profile]);
+        expect(normalizeResumeCheckpoint(checkpoint('profile'), before, 1_000, true, true).route).toBe('rie-unlock');
+        expect(normalizeResumeCheckpoint(checkpoint('start'), before, 1_000, true, true).route).toBe('rie-unlock');
+        expect(normalizeResumeCheckpoint(checkpoint('rie-unlock'), before, 1_000, true, true).route).toBe('rie-unlock');
+
+        const introduction = event<Extract<LearnerEvent, { kind: 'characters-encountered' }>>({
+            kind: 'characters-encountered',
+            encounterId: 'opening-rie-introduction',
+            sceneId: 'scene:opening-rie-introduction',
+            attendeeIds: ['rie'],
+        }, 2);
+        const after = projectLearnerRecord([profile, introduction]);
+        expect(normalizeResumeCheckpoint(checkpoint('rie-unlock'), after, 1_000, true, true).route).toBe('start');
+        expect(normalizeResumeCheckpoint(checkpoint('profile'), after, 1_000, true, true).route).toBe('start');
+    });
+
     it('restores a missing selected band from curriculum evidence', () => {
         const projection = projectLearnerRecord([
             event({

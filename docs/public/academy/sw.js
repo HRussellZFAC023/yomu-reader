@@ -1,4 +1,4 @@
-const VERSION = 'yomu-academy-shell-s1-72569927e6c2';
+const VERSION = 'yomu-academy-shell-s1-fb27601c5b11';
 const AUDIO_CACHE = 'yomu-academy-audio-v1-2c25b06f971c';
 const AUDIO_PRECACHE_BYTES = 378672515;
 const AUDIO_QUOTA_HEADROOM_BYTES = 16777216;
@@ -73,8 +73,8 @@ const CORE = [
     '/yomu-icon.svg',
     '/academy/',
     '/academy/index.html',
-    '/academy/app.js?v=s1-72569927e6c2',
-    '/academy/style.css?v=s1-72569927e6c2',
+    '/academy/app.js?v=s1-fb27601c5b11',
+    '/academy/style.css?v=s1-fb27601c5b11',
     '/academy/manifest.webmanifest',
     ...CAST_SPRITE_PRECACHE,
     '/academy/art/protagonists/quality-2__picker__v001.png',
@@ -181,6 +181,7 @@ const CORE = [
     '/academy/audio/lesson-zero/sound-xingyu.opus',
     '/academy/audio/lesson-zero/sound-mika.opus',
     '/academy/audio/story-voice-playback.json',
+    '/academy/audio/story-pilot/s1e01-the-blank-atlas__rie-konbanwa__rie.opus',
     '/academy/audio/story-pilot/s1e02-margin-map__henry-presents__henry.opus',
     '/academy/audio/story-pilot/s1e02-margin-map__aakash-cant-use__aakash.opus',
     '/academy/audio/story-pilot/s1e14-two-answers__sophie-frame__sophie.opus',

@@ -58,6 +58,7 @@ describe('Academy offline shell', () => {
             '/academy/content/listening/media/academy-listening-1039d11bef7a0575.mp3',
             '/academy/content/lessons/lesson-zero.v1.json',
             '/academy/audio/story-voice-playback.json',
+            '/academy/audio/story-pilot/s1e01-the-blank-atlas__rie-konbanwa__rie.opus',
             '/academy/audio/story-pilot/s1e02-margin-map__henry-presents__henry.opus',
             '/academy/audio/story-pilot/s1e02-margin-map__aakash-cant-use__aakash.opus',
             '/academy/audio/story-pilot/s1e14-two-answers__sophie-frame__sophie.opus',

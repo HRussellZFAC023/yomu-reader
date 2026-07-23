@@ -6,6 +6,7 @@ import type { LearnerEvidence } from '../evidence/learner-evidence';
 import type { PronunciationService } from '../integration/yomu-bridge';
 import type { OrientationMockResult, PlacementMockDraft } from '../placement/orientation';
 import type { SfxCue } from '../audio/types';
+import { createStoryVoicePlayback, type StoryVoiceAudioDirector } from '../audio/voice-lines';
 import type { AcademyRoute } from '../persistence/indexeddb';
 import { renderAccessScreen } from '../ui/access-screen';
 import { renderAdvancedArrivalBridge } from '../ui/advanced-arrival-bridge';
@@ -20,7 +21,7 @@ export interface EnrollmentFlowOptions {
     readonly access: AccessGateway;
     readonly evidence: LearnerEvidence;
     readonly pronunciation: PronunciationService;
-    readonly audio?: { beginExternalLesson(duck?: number): () => void; playSfx?(cue: SfxCue): void };
+    readonly audio?: StoryVoiceAudioDirector & { playSfx?(cue: SfxCue): void };
     /** Paid access must settle its account gate before Academy onboarding. */
     readonly account?: Pick<AcademyAccountGate, 'connect'>;
     /** Development-only seam; production entrypoints never enable it. */
@@ -60,7 +61,13 @@ class EnrollmentFlow implements AcademyRouteFlow {
                 }));
                 return true;
             case 'rie-unlock':
-                context.shell.replace(renderRieUnlockScreen(context.language, () => void context.go('start')));
+                context.shell.replace(renderRieUnlockScreen({
+                    language: context.language,
+                    ...(this.options.audio
+                        ? { voice: createStoryVoicePlayback({ director: this.options.audio }) }
+                        : {}),
+                    onComplete: () => this.completeRieIntroduction(context),
+                }));
                 return true;
             case 'start':
                 context.shell.replace(renderStartScreen(context.language, choice => void this.chooseStart(choice, context)));
@@ -174,6 +181,11 @@ class EnrollmentFlow implements AcademyRouteFlow {
     private async saveProfile(profile: LearnerProfileSnapshot, context: AcademyRouteContext): Promise<void> {
         const { firstIntroduction } = await this.options.evidence.saveProfile(profile);
         await context.go(firstIntroduction ? 'rie-unlock' : 'start');
+    }
+
+    private async completeRieIntroduction(context: AcademyRouteContext): Promise<void> {
+        await this.options.evidence.completeRieIntroduction();
+        await context.go('start');
     }
 
     private async chooseStart(route: StartingRoute, context: AcademyRouteContext): Promise<void> {

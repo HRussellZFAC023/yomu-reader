@@ -179,7 +179,7 @@ function storyEntries(file, source) {
             ]);
             const lock = locks[key];
             const status = !lock ? 'draft' : lock.sourceSha256 === sourceSha256 ? lock.status : 'stale';
-            const pilotOutput = band === pilotBand(source.season)
+            const pilotOutput = band === pilotBand(source, node)
                 ? pilotPath(source.id, node.id, node.speakerId)
                 : undefined;
             return {
@@ -207,10 +207,13 @@ function storyEntries(file, source) {
     }));
 }
 
-function pilotBand(season) {
-    if (season === 1) return 'n5';
-    if (season === 2) return 'n4';
-    if (season === 3) return 'n3';
+function pilotBand(source, node) {
+    if (source.id === 's1e01-the-blank-atlas' && node.id === 'line:blank-atlas:rie-konbanwa') {
+        return 'foundation';
+    }
+    if (source.season === 1) return 'n5';
+    if (source.season === 2) return 'n4';
+    if (source.season === 3) return 'n3';
     return 'n2';
 }
 

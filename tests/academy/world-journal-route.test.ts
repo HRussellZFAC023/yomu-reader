@@ -169,7 +169,13 @@ describe('World Journal route', () => {
         await flow.render('journal', context);
         current?.querySelector<HTMLButtonElement>('[data-character="rie"] button')?.click();
         current?.querySelector<HTMLButtonElement>('.academy-character-revisit')?.click();
-        expect(current?.classList.contains('academy-memory-screen')).toBe(true);
+        expect(current?.classList.contains('academy-rie-introduction-screen')).toBe(true);
+        expect(current?.dataset.introductionReplay).toBe('true');
+        current?.querySelector<HTMLElement>('.academy-vn-line-body')?.click();
+        expect(current?.querySelector('.academy-vn-japanese')?.textContent)
+            .toBe('こんばんは。はじめまして。Rieです。');
+        expect(current?.querySelector('.academy-vn-translation')?.textContent)
+            .toBe("Good evening. Nice to meet you. I'm Rie.");
 
         await flow.render('journal', context);
         current?.querySelector<HTMLButtonElement>('[data-character="aakash"] button')?.click();

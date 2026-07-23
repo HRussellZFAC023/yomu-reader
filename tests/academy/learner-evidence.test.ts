@@ -24,7 +24,7 @@ function reviewService(): ReviewQueueService {
 }
 
 describe('learner evidence deep module', () => {
-    it('makes profile unlock milestones idempotent across profile edits', async () => {
+    it('records the Rie introduction only after it happens and keeps the milestone idempotent', async () => {
         const repository = createMemoryLearnerEventRepository();
         const evidence = createLearnerEvidence(repository, reviewService());
         await evidence.initialize();
@@ -33,15 +33,26 @@ describe('learner evidence deep module', () => {
             learningReason: 'Read novels',
             portraitId: 'quality-2',
         })).resolves.toEqual({ firstIntroduction: true });
+
+        expect(evidence.projection.bonds.rie).toBeUndefined();
+        expect(evidence.projection.unlockedAssets).not.toContain('character:rie');
+        expect(evidence.projection.completedEncounterIds).not.toContain('opening-rie-introduction');
+        expect((await repository.readAll()).filter(event => event.kind === 'characters-encountered')).toHaveLength(0);
+
+        await expect(evidence.completeRieIntroduction()).resolves.toEqual({ recorded: true });
         await expect(evidence.saveProfile({
             displayName: 'Riku',
             learningReason: 'Read novels and speak with friends',
             portraitId: 'quality-3',
         })).resolves.toEqual({ firstIntroduction: false });
+        await expect(evidence.completeRieIntroduction()).resolves.toEqual({ recorded: false });
 
         expect(evidence.projection.bonds.rie).toBe(1);
         expect(evidence.projection.unlockedAssets).toContain('character:rie');
+        expect(evidence.projection.completedEncounterIds).toContain('opening-rie-introduction');
         expect((await repository.readAll()).filter(event => event.kind === 'bond-changed')).toHaveLength(1);
+        expect((await repository.readAll()).filter(event => event.kind === 'characters-encountered')).toHaveLength(1);
+        expect((await repository.readAll()).filter(event => event.kind === 'scene-completed')).toHaveLength(1);
     });
 
     it('schedules one review and awards one bond when a milestone evaluation is retried', async () => {

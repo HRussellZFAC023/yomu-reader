@@ -2903,7 +2903,7 @@
   const SHA256$3 = /^[a-f0-9]{64}$/u;
   const MODEL_UUID = /^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/u;
   const LEARNING_URL = /^\/academy\/audio\/learning-lines\/[a-z0-9][a-z0-9._/-]*\.opus$/u;
-  const LINE_ID = /^[a-z0-9][a-z0-9._:-]*$/u;
+  const LINE_ID$1 = /^[a-z0-9][a-z0-9._:-]*$/u;
   const SURFACE_ID = /^[a-z0-9][a-z0-9._-]*$/u;
   const QUERY_FIELDS = /* @__PURE__ */ new Set([
     "speedScale",
@@ -2927,7 +2927,7 @@
     return parseLearningVoiceCatalog(await response.json(), { invalidEntry: "skip" });
   }
   function parseLearningVoiceCatalog(value, options = {}) {
-    if (!isRecord$9(value) || value.schema !== LEARNING_VOICE_SCHEMA || typeof value.batchId !== "string" || !LINE_ID.test(value.batchId) || !isLearningVoiceQualityApproval(value.qualityApproval) || !isLearningVoiceAcceptancePolicy(value.acceptancePolicy) || !isRecord$9(value.engine) || value.engine.name !== "AivisSpeech Engine" || typeof value.engine.version !== "string" || typeof value.engine.versionResponseSha256 !== "string" || !SHA256$3.test(value.engine.versionResponseSha256) || !isRecord$9(value.encoder) || value.encoder.name !== "ffmpeg/libopus" || typeof value.encoder.version !== "string" || value.encoder.bitrateKbps !== 64 || value.encoder.application !== "voip" || !Array.isArray(value.entries)) {
+    if (!isRecord$9(value) || value.schema !== LEARNING_VOICE_SCHEMA || typeof value.batchId !== "string" || !LINE_ID$1.test(value.batchId) || !isLearningVoiceQualityApproval(value.qualityApproval) || !isLearningVoiceAcceptancePolicy(value.acceptancePolicy) || !isRecord$9(value.engine) || value.engine.name !== "AivisSpeech Engine" || typeof value.engine.version !== "string" || typeof value.engine.versionResponseSha256 !== "string" || !SHA256$3.test(value.engine.versionResponseSha256) || !isRecord$9(value.encoder) || value.encoder.name !== "ffmpeg/libopus" || typeof value.encoder.version !== "string" || value.encoder.bitrateKbps !== 64 || value.encoder.application !== "voip" || !Array.isArray(value.entries)) {
       throw new TypeError("Invalid learning voice playback catalog.");
     }
     const assetLineIds = /* @__PURE__ */ new Set();
@@ -3204,7 +3204,7 @@
     if (!isRecord$9(value) || !isRecord$9(value.queryOverrides) || !Array.isArray(value.bindings) || !Array.isArray(value.moraOverrides)) return false;
     const queryOverrides = Object.entries(value.queryOverrides);
     const moraOverrides = value.moraOverrides;
-    return typeof value.lineId === "string" && LINE_ID.test(value.lineId) && value.bindings.length > 0 && value.bindings.every(isLearningVoiceBinding) && typeof value.speakerId === "string" && LINE_ID.test(value.speakerId) && (value.role === "learning-ui" || value.role === "textbook-character" || value.role === "academy-character") && typeof value.intent === "string" && value.intent.trim() === value.intent && value.intent.length > 0 && value.locale === "ja-JP" && value.band === "native" && typeof value.surface === "string" && SURFACE_ID.test(value.surface) && typeof value.japanese === "string" && value.japanese.trim() === value.japanese && value.japanese.length > 0 && typeof value.sourceSha256 === "string" && SHA256$3.test(value.sourceSha256) && value.sourceRevision === value.sourceSha256 && typeof value.cacheKey === "string" && SHA256$3.test(value.cacheKey) && typeof value.audioQuerySha256 === "string" && SHA256$3.test(value.audioQuerySha256) && typeof value.assetSha256 === "string" && SHA256$3.test(value.assetSha256) && Number.isInteger(value.bytes) && Number(value.bytes) > 0 && typeof value.durationSeconds === "number" && value.durationSeconds > 0 && typeof value.url === "string" && isConfinedLearningUrl(value.url) && typeof value.modelUuid === "string" && MODEL_UUID.test(value.modelUuid) && typeof value.modelName === "string" && value.modelName.length > 0 && typeof value.modelVersion === "string" && value.modelVersion.length > 0 && typeof value.modelSourceUrl === "string" && value.modelSourceUrl === `https://hub.aivis-project.com/aivm-models/${value.modelUuid}` && value.modelLicense === "ACML-1.0" && typeof value.modelPayloadSha256 === "string" && SHA256$3.test(value.modelPayloadSha256) && Number.isInteger(value.styleId) && typeof value.styleName === "string" && value.styleName.length > 0 && queryOverrides.length === QUERY_FIELDS.size && queryOverrides.every(([field2, amount]) => QUERY_FIELDS.has(field2) && typeof amount === "number" && Number.isFinite(amount)) && moraOverrides.every(isLearningVoiceMoraOverride) && value.reviewStatus === "accepted" && value.qualityApprovalStatus === "codex-accepted" && isLearningVoiceReview(value.review) && isLearningVoiceDisclosure(value.disclosure) && value.provenance === "Yomu-authored";
+    return typeof value.lineId === "string" && LINE_ID$1.test(value.lineId) && value.bindings.length > 0 && value.bindings.every(isLearningVoiceBinding) && typeof value.speakerId === "string" && LINE_ID$1.test(value.speakerId) && (value.role === "learning-ui" || value.role === "textbook-character" || value.role === "academy-character") && typeof value.intent === "string" && value.intent.trim() === value.intent && value.intent.length > 0 && value.locale === "ja-JP" && value.band === "native" && typeof value.surface === "string" && SURFACE_ID.test(value.surface) && typeof value.japanese === "string" && value.japanese.trim() === value.japanese && value.japanese.length > 0 && typeof value.sourceSha256 === "string" && SHA256$3.test(value.sourceSha256) && value.sourceRevision === value.sourceSha256 && typeof value.cacheKey === "string" && SHA256$3.test(value.cacheKey) && typeof value.audioQuerySha256 === "string" && SHA256$3.test(value.audioQuerySha256) && typeof value.assetSha256 === "string" && SHA256$3.test(value.assetSha256) && Number.isInteger(value.bytes) && Number(value.bytes) > 0 && typeof value.durationSeconds === "number" && value.durationSeconds > 0 && typeof value.url === "string" && isConfinedLearningUrl(value.url) && typeof value.modelUuid === "string" && MODEL_UUID.test(value.modelUuid) && typeof value.modelName === "string" && value.modelName.length > 0 && typeof value.modelVersion === "string" && value.modelVersion.length > 0 && typeof value.modelSourceUrl === "string" && value.modelSourceUrl === `https://hub.aivis-project.com/aivm-models/${value.modelUuid}` && value.modelLicense === "ACML-1.0" && typeof value.modelPayloadSha256 === "string" && SHA256$3.test(value.modelPayloadSha256) && Number.isInteger(value.styleId) && typeof value.styleName === "string" && value.styleName.length > 0 && queryOverrides.length === QUERY_FIELDS.size && queryOverrides.every(([field2, amount]) => QUERY_FIELDS.has(field2) && typeof amount === "number" && Number.isFinite(amount)) && moraOverrides.every(isLearningVoiceMoraOverride) && value.reviewStatus === "accepted" && value.qualityApprovalStatus === "codex-accepted" && isLearningVoiceReview(value.review) && isLearningVoiceDisclosure(value.disclosure) && value.provenance === "Yomu-authored";
   }
   function isLearningVoiceDisclosure(value) {
     return isRecord$9(value) && Object.keys(value).sort().join(",") === "livingPersonSource,officialCharacterVoice,synthetic" && value.synthetic === true && value.officialCharacterVoice === false && typeof value.livingPersonSource === "boolean";
@@ -3225,7 +3225,7 @@
   function isLearningVoiceBinding(value) {
     if (!isRecord$9(value) || !isRecord$9(value.accessibleReplayLabel)) return false;
     const labels = value.accessibleReplayLabel;
-    return typeof value.lineId === "string" && LINE_ID.test(value.lineId) && typeof value.surface === "string" && SURFACE_ID.test(value.surface) && Object.keys(labels).length === 2 && isAccessibleLabel(labels.en) && isAccessibleLabel(labels.ja);
+    return typeof value.lineId === "string" && LINE_ID$1.test(value.lineId) && typeof value.surface === "string" && SURFACE_ID.test(value.surface) && Object.keys(labels).length === 2 && isAccessibleLabel(labels.en) && isAccessibleLabel(labels.ja);
   }
   function isLearningVoiceReview(value) {
     if (!isRecord$9(value) || !isRecord$9(value.naturalness) || !isRecord$9(value.accent) || !isRecord$9(value.pause) || !isRecord$9(value.listening)) return false;
@@ -8172,9 +8172,9 @@
   function acceptedEnglishAnswers(model2) {
     return new Set([model2.payload.support.meaning, model2.payload.exact.meaning].filter((value) => typeof value === "string").flatMap((value) => {
       const variants = [value, ...value.split(/(?:\s*[/;,]\s*|\r?\n+)/u)];
-      return variants.flatMap((variant) => [
-        variant,
-        variant.replace(/\s*(?:\([^)]*\)|\[[^\]]*\])/gu, " ")
+      return variants.flatMap((variant2) => [
+        variant2,
+        variant2.replace(/\s*(?:\([^)]*\)|\[[^\]]*\])/gu, " ")
       ]);
     }).map(normalizeEnglishAnswer).filter(Boolean));
   }
@@ -8186,10 +8186,10 @@
     ].filter((value) => typeof value === "string").flatMap(expandJapaneseAnswerVariants).map(normalizeVocabularyJapaneseAnswer).filter(Boolean));
   }
   function expandJapaneseAnswerVariants(value) {
-    return value.split(/(?:\s*[/／;,]\s*|\r?\n)+/u).flatMap((variant) => {
-      const withoutOptional = variant.replace(/\([^)]*\)/gu, "");
-      const withOptional = variant.replace(/\(([^)]*)\)/gu, "$1");
-      return [variant, withoutOptional, withOptional];
+    return value.split(/(?:\s*[/／;,]\s*|\r?\n)+/u).flatMap((variant2) => {
+      const withoutOptional = variant2.replace(/\([^)]*\)/gu, "");
+      const withOptional = variant2.replace(/\(([^)]*)\)/gu, "$1");
+      return [variant2, withoutOptional, withOptional];
     });
   }
   function normalizeVocabularyJapaneseAnswer(value) {
@@ -13877,10 +13877,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     "item.japan-centre-omiyage-tag": runtimeAsset({ kind: "item-art", status: "approved", runtimeHomes: ["reward:japan-centre:omiyage-tag"], provenance: "current-production", files: { default: "/academy/art/items/japan-centre-omiyage-tag__v001.png" } }),
     "item.cafe-order-scene": runtimeAsset({ kind: "item-art", status: "approved", runtimeHomes: ["reward:cafe:inspectable-order-scene"], provenance: "recovered-academy-tree", files: { default: "/academy/art/items/cafe-order-scene__v001.jpg" } })
   };
-  function assetFile(id2, variant) {
+  function assetFile(id2, variant2) {
     const files = ACADEMY_RUNTIME_ASSET_REGISTRY[id2].files;
-    const file = files[variant];
-    if (!file) throw new TypeError(`Academy runtime asset ${id2} has no ${variant} file.`);
+    const file = files[variant2];
+    if (!file) throw new TypeError(`Academy runtime asset ${id2} has no ${variant2} file.`);
     return file;
   }
   const ACADEMY_APPROVED_CHARACTER_SPRITES = {
@@ -14328,23 +14328,23 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (state.stage === "repair" && state.repairItemIds.length === 0) return false;
     return true;
   }
-  function beginRound(model2, state, variant) {
-    const attemptNumber = state.attempts.filter((attempt) => attempt.variant === variant).length;
+  function beginRound(model2, state, variant2) {
+    const attemptNumber = state.attempts.filter((attempt) => attempt.variant === variant2).length;
     return {
       ...state,
       status: "active",
       stage: "attempt",
-      variant,
-      roundOrder: shuffledIds(model2.payload.items.map((item2) => item2.id), variant, attemptNumber),
+      variant: variant2,
+      roundOrder: shuffledIds(model2.payload.items.map((item2) => item2.id), variant2, attemptNumber),
       heardRoundIds: [],
       selections: [],
       repairItemIds: [],
       repairCursor: 0
     };
   }
-  function shuffledIds(ids2, variant, attemptNumber) {
+  function shuffledIds(ids2, variant2, attemptNumber) {
     const result2 = [...ids2];
-    let seed = hash$1(`${variant}:${attemptNumber}:${ids2.join("|")}`);
+    let seed = hash$1(`${variant2}:${attemptNumber}:${ids2.join("|")}`);
     for (let index = result2.length - 1; index > 0; index -= 1) {
       seed = Math.imul(seed, 1664525) + 1013904223 >>> 0;
       const swap = seed % (index + 1);
@@ -16976,6 +16976,15 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     rieUnlockTitle: "Rie-sensei",
     rieUnlockBody: "“One open chair is enough. We can begin.”",
     rieUnlockContinue: "Choose where to begin",
+    rieIntroductionStageLabel: "Your first conversation with Rie-sensei",
+    rieIntroductionMemoryLabel: "Your first conversation with Rie-sensei, from the journal",
+    rieIntroductionListen: "Hear Rie",
+    rieIntroductionListening: "Rie is speaking…",
+    rieIntroductionHeard: "Rie is waiting by the open chair.",
+    rieIntroductionAudioUnavailable: "You can read Rie’s line and continue.",
+    rieIntroductionSaveFailed: "That didn’t save. Try once more.",
+    rieIntroductionContinue: "Come in",
+    rieIntroductionReturn: "Return to the journal",
     bondFirstStar: "First page",
     relationshipFirstPage: "Rie joined your journal",
     relationshipJournalProgress: "Relationship journal",
@@ -17261,6 +17270,15 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     rieUnlockTitle: "りえ先生",
     rieUnlockBody: "「椅子が一つ空いていれば十分。始めましょう。」",
     rieUnlockContinue: "始める場所を選ぶ",
+    rieIntroductionStageLabel: "りえ先生との最初の会話",
+    rieIntroductionMemoryLabel: "日記で振り返る、りえ先生との最初の会話",
+    rieIntroductionListen: "りえ先生の声を聞く",
+    rieIntroductionListening: "りえ先生が話しています…",
+    rieIntroductionHeard: "りえ先生が空いている席で待っています。",
+    rieIntroductionAudioUnavailable: "りえ先生の言葉を読んで、先へ進めます。",
+    rieIntroductionSaveFailed: "保存できませんでした。もう一度お試しください。",
+    rieIntroductionContinue: "教室に入る",
+    rieIntroductionReturn: "日記に戻る",
     bondFirstStar: "最初のページ",
     relationshipFirstPage: "りえ先生が日記に加わりました",
     relationshipJournalProgress: "関係の日記",
@@ -26221,25 +26239,32 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     saveProfile(profile2) {
       return this.enqueue(async () => {
-        const firstIntroduction = !this.projection.unlockedAssets.includes("character:rie");
-        await this.record.recordMany([
-          { kind: "profile-changed", profile: profile2 },
-          ...firstIntroduction ? [
-            {
-              kind: "characters-encountered",
-              eventId: "encounter:opening-rie-introduction",
-              encounterId: "opening-rie-introduction",
-              sceneId: "scene:opening-rie-introduction",
-              attendeeIds: ["rie"]
-            },
-            { kind: "asset-unlocked", eventId: "milestone:rie-introduction:asset", assetId: "character:rie" },
-            { kind: "bond-changed", eventId: "milestone:rie-introduction:bond", characterId: "rie", delta: 1 },
-            { kind: "relationship-chapter-unlocked", eventId: "milestone:rie-introduction:journal", characterId: "rie", chapter: 1, majorTurn: "recognition" },
-            { kind: "scene-completed", eventId: "milestone:rie-introduction:scene", sceneId: "scene:opening-rie-introduction" }
-          ] : []
-        ]);
+        const firstIntroduction = !this.projection.completedEncounterIds.includes("opening-rie-introduction");
+        await this.record.record({ kind: "profile-changed", profile: profile2 });
         await this.refreshNow();
         return { firstIntroduction };
+      });
+    }
+    completeRieIntroduction() {
+      return this.enqueue(async () => {
+        if (this.projection.completedEncounterIds.includes("opening-rie-introduction")) {
+          return { recorded: false };
+        }
+        await this.record.recordMany([
+          {
+            kind: "characters-encountered",
+            eventId: "encounter:opening-rie-introduction",
+            encounterId: "opening-rie-introduction",
+            sceneId: "scene:opening-rie-introduction",
+            attendeeIds: ["rie"]
+          },
+          { kind: "asset-unlocked", eventId: "milestone:rie-introduction:asset", assetId: "character:rie" },
+          { kind: "bond-changed", eventId: "milestone:rie-introduction:bond", characterId: "rie", delta: 1 },
+          { kind: "relationship-chapter-unlocked", eventId: "milestone:rie-introduction:journal", characterId: "rie", chapter: 1, majorTurn: "recognition" },
+          { kind: "scene-completed", eventId: "milestone:rie-introduction:scene", sceneId: "scene:opening-rie-introduction" }
+        ]);
+        await this.refreshNow();
+        return { recorded: true };
       });
     }
     chooseCurriculumEntry(choice2) {
@@ -27459,8 +27484,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function validPitchPositions(reading, patterns) {
     const positions = /* @__PURE__ */ new Set();
-    for (const variant of collectPitchVariants(reading, patterns)) {
-      if (variant.position != null) positions.add(variant.position);
+    for (const variant2 of collectPitchVariants(reading, patterns)) {
+      if (variant2.position != null) positions.add(variant2.position);
     }
     return positions;
   }
@@ -41723,7 +41748,9 @@ ${spelling}`);
       ["route:rie-unlock", "character:rie"],
       { audio: "voice", visual: "cast" },
       "First introduction is recorded once.",
-      "Rie appears, speaks, and does not replay after completion unless chosen from the journal."
+      "Rie appears, speaks, and does not replay after completion unless chosen from the journal.",
+      [],
+      VERIFIED_DELIVERY
     ),
     entry$P(
       "day:1:start-choice",
@@ -44818,10 +44845,17 @@ ${spelling}`);
     let normalized2 = checkpoint;
     if (!projection.profile) normalized2 = transitionCheckpoint(normalized2, { kind: "reset", route: "profile" }, now);
     else if (normalized2.route === "access" || normalized2.route === "profile") {
-      normalized2 = transitionCheckpoint(normalized2, { kind: "reset", route: "start" }, now);
+      normalized2 = transitionCheckpoint(normalized2, {
+        kind: "reset",
+        route: rieIntroductionCompleted(projection) ? "start" : "rie-unlock"
+      }, now);
     }
     if (normalized2.route === "rie-unlock" && !projection.profile) {
       normalized2 = transitionCheckpoint(normalized2, { kind: "reset", route: "profile" }, now);
+    } else if (normalized2.route === "rie-unlock" && rieIntroductionCompleted(projection)) {
+      normalized2 = transitionCheckpoint(normalized2, { kind: "reset", route: "start" }, now);
+    } else if (normalized2.route === "start" && !rieIntroductionCompleted(projection)) {
+      normalized2 = transitionCheckpoint(normalized2, { kind: "reset", route: "rie-unlock" }, now);
     }
     if (normalized2.route === "placement-result" && !projection.latestPlacement) {
       normalized2 = transitionCheckpoint(normalized2, { kind: "replace", route: "placement-mock" }, now);
@@ -44860,6 +44894,9 @@ ${spelling}`);
       normalized2 = { ...normalized2, routeHistory, updatedAt: now };
     }
     return normalized2;
+  }
+  function rieIntroductionCompleted(projection) {
+    return projection.completedEncounterIds.includes("opening-rie-introduction");
   }
   function transitionCheckpoint(checkpoint, transition, updatedAt) {
     const navigation = transitionAcademyRoute(checkpoint, transition);
@@ -47737,34 +47774,34 @@ ${spelling}`);
   }
   function reviewedTranscript$4() {
     return Object.freeze([
-      line$b(1, "A", "課長は 2階の 会議室です。今 会議を しています。"),
-      line$b(1, "B", "何時ごろ 終わりますか。"),
-      line$b(1, "A", "3時ごろだと 思いますが。"),
-      line$b(1, "B", "そうですか。じゃ、また あとで 来ます。"),
-      line$b(1, "文", "女の人は これから 会議室へ 行きます。"),
-      line$b(2, "A", "次の サッカーの 試合は 大阪で ありますね。"),
-      line$b(2, "B", "ええ。日本が 勝つと 思いますか。"),
-      line$b(2, "A", "そうですね。どちらも 強いですからね。"),
-      line$b(2, "文", "男の人は 日本が 勝つと 言いました。"),
-      line$b(3, "A", "今 放送が ありましたね。何と 言いましたか。"),
-      line$b(3, "B", "3階に 喫茶店が あると 言いましたよ。"),
-      line$b(3, "A", "そうですか。ちょっと 疲れましたね。コーヒーを 飲みに 行きませんか。"),
-      line$b(3, "B", "ええ、そうしましょう。"),
-      line$b(3, "文", "男の人と 女の人は 喫茶店で 休みます。"),
-      line$b(4, "A", "7月に 京都で 有名な お祭りが あるでしょう。"),
-      line$b(4, "B", "ああ、祇園祭ですね。"),
-      line$b(4, "A", "行った ことが ありますか。"),
-      line$b(4, "B", "いいえ、ありません。"),
-      line$b(4, "A", "じゃ、ことし いっしょに 行きませんか。"),
-      line$b(4, "B", "ええ。"),
-      line$b(4, "文", "女の人は 祇園祭に 行きます。"),
-      line$b(5, "A", "その かばん、重いでしょう。持ちましょうか。"),
-      line$b(5, "B", "ありがとうございます。でも、そんなに 重くないですから、大丈夫です。"),
-      line$b(5, "A", "そうですか。"),
-      line$b(5, "文", "男の人は 女の人の かばんを 持ちます。")
+      line$c(1, "A", "課長は 2階の 会議室です。今 会議を しています。"),
+      line$c(1, "B", "何時ごろ 終わりますか。"),
+      line$c(1, "A", "3時ごろだと 思いますが。"),
+      line$c(1, "B", "そうですか。じゃ、また あとで 来ます。"),
+      line$c(1, "文", "女の人は これから 会議室へ 行きます。"),
+      line$c(2, "A", "次の サッカーの 試合は 大阪で ありますね。"),
+      line$c(2, "B", "ええ。日本が 勝つと 思いますか。"),
+      line$c(2, "A", "そうですね。どちらも 強いですからね。"),
+      line$c(2, "文", "男の人は 日本が 勝つと 言いました。"),
+      line$c(3, "A", "今 放送が ありましたね。何と 言いましたか。"),
+      line$c(3, "B", "3階に 喫茶店が あると 言いましたよ。"),
+      line$c(3, "A", "そうですか。ちょっと 疲れましたね。コーヒーを 飲みに 行きませんか。"),
+      line$c(3, "B", "ええ、そうしましょう。"),
+      line$c(3, "文", "男の人と 女の人は 喫茶店で 休みます。"),
+      line$c(4, "A", "7月に 京都で 有名な お祭りが あるでしょう。"),
+      line$c(4, "B", "ああ、祇園祭ですね。"),
+      line$c(4, "A", "行った ことが ありますか。"),
+      line$c(4, "B", "いいえ、ありません。"),
+      line$c(4, "A", "じゃ、ことし いっしょに 行きませんか。"),
+      line$c(4, "B", "ええ。"),
+      line$c(4, "文", "女の人は 祇園祭に 行きます。"),
+      line$c(5, "A", "その かばん、重いでしょう。持ちましょうか。"),
+      line$c(5, "B", "ありがとうございます。でも、そんなに 重くないですから、大丈夫です。"),
+      line$c(5, "A", "そうですか。"),
+      line$c(5, "文", "男の人は 女の人の かばんを 持ちます。")
     ]);
   }
-  function line$b(item2, speaker, text2) {
+  function line$c(item2, speaker, text2) {
     return Object.freeze({ item: item2, speaker, text: text2 });
   }
   function assertExactPackageSources$S() {
@@ -47855,6 +47892,189 @@ ${spelling}`);
     const mode = candidateId.split(":").at(-1);
     if (mode === "guided" || mode === "test-out" || mode === "repair" || mode === "independent") return mode;
     throw new TypeError(`Unknown N3 advanced-entry candidate: ${candidateId}`);
+  }
+  const STORY_VOICE_PLAYBACK_CATALOG_URL = "/academy/audio/story-voice-playback.json";
+  const STORY_VOICE_PLAYBACK_SCHEMA = "yomu-academy.story-voice-playback.v1";
+  const PLAYABLE_DIRECTOR_STATES = /* @__PURE__ */ new Set(["ready", "playing", "silent"]);
+  const SHA256 = /^[a-f0-9]{64}$/u;
+  const PILOT_URL = /^\/academy\/audio\/story-pilot\/[a-z0-9][a-z0-9._-]*\.opus$/u;
+  async function loadStoryVoicePlaybackCatalog(url = STORY_VOICE_PLAYBACK_CATALOG_URL, fetcher = fetch) {
+    const response = await fetcher(url, { credentials: "same-origin" });
+    if (!response.ok) throw new Error(`Story voice catalog request failed (${response.status}).`);
+    return parseStoryVoicePlaybackCatalog(await response.json());
+  }
+  function parseStoryVoicePlaybackCatalog(value) {
+    if (!isRecord$5(value) || value.schema !== STORY_VOICE_PLAYBACK_SCHEMA || !Array.isArray(value.entries)) {
+      throw new TypeError("Invalid story voice playback catalog.");
+    }
+    const seen = /* @__PURE__ */ new Set();
+    const entries2 = value.entries.map((candidate2, index) => {
+      if (!isPlaybackEntry(candidate2)) throw new TypeError(`Invalid story voice playback entry at index ${index}.`);
+      const identity2 = [candidate2.lineId, candidate2.speakerId, candidate2.japanese, candidate2.band].join("\n");
+      if (seen.has(identity2)) throw new TypeError(`Duplicate story voice playback entry: ${candidate2.lineId}.`);
+      seen.add(identity2);
+      return Object.freeze({ ...candidate2 });
+    });
+    return Object.freeze({ schema: STORY_VOICE_PLAYBACK_SCHEMA, entries: Object.freeze(entries2) });
+  }
+  function resolveStoryVoicePlaybackEntry(catalog2, line2) {
+    return catalog2.entries.find((entry2) => entry2.lineId === line2.lineId && entry2.speakerId === line2.speakerId && entry2.japanese === line2.japanese && (line2.band === void 0 || entry2.band === line2.band) && (line2.sourceSha256 === void 0 || entry2.sourceSha256 === line2.sourceSha256)) ?? null;
+  }
+  function createStoryVoicePlayback(options) {
+    const listeners = /* @__PURE__ */ new Set();
+    const createMedia = options.createMedia ?? ((url) => new Audio(url));
+    const catalogPromise = (options.catalog ? Promise.resolve(options.catalog) : options.loadCatalog?.() ?? loadStoryVoicePlaybackCatalog()).then(parseStoryVoicePlaybackCatalog);
+    let currentLine = null;
+    let currentEntry = null;
+    let active = null;
+    let lineToken = 0;
+    let disposed = false;
+    let snapshotValue = { status: "idle" };
+    const emit = (status, error) => {
+      snapshotValue = {
+        status,
+        ...currentLine ? { lineId: currentLine.lineId } : {},
+        ...currentEntry ? { url: currentEntry.url } : {},
+        ...error === void 0 ? {} : { error }
+      };
+      for (const listener of listeners) listener({ ...snapshotValue });
+    };
+    const releaseActive = (status, pause, error) => {
+      const playback = active;
+      if (!playback) return;
+      active = null;
+      playback.media.removeEventListener("ended", playback.onEnded);
+      playback.media.removeEventListener("error", playback.onError);
+      if (pause) {
+        playback.media.pause();
+        try {
+          playback.media.currentTime = 0;
+        } catch {
+        }
+      }
+      playback.releaseDuck();
+      emit(status, error);
+    };
+    const resolveCurrent = async (token) => {
+      if (!currentLine || token !== lineToken || disposed) return null;
+      if (currentEntry) return currentEntry;
+      try {
+        const catalog2 = await catalogPromise;
+        if (!currentLine || token !== lineToken || disposed) return null;
+        currentEntry = resolveStoryVoicePlaybackEntry(catalog2, currentLine);
+        emit(currentEntry ? "available" : "unavailable");
+        return currentEntry;
+      } catch (error) {
+        if (token === lineToken && !disposed) emit("error", error);
+        return null;
+      }
+    };
+    const unsubscribeDirector = options.director.onEvent((event) => {
+      if (!active) return;
+      if (event.type === "settings") {
+        if (event.settings.muted || event.settings.volumes.lesson <= 0) {
+          releaseActive("muted", true);
+          return;
+        }
+        active.media.volume = event.settings.volumes.lesson;
+        return;
+      }
+      if (event.type === "state" && !PLAYABLE_DIRECTOR_STATES.has(event.state)) {
+        releaseActive("locked", true);
+      }
+    });
+    return {
+      get snapshot() {
+        return { ...snapshotValue };
+      },
+      async setLine(line2) {
+        if (disposed) return false;
+        lineToken += 1;
+        releaseActive("stopped", true);
+        currentLine = line2 ? { ...line2 } : null;
+        currentEntry = null;
+        if (!currentLine) {
+          emit("idle");
+          return false;
+        }
+        emit("loading");
+        return Boolean(await resolveCurrent(lineToken));
+      },
+      async play() {
+        if (disposed || !currentLine) return false;
+        const token = lineToken;
+        const entry2 = await resolveCurrent(token);
+        if (!entry2 || token !== lineToken || disposed) return false;
+        const settings = options.director.settings;
+        if (settings.muted || settings.volumes.lesson <= 0) {
+          emit("muted");
+          return false;
+        }
+        if (!PLAYABLE_DIRECTOR_STATES.has(options.director.state)) {
+          emit("locked");
+          return false;
+        }
+        releaseActive("stopped", true);
+        let media;
+        let releaseDuck;
+        try {
+          media = createMedia(entry2.url);
+          media.preload = "auto";
+          media.volume = settings.volumes.lesson;
+          releaseDuck = options.director.beginExternalLesson();
+        } catch (error) {
+          emit("error", error);
+          return false;
+        }
+        const onEnded = () => {
+          if (active?.media === media) releaseActive("ended", false);
+        };
+        const onError = (event) => {
+          if (active?.media === media) releaseActive("error", true, event);
+        };
+        active = { media, releaseDuck, onEnded, onError };
+        media.addEventListener("ended", onEnded);
+        media.addEventListener("error", onError);
+        emit("playing");
+        try {
+          await media.play();
+          return active?.media === media && token === lineToken && !disposed;
+        } catch (error) {
+          if (active?.media === media) releaseActive("error", true, error);
+          return false;
+        }
+      },
+      stop() {
+        if (!disposed) releaseActive("stopped", true);
+      },
+      onStatus(listener) {
+        if (disposed) {
+          listener({ ...snapshotValue });
+          return () => void 0;
+        }
+        listeners.add(listener);
+        listener({ ...snapshotValue });
+        return () => listeners.delete(listener);
+      },
+      dispose() {
+        if (disposed) return;
+        lineToken += 1;
+        releaseActive("stopped", true);
+        disposed = true;
+        currentLine = null;
+        currentEntry = null;
+        unsubscribeDirector();
+        emit("disposed");
+        listeners.clear();
+      }
+    };
+  }
+  function isPlaybackEntry(value) {
+    if (!isRecord$5(value)) return false;
+    return typeof value.lineId === "string" && value.lineId.startsWith("line:") && typeof value.speakerId === "string" && value.speakerId !== "learner" && value.speakerId !== "narrator" && typeof value.japanese === "string" && value.japanese.length > 0 && typeof value.band === "string" && SHA256.test(String(value.sourceSha256)) && SHA256.test(String(value.assetSha256)) && typeof value.bytes === "number" && Number.isSafeInteger(value.bytes) && value.bytes > 0 && typeof value.url === "string" && PILOT_URL.test(value.url) && value.reviewStatus === "locked";
+  }
+  function isRecord$5(value) {
+    return typeof value === "object" && value !== null;
   }
   const SUPPORT_DONATION_URL = "https://support.yomureader.com/donate";
   function createSupportDonationService(openExternal = (url, target2, features) => window.open(url, target2, features)) {
@@ -48264,7 +48484,7 @@ ${spelling}`);
     screen.dataset.sourceOwner = "moodle-minna";
     screen.dataset.sourcePackage = "l2-l07";
     panel.classList.add("academy-guide-panel");
-    panel.prepend(rieGuide$3(options.language));
+    panel.prepend(rieGuide$2(options.language));
     const mode = copyElement("p", "academy-advanced-entry-mode", options.language, modeCopy(options.plan.mode));
     mode.dataset.adaptiveReason = options.plan.recommendation.reasons.join(" ");
     const continuity = copyElement("p", "academy-placement-continuity-note", options.language, "advancedEntryContinuity");
@@ -48324,7 +48544,7 @@ ${spelling}`);
     if (mode === "independent") return "advancedEntryModeIndependent";
     return "advancedEntryModeGuided";
   }
-  function rieGuide$3(language) {
+  function rieGuide$2(language) {
     const cutout = element("div", "academy-guide-cutout");
     cutout.dataset.speakerStage = "rie";
     const fallback = { still: ACADEMY_ASSETS.rie };
@@ -48336,758 +48556,2042 @@ ${spelling}`);
     }));
     return cutout;
   }
-  const BEGINNER_CONSTRUCTED_RESPONSE_HINT_TIERS = [
-    "task-meaning",
-    "vocabulary-reading",
-    "form-scaffold"
+  const schema$1z = "yomu-academy.story-package.v2";
+  const id$1y = "s1e01-the-blank-atlas";
+  const revision$M = "2026-07-14.1";
+  const canonicality$M = "canon";
+  const season$M = 1;
+  const chapter$N = 1;
+  const title$1z = {
+    en: "The Blank Atlas",
+    ja: "白紙のアトラス"
+  };
+  const synopsis$M = "Rie's first evening class discovers that the exhibition atlas has lost its route labels. Greetings, classroom repair, a chosen learning mission, and a practical introduction restore the first lantern point.";
+  const sourceSafety$M = {
+    originalYomu: true,
+    externalDialogueUsed: false,
+    fictionalComposite: true,
+    realEventClaim: false
+  };
+  const cast$M = [
+    {
+      castId: "rie",
+      role: "lead",
+      portrayal: "likeness-cleared",
+      evidenceRefs: [
+        "src/academy/domain/cast-registry.ts#rie",
+        "docs/academy/story/CAST-AND-CONSENT.md#rie"
+      ],
+      forbiddenClaims: [
+        "private biography",
+        "real-event claim"
+      ]
+    },
+    {
+      castId: "xingyu",
+      role: "support",
+      portrayal: "name-only",
+      evidenceRefs: [
+        "lesson:foundation-00#mission:sound",
+        "src/academy/domain/cast-registry.ts#xingyu"
+      ],
+      forbiddenClaims: [
+        "portrait or inferred likeness",
+        "surname or guessed kana name",
+        "nationality, job, or private history"
+      ]
+    },
+    {
+      castId: "mika",
+      role: "support",
+      portrayal: "name-only",
+      evidenceRefs: [
+        "lesson:foundation-00#mission:sound",
+        "src/academy/domain/cast-registry.ts#mika"
+      ],
+      forbiddenClaims: [
+        "portrait or inferred likeness",
+        "surname or guessed kana name",
+        "nationality, job, or private history"
+      ]
+    },
+    {
+      castId: "sophie",
+      role: "support",
+      portrayal: "name-only",
+      evidenceRefs: [
+        "lesson:foundation-00#mission:text",
+        "src/academy/domain/cast-registry.ts#sophie"
+      ],
+      forbiddenClaims: [
+        "portrait or inferred likeness",
+        "surname or guessed kana name",
+        "nationality, job, or private history"
+      ]
+    },
+    {
+      castId: "ruparna",
+      role: "support",
+      portrayal: "name-only",
+      evidenceRefs: [
+        "lesson:foundation-00#mission:text",
+        "src/academy/domain/cast-registry.ts#ruparna"
+      ],
+      forbiddenClaims: [
+        "portrait or inferred likeness",
+        "surname or guessed kana name",
+        "nationality, job, or private history"
+      ]
+    },
+    {
+      castId: "aakash",
+      role: "support",
+      portrayal: "name-only",
+      evidenceRefs: [
+        "lesson:foundation-00#mission:speaking",
+        "src/academy/domain/cast-registry.ts#aakash"
+      ],
+      forbiddenClaims: [
+        "portrait or inferred likeness",
+        "surname or guessed kana name",
+        "nationality, job, or private history"
+      ]
+    },
+    {
+      castId: "sam",
+      role: "support",
+      portrayal: "name-only",
+      evidenceRefs: [
+        "lesson:foundation-00#mission:speaking",
+        "src/academy/domain/cast-registry.ts#sam"
+      ],
+      forbiddenClaims: [
+        "portrait or inferred likeness",
+        "surname or guessed kana name",
+        "nationality, job, or private history"
+      ]
+    }
   ];
-  function progressiveHintChoiceId(tier) {
-    return `progressive-hint:${tier}`;
-  }
-  function progressiveHintTierFromChoiceId(choiceId) {
-    return BEGINNER_CONSTRUCTED_RESPONSE_HINT_TIERS.find((tier) => choiceId === progressiveHintChoiceId(tier));
-  }
-  function learnerHintTiersForActivity(activityId, supportUses) {
-    const used = new Set((supportUses ?? []).filter((support2) => support2.activityId === activityId && support2.supportKind === "hint").map((support2) => progressiveHintTierFromChoiceId(support2.choiceId)).filter((tier) => tier !== void 0));
-    return BEGINNER_CONSTRUCTED_RESPONSE_HINT_TIERS.filter((tier) => used.has(tier));
-  }
-  function remainingBeginnerHintTiers(activityId, supportUses) {
-    const used = new Set(learnerHintTiersForActivity(activityId, supportUses));
-    return BEGINNER_CONSTRUCTED_RESPONSE_HINT_TIERS.filter((tier) => !used.has(tier));
-  }
-  function renderConstructedResponse(model2, host2, submit2, normalizeResponse) {
-    const lifecycle = new AbortController();
-    const root = document.createElement("section");
-    root.className = "academy-activity academy-constructed-response";
-    root.dataset.activityId = model2.id;
-    const { heading, japanese: japanese2 } = prompt$2(model2, host2);
-    const form2 = document.createElement("form");
-    form2.className = "academy-constructed-response-form";
-    form2.setAttribute("aria-labelledby", heading.id);
-    const input2 = responseInput(model2, host2);
-    const feedback2 = feedbackRegion(model2);
-    const hints2 = progressiveHints(model2, host2, input2);
-    input2.setAttribute("aria-describedby", feedback2.id);
-    const commit = document.createElement("button");
-    commit.type = "submit";
-    commit.className = "academy-constructed-response-commit";
-    commit.textContent = host2.language === "ja" ? "答える" : "Answer";
-    form2.append(input2, commit);
-    const readingSupport2 = promptReadingSupport(model2, host2, japanese2);
-    root.append(heading);
-    if (readingSupport2.element) root.append(readingSupport2.element);
-    root.append(form2, feedback2, hints2.element);
-    host2.react?.({ speakerId: "rie", expression: "neutral" });
-    form2.addEventListener("submit", async (event) => {
-      event.preventDefault();
-      const response = input2.value;
-      if (!normalizeResponse(response)) {
-        const message = host2.language === "ja" ? "日本語で答えてください。" : "Answer in Japanese.";
-        feedback2.replaceChildren(message);
-        host2.announce(message);
-        input2.focus();
-        return;
-      }
-      hints2.suspend();
-      setPending(form2, true);
-      feedback2.replaceChildren();
-      host2.react?.({ speakerId: "rie", expression: "encouraging" });
-      try {
-        const evaluation = await submit2(response);
-        root.dataset.outcome = evaluation.result.outcome;
-        showFeedback$2(feedback2, evaluation.result, host2.language ?? "en");
-        if (evaluation.result.outcome === "pass") {
-          host2.react?.({ speakerId: "rie", expression: "happy" });
-          input2.disabled = true;
-          commit.disabled = true;
-        } else {
-          hints2.unlock(evaluation.result.feedback);
-          host2.react?.({ speakerId: "rie", expression: "repair" });
-          setPending(form2, false);
-          input2.focus();
-          input2.select();
-        }
-        const explanation2 = localized$h(evaluation.result.feedback.explanation, host2.language ?? "en");
-        const hintAvailability = evaluation.result.outcome === "lapse" ? host2.language === "ja" ? " ヒントが使えます。" : " Hint support is now available." : "";
-        host2.announce(`${explanation2}${hintAvailability}`);
-      } catch (error) {
-        hints2.resume();
-        setPending(form2, false);
-        host2.react?.({ speakerId: "rie", expression: "neutral" });
-        const message = error instanceof Error ? error.message : String(error);
-        feedback2.replaceChildren(message);
-        host2.announce(message);
-      }
-    }, { signal: lifecycle.signal });
-    host2.replace(root);
-    return {
-      focus() {
-        input2.focus();
-      },
-      dispose() {
-        lifecycle.abort();
-        readingSupport2.dispose();
-        host2.react?.({ speakerId: "rie", expression: "neutral" });
-        root.remove();
-      }
-    };
-  }
-  function progressiveHints(model2, host2, input2) {
-    const root = document.createElement("section");
-    root.className = "academy-progressive-hints academy-lesson-repair-hints";
-    root.hidden = true;
-    const revealed = document.createElement("div");
-    revealed.className = "academy-progressive-hints-revealed";
-    revealed.setAttribute("aria-live", "polite");
-    const reveal = document.createElement("button");
-    reveal.type = "button";
-    reveal.className = "academy-progressive-hint-button";
-    let items = [];
-    let index = 0;
-    let unlocked = false;
-    const updateLabel = () => {
-      reveal.textContent = host2.language === "ja" ? index === 0 ? "ヒントを見る" : "次のヒント" : index === 0 ? "Need a hint?" : "Another hint";
-    };
-    updateLabel();
-    reveal.addEventListener("click", (event) => {
-      if (!unlocked) return;
-      const hint2 = items[index];
-      if (!hint2) return;
-      const line2 = document.createElement("p");
-      line2.className = hint2.className;
-      appendHintText(line2, hint2, host2.language ?? "en");
-      revealed.append(line2);
-      if (hint2.vocabulary) revealed.append(vocabularyHintList(hint2.vocabulary, host2.language ?? "en"));
-      if (hint2.scaffold) revealed.append(scaffoldHint(hint2.scaffold, host2.language ?? "en"));
-      let fill;
-      if (hint2.fillResponse) {
-        fill = document.createElement("button");
-        fill.type = "button";
-        fill.className = "academy-progressive-hint-fill";
-        fill.textContent = host2.language === "ja" ? "この答えを使う" : "Use this answer";
-        fill.addEventListener("click", () => {
-          input2.value = hint2.fillResponse ?? "";
-          input2.focus();
-          input2.setSelectionRange(input2.value.length, input2.value.length);
-        });
-        revealed.append(fill);
-      }
-      void host2.recordSupportUse?.({
-        activityId: model2.id,
-        supportKind: "hint",
-        choiceId: hint2.choiceId
-      });
-      index += 1;
-      if (index >= items.length) {
-        reveal.remove();
-        if (event.detail === 0) (fill ?? input2).focus();
-      } else updateLabel();
-    });
-    root.append(revealed, reveal);
-    const suspend = () => {
-      unlocked = false;
-      root.hidden = true;
-    };
-    return {
-      element: root,
-      suspend,
-      resume() {
-        unlocked = items.length > 0;
-        root.hidden = !unlocked;
-      },
-      unlock(feedback2) {
-        items = progressiveHintItems(model2, feedback2, host2.learnerSupportUses);
-        revealed.replaceChildren();
-        root.replaceChildren(revealed, reveal);
-        index = 0;
-        unlocked = items.length > 0;
-        root.hidden = !unlocked;
-        updateLabel();
-      }
-    };
-  }
-  function progressiveHintItems(model2, feedback2, learnerSupportUses) {
-    const tiered = model2.payload.hints?.every((hint2) => hint2.tier !== void 0);
-    if (tiered && model2.payload.hints) {
-      const byTier = new Map(model2.payload.hints.map((hint2) => [hint2.tier, hint2]));
-      return remainingBeginnerHintTiers(model2.id, learnerSupportUses).flatMap((tier) => {
-        const hint2 = byTier.get(tier);
-        if (!hint2) return [];
-        return [{
-          text: hint2.text,
-          choiceId: progressiveHintChoiceId(tier),
-          className: `academy-progressive-hint academy-progressive-hint-${tier}`,
-          ...hint2.vocabulary ? { vocabulary: hint2.vocabulary } : {},
-          ...hint2.scaffold ? { scaffold: hint2.scaffold } : {}
-        }];
-      });
-    }
-    const authored = (model2.payload.hints ?? []).map((hint2, index) => ({
-      text: hint2.text,
-      choiceId: `progressive-hint:${index + 1}`,
-      className: "academy-progressive-hint",
-      ...hint2.fillResponse ? { fillResponse: hint2.fillResponse } : {}
-    }));
-    const responseSpecific = [];
-    if (feedback2.repairPrompt) responseSpecific.push({
-      text: feedback2.repairPrompt,
-      choiceId: "progressive-repair:1",
-      className: "academy-constructed-feedback-repair",
-      bilingual: true
-    });
-    if (feedback2.nearbyExample) responseSpecific.push({
-      text: feedback2.nearbyExample,
-      choiceId: "progressive-repair:2",
-      className: "academy-constructed-feedback-example",
-      bilingual: true
-    });
-    const byText = /* @__PURE__ */ new Map();
-    for (const item2 of [...authored.filter((hint2) => !hint2.fillResponse), ...responseSpecific, ...authored.filter((hint2) => hint2.fillResponse)]) {
-      const key2 = `${item2.text.ja}\0${item2.text.en}`;
-      const existing = byText.get(key2);
-      if (!existing) {
-        byText.set(key2, item2);
-        continue;
-      }
-      if (item2.fillResponse) byText.set(key2, { ...existing, choiceId: item2.choiceId, fillResponse: item2.fillResponse });
-    }
-    return [...byText.values()].sort((left, right) => Number(Boolean(left.fillResponse)) - Number(Boolean(right.fillResponse)));
-  }
-  function appendHintText(line2, hint2, language) {
-    if (!hint2.bilingual) {
-      line2.lang = language;
-      line2.textContent = localized$h(hint2.text, language);
-      return;
-    }
-    const japanese2 = document.createElement("span");
-    japanese2.className = "academy-japanese";
-    japanese2.lang = "ja";
-    japanese2.textContent = hint2.text.ja;
-    const translation2 = document.createElement("span");
-    translation2.className = "academy-support";
-    translation2.lang = "en";
-    translation2.dataset.jpdbReaderSurfaceIgnore = "";
-    translation2.textContent = hint2.text.en;
-    line2.append(japanese2, translation2);
-  }
-  function vocabularyHintList(vocabulary, language) {
-    const list2 = document.createElement("ul");
-    list2.className = "academy-progressive-hint-vocabulary";
-    for (const cue of vocabulary) {
-      const item2 = document.createElement("li");
-      item2.lang = "ja";
-      item2.textContent = `${cue.expression} (${cue.reading})`;
-      if (language !== "ja") {
-        const meaning = document.createElement("span");
-        meaning.className = "academy-support";
-        meaning.lang = "en";
-        meaning.textContent = cue.meaning.en;
-        item2.append(meaning);
-      }
-      list2.append(item2);
-    }
-    return list2;
-  }
-  function scaffoldHint(scaffold, language) {
-    const line2 = document.createElement("p");
-    line2.className = "academy-progressive-hint-scaffold";
-    line2.lang = language;
-    line2.textContent = localized$h(scaffold, language);
-    return line2;
-  }
-  function prompt$2(model2, host2) {
-    const heading = document.createElement("h2");
-    heading.id = `${model2.id}-prompt`;
-    heading.tabIndex = -1;
-    const japanese2 = document.createElement("span");
-    japanese2.className = "academy-japanese academy-constructed-response-prompt";
-    japanese2.lang = "ja";
-    japanese2.dataset.jpdbReaderSurfaceIgnore = "";
-    japanese2.textContent = model2.prompt.ja;
-    heading.append(japanese2);
-    if (host2.language !== "ja") {
-      const english = document.createElement("span");
-      english.className = "academy-support academy-constructed-response-support";
-      english.lang = "en";
-      english.dataset.jpdbReaderSurfaceIgnore = "";
-      english.textContent = model2.prompt.en;
-      heading.append(english);
-    }
-    return { heading, japanese: japanese2 };
-  }
-  function responseInput(model2, host2) {
-    const input2 = document.createElement("input");
-    input2.className = "academy-constructed-response-input";
-    input2.type = "text";
-    input2.lang = "ja";
-    input2.inputMode = "text";
-    input2.autocomplete = "off";
-    input2.autocapitalize = "none";
-    input2.spellcheck = false;
-    input2.enterKeyHint = "send";
-    input2.setAttribute("aria-label", host2.language === "ja" ? "日本語で答える" : "Answer in Japanese");
-    input2.dataset.responseKind = model2.responseKind;
-    return input2;
-  }
-  function feedbackRegion(model2) {
-    const feedback2 = document.createElement("div");
-    feedback2.id = `${model2.id}-feedback`;
-    feedback2.className = "academy-constructed-response-feedback";
-    feedback2.setAttribute("role", "status");
-    feedback2.setAttribute("aria-live", "polite");
-    feedback2.setAttribute("aria-atomic", "true");
-    return feedback2;
-  }
-  function promptReadingSupport(model2, host2, japanese2) {
-    if (host2.registerReadingSurface) {
-      return { element: null, dispose: host2.registerReadingSurface(japanese2) };
-    }
-    const root = document.createElement("div");
-    root.className = "academy-constructed-prompt-support";
-    const reveal = document.createElement("button");
-    reveal.type = "button";
-    reveal.className = "academy-constructed-prompt-support-toggle";
-    reveal.textContent = "読";
-    reveal.setAttribute("aria-pressed", "false");
-    reveal.dataset.jpdbReaderSurfaceIgnore = "";
-    const setLabel = (visible) => {
-      const label = host2.language === "ja" ? visible ? "読み方を隠す" : "読み方を見る" : visible ? "Hide readings" : "Show readings";
-      setAcademyTooltip(reveal, label);
-    };
-    setLabel(false);
-    let recorded2 = false;
-    reveal.addEventListener("click", () => {
-      const visible = reveal.getAttribute("aria-pressed") !== "true";
-      reveal.setAttribute("aria-pressed", String(visible));
-      setLabel(visible);
-      japanese2.textContent = model2.prompt.ja;
-      if (visible) {
-        delete japanese2.dataset.jpdbReaderSurfaceIgnore;
-        japanese2.dataset.yomuRuntimeSurface = "academy-activity";
-        japanese2.dataset.yomuFuriganaMode = "all";
-      } else {
-        japanese2.dataset.jpdbReaderSurfaceIgnore = "";
-        delete japanese2.dataset.yomuRuntimeSurface;
-        delete japanese2.dataset.yomuFuriganaMode;
-      }
-      japanese2.dispatchEvent(new CustomEvent("academy:annotation-change", {
-        bubbles: true,
-        detail: { visible }
-      }));
-      if (visible && !recorded2) {
-        recorded2 = true;
-        void host2.recordSupportUse?.({ activityId: model2.id, supportKind: "hint", choiceId: "prompt-reading" });
-      }
-    });
-    root.append(reveal);
-    return { element: root, dispose: () => void 0 };
-  }
-  function showFeedback$2(root, result2, language) {
-    root.replaceChildren(feedbackLine(result2.feedback.explanation, language, "academy-constructed-feedback-contrast"));
-  }
-  function feedbackLine(value, language, className) {
-    const line2 = document.createElement("p");
-    line2.className = className;
-    line2.lang = language;
-    line2.textContent = localized$h(value, language);
-    return line2;
-  }
-  function localized$h(value, language) {
-    return language === "ja" ? value.ja : value.en;
-  }
-  function setPending(form2, pending2) {
-    form2.setAttribute("aria-busy", String(pending2));
-    form2.querySelectorAll("input, button").forEach((control2) => {
-      control2.disabled = pending2;
-    });
-  }
-  const constructedResponseActivityPlugin = {
-    kind: "constructed-japanese",
-    validate: validateConstructedResponse,
-    render(model2, host2, submit2) {
-      return renderConstructedResponse(model2, host2, submit2, normalizeJapaneseResponse);
+  const entry$O = {
+    story: {
+      after: "bridge:opening-arrival",
+      requiresSeen: [
+        "scene:opening-arrival:fiction-notice"
+      ],
+      forbidsAfterGraduation: true
     },
-    grade(model2, response) {
-      if (typeof response !== "string") throw new TypeError("Constructed Japanese responses must be text.");
-      const normalized2 = normalizeJapaneseResponse(response);
-      if (!normalized2) throw new TypeError("A constructed Japanese response cannot be empty.");
-      const accepted = model2.payload.acceptedAnswers.some((answer2) => normalizeJapaneseResponse(answer2) === normalized2);
-      if (accepted) {
-        return {
-          outcome: "pass",
-          score: 1,
-          errorTags: [],
-          feedback: { explanation: model2.payload.passFeedback }
-        };
-      }
-      const feedback2 = diagnosticFeedback(model2, normalized2) ?? model2.payload.lapseFeedback;
-      return {
-        outcome: "lapse",
-        score: 0,
-        errorTags: [feedback2.errorTag],
-        feedback: {
-          explanation: feedback2.contrast,
-          repairPrompt: feedback2.repairPrompt,
-          nearbyExample: feedback2.nearbyExample
+    curriculum: {
+      anyOfEvidence: [
+        {
+          kind: "curriculum-entry",
+          route: "lesson-zero"
         }
-      };
+      ],
+      recommendedBand: "foundation",
+      missingEvidenceRoute: "offer-repair"
     },
-    toReviewSeeds(model2, result2) {
-      const conceptId = model2.conceptIds[0];
-      if (!conceptId) return [];
-      return [{
-        id: model2.payload.reviewSeedId,
-        conceptId,
-        reason: result2.outcome === "lapse" ? "repair" : "new-learning",
-        ...model2.sourceQuestionId ? { sourceQuestionId: model2.sourceQuestionId } : {},
-        content: model2.payload.reviewContent
-      }];
+    relationship: {
+      fallbackVariant: "variant:chapter-one-first-meeting"
     }
   };
-  function normalizeJapaneseResponse(value) {
-    return value.normalize("NFKC").replace(/[\s\u3000]+/gu, "").replace(/[.,!?;:。、！？「」『』（）()\[\]【】〈〉《》…~～]/gu, "");
-  }
-  function validateConstructedResponse(model2) {
-    const issues2 = [];
-    const payload = model2.payload;
-    if (!model2.answerSupport) {
-      issues2.push({ path: "answerSupport", message: "Assessed constructed responses require the hidden pre-commit answer-support contract." });
-    }
-    if (model2.responseKind !== "ime" && model2.responseKind !== "reconstruct") {
-      issues2.push({ path: "responseKind", message: "Constructed Japanese uses an IME or reconstruction response." });
-    }
-    if (!Array.isArray(payload?.acceptedAnswers) || payload.acceptedAnswers.length === 0) {
-      issues2.push({ path: "payload.acceptedAnswers", message: "At least one explicitly authored accepted answer is required." });
-      return issues2;
-    }
-    const normalizedAnswers = /* @__PURE__ */ new Set();
-    for (const [index, answer2] of payload.acceptedAnswers.entries()) {
-      const normalized2 = typeof answer2 === "string" ? normalizeJapaneseResponse(answer2) : "";
-      if (!normalized2 || !containsJapanese(normalized2)) {
-        issues2.push({ path: `payload.acceptedAnswers.${index}`, message: "Accepted answers must contain Japanese text." });
-      } else if (normalizedAnswers.has(normalized2)) {
-        issues2.push({ path: `payload.acceptedAnswers.${index}`, message: "Accepted answers must be distinct after spacing and punctuation normalisation." });
-      }
-      normalizedAnswers.add(normalized2);
-    }
-    requireLocalized(payload.passFeedback, "payload.passFeedback", issues2);
-    const lapse = payload.lapseFeedback;
-    if (!text$d(lapse?.errorTag)) issues2.push({ path: "payload.lapseFeedback.errorTag", message: "A precise error tag is required." });
-    requireLocalized(lapse?.contrast, "payload.lapseFeedback.contrast", issues2);
-    requireLocalized(lapse?.repairPrompt, "payload.lapseFeedback.repairPrompt", issues2);
-    requireLocalized(lapse?.nearbyExample, "payload.lapseFeedback.nearbyExample", issues2);
-    for (const [index, diagnostic] of (payload.lapseDiagnostics ?? []).entries()) {
-      const path = `payload.lapseDiagnostics.${index}`;
-      if (!diagnostic.responseIncludesAny?.length || diagnostic.responseIncludesAny.some((fragment2) => !containsJapanese(normalizeJapaneseResponse(fragment2)))) {
-        issues2.push({ path: `${path}.responseIncludesAny`, message: "A diagnostic needs one or more Japanese response fragments." });
-      }
-      if (!text$d(diagnostic.feedback?.errorTag)) issues2.push({ path: `${path}.feedback.errorTag`, message: "A precise error tag is required." });
-      requireLocalized(diagnostic.feedback?.contrast, `${path}.feedback.contrast`, issues2);
-      requireLocalized(diagnostic.feedback?.repairPrompt, `${path}.feedback.repairPrompt`, issues2);
-      requireLocalized(diagnostic.feedback?.nearbyExample, `${path}.feedback.nearbyExample`, issues2);
-    }
-    if (!text$d(payload.reviewSeedId)) issues2.push({ path: "payload.reviewSeedId", message: "A review seed id is required." });
-    if (!text$d(payload.reviewContent?.expression) || !payload.reviewContent?.meanings?.some(text$d)) {
-      issues2.push({ path: "payload.reviewContent", message: "Reviewable expression and meaning are required." });
-    }
-    const readingSupport2 = payload.promptReadingSupport;
-    if (readingSupport2 && (!text$d(readingSupport2.reading) || !text$d(readingSupport2.pitch))) {
-      issues2.push({ path: "payload.promptReadingSupport", message: "Prompt support needs both a reading and pitch description." });
-    }
-    const hints2 = payload.hints ?? [];
-    const usesTieredHints = hints2.some((hint2) => hint2.tier !== void 0);
-    if (usesTieredHints && (hints2.length !== BEGINNER_CONSTRUCTED_RESPONSE_HINT_TIERS.length || hints2.some((hint2, index) => hint2.tier !== BEGINNER_CONSTRUCTED_RESPONSE_HINT_TIERS[index]))) {
-      issues2.push({ path: "payload.hints", message: "Beginner constructed-response hints must progress from task meaning to vocabulary/reading to form scaffold." });
-    }
-    for (const [index, hint2] of hints2.entries()) {
-      requireLocalized(hint2.text, `payload.hints.${index}.text`, issues2);
-      if (hint2.fillResponse !== void 0 && !containsJapanese(normalizeJapaneseResponse(hint2.fillResponse))) {
-        issues2.push({ path: `payload.hints.${index}.fillResponse`, message: "A hint response scaffold must contain Japanese text." });
-      }
-      if (!usesTieredHints) continue;
-      if (hint2.fillResponse !== void 0) {
-        issues2.push({ path: `payload.hints.${index}.fillResponse`, message: "Tiered beginner hints must not fill the full answer." });
-      }
-      if (hint2.tier === "vocabulary-reading") {
-        if (!hint2.vocabulary?.length) {
-          issues2.push({ path: `payload.hints.${index}.vocabulary`, message: "The vocabulary/reading tier needs at least one required cue." });
-        }
-        for (const [cueIndex, cue] of (hint2.vocabulary ?? []).entries()) {
-          const path = `payload.hints.${index}.vocabulary.${cueIndex}`;
-          if (!containsJapanese(normalizeJapaneseResponse(cue.expression)) || !containsJapanese(normalizeJapaneseResponse(cue.reading))) {
-            issues2.push({ path, message: "Vocabulary cues need Japanese expression and reading text." });
-          }
-          requireLocalized(cue.meaning, `${path}.meaning`, issues2);
-          if (normalizedAnswers.has(normalizeJapaneseResponse(cue.expression))) {
-            issues2.push({ path: `${path}.expression`, message: "A vocabulary cue must not be a complete accepted answer." });
-          }
-        }
-      } else if (hint2.vocabulary !== void 0) {
-        issues2.push({ path: `payload.hints.${index}.vocabulary`, message: "Vocabulary cues belong only to the vocabulary/reading tier." });
-      }
-      if (hint2.tier === "form-scaffold") {
-        requireLocalized(hint2.scaffold, `payload.hints.${index}.scaffold`, issues2);
-      } else if (hint2.scaffold !== void 0) {
-        issues2.push({ path: `payload.hints.${index}.scaffold`, message: "A form scaffold belongs only to the form-scaffold tier." });
-      }
-      if (hintLeaksAcceptedAnswer(hint2, normalizedAnswers)) {
-        issues2.push({ path: `payload.hints.${index}`, message: "A tiered hint must not reveal a complete accepted answer." });
-      }
-    }
-    const japanesePreCommit = [model2.prompt?.ja, readingSupport2?.reading, readingSupport2?.pitch].map((value) => normalizeJapaneseResponse(text$d(value))).filter(Boolean);
-    for (const answer2 of normalizedAnswers) {
-      if (japanesePreCommit.some((copy2) => copy2.includes(answer2))) {
-        issues2.push({ path: "prompt", message: "Pre-commit prompt or reading support must not reveal an accepted answer." });
-        break;
-      }
-    }
-    const englishPrompt = normalizeEnglish(model2.prompt?.en);
-    if (payload.reviewContent?.meanings?.some((meaning) => {
-      const normalizedMeaning = normalizeEnglish(meaning);
-      return normalizedMeaning.length > 0 && ` ${englishPrompt} `.includes(` ${normalizedMeaning} `);
-    })) {
-      issues2.push({ path: "prompt.en", message: "Pre-commit English copy must not reveal the answer meaning." });
-    }
-    return issues2;
-  }
-  function hintLeaksAcceptedAnswer(hint2, answers) {
-    const surfaces = [hint2.text.ja, hint2.scaffold?.ja].map((value) => normalizeJapaneseResponse(text$d(value))).filter(Boolean);
-    return [...answers].some((answer2) => surfaces.some((surface) => surface.includes(answer2)));
-  }
-  function diagnosticFeedback(model2, normalizedResponse) {
-    return model2.payload.lapseDiagnostics?.find((diagnostic) => diagnostic.responseIncludesAny.some((fragment2) => normalizedResponse.includes(normalizeJapaneseResponse(fragment2))))?.feedback;
-  }
-  function requireLocalized(value, path, issues2) {
-    if (!text$d(value?.en) || !text$d(value?.ja)) {
-      issues2.push({ path, message: "Bilingual authored feedback is required." });
-    }
-  }
-  function text$d(value) {
-    return typeof value === "string" ? value.trim() : "";
-  }
-  function normalizeEnglish(value) {
-    return text$d(value).normalize("NFKC").toLocaleLowerCase("en").replace(/[^a-z0-9]+/gu, " ").trim();
-  }
-  function containsJapanese(value) {
-    return /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u.test(value);
-  }
-  function auditColdProductionSequence(sequence) {
-    const contextualized = /* @__PURE__ */ new Set();
-    const instructed = /* @__PURE__ */ new Set();
-    const guided = /* @__PURE__ */ new Set();
-    const issues2 = [];
-    for (const step2 of sequence.steps) {
-      if (step2.kind === "context") {
-        step2.conceptIds.forEach((conceptId) => contextualized.add(conceptId));
-        continue;
-      }
-      if (step2.kind === "instruction") {
-        step2.conceptIds.forEach((conceptId) => instructed.add(conceptId));
-        continue;
-      }
-      if (step2.kind === "guided-practice") {
-        step2.conceptIds.forEach((conceptId) => {
-          if (instructed.has(conceptId)) guided.add(conceptId);
-        });
-        continue;
-      }
-      if (step2.kind !== "assessed-production") continue;
-      for (const conceptId of step2.conceptIds) {
-        const missing2 = [];
-        if (!contextualized.has(conceptId)) missing2.push("context");
-        if (!instructed.has(conceptId)) missing2.push("explicit-instruction");
-        if (!guided.has(conceptId)) missing2.push("guided-practice");
-        if (missing2.length) {
-          issues2.push({ sequenceId: sequence.id, activityId: step2.id, conceptId, missing: missing2 });
-        }
-      }
-    }
-    return issues2;
-  }
-  function assertNoColdProduction(sequence) {
-    const issues2 = auditColdProductionSequence(sequence);
-    if (!issues2.length) return;
-    const detail = issues2.map((issue) => `${issue.activityId}/${issue.conceptId} missing ${issue.missing.join(", ")}`).join("; ");
-    throw new TypeError(`Cold production in ${sequence.id}: ${detail}.`);
-  }
-  const AAKASH_RAINY_DIRECTIONS_SCENE_ID = "scene:aakash-rainy-directions";
-  const AAKASH_DIRECTIONS_CONCEPT_ID = "concept:directions-straight-right";
-  const AAKASH_DIRECTIONS_CONTENT = {
-    context: {
-      id: "aakash-directions:context",
-      japanese: "雨ですね。Aakashはカフェを探しています。",
-      translation: "It is raining. Aakash is looking for the cafe."
-    },
-    question: {
-      id: "aakash-directions:question",
-      japanese: "カフェはどこですか。",
-      reading: "kafee wa doko desu ka",
-      translation: "Where is the cafe?"
-    },
-    vocabulary: [
-      { japanese: "まっすぐ", reading: "massugu", meaning: "straight ahead" },
-      { japanese: "行って", reading: "itte", meaning: "go, then..." },
-      { japanese: "右", reading: "migi", meaning: "right" },
-      { japanese: "左", reading: "hidari", meaning: "left" }
+  const curriculumBinding = {
+    lessonId: "lesson:foundation-00",
+    contentVersion: "2026-07-22.lesson-zero.v2-sound-mission",
+    contentSha256: "43bc8753eef8af5c98fb51b59e89304a757b685a2dbac4f2c4b0e390222f4488",
+    provenancePath: "public/academy/content/lessons/lesson-zero/provenance.v1.json",
+    provenanceSha256: "3bf92fad4ec4996e0d055a0fdd76b4a585f703c544bc532be3fb22b6c189319e",
+    sectionSequence: [
+      "arrival-greetings",
+      "sound-script-map",
+      "classroom-survival",
+      "sentence-frames",
+      "useful-vocabulary",
+      "multi-speaker-input",
+      "reading-writing",
+      "transfer",
+      "close"
     ],
-    vocabularyPrompt: {
-      id: "aakash-directions:vocabulary",
-      japanese: "まず、道順のことばを見てみましょう。",
-      translation: "First, learn the route words."
-    },
-    recognition: {
-      id: "aakash-directions:recognise-right",
-      japanese: "カフェは右です。どちらが「右」ですか。",
-      translation: "The cafe is on the right. Which word means right?",
-      options: [
-        { id: "right", japanese: "右", reading: "migi", meaning: "right", correct: true },
-        { id: "left", japanese: "左", reading: "hidari", meaning: "left", correct: false }
-      ]
-    },
-    frame: {
-      id: "aakash-directions:frame",
-      japanese: "まっすぐ行って、左です。",
-      reading: "massugu itte, hidari desu",
-      translation: "Go straight, then it is on the left.",
-      note: "The umbrella stand is on the left. Put the path first, then the final side."
-    },
-    guidedPractice: {
-      id: "aakash-directions:guided-frame",
-      japanese: "傘立てまで案内しましょう。",
-      translation: "Guide someone to the umbrella stand: go straight, then it is on the left.",
-      options: [
-        {
-          id: "path-then-side",
-          japanese: "まっすぐ行って、左です。",
-          reading: "massugu itte, hidari desu",
-          correct: true
-        },
-        {
-          id: "side-then-path",
-          japanese: "左です。まっすぐ行って。",
-          reading: "hidari desu. massugu itte",
-          correct: false
-        }
-      ]
-    },
-    assessment: {
-      id: "activity:aakash-rainy-directions",
-      japanese: "カフェはどこですか。",
-      translation: "Where is the cafe? Give the route in Japanese. You can ask for hints if typing is new."
-    },
-    resolution: {
-      id: "aakash-directions:thanks",
-      japanese: "分かりました。ありがとうございます。",
-      translation: "Got it. Thank you."
-    }
-  };
-  const AAKASH_DIRECTIONS_LEARNING_SEQUENCE = {
-    id: "sequence:aakash-rainy-directions",
-    steps: [
-      { id: AAKASH_DIRECTIONS_CONTENT.context.id, kind: "context", conceptIds: [AAKASH_DIRECTIONS_CONCEPT_ID] },
-      { id: AAKASH_DIRECTIONS_CONTENT.vocabularyPrompt.id, kind: "instruction", conceptIds: [AAKASH_DIRECTIONS_CONCEPT_ID] },
-      { id: AAKASH_DIRECTIONS_CONTENT.recognition.id, kind: "guided-practice", conceptIds: [AAKASH_DIRECTIONS_CONCEPT_ID] },
-      { id: AAKASH_DIRECTIONS_CONTENT.frame.id, kind: "instruction", conceptIds: [AAKASH_DIRECTIONS_CONCEPT_ID] },
-      { id: AAKASH_DIRECTIONS_CONTENT.guidedPractice.id, kind: "guided-practice", conceptIds: [AAKASH_DIRECTIONS_CONCEPT_ID] },
-      { id: AAKASH_DIRECTIONS_CONTENT.assessment.id, kind: "assessed-production", conceptIds: [AAKASH_DIRECTIONS_CONCEPT_ID] }
+    sourceSequence: [
+      {
+        order: 1,
+        role: "writing-system-prerequisite",
+        sourceSha256: "0625a8f5d1c0107a8f6706cf76e5c2decd585bd7610793796b9b587025cfa09b",
+        policy: "render the reviewed teaching surface; do not reproduce source prose in story dialogue"
+      },
+      {
+        order: 2,
+        role: "kana-a-row-writing",
+        sourceSha256: "fe962ee2dc21478ffe53a24ba77ef0abb5a7685ab7a6eda8f79ac63817ad7dd6",
+        policy: "use only the registered vowel-row activity and learner evidence"
+      },
+      {
+        order: 3,
+        role: "greetings-reference-and-audio",
+        sourceSha256: "846cc2c9fc4d5310c8e6b3ee711817186239c3810e4433ec350015f32a4004b5",
+        activityIds: [
+          "activity:lesson-zero-greet-rie"
+        ],
+        policy: "Genki teaching anchor only; no textbook dialogue is stored in this package"
+      },
+      {
+        order: 4,
+        role: "classroom-language",
+        sourceSha256: "1e58967eb11b2d98d9b48a2547f392db90805836d96c232f11ac487d25b687ba",
+        activityIds: [
+          "activity:lesson-zero-follow-instructions",
+          "activity:lesson-zero-reconstruct-repair",
+          "activity:lesson-zero-desk-language"
+        ],
+        sourceQuestionIds: [
+          "source-question:classroom-phrase-01",
+          "source-question:classroom-phrase-02",
+          "source-question:classroom-phrase-03",
+          "source-question:classroom-phrase-04",
+          "source-question:classroom-phrase-05",
+          "source-question:classroom-phrase-06",
+          "source-question:classroom-phrase-07",
+          "source-question:classroom-phrase-08",
+          "source-question:classroom-phrase-09",
+          "source-question:classroom-phrase-10",
+          "source-question:classroom-phrase-11",
+          "source-question:classroom-phrase-12",
+          "source-question:classroom-phrase-13",
+          "source-question:classroom-phrase-14"
+        ],
+        policy: "the registered Moodle reconstruction owns prompts, answers, and grading; story owns only the surrounding need and consequence"
+      }
+    ],
+    missions: [
+      {
+        id: "sound",
+        choiceOptionId: "option:blank-atlas:mission-sound",
+        sceneId: "scene:blank-atlas:mission-sound",
+        hostIds: [
+          "xingyu",
+          "mika"
+        ],
+        locationId: "location:language-lab",
+        openingActivityId: "activity:lesson-zero-sound-input",
+        transferActivityId: "activity:lesson-zero-sound-transfer",
+        mementoId: "memento:lesson-zero-class-recording"
+      },
+      {
+        id: "text",
+        choiceOptionId: "option:blank-atlas:mission-text",
+        sceneId: "scene:blank-atlas:mission-text",
+        hostIds: [
+          "sophie",
+          "ruparna"
+        ],
+        locationId: "location:library",
+        openingActivityId: "activity:lesson-zero-text-input",
+        transferActivityId: "activity:lesson-zero-text-transfer",
+        mementoId: "memento:lesson-zero-first-page-clue"
+      },
+      {
+        id: "speaking",
+        choiceOptionId: "option:blank-atlas:mission-speaking",
+        sceneId: "scene:blank-atlas:mission-speaking",
+        hostIds: [
+          "aakash",
+          "sam"
+        ],
+        locationId: "location:classroom-entrance",
+        openingActivityId: "activity:lesson-zero-speaking-input",
+        transferActivityId: "activity:lesson-zero-speaking-transfer",
+        mementoId: "memento:lesson-zero-first-bond-scene"
+      }
     ]
   };
-  assertNoColdProduction(AAKASH_DIRECTIONS_LEARNING_SEQUENCE);
-  const AAKASH_DIRECTIONS_READER_ANNOTATIONS = [{
-    surface: "行って",
-    lemma: "行く",
-    reading: "いって",
-    pitch: {
-      pattern: "LHHH",
-      source: "Jiten vocabulary 1578850/0 (行く pitch 0); Academy te-form surface reading"
-    }
-  }];
-  function createAakashDirectionsActivity() {
-    return {
-      id: AAKASH_DIRECTIONS_CONTENT.assessment.id,
-      kind: "constructed-japanese",
-      conceptIds: [AAKASH_DIRECTIONS_CONCEPT_ID],
-      responseKind: "ime",
-      answerSupport: ACADEMY_ASSESSED_ANSWER_SUPPORT,
-      prompt: {
-        en: "Give Aakash the cafe route in Japanese. Hints are available.",
-        ja: "Aakashに、カフェまでの道順を日本語で伝えてください。"
+  const scenes$M = [
+    {
+      id: "scene:blank-atlas:arrival-greetings",
+      locationId: "location:classroom",
+      timeState: "evening",
+      goal: "Join the room with a first greeting and discover the class's immediate problem.",
+      dramaticQuestion: "Can a first greeting count before the learner feels ready?",
+      learnerNeed: "A natural first-meeting sequence with a repairable production turn.",
+      curriculum: {
+        sectionId: "arrival-greetings",
+        order: 1
       },
-      payload: {
-        acceptedAnswers: [
-          "この道をまっすぐ行って、右です。",
-          "このみちをまっすぐいって、みぎです。",
-          "まっすぐ行って、右です。",
-          "まっすぐいって、みぎです。"
-        ],
-        passFeedback: {
-          en: "Aakash has the route.",
-          ja: "Aakashに道順が伝わりました。"
+      checkpointOnEnter: true,
+      nodes: [
+        {
+          kind: "stage",
+          id: "node:blank-atlas:covered-table",
+          beatId: "beat:blank-atlas:arrival-image",
+          cueId: "cue:covered-atlas-open-chair",
+          description: "A rain-dark cloth covers a wide object on the front table. One corner of a blank paper map shows beneath it."
         },
-        lapseFeedback: {
-          errorTag: "direction-path-confusion",
-          contrast: {
-            en: "The route must take him straight ahead and finish on the right.",
-            ja: "道順は、まっすぐ進んで、最後は右です。"
-          },
-          repairPrompt: {
-            en: "Use まっすぐ行って for the path, then finish with 右です.",
-            ja: "道は「まっすぐ行って」、最後は「右です」で伝えてください。"
-          },
-          nearbyExample: {
-            en: "Check the final side: 右 is right; 左 is left.",
-            ja: "最後の向きを確認しましょう。「右」は右側、「左」は左側です。"
-          }
-        },
-        lapseDiagnostics: [{
-          responseIncludesAny: ["左", "ひだり"],
-          feedback: {
-            errorTag: "direction-side-confusion",
-            contrast: {
-              en: "The path is straight, but the cafe is on the right, not the left.",
-              ja: "まっすぐ進むところは合っていますが、カフェは左ではなく右です。"
+        {
+          kind: "line",
+          id: "line:blank-atlas:rie-konbanwa",
+          beatId: "beat:blank-atlas:greeting-need",
+          speakerId: "rie",
+          intent: "Begin the room with a real evening greeting.",
+          attentionTarget: "the learner and the waiting class",
+          variants: {
+            foundation: {
+              japanese: "こんばんは。はじめまして。Rieです。",
+              reading: "こんばんは。はじめまして。Rieです。",
+              english: "Good evening. Nice to meet you. I'm Rie."
             },
-            repairPrompt: {
-              en: "Keep the route and replace 左 with 右.",
-              ja: "道順は残して、「左」を「右」に変えてください。"
-            },
-            nearbyExample: {
-              en: "右 is right; 左 is left.",
-              ja: "「右」は右側、「左」は左側です。"
-            }
-          }
-        }],
-        reviewSeedId: "review:aakash-rainy-directions",
-        reviewContent: {
-          expression: "まっすぐ行って、右です。",
-          reading: "まっすぐいって、みぎです",
-          meanings: ["Go straight, then it is on the right."],
-          sentence: "この道をまっすぐ行って、右です。"
-        },
-        hints: [
-          {
-            text: {
-              en: "Route words: まっすぐ (massugu) is “straight”; 右 (migi) is “right.”",
-              ja: "道順のことば：「まっすぐ」は straight、「右（みぎ）」は right です。"
+            n5: {
+              japanese: "こんばんは。はじめまして。先生のRieです。",
+              reading: "こんばんは。はじめまして。せんせいのRieです。",
+              english: "Good evening. Nice to meet you. I'm Rie, your teacher."
             }
           },
-          {
-            text: {
-              en: "Use the frame from the umbrella stand: まっすぐ + 行って、[side] + です。",
-              ja: "傘立てと同じ形です：「まっすぐ」＋「行って」、「向き」＋「です」。"
+          support: {
+            reading: "learner-controlled",
+            englishMeaning: "after-need",
+            replay: true
+          }
+        },
+        {
+          kind: "checkpoint",
+          id: "checkpoint:blank-atlas:before-greeting",
+          beatId: "beat:blank-atlas:greeting-attempt",
+          resume: "Rie has greeted the learner and is waiting for a first-meeting response."
+        },
+        {
+          kind: "activity",
+          id: "activity-node:blank-atlas:greet-rie",
+          beatId: "beat:blank-atlas:greeting-attempt",
+          hook: {
+            lessonId: "lesson:foundation-00",
+            componentType: "speaking",
+            exerciseId: "activity:lesson-zero-greet-rie"
+          },
+          requiredEvidence: {
+            kind: "activity-passed",
+            activityId: "activity:lesson-zero-greet-rie"
+          },
+          resumeContext: "Rie is waiting beside the covered atlas after saying good evening and introducing herself.",
+          onReady: "checkpoint:blank-atlas:after-greeting",
+          onRepair: "node:blank-atlas:greeting-repair",
+          onDefer: "checkpoint:blank-atlas:before-greeting"
+        },
+        {
+          kind: "stage",
+          id: "node:blank-atlas:greeting-repair",
+          beatId: "beat:blank-atlas:greeting-repair",
+          cueId: "cue:rie-greeting-one-step",
+          description: "Rie answers the part she understood, then offers only the next missing greeting chunk."
+        },
+        {
+          kind: "checkpoint",
+          id: "checkpoint:blank-atlas:after-greeting",
+          beatId: "beat:blank-atlas:greeting-response",
+          resume: "The greeting has landed. Rie turns to the covered object on the table."
+        },
+        {
+          kind: "line",
+          id: "line:blank-atlas:rie-problem",
+          beatId: "beat:blank-atlas:obstruction",
+          speakerId: "rie",
+          intent: "Reveal that the atlas is unfinished and invite help without making help a test.",
+          attentionTarget: "the blank route under the cloth",
+          variants: {
+            foundation: {
+              japanese: "これはアトラスです。でも、道がありません。",
+              reading: "これはアトラスです。でも、みちがありません。",
+              english: "This is an atlas. But it has no route."
+            },
+            n5: {
+              japanese: "これは展示のアトラスです。でも、最初の道が消えました。",
+              reading: "これはてんじのアトラスです。でも、さいしょのみちがきえました。",
+              english: "This is the exhibition atlas. But its first route has disappeared."
             }
           },
-          {
-            text: {
-              en: "Complete route: まっすぐ行って、右です。 (massugu itte, migi desu.)",
-              ja: "道順は「まっすぐ行って、右です。」です。"
-            },
-            fillResponse: "まっすぐ行って、右です。"
+          support: {
+            reading: "learner-controlled",
+            englishMeaning: "after-need",
+            replay: true
           }
-        ]
+        },
+        {
+          kind: "stage",
+          id: "node:blank-atlas:first-uncover",
+          beatId: "beat:blank-atlas:changed-image",
+          cueId: "cue:atlas-uncovered-unlit",
+          description: "The cloth comes away. The atlas frame is bright brass; every route inside it is blank."
+        }
+      ],
+      exit: {
+        checkpoint: true,
+        next: "scene:blank-atlas:sound-script-map"
       }
-    };
+    },
+    {
+      id: "scene:blank-atlas:sound-script-map",
+      locationId: "location:classroom",
+      timeState: "evening",
+      goal: "Give the blank route its first stable sound and written marks.",
+      dramaticQuestion: "Will five small sounds be treated as too little, or as enough to begin?",
+      learnerNeed: "A sound-first map of the five vowels and a first purposeful kana attempt.",
+      curriculum: {
+        sectionId: "sound-script-map",
+        order: 2
+      },
+      checkpointOnEnter: true,
+      nodes: [
+        {
+          kind: "stage",
+          id: "node:blank-atlas:vowel-slots",
+          beatId: "beat:blank-atlas:sound-image",
+          cueId: "cue:five-empty-atlas-slots",
+          description: "Five empty circles appear along the first route. Each waits for one sound and one mark."
+        },
+        {
+          kind: "line",
+          id: "line:blank-atlas:rie-listen-first",
+          beatId: "beat:blank-atlas:sound-want",
+          speakerId: "rie",
+          intent: "Set listening before explanation.",
+          attentionTarget: "the five empty circles",
+          variants: {
+            foundation: {
+              japanese: "まず、音です。きいてください。",
+              reading: "まず、おとです。きいてください。",
+              english: "First, sound. Please listen."
+            },
+            n5: {
+              japanese: "文字の前に、五つの音を聞きましょう。",
+              reading: "もじのまえに、いつつのおとをききましょう。",
+              english: "Before the writing, let's listen to five sounds."
+            }
+          },
+          support: {
+            reading: "learner-controlled",
+            englishMeaning: "after-need",
+            replay: true
+          }
+        },
+        {
+          kind: "checkpoint",
+          id: "checkpoint:blank-atlas:before-vowel-listen",
+          beatId: "beat:blank-atlas:vowel-listen",
+          resume: "Five empty route circles are waiting for the ordered vowel sounds."
+        },
+        {
+          kind: "activity",
+          id: "activity-node:blank-atlas:vowel-listen",
+          beatId: "beat:blank-atlas:vowel-listen",
+          hook: {
+            lessonId: "lesson:foundation-00",
+            componentType: "listening",
+            exerciseId: "activity:lesson-zero-vowel-listen"
+          },
+          requiredEvidence: {
+            kind: "activity-passed",
+            activityId: "activity:lesson-zero-vowel-listen"
+          },
+          resumeContext: "The atlas has five empty sound positions in a fixed order.",
+          onReady: "checkpoint:blank-atlas:after-vowel-listen",
+          onRepair: "node:blank-atlas:vowel-listen-repair",
+          onDefer: "checkpoint:blank-atlas:before-vowel-listen"
+        },
+        {
+          kind: "stage",
+          id: "node:blank-atlas:vowel-listen-repair",
+          beatId: "beat:blank-atlas:vowel-listen-repair",
+          cueId: "cue:vowels-replay-one-gap",
+          description: "Only the uncertain sound replays; the other four circles stay in place."
+        },
+        {
+          kind: "checkpoint",
+          id: "checkpoint:blank-atlas:after-vowel-listen",
+          beatId: "beat:blank-atlas:vowel-listen-response",
+          resume: "The five vowel sounds are ordered; the circles still need written forms."
+        },
+        {
+          kind: "checkpoint",
+          id: "checkpoint:blank-atlas:before-vowel-doodle",
+          beatId: "beat:blank-atlas:vowel-writing",
+          resume: "The sound map is ready for the learner's first hiragana marks."
+        },
+        {
+          kind: "activity",
+          id: "activity-node:blank-atlas:vowel-doodle",
+          beatId: "beat:blank-atlas:vowel-writing",
+          hook: {
+            lessonId: "lesson:foundation-00",
+            componentType: "writing",
+            exerciseId: "activity:lesson-zero-vowel-doodle"
+          },
+          requiredEvidence: {
+            kind: "activity-passed",
+            activityId: "activity:lesson-zero-vowel-doodle"
+          },
+          resumeContext: "The ordered sounds are visible as five route positions awaiting hiragana.",
+          onReady: "checkpoint:blank-atlas:after-vowel-doodle",
+          onRepair: "node:blank-atlas:vowel-doodle-repair",
+          onDefer: "checkpoint:blank-atlas:before-vowel-doodle"
+        },
+        {
+          kind: "stage",
+          id: "node:blank-atlas:vowel-doodle-repair",
+          beatId: "beat:blank-atlas:vowel-writing-repair",
+          cueId: "cue:kana-trace-one-stroke",
+          description: "The route holds the recognisable strokes and returns only the stroke that needs another attempt."
+        },
+        {
+          kind: "checkpoint",
+          id: "checkpoint:blank-atlas:after-vowel-doodle",
+          beatId: "beat:blank-atlas:sound-consequence",
+          resume: "Five vowel marks now form the first short line across the atlas."
+        },
+        {
+          kind: "stage",
+          id: "node:blank-atlas:first-line",
+          beatId: "beat:blank-atlas:sound-exit",
+          cueId: "cue:first-route-line-visible",
+          description: "A thin route line joins the five marks. It stops at a paper tab labelled CLASS."
+        }
+      ],
+      exit: {
+        checkpoint: true,
+        next: "scene:blank-atlas:classroom-survival"
+      }
+    },
+    {
+      id: "scene:blank-atlas:classroom-survival",
+      locationId: "location:classroom",
+      timeState: "evening",
+      goal: "Use the complete classroom handout to move the room and repair a missed instruction.",
+      dramaticQuestion: "Can a request for repetition become the action that keeps the class moving?",
+      learnerNeed: "All fourteen Moodle classroom expressions grouped by action, repair, feedback, and desk language.",
+      curriculum: {
+        sectionId: "classroom-survival",
+        order: 3
+      },
+      checkpointOnEnter: true,
+      nodes: [
+        {
+          kind: "stage",
+          id: "node:blank-atlas:handout-arrives",
+          beatId: "beat:blank-atlas:handout-image",
+          cueId: "cue:classroom-handout-on-desk",
+          description: "The classroom handout slides beside the atlas. Its action clusters align with movable tabs on the frame."
+        },
+        {
+          kind: "line",
+          id: "line:blank-atlas:rie-look",
+          beatId: "beat:blank-atlas:instruction-want",
+          speakerId: "rie",
+          intent: "Make the source instruction change a literal object in the room.",
+          attentionTarget: "the handout's first action cluster",
+          variants: {
+            foundation: {
+              japanese: "みてください。つぎに、きいてください。",
+              reading: "みてください。つぎに、きいてください。",
+              english: "Please look. Next, please listen."
+            },
+            n5: {
+              japanese: "プリントを見てください。次の指示を聞いてください。",
+              reading: "プリントをみてください。つぎのしじをきいてください。",
+              english: "Please look at the handout. Listen to the next instruction."
+            }
+          },
+          support: {
+            reading: "learner-controlled",
+            englishMeaning: "after-commit",
+            replay: true
+          }
+        },
+        {
+          kind: "checkpoint",
+          id: "checkpoint:blank-atlas:before-follow-instructions",
+          beatId: "beat:blank-atlas:follow-instructions",
+          resume: "The handout and atlas tabs are ready to respond to Rie's classroom instructions."
+        },
+        {
+          kind: "activity",
+          id: "activity-node:blank-atlas:follow-instructions",
+          beatId: "beat:blank-atlas:follow-instructions",
+          hook: {
+            lessonId: "lesson:foundation-00",
+            componentType: "authentic-input",
+            exerciseId: "activity:lesson-zero-follow-instructions"
+          },
+          requiredEvidence: {
+            kind: "activity-passed",
+            activityId: "activity:lesson-zero-follow-instructions"
+          },
+          resumeContext: "The room is following the start, finish, break, look, say, listen, and write cluster on the source handout.",
+          onReady: "checkpoint:blank-atlas:after-follow-instructions",
+          onRepair: "node:blank-atlas:follow-instructions-repair",
+          onDefer: "checkpoint:blank-atlas:before-follow-instructions"
+        },
+        {
+          kind: "stage",
+          id: "node:blank-atlas:follow-instructions-repair",
+          beatId: "beat:blank-atlas:instruction-repair",
+          cueId: "cue:instruction-one-object",
+          description: "Rie resets one object and repeats one instruction; the rest of the room stays where the learner left it."
+        },
+        {
+          kind: "checkpoint",
+          id: "checkpoint:blank-atlas:after-follow-instructions",
+          beatId: "beat:blank-atlas:instruction-response",
+          resume: "The first seven classroom actions have moved the room into working order."
+        },
+        {
+          kind: "line",
+          id: "line:blank-atlas:rie-too-fast",
+          beatId: "beat:blank-atlas:repair-obstruction",
+          speakerId: "rie",
+          intent: "Create an honest need for repetition by moving too quickly once.",
+          attentionTarget: "two similar atlas tabs",
+          variants: {
+            foundation: {
+              japanese: "このれいを見て、書いて、つぎを――",
+              reading: "このれいをみて、かいて、つぎを――",
+              english: "Look at this example, write, and then the next—"
+            },
+            n5: {
+              japanese: "この例を見て、答えを書いて、それから次のカードを――",
+              reading: "このれいをみて、こたえをかいて、それからつぎのカードを――",
+              english: "Look at this example, write the answer, and then take the next card—"
+            }
+          },
+          support: {
+            reading: "learner-controlled",
+            englishMeaning: "after-commit",
+            replay: true
+          }
+        },
+        {
+          kind: "checkpoint",
+          id: "checkpoint:blank-atlas:before-repair",
+          beatId: "beat:blank-atlas:repair-attempt",
+          resume: "Rie's instruction stopped after becoming too fast to follow."
+        },
+        {
+          kind: "activity",
+          id: "activity-node:blank-atlas:reconstruct-repair",
+          beatId: "beat:blank-atlas:repair-attempt",
+          hook: {
+            lessonId: "lesson:foundation-00",
+            componentType: "speaking",
+            exerciseId: "activity:lesson-zero-reconstruct-repair"
+          },
+          requiredEvidence: {
+            kind: "activity-passed",
+            activityId: "activity:lesson-zero-reconstruct-repair"
+          },
+          resumeContext: "The learner needs to ask Rie to repeat a fast classroom instruction before touching either tab.",
+          onReady: "checkpoint:blank-atlas:after-repair",
+          onRepair: "node:blank-atlas:repair-smaller-step",
+          onDefer: "checkpoint:blank-atlas:before-repair"
+        },
+        {
+          kind: "stage",
+          id: "node:blank-atlas:repair-smaller-step",
+          beatId: "beat:blank-atlas:repair-exact-response",
+          cueId: "cue:repair-phrase-one-gap",
+          description: "The phrase rebuilds around one missing chunk; no English answer appears before the learner commits."
+        },
+        {
+          kind: "checkpoint",
+          id: "checkpoint:blank-atlas:after-repair",
+          beatId: "beat:blank-atlas:repair-response",
+          resume: "Rie has repeated the instruction at a usable pace and the correct tab is now clear."
+        },
+        {
+          kind: "line",
+          id: "line:blank-atlas:rie-repetition-works",
+          beatId: "beat:blank-atlas:repair-consequence",
+          speakerId: "rie",
+          intent: "Treat repair language as the contribution that saved the route.",
+          attentionTarget: "the now-correct atlas tab",
+          variants: {
+            foundation: {
+              japanese: "はい。もう一度です。いい質問です。",
+              reading: "はい。もういちどです。いいしつもんです。",
+              english: "Yes. Once more. Good question."
+            },
+            n5: {
+              japanese: "はい、もう一度言います。止めてくれて、よかったです。",
+              reading: "はい、もういちどいいます。とめてくれて、よかったです。",
+              english: "Yes, I'll say it again. I'm glad you stopped me."
+            }
+          },
+          support: {
+            reading: "learner-controlled",
+            englishMeaning: "after-need",
+            replay: true
+          }
+        },
+        {
+          kind: "checkpoint",
+          id: "checkpoint:blank-atlas:before-desk-language",
+          beatId: "beat:blank-atlas:desk-language",
+          resume: "The route is moving again; two desk labels still need their classroom meanings."
+        },
+        {
+          kind: "activity",
+          id: "activity-node:blank-atlas:desk-language",
+          beatId: "beat:blank-atlas:desk-language",
+          hook: {
+            lessonId: "lesson:foundation-00",
+            componentType: "vocabulary",
+            exerciseId: "activity:lesson-zero-desk-language"
+          },
+          requiredEvidence: {
+            kind: "activity-passed",
+            activityId: "activity:lesson-zero-desk-language"
+          },
+          resumeContext: "The literal example and homework objects need the correct desk-language labels.",
+          onReady: "checkpoint:blank-atlas:after-desk-language",
+          onRepair: "node:blank-atlas:desk-language-repair",
+          onDefer: "checkpoint:blank-atlas:before-desk-language"
+        },
+        {
+          kind: "stage",
+          id: "node:blank-atlas:desk-language-repair",
+          beatId: "beat:blank-atlas:desk-language-repair",
+          cueId: "cue:desk-object-context",
+          description: "The paper example and the take-home card move apart so the labels can be recovered from use."
+        },
+        {
+          kind: "checkpoint",
+          id: "checkpoint:blank-atlas:after-desk-language",
+          beatId: "beat:blank-atlas:handout-consequence",
+          resume: "All fourteen classroom expressions now have an action or object in the room."
+        },
+        {
+          kind: "stage",
+          id: "node:blank-atlas:handout-flower",
+          beatId: "beat:blank-atlas:handout-exit",
+          cueId: "cue:rie-flower-mark",
+          description: "Rie adds a small flower mark to the handout. A matching paper flower appears at the route's first turn."
+        }
+      ],
+      exit: {
+        checkpoint: true,
+        next: "scene:blank-atlas:sentence-frames"
+      }
+    },
+    {
+      id: "scene:blank-atlas:sentence-frames",
+      locationId: "location:classroom",
+      timeState: "evening",
+      goal: "Build enough sentence structure to read true and false route labels.",
+      dramaticQuestion: "Can the class correct the atlas without turning correction into a verdict on a person?",
+      learnerNeed: "The five registered noun sentence frames in a concrete identification problem.",
+      curriculum: {
+        sectionId: "sentence-frames",
+        order: 4
+      },
+      checkpointOnEnter: true,
+      nodes: [
+        {
+          kind: "stage",
+          id: "node:blank-atlas:false-label",
+          beatId: "beat:blank-atlas:frame-image",
+          cueId: "cue:atlas-classroom-library-labels",
+          description: "Two labels print at once: THIS IS THE CLASSROOM and THIS IS NOT THE CLASSROOM. The atlas cannot decide which door it drew."
+        },
+        {
+          kind: "line",
+          id: "line:blank-atlas:rie-label-question",
+          beatId: "beat:blank-atlas:frame-want",
+          speakerId: "rie",
+          intent: "Turn sentence forms into a route check rather than isolated grammar display.",
+          attentionTarget: "the conflicting labels",
+          variants: {
+            foundation: {
+              japanese: "ここは教室ですか。図書室ですか。",
+              reading: "ここはきょうしつですか。としょしつですか。",
+              english: "Is this the classroom? Is it the library?"
+            },
+            n5: {
+              japanese: "この場所は教室ですか。図書室じゃありませんか。",
+              reading: "このばしょはきょうしつですか。としょしつじゃありませんか。",
+              english: "Is this place the classroom? Isn't it the library?"
+            }
+          },
+          support: {
+            reading: "learner-controlled",
+            englishMeaning: "after-need",
+            replay: true
+          }
+        },
+        {
+          kind: "checkpoint",
+          id: "checkpoint:blank-atlas:before-sentence-frames",
+          beatId: "beat:blank-atlas:frame-attempt",
+          resume: "The atlas needs affirmative, negative, question, noun-linking, and parallel-fact frames to verify its labels."
+        },
+        {
+          kind: "activity",
+          id: "activity-node:blank-atlas:sentence-frames",
+          beatId: "beat:blank-atlas:frame-attempt",
+          hook: {
+            lessonId: "lesson:foundation-00",
+            componentType: "grammar",
+            exerciseId: "activity:lesson-zero-build-sentence-frames"
+          },
+          requiredEvidence: {
+            kind: "activity-passed",
+            activityId: "activity:lesson-zero-build-sentence-frames"
+          },
+          resumeContext: "Two contradictory route labels need the five Lesson 0 noun sentence frames.",
+          onReady: "checkpoint:blank-atlas:after-sentence-frames",
+          onRepair: "node:blank-atlas:sentence-frame-repair",
+          onDefer: "checkpoint:blank-atlas:before-sentence-frames"
+        },
+        {
+          kind: "stage",
+          id: "node:blank-atlas:sentence-frame-repair",
+          beatId: "beat:blank-atlas:frame-repair",
+          cueId: "cue:sentence-frame-meaning-contrast",
+          description: "The two labels stay visible while one particle or copula slot returns for a smaller retry."
+        },
+        {
+          kind: "checkpoint",
+          id: "checkpoint:blank-atlas:after-sentence-frames",
+          beatId: "beat:blank-atlas:frame-response",
+          resume: "The false label has folded away and the true classroom label remains."
+        },
+        {
+          kind: "stage",
+          id: "node:blank-atlas:label-fixed",
+          beatId: "beat:blank-atlas:frame-consequence",
+          cueId: "cue:atlas-classroom-label-fixed",
+          description: "The atlas draws a clear door around the true label, then leaves a blank name line beneath it."
+        }
+      ],
+      exit: {
+        checkpoint: true,
+        next: "scene:blank-atlas:useful-vocabulary"
+      }
+    },
+    {
+      id: "scene:blank-atlas:useful-vocabulary",
+      locationId: "location:classroom",
+      timeState: "evening",
+      goal: "Move the learner's spoken name sentence onto a desk card, then choose the first route mission.",
+      dramaticQuestion: "Can the learner recognise on paper the same name sentence they have already said aloud?",
+      learnerNeed: "Transfer the familiar name + です chunk from speech to a two-piece written frame, with audio and meaning support.",
+      curriculum: {
+        sectionId: "useful-vocabulary",
+        order: 5
+      },
+      checkpointOnEnter: true,
+      nodes: [
+        {
+          kind: "stage",
+          id: "node:blank-atlas:name-line",
+          beatId: "beat:blank-atlas:vocabulary-image",
+          cueId: "cue:blank-name-card-and-atlas-line",
+          description: "Rie writes the learner's saved name on a desk card and leaves one short space after it."
+        },
+        {
+          kind: "line",
+          id: "line:blank-atlas:rie-share-boundary",
+          beatId: "beat:blank-atlas:vocabulary-boundary",
+          speakerId: "rie",
+          intent: "Connect the spoken introduction to the same sentence on paper without testing untaught kana.",
+          attentionTarget: "the learner's saved name and the open space after it",
+          variants: {
+            foundation: {
+              japanese: "名前の後ろに「です」を置きましょう。",
+              reading: "なまえのうしろに「です」をおきましょう。",
+              english: "Put です after your name."
+            },
+            n5: {
+              japanese: "さっき言った名前の後ろに「です」を置いて、名札を完成させましょう。",
+              reading: "さっきいったなまえのうしろに「です」をおいて、なふだをかんせいさせましょう。",
+              english: "Put です after the name you said earlier and finish the card."
+            }
+          },
+          support: {
+            reading: "learner-controlled",
+            englishMeaning: "available",
+            replay: true
+          }
+        },
+        {
+          kind: "checkpoint",
+          id: "checkpoint:blank-atlas:before-name-card-draft",
+          beatId: "beat:blank-atlas:vocabulary-attempt",
+          resume: "Rie has written the saved player name. The learner is ready to place です after it."
+        },
+        {
+          kind: "activity",
+          id: "activity-node:blank-atlas:name-card-draft",
+          beatId: "beat:blank-atlas:vocabulary-attempt",
+          hook: {
+            lessonId: "lesson:foundation-00",
+            componentType: "grammar",
+            exerciseId: "activity:lesson-zero-name-card-draft"
+          },
+          requiredEvidence: {
+            kind: "activity-passed",
+            activityId: "activity:lesson-zero-name-card-draft"
+          },
+          resumeContext: "The learner is moving the name + です sentence from the spoken greeting onto the desk card.",
+          onReady: "checkpoint:blank-atlas:after-name-card-draft",
+          onRepair: "node:blank-atlas:name-card-repair",
+          onDefer: "checkpoint:blank-atlas:before-name-card-draft"
+        },
+        {
+          kind: "stage",
+          id: "node:blank-atlas:name-card-repair",
+          beatId: "beat:blank-atlas:vocabulary-repair",
+          cueId: "cue:name-card-one-rubric",
+          description: "Rie taps the saved name once, then the です piece, without adding another explanation."
+        },
+        {
+          kind: "checkpoint",
+          id: "checkpoint:blank-atlas:after-name-card-draft",
+          beatId: "beat:blank-atlas:vocabulary-response",
+          resume: "The learner's name + です card is on the desk."
+        },
+        {
+          kind: "line",
+          id: "line:blank-atlas:rie-three-routes",
+          beatId: "beat:blank-atlas:mission-want",
+          speakerId: "rie",
+          intent: "Offer three materially different ways to recover the next atlas label.",
+          attentionTarget: "three route tabs: sound, text, speaking",
+          variants: {
+            foundation: {
+              japanese: "音、文、会話。どれから始めますか。",
+              reading: "おと、ぶん、かいわ。どれからはじめますか。",
+              english: "Sound, text, or conversation. Which will you begin with?"
+            },
+            n5: {
+              japanese: "音で確かめる道、文を直す道、話して迎える道があります。どれにしますか。",
+              reading: "おとでたしかめるみち、ぶんをなおすみち、はなしてむかえるみちがあります。どれにしますか。",
+              english: "There is a route for checking sound, repairing text, or welcoming someone through speech. Which do you choose?"
+            }
+          },
+          support: {
+            reading: "learner-controlled",
+            englishMeaning: "after-need",
+            replay: true
+          }
+        },
+        {
+          kind: "choice",
+          id: "choice:blank-atlas:mission",
+          beatId: "beat:blank-atlas:mission-choice",
+          question: "Which mission should recover the next route label?",
+          options: [
+            {
+              id: "option:blank-atlas:mission-sound",
+              action: "Go to the language lab and identify people from sound before text.",
+              japaneseByBand: {
+                foundation: "音から始めます。",
+                n5: "語学ラボで、音から確かめます。"
+              },
+              records: [
+                "stance",
+                "support-style"
+              ],
+              next: "scene:blank-atlas:mission-sound"
+            },
+            {
+              id: "option:blank-atlas:mission-text",
+              action: "Go to the library and reconstruct the handwritten route note.",
+              japaneseByBand: {
+                foundation: "文から始めます。",
+                n5: "図書室で、手書きの文を直します。"
+              },
+              records: [
+                "stance",
+                "support-style"
+              ],
+              next: "scene:blank-atlas:mission-text"
+            },
+            {
+              id: "option:blank-atlas:mission-speaking",
+              action: "Return to the entrance and help greet the next arrivals.",
+              japaneseByBand: {
+                foundation: "会話から始めます。",
+                n5: "入口で、来た人に話します。"
+              },
+              records: [
+                "stance",
+                "support-style"
+              ],
+              next: "scene:blank-atlas:mission-speaking"
+            }
+          ],
+          convergence: "scene:blank-atlas:reading-writing"
+        },
+        {
+          kind: "checkpoint",
+          id: "checkpoint:blank-atlas:mission-chosen",
+          beatId: "beat:blank-atlas:vocabulary-exit",
+          resume: "The learner's first mission is selected; all routes return to the same unfinished name-card line."
+        }
+      ],
+      exit: {
+        checkpoint: true,
+        next: "choice:blank-atlas:mission"
+      }
+    },
+    {
+      id: "scene:blank-atlas:mission-sound",
+      locationId: "location:language-lab",
+      timeState: "evening",
+      goal: "Find Xingyu and Mika's names by listening for the word immediately before です.",
+      dramaticQuestion: "Can the learner find a name without understanding the whole introduction?",
+      learnerNeed: "Two short audio-first introductions, one voice at a time, with text delayed until the first commitment.",
+      curriculum: {
+        sectionId: "multi-speaker-input",
+        order: 6,
+        missionId: "sound"
+      },
+      checkpointOnEnter: true,
+      nodes: [
+        {
+          kind: "stage",
+          id: "node:blank-atlas:sound-nameplates",
+          beatId: "beat:blank-atlas:sound-mission-image",
+          cueId: "cue:sound-route-nameplates-only",
+          description: "Xingyu puts in one earbud. Mika rests a hand on his headphones. Two empty name slots wait between them."
+        },
+        {
+          kind: "line",
+          id: "line:blank-atlas:xingyu-sound-first",
+          beatId: "beat:blank-atlas:sound-mission-want",
+          speakerId: "xingyu",
+          intent: "Give the learner one small listening target without asking them to decode the whole sentence.",
+          attentionTarget: "the empty name slots",
+          variants: {
+            foundation: {
+              japanese: "全部はいいです。「です」の前だけ、聞いてみて。",
+              reading: "ぜんぶはいいです。「です」のまえだけ、きいてみて。",
+              english: "You don't need all of it. Just listen immediately before です."
+            },
+            n5: {
+              japanese: "全部を分かろうとしなくて大丈夫です。「です」の前にある名前だけ、探してみてください。",
+              reading: "ぜんぶをわかろうとしなくてだいじょうぶです。「です」のまえにあるなまえだけ、さがしてみてください。",
+              english: "You don't have to understand everything. Just find the name before です."
+            }
+          },
+          support: {
+            reading: "learner-controlled",
+            englishMeaning: "after-need",
+            replay: true
+          }
+        },
+        {
+          kind: "checkpoint",
+          id: "checkpoint:blank-atlas:before-sound-input",
+          beatId: "beat:blank-atlas:sound-mission-attempt",
+          resume: "Xingyu and Mika are ready in the sound room; each transcript remains hidden until the learner commits."
+        },
+        {
+          kind: "activity",
+          id: "activity-node:blank-atlas:sound-input",
+          beatId: "beat:blank-atlas:sound-mission-attempt",
+          hook: {
+            lessonId: "lesson:foundation-00",
+            componentType: "listening",
+            exerciseId: "activity:lesson-zero-sound-input"
+          },
+          requiredEvidence: {
+            kind: "activity-passed",
+            activityId: "activity:lesson-zero-sound-input"
+          },
+          resumeContext: "The Sound room is waiting for two name matches before transcript reveal.",
+          onReady: "checkpoint:blank-atlas:after-sound-input",
+          onRepair: "node:blank-atlas:sound-input-repair",
+          onDefer: "checkpoint:blank-atlas:before-sound-input"
+        },
+        {
+          kind: "stage",
+          id: "node:blank-atlas:sound-input-repair",
+          beatId: "beat:blank-atlas:sound-mission-repair",
+          cueId: "cue:sound-route-replay-one-speaker",
+          description: "Only the missed voice replays. Xingyu taps the empty name slot just before the final です."
+        },
+        {
+          kind: "checkpoint",
+          id: "checkpoint:blank-atlas:after-sound-input",
+          beatId: "beat:blank-atlas:sound-mission-response",
+          resume: "Both voices are matched to names and the delayed text can now confirm what the learner heard."
+        },
+        {
+          kind: "line",
+          id: "line:blank-atlas:mika-sound-result",
+          beatId: "beat:blank-atlas:sound-mission-consequence",
+          speakerId: "mika",
+          intent: "Show that listening for one useful landmark is already real comprehension.",
+          attentionTarget: "the two filled name slots",
+          variants: {
+            foundation: {
+              japanese: "聞こえましたね。名前は、そこです。",
+              reading: "きこえましたね。なまえは、そこです。",
+              english: "You heard it. That's where the name is."
+            },
+            n5: {
+              japanese: "全部ではなく、必要なところを聞けました。次も同じ目印が使えます。",
+              reading: "ぜんぶではなく、ひつようなところをきけました。つぎもおなじめじるしがつかえます。",
+              english: "You caught what you needed, not every word. The same landmark will work next time."
+            }
+          },
+          support: {
+            reading: "learner-controlled",
+            englishMeaning: "after-need",
+            replay: true
+          }
+        },
+        {
+          kind: "command",
+          id: "node:blank-atlas:sound-memento",
+          beatId: "beat:blank-atlas:sound-mission-consequence",
+          command: {
+            type: "journal.memoryUnlocked",
+            memoryId: "memento:lesson-zero-class-recording"
+          }
+        },
+        {
+          kind: "checkpoint",
+          id: "checkpoint:blank-atlas:sound-mission-complete",
+          beatId: "beat:blank-atlas:sound-mission-exit",
+          resume: "The Sound route has placed both heard names into the class journal."
+        }
+      ],
+      exit: {
+        checkpoint: true,
+        next: "scene:blank-atlas:reading-writing"
+      }
+    },
+    {
+      id: "scene:blank-atlas:mission-text",
+      locationId: "location:library",
+      timeState: "evening",
+      goal: "Restore two missing links in a handwritten introduction note.",
+      dramaticQuestion: "Can the learner use visible evidence without making the first guess final?",
+      learnerNeed: "Reading-first reconstruction of the registered noun-link and parallel-fact forms.",
+      curriculum: {
+        sectionId: "multi-speaker-input",
+        order: 6,
+        missionId: "text"
+      },
+      checkpointOnEnter: true,
+      nodes: [
+        {
+          kind: "stage",
+          id: "node:blank-atlas:text-note",
+          beatId: "beat:blank-atlas:text-mission-image",
+          cueId: "cue:text-route-note-nameplates",
+          description: "A handwritten note sits beneath nameplates reading Sophie and Ruparna. Two particle spaces have been washed pale."
+        },
+        {
+          kind: "line",
+          id: "line:blank-atlas:sophie-two-gaps",
+          beatId: "beat:blank-atlas:text-mission-want",
+          speakerId: "sophie",
+          intent: "Define the evidence problem precisely without giving the particles away.",
+          attentionTarget: "the two pale spaces",
+          variants: {
+            foundation: {
+              japanese: "空いているところは二つ。まず、前と後だけを見ます。",
+              reading: "あいているところはふたつ。まず、まえとあとだけをみます。",
+              english: "There are two gaps. First, look only before and after them."
+            },
+            n5: {
+              japanese: "空欄は二つ。名前はまだ手掛かりにしません。前後の意味を比べましょう。",
+              reading: "くうらんはふたつ。なまえはまだてがかりにしません。ぜんごのいみをくらべましょう。",
+              english: "Two blanks. The names are not evidence yet. Let's compare the surrounding meaning."
+            }
+          },
+          support: {
+            reading: "learner-controlled",
+            englishMeaning: "after-need",
+            replay: true
+          }
+        },
+        {
+          kind: "checkpoint",
+          id: "checkpoint:blank-atlas:before-text-input",
+          beatId: "beat:blank-atlas:text-mission-attempt",
+          resume: "The handwritten introduction has two visible particle gaps and the surrounding evidence remains in view."
+        },
+        {
+          kind: "activity",
+          id: "activity-node:blank-atlas:text-input",
+          beatId: "beat:blank-atlas:text-mission-attempt",
+          hook: {
+            lessonId: "lesson:foundation-00",
+            componentType: "reading",
+            exerciseId: "activity:lesson-zero-text-input"
+          },
+          requiredEvidence: {
+            kind: "activity-passed",
+            activityId: "activity:lesson-zero-text-input"
+          },
+          resumeContext: "The Text mission is waiting for the two registered particle restorations.",
+          onReady: "checkpoint:blank-atlas:after-text-input",
+          onRepair: "node:blank-atlas:text-input-repair",
+          onDefer: "checkpoint:blank-atlas:before-text-input"
+        },
+        {
+          kind: "stage",
+          id: "node:blank-atlas:text-input-repair",
+          beatId: "beat:blank-atlas:text-mission-repair",
+          cueId: "cue:text-route-evidence-lines",
+          description: "The relevant noun pair or parallel sentence stays highlighted while one gap returns."
+        },
+        {
+          kind: "checkpoint",
+          id: "checkpoint:blank-atlas:after-text-input",
+          beatId: "beat:blank-atlas:text-mission-response",
+          resume: "The note is readable and its two links have been restored from context."
+        },
+        {
+          kind: "line",
+          id: "line:blank-atlas:ruparna-note-route",
+          beatId: "beat:blank-atlas:text-mission-consequence",
+          speakerId: "ruparna",
+          intent: "Turn the repaired note into a visible route rather than an answer display.",
+          attentionTarget: "the paper edge aligning with the atlas",
+          variants: {
+            foundation: {
+              japanese: "文がつながりました。紙のはしが、道みたいです。",
+              reading: "ぶんがつながりました。かみのはしが、みちみたいです。",
+              english: "The sentence connects. The edge of the paper looks like a road."
+            },
+            n5: {
+              japanese: "文字が戻ると、紙の端が次の道みたいにつながります。",
+              reading: "もじがもどると、かみのはしがつぎのみちみたいにつながります。",
+              english: "When the letters return, the paper's edge connects like the next road."
+            }
+          },
+          support: {
+            reading: "learner-controlled",
+            englishMeaning: "after-need",
+            replay: true
+          }
+        },
+        {
+          kind: "command",
+          id: "node:blank-atlas:text-memento",
+          beatId: "beat:blank-atlas:text-mission-consequence",
+          command: {
+            type: "journal.memoryUnlocked",
+            memoryId: "memento:lesson-zero-first-page-clue"
+          }
+        },
+        {
+          kind: "checkpoint",
+          id: "checkpoint:blank-atlas:text-mission-complete",
+          beatId: "beat:blank-atlas:text-mission-exit",
+          resume: "The Text route has supplied a repaired written label to the atlas."
+        }
+      ],
+      exit: {
+        checkpoint: true,
+        next: "scene:blank-atlas:reading-writing"
+      }
+    },
+    {
+      id: "scene:blank-atlas:mission-speaking",
+      locationId: "location:classroom-entrance",
+      timeState: "evening",
+      goal: "Join an arrival exchange and recover naturally when a turn is missed.",
+      dramaticQuestion: "Can speaking practice welcome someone without making recording compulsory?",
+      learnerNeed: "A real turn-taking need, private recording consent, and a pause route that preserves progress.",
+      curriculum: {
+        sectionId: "multi-speaker-input",
+        order: 6,
+        missionId: "speaking"
+      },
+      checkpointOnEnter: true,
+      nodes: [
+        {
+          kind: "stage",
+          id: "node:blank-atlas:speaking-door",
+          beatId: "beat:blank-atlas:speaking-mission-image",
+          cueId: "cue:speaking-route-open-door-nameplates",
+          description: "The classroom door is open again. Nameplates identify Aakash and Sam; the next blank card waits just outside."
+        },
+        {
+          kind: "line",
+          id: "line:blank-atlas:sam-recording-boundary",
+          beatId: "beat:blank-atlas:speaking-mission-boundary",
+          speakerId: "sam",
+          intent: "State the recording scope and make pausing unremarkable.",
+          attentionTarget: "the learner's unsaved practice control",
+          variants: {
+            foundation: {
+              japanese: "これは練習です。今、録音しなくてもいいです。",
+              reading: "これはれんしゅうです。いま、ろくおんしなくてもいいです。",
+              english: "This is practice. You do not have to record now."
+            },
+            n5: {
+              japanese: "録音はこの練習だけです。今しないなら、ここで止められます。",
+              reading: "ろくおんはこのれんしゅうだけです。いましないなら、ここでとめられます。",
+              english: "The recording is only for this practice. If you do not want to do it now, you can stop here."
+            }
+          },
+          support: {
+            reading: "learner-controlled",
+            englishMeaning: "available",
+            replay: true
+          }
+        },
+        {
+          kind: "choice",
+          id: "choice:blank-atlas:speaking-recording",
+          beatId: "beat:blank-atlas:speaking-mission-consent",
+          question: "Do you want to make the private practice recording now?",
+          options: [
+            {
+              id: "option:blank-atlas:speaking-record-now",
+              action: "Record the private practice turn now.",
+              japaneseByBand: {
+                foundation: "今、練習します。",
+                n5: "今、録音して練習します。"
+              },
+              records: [
+                "boundary-heard",
+                "stance"
+              ],
+              next: "checkpoint:blank-atlas:before-speaking-input"
+            },
+            {
+              id: "option:blank-atlas:speaking-defer-recording",
+              action: "Pause here and return when recording feels workable.",
+              japaneseByBand: {
+                foundation: "今はしません。",
+                n5: "今は録音しません。あとで戻ります。"
+              },
+              records: [
+                "boundary-heard",
+                "support-style"
+              ],
+              next: "checkpoint:blank-atlas:speaking-recording-deferred"
+            }
+          ],
+          convergence: "checkpoint:blank-atlas:after-speaking-input"
+        },
+        {
+          kind: "checkpoint",
+          id: "checkpoint:blank-atlas:speaking-recording-deferred",
+          beatId: "beat:blank-atlas:speaking-mission-defer",
+          resume: "The private speaking turn is deferred. No story, bond, or lesson completion has been written."
+        },
+        {
+          kind: "checkpoint",
+          id: "checkpoint:blank-atlas:before-speaking-input",
+          beatId: "beat:blank-atlas:speaking-mission-attempt",
+          resume: "The learner consented to this private practice turn; Aakash and Sam are holding the conversational place."
+        },
+        {
+          kind: "activity",
+          id: "activity-node:blank-atlas:speaking-input",
+          beatId: "beat:blank-atlas:speaking-mission-attempt",
+          hook: {
+            lessonId: "lesson:foundation-00",
+            componentType: "speaking",
+            exerciseId: "activity:lesson-zero-speaking-input"
+          },
+          requiredEvidence: {
+            kind: "activity-passed",
+            activityId: "activity:lesson-zero-speaking-input"
+          },
+          resumeContext: "The learner has opted into the bounded private recording and the arrival exchange is waiting for their turn.",
+          onReady: "checkpoint:blank-atlas:after-speaking-input",
+          onRepair: "node:blank-atlas:speaking-input-repair",
+          onDefer: "checkpoint:blank-atlas:speaking-recording-deferred"
+        },
+        {
+          kind: "stage",
+          id: "node:blank-atlas:speaking-input-repair",
+          beatId: "beat:blank-atlas:speaking-mission-repair",
+          cueId: "cue:speaking-route-one-turn",
+          description: "Aakash repeats only the missed question and leaves the learner's conversational turn open."
+        },
+        {
+          kind: "checkpoint",
+          id: "checkpoint:blank-atlas:after-speaking-input",
+          beatId: "beat:blank-atlas:speaking-mission-response",
+          resume: "The arrival exchange has a complete learner turn and the door remains open."
+        },
+        {
+          kind: "line",
+          id: "line:blank-atlas:aakash-place-held",
+          beatId: "beat:blank-atlas:speaking-mission-consequence",
+          speakerId: "aakash",
+          intent: "Show that a repaired turn still welcomed someone into the room.",
+          attentionTarget: "the now-filled arrival card",
+          variants: {
+            foundation: {
+              japanese: "入りました。会話も、カードも。",
+              reading: "はいりました。かいわも、カードも。",
+              english: "It came in. The conversation and the card."
+            },
+            n5: {
+              japanese: "聞き直したから、会話もカードも部屋に入りました。",
+              reading: "ききなおしたから、かいわもカードもへやにはいりました。",
+              english: "Because you asked again, both the conversation and the card made it into the room."
+            }
+          },
+          support: {
+            reading: "learner-controlled",
+            englishMeaning: "after-need",
+            replay: true
+          }
+        },
+        {
+          kind: "command",
+          id: "node:blank-atlas:speaking-memento",
+          beatId: "beat:blank-atlas:speaking-mission-consequence",
+          command: {
+            type: "journal.memoryUnlocked",
+            memoryId: "memento:lesson-zero-first-bond-scene"
+          }
+        },
+        {
+          kind: "checkpoint",
+          id: "checkpoint:blank-atlas:speaking-mission-complete",
+          beatId: "beat:blank-atlas:speaking-mission-exit",
+          resume: "The Speaking route has supplied a welcomed arrival card to the atlas."
+        }
+      ],
+      exit: {
+        checkpoint: true,
+        next: "scene:blank-atlas:reading-writing"
+      }
+    },
+    {
+      id: "scene:blank-atlas:reading-writing",
+      locationId: "location:classroom",
+      timeState: "evening-late",
+      goal: "Read the recovered class cards and make the learner's own card functional.",
+      dramaticQuestion: "Will the learner's card become a label to display or a tool that helps someone address them correctly?",
+      learnerNeed: "Purposeful reading evidence and a controlled written introduction using the selected disclosure scope.",
+      curriculum: {
+        sectionId: "reading-writing",
+        order: 7
+      },
+      checkpointOnEnter: true,
+      nodes: [
+        {
+          kind: "stage",
+          id: "node:blank-atlas:cards-return",
+          beatId: "beat:blank-atlas:reading-image",
+          cueId: "cue:route-cards-around-atlas",
+          description: "The selected mission's card joins two class cards around the atlas. The learner's draft remains separate and face down."
+        },
+        {
+          kind: "line",
+          id: "line:blank-atlas:rie-read-for-person",
+          beatId: "beat:blank-atlas:reading-want",
+          speakerId: "rie",
+          intent: "Give reading a social purpose before asking for reconstruction.",
+          attentionTarget: "the class cards",
+          variants: {
+            foundation: {
+              japanese: "だれのカードですか。文を読んでください。",
+              reading: "だれのカードですか。ぶんをよんでください。",
+              english: "Whose card is it? Please read the sentence."
+            },
+            n5: {
+              japanese: "名前を当てるのではなく、文を証拠にしてカードを戻しましょう。",
+              reading: "なまえをあてるのではなく、ぶんをしょうこにしてカードをもどしましょう。",
+              english: "Rather than guessing the name, use the sentence as evidence to return the card."
+            }
+          },
+          support: {
+            reading: "learner-controlled",
+            englishMeaning: "after-need",
+            replay: true
+          }
+        },
+        {
+          kind: "checkpoint",
+          id: "checkpoint:blank-atlas:before-read-name-cards",
+          beatId: "beat:blank-atlas:reading-attempt",
+          resume: "The recovered class cards need to be matched through their written evidence."
+        },
+        {
+          kind: "activity",
+          id: "activity-node:blank-atlas:read-name-cards",
+          beatId: "beat:blank-atlas:reading-attempt",
+          hook: {
+            lessonId: "lesson:foundation-00",
+            componentType: "reading",
+            exerciseId: "activity:lesson-zero-read-name-cards"
+          },
+          requiredEvidence: {
+            kind: "activity-passed",
+            activityId: "activity:lesson-zero-read-name-cards"
+          },
+          resumeContext: "The class cards must be returned using a source line rather than a guessed identity.",
+          onReady: "checkpoint:blank-atlas:after-read-name-cards",
+          onRepair: "node:blank-atlas:read-name-cards-repair",
+          onDefer: "checkpoint:blank-atlas:before-read-name-cards"
+        },
+        {
+          kind: "stage",
+          id: "node:blank-atlas:read-name-cards-repair",
+          beatId: "beat:blank-atlas:reading-repair",
+          cueId: "cue:name-card-evidence-line",
+          description: "The relevant line stays visible while the unsupported identity guess clears."
+        },
+        {
+          kind: "checkpoint",
+          id: "checkpoint:blank-atlas:after-read-name-cards",
+          beatId: "beat:blank-atlas:reading-response",
+          resume: "The class cards have returned to the people described by their own lines."
+        },
+        {
+          kind: "checkpoint",
+          id: "checkpoint:blank-atlas:before-write-name-card",
+          beatId: "beat:blank-atlas:writing-attempt",
+          resume: "The learner's chosen disclosure scope is ready to become a functional class card."
+        },
+        {
+          kind: "activity",
+          id: "activity-node:blank-atlas:write-name-card",
+          beatId: "beat:blank-atlas:writing-attempt",
+          hook: {
+            lessonId: "lesson:foundation-00",
+            componentType: "writing",
+            exerciseId: "activity:lesson-zero-write-name-card"
+          },
+          requiredEvidence: {
+            kind: "activity-passed",
+            activityId: "activity:lesson-zero-write-name-card"
+          },
+          resumeContext: "The learner is writing only the name and facts they chose for this class card.",
+          onReady: "checkpoint:blank-atlas:after-write-name-card",
+          onRepair: "node:blank-atlas:write-name-card-repair",
+          onDefer: "checkpoint:blank-atlas:before-write-name-card"
+        },
+        {
+          kind: "stage",
+          id: "node:blank-atlas:write-name-card-repair",
+          beatId: "beat:blank-atlas:writing-repair",
+          cueId: "cue:name-card-function-rubric",
+          description: "Only the missing greeting, name, chosen fact, or closing function is marked; no extra personal detail is requested."
+        },
+        {
+          kind: "checkpoint",
+          id: "checkpoint:blank-atlas:after-write-name-card",
+          beatId: "beat:blank-atlas:writing-response",
+          resume: "The learner's card is readable, bounded, and ready to help the room address them."
+        },
+        {
+          kind: "stage",
+          id: "node:blank-atlas:card-turns-over",
+          beatId: "beat:blank-atlas:reading-writing-consequence",
+          cueId: "cue:learner-card-route-label",
+          description: "The learner turns the card over. The atlas copies only its public class line, leaving all unchosen spaces blank."
+        }
+      ],
+      exit: {
+        checkpoint: true,
+        next: "scene:blank-atlas:transfer"
+      }
+    },
+    {
+      id: "scene:blank-atlas:transfer",
+      locationId: "location:classroom",
+      timeState: "evening-late",
+      goal: "Use the selected mission skill after its teaching surface disappears, then leave a written route marker.",
+      dramaticQuestion: "Can the learner use the language when the source page is no longer carrying the task?",
+      learnerNeed: "One mission-specific changed-context production and the shared written introduction transfer.",
+      curriculum: {
+        sectionId: "transfer",
+        order: 8
+      },
+      checkpointOnEnter: true,
+      nodes: [
+        {
+          kind: "stage",
+          id: "node:blank-atlas:source-clears",
+          beatId: "beat:blank-atlas:transfer-image",
+          cueId: "cue:teaching-surfaces-clear",
+          description: "The handout, transcript, and sentence frame tray close. A new blank route card drops beside the door."
+        },
+        {
+          kind: "line",
+          id: "line:blank-atlas:rie-transfer",
+          beatId: "beat:blank-atlas:transfer-want",
+          speakerId: "rie",
+          intent: "Make the selected language useful in a changed situation.",
+          attentionTarget: "the new route card away from the teaching surfaces",
+          variants: {
+            foundation: {
+              japanese: "今度は、プリントなしです。道を一つ、助けてください。",
+              reading: "こんどは、プリントなしです。みちをひとつ、たすけてください。",
+              english: "This time, no handout. Please help one route."
+            },
+            n5: {
+              japanese: "今度は教える画面を閉じます。選んだ方法で、新しいカードを部屋に入れてください。",
+              reading: "こんどはおしえるがめんをとじます。えらんだほうほうで、あたらしいカードをへやにいれてください。",
+              english: "This time the teaching surface closes. Use your chosen method to bring the new card into the room."
+            }
+          },
+          support: {
+            reading: "learner-controlled",
+            englishMeaning: "after-need",
+            replay: true
+          }
+        },
+        {
+          kind: "choice",
+          id: "choice:blank-atlas:transfer-recording",
+          beatId: "beat:blank-atlas:transfer-consent",
+          when: {
+            choiceId: "choice:blank-atlas:mission",
+            optionIds: [
+              "option:blank-atlas:mission-sound",
+              "option:blank-atlas:mission-speaking"
+            ]
+          },
+          question: "Your selected transfer uses a private recording. Continue now or pause here?",
+          options: [
+            {
+              id: "option:blank-atlas:transfer-record-now",
+              action: "Continue with this private transfer recording.",
+              japaneseByBand: {
+                foundation: "今、録音します。",
+                n5: "この練習だけ、今録音します。"
+              },
+              records: [
+                "boundary-heard",
+                "stance"
+              ],
+              next: "checkpoint:blank-atlas:before-route-transfer"
+            },
+            {
+              id: "option:blank-atlas:transfer-record-later",
+              action: "Pause before recording and return to this exact card later.",
+              japaneseByBand: {
+                foundation: "今はしません。",
+                n5: "今は録音しません。ここから続けます。"
+              },
+              records: [
+                "boundary-heard",
+                "support-style"
+              ],
+              next: "checkpoint:blank-atlas:transfer-recording-deferred"
+            }
+          ],
+          convergence: "checkpoint:blank-atlas:after-route-transfer"
+        },
+        {
+          kind: "checkpoint",
+          id: "checkpoint:blank-atlas:transfer-recording-deferred",
+          beatId: "beat:blank-atlas:transfer-defer",
+          resume: "The changed-context card is preserved before recording. No story, bond, or lesson completion has been written."
+        },
+        {
+          kind: "checkpoint",
+          id: "checkpoint:blank-atlas:before-route-transfer",
+          beatId: "beat:blank-atlas:route-transfer-attempt",
+          resume: "The new route card is waiting for the selected Sound, Text, or Speaking transfer."
+        },
+        {
+          kind: "activity",
+          id: "activity-node:blank-atlas:sound-transfer",
+          beatId: "beat:blank-atlas:route-transfer-attempt",
+          when: {
+            choiceId: "choice:blank-atlas:mission",
+            optionId: "option:blank-atlas:mission-sound"
+          },
+          hook: {
+            lessonId: "lesson:foundation-00",
+            componentType: "transfer",
+            exerciseId: "activity:lesson-zero-sound-transfer"
+          },
+          requiredEvidence: {
+            kind: "activity-passed",
+            activityId: "activity:lesson-zero-sound-transfer"
+          },
+          resumeContext: "The Sound route is applying shadowing and repair to a new card without the source display.",
+          onReady: "checkpoint:blank-atlas:after-route-transfer",
+          onRepair: "node:blank-atlas:route-transfer-repair",
+          onDefer: "checkpoint:blank-atlas:transfer-recording-deferred"
+        },
+        {
+          kind: "activity",
+          id: "activity-node:blank-atlas:text-transfer",
+          beatId: "beat:blank-atlas:route-transfer-attempt",
+          when: {
+            choiceId: "choice:blank-atlas:mission",
+            optionId: "option:blank-atlas:mission-text"
+          },
+          hook: {
+            lessonId: "lesson:foundation-00",
+            componentType: "transfer",
+            exerciseId: "activity:lesson-zero-text-transfer"
+          },
+          requiredEvidence: {
+            kind: "activity-passed",
+            activityId: "activity:lesson-zero-text-transfer"
+          },
+          resumeContext: "The Text route is applying the recovered sentence frame to a new personal line without the source display.",
+          onReady: "checkpoint:blank-atlas:after-route-transfer",
+          onRepair: "node:blank-atlas:route-transfer-repair",
+          onDefer: "checkpoint:blank-atlas:before-route-transfer"
+        },
+        {
+          kind: "activity",
+          id: "activity-node:blank-atlas:speaking-transfer",
+          beatId: "beat:blank-atlas:route-transfer-attempt",
+          when: {
+            choiceId: "choice:blank-atlas:mission",
+            optionId: "option:blank-atlas:mission-speaking"
+          },
+          hook: {
+            lessonId: "lesson:foundation-00",
+            componentType: "transfer",
+            exerciseId: "activity:lesson-zero-speaking-transfer"
+          },
+          requiredEvidence: {
+            kind: "activity-passed",
+            activityId: "activity:lesson-zero-speaking-transfer"
+          },
+          resumeContext: "The Speaking route is applying greeting, question, repair, and closing to a new arrival card.",
+          onReady: "checkpoint:blank-atlas:after-route-transfer",
+          onRepair: "node:blank-atlas:route-transfer-repair",
+          onDefer: "checkpoint:blank-atlas:transfer-recording-deferred"
+        },
+        {
+          kind: "stage",
+          id: "node:blank-atlas:route-transfer-repair",
+          beatId: "beat:blank-atlas:route-transfer-repair",
+          cueId: "cue:transfer-one-function",
+          description: "The changed context stays visible while only the missing language function returns for repair."
+        },
+        {
+          kind: "checkpoint",
+          id: "checkpoint:blank-atlas:after-route-transfer",
+          beatId: "beat:blank-atlas:route-transfer-response",
+          resume: "The selected mission skill has solved the new card without its original teaching surface."
+        },
+        {
+          kind: "checkpoint",
+          id: "checkpoint:blank-atlas:before-written-transfer",
+          beatId: "beat:blank-atlas:written-transfer-attempt",
+          resume: "The route now needs one bounded written introduction marker that any mission can leave behind."
+        },
+        {
+          kind: "activity",
+          id: "activity-node:blank-atlas:written-transfer",
+          beatId: "beat:blank-atlas:written-transfer-attempt",
+          hook: {
+            lessonId: "lesson:foundation-00",
+            componentType: "transfer",
+            exerciseId: "activity:lesson-zero-written-transfer"
+          },
+          requiredEvidence: {
+            kind: "activity-passed",
+            activityId: "activity:lesson-zero-written-transfer"
+          },
+          resumeContext: "The atlas is waiting for the learner's selected name and one chosen true class fact in writing.",
+          onReady: "checkpoint:blank-atlas:after-written-transfer",
+          onRepair: "node:blank-atlas:written-transfer-repair",
+          onDefer: "checkpoint:blank-atlas:before-written-transfer"
+        },
+        {
+          kind: "stage",
+          id: "node:blank-atlas:written-transfer-repair",
+          beatId: "beat:blank-atlas:written-transfer-repair",
+          cueId: "cue:written-transfer-one-function",
+          description: "The learner's chosen content stays intact while one missing name, fact, frame, or greeting function returns."
+        },
+        {
+          kind: "checkpoint",
+          id: "checkpoint:blank-atlas:after-written-transfer",
+          beatId: "beat:blank-atlas:written-transfer-response",
+          resume: "The selected mission transfer and the shared written marker are complete."
+        },
+        {
+          kind: "stage",
+          id: "node:blank-atlas:first-lantern",
+          beatId: "beat:blank-atlas:transfer-consequence",
+          cueId: "cue:first-atlas-lantern-lit",
+          description: "The route reaches the learner's card. One lantern point warms from grey to gold; the rest of the atlas remains honestly blank."
+        }
+      ],
+      exit: {
+        checkpoint: true,
+        next: "scene:blank-atlas:close"
+      }
+    },
+    {
+      id: "scene:blank-atlas:close",
+      locationId: "location:classroom",
+      timeState: "evening-close",
+      goal: "Close the first class, preserve the exact resume state, and return learner choice to the wider Academy.",
+      dramaticQuestion: "Can the first contribution remain enough even though the atlas is mostly unfinished?",
+      learnerNeed: "A recap, the registered close-room action, and reversible next-step options.",
+      curriculum: {
+        sectionId: "close",
+        order: 9
+      },
+      checkpointOnEnter: true,
+      nodes: [
+        {
+          kind: "stage",
+          id: "node:blank-atlas:one-light-room",
+          beatId: "beat:blank-atlas:close-image",
+          cueId: "cue:one-lantern-reflected-on-desks",
+          description: "One atlas light reflects across the desks. The corrected arrow card from the entrance now points to the learner's route."
+        },
+        {
+          kind: "line",
+          id: "line:blank-atlas:rie-recap",
+          beatId: "beat:blank-atlas:close-want",
+          speakerId: "rie",
+          intent: "Name the learner's repair and transfer as the first useful contribution.",
+          attentionTarget: "the first lit point and the learner's card",
+          variants: {
+            foundation: {
+              japanese: "あいさつをしました。聞き直しました。道を一つ作りました。",
+              reading: "あいさつをしました。ききなおしました。みちをひとつつくりました。",
+              english: "You greeted, asked again, and made one route."
+            },
+            n5: {
+              japanese: "あいさつをして、分からないところを聞き直して、最初の道を一つ作りました。",
+              reading: "あいさつをして、わからないところをききなおして、さいしょのみちをひとつつくりました。",
+              english: "You greeted, asked again where you did not understand, and made the first route."
+            }
+          },
+          support: {
+            reading: "learner-controlled",
+            englishMeaning: "after-need",
+            replay: true
+          }
+        },
+        {
+          kind: "checkpoint",
+          id: "checkpoint:blank-atlas:before-close-room",
+          beatId: "beat:blank-atlas:close-attempt",
+          resume: "Rie has recapped the first route and the room is ready for the learner-controlled close."
+        },
+        {
+          kind: "activity",
+          id: "activity-node:blank-atlas:close-room",
+          beatId: "beat:blank-atlas:close-attempt",
+          hook: {
+            lessonId: "lesson:foundation-00",
+            componentType: "transfer",
+            exerciseId: "activity:lesson-zero-close-room"
+          },
+          requiredEvidence: {
+            kind: "activity-passed",
+            activityId: "activity:lesson-zero-close-room"
+          },
+          resumeContext: "The first class is ready to finish or pause, followed by the learner's wider Academy destination choice.",
+          onReady: "checkpoint:blank-atlas:after-close-room",
+          onRepair: "node:blank-atlas:close-room-repair",
+          onDefer: "checkpoint:blank-atlas:before-close-room"
+        },
+        {
+          kind: "stage",
+          id: "node:blank-atlas:close-room-repair",
+          beatId: "beat:blank-atlas:close-repair",
+          cueId: "cue:finish-break-context",
+          description: "The room state makes the difference between finishing and taking a break visible before retry."
+        },
+        {
+          kind: "checkpoint",
+          id: "checkpoint:blank-atlas:after-close-room",
+          beatId: "beat:blank-atlas:close-response",
+          resume: "Lesson 0 evidence confirms the room close; story completion has not yet been written."
+        },
+        {
+          kind: "line",
+          id: "line:blank-atlas:rie-open-choice",
+          beatId: "beat:blank-atlas:return-choice",
+          speakerId: "rie",
+          intent: "Return control without presenting one destination as the loyal choice.",
+          attentionTarget: "the classroom door and the learner's journal",
+          variants: {
+            foundation: {
+              japanese: "今日はここまでです。次は、あなたが選びます。",
+              reading: "きょうはここまでです。つぎは、あなたがえらびます。",
+              english: "That is all for today. You choose what comes next."
+            },
+            n5: {
+              japanese: "今日はここまでです。勉強を続けても、校内を見ても、ここで終わってもいいです。",
+              reading: "きょうはここまでです。べんきょうをつづけても、こうないをみても、ここでおわってもいいです。",
+              english: "That is all for today. You may keep studying, explore the campus, or finish here."
+            }
+          },
+          support: {
+            reading: "learner-controlled",
+            englishMeaning: "after-need",
+            replay: true
+          }
+        },
+        {
+          kind: "command",
+          id: "node:blank-atlas:callback-open-chair-echo",
+          beatId: "beat:blank-atlas:story-consequence",
+          command: {
+            type: "callback.transitioned",
+            callbackId: "callback:open-chair",
+            to: "echo"
+          }
+        },
+        {
+          kind: "command",
+          id: "node:blank-atlas:callback-first-lantern-seed",
+          beatId: "beat:blank-atlas:story-consequence",
+          command: {
+            type: "callback.transitioned",
+            callbackId: "callback:first-lantern",
+            to: "seed"
+          }
+        },
+        {
+          kind: "command",
+          id: "node:blank-atlas:bond-rie-one",
+          beatId: "beat:blank-atlas:story-consequence",
+          command: {
+            type: "bond.chapterCompleted",
+            castId: "rie",
+            chapter: 1
+          }
+        },
+        {
+          kind: "command",
+          id: "node:blank-atlas:scene-seen",
+          beatId: "beat:blank-atlas:story-consequence",
+          command: {
+            type: "story.seen",
+            packageId: "s1e01-the-blank-atlas",
+            sceneId: "scene:blank-atlas:close"
+          }
+        },
+        {
+          kind: "command",
+          id: "node:blank-atlas:story-completed",
+          beatId: "beat:blank-atlas:story-consequence",
+          command: {
+            type: "story.completed",
+            packageId: "s1e01-the-blank-atlas"
+          }
+        },
+        {
+          kind: "checkpoint",
+          id: "checkpoint:blank-atlas:complete",
+          beatId: "beat:blank-atlas:exit-image",
+          resume: "Chapter 1 and Lesson 0 are complete. One atlas lantern is lit; all remaining routes are still open."
+        }
+      ],
+      exit: {
+        checkpoint: true,
+        next: null
+      }
+    }
+  ];
+  const callbacks$M = [
+    {
+      id: "callback:open-chair",
+      state: "echo",
+      ownerIds: [
+        "rie"
+      ],
+      meaningNow: "The learner's bounded card occupies the place that was kept open without requiring extra disclosure.",
+      priorUse: {
+        packageId: "bridge:opening-arrival",
+        state: "seed"
+      },
+      maximumFutureUses: 4
+    },
+    {
+      id: "callback:first-lantern",
+      state: "seed",
+      ownerIds: [
+        "rie"
+      ],
+      meaningNow: "One repaired exchange creates the first visible route; unfinished work is not failure.",
+      maximumFutureUses: 6
+    }
+  ];
+  const outcomes$M = [
+    {
+      id: "outcome:blank-atlas:first-route",
+      kind: "story",
+      description: "The first atlas route and lantern point are restored through greeting, repair, and transfer evidence."
+    },
+    {
+      id: "outcome:blank-atlas:rie-bond-one",
+      kind: "bond",
+      castId: "rie",
+      chapter: 1,
+      description: "Rie recognises repair language as a contribution and leaves the next choice open."
+    },
+    {
+      id: "outcome:blank-atlas:lesson-zero-return",
+      kind: "curriculum-return",
+      lessonId: "lesson:foundation-00",
+      description: "All completion truth comes from registered Lesson 0 evidence; the story emits no lesson-completion command."
+    }
+  ];
+  const replay$M = {
+    chronologicalMemory: true,
+    canonicalWrites: false,
+    allowedLayers: [
+      "foundation",
+      "n5",
+      "ngPlus"
+    ],
+    perspectiveVariants: [
+      "variant:rie-watches-the-first-route"
+    ],
+    supportOverrides: [
+      "show-reading",
+      "show-english",
+      "hide-english",
+      "replay-selected-mission"
+    ],
+    withdrawnContentFallback: "Use the same activity evidence with neutral nameplates and environmental consequence beats."
+  };
+  const blankAtlasSource = {
+    schema: schema$1z,
+    id: id$1y,
+    revision: revision$M,
+    canonicality: canonicality$M,
+    season: season$M,
+    chapter: chapter$N,
+    title: title$1z,
+    synopsis: synopsis$M,
+    sourceSafety: sourceSafety$M,
+    cast: cast$M,
+    entry: entry$O,
+    curriculumBinding,
+    scenes: scenes$M,
+    callbacks: callbacks$M,
+    outcomes: outcomes$M,
+    replay: replay$M
+  };
+  const CHAPTER_ID = "s1e01-the-blank-atlas";
+  const LINE_ID = "line:blank-atlas:rie-konbanwa";
+  const BAND = "foundation";
+  const chapter$M = blankAtlasSource;
+  const line$b = chapter$M?.scenes.flatMap((scene2) => scene2.nodes).find((node2) => node2.id === LINE_ID && node2.kind === "line");
+  const variant = line$b?.variants?.[BAND];
+  if (chapter$M.id !== CHAPTER_ID || !line$b || !variant || line$b.speakerId !== "rie") {
+    throw new Error("The canonical Rie introduction line is missing from Chapter 1.");
   }
+  const RIE_INTRODUCTION_LINE = Object.freeze({
+    id: LINE_ID,
+    speakerId: "rie",
+    band: BAND,
+    japanese: variant.japanese,
+    reading: variant.reading,
+    english: variant.english
+  });
   function createVnPresentationResolver(options) {
     const visits = /* @__PURE__ */ new Map();
     return {
@@ -50280,6 +51784,758 @@ ${spelling}`);
     element2.className = className;
     return element2;
   }
+  const BEGINNER_CONSTRUCTED_RESPONSE_HINT_TIERS = [
+    "task-meaning",
+    "vocabulary-reading",
+    "form-scaffold"
+  ];
+  function progressiveHintChoiceId(tier) {
+    return `progressive-hint:${tier}`;
+  }
+  function progressiveHintTierFromChoiceId(choiceId) {
+    return BEGINNER_CONSTRUCTED_RESPONSE_HINT_TIERS.find((tier) => choiceId === progressiveHintChoiceId(tier));
+  }
+  function learnerHintTiersForActivity(activityId, supportUses) {
+    const used = new Set((supportUses ?? []).filter((support2) => support2.activityId === activityId && support2.supportKind === "hint").map((support2) => progressiveHintTierFromChoiceId(support2.choiceId)).filter((tier) => tier !== void 0));
+    return BEGINNER_CONSTRUCTED_RESPONSE_HINT_TIERS.filter((tier) => used.has(tier));
+  }
+  function remainingBeginnerHintTiers(activityId, supportUses) {
+    const used = new Set(learnerHintTiersForActivity(activityId, supportUses));
+    return BEGINNER_CONSTRUCTED_RESPONSE_HINT_TIERS.filter((tier) => !used.has(tier));
+  }
+  function renderConstructedResponse(model2, host2, submit2, normalizeResponse) {
+    const lifecycle = new AbortController();
+    const root = document.createElement("section");
+    root.className = "academy-activity academy-constructed-response";
+    root.dataset.activityId = model2.id;
+    const { heading, japanese: japanese2 } = prompt$2(model2, host2);
+    const form2 = document.createElement("form");
+    form2.className = "academy-constructed-response-form";
+    form2.setAttribute("aria-labelledby", heading.id);
+    const input2 = responseInput(model2, host2);
+    const feedback2 = feedbackRegion(model2);
+    const hints2 = progressiveHints(model2, host2, input2);
+    input2.setAttribute("aria-describedby", feedback2.id);
+    const commit = document.createElement("button");
+    commit.type = "submit";
+    commit.className = "academy-constructed-response-commit";
+    commit.textContent = host2.language === "ja" ? "答える" : "Answer";
+    form2.append(input2, commit);
+    const readingSupport2 = promptReadingSupport(model2, host2, japanese2);
+    root.append(heading);
+    if (readingSupport2.element) root.append(readingSupport2.element);
+    root.append(form2, feedback2, hints2.element);
+    host2.react?.({ speakerId: "rie", expression: "neutral" });
+    form2.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const response = input2.value;
+      if (!normalizeResponse(response)) {
+        const message = host2.language === "ja" ? "日本語で答えてください。" : "Answer in Japanese.";
+        feedback2.replaceChildren(message);
+        host2.announce(message);
+        input2.focus();
+        return;
+      }
+      hints2.suspend();
+      setPending(form2, true);
+      feedback2.replaceChildren();
+      host2.react?.({ speakerId: "rie", expression: "encouraging" });
+      try {
+        const evaluation = await submit2(response);
+        root.dataset.outcome = evaluation.result.outcome;
+        showFeedback$2(feedback2, evaluation.result, host2.language ?? "en");
+        if (evaluation.result.outcome === "pass") {
+          host2.react?.({ speakerId: "rie", expression: "happy" });
+          input2.disabled = true;
+          commit.disabled = true;
+        } else {
+          hints2.unlock(evaluation.result.feedback);
+          host2.react?.({ speakerId: "rie", expression: "repair" });
+          setPending(form2, false);
+          input2.focus();
+          input2.select();
+        }
+        const explanation2 = localized$h(evaluation.result.feedback.explanation, host2.language ?? "en");
+        const hintAvailability = evaluation.result.outcome === "lapse" ? host2.language === "ja" ? " ヒントが使えます。" : " Hint support is now available." : "";
+        host2.announce(`${explanation2}${hintAvailability}`);
+      } catch (error) {
+        hints2.resume();
+        setPending(form2, false);
+        host2.react?.({ speakerId: "rie", expression: "neutral" });
+        const message = error instanceof Error ? error.message : String(error);
+        feedback2.replaceChildren(message);
+        host2.announce(message);
+      }
+    }, { signal: lifecycle.signal });
+    host2.replace(root);
+    return {
+      focus() {
+        input2.focus();
+      },
+      dispose() {
+        lifecycle.abort();
+        readingSupport2.dispose();
+        host2.react?.({ speakerId: "rie", expression: "neutral" });
+        root.remove();
+      }
+    };
+  }
+  function progressiveHints(model2, host2, input2) {
+    const root = document.createElement("section");
+    root.className = "academy-progressive-hints academy-lesson-repair-hints";
+    root.hidden = true;
+    const revealed = document.createElement("div");
+    revealed.className = "academy-progressive-hints-revealed";
+    revealed.setAttribute("aria-live", "polite");
+    const reveal = document.createElement("button");
+    reveal.type = "button";
+    reveal.className = "academy-progressive-hint-button";
+    let items = [];
+    let index = 0;
+    let unlocked = false;
+    const updateLabel = () => {
+      reveal.textContent = host2.language === "ja" ? index === 0 ? "ヒントを見る" : "次のヒント" : index === 0 ? "Need a hint?" : "Another hint";
+    };
+    updateLabel();
+    reveal.addEventListener("click", (event) => {
+      if (!unlocked) return;
+      const hint2 = items[index];
+      if (!hint2) return;
+      const line2 = document.createElement("p");
+      line2.className = hint2.className;
+      appendHintText(line2, hint2, host2.language ?? "en");
+      revealed.append(line2);
+      if (hint2.vocabulary) revealed.append(vocabularyHintList(hint2.vocabulary, host2.language ?? "en"));
+      if (hint2.scaffold) revealed.append(scaffoldHint(hint2.scaffold, host2.language ?? "en"));
+      let fill;
+      if (hint2.fillResponse) {
+        fill = document.createElement("button");
+        fill.type = "button";
+        fill.className = "academy-progressive-hint-fill";
+        fill.textContent = host2.language === "ja" ? "この答えを使う" : "Use this answer";
+        fill.addEventListener("click", () => {
+          input2.value = hint2.fillResponse ?? "";
+          input2.focus();
+          input2.setSelectionRange(input2.value.length, input2.value.length);
+        });
+        revealed.append(fill);
+      }
+      void host2.recordSupportUse?.({
+        activityId: model2.id,
+        supportKind: "hint",
+        choiceId: hint2.choiceId
+      });
+      index += 1;
+      if (index >= items.length) {
+        reveal.remove();
+        if (event.detail === 0) (fill ?? input2).focus();
+      } else updateLabel();
+    });
+    root.append(revealed, reveal);
+    const suspend = () => {
+      unlocked = false;
+      root.hidden = true;
+    };
+    return {
+      element: root,
+      suspend,
+      resume() {
+        unlocked = items.length > 0;
+        root.hidden = !unlocked;
+      },
+      unlock(feedback2) {
+        items = progressiveHintItems(model2, feedback2, host2.learnerSupportUses);
+        revealed.replaceChildren();
+        root.replaceChildren(revealed, reveal);
+        index = 0;
+        unlocked = items.length > 0;
+        root.hidden = !unlocked;
+        updateLabel();
+      }
+    };
+  }
+  function progressiveHintItems(model2, feedback2, learnerSupportUses) {
+    const tiered = model2.payload.hints?.every((hint2) => hint2.tier !== void 0);
+    if (tiered && model2.payload.hints) {
+      const byTier = new Map(model2.payload.hints.map((hint2) => [hint2.tier, hint2]));
+      return remainingBeginnerHintTiers(model2.id, learnerSupportUses).flatMap((tier) => {
+        const hint2 = byTier.get(tier);
+        if (!hint2) return [];
+        return [{
+          text: hint2.text,
+          choiceId: progressiveHintChoiceId(tier),
+          className: `academy-progressive-hint academy-progressive-hint-${tier}`,
+          ...hint2.vocabulary ? { vocabulary: hint2.vocabulary } : {},
+          ...hint2.scaffold ? { scaffold: hint2.scaffold } : {}
+        }];
+      });
+    }
+    const authored = (model2.payload.hints ?? []).map((hint2, index) => ({
+      text: hint2.text,
+      choiceId: `progressive-hint:${index + 1}`,
+      className: "academy-progressive-hint",
+      ...hint2.fillResponse ? { fillResponse: hint2.fillResponse } : {}
+    }));
+    const responseSpecific = [];
+    if (feedback2.repairPrompt) responseSpecific.push({
+      text: feedback2.repairPrompt,
+      choiceId: "progressive-repair:1",
+      className: "academy-constructed-feedback-repair",
+      bilingual: true
+    });
+    if (feedback2.nearbyExample) responseSpecific.push({
+      text: feedback2.nearbyExample,
+      choiceId: "progressive-repair:2",
+      className: "academy-constructed-feedback-example",
+      bilingual: true
+    });
+    const byText = /* @__PURE__ */ new Map();
+    for (const item2 of [...authored.filter((hint2) => !hint2.fillResponse), ...responseSpecific, ...authored.filter((hint2) => hint2.fillResponse)]) {
+      const key2 = `${item2.text.ja}\0${item2.text.en}`;
+      const existing = byText.get(key2);
+      if (!existing) {
+        byText.set(key2, item2);
+        continue;
+      }
+      if (item2.fillResponse) byText.set(key2, { ...existing, choiceId: item2.choiceId, fillResponse: item2.fillResponse });
+    }
+    return [...byText.values()].sort((left, right) => Number(Boolean(left.fillResponse)) - Number(Boolean(right.fillResponse)));
+  }
+  function appendHintText(line2, hint2, language) {
+    if (!hint2.bilingual) {
+      line2.lang = language;
+      line2.textContent = localized$h(hint2.text, language);
+      return;
+    }
+    const japanese2 = document.createElement("span");
+    japanese2.className = "academy-japanese";
+    japanese2.lang = "ja";
+    japanese2.textContent = hint2.text.ja;
+    const translation2 = document.createElement("span");
+    translation2.className = "academy-support";
+    translation2.lang = "en";
+    translation2.dataset.jpdbReaderSurfaceIgnore = "";
+    translation2.textContent = hint2.text.en;
+    line2.append(japanese2, translation2);
+  }
+  function vocabularyHintList(vocabulary, language) {
+    const list2 = document.createElement("ul");
+    list2.className = "academy-progressive-hint-vocabulary";
+    for (const cue of vocabulary) {
+      const item2 = document.createElement("li");
+      item2.lang = "ja";
+      item2.textContent = `${cue.expression} (${cue.reading})`;
+      if (language !== "ja") {
+        const meaning = document.createElement("span");
+        meaning.className = "academy-support";
+        meaning.lang = "en";
+        meaning.textContent = cue.meaning.en;
+        item2.append(meaning);
+      }
+      list2.append(item2);
+    }
+    return list2;
+  }
+  function scaffoldHint(scaffold, language) {
+    const line2 = document.createElement("p");
+    line2.className = "academy-progressive-hint-scaffold";
+    line2.lang = language;
+    line2.textContent = localized$h(scaffold, language);
+    return line2;
+  }
+  function prompt$2(model2, host2) {
+    const heading = document.createElement("h2");
+    heading.id = `${model2.id}-prompt`;
+    heading.tabIndex = -1;
+    const japanese2 = document.createElement("span");
+    japanese2.className = "academy-japanese academy-constructed-response-prompt";
+    japanese2.lang = "ja";
+    japanese2.dataset.jpdbReaderSurfaceIgnore = "";
+    japanese2.textContent = model2.prompt.ja;
+    heading.append(japanese2);
+    if (host2.language !== "ja") {
+      const english = document.createElement("span");
+      english.className = "academy-support academy-constructed-response-support";
+      english.lang = "en";
+      english.dataset.jpdbReaderSurfaceIgnore = "";
+      english.textContent = model2.prompt.en;
+      heading.append(english);
+    }
+    return { heading, japanese: japanese2 };
+  }
+  function responseInput(model2, host2) {
+    const input2 = document.createElement("input");
+    input2.className = "academy-constructed-response-input";
+    input2.type = "text";
+    input2.lang = "ja";
+    input2.inputMode = "text";
+    input2.autocomplete = "off";
+    input2.autocapitalize = "none";
+    input2.spellcheck = false;
+    input2.enterKeyHint = "send";
+    input2.setAttribute("aria-label", host2.language === "ja" ? "日本語で答える" : "Answer in Japanese");
+    input2.dataset.responseKind = model2.responseKind;
+    return input2;
+  }
+  function feedbackRegion(model2) {
+    const feedback2 = document.createElement("div");
+    feedback2.id = `${model2.id}-feedback`;
+    feedback2.className = "academy-constructed-response-feedback";
+    feedback2.setAttribute("role", "status");
+    feedback2.setAttribute("aria-live", "polite");
+    feedback2.setAttribute("aria-atomic", "true");
+    return feedback2;
+  }
+  function promptReadingSupport(model2, host2, japanese2) {
+    if (host2.registerReadingSurface) {
+      return { element: null, dispose: host2.registerReadingSurface(japanese2) };
+    }
+    const root = document.createElement("div");
+    root.className = "academy-constructed-prompt-support";
+    const reveal = document.createElement("button");
+    reveal.type = "button";
+    reveal.className = "academy-constructed-prompt-support-toggle";
+    reveal.textContent = "読";
+    reveal.setAttribute("aria-pressed", "false");
+    reveal.dataset.jpdbReaderSurfaceIgnore = "";
+    const setLabel = (visible) => {
+      const label = host2.language === "ja" ? visible ? "読み方を隠す" : "読み方を見る" : visible ? "Hide readings" : "Show readings";
+      setAcademyTooltip(reveal, label);
+    };
+    setLabel(false);
+    let recorded2 = false;
+    reveal.addEventListener("click", () => {
+      const visible = reveal.getAttribute("aria-pressed") !== "true";
+      reveal.setAttribute("aria-pressed", String(visible));
+      setLabel(visible);
+      japanese2.textContent = model2.prompt.ja;
+      if (visible) {
+        delete japanese2.dataset.jpdbReaderSurfaceIgnore;
+        japanese2.dataset.yomuRuntimeSurface = "academy-activity";
+        japanese2.dataset.yomuFuriganaMode = "all";
+      } else {
+        japanese2.dataset.jpdbReaderSurfaceIgnore = "";
+        delete japanese2.dataset.yomuRuntimeSurface;
+        delete japanese2.dataset.yomuFuriganaMode;
+      }
+      japanese2.dispatchEvent(new CustomEvent("academy:annotation-change", {
+        bubbles: true,
+        detail: { visible }
+      }));
+      if (visible && !recorded2) {
+        recorded2 = true;
+        void host2.recordSupportUse?.({ activityId: model2.id, supportKind: "hint", choiceId: "prompt-reading" });
+      }
+    });
+    root.append(reveal);
+    return { element: root, dispose: () => void 0 };
+  }
+  function showFeedback$2(root, result2, language) {
+    root.replaceChildren(feedbackLine(result2.feedback.explanation, language, "academy-constructed-feedback-contrast"));
+  }
+  function feedbackLine(value, language, className) {
+    const line2 = document.createElement("p");
+    line2.className = className;
+    line2.lang = language;
+    line2.textContent = localized$h(value, language);
+    return line2;
+  }
+  function localized$h(value, language) {
+    return language === "ja" ? value.ja : value.en;
+  }
+  function setPending(form2, pending2) {
+    form2.setAttribute("aria-busy", String(pending2));
+    form2.querySelectorAll("input, button").forEach((control2) => {
+      control2.disabled = pending2;
+    });
+  }
+  const constructedResponseActivityPlugin = {
+    kind: "constructed-japanese",
+    validate: validateConstructedResponse,
+    render(model2, host2, submit2) {
+      return renderConstructedResponse(model2, host2, submit2, normalizeJapaneseResponse);
+    },
+    grade(model2, response) {
+      if (typeof response !== "string") throw new TypeError("Constructed Japanese responses must be text.");
+      const normalized2 = normalizeJapaneseResponse(response);
+      if (!normalized2) throw new TypeError("A constructed Japanese response cannot be empty.");
+      const accepted = model2.payload.acceptedAnswers.some((answer2) => normalizeJapaneseResponse(answer2) === normalized2);
+      if (accepted) {
+        return {
+          outcome: "pass",
+          score: 1,
+          errorTags: [],
+          feedback: { explanation: model2.payload.passFeedback }
+        };
+      }
+      const feedback2 = diagnosticFeedback(model2, normalized2) ?? model2.payload.lapseFeedback;
+      return {
+        outcome: "lapse",
+        score: 0,
+        errorTags: [feedback2.errorTag],
+        feedback: {
+          explanation: feedback2.contrast,
+          repairPrompt: feedback2.repairPrompt,
+          nearbyExample: feedback2.nearbyExample
+        }
+      };
+    },
+    toReviewSeeds(model2, result2) {
+      const conceptId = model2.conceptIds[0];
+      if (!conceptId) return [];
+      return [{
+        id: model2.payload.reviewSeedId,
+        conceptId,
+        reason: result2.outcome === "lapse" ? "repair" : "new-learning",
+        ...model2.sourceQuestionId ? { sourceQuestionId: model2.sourceQuestionId } : {},
+        content: model2.payload.reviewContent
+      }];
+    }
+  };
+  function normalizeJapaneseResponse(value) {
+    return value.normalize("NFKC").replace(/[\s\u3000]+/gu, "").replace(/[.,!?;:。、！？「」『』（）()\[\]【】〈〉《》…~～]/gu, "");
+  }
+  function validateConstructedResponse(model2) {
+    const issues2 = [];
+    const payload = model2.payload;
+    if (!model2.answerSupport) {
+      issues2.push({ path: "answerSupport", message: "Assessed constructed responses require the hidden pre-commit answer-support contract." });
+    }
+    if (model2.responseKind !== "ime" && model2.responseKind !== "reconstruct") {
+      issues2.push({ path: "responseKind", message: "Constructed Japanese uses an IME or reconstruction response." });
+    }
+    if (!Array.isArray(payload?.acceptedAnswers) || payload.acceptedAnswers.length === 0) {
+      issues2.push({ path: "payload.acceptedAnswers", message: "At least one explicitly authored accepted answer is required." });
+      return issues2;
+    }
+    const normalizedAnswers = /* @__PURE__ */ new Set();
+    for (const [index, answer2] of payload.acceptedAnswers.entries()) {
+      const normalized2 = typeof answer2 === "string" ? normalizeJapaneseResponse(answer2) : "";
+      if (!normalized2 || !containsJapanese(normalized2)) {
+        issues2.push({ path: `payload.acceptedAnswers.${index}`, message: "Accepted answers must contain Japanese text." });
+      } else if (normalizedAnswers.has(normalized2)) {
+        issues2.push({ path: `payload.acceptedAnswers.${index}`, message: "Accepted answers must be distinct after spacing and punctuation normalisation." });
+      }
+      normalizedAnswers.add(normalized2);
+    }
+    requireLocalized(payload.passFeedback, "payload.passFeedback", issues2);
+    const lapse = payload.lapseFeedback;
+    if (!text$d(lapse?.errorTag)) issues2.push({ path: "payload.lapseFeedback.errorTag", message: "A precise error tag is required." });
+    requireLocalized(lapse?.contrast, "payload.lapseFeedback.contrast", issues2);
+    requireLocalized(lapse?.repairPrompt, "payload.lapseFeedback.repairPrompt", issues2);
+    requireLocalized(lapse?.nearbyExample, "payload.lapseFeedback.nearbyExample", issues2);
+    for (const [index, diagnostic] of (payload.lapseDiagnostics ?? []).entries()) {
+      const path = `payload.lapseDiagnostics.${index}`;
+      if (!diagnostic.responseIncludesAny?.length || diagnostic.responseIncludesAny.some((fragment2) => !containsJapanese(normalizeJapaneseResponse(fragment2)))) {
+        issues2.push({ path: `${path}.responseIncludesAny`, message: "A diagnostic needs one or more Japanese response fragments." });
+      }
+      if (!text$d(diagnostic.feedback?.errorTag)) issues2.push({ path: `${path}.feedback.errorTag`, message: "A precise error tag is required." });
+      requireLocalized(diagnostic.feedback?.contrast, `${path}.feedback.contrast`, issues2);
+      requireLocalized(diagnostic.feedback?.repairPrompt, `${path}.feedback.repairPrompt`, issues2);
+      requireLocalized(diagnostic.feedback?.nearbyExample, `${path}.feedback.nearbyExample`, issues2);
+    }
+    if (!text$d(payload.reviewSeedId)) issues2.push({ path: "payload.reviewSeedId", message: "A review seed id is required." });
+    if (!text$d(payload.reviewContent?.expression) || !payload.reviewContent?.meanings?.some(text$d)) {
+      issues2.push({ path: "payload.reviewContent", message: "Reviewable expression and meaning are required." });
+    }
+    const readingSupport2 = payload.promptReadingSupport;
+    if (readingSupport2 && (!text$d(readingSupport2.reading) || !text$d(readingSupport2.pitch))) {
+      issues2.push({ path: "payload.promptReadingSupport", message: "Prompt support needs both a reading and pitch description." });
+    }
+    const hints2 = payload.hints ?? [];
+    const usesTieredHints = hints2.some((hint2) => hint2.tier !== void 0);
+    if (usesTieredHints && (hints2.length !== BEGINNER_CONSTRUCTED_RESPONSE_HINT_TIERS.length || hints2.some((hint2, index) => hint2.tier !== BEGINNER_CONSTRUCTED_RESPONSE_HINT_TIERS[index]))) {
+      issues2.push({ path: "payload.hints", message: "Beginner constructed-response hints must progress from task meaning to vocabulary/reading to form scaffold." });
+    }
+    for (const [index, hint2] of hints2.entries()) {
+      requireLocalized(hint2.text, `payload.hints.${index}.text`, issues2);
+      if (hint2.fillResponse !== void 0 && !containsJapanese(normalizeJapaneseResponse(hint2.fillResponse))) {
+        issues2.push({ path: `payload.hints.${index}.fillResponse`, message: "A hint response scaffold must contain Japanese text." });
+      }
+      if (!usesTieredHints) continue;
+      if (hint2.fillResponse !== void 0) {
+        issues2.push({ path: `payload.hints.${index}.fillResponse`, message: "Tiered beginner hints must not fill the full answer." });
+      }
+      if (hint2.tier === "vocabulary-reading") {
+        if (!hint2.vocabulary?.length) {
+          issues2.push({ path: `payload.hints.${index}.vocabulary`, message: "The vocabulary/reading tier needs at least one required cue." });
+        }
+        for (const [cueIndex, cue] of (hint2.vocabulary ?? []).entries()) {
+          const path = `payload.hints.${index}.vocabulary.${cueIndex}`;
+          if (!containsJapanese(normalizeJapaneseResponse(cue.expression)) || !containsJapanese(normalizeJapaneseResponse(cue.reading))) {
+            issues2.push({ path, message: "Vocabulary cues need Japanese expression and reading text." });
+          }
+          requireLocalized(cue.meaning, `${path}.meaning`, issues2);
+          if (normalizedAnswers.has(normalizeJapaneseResponse(cue.expression))) {
+            issues2.push({ path: `${path}.expression`, message: "A vocabulary cue must not be a complete accepted answer." });
+          }
+        }
+      } else if (hint2.vocabulary !== void 0) {
+        issues2.push({ path: `payload.hints.${index}.vocabulary`, message: "Vocabulary cues belong only to the vocabulary/reading tier." });
+      }
+      if (hint2.tier === "form-scaffold") {
+        requireLocalized(hint2.scaffold, `payload.hints.${index}.scaffold`, issues2);
+      } else if (hint2.scaffold !== void 0) {
+        issues2.push({ path: `payload.hints.${index}.scaffold`, message: "A form scaffold belongs only to the form-scaffold tier." });
+      }
+      if (hintLeaksAcceptedAnswer(hint2, normalizedAnswers)) {
+        issues2.push({ path: `payload.hints.${index}`, message: "A tiered hint must not reveal a complete accepted answer." });
+      }
+    }
+    const japanesePreCommit = [model2.prompt?.ja, readingSupport2?.reading, readingSupport2?.pitch].map((value) => normalizeJapaneseResponse(text$d(value))).filter(Boolean);
+    for (const answer2 of normalizedAnswers) {
+      if (japanesePreCommit.some((copy2) => copy2.includes(answer2))) {
+        issues2.push({ path: "prompt", message: "Pre-commit prompt or reading support must not reveal an accepted answer." });
+        break;
+      }
+    }
+    const englishPrompt = normalizeEnglish(model2.prompt?.en);
+    if (payload.reviewContent?.meanings?.some((meaning) => {
+      const normalizedMeaning = normalizeEnglish(meaning);
+      return normalizedMeaning.length > 0 && ` ${englishPrompt} `.includes(` ${normalizedMeaning} `);
+    })) {
+      issues2.push({ path: "prompt.en", message: "Pre-commit English copy must not reveal the answer meaning." });
+    }
+    return issues2;
+  }
+  function hintLeaksAcceptedAnswer(hint2, answers) {
+    const surfaces = [hint2.text.ja, hint2.scaffold?.ja].map((value) => normalizeJapaneseResponse(text$d(value))).filter(Boolean);
+    return [...answers].some((answer2) => surfaces.some((surface) => surface.includes(answer2)));
+  }
+  function diagnosticFeedback(model2, normalizedResponse) {
+    return model2.payload.lapseDiagnostics?.find((diagnostic) => diagnostic.responseIncludesAny.some((fragment2) => normalizedResponse.includes(normalizeJapaneseResponse(fragment2))))?.feedback;
+  }
+  function requireLocalized(value, path, issues2) {
+    if (!text$d(value?.en) || !text$d(value?.ja)) {
+      issues2.push({ path, message: "Bilingual authored feedback is required." });
+    }
+  }
+  function text$d(value) {
+    return typeof value === "string" ? value.trim() : "";
+  }
+  function normalizeEnglish(value) {
+    return text$d(value).normalize("NFKC").toLocaleLowerCase("en").replace(/[^a-z0-9]+/gu, " ").trim();
+  }
+  function containsJapanese(value) {
+    return /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u.test(value);
+  }
+  function auditColdProductionSequence(sequence) {
+    const contextualized = /* @__PURE__ */ new Set();
+    const instructed = /* @__PURE__ */ new Set();
+    const guided = /* @__PURE__ */ new Set();
+    const issues2 = [];
+    for (const step2 of sequence.steps) {
+      if (step2.kind === "context") {
+        step2.conceptIds.forEach((conceptId) => contextualized.add(conceptId));
+        continue;
+      }
+      if (step2.kind === "instruction") {
+        step2.conceptIds.forEach((conceptId) => instructed.add(conceptId));
+        continue;
+      }
+      if (step2.kind === "guided-practice") {
+        step2.conceptIds.forEach((conceptId) => {
+          if (instructed.has(conceptId)) guided.add(conceptId);
+        });
+        continue;
+      }
+      if (step2.kind !== "assessed-production") continue;
+      for (const conceptId of step2.conceptIds) {
+        const missing2 = [];
+        if (!contextualized.has(conceptId)) missing2.push("context");
+        if (!instructed.has(conceptId)) missing2.push("explicit-instruction");
+        if (!guided.has(conceptId)) missing2.push("guided-practice");
+        if (missing2.length) {
+          issues2.push({ sequenceId: sequence.id, activityId: step2.id, conceptId, missing: missing2 });
+        }
+      }
+    }
+    return issues2;
+  }
+  function assertNoColdProduction(sequence) {
+    const issues2 = auditColdProductionSequence(sequence);
+    if (!issues2.length) return;
+    const detail = issues2.map((issue) => `${issue.activityId}/${issue.conceptId} missing ${issue.missing.join(", ")}`).join("; ");
+    throw new TypeError(`Cold production in ${sequence.id}: ${detail}.`);
+  }
+  const AAKASH_RAINY_DIRECTIONS_SCENE_ID = "scene:aakash-rainy-directions";
+  const AAKASH_DIRECTIONS_CONCEPT_ID = "concept:directions-straight-right";
+  const AAKASH_DIRECTIONS_CONTENT = {
+    context: {
+      id: "aakash-directions:context",
+      japanese: "雨ですね。Aakashはカフェを探しています。",
+      translation: "It is raining. Aakash is looking for the cafe."
+    },
+    question: {
+      id: "aakash-directions:question",
+      japanese: "カフェはどこですか。",
+      reading: "kafee wa doko desu ka",
+      translation: "Where is the cafe?"
+    },
+    vocabulary: [
+      { japanese: "まっすぐ", reading: "massugu", meaning: "straight ahead" },
+      { japanese: "行って", reading: "itte", meaning: "go, then..." },
+      { japanese: "右", reading: "migi", meaning: "right" },
+      { japanese: "左", reading: "hidari", meaning: "left" }
+    ],
+    vocabularyPrompt: {
+      id: "aakash-directions:vocabulary",
+      japanese: "まず、道順のことばを見てみましょう。",
+      translation: "First, learn the route words."
+    },
+    recognition: {
+      id: "aakash-directions:recognise-right",
+      japanese: "カフェは右です。どちらが「右」ですか。",
+      translation: "The cafe is on the right. Which word means right?",
+      options: [
+        { id: "right", japanese: "右", reading: "migi", meaning: "right", correct: true },
+        { id: "left", japanese: "左", reading: "hidari", meaning: "left", correct: false }
+      ]
+    },
+    frame: {
+      id: "aakash-directions:frame",
+      japanese: "まっすぐ行って、左です。",
+      reading: "massugu itte, hidari desu",
+      translation: "Go straight, then it is on the left.",
+      note: "The umbrella stand is on the left. Put the path first, then the final side."
+    },
+    guidedPractice: {
+      id: "aakash-directions:guided-frame",
+      japanese: "傘立てまで案内しましょう。",
+      translation: "Guide someone to the umbrella stand: go straight, then it is on the left.",
+      options: [
+        {
+          id: "path-then-side",
+          japanese: "まっすぐ行って、左です。",
+          reading: "massugu itte, hidari desu",
+          correct: true
+        },
+        {
+          id: "side-then-path",
+          japanese: "左です。まっすぐ行って。",
+          reading: "hidari desu. massugu itte",
+          correct: false
+        }
+      ]
+    },
+    assessment: {
+      id: "activity:aakash-rainy-directions",
+      japanese: "カフェはどこですか。",
+      translation: "Where is the cafe? Give the route in Japanese. You can ask for hints if typing is new."
+    },
+    resolution: {
+      id: "aakash-directions:thanks",
+      japanese: "分かりました。ありがとうございます。",
+      translation: "Got it. Thank you."
+    }
+  };
+  const AAKASH_DIRECTIONS_LEARNING_SEQUENCE = {
+    id: "sequence:aakash-rainy-directions",
+    steps: [
+      { id: AAKASH_DIRECTIONS_CONTENT.context.id, kind: "context", conceptIds: [AAKASH_DIRECTIONS_CONCEPT_ID] },
+      { id: AAKASH_DIRECTIONS_CONTENT.vocabularyPrompt.id, kind: "instruction", conceptIds: [AAKASH_DIRECTIONS_CONCEPT_ID] },
+      { id: AAKASH_DIRECTIONS_CONTENT.recognition.id, kind: "guided-practice", conceptIds: [AAKASH_DIRECTIONS_CONCEPT_ID] },
+      { id: AAKASH_DIRECTIONS_CONTENT.frame.id, kind: "instruction", conceptIds: [AAKASH_DIRECTIONS_CONCEPT_ID] },
+      { id: AAKASH_DIRECTIONS_CONTENT.guidedPractice.id, kind: "guided-practice", conceptIds: [AAKASH_DIRECTIONS_CONCEPT_ID] },
+      { id: AAKASH_DIRECTIONS_CONTENT.assessment.id, kind: "assessed-production", conceptIds: [AAKASH_DIRECTIONS_CONCEPT_ID] }
+    ]
+  };
+  assertNoColdProduction(AAKASH_DIRECTIONS_LEARNING_SEQUENCE);
+  const AAKASH_DIRECTIONS_READER_ANNOTATIONS = [{
+    surface: "行って",
+    lemma: "行く",
+    reading: "いって",
+    pitch: {
+      pattern: "LHHH",
+      source: "Jiten vocabulary 1578850/0 (行く pitch 0); Academy te-form surface reading"
+    }
+  }];
+  function createAakashDirectionsActivity() {
+    return {
+      id: AAKASH_DIRECTIONS_CONTENT.assessment.id,
+      kind: "constructed-japanese",
+      conceptIds: [AAKASH_DIRECTIONS_CONCEPT_ID],
+      responseKind: "ime",
+      answerSupport: ACADEMY_ASSESSED_ANSWER_SUPPORT,
+      prompt: {
+        en: "Give Aakash the cafe route in Japanese. Hints are available.",
+        ja: "Aakashに、カフェまでの道順を日本語で伝えてください。"
+      },
+      payload: {
+        acceptedAnswers: [
+          "この道をまっすぐ行って、右です。",
+          "このみちをまっすぐいって、みぎです。",
+          "まっすぐ行って、右です。",
+          "まっすぐいって、みぎです。"
+        ],
+        passFeedback: {
+          en: "Aakash has the route.",
+          ja: "Aakashに道順が伝わりました。"
+        },
+        lapseFeedback: {
+          errorTag: "direction-path-confusion",
+          contrast: {
+            en: "The route must take him straight ahead and finish on the right.",
+            ja: "道順は、まっすぐ進んで、最後は右です。"
+          },
+          repairPrompt: {
+            en: "Use まっすぐ行って for the path, then finish with 右です.",
+            ja: "道は「まっすぐ行って」、最後は「右です」で伝えてください。"
+          },
+          nearbyExample: {
+            en: "Check the final side: 右 is right; 左 is left.",
+            ja: "最後の向きを確認しましょう。「右」は右側、「左」は左側です。"
+          }
+        },
+        lapseDiagnostics: [{
+          responseIncludesAny: ["左", "ひだり"],
+          feedback: {
+            errorTag: "direction-side-confusion",
+            contrast: {
+              en: "The path is straight, but the cafe is on the right, not the left.",
+              ja: "まっすぐ進むところは合っていますが、カフェは左ではなく右です。"
+            },
+            repairPrompt: {
+              en: "Keep the route and replace 左 with 右.",
+              ja: "道順は残して、「左」を「右」に変えてください。"
+            },
+            nearbyExample: {
+              en: "右 is right; 左 is left.",
+              ja: "「右」は右側、「左」は左側です。"
+            }
+          }
+        }],
+        reviewSeedId: "review:aakash-rainy-directions",
+        reviewContent: {
+          expression: "まっすぐ行って、右です。",
+          reading: "まっすぐいって、みぎです",
+          meanings: ["Go straight, then it is on the right."],
+          sentence: "この道をまっすぐ行って、右です。"
+        },
+        hints: [
+          {
+            text: {
+              en: "Route words: まっすぐ (massugu) is “straight”; 右 (migi) is “right.”",
+              ja: "道順のことば：「まっすぐ」は straight、「右（みぎ）」は right です。"
+            }
+          },
+          {
+            text: {
+              en: "Use the frame from the umbrella stand: まっすぐ + 行って、[side] + です。",
+              ja: "傘立てと同じ形です：「まっすぐ」＋「行って」、「向き」＋「です」。"
+            }
+          },
+          {
+            text: {
+              en: "Complete route: まっすぐ行って、右です。 (massugu itte, migi desu.)",
+              ja: "道順は「まっすぐ行って、右です。」です。"
+            },
+            fillResponse: "まっすぐ行って、右です。"
+          }
+        ]
+      }
+    };
+  }
   function renderAakashMeetScreen(options) {
     const lifecycle = new AbortController();
     const stage2 = createAcademyVnStage({
@@ -50668,25 +52924,122 @@ ${spelling}`);
     button2.addEventListener("click", options.onContinue, { once: true, signal });
     return button2;
   }
-  function renderRieUnlockScreen(language, onContinue) {
-    const { screen, panel, content } = screenFrame({
-      language,
-      className: "academy-character-unlock-screen academy-rie-unlock-screen",
-      plate: "classroom",
-      eyebrow: "rieUnlockEyebrow",
-      title: "rieUnlockTitle",
-      body: "rieUnlockBody"
+  function renderRieUnlockScreen(options) {
+    const { language, voice, replay: replay2 = false } = options;
+    const stage2 = createAcademyVnStage({
+      label: academyText(language, replay2 ? "rieIntroductionMemoryLabel" : "rieIntroductionStageLabel"),
+      uiLanguage: language,
+      ...voice ? { voice } : {}
     });
-    panel.classList.add("academy-guide-panel", "academy-character-unlock-panel");
-    const rie = rieGuide$2(language);
-    const spokenLine = content.querySelector(".academy-lede");
-    if (spokenLine) spokenLine.dataset.speaker = "rie";
-    const bond = copyElement("p", "academy-relationship-seal academy-unlock-seal", language, "relationshipFirstPage");
-    const next = copyButton(language, "rieUnlockContinue", "academy-button academy-button-primary");
-    next.addEventListener("click", onContinue);
-    content.append(bond, next);
-    panel.prepend(rie);
-    return screen;
+    stage2.element.classList.add("academy-rie-introduction-screen");
+    stage2.element.dataset.academyScreen = replay2 ? "rie-introduction-memory" : "rie-introduction";
+    stage2.element.dataset.academyRoute = replay2 ? "journal" : "rie-unlock";
+    stage2.element.dataset.introductionReplay = String(replay2);
+    stage2.setDirection({
+      plate: {
+        id: "classroom-rie-introduction",
+        wide: ACADEMY_ASSETS.locations.classroom.wide,
+        mobile: ACADEMY_ASSETS.locations.classroom.mobile,
+        label: academyText(language, replay2 ? "rieIntroductionMemoryLabel" : "rieIntroductionStageLabel")
+      },
+      transition: "dissolve",
+      focus: { x: 54, y: 46 }
+    });
+    stage2.setCast([rieIntroductionCast(language)]);
+    stage2.setLine({
+      id: RIE_INTRODUCTION_LINE.id,
+      speakerId: RIE_INTRODUCTION_LINE.speakerId,
+      speakerName: language === "ja" ? "りえ先生" : "Rie-sensei",
+      japanese: RIE_INTRODUCTION_LINE.japanese,
+      reading: {
+        visible: false,
+        showLabel: academyText(language, "readingShow"),
+        hideLabel: academyText(language, "readingHide")
+      },
+      translation: RIE_INTRODUCTION_LINE.english,
+      translationEarned: true,
+      translationVisible: language === "en",
+      voice: { band: RIE_INTRODUCTION_LINE.band },
+      sfx: ["vn.advance"]
+    });
+    stage2.setAction(rieIntroductionAction(stage2.element, options));
+    return stage2.element;
+  }
+  function rieIntroductionCast(language) {
+    return {
+      characterId: "rie",
+      displayName: language === "ja" ? "りえ先生" : "Rie-sensei",
+      alt: language === "ja" ? "教室で迎えるりえ先生" : "Rie-sensei welcoming you into the classroom",
+      position: "center",
+      expression: "encouraging",
+      expressions: {
+        neutral: { still: ACADEMY_ASSETS.characters.approvedPerformances.rie.neutral },
+        encouraging: { still: ACADEMY_ASSETS.characters.approvedPerformances.rie.encouraging }
+      }
+    };
+  }
+  function rieIntroductionAction(screen, options) {
+    const { language, voice, replay: replay2 = false } = options;
+    const action2 = element("div", "academy-rie-introduction-action");
+    const status = element("p", "academy-rie-introduction-status");
+    status.setAttribute("role", "status");
+    status.setAttribute("aria-live", "polite");
+    const button2 = document.createElement("button");
+    button2.type = "button";
+    button2.className = "academy-vn-primary-action academy-rie-introduction-primary";
+    let heard = !voice;
+    let completing = false;
+    const continueKey = replay2 ? "rieIntroductionReturn" : "rieIntroductionContinue";
+    const sync = () => {
+      button2.textContent = academyText(language, heard ? continueKey : "rieIntroductionListen");
+      button2.setAttribute("aria-label", button2.textContent);
+      screen.dataset.voiceHeard = String(heard);
+    };
+    const release = voice?.onStatus((snapshot) => {
+      if (snapshot.status === "playing") {
+        status.textContent = academyText(language, "rieIntroductionListening");
+        button2.disabled = true;
+      } else if (snapshot.status === "ended") {
+        heard = true;
+        status.textContent = academyText(language, "rieIntroductionHeard");
+        button2.disabled = false;
+        sync();
+        button2.focus();
+      } else if (snapshot.status === "muted" || snapshot.status === "unavailable" || snapshot.status === "error") {
+        heard = true;
+        status.textContent = academyText(language, "rieIntroductionAudioUnavailable");
+        button2.disabled = false;
+        sync();
+      }
+    });
+    button2.addEventListener("click", async () => {
+      if (completing) return;
+      if (!heard && voice) {
+        button2.disabled = true;
+        status.textContent = academyText(language, "rieIntroductionListening");
+        const started = await voice.play();
+        if (!started && voice.snapshot.status !== "playing") {
+          heard = true;
+          status.textContent = academyText(language, "rieIntroductionAudioUnavailable");
+          button2.disabled = false;
+          sync();
+        }
+        return;
+      }
+      completing = true;
+      button2.disabled = true;
+      try {
+        await options.onComplete();
+      } catch {
+        completing = false;
+        button2.disabled = false;
+        status.textContent = academyText(language, "rieIntroductionSaveFailed");
+        button2.focus();
+      }
+    });
+    sync();
+    action2.append(status, button2);
+    return { element: action2, dispose: () => release?.() };
   }
   function renderAakashMemory(language, onReturn) {
     const { screen, content } = screenFrame({
@@ -50710,17 +53063,6 @@ ${spelling}`);
     close.addEventListener("click", onReturn);
     content.append(line2, close);
     return screen;
-  }
-  function rieGuide$2(language) {
-    const cutout = element("div", "academy-guide-cutout");
-    cutout.dataset.speakerStage = "rie";
-    cutout.append(createAcademySprite({
-      characterId: "rie",
-      alt: language === "ja" ? "りえ先生" : "Rie-sensei",
-      className: "academy-guide-character academy-character-rie",
-      expressions: { neutral: { still: ACADEMY_ASSETS.characters.approvedPerformances.rie.neutral } }
-    }));
-    return cutout;
   }
   const choiceActivityPlugin = {
     kind: "choice",
@@ -51981,7 +54323,7 @@ ${spelling}`);
     };
   }
   function parseKanjiWritingResponse(value) {
-    if (!isRecord$5(value)) throw new TypeError("A Kanji writing response is required.");
+    if (!isRecord$4(value)) throw new TypeError("A Kanji writing response is required.");
     if (value.phase === "writing") {
       if (value.inputMode !== "doodle") {
         throw new TypeError("Handwriting evidence must come from the Yomu Doodle canvas.");
@@ -51999,7 +54341,7 @@ ${spelling}`);
     throw new TypeError("Kanji response phase must be writing or reading.");
   }
   function parseStrokeAssessment(value) {
-    if (!isRecord$5(value) || typeof value.passed !== "boolean" || !finiteNumber(value.score) || !finiteNumber(value.expectedStrokes) || !finiteNumber(value.actualStrokes) || typeof value.message !== "string") {
+    if (!isRecord$4(value) || typeof value.passed !== "boolean" || !finiteNumber(value.score) || !finiteNumber(value.expectedStrokes) || !finiteNumber(value.actualStrokes) || typeof value.message !== "string") {
       throw new TypeError("A valid Yomu Doodle stroke assessment is required.");
     }
     if (value.score < 0 || value.score > 100 || value.expectedStrokes < 1 || !Number.isInteger(value.expectedStrokes) || value.actualStrokes < 0 || !Number.isInteger(value.actualStrokes) || value.shapeScore !== void 0 && !finiteNumber(value.shapeScore)) {
@@ -52014,7 +54356,7 @@ ${spelling}`);
       message: value.message
     };
   }
-  function isRecord$5(value) {
+  function isRecord$4(value) {
     return Boolean(value) && typeof value === "object" && !Array.isArray(value);
   }
   function finiteNumber(value) {
@@ -52318,28 +54660,6 @@ ${spelling}`);
     });
     content.append(activityHost, completion);
     screen.addEventListener("academy:dispose", () => controller.dispose(), { once: true });
-    return screen;
-  }
-  function renderOpeningMemory(language, onClose) {
-    const { screen, panel, content } = screenFrame({
-      language,
-      className: "academy-memory-screen",
-      plate: "classroom",
-      title: "memoryTitle",
-      body: "memoryBody"
-    });
-    panel.classList.add("academy-guide-panel");
-    panel.prepend(rieGuide$1(language));
-    const line2 = element("blockquote", "academy-memory-line");
-    line2.lang = "ja";
-    line2.dataset.speaker = "rie";
-    line2.textContent = "「こんばんは。ここ、空いていますよ。」";
-    const support2 = element("p", "academy-support");
-    support2.lang = "en";
-    support2.textContent = "“Good evening. This seat is free.”";
-    const close = copyButton(language, "memoryReturn", "academy-button academy-button-primary");
-    close.addEventListener("click", onClose);
-    content.append(line2, support2, close);
     return screen;
   }
   function rieGuide$1(language) {
@@ -53311,8 +55631,8 @@ ${spelling}`);
     reason.value = options.profile?.learningReason ?? "";
     let selectedPortrait = initialPortrait;
     let currentStep = "name";
-    const nameStep = entry$O("name", options.language, academyText(options.language, "profileNameLabel"), name);
-    const reasonStep = entry$O("reason", options.language, academyText(options.language, "profileReasonLabel"), reason);
+    const nameStep = entry$N("name", options.language, academyText(options.language, "profileNameLabel"), name);
+    const reasonStep = entry$N("reason", options.language, academyText(options.language, "profileReasonLabel"), reason);
     const portraitStep = portraitEntry(options.language, selectedPortrait, (portraitId2) => {
       selectedPortrait = portraitId2;
       syncCast();
@@ -53412,7 +55732,7 @@ ${spelling}`);
     showStep("name");
     return stage2.element;
   }
-  function entry$O(step2, language, labelText, control2) {
+  function entry$N(step2, language, labelText, control2) {
     const section = document.createElement("section");
     section.className = "academy-profile-vn-entry";
     section.dataset.profileStep = step2;
@@ -53502,7 +55822,11 @@ ${spelling}`);
           }));
           return true;
         case "rie-unlock":
-          context2.shell.replace(renderRieUnlockScreen(context2.language, () => void context2.go("start")));
+          context2.shell.replace(renderRieUnlockScreen({
+            language: context2.language,
+            ...this.options.audio ? { voice: createStoryVoicePlayback({ director: this.options.audio }) } : {},
+            onComplete: () => this.completeRieIntroduction(context2)
+          }));
           return true;
         case "start":
           context2.shell.replace(renderStartScreen(context2.language, (choice2) => void this.chooseStart(choice2, context2)));
@@ -53600,6 +55924,10 @@ ${spelling}`);
     async saveProfile(profile2, context2) {
       const { firstIntroduction } = await this.options.evidence.saveProfile(profile2);
       await context2.go(firstIntroduction ? "rie-unlock" : "start");
+    }
+    async completeRieIntroduction(context2) {
+      await this.options.evidence.completeRieIntroduction();
+      await context2.go("start");
     }
     async chooseStart(route, context2) {
       this.options.audio?.playSfx?.("menu.confirm");
@@ -56705,11 +59033,11 @@ ${spelling}`);
   const vocabularyParity = {
     lessons
   };
-  const schema$1z = "yomu-academy.week.v1";
-  const id$1y = "l1-l01";
+  const schema$1y = "yomu-academy.week.v1";
+  const id$1x = "l1-l01";
   const order$N = 2;
   const weekKind$N = "lesson";
-  const title$1z = {
+  const title$1y = {
     en: "Nice to meet you",
     ja: "はじめまして"
   };
@@ -60811,11 +63139,11 @@ ${spelling}`);
     parityNote: "Every ordered item ID is derived from the exact Sensei row locus and canonical payload hash; no row embeds a synthetic sheet copy."
   };
   const lessonPackage$K = {
-    schema: schema$1z,
-    id: id$1y,
+    schema: schema$1y,
+    id: id$1x,
     order: order$N,
     weekKind: weekKind$N,
-    title: title$1z,
+    title: title$1y,
     estimatedMinutes: estimatedMinutes$N,
     identity: identity$N,
     sourceCoverage: sourceCoverage$N,
@@ -61088,11 +63416,11 @@ ${spelling}`);
     if (!/^[a-f0-9]{64}$/u.test(result2)) throw new TypeError(`${label} must be a SHA-256 digest.`);
     return result2;
   }
-  const schema$1y = "yomu-academy.week.v1";
-  const id$1x = "l1-l02";
+  const schema$1x = "yomu-academy.week.v1";
+  const id$1w = "l1-l02";
   const order$M = 3;
   const weekKind$M = "lesson";
-  const title$1y = {
+  const title$1x = {
     en: "This is my friend",
     ja: "こちらは、ともだちです"
   };
@@ -64346,11 +66674,11 @@ ${spelling}`);
     answerVisibility: "after-attempt"
   };
   const lessonPackage$J = {
-    schema: schema$1y,
-    id: id$1x,
+    schema: schema$1x,
+    id: id$1w,
     order: order$M,
     weekKind: weekKind$M,
-    title: title$1y,
+    title: title$1x,
     estimatedMinutes: estimatedMinutes$M,
     identity: identity$M,
     sourceCoverage: sourceCoverage$M,
@@ -64649,11 +66977,11 @@ ${spelling}`);
     if (!/^[a-f0-9]{64}$/u.test(result2)) throw new TypeError(`${label} must be a SHA-256 digest.`);
     return result2;
   }
-  const schema$1x = "yomu-academy.week.v1";
-  const id$1w = "l1-l03";
+  const schema$1w = "yomu-academy.week.v1";
+  const id$1v = "l1-l03";
   const order$L = 4;
   const weekKind$L = "lesson";
-  const title$1x = {
+  const title$1w = {
     en: "Where are you from?",
     ja: "おくには どちらですか"
   };
@@ -67848,11 +70176,11 @@ ${spelling}`);
     answerVisibility: "after-attempt"
   };
   const lessonPackage$I = {
-    schema: schema$1x,
-    id: id$1w,
+    schema: schema$1w,
+    id: id$1v,
     order: order$L,
     weekKind: weekKind$L,
-    title: title$1x,
+    title: title$1w,
     estimatedMinutes: estimatedMinutes$L,
     identity: identity$L,
     sourceCoverage: sourceCoverage$L,
@@ -68168,11 +70496,11 @@ ${spelling}`);
     if (!/^[a-f0-9]{64}$/u.test(result2)) throw new TypeError(`${label} must be a SHA-256 digest.`);
     return result2;
   }
-  const schema$1w = "yomu-academy.week.v1";
-  const id$1v = "l1-l04";
+  const schema$1v = "yomu-academy.week.v1";
+  const id$1u = "l1-l04";
   const order$K = 5;
   const weekKind$K = "lesson";
-  const title$1w = {
+  const title$1v = {
     en: "Who I am, and what this is",
     ja: "はじめまして、これは なんですか"
   };
@@ -71936,11 +74264,11 @@ ${spelling}`);
     answerVisibility: "after-attempt"
   };
   const lessonPackage$H = {
-    schema: schema$1w,
-    id: id$1v,
+    schema: schema$1v,
+    id: id$1u,
     order: order$K,
     weekKind: weekKind$K,
-    title: title$1w,
+    title: title$1v,
     estimatedMinutes: estimatedMinutes$K,
     identity: identity$K,
     sourceCoverage: sourceCoverage$K,
@@ -72227,11 +74555,11 @@ ${spelling}`);
     if (!/^[a-f0-9]{64}$/u.test(result2)) throw new TypeError(`${label} must be a SHA-256 digest.`);
     return result2;
   }
-  const schema$1v = "yomu-academy.week.v1";
-  const id$1u = "l1-l05";
+  const schema$1u = "yomu-academy.week.v1";
+  const id$1t = "l1-l05";
   const order$J = 6;
   const weekKind$J = "lesson";
-  const title$1v = {
+  const title$1u = {
     en: "Whose is this?",
     ja: "これは だれの？"
   };
@@ -75534,11 +77862,11 @@ ${spelling}`);
     answerVisibility: "after-attempt"
   };
   const lessonPackage$G = {
-    schema: schema$1v,
-    id: id$1u,
+    schema: schema$1u,
+    id: id$1t,
     order: order$J,
     weekKind: weekKind$J,
-    title: title$1v,
+    title: title$1u,
     estimatedMinutes: estimatedMinutes$J,
     identity: identity$J,
     sourceCoverage: sourceCoverage$J,
@@ -75918,11 +78246,11 @@ ${spelling}`);
     if (!/^[a-f0-9]{64}$/u.test(result2)) throw new TypeError(`${label} must be a SHA-256 digest.`);
     return result2;
   }
-  const schema$1u = "yomu-academy.week.v1";
-  const id$1t = "l1-l06";
+  const schema$1t = "yomu-academy.week.v1";
+  const id$1s = "l1-l06";
   const order$I = 7;
   const weekKind$I = "lesson";
-  const title$1u = {
+  const title$1t = {
     en: "This one, please",
     ja: "これを ください"
   };
@@ -79881,11 +82209,11 @@ ${spelling}`);
     answerVisibility: "after-attempt"
   };
   const lessonPackage$F = {
-    schema: schema$1u,
-    id: id$1t,
+    schema: schema$1t,
+    id: id$1s,
     order: order$I,
     weekKind: weekKind$I,
-    title: title$1u,
+    title: title$1t,
     estimatedMinutes: estimatedMinutes$I,
     identity: identity$I,
     sourceCoverage: sourceCoverage$I,
@@ -82335,11 +84663,11 @@ ${spelling}`);
       { id: "8000", label: "８，０００えん" }
     ];
   }
-  const schema$1t = "yomu-academy.week.v1";
-  const id$1s = "l1-l08";
+  const schema$1s = "yomu-academy.week.v1";
+  const id$1r = "l1-l08";
   const order$H = 9;
   const weekKind$H = "lesson";
-  const title$1t = {
+  const title$1s = {
     en: "What time do we start?",
     ja: "なんじから ですか"
   };
@@ -86200,11 +88528,11 @@ ${spelling}`);
     answerVisibility: "after-attempt"
   };
   const lessonPackage$E = {
-    schema: schema$1t,
-    id: id$1s,
+    schema: schema$1s,
+    id: id$1r,
     order: order$H,
     weekKind: weekKind$H,
-    title: title$1t,
+    title: title$1s,
     estimatedMinutes: estimatedMinutes$H,
     identity: identity$H,
     sourceCoverage: sourceCoverage$H,
@@ -86518,11 +88846,11 @@ ${spelling}`);
     if (typeof value !== "string" || !value.trim()) throw new TypeError(`${label} must be non-empty text.`);
     return value;
   }
-  const schema$1s = "yomu-academy.week.v1";
-  const id$1r = "l1-l09";
+  const schema$1r = "yomu-academy.week.v1";
+  const id$1q = "l1-l09";
   const order$G = 10;
   const weekKind$G = "lesson";
-  const title$1s = {
+  const title$1r = {
     en: "Which day was it?",
     ja: "なんようびでしたか"
   };
@@ -89787,11 +92115,11 @@ ${spelling}`);
     answerVisibility: "after-attempt"
   };
   const lessonPackage$D = {
-    schema: schema$1s,
-    id: id$1r,
+    schema: schema$1r,
+    id: id$1q,
     order: order$G,
     weekKind: weekKind$G,
-    title: title$1s,
+    title: title$1r,
     estimatedMinutes: estimatedMinutes$G,
     identity: identity$G,
     sourceCoverage: sourceCoverage$G,
@@ -90153,11 +92481,11 @@ ${spelling}`);
     if (typeof value !== "string" || !value.trim()) throw new TypeError(`${label} must be non-empty text.`);
     return value;
   }
-  const schema$1r = "yomu-academy.week.v1";
-  const id$1q = "l1-l10";
+  const schema$1q = "yomu-academy.week.v1";
+  const id$1p = "l1-l10";
   const order$F = 11;
   const weekKind$F = "lesson";
-  const title$1r = {
+  const title$1q = {
     en: "From morning till night",
     ja: "あさから ばんまで"
   };
@@ -93417,11 +95745,11 @@ ${spelling}`);
     answerVisibility: "after-attempt"
   };
   const lessonPackage$C = {
-    schema: schema$1r,
-    id: id$1q,
+    schema: schema$1q,
+    id: id$1p,
     order: order$F,
     weekKind: weekKind$F,
-    title: title$1r,
+    title: title$1q,
     estimatedMinutes: estimatedMinutes$F,
     identity: identity$F,
     sourceCoverage: sourceCoverage$F,
@@ -93982,11 +96310,11 @@ ${spelling}`);
     if (!/^[a-f0-9]{64}$/u.test(result2)) throw new TypeError(`${label} must be a SHA-256 digest.`);
     return result2;
   }
-  const schema$1q = "yomu-academy.week.v1";
-  const id$1p = "l1-l11";
+  const schema$1p = "yomu-academy.week.v1";
+  const id$1o = "l1-l11";
   const order$E = 12;
   const weekKind$E = "lesson";
-  const title$1q = {
+  const title$1p = {
     en: "What kind of place is it?",
     ja: "どんな ところですか"
   };
@@ -95117,11 +97445,11 @@ ${spelling}`);
     learnerPolicy: "No curated or enrichment vocabulary component is labeled as sensei’s exact pre-study sheet."
   };
   const lessonPackage$B = {
-    schema: schema$1q,
-    id: id$1p,
+    schema: schema$1p,
+    id: id$1o,
     order: order$E,
     weekKind: weekKind$E,
-    title: title$1q,
+    title: title$1p,
     estimatedMinutes: estimatedMinutes$E,
     identity: identity$E,
     mapping: mapping$E,
@@ -95571,11 +97899,11 @@ ${spelling}`);
     if (typeof value !== "string" || !value.trim()) throw new TypeError(`${label} must be non-empty text.`);
     return value;
   }
-  const schema$1p = "yomu-academy.week.v1";
-  const id$1o = "l1-l12";
+  const schema$1o = "yomu-academy.week.v1";
+  const id$1n = "l1-l12";
   const order$D = 13;
   const weekKind$D = "lesson";
-  const title$1p = {
+  const title$1o = {
     en: "What do you like?",
     ja: "なにが すきですか"
   };
@@ -96761,11 +99089,11 @@ ${spelling}`);
     learnerPolicy: "No curated or enrichment vocabulary component is labeled as sensei’s exact pre-study sheet."
   };
   const lessonPackage$A = {
-    schema: schema$1p,
-    id: id$1o,
+    schema: schema$1o,
+    id: id$1n,
     order: order$D,
     weekKind: weekKind$D,
-    title: title$1p,
+    title: title$1o,
     estimatedMinutes: estimatedMinutes$D,
     identity: identity$D,
     mapping: mapping$D,
@@ -97096,11 +99424,11 @@ ${spelling}`);
     if (typeof value !== "string" || !value.trim()) throw new TypeError(`${label} must be non-empty text.`);
     return value;
   }
-  const schema$1o = "yomu-academy.week.v1";
-  const id$1n = "l1-l13";
+  const schema$1n = "yomu-academy.week.v1";
+  const id$1m = "l1-l13";
   const order$C = 14;
   const weekKind$C = "lesson";
-  const title$1o = {
+  const title$1n = {
     en: "Skills and understanding",
     ja: "じょうずです・わかります"
   };
@@ -98217,11 +100545,11 @@ ${spelling}`);
     learnerPolicy: "No curated or enrichment vocabulary component is labeled as sensei’s exact pre-study sheet."
   };
   const lessonPackage$z = {
-    schema: schema$1o,
-    id: id$1n,
+    schema: schema$1n,
+    id: id$1m,
     order: order$C,
     weekKind: weekKind$C,
-    title: title$1o,
+    title: title$1n,
     estimatedMinutes: estimatedMinutes$C,
     identity: identity$C,
     mapping: mapping$C,
@@ -98922,11 +101250,11 @@ ${spelling}`);
       { en: mode === "report-typed" ? "Keep the place, item, quantity, counter, and あります／います in one sentence." : "Keep the counter attached to the number in the reply.", ja: mode === "report-typed" ? "場所、物、数、助数詞、あります／いますを一文に入れます。" : "答えでは、数と助数詞を離さないようにします。" }
     ]);
   }
-  const schema$1n = "yomu-academy.week.v1";
-  const id$1m = "l1-l19";
+  const schema$1m = "yomu-academy.week.v1";
+  const id$1l = "l1-l19";
   const order$B = 20;
   const weekKind$B = "lesson";
-  const title$1n = {
+  const title$1m = {
     en: "How often, and for how long?",
     ja: "何回、何時間"
   };
@@ -103476,11 +105804,11 @@ ${spelling}`);
     answerVisibility: "after-attempt"
   };
   const lessonPackage$y = {
-    schema: schema$1n,
-    id: id$1m,
+    schema: schema$1m,
+    id: id$1l,
     order: order$B,
     weekKind: weekKind$B,
-    title: title$1n,
+    title: title$1m,
     estimatedMinutes: estimatedMinutes$B,
     identity: identity$B,
     sourceCoverage: sourceCoverage$B,
@@ -103826,11 +106154,11 @@ ${spelling}`);
     if (!Array.isArray(value)) throw new TypeError(`${label} must be an array.`);
     return value;
   }
-  const schema$1m = "yomu-academy.week.v1";
-  const id$1l = "l1-l20";
+  const schema$1l = "yomu-academy.week.v1";
+  const id$1k = "l1-l20";
   const order$A = 21;
   const weekKind$A = "lesson";
-  const title$1m = {
+  const title$1l = {
     en: "A week, a month, a year",
     ja: "一週間に 何回"
   };
@@ -111245,11 +113573,11 @@ ${spelling}`);
     honestResult: "Source contracts/plugin targets are complete in-package; runtime reachability still requires forbidden adapter, catalog, and media registration edits."
   };
   const lessonPackage$x = {
-    schema: schema$1m,
-    id: id$1l,
+    schema: schema$1l,
+    id: id$1k,
     order: order$A,
     weekKind: weekKind$A,
-    title: title$1m,
+    title: title$1l,
     estimatedMinutes: estimatedMinutes$A,
     identity: identity$A,
     sourceCoverage: sourceCoverage$A,
@@ -111410,11 +113738,11 @@ ${spelling}`);
     if (!Array.isArray(value)) throw new TypeError(`${label} must be an array.`);
     return value;
   }
-  const schema$1l = "yomu-academy.week.v1";
-  const id$1k = "l1-l21";
+  const schema$1k = "yomu-academy.week.v1";
+  const id$1j = "l1-l21";
   const order$z = 22;
   const weekKind$z = "consolidation";
-  const title$1l = {
+  const title$1k = {
     en: "A useful number notebook",
     ja: "数の ノート"
   };
@@ -113215,11 +115543,11 @@ ${spelling}`);
     learnerPolicy: "No curated or enrichment vocabulary component is labeled as sensei’s exact pre-study sheet."
   };
   const lessonPackage$w = {
-    schema: schema$1l,
-    id: id$1k,
+    schema: schema$1k,
+    id: id$1j,
     order: order$z,
     weekKind: weekKind$z,
-    title: title$1l,
+    title: title$1k,
     estimatedMinutes: estimatedMinutes$z,
     identity: identity$z,
     sourceCoverage: sourceCoverage$z,
@@ -113347,11 +115675,11 @@ ${spelling}`);
     if (!Array.isArray(value)) throw new TypeError(`${label} must be an array.`);
     return value;
   }
-  const schema$1k = "yomu-academy.week.v1";
-  const id$1j = "l1-l22";
+  const schema$1j = "yomu-academy.week.v1";
+  const id$1i = "l1-l22";
   const order$y = 23;
   const weekKind$y = "script-katakana";
-  const title$1k = {
+  const title$1j = {
     en: "Katakana has a new shape",
     ja: "カタカナの はじめ"
   };
@@ -114835,11 +117163,11 @@ ${spelling}`);
     learnerPolicy: "No curated or enrichment vocabulary component is labeled as sensei’s exact pre-study sheet."
   };
   const lessonPackage$v = {
-    schema: schema$1k,
-    id: id$1j,
+    schema: schema$1j,
+    id: id$1i,
     order: order$y,
     weekKind: weekKind$y,
-    title: title$1k,
+    title: title$1j,
     estimatedMinutes: estimatedMinutes$y,
     identity: identity$y,
     sourceCoverage: sourceCoverage$y,
@@ -114995,11 +117323,11 @@ ${spelling}`);
     if (!Array.isArray(value)) throw new TypeError(`${label} must be an array.`);
     return value;
   }
-  const schema$1j = "yomu-academy.week.v1";
-  const id$1i = "l1-l23";
+  const schema$1i = "yomu-academy.week.v1";
+  const id$1h = "l1-l23";
   const order$x = 24;
   const weekKind$x = "script-katakana";
-  const title$1j = {
+  const title$1i = {
     en: "A and K in katakana",
     ja: "ア行と カ行"
   };
@@ -116757,11 +119085,11 @@ ${spelling}`);
     learnerPolicy: "No curated or enrichment vocabulary component is labeled as sensei’s exact pre-study sheet."
   };
   const lessonPackage$u = {
-    schema: schema$1j,
-    id: id$1i,
+    schema: schema$1i,
+    id: id$1h,
     order: order$x,
     weekKind: weekKind$x,
-    title: title$1j,
+    title: title$1i,
     estimatedMinutes: estimatedMinutes$x,
     identity: identity$x,
     sourceCoverage: sourceCoverage$x,
@@ -116919,11 +119247,11 @@ ${spelling}`);
     if (!Array.isArray(value)) throw new TypeError(`${label} must be an array.`);
     return value;
   }
-  const schema$1i = "yomu-academy.week.v1";
-  const id$1h = "l1-l24";
+  const schema$1h = "yomu-academy.week.v1";
+  const id$1g = "l1-l24";
   const order$w = 25;
   const weekKind$w = "script-katakana";
-  const title$1i = {
+  const title$1h = {
     en: "S and T in katakana",
     ja: "サ行と タ行"
   };
@@ -118685,11 +121013,11 @@ ${spelling}`);
     learnerPolicy: "No curated or enrichment vocabulary component is labeled as sensei’s exact pre-study sheet."
   };
   const lessonPackage$t = {
-    schema: schema$1i,
-    id: id$1h,
+    schema: schema$1h,
+    id: id$1g,
     order: order$w,
     weekKind: weekKind$w,
-    title: title$1i,
+    title: title$1h,
     estimatedMinutes: estimatedMinutes$w,
     identity: identity$w,
     sourceCoverage: sourceCoverage$w,
@@ -118828,11 +121156,11 @@ ${spelling}`);
     if (!Array.isArray(value)) throw new TypeError(`${label} must be an array.`);
     return value;
   }
-  const schema$1h = "yomu-academy.week.v1";
-  const id$1g = "l2-l23";
+  const schema$1g = "yomu-academy.week.v1";
+  const id$1f = "l2-l23";
   const order$v = 50;
   const weekKind$v = "kanji-set";
-  const title$1h = {
+  const title$1g = {
     en: "Nine kanji, one useful message",
     ja: "九字で 一つの 伝言"
   };
@@ -120386,11 +122714,11 @@ ${spelling}`);
     }
   ];
   const lessonPackage$s = {
-    schema: schema$1h,
-    id: id$1g,
+    schema: schema$1g,
+    id: id$1f,
     order: order$v,
     weekKind: weekKind$v,
-    title: title$1h,
+    title: title$1g,
     estimatedMinutes: estimatedMinutes$v,
     identity: identity$v,
     sourceCoverage: sourceCoverage$v,
@@ -120629,11 +122957,11 @@ ${spelling}`);
     if (!Array.isArray(value)) throw new TypeError(`${label} must be an array.`);
     return value;
   }
-  const schema$1g = "yomu-academy.week.v1";
-  const id$1f = "l2-l25";
+  const schema$1f = "yomu-academy.week.v1";
+  const id$1e = "l2-l25";
   const order$u = 52;
   const weekKind$u = "lesson";
-  const title$1g = {
+  const title$1f = {
     en: "Advice with room to breathe",
     ja: "やさしい助言と予想"
   };
@@ -122171,11 +124499,11 @@ ${spelling}`);
     }
   ];
   const lessonPackage$r = {
-    schema: schema$1g,
-    id: id$1f,
+    schema: schema$1f,
+    id: id$1e,
     order: order$u,
     weekKind: weekKind$u,
-    title: title$1g,
+    title: title$1f,
     estimatedMinutes: estimatedMinutes$u,
     identity: identity$u,
     sourceCoverage: sourceCoverage$u,
@@ -122500,11 +124828,11 @@ ${spelling}`);
     if (!Array.isArray(value)) throw new TypeError(`Expected ${label} array.`);
     return value;
   }
-  const schema$1f = "yomu-academy.week.v1";
-  const id$1e = "l2-l26";
+  const schema$1e = "yomu-academy.week.v1";
+  const id$1d = "l2-l26";
   const order$t = 53;
   const weekKind$t = "lesson";
-  const title$1f = {
+  const title$1e = {
     en: "When a sign means business",
     ja: "標識の強いことば"
   };
@@ -124284,11 +126612,11 @@ ${spelling}`);
     }
   ];
   const lessonPackage$q = {
-    schema: schema$1f,
-    id: id$1e,
+    schema: schema$1e,
+    id: id$1d,
     order: order$t,
     weekKind: weekKind$t,
-    title: title$1f,
+    title: title$1e,
     estimatedMinutes: estimatedMinutes$t,
     identity: identity$t,
     sourceCoverage: sourceCoverage$t,
@@ -124541,11 +126869,11 @@ ${spelling}`);
     if (!Array.isArray(value)) throw new TypeError(`${label} must be an array.`);
     return value;
   }
-  const schema$1e = "yomu-academy.week.v1";
-  const id$1d = "l2-l27";
+  const schema$1d = "yomu-academy.week.v1";
+  const id$1c = "l2-l27";
   const order$s = 54;
   const weekKind$s = "lesson";
-  const title$1e = {
+  const title$1d = {
     en: "Pass the message, keep the meaning",
     ja: "意味を変えずに伝える"
   };
@@ -126498,11 +128826,11 @@ ${spelling}`);
     }
   ];
   const lessonPackage$p = {
-    schema: schema$1e,
-    id: id$1d,
+    schema: schema$1d,
+    id: id$1c,
     order: order$s,
     weekKind: weekKind$s,
-    title: title$1e,
+    title: title$1d,
     estimatedMinutes: estimatedMinutes$s,
     identity: identity$s,
     sourceCoverage: sourceCoverage$s,
@@ -127130,11 +129458,11 @@ ${spelling}`);
     if (!Array.isArray(value)) throw new TypeError(`Expected ${label} array.`);
     return value;
   }
-  const schema$1d = "yomu-academy.week.v1";
-  const id$1c = "l2-l28";
+  const schema$1c = "yomu-academy.week.v1";
+  const id$1b = "l2-l28";
   const order$r = 55;
   const weekKind$r = "lesson";
-  const title$1d = {
+  const title$1c = {
     en: "As shown, then one step more",
     ja: "見たとおりに、そのあとで"
   };
@@ -128754,11 +131082,11 @@ ${spelling}`);
     }
   ];
   const sharedListeningPackage = {
-    schema: schema$1d,
-    id: id$1c,
+    schema: schema$1c,
+    id: id$1b,
     order: order$r,
     weekKind: weekKind$r,
-    title: title$1d,
+    title: title$1c,
     estimatedMinutes: estimatedMinutes$r,
     identity: identity$r,
     sourceCoverage: sourceCoverage$r,
@@ -129336,11 +131664,11 @@ ${spelling}`);
     if (!Array.isArray(value)) throw new TypeError(`${label} must be an array.`);
     return value;
   }
-  const schema$1c = "yomu-academy.week.v1";
-  const id$1b = "l1-l25";
+  const schema$1b = "yomu-academy.week.v1";
+  const id$1a = "l1-l25";
   const order$q = 26;
   const weekKind$q = "script-katakana";
-  const title$1c = {
+  const title$1b = {
     en: "N and H in katakana",
     ja: "ナ行と ハ行"
   };
@@ -131247,11 +133575,11 @@ ${spelling}`);
     learnerPolicy: "No curated or enrichment vocabulary component is labeled as sensei’s exact pre-study sheet."
   };
   const lessonPackage$o = {
-    schema: schema$1c,
-    id: id$1b,
+    schema: schema$1b,
+    id: id$1a,
     order: order$q,
     weekKind: weekKind$q,
-    title: title$1c,
+    title: title$1b,
     estimatedMinutes: estimatedMinutes$q,
     identity: identity$q,
     sourceCoverage: sourceCoverage$q,
@@ -131390,11 +133718,11 @@ ${spelling}`);
     if (!Array.isArray(value)) throw new TypeError(`${label} must be an array.`);
     return value;
   }
-  const schema$1b = "yomu-academy.week.v1";
-  const id$1a = "l1-l26";
+  const schema$1a = "yomu-academy.week.v1";
+  const id$19 = "l1-l26";
   const order$p = 27;
   const weekKind$p = "script-katakana";
-  const title$1b = {
+  const title$1a = {
     en: "The last katakana rows",
     ja: "カタカナを さいごまで"
   };
@@ -133315,11 +135643,11 @@ ${spelling}`);
     learnerPolicy: "No curated or enrichment vocabulary component is labeled as sensei’s exact pre-study sheet."
   };
   const lessonPackage$n = {
-    schema: schema$1b,
-    id: id$1a,
+    schema: schema$1a,
+    id: id$19,
     order: order$p,
     weekKind: weekKind$p,
-    title: title$1b,
+    title: title$1a,
     estimatedMinutes: estimatedMinutes$p,
     identity: identity$p,
     sourceCoverage: sourceCoverage$p,
@@ -133484,11 +135812,11 @@ ${spelling}`);
     if (!Array.isArray(value)) throw new TypeError(`${label} must be an array.`);
     return value;
   }
-  const schema$1a = "yomu-academy.week.v1";
-  const id$19 = "l2-l02";
+  const schema$19 = "yomu-academy.week.v1";
+  const id$18 = "l2-l02";
   const order$o = 29;
   const weekKind$o = "lesson";
-  const title$1a = {
+  const title$19 = {
     en: "Have you ever?",
     ja: "やったこと、ありますか"
   };
@@ -135725,11 +138053,11 @@ ${spelling}`);
     }
   ];
   const priorLessonPackage$1 = {
-    schema: schema$1a,
-    id: id$19,
+    schema: schema$19,
+    id: id$18,
     order: order$o,
     weekKind: weekKind$o,
-    title: title$1a,
+    title: title$19,
     estimatedMinutes: estimatedMinutes$o,
     identity: identity$o,
     sourceCoverage: sourceCoverage$o,
@@ -135834,11 +138162,11 @@ ${spelling}`);
     if (!Array.isArray(value)) throw new TypeError(`${label} must be an array.`);
     return value;
   }
-  const schema$19 = "yomu-academy.week.v1";
-  const id$18 = "l2-l04";
+  const schema$18 = "yomu-academy.week.v1";
+  const id$17 = "l2-l04";
   const order$n = 31;
   const weekKind$n = "lesson";
-  const title$19 = {
+  const title$18 = {
     en: "What do you think?",
     ja: "どう 思う？"
   };
@@ -138366,11 +140694,11 @@ ${spelling}`);
     }
   ];
   const priorLessonPackage = {
-    schema: schema$19,
-    id: id$18,
+    schema: schema$18,
+    id: id$17,
     order: order$n,
     weekKind: weekKind$n,
-    title: title$19,
+    title: title$18,
     estimatedMinutes: estimatedMinutes$n,
     identity: identity$n,
     sourceCoverage: sourceCoverage$n,
@@ -138467,11 +140795,11 @@ ${spelling}`);
     if (!Array.isArray(value)) throw new TypeError(`${label} must be an array.`);
     return value;
   }
-  const schema$18 = "yomu-academy.week.v1";
-  const id$17 = "l2-l03";
+  const schema$17 = "yomu-academy.week.v1";
+  const id$16 = "l2-l03";
   const order$m = 30;
   const weekKind$m = "lesson";
-  const title$18 = {
+  const title$17 = {
     en: "Then and now",
     ja: "前と 今、どう 変わった？"
   };
@@ -140978,11 +143306,11 @@ ${spelling}`);
     }
   ];
   const lessonPackage$m = {
-    schema: schema$18,
-    id: id$17,
+    schema: schema$17,
+    id: id$16,
     order: order$m,
     weekKind: weekKind$m,
-    title: title$18,
+    title: title$17,
     estimatedMinutes: estimatedMinutes$m,
     identity: identity$m,
     sourceCoverage: sourceCoverage$m,
@@ -141092,11 +143420,11 @@ ${spelling}`);
     if (!Array.isArray(value)) throw new TypeError(`${label} must be an array.`);
     return value;
   }
-  const schema$17 = "yomu-academy.week.v1";
-  const id$16 = "l2-l05";
+  const schema$16 = "yomu-academy.week.v1";
+  const id$15 = "l2-l05";
   const order$l = 32;
   const weekKind$l = "lesson";
-  const title$17 = {
+  const title$16 = {
     en: "Want to go somewhere?",
     ja: "どこか 行く？"
   };
@@ -143652,11 +145980,11 @@ ${spelling}`);
     }
   ];
   const lessonPackage$l = {
-    schema: schema$17,
-    id: id$16,
+    schema: schema$16,
+    id: id$15,
     order: order$l,
     weekKind: weekKind$l,
-    title: title$17,
+    title: title$16,
     estimatedMinutes: estimatedMinutes$l,
     identity: identity$l,
     sourceCoverage: sourceCoverage$l,
@@ -144025,11 +146353,11 @@ ${spelling}`);
     if (!Array.isArray(value)) throw new TypeError(`${label} must be an array.`);
     return value;
   }
-  const schema$16 = "yomu-academy.week.v1";
-  const id$15 = "l2-l06";
+  const schema$15 = "yomu-academy.week.v1";
+  const id$14 = "l2-l06";
   const order$k = 33;
   const weekKind$k = "lesson";
-  const title$16 = {
+  const title$15 = {
     en: "What did they say?",
     ja: "何と 言いましたか"
   };
@@ -146845,11 +149173,11 @@ ${spelling}`);
     }
   ];
   const lessonPackage$k = {
-    schema: schema$16,
-    id: id$15,
+    schema: schema$15,
+    id: id$14,
     order: order$k,
     weekKind: weekKind$k,
-    title: title$16,
+    title: title$15,
     estimatedMinutes: estimatedMinutes$k,
     identity: identity$k,
     sourceCoverage: sourceCoverage$k,
@@ -147389,11 +149717,11 @@ ${spelling}`);
     if (!Array.isArray(value)) throw new TypeError(`${label} must be an array.`);
     return value;
   }
-  const schema$15 = "yomu-academy.week.v1";
-  const id$14 = "l2-l08";
+  const schema$14 = "yomu-academy.week.v1";
+  const id$13 = "l2-l08";
   const order$j = 35;
   const weekKind$j = "lesson";
-  const title$15 = {
+  const title$14 = {
     en: "The person wearing the red coat",
     ja: "赤い コートを 着ている 人"
   };
@@ -149621,11 +151949,11 @@ ${spelling}`);
     }
   ];
   const lessonPackage$j = {
-    schema: schema$15,
-    id: id$14,
+    schema: schema$14,
+    id: id$13,
     order: order$j,
     weekKind: weekKind$j,
-    title: title$15,
+    title: title$14,
     estimatedMinutes: estimatedMinutes$j,
     identity: identity$j,
     sourceCoverage: sourceCoverage$j,
@@ -149818,11 +152146,11 @@ ${spelling}`);
     if (!Array.isArray(value)) throw new TypeError(`${label} must be an array.`);
     return value;
   }
-  const schema$14 = "yomu-academy.week.v1";
-  const id$13 = "l2-l09";
+  const schema$13 = "yomu-academy.week.v1";
+  const id$12 = "l2-l09";
   const order$i = 36;
   const weekKind$i = "lesson";
-  const title$14 = {
+  const title$13 = {
     en: "The programme I want to watch",
     ja: "見たい 番組"
   };
@@ -152653,11 +154981,11 @@ ${spelling}`);
     }
   ];
   const lessonPackage$i = {
-    schema: schema$14,
-    id: id$13,
+    schema: schema$13,
+    id: id$12,
     order: order$i,
     weekKind: weekKind$i,
-    title: title$14,
+    title: title$13,
     estimatedMinutes: estimatedMinutes$i,
     identity: identity$i,
     sourceCoverage: sourceCoverage$i,
@@ -153078,11 +155406,11 @@ ${spelling}`);
     if (!Array.isArray(value)) throw new TypeError(`${label} must be an array.`);
     return value;
   }
-  const schema$13 = "yomu-academy.week.v1";
-  const id$12 = "l2-l10";
+  const schema$12 = "yomu-academy.week.v1";
+  const id$11 = "l2-l10";
   const order$h = 37;
   const weekKind$h = "lesson";
-  const title$13 = {
+  const title$12 = {
     en: "When you press this button",
     ja: "この ボタンを 押すと"
   };
@@ -156136,11 +158464,11 @@ ${spelling}`);
     }
   ];
   const lessonPackage$h = {
-    schema: schema$13,
-    id: id$12,
+    schema: schema$12,
+    id: id$11,
     order: order$h,
     weekKind: weekKind$h,
-    title: title$13,
+    title: title$12,
     estimatedMinutes: estimatedMinutes$h,
     identity: identity$h,
     sourceCoverage: sourceCoverage$h,
@@ -156504,11 +158832,11 @@ ${spelling}`);
     if (!Array.isArray(value)) throw new TypeError(`${label} must be an array.`);
     return value;
   }
-  const schema$12 = "yomu-academy.week.v1";
-  const id$11 = "l2-l11";
+  const schema$11 = "yomu-academy.week.v1";
+  const id$10 = "l2-l11";
   const order$g = 38;
   const weekKind$g = "lesson";
-  const title$12 = {
+  const title$11 = {
     en: "If the plan changes",
     ja: "予定が 変わったら"
   };
@@ -159272,11 +161600,11 @@ ${spelling}`);
     }
   ];
   const lessonPackage$g = {
-    schema: schema$12,
-    id: id$11,
+    schema: schema$11,
+    id: id$10,
     order: order$g,
     weekKind: weekKind$g,
-    title: title$12,
+    title: title$11,
     estimatedMinutes: estimatedMinutes$g,
     identity: identity$g,
     sourceCoverage: sourceCoverage$g,
@@ -159527,11 +161855,11 @@ ${spelling}`);
     if (!Array.isArray(value)) throw new TypeError(`${label} must be an array.`);
     return value;
   }
-  const schema$11 = "yomu-academy.week.v1";
-  const id$10 = "l2-l12";
+  const schema$10 = "yomu-academy.week.v1";
+  const id$$ = "l2-l12";
   const order$f = 39;
   const weekKind$f = "lesson";
-  const title$11 = {
+  const title$10 = {
     en: "Two things at once",
     ja: "〜ながらの 習慣"
   };
@@ -162541,11 +164869,11 @@ ${spelling}`);
     }
   ];
   const lessonPackage$f = {
-    schema: schema$11,
-    id: id$10,
+    schema: schema$10,
+    id: id$$,
     order: order$f,
     weekKind: weekKind$f,
-    title: title$11,
+    title: title$10,
     estimatedMinutes: estimatedMinutes$f,
     identity: identity$f,
     sourceCoverage: sourceCoverage$f,
@@ -163161,11 +165489,11 @@ ${spelling}`);
     if (!Array.isArray(value)) throw new TypeError(`${label} must be an array.`);
     return value;
   }
-  const schema$10 = "yomu-academy.week.v1";
-  const id$$ = "l2-l13";
+  const schema$$ = "yomu-academy.week.v1";
+  const id$_ = "l2-l13";
   const order$e = 40;
   const weekKind$e = "lesson";
-  const title$10 = {
+  const title$$ = {
     en: "More than one good reason",
     ja: "理由を 〜しで つなぐ"
   };
@@ -166248,11 +168576,11 @@ ${spelling}`);
     }
   ];
   const lessonPackage$e = {
-    schema: schema$10,
-    id: id$$,
+    schema: schema$$,
+    id: id$_,
     order: order$e,
     weekKind: weekKind$e,
-    title: title$10,
+    title: title$$,
     estimatedMinutes: estimatedMinutes$e,
     identity: identity$e,
     sourceCoverage: sourceCoverage$e,
@@ -166754,11 +169082,11 @@ ${spelling}`);
     if (!Array.isArray(value)) throw new TypeError(`${label} must be an array.`);
     return value;
   }
-  const schema$$ = "yomu-academy.week.v1";
-  const id$_ = "l2-l14";
+  const schema$_ = "yomu-academy.week.v1";
+  const id$Z = "l2-l14";
   const order$d = 41;
   const weekKind$d = "lesson";
-  const title$$ = {
+  const title$_ = {
     en: "What the room tells you",
     ja: "部屋の 状態を 読む"
   };
@@ -169233,11 +171561,11 @@ ${spelling}`);
     }
   ];
   const lessonPackage$d = {
-    schema: schema$$,
-    id: id$_,
+    schema: schema$_,
+    id: id$Z,
     order: order$d,
     weekKind: weekKind$d,
-    title: title$$,
+    title: title$_,
     estimatedMinutes: estimatedMinutes$d,
     identity: identity$d,
     sourceCoverage: sourceCoverage$d,
@@ -169582,11 +171910,11 @@ ${spelling}`);
     if (!Array.isArray(value)) throw new TypeError(`Expected ${label}.`);
     return value;
   }
-  const schema$_ = "yomu-academy.week.v1";
-  const id$Z = "l2-l15";
+  const schema$Z = "yomu-academy.week.v1";
+  const id$Y = "l2-l15";
   const order$c = 42;
   const weekKind$c = "lesson";
-  const title$_ = {
+  const title$Z = {
     en: "The day it all went wrong",
     ja: "やってしまった日"
   };
@@ -171604,11 +173932,11 @@ ${spelling}`);
     }
   ];
   const lessonPackage$c = {
-    schema: schema$_,
-    id: id$Z,
+    schema: schema$Z,
+    id: id$Y,
     order: order$c,
     weekKind: weekKind$c,
-    title: title$_,
+    title: title$Z,
     estimatedMinutes: estimatedMinutes$c,
     identity: identity$c,
     sourceCoverage: sourceCoverage$c,
@@ -171949,11 +174277,11 @@ ${spelling}`);
     if (!Array.isArray(value)) throw new TypeError(`Expected ${label}.`);
     return value;
   }
-  const schema$Z = "yomu-academy.week.v1";
-  const id$Y = "l2-l16";
+  const schema$Y = "yomu-academy.week.v1";
+  const id$X = "l2-l16";
   const order$b = 43;
   const weekKind$b = "lesson";
-  const title$Z = {
+  const title$Y = {
     en: "Ready before anyone arrives",
     ja: "もう 準備してあります"
   };
@@ -173976,11 +176304,11 @@ ${spelling}`);
     }
   ];
   const lessonPackage$b = {
-    schema: schema$Z,
-    id: id$Y,
+    schema: schema$Y,
+    id: id$X,
     order: order$b,
     weekKind: weekKind$b,
-    title: title$Z,
+    title: title$Y,
     estimatedMinutes: estimatedMinutes$b,
     identity: identity$b,
     sourceCoverage: sourceCoverage$b,
@@ -174354,11 +176682,11 @@ ${spelling}`);
     if (!Array.isArray(value)) throw new TypeError(`Expected ${label}.`);
     return value;
   }
-  const schema$Y = "yomu-academy.week.v1";
-  const id$X = "l2-l17";
+  const schema$X = "yomu-academy.week.v1";
+  const id$W = "l2-l17";
   const order$a = 44;
   const weekKind$a = "lesson";
-  const title$Y = {
+  const title$X = {
     en: "Do it now, thank yourself later",
     ja: "先に しておこう"
   };
@@ -177194,11 +179522,11 @@ ${spelling}`);
     }
   ];
   const lessonPackage$a = {
-    schema: schema$Y,
-    id: id$X,
+    schema: schema$X,
+    id: id$W,
     order: order$a,
     weekKind: weekKind$a,
-    title: title$Y,
+    title: title$X,
     estimatedMinutes: estimatedMinutes$a,
     identity: identity$a,
     sourceCoverage: sourceCoverage$a,
@@ -177562,11 +179890,11 @@ ${spelling}`);
     if (!Array.isArray(value)) throw new TypeError(`Expected ${label}.`);
     return value;
   }
-  const schema$X = "yomu-academy.week.v1";
-  const id$W = "l2-l18";
+  const schema$W = "yomu-academy.week.v1";
+  const id$V = "l2-l18";
   const order$9 = 45;
   const weekKind$9 = "lesson";
-  const title$X = {
+  const title$W = {
     en: "Say enough, not everything",
     ja: "例は 〜とかで"
   };
@@ -179557,11 +181885,11 @@ ${spelling}`);
     }
   ];
   const lessonPackage$9 = {
-    schema: schema$X,
-    id: id$W,
+    schema: schema$W,
+    id: id$V,
     order: order$9,
     weekKind: weekKind$9,
-    title: title$X,
+    title: title$W,
     estimatedMinutes: estimatedMinutes$9,
     identity: identity$9,
     sourceCoverage: sourceCoverage$9,
@@ -180001,11 +182329,11 @@ ${spelling}`);
     if (!Array.isArray(value)) throw new TypeError(`Expected ${label}.`);
     return value;
   }
-  const schema$W = "yomu-academy.week.v1";
-  const id$V = "l2-l19";
+  const schema$V = "yomu-academy.week.v1";
+  const id$U = "l2-l19";
   const order$8 = 46;
   const weekKind$8 = "pre-study";
-  const title$W = {
+  const title$V = {
     en: "A small plan begins with one verb",
     ja: "一つの 動詞から 計画へ"
   };
@@ -181585,11 +183913,11 @@ ${spelling}`);
     }
   ];
   const lessonPackage$8 = {
-    schema: schema$W,
-    id: id$V,
+    schema: schema$V,
+    id: id$U,
     order: order$8,
     weekKind: weekKind$8,
-    title: title$W,
+    title: title$V,
     estimatedMinutes: estimatedMinutes$8,
     identity: identity$8,
     sourceCoverage: sourceCoverage$8,
@@ -181854,11 +184182,11 @@ ${spelling}`);
     if (!Array.isArray(value)) throw new TypeError(`Expected ${label} array.`);
     return value;
   }
-  const schema$V = "yomu-academy.week.v1";
-  const id$U = "l2-l20";
+  const schema$U = "yomu-academy.week.v1";
+  const id$T = "l2-l20";
   const order$7 = 47;
   const weekKind$7 = "lesson";
-  const title$V = {
+  const title$U = {
     en: "A plan you have been carrying",
     ja: "考えてきた 計画"
   };
@@ -183958,11 +186286,11 @@ ${spelling}`);
     }
   ];
   const lessonPackage$7 = {
-    schema: schema$V,
-    id: id$U,
+    schema: schema$U,
+    id: id$T,
     order: order$7,
     weekKind: weekKind$7,
-    title: title$V,
+    title: title$U,
     estimatedMinutes: estimatedMinutes$7,
     identity: identity$7,
     sourceCoverage: sourceCoverage$7,
@@ -184176,11 +186504,11 @@ ${spelling}`);
     if (!Array.isArray(value)) throw new TypeError(`Expected ${label} array.`);
     return value;
   }
-  const schema$U = "yomu-academy.week.v1";
-  const id$T = "l2-l21";
+  const schema$T = "yomu-academy.week.v1";
+  const id$S = "l2-l21";
   const order$6 = 48;
   const weekKind$6 = "lesson";
-  const title$U = {
+  const title$T = {
     en: "Intentions, arrangements, and one honest change",
     ja: "つもり・予定・変更"
   };
@@ -186676,11 +189004,11 @@ ${spelling}`);
     }
   ];
   const lessonPackage$6 = {
-    schema: schema$U,
-    id: id$T,
+    schema: schema$T,
+    id: id$S,
     order: order$6,
     weekKind: weekKind$6,
-    title: title$U,
+    title: title$T,
     estimatedMinutes: estimatedMinutes$6,
     identity: identity$6,
     sourceCoverage: sourceCoverage$6,
@@ -187024,11 +189352,11 @@ ${spelling}`);
     if (!Array.isArray(value)) throw new TypeError(`Expected ${label} array.`);
     return value;
   }
-  const schema$T = "yomu-academy.week.v1";
-  const id$S = "l2-l29";
+  const schema$S = "yomu-academy.week.v1";
+  const id$R = "l2-l29";
   const order$5 = 56;
   const weekKind$5 = "lesson";
-  const title$T = {
+  const title$S = {
     en: "With this, without that",
     ja: "〜て、〜ないで行う"
   };
@@ -188589,11 +190917,11 @@ ${spelling}`);
     }
   ];
   const lessonPackage$5 = {
-    schema: schema$T,
-    id: id$S,
+    schema: schema$S,
+    id: id$R,
     order: order$5,
     weekKind: weekKind$5,
-    title: title$T,
+    title: title$S,
     estimatedMinutes: estimatedMinutes$5,
     identity: identity$5,
     sourceCoverage: sourceCoverage$5,
@@ -188987,11 +191315,11 @@ ${spelling}`);
     if (!Array.isArray(value)) throw new TypeError(`Expected ${label}.`);
     return value;
   }
-  const schema$S = "yomu-academy.week.v1";
-  const id$R = "l2-l30";
+  const schema$R = "yomu-academy.week.v1";
+  const id$Q = "l2-l30";
   const order$4 = 57;
   const weekKind$4 = "lesson";
-  const title$S = {
+  const title$R = {
     en: "If the condition changes",
     ja: "条件が変われば"
   };
@@ -190571,11 +192899,11 @@ ${spelling}`);
     }
   ];
   const lessonPackage$4 = {
-    schema: schema$S,
-    id: id$R,
+    schema: schema$R,
+    id: id$Q,
     order: order$4,
     weekKind: weekKind$4,
-    title: title$S,
+    title: title$R,
     estimatedMinutes: estimatedMinutes$4,
     identity: identity$4,
     sourceCoverage: sourceCoverage$4,
@@ -190954,11 +193282,11 @@ ${spelling}`);
     if (!Array.isArray(value)) throw new TypeError(`Expected ${label}.`);
     return value;
   }
-  const schema$R = "yomu-academy.week.v1";
-  const id$Q = "l2-l31";
+  const schema$Q = "yomu-academy.week.v1";
+  const id$P = "l2-l31";
   const order$3 = 58;
   const weekKind$3 = "lesson";
-  const title$R = {
+  const title$Q = {
     en: "If that is the plan",
     ja: "その予定なら"
   };
@@ -192358,11 +194686,11 @@ ${spelling}`);
     }
   ];
   const lessonPackage$3 = {
-    schema: schema$R,
-    id: id$Q,
+    schema: schema$Q,
+    id: id$P,
     order: order$3,
     weekKind: weekKind$3,
-    title: title$R,
+    title: title$Q,
     estimatedMinutes: estimatedMinutes$3,
     identity: identity$3,
     sourceCoverage: sourceCoverage$3,
@@ -192735,11 +195063,11 @@ ${spelling}`);
     if (!Array.isArray(value)) throw new TypeError(`Expected ${label}.`);
     return value;
   }
-  const schema$Q = "yomu-academy.week.v1";
-  const id$P = "l2-l32";
+  const schema$P = "yomu-academy.week.v1";
+  const id$O = "l2-l32";
   const order$2 = 59;
   const weekKind$2 = "lesson";
-  const title$Q = {
+  const title$P = {
     en: "If health is the goal",
     ja: "健康のことなら"
   };
@@ -194107,11 +196435,11 @@ ${spelling}`);
     }
   ];
   const lessonPackage$2 = {
-    schema: schema$Q,
-    id: id$P,
+    schema: schema$P,
+    id: id$O,
     order: order$2,
     weekKind: weekKind$2,
-    title: title$Q,
+    title: title$P,
     estimatedMinutes: estimatedMinutes$2,
     identity: identity$2,
     sourceCoverage: sourceCoverage$2,
@@ -194523,11 +196851,11 @@ ${spelling}`);
     if (!Array.isArray(value)) throw new TypeError(`Expected ${label}.`);
     return value;
   }
-  const schema$P = "yomu-academy.week.v1";
-  const id$O = "l2-l33";
+  const schema$O = "yomu-academy.week.v1";
+  const id$N = "l2-l33";
   const order$1 = 60;
   const weekKind$1 = "lesson";
-  const title$P = {
+  const title$O = {
     en: "So that the next words can come",
     ja: "次の言葉が出るように"
   };
@@ -195895,11 +198223,11 @@ ${spelling}`);
     }
   ];
   const lessonPackage$1 = {
-    schema: schema$P,
-    id: id$O,
+    schema: schema$O,
+    id: id$N,
     order: order$1,
     weekKind: weekKind$1,
-    title: title$P,
+    title: title$O,
     estimatedMinutes: estimatedMinutes$1,
     identity: identity$1,
     sourceCoverage: sourceCoverage$1,
@@ -196242,11 +198570,11 @@ ${spelling}`);
     if (!Array.isArray(value)) throw new TypeError(`Expected ${label}.`);
     return value;
   }
-  const schema$O = "yomu-academy.week.v1";
-  const id$N = "l2-l34";
+  const schema$N = "yomu-academy.week.v1";
+  const id$M = "l2-l34";
   const order = 61;
   const weekKind = "kanji-set";
-  const title$O = {
+  const title$N = {
     en: "A whole menu in seven kanji",
     ja: "七つの漢字で読むメニュー"
   };
@@ -197122,11 +199450,11 @@ ${spelling}`);
     }
   ];
   const lessonPackage = {
-    schema: schema$O,
-    id: id$N,
+    schema: schema$N,
+    id: id$M,
     order,
     weekKind,
-    title: title$O,
+    title: title$N,
     estimatedMinutes,
     identity,
     sourceCoverage,
@@ -199325,8 +201653,8 @@ ${spelling}`);
     if (typeof value !== "string" || !value.trim()) throw new TypeError(`${label} must be nonempty text.`);
     return value;
   }
-  const schema$N = "yomu-academy.season-one-fiction.v1";
-  const title$N = "The Lantern Atlas";
+  const schema$M = "yomu-academy.season-one-fiction.v1";
+  const title$M = "The Lantern Atlas";
   const welcomeDisclaimer = {
     heading: "Welcome to Yomu Academy",
     message: "This Season One story is AI-authored fiction: an invented composite, not biography, and not a claim that any depicted event happened in real life.",
@@ -200912,30 +203240,30 @@ ${spelling}`);
     ]
   };
   const legacySeasonSource = {
-    schema: schema$N,
-    title: title$N,
+    schema: schema$M,
+    title: title$M,
     welcomeDisclaimer,
     scope,
     episodes,
     endlessCalendar
   };
-  const schema$M = "yomu-academy.story-package.v2";
-  const id$M = "bridge:opening-arrival";
-  const revision$M = "2026-07-14.1";
-  const canonicality$M = "bridge";
-  const season$M = 1;
-  const title$M = {
+  const schema$L = "yomu-academy.story-package.v2";
+  const id$L = "bridge:opening-arrival";
+  const revision$L = "2026-07-14.1";
+  const canonicality$L = "bridge";
+  const season$L = 1;
+  const title$L = {
     en: "The Open Door",
     ja: "開いている扉"
   };
-  const synopsis$M = "At blue hour, the learner follows a paper lantern to Yomu Academy, meets Rie, reviews the fiction and consent boundary, and chooses how to enter the first class.";
-  const sourceSafety$M = {
+  const synopsis$L = "At blue hour, the learner follows a paper lantern to Yomu Academy, meets Rie, reviews the fiction and consent boundary, and chooses how to enter the first class.";
+  const sourceSafety$L = {
     originalYomu: true,
     externalDialogueUsed: false,
     fictionalComposite: true,
     realEventClaim: false
   };
-  const cast$M = [
+  const cast$L = [
     {
       castId: "rie",
       role: "lead",
@@ -200951,7 +203279,7 @@ ${spelling}`);
       ]
     }
   ];
-  const entry$N = {
+  const entry$M = {
     story: {
       forbidsAfterGraduation: true
     },
@@ -200966,7 +203294,7 @@ ${spelling}`);
       missingEvidenceRoute: "play-bridge"
     }
   };
-  const scenes$M = [
+  const scenes$L = [
     {
       id: "scene:opening-arrival:gate",
       locationId: "location:campus-entrance",
@@ -201321,7 +203649,7 @@ ${spelling}`);
       }
     }
   ];
-  const callbacks$M = [
+  const callbacks$L = [
     {
       id: "callback:open-chair",
       state: "seed",
@@ -201332,7 +203660,7 @@ ${spelling}`);
       maximumFutureUses: 5
     }
   ];
-  const outcomes$M = [
+  const outcomes$L = [
     {
       id: "outcome:opening-arrival:entered",
       kind: "story",
@@ -201344,7 +203672,7 @@ ${spelling}`);
       description: "The fiction and learner-control notice remains replayable."
     }
   ];
-  const replay$M = {
+  const replay$L = {
     chronologicalMemory: true,
     canonicalWrites: false,
     allowedLayers: [
@@ -201360,2035 +203688,16 @@ ${spelling}`);
     withdrawnContentFallback: "Replay the environmental arrival without withdrawn cast dialogue."
   };
   const openingArrivalSource = {
-    schema: schema$M,
-    id: id$M,
-    revision: revision$M,
-    canonicality: canonicality$M,
-    season: season$M,
-    title: title$M,
-    synopsis: synopsis$M,
-    sourceSafety: sourceSafety$M,
-    cast: cast$M,
-    entry: entry$N,
-    scenes: scenes$M,
-    callbacks: callbacks$M,
-    outcomes: outcomes$M,
-    replay: replay$M
-  };
-  const schema$L = "yomu-academy.story-package.v2";
-  const id$L = "s1e01-the-blank-atlas";
-  const revision$L = "2026-07-14.1";
-  const canonicality$L = "canon";
-  const season$L = 1;
-  const chapter$M = 1;
-  const title$L = {
-    en: "The Blank Atlas",
-    ja: "白紙のアトラス"
-  };
-  const synopsis$L = "Rie's first evening class discovers that the exhibition atlas has lost its route labels. Greetings, classroom repair, a chosen learning mission, and a practical introduction restore the first lantern point.";
-  const sourceSafety$L = {
-    originalYomu: true,
-    externalDialogueUsed: false,
-    fictionalComposite: true,
-    realEventClaim: false
-  };
-  const cast$L = [
-    {
-      castId: "rie",
-      role: "lead",
-      portrayal: "likeness-cleared",
-      evidenceRefs: [
-        "src/academy/domain/cast-registry.ts#rie",
-        "docs/academy/story/CAST-AND-CONSENT.md#rie"
-      ],
-      forbiddenClaims: [
-        "private biography",
-        "real-event claim"
-      ]
-    },
-    {
-      castId: "xingyu",
-      role: "support",
-      portrayal: "name-only",
-      evidenceRefs: [
-        "lesson:foundation-00#mission:sound",
-        "src/academy/domain/cast-registry.ts#xingyu"
-      ],
-      forbiddenClaims: [
-        "portrait or inferred likeness",
-        "surname or guessed kana name",
-        "nationality, job, or private history"
-      ]
-    },
-    {
-      castId: "mika",
-      role: "support",
-      portrayal: "name-only",
-      evidenceRefs: [
-        "lesson:foundation-00#mission:sound",
-        "src/academy/domain/cast-registry.ts#mika"
-      ],
-      forbiddenClaims: [
-        "portrait or inferred likeness",
-        "surname or guessed kana name",
-        "nationality, job, or private history"
-      ]
-    },
-    {
-      castId: "sophie",
-      role: "support",
-      portrayal: "name-only",
-      evidenceRefs: [
-        "lesson:foundation-00#mission:text",
-        "src/academy/domain/cast-registry.ts#sophie"
-      ],
-      forbiddenClaims: [
-        "portrait or inferred likeness",
-        "surname or guessed kana name",
-        "nationality, job, or private history"
-      ]
-    },
-    {
-      castId: "ruparna",
-      role: "support",
-      portrayal: "name-only",
-      evidenceRefs: [
-        "lesson:foundation-00#mission:text",
-        "src/academy/domain/cast-registry.ts#ruparna"
-      ],
-      forbiddenClaims: [
-        "portrait or inferred likeness",
-        "surname or guessed kana name",
-        "nationality, job, or private history"
-      ]
-    },
-    {
-      castId: "aakash",
-      role: "support",
-      portrayal: "name-only",
-      evidenceRefs: [
-        "lesson:foundation-00#mission:speaking",
-        "src/academy/domain/cast-registry.ts#aakash"
-      ],
-      forbiddenClaims: [
-        "portrait or inferred likeness",
-        "surname or guessed kana name",
-        "nationality, job, or private history"
-      ]
-    },
-    {
-      castId: "sam",
-      role: "support",
-      portrayal: "name-only",
-      evidenceRefs: [
-        "lesson:foundation-00#mission:speaking",
-        "src/academy/domain/cast-registry.ts#sam"
-      ],
-      forbiddenClaims: [
-        "portrait or inferred likeness",
-        "surname or guessed kana name",
-        "nationality, job, or private history"
-      ]
-    }
-  ];
-  const entry$M = {
-    story: {
-      after: "bridge:opening-arrival",
-      requiresSeen: [
-        "scene:opening-arrival:fiction-notice"
-      ],
-      forbidsAfterGraduation: true
-    },
-    curriculum: {
-      anyOfEvidence: [
-        {
-          kind: "curriculum-entry",
-          route: "lesson-zero"
-        }
-      ],
-      recommendedBand: "foundation",
-      missingEvidenceRoute: "offer-repair"
-    },
-    relationship: {
-      fallbackVariant: "variant:chapter-one-first-meeting"
-    }
-  };
-  const curriculumBinding = {
-    lessonId: "lesson:foundation-00",
-    contentVersion: "2026-07-22.lesson-zero.v2-sound-mission",
-    contentSha256: "43bc8753eef8af5c98fb51b59e89304a757b685a2dbac4f2c4b0e390222f4488",
-    provenancePath: "public/academy/content/lessons/lesson-zero/provenance.v1.json",
-    provenanceSha256: "3bf92fad4ec4996e0d055a0fdd76b4a585f703c544bc532be3fb22b6c189319e",
-    sectionSequence: [
-      "arrival-greetings",
-      "sound-script-map",
-      "classroom-survival",
-      "sentence-frames",
-      "useful-vocabulary",
-      "multi-speaker-input",
-      "reading-writing",
-      "transfer",
-      "close"
-    ],
-    sourceSequence: [
-      {
-        order: 1,
-        role: "writing-system-prerequisite",
-        sourceSha256: "0625a8f5d1c0107a8f6706cf76e5c2decd585bd7610793796b9b587025cfa09b",
-        policy: "render the reviewed teaching surface; do not reproduce source prose in story dialogue"
-      },
-      {
-        order: 2,
-        role: "kana-a-row-writing",
-        sourceSha256: "fe962ee2dc21478ffe53a24ba77ef0abb5a7685ab7a6eda8f79ac63817ad7dd6",
-        policy: "use only the registered vowel-row activity and learner evidence"
-      },
-      {
-        order: 3,
-        role: "greetings-reference-and-audio",
-        sourceSha256: "846cc2c9fc4d5310c8e6b3ee711817186239c3810e4433ec350015f32a4004b5",
-        activityIds: [
-          "activity:lesson-zero-greet-rie"
-        ],
-        policy: "Genki teaching anchor only; no textbook dialogue is stored in this package"
-      },
-      {
-        order: 4,
-        role: "classroom-language",
-        sourceSha256: "1e58967eb11b2d98d9b48a2547f392db90805836d96c232f11ac487d25b687ba",
-        activityIds: [
-          "activity:lesson-zero-follow-instructions",
-          "activity:lesson-zero-reconstruct-repair",
-          "activity:lesson-zero-desk-language"
-        ],
-        sourceQuestionIds: [
-          "source-question:classroom-phrase-01",
-          "source-question:classroom-phrase-02",
-          "source-question:classroom-phrase-03",
-          "source-question:classroom-phrase-04",
-          "source-question:classroom-phrase-05",
-          "source-question:classroom-phrase-06",
-          "source-question:classroom-phrase-07",
-          "source-question:classroom-phrase-08",
-          "source-question:classroom-phrase-09",
-          "source-question:classroom-phrase-10",
-          "source-question:classroom-phrase-11",
-          "source-question:classroom-phrase-12",
-          "source-question:classroom-phrase-13",
-          "source-question:classroom-phrase-14"
-        ],
-        policy: "the registered Moodle reconstruction owns prompts, answers, and grading; story owns only the surrounding need and consequence"
-      }
-    ],
-    missions: [
-      {
-        id: "sound",
-        choiceOptionId: "option:blank-atlas:mission-sound",
-        sceneId: "scene:blank-atlas:mission-sound",
-        hostIds: [
-          "xingyu",
-          "mika"
-        ],
-        locationId: "location:language-lab",
-        openingActivityId: "activity:lesson-zero-sound-input",
-        transferActivityId: "activity:lesson-zero-sound-transfer",
-        mementoId: "memento:lesson-zero-class-recording"
-      },
-      {
-        id: "text",
-        choiceOptionId: "option:blank-atlas:mission-text",
-        sceneId: "scene:blank-atlas:mission-text",
-        hostIds: [
-          "sophie",
-          "ruparna"
-        ],
-        locationId: "location:library",
-        openingActivityId: "activity:lesson-zero-text-input",
-        transferActivityId: "activity:lesson-zero-text-transfer",
-        mementoId: "memento:lesson-zero-first-page-clue"
-      },
-      {
-        id: "speaking",
-        choiceOptionId: "option:blank-atlas:mission-speaking",
-        sceneId: "scene:blank-atlas:mission-speaking",
-        hostIds: [
-          "aakash",
-          "sam"
-        ],
-        locationId: "location:classroom-entrance",
-        openingActivityId: "activity:lesson-zero-speaking-input",
-        transferActivityId: "activity:lesson-zero-speaking-transfer",
-        mementoId: "memento:lesson-zero-first-bond-scene"
-      }
-    ]
-  };
-  const scenes$L = [
-    {
-      id: "scene:blank-atlas:arrival-greetings",
-      locationId: "location:classroom",
-      timeState: "evening",
-      goal: "Join the room with a first greeting and discover the class's immediate problem.",
-      dramaticQuestion: "Can a first greeting count before the learner feels ready?",
-      learnerNeed: "A natural first-meeting sequence with a repairable production turn.",
-      curriculum: {
-        sectionId: "arrival-greetings",
-        order: 1
-      },
-      checkpointOnEnter: true,
-      nodes: [
-        {
-          kind: "stage",
-          id: "node:blank-atlas:covered-table",
-          beatId: "beat:blank-atlas:arrival-image",
-          cueId: "cue:covered-atlas-open-chair",
-          description: "A rain-dark cloth covers a wide object on the front table. One corner of a blank paper map shows beneath it."
-        },
-        {
-          kind: "line",
-          id: "line:blank-atlas:rie-konbanwa",
-          beatId: "beat:blank-atlas:greeting-need",
-          speakerId: "rie",
-          intent: "Begin the room with a real evening greeting.",
-          attentionTarget: "the learner and the waiting class",
-          variants: {
-            foundation: {
-              japanese: "こんばんは。はじめまして。Rieです。",
-              reading: "こんばんは。はじめまして。Rieです。",
-              english: "Good evening. Nice to meet you. I'm Rie."
-            },
-            n5: {
-              japanese: "こんばんは。はじめまして。先生のRieです。",
-              reading: "こんばんは。はじめまして。せんせいのRieです。",
-              english: "Good evening. Nice to meet you. I'm Rie, your teacher."
-            }
-          },
-          support: {
-            reading: "learner-controlled",
-            englishMeaning: "after-need",
-            replay: true
-          }
-        },
-        {
-          kind: "checkpoint",
-          id: "checkpoint:blank-atlas:before-greeting",
-          beatId: "beat:blank-atlas:greeting-attempt",
-          resume: "Rie has greeted the learner and is waiting for a first-meeting response."
-        },
-        {
-          kind: "activity",
-          id: "activity-node:blank-atlas:greet-rie",
-          beatId: "beat:blank-atlas:greeting-attempt",
-          hook: {
-            lessonId: "lesson:foundation-00",
-            componentType: "speaking",
-            exerciseId: "activity:lesson-zero-greet-rie"
-          },
-          requiredEvidence: {
-            kind: "activity-passed",
-            activityId: "activity:lesson-zero-greet-rie"
-          },
-          resumeContext: "Rie is waiting beside the covered atlas after saying good evening and introducing herself.",
-          onReady: "checkpoint:blank-atlas:after-greeting",
-          onRepair: "node:blank-atlas:greeting-repair",
-          onDefer: "checkpoint:blank-atlas:before-greeting"
-        },
-        {
-          kind: "stage",
-          id: "node:blank-atlas:greeting-repair",
-          beatId: "beat:blank-atlas:greeting-repair",
-          cueId: "cue:rie-greeting-one-step",
-          description: "Rie answers the part she understood, then offers only the next missing greeting chunk."
-        },
-        {
-          kind: "checkpoint",
-          id: "checkpoint:blank-atlas:after-greeting",
-          beatId: "beat:blank-atlas:greeting-response",
-          resume: "The greeting has landed. Rie turns to the covered object on the table."
-        },
-        {
-          kind: "line",
-          id: "line:blank-atlas:rie-problem",
-          beatId: "beat:blank-atlas:obstruction",
-          speakerId: "rie",
-          intent: "Reveal that the atlas is unfinished and invite help without making help a test.",
-          attentionTarget: "the blank route under the cloth",
-          variants: {
-            foundation: {
-              japanese: "これはアトラスです。でも、道がありません。",
-              reading: "これはアトラスです。でも、みちがありません。",
-              english: "This is an atlas. But it has no route."
-            },
-            n5: {
-              japanese: "これは展示のアトラスです。でも、最初の道が消えました。",
-              reading: "これはてんじのアトラスです。でも、さいしょのみちがきえました。",
-              english: "This is the exhibition atlas. But its first route has disappeared."
-            }
-          },
-          support: {
-            reading: "learner-controlled",
-            englishMeaning: "after-need",
-            replay: true
-          }
-        },
-        {
-          kind: "stage",
-          id: "node:blank-atlas:first-uncover",
-          beatId: "beat:blank-atlas:changed-image",
-          cueId: "cue:atlas-uncovered-unlit",
-          description: "The cloth comes away. The atlas frame is bright brass; every route inside it is blank."
-        }
-      ],
-      exit: {
-        checkpoint: true,
-        next: "scene:blank-atlas:sound-script-map"
-      }
-    },
-    {
-      id: "scene:blank-atlas:sound-script-map",
-      locationId: "location:classroom",
-      timeState: "evening",
-      goal: "Give the blank route its first stable sound and written marks.",
-      dramaticQuestion: "Will five small sounds be treated as too little, or as enough to begin?",
-      learnerNeed: "A sound-first map of the five vowels and a first purposeful kana attempt.",
-      curriculum: {
-        sectionId: "sound-script-map",
-        order: 2
-      },
-      checkpointOnEnter: true,
-      nodes: [
-        {
-          kind: "stage",
-          id: "node:blank-atlas:vowel-slots",
-          beatId: "beat:blank-atlas:sound-image",
-          cueId: "cue:five-empty-atlas-slots",
-          description: "Five empty circles appear along the first route. Each waits for one sound and one mark."
-        },
-        {
-          kind: "line",
-          id: "line:blank-atlas:rie-listen-first",
-          beatId: "beat:blank-atlas:sound-want",
-          speakerId: "rie",
-          intent: "Set listening before explanation.",
-          attentionTarget: "the five empty circles",
-          variants: {
-            foundation: {
-              japanese: "まず、音です。きいてください。",
-              reading: "まず、おとです。きいてください。",
-              english: "First, sound. Please listen."
-            },
-            n5: {
-              japanese: "文字の前に、五つの音を聞きましょう。",
-              reading: "もじのまえに、いつつのおとをききましょう。",
-              english: "Before the writing, let's listen to five sounds."
-            }
-          },
-          support: {
-            reading: "learner-controlled",
-            englishMeaning: "after-need",
-            replay: true
-          }
-        },
-        {
-          kind: "checkpoint",
-          id: "checkpoint:blank-atlas:before-vowel-listen",
-          beatId: "beat:blank-atlas:vowel-listen",
-          resume: "Five empty route circles are waiting for the ordered vowel sounds."
-        },
-        {
-          kind: "activity",
-          id: "activity-node:blank-atlas:vowel-listen",
-          beatId: "beat:blank-atlas:vowel-listen",
-          hook: {
-            lessonId: "lesson:foundation-00",
-            componentType: "listening",
-            exerciseId: "activity:lesson-zero-vowel-listen"
-          },
-          requiredEvidence: {
-            kind: "activity-passed",
-            activityId: "activity:lesson-zero-vowel-listen"
-          },
-          resumeContext: "The atlas has five empty sound positions in a fixed order.",
-          onReady: "checkpoint:blank-atlas:after-vowel-listen",
-          onRepair: "node:blank-atlas:vowel-listen-repair",
-          onDefer: "checkpoint:blank-atlas:before-vowel-listen"
-        },
-        {
-          kind: "stage",
-          id: "node:blank-atlas:vowel-listen-repair",
-          beatId: "beat:blank-atlas:vowel-listen-repair",
-          cueId: "cue:vowels-replay-one-gap",
-          description: "Only the uncertain sound replays; the other four circles stay in place."
-        },
-        {
-          kind: "checkpoint",
-          id: "checkpoint:blank-atlas:after-vowel-listen",
-          beatId: "beat:blank-atlas:vowel-listen-response",
-          resume: "The five vowel sounds are ordered; the circles still need written forms."
-        },
-        {
-          kind: "checkpoint",
-          id: "checkpoint:blank-atlas:before-vowel-doodle",
-          beatId: "beat:blank-atlas:vowel-writing",
-          resume: "The sound map is ready for the learner's first hiragana marks."
-        },
-        {
-          kind: "activity",
-          id: "activity-node:blank-atlas:vowel-doodle",
-          beatId: "beat:blank-atlas:vowel-writing",
-          hook: {
-            lessonId: "lesson:foundation-00",
-            componentType: "writing",
-            exerciseId: "activity:lesson-zero-vowel-doodle"
-          },
-          requiredEvidence: {
-            kind: "activity-passed",
-            activityId: "activity:lesson-zero-vowel-doodle"
-          },
-          resumeContext: "The ordered sounds are visible as five route positions awaiting hiragana.",
-          onReady: "checkpoint:blank-atlas:after-vowel-doodle",
-          onRepair: "node:blank-atlas:vowel-doodle-repair",
-          onDefer: "checkpoint:blank-atlas:before-vowel-doodle"
-        },
-        {
-          kind: "stage",
-          id: "node:blank-atlas:vowel-doodle-repair",
-          beatId: "beat:blank-atlas:vowel-writing-repair",
-          cueId: "cue:kana-trace-one-stroke",
-          description: "The route holds the recognisable strokes and returns only the stroke that needs another attempt."
-        },
-        {
-          kind: "checkpoint",
-          id: "checkpoint:blank-atlas:after-vowel-doodle",
-          beatId: "beat:blank-atlas:sound-consequence",
-          resume: "Five vowel marks now form the first short line across the atlas."
-        },
-        {
-          kind: "stage",
-          id: "node:blank-atlas:first-line",
-          beatId: "beat:blank-atlas:sound-exit",
-          cueId: "cue:first-route-line-visible",
-          description: "A thin route line joins the five marks. It stops at a paper tab labelled CLASS."
-        }
-      ],
-      exit: {
-        checkpoint: true,
-        next: "scene:blank-atlas:classroom-survival"
-      }
-    },
-    {
-      id: "scene:blank-atlas:classroom-survival",
-      locationId: "location:classroom",
-      timeState: "evening",
-      goal: "Use the complete classroom handout to move the room and repair a missed instruction.",
-      dramaticQuestion: "Can a request for repetition become the action that keeps the class moving?",
-      learnerNeed: "All fourteen Moodle classroom expressions grouped by action, repair, feedback, and desk language.",
-      curriculum: {
-        sectionId: "classroom-survival",
-        order: 3
-      },
-      checkpointOnEnter: true,
-      nodes: [
-        {
-          kind: "stage",
-          id: "node:blank-atlas:handout-arrives",
-          beatId: "beat:blank-atlas:handout-image",
-          cueId: "cue:classroom-handout-on-desk",
-          description: "The classroom handout slides beside the atlas. Its action clusters align with movable tabs on the frame."
-        },
-        {
-          kind: "line",
-          id: "line:blank-atlas:rie-look",
-          beatId: "beat:blank-atlas:instruction-want",
-          speakerId: "rie",
-          intent: "Make the source instruction change a literal object in the room.",
-          attentionTarget: "the handout's first action cluster",
-          variants: {
-            foundation: {
-              japanese: "みてください。つぎに、きいてください。",
-              reading: "みてください。つぎに、きいてください。",
-              english: "Please look. Next, please listen."
-            },
-            n5: {
-              japanese: "プリントを見てください。次の指示を聞いてください。",
-              reading: "プリントをみてください。つぎのしじをきいてください。",
-              english: "Please look at the handout. Listen to the next instruction."
-            }
-          },
-          support: {
-            reading: "learner-controlled",
-            englishMeaning: "after-commit",
-            replay: true
-          }
-        },
-        {
-          kind: "checkpoint",
-          id: "checkpoint:blank-atlas:before-follow-instructions",
-          beatId: "beat:blank-atlas:follow-instructions",
-          resume: "The handout and atlas tabs are ready to respond to Rie's classroom instructions."
-        },
-        {
-          kind: "activity",
-          id: "activity-node:blank-atlas:follow-instructions",
-          beatId: "beat:blank-atlas:follow-instructions",
-          hook: {
-            lessonId: "lesson:foundation-00",
-            componentType: "authentic-input",
-            exerciseId: "activity:lesson-zero-follow-instructions"
-          },
-          requiredEvidence: {
-            kind: "activity-passed",
-            activityId: "activity:lesson-zero-follow-instructions"
-          },
-          resumeContext: "The room is following the start, finish, break, look, say, listen, and write cluster on the source handout.",
-          onReady: "checkpoint:blank-atlas:after-follow-instructions",
-          onRepair: "node:blank-atlas:follow-instructions-repair",
-          onDefer: "checkpoint:blank-atlas:before-follow-instructions"
-        },
-        {
-          kind: "stage",
-          id: "node:blank-atlas:follow-instructions-repair",
-          beatId: "beat:blank-atlas:instruction-repair",
-          cueId: "cue:instruction-one-object",
-          description: "Rie resets one object and repeats one instruction; the rest of the room stays where the learner left it."
-        },
-        {
-          kind: "checkpoint",
-          id: "checkpoint:blank-atlas:after-follow-instructions",
-          beatId: "beat:blank-atlas:instruction-response",
-          resume: "The first seven classroom actions have moved the room into working order."
-        },
-        {
-          kind: "line",
-          id: "line:blank-atlas:rie-too-fast",
-          beatId: "beat:blank-atlas:repair-obstruction",
-          speakerId: "rie",
-          intent: "Create an honest need for repetition by moving too quickly once.",
-          attentionTarget: "two similar atlas tabs",
-          variants: {
-            foundation: {
-              japanese: "このれいを見て、書いて、つぎを――",
-              reading: "このれいをみて、かいて、つぎを――",
-              english: "Look at this example, write, and then the next—"
-            },
-            n5: {
-              japanese: "この例を見て、答えを書いて、それから次のカードを――",
-              reading: "このれいをみて、こたえをかいて、それからつぎのカードを――",
-              english: "Look at this example, write the answer, and then take the next card—"
-            }
-          },
-          support: {
-            reading: "learner-controlled",
-            englishMeaning: "after-commit",
-            replay: true
-          }
-        },
-        {
-          kind: "checkpoint",
-          id: "checkpoint:blank-atlas:before-repair",
-          beatId: "beat:blank-atlas:repair-attempt",
-          resume: "Rie's instruction stopped after becoming too fast to follow."
-        },
-        {
-          kind: "activity",
-          id: "activity-node:blank-atlas:reconstruct-repair",
-          beatId: "beat:blank-atlas:repair-attempt",
-          hook: {
-            lessonId: "lesson:foundation-00",
-            componentType: "speaking",
-            exerciseId: "activity:lesson-zero-reconstruct-repair"
-          },
-          requiredEvidence: {
-            kind: "activity-passed",
-            activityId: "activity:lesson-zero-reconstruct-repair"
-          },
-          resumeContext: "The learner needs to ask Rie to repeat a fast classroom instruction before touching either tab.",
-          onReady: "checkpoint:blank-atlas:after-repair",
-          onRepair: "node:blank-atlas:repair-smaller-step",
-          onDefer: "checkpoint:blank-atlas:before-repair"
-        },
-        {
-          kind: "stage",
-          id: "node:blank-atlas:repair-smaller-step",
-          beatId: "beat:blank-atlas:repair-exact-response",
-          cueId: "cue:repair-phrase-one-gap",
-          description: "The phrase rebuilds around one missing chunk; no English answer appears before the learner commits."
-        },
-        {
-          kind: "checkpoint",
-          id: "checkpoint:blank-atlas:after-repair",
-          beatId: "beat:blank-atlas:repair-response",
-          resume: "Rie has repeated the instruction at a usable pace and the correct tab is now clear."
-        },
-        {
-          kind: "line",
-          id: "line:blank-atlas:rie-repetition-works",
-          beatId: "beat:blank-atlas:repair-consequence",
-          speakerId: "rie",
-          intent: "Treat repair language as the contribution that saved the route.",
-          attentionTarget: "the now-correct atlas tab",
-          variants: {
-            foundation: {
-              japanese: "はい。もう一度です。いい質問です。",
-              reading: "はい。もういちどです。いいしつもんです。",
-              english: "Yes. Once more. Good question."
-            },
-            n5: {
-              japanese: "はい、もう一度言います。止めてくれて、よかったです。",
-              reading: "はい、もういちどいいます。とめてくれて、よかったです。",
-              english: "Yes, I'll say it again. I'm glad you stopped me."
-            }
-          },
-          support: {
-            reading: "learner-controlled",
-            englishMeaning: "after-need",
-            replay: true
-          }
-        },
-        {
-          kind: "checkpoint",
-          id: "checkpoint:blank-atlas:before-desk-language",
-          beatId: "beat:blank-atlas:desk-language",
-          resume: "The route is moving again; two desk labels still need their classroom meanings."
-        },
-        {
-          kind: "activity",
-          id: "activity-node:blank-atlas:desk-language",
-          beatId: "beat:blank-atlas:desk-language",
-          hook: {
-            lessonId: "lesson:foundation-00",
-            componentType: "vocabulary",
-            exerciseId: "activity:lesson-zero-desk-language"
-          },
-          requiredEvidence: {
-            kind: "activity-passed",
-            activityId: "activity:lesson-zero-desk-language"
-          },
-          resumeContext: "The literal example and homework objects need the correct desk-language labels.",
-          onReady: "checkpoint:blank-atlas:after-desk-language",
-          onRepair: "node:blank-atlas:desk-language-repair",
-          onDefer: "checkpoint:blank-atlas:before-desk-language"
-        },
-        {
-          kind: "stage",
-          id: "node:blank-atlas:desk-language-repair",
-          beatId: "beat:blank-atlas:desk-language-repair",
-          cueId: "cue:desk-object-context",
-          description: "The paper example and the take-home card move apart so the labels can be recovered from use."
-        },
-        {
-          kind: "checkpoint",
-          id: "checkpoint:blank-atlas:after-desk-language",
-          beatId: "beat:blank-atlas:handout-consequence",
-          resume: "All fourteen classroom expressions now have an action or object in the room."
-        },
-        {
-          kind: "stage",
-          id: "node:blank-atlas:handout-flower",
-          beatId: "beat:blank-atlas:handout-exit",
-          cueId: "cue:rie-flower-mark",
-          description: "Rie adds a small flower mark to the handout. A matching paper flower appears at the route's first turn."
-        }
-      ],
-      exit: {
-        checkpoint: true,
-        next: "scene:blank-atlas:sentence-frames"
-      }
-    },
-    {
-      id: "scene:blank-atlas:sentence-frames",
-      locationId: "location:classroom",
-      timeState: "evening",
-      goal: "Build enough sentence structure to read true and false route labels.",
-      dramaticQuestion: "Can the class correct the atlas without turning correction into a verdict on a person?",
-      learnerNeed: "The five registered noun sentence frames in a concrete identification problem.",
-      curriculum: {
-        sectionId: "sentence-frames",
-        order: 4
-      },
-      checkpointOnEnter: true,
-      nodes: [
-        {
-          kind: "stage",
-          id: "node:blank-atlas:false-label",
-          beatId: "beat:blank-atlas:frame-image",
-          cueId: "cue:atlas-classroom-library-labels",
-          description: "Two labels print at once: THIS IS THE CLASSROOM and THIS IS NOT THE CLASSROOM. The atlas cannot decide which door it drew."
-        },
-        {
-          kind: "line",
-          id: "line:blank-atlas:rie-label-question",
-          beatId: "beat:blank-atlas:frame-want",
-          speakerId: "rie",
-          intent: "Turn sentence forms into a route check rather than isolated grammar display.",
-          attentionTarget: "the conflicting labels",
-          variants: {
-            foundation: {
-              japanese: "ここは教室ですか。図書室ですか。",
-              reading: "ここはきょうしつですか。としょしつですか。",
-              english: "Is this the classroom? Is it the library?"
-            },
-            n5: {
-              japanese: "この場所は教室ですか。図書室じゃありませんか。",
-              reading: "このばしょはきょうしつですか。としょしつじゃありませんか。",
-              english: "Is this place the classroom? Isn't it the library?"
-            }
-          },
-          support: {
-            reading: "learner-controlled",
-            englishMeaning: "after-need",
-            replay: true
-          }
-        },
-        {
-          kind: "checkpoint",
-          id: "checkpoint:blank-atlas:before-sentence-frames",
-          beatId: "beat:blank-atlas:frame-attempt",
-          resume: "The atlas needs affirmative, negative, question, noun-linking, and parallel-fact frames to verify its labels."
-        },
-        {
-          kind: "activity",
-          id: "activity-node:blank-atlas:sentence-frames",
-          beatId: "beat:blank-atlas:frame-attempt",
-          hook: {
-            lessonId: "lesson:foundation-00",
-            componentType: "grammar",
-            exerciseId: "activity:lesson-zero-build-sentence-frames"
-          },
-          requiredEvidence: {
-            kind: "activity-passed",
-            activityId: "activity:lesson-zero-build-sentence-frames"
-          },
-          resumeContext: "Two contradictory route labels need the five Lesson 0 noun sentence frames.",
-          onReady: "checkpoint:blank-atlas:after-sentence-frames",
-          onRepair: "node:blank-atlas:sentence-frame-repair",
-          onDefer: "checkpoint:blank-atlas:before-sentence-frames"
-        },
-        {
-          kind: "stage",
-          id: "node:blank-atlas:sentence-frame-repair",
-          beatId: "beat:blank-atlas:frame-repair",
-          cueId: "cue:sentence-frame-meaning-contrast",
-          description: "The two labels stay visible while one particle or copula slot returns for a smaller retry."
-        },
-        {
-          kind: "checkpoint",
-          id: "checkpoint:blank-atlas:after-sentence-frames",
-          beatId: "beat:blank-atlas:frame-response",
-          resume: "The false label has folded away and the true classroom label remains."
-        },
-        {
-          kind: "stage",
-          id: "node:blank-atlas:label-fixed",
-          beatId: "beat:blank-atlas:frame-consequence",
-          cueId: "cue:atlas-classroom-label-fixed",
-          description: "The atlas draws a clear door around the true label, then leaves a blank name line beneath it."
-        }
-      ],
-      exit: {
-        checkpoint: true,
-        next: "scene:blank-atlas:useful-vocabulary"
-      }
-    },
-    {
-      id: "scene:blank-atlas:useful-vocabulary",
-      locationId: "location:classroom",
-      timeState: "evening",
-      goal: "Move the learner's spoken name sentence onto a desk card, then choose the first route mission.",
-      dramaticQuestion: "Can the learner recognise on paper the same name sentence they have already said aloud?",
-      learnerNeed: "Transfer the familiar name + です chunk from speech to a two-piece written frame, with audio and meaning support.",
-      curriculum: {
-        sectionId: "useful-vocabulary",
-        order: 5
-      },
-      checkpointOnEnter: true,
-      nodes: [
-        {
-          kind: "stage",
-          id: "node:blank-atlas:name-line",
-          beatId: "beat:blank-atlas:vocabulary-image",
-          cueId: "cue:blank-name-card-and-atlas-line",
-          description: "Rie writes the learner's saved name on a desk card and leaves one short space after it."
-        },
-        {
-          kind: "line",
-          id: "line:blank-atlas:rie-share-boundary",
-          beatId: "beat:blank-atlas:vocabulary-boundary",
-          speakerId: "rie",
-          intent: "Connect the spoken introduction to the same sentence on paper without testing untaught kana.",
-          attentionTarget: "the learner's saved name and the open space after it",
-          variants: {
-            foundation: {
-              japanese: "名前の後ろに「です」を置きましょう。",
-              reading: "なまえのうしろに「です」をおきましょう。",
-              english: "Put です after your name."
-            },
-            n5: {
-              japanese: "さっき言った名前の後ろに「です」を置いて、名札を完成させましょう。",
-              reading: "さっきいったなまえのうしろに「です」をおいて、なふだをかんせいさせましょう。",
-              english: "Put です after the name you said earlier and finish the card."
-            }
-          },
-          support: {
-            reading: "learner-controlled",
-            englishMeaning: "available",
-            replay: true
-          }
-        },
-        {
-          kind: "checkpoint",
-          id: "checkpoint:blank-atlas:before-name-card-draft",
-          beatId: "beat:blank-atlas:vocabulary-attempt",
-          resume: "Rie has written the saved player name. The learner is ready to place です after it."
-        },
-        {
-          kind: "activity",
-          id: "activity-node:blank-atlas:name-card-draft",
-          beatId: "beat:blank-atlas:vocabulary-attempt",
-          hook: {
-            lessonId: "lesson:foundation-00",
-            componentType: "grammar",
-            exerciseId: "activity:lesson-zero-name-card-draft"
-          },
-          requiredEvidence: {
-            kind: "activity-passed",
-            activityId: "activity:lesson-zero-name-card-draft"
-          },
-          resumeContext: "The learner is moving the name + です sentence from the spoken greeting onto the desk card.",
-          onReady: "checkpoint:blank-atlas:after-name-card-draft",
-          onRepair: "node:blank-atlas:name-card-repair",
-          onDefer: "checkpoint:blank-atlas:before-name-card-draft"
-        },
-        {
-          kind: "stage",
-          id: "node:blank-atlas:name-card-repair",
-          beatId: "beat:blank-atlas:vocabulary-repair",
-          cueId: "cue:name-card-one-rubric",
-          description: "Rie taps the saved name once, then the です piece, without adding another explanation."
-        },
-        {
-          kind: "checkpoint",
-          id: "checkpoint:blank-atlas:after-name-card-draft",
-          beatId: "beat:blank-atlas:vocabulary-response",
-          resume: "The learner's name + です card is on the desk."
-        },
-        {
-          kind: "line",
-          id: "line:blank-atlas:rie-three-routes",
-          beatId: "beat:blank-atlas:mission-want",
-          speakerId: "rie",
-          intent: "Offer three materially different ways to recover the next atlas label.",
-          attentionTarget: "three route tabs: sound, text, speaking",
-          variants: {
-            foundation: {
-              japanese: "音、文、会話。どれから始めますか。",
-              reading: "おと、ぶん、かいわ。どれからはじめますか。",
-              english: "Sound, text, or conversation. Which will you begin with?"
-            },
-            n5: {
-              japanese: "音で確かめる道、文を直す道、話して迎える道があります。どれにしますか。",
-              reading: "おとでたしかめるみち、ぶんをなおすみち、はなしてむかえるみちがあります。どれにしますか。",
-              english: "There is a route for checking sound, repairing text, or welcoming someone through speech. Which do you choose?"
-            }
-          },
-          support: {
-            reading: "learner-controlled",
-            englishMeaning: "after-need",
-            replay: true
-          }
-        },
-        {
-          kind: "choice",
-          id: "choice:blank-atlas:mission",
-          beatId: "beat:blank-atlas:mission-choice",
-          question: "Which mission should recover the next route label?",
-          options: [
-            {
-              id: "option:blank-atlas:mission-sound",
-              action: "Go to the language lab and identify people from sound before text.",
-              japaneseByBand: {
-                foundation: "音から始めます。",
-                n5: "語学ラボで、音から確かめます。"
-              },
-              records: [
-                "stance",
-                "support-style"
-              ],
-              next: "scene:blank-atlas:mission-sound"
-            },
-            {
-              id: "option:blank-atlas:mission-text",
-              action: "Go to the library and reconstruct the handwritten route note.",
-              japaneseByBand: {
-                foundation: "文から始めます。",
-                n5: "図書室で、手書きの文を直します。"
-              },
-              records: [
-                "stance",
-                "support-style"
-              ],
-              next: "scene:blank-atlas:mission-text"
-            },
-            {
-              id: "option:blank-atlas:mission-speaking",
-              action: "Return to the entrance and help greet the next arrivals.",
-              japaneseByBand: {
-                foundation: "会話から始めます。",
-                n5: "入口で、来た人に話します。"
-              },
-              records: [
-                "stance",
-                "support-style"
-              ],
-              next: "scene:blank-atlas:mission-speaking"
-            }
-          ],
-          convergence: "scene:blank-atlas:reading-writing"
-        },
-        {
-          kind: "checkpoint",
-          id: "checkpoint:blank-atlas:mission-chosen",
-          beatId: "beat:blank-atlas:vocabulary-exit",
-          resume: "The learner's first mission is selected; all routes return to the same unfinished name-card line."
-        }
-      ],
-      exit: {
-        checkpoint: true,
-        next: "choice:blank-atlas:mission"
-      }
-    },
-    {
-      id: "scene:blank-atlas:mission-sound",
-      locationId: "location:language-lab",
-      timeState: "evening",
-      goal: "Find Xingyu and Mika's names by listening for the word immediately before です.",
-      dramaticQuestion: "Can the learner find a name without understanding the whole introduction?",
-      learnerNeed: "Two short audio-first introductions, one voice at a time, with text delayed until the first commitment.",
-      curriculum: {
-        sectionId: "multi-speaker-input",
-        order: 6,
-        missionId: "sound"
-      },
-      checkpointOnEnter: true,
-      nodes: [
-        {
-          kind: "stage",
-          id: "node:blank-atlas:sound-nameplates",
-          beatId: "beat:blank-atlas:sound-mission-image",
-          cueId: "cue:sound-route-nameplates-only",
-          description: "Xingyu puts in one earbud. Mika rests a hand on his headphones. Two empty name slots wait between them."
-        },
-        {
-          kind: "line",
-          id: "line:blank-atlas:xingyu-sound-first",
-          beatId: "beat:blank-atlas:sound-mission-want",
-          speakerId: "xingyu",
-          intent: "Give the learner one small listening target without asking them to decode the whole sentence.",
-          attentionTarget: "the empty name slots",
-          variants: {
-            foundation: {
-              japanese: "全部はいいです。「です」の前だけ、聞いてみて。",
-              reading: "ぜんぶはいいです。「です」のまえだけ、きいてみて。",
-              english: "You don't need all of it. Just listen immediately before です."
-            },
-            n5: {
-              japanese: "全部を分かろうとしなくて大丈夫です。「です」の前にある名前だけ、探してみてください。",
-              reading: "ぜんぶをわかろうとしなくてだいじょうぶです。「です」のまえにあるなまえだけ、さがしてみてください。",
-              english: "You don't have to understand everything. Just find the name before です."
-            }
-          },
-          support: {
-            reading: "learner-controlled",
-            englishMeaning: "after-need",
-            replay: true
-          }
-        },
-        {
-          kind: "checkpoint",
-          id: "checkpoint:blank-atlas:before-sound-input",
-          beatId: "beat:blank-atlas:sound-mission-attempt",
-          resume: "Xingyu and Mika are ready in the sound room; each transcript remains hidden until the learner commits."
-        },
-        {
-          kind: "activity",
-          id: "activity-node:blank-atlas:sound-input",
-          beatId: "beat:blank-atlas:sound-mission-attempt",
-          hook: {
-            lessonId: "lesson:foundation-00",
-            componentType: "listening",
-            exerciseId: "activity:lesson-zero-sound-input"
-          },
-          requiredEvidence: {
-            kind: "activity-passed",
-            activityId: "activity:lesson-zero-sound-input"
-          },
-          resumeContext: "The Sound room is waiting for two name matches before transcript reveal.",
-          onReady: "checkpoint:blank-atlas:after-sound-input",
-          onRepair: "node:blank-atlas:sound-input-repair",
-          onDefer: "checkpoint:blank-atlas:before-sound-input"
-        },
-        {
-          kind: "stage",
-          id: "node:blank-atlas:sound-input-repair",
-          beatId: "beat:blank-atlas:sound-mission-repair",
-          cueId: "cue:sound-route-replay-one-speaker",
-          description: "Only the missed voice replays. Xingyu taps the empty name slot just before the final です."
-        },
-        {
-          kind: "checkpoint",
-          id: "checkpoint:blank-atlas:after-sound-input",
-          beatId: "beat:blank-atlas:sound-mission-response",
-          resume: "Both voices are matched to names and the delayed text can now confirm what the learner heard."
-        },
-        {
-          kind: "line",
-          id: "line:blank-atlas:mika-sound-result",
-          beatId: "beat:blank-atlas:sound-mission-consequence",
-          speakerId: "mika",
-          intent: "Show that listening for one useful landmark is already real comprehension.",
-          attentionTarget: "the two filled name slots",
-          variants: {
-            foundation: {
-              japanese: "聞こえましたね。名前は、そこです。",
-              reading: "きこえましたね。なまえは、そこです。",
-              english: "You heard it. That's where the name is."
-            },
-            n5: {
-              japanese: "全部ではなく、必要なところを聞けました。次も同じ目印が使えます。",
-              reading: "ぜんぶではなく、ひつようなところをきけました。つぎもおなじめじるしがつかえます。",
-              english: "You caught what you needed, not every word. The same landmark will work next time."
-            }
-          },
-          support: {
-            reading: "learner-controlled",
-            englishMeaning: "after-need",
-            replay: true
-          }
-        },
-        {
-          kind: "command",
-          id: "node:blank-atlas:sound-memento",
-          beatId: "beat:blank-atlas:sound-mission-consequence",
-          command: {
-            type: "journal.memoryUnlocked",
-            memoryId: "memento:lesson-zero-class-recording"
-          }
-        },
-        {
-          kind: "checkpoint",
-          id: "checkpoint:blank-atlas:sound-mission-complete",
-          beatId: "beat:blank-atlas:sound-mission-exit",
-          resume: "The Sound route has placed both heard names into the class journal."
-        }
-      ],
-      exit: {
-        checkpoint: true,
-        next: "scene:blank-atlas:reading-writing"
-      }
-    },
-    {
-      id: "scene:blank-atlas:mission-text",
-      locationId: "location:library",
-      timeState: "evening",
-      goal: "Restore two missing links in a handwritten introduction note.",
-      dramaticQuestion: "Can the learner use visible evidence without making the first guess final?",
-      learnerNeed: "Reading-first reconstruction of the registered noun-link and parallel-fact forms.",
-      curriculum: {
-        sectionId: "multi-speaker-input",
-        order: 6,
-        missionId: "text"
-      },
-      checkpointOnEnter: true,
-      nodes: [
-        {
-          kind: "stage",
-          id: "node:blank-atlas:text-note",
-          beatId: "beat:blank-atlas:text-mission-image",
-          cueId: "cue:text-route-note-nameplates",
-          description: "A handwritten note sits beneath nameplates reading Sophie and Ruparna. Two particle spaces have been washed pale."
-        },
-        {
-          kind: "line",
-          id: "line:blank-atlas:sophie-two-gaps",
-          beatId: "beat:blank-atlas:text-mission-want",
-          speakerId: "sophie",
-          intent: "Define the evidence problem precisely without giving the particles away.",
-          attentionTarget: "the two pale spaces",
-          variants: {
-            foundation: {
-              japanese: "空いているところは二つ。まず、前と後だけを見ます。",
-              reading: "あいているところはふたつ。まず、まえとあとだけをみます。",
-              english: "There are two gaps. First, look only before and after them."
-            },
-            n5: {
-              japanese: "空欄は二つ。名前はまだ手掛かりにしません。前後の意味を比べましょう。",
-              reading: "くうらんはふたつ。なまえはまだてがかりにしません。ぜんごのいみをくらべましょう。",
-              english: "Two blanks. The names are not evidence yet. Let's compare the surrounding meaning."
-            }
-          },
-          support: {
-            reading: "learner-controlled",
-            englishMeaning: "after-need",
-            replay: true
-          }
-        },
-        {
-          kind: "checkpoint",
-          id: "checkpoint:blank-atlas:before-text-input",
-          beatId: "beat:blank-atlas:text-mission-attempt",
-          resume: "The handwritten introduction has two visible particle gaps and the surrounding evidence remains in view."
-        },
-        {
-          kind: "activity",
-          id: "activity-node:blank-atlas:text-input",
-          beatId: "beat:blank-atlas:text-mission-attempt",
-          hook: {
-            lessonId: "lesson:foundation-00",
-            componentType: "reading",
-            exerciseId: "activity:lesson-zero-text-input"
-          },
-          requiredEvidence: {
-            kind: "activity-passed",
-            activityId: "activity:lesson-zero-text-input"
-          },
-          resumeContext: "The Text mission is waiting for the two registered particle restorations.",
-          onReady: "checkpoint:blank-atlas:after-text-input",
-          onRepair: "node:blank-atlas:text-input-repair",
-          onDefer: "checkpoint:blank-atlas:before-text-input"
-        },
-        {
-          kind: "stage",
-          id: "node:blank-atlas:text-input-repair",
-          beatId: "beat:blank-atlas:text-mission-repair",
-          cueId: "cue:text-route-evidence-lines",
-          description: "The relevant noun pair or parallel sentence stays highlighted while one gap returns."
-        },
-        {
-          kind: "checkpoint",
-          id: "checkpoint:blank-atlas:after-text-input",
-          beatId: "beat:blank-atlas:text-mission-response",
-          resume: "The note is readable and its two links have been restored from context."
-        },
-        {
-          kind: "line",
-          id: "line:blank-atlas:ruparna-note-route",
-          beatId: "beat:blank-atlas:text-mission-consequence",
-          speakerId: "ruparna",
-          intent: "Turn the repaired note into a visible route rather than an answer display.",
-          attentionTarget: "the paper edge aligning with the atlas",
-          variants: {
-            foundation: {
-              japanese: "文がつながりました。紙のはしが、道みたいです。",
-              reading: "ぶんがつながりました。かみのはしが、みちみたいです。",
-              english: "The sentence connects. The edge of the paper looks like a road."
-            },
-            n5: {
-              japanese: "文字が戻ると、紙の端が次の道みたいにつながります。",
-              reading: "もじがもどると、かみのはしがつぎのみちみたいにつながります。",
-              english: "When the letters return, the paper's edge connects like the next road."
-            }
-          },
-          support: {
-            reading: "learner-controlled",
-            englishMeaning: "after-need",
-            replay: true
-          }
-        },
-        {
-          kind: "command",
-          id: "node:blank-atlas:text-memento",
-          beatId: "beat:blank-atlas:text-mission-consequence",
-          command: {
-            type: "journal.memoryUnlocked",
-            memoryId: "memento:lesson-zero-first-page-clue"
-          }
-        },
-        {
-          kind: "checkpoint",
-          id: "checkpoint:blank-atlas:text-mission-complete",
-          beatId: "beat:blank-atlas:text-mission-exit",
-          resume: "The Text route has supplied a repaired written label to the atlas."
-        }
-      ],
-      exit: {
-        checkpoint: true,
-        next: "scene:blank-atlas:reading-writing"
-      }
-    },
-    {
-      id: "scene:blank-atlas:mission-speaking",
-      locationId: "location:classroom-entrance",
-      timeState: "evening",
-      goal: "Join an arrival exchange and recover naturally when a turn is missed.",
-      dramaticQuestion: "Can speaking practice welcome someone without making recording compulsory?",
-      learnerNeed: "A real turn-taking need, private recording consent, and a pause route that preserves progress.",
-      curriculum: {
-        sectionId: "multi-speaker-input",
-        order: 6,
-        missionId: "speaking"
-      },
-      checkpointOnEnter: true,
-      nodes: [
-        {
-          kind: "stage",
-          id: "node:blank-atlas:speaking-door",
-          beatId: "beat:blank-atlas:speaking-mission-image",
-          cueId: "cue:speaking-route-open-door-nameplates",
-          description: "The classroom door is open again. Nameplates identify Aakash and Sam; the next blank card waits just outside."
-        },
-        {
-          kind: "line",
-          id: "line:blank-atlas:sam-recording-boundary",
-          beatId: "beat:blank-atlas:speaking-mission-boundary",
-          speakerId: "sam",
-          intent: "State the recording scope and make pausing unremarkable.",
-          attentionTarget: "the learner's unsaved practice control",
-          variants: {
-            foundation: {
-              japanese: "これは練習です。今、録音しなくてもいいです。",
-              reading: "これはれんしゅうです。いま、ろくおんしなくてもいいです。",
-              english: "This is practice. You do not have to record now."
-            },
-            n5: {
-              japanese: "録音はこの練習だけです。今しないなら、ここで止められます。",
-              reading: "ろくおんはこのれんしゅうだけです。いましないなら、ここでとめられます。",
-              english: "The recording is only for this practice. If you do not want to do it now, you can stop here."
-            }
-          },
-          support: {
-            reading: "learner-controlled",
-            englishMeaning: "available",
-            replay: true
-          }
-        },
-        {
-          kind: "choice",
-          id: "choice:blank-atlas:speaking-recording",
-          beatId: "beat:blank-atlas:speaking-mission-consent",
-          question: "Do you want to make the private practice recording now?",
-          options: [
-            {
-              id: "option:blank-atlas:speaking-record-now",
-              action: "Record the private practice turn now.",
-              japaneseByBand: {
-                foundation: "今、練習します。",
-                n5: "今、録音して練習します。"
-              },
-              records: [
-                "boundary-heard",
-                "stance"
-              ],
-              next: "checkpoint:blank-atlas:before-speaking-input"
-            },
-            {
-              id: "option:blank-atlas:speaking-defer-recording",
-              action: "Pause here and return when recording feels workable.",
-              japaneseByBand: {
-                foundation: "今はしません。",
-                n5: "今は録音しません。あとで戻ります。"
-              },
-              records: [
-                "boundary-heard",
-                "support-style"
-              ],
-              next: "checkpoint:blank-atlas:speaking-recording-deferred"
-            }
-          ],
-          convergence: "checkpoint:blank-atlas:after-speaking-input"
-        },
-        {
-          kind: "checkpoint",
-          id: "checkpoint:blank-atlas:speaking-recording-deferred",
-          beatId: "beat:blank-atlas:speaking-mission-defer",
-          resume: "The private speaking turn is deferred. No story, bond, or lesson completion has been written."
-        },
-        {
-          kind: "checkpoint",
-          id: "checkpoint:blank-atlas:before-speaking-input",
-          beatId: "beat:blank-atlas:speaking-mission-attempt",
-          resume: "The learner consented to this private practice turn; Aakash and Sam are holding the conversational place."
-        },
-        {
-          kind: "activity",
-          id: "activity-node:blank-atlas:speaking-input",
-          beatId: "beat:blank-atlas:speaking-mission-attempt",
-          hook: {
-            lessonId: "lesson:foundation-00",
-            componentType: "speaking",
-            exerciseId: "activity:lesson-zero-speaking-input"
-          },
-          requiredEvidence: {
-            kind: "activity-passed",
-            activityId: "activity:lesson-zero-speaking-input"
-          },
-          resumeContext: "The learner has opted into the bounded private recording and the arrival exchange is waiting for their turn.",
-          onReady: "checkpoint:blank-atlas:after-speaking-input",
-          onRepair: "node:blank-atlas:speaking-input-repair",
-          onDefer: "checkpoint:blank-atlas:speaking-recording-deferred"
-        },
-        {
-          kind: "stage",
-          id: "node:blank-atlas:speaking-input-repair",
-          beatId: "beat:blank-atlas:speaking-mission-repair",
-          cueId: "cue:speaking-route-one-turn",
-          description: "Aakash repeats only the missed question and leaves the learner's conversational turn open."
-        },
-        {
-          kind: "checkpoint",
-          id: "checkpoint:blank-atlas:after-speaking-input",
-          beatId: "beat:blank-atlas:speaking-mission-response",
-          resume: "The arrival exchange has a complete learner turn and the door remains open."
-        },
-        {
-          kind: "line",
-          id: "line:blank-atlas:aakash-place-held",
-          beatId: "beat:blank-atlas:speaking-mission-consequence",
-          speakerId: "aakash",
-          intent: "Show that a repaired turn still welcomed someone into the room.",
-          attentionTarget: "the now-filled arrival card",
-          variants: {
-            foundation: {
-              japanese: "入りました。会話も、カードも。",
-              reading: "はいりました。かいわも、カードも。",
-              english: "It came in. The conversation and the card."
-            },
-            n5: {
-              japanese: "聞き直したから、会話もカードも部屋に入りました。",
-              reading: "ききなおしたから、かいわもカードもへやにはいりました。",
-              english: "Because you asked again, both the conversation and the card made it into the room."
-            }
-          },
-          support: {
-            reading: "learner-controlled",
-            englishMeaning: "after-need",
-            replay: true
-          }
-        },
-        {
-          kind: "command",
-          id: "node:blank-atlas:speaking-memento",
-          beatId: "beat:blank-atlas:speaking-mission-consequence",
-          command: {
-            type: "journal.memoryUnlocked",
-            memoryId: "memento:lesson-zero-first-bond-scene"
-          }
-        },
-        {
-          kind: "checkpoint",
-          id: "checkpoint:blank-atlas:speaking-mission-complete",
-          beatId: "beat:blank-atlas:speaking-mission-exit",
-          resume: "The Speaking route has supplied a welcomed arrival card to the atlas."
-        }
-      ],
-      exit: {
-        checkpoint: true,
-        next: "scene:blank-atlas:reading-writing"
-      }
-    },
-    {
-      id: "scene:blank-atlas:reading-writing",
-      locationId: "location:classroom",
-      timeState: "evening-late",
-      goal: "Read the recovered class cards and make the learner's own card functional.",
-      dramaticQuestion: "Will the learner's card become a label to display or a tool that helps someone address them correctly?",
-      learnerNeed: "Purposeful reading evidence and a controlled written introduction using the selected disclosure scope.",
-      curriculum: {
-        sectionId: "reading-writing",
-        order: 7
-      },
-      checkpointOnEnter: true,
-      nodes: [
-        {
-          kind: "stage",
-          id: "node:blank-atlas:cards-return",
-          beatId: "beat:blank-atlas:reading-image",
-          cueId: "cue:route-cards-around-atlas",
-          description: "The selected mission's card joins two class cards around the atlas. The learner's draft remains separate and face down."
-        },
-        {
-          kind: "line",
-          id: "line:blank-atlas:rie-read-for-person",
-          beatId: "beat:blank-atlas:reading-want",
-          speakerId: "rie",
-          intent: "Give reading a social purpose before asking for reconstruction.",
-          attentionTarget: "the class cards",
-          variants: {
-            foundation: {
-              japanese: "だれのカードですか。文を読んでください。",
-              reading: "だれのカードですか。ぶんをよんでください。",
-              english: "Whose card is it? Please read the sentence."
-            },
-            n5: {
-              japanese: "名前を当てるのではなく、文を証拠にしてカードを戻しましょう。",
-              reading: "なまえをあてるのではなく、ぶんをしょうこにしてカードをもどしましょう。",
-              english: "Rather than guessing the name, use the sentence as evidence to return the card."
-            }
-          },
-          support: {
-            reading: "learner-controlled",
-            englishMeaning: "after-need",
-            replay: true
-          }
-        },
-        {
-          kind: "checkpoint",
-          id: "checkpoint:blank-atlas:before-read-name-cards",
-          beatId: "beat:blank-atlas:reading-attempt",
-          resume: "The recovered class cards need to be matched through their written evidence."
-        },
-        {
-          kind: "activity",
-          id: "activity-node:blank-atlas:read-name-cards",
-          beatId: "beat:blank-atlas:reading-attempt",
-          hook: {
-            lessonId: "lesson:foundation-00",
-            componentType: "reading",
-            exerciseId: "activity:lesson-zero-read-name-cards"
-          },
-          requiredEvidence: {
-            kind: "activity-passed",
-            activityId: "activity:lesson-zero-read-name-cards"
-          },
-          resumeContext: "The class cards must be returned using a source line rather than a guessed identity.",
-          onReady: "checkpoint:blank-atlas:after-read-name-cards",
-          onRepair: "node:blank-atlas:read-name-cards-repair",
-          onDefer: "checkpoint:blank-atlas:before-read-name-cards"
-        },
-        {
-          kind: "stage",
-          id: "node:blank-atlas:read-name-cards-repair",
-          beatId: "beat:blank-atlas:reading-repair",
-          cueId: "cue:name-card-evidence-line",
-          description: "The relevant line stays visible while the unsupported identity guess clears."
-        },
-        {
-          kind: "checkpoint",
-          id: "checkpoint:blank-atlas:after-read-name-cards",
-          beatId: "beat:blank-atlas:reading-response",
-          resume: "The class cards have returned to the people described by their own lines."
-        },
-        {
-          kind: "checkpoint",
-          id: "checkpoint:blank-atlas:before-write-name-card",
-          beatId: "beat:blank-atlas:writing-attempt",
-          resume: "The learner's chosen disclosure scope is ready to become a functional class card."
-        },
-        {
-          kind: "activity",
-          id: "activity-node:blank-atlas:write-name-card",
-          beatId: "beat:blank-atlas:writing-attempt",
-          hook: {
-            lessonId: "lesson:foundation-00",
-            componentType: "writing",
-            exerciseId: "activity:lesson-zero-write-name-card"
-          },
-          requiredEvidence: {
-            kind: "activity-passed",
-            activityId: "activity:lesson-zero-write-name-card"
-          },
-          resumeContext: "The learner is writing only the name and facts they chose for this class card.",
-          onReady: "checkpoint:blank-atlas:after-write-name-card",
-          onRepair: "node:blank-atlas:write-name-card-repair",
-          onDefer: "checkpoint:blank-atlas:before-write-name-card"
-        },
-        {
-          kind: "stage",
-          id: "node:blank-atlas:write-name-card-repair",
-          beatId: "beat:blank-atlas:writing-repair",
-          cueId: "cue:name-card-function-rubric",
-          description: "Only the missing greeting, name, chosen fact, or closing function is marked; no extra personal detail is requested."
-        },
-        {
-          kind: "checkpoint",
-          id: "checkpoint:blank-atlas:after-write-name-card",
-          beatId: "beat:blank-atlas:writing-response",
-          resume: "The learner's card is readable, bounded, and ready to help the room address them."
-        },
-        {
-          kind: "stage",
-          id: "node:blank-atlas:card-turns-over",
-          beatId: "beat:blank-atlas:reading-writing-consequence",
-          cueId: "cue:learner-card-route-label",
-          description: "The learner turns the card over. The atlas copies only its public class line, leaving all unchosen spaces blank."
-        }
-      ],
-      exit: {
-        checkpoint: true,
-        next: "scene:blank-atlas:transfer"
-      }
-    },
-    {
-      id: "scene:blank-atlas:transfer",
-      locationId: "location:classroom",
-      timeState: "evening-late",
-      goal: "Use the selected mission skill after its teaching surface disappears, then leave a written route marker.",
-      dramaticQuestion: "Can the learner use the language when the source page is no longer carrying the task?",
-      learnerNeed: "One mission-specific changed-context production and the shared written introduction transfer.",
-      curriculum: {
-        sectionId: "transfer",
-        order: 8
-      },
-      checkpointOnEnter: true,
-      nodes: [
-        {
-          kind: "stage",
-          id: "node:blank-atlas:source-clears",
-          beatId: "beat:blank-atlas:transfer-image",
-          cueId: "cue:teaching-surfaces-clear",
-          description: "The handout, transcript, and sentence frame tray close. A new blank route card drops beside the door."
-        },
-        {
-          kind: "line",
-          id: "line:blank-atlas:rie-transfer",
-          beatId: "beat:blank-atlas:transfer-want",
-          speakerId: "rie",
-          intent: "Make the selected language useful in a changed situation.",
-          attentionTarget: "the new route card away from the teaching surfaces",
-          variants: {
-            foundation: {
-              japanese: "今度は、プリントなしです。道を一つ、助けてください。",
-              reading: "こんどは、プリントなしです。みちをひとつ、たすけてください。",
-              english: "This time, no handout. Please help one route."
-            },
-            n5: {
-              japanese: "今度は教える画面を閉じます。選んだ方法で、新しいカードを部屋に入れてください。",
-              reading: "こんどはおしえるがめんをとじます。えらんだほうほうで、あたらしいカードをへやにいれてください。",
-              english: "This time the teaching surface closes. Use your chosen method to bring the new card into the room."
-            }
-          },
-          support: {
-            reading: "learner-controlled",
-            englishMeaning: "after-need",
-            replay: true
-          }
-        },
-        {
-          kind: "choice",
-          id: "choice:blank-atlas:transfer-recording",
-          beatId: "beat:blank-atlas:transfer-consent",
-          when: {
-            choiceId: "choice:blank-atlas:mission",
-            optionIds: [
-              "option:blank-atlas:mission-sound",
-              "option:blank-atlas:mission-speaking"
-            ]
-          },
-          question: "Your selected transfer uses a private recording. Continue now or pause here?",
-          options: [
-            {
-              id: "option:blank-atlas:transfer-record-now",
-              action: "Continue with this private transfer recording.",
-              japaneseByBand: {
-                foundation: "今、録音します。",
-                n5: "この練習だけ、今録音します。"
-              },
-              records: [
-                "boundary-heard",
-                "stance"
-              ],
-              next: "checkpoint:blank-atlas:before-route-transfer"
-            },
-            {
-              id: "option:blank-atlas:transfer-record-later",
-              action: "Pause before recording and return to this exact card later.",
-              japaneseByBand: {
-                foundation: "今はしません。",
-                n5: "今は録音しません。ここから続けます。"
-              },
-              records: [
-                "boundary-heard",
-                "support-style"
-              ],
-              next: "checkpoint:blank-atlas:transfer-recording-deferred"
-            }
-          ],
-          convergence: "checkpoint:blank-atlas:after-route-transfer"
-        },
-        {
-          kind: "checkpoint",
-          id: "checkpoint:blank-atlas:transfer-recording-deferred",
-          beatId: "beat:blank-atlas:transfer-defer",
-          resume: "The changed-context card is preserved before recording. No story, bond, or lesson completion has been written."
-        },
-        {
-          kind: "checkpoint",
-          id: "checkpoint:blank-atlas:before-route-transfer",
-          beatId: "beat:blank-atlas:route-transfer-attempt",
-          resume: "The new route card is waiting for the selected Sound, Text, or Speaking transfer."
-        },
-        {
-          kind: "activity",
-          id: "activity-node:blank-atlas:sound-transfer",
-          beatId: "beat:blank-atlas:route-transfer-attempt",
-          when: {
-            choiceId: "choice:blank-atlas:mission",
-            optionId: "option:blank-atlas:mission-sound"
-          },
-          hook: {
-            lessonId: "lesson:foundation-00",
-            componentType: "transfer",
-            exerciseId: "activity:lesson-zero-sound-transfer"
-          },
-          requiredEvidence: {
-            kind: "activity-passed",
-            activityId: "activity:lesson-zero-sound-transfer"
-          },
-          resumeContext: "The Sound route is applying shadowing and repair to a new card without the source display.",
-          onReady: "checkpoint:blank-atlas:after-route-transfer",
-          onRepair: "node:blank-atlas:route-transfer-repair",
-          onDefer: "checkpoint:blank-atlas:transfer-recording-deferred"
-        },
-        {
-          kind: "activity",
-          id: "activity-node:blank-atlas:text-transfer",
-          beatId: "beat:blank-atlas:route-transfer-attempt",
-          when: {
-            choiceId: "choice:blank-atlas:mission",
-            optionId: "option:blank-atlas:mission-text"
-          },
-          hook: {
-            lessonId: "lesson:foundation-00",
-            componentType: "transfer",
-            exerciseId: "activity:lesson-zero-text-transfer"
-          },
-          requiredEvidence: {
-            kind: "activity-passed",
-            activityId: "activity:lesson-zero-text-transfer"
-          },
-          resumeContext: "The Text route is applying the recovered sentence frame to a new personal line without the source display.",
-          onReady: "checkpoint:blank-atlas:after-route-transfer",
-          onRepair: "node:blank-atlas:route-transfer-repair",
-          onDefer: "checkpoint:blank-atlas:before-route-transfer"
-        },
-        {
-          kind: "activity",
-          id: "activity-node:blank-atlas:speaking-transfer",
-          beatId: "beat:blank-atlas:route-transfer-attempt",
-          when: {
-            choiceId: "choice:blank-atlas:mission",
-            optionId: "option:blank-atlas:mission-speaking"
-          },
-          hook: {
-            lessonId: "lesson:foundation-00",
-            componentType: "transfer",
-            exerciseId: "activity:lesson-zero-speaking-transfer"
-          },
-          requiredEvidence: {
-            kind: "activity-passed",
-            activityId: "activity:lesson-zero-speaking-transfer"
-          },
-          resumeContext: "The Speaking route is applying greeting, question, repair, and closing to a new arrival card.",
-          onReady: "checkpoint:blank-atlas:after-route-transfer",
-          onRepair: "node:blank-atlas:route-transfer-repair",
-          onDefer: "checkpoint:blank-atlas:transfer-recording-deferred"
-        },
-        {
-          kind: "stage",
-          id: "node:blank-atlas:route-transfer-repair",
-          beatId: "beat:blank-atlas:route-transfer-repair",
-          cueId: "cue:transfer-one-function",
-          description: "The changed context stays visible while only the missing language function returns for repair."
-        },
-        {
-          kind: "checkpoint",
-          id: "checkpoint:blank-atlas:after-route-transfer",
-          beatId: "beat:blank-atlas:route-transfer-response",
-          resume: "The selected mission skill has solved the new card without its original teaching surface."
-        },
-        {
-          kind: "checkpoint",
-          id: "checkpoint:blank-atlas:before-written-transfer",
-          beatId: "beat:blank-atlas:written-transfer-attempt",
-          resume: "The route now needs one bounded written introduction marker that any mission can leave behind."
-        },
-        {
-          kind: "activity",
-          id: "activity-node:blank-atlas:written-transfer",
-          beatId: "beat:blank-atlas:written-transfer-attempt",
-          hook: {
-            lessonId: "lesson:foundation-00",
-            componentType: "transfer",
-            exerciseId: "activity:lesson-zero-written-transfer"
-          },
-          requiredEvidence: {
-            kind: "activity-passed",
-            activityId: "activity:lesson-zero-written-transfer"
-          },
-          resumeContext: "The atlas is waiting for the learner's selected name and one chosen true class fact in writing.",
-          onReady: "checkpoint:blank-atlas:after-written-transfer",
-          onRepair: "node:blank-atlas:written-transfer-repair",
-          onDefer: "checkpoint:blank-atlas:before-written-transfer"
-        },
-        {
-          kind: "stage",
-          id: "node:blank-atlas:written-transfer-repair",
-          beatId: "beat:blank-atlas:written-transfer-repair",
-          cueId: "cue:written-transfer-one-function",
-          description: "The learner's chosen content stays intact while one missing name, fact, frame, or greeting function returns."
-        },
-        {
-          kind: "checkpoint",
-          id: "checkpoint:blank-atlas:after-written-transfer",
-          beatId: "beat:blank-atlas:written-transfer-response",
-          resume: "The selected mission transfer and the shared written marker are complete."
-        },
-        {
-          kind: "stage",
-          id: "node:blank-atlas:first-lantern",
-          beatId: "beat:blank-atlas:transfer-consequence",
-          cueId: "cue:first-atlas-lantern-lit",
-          description: "The route reaches the learner's card. One lantern point warms from grey to gold; the rest of the atlas remains honestly blank."
-        }
-      ],
-      exit: {
-        checkpoint: true,
-        next: "scene:blank-atlas:close"
-      }
-    },
-    {
-      id: "scene:blank-atlas:close",
-      locationId: "location:classroom",
-      timeState: "evening-close",
-      goal: "Close the first class, preserve the exact resume state, and return learner choice to the wider Academy.",
-      dramaticQuestion: "Can the first contribution remain enough even though the atlas is mostly unfinished?",
-      learnerNeed: "A recap, the registered close-room action, and reversible next-step options.",
-      curriculum: {
-        sectionId: "close",
-        order: 9
-      },
-      checkpointOnEnter: true,
-      nodes: [
-        {
-          kind: "stage",
-          id: "node:blank-atlas:one-light-room",
-          beatId: "beat:blank-atlas:close-image",
-          cueId: "cue:one-lantern-reflected-on-desks",
-          description: "One atlas light reflects across the desks. The corrected arrow card from the entrance now points to the learner's route."
-        },
-        {
-          kind: "line",
-          id: "line:blank-atlas:rie-recap",
-          beatId: "beat:blank-atlas:close-want",
-          speakerId: "rie",
-          intent: "Name the learner's repair and transfer as the first useful contribution.",
-          attentionTarget: "the first lit point and the learner's card",
-          variants: {
-            foundation: {
-              japanese: "あいさつをしました。聞き直しました。道を一つ作りました。",
-              reading: "あいさつをしました。ききなおしました。みちをひとつつくりました。",
-              english: "You greeted, asked again, and made one route."
-            },
-            n5: {
-              japanese: "あいさつをして、分からないところを聞き直して、最初の道を一つ作りました。",
-              reading: "あいさつをして、わからないところをききなおして、さいしょのみちをひとつつくりました。",
-              english: "You greeted, asked again where you did not understand, and made the first route."
-            }
-          },
-          support: {
-            reading: "learner-controlled",
-            englishMeaning: "after-need",
-            replay: true
-          }
-        },
-        {
-          kind: "checkpoint",
-          id: "checkpoint:blank-atlas:before-close-room",
-          beatId: "beat:blank-atlas:close-attempt",
-          resume: "Rie has recapped the first route and the room is ready for the learner-controlled close."
-        },
-        {
-          kind: "activity",
-          id: "activity-node:blank-atlas:close-room",
-          beatId: "beat:blank-atlas:close-attempt",
-          hook: {
-            lessonId: "lesson:foundation-00",
-            componentType: "transfer",
-            exerciseId: "activity:lesson-zero-close-room"
-          },
-          requiredEvidence: {
-            kind: "activity-passed",
-            activityId: "activity:lesson-zero-close-room"
-          },
-          resumeContext: "The first class is ready to finish or pause, followed by the learner's wider Academy destination choice.",
-          onReady: "checkpoint:blank-atlas:after-close-room",
-          onRepair: "node:blank-atlas:close-room-repair",
-          onDefer: "checkpoint:blank-atlas:before-close-room"
-        },
-        {
-          kind: "stage",
-          id: "node:blank-atlas:close-room-repair",
-          beatId: "beat:blank-atlas:close-repair",
-          cueId: "cue:finish-break-context",
-          description: "The room state makes the difference between finishing and taking a break visible before retry."
-        },
-        {
-          kind: "checkpoint",
-          id: "checkpoint:blank-atlas:after-close-room",
-          beatId: "beat:blank-atlas:close-response",
-          resume: "Lesson 0 evidence confirms the room close; story completion has not yet been written."
-        },
-        {
-          kind: "line",
-          id: "line:blank-atlas:rie-open-choice",
-          beatId: "beat:blank-atlas:return-choice",
-          speakerId: "rie",
-          intent: "Return control without presenting one destination as the loyal choice.",
-          attentionTarget: "the classroom door and the learner's journal",
-          variants: {
-            foundation: {
-              japanese: "今日はここまでです。次は、あなたが選びます。",
-              reading: "きょうはここまでです。つぎは、あなたがえらびます。",
-              english: "That is all for today. You choose what comes next."
-            },
-            n5: {
-              japanese: "今日はここまでです。勉強を続けても、校内を見ても、ここで終わってもいいです。",
-              reading: "きょうはここまでです。べんきょうをつづけても、こうないをみても、ここでおわってもいいです。",
-              english: "That is all for today. You may keep studying, explore the campus, or finish here."
-            }
-          },
-          support: {
-            reading: "learner-controlled",
-            englishMeaning: "after-need",
-            replay: true
-          }
-        },
-        {
-          kind: "command",
-          id: "node:blank-atlas:callback-open-chair-echo",
-          beatId: "beat:blank-atlas:story-consequence",
-          command: {
-            type: "callback.transitioned",
-            callbackId: "callback:open-chair",
-            to: "echo"
-          }
-        },
-        {
-          kind: "command",
-          id: "node:blank-atlas:callback-first-lantern-seed",
-          beatId: "beat:blank-atlas:story-consequence",
-          command: {
-            type: "callback.transitioned",
-            callbackId: "callback:first-lantern",
-            to: "seed"
-          }
-        },
-        {
-          kind: "command",
-          id: "node:blank-atlas:bond-rie-one",
-          beatId: "beat:blank-atlas:story-consequence",
-          command: {
-            type: "bond.chapterCompleted",
-            castId: "rie",
-            chapter: 1
-          }
-        },
-        {
-          kind: "command",
-          id: "node:blank-atlas:scene-seen",
-          beatId: "beat:blank-atlas:story-consequence",
-          command: {
-            type: "story.seen",
-            packageId: "s1e01-the-blank-atlas",
-            sceneId: "scene:blank-atlas:close"
-          }
-        },
-        {
-          kind: "command",
-          id: "node:blank-atlas:story-completed",
-          beatId: "beat:blank-atlas:story-consequence",
-          command: {
-            type: "story.completed",
-            packageId: "s1e01-the-blank-atlas"
-          }
-        },
-        {
-          kind: "checkpoint",
-          id: "checkpoint:blank-atlas:complete",
-          beatId: "beat:blank-atlas:exit-image",
-          resume: "Chapter 1 and Lesson 0 are complete. One atlas lantern is lit; all remaining routes are still open."
-        }
-      ],
-      exit: {
-        checkpoint: true,
-        next: null
-      }
-    }
-  ];
-  const callbacks$L = [
-    {
-      id: "callback:open-chair",
-      state: "echo",
-      ownerIds: [
-        "rie"
-      ],
-      meaningNow: "The learner's bounded card occupies the place that was kept open without requiring extra disclosure.",
-      priorUse: {
-        packageId: "bridge:opening-arrival",
-        state: "seed"
-      },
-      maximumFutureUses: 4
-    },
-    {
-      id: "callback:first-lantern",
-      state: "seed",
-      ownerIds: [
-        "rie"
-      ],
-      meaningNow: "One repaired exchange creates the first visible route; unfinished work is not failure.",
-      maximumFutureUses: 6
-    }
-  ];
-  const outcomes$L = [
-    {
-      id: "outcome:blank-atlas:first-route",
-      kind: "story",
-      description: "The first atlas route and lantern point are restored through greeting, repair, and transfer evidence."
-    },
-    {
-      id: "outcome:blank-atlas:rie-bond-one",
-      kind: "bond",
-      castId: "rie",
-      chapter: 1,
-      description: "Rie recognises repair language as a contribution and leaves the next choice open."
-    },
-    {
-      id: "outcome:blank-atlas:lesson-zero-return",
-      kind: "curriculum-return",
-      lessonId: "lesson:foundation-00",
-      description: "All completion truth comes from registered Lesson 0 evidence; the story emits no lesson-completion command."
-    }
-  ];
-  const replay$L = {
-    chronologicalMemory: true,
-    canonicalWrites: false,
-    allowedLayers: [
-      "foundation",
-      "n5",
-      "ngPlus"
-    ],
-    perspectiveVariants: [
-      "variant:rie-watches-the-first-route"
-    ],
-    supportOverrides: [
-      "show-reading",
-      "show-english",
-      "hide-english",
-      "replay-selected-mission"
-    ],
-    withdrawnContentFallback: "Use the same activity evidence with neutral nameplates and environmental consequence beats."
-  };
-  const blankAtlasSource = {
     schema: schema$L,
     id: id$L,
     revision: revision$L,
     canonicality: canonicality$L,
     season: season$L,
-    chapter: chapter$M,
     title: title$L,
     synopsis: synopsis$L,
     sourceSafety: sourceSafety$L,
     cast: cast$L,
     entry: entry$M,
-    curriculumBinding,
     scenes: scenes$L,
     callbacks: callbacks$L,
     outcomes: outcomes$L,
@@ -232016,7 +232325,7 @@ ${spelling}`);
     return Object.freeze({
       ...node2,
       ...node2.variants ? {
-        variants: Object.freeze(Object.fromEntries(Object.entries(node2.variants).map(([band, variant]) => [band, Object.freeze({ ...variant })])))
+        variants: Object.freeze(Object.fromEntries(Object.entries(node2.variants).map(([band, variant2]) => [band, Object.freeze({ ...variant2 })])))
       } : {},
       ...node2.options ? {
         options: Object.freeze(node2.options.map((option2) => Object.freeze({
@@ -257616,8 +257925,8 @@ ${spelling}`);
     label.append(input2, box, localized$4("span", "academy-greeting-check-copy", copy2, language));
     return { label, input: input2 };
   }
-  function actionButton$4(copy2, variant, signal, action2, language) {
-    const button2 = element("button", `academy-button academy-greeting-action academy-greeting-action-${variant}`);
+  function actionButton$4(copy2, variant2, signal, action2, language) {
+    const button2 = element("button", `academy-button academy-greeting-action academy-greeting-action-${variant2}`);
     button2.type = "button";
     button2.textContent = copy2[language];
     button2.setAttribute("aria-label", copy2[language]);
@@ -257944,8 +258253,8 @@ ${spelling}`);
       node2.dataset.speakerId = "rie";
       return node2;
     }
-    function actionButton2(copy2, variant, signal, action2) {
-      const button2 = element("button", `academy-button academy-name-card-action academy-name-card-action-${variant}`);
+    function actionButton2(copy2, variant2, signal, action2) {
+      const button2 = element("button", `academy-button academy-name-card-action academy-name-card-action-${variant2}`);
       button2.type = "button";
       button2.textContent = copy2[options.language];
       button2.setAttribute("aria-label", copy2[options.language]);
@@ -258398,8 +258707,8 @@ ${spelling}`);
     node2.textContent = value;
     return node2;
   }
-  function actionButton$3(copy2, variant, signal, action2, language) {
-    const button2 = element("button", `academy-button academy-sentence-frame-action academy-sentence-frame-action-${variant}`);
+  function actionButton$3(copy2, variant2, signal, action2, language) {
+    const button2 = element("button", `academy-button academy-sentence-frame-action academy-sentence-frame-action-${variant2}`);
     button2.type = "button";
     button2.textContent = copy2[language];
     button2.setAttribute("aria-label", copy2[language]);
@@ -259187,8 +259496,8 @@ ${spelling}`);
       image.decoding = "async";
       return image;
     };
-    const action2 = (copy2, variant, signal, callback2) => {
-      const button2 = element("button", `academy-button academy-vowel-action academy-vowel-action-${variant}`);
+    const action2 = (copy2, variant2, signal, callback2) => {
+      const button2 = element("button", `academy-button academy-vowel-action academy-vowel-action-${variant2}`);
       button2.type = "button";
       button2.dataset.jpdbReaderSurfaceIgnore = "";
       button2.textContent = copy2[options.language];
@@ -259715,8 +260024,8 @@ ${spelling}`);
       message = "";
       render2();
     };
-    const action2 = (copy2, variant, signal, callback2) => {
-      const button2 = element("button", `academy-button academy-vowel-action academy-vowel-action-${variant}`);
+    const action2 = (copy2, variant2, signal, callback2) => {
+      const button2 = element("button", `academy-button academy-vowel-action academy-vowel-action-${variant2}`);
       button2.type = "button";
       button2.dataset.jpdbReaderSurfaceIgnore = "";
       button2.textContent = copy2[options.language];
@@ -259991,9 +260300,9 @@ ${spelling}`);
   function resolveStoryLine(node2, band) {
     const entries2 = node2.variants ?? {};
     const chosen = nearestStoryBand(Object.keys(entries2), band);
-    const variant = chosen ? entries2[chosen] : void 0;
-    if (!chosen || !variant) throw new Error(`Story line ${node2.id} has no authored language variant.`);
-    return Object.freeze({ ...variant, band: chosen });
+    const variant2 = chosen ? entries2[chosen] : void 0;
+    if (!chosen || !variant2) throw new Error(`Story line ${node2.id} has no authored language variant.`);
+    return Object.freeze({ ...variant2, band: chosen });
   }
   function resolveChoice(option2, band) {
     const chosen = nearestStoryBand(Object.keys(option2.japaneseByBand), band);
@@ -260830,7 +261139,7 @@ ${spelling}`);
         initialState: state,
         pronunciation: this.options.pronunciation,
         xingyuSprite: ACADEMY_ASSETS.xingyuListening,
-        evaluate: (variant, response) => runtime2.evaluate(variant === "bingo" ? bingoModel : model2, response),
+        evaluate: (variant2, response) => runtime2.evaluate(variant2 === "bingo" ? bingoModel : model2, response),
         onTransition: async (before, transition) => {
           if (transition.evaluation) {
             this.playFeedbackSfx(transition.evaluation.result.outcome);
@@ -261075,189 +261384,6 @@ ${spelling}`);
       completedActivityIds,
       needsReviewActivityIds
     };
-  }
-  const STORY_VOICE_PLAYBACK_CATALOG_URL = "/academy/audio/story-voice-playback.json";
-  const STORY_VOICE_PLAYBACK_SCHEMA = "yomu-academy.story-voice-playback.v1";
-  const PLAYABLE_DIRECTOR_STATES = /* @__PURE__ */ new Set(["ready", "playing", "silent"]);
-  const SHA256 = /^[a-f0-9]{64}$/u;
-  const PILOT_URL = /^\/academy\/audio\/story-pilot\/[a-z0-9][a-z0-9._-]*\.opus$/u;
-  async function loadStoryVoicePlaybackCatalog(url = STORY_VOICE_PLAYBACK_CATALOG_URL, fetcher = fetch) {
-    const response = await fetcher(url, { credentials: "same-origin" });
-    if (!response.ok) throw new Error(`Story voice catalog request failed (${response.status}).`);
-    return parseStoryVoicePlaybackCatalog(await response.json());
-  }
-  function parseStoryVoicePlaybackCatalog(value) {
-    if (!isRecord$4(value) || value.schema !== STORY_VOICE_PLAYBACK_SCHEMA || !Array.isArray(value.entries)) {
-      throw new TypeError("Invalid story voice playback catalog.");
-    }
-    const seen = /* @__PURE__ */ new Set();
-    const entries2 = value.entries.map((candidate2, index) => {
-      if (!isPlaybackEntry(candidate2)) throw new TypeError(`Invalid story voice playback entry at index ${index}.`);
-      const identity2 = [candidate2.lineId, candidate2.speakerId, candidate2.japanese, candidate2.band].join("\n");
-      if (seen.has(identity2)) throw new TypeError(`Duplicate story voice playback entry: ${candidate2.lineId}.`);
-      seen.add(identity2);
-      return Object.freeze({ ...candidate2 });
-    });
-    return Object.freeze({ schema: STORY_VOICE_PLAYBACK_SCHEMA, entries: Object.freeze(entries2) });
-  }
-  function resolveStoryVoicePlaybackEntry(catalog2, line2) {
-    return catalog2.entries.find((entry2) => entry2.lineId === line2.lineId && entry2.speakerId === line2.speakerId && entry2.japanese === line2.japanese && (line2.band === void 0 || entry2.band === line2.band) && (line2.sourceSha256 === void 0 || entry2.sourceSha256 === line2.sourceSha256)) ?? null;
-  }
-  function createStoryVoicePlayback(options) {
-    const listeners = /* @__PURE__ */ new Set();
-    const createMedia = options.createMedia ?? ((url) => new Audio(url));
-    const catalogPromise = (options.catalog ? Promise.resolve(options.catalog) : options.loadCatalog?.() ?? loadStoryVoicePlaybackCatalog()).then(parseStoryVoicePlaybackCatalog);
-    let currentLine = null;
-    let currentEntry = null;
-    let active = null;
-    let lineToken = 0;
-    let disposed = false;
-    let snapshotValue = { status: "idle" };
-    const emit = (status, error) => {
-      snapshotValue = {
-        status,
-        ...currentLine ? { lineId: currentLine.lineId } : {},
-        ...currentEntry ? { url: currentEntry.url } : {},
-        ...error === void 0 ? {} : { error }
-      };
-      for (const listener of listeners) listener({ ...snapshotValue });
-    };
-    const releaseActive = (status, pause, error) => {
-      const playback = active;
-      if (!playback) return;
-      active = null;
-      playback.media.removeEventListener("ended", playback.onEnded);
-      playback.media.removeEventListener("error", playback.onError);
-      if (pause) {
-        playback.media.pause();
-        try {
-          playback.media.currentTime = 0;
-        } catch {
-        }
-      }
-      playback.releaseDuck();
-      emit(status, error);
-    };
-    const resolveCurrent = async (token) => {
-      if (!currentLine || token !== lineToken || disposed) return null;
-      if (currentEntry) return currentEntry;
-      try {
-        const catalog2 = await catalogPromise;
-        if (!currentLine || token !== lineToken || disposed) return null;
-        currentEntry = resolveStoryVoicePlaybackEntry(catalog2, currentLine);
-        emit(currentEntry ? "available" : "unavailable");
-        return currentEntry;
-      } catch (error) {
-        if (token === lineToken && !disposed) emit("error", error);
-        return null;
-      }
-    };
-    const unsubscribeDirector = options.director.onEvent((event) => {
-      if (!active) return;
-      if (event.type === "settings") {
-        if (event.settings.muted || event.settings.volumes.lesson <= 0) {
-          releaseActive("muted", true);
-          return;
-        }
-        active.media.volume = event.settings.volumes.lesson;
-        return;
-      }
-      if (event.type === "state" && !PLAYABLE_DIRECTOR_STATES.has(event.state)) {
-        releaseActive("locked", true);
-      }
-    });
-    return {
-      get snapshot() {
-        return { ...snapshotValue };
-      },
-      async setLine(line2) {
-        if (disposed) return false;
-        lineToken += 1;
-        releaseActive("stopped", true);
-        currentLine = line2 ? { ...line2 } : null;
-        currentEntry = null;
-        if (!currentLine) {
-          emit("idle");
-          return false;
-        }
-        emit("loading");
-        return Boolean(await resolveCurrent(lineToken));
-      },
-      async play() {
-        if (disposed || !currentLine) return false;
-        const token = lineToken;
-        const entry2 = await resolveCurrent(token);
-        if (!entry2 || token !== lineToken || disposed) return false;
-        const settings = options.director.settings;
-        if (settings.muted || settings.volumes.lesson <= 0) {
-          emit("muted");
-          return false;
-        }
-        if (!PLAYABLE_DIRECTOR_STATES.has(options.director.state)) {
-          emit("locked");
-          return false;
-        }
-        releaseActive("stopped", true);
-        let media;
-        let releaseDuck;
-        try {
-          media = createMedia(entry2.url);
-          media.preload = "auto";
-          media.volume = settings.volumes.lesson;
-          releaseDuck = options.director.beginExternalLesson();
-        } catch (error) {
-          emit("error", error);
-          return false;
-        }
-        const onEnded = () => {
-          if (active?.media === media) releaseActive("ended", false);
-        };
-        const onError = (event) => {
-          if (active?.media === media) releaseActive("error", true, event);
-        };
-        active = { media, releaseDuck, onEnded, onError };
-        media.addEventListener("ended", onEnded);
-        media.addEventListener("error", onError);
-        emit("playing");
-        try {
-          await media.play();
-          return active?.media === media && token === lineToken && !disposed;
-        } catch (error) {
-          if (active?.media === media) releaseActive("error", true, error);
-          return false;
-        }
-      },
-      stop() {
-        if (!disposed) releaseActive("stopped", true);
-      },
-      onStatus(listener) {
-        if (disposed) {
-          listener({ ...snapshotValue });
-          return () => void 0;
-        }
-        listeners.add(listener);
-        listener({ ...snapshotValue });
-        return () => listeners.delete(listener);
-      },
-      dispose() {
-        if (disposed) return;
-        lineToken += 1;
-        releaseActive("stopped", true);
-        disposed = true;
-        currentLine = null;
-        currentEntry = null;
-        unsubscribeDirector();
-        emit("disposed");
-        listeners.clear();
-      }
-    };
-  }
-  function isPlaybackEntry(value) {
-    if (!isRecord$4(value)) return false;
-    return typeof value.lineId === "string" && value.lineId.startsWith("line:") && typeof value.speakerId === "string" && value.speakerId !== "learner" && value.speakerId !== "narrator" && typeof value.japanese === "string" && value.japanese.length > 0 && typeof value.band === "string" && SHA256.test(String(value.sourceSha256)) && SHA256.test(String(value.assetSha256)) && typeof value.bytes === "number" && Number.isSafeInteger(value.bytes) && value.bytes > 0 && typeof value.url === "string" && PILOT_URL.test(value.url) && value.reviewStatus === "locked";
-  }
-  function isRecord$4(value) {
-    return typeof value === "object" && value !== null;
   }
   async function loadClassWeekDeliveryCatalog(planValue, fetcher = fetch) {
     const plan = validateClassWeekCastPlan(planValue);
@@ -264847,7 +264973,7 @@ ${spelling}`);
       listSection("Cast", story.castMembers(episode2.cast).map((member) => member.name), "academy-story-cast"),
       listSection("Unlocks", story.castMembers(episode2.unlocks).map((member) => member.name)),
       listSection("Curriculum hooks", episode2.curriculumHooks),
-      listSection("Replay variants", episode2.replayVariants.map((variant) => `${variant.label}: ${variant.changes}`)),
+      listSection("Replay variants", episode2.replayVariants.map((variant2) => `${variant2.label}: ${variant2.changes}`)),
       detailSection("Minigame", [
         ["ID", episode2.minigame.id],
         ["Mechanic", episode2.minigame.mechanic],
@@ -267605,8 +267731,8 @@ ${spelling}`);
     if (hasSpriteGallery) {
       const gallery = element("div", "academy-character-sprite-gallery");
       gallery.dataset.character = definition2.characterId;
-      Object.entries(definition2.spriteGallery).forEach(([variant, source2]) => {
-        const [expression, angle] = variant.includes(":") ? variant.split(":", 2) : [void 0, variant];
+      Object.entries(definition2.spriteGallery).forEach(([variant2, source2]) => {
+        const [expression, angle] = variant2.includes(":") ? variant2.split(":", 2) : [void 0, variant2];
         const sprite = element("img", "academy-character-sprite-gallery-image");
         sprite.src = source2;
         sprite.alt = "";
@@ -268289,7 +268415,13 @@ ${spelling}`);
     }
     replayOpening(context2) {
       context2.shell.setNavigation(true, "journal");
-      context2.shell.replace(renderOpeningMemory(context2.language, () => void context2.go("journal")));
+      const voice = typeof this.options.audio.onEvent === "function" && typeof this.options.audio.beginExternalLesson === "function" ? createStoryVoicePlayback({ director: this.options.audio }) : void 0;
+      context2.shell.replace(renderRieUnlockScreen({
+        language: context2.language,
+        replay: true,
+        ...voice ? { voice } : {},
+        onComplete: () => void context2.go("journal")
+      }));
     }
     replayAakash(context2) {
       context2.shell.setNavigation(true, "journal");
@@ -279363,10 +279495,10 @@ ${glossaryKey}`;
       word.endsWith("'s") ? word.slice(0, -2) : "",
       word.endsWith("s") ? word.slice(0, -1) : ""
     ]);
-    for (const variant of variants) {
-      tokens.push(variant);
-      for (let start = 1; start <= variant.length - TERM_SEARCH_INDEX_MIN_SUFFIX_LENGTH; start++) {
-        tokens.push(variant.slice(start));
+    for (const variant2 of variants) {
+      tokens.push(variant2);
+      for (let start = 1; start <= variant2.length - TERM_SEARCH_INDEX_MIN_SUFFIX_LENGTH; start++) {
+        tokens.push(variant2.slice(start));
       }
     }
     return tokens;
@@ -282169,9 +282301,9 @@ ${entry2.reading || ""}`;
     return renderPitchVariantGraphs(reading, variants);
   }
   function renderPitchVariantGraphs(reading, variants) {
-    const graphs = variants.map((variant) => ({
-      variant,
-      svg: renderPitchGraphSvg(reading, variant.pattern, { centerContent: true })
+    const graphs = variants.map((variant2) => ({
+      variant: variant2,
+      svg: renderPitchGraphSvg(reading, variant2.pattern, { centerContent: true })
     })).filter((entry2) => entry2.svg);
     if (!graphs.length) return "";
     if (graphs.length === 1) return `<div class="jpdb-reader-pitch">${graphs[0].svg}</div>`;
@@ -282180,7 +282312,7 @@ ${entry2.reading || ""}`;
   }
   function pitchVariantDisplayPercentages(variants) {
     if (!variants.length) return [];
-    const supplied = variants.map((variant) => variant.commonality);
+    const supplied = variants.map((variant2) => variant2.commonality);
     const hasCompleteCommonality = supplied.every((value) => Number.isFinite(value) && (value ?? 0) >= 0) && supplied.some((value) => (value ?? 0) > 0);
     const weights = hasCompleteCommonality ? supplied.map((value) => value ?? 0) : variants.map((_, index) => variants.length - index);
     const total = weights.reduce((sum, value) => sum + value, 0);
@@ -307165,10 +307297,10 @@ ${entry2.url}`),
     renderNewTabImmersionCard(card, examples, index) {
       return this.renderNewTabImmersionCardVariant(card, examples[index], index, examples.length, "word");
     }
-    renderNewTabImmersionCardVariant(card, example, index, total, variant) {
+    renderNewTabImmersionCardVariant(card, example, index, total, variant2) {
       const settings = this.dependencies.getSettings();
       const audioUrls = newTabImmersionAudioUrls(example, this.dependencies.immersionKit);
-      const isKanji2 = variant === "kanji";
+      const isKanji2 = variant2 === "kanji";
       const node2 = el(
         "div",
         isKanji2 ? {
