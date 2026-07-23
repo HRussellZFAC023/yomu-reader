@@ -45,6 +45,8 @@ export interface AcademyVnLine {
     readonly reading: AcademyVnReadingControl;
     readonly translation?: string;
     readonly translationEarned?: boolean;
+    /** Show already-earned support immediately for non-assessment dialogue. */
+    readonly translationVisible?: boolean;
     readonly emphasis?: 'jump';
     readonly sfx?: readonly AcademySemanticSfxCue[];
     /** Present only for authored story dialogue eligible for exact static voice matching. */
@@ -560,6 +562,7 @@ export function createAcademyVnStage(options: AcademyVnStageOptions = {}): Acade
             translation.remove();
             translation.replaceChildren();
         }
+        if (changesLine && line.translationVisible !== undefined) translationVisible = line.translationVisible;
         applyTranslationState(translationVisible);
         performBeat(changesLine
             ? [...(advancesLine ? ['vn.advance' as const] : []), ...(line.sfx ?? [])]

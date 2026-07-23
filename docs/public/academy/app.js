@@ -16958,10 +16958,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     profileNamePlaceholder: "Your name",
     profileNameDialogue: "こんばんは。雨の中、よく来てくれましたね。なんとお呼びしましょうか。",
     profileNameDialogueSupport: "Good evening. I’m glad you made it through the rain. What should I call you?",
-    profileReasonLabel: "Why are you learning Japanese?",
-    profileReasonPlaceholder: "A private note for your journal",
-    profileReasonDialogue: "{name}さん、日本語を勉強している理由を教えてください。",
-    profileReasonDialogueSupport: "{name}, what brought you to Japanese?",
+    profileReasonLabel: "What would you like to do in Japanese?",
+    profileReasonPlaceholder: "Read manga, talk with family, travel…",
+    profileReasonDialogue: "{name}さん、日本語で何ができるようになりたいですか。",
+    profileReasonDialogueSupport: "{name}, what would you like to be able to do in Japanese?",
     profilePortraitLegend: "Choose how you appear in the story",
     profilePortraitDialogue: "最後に、物語の中のあなたを選んでください。",
     profilePortraitDialogueSupport: "One last thing. Choose how you will appear in our story.",
@@ -16971,7 +16971,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     portraitPlanner: "Planner and study cards",
     portraitCards: "Offering a card",
     portraitNotebook: "Pencil and notebook",
-    profileSubmit: "Tell Rie",
+    profileSubmit: "That’s me",
     rieUnlockEyebrow: "Teacher profile",
     rieUnlockTitle: "Rie-sensei",
     rieUnlockBody: "“One open chair is enough. We can begin.”",
@@ -17243,10 +17243,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     profileNamePlaceholder: "お名前",
     profileNameDialogue: "こんばんは。雨の中、よく来てくれましたね。なんとお呼びしましょうか。",
     profileNameDialogueSupport: "Good evening. I’m glad you made it through the rain. What should I call you?",
-    profileReasonLabel: "なぜ日本語を勉強していますか。",
-    profileReasonPlaceholder: "日記に残す自分だけのメモ",
-    profileReasonDialogue: "{name}さん、日本語を勉強している理由を教えてください。",
-    profileReasonDialogueSupport: "{name}さん、日本語を勉強するきっかけを教えてください。",
+    profileReasonLabel: "日本語で、何ができるようになりたいですか。",
+    profileReasonPlaceholder: "漫画を読む、家族と話す、旅行する…",
+    profileReasonDialogue: "{name}さん、日本語で何ができるようになりたいですか。",
+    profileReasonDialogueSupport: "{name}さん、日本語で何ができるようになりたいですか。",
     profilePortraitLegend: "物語の中の姿を選んでください",
     profilePortraitDialogue: "最後に、物語の中のあなたを選んでください。",
     profilePortraitDialogueSupport: "最後に、物語の中のあなたの姿を選んでください。",
@@ -17256,7 +17256,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     portraitPlanner: "手帳と学習カード",
     portraitCards: "カードを渡す",
     portraitNotebook: "鉛筆とノート",
-    profileSubmit: "りえ先生に伝える",
+    profileSubmit: "これが私です",
     rieUnlockEyebrow: "先生プロフィール",
     rieUnlockTitle: "りえ先生",
     rieUnlockBody: "「椅子が一つ空いていれば十分。始めましょう。」",
@@ -41710,7 +41710,9 @@ ${spelling}`);
       ["route:profile"],
       { audio: "none", visual: "ui" },
       "Learner name, language, and reason are recorded.",
-      "Profile continues to the first Rie scene and restores on reload."
+      "Profile continues to the first Rie scene and restores on reload.",
+      [],
+      VERIFIED_DELIVERY
     ),
     entry$P(
       "day:1:rie-introduction",
@@ -49954,6 +49956,7 @@ ${spelling}`);
         translation2.remove();
         translation2.replaceChildren();
       }
+      if (changesLine && line2.translationVisible !== void 0) translationVisible = line2.translationVisible;
       applyTranslationState(translationVisible);
       performBeat(changesLine ? [...advancesLine ? ["vn.advance"] : [], ...line2.sfx ?? []] : []);
     };
@@ -53290,8 +53293,9 @@ ${spelling}`);
     name.className = "academy-input";
     name.name = "displayName";
     name.required = true;
-    name.maxLength = 60;
+    name.maxLength = 40;
     name.autocomplete = "name";
+    name.enterKeyHint = "next";
     name.setAttribute("aria-label", academyText(options.language, "profileNameLabel"));
     name.placeholder = academyText(options.language, "profileNamePlaceholder");
     name.value = options.profile?.displayName ?? "";
@@ -53299,7 +53303,9 @@ ${spelling}`);
     reason.className = "academy-input academy-textarea";
     reason.name = "learningReason";
     reason.required = true;
-    reason.maxLength = 500;
+    reason.maxLength = 160;
+    reason.rows = 2;
+    reason.enterKeyHint = "done";
     reason.setAttribute("aria-label", academyText(options.language, "profileReasonLabel"));
     reason.placeholder = academyText(options.language, "profileReasonPlaceholder");
     reason.value = options.profile?.learningReason ?? "";
@@ -53348,7 +53354,8 @@ ${spelling}`);
           hideLabel: academyText(options.language, "readingHide")
         },
         translation: dialogue2.translation,
-        translationEarned: true
+        translationEarned: true,
+        translationVisible: options.language === "en"
       };
     };
     const showStep = (next) => {
@@ -53359,10 +53366,14 @@ ${spelling}`);
       stage2.setObject(next === "portrait" ? { element: portraitStep } : null);
       stage2.setBack(next === "name" ? options.onBack ? { onBack: options.onBack } : null : { onBack: () => showStep(next === "portrait" ? "reason" : "name") });
       stage2.setAction({ element: actionContent(next) });
-      if (next === "name") name.focus();
-      else if (next === "reason") reason.focus();
-      else portraitStep.querySelector("input:checked")?.focus();
+      const control2 = next === "name" ? name : next === "reason" ? reason : portraitStep.querySelector("input:checked");
+      if (control2) focusWhenMounted(control2);
     };
+    name.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" || event.isComposing || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+      event.preventDefault();
+      if (name.reportValidity()) showStep("reason");
+    }, { signal: lifecycle.signal });
     const actionFor = (current) => {
       const button2 = document.createElement("button");
       button2.type = "button";
@@ -53452,6 +53463,15 @@ ${spelling}`);
   }
   function interpolate$1(template, name) {
     return template.replace("{name}", name);
+  }
+  function focusWhenMounted(control2) {
+    if (control2.isConnected) {
+      control2.focus();
+      return;
+    }
+    queueMicrotask(() => {
+      if (control2.isConnected) control2.focus();
+    });
   }
   function portraitId(value) {
     return PORTRAITS.some(([id2]) => id2 === value) ? value : void 0;

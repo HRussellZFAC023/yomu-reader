@@ -42941,8 +42941,8 @@ details.academy-code-section > summary {
 .academy-vn-translation-toggle {
     position: relative;
     display: grid;
-    width: 34px;
-    height: 34px;
+    width: 44px;
+    height: 44px;
     padding: 0;
     place-items: center;
     border: 1px solid rgba(73, 64, 48, 0.3);
@@ -43226,7 +43226,7 @@ details.academy-code-section > summary {
 
 .academy-profile-screen .academy-vn-object-slot {
     left: 58%;
-    bottom: clamp(228px, 33vh, 344px);
+    bottom: clamp(244px, 35vh, 360px);
     width: min(500px, calc(100% - 32px));
     pointer-events: auto;
 }

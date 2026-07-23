@@ -197,7 +197,7 @@ describe('Academy human interface', () => {
         screen.querySelector<HTMLButtonElement>('.academy-profile-advance')!.click();
         const reason = screen.querySelector<HTMLTextAreaElement>('textarea[name="learningReason"]')!;
         expect(name.getAttribute('aria-label')).toBe('りえ先生には、なんと呼んでほしいですか。');
-        expect(reason.getAttribute('aria-label')).toBe('なぜ日本語を勉強していますか。');
+        expect(reason.getAttribute('aria-label')).toBe('日本語で、何ができるようになりたいですか。');
         reason.value = '小説を読むため';
         screen.querySelector<HTMLButtonElement>('.academy-profile-advance')!.click();
         expect(screen.dataset.profileStep).toBe('portrait');
@@ -206,9 +206,9 @@ describe('Academy human interface', () => {
         const firstPortrait = portraits.querySelector<HTMLInputElement>('input[type="radio"]')!;
         const firstImage = portraits.querySelector<HTMLImageElement>('img')!;
 
-        expect(submit.getAttribute('aria-label')).toBe('りえ先生に伝える');
-        submit.innerHTML = '<span class="jpdb-reader-word">りえ<ruby>先生<rt>せんせい</rt></ruby>に伝える</span>';
-        expect(submit.getAttribute('aria-label')).toBe('りえ先生に伝える');
+        expect(submit.getAttribute('aria-label')).toBe('これが私です');
+        submit.innerHTML = '<span class="jpdb-reader-word">これが<ruby>私<rt>わたし</rt></ruby>です</span>';
+        expect(submit.getAttribute('aria-label')).toBe('これが私です');
         expect(portraits.getAttribute('aria-label')).toBe('物語の中の姿を選んでください');
         expect(firstPortrait.getAttribute('aria-label')).toBe('カメラと地図');
         expect(firstPortrait.closest('label')?.dataset.jpdbReaderSurfaceIgnore).toBe('');
@@ -251,11 +251,21 @@ describe('Academy human interface', () => {
         const name = screen.querySelector<HTMLInputElement>('input[name="displayName"]')!;
 
         expect(name.closest('.academy-profile-inline-action')?.closest('.academy-vn-action-slot')).not.toBeNull();
+        expect(name.maxLength).toBe(40);
+        expect(name.enterKeyHint).toBe('next');
+        expect(screen.querySelector('.academy-vn-translation')?.textContent).toContain('What should I call you?');
+        expect(screen.querySelector('.academy-vn-translation')).toHaveProperty('hidden', false);
+        expect(screen.textContent).not.toMatch(/one true role|truth|boundary|language you study/i);
         expect(screen.querySelector('.academy-vn-object-slot')?.getAttribute('data-empty')).toBe('true');
         name.value = 'Mina';
-        screen.querySelector<HTMLButtonElement>('.academy-profile-advance')!.click();
+        name.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
         const reason = screen.querySelector<HTMLTextAreaElement>('textarea[name="learningReason"]')!;
         expect(reason.closest('.academy-profile-inline-action')?.closest('.academy-vn-action-slot')).not.toBeNull();
+        expect(reason.maxLength).toBe(160);
+        expect(reason.rows).toBe(2);
+        expect(reason.placeholder).toBe('Read manga, talk with family, travel…');
+        expect(screen.querySelector('.academy-vn-translation')?.textContent)
+            .toBe('Mina, what would you like to be able to do in Japanese?');
         expect(screen.querySelector('.academy-vn-object-slot')?.getAttribute('data-empty')).toBe('true');
         expect(vnStyles).toMatch(/\.academy-portrait-option:has\(input:focus-visible\)\s*\{[^}]*outline:\s*3px solid[^}]*outline-offset:\s*3px/s);
         expect(screenStyles).toMatch(/\.academy-start-screen \.academy-title,[\s\S]*font-size:\s*clamp\(3rem, 4\.2vw, 3\.6rem\)/s);

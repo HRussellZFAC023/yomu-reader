@@ -46,8 +46,9 @@ export function renderProfileScreen(options: ProfileScreenOptions): HTMLElement 
     name.className = 'academy-input';
     name.name = 'displayName';
     name.required = true;
-    name.maxLength = 60;
+    name.maxLength = 40;
     name.autocomplete = 'name';
+    name.enterKeyHint = 'next';
     name.setAttribute('aria-label', academyText(options.language, 'profileNameLabel'));
     name.placeholder = academyText(options.language, 'profileNamePlaceholder');
     name.value = options.profile?.displayName ?? '';
@@ -56,7 +57,9 @@ export function renderProfileScreen(options: ProfileScreenOptions): HTMLElement 
     reason.className = 'academy-input academy-textarea';
     reason.name = 'learningReason';
     reason.required = true;
-    reason.maxLength = 500;
+    reason.maxLength = 160;
+    reason.rows = 2;
+    reason.enterKeyHint = 'done';
     reason.setAttribute('aria-label', academyText(options.language, 'profileReasonLabel'));
     reason.placeholder = academyText(options.language, 'profileReasonPlaceholder');
     reason.value = options.profile?.learningReason ?? '';
@@ -113,6 +116,7 @@ export function renderProfileScreen(options: ProfileScreenOptions): HTMLElement 
             },
             translation: dialogue.translation,
             translationEarned: true,
+            translationVisible: options.language === 'en',
         };
     };
 
@@ -126,10 +130,19 @@ export function renderProfileScreen(options: ProfileScreenOptions): HTMLElement 
             ? (options.onBack ? { onBack: options.onBack } : null)
             : { onBack: () => showStep(next === 'portrait' ? 'reason' : 'name') });
         stage.setAction({ element: actionContent(next) });
-        if (next === 'name') name.focus();
-        else if (next === 'reason') reason.focus();
-        else portraitStep.querySelector<HTMLInputElement>('input:checked')?.focus();
+        const control = next === 'name'
+            ? name
+            : next === 'reason'
+                ? reason
+                : portraitStep.querySelector<HTMLInputElement>('input:checked');
+        if (control) focusWhenMounted(control);
     };
+
+    name.addEventListener('keydown', event => {
+        if (event.key !== 'Enter' || event.isComposing || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+        event.preventDefault();
+        if (name.reportValidity()) showStep('reason');
+    }, { signal: lifecycle.signal });
     const actionFor = (current: ProfileStep): HTMLButtonElement => {
         const button = document.createElement('button');
         button.type = 'button';
@@ -225,6 +238,14 @@ function portraitEntry(
 
 function interpolate(template: string, name: string): string {
     return template.replace('{name}', name);
+}
+
+function focusWhenMounted(control: HTMLElement): void {
+    if (control.isConnected) {
+        control.focus();
+        return;
+    }
+    queueMicrotask(() => { if (control.isConnected) control.focus(); });
 }
 
 function portraitId(value: string | undefined): ProtagonistPortraitId | undefined {
