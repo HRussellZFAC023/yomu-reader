@@ -5,7 +5,7 @@ import { copyButton, copyElement, element, fieldError, screenFrame, setBusy, set
 
 export interface AccessScreenOptions {
     readonly language: AcademyLanguage;
-    readonly onSubmit: (code: string) => Promise<void>;
+    readonly onSubmit: (code: string, signal: AbortSignal) => Promise<void>;
     readonly supportDonation?: SupportDonationService;
 }
 
@@ -27,6 +27,8 @@ export function renderAccessScreen(options: AccessScreenOptions): HTMLElement {
     input.name = 'code';
     input.autocomplete = 'one-time-code';
     input.inputMode = 'text';
+    input.autocapitalize = 'characters';
+    input.spellcheck = false;
     input.maxLength = 64;
     input.required = true;
     input.setAttribute('aria-label', academyText(options.language, 'accessCodeLabel'));
@@ -38,6 +40,13 @@ export function renderAccessScreen(options: AccessScreenOptions): HTMLElement {
     getCode.type = 'button';
     const feedback = element('div', 'academy-form-feedback');
     const actions = element('div', 'academy-access-actions');
+    let submitting = false;
+    const restoreSubmit = () => {
+        submitting = false;
+        submit.disabled = false;
+        submit.removeAttribute('aria-busy');
+        setCopy(submit, options.language, 'accessSubmit');
+    };
     actions.append(submit, getCode);
     form.append(label, actions, feedback);
     input.addEventListener('input', () => {
@@ -47,6 +56,7 @@ export function renderAccessScreen(options: AccessScreenOptions): HTMLElement {
     }, { signal: lifecycle.signal });
     form.addEventListener('submit', event => {
         event.preventDefault();
+        if (submitting || lifecycle.signal.aborted) return;
         feedback.replaceChildren();
         if (!input.value.trim()) {
             input.setAttribute('aria-invalid', 'true');
@@ -55,13 +65,15 @@ export function renderAccessScreen(options: AccessScreenOptions): HTMLElement {
             return;
         }
         input.removeAttribute('aria-invalid');
+        submitting = true;
         setBusy(submit, true, academyText(options.language, 'accessChecking'));
-        void options.onSubmit(input.value).catch(error => {
+        void options.onSubmit(input.value, lifecycle.signal).then(() => {
+            if (!lifecycle.signal.aborted && screen.isConnected) restoreSubmit();
+        }).catch(error => {
+            if (lifecycle.signal.aborted || isAbortError(error)) return;
             const unavailable = error instanceof Error && 'code' in error && error.code === 'unavailable';
             feedback.replaceChildren(fieldError(academyText(options.language, unavailable ? 'accessUnavailable' : 'accessInvalid')));
-            submit.disabled = false;
-            submit.removeAttribute('aria-busy');
-            setCopy(submit, options.language, 'accessSubmit');
+            restoreSubmit();
             input.focus();
         });
     });
@@ -72,4 +84,8 @@ export function renderAccessScreen(options: AccessScreenOptions): HTMLElement {
         lifecycle.abort();
     }, { once: true });
     return screen;
+}
+
+function isAbortError(error: unknown): boolean {
+    return error instanceof DOMException && error.name === 'AbortError';
 }

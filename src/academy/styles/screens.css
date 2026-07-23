@@ -193,7 +193,7 @@
 
 .academy-get-code {
     width: fit-content !important;
-    min-height: 40px;
+    min-height: 44px;
     justify-self: center;
     padding: 8px 10px 7px;
     border: 0;
@@ -650,6 +650,19 @@
     100% {
         opacity: 0;
         transform: translate3d(-70px, 104vh, 0) rotate(540deg);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .academy-access-screen .academy-panel,
+    .academy-access-screen .academy-screen-veil::before,
+    .academy-access-screen .academy-screen-veil::after {
+        animation: none;
+    }
+
+    .academy-access-screen .academy-screen-veil::before,
+    .academy-access-screen .academy-screen-veil::after {
+        opacity: 0;
     }
 }
 

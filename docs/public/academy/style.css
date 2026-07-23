@@ -23099,7 +23099,7 @@ a.academy-chrome-button {
 
 .academy-get-code {
     width: fit-content !important;
-    min-height: 40px;
+    min-height: 44px;
     justify-self: center;
     padding: 8px 10px 7px;
     border: 0;
@@ -23556,6 +23556,19 @@ a.academy-chrome-button {
     100% {
         opacity: 0;
         transform: translate3d(-70px, 104vh, 0) rotate(540deg);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .academy-access-screen .academy-panel,
+    .academy-access-screen .academy-screen-veil::before,
+    .academy-access-screen .academy-screen-veil::after {
+        animation: none;
+    }
+
+    .academy-access-screen .academy-screen-veil::before,
+    .academy-access-screen .academy-screen-veil::after {
+        opacity: 0;
     }
 }
 
@@ -46185,9 +46198,13 @@ button.academy-class-week-entry:is(:hover, :focus-visible) {
 }
 
 .academy-lesson-overview-back {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     grid-column: 1 / -1;
     width: fit-content;
-    padding: 3px 0;
+    min-height: 44px;
+    padding: 8px 2px;
     border: 0;
     border-bottom: 2px solid var(--academy-accent);
     border-radius: 0;

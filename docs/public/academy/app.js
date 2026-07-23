@@ -41650,7 +41650,9 @@ ${spelling}`);
       ["route:access"],
       { audio: "none", visual: "ui" },
       "Invite session survives the route transition.",
-      "Clean browser reaches the profile/account fork."
+      "Clean browser reaches the profile/account fork.",
+      [],
+      VERIFIED_DELIVERY
     ),
     entry$P(
       "day:1:account-link",
@@ -47851,6 +47853,8 @@ ${spelling}`);
     input2.name = "code";
     input2.autocomplete = "one-time-code";
     input2.inputMode = "text";
+    input2.autocapitalize = "characters";
+    input2.spellcheck = false;
     input2.maxLength = 64;
     input2.required = true;
     input2.setAttribute("aria-label", academyText(options.language, "accessCodeLabel"));
@@ -47862,6 +47866,13 @@ ${spelling}`);
     getCode.type = "button";
     const feedback2 = element("div", "academy-form-feedback");
     const actions = element("div", "academy-access-actions");
+    let submitting = false;
+    const restoreSubmit = () => {
+      submitting = false;
+      submit2.disabled = false;
+      submit2.removeAttribute("aria-busy");
+      setCopy(submit2, options.language, "accessSubmit");
+    };
     actions.append(submit2, getCode);
     form2.append(label, actions, feedback2);
     input2.addEventListener("input", () => {
@@ -47871,6 +47882,7 @@ ${spelling}`);
     }, { signal: lifecycle.signal });
     form2.addEventListener("submit", (event) => {
       event.preventDefault();
+      if (submitting || lifecycle.signal.aborted) return;
       feedback2.replaceChildren();
       if (!input2.value.trim()) {
         input2.setAttribute("aria-invalid", "true");
@@ -47879,13 +47891,15 @@ ${spelling}`);
         return;
       }
       input2.removeAttribute("aria-invalid");
+      submitting = true;
       setBusy$1(submit2, true, academyText(options.language, "accessChecking"));
-      void options.onSubmit(input2.value).catch((error) => {
+      void options.onSubmit(input2.value, lifecycle.signal).then(() => {
+        if (!lifecycle.signal.aborted && screen.isConnected) restoreSubmit();
+      }).catch((error) => {
+        if (lifecycle.signal.aborted || isAbortError$1(error)) return;
         const unavailable = error instanceof Error && "code" in error && error.code === "unavailable";
         feedback2.replaceChildren(fieldError(academyText(options.language, unavailable ? "accessUnavailable" : "accessInvalid")));
-        submit2.disabled = false;
-        submit2.removeAttribute("aria-busy");
-        setCopy(submit2, options.language, "accessSubmit");
+        restoreSubmit();
         input2.focus();
       });
     });
@@ -47896,6 +47910,9 @@ ${spelling}`);
       lifecycle.abort();
     }, { once: true });
     return screen;
+  }
+  function isAbortError$1(error) {
+    return error instanceof DOMException && error.name === "AbortError";
   }
   const EXACT_SOURCE_CONTRACTS$1 = Object.freeze({
     "minna-074-mondai-2-true-false": contract({
@@ -53428,7 +53445,7 @@ ${spelling}`);
         case "access":
           context2.shell.replace(renderAccessScreen({
             language: context2.language,
-            onSubmit: (code) => this.openSession(code, context2)
+            onSubmit: (code, signal) => this.openSession(code, signal, context2)
           }));
           return true;
         case "profile":
@@ -53524,13 +53541,15 @@ ${spelling}`);
       this.releaseExternalListening?.();
       this.releaseExternalListening = null;
     }
-    async openSession(code, context2) {
-      const session = await this.options.access.exchange(code);
+    async openSession(code, signal, context2) {
+      const session = await this.options.access.exchange(code, signal);
+      if (signal.aborted) return;
       if (this.options.skipAccountGate) {
         await context2.go("profile", { session });
         return;
       }
       await this.options.account?.connect();
+      if (signal.aborted) return;
       await context2.go("profile-sync", { session });
     }
     async saveProfile(profile2, context2) {

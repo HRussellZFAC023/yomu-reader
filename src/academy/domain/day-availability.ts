@@ -244,7 +244,8 @@ function entry(
 const DAY_ONE_ENROLLMENT: readonly DayActivityAvailability[] = [
     entry('day:1:access', 'Enter with a class code', 'enrollment', ['required', 'online'],
         { route: 'access' }, ['route:access'], { audio: 'none', visual: 'ui' },
-        'Invite session survives the route transition.', 'Clean browser reaches the profile/account fork.'),
+        'Invite session survives the route transition.', 'Clean browser reaches the profile/account fork.',
+        [], VERIFIED_DELIVERY),
     entry('day:1:account-link', 'Link or resume an Academy account', 'account', ['optional', 'online', 'revisitable'],
         { route: 'profile-sync' }, ['route:profile-sync'], { audio: 'none', visual: 'ui' },
         'Linked identity, encrypted profile, devices, and sync status persist.', 'Link, refresh, sign-out, resume, export, and delete are browser-proved.'),

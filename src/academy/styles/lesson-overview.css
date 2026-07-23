@@ -47,9 +47,13 @@
 }
 
 .academy-lesson-overview-back {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     grid-column: 1 / -1;
     width: fit-content;
-    padding: 3px 0;
+    min-height: 44px;
+    padding: 8px 2px;
     border: 0;
     border-bottom: 2px solid var(--academy-accent);
     border-radius: 0;

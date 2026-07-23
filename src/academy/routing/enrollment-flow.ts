@@ -46,7 +46,7 @@ class EnrollmentFlow implements AcademyRouteFlow {
             case 'access':
                 context.shell.replace(renderAccessScreen({
                     language: context.language,
-                    onSubmit: code => this.openSession(code, context),
+                    onSubmit: (code, signal) => this.openSession(code, signal, context),
                 }));
                 return true;
             case 'profile':
@@ -149,8 +149,13 @@ class EnrollmentFlow implements AcademyRouteFlow {
         this.releaseExternalListening = null;
     }
 
-    private async openSession(code: string, context: AcademyRouteContext): Promise<void> {
-        const session = await this.options.access.exchange(code);
+    private async openSession(
+        code: string,
+        signal: AbortSignal,
+        context: AcademyRouteContext,
+    ): Promise<void> {
+        const session = await this.options.access.exchange(code, signal);
+        if (signal.aborted) return;
 
         if (this.options.skipAccountGate) {
             await context.go('profile', { session });
@@ -162,6 +167,7 @@ class EnrollmentFlow implements AcademyRouteFlow {
         // the account route is persisted before its Google recovery controls
         // run.
         await this.options.account?.connect();
+        if (signal.aborted) return;
         await context.go('profile-sync', { session });
     }
 

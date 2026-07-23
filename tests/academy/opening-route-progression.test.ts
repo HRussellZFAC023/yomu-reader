@@ -42,7 +42,7 @@ afterEach(() => {
 
 describe('Academy opening route progression', () => {
     it('holds class invitations at account linking: no invite enters Academy anonymously', async () => {
-        const exchange = vi.fn(async () => session());
+        const exchange = vi.fn(async (_code: string, _signal?: AbortSignal) => session());
         const connect = vi.fn(async () => syncStatus('sign-in'));
         const flow = createEnrollmentFlow({
             access: { exchange },
@@ -59,6 +59,7 @@ describe('Academy opening route progression', () => {
 
         await vi.waitFor(() => expect(route.go).toHaveBeenCalledWith('profile-sync', { session: session() }));
         expect(connect).toHaveBeenCalledOnce();
+        expect(exchange.mock.calls[0]?.[1]).toBeInstanceOf(AbortSignal);
     });
 
     it('holds paid access at account linking before onboarding and retains the local route state', async () => {
@@ -80,6 +81,34 @@ describe('Academy opening route progression', () => {
         await vi.waitFor(() => expect(route.go).toHaveBeenCalledWith('profile-sync', { session: session() }));
         expect(connect).toHaveBeenCalledOnce();
         expect(route.value.projection.profile).toEqual(projectLearnerRecord([PROFILE_EVENT]).profile);
+    });
+
+    it('does not navigate when the access route is disposed during account linking', async () => {
+        let resolveAccount!: () => void;
+        const exchange = vi.fn(async () => session());
+        const connect = vi.fn(() => new Promise<ReturnType<typeof syncStatus>>(resolve => {
+            resolveAccount = () => resolve(syncStatus('sign-in'));
+        }));
+        const flow = createEnrollmentFlow({
+            access: { exchange },
+            evidence: {} as never,
+            pronunciation: {} as never,
+            account: { connect },
+        });
+        const route = routeContext('access', []);
+
+        await flow.render('access', route.value);
+        const screen = route.shell.current!;
+        const input = screen.querySelector<HTMLInputElement>('input[name="code"]')!;
+        input.value = 'CLASS-TEST-2026';
+        input.closest('form')?.dispatchEvent(new SubmitEvent('submit', { bubbles: true, cancelable: true }));
+        await vi.waitFor(() => expect(connect).toHaveBeenCalledOnce());
+
+        screen.dispatchEvent(new CustomEvent('academy:dispose'));
+        resolveAccount();
+        await Promise.resolve();
+
+        expect(route.go).not.toHaveBeenCalled();
     });
 
     it('arrives at the campus entrance before opening Lesson 0', async () => {
