@@ -130,6 +130,19 @@ async function verifyJourney(browser, viewport) {
     const afterScenes = await readProof(page);
     assert.deepEqual(afterScenes.events, completed.events,
         `${viewport.name} chronological scene inspection must not mutate canonical evidence`);
+    for (const theme of [
+        'opening.invitation',
+        'classroom.focus',
+        'world.lab',
+        'library.quiet',
+        'unlock.world',
+        'ending.reflective',
+    ]) {
+        assert.ok(afterScenes.audio.themes.includes(theme), `${viewport.name} must play ${theme}`);
+    }
+    for (const cue of ['scene.advance', 'page.turn', 'menu.confirm', 'chapter.complete']) {
+        assert.ok(afterScenes.audio.sfx.includes(cue), `${viewport.name} must play ${cue}`);
+    }
     if (viewport.name === 'desktop') await verifyChapterVoiceMatrix(page);
     assert.deepEqual(consoleProblems, [], `${viewport.name} browser console must stay clean`);
     await context.close();
@@ -242,11 +255,13 @@ async function mountProof(page, databaseName, resetDatabase) {
         const audio = {
             state: 'ready',
             theme: 'silence',
+            themes: [],
+            sfx: [],
             settings: { muted: false, volumes: { music: 0.7, ambience: 0.65, lesson: 1, sfx: 0.8 } },
-            async setTheme(theme) { this.theme = theme; },
+            async setTheme(theme) { this.theme = theme; this.themes.push(theme); },
             beginExternalLesson() { return () => {}; },
             onEvent() { return () => {}; },
-            playSfx() {},
+            playSfx(cue) { this.sfx.push(cue); },
         };
         const pronunciation = { async play() { return { dispose() {} }; } };
         const shell = {
@@ -324,7 +339,11 @@ async function mountProof(page, databaseName, resetDatabase) {
         };
         window.__blankAtlasProof = {
             async snapshot() {
-                return { checkpoint: structuredClone(checkpoint), events: structuredClone(await evidence.history()) };
+                return {
+                    checkpoint: structuredClone(checkpoint),
+                    events: structuredClone(await evidence.history()),
+                    audio: structuredClone({ theme: audio.theme, themes: audio.themes, sfx: audio.sfx }),
+                };
             },
             async passAndReturn() {
                 await passActivities();

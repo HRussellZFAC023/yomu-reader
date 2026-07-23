@@ -1,6 +1,7 @@
 import type { AudioDirector } from '../audio/director';
 import { createStoryVoicePlayback } from '../audio/voice-lines';
 import { playLearningVoiceBinding } from '../audio/learning-voice';
+import { themeForStoryScene } from '../audio/story-presentation';
 import type { AcademySyncClient } from '../account/sync-client';
 import { loadClassWeekCastPlan } from '../content/class-week-cast-plan-loader';
 import { loadClassWeekDeliveryCatalog } from '../content/class-week-delivery-catalog';
@@ -163,6 +164,10 @@ class WorldFlow implements AcademyRouteFlow {
             selectedBand: context.checkpoint.selectedBand ?? context.projection.curriculumEntry?.band,
             audio: { playSfx: cue => this.options.audio.playSfx(cue) },
             ...(createVoicePlayback ? { createVoicePlayback } : {}),
+            onSceneChange: scene => {
+                const theme = themeForStoryScene(scene.id);
+                if (theme) void this.options.audio.setTheme(theme);
+            },
             onCheckpoint: cursor => context.save?.({ sectionId: serializeStoryCursor(cursor) }),
             onOpenActivity: (lessonId, activityId, cursor) => void context.go('source-activity', {
                 lessonId,

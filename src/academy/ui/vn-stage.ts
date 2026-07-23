@@ -564,8 +564,9 @@ export function createAcademyVnStage(options: AcademyVnStageOptions = {}): Acade
         }
         if (changesLine && line.translationVisible !== undefined) translationVisible = line.translationVisible;
         applyTranslationState(translationVisible);
+        const replacesAdvance = line.sfx?.includes('travel.transition') ?? false;
         performBeat(changesLine
-            ? [...(advancesLine ? ['vn.advance' as const] : []), ...(line.sfx ?? [])]
+            ? [...(advancesLine && !replacesAdvance ? ['vn.advance' as const] : []), ...(line.sfx ?? [])]
             : []);
     };
 

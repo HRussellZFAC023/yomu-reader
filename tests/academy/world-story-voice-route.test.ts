@@ -4,7 +4,7 @@ import type { AudioDirectorEvent, AudioSettings } from '../../src/academy/audio/
 import type { AcademyShell } from '../../src/academy/ui/shell';
 
 describe('World Story voice route', () => {
-    it('instantiates the exact static voice catalog from the production Story route', async () => {
+    it('instantiates the exact Chapter 1 voice catalog and opening score from the production Story route', async () => {
         const catalog = { schema: 'yomu-academy.story-voice-playback.v1', entries: [] };
         const fetcher = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify(catalog), {
             status: 200,
@@ -46,7 +46,7 @@ describe('World Story voice route', () => {
                 route: 'story',
                 routeHistory: [{ route: 'campus' }],
                 presentationMode: 'story',
-                sectionId: 's1e02-margin-map',
+                sectionId: 's1e01-the-blank-atlas',
                 selectedBand: 'n5',
                 updatedAt: 1,
             },
@@ -60,6 +60,7 @@ describe('World Story voice route', () => {
             '/academy/audio/story-voice-playback.json',
             { credentials: 'same-origin' },
         ));
+        expect(audio.setTheme).toHaveBeenCalledWith('opening.invitation');
         expect(audioEvents.size).toBe(1);
         expect(current?.querySelector('.academy-vn-voice-replay')).not.toBeNull();
 

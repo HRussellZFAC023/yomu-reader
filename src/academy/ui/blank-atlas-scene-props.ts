@@ -1,6 +1,7 @@
 import type { AcademyLanguage } from '../../reader/app/academy-copy';
 import type { StoryCursor, StoryMoment } from '../content/story-runner';
 import type { LearnerProfileSnapshot } from '../domain/learner-record';
+import type { AcademySemanticSfxCue } from '../audio/sfx-catalog';
 import type { AcademyVnSlotContent } from './vn-stage';
 
 interface BlankAtlasScenePropOptions {
@@ -8,6 +9,7 @@ interface BlankAtlasScenePropOptions {
     readonly moment: StoryMoment;
     readonly cursor: StoryCursor;
     readonly learner?: Pick<LearnerProfileSnapshot, 'displayName'>;
+    readonly onSfx?: (cue: AcademySemanticSfxCue) => void;
 }
 
 const VOWELS = ['あ', 'い', 'う', 'え', 'お'] as const;
@@ -41,13 +43,13 @@ export function blankAtlasSceneProp(options: BlankAtlasScenePropOptions): Academ
             root.append(soundMissionProp(nodeId));
             break;
         case 'scene:blank-atlas:mission-text':
-            root.append(textMissionProp(options.language));
+            root.append(textMissionProp(options.language, options.onSfx));
             break;
         case 'scene:blank-atlas:mission-speaking':
-            root.append(speakingDoorProp(options.language));
+            root.append(speakingDoorProp(options.language, options.onSfx));
             break;
         case 'scene:blank-atlas:reading-writing':
-            root.append(publicCardProp(options.language, nodeId, options.learner?.displayName));
+            root.append(publicCardProp(options.language, nodeId, options.learner?.displayName, options.onSfx));
             break;
         case 'scene:blank-atlas:transfer':
             root.append(lanternRouteProp(nodeId === 'node:blank-atlas:first-lantern'));
@@ -140,7 +142,7 @@ function soundMissionProp(nodeId: string): HTMLElement {
     return prop;
 }
 
-function textMissionProp(language: AcademyLanguage): HTMLElement {
+function textMissionProp(language: AcademyLanguage, onSfx?: (cue: AcademySemanticSfxCue) => void): HTMLElement {
     const prop = section('academy-text-mission-prop');
     prop.dataset.inspected = 'false';
     const note = section('academy-folded-note');
@@ -153,6 +155,7 @@ function textMissionProp(language: AcademyLanguage): HTMLElement {
     const inspect = button(language === 'ja' ? '端を見る' : 'Inspect the margin', 'academy-note-inspect');
     inspect.setAttribute('aria-pressed', 'false');
     inspect.addEventListener('click', () => {
+        onSfx?.('vn.choice.confirm');
         prop.dataset.inspected = 'true';
         inspect.setAttribute('aria-pressed', 'true');
         inspect.textContent = language === 'ja' ? '名前と本' : 'Names and a book';
@@ -161,7 +164,7 @@ function textMissionProp(language: AcademyLanguage): HTMLElement {
     return prop;
 }
 
-function speakingDoorProp(language: AcademyLanguage): HTMLElement {
+function speakingDoorProp(language: AcademyLanguage, onSfx?: (cue: AcademySemanticSfxCue) => void): HTMLElement {
     const prop = section('academy-speaking-door-prop');
     prop.dataset.open = 'false';
     const door = section('academy-classroom-door');
@@ -172,6 +175,7 @@ function speakingDoorProp(language: AcademyLanguage): HTMLElement {
     const open = button(language === 'ja' ? 'ドアを開ける' : 'Open the door', 'academy-door-open');
     open.setAttribute('aria-expanded', 'false');
     open.addEventListener('click', () => {
+        onSfx?.('vn.choice.confirm');
         prop.dataset.open = 'true';
         names.hidden = false;
         open.setAttribute('aria-expanded', 'true');
@@ -181,7 +185,12 @@ function speakingDoorProp(language: AcademyLanguage): HTMLElement {
     return prop;
 }
 
-function publicCardProp(language: AcademyLanguage, nodeId: string, displayName?: string): HTMLElement {
+function publicCardProp(
+    language: AcademyLanguage,
+    nodeId: string,
+    displayName?: string,
+    onSfx?: (cue: AcademySemanticSfxCue) => void,
+): HTMLElement {
     const prop = section('academy-public-card-prop');
     const readyToTurn = nodeId === 'node:blank-atlas:card-turns-over';
     prop.dataset.face = 'down';
@@ -200,6 +209,7 @@ function publicCardProp(language: AcademyLanguage, nodeId: string, displayName?:
     }
     const flip = button(language === 'ja' ? 'カードを返す' : 'Turn the card', 'academy-card-flip');
     flip.addEventListener('click', () => {
+        onSfx?.('vn.choice.confirm');
         prop.dataset.face = 'public';
         renderFace();
         flip.remove();

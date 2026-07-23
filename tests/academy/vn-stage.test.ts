@@ -773,6 +773,26 @@ describe('Academy VN stage', () => {
         expect(playSfx).toHaveBeenCalledWith('scene.advance');
     });
 
+    it('uses one location-transition cue instead of stacking it over the dialogue advance', () => {
+        const playSfx = vi.fn();
+        const stage = createAcademyVnStage({ audio: { playSfx }, reducedMotion: true });
+        stage.setLine({
+            id: 'line:classroom',
+            japanese: '教室です。',
+            reading: { showLabel: 'Readings', hideLabel: 'Hide readings' },
+        });
+        stage.element.dispatchEvent(new Event('pointerdown'));
+        stage.setLine({
+            id: 'line:library',
+            japanese: '図書館です。',
+            reading: { showLabel: 'Readings', hideLabel: 'Hide readings' },
+            sfx: ['travel.transition'],
+        });
+
+        expect(playSfx).toHaveBeenCalledOnce();
+        expect(playSfx).toHaveBeenCalledWith('page.turn');
+    });
+
     it('suppresses lift, motion and animated text reveal for reduced motion', () => {
         const stage = createAcademyVnStage({ reducedMotion: true });
         stage.setCast([rie()]);

@@ -230,13 +230,15 @@ describe('Academy Story screen', () => {
     });
 
     it('makes the note, door, and class card real one-time interactions', () => {
-        const noteScreen = render(cursor('scene:blank-atlas:mission-text', 'node:blank-atlas:text-note')).screen;
+        const playSfx = vi.fn();
+        const audio = { playSfx };
+        const noteScreen = render(cursor('scene:blank-atlas:mission-text', 'node:blank-atlas:text-note'), { audio }).screen;
         const note = noteScreen.querySelector<HTMLElement>('.academy-text-mission-prop')!;
         note.querySelector<HTMLButtonElement>('.academy-note-inspect')?.click();
         expect(note.dataset.inspected).toBe('true');
         expect(note.textContent).toContain('Names and a book');
 
-        const doorScreen = render(cursor('scene:blank-atlas:mission-speaking', 'node:blank-atlas:speaking-door')).screen;
+        const doorScreen = render(cursor('scene:blank-atlas:mission-speaking', 'node:blank-atlas:speaking-door'), { audio }).screen;
         const door = doorScreen.querySelector<HTMLElement>('.academy-speaking-door-prop')!;
         door.querySelector<HTMLButtonElement>('.academy-door-open')?.click();
         expect(door.dataset.open).toBe('true');
@@ -248,21 +250,28 @@ describe('Academy Story screen', () => {
 
         const cardScreen = render(cursor('scene:blank-atlas:reading-writing', 'node:blank-atlas:card-turns-over'), {
             learner: { displayName: 'Mina', portraitId: 'quality-4' },
+            audio,
         }).screen;
         const card = cardScreen.querySelector<HTMLElement>('.academy-public-card-prop')!;
         card.querySelector<HTMLButtonElement>('.academy-card-flip')?.click();
         expect(card.dataset.face).toBe('public');
         expect(card.textContent).toContain('Mina です。');
         expect(card.querySelector('.academy-card-flip')).toBeNull();
+        expect(playSfx).toHaveBeenCalledTimes(3);
+        expect(playSfx).toHaveBeenNthCalledWith(1, 'menu.confirm');
+        expect(playSfx).toHaveBeenNthCalledWith(2, 'menu.confirm');
+        expect(playSfx).toHaveBeenNthCalledWith(3, 'menu.confirm');
     });
 
     it('keeps the selected mission consequential and opens its exact activity', () => {
+        const playSfx = vi.fn();
         const { screen } = render(cursor(
             'scene:blank-atlas:useful-vocabulary',
             'choice:blank-atlas:mission',
-        ));
+        ), { audio: { playSfx } });
 
         screen.querySelector<HTMLButtonElement>('[data-story-option-id="option:blank-atlas:mission-text"]')?.click();
+        expect(playSfx).toHaveBeenCalledWith('menu.confirm');
         expect(screen.querySelector('[data-story-scene="scene:blank-atlas:mission-text"]')).not.toBeNull();
         advanceTo(screen, '[data-activity-id="activity:lesson-zero-text-input"]');
         expect(screen.querySelector('[data-activity-id="activity:lesson-zero-text-input"]')).not.toBeNull();
@@ -429,7 +438,12 @@ describe('Academy Story screen', () => {
 
         for (const [episodeId, activityId, correctOptionId] of cases) {
             const onCompleteStoryPractice = storyPracticeRecorder();
-            const { screen } = render(episodeId, { selectedBand: 'n1', onCompleteStoryPractice });
+            const playSfx = vi.fn();
+            const { screen } = render(episodeId, {
+                selectedBand: 'n1',
+                onCompleteStoryPractice,
+                audio: { playSfx },
+            });
             advanceTo(screen, `[data-activity-id="${activityId}"]`);
             const activity = screen.querySelector<HTMLElement>(`[data-activity-id="${activityId}"]`)!;
 
@@ -440,6 +454,7 @@ describe('Academy Story screen', () => {
                 .find(option => option !== correct)!;
             incorrect.click();
             await vi.waitFor(() => expect(onCompleteStoryPractice).toHaveBeenCalledTimes(1));
+            await vi.waitFor(() => expect(playSfx).toHaveBeenCalledWith('feedback.repair'));
             expect(onCompleteStoryPractice).toHaveBeenLastCalledWith(activityId, {
                 interaction: 'choice',
                 optionId: incorrect.dataset.storyPracticeOption,
@@ -447,6 +462,7 @@ describe('Academy Story screen', () => {
             await vi.waitFor(() => expect(correct.disabled).toBe(false));
             correct.click();
             await vi.waitFor(() => expect(onCompleteStoryPractice).toHaveBeenCalledTimes(2));
+            await vi.waitFor(() => expect(playSfx).toHaveBeenCalledWith('feedback.correct'));
             expect(onCompleteStoryPractice).toHaveBeenLastCalledWith(activityId, {
                 interaction: 'choice',
                 optionId: correct.dataset.storyPracticeOption,
@@ -575,12 +591,15 @@ describe('Academy Story screen', () => {
     });
 
     it('returns to the episode list only after the authored graduation chapter', async () => {
+        const playSfx = vi.fn();
         const { screen, actions } = render('s4e12-next-page', {
             activityOutcomes: passedActivityOutcomes('s4e12-next-page'),
+            audio: { playSfx },
         });
         await finishAuthoredArc(screen);
         screen.querySelector<HTMLButtonElement>('.academy-story-next')!.click();
 
+        expect(playSfx).toHaveBeenCalledWith('chapter.complete');
         expect(actions.onReturnToEpisodes).toHaveBeenCalledOnce();
         expect(actions.onOpenReviewCalendar).not.toHaveBeenCalled();
     });

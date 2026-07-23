@@ -83351,7 +83351,8 @@ ${spelling}`);
       }
       if (changesLine && line2.translationVisible !== void 0) translationVisible = line2.translationVisible;
       applyTranslationState(translationVisible);
-      performBeat(changesLine ? [...advancesLine ? ["vn.advance"] : [], ...line2.sfx ?? []] : []);
+      const replacesAdvance = line2.sfx?.includes("travel.transition") ?? false;
+      performBeat(changesLine ? [...advancesLine && !replacesAdvance ? ["vn.advance"] : [], ...line2.sfx ?? []] : []);
     };
     const syncVoiceLine = (line2) => {
       const token = ++voiceLineToken;
@@ -86390,13 +86391,13 @@ ${spelling}`);
         root.append(soundMissionProp(nodeId));
         break;
       case "scene:blank-atlas:mission-text":
-        root.append(textMissionProp(options.language));
+        root.append(textMissionProp(options.language, options.onSfx));
         break;
       case "scene:blank-atlas:mission-speaking":
-        root.append(speakingDoorProp(options.language));
+        root.append(speakingDoorProp(options.language, options.onSfx));
         break;
       case "scene:blank-atlas:reading-writing":
-        root.append(publicCardProp(options.language, nodeId, options.learner?.displayName));
+        root.append(publicCardProp(options.language, nodeId, options.learner?.displayName, options.onSfx));
         break;
       case "scene:blank-atlas:transfer":
         root.append(lanternRouteProp(nodeId === "node:blank-atlas:first-lantern"));
@@ -86480,7 +86481,7 @@ ${spelling}`);
     );
     return prop;
   }
-  function textMissionProp(language) {
+  function textMissionProp(language, onSfx) {
     const prop = section("academy-text-mission-prop");
     prop.dataset.inspected = "false";
     const note = section("academy-folded-note");
@@ -86493,6 +86494,7 @@ ${spelling}`);
     const inspect = button$3(language === "ja" ? "端を見る" : "Inspect the margin", "academy-note-inspect");
     inspect.setAttribute("aria-pressed", "false");
     inspect.addEventListener("click", () => {
+      onSfx?.("vn.choice.confirm");
       prop.dataset.inspected = "true";
       inspect.setAttribute("aria-pressed", "true");
       inspect.textContent = language === "ja" ? "名前と本" : "Names and a book";
@@ -86500,7 +86502,7 @@ ${spelling}`);
     prop.append(note, inspect);
     return prop;
   }
-  function speakingDoorProp(language) {
+  function speakingDoorProp(language, onSfx) {
     const prop = section("academy-speaking-door-prop");
     prop.dataset.open = "false";
     const door = section("academy-classroom-door");
@@ -86511,6 +86513,7 @@ ${spelling}`);
     const open = button$3(language === "ja" ? "ドアを開ける" : "Open the door", "academy-door-open");
     open.setAttribute("aria-expanded", "false");
     open.addEventListener("click", () => {
+      onSfx?.("vn.choice.confirm");
       prop.dataset.open = "true";
       names.hidden = false;
       open.setAttribute("aria-expanded", "true");
@@ -86519,7 +86522,7 @@ ${spelling}`);
     prop.append(door, names, open);
     return prop;
   }
-  function publicCardProp(language, nodeId, displayName2) {
+  function publicCardProp(language, nodeId, displayName2, onSfx) {
     const prop = section("academy-public-card-prop");
     const readyToTurn = nodeId === "node:blank-atlas:card-turns-over";
     prop.dataset.face = "down";
@@ -86538,6 +86541,7 @@ ${spelling}`);
     }
     const flip = button$3(language === "ja" ? "カードを返す" : "Turn the card", "academy-card-flip");
     flip.addEventListener("click", () => {
+      onSfx?.("vn.choice.confirm");
       prop.dataset.face = "public";
       renderFace();
       flip.remove();
@@ -86779,14 +86783,18 @@ ${spelling}`);
     const renderMoment = (moment) => {
       if (disposed) return;
       const currentPlace = storyCurrentPlace(moment.scene);
+      const previousScene = renderedSceneId ? arc.scene(renderedSceneId) : void 0;
+      const sceneChanged = renderedSceneId !== moment.scene.id;
+      const sceneEntrySfx = sceneChanged && previousScene && previousScene.locationId !== moment.scene.locationId ? "travel.transition" : void 0;
       main.dataset.storyScene = moment.scene.id;
       main.dataset.storyMoment = moment.kind;
       main.dataset.currentPlace = currentPlace;
       stage2.element.dataset.currentPlace = currentPlace;
       stage2.element.dataset.locationId = moment.scene.locationId;
       progress2.textContent = storyProgressLabel(options.language, arc, moment.scene);
-      if (renderedSceneId !== moment.scene.id) {
+      if (sceneChanged) {
         renderedSceneId = moment.scene.id;
+        options.onSceneChange?.(moment.scene, previousScene);
         stage2.setDirection(directionForScene(moment.scene));
       }
       stage2.setCast(playableStoryCast(options.language, moment, runner.cursor.choices, options.learner));
@@ -86794,7 +86802,8 @@ ${spelling}`);
         language: options.language,
         moment,
         cursor: runner.cursor,
-        ...options.learner ? { learner: options.learner } : {}
+        ...options.learner ? { learner: options.learner } : {},
+        onSfx: (cue) => playStorySfx(options.audio, cue)
       }));
       switch (moment.kind) {
         case "line":
@@ -86808,7 +86817,8 @@ ${spelling}`);
             translation: moment.line.english,
             translationEarned: true,
             translationVisible: options.language === "en" && resolveStoryBand(options.selectedBand) === "foundation",
-            ...moment.node.speakerId && moment.node.speakerId !== "learner" ? { voice: { band: moment.line.band } } : {}
+            ...moment.node.speakerId && moment.node.speakerId !== "learner" ? { voice: { band: moment.line.band } } : {},
+            ...sceneEntrySfx ? { sfx: [sceneEntrySfx] } : {}
           });
           stage2.setAction(storyNextAction(options.language, () => transition(() => runner.advance())));
           return;
@@ -86818,7 +86828,8 @@ ${spelling}`);
             id: moment.node.id,
             japanese: moment.node.description ?? moment.node.text?.[options.language] ?? "",
             language: options.language,
-            reading: { ...storyReadingControl(options.language), available: false }
+            reading: { ...storyReadingControl(options.language), available: false },
+            ...sceneEntrySfx ? { sfx: [sceneEntrySfx] } : {}
           });
           stage2.setAction(storyNextAction(options.language, () => transition(() => runner.advance())));
           return;
@@ -86827,16 +86838,18 @@ ${spelling}`);
             id: moment.node.id,
             japanese: moment.node.question ?? (options.language === "ja" ? "どうしますか。" : "What will you do?"),
             language: options.language,
-            reading: { ...storyReadingControl(options.language), available: false }
+            reading: { ...storyReadingControl(options.language), available: false },
+            ...sceneEntrySfx ? { sfx: [sceneEntrySfx] } : {}
           });
-          stage2.setAction(playableChoiceAction(moment, (optionId) => transition(() => runner.choose(optionId))));
+          stage2.setAction(playableChoiceAction(options, moment, (optionId) => transition(() => runner.choose(optionId))));
           return;
         case "activity": {
           stage2.setLine({
             id: moment.node.id,
             japanese: moment.node.resumeContext ?? (options.language === "ja" ? "登録された練習に進みます。" : "Open the registered practice, then return here."),
             language: options.language,
-            reading: { ...storyReadingControl(options.language), available: false }
+            reading: { ...storyReadingControl(options.language), available: false },
+            ...sceneEntrySfx ? { sfx: [sceneEntrySfx] } : {}
           });
           const practice2 = storyPractice(moment.binding.exerciseId);
           const inlinePractice = Boolean(practice2 && options.onCompleteStoryPractice);
@@ -86873,7 +86886,8 @@ ${spelling}`);
             reading: storyReadingControl(options.language),
             translation: completion?.english ?? "This chapter is complete.",
             translationEarned: true,
-            translationVisible: options.language === "en"
+            translationVisible: options.language === "en",
+            ...sceneEntrySfx ? { sfx: [sceneEntrySfx] } : {}
           });
           stage2.setAction(playableCompleteAction(options, moment.completionEligible));
           return;
@@ -86890,7 +86904,7 @@ ${spelling}`);
     renderMoment(runner.moment);
     return main;
   }
-  function playableChoiceAction(moment, onChoose) {
+  function playableChoiceAction(options, moment, onChoose) {
     const fieldset = element("fieldset", "academy-story-vn-choices");
     fieldset.dataset.storyChoiceId = moment.node.id;
     fieldset.append(textElement$1("legend", "academy-visually-hidden", moment.node.question ?? "Story choice"));
@@ -86902,7 +86916,12 @@ ${spelling}`);
         languageElement("span", "academy-story-choice-japanese", option2.japanese, "ja"),
         textElement$1("span", "academy-story-choice-action", option2.action)
       );
-      button2.addEventListener("click", () => onChoose(option2.id), { once: true });
+      button2.addEventListener("focus", () => playStorySfx(options.audio, "vn.choice.move"));
+      button2.addEventListener("pointerenter", () => playStorySfx(options.audio, "vn.choice.move"));
+      button2.addEventListener("click", () => {
+        playStorySfx(options.audio, "vn.choice.confirm");
+        onChoose(option2.id);
+      }, { once: true });
       fieldset.append(button2);
     });
     return { element: fieldset };
@@ -86955,6 +86974,7 @@ ${spelling}`);
           throw new Error(`Story practice ${practice2.activityId} returned ${outcome} for a ${expectedOutcome} response.`);
         }
         markPracticeMistakes(interaction, storyPracticeMistakeIds(practice2, response));
+        playStorySfx(options.audio, outcome === "pass" ? "worksheet.success" : "worksheet.repair");
         status.textContent = outcome === "pass" ? options.language === "ja" ? "記録しました。場面に戻ります。" : "Recorded. Returning to the scene." : practice2.repair[options.language];
         if (outcome === "lapse") {
           controls.forEach((control2) => {
@@ -87085,6 +87105,7 @@ ${spelling}`);
       if (pending2) return;
       pending2 = true;
       button2.disabled = true;
+      playStorySfx(options.audio, "ceremony.chapter.complete");
       Promise.resolve(options.onFinish(completionEligible)).catch(() => {
         pending2 = false;
         button2.disabled = false;
@@ -87092,6 +87113,10 @@ ${spelling}`);
     });
     root.append(button2);
     return { element: root };
+  }
+  function playStorySfx(audio2, semanticCue) {
+    const cue = resolveDirectorSfxCue(semanticCue);
+    if (cue) audio2?.playSfx(cue);
   }
   function storyNextAction(language, onNext) {
     return { element: actionButton$6(
@@ -263462,6 +263487,22 @@ ${spelling}`);
       needsReviewActivityIds
     };
   }
+  const BLANK_ATLAS_SCENE_THEMES = Object.freeze({
+    "scene:blank-atlas:arrival-greetings": "opening.invitation",
+    "scene:blank-atlas:sound-script-map": "classroom.focus",
+    "scene:blank-atlas:classroom-survival": "classroom.focus",
+    "scene:blank-atlas:sentence-frames": "classroom.focus",
+    "scene:blank-atlas:useful-vocabulary": "classroom.focus",
+    "scene:blank-atlas:mission-sound": "world.lab",
+    "scene:blank-atlas:mission-text": "library.quiet",
+    "scene:blank-atlas:mission-speaking": "classroom.focus",
+    "scene:blank-atlas:reading-writing": "classroom.focus",
+    "scene:blank-atlas:transfer": "unlock.world",
+    "scene:blank-atlas:close": "ending.reflective"
+  });
+  function themeForStoryScene(sceneId) {
+    return BLANK_ATLAS_SCENE_THEMES[sceneId];
+  }
   async function loadClassWeekDeliveryCatalog(planValue, fetcher = fetch) {
     const plan = validateClassWeekCastPlan(planValue);
     const canonicalWeekIds = new Set(plan.weeks.map((week) => week.weekId));
@@ -268851,6 +268892,10 @@ ${spelling}`);
         selectedBand: context2.checkpoint.selectedBand ?? context2.projection.curriculumEntry?.band,
         audio: { playSfx: (cue) => this.options.audio.playSfx(cue) },
         ...createVoicePlayback ? { createVoicePlayback } : {},
+        onSceneChange: (scene2) => {
+          const theme = themeForStoryScene(scene2.id);
+          if (theme) void this.options.audio.setTheme(theme);
+        },
         onCheckpoint: (cursor) => context2.save?.({ sectionId: serializeStoryCursor(cursor) }),
         onOpenActivity: (lessonId, activityId, cursor) => void context2.go("source-activity", {
           lessonId,

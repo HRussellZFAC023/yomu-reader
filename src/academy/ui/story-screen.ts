@@ -29,6 +29,7 @@ import {
 } from '../content/n3-story-practice';
 import { STORY_REVIEW_CALENDAR_SECTION } from '../content/story-runtime';
 import { ACADEMY_ASSETS } from '../assets';
+import { resolveDirectorSfxCue, type AcademySemanticSfxCue } from '../audio/sfx-catalog';
 import type { StoryVoicePlayback } from '../audio/voice-lines';
 import { canRenderAcademyCastPortrait, displayAcademyCastName } from '../domain/cast-registry';
 import { backButton, element } from './dom';
@@ -50,6 +51,7 @@ interface StoryPlaybackOptions {
     readonly onCheckpoint?: (cursor: StoryCursor) => void | Promise<void>;
     readonly onSceneEncounter?: (sceneId: string, attendeeIds: readonly string[]) => void | Promise<void>;
     readonly onArcSceneEncounter?: (episodeId: string, sceneId: string, attendeeIds: readonly string[]) => void | Promise<void>;
+    readonly onSceneChange?: (scene: StoryArcScene, previousScene?: StoryArcScene) => void;
     readonly onCompleteStoryPractice?: (
         activityId: string,
         response: StoryPracticeResponse,
@@ -279,14 +281,22 @@ function renderPlayableArc(
     const renderMoment = (moment: StoryMoment): void => {
         if (disposed) return;
         const currentPlace = storyCurrentPlace(moment.scene);
+        const previousScene = renderedSceneId ? arc.scene(renderedSceneId) : undefined;
+        const sceneChanged = renderedSceneId !== moment.scene.id;
+        const sceneEntrySfx: AcademySemanticSfxCue | undefined = sceneChanged
+            && previousScene
+            && previousScene.locationId !== moment.scene.locationId
+            ? 'travel.transition'
+            : undefined;
         main.dataset.storyScene = moment.scene.id;
         main.dataset.storyMoment = moment.kind;
         main.dataset.currentPlace = currentPlace;
         stage.element.dataset.currentPlace = currentPlace;
         stage.element.dataset.locationId = moment.scene.locationId;
         progress.textContent = storyProgressLabel(options.language, arc, moment.scene);
-        if (renderedSceneId !== moment.scene.id) {
+        if (sceneChanged) {
             renderedSceneId = moment.scene.id;
+            options.onSceneChange?.(moment.scene, previousScene);
             stage.setDirection(directionForScene(moment.scene));
         }
         stage.setCast(playableStoryCast(options.language, moment, runner.cursor.choices, options.learner));
@@ -295,6 +305,7 @@ function renderPlayableArc(
             moment,
             cursor: runner.cursor,
             ...(options.learner ? { learner: options.learner } : {}),
+            onSfx: cue => playStorySfx(options.audio, cue),
         }));
 
         switch (moment.kind) {
@@ -313,6 +324,7 @@ function renderPlayableArc(
                     ...(moment.node.speakerId && moment.node.speakerId !== 'learner'
                         ? { voice: { band: moment.line.band } }
                         : {}),
+                    ...(sceneEntrySfx ? { sfx: [sceneEntrySfx] } : {}),
                 });
                 stage.setAction(storyNextAction(options.language, () => transition(() => runner.advance())));
                 return;
@@ -323,6 +335,7 @@ function renderPlayableArc(
                     japanese: moment.node.description ?? moment.node.text?.[options.language] ?? '',
                     language: options.language,
                     reading: { ...storyReadingControl(options.language), available: false },
+                    ...(sceneEntrySfx ? { sfx: [sceneEntrySfx] } : {}),
                 });
                 stage.setAction(storyNextAction(options.language, () => transition(() => runner.advance())));
                 return;
@@ -332,8 +345,9 @@ function renderPlayableArc(
                     japanese: moment.node.question ?? (options.language === 'ja' ? 'どうしますか。' : 'What will you do?'),
                     language: options.language,
                     reading: { ...storyReadingControl(options.language), available: false },
+                    ...(sceneEntrySfx ? { sfx: [sceneEntrySfx] } : {}),
                 });
-                stage.setAction(playableChoiceAction(moment, optionId => transition(() => runner.choose(optionId))));
+                stage.setAction(playableChoiceAction(options, moment, optionId => transition(() => runner.choose(optionId))));
                 return;
             case 'activity': {
                 stage.setLine({
@@ -343,6 +357,7 @@ function renderPlayableArc(
                         : 'Open the registered practice, then return here.'),
                     language: options.language,
                     reading: { ...storyReadingControl(options.language), available: false },
+                    ...(sceneEntrySfx ? { sfx: [sceneEntrySfx] } : {}),
                 });
                 const practice = storyPractice(moment.binding.exerciseId);
                 const inlinePractice = Boolean(practice && options.onCompleteStoryPractice);
@@ -379,6 +394,7 @@ function renderPlayableArc(
                     translation: completion?.english ?? 'This chapter is complete.',
                     translationEarned: true,
                     translationVisible: options.language === 'en',
+                    ...(sceneEntrySfx ? { sfx: [sceneEntrySfx] } : {}),
                 });
                 stage.setAction(playableCompleteAction(options, moment.completionEligible));
                 return;
@@ -398,6 +414,7 @@ function renderPlayableArc(
 }
 
 function playableChoiceAction(
+    options: StoryPlaybackOptions,
     moment: Extract<StoryMoment, { kind: 'choice' }>,
     onChoose: (optionId: string) => void,
 ): AcademyVnSlotContent {
@@ -412,7 +429,12 @@ function playableChoiceAction(
             languageElement('span', 'academy-story-choice-japanese', option.japanese, 'ja'),
             textElement('span', 'academy-story-choice-action', option.action),
         );
-        button.addEventListener('click', () => onChoose(option.id), { once: true });
+        button.addEventListener('focus', () => playStorySfx(options.audio, 'vn.choice.move'));
+        button.addEventListener('pointerenter', () => playStorySfx(options.audio, 'vn.choice.move'));
+        button.addEventListener('click', () => {
+            playStorySfx(options.audio, 'vn.choice.confirm');
+            onChoose(option.id);
+        }, { once: true });
         fieldset.append(button);
     });
     return { element: fieldset };
@@ -478,6 +500,7 @@ function playableStoryPracticeAction(
                 throw new Error(`Story practice ${practice.activityId} returned ${outcome} for a ${expectedOutcome} response.`);
             }
             markPracticeMistakes(interaction, storyPracticeMistakeIds(practice, response));
+            playStorySfx(options.audio, outcome === 'pass' ? 'worksheet.success' : 'worksheet.repair');
             status.textContent = outcome === 'pass'
                 ? options.language === 'ja' ? '記録しました。場面に戻ります。' : 'Recorded. Returning to the scene.'
                 : practice.repair[options.language];
@@ -633,6 +656,7 @@ function playableCompleteAction(
         if (pending) return;
         pending = true;
         button.disabled = true;
+        playStorySfx(options.audio, 'ceremony.chapter.complete');
         Promise.resolve(options.onFinish(completionEligible)).catch(() => {
             pending = false;
             button.disabled = false;
@@ -640,6 +664,14 @@ function playableCompleteAction(
     });
     root.append(button);
     return { element: root };
+}
+
+function playStorySfx(
+    audio: AcademyVnStageOptions['audio'] | undefined,
+    semanticCue: AcademySemanticSfxCue,
+): void {
+    const cue = resolveDirectorSfxCue(semanticCue);
+    if (cue) audio?.playSfx(cue);
 }
 
 function storyNextAction(language: AcademyLanguage, onNext: () => void): AcademyVnSlotContent {
