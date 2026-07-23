@@ -288698,8 +288698,8 @@ ${component.reading}`;
     }
     loadRenderedExampleImages(container, imageUrls, isCurrent, onCurrentImageReady) {
       let currentImageReady = false;
-      const publishCurrentImageReady = () => {
-        if (currentImageReady || !isCurrent()) return;
+      const publishCurrentImageReady = (imageElement) => {
+        if (currentImageReady || !isCurrent() || !container.isConnected || !imageElement.isConnected) return;
         currentImageReady = true;
         onCurrentImageReady?.();
       };
@@ -288753,7 +288753,7 @@ ${component.reading}`;
         imageElement.addEventListener("error", loadNextImageCandidate);
         imageElement.addEventListener("load", () => {
           publishImmersionFrameWidth(imageElement.closest(".jpdb-reader-example-media"));
-          publishCurrentImageReady();
+          publishCurrentImageReady(imageElement);
         });
         imageElement.addEventListener("load", () => this.options.repositionPopover(), { once: true });
         if (!imageElement.dataset.immersionImageSrc) {

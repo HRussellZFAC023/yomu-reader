@@ -26,6 +26,7 @@ interface ReaderAppInternals {
     prefetchJitenStudyImmersion(): void;
     refreshJpdbPageEnhancements(): Promise<void>;
     scheduleJpdbPageEnhancements(delay?: number, options?: { preserveEarlier?: boolean }): void;
+    updateJpdbPageAddonHtml(root: HTMLElement, html: string): boolean;
 }
 
 // Mirror ReaderApp.jpdbPageWordAddonKey without reaching into private state, so
@@ -111,6 +112,52 @@ describe('jiten in-place card swap refresh gate', () => {
         } finally {
             app.destroy();
             vi.useRealTimers();
+        }
+    });
+
+    it('promotes an existing shell into the review layout, then preserves a user collapse', () => {
+        stubStudyLocation();
+        const app = new ReaderApp();
+        const internals = app as unknown as ReaderAppInternals;
+        const root = document.createElement('div');
+        root.dataset.yomuPageContext = 'entry';
+        document.body.append(root);
+        const initialHtml = `
+            <div class="jpdb-reader-definition-stack">
+                <details data-source-state-key="definition-source:test"><summary>Dictionary</summary></details>
+                <details data-immersion-kit data-source-state-key="definition-source:__immersion_kit__" data-source-initial-open="false">
+                    <summary>Immersion Kit</summary>
+                    <div data-case="media">Media</div>
+                </details>
+            </div>
+        `;
+
+        try {
+            expect(internals.updateJpdbPageAddonHtml(root, initialHtml)).toBe(true);
+            root.dataset.yomuPageContext = 'review';
+            // Jiten can settle the layout context after the keyed shell HTML is
+            // already current. The same-HTML pass must still apply review
+            // placement/open state even though no content needs replacing.
+            expect(internals.updateJpdbPageAddonHtml(root, initialHtml)).toBe(false);
+
+            const immersion = root.querySelector<HTMLDetailsElement>('[data-immersion-kit]')!;
+            expect(root.querySelector('.jpdb-reader-definition-stack')?.firstElementChild).toBe(immersion);
+            expect(immersion.open).toBe(true);
+            expect(immersion.dataset.sourceInitialOpen).toBe('true');
+            expect(immersion.dataset.yomuReviewAutoOpened).toBe('true');
+
+            immersion.open = false;
+            expect(internals.updateJpdbPageAddonHtml(root, `
+                <div class="jpdb-reader-definition-stack">
+                    <details data-immersion-kit><summary>Replacement</summary></details>
+                    <div data-case="progressive">Progressive source</div>
+                </div>
+            `)).toBe(true);
+
+            expect(root.querySelector('[data-immersion-kit]')).toBe(immersion);
+            expect(immersion.open).toBe(false);
+        } finally {
+            app.destroy();
         }
     });
 

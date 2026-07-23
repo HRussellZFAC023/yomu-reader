@@ -1002,6 +1002,16 @@
             }
           }
         },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteAccountRequest"
+              }
+            }
+          }
+        },
         "x-yomu-same-origin": true
       }
     },
@@ -1199,7 +1209,7 @@
           "Account"
         ],
         "summary": "Export account data",
-        "description": "Starts or continues a snapshot-bounded account export. Send the preceding eventPage.exportCursor to continue until it is null.",
+        "description": "Starts or continues a frozen, bounded export of account-owned data.",
         "security": [
           {
             "sessionCookie": []
@@ -1296,8 +1306,8 @@
         "tags": [
           "Account"
         ],
-        "summary": "Verify a production account-lifecycle proof grant",
-        "description": "Verifies that the one-hour production-test grant is valid for the exact signed-in account and run nonce without consuming it.",
+        "summary": "Verify a production lifecycle proof grant",
+        "description": "Verifies that the signed-in disposable account matches an unexpired supervised proof grant without consuming it.",
         "security": [
           {
             "sessionCookie": []
@@ -1394,8 +1404,8 @@
         "tags": [
           "Account"
         ],
-        "summary": "Delete the lifecycle-proof account",
-        "description": "Consumes the account-bound production-test grant and atomically deletes that signed-in disposable account. The grant cannot be replayed.",
+        "summary": "Delete a supervised production proof account",
+        "description": "Consumes the bound single-use proof grant and deletes the authenticated disposable account.",
         "security": [
           {
             "sessionCookie": []
@@ -1841,6 +1851,16 @@
             }
           }
         },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteProfileRequest"
+              }
+            }
+          }
+        },
         "x-yomu-same-origin": true
       }
     },
@@ -1949,7 +1969,7 @@
           "Profiles"
         ],
         "summary": "Export profile data",
-        "description": "Starts or continues a snapshot-bounded export of encrypted profile and Reader SRS events.",
+        "description": "Starts or continues a frozen, bounded export of encrypted profile data.",
         "security": [
           {
             "sessionCookie": []
@@ -4233,8 +4253,8 @@
         "tags": [
           "Administration"
         ],
-        "summary": "Create a production account-lifecycle proof grant",
-        "description": "Supervisor-only production-test endpoint. Mints a one-hour, account-bound, run-bound grant for a disposable account.",
+        "summary": "Create a production lifecycle proof grant",
+        "description": "Creates an expiring single-use grant bound to one disposable production account and run nonce.",
         "security": [
           {
             "adminBearer": []
@@ -5783,162 +5803,6 @@
         },
         "additionalProperties": false
       },
-      "LifecycleProofGrantRequest": {
-        "type": "object",
-        "required": [
-          "accountId",
-          "runNonce"
-        ],
-        "properties": {
-          "accountId": {
-            "type": "string",
-            "format": "uuid",
-            "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"
-          },
-          "runNonce": {
-            "type": "string",
-            "pattern": "^[A-Za-z0-9_-]+$",
-            "description": "Unpadded base64url.",
-            "minLength": 43,
-            "maxLength": 43
-          }
-        },
-        "additionalProperties": false
-      },
-      "LifecycleProofGrant": {
-        "type": "object",
-        "required": [
-          "proofToken",
-          "runNonce",
-          "accountId",
-          "environment",
-          "scope",
-          "expiresAt"
-        ],
-        "properties": {
-          "proofToken": {
-            "type": "string",
-            "pattern": "^[A-Za-z0-9_-]+$",
-            "description": "Unpadded base64url.",
-            "minLength": 43,
-            "maxLength": 43
-          },
-          "runNonce": {
-            "type": "string",
-            "pattern": "^[A-Za-z0-9_-]+$",
-            "description": "Unpadded base64url.",
-            "minLength": 43,
-            "maxLength": 43
-          },
-          "accountId": {
-            "type": "string",
-            "format": "uuid",
-            "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"
-          },
-          "environment": {
-            "type": "string",
-            "const": "production"
-          },
-          "scope": {
-            "type": "string",
-            "const": "account-lifecycle-production-test"
-          },
-          "expiresAt": {
-            "type": "integer",
-            "format": "int64",
-            "description": "Unix time in milliseconds."
-          }
-        },
-        "additionalProperties": false
-      },
-      "LifecycleProofAuthorizationRequest": {
-        "type": "object",
-        "required": [
-          "proofToken",
-          "runNonce"
-        ],
-        "properties": {
-          "proofToken": {
-            "type": "string",
-            "pattern": "^[A-Za-z0-9_-]+$",
-            "description": "Unpadded base64url.",
-            "minLength": 43,
-            "maxLength": 43
-          },
-          "runNonce": {
-            "type": "string",
-            "pattern": "^[A-Za-z0-9_-]+$",
-            "description": "Unpadded base64url.",
-            "minLength": 43,
-            "maxLength": 43
-          }
-        },
-        "additionalProperties": false
-      },
-      "LifecycleProofVerification": {
-        "type": "object",
-        "required": [
-          "verified",
-          "accountId",
-          "environment",
-          "scope",
-          "expiresAt"
-        ],
-        "properties": {
-          "verified": {
-            "type": "boolean",
-            "const": true
-          },
-          "accountId": {
-            "type": "string",
-            "format": "uuid",
-            "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"
-          },
-          "environment": {
-            "type": "string",
-            "const": "production"
-          },
-          "scope": {
-            "type": "string",
-            "const": "account-lifecycle-production-test"
-          },
-          "expiresAt": {
-            "type": "integer",
-            "format": "int64",
-            "description": "Unix time in milliseconds."
-          }
-        },
-        "additionalProperties": false
-      },
-      "LifecycleProofDeletionRequest": {
-        "type": "object",
-        "required": [
-          "confirmation",
-          "proofToken",
-          "runNonce"
-        ],
-        "properties": {
-          "confirmation": {
-            "type": "string",
-            "const": "delete-account"
-          },
-          "proofToken": {
-            "type": "string",
-            "pattern": "^[A-Za-z0-9_-]+$",
-            "description": "Unpadded base64url.",
-            "minLength": 43,
-            "maxLength": 43
-          },
-          "runNonce": {
-            "type": "string",
-            "pattern": "^[A-Za-z0-9_-]+$",
-            "description": "Unpadded base64url.",
-            "minLength": 43,
-            "maxLength": 43
-          }
-        },
-        "additionalProperties": false
-      },
       "AdminPaymentCodeRequest": {
         "type": "object",
         "required": [
@@ -6007,17 +5871,6 @@
         },
         "additionalProperties": false
       },
-      "ExportRequest": {
-        "type": "object",
-        "properties": {
-          "cursor": {
-            "type": "string",
-            "pattern": "^v2\\.[A-Za-z0-9_-]{43}\\.[0-9a-z]+\\.[0-9a-f]{64}$",
-            "description": "Single-use continuation cursor returned by the preceding export page."
-          }
-        },
-        "additionalProperties": false
-      },
       "ExportEventPage": {
         "type": "object",
         "required": [
@@ -6029,9 +5882,9 @@
         "properties": {
           "events": {
             "type": "array",
-            "maxItems": 200,
             "items": {
-              "$ref": "#/components/schemas/EncryptedEvent"
+              "type": "object",
+              "additionalProperties": true
             }
           },
           "nextCursor": {
@@ -6042,20 +5895,15 @@
             "type": "boolean"
           },
           "exportCursor": {
-            "oneOf": [
-              {
-                "type": "string",
-                "pattern": "^v2\\.[A-Za-z0-9_-]{43}\\.[0-9a-z]+\\.[0-9a-f]{64}$"
-              },
-              {
-                "type": "null"
-              }
+            "type": [
+              "string",
+              "null"
             ]
           }
         },
         "additionalProperties": false
       },
-      "ExportReaderEventPage": {
+      "ReaderExportEventPage": {
         "type": "object",
         "required": [
           "events",
@@ -6065,9 +5913,9 @@
         "properties": {
           "events": {
             "type": "array",
-            "maxItems": 200,
             "items": {
-              "$ref": "#/components/schemas/EncryptedEvent"
+              "type": "object",
+              "additionalProperties": true
             }
           },
           "nextCursor": {
@@ -6096,10 +5944,200 @@
             "$ref": "#/components/schemas/ExportEventPage"
           },
           "readerSrsEventPage": {
-            "$ref": "#/components/schemas/ExportReaderEventPage"
+            "$ref": "#/components/schemas/ReaderExportEventPage"
           }
         },
         "additionalProperties": true
+      },
+      "ExportRequest": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "pattern": "^v2\\.[A-Za-z0-9_-]{43}\\.[0-9a-z]+\\.[0-9a-f]{64}$",
+            "description": "Opaque single-use continuation cursor from the previous export page."
+          }
+        },
+        "additionalProperties": false
+      },
+      "DeleteAccountRequest": {
+        "type": "object",
+        "required": [
+          "confirmation"
+        ],
+        "properties": {
+          "confirmation": {
+            "type": "string",
+            "const": "delete-account"
+          }
+        },
+        "additionalProperties": false
+      },
+      "DeleteProfileRequest": {
+        "type": "object",
+        "required": [
+          "confirmation"
+        ],
+        "properties": {
+          "confirmation": {
+            "type": "string",
+            "const": "delete-profile"
+          }
+        },
+        "additionalProperties": false
+      },
+      "LifecycleProofGrantRequest": {
+        "type": "object",
+        "required": [
+          "accountId",
+          "runNonce"
+        ],
+        "properties": {
+          "accountId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "runNonce": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]+$",
+            "description": "Supervisor-provided 32-byte run nonce.",
+            "minLength": 43,
+            "maxLength": 43
+          }
+        },
+        "additionalProperties": false
+      },
+      "LifecycleProofAuthorizationRequest": {
+        "type": "object",
+        "required": [
+          "proofToken",
+          "runNonce"
+        ],
+        "properties": {
+          "proofToken": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]+$",
+            "description": "Single-use production proof token.",
+            "minLength": 43,
+            "maxLength": 43
+          },
+          "runNonce": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]+$",
+            "description": "Run nonce bound to the proof token.",
+            "minLength": 43,
+            "maxLength": 43
+          }
+        },
+        "additionalProperties": false
+      },
+      "LifecycleProofDeletionRequest": {
+        "type": "object",
+        "required": [
+          "proofToken",
+          "runNonce",
+          "confirmation"
+        ],
+        "properties": {
+          "proofToken": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]+$",
+            "description": "Single-use production proof token.",
+            "minLength": 43,
+            "maxLength": 43
+          },
+          "runNonce": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]+$",
+            "description": "Run nonce bound to the proof token.",
+            "minLength": 43,
+            "maxLength": 43
+          },
+          "confirmation": {
+            "type": "string",
+            "const": "delete-account"
+          }
+        },
+        "additionalProperties": false
+      },
+      "LifecycleProofGrant": {
+        "type": "object",
+        "required": [
+          "proofToken",
+          "runNonce",
+          "accountId",
+          "environment",
+          "scope",
+          "expiresAt"
+        ],
+        "properties": {
+          "proofToken": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]+$",
+            "description": "Unpadded base64url.",
+            "minLength": 43,
+            "maxLength": 43
+          },
+          "runNonce": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]+$",
+            "description": "Unpadded base64url.",
+            "minLength": 43,
+            "maxLength": 43
+          },
+          "accountId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "environment": {
+            "type": "string",
+            "const": "production"
+          },
+          "scope": {
+            "type": "string",
+            "const": "account-lifecycle-production-test"
+          },
+          "expiresAt": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Unix time in milliseconds."
+          }
+        },
+        "additionalProperties": false
+      },
+      "LifecycleProofVerification": {
+        "type": "object",
+        "required": [
+          "verified",
+          "accountId",
+          "environment",
+          "scope",
+          "expiresAt"
+        ],
+        "properties": {
+          "verified": {
+            "type": "boolean",
+            "const": true
+          },
+          "accountId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "environment": {
+            "type": "string",
+            "const": "production"
+          },
+          "scope": {
+            "type": "string",
+            "const": "account-lifecycle-production-test"
+          },
+          "expiresAt": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Unix time in milliseconds."
+          }
+        },
+        "additionalProperties": false
       },
       "DeletionReceipt": {
         "type": "object",

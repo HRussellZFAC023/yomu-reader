@@ -2271,22 +2271,39 @@ export class ReaderApp {
     }
 
     private updateJpdbPageAddonHtml(root: HTMLElement, html: string): boolean {
-        if (root.dataset.yomuRenderedHtml === html) return false;
         const preservedImmersion = root.querySelector<HTMLElement>('[data-immersion-kit]');
-        root.dataset.yomuRenderedHtml = html;
-        setInnerHtml(root, html);
-        const nextImmersion = root.querySelector<HTMLElement>('[data-immersion-kit]');
-        if (preservedImmersion && nextImmersion && preservedImmersion !== nextImmersion) {
-            nextImmersion.replaceWith(preservedImmersion);
+        const htmlChanged = root.dataset.yomuRenderedHtml !== html;
+        if (htmlChanged) {
+            root.dataset.yomuRenderedHtml = html;
+            setInnerHtml(root, html);
+            const nextImmersion = root.querySelector<HTMLElement>('[data-immersion-kit]');
+            if (preservedImmersion && nextImmersion && preservedImmersion !== nextImmersion) {
+                nextImmersion.replaceWith(preservedImmersion);
+            }
         }
+        this.applyJpdbReviewImmersionLayout(root);
+        return htmlChanged;
+    }
+
+    private applyJpdbReviewImmersionLayout(root: HTMLElement): void {
+        if (root.dataset.yomuPageContext !== 'review') return;
         // Review answers put the media source first while retaining the user's
         // configured order for every dictionary/provider panel that follows it.
         const immersion = root.querySelector<HTMLElement>('[data-immersion-kit]');
-        const stack = immersion?.parentElement;
-        if (root.dataset.yomuPageContext === 'review' && immersion && stack?.firstElementChild !== immersion) {
-            stack?.prepend(immersion);
-        }
-        return true;
+        if (!immersion) return;
+        const stack = immersion.parentElement;
+        if (stack?.firstElementChild !== immersion) stack?.prepend(immersion);
+        // Review media must participate in the host card's layout from its
+        // first paint. A closed <details> with our grid styles can still paint
+        // descendants outside its measured box in Chromium, leaving the image
+        // or translation below an unscrollable Jiten card. Auto-open once per
+        // mount; the marker then preserves an explicit user collapse.
+        if (immersion.tagName !== 'DETAILS'
+            || immersion.dataset.yomuReviewAutoOpened === 'true') return;
+        const details = immersion as HTMLDetailsElement;
+        details.dataset.yomuReviewAutoOpened = 'true';
+        details.dataset.sourceInitialOpen = 'true';
+        details.open = true;
     }
 
     private async lookupJpdbPageLocalEntries(target: LocalDictionaryTarget): Promise<YomitanTermEntry[]> {
@@ -2351,6 +2368,7 @@ export class ReaderApp {
             existing.dataset.yomuGeneration = String(generation);
             existing.dataset.yomuAnchorFallback = String(anchor.tagName === 'MAIN');
             existing.dataset.yomuPageContext = currentPageEnhancementLayoutContext();
+            this.applyJpdbReviewImmersionLayout(existing);
             return existing;
         }
         const root = document.createElement('div');
@@ -2365,6 +2383,9 @@ export class ReaderApp {
         root.className = `yomu-jpdb-page-addon yomu-jpdb-${kind}-addon`;
         this.pauseAutoScanObserver(() => {
             anchor.insertAdjacentElement('afterend', root);
+        });
+        queueMicrotask(() => {
+            if (root.isConnected) this.applyJpdbReviewImmersionLayout(root);
         });
         return root;
     }
@@ -10168,7 +10189,9 @@ export class ReaderApp {
     }
 
     private prepareActivePopoverForPositioning(popover: HTMLElement): void {
-        if (this.shouldUseFixedModalHeight(popover)) popover.style.height = '';
+        if (!this.shouldUseFixedModalHeight(popover)) return;
+        const fixedHeight = configuredPopoverMaxHeight(this.settings);
+        if (fixedHeight) popover.style.height = `${fixedHeight}px`;
     }
 
     private repositionLockedActivePopoverIfNeeded(popover: HTMLElement): boolean {

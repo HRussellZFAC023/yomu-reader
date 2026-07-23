@@ -1437,6 +1437,57 @@ describe('reader helpers', () => {
         });
     });
 
+    it('positions fixed-height modal popovers from their final height before locking', () => {
+        withViewport(760, 980, () => {
+            const app = new ReaderApp();
+            const anchor = document.createElement('span');
+            anchor.getBoundingClientRect = () => new DOMRect(688, 828, 41, 21);
+            const popover = document.createElement('section');
+            popover.className = 'jpdb-reader-popover';
+            popover.innerHTML = '<div class="jpdb-reader-popover-body"></div>';
+            Object.defineProperties(popover, {
+                offsetWidth: { configurable: true, value: 520 },
+                offsetHeight: {
+                    configurable: true,
+                    get: () => Number.parseFloat(popover.style.height) || 455,
+                },
+            });
+            document.body.append(anchor, popover);
+            const internals = app as unknown as {
+                settings: typeof DEFAULT_SETTINGS;
+                activePopover: HTMLElement;
+                activePopoverMode: 'modal';
+                activePopoverAnchor: HTMLElement;
+                activePopoverAnchorRect: DOMRect;
+                activePopoverPositionLocked: boolean;
+                repositionActivePopover(): void;
+            };
+            internals.settings = {
+                ...DEFAULT_SETTINGS,
+                popoverHeight: 540,
+                popoverHeightMode: 'fixed',
+            };
+            internals.activePopover = popover;
+            internals.activePopoverMode = 'modal';
+            internals.activePopoverAnchor = anchor;
+            internals.activePopoverAnchorRect = anchor.getBoundingClientRect();
+            internals.activePopoverPositionLocked = false;
+
+            try {
+                internals.repositionActivePopover();
+
+                expect(popover.style.height).toBe('540px');
+                expect(popover.style.maxHeight).toBe('540px');
+                expect(Number.parseFloat(popover.style.top)).toBe(278);
+                expect(Number.parseFloat(popover.style.top) + popover.offsetHeight).toBeLessThan(anchor.getBoundingClientRect().top);
+                expect(popover.dataset.jpdbReaderPlacementSide).toBe('above');
+            } finally {
+                app.destroy();
+                document.body.replaceChildren();
+            }
+        });
+    });
+
     it('keeps the placement side stable when the popover grows after content loads', () => {
         withViewport(600, 420, () => {
             const popover = sizedPopover(220, 120);
