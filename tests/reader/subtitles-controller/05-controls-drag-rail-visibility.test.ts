@@ -450,7 +450,7 @@ describe('SubtitlePlayerController — idle controls, overlay drag & rail visibi
         }
     });
 
-    it('lets a drag push the subtitle below the video frame while keeping it on screen', () => {
+    it('lets a drag use visible space below a short video without leaving the viewport', () => {
         const cue = { start: 0, end: 2, text: '今日は読む。', transcriptEligible: true };
         const { controller, settings } = createInstalledSubtitleController({ subtitleOverlayVisible: true, subtitleBottomOffset: 16 });
         try {
@@ -464,7 +464,7 @@ describe('SubtitlePlayerController — idle controls, overlay drag & rail visibi
             const subtitleFrame = document.querySelector<HTMLElement>('.jpdb-subtitle-text')!;
             const handle = document.querySelector<HTMLButtonElement>('[data-subtitle-drag-handle]')!;
             // Video frame fills only the top 360px of a 768px-tall viewport:
-            // the space below the frame is draggable-into territory.
+            // the space below the frame remains draggable-into territory.
             mockElementRect(root, new DOMRect(0, 0, 640, 360));
             mockElementRect(subtitleFrame, new DOMRect(16, 220, 608, 72));
 
@@ -472,8 +472,6 @@ describe('SubtitlePlayerController — idle controls, overlay drag & rail visibi
             window.dispatchEvent(pointerEvent('pointermove', { clientY: 500, pointerId: 9 }));
             window.dispatchEvent(pointerEvent('pointerup', { clientY: 500, pointerId: 9 }));
 
-            // 400px down over a 360px frame ≈ -95%: well below the old hard
-            // floor of 2%, but still above the on-screen minimum (≈ -110%).
             expect(settings.subtitleBottomOffset).toBe(-95);
 
             handle.dispatchEvent(pointerEvent('pointerdown', { clientY: 100, pointerId: 10 }));
@@ -485,6 +483,118 @@ describe('SubtitlePlayerController — idle controls, overlay drag & rail visibi
         } finally {
             controller.destroy();
         }
+    });
+
+    it('keeps a saved below-player position reachable when the next media frame fills the viewport', () => {
+        withViewport(390, 820, () => {
+            const { controller, settings } = createInstalledSubtitleController({
+                subtitleOverlayVisible: true,
+                subtitleBottomOffset: -110,
+            });
+            try {
+                const video = attachVideo(controller, { rect: new DOMRect(0, 0, 390, 360) });
+                const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
+                const subtitleFrame = root.querySelector<HTMLElement>('.jpdb-subtitle-text')!;
+                const internals = controllerInternals<{ applyEffectiveSubtitleBottom(): void }>(controller);
+
+                mockElementRect(root, new DOMRect(0, 0, 390, 360));
+                mockElementRect(video, new DOMRect(0, 0, 390, 360));
+                mockElementRect(subtitleFrame, new DOMRect(8, 684, 374, 72));
+                internals.applyEffectiveSubtitleBottom();
+                expect(root.style.getPropertyValue('--subtitle-bottom')).toBe('-110%');
+
+                // Signed-in mobile Shorts geometry: the player/root owns its
+                // chrome, while the actual video occupies the inner frame.
+                mockElementRect(root, new DOMRect(0, 64, 390, 756));
+                mockElementRect(video, new DOMRect(0, 139, 390, 606));
+                mockElementRect(subtitleFrame, new DOMRect(8, 1200, 374, 72));
+                internals.applyEffectiveSubtitleBottom();
+                expect(root.style.getPropertyValue('--subtitle-bottom')).toBe('2%');
+
+                // The effective correction is viewport-dependent: returning
+                // to shorter media restores the deliberate saved preference.
+                mockElementRect(root, new DOMRect(0, 0, 390, 360));
+                mockElementRect(video, new DOMRect(0, 0, 390, 360));
+                mockElementRect(subtitleFrame, new DOMRect(8, 684, 374, 72));
+                internals.applyEffectiveSubtitleBottom();
+                expect(root.style.getPropertyValue('--subtitle-bottom')).toBe('-110%');
+                expect(settings.subtitleBottomOffset).toBe(-110);
+            } finally {
+                controller.destroy();
+            }
+        });
+    });
+
+    it('uses the positioned overlay root when the recycled video rect remains offscreen', () => {
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.youtube.com/shorts/short123') as unknown as Location,
+        });
+        withViewport(390, 820, () => {
+            document.body.innerHTML = `
+                <ytd-shorts>
+                    <ytd-reel-video-renderer>
+                        <div id="movie_player" class="html5-video-player"><video></video></div>
+                    </ytd-reel-video-renderer>
+                </ytd-shorts>
+            `;
+            const { controller, settings } = createInstalledSubtitleController({
+                subtitleOverlayVisible: true,
+                subtitleBottomOffset: -110,
+            });
+            try {
+                const video = document.querySelector<HTMLVideoElement>('video')!;
+                const player = document.querySelector<HTMLElement>('#movie_player')!;
+                attachVideo(controller, { video });
+                const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
+                const subtitleFrame = root.querySelector<HTMLElement>('.jpdb-subtitle-text')!;
+                mockElementRect(player, new DOMRect(0, 64, 390, 756));
+                mockElementRect(root, new DOMRect(0, 64, 390, 756));
+                mockElementRect(video, new DOMRect(0, 980, 390, 606));
+                mockElementRect(subtitleFrame, new DOMRect(8, 1200, 374, 72));
+
+                controllerInternals<{ applyEffectiveSubtitleBottom(): void }>(controller)
+                    .applyEffectiveSubtitleBottom();
+
+                expect(root.style.getPropertyValue('--subtitle-bottom')).toBe('2%');
+                expect(settings.subtitleBottomOffset).toBe(-110);
+            } finally {
+                controller.destroy();
+                Object.defineProperty(window, 'location', {
+                    configurable: true,
+                    value: originalLocation,
+                });
+            }
+        });
+    });
+
+    it('starts a recovery drag from the reachable position instead of the hidden saved value', () => {
+        withViewport(390, 780, () => {
+            const { controller, settings } = createInstalledSubtitleController({
+                subtitleOverlayVisible: true,
+                subtitleBottomOffset: -110,
+            });
+            try {
+                attachVideo(controller, { rect: new DOMRect(0, 0, 390, 780) });
+                const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
+                const subtitleFrame = root.querySelector<HTMLElement>('.jpdb-subtitle-text')!;
+                const handle = root.querySelector<HTMLButtonElement>('[data-subtitle-drag-handle]')!;
+                mockElementRect(root, new DOMRect(0, 0, 390, 780));
+                mockElementRect(subtitleFrame, new DOMRect(8, 696, 374, 72));
+                controllerInternals<{ applyEffectiveSubtitleBottom(): void }>(controller).applyEffectiveSubtitleBottom();
+
+                handle.dispatchEvent(pointerEvent('pointerdown', { clientY: 700, pointerId: 41, pointerType: 'touch' }));
+                window.dispatchEvent(pointerEvent('pointermove', { clientY: 622, pointerId: 41, pointerType: 'touch' }));
+                window.dispatchEvent(pointerEvent('pointerup', { clientY: 622, pointerId: 41, pointerType: 'touch' }));
+
+                expect(settings.subtitleBottomOffset).toBe(12);
+                expect(root.style.getPropertyValue('--subtitle-bottom')).toBe('12%');
+                expect(root.style.getPropertyValue('--subtitle-drag-offset-y')).toBe('0px');
+            } finally {
+                controller.destroy();
+            }
+        });
     });
 
     it('keeps drag-updated subtitle position in sync with compact style controls', () => {

@@ -158,6 +158,28 @@ describe('reader helpers', () => {
         expect(word.querySelector('rt')?.textContent).toBe('つづ');
     });
 
+    it('skips aria-hidden control feedback without hiding a sole painted label', () => {
+        const rectSpy = mockElementBoundingClientRect({ width: 220, height: 40 });
+        document.body.innerHTML = `
+            <button>
+                <span aria-hidden="true"><span>押下中</span></span>
+                <span>字幕を表示</span>
+            </button>
+            <button>
+                <span aria-hidden="true"><span>購読</span></span>
+            </button>
+        `;
+
+        const targets = collectScanTargets(10, 'https://example.com/controls');
+        rectSpy.mockRestore();
+
+        expect(targets.map(target => target.text)).toEqual(expect.arrayContaining([
+            '字幕を表示',
+            '購読',
+        ]));
+        expect(targets.map(target => target.text)).not.toContain('押下中');
+    });
+
     it('collects only declared Try Me content on hosted docs', () => {
         const rectSpy = mockElementBoundingClientRect();
         document.documentElement.setAttribute('data-yomu-annotation-scope', 'surface');

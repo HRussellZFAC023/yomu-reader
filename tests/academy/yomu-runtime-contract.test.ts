@@ -7,6 +7,7 @@ import {
 describe('Academy Reader runtime contract', () => {
     it('loads every split service companion before the hosted core', () => {
         expect(academyReaderCompanionFiles()).toEqual([
+            'greasyfork/yomu-annotations.user.js',
             'greasyfork/yomu-ui-copy.user.js',
             'greasyfork/yomu-settings-surface.user.js',
             'greasyfork/yomu-kanji-study.user.js',
@@ -14,6 +15,8 @@ describe('Academy Reader runtime contract', () => {
             'greasyfork/yomu-bunpro.user.js',
         ]);
         expect(academyReaderCompanionServices()).toEqual([
+            'annotation-layout',
+            'pitch',
             'localization',
             'local-dictionary',
             'translation',

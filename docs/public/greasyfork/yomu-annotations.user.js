@@ -107,7 +107,11 @@
     document.addEventListener("pointerout", schedule, { capture: true, passive: true });
     document.addEventListener("focusin", schedule, { capture: true, passive: true });
     document.addEventListener("focusout", schedule, { capture: true, passive: true });
-    document.defaultView?.visualViewport?.addEventListener("scroll", schedule, { passive: true });
+    const viewport = document.defaultView;
+    viewport?.addEventListener("resize", schedule, { passive: true });
+    viewport?.addEventListener("orientationchange", schedule, { passive: true });
+    viewport?.visualViewport?.addEventListener("scroll", schedule, { passive: true });
+    viewport?.visualViewport?.addEventListener("resize", schedule, { passive: true });
     overlay.observer = observeProjectionEnvironment(document, overlay);
     return overlay;
   }
@@ -388,6 +392,7 @@
       if (hit.closest(".jpdb-reader-detached-reading-overlay") || hit === document.body || hit === document.documentElement) continue;
       const deepest = deepestOpenShadowHit(hit, x, y);
       if (composedContains(anchor, deepest) || composedContains(surface, deepest)) return true;
+      if (composedContains(deepest, anchor) || composedContains(deepest, surface)) return true;
       for (let element = deepest; element; element = composedParentElement(element)) {
         if (composedContains(element, anchor) || composedContains(element, surface)) break;
         if (elementPaintsOccludingSurface(element, occludingPaint)) return false;

@@ -150,7 +150,7 @@ describe('repaint-loop mirror fallback', () => {
 
         const reading = host.querySelector<HTMLElement>('.jpdb-reader-detached-furi');
         expect(reading).toBeTruthy();
-        expect(reading?.style.insetBlockEnd).toBe('calc(100% + 5px)');
+        expect(reading?.style.display).toBe('none');
         expect(host.style.getPropertyValue('line-height')).toBe('29px');
         expect(host.style.getPropertyPriority('line-height')).toBe('important');
 

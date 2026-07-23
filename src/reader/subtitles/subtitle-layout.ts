@@ -47,6 +47,42 @@ export interface SubtitleControlRailPosition {
     y: number;
 }
 
+export interface ReachableSubtitlePositionOptions {
+    preferredBottomPercent: number;
+    positionRect: DOMRect;
+    viewportTop: number;
+    viewportHeight: number;
+    subtitleHeight: number;
+}
+
+// Keep the effective subtitle line and its recovery handle inside the current
+// viewport without overwriting the user's preferred position. Space below a
+// short player remains usable; the same saved position is rebased only when a
+// taller player (such as the next Short) would put it off screen.
+export function reachableSubtitleBottomPercent(options: ReachableSubtitlePositionOptions): number {
+    const { preferredBottomPercent, positionRect, viewportTop, viewportHeight } = options;
+    if (!Number.isFinite(preferredBottomPercent)
+        || !Number.isFinite(positionRect.bottom)
+        || !Number.isFinite(positionRect.height)
+        || positionRect.height <= 0
+        || !Number.isFinite(viewportTop)
+        || !Number.isFinite(viewportHeight)
+        || viewportHeight <= 0) {
+        return Number.isFinite(preferredBottomPercent) ? preferredBottomPercent : 0;
+    }
+
+    const margin = 12;
+    const subtitleHeight = Math.max(24, Number.isFinite(options.subtitleHeight) ? options.subtitleHeight : 0);
+    const viewportBottom = viewportTop + viewportHeight;
+    // `bottom` is a percentage of the positioned overlay root, while the
+    // permitted painted area is the visible viewport around that root.
+    const minimum = Math.ceil(((positionRect.bottom - viewportBottom + margin) / positionRect.height) * 100);
+    const maximum = Math.floor(((positionRect.bottom - viewportTop - margin - subtitleHeight - 48) / positionRect.height) * 100);
+    return minimum > maximum
+        ? minimum
+        : Math.min(maximum, Math.max(minimum, preferredBottomPercent));
+}
+
 export interface SubtitleDrawerLayoutOptions {
     viewportWidth: number;
     viewportHeight: number;

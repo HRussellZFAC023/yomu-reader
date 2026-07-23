@@ -830,10 +830,72 @@
       return null;
     }
   }
+  let sandboxCompanions = {};
+  function registerYomuCompanion(key, value) {
+    writeYomuCompanions({
+      ...yomuCompanions(),
+      [key]: value
+    });
+  }
+  function yomuAnnotationsCompanion() {
+    return yomuCompanions().annotations;
+  }
+  function yomuCompanions() {
+    return readYomuCompanions(globalThis) ?? sandboxCompanions ?? (typeof window === "undefined" ? void 0 : readYomuCompanions(window)) ?? {};
+  }
+  function writeYomuCompanions(value) {
+    sandboxCompanions = value;
+    writeYomuCompanionsTarget(globalThis, value);
+    if (typeof window !== "undefined" && window !== globalThis) {
+      const pageValue = pageCompartmentRegistryValue(value);
+      if (pageValue) writeYomuCompanionsTarget(window, pageValue);
+    }
+  }
+  function pageCompartmentRegistryValue(value) {
+    const cloneInto = globalThis.cloneInto;
+    if (typeof cloneInto !== "function") return value;
+    try {
+      return cloneInto(value, window, { cloneFunctions: true, wrapReflectors: true });
+    } catch {
+      return void 0;
+    }
+  }
+  function writeYomuCompanionsTarget(target, value) {
+    if (!target || typeof target !== "object" && typeof target !== "function") return false;
+    const writable = target;
+    try {
+      writable.__yomuCompanions = value;
+      return true;
+    } catch {
+    }
+    try {
+      Object.defineProperty(writable, "__yomuCompanions", {
+        configurable: true,
+        enumerable: false,
+        writable: true,
+        value
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  function readYomuCompanions(target) {
+    if (!target || typeof target !== "object" && typeof target !== "function") return void 0;
+    try {
+      return target.__yomuCompanions;
+    } catch {
+      return void 0;
+    }
+  }
+  function clearProjectedReadingsWithin(root) {
+    return yomuAnnotationsCompanion()?.clearProjectedReadingsWithin(root) ?? 0;
+  }
   const READABLE_IGNORED_TAGS = /* @__PURE__ */ new Set(["RT", "RP", "SCRIPT", "STYLE"]);
   function unwrapReaderWords(root = document, options = {}) {
     const words = Array.from(root.querySelectorAll(".jpdb-reader-word")).filter((word) => options.includeReaderRoot || !word.closest(READER_ROOT_SELECTOR)).filter((word) => !word.closest("[data-jpdb-reader-surface-ignore]")).filter((word) => !options.excludeSelector || !word.matches(options.excludeSelector));
     const parents = /* @__PURE__ */ new Set();
+    words.forEach(clearProjectedReadingsWithin);
     for (const word of words) {
       const parent = word.parentNode;
       if (!parent) continue;
@@ -6069,6 +6131,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         end: token.start + ruby.end
       }));
     }
+    if (surface.trim() !== token.card.spelling.trim()) return [];
     return [{ text: reading, start: token.start, end: token.end, length: token.length }];
   }
   function kanjiOnlyRubySegments(surface, token, ruby) {
@@ -7381,6 +7444,18 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function clampSubtitleDragOffsetFraction(fraction) {
     if (!Number.isFinite(fraction)) return 0;
     return Math.min(SUBTITLE_DRAG_OFFSET_MAX_FRACTION, Math.max(SUBTITLE_DRAG_OFFSET_MIN_FRACTION, fraction));
+  }
+  function reachableSubtitleBottomPercent(options) {
+    const { preferredBottomPercent, positionRect, viewportTop, viewportHeight } = options;
+    if (!Number.isFinite(preferredBottomPercent) || !Number.isFinite(positionRect.bottom) || !Number.isFinite(positionRect.height) || positionRect.height <= 0 || !Number.isFinite(viewportTop) || !Number.isFinite(viewportHeight) || viewportHeight <= 0) {
+      return Number.isFinite(preferredBottomPercent) ? preferredBottomPercent : 0;
+    }
+    const margin = 12;
+    const subtitleHeight = Math.max(24, Number.isFinite(options.subtitleHeight) ? options.subtitleHeight : 0);
+    const viewportBottom = viewportTop + viewportHeight;
+    const minimum = Math.ceil((positionRect.bottom - viewportBottom + margin) / positionRect.height * 100);
+    const maximum = Math.floor((positionRect.bottom - viewportTop - margin - subtitleHeight - 48) / positionRect.height * 100);
+    return minimum > maximum ? minimum : Math.min(maximum, Math.max(minimum, preferredBottomPercent));
   }
   function computeSubtitleDrawerLayout(options) {
     const size = options.size ?? {};
@@ -12058,9 +12133,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return Math.max(subtitleMinimumFontSize(root), Math.min(baseline, scaled));
   }
   const DEFAULT_SUBTITLE_BOTTOM_OFFSET = DEFAULT_SETTINGS.subtitleBottomOffset;
-  function effectiveSubtitleBottomPercent(settings) {
-    return settings.subtitleBottomOffset;
-  }
   function setDocumentStylePropertyIfChanged(element, property, value) {
     if (element.style.getPropertyValue(property) === value) return false;
     element.style.setProperty(property, value);
@@ -14506,7 +14578,22 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     applyEffectiveSubtitleBottom() {
       if (!this.root) return;
-      this.root.style.setProperty("--subtitle-bottom", `${effectiveSubtitleBottomPercent(this.options.getSettings())}%`);
+      this.root.style.setProperty("--subtitle-bottom", `${this.effectiveSubtitleBottomPercent()}%`);
+    }
+    effectiveSubtitleBottomPercent(preferred = this.options.getSettings().subtitleBottomOffset) {
+      const root = this.root;
+      if (!root) return preferred;
+      const positionRect = root.getBoundingClientRect();
+      const viewport = subtitleVisibleViewportSize();
+      const visualViewport = window.visualViewport;
+      const viewportTop = visualViewport && Math.round(visualViewport.width) === viewport.width && Math.round(visualViewport.height) === viewport.height ? visualViewport.offsetTop : 0;
+      return reachableSubtitleBottomPercent({
+        preferredBottomPercent: preferred,
+        positionRect,
+        viewportTop,
+        viewportHeight: viewport.height,
+        subtitleHeight: root.querySelector(".jpdb-subtitle-text")?.getBoundingClientRect().height ?? 0
+      });
     }
     fitSubtitleTextToVideo() {
       if (!this.root || !this.subtitleEl) return;
@@ -14844,7 +14931,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         mode: handle.matches(ASBPLAYER_SUBTITLE_DRAG_HANDLE_SELECTOR) ? "transform" : "bottom-offset",
         startY,
         startOffset: this.subtitleDragOffsetYPx,
-        startBottomOffset: this.options.getSettings().subtitleBottomOffset,
+        startBottomOffset: this.effectiveSubtitleBottomPercent(),
         referenceHeight: this.subtitlePositionReferenceHeight(dragFrame),
         bounds: this.subtitleDragOffsetBounds(dragFrame),
         lastClientY: startY
@@ -14935,7 +15022,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       return this.clampedSubtitleBottomOffset(startPercent - deltaY / referenceHeight * 100);
     }
     adjustSubtitleBottomOffsetByPixels(deltaY, dragFrame) {
-      this.setSubtitleBottomOffset(this.options.getSettings().subtitleBottomOffset - deltaY / this.subtitlePositionReferenceHeight(dragFrame) * 100);
+      this.setSubtitleBottomOffset(this.effectiveSubtitleBottomPercent() - deltaY / this.subtitlePositionReferenceHeight(dragFrame) * 100);
     }
     setSubtitleBottomOffset(value) {
       if (!Number.isFinite(value)) return;
@@ -15010,6 +15097,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
       }
     }
     clampedSubtitleBottomOffset(value) {
+      const rootRect = this.root?.getBoundingClientRect();
+      if (rootRect && rootRect.height > 0) return Math.round(this.effectiveSubtitleBottomPercent(value));
       return Math.round(Math.min(Math.max(value, this.minSubtitleBottomOffsetPercent()), this.maxSubtitleBottomOffsetPercent()));
     }
     // Mirror of minSubtitleBottomOffsetPercent for the upward direction: the
@@ -21542,61 +21631,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
         target[key] = value;
       } catch {
       }
-    }
-  }
-  let sandboxCompanions = {};
-  function registerYomuCompanion(key, value) {
-    writeYomuCompanions({
-      ...yomuCompanions(),
-      [key]: value
-    });
-  }
-  function yomuCompanions() {
-    return readYomuCompanions(globalThis) ?? sandboxCompanions ?? (typeof window === "undefined" ? void 0 : readYomuCompanions(window)) ?? {};
-  }
-  function writeYomuCompanions(value) {
-    sandboxCompanions = value;
-    writeYomuCompanionsTarget(globalThis, value);
-    if (typeof window !== "undefined" && window !== globalThis) {
-      const pageValue = pageCompartmentRegistryValue(value);
-      if (pageValue) writeYomuCompanionsTarget(window, pageValue);
-    }
-  }
-  function pageCompartmentRegistryValue(value) {
-    const cloneInto = globalThis.cloneInto;
-    if (typeof cloneInto !== "function") return value;
-    try {
-      return cloneInto(value, window, { cloneFunctions: true, wrapReflectors: true });
-    } catch {
-      return void 0;
-    }
-  }
-  function writeYomuCompanionsTarget(target, value) {
-    if (!target || typeof target !== "object" && typeof target !== "function") return false;
-    const writable = target;
-    try {
-      writable.__yomuCompanions = value;
-      return true;
-    } catch {
-    }
-    try {
-      Object.defineProperty(writable, "__yomuCompanions", {
-        configurable: true,
-        enumerable: false,
-        writable: true,
-        value
-      });
-      return true;
-    } catch {
-      return false;
-    }
-  }
-  function readYomuCompanions(target) {
-    if (!target || typeof target !== "object" && typeof target !== "function") return void 0;
-    try {
-      return target.__yomuCompanions;
-    } catch {
-      return void 0;
     }
   }
   registerYomuCompanion("video", {

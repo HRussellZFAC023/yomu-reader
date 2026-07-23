@@ -1,4 +1,5 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
+import path from 'node:path';
 
 export async function installUserscriptCssResource(page, cssPath, resourceName = 'yomuCss') {
     const css = readFileSync(cssPath, 'utf8');
@@ -12,6 +13,29 @@ export async function installUserscriptCssResource(page, cssPath, resourceName =
 }
 
 export async function addScriptTagWithCspFallback(page, scriptPath) {
+    for (const companionPath of localUserscriptCompanionPaths(scriptPath)) {
+        await addSingleScriptTagWithCspFallback(page, companionPath);
+    }
+    await addSingleScriptTagWithCspFallback(page, scriptPath);
+}
+
+export function localUserscriptCompanionPaths(userscriptPath) {
+    const root = path.resolve(path.dirname(userscriptPath), '..');
+    return readFileSync(userscriptPath, 'utf8')
+        .split(/\r?\n/u)
+        .flatMap(line => {
+            const match = line.match(/^\/\/ @require https:\/\/yomureader\.com\/greasyfork\/([^#\s]+)(?:#\S+)?$/u);
+            if (!match) return [];
+            const fileName = path.basename(match[1]);
+            if (fileName !== match[1]) throw new Error(`Unsafe userscript companion path: ${match[1]}`);
+            const hostedPath = path.join(root, 'docs/public/greasyfork', fileName);
+            if (existsSync(hostedPath)) return [hostedPath];
+            const canonicalName = fileName.replace(/\.[a-f0-9]{12}(?=\.user\.js$)/u, '');
+            return [path.join(path.dirname(userscriptPath), 'greasyfork', canonicalName)];
+        });
+}
+
+async function addSingleScriptTagWithCspFallback(page, scriptPath) {
     try {
         await page.addScriptTag({ path: scriptPath });
     } catch (error) {

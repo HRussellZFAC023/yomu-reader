@@ -64,11 +64,11 @@ describe('constrained-row mirror routing (forced distorting engine)', () => {
         document.body.innerHTML = '';
     });
 
-    it('renders a bare clipped row IN PLACE, paint-invariant at rest (no mirror, no visible reading)', () => {
-        // Paint-invariant design (third live gate): clip-constrained rows are
-        // never mirror-rerouted — hiding the host and anchoring the mirror to
-        // a clamped box collapsed live feed titles to 0px. The row renders in
-        // place with the reading suppressed; host text keeps painting.
+    it('keeps a bare clipped row in place for geometry-safe reading projection', () => {
+        // Clip-constrained rows are never mirror-rerouted: hiding the host and
+        // anchoring a mirror to a clamped box collapsed live feed titles. The
+        // native base remains in place; visible readings use the document
+        // projection channel in a real layout.
         document.body.innerHTML = `<div id="host" style="${CLIP_STYLE}">${TEXT}</div>`;
         const host = document.getElementById('host')!;
         paint(host);
@@ -78,7 +78,7 @@ describe('constrained-row mirror routing (forced distorting engine)', () => {
         expect(host.querySelector('rt')).toBeNull();
     });
 
-    it('keeps a styled clipped row (own background) rendering in place with the reading suppressed', () => {
+    it('keeps a styled clipped row and its authored background rendering in place', () => {
         document.body.innerHTML = `<div id="host" style="${CLIP_STYLE} background-color: rgb(31, 41, 55);">${TEXT}</div>`;
         const host = document.getElementById('host')!;
         paint(host);
@@ -113,19 +113,13 @@ describe('constrained-row mirror routing (forced distorting engine)', () => {
     });
 });
 
-// Regression guard for commit 485d627d6, which dropped openSafeDetachedReadingClips
-// from the non-destructive mirror path: the destructive and fragment paths open a
-// safe compact clip synchronously at render, but the mirror path left it closed
-// until a later scan-settle heal ran. Real paint visibility is covered by the
-// Chromium/WebKit chip smoke; this jsdom test pins mount ordering and keeps
-// explicitly enabled furigana visible without changing control geometry.
-describe('non-destructive mirror opens safe clips synchronously at render', () => {
+describe('non-destructive mirror preserves page-owned clips', () => {
     afterEach(() => {
         removeNonDestructiveScanMirrors(document);
         document.body.innerHTML = '';
     });
 
-    it('opens a compact disclosure trigger as soon as the mirror mounts (parity with destructive/fragment)', () => {
+    it('leaves a compact disclosure trigger clipped while projecting its reading elsewhere', () => {
         // aria-expanded belongs to the trigger, not the content panel. A broad
         // expandable-content guard used to close this safe lane as soon as the
         // trigger opened its menu, without a measured safety rejection. The
@@ -142,10 +136,11 @@ describe('non-destructive mirror opens safe clips synchronously at render', () =
             );
 
             expect(host.querySelector('.jpdb-reader-text-mirror')).toBeTruthy();
-            expect(host.dataset.yomuDetachedReadingOverflow).toBe('true');
+            expect(host.dataset.yomuDetachedReadingOverflow).toBeUndefined();
+            expect(host.style.getPropertyValue('overflow')).toBe('hidden');
             const reading = host.querySelector<HTMLElement>('.jpdb-reader-detached-furi');
             expect(reading?.dataset.yomuDetachedReadingHidden).toBeUndefined();
-            expect(reading?.style.getPropertyValue('display')).toBe('block');
+            expect(reading?.style.getPropertyValue('display')).toBe('none');
         });
     });
 
@@ -187,15 +182,15 @@ describe('non-destructive mirror opens safe clips synchronously at render', () =
             );
 
             expect(label.querySelector('.jpdb-reader-text-mirror')).toBeTruthy();
-            expect(button.dataset.yomuDetachedReadingOverflow).toBe('true');
-            expect(button.style.getPropertyValue('overflow')).toBe('visible');
+            expect(button.dataset.yomuDetachedReadingOverflow).toBeUndefined();
+            expect(button.style.getPropertyValue('overflow')).toBe('hidden');
         } finally {
             if (restoreGetClientRects) Object.defineProperty(Range.prototype, 'getClientRects', restoreGetClientRects);
             else Reflect.deleteProperty(Range.prototype, 'getClientRects');
         }
     });
 
-    it('keeps a richer provisional mirror until a complete or authoritative update arrives', () => {
+    it('keeps complete annotation facts while an authoritative sparse repaint updates card state', () => {
         document.body.innerHTML = `<button id="sort" style="overflow:hidden;width:98px;height:32px"><span id="label">${TEXT}</span></button>`;
         const button = document.getElementById('sort')!;
         const label = document.getElementById('label')!;
@@ -212,7 +207,17 @@ describe('non-destructive mirror opens safe clips synchronously at render', () =
         const richToken: JPDBToken = { ...token(), card: richCard, pitchClass: 'heiban' };
         const partialToken: JPDBToken = {
             ...richToken,
-            card: { ...richCard, reading: '', pitchAccent: [] },
+            card: {
+                ...richCard,
+                vid: 9001,
+                sid: 17,
+                source: 'jpdb',
+                provisionalState: false,
+                reading: '',
+                pitchAccent: [],
+                cardState: ['learning'],
+                deckNames: ['Current deck'],
+            },
             rubies: [],
             pitchClass: '',
         };
@@ -233,14 +238,87 @@ describe('non-destructive mirror opens safe clips synchronously at render', () =
             applyTokensToScanTarget({ ...target, nonDestructive: true }, [partialToken], renderSettings);
             const preservedMirror = label.querySelector<HTMLElement>('.jpdb-reader-text-mirror')!;
             expect(preservedMirror).toBe(richMirror);
-            expect(preservedMirror.querySelector<HTMLElement>('.jpdb-reader-word')?.dataset.pitchClass).toBe('heiban');
-            expect(preservedMirror.querySelector<HTMLElement>('.jpdb-reader-word')?.dataset.reading).toBe('にほんご');
+            const preservedWord = preservedMirror.querySelector<HTMLElement>('.jpdb-reader-word');
+            expect(preservedWord?.dataset.pitchClass).toBe('heiban');
+            expect(preservedWord?.dataset.reading).toBe('にほんご');
+            expect(preservedWord?.dataset.cardState).toBe('learning');
+            expect(preservedWord?.classList.contains('jpdb-learning')).toBe(true);
+            expect(preservedWord?.dataset.deckNames).toBe('Current deck');
+            expect(preservedWord?.dataset.vid).toBe('1');
+            expect(preservedWord?.dataset.sid).toBe('1');
+            expect(preservedWord?.dataset.cardSource).toBe('jiten');
+            expect(preservedWord?.dataset.cardId).toBe('1');
+            expect(preservedWord?.dataset.readingIndex).toBe('1');
 
             applyTokensToScanTarget({ ...target, nonDestructive: true }, [authoritativeToken], renderSettings);
             const replacedMirror = label.querySelector<HTMLElement>('.jpdb-reader-text-mirror')!;
             expect(replacedMirror).not.toBe(richMirror);
             expect(replacedMirror.querySelector<HTMLElement>('.jpdb-reader-word')?.dataset.pitchClass).toBe('atamadaka');
             expect(replacedMirror.querySelector<HTMLElement>('.jpdb-reader-word')?.dataset.reading).toBe('にっぽんご');
+        });
+    });
+
+    it('keeps complete prose annotations when a sparse repaint changes the nominal reading lane', () => {
+        document.body.innerHTML = `<div id="host">${TEXT}</div>`;
+        const host = document.getElementById('host')!;
+        mockCompactBox(host, 120, 24);
+        const richToken = token();
+        const sparseToken: JPDBToken = {
+            ...richToken,
+            card: { ...richToken.card, reading: '', pitchAccent: [] },
+            rubies: [],
+            pitchClass: '',
+        };
+        const target = collectTextTargetsIn(host, 40, false).find(item => item.text.trim() === TEXT)!;
+        const settings = { ...DEFAULT_SETTINGS, showFurigana: true, furiganaMode: 'all' as const };
+
+        withSingleLineRange(() => {
+            applyTokensToScanTarget({ ...target, nonDestructive: true, decoration: 'content-ruby' }, [richToken], settings);
+            const completeMirror = host.querySelector<HTMLElement>('.jpdb-reader-text-mirror')!;
+
+            applyTokensToScanTarget({ ...target, nonDestructive: true, decoration: 'content-ruby' }, [sparseToken], settings);
+
+            const preservedMirror = host.querySelector<HTMLElement>('.jpdb-reader-text-mirror')!;
+            expect(preservedMirror).toBe(completeMirror);
+            expect(preservedMirror.querySelector<HTMLElement>('.jpdb-reader-word')?.dataset.reading).toBe('にほんご');
+        });
+    });
+
+    it('keeps complete ranges omitted by a bounded repaint', () => {
+        const text = `${TEXT}投票`;
+        document.body.innerHTML = `<button id="host" style="overflow:hidden;width:140px;height:32px">${text}</button>`;
+        const host = document.getElementById('host')!;
+        mockCompactBox(host, 140, 32);
+        const first = token();
+        const second: JPDBToken = {
+            card: {
+                ...CARD,
+                vid: 2,
+                sid: 2,
+                spelling: '投票',
+                reading: 'とうひょう',
+                pitchAccent: ['LHHH'],
+            },
+            start: TEXT.length,
+            end: text.length,
+            length: 2,
+            rubies: [{ text: 'とうひょう', start: TEXT.length, end: text.length, length: 2 }],
+            pitchClass: 'heiban',
+            sentence: text,
+        };
+        const target = collectTextTargetsIn(host, 40, false).find(item => item.text.trim() === text)!;
+        const settings = { ...DEFAULT_SETTINGS, showFurigana: true, furiganaMode: 'all' as const };
+
+        withSingleLineRange(() => {
+            applyTokensToScanTarget({ ...target, nonDestructive: true }, [first, second], settings);
+            const completeMirror = host.querySelector<HTMLElement>('.jpdb-reader-text-mirror')!;
+
+            applyTokensToScanTarget({ ...target, nonDestructive: true }, [first], settings);
+
+            const preservedMirror = host.querySelector<HTMLElement>('.jpdb-reader-text-mirror')!;
+            expect(preservedMirror).toBe(completeMirror);
+            expect(preservedMirror.querySelectorAll('.jpdb-reader-word')).toHaveLength(2);
+            expect(preservedMirror.querySelectorAll<HTMLElement>('.jpdb-reader-word')[1]?.dataset.reading).toBe('とうひょう');
         });
     });
 

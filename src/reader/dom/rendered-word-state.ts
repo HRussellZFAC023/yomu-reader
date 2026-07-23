@@ -148,9 +148,10 @@ export function setRenderedWordPitchComponents(word: HTMLElement, card: JPDBCard
 export type RenderedWordStateProvenance = 'authoritative' | 'provisional';
 
 export interface RenderedWordCardIdentityOptions {
-    // Merge policy for the SRS-status channel (state classes + dataset.cardState
-    // + cardSource + deck membership). Identity (vid/sid/reading/expression/
-    // pitch) always updates so late pitch/furigana lands regardless.
+    // Merge policy for the SRS-status channel (state classes +
+    // dataset.cardState + deck membership). Identity
+    // (vid/sid/reading/expression/pitch) always updates so late
+    // pitch/furigana lands regardless.
     //   'auto' (default): derive from the card. A PROVISIONAL card (public/
     //     keyless jiten, local, segmented — always a default not-in-deck) must
     //     NOT overwrite a word that already carries an AUTHORITATIVE state:
@@ -173,15 +174,6 @@ export function setRenderedWordCardIdentity(
     card: JPDBCard,
     options: RenderedWordCardIdentityOptions = {},
 ): void {
-    const source = renderedWordCardSource(card);
-    const state = primaryCardState(card.cardState);
-    const preserveState = shouldPreserveAuthoritativeState(word, card, state, options);
-    if (!preserveState) {
-        clearRenderedWordCardStateClasses(word);
-        delete word.dataset.bunproState;
-        delete word.dataset.srsProvider;
-        clearRenderedWordDeckMembershipClasses(word, ['anki']);
-    }
     // Identity/pitch always refresh: preserving the status channel must not
     // block the late reading + pitch the repaint was scheduled to deliver.
     word.dataset.vid = String(card.vid);
@@ -191,10 +183,40 @@ export function setRenderedWordCardIdentity(
     if (!card.pitchAccent.length) delete word.dataset.pitchAccent;
     setRenderedWordPitchAccentPattern(word, card);
     setRenderedWordPitchComponents(word, card);
-    if (preserveState) return;
-    word.dataset.cardSource = source;
-    word.dataset.cardId = String(renderedWordCardId(card, source));
-    word.dataset.readingIndex = String(renderedWordReadingIndex(card, source));
+    applyRenderedWordCardStatus(word, card, options, true);
+}
+
+/**
+ * Repaint only the provider state/deck channel. This lets a sparse parse update
+ * current SRS facts without replacing the dictionary identity, reading, or
+ * pitch annotation retained by the rendered word.
+ */
+export function setRenderedWordCardStatus(
+    word: HTMLElement,
+    card: JPDBCard,
+    options: RenderedWordCardIdentityOptions = {},
+): void {
+    applyRenderedWordCardStatus(word, card, options, false);
+}
+
+function applyRenderedWordCardStatus(
+    word: HTMLElement,
+    card: JPDBCard,
+    options: RenderedWordCardIdentityOptions,
+    replaceCardIdentity: boolean,
+): void {
+    const source = renderedWordCardSource(card);
+    const state = primaryCardState(card.cardState);
+    if (shouldPreserveAuthoritativeState(word, card, state, options)) return;
+    clearRenderedWordCardStateClasses(word);
+    delete word.dataset.bunproState;
+    delete word.dataset.srsProvider;
+    clearRenderedWordDeckMembershipClasses(word, ['anki']);
+    if (replaceCardIdentity) {
+        word.dataset.cardSource = source;
+        word.dataset.cardId = String(renderedWordCardId(card, source));
+        word.dataset.readingIndex = String(renderedWordReadingIndex(card, source));
+    }
     word.dataset.cardState = state;
     word.dataset.stateProvenance = cardStateProvenance(card);
     if (!RENDERED_WORD_MINING_INSIGHT_STATES.has(state)) clearRenderedWordMiningInsight(word);

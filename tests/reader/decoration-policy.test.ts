@@ -681,7 +681,7 @@ describe('interactive-passive geometry invariance', () => {
             const reading = source.querySelector<HTMLElement>('.jpdb-reader-detached-furi')!;
             expect(reading.textContent).toBe('さんせいひょう');
             expect(reading.dataset.yomuDetachedReadingHidden).toBeUndefined();
-            expect(reading.style.getPropertyValue('display')).toBe('block');
+            expect(reading.style.getPropertyValue('display')).toBe('none');
         } finally {
             restoreElementsFromPoint();
         }
@@ -743,7 +743,7 @@ describe('interactive-passive geometry invariance', () => {
 
             const reading = source.querySelector<HTMLElement>('.jpdb-reader-detached-furi')!;
             expect(reading.dataset.yomuDetachedReadingHidden).toBeUndefined();
-            expect(reading.style.getPropertyValue('display')).toBe('block');
+            expect(reading.style.getPropertyValue('display')).toBe('none');
         } finally {
             restoreElementsFromPoint();
         }
@@ -802,7 +802,7 @@ describe('interactive-passive geometry invariance', () => {
 
             const reading = source.querySelector<HTMLElement>('.jpdb-reader-detached-furi')!;
             expect(reading.dataset.yomuDetachedReadingHidden).toBeUndefined();
-            expect(reading.style.getPropertyValue('display')).toBe('block');
+            expect(reading.style.getPropertyValue('display')).toBe('none');
             expect(innerRootHitQueries).toBe(0);
             expect(outerRootHitQueries).toBe(0);
         } finally {
@@ -859,7 +859,7 @@ describe('interactive-passive geometry invariance', () => {
 
             const reading = source.querySelector<HTMLElement>('.jpdb-reader-detached-furi')!;
             expect(reading.dataset.yomuDetachedReadingHidden).toBeUndefined();
-            expect(reading.style.getPropertyValue('display')).toBe('block');
+            expect(reading.style.getPropertyValue('display')).toBe('none');
             expect(outerRootHitQueries).toBe(0);
         } finally {
             restoreElementsFromPoint();
@@ -971,9 +971,9 @@ describe('interactive-passive geometry invariance', () => {
             const foregroundReading = menu.querySelector<HTMLElement>('.jpdb-reader-detached-furi')!;
             const backgroundReading = behind.querySelector<HTMLElement>('.jpdb-reader-detached-furi')!;
             expect(foregroundReading.dataset.yomuDetachedReadingHidden).toBeUndefined();
-            expect(foregroundReading.style.getPropertyValue('display')).toBe('block');
+            expect(foregroundReading.style.getPropertyValue('display')).toBe('none');
             expect(backgroundReading.dataset.yomuDetachedReadingHidden).toBeUndefined();
-            expect(backgroundReading.style.getPropertyValue('display')).toBe('block');
+            expect(backgroundReading.style.getPropertyValue('display')).toBe('none');
         } finally {
             restoreElementsFromPoint();
         }
@@ -1016,7 +1016,7 @@ describe('interactive-passive geometry invariance', () => {
 
             expect([...menu.querySelectorAll<HTMLElement>('.jpdb-reader-detached-furi')]
                 .every(reading => !reading.dataset.yomuDetachedReadingHidden
-                    && reading.style.getPropertyValue('display') === 'block')).toBe(true);
+                    && reading.style.getPropertyValue('display') === 'none')).toBe(true);
         } finally {
             restoreElementsFromPoint();
         }
@@ -1051,7 +1051,7 @@ describe('interactive-passive geometry invariance', () => {
 
             const reading = source.querySelector<HTMLElement>('.jpdb-reader-detached-furi')!;
             expect(reading.dataset.yomuDetachedReadingHidden).toBeUndefined();
-            expect(reading.style.getPropertyValue('display')).toBe('block');
+            expect(reading.style.getPropertyValue('display')).toBe('none');
         } finally {
             restoreElementsFromPoint();
         }
@@ -1243,6 +1243,29 @@ describe('mirror bareness with painted descendants', () => {
 // the mode attribute won — ruby appeared in the mirror channel. Realistic
 // live DOM shape; interactive-passive keeps the site's native line geometry.
 describe('interactive-passive mirror channel under furigana-mode=all', () => {
+    it('derives detached furigana from a card reading when the live token has no explicit rubies', () => {
+        document.body.innerHTML = `
+            <button id="sort" style="height:36px;overflow:hidden;white-space:nowrap">賛成票率順</button>
+        `;
+        const button = document.querySelector<HTMLElement>('#sort')!;
+        mockRect(button, { width: 144, height: 36 });
+        const collected = collectTargets(button).find(candidate => candidate.text === '賛成票率順')!;
+        const liveToken = token('賛成票率順', 0, collected.text, 'さんせいひょうりつじゅん');
+        liveToken.rubies = [];
+
+        applyTokensToScanTarget(
+            { ...collected, nonDestructive: true, passiveInteraction: true },
+            [liveToken],
+            FURIGANA_SETTINGS,
+        );
+
+        const mirror = button.querySelector<HTMLElement>('.jpdb-reader-text-mirror')!;
+        expect(mirror.dataset.yomuDetachedReadings).toBe('true');
+        expect(mirror.querySelector('.jpdb-reader-detached-furi')?.textContent)
+            .toBe('さんせいひょうりつじゅん');
+        expect(button.style.getPropertyValue('overflow')).toBe('hidden');
+    });
+
     it('renders a centered subscribe-button annotation with a layout-neutral detached reading', () => {
         stubYouTube();
         document.body.innerHTML = `
@@ -1494,10 +1517,10 @@ describe('clip-constrained rows keep detached readings without ruby-room growth'
         makeRoomForRubyInCroppedRows(document);
 
         const reading = button.querySelector<HTMLElement>('.jpdb-reader-detached-furi')!;
-        expect(button.dataset.yomuDetachedReadingOverflow).toBe('true');
-        expect(button.style.getPropertyValue('overflow')).toBe('visible');
+        expect(button.dataset.yomuDetachedReadingOverflow).toBeUndefined();
+        expect(button.style.getPropertyValue('overflow')).toBe('hidden');
         expect(reading.dataset.yomuDetachedReadingHidden).toBeUndefined();
-        expect(getComputedStyle(reading).display).toBe('block');
+        expect(getComputedStyle(reading).display).toBe('none');
         expect(button.getBoundingClientRect().height).toBe(40);
         button.click();
         expect(clicked).toHaveBeenCalledTimes(1);
@@ -1537,10 +1560,10 @@ describe('clip-constrained rows keep detached readings without ruby-room growth'
         makeRoomForRubyInCroppedRows(document);
 
         const reading = toggle.querySelector<HTMLElement>('.jpdb-reader-detached-furi')!;
-        expect(toggle.dataset.yomuDetachedReadingOverflow).toBe('true');
-        expect(toggle.style.getPropertyValue('overflow')).toBe('visible');
+        expect(toggle.dataset.yomuDetachedReadingOverflow).toBeUndefined();
+        expect(toggle.style.getPropertyValue('overflow')).toBe('hidden');
         expect(reading.dataset.yomuDetachedReadingHidden).toBeUndefined();
-        expect(getComputedStyle(reading).display).toBe('block');
+        expect(getComputedStyle(reading).display).toBe('none');
         toggle.click();
         expect(clicked).toHaveBeenCalledTimes(1);
     });

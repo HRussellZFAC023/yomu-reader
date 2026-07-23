@@ -266,12 +266,16 @@ describe('reader stylesheet loading', () => {
     it('attaches projected underlines and furigana directly to their source glyphs', () => {
         const css = readFileSync('src/reader/styles/reader-words-ocr.css', 'utf8');
         const fragmentLine = css.match(/\.jpdb-reader-source-fragment::after\s*\{[^}]*\}/)?.[0] ?? '';
-        const detachedFuri = css.match(/\.jpdb-reader-detached-furi\s*\{[^}]*\}/)?.[0] ?? '';
+        const detachedSource = css.match(/\.jpdb-reader-detached-furi:not\(\[data-yomu-projected-reading\]\)\s*\{[^}]*\}/)?.[0] ?? '';
+        const projectedFuri = css.match(/\.jpdb-reader-projected-furi\s*\{[^}]*\}/)?.[0] ?? '';
 
         expect(fragmentLine).toContain('inset-block-end: 0');
         expect(fragmentLine).toContain('border-block-end: var(--jpdb-reader-word-underline-thickness)');
         expect(fragmentLine).toContain('var(--jpdb-reader-word-underline, transparent)');
-        expect(detachedFuri).toContain('inset-block-end: calc(100% + 5px)');
+        expect(detachedSource).toContain('display: none !important');
+        expect(projectedFuri).toContain('position: fixed !important');
+        expect(projectedFuri).toContain('display: block !important');
+        expect(css).not.toContain('calc(100% + 5px)');
         expect(css).toMatch(/data-yomu-source-projected="true"[^}]*\.jpdb-reader-detached-ruby\s*\{[^}]*text-decoration: none !important/s);
         expect(css).toMatch(/data-pitch-components="true"[^}]*\.jpdb-reader-source-fragment::after\s*\{[^}]*var\(--jpdb-reader-inline-pitch-gradient\)[^}]*var\(--jpdb-reader-source-gradient-width\)[^}]*var\(--jpdb-reader-source-gradient-offset\)/s);
     });

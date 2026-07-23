@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.7.1] - 2026-07-23
+
+### Changed
+
+- Dynamic page text now uses one generic live-range projection path across YouTube, Reddit, consent pages, compact controls, and open web components. The previous site-specific clip opening and passive-control exceptions were removed; enabled furigana, pitch, status, and lookup annotations remain visible without reflowing or resizing page UI.
+
+### Fixed
+
+- Furigana is centred over its exact source characters, while pitch/status underlines and highlights follow the same measured word fragments with no detached gap. Opaque menus hide only the readings behind them, then restore the background cleanly after closing; compact labels no longer collapse into ellipses or bunch repeated readings together.
+- Sparse late parses can no longer erase a complete compound reading or pitch pattern. Bounded public Jiten hydration finishes the current small annotation target, so multi-token labels retain complete facts without unbounded requests.
+- A subtitle position saved below a shorter video remains usable there, but is temporarily rebased into the visible viewport when the next player is a full-height Short. The preferred position is preserved and returns when it is reachable again.
+
 ## [1.7.0] - 2026-07-23
 
 ### Changed

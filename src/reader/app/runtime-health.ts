@@ -1,4 +1,5 @@
 import {
+    yomuAnnotationsCompanion,
     yomuAnkiCompanion,
     yomuBunproCompanion,
     yomuI18nCompanion,
@@ -20,6 +21,7 @@ const READER_RUNTIME_SERVICES = [
     'grammar',
     'mining',
     'anki',
+    'annotation-layout',
     'pitch',
     'audio',
     'nested-lookup',
@@ -39,10 +41,15 @@ export function currentReaderRuntimeHealth(): ReaderRuntimeHealth {
         'jiten',
         'yomu-srs',
         'jpdb',
-        'pitch',
         'audio',
         'nested-lookup',
     ]);
+    const annotations = yomuAnnotationsCompanion();
+    if (typeof annotations?.syncProjectedReadings === 'function'
+        && typeof annotations?.clearProjectedReadings === 'function') {
+        available.add('annotation-layout');
+        available.add('pitch');
+    }
     const copy = yomuI18nCompanion();
     if (typeof copy?.uiText === 'function') available.add('localization');
     if (typeof yomuLocalDictionaries()?.YomitanDictionaryStore === 'function') available.add('local-dictionary');

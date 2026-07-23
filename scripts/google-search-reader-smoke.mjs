@@ -454,6 +454,34 @@ function snapshotGoogleSearchSummary() {
     const weblioHeadingRect = document.querySelector('#weblio-heading').getBoundingClientRect();
     const weblioSnippetRect = document.querySelector('#weblio-snippet').getBoundingClientRect();
     const askRect = document.querySelector('.ask-card').getBoundingClientRect();
+    const projectedReadings = [...document.querySelectorAll('[data-yomu-projected-reading="true"]')]
+        .map(reading => {
+            const rect = reading.getBoundingClientRect();
+            const style = getComputedStyle(reading);
+            const sourceLeft = Number(reading.dataset.yomuSourceLeft);
+            const sourceTop = Number(reading.dataset.yomuSourceTop);
+            const sourceWidth = Number(reading.dataset.yomuSourceWidth);
+            const sourceHeight = Number(reading.dataset.yomuSourceHeight);
+            return {
+                text: reading.textContent?.trim() ?? '',
+                expression: reading.dataset.yomuExpression ?? '',
+                sourceCenterX: sourceLeft + sourceWidth / 2,
+                sourceCenterY: sourceTop + sourceHeight / 2,
+                centerDelta: (rect.left + rect.right) / 2 - sourceLeft - sourceWidth / 2,
+                baseGap: sourceTop - rect.bottom,
+                visible: style.display !== 'none'
+                    && style.visibility !== 'hidden'
+                    && style.opacity !== '0'
+                    && rect.width > 0
+                    && rect.height > 0,
+            };
+        })
+        .filter(reading => Number.isFinite(reading.sourceCenterX)
+            && Number.isFinite(reading.sourceCenterY)
+            && reading.sourceCenterX >= chipRect.left
+            && reading.sourceCenterX <= chipRect.right
+            && reading.sourceCenterY >= chipRect.top
+            && reading.sourceCenterY <= chipRect.bottom);
 
     return {
         url: location.href,
@@ -476,6 +504,7 @@ function snapshotGoogleSearchSummary() {
             overflowY: getComputedStyle(chip).overflowY,
             styleHeight: chip.style.height,
             labelStyleHeight: label.style.height,
+            projectedReadings,
         },
         snippetFirstWord: {
             text: snippetFirstWord.textContent.replace(/\s+/g, '').trim(),
@@ -551,7 +580,16 @@ function assertGoogleChip(chip, label) {
     assert(chip.height <= 38, `${label}: Google chip grew beyond its plain-text layout`, chip);
     assert(chip.labelHeight <= 20, `${label}: Google chip label grew beyond its plain-text layout`, chip);
     assert(['hidden', 'visible'].includes(chip.labelOverflow), `${label}: Google chip label overflow contract changed`, chip);
-    assert(chip.overflowY === 'visible', `${label}: Google chip detached readings are clipped by the control`, chip);
+    assert(chip.overflowY === 'hidden', `${label}: Google chip authored clipping was opened`, chip);
+    const readings = new Set(chip.projectedReadings.map(reading => reading.text));
+    assert(readings.has('けんさくけっか') && readings.has('ひょうじ'),
+        `${label}: Google chip projected readings are incomplete`, chip);
+    assert(chip.projectedReadings.every(reading => reading.visible),
+        `${label}: Google chip projected reading is not visible`, chip);
+    assert(chip.projectedReadings.every(reading => Math.abs(reading.centerDelta) <= 1),
+        `${label}: Google chip projected reading is not centred on its source`, chip);
+    assert(chip.projectedReadings.every(reading => Math.abs(reading.baseGap) <= 1),
+        `${label}: Google chip projected reading is detached from its source`, chip);
 }
 
 function assertGoogleClippedRows(snapshot, label) {

@@ -10,6 +10,9 @@
   function yomuAnkiCompanion() {
     return yomuCompanions().anki;
   }
+  function yomuAnnotationsCompanion() {
+    return yomuCompanions().annotations;
+  }
   function yomuCompanions() {
     return readYomuCompanions(globalThis) ?? sandboxCompanions ?? (typeof window === "undefined" ? void 0 : readYomuCompanions(window)) ?? {};
   }
@@ -1331,10 +1334,14 @@
       return null;
     }
   }
+  function clearProjectedReadingsWithin(root) {
+    return yomuAnnotationsCompanion()?.clearProjectedReadingsWithin(root) ?? 0;
+  }
   const READABLE_IGNORED_TAGS = /* @__PURE__ */ new Set(["RT", "RP", "SCRIPT", "STYLE"]);
   function unwrapReaderWords(root = document, options = {}) {
     const words = Array.from(root.querySelectorAll(".jpdb-reader-word")).filter((word) => options.includeReaderRoot || !word.closest(READER_ROOT_SELECTOR)).filter((word) => !word.closest("[data-jpdb-reader-surface-ignore]")).filter((word) => !options.excludeSelector || !word.matches(options.excludeSelector));
     const parents = /* @__PURE__ */ new Set();
+    words.forEach(clearProjectedReadingsWithin);
     for (const word of words) {
       const parent = word.parentNode;
       if (!parent) continue;
@@ -7656,7 +7663,7 @@ ${candidate.depth}`;
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.7.0".trim() ? "1.7.0".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.7.1".trim() ? "1.7.1".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;

@@ -54,6 +54,22 @@ afterEach(() => {
 });
 
 describe('additive text-mirror source projection', () => {
+    it('sizes the projection shell to a bordered host padding box', () => {
+        const { host, mirror } = scene();
+        Object.defineProperties(host, {
+            clientWidth: { configurable: true, value: 98 },
+            clientHeight: { configurable: true, value: 18 },
+            offsetWidth: { configurable: true, value: 100 },
+            offsetHeight: { configurable: true, value: 20 },
+        });
+        sourceRects = [rect(130, 54, 32, 16)];
+
+        projectAdditiveTextMirror(mirror, host);
+
+        expect(mirror.style.width).toBe('98px');
+        expect(mirror.style.height).toBe('18px');
+    });
+
     it('projects a decoration box onto the source range', () => {
         const { host, mirror, word } = scene();
         sourceRects = [rect(130, 54, 32, 16)];
@@ -159,5 +175,71 @@ describe('additive text-mirror source projection', () => {
         expect(ruby?.style.top).toBe('4px');
         expect(ruby?.style.width).toBe('16px');
         expect(ruby?.style.height).toBe('16px');
+        expect(ruby?.querySelector<HTMLElement>('.jpdb-reader-detached-furi')?.style.display).toBe('');
+        const projected = document.querySelector<HTMLElement>('[data-yomu-projected-reading="true"]');
+        expect(projected?.textContent).toBe('ひょう');
+        expect(projected?.style.left).toBe('158px');
+        expect(projected?.style.top).toBe('54px');
+        expect(projected?.style.transform).toBe('translate(-50%, -100%)');
+    });
+
+    it('hides an unmeasurable reading instead of retaining stale coordinates', () => {
+        const { host, mirror, word } = scene();
+        word.innerHTML = '<span class="jpdb-reader-detached-ruby" data-yomu-source-start="1" data-yomu-source-end="2"><span class="jpdb-reader-ruby-base">票</span><span class="jpdb-reader-detached-furi">ひょう</span></span>';
+        sourceRectsForRange = range => range.startOffset === 1
+            ? [rect(150, 54, 16, 16)]
+            : [rect(130, 54, 32, 16)];
+        projectAdditiveTextMirror(mirror, host);
+        expect(document.querySelector('[data-yomu-projected-reading="true"]')).toBeTruthy();
+
+        sourceRectsForRange = range => range.startOffset === 1
+            ? []
+            : [rect(130, 54, 32, 16)];
+        projectAdditiveTextMirror(mirror, host);
+
+        expect(document.querySelector('[data-yomu-projected-reading="true"]')).toBeNull();
+    });
+
+    it('centres ばい over the 倍 range rather than the complete 1.00 倍 label', () => {
+        const { host, mirror, word } = scene();
+        host.firstChild!.textContent = '1.00 倍';
+        mirror.dataset.sourceText = '1.00 倍';
+        word.dataset.yomuSourceStart = '0';
+        word.dataset.yomuSourceEnd = '6';
+        word.innerHTML = '<span class="jpdb-reader-detached-ruby" data-yomu-source-start="5" data-yomu-source-end="6"><span class="jpdb-reader-ruby-base">倍</span><span class="jpdb-reader-detached-furi">ばい</span></span>';
+        const measuredRanges: Array<[number, number]> = [];
+        sourceRectsForRange = range => {
+            measuredRanges.push([range.startOffset, range.endOffset]);
+            return range.startOffset === 5 && range.endOffset === 6
+                ? [rect(168, 54, 16, 16)]
+                : [rect(112, 54, 72, 16)];
+        };
+
+        projectAdditiveTextMirror(mirror, host);
+
+        const projected = document.querySelector<HTMLElement>('[data-yomu-projected-reading="true"]');
+        expect(measuredRanges).toEqual(expect.arrayContaining([[0, 6], [5, 6]]));
+        expect(projected?.textContent).toBe('ばい');
+        expect(projected?.style.left).toBe('176px');
+        expect(host.style.overflow).toBe('');
+    });
+
+    it('remeasures the live source range when the page scrolls', async () => {
+        const { host, mirror, word } = scene();
+        word.innerHTML = '<span class="jpdb-reader-detached-ruby" data-yomu-source-start="1" data-yomu-source-end="2"><span class="jpdb-reader-ruby-base">票</span><span class="jpdb-reader-detached-furi">ひょう</span></span>';
+        sourceRectsForRange = range => range.startOffset === 1
+            ? [rect(150, 54, 16, 16)]
+            : [rect(130, 54, 32, 16)];
+        projectAdditiveTextMirror(mirror, host);
+
+        sourceRectsForRange = range => range.startOffset === 1
+            ? [rect(150, 94, 16, 16)]
+            : [rect(130, 94, 32, 16)];
+        document.dispatchEvent(new Event('scroll'));
+        await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+
+        const projected = document.querySelector<HTMLElement>('[data-yomu-projected-reading="true"]');
+        expect(projected?.style.left).toBe('158px');
+        expect(projected?.style.top).toBe('94px');
     });
 });

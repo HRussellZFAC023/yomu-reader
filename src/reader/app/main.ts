@@ -46,6 +46,7 @@ import {
     HAS_JAPANESE,
     NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT,
     appendToDocumentHead,
+    clearProjectedReadingsWithin,
     documentHasJapaneseText,
     documentJapaneseTextProbe,
     escapeHtml,
@@ -2626,6 +2627,7 @@ export class ReaderApp {
     }
 
     private clearAllAnnotations(): void {
+        clearProjectedReadingsWithin(document);
         removeNonDestructiveScanMirrors(document);
         releaseRubyRoomGrowth(document);
         document.querySelectorAll('.jpdb-reader-word, .jpdb-reader-furigana, .jpdb-reader-ruby').forEach(el => {

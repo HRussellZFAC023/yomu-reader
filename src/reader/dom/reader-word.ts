@@ -1,4 +1,5 @@
 import { HAS_JAPANESE, READER_ROOT_SELECTOR } from './constants';
+import { clearProjectedReadingsWithin } from './detached-reading-overlay';
 import { coordinateInRange, hasPositiveRectArea } from './rect';
 
 const READABLE_IGNORED_TAGS = new Set(['RT', 'RP', 'SCRIPT', 'STYLE']);
@@ -10,6 +11,7 @@ export function unwrapReaderWords(root: ParentNode = document, options: { includ
         .filter(word => !word.closest('[data-jpdb-reader-surface-ignore]'))
         .filter(word => !options.excludeSelector || !word.matches(options.excludeSelector));
     const parents = new Set<Node>();
+    words.forEach(clearProjectedReadingsWithin);
 
     for (const word of words) {
         const parent = word.parentNode;

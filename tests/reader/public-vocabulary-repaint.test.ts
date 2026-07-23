@@ -97,9 +97,7 @@ describe('public vocabulary repaint', () => {
         expect(readerWordSurfaceText(word)).toBe('賛成票');
         expect(wrapper.style.getPropertyValue('position')).toBe('relative');
         expect(wrapper.style.getPropertyPriority('position')).toBe('important');
-        expect(reading.style.getPropertyValue('position')).toBe('absolute');
-        expect(reading.style.getPropertyValue('transform')).toBe('translateX(-50%)');
-        expect(reading.style.getPropertyPriority('transform')).toBe('important');
+        expect(reading.style.getPropertyValue('display')).toBe('none');
     });
 
     it('transitions a reading-free additive mirror only when a late reading materializes', () => {
@@ -133,9 +131,9 @@ describe('public vocabulary repaint', () => {
 
         expect(host.querySelector('rt')).toBeNull();
         expect(mirror.dataset.yomuDetachedReadings).toBe('true');
-        expect(mirror.style.getPropertyValue('overflow')).toBe('visible');
+        expect(mirror.style.getPropertyValue('overflow')).toBe('hidden');
         expect(word.querySelector('.jpdb-reader-detached-ruby')?.getAttribute('style')).toContain('position: relative');
-        expect(word.querySelector<HTMLElement>('.jpdb-reader-detached-furi')?.style.getPropertyValue('position')).toBe('absolute');
+        expect(word.querySelector<HTMLElement>('.jpdb-reader-detached-furi')?.style.getPropertyValue('display')).toBe('none');
         expect(host.firstChild?.textContent).toBe('賛成票');
 
         applyPublicVocabularyFurigana(word, card({
@@ -184,8 +182,8 @@ describe('public vocabulary repaint', () => {
             cardState: ['not-in-deck'],
         }), { ...DEFAULT_SETTINGS, showFurigana: true, furiganaMode: 'all' });
 
-        expect(clip.dataset.yomuDetachedReadingOverflow).toBe('true');
-        expect(clip.style.getPropertyValue('overflow')).toBe('visible');
+        expect(clip.dataset.yomuDetachedReadingOverflow).toBeUndefined();
+        expect(clip.style.getPropertyValue('overflow')).toBe('hidden');
 
         applyPublicVocabularyFurigana(word, card({
             spelling: '賛成票',
