@@ -91,13 +91,21 @@ describe('unbounded Academy day availability', () => {
             .flatMap(entry => Object.values(entry.delivery));
         expect(gaps.length).toBeGreaterThan(0);
         expect(gaps.length).toBeLessThan(DAY_ONE_AVAILABILITY_MANIFEST.entries.length * DAY_CLOSURE_DIMENSIONS.length);
-        expect(deliveryStates.filter(state => state === 'verified')).toHaveLength(32);
+        expect(deliveryStates.filter(state => state === 'verified')).toHaveLength(37);
         expect(deliveryStates.filter(state => state === 'partial')).toHaveLength(23);
-        expect(deliveryStates.filter(state => state === 'unverified')).toHaveLength(205);
+        expect(deliveryStates.filter(state => state === 'unverified')).toHaveLength(200);
         expect(DAY_ONE_AVAILABILITY_MANIFEST.entries.filter(entry =>
-            Object.values(entry.delivery).every(state => state === 'verified'))).toHaveLength(2);
+            Object.values(entry.delivery).every(state => state === 'verified'))).toHaveLength(3);
         expect(DAY_ONE_AVAILABILITY_MANIFEST.entries.find(entry =>
             entry.id === 'day:1:access')?.delivery).toEqual({
+            implementation: 'verified',
+            reachability: 'verified',
+            media: 'verified',
+            persistence: 'verified',
+            journeyProof: 'verified',
+        });
+        expect(DAY_ONE_AVAILABILITY_MANIFEST.entries.find(entry =>
+            entry.id === 'day:1:account-link')?.delivery).toEqual({
             implementation: 'verified',
             reachability: 'verified',
             media: 'verified',

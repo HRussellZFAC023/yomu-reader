@@ -1539,6 +1539,10 @@
         padding: 12px;
     }
 
+    .academy-screen:has(.academy-panel-content > .academy-lesson-overview-back) .academy-screen-veil {
+        padding-top: max(72px, calc(env(safe-area-inset-top) + 70px));
+    }
+
     .academy-panel {
         max-height: none;
         padding: 20px 16px;

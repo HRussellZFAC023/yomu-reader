@@ -136,6 +136,7 @@
     "manual:academy-home": "node scripts/manual/academy-home-browser.mjs",
     "manual:academy-world-responsive": "node scripts/manual/academy-world-responsive-browser.mjs",
     "manual:academy-access": "node scripts/manual/academy-access-browser.mjs",
+    "manual:academy-account-link": "node scripts/manual/academy-account-link-browser.mjs",
     "manual:academy-lesson-zero-sentence-frames": "node scripts/manual/academy-lesson-zero-sentence-frames-browser.mjs",
     "manual:academy-lesson-zero-name-card": "node scripts/manual/academy-lesson-zero-name-card-browser.mjs",
     "manual:academy-lesson-zero-sound": "node scripts/manual/lesson-zero-sound-browser.mjs",

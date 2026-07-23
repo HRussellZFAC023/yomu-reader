@@ -238,7 +238,7 @@ export class AcademyApp {
             this.curriculumAuthorized,
         );
         this.shell.setNavigation(globalNavigationAvailable, navigation);
-        this.shell.setUtilityVisible?.(route !== 'review');
+        this.shell.setUtilityVisible?.(route !== 'review' && route !== 'profile-sync');
         this.shell.setLearnerActionsVisible(globalNavigationAvailable);
         this.shell.setPresentationMode(this.checkpoint.presentationMode);
         const context = {

@@ -154,6 +154,34 @@ describe('Academy human interface', () => {
         shell.dispose();
     });
 
+    it('starts each replacement screen at its own top-left origin', () => {
+        const host = document.createElement('div');
+        document.body.append(host);
+        const shell = createAcademyShell(host, {
+            language: 'en',
+            onLanguage: vi.fn(),
+            onMute: vi.fn(),
+            onNavigate: vi.fn(),
+            onPresentationMode: vi.fn(),
+        });
+        const screenHost = host.querySelector<HTMLElement>('.academy-screen-host')!;
+        shell.replace(document.createElement('section'));
+        screenHost.scrollTop = 180;
+        screenHost.scrollLeft = 24;
+        document.documentElement.scrollTop = 96;
+        document.documentElement.scrollLeft = 12;
+
+        const next = document.createElement('section');
+        shell.replace(next);
+
+        expect(screenHost.scrollTop).toBe(0);
+        expect(screenHost.scrollLeft).toBe(0);
+        expect(document.documentElement.scrollTop).toBe(0);
+        expect(document.documentElement.scrollLeft).toBe(0);
+        expect(screenHost.firstElementChild).toBe(next);
+        shell.dispose();
+    });
+
     it('keeps concise accessible names when visible Japanese receives ruby and pitch markup', () => {
         const screen = renderProfileScreen({ language: 'ja', onSubmit: vi.fn() });
         const name = screen.querySelector<HTMLInputElement>('input[name="displayName"]')!;

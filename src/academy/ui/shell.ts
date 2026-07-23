@@ -81,6 +81,13 @@ export function createAcademyShell(host: HTMLElement, options: AcademyShellOptio
     let language = options.language;
     let presentationMode: AcademyPresentationMode = 'story';
     let muted = false;
+    const resetScreenOrigin = () => {
+        screen.scrollTop = 0;
+        screen.scrollLeft = 0;
+        const documentScroller = document.scrollingElement ?? document.documentElement;
+        documentScroller.scrollTop = 0;
+        documentScroller.scrollLeft = 0;
+    };
     const refreshCopy = () => {
         // The toggle renders its own visible caption from data-tooltip (the
         // ink-tag ::after), so the portalled hover tooltip would duplicate it.
@@ -132,7 +139,11 @@ export function createAcademyShell(host: HTMLElement, options: AcademyShellOptio
         replace(view) {
             Array.from(screen.children).forEach(child => child.dispatchEvent(new CustomEvent('academy:dispose')));
             screen.replaceChildren(view);
-            requestAnimationFrame(() => screen.focus({ preventScroll: true }));
+            resetScreenOrigin();
+            requestAnimationFrame(() => {
+                resetScreenOrigin();
+                screen.focus({ preventScroll: true });
+            });
         },
         setLanguage(next) { language = next; document.documentElement.lang = next; refreshCopy(); },
         setNavigation(_visible, _active) {},

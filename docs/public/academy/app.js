@@ -41663,7 +41663,9 @@ ${spelling}`);
       ["route:profile-sync"],
       { audio: "none", visual: "ui" },
       "Linked identity, encrypted profile, devices, and sync status persist.",
-      "Link, refresh, sign-out, resume, export, and delete are browser-proved."
+      "Link, refresh, sign-out, resume, export, and delete are browser-proved.",
+      [],
+      VERIFIED_DELIVERY
     ),
     entry$P(
       "day:1:offline-entry",
@@ -268456,6 +268458,13 @@ ${spelling}`);
     let language = options.language;
     let presentationMode = "story";
     let muted = false;
+    const resetScreenOrigin = () => {
+      screen.scrollTop = 0;
+      screen.scrollLeft = 0;
+      const documentScroller = document.scrollingElement ?? document.documentElement;
+      documentScroller.scrollTop = 0;
+      documentScroller.scrollLeft = 0;
+    };
     const refreshCopy = () => {
       const menuLabel = academyText(language, "utilityMenu");
       utilityToggle.setAttribute("aria-label", menuLabel);
@@ -268500,7 +268509,11 @@ ${spelling}`);
       replace(view) {
         Array.from(screen.children).forEach((child) => child.dispatchEvent(new CustomEvent("academy:dispose")));
         screen.replaceChildren(view);
-        requestAnimationFrame(() => screen.focus({ preventScroll: true }));
+        resetScreenOrigin();
+        requestAnimationFrame(() => {
+          resetScreenOrigin();
+          screen.focus({ preventScroll: true });
+        });
       },
       setLanguage(next) {
         language = next;
@@ -268713,7 +268726,7 @@ ${spelling}`);
         this.curriculumAuthorized
       );
       this.shell.setNavigation(globalNavigationAvailable, navigation);
-      this.shell.setUtilityVisible?.(route !== "review");
+      this.shell.setUtilityVisible?.(route !== "review" && route !== "profile-sync");
       this.shell.setLearnerActionsVisible(globalNavigationAvailable);
       this.shell.setPresentationMode(this.checkpoint.presentationMode);
       const context2 = {
