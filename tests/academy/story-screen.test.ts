@@ -37,9 +37,12 @@ function render(sectionId?: string, overrides: Partial<Parameters<typeof renderS
 }
 
 function cursor(sceneId: string, nodeId: string, choices: Readonly<Record<string, string>> = {}): string {
+    const arcId = sceneId.startsWith('scene:blank-atlas:')
+        ? loadStoryRuntime().playableArc('s1e01-the-blank-atlas')!.id
+        : STORY_OPENING_ARC_ID;
     return serializeStoryCursor({
         version: 1,
-        arcId: STORY_OPENING_ARC_ID,
+        arcId,
         sceneId,
         nodeId,
         choices,
@@ -75,18 +78,15 @@ describe('Academy Story screen', () => {
         expect(screen.querySelector('[data-replay-stream="true"]')).not.toBeNull();
     });
 
-    it('renders one VN beat at a time, including readable Japanese and a gated choice', () => {
+    it('enters Chapter 1 after the welcome instead of replaying the arrival', () => {
         const { screen } = render('s1e01-the-blank-atlas');
-        const arc = screen.querySelector<HTMLElement>('[data-story-arc-id="arc:open-doors:first-route"]')!;
+        const arc = screen.querySelector<HTMLElement>('[data-story-arc-id="arc:s1e01-the-blank-atlas"]')!;
 
         expect(arc.dataset.storyMode).toBe('chronological-replay');
-        expect(arc.dataset.storyScene).toBe('scene:opening-arrival:gate');
+        expect(arc.dataset.storyScene).toBe('scene:blank-atlas:arrival-greetings');
         expect(arc.dataset.storyMoment).toBe('stage');
         expect(screen.querySelector('.academy-vn-stage')).not.toBeNull();
-        advance(screen, 2);
-        expect(arc.dataset.storyMoment).toBe('choice');
-        expect(screen.querySelector('[data-story-option-id="option:opening-arrival:check-door"]')?.textContent)
-            .toContain('日本語のクラスですか。');
+        expect(screen.textContent).not.toContain('日本語のクラスですか。');
     });
 
     it('uses the shared VN Back control and keeps one readings control for the opening arc', () => {
@@ -185,12 +185,75 @@ describe('Academy Story screen', () => {
         const handoff = screen.querySelector<HTMLElement>('[data-activity-id="activity:lesson-zero-greet-rie"]')!;
 
         expect(handoff.dataset.lessonId).toBe('lesson:foundation-00');
+        expect(screen.textContent).not.toContain('activity:lesson-zero-greet-rie');
         handoff.querySelector<HTMLButtonElement>('.academy-story-open-activity')?.click();
         expect(onOpenActivity).toHaveBeenCalledWith(
             'lesson:foundation-00',
             'activity:lesson-zero-greet-rie',
             expect.objectContaining({ sceneId: 'scene:blank-atlas:arrival-greetings' }),
         );
+    });
+
+    it('shows earned English support immediately for foundation dialogue', () => {
+        const { screen } = render(cursor(
+            'scene:blank-atlas:arrival-greetings',
+            'line:blank-atlas:rie-konbanwa',
+        ), { selectedBand: 'foundation' });
+
+        const translation = screen.querySelector<HTMLElement>('.academy-vn-translation');
+        expect(translation?.textContent).toBe("Good evening. Nice to meet you. I'm Rie.");
+        expect(translation?.hidden).toBe(false);
+        expect(screen.querySelector<HTMLElement>('.academy-vn-stage')?.dataset.translationSupport).toBe('shown');
+    });
+
+    it('mounts a distinct living prop for every Chapter 1 scene', () => {
+        const scenes = [
+            ['scene:blank-atlas:arrival-greetings', 'node:blank-atlas:covered-table', 'U001'],
+            ['scene:blank-atlas:sound-script-map', 'node:blank-atlas:vowel-slots', 'U002'],
+            ['scene:blank-atlas:classroom-survival', 'node:blank-atlas:handout-arrives', 'U003'],
+            ['scene:blank-atlas:sentence-frames', 'node:blank-atlas:false-label', 'U004'],
+            ['scene:blank-atlas:useful-vocabulary', 'node:blank-atlas:name-line', 'U005'],
+            ['scene:blank-atlas:mission-sound', 'node:blank-atlas:sound-nameplates', 'U006'],
+            ['scene:blank-atlas:mission-text', 'node:blank-atlas:text-note', 'U007'],
+            ['scene:blank-atlas:mission-speaking', 'node:blank-atlas:speaking-door', 'U008'],
+            ['scene:blank-atlas:reading-writing', 'node:blank-atlas:cards-return', 'U009'],
+            ['scene:blank-atlas:transfer', 'node:blank-atlas:source-clears', 'U010'],
+            ['scene:blank-atlas:close', 'node:blank-atlas:one-light-room', 'U011'],
+        ] as const;
+
+        for (const [sceneId, nodeId, signature] of scenes) {
+            const { screen } = render(cursor(sceneId, nodeId));
+            const prop = screen.querySelector<HTMLElement>('.academy-blank-atlas-prop');
+            expect(prop?.dataset.sceneId, sceneId).toBe(sceneId);
+            expect(prop?.dataset.sceneSignature, sceneId).toBe(signature);
+        }
+    });
+
+    it('makes the note, door, and class card real one-time interactions', () => {
+        const noteScreen = render(cursor('scene:blank-atlas:mission-text', 'node:blank-atlas:text-note')).screen;
+        const note = noteScreen.querySelector<HTMLElement>('.academy-text-mission-prop')!;
+        note.querySelector<HTMLButtonElement>('.academy-note-inspect')?.click();
+        expect(note.dataset.inspected).toBe('true');
+        expect(note.textContent).toContain('Names and a book');
+
+        const doorScreen = render(cursor('scene:blank-atlas:mission-speaking', 'node:blank-atlas:speaking-door')).screen;
+        const door = doorScreen.querySelector<HTMLElement>('.academy-speaking-door-prop')!;
+        door.querySelector<HTMLButtonElement>('.academy-door-open')?.click();
+        expect(door.dataset.open).toBe('true');
+        expect(door.querySelector<HTMLElement>('.academy-door-nameplates')?.hidden).toBe(false);
+        expect(door.textContent).toContain('Aakash');
+
+        const faceDownScreen = render(cursor('scene:blank-atlas:reading-writing', 'node:blank-atlas:cards-return')).screen;
+        expect(faceDownScreen.querySelector('.academy-card-flip')).toBeNull();
+
+        const cardScreen = render(cursor('scene:blank-atlas:reading-writing', 'node:blank-atlas:card-turns-over'), {
+            learner: { displayName: 'Mina', portraitId: 'quality-4' },
+        }).screen;
+        const card = cardScreen.querySelector<HTMLElement>('.academy-public-card-prop')!;
+        card.querySelector<HTMLButtonElement>('.academy-card-flip')?.click();
+        expect(card.dataset.face).toBe('public');
+        expect(card.textContent).toContain('Mina です。');
+        expect(card.querySelector('.academy-card-flip')).toBeNull();
     });
 
     it('keeps the selected mission consequential and opens its exact activity', () => {
@@ -210,7 +273,7 @@ describe('Academy Story screen', () => {
             'scene:blank-atlas:mission-text',
             'line:blank-atlas:sophie-two-gaps',
         ));
-        const arc = screen.querySelector<HTMLElement>('[data-story-arc-id="arc:open-doors:first-route"]')!;
+        const arc = screen.querySelector<HTMLElement>('[data-story-arc-id="arc:s1e01-the-blank-atlas"]')!;
         const stage = screen.querySelector<HTMLElement>('.academy-story-vn-stage')!;
 
         expect(arc.dataset.currentPlace).toBe('library');
@@ -528,6 +591,12 @@ describe('Academy Story screen', () => {
             arc: loadOpeningArrivalArc(),
             mode: 'canonical',
             finishLabel: 'Step into the courtyard',
+            completionLine: {
+                japanese: '教室で会いましょう。',
+                english: 'See you in class.',
+                speakerId: 'rie',
+                speakerName: 'Rie-sensei',
+            },
             onBack: vi.fn(),
             onFinish: vi.fn(),
         });

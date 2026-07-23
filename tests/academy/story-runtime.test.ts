@@ -68,6 +68,17 @@ describe('Academy story runtime', () => {
         expect(Object.isFrozen(arc.scenes[0].nodes)).toBe(true);
     });
 
+    it('opens Chapter 1 without replaying the one-time arrival', () => {
+        const story = loadStoryRuntime();
+        const chapter = story.playableArc('s1e01-the-blank-atlas')!;
+
+        expect(chapter.id).toBe('arc:s1e01-the-blank-atlas');
+        expect(chapter.firstSceneId).toBe('scene:blank-atlas:arrival-greetings');
+        expect(chapter.lastSceneId).toBe('scene:blank-atlas:close');
+        expect(chapter.scenes).toHaveLength(11);
+        expect(chapter.scenes.some(scene => scene.id.startsWith('scene:opening-arrival:'))).toBe(false);
+    });
+
     it('keeps all exact Lesson 0 handoffs in registered section order', () => {
         const curriculum = loadStoryRuntime().openingArc.curriculum;
 

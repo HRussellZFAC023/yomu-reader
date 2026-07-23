@@ -118,7 +118,12 @@ describe('Academy story chapter catalog', () => {
         const lanterns = runtime.playableArc('s1e24-lanterns-return')!;
         // Hooks authored under `packageId` normalize onto the binding's lessonId.
         expect(lanterns.curriculum.activities[0]?.lessonId).toBe('l2-l31');
-        expect(runtime.playableArc('s1e01-the-blank-atlas')).toBe(runtime.openingArc);
+        const blankAtlas = runtime.playableArc('s1e01-the-blank-atlas')!;
+        expect(blankAtlas).not.toBe(runtime.openingArc);
+        expect(blankAtlas.id).toBe('arc:s1e01-the-blank-atlas');
+        expect(blankAtlas.firstSceneId).toBe('scene:blank-atlas:arrival-greetings');
+        expect(blankAtlas.scenes).toHaveLength(11);
+        expect(blankAtlas.scenes.some(scene => scene.id.startsWith('scene:opening-arrival:'))).toBe(false);
         expect(runtime.playableArc('s3e06-two-schedules')?.curriculum.activities[0]).toMatchObject({
             lessonId: 'lesson:pending:s3e06-two-schedules',
             exerciseId: 'activity:s3e06-two-schedules-sort-claims',

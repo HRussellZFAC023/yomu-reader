@@ -331,6 +331,7 @@ export interface StoryPackageSource {
 
 let cachedRuntime: StoryRuntime | undefined;
 let cachedOpeningArrivalArc: StoryPlayableArc | undefined;
+let cachedBlankAtlasArc: StoryPlayableArc | undefined;
 
 /** The canonical threshold scene, independently playable before Chapter 1 begins. */
 export function loadOpeningArrivalArc(): StoryPlayableArc {
@@ -338,6 +339,14 @@ export function loadOpeningArrivalArc(): StoryPlayableArc {
         cachedOpeningArrivalArc = compileStoryPackage(openingArrivalSource as unknown as StoryPackageSource);
     }
     return cachedOpeningArrivalArc;
+}
+
+/** Chapter 1 without the one-time welcome threshold that precedes it. */
+export function loadBlankAtlasArc(): StoryPlayableArc {
+    if (!cachedBlankAtlasArc) {
+        cachedBlankAtlasArc = compileStoryPackage(blankAtlasSource as unknown as StoryPackageSource);
+    }
+    return cachedBlankAtlasArc;
 }
 
 export function loadStoryRuntime(): StoryRuntime {
@@ -356,6 +365,7 @@ export function loadStoryRuntime(): StoryRuntime {
         .sort((left, right) => left.ordinal - right.ordinal || left.id.localeCompare(right.id)));
     const byId = new Map(episodes.map(episode => [episode.id, episode]));
     const openingArc = compileOpeningArc(episodes[0]);
+    const blankAtlasArc = loadBlankAtlasArc();
     const authoredArcs = compileAuthoredChapters(openingArc.episodeId);
     const chapterCatalog = buildChapterCatalog(openingArc, byId, authoredArcs);
     cachedRuntime = Object.freeze({
@@ -373,7 +383,7 @@ export function loadStoryRuntime(): StoryRuntime {
         // Resolution order: opening compile, then authored v2 chapters, then the
         // programmatic N3 batch (a v2 file supersedes the batch for the same id).
         playableArc: (episodeId: string | undefined) => episodeId === openingArc.episodeId
-            ? openingArc
+            ? blankAtlasArc
             : (episodeId ? authoredArcs.get(episodeId) : undefined) ?? n3StoryArcForEpisode(episodeId),
         chapterCatalog,
         reviewCalendar: Object.freeze({
@@ -839,7 +849,8 @@ export function compileStoryPackage(source: StoryPackageSource): StoryPlayableAr
             lessonId: storyHookLessonId(source, node),
             componentType: node.hook.componentType,
             exerciseId: node.hook.exerciseId,
-            registered: storyExerciseRegistered(node.hook.exerciseId),
+            registered: storyHookLessonId(source, node) === 'lesson:foundation-00'
+                || storyExerciseRegistered(node.hook.exerciseId),
             nodeId: node.id,
             sceneId: scene.id,
             requiredEvidence: Object.freeze({

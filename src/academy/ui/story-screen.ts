@@ -39,6 +39,7 @@ import {
     type AcademyVnStageOptions,
 } from './vn-stage';
 import { renderReplayStreamPanel } from './replay-stream-panel';
+import { blankAtlasSceneProp } from './blank-atlas-scene-props';
 
 interface StoryPlaybackOptions {
     readonly language: AcademyLanguage;
@@ -174,9 +175,20 @@ function renderEpisodeList(options: StoryScreenOptions): HTMLElement {
 }
 
 function renderEpisode(options: StoryScreenOptions, episode: StoryEpisode): HTMLElement {
-    const arc = options.story.playableArc(episode.id);
+    const cursor = parseStoryCursor(options.sectionId);
+    // Old saves could address the arrival and Chapter 1 through one combined arc.
+    // Keep the one-time arrival resumable, but a direct Chapter 1 entry must not
+    // replay it after onboarding has already completed.
+    const legacyArrival = episode.id === options.story.openingArc.episodeId
+        && cursor?.arcId === options.story.openingArc.id
+        && cursor.sceneId.startsWith('scene:opening-arrival:');
+    const arc = legacyArrival ? options.story.openingArc : options.story.playableArc(episode.id);
     if (arc) {
-        const cursor = parseStoryCursor(options.sectionId);
+        const compatibleCursor = !legacyArrival
+            && cursor?.arcId === options.story.openingArc.id
+            && arc.scene(cursor.sceneId)
+            ? { ...cursor, arcId: arc.id }
+            : cursor;
         const mode = options.arcModeForEpisode?.(episode.id, cursor) ?? (episode.id === options.story.openingArc.episodeId
             ? options.openingArcMode ?? 'chronological-replay'
             : 'canonical');
@@ -187,6 +199,7 @@ function renderEpisode(options: StoryScreenOptions, episode: StoryEpisode): HTML
             : options.language === 'ja' ? 'エピソード一覧へ' : 'Episode list';
         return renderPlayableArc({
             ...options,
+            ...(compatibleCursor ? { sectionId: serializeStoryCursor(compatibleCursor) } : {}),
             mode,
             finishLabel,
             onReturnToEpisodes: options.onReturnToEpisodes,
@@ -277,6 +290,12 @@ function renderPlayableArc(
             stage.setDirection(directionForScene(moment.scene));
         }
         stage.setCast(playableStoryCast(options.language, moment, runner.cursor.choices, options.learner));
+        stage.setObject(blankAtlasSceneProp({
+            language: options.language,
+            moment,
+            cursor: runner.cursor,
+            ...(options.learner ? { learner: options.learner } : {}),
+        }));
 
         switch (moment.kind) {
             case 'line':
@@ -289,7 +308,8 @@ function renderPlayableArc(
                     reading: storyReadingControl(options.language),
                     translation: moment.line.english,
                     translationEarned: true,
-                    translationVisible: options.language === 'en' && options.selectedBand === undefined,
+                    translationVisible: options.language === 'en'
+                        && resolveStoryBand(options.selectedBand) === 'foundation',
                     ...(moment.node.speakerId && moment.node.speakerId !== 'learner'
                         ? { voice: { band: moment.line.band } }
                         : {}),
@@ -411,26 +431,23 @@ function playableActivityAction(
     root.dataset.activityRegistered = String(moment.binding.registered);
     if (arc.curriculum.contentSha256) root.dataset.sourceSha256 = arc.curriculum.contentSha256;
     root.dataset.activityGate = moment.gate;
-    // Only the opening arc's activities belong to Lesson 0. Later chapters bind to
-    // their own week (e.g. l1-l20), so pinning "Lesson 0" here mislabels them. Drop
-    // the pin unless the binding really is the foundation lesson; the human lesson
-    // title comes from the class-week catalog (see Story<->UI linkage spec).
-    const lessonPin = moment.binding.lessonId === 'lesson:foundation-00' ? ' · Lesson 0' : '';
     root.append(
-        textElement('strong', 'academy-story-activity-kind', `${capitalize(moment.binding.componentType)}${lessonPin}`),
-        textElement('span', 'academy-story-activity-id', moment.binding.exerciseId),
+        textElement('strong', 'academy-story-activity-kind', storyActivityLabel(
+            options.language,
+            moment.binding.componentType,
+        )),
         textElement('p', 'academy-story-activity-state', moment.binding.registered
             ? activityGateLabel(options.language, moment.gate)
             : options.language === 'ja' ? '練習は準備中です。' : 'Practice is being prepared.'),
     );
     const controls = element('div', 'academy-story-vn-activity-actions');
     if (moment.binding.registered && actions.open) {
-        const open = actionButton(options.language === 'ja' ? '練習を開く' : 'Open practice', 'academy-story-open-activity', actions.open);
+        const open = actionButton(options.language === 'ja' ? 'やってみる' : 'Try this step', 'academy-story-open-activity', actions.open);
         open.dataset.storyCursor = serializeStoryCursor(cursor);
         controls.append(open);
     }
     if (moment.gate === 'passed' || moment.gate === 'placement-equivalent') {
-        controls.append(actionButton(options.language === 'ja' ? '物語を続ける' : 'Continue story', 'academy-story-activity-continue', actions.continue));
+        controls.append(actionButton(options.language === 'ja' ? '教室に戻る' : 'Back to the room', 'academy-story-activity-continue', actions.continue));
     }
     root.append(controls);
     return { element: root };
@@ -591,6 +608,7 @@ function unsupportedStoryPractice(practice: never): never {
 }
 
 function episodeIdForCursor(story: StoryRuntime, cursor: StoryCursor): string | undefined {
+    if (cursor.arcId === story.openingArc.id) return story.openingArc.episodeId;
     return story.episodes.find(episode => story.playableArc(episode.id)?.id === cursor.arcId)?.id;
 }
 
@@ -749,12 +767,27 @@ function activityGateLabel(
     gate: Extract<StoryMoment, { kind: 'activity' }>['gate'],
 ): string {
     const labels = {
-        passed: { en: 'Exact activity evidence found.', ja: 'この練習の学習記録があります。' },
-        'placement-equivalent': { en: 'Placement preserves the story here; the activity remains uncredited.', ja: 'プレイスメントで物語を続けられます。練習の単位は付きません。' },
-        lapse: { en: 'This exact activity needs another attempt.', ja: 'この練習をもう一度試してください。' },
-        missing: { en: 'No evidence yet for this exact activity.', ja: 'この練習の学習記録はまだありません。' },
+        passed: { en: 'Done. The room is ready.', ja: 'できました。教室に戻れます。' },
+        'placement-equivalent': { en: 'You can continue. This step stays open for practice.', ja: '続けられます。この練習はいつでもできます。' },
+        lapse: { en: 'Nearly there. Try this step once more.', ja: 'もう少しです。もう一度やってみましょう。' },
+        missing: { en: 'Try this step to move the scene forward.', ja: 'このステップをやって、場面を進めましょう。' },
     } as const;
     return labels[gate][language];
+}
+
+function storyActivityLabel(language: AcademyLanguage, componentType: string): string {
+    const labels: Readonly<Record<string, Readonly<{ en: string; ja: string }>>> = {
+        speaking: { en: 'Say it aloud', ja: '声に出す' },
+        listening: { en: 'Listen and choose', ja: '聞いて選ぶ' },
+        writing: { en: 'Write it', ja: '書いてみる' },
+        reading: { en: 'Read and choose', ja: '読んで選ぶ' },
+        grammar: { en: 'Build the line', ja: '文を作る' },
+        vocabulary: { en: 'Match the words', ja: '言葉を合わせる' },
+        transfer: { en: 'Use it on your own', ja: '自分で使う' },
+        recognition: { en: 'Notice the pattern', ja: '形を見つける' },
+        'authentic-input': { en: 'Use it in class', ja: '教室で使う' },
+    };
+    return labels[componentType]?.[language] ?? (language === 'ja' ? 'やってみる' : 'Try this step');
 }
 
 function directionForScene(scene: StoryArcScene) {
@@ -961,8 +994,4 @@ function languageElement<K extends keyof HTMLElementTagNameMap>(
     const node = textElement(tag, className, text ?? '');
     node.lang = language;
     return node;
-}
-
-function capitalize(value: string): string {
-    return value ? `${value[0].toUpperCase()}${value.slice(1)}` : value;
 }

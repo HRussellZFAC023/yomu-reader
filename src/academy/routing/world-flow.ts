@@ -144,7 +144,6 @@ class WorldFlow implements AcademyRouteFlow {
             onOpenEpisode: episodeId => void context.go('story', { sectionId: episodeId }),
             onCompleteEpisode: episodeId => {
                 const episode = story.episode(episodeId);
-                if (episode?.id === story.openingArc.episodeId) return;
                 if (!episode || !this.options.evidence.recordEncounter) return;
                 return this.options.evidence.recordEncounter({
                     encounterId: `story:${episode.id}`,
