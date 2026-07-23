@@ -7656,7 +7656,7 @@ ${candidate.depth}`;
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.7.0".trim() ? "1.7.0".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.6.410".trim() ? "1.6.410".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -8816,7 +8816,7 @@ ${candidate.depth}`;
     const { has, clamped } = reader;
     const jpdbPageEnhancementsEnabled = has("jpdbPageEnhancementsEnabled");
     return {
-      jpdbDefinitionsEnabled: rowsPresent.jpdb ? has("jpdbDefinitions.enabled") : current.jpdbDefinitionsEnabled,
+      jpdbDefinitionsEnabled: true,
       jpdbDefinitionsAlias: readSourceAlias(reader, "jpdbDefinitions", current.jpdbDefinitionsAlias),
       jpdbDefinitionsPriority: clamped("jpdbDefinitions.priority", 0, 999, current.jpdbDefinitionsPriority),
       jitenDefinitionsEnabled: rowsPresent.jiten ? has("jitenDefinitions.enabled") : current.jitenDefinitionsEnabled,

@@ -80,6 +80,29 @@ describe('additive text-mirror source projection', () => {
         expect([...fragments].map(fragment => fragment.style.top)).toEqual(['0px', '20px']);
     });
 
+    it('keeps a late component-pitch gradient continuous across wrapped 登録者数 fragments', () => {
+        const { host, mirror, word } = scene();
+        host.firstChild!.textContent = '登録者数';
+        mirror.dataset.sourceText = '登録者数';
+        word.textContent = '登録者数';
+        word.dataset.yomuSourceStart = '0';
+        word.dataset.yomuSourceEnd = '4';
+        sourceRects = [rect(180, 50, 20, 16), rect(100, 70, 44, 16)];
+
+        projectAdditiveTextMirror(mirror, host);
+        // Pitch enrichment can arrive after projection. The fragments already
+        // carry the complete-word coordinate system it needs.
+        word.dataset.pitchComponents = 'true';
+        word.style.setProperty('--jpdb-reader-inline-pitch-gradient', 'linear-gradient(to right, red, blue)');
+
+        const fragments = [...word.querySelectorAll<HTMLElement>('.jpdb-reader-source-fragment')];
+        expect(fragments).toHaveLength(2);
+        expect(fragments.map(fragment => fragment.style.getPropertyValue('--jpdb-reader-source-gradient-width')))
+            .toEqual(['64px', '64px']);
+        expect(fragments.map(fragment => fragment.style.getPropertyValue('--jpdb-reader-source-gradient-offset')))
+            .toEqual(['0px', '-20px']);
+    });
+
     it('merges duplicate and nested source rects on the same line', () => {
         const { host, mirror, word } = scene();
         sourceRects = [rect(130, 54, 32, 16), rect(130, 54, 16, 16), rect(146, 54, 16, 16)];

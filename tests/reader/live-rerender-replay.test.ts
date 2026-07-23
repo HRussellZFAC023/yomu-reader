@@ -5,6 +5,7 @@ import {
     collectTextTargetsIn,
     NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT,
     nonDestructiveRenderReplayCountForTest,
+    projectAdditiveTextMirrors,
     removeNonDestructiveScanMirrors,
 } from '../../src/reader/dom';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
@@ -46,6 +47,53 @@ afterEach(() => {
 // render synchronously in the mutation-observer microtask — no stale event
 // (i.e. no scheduled re-scan/re-parse), no bare frame, no paint change.
 describe('identical-text re-render replays the cached render (class Y/BB)', () => {
+    it('preserves the multiline prose reading lane across a cache replay', async () => {
+        const prose = `${TEXT}\n${TEXT}`;
+        document.body.innerHTML = `<span id="info" style="display:block;white-space:pre-wrap;font-size:14px;line-height:16px">${prose}</span>`;
+        const host = document.getElementById('info')!;
+        applyTokensToScanTarget({
+            node: host.firstChild as Text,
+            parent: host,
+            text: prose,
+            nonDestructive: true,
+            decoration: 'content-ruby',
+            proseWrap: true,
+        }, [token()], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+        projectAdditiveTextMirrors(document);
+        expect(host.style.lineHeight).toBe('29px');
+
+        host.textContent = prose;
+        await flushObservers();
+        projectAdditiveTextMirrors(document);
+
+        const replayed = host.querySelector<HTMLElement>('.jpdb-reader-text-mirror')!;
+        expect(replayed.dataset.yomuReadingLaneCandidate).toBe('true');
+        expect(host.style.lineHeight).toBe('29px');
+    });
+
+    it('does not restore a removed inline line-height while replaying a wiped mirror', async () => {
+        const prose = `${TEXT}\n${TEXT}`;
+        document.body.innerHTML = `<span id="info" style="display:block;white-space:pre-wrap;font-size:14px;line-height:16px">${prose}</span>`;
+        const host = document.getElementById('info')!;
+        applyTokensToScanTarget({
+            node: host.firstChild as Text,
+            parent: host,
+            text: prose,
+            nonDestructive: true,
+            decoration: 'content-ruby',
+        }, [token()], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+        projectAdditiveTextMirrors(document);
+        expect(host.style.lineHeight).toBe('29px');
+
+        host.style.removeProperty('line-height');
+        host.textContent = prose;
+        await flushObservers();
+        projectAdditiveTextMirrors(document);
+        removeNonDestructiveScanMirrors(document);
+
+        expect(host.style.lineHeight).toBe('');
+    });
+
     it('replays N recycle cycles from cache with zero stale rescans and stable paint inputs', async () => {
         document.body.innerHTML = `<span id="info" class="ytAttributedStringHost">${TEXT}</span>`;
         const host = document.getElementById('info')!;

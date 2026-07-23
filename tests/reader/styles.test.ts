@@ -271,7 +271,9 @@ describe('reader stylesheet loading', () => {
         expect(fragmentLine).toContain('inset-block-end: 0');
         expect(fragmentLine).toContain('border-block-end: var(--jpdb-reader-word-underline-thickness)');
         expect(fragmentLine).toContain('var(--jpdb-reader-word-underline, transparent)');
-        expect(detachedFuri).toContain('inset-block-end: calc(100% + 3px)');
+        expect(detachedFuri).toContain('inset-block-end: calc(100% + 5px)');
+        expect(css).toMatch(/data-yomu-source-projected="true"[^}]*\.jpdb-reader-detached-ruby\s*\{[^}]*text-decoration: none !important/s);
+        expect(css).toMatch(/data-pitch-components="true"[^}]*\.jpdb-reader-source-fragment::after\s*\{[^}]*var\(--jpdb-reader-inline-pitch-gradient\)[^}]*var\(--jpdb-reader-source-gradient-width\)[^}]*var\(--jpdb-reader-source-gradient-offset\)/s);
     });
 
     it('paints additive highlights only on exact source fragments', () => {

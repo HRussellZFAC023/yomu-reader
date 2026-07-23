@@ -70,6 +70,14 @@ const DYNAMIC_UI_DISCLOSURE_SELECTOR = [
     '[role="menuitemradio"]',
     '[role="tab"]',
 ].join(',');
+const REVIEW_ANSWER_CONTROL_SELECTOR = [
+    'button',
+    'input[type="button"]',
+    'input[type="submit"]',
+    '[role="button"]',
+].join(',');
+const REVIEW_ANSWER_ENGLISH_LABEL_RE = /^(?:show|reveal)\s+(?:the\s+)?answers?\b/i;
+const REVIEW_ANSWER_JAPANESE_LABEL_RE = /^(?:答え|解答|正解).*(?:見る|表示|開く)/;
 const JPDB_PAGE_ENHANCEMENT_ROOT_SELECTOR = [
     '.result.vocabulary',
     '.result.kanji',
@@ -117,6 +125,26 @@ export function clickMayRevealDynamicUiText(eventOrTarget: Event | EventTarget |
     const elements = dynamicUiClickElements(eventOrTarget);
     if (elements.some(element => element.closest(READER_ROOT_SELECTOR))) return false;
     return elements.some(element => Boolean(element.closest(DYNAMIC_UI_DISCLOSURE_SELECTOR)));
+}
+
+// SRS review controls are usually plain buttons/inputs rather than disclosure
+// widgets. Keep this signal deliberately semantic instead of treating every
+// button click as a page transition: the caller already scopes it to supported
+// enhancement hosts, and only an explicit "show/reveal answer" control wakes
+// the answer-side addon pipeline.
+export function clickMayRevealReviewAnswer(eventOrTarget: Event | EventTarget | null): boolean {
+    const elements = dynamicUiClickElements(eventOrTarget);
+    if (elements.some(element => element.closest(READER_ROOT_SELECTOR))) return false;
+    return elements.some(element => {
+        const control = element.closest<HTMLElement>(REVIEW_ANSWER_CONTROL_SELECTOR);
+        if (!control) return false;
+        const label = control.getAttribute('aria-label')
+            ?? (control instanceof HTMLInputElement ? control.value : control.textContent)
+            ?? '';
+        const normalizedLabel = label.trim();
+        return REVIEW_ANSWER_ENGLISH_LABEL_RE.test(normalizedLabel)
+            || REVIEW_ANSWER_JAPANESE_LABEL_RE.test(normalizedLabel);
+    });
 }
 
 // A document capture listener sees a click from an open shadow tree retargeted

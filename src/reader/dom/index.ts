@@ -38,6 +38,7 @@ import {
     isLikelyProseElement,
     isLikelyProseLink,
     isNavigationChromeContext,
+    noteConstrainedRowLayoutSettled,
     isNonEditableListboxTrigger,
     isPassiveInteractionElement,
     isPositionedTextOverlay,
@@ -342,6 +343,9 @@ interface TextMirrorHostState {
     position: string;
     positionPriority: string;
     positioned: boolean;
+    lineHeight: string;
+    lineHeightPriority: string;
+    reservedLineHeight: string;
     /** The mirror this state's apply created, held weakly: teardown removes
      * it through this ref even after a framework relocates it anywhere in
      * (or across) roots, without any document-wide query. */
@@ -2811,6 +2815,12 @@ function mountNonDestructiveTextMirror(
     // room for only one tall line — hiding base glyphs (invisible subscriber
     // count) and over-clamping 2-line titles to one. Detached readings remain
     // out of flow, so the mirror keeps the host's own line metrics.
+    // Any non-control text can become flowing multiline content. The live
+    // projection pass decides whether it is currently multiline and
+    // unconstrained, so expand/collapse transitions need no remount.
+    if (context.detachedReadings && !controlMirror) {
+        mirror.dataset.yomuReadingLaneCandidate = 'true';
+    }
     const state = styleTextMirrorHost(host);
     try {
         styleTextMirror(mirror, host, false);
@@ -2850,7 +2860,7 @@ function mountNonDestructiveTextMirror(
         }
         // Source projection needs live client rects. Batch it after paint rather
         // than forcing layout once per mirror during the synchronous boot scan.
-        scheduleAdditiveMirrorProjection();
+        scheduleAdditiveMirrorProjection(host.getRootNode() as ParentNode);
         syncTextMirrorVisibilityToPage(host, mirror);
         observeTextMirrorHost(host);
         rememberNonDestructiveRenderForReplay(host, target, context.text, context.safeTokens, context.hostText, settings);
@@ -2925,8 +2935,15 @@ export function projectAdditiveTextMirror(mirror: HTMLElement, host: HTMLElement
         word.querySelectorAll(`.${SOURCE_FRAGMENT_CLASS}`).forEach(fragment => fragment.remove());
         const start = Number.parseInt(word.dataset.yomuSourceStart ?? '', 10);
         const end = Number.parseInt(word.dataset.yomuSourceEnd ?? '', 10);
-        const rects = sourceClientRects(host, source.nodeOffsets, start, end)
-            .filter(rect => !clipRect || rectsIntersect(rect, clipRect));
+        const sourceRects = sourceClientRects(host, source.nodeOffsets, start, end);
+        const gradientWidth = sourceRects.reduce((width, rect) => width + rect.width / scaleX, 0);
+        let gradientOffset = 0;
+        const rects = sourceRects.map(rect => {
+            const projectedWidth = rect.width / scaleX;
+            const projection = { rect, gradientOffset };
+            gradientOffset += projectedWidth;
+            return projection;
+        }).filter(({ rect }) => !clipRect || rectsIntersect(rect, clipRect));
         if (!rects.length) continue;
 
         word.dataset.yomuSourceProjected = 'true';
@@ -2935,10 +2952,15 @@ export function projectAdditiveTextMirror(mirror: HTMLElement, host: HTMLElement
         word.style.setProperty('width', 'auto', 'important');
         word.style.setProperty('height', 'auto', 'important');
         word.style.setProperty('margin', '0', 'important');
-        for (const rect of rects) {
+        for (const { rect, gradientOffset: fragmentGradientOffset } of rects) {
             const fragment = document.createElement('span');
             fragment.className = SOURCE_FRAGMENT_CLASS;
             fragment.setAttribute('aria-hidden', 'true');
+            // Component pitch belongs to the complete word. Fragment-local
+            // coordinates keep one continuous gradient across source wraps,
+            // and exist before async pitch enrichment arrives.
+            fragment.style.setProperty('--jpdb-reader-source-gradient-width', `${gradientWidth}px`);
+            fragment.style.setProperty('--jpdb-reader-source-gradient-offset', `${-fragmentGradientOffset}px`);
             positionProjectedElement(fragment, rect, mirrorRect, scaleX, scaleY);
             word.append(fragment);
         }
@@ -3027,26 +3049,117 @@ function rectsIntersect(left: DOMRect, right: DOMRect): boolean {
 // Re-project every additive mirror after a settle signal (fonts, resize,
 // virtualized reflow). Reads always come from the live source ranges.
 export function projectAdditiveTextMirrors(root: ParentNode = document): void {
-    if (typeof Range !== 'function' || typeof Range.prototype.getClientRects !== 'function') return;
-    for (const mirror of root.querySelectorAll<HTMLElement>('.jpdb-reader-additive-text-mirror')) {
+    const entries: Array<{ mirror: HTMLElement; host: HTMLElement }> = [];
+    for (const mirror of queryAllInAnnotationRoots(root, '.jpdb-reader-additive-text-mirror')) {
         const host = registeredTextMirrorHostFor(mirror);
         if (!host?.isConnected) continue;
-        projectAdditiveTextMirror(mirror, host);
+        entries.push({ mirror, host });
     }
+    // Read every prose range before writing any line-height. A changed line
+    // rhythm invalidates source rects, so projection continues next frame.
+    if (settleTextMirrorReadingLanes(entries)) {
+        scheduleAdditiveMirrorProjection(root);
+        return;
+    }
+    if (typeof Range !== 'function' || typeof Range.prototype.getClientRects !== 'function') return;
+    for (const { mirror, host } of entries) projectAdditiveTextMirror(mirror, host);
+}
+
+function settleTextMirrorReadingLanes(entries: Array<{ mirror: HTMLElement; host: HTMLElement }>): boolean {
+    const updates: Array<{
+        mirror: HTMLElement;
+        host: HTMLElement;
+        state: TextMirrorHostState;
+        lineHeight: string;
+    }> = [];
+    for (const { mirror, host } of entries) {
+        if (mirror.dataset.yomuReadingLaneCandidate !== 'true') continue;
+        const state = textMirrorHosts.get(host);
+        if (!state) continue;
+
+        // A framework inline write supersedes Yomu's earlier reservation and
+        // becomes the new teardown baseline. Re-measure against that value.
+        const inlineLineHeight = host.style.getPropertyValue('line-height');
+        const inlineLineHeightPriority = host.style.getPropertyPriority('line-height');
+        let baselineChanged = false;
+        const ownsReservation = Boolean(state.reservedLineHeight)
+            && inlineLineHeight === state.reservedLineHeight
+            && inlineLineHeightPriority === 'important';
+        if (!ownsReservation && (
+            state.reservedLineHeight
+            || inlineLineHeight !== state.lineHeight
+            || inlineLineHeightPriority !== state.lineHeightPriority
+        )) {
+            state.lineHeight = inlineLineHeight;
+            state.lineHeightPriority = inlineLineHeightPriority;
+            state.reservedLineHeight = '';
+            baselineChanged = true;
+        }
+
+        const multiline = !closestRubyFragileConstrainedRow(host) && sourceTextSpansMultipleLines(host);
+        const lineHeight = multiline
+            ? detachedReadingLaneLineHeight(safeComputedStyle(host), Boolean(state.reservedLineHeight))
+            : '';
+        if (baselineChanged || lineHeight !== state.reservedLineHeight) {
+            updates.push({ mirror, host, state, lineHeight });
+        }
+    }
+
+    for (const { mirror, host, state, lineHeight } of updates) {
+        if (!host.isConnected || textMirrorHosts.get(host) !== state || currentTextMirror(host) !== mirror) continue;
+        if (lineHeight) {
+            state.reservedLineHeight = lineHeight;
+            host.style.setProperty('line-height', lineHeight, 'important');
+            mirror.style.setProperty('line-height', lineHeight);
+        } else {
+            releaseTextMirrorReadingLane(host, state, mirror);
+        }
+    }
+    return updates.length > 0;
+}
+
+function releaseTextMirrorReadingLane(
+    host: HTMLElement,
+    state: TextMirrorHostState,
+    mirror: HTMLElement,
+): void {
+    const injected = state.reservedLineHeight;
+    if (injected) {
+        const current = host.style.getPropertyValue('line-height');
+        const priority = host.style.getPropertyPriority('line-height');
+        if (current === injected && priority === 'important') {
+            restoreStyleProperty(host, 'line-height', injected, state.lineHeight, state.lineHeightPriority);
+        } else {
+            // A framework write (including removing the property) owns the new
+            // baseline and must survive both re-reservation and teardown.
+            state.lineHeight = current;
+            state.lineHeightPriority = priority;
+        }
+        state.reservedLineHeight = '';
+    }
+    // The mirror inherits the restored/current page metric without another
+    // computed-style read in this write phase.
+    mirror.style.removeProperty('line-height');
 }
 
 // Coalesce freshly-mounted mirrors into one post-paint projection pass. A hidden
 // mount is picked up by the next settle once its source rects become measurable.
 let pendingAdditiveMirrorProjectionFrame = 0;
-function scheduleAdditiveMirrorProjection(): void {
+const pendingAdditiveMirrorProjectionRoots = new Set<ParentNode>();
+function scheduleAdditiveMirrorProjection(root: ParentNode = document): void {
+    pendingAdditiveMirrorProjectionRoots.add(root);
     if (typeof requestAnimationFrame !== 'function') {
-        projectAdditiveTextMirrors(document);
+        const roots = [...pendingAdditiveMirrorProjectionRoots];
+        pendingAdditiveMirrorProjectionRoots.clear();
+        for (const pendingRoot of roots) projectAdditiveTextMirrors(pendingRoot);
         return;
     }
     if (pendingAdditiveMirrorProjectionFrame) return;
     pendingAdditiveMirrorProjectionFrame = requestAnimationFrame(() => {
         pendingAdditiveMirrorProjectionFrame = 0;
-        projectAdditiveTextMirrors(document);
+        const roots = [...pendingAdditiveMirrorProjectionRoots];
+        pendingAdditiveMirrorProjectionRoots.clear();
+        for (const pendingRoot of roots) projectAdditiveTextMirrors(pendingRoot);
     });
 }
 
@@ -3150,7 +3263,7 @@ function styleDetachedReadingElements(root: HTMLElement, host: HTMLElement): voi
         // A Range rect describes the source line box, but CJK ink can overhang
         // its top edge by about 2px. Preserve a small gap so source-projected
         // readings cannot collide with their base in WebKit or Chromium.
-        setInlineStyleIfChanged(reading, 'inset-block-end', 'calc(100% + 3px)');
+        setInlineStyleIfChanged(reading, 'inset-block-end', 'calc(100% + 5px)');
         setInlineStyleIfChanged(reading, 'display', 'block', 'important');
         setInlineStyleIfChanged(reading, 'width', 'max-content');
         setInlineStyleIfChanged(reading, 'max-width', 'none');
@@ -4105,6 +4218,21 @@ function targetHasNativeRuby(target: ScanTextTarget): boolean {
         : Boolean(target.hasNativeRuby);
 }
 
+function sourceTextSpansMultipleLines(host: HTMLElement): boolean {
+    const source = hostOriginalTextWithNodeOffsets(host);
+    const style = safeComputedStyle(host);
+    if (preservesWhitespace(style.whiteSpace) && /\r|\n/u.test(source.hostText)) return true;
+    if (typeof Range !== 'function' || typeof Range.prototype.getClientRects !== 'function') return false;
+    const rects = sourceClientRects(host, source.nodeOffsets, 0, source.hostText.length);
+    const vertical = /^(?:vertical|sideways)/u.test(style.writingMode);
+    const intervals = rects
+        .map(rect => vertical ? [rect.left, rect.right] : [rect.top, rect.bottom])
+        .filter(([start, end]) => Number.isFinite(start) && Number.isFinite(end) && end - start > 0.5);
+    return intervals.some(([start, end], index) => intervals.slice(index + 1).some(([otherStart, otherEnd]) => (
+        end < otherStart - 0.5 || otherEnd < start - 0.5
+    )));
+}
+
 function styleTextMirrorHost(host: HTMLElement): TextMirrorHostState {
     const computed = safeComputedStyle(host);
     const state: TextMirrorHostState = {
@@ -4113,6 +4241,9 @@ function styleTextMirrorHost(host: HTMLElement): TextMirrorHostState {
         position: host.style.getPropertyValue('position'),
         positionPriority: host.style.getPropertyPriority('position'),
         positioned: computed.position === 'static',
+        lineHeight: host.style.getPropertyValue('line-height'),
+        lineHeightPriority: host.style.getPropertyPriority('line-height'),
+        reservedLineHeight: '',
     };
     textMirrorHosts.set(host, state);
     if (state.positioned) host.style.setProperty('position', 'relative', 'important');
@@ -4186,6 +4317,16 @@ function rubyFriendlyMirrorLineHeight(style: CSSStyleDeclaration): string {
     return `${Math.ceil(Math.max(existingLineHeight, fontSize * 1.78))}px`;
 }
 
+function detachedReadingLaneLineHeight(style: CSSStyleDeclaration, alreadyReserved: boolean): string {
+    const fontSize = cssPixels(style.fontSize) || 16;
+    // One device pixel beyond 2em keeps the reading lane visibly separate
+    // across engines whose glyph boxes land on different subpixel boundaries.
+    const minimum = Math.ceil(fontSize * 2) + 1;
+    const current = cssPixels(style.lineHeight);
+    if (alreadyReserved) return `${Math.ceil(Math.max(current, minimum))}px`;
+    return current >= minimum ? '' : `${minimum}px`;
+}
+
 function observeTextMirrorHost(host: HTMLElement): void {
     const state = textMirrorHosts.get(host);
     if (!state) return;
@@ -4254,8 +4395,21 @@ function observeTextMirrorHost(host: HTMLElement): void {
         // title looking missing/misaligned). Re-assert on host attribute changes;
         // reassertTextMirrorHostStyles only writes a property that was actually
         // stripped, so it cannot loop on the style mutation it makes.
-        if (mutations.some(mutation => mutation.type === 'attributes' && mutation.target === liveHost)) {
+        const hostAttributeMutations = mutations.filter(
+            mutation => mutation.type === 'attributes' && mutation.target === liveHost,
+        );
+        if (hostAttributeMutations.length) {
+            noteConstrainedRowLayoutSettled();
+            // A class change may replace the page's authored line-height while
+            // our important inline reservation masks it. Release first, then
+            // let the batched projection pass assess the new computed style.
+            if (liveState.reservedLineHeight
+                && hostAttributeMutations.some(mutation => mutation.attributeName === 'class')) {
+                const mirror = currentTextMirror(liveHost);
+                if (mirror) releaseTextMirrorReadingLane(liveHost, liveState, mirror);
+            }
             reassertTextMirrorHostStyles(liveHost, liveState);
+            scheduleAdditiveMirrorProjection(liveHost.getRootNode() as ParentNode);
         }
         if (!mutations.some(mutation => mutation.type === 'childList' || mutation.type === 'characterData')) return;
         const currentText = normalizedMirrorHostText(nativeTextMirrorHostText(liveHost));
@@ -4691,6 +4845,9 @@ function reassertTextMirrorHostStyles(host: HTMLElement, state: TextMirrorHostSt
 
 function restoreTextMirrorHost(host: HTMLElement, state: TextMirrorHostState): void {
     if (state.positioned) restoreStyleProperty(host, 'position', 'relative', state.position, state.positionPriority);
+    if (state.reservedLineHeight) {
+        restoreStyleProperty(host, 'line-height', state.reservedLineHeight, state.lineHeight, state.lineHeightPriority);
+    }
 }
 
 // Restore the pre-mirror inline value ONLY while the property still carries
@@ -4698,7 +4855,7 @@ function restoreTextMirrorHost(host: HTMLElement, state: TextMirrorHostState): v
 // mirror was up, its newer value wins over our stale capture.
 function restoreStyleProperty(host: HTMLElement, property: string, injectedValue: string, value: string, priority: string): void {
     const current = host.style.getPropertyValue(property);
-    if (current && current !== injectedValue) return;
+    if (current !== injectedValue || host.style.getPropertyPriority(property) !== 'important') return;
     if (value) host.style.setProperty(property, value, priority);
     else host.style.removeProperty(property);
 }

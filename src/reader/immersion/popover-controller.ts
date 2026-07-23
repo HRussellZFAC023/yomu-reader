@@ -82,6 +82,7 @@ export interface ImmersionKitSearchResult {
 export interface ImmersionSearchOptions {
     relatedQueries?: string[];
     signal?: AbortSignal;
+    exactOnly?: boolean;
 }
 
 export interface ImmersionPopoverControllerOptions {
@@ -109,6 +110,7 @@ interface HeldExampleImage {
 interface ImmersionPopoverControl {
     abortPendingRequests(popover: HTMLElement): void;
     hasActiveContext(card: JPDBCard, sentence?: string): boolean;
+    preferredExampleFor(card: JPDBCard, examples: ImmersionKitExample[]): ImmersionKitExample | undefined;
     rememberTermMiningContext(term: string, sentence?: string, anchor?: HTMLElement): void;
 }
 
@@ -151,6 +153,10 @@ export class ImmersionPopoverController implements ImmersionPopoverControl {
 
     storedContextFor(card: JPDBCard): StoredMiningContext | null {
         return this.contextByCardKey.get(cardKey(card)) ?? loadMiningContext(card.spelling);
+    }
+
+    preferredExampleFor(card: JPDBCard, examples: ImmersionKitExample[]): ImmersionKitExample | undefined {
+        return examples[this.startIndex(card, examples)];
     }
 
     rememberPageMiningContext(card: JPDBCard, sentence?: string, anchor?: HTMLElement): void {
@@ -472,6 +478,7 @@ export class ImmersionPopoverController implements ImmersionPopoverControl {
         const triedQueries: string[] = [];
         const exactResult = await this.fetchExamplesForQuery(exactQuery, exactQuery, triedQueries, options.signal);
         if (exactResult) return exactResult;
+        if (options.exactOnly) return { examples: [], query: exactQuery, usedFallback: false, triedQueries };
 
         const queries = await this.immersionFallbackSearchQueries(card, options, exactQuery);
         const fallbackResult = await this.fetchFirstFallbackExamples(queries, exactQuery, triedQueries, options.signal);
@@ -608,6 +615,7 @@ export class ImmersionPopoverController implements ImmersionPopoverControl {
             sort: settings.immersionKitSort,
             exact: settings.immersionKitExactMatch,
             parse: this.options.canParseJapanese(),
+            exactOnly: Boolean(options.exactOnly),
             relatedQueries: uniqueImmersionQueries(options.relatedQueries ?? []).map(normalizeImmersionSearchQuery),
         });
     }
@@ -685,7 +693,14 @@ export class ImmersionPopoverController implements ImmersionPopoverControl {
         container.hidden = false;
         const scrollFrame = capturePopoverScrollFrame(container);
         setInnerHtml(container, this.renderExampleHtml(container, card, example, examples.length, index, searchQuery, settings, imageUrl, contextImageUrl, audioUrls, hasAudio));
-        this.loadRenderedExampleImages(container, imageUrls, isCurrent);
+        this.loadRenderedExampleImages(
+            container,
+            imageUrls,
+            isCurrent,
+            this.shouldPrefetchAdjacentExampleImage(container)
+                ? () => this.prefetchNextExampleImage(examples, index, settings)
+                : undefined,
+        );
         this.options.repositionPopover();
         restorePopoverScrollFrameSoon(scrollFrame);
         if (playAudio) void this.playExampleAudio(example, true);
@@ -762,7 +777,18 @@ export class ImmersionPopoverController implements ImmersionPopoverControl {
             : renderHighlightedTextHtml(sentence, cardHighlightTargets(card), 'jpdb-reader-example-target');
     }
 
-    private loadRenderedExampleImages(container: HTMLElement, imageUrls: string[], isCurrent: () => boolean): void {
+    private loadRenderedExampleImages(
+        container: HTMLElement,
+        imageUrls: string[],
+        isCurrent: () => boolean,
+        onCurrentImageReady?: () => void,
+    ): void {
+        let currentImageReady = false;
+        const publishCurrentImageReady = (imageElement: HTMLImageElement): void => {
+            if (currentImageReady || !isCurrent() || !container.isConnected || !imageElement.isConnected) return;
+            currentImageReady = true;
+            onCurrentImageReady?.();
+        };
         container.querySelectorAll<HTMLImageElement>('[data-immersion-image]').forEach(imageElement => {
             let imageCandidateIndex = 0;
             let imageRequestId = 0;
@@ -813,7 +839,10 @@ export class ImmersionPopoverController implements ImmersionPopoverControl {
                     });
             };
             imageElement.addEventListener('error', loadNextImageCandidate);
-            imageElement.addEventListener('load', () => publishImmersionFrameWidth(imageElement.closest<HTMLElement>('.jpdb-reader-example-media')));
+            imageElement.addEventListener('load', () => {
+                publishImmersionFrameWidth(imageElement.closest<HTMLElement>('.jpdb-reader-example-media'));
+                publishCurrentImageReady(imageElement);
+            });
             imageElement.addEventListener('load', () => this.options.repositionPopover(), { once: true });
             if (!imageElement.dataset.immersionImageSrc) {
                 this.hideBrokenExampleImage(container, imageElement);
@@ -821,6 +850,33 @@ export class ImmersionPopoverController implements ImmersionPopoverControl {
             }
             loadNextImageCandidate();
         });
+    }
+
+    private prefetchNextExampleImage(examples: ImmersionKitExample[], index: number, settings: ReaderSettings): void {
+        if (!settings.immersionKitShowImages || examples.length < 2) return;
+        const next = examples[nextImmersionExampleIndex(index, examples.length, 'next')];
+        if (!next) return;
+        const imageUrls = this.mediaUrls(next, 'image');
+        if (!imageUrls.length) return;
+        // Keep the carousel one image ahead only after the visible frame has
+        // decoded. ObjectUrlCache coalesces this with a rapid click, so each
+        // example costs at most its normal media fetch; no extra example search
+        // or audio request is introduced, and the warmup cannot contend with
+        // the current image's critical path.
+        void this.options.client.fetchBlobUrl(
+            imageUrls[0],
+            settings.audioTimeoutMs,
+            settings.corsProxyUrl,
+            settings.interfaceLanguage,
+        ).catch(() => undefined);
+    }
+
+    private shouldPrefetchAdjacentExampleImage(container: HTMLElement): boolean {
+        // Speculative carousel media is valuable on review surfaces, where the
+        // learner is expected to press Next repeatedly. Ordinary lookup
+        // popovers should fetch only the image being viewed so casual reading
+        // does not generate background media traffic.
+        return Boolean(container.closest('[data-yomu-jpdb-addon][data-yomu-page-context="review"]'));
     }
 
     private hideBrokenExampleImage(container: HTMLElement, imageElement: HTMLImageElement): void {

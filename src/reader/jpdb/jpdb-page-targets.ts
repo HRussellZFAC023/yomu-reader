@@ -62,7 +62,11 @@ export function isKanjiReviewBack(): boolean {
 }
 
 function hasReviewAnswerContent(): boolean {
-    return Boolean(document.querySelector('.review-reveal, .result.kanji .kanji, .answer-box .kanji, a.kanji.plain, .subsection-meanings'));
+    return sourceElements(document, '.review-reveal, .result.kanji .kanji, .answer-box .kanji, a.kanji.plain, .subsection-meanings').length > 0;
+}
+
+function isUnrevealedJpdbReview(): boolean {
+    return isJpdbHost() && isReviewPage() && !hasReviewAnswerContent();
 }
 
 // The review front (before reveal) shows the prompt the learner must recall;
@@ -77,7 +81,7 @@ export function isJpdbReviewFrontPrompt(element: HTMLElement): boolean {
     // marker hasReviewAnswerContent() might not recognise — an element sitting in
     // an answer container is the back, never the prompt.
     if (element.closest('.answer-box, .subsection-meanings, .result, .review-reveal')) return false;
-    return !hasReviewAnswerContent();
+    return isUnrevealedJpdbReview();
 }
 
 function currentReviewCardState(): JpdbReviewCardState {
@@ -143,6 +147,11 @@ function canReadCurrentKanjiTarget(kanji: string): boolean {
 }
 
 function currentVocabularyTermTarget(): JpdbTermTarget | null {
+    // JPDB's vocabulary question front contains ordinary `.plain` sentence
+    // tokens. They are prompt context, not the reviewed headword. Waiting for a
+    // native answer marker prevents those tokens from becoming a page-addon
+    // target (and avoids leaking definitions or Immersion media before reveal).
+    if (isUnrevealedJpdbReview()) return null;
     const pageTerm = extractCurrentTermTarget();
     const searchQuery = extractSearchQuery();
     const term = currentVocabularyLookupTerm(pageTerm, searchQuery);

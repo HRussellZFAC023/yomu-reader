@@ -100,6 +100,7 @@ import {
     type LocalDictionaryTarget,
 } from '../jpdb/jpdb-page-targets';
 import {
+    currentPageEnhancementLayoutContext,
     currentPageKanji,
     currentPageLocalDictionaryTargets,
     currentPageTermTarget,
@@ -271,7 +272,7 @@ import {
     setMiningControlsExpanded as setMiningControlsExpandedState,
     toggleMiningControls as toggleMiningControlsState,
 } from '../study/mining-controls';
-import { AUTO_SCAN_OBSERVER_OPTIONS, clickMayRevealDynamicUiText, createMutationJapaneseScanBudget, mutationInsideReaderRoot, mutationMayAffectJpdbPageEnhancements, mutationMayContainJapaneseText, mutationTouchesAsbPlayer } from './mutation-scan';
+import { AUTO_SCAN_OBSERVER_OPTIONS, clickMayRevealDynamicUiText, clickMayRevealReviewAnswer, createMutationJapaneseScanBudget, mutationInsideReaderRoot, mutationMayAffectJpdbPageEnhancements, mutationMayContainJapaneseText, mutationTouchesAsbPlayer } from './mutation-scan';
 import { NativeTitleGuard } from './native-title-guard';
 import { clearManagedBrowserCaches, unregisterManagedServiceWorkers } from './storage';
 import { isNativePageLookupBlocked, nativeClickableAncestor, shouldIgnoreDocumentClickTarget } from './native-page-lookup-targets';
@@ -603,6 +604,7 @@ const HOVER_READER_WORD_GEOMETRY_SCOPE_SELECTOR = [
     '[role="menuitem"]',
 ].join(',');
 const JPDB_REVIEW_EXAMPLES_VISIBLE_STORAGE_KEY = 'yomu:jpdb-review-examples-visible:v1';
+const REVIEW_PAGE_TARGET_SETTLE_MS = 20;
 const READER_POINTER_SURFACE_SELECTOR = [
     '.jpdb-reader-popover',
     '.jpdb-reader-settings',
@@ -685,6 +687,18 @@ interface CardPopoverHydrationContext {
     anchor?: HTMLElement;
 }
 
+interface PageWordDefinitionState {
+    entries: YomitanTermEntry[];
+    jpdbVocabularyInfo: JpdbVocabularyInfo | null;
+    jitenVocabularyInfo: JitenVocabularyInfo | null;
+    bunproDefinitionInfo: import('../bunpro/definition').BunproDefinitionInfo | null;
+}
+
+interface PageAddonParseState {
+    dirty: boolean;
+    running?: Promise<void>;
+}
+
 interface MountedCardCompletionContext extends Omit<CardPopoverHydrationContext, 'state' | 'requestId'> {
     mounted: MountedCardShell;
     fallbackAnkiLookup: AnkiLookupResult;
@@ -706,17 +720,21 @@ function firstLocalPitchPattern(resolution: LocalPitchResolution): string {
     return resolution.patterns[0] ?? '';
 }
 
-// Identity of a dynamic page-addon key by SPELLING only ("word:食べる:たべる" ->
-// "word:食べる", "kanji:食" -> "kanji:食"). A jiten headword can momentarily
-// resolve its reading from the page title (reading === spelling) or gain
-// furigana after the addon mounts, both of which flip only the reading half of
-// the key. Keying the refresh on the reading too would tear the addon down and
-// refetch the Immersion Kit on every such flip; the spelling is the stable card
-// identity, and same-spelling content is word-keyed so a rare reading-only
-// change is a safe no-op.
-function pageAddonKeyIdentity(key: string): string {
-    const parts = key.split(':');
-    return parts.length > 2 ? `${parts[0]}:${parts[1]}` : key;
+// A Jiten headword can momentarily resolve its reading from the page title
+// (reading === spelling) before ruby hydrates. Treat only that unresolved
+// expected reading as a wildcard. Once the current DOM exposes a real reading,
+// require it to match so consecutive homographs cannot retain reading-specific
+// definitions from the preceding card.
+function pageAddonKeysMatch(expected: string, mounted: string): boolean {
+    if (expected === mounted) return true;
+    const expectedParts = expected.split(':');
+    const mountedParts = mounted.split(':');
+    if (expectedParts.length !== mountedParts.length
+        || expectedParts[0] !== mountedParts[0]
+        || expectedParts[1] !== mountedParts[1]) return false;
+    if (expectedParts.length < 3) return true;
+    const [, spelling, expectedReading] = expectedParts;
+    return expectedReading === spelling;
 }
 
 export class ReaderApp {
@@ -1011,6 +1029,9 @@ export class ReaderApp {
     // (5-10 childList mutations/sec) into a bounded scan cadence.
     private lastAutoScanStartedAt = 0;
     private autoScanObserver?: MutationObserver;
+    private documentBodyObserver?: MutationObserver;
+    private observedDocumentBody?: HTMLElement;
+    private documentBodyRecoveryPending = false;
     private disposeShadowRootDiscovery?: () => void;
     private lastMirrorStaleScanAt = 0;
     private readonly handleNonDestructiveMirrorStale = () => {
@@ -1077,13 +1098,18 @@ export class ReaderApp {
     private dictionaryRescanPending = false;
     private visiblePageReparseTimer?: number;
     private jpdbPageEnhanceTimer?: number;
+    private jpdbPageEnhanceDeadline = 0;
     private jpdbPageEnhancementGeneration = 0;
     private lastEnhancedHref = '';
     private lastJitenStudyHeadword = '';
+    private lastJitenImmersionPrefetchHeadword = '';
+    private pendingReviewTargetSignature = '';
+    private pendingReviewTargetReadyAt = 0;
     private nearbyReaderAudioPreloadTimer?: number;
     private preloadedTermAudioKeys = new Set<string>();
     private preloadedPreparedTermAudioKeys = new Set<string>();
     private nestedParseContentCache = new Map<string, NestedParseContentCacheEntry>();
+    private pageAddonParseStates = new WeakMap<HTMLElement, PageAddonParseState>();
     private pitchEnrichmentLocalCache = new Map<string, Promise<LocalPitchResolution>>();
     private localPitchDictionaryAvailability?: Promise<boolean>;
     private resolvedFallbackVocabularyCache = new Map<string, JPDBCard>();
@@ -1881,19 +1907,31 @@ export class ReaderApp {
         // Seed the study-card baseline so the first card the learner loaded does
         // not scroll (they are already at the top); only later card changes do.
         this.lastJitenStudyHeadword = currentJitenStudyHeadwordText();
+        this.prefetchJitenStudyImmersion();
         this.scheduleJpdbPageEnhancements(0);
         this.installJpdbReviewExamplesToggleMemory();
         addWindowEventListener('popstate', () => this.scheduleJpdbPageEnhancements(120), { signal: this.abortController.signal });
         addWindowEventListener('hashchange', () => this.scheduleJpdbPageEnhancements(120), { signal: this.abortController.signal });
     }
 
-    private scheduleJpdbPageEnhancements(delay = 0): void {
+    private scheduleJpdbPageEnhancements(delay = 0, options: { preserveEarlier?: boolean } = {}): void {
         if (this.isDestroyed || !isPageEnhancementHost()) return;
+        const normalizedDelay = Math.max(0, delay);
+        const deadline = Date.now() + normalizedDelay;
+        // Review hosts can emit many mutations for one card swap. Debouncing
+        // those mutations repeatedly pushed a nominal 300–500 ms delay out by
+        // seconds. A transition refresh keeps the earliest scheduled paint and
+        // only replaces it when a genuinely earlier deadline arrives.
+        if (this.jpdbPageEnhanceTimer !== undefined
+            && options.preserveEarlier
+            && this.jpdbPageEnhanceDeadline <= deadline) return;
         window.clearTimeout(this.jpdbPageEnhanceTimer);
+        this.jpdbPageEnhanceDeadline = deadline;
         this.jpdbPageEnhanceTimer = window.setTimeout(() => {
             this.jpdbPageEnhanceTimer = undefined;
+            this.jpdbPageEnhanceDeadline = 0;
             void this.refreshJpdbPageEnhancements();
-        }, Math.max(0, delay));
+        }, normalizedDelay);
     }
 
     private async refreshJpdbPageEnhancements(): Promise<void> {
@@ -1909,19 +1947,58 @@ export class ReaderApp {
             this.removeStaleJpdbPageEnhancements(generation);
             return;
         }
-        if (this.settings.jpdbPageWordEnhancementsEnabled) await this.installJpdbWordPageEnhancements(generation);
+        if (this.settings.jpdbPageWordEnhancementsEnabled && this.reviewPageWordTargetsStableForMount()) {
+            await this.installJpdbWordPageEnhancements(generation);
+        }
         this.removeStaleJpdbPageEnhancements(generation);
     }
 
+    private reviewPageWordTargetsStableForMount(): boolean {
+        if (currentPageEnhancementLayoutContext() !== 'review') {
+            this.resetPendingReviewTarget();
+            return true;
+        }
+        const expectedKeys = currentPageLocalDictionaryTargets().map(target => this.jpdbPageWordAddonKey(target));
+        if (!expectedKeys.length) {
+            this.resetPendingReviewTarget();
+            return true;
+        }
+        const mountedKeys = Array.from(document.querySelectorAll<HTMLElement>('[data-yomu-jpdb-addon]'))
+            .map(element => element.dataset.yomuAddonKey ?? '');
+        if (expectedKeys.some(expected => mountedKeys.some(mounted => pageAddonKeysMatch(expected, mounted)))) {
+            this.resetPendingReviewTarget();
+            return true;
+        }
+
+        const signature = expectedKeys.join('\u0000');
+        const now = Date.now();
+        if (signature !== this.pendingReviewTargetSignature) {
+            this.pendingReviewTargetSignature = signature;
+            this.pendingReviewTargetReadyAt = now + REVIEW_PAGE_TARGET_SETTLE_MS;
+        }
+        const remaining = this.pendingReviewTargetReadyAt - now;
+        if (remaining > 0) {
+            this.scheduleJpdbPageEnhancements(Math.ceil(remaining), { preserveEarlier: true });
+            return false;
+        }
+        this.resetPendingReviewTarget();
+        return true;
+    }
+
+    private resetPendingReviewTarget(): void {
+        this.pendingReviewTargetSignature = '';
+        this.pendingReviewTargetReadyAt = 0;
+    }
+
     private removeJpdbPageEnhancements(): void {
-        document.querySelectorAll<HTMLElement>('[data-yomu-jpdb-addon]').forEach(element => element.remove());
+        document.querySelectorAll<HTMLElement>('[data-yomu-jpdb-addon]').forEach(element => this.removeJpdbPageAddonRoot(element));
     }
 
     private removeStaleJpdbPageEnhancements(generation: number): void {
         const generationKey = String(generation);
         this.pauseAutoScanObserver(() => {
             document.querySelectorAll<HTMLElement>('[data-yomu-jpdb-addon]').forEach(element => {
-                if (element.dataset.yomuGeneration !== generationKey) element.remove();
+                if (element.dataset.yomuGeneration !== generationKey) this.removeJpdbPageAddonRoot(element);
             });
         });
     }
@@ -1939,6 +2016,54 @@ export class ReaderApp {
         if (hadPreviousCard) window.scrollTo({ top: 0 });
     }
 
+    private prefetchJitenStudyImmersion(): void {
+        if (!isJitenHost()
+            || !location.pathname.startsWith('/srs/study')
+            || !this.settings.immersionKitEnabled) return;
+        const headword = currentJitenStudyHeadwordText();
+        // Only prefetch the actual question side. During a phased host swap the
+        // next headword can appear briefly inside the previous revealed card;
+        // waiting for the answer target to disappear avoids warming from that
+        // unstable intermediate DOM.
+        if (!headword
+            || headword === this.lastJitenImmersionPrefetchHeadword
+            || currentPageLocalDictionaryTargets().length > 0) return;
+        const controller = this.immersionPopover;
+        if (!controller) return;
+        this.lastJitenImmersionPrefetchHeadword = headword;
+        const card = jpdbAudioCard(headword, headword);
+        card.source = 'jiten';
+        // Search only warms the keyed cache. No DOM is mounted on the question
+        // side, so the learner gets a fast reveal without definition/media
+        // spoilers on the front of the card.
+        // Prefetch only the current card's exact spelling. Alternate forms and
+        // parsed fallbacks can fan out into multiple searches, so leave those
+        // for an explicit reveal when an exact hit is unavailable.
+        void controller.searchExamples(card, { exactOnly: true })
+            .then(result => {
+                // Warm only the example reveal will select for this hidden
+                // card. A persisted carousel position can point past index 0;
+                // selecting through the controller keeps the question-side
+                // request aligned with reveal while preserving the one-image
+                // traffic bound (no lookahead or audio preload here).
+                if (currentJitenStudyHeadwordText() !== headword) return;
+                const example = controller.preferredExampleFor(card, result.examples);
+                const client = this.immersionKit;
+                if (!example || !client || !this.settings.immersionKitShowImages) return;
+                const imageUrls = client.mediaUrls(example, 'image');
+                if (!imageUrls.length) return;
+                void client.fetchBlobUrl(
+                    imageUrls[0],
+                    this.settings.audioTimeoutMs,
+                    this.settings.corsProxyUrl,
+                    this.settings.interfaceLanguage,
+                ).catch(() => undefined);
+            })
+            .catch(error => {
+                log.debug('Jiten review Immersion prefetch failed', { term: headword, error });
+            });
+    }
+
     private jitenEnhancementsNeedRefresh(): boolean {
         if (location.href !== this.lastEnhancedHref) return true;
         if (!isPageEnhancementReady() || !this.settings.jpdbPageEnhancementsEnabled) return false;
@@ -1947,6 +2072,14 @@ export class ReaderApp {
         // prompt renders. Remove its addon immediately so the preceding answer
         // cannot leak into the unrevealed question phase.
         if (isBunproHost() && isBunproQuizAnswerHidden()) return hasAddon;
+        // Review question fronts intentionally expose no word target. Treat a
+        // retained answer addon as refresh work on every supported SRS host so
+        // the next zero-delay pass removes it without mounting a spoiler. This
+        // also covers JPDB, whose front-side sentence contains generic `.plain`
+        // tokens that are not the reviewed vocabulary headword.
+        if (currentPageEnhancementLayoutContext() === 'review'
+            && !isCurrentKanjiSurface()
+            && currentPageLocalDictionaryTargets().length === 0) return hasAddon;
         if (!hasAddon) return true;
         if (this.jitenAddonWordIdentityChanged()) return true;
         return this.jitenAddonStrandedOnFallbackAnchor();
@@ -1959,13 +2092,11 @@ export class ReaderApp {
     // and its Immersion Kit — kept showing the previous card. Refresh whenever
     // the mounted addon's word/kanji identity no longer matches the current target.
     private jitenAddonWordIdentityChanged(): boolean {
-        const expected = this.currentJitenAddonKeys().map(pageAddonKeyIdentity);
+        const expected = this.currentJitenAddonKeys();
         if (!expected.length) return false;
-        const mounted = new Set(
-            Array.from(document.querySelectorAll<HTMLElement>('[data-yomu-jpdb-addon]'))
-                .map(element => pageAddonKeyIdentity(element.dataset.yomuAddonKey ?? '')),
-        );
-        return !expected.some(identity => mounted.has(identity));
+        const mounted = Array.from(document.querySelectorAll<HTMLElement>('[data-yomu-jpdb-addon]'))
+            .map(element => element.dataset.yomuAddonKey ?? '');
+        return !expected.some(expectedKey => mounted.some(mountedKey => pageAddonKeysMatch(expectedKey, mountedKey)));
     }
 
     private currentJitenAddonKeys(): string[] {
@@ -2026,35 +2157,80 @@ export class ReaderApp {
         await Promise.all(targets.map(target => this.installJpdbWordPageEnhancement(target, generation)));
     }
 
-    // fallow-ignore-next-line complexity
-    private async installJpdbWordPageEnhancement(target: LocalDictionaryTarget, generation: number): Promise<void> {
+    private installJpdbWordPageEnhancement(target: LocalDictionaryTarget, generation: number): void {
         const card = this.jpdbPageWordCard(target);
-        const renderData = this.cardRenderData.load(card);
-        const [data, variantEntries] = await Promise.all([
-            renderData.all.catch(() => null),
-            this.lookupJpdbPageLocalEntries(target),
-        ]);
-        const entries = uniqueLocalDictionaryEntries([
-            ...(data?.localEntries ?? []),
-            ...variantEntries,
-        ])
+        if (!this.isCurrentJpdbPageEnhancement(generation)) return;
+        const root = this.createJpdbPageAddonRoot('word', this.jpdbPageWordAddonKey(target), target.anchor, generation);
+        if (!root) return;
+
+        const state: PageWordDefinitionState = {
+            entries: [],
+            jpdbVocabularyInfo: null,
+            jitenVocabularyInfo: null,
+            bunproDefinitionInfo: null,
+        };
+        // Paint the keyed shell immediately. With Immersion enabled this mounts
+        // its stable placeholder in the same task as answer reveal; dictionaries
+        // and remote providers then hydrate independently instead of holding the
+        // whole addon behind their longest timeout.
+        this.renderJpdbPageWordDefinitionState(root, card, target, generation, state);
+
+        const load = this.cardRenderData.loadDefinitionSources(card, {
+            includeJpdbDefinition: !isJpdbHost(),
+            includeJitenDefinition: !isJitenHost(),
+            includeBunproDefinition: !isBunproHost(),
+        });
+        const mergeEntries = (entries: YomitanTermEntry[]): void => {
+            state.entries = uniqueLocalDictionaryEntries([...state.entries, ...entries]);
+            this.renderJpdbPageWordDefinitionState(root, card, target, generation, state);
+        };
+        const tasks = [
+            load.localEntries.then(mergeEntries),
+            load.hydrateLocalEntries().then(mergeEntries),
+            this.lookupJpdbPageLocalEntries(target).then(mergeEntries),
+            load.jpdbVocabularyInfo.then(value => {
+                state.jpdbVocabularyInfo = value;
+                this.renderJpdbPageWordDefinitionState(root, card, target, generation, state);
+            }),
+            load.jitenVocabularyInfo.then(value => {
+                state.jitenVocabularyInfo = value;
+                this.renderJpdbPageWordDefinitionState(root, card, target, generation, state);
+            }),
+            load.bunproDefinitionInfo.then(value => {
+                state.bunproDefinitionInfo = value;
+                this.renderJpdbPageWordDefinitionState(root, card, target, generation, state);
+            }),
+        ];
+        void Promise.allSettled(tasks).then(() => {
+            if (!this.isCurrentJpdbPageEnhancement(generation) || !root.isConnected) return;
+            if (!this.hasJpdbPageWordContent(state.entries, state)) this.removeJpdbPageAddonRoot(root);
+        });
+    }
+
+    private renderJpdbPageWordDefinitionState(
+        root: HTMLElement,
+        card: JPDBCard,
+        target: LocalDictionaryTarget,
+        generation: number,
+        state: PageWordDefinitionState,
+    ): void {
+        if (!this.isCurrentJpdbPageEnhancement(generation)
+            || !root.isConnected
+            || root.dataset.yomuGeneration !== String(generation)) return;
+        const entries = uniqueLocalDictionaryEntries(state.entries)
             .sort((first, second) =>
                 jpdbPageDictionaryPreferencePriority(first.dictionary, this.settings)
                     - jpdbPageDictionaryPreferencePriority(second.dictionary, this.settings),
             )
             .slice(0, this.settings.localDictionaryMaxResults);
-        if (!this.isCurrentJpdbPageEnhancement(generation)) return;
-        if (!this.hasJpdbPageWordContent(entries, data)) return;
-
-        const root = this.createJpdbPageAddonRoot('word', this.jpdbPageWordAddonKey(target), target.anchor, generation);
-        if (!root) return;
+        if (!this.hasJpdbPageWordContent(entries, state)) return;
         const html = this.renderDefinitionSources(
             card,
             entries,
             target.examples[0]?.sentence,
-            data?.jpdbVocabularyInfo ?? null,
-            data?.jitenVocabularyInfo ?? null,
-            data?.bunproDefinitionInfo ?? null,
+            state.jpdbVocabularyInfo,
+            state.jitenVocabularyInfo,
+            state.bunproDefinitionInfo,
         );
         if (!this.updateJpdbPageAddonHtml(root, html)) return;
         this.wanikaniSources.installDefinitionMounts(root, card);
@@ -2071,7 +2247,7 @@ export class ReaderApp {
         void this.parseJpdbPageAddonJapanese(root);
     }
 
-    private hasJpdbPageWordContent(entries: YomitanTermEntry[], data: CardRenderData | null): boolean {
+    private hasJpdbPageWordContent(entries: YomitanTermEntry[], data: Pick<PageWordDefinitionState, 'jpdbVocabularyInfo' | 'jitenVocabularyInfo' | 'bunproDefinitionInfo'> | null): boolean {
         // The addon's job on a dictionary's own site is to add sources the native
         // page lacks, so the self-site source (suppressed in renderDefinitionSources)
         // doesn't count as content — otherwise it leaves an empty "No definitions" box.
@@ -2095,15 +2271,49 @@ export class ReaderApp {
     }
 
     private updateJpdbPageAddonHtml(root: HTMLElement, html: string): boolean {
-        if (root.dataset.yomuRenderedHtml === html) return false;
-        root.dataset.yomuRenderedHtml = html;
-        setInnerHtml(root, html);
-        return true;
+        const preservedImmersion = root.querySelector<HTMLElement>('[data-immersion-kit]');
+        const htmlChanged = root.dataset.yomuRenderedHtml !== html;
+        if (htmlChanged) {
+            root.dataset.yomuRenderedHtml = html;
+            setInnerHtml(root, html);
+            const nextImmersion = root.querySelector<HTMLElement>('[data-immersion-kit]');
+            if (preservedImmersion && nextImmersion && preservedImmersion !== nextImmersion) {
+                nextImmersion.replaceWith(preservedImmersion);
+            }
+        }
+        this.applyJpdbReviewImmersionLayout(root);
+        return htmlChanged;
+    }
+
+    private applyJpdbReviewImmersionLayout(root: HTMLElement): void {
+        if (root.dataset.yomuPageContext !== 'review') return;
+        // Review answers put the media source first while retaining the user's
+        // configured order for every dictionary/provider panel that follows it.
+        const immersion = root.querySelector<HTMLElement>('[data-immersion-kit]');
+        if (!immersion) return;
+        const stack = immersion.parentElement;
+        if (stack?.firstElementChild !== immersion) stack?.prepend(immersion);
+        // Review media must participate in the host card's layout from its
+        // first paint. A closed <details> with our grid styles can still paint
+        // descendants outside its measured box in Chromium, leaving the image
+        // or translation below an unscrollable Jiten card. Auto-open once per
+        // mount; the marker then preserves an explicit user collapse.
+        if (immersion.tagName !== 'DETAILS'
+            || immersion.dataset.yomuReviewAutoOpened === 'true') return;
+        const details = immersion as HTMLDetailsElement;
+        details.dataset.yomuReviewAutoOpened = 'true';
+        details.dataset.sourceInitialOpen = 'true';
+        details.open = true;
     }
 
     private async lookupJpdbPageLocalEntries(target: LocalDictionaryTarget): Promise<YomitanTermEntry[]> {
         if (!this.settings.localDictionariesEnabled) return [];
-        const variants = localDictionaryLookupVariants(target).slice(0, 12);
+        // CardRenderData already performs the exact term+reading lookup. Only
+        // query the alternate/compound variants here so one card transition
+        // does not duplicate the largest IndexedDB read.
+        const variants = localDictionaryLookupVariants(target)
+            .filter(variant => variant.term !== target.term || variant.reading !== target.reading)
+            .slice(0, 11);
         const batches = await Promise.all(variants.map(variant =>
             this.dictionaries.lookup(
                 variant.term,
@@ -2118,6 +2328,11 @@ export class ReaderApp {
                     - jpdbPageDictionaryPreferencePriority(second.dictionary, this.settings),
             )
             .slice(0, this.settings.localDictionaryMaxResults);
+    }
+
+    private removeJpdbPageAddonRoot(root: HTMLElement): void {
+        this.immersionPopover?.abortPendingRequests(root);
+        root.remove();
     }
 
     private installJpdbKanjiPageEnhancement(generation: number): void {
@@ -2152,6 +2367,8 @@ export class ReaderApp {
         if (existing) {
             existing.dataset.yomuGeneration = String(generation);
             existing.dataset.yomuAnchorFallback = String(anchor.tagName === 'MAIN');
+            existing.dataset.yomuPageContext = currentPageEnhancementLayoutContext();
+            this.applyJpdbReviewImmersionLayout(existing);
             return existing;
         }
         const root = document.createElement('div');
@@ -2159,12 +2376,16 @@ export class ReaderApp {
         root.dataset.yomuJpdbAddon = kind;
         root.dataset.yomuAddonKey = key;
         root.dataset.yomuGeneration = String(generation);
+        root.dataset.yomuPageContext = currentPageEnhancementLayoutContext();
         // A coarse fallback anchor (e.g. <main>) is marked so the enhancement
         // re-mounts once the real anchor exists instead of staying stranded.
         root.dataset.yomuAnchorFallback = String(anchor.tagName === 'MAIN');
         root.className = `yomu-jpdb-page-addon yomu-jpdb-${kind}-addon`;
         this.pauseAutoScanObserver(() => {
             anchor.insertAdjacentElement('afterend', root);
+        });
+        queueMicrotask(() => {
+            if (root.isConnected) this.applyJpdbReviewImmersionLayout(root);
         });
         return root;
     }
@@ -2446,6 +2667,10 @@ export class ReaderApp {
         setCustomElementUpgradeHook(null);
         setReviewCardFrontPredicate(null);
         this.autoScanObserver?.disconnect();
+        this.documentBodyObserver?.disconnect();
+        this.documentBodyObserver = undefined;
+        this.observedDocumentBody = undefined;
+        this.documentBodyRecoveryPending = false;
         this.clearMiningPauseReassert();
         this.clearSubtitleHoverMiningResumeTimer();
         this.ocr.destroy();
@@ -2459,6 +2684,7 @@ export class ReaderApp {
         this.knownStateBackfillTimer = undefined;
         window.clearTimeout(this.visiblePageReparseTimer);
         window.clearTimeout(this.jpdbPageEnhanceTimer);
+        this.jpdbPageEnhanceDeadline = 0;
         window.clearTimeout(this.nearbyReaderAudioPreloadTimer);
         window.clearTimeout(this.hoverLookupTimer);
         window.clearTimeout(this.hoverCloseTimer);
@@ -2578,16 +2804,22 @@ export class ReaderApp {
             }
             if (isJitenHost()) {
                 this.maybeScrollJitenStudyToNewCard();
-                if (this.jitenEnhancementsNeedRefresh()) this.scheduleJpdbPageEnhancements(500);
+                this.prefetchJitenStudyImmersion();
+                if (this.jitenEnhancementsNeedRefresh()) {
+                    this.scheduleJpdbPageEnhancements(0, { preserveEarlier: true });
+                }
             } else if (isBunproHost()) {
                 // Bunpro's lesson carousel and review loop both replace the
                 // active item in place, so the generic JPDB mutation selector
                 // is too narrow. The identity gate keeps steady DOM churn cheap.
-                if (this.jitenEnhancementsNeedRefresh()) this.scheduleJpdbPageEnhancements(300);
+                if (this.jitenEnhancementsNeedRefresh()) {
+                    this.scheduleJpdbPageEnhancements(0, { preserveEarlier: true });
+                }
             } else if (isPageEnhancementHost() && scanMutations.some(mutationMayAffectJpdbPageEnhancements)) {
-                this.scheduleJpdbPageEnhancements(500);
+                this.scheduleJpdbPageEnhancements(0, { preserveEarlier: true });
             }
         });
+        this.setupDocumentBodyRecovery();
         // Keep the review-card front (jiten study / jpdb review question side)
         // a plain prompt: the decoration policy skips any element this predicate
         // flags, so furigana/pitch never spoil the reading being tested.
@@ -2655,6 +2887,14 @@ export class ReaderApp {
             }
         }, { passive: true, signal: abortSignal });
         document.addEventListener('click', event => {
+            if (!document.hidden
+                && isPageEnhancementHost()
+                && clickMayRevealReviewAnswer(event)) {
+                // Capture runs before the host's handler. A zero-delay refresh
+                // sees the answer DOM after a synchronous reveal; asynchronous
+                // and full-body swaps are covered by the mutation/body watchers.
+                this.scheduleJpdbPageEnhancements(0, { preserveEarlier: true });
+            }
             if (document.hidden
                 || !this.canParseJapanese()
                 || !allowsFrequentVisibleAutoScan()
@@ -2694,7 +2934,8 @@ export class ReaderApp {
         // root (disconnect dropped them all), re-arm the shadow candidate poll
         // that parked itself while hidden, then run one settle scan so any
         // content the page swapped in while hidden gets annotated now.
-        this.observeAutoScanMutations();
+        if (this.documentBodyRecoveryPending) this.recoverAfterDocumentBodyReplacement();
+        else this.observeAutoScanMutations();
         wakeShadowHostPoll();
         // The backfill parks itself while hidden (canScheduleKnownStateBackfill);
         // re-arm it so words scanned while backgrounded still get their state.
@@ -2713,6 +2954,48 @@ export class ReaderApp {
         // disconnect() (pause path) dropped every target — re-attach the
         // registered shadow roots alongside document.body.
         this.observeScopedScannedShadowRoots();
+    }
+
+    private setupDocumentBodyRecovery(): void {
+        this.documentBodyObserver?.disconnect();
+        this.observedDocumentBody = document.body ?? undefined;
+        if (!document.documentElement) return;
+        // The primary observer intentionally stays body-scoped to avoid head
+        // churn. This O(1) companion watches only direct <html> children, so it
+        // survives an SPA replacing <body> without observing ordinary page DOM.
+        this.documentBodyObserver = new MutationObserver(() => this.handleDocumentBodyReplacement());
+        this.documentBodyObserver.observe(document.documentElement, { childList: true });
+    }
+
+    private handleDocumentBodyReplacement(): void {
+        const body = document.body ?? undefined;
+        if (this.isDestroyed || !body || body === this.observedDocumentBody) return;
+        this.observedDocumentBody = body;
+        this.documentBodyRecoveryPending = true;
+        if (!document.hidden) this.recoverAfterDocumentBodyReplacement();
+    }
+
+    private recoverAfterDocumentBodyReplacement(): void {
+        if (this.isDestroyed || !document.body || !this.documentBodyRecoveryPending) return;
+        this.documentBodyRecoveryPending = false;
+        // Drop the detached body target before observing the replacement. The
+        // full body may already be populated, so queue one forced scan instead
+        // of waiting for a later descendant mutation that might never arrive.
+        this.autoScanObserver?.disconnect();
+        this.observeAutoScanMutations();
+        // JPDB's live Study bridge owns its own body-scoped observer. Recreate
+        // it alongside the scanner so review status keeps publishing
+        // immediately after JPDB swaps the document body on answer reveal.
+        this.disposeJpdbReviewBridge?.();
+        this.disposeJpdbReviewBridge = installReaderStartupBridge();
+        if (!this.embeddedFrame) this.installFab();
+        if (this.canParseJapanese() && allowsFrequentVisibleAutoScan()) {
+            this.noteVisibleAutoScanWorkObserved();
+            this.scheduleAutoScan(0, { force: true, debounce: true });
+        }
+        if (isPageEnhancementHost()) {
+            this.scheduleJpdbPageEnhancements(0, { preserveEarlier: true });
+        }
     }
 
     private observeScopedScannedShadowRoots(): void {
@@ -7749,7 +8032,28 @@ export class ReaderApp {
 
     private installJpdbPageImmersionExamples(root: HTMLElement, card: JPDBCard, relatedQueries: string[] = []): void {
         if (!this.settings.immersionKitEnabled) return;
-        this.immersionPopover?.installLazyLoad(root, card, relatedQueries.length ? { relatedQueries } : undefined);
+        const controller = this.immersionPopover;
+        if (!controller) return;
+        const options = relatedQueries.length ? { relatedQueries } : undefined;
+        if (root.dataset.yomuPageContext !== 'review') {
+            controller.installLazyLoad(root, card, options);
+            return;
+        }
+        const container = root.querySelector<HTMLElement>('[data-immersion-kit]');
+        if (!container || ['loading', 'loaded'].includes(container.dataset.immersionLoadState ?? '')) return;
+        container.dataset.immersionLoadState = 'loading';
+        // The review shell is already reveal-gated, so a second visibility
+        // debounce only makes Next feel sluggish. Start immediately; hidden
+        // question-side prefetch usually turns this into a cache hit.
+        void controller.loadExamples(root, card, options).then(() => {
+            if (container.isConnected && container.dataset.immersionLoadState === 'loading') {
+                container.dataset.immersionLoadState = 'loaded';
+            }
+        }).catch(() => {
+            if (container.isConnected && container.dataset.immersionLoadState === 'loading') {
+                delete container.dataset.immersionLoadState;
+            }
+        });
     }
 
     private async parsePopoverJapanese(popover: HTMLElement): Promise<void> {
@@ -7775,6 +8079,38 @@ export class ReaderApp {
     }
 
     private async parseJpdbPageAddonJapanese(root: HTMLElement): Promise<void> {
+        let state = this.pageAddonParseStates.get(root);
+        if (!state) {
+            state = { dirty: false };
+            this.pageAddonParseStates.set(root, state);
+        }
+        state.dirty = true;
+        if (state.running) return state.running;
+        state.running = this.flushJpdbPageAddonJapaneseParse(root, state)
+            .finally(() => {
+                state.running = undefined;
+                // A provider can commit in the microtask between the drain's
+                // final check and this release. Chain the follow-up drain from
+                // finally so that caller still awaits the parse it requested.
+                if (state.dirty && this.isJpdbPageAddonRoot(root)) {
+                    return this.parseJpdbPageAddonJapanese(root);
+                }
+            });
+        return state.running;
+    }
+
+    private async flushJpdbPageAddonJapaneseParse(root: HTMLElement, state: PageAddonParseState): Promise<void> {
+        // Provider promises commonly settle together. Let their HTML commits
+        // coalesce into one parse pass, then serialize any genuinely later
+        // update so whole-root JPDB/Jiten parsing never overlaps itself.
+        await Promise.resolve();
+        while (state.dirty && this.isJpdbPageAddonRoot(root)) {
+            state.dirty = false;
+            await this.performJpdbPageAddonJapaneseParse(root);
+        }
+    }
+
+    private async performJpdbPageAddonJapaneseParse(root: HTMLElement): Promise<void> {
         if (!this.isJpdbPageAddonRoot(root)) return;
         this.enrichJpdbRelatedWords(root);
         clearNestedParseState(root);
@@ -9853,7 +10189,9 @@ export class ReaderApp {
     }
 
     private prepareActivePopoverForPositioning(popover: HTMLElement): void {
-        if (this.shouldUseFixedModalHeight(popover)) popover.style.height = '';
+        if (!this.shouldUseFixedModalHeight(popover)) return;
+        const fixedHeight = configuredPopoverMaxHeight(this.settings);
+        if (fixedHeight) popover.style.height = `${fixedHeight}px`;
     }
 
     private repositionLockedActivePopoverIfNeeded(popover: HTMLElement): boolean {

@@ -91,6 +91,26 @@ export interface CardRenderDataLoadOptions {
     includeBunproDefinition?: boolean;
 }
 
+/**
+ * The page-addon only needs definition sources. Keeping this load separate from
+ * the full popover pipeline avoids starting deck, Anki, pitch, frequency, and
+ * component requests before an SRS answer can be painted.
+ */
+export interface DefinitionSourceRenderDataLoad {
+    localEntries: Promise<YomitanTermEntry[]>;
+    hydrateLocalEntries: () => Promise<YomitanTermEntry[]>;
+    jpdbVocabularyInfo: Promise<JpdbVocabularyInfo | null>;
+    jitenVocabularyInfo: Promise<JitenVocabularyInfo | null>;
+    bunproDefinitionInfo: Promise<BunproDefinitionInfo | null>;
+    settled: Promise<void>;
+}
+
+export interface DefinitionSourceRenderDataLoadOptions {
+    includeJpdbDefinition?: boolean;
+    includeJitenDefinition?: boolean;
+    includeBunproDefinition?: boolean;
+}
+
 export interface CardRenderDataLoaderDependencies {
     getSettings: () => ReaderSettings;
     dictionaries: YomitanDictionaryStore;
@@ -154,6 +174,7 @@ export function loadingCardRenderData(
 
 export class CardRenderDataLoader {
     private cache = new Map<string, { expiresAt: number; load: CardRenderDataLoad }>();
+    private definitionSourceCache = new Map<string, { expiresAt: number; load: DefinitionSourceRenderDataLoad }>();
     private jpdbDecksCache?: { key: string; expiresAt: number; promise: Promise<JPDBDeck[]> };
     private jitenDecksCache?: { key: string; expiresAt: number; promise: Promise<ApiDeck[]> };
     private ankiDecksCache?: { key: string; expiresAt: number; promise: Promise<string[]> };
@@ -162,6 +183,7 @@ export class CardRenderDataLoader {
 
     clear(): void {
         this.cache.clear();
+        this.definitionSourceCache.clear();
         this.jpdbDecksCache = undefined;
         this.jitenDecksCache = undefined;
         this.ankiDecksCache = undefined;
@@ -179,6 +201,46 @@ export class CardRenderDataLoader {
         });
         this.cache.set(key, { expiresAt: now + CARD_RENDER_DATA_CACHE_TTL_MS, load });
         pruneExpiringMapEntries(this.cache, CARD_RENDER_DATA_CACHE_LIMIT, now);
+        return load;
+    }
+
+    loadDefinitionSources(
+        card: JPDBCard,
+        options: DefinitionSourceRenderDataLoadOptions = {},
+    ): DefinitionSourceRenderDataLoad {
+        const key = this.definitionSourceCacheKey(card, options);
+        const now = Date.now();
+        const cached = this.definitionSourceCache.get(key);
+        if (cached && cached.expiresAt > now) return cached.load;
+
+        const settings = this.settings();
+        const localEntriesUncapped = this.loadLocalTermEntriesUncapped(card);
+        const localEntries = this.loadLocalTermEntries(card, localEntriesUncapped);
+        const jpdbVocabularyInfo = options.includeJpdbDefinition !== false
+            ? this.loadJpdbVocabularyInfo(card)
+            : Promise.resolve(null);
+        const jitenVocabularyInfo = options.includeJitenDefinition !== false && settings.jitenDefinitionsEnabled
+            ? this.loadJitenVocabularyInfo(card, true)
+            : Promise.resolve(null);
+        const bunproDefinitionInfo = options.includeBunproDefinition !== false && settings.bunproDefinitionsEnabled
+            ? this.lookupBunproDataResult(card, true).then(result => result.info)
+            : Promise.resolve(null);
+        const settled = Promise.allSettled([
+            localEntriesUncapped,
+            jpdbVocabularyInfo,
+            jitenVocabularyInfo,
+            bunproDefinitionInfo,
+        ]).then(() => undefined);
+        const load = {
+            localEntries,
+            hydrateLocalEntries: () => localEntriesUncapped,
+            jpdbVocabularyInfo,
+            jitenVocabularyInfo,
+            bunproDefinitionInfo,
+            settled,
+        };
+        this.definitionSourceCache.set(key, { expiresAt: now + CARD_RENDER_DATA_CACHE_TTL_MS, load });
+        pruneExpiringMapEntries(this.definitionSourceCache, CARD_RENDER_DATA_CACHE_LIMIT, now);
         return load;
     }
 
@@ -834,6 +896,23 @@ export class CardRenderDataLoader {
             hasApiKey: hasJpdbApiCredential(settings),
             hasJitenApiKey: hasJitenApiCredential(settings),
             hasBunproToken: hasBunproFrontendCredential(settings) && !isBunproFrontendCredentialExpired(settings),
+            dictionaries: settings.dictionaryPreferences.map(preference => ({
+                name: preference.name,
+                enabled: preference.enabled,
+                priority: preference.priority,
+            })),
+        });
+    }
+
+    private definitionSourceCacheKey(card: JPDBCard, options: DefinitionSourceRenderDataLoadOptions): string {
+        const settings = this.settings();
+        return JSON.stringify({
+            card: cardKey(card),
+            local: settings.localDictionariesEnabled,
+            max: settings.localDictionaryMaxResults,
+            jpdbDefinitions: settings.jpdbDefinitionsEnabled && options.includeJpdbDefinition !== false,
+            jitenDefinitions: settings.jitenDefinitionsEnabled && options.includeJitenDefinition !== false,
+            bunproDefinitions: settings.bunproDefinitionsEnabled && options.includeBunproDefinition !== false,
             dictionaries: settings.dictionaryPreferences.map(preference => ({
                 name: preference.name,
                 enabled: preference.enabled,

@@ -20,6 +20,7 @@ const bundlePath = path.join(tempDir, 'probe.js');
 writeFileSync(entryPath, `
     import {
         applyTokensToScanTarget,
+        collectFragmentTextTargetsIn,
         collectTextTargetsIn,
         healTextMirrorPageVisibility,
         makeRoomForRubyInCroppedRows,
@@ -30,6 +31,7 @@ writeFileSync(entryPath, `
     } from ${JSON.stringify(path.join(ROOT, 'src/reader/dom/index.ts'))};
     import { DEFAULT_SETTINGS } from ${JSON.stringify(path.join(ROOT, 'src/reader/settings/index.ts'))};
     import { CRITICAL_READER_CSS } from ${JSON.stringify(path.join(ROOT, 'src/reader/styles/index.ts'))};
+    import { setRenderedWordPitchComponents } from ${JSON.stringify(path.join(ROOT, 'src/reader/dom/rendered-word-state.ts'))};
     import type { JPDBCard, JPDBToken } from ${JSON.stringify(path.join(ROOT, 'src/reader/app/types.ts'))};
 
     const TEXT = '新しい順';
@@ -42,6 +44,8 @@ writeFileSync(entryPath, `
         'MKBHD イントロ曲のプレイリスト',
         '質問する',
     ].join('\\n\\n');
+    const EXPANDED_DESCRIPTION_TEXT = 'いつも見てくれてありがとうございます\\n動画でもお話ししたとおり、音声のポッドキャストを毎週配信します。';
+    const NATURAL_WRAP_DESCRIPTION_TEXT = 'いつも見てくれてありがとうございます動画でもお話ししたとおり、音声のポッドキャストを毎週配信します。';
     function card(spelling: string, reading: string): JPDBCard {
         return {
             vid: 1, sid: 1, rid: 0, spelling, reading, frequencyRank: null,
@@ -165,6 +169,192 @@ writeFileSync(entryPath, `
         makeRoomForRubyInCroppedRows(document);
     }
 
+    async function nextFrame(): Promise<void> {
+        await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+    }
+
+    async function expandedDescriptionProbe(hostId: string) {
+        setRubyDistortsConstrainedRowsForTest(null);
+        removeNonDestructiveScanMirrors(document);
+        const host = document.getElementById(hostId)!;
+        const text = hostId === 'natural-wrap-description-host'
+            ? NATURAL_WRAP_DESCRIPTION_TEXT
+            : EXPANDED_DESCRIPTION_TEXT;
+        host.textContent = text;
+        const node = host.firstChild as Text;
+        const originalInlineLineHeight = host.style.lineHeight;
+        const start = text.indexOf('動画');
+        applyTokensToScanTarget({
+            node,
+            parent: host,
+            text,
+            nonDestructive: true,
+            decoration: 'content-ruby',
+            proseWrap: true,
+        }, [{
+            card: card('動画', 'どうが'), start, end: start + 2, length: 2,
+            rubies: [{ text: 'どうが', start, end: start + 2, length: 2 }],
+            pitchClass: 'heiban', sentence: text,
+        }], { ...DEFAULT_SETTINGS, showFurigana: true, furiganaMode: 'all' });
+        projectAdditiveTextMirrors(document);
+        await nextFrame();
+
+        host.style.setProperty('height', originalInlineLineHeight);
+        host.style.setProperty('max-height', originalInlineLineHeight);
+        host.style.setProperty('overflow', 'hidden');
+        await Promise.resolve();
+        projectAdditiveTextMirrors(document);
+        await nextFrame();
+        const collapsedLineHeight = host.style.lineHeight;
+        host.style.removeProperty('height');
+        host.style.removeProperty('max-height');
+        host.style.removeProperty('overflow');
+        await Promise.resolve();
+        projectAdditiveTextMirrors(document);
+        await nextFrame();
+        const reexpandedLineHeight = host.style.lineHeight;
+
+        const mirror = host.querySelector<HTMLElement>(':scope > .jpdb-reader-text-mirror');
+        const reading = mirror?.querySelector<HTMLElement>('.jpdb-reader-detached-furi') ?? null;
+        const wrapper = mirror?.querySelector<HTMLElement>('.jpdb-reader-detached-ruby') ?? null;
+        const tokenRange = document.createRange();
+        tokenRange.setStart(node, start);
+        tokenRange.setEnd(node, start + 2);
+        const tokenTop = Math.min(...Array.from(tokenRange.getClientRects()).map(rect => rect.top));
+        const precedingRange = document.createRange();
+        precedingRange.setStart(node, 0);
+        precedingRange.setEnd(node, start);
+        const previousLineBottom = Math.max(...Array.from(precedingRange.getClientRects())
+            .filter(rect => rect.top < tokenTop - 1)
+            .map(rect => rect.bottom));
+        const result = {
+            additiveMirror: Boolean(mirror?.classList.contains('jpdb-reader-additive-text-mirror')),
+            detachedReadingCount: mirror?.querySelectorAll('.jpdb-reader-detached-furi').length ?? 0,
+            fontSize: getComputedStyle(host).fontSize,
+            reservedLineHeight: getComputedStyle(host).lineHeight,
+            readingClearance: reading ? reading.getBoundingClientRect().top - previousLineBottom : -1,
+            readingClipped: reading ? readingIsClipped(reading) : true,
+            projectedWrapperDecoration: wrapper ? getComputedStyle(wrapper).textDecorationLine : '',
+            mirrorCount: host.querySelectorAll(':scope > .jpdb-reader-text-mirror').length,
+            originalInlineLineHeight,
+            collapsedLineHeight,
+            reexpandedLineHeight,
+            restoredInlineLineHeight: '',
+        };
+        removeNonDestructiveScanMirrors(document);
+        result.restoredInlineLineHeight = host.style.lineHeight;
+        return result;
+    }
+
+    async function projectedCompoundPitchProbe() {
+        setRubyDistortsConstrainedRowsForTest(null);
+        removeNonDestructiveScanMirrors(document);
+        const host = document.getElementById('compound-host')!;
+        const text = '登録者数';
+        host.textContent = text;
+        const node = host.firstChild as Text;
+        const compound = {
+            ...card(text, 'とうろくしゃすう'),
+            vid: 2856524,
+            source: 'jiten' as const,
+            wordWithReading: '登[とう]録[ろく]者[しゃ]数[すう]',
+        };
+        applyTokensToScanTarget({
+            node,
+            parent: host,
+            text,
+            nonDestructive: true,
+            decoration: 'content-ruby',
+            proseWrap: true,
+        }, [{
+            card: compound, start: 0, end: text.length, length: text.length,
+            rubies: [{ text: 'とうろくしゃすう', start: 0, end: text.length, length: text.length }],
+            pitchClass: '', sentence: text,
+        }], { ...DEFAULT_SETTINGS, showFurigana: true, furiganaMode: 'all', showPitchAccent: true });
+        projectAdditiveTextMirrors(document);
+        await nextFrame();
+
+        const mirror = host.querySelector<HTMLElement>(':scope > .jpdb-reader-text-mirror');
+        const word = mirror?.querySelector<HTMLElement>('.jpdb-reader-word') ?? null;
+        if (word) setRenderedWordPitchComponents(word, {
+            ...compound,
+            pitchComponents: [
+                { spelling: '登録', reading: 'とうろく', pitchAccent: ['HLLLL'], wordWithReading: '登[とう]録[ろく]' },
+                { spelling: '者', reading: 'しゃ', pitchAccent: ['LH'], wordWithReading: '者[しゃ]' },
+                { spelling: '数', reading: 'すう', pitchAccent: ['LHL'], wordWithReading: '数[すう]' },
+            ],
+        });
+        const fragments = word ? [...word.querySelectorAll<HTMLElement>('.jpdb-reader-source-fragment')] : [];
+        return {
+            componentWord: word?.dataset.pitchComponents === 'true',
+            projected: word?.dataset.yomuSourceProjected === 'true',
+            fragmentCount: fragments.length,
+            wordAfterContent: word ? getComputedStyle(word, '::after').content : '',
+            paintedFragments: fragments.filter(fragment => getComputedStyle(fragment, '::after').backgroundImage !== 'none').length,
+            gradientWidths: fragments.map(fragment => fragment.style.getPropertyValue('--jpdb-reader-source-gradient-width')),
+            gradientOffsets: fragments.map(fragment => fragment.style.getPropertyValue('--jpdb-reader-source-gradient-offset')),
+        };
+    }
+
+    async function singleLineDescriptionProbe() {
+        setRubyDistortsConstrainedRowsForTest(null);
+        removeNonDestructiveScanMirrors(document);
+        const host = document.getElementById('single-line-description-host')!;
+        const text = '動画を毎週配信します。';
+        host.textContent = text;
+        const before = host.getBoundingClientRect();
+        const originalLineHeight = host.style.lineHeight;
+        applyTokensToScanTarget({
+            node: host.firstChild as Text,
+            parent: host,
+            text,
+            nonDestructive: true,
+            decoration: 'content-ruby',
+        }, [{
+            card: card('動画', 'どうが'), start: 0, end: 2, length: 2,
+            rubies: [{ text: 'どうが', start: 0, end: 2, length: 2 }],
+            pitchClass: 'heiban', sentence: text,
+        }], { ...DEFAULT_SETTINGS, showFurigana: true, furiganaMode: 'all' });
+        projectAdditiveTextMirrors(document);
+        await nextFrame();
+        const result = {
+            originalLineHeight,
+            currentLineHeight: host.style.lineHeight,
+            heightGrowth: host.getBoundingClientRect().height - before.height,
+        };
+        removeNonDestructiveScanMirrors(document);
+        return result;
+    }
+
+    async function mixedFontSingleLineProbe() {
+        setRubyDistortsConstrainedRowsForTest(null);
+        removeNonDestructiveScanMirrors(document);
+        const host = document.getElementById('mixed-font-single-line-host')!;
+        const text = '日本語';
+        const target = collectFragmentTextTargetsIn(host, 40, false).find(candidate => candidate.text === text);
+        if (!target) throw new Error('mixed-font single-line target not collected');
+        const before = host.getBoundingClientRect();
+        const originalLineHeight = host.style.lineHeight;
+        applyTokensToScanTarget({
+            ...target,
+            nonDestructive: true,
+            decoration: 'content-ruby',
+        }, [{
+            card: card(text, 'にほんご'), start: 0, end: text.length, length: text.length,
+            rubies: [{ text: 'にほんご', start: 0, end: text.length, length: text.length }],
+            pitchClass: 'heiban', sentence: text,
+        }], { ...DEFAULT_SETTINGS, showFurigana: true, furiganaMode: 'all' });
+        projectAdditiveTextMirrors(document);
+        await nextFrame();
+        const result = {
+            originalLineHeight,
+            currentLineHeight: host.style.lineHeight,
+            heightGrowth: host.getBoundingClientRect().height - before.height,
+        };
+        removeNonDestructiveScanMirrors(document);
+        return result;
+    }
+
     function rectanglesOverlap(left: DOMRect, right: DOMRect): boolean {
         return Math.min(left.right, right.right) - Math.max(left.left, right.left) > 0.5
             && Math.min(left.bottom, right.bottom) - Math.max(left.top, right.top) > 0.5;
@@ -229,6 +419,12 @@ writeFileSync(entryPath, `
                 titleToMetadataClearance: words.length ? metadataRect.top - Math.max(...words.map(w => w.rect.bottom)) : -1,
             };
         },
+        runExpandedDescriptionProbe: () => expandedDescriptionProbe('expanded-description-host'),
+        runSmallExpandedDescriptionProbe: () => expandedDescriptionProbe('small-expanded-description-host'),
+        runNaturalWrappedDescriptionProbe: () => expandedDescriptionProbe('natural-wrap-description-host'),
+        runProjectedCompoundPitchProbe: projectedCompoundPitchProbe,
+        runSingleLineDescriptionProbe: singleLineDescriptionProbe,
+        runMixedFontSingleLineProbe: mixedFontSingleLineProbe,
         runYouTubeDescriptionClipProbe() {
             setRubyDistortsConstrainedRowsForTest(null);
             removeNonDestructiveScanMirrors(document);
@@ -531,6 +727,12 @@ body { font: 14px/1.4 Roboto, sans-serif; width: 400px; margin: 40px; }
     <h3 style="margin:0 0 0 auto">概要</h3>
   </ytm-expandable-metadata-renderer>
 </ytm-structured-description-content-renderer>
+<div id="expanded-description-host" style="display:block;width:360px;margin-top:24px;white-space:pre-wrap;font:16px/20px Roboto,sans-serif"></div>
+<div id="small-expanded-description-host" style="display:block;width:320px;margin-top:24px;white-space:pre-wrap;font:14px/18px Roboto,sans-serif"></div>
+<div id="natural-wrap-description-host" style="display:block;width:120px;margin-top:24px;white-space:normal;font:14px/18px Roboto,sans-serif"></div>
+<div id="single-line-description-host" style="display:block;width:320px;margin-top:24px;white-space:normal;font:14px/18px Roboto,sans-serif"></div>
+<div id="mixed-font-single-line-host" style="display:block;width:320px;margin-top:24px;white-space:nowrap;font:16px/20px Roboto,sans-serif">日本<span style="font-size:10px">語</span></div>
+<div id="compound-host" style="display:block;width:48px;margin-top:24px;white-space:normal;font:16px/20px Roboto,sans-serif"></div>
 </body></html>`;
 
 // A second, standalone page: only CRITICAL_READER_CSS is injected (no
@@ -642,6 +844,35 @@ async function runEngine(name, browserType) {
         if (Math.abs(description.previewHeightGrowth) > MAX_GEOMETRY_DELTA_PX || Math.abs(description.summaryTopShift) > MAX_GEOMETRY_DELTA_PX || Math.abs(description.summaryHeightGrowth) > MAX_GEOMETRY_DELTA_PX) fail(`${name}: expanded-description or summary geometry changed`, description);
         if (description.previewOverflow !== 'hidden' || description.previewClientHeight !== 112 || description.previewScrollHeight <= description.previewClientHeight || description.mirrorMaxHeight !== '112px') fail(`${name}: authored 112px description clip was not preserved`, description);
         if (description.mirrorCount !== 1 || description.cycleMirrorCounts.some(count => count !== 1)) fail(`${name}: repeated description disclosure stacked mirrors`, description);
+        const expandedCases = [
+            await page.evaluate(() => window.runExpandedDescriptionProbe()),
+            await page.evaluate(() => window.runSmallExpandedDescriptionProbe()),
+            await page.evaluate(() => window.runNaturalWrappedDescriptionProbe()),
+        ];
+        for (const expanded of expandedCases) {
+            console.log(`${name} expanded description ${expanded.fontSize}:`, JSON.stringify(expanded));
+            if (!expanded.additiveMirror || expanded.detachedReadingCount < 1 || expanded.mirrorCount !== 1) fail(`${name}: expanded prose reading missing`, expanded);
+            if (Number.parseFloat(expanded.reservedLineHeight) < Number.parseFloat(expanded.fontSize) * 2) fail(`${name}: expanded prose did not reserve a furigana lane`, expanded);
+            if (expanded.readingClearance < 1 || expanded.readingClipped) fail(`${name}: expanded prose furigana collides with the preceding line`, expanded);
+            if (expanded.projectedWrapperDecoration !== 'none') fail(`${name}: projected ruby retained the obsolete second underline`, expanded);
+            if (expanded.collapsedLineHeight !== expanded.originalInlineLineHeight) fail(`${name}: collapsed prose kept the expanded reading lane`, expanded);
+            if (Number.parseFloat(expanded.reexpandedLineHeight) < Number.parseFloat(expanded.fontSize) * 2) fail(`${name}: re-expanded prose did not restore its reading lane`, expanded);
+            if (!expanded.originalInlineLineHeight || expanded.restoredInlineLineHeight !== expanded.originalInlineLineHeight) fail(`${name}: expanded prose line-height did not restore cleanly`, expanded);
+        }
+        const singleLineCases = [
+            await page.evaluate(() => window.runSingleLineDescriptionProbe()),
+            await page.evaluate(() => window.runMixedFontSingleLineProbe()),
+        ];
+        for (const singleLine of singleLineCases) {
+            console.log(`${name} single-line description:`, JSON.stringify(singleLine));
+            if (singleLine.currentLineHeight !== singleLine.originalLineHeight || Math.abs(singleLine.heightGrowth) > MAX_GEOMETRY_DELTA_PX) fail(`${name}: single-line content grew a furigana lane`, singleLine);
+        }
+        const compound = await page.evaluate(() => window.runProjectedCompoundPitchProbe());
+        console.log(`${name} projected compound pitch:`, JSON.stringify(compound));
+        if (!compound.componentWord || !compound.projected || compound.fragmentCount < 2) fail(`${name}: wrapped compound pitch word was not source-projected on every line`, compound);
+        if (compound.wordAfterContent !== 'none' || compound.paintedFragments !== compound.fragmentCount) fail(`${name}: projected compound pitch gradient was lost`, compound);
+        if (compound.gradientWidths.some(width => !width || Number.parseFloat(width) <= 0)) fail(`${name}: projected compound gradient geometry is incomplete`, compound);
+        if (compound.gradientOffsets[0] !== '0px' || !compound.gradientOffsets.slice(1).some(offset => Number.parseFloat(offset) < 0)) fail(`${name}: wrapped compound gradient restarted on a later line`, compound);
         const more = await page.evaluate(() => window.runShowMoreProbe());
         console.log(`${name} show-more:`, JSON.stringify(more));
         if (more.detachedReadingCount < 1) fail(`${name}: show-more reading missing`, more);
@@ -655,6 +886,7 @@ async function runEngine(name, browserType) {
         if (tab.inlineRubyCount !== 0) fail(`${name}: tab used an in-flow ruby lane`, tab);
         if (Math.abs(tab.widthGrowth) > MAX_GEOMETRY_DELTA_PX || Math.abs(tab.heightGrowth) > MAX_GEOMETRY_DELTA_PX) fail(`${name}: tab geometry changed`, tab);
         if (tab.readingClipped) fail(`${name}: tab reading is clipped`, tab);
+        if (tab.rtTopClip < 0.75) fail(`${name}: tab reading stayed flush with the chip edge`, tab);
         if (tab.readingBaseOverlap > MAX_FONT_BOX_CONTACT_PX) fail(`${name}: tab reading intrudes into its base`, tab);
 
         const criticalPage = await browser.newPage();

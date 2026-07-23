@@ -1517,7 +1517,7 @@ describe('reader helpers', () => {
         expect(Array.from(form.querySelectorAll<HTMLInputElement>('input[name$=".id"]')).map(input => input.value)).toContain('copy');
     });
 
-    it('keeps JPDB definitions enabled when legacy source-row state is absent', () => {
+    it('preserves JPDB definition state without a source row and reads the row checkbox when present', () => {
         const settings = { ...DEFAULT_SETTINGS, jpdbDefinitionsEnabled: false };
 
         expect(definitionSourceRows(settings).map(row => row.name)).toEqual(expect.arrayContaining(['Jiten', 'JPDB']));
@@ -1527,11 +1527,11 @@ describe('reader helpers', () => {
         const data = new FormData();
         data.set('jpdbDefinitionsEnabled', 'on');
         data.set('dictionaryPreferenceCount', '0');
-        expect(readFormSettings(data, settings).jpdbDefinitionsEnabled).toBe(true);
+        expect(readFormSettings(data, settings).jpdbDefinitionsEnabled).toBe(false);
 
         data.set('jpdbDefinitions.name', 'JPDB');
         data.set('jpdbDefinitions.priority', '0');
-        expect(readFormSettings(data, settings).jpdbDefinitionsEnabled).toBe(true);
+        expect(readFormSettings(data, settings).jpdbDefinitionsEnabled).toBe(false);
 
         data.set('jpdbDefinitions.enabled', 'on');
         expect(readFormSettings(data, settings).jpdbDefinitionsEnabled).toBe(true);
@@ -1542,6 +1542,32 @@ describe('reader helpers', () => {
 
         data.set('jitenDefinitions.enabled', 'on');
         expect(readFormSettings(data, settings).jitenDefinitionsEnabled).toBe(true);
+
+        data.set('bunproDefinitions.name', 'Bunpro');
+        data.set('bunproDefinitions.priority', '2');
+        expect(readFormSettings(data, settings).bunproDefinitionsEnabled).toBe(false);
+
+        data.set('bunproDefinitions.enabled', 'on');
+        expect(readFormSettings(data, settings).bunproDefinitionsEnabled).toBe(true);
+    });
+
+    it('saves disabled JPDB and Bunpro definition rows independently from lookup pills', () => {
+        const form = document.createElement('form');
+        form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
+        form.querySelector<HTMLInputElement>('input[name="jpdbDefinitions.enabled"]')!.checked = false;
+        form.querySelector<HTMLInputElement>('input[name="bunproDefinitions.enabled"]')!.checked = false;
+
+        const saved = readFormSettings(new FormData(form), DEFAULT_SETTINGS);
+
+        expect(saved.jpdbDefinitionsEnabled).toBe(false);
+        expect(saved.bunproDefinitionsEnabled).toBe(false);
+        expect(saved.dictionaryLookupLinks.find(link => link.id === 'jpdb')?.enabled).toBe(true);
+        expect(saved.dictionaryLookupLinks.find(link => link.id === 'bunpro')?.enabled).toBe(true);
+
+        const rerendered = document.createElement('form');
+        rerendered.innerHTML = renderSettingsForm(saved, 'https://jpdb.io/settings');
+        expect(rerendered.querySelector<HTMLInputElement>('input[name="jpdbDefinitions.enabled"]')?.checked).toBe(false);
+        expect(rerendered.querySelector<HTMLInputElement>('input[name="bunproDefinitions.enabled"]')?.checked).toBe(false);
     });
 
     it('keeps the Immersion Kit media toggle and definition source row tied together', () => {

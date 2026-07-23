@@ -50,11 +50,11 @@
 - **Mine and review while reading:** create Anki cards or add words to Academy, Jiten, Bunpro, or JPDB with source context; review Bunpro and currently due WaniKani assignments safely from their live queues.
 - **Optional encrypted Reader account:** create an account from yomureader.com, pair Reader with a one-time code, and synchronize Academy/local SRS states without giving Yomu the decryption key. A free Reader account does not unlock the separate Academy curriculum.
 - **Keep connected sources consistent:** WaniKani definitions, mnemonics, account state, personal notes, pronunciation, kanji components, review queue, and stats sit alongside Jiten, Bunpro, and JPDB instead of becoming a separate workflow.
-- **Enhance the sites you study in:** on jpdb, Jiten, and Bunpro detail, lesson, and revealed review pages, よむ adds Immersion Kit examples and your other enabled dictionary sources directly to the native page.
+- **Enhance the sites you study in:** on jpdb, Jiten, and Bunpro detail, lesson, and revealed review pages, よむ adds Immersion Kit examples and your other enabled dictionary sources directly to the native page. Jiten review cards prefetch one exact current-card search without exposing it on the question side or fanning out fallback traffic; every supported review surface mounts a centred, height-bounded video area immediately while dictionaries hydrate independently at full width.
 - **Read examples consistently:** Bunpro, Jiten, and JPDB use the same compact example rows, annotate the full Japanese sentence with furigana, and blur translations until you reveal them. Missing provider translations are filled with よむ's cached sentence translator. Bunpro also exposes labelled per-corpus frequency and pitch evidence, with pronunciation recordings available as an audio source that stays off until you enable it.
 - **Bring your dictionaries:** import Yomitan ZIPs, JMdict, kanji dictionaries, pitch dictionaries, and frequency dictionaries.
 - **Read media, not only text:** manga/image OCR, PC game capture through Yomu Gaming, YouTube subtitle mining, a local video reader, and a PDF reader.
-- **Mobile-friendly:** works on iPhone/iPad through userscript apps, with touch-first lookup and mobile Anki handoff.
+- **Mobile-friendly:** works on iPhone/iPad through userscript apps, with touch-first lookup, 44px review controls, one-tap blurred-translation reveal, and mobile Anki handoff.
 - **Free and open source:** MIT-licensed, no account needed to start.
 
 ## Install

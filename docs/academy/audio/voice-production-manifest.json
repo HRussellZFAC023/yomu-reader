@@ -7,7 +7,7 @@
     },
     "locks": {
       "path": "docs/academy/audio/learning-voice-locks.json",
-      "sha256": "b3e0eb60ca8bb80f39b7e2f89a51c6243e903e1575e1600a60ad00d56a88fa20"
+      "sha256": "cd75d384aca0300e3ced3757be7de4e28155b204ce37bdb4ae4cefd6b65cae9a"
     },
     "acceptance": {
       "path": "docs/academy/audio/learning-voice-acceptance.json",

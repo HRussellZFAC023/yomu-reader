@@ -3557,7 +3557,6 @@ subtitleResetDefaults	標準に戻す
 moveSubtitles	字幕を移動
 moveSubtitlesAccessible	字幕を移動します。ドラッグするか、矢印キーまたはPage Up/Page Downキーを使います。Homeまたは0でリセットします。
 moveSubtitleControls	字幕コントロール。タップで展開・折りたたみ。ドラッグまたは矢印キーで移動します。Homeまたは0でリセットします。
-noScannedFields
 right	右
 left	左
 bottom	下
@@ -6820,6 +6819,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const ACTIVELY_TRUNCATED_PREVIEW_OVERFLOW_EPSILON_PX = 1;
   let constrainedRowStyleFactMemo = /* @__PURE__ */ new WeakMap();
   let constrainedRowStyleGeneration = 0;
+  function noteConstrainedRowLayoutSettled() {
+    constrainedRowStyleGeneration += 1;
+  }
   function constrainedRowStyleFacts(element2) {
     const now = Date.now();
     const memo = constrainedRowStyleFactMemo.get(element2);
@@ -12222,6 +12224,9 @@ ${spelling}`);
     const mirror = createNonDestructiveTextMirror(context);
     const controlMirror = target.decoration === "interactive-passive";
     if (controlMirror) mirror.dataset.yomuControlMirror = "true";
+    if (context.detachedReadings && !controlMirror) {
+      mirror.dataset.yomuReadingLaneCandidate = "true";
+    }
     const state2 = styleTextMirrorHost(host);
     try {
       styleTextMirror(mirror, host, false);
@@ -12254,7 +12259,7 @@ ${spelling}`);
         openSafeDetachedReadingClips(host);
         stabilizeDetachedReadings(mirror, context.clipRow, true);
       }
-      scheduleAdditiveMirrorProjection();
+      scheduleAdditiveMirrorProjection(host.getRootNode());
       syncTextMirrorVisibilityToPage(host, mirror);
       observeTextMirrorHost(host);
       rememberNonDestructiveRenderForReplay(host, target, context.text, context.safeTokens, context.hostText, settings);
@@ -12309,7 +12314,15 @@ ${spelling}`);
       word.querySelectorAll(`.${SOURCE_FRAGMENT_CLASS}`).forEach((fragment2) => fragment2.remove());
       const start = Number.parseInt(word.dataset.yomuSourceStart ?? "", 10);
       const end = Number.parseInt(word.dataset.yomuSourceEnd ?? "", 10);
-      const rects = sourceClientRects(host, source.nodeOffsets, start, end).filter((rect) => !clipRect || rectsIntersect(rect, clipRect));
+      const sourceRects = sourceClientRects(host, source.nodeOffsets, start, end);
+      const gradientWidth = sourceRects.reduce((width, rect) => width + rect.width / scaleX, 0);
+      let gradientOffset = 0;
+      const rects = sourceRects.map((rect) => {
+        const projectedWidth = rect.width / scaleX;
+        const projection = { rect, gradientOffset };
+        gradientOffset += projectedWidth;
+        return projection;
+      }).filter(({ rect }) => !clipRect || rectsIntersect(rect, clipRect));
       if (!rects.length) continue;
       word.dataset.yomuSourceProjected = "true";
       word.style.setProperty("position", "absolute", "important");
@@ -12317,10 +12330,12 @@ ${spelling}`);
       word.style.setProperty("width", "auto", "important");
       word.style.setProperty("height", "auto", "important");
       word.style.setProperty("margin", "0", "important");
-      for (const rect of rects) {
+      for (const { rect, gradientOffset: fragmentGradientOffset } of rects) {
         const fragment2 = document.createElement("span");
         fragment2.className = SOURCE_FRAGMENT_CLASS;
         fragment2.setAttribute("aria-hidden", "true");
+        fragment2.style.setProperty("--jpdb-reader-source-gradient-width", `${gradientWidth}px`);
+        fragment2.style.setProperty("--jpdb-reader-source-gradient-offset", `${-fragmentGradientOffset}px`);
         positionProjectedElement(fragment2, rect, mirrorRect, scaleX, scaleY);
         word.append(fragment2);
       }
@@ -12385,23 +12400,84 @@ ${spelling}`);
     return left.right > right.left + 0.5 && left.left < right.right - 0.5 && left.bottom > right.top + 0.5 && left.top < right.bottom - 0.5;
   }
   function projectAdditiveTextMirrors(root = document) {
-    if (typeof Range !== "function" || typeof Range.prototype.getClientRects !== "function") return;
-    for (const mirror of root.querySelectorAll(".jpdb-reader-additive-text-mirror")) {
+    const entries2 = [];
+    for (const mirror of queryAllInAnnotationRoots(root, ".jpdb-reader-additive-text-mirror")) {
       const host = registeredTextMirrorHostFor(mirror);
       if (!host?.isConnected) continue;
-      projectAdditiveTextMirror(mirror, host);
+      entries2.push({ mirror, host });
     }
+    if (settleTextMirrorReadingLanes(entries2)) {
+      scheduleAdditiveMirrorProjection(root);
+      return;
+    }
+    if (typeof Range !== "function" || typeof Range.prototype.getClientRects !== "function") return;
+    for (const { mirror, host } of entries2) projectAdditiveTextMirror(mirror, host);
+  }
+  function settleTextMirrorReadingLanes(entries2) {
+    const updates = [];
+    for (const { mirror, host } of entries2) {
+      if (mirror.dataset.yomuReadingLaneCandidate !== "true") continue;
+      const state2 = textMirrorHosts.get(host);
+      if (!state2) continue;
+      const inlineLineHeight = host.style.getPropertyValue("line-height");
+      const inlineLineHeightPriority = host.style.getPropertyPriority("line-height");
+      let baselineChanged = false;
+      const ownsReservation = Boolean(state2.reservedLineHeight) && inlineLineHeight === state2.reservedLineHeight && inlineLineHeightPriority === "important";
+      if (!ownsReservation && (state2.reservedLineHeight || inlineLineHeight !== state2.lineHeight || inlineLineHeightPriority !== state2.lineHeightPriority)) {
+        state2.lineHeight = inlineLineHeight;
+        state2.lineHeightPriority = inlineLineHeightPriority;
+        state2.reservedLineHeight = "";
+        baselineChanged = true;
+      }
+      const multiline = !closestRubyFragileConstrainedRow(host) && sourceTextSpansMultipleLines(host);
+      const lineHeight = multiline ? detachedReadingLaneLineHeight(safeComputedStyle(host), Boolean(state2.reservedLineHeight)) : "";
+      if (baselineChanged || lineHeight !== state2.reservedLineHeight) {
+        updates.push({ mirror, host, state: state2, lineHeight });
+      }
+    }
+    for (const { mirror, host, state: state2, lineHeight } of updates) {
+      if (!host.isConnected || textMirrorHosts.get(host) !== state2 || currentTextMirror(host) !== mirror) continue;
+      if (lineHeight) {
+        state2.reservedLineHeight = lineHeight;
+        host.style.setProperty("line-height", lineHeight, "important");
+        mirror.style.setProperty("line-height", lineHeight);
+      } else {
+        releaseTextMirrorReadingLane(host, state2, mirror);
+      }
+    }
+    return updates.length > 0;
+  }
+  function releaseTextMirrorReadingLane(host, state2, mirror) {
+    const injected = state2.reservedLineHeight;
+    if (injected) {
+      const current = host.style.getPropertyValue("line-height");
+      const priority = host.style.getPropertyPriority("line-height");
+      if (current === injected && priority === "important") {
+        restoreStyleProperty$1(host, "line-height", injected, state2.lineHeight, state2.lineHeightPriority);
+      } else {
+        state2.lineHeight = current;
+        state2.lineHeightPriority = priority;
+      }
+      state2.reservedLineHeight = "";
+    }
+    mirror.style.removeProperty("line-height");
   }
   let pendingAdditiveMirrorProjectionFrame = 0;
-  function scheduleAdditiveMirrorProjection() {
+  const pendingAdditiveMirrorProjectionRoots = /* @__PURE__ */ new Set();
+  function scheduleAdditiveMirrorProjection(root = document) {
+    pendingAdditiveMirrorProjectionRoots.add(root);
     if (typeof requestAnimationFrame !== "function") {
-      projectAdditiveTextMirrors(document);
+      const roots = [...pendingAdditiveMirrorProjectionRoots];
+      pendingAdditiveMirrorProjectionRoots.clear();
+      for (const pendingRoot of roots) projectAdditiveTextMirrors(pendingRoot);
       return;
     }
     if (pendingAdditiveMirrorProjectionFrame) return;
     pendingAdditiveMirrorProjectionFrame = requestAnimationFrame(() => {
       pendingAdditiveMirrorProjectionFrame = 0;
-      projectAdditiveTextMirrors(document);
+      const roots = [...pendingAdditiveMirrorProjectionRoots];
+      pendingAdditiveMirrorProjectionRoots.clear();
+      for (const pendingRoot of roots) projectAdditiveTextMirrors(pendingRoot);
     });
   }
   function sourceRangeBoundary(nodeOffsets, sourceOffset, side) {
@@ -12433,7 +12509,7 @@ ${spelling}`);
       setInlineStyleIfChanged(reading, "position", "absolute", "important");
       setInlineStyleIfChanged(reading, "z-index", "2");
       setInlineStyleIfChanged(reading, "inset-inline-start", "50%");
-      setInlineStyleIfChanged(reading, "inset-block-end", "calc(100% + 3px)");
+      setInlineStyleIfChanged(reading, "inset-block-end", "calc(100% + 5px)");
       setInlineStyleIfChanged(reading, "display", "block", "important");
       setInlineStyleIfChanged(reading, "width", "max-content");
       setInlineStyleIfChanged(reading, "max-width", "none");
@@ -13050,6 +13126,16 @@ ${spelling}`);
   function targetHasNativeRuby(target) {
     return isFragmentTextTarget(target) ? target.fragments.some((fragment2) => fragment2.hasNativeRuby) : Boolean(target.hasNativeRuby);
   }
+  function sourceTextSpansMultipleLines(host) {
+    const source = hostOriginalTextWithNodeOffsets(host);
+    const style = safeComputedStyle(host);
+    if (preservesWhitespace(style.whiteSpace) && /\r|\n/u.test(source.hostText)) return true;
+    if (typeof Range !== "function" || typeof Range.prototype.getClientRects !== "function") return false;
+    const rects = sourceClientRects(host, source.nodeOffsets, 0, source.hostText.length);
+    const vertical = /^(?:vertical|sideways)/u.test(style.writingMode);
+    const intervals = rects.map((rect) => vertical ? [rect.left, rect.right] : [rect.top, rect.bottom]).filter(([start, end]) => Number.isFinite(start) && Number.isFinite(end) && end - start > 0.5);
+    return intervals.some(([start, end], index) => intervals.slice(index + 1).some(([otherStart, otherEnd]) => end < otherStart - 0.5 || otherEnd < start - 0.5));
+  }
   function styleTextMirrorHost(host) {
     const computed = safeComputedStyle(host);
     const state2 = {
@@ -13057,7 +13143,10 @@ ${spelling}`);
       sourceText: "",
       position: host.style.getPropertyValue("position"),
       positionPriority: host.style.getPropertyPriority("position"),
-      positioned: computed.position === "static"
+      positioned: computed.position === "static",
+      lineHeight: host.style.getPropertyValue("line-height"),
+      lineHeightPriority: host.style.getPropertyPriority("line-height"),
+      reservedLineHeight: ""
     };
     textMirrorHosts.set(host, state2);
     if (state2.positioned) host.style.setProperty("position", "relative", "important");
@@ -13099,6 +13188,13 @@ ${spelling}`);
     const existingLineHeight = cssPixels(style.lineHeight) || fontSize * 1.2;
     return `${Math.ceil(Math.max(existingLineHeight, fontSize * 1.78))}px`;
   }
+  function detachedReadingLaneLineHeight(style, alreadyReserved) {
+    const fontSize = cssPixels(style.fontSize) || 16;
+    const minimum = Math.ceil(fontSize * 2) + 1;
+    const current = cssPixels(style.lineHeight);
+    if (alreadyReserved) return `${Math.ceil(Math.max(current, minimum))}px`;
+    return current >= minimum ? "" : `${minimum}px`;
+  }
   function observeTextMirrorHost(host) {
     const state2 = textMirrorHosts.get(host);
     if (!state2) return;
@@ -13128,8 +13224,17 @@ ${spelling}`);
         removeTextMirror(liveHost);
         return;
       }
-      if (mutations.some((mutation) => mutation.type === "attributes" && mutation.target === liveHost)) {
+      const hostAttributeMutations = mutations.filter(
+        (mutation) => mutation.type === "attributes" && mutation.target === liveHost
+      );
+      if (hostAttributeMutations.length) {
+        noteConstrainedRowLayoutSettled();
+        if (liveState.reservedLineHeight && hostAttributeMutations.some((mutation) => mutation.attributeName === "class")) {
+          const mirror = currentTextMirror(liveHost);
+          if (mirror) releaseTextMirrorReadingLane(liveHost, liveState, mirror);
+        }
         reassertTextMirrorHostStyles(liveHost, liveState);
+        scheduleAdditiveMirrorProjection(liveHost.getRootNode());
       }
       if (!mutations.some((mutation) => mutation.type === "childList" || mutation.type === "characterData")) return;
       const currentText = normalizedMirrorHostText(nativeTextMirrorHostText(liveHost));
@@ -13353,10 +13458,13 @@ ${spelling}`);
   }
   function restoreTextMirrorHost(host, state2) {
     if (state2.positioned) restoreStyleProperty$1(host, "position", "relative", state2.position, state2.positionPriority);
+    if (state2.reservedLineHeight) {
+      restoreStyleProperty$1(host, "line-height", state2.reservedLineHeight, state2.lineHeight, state2.lineHeightPriority);
+    }
   }
   function restoreStyleProperty$1(host, property, injectedValue, value, priority) {
     const current = host.style.getPropertyValue(property);
-    if (current && current !== injectedValue) return;
+    if (current !== injectedValue || host.style.getPropertyPriority(property) !== "important") return;
     if (value) host.style.setProperty(property, value, priority);
     else host.style.removeProperty(property);
   }
@@ -31010,8 +31118,10 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       const cached = this.cache.get(cacheKey);
       if (cached) return cached;
       const cacheInflight = !options.signal;
-      const inflight = cacheInflight ? this.inflight.get(cacheKey) : void 0;
-      if (inflight) return inflight;
+      const inflight = this.inflight.get(cacheKey);
+      if (inflight) {
+        return options.signal ? raceSharedImmersionSearchAgainstAbort(inflight, options.signal) : inflight;
+      }
       const done = log$y.time("search", { query, source: settings.immersionKitExampleSource, category: settings.immersionKitCategory, exact: settings.immersionKitExactMatch });
       const promise = this.searchEnabledSources(query, settings, options).then((examples) => {
         const result = applySearchExampleLimit(examples, settings, options);
@@ -31176,6 +31286,30 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       const blob = await requestFirstBlob(url, timeoutMs, proxyUrl, language);
       return readBlobAsDataUrl(blob);
     }
+  }
+  function raceSharedImmersionSearchAgainstAbort(promise, signal) {
+    if (signal.aborted) return Promise.reject(immersionSearchAbortError());
+    return new Promise((resolve, reject) => {
+      const onAbort = () => {
+        cleanup();
+        reject(immersionSearchAbortError());
+      };
+      const cleanup = () => signal.removeEventListener("abort", onAbort);
+      signal.addEventListener("abort", onAbort, { once: true });
+      promise.then((value) => {
+        cleanup();
+        resolve(value);
+      }, (error) => {
+        cleanup();
+        reject(error);
+      });
+    });
+  }
+  function immersionSearchAbortError() {
+    if (typeof DOMException === "function") return new DOMException("Aborted", "AbortError");
+    const error = new Error("Aborted");
+    error.name = "AbortError";
+    return error;
   }
   function canSearchImmersionExamples(query, settings) {
     return Boolean(query && settings.immersionKitEnabled);
@@ -34895,6 +35029,9 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
     storedContextFor(card) {
       return this.contextByCardKey.get(cardKey(card)) ?? loadMiningContext(card.spelling);
     }
+    preferredExampleFor(card, examples) {
+      return examples[this.startIndex(card, examples)];
+    }
     rememberPageMiningContext(card, sentence, anchor) {
       const cleanSentence = normalizeMiningSentence(sentence);
       if (!isPageMiningSentence(cleanSentence, card)) return;
@@ -35160,6 +35297,7 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
       const triedQueries = [];
       const exactResult = await this.fetchExamplesForQuery(exactQuery, exactQuery, triedQueries, options.signal);
       if (exactResult) return exactResult;
+      if (options.exactOnly) return { examples: [], query: exactQuery, usedFallback: false, triedQueries };
       const queries = await this.immersionFallbackSearchQueries(card, options, exactQuery);
       const fallbackResult = await this.fetchFirstFallbackExamples(queries, exactQuery, triedQueries, options.signal);
       if (fallbackResult) return fallbackResult;
@@ -35271,6 +35409,7 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
         sort: settings.immersionKitSort,
         exact: settings.immersionKitExactMatch,
         parse: this.options.canParseJapanese(),
+        exactOnly: Boolean(options.exactOnly),
         relatedQueries: uniqueImmersionQueries(options.relatedQueries ?? []).map(normalizeImmersionSearchQuery)
       });
     }
@@ -35323,7 +35462,12 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
       container.hidden = false;
       const scrollFrame = capturePopoverScrollFrame(container);
       setInnerHtml(container, this.renderExampleHtml(container, card, example, examples.length, index, searchQuery, settings, imageUrl, contextImageUrl, audioUrls, hasAudio));
-      this.loadRenderedExampleImages(container, imageUrls, isCurrent);
+      this.loadRenderedExampleImages(
+        container,
+        imageUrls,
+        isCurrent,
+        this.shouldPrefetchAdjacentExampleImage(container) ? () => this.prefetchNextExampleImage(examples, index, settings) : void 0
+      );
       this.options.repositionPopover();
       restorePopoverScrollFrameSoon(scrollFrame);
       if (playAudio) void this.playExampleAudio(example, true);
@@ -35373,7 +35517,13 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
       const tokens = this.cachedParsedExampleSentenceTokens(sentence);
       return tokens ? renderTokensToHtml(sentence, exampleSentenceLookupTokens(tokens, card), settings) : renderHighlightedTextHtml(sentence, cardHighlightTargets(card), "jpdb-reader-example-target");
     }
-    loadRenderedExampleImages(container, imageUrls, isCurrent) {
+    loadRenderedExampleImages(container, imageUrls, isCurrent, onCurrentImageReady) {
+      let currentImageReady = false;
+      const publishCurrentImageReady = (imageElement) => {
+        if (currentImageReady || !isCurrent() || !container.isConnected || !imageElement.isConnected) return;
+        currentImageReady = true;
+        onCurrentImageReady?.();
+      };
       container.querySelectorAll("[data-immersion-image]").forEach((imageElement) => {
         let imageCandidateIndex = 0;
         let imageRequestId = 0;
@@ -35422,7 +35572,10 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
           });
         };
         imageElement.addEventListener("error", loadNextImageCandidate);
-        imageElement.addEventListener("load", () => publishImmersionFrameWidth(imageElement.closest(".jpdb-reader-example-media")));
+        imageElement.addEventListener("load", () => {
+          publishImmersionFrameWidth(imageElement.closest(".jpdb-reader-example-media"));
+          publishCurrentImageReady(imageElement);
+        });
         imageElement.addEventListener("load", () => this.options.repositionPopover(), { once: true });
         if (!imageElement.dataset.immersionImageSrc) {
           this.hideBrokenExampleImage(container, imageElement);
@@ -35430,6 +35583,22 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
         }
         loadNextImageCandidate();
       });
+    }
+    prefetchNextExampleImage(examples, index, settings) {
+      if (!settings.immersionKitShowImages || examples.length < 2) return;
+      const next = examples[nextImmersionExampleIndex(index, examples.length, "next")];
+      if (!next) return;
+      const imageUrls = this.mediaUrls(next, "image");
+      if (!imageUrls.length) return;
+      void this.options.client.fetchBlobUrl(
+        imageUrls[0],
+        settings.audioTimeoutMs,
+        settings.corsProxyUrl,
+        settings.interfaceLanguage
+      ).catch(() => void 0);
+    }
+    shouldPrefetchAdjacentExampleImage(container) {
+      return Boolean(container.closest('[data-yomu-jpdb-addon][data-yomu-page-context="review"]'));
     }
     hideBrokenExampleImage(container, imageElement) {
       if (!imageElement.isConnected) return;
@@ -46512,7 +46681,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.6.409".trim() ? "1.6.409".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.7.0".trim() ? "1.7.0".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record = value;
@@ -47287,7 +47456,7 @@ ${spelling}`);
     const { has, clamped } = reader;
     const jpdbPageEnhancementsEnabled = has("jpdbPageEnhancementsEnabled");
     return {
-      jpdbDefinitionsEnabled: true,
+      jpdbDefinitionsEnabled: rowsPresent.jpdb ? has("jpdbDefinitions.enabled") : current.jpdbDefinitionsEnabled,
       jpdbDefinitionsAlias: readSourceAlias(reader, "jpdbDefinitions", current.jpdbDefinitionsAlias),
       jpdbDefinitionsPriority: clamped("jpdbDefinitions.priority", 0, 999, current.jpdbDefinitionsPriority),
       jitenDefinitionsEnabled: rowsPresent.jiten ? has("jitenDefinitions.enabled") : current.jitenDefinitionsEnabled,
@@ -51508,7 +51677,13 @@ ${spelling}`);
   async function encryptProfileEvent(key, keyVersion, purpose, value, occurredAt) {
     if (!Number.isSafeInteger(occurredAt) || occurredAt < 0) throw new TypeError("Profile event time is invalid.");
     const plaintext = new TextEncoder().encode(JSON.stringify(value));
-    const hmacKey = await crypto.subtle.importKey("raw", cryptoBuffer(fromBase64Url(key)), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+    const hmacKey = await crypto.subtle.importKey(
+      "raw",
+      cryptoBuffer(fromBase64Url(key)),
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["sign"]
+    );
     const digest = new Uint8Array(await crypto.subtle.sign(
       "HMAC",
       hmacKey,
@@ -51821,7 +51996,7 @@ ${spelling}`);
       meanings,
       sentence: cleanOptional(input2.sentence),
       tags: ["academy"],
-      dueAt: now,
+      dueAt: finiteDueAt(input2.dueAt, now),
       lastReviewAt: null,
       createdAt: now,
       updatedAt: now,
@@ -51832,7 +52007,11 @@ ${spelling}`);
       retainWithoutAcademyProvenance: false,
       academyProvenance: { [provenance.id]: previousProvenance ?? provenance }
     };
-    const card = existing ? preserveExistingSchedule(mergeStoredYomuSrsCards(existing, incoming), existing) : incoming;
+    const card = existing ? preserveExistingSchedule(
+      mergeStoredYomuSrsCards(existing, incoming),
+      existing,
+      input2.postponeExisting === true && !previousProvenance ? input2.dueAt : void 0
+    ) : incoming;
     deck.cards[identity.key] = card;
     return {
       card,
@@ -51841,10 +52020,13 @@ ${spelling}`);
       provenanceCount: Object.keys(card.academyProvenance ?? {}).length
     };
   }
-  function preserveExistingSchedule(merged, existing) {
+  function finiteDueAt(value, fallback) {
+    return value !== void 0 && Number.isFinite(value) && value >= fallback ? value : fallback;
+  }
+  function preserveExistingSchedule(merged, existing, notBefore) {
     return {
       ...merged,
-      dueAt: existing.dueAt,
+      dueAt: notBefore === void 0 ? existing.dueAt : Math.max(existing.dueAt, notBefore),
       lastReviewAt: existing.lastReviewAt,
       reviews: existing.reviews,
       lapses: existing.lapses,
@@ -51944,7 +52126,7 @@ ${spelling}`);
           ...typeof candidate.activityId === "string" ? { activityId: candidate.activityId } : {},
           ...typeof candidate.conceptId === "string" ? { conceptId: candidate.conceptId } : {},
           ...typeof candidate.sourceId === "string" ? { sourceId: candidate.sourceId } : {},
-          ...candidate.reason === "new-learning" || candidate.reason === "repair" ? { reason: candidate.reason } : {}
+          ...candidate.reason === "new-learning" || candidate.reason === "repair" || candidate.reason === "delayed-review" ? { reason: candidate.reason } : {}
         }, finiteNumber(candidate.addedAt, fallbackAt));
         result[normalized.id] = normalized;
       } catch {
@@ -75054,11 +75236,13 @@ ${component.reading}`;
       this.dependencies = dependencies;
     }
     cache = /* @__PURE__ */ new Map();
+    definitionSourceCache = /* @__PURE__ */ new Map();
     jpdbDecksCache;
     jitenDecksCache;
     ankiDecksCache;
     clear() {
       this.cache.clear();
+      this.definitionSourceCache.clear();
       this.jpdbDecksCache = void 0;
       this.jitenDecksCache = void 0;
       this.ankiDecksCache = void 0;
@@ -75074,6 +75258,35 @@ ${component.reading}`;
       });
       this.cache.set(key, { expiresAt: now + CARD_RENDER_DATA_CACHE_TTL_MS, load });
       pruneExpiringMapEntries(this.cache, CARD_RENDER_DATA_CACHE_LIMIT, now);
+      return load;
+    }
+    loadDefinitionSources(card, options = {}) {
+      const key = this.definitionSourceCacheKey(card, options);
+      const now = Date.now();
+      const cached = this.definitionSourceCache.get(key);
+      if (cached && cached.expiresAt > now) return cached.load;
+      const settings = this.settings();
+      const localEntriesUncapped = this.loadLocalTermEntriesUncapped(card);
+      const localEntries = this.loadLocalTermEntries(card, localEntriesUncapped);
+      const jpdbVocabularyInfo = options.includeJpdbDefinition !== false ? this.loadJpdbVocabularyInfo(card) : Promise.resolve(null);
+      const jitenVocabularyInfo = options.includeJitenDefinition !== false && settings.jitenDefinitionsEnabled ? this.loadJitenVocabularyInfo(card, true) : Promise.resolve(null);
+      const bunproDefinitionInfo = options.includeBunproDefinition !== false && settings.bunproDefinitionsEnabled ? this.lookupBunproDataResult(card, true).then((result) => result.info) : Promise.resolve(null);
+      const settled = Promise.allSettled([
+        localEntriesUncapped,
+        jpdbVocabularyInfo,
+        jitenVocabularyInfo,
+        bunproDefinitionInfo
+      ]).then(() => void 0);
+      const load = {
+        localEntries,
+        hydrateLocalEntries: () => localEntriesUncapped,
+        jpdbVocabularyInfo,
+        jitenVocabularyInfo,
+        bunproDefinitionInfo,
+        settled
+      };
+      this.definitionSourceCache.set(key, { expiresAt: now + CARD_RENDER_DATA_CACHE_TTL_MS, load });
+      pruneExpiringMapEntries(this.definitionSourceCache, CARD_RENDER_DATA_CACHE_LIMIT, now);
       return load;
     }
     fetch(card, options) {
@@ -75585,6 +75798,22 @@ ${component.reading}`;
         hasApiKey: hasJpdbApiCredential(settings),
         hasJitenApiKey: hasJitenApiCredential(settings),
         hasBunproToken: hasBunproFrontendCredential(settings) && !isBunproFrontendCredentialExpired(settings),
+        dictionaries: settings.dictionaryPreferences.map((preference) => ({
+          name: preference.name,
+          enabled: preference.enabled,
+          priority: preference.priority
+        }))
+      });
+    }
+    definitionSourceCacheKey(card, options) {
+      const settings = this.settings();
+      return JSON.stringify({
+        card: cardKey(card),
+        local: settings.localDictionariesEnabled,
+        max: settings.localDictionaryMaxResults,
+        jpdbDefinitions: settings.jpdbDefinitionsEnabled && options.includeJpdbDefinition !== false,
+        jitenDefinitions: settings.jitenDefinitionsEnabled && options.includeJitenDefinition !== false,
+        bunproDefinitions: settings.bunproDefinitionsEnabled && options.includeBunproDefinition !== false,
         dictionaries: settings.dictionaryPreferences.map((preference) => ({
           name: preference.name,
           enabled: preference.enabled,

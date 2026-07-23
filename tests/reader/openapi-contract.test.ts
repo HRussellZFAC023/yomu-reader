@@ -35,7 +35,7 @@ function literalAcademyRoutes(): Set<string> {
 
 describe('public Yomu OpenAPI contracts', () => {
     it('builds four independently selectable service contracts with unique operation ids', () => {
-        expect(openapi.validateOpenApiDocuments()).toEqual({ services: 4, operations: 64 });
+        expect(openapi.validateOpenApiDocuments()).toEqual({ services: 4, operations: 67 });
 
         const documents = openapi.serviceDocuments as Record<string, { paths: Record<string, Record<string, { operationId: string }>> }>;
         const ids = Object.values(documents)

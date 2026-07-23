@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
     AUTO_SCAN_OBSERVER_OPTIONS,
     clickMayRevealDynamicUiText,
+    clickMayRevealReviewAnswer,
     mutationMayContainJapaneseText,
 } from '../../src/reader/app/mutation-scan';
 import { AUTO_SCAN_DEBOUNCE_MAX_WAIT_MS, debouncedAutoScanDeadline } from '../../src/reader/app/main-helpers';
@@ -169,6 +170,34 @@ describe('post-click dynamic UI reveal detection', () => {
         `;
         expect(clickMayRevealDynamicUiText(document.querySelector('#story'))).toBe(false);
         expect(clickMayRevealDynamicUiText(document.querySelector('#reader'))).toBe(false);
+    });
+});
+
+describe('review answer reveal detection', () => {
+    afterEach(() => {
+        document.body.innerHTML = '';
+    });
+
+    it('recognizes JPDB and Jiten answer controls, including input values', () => {
+        document.body.innerHTML = `
+            <input id="jpdb" type="submit" value="Show answer">
+            <button id="jiten"><span>Reveal answer</span></button>
+        `;
+
+        expect(clickMayRevealReviewAnswer(document.querySelector('#jpdb'))).toBe(true);
+        expect(clickMayRevealReviewAnswer(document.querySelector('#jiten span'))).toBe(true);
+    });
+
+    it('ignores ordinary buttons and reader-owned controls', () => {
+        document.body.innerHTML = `
+            <button id="save">Save changes</button>
+            <button id="examples">Show examples</button>
+            <div data-jpdb-reader-root><button id="reader">Show answer</button></div>
+        `;
+
+        expect(clickMayRevealReviewAnswer(document.querySelector('#save'))).toBe(false);
+        expect(clickMayRevealReviewAnswer(document.querySelector('#examples'))).toBe(false);
+        expect(clickMayRevealReviewAnswer(document.querySelector('#reader'))).toBe(false);
     });
 });
 

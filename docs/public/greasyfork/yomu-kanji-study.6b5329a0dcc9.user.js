@@ -9221,10 +9221,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
       const cached = this.cache.get(cacheKey);
       if (cached) return cached;
       const cacheInflight = !options.signal;
-      const inflight = this.inflight.get(cacheKey);
-      if (inflight) {
-        return options.signal ? raceSharedImmersionSearchAgainstAbort(inflight, options.signal) : inflight;
-      }
+      const inflight = cacheInflight ? this.inflight.get(cacheKey) : void 0;
+      if (inflight) return inflight;
       const done = log$7.time("search", { query, source: settings.immersionKitExampleSource, category: settings.immersionKitCategory, exact: settings.immersionKitExactMatch });
       const promise = this.searchEnabledSources(query, settings, options).then((examples) => {
         const result = applySearchExampleLimit(examples, settings, options);
@@ -9389,30 +9387,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
       const blob = await requestFirstBlob(url, timeoutMs, proxyUrl, language);
       return readBlobAsDataUrl(blob);
     }
-  }
-  function raceSharedImmersionSearchAgainstAbort(promise, signal) {
-    if (signal.aborted) return Promise.reject(immersionSearchAbortError());
-    return new Promise((resolve, reject) => {
-      const onAbort = () => {
-        cleanup();
-        reject(immersionSearchAbortError());
-      };
-      const cleanup = () => signal.removeEventListener("abort", onAbort);
-      signal.addEventListener("abort", onAbort, { once: true });
-      promise.then((value) => {
-        cleanup();
-        resolve(value);
-      }, (error) => {
-        cleanup();
-        reject(error);
-      });
-    });
-  }
-  function immersionSearchAbortError() {
-    if (typeof DOMException === "function") return new DOMException("Aborted", "AbortError");
-    const error = new Error("Aborted");
-    error.name = "AbortError";
-    return error;
   }
   function canSearchImmersionExamples(query, settings) {
     return Boolean(query && settings.immersionKitEnabled);
@@ -10420,9 +10394,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
     storedContextFor(card) {
       return this.contextByCardKey.get(cardKey(card)) ?? loadMiningContext(card.spelling);
     }
-    preferredExampleFor(card, examples) {
-      return examples[this.startIndex(card, examples)];
-    }
     rememberPageMiningContext(card, sentence, anchor) {
       const cleanSentence = normalizeMiningSentence(sentence);
       if (!isPageMiningSentence(cleanSentence, card)) return;
@@ -10688,7 +10659,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
       const triedQueries = [];
       const exactResult = await this.fetchExamplesForQuery(exactQuery, exactQuery, triedQueries, options.signal);
       if (exactResult) return exactResult;
-      if (options.exactOnly) return { examples: [], query: exactQuery, usedFallback: false, triedQueries };
       const queries = await this.immersionFallbackSearchQueries(card, options, exactQuery);
       const fallbackResult = await this.fetchFirstFallbackExamples(queries, exactQuery, triedQueries, options.signal);
       if (fallbackResult) return fallbackResult;
@@ -10800,7 +10770,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
         sort: settings.immersionKitSort,
         exact: settings.immersionKitExactMatch,
         parse: this.options.canParseJapanese(),
-        exactOnly: Boolean(options.exactOnly),
         relatedQueries: uniqueImmersionQueries(options.relatedQueries ?? []).map(normalizeImmersionSearchQuery)
       });
     }
@@ -10853,12 +10822,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       container.hidden = false;
       const scrollFrame = capturePopoverScrollFrame(container);
       setInnerHtml(container, this.renderExampleHtml(container, card, example, examples.length, index, searchQuery, settings, imageUrl, contextImageUrl, audioUrls, hasAudio));
-      this.loadRenderedExampleImages(
-        container,
-        imageUrls,
-        isCurrent,
-        this.shouldPrefetchAdjacentExampleImage(container) ? () => this.prefetchNextExampleImage(examples, index, settings) : void 0
-      );
+      this.loadRenderedExampleImages(container, imageUrls, isCurrent);
       this.options.repositionPopover();
       restorePopoverScrollFrameSoon(scrollFrame);
       if (playAudio) void this.playExampleAudio(example, true);
@@ -10908,13 +10872,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       const tokens = this.cachedParsedExampleSentenceTokens(sentence);
       return tokens ? renderTokensToHtml(sentence, exampleSentenceLookupTokens(tokens, card), settings) : renderHighlightedTextHtml(sentence, cardHighlightTargets(card), "jpdb-reader-example-target");
     }
-    loadRenderedExampleImages(container, imageUrls, isCurrent, onCurrentImageReady) {
-      let currentImageReady = false;
-      const publishCurrentImageReady = (imageElement) => {
-        if (currentImageReady || !isCurrent() || !container.isConnected || !imageElement.isConnected) return;
-        currentImageReady = true;
-        onCurrentImageReady?.();
-      };
+    loadRenderedExampleImages(container, imageUrls, isCurrent) {
       container.querySelectorAll("[data-immersion-image]").forEach((imageElement) => {
         let imageCandidateIndex = 0;
         let imageRequestId = 0;
@@ -10963,10 +10921,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           });
         };
         imageElement.addEventListener("error", loadNextImageCandidate);
-        imageElement.addEventListener("load", () => {
-          publishImmersionFrameWidth(imageElement.closest(".jpdb-reader-example-media"));
-          publishCurrentImageReady(imageElement);
-        });
+        imageElement.addEventListener("load", () => publishImmersionFrameWidth(imageElement.closest(".jpdb-reader-example-media")));
         imageElement.addEventListener("load", () => this.options.repositionPopover(), { once: true });
         if (!imageElement.dataset.immersionImageSrc) {
           this.hideBrokenExampleImage(container, imageElement);
@@ -10974,22 +10929,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
         }
         loadNextImageCandidate();
       });
-    }
-    prefetchNextExampleImage(examples, index, settings) {
-      if (!settings.immersionKitShowImages || examples.length < 2) return;
-      const next = examples[nextImmersionExampleIndex(index, examples.length, "next")];
-      if (!next) return;
-      const imageUrls = this.mediaUrls(next, "image");
-      if (!imageUrls.length) return;
-      void this.options.client.fetchBlobUrl(
-        imageUrls[0],
-        settings.audioTimeoutMs,
-        settings.corsProxyUrl,
-        settings.interfaceLanguage
-      ).catch(() => void 0);
-    }
-    shouldPrefetchAdjacentExampleImage(container) {
-      return Boolean(container.closest('[data-yomu-jpdb-addon][data-yomu-page-context="review"]'));
     }
     hideBrokenExampleImage(container, imageElement) {
       if (!imageElement.isConnected) return;

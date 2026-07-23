@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.6.409
+// @version 1.7.0
 // @author Henry Russell
 // @description Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and a study page.
 // @license MIT
@@ -11,14 +11,14 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.cb627313461d.user.js#sha256=y2JzE0YdIOG9+4YhmBQPIMvhXNKcC0mQxwUyrXswIWY=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.1789132c5f08.user.js#sha256=F4kTLF8IkeJBiAfiY8+8YFFdmahenO2r9E4f7iJngEw=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.82fe3535c7e8.user.js#sha256=gv41Ncfo385jObXPMTd8wM9VFvDt7LXc1KZFy2dmSwo=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.3d8ff085ab68.user.js#sha256=PY/whatooL7UdPDbH/yY3ZjEv5UaDI8HyajAdtfZOXY=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.fc7fad73db37.user.js#sha256=/H+tc9s3D9G7zF/XxNNhaun7OY2MKpvnswlF2uOkXdo=
-// @require https://yomureader.com/greasyfork/yomu-bunpro.7afd023c154f.user.js#sha256=ev0CPBVPz05sfpD6eZ/vQmZK7l3SF5hBsLq1qC4147I=
-// @require https://yomureader.com/greasyfork/yomu-video.e49d5b65a3f2.user.js#sha256=5J1bZaPyhVtHrp7WToDamVrrc7bvxyRexRKoXCuYYVM=
-// @resource yomuCss  https://yomureader.com/yomu.87515109e685.css#sha256=h1FRCeaFlK7NCv8IiUDMrX5/iBPsS082B/V4DxZY5zs=
+// @require https://yomureader.com/greasyfork/yomu-anki.83c0d5fcbc7e.user.js#sha256=g8DV/Lx+zNCHWqtE6ni5YIcPbiIgw2B3E6VxMW820UQ=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.fbc17936327c.user.js#sha256=+8F5NjJ8+dlp08oNhVe1lrtMo1vNt6JHPjdoPh7N3k4=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.09ef73f0f378.user.js#sha256=Ce9z8PN46Gul+NFTtczlBYngfw+SB496xy/ZI8A9vg0=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.8b7ea0485899.user.js#sha256=i36gSFiZF/9rV+gLjTbAgAuXLnSfkQ5x8VeZLxZLkVc=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.d385223e6b83.user.js#sha256=04UiPmuD0ZanLmu2meeJwaJfVgERDYBgctgL8XoKEsQ=
+// @require https://yomureader.com/greasyfork/yomu-bunpro.9f8a6689e670.user.js#sha256=n4pmieZwV56EHnevzO2dGdopeGTXccXJIkLE8JCtLv4=
+// @require https://yomureader.com/greasyfork/yomu-video.6d6511305740.user.js#sha256=bWURMFdA8FsxzJ5kmqR6JskIfoSMqLdKYWXhhR2M+Ic=
+// @resource yomuCss  https://yomureader.com/yomu.e4e9ed489e80.css#sha256=5OntSJ6AHjI15SttiB5X8KVzAOOugbb23anX9Z4i8WI=
 // @connect api.jiten.moe
 // @connect jpdb.io
 // @connect api.wanikani.com
@@ -8859,6 +8859,9 @@ function mountNonDestructiveTextMirror(host, target, settings, context) {
   const mirror = createNonDestructiveTextMirror(context);
   const controlMirror = target.decoration === "interactive-passive";
   if (controlMirror) mirror.dataset.yomuControlMirror = "true";
+  if (context.detachedReadings && !controlMirror) {
+  mirror.dataset.yomuReadingLaneCandidate = "true";
+  }
   const state = styleTextMirrorHost(host);
   try {
   styleTextMirror(mirror, host, false);
@@ -8888,7 +8891,7 @@ function mountNonDestructiveTextMirror(host, target, settings, context) {
     openSafeDetachedReadingClips(host);
     stabilizeDetachedReadings(mirror, context.clipRow, true);
   }
-  scheduleAdditiveMirrorProjection();
+  scheduleAdditiveMirrorProjection(host.getRootNode());
   syncTextMirrorVisibilityToPage(host, mirror);
   observeTextMirrorHost(host);
   rememberNonDestructiveRenderForReplay(host, target, context.text, context.safeTokens, context.hostText, settings);
@@ -8943,7 +8946,15 @@ function projectAdditiveTextMirror(mirror, host) {
   word.querySelectorAll(`.${SOURCE_FRAGMENT_CLASS}`).forEach((fragment) => fragment.remove());
   const start = Number.parseInt(word.dataset.yomuSourceStart ?? "", 10);
   const end = Number.parseInt(word.dataset.yomuSourceEnd ?? "", 10);
-  const rects = sourceClientRects(host, source.nodeOffsets, start, end).filter((rect) => !clipRect || rectsIntersect(rect, clipRect));
+  const sourceRects = sourceClientRects(host, source.nodeOffsets, start, end);
+  const gradientWidth = sourceRects.reduce((width, rect) => width + rect.width / scaleX, 0);
+  let gradientOffset = 0;
+  const rects = sourceRects.map((rect) => {
+    const projectedWidth = rect.width / scaleX;
+    const projection = { rect, gradientOffset };
+    gradientOffset += projectedWidth;
+    return projection;
+  }).filter(({ rect }) => !clipRect || rectsIntersect(rect, clipRect));
   if (!rects.length) continue;
   word.dataset.yomuSourceProjected = "true";
   word.style.setProperty("position", "absolute", "important");
@@ -8951,10 +8962,12 @@ function projectAdditiveTextMirror(mirror, host) {
   word.style.setProperty("width", "auto", "important");
   word.style.setProperty("height", "auto", "important");
   word.style.setProperty("margin", "0", "important");
-  for (const rect of rects) {
+  for (const { rect, gradientOffset: fragmentGradientOffset } of rects) {
     const fragment = document.createElement("span");
     fragment.className = SOURCE_FRAGMENT_CLASS;
     fragment.setAttribute("aria-hidden", "true");
+    fragment.style.setProperty("--jpdb-reader-source-gradient-width", `${gradientWidth}px`);
+    fragment.style.setProperty("--jpdb-reader-source-gradient-offset", `${-fragmentGradientOffset}px`);
     positionProjectedElement(fragment, rect, mirrorRect, scaleX, scaleY);
     word.append(fragment);
   }
@@ -9019,23 +9032,84 @@ function rectsIntersect(left, right) {
   return left.right > right.left + 0.5 && left.left < right.right - 0.5 && left.bottom > right.top + 0.5 && left.top < right.bottom - 0.5;
 }
 function projectAdditiveTextMirrors(root = document) {
-  if (typeof Range !== "function" || typeof Range.prototype.getClientRects !== "function") return;
-  for (const mirror of root.querySelectorAll(".jpdb-reader-additive-text-mirror")) {
+  const entries2 = [];
+  for (const mirror of queryAllInAnnotationRoots(root, ".jpdb-reader-additive-text-mirror")) {
   const host = registeredTextMirrorHostFor(mirror);
   if (!host?.isConnected) continue;
-  projectAdditiveTextMirror(mirror, host);
+  entries2.push({ mirror, host });
   }
+  if (settleTextMirrorReadingLanes(entries2)) {
+  scheduleAdditiveMirrorProjection(root);
+  return;
+  }
+  if (typeof Range !== "function" || typeof Range.prototype.getClientRects !== "function") return;
+  for (const { mirror, host } of entries2) projectAdditiveTextMirror(mirror, host);
+}
+function settleTextMirrorReadingLanes(entries2) {
+  const updates = [];
+  for (const { mirror, host } of entries2) {
+  if (mirror.dataset.yomuReadingLaneCandidate !== "true") continue;
+  const state = textMirrorHosts.get(host);
+  if (!state) continue;
+  const inlineLineHeight = host.style.getPropertyValue("line-height");
+  const inlineLineHeightPriority = host.style.getPropertyPriority("line-height");
+  let baselineChanged = false;
+  const ownsReservation = Boolean(state.reservedLineHeight) && inlineLineHeight === state.reservedLineHeight && inlineLineHeightPriority === "important";
+  if (!ownsReservation && (state.reservedLineHeight || inlineLineHeight !== state.lineHeight || inlineLineHeightPriority !== state.lineHeightPriority)) {
+    state.lineHeight = inlineLineHeight;
+    state.lineHeightPriority = inlineLineHeightPriority;
+    state.reservedLineHeight = "";
+    baselineChanged = true;
+  }
+  const multiline = !closestRubyFragileConstrainedRow(host) && sourceTextSpansMultipleLines(host);
+  const lineHeight = multiline ? detachedReadingLaneLineHeight(safeComputedStyle(host), Boolean(state.reservedLineHeight)) : "";
+  if (baselineChanged || lineHeight !== state.reservedLineHeight) {
+    updates.push({ mirror, host, state, lineHeight });
+  }
+  }
+  for (const { mirror, host, state, lineHeight } of updates) {
+  if (!host.isConnected || textMirrorHosts.get(host) !== state || currentTextMirror(host) !== mirror) continue;
+  if (lineHeight) {
+    state.reservedLineHeight = lineHeight;
+    host.style.setProperty("line-height", lineHeight, "important");
+    mirror.style.setProperty("line-height", lineHeight);
+  } else {
+    releaseTextMirrorReadingLane(host, state, mirror);
+  }
+  }
+  return updates.length > 0;
+}
+function releaseTextMirrorReadingLane(host, state, mirror) {
+  const injected = state.reservedLineHeight;
+  if (injected) {
+  const current = host.style.getPropertyValue("line-height");
+  const priority2 = host.style.getPropertyPriority("line-height");
+  if (current === injected && priority2 === "important") {
+    restoreStyleProperty(host, "line-height", injected, state.lineHeight, state.lineHeightPriority);
+  } else {
+    state.lineHeight = current;
+    state.lineHeightPriority = priority2;
+  }
+  state.reservedLineHeight = "";
+  }
+  mirror.style.removeProperty("line-height");
 }
 let pendingAdditiveMirrorProjectionFrame = 0;
-function scheduleAdditiveMirrorProjection() {
+const pendingAdditiveMirrorProjectionRoots = new Set();
+function scheduleAdditiveMirrorProjection(root = document) {
+  pendingAdditiveMirrorProjectionRoots.add(root);
   if (typeof requestAnimationFrame !== "function") {
-  projectAdditiveTextMirrors(document);
+  const roots = [...pendingAdditiveMirrorProjectionRoots];
+  pendingAdditiveMirrorProjectionRoots.clear();
+  for (const pendingRoot of roots) projectAdditiveTextMirrors(pendingRoot);
   return;
   }
   if (pendingAdditiveMirrorProjectionFrame) return;
   pendingAdditiveMirrorProjectionFrame = requestAnimationFrame(() => {
   pendingAdditiveMirrorProjectionFrame = 0;
-  projectAdditiveTextMirrors(document);
+  const roots = [...pendingAdditiveMirrorProjectionRoots];
+  pendingAdditiveMirrorProjectionRoots.clear();
+  for (const pendingRoot of roots) projectAdditiveTextMirrors(pendingRoot);
   });
 }
 function readerWordSourcePointScore(word, x, y) {
@@ -9108,7 +9182,7 @@ function styleDetachedReadingElements(root, host) {
   setInlineStyleIfChanged(reading, "position", "absolute", "important");
   setInlineStyleIfChanged(reading, "z-index", "2");
   setInlineStyleIfChanged(reading, "inset-inline-start", "50%");
-  setInlineStyleIfChanged(reading, "inset-block-end", "calc(100% + 3px)");
+  setInlineStyleIfChanged(reading, "inset-block-end", "calc(100% + 5px)");
   setInlineStyleIfChanged(reading, "display", "block", "important");
   setInlineStyleIfChanged(reading, "width", "max-content");
   setInlineStyleIfChanged(reading, "max-width", "none");
@@ -9735,6 +9809,16 @@ function commonFragmentTextHost(elements) {
 function targetHasNativeRuby(target) {
   return isFragmentTextTarget$1(target) ? target.fragments.some((fragment) => fragment.hasNativeRuby) : Boolean(target.hasNativeRuby);
 }
+function sourceTextSpansMultipleLines(host) {
+  const source = hostOriginalTextWithNodeOffsets(host);
+  const style = safeComputedStyle(host);
+  if (preservesWhitespace(style.whiteSpace) && /\r|\n/u.test(source.hostText)) return true;
+  if (typeof Range !== "function" || typeof Range.prototype.getClientRects !== "function") return false;
+  const rects = sourceClientRects(host, source.nodeOffsets, 0, source.hostText.length);
+  const vertical = /^(?:vertical|sideways)/u.test(style.writingMode);
+  const intervals = rects.map((rect) => vertical ? [rect.left, rect.right] : [rect.top, rect.bottom]).filter(([start, end]) => Number.isFinite(start) && Number.isFinite(end) && end - start > 0.5);
+  return intervals.some(([start, end], index) => intervals.slice(index + 1).some(([otherStart, otherEnd]) => end < otherStart - 0.5 || otherEnd < start - 0.5));
+}
 function styleTextMirrorHost(host) {
   const computed = safeComputedStyle(host);
   const state = {
@@ -9742,7 +9826,10 @@ function styleTextMirrorHost(host) {
   sourceText: "",
   position: host.style.getPropertyValue("position"),
   positionPriority: host.style.getPropertyPriority("position"),
-  positioned: computed.position === "static"
+  positioned: computed.position === "static",
+  lineHeight: host.style.getPropertyValue("line-height"),
+  lineHeightPriority: host.style.getPropertyPriority("line-height"),
+  reservedLineHeight: ""
   };
   textMirrorHosts.set(host, state);
   if (state.positioned) host.style.setProperty("position", "relative", "important");
@@ -9784,6 +9871,13 @@ function rubyFriendlyMirrorLineHeight(style) {
   const existingLineHeight = cssPixels(style.lineHeight) || fontSize * 1.2;
   return `${Math.ceil(Math.max(existingLineHeight, fontSize * 1.78))}px`;
 }
+function detachedReadingLaneLineHeight(style, alreadyReserved) {
+  const fontSize = cssPixels(style.fontSize) || 16;
+  const minimum = Math.ceil(fontSize * 2) + 1;
+  const current = cssPixels(style.lineHeight);
+  if (alreadyReserved) return `${Math.ceil(Math.max(current, minimum))}px`;
+  return current >= minimum ? "" : `${minimum}px`;
+}
 function observeTextMirrorHost(host) {
   const state = textMirrorHosts.get(host);
   if (!state) return;
@@ -9813,8 +9907,17 @@ function observeTextMirrorHost(host) {
     removeTextMirror(liveHost);
     return;
   }
-  if (mutations.some((mutation) => mutation.type === "attributes" && mutation.target === liveHost)) {
+  const hostAttributeMutations = mutations.filter(
+    (mutation) => mutation.type === "attributes" && mutation.target === liveHost
+  );
+  if (hostAttributeMutations.length) {
+    noteConstrainedRowLayoutSettled();
+    if (liveState.reservedLineHeight && hostAttributeMutations.some((mutation) => mutation.attributeName === "class")) {
+      const mirror = currentTextMirror(liveHost);
+      if (mirror) releaseTextMirrorReadingLane(liveHost, liveState, mirror);
+    }
     reassertTextMirrorHostStyles(liveHost, liveState);
+    scheduleAdditiveMirrorProjection(liveHost.getRootNode());
   }
   if (!mutations.some((mutation) => mutation.type === "childList" || mutation.type === "characterData")) return;
   const currentText = normalizedMirrorHostText(nativeTextMirrorHostText(liveHost));
@@ -10051,10 +10154,13 @@ function reassertTextMirrorHostStyles(host, state) {
 }
 function restoreTextMirrorHost(host, state) {
   if (state.positioned) restoreStyleProperty(host, "position", "relative", state.position, state.positionPriority);
+  if (state.reservedLineHeight) {
+  restoreStyleProperty(host, "line-height", state.reservedLineHeight, state.lineHeight, state.lineHeightPriority);
+  }
 }
 function restoreStyleProperty(host, property, injectedValue, value, priority2) {
   const current = host.style.getPropertyValue(property);
-  if (current && current !== injectedValue) return;
+  if (current !== injectedValue || host.style.getPropertyPriority(property) !== "important") return;
   if (value) host.style.setProperty(property, value, priority2);
   else host.style.removeProperty(property);
 }
@@ -23012,11 +23118,13 @@ class CardRenderDataLoader {
   this.dependencies = dependencies;
   }
   cache = new Map();
+  definitionSourceCache = new Map();
   jpdbDecksCache;
   jitenDecksCache;
   ankiDecksCache;
   clear() {
   this.cache.clear();
+  this.definitionSourceCache.clear();
   this.jpdbDecksCache = void 0;
   this.jitenDecksCache = void 0;
   this.ankiDecksCache = void 0;
@@ -23032,6 +23140,35 @@ class CardRenderDataLoader {
   });
   this.cache.set(key, { expiresAt: now + CARD_RENDER_DATA_CACHE_TTL_MS, load });
   pruneExpiringMapEntries(this.cache, CARD_RENDER_DATA_CACHE_LIMIT, now);
+  return load;
+  }
+  loadDefinitionSources(card, options = {}) {
+  const key = this.definitionSourceCacheKey(card, options);
+  const now = Date.now();
+  const cached = this.definitionSourceCache.get(key);
+  if (cached && cached.expiresAt > now) return cached.load;
+  const settings = this.settings();
+  const localEntriesUncapped = this.loadLocalTermEntriesUncapped(card);
+  const localEntries = this.loadLocalTermEntries(card, localEntriesUncapped);
+  const jpdbVocabularyInfo = options.includeJpdbDefinition !== false ? this.loadJpdbVocabularyInfo(card) : Promise.resolve(null);
+  const jitenVocabularyInfo = options.includeJitenDefinition !== false && settings.jitenDefinitionsEnabled ? this.loadJitenVocabularyInfo(card, true) : Promise.resolve(null);
+  const bunproDefinitionInfo = options.includeBunproDefinition !== false && settings.bunproDefinitionsEnabled ? this.lookupBunproDataResult(card, true).then((result) => result.info) : Promise.resolve(null);
+  const settled = Promise.allSettled([
+    localEntriesUncapped,
+    jpdbVocabularyInfo,
+    jitenVocabularyInfo,
+    bunproDefinitionInfo
+  ]).then(() => void 0);
+  const load = {
+    localEntries,
+    hydrateLocalEntries: () => localEntriesUncapped,
+    jpdbVocabularyInfo,
+    jitenVocabularyInfo,
+    bunproDefinitionInfo,
+    settled
+  };
+  this.definitionSourceCache.set(key, { expiresAt: now + CARD_RENDER_DATA_CACHE_TTL_MS, load });
+  pruneExpiringMapEntries(this.definitionSourceCache, CARD_RENDER_DATA_CACHE_LIMIT, now);
   return load;
   }
   fetch(card, options) {
@@ -23535,6 +23672,22 @@ class CardRenderDataLoader {
     }))
   });
   }
+  definitionSourceCacheKey(card, options) {
+  const settings = this.settings();
+  return JSON.stringify({
+    card: cardKey(card),
+    local: settings.localDictionariesEnabled,
+    max: settings.localDictionaryMaxResults,
+    jpdbDefinitions: settings.jpdbDefinitionsEnabled && options.includeJpdbDefinition !== false,
+    jitenDefinitions: settings.jitenDefinitionsEnabled && options.includeJitenDefinition !== false,
+    bunproDefinitions: settings.bunproDefinitionsEnabled && options.includeBunproDefinition !== false,
+    dictionaries: settings.dictionaryPreferences.map((preference) => ({
+      name: preference.name,
+      enabled: preference.enabled,
+      priority: preference.priority
+    }))
+  });
+  }
   settings() {
   return this.dependencies.getSettings();
   }
@@ -23911,13 +24064,16 @@ function isKanjiReviewBack() {
   return state.isKanji && (state.phase === "after" || hasReviewAnswerContent());
 }
 function hasReviewAnswerContent() {
-  return Boolean(document.querySelector(".review-reveal, .result.kanji .kanji, .answer-box .kanji, a.kanji.plain, .subsection-meanings"));
+  return sourceElements(document, ".review-reveal, .result.kanji .kanji, .answer-box .kanji, a.kanji.plain, .subsection-meanings").length > 0;
+}
+function isUnrevealedJpdbReview() {
+  return isJpdbHost() && isReviewPage() && !hasReviewAnswerContent();
 }
 function isJpdbReviewFrontPrompt(element) {
   if (!isJpdbHost() || !isReviewPage()) return false;
   if (!element.closest(".review-card, .prompt, .spelling, .kanji, .vocabulary-spelling")) return false;
   if (element.closest(".answer-box, .subsection-meanings, .result, .review-reveal")) return false;
-  return !hasReviewAnswerContent();
+  return isUnrevealedJpdbReview();
 }
 function currentReviewCardState() {
   if (!isReviewPage()) return { kind: "", kanji: "", isKanji: false, phase: "none" };
@@ -23968,6 +24124,7 @@ function canReadCurrentKanjiTarget(kanji) {
   return Boolean(kanji && (isKanjiPage() || isKanjiReviewFront() || isKanjiReviewBack()));
 }
 function currentVocabularyTermTarget() {
+  if (isUnrevealedJpdbReview()) return null;
   const pageTerm = extractCurrentTermTarget();
   const searchQuery = extractSearchQuery();
   const term = currentVocabularyLookupTerm(pageTerm, searchQuery);
@@ -24452,7 +24609,7 @@ const QUIZ_ROOT_SELECTOR = "#js-quiz";
 const QUIZ_QUESTION_SELECTOR = '#js-tour-quiz-question, .bp-quiz-question, [id^="study-question-"]';
 const QUIZ_ANSWER_RUBY_SELECTOR = '#js-tour-quiz-question button ruby, .bp-quiz-question button ruby, [id^="study-question-"] button ruby';
 const QUIZ_ANSWER_SELECTOR = "#js-tour-quiz-answer";
-const BUNPRO_LOCALE_PREFIX = /^\/(?:en|es|fr|id|ja)(?=\/|$)/;
+const BUNPRO_LOCALE_PREFIX$1 = /^\/(?:en|es|fr|id|ja)(?=\/|$)/;
 function isBunproHost() {
   return location.hostname === "bunpro.jp" || location.hostname.endsWith(".bunpro.jp");
 }
@@ -24501,7 +24658,7 @@ function isBunproReviewFrontPrompt(element) {
   return isBunproQuizAnswerHidden();
 }
 function bunproPathname() {
-  const stripped = location.pathname.replace(BUNPRO_LOCALE_PREFIX, "");
+  const stripped = location.pathname.replace(BUNPRO_LOCALE_PREFIX$1, "");
   return stripped || "/";
 }
 function bunproHeadword() {
@@ -29665,6 +29822,7 @@ function requestText$1(url, proxyUrl = "") {
   timeoutLabel: "Public JPDB pitch request timed out."
   });
 }
+const BUNPRO_LOCALE_PREFIX = /^\/(?:en|es|fr|id|ja)(?=\/|$)/;
 function isPageEnhancementHost() {
   return isJpdbHost() || isJitenHost() || isBunproHost();
 }
@@ -29672,6 +29830,15 @@ function isPageEnhancementReady() {
   if (isJpdbHost()) return true;
   if (isBunproHost()) return isBunproEnhanceablePage();
   return isJitenHost() && isJitenEnhanceablePage();
+}
+function currentPageEnhancementLayoutContext() {
+  const pathname = location.pathname;
+  if (isJpdbHost() && pathname.startsWith("/review")) return "review";
+  if (isJitenHost() && pathname.startsWith("/srs/study")) return "review";
+  if (!isBunproHost()) return "entry";
+  const bunproPathname2 = pathname.replace(BUNPRO_LOCALE_PREFIX, "") || "/";
+  const isReviewRoute = bunproPathname2 === "/reviews" || bunproPathname2.startsWith("/reviews/");
+  return isReviewRoute || Boolean(document.querySelector("#js-quiz")) ? "review" : "entry";
 }
 function isCurrentKanjiSurface() {
   if (isBunproHost()) return false;
@@ -32954,6 +33121,14 @@ const DYNAMIC_UI_DISCLOSURE_SELECTOR = [
   '[role="menuitemradio"]',
   '[role="tab"]'
 ].join(",");
+const REVIEW_ANSWER_CONTROL_SELECTOR = [
+  "button",
+  'input[type="button"]',
+  'input[type="submit"]',
+  '[role="button"]'
+].join(",");
+const REVIEW_ANSWER_ENGLISH_LABEL_RE = /^(?:show|reveal)\s+(?:the\s+)?answers?\b/i;
+const REVIEW_ANSWER_JAPANESE_LABEL_RE = /^(?:答え|解答|正解).*(?:見る|表示|開く)/;
 const JPDB_PAGE_ENHANCEMENT_ROOT_SELECTOR = [
   ".result.vocabulary",
   ".result.kanji",
@@ -32991,6 +33166,17 @@ function clickMayRevealDynamicUiText(eventOrTarget) {
   const elements = dynamicUiClickElements(eventOrTarget);
   if (elements.some((element) => element.closest(READER_ROOT_SELECTOR$1))) return false;
   return elements.some((element) => Boolean(element.closest(DYNAMIC_UI_DISCLOSURE_SELECTOR)));
+}
+function clickMayRevealReviewAnswer(eventOrTarget) {
+  const elements = dynamicUiClickElements(eventOrTarget);
+  if (elements.some((element) => element.closest(READER_ROOT_SELECTOR$1))) return false;
+  return elements.some((element) => {
+  const control = element.closest(REVIEW_ANSWER_CONTROL_SELECTOR);
+  if (!control) return false;
+  const label = control.getAttribute("aria-label") ?? (control instanceof HTMLInputElement ? control.value : control.textContent) ?? "";
+  const normalizedLabel = label.trim();
+  return REVIEW_ANSWER_ENGLISH_LABEL_RE.test(normalizedLabel) || REVIEW_ANSWER_JAPANESE_LABEL_RE.test(normalizedLabel);
+  });
 }
 function dynamicUiClickElements(eventOrTarget) {
   const path = eventOrTarget instanceof Event ? eventOrTarget.composedPath() : [eventOrTarget];
@@ -34477,7 +34663,7 @@ function upsertAcademyVocabulary(deck, input, now) {
   meanings,
   sentence: cleanOptional(input.sentence),
   tags: ["academy"],
-  dueAt: now,
+  dueAt: finiteDueAt(input.dueAt, now),
   lastReviewAt: null,
   createdAt: now,
   updatedAt: now,
@@ -34488,7 +34674,11 @@ function upsertAcademyVocabulary(deck, input, now) {
   retainWithoutAcademyProvenance: false,
   academyProvenance: { [provenance.id]: previousProvenance ?? provenance }
   };
-  const card = existing ? preserveExistingSchedule(mergeStoredYomuSrsCards(existing, incoming), existing) : incoming;
+  const card = existing ? preserveExistingSchedule(
+  mergeStoredYomuSrsCards(existing, incoming),
+  existing,
+  input.postponeExisting === true && !previousProvenance ? input.dueAt : void 0
+  ) : incoming;
   deck.cards[identity.key] = card;
   return {
   card,
@@ -34497,10 +34687,13 @@ function upsertAcademyVocabulary(deck, input, now) {
   provenanceCount: Object.keys(card.academyProvenance ?? {}).length
   };
 }
-function preserveExistingSchedule(merged, existing) {
+function finiteDueAt(value, fallback) {
+  return value !== void 0 && Number.isFinite(value) && value >= fallback ? value : fallback;
+}
+function preserveExistingSchedule(merged, existing, notBefore) {
   return {
   ...merged,
-  dueAt: existing.dueAt,
+  dueAt: notBefore === void 0 ? existing.dueAt : Math.max(existing.dueAt, notBefore),
   lastReviewAt: existing.lastReviewAt,
   reviews: existing.reviews,
   lapses: existing.lapses,
@@ -34600,7 +34793,7 @@ function normalizeProvenanceRecord(value, fallbackAt) {
       ...typeof candidate.activityId === "string" ? { activityId: candidate.activityId } : {},
       ...typeof candidate.conceptId === "string" ? { conceptId: candidate.conceptId } : {},
       ...typeof candidate.sourceId === "string" ? { sourceId: candidate.sourceId } : {},
-      ...candidate.reason === "new-learning" || candidate.reason === "repair" ? { reason: candidate.reason } : {}
+      ...candidate.reason === "new-learning" || candidate.reason === "repair" || candidate.reason === "delayed-review" ? { reason: candidate.reason } : {}
     }, finiteNumber(candidate.addedAt, fallbackAt));
     result[normalized.id] = normalized;
   } catch {
@@ -34984,7 +35177,13 @@ function normalizedQueueLimit(limit) {
 async function encryptProfileEvent(key, keyVersion, purpose, value, occurredAt) {
   if (!Number.isSafeInteger(occurredAt) || occurredAt < 0) throw new TypeError("Profile event time is invalid.");
   const plaintext = new TextEncoder().encode(JSON.stringify(value));
-  const hmacKey = await crypto.subtle.importKey("raw", cryptoBuffer(fromBase64Url(key)), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const hmacKey = await crypto.subtle.importKey(
+  "raw",
+  cryptoBuffer(fromBase64Url(key)),
+  { name: "HMAC", hash: "SHA-256" },
+  false,
+  ["sign"]
+  );
   const digest = new Uint8Array(await crypto.subtle.sign(
   "HMAC",
   hmacKey,
@@ -36306,8 +36505,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
     `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.6.409"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.6.409"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.7.0"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.7.0"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka"];
@@ -36439,7 +36638,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.6.409"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.7.0"}`;
   } catch {
   return null;
   }
@@ -37516,6 +37715,7 @@ const HOVER_READER_WORD_GEOMETRY_SCOPE_SELECTOR = [
   '[role="menuitem"]'
 ].join(",");
 const JPDB_REVIEW_EXAMPLES_VISIBLE_STORAGE_KEY = "yomu:jpdb-review-examples-visible:v1";
+const REVIEW_PAGE_TARGET_SETTLE_MS = 20;
 const READER_POINTER_SURFACE_SELECTOR = [
   ".jpdb-reader-popover",
   ".jpdb-reader-settings",
@@ -37591,9 +37791,14 @@ function isJsdomRuntime() {
 function firstLocalPitchPattern(resolution) {
   return resolution.patterns[0] ?? "";
 }
-function pageAddonKeyIdentity(key) {
-  const parts = key.split(":");
-  return parts.length > 2 ? `${parts[0]}:${parts[1]}` : key;
+function pageAddonKeysMatch(expected, mounted) {
+  if (expected === mounted) return true;
+  const expectedParts = expected.split(":");
+  const mountedParts = mounted.split(":");
+  if (expectedParts.length !== mountedParts.length || expectedParts[0] !== mountedParts[0] || expectedParts[1] !== mountedParts[1]) return false;
+  if (expectedParts.length < 3) return true;
+  const [, spelling, expectedReading] = expectedParts;
+  return expectedReading === spelling;
 }
 class ReaderApp {
   abortController = new AbortController();
@@ -37860,6 +38065,9 @@ class ReaderApp {
   visibleAutoScanWorkVerdict;
   lastAutoScanStartedAt = 0;
   autoScanObserver;
+  documentBodyObserver;
+  observedDocumentBody;
+  documentBodyRecoveryPending = false;
   disposeShadowRootDiscovery;
   lastMirrorStaleScanAt = 0;
   handleNonDestructiveMirrorStale = () => {
@@ -37914,13 +38122,18 @@ class ReaderApp {
   dictionaryRescanPending = false;
   visiblePageReparseTimer;
   jpdbPageEnhanceTimer;
+  jpdbPageEnhanceDeadline = 0;
   jpdbPageEnhancementGeneration = 0;
   lastEnhancedHref = "";
   lastJitenStudyHeadword = "";
+  lastJitenImmersionPrefetchHeadword = "";
+  pendingReviewTargetSignature = "";
+  pendingReviewTargetReadyAt = 0;
   nearbyReaderAudioPreloadTimer;
   preloadedTermAudioKeys = new Set();
   preloadedPreparedTermAudioKeys = new Set();
   nestedParseContentCache = new Map();
+  pageAddonParseStates = new WeakMap();
   pitchEnrichmentLocalCache = new Map();
   localPitchDictionaryAvailability;
   resolvedFallbackVocabularyCache = new Map();
@@ -38579,18 +38792,24 @@ class ReaderApp {
   initJpdbPageEnhancements() {
   if (!isPageEnhancementHost()) return;
   this.lastJitenStudyHeadword = currentJitenStudyHeadwordText();
+  this.prefetchJitenStudyImmersion();
   this.scheduleJpdbPageEnhancements(0);
   this.installJpdbReviewExamplesToggleMemory();
   addWindowEventListener("popstate", () => this.scheduleJpdbPageEnhancements(120), { signal: this.abortController.signal });
   addWindowEventListener("hashchange", () => this.scheduleJpdbPageEnhancements(120), { signal: this.abortController.signal });
   }
-  scheduleJpdbPageEnhancements(delay2 = 0) {
+  scheduleJpdbPageEnhancements(delay2 = 0, options = {}) {
   if (this.isDestroyed || !isPageEnhancementHost()) return;
+  const normalizedDelay = Math.max(0, delay2);
+  const deadline = Date.now() + normalizedDelay;
+  if (this.jpdbPageEnhanceTimer !== void 0 && options.preserveEarlier && this.jpdbPageEnhanceDeadline <= deadline) return;
   window.clearTimeout(this.jpdbPageEnhanceTimer);
+  this.jpdbPageEnhanceDeadline = deadline;
   this.jpdbPageEnhanceTimer = window.setTimeout(() => {
     this.jpdbPageEnhanceTimer = void 0;
+    this.jpdbPageEnhanceDeadline = 0;
     void this.refreshJpdbPageEnhancements();
-  }, Math.max(0, delay2));
+  }, normalizedDelay);
   }
   async refreshJpdbPageEnhancements() {
   const generation = ++this.jpdbPageEnhancementGeneration;
@@ -38605,17 +38824,52 @@ class ReaderApp {
     this.removeStaleJpdbPageEnhancements(generation);
     return;
   }
-  if (this.settings.jpdbPageWordEnhancementsEnabled) await this.installJpdbWordPageEnhancements(generation);
+  if (this.settings.jpdbPageWordEnhancementsEnabled && this.reviewPageWordTargetsStableForMount()) {
+    await this.installJpdbWordPageEnhancements(generation);
+  }
   this.removeStaleJpdbPageEnhancements(generation);
   }
+  reviewPageWordTargetsStableForMount() {
+  if (currentPageEnhancementLayoutContext() !== "review") {
+    this.resetPendingReviewTarget();
+    return true;
+  }
+  const expectedKeys = currentPageLocalDictionaryTargets().map((target) => this.jpdbPageWordAddonKey(target));
+  if (!expectedKeys.length) {
+    this.resetPendingReviewTarget();
+    return true;
+  }
+  const mountedKeys = Array.from(document.querySelectorAll("[data-yomu-jpdb-addon]")).map((element) => element.dataset.yomuAddonKey ?? "");
+  if (expectedKeys.some((expected) => mountedKeys.some((mounted) => pageAddonKeysMatch(expected, mounted)))) {
+    this.resetPendingReviewTarget();
+    return true;
+  }
+  const signature = expectedKeys.join("\0");
+  const now = Date.now();
+  if (signature !== this.pendingReviewTargetSignature) {
+    this.pendingReviewTargetSignature = signature;
+    this.pendingReviewTargetReadyAt = now + REVIEW_PAGE_TARGET_SETTLE_MS;
+  }
+  const remaining = this.pendingReviewTargetReadyAt - now;
+  if (remaining > 0) {
+    this.scheduleJpdbPageEnhancements(Math.ceil(remaining), { preserveEarlier: true });
+    return false;
+  }
+  this.resetPendingReviewTarget();
+  return true;
+  }
+  resetPendingReviewTarget() {
+  this.pendingReviewTargetSignature = "";
+  this.pendingReviewTargetReadyAt = 0;
+  }
   removeJpdbPageEnhancements() {
-  document.querySelectorAll("[data-yomu-jpdb-addon]").forEach((element) => element.remove());
+  document.querySelectorAll("[data-yomu-jpdb-addon]").forEach((element) => this.removeJpdbPageAddonRoot(element));
   }
   removeStaleJpdbPageEnhancements(generation) {
   const generationKey = String(generation);
   this.pauseAutoScanObserver(() => {
     document.querySelectorAll("[data-yomu-jpdb-addon]").forEach((element) => {
-      if (element.dataset.yomuGeneration !== generationKey) element.remove();
+      if (element.dataset.yomuGeneration !== generationKey) this.removeJpdbPageAddonRoot(element);
     });
   });
   }
@@ -38626,22 +38880,47 @@ class ReaderApp {
   this.lastJitenStudyHeadword = headword;
   if (hadPreviousCard) window.scrollTo({ top: 0 });
   }
+  prefetchJitenStudyImmersion() {
+  if (!isJitenHost() || !location.pathname.startsWith("/srs/study") || !this.settings.immersionKitEnabled) return;
+  const headword = currentJitenStudyHeadwordText();
+  if (!headword || headword === this.lastJitenImmersionPrefetchHeadword || currentPageLocalDictionaryTargets().length > 0) return;
+  const controller = this.immersionPopover;
+  if (!controller) return;
+  this.lastJitenImmersionPrefetchHeadword = headword;
+  const card = jpdbAudioCard(headword, headword);
+  card.source = "jiten";
+  void controller.searchExamples(card, { exactOnly: true }).then((result) => {
+    if (currentJitenStudyHeadwordText() !== headword) return;
+    const example = controller.preferredExampleFor(card, result.examples);
+    const client = this.immersionKit;
+    if (!example || !client || !this.settings.immersionKitShowImages) return;
+    const imageUrls = client.mediaUrls(example, "image");
+    if (!imageUrls.length) return;
+    void client.fetchBlobUrl(
+      imageUrls[0],
+      this.settings.audioTimeoutMs,
+      this.settings.corsProxyUrl,
+      this.settings.interfaceLanguage
+    ).catch(() => void 0);
+  }).catch((error) => {
+    log.debug("Jiten review Immersion prefetch failed", { term: headword, error });
+  });
+  }
   jitenEnhancementsNeedRefresh() {
   if (location.href !== this.lastEnhancedHref) return true;
   if (!isPageEnhancementReady() || !this.settings.jpdbPageEnhancementsEnabled) return false;
   const hasAddon = Boolean(document.querySelector("[data-yomu-jpdb-addon]"));
   if (isBunproHost() && isBunproQuizAnswerHidden()) return hasAddon;
+  if (currentPageEnhancementLayoutContext() === "review" && !isCurrentKanjiSurface() && currentPageLocalDictionaryTargets().length === 0) return hasAddon;
   if (!hasAddon) return true;
   if (this.jitenAddonWordIdentityChanged()) return true;
   return this.jitenAddonStrandedOnFallbackAnchor();
   }
   jitenAddonWordIdentityChanged() {
-  const expected = this.currentJitenAddonKeys().map(pageAddonKeyIdentity);
+  const expected = this.currentJitenAddonKeys();
   if (!expected.length) return false;
-  const mounted = new Set(
-    Array.from(document.querySelectorAll("[data-yomu-jpdb-addon]")).map((element) => pageAddonKeyIdentity(element.dataset.yomuAddonKey ?? ""))
-  );
-  return !expected.some((identity) => mounted.has(identity));
+  const mounted = Array.from(document.querySelectorAll("[data-yomu-jpdb-addon]")).map((element) => element.dataset.yomuAddonKey ?? "");
+  return !expected.some((expectedKey) => mounted.some((mountedKey) => pageAddonKeysMatch(expectedKey, mountedKey)));
   }
   currentJitenAddonKeys() {
   if (isCurrentKanjiSurface()) {
@@ -38691,30 +38970,62 @@ class ReaderApp {
   const targets = currentPageLocalDictionaryTargets();
   await Promise.all(targets.map((target) => this.installJpdbWordPageEnhancement(target, generation)));
   }
-  async installJpdbWordPageEnhancement(target, generation) {
+  installJpdbWordPageEnhancement(target, generation) {
   const card = this.jpdbPageWordCard(target);
-  const renderData = this.cardRenderData.load(card);
-  const [data, variantEntries] = await Promise.all([
-    renderData.all.catch(() => null),
-    this.lookupJpdbPageLocalEntries(target)
-  ]);
-  const entries2 = uniqueLocalDictionaryEntries([
-    ...data?.localEntries ?? [],
-    ...variantEntries
-  ]).sort(
-    (first, second) => dictionaryPreferencePriority(first.dictionary, this.settings) - dictionaryPreferencePriority(second.dictionary, this.settings)
-  ).slice(0, this.settings.localDictionaryMaxResults);
   if (!this.isCurrentJpdbPageEnhancement(generation)) return;
-  if (!this.hasJpdbPageWordContent(entries2, data)) return;
   const root = this.createJpdbPageAddonRoot("word", this.jpdbPageWordAddonKey(target), target.anchor, generation);
   if (!root) return;
+  const state = {
+    entries: [],
+    jpdbVocabularyInfo: null,
+    jitenVocabularyInfo: null,
+    bunproDefinitionInfo: null
+  };
+  this.renderJpdbPageWordDefinitionState(root, card, target, generation, state);
+  const load = this.cardRenderData.loadDefinitionSources(card, {
+    includeJpdbDefinition: !isJpdbHost(),
+    includeJitenDefinition: !isJitenHost(),
+    includeBunproDefinition: !isBunproHost()
+  });
+  const mergeEntries = (entries2) => {
+    state.entries = uniqueLocalDictionaryEntries([...state.entries, ...entries2]);
+    this.renderJpdbPageWordDefinitionState(root, card, target, generation, state);
+  };
+  const tasks = [
+    load.localEntries.then(mergeEntries),
+    load.hydrateLocalEntries().then(mergeEntries),
+    this.lookupJpdbPageLocalEntries(target).then(mergeEntries),
+    load.jpdbVocabularyInfo.then((value) => {
+      state.jpdbVocabularyInfo = value;
+      this.renderJpdbPageWordDefinitionState(root, card, target, generation, state);
+    }),
+    load.jitenVocabularyInfo.then((value) => {
+      state.jitenVocabularyInfo = value;
+      this.renderJpdbPageWordDefinitionState(root, card, target, generation, state);
+    }),
+    load.bunproDefinitionInfo.then((value) => {
+      state.bunproDefinitionInfo = value;
+      this.renderJpdbPageWordDefinitionState(root, card, target, generation, state);
+    })
+  ];
+  void Promise.allSettled(tasks).then(() => {
+    if (!this.isCurrentJpdbPageEnhancement(generation) || !root.isConnected) return;
+    if (!this.hasJpdbPageWordContent(state.entries, state)) this.removeJpdbPageAddonRoot(root);
+  });
+  }
+  renderJpdbPageWordDefinitionState(root, card, target, generation, state) {
+  if (!this.isCurrentJpdbPageEnhancement(generation) || !root.isConnected || root.dataset.yomuGeneration !== String(generation)) return;
+  const entries2 = uniqueLocalDictionaryEntries(state.entries).sort(
+    (first, second) => dictionaryPreferencePriority(first.dictionary, this.settings) - dictionaryPreferencePriority(second.dictionary, this.settings)
+  ).slice(0, this.settings.localDictionaryMaxResults);
+  if (!this.hasJpdbPageWordContent(entries2, state)) return;
   const html = this.renderDefinitionSources(
     card,
     entries2,
     target.examples[0]?.sentence,
-    data?.jpdbVocabularyInfo ?? null,
-    data?.jitenVocabularyInfo ?? null,
-    data?.bunproDefinitionInfo ?? null
+    state.jpdbVocabularyInfo,
+    state.jitenVocabularyInfo,
+    state.bunproDefinitionInfo
   );
   if (!this.updateJpdbPageAddonHtml(root, html)) return;
   this.wanikaniSources.installDefinitionMounts(root, card);
@@ -38742,14 +39053,34 @@ class ReaderApp {
   return `word:${target.term}:${target.reading}`;
   }
   updateJpdbPageAddonHtml(root, html) {
-  if (root.dataset.yomuRenderedHtml === html) return false;
-  root.dataset.yomuRenderedHtml = html;
-  setInnerHtml(root, html);
-  return true;
+  const preservedImmersion = root.querySelector("[data-immersion-kit]");
+  const htmlChanged = root.dataset.yomuRenderedHtml !== html;
+  if (htmlChanged) {
+    root.dataset.yomuRenderedHtml = html;
+    setInnerHtml(root, html);
+    const nextImmersion = root.querySelector("[data-immersion-kit]");
+    if (preservedImmersion && nextImmersion && preservedImmersion !== nextImmersion) {
+      nextImmersion.replaceWith(preservedImmersion);
+    }
+  }
+  this.applyJpdbReviewImmersionLayout(root);
+  return htmlChanged;
+  }
+  applyJpdbReviewImmersionLayout(root) {
+  if (root.dataset.yomuPageContext !== "review") return;
+  const immersion = root.querySelector("[data-immersion-kit]");
+  if (!immersion) return;
+  const stack = immersion.parentElement;
+  if (stack?.firstElementChild !== immersion) stack?.prepend(immersion);
+  if (immersion.tagName !== "DETAILS" || immersion.dataset.yomuReviewAutoOpened === "true") return;
+  const details = immersion;
+  details.dataset.yomuReviewAutoOpened = "true";
+  details.dataset.sourceInitialOpen = "true";
+  details.open = true;
   }
   async lookupJpdbPageLocalEntries(target) {
   if (!this.settings.localDictionariesEnabled) return [];
-  const variants = localDictionaryLookupVariants(target).slice(0, 12);
+  const variants = localDictionaryLookupVariants(target).filter((variant) => variant.term !== target.term || variant.reading !== target.reading).slice(0, 11);
   const batches = await Promise.all(variants.map(
     (variant) => this.dictionaries.lookup(
       variant.term,
@@ -38761,6 +39092,10 @@ class ReaderApp {
   return uniqueLocalDictionaryEntries(batches.flat()).sort(
     (first, second) => dictionaryPreferencePriority(first.dictionary, this.settings) - dictionaryPreferencePriority(second.dictionary, this.settings)
   ).slice(0, this.settings.localDictionaryMaxResults);
+  }
+  removeJpdbPageAddonRoot(root) {
+  this.immersionPopover?.abortPendingRequests(root);
+  root.remove();
   }
   installJpdbKanjiPageEnhancement(generation) {
   const kanji = currentPageKanji();
@@ -38787,6 +39122,8 @@ class ReaderApp {
   if (existing) {
     existing.dataset.yomuGeneration = String(generation);
     existing.dataset.yomuAnchorFallback = String(anchor.tagName === "MAIN");
+    existing.dataset.yomuPageContext = currentPageEnhancementLayoutContext();
+    this.applyJpdbReviewImmersionLayout(existing);
     return existing;
   }
   const root = document.createElement("div");
@@ -38794,10 +39131,14 @@ class ReaderApp {
   root.dataset.yomuJpdbAddon = kind;
   root.dataset.yomuAddonKey = key;
   root.dataset.yomuGeneration = String(generation);
+  root.dataset.yomuPageContext = currentPageEnhancementLayoutContext();
   root.dataset.yomuAnchorFallback = String(anchor.tagName === "MAIN");
   root.className = `yomu-jpdb-page-addon yomu-jpdb-${kind}-addon`;
   this.pauseAutoScanObserver(() => {
     anchor.insertAdjacentElement("afterend", root);
+  });
+  queueMicrotask(() => {
+    if (root.isConnected) this.applyJpdbReviewImmersionLayout(root);
   });
   return root;
   }
@@ -39013,6 +39354,10 @@ class ReaderApp {
   setCustomElementUpgradeHook(null);
   setReviewCardFrontPredicate(null);
   this.autoScanObserver?.disconnect();
+  this.documentBodyObserver?.disconnect();
+  this.documentBodyObserver = void 0;
+  this.observedDocumentBody = void 0;
+  this.documentBodyRecoveryPending = false;
   this.clearMiningPauseReassert();
   this.clearSubtitleHoverMiningResumeTimer();
   this.ocr.destroy();
@@ -39026,6 +39371,7 @@ class ReaderApp {
   this.knownStateBackfillTimer = void 0;
   window.clearTimeout(this.visiblePageReparseTimer);
   window.clearTimeout(this.jpdbPageEnhanceTimer);
+  this.jpdbPageEnhanceDeadline = 0;
   window.clearTimeout(this.nearbyReaderAudioPreloadTimer);
   window.clearTimeout(this.hoverLookupTimer);
   window.clearTimeout(this.hoverCloseTimer);
@@ -39122,13 +39468,19 @@ class ReaderApp {
     }
     if (isJitenHost()) {
       this.maybeScrollJitenStudyToNewCard();
-      if (this.jitenEnhancementsNeedRefresh()) this.scheduleJpdbPageEnhancements(500);
+      this.prefetchJitenStudyImmersion();
+      if (this.jitenEnhancementsNeedRefresh()) {
+        this.scheduleJpdbPageEnhancements(0, { preserveEarlier: true });
+      }
     } else if (isBunproHost()) {
-      if (this.jitenEnhancementsNeedRefresh()) this.scheduleJpdbPageEnhancements(300);
+      if (this.jitenEnhancementsNeedRefresh()) {
+        this.scheduleJpdbPageEnhancements(0, { preserveEarlier: true });
+      }
     } else if (isPageEnhancementHost() && scanMutations.some(mutationMayAffectJpdbPageEnhancements)) {
-      this.scheduleJpdbPageEnhancements(500);
+      this.scheduleJpdbPageEnhancements(0, { preserveEarlier: true });
     }
   });
+  this.setupDocumentBodyRecovery();
   setReviewCardFrontPredicate(isReviewCardFrontPromptElement);
   setShadowRootScanHook((root, cause) => {
     if (this.isDestroyed || !nodeWithinAnnotationScope(root)) return;
@@ -39160,6 +39512,9 @@ class ReaderApp {
     }
   }, { passive: true, signal: abortSignal });
   document.addEventListener("click", (event) => {
+    if (!document.hidden && isPageEnhancementHost() && clickMayRevealReviewAnswer(event)) {
+      this.scheduleJpdbPageEnhancements(0, { preserveEarlier: true });
+    }
     if (document.hidden || !this.canParseJapanese() || false || !clickMayRevealDynamicUiText(event)) return;
     this.noteVisibleAutoScanWorkObserved();
     this.scheduleAutoScan(visibleAutoScanMutationDelay(), { force: true, debounce: true });
@@ -39184,7 +39539,8 @@ class ReaderApp {
     this.pageScanner.pauseGeometrySweeps();
     return;
   }
-  this.observeAutoScanMutations();
+  if (this.documentBodyRecoveryPending) this.recoverAfterDocumentBodyReplacement();
+  else this.observeAutoScanMutations();
   wakeShadowHostPoll();
   this.scheduleReaderKnownStateBackfill();
   if (this.hasVisibleAutoScanWork()) this.scheduleAutoScan(visibleAutoScanInitialDelay());
@@ -39198,6 +39554,36 @@ class ReaderApp {
   }
   this.autoScanObserver?.observe(document.body, AUTO_SCAN_OBSERVER_OPTIONS);
   this.observeScopedScannedShadowRoots();
+  }
+  setupDocumentBodyRecovery() {
+  this.documentBodyObserver?.disconnect();
+  this.observedDocumentBody = document.body ?? void 0;
+  if (!document.documentElement) return;
+  this.documentBodyObserver = new MutationObserver(() => this.handleDocumentBodyReplacement());
+  this.documentBodyObserver.observe(document.documentElement, { childList: true });
+  }
+  handleDocumentBodyReplacement() {
+  const body = document.body ?? void 0;
+  if (this.isDestroyed || !body || body === this.observedDocumentBody) return;
+  this.observedDocumentBody = body;
+  this.documentBodyRecoveryPending = true;
+  if (!document.hidden) this.recoverAfterDocumentBodyReplacement();
+  }
+  recoverAfterDocumentBodyReplacement() {
+  if (this.isDestroyed || !document.body || !this.documentBodyRecoveryPending) return;
+  this.documentBodyRecoveryPending = false;
+  this.autoScanObserver?.disconnect();
+  this.observeAutoScanMutations();
+  this.disposeJpdbReviewBridge?.();
+  this.disposeJpdbReviewBridge = installReaderStartupBridge();
+  if (!this.embeddedFrame) this.installFab();
+  if (this.canParseJapanese() && allowsFrequentVisibleAutoScan()) {
+    this.noteVisibleAutoScanWorkObserved();
+    this.scheduleAutoScan(0, { force: true, debounce: true });
+  }
+  if (isPageEnhancementHost()) {
+    this.scheduleJpdbPageEnhancements(0, { preserveEarlier: true });
+  }
   }
   observeScopedScannedShadowRoots() {
   forEachScannedShadowRoot((root) => {
@@ -42960,7 +43346,25 @@ class ReaderApp {
   }
   installJpdbPageImmersionExamples(root, card, relatedQueries = []) {
   if (!this.settings.immersionKitEnabled) return;
-  this.immersionPopover?.installLazyLoad(root, card, relatedQueries.length ? { relatedQueries } : void 0);
+  const controller = this.immersionPopover;
+  if (!controller) return;
+  const options = relatedQueries.length ? { relatedQueries } : void 0;
+  if (root.dataset.yomuPageContext !== "review") {
+    controller.installLazyLoad(root, card, options);
+    return;
+  }
+  const container = root.querySelector("[data-immersion-kit]");
+  if (!container || ["loading", "loaded"].includes(container.dataset.immersionLoadState ?? "")) return;
+  container.dataset.immersionLoadState = "loading";
+  void controller.loadExamples(root, card, options).then(() => {
+    if (container.isConnected && container.dataset.immersionLoadState === "loading") {
+      container.dataset.immersionLoadState = "loaded";
+    }
+  }).catch(() => {
+    if (container.isConnected && container.dataset.immersionLoadState === "loading") {
+      delete container.dataset.immersionLoadState;
+    }
+  });
   }
   async parsePopoverJapanese(popover) {
   if (!this.isCurrentPopoverRoot(popover)) return;
@@ -42984,6 +43388,29 @@ class ReaderApp {
   }
   }
   async parseJpdbPageAddonJapanese(root) {
+  let state = this.pageAddonParseStates.get(root);
+  if (!state) {
+    state = { dirty: false };
+    this.pageAddonParseStates.set(root, state);
+  }
+  state.dirty = true;
+  if (state.running) return state.running;
+  state.running = this.flushJpdbPageAddonJapaneseParse(root, state).finally(() => {
+    state.running = void 0;
+    if (state.dirty && this.isJpdbPageAddonRoot(root)) {
+      return this.parseJpdbPageAddonJapanese(root);
+    }
+  });
+  return state.running;
+  }
+  async flushJpdbPageAddonJapaneseParse(root, state) {
+  await Promise.resolve();
+  while (state.dirty && this.isJpdbPageAddonRoot(root)) {
+    state.dirty = false;
+    await this.performJpdbPageAddonJapaneseParse(root);
+  }
+  }
+  async performJpdbPageAddonJapaneseParse(root) {
   if (!this.isJpdbPageAddonRoot(root)) return;
   this.enrichJpdbRelatedWords(root);
   clearNestedParseState(root);
@@ -44616,7 +45043,9 @@ class ReaderApp {
   this.restorePopoverScrollTop(scrollBody, scrollTop);
   }
   prepareActivePopoverForPositioning(popover) {
-  if (this.shouldUseFixedModalHeight(popover)) popover.style.height = "";
+  if (!this.shouldUseFixedModalHeight(popover)) return;
+  const fixedHeight = configuredPopoverMaxHeight(this.settings);
+  if (fixedHeight) popover.style.height = `${fixedHeight}px`;
   }
   repositionLockedActivePopoverIfNeeded(popover) {
   if (!this.activePopoverPositionLocked) return false;

@@ -8,6 +8,8 @@ import { orderedDefinitionSourceIds } from '../../src/reader/sources/sections';
 import type { JitenVocabularyInfo } from '../../src/reader/dictionaries/jiten';
 import type { JpdbVocabularyInfo } from '../../src/reader/jpdb/jpdb-vocabulary';
 import type { YomitanTermEntry } from '../../src/reader/dictionaries/yomitan';
+import { normalizeBunproDefinitionSearch } from '../../src/reader/bunpro/definition';
+import type { BunproDefinitionInfo } from '../../src/reader/bunpro/definition';
 
 function card(overrides: Partial<JPDBCard> = {}): JPDBCard {
     return {
@@ -34,6 +36,7 @@ function renderSources(
     jitenVocabularyInfo?: JitenVocabularyInfo | null,
     entries: YomitanTermEntry[] = [],
     jpdbVocabularyInfo: JpdbVocabularyInfo | null = null,
+    bunproDefinitionInfo: BunproDefinitionInfo | null = null,
 ): string {
     return renderDefinitionSourcesStack({
         card: sourceCard,
@@ -45,6 +48,7 @@ function renderSources(
         extraSectionsOrOptions,
         jpdbVocabularyInfo,
         jitenVocabularyInfo,
+        bunproDefinitionInfo,
         renderTranslationSource: () => '',
         renderGrammarSource: () => '',
         renderImmersionSource: () => '',
@@ -274,6 +278,41 @@ describe('definition source stack', () => {
 
         expect(html).toContain('data-source="jiten"');
         expect(html).not.toContain('data-source="jpdb"');
+    });
+
+    it('omits disabled JPDB and Bunpro sources even when provider data is available', () => {
+        const jpdbInfo: JpdbVocabularyInfo = {
+            meanings: ['JPDB provider meaning'],
+            compounds: [],
+            usedInVocabulary: [],
+            examples: [],
+        };
+        const bunproInfo = normalizeBunproDefinitionSearch({
+            vocabs: { data: [{
+                id: 42,
+                attributes: {
+                    id: 42,
+                    title: '読む',
+                    kana: 'よむ',
+                    meaning: 'Bunpro provider meaning',
+                },
+            }] },
+        }, '読む', 'よむ');
+        expect(bunproInfo).not.toBeNull();
+
+        const enabled = renderSources(card({ source: 'local' }), DEFAULT_SETTINGS, undefined, null, [], jpdbInfo, bunproInfo);
+        expect(enabled).toContain('data-source="jpdb"');
+        expect(enabled).toContain('data-source="bunpro"');
+
+        const disabled = renderSources(card({ source: 'local' }), {
+            ...DEFAULT_SETTINGS,
+            jpdbDefinitionsEnabled: false,
+            bunproDefinitionsEnabled: false,
+        }, undefined, null, [], jpdbInfo, bunproInfo);
+        expect(disabled).not.toContain('data-source="jpdb"');
+        expect(disabled).not.toContain('data-source="bunpro"');
+        expect(disabled).not.toContain('JPDB provider meaning');
+        expect(disabled).not.toContain('Bunpro provider meaning');
     });
 });
 

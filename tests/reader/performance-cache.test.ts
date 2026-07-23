@@ -83,6 +83,31 @@ describe('performance cache bounds', () => {
         expect(lookup.mock.calls.at(-1)?.[0]).toBe('単語0');
     });
 
+    it('loads page definition sources without starting unrelated card-render work', async () => {
+        const lookup = vi.fn(async () => []);
+        const lookupKanji = vi.fn(async () => []);
+        const lookupTermMeta = vi.fn(async () => []);
+        const publicPitch = vi.fn(async () => []);
+        const loader = createCardRenderDataLoader({
+            lookup,
+            lookupKanji,
+            lookupTermMeta,
+            publicPitch,
+        });
+
+        const load = loader.loadDefinitionSources(cardFor(1), {
+            includeJpdbDefinition: false,
+            includeJitenDefinition: false,
+            includeBunproDefinition: false,
+        });
+        await load.settled;
+
+        expect(lookup).toHaveBeenCalledTimes(1);
+        expect(lookupKanji).not.toHaveBeenCalled();
+        expect(lookupTermMeta).not.toHaveBeenCalled();
+        expect(publicPitch).not.toHaveBeenCalled();
+    });
+
     it('uses local pitch metadata without waiting for public JPDB pitch', async () => {
         const lookupTermMeta = vi.fn(async () => [{
             expression: '計量',
@@ -367,6 +392,131 @@ describe('performance cache bounds', () => {
 
             blobUrl.resolve('blob:http://localhost/frame');
             await vi.waitFor(() => expect(image?.getAttribute('src')).toBe('blob:http://localhost/frame'));
+        } finally {
+            popover.remove();
+        }
+    });
+
+    it('warms exactly the next Immersion image without preloading carousel audio', async () => {
+        const examples = [
+            { ...immersionExample('単語1'), id: 'example-1', imageUrl: 'https://media.test/first.jpg', soundUrl: 'https://media.test/first.mp3' },
+            { ...immersionExample('単語1'), id: 'example-2', imageUrl: 'https://media.test/second.jpg', soundUrl: 'https://media.test/second.mp3' },
+            { ...immersionExample('単語1'), id: 'example-3', imageUrl: 'https://media.test/third.jpg', soundUrl: 'https://media.test/third.mp3' },
+        ];
+        const fetchBlobUrl = vi.fn(async (urls: string | string[]) => `blob:http://localhost/${Array.isArray(urls) ? urls[0] : urls}`);
+        const controller = createImmersionController({
+            search: vi.fn(async () => examples),
+            preload: vi.fn(),
+            mediaUrls: vi.fn((example: ImmersionKitExample, kind: 'image' | 'sound') => kind === 'image'
+                ? [example.imageUrl, `https://media-fallback.test/${example.id}.jpg`]
+                : [example.soundUrl]),
+            fetchBlobUrl,
+        } as unknown as ImmersionKitClient, {
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                immersionKitEnabled: true,
+                immersionKitShowImages: true,
+                immersionKitAutoPlayAudio: false,
+            }),
+        });
+        const popover = document.createElement('div');
+        popover.dataset.yomuJpdbAddon = 'word';
+        popover.dataset.yomuPageContext = 'review';
+        popover.innerHTML = '<details data-immersion-kit open></details>';
+        document.body.append(popover);
+
+        try {
+            await controller.loadExamples(popover, cardFor(1));
+            const currentImage = popover.querySelector<HTMLImageElement>('[data-immersion-image]');
+            expect(currentImage).not.toBeNull();
+            currentImage?.dispatchEvent(new Event('load'));
+            await vi.waitFor(() => {
+                const requested = fetchBlobUrl.mock.calls.flatMap(([urls]) => Array.isArray(urls) ? urls : [urls]);
+                expect(requested).toContain('https://media.test/first.jpg');
+                expect(requested).toContain('https://media.test/second.jpg');
+            });
+            const requested = fetchBlobUrl.mock.calls.flatMap(([urls]) => Array.isArray(urls) ? urls : [urls]);
+            expect(requested).not.toContain('https://media.test/third.jpg');
+            expect(requested).not.toContain('https://media-fallback.test/example-2.jpg');
+            expect(requested.some(url => url.endsWith('.mp3'))).toBe(false);
+        } finally {
+            popover.remove();
+        }
+    });
+
+    it('does not warm adjacent Immersion media when the review card detaches before image load', async () => {
+        const examples = [
+            { ...immersionExample('単語1'), id: 'example-1', imageUrl: 'https://media.test/first.jpg' },
+            { ...immersionExample('単語1'), id: 'example-2', imageUrl: 'https://media.test/second.jpg' },
+        ];
+        const fetchBlobUrl = vi.fn(async (urls: string | string[]) => `blob:http://localhost/${Array.isArray(urls) ? urls[0] : urls}`);
+        const controller = createImmersionController({
+            search: vi.fn(async () => examples),
+            preload: vi.fn(),
+            mediaUrls: vi.fn((example: ImmersionKitExample, kind: 'image' | 'sound') => kind === 'image' ? [example.imageUrl] : []),
+            fetchBlobUrl,
+        } as unknown as ImmersionKitClient, {
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                immersionKitEnabled: true,
+                immersionKitShowImages: true,
+            }),
+        });
+        const popover = document.createElement('div');
+        popover.dataset.yomuJpdbAddon = 'word';
+        popover.dataset.yomuPageContext = 'review';
+        popover.innerHTML = '<details data-immersion-kit open></details>';
+        document.body.append(popover);
+
+        await controller.loadExamples(popover, cardFor(1));
+        const currentImage = popover.querySelector<HTMLImageElement>('[data-immersion-image]');
+        expect(currentImage).not.toBeNull();
+        await vi.waitFor(() => expect(fetchBlobUrl).toHaveBeenCalledWith(
+            'https://media.test/first.jpg',
+            DEFAULT_SETTINGS.audioTimeoutMs,
+            DEFAULT_SETTINGS.corsProxyUrl,
+            DEFAULT_SETTINGS.interfaceLanguage,
+        ));
+
+        popover.remove();
+        currentImage?.dispatchEvent(new Event('load'));
+        await Promise.resolve();
+
+        const requested = fetchBlobUrl.mock.calls.flatMap(([urls]) => Array.isArray(urls) ? urls : [urls]);
+        expect(requested).not.toContain('https://media.test/second.jpg');
+    });
+
+    it('does not speculatively warm adjacent Immersion media in an ordinary lookup popover', async () => {
+        const examples = [
+            { ...immersionExample('単語1'), id: 'example-1', imageUrl: 'https://media.test/first.jpg' },
+            { ...immersionExample('単語1'), id: 'example-2', imageUrl: 'https://media.test/second.jpg' },
+        ];
+        const fetchBlobUrl = vi.fn(async (urls: string | string[]) => `blob:http://localhost/${Array.isArray(urls) ? urls[0] : urls}`);
+        const controller = createImmersionController({
+            search: vi.fn(async () => examples),
+            preload: vi.fn(),
+            mediaUrls: vi.fn((example: ImmersionKitExample, kind: 'image' | 'sound') => kind === 'image' ? [example.imageUrl] : []),
+            fetchBlobUrl,
+        } as unknown as ImmersionKitClient, {
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                immersionKitEnabled: true,
+                immersionKitShowImages: true,
+            }),
+        });
+        const popover = document.createElement('div');
+        popover.innerHTML = '<details data-immersion-kit open></details>';
+        document.body.append(popover);
+
+        try {
+            await controller.loadExamples(popover, cardFor(1));
+            const currentImage = popover.querySelector<HTMLImageElement>('[data-immersion-image]');
+            expect(currentImage).not.toBeNull();
+            currentImage?.dispatchEvent(new Event('load'));
+            await Promise.resolve();
+
+            const requested = fetchBlobUrl.mock.calls.flatMap(([urls]) => Array.isArray(urls) ? urls : [urls]);
+            expect(requested).toEqual(['https://media.test/first.jpg']);
         } finally {
             popover.remove();
         }
