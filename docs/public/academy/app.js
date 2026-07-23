@@ -540,7 +540,7 @@
       const body = await this.json("/academy/api/account/devices");
       if (!Array.isArray(body.devices)) throw new Error("Reader device list was malformed.");
       return body.devices.map((value) => {
-        if (!isRecord$d(value) || typeof value.deviceId !== "string" || !Number.isSafeInteger(value.createdAt) || !Number.isSafeInteger(value.lastSeenAt) || value.revokedAt !== null && !Number.isSafeInteger(value.revokedAt)) {
+        if (!isRecord$e(value) || typeof value.deviceId !== "string" || !Number.isSafeInteger(value.createdAt) || !Number.isSafeInteger(value.lastSeenAt) || value.revokedAt !== null && !Number.isSafeInteger(value.revokedAt)) {
           throw new Error("Reader device list was malformed.");
         }
         return value;
@@ -631,7 +631,7 @@
           });
           if (!response.ok) throw await responseError$1(response);
           const body = await response.json();
-          if (!isRecord$d(body)) throw new Error("Academy export response was malformed.");
+          if (!isRecord$e(body)) throw new Error("Academy export response was malformed.");
           const page = parseAcademyExportBundle(body);
           if (!wroteHeader) {
             const {
@@ -1168,7 +1168,7 @@
   function parseAcademyExportBundle(value) {
     const eventPage = parseAcademySyncPage(value.eventPage);
     const readerSrsEventPage = value.readerSrsEventPage === void 0 ? { events: [], nextCursor: 0, hasMore: false } : parseAcademySyncPage(value.readerSrsEventPage);
-    const eventRecord = isRecord$d(value.eventPage) ? value.eventPage : {};
+    const eventRecord = isRecord$e(value.eventPage) ? value.eventPage : {};
     const exportCursor = eventRecord.exportCursor;
     const hasMore = eventPage.hasMore || readerSrsEventPage.hasMore;
     if (hasMore) {
@@ -1197,7 +1197,7 @@
       const parsed = JSON.parse(value);
       const profile2 = parseAcademyProfileView(parsed.profile);
       const account = parsed.account === void 0 ? void 0 : parseStoredAccountView(parsed.account);
-      if (typeof parsed.key !== "string" || decodedLength(parsed.key) !== 32 || !Number.isSafeInteger(parsed.cursor) || (parsed.cursor ?? -1) < 0 || !isRecord$d(parsed.envelopes) || !isRecord$d(parsed.eventSyncIds) || parsed.lastSyncAt !== null && parsed.lastSyncAt !== void 0 && (!Number.isSafeInteger(parsed.lastSyncAt) || parsed.lastSyncAt < 0)) return null;
+      if (typeof parsed.key !== "string" || decodedLength(parsed.key) !== 32 || !Number.isSafeInteger(parsed.cursor) || (parsed.cursor ?? -1) < 0 || !isRecord$e(parsed.envelopes) || !isRecord$e(parsed.eventSyncIds) || parsed.lastSyncAt !== null && parsed.lastSyncAt !== void 0 && (!Number.isSafeInteger(parsed.lastSyncAt) || parsed.lastSyncAt < 0)) return null;
       const envelopes = parsed.envelopes;
       if (Object.entries(envelopes).some(([id2, envelope]) => !storedEnvelopeIsValid(id2, envelope, profile2.keyVersion))) return null;
       if (Object.entries(parsed.eventSyncIds).some(([eventId, id2]) => !eventId || typeof id2 !== "string" || !UUID_V4.test(id2))) return null;
@@ -1215,7 +1215,7 @@
     }
   }
   function parseStoredAccountView(value) {
-    if (!isRecord$d(value) || !isRecord$d(value.identity)) throw new TypeError("Stored Academy account is malformed.");
+    if (!isRecord$e(value) || !isRecord$e(value.identity)) throw new TypeError("Stored Academy account is malformed.");
     const parsed = parseAcademyAccountView({
       accountId: value.accountId,
       displayName: value.identity.displayName,
@@ -1234,7 +1234,7 @@
   }
   const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
   function storedEnvelopeIsValid(id2, value, keyVersion) {
-    if (!isRecord$d(value) || value.id !== id2 || !UUID_V4.test(id2) || !Number.isSafeInteger(value.occurredAt) || value.occurredAt < 0 || value.keyVersion !== keyVersion || typeof value.nonce !== "string" || decodedLength(value.nonce) !== 12 || typeof value.ciphertext !== "string") return false;
+    if (!isRecord$e(value) || value.id !== id2 || !UUID_V4.test(id2) || !Number.isSafeInteger(value.occurredAt) || value.occurredAt < 0 || value.keyVersion !== keyVersion || typeof value.nonce !== "string" || decodedLength(value.nonce) !== 12 || typeof value.ciphertext !== "string") return false;
     const ciphertextLength = decodedLength(value.ciphertext);
     return ciphertextLength >= 17 && ciphertextLength <= 16 * 1024;
   }
@@ -1246,7 +1246,7 @@
       return -1;
     }
   }
-  function isRecord$d(value) {
+  function isRecord$e(value) {
     return Boolean(value) && typeof value === "object" && !Array.isArray(value);
   }
   async function encryptEvent(key2, keyVersion, id2, event) {
@@ -1440,7 +1440,7 @@
     return normalized2;
   }
   function normalizeSession(value, source2) {
-    if (!isRecord$c(value)) throw new AccessError("malformed", "Invitation response is malformed.");
+    if (!isRecord$d(value)) throw new AccessError("malformed", "Invitation response is malformed.");
     const sessionId = typeof value.sessionId === "string" ? value.sessionId.trim() : "";
     const expiresAt = readTimestamp(value.expiresAt);
     const offlineResumeUntil = readTimestamp(value.offlineResumeUntil);
@@ -1458,7 +1458,7 @@
     }
     return 0;
   }
-  function isRecord$c(value) {
+  function isRecord$d(value) {
     return typeof value === "object" && value !== null && !Array.isArray(value);
   }
   class BrowserMediaBus {
@@ -1693,7 +1693,7 @@
     if (!storage) return cloneDefaults();
     try {
       const value = JSON.parse(storage.getItem(ACADEMY_AUDIO_SETTINGS_KEY) ?? "null");
-      if (!isRecord$b(value) || !isRecord$b(value.volumes)) return cloneDefaults();
+      if (!isRecord$c(value) || !isRecord$c(value.volumes)) return cloneDefaults();
       return {
         muted: typeof value.muted === "boolean" ? value.muted : false,
         volumes: {
@@ -1725,7 +1725,7 @@
   function cloneDefaults() {
     return { muted: DEFAULT_AUDIO_SETTINGS.muted, volumes: { ...DEFAULT_AUDIO_SETTINGS.volumes } };
   }
-  function isRecord$b(value) {
+  function isRecord$c(value) {
     return typeof value === "object" && value !== null;
   }
   class AudioDirector {
@@ -2630,7 +2630,7 @@
     "camera.capture"
   ]);
   function parseAudioManifest(value) {
-    if (!isRecord$a(value) || value.version !== 1) throw new TypeError("Audio manifest must declare version 1.");
+    if (!isRecord$b(value) || value.version !== 1) throw new TypeError("Audio manifest must declare version 1.");
     if (!Array.isArray(value.themes) || !Array.isArray(value.sfx)) {
       throw new TypeError("Audio manifest needs themes and sfx arrays.");
     }
@@ -2696,7 +2696,7 @@
     return sources;
   }
   function parseThemeEntry(value) {
-    if (!isRecord$a(value)) throw new TypeError("Theme entry must be an object.");
+    if (!isRecord$b(value)) throw new TypeError("Theme entry must be an object.");
     const { slot, bus, trackId, title: title2, mediaKey, loop, gain } = value;
     if (typeof slot !== "string" || !THEME_SLOTS.has(slot) || typeof trackId !== "string" || !trackId.trim() || typeof title2 !== "string" || !title2.trim()) {
       throw new TypeError("Theme entry needs slot, trackId, and title.");
@@ -2714,7 +2714,7 @@
     };
   }
   function parseSfxEntry(value) {
-    if (!isRecord$a(value) || typeof value.cue !== "string" || !SFX_CUES.has(value.cue)) {
+    if (!isRecord$b(value) || typeof value.cue !== "string" || !SFX_CUES.has(value.cue)) {
       throw new TypeError("SFX entry needs a cue name.");
     }
     return {
@@ -2747,12 +2747,12 @@
     return value;
   }
   function parseRights(value, owner) {
-    if (!isRecord$a(value) || typeof value.owner !== "string" || !value.owner.trim() || typeof value.licence !== "string" || !value.licence.trim() || typeof value.source !== "string" || !value.source.trim() || value.reviewed !== true || value.scope !== "private-prototype" && value.scope !== "release") {
+    if (!isRecord$b(value) || typeof value.owner !== "string" || !value.owner.trim() || typeof value.licence !== "string" || !value.licence.trim() || typeof value.source !== "string" || !value.source.trim() || value.reviewed !== true || value.scope !== "private-prototype" && value.scope !== "release") {
       throw new TypeError(`Entry ${owner} is missing a complete reviewed rights block.`);
     }
     return { owner: value.owner, licence: value.licence, source: value.source, reviewed: true, scope: value.scope };
   }
-  function isRecord$a(value) {
+  function isRecord$b(value) {
     return typeof value === "object" && value !== null && !Array.isArray(value);
   }
   function assertUnique(values, label) {
@@ -2927,7 +2927,7 @@
     return parseLearningVoiceCatalog(await response.json(), { invalidEntry: "skip" });
   }
   function parseLearningVoiceCatalog(value, options = {}) {
-    if (!isRecord$9(value) || value.schema !== LEARNING_VOICE_SCHEMA || typeof value.batchId !== "string" || !LINE_ID$1.test(value.batchId) || !isLearningVoiceQualityApproval(value.qualityApproval) || !isLearningVoiceAcceptancePolicy(value.acceptancePolicy) || !isRecord$9(value.engine) || value.engine.name !== "AivisSpeech Engine" || typeof value.engine.version !== "string" || typeof value.engine.versionResponseSha256 !== "string" || !SHA256$3.test(value.engine.versionResponseSha256) || !isRecord$9(value.encoder) || value.encoder.name !== "ffmpeg/libopus" || typeof value.encoder.version !== "string" || value.encoder.bitrateKbps !== 64 || value.encoder.application !== "voip" || !Array.isArray(value.entries)) {
+    if (!isRecord$a(value) || value.schema !== LEARNING_VOICE_SCHEMA || typeof value.batchId !== "string" || !LINE_ID$1.test(value.batchId) || !isLearningVoiceQualityApproval(value.qualityApproval) || !isLearningVoiceAcceptancePolicy(value.acceptancePolicy) || !isRecord$a(value.engine) || value.engine.name !== "AivisSpeech Engine" || typeof value.engine.version !== "string" || typeof value.engine.versionResponseSha256 !== "string" || !SHA256$3.test(value.engine.versionResponseSha256) || !isRecord$a(value.encoder) || value.encoder.name !== "ffmpeg/libopus" || typeof value.encoder.version !== "string" || value.encoder.bitrateKbps !== 64 || value.encoder.application !== "voip" || !Array.isArray(value.entries)) {
       throw new TypeError("Invalid learning voice playback catalog.");
     }
     const assetLineIds = /* @__PURE__ */ new Set();
@@ -3201,19 +3201,19 @@
     });
   }
   function isLearningVoiceEntry(value) {
-    if (!isRecord$9(value) || !isRecord$9(value.queryOverrides) || !Array.isArray(value.bindings) || !Array.isArray(value.moraOverrides)) return false;
+    if (!isRecord$a(value) || !isRecord$a(value.queryOverrides) || !Array.isArray(value.bindings) || !Array.isArray(value.moraOverrides)) return false;
     const queryOverrides = Object.entries(value.queryOverrides);
     const moraOverrides = value.moraOverrides;
     return typeof value.lineId === "string" && LINE_ID$1.test(value.lineId) && value.bindings.length > 0 && value.bindings.every(isLearningVoiceBinding) && typeof value.speakerId === "string" && LINE_ID$1.test(value.speakerId) && (value.role === "learning-ui" || value.role === "textbook-character" || value.role === "academy-character") && typeof value.intent === "string" && value.intent.trim() === value.intent && value.intent.length > 0 && value.locale === "ja-JP" && value.band === "native" && typeof value.surface === "string" && SURFACE_ID.test(value.surface) && typeof value.japanese === "string" && value.japanese.trim() === value.japanese && value.japanese.length > 0 && typeof value.sourceSha256 === "string" && SHA256$3.test(value.sourceSha256) && value.sourceRevision === value.sourceSha256 && typeof value.cacheKey === "string" && SHA256$3.test(value.cacheKey) && typeof value.audioQuerySha256 === "string" && SHA256$3.test(value.audioQuerySha256) && typeof value.assetSha256 === "string" && SHA256$3.test(value.assetSha256) && Number.isInteger(value.bytes) && Number(value.bytes) > 0 && typeof value.durationSeconds === "number" && value.durationSeconds > 0 && typeof value.url === "string" && isConfinedLearningUrl(value.url) && typeof value.modelUuid === "string" && MODEL_UUID.test(value.modelUuid) && typeof value.modelName === "string" && value.modelName.length > 0 && typeof value.modelVersion === "string" && value.modelVersion.length > 0 && typeof value.modelSourceUrl === "string" && value.modelSourceUrl === `https://hub.aivis-project.com/aivm-models/${value.modelUuid}` && value.modelLicense === "ACML-1.0" && typeof value.modelPayloadSha256 === "string" && SHA256$3.test(value.modelPayloadSha256) && Number.isInteger(value.styleId) && typeof value.styleName === "string" && value.styleName.length > 0 && queryOverrides.length === QUERY_FIELDS.size && queryOverrides.every(([field2, amount]) => QUERY_FIELDS.has(field2) && typeof amount === "number" && Number.isFinite(amount)) && moraOverrides.every(isLearningVoiceMoraOverride) && value.reviewStatus === "accepted" && value.qualityApprovalStatus === "codex-accepted" && isLearningVoiceReview(value.review) && isLearningVoiceDisclosure(value.disclosure) && value.provenance === "Yomu-authored";
   }
   function isLearningVoiceDisclosure(value) {
-    return isRecord$9(value) && Object.keys(value).sort().join(",") === "livingPersonSource,officialCharacterVoice,synthetic" && value.synthetic === true && value.officialCharacterVoice === false && typeof value.livingPersonSource === "boolean";
+    return isRecord$a(value) && Object.keys(value).sort().join(",") === "livingPersonSource,officialCharacterVoice,synthetic" && value.synthetic === true && value.officialCharacterVoice === false && typeof value.livingPersonSource === "boolean";
   }
   function isLearningVoiceQualityApproval(value) {
-    return isRecord$9(value) && Object.keys(value).sort().join(",") === "codexQualityAccepted,humanReviewed,ownerLineByLineReviewed,scope" && value.codexQualityAccepted === true && typeof value.scope === "string" && value.scope.trim() === value.scope && value.scope.length > 0 && value.ownerLineByLineReviewed === false && value.humanReviewed === false;
+    return isRecord$a(value) && Object.keys(value).sort().join(",") === "codexQualityAccepted,humanReviewed,ownerLineByLineReviewed,scope" && value.codexQualityAccepted === true && typeof value.scope === "string" && value.scope.trim() === value.scope && value.scope.length > 0 && value.ownerLineByLineReviewed === false && value.humanReviewed === false;
   }
   function isLearningVoiceAcceptancePolicy(value) {
-    return isRecord$9(value) && Object.keys(value).sort().join(",") === [
+    return isRecord$a(value) && Object.keys(value).sort().join(",") === [
       "acceptedBy",
       "blanketCharacterErrorRateAllowed",
       "criticalMorphemeNumeralParticleMismatch",
@@ -3223,18 +3223,18 @@
     ].sort().join(",") && value.acceptedBy === "Codex" && value.humanReviewed === false && value.ownerLineByLineReviewed === false && value.independentAudioReviewRequired === true && value.blanketCharacterErrorRateAllowed === false && value.criticalMorphemeNumeralParticleMismatch === "hard-fail";
   }
   function isLearningVoiceBinding(value) {
-    if (!isRecord$9(value) || !isRecord$9(value.accessibleReplayLabel)) return false;
+    if (!isRecord$a(value) || !isRecord$a(value.accessibleReplayLabel)) return false;
     const labels = value.accessibleReplayLabel;
     return typeof value.lineId === "string" && LINE_ID$1.test(value.lineId) && typeof value.surface === "string" && SURFACE_ID.test(value.surface) && Object.keys(labels).length === 2 && isAccessibleLabel(labels.en) && isAccessibleLabel(labels.ja);
   }
   function isLearningVoiceReview(value) {
-    if (!isRecord$9(value) || !isRecord$9(value.naturalness) || !isRecord$9(value.accent) || !isRecord$9(value.pause) || !isRecord$9(value.listening)) return false;
+    if (!isRecord$a(value) || !isRecord$a(value.naturalness) || !isRecord$a(value.accent) || !isRecord$a(value.pause) || !isRecord$a(value.listening)) return false;
     const common = value.naturalness.status === "reviewed-text" && value.accent.status === "validated-query-plan" && value.pause.status === "validated-query-plan";
     if (!common) return false;
     return value.listening.status === "codex-accepted-objective-and-independent-audio-review" && value.listening.codexAccepted === true && value.listening.ownerLineByLineReviewed === false && typeof value.listening.audioModelReviewed === "boolean" && value.listening.humanReviewed === false && Number.isInteger(value.listening.independentAudioModelReviews) && Number(value.listening.independentAudioModelReviews) >= 0 && (value.listening.audioModelReviewed === true && Number(value.listening.independentAudioModelReviews) >= 1 || value.listening.audioModelReviewed === false && Number(value.listening.independentAudioModelReviews) === 0);
   }
   function isLearningVoiceMoraOverride(value) {
-    if (!isRecord$9(value)) return false;
+    if (!isRecord$a(value)) return false;
     const keys = Object.keys(value);
     return keys.length >= 3 && keys.every((key2) => MORA_OVERRIDE_FIELDS.has(key2)) && Number.isInteger(value.accentPhrase) && Number(value.accentPhrase) >= 0 && Number.isInteger(value.mora) && Number(value.mora) >= 0 && ["pitch", "vowel_length", "consonant_length"].some((field2) => typeof value[field2] === "number" && Number.isFinite(value[field2])) && Object.entries(value).every(([field2, amount]) => field2 === "accentPhrase" || field2 === "mora" ? Number.isInteger(amount) : typeof amount === "number" && Number.isFinite(amount));
   }
@@ -3244,7 +3244,7 @@
   function isConfinedLearningUrl(value) {
     return typeof value === "string" && LEARNING_URL.test(value) && value.split("/").every((segment2) => segment2 !== "." && segment2 !== "..");
   }
-  function isRecord$9(value) {
+  function isRecord$a(value) {
     return typeof value === "object" && value !== null && !Array.isArray(value);
   }
   function deepFreeze(value) {
@@ -3252,7 +3252,7 @@
       value.forEach((item2) => deepFreeze(item2));
       return Object.freeze(value);
     }
-    if (isRecord$9(value)) {
+    if (isRecord$a(value)) {
       Object.values(value).forEach((item2) => deepFreeze(item2));
       return Object.freeze(value);
     }
@@ -7670,7 +7670,7 @@
   const SHA256$2 = /^[a-f0-9]{64}$/;
   const SAFE_WORKER_ASSET_ID = /^[a-z0-9][a-z0-9-]{0,127}$/;
   function parseListeningCrosswalk(value) {
-    if (!isRecord$8(value) || value.schema !== "yomu-academy.listening-crosswalk.v1" || !Array.isArray(value.entries)) {
+    if (!isRecord$9(value) || value.schema !== "yomu-academy.listening-crosswalk.v1" || !Array.isArray(value.entries)) {
       throw new TypeError("Listening crosswalk must declare the v1 schema and an entries array.");
     }
     const entries2 = value.entries.map(parseEntry$1);
@@ -7701,7 +7701,7 @@
     return { status: "ready", entry: resolved.entry, url: resolved.entry.delivery.url };
   }
   function parseEntry$1(value) {
-    if (!isRecord$8(value)) throw new TypeError("Listening crosswalk entry must be an object.");
+    if (!isRecord$9(value)) throw new TypeError("Listening crosswalk entry must be an object.");
     const locator = requiredText$4(value.locator, "locator");
     const authoredAssetId = requiredText$4(value.authoredAssetId, `${locator}.authoredAssetId`);
     const provenance2 = stringArray$5(value.provenance, `${locator}.provenance`);
@@ -7722,7 +7722,7 @@
         provenance: provenance2
       };
     }
-    if (value.availability !== "source-verified" || !isRecord$8(value.source) || !isRecord$8(value.worker)) {
+    if (value.availability !== "source-verified" || !isRecord$9(value.source) || !isRecord$9(value.worker)) {
       throw new TypeError(`Listening entry ${locator} has invalid availability or missing source delivery data.`);
     }
     const workerAssetId = requiredText$4(value.worker.assetId, `${locator}.worker.assetId`);
@@ -7753,7 +7753,7 @@
     };
   }
   function parsePackagedDelivery(value, owner) {
-    if (!isRecord$8(value) || value.mode !== "packaged-static") {
+    if (!isRecord$9(value) || value.mode !== "packaged-static") {
       throw new TypeError(`Listening entry ${owner} has an invalid packaged delivery.`);
     }
     const url = requiredText$4(value.url, `${owner}.delivery.url`);
@@ -7789,7 +7789,7 @@
     if (!Number.isInteger(result2)) throw new TypeError(`${label} must be an integer.`);
     return result2;
   }
-  function isRecord$8(value) {
+  function isRecord$9(value) {
     return typeof value === "object" && value !== null && !Array.isArray(value);
   }
   const SHA256$1 = /^[a-f0-9]{64}$/;
@@ -7803,7 +7803,7 @@
     return delivery.url;
   }
   function parseListeningTaskBindings(value) {
-    if (!isRecord$7(value) || value.schema !== "yomu-academy.listening-task-bindings/v1" || !Array.isArray(value.entries)) {
+    if (!isRecord$8(value) || value.schema !== "yomu-academy.listening-task-bindings/v1" || !Array.isArray(value.entries)) {
       throw new TypeError("Listening task bindings must declare the v1 schema and entries array.");
     }
     const entries2 = value.entries.map((entry2, index) => parseEntry(entry2, `entries[${index}]`));
@@ -7812,7 +7812,7 @@
     return { schema: "yomu-academy.listening-task-bindings/v1", entries: entries2 };
   }
   function parseEntry(value, owner) {
-    if (!isRecord$7(value) || !isRecord$7(value.source) || !isRecord$7(value.verification) || !isRecord$7(value.learnerContract) || !isRecord$7(value.delivery)) {
+    if (!isRecord$8(value) || !isRecord$8(value.source) || !isRecord$8(value.verification) || !isRecord$8(value.learnerContract) || !isRecord$8(value.delivery)) {
       throw new TypeError(`Listening task binding ${owner} is invalid.`);
     }
     const packageId = text$j(value.packageId, `${owner}.packageId`);
@@ -7886,7 +7886,7 @@
     if (typeof value !== "string" || !value.trim()) throw new TypeError(`${label} must be non-empty text.`);
     return value;
   }
-  function isRecord$7(value) {
+  function isRecord$8(value) {
     return typeof value === "object" && value !== null && !Array.isArray(value);
   }
   const ROMAJI_RUN_RE = /[a-z]+(?:'[a-z]+)*/giu;
@@ -17022,26 +17022,51 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     bandN2Body: "News, formal writing, and implied meaning.",
     bandN1: "I handle dense Japanese",
     bandN1Body: "Fast speech, nuance, ambiguity, and specialist topics.",
-    mockTitle: "A short placement check",
-    mockBody: "A guide to where to begin, not a JLPT score.",
-    mockTargetLegend: "Target band",
+    mockTitle: "Find a comfortable starting point",
+    mockBody: "Choose a familiar level. Rie will show you each task before it counts.",
+    mockTargetLegend: "Which level should we try?",
+    mockGuideTitle: "One example, then one small stretch",
+    mockGuideBody: "Nothing here locks you in. Use Back whenever a level feels too easy or too hard.",
+    mockGuideLanguage: "Language: make the whole sentence work.",
+    mockGuideReading: "Reading: look for who, what changed, and when.",
+    mockGuideListening: "Listening: play the line before choosing. Replay is always allowed.",
     mockChooseAnswer: "Choose the best answer.",
-    mockPlayAudio: "Play the listening line",
-    mockAudioUnavailable: "Japanese speech is unavailable in this browser. Choose another route or try a supported browser.",
-    mockSourceRecordingLabel: "Play source recording",
-    mockSourceRecordingUnavailable: "The source recording is unavailable.",
-    mockEvidenceSourceAudio: "Listening uses byte-verified source recordings from the completed audio registry.",
-    mockEvidenceSpeechAudio: "Listening uses browser speech generated from exact source text; source recordings are not yet packaged for this level.",
-    mockSpeakingConfidence: "How confident are you speaking without a script?",
-    mockWritingConfidence: "How confident are you writing a short message?",
-    mockSubmit: "See my evidence",
+    mockPlayAudio: "Play the listening",
+    mockAudioUnavailable: "The audio did not play. Try again or use the text alternative.",
+    mockSourceRecordingLabel: "Play the listening",
+    mockSourceRecordingUnavailable: "The audio did not play. Use the text alternative below.",
+    mockListeningRequired: "Play the line or use the text alternative before continuing.",
+    mockTranscriptAlternative: "Use text instead",
+    mockTranscriptNotice: "This keeps the check accessible, but it will not count as listening evidence.",
+    mockProductionTitle: "Now make the language yours",
+    mockProductionBody: "Try both prompts once, then choose how each attempt felt. Rie uses the attempt, not confidence alone.",
+    mockSpeakingConfidence: "Speaking attempt",
+    mockWritingConfidence: "Writing attempt",
+    mockModeAloud: "Say it aloud",
+    mockModeTypeInstead: "Type instead",
+    mockModeTyped: "Type in Japanese",
+    mockModePaper: "Write it on paper",
+    mockTriedAloud: "I tried the line aloud.",
+    mockWroteOnPaper: "I wrote the line on paper.",
+    mockResponsePlaceholder: "Your Japanese line",
+    mockConfidenceLegend: "How did that attempt feel?",
+    mockConfidenceNotYet: "Not yet",
+    mockConfidenceSupported: "With some effort",
+    mockConfidenceIndependent: "Comfortable on my own",
+    mockSubmit: "See Rie’s suggestion",
     mockIncomplete: "Answer each item before continuing.",
+    mockProductionIncomplete: "Try both production prompts and choose how each attempt felt.",
+    mockSaveError: "That step did not save. Try once more.",
     mockResultTitle: "Rie’s recommendation",
+    mockResultBody: "A starting suggestion from this attempt. You still choose where to begin.",
+    mockResultEvidence: "Rie used six short questions and two production self-checks. This is a starting suggestion, not an official score.",
+    mockResultTranscriptEvidence: "Text alternatives stayed available, and those questions were not counted as listening.",
+    mockResultContinuity: "Changing your starting level will not reset or skip the story.",
     mockKnowledge: "Language knowledge",
     mockReading: "Reading",
     mockListening: "Listening",
-    mockSpeaking: "Speaking confidence",
-    mockWriting: "Writing confidence",
+    mockSpeaking: "Speaking self-check",
+    mockWriting: "Writing self-check",
     mockRecommendation: "Recommended entry",
     mockUseRecommendation: "Use this recommendation",
     mockChooseMyself: "Choose another band",
@@ -17324,26 +17349,51 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     bandN2Body: "ニュース、かたい文章、言外の意味。",
     bandN1: "密度の高い日本語を扱えます",
     bandN1Body: "速い会話、ニュアンス、曖昧さ、専門的な話題。",
-    mockTitle: "短いレベルチェック",
-    mockBody: "出発点の目安です。JLPTのスコアではありません。",
-    mockTargetLegend: "目標レベル",
+    mockTitle: "無理のない出発点を見つける",
+    mockBody: "分かりそうなレベルを選んでください。採点の前に、りえ先生が進め方を見せます。",
+    mockTargetLegend: "どのレベルを試しますか。",
+    mockGuideTitle: "お手本を一つ見て、少しだけ先へ",
+    mockGuideBody: "ここでは何も固定されません。簡単すぎたり難しすぎたりしたら、いつでも戻れます。",
+    mockGuideLanguage: "ことば：文全体が自然になる形を選びます。",
+    mockGuideReading: "読む：だれが、何が変わったか、いつかを探します。",
+    mockGuideListening: "聞く：答える前に音声を再生します。何度聞いてもかまいません。",
     mockChooseAnswer: "もっとも正しい答えを選んでください。",
-    mockPlayAudio: "リスニングの文を再生",
-    mockAudioUnavailable: "このブラウザでは日本語音声を再生できません。別のルートを選ぶか、対応ブラウザでお試しください。",
-    mockSourceRecordingLabel: "出典の音声を再生",
-    mockSourceRecordingUnavailable: "出典の音声を再生できません。",
-    mockEvidenceSourceAudio: "リスニングは、照合済みの出典音声をそのまま再生します。",
-    mockEvidenceSpeechAudio: "リスニングは、出典の正確な文をブラウザ音声で再生します。このレベルの出典音声はまだ収録されていません。",
-    mockSpeakingConfidence: "台本なしで話す自信はどのくらいありますか。",
-    mockWritingConfidence: "短いメッセージを書く自信はどのくらいありますか。",
-    mockSubmit: "結果を見る",
+    mockPlayAudio: "リスニングを再生",
+    mockAudioUnavailable: "音声を再生できませんでした。もう一度試すか、文字の代替を使ってください。",
+    mockSourceRecordingLabel: "リスニングを再生",
+    mockSourceRecordingUnavailable: "音声を再生できませんでした。下の文字の代替を使えます。",
+    mockListeningRequired: "音声を再生するか、文字で確認してから進んでください。",
+    mockTranscriptAlternative: "文字で確認する",
+    mockTranscriptNotice: "続けることはできますが、リスニングの結果には数えません。",
+    mockProductionTitle: "次は、自分のことばにする",
+    mockProductionBody: "二つの課題を一度ずつ試し、それぞれの手応えを選んでください。自信だけではなく、実際の試みを使います。",
+    mockSpeakingConfidence: "話す課題",
+    mockWritingConfidence: "書く課題",
+    mockModeAloud: "声に出す",
+    mockModeTypeInstead: "代わりに入力する",
+    mockModeTyped: "日本語で入力する",
+    mockModePaper: "紙に書く",
+    mockTriedAloud: "一度、声に出して言いました。",
+    mockWroteOnPaper: "一度、紙に書きました。",
+    mockResponsePlaceholder: "あなたの日本語の文",
+    mockConfidenceLegend: "今回の手応えはどうでしたか。",
+    mockConfidenceNotYet: "まだ難しい",
+    mockConfidenceSupported: "少し考えればできる",
+    mockConfidenceIndependent: "自分で無理なくできる",
+    mockSubmit: "りえ先生のおすすめを見る",
     mockIncomplete: "続ける前に、すべての問題に答えてください。",
+    mockProductionIncomplete: "二つの課題を試し、それぞれの手応えを選んでください。",
+    mockSaveError: "この段階を保存できませんでした。もう一度試してください。",
     mockResultTitle: "りえ先生のおすすめ",
+    mockResultBody: "今回の結果から考えた出発点です。最後に決めるのはあなたです。",
+    mockResultEvidence: "短い6問と、話す・書く二つの自己確認を使った目安です。公式の試験結果ではありません。",
+    mockResultTranscriptEvidence: "文字で確認した問題は、聞く力の結果には数えていません。",
+    mockResultContinuity: "出発レベルを変えても、物語の進行は失われません。",
     mockKnowledge: "言語知識",
     mockReading: "読解",
     mockListening: "リスニング",
-    mockSpeaking: "会話の自信",
-    mockWriting: "作文の自信",
+    mockSpeaking: "話す自己チェック",
+    mockWriting: "書く自己チェック",
     mockRecommendation: "おすすめの出発点",
     mockUseRecommendation: "このおすすめを使う",
     mockChooseMyself: "別のレベルを選ぶ",
@@ -26611,14 +26661,14 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function uniqueTrimmedStrings(values) {
     return uniqueStrings(values, { trim: true, dropEmpty: true });
   }
-  function isRecord$6(value) {
+  function isRecord$7(value) {
     return typeof value === "object" && value !== null && !Array.isArray(value);
   }
   function isNonNullObject(value) {
     return typeof value === "object" && value !== null;
   }
   function normalizeStoredYomuSrsDeck(value) {
-    if (!isRecord$6(value) || value.version !== 1 || !isRecord$6(value.cards)) return { version: 1, cards: {} };
+    if (!isRecord$7(value) || value.version !== 1 || !isRecord$7(value.cards)) return { version: 1, cards: {} };
     const cards = {};
     for (const candidate2 of Object.values(value.cards)) {
       const normalized2 = normalizeStoredCard(candidate2);
@@ -26626,7 +26676,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       cards[normalized2.id] = cards[normalized2.id] ? mergeStoredYomuSrsCards(cards[normalized2.id], normalized2) : normalized2;
     }
     const tombstones = {};
-    if (isRecord$6(value.tombstones)) {
+    if (isRecord$7(value.tombstones)) {
       for (const [id2, timestamp] of Object.entries(value.tombstones)) {
         if (typeof timestamp !== "number" || !Number.isSafeInteger(timestamp) || timestamp < 0) continue;
         const card = cards[id2];
@@ -26758,7 +26808,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return { card: updated, provenanceRemoved: true, cardDeleted: false, reason };
   }
   function normalizeStoredCard(value) {
-    if (!isRecord$6(value) || typeof value.expression !== "string") return null;
+    if (!isRecord$7(value) || typeof value.expression !== "string") return null;
     let identity2;
     try {
       identity2 = canonicalStudyCardIdentity(value.expression, typeof value.reading === "string" ? value.reading : "");
@@ -26813,10 +26863,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     };
   }
   function normalizeProvenanceRecord(value, fallbackAt) {
-    if (!isRecord$6(value)) return {};
+    if (!isRecord$7(value)) return {};
     const result2 = {};
     for (const candidate2 of Object.values(value)) {
-      if (!isRecord$6(candidate2)) continue;
+      if (!isRecord$7(candidate2)) continue;
       try {
         const normalized2 = normalizeProvenance({
           id: String(candidate2.id ?? ""),
@@ -41443,6 +41493,32 @@ ${spelling}`);
   function exhaustive(value) {
     throw new TypeError(`Unknown Lesson Zero vowel-writing action: ${JSON.stringify(value)}`);
   }
+  function emptyPlacementProduction() {
+    return {
+      speaking: { mode: "aloud", completed: false, response: "", confidence: 0.5, rated: false },
+      writing: { mode: "typed", completed: false, response: "", confidence: 0.5, rated: false }
+    };
+  }
+  function placementMockProgressShapeIsValid(value) {
+    if (!isRecord$6(value) || value.schemaVersion !== 1 || !Number.isSafeInteger(value.step) || Number(value.step) < 0 || Number(value.step) > 8 || typeof value.submitted !== "boolean") return false;
+    const draft = value.draft;
+    if (!isRecord$6(draft) || !isJlptBand$1(draft.targetBand) || !stringRecord(draft.responses)) return false;
+    if (!isRecord$6(draft.listeningModes) || Object.entries(draft.listeningModes).some(([key2, mode]) => !key2.trim() || mode !== "audio" && mode !== "transcript-alternative")) return false;
+    if (!isRecord$6(draft.production)) return false;
+    return productionAttemptIsValid(draft.production.speaking, ["aloud", "typed-alternative"]) && productionAttemptIsValid(draft.production.writing, ["typed", "paper-alternative"]);
+  }
+  function productionAttemptIsValid(value, modes) {
+    return isRecord$6(value) && typeof value.mode === "string" && modes.includes(value.mode) && typeof value.completed === "boolean" && typeof value.response === "string" && value.response.length <= 2e3 && typeof value.confidence === "number" && Number.isFinite(value.confidence) && value.confidence >= 0 && value.confidence <= 1 && typeof value.rated === "boolean";
+  }
+  function stringRecord(value) {
+    return isRecord$6(value) && Object.entries(value).every(([key2, entry2]) => key2.trim() && typeof entry2 === "string");
+  }
+  function isJlptBand$1(value) {
+    return value === "n5" || value === "n4" || value === "n3" || value === "n2" || value === "n1";
+  }
+  function isRecord$6(value) {
+    return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+  }
   const ACADEMY_ROUTE_DEFINITIONS = {
     access: "enrollment",
     profile: "enrollment",
@@ -41803,7 +41879,9 @@ ${spelling}`);
       ["route:placement-mock", "route:placement-result"],
       { audio: "learning-audio", visual: "interactive" },
       "Placement draft and accepted result persist.",
-      "Listening, writing, speaking alternative, result, accept, and override paths are proved."
+      "Listening, writing, speaking alternative, result, accept, and override paths are proved.",
+      [],
+      VERIFIED_DELIVERY
     )
   ];
   [
@@ -44202,6 +44280,9 @@ ${spelling}`);
     if (value.lessonZeroVowelWritingProgress !== void 0 && !lessonZeroVowelWritingSessionSnapshotShapeIsValid(value.lessonZeroVowelWritingProgress)) {
       throw new TypeError("Academy checkpoint has invalid Lesson Zero vowel-writing progress.");
     }
+    if (value.placementProgress !== void 0 && !placementMockProgressShapeIsValid(value.placementProgress)) {
+      throw new TypeError("Academy checkpoint has invalid placement progress.");
+    }
     validateRouteContext(value);
   }
   function routeFrameIsValid(value) {
@@ -44856,6 +44937,7 @@ ${spelling}`);
         ...checkpoint.lessonZeroNameCardProgress ? { lessonZeroNameCardProgress: checkpoint.lessonZeroNameCardProgress } : {},
         ...checkpoint.lessonZeroVowelProgress ? { lessonZeroVowelProgress: checkpoint.lessonZeroVowelProgress } : {},
         ...checkpoint.lessonZeroVowelWritingProgress ? { lessonZeroVowelWritingProgress: checkpoint.lessonZeroVowelWritingProgress } : {},
+        ...checkpoint.placementProgress ? { placementProgress: checkpoint.placementProgress } : {},
         updatedAt: now
       };
     }
@@ -44877,7 +44959,7 @@ ${spelling}`);
     } else if (normalized2.route === "start" && !rieIntroductionCompleted(projection)) {
       normalized2 = transitionCheckpoint(normalized2, { kind: "reset", route: "rie-unlock" }, now);
     }
-    if (normalized2.route === "placement-result" && !projection.latestPlacement) {
+    if (normalized2.route === "placement-result" && !normalized2.placementProgress?.submitted && !projection.latestPlacement) {
       normalized2 = transitionCheckpoint(normalized2, { kind: "replace", route: "placement-mock" }, now);
     }
     if (normalized2.route === "arrival-bridge" && !normalized2.selectedBand) {
@@ -44937,7 +45019,7 @@ ${spelling}`);
     if (route === "profile" || route === "rie-unlock" || route === "start" || route === "manual-band" || route === "arrival-bridge") {
       return "opening.invitation";
     }
-    if (route === "placement-mock" || route === "placement-result") return "silence";
+    if (route === "placement-mock" || route === "placement-result") return "classroom.focus";
     if (route === "writing-practice") return "challenge.kanji";
     if (route === "campus") return "world.courtyard";
     if (route === "world") return worldPlace2 ? themeForWorldPlace(worldPlace2) : "unlock.world";
@@ -47914,6 +47996,558 @@ ${spelling}`);
     const mode = candidateId.split(":").at(-1);
     if (mode === "guided" || mode === "test-out" || mode === "repair" || mode === "independent") return mode;
     throw new TypeError(`Unknown N3 advanced-entry candidate: ${candidateId}`);
+  }
+  const SOURCE_FILE_SHA256 = {
+    "data/courses/jlpt_n5/mock1_vocab.js": "2ce50c3d647c3f2922d0664e3c52cf764ce56aa4fca2b685b0fa6089af08fee8",
+    "data/courses/jlpt_n5/mock1_grammar_reading.js": "6a09b05f90b6894f2f1383f2a135a8cf9f6f0c50c9346811e532601c0f239723",
+    "data/courses/jlpt_n5/mock1_listening.js": "cb767000df4ba433346cb1d9310d1efaa542e908bc256d84d902ca649dbd2412",
+    "data/courses/jlpt_n4/mock1_vocab.js": "8a9032265632957d63ffebc3ff4b112dc8053ea0e2b2fb3ea089d941ea728433",
+    "data/courses/jlpt_n4/mock1_grammar_reading.js": "f297d12c00c502f3de3c313b6ae80a54caa875f5d34d2ea583ef44a01fc4fcc8",
+    "data/courses/jlpt_n4/mock1_listening.js": "28e86cd5bc7f2914f88fe85dedee6039cc01ab159f85bb8f1339500e029a8753",
+    "data/courses/jlpt_n3/mock1_vocab.js": "d63e939f1c8c6e71834ab37d16e66c437a551dbf6812fa6122407daefda127cd",
+    "data/courses/jlpt_n3/mock1_grammar.js": "f70938aba899028c5712a2f05fcac54bca4bec5353c5e13bf0f04cb4fb655281",
+    "data/courses/jlpt_n3/mock1_reading.js": "b438b2dffb09fb7db8f5b5e671ae61e97ad1b838627118614bf83c64d22b7b35",
+    "data/courses/jlpt_n3/mock1_listening.js": "2c37b6f24b68c60f1abb234157e3428bad5da7690a3d51b11ee2c0b5cb8a6e71",
+    "data/courses/jlpt_n2/mock_test_no1.js": "4665de0aab5656717c930508ee9b92e60d11f71d5030482b86ea31b7a50b5aa5",
+    "data/questions_jlpt_n1.js": "323ae01802c200a8353d088f02ca9054c42748b580b585c9cc740cbae2c13dd5"
+  };
+  function recorded(sourcePath, remoteUrl, sha2562, deliveryLocator) {
+    return {
+      sourceAvailability: "recorded-source",
+      runtimeDelivery: deliveryLocator ? "packaged-source-recording" : "browser-speech-synthesis",
+      transcriptFidelity: "exact-utterance-text",
+      ...deliveryLocator ? { deliveryLocator } : {},
+      sourcePath,
+      remoteUrl,
+      sha256: sha2562
+    };
+  }
+  const SOURCE_ITEMS = [
+    {
+      id: "n5_mock1_v_01",
+      band: "n5",
+      skill: "language-knowledge",
+      sourceFile: "data/courses/jlpt_n5/mock1_vocab.js",
+      prompt: { en: "きのう 【友だち】 と 映画を 見ました。", ja: "きのう 【友だち】 と 映画を 見ました。" },
+      choices: ["ともだち", "ゆうだち", "ともたち", "ゆうたち"],
+      answer: "ともだち"
+    },
+    {
+      id: "n5_mock1_gr_01",
+      band: "n5",
+      skill: "language-knowledge",
+      sourceFile: "data/courses/jlpt_n5/mock1_grammar_reading.js",
+      prompt: { en: "わたし （　　　） がくせいです。", ja: "わたし （　　　） がくせいです。" },
+      choices: ["は", "を", "に", "で"],
+      answer: "は"
+    },
+    {
+      id: "n5_mock1_gr_27",
+      band: "n5",
+      skill: "reading",
+      sourceFile: "data/courses/jlpt_n5/mock1_grammar_reading.js",
+      passage: "わたしの かぞくは ちちと ははと あねが います。わたしは ４にんかぞくです。あねは だいがくせいで、わたしは こうこうせいです。ちちは かいしゃいんで、ははは びょういんで はたらいて います。",
+      prompt: { en: "この 人の おかあさんは どこで はたらいて いますか。", ja: "この 人の おかあさんは どこで はたらいて いますか。" },
+      choices: ["がっこう", "かいしゃ", "びょういん", "だいがく"],
+      answer: "びょういん"
+    },
+    {
+      id: "n5_mock1_gr_28",
+      band: "n5",
+      skill: "reading",
+      sourceFile: "data/courses/jlpt_n5/mock1_grammar_reading.js",
+      passage: "「田中さん、きのうは ありがとうございました。本を かりましたが、まだ よんで いません。あしたの ゆうがた、かえします。」",
+      prompt: { en: "いつ 本を かえしますか。", ja: "いつ 本を かえしますか。" },
+      choices: ["きのう", "きょうの ゆうがた", "あしたの あさ", "あしたの ゆうがた"],
+      answer: "あしたの ゆうがた"
+    },
+    {
+      id: "n5_mock1_l_04",
+      band: "n5",
+      skill: "listening",
+      sourceFile: "data/courses/jlpt_n5/mock1_listening.js",
+      prompt: { en: "男の人と 女の人が 話しています。女の人は どの ケーキを 買いますか。", ja: "男の人と 女の人が 話しています。女の人は どの ケーキを 買いますか。" },
+      spokenJapanese: "男の人と 女の人が 話しています。女の人は どの ケーキを 買いますか。\nすみません、この ケーキを ３つ ください。\nわたしも 買いたいです。ええと、いちごの ケーキと チョコレートの ケーキが ありますね。\nいちごの ケーキは ひとつ 400円で、チョコレートの ケーキは ひとつ 300円ですよ。\nじゃあ、わたしは チョコレートの ケーキを ふたつ お願いします。",
+      choices: ["いちごの ケーキを ひとつ", "いちごの ケーキを ふたつ", "チョコレートの ケーキを ひとつ", "チョコレートの ケーキを ふたつ"],
+      answer: "チョコレートの ケーキを ふたつ",
+      audio: recorded("/assets/audio/n5_mock1/n5_mock1_l_04.mp3", "https://soya-eagle-online.com/assets/audio/n5_mock1/n5_mock1_l_04.mp3", "da546db7dbceaf3eafbe21f69767f2c954d831817fe3f3307c7deb24be12c664", "academy/content/soya/audio/jlpt_n5/n5_mock1_l_04.mp3")
+    },
+    {
+      id: "n5_mock1_l_11",
+      band: "n5",
+      skill: "listening",
+      sourceFile: "data/courses/jlpt_n5/mock1_listening.js",
+      prompt: { en: "男の人と 女の人が 話しています。男の人は 何が いちばん すきですか。", ja: "男の人と 女の人が 話しています。男の人は 何が いちばん すきですか。" },
+      spokenJapanese: "男の人と 女の人が 話しています。男の人は 何が いちばん すきですか。\n田中さんは、くだものが すきですか。\nはい、すきです。\nどんな くだものが すきですか。りんごですか、みかんですか。\nりんごも みかんも すきですが、いちばん 好きなのは ぶどうです。",
+      choices: ["りんご", "みかん", "ぶどう", "バナナ"],
+      answer: "ぶどう",
+      audio: recorded("/assets/audio/n5_mock1/n5_mock1_l_11.mp3", "https://soya-eagle-online.com/assets/audio/n5_mock1/n5_mock1_l_11.mp3", "32c6d0a7692f3d5aec633c615f2c1b727deda0859e5f492fd3f444b56f029ac8", "academy/content/soya/audio/jlpt_n5/n5_mock1_l_11.mp3")
+    },
+    {
+      id: "n4_mock1_v_01",
+      band: "n4",
+      skill: "language-knowledge",
+      sourceFile: "data/courses/jlpt_n4/mock1_vocab.js",
+      prompt: { en: "部長の【意見】を聞きましょう。", ja: "部長の【意見】を聞きましょう。" },
+      choices: ["いげん", "いけん", "おげん", "おけん"],
+      answer: "いけん"
+    },
+    {
+      id: "n4_mock1_gr_01",
+      band: "n4",
+      skill: "language-knowledge",
+      sourceFile: "data/courses/jlpt_n4/mock1_grammar_reading.js",
+      prompt: { en: "ケーキをたくさん食べたので、もうおなかがいっぱいで（　　）。", ja: "ケーキをたくさん食べたので、もうおなかがいっぱいで（　　）。" },
+      choices: ["食べられません", "食べさせません", "食べません", "食べさせられません"],
+      answer: "食べられません"
+    },
+    {
+      id: "n4_mock1_gr_26",
+      band: "n4",
+      skill: "reading",
+      sourceFile: "data/courses/jlpt_n4/mock1_grammar_reading.js",
+      passage: "田中さんへ\n明日の会議の資料ですが、今日の午後5時までに、私の机の上に置いておいてください。もし、間に合わない場合は、メールで送ってください。よろしくお願いします。\n山田",
+      prompt: { en: "山田さんは田中さんに、今日の午後5時までに何をしてほしいと言っていますか。", ja: "山田さんは田中さんに、今日の午後5時までに何をしてほしいと言っていますか。" },
+      choices: ["会議の資料を山田さんの机の上に置くこと。", "会議の資料をメールで送ること。", "会議の資料を山田さんの机の上に置くか、メールで送ること。", "会議の資料が間に合わないとメールで連絡すること。"],
+      answer: "会議の資料を山田さんの机の上に置くこと。"
+    },
+    {
+      id: "n4_mock1_gr_27",
+      band: "n4",
+      skill: "reading",
+      sourceFile: "data/courses/jlpt_n4/mock1_grammar_reading.js",
+      passage: "この図書館では、本を借りるとき、カードが必要です。カードを作るには、名前と住所がわかるもの（運転免許証など）を持ってきてください。外国人の場合は、在留カードも必要です。カードは、その日に作ることができます。",
+      prompt: { en: "外国人がこの図書館でカードを作るとき、何が必要ですか。", ja: "外国人がこの図書館でカードを作るとき、何が必要ですか。" },
+      choices: ["運転免許証だけです。", "名前と住所がわかるものと在留カードです。", "在留カードだけです。", "名前と住所がわかるものだけです。"],
+      answer: "名前と住所がわかるものと在留カードです。"
+    },
+    {
+      id: "n4_mock1_l_07",
+      band: "n4",
+      skill: "listening",
+      sourceFile: "data/courses/jlpt_n4/mock1_listening.js",
+      prompt: { en: "学生は、まず何をしますか。", ja: "学生は、まず何をしますか。" },
+      spokenJapanese: "七番。料理教室で、先生が話しています。学生は、まず何をしますか。\nはい、みなさん。今日はカレーを作ります。まず、野菜を洗いましょう。人参、じゃがいも、玉ねぎですね。きれいに洗ったら、皮をむいて、小さく切ってください。肉は後で切ります。では、始めてください。\n学生は、まず何をしますか。",
+      choices: ["1. 野菜を切ります。", "2. 野菜の皮をむきます。", "3. 野菜を洗います。", "4. 肉を切ります。"],
+      answer: "3. 野菜を洗います。",
+      audio: recorded("/assets/audio/n4_mock1/n4_mock1_l_07.mp3", "https://soya-eagle-online.com/assets/audio/n4_mock1/n4_mock1_l_07.mp3", "27b602fbade55bf2c1713da903033945f02e8bacc3bebcc5cdca59c836e8240a")
+    },
+    {
+      id: "n4_mock1_l_10",
+      band: "n4",
+      skill: "listening",
+      sourceFile: "data/courses/jlpt_n4/mock1_listening.js",
+      prompt: { en: "明日の午後の天気はどうなりますか。", ja: "明日の午後の天気はどうなりますか。" },
+      spokenJapanese: "二番。天気予報を聞いています。明日の午後の天気はどうなりますか。\n今日の天気は晴れでしたが、明日は天気が変わります。午前中は曇りですが、昼過ぎから雨が降り始めるでしょう。夜には雨が強くなりそうです。傘を忘れないようにしてください。\n明日の午後の天気はどうなりますか。",
+      choices: ["1. 晴れです。", "2. 曇りです。", "3. 雨です。", "4. 晴れのち曇りです。"],
+      answer: "3. 雨です。",
+      audio: recorded("/assets/audio/n4_mock1/n4_mock1_l_10.mp3", "https://soya-eagle-online.com/assets/audio/n4_mock1/n4_mock1_l_10.mp3", "cc15af016afaa7a481b41f86d550f6e68cc220d58b96cbe43d7601a6cd676a52")
+    },
+    {
+      id: "mock1_v_01",
+      band: "n3",
+      skill: "language-knowledge",
+      sourceFile: "data/courses/jlpt_n3/mock1_vocab.js",
+      prompt: { en: "彼と再会を【約束】した。", ja: "彼と再会を【約束】した。" },
+      choices: ["やくそく", "ようそく", "やっそく", "よっそく"],
+      answer: "やくそく"
+    },
+    {
+      id: "mock1_g_01",
+      band: "n3",
+      skill: "language-knowledge",
+      sourceFile: "data/courses/jlpt_n3/mock1_grammar.js",
+      prompt: { en: "このパソコンは、初心者（　　　）使いやすい。", ja: "このパソコンは、初心者（　　　）使いやすい。" },
+      choices: ["にしたら", "にしては", "にとっても", "にすぎない"],
+      answer: "にとっても"
+    },
+    {
+      id: "mock1_r_02",
+      band: "n3",
+      skill: "reading",
+      sourceFile: "data/courses/jlpt_n3/mock1_reading.js",
+      passage: "山田様\n明日の会議ですが、午後2時から午後3時に変更になりました。場所は第1会議室で変わりありません。よろしくお願いいたします。 \n佐藤",
+      prompt: { en: "Which is correct about tomorrow's meeting?", ja: "明日の会議について、正しいものはどれか。" },
+      choices: ["時間も場所も変わった。", "時間は変わったが、場所は変わらない。", "時間は変わらないが、場所が変わった。", "時間も場所も変わらない。"],
+      answer: "時間は変わったが、場所は変わらない。"
+    },
+    {
+      id: "mock1_r_03",
+      band: "n3",
+      skill: "reading",
+      sourceFile: "data/courses/jlpt_n3/mock1_reading.js",
+      passage: "昔の人は夜になると寝て、朝になると起きる生活をしていた。しかし、電気が発明されてから、夜遅くまで起きている人が多くなった。便利になった一方で、睡眠不足で疲れている人も増えているようだ。",
+      prompt: { en: "What happened after electricity was invented?", ja: "電気が発明されてから、どうなったか。" },
+      choices: ["夜になるとすぐ寝る人が増えた。", "朝早く起きる人が増えた。", "夜遅くまで起きている人が増えた。", "疲れない人が増えた。"],
+      answer: "夜遅くまで起きている人が増えた。"
+    },
+    {
+      id: "mock1_l_05",
+      band: "n3",
+      skill: "listening",
+      sourceFile: "data/courses/jlpt_n3/mock1_listening.js",
+      prompt: { en: "What do the students need to do during this class?", ja: "学生はこの授業中、何をしなければなりませんか。" },
+      spokenJapanese: "教室で先生が話しています。学生はこの授業中、何をしなければなりませんか。\nえー、今日は教科書の20ページから進める予定でしたが、その前に前回配ったプリントの復習をします。今から10分時間を与えますので、プリントの問題を解いてください。宿題の提出は、授業の最後に行います。それと、黒板の字はまだノートに写さなくていいですよ。\n学生はこの授業中（今から）、何をしなければなりませんか。\n1. 教科書の20ページを読む。2. 宿題を提出する。3. プリントの問題を解く。4. ノートを写す。",
+      choices: ["教科書の20ページを読む", "宿題を提出する", "プリントの問題を解く", "ノートを写す"],
+      answer: "プリントの問題を解く",
+      audio: recorded("/audio/mock1/mock1_l_05.mp3", "https://soya-eagle-online.com/audio/mock1/mock1_l_05.mp3", "75d494710c9fe11243553ce71a8f30fa7395c456a0b014636ef89054c42e11f6")
+    },
+    {
+      id: "mock1_l_10",
+      band: "n3",
+      skill: "listening",
+      sourceFile: "data/courses/jlpt_n3/mock1_listening.js",
+      prompt: { en: "Why did the man choose this smartphone?", ja: "男の人がこのスマートフォンを選んだ理由は何ですか。" },
+      spokenJapanese: "男の人が携帯電話ショップで話しています。男の人がこのスマートフォンを選んだ理由は何ですか。\nすみません、この機種をください。色々迷ったんですが、これにします。デザインや軽さも魅力的なんですけど、仕事で外に出ていることが多くて、途中で充電が切れるのが一番困るんですよ。これなら夜まで安心して使えそうなので。\n男の人がこのスマートフォンを選んだ理由は何ですか。",
+      choices: ["デザインが良いから", "電池が長持ちするから", "カメラの性能が良いから", "軽いから"],
+      answer: "電池が長持ちするから",
+      audio: recorded("/audio/mock1/mock1_l_10.mp3", "https://soya-eagle-online.com/audio/mock1/mock1_l_10.mp3", "07a2a5a708f5a6ea42e435d8df261fbca7f00e7ffe3cab587a450b177583c4c3")
+    },
+    {
+      id: "n2_m1_kanji_reading_0_1",
+      band: "n2",
+      skill: "language-knowledge",
+      sourceFile: "data/courses/jlpt_n2/mock_test_no1.js",
+      prompt: { en: "最近、___が回復してきた。", ja: "最近、___が回復してきた。" },
+      choices: ["けいき", "けいぎ", "けしき", "ふうき"],
+      answer: "けいき"
+    },
+    {
+      id: "n2_m1_grammar_form_0_1",
+      band: "n2",
+      skill: "language-knowledge",
+      sourceFile: "data/courses/jlpt_n2/mock_test_no1.js",
+      prompt: { en: "新しい制度の導入___、働き方が多様化した。", ja: "新しい制度の導入___、働き方が多様化した。" },
+      choices: ["に伴って", "をめぐって", "ものとして", "からには"],
+      answer: "に伴って"
+    },
+    {
+      id: "n2_m1_reading_short_2_1",
+      band: "n2",
+      skill: "reading",
+      sourceFile: "data/courses/jlpt_n2/mock_test_no1.js",
+      choiceOrder: "deterministic-derived",
+      passage: "住民の皆様へ。来月より、燃えるゴミの収集ルールが一部変更になります。これまでは週三回でしたが、週二回（月・木）となります。また、ペットボトルは燃えるゴミと一緒に出せず、金曜日の資源ゴミの日に出すことになりました。分別の徹底にご協力いただけない場合、ゴミが回収されないこともありますので、ご注意ください。",
+      prompt: { en: "What is the main point of this notice?", ja: "このお知らせで最も伝えたいことは何か。" },
+      choices: ["燃えるゴミの収集が週一回に減ること。", "ペットボトルは燃えるゴミと分けて出す必要があること。", "ゴミ出しの時間が変更されたこと。", "全てのゴミを同じ日に出す必要があること。"],
+      answer: "ペットボトルは燃えるゴミと分けて出す必要があること。"
+    },
+    {
+      id: "n2_m1_reading_short_2_2",
+      band: "n2",
+      skill: "reading",
+      sourceFile: "data/courses/jlpt_n2/mock_test_no1.js",
+      choiceOrder: "deterministic-derived",
+      passage: "件名：会議資料のご確認\n鈴木さん\nお疲れ様です。田中です。来週の会議で使うプレゼン資料ですが、私の担当分ができましたので添付します。お忙しいところ恐縮ですが、内容に間違いがないか、特に5ページ目のデータをご確認いただけますでしょうか。ご確認後、鈴木さん担当の売上予測のグラフを追加して、明日の午前中までに私に返信していただけると助かります。よろしくお願いします。",
+      prompt: { en: "What does Tanaka want Suzuki to do?", ja: "田中さんが鈴木さんにしてほしいことは何か。" },
+      choices: ["新しいプレゼン資料を一から作成すること。", "売上予測のデータだけを田中さんに送ること。", "資料の内容を確認し、グラフを追加して返信すること。", "今日中に資料の修正を終えること。"],
+      answer: "資料の内容を確認し、グラフを追加して返信すること。"
+    },
+    {
+      id: "n2_m1_listening_point_3_1",
+      band: "n2",
+      skill: "listening",
+      sourceFile: "data/courses/jlpt_n2/mock_test_no1.js",
+      choiceOrder: "deterministic-derived",
+      prompt: { en: "Why did the woman decide not to apply for this job?", ja: "女の人は、どうしてこの仕事に応募しないことにしましたか。" },
+      spokenJapanese: "会社で、女の人と男の人が話しています。女の人は、どうしてこの仕事に応募しないことにしましたか。\n佐藤さん、この求人見た？うちの会社の経理部。佐藤さん、経験もあるし、ぴったりじゃない？\nあ、これね。私も見たわ。給料も悪くないし、勤務地も今より近くなるから、いいなあとは思ったんだけどね。\nじゃあ、応募してみれば？締め切り、明日だよ。\nうーん、それがね…。よく見たら、海外出張が年に数回あるって書いてあって。\nああ、本当だ。でも、海外に行けるなんて、いいじゃないか。\n小さい子供がいるから、今はちょっと難しいのよ。泊まりがけの出張は、国内でも厳しいくらいで。せっかくいい条件だと思ったんだけど、今回は見送ることにしたわ。\nそっかあ。事情があるなら仕方ないね。",
+      choices: ["給料が安いから", "勤務地が遠いから", "海外出張があるから", "経理の経験がないから"],
+      answer: "海外出張があるから",
+      audio: recorded("/assets/audio/n2_mock1/n2_m1_listening_point_3_1.mp3", "https://soya-eagle-online.com/assets/audio/n2_mock1/n2_m1_listening_point_3_1.mp3", "2cac29860f4894536fa855d2714c0a04e77ae96fc0a49977fc5f901e180062da")
+    },
+    {
+      id: "n2_m1_listening_summary_3_1",
+      band: "n2",
+      skill: "listening",
+      sourceFile: "data/courses/jlpt_n2/mock_test_no1.js",
+      choiceOrder: "deterministic-derived",
+      prompt: { en: "What does the man say is most important regarding time-saving appliances?", ja: "男の人は、時短家電について主に何が大切だと言っていますか。" },
+      spokenJapanese: "男の人が話しています。\n最近、ロボット掃除機や自動調理鍋といった、いわゆる「時短家電」が人気を集めていますね。家事にかかる時間を短縮してくれるこれらの製品は、忙しい現代人にとって確かに魅力的です。空いた時間を趣味や家族との対話に使えれば、生活はより豊かになるでしょう。しかし、一方で、こうした家電は高価なものが多く、導入には慎重にならざるを得ません。また、何でも機械任せにすることで、人間が本来持っていた生活の知恵や能力が失われるのではないかという懸念の声も聞かれます。便利さを追求するあまり、大切な何かを見失ってはいないか。単に時間を節約するだけでなく、その生まれた時間をどう有意義に使うか、という視点を持つことが、これからの家電との付き合い方で最も重要になるのではないでしょうか。\n男の人は、時短家電について主に何が大切だと言っていますか。",
+      choices: ["できるだけ価格の安い製品を選ぶこと", "生まれた時間をどう活用するかを考えること", "家事の能力が低下しないよう注意すること", "家族と過ごす時間を最優先にすること"],
+      answer: "生まれた時間をどう活用するかを考えること",
+      audio: recorded("/assets/audio/n2_mock1/n2_m1_listening_summary_3_1.mp3", "https://soya-eagle-online.com/assets/audio/n2_mock1/n2_m1_listening_summary_3_1.mp3", "1490d0b5f287864b014fed4ea26e5ad4c10ef702658e5c527943340976ee4d4b")
+    },
+    {
+      id: "n1_p_1",
+      band: "n1",
+      skill: "language-knowledge",
+      sourceFile: "data/questions_jlpt_n1.js",
+      prompt: { en: "彼の行動は、常識 ___ 考えられない。", ja: "彼の行動は、常識 ___ 考えられない。" },
+      choices: ["から言って", "を問わず", "からすると", "からには"],
+      answer: "からすると"
+    },
+    {
+      id: "n1_k_1",
+      band: "n1",
+      skill: "language-knowledge",
+      sourceFile: "data/questions_jlpt_n1.js",
+      prompt: { en: "貢献", ja: "貢献" },
+      choices: ["こうけん", "こうがん", "ごうけん", "きょうけん"],
+      answer: "こうけん"
+    },
+    {
+      id: "n1_r_1",
+      band: "n1",
+      skill: "reading",
+      sourceFile: "data/questions_jlpt_n1.js",
+      choiceOrder: "deterministic-derived",
+      passage: "近代化は我々に物質的な豊かさをもたらしたが、同時に精神的な孤立をも深めたと言える。情報機器の発達により、世界中の人々と即座に繋がることが可能になったにもかかわらず、皮肉なことに、身近な他者との対面的なコミュニケーションは減少しつつある。我々は「接続」されているが、「結びついて」はいないのである。",
+      prompt: { en: "What is the 'ironic situation' the author describes?", ja: "筆者が述べている「皮肉なこと」とはどのような状況か。" },
+      choices: ["物質的な豊かさが手に入ったのに、社会が近代化していないこと", "世界中の人と繋がれるのに、身近な人との直接的な交流が減っていること", "情報機器が発達したせいで、インターネットの接続が悪くなったこと", "精神的に孤立しているため、世界中の誰とも繋がれないこと"],
+      answer: "世界中の人と繋がれるのに、身近な人との直接的な交流が減っていること"
+    },
+    {
+      id: "n1_r_2",
+      band: "n1",
+      skill: "reading",
+      sourceFile: "data/questions_jlpt_n1.js",
+      choiceOrder: "deterministic-derived",
+      passage: "歴史を学ぶ意義は、過去の事実を暗記することにあるのではない。過去の事例を鏡として、現在の私たちが直面している問題の本質を客観的に見極め、未来への指針を得る点にこそ、その真価がある。歴史を知らない者は、また同じ過ちを繰り返す危険性が高い。",
+      prompt: { en: "According to the author, what is the most important purpose of studying history?", ja: "筆者によれば、歴史を学ぶ最も重要な目的はどれか。" },
+      choices: ["過去の事実や年号を正確に暗記してテストに備えること", "過去の偉人の業績を賛美し、後世へと語り継ぐこと", "過去を参考に現在を理解し、未来の方向性を見出すこと", "現代の問題を過去の過ちのせいにして責任を逃れること"],
+      answer: "過去を参考に現在を理解し、未来の方向性を見出すこと"
+    },
+    {
+      id: "n1_l_1",
+      band: "n1",
+      skill: "listening",
+      sourceFile: "data/questions_jlpt_n1.js",
+      prompt: { en: "As for the agenda of the next meeting", ja: "As for the agenda of the next meeting" },
+      spokenJapanese: "つぎのかいぎのぎだいですが、しりょうのさくせいがまにあわず、らいしゅうにもちこすことになりました。",
+      choices: ["議題は来週の会議へ延期になった", "来週の会議には資料が不要になった", "会議の前に資料を作らなければならない"],
+      answer: "議題は来週の会議へ延期になった",
+      audio: {
+        sourceAvailability: "source-text-only",
+        runtimeDelivery: "browser-speech-synthesis",
+        transcriptFidelity: "exact-utterance-text"
+      }
+    },
+    {
+      id: "n1_l_2",
+      band: "n1",
+      skill: "listening",
+      sourceFile: "data/questions_jlpt_n1.js",
+      prompt: { en: "The deadline for this project is the end of this month", ja: "The deadline for this project is the end of this month" },
+      spokenJapanese: "このプロジェクトはこんげつまつがのうきですので、なんとしてもまにあわせるひつようがあります。みなさん、こんしゅうまつはきゅうじつしゅっきんをおねがいするかもしれません。",
+      choices: ["今週末は働く可能性がある", "今月末まで休みはない", "プロジェクトの納期が延期された"],
+      answer: "今週末は働く可能性がある",
+      audio: {
+        sourceAvailability: "source-text-only",
+        runtimeDelivery: "browser-speech-synthesis",
+        transcriptFidelity: "exact-utterance-text"
+      }
+    }
+  ];
+  const ORIENTATION_SOURCE_ITEMS = SOURCE_ITEMS.map((sourceItem) => ({
+    id: `orientation:${sourceItem.band}:${sourceItem.id}`,
+    band: sourceItem.band,
+    skill: sourceItem.skill,
+    prompt: sourceItem.prompt,
+    passage: sourceItem.passage ? { en: sourceItem.passage, ja: sourceItem.passage } : void 0,
+    spokenJapanese: sourceItem.spokenJapanese,
+    audio: sourceItem.audio,
+    referenceId: sourceItem.id,
+    provenance: provenance$O(sourceItem),
+    options: sourceItem.choices.map((label, index) => ({
+      id: `choice-${index + 1}`,
+      label: { en: label, ja: label },
+      correct: label === sourceItem.answer
+    }))
+  }));
+  function provenance$O(item2) {
+    return {
+      sourceScope: "soya-research",
+      sourceItemId: item2.id,
+      sourceFile: item2.sourceFile,
+      sourceFileSha256: SOURCE_FILE_SHA256[item2.sourceFile],
+      contentFidelity: "exact",
+      choiceOrder: item2.choiceOrder ?? "source",
+      answerGate: "after-attempt",
+      corpusRightsState: "item-review-required",
+      useAuthorization: "user-permitted"
+    };
+  }
+  const PRODUCTION_PROMPTS = {
+    n5: {
+      speaking: {
+        model: { en: "Model: わたしは りえ です。", ja: "お手本：わたしは りえ です。" },
+        task: { en: "Change the name and introduce yourself once.", ja: "名前を変えて、一度自己紹介してください。" }
+      },
+      writing: {
+        model: { en: "Model: コーヒーが すきです。", ja: "お手本：コーヒーが すきです。" },
+        task: { en: "Write one thing you like.", ja: "好きなものを一つ書いてください。" }
+      }
+    },
+    n4: {
+      speaking: {
+        model: { en: "Model: きのう、友だちと映画を見ました。", ja: "お手本：きのう、友だちと映画を見ました。" },
+        task: { en: "Say one thing you did yesterday and who you were with.", ja: "きのうしたことと、だれと一緒だったか話してください。" }
+      },
+      writing: {
+        model: { en: "Model: 土曜日は雨なので、家で勉強します。", ja: "お手本：土曜日は雨なので、家で勉強します。" },
+        task: { en: "Write one plan and a short reason.", ja: "予定を一つ、短い理由と一緒に書いてください。" }
+      }
+    },
+    n3: {
+      speaking: {
+        model: { en: "Model: 電車のほうが便利ですが、朝は混んでいます。", ja: "お手本：電車のほうが便利ですが、朝は混んでいます。" },
+        task: { en: "Compare two choices and add one reservation.", ja: "二つの選択肢を比べて、一つ気になる点も話してください。" }
+      },
+      writing: {
+        model: { en: "Model: 会議の時間を三時に変更していただけますか。", ja: "お手本：会議の時間を三時に変更していただけますか。" },
+        task: { en: "Write a polite message asking to change a time.", ja: "時間の変更をお願いする丁寧なメッセージを書いてください。" }
+      }
+    },
+    n2: {
+      speaking: {
+        model: { en: "Model: 効率は上がる一方で、対話の機会が減るおそれもあります。", ja: "お手本：効率は上がる一方で、対話の機会が減るおそれもあります。" },
+        task: { en: "Give one benefit and one possible drawback of remote work.", ja: "在宅勤務の利点と、考えられる欠点を一つずつ話してください。" }
+      },
+      writing: {
+        model: { en: "Model: 資料をご確認のうえ、金曜日までにご返信いただけると助かります。", ja: "お手本：資料をご確認のうえ、金曜日までにご返信いただけると助かります。" },
+        task: { en: "Write a concise professional request with a deadline.", ja: "期限を入れて、簡潔な仕事の依頼を書いてください。" }
+      }
+    },
+    n1: {
+      speaking: {
+        model: { en: "Model: 一概に否定はできないものの、長期的な影響は慎重に見極める必要があります。", ja: "お手本：一概に否定はできないものの、長期的な影響は慎重に見極める必要があります。" },
+        task: { en: "State a nuanced view on automation without making it absolute.", ja: "自動化について、断定を避けながら考えを述べてください。" }
+      },
+      writing: {
+        model: { en: "Model: ご提案の趣旨には賛同しますが、実施時期については再検討の余地があると考えます。", ja: "お手本：ご提案の趣旨には賛同しますが、実施時期については再検討の余地があると考えます。" },
+        task: { en: "Write a tactful two-part response: partial agreement, then a concern.", ja: "一部賛成したあと懸念を述べる、配慮のある返答を書いてください。" }
+      }
+    }
+  };
+  function placementProductionPrompt(band) {
+    return PRODUCTION_PROMPTS[band];
+  }
+  const ORIENTATION_MOCK_POLICY = Object.freeze({
+    optional: true,
+    entryChoices: ["lesson-zero", "n5", "n4", "n3", "n2", "n1"],
+    sections: ["language-knowledge", "reading", "listening"],
+    caveats: [
+      "This compact orientation is a heuristic, not an official JLPT score or pass prediction.",
+      "Speaking and writing use short production attempts followed by learner self-checks; they are not examiner-graded scores.",
+      "Each receptive recommendation is based on a small sample and should be treated as a starting suggestion.",
+      "A listening item only counts after audio playback; an accessible transcript alternative remains usable but is excluded from listening evidence."
+    ],
+    storyProgression: "preserve",
+    canSkipStory: false,
+    revisit: "always-available"
+  });
+  const ORIENTATION_MOCK_ITEMS = ORIENTATION_SOURCE_ITEMS;
+  validateOrientationMockItems(ORIENTATION_MOCK_ITEMS);
+  function orientationItemsForBand(band) {
+    return ORIENTATION_MOCK_ITEMS.filter((item2) => item2.band === band);
+  }
+  function placementAudioDelivery(item2) {
+    if (!item2.spokenJapanese || !item2.audio) return void 0;
+    if (item2.audio.runtimeDelivery === "browser-speech-synthesis") {
+      return { kind: "browser-speech", text: item2.spokenJapanese };
+    }
+    const locator = item2.audio.deliveryLocator;
+    const expectedSha256 = item2.audio.sha256;
+    if (!locator || !expectedSha256) {
+      throw new TypeError(`Placement recording ${item2.id} is missing its exact delivery identity.`);
+    }
+    const resolution = resolvePackagedAcademyListeningLocator(locator);
+    if (resolution.status !== "ready" || resolution.entry.source.sha256 !== expectedSha256) {
+      throw new TypeError(`Placement recording ${item2.id} does not match the listening crosswalk.`);
+    }
+    return { kind: "source-recording", url: resolution.url, sha256: expectedSha256 };
+  }
+  function validateOrientationMockItems(items) {
+    const itemIds = /* @__PURE__ */ new Set();
+    const referenceIds = /* @__PURE__ */ new Set();
+    for (const item2 of items) {
+      if (itemIds.has(item2.id)) throw new TypeError(`Duplicate placement item id: ${item2.id}`);
+      if (referenceIds.has(item2.referenceId)) throw new TypeError(`Duplicate placement source item: ${item2.referenceId}`);
+      itemIds.add(item2.id);
+      referenceIds.add(item2.referenceId);
+      const optionIds = /* @__PURE__ */ new Set();
+      const labels = {
+        en: /* @__PURE__ */ new Set(),
+        ja: /* @__PURE__ */ new Set()
+      };
+      for (const option2 of item2.options) {
+        if (optionIds.has(option2.id)) throw new TypeError(`Duplicate option id in ${item2.id}: ${option2.id}`);
+        for (const language of ["en", "ja"]) {
+          const label = option2.label[language].trim();
+          if (!label || labels[language].has(label)) {
+            throw new TypeError(`Duplicate or empty option (${language}) in ${item2.id}: ${label}`);
+          }
+          labels[language].add(label);
+        }
+        optionIds.add(option2.id);
+      }
+      if (item2.options.length < 3) throw new TypeError(`Placement item needs at least three options: ${item2.id}`);
+      if (item2.options.filter((option2) => option2.correct).length !== 1) {
+        throw new TypeError(`Placement item needs exactly one correct option: ${item2.id}`);
+      }
+      if (item2.audio?.runtimeDelivery === "packaged-source-recording") placementAudioDelivery(item2);
+    }
+    for (const band of ["n5", "n4", "n3", "n2", "n1"]) {
+      for (const skill of ORIENTATION_MOCK_POLICY.sections) {
+        const count2 = items.filter((item2) => item2.band === band && item2.skill === skill).length;
+        if (count2 !== 2) throw new TypeError(`Placement bank needs two ${skill} items for ${band}; found ${count2}`);
+      }
+    }
+  }
+  function scoreOrientationMock(targetBand, responses, confidence, listeningModes = {}) {
+    const assessmentItems = orientationItemsForBand(targetBand);
+    const scoreFor = (skill) => {
+      const items = assessmentItems.filter((item2) => item2.skill === skill);
+      const correct2 = items.filter((item2) => (item2.skill !== "listening" || listeningModes[item2.id] !== "transcript-alternative") && item2.options.some((option2) => option2.id === responses[item2.id] && option2.correct)).length;
+      return items.length ? correct2 / items.length : 0;
+    };
+    const scores = {
+      "language-knowledge": scoreFor("language-knowledge"),
+      reading: scoreFor("reading"),
+      listening: scoreFor("listening"),
+      "speaking-confidence": clamp$2(confidence.speaking),
+      "writing-confidence": clamp$2(confidence.writing)
+    };
+    const recommendationFor = (skill) => {
+      const items = assessmentItems.filter((item2) => item2.skill === skill);
+      const selections = items.map((item2) => item2.skill === "listening" && listeningModes[item2.id] === "transcript-alternative" ? void 0 : item2.options.find((option2) => option2.id === responses[item2.id]));
+      const attempted = selections.filter(Boolean).length;
+      const correct2 = selections.filter((option2) => option2?.correct).length;
+      const score = items.length ? correct2 / items.length : 0;
+      const recommendedStart2 = attempted === 0 ? "lesson-zero" : lowerRecommendation(targetBand, score === 1 ? 0 : score >= 0.5 ? 1 : 2);
+      return { skill, attempted, correct: correct2, available: items.length, score, recommendedStart: recommendedStart2 };
+    };
+    const skillRecommendations = {
+      "language-knowledge": recommendationFor("language-knowledge"),
+      reading: recommendationFor("reading"),
+      listening: recommendationFor("listening")
+    };
+    const recommendedStart = lowestRecommendation(Object.values(skillRecommendations).map((entry2) => entry2.recommendedStart));
+    return {
+      assessmentId: "academy-orientation-mock:v2",
+      targetBand,
+      itemIds: assessmentItems.map((item2) => item2.id),
+      scores,
+      recommendedBand: recommendedStart === "lesson-zero" ? "n5" : recommendedStart,
+      recommendedStart,
+      calibration: "vertical-slice",
+      skillRecommendations,
+      storyProgression: ORIENTATION_MOCK_POLICY.storyProgression,
+      mockRevisit: ORIENTATION_MOCK_POLICY.revisit,
+      caveats: ORIENTATION_MOCK_POLICY.caveats
+    };
+  }
+  function lowerRecommendation(target2, steps) {
+    const bands = ["n5", "n4", "n3", "n2", "n1"];
+    const index = bands.indexOf(target2) - steps;
+    return index < 0 ? "lesson-zero" : bands[index];
+  }
+  function lowestRecommendation(recommendations) {
+    const order2 = ["lesson-zero", "n5", "n4", "n3", "n2", "n1"];
+    return recommendations.reduce((lowest, value) => order2.indexOf(value) < order2.indexOf(lowest) ? value : lowest, "n1");
+  }
+  function clamp$2(value) {
+    return Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : 0;
   }
   const STORY_VOICE_PLAYBACK_CATALOG_URL = "/academy/audio/story-voice-playback.json";
   const STORY_VOICE_PLAYBACK_SCHEMA = "yomu-academy.story-voice-playback.v1";
@@ -53938,7 +54572,7 @@ ${spelling}`);
     const referencePoints = reference.flat();
     if (!writtenPoints.length || !referencePoints.length) return 0;
     const distance = (averageNearestDistance(writtenPoints, referencePoints) + averageNearestDistance(referencePoints, writtenPoints)) / 2;
-    return clamp$2(1 - distance / 54, 0, 1);
+    return clamp$1(1 - distance / 54, 0, 1);
   }
   function averageNearestDistance(points, targets) {
     return points.reduce((sum, point) => sum + nearestDistance(point, targets), 0) / points.length;
@@ -53996,8 +54630,8 @@ ${spelling}`);
     const scaleX = finiteScale(targetWidth / (4 * Math.sqrt(varianceX)));
     const scaleY = finiteScale(targetHeight / (4 * Math.sqrt(varianceY)));
     return pattern.map((stroke) => stroke.map((point) => ({
-      x: clamp$2(scaleX * (point.x - centerX) + targetWidth / 2 + offsetX, 0, NORMALIZED_SIZE),
-      y: clamp$2(scaleY * (point.y - centerY) + targetHeight / 2 + offsetY, 0, NORMALIZED_SIZE)
+      x: clamp$1(scaleX * (point.x - centerX) + targetWidth / 2 + offsetX, 0, NORMALIZED_SIZE),
+      y: clamp$1(scaleY * (point.y - centerY) + targetHeight / 2 + offsetY, 0, NORMALIZED_SIZE)
     })));
   }
   function aspectPreservingScale(width, height) {
@@ -54029,7 +54663,7 @@ ${spelling}`);
     const endpoints = endPointDistance(stroke, reference) / 2;
     const direction = directionDistance(stroke, reference) * 128;
     const distance = whole * 0.58 + endpoints * 0.32 + direction * 0.1;
-    return clamp$2(1 - distance / 96, 0, 1);
+    return clamp$1(1 - distance / 96, 0, 1);
   }
   function reversibleStrokeCorrespondenceScore(stroke, reference) {
     return Math.max(
@@ -54058,7 +54692,7 @@ ${spelling}`);
     const length2 = Math.hypot(vector2.x, vector2.y);
     if (!length1 || !length2) return 1;
     const dot = (vector1.x * vector2.x + vector1.y * vector2.y) / (length1 * length2);
-    return (1 - clamp$2(dot, -1, 1)) / 2;
+    return (1 - clamp$1(dot, -1, 1)) / 2;
   }
   function strokeVector(stroke) {
     return {
@@ -54072,7 +54706,7 @@ ${spelling}`);
   function manhattan(point1, point2) {
     return Math.abs(point1.x - point2.x) + Math.abs(point1.y - point2.y);
   }
-  function clamp$2(value, min, max2) {
+  function clamp$1(value, min, max2) {
     return Math.max(min, Math.min(max2, value));
   }
   function createOpeningKanjiActivity(trace, language = "en") {
@@ -54704,503 +55338,6 @@ ${spelling}`);
     const encouraging = { still: ACADEMY_ASSETS.characters.approvedPerformances.rie.encouraging };
     return { neutral, encouraging, happy: encouraging, repair: neutral };
   }
-  const SOURCE_FILE_SHA256 = {
-    "data/courses/jlpt_n5/mock1_vocab.js": "2ce50c3d647c3f2922d0664e3c52cf764ce56aa4fca2b685b0fa6089af08fee8",
-    "data/courses/jlpt_n5/mock1_grammar_reading.js": "6a09b05f90b6894f2f1383f2a135a8cf9f6f0c50c9346811e532601c0f239723",
-    "data/courses/jlpt_n5/mock1_listening.js": "cb767000df4ba433346cb1d9310d1efaa542e908bc256d84d902ca649dbd2412",
-    "data/courses/jlpt_n4/mock1_vocab.js": "8a9032265632957d63ffebc3ff4b112dc8053ea0e2b2fb3ea089d941ea728433",
-    "data/courses/jlpt_n4/mock1_grammar_reading.js": "f297d12c00c502f3de3c313b6ae80a54caa875f5d34d2ea583ef44a01fc4fcc8",
-    "data/courses/jlpt_n4/mock1_listening.js": "28e86cd5bc7f2914f88fe85dedee6039cc01ab159f85bb8f1339500e029a8753",
-    "data/courses/jlpt_n3/mock1_vocab.js": "d63e939f1c8c6e71834ab37d16e66c437a551dbf6812fa6122407daefda127cd",
-    "data/courses/jlpt_n3/mock1_grammar.js": "f70938aba899028c5712a2f05fcac54bca4bec5353c5e13bf0f04cb4fb655281",
-    "data/courses/jlpt_n3/mock1_reading.js": "b438b2dffb09fb7db8f5b5e671ae61e97ad1b838627118614bf83c64d22b7b35",
-    "data/courses/jlpt_n3/mock1_listening.js": "2c37b6f24b68c60f1abb234157e3428bad5da7690a3d51b11ee2c0b5cb8a6e71",
-    "data/courses/jlpt_n2/mock_test_no1.js": "4665de0aab5656717c930508ee9b92e60d11f71d5030482b86ea31b7a50b5aa5",
-    "data/questions_jlpt_n1.js": "323ae01802c200a8353d088f02ca9054c42748b580b585c9cc740cbae2c13dd5"
-  };
-  function recorded(sourcePath, remoteUrl, sha2562, deliveryLocator) {
-    return {
-      sourceAvailability: "recorded-source",
-      runtimeDelivery: deliveryLocator ? "packaged-source-recording" : "browser-speech-synthesis",
-      transcriptFidelity: "exact-utterance-text",
-      ...deliveryLocator ? { deliveryLocator } : {},
-      sourcePath,
-      remoteUrl,
-      sha256: sha2562
-    };
-  }
-  const SOURCE_ITEMS = [
-    {
-      id: "n5_mock1_v_01",
-      band: "n5",
-      skill: "language-knowledge",
-      sourceFile: "data/courses/jlpt_n5/mock1_vocab.js",
-      prompt: { en: "きのう 【友だち】 と 映画を 見ました。", ja: "きのう 【友だち】 と 映画を 見ました。" },
-      choices: ["ともだち", "ゆうだち", "ともたち", "ゆうたち"],
-      answer: "ともだち"
-    },
-    {
-      id: "n5_mock1_gr_01",
-      band: "n5",
-      skill: "language-knowledge",
-      sourceFile: "data/courses/jlpt_n5/mock1_grammar_reading.js",
-      prompt: { en: "わたし （　　　） がくせいです。", ja: "わたし （　　　） がくせいです。" },
-      choices: ["は", "を", "に", "で"],
-      answer: "は"
-    },
-    {
-      id: "n5_mock1_gr_27",
-      band: "n5",
-      skill: "reading",
-      sourceFile: "data/courses/jlpt_n5/mock1_grammar_reading.js",
-      passage: "わたしの かぞくは ちちと ははと あねが います。わたしは ４にんかぞくです。あねは だいがくせいで、わたしは こうこうせいです。ちちは かいしゃいんで、ははは びょういんで はたらいて います。",
-      prompt: { en: "この 人の おかあさんは どこで はたらいて いますか。", ja: "この 人の おかあさんは どこで はたらいて いますか。" },
-      choices: ["がっこう", "かいしゃ", "びょういん", "だいがく"],
-      answer: "びょういん"
-    },
-    {
-      id: "n5_mock1_gr_28",
-      band: "n5",
-      skill: "reading",
-      sourceFile: "data/courses/jlpt_n5/mock1_grammar_reading.js",
-      passage: "「田中さん、きのうは ありがとうございました。本を かりましたが、まだ よんで いません。あしたの ゆうがた、かえします。」",
-      prompt: { en: "いつ 本を かえしますか。", ja: "いつ 本を かえしますか。" },
-      choices: ["きのう", "きょうの ゆうがた", "あしたの あさ", "あしたの ゆうがた"],
-      answer: "あしたの ゆうがた"
-    },
-    {
-      id: "n5_mock1_l_04",
-      band: "n5",
-      skill: "listening",
-      sourceFile: "data/courses/jlpt_n5/mock1_listening.js",
-      prompt: { en: "男の人と 女の人が 話しています。女の人は どの ケーキを 買いますか。", ja: "男の人と 女の人が 話しています。女の人は どの ケーキを 買いますか。" },
-      spokenJapanese: "男の人と 女の人が 話しています。女の人は どの ケーキを 買いますか。\nすみません、この ケーキを ３つ ください。\nわたしも 買いたいです。ええと、いちごの ケーキと チョコレートの ケーキが ありますね。\nいちごの ケーキは ひとつ 400円で、チョコレートの ケーキは ひとつ 300円ですよ。\nじゃあ、わたしは チョコレートの ケーキを ふたつ お願いします。",
-      choices: ["いちごの ケーキを ひとつ", "いちごの ケーキを ふたつ", "チョコレートの ケーキを ひとつ", "チョコレートの ケーキを ふたつ"],
-      answer: "チョコレートの ケーキを ふたつ",
-      audio: recorded("/assets/audio/n5_mock1/n5_mock1_l_04.mp3", "https://soya-eagle-online.com/assets/audio/n5_mock1/n5_mock1_l_04.mp3", "da546db7dbceaf3eafbe21f69767f2c954d831817fe3f3307c7deb24be12c664", "academy/content/soya/audio/jlpt_n5/n5_mock1_l_04.mp3")
-    },
-    {
-      id: "n5_mock1_l_11",
-      band: "n5",
-      skill: "listening",
-      sourceFile: "data/courses/jlpt_n5/mock1_listening.js",
-      prompt: { en: "男の人と 女の人が 話しています。男の人は 何が いちばん すきですか。", ja: "男の人と 女の人が 話しています。男の人は 何が いちばん すきですか。" },
-      spokenJapanese: "男の人と 女の人が 話しています。男の人は 何が いちばん すきですか。\n田中さんは、くだものが すきですか。\nはい、すきです。\nどんな くだものが すきですか。りんごですか、みかんですか。\nりんごも みかんも すきですが、いちばん 好きなのは ぶどうです。",
-      choices: ["りんご", "みかん", "ぶどう", "バナナ"],
-      answer: "ぶどう",
-      audio: recorded("/assets/audio/n5_mock1/n5_mock1_l_11.mp3", "https://soya-eagle-online.com/assets/audio/n5_mock1/n5_mock1_l_11.mp3", "32c6d0a7692f3d5aec633c615f2c1b727deda0859e5f492fd3f444b56f029ac8", "academy/content/soya/audio/jlpt_n5/n5_mock1_l_11.mp3")
-    },
-    {
-      id: "n4_mock1_v_01",
-      band: "n4",
-      skill: "language-knowledge",
-      sourceFile: "data/courses/jlpt_n4/mock1_vocab.js",
-      prompt: { en: "部長の【意見】を聞きましょう。", ja: "部長の【意見】を聞きましょう。" },
-      choices: ["いげん", "いけん", "おげん", "おけん"],
-      answer: "いけん"
-    },
-    {
-      id: "n4_mock1_gr_01",
-      band: "n4",
-      skill: "language-knowledge",
-      sourceFile: "data/courses/jlpt_n4/mock1_grammar_reading.js",
-      prompt: { en: "ケーキをたくさん食べたので、もうおなかがいっぱいで（　　）。", ja: "ケーキをたくさん食べたので、もうおなかがいっぱいで（　　）。" },
-      choices: ["食べられません", "食べさせません", "食べません", "食べさせられません"],
-      answer: "食べられません"
-    },
-    {
-      id: "n4_mock1_gr_26",
-      band: "n4",
-      skill: "reading",
-      sourceFile: "data/courses/jlpt_n4/mock1_grammar_reading.js",
-      passage: "田中さんへ\n明日の会議の資料ですが、今日の午後5時までに、私の机の上に置いておいてください。もし、間に合わない場合は、メールで送ってください。よろしくお願いします。\n山田",
-      prompt: { en: "山田さんは田中さんに、今日の午後5時までに何をしてほしいと言っていますか。", ja: "山田さんは田中さんに、今日の午後5時までに何をしてほしいと言っていますか。" },
-      choices: ["会議の資料を山田さんの机の上に置くこと。", "会議の資料をメールで送ること。", "会議の資料を山田さんの机の上に置くか、メールで送ること。", "会議の資料が間に合わないとメールで連絡すること。"],
-      answer: "会議の資料を山田さんの机の上に置くこと。"
-    },
-    {
-      id: "n4_mock1_gr_27",
-      band: "n4",
-      skill: "reading",
-      sourceFile: "data/courses/jlpt_n4/mock1_grammar_reading.js",
-      passage: "この図書館では、本を借りるとき、カードが必要です。カードを作るには、名前と住所がわかるもの（運転免許証など）を持ってきてください。外国人の場合は、在留カードも必要です。カードは、その日に作ることができます。",
-      prompt: { en: "外国人がこの図書館でカードを作るとき、何が必要ですか。", ja: "外国人がこの図書館でカードを作るとき、何が必要ですか。" },
-      choices: ["運転免許証だけです。", "名前と住所がわかるものと在留カードです。", "在留カードだけです。", "名前と住所がわかるものだけです。"],
-      answer: "名前と住所がわかるものと在留カードです。"
-    },
-    {
-      id: "n4_mock1_l_07",
-      band: "n4",
-      skill: "listening",
-      sourceFile: "data/courses/jlpt_n4/mock1_listening.js",
-      prompt: { en: "学生は、まず何をしますか。", ja: "学生は、まず何をしますか。" },
-      spokenJapanese: "七番。料理教室で、先生が話しています。学生は、まず何をしますか。\nはい、みなさん。今日はカレーを作ります。まず、野菜を洗いましょう。人参、じゃがいも、玉ねぎですね。きれいに洗ったら、皮をむいて、小さく切ってください。肉は後で切ります。では、始めてください。\n学生は、まず何をしますか。",
-      choices: ["1. 野菜を切ります。", "2. 野菜の皮をむきます。", "3. 野菜を洗います。", "4. 肉を切ります。"],
-      answer: "3. 野菜を洗います。",
-      audio: recorded("/assets/audio/n4_mock1/n4_mock1_l_07.mp3", "https://soya-eagle-online.com/assets/audio/n4_mock1/n4_mock1_l_07.mp3", "27b602fbade55bf2c1713da903033945f02e8bacc3bebcc5cdca59c836e8240a")
-    },
-    {
-      id: "n4_mock1_l_10",
-      band: "n4",
-      skill: "listening",
-      sourceFile: "data/courses/jlpt_n4/mock1_listening.js",
-      prompt: { en: "明日の午後の天気はどうなりますか。", ja: "明日の午後の天気はどうなりますか。" },
-      spokenJapanese: "二番。天気予報を聞いています。明日の午後の天気はどうなりますか。\n今日の天気は晴れでしたが、明日は天気が変わります。午前中は曇りですが、昼過ぎから雨が降り始めるでしょう。夜には雨が強くなりそうです。傘を忘れないようにしてください。\n明日の午後の天気はどうなりますか。",
-      choices: ["1. 晴れです。", "2. 曇りです。", "3. 雨です。", "4. 晴れのち曇りです。"],
-      answer: "3. 雨です。",
-      audio: recorded("/assets/audio/n4_mock1/n4_mock1_l_10.mp3", "https://soya-eagle-online.com/assets/audio/n4_mock1/n4_mock1_l_10.mp3", "cc15af016afaa7a481b41f86d550f6e68cc220d58b96cbe43d7601a6cd676a52")
-    },
-    {
-      id: "mock1_v_01",
-      band: "n3",
-      skill: "language-knowledge",
-      sourceFile: "data/courses/jlpt_n3/mock1_vocab.js",
-      prompt: { en: "彼と再会を【約束】した。", ja: "彼と再会を【約束】した。" },
-      choices: ["やくそく", "ようそく", "やっそく", "よっそく"],
-      answer: "やくそく"
-    },
-    {
-      id: "mock1_g_01",
-      band: "n3",
-      skill: "language-knowledge",
-      sourceFile: "data/courses/jlpt_n3/mock1_grammar.js",
-      prompt: { en: "このパソコンは、初心者（　　　）使いやすい。", ja: "このパソコンは、初心者（　　　）使いやすい。" },
-      choices: ["にしたら", "にしては", "にとっても", "にすぎない"],
-      answer: "にとっても"
-    },
-    {
-      id: "mock1_r_02",
-      band: "n3",
-      skill: "reading",
-      sourceFile: "data/courses/jlpt_n3/mock1_reading.js",
-      passage: "山田様\n明日の会議ですが、午後2時から午後3時に変更になりました。場所は第1会議室で変わりありません。よろしくお願いいたします。 \n佐藤",
-      prompt: { en: "Which is correct about tomorrow's meeting?", ja: "明日の会議について、正しいものはどれか。" },
-      choices: ["時間も場所も変わった。", "時間は変わったが、場所は変わらない。", "時間は変わらないが、場所が変わった。", "時間も場所も変わらない。"],
-      answer: "時間は変わったが、場所は変わらない。"
-    },
-    {
-      id: "mock1_r_03",
-      band: "n3",
-      skill: "reading",
-      sourceFile: "data/courses/jlpt_n3/mock1_reading.js",
-      passage: "昔の人は夜になると寝て、朝になると起きる生活をしていた。しかし、電気が発明されてから、夜遅くまで起きている人が多くなった。便利になった一方で、睡眠不足で疲れている人も増えているようだ。",
-      prompt: { en: "What happened after electricity was invented?", ja: "電気が発明されてから、どうなったか。" },
-      choices: ["夜になるとすぐ寝る人が増えた。", "朝早く起きる人が増えた。", "夜遅くまで起きている人が増えた。", "疲れない人が増えた。"],
-      answer: "夜遅くまで起きている人が増えた。"
-    },
-    {
-      id: "mock1_l_05",
-      band: "n3",
-      skill: "listening",
-      sourceFile: "data/courses/jlpt_n3/mock1_listening.js",
-      prompt: { en: "What do the students need to do during this class?", ja: "学生はこの授業中、何をしなければなりませんか。" },
-      spokenJapanese: "教室で先生が話しています。学生はこの授業中、何をしなければなりませんか。\nえー、今日は教科書の20ページから進める予定でしたが、その前に前回配ったプリントの復習をします。今から10分時間を与えますので、プリントの問題を解いてください。宿題の提出は、授業の最後に行います。それと、黒板の字はまだノートに写さなくていいですよ。\n学生はこの授業中（今から）、何をしなければなりませんか。\n1. 教科書の20ページを読む。2. 宿題を提出する。3. プリントの問題を解く。4. ノートを写す。",
-      choices: ["教科書の20ページを読む", "宿題を提出する", "プリントの問題を解く", "ノートを写す"],
-      answer: "プリントの問題を解く",
-      audio: recorded("/audio/mock1/mock1_l_05.mp3", "https://soya-eagle-online.com/audio/mock1/mock1_l_05.mp3", "75d494710c9fe11243553ce71a8f30fa7395c456a0b014636ef89054c42e11f6")
-    },
-    {
-      id: "mock1_l_10",
-      band: "n3",
-      skill: "listening",
-      sourceFile: "data/courses/jlpt_n3/mock1_listening.js",
-      prompt: { en: "Why did the man choose this smartphone?", ja: "男の人がこのスマートフォンを選んだ理由は何ですか。" },
-      spokenJapanese: "男の人が携帯電話ショップで話しています。男の人がこのスマートフォンを選んだ理由は何ですか。\nすみません、この機種をください。色々迷ったんですが、これにします。デザインや軽さも魅力的なんですけど、仕事で外に出ていることが多くて、途中で充電が切れるのが一番困るんですよ。これなら夜まで安心して使えそうなので。\n男の人がこのスマートフォンを選んだ理由は何ですか。",
-      choices: ["デザインが良いから", "電池が長持ちするから", "カメラの性能が良いから", "軽いから"],
-      answer: "電池が長持ちするから",
-      audio: recorded("/audio/mock1/mock1_l_10.mp3", "https://soya-eagle-online.com/audio/mock1/mock1_l_10.mp3", "07a2a5a708f5a6ea42e435d8df261fbca7f00e7ffe3cab587a450b177583c4c3")
-    },
-    {
-      id: "n2_m1_kanji_reading_0_1",
-      band: "n2",
-      skill: "language-knowledge",
-      sourceFile: "data/courses/jlpt_n2/mock_test_no1.js",
-      prompt: { en: "最近、___が回復してきた。", ja: "最近、___が回復してきた。" },
-      choices: ["けいき", "けいぎ", "けしき", "ふうき"],
-      answer: "けいき"
-    },
-    {
-      id: "n2_m1_grammar_form_0_1",
-      band: "n2",
-      skill: "language-knowledge",
-      sourceFile: "data/courses/jlpt_n2/mock_test_no1.js",
-      prompt: { en: "新しい制度の導入___、働き方が多様化した。", ja: "新しい制度の導入___、働き方が多様化した。" },
-      choices: ["に伴って", "をめぐって", "ものとして", "からには"],
-      answer: "に伴って"
-    },
-    {
-      id: "n2_m1_reading_short_2_1",
-      band: "n2",
-      skill: "reading",
-      sourceFile: "data/courses/jlpt_n2/mock_test_no1.js",
-      choiceOrder: "deterministic-derived",
-      passage: "住民の皆様へ。来月より、燃えるゴミの収集ルールが一部変更になります。これまでは週三回でしたが、週二回（月・木）となります。また、ペットボトルは燃えるゴミと一緒に出せず、金曜日の資源ゴミの日に出すことになりました。分別の徹底にご協力いただけない場合、ゴミが回収されないこともありますので、ご注意ください。",
-      prompt: { en: "What is the main point of this notice?", ja: "このお知らせで最も伝えたいことは何か。" },
-      choices: ["燃えるゴミの収集が週一回に減ること。", "ペットボトルは燃えるゴミと分けて出す必要があること。", "ゴミ出しの時間が変更されたこと。", "全てのゴミを同じ日に出す必要があること。"],
-      answer: "ペットボトルは燃えるゴミと分けて出す必要があること。"
-    },
-    {
-      id: "n2_m1_reading_short_2_2",
-      band: "n2",
-      skill: "reading",
-      sourceFile: "data/courses/jlpt_n2/mock_test_no1.js",
-      choiceOrder: "deterministic-derived",
-      passage: "件名：会議資料のご確認\n鈴木さん\nお疲れ様です。田中です。来週の会議で使うプレゼン資料ですが、私の担当分ができましたので添付します。お忙しいところ恐縮ですが、内容に間違いがないか、特に5ページ目のデータをご確認いただけますでしょうか。ご確認後、鈴木さん担当の売上予測のグラフを追加して、明日の午前中までに私に返信していただけると助かります。よろしくお願いします。",
-      prompt: { en: "What does Tanaka want Suzuki to do?", ja: "田中さんが鈴木さんにしてほしいことは何か。" },
-      choices: ["新しいプレゼン資料を一から作成すること。", "売上予測のデータだけを田中さんに送ること。", "資料の内容を確認し、グラフを追加して返信すること。", "今日中に資料の修正を終えること。"],
-      answer: "資料の内容を確認し、グラフを追加して返信すること。"
-    },
-    {
-      id: "n2_m1_listening_point_3_1",
-      band: "n2",
-      skill: "listening",
-      sourceFile: "data/courses/jlpt_n2/mock_test_no1.js",
-      choiceOrder: "deterministic-derived",
-      prompt: { en: "Why did the woman decide not to apply for this job?", ja: "女の人は、どうしてこの仕事に応募しないことにしましたか。" },
-      spokenJapanese: "会社で、女の人と男の人が話しています。女の人は、どうしてこの仕事に応募しないことにしましたか。\n佐藤さん、この求人見た？うちの会社の経理部。佐藤さん、経験もあるし、ぴったりじゃない？\nあ、これね。私も見たわ。給料も悪くないし、勤務地も今より近くなるから、いいなあとは思ったんだけどね。\nじゃあ、応募してみれば？締め切り、明日だよ。\nうーん、それがね…。よく見たら、海外出張が年に数回あるって書いてあって。\nああ、本当だ。でも、海外に行けるなんて、いいじゃないか。\n小さい子供がいるから、今はちょっと難しいのよ。泊まりがけの出張は、国内でも厳しいくらいで。せっかくいい条件だと思ったんだけど、今回は見送ることにしたわ。\nそっかあ。事情があるなら仕方ないね。",
-      choices: ["給料が安いから", "勤務地が遠いから", "海外出張があるから", "経理の経験がないから"],
-      answer: "海外出張があるから",
-      audio: recorded("/assets/audio/n2_mock1/n2_m1_listening_point_3_1.mp3", "https://soya-eagle-online.com/assets/audio/n2_mock1/n2_m1_listening_point_3_1.mp3", "2cac29860f4894536fa855d2714c0a04e77ae96fc0a49977fc5f901e180062da")
-    },
-    {
-      id: "n2_m1_listening_summary_3_1",
-      band: "n2",
-      skill: "listening",
-      sourceFile: "data/courses/jlpt_n2/mock_test_no1.js",
-      choiceOrder: "deterministic-derived",
-      prompt: { en: "What does the man say is most important regarding time-saving appliances?", ja: "男の人は、時短家電について主に何が大切だと言っていますか。" },
-      spokenJapanese: "男の人が話しています。\n最近、ロボット掃除機や自動調理鍋といった、いわゆる「時短家電」が人気を集めていますね。家事にかかる時間を短縮してくれるこれらの製品は、忙しい現代人にとって確かに魅力的です。空いた時間を趣味や家族との対話に使えれば、生活はより豊かになるでしょう。しかし、一方で、こうした家電は高価なものが多く、導入には慎重にならざるを得ません。また、何でも機械任せにすることで、人間が本来持っていた生活の知恵や能力が失われるのではないかという懸念の声も聞かれます。便利さを追求するあまり、大切な何かを見失ってはいないか。単に時間を節約するだけでなく、その生まれた時間をどう有意義に使うか、という視点を持つことが、これからの家電との付き合い方で最も重要になるのではないでしょうか。\n男の人は、時短家電について主に何が大切だと言っていますか。",
-      choices: ["できるだけ価格の安い製品を選ぶこと", "生まれた時間をどう活用するかを考えること", "家事の能力が低下しないよう注意すること", "家族と過ごす時間を最優先にすること"],
-      answer: "生まれた時間をどう活用するかを考えること",
-      audio: recorded("/assets/audio/n2_mock1/n2_m1_listening_summary_3_1.mp3", "https://soya-eagle-online.com/assets/audio/n2_mock1/n2_m1_listening_summary_3_1.mp3", "1490d0b5f287864b014fed4ea26e5ad4c10ef702658e5c527943340976ee4d4b")
-    },
-    {
-      id: "n1_p_1",
-      band: "n1",
-      skill: "language-knowledge",
-      sourceFile: "data/questions_jlpt_n1.js",
-      prompt: { en: "彼の行動は、常識 ___ 考えられない。", ja: "彼の行動は、常識 ___ 考えられない。" },
-      choices: ["から言って", "を問わず", "からすると", "からには"],
-      answer: "からすると"
-    },
-    {
-      id: "n1_k_1",
-      band: "n1",
-      skill: "language-knowledge",
-      sourceFile: "data/questions_jlpt_n1.js",
-      prompt: { en: "貢献", ja: "貢献" },
-      choices: ["こうけん", "こうがん", "ごうけん", "きょうけん"],
-      answer: "こうけん"
-    },
-    {
-      id: "n1_r_1",
-      band: "n1",
-      skill: "reading",
-      sourceFile: "data/questions_jlpt_n1.js",
-      choiceOrder: "deterministic-derived",
-      passage: "近代化は我々に物質的な豊かさをもたらしたが、同時に精神的な孤立をも深めたと言える。情報機器の発達により、世界中の人々と即座に繋がることが可能になったにもかかわらず、皮肉なことに、身近な他者との対面的なコミュニケーションは減少しつつある。我々は「接続」されているが、「結びついて」はいないのである。",
-      prompt: { en: "What is the 'ironic situation' the author describes?", ja: "筆者が述べている「皮肉なこと」とはどのような状況か。" },
-      choices: ["物質的な豊かさが手に入ったのに、社会が近代化していないこと", "世界中の人と繋がれるのに、身近な人との直接的な交流が減っていること", "情報機器が発達したせいで、インターネットの接続が悪くなったこと", "精神的に孤立しているため、世界中の誰とも繋がれないこと"],
-      answer: "世界中の人と繋がれるのに、身近な人との直接的な交流が減っていること"
-    },
-    {
-      id: "n1_r_2",
-      band: "n1",
-      skill: "reading",
-      sourceFile: "data/questions_jlpt_n1.js",
-      choiceOrder: "deterministic-derived",
-      passage: "歴史を学ぶ意義は、過去の事実を暗記することにあるのではない。過去の事例を鏡として、現在の私たちが直面している問題の本質を客観的に見極め、未来への指針を得る点にこそ、その真価がある。歴史を知らない者は、また同じ過ちを繰り返す危険性が高い。",
-      prompt: { en: "According to the author, what is the most important purpose of studying history?", ja: "筆者によれば、歴史を学ぶ最も重要な目的はどれか。" },
-      choices: ["過去の事実や年号を正確に暗記してテストに備えること", "過去の偉人の業績を賛美し、後世へと語り継ぐこと", "過去を参考に現在を理解し、未来の方向性を見出すこと", "現代の問題を過去の過ちのせいにして責任を逃れること"],
-      answer: "過去を参考に現在を理解し、未来の方向性を見出すこと"
-    },
-    {
-      id: "n1_l_1",
-      band: "n1",
-      skill: "listening",
-      sourceFile: "data/questions_jlpt_n1.js",
-      prompt: { en: "As for the agenda of the next meeting", ja: "As for the agenda of the next meeting" },
-      spokenJapanese: "つぎのかいぎのぎだいですが、しりょうのさくせいがまにあわず、らいしゅうにもちこすことになりました。",
-      choices: ["議題は来週の会議へ延期になった", "来週の会議には資料が不要になった", "会議の前に資料を作らなければならない"],
-      answer: "議題は来週の会議へ延期になった",
-      audio: {
-        sourceAvailability: "source-text-only",
-        runtimeDelivery: "browser-speech-synthesis",
-        transcriptFidelity: "exact-utterance-text"
-      }
-    },
-    {
-      id: "n1_l_2",
-      band: "n1",
-      skill: "listening",
-      sourceFile: "data/questions_jlpt_n1.js",
-      prompt: { en: "The deadline for this project is the end of this month", ja: "The deadline for this project is the end of this month" },
-      spokenJapanese: "このプロジェクトはこんげつまつがのうきですので、なんとしてもまにあわせるひつようがあります。みなさん、こんしゅうまつはきゅうじつしゅっきんをおねがいするかもしれません。",
-      choices: ["今週末は働く可能性がある", "今月末まで休みはない", "プロジェクトの納期が延期された"],
-      answer: "今週末は働く可能性がある",
-      audio: {
-        sourceAvailability: "source-text-only",
-        runtimeDelivery: "browser-speech-synthesis",
-        transcriptFidelity: "exact-utterance-text"
-      }
-    }
-  ];
-  const ORIENTATION_SOURCE_ITEMS = SOURCE_ITEMS.map((sourceItem) => ({
-    id: `orientation:${sourceItem.band}:${sourceItem.id}`,
-    band: sourceItem.band,
-    skill: sourceItem.skill,
-    prompt: sourceItem.prompt,
-    passage: sourceItem.passage ? { en: sourceItem.passage, ja: sourceItem.passage } : void 0,
-    spokenJapanese: sourceItem.spokenJapanese,
-    audio: sourceItem.audio,
-    referenceId: sourceItem.id,
-    provenance: provenance$O(sourceItem),
-    options: sourceItem.choices.map((label, index) => ({
-      id: `choice-${index + 1}`,
-      label: { en: label, ja: label },
-      correct: label === sourceItem.answer
-    }))
-  }));
-  function provenance$O(item2) {
-    return {
-      sourceScope: "soya-research",
-      sourceItemId: item2.id,
-      sourceFile: item2.sourceFile,
-      sourceFileSha256: SOURCE_FILE_SHA256[item2.sourceFile],
-      contentFidelity: "exact",
-      choiceOrder: item2.choiceOrder ?? "source",
-      answerGate: "after-attempt",
-      corpusRightsState: "item-review-required",
-      useAuthorization: "user-permitted"
-    };
-  }
-  const ORIENTATION_MOCK_POLICY = Object.freeze({
-    optional: true,
-    entryChoices: ["lesson-zero", "n5", "n4", "n3", "n2", "n1"],
-    sections: ["language-knowledge", "reading", "listening"],
-    caveats: [
-      "This compact orientation is a heuristic, not an official JLPT score or pass prediction.",
-      "Speaking and writing are not directly assessed; their confidence values are self-report only.",
-      "Each receptive recommendation is based on a small sample and should be treated as a starting suggestion.",
-      "Listening uses byte-verified source recordings only where the completed audio registry has an exact packaged match; other levels use browser speech from exact source text."
-    ],
-    storyProgression: "preserve",
-    canSkipStory: false,
-    revisit: "always-available"
-  });
-  const ORIENTATION_MOCK_ITEMS = ORIENTATION_SOURCE_ITEMS;
-  validateOrientationMockItems(ORIENTATION_MOCK_ITEMS);
-  function orientationItemsForBand(band) {
-    return ORIENTATION_MOCK_ITEMS.filter((item2) => item2.band === band);
-  }
-  function placementAudioDelivery(item2) {
-    if (!item2.spokenJapanese || !item2.audio) return void 0;
-    if (item2.audio.runtimeDelivery === "browser-speech-synthesis") {
-      return { kind: "browser-speech", text: item2.spokenJapanese };
-    }
-    const locator = item2.audio.deliveryLocator;
-    const expectedSha256 = item2.audio.sha256;
-    if (!locator || !expectedSha256) {
-      throw new TypeError(`Placement recording ${item2.id} is missing its exact delivery identity.`);
-    }
-    const resolution = resolvePackagedAcademyListeningLocator(locator);
-    if (resolution.status !== "ready" || resolution.entry.source.sha256 !== expectedSha256) {
-      throw new TypeError(`Placement recording ${item2.id} does not match the listening crosswalk.`);
-    }
-    return { kind: "source-recording", url: resolution.url, sha256: expectedSha256 };
-  }
-  function validateOrientationMockItems(items) {
-    const itemIds = /* @__PURE__ */ new Set();
-    const referenceIds = /* @__PURE__ */ new Set();
-    for (const item2 of items) {
-      if (itemIds.has(item2.id)) throw new TypeError(`Duplicate placement item id: ${item2.id}`);
-      if (referenceIds.has(item2.referenceId)) throw new TypeError(`Duplicate placement source item: ${item2.referenceId}`);
-      itemIds.add(item2.id);
-      referenceIds.add(item2.referenceId);
-      const optionIds = /* @__PURE__ */ new Set();
-      const labels = {
-        en: /* @__PURE__ */ new Set(),
-        ja: /* @__PURE__ */ new Set()
-      };
-      for (const option2 of item2.options) {
-        if (optionIds.has(option2.id)) throw new TypeError(`Duplicate option id in ${item2.id}: ${option2.id}`);
-        for (const language of ["en", "ja"]) {
-          const label = option2.label[language].trim();
-          if (!label || labels[language].has(label)) {
-            throw new TypeError(`Duplicate or empty option (${language}) in ${item2.id}: ${label}`);
-          }
-          labels[language].add(label);
-        }
-        optionIds.add(option2.id);
-      }
-      if (item2.options.length < 3) throw new TypeError(`Placement item needs at least three options: ${item2.id}`);
-      if (item2.options.filter((option2) => option2.correct).length !== 1) {
-        throw new TypeError(`Placement item needs exactly one correct option: ${item2.id}`);
-      }
-      if (item2.audio?.runtimeDelivery === "packaged-source-recording") placementAudioDelivery(item2);
-    }
-    for (const band of ["n5", "n4", "n3", "n2", "n1"]) {
-      for (const skill of ORIENTATION_MOCK_POLICY.sections) {
-        const count2 = items.filter((item2) => item2.band === band && item2.skill === skill).length;
-        if (count2 !== 2) throw new TypeError(`Placement bank needs two ${skill} items for ${band}; found ${count2}`);
-      }
-    }
-  }
-  function scoreOrientationMock(targetBand, responses, confidence) {
-    const assessmentItems = orientationItemsForBand(targetBand);
-    const scoreFor = (skill) => {
-      const items = assessmentItems.filter((item2) => item2.skill === skill);
-      const correct2 = items.filter((item2) => item2.options.some((option2) => option2.id === responses[item2.id] && option2.correct)).length;
-      return items.length ? correct2 / items.length : 0;
-    };
-    const scores = {
-      "language-knowledge": scoreFor("language-knowledge"),
-      reading: scoreFor("reading"),
-      listening: scoreFor("listening"),
-      "speaking-confidence": clamp$1(confidence.speaking),
-      "writing-confidence": clamp$1(confidence.writing)
-    };
-    const recommendationFor = (skill) => {
-      const items = assessmentItems.filter((item2) => item2.skill === skill);
-      const selections = items.map((item2) => item2.options.find((option2) => option2.id === responses[item2.id]));
-      const attempted = selections.filter(Boolean).length;
-      const correct2 = selections.filter((option2) => option2?.correct).length;
-      const score = items.length ? correct2 / items.length : 0;
-      const recommendedStart2 = attempted === 0 ? "lesson-zero" : lowerRecommendation(targetBand, score === 1 ? 0 : score >= 0.5 ? 1 : 2);
-      return { skill, attempted, correct: correct2, available: items.length, score, recommendedStart: recommendedStart2 };
-    };
-    const skillRecommendations = {
-      "language-knowledge": recommendationFor("language-knowledge"),
-      reading: recommendationFor("reading"),
-      listening: recommendationFor("listening")
-    };
-    const recommendedStart = lowestRecommendation(Object.values(skillRecommendations).map((entry2) => entry2.recommendedStart));
-    return {
-      assessmentId: "academy-orientation-mock:v2",
-      targetBand,
-      itemIds: assessmentItems.map((item2) => item2.id),
-      scores,
-      recommendedBand: recommendedStart === "lesson-zero" ? "n5" : recommendedStart,
-      recommendedStart,
-      calibration: "vertical-slice",
-      skillRecommendations,
-      storyProgression: ORIENTATION_MOCK_POLICY.storyProgression,
-      mockRevisit: ORIENTATION_MOCK_POLICY.revisit,
-      caveats: ORIENTATION_MOCK_POLICY.caveats
-    };
-  }
-  function lowerRecommendation(target2, steps) {
-    const bands = ["n5", "n4", "n3", "n2", "n1"];
-    const index = bands.indexOf(target2) - steps;
-    return index < 0 ? "lesson-zero" : bands[index];
-  }
-  function lowestRecommendation(recommendations) {
-    const order2 = ["lesson-zero", "n5", "n4", "n3", "n2", "n1"];
-    return recommendations.reduce((lowest, value) => order2.indexOf(value) < order2.indexOf(lowest) ? value : lowest, "n1");
-  }
-  function clamp$1(value) {
-    return Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : 0;
-  }
   const STARTS = [
     ["lesson-zero", "startLessonZero", "startLessonZeroBody"],
     ["manual-band", "startManual", "startManualBody"],
@@ -55351,22 +55488,13 @@ ${spelling}`);
       title: "mockTitle",
       body: "mockBody"
     });
+    screen.dataset.academyRoute = "placement-mock";
     panel.classList.add("academy-placement-stage");
-    const rieCutout = element("div", "academy-placement-guide");
-    const rie = element("img", "academy-placement-guide-character");
-    rie.src = ACADEMY_ASSETS.rie;
-    rie.alt = options.language === "ja" ? "りえ先生" : "Rie-sensei";
-    rieCutout.append(rie);
-    panel.prepend(rieCutout);
+    appendRieGuide(panel, options.language);
     const form2 = element("form", "academy-form academy-placement-form");
-    let playback = null;
-    let playbackRequest = 0;
-    let disposed = false;
-    const sourcePlayers = /* @__PURE__ */ new Set();
-    let listeningActive = false;
-    let step2 = 0;
-    const assessments = /* @__PURE__ */ new Map();
     const target2 = bandSelect(options.language);
+    const briefing = placementBriefing(options.language);
+    briefing.hidden = true;
     const progress2 = element("div", "academy-placement-progress");
     progress2.setAttribute("aria-live", "polite");
     progress2.setAttribute("aria-atomic", "true");
@@ -55374,8 +55502,29 @@ ${spelling}`);
     const progressDots = element("span", "academy-placement-progress-dots");
     progress2.append(progressLabel, progressDots);
     const assessmentHost = element("div", "academy-placement-assessment-host");
+    const feedback2 = element("div", "academy-form-feedback");
+    const submit2 = copyButton(options.language, "mockSubmit", "academy-button academy-button-primary");
+    submit2.type = "submit";
+    submit2.hidden = true;
+    const next = copyButton(options.language, "continue", "academy-button academy-button-primary");
+    const back = backButton(options.language);
+    const actions = element("div", "academy-placement-actions");
+    actions.append(back, next, submit2);
+    form2.append(target2.fieldset, progress2, briefing, assessmentHost, feedback2, actions);
+    content.append(form2);
+    let playback = null;
+    let playbackRequest = 0;
+    let disposed = false;
+    let listeningActive = false;
+    let actionBusy = false;
+    let inputSaveTimer;
+    let saveTail = Promise.resolve();
+    const sourcePlayers = /* @__PURE__ */ new Set();
+    let draft = options.progress ? cloneDraft(options.progress.draft) : null;
+    let step2 = options.progress?.step ?? 0;
     let activeItems = [];
     let steps = [target2.fieldset];
+    let productionDesk = null;
     const stopListening = () => {
       if (!listeningActive) return;
       listeningActive = false;
@@ -55390,66 +55539,132 @@ ${spelling}`);
       });
       stopListening();
     };
+    const reportSaveError = () => {
+      if (!disposed) feedback2.replaceChildren(fieldError(academyText(options.language, "mockSaveError")));
+    };
+    const enqueueProgress = (value) => {
+      const write = saveTail.then(async () => {
+        await options.onProgress?.(value);
+      });
+      saveTail = write.catch(() => void 0);
+      return write;
+    };
+    const currentProgress = (nextStep = step2, submitted = false) => draft ? {
+      schemaVersion: 1,
+      step: nextStep,
+      submitted,
+      draft: cloneDraft(draft)
+    } : null;
+    const persistCurrent = async (nextStep = step2, submitted = false) => {
+      const value = currentProgress(nextStep, submitted);
+      if (value) await enqueueProgress(value);
+    };
+    const scheduleProgress = () => {
+      if (inputSaveTimer !== void 0) window.clearTimeout(inputSaveTimer);
+      inputSaveTimer = window.setTimeout(() => {
+        inputSaveTimer = void 0;
+        void persistCurrent().catch(reportSaveError);
+      }, 120);
+    };
+    const updateDraft = (nextDraft) => {
+      draft = nextDraft;
+      scheduleProgress();
+    };
+    const setListeningMode = (itemId, mode) => {
+      if (!draft) return;
+      if (draft.listeningModes[itemId] === "transcript-alternative" && mode === "audio") return;
+      updateDraft({
+        ...draft,
+        listeningModes: { ...draft.listeningModes, [itemId]: mode }
+      });
+    };
+    const recordResponse = (itemId, value) => {
+      if (!draft) return;
+      updateDraft({ ...draft, responses: { ...draft.responses, [itemId]: value } });
+    };
+    const beginListening = () => {
+      if (listeningActive) return;
+      listeningActive = true;
+      options.onListeningStart?.();
+    };
     const createQuestion = (item2) => {
       const fieldset = element("fieldset", "academy-mock-item");
       fieldset.dataset.mockItem = item2.id;
       fieldset.setAttribute("aria-label", item2.prompt[options.language]);
-      const legend2 = localizedElement("legend", "academy-mock-prompt", options.language, item2.prompt);
-      fieldset.append(legend2);
+      fieldset.append(localizedElement("legend", "academy-mock-prompt", options.language, item2.prompt));
       if (item2.passage) fieldset.append(localizedElement("p", "academy-mock-passage", "ja", item2.passage));
       const audioDelivery = placementAudioDelivery(item2);
-      if (audioDelivery?.kind === "source-recording") {
-        const player = document.createElement("audio");
-        player.className = "academy-placement-source-audio";
-        player.controls = true;
-        player.preload = "metadata";
-        player.src = audioDelivery.url;
-        player.dataset.audioDelivery = "source-recording";
-        player.dataset.audioSha256 = audioDelivery.sha256;
-        player.setAttribute("aria-label", academyText(options.language, "mockSourceRecordingLabel"));
+      if (audioDelivery) {
+        const listening = element("div", "academy-placement-listening");
         const audioError = element("span", "academy-field-error");
-        player.addEventListener("play", () => {
-          sourcePlayers.forEach((other) => {
-            if (other !== player && !other.paused) other.pause();
+        if (audioDelivery.kind === "source-recording") {
+          const player = document.createElement("audio");
+          player.className = "academy-placement-source-audio";
+          player.controls = true;
+          player.preload = "metadata";
+          player.src = audioDelivery.url;
+          player.dataset.audioDelivery = "source-recording";
+          player.dataset.audioSha256 = audioDelivery.sha256;
+          player.setAttribute("aria-label", academyText(options.language, "mockSourceRecordingLabel"));
+          player.addEventListener("play", () => {
+            sourcePlayers.forEach((other) => {
+              if (other !== player && !other.paused) other.pause();
+            });
+            beginListening();
+            setListeningMode(item2.id, "audio");
           });
-          if (!listeningActive) {
-            listeningActive = true;
-            options.onListeningStart?.();
-          }
-        });
-        ["pause", "ended", "error"].forEach((type) => player.addEventListener(type, () => {
-          if (type === "error") {
-            audioError.textContent = academyText(options.language, "mockSourceRecordingUnavailable");
-          }
-          stopListening();
-        }));
-        sourcePlayers.add(player);
-        fieldset.append(player, audioError);
-      } else if (audioDelivery?.kind === "browser-speech") {
-        const play = copyButton(options.language, "mockPlayAudio", "academy-button academy-button-secondary");
-        play.dataset.audioDelivery = "browser-speech";
-        const audioError = element("span", "academy-field-error");
-        play.addEventListener("click", () => {
-          const request2 = ++playbackRequest;
-          playback?.dispose();
-          playback = null;
-          audioError.textContent = "";
-          play.disabled = true;
-          void options.pronunciation.play(audioDelivery.text).then((active) => {
-            if (disposed || request2 !== playbackRequest) {
-              active.dispose();
-              return;
-            }
-            playback = active;
-          }).catch(() => {
-            if (!disposed && request2 === playbackRequest) {
-              audioError.textContent = academyText(options.language, "mockAudioUnavailable");
-            }
-          }).finally(() => {
-            if (!disposed && request2 === playbackRequest) play.disabled = false;
+          ["pause", "ended", "error"].forEach((type) => player.addEventListener(type, () => {
+            if (type === "error") audioError.textContent = academyText(options.language, "mockSourceRecordingUnavailable");
+            stopListening();
+          }));
+          sourcePlayers.add(player);
+          listening.append(player);
+        } else {
+          const play = copyButton(options.language, "mockPlayAudio", "academy-button academy-button-secondary academy-placement-listen");
+          play.dataset.audioDelivery = "browser-speech";
+          play.addEventListener("click", () => {
+            const request2 = ++playbackRequest;
+            playback?.dispose();
+            playback = null;
+            stopListening();
+            audioError.textContent = "";
+            play.disabled = true;
+            beginListening();
+            void options.pronunciation.play(audioDelivery.text).then((active) => {
+              if (disposed || request2 !== playbackRequest) {
+                active.dispose();
+                return;
+              }
+              playback = active;
+              setListeningMode(item2.id, "audio");
+            }).catch(() => {
+              if (!disposed && request2 === playbackRequest) {
+                audioError.textContent = academyText(options.language, "mockAudioUnavailable");
+              }
+              stopListening();
+            }).finally(() => {
+              if (!disposed && request2 === playbackRequest) play.disabled = false;
+            });
           });
+          listening.append(play);
+        }
+        const transcript = element("div", "academy-placement-transcript");
+        transcript.hidden = draft?.listeningModes[item2.id] !== "transcript-alternative";
+        transcript.append(
+          localizedElement("p", "academy-placement-transcript-line", "ja", { en: item2.spokenJapanese ?? "", ja: item2.spokenJapanese ?? "" }),
+          copyElement("p", "academy-placement-transcript-note", options.language, "mockTranscriptNotice")
+        );
+        const useText = copyButton(options.language, "mockTranscriptAlternative", "academy-button academy-button-tertiary academy-placement-text-alternative");
+        useText.setAttribute("aria-expanded", String(!transcript.hidden));
+        useText.addEventListener("click", () => {
+          stopPlayback();
+          transcript.hidden = false;
+          useText.setAttribute("aria-expanded", "true");
+          setListeningMode(item2.id, "transcript-alternative");
+          options.onConfirm?.();
         });
-        fieldset.append(play, audioError);
+        listening.append(useText, transcript, audioError);
+        fieldset.append(listening);
       }
       fieldset.append(copyElement("p", "academy-mock-instruction", options.language, "mockChooseAnswer"));
       const choices2 = element("div", "academy-mock-options");
@@ -55461,6 +55676,10 @@ ${spelling}`);
         input2.name = item2.id;
         input2.value = option2.id;
         input2.required = true;
+        input2.checked = draft?.responses[item2.id] === option2.id;
+        input2.addEventListener("change", () => {
+          if (input2.checked) recordResponse(item2.id, option2.id);
+        });
         const copy2 = element("span", "academy-mock-option-copy");
         copy2.lang = "ja";
         copy2.dataset.jpdbReaderSurfaceIgnore = "";
@@ -55471,37 +55690,54 @@ ${spelling}`);
       fieldset.append(choices2);
       return fieldset;
     };
-    const confidence = element("section", "academy-confidence-grid academy-placement-confidence");
-    confidence.setAttribute("aria-label", options.language === "ja" ? "話す・書く自信" : "Speaking and writing confidence");
-    const speaking = confidenceSelect(options.language, "mockSpeakingConfidence", "speaking");
-    const writing = confidenceSelect(options.language, "mockWritingConfidence", "writing");
-    confidence.append(speaking.label, writing.label);
+    const updateProductionFromControls = (schedule = true) => {
+      if (!draft || !productionDesk) return;
+      const speakingMode = checkedValue(productionDesk, "placement-speaking-mode") ?? "aloud";
+      const writingMode = checkedValue(productionDesk, "placement-writing-mode") ?? "typed";
+      const speakingResponse = productionDesk.querySelector('[name="placement-speaking-response"]')?.value ?? "";
+      const writingResponse = productionDesk.querySelector('[name="placement-writing-response"]')?.value ?? "";
+      const speakingChecked = Boolean(productionDesk.querySelector('[name="placement-speaking-complete"]:checked'));
+      const writingChecked = Boolean(productionDesk.querySelector('[name="placement-writing-complete"]:checked'));
+      const speakingRating = checkedNumber(productionDesk, "placement-speaking-confidence");
+      const writingRating = checkedNumber(productionDesk, "placement-writing-confidence");
+      draft = {
+        ...draft,
+        production: {
+          speaking: {
+            mode: speakingMode,
+            completed: speakingMode === "aloud" ? speakingChecked : Boolean(speakingResponse.trim()),
+            response: speakingResponse,
+            confidence: speakingRating ?? draft.production.speaking.confidence,
+            rated: speakingRating !== void 0
+          },
+          writing: {
+            mode: writingMode,
+            completed: writingMode === "typed" ? Boolean(writingResponse.trim()) : writingChecked,
+            response: writingResponse,
+            confidence: writingRating ?? draft.production.writing.confidence,
+            rated: writingRating !== void 0
+          }
+        }
+      };
+      if (schedule) scheduleProgress();
+    };
     const buildAssessment = (band) => {
       stopPlayback();
-      let assessment = assessments.get(band);
-      if (!assessment) {
-        const items = orientationItemsForBand(band);
-        assessment = { items, questions: items.map(createQuestion) };
-        assessments.set(band, assessment);
+      if (!draft || draft.targetBand !== band) {
+        draft = {
+          targetBand: band,
+          responses: {},
+          listeningModes: {},
+          production: emptyPlacementProduction()
+        };
       }
-      activeItems = assessment.items;
-      assessmentHost.replaceChildren(...assessment.questions);
-      assessment.items.forEach((item2) => {
-        const saved = options.draft?.targetBand === band ? options.draft.responses[item2.id] : void 0;
-        const input2 = saved ? [...assessment.questions.find((question2) => question2.dataset.mockItem === item2.id)?.querySelectorAll('input[type="radio"]') ?? []].find((candidate2) => candidate2.value === saved) : void 0;
-        if (input2) input2.checked = true;
-      });
-      steps = [target2.fieldset, ...assessment.questions, confidence];
+      target2.select.value = band;
+      activeItems = orientationItemsForBand(band);
+      const questions = activeItems.map(createQuestion);
+      productionDesk = createProductionDesk(options.language, band, draft, updateProductionFromControls);
+      assessmentHost.replaceChildren(...questions, productionDesk);
+      steps = [target2.fieldset, briefing, ...questions, productionDesk];
     };
-    const feedback2 = element("div", "academy-form-feedback");
-    const submit2 = copyButton(options.language, "mockSubmit", "academy-button academy-button-primary");
-    submit2.type = "submit";
-    submit2.hidden = true;
-    const next = copyButton(options.language, "continue", "academy-button academy-button-primary");
-    const back = backButton(options.language);
-    const actions = element("div", "academy-placement-actions");
-    actions.append(back, next, submit2);
-    form2.append(target2.fieldset, progress2, assessmentHost, confidence, feedback2, actions);
     const showStep = (nextStep) => {
       stopPlayback();
       step2 = Math.max(0, Math.min(nextStep, steps.length - 1));
@@ -55509,11 +55745,10 @@ ${spelling}`);
         entry2.hidden = index !== step2;
       });
       const choosingLevel = step2 === 0;
-      const assessmentSteps = Math.max(0, steps.length - 1);
       const finalStep = !choosingLevel && step2 === steps.length - 1;
       submit2.hidden = !finalStep;
       next.hidden = finalStep;
-      progressLabel.textContent = choosingLevel ? options.language === "ja" ? "受ける模試を選ぶ" : "Choose a JLPT mock" : options.language === "ja" ? `${step2} / ${assessmentSteps}` : `Step ${step2} of ${assessmentSteps}`;
+      progressLabel.textContent = choosingLevel ? options.language === "ja" ? "試すレベルを選ぶ" : "Choose a level" : options.language === "ja" ? `${step2} / ${steps.length - 1}` : `Step ${step2} of ${steps.length - 1}`;
       progressDots.replaceChildren(...steps.slice(1).map((_, index) => {
         const dot = element("i", index < step2 ? "is-active" : "");
         dot.setAttribute("aria-hidden", "true");
@@ -55521,7 +55756,7 @@ ${spelling}`);
       }));
       feedback2.replaceChildren();
       const activeStep = steps[step2];
-      const activeControl = activeStep?.querySelector("input:checked") ?? activeStep?.querySelector("select, input, button");
+      const activeControl = activeStep?.querySelector("input:checked") ?? activeStep?.querySelector("select, input, textarea, button");
       const scrollHost = screen.parentElement?.classList.contains("academy-screen-host") ? screen.parentElement : null;
       content.scrollTop = 0;
       screen.scrollTop = 0;
@@ -55529,71 +55764,121 @@ ${spelling}`);
       (choosingLevel ? activeStep : progress2)?.scrollIntoView?.({ block: "nearest" });
       activeControl?.focus({ preventScroll: true });
     };
+    const moveTo = async (nextStep) => {
+      if (actionBusy) return;
+      actionBusy = true;
+      next.disabled = true;
+      back.disabled = true;
+      if (inputSaveTimer !== void 0) {
+        window.clearTimeout(inputSaveTimer);
+        inputSaveTimer = void 0;
+      }
+      updateProductionFromControls(false);
+      try {
+        await persistCurrent(nextStep, false);
+        showStep(nextStep);
+      } catch {
+        reportSaveError();
+      } finally {
+        actionBusy = false;
+        next.disabled = false;
+        back.disabled = false;
+      }
+    };
     next.addEventListener("click", () => {
+      if (actionBusy) return;
       if (step2 === 0) {
         if (!isJlptBand(target2.select.value)) {
-          feedback2.replaceChildren(fieldError(options.language === "ja" ? "受けるレベルを選んでください。" : "Choose the JLPT level you want to test."));
+          feedback2.replaceChildren(fieldError(options.language === "ja" ? "試すレベルを選んでください。" : "Choose the level you want to try."));
           return;
         }
         buildAssessment(target2.select.value);
-        showStep(1);
+        options.onConfirm?.();
+        void moveTo(1);
         return;
       }
-      const radio2 = steps[step2]?.querySelector('input[type="radio"]');
-      if (radio2 && !steps[step2]?.querySelector('input[type="radio"]:checked')) {
+      const itemId = steps[step2]?.dataset.mockItem;
+      if (itemId && !steps[step2]?.querySelector('input[type="radio"]:checked')) {
         feedback2.replaceChildren(fieldError(academyText(options.language, "mockIncomplete")));
         return;
       }
-      showStep(step2 + 1);
-    });
-    back.addEventListener("click", () => {
-      if (step2 === 0) {
-        options.onBack();
+      const item2 = itemId ? activeItems.find((candidate2) => candidate2.id === itemId) : void 0;
+      if (item2?.skill === "listening" && !draft?.listeningModes[item2.id]) {
+        feedback2.replaceChildren(fieldError(academyText(options.language, "mockListeningRequired")));
         return;
       }
-      showStep(step2 - 1);
+      options.onConfirm?.();
+      void moveTo(step2 + 1);
+    });
+    back.addEventListener("click", () => {
+      if (actionBusy) return;
+      options.onCancel?.();
+      if (step2 === 0) {
+        actionBusy = true;
+        void Promise.resolve(options.onBack()).finally(() => {
+          actionBusy = false;
+        });
+        return;
+      }
+      void moveTo(step2 - 1);
     });
     form2.addEventListener("submit", (event) => {
       event.preventDefault();
-      if (!form2.checkValidity()) {
-        feedback2.replaceChildren(fieldError(academyText(options.language, "mockIncomplete")));
+      if (actionBusy || !draft) return;
+      updateProductionFromControls(false);
+      if (!productionIsComplete(draft)) {
+        feedback2.replaceChildren(fieldError(academyText(options.language, "mockProductionIncomplete")));
         return;
       }
-      const values = new FormData(form2);
-      const responses = Object.fromEntries(activeItems.map((item2) => [item2.id, String(values.get(item2.id) ?? "")]));
-      const targetBand = target2.select.value;
-      const confidenceValues = { speaking: Number(speaking.select.value), writing: Number(writing.select.value) };
-      options.onResult(scoreOrientationMock(
-        targetBand,
-        responses,
-        confidenceValues
-      ), { targetBand, responses, confidence: confidenceValues });
+      actionBusy = true;
+      submit2.disabled = true;
+      back.disabled = true;
+      options.onConfirm?.();
+      const submittedDraft = cloneDraft(draft);
+      const confidence = {
+        speaking: submittedDraft.production.speaking.confidence,
+        writing: submittedDraft.production.writing.confidence
+      };
+      void persistCurrent(steps.length - 1, true).then(() => options.onResult(
+        scoreOrientationMock(
+          submittedDraft.targetBand,
+          submittedDraft.responses,
+          confidence,
+          submittedDraft.listeningModes
+        ),
+        submittedDraft
+      )).catch(() => {
+        reportSaveError();
+        actionBusy = false;
+        submit2.disabled = false;
+        back.disabled = false;
+      });
     });
-    if (options.draft) {
-      target2.select.value = options.draft.targetBand;
-      speaking.select.value = String(options.draft.confidence.speaking);
-      writing.select.value = String(options.draft.confidence.writing);
-    }
-    content.append(form2);
-    showStep(0);
+    if (draft) buildAssessment(draft.targetBand);
+    showStep(draft ? Math.min(step2, steps.length - 1) : 0);
+    screen.addEventListener("focusin", (event) => {
+      if (event.target?.matches("button, input, select, textarea")) options.onMove?.();
+    });
     screen.addEventListener("academy:dispose", () => {
       disposed = true;
+      if (inputSaveTimer !== void 0) window.clearTimeout(inputSaveTimer);
       stopPlayback();
-      sourcePlayers.forEach((player) => {
-        player.removeAttribute("src");
-      });
+      sourcePlayers.forEach((player) => player.removeAttribute("src"));
       sourcePlayers.clear();
     }, { once: true });
     return screen;
   }
   function renderPlacementResultScreen(options) {
-    const { screen, content } = screenFrame({
+    const { screen, panel, content } = screenFrame({
       language: options.language,
       className: "academy-placement-result-screen",
       plate: "classroom",
       title: "mockResultTitle",
-      body: "mockBody"
+      body: "mockResultBody"
     });
+    screen.dataset.academyRoute = "placement-result";
+    panel.classList.add("academy-placement-stage");
+    appendRieGuide(panel, options.language);
     const scores = element("dl", "academy-score-grid");
     const rows = [
       ["mockKnowledge", options.result.scores["language-knowledge"], "graded"],
@@ -55612,24 +55897,180 @@ ${spelling}`);
     );
     const band = recommendation.querySelector("strong");
     if (band) band.textContent = options.result.recommendedStart === "lesson-zero" ? options.language === "ja" ? "レッスン0" : "Lesson 0" : options.result.recommendedStart.toUpperCase();
-    const hasSourceRecording = orientationItemsForBand(options.result.targetBand).some((item2) => item2.audio?.runtimeDelivery === "packaged-source-recording");
-    const playbackTruth = academyText(options.language, hasSourceRecording ? "mockEvidenceSourceAudio" : "mockEvidenceSpeechAudio");
-    const evidenceNote = element("p", "academy-placement-evidence-note");
-    evidenceNote.textContent = options.language === "ja" ? `${options.result.targetBand.toUpperCase()} の${options.result.itemIds.length}問に基づく目安です。公式JLPTの得点や合格予測ではありません。${playbackTruth}` : `This starting point is based on ${options.result.itemIds.length} ${options.result.targetBand.toUpperCase()} questions. It is not an official JLPT score or pass prediction. ${playbackTruth}`;
-    const continuityNote = element("p", "academy-placement-continuity-note");
-    continuityNote.textContent = options.language === "ja" ? "出発レベルを変えても、物語や出会いの進行は失われません。" : "Changing your starting level does not reset or skip your story progress.";
+    const evidenceNote = copyElement("p", "academy-placement-evidence-note", options.language, "mockResultEvidence");
+    const usedTextAlternative = Object.values(options.draft?.listeningModes ?? {}).includes("transcript-alternative");
+    const transcriptNote = usedTextAlternative ? copyElement("p", "academy-placement-transcript-evidence-note", options.language, "mockResultTranscriptEvidence") : null;
+    const continuityNote = copyElement("p", "academy-placement-continuity-note", options.language, "mockResultContinuity");
     continuityNote.dataset.storyProgression = ORIENTATION_MOCK_POLICY.storyProgression;
     const accept = copyButton(options.language, "mockUseRecommendation", "academy-button academy-button-primary");
-    accept.addEventListener("click", options.onAccept);
     const choose = copyButton(options.language, "mockChooseMyself", "academy-button academy-button-secondary");
-    choose.addEventListener("click", options.onChoose);
     const back = backButton(options.language);
     back.classList.add("academy-placement-back", "academy-placement-review");
-    back.addEventListener("click", options.onReview);
+    const feedback2 = element("div", "academy-form-feedback");
+    const buttons = [back, choose, accept];
+    let busy = false;
+    const invoke = (action2) => {
+      if (busy) return;
+      busy = true;
+      buttons.forEach((button2) => {
+        button2.disabled = true;
+      });
+      void Promise.resolve(action2()).catch(() => {
+        feedback2.replaceChildren(fieldError(academyText(options.language, "mockSaveError")));
+        busy = false;
+        buttons.forEach((button2) => {
+          button2.disabled = false;
+        });
+      });
+    };
+    accept.addEventListener("click", () => invoke(options.onAccept));
+    choose.addEventListener("click", () => invoke(options.onChoose));
+    back.addEventListener("click", () => invoke(options.onReview));
     const actions = element("div", "academy-placement-actions");
     actions.append(back, choose, accept);
-    content.append(scores, recommendation, evidenceNote, continuityNote, actions);
+    content.append(scores, recommendation, evidenceNote);
+    if (transcriptNote) content.append(transcriptNote);
+    content.append(continuityNote, feedback2, actions);
     return screen;
+  }
+  function appendRieGuide(panel, language) {
+    const guide = element("div", "academy-placement-guide");
+    const image = element("img", "academy-placement-guide-character");
+    image.src = ACADEMY_ASSETS.rie;
+    image.alt = language === "ja" ? "りえ先生" : "Rie-sensei";
+    guide.append(image);
+    panel.prepend(guide);
+  }
+  function placementBriefing(language) {
+    const section = element("section", "academy-placement-briefing");
+    section.append(
+      copyElement("h2", "academy-placement-step-title", language, "mockGuideTitle"),
+      copyElement("p", "academy-placement-step-body", language, "mockGuideBody")
+    );
+    const lines = element("div", "academy-placement-briefing-lines");
+    ["mockGuideLanguage", "mockGuideReading", "mockGuideListening"].forEach((key2) => lines.append(copyElement("p", "academy-placement-briefing-line", language, key2)));
+    section.append(lines);
+    return section;
+  }
+  function createProductionDesk(language, band, draft, onChange) {
+    const section = element("section", "academy-placement-production");
+    section.append(
+      copyElement("h2", "academy-placement-step-title", language, "mockProductionTitle"),
+      copyElement("p", "academy-placement-step-body", language, "mockProductionBody")
+    );
+    const prompts2 = placementProductionPrompt(band);
+    section.append(
+      productionTask(language, "speaking", prompts2.speaking, draft, onChange),
+      productionTask(language, "writing", prompts2.writing, draft, onChange)
+    );
+    return section;
+  }
+  function productionTask(language, kind, prompt2, draft, onChange) {
+    const attempt = draft.production[kind];
+    const fieldset = element("fieldset", `academy-placement-production-task academy-placement-production-${kind}`);
+    fieldset.append(
+      copyElement(
+        "legend",
+        "academy-placement-production-legend",
+        language,
+        kind === "speaking" ? "mockSpeakingConfidence" : "mockWritingConfidence"
+      ),
+      localizedElement("p", "academy-placement-production-model", language, prompt2.model),
+      localizedElement("p", "academy-placement-production-prompt", language, prompt2.task)
+    );
+    const modes = element("div", "academy-placement-production-modes");
+    const modeValues = kind === "speaking" ? [["aloud", "mockModeAloud"], ["typed-alternative", "mockModeTypeInstead"]] : [["typed", "mockModeTyped"], ["paper-alternative", "mockModePaper"]];
+    modeValues.forEach(([value, key2]) => {
+      const label = element("label", "academy-placement-mode");
+      const input2 = document.createElement("input");
+      input2.type = "radio";
+      input2.name = `placement-${kind}-mode`;
+      input2.value = value;
+      input2.checked = attempt.mode === value;
+      input2.addEventListener("change", () => {
+        syncProductionMode(fieldset, kind, value);
+        onChange();
+      });
+      label.append(input2, copyElement("span", "", language, key2));
+      modes.append(label);
+    });
+    fieldset.append(modes);
+    const direct = element("label", "academy-placement-production-direct");
+    const directCheck = document.createElement("input");
+    directCheck.type = "checkbox";
+    directCheck.name = `placement-${kind}-complete`;
+    directCheck.checked = attempt.completed && (kind === "speaking" ? attempt.mode === "aloud" : attempt.mode === "paper-alternative");
+    directCheck.addEventListener("change", onChange);
+    direct.append(directCheck, copyElement(
+      "span",
+      "",
+      language,
+      kind === "speaking" ? "mockTriedAloud" : "mockWroteOnPaper"
+    ));
+    fieldset.append(direct);
+    const response = document.createElement("textarea");
+    response.className = "academy-input academy-placement-production-response";
+    response.name = `placement-${kind}-response`;
+    response.rows = 3;
+    response.maxLength = 2e3;
+    response.placeholder = academyText(language, "mockResponsePlaceholder");
+    response.setAttribute("aria-label", academyText(
+      language,
+      kind === "speaking" ? "mockSpeakingConfidence" : "mockWritingConfidence"
+    ));
+    response.value = attempt.response;
+    response.addEventListener("input", onChange);
+    fieldset.append(response);
+    const confidence = element("fieldset", "academy-placement-self-check");
+    confidence.append(copyElement("legend", "academy-placement-self-check-legend", language, "mockConfidenceLegend"));
+    [
+      [0, "mockConfidenceNotYet"],
+      [0.5, "mockConfidenceSupported"],
+      [1, "mockConfidenceIndependent"]
+    ].forEach(([value, key2]) => {
+      const label = element("label", "academy-placement-self-check-option");
+      const input2 = document.createElement("input");
+      input2.type = "radio";
+      input2.name = `placement-${kind}-confidence`;
+      input2.value = String(value);
+      input2.checked = attempt.rated && attempt.confidence === value;
+      input2.addEventListener("change", onChange);
+      label.append(input2, copyElement("span", "", language, key2));
+      confidence.append(label);
+    });
+    fieldset.append(confidence);
+    syncProductionMode(fieldset, kind, attempt.mode);
+    return fieldset;
+  }
+  function syncProductionMode(fieldset, kind, mode) {
+    const direct = fieldset.querySelector(".academy-placement-production-direct");
+    const response = fieldset.querySelector(".academy-placement-production-response");
+    const directMode = kind === "speaking" ? mode === "aloud" : mode === "paper-alternative";
+    if (direct) direct.hidden = !directMode;
+    if (response) response.hidden = directMode;
+  }
+  function productionIsComplete(draft) {
+    return draft.production.speaking.completed && draft.production.speaking.rated && draft.production.writing.completed && draft.production.writing.rated;
+  }
+  function checkedValue(root, name) {
+    return root.querySelector(`input[name="${name}"]:checked`)?.value;
+  }
+  function checkedNumber(root, name) {
+    const value = checkedValue(root, name);
+    if (value === void 0) return void 0;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : void 0;
+  }
+  function cloneDraft(draft) {
+    return {
+      targetBand: draft.targetBand,
+      responses: { ...draft.responses },
+      listeningModes: { ...draft.listeningModes },
+      production: {
+        speaking: { ...draft.production.speaking },
+        writing: { ...draft.production.writing }
+      }
+    };
   }
   function bandSelect(language) {
     const fieldset = element("fieldset", "academy-target-band");
@@ -55656,29 +56097,15 @@ ${spelling}`);
   function isJlptBand(value) {
     return ["n5", "n4", "n3", "n2", "n1"].includes(value);
   }
-  function confidenceSelect(language, key2, name) {
-    const label = copyElement("label", "academy-label", language, key2);
-    const select2 = element("select", "academy-input");
-    select2.name = name;
-    select2.setAttribute("aria-label", academyText(language, key2));
-    for (let index = 0; index <= 4; index += 1) {
-      const option2 = document.createElement("option");
-      option2.value = String(index / 4);
-      option2.textContent = `${index} / 4`;
-      if (index === 2) option2.selected = true;
-      select2.append(option2);
-    }
-    label.append(select2);
-    return { label, select: select2 };
-  }
   function scoreBar(value, language, kind = "graded") {
     const row = element("dd", kind === "self-reported" ? "academy-score academy-score-self-reported" : "academy-score");
     const meter = element("span", kind === "self-reported" ? "academy-score-meter academy-score-meter-hollow" : "academy-score-meter");
     meter.style.setProperty("--academy-score", String(value));
     const copy2 = element("span", "academy-score-value");
     if (kind === "self-reported") {
-      copy2.textContent = language === "ja" ? "自己申告" : "Self-reported";
-      row.setAttribute("aria-label", language === "ja" ? "自己申告（採点なし）" : "Self-reported, not graded");
+      const key2 = value <= 0 ? "mockConfidenceNotYet" : value < 1 ? "mockConfidenceSupported" : "mockConfidenceIndependent";
+      copy2.textContent = academyText(language, key2);
+      row.setAttribute("aria-label", `${academyText(language, key2)}. ${language === "ja" ? "自己確認" : "Self-check"}`);
     } else {
       copy2.textContent = new Intl.NumberFormat(language, { style: "percent", maximumFractionDigits: 0 }).format(value);
     }
@@ -55905,7 +56332,6 @@ ${spelling}`);
     constructor(options) {
       this.options = options;
     }
-    placementDraft = null;
     releaseExternalListening = null;
     async render(route, context2) {
       switch (route) {
@@ -55954,11 +56380,15 @@ ${spelling}`);
             pronunciation: this.options.pronunciation,
             onListeningStart: () => this.beginExternalListening(),
             onListeningStop: () => this.endExternalListening(),
-            draft: this.placementDraft ?? void 0,
-            onResult: (result2, draft) => void this.savePlacement(result2, draft, context2),
-            onBack: () => {
-              this.placementDraft = null;
-              void context2.back();
+            progress: context2.checkpoint.placementProgress,
+            onProgress: (progress2) => this.savePlacementProgress(progress2, context2),
+            onMove: () => this.options.audio?.playSfx?.("menu.move"),
+            onConfirm: () => this.options.audio?.playSfx?.("menu.confirm"),
+            onCancel: () => this.options.audio?.playSfx?.("menu.cancel"),
+            onResult: (result2) => context2.go("placement-result", { selectedBand: result2.recommendedBand }),
+            onBack: async () => {
+              await context2.save?.({ placementProgress: void 0 });
+              await context2.back();
             }
           }));
           return true;
@@ -56071,23 +56501,32 @@ ${spelling}`);
       await context2.go("arrival-bridge", {
         selectedBand: band,
         placementOverride: false,
+        ...fromPlacement ? { placementProgress: void 0 } : {},
         lessonId: void 0,
         sectionId: storySection,
         activityId: void 0
       });
     }
-    async savePlacement(result2, draft, context2) {
-      this.placementDraft = draft;
-      await this.options.evidence.savePlacement(result2);
-      await context2.go("placement-result", { selectedBand: result2.recommendedBand });
+    async savePlacementProgress(progress2, context2) {
+      if (!context2.save) throw new Error("Placement requires durable route-state persistence.");
+      await context2.save({ placementProgress: progress2 });
     }
     renderPlacementResult(context2) {
+      const pending2 = context2.checkpoint.placementProgress?.submitted ? context2.checkpoint.placementProgress : void 0;
       const placement = context2.projection.latestPlacement;
-      if (!placement) {
+      if (!pending2 && !placement) {
         void context2.go("placement-mock");
         return;
       }
-      const result2 = {
+      const result2 = pending2 ? scoreOrientationMock(
+        pending2.draft.targetBand,
+        pending2.draft.responses,
+        {
+          speaking: pending2.draft.production.speaking.confidence,
+          writing: pending2.draft.production.writing.confidence
+        },
+        pending2.draft.listeningModes
+      ) : {
         assessmentId: placement.assessmentId === "academy-orientation-mock:v2" ? "academy-orientation-mock:v2" : "academy-orientation-mock:v1",
         targetBand: placement.targetBand,
         itemIds: placement.itemIds,
@@ -56099,14 +56538,21 @@ ${spelling}`);
       context2.shell.replace(renderPlacementResultScreen({
         language: context2.language,
         result: result2,
-        onAccept: () => void this.acceptPlacement(result2, context2),
-        onChoose: () => void context2.go("manual-band", { placementOverride: true }),
-        onReview: () => void context2.back()
+        draft: pending2?.draft,
+        onAccept: () => this.acceptPlacement(result2, context2, Boolean(pending2)),
+        onChoose: () => {
+          this.options.audio?.playSfx?.("menu.confirm");
+          return context2.go("manual-band", { placementOverride: true });
+        },
+        onReview: () => {
+          this.options.audio?.playSfx?.("menu.cancel");
+          return context2.back();
+        }
       }));
     }
-    async acceptPlacement(result2, context2) {
+    async acceptPlacement(result2, context2, needsCanonicalSave) {
       this.options.audio?.playSfx?.("menu.confirm");
-      this.placementDraft = null;
+      if (needsCanonicalSave) await this.options.evidence.savePlacement(result2);
       const storySection = placementStorySection(context2);
       if (result2.recommendedStart === "lesson-zero") {
         await this.options.evidence.chooseCurriculumEntry({
@@ -56115,6 +56561,7 @@ ${spelling}`);
         await context2.go("campus", {
           selectedBand: void 0,
           placementOverride: false,
+          ...needsCanonicalSave ? { placementProgress: void 0 } : {},
           lessonId: "lesson:foundation-00",
           sectionId: storySection,
           activityId: void 0
@@ -56129,6 +56576,7 @@ ${spelling}`);
       await context2.go("arrival-bridge", {
         selectedBand: result2.recommendedStart,
         placementOverride: false,
+        ...needsCanonicalSave ? { placementProgress: void 0 } : {},
         lessonId: void 0,
         sectionId: storySection,
         activityId: void 0
@@ -276321,7 +276769,7 @@ ${item2.sequence ?? ""}`;
     if (Array.isArray(value)) {
       return value.map((child) => glossaryValueToProfileText(child, options)).filter(Boolean).join(" ");
     }
-    return isRecord$6(value) ? glossaryRecordToText(value, options) : "";
+    return isRecord$7(value) ? glossaryRecordToText(value, options) : "";
   }
   function primitiveGlossaryText(value) {
     if (value == null) return "";
@@ -276415,7 +276863,7 @@ ${item2.sequence ?? ""}`;
     if (value == null) return "";
     if (isStructuredPrimitive(value)) return escapeHtml$1(String(value));
     if (Array.isArray(value)) return renderGlossaryArray(value, context2);
-    if (!isRecord$6(value)) return "";
+    if (!isRecord$7(value)) return "";
     return renderGlossaryRecord(value, context2);
   }
   function isStructuredPrimitive(value) {
@@ -288118,7 +288566,7 @@ ${component.reading}`;
     return !requiresSurfaceMatch(query) || sentenceContainsQuery(example.sentence, query);
   }
   function normalizeExample(value, provider = "immersion-kit") {
-    return isRecord$6(value) ? normalizeExampleRecord(value, provider) : null;
+    return isRecord$7(value) ? normalizeExampleRecord(value, provider) : null;
   }
   function normalizeExampleRecord(record2, provider = "immersion-kit") {
     const id2 = text(record2.id);
@@ -288159,18 +288607,18 @@ ${component.reading}`;
   }
   function nadeshikoResponseRecord(data) {
     if (Array.isArray(data)) return { segments: data };
-    return isRecord$6(data) ? data : null;
+    return isRecord$7(data) ? data : null;
   }
   function nadeshikoSegments(response) {
     return firstArrayField(response, ["segments", "examples", "results", "data"]);
   }
   function nadeshikoMediaMap(response) {
     const includes = response.includes;
-    const media = isRecord$6(includes) ? includes.media : void 0;
-    return isRecord$6(media) ? media : {};
+    const media = isRecord$7(includes) ? includes.media : void 0;
+    return isRecord$7(media) ? media : {};
   }
   function normalizeNadeshikoExample(value, mediaById) {
-    if (!isRecord$6(value)) return null;
+    if (!isRecord$7(value)) return null;
     const sentence = nadeshikoSentence(value);
     if (!sentence) return null;
     const ids2 = nadeshikoExampleIds(value);
@@ -288207,7 +288655,7 @@ ${component.reading}`;
     return recordField(mediaById[mediaPublicId]);
   }
   function recordField(value) {
-    return isRecord$6(value) ? value : {};
+    return isRecord$7(value) ? value : {};
   }
   function nadeshikoSourceTitle(record2, media) {
     return firstText(media, ["nameRomaji", "name_romaji", "titleRomaji", "title_romaji", "name", "title", "nameJa"]) || firstText(record2, ["mediaName", "sourceTitle", "source", "title"]) || "Nadeshiko";
@@ -288226,7 +288674,7 @@ ${component.reading}`;
   }
   function nestedText(record2, key2, fields) {
     const value = record2[key2];
-    return isRecord$6(value) ? firstText(value, fields) : "";
+    return isRecord$7(value) ? firstText(value, fields) : "";
   }
   function directMediaUrl(example, kind) {
     return kind === "image" ? example.imageUrl : example.soundUrl;
@@ -296234,13 +296682,13 @@ ${entry2.url}`),
   }
   function jpdbReviewCards(value) {
     if (Array.isArray(value)) return value;
-    if (!isRecord$6(value)) return [];
+    if (!isRecord$7(value)) return [];
     const cards = Object.entries(value).filter(([key2, item2]) => key2.startsWith("cards_") && Array.isArray(item2)).flatMap(([, item2]) => item2);
     if (cards.length) return cards;
     return Array.isArray(value.cards) ? value.cards : [];
   }
   function normalizeJpdbReviewEntries(card) {
-    if (!isRecord$6(card) || !Array.isArray(card.reviews)) return [];
+    if (!isRecord$7(card) || !Array.isArray(card.reviews)) return [];
     return card.reviews.map(normalizeJpdbReview).filter((review2) => review2 !== null).sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
   }
   function normalizeJpdbReview(value) {
@@ -296253,7 +296701,7 @@ ${entry2.url}`),
         minutes: numberValue$1(value[5]) / 6e4
       };
     }
-    if (!isRecord$6(value)) return null;
+    if (!isRecord$7(value)) return null;
     const timestamp = reviewTimestamp(value.timestamp ?? value.time ?? value.date);
     if (!timestamp) return null;
     return {
@@ -299658,14 +300106,14 @@ ${entry2.url}`),
   }
   function structuredExampleTexts(value) {
     if (Array.isArray(value)) return value.flatMap(structuredExampleTexts);
-    if (!isRecord$6(value)) return [];
+    if (!isRecord$7(value)) return [];
     if (isExampleRecord(value)) return structuredLeafTexts(value.text ?? value.content);
     return Object.values(value).flatMap(structuredExampleTexts);
   }
   function structuredLeafTexts(value) {
     if (typeof value === "string") return [value];
     if (Array.isArray(value)) return value.flatMap(structuredLeafTexts);
-    if (!isRecord$6(value)) return [];
+    if (!isRecord$7(value)) return [];
     if (typeof value.text === "string") return [value.text];
     return "content" in value ? structuredLeafTexts(value.content) : [];
   }

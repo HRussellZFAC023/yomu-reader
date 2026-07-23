@@ -58,6 +58,9 @@ export function normalizeResumeCheckpoint(
             ...(checkpoint.lessonZeroVowelWritingProgress
                 ? { lessonZeroVowelWritingProgress: checkpoint.lessonZeroVowelWritingProgress }
                 : {}),
+            ...(checkpoint.placementProgress
+                ? { placementProgress: checkpoint.placementProgress }
+                : {}),
             updatedAt: now,
         };
     }
@@ -85,7 +88,9 @@ export function normalizeResumeCheckpoint(
     } else if (normalized.route === 'start' && !rieIntroductionCompleted(projection)) {
         normalized = transitionCheckpoint(normalized, { kind: 'reset', route: 'rie-unlock' }, now);
     }
-    if (normalized.route === 'placement-result' && !projection.latestPlacement) {
+    if (normalized.route === 'placement-result'
+        && !normalized.placementProgress?.submitted
+        && !projection.latestPlacement) {
         normalized = transitionCheckpoint(normalized, { kind: 'replace', route: 'placement-mock' }, now);
     }
     if (normalized.route === 'arrival-bridge' && !normalized.selectedBand) {
@@ -170,7 +175,7 @@ export function themeForRoute(route: AcademyRoute, worldPlace?: WorldPlaceId): T
     ) {
         return 'opening.invitation';
     }
-    if (route === 'placement-mock' || route === 'placement-result') return 'silence';
+    if (route === 'placement-mock' || route === 'placement-result') return 'classroom.focus';
     if (route === 'writing-practice') return 'challenge.kanji';
     if (route === 'campus') return 'world.courtyard';
     if (route === 'world') return worldPlace ? themeForWorldPlace(worldPlace) : 'unlock.world';

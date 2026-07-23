@@ -40,6 +40,8 @@ describe('Academy resume route contract', () => {
         expect(themeForRoute('start')).toBe('opening.invitation');
         expect(themeForRoute('manual-band')).toBe('opening.invitation');
         expect(themeForRoute('arrival-bridge')).toBe('opening.invitation');
+        expect(themeForRoute('placement-mock')).toBe('classroom.focus');
+        expect(themeForRoute('placement-result')).toBe('classroom.focus');
     });
 
     it('resumes the one-time Rie meeting until it is complete, then keeps it out of the live route', () => {
@@ -61,6 +63,43 @@ describe('Academy resume route contract', () => {
         const after = projectLearnerRecord([profile, introduction]);
         expect(normalizeResumeCheckpoint(checkpoint('rie-unlock'), after, 1_000, true, true).route).toBe('start');
         expect(normalizeResumeCheckpoint(checkpoint('profile'), after, 1_000, true, true).route).toBe('start');
+    });
+
+    it('cold-resumes a submitted placement result without requiring a canonical placement event', () => {
+        const profile = event({
+            kind: 'profile-changed',
+            profile: { displayName: 'Mina', learningReason: 'Speak', portraitId: 'quality-2' },
+        } as LearnerEvent, 1);
+        const introduction = event<Extract<LearnerEvent, { kind: 'characters-encountered' }>>({
+            kind: 'characters-encountered',
+            encounterId: 'opening-rie-introduction',
+            sceneId: 'scene:opening-rie-introduction',
+            attendeeIds: ['rie'],
+        }, 2);
+        const placementProgress = {
+            schemaVersion: 1 as const,
+            step: 8,
+            submitted: true,
+            draft: {
+                targetBand: 'n5' as const,
+                responses: {},
+                listeningModes: {},
+                production: {
+                    speaking: { mode: 'aloud' as const, completed: true, response: '', confidence: 0.5, rated: true },
+                    writing: { mode: 'typed' as const, completed: true, response: 'ねこです。', confidence: 0.5, rated: true },
+                },
+            },
+        };
+        const projection = projectLearnerRecord([profile, introduction]);
+
+        expect(normalizeResumeCheckpoint({
+            ...checkpoint('placement-result'),
+            placementProgress,
+        }, projection, 1_000, true, true).route).toBe('placement-result');
+        expect(normalizeResumeCheckpoint({
+            ...checkpoint('placement-result'),
+            placementProgress: { ...placementProgress, submitted: false },
+        }, projection, 1_000, true, true).route).toBe('placement-mock');
     });
 
     it('restores a missing selected band from curriculum evidence', () => {

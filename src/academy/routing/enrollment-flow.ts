@@ -2,9 +2,10 @@ import type { AccessGateway } from '../access/gateway';
 import type { AcademySyncStatus } from '../account/sync-client';
 import { createN3AdvancedEntryPlan } from '../content/advanced-entry';
 import type { JlptBand, LearnerProfileSnapshot, StartingRoute } from '../domain/learner-record';
+import type { PlacementMockProgress } from '../domain/placement-session';
 import type { LearnerEvidence } from '../evidence/learner-evidence';
 import type { PronunciationService } from '../integration/yomu-bridge';
-import type { OrientationMockResult, PlacementMockDraft } from '../placement/orientation';
+import { scoreOrientationMock, type OrientationMockResult } from '../placement/orientation';
 import type { SfxCue } from '../audio/types';
 import { createStoryVoicePlayback, type StoryVoiceAudioDirector } from '../audio/voice-lines';
 import type { AcademyRoute } from '../persistence/indexeddb';
@@ -37,7 +38,6 @@ export function createEnrollmentFlow(options: EnrollmentFlowOptions): AcademyRou
 }
 
 class EnrollmentFlow implements AcademyRouteFlow {
-    private placementDraft: PlacementMockDraft | null = null;
     private releaseExternalListening: (() => void) | null = null;
 
     constructor(private readonly options: EnrollmentFlowOptions) {}
@@ -93,11 +93,15 @@ class EnrollmentFlow implements AcademyRouteFlow {
                     pronunciation: this.options.pronunciation,
                     onListeningStart: () => this.beginExternalListening(),
                     onListeningStop: () => this.endExternalListening(),
-                    draft: this.placementDraft ?? undefined,
-                    onResult: (result, draft) => void this.savePlacement(result, draft, context),
-                    onBack: () => {
-                        this.placementDraft = null;
-                        void context.back();
+                    progress: context.checkpoint.placementProgress,
+                    onProgress: progress => this.savePlacementProgress(progress, context),
+                    onMove: () => this.options.audio?.playSfx?.('menu.move'),
+                    onConfirm: () => this.options.audio?.playSfx?.('menu.confirm'),
+                    onCancel: () => this.options.audio?.playSfx?.('menu.cancel'),
+                    onResult: result => context.go('placement-result', { selectedBand: result.recommendedBand }),
+                    onBack: async () => {
+                        await context.save?.({ placementProgress: undefined });
+                        await context.back();
                     },
                 }));
                 return true;
@@ -229,51 +233,74 @@ class EnrollmentFlow implements AcademyRouteFlow {
         await context.go('arrival-bridge', {
             selectedBand: band,
             placementOverride: false,
+            ...(fromPlacement ? { placementProgress: undefined } : {}),
             lessonId: undefined,
             sectionId: storySection,
             activityId: undefined,
         });
     }
 
-    private async savePlacement(
-        result: OrientationMockResult,
-        draft: PlacementMockDraft,
+    private async savePlacementProgress(
+        progress: PlacementMockProgress,
         context: AcademyRouteContext,
     ): Promise<void> {
-        this.placementDraft = draft;
-        await this.options.evidence.savePlacement(result);
-        await context.go('placement-result', { selectedBand: result.recommendedBand });
+        if (!context.save) throw new Error('Placement requires durable route-state persistence.');
+        await context.save({ placementProgress: progress });
     }
 
     private renderPlacementResult(context: AcademyRouteContext): void {
+        const pending = context.checkpoint.placementProgress?.submitted
+            ? context.checkpoint.placementProgress
+            : undefined;
         const placement = context.projection.latestPlacement;
-        if (!placement) {
+        if (!pending && !placement) {
             void context.go('placement-mock');
             return;
         }
-        const result: OrientationMockResult = {
-            assessmentId: placement.assessmentId === 'academy-orientation-mock:v2'
-                ? 'academy-orientation-mock:v2'
-                : 'academy-orientation-mock:v1',
-            targetBand: placement.targetBand,
-            itemIds: placement.itemIds,
-            scores: placement.scores,
-            recommendedBand: placement.recommendedBand,
-            recommendedStart: placement.recommendedStart ?? placement.recommendedBand,
-            calibration: 'vertical-slice',
-        };
+        const result: OrientationMockResult = pending
+            ? scoreOrientationMock(
+                pending.draft.targetBand,
+                pending.draft.responses,
+                {
+                    speaking: pending.draft.production.speaking.confidence,
+                    writing: pending.draft.production.writing.confidence,
+                },
+                pending.draft.listeningModes,
+            )
+            : {
+                assessmentId: placement!.assessmentId === 'academy-orientation-mock:v2'
+                    ? 'academy-orientation-mock:v2'
+                    : 'academy-orientation-mock:v1',
+                targetBand: placement!.targetBand,
+                itemIds: placement!.itemIds,
+                scores: placement!.scores,
+                recommendedBand: placement!.recommendedBand,
+                recommendedStart: placement!.recommendedStart ?? placement!.recommendedBand,
+                calibration: 'vertical-slice',
+            };
         context.shell.replace(renderPlacementResultScreen({
             language: context.language,
             result,
-            onAccept: () => void this.acceptPlacement(result, context),
-            onChoose: () => void context.go('manual-band', { placementOverride: true }),
-            onReview: () => void context.back(),
+            draft: pending?.draft,
+            onAccept: () => this.acceptPlacement(result, context, Boolean(pending)),
+            onChoose: () => {
+                this.options.audio?.playSfx?.('menu.confirm');
+                return context.go('manual-band', { placementOverride: true });
+            },
+            onReview: () => {
+                this.options.audio?.playSfx?.('menu.cancel');
+                return context.back();
+            },
         }));
     }
 
-    private async acceptPlacement(result: OrientationMockResult, context: AcademyRouteContext): Promise<void> {
+    private async acceptPlacement(
+        result: OrientationMockResult,
+        context: AcademyRouteContext,
+        needsCanonicalSave: boolean,
+    ): Promise<void> {
         this.options.audio?.playSfx?.('menu.confirm');
-        this.placementDraft = null;
+        if (needsCanonicalSave) await this.options.evidence.savePlacement(result);
         const storySection = placementStorySection(context);
         if (result.recommendedStart === 'lesson-zero') {
             await this.options.evidence.chooseCurriculumEntry({
@@ -282,6 +309,7 @@ class EnrollmentFlow implements AcademyRouteFlow {
             await context.go('campus', {
                 selectedBand: undefined,
                 placementOverride: false,
+                ...(needsCanonicalSave ? { placementProgress: undefined } : {}),
                 lessonId: 'lesson:foundation-00',
                 sectionId: storySection,
                 activityId: undefined,
@@ -296,6 +324,7 @@ class EnrollmentFlow implements AcademyRouteFlow {
         await context.go('arrival-bridge', {
             selectedBand: result.recommendedStart,
             placementOverride: false,
+            ...(needsCanonicalSave ? { placementProgress: undefined } : {}),
             lessonId: undefined,
             sectionId: storySection,
             activityId: undefined,

@@ -75,6 +75,52 @@ describe('Academy IndexedDB persistence', () => {
         restored.close();
     });
 
+    it('persists an unaccepted placement draft and rejects malformed production state', async () => {
+        const persistence = await openAcademyPersistence(fakeIndexedDB, `academy-test-${crypto.randomUUID()}`);
+        const placementProgress = {
+            schemaVersion: 1 as const,
+            step: 5,
+            submitted: false,
+            draft: {
+                targetBand: 'n4' as const,
+                responses: { 'orientation:n4:item': 'choice-2' },
+                listeningModes: { 'orientation:n4:listening': 'transcript-alternative' as const },
+                production: {
+                    speaking: { mode: 'typed-alternative' as const, completed: true, response: '例です。', confidence: 0.5, rated: true },
+                    writing: { mode: 'paper-alternative' as const, completed: true, response: '', confidence: 1, rated: true },
+                },
+            },
+        };
+        await persistence.checkpoint.save({
+            schemaVersion: 2,
+            route: 'placement-mock',
+            routeHistory: [{ route: 'start' }],
+            presentationMode: 'story',
+            placementProgress,
+            updatedAt: 101,
+        });
+
+        expect(await persistence.checkpoint.load()).toMatchObject({ placementProgress });
+        await expect(persistence.checkpoint.save({
+            schemaVersion: 2,
+            route: 'placement-mock',
+            routeHistory: [],
+            presentationMode: 'story',
+            placementProgress: {
+                ...placementProgress,
+                draft: {
+                    ...placementProgress.draft,
+                    production: {
+                        ...placementProgress.draft.production,
+                        speaking: { ...placementProgress.draft.production.speaking, rated: 'yes' },
+                    },
+                },
+            } as never,
+            updatedAt: 102,
+        })).rejects.toThrow('invalid placement progress');
+        persistence.close();
+    });
+
     it('rejects conflicting event ids instead of overwriting evidence', async () => {
         const persistence = await openAcademyPersistence(fakeIndexedDB, `academy-test-${crypto.randomUUID()}`);
         const event: LearnerEvent = {

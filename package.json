@@ -146,6 +146,7 @@
     "manual:academy-rie-introduction": "node scripts/manual/rie-introduction-browser.mjs",
     "manual:academy-start-choice": "node scripts/manual/start-choice-browser.mjs",
     "manual:academy-manual-band": "node scripts/manual/manual-band-browser.mjs",
+    "manual:academy-placement": "node scripts/manual/placement-browser.mjs",
     "manual:academy-greeting": "node scripts/manual/lesson-zero-greeting-browser.mjs",
     "manual:academy-vowels": "node scripts/manual/lesson-zero-vowel-browser.mjs",
     "manual:academy-vowel-writing": "node scripts/manual/lesson-zero-vowel-writing-browser.mjs",

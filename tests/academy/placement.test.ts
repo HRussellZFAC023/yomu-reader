@@ -5,6 +5,7 @@ import {
     collectTextTargetsIn,
 } from '../../src/reader/dom';
 import { refreshAcademyAnnotationSurfaces } from '../../src/academy/integration/yomu-runtime';
+import type { PlacementMockDraft, PlacementMockProgress } from '../../src/academy/domain/placement-session';
 import {
     ORIENTATION_MOCK_POLICY,
     ORIENTATION_MOCK_ITEMS,
@@ -12,6 +13,7 @@ import {
     placementAudioDelivery,
     placementEntryChoice,
     scoreOrientationMock,
+    type OrientationMockResult,
     validateOrientationMockItems,
 } from '../../src/academy/placement/orientation';
 import { renderPlacementMockScreen, renderPlacementResultScreen } from '../../src/academy/ui/placement-screen';
@@ -65,7 +67,8 @@ describe('orientation placement mock', () => {
         expect(placementEntryChoice('lesson-zero')).toEqual({ kind: 'lesson-zero' });
         expect(placementEntryChoice('n2')).toEqual({ kind: 'mock', targetBand: 'n2' });
         expect(ORIENTATION_MOCK_POLICY.caveats.join(' ')).toMatch(/not an official JLPT score/i);
-        expect(ORIENTATION_MOCK_POLICY.caveats.join(' ')).toMatch(/Speaking and writing are not directly assessed/i);
+        expect(ORIENTATION_MOCK_POLICY.caveats.join(' ')).toMatch(/short production attempts/i);
+        expect(ORIENTATION_MOCK_POLICY.caveats.join(' ')).toMatch(/transcript alternative/i);
     });
 
     it('provides two exact-source items for every receptive skill at every JLPT band', () => {
@@ -235,25 +238,38 @@ describe('orientation placement mock', () => {
 });
 
 describe('orientation placement answer surfaces', () => {
-    function render(): HTMLElement {
+    const pronunciation = () => ({ play: vi.fn(async () => ({ dispose: vi.fn() })) });
+
+    function render(overrides: Partial<Parameters<typeof renderPlacementMockScreen>[0]> = {}): HTMLElement {
         return renderPlacementMockScreen({
             language: 'en',
-            pronunciation: { play: vi.fn(async () => ({ dispose: vi.fn() })) },
+            pronunciation: pronunciation(),
             onResult: vi.fn(),
             onBack: vi.fn(),
+            ...overrides,
         });
     }
 
-    it('uses real packaged Soya audio at N5 and retains honest speech playback where no mapping exists', () => {
-        const pronunciation = { play: vi.fn(async () => ({ dispose: vi.fn() })) };
+    async function chooseBand(screen: HTMLElement, band: 'n5' | 'n4' | 'n3' | 'n2' | 'n1'): Promise<void> {
+        const select = screen.querySelector<HTMLSelectElement>('.academy-target-band select')!;
+        select.value = band;
+        screen.querySelector<HTMLButtonElement>('.academy-placement-actions .academy-button-primary:not([type="submit"])')!.click();
+        await vi.waitFor(() => expect(screen.querySelector<HTMLElement>('.academy-placement-briefing')?.hidden).toBe(false));
+    }
+
+    async function continuePlacement(screen: HTMLElement): Promise<void> {
+        const before = screen.querySelector('.academy-placement-progress-label')?.textContent;
+        screen.querySelector<HTMLButtonElement>('.academy-placement-actions .academy-button-primary:not([type="submit"])')!.click();
+        await vi.waitFor(() => expect(screen.querySelector('.academy-placement-progress-label')?.textContent).not.toBe(before));
+    }
+
+    it('uses packaged audio at N5 and speech playback where no exact package is available', async () => {
+        const service = pronunciation();
         const started = vi.fn();
         const stopped = vi.fn();
-        const n5 = renderPlacementMockScreen({
-            language: 'en', pronunciation, onListeningStart: started, onListeningStop: stopped,
-            onResult: vi.fn(), onBack: vi.fn(),
-        });
+        const n5 = render({ pronunciation: service, onListeningStart: started, onListeningStop: stopped });
         document.body.replaceChildren(n5);
-        chooseBand(n5, 'n5');
+        await chooseBand(n5, 'n5');
 
         const recordings = [...n5.querySelectorAll<HTMLAudioElement>('audio[data-audio-delivery="source-recording"]')];
         expect(recordings.map(player => player.getAttribute('src'))).toEqual([
@@ -265,26 +281,40 @@ describe('orientation placement answer surfaces', () => {
         recordings[0]!.dispatchEvent(new Event('pause'));
         expect(started).toHaveBeenCalledOnce();
         expect(stopped).toHaveBeenCalledOnce();
-        expect(pronunciation.play).not.toHaveBeenCalled();
+        expect(service.play).not.toHaveBeenCalled();
 
-        const n4 = renderPlacementMockScreen({
-            language: 'en', pronunciation, onResult: vi.fn(), onBack: vi.fn(),
-        });
-        chooseBand(n4, 'n4');
+        const n4 = render({ pronunciation: service });
+        await chooseBand(n4, 'n4');
         expect(n4.querySelectorAll('audio')).toHaveLength(0);
         expect(n4.querySelectorAll('[data-audio-delivery="browser-speech"]')).toHaveLength(2);
     });
 
-    function chooseBand(screen: HTMLElement, band: 'n5' | 'n4' | 'n3' | 'n2' | 'n1'): void {
-        const select = screen.querySelector<HTMLSelectElement>('.academy-target-band select')!;
-        select.value = band;
-        screen.querySelector<HTMLButtonElement>('.academy-placement-actions .academy-button-primary:not([type="submit"])')!.click();
-    }
-
-    it('keeps every pre-commit answer outside Reader text and control lookup targets', () => {
+    it('teaches the task before the first scored item and exposes exactly eight resumable steps', async () => {
         const screen = render();
         document.body.replaceChildren(screen);
-        chooseBand(screen, 'n3');
+        expect(screen.dataset.academyRoute).toBe('placement-mock');
+        expect(screen.querySelectorAll('.academy-mock-item')).toHaveLength(0);
+        expect(screen.querySelector('.academy-placement-progress-label')?.textContent).toBe('Choose a level');
+
+        await chooseBand(screen, 'n1');
+
+        expect(screen.querySelector('.academy-placement-progress-label')?.textContent).toBe('Step 1 of 8');
+        expect(screen.querySelector('.academy-placement-briefing:not([hidden])')?.textContent)
+            .toContain('One example, then one small stretch');
+        expect(screen.querySelector('.academy-mock-item:not([hidden])')).toBeNull();
+        const questions = [...screen.querySelectorAll<HTMLElement>('.academy-mock-item')];
+        expect(questions).toHaveLength(6);
+        expect(questions.every(question => question.dataset.mockItem?.startsWith('orientation:n1:'))).toBe(true);
+
+        await continuePlacement(screen);
+        expect(screen.querySelector('.academy-placement-progress-label')?.textContent).toBe('Step 2 of 8');
+        expect(screen.querySelector('.academy-mock-item:not([hidden])')).not.toBeNull();
+    });
+
+    it('keeps every pre-commit answer outside Reader text and control lookup targets', async () => {
+        const screen = render();
+        document.body.replaceChildren(screen);
+        await chooseBand(screen, 'n3');
         refreshAcademyAnnotationSurfaces(screen);
 
         const answers = Array.from(screen.querySelectorAll<HTMLElement>('.academy-mock-option'));
@@ -295,171 +325,121 @@ describe('orientation placement answer surfaces', () => {
             expect(answer.dataset.jpdbReaderSurfaceIgnore).toBe('');
             expect(copy?.dataset.jpdbReaderSurfaceIgnore).toBe('');
             expect(copy?.dataset.yomuRuntimeSurface).toBeUndefined();
-            expect(copy?.dataset.yomuFuriganaMode).toBeUndefined();
             expect(input?.hasAttribute('aria-label')).toBe(false);
             expect(input?.hasAttribute('title')).toBe(false);
             expect(input?.labels?.item(0)).toBe(answer);
         }
-
-        const proseTargets = collectTextTargetsIn(screen, 100, false);
-        expect(proseTargets.some(target => target.parent.closest('.academy-mock-option'))).toBe(false);
-        const controlTargets = collectFormControlTextTargetsIn(screen, 100, false);
-        expect(controlTargets.some(target => target.parent.closest('.academy-mock-option'))).toBe(false);
+        expect(collectTextTargetsIn(screen, 100, false)
+            .some(target => target.parent.closest('.academy-mock-option'))).toBe(false);
+        expect(collectFormControlTextTargetsIn(screen, 100, false)
+            .some(target => target.parent.closest('.academy-mock-option'))).toBe(false);
     });
 
-    it('selects a radio answer directly without Reader-owned interaction DOM', () => {
-        const screen = render();
+    it('persists the exact step and answer, then restores both after a cold remount', async () => {
+        const onProgress = vi.fn(async (_progress: PlacementMockProgress) => undefined);
+        const screen = render({ onProgress });
         document.body.replaceChildren(screen);
-        chooseBand(screen, 'n5');
-        refreshAcademyAnnotationSurfaces(screen);
-        const answer = screen.querySelector<HTMLLabelElement>('.academy-mock-option');
-        const input = answer?.querySelector<HTMLInputElement>('input[type="radio"]');
+        await chooseBand(screen, 'n4');
+        await continuePlacement(screen);
+        const answer = screen.querySelector<HTMLInputElement>('.academy-mock-item:not([hidden]) input[type="radio"]')!;
+        answer.click();
 
-        answer?.click();
+        await vi.waitFor(() => expect(onProgress).toHaveBeenCalledWith(expect.objectContaining({
+            step: 2,
+            submitted: false,
+            draft: expect.objectContaining({ responses: expect.objectContaining({ [answer.name]: answer.value }) }),
+        })));
+        const saved = onProgress.mock.calls.at(-1)![0];
+        const restored = render({ progress: saved });
+        document.body.replaceChildren(restored);
 
-        expect(input?.checked).toBe(true);
-        expect(answer?.querySelector('.jpdb-reader-word')).toBeNull();
-        expect(answer?.querySelector('.jpdb-reader-control-text-mirror')).toBeNull();
+        expect(restored.querySelector('.academy-placement-progress-label')?.textContent).toBe('Step 2 of 8');
+        expect(restored.querySelector<HTMLInputElement>(`input[name="${answer.name}"][value="${answer.value}"]`)?.checked)
+            .toBe(true);
     });
 
-    it('starts with an explicit level choice and only mounts that level\'s questions', () => {
-        const screen = render();
+    it('requires playback or an explicit text alternative and excludes that alternative from listening evidence', async () => {
+        const onProgress = vi.fn(async (_progress: PlacementMockProgress) => undefined);
+        const screen = render({ onProgress });
         document.body.replaceChildren(screen);
-        expect(screen.querySelectorAll('.academy-mock-item')).toHaveLength(0);
-        expect(screen.querySelector('.academy-placement-progress-label')?.textContent).toBe('Choose a JLPT mock');
-
-        chooseBand(screen, 'n1');
-
-        const questions = [...screen.querySelectorAll<HTMLElement>('.academy-mock-item')];
-        expect(questions).toHaveLength(6);
-        expect(questions.every(question => question.dataset.mockItem?.startsWith('orientation:n1:'))).toBe(true);
-        expect(screen.querySelector<HTMLFieldSetElement>('.academy-target-band')?.hidden).toBe(true);
-        expect(screen.querySelector('.academy-placement-progress-label')?.textContent).toBe('Step 1 of 7');
-    });
-
-    it('moves keyboard focus to the active control as the learner chooses a level and steps back', () => {
-        const screen = render();
-        document.body.replaceChildren(screen);
-        const target = screen.querySelector<HTMLSelectElement>('.academy-target-band select')!;
-        target.focus();
-        expect(document.activeElement).toBe(target);
-
-        chooseBand(screen, 'n5');
-        const firstQuestion = screen.querySelector<HTMLElement>('.academy-mock-item:not([hidden])')!;
-        const firstAnswer = firstQuestion.querySelector<HTMLInputElement>('input[type="radio"]')!;
-        expect(document.activeElement).toBe(firstAnswer);
-
-        firstAnswer.click();
+        await chooseBand(screen, 'n5');
+        await continuePlacement(screen);
+        for (let index = 0; index < 4; index += 1) {
+            screen.querySelector<HTMLInputElement>('.academy-mock-item:not([hidden]) input[type="radio"]')!.click();
+            await continuePlacement(screen);
+        }
+        const listening = screen.querySelector<HTMLElement>('.academy-mock-item:not([hidden])')!;
+        const itemId = listening.dataset.mockItem!;
+        listening.querySelector<HTMLInputElement>('input[type="radio"]')!.click();
         screen.querySelector<HTMLButtonElement>('.academy-placement-actions .academy-button-primary:not([type="submit"])')!.click();
-        const secondQuestion = screen.querySelector<HTMLElement>('.academy-mock-item:not([hidden])')!;
-        expect(document.activeElement).toBe(secondQuestion.querySelector('input[type="radio"]'));
+        expect(screen.querySelector('.academy-form-feedback')?.textContent).toContain('Play the line or use the text alternative');
 
-        screen.querySelector<HTMLButtonElement>('.academy-placement-actions .academy-lesson-overview-back')!.click();
-        expect(document.activeElement).toBe(firstAnswer);
+        listening.querySelector<HTMLButtonElement>('.academy-placement-text-alternative')!.click();
+        expect(listening.querySelector<HTMLElement>('.academy-placement-transcript')?.hidden).toBe(false);
+        await continuePlacement(screen);
+        await vi.waitFor(() => expect(onProgress).toHaveBeenCalledWith(expect.objectContaining({
+            draft: expect.objectContaining({ listeningModes: expect.objectContaining({ [itemId]: 'transcript-alternative' }) }),
+        })));
+
+        const items = orientationItemsForBand('n5');
+        const responses = Object.fromEntries(items.map(item => [item.id, item.options.find(option => option.correct)!.id]));
+        expect(scoreOrientationMock('n5', responses, { speaking: 1, writing: 1 }, {
+            [itemId]: 'transcript-alternative',
+        }).skillRecommendations?.listening.attempted).toBe(1);
     });
 
-    it('restores focus to the saved answer when returning to a placement question', () => {
-        const screen = render();
+    it('requires real speaking and writing attempts before returning a result', async () => {
+        const onResult = vi.fn(async (_result: OrientationMockResult, _draft: PlacementMockDraft) => undefined);
+        const screen = render({ onResult });
         document.body.replaceChildren(screen);
-        chooseBand(screen, 'n1');
-        const answers = [...screen.querySelectorAll<HTMLInputElement>('.academy-mock-item:not([hidden]) input[type="radio"]')];
-        const savedAnswer = answers[1]!;
-        savedAnswer.click();
+        await chooseBand(screen, 'n5');
+        await continuePlacement(screen);
+        for (let index = 0; index < 6; index += 1) {
+            const current = screen.querySelector<HTMLElement>('.academy-mock-item:not([hidden])')!;
+            if (current.querySelector('.academy-placement-listening')) {
+                current.querySelector<HTMLButtonElement>('.academy-placement-text-alternative')!.click();
+            }
+            current.querySelector<HTMLInputElement>('input[type="radio"]')!.click();
+            await continuePlacement(screen);
+        }
+        expect(screen.querySelector('.academy-placement-production:not([hidden])')).not.toBeNull();
+        screen.querySelector<HTMLButtonElement>('button[type="submit"]')!.click();
+        expect(screen.querySelector('.academy-form-feedback')?.textContent).toContain('Try both production prompts');
+        expect(onResult).not.toHaveBeenCalled();
 
-        screen.querySelector<HTMLButtonElement>('.academy-placement-actions .academy-button-primary:not([type="submit"])')!.click();
-        screen.querySelector<HTMLButtonElement>('.academy-placement-actions .academy-lesson-overview-back')!.click();
+        screen.querySelector<HTMLInputElement>('[name="placement-speaking-complete"]')!.click();
+        screen.querySelector<HTMLInputElement>('[name="placement-speaking-confidence"][value="0.5"]')!.click();
+        const writing = screen.querySelector<HTMLTextAreaElement>('[name="placement-writing-response"]')!;
+        writing.value = 'ねこが すきです。';
+        writing.dispatchEvent(new InputEvent('input', { bubbles: true }));
+        screen.querySelector<HTMLInputElement>('[name="placement-writing-confidence"][value="1"]')!.click();
+        screen.querySelector<HTMLButtonElement>('button[type="submit"]')!.click();
 
-        expect(savedAnswer.checked).toBe(true);
-        expect(document.activeElement).toBe(savedAnswer);
-    });
-
-    it('resets the Academy shell scroller without turning the placement screen into a nested scroller', () => {
-        const host = document.createElement('main');
-        host.className = 'academy-screen-host';
-        const screen = render();
-        host.append(screen);
-        document.body.replaceChildren(host);
-        chooseBand(screen, 'n1');
-        const firstAnswer = screen.querySelector<HTMLInputElement>('.academy-mock-item:not([hidden]) input[type="radio"]')!;
-        firstAnswer.click();
-        host.scrollTop = 240;
-        screen.scrollTop = 80;
-
-        screen.querySelector<HTMLButtonElement>('.academy-placement-actions .academy-button-primary:not([type="submit"])')!.click();
-
-        expect(host.scrollTop).toBe(0);
-        expect(screen.scrollTop).toBe(0);
-        expect(document.activeElement).toBe(screen.querySelector('.academy-mock-item:not([hidden]) input[type="radio"]'));
-    });
-
-    it('preserves answers when Back returns through questions and the level chooser', () => {
-        const screen = render();
-        document.body.replaceChildren(screen);
-        chooseBand(screen, 'n3');
-        const firstAnswer = screen.querySelector<HTMLInputElement>('.academy-mock-item input[type="radio"]')!;
-        firstAnswer.click();
-        screen.querySelector<HTMLButtonElement>('.academy-placement-actions .academy-button-primary:not([type="submit"])')!.click();
-        screen.querySelector<HTMLButtonElement>('.academy-placement-actions .academy-lesson-overview-back')!.click();
-        expect(firstAnswer.checked).toBe(true);
-
-        screen.querySelector<HTMLButtonElement>('.academy-placement-actions .academy-lesson-overview-back')!.click();
-        expect(screen.querySelector('.academy-placement-progress-label')?.textContent).toBe('Choose a JLPT mock');
-        chooseBand(screen, 'n3');
-
-        expect(screen.querySelector<HTMLInputElement>('.academy-mock-item input[type="radio"]:checked')?.value)
-            .toBe(firstAnswer.value);
-    });
-
-    it('preserves each band\'s answers when the learner compares starting levels', () => {
-        const screen = render();
-        document.body.replaceChildren(screen);
-        chooseBand(screen, 'n5');
-        const n5Answer = screen.querySelector<HTMLInputElement>('.academy-mock-item input[type="radio"]')!;
-        n5Answer.click();
-        screen.querySelector<HTMLButtonElement>('.academy-placement-actions .academy-lesson-overview-back')!.click();
-
-        const select = screen.querySelector<HTMLSelectElement>('.academy-target-band select')!;
-        select.value = 'n1';
-        chooseBand(screen, 'n1');
-        const n1Answer = screen.querySelector<HTMLInputElement>('.academy-mock-item input[type="radio"]')!;
-        n1Answer.click();
-        screen.querySelector<HTMLButtonElement>('.academy-placement-actions .academy-lesson-overview-back')!.click();
-
-        select.value = 'n5';
-        chooseBand(screen, 'n5');
-        expect(screen.querySelector<HTMLInputElement>('.academy-mock-item input[type="radio"]:checked')?.value)
-            .toBe(n5Answer.value);
-        screen.querySelector<HTMLButtonElement>('.academy-placement-actions .academy-lesson-overview-back')!.click();
-        select.value = 'n1';
-        chooseBand(screen, 'n1');
-        expect(screen.querySelector<HTMLInputElement>('.academy-mock-item input[type="radio"]:checked')?.value)
-            .toBe(n1Answer.value);
-    });
-
-    it('restores a submitted mock for review without duplicating its choices', () => {
-        const item = orientationItemsForBand('n4')[0]!;
-        const selected = item.options[1]!;
-        const screen = renderPlacementMockScreen({
-            language: 'en',
-            pronunciation: { play: vi.fn(async () => ({ dispose: vi.fn() })) },
-            draft: {
-                targetBand: 'n4',
-                responses: { [item.id]: selected.id },
-                confidence: { speaking: 0.75, writing: 0.25 },
+        await vi.waitFor(() => expect(onResult).toHaveBeenCalledOnce());
+        expect(onResult.mock.calls[0]![1]).toMatchObject({
+            production: {
+                speaking: { mode: 'aloud', completed: true, confidence: 0.5, rated: true },
+                writing: { mode: 'typed', completed: true, response: 'ねこが すきです。', confidence: 1, rated: true },
             },
-            onResult: vi.fn(),
-            onBack: vi.fn(),
         });
-        document.body.replaceChildren(screen);
-        screen.querySelector<HTMLButtonElement>('.academy-placement-actions .academy-button-primary:not([type="submit"])')!.click();
+    });
 
-        expect(screen.querySelector<HTMLInputElement>(`.academy-mock-item input[value="${selected.id}"]`)?.checked).toBe(true);
-        expect(screen.querySelectorAll('.academy-mock-item:not([hidden]) .academy-mock-option')).toHaveLength(item.options.length);
+    it('Back preserves the answer and returns focus to it', async () => {
+        const screen = render();
+        document.body.replaceChildren(screen);
+        await chooseBand(screen, 'n5');
+        await continuePlacement(screen);
+        const answer = screen.querySelector<HTMLInputElement>('.academy-mock-item:not([hidden]) input[type="radio"]')!;
+        answer.click();
+        await continuePlacement(screen);
+        screen.querySelector<HTMLButtonElement>('.academy-placement-actions .academy-lesson-overview-back')!.click();
+        await vi.waitFor(() => expect(document.activeElement).toBe(answer));
+        expect(answer.checked).toBe(true);
     });
 });
 
 describe('orientation placement result', () => {
-    it('states the evidence limit, playback truth, and preserved story continuity', () => {
+    it('states the evidence limit and preserved story continuity without leaking implementation details', () => {
         const items = orientationItemsForBand('n2');
         const result = scoreOrientationMock('n2', Object.fromEntries(items.map(item => [
             item.id,
@@ -469,39 +449,41 @@ describe('orientation placement result', () => {
         const screen = renderPlacementResultScreen({
             language: 'en',
             result,
+            draft: {
+                targetBand: 'n2',
+                responses: {},
+                listeningModes: { [items.find(item => item.skill === 'listening')!.id]: 'transcript-alternative' },
+                production: {
+                    speaking: { mode: 'aloud', completed: true, response: '', confidence: 0.5, rated: true },
+                    writing: { mode: 'typed', completed: true, response: '例です。', confidence: 0.5, rated: true },
+                },
+            },
             onAccept: vi.fn(),
             onChoose: vi.fn(),
             onReview: vi.fn(),
         });
 
-        expect(screen.querySelector('.academy-placement-evidence-note')?.textContent).toContain('6 N2 questions');
-        expect(screen.querySelector('.academy-placement-evidence-note')?.textContent).toContain('not an official JLPT score');
-        expect(screen.querySelector('.academy-placement-evidence-note')?.textContent).toContain('browser speech');
-        expect(screen.querySelector('.academy-placement-continuity-note')?.textContent).toContain('does not reset or skip');
+        expect(screen.dataset.academyRoute).toBe('placement-result');
+        expect(screen.querySelector('.academy-placement-evidence-note')?.textContent).toContain('six short questions');
+        expect(screen.querySelector('.academy-placement-evidence-note')?.textContent).toContain('not an official score');
+        expect(screen.querySelector('.academy-placement-transcript-evidence-note')?.textContent)
+            .toContain('not counted as listening');
+        expect(screen.querySelector('.academy-placement-continuity-note')?.textContent).toContain('will not reset or skip');
         expect((screen.querySelector('.academy-placement-continuity-note') as HTMLElement).dataset.storyProgression)
             .toBe('preserve');
         expect(screen.querySelectorAll('.academy-score-grid dt')).toHaveLength(5);
-        expect(screen.querySelector('.academy-score-grid')?.textContent).toContain('Speaking confidence');
-        expect(screen.querySelector('.academy-score-grid')?.textContent).toContain('Writing confidence');
+        expect(screen.querySelector('.academy-score-grid')?.textContent).toContain('Speaking self-check');
+        expect(screen.querySelector('.academy-score-grid')?.textContent).toContain('Writing self-check');
+        expect(screen.textContent).not.toMatch(/source recording|browser speech|byte-verified|provenance/i);
     });
 
-    it('reports source recordings only for a level whose exact audio is packaged', () => {
-        const result = (band: 'n5' | 'n4') => scoreOrientationMock(band, {}, { speaking: 0.5, writing: 0.5 });
-        const renderResult = (band: 'n5' | 'n4') => renderPlacementResultScreen({
-            language: 'en', result: result(band), onAccept: vi.fn(), onChoose: vi.fn(), onReview: vi.fn(),
-        });
-        expect(renderResult('n5').querySelector('.academy-placement-evidence-note')?.textContent)
-            .toContain('byte-verified source recordings');
-        expect(renderResult('n4').querySelector('.academy-placement-evidence-note')?.textContent)
-            .toContain('source recordings are not yet packaged for this level');
-    });
-
-    it('uses the same Back control as the mock to return to review or retake it', () => {
+    it('uses the same Back control and prevents duplicate action activation', async () => {
+        let release!: () => void;
         const review = vi.fn();
         const screen = renderPlacementResultScreen({
             language: 'en',
             result: scoreOrientationMock('n5', {}, { speaking: 0.5, writing: 0.5 }),
-            onAccept: vi.fn(),
+            onAccept: () => new Promise<void>(resolve => { release = resolve; }),
             onChoose: vi.fn(),
             onReview: review,
         });
@@ -509,28 +491,33 @@ describe('orientation placement result', () => {
         const back = screen.querySelector<HTMLButtonElement>('.academy-placement-review');
         expect(back?.classList.contains('academy-lesson-overview-back')).toBe(true);
         expect(back?.textContent).toBe('← Back');
-        back?.click();
-        expect(review).toHaveBeenCalledOnce();
+        const accept = screen.querySelector<HTMLButtonElement>('.academy-button-primary')!;
+        accept.click();
+        accept.click();
+        expect(accept.disabled).toBe(true);
+        release();
+        await Promise.resolve();
+        expect(review).not.toHaveBeenCalled();
     });
 });
 
 describe('orientation placement responsive accessibility', () => {
-    it('keeps placement controls readable, focusable, and motion-safe across screen widths', () => {
+    it('keeps the Rie stage, living paper and production controls responsive and motion-safe', () => {
         const css = fs.readFileSync(path.resolve('src/academy/styles/screens.css'), 'utf8');
 
         expect(css).toMatch(/\.academy-placement-screen \.academy-placement-stage,[\s\S]*min-width:\s*0/s);
         expect(css).toMatch(/\.academy-placement-screen \.academy-mock-option-copy\s*\{[^}]*min-width:\s*0/s);
         expect(css).toMatch(/\.academy-placement-form \.academy-target-band\[hidden\]\s*\{[^}]*display:\s*none/s);
-        expect(css).toMatch(/\.academy-placement-form:has\(\.academy-target-band:not\(\[hidden\]\)\) \.academy-placement-confidence\s*\{[^}]*display:\s*none/s);
         expect(css).toMatch(/\.academy-placement-screen \.academy-placement-actions \.academy-lesson-overview-back\s*\{[^}]*color:\s*#fffdf5/s);
         expect(css).toMatch(/\.academy-placement-screen \.academy-placement-actions \.academy-lesson-overview-back\s*\{[^}]*min-height:\s*44px/s);
-        expect(css).toMatch(/\.academy-mock-prompt\s*\{[^}]*float:\s*left[^}]*width:\s*100%/s);
         expect(css).toMatch(/academy-mock-option:has\(input:focus-visible\)[\s\S]*outline:\s*3px solid/s);
+        expect(css).toMatch(/\.academy-placement-production-response\s*\{[^}]*width:\s*100%[^}]*min-height:\s*88px/s);
+        expect(css).toMatch(/\.academy-placement-mode,[\s\S]*min-height:\s*44px/s);
+        expect(css).toMatch(/\.academy-placement-result-screen \.academy-panel-content\s*\{[^}]*overflow:\s*auto/s);
         expect(css).toMatch(/@media \(max-width: 760px\)[\s\S]*\.academy-placement-actions\s*\{[^}]*grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/s);
         expect(css).toMatch(/@media \(max-width: 760px\)[\s\S]*\.academy-screen-host:has\(> \.academy-placement-screen\)\s*\{[^}]*height:\s*100dvh/s);
-        expect(css).toMatch(/@media \(max-width: 760px\)[\s\S]*\.academy-placement-screen\s*\{[^}]*overflow-x:\s*clip[^}]*overflow-y:\s*visible/s);
-        expect(css).toMatch(/@media \(max-width: 760px\)[\s\S]*\.academy-placement-screen\s*\{[^}]*overflow-y:\s*visible/s);
         expect(css).toMatch(/@media \(max-width: 760px\)[\s\S]*\.academy-placement-screen \.academy-panel-content\s*\{[^}]*max-height:\s*none[^}]*overflow:\s*visible/s);
+        expect(css).toMatch(/@media \(max-width: 760px\)[\s\S]*\.academy-placement-result-screen \.academy-placement-stage\s*\{[^}]*grid-template-columns:\s*1fr/s);
         expect(css).toMatch(/@media \(max-width: 520px\)[\s\S]*\.academy-placement-actions\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\)/s);
         expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*academy-placement-screen[\s\S]*transition:\s*none !important/s);
     });

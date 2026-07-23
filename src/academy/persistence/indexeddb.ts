@@ -35,6 +35,10 @@ import {
     lessonZeroVowelWritingSessionSnapshotShapeIsValid,
     type LessonZeroVowelWritingSessionState,
 } from '../domain/lesson-zero-vowel-writing-session';
+import {
+    placementMockProgressShapeIsValid,
+    type PlacementMockProgress,
+} from '../domain/placement-session';
 import { learnerEventsAreEquivalent, type LearnerEvent, type LearnerEventRepository, type JlptBand } from '../domain/learner-record';
 import {
     isAcademyPresentationMode,
@@ -71,6 +75,8 @@ export interface AcademyCheckpoint extends AcademyRouteHistoryState {
     readonly lessonZeroVowelProgress?: LessonZeroVowelSessionState;
     /** Resume state for Rie's five-vowel handwriting and stroke-plan routes. */
     readonly lessonZeroVowelWritingProgress?: LessonZeroVowelWritingSessionState;
+    /** Unaccepted placement work stays a checkpoint draft, never learner evidence. */
+    readonly placementProgress?: PlacementMockProgress;
     readonly selectedBand?: JlptBand;
     readonly selectedFork?: 'sound' | 'text' | 'speaking';
     readonly placementOverride?: boolean;
@@ -318,6 +324,9 @@ function validateCheckpoint(value: AcademyCheckpoint): void {
     if (value.lessonZeroVowelWritingProgress !== undefined
         && !lessonZeroVowelWritingSessionSnapshotShapeIsValid(value.lessonZeroVowelWritingProgress)) {
         throw new TypeError('Academy checkpoint has invalid Lesson Zero vowel-writing progress.');
+    }
+    if (value.placementProgress !== undefined && !placementMockProgressShapeIsValid(value.placementProgress)) {
+        throw new TypeError('Academy checkpoint has invalid placement progress.');
     }
     validateRouteContext(value);
 }

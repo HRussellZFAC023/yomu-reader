@@ -6,7 +6,9 @@ import {
     type JlptBand,
     type LearnerEvent,
 } from '../../src/academy/domain/learner-record';
+import type { PlacementMockProgress } from '../../src/academy/domain/placement-session';
 import type { CurriculumEntryChoice, LearnerEvidence } from '../../src/academy/evidence/learner-evidence';
+import { orientationItemsForBand } from '../../src/academy/placement/orientation';
 import type { AcademyCheckpoint, AcademyCheckpointUpdate } from '../../src/academy/persistence/indexeddb';
 import { createEnrollmentFlow } from '../../src/academy/routing/enrollment-flow';
 import {
@@ -273,6 +275,71 @@ describe('Academy opening route progression', () => {
         expect(classroom.go.mock.calls.some(([route]) => route === 'lesson-overview')).toBe(false);
     });
 
+    it('keeps a completed placement provisional until Accept, then records it exactly once', async () => {
+        const enrollment = enrollmentHarness();
+        const progress = pendingPlacement('n2');
+        const result = routeContext('placement-result', [PROFILE_EVENT], {
+            selectedBand: 'n2',
+            placementProgress: progress,
+            routeHistory: [{ route: 'placement-mock' }],
+        });
+
+        await enrollment.flow.render('placement-result', result.value);
+        expect(enrollment.savePlacement).not.toHaveBeenCalled();
+        const accept = result.shell.current?.querySelector<HTMLButtonElement>('.academy-button-primary')!;
+        accept.click();
+        accept.click();
+
+        await vi.waitFor(() => {
+            expect(enrollment.savePlacement).toHaveBeenCalledTimes(1);
+            expect(enrollment.chooseCurriculumEntry).toHaveBeenCalledWith({
+                route: 'placement-mock',
+                band: 'n2',
+                recommendationAccepted: true,
+            });
+            expect(result.go).toHaveBeenCalledWith('arrival-bridge', {
+                selectedBand: 'n2',
+                placementOverride: false,
+                placementProgress: undefined,
+                lessonId: undefined,
+                sectionId: undefined,
+                activityId: undefined,
+            });
+        });
+    });
+
+    it('lets the learner override a provisional placement without recording it as accepted evidence', async () => {
+        const enrollment = enrollmentHarness();
+        const progress = pendingPlacement('n2');
+        const result = routeContext('placement-result', [PROFILE_EVENT], {
+            selectedBand: 'n2',
+            placementProgress: progress,
+            routeHistory: [{ route: 'placement-mock' }],
+        });
+        await enrollment.flow.render('placement-result', result.value);
+        result.shell.current?.querySelector<HTMLButtonElement>('.academy-button-secondary')?.click();
+        await vi.waitFor(() => expect(result.go).toHaveBeenCalledWith('manual-band', { placementOverride: true }));
+        expect(enrollment.savePlacement).not.toHaveBeenCalled();
+
+        const manual = routeContext('manual-band', [PROFILE_EVENT], {
+            placementOverride: true,
+            placementProgress: progress,
+            routeHistory: [{ route: 'placement-result', selectedBand: 'n2' }],
+        });
+        await enrollment.flow.render('manual-band', manual.value);
+        manual.shell.current?.querySelector<HTMLButtonElement>('[data-band="n3"]')?.click();
+        await vi.waitFor(() => expect(enrollment.chooseCurriculumEntry).toHaveBeenCalledWith({
+            route: 'placement-mock',
+            band: 'n3',
+            recommendationAccepted: false,
+        }));
+        await vi.waitFor(() => expect(manual.go).toHaveBeenCalledWith('arrival-bridge', expect.objectContaining({
+            selectedBand: 'n3',
+            placementProgress: undefined,
+        })));
+        expect(enrollment.savePlacement).not.toHaveBeenCalled();
+    });
+
     it('sends a Lesson 0 placement recommendation to the same campus arrival', async () => {
         const enrollment = enrollmentHarness();
         const result = routeContext('placement-result', [PROFILE_EVENT, placement('lesson-zero')], {
@@ -527,16 +594,19 @@ describe('Academy opening route progression', () => {
 
 function enrollmentHarness() {
     const chooseCurriculumEntry = vi.fn(async (_choice: CurriculumEntryChoice) => undefined);
+    const savePlacement = vi.fn(async () => undefined);
     const recordActivity = vi.fn(async () => undefined);
     const playSfx = vi.fn();
     return {
         chooseCurriculumEntry,
+        savePlacement,
         recordActivity,
         playSfx,
         flow: createEnrollmentFlow({
             access: {} as never,
             evidence: {
                 chooseCurriculumEntry,
+                savePlacement,
                 recordActivity,
                 history: vi.fn(async () => []),
             } as unknown as LearnerEvidence,
@@ -565,6 +635,7 @@ function routeContext(
         _update?: AcademyCheckpointUpdate,
     ) => undefined);
     const back = vi.fn(async () => undefined);
+    const save = vi.fn(async (_update: AcademyCheckpointUpdate) => undefined);
     const value: AcademyRouteContext = {
         language: 'en',
         checkpoint: checkpoint(route, update),
@@ -572,8 +643,9 @@ function routeContext(
         shell: appShell,
         go,
         back,
+        save,
     };
-    return { value, shell: appShell, go, back };
+    return { value, shell: appShell, go, back, save };
 }
 
 function checkpoint(
@@ -627,6 +699,29 @@ function placement(recommendedStart: JlptBand | 'lesson-zero'): LearnerEvent {
         recommendedBand: recommendedStart === 'lesson-zero' ? 'n5' : recommendedStart,
         recommendedStart,
         calibration: 'vertical-slice',
+    };
+}
+
+function pendingPlacement(band: JlptBand): PlacementMockProgress {
+    const items = orientationItemsForBand(band);
+    return {
+        schemaVersion: 1,
+        step: 8,
+        submitted: true,
+        draft: {
+            targetBand: band,
+            responses: Object.fromEntries(items.map(item => [
+                item.id,
+                item.options.find(option => option.correct)!.id,
+            ])),
+            listeningModes: Object.fromEntries(items
+                .filter(item => item.skill === 'listening')
+                .map(item => [item.id, 'audio' as const])),
+            production: {
+                speaking: { mode: 'aloud', completed: true, response: '', confidence: 1, rated: true },
+                writing: { mode: 'typed', completed: true, response: '例です。', confidence: 1, rated: true },
+            },
+        },
     };
 }
 

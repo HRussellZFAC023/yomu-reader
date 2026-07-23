@@ -272,7 +272,8 @@ const DAY_ONE_ENROLLMENT: readonly DayActivityAvailability[] = [
         [], VERIFIED_DELIVERY),
     entry('day:1:placement', 'Try the placement path', 'enrollment', ['optional', 'revisitable'],
         { route: 'placement-mock' }, ['route:placement-mock', 'route:placement-result'], { audio: 'learning-audio', visual: 'interactive' },
-        'Placement draft and accepted result persist.', 'Listening, writing, speaking alternative, result, accept, and override paths are proved.'),
+        'Placement draft and accepted result persist.', 'Listening, writing, speaking alternative, result, accept, and override paths are proved.',
+        [], VERIFIED_DELIVERY),
 ];
 
 const DAY_ONE_STORY: readonly DayActivityAvailability[] = [
