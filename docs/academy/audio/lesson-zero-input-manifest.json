@@ -3,7 +3,7 @@
   "qualityBoundary": "Codex objective QA: exact authored line and speaker binding, pinned Aivis model and style, accent/mora trace, Opus shape, duration, loudness, hash, and independent Japanese Whisper phonetic comparison. No human-audition claim.",
   "source": {
     "path": "public/academy/content/lessons/lesson-zero.v1.json",
-    "sha256": "43bc8753eef8af5c98fb51b59e89304a757b685a2dbac4f2c4b0e390222f4488"
+    "sha256": "93a7ca8acb02cef615d18072de9f555db2abdadaa67fe90993867d2aed648b85"
   },
   "engine": {
     "name": "AivisSpeech Engine",

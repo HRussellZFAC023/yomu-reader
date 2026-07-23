@@ -277,7 +277,7 @@ describe('Academy lesson flow', () => {
             activityId: 'activity:lesson-zero-write-name-card',
         }, {
             ...projectLearnerRecord([]),
-            profile: { displayName: 'Old profile', learningReason: 'Read manga', portraitId: 'quality-3' },
+            profile: { displayName: 'Henry', learningReason: 'Read manga', portraitId: 'quality-3' },
         });
         const recordActivity = vi.fn(async () => undefined);
         const saveProfile = vi.fn(async () => ({ firstIntroduction: false }));
@@ -288,8 +288,6 @@ describe('Academy lesson flow', () => {
         });
 
         await flow.render('source-activity', route.value);
-        const input = route.shell.current?.querySelector<HTMLInputElement>('.academy-mission-writing-input')!;
-        input.value = 'ヘンリー';
         route.shell.current?.querySelector('form')?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
 
         await vi.waitFor(() => expect(saveProfile).toHaveBeenCalledWith({

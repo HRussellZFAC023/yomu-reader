@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { convertRomajiToKana, normalizeJapaneseStudyAnswer } from '../../src/reader/newtab/japanese-input';
+import {
+    convertHiraganaToKatakana,
+    convertRomajiToKana,
+    normalizeJapaneseStudyAnswer,
+} from '../../src/reader/newtab/japanese-input';
 import { evaluateNewTabRecallAnswer } from '../../src/reader/newtab/recall-practice';
 import type { JPDBCard } from '../../src/reader/app/types';
 
@@ -17,6 +21,10 @@ describe('Japanese study input', () => {
     it('normalizes romaji and katakana to the same kana answer', () => {
         expect(normalizeJapaneseStudyAnswer(' NOMIMONO ')).toBe('のみもの');
         expect(normalizeJapaneseStudyAnswer('ノミモノ')).toBe('のみもの');
+    });
+
+    it('converts hiragana to katakana without changing punctuation or long vowels', () => {
+        expect(convertHiraganaToKatakana('へんりー・みな')).toBe('ヘンリー・ミナ');
     });
 
     it('accepts romaji in the existing recall grader', () => {

@@ -137,7 +137,7 @@ async function enterAcademy(page, runId) {
     assert.equal(response?.ok(), true, `Academy dev server is not reachable at ${baseUrl}`);
     await page.getByRole('textbox').fill('YOMU-LOCAL');
     await page.getByRole('button', { name: 'Open the doors' }).click();
-    await page.locator('input[name="displayName"]').fill('Temporary name');
+    await page.locator('input[name="displayName"]').fill('Henry');
     await page.getByRole('button', { name: 'Continue' }).click();
     await page.locator('textarea[name="learningReason"]').fill('To understand Japanese as people use it');
     await page.getByRole('button', { name: 'Continue' }).click();
@@ -218,7 +218,9 @@ async function completeMission(page, activityId) {
             await screen.locator('.academy-mission-name-card').filter({ hasText: 'Ruparna' }).click();
             break;
         case 'activity:lesson-zero-write-name-card':
-            await screen.locator('.academy-mission-writing-input').fill('ヘンリー');
+            await screen.getByRole('button', { name: 'Hear ヘンリー' }).click();
+            await page.waitForFunction(() =>
+                document.querySelector('.academy-mission-writing-preview')?.textContent?.includes('ヘンリーです。'));
             await screen.getByRole('button', { name: 'Put it on the desk' }).click();
             break;
         case 'activity:lesson-zero-text-transfer':
@@ -247,8 +249,22 @@ async function assertGeometry(page, testCase, stage) {
         assert.ok(box.x >= -1 && box.x + box.width <= testCase.width + 1,
             `${testCase.name} ${stage} ${selector} must fit horizontally: ${JSON.stringify(box)}`);
     }
-    for (const [index, control] of (await page.locator('button:visible, input:visible, textarea:visible').all()).entries()) {
-        const box = await control.boundingBox();
+    for (const [index, control] of (await page.locator(
+        'button:visible, input:visible, textarea:visible, summary:visible',
+    ).all()).entries()) {
+        const box = await control.evaluate(element => {
+            const input = element instanceof HTMLInputElement ? element : null;
+            const hitTarget = input && ['checkbox', 'radio'].includes(input.type)
+                ? input.closest('label') ?? input
+                : element;
+            const rect = hitTarget.getBoundingClientRect();
+            return {
+                x: rect.x,
+                y: rect.y,
+                width: rect.width,
+                height: rect.height,
+            };
+        });
         assert.ok(box && box.x >= -1 && box.x + box.width <= testCase.width + 1,
             `${testCase.name} ${stage} control ${index + 1} must fit: ${JSON.stringify(box)}`);
         assert.ok(box.height >= 42, `${testCase.name} ${stage} control ${index + 1} needs a touch-safe height`);

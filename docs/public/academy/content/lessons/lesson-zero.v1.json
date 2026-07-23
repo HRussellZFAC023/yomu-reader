@@ -528,10 +528,10 @@
         "responseMode": "ime",
         "assessed": true,
         "production": true,
-        "prompt": { "en": "Write the name you want us to use.", "ja": "クラスで呼んでほしい名前を書いてください。" },
+        "prompt": { "en": "Rie wrote your name in katakana. Listen to it, then choose what goes on the card.", "ja": "りえ先生が名前をカタカナで書きました。音を聞いて、名札に書くつづりを選びましょう。" },
         "conceptIds": ["concept:functional-name-card-writing", "concept:sentence-frame-production"],
         "sourceQuestionIds": ["source-question:classroom-phrase-07"],
-        "expectedEvidence": { "kind": "freeform-japanese", "rubricIds": ["greeting", "name", "chosen-facts", "closing"] },
+        "expectedEvidence": { "kind": "freeform-japanese", "rubricIds": ["saved-name-recognised", "katakana-compared", "copula-after-name"] },
         "support": { "reading": "learner-controlled", "pitch": "learner-controlled", "englishMeaning": "after-commit", "transcript": "after-commit", "modelAnswer": "after-first-attempt" }
       },
       {

@@ -59,6 +59,10 @@ export function normalizeJapaneseStudyAnswer(value: string): string {
         .toLowerCase();
 }
 
+export function convertHiraganaToKatakana(value: string): string {
+    return value.replace(/[\u3041-\u3096]/gu, character => String.fromCharCode(character.charCodeAt(0) + 0x60));
+}
+
 function transliterateRomajiRun(run: string): string {
     let output = '';
     let index = 0;

@@ -650,6 +650,13 @@
     font-weight: 700;
 }
 
+.academy-profile-entry-hint {
+    margin: 0;
+    color: rgba(38, 34, 27, 0.72);
+    font-size: 0.82rem;
+    line-height: 1.45;
+}
+
 .academy-profile-vn-entry .academy-input {
     width: 100%;
     min-height: 46px;

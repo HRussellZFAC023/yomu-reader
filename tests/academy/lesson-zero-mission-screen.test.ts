@@ -48,11 +48,11 @@ describe('Lesson Zero story mission screen', () => {
         screen.dispose();
     });
 
-    it('makes the final card the naming moment without profile or consent fluff', async () => {
+    it('reuses the chosen name and turns the katakana bridge into one guided decision', async () => {
         const onEvaluation = vi.fn(async () => undefined);
         const screen = createLessonZeroMissionScreen({
             language: 'en',
-            definition: createLessonZeroMissionDefinition(content, 'activity:lesson-zero-write-name-card', 'Old profile'),
+            definition: createLessonZeroMissionDefinition(content, 'activity:lesson-zero-write-name-card', 'Henry'),
             pronunciation,
             onEvaluation,
             onBack: vi.fn(),
@@ -60,16 +60,23 @@ describe('Lesson Zero story mission screen', () => {
         });
         const input = screen.element.querySelector<HTMLInputElement>('.academy-mission-writing-input')!;
 
-        expect(input.value).toBe('');
+        expect(input.value).toBe('ヘンリー');
+        expect(screen.element.textContent).toContain('Henry');
+        expect(screen.element.textContent).toContain('ヘンリー');
         expect(screen.element.textContent).not.toMatch(/email|one true role|both lines are true|language you study/iu);
-        input.value = 'ヘンリー';
-        input.dispatchEvent(new Event('input', { bubbles: true }));
         expect(screen.element.textContent).toContain('ヘンリーです。');
+        click(screen.element, 'Hear ヘンリー');
+        await vi.waitFor(() => expect(pronunciation.play).toHaveBeenCalledWith('ヘンリー', 'ヘンリー'));
         screen.element.querySelector('form')?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
 
         await vi.waitFor(() => expect(onEvaluation).toHaveBeenCalledWith(
-            expect.objectContaining({ attempt: expect.objectContaining({ outcome: 'pass' }) }),
-            { kind: 'written', text: 'ヘンリーです。' },
+            expect.objectContaining({
+                attempt: expect.objectContaining({
+                    outcome: 'pass',
+                    responseKind: 'guided-katakana-name-choice',
+                }),
+            }),
+            { kind: 'written', text: 'ヘンリーです。', entryMode: 'katakana-choice' },
         ));
         screen.dispose();
     });

@@ -18,7 +18,11 @@ export type LessonZeroMissionActivityId = typeof LESSON_ZERO_MISSION_ACTIVITY_ID
 export type LessonZeroMissionResponse =
     | Readonly<{ kind: 'particle-links'; values: readonly [string, string] }>
     | Readonly<{ kind: 'name-card-evidence'; personId: string; lineId: string }>
-    | Readonly<{ kind: 'written'; text: string }>
+    | Readonly<{
+        kind: 'written';
+        text: string;
+        entryMode?: 'ime' | 'katakana-choice' | 'usual-spelling';
+    }>
     | Readonly<{ kind: 'spoken'; performed: boolean; checkIds: readonly string[]; recorded: boolean }>
     | Readonly<{ kind: 'room-action'; actionId: string }>;
 
@@ -155,7 +159,11 @@ function requiredChecks(activity: LessonZeroActivity): readonly string[] {
 
 function responseKind(response: LessonZeroMissionResponse): string {
     if (response.kind === 'spoken') return response.recorded ? 'private-recording-self-check' : 'spoken-self-check';
-    if (response.kind === 'written') return 'learner-ime-production';
+    if (response.kind === 'written') {
+        if (response.entryMode === 'katakana-choice') return 'guided-katakana-name-choice';
+        if (response.entryMode === 'usual-spelling') return 'saved-name-script-choice';
+        return 'learner-ime-production';
+    }
     if (response.kind === 'particle-links') return 'tapped-particle-reconstruction';
     if (response.kind === 'name-card-evidence') return 'tapped-source-line';
     return 'embodied-room-choice';

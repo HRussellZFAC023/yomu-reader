@@ -8066,6 +8066,9 @@
   function normalizeJapaneseStudyAnswer(value) {
     return hiraganaFromKatakana(convertRomajiToKana(value)).replace(/[\s\u3000]/gu, "").replace(STUDY_ANSWER_PUNCTUATION_RE, "").toLowerCase();
   }
+  function convertHiraganaToKatakana(value) {
+    return value.replace(/[\u3041-\u3096]/gu, (character) => String.fromCharCode(character.charCodeAt(0) + 96));
+  }
   function transliterateRomajiRun(run) {
     let output = "";
     let index = 0;
@@ -10137,7 +10140,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     root.dataset.groundedContentRevision = contentRevision;
     root.dataset.groundedCommitState = "pre-commit";
   }
-  const LESSON_ZERO_CONTENT_SHA256 = "8d34d6b367d2436770ef34da20ef6aea767adc0cfadb946db120728f58831293";
+  const LESSON_ZERO_CONTENT_SHA256 = "93a7ca8acb02cef615d18072de9f555db2abdadaa67fe90993867d2aed648b85";
   const LESSON_ZERO_CLASSROOM_EXPRESSIONS_SHA256 = "a809477602243d8b4833a5534e1315fafb8c5fc4f9ebc770569e413e509f90ff";
   const LESSON_CONTENT_ID = "content:lesson-zero-v1";
   const CLASSROOM_CONTENT_ID = "content:lesson-zero-classroom-expressions-v1";
@@ -13356,7 +13359,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function responseKind(response) {
     if (response.kind === "spoken") return response.recorded ? "private-recording-self-check" : "spoken-self-check";
-    if (response.kind === "written") return "learner-ime-production";
+    if (response.kind === "written") {
+      if (response.entryMode === "katakana-choice") return "guided-katakana-name-choice";
+      if (response.entryMode === "usual-spelling") return "saved-name-script-choice";
+      return "learner-ime-production";
+    }
     if (response.kind === "particle-links") return "tapped-particle-reconstruction";
     if (response.kind === "name-card-evidence") return "tapped-source-line";
     return "embodied-room-choice";
@@ -17138,8 +17145,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     rieGreeting: "こんばんは。雨の中、\n来てくれてありがとうございます。",
     rieGreetingSupport: "Good evening. Thank you for coming through the rain.",
     fictionNote: "This is an AI-created fiction, not an account of real people or events.",
-    profileNameLabel: "What name would you like Rie-sensei to use?",
+    profileNameLabel: "Your name",
     profileNamePlaceholder: "Your name",
+    profileNameHint: "Use the spelling you know. Rie will help with katakana in class.",
     profileNameDialogue: "こんばんは。雨の中、よく来てくれましたね。なんとお呼びしましょうか。",
     profileNameDialogueSupport: "Good evening. I’m glad you made it through the rain. What should I call you?",
     profileReasonLabel: "What would you like to do in Japanese?",
@@ -17465,8 +17473,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     rieGreeting: "こんばんは。雨の中、\n来てくれてありがとうございます。",
     rieGreetingSupport: "こんばんは。雨の中を来てくださって、ありがとうございます。",
     fictionNote: "これはAIが作ったフィクションで、実在の人物や出来事を描いたものではありません。",
-    profileNameLabel: "りえ先生には、なんと呼んでほしいですか。",
+    profileNameLabel: "名前",
     profileNamePlaceholder: "お名前",
+    profileNameHint: "いつものつづりで大丈夫です。カタカナは授業で一緒に作ります。",
     profileNameDialogue: "こんばんは。雨の中、よく来てくれましたね。なんとお呼びしましょうか。",
     profileNameDialogueSupport: "Good evening. I’m glad you made it through the rain. What should I call you?",
     profileReasonLabel: "日本語で、何ができるようになりたいですか。",
@@ -50632,7 +50641,7 @@ ${spelling}`);
   const curriculumBinding = {
     lessonId: "lesson:foundation-00",
     contentVersion: "2026-07-22.lesson-zero.v2-sound-mission",
-    contentSha256: "8d34d6b367d2436770ef34da20ef6aea767adc0cfadb946db120728f58831293",
+    contentSha256: "93a7ca8acb02cef615d18072de9f555db2abdadaa67fe90993867d2aed648b85",
     provenancePath: "public/academy/content/lessons/lesson-zero/provenance.v1.json",
     provenanceSha256: "3bf92fad4ec4996e0d055a0fdd76b4a585f703c544bc532be3fb22b6c189319e",
     sectionSequence: [
@@ -51904,9 +51913,9 @@ ${spelling}`);
       id: "scene:blank-atlas:reading-writing",
       locationId: "location:classroom",
       timeState: "evening-late",
-      goal: "Read the recovered class cards and make the learner's own card functional.",
-      dramaticQuestion: "Will the learner's card become a label to display or a tool that helps someone address them correctly?",
-      learnerNeed: "Read class cards for evidence, then write one short public class line.",
+      goal: "Read the returned class cards, then finish the learner's own name in katakana.",
+      dramaticQuestion: "Can the learner use one written clue, then connect their familiar name to its katakana sound?",
+      learnerNeed: "Read one useful clue, then hear and confirm the katakana on their own card.",
       curriculum: {
         sectionId: "reading-writing",
         order: 7
@@ -51986,7 +51995,7 @@ ${spelling}`);
           kind: "checkpoint",
           id: "checkpoint:blank-atlas:before-write-name-card",
           beatId: "beat:blank-atlas:writing-attempt",
-          resume: "The learner's chosen disclosure scope is ready to become a functional class card."
+          resume: "Rie has brought back the learner's saved name with a katakana draft."
         },
         {
           kind: "activity",
@@ -52001,7 +52010,7 @@ ${spelling}`);
             kind: "activity-passed",
             activityId: "activity:lesson-zero-write-name-card"
           },
-          resumeContext: "Write your name and the one class fact you chose.",
+          resumeContext: "Listen to the katakana draft, compare it with your usual spelling, and put one version on the card.",
           onReady: "checkpoint:blank-atlas:after-write-name-card",
           onRepair: "node:blank-atlas:write-name-card-repair",
           onDefer: "checkpoint:blank-atlas:before-write-name-card"
@@ -52011,20 +52020,20 @@ ${spelling}`);
           id: "node:blank-atlas:write-name-card-repair",
           beatId: "beat:blank-atlas:writing-repair",
           cueId: "cue:name-card-function-rubric",
-          description: "Keep your choices. Fix only the missing part."
+          description: "Rie says the name again and points from the usual spelling to the katakana."
         },
         {
           kind: "checkpoint",
           id: "checkpoint:blank-atlas:after-write-name-card",
           beatId: "beat:blank-atlas:writing-response",
-          resume: "The learner's card is readable, bounded, and ready to help the room address them."
+          resume: "The learner's name is on the card in the spelling they chose."
         },
         {
           kind: "stage",
           id: "node:blank-atlas:card-turns-over",
           beatId: "beat:blank-atlas:reading-writing-consequence",
           cueId: "cue:learner-card-route-label",
-          description: "Turn the card. Only your class line enters the atlas."
+          description: "Rie turns the finished card upright beside the others."
         }
       ],
       exit: {
@@ -85912,6 +85921,100 @@ ${spelling}`);
     row.append(meter, copy2);
     return row;
   }
+  const EMAIL_LIKE_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/u;
+  const KATAKANA_NAME_RE = /^[\p{Script=Katakana}ー・\s]+$/u;
+  const HIRAGANA_NAME_RE = /^[\p{Script=Hiragana}ー・\s]+$/u;
+  const ROMAJI_NAME_RE = /^[a-z][a-z' -]*$/iu;
+  const KNOWN_KATAKANA_NAMES = Object.freeze({
+    aakash: "アーカッシュ",
+    alex: "アレックス",
+    andrew: "アンドリュー",
+    anna: "アンナ",
+    brian: "ブライアン",
+    christian: "クリスチャン",
+    daniel: "ダニエル",
+    david: "デイビッド",
+    edward: "エドワード",
+    emily: "エミリー",
+    felix: "フェリックス",
+    francis: "フランシス",
+    george: "ジョージ",
+    henry: "ヘンリー",
+    james: "ジェームズ",
+    jenny: "ジェニー",
+    john: "ジョン",
+    joseph: "ジョセフ",
+    karen: "カレン",
+    kevin: "ケビン",
+    maria: "マリア",
+    mary: "メアリー",
+    michael: "マイケル",
+    mika: "ミカ",
+    mina: "ミナ",
+    mira: "ミラ",
+    nicholas: "ニコラス",
+    paul: "ポール",
+    peter: "ピーター",
+    richard: "リチャード",
+    rie: "リエ",
+    riku: "リク",
+    robert: "ロバート",
+    rose: "ローズ",
+    sam: "サム",
+    shaun: "ショーン",
+    sophie: "ソフィー",
+    steve: "スティーブ",
+    steven: "スティーブン",
+    susan: "スーザン",
+    takeshi: "タケシ",
+    thomas: "トーマス",
+    tom: "トム",
+    william: "ウィリアム",
+    xingyu: "シンユ"
+  });
+  function profileNameForEditing(value) {
+    const name = normalizeName(value ?? "");
+    if (!name || EMAIL_LIKE_RE.test(name) || /^(?:learner|student|you)$/iu.test(name)) return "";
+    return name;
+  }
+  function createKatakanaNameDraft(value) {
+    const usualName = normalizeName(value);
+    if (!usualName) return Object.freeze({ usualName: "", katakana: null, source: "unavailable" });
+    if (KATAKANA_NAME_RE.test(usualName)) {
+      return Object.freeze({ usualName, katakana: usualName, source: "already-katakana" });
+    }
+    if (HIRAGANA_NAME_RE.test(usualName)) {
+      return Object.freeze({
+        usualName,
+        katakana: convertHiraganaToKatakana(usualName),
+        source: "hiragana"
+      });
+    }
+    if (!ROMAJI_NAME_RE.test(usualName)) {
+      return Object.freeze({ usualName, katakana: null, source: "unavailable" });
+    }
+    const words = usualName.toLowerCase().split(/[\s-]+/u).filter(Boolean);
+    const known = words.map((word) => KNOWN_KATAKANA_NAMES[word]);
+    if (known.every(Boolean)) {
+      return Object.freeze({
+        usualName,
+        katakana: known.join("・"),
+        source: "known-name"
+      });
+    }
+    const converted = words.map((word) => convertHiraganaToKatakana(convertRomajiToKana(word)));
+    if (converted.every((word) => word && !/[a-z]/iu.test(word))) {
+      return Object.freeze({
+        usualName,
+        katakana: converted.join("・"),
+        source: "romaji"
+      });
+    }
+    return Object.freeze({ usualName, katakana: null, source: "unavailable" });
+  }
+  function normalizeName(value) {
+    return value.normalize("NFKC").replace(/\s+/gu, " ").trim();
+  }
   const PORTRAITS = [
     ["quality-2", "portraitCamera"],
     ["quality-3", "portraitPlanner"],
@@ -85947,7 +86050,7 @@ ${spelling}`);
     name.enterKeyHint = "next";
     name.setAttribute("aria-label", academyText(options.language, "profileNameLabel"));
     name.placeholder = academyText(options.language, "profileNamePlaceholder");
-    name.value = options.profile?.displayName ?? "";
+    name.value = profileNameForEditing(options.profile?.displayName);
     const reason = document.createElement("textarea");
     reason.className = "academy-input academy-textarea";
     reason.name = "learningReason";
@@ -85961,6 +86064,11 @@ ${spelling}`);
     let selectedPortrait = initialPortrait;
     let currentStep = "name";
     const nameStep = entry$1("name", options.language, academyText(options.language, "profileNameLabel"), name);
+    const nameHint = document.createElement("p");
+    nameHint.className = "academy-profile-entry-hint";
+    nameHint.lang = options.language;
+    nameHint.textContent = academyText(options.language, "profileNameHint");
+    nameStep.append(nameHint);
     const reasonStep = entry$1("reason", options.language, academyText(options.language, "profileReasonLabel"), reason);
     const portraitStep = portraitEntry(options.language, selectedPortrait, (portraitId2) => {
       selectedPortrait = portraitId2;
@@ -260811,7 +260919,7 @@ ${spelling}`);
     "activity:lesson-zero-text-input": { en: "Two missing words", ja: "二つの空欄" },
     "activity:lesson-zero-speaking-input": { en: "Your turn in the room", ja: "教室で自分の番" },
     "activity:lesson-zero-read-name-cards": { en: "Find it on the card", ja: "名札から見つける" },
-    "activity:lesson-zero-write-name-card": { en: "Choose your class name", ja: "クラスで使う名前" },
+    "activity:lesson-zero-write-name-card": { en: "Your name in katakana", ja: "名前をカタカナで" },
     "activity:lesson-zero-sound-transfer": { en: "Catch it, then ask again", ja: "聞いて、もう一度たずねる" },
     "activity:lesson-zero-text-transfer": { en: "Leave one clear line", ja: "短い一文を残す" },
     "activity:lesson-zero-speaking-transfer": { en: "Welcome the next person", ja: "次の人を迎える" },
@@ -260822,7 +260930,7 @@ ${spelling}`);
     "activity:lesson-zero-text-input": { en: "Sophie & Ruparna · Library", ja: "ソフィーとルパルナ・図書室" },
     "activity:lesson-zero-speaking-input": { en: "Aakash & Sam · Classroom", ja: "アーカッシュとサム・教室" },
     "activity:lesson-zero-read-name-cards": { en: "Rie · Name-card desk", ja: "りえ先生・名札の机" },
-    "activity:lesson-zero-write-name-card": { en: "Rie · Your place in class", ja: "りえ先生・クラスでの場所" },
+    "activity:lesson-zero-write-name-card": { en: "Rie · Name-card desk", ja: "りえ先生・名札の机" },
     "activity:lesson-zero-sound-transfer": { en: "Xingyu & Mika · Language lab", ja: "シンユとミカ・語学室" },
     "activity:lesson-zero-text-transfer": { en: "Sophie · Library note", ja: "ソフィー・図書室のメモ" },
     "activity:lesson-zero-speaking-transfer": { en: "Aakash & Sam · Classroom door", ja: "アーカッシュとサム・教室の入口" },
@@ -260866,6 +260974,10 @@ ${spelling}`);
     let feedback2 = null;
     let particleValues = ["", ""];
     const selectedChecks = /* @__PURE__ */ new Set();
+    const nameDraft = createKatakanaNameDraft(options.definition.learnerName);
+    let selectedCardName = nameDraft.katakana ?? nameDraft.usualName;
+    let editedKatakana = nameDraft.katakana ?? "";
+    let nameEntryMode = nameDraft.katakana ? "katakana-choice" : "usual-spelling";
     const screen = element("section", "academy-screen academy-mission-screen");
     screen.dataset.academyScreen = "lesson-zero-mission";
     screen.dataset.activityId = options.definition.activity.id;
@@ -261030,42 +261142,22 @@ ${spelling}`);
       return root;
     };
     const renderWritingTask = (signal) => {
+      if (options.definition.activity.id === "activity:lesson-zero-write-name-card") {
+        return renderNameCardWriting(signal);
+      }
       const root = element("form", "academy-mission-writing");
       const id2 = options.definition.activity.id;
-      const isName = id2 === "activity:lesson-zero-write-name-card";
-      const labelCopy = isName ? { en: "The name you want classmates to use", ja: "クラスで使いたい名前" } : { en: "Your line", ja: "あなたの一文" };
-      const label = copyNode("label", "academy-mission-writing-label", labelCopy);
+      const label = copyNode("label", "academy-mission-writing-label", { en: "Your line", ja: "あなたの一文" });
       label.htmlFor = "academy-mission-writing-input";
-      const input2 = isName ? element("input", "academy-mission-writing-input") : element("textarea", "academy-mission-writing-input");
+      const input2 = element("textarea", "academy-mission-writing-input");
       input2.id = "academy-mission-writing-input";
       input2.autocomplete = "off";
       input2.spellcheck = false;
-      if (input2 instanceof HTMLInputElement) {
-        input2.type = "text";
-        input2.maxLength = 40;
-        input2.placeholder = localized2({ en: "Katakana or your usual spelling", ja: "カタカナ、またはいつものつづり" });
-      } else {
-        input2.rows = 4;
-        input2.maxLength = 180;
-        input2.placeholder = id2 === "activity:lesson-zero-written-transfer" ? localized2({ en: "はじめまして。…です。…", ja: "はじめまして。…です。…" }) : localized2({ en: "A short Japanese sentence", ja: "短い日本語の文" });
-      }
-      const preview = element("p", "academy-mission-writing-preview");
-      const updatePreview = () => {
-        if (!isName) return;
-        preview.replaceChildren(japanese2(`${input2.value.trim() || "＿＿"}です。`));
-      };
-      input2.addEventListener("input", updatePreview, { signal });
-      updatePreview();
+      input2.rows = 4;
+      input2.maxLength = 180;
+      input2.placeholder = id2 === "activity:lesson-zero-written-transfer" ? localized2({ en: "はじめまして。…です。…", ja: "はじめまして。…です。…" }) : localized2({ en: "A short Japanese sentence", ja: "短い日本語の文" });
       root.append(label, input2);
-      if (isName) {
-        root.append(
-          preview,
-          copyNode("p", "academy-mission-help", {
-            en: "Use katakana if you know it. Your usual spelling is fine too. Rie will read the card with you.",
-            ja: "カタカナでも、今使っているつづりでも大丈夫です。"
-          })
-        );
-      } else if (attempted) {
+      if (attempted) {
         if (options.definition.audioUrl) {
           root.append(authoredAudioButton(
             { en: "Hear the class note", ja: "クラスのメモを聞く" },
@@ -261074,15 +261166,130 @@ ${spelling}`);
         }
         root.append(writingPattern(id2));
       }
-      const send = actionButton2({ en: isName ? "Put it on the desk" : "Leave the line", ja: isName ? "机に置く" : "一文を残す" }, "primary", signal, () => void 0);
+      const send = actionButton2({ en: "Leave the line", ja: "一文を残す" }, "primary", signal, () => void 0);
       send.type = "submit";
       root.append(send);
       root.addEventListener("submit", (event) => {
         event.preventDefault();
-        const value = input2.value.trim();
-        void submit2({ kind: "written", text: isName ? `${value}です。` : value });
+        void submit2({ kind: "written", text: input2.value.trim() });
       }, { signal });
       return root;
+    };
+    const renderNameCardWriting = (signal) => {
+      const root = element("form", "academy-mission-writing academy-mission-name-writing");
+      root.append(copyNode("p", "academy-mission-help academy-mission-name-help", nameDraft.katakana ? {
+        en: "You do not need to read katakana yet. Start by listening.",
+        ja: "まだカタカナを読めなくても大丈夫です。まず聞いてみましょう。"
+      } : {
+        en: "You chose the name already. Keep your usual spelling now; you can add katakana when you know the sound you want.",
+        ja: "名前はもう決まっています。今はいつものつづりで大丈夫です。カタカナはあとで足せます。"
+      }));
+      const comparison = element("div", "academy-mission-name-comparison");
+      comparison.append(
+        textNode2(nameDraft.usualName, "academy-mission-name-usual"),
+        textNode2("→", "academy-mission-name-arrow"),
+        nameDraft.katakana ? plainJapanese(nameDraft.katakana) : copyNode("span", "academy-mission-name-pending", { en: "katakana later", ja: "カタカナはあとで" })
+      );
+      root.append(comparison);
+      if (nameDraft.katakana) {
+        root.append(actionButton2(
+          { en: `Hear ${nameDraft.katakana}`, ja: `${nameDraft.katakana}を聞く` },
+          "listen",
+          signal,
+          () => playPhrase(nameDraft.katakana, nameDraft.katakana)
+        ));
+      }
+      const choices2 = element("fieldset", "academy-mission-name-choices");
+      choices2.append(copyNode("legend", "academy-mission-writing-label", {
+        en: "Put one version on the card",
+        ja: "名札に書くつづり"
+      }));
+      if (nameDraft.katakana) {
+        choices2.append(nameChoice(
+          nameDraft.katakana,
+          { en: "Use Rie’s katakana draft", ja: "りえ先生のカタカナ案を使う" },
+          signal
+        ));
+      }
+      if (nameDraft.usualName !== nameDraft.katakana) {
+        choices2.append(nameChoice(
+          nameDraft.usualName,
+          { en: "Keep my usual spelling", ja: "いつものつづりを使う" },
+          signal
+        ));
+      }
+      root.append(choices2);
+      const edit = element("details", "academy-mission-name-edit");
+      const summary = copyNode("summary", "", { en: "Adjust the katakana", ja: "カタカナを直す" });
+      const label = copyNode("label", "academy-mission-writing-label", {
+        en: "Katakana on the card",
+        ja: "名札のカタカナ"
+      });
+      label.htmlFor = "academy-mission-writing-input";
+      const input2 = element("input", "academy-mission-writing-input");
+      input2.id = "academy-mission-writing-input";
+      input2.type = "text";
+      input2.inputMode = "text";
+      input2.maxLength = 40;
+      input2.autocomplete = "off";
+      input2.spellcheck = false;
+      input2.value = editedKatakana;
+      input2.placeholder = localized2({ en: "Katakana, if you want to change it", ja: "直したいカタカナ" });
+      input2.addEventListener("input", () => {
+        editedKatakana = input2.value.trim();
+        if (editedKatakana) {
+          selectedCardName = editedKatakana;
+          nameEntryMode = "ime";
+        }
+        syncNamePreview(preview);
+      }, { signal });
+      edit.append(summary, label, input2);
+      root.append(edit);
+      const preview = element("p", "academy-mission-writing-preview");
+      syncNamePreview(preview);
+      root.append(
+        preview,
+        copyNode("p", "academy-mission-name-note", {
+          en: "You can change this later.",
+          ja: "あとで変えられます。"
+        })
+      );
+      const send = actionButton2({ en: "Put it on the desk", ja: "机に置く" }, "primary", signal, () => void 0);
+      send.type = "submit";
+      root.append(send);
+      root.addEventListener("submit", (event) => {
+        event.preventDefault();
+        void submit2({
+          kind: "written",
+          text: `${selectedCardName}です。`,
+          entryMode: nameEntryMode
+        });
+      }, { signal });
+      return root;
+    };
+    const nameChoice = (value, labelCopy, signal) => {
+      const label = element("label", "academy-mission-name-choice");
+      const input2 = element("input");
+      input2.type = "radio";
+      input2.name = "academy-name-script";
+      input2.value = value;
+      input2.checked = selectedCardName === value;
+      input2.addEventListener("change", () => {
+        if (!input2.checked) return;
+        selectedCardName = value;
+        nameEntryMode = value === nameDraft.katakana ? "katakana-choice" : "usual-spelling";
+        const preview = label.closest("form")?.querySelector(".academy-mission-writing-preview");
+        if (preview) syncNamePreview(preview);
+      }, { signal });
+      label.append(
+        input2,
+        copyNode("span", "academy-mission-name-choice-label", labelCopy),
+        value === nameDraft.katakana ? plainJapanese(value) : textNode2(value)
+      );
+      return label;
+    };
+    const syncNamePreview = (preview) => {
+      preview.replaceChildren(plainJapanese(`${selectedCardName || nameDraft.usualName}です。`));
     };
     const renderSpeakingTask = (signal) => {
       const root = element("section", "academy-mission-speaking");
@@ -261316,6 +261523,13 @@ ${spelling}`);
       node2.textContent = value;
       return node2;
     }
+    function plainJapanese(value) {
+      const node2 = element("span", "academy-mission-japanese");
+      node2.lang = "ja";
+      node2.dataset.jpdbReaderSurfaceIgnore = "";
+      node2.textContent = value;
+      return node2;
+    }
     function textNode2(value, className = "") {
       const node2 = element("span", className);
       node2.textContent = value;
@@ -261327,6 +261541,7 @@ ${spelling}`);
       button2.type = "button";
       button2.textContent = localized2(copy2);
       button2.setAttribute("aria-label", localized2(copy2));
+      button2.dataset.jpdbReaderSurfaceIgnore = "";
       button2.addEventListener("click", () => void action2(), { signal });
       return button2;
     }

@@ -11,6 +11,7 @@ import {
     type LessonZeroMissionDefinition,
     type LessonZeroMissionResponse,
 } from '../content/lesson-zero-mission-activity';
+import { createKatakanaNameDraft } from '../content/learner-name';
 import type { ActivityEvaluation } from '../domain/activity-runtime';
 import type { Disposable, PronunciationService } from '../integration/yomu-bridge';
 import { academyBackgroundPicture, backButton, choiceToken, element } from './dom';
@@ -39,7 +40,7 @@ const TITLES: Readonly<Record<LessonZeroMissionDefinition['activity']['id'], Loc
     'activity:lesson-zero-text-input': { en: 'Two missing words', ja: '二つの空欄' },
     'activity:lesson-zero-speaking-input': { en: 'Your turn in the room', ja: '教室で自分の番' },
     'activity:lesson-zero-read-name-cards': { en: 'Find it on the card', ja: '名札から見つける' },
-    'activity:lesson-zero-write-name-card': { en: 'Choose your class name', ja: 'クラスで使う名前' },
+    'activity:lesson-zero-write-name-card': { en: 'Your name in katakana', ja: '名前をカタカナで' },
     'activity:lesson-zero-sound-transfer': { en: 'Catch it, then ask again', ja: '聞いて、もう一度たずねる' },
     'activity:lesson-zero-text-transfer': { en: 'Leave one clear line', ja: '短い一文を残す' },
     'activity:lesson-zero-speaking-transfer': { en: 'Welcome the next person', ja: '次の人を迎える' },
@@ -51,7 +52,7 @@ const EYEBROWS: Readonly<Record<LessonZeroMissionDefinition['activity']['id'], L
     'activity:lesson-zero-text-input': { en: 'Sophie & Ruparna · Library', ja: 'ソフィーとルパルナ・図書室' },
     'activity:lesson-zero-speaking-input': { en: 'Aakash & Sam · Classroom', ja: 'アーカッシュとサム・教室' },
     'activity:lesson-zero-read-name-cards': { en: 'Rie · Name-card desk', ja: 'りえ先生・名札の机' },
-    'activity:lesson-zero-write-name-card': { en: 'Rie · Your place in class', ja: 'りえ先生・クラスでの場所' },
+    'activity:lesson-zero-write-name-card': { en: 'Rie · Name-card desk', ja: 'りえ先生・名札の机' },
     'activity:lesson-zero-sound-transfer': { en: 'Xingyu & Mika · Language lab', ja: 'シンユとミカ・語学室' },
     'activity:lesson-zero-text-transfer': { en: 'Sophie · Library note', ja: 'ソフィー・図書室のメモ' },
     'activity:lesson-zero-speaking-transfer': { en: 'Aakash & Sam · Classroom door', ja: 'アーカッシュとサム・教室の入口' },
@@ -100,6 +101,12 @@ export function createLessonZeroMissionScreen(
     let feedback: ActivityEvaluation['result']['feedback'] | null = null;
     let particleValues: [string, string] = ['', ''];
     const selectedChecks = new Set<string>();
+    const nameDraft = createKatakanaNameDraft(options.definition.learnerName);
+    let selectedCardName = nameDraft.katakana ?? nameDraft.usualName;
+    let editedKatakana = nameDraft.katakana ?? '';
+    let nameEntryMode: 'ime' | 'katakana-choice' | 'usual-spelling' = nameDraft.katakana
+        ? 'katakana-choice'
+        : 'usual-spelling';
 
     const screen = element('section', 'academy-screen academy-mission-screen');
     screen.dataset.academyScreen = 'lesson-zero-mission';
@@ -275,48 +282,24 @@ export function createLessonZeroMissionScreen(
     };
 
     const renderWritingTask = (signal: AbortSignal): HTMLElement => {
+        if (options.definition.activity.id === 'activity:lesson-zero-write-name-card') {
+            return renderNameCardWriting(signal);
+        }
         const root = element('form', 'academy-mission-writing');
         const id = options.definition.activity.id;
-        const isName = id === 'activity:lesson-zero-write-name-card';
-        const labelCopy = isName
-            ? { en: 'The name you want classmates to use', ja: 'クラスで使いたい名前' }
-            : { en: 'Your line', ja: 'あなたの一文' };
-        const label = copyNode('label', 'academy-mission-writing-label', labelCopy);
+        const label = copyNode('label', 'academy-mission-writing-label', { en: 'Your line', ja: 'あなたの一文' });
         label.htmlFor = 'academy-mission-writing-input';
-        const input = isName
-            ? element('input', 'academy-mission-writing-input')
-            : element('textarea', 'academy-mission-writing-input');
+        const input = element('textarea', 'academy-mission-writing-input');
         input.id = 'academy-mission-writing-input';
         input.autocomplete = 'off';
         input.spellcheck = false;
-        if (input instanceof HTMLInputElement) {
-            input.type = 'text';
-            input.maxLength = 40;
-            input.placeholder = localized({ en: 'Katakana or your usual spelling', ja: 'カタカナ、またはいつものつづり' });
-        } else {
-            input.rows = 4;
-            input.maxLength = 180;
-            input.placeholder = id === 'activity:lesson-zero-written-transfer'
-                ? localized({ en: 'はじめまして。…です。…', ja: 'はじめまして。…です。…' })
-                : localized({ en: 'A short Japanese sentence', ja: '短い日本語の文' });
-        }
-        const preview = element('p', 'academy-mission-writing-preview');
-        const updatePreview = (): void => {
-            if (!isName) return;
-            preview.replaceChildren(japanese(`${input.value.trim() || '＿＿'}です。`));
-        };
-        input.addEventListener('input', updatePreview, { signal });
-        updatePreview();
+        input.rows = 4;
+        input.maxLength = 180;
+        input.placeholder = id === 'activity:lesson-zero-written-transfer'
+            ? localized({ en: 'はじめまして。…です。…', ja: 'はじめまして。…です。…' })
+            : localized({ en: 'A short Japanese sentence', ja: '短い日本語の文' });
         root.append(label, input);
-        if (isName) {
-            root.append(
-                preview,
-                copyNode('p', 'academy-mission-help', {
-                    en: 'Use katakana if you know it. Your usual spelling is fine too. Rie will read the card with you.',
-                    ja: 'カタカナでも、今使っているつづりでも大丈夫です。',
-                }),
-            );
-        } else if (attempted) {
+        if (attempted) {
             if (options.definition.audioUrl) {
                 root.append(authoredAudioButton(
                     { en: 'Hear the class note', ja: 'クラスのメモを聞く' },
@@ -325,15 +308,146 @@ export function createLessonZeroMissionScreen(
             }
             root.append(writingPattern(id));
         }
-        const send = actionButton({ en: isName ? 'Put it on the desk' : 'Leave the line', ja: isName ? '机に置く' : '一文を残す' }, 'primary', signal, () => undefined);
+        const send = actionButton({ en: 'Leave the line', ja: '一文を残す' }, 'primary', signal, () => undefined);
         send.type = 'submit';
         root.append(send);
         root.addEventListener('submit', event => {
             event.preventDefault();
-            const value = input.value.trim();
-            void submit({ kind: 'written', text: isName ? `${value}です。` : value });
+            void submit({ kind: 'written', text: input.value.trim() });
         }, { signal });
         return root;
+    };
+
+    const renderNameCardWriting = (signal: AbortSignal): HTMLElement => {
+        const root = element('form', 'academy-mission-writing academy-mission-name-writing');
+        root.append(copyNode('p', 'academy-mission-help academy-mission-name-help', nameDraft.katakana
+            ? {
+                en: 'You do not need to read katakana yet. Start by listening.',
+                ja: 'まだカタカナを読めなくても大丈夫です。まず聞いてみましょう。',
+            }
+            : {
+                en: 'You chose the name already. Keep your usual spelling now; you can add katakana when you know the sound you want.',
+                ja: '名前はもう決まっています。今はいつものつづりで大丈夫です。カタカナはあとで足せます。',
+            }));
+
+        const comparison = element('div', 'academy-mission-name-comparison');
+        comparison.append(
+            textNode(nameDraft.usualName, 'academy-mission-name-usual'),
+            textNode('→', 'academy-mission-name-arrow'),
+            nameDraft.katakana
+                ? plainJapanese(nameDraft.katakana)
+                : copyNode('span', 'academy-mission-name-pending', { en: 'katakana later', ja: 'カタカナはあとで' }),
+        );
+        root.append(comparison);
+
+        if (nameDraft.katakana) {
+            root.append(actionButton(
+                { en: `Hear ${nameDraft.katakana}`, ja: `${nameDraft.katakana}を聞く` },
+                'listen',
+                signal,
+                () => playPhrase(nameDraft.katakana!, nameDraft.katakana!),
+            ));
+        }
+
+        const choices = element('fieldset', 'academy-mission-name-choices');
+        choices.append(copyNode('legend', 'academy-mission-writing-label', {
+            en: 'Put one version on the card',
+            ja: '名札に書くつづり',
+        }));
+        if (nameDraft.katakana) {
+            choices.append(nameChoice(
+                nameDraft.katakana,
+                { en: 'Use Rie’s katakana draft', ja: 'りえ先生のカタカナ案を使う' },
+                signal,
+            ));
+        }
+        if (nameDraft.usualName !== nameDraft.katakana) {
+            choices.append(nameChoice(
+                nameDraft.usualName,
+                { en: 'Keep my usual spelling', ja: 'いつものつづりを使う' },
+                signal,
+            ));
+        }
+        root.append(choices);
+
+        const edit = element('details', 'academy-mission-name-edit');
+        const summary = copyNode('summary', '', { en: 'Adjust the katakana', ja: 'カタカナを直す' });
+        const label = copyNode('label', 'academy-mission-writing-label', {
+            en: 'Katakana on the card',
+            ja: '名札のカタカナ',
+        });
+        label.htmlFor = 'academy-mission-writing-input';
+        const input = element('input', 'academy-mission-writing-input');
+        input.id = 'academy-mission-writing-input';
+        input.type = 'text';
+        input.inputMode = 'text';
+        input.maxLength = 40;
+        input.autocomplete = 'off';
+        input.spellcheck = false;
+        input.value = editedKatakana;
+        input.placeholder = localized({ en: 'Katakana, if you want to change it', ja: '直したいカタカナ' });
+        input.addEventListener('input', () => {
+            editedKatakana = input.value.trim();
+            if (editedKatakana) {
+                selectedCardName = editedKatakana;
+                nameEntryMode = 'ime';
+            }
+            syncNamePreview(preview);
+        }, { signal });
+        edit.append(summary, label, input);
+        root.append(edit);
+
+        const preview = element('p', 'academy-mission-writing-preview');
+        syncNamePreview(preview);
+        root.append(
+            preview,
+            copyNode('p', 'academy-mission-name-note', {
+                en: 'You can change this later.',
+                ja: 'あとで変えられます。',
+            }),
+        );
+        const send = actionButton({ en: 'Put it on the desk', ja: '机に置く' }, 'primary', signal, () => undefined);
+        send.type = 'submit';
+        root.append(send);
+        root.addEventListener('submit', event => {
+            event.preventDefault();
+            void submit({
+                kind: 'written',
+                text: `${selectedCardName}です。`,
+                entryMode: nameEntryMode,
+            });
+        }, { signal });
+        return root;
+    };
+
+    const nameChoice = (
+        value: string,
+        labelCopy: Localized,
+        signal: AbortSignal,
+    ): HTMLLabelElement => {
+        const label = element('label', 'academy-mission-name-choice');
+        const input = element('input');
+        input.type = 'radio';
+        input.name = 'academy-name-script';
+        input.value = value;
+        input.checked = selectedCardName === value;
+        input.addEventListener('change', () => {
+            if (!input.checked) return;
+            selectedCardName = value;
+            nameEntryMode = value === nameDraft.katakana ? 'katakana-choice' : 'usual-spelling';
+            const preview = label.closest('form')?.querySelector<HTMLElement>('.academy-mission-writing-preview');
+            if (preview) syncNamePreview(preview);
+        }, { signal });
+        label.append(
+            input,
+            copyNode('span', 'academy-mission-name-choice-label', labelCopy),
+            value === nameDraft.katakana ? plainJapanese(value) : textNode(value),
+        );
+        return label;
+    };
+
+    const syncNamePreview = (preview: HTMLElement): void => {
+        preview.replaceChildren(plainJapanese(`${selectedCardName || nameDraft.usualName}です。`));
     };
 
     const renderSpeakingTask = (signal: AbortSignal): HTMLElement => {
@@ -593,6 +707,14 @@ export function createLessonZeroMissionScreen(
         return node;
     }
 
+    function plainJapanese(value: string): HTMLElement {
+        const node = element('span', 'academy-mission-japanese');
+        node.lang = 'ja';
+        node.dataset.jpdbReaderSurfaceIgnore = '';
+        node.textContent = value;
+        return node;
+    }
+
     function textNode(value: string, className = ''): HTMLElement {
         const node = element('span', className);
         node.textContent = value;
@@ -610,6 +732,7 @@ export function createLessonZeroMissionScreen(
         button.type = 'button';
         button.textContent = localized(copy);
         button.setAttribute('aria-label', localized(copy));
+        button.dataset.jpdbReaderSurfaceIgnore = '';
         button.addEventListener('click', () => void action(), { signal });
         return button;
     }
