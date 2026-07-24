@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.7.5] - 2026-07-24
+
+### Fixed
+
+- On iPad, the Meaning under a study Translation card no longer gets stuck on Translating forever. A local dictionary lookup that never returned on iPad Safari used to strand it; the Meaning now appears, or the section hides when there is nothing to translate, as soon as the translation is ready, and a stalled lookup can no longer freeze sentence parsing for reading, hover lookups, or page annotation.
+
 ## [1.7.4] - 2026-07-24
 
 ### Fixed

@@ -17702,7 +17702,6 @@ ${scopedInner}
     "stream finished",
     "no stream handler",
     ,
-    // determined by compression function
     "no callback",
     "invalid UTF-8 data",
     "extra field too long",
@@ -35514,6 +35513,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   const LOCAL_BOUNDARY_CANDIDATE_LIMIT = 8;
   const LOCAL_BOUNDARY_LOOKUP_CONCURRENCY = 4;
   const JPDB_PARSE_FALLBACK_TIMEOUT_MS = 6e3;
+  const LOCAL_PARSE_TIMEOUT_MS = 8e3;
   const YOUTUBE_VIEW_METRIC_RE = /回視聴/gu;
   const JITEN_MIN_BATCH_CHARS = 24;
   const JAPANESE_CHAR_COUNT_RE = /[぀-ヿ㐀-鿿々\uff66-\uff9f]/gu;
@@ -35557,12 +35557,15 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       });
       try {
         const parsed = await this.parseWithPreferredSource(paragraphs, options, settings);
-        const boundaryReconciled = await this.withExactLocalBoundaryEvidence(paragraphs, parsed, options);
-        const rubyAligned = await this.withLocallySplitKanjiRubies(paragraphs, boundaryReconciled);
+        const rubyAligned = await this.reconcileLocalParse(paragraphs, parsed, options);
         const normalized = this.withNormalizedMetricParseResult(paragraphs, rubyAligned);
         if (!settings.yomuLocalSrsEnabled || !this.dependencies.yomuLocalSrs) return normalized;
         try {
-          return await hydrateYomuLocalSrsCardStates(normalized, this.dependencies.yomuLocalSrs);
+          return await withTimeout(
+            hydrateYomuLocalSrsCardStates(normalized, this.dependencies.yomuLocalSrs),
+            LOCAL_PARSE_TIMEOUT_MS,
+            () => new Error("Academy SRS state hydration timed out.")
+          );
         } catch (error) {
           log$x.warn("Academy SRS state hydration failed; keeping provider states", error);
           return normalized;
@@ -35570,6 +35573,26 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       } finally {
         done();
       }
+    }
+    // The boundary + kanji-ruby reconciliation both read IndexedDB. Like the
+    // leaf local parse, an iPad-WebKit stall in either would hang parse()
+    // forever. These steps only REFINE an already-valid parse, so a stall (or
+    // any failure) degrades to the un-reconciled tokens rather than blocking.
+    async reconcileLocalParse(paragraphs, parsed, options) {
+      try {
+        return await withTimeout(
+          this.reconcileLocalParseResolved(paragraphs, parsed, options),
+          LOCAL_PARSE_TIMEOUT_MS,
+          () => new Error("Local parse reconciliation timed out.")
+        );
+      } catch (error) {
+        log$x.warn("Local parse reconciliation timed out or failed; keeping unreconciled parse", error);
+        return parsed;
+      }
+    }
+    async reconcileLocalParseResolved(paragraphs, parsed, options) {
+      const boundaryReconciled = await this.withExactLocalBoundaryEvidence(paragraphs, parsed, options);
+      return this.withLocallySplitKanjiRubies(paragraphs, boundaryReconciled);
     }
     async parseWithPreferredSource(paragraphs, options, settings) {
       if (settings.parserProvider === "local" && await this.hasLocalTermDictionaries(true)) {
@@ -35744,12 +35767,33 @@ ${entry.reading}`);
       return promise;
     }
     async parseLocalOrSegmentedTextUncached(text2, options) {
+      try {
+        return await withTimeout(
+          this.resolveLocalOrSegmentedText(text2, options),
+          LOCAL_PARSE_TIMEOUT_MS,
+          () => new Error("Local parse timed out.")
+        );
+      } catch (error) {
+        log$x.warn("Local parse timed out; using segmented fallback", { length: text2.length }, error);
+        return this.localParseTimeoutFallback(text2, options);
+      }
+    }
+    async resolveLocalOrSegmentedText(text2, options) {
       if (this.canUseLocalDictionaryFallback()) {
         const tokens = await this.parseLocalDictionaryText(text2, options);
         if (tokens.length) {
           return options.allowSegmentedFallback === true ? this.fillSegmentedFallbackGaps(text2, tokens) : tokens;
         }
       }
+      return options.allowSegmentedFallback === true ? this.parseSegmentedText(text2) : [];
+    }
+    // The timeout path RESOLVES to this fallback (rather than rejecting), so
+    // parseLocalOrSegmentedText caches it. That is deliberate: a WebKit IDB
+    // stall rarely recovers within a page session, and caching the segmented
+    // result avoids re-hitting the dead request on every later lookup. The cost
+    // is that a genuinely transient stall keeps that one sentence ruby-less
+    // until LRU eviction — an accepted trade for not re-freezing.
+    localParseTimeoutFallback(text2, options) {
       return options.allowSegmentedFallback === true ? this.parseSegmentedText(text2) : [];
     }
     rememberLocalParseCacheEntry(key, promise) {
@@ -40458,11 +40502,12 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       return this.dependencies.isCurrentPopoverRoot(popover) && container.isConnected;
     }
     async loadTranslationContent(sentence) {
-      const [tokens, translated] = await Promise.all([
-        this.dependencies.parseJapanese([sentence], { jpdbTimeoutMs: 1200, allowJpdbTimeoutFallback: true }).then(([parsed]) => parsed ?? []),
-        translateJapaneseSentence(sentence, resolvedLearnerLanguage(this.settings()))
-      ]);
+      const translated = await translateJapaneseSentence(sentence, resolvedLearnerLanguage(this.settings()));
+      const tokens = translated ? this.parseTranslationTokens(sentence) : Promise.resolve([]);
       return { tokens, translated };
+    }
+    parseTranslationTokens(sentence) {
+      return this.dependencies.parseJapanese([sentence], { jpdbTimeoutMs: 1200, allowJpdbTimeoutFallback: true }).then(([parsed]) => parsed ?? []).catch(() => []);
     }
     cachedGrammarHints(sentence) {
       const key = this.studyCacheKey(sentence);
@@ -40493,13 +40538,16 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         container.hidden = true;
         return;
       }
-      const original = container.querySelector("[data-study-original-render]");
-      if (original) setInnerHtml(original, renderTokensToHtml(sentence, translation.tokens, this.settings()));
       const result = container.querySelector("[data-study-translation-result]");
       if (result) result.textContent = translation.translated;
-      void this.dependencies.parsePopoverJapanese(popover);
-      void this.dependencies.enrichPitchWords(translation.tokens);
-      void this.dependencies.enrichAnkiWords(translation.tokens, [container]);
+      void translation.tokens.then((tokens) => {
+        if (!this.canApplyTranslation(popover, container)) return;
+        const original = container.querySelector("[data-study-original-render]");
+        if (original) setInnerHtml(original, renderTokensToHtml(sentence, tokens, this.settings()));
+        void this.dependencies.parsePopoverJapanese(popover);
+        void this.dependencies.enrichPitchWords(tokens);
+        void this.dependencies.enrichAnkiWords(tokens, [container]);
+      }).catch(() => void 0);
     }
     renderTranslationError(sentence, container, error) {
       log$r.warn("Automatic sentence translation failed", { sentenceLength: sentence.length }, error);
@@ -48060,7 +48108,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.7.4".trim() ? "1.7.4".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.7.5".trim() ? "1.7.5".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record2 = value;

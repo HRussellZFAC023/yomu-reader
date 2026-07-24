@@ -37,6 +37,16 @@ const LOCAL_BOUNDARY_MATCH_LIMIT = 8;
 const LOCAL_BOUNDARY_CANDIDATE_LIMIT = 8;
 const LOCAL_BOUNDARY_LOOKUP_CONCURRENCY = 4;
 const JPDB_PARSE_FALLBACK_TIMEOUT_MS = 6_000;
+// Hard ceiling for a SINGLE paragraph's local (IndexedDB-backed) parse. The
+// remote JPDB/Jiten calls are already time-bounded, but the local path — term
+// lookup plus pitch/ruby enrichment — was not. On iPad WebKit an IndexedDB
+// request can silently never fire onsuccess/onerror, which would leave the
+// parse promise pending forever and strand every caller (study translation,
+// hover lookups, body decoration) on a loading placeholder. This bounds it so
+// a stalled request degrades to the synchronous segmented parse instead of
+// hanging. Sized well above any legitimate single-paragraph parse so it only
+// ever fires on a genuine stall, never on a merely slow device.
+const LOCAL_PARSE_TIMEOUT_MS = 8_000;
 const YOUTUBE_VIEW_METRIC_RE = /回視聴/gu;
 // Jiten's /parse endpoint is for batched LINES; a tiny per-word or per-refresh
 // parse would spam jiten.moe (and short text parses worse remotely). Route
@@ -113,12 +123,18 @@ export class ReaderParser {
         });
         try {
             const parsed = await this.parseWithPreferredSource(paragraphs, options, settings);
-            const boundaryReconciled = await this.withExactLocalBoundaryEvidence(paragraphs, parsed, options);
-            const rubyAligned = await this.withLocallySplitKanjiRubies(paragraphs, boundaryReconciled);
+            const rubyAligned = await this.reconcileLocalParse(paragraphs, parsed, options);
             const normalized = this.withNormalizedMetricParseResult(paragraphs, rubyAligned);
             if (!settings.yomuLocalSrsEnabled || !this.dependencies.yomuLocalSrs) return normalized;
             try {
-                return await hydrateYomuLocalSrsCardStates(normalized, this.dependencies.yomuLocalSrs);
+                // The last IndexedDB read in the pipeline (SRS lookupCards); it
+                // must be bounded too, or a stalled request would re-hang parse()
+                // one line below the fix. A stall/failure keeps provider states.
+                return await withTimeout(
+                    hydrateYomuLocalSrsCardStates(normalized, this.dependencies.yomuLocalSrs),
+                    LOCAL_PARSE_TIMEOUT_MS,
+                    () => new Error('Academy SRS state hydration timed out.'),
+                );
             } catch (error) {
                 log.warn('Academy SRS state hydration failed; keeping provider states', error);
                 return normalized;
@@ -126,6 +142,28 @@ export class ReaderParser {
         } finally {
             done();
         }
+    }
+
+    // The boundary + kanji-ruby reconciliation both read IndexedDB. Like the
+    // leaf local parse, an iPad-WebKit stall in either would hang parse()
+    // forever. These steps only REFINE an already-valid parse, so a stall (or
+    // any failure) degrades to the un-reconciled tokens rather than blocking.
+    private async reconcileLocalParse(paragraphs: string[], parsed: JPDBToken[][], options: ReaderParserParseOptions): Promise<JPDBToken[][]> {
+        try {
+            return await withTimeout(
+                this.reconcileLocalParseResolved(paragraphs, parsed, options),
+                LOCAL_PARSE_TIMEOUT_MS,
+                () => new Error('Local parse reconciliation timed out.'),
+            );
+        } catch (error) {
+            log.warn('Local parse reconciliation timed out or failed; keeping unreconciled parse', error);
+            return parsed;
+        }
+    }
+
+    private async reconcileLocalParseResolved(paragraphs: string[], parsed: JPDBToken[][], options: ReaderParserParseOptions): Promise<JPDBToken[][]> {
+        const boundaryReconciled = await this.withExactLocalBoundaryEvidence(paragraphs, parsed, options);
+        return this.withLocallySplitKanjiRubies(paragraphs, boundaryReconciled);
     }
 
     private async parseWithPreferredSource(paragraphs: string[], options: ReaderParserParseOptions, settings: ReaderSettings): Promise<JPDBToken[][]> {
@@ -335,6 +373,27 @@ export class ReaderParser {
     }
 
     private async parseLocalOrSegmentedTextUncached(text: string, options: ReaderParserParseOptions): Promise<JPDBToken[]> {
+        try {
+            return await withTimeout(
+                this.resolveLocalOrSegmentedText(text, options),
+                LOCAL_PARSE_TIMEOUT_MS,
+                () => new Error('Local parse timed out.'),
+            );
+        } catch (error) {
+            // A never-settling IndexedDB request (an iPad WebKit failure mode)
+            // would otherwise hang this promise forever. Degrade to the
+            // in-memory segmented parse so the caller always gets a result.
+            // Residual (accepted): the orphaned resolveLocalOrSegmentedText keeps
+            // running and its enrichmentGate slot leaks; after enough stalls the
+            // gate stays full and later parses degrade to segmented too — still
+            // bounded (never a hard hang), so enrichment quality drops rather
+            // than the tab freezing. Bounding the gated reads is a follow-up.
+            log.warn('Local parse timed out; using segmented fallback', { length: text.length }, error);
+            return this.localParseTimeoutFallback(text, options);
+        }
+    }
+
+    private async resolveLocalOrSegmentedText(text: string, options: ReaderParserParseOptions): Promise<JPDBToken[]> {
         if (this.canUseLocalDictionaryFallback()) {
             const tokens = await this.parseLocalDictionaryText(text, options);
             if (tokens.length) {
@@ -343,6 +402,16 @@ export class ReaderParser {
                     : tokens;
             }
         }
+        return options.allowSegmentedFallback === true ? this.parseSegmentedText(text) : [];
+    }
+
+    // The timeout path RESOLVES to this fallback (rather than rejecting), so
+    // parseLocalOrSegmentedText caches it. That is deliberate: a WebKit IDB
+    // stall rarely recovers within a page session, and caching the segmented
+    // result avoids re-hitting the dead request on every later lookup. The cost
+    // is that a genuinely transient stall keeps that one sentence ruby-less
+    // until LRU eviction — an accepted trade for not re-freezing.
+    private localParseTimeoutFallback(text: string, options: ReaderParserParseOptions): JPDBToken[] {
         return options.allowSegmentedFallback === true ? this.parseSegmentedText(text) : [];
     }
 

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.7.4
+// @version 1.7.5
 // @author Henry Russell
 // @description Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and a study page.
 // @license MIT
@@ -13,10 +13,10 @@
 // @match file:///*
 // @require https://yomureader.com/greasyfork/yomu-annotations.681e22120d9a.user.js#sha256=aB4iEg2agBbiuHLTqi/ZxxG/C7r2Nuw4ILg5UF9Qttk=
 // @require https://yomureader.com/greasyfork/yomu-anki.d36f764e0f24.user.js#sha256=0292Tg8kRFbt3mkaAcUJ1zBkVjbHN1dgiAYYRT00VSk=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.bfc22f6012ee.user.js#sha256=v8IvYBLu/Y0wCQoDElRImFbaWbiR9yJEuDQOMnjEWMM=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.fadc4b60017c.user.js#sha256=+txLYAF8+TQ6DorT/6maHam0zKP66nNXLEzZTh9hqQo=
 // @require https://yomureader.com/greasyfork/yomu-ocr-manga.62c4f0dc128c.user.js#sha256=YsTw3BKMFfj8KSP0mTOmaK0v0R6ZUquIzw5VPgka+1c=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.8b7ea0485899.user.js#sha256=i36gSFiZF/9rV+gLjTbAgAuXLnSfkQ5x8VeZLxZLkVc=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.8c2e63cc6301.user.js#sha256=jC5jzGMBPlh05kG/5j5P6PuFNiQT3y5JT2RY/7Zr3BE=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.6e46ad2ff85d.user.js#sha256=bkatL/hd6ohlZ74akrYaHLxEypfQ6rF0m2p7+kfS0x4=
 // @require https://yomureader.com/greasyfork/yomu-bunpro.88aa755b3cb1.user.js#sha256=iKp1WzyxHBnjh2hT59JGKDJhaNz9yw3Azco+WgPy87A=
 // @require https://yomureader.com/greasyfork/yomu-video.d2235e30a955.user.js#sha256=0iNeMKlVIxwvIBymhj9ODnjMmjwP1s6BtzD4KvmZ2Qk=
 // @resource yomuCss  https://yomureader.com/yomu.88a4714a7c42.css#sha256=iKRxSnxCIdyr353l/MjICEpNDRsQ6jGfkyOHUmExMEY=
@@ -22833,6 +22833,7 @@ const LOCAL_BOUNDARY_MATCH_LIMIT = 8;
 const LOCAL_BOUNDARY_CANDIDATE_LIMIT = 8;
 const LOCAL_BOUNDARY_LOOKUP_CONCURRENCY = 4;
 const JPDB_PARSE_FALLBACK_TIMEOUT_MS = 6e3;
+const LOCAL_PARSE_TIMEOUT_MS = 8e3;
 const YOUTUBE_VIEW_METRIC_RE = /回視聴/gu;
 const JITEN_MIN_BATCH_CHARS = 24;
 const JAPANESE_CHAR_COUNT_RE = /[぀-ヿ㐀-鿿々\uff66-\uff9f]/gu;
@@ -22876,12 +22877,15 @@ class ReaderParser {
   });
   try {
     const parsed = await this.parseWithPreferredSource(paragraphs, options, settings);
-    const boundaryReconciled = await this.withExactLocalBoundaryEvidence(paragraphs, parsed, options);
-    const rubyAligned = await this.withLocallySplitKanjiRubies(paragraphs, boundaryReconciled);
+    const rubyAligned = await this.reconcileLocalParse(paragraphs, parsed, options);
     const normalized = this.withNormalizedMetricParseResult(paragraphs, rubyAligned);
     if (!settings.yomuLocalSrsEnabled || !this.dependencies.yomuLocalSrs) return normalized;
     try {
-      return await hydrateYomuLocalSrsCardStates(normalized, this.dependencies.yomuLocalSrs);
+      return await withTimeout(
+        hydrateYomuLocalSrsCardStates(normalized, this.dependencies.yomuLocalSrs),
+        LOCAL_PARSE_TIMEOUT_MS,
+        () => new Error("Academy SRS state hydration timed out.")
+      );
     } catch (error) {
       log$b.warn("Academy SRS state hydration failed; keeping provider states", error);
       return normalized;
@@ -22889,6 +22893,22 @@ class ReaderParser {
   } finally {
     done();
   }
+  }
+  async reconcileLocalParse(paragraphs, parsed, options) {
+  try {
+    return await withTimeout(
+      this.reconcileLocalParseResolved(paragraphs, parsed, options),
+      LOCAL_PARSE_TIMEOUT_MS,
+      () => new Error("Local parse reconciliation timed out.")
+    );
+  } catch (error) {
+    log$b.warn("Local parse reconciliation timed out or failed; keeping unreconciled parse", error);
+    return parsed;
+  }
+  }
+  async reconcileLocalParseResolved(paragraphs, parsed, options) {
+  const boundaryReconciled = await this.withExactLocalBoundaryEvidence(paragraphs, parsed, options);
+  return this.withLocallySplitKanjiRubies(paragraphs, boundaryReconciled);
   }
   async parseWithPreferredSource(paragraphs, options, settings) {
   if (settings.parserProvider === "local" && await this.hasLocalTermDictionaries(true)) {
@@ -23056,12 +23076,27 @@ ${entry.reading}`);
   return promise;
   }
   async parseLocalOrSegmentedTextUncached(text, options) {
+  try {
+    return await withTimeout(
+      this.resolveLocalOrSegmentedText(text, options),
+      LOCAL_PARSE_TIMEOUT_MS,
+      () => new Error("Local parse timed out.")
+    );
+  } catch (error) {
+    log$b.warn("Local parse timed out; using segmented fallback", { length: text.length }, error);
+    return this.localParseTimeoutFallback(text, options);
+  }
+  }
+  async resolveLocalOrSegmentedText(text, options) {
   if (this.canUseLocalDictionaryFallback()) {
     const tokens = await this.parseLocalDictionaryText(text, options);
     if (tokens.length) {
       return options.allowSegmentedFallback === true ? this.fillSegmentedFallbackGaps(text, tokens) : tokens;
     }
   }
+  return options.allowSegmentedFallback === true ? this.parseSegmentedText(text) : [];
+  }
+  localParseTimeoutFallback(text, options) {
   return options.allowSegmentedFallback === true ? this.parseSegmentedText(text) : [];
   }
   rememberLocalParseCacheEntry(key, promise) {
@@ -36770,8 +36805,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
     `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.7.4"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.7.4"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.7.5"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.7.5"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka"];
@@ -36903,7 +36938,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.7.4"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.7.5"}`;
   } catch {
   return null;
   }
