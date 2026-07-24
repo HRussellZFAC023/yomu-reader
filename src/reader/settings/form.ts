@@ -1431,7 +1431,7 @@ export function localizeSettingsForm(form: HTMLFormElement, language: InterfaceL
     installLanguageProfileControlSync(form);
 }
 
-export function syncLanguageProfileControls(form: HTMLFormElement, language: InterfaceLanguage): void {
+function syncLanguageProfileControls(form: HTMLFormElement, language: InterfaceLanguage): void {
     const copy = multilingualSettingsCopy(language);
     const copyValues: Record<string, string> = {
         languageProfileTitle: copy.languageProfileTitle,

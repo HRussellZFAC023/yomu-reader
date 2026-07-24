@@ -9923,12 +9923,6 @@ ${spelling}`);
   function isTerminalDictionaryFallbackTerm(term) {
     return !BOGUS_SMALL_TSU_FINAL_RE.test(term) && fallbackLookupTermsForText(term).length <= 1;
   }
-  function normalizedLookupText$2(text2) {
-    return text2.replace(/\s+/g, " ").trim();
-  }
-  function isLookupableJapaneseText(text2) {
-    return Boolean(text2 && HAS_JAPANESE.test(text2));
-  }
   const JAPANESE_CAPABILITIES = Object.freeze({
     "term-lookup": true,
     "character-lookup": true,
@@ -9966,7 +9960,7 @@ ${spelling}`);
       return normalizeJapaneseTargetText(text2);
     },
     isLookupableText(text2) {
-      return isLookupableJapaneseText(text2);
+      return Boolean(text2 && HAS_JAPANESE.test(text2));
     },
     segment(text2) {
       return segmentJapaneseText(text2).map((segment) => ({
@@ -27160,17 +27154,17 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function exactBunproSearchReviewable(raw, expression, reading, preferredKind) {
     const record2 = isNonNullObject(raw) ? raw : {};
     const section = preferredKind === "vocabulary" ? record2.vocabs : record2.grammar_points;
-    const hits = readArray(section, ["data"]).map((hit) => normalizeBunproReviewable(hit, preferredKind)).filter((hit) => hit !== null).filter((hit) => normalizedLookupText$1(hit.expression) === normalizedLookupText$1(expression));
+    const hits = readArray(section, ["data"]).map((hit) => normalizeBunproReviewable(hit, preferredKind)).filter((hit) => hit !== null).filter((hit) => normalizedLookupText$2(hit.expression) === normalizedLookupText$2(expression));
     if (!hits.length) return null;
     if (reading) {
-      const readingMatches = hits.filter((hit) => normalizedLookupText$1(hit.reading) === normalizedLookupText$1(reading));
+      const readingMatches = hits.filter((hit) => normalizedLookupText$2(hit.reading) === normalizedLookupText$2(reading));
       if (readingMatches.length === 1) return readingMatches[0] ?? null;
       if (readingMatches.length > 1) return sameBunproReviewableIdentity(readingMatches) ? readingMatches[0] ?? null : null;
       return null;
     }
     return hits.length === 1 || sameBunproReviewableIdentity(hits) ? hits[0] ?? null : null;
   }
-  function normalizedLookupText$1(value) {
+  function normalizedLookupText$2(value) {
     return value.normalize("NFKC").trim();
   }
   function sameBunproReviewableIdentity(cards) {
@@ -28573,14 +28567,14 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return info ? bunproMatch(info) : noBunproMatch("selection-not-found");
   }
   function selectExactBunproDefinition(candidates, expression, reading) {
-    const normalizedExpression = normalizedLookupText(expression);
-    const exactExpression = candidates.filter((item) => normalizedLookupText(item.expression) === normalizedExpression);
+    const normalizedExpression = normalizedLookupText$1(expression);
+    const exactExpression = candidates.filter((item) => normalizedLookupText$1(item.expression) === normalizedExpression);
     if (!exactExpression.length) return noBunproMatch("expression-mismatch");
     return reading ? selectExactBunproReading(exactExpression, reading) : selectUnambiguousBunproDefinition(exactExpression, "ambiguous");
   }
   function selectExactBunproReading(candidates, reading) {
-    const normalizedReading = normalizedLookupText(reading);
-    const exactReading = candidates.filter((item) => normalizedLookupText(item.reading) === normalizedReading);
+    const normalizedReading = normalizedLookupText$1(reading);
+    const exactReading = candidates.filter((item) => normalizedLookupText$1(item.reading) === normalizedReading);
     return exactReading.length ? selectUnambiguousBunproDefinition(exactReading, "ambiguous") : noBunproMatch("reading-mismatch");
   }
   function selectUnambiguousBunproDefinition(candidates, ambiguousReason) {
@@ -28813,7 +28807,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     if (type === "vocabulary" || type === "grammar") return type;
     return void 0;
   }
-  function normalizedLookupText(value) {
+  function normalizedLookupText$1(value) {
     return value.normalize("NFKC").trim();
   }
   function normalizeBunproJlptLevel(value) {
@@ -87601,6 +87595,9 @@ ${component.reading}`;
       if (!card.pitchAccent.includes(pattern)) card.pitchAccent = [...card.pitchAccent, pattern];
     }
   }
+  function normalizedLookupText(text2) {
+    return text2.replace(/\s+/g, " ").trim();
+  }
   function isRubyAnnotation(element2) {
     return element2.tagName === "RT" || element2.tagName === "RP";
   }
@@ -93430,21 +93427,21 @@ ${options.version}`;
     return 0;
   }
   function renderedWordCacheMatches(word, card) {
-    const expression = normalizedLookupText$2(word.dataset.expression ?? "");
-    const reading = normalizedLookupText$2(word.dataset.reading ?? "");
+    const expression = normalizedLookupText(word.dataset.expression ?? "");
+    const reading = normalizedLookupText(word.dataset.reading ?? "");
     if (expression && !cardMatchesRenderedLookupValue(card, expression)) return false;
     if (reading && card.reading && !cardMatchesRenderedLookupValue(card, reading)) return false;
     return true;
   }
   function cardMatchesRenderedLookupValue(card, value) {
-    return normalizedLookupText$2(card.spelling) === value || normalizedLookupText$2(card.reading) === value;
+    return normalizedLookupText(card.spelling) === value || normalizedLookupText(card.reading) === value;
   }
   function renderedWordCardForLookup(word, cachedCard) {
     if (cachedCard && !renderedWordCacheMatches(word, cachedCard)) return void 0;
     if (!cachedCard) return void 0;
-    const reading = normalizedLookupText$2(word.dataset.reading ?? "");
+    const reading = normalizedLookupText(word.dataset.reading ?? "");
     const pitchAccent = renderedWordPitchAccent(word.dataset.pitchAccent ?? "");
-    const explicitSpelling = normalizedLookupText$2(word.dataset.expression || "");
+    const explicitSpelling = normalizedLookupText(word.dataset.expression || "");
     if (explicitSpelling && explicitSpelling !== cachedCard.spelling) cachedCard.spelling = explicitSpelling;
     if (reading && reading !== cachedCard.reading) cachedCard.reading = reading;
     if (pitchAccent.length && !cachedCard.pitchAccent.length) cachedCard.pitchAccent = pitchAccent;

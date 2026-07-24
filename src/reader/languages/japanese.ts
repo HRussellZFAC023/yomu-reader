@@ -1,11 +1,11 @@
 import { normalizedJapaneseCardReading } from '../cards/highlight-values';
+import { HAS_JAPANESE } from '../dom/constants';
 import {
     fallbackLookupTermsForText,
     normalizeFallbackTerm,
     segmentJapaneseText,
 } from '../lookup/japanese-segments';
 import { deinflectJapaneseTerm } from '../lookup/deinflect';
-import { isLookupableJapaneseText } from '../lookup/text-helpers';
 import {
     LEARNING_TARGET_MODULE_INTERFACE_VERSION,
     type LanguageLookupCandidate,
@@ -59,7 +59,7 @@ export const JAPANESE_LEARNING_TARGET: LearningTargetModule = Object.freeze({
     },
 
     isLookupableText(text: string): boolean {
-        return isLookupableJapaneseText(text);
+        return Boolean(text && HAS_JAPANESE.test(text));
     },
 
     segment(text: string) {

@@ -3,12 +3,6 @@ export {
   extractMessagePlaceholders,
   validateLocaleCatalog,
 } from "./catalog";
-export type {
-  LocaleCatalogValidationIssue,
-  LocaleMessageKey,
-  LocaleMessages,
-  YomuLocaleCatalog,
-} from "./catalog";
 export { LOCALE_CATALOGS } from "./catalogs";
 export {
   LEARNER_LANGUAGES,
@@ -20,9 +14,5 @@ export {
 } from "./roster";
 export { LEARNER_LANGUAGE_IDS } from "./types";
 export type {
-  LearnerLanguage,
   LearnerLanguageId,
-  LocaleCatalog,
-  TextDirection,
-  TranslationReviewStatus,
 } from "./types";

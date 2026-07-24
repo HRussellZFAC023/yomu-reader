@@ -202,7 +202,7 @@ export function recommendedDictionaryImportOptions(
     };
 }
 
-export function recommendedDictionariesFromCatalog(
+function recommendedDictionariesFromCatalog(
     catalog: DictionaryCatalogManifest,
     manifest: DictionaryRecommendationManifest,
 ): RecommendedDictionary[] {

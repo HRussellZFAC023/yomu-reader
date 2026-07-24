@@ -1,9 +1,9 @@
 export type SettingsDialogControllerClass = typeof import('../settings/dialog-controller').SettingsDialogController;
 export type SettingsDialogControllerInstance = InstanceType<SettingsDialogControllerClass>;
 export type OnboardingControllerClass = typeof import('../app/onboarding').OnboardingController;
-export type InstallOfflineParsingDictionariesFn = typeof import('../dictionaries/offline-setup').installOfflineParsingDictionaries;
-export type InstallDefinitionTranslationBehaviorsFn = typeof import('../sources/definition-translation').installDefinitionTranslationBehaviors;
-export interface SettingsSelfEnhancementCompanion {
+type InstallOfflineParsingDictionariesFn = typeof import('../dictionaries/offline-setup').installOfflineParsingDictionaries;
+type InstallDefinitionTranslationBehaviorsFn = typeof import('../sources/definition-translation').installDefinitionTranslationBehaviors;
+interface SettingsSelfEnhancementCompanion {
     SETTINGS_PARSE_TARGET_LIMIT: typeof import('../lookup/nested-text-parse').SETTINGS_PARSE_TARGET_LIMIT;
     nestedSettingsParseAlreadyRendered: typeof import('../lookup/nested-text-parse').nestedSettingsParseAlreadyRendered;
     nestedSettingsTextParsePlan: typeof import('../lookup/nested-text-parse').nestedSettingsTextParsePlan;

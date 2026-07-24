@@ -31128,12 +31128,6 @@ ${spelling}`);
   function isTerminalDictionaryFallbackTerm(term) {
     return !BOGUS_SMALL_TSU_FINAL_RE.test(term) && fallbackLookupTermsForText(term).length <= 1;
   }
-  function normalizedLookupText$1(text2) {
-    return text2.replace(/\s+/g, " ").trim();
-  }
-  function isLookupableJapaneseText(text2) {
-    return Boolean(text2 && HAS_JAPANESE$1.test(text2));
-  }
   const JAPANESE_CAPABILITIES = Object.freeze({
     "term-lookup": true,
     "character-lookup": true,
@@ -31171,7 +31165,7 @@ ${spelling}`);
       return normalizeJapaneseTargetText(text2);
     },
     isLookupableText(text2) {
-      return isLookupableJapaneseText(text2);
+      return Boolean(text2 && HAS_JAPANESE$1.test(text2));
     },
     segment(text2) {
       return segmentJapaneseText(text2).map((segment2) => ({
@@ -289058,6 +289052,9 @@ ${component.reading}`;
     for (const pattern of normalizePitchPatternsForReading([info.pitchAccentStress], reading)) {
       if (!card.pitchAccent.includes(pattern)) card.pitchAccent = [...card.pitchAccent, pattern];
     }
+  }
+  function normalizedLookupText$1(text2) {
+    return text2.replace(/\s+/g, " ").trim();
   }
   function isRubyAnnotation(element2) {
     return element2.tagName === "RT" || element2.tagName === "RP";

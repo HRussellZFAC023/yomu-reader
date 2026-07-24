@@ -20,6 +20,19 @@
     "scripts/academy-audio-media.mjs",
     "scripts/academy-source-pipeline.mjs",
     "scripts/academy-voice/build-voice-production-manifest.mjs",
+    // Standalone dictionary acquisition, release, publication, and live-proof
+    // CLIs. Operators invoke these directly during a catalogue release; they
+    // are not reachable from the browser application graph.
+    "scripts/dictionaries/acquire.mjs",
+    "scripts/dictionaries/build-frozen-manifests.mjs",
+    "scripts/dictionaries/drive-inventory.mjs",
+    "scripts/dictionaries/ingest-verified-connector-manifest.mjs",
+    "scripts/dictionaries/materialize-connector-export.mjs",
+    "scripts/dictionaries/prepare-release.mjs",
+    "scripts/dictionaries/upload-large-objects.mjs",
+    "scripts/dictionaries/upload.mjs",
+    "scripts/dictionaries/validate.mjs",
+    "scripts/dictionaries/verify-live.mjs",
     "scripts/generate-academy-achievements.mjs",
     "scripts/organize-academy-art.mjs",
     "scripts/organize-yomu-machine.mjs",

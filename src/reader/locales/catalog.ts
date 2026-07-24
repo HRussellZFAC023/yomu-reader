@@ -35,14 +35,6 @@ export function defineLocaleCatalog(
   });
 }
 
-export function defineLocaleCatalogScaffold(
-  locale: LearnerLanguageId,
-): YomuLocaleCatalog {
-  return defineLocaleCatalog(locale, "scaffold", {
-    ...ENGLISH_FALLBACK_MESSAGES,
-  });
-}
-
 export function extractMessagePlaceholders(message: string): readonly string[] {
   return Object.freeze(
     [...message.matchAll(/\{([A-Za-z][A-Za-z0-9_]*)(?:\s*,|\})/g)]

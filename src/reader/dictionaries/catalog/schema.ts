@@ -39,7 +39,7 @@ const RECOMMENDATION_ROLES = new Set([
     'pronunciation',
 ]);
 
-export class DictionaryManifestError extends Error {
+class DictionaryManifestError extends Error {
     constructor(path: string, message: string) {
         super(`${path}: ${message}`);
         this.name = 'DictionaryManifestError';
@@ -348,4 +348,3 @@ function assertUnique(values: readonly string[], path: string, label: string): v
 function fail(path: string, message: string): never {
     throw new DictionaryManifestError(path, message);
 }
-

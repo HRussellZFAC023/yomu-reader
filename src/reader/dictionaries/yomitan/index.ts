@@ -152,7 +152,6 @@ interface HotLookupCacheEntry<T> {
 }
 
 export type {
-    DictionaryImportIntegrity,
     DictionaryImportOptions,
     DictionarySummary,
     ImportSummary,

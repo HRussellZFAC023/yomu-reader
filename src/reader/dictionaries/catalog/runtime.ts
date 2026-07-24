@@ -88,7 +88,3 @@ export const FROZEN_DICTIONARY_RECOMMENDATIONS: Readonly<Record<Slice1LearnerLan
         }),
     ) as Record<Slice1LearnerLanguage, DictionaryRecommendationManifest>,
 );
-
-export function frozenDictionaryRecommendations(language: Slice1LearnerLanguage): DictionaryRecommendationManifest {
-    return FROZEN_DICTIONARY_RECOMMENDATIONS[language];
-}

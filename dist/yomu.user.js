@@ -12,13 +12,13 @@
 // @match *://*/*
 // @match file:///*
 // @require https://yomureader.com/greasyfork/yomu-annotations.681e22120d9a.user.js#sha256=aB4iEg2agBbiuHLTqi/ZxxG/C7r2Nuw4ILg5UF9Qttk=
-// @require https://yomureader.com/greasyfork/yomu-anki.2c7ce8f7aa1b.user.js#sha256=LHzo96obn9wJb9ZyWC3q4yCpDbWEUwWBGcm4IYyuJpk=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.4a7ba69d550c.user.js#sha256=SnumnVUM9RpB9ZZn8O5ZZdq6iOsofXofro3T+iTi8qs=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.3519046a51d5.user.js#sha256=NRkEalHVwVYTajel9nLg/prp4w/BbeHzqzbC1janFFM=
+// @require https://yomureader.com/greasyfork/yomu-anki.d36f764e0f24.user.js#sha256=0292Tg8kRFbt3mkaAcUJ1zBkVjbHN1dgiAYYRT00VSk=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.bfc22f6012ee.user.js#sha256=v8IvYBLu/Y0wCQoDElRImFbaWbiR9yJEuDQOMnjEWMM=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.62c4f0dc128c.user.js#sha256=YsTw3BKMFfj8KSP0mTOmaK0v0R6ZUquIzw5VPgka+1c=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.8b7ea0485899.user.js#sha256=i36gSFiZF/9rV+gLjTbAgAuXLnSfkQ5x8VeZLxZLkVc=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.fdf8b44f76a5.user.js#sha256=/fi0T3alpUEcvQw/s6hibXPk3PByidK0SnG+nO9KBwU=
-// @require https://yomureader.com/greasyfork/yomu-bunpro.6a00f8aa8840.user.js#sha256=agD4qohAHh0GhHVOQl9Wzsv/zH204ot4CwzMKL7sHyY=
-// @require https://yomureader.com/greasyfork/yomu-video.332de6aed635.user.js#sha256=My3mrtY1rupQpEDBY8NsmkJsh4uGzkFHJ8VewSZgs+Y=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.b8c0a7216f1c.user.js#sha256=uMCnIW8cVanHZpmzMsg3w72E3oHZI1M2jw860OGETOU=
+// @require https://yomureader.com/greasyfork/yomu-bunpro.88aa755b3cb1.user.js#sha256=iKp1WzyxHBnjh2hT59JGKDJhaNz9yw3Azco+WgPy87A=
+// @require https://yomureader.com/greasyfork/yomu-video.d2235e30a955.user.js#sha256=0iNeMKlVIxwvIBymhj9ODnjMmjwP1s6BtzD4KvmZ2Qk=
 // @resource yomuCss  https://yomureader.com/yomu.ca61e9465afb.css#sha256=ymHpRlr7G7M14Z5Sh7lFeHhfjWFQ2o0POaTjp4Zmvyg=
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -5744,74 +5744,6 @@ function hasAmbiguousContinuativeStemCandidate(source) {
 function isTerminalDictionaryFallbackTerm(term) {
   return !BOGUS_SMALL_TSU_FINAL_RE.test(term) && fallbackLookupTermsForText(term).length <= 1;
 }
-const SINGLE_HIRAGANA_MORA_RE = /^[\u3040-\u309fー]$/u;
-const SUBSTANTIVE_LOCAL_EXPANSION_RE = /[\u3400-\u9fff々〆ヵヶ\u30a0-\u30ff]/u;
-function normalizedLookupText(text) {
-  return text.replace(/\s+/g, " ").trim();
-}
-function isLookupableJapaneseText(text) {
-  return Boolean(text && HAS_JAPANESE.test(text));
-}
-function lookupCandidateSentence(text, start = 0, end = text.length) {
-  const sentence = sentenceAroundRange(text, start, end) || normalizedLookupText(text);
-  return isLookupableJapaneseText(sentence) ? sentence : "";
-}
-function pointerTokenAtOffset(tokens, offset) {
-  return tokens.find((token) => tokenContainsPointerOffset(token, offset));
-}
-function tokenContainsPointerOffset(token, offset) {
-  return token.start <= offset && offset < token.end;
-}
-function isLowValuePitchEnrichmentToken(token) {
-  return isLowValuePointerTextToken(token);
-}
-function isLowValuePointerTextToken(token) {
-  const spelling = token.card.spelling.trim();
-  return SINGLE_HIRAGANA_MORA_RE.test(spelling);
-}
-function canExpandLocalPointerRange(surface) {
-  return surface.length > 1 || SUBSTANTIVE_LOCAL_EXPANSION_RE.test(surface);
-}
-function isOverbroadLocalPointerRange(run, range) {
-  const rangeLength = range.end - range.start;
-  const runLength = run.end - run.start;
-  return rangeLength > 8 && range.start <= run.start && range.end >= run.end && runLength > 8;
-}
-function preferredRenderedWordSentence(nearest, tokenSentence) {
-  const cleanNearest = normalizedLookupText(nearest);
-  const cleanTokenSentence = normalizedLookupText(tokenSentence);
-  if (cleanTokenSentence && shouldPreferTokenSentence(cleanNearest, cleanTokenSentence)) return cleanTokenSentence;
-  if (cleanTokenSentence && cleanTokenSentence.length > cleanNearest.length + 2) return cleanTokenSentence;
-  return cleanNearest || cleanTokenSentence || void 0;
-}
-function shouldPreferTokenSentence(nearest, tokenSentence) {
-  if (!nearest) return true;
-  if (!compactLookupText(nearest).includes(compactLookupText(tokenSentence))) return true;
-  return looksLikeNoisyRenderedContext(nearest);
-}
-function compactLookupText(text) {
-  return normalizedLookupText(text).replace(/\s+/g, "");
-}
-function looksLikeNoisyRenderedContext(text) {
-  const timecodes = text.match(/\d{1,2}:\d{2}/g)?.length ?? 0;
-  if (timecodes >= 2) return true;
-  const digitish = text.match(/[0-9０-９:：]/g)?.length ?? 0;
-  if (digitish >= 12 && digitish / Math.max(1, Array.from(text).length) > 0.12) return true;
-  return /動画全編を視聴|watch full video|view full video/i.test(text);
-}
-function pitchEnrichmentPriority(token) {
-  return token.card.source === "fallback" ? 0 : 1;
-}
-function pitchEnrichmentTokenForCard(card) {
-  return {
-  card,
-  start: 0,
-  end: card.spelling.length,
-  length: card.spelling.length,
-  rubies: [],
-  pitchClass: ""
-  };
-}
 const JAPANESE_CAPABILITIES = Object.freeze({
   "term-lookup": true,
   "character-lookup": true,
@@ -5849,7 +5781,7 @@ const JAPANESE_LEARNING_TARGET = Object.freeze({
   return normalizeJapaneseTargetText(text);
   },
   isLookupableText(text) {
-  return isLookupableJapaneseText(text);
+  return Boolean(text && HAS_JAPANESE.test(text));
   },
   segment(text) {
   return segmentJapaneseText(text).map((segment) => ({
@@ -31073,6 +31005,74 @@ function exampleSectionFromLabel(label) {
 }
 function updateKanjiMiningControlsMount(popover, controls, setMiningControlsExpanded2) {
   yomuKanjiStudyCompanion()?.updateKanjiMiningControlsMount?.(popover, controls, setMiningControlsExpanded2);
+}
+const SINGLE_HIRAGANA_MORA_RE = /^[\u3040-\u309fー]$/u;
+const SUBSTANTIVE_LOCAL_EXPANSION_RE = /[\u3400-\u9fff々〆ヵヶ\u30a0-\u30ff]/u;
+function normalizedLookupText(text) {
+  return text.replace(/\s+/g, " ").trim();
+}
+function isLookupableJapaneseText(text) {
+  return Boolean(text && HAS_JAPANESE.test(text));
+}
+function lookupCandidateSentence(text, start = 0, end = text.length) {
+  const sentence = sentenceAroundRange(text, start, end) || normalizedLookupText(text);
+  return isLookupableJapaneseText(sentence) ? sentence : "";
+}
+function pointerTokenAtOffset(tokens, offset) {
+  return tokens.find((token) => tokenContainsPointerOffset(token, offset));
+}
+function tokenContainsPointerOffset(token, offset) {
+  return token.start <= offset && offset < token.end;
+}
+function isLowValuePitchEnrichmentToken(token) {
+  return isLowValuePointerTextToken(token);
+}
+function isLowValuePointerTextToken(token) {
+  const spelling = token.card.spelling.trim();
+  return SINGLE_HIRAGANA_MORA_RE.test(spelling);
+}
+function canExpandLocalPointerRange(surface) {
+  return surface.length > 1 || SUBSTANTIVE_LOCAL_EXPANSION_RE.test(surface);
+}
+function isOverbroadLocalPointerRange(run, range) {
+  const rangeLength = range.end - range.start;
+  const runLength = run.end - run.start;
+  return rangeLength > 8 && range.start <= run.start && range.end >= run.end && runLength > 8;
+}
+function preferredRenderedWordSentence(nearest, tokenSentence) {
+  const cleanNearest = normalizedLookupText(nearest);
+  const cleanTokenSentence = normalizedLookupText(tokenSentence);
+  if (cleanTokenSentence && shouldPreferTokenSentence(cleanNearest, cleanTokenSentence)) return cleanTokenSentence;
+  if (cleanTokenSentence && cleanTokenSentence.length > cleanNearest.length + 2) return cleanTokenSentence;
+  return cleanNearest || cleanTokenSentence || void 0;
+}
+function shouldPreferTokenSentence(nearest, tokenSentence) {
+  if (!nearest) return true;
+  if (!compactLookupText(nearest).includes(compactLookupText(tokenSentence))) return true;
+  return looksLikeNoisyRenderedContext(nearest);
+}
+function compactLookupText(text) {
+  return normalizedLookupText(text).replace(/\s+/g, "");
+}
+function looksLikeNoisyRenderedContext(text) {
+  const timecodes = text.match(/\d{1,2}:\d{2}/g)?.length ?? 0;
+  if (timecodes >= 2) return true;
+  const digitish = text.match(/[0-9０-９:：]/g)?.length ?? 0;
+  if (digitish >= 12 && digitish / Math.max(1, Array.from(text).length) > 0.12) return true;
+  return /動画全編を視聴|watch full video|view full video/i.test(text);
+}
+function pitchEnrichmentPriority(token) {
+  return token.card.source === "fallback" ? 0 : 1;
+}
+function pitchEnrichmentTokenForCard(card) {
+  return {
+  card,
+  start: 0,
+  end: card.spelling.length,
+  length: card.spelling.length,
+  rubies: [],
+  pitchClass: ""
+  };
 }
 const JAPANESE_RUN_RE = /[\u3040-\u30ff\u3400-\u9fff々〆ヵヶー]/u;
 const JPDB_POINTER_CANDIDATE_MAX_LENGTH = 18;
