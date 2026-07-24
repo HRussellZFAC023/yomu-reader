@@ -6,6 +6,19 @@ import { defaultDictionaryLookupLinks, formatShortcutEvent, sanitizeAccentColor,
 import type { InterfaceLanguage, ReaderSettings } from './types';
 import { ocrInteractionModeFromSettings } from '../ocr/mode';
 import { applyOverlayPageScale } from '../ui/page-scale';
+import {
+    activateLanguageProfileForLearner,
+    activeLanguageProfile,
+    canonicalTagForSlice1Language,
+    slice1LanguageIdForTag,
+    SLICE1_TARGET_LANGUAGE,
+} from '../languages';
+import {
+    LEARNER_LANGUAGES,
+    isLearnerLanguageId,
+    learnerLanguageById,
+    type LearnerLanguageId,
+} from '../locales';
 
 const log = Logger.scope('Onboarding');
 const ONBOARDING_ACCENT_SWATCHES = ['#5ea780', '#2563eb', '#7c3aed', '#db2777', '#ea580c', '#0891b2'] as const;
@@ -42,6 +55,7 @@ export class OnboardingController {
     private panel?: HTMLElement;
     private backdrop?: HTMLElement;
     private languageSelect?: HTMLSelectElement;
+    private learnerLanguageSelect?: HTMLSelectElement;
     private themeSwitch?: HTMLButtonElement;
     private accentColorInput?: HTMLInputElement;
     private pendingAccentPreviewColor?: string;
@@ -108,8 +122,44 @@ export class OnboardingController {
             featureList.append(item);
         });
 
+        const learnerLanguage = document.createElement('label');
+        learnerLanguage.className = 'jpdb-reader-onboarding-language jpdb-reader-onboarding-learner-language';
+        const learnerLanguageText = element(
+            'span',
+            '',
+            onboardingLanguageProfileCopy(this.options.getSettings().interfaceLanguage).learnerLanguage,
+        );
+        learnerLanguageText.dataset.onboardingMultilingualCopy = 'learnerLanguage';
+        this.learnerLanguageSelect = document.createElement('select');
+        this.learnerLanguageSelect.name = 'learnerLanguage';
+        this.learnerLanguageSelect.setAttribute('autocomplete', 'language');
+        const initialLearnerLanguage = onboardingLearnerLanguage(this.options.getSettings());
+        LEARNER_LANGUAGES.forEach(item => {
+            const option = document.createElement('option');
+            option.value = item.id;
+            option.lang = item.runtimeLocale;
+            option.dir = item.direction;
+            option.textContent = learnerLanguageOptionLabel(item);
+            option.selected = item.id === initialLearnerLanguage;
+            this.learnerLanguageSelect?.append(option);
+        });
+        learnerLanguage.append(learnerLanguageText, this.learnerLanguageSelect);
+
+        const targetLanguage = document.createElement('div');
+        targetLanguage.className = 'jpdb-reader-onboarding-language jpdb-reader-onboarding-target-language';
+        const targetLanguageText = element(
+            'span',
+            '',
+            onboardingLanguageProfileCopy(this.options.getSettings().interfaceLanguage).targetLanguage,
+        );
+        targetLanguageText.dataset.onboardingMultilingualCopy = 'targetLanguage';
+        const targetLanguageValue = element('output', '', '日本語 — Japanese');
+        targetLanguageValue.lang = 'ja';
+        targetLanguageValue.dataset.onboardingTargetLanguage = SLICE1_TARGET_LANGUAGE;
+        targetLanguage.append(targetLanguageText, targetLanguageValue);
+
         const language = document.createElement('label');
-        language.className = 'jpdb-reader-onboarding-language';
+        language.className = 'jpdb-reader-onboarding-language jpdb-reader-onboarding-interface-language';
         const languageText = element('span', '', uiText(this.options.getSettings().interfaceLanguage, 'onboardingLanguage'));
         this.languageSelect = document.createElement('select');
         this.languageSelect.name = 'interfaceLanguage';
@@ -128,7 +178,7 @@ export class OnboardingController {
 
         const preferences = document.createElement('div');
         preferences.className = 'jpdb-reader-onboarding-preferences';
-        preferences.append(language, this.createThemeToggle());
+        preferences.append(learnerLanguage, targetLanguage, language, this.createThemeToggle());
 
         const accentPicker = document.createElement('fieldset');
         accentPicker.className = 'jpdb-reader-onboarding-accent';
@@ -255,6 +305,19 @@ export class OnboardingController {
             this.options.setSettings({ ...this.options.getSettings(), interfaceLanguage: language });
             this.localize(language);
         });
+        this.learnerLanguageSelect.addEventListener('change', () => {
+            const learnerLanguage = selectedLearnerLanguage(
+                this.learnerLanguageSelect?.value,
+                onboardingLearnerLanguage(this.options.getSettings()),
+            );
+            const selected = learnerLanguageById(learnerLanguage);
+            log.info('Onboarding learner language changed', {
+                learnerLanguage,
+                targetLanguage: SLICE1_TARGET_LANGUAGE,
+            });
+            this.learnerLanguageSelect?.setAttribute('lang', selected.runtimeLocale);
+            this.learnerLanguageSelect?.setAttribute('dir', selected.direction);
+        });
         this.panel.addEventListener('click', event => {
             this.handleWordLookup(event);
         });
@@ -300,7 +363,12 @@ export class OnboardingController {
         panel.querySelector('.jpdb-reader-onboarding-eyebrow')?.replaceChildren(uiText(language, 'onboardingEyebrow'));
         const copy = panel.querySelector('p');
         copy?.replaceChildren(uiText(language, 'onboardingCopy'));
-        panel.querySelector('.jpdb-reader-onboarding-language span')?.replaceChildren(uiText(language, 'onboardingLanguage'));
+        panel.querySelector('.jpdb-reader-onboarding-interface-language span')?.replaceChildren(uiText(language, 'onboardingLanguage'));
+        const multilingualCopy = onboardingLanguageProfileCopy(language);
+        panel.querySelector('[data-onboarding-multilingual-copy="learnerLanguage"]')
+            ?.replaceChildren(multilingualCopy.learnerLanguage);
+        panel.querySelector('[data-onboarding-multilingual-copy="targetLanguage"]')
+            ?.replaceChildren(multilingualCopy.targetLanguage);
         panel.querySelector('[data-onboarding-copy="theme"]')?.replaceChildren(uiText(language, 'theme'));
         panel.querySelector('.jpdb-reader-onboarding-options legend')?.replaceChildren(uiText(language, 'onboardingImmersionOptions'));
         panel.querySelector('[data-onboarding-copy="shortcuts.hoverLookup"]')?.replaceChildren(uiText(language, 'onboardingHoverShortcut'));
@@ -377,6 +445,16 @@ export class OnboardingController {
         const current = this.options.getSettings();
         const pageScanMode = selectedMode(this.pageScanModeInputs, pageScanModeFromSettings(current));
         const ocrMode = selectedMode(this.ocrModeInputs, ocrInteractionModeFromSettings(current));
+        const interfaceLanguage = selectedOnboardingLanguage(this.languageSelect?.value, current.interfaceLanguage);
+        const learnerLanguage = selectedLearnerLanguage(
+            this.learnerLanguageSelect?.value,
+            onboardingLearnerLanguage(current),
+        );
+        const languageProfileSelection = updateActiveOnboardingLanguageProfile(
+            current,
+            learnerLanguage,
+            interfaceLanguage,
+        );
         return {
             ...current,
             onboardingSeen: true,
@@ -394,7 +472,8 @@ export class OnboardingController {
                 scanPage: this.manualPageScanShortcutInput?.value.trim() ?? current.shortcuts.scanPage,
             },
             dictionaryLookupLinks: defaultDictionaryLookupLinks(openSettings === true ? 'jpdb' : 'local'),
-            interfaceLanguage: selectedOnboardingLanguage(this.languageSelect?.value, current.interfaceLanguage),
+            interfaceLanguage,
+            ...languageProfileSelection,
             accentColor: sanitizeAccentColor(this.accentColorInput?.value, current.accentColor),
         };
     }
@@ -411,6 +490,7 @@ export class OnboardingController {
         this.panel = undefined;
         this.backdrop = undefined;
         this.languageSelect = undefined;
+        this.learnerLanguageSelect = undefined;
         this.themeSwitch = undefined;
         this.accentColorInput = undefined;
         this.youtubeImmersionInput = undefined;
@@ -528,6 +608,82 @@ function selectedMode<T extends string>(inputs: HTMLInputElement[], fallback: T)
 
 function normalizeLanguage(value: unknown, fallback: InterfaceLanguage): InterfaceLanguage {
     return value === 'en' || value === 'ja' || value === 'auto' ? value : fallback;
+}
+
+type OnboardingLanguageProfileCopy = {
+    learnerLanguage: string;
+    targetLanguage: string;
+};
+
+function onboardingLanguageProfileCopy(language: InterfaceLanguage): OnboardingLanguageProfileCopy {
+    return language === 'ja'
+        ? {
+            learnerLanguage: 'あなたの言語（辞書の定義）',
+            targetLanguage: '学習する言語',
+        }
+        : {
+            learnerLanguage: 'Your language (dictionary definitions)',
+            targetLanguage: 'Language you are learning',
+        };
+}
+
+function learnerLanguageOptionLabel(language: {
+    nativeName: string;
+    englishName: string;
+}): string {
+    return language.nativeName === language.englishName
+        ? language.nativeName
+        : `${language.nativeName} — ${language.englishName}`;
+}
+
+function onboardingLearnerLanguage(settings: ReaderSettings): LearnerLanguageId {
+    const profile = activeLanguageProfile(settings.languageProfiles, settings.activeLanguageProfileId);
+    const saved = slice1LanguageIdForTag(profile?.learnerLanguage);
+    if (saved && saved !== 'en') return saved;
+
+    const browserLanguages = typeof navigator === 'undefined'
+        ? []
+        : [...(navigator.languages ?? []), navigator.language];
+    for (const browserLanguage of browserLanguages) {
+        const detected = slice1LanguageIdForTag(browserLanguage);
+        if (detected) return detected;
+    }
+    return saved ?? 'en';
+}
+
+function selectedLearnerLanguage(
+    value: string | undefined,
+    fallback: LearnerLanguageId,
+): LearnerLanguageId {
+    return value && isLearnerLanguageId(value) ? value : fallback;
+}
+
+function updateActiveOnboardingLanguageProfile(
+    settings: ReaderSettings,
+    learnerLanguage: LearnerLanguageId,
+    interfaceLanguage: InterfaceLanguage,
+): Pick<ReaderSettings, 'languageProfiles' | 'activeLanguageProfileId'> {
+    const activated = activateLanguageProfileForLearner(
+        settings.languageProfiles,
+        settings.activeLanguageProfileId,
+        canonicalTagForSlice1Language(learnerLanguage),
+        {
+            uiLocale: interfaceLanguage,
+            parserProvider: settings.parserProvider,
+        },
+    );
+    return {
+        activeLanguageProfileId: activated.activeProfileId,
+        languageProfiles: activated.profiles.map(profile => profile.id === activated.activeProfileId
+        ? {
+            ...profile,
+            learnerLanguage: canonicalTagForSlice1Language(learnerLanguage),
+            targetLanguage: SLICE1_TARGET_LANGUAGE,
+            uiLocale: interfaceLanguage,
+            parserProvider: settings.parserProvider,
+        }
+        : profile),
+    };
 }
 
 function element<K extends keyof HTMLElementTagNameMap>(tag: K, className: string, text: string): HTMLElementTagNameMap[K] {

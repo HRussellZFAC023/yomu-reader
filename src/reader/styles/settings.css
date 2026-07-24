@@ -710,6 +710,34 @@
   height: 40px;
   padding: 4px;
 }
+.jpdb-reader-settings .jpdb-reader-language-profile {
+  margin-top: 0;
+}
+.jpdb-reader-settings .jpdb-reader-language-target {
+  display: flex;
+  align-items: center;
+  min-height: 40px;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 7px;
+  background: var(--jpdb-reader-surface-2);
+  color: var(--jpdb-reader-text);
+  font-weight: 750;
+}
+.jpdb-reader-settings .jpdb-reader-definition-translation-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  gap: 6px 16px;
+  margin-top: 8px;
+}
+.jpdb-reader-settings .jpdb-reader-definition-translation-list .inline {
+  align-items: flex-start;
+  min-height: 36px;
+}
+.jpdb-reader-settings .jpdb-reader-definition-translation-list strong {
+  color: var(--jpdb-reader-text);
+}
 /* A checkbox/toggle keeps its box-beside-text row, but that row drops to the
    bottom of the cell inside a control-height band, so the box and its label
    sit on the same line as the dropdowns and inputs beside them. */

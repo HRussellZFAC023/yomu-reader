@@ -1,5 +1,5 @@
-import { requestJson } from '../network/http';
 import { Logger } from '../app/logger';
+import { translateText } from '../translation/google';
 import type { SubtitleCue } from './subtitle-cues';
 
 const TRANSLATION_BATCH_SIZE = 80;
@@ -8,10 +8,6 @@ const TRANSLATION_TIMEOUT_MS = 8000;
 const TRANSLATION_SEPARATOR = '\n';
 
 const log = Logger.scope('SubtitleTranslate');
-
-interface GoogleTranslateResponse {
-    sentences?: Array<{ trans?: string }>;
-}
 
 interface TranslateSubtitleCueOptions {
     batchSize?: number;
@@ -66,19 +62,13 @@ function batchTexts(texts: string[], size: number, encodedCharBudget: number): s
 
 async function translateBatch(texts: string[], sourceLanguage: string, targetLanguage: string): Promise<string[]> {
     const joined = texts.join(TRANSLATION_SEPARATOR);
-    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${sourceLanguage}&tl=${targetLanguage}&dt=t&dj=1&q=${encodeURIComponent(joined)}`;
     const done = log.time('Translate subtitle batch', { count: texts.length });
     try {
-        const json = await requestJson(url, {
+        const result = await translateText(joined, {
+            sourceLanguage,
+            targetLanguage,
             timeoutMs: TRANSLATION_TIMEOUT_MS,
-            allowDirectCrossOrigin: true,
-            allowConfiguredProxy: false,
-            allowPublicProxies: false,
-            preferFetch: true,
-            failureLabel: 'Subtitle translation request',
-            timeoutLabel: 'Subtitle translation timed out.',
-        }) as GoogleTranslateResponse;
-        const result = (json.sentences ?? []).map(item => item.trans ?? '').join('');
+        });
         const lines = result.split(TRANSLATION_SEPARATOR);
         log.info('Subtitle batch translated', { count: texts.length, resultCount: lines.length });
         return padTranslationResults(lines, texts);

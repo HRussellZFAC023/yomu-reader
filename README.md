@@ -46,13 +46,14 @@
 ## Why よむ
 
 - **Lookup anywhere:** choose Japanese text on normal pages, OCR results, subtitles, and PDFs.
+- **Definitions in your language:** choose one of 32 learner languages while keeping Japanese as the Slice 1 learning target. よむ recommends a native-language dictionary where one is available; non-native sources can be translated only when you opt in, with the translation shown first and the original definition kept underneath.
 - **Local-first parsing:** with imported dictionaries (offered during onboarding), text parsing runs entirely in your browser — no Jiten/JPDB calls, works offline. Switchable in Settings → Sources → Parsing.
 - **Mine and review while reading:** create Anki cards or add words to Academy, Jiten, Bunpro, or JPDB with source context; review Bunpro and currently due WaniKani assignments safely from their live queues.
 - **Optional encrypted Reader account:** create an account from yomureader.com, pair Reader with a one-time code, and synchronize Academy/local SRS states without giving Yomu the decryption key. A free Reader account does not unlock the separate Academy curriculum.
 - **Keep connected sources consistent:** WaniKani definitions, mnemonics, account state, personal notes, pronunciation, kanji components, review queue, and stats sit alongside Jiten, Bunpro, and JPDB instead of becoming a separate workflow.
 - **Enhance the sites you study in:** on jpdb, Jiten, and Bunpro detail, lesson, and revealed review pages, よむ adds Immersion Kit examples and your other enabled dictionary sources directly to the native page. Jiten review cards prefetch one exact current-card search without exposing it on the question side or fanning out fallback traffic; every supported review surface mounts a centred, height-bounded video area immediately while dictionaries hydrate independently at full width.
 - **Read examples consistently:** Bunpro, Jiten, and JPDB use the same compact example rows, annotate the full Japanese sentence with furigana, and blur translations until you reveal them. Missing provider translations are filled with よむ's cached sentence translator. Bunpro also exposes labelled per-corpus frequency and pitch evidence, with pronunciation recordings available as an audio source that stays off until you enable it.
-- **Bring your dictionaries:** import Yomitan ZIPs, JMdict, kanji dictionaries, pitch dictionaries, and frequency dictionaries.
+- **Bring your dictionaries:** install language-specific recommendations from Yomu's immutable dictionary catalogue, or import your own Yomitan ZIPs, JMdict, kanji dictionaries, pitch dictionaries, and frequency dictionaries.
 - **Read media, not only text:** manga/image OCR, PC game capture through Yomu Gaming, YouTube subtitle mining, a local video reader, and a PDF reader.
 - **Mobile-friendly:** works on iPhone/iPad through userscript apps, with touch-first lookup, 44px review controls, one-tap blurred-translation reveal, and mobile Anki handoff.
 - **Free and open source:** MIT-licensed, no account needed to start.
@@ -85,7 +86,7 @@ Browser-store distribution is rolling out for Chrome, Firefox, and Safari. The u
 | Video | ASB-style subtitle overlay, transcript lookup, shadowing practice, batch mining, and a hosted local-file video reader |
 | PDFs | Browser PDF reader with selectable text, OCR fallback, and the same popup/mining flow |
 | Yomu app | An installable, offline-first Study, Library, Stats, and Connections client with Academy/local SRS highlighting and encrypted account sync; kanji, word, typing, listening, and speaking practice; AnkiConnect; Jiten/Bunpro/JPDB sync; and live due-only WaniKani reviews |
-| Dictionaries | Yomitan imports, JMdict, local dictionaries, kanji data, grammar hints, and source ordering |
+| Dictionaries | Native-first recommendations for 32 learner languages, content-addressed Yomitan downloads, local imports, JMdict, kanji data, grammar hints, source ordering, and opt-in definition translation |
 
 ## Hosted Tools
 
@@ -100,7 +101,7 @@ The reader built into yomureader.com is only a no-install fallback. When the よ
 
 ## Privacy
 
-よむ keeps imported Yomitan dictionaries and settings in your browser. Anki mining talks to your local AnkiConnect endpoint. Jiten, Bunpro, JPDB, WaniKani, Immersion Kit, Nadeshiko, custom audio, local OCR, and optional kanji data sources are contacted only when their related features are enabled or used. WaniKani requests go directly to its official API and never through Yomu's proxy.
+よむ keeps imported Yomitan dictionaries and settings in your browser. Recommended dictionaries are downloaded from Yomu's public, content-addressed dictionary mirror and then remain local. Automatic definition translation is off by default; if you enable it for a source, only selected definition or gloss text from that source is sent directly to Google Translate in the language profile you selected. Personal WaniKani notes, mnemonics, readings, account state, and controls are not sent for translation. Google does not offer an Ancient Greek target, so that profile keeps original definitions and its dictionary recommendations without showing a broken translation option. Anki mining talks to your local AnkiConnect endpoint. Jiten, Bunpro, JPDB, WaniKani, Immersion Kit, Nadeshiko, custom audio, local OCR, and optional kanji data sources are contacted only when their related features are enabled or used. WaniKani requests go directly to its official API and never through Yomu's proxy.
 
 An optional Yomu account can synchronize the Academy/local SRS deck. The Reader encrypts card mutations before upload and keeps the profile key in extension/userscript-owned storage; the server receives ciphertext, opaque ids, timestamps, and device metadata, not words, readings, meanings, or schedules in plaintext. Account export, device revocation, profile deletion, and account deletion are available from Profile & sync.
 
@@ -197,6 +198,7 @@ If よむ helps you read more Japanese, a star makes it easier for other learner
 - [Yomitan](https://github.com/yomidevs/yomitan) for dictionary import formats, structured glossary handling, audio-source conventions, and scanning UX references.
 - [JPDB Custom Dictionary Mod](https://gitlab.com/nakura/jpdb_cdm) for JPDB/Yomitan dictionary-on-JPDB UX reference only, with no code copied.
 - [JMdict for Yomitan](https://github.com/yomidevs/jmdict-yomitan) and EDRDG/JMdict for the recommended dictionary package.
+- [MarvNC's Yomitan Dictionaries catalogue](https://github.com/MarvNC/yomitan-dictionaries) for the frozen multilingual collection mirrored through Yomu's content-addressed dictionary service.
 - [Kotu](https://kotu.io/) for pitch-accent minimal-pair and downstep-practice product inspiration, with no code or data copied.
 - [Kanjium](https://github.com/mifunetoshiro/kanjium) for documented pitch-accent source data and licensing research around local pitch dictionaries.
 - [Kuuuube's Yomitan dictionaries](https://github.com/Kuuuube/yomitan-dictionaries) for the recommended JPDBv2㋕ local frequency package.

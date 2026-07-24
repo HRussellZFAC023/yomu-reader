@@ -42,7 +42,7 @@ export function renderJitenDefinitionSource(
     const hasDetails = Boolean(meanings || extras);
     if (!hasDetails) return '';
     const headword = renderJitenDefinitionHeadword(card, info);
-    const body = `${headword}${meanings ? `<div class="jpdb-reader-meanings">${meanings}</div>` : ''}${extras}`;
+    const body = `${headword}${meanings ? `<div class="jpdb-reader-meanings" data-definition-translation-text>${meanings}</div>` : ''}${extras}`;
     if (!body.trim()) return '';
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card" data-source="jiten" ${cardHighlightScopeAttributes(card)} ${sourceAttributes(definitionSourceStateKey(JITEN_DEFINITION_SOURCE_ID), true)}>

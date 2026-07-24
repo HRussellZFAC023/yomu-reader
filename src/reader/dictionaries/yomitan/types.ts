@@ -63,10 +63,18 @@ export interface DictionarySummary {
     kanjiMeta: number;
 }
 
+export interface DictionaryImportIntegrity {
+    sha256: string;
+    bytes: number;
+}
+
 export interface DictionaryImportOptions {
     // false when replication re-imports from the cross-origin archive cache —
     // the archive it just read must not be re-persisted.
     persistArchive?: boolean;
+    // Published catalogue objects are content-addressed. Verify both their
+    // advertised byte length and digest before any dictionary rows are changed.
+    integrity?: DictionaryImportIntegrity;
 }
 
 export interface ImportSummary {

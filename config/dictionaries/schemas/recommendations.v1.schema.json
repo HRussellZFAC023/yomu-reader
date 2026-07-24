@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dictionaries.yomureader.com/schemas/recommendations.v1.schema.json",
+  "title": "Yomu dictionary recommendations v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "catalogRevision",
+    "learnerLanguage",
+    "targetLanguage",
+    "strategy",
+    "readiness",
+    "blockers",
+    "dictionaries"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "catalogRevision": { "type": "string", "minLength": 1 },
+    "learnerLanguage": {
+      "enum": [
+        "sq",
+        "grc",
+        "ar",
+        "yue",
+        "zh",
+        "da",
+        "nl",
+        "en",
+        "fi",
+        "fr",
+        "de",
+        "el",
+        "hu",
+        "id",
+        "it",
+        "km",
+        "ko",
+        "lo",
+        "la",
+        "mn",
+        "fa",
+        "pl",
+        "pt",
+        "ro",
+        "ru",
+        "sh",
+        "es",
+        "sv",
+        "tl",
+        "th",
+        "tr",
+        "vi"
+      ]
+    },
+    "targetLanguage": { "const": "ja" },
+    "strategy": { "const": "native-first" },
+    "readiness": { "enum": ["ready", "blocked"] },
+    "blockers": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "dictionaries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "dictionaryId",
+          "role",
+          "priority",
+          "selectedByDefault",
+          "definitionLanguage",
+          "translationMode"
+        ],
+        "properties": {
+          "dictionaryId": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+          "role": {
+            "enum": [
+              "primary-terms",
+              "fallback-terms",
+              "names",
+              "kanji",
+              "frequency",
+              "pronunciation"
+            ]
+          },
+          "priority": { "type": "integer", "minimum": 0 },
+          "selectedByDefault": { "type": "boolean" },
+          "definitionLanguage": {
+            "type": "string",
+            "pattern": "^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$"
+          },
+          "translationMode": { "enum": ["off", "offer"] }
+        }
+      }
+    }
+  }
+}

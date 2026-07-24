@@ -15,6 +15,7 @@ import {
     type GrammarHint,
 } from './tools';
 import type { JPDBToken, ReaderSettings } from '../app/types';
+import { resolvedLearnerLanguage } from '../languages';
 
 const log = Logger.scope('StudySources');
 const STUDY_GRAMMAR_CACHE_LIMIT = 160;
@@ -95,7 +96,7 @@ export class StudySourceController {
         }
         const translation = popover.querySelector<HTMLElement>('[data-study-translation]');
         if (settings.studyTranslationEnabled && translation) {
-            preloadJapaneseSentenceTranslation(sentence, settings.interfaceLanguage);
+            preloadJapaneseSentenceTranslation(sentence, resolvedLearnerLanguage(settings));
             // Same async-empty rule as grammar: an untranslatable sentence
             // hides the whole section instead of leaving a header shell.
             void this.cachedTranslationContent(sentence).then(result => {
@@ -202,7 +203,7 @@ export class StudySourceController {
     private async loadTranslationContent(sentence: string): Promise<StudyTranslationResult> {
         const [tokens, translated] = await Promise.all([
             this.dependencies.parseJapanese([sentence], { jpdbTimeoutMs: 1_200, allowJpdbTimeoutFallback: true }).then(([parsed]) => parsed ?? []),
-            translateJapaneseSentence(sentence, this.settings().interfaceLanguage),
+            translateJapaneseSentence(sentence, resolvedLearnerLanguage(this.settings())),
         ]);
         return { tokens, translated };
     }
@@ -231,7 +232,7 @@ export class StudySourceController {
     }
 
     private studyCacheKey(sentence: string): string {
-        return `${this.settings().interfaceLanguage}\u0001${sentence.trim()}`;
+        return `${this.settings().interfaceLanguage}\u0001${resolvedLearnerLanguage(this.settings())}\u0001${sentence.trim()}`;
     }
 
     private applyTranslation(

@@ -325,6 +325,31 @@
   gap: 6px;
   min-width: 0;
 }
+
+.jpdb-reader-definition-translation {
+  margin: 0.55rem 0.65rem 0.35rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--jpdb-reader-accent) 34%, transparent);
+  border-radius: 0.65rem;
+  background: color-mix(in srgb, var(--jpdb-reader-accent) 8%, transparent);
+  line-height: 1.55;
+  unicode-bidi: plaintext;
+}
+
+.jpdb-reader-definition-original {
+  margin: 0.25rem 0.65rem 0.65rem;
+  border: 0;
+}
+
+.jpdb-reader-definition-original > summary {
+  color: var(--jpdb-reader-muted);
+  cursor: pointer;
+  font-size: 0.78rem;
+}
+
+.jpdb-reader-definition-original-body {
+  margin-top: 0.45rem;
+}
 .jpdb-reader-local-sense {
   color: var(--jpdb-reader-text);
   font-size: 13px;

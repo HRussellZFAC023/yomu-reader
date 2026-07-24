@@ -13,7 +13,11 @@ import { normalizeCardStates, primaryCardState } from '../cards/state';
 import { cardKey } from '../cards/utils';
 import { APP_NAME, JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, USERSCRIPT_HTTP_BRIDGE_READY_EVENT, USERSCRIPT_STORAGE_BRIDGE_READY_EVENT } from '../app/constants';
 import { handleReaderActionPillLink } from '../app/main-helpers';
-import { yomuKanjiStudyCompanion, yomuOnboardingController } from '../companions/registry';
+import {
+    yomuKanjiStudyCompanion,
+    yomuOnboardingController,
+    yomuSettingsSurfaceCompanion,
+} from '../companions/registry';
 import {
     kanjiFactProviderTitle,
     kanjiSourceStateKey,
@@ -72,9 +76,7 @@ import {
     toggleMiningControls as toggleMiningControlsState,
 } from '../study/mining-controls';
 import { publicLookupFallbackCards } from '../lookup/public-fallback-cards';
-import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedSettingsParseAlreadyRendered, nestedSettingsTextParsePlan, nestedTextParsePlan, providerExampleTextParsePlan, SETTINGS_PARSE_TARGET_LIMIT, type NestedParsePlan } from '../lookup/nested-text-parse';
-import { parsedSettingsTargetsForCurrentPlan, supplementSettingsFallbackTokens } from '../lookup/settings-fallback-tokens';
-import { addSettingsRubyFromRenderedReadings, settingsForSettingsFormParse } from '../lookup/settings-parse-render';
+import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedTextParsePlan, providerExampleTextParsePlan, type NestedParsePlan } from '../lookup/nested-text-parse';
 import { NewTabController, newTabKanjiSourceTitle, type NewTabLookupReviewTargetSelection } from './controller';
 import type { StudySessionClock } from './session-clock';
 import { createReaderBackdrop, createReaderPopover, forceReaderPopoverSurface, installMiningDrawerHandle, installSheetCloseButton, installSheetHandle, refreshForcedReaderPopoverSurface } from '../popup/shell';
@@ -117,7 +119,6 @@ import { ReaderAudioActions } from '../audio/actions';
 import { refreshRenderedAnkiStatusAfterMutation as refreshRenderedAnkiStatus, scheduleReaderAnkiStatusRefresh, scheduleReaderAnkiStatusWarmup } from '../app/status-warmup';
 import { SettingsDialogController } from '../settings/dialog-controller';
 import { getUserscriptHttpRequest } from '../userscript';
-import { installOfflineParsingDictionaries } from '../dictionaries/offline-setup';
 import { runningAsBrowserExtension } from '../app/runtime-env';
 import {
     KANJI_DICTIONARIES_SOURCE_ID,
@@ -328,7 +329,14 @@ export class NewTabRuntime {
         new WanikaniLookupClient(this.wanikani),
         () => this.settings,
         (key, initiallyExpanded) => this.dictionarySourceState.attributes(key, initiallyExpanded),
-        () => this.repositionLookupPopover(),
+        mount => {
+            this.repositionLookupPopover();
+            const installDefinitionTranslationBehaviors =
+                yomuSettingsSurfaceCompanion()?.installDefinitionTranslationBehaviors;
+            if (!installDefinitionTranslationBehaviors) return;
+            void installDefinitionTranslationBehaviors(mount, this.settings)
+                .then(() => this.repositionLookupPopover());
+        },
     );
     private navigation = new PopupNavigationController(() => Boolean(
         this.activeLookupPopover?.isConnected && this.activeLookupPopover.querySelector('.jpdb-reader-kanji-display'),
@@ -550,6 +558,9 @@ export class NewTabRuntime {
 
     private async installOfflineDictionaries(): Promise<void> {
         if (this.offlineDictionarySetupInFlight) return;
+        const installOfflineParsingDictionaries =
+            yomuSettingsSurfaceCompanion()?.installOfflineParsingDictionaries;
+        if (!installOfflineParsingDictionaries) return;
         this.offlineDictionarySetupInFlight = true;
         try {
             const result = await installOfflineParsingDictionaries({
@@ -2349,7 +2360,9 @@ export class NewTabRuntime {
     }
 
     private async parseNewTabContent(root: HTMLElement, options: NewTabParseContentOptions = {}): Promise<void> {
-        if (!root.isConnected || !this.parser.canParse()) return;
+        if (!root.isConnected) return;
+        void yomuSettingsSurfaceCompanion()?.installDefinitionTranslationBehaviors(root, this.settings);
+        if (!this.parser.canParse()) return;
         installProviderExampleBehaviors(root, {
             language: this.settings.interfaceLanguage,
             blurTranslations: this.settings.immersionKitRevealTranslationOnClick,
@@ -2446,7 +2459,8 @@ export class NewTabRuntime {
 
     private async parseSettingsJapanese(form: HTMLFormElement): Promise<void> {
         if (!this.isCurrentSettingsRoot(form)) return;
-        if (nestedSettingsParseAlreadyRendered(form)) return;
+        const enhancement = yomuSettingsSurfaceCompanion()?.selfEnhancement;
+        if (!enhancement || enhancement.nestedSettingsParseAlreadyRendered(form)) return;
         if (form.dataset.yomuSettingsSelfEnhancing === 'true') {
             form.dataset.yomuSettingsSelfEnhancePending = 'true';
             return;
@@ -2456,7 +2470,10 @@ export class NewTabRuntime {
             delete form.dataset.yomuSettingsSelfEnhancing;
             return;
         }
-        const plan = nestedSettingsTextParsePlan(form, SETTINGS_PARSE_TARGET_LIMIT);
+        const plan = enhancement.nestedSettingsTextParsePlan(
+            form,
+            enhancement.SETTINGS_PARSE_TARGET_LIMIT,
+        );
         if (!plan) {
             delete form.dataset.yomuSettingsSelfEnhancing;
             return;
@@ -2480,22 +2497,28 @@ export class NewTabRuntime {
             if (!this.isCurrentSettingsRoot(form)
                 || form.dataset.jpdbReaderParseLoadingKey !== plan.parseKey
                 || form.dataset.jpdbReaderParseLoadingId !== parseLoadingId) return;
-            const currentPlan = nestedSettingsTextParsePlan(form, SETTINGS_PARSE_TARGET_LIMIT);
+            const currentPlan = enhancement.nestedSettingsTextParsePlan(
+                form,
+                enhancement.SETTINGS_PARSE_TARGET_LIMIT,
+            );
             if (!currentPlan) return;
-            const currentParsed = supplementSettingsFallbackTokens(
+            const currentParsed = enhancement.supplementSettingsFallbackTokens(
                 currentPlan.targets,
-                parsedSettingsTargetsForCurrentPlan(plan, parsed, currentPlan),
+                enhancement.parsedSettingsTargetsForCurrentPlan(plan, parsed, currentPlan),
             );
             await this.hydrateSettingsFallbackTokens(currentParsed);
-            const latestPlan = nestedSettingsTextParsePlan(form, SETTINGS_PARSE_TARGET_LIMIT);
-            if (!latestPlan) return;
-            const latestParsed = supplementSettingsFallbackTokens(
-                latestPlan.targets,
-                parsedSettingsTargetsForCurrentPlan(currentPlan, currentParsed, latestPlan),
+            const latestPlan = enhancement.nestedSettingsTextParsePlan(
+                form,
+                enhancement.SETTINGS_PARSE_TARGET_LIMIT,
             );
-            const renderSettings = settingsForSettingsFormParse(form, this.settings);
+            if (!latestPlan) return;
+            const latestParsed = enhancement.supplementSettingsFallbackTokens(
+                latestPlan.targets,
+                enhancement.parsedSettingsTargetsForCurrentPlan(currentPlan, currentParsed, latestPlan),
+            );
+            const renderSettings = enhancement.settingsForSettingsFormParse(form, this.settings);
             applyNestedParsePlan(latestPlan, latestParsed, renderSettings);
-            addSettingsRubyFromRenderedReadings(form, renderSettings);
+            enhancement.addSettingsRubyFromRenderedReadings(form, renderSettings);
             highlightCardTargetScopes(form);
             refreshReaderWordContrast(form);
             form.dataset.jpdbReaderParseKey = latestPlan.parseKey;
@@ -2503,7 +2526,7 @@ export class NewTabRuntime {
             const tokens = latestParsed.flat();
             void this.enrichPublicVocabularyWords(tokens, NEW_TAB_SETTINGS_PUBLIC_VOCABULARY_LIMIT, { preserveMissingFallbacks: true });
             void this.enrichPitchWords(tokens, NEW_TAB_SETTINGS_ENRICHMENT_LIMIT);
-            if (latestPlan.targets.length >= SETTINGS_PARSE_TARGET_LIMIT) {
+            if (latestPlan.targets.length >= enhancement.SETTINGS_PARSE_TARGET_LIMIT) {
                 window.setTimeout(() => void this.parseSettingsJapanese(form), 0);
             }
         } catch {

@@ -467,11 +467,11 @@ export function renderBunproDefinitionSource(
             <article class="jpdb-reader-local-entry jpdb-reader-local-term">
                 ${renderBunproHeadword(card, info, language)}
                 ${details ? `<div class="jpdb-reader-local-tags">${details}</div>` : ''}
-                ${glosses.meaning ? `<div class="jpdb-reader-local-senses"><div class="jpdb-reader-local-sense"><span>${escapeHtml(glosses.meaning)}</span></div></div>` : ''}
-                ${glosses.nuance.length ? `<div class="jpdb-reader-local-glossary"><strong>${escapeHtml(nuanceLabel)}</strong>${glosses.nuance.map(renderBunproGlossText).join('')}</div>` : ''}
+                ${glosses.meaning ? `<div class="jpdb-reader-local-senses" data-definition-translation-text><div class="jpdb-reader-local-sense"><span>${escapeHtml(glosses.meaning)}</span></div></div>` : ''}
+                ${glosses.nuance.length ? `<div class="jpdb-reader-local-glossary"><strong>${escapeHtml(nuanceLabel)}</strong><div data-definition-translation-text>${glosses.nuance.map(renderBunproGlossText).join('')}</div></div>` : ''}
                 ${accepted.length ? `<div class="jpdb-reader-local-glossary"><strong>${escapeHtml(uiText(language, 'acceptedInputs'))}</strong><div>${accepted.map(escapeHtml).join(' · ')}</div></div>` : ''}
                 ${renderBunproStructures(info, language)}
-                ${info.caution ? `<div class="jpdb-reader-local-glossary"><strong>${escapeHtml(uiText(language, 'bunproCaution'))}</strong><div>${escapeHtml(info.caution)}</div></div>` : ''}
+                ${info.caution ? `<div class="jpdb-reader-local-glossary"><strong>${escapeHtml(uiText(language, 'bunproCaution'))}</strong><div data-definition-translation-text>${escapeHtml(info.caution)}</div></div>` : ''}
             </article>
             <div class="jpdb-reader-jpdb-extras jpdb-reader-bunpro-extras">${extras}</div>
         </details>

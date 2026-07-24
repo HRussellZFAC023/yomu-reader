@@ -24,6 +24,7 @@ import {
     yomuImageOcrController,
     yomuLocalDictionaries,
     yomuOnboardingController,
+    yomuSettingsSurfaceCompanion,
     yomuSettingsDialogController,
     yomuSubtitlePlayerController,
     yomuYoutubeImmersionFilter,
@@ -79,7 +80,6 @@ import type { ImmersionSearchOptions } from '../immersion/popover-controller';
 import { waitForIdle as waitForBrowserIdle } from '../platform/idle';
 import { FloatingButtonController } from '../ui/floating-button';
 import { JitenApiClient, type JitenKanjiInfo, type JitenVocabularyInfo } from '../dictionaries/jiten';
-import { installOfflineParsingDictionaries } from '../dictionaries/offline-setup';
 import { JitenPublicVocabularyClient, JITEN_BACKGROUND_DETAIL_TIMEOUT_MS, parsedCardHydrationKey, publicJitenBackoffRemainingMs } from '../dictionaries/jiten-public-vocabulary';
 import type { UchisenData } from '../dictionaries/uchisen';
 import { jitenKanjiOriginFactLabels, renderJitenKanjiInfo, renderJitenKanjiKeywordLine } from '../jiten/jiten-kanji-info-render';
@@ -277,11 +277,9 @@ import { AUTO_SCAN_OBSERVER_OPTIONS, clickMayRevealDynamicUiText, clickMayReveal
 import { NativeTitleGuard } from './native-title-guard';
 import { clearManagedBrowserCaches, unregisterManagedServiceWorkers } from './storage';
 import { isNativePageLookupBlocked, nativeClickableAncestor, shouldIgnoreDocumentClickTarget } from './native-page-lookup-targets';
-import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedSettingsParseAlreadyRendered, nestedSettingsTextParsePlan, nestedTextParsePlan, providerExampleTextParsePlan, SETTINGS_PARSE_TARGET_LIMIT, type NestedParsePlan } from '../lookup/nested-text-parse';
+import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedTextParsePlan, providerExampleTextParsePlan, type NestedParsePlan } from '../lookup/nested-text-parse';
 import { batchJitenFallbackCards, normalizedJitenLookupKey, publicLookupFallbackCards } from '../lookup/public-fallback-cards';
 import { isMissingProxyTransportError } from '../network/proxy-fetch';
-import { parsedSettingsTargetsForCurrentPlan, supplementSettingsFallbackTokens } from '../lookup/settings-fallback-tokens';
-import { addSettingsRubyFromRenderedReadings, settingsForSettingsFormParse } from '../lookup/settings-parse-render';
 import { resolveUiLanguage, uiText, type UiCopyKey } from '../app/i18n';
 import { translateJapaneseSentence } from '../study/tools';
 
@@ -823,7 +821,14 @@ export class ReaderApp {
         new WanikaniLookupClient(this.wanikani),
         () => this.settings,
         (key, initiallyExpanded) => this.dictionarySourceState.attributes(key, initiallyExpanded),
-        () => this.repositionActivePopover(),
+        mount => {
+            this.repositionActivePopover();
+            const installDefinitionTranslationBehaviors =
+                yomuSettingsSurfaceCompanion()?.installDefinitionTranslationBehaviors;
+            if (!installDefinitionTranslationBehaviors) return;
+            void installDefinitionTranslationBehaviors(mount, this.settings)
+                .then(() => this.repositionActivePopover());
+        },
     );
     private bunproWordStates = this.bunproCompanion && this.bunpro ? new this.bunproCompanion.BunproWordStateStore(this.bunpro) : null;
     private yomuLocalSrs = createYomuLocalSrsAdapter(new LocalYomuSrsRepository());
@@ -1823,6 +1828,9 @@ export class ReaderApp {
     // Onboarding offline setup; progress stays in the log, toasts carry milestones.
     private async installOfflineParsingDictionaries(): Promise<void> {
         if (this.offlineDictionarySetupInFlight) return;
+        const installOfflineParsingDictionaries =
+            yomuSettingsSurfaceCompanion()?.installOfflineParsingDictionaries;
+        if (!installOfflineParsingDictionaries) return;
         this.offlineDictionarySetupInFlight = true;
         try {
             const result = await installOfflineParsingDictionaries({
@@ -8060,6 +8068,7 @@ export class ReaderApp {
 
     private async parsePopoverJapanese(popover: HTMLElement): Promise<void> {
         if (!this.isCurrentPopoverRoot(popover)) return;
+        void yomuSettingsSurfaceCompanion()?.installDefinitionTranslationBehaviors(popover, this.settings);
         installProviderExampleBehaviors(popover, {
             language: this.settings.interfaceLanguage,
             blurTranslations: this.settings.immersionKitRevealTranslationOnClick,
@@ -8152,7 +8161,8 @@ export class ReaderApp {
 
     private async parseSettingsJapanese(form: HTMLFormElement): Promise<void> {
         if (!this.isCurrentSettingsRoot(form)) return;
-        if (nestedSettingsParseAlreadyRendered(form)) return;
+        const enhancement = yomuSettingsSurfaceCompanion()?.selfEnhancement;
+        if (!enhancement || enhancement.nestedSettingsParseAlreadyRendered(form)) return;
         if (form.dataset.yomuSettingsSelfEnhancing === 'true') {
             form.dataset.yomuSettingsSelfEnhancePending = 'true';
             return;
@@ -8168,14 +8178,17 @@ export class ReaderApp {
             form.dataset.jpdbReaderParseLoadingId = parseLoadingId;
             const parsed = await this.loadSettingsParsedJapaneseContent(plan);
             if (!this.isCurrentSettingsJapaneseParse(form, plan.parseKey, parseLoadingId)) return;
-            const currentPlan = nestedSettingsTextParsePlan(form, SETTINGS_PARSE_TARGET_LIMIT);
+            const currentPlan = enhancement.nestedSettingsTextParsePlan(
+                form,
+                enhancement.SETTINGS_PARSE_TARGET_LIMIT,
+            );
             if (!currentPlan) return;
-            const currentParsed = supplementSettingsFallbackTokens(
+            const currentParsed = enhancement.supplementSettingsFallbackTokens(
                 currentPlan.targets,
-                parsedSettingsTargetsForCurrentPlan(plan, parsed, currentPlan),
+                enhancement.parsedSettingsTargetsForCurrentPlan(plan, parsed, currentPlan),
             );
             this.applySettingsJapaneseParse(form, currentPlan, currentParsed);
-            if (currentPlan.targets.length >= SETTINGS_PARSE_TARGET_LIMIT) {
+            if (currentPlan.targets.length >= enhancement.SETTINGS_PARSE_TARGET_LIMIT) {
                 window.setTimeout(() => void this.parseSettingsJapanese(form), 0);
             }
         } catch {
@@ -8192,7 +8205,12 @@ export class ReaderApp {
     private settingsJapaneseParsePlan(form: HTMLFormElement): NestedParsePlan | null {
         if (!this.isCurrentSettingsRoot(form)) return null;
         if (resolveUiLanguage(this.settings.interfaceLanguage) !== 'ja' || !this.canParseJapanese()) return null;
-        const plan = nestedSettingsTextParsePlan(form, SETTINGS_PARSE_TARGET_LIMIT);
+        const enhancement = yomuSettingsSurfaceCompanion()?.selfEnhancement;
+        if (!enhancement) return null;
+        const plan = enhancement.nestedSettingsTextParsePlan(
+            form,
+            enhancement.SETTINGS_PARSE_TARGET_LIMIT,
+        );
         return plan && !nestedParseAlreadyScheduled(form, plan.parseKey) ? plan : null;
     }
 
@@ -8214,9 +8232,11 @@ export class ReaderApp {
     }
 
     private applySettingsJapaneseParse(form: HTMLFormElement, plan: NestedParsePlan, parsed: JPDBToken[][]): void {
-        const renderSettings = settingsForSettingsFormParse(form, this.settings);
+        const enhancement = yomuSettingsSurfaceCompanion()?.selfEnhancement;
+        if (!enhancement) return;
+        const renderSettings = enhancement.settingsForSettingsFormParse(form, this.settings);
         applyNestedParsePlan(plan, parsed, renderSettings);
-        addSettingsRubyFromRenderedReadings(form, renderSettings);
+        enhancement.addSettingsRubyFromRenderedReadings(form, renderSettings);
         highlightCardTargetScopes(form);
         refreshReaderWordContrast(form);
         form.dataset.jpdbReaderParseKey = plan.parseKey;

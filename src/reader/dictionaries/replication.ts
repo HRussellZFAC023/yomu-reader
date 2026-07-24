@@ -1,7 +1,7 @@
 import { Logger } from '../app/logger';
 import { listDictionaryArchives, readDictionaryArchiveFile, type DictionaryArchiveMeta } from './archive-cache';
 import { yomitanDictionaryIdentity } from './yomitan/zip-normalize';
-import type { ImportSummary } from './yomitan';
+import type { DictionaryImportOptions, ImportSummary } from './yomitan';
 import type { ReaderSettings } from '../app/types';
 
 const log = Logger.scope('DictionaryReplication');
@@ -17,8 +17,8 @@ const RETRY_BACKOFF_MS = 6 * 60 * 60 * 1000;
 
 export interface DictionaryReplicationStore {
     summary(): Promise<{ dictionaries: { title: string }[] }>;
-    importFile(file: File, onProgress?: (message: string) => void, sourceUrl?: string, options?: { persistArchive?: boolean }): Promise<ImportSummary>;
-    importFromUrl(url: string, filename?: string, onProgress?: (message: string) => void, options?: { persistArchive?: boolean }): Promise<ImportSummary>;
+    importFile(file: File, onProgress?: (message: string) => void, sourceUrl?: string, options?: DictionaryImportOptions): Promise<ImportSummary>;
+    importFromUrl(url: string, filename?: string, onProgress?: (message: string) => void, options?: DictionaryImportOptions): Promise<ImportSummary>;
 }
 
 export interface DictionaryReplicationOptions {
@@ -104,9 +104,19 @@ async function importArchive(
     meta: DictionaryArchiveMeta,
 ): Promise<ImportSummary | null> {
     const file = await readDictionaryArchiveFile(identity);
-    if (file) return store.importFile(file, undefined, meta.downloadUrl ?? '', { persistArchive: false });
-    if (meta.downloadUrl) return store.importFromUrl(meta.downloadUrl, meta.filename || undefined, undefined, { persistArchive: false });
+    const importOptions = replicationImportOptions(meta);
+    if (file) return store.importFile(file, undefined, meta.downloadUrl ?? '', importOptions);
+    if (meta.downloadUrl) return store.importFromUrl(meta.downloadUrl, meta.filename || undefined, undefined, importOptions);
     return null;
+}
+
+function replicationImportOptions(meta: DictionaryArchiveMeta): DictionaryImportOptions {
+    return {
+        persistArchive: false,
+        ...(meta.sha256 && meta.size > 0
+            ? { integrity: { sha256: meta.sha256, bytes: meta.size } }
+            : {}),
+    };
 }
 
 function shouldAttempt(state: ReplicationAttemptState | undefined, now: number): boolean {
