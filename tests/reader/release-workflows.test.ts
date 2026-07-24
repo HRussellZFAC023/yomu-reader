@@ -71,6 +71,15 @@ describe('release workflow safety', () => {
         expect(ciWorkflow).toMatch(/needs: \[typecheck, test, test-jpdb, gaming-smoke, layout-smoke\]/);
     });
 
+    it('uses bounded isolated test shards on the release runner', () => {
+        expect(releaseWorkflow).toContain('YOMU_CI_SHARDED: 1');
+        expect(releaseWorkflow).toContain('YOMU_CI_REGULAR_CONCURRENCY: 2');
+        expect(releaseWorkflow).toContain('YOMU_CI_REGULAR_MAX_WORKERS: 1');
+        expect(releaseWorkflow).toContain('YOMU_CI_JPDB_CONCURRENCY: 2');
+        expect(releaseWorkflow).toContain('YOMU_VITEST_FORK_HEAP_MB: 1536');
+        expect(releaseWorkflow).not.toContain('YOMU_CI_MAX_WORKERS: 3');
+    });
+
     it('gives desktop gaming artifacts one release owner', () => {
         expect(releaseWorkflow).not.toContain('Build Yomu Gaming release packages');
         expect(releaseWorkflow).not.toContain('npm run release:gaming:');
