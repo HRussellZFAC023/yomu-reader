@@ -233,6 +233,189 @@ describe('preferred Japanese site language', () => {
         expect(navigator.language).toBe(language);
     });
 
+    // The reported bug: the cache is per origin, so every site opened while the
+    // preference was on pinned itself to on, and turning it off anywhere else
+    // could never reach them — "every new page has defaulted to having that on".
+    it('lets a stored opt-out override a stale enabled cache left by an earlier visit', () => {
+        const language = navigator.language;
+        const replace = vi.fn();
+        localStorage.setItem('yomu:prefer-japanese-site-language', 'true');
+        vi.stubGlobal('GM_getValue', (key: string, fallback: unknown) => (
+            key === SETTINGS_STORAGE_KEY ? { preferJapaneseSiteLanguage: false } : fallback
+        ));
+        vi.stubGlobal('unsafeWindow', window);
+        vi.stubGlobal('location', {
+            href: 'https://www.reddit.com/r/newsokur/',
+            hostname: 'www.reddit.com',
+            protocol: 'https:',
+            replace,
+        });
+
+        installPreferredJapaneseSiteLanguageFromStoredSettings();
+
+        expect(navigator.language).toBe(language);
+        expect(replace).not.toHaveBeenCalled();
+        expect(localStorage.getItem('yomu:prefer-japanese-site-language')).toBe('false');
+    });
+
+    it('reconciles a stale enabled cache with async-only storage without redirecting on the cache', async () => {
+        const language = navigator.language;
+        const replace = vi.fn();
+        localStorage.setItem('yomu:prefer-japanese-site-language', 'true');
+        vi.stubGlobal('GM_getValue', undefined);
+        vi.stubGlobal('GM', {
+            getValue: vi.fn(async (key: string, fallback: unknown) => (
+                key === SETTINGS_STORAGE_KEY ? { preferJapaneseSiteLanguage: false } : fallback
+            )),
+        });
+        vi.stubGlobal('unsafeWindow', window);
+        vi.stubGlobal('location', {
+            href: 'https://www.reddit.com/r/newsokur/',
+            hostname: 'www.reddit.com',
+            protocol: 'https:',
+            replace,
+        });
+
+        installPreferredJapaneseSiteLanguageFromStoredSettings();
+        // The cache may hint the page-realm locale while storage answers, but it
+        // must never navigate: the tab would land on a URL the user opted out of.
+        expect(replace).not.toHaveBeenCalled();
+        await settleAsyncHandlers();
+
+        expect(navigator.language).toBe(language);
+        expect(replace).not.toHaveBeenCalled();
+    });
+
+    it('still applies a stored preference synchronously so an enabled site never flashes English', () => {
+        vi.stubGlobal('GM_getValue', (key: string, fallback: unknown) => (
+            key === SETTINGS_STORAGE_KEY ? { preferJapaneseSiteLanguage: true } : fallback
+        ));
+        vi.stubGlobal('unsafeWindow', window);
+
+        installPreferredJapaneseSiteLanguageFromStoredSettings();
+
+        expect(navigator.language).toBe('ja-JP');
+    });
+
+    // Symptom two: the maintainer found that turning the preference off left
+    // reddit's ?locale=ja-JP in the URL, so the site simply stayed Japanese.
+    it('strips the Japanese locale markers when disabled without a remembered source URL', () => {
+        const replace = vi.fn();
+        vi.stubGlobal('unsafeWindow', window);
+        vi.stubGlobal('location', {
+            href: 'https://www.reddit.com/r/LearnJapanese/?locale=ja-JP&after=t3_1',
+            hostname: 'www.reddit.com',
+            protocol: 'https:',
+            replace,
+        });
+
+        applyPreferredJapaneseSiteLanguage(false, true);
+
+        expect(replace).toHaveBeenCalledWith('https://www.reddit.com/r/LearnJapanese/?after=t3_1');
+    });
+
+    it('drops a Japanese path locale segment rather than guessing an English one', () => {
+        const replace = vi.fn();
+        vi.stubGlobal('unsafeWindow', window);
+        vi.stubGlobal('location', {
+            href: 'https://learn.microsoft.com/ja-jp/azure/overview',
+            hostname: 'learn.microsoft.com',
+            protocol: 'https:',
+            replace,
+        });
+
+        applyPreferredJapaneseSiteLanguage(false, true);
+
+        expect(replace).toHaveBeenCalledWith('https://learn.microsoft.com/azure/overview');
+    });
+
+    it('prefers the page x-default alternate over stripping markers', () => {
+        const replace = vi.fn();
+        const link = document.createElement('link');
+        link.setAttribute('rel', 'alternate');
+        link.setAttribute('hreflang', 'x-default');
+        link.setAttribute('href', 'https://example.com/store');
+        link.setAttribute('data-test-japanese-alternate', '');
+        document.head.append(link);
+        vi.stubGlobal('unsafeWindow', window);
+        vi.stubGlobal('location', {
+            href: 'https://example.com/store?locale=ja-JP',
+            hostname: 'example.com',
+            protocol: 'https:',
+            replace,
+        });
+
+        applyPreferredJapaneseSiteLanguage(false, true);
+
+        expect(replace).toHaveBeenCalledWith('https://example.com/store');
+    });
+
+    it('leaves a URL with no Japanese markers alone when disabled', () => {
+        const replace = vi.fn();
+        vi.stubGlobal('unsafeWindow', window);
+        vi.stubGlobal('location', {
+            href: 'https://www.reddit.com/r/LearnJapanese/',
+            hostname: 'www.reddit.com',
+            protocol: 'https:',
+            replace,
+        });
+
+        applyPreferredJapaneseSiteLanguage(false, true);
+
+        expect(replace).not.toHaveBeenCalled();
+    });
+
+    it('can redirect the same host again after the preference is turned off and back on', () => {
+        const replace = vi.fn();
+        const atReddit = (href: string) => vi.stubGlobal('location', {
+            href,
+            hostname: 'www.reddit.com',
+            protocol: 'https:',
+            replace,
+        });
+        vi.stubGlobal('unsafeWindow', window);
+
+        atReddit('https://www.reddit.com/');
+        applyPreferredJapaneseSiteLanguage(true);
+        expect(replace).toHaveBeenCalledWith('https://www.reddit.com/?locale=ja-JP');
+
+        atReddit('https://www.reddit.com/?locale=ja-JP');
+        applyPreferredJapaneseSiteLanguage(false, true);
+        expect(replace).toHaveBeenLastCalledWith('https://www.reddit.com/');
+
+        replace.mockClear();
+        atReddit('https://www.reddit.com/');
+        applyPreferredJapaneseSiteLanguage(true);
+
+        expect(replace).toHaveBeenCalledWith('https://www.reddit.com/?locale=ja-JP');
+    });
+
+    it('never navigates a sub-frame, in either direction', () => {
+        const replace = vi.fn();
+        vi.stubGlobal('unsafeWindow', window);
+        vi.stubGlobal('location', {
+            href: 'https://www.youtube.com/embed/abc123',
+            hostname: 'www.youtube.com',
+            protocol: 'https:',
+            replace,
+        });
+        const framed = { ...window, top: {} as Window } as unknown as Window & typeof globalThis;
+        vi.spyOn(window, 'top', 'get').mockReturnValue(framed.top);
+
+        applyPreferredJapaneseSiteLanguage(true);
+        expect(replace).not.toHaveBeenCalled();
+
+        vi.stubGlobal('location', {
+            href: 'https://www.youtube.com/embed/abc123?hl=ja&gl=JP',
+            hostname: 'www.youtube.com',
+            protocol: 'https:',
+            replace,
+        });
+        applyPreferredJapaneseSiteLanguage(false, true);
+
+        expect(replace).not.toHaveBeenCalled();
+    });
+
     it('waits for async-only userscript storage before applying the default', async () => {
         const language = navigator.language;
         vi.stubGlobal('GM_getValue', undefined);
