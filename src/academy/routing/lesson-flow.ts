@@ -67,6 +67,11 @@ import {
     lessonZeroFollowInstructionCompletionEvaluation,
 } from '../content/lesson-zero-follow-instructions';
 import {
+    createLessonZeroRepeatRequestDefinition,
+    LESSON_ZERO_REPEAT_REQUEST_ACTIVITY_ID,
+    lessonZeroRepeatRequestCompletionEvaluation,
+} from '../content/lesson-zero-repeat-request';
+import {
     advancedPackageIdFromLessonId,
     resolveAdvancedCurriculumEntry,
     type AdvancedCurriculumEntry,
@@ -81,6 +86,10 @@ import {
     startClassroomInstructionSession,
     transitionClassroomInstructionSession,
 } from '../domain/classroom-instruction-session';
+import {
+    startLessonZeroRepeatRequestSession,
+    transitionLessonZeroRepeatRequestSession,
+} from '../domain/lesson-zero-repeat-request-session';
 import {
     startLessonZeroGreetingSession,
     transitionLessonZeroGreetingSession,
@@ -129,6 +138,7 @@ import { renderLoadingScreen } from '../ui/loading-screen';
 import { createAdvancedLessonScreen } from '../ui/advanced-lesson-screen';
 import { createClassroomExpressionSessionScreen } from '../ui/classroom-expression-session-screen';
 import { createClassroomInstructionScreen } from '../ui/classroom-instruction-screen';
+import { createLessonZeroRepeatRequestScreen } from '../ui/lesson-zero-repeat-request-screen';
 import { createLessonZeroGreetingScreen } from '../ui/lesson-zero-greeting-screen';
 import { createLessonZeroNameCardScreen } from '../ui/lesson-zero-name-card-screen';
 import { createLessonZeroMissionScreen } from '../ui/lesson-zero-mission-screen';
@@ -445,6 +455,10 @@ class LessonFlow implements AcademyRouteFlow {
             this.renderAdvancedPackage(advancedPackageId, context);
             return;
         }
+        if (context.checkpoint.activityId === LESSON_ZERO_REPEAT_REQUEST_ACTIVITY_ID) {
+            await this.renderLessonZeroRepeatRequest(context);
+            return;
+        }
         if (isLessonZeroConstructedClassroomActivity(context.checkpoint.activityId)) {
             await this.renderClassroomExpressionSession(context.checkpoint.activityId, context);
             return;
@@ -635,6 +649,89 @@ class LessonFlow implements AcademyRouteFlow {
             },
             onRestart: restart => context.save?.({ classroomExpressionProgress: restart }),
             onBack: () => context.back(),
+        });
+        screen.element.dataset.academyRoute = 'source-activity';
+        screen.element.addEventListener('academy:dispose', () => screen.dispose(), { once: true });
+        context.shell.replace(screen.element);
+    }
+
+    private async renderLessonZeroRepeatRequest(context: AcademyRouteContext): Promise<void> {
+        const [classroom, content] = await Promise.all([
+            loadLessonZeroClassroomExpressions(),
+            loadLessonZeroContent(),
+        ]);
+        const activity = content.lesson.activities.find(candidate =>
+            candidate.id === LESSON_ZERO_REPEAT_REQUEST_ACTIVITY_ID);
+        if (!activity) throw new TypeError('Lesson Zero is missing its repeat-request activity.');
+        const definition = createLessonZeroRepeatRequestDefinition(classroom, activity);
+        let state;
+        try {
+            state = startLessonZeroRepeatRequestSession(
+                definition,
+                context.checkpoint.lessonZeroRepeatRequestProgress,
+            );
+        } catch {
+            state = startLessonZeroRepeatRequestSession(definition);
+        }
+        if (state.status === 'paused') {
+            state = transitionLessonZeroRepeatRequestSession(
+                definition,
+                state,
+                { kind: 'resume' },
+                Date.now(),
+            ).state;
+        }
+        if (JSON.stringify(state) !== JSON.stringify(context.checkpoint.lessonZeroRepeatRequestProgress)) {
+            await context.save?.({ lessonZeroRepeatRequestProgress: state });
+        }
+        const returning = context.projection.completedScenes.includes(AAKASH_RAINY_DIRECTIONS_SCENE_ID);
+        const screen = createLessonZeroRepeatRequestScreen({
+            language: context.language,
+            definition,
+            initialState: state,
+            pronunciation: this.options.pronunciation,
+            onTransition: async (before, transition) => {
+                if (transition.evaluation) {
+                    this.playFeedbackSfx(transition.evaluation.result.outcome);
+                    await this.options.evidence.recordActivity(
+                        transition.evaluation,
+                        LESSON_ZERO_ID,
+                        undefined,
+                        transition.adaptive,
+                    );
+                }
+                for (const support of transition.supportEvents) {
+                    await this.options.evidence.recordSupportUse(
+                        support.activityId,
+                        support.supportKind,
+                        support.choiceId,
+                        { eventId: support.eventId, at: support.at },
+                    );
+                }
+                if (before.status !== 'complete' && transition.state.status === 'complete') {
+                    await this.options.evidence.recordActivity(
+                        lessonZeroRepeatRequestCompletionEvaluation(activity, definition, Date.now()),
+                        LESSON_ZERO_ID,
+                        {
+                            id: 'lesson-zero-repeat-request-transfer',
+                            sceneId: 'scene:lesson-zero-repeat-request-transfer',
+                            journalLine: {
+                                lineId: 'journal:lesson-zero:repeat-request',
+                                characterId: 'rie',
+                                text: {
+                                    ja: 'りえ先生に「もう一度お願いします」と頼み、カフェでも同じ一言を使った。',
+                                    en: 'I asked Rie to say it again, then used the same request at the cafe.',
+                                },
+                                sourceQuestionId: definition.sourceQuestionId,
+                            },
+                        },
+                    );
+                }
+                await context.save?.({ lessonZeroRepeatRequestProgress: transition.state });
+            },
+            onRestart: restart => context.save?.({ lessonZeroRepeatRequestProgress: restart }),
+            onBack: () => context.back(),
+            onComplete: () => this.completeSourceActivity(context, returning),
         });
         screen.element.dataset.academyRoute = 'source-activity';
         screen.element.addEventListener('academy:dispose', () => screen.dispose(), { once: true });
@@ -1275,6 +1372,7 @@ function overviewState(
             LESSON_ZERO_VOWEL_SOUND_MAP_ID,
             LESSON_ZERO_VOWEL_WRITING_ID,
             LESSON_ZERO_FOLLOW_INSTRUCTION_ACTIVITY_ID,
+            LESSON_ZERO_REPEAT_REQUEST_ACTIVITY_ID,
             ...LESSON_ZERO_CONSTRUCTED_CLASSROOM_ACTIVITY_IDS,
             LESSON_ZERO_SENTENCE_FRAMES_ACTIVITY_ID,
             LESSON_ZERO_NAME_CARD_ACTIVITY_ID,

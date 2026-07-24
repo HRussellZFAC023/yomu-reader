@@ -38,12 +38,12 @@ describe('Lesson Zero classroom runtime bridge', () => {
         const positioned = classroomStateForActivity(
             definition,
             startClassroomExpressionSession(definition),
-            'activity:lesson-zero-reconstruct-repair',
+            'activity:lesson-zero-desk-language',
         );
 
         expect(positioned.cursor).toMatchObject({
-            phaseId: 'understanding-and-repair',
-            probeId: 'probe:classroom-08-check',
+            phaseId: 'desk-language',
+            probeId: 'probe:classroom-13-homework',
         });
     });
 
@@ -52,28 +52,28 @@ describe('Lesson Zero classroom runtime bridge', () => {
         const state = classroomStateForActivity(
             definition,
             startClassroomExpressionSession(definition),
-            'activity:lesson-zero-reconstruct-repair',
+            'activity:lesson-zero-desk-language',
         );
         const transition = transitionClassroomExpressionSession(definition, state, {
-            kind: 'submit', response: 'わかりますか',
+            kind: 'submit', response: 'しゅくだい',
         }, 100);
         const recording = classroomProbeRecording(definition, transition);
 
         expect(recording).toMatchObject({
-            bindingActivityId: 'activity:lesson-zero-reconstruct-repair',
+            bindingActivityId: 'activity:lesson-zero-desk-language',
             evaluation: {
                 attempt: {
-                    eventId: expect.stringContaining('probe:classroom-08-check:attempt:1'),
-                    activityId: 'probe:classroom-08-check',
-                    sourceQuestionId: 'source-question:classroom-phrase-08',
+                    eventId: expect.stringContaining('probe:classroom-13-homework:attempt:1'),
+                    activityId: 'probe:classroom-13-homework',
+                    sourceQuestionId: 'source-question:classroom-phrase-13',
                     outcome: 'pass',
                 },
                 reviewSeeds: [{
-                    id: 'review:lesson-zero:classroom-08-check',
+                    id: 'review:lesson-zero:classroom-13-homework',
                     content: {
-                        expression: 'わかりますか',
-                        reading: 'わかりますか',
-                        meanings: ['Do you understand?'],
+                        expression: 'しゅくだい',
+                        reading: 'しゅくだい',
+                        meanings: ['homework'],
                     },
                 }],
             },
@@ -91,27 +91,27 @@ describe('Lesson Zero classroom runtime bridge', () => {
         let state = classroomStateForActivity(
             definition,
             startClassroomExpressionSession(definition),
-            'activity:lesson-zero-reconstruct-repair',
+            'activity:lesson-zero-desk-language',
         );
         const initial = state;
         let at = 200;
         while (!completedClassroomActivityIds(definition, state)
-            .includes('activity:lesson-zero-reconstruct-repair')) {
+            .includes('activity:lesson-zero-desk-language')) {
             state = transitionClassroomExpressionSession(definition, state, {
                 kind: 'submit', response: answers.get(state.cursor.probeId)!,
             }, at++).state;
         }
 
         expect(newlyCompletedClassroomActivityIds(definition, initial, state))
-            .toEqual(['activity:lesson-zero-reconstruct-repair']);
+            .toEqual(['activity:lesson-zero-desk-language']);
         expect(completedClassroomActivityIds(definition, state))
             .not.toContain('activity:lesson-zero-follow-instructions');
 
         const lesson = validateLessonZeroPackage(JSON.parse(fs.readFileSync(LESSON_PATH, 'utf8'))).lesson;
         const activity = lesson.activities.find(candidate =>
-            candidate.id === 'activity:lesson-zero-reconstruct-repair')!;
+            candidate.id === 'activity:lesson-zero-desk-language')!;
         expect(classroomActivityCompletionEvaluation(activity, 300).attempt).toMatchObject({
-            eventId: 'session:lesson-zero-classroom-expressions:activity:lesson-zero-reconstruct-repair:complete',
+            eventId: 'session:lesson-zero-classroom-expressions:activity:lesson-zero-desk-language:complete',
             activityId: activity.id,
             outcome: 'pass',
         });
@@ -124,15 +124,15 @@ describe('Lesson Zero classroom runtime bridge', () => {
         let state = classroomStateForActivity(
             definition,
             startClassroomExpressionSession(definition),
-            'activity:lesson-zero-desk-language',
+            'activity:lesson-zero-follow-instructions',
         );
         state = transitionClassroomExpressionSession(definition, state, {
             kind: 'submit', response: answers.get(state.cursor.probeId)!,
         }, 400).state;
-        const deskProbeId = 'probe:classroom-13-homework';
-        state = classroomStateForActivity(definition, state, 'activity:lesson-zero-reconstruct-repair');
+        const siblingProbeId = 'probe:classroom-01-start';
+        state = classroomStateForActivity(definition, state, 'activity:lesson-zero-desk-language');
         while (!completedClassroomActivityIds(definition, state)
-            .includes('activity:lesson-zero-reconstruct-repair')) {
+            .includes('activity:lesson-zero-desk-language')) {
             state = transitionClassroomExpressionSession(definition, state, {
                 kind: 'submit', response: answers.get(state.cursor.probeId)!,
             }, 401 + state.attempts.length).state;
@@ -141,12 +141,12 @@ describe('Lesson Zero classroom runtime bridge', () => {
         const replay = restartClassroomActivity(
             definition,
             state,
-            'activity:lesson-zero-reconstruct-repair',
+            'activity:lesson-zero-desk-language',
         );
 
-        expect(replay.cursor.probeId).toBe('probe:classroom-08-check');
-        expect(replay.passedProbeIds).toContain(deskProbeId);
-        expect(replay.passedProbeIds).not.toContain('probe:classroom-08-check');
-        expect(replay.attempts.some(attempt => attempt.probeId === deskProbeId)).toBe(true);
+        expect(replay.cursor.probeId).toBe('probe:classroom-13-homework');
+        expect(replay.passedProbeIds).toContain(siblingProbeId);
+        expect(replay.passedProbeIds).not.toContain('probe:classroom-13-homework');
+        expect(replay.attempts.some(attempt => attempt.probeId === siblingProbeId)).toBe(true);
     });
 });

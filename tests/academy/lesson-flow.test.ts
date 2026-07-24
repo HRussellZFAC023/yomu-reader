@@ -121,7 +121,7 @@ describe('Academy lesson flow', () => {
         expect(route.back).toHaveBeenCalledOnce();
     });
 
-    it('saves and leaves the Lesson 0 classroom workshop through persisted route history', async () => {
+    it('saves and leaves the focused repetition request through persisted route history', async () => {
         const route = context('lesson:foundation-00', {
             route: 'source-activity',
             selectedFork: 'text',
@@ -134,15 +134,17 @@ describe('Academy lesson flow', () => {
         });
 
         await flow.render('source-activity', route.value);
-        route.shell.current?.querySelector<HTMLButtonElement>('.academy-classroom-expression-back')?.click();
+        route.shell.current?.querySelector<HTMLButtonElement>('[data-repeat-action="begin"]')?.click();
+        await vi.waitFor(() => expect(route.shell.current?.dataset.sessionStage).toBe('practice'));
+        route.shell.current?.querySelector<HTMLButtonElement>('.academy-repeat-request-back')?.click();
 
         await vi.waitFor(() => expect(route.back).toHaveBeenCalledOnce());
         expect(route.save).toHaveBeenCalledWith(expect.objectContaining({
-            classroomExpressionProgress: expect.objectContaining({ status: 'paused' }),
+            lessonZeroRepeatRequestProgress: expect.objectContaining({ status: 'paused' }),
         }));
     });
 
-    it('routes the exact classroom repair activity through all source-linked session evidence', async () => {
+    it('routes the repetition request through two chunks, exact evidence, and changed-context transfer', async () => {
         const route = context('lesson:foundation-00', {
             route: 'source-activity',
             activityId: 'activity:lesson-zero-reconstruct-repair',
@@ -155,30 +157,82 @@ describe('Academy lesson flow', () => {
         });
 
         await flow.render('source-activity', route.value);
-        expect(route.shell.current?.dataset.academyScreen).toBe('classroom-expression-session');
+        expect(route.shell.current?.dataset.academyScreen).toBe('lesson-zero-repeat-request');
         expect(route.save).toHaveBeenCalledWith(expect.objectContaining({
-            classroomExpressionProgress: expect.objectContaining({
-                cursor: expect.objectContaining({ probeId: 'probe:classroom-08-check' }),
-            }),
+            lessonZeroRepeatRequestProgress: expect.objectContaining({ stage: 'meet' }),
         }));
 
-        const input = route.shell.current?.querySelector<HTMLInputElement>('.academy-classroom-expression-input')!;
-        input.value = 'わかりますか';
-        route.shell.current?.querySelector<HTMLFormElement>('.academy-classroom-expression-form')
-            ?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+        route.shell.current?.querySelector<HTMLButtonElement>('[data-repeat-action="begin"]')?.click();
+        await vi.waitFor(() => expect(route.shell.current?.dataset.sessionStage).toBe('practice'));
+        clickRepeatChunk(route.shell.current!, 'once-more');
+        await vi.waitFor(() => expect(route.save).toHaveBeenCalledWith(expect.objectContaining({
+            lessonZeroRepeatRequestProgress: expect.objectContaining({
+                selectedChunkIds: ['once-more'],
+            }),
+        })));
+        clickRepeatChunk(route.shell.current!, 'please');
+        await vi.waitFor(() => expect(
+            route.shell.current?.querySelector<HTMLButtonElement>('[data-repeat-action="submit"]')?.disabled,
+        ).toBe(false));
+        route.shell.current?.querySelector<HTMLButtonElement>('[data-repeat-action="submit"]')?.click();
         await vi.waitFor(() => expect(recordActivity).toHaveBeenCalledWith(
             expect.objectContaining({
-                attempt: expect.objectContaining({ activityId: 'probe:classroom-08-check', outcome: 'pass' }),
+                attempt: expect.objectContaining({
+                    activityId: 'activity:lesson-zero-reconstruct-repair:practice',
+                    sourceQuestionId: 'source-question:classroom-phrase-09',
+                    outcome: 'pass',
+                }),
+                reviewSeeds: [
+                    expect.objectContaining({ id: 'review:lesson-zero:classroom-09-repeat' }),
+                ],
             }),
             'lesson:foundation-00',
             undefined,
-            expect.objectContaining({ modeId: 'lesson-zero-classroom-expressions' }),
+            expect.objectContaining({ modeId: 'lesson-zero-repeat-request', skill: 'repair' }),
         ));
         await vi.waitFor(() => expect(route.save).toHaveBeenCalledWith(expect.objectContaining({
-            classroomExpressionProgress: expect.objectContaining({
-                passedProbeIds: ['probe:classroom-08-check'],
+            lessonZeroRepeatRequestProgress: expect.objectContaining({
+                stage: 'transfer-ready',
+                practicePassed: true,
             }),
         })));
+
+        route.shell.current?.querySelector<HTMLButtonElement>('[data-repeat-action="begin-transfer"]')?.click();
+        await vi.waitFor(() => expect(route.shell.current?.dataset.sessionStage).toBe('transfer'));
+        clickRepeatChunk(route.shell.current!, 'once-more');
+        await vi.waitFor(() => expect(route.shell.current?.textContent).toContain('Your request'));
+        clickRepeatChunk(route.shell.current!, 'please');
+        await vi.waitFor(() => expect(
+            route.shell.current?.querySelector<HTMLButtonElement>('[data-repeat-action="submit"]')?.disabled,
+        ).toBe(false));
+        route.shell.current?.querySelector<HTMLButtonElement>('[data-repeat-action="submit"]')?.click();
+        await vi.waitFor(() => expect(recordActivity).toHaveBeenCalledWith(
+            expect.objectContaining({
+                attempt: expect.objectContaining({
+                    activityId: 'activity:lesson-zero-reconstruct-repair:transfer',
+                    outcome: 'pass',
+                }),
+                reviewSeeds: [],
+            }),
+            'lesson:foundation-00',
+            undefined,
+            expect.objectContaining({ skill: 'transfer', independent: true }),
+        ));
+        await vi.waitFor(() => expect(recordActivity).toHaveBeenCalledWith(
+            expect.objectContaining({
+                attempt: expect.objectContaining({
+                    activityId: 'activity:lesson-zero-reconstruct-repair',
+                    outcome: 'pass',
+                }),
+            }),
+            'lesson:foundation-00',
+            expect.objectContaining({
+                id: 'lesson-zero-repeat-request-transfer',
+                journalLine: expect.objectContaining({
+                    lineId: 'journal:lesson-zero:repeat-request',
+                }),
+            }),
+        ));
     });
 
     it('routes Rie\'s seven instructions through embodied listening evidence and durable pause', async () => {
@@ -1157,5 +1211,11 @@ function clickButton(root: HTMLElement, label: string): void {
     const button = [...root.querySelectorAll<HTMLButtonElement>('button')]
         .find(candidate => candidate.textContent?.trim() === label);
     if (!button) throw new TypeError(`Missing button ${label}.`);
+    button.click();
+}
+
+function clickRepeatChunk(root: HTMLElement, chunkId: string): void {
+    const button = root.querySelector<HTMLButtonElement>(`[data-chunk-id="${chunkId}"]`);
+    if (!button) throw new TypeError(`Missing repeat-request chunk ${chunkId}.`);
     button.click();
 }

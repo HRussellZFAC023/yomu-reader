@@ -102,6 +102,10 @@ body:has(#yomu-academy) > .jpdb-reader-fab-radial {
     display: none;
 }
 
+.academy-root:has([data-academy-presentation='focus']) .academy-header {
+    display: none;
+}
+
 .academy-offline-notice {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);

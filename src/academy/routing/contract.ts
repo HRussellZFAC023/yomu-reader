@@ -43,6 +43,9 @@ export function normalizeResumeCheckpoint(
             ...(checkpoint.classroomInstructionProgress
                 ? { classroomInstructionProgress: checkpoint.classroomInstructionProgress }
                 : {}),
+            ...(checkpoint.lessonZeroRepeatRequestProgress
+                ? { lessonZeroRepeatRequestProgress: checkpoint.lessonZeroRepeatRequestProgress }
+                : {}),
             ...(checkpoint.lessonZeroGreetingProgress
                 ? { lessonZeroGreetingProgress: checkpoint.lessonZeroGreetingProgress }
                 : {}),

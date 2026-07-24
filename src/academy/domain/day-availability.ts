@@ -203,6 +203,7 @@ const DAY_ONE_VERIFIED_ACTIVITY_IDS = new Set<typeof DAY_ONE_LESSON_ACTIVITY_IDS
     'activity:lesson-zero-vowel-listen',
     'activity:lesson-zero-vowel-doodle',
     'activity:lesson-zero-follow-instructions',
+    'activity:lesson-zero-reconstruct-repair',
     'activity:lesson-zero-sound-input',
     'activity:lesson-zero-text-input',
     'activity:lesson-zero-speaking-input',

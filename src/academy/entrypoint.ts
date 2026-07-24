@@ -26,6 +26,7 @@ import './styles/class-path.css';
 import './styles/lesson-overview.css';
 import './styles/classroom-expression-session.css';
 import './styles/classroom-instruction.css';
+import './styles/lesson-zero-repeat-request.css';
 import './styles/lesson-zero-greeting.css';
 import './styles/lesson-zero-vowel.css';
 import './styles/lesson-zero-vowel-writing.css';
