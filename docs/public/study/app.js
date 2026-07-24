@@ -97,21 +97,26 @@
       intersectionObserver: null,
       refreshFrame: 0,
       observer: null,
-      shadowRootReferences: /* @__PURE__ */ new Map()
+      shadowRootReferences: /* @__PURE__ */ new Map(),
+      scheduleRefresh: () => scheduleProjectionRefresh(document2, overlay),
+      scheduleTopologyRefresh: () => {
+        overlay.rootsDirty = true;
+        scheduleProjectionRefresh(document2, overlay);
+      },
+      rootsDirty: false
     };
     overlays.set(document2, overlay);
     overlay.intersectionObserver = observeProjectionIntersections(document2, overlay);
-    const schedule = () => scheduleProjectionRefresh(document2, overlay);
-    document2.addEventListener("scroll", schedule, { capture: true, passive: true });
-    document2.addEventListener("pointerover", schedule, { capture: true, passive: true });
-    document2.addEventListener("pointerout", schedule, { capture: true, passive: true });
-    document2.addEventListener("focusin", schedule, { capture: true, passive: true });
-    document2.addEventListener("focusout", schedule, { capture: true, passive: true });
+    document2.addEventListener("scroll", overlay.scheduleRefresh, { capture: true, passive: true });
+    document2.addEventListener("pointerover", overlay.scheduleRefresh, { capture: true, passive: true });
+    document2.addEventListener("pointerout", overlay.scheduleRefresh, { capture: true, passive: true });
+    document2.addEventListener("focusin", overlay.scheduleRefresh, { capture: true, passive: true });
+    document2.addEventListener("focusout", overlay.scheduleRefresh, { capture: true, passive: true });
     const viewport = document2.defaultView;
-    viewport?.addEventListener("resize", schedule, { passive: true });
-    viewport?.addEventListener("orientationchange", schedule, { passive: true });
-    viewport?.visualViewport?.addEventListener("scroll", schedule, { passive: true });
-    viewport?.visualViewport?.addEventListener("resize", schedule, { passive: true });
+    viewport?.addEventListener("resize", overlay.scheduleRefresh, { passive: true });
+    viewport?.addEventListener("orientationchange", overlay.scheduleRefresh, { passive: true });
+    viewport?.visualViewport?.addEventListener("scroll", overlay.scheduleRefresh, { passive: true });
+    viewport?.visualViewport?.addEventListener("resize", overlay.scheduleRefresh, { passive: true });
     overlay.observer = observeProjectionEnvironment(document2, overlay);
     return overlay;
   }
@@ -184,6 +189,10 @@
   }
   function refreshProjectedReadingPositions(overlay) {
     pruneDisconnectedRecords(overlay);
+    if (overlay.rootsDirty) {
+      overlay.rootsDirty = false;
+      [...overlay.anchorRecords.keys()].forEach((anchor) => refreshProjectionAnchorRoot(anchor, overlay));
+    }
     const context = {
       overlay,
       anchorPaint: /* @__PURE__ */ new Map(),
@@ -244,9 +253,9 @@
       overlay.anchorRecords.set(record2.anchor, records);
       overlay.intersectingAnchors.add(record2.anchor);
       overlay.intersectionObserver?.observe(record2.anchor);
-      const root = record2.anchor.getRootNode();
-      overlay.anchorRoots.set(record2.anchor, root);
-      trackProjectionRoot(root, overlay);
+      const roots = projectionShadowRoots(record2.anchor);
+      overlay.anchorRoots.set(record2.anchor, roots);
+      roots.forEach((root) => trackProjectionRoot(root, overlay));
     }
     records.add(record2);
   }
@@ -258,17 +267,43 @@
     overlay.anchorRecords.delete(record2.anchor);
     overlay.intersectingAnchors.delete(record2.anchor);
     overlay.intersectionObserver?.unobserve(record2.anchor);
-    const root = overlay.anchorRoots.get(record2.anchor);
+    const roots = overlay.anchorRoots.get(record2.anchor) ?? [];
     overlay.anchorRoots.delete(record2.anchor);
-    if (root) untrackProjectionRoot(root, overlay);
+    roots.forEach((root) => untrackProjectionRoot(root, overlay));
   }
   function refreshProjectionAnchorRoot(anchor, overlay) {
-    const tracked = overlay.anchorRoots.get(anchor);
-    const current = anchor.getRootNode();
-    if (tracked === current) return;
-    if (tracked) untrackProjectionRoot(tracked, overlay);
+    const tracked = overlay.anchorRoots.get(anchor) ?? [];
+    const current = projectionShadowRoots(anchor);
+    if (tracked.length === current.length && tracked.every((root, index) => root === current[index])) return;
+    const trackedSet = new Set(tracked);
+    const currentSet = new Set(current);
+    tracked.filter((root) => !currentSet.has(root)).forEach((root) => untrackProjectionRoot(root, overlay));
     overlay.anchorRoots.set(anchor, current);
-    trackProjectionRoot(current, overlay);
+    current.filter((root) => !trackedSet.has(root)).forEach((root) => trackProjectionRoot(root, overlay));
+  }
+  function projectionShadowRoots(anchor) {
+    const roots = [];
+    const rootSet = /* @__PURE__ */ new Set();
+    const addRoot = (root) => {
+      if (rootSet.has(root)) return;
+      rootSet.add(root);
+      roots.push(root);
+    };
+    const visited = /* @__PURE__ */ new Set();
+    let node = anchor;
+    while (node && !visited.has(node)) {
+      visited.add(node);
+      if (node instanceof ShadowRoot) addRoot(node);
+      node = composedParentNode(node);
+    }
+    const domVisited = /* @__PURE__ */ new Set();
+    for (let domNode = anchor; domNode && !domVisited.has(domNode); ) {
+      domVisited.add(domNode);
+      const parent = domNode.parentNode ?? (domNode instanceof ShadowRoot ? domNode.host : null);
+      if (parent instanceof Element && parent.shadowRoot) addRoot(parent.shadowRoot);
+      domNode = parent;
+    }
+    return roots;
   }
   function refreshableRecords(overlay) {
     if (!overlay.intersectionObserver) return [...overlay.records];
@@ -280,7 +315,7 @@
     if (!Observer || !root) return null;
     const observer = new Observer((mutations) => {
       if (!overlay.records.size || !mutations.some((mutation) => mutationAffectsProjection(mutation, overlay.layer))) return;
-      scheduleProjectionRefresh(document2, overlay);
+      overlay.scheduleTopologyRefresh();
     });
     observeProjectionMutations(observer, root);
     return observer;
@@ -288,25 +323,28 @@
   function observeProjectionMutations(observer, root) {
     observer.observe(root, {
       attributes: true,
-      attributeFilter: ["aria-expanded", "aria-hidden", "class", "hidden", "open", "style"],
+      attributeFilter: ["aria-expanded", "aria-hidden", "class", "hidden", "name", "open", "slot", "style"],
       childList: true,
       subtree: true
     });
   }
   function trackProjectionRoot(root, overlay) {
-    if (!(root instanceof ShadowRoot)) return;
     const references = overlay.shadowRootReferences.get(root) ?? 0;
     overlay.shadowRootReferences.set(root, references + 1);
-    if (references === 0) rebuildProjectionMutationRoots(overlay);
+    if (references !== 0) return;
+    root.addEventListener("scroll", overlay.scheduleRefresh, { capture: true, passive: true });
+    root.addEventListener("slotchange", overlay.scheduleTopologyRefresh, { capture: true, passive: true });
+    rebuildProjectionMutationRoots(overlay);
   }
   function untrackProjectionRoot(root, overlay) {
-    if (!(root instanceof ShadowRoot)) return;
     const references = overlay.shadowRootReferences.get(root) ?? 0;
     if (references > 1) {
       overlay.shadowRootReferences.set(root, references - 1);
       return;
     }
     if (!overlay.shadowRootReferences.delete(root)) return;
+    root.removeEventListener("scroll", overlay.scheduleRefresh, { capture: true });
+    root.removeEventListener("slotchange", overlay.scheduleTopologyRefresh, { capture: true });
     rebuildProjectionMutationRoots(overlay);
   }
   function rebuildProjectionMutationRoots(overlay) {
@@ -461,17 +499,22 @@
     return rect.right >= -margin && rect.bottom >= -margin && rect.left <= viewport.innerWidth + margin && rect.top <= viewport.innerHeight + margin;
   }
   function composedParentElement(element2) {
-    if (element2.parentElement) return element2.parentElement;
-    const root = element2.getRootNode();
-    return root instanceof ShadowRoot ? root.host : null;
+    let parent = composedParentNode(element2);
+    while (parent && !(parent instanceof Element)) parent = composedParentNode(parent);
+    return parent;
   }
   function composedContains(ancestor, descendant) {
-    for (let node = descendant; node; ) {
+    const visited = /* @__PURE__ */ new Set();
+    for (let node = descendant; node && !visited.has(node); node = composedParentNode(node)) {
+      visited.add(node);
       if (node === ancestor) return true;
-      const root = node.getRootNode();
-      node = node.parentNode ?? (root instanceof ShadowRoot ? root.host : null);
     }
     return false;
+  }
+  function composedParentNode(node) {
+    if (node instanceof Element && node.assignedSlot) return node.assignedSlot;
+    if (node.parentNode) return node.parentNode;
+    return node instanceof ShadowRoot ? node.host : null;
   }
   function safeComputedStyle$1(element2) {
     try {
@@ -48108,7 +48151,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.7.5".trim() ? "1.7.5".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.7.6".trim() ? "1.7.6".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record2 = value;

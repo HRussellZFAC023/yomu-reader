@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.7.6] - 2026-07-24
+
+### Fixed
+
+- Furigana and other projected readings now stay anchored to their source text while scrolling inside YouTube and other dynamic web components. The shared viewport renderer follows the source's composed tree across nested and slotted shadow roots, and migrates its listeners when frameworks move existing text, so readings no longer follow the viewport after their source moves.
+
 ## [1.7.5] - 2026-07-24
 
 ### Fixed
