@@ -2906,6 +2906,41 @@
       japanese: "おちゃです",
       sourceSha256: "11dc3f8cc0b518f844783a3d86e1d24d650874acdc97a9f460ad0ddd57232001"
     }),
+    "lesson-zero:classroom-instruction:begin": Object.freeze({
+      lineId: "lesson-zero:classroom-instruction:begin",
+      japanese: "はじめましょう",
+      sourceSha256: "1fbd90adcac45c55e62abde3e46439d3a5348552fc4a69b9f78a7edb10e58c52"
+    }),
+    "lesson-zero:classroom-instruction:finish": Object.freeze({
+      lineId: "lesson-zero:classroom-instruction:finish",
+      japanese: "おわりましょう",
+      sourceSha256: "9c5f2de672f343767619e9450b5f7649d72be094c829777a39a201b08c394b6d"
+    }),
+    "lesson-zero:classroom-instruction:break": Object.freeze({
+      lineId: "lesson-zero:classroom-instruction:break",
+      japanese: "やすみましょう",
+      sourceSha256: "b9041e360b4b73ffcb249050cd789905004ced48a50353f7e626d0c88e545d26"
+    }),
+    "lesson-zero:classroom-instruction:look": Object.freeze({
+      lineId: "lesson-zero:classroom-instruction:look",
+      japanese: "みてください",
+      sourceSha256: "9668a8b62bbb7c64c409ed7186efb71815b77fbfdcd3ed8c74bcbd7b7d67fb7d"
+    }),
+    "lesson-zero:classroom-instruction:say-together": Object.freeze({
+      lineId: "lesson-zero:classroom-instruction:say-together",
+      japanese: "みなさんでいってください",
+      sourceSha256: "aef85b41f752da817cd2f71a5d514813bc92f65c32cd9fc59c9c067e3a78bc06"
+    }),
+    "lesson-zero:classroom-instruction:listen": Object.freeze({
+      lineId: "lesson-zero:classroom-instruction:listen",
+      japanese: "きいてください",
+      sourceSha256: "6e4eaeb1c7ea595b1d3b0a1dd39dc0d6bae2d544ef4e4565b21796adc3f0d6e9"
+    }),
+    "lesson-zero:classroom-instruction:write": Object.freeze({
+      lineId: "lesson-zero:classroom-instruction:write",
+      japanese: "かいてください",
+      sourceSha256: "69472717888dbcdbd5277f2328ef49f43377f200832ce224244f8cf3ac56af82"
+    }),
     "lesson-screen:textbook-pair-prompt": Object.freeze({
       lineId: "lesson-screen:textbook-pair-prompt",
       japanese: "では、教科書の五ページを開いて、二人で話してください。",
@@ -3972,7 +4007,7 @@
           kind: "attempt-recorded",
           activityId: model2.id,
           ...model2.sourceQuestionId ? { sourceQuestionId: model2.sourceQuestionId } : {},
-          conceptIds: unique$h(model2.conceptIds),
+          conceptIds: unique$i(model2.conceptIds),
           responseKind: model2.responseKind,
           outcome: result2.outcome,
           score: result2.score,
@@ -4056,7 +4091,7 @@
     }
     return {
       ...result2,
-      errorTags: unique$h(result2.errorTags),
+      errorTags: unique$i(result2.errorTags),
       feedback: structuredClone(feedback2)
     };
   }
@@ -4079,7 +4114,7 @@
       content: {
         expression: requireText$3(seed.content.expression, "reviewSeed.content.expression"),
         ...seed.content.reading ? { reading: requireText$3(seed.content.reading, "reviewSeed.content.reading") } : {},
-        meanings: unique$h(seed.content.meanings),
+        meanings: unique$i(seed.content.meanings),
         ...seed.content.sentence ? { sentence: requireText$3(seed.content.sentence, "reviewSeed.content.sentence") } : {}
       }
     };
@@ -4092,7 +4127,7 @@
   function text$n(value) {
     return typeof value === "string" ? value.trim() : "";
   }
-  function unique$h(values) {
+  function unique$i(values) {
     return [...new Set(values.map((value) => requireText$3(value, "id")))].sort();
   }
   function parseAuthoredWeekPackage(value) {
@@ -4487,10 +4522,10 @@
       fail$4(`${path}.pluginTarget`, "must be academy-drag-sort");
     }
     assertAfterAttemptVisibility(exercise.answerVisibility, `${path}.answerVisibility`);
-    const sourceItemsExact = stringArray$7(exercise.sourceItemsExact, `${path}.sourceItemsExact`);
+    const sourceItemsExact = stringArray$8(exercise.sourceItemsExact, `${path}.sourceItemsExact`);
     const answers = record$17(exercise.answers, `${path}.answers`);
     assertAfterAttemptVisibility(answers.visibility, `${path}.answers.visibility`);
-    const values = stringArray$7(answers.values, `${path}.answers.values`);
+    const values = stringArray$8(answers.values, `${path}.answers.values`);
     if (sourceItemsExact.length < 2 || sourceItemsExact.length !== values.length) {
       fail$4(path, "must have the same number of source items and matching values");
     }
@@ -4522,7 +4557,7 @@
     const hasCues = exercise.sourceItemsExact !== void 0 || exercise.answers !== void 0;
     if (hasTiles === hasCues) fail$4(path, "must define exactly one ordering source shape");
     if (hasTiles) {
-      const tiles = stringArray$7(exercise.tiles, `${path}.tiles`);
+      const tiles = stringArray$8(exercise.tiles, `${path}.tiles`);
       if (tiles.length < 2 || new Set(tiles).size !== tiles.length) {
         fail$4(`${path}.tiles`, "must contain at least two unique tiles");
       }
@@ -4536,10 +4571,10 @@
         answer: parseExactAnswer(exercise.answer, `${path}.answer`)
       };
     }
-    const sourceItemsExact = stringArray$7(exercise.sourceItemsExact, `${path}.sourceItemsExact`);
+    const sourceItemsExact = stringArray$8(exercise.sourceItemsExact, `${path}.sourceItemsExact`);
     const answers = record$17(exercise.answers, `${path}.answers`);
     assertAfterAttemptVisibility(answers.visibility, `${path}.answers.visibility`);
-    const values = stringArray$7(answers.values, `${path}.answers.values`);
+    const values = stringArray$8(answers.values, `${path}.answers.values`);
     if (!sourceItemsExact.length || sourceItemsExact.length !== values.length) {
       fail$4(path, "must have the same number of ordering cues and values");
     }
@@ -4566,7 +4601,7 @@
   function parseExactAnswer(value, path, rejected = /* @__PURE__ */ new Set()) {
     const answer2 = record$17(value, path);
     const primary = text$m(answer2.primary, `${path}.primary`);
-    const alternatives = answer2.alternatives === void 0 ? [] : stringArray$7(answer2.alternatives, `${path}.alternatives`);
+    const alternatives = answer2.alternatives === void 0 ? [] : stringArray$8(answer2.alternatives, `${path}.alternatives`);
     return {
       primary,
       alternatives: alternatives.filter((candidate2) => !rejected.has(normalizeAnswer(candidate2)))
@@ -4582,7 +4617,7 @@
   function normalizeAnswer(value) {
     return value.normalize("NFKC").replace(/[\s。、！？!?]/gu, "").toLocaleLowerCase("ja");
   }
-  function stringArray$7(value, path) {
+  function stringArray$8(value, path) {
     return array$16(value, path).map((candidate2, index) => text$m(candidate2, `${path}[${index}]`));
   }
   function assertAfterAttemptVisibility(value, path) {
@@ -7736,7 +7771,7 @@
     if (!isRecord$a(value)) throw new TypeError("Listening crosswalk entry must be an object.");
     const locator = requiredText$4(value.locator, "locator");
     const authoredAssetId = requiredText$4(value.authoredAssetId, `${locator}.authoredAssetId`);
-    const provenance2 = stringArray$6(value.provenance, `${locator}.provenance`);
+    const provenance2 = stringArray$7(value.provenance, `${locator}.provenance`);
     if (value.availability === "unavailable") {
       if (value.reason !== "no-recording-matching-authored-script" && value.reason !== "authored-locator-no-runtime-source") {
         throw new TypeError(`Unavailable listening entry ${locator} has an unsupported reason.`);
@@ -7804,7 +7839,7 @@
     if (!SHA256$2.test(result2)) throw new TypeError(`${label} must be a lowercase SHA-256 digest.`);
     return result2;
   }
-  function stringArray$6(value, label) {
+  function stringArray$7(value, label) {
     if (!Array.isArray(value) || value.length === 0) throw new TypeError(`${label} must be a non-empty string array.`);
     return value.map((item2, index) => requiredText$4(item2, `${label}[${index}]`));
   }
@@ -10378,7 +10413,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const acceptedAnswers2 = script.lines.map((line2) => `${line2.id}=>${line2.speakerId}`);
     const answerBearing = {
       translations: script.lines.map((line2) => line2.english),
-      transcripts: unique$g(script.lines.flatMap((line2) => [line2.japanese, line2.reading])),
+      transcripts: unique$h(script.lines.flatMap((line2) => [line2.japanese, line2.reading])),
       modelAnswers: acceptedAnswers2,
       acceptedAnswers: acceptedAnswers2
     };
@@ -10587,11 +10622,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function range$1(from, to) {
     return Array.from({ length: to - from + 1 }, (_, index) => `expression:classroom-${String(from + index).padStart(2, "0")}`);
   }
-  function unique$g(values) {
+  function unique$h(values) {
     return [...new Set(values)];
   }
   const LESSON_ZERO_FOLLOW_INSTRUCTION_ACTIVITY_ID = "activity:lesson-zero-follow-instructions";
-  const SOURCE_ACTION_ORDER = Object.freeze([
+  const LESSON_ZERO_CLASSROOM_INSTRUCTION_LEARNING_ORDER = Object.freeze([
     "begin",
     "finish",
     "break",
@@ -10600,7 +10635,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     "listen",
     "write"
   ]);
-  const CHALLENGE_ACTION_ORDER = Object.freeze([
+  const LESSON_ZERO_CLASSROOM_INSTRUCTION_RECALL_ORDER = Object.freeze([
     "look",
     "begin",
     "write",
@@ -10610,7 +10645,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     "say-together"
   ]);
   const LESSON_ZERO_FOLLOW_INSTRUCTION_CHILD_ACTIVITY_IDS = Object.freeze(
-    SOURCE_ACTION_ORDER.map((actionId) => `${LESSON_ZERO_FOLLOW_INSTRUCTION_ACTIVITY_ID}:${actionId}`)
+    LESSON_ZERO_CLASSROOM_INSTRUCTION_LEARNING_ORDER.map((actionId) => `${LESSON_ZERO_FOLLOW_INSTRUCTION_ACTIVITY_ID}:${actionId}`)
   );
   const CLASSROOM_INSTRUCTION_ACTION_PRESENTATIONS = Object.freeze([
     presentation$1("begin", "始", "Begin", "始める", "Class begins.", "授業が始まります。"),
@@ -10639,15 +10674,24 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     listen: { en: "Please listen.", ja: "聞いてください。" },
     write: { en: "Please write it.", ja: "書いてください。" }
   });
+  const VOICE_BINDING_BY_ACTION = Object.freeze({
+    begin: "lesson-zero:classroom-instruction:begin",
+    finish: "lesson-zero:classroom-instruction:finish",
+    break: "lesson-zero:classroom-instruction:break",
+    look: "lesson-zero:classroom-instruction:look",
+    "say-together": "lesson-zero:classroom-instruction:say-together",
+    listen: "lesson-zero:classroom-instruction:listen",
+    write: "lesson-zero:classroom-instruction:write"
+  });
   function createLessonZeroFollowInstructionDefinition(classroom, activity2) {
     if (activity2.id !== LESSON_ZERO_FOLLOW_INSTRUCTION_ACTIVITY_ID || activity2.responseMode !== "act" || activity2.expectedEvidence.kind !== "scene-actions") {
       throw new TypeError("Lesson Zero follow-instructions activity has the wrong contract.");
     }
-    if (!sameList$7(activity2.expectedEvidence.values ?? [], SOURCE_ACTION_ORDER)) {
+    if (!sameList$7(activity2.expectedEvidence.values ?? [], LESSON_ZERO_CLASSROOM_INSTRUCTION_LEARNING_ORDER)) {
       throw new TypeError("Lesson Zero follow-instructions action evidence has drifted.");
     }
     const expressionById2 = new Map(classroom.expressions.map((expression) => [expression.id, expression]));
-    const cues = CHALLENGE_ACTION_ORDER.map((actionId) => {
+    const cues = LESSON_ZERO_CLASSROOM_INSTRUCTION_LEARNING_ORDER.map((actionId) => {
       const expression = expressionById2.get(EXPRESSION_BY_ACTION[actionId]);
       const probe = expression?.probes[0];
       if (!expression || !probe) throw new TypeError(`Missing classroom instruction for ${actionId}.`);
@@ -10659,14 +10703,16 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         actionId,
         japanese: probe.modelAnswer,
         reading: lessonZeroCanonicalReading(probe),
-        meaning: MEANING_BY_ACTION[actionId]
+        meaning: MEANING_BY_ACTION[actionId],
+        voiceBindingId: VOICE_BINDING_BY_ACTION[actionId]
       };
     });
     return Object.freeze({
       schemaVersion: 1,
       id: "session:lesson-zero-follow-instructions",
       activityId: LESSON_ZERO_FOLLOW_INSTRUCTION_ACTIVITY_ID,
-      cues: Object.freeze(cues)
+      cues: Object.freeze(cues),
+      recallActionOrder: LESSON_ZERO_CLASSROOM_INSTRUCTION_RECALL_ORDER
     });
   }
   function lessonZeroFollowInstructionCompletionEvaluation(activity2, at) {
@@ -10690,8 +10736,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         errorTags: [],
         feedback: {
           explanation: {
-            en: "You followed all seven classroom instructions by ear.",
-            ja: "七つの教室の指示を聞いて、すべて動けました。"
+            en: "You followed all seven classroom instructions in a new order.",
+            ja: "七つの教室の指示を、違う順番でも聞いて動けました。"
           }
         }
       },
@@ -12019,7 +12065,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       classroomBindings,
       refsForInstruction(activity2) {
         const binding = requireBinding(classroomBindings, activity2.id);
-        const blocks = unique$f(binding.expressionIds.map((expressionId) => requireValue(teachingByExpression, expressionId, "teaching block")));
+        const blocks = unique$g(binding.expressionIds.map((expressionId) => requireValue(teachingByExpression, expressionId, "teaching block")));
         const byConcept = new Map(blocks.map((block) => [block.conceptId, block]));
         return activity2.conceptIds.map((conceptId) => {
           const block = requireValue(byConcept, conceptId, "teaching concept");
@@ -12075,7 +12121,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function suffixOf(id2) {
     return id2.split(":").at(-1);
   }
-  function unique$f(values) {
+  function unique$g(values) {
     return [...new Set(values)];
   }
   function createSourceLibrary(data) {
@@ -12966,9 +13012,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const { lesson } = data;
     const documents = data.sourceLibrary.documents;
     const sourceQuestionIds = data.sourceLibrary.questions.map((question2) => question2.id);
-    const allConceptIds = unique$e(lesson.activities.flatMap((activity2) => activity2.conceptIds));
-    const allOutcomeIds = unique$e(lesson.sections.flatMap((section2) => section2.outcomeIds));
-    const audioBlockerIds = unique$e(lesson.audioAssets.filter((asset) => asset.state === "release-blocked").map((asset) => asset.blockerId).filter((id2) => Boolean(id2)));
+    const allConceptIds = unique$f(lesson.activities.flatMap((activity2) => activity2.conceptIds));
+    const allOutcomeIds = unique$f(lesson.sections.flatMap((section2) => section2.outcomeIds));
+    const audioBlockerIds = unique$f(lesson.audioAssets.filter((asset) => asset.state === "release-blocked").map((asset) => asset.blockerId).filter((id2) => Boolean(id2)));
     const sectionOutcomes = new Map(lesson.sections.map((section2) => [section2.id, section2.outcomeIds]));
     const activities = lesson.activities.map((activity2, index) => activityContract(
       activity2,
@@ -13002,7 +13048,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       accessibility: blocked(BLOCKERS.accessibility)
     };
     const productionSequence2 = blocked(BLOCKERS.transferContext);
-    const blockerIds = unique$e([
+    const blockerIds = unique$f([
       ...proofBlockers(overviewProofs),
       ...productionSequence2.blockerIds,
       ...activities.flatMap((activity2) => activity2.blockerIds)
@@ -13215,12 +13261,12 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return { state: "ready", evidence: evidence2 };
   }
   function blocked(...blockerIds) {
-    return { state: "review-blocked", blockerIds: unique$e(blockerIds) };
+    return { state: "review-blocked", blockerIds: unique$f(blockerIds) };
   }
   function proofBlockers(proofs) {
-    return unique$e(Object.values(proofs).flatMap((proof) => proof.state === "review-blocked" ? proof.blockerIds : []));
+    return unique$f(Object.values(proofs).flatMap((proof) => proof.state === "review-blocked" ? proof.blockerIds : []));
   }
-  function unique$e(values) {
+  function unique$f(values) {
     return [...new Set(values)].sort();
   }
   function soundInstructionSuffix(conceptId) {
@@ -13484,7 +13530,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       if (!lessonZeroNameCardSessionSnapshotShapeIsValid(snapshot)) {
         throw new TypeError("Invalid Lesson Zero name-card snapshot.");
       }
-      validateSnapshotAgainstDefinition$3(definition2, snapshot);
+      validateSnapshotAgainstDefinition$4(definition2, snapshot);
       return structuredClone(snapshot);
     }
     return {
@@ -13651,7 +13697,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       throw new TypeError("Invalid Lesson Zero name-card definition.");
     }
   }
-  function validateSnapshotAgainstDefinition$3(definition2, snapshot) {
+  function validateSnapshotAgainstDefinition$4(definition2, snapshot) {
     const validIds = new Set(definition2.correctOrder);
     if (snapshot.selectedTokenIds.some((id2) => !validIds.has(id2)) || snapshot.attempts.some((attempt) => attempt.order.some((id2) => !validIds.has(id2)))) {
       throw new TypeError("Lesson Zero name-card snapshot contains an unknown piece.");
@@ -14423,7 +14469,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       return {
         state: {
           ...state,
-          heardRoundIds: unique$d([...state.heardRoundIds, action2.roundId])
+          heardRoundIds: unique$e([...state.heardRoundIds, action2.roundId])
         }
       };
     }
@@ -14535,11 +14581,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const variants = ["lesson", "bingo"];
     const modes = ["audio", "visual"];
     if (state.schemaVersion !== 1 || state.sessionId !== LESSON_ZERO_VOWEL_SESSION_ID || !statuses.includes(state.status ?? "") || !stages.includes(state.stage ?? "") || !variants.includes(state.variant ?? "") || !modes.includes(state.mode ?? "")) return false;
-    if (!stringArray$5(state.learnedItemIds) || !stringArray$5(state.roundOrder) || !stringArray$5(state.heardRoundIds) || !stringArray$5(state.repairItemIds)) return false;
+    if (!stringArray$6(state.learnedItemIds) || !stringArray$6(state.roundOrder) || !stringArray$6(state.heardRoundIds) || !stringArray$6(state.repairItemIds)) return false;
     if (!Array.isArray(state.selections) || state.selections.some((selection) => !selection || typeof selection.roundId !== "string" || !selection.roundId || typeof selection.kanaId !== "string" || !selection.kanaId)) return false;
     const repairCursor = state.repairCursor;
     if (!Number.isSafeInteger(repairCursor) || repairCursor === void 0 || repairCursor < 0 || typeof state.baseCompleted !== "boolean" || !Number.isSafeInteger(state.bingoWins) || (state.bingoWins ?? -1) < 0) return false;
-    if (!Array.isArray(state.attempts) || state.attempts.some((attempt) => !attempt || !variants.includes(attempt.variant) || !modes.includes(attempt.mode) || !["pass", "lapse"].includes(attempt.outcome) || !Number.isFinite(attempt.score) || attempt.score < 0 || attempt.score > 1 || !stringArray$5(attempt.missedItemIds) || !Number.isSafeInteger(attempt.at) || attempt.at < 0)) return false;
+    if (!Array.isArray(state.attempts) || state.attempts.some((attempt) => !attempt || !variants.includes(attempt.variant) || !modes.includes(attempt.mode) || !["pass", "lapse"].includes(attempt.outcome) || !Number.isFinite(attempt.score) || attempt.score < 0 || attempt.score > 1 || !stringArray$6(attempt.missedItemIds) || !Number.isSafeInteger(attempt.at) || attempt.at < 0)) return false;
     if (new Set(state.learnedItemIds).size !== state.learnedItemIds.length || new Set(state.roundOrder).size !== state.roundOrder.length || new Set(state.heardRoundIds).size !== state.heardRoundIds.length || new Set(state.repairItemIds).size !== state.repairItemIds.length || repairCursor > state.repairItemIds.length || state.selections.length > state.roundOrder.length) return false;
     if (state.status === "ready" && (state.stage !== "learn" || state.learnedItemIds.length > 0)) return false;
     if (state.status === "complete" && (state.stage !== "complete" || !state.baseCompleted)) return false;
@@ -14588,7 +14634,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function missedItems(model2, evaluation) {
     const byError = new Map(model2.payload.items.map((item2) => [item2.errorTag, item2.id]));
-    return unique$d(evaluation.result.errorTags.flatMap((tag) => byError.get(tag) ?? []));
+    return unique$e(evaluation.result.errorTags.flatMap((tag) => byError.get(tag) ?? []));
   }
   function adaptiveEvidence$1(state, evaluation, at, attemptNumber) {
     const repair = state.attempts.some((attempt) => attempt.outcome === "lapse");
@@ -14632,10 +14678,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function validateTime$1(at) {
     if (!Number.isSafeInteger(at) || at < 0) throw new TypeError("Vowel session transitions need a valid timestamp.");
   }
-  function stringArray$5(value) {
+  function stringArray$6(value) {
     return Array.isArray(value) && value.every((item2) => typeof item2 === "string" && item2.length > 0);
   }
-  function unique$d(values) {
+  function unique$e(values) {
     return [...new Set(values)];
   }
   function requireState$1(condition, message) {
@@ -24497,7 +24543,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       lastOutcome: event.outcome,
       lastAttemptAt: event.at,
       ...sourceQuestionProjection(event.sourceQuestionId),
-      conceptIds: unique$c(event.conceptIds)
+      conceptIds: unique$d(event.conceptIds)
     };
   }
   function sourceQuestionProjection(sourceQuestionId2) {
@@ -24578,7 +24624,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       requireText$1(event.encounterId, "encounterId");
       requireText$1(event.sceneId, "sceneId");
       if (!event.attendeeIds.length) throw new TypeError("Character encounter needs attendees.");
-      unique$c(event.attendeeIds.map((id2) => requireText$1(id2, "encounter.attendeeId")));
+      unique$d(event.attendeeIds.map((id2) => requireText$1(id2, "encounter.attendeeId")));
     },
     "bond-changed": validateBondChanged,
     "asset-unlocked": (event) => {
@@ -24621,7 +24667,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function validateAcademyDayClosed(event) {
     requireText$1(event.dayId, "dayId");
     if (typeof event.mainLessonCompleted !== "boolean") throw new TypeError("Day mainLessonCompleted must be boolean.");
-    unique$c(event.optionalActivityIds.map((id2) => requireText$1(id2, "optionalActivityId")));
+    unique$d(event.optionalActivityIds.map((id2) => requireText$1(id2, "optionalActivityId")));
     if (!Number.isSafeInteger(event.elapsedMs) || event.elapsedMs < 0) throw new TypeError("Day elapsedMs must be a non-negative integer.");
   }
   function validateAchievementCeremonySeen(event) {
@@ -24649,7 +24695,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function validateAttemptRecorded(event) {
     requireText$1(event.activityId, "activityId");
     requireText$1(event.responseKind, "responseKind");
-    unique$c(event.conceptIds.map((id2) => requireText$1(id2, "conceptId")));
+    unique$d(event.conceptIds.map((id2) => requireText$1(id2, "conceptId")));
     if (event.outcome !== "pass" && event.outcome !== "lapse") throw new TypeError("Invalid attempt outcome.");
     if (event.score !== void 0 && (!Number.isFinite(event.score) || event.score < 0 || event.score > 1)) {
       throw new TypeError("Attempt score must be between 0 and 1.");
@@ -24676,7 +24722,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       requireJlptBand(event.recommendedStart, "recommendedStart");
     }
     if (!event.itemIds.length) throw new TypeError("Placement assessment needs item ids.");
-    unique$c(event.itemIds.map((id2) => requireText$1(id2, "placement.itemId")));
+    unique$d(event.itemIds.map((id2) => requireText$1(id2, "placement.itemId")));
     for (const skill of ["language-knowledge", "reading", "listening", "speaking-confidence", "writing-confidence"]) {
       const score = event.scores[skill];
       if (!Number.isFinite(score) || score < 0 || score > 1) throw new TypeError(`Invalid placement score for ${skill}.`);
@@ -24724,7 +24770,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function validateLearningConcepts(conceptIds) {
     if (!conceptIds.length) throw new TypeError("Learning evidence needs at least one conceptId.");
-    unique$c(conceptIds.map((id2) => requireText$1(id2, "conceptId")));
+    unique$d(conceptIds.map((id2) => requireText$1(id2, "conceptId")));
   }
   function validateLearningIndependence(independent) {
     if (typeof independent !== "boolean") throw new TypeError("Learning independent must be boolean.");
@@ -24743,7 +24789,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     requireText$1(event.collectionItemId, "collectionItemId");
     requireText$1(event.expression, "expression");
     if (!event.meanings.length) throw new TypeError("Vocabulary collection needs at least one meaning.");
-    unique$c(event.meanings.map((meaning) => requireText$1(meaning, "meaning")));
+    unique$d(event.meanings.map((meaning) => requireText$1(meaning, "meaning")));
     if (event.reading !== void 0) requireText$1(event.reading, "reading");
     if (event.provenance.origin !== "academy") throw new TypeError("Vocabulary provenance origin must be academy.");
     requireText$1(event.provenance.encounterId, "provenance.encounterId");
@@ -24762,7 +24808,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (typeof value !== "string" || !value.trim()) throw new TypeError(`${label} must be a non-empty string.`);
     return value;
   }
-  function unique$c(values) {
+  function unique$d(values) {
     return [...new Set(values)].sort();
   }
   function clone(value) {
@@ -25862,20 +25908,20 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       ...importedCard,
       ...existingCard,
       meanings: uniquePrimitiveStrings([
-        ...stringArray$4(importedCard.meanings),
-        ...stringArray$4(existingCard.meanings)
+        ...stringArray$5(importedCard.meanings),
+        ...stringArray$5(existingCard.meanings)
       ]),
       sentence: existingCard.sentence || importedCard.sentence,
       sourceUrl: existingCard.sourceUrl || importedCard.sourceUrl,
       tags: uniquePrimitiveStrings([
-        ...stringArray$4(importedCard.tags),
-        ...stringArray$4(existingCard.tags)
+        ...stringArray$5(importedCard.tags),
+        ...stringArray$5(existingCard.tags)
       ]),
       createdAt: minFiniteNumber(importedCard.createdAt, existingCard.createdAt) ?? existingCard.createdAt ?? importedCard.createdAt,
       updatedAt: maxFiniteNumber(importedCard.updatedAt, existingCard.updatedAt) ?? existingCard.updatedAt ?? importedCard.updatedAt
     };
   }
-  function stringArray$4(value) {
+  function stringArray$5(value) {
     return Array.isArray(value) ? value.filter((item2) => typeof item2 === "string" && item2.trim().length > 0) : [];
   }
   function uniquePrimitiveStrings(values) {
@@ -27086,12 +27132,12 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       id: identity2.key,
       expression: identity2.expression,
       reading: identity2.reading,
-      meanings: stringArray$3(value.meanings),
+      meanings: stringArray$4(value.meanings),
       ...cleanOptional(value.sentence) ? { sentence: cleanOptional(value.sentence) } : {},
       ...cleanOptional(value.sourceProviderId) ? { sourceProviderId: cleanOptional(value.sourceProviderId) } : {},
       ...cleanOptional(value.sourceCardId) ? { sourceCardId: cleanOptional(value.sourceCardId) } : {},
       ...cleanOptional(value.sourceUrl) ? { sourceUrl: cleanOptional(value.sourceUrl) } : {},
-      tags: stringArray$3(value.tags),
+      tags: stringArray$4(value.tags),
       dueAt: finiteNumber$2(value.dueAt, createdAt),
       lastReviewAt: value.lastReviewAt === null ? null : finiteNumber$2(value.lastReviewAt, null),
       createdAt,
@@ -27164,7 +27210,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function cleanOptional(value) {
     return typeof value === "string" && value.trim() ? value.trim() : void 0;
   }
-  function stringArray$3(value) {
+  function stringArray$4(value) {
     return Array.isArray(value) ? uniqueText$1(value.filter((item2) => typeof item2 === "string")) : [];
   }
   function uniqueText$1(values) {
@@ -41149,7 +41195,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return {
       ...state,
       cursor: cursorFor(expression, probe),
-      visitedExpressionIds: unique$b([...state.visitedExpressionIds, expression.id])
+      visitedExpressionIds: unique$c([...state.visitedExpressionIds, expression.id])
     };
   }
   function validateClassroomExpressionSessionState(definition2, snapshot) {
@@ -41161,11 +41207,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const probeById = new Map(ordered.map((item2) => [item2.probe.id, item2]));
     const expressionIds = new Set(definition2.expressions.map((expression) => expression.id));
     for (const values of [state.passedProbeIds, state.revealedModelProbeIds]) {
-      if (!Array.isArray(values) || values.some((id2) => !probeById.has(id2)) || unique$b(values).length !== values.length) {
+      if (!Array.isArray(values) || values.some((id2) => !probeById.has(id2)) || unique$c(values).length !== values.length) {
         throw new TypeError("Classroom-expression snapshot references unknown probes.");
       }
     }
-    if (!Array.isArray(state.visitedExpressionIds) || state.visitedExpressionIds.some((id2) => !expressionIds.has(id2)) || unique$b(state.visitedExpressionIds).length !== state.visitedExpressionIds.length || !state.visitedExpressionIds.includes(current.expression.id)) {
+    if (!Array.isArray(state.visitedExpressionIds) || state.visitedExpressionIds.some((id2) => !expressionIds.has(id2)) || unique$c(state.visitedExpressionIds).length !== state.visitedExpressionIds.length || !state.visitedExpressionIds.includes(current.expression.id)) {
       throw new TypeError("Classroom-expression snapshot references unknown expressions.");
     }
     if (!Array.isArray(state.attempts) || state.attempts.some((attempt) => {
@@ -41197,7 +41243,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if ([state.passedProbeIds, state.revealedModelProbeIds, state.visitedExpressionIds].some((values) => values.some((value) => typeof value !== "string" || !value))) return false;
     return state.attempts.every((attempt) => Boolean(attempt) && typeof attempt.probeId === "string" && typeof attempt.sourceQuestionId === "string" && (attempt.outcome === "pass" || attempt.outcome === "lapse") && typeof attempt.independent === "boolean" && Number.isSafeInteger(attempt.at) && attempt.at >= 0);
   }
-  function unique$b(values) {
+  function unique$c(values) {
     return [...new Set(values)];
   }
   function startClassroomExpressionSession(definition2, snapshot) {
@@ -41273,7 +41319,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const outcome = probe.acceptedAnswers.some((answer2) => normalized(answer2) === normalized(response)) ? "pass" : "lapse";
     const independent = !state.revealedModelProbeIds.includes(probe.id);
     const hadLapse = state.attempts.some((attempt2) => attempt2.probeId === probe.id && attempt2.outcome === "lapse");
-    const passedProbeIds = outcome === "pass" ? unique$b([...state.passedProbeIds, probe.id]) : state.passedProbeIds;
+    const passedProbeIds = outcome === "pass" ? unique$c([...state.passedProbeIds, probe.id]) : state.passedProbeIds;
     const attempt = { probeId: probe.id, sourceQuestionId: expression.sourceQuestionId, outcome, independent, at };
     let nextState = {
       ...state,
@@ -41304,7 +41350,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const alreadyRevealed = state.revealedModelProbeIds.includes(probe.id);
     const nextState = {
       ...state,
-      revealedModelProbeIds: unique$b([...state.revealedModelProbeIds, probe.id])
+      revealedModelProbeIds: unique$c([...state.revealedModelProbeIds, probe.id])
     };
     const evidence2 = alreadyRevealed ? [] : [{
       kind: "support-used",
@@ -41400,69 +41446,101 @@ recommendedJiten	Jiten由来の頻度バッジです。
       if (snapshot.passedCueIds.some((id2) => !cueIds.has(id2)) || snapshot.attempts.some((attempt) => !cueIds.has(attempt.cueId))) {
         throw new TypeError("Classroom-instruction snapshot contains an unknown cue.");
       }
-      return structuredClone(snapshot);
+      const normalized2 = normalizeSnapshot(definition2, snapshot);
+      validateSnapshotAgainstDefinition$3(definition2, normalized2);
+      return normalized2;
     }
     return {
       schemaVersion: 1,
       sessionId: definition2.id,
       status: "ready",
       cursor: 0,
+      stage: "teach",
+      introducedCueIds: [],
       passedCueIds: [],
+      recalledCueIds: [],
       attempts: []
     };
   }
   function transitionClassroomInstructionSession(definition2, state, action2, at) {
-    startClassroomInstructionSession(definition2, state);
+    const current = startClassroomInstructionSession(definition2, state);
     if (!Number.isFinite(at)) throw new TypeError("Classroom-instruction transitions need a finite timestamp.");
     if (action2.kind === "start") {
-      if (state.status !== "ready") return unchanged$3(state);
-      return unchanged$3({ ...state, status: "active" });
+      if (current.status !== "ready") return unchanged$3(current);
+      return unchanged$3({ ...current, status: "active", stage: "teach" });
     }
     if (action2.kind === "pause") {
-      if (state.status !== "active") return unchanged$3(state);
-      return unchanged$3({ ...state, status: "paused" });
+      if (current.status !== "active") return unchanged$3(current);
+      return unchanged$3({ ...current, status: "paused" });
     }
     if (action2.kind === "resume") {
-      if (state.status !== "paused") return unchanged$3(state);
-      return unchanged$3({ ...state, status: "active" });
+      if (current.status !== "paused") return unchanged$3(current);
+      return unchanged$3({ ...current, status: "active" });
     }
-    if (state.status !== "active") return unchanged$3(state);
-    const cue = definition2.cues[state.cursor];
-    if (!cue) return unchanged$3({ ...state, status: "complete", cursor: definition2.cues.length });
+    if (current.status !== "active") return unchanged$3(current);
+    if (action2.kind === "introduce") {
+      if (current.stage !== "teach") return unchanged$3(current);
+      const cue2 = classroomInstructionCurrentCue(definition2, current);
+      if (!cue2) return unchanged$3(current);
+      return unchanged$3({
+        ...current,
+        stage: "practice",
+        introducedCueIds: unique$b([...current.introducedCueIds ?? [], cue2.id])
+      });
+    }
+    if (action2.kind === "begin-retry") {
+      if (current.stage !== "practice-repair" && current.stage !== "recall-repair") return unchanged$3(current);
+      return unchanged$3({
+        ...current,
+        stage: current.stage === "practice-repair" ? "practice" : "recall"
+      });
+    }
+    if (action2.kind !== "choose") return unchanged$3(current);
+    const round2 = current.stage === "recall" ? "recall" : "practice";
+    if (current.stage !== "practice" && current.stage !== "recall") return unchanged$3(current);
+    const cue = classroomInstructionCurrentCue(definition2, current);
+    if (!cue) return unchanged$3(current);
     const outcome = action2.actionId === cue.actionId ? "pass" : "lapse";
-    const cueAttempt = state.attempts.filter((attempt2) => attempt2.cueId === cue.id).length + 1;
-    const eventStem = `${definition2.id}:${cue.id}:attempt:${cueAttempt}`;
+    const cueAttempt = current.attempts.filter((attempt2) => attempt2.cueId === cue.id && (attempt2.round ?? "practice") === round2).length + 1;
+    const eventStem = `${definition2.id}:${cue.id}:${round2}:attempt:${cueAttempt}`;
     const attempt = {
       cueId: cue.id,
       chosenActionId: action2.actionId,
       outcome,
-      at
+      at,
+      round: round2
     };
-    const passedCueIds = outcome === "pass" ? [.../* @__PURE__ */ new Set([...state.passedCueIds, cue.id])] : state.passedCueIds;
-    const cursor = outcome === "pass" ? state.cursor + 1 : state.cursor;
+    const passedCueIds = round2 === "practice" && outcome === "pass" ? unique$b([...current.passedCueIds, cue.id]) : current.passedCueIds;
+    const recalledCueIds = round2 === "recall" && outcome === "pass" ? unique$b([...current.recalledCueIds ?? [], cue.id]) : current.recalledCueIds ?? [];
+    const practiceComplete = passedCueIds.length === definition2.cues.length;
+    const recallComplete = recalledCueIds.length === definition2.cues.length;
+    const nextStage = outcome === "lapse" ? round2 === "practice" ? "practice-repair" : "recall-repair" : round2 === "practice" ? practiceComplete ? "recall" : "teach" : recallComplete ? "complete" : "recall";
     const nextState = {
-      ...state,
-      status: cursor >= definition2.cues.length ? "complete" : "active",
-      cursor,
+      ...current,
+      status: recallComplete ? "complete" : "active",
+      stage: nextStage,
+      cursor: passedCueIds.length,
       passedCueIds,
-      attempts: [...state.attempts, attempt]
+      recalledCueIds,
+      attempts: [...current.attempts, attempt]
     };
-    const repairing = outcome === "lapse" || state.attempts.some((candidate2) => candidate2.cueId === cue.id && candidate2.outcome === "lapse");
-    const evaluation = evaluationFor$3(cue, outcome, repairing, eventStem, at);
+    const repairing = outcome === "lapse" || current.attempts.some((candidate2) => candidate2.cueId === cue.id && (candidate2.round ?? "practice") === round2 && candidate2.outcome === "lapse");
+    const evaluation = evaluationFor$3(cue, outcome, repairing, round2, eventStem, at);
     const supportEvents2 = outcome === "lapse" ? [supportEvent$3(cue, "transcript", eventStem, at), supportEvent$3(cue, "translation", eventStem, at)] : [];
     return {
       state: nextState,
       cue,
       chosenActionId: action2.actionId,
+      round: round2,
       evaluation,
       adaptive: {
         eventId: `${eventStem}:learning`,
         at,
         modeId: "lesson-zero-follow-instructions",
         skill: "listening",
-        action: repairing ? "repair" : "listen",
+        action: repairing ? "repair" : round2 === "recall" ? "recall" : "listen",
         sourceId: cue.sourceQuestionId,
-        independent: !repairing
+        independent: round2 === "recall" && !repairing
       },
       supportEvents: supportEvents2
     };
@@ -41470,10 +41548,17 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function classroomInstructionSessionSnapshotShapeIsValid(value) {
     if (!value || typeof value !== "object") return false;
     const candidate2 = value;
-    return candidate2.schemaVersion === 1 && candidate2.sessionId === "session:lesson-zero-follow-instructions" && ["ready", "active", "paused", "complete"].includes(candidate2.status ?? "") && Number.isInteger(candidate2.cursor) && (candidate2.cursor ?? -1) >= 0 && Array.isArray(candidate2.passedCueIds) && candidate2.passedCueIds.every((id2) => typeof id2 === "string") && Array.isArray(candidate2.attempts) && candidate2.attempts.every(attemptShapeIsValid$3);
+    return candidate2.schemaVersion === 1 && candidate2.sessionId === "session:lesson-zero-follow-instructions" && ["ready", "active", "paused", "complete"].includes(candidate2.status ?? "") && Number.isInteger(candidate2.cursor) && (candidate2.cursor ?? -1) >= 0 && (candidate2.stage === void 0 || [
+      "teach",
+      "practice",
+      "practice-repair",
+      "recall",
+      "recall-repair",
+      "complete"
+    ].includes(candidate2.stage)) && (candidate2.introducedCueIds === void 0 || stringArray$3(candidate2.introducedCueIds)) && Array.isArray(candidate2.passedCueIds) && candidate2.passedCueIds.every((id2) => typeof id2 === "string") && (candidate2.recalledCueIds === void 0 || stringArray$3(candidate2.recalledCueIds)) && Array.isArray(candidate2.attempts) && candidate2.attempts.every(attemptShapeIsValid$3);
   }
-  function evaluationFor$3(cue, outcome, repairing, eventId, at) {
-    const reviewSeeds2 = outcome === "pass" ? [{
+  function evaluationFor$3(cue, outcome, repairing, round2, eventId, at) {
+    const reviewSeeds2 = outcome === "pass" && round2 === "practice" ? [{
       id: `review:lesson-zero:instruction:${cue.actionId}`,
       conceptId: cue.conceptIds[0],
       reason: repairing ? "repair" : "new-learning",
@@ -41501,7 +41586,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
         outcome,
         score: outcome === "pass" ? 1 : 0,
         errorTags: outcome === "pass" ? [] : ["classroom-instruction-action-mismatch"],
-        feedback: outcome === "pass" ? { explanation: { en: "The room answered exactly as Rie asked.", ja: "りえ先生の指示どおりに動けました。" } } : {
+        feedback: outcome === "pass" ? {
+          explanation: round2 === "recall" ? { en: "You caught it in a new order.", ja: "違う順番でも聞き取れました。" } : { en: "The room moved with Rie.", ja: "りえ先生と一緒に動けました。" }
+        } : {
           explanation: { en: "That changed a different part of the room.", ja: "別の動作を選びました。" },
           repairPrompt: { en: "Hear the line again, then make the matching move.", ja: "もう一度聞いて、合う動作を選びましょう。" }
         }
@@ -41521,7 +41608,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function attemptShapeIsValid$3(value) {
     if (!value || typeof value !== "object") return false;
     const candidate2 = value;
-    return typeof candidate2.cueId === "string" && isClassroomInstructionActionId(candidate2.chosenActionId) && (candidate2.outcome === "pass" || candidate2.outcome === "lapse") && typeof candidate2.at === "number" && Number.isFinite(candidate2.at);
+    return typeof candidate2.cueId === "string" && isClassroomInstructionActionId(candidate2.chosenActionId) && (candidate2.outcome === "pass" || candidate2.outcome === "lapse") && (candidate2.round === void 0 || candidate2.round === "practice" || candidate2.round === "recall") && typeof candidate2.at === "number" && Number.isFinite(candidate2.at);
   }
   function isClassroomInstructionActionId(value) {
     return ["begin", "finish", "break", "look", "say-together", "listen", "write"].includes(String(value));
@@ -41530,9 +41617,74 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (definition2.schemaVersion !== 1 || definition2.id !== "session:lesson-zero-follow-instructions" || definition2.activityId !== "activity:lesson-zero-follow-instructions") {
       throw new TypeError("Invalid classroom-instruction session definition.");
     }
-    if (definition2.cues.length !== 7 || new Set(definition2.cues.map((cue) => cue.id)).size !== 7 || new Set(definition2.cues.map((cue) => cue.actionId)).size !== 7) {
+    if (definition2.cues.length !== 7 || new Set(definition2.cues.map((cue) => cue.id)).size !== 7 || new Set(definition2.cues.map((cue) => cue.actionId)).size !== 7 || definition2.recallActionOrder.length !== 7 || new Set(definition2.recallActionOrder).size !== 7 || definition2.recallActionOrder.some((actionId) => !definition2.cues.some((cue) => cue.actionId === actionId))) {
       throw new TypeError("Classroom-instruction session needs seven unique cues and actions.");
     }
+  }
+  function classroomInstructionCurrentCue(definition2, state) {
+    if (state.stage === "recall" || state.stage === "recall-repair") {
+      const actionId = definition2.recallActionOrder[(state.recalledCueIds ?? []).length];
+      return definition2.cues.find((cue) => cue.actionId === actionId);
+    }
+    return definition2.cues[state.passedCueIds.length];
+  }
+  function normalizeSnapshot(definition2, snapshot) {
+    const passedCueIds = unique$b([...snapshot.passedCueIds]);
+    const legacy = snapshot.stage === void 0;
+    if (legacy && snapshot.status === "complete") {
+      return {
+        ...structuredClone(snapshot),
+        cursor: definition2.cues.length,
+        stage: "complete",
+        introducedCueIds: definition2.cues.map((cue) => cue.id),
+        passedCueIds: definition2.cues.map((cue) => cue.id),
+        recalledCueIds: definition2.recallActionOrder.map((actionId) => definition2.cues.find((cue) => cue.actionId === actionId).id),
+        attempts: snapshot.attempts.map((attempt) => ({ ...attempt, round: "practice" }))
+      };
+    }
+    if (legacy) {
+      return {
+        ...structuredClone(snapshot),
+        cursor: passedCueIds.length,
+        stage: "teach",
+        introducedCueIds: passedCueIds,
+        passedCueIds,
+        recalledCueIds: [],
+        attempts: snapshot.attempts.map((attempt) => ({ ...attempt, round: "practice" }))
+      };
+    }
+    return {
+      ...structuredClone(snapshot),
+      introducedCueIds: unique$b([...snapshot.introducedCueIds ?? []]),
+      recalledCueIds: unique$b([...snapshot.recalledCueIds ?? []]),
+      attempts: snapshot.attempts.map((attempt) => ({ ...attempt, round: attempt.round ?? "practice" }))
+    };
+  }
+  function validateSnapshotAgainstDefinition$3(definition2, state) {
+    const learningIds = definition2.cues.map((cue) => cue.id);
+    const recallIds = definition2.recallActionOrder.map((actionId) => definition2.cues.find((cue) => cue.actionId === actionId).id);
+    const introduced = state.introducedCueIds ?? [];
+    const recalled = state.recalledCueIds ?? [];
+    const prefix = (actual, expected) => actual.every((id2, index) => id2 === expected[index]);
+    if (!prefix(state.passedCueIds, learningIds) || !prefix(introduced, learningIds) || !prefix(recalled, recallIds) || introduced.length < state.passedCueIds.length || introduced.length > state.passedCueIds.length + 1) {
+      throw new TypeError("Classroom-instruction snapshot has drifted from the balanced learning order.");
+    }
+    const known = new Set(learningIds);
+    if (state.attempts.some((attempt) => !known.has(attempt.cueId))) {
+      throw new TypeError("Classroom-instruction snapshot contains an unknown cue.");
+    }
+    if ((state.stage === "recall" || state.stage === "recall-repair") && state.passedCueIds.length !== definition2.cues.length) {
+      throw new TypeError("Classroom-instruction recall started before all seven cues were learned.");
+    }
+    if (state.status === "complete" && (state.stage !== "complete" || recalled.length !== definition2.cues.length)) {
+      throw new TypeError("Classroom-instruction completion needs mixed recall of all seven cues.");
+    }
+  }
+  function unique$b(values) {
+    return [...new Set(values)];
+  }
+  function stringArray$3(value) {
+    return Array.isArray(value) && value.every((item2) => typeof item2 === "string");
   }
   function unchanged$3(state) {
     return { state, supportEvents: [] };
@@ -42843,6 +42995,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const DAY_ONE_VERIFIED_ACTIVITY_IDS = /* @__PURE__ */ new Set([
     "activity:lesson-zero-vowel-listen",
     "activity:lesson-zero-vowel-doodle",
+    "activity:lesson-zero-follow-instructions",
     "activity:lesson-zero-sound-input",
     "activity:lesson-zero-text-input",
     "activity:lesson-zero-speaking-input",
@@ -260393,29 +260546,36 @@ recommendedJiten	Jiten由来の頻度バッジです。
     await callback2();
   }
   const COPY$6 = {
-    eyebrow: { en: "Listening rehearsal", ja: "聞いて動く練習" },
-    title: { en: "Make the classroom respond", ja: "教室を動かそう" },
+    eyebrow: { en: "Classroom rhythm", ja: "教室のリズム" },
+    title: { en: "Seven moves you’ll hear every day", ja: "毎日聞く七つの動き" },
     ready: {
-      en: "Listen to Rie, then choose the action that lets the class follow her. You do not need every word yet.",
-      ja: "りえ先生のことばを聞いて、教室をそのとおりに動かしましょう。"
+      en: "You don’t need to read these yet. Hear one line, move the room, then I’ll mix them up.",
+      ja: "まだ読めなくても大丈夫です。一つずつ聞いて動いてから、順番を変えてみましょう。"
     },
-    sharedPattern: { en: "〜ましょう moves everyone together.", ja: "「〜ましょう」で、みんなが一緒に動きます。" },
-    requestPattern: { en: "〜てください asks someone to act.", ja: "「〜てください」で、相手に動作を頼みます。" },
-    start: { en: "Start the rehearsal", ja: "練習を始める" },
-    listen: { en: "Listen to Rie, then move the room.", ja: "りえ先生の指示を聞いて、教室を動かしてください。" },
+    start: { en: "Meet the first move", ja: "最初の動きを聞く" },
+    teachLabel: { en: "Meet this move", ja: "この動きを聞く" },
+    noReadingNeeded: { en: "Listen first. Reading can wait.", ja: "まずは音を聞きましょう。読むのはあとで大丈夫です。" },
+    tryMove: { en: "Try this move", ja: "この動きをやってみる" },
+    practice: { en: "Listen, then move the room.", ja: "聞いてから、教室を動かしましょう。" },
+    recall: { en: "Same seven. New order.", ja: "同じ七つを、違う順番で聞きましょう。" },
+    practiceBadge: { en: "Learn", ja: "覚える" },
+    recallBadge: { en: "Mix", ja: "まぜる" },
     replay: { en: "Hear Rie again", ja: "もう一度聞く" },
     playing: { en: "Rie is speaking…", ja: "りえ先生が話しています…" },
     actions: { en: "Classroom actions", ja: "教室の動作" },
-    correct: { en: "The room followed her.", ja: "教室が指示どおりに動きました。" },
+    correct: { en: "That’s the move.", ja: "その動きです。" },
+    recalled: { en: "You caught it in the mix.", ja: "違う順番でも聞き取れました。" },
     incorrect: { en: "That was a different classroom action.", ja: "別の動作を選びました。" },
     heard: { en: "What Rie said", ja: "りえ先生のことば" },
-    next: { en: "Listen for the next instruction", ja: "次の指示を聞く" },
+    next: { en: "Meet the next move", ja: "次の動きを聞く" },
+    nextRecall: { en: "Next mixed line", ja: "次の一言を聞く" },
+    beginRecall: { en: "Mix the seven", ja: "七つをまぜる" },
     finish: { en: "See what you can now follow", ja: "できるようになったことを見る" },
     retry: { en: "Hear it and try again", ja: "もう一度聞いて動く" },
-    complete: { en: "You can move with the class.", ja: "教室の流れに乗れるようになりました。" },
+    complete: { en: "You kept up with the room.", ja: "教室の流れについていけました。" },
     completeBody: {
-      en: "You heard seven instructions and responded without waiting for English. I saved them for today’s review, so they will return at the right time.",
-      ja: "七つの指示が、訳ではなく動作として分かるようになりました。聞く記憶として復習にも入っています。"
+      en: "You followed all seven once, then caught them in a new order. They’ll return in short reviews.",
+      ja: "七つを一度ずつ覚えて、違う順番でも聞き取れました。短い復習でまた会います。"
     },
     again: { en: "Run the room again", ja: "もう一度教室を動かす" },
     return: { en: "Continue your day", ja: "今日の続きを見る" },
@@ -260426,7 +260586,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function createClassroomInstructionScreen(options) {
     const lifecycle = new AbortController();
     let renderLifecycle = new AbortController();
-    let state = options.initialState;
+    let state = startClassroomInstructionSession(options.definition, options.initialState);
     let playback = null;
     let feedback2 = null;
     let busy = false;
@@ -260465,7 +260625,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
       body.replaceChildren();
       live.textContent = "";
       screen.dataset.sessionStatus = state.status;
-      progress2.textContent = options.language === "ja" ? `7つ中 ${state.passedCueIds.length}つ完了` : `${state.passedCueIds.length} of 7 instructions followed`;
+      screen.dataset.sessionStage = state.stage ?? "teach";
+      const recalling = state.stage === "recall" || state.stage === "recall-repair" || state.stage === "complete";
+      const progressCount = recalling ? (state.recalledCueIds ?? []).length : state.passedCueIds.length;
+      progress2.textContent = options.language === "ja" ? recalling ? `まぜて ${progressCount}/7` : `覚えた動き ${progressCount}/7` : recalling ? `Mixed recall ${progressCount}/7` : `Learned ${progressCount}/7`;
       if (state.status === "ready") {
         renderReady(signal);
         return;
@@ -260485,27 +260648,66 @@ recommendedJiten	Jiten由来の頻度バッジです。
       const portrait2 = riePortrait$1("academy-classroom-instruction-intro-portrait");
       const copy2 = element("div", "academy-classroom-instruction-intro-copy");
       const line2 = localizedParagraph(COPY$6.ready, options.language, "academy-classroom-instruction-intro-line");
-      const patterns = element("div", "academy-classroom-instruction-patterns");
-      patterns.append(
-        patternStrip("皆", COPY$6.sharedPattern, options.language),
-        patternStrip("手", COPY$6.requestPattern, options.language)
-      );
       const start = element("button", "academy-button academy-button-primary academy-classroom-instruction-start");
       start.type = "button";
       start.textContent = COPY$6.start[options.language];
       start.addEventListener("click", () => void begin(), { signal });
-      copy2.append(line2, patterns, start);
+      copy2.append(line2, start);
       intro.append(portrait2, copy2);
       body.append(intro);
     };
     const renderActive = (signal) => {
-      const cue = options.definition.cues[state.cursor];
+      const cue = classroomInstructionCurrentCue(options.definition, state);
       if (!cue) {
-        state = { ...state, status: "complete", cursor: options.definition.cues.length };
+        state = {
+          ...state,
+          status: "complete",
+          stage: "complete",
+          cursor: options.definition.cues.length
+        };
         render2();
         return;
       }
+      if (state.stage === "teach") {
+        renderTeach(cue, signal);
+        return;
+      }
       body.append(riePrompt(signal), roomStage(void 0), actionRail(cue, signal), pauseAction(signal));
+    };
+    const renderTeach = (cue, signal) => {
+      const root = element("section", "academy-classroom-instruction-teach");
+      const portrait2 = riePortrait$1("academy-classroom-instruction-teach-portrait");
+      const paper = element("div", "academy-classroom-instruction-teach-paper");
+      const label = element("p", "academy-classroom-instruction-teach-label");
+      label.textContent = `${COPY$6.teachLabel[options.language]} · ${state.passedCueIds.length + 1}/7`;
+      const japanese2 = element("p", "academy-classroom-instruction-teach-japanese");
+      japanese2.lang = "ja";
+      japanese2.dataset.yomuRuntimeSurface = "academy-classroom-instruction-teach";
+      japanese2.dataset.yomuFuriganaMode = "all";
+      japanese2.textContent = cue.japanese;
+      const meaning = localizedParagraph(
+        cue.meaning,
+        options.language,
+        "academy-classroom-instruction-teach-meaning"
+      );
+      const note = localizedParagraph(
+        COPY$6.noReadingNeeded,
+        options.language,
+        "academy-classroom-instruction-teach-note"
+      );
+      const replay2 = element("button", "academy-button academy-classroom-instruction-replay");
+      replay2.type = "button";
+      replay2.textContent = `▶ ${COPY$6.replay[options.language]}`;
+      replay2.addEventListener("click", () => void playCurrent(replay2), { signal });
+      const tryMove = element("button", "academy-button academy-button-primary academy-classroom-instruction-try");
+      tryMove.type = "button";
+      tryMove.textContent = COPY$6.tryMove[options.language];
+      tryMove.addEventListener("click", () => void introduceCurrent(), { signal });
+      const actions = element("div", "academy-classroom-instruction-teach-actions");
+      actions.append(replay2, tryMove);
+      paper.append(label, japanese2, meaning, note, actions);
+      root.append(portrait2, roomStage(cue.actionId), paper);
+      body.append(root, pauseAction(signal));
     };
     const riePrompt = (signal) => {
       const prompt2 = element("section", "academy-classroom-instruction-prompt");
@@ -260513,12 +260715,19 @@ recommendedJiten	Jiten由来の頻度バッジです。
       const dialogue2 = element("div", "academy-classroom-instruction-dialogue");
       const name = element("strong", "academy-classroom-instruction-name");
       name.textContent = options.language === "ja" ? "りえ先生" : "Rie-sensei";
-      const line2 = localizedParagraph(COPY$6.listen, options.language, "academy-classroom-instruction-line");
+      const recalling = state.stage === "recall" || state.stage === "recall-repair";
+      const badge = element("span", "academy-classroom-instruction-round");
+      badge.textContent = (recalling ? COPY$6.recallBadge : COPY$6.practiceBadge)[options.language];
+      const line2 = localizedParagraph(
+        recalling ? COPY$6.recall : COPY$6.practice,
+        options.language,
+        "academy-classroom-instruction-line"
+      );
       const replay2 = element("button", "academy-button academy-classroom-instruction-replay");
       replay2.type = "button";
       replay2.textContent = `▶ ${COPY$6.replay[options.language]}`;
       replay2.addEventListener("click", () => void playCurrent(replay2), { signal });
-      dialogue2.append(name, line2, replay2);
+      dialogue2.append(name, badge, line2, replay2);
       prompt2.append(portrait2, dialogue2);
       return prompt2;
     };
@@ -260545,7 +260754,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       const rail = element("div", "academy-classroom-instruction-actions");
       rail.setAttribute("role", "group");
       rail.setAttribute("aria-label", COPY$6.actions[options.language]);
-      for (const action2 of CLASSROOM_INSTRUCTION_ACTION_PRESENTATIONS) {
+      for (const action2 of actionChoices(cue)) {
         const button2 = element("button", "academy-classroom-instruction-action");
         button2.type = "button";
         button2.dataset.actionId = action2.actionId;
@@ -260567,7 +260776,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       root.append(roomStage(result2.chosen.actionId));
       const paper = element("div", "academy-classroom-instruction-feedback-paper");
       const heading2 = element("h2", "academy-classroom-instruction-feedback-title");
-      heading2.textContent = (result2.outcome === "pass" ? COPY$6.correct : COPY$6.incorrect)[options.language];
+      heading2.textContent = (result2.outcome === "pass" ? result2.round === "recall" ? COPY$6.recalled : COPY$6.correct : COPY$6.incorrect)[options.language];
       const reaction = localizedParagraph(
         result2.chosen.roomReaction,
         options.language,
@@ -260591,7 +260800,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
         action2.textContent = COPY$6.retry[options.language];
         action2.addEventListener("click", () => void clearFeedbackAndPlay(), { signal });
       } else {
-        action2.textContent = (state.status === "complete" ? COPY$6.finish : COPY$6.next)[options.language];
+        const nextCopy = state.status === "complete" ? COPY$6.finish : state.stage === "recall" && (state.recalledCueIds ?? []).length === 0 ? COPY$6.beginRecall : state.stage === "recall" ? COPY$6.nextRecall : COPY$6.next;
+        action2.textContent = nextCopy[options.language];
         action2.addEventListener("click", () => void clearFeedbackAndContinue(), { signal });
       }
       paper.append(heading2, reaction, heardLabel, japanese2, meaning, action2);
@@ -260656,6 +260866,28 @@ recommendedJiten	Jiten由来の頻度バッジです。
       }
       await playCurrent();
     };
+    const introduceCurrent = async () => {
+      if (busy || state.stage !== "teach") return;
+      const before = state;
+      const transition = transitionClassroomInstructionSession(
+        options.definition,
+        state,
+        { kind: "introduce" },
+        Date.now()
+      );
+      try {
+        busy = true;
+        await options.onTransition(before, transition);
+        state = transition.state;
+        render2();
+      } catch {
+        live.textContent = COPY$6.saveError[options.language];
+        return;
+      } finally {
+        busy = false;
+      }
+      await playCurrent();
+    };
     const choose = async (cue, action2) => {
       if (busy) return;
       const before = state;
@@ -260673,7 +260905,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
         screen.setAttribute("aria-busy", "true");
         await options.onTransition(before, transition);
         state = transition.state;
-        feedback2 = { cue, chosen: action2, outcome: transition.evaluation.result.outcome };
+        feedback2 = {
+          cue,
+          chosen: action2,
+          outcome: transition.evaluation.result.outcome,
+          round: transition.round ?? "practice"
+        };
         render2();
       } catch {
         live.textContent = COPY$6.saveError[options.language];
@@ -260683,7 +260920,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       }
     };
     const playCurrent = async (control2) => {
-      const cue = options.definition.cues[state.cursor];
+      const cue = classroomInstructionCurrentCue(options.definition, state);
       if (!cue || disposed) return;
       playback?.dispose();
       playback = null;
@@ -260692,8 +260929,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
         control2.textContent = COPY$6.playing[options.language];
       }
       try {
-        const active = await options.pronunciation.play(cue.japanese, cue.reading);
-        if (disposed) active.dispose();
+        const active = await playLearningVoiceBinding(
+          options.pronunciation,
+          cue.voiceBindingId,
+          cue.japanese,
+          lifecycle.signal
+        );
+        if (disposed) active?.dispose();
         else playback = active;
       } catch {
         if (!disposed) live.textContent = COPY$6.audioError[options.language];
@@ -260705,6 +260947,15 @@ recommendedJiten	Jiten由来の頻度バッジです。
       }
     };
     const clearFeedbackAndPlay = async () => {
+      const before = state;
+      const transition = transitionClassroomInstructionSession(
+        options.definition,
+        state,
+        { kind: "begin-retry" },
+        Date.now()
+      );
+      await options.onTransition(before, transition);
+      state = transition.state;
       feedback2 = null;
       render2();
       await playCurrent();
@@ -260762,14 +261013,16 @@ recommendedJiten	Jiten由来の頻度バッジです。
     portrait2.setAttribute("aria-hidden", "true");
     return portrait2;
   }
-  function patternStrip(glyphText, copy2, language2) {
-    const strip = element("div", "academy-classroom-instruction-pattern");
-    const glyph = element("span", "academy-classroom-instruction-pattern-glyph");
-    glyph.lang = "ja";
-    glyph.textContent = glyphText;
-    const line2 = localizedParagraph(copy2, language2, "academy-classroom-instruction-pattern-copy");
-    strip.append(glyph, line2);
-    return strip;
+  function actionChoices(cue) {
+    const actions = CLASSROOM_INSTRUCTION_ACTION_PRESENTATIONS;
+    const index = actions.findIndex((action2) => action2.actionId === cue.actionId);
+    if (index < 0) return actions.slice(0, 3);
+    const selected2 = /* @__PURE__ */ new Set([
+      cue.actionId,
+      actions[(index + 2) % actions.length].actionId,
+      actions[(index + 4) % actions.length].actionId
+    ]);
+    return actions.filter((action2) => selected2.has(action2.actionId));
   }
   function localizedParagraph(value, language2, className) {
     const paragraph = element("p", className);

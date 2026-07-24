@@ -89,6 +89,7 @@ try {
         item.entry,
         voskTranscripts[basename(item.wavPath)] ?? '',
         productionById,
+        { transcriptProfile: 'vosk-ja-small' },
     ));
     const reviews = [
         buildReview({
@@ -176,9 +177,9 @@ function buildReview(reviewer, lines, productionContract) {
     };
 }
 
-function reviewLine(entry, transcript, sourceById) {
+function reviewLine(entry, transcript, sourceById, options = {}) {
     const expected = normalizeJapanese(entry.japanese);
-    const heard = normalizeJapanese(transcript);
+    const heard = normalizeJapanese(transcript, options);
     const source = sourceById.get(entry.lineId);
     if (!source) throw new Error(`Production contract is missing ${entry.lineId}.`);
     const criticalPhraseGates = source.disposition.criticalPhraseGates;
@@ -275,12 +276,12 @@ function run(command, args) {
     return result;
 }
 
-function normalizeJapanese(value) {
+function normalizeJapanese(value, options = {}) {
     const compact = [...value.normalize('NFKC')]
         .filter(character => /[\p{L}\p{N}]/u.test(character))
         .map(hiraganaForKatakana)
         .join('');
-    return compact
+    const canonical = compact
         .replaceAll('三百', '300')
         .replaceAll('雨', 'あめ')
         .replaceAll('朝', 'あさ')
@@ -292,8 +293,21 @@ function normalizeJapanese(value) {
         .replaceAll('お茶', 'おちゃ')
         .replaceAll('今晩は', 'こんばんは')
         .replaceAll('始めまして', 'はじめまして')
+        .replaceAll('始めましょう', 'はじめましょう')
+        .replaceAll('終わりましょう', 'おわりましょう')
+        .replaceAll('休みましょう', 'やすみましょう')
+        .replaceAll('見てください', 'みてください')
+        .replaceAll('皆さんで', 'みなさんで')
+        .replaceAll('言ってください', 'いってください')
+        .replaceAll('聞いてください', 'きいてください')
+        .replaceAll('書いてください', 'かいてください')
         .replaceAll('宜しく', 'よろしく')
         .replaceAll('お願い', 'おねがい');
+    if (options.transcriptProfile !== 'vosk-ja-small') return canonical;
+    return canonical
+        .replaceAll('始めましょ', 'はじめましょう')
+        .replaceAll('終わりましょ', 'おわりましょう')
+        .replaceAll('休みましょ', 'やすみましょう');
 }
 
 function hiraganaForKatakana(character) {

@@ -35,6 +35,41 @@ export const LEARNING_VOICE_BINDING_IDENTITIES = Object.freeze({
         japanese: 'おちゃです',
         sourceSha256: '11dc3f8cc0b518f844783a3d86e1d24d650874acdc97a9f460ad0ddd57232001',
     }),
+    'lesson-zero:classroom-instruction:begin': Object.freeze({
+        lineId: 'lesson-zero:classroom-instruction:begin',
+        japanese: 'はじめましょう',
+        sourceSha256: '1fbd90adcac45c55e62abde3e46439d3a5348552fc4a69b9f78a7edb10e58c52',
+    }),
+    'lesson-zero:classroom-instruction:finish': Object.freeze({
+        lineId: 'lesson-zero:classroom-instruction:finish',
+        japanese: 'おわりましょう',
+        sourceSha256: '9c5f2de672f343767619e9450b5f7649d72be094c829777a39a201b08c394b6d',
+    }),
+    'lesson-zero:classroom-instruction:break': Object.freeze({
+        lineId: 'lesson-zero:classroom-instruction:break',
+        japanese: 'やすみましょう',
+        sourceSha256: 'b9041e360b4b73ffcb249050cd789905004ced48a50353f7e626d0c88e545d26',
+    }),
+    'lesson-zero:classroom-instruction:look': Object.freeze({
+        lineId: 'lesson-zero:classroom-instruction:look',
+        japanese: 'みてください',
+        sourceSha256: '9668a8b62bbb7c64c409ed7186efb71815b77fbfdcd3ed8c74bcbd7b7d67fb7d',
+    }),
+    'lesson-zero:classroom-instruction:say-together': Object.freeze({
+        lineId: 'lesson-zero:classroom-instruction:say-together',
+        japanese: 'みなさんでいってください',
+        sourceSha256: 'aef85b41f752da817cd2f71a5d514813bc92f65c32cd9fc59c9c067e3a78bc06',
+    }),
+    'lesson-zero:classroom-instruction:listen': Object.freeze({
+        lineId: 'lesson-zero:classroom-instruction:listen',
+        japanese: 'きいてください',
+        sourceSha256: '6e4eaeb1c7ea595b1d3b0a1dd39dc0d6bae2d544ef4e4565b21796adc3f0d6e9',
+    }),
+    'lesson-zero:classroom-instruction:write': Object.freeze({
+        lineId: 'lesson-zero:classroom-instruction:write',
+        japanese: 'かいてください',
+        sourceSha256: '69472717888dbcdbd5277f2328ef49f43377f200832ce224244f8cf3ac56af82',
+    }),
     'lesson-screen:textbook-pair-prompt': Object.freeze({
         lineId: 'lesson-screen:textbook-pair-prompt',
         japanese: 'では、教科書の五ページを開いて、二人で話してください。',

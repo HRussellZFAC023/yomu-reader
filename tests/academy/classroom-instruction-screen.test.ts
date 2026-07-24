@@ -37,17 +37,19 @@ describe('Classroom instruction screen', () => {
         });
 
         screen.element.querySelector<HTMLButtonElement>('.academy-classroom-instruction-start')!.click();
-        await vi.waitFor(() => expect(screen.element.querySelectorAll('[data-action-id]')).toHaveLength(7));
-        screen.element.querySelector<HTMLButtonElement>('[data-action-id="write"]')!.click();
+        await vi.waitFor(() => expect(screen.element.textContent).toContain('Try this move'));
+        screen.element.querySelector<HTMLButtonElement>('.academy-classroom-instruction-try')!.click();
+        await vi.waitFor(() => expect(screen.element.querySelectorAll('[data-action-id]')).toHaveLength(3));
+        screen.element.querySelector<HTMLButtonElement>('[data-action-id="break"]')!.click();
         await vi.waitFor(() => expect(screen.element.textContent).toContain('That was a different classroom action.'));
         expect(persisted.attempts).toHaveLength(1);
         screen.dispose();
     });
 
-    it('hides the target until commitment, animates the chosen prop, and supports repair', async () => {
+    it('teaches one move, hides it for a three-choice attempt, then repairs one miss', async () => {
         const content = definition();
         let persisted = startClassroomInstructionSession(content);
-        const play = vi.fn(async () => ({ dispose() {} }));
+        const play = vi.fn(async (_text: string) => ({ dispose() {} }));
         const onTransition = vi.fn(async (_before, transition) => {
             persisted = transition.state;
         });
@@ -61,34 +63,38 @@ describe('Classroom instruction screen', () => {
             onBack: vi.fn(),
         });
 
-        expect(screen.element.textContent).toContain('Make the classroom respond');
-        expect(screen.element.textContent).not.toContain('みてください');
+        expect(screen.element.textContent).toContain('Seven moves you’ll hear every day');
+        expect(screen.element.textContent).not.toContain('はじめましょう');
         expect(screen.element.querySelector('.academy-classroom-instruction-back')?.getAttribute('aria-label'))
             .toBe('Back');
         screen.element.querySelector<HTMLButtonElement>('.academy-classroom-instruction-start')!.click();
-        await vi.waitFor(() => expect(play).toHaveBeenCalledWith('みてください', 'みてください'));
-        await vi.waitFor(() => expect(screen.element.querySelectorAll('[data-action-id]')).toHaveLength(7));
+        await vi.waitFor(() => expect(play).toHaveBeenCalled());
+        expect(play.mock.calls[0]?.[0]).toBe('はじめましょう');
+        await vi.waitFor(() => expect(screen.element.textContent).toContain('はじめましょう'));
+        screen.element.querySelector<HTMLButtonElement>('.academy-classroom-instruction-try')!.click();
+        await vi.waitFor(() => expect(screen.element.querySelectorAll('[data-action-id]')).toHaveLength(3));
+        expect(screen.element.textContent).not.toContain('はじめましょう');
 
-        screen.element.querySelector<HTMLButtonElement>('[data-action-id="write"]')!.click();
+        screen.element.querySelector<HTMLButtonElement>('[data-action-id="break"]')!.click();
         await vi.waitFor(() => expect(screen.element.textContent).toContain('That was a different classroom action.'));
-        expect(screen.element.textContent).toContain('みてください');
+        expect(screen.element.textContent).toContain('はじめましょう');
         expect(screen.element.querySelector('.academy-classroom-instruction-room')?.getAttribute('data-room-action'))
-            .toBe('write');
+            .toBe('break');
         expect(persisted.cursor).toBe(0);
 
         const retry = screen.element.querySelector<HTMLButtonElement>('.academy-classroom-instruction-continue')!;
         retry.click();
-        await vi.waitFor(() => expect(play).toHaveBeenCalledTimes(2));
-        await vi.waitFor(() => expect(screen.element.textContent).not.toContain('みてください'));
-        screen.element.querySelector<HTMLButtonElement>('[data-action-id="look"]')!.click();
-        await vi.waitFor(() => expect(screen.element.textContent).toContain('The room followed her.'));
+        await vi.waitFor(() => expect(play.mock.calls.length).toBeGreaterThanOrEqual(3));
+        await vi.waitFor(() => expect(screen.element.textContent).not.toContain('はじめましょう'));
+        screen.element.querySelector<HTMLButtonElement>('[data-action-id="begin"]')!.click();
+        await vi.waitFor(() => expect(screen.element.textContent).toContain('That’s the move.'));
         expect(persisted.cursor).toBe(1);
         expect(screen.element.querySelector('.academy-classroom-instruction-progress')?.textContent)
-            .toBe('1 of 7 instructions followed');
+            .toBe('Learned 1/7');
         screen.dispose();
     });
 
-    it('offers replay only after all seven embodied responses are complete', async () => {
+    it('offers replay only after seven supported moves and seven mixed recalls are complete', async () => {
         const content = definition();
         let state = transitionClassroomInstructionSession(
             content,
@@ -96,12 +102,28 @@ describe('Classroom instruction screen', () => {
             { kind: 'start' },
             1,
         ).state;
+        let at = 2;
         for (const cue of content.cues) {
             state = transitionClassroomInstructionSession(
                 content,
                 state,
+                { kind: 'introduce' },
+                at++,
+            ).state;
+            state = transitionClassroomInstructionSession(
+                content,
+                state,
                 { kind: 'choose', actionId: cue.actionId },
-                state.cursor + 2,
+                at++,
+            ).state;
+        }
+        expect(state.status).toBe('active');
+        for (const actionId of content.recallActionOrder) {
+            state = transitionClassroomInstructionSession(
+                content,
+                state,
+                { kind: 'choose', actionId },
+                at++,
             ).state;
         }
         const onRestart = vi.fn(async () => undefined);
@@ -115,12 +137,12 @@ describe('Classroom instruction screen', () => {
             onBack: vi.fn(),
         });
 
-        expect(screen.element.textContent).toContain('You can move with the class.');
+        expect(screen.element.textContent).toContain('You kept up with the room.');
         const replay = [...screen.element.querySelectorAll<HTMLButtonElement>('button')]
             .find(button => button.textContent?.includes('Run the room again'))!;
         replay.click();
         await vi.waitFor(() => expect(onRestart).toHaveBeenCalledOnce());
-        await vi.waitFor(() => expect(screen.element.textContent).toContain('Start the rehearsal'));
+        await vi.waitFor(() => expect(screen.element.textContent).toContain('Meet the first move'));
         screen.dispose();
     });
 });

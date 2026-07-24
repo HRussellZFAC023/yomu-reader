@@ -2,7 +2,7 @@
   "schema": "yomu-academy.learning-voice-production.v2",
   "batchId": "academy-learning-native-20260720-01",
   "createdOn": "2026-07-20",
-  "scope": "Ten reviewed native-band candidates: eight accepted voice units with nine reachable bindings and two rejected takes retained only as quarantine evidence.",
+  "scope": "Seventeen reviewed native-band candidates: fifteen accepted voice units with sixteen reachable bindings and two rejected takes retained only as quarantine evidence.",
   "qualityApproval": {
     "codexQualityAccepted": true,
     "scope": "AivisSpeech + Style-Bert-VITS2 JP-Extra output quality",
@@ -58,7 +58,14 @@
       "xingyu-lesson-zero-vowel-i",
       "xingyu-lesson-zero-vowel-u",
       "xingyu-lesson-zero-vowel-e",
-      "xingyu-lesson-zero-vowel-o"
+      "xingyu-lesson-zero-vowel-o",
+      "rie-classroom-begin",
+      "rie-classroom-finish",
+      "rie-classroom-break",
+      "rie-classroom-look",
+      "rie-classroom-say-together",
+      "rie-classroom-listen",
+      "rie-classroom-write"
     ],
     "acceptedVoiceLineIds": [
       "miller-cafe-price",
@@ -68,7 +75,14 @@
       "xingyu-lesson-zero-vowel-i",
       "xingyu-lesson-zero-vowel-u",
       "xingyu-lesson-zero-vowel-e",
-      "xingyu-lesson-zero-vowel-o"
+      "xingyu-lesson-zero-vowel-o",
+      "rie-classroom-begin",
+      "rie-classroom-finish",
+      "rie-classroom-break",
+      "rie-classroom-look",
+      "rie-classroom-say-together",
+      "rie-classroom-listen",
+      "rie-classroom-write"
     ],
     "rejectedVoiceLineIds": [
       "lesson-textbook-pair-prompt",
@@ -753,6 +767,483 @@
         "prePhonemeLength": 0.12,
         "postPhonemeLength": 0.18,
         "pauseLengthScale": 1.02
+      },
+      "moraOverrides": []
+    },
+    {
+      "identity": {
+        "voiceLineId": "rie-classroom-begin",
+        "speakerId": "rie",
+        "intent": "Begin the class warmly and clearly so a new learner can connect the line to the room moving.",
+        "locale": "ja-JP",
+        "band": "native",
+        "sourceRevision": "1fbd90adcac45c55e62abde3e46439d3a5348552fc4a69b9f78a7edb10e58c52",
+        "bindingIds": [
+          "lesson-zero:classroom-instruction:begin"
+        ]
+      },
+      "mappingId": "rie-learning-dialogue",
+      "role": "academy-character",
+      "surface": "lesson-zero-classroom",
+      "japanese": "はじめましょう",
+      "disposition": {
+        "status": "accepted",
+        "acceptedBy": "Codex",
+        "humanReviewed": false,
+        "criticalPhraseGates": [
+          "はじめましょう"
+        ],
+        "recognitionConfusionPhrases": [
+          "始め ましょう",
+          "始め ましょ",
+          "始め ます",
+          "終わり ましょう",
+          "終わり ましょ",
+          "終わり ます",
+          "休み ましょう",
+          "休み ましょ",
+          "休み ます",
+          "見 て ください",
+          "に て ください",
+          "皆 さん で 言っ て ください",
+          "皆 さん で 行っ て ください",
+          "聞い て ください",
+          "消え て ください",
+          "書い て ください",
+          "[unk]"
+        ],
+        "independentAudioReview": "Local Japanese recognition and acoustic checks must recover the whole classroom command without a critical-morpheme mismatch."
+      },
+      "bindings": [
+        {
+          "lineId": "lesson-zero:classroom-instruction:begin",
+          "surface": "lesson-zero-classroom",
+          "accessibleReplayLabel": {
+            "en": "Replay Rie saying let’s begin",
+            "ja": "りえ先生の「はじめましょう」をもう一度聞く"
+          }
+        }
+      ],
+      "audioQuerySha256": "c0d46368f8bf7ca524ddbaa4294754ee270c552b97c98e6a9e22856ef1409361",
+      "expectedCacheKey": "1936dd4ce470abf7bdb351a0a0de3091a246654a8148838f21cc6415dca301bd",
+      "queryOverrides": {
+        "speedScale": 0.92,
+        "pitchScale": -0.01,
+        "intonationScale": 1.02,
+        "volumeScale": 0.84,
+        "prePhonemeLength": 0.1,
+        "postPhonemeLength": 0.16,
+        "pauseLengthScale": 0.98
+      },
+      "moraOverrides": []
+    },
+    {
+      "identity": {
+        "voiceLineId": "rie-classroom-finish",
+        "speakerId": "rie",
+        "intent": "Close the class gently and clearly as the paired contrast to the beginning command.",
+        "locale": "ja-JP",
+        "band": "native",
+        "sourceRevision": "9c5f2de672f343767619e9450b5f7649d72be094c829777a39a201b08c394b6d",
+        "bindingIds": [
+          "lesson-zero:classroom-instruction:finish"
+        ]
+      },
+      "mappingId": "rie-learning-dialogue",
+      "role": "academy-character",
+      "surface": "lesson-zero-classroom",
+      "japanese": "おわりましょう",
+      "disposition": {
+        "status": "accepted",
+        "acceptedBy": "Codex",
+        "humanReviewed": false,
+        "criticalPhraseGates": [
+          "おわりましょう"
+        ],
+        "recognitionConfusionPhrases": [
+          "始め ましょう",
+          "始め ましょ",
+          "始め ます",
+          "終わり ましょう",
+          "終わり ましょ",
+          "終わり ます",
+          "休み ましょう",
+          "休み ましょ",
+          "休み ます",
+          "見 て ください",
+          "に て ください",
+          "皆 さん で 言っ て ください",
+          "皆 さん で 行っ て ください",
+          "聞い て ください",
+          "消え て ください",
+          "書い て ください",
+          "[unk]"
+        ],
+        "independentAudioReview": "Local Japanese recognition and acoustic checks must recover the whole classroom command without a critical-morpheme mismatch."
+      },
+      "bindings": [
+        {
+          "lineId": "lesson-zero:classroom-instruction:finish",
+          "surface": "lesson-zero-classroom",
+          "accessibleReplayLabel": {
+            "en": "Replay Rie saying let’s finish",
+            "ja": "りえ先生の「おわりましょう」をもう一度聞く"
+          }
+        }
+      ],
+      "audioQuerySha256": "7d305a7bda5909e06938130c3e9251b9799398558d3c5345b3e1aad16ca1a17b",
+      "expectedCacheKey": "fe6dfa2f04674f2565ab9ef6a0ec8c93d4bf58a5f561972721eb7da5acca54ae",
+      "queryOverrides": {
+        "speedScale": 0.92,
+        "pitchScale": -0.01,
+        "intonationScale": 1.02,
+        "volumeScale": 0.82,
+        "prePhonemeLength": 0.1,
+        "postPhonemeLength": 0.16,
+        "pauseLengthScale": 0.98
+      },
+      "moraOverrides": []
+    },
+    {
+      "identity": {
+        "voiceLineId": "rie-classroom-break",
+        "speakerId": "rie",
+        "intent": "Invite the class to pause with a relaxed but distinct classroom cadence.",
+        "locale": "ja-JP",
+        "band": "native",
+        "sourceRevision": "b9041e360b4b73ffcb249050cd789905004ced48a50353f7e626d0c88e545d26",
+        "bindingIds": [
+          "lesson-zero:classroom-instruction:break"
+        ]
+      },
+      "mappingId": "rie-learning-dialogue",
+      "role": "academy-character",
+      "surface": "lesson-zero-classroom",
+      "japanese": "やすみましょう",
+      "disposition": {
+        "status": "accepted",
+        "acceptedBy": "Codex",
+        "humanReviewed": false,
+        "criticalPhraseGates": [
+          "やすみましょう"
+        ],
+        "recognitionConfusionPhrases": [
+          "始め ましょう",
+          "始め ましょ",
+          "始め ます",
+          "終わり ましょう",
+          "終わり ましょ",
+          "終わり ます",
+          "休み ましょう",
+          "休み ましょ",
+          "休み ます",
+          "見 て ください",
+          "に て ください",
+          "皆 さん で 言っ て ください",
+          "皆 さん で 行っ て ください",
+          "聞い て ください",
+          "消え て ください",
+          "書い て ください",
+          "[unk]"
+        ],
+        "independentAudioReview": "Local Japanese recognition and acoustic checks must recover the whole classroom command without a critical-morpheme mismatch."
+      },
+      "bindings": [
+        {
+          "lineId": "lesson-zero:classroom-instruction:break",
+          "surface": "lesson-zero-classroom",
+          "accessibleReplayLabel": {
+            "en": "Replay Rie saying let’s take a break",
+            "ja": "りえ先生の「やすみましょう」をもう一度聞く"
+          }
+        }
+      ],
+      "audioQuerySha256": "1e574b7059e32df2e9ef03ae72354c43fa99e98e404d09f8369d528db92c8e1a",
+      "expectedCacheKey": "f9704bf324e8e6b6256f65c034f8e8e73ae496fbceb93526f40fac4efb353dd7",
+      "queryOverrides": {
+        "speedScale": 0.92,
+        "pitchScale": -0.01,
+        "intonationScale": 1.02,
+        "volumeScale": 0.84,
+        "prePhonemeLength": 0.1,
+        "postPhonemeLength": 0.16,
+        "pauseLengthScale": 0.98
+      },
+      "moraOverrides": []
+    },
+    {
+      "identity": {
+        "voiceLineId": "rie-classroom-look",
+        "speakerId": "rie",
+        "intent": "Direct attention clearly without sounding sharp, preserving the polite classroom request.",
+        "locale": "ja-JP",
+        "band": "native",
+        "sourceRevision": "9668a8b62bbb7c64c409ed7186efb71815b77fbfdcd3ed8c74bcbd7b7d67fb7d",
+        "bindingIds": [
+          "lesson-zero:classroom-instruction:look"
+        ]
+      },
+      "mappingId": "rie-learning-dialogue",
+      "role": "academy-character",
+      "surface": "lesson-zero-classroom",
+      "japanese": "みてください",
+      "disposition": {
+        "status": "accepted",
+        "acceptedBy": "Codex",
+        "humanReviewed": false,
+        "criticalPhraseGates": [
+          "みてください"
+        ],
+        "recognitionConfusionPhrases": [
+          "始め ましょう",
+          "始め ましょ",
+          "始め ます",
+          "終わり ましょう",
+          "終わり ましょ",
+          "終わり ます",
+          "休み ましょう",
+          "休み ましょ",
+          "休み ます",
+          "見 て ください",
+          "に て ください",
+          "皆 さん で 言っ て ください",
+          "皆 さん で 行っ て ください",
+          "聞い て ください",
+          "消え て ください",
+          "書い て ください",
+          "[unk]"
+        ],
+        "independentAudioReview": "Local Japanese recognition and acoustic checks must recover the whole classroom command without a critical-morpheme mismatch."
+      },
+      "bindings": [
+        {
+          "lineId": "lesson-zero:classroom-instruction:look",
+          "surface": "lesson-zero-classroom",
+          "accessibleReplayLabel": {
+            "en": "Replay Rie saying please look",
+            "ja": "りえ先生の「みてください」をもう一度聞く"
+          }
+        }
+      ],
+      "audioQuerySha256": "b34de74832ec7a52f73be331ae10b7c05e04ac4db1c933c5f9291fb4c1e24da0",
+      "expectedCacheKey": "b8fd6410f80d819588df5b1746f9939679bd14891a63d0d352bf152b7a976b89",
+      "queryOverrides": {
+        "speedScale": 0.92,
+        "pitchScale": -0.01,
+        "intonationScale": 1.02,
+        "volumeScale": 0.84,
+        "prePhonemeLength": 0.1,
+        "postPhonemeLength": 0.16,
+        "pauseLengthScale": 0.98
+      },
+      "moraOverrides": [
+        {
+          "accentPhrase": 0,
+          "mora": 0,
+          "vowel_length": 0.16,
+          "consonant_length": 0.16
+        }
+      ]
+    },
+    {
+      "identity": {
+        "voiceLineId": "rie-classroom-say-together",
+        "speakerId": "rie",
+        "intent": "Invite the whole class to answer together with a warm, audible group cue.",
+        "locale": "ja-JP",
+        "band": "native",
+        "sourceRevision": "aef85b41f752da817cd2f71a5d514813bc92f65c32cd9fc59c9c067e3a78bc06",
+        "bindingIds": [
+          "lesson-zero:classroom-instruction:say-together"
+        ]
+      },
+      "mappingId": "rie-learning-dialogue",
+      "role": "academy-character",
+      "surface": "lesson-zero-classroom",
+      "japanese": "みなさんでいってください",
+      "disposition": {
+        "status": "accepted",
+        "acceptedBy": "Codex",
+        "humanReviewed": false,
+        "criticalPhraseGates": [
+          "みなさんで",
+          "いってください"
+        ],
+        "recognitionConfusionPhrases": [
+          "始め ましょう",
+          "始め ましょ",
+          "始め ます",
+          "終わり ましょう",
+          "終わり ましょ",
+          "終わり ます",
+          "休み ましょう",
+          "休み ましょ",
+          "休み ます",
+          "見 て ください",
+          "に て ください",
+          "皆 さん で 言っ て ください",
+          "皆 さん で 行っ て ください",
+          "聞い て ください",
+          "消え て ください",
+          "書い て ください",
+          "[unk]"
+        ],
+        "independentAudioReview": "Local Japanese recognition and acoustic checks must recover both the group cue and the request without a critical-morpheme mismatch."
+      },
+      "bindings": [
+        {
+          "lineId": "lesson-zero:classroom-instruction:say-together",
+          "surface": "lesson-zero-classroom",
+          "accessibleReplayLabel": {
+            "en": "Replay Rie asking everyone to say it together",
+            "ja": "りえ先生の「みなさんでいってください」をもう一度聞く"
+          }
+        }
+      ],
+      "audioQuerySha256": "33b80cdb91c8f00e64f89de936bb60a10976f7bc8eb043350240ef0b488ec420",
+      "expectedCacheKey": "71551a1f952d144c762c3f0dcfe676a88fd599495c448574ebf249eb1a14fad6",
+      "queryOverrides": {
+        "speedScale": 0.92,
+        "pitchScale": -0.01,
+        "intonationScale": 1.02,
+        "volumeScale": 0.84,
+        "prePhonemeLength": 0.1,
+        "postPhonemeLength": 0.16,
+        "pauseLengthScale": 0.98
+      },
+      "moraOverrides": []
+    },
+    {
+      "identity": {
+        "voiceLineId": "rie-classroom-listen",
+        "speakerId": "rie",
+        "intent": "Ask for listening attention with a calm, distinct request that does not collapse into the look command.",
+        "locale": "ja-JP",
+        "band": "native",
+        "sourceRevision": "6e4eaeb1c7ea595b1d3b0a1dd39dc0d6bae2d544ef4e4565b21796adc3f0d6e9",
+        "bindingIds": [
+          "lesson-zero:classroom-instruction:listen"
+        ]
+      },
+      "mappingId": "rie-learning-dialogue",
+      "role": "academy-character",
+      "surface": "lesson-zero-classroom",
+      "japanese": "きいてください",
+      "disposition": {
+        "status": "accepted",
+        "acceptedBy": "Codex",
+        "humanReviewed": false,
+        "criticalPhraseGates": [
+          "きいてください"
+        ],
+        "recognitionConfusionPhrases": [
+          "始め ましょう",
+          "始め ましょ",
+          "始め ます",
+          "終わり ましょう",
+          "終わり ましょ",
+          "終わり ます",
+          "休み ましょう",
+          "休み ましょ",
+          "休み ます",
+          "見 て ください",
+          "に て ください",
+          "皆 さん で 言っ て ください",
+          "皆 さん で 行っ て ください",
+          "聞い て ください",
+          "消え て ください",
+          "書い て ください",
+          "[unk]"
+        ],
+        "independentAudioReview": "Local Japanese recognition and acoustic checks must recover the whole classroom command without a critical-morpheme mismatch."
+      },
+      "bindings": [
+        {
+          "lineId": "lesson-zero:classroom-instruction:listen",
+          "surface": "lesson-zero-classroom",
+          "accessibleReplayLabel": {
+            "en": "Replay Rie saying please listen",
+            "ja": "りえ先生の「きいてください」をもう一度聞く"
+          }
+        }
+      ],
+      "audioQuerySha256": "0eb38ff97b8000f1be77ae21acb42ee6b5797dd190edf1dca9a3b7a6c431ae7c",
+      "expectedCacheKey": "00d8b11e0a97bb62af6f2631b48508fdf9bd438497d3891876aea92f1eb15849",
+      "queryOverrides": {
+        "speedScale": 0.88,
+        "pitchScale": -0.01,
+        "intonationScale": 1.02,
+        "volumeScale": 0.84,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.28,
+        "pauseLengthScale": 1.0
+      },
+      "moraOverrides": []
+    },
+    {
+      "identity": {
+        "voiceLineId": "rie-classroom-write",
+        "speakerId": "rie",
+        "intent": "Ask the class to write with a calm, distinct request that remains easy to contrast by ear.",
+        "locale": "ja-JP",
+        "band": "native",
+        "sourceRevision": "69472717888dbcdbd5277f2328ef49f43377f200832ce224244f8cf3ac56af82",
+        "bindingIds": [
+          "lesson-zero:classroom-instruction:write"
+        ]
+      },
+      "mappingId": "rie-learning-dialogue",
+      "role": "academy-character",
+      "surface": "lesson-zero-classroom",
+      "japanese": "かいてください",
+      "disposition": {
+        "status": "accepted",
+        "acceptedBy": "Codex",
+        "humanReviewed": false,
+        "criticalPhraseGates": [
+          "かいてください"
+        ],
+        "recognitionConfusionPhrases": [
+          "始め ましょう",
+          "始め ましょ",
+          "始め ます",
+          "終わり ましょう",
+          "終わり ましょ",
+          "終わり ます",
+          "休み ましょう",
+          "休み ましょ",
+          "休み ます",
+          "見 て ください",
+          "に て ください",
+          "皆 さん で 言っ て ください",
+          "皆 さん で 行っ て ください",
+          "聞い て ください",
+          "消え て ください",
+          "書い て ください",
+          "[unk]"
+        ],
+        "independentAudioReview": "Local Japanese recognition and acoustic checks must recover the whole classroom command without a critical-morpheme mismatch."
+      },
+      "bindings": [
+        {
+          "lineId": "lesson-zero:classroom-instruction:write",
+          "surface": "lesson-zero-classroom",
+          "accessibleReplayLabel": {
+            "en": "Replay Rie saying please write",
+            "ja": "りえ先生の「かいてください」をもう一度聞く"
+          }
+        }
+      ],
+      "audioQuerySha256": "613fa224bf4d121bebbbe4e2c98aa9e973c11a4772b933e723524beac2e7b2e5",
+      "expectedCacheKey": "07925423b74b64b7b9bbdee83a3e6e07ce78d5e3e001df2de3cdfce83769a782",
+      "queryOverrides": {
+        "speedScale": 0.92,
+        "pitchScale": -0.01,
+        "intonationScale": 1.02,
+        "volumeScale": 0.84,
+        "prePhonemeLength": 0.1,
+        "postPhonemeLength": 0.16,
+        "pauseLengthScale": 0.98
       },
       "moraOverrides": []
     }

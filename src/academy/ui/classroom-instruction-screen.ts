@@ -1,14 +1,17 @@
 import type { AcademyLanguage } from '../../reader/app/academy-copy';
 import { ACADEMY_ASSETS } from '../assets';
+import { playLearningVoiceBinding } from '../audio/learning-voice';
 import {
     CLASSROOM_INSTRUCTION_ACTION_PRESENTATIONS,
     type ClassroomInstructionActionPresentation,
 } from '../content/lesson-zero-follow-instructions';
 import {
+    classroomInstructionCurrentCue,
     startClassroomInstructionSession,
     transitionClassroomInstructionSession,
     type ClassroomInstructionActionId,
     type ClassroomInstructionCue,
+    type ClassroomInstructionRound,
     type ClassroomInstructionSessionDefinition,
     type ClassroomInstructionSessionState,
     type ClassroomInstructionSessionTransition,
@@ -35,29 +38,36 @@ export interface ClassroomInstructionScreen {
 }
 
 const COPY = {
-    eyebrow: { en: 'Listening rehearsal', ja: '聞いて動く練習' },
-    title: { en: 'Make the classroom respond', ja: '教室を動かそう' },
+    eyebrow: { en: 'Classroom rhythm', ja: '教室のリズム' },
+    title: { en: 'Seven moves you’ll hear every day', ja: '毎日聞く七つの動き' },
     ready: {
-        en: 'Listen to Rie, then choose the action that lets the class follow her. You do not need every word yet.',
-        ja: 'りえ先生のことばを聞いて、教室をそのとおりに動かしましょう。',
+        en: 'You don’t need to read these yet. Hear one line, move the room, then I’ll mix them up.',
+        ja: 'まだ読めなくても大丈夫です。一つずつ聞いて動いてから、順番を変えてみましょう。',
     },
-    sharedPattern: { en: '〜ましょう moves everyone together.', ja: '「〜ましょう」で、みんなが一緒に動きます。' },
-    requestPattern: { en: '〜てください asks someone to act.', ja: '「〜てください」で、相手に動作を頼みます。' },
-    start: { en: 'Start the rehearsal', ja: '練習を始める' },
-    listen: { en: 'Listen to Rie, then move the room.', ja: 'りえ先生の指示を聞いて、教室を動かしてください。' },
+    start: { en: 'Meet the first move', ja: '最初の動きを聞く' },
+    teachLabel: { en: 'Meet this move', ja: 'この動きを聞く' },
+    noReadingNeeded: { en: 'Listen first. Reading can wait.', ja: 'まずは音を聞きましょう。読むのはあとで大丈夫です。' },
+    tryMove: { en: 'Try this move', ja: 'この動きをやってみる' },
+    practice: { en: 'Listen, then move the room.', ja: '聞いてから、教室を動かしましょう。' },
+    recall: { en: 'Same seven. New order.', ja: '同じ七つを、違う順番で聞きましょう。' },
+    practiceBadge: { en: 'Learn', ja: '覚える' },
+    recallBadge: { en: 'Mix', ja: 'まぜる' },
     replay: { en: 'Hear Rie again', ja: 'もう一度聞く' },
     playing: { en: 'Rie is speaking…', ja: 'りえ先生が話しています…' },
     actions: { en: 'Classroom actions', ja: '教室の動作' },
-    correct: { en: 'The room followed her.', ja: '教室が指示どおりに動きました。' },
+    correct: { en: 'That’s the move.', ja: 'その動きです。' },
+    recalled: { en: 'You caught it in the mix.', ja: '違う順番でも聞き取れました。' },
     incorrect: { en: 'That was a different classroom action.', ja: '別の動作を選びました。' },
     heard: { en: 'What Rie said', ja: 'りえ先生のことば' },
-    next: { en: 'Listen for the next instruction', ja: '次の指示を聞く' },
+    next: { en: 'Meet the next move', ja: '次の動きを聞く' },
+    nextRecall: { en: 'Next mixed line', ja: '次の一言を聞く' },
+    beginRecall: { en: 'Mix the seven', ja: '七つをまぜる' },
     finish: { en: 'See what you can now follow', ja: 'できるようになったことを見る' },
     retry: { en: 'Hear it and try again', ja: 'もう一度聞いて動く' },
-    complete: { en: 'You can move with the class.', ja: '教室の流れに乗れるようになりました。' },
+    complete: { en: 'You kept up with the room.', ja: '教室の流れについていけました。' },
     completeBody: {
-        en: 'You heard seven instructions and responded without waiting for English. I saved them for today’s review, so they will return at the right time.',
-        ja: '七つの指示が、訳ではなく動作として分かるようになりました。聞く記憶として復習にも入っています。',
+        en: 'You followed all seven once, then caught them in a new order. They’ll return in short reviews.',
+        ja: '七つを一度ずつ覚えて、違う順番でも聞き取れました。短い復習でまた会います。',
     },
     again: { en: 'Run the room again', ja: 'もう一度教室を動かす' },
     return: { en: 'Continue your day', ja: '今日の続きを見る' },
@@ -70,6 +80,7 @@ interface InstructionFeedback {
     readonly cue: ClassroomInstructionCue;
     readonly chosen: ClassroomInstructionActionPresentation;
     readonly outcome: 'pass' | 'lapse';
+    readonly round: ClassroomInstructionRound;
 }
 
 export function createClassroomInstructionScreen(
@@ -77,7 +88,7 @@ export function createClassroomInstructionScreen(
 ): ClassroomInstructionScreen {
     const lifecycle = new AbortController();
     let renderLifecycle = new AbortController();
-    let state = options.initialState;
+    let state = startClassroomInstructionSession(options.definition, options.initialState);
     let playback: Disposable | null = null;
     let feedback: InstructionFeedback | null = null;
     let busy = false;
@@ -120,9 +131,12 @@ export function createClassroomInstructionScreen(
         body.replaceChildren();
         live.textContent = '';
         screen.dataset.sessionStatus = state.status;
+        screen.dataset.sessionStage = state.stage ?? 'teach';
+        const recalling = state.stage === 'recall' || state.stage === 'recall-repair' || state.stage === 'complete';
+        const progressCount = recalling ? (state.recalledCueIds ?? []).length : state.passedCueIds.length;
         progress.textContent = options.language === 'ja'
-            ? `7つ中 ${state.passedCueIds.length}つ完了`
-            : `${state.passedCueIds.length} of 7 instructions followed`;
+            ? recalling ? `まぜて ${progressCount}/7` : `覚えた動き ${progressCount}/7`
+            : recalling ? `Mixed recall ${progressCount}/7` : `Learned ${progressCount}/7`;
         if (state.status === 'ready') {
             renderReady(signal);
             return;
@@ -143,28 +157,68 @@ export function createClassroomInstructionScreen(
         const portrait = riePortrait('academy-classroom-instruction-intro-portrait');
         const copy = element('div', 'academy-classroom-instruction-intro-copy');
         const line = localizedParagraph(COPY.ready, options.language, 'academy-classroom-instruction-intro-line');
-        const patterns = element('div', 'academy-classroom-instruction-patterns');
-        patterns.append(
-            patternStrip('皆', COPY.sharedPattern, options.language),
-            patternStrip('手', COPY.requestPattern, options.language),
-        );
         const start = element('button', 'academy-button academy-button-primary academy-classroom-instruction-start');
         start.type = 'button';
         start.textContent = COPY.start[options.language];
         start.addEventListener('click', () => void begin(), { signal });
-        copy.append(line, patterns, start);
+        copy.append(line, start);
         intro.append(portrait, copy);
         body.append(intro);
     };
 
     const renderActive = (signal: AbortSignal): void => {
-        const cue = options.definition.cues[state.cursor];
+        const cue = classroomInstructionCurrentCue(options.definition, state);
         if (!cue) {
-            state = { ...state, status: 'complete', cursor: options.definition.cues.length };
+            state = {
+                ...state,
+                status: 'complete',
+                stage: 'complete',
+                cursor: options.definition.cues.length,
+            };
             render();
             return;
         }
+        if (state.stage === 'teach') {
+            renderTeach(cue, signal);
+            return;
+        }
         body.append(riePrompt(signal), roomStage(undefined), actionRail(cue, signal), pauseAction(signal));
+    };
+
+    const renderTeach = (cue: ClassroomInstructionCue, signal: AbortSignal): void => {
+        const root = element('section', 'academy-classroom-instruction-teach');
+        const portrait = riePortrait('academy-classroom-instruction-teach-portrait');
+        const paper = element('div', 'academy-classroom-instruction-teach-paper');
+        const label = element('p', 'academy-classroom-instruction-teach-label');
+        label.textContent = `${COPY.teachLabel[options.language]} · ${state.passedCueIds.length + 1}/7`;
+        const japanese = element('p', 'academy-classroom-instruction-teach-japanese');
+        japanese.lang = 'ja';
+        japanese.dataset.yomuRuntimeSurface = 'academy-classroom-instruction-teach';
+        japanese.dataset.yomuFuriganaMode = 'all';
+        japanese.textContent = cue.japanese;
+        const meaning = localizedParagraph(
+            cue.meaning,
+            options.language,
+            'academy-classroom-instruction-teach-meaning',
+        );
+        const note = localizedParagraph(
+            COPY.noReadingNeeded,
+            options.language,
+            'academy-classroom-instruction-teach-note',
+        );
+        const replay = element('button', 'academy-button academy-classroom-instruction-replay');
+        replay.type = 'button';
+        replay.textContent = `▶ ${COPY.replay[options.language]}`;
+        replay.addEventListener('click', () => void playCurrent(replay), { signal });
+        const tryMove = element('button', 'academy-button academy-button-primary academy-classroom-instruction-try');
+        tryMove.type = 'button';
+        tryMove.textContent = COPY.tryMove[options.language];
+        tryMove.addEventListener('click', () => void introduceCurrent(), { signal });
+        const actions = element('div', 'academy-classroom-instruction-teach-actions');
+        actions.append(replay, tryMove);
+        paper.append(label, japanese, meaning, note, actions);
+        root.append(portrait, roomStage(cue.actionId), paper);
+        body.append(root, pauseAction(signal));
     };
 
     const riePrompt = (signal: AbortSignal): HTMLElement => {
@@ -173,12 +227,19 @@ export function createClassroomInstructionScreen(
         const dialogue = element('div', 'academy-classroom-instruction-dialogue');
         const name = element('strong', 'academy-classroom-instruction-name');
         name.textContent = options.language === 'ja' ? 'りえ先生' : 'Rie-sensei';
-        const line = localizedParagraph(COPY.listen, options.language, 'academy-classroom-instruction-line');
+        const recalling = state.stage === 'recall' || state.stage === 'recall-repair';
+        const badge = element('span', 'academy-classroom-instruction-round');
+        badge.textContent = (recalling ? COPY.recallBadge : COPY.practiceBadge)[options.language];
+        const line = localizedParagraph(
+            recalling ? COPY.recall : COPY.practice,
+            options.language,
+            'academy-classroom-instruction-line',
+        );
         const replay = element('button', 'academy-button academy-classroom-instruction-replay');
         replay.type = 'button';
         replay.textContent = `▶ ${COPY.replay[options.language]}`;
         replay.addEventListener('click', () => void playCurrent(replay), { signal });
-        dialogue.append(name, line, replay);
+        dialogue.append(name, badge, line, replay);
         prompt.append(portrait, dialogue);
         return prompt;
     };
@@ -207,7 +268,7 @@ export function createClassroomInstructionScreen(
         const rail = element('div', 'academy-classroom-instruction-actions');
         rail.setAttribute('role', 'group');
         rail.setAttribute('aria-label', COPY.actions[options.language]);
-        for (const action of CLASSROOM_INSTRUCTION_ACTION_PRESENTATIONS) {
+        for (const action of actionChoices(cue)) {
             const button = element('button', 'academy-classroom-instruction-action');
             button.type = 'button';
             button.dataset.actionId = action.actionId;
@@ -230,7 +291,11 @@ export function createClassroomInstructionScreen(
         root.append(roomStage(result.chosen.actionId));
         const paper = element('div', 'academy-classroom-instruction-feedback-paper');
         const heading = element('h2', 'academy-classroom-instruction-feedback-title');
-        heading.textContent = (result.outcome === 'pass' ? COPY.correct : COPY.incorrect)[options.language];
+        heading.textContent = (
+            result.outcome === 'pass'
+                ? result.round === 'recall' ? COPY.recalled : COPY.correct
+                : COPY.incorrect
+        )[options.language];
         const reaction = localizedParagraph(
             result.chosen.roomReaction,
             options.language,
@@ -254,7 +319,14 @@ export function createClassroomInstructionScreen(
             action.textContent = COPY.retry[options.language];
             action.addEventListener('click', () => void clearFeedbackAndPlay(), { signal });
         } else {
-            action.textContent = (state.status === 'complete' ? COPY.finish : COPY.next)[options.language];
+            const nextCopy = state.status === 'complete'
+                ? COPY.finish
+                : state.stage === 'recall' && (state.recalledCueIds ?? []).length === 0
+                    ? COPY.beginRecall
+                    : state.stage === 'recall'
+                        ? COPY.nextRecall
+                        : COPY.next;
+            action.textContent = nextCopy[options.language];
             action.addEventListener('click', () => void clearFeedbackAndContinue(), { signal });
         }
         paper.append(heading, reaction, heardLabel, japanese, meaning, action);
@@ -323,6 +395,29 @@ export function createClassroomInstructionScreen(
         await playCurrent();
     };
 
+    const introduceCurrent = async (): Promise<void> => {
+        if (busy || state.stage !== 'teach') return;
+        const before = state;
+        const transition = transitionClassroomInstructionSession(
+            options.definition,
+            state,
+            { kind: 'introduce' },
+            Date.now(),
+        );
+        try {
+            busy = true;
+            await options.onTransition(before, transition);
+            state = transition.state;
+            render();
+        } catch {
+            live.textContent = COPY.saveError[options.language];
+            return;
+        } finally {
+            busy = false;
+        }
+        await playCurrent();
+    };
+
     const choose = async (
         cue: ClassroomInstructionCue,
         action: ClassroomInstructionActionPresentation,
@@ -343,7 +438,12 @@ export function createClassroomInstructionScreen(
             screen.setAttribute('aria-busy', 'true');
             await options.onTransition(before, transition);
             state = transition.state;
-            feedback = { cue, chosen: action, outcome: transition.evaluation.result.outcome };
+            feedback = {
+                cue,
+                chosen: action,
+                outcome: transition.evaluation.result.outcome,
+                round: transition.round ?? 'practice',
+            };
             render();
         } catch {
             live.textContent = COPY.saveError[options.language];
@@ -354,7 +454,7 @@ export function createClassroomInstructionScreen(
     };
 
     const playCurrent = async (control?: HTMLButtonElement): Promise<void> => {
-        const cue = options.definition.cues[state.cursor];
+        const cue = classroomInstructionCurrentCue(options.definition, state);
         if (!cue || disposed) return;
         playback?.dispose();
         playback = null;
@@ -363,8 +463,13 @@ export function createClassroomInstructionScreen(
             control.textContent = COPY.playing[options.language];
         }
         try {
-            const active = await options.pronunciation.play(cue.japanese, cue.reading);
-            if (disposed) active.dispose();
+            const active = await playLearningVoiceBinding(
+                options.pronunciation,
+                cue.voiceBindingId,
+                cue.japanese,
+                lifecycle.signal,
+            );
+            if (disposed) active?.dispose();
             else playback = active;
         } catch {
             if (!disposed) live.textContent = COPY.audioError[options.language];
@@ -377,6 +482,15 @@ export function createClassroomInstructionScreen(
     };
 
     const clearFeedbackAndPlay = async (): Promise<void> => {
+        const before = state;
+        const transition = transitionClassroomInstructionSession(
+            options.definition,
+            state,
+            { kind: 'begin-retry' },
+            Date.now(),
+        );
+        await options.onTransition(before, transition);
+        state = transition.state;
         feedback = null;
         render();
         await playCurrent();
@@ -440,18 +554,16 @@ function riePortrait(className: string): HTMLImageElement {
     return portrait;
 }
 
-function patternStrip(
-    glyphText: string,
-    copy: Readonly<{ en: string; ja: string }>,
-    language: AcademyLanguage,
-): HTMLElement {
-    const strip = element('div', 'academy-classroom-instruction-pattern');
-    const glyph = element('span', 'academy-classroom-instruction-pattern-glyph');
-    glyph.lang = 'ja';
-    glyph.textContent = glyphText;
-    const line = localizedParagraph(copy, language, 'academy-classroom-instruction-pattern-copy');
-    strip.append(glyph, line);
-    return strip;
+function actionChoices(cue: ClassroomInstructionCue): readonly ClassroomInstructionActionPresentation[] {
+    const actions = CLASSROOM_INSTRUCTION_ACTION_PRESENTATIONS;
+    const index = actions.findIndex(action => action.actionId === cue.actionId);
+    if (index < 0) return actions.slice(0, 3);
+    const selected = new Set([
+        cue.actionId,
+        actions[(index + 2) % actions.length]!.actionId,
+        actions[(index + 4) % actions.length]!.actionId,
+    ]);
+    return actions.filter(action => selected.has(action.actionId));
 }
 
 function localizedParagraph(

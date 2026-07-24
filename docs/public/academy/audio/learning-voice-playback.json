@@ -815,6 +815,699 @@
         "livingPersonSource": true
       },
       "provenance": "Yomu-authored"
+    },
+    {
+      "lineId": "rie-classroom-begin",
+      "speakerId": "rie",
+      "role": "academy-character",
+      "intent": "Begin the class warmly and clearly so a new learner can connect the line to the room moving.",
+      "locale": "ja-JP",
+      "band": "native",
+      "surface": "lesson-zero-classroom",
+      "japanese": "はじめましょう",
+      "bindings": [
+        {
+          "lineId": "lesson-zero:classroom-instruction:begin",
+          "surface": "lesson-zero-classroom",
+          "accessibleReplayLabel": {
+            "en": "Replay Rie saying let’s begin",
+            "ja": "りえ先生の「はじめましょう」をもう一度聞く"
+          }
+        }
+      ],
+      "sourceSha256": "1fbd90adcac45c55e62abde3e46439d3a5348552fc4a69b9f78a7edb10e58c52",
+      "sourceRevision": "1fbd90adcac45c55e62abde3e46439d3a5348552fc4a69b9f78a7edb10e58c52",
+      "audioQuerySha256": "c0d46368f8bf7ca524ddbaa4294754ee270c552b97c98e6a9e22856ef1409361",
+      "cacheKey": "1936dd4ce470abf7bdb351a0a0de3091a246654a8148838f21cc6415dca301bd",
+      "assetSha256": "93160d80b29b8a21688ca5620b69da072e9370705c7d42cc52e27853c78b8a11",
+      "bytes": 11252,
+      "durationSeconds": 1.509396,
+      "url": "/academy/audio/learning-lines/rie/rie-classroom-begin__1936dd4ce470abf7.opus",
+      "modelUuid": "e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43",
+      "modelName": "hinakoyuhara",
+      "modelVersion": "1.0.0",
+      "modelSourceUrl": "https://hub.aivis-project.com/aivm-models/e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43",
+      "modelLicense": "ACML-1.0",
+      "modelPayloadSha256": "674d495898d367092de7105ef760f070a03ae5f74c61670bf98c1e62aa159adb",
+      "styleId": 2058221186,
+      "styleName": "落ち着き",
+      "queryOverrides": {
+        "speedScale": 0.92,
+        "pitchScale": -0.01,
+        "intonationScale": 1.02,
+        "volumeScale": 0.84,
+        "prePhonemeLength": 0.1,
+        "postPhonemeLength": 0.16,
+        "pauseLengthScale": 0.98
+      },
+      "moraOverrides": [],
+      "review": {
+        "naturalness": {
+          "status": "reviewed-text",
+          "reviewedOn": "2026-07-23",
+          "basis": "A short, concrete Japanese carrier word keeps the opening vowel audible without an English sound approximation."
+        },
+        "accent": {
+          "status": "validated-query-plan",
+          "method": "AivisSpeech audio_query identity and independent waveform recovery",
+          "phrases": [
+            "はじめましょう"
+          ]
+        },
+        "pause": {
+          "status": "validated-query-plan",
+          "method": "Objective silence analysis",
+          "notes": "One compact carrier phrase with bounded leading, trailing, and interior silence."
+        },
+        "direction": {
+          "status": "reviewed-model-direction",
+          "basis": "A calm classmate voice at a deliberately measured pace supports first-contact phonics without overstating the vowel."
+        },
+        "independentModel": {
+          "status": "findings-incorporated",
+          "reviewRef": "$.reviews",
+          "auditoryClaim": true
+        },
+        "listening": {
+          "status": "codex-accepted-objective-and-independent-audio-review",
+          "checkedOn": "2026-07-23",
+          "checkedBy": "Codex using objective QA and independent waveform review",
+          "ownerLineByLineReviewed": false,
+          "audioModelReviewed": true,
+          "humanReviewed": false,
+          "independentAudioModelReviews": 2,
+          "evidence": [
+            "docs/academy/audio/learning-voice-acceptance.json",
+            "docs/academy/audio/learning-voice-model-reviews.json"
+          ],
+          "basis": "Codex accepted this line without claiming human listening, after both local Japanese recognizers recovered the complete carrier phrase and the exact staged bytes passed objective audio checks.",
+          "limitation": "No human line-by-line audition is claimed.",
+          "codexAccepted": true
+        }
+      },
+      "reviewStatus": "accepted",
+      "qualityApprovalStatus": "codex-accepted",
+      "disclosure": {
+        "synthetic": true,
+        "officialCharacterVoice": false,
+        "livingPersonSource": true
+      },
+      "provenance": "Yomu-authored"
+    },
+    {
+      "lineId": "rie-classroom-finish",
+      "speakerId": "rie",
+      "role": "academy-character",
+      "intent": "Close the class gently and clearly as the paired contrast to the beginning command.",
+      "locale": "ja-JP",
+      "band": "native",
+      "surface": "lesson-zero-classroom",
+      "japanese": "おわりましょう",
+      "bindings": [
+        {
+          "lineId": "lesson-zero:classroom-instruction:finish",
+          "surface": "lesson-zero-classroom",
+          "accessibleReplayLabel": {
+            "en": "Replay Rie saying let’s finish",
+            "ja": "りえ先生の「おわりましょう」をもう一度聞く"
+          }
+        }
+      ],
+      "sourceSha256": "9c5f2de672f343767619e9450b5f7649d72be094c829777a39a201b08c394b6d",
+      "sourceRevision": "9c5f2de672f343767619e9450b5f7649d72be094c829777a39a201b08c394b6d",
+      "audioQuerySha256": "7d305a7bda5909e06938130c3e9251b9799398558d3c5345b3e1aad16ca1a17b",
+      "cacheKey": "fe6dfa2f04674f2565ab9ef6a0ec8c93d4bf58a5f561972721eb7da5acca54ae",
+      "assetSha256": "e25636d68f5a0a569c63057fbb43d04dae7daecca34489f45d9b7c31c611d870",
+      "bytes": 9814,
+      "durationSeconds": 1.280646,
+      "url": "/academy/audio/learning-lines/rie/rie-classroom-finish__fe6dfa2f04674f25.opus",
+      "modelUuid": "e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43",
+      "modelName": "hinakoyuhara",
+      "modelVersion": "1.0.0",
+      "modelSourceUrl": "https://hub.aivis-project.com/aivm-models/e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43",
+      "modelLicense": "ACML-1.0",
+      "modelPayloadSha256": "674d495898d367092de7105ef760f070a03ae5f74c61670bf98c1e62aa159adb",
+      "styleId": 2058221186,
+      "styleName": "落ち着き",
+      "queryOverrides": {
+        "speedScale": 0.92,
+        "pitchScale": -0.01,
+        "intonationScale": 1.02,
+        "volumeScale": 0.82,
+        "prePhonemeLength": 0.1,
+        "postPhonemeLength": 0.16,
+        "pauseLengthScale": 0.98
+      },
+      "moraOverrides": [],
+      "review": {
+        "naturalness": {
+          "status": "reviewed-text",
+          "reviewedOn": "2026-07-23",
+          "basis": "A short, concrete Japanese carrier word keeps the opening vowel audible without an English sound approximation."
+        },
+        "accent": {
+          "status": "validated-query-plan",
+          "method": "AivisSpeech audio_query identity and independent waveform recovery",
+          "phrases": [
+            "おわりましょう"
+          ]
+        },
+        "pause": {
+          "status": "validated-query-plan",
+          "method": "Objective silence analysis",
+          "notes": "One compact carrier phrase with bounded leading, trailing, and interior silence."
+        },
+        "direction": {
+          "status": "reviewed-model-direction",
+          "basis": "A calm classmate voice at a deliberately measured pace supports first-contact phonics without overstating the vowel."
+        },
+        "independentModel": {
+          "status": "findings-incorporated",
+          "reviewRef": "$.reviews",
+          "auditoryClaim": true
+        },
+        "listening": {
+          "status": "codex-accepted-objective-and-independent-audio-review",
+          "checkedOn": "2026-07-23",
+          "checkedBy": "Codex using objective QA and independent waveform review",
+          "ownerLineByLineReviewed": false,
+          "audioModelReviewed": true,
+          "humanReviewed": false,
+          "independentAudioModelReviews": 2,
+          "evidence": [
+            "docs/academy/audio/learning-voice-acceptance.json",
+            "docs/academy/audio/learning-voice-model-reviews.json"
+          ],
+          "basis": "Codex accepted this line without claiming human listening, after both local Japanese recognizers recovered the complete carrier phrase and the exact staged bytes passed objective audio checks.",
+          "limitation": "No human line-by-line audition is claimed.",
+          "codexAccepted": true
+        }
+      },
+      "reviewStatus": "accepted",
+      "qualityApprovalStatus": "codex-accepted",
+      "disclosure": {
+        "synthetic": true,
+        "officialCharacterVoice": false,
+        "livingPersonSource": true
+      },
+      "provenance": "Yomu-authored"
+    },
+    {
+      "lineId": "rie-classroom-break",
+      "speakerId": "rie",
+      "role": "academy-character",
+      "intent": "Invite the class to pause with a relaxed but distinct classroom cadence.",
+      "locale": "ja-JP",
+      "band": "native",
+      "surface": "lesson-zero-classroom",
+      "japanese": "やすみましょう",
+      "bindings": [
+        {
+          "lineId": "lesson-zero:classroom-instruction:break",
+          "surface": "lesson-zero-classroom",
+          "accessibleReplayLabel": {
+            "en": "Replay Rie saying let’s take a break",
+            "ja": "りえ先生の「やすみましょう」をもう一度聞く"
+          }
+        }
+      ],
+      "sourceSha256": "b9041e360b4b73ffcb249050cd789905004ced48a50353f7e626d0c88e545d26",
+      "sourceRevision": "b9041e360b4b73ffcb249050cd789905004ced48a50353f7e626d0c88e545d26",
+      "audioQuerySha256": "1e574b7059e32df2e9ef03ae72354c43fa99e98e404d09f8369d528db92c8e1a",
+      "cacheKey": "f9704bf324e8e6b6256f65c034f8e8e73ae496fbceb93526f40fac4efb353dd7",
+      "assetSha256": "8174141e164da8e062921d45f34e0232bbf5b6f02f654924026ba661e3ffecc2",
+      "bytes": 11416,
+      "durationSeconds": 1.522688,
+      "url": "/academy/audio/learning-lines/rie/rie-classroom-break__f9704bf324e8e6b6.opus",
+      "modelUuid": "e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43",
+      "modelName": "hinakoyuhara",
+      "modelVersion": "1.0.0",
+      "modelSourceUrl": "https://hub.aivis-project.com/aivm-models/e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43",
+      "modelLicense": "ACML-1.0",
+      "modelPayloadSha256": "674d495898d367092de7105ef760f070a03ae5f74c61670bf98c1e62aa159adb",
+      "styleId": 2058221186,
+      "styleName": "落ち着き",
+      "queryOverrides": {
+        "speedScale": 0.92,
+        "pitchScale": -0.01,
+        "intonationScale": 1.02,
+        "volumeScale": 0.84,
+        "prePhonemeLength": 0.1,
+        "postPhonemeLength": 0.16,
+        "pauseLengthScale": 0.98
+      },
+      "moraOverrides": [],
+      "review": {
+        "naturalness": {
+          "status": "reviewed-text",
+          "reviewedOn": "2026-07-23",
+          "basis": "A short, concrete Japanese carrier word keeps the opening vowel audible without an English sound approximation."
+        },
+        "accent": {
+          "status": "validated-query-plan",
+          "method": "AivisSpeech audio_query identity and independent waveform recovery",
+          "phrases": [
+            "やすみましょう"
+          ]
+        },
+        "pause": {
+          "status": "validated-query-plan",
+          "method": "Objective silence analysis",
+          "notes": "One compact carrier phrase with bounded leading, trailing, and interior silence."
+        },
+        "direction": {
+          "status": "reviewed-model-direction",
+          "basis": "A calm classmate voice at a deliberately measured pace supports first-contact phonics without overstating the vowel."
+        },
+        "independentModel": {
+          "status": "findings-incorporated",
+          "reviewRef": "$.reviews",
+          "auditoryClaim": true
+        },
+        "listening": {
+          "status": "codex-accepted-objective-and-independent-audio-review",
+          "checkedOn": "2026-07-23",
+          "checkedBy": "Codex using objective QA and independent waveform review",
+          "ownerLineByLineReviewed": false,
+          "audioModelReviewed": true,
+          "humanReviewed": false,
+          "independentAudioModelReviews": 2,
+          "evidence": [
+            "docs/academy/audio/learning-voice-acceptance.json",
+            "docs/academy/audio/learning-voice-model-reviews.json"
+          ],
+          "basis": "Codex accepted this line without claiming human listening, after both local Japanese recognizers recovered the complete carrier phrase and the exact staged bytes passed objective audio checks.",
+          "limitation": "No human line-by-line audition is claimed.",
+          "codexAccepted": true
+        }
+      },
+      "reviewStatus": "accepted",
+      "qualityApprovalStatus": "codex-accepted",
+      "disclosure": {
+        "synthetic": true,
+        "officialCharacterVoice": false,
+        "livingPersonSource": true
+      },
+      "provenance": "Yomu-authored"
+    },
+    {
+      "lineId": "rie-classroom-look",
+      "speakerId": "rie",
+      "role": "academy-character",
+      "intent": "Direct attention clearly without sounding sharp, preserving the polite classroom request.",
+      "locale": "ja-JP",
+      "band": "native",
+      "surface": "lesson-zero-classroom",
+      "japanese": "みてください",
+      "bindings": [
+        {
+          "lineId": "lesson-zero:classroom-instruction:look",
+          "surface": "lesson-zero-classroom",
+          "accessibleReplayLabel": {
+            "en": "Replay Rie saying please look",
+            "ja": "りえ先生の「みてください」をもう一度聞く"
+          }
+        }
+      ],
+      "sourceSha256": "9668a8b62bbb7c64c409ed7186efb71815b77fbfdcd3ed8c74bcbd7b7d67fb7d",
+      "sourceRevision": "9668a8b62bbb7c64c409ed7186efb71815b77fbfdcd3ed8c74bcbd7b7d67fb7d",
+      "audioQuerySha256": "b34de74832ec7a52f73be331ae10b7c05e04ac4db1c933c5f9291fb4c1e24da0",
+      "cacheKey": "b8fd6410f80d819588df5b1746f9939679bd14891a63d0d352bf152b7a976b89",
+      "assetSha256": "aa51ae04d9e114b326eae5d8f9604ffe18603003c5be44c74a119d70792441ec",
+      "bytes": 9958,
+      "durationSeconds": 1.250042,
+      "url": "/academy/audio/learning-lines/rie/rie-classroom-look__b8fd6410f80d8195.opus",
+      "modelUuid": "e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43",
+      "modelName": "hinakoyuhara",
+      "modelVersion": "1.0.0",
+      "modelSourceUrl": "https://hub.aivis-project.com/aivm-models/e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43",
+      "modelLicense": "ACML-1.0",
+      "modelPayloadSha256": "674d495898d367092de7105ef760f070a03ae5f74c61670bf98c1e62aa159adb",
+      "styleId": 2058221186,
+      "styleName": "落ち着き",
+      "queryOverrides": {
+        "speedScale": 0.92,
+        "pitchScale": -0.01,
+        "intonationScale": 1.02,
+        "volumeScale": 0.84,
+        "prePhonemeLength": 0.1,
+        "postPhonemeLength": 0.16,
+        "pauseLengthScale": 0.98
+      },
+      "moraOverrides": [
+        {
+          "accentPhrase": 0,
+          "mora": 0,
+          "vowel_length": 0.16,
+          "consonant_length": 0.16
+        }
+      ],
+      "review": {
+        "naturalness": {
+          "status": "reviewed-text",
+          "reviewedOn": "2026-07-23",
+          "basis": "A short, concrete Japanese carrier word keeps the opening vowel audible without an English sound approximation."
+        },
+        "accent": {
+          "status": "validated-query-plan",
+          "method": "AivisSpeech audio_query identity and independent waveform recovery",
+          "phrases": [
+            "みてください"
+          ]
+        },
+        "pause": {
+          "status": "validated-query-plan",
+          "method": "Objective silence analysis",
+          "notes": "One compact carrier phrase with bounded leading, trailing, and interior silence."
+        },
+        "direction": {
+          "status": "reviewed-model-direction",
+          "basis": "A calm classmate voice at a deliberately measured pace supports first-contact phonics without overstating the vowel."
+        },
+        "independentModel": {
+          "status": "findings-incorporated",
+          "reviewRef": "$.reviews",
+          "auditoryClaim": true
+        },
+        "listening": {
+          "status": "codex-accepted-objective-and-independent-audio-review",
+          "checkedOn": "2026-07-23",
+          "checkedBy": "Codex using objective QA and independent waveform review",
+          "ownerLineByLineReviewed": false,
+          "audioModelReviewed": true,
+          "humanReviewed": false,
+          "independentAudioModelReviews": 2,
+          "evidence": [
+            "docs/academy/audio/learning-voice-acceptance.json",
+            "docs/academy/audio/learning-voice-model-reviews.json"
+          ],
+          "basis": "Codex accepted this line without claiming human listening, after both local Japanese recognizers recovered the complete carrier phrase and the exact staged bytes passed objective audio checks.",
+          "limitation": "No human line-by-line audition is claimed.",
+          "codexAccepted": true
+        }
+      },
+      "reviewStatus": "accepted",
+      "qualityApprovalStatus": "codex-accepted",
+      "disclosure": {
+        "synthetic": true,
+        "officialCharacterVoice": false,
+        "livingPersonSource": true
+      },
+      "provenance": "Yomu-authored"
+    },
+    {
+      "lineId": "rie-classroom-say-together",
+      "speakerId": "rie",
+      "role": "academy-character",
+      "intent": "Invite the whole class to answer together with a warm, audible group cue.",
+      "locale": "ja-JP",
+      "band": "native",
+      "surface": "lesson-zero-classroom",
+      "japanese": "みなさんでいってください",
+      "bindings": [
+        {
+          "lineId": "lesson-zero:classroom-instruction:say-together",
+          "surface": "lesson-zero-classroom",
+          "accessibleReplayLabel": {
+            "en": "Replay Rie asking everyone to say it together",
+            "ja": "りえ先生の「みなさんでいってください」をもう一度聞く"
+          }
+        }
+      ],
+      "sourceSha256": "aef85b41f752da817cd2f71a5d514813bc92f65c32cd9fc59c9c067e3a78bc06",
+      "sourceRevision": "aef85b41f752da817cd2f71a5d514813bc92f65c32cd9fc59c9c067e3a78bc06",
+      "audioQuerySha256": "33b80cdb91c8f00e64f89de936bb60a10976f7bc8eb043350240ef0b488ec420",
+      "cacheKey": "71551a1f952d144c762c3f0dcfe676a88fd599495c448574ebf249eb1a14fad6",
+      "assetSha256": "7c9d841fbde752f509887763e6fd130004081257f21156afc5a8ddfd85969771",
+      "bytes": 15533,
+      "durationSeconds": 1.868625,
+      "url": "/academy/audio/learning-lines/rie/rie-classroom-say-together__71551a1f952d144c.opus",
+      "modelUuid": "e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43",
+      "modelName": "hinakoyuhara",
+      "modelVersion": "1.0.0",
+      "modelSourceUrl": "https://hub.aivis-project.com/aivm-models/e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43",
+      "modelLicense": "ACML-1.0",
+      "modelPayloadSha256": "674d495898d367092de7105ef760f070a03ae5f74c61670bf98c1e62aa159adb",
+      "styleId": 2058221186,
+      "styleName": "落ち着き",
+      "queryOverrides": {
+        "speedScale": 0.92,
+        "pitchScale": -0.01,
+        "intonationScale": 1.02,
+        "volumeScale": 0.84,
+        "prePhonemeLength": 0.1,
+        "postPhonemeLength": 0.16,
+        "pauseLengthScale": 0.98
+      },
+      "moraOverrides": [],
+      "review": {
+        "naturalness": {
+          "status": "reviewed-text",
+          "reviewedOn": "2026-07-23",
+          "basis": "A short, concrete Japanese carrier word keeps the opening vowel audible without an English sound approximation."
+        },
+        "accent": {
+          "status": "validated-query-plan",
+          "method": "AivisSpeech audio_query identity and independent waveform recovery",
+          "phrases": [
+            "みなさんでいってください"
+          ]
+        },
+        "pause": {
+          "status": "validated-query-plan",
+          "method": "Objective silence analysis",
+          "notes": "One compact carrier phrase with bounded leading, trailing, and interior silence."
+        },
+        "direction": {
+          "status": "reviewed-model-direction",
+          "basis": "A calm classmate voice at a deliberately measured pace supports first-contact phonics without overstating the vowel."
+        },
+        "independentModel": {
+          "status": "findings-incorporated",
+          "reviewRef": "$.reviews",
+          "auditoryClaim": true
+        },
+        "listening": {
+          "status": "codex-accepted-objective-and-independent-audio-review",
+          "checkedOn": "2026-07-23",
+          "checkedBy": "Codex using objective QA and independent waveform review",
+          "ownerLineByLineReviewed": false,
+          "audioModelReviewed": true,
+          "humanReviewed": false,
+          "independentAudioModelReviews": 2,
+          "evidence": [
+            "docs/academy/audio/learning-voice-acceptance.json",
+            "docs/academy/audio/learning-voice-model-reviews.json"
+          ],
+          "basis": "Codex accepted this line without claiming human listening, after both local Japanese recognizers recovered the complete carrier phrase and the exact staged bytes passed objective audio checks.",
+          "limitation": "No human line-by-line audition is claimed.",
+          "codexAccepted": true
+        }
+      },
+      "reviewStatus": "accepted",
+      "qualityApprovalStatus": "codex-accepted",
+      "disclosure": {
+        "synthetic": true,
+        "officialCharacterVoice": false,
+        "livingPersonSource": true
+      },
+      "provenance": "Yomu-authored"
+    },
+    {
+      "lineId": "rie-classroom-listen",
+      "speakerId": "rie",
+      "role": "academy-character",
+      "intent": "Ask for listening attention with a calm, distinct request that does not collapse into the look command.",
+      "locale": "ja-JP",
+      "band": "native",
+      "surface": "lesson-zero-classroom",
+      "japanese": "きいてください",
+      "bindings": [
+        {
+          "lineId": "lesson-zero:classroom-instruction:listen",
+          "surface": "lesson-zero-classroom",
+          "accessibleReplayLabel": {
+            "en": "Replay Rie saying please listen",
+            "ja": "りえ先生の「きいてください」をもう一度聞く"
+          }
+        }
+      ],
+      "sourceSha256": "6e4eaeb1c7ea595b1d3b0a1dd39dc0d6bae2d544ef4e4565b21796adc3f0d6e9",
+      "sourceRevision": "6e4eaeb1c7ea595b1d3b0a1dd39dc0d6bae2d544ef4e4565b21796adc3f0d6e9",
+      "audioQuerySha256": "0eb38ff97b8000f1be77ae21acb42ee6b5797dd190edf1dca9a3b7a6c431ae7c",
+      "cacheKey": "00d8b11e0a97bb62af6f2631b48508fdf9bd438497d3891876aea92f1eb15849",
+      "assetSha256": "1af5a59cc331de1204697087771b97b39f04430ca42525f141d073e0ca17e58b",
+      "bytes": 12067,
+      "durationSeconds": 1.712792,
+      "url": "/academy/audio/learning-lines/rie/rie-classroom-listen__00d8b11e0a97bb62.opus",
+      "modelUuid": "e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43",
+      "modelName": "hinakoyuhara",
+      "modelVersion": "1.0.0",
+      "modelSourceUrl": "https://hub.aivis-project.com/aivm-models/e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43",
+      "modelLicense": "ACML-1.0",
+      "modelPayloadSha256": "674d495898d367092de7105ef760f070a03ae5f74c61670bf98c1e62aa159adb",
+      "styleId": 2058221186,
+      "styleName": "落ち着き",
+      "queryOverrides": {
+        "speedScale": 0.88,
+        "pitchScale": -0.01,
+        "intonationScale": 1.02,
+        "volumeScale": 0.84,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.28,
+        "pauseLengthScale": 1
+      },
+      "moraOverrides": [],
+      "review": {
+        "naturalness": {
+          "status": "reviewed-text",
+          "reviewedOn": "2026-07-23",
+          "basis": "A short, concrete Japanese carrier word keeps the opening vowel audible without an English sound approximation."
+        },
+        "accent": {
+          "status": "validated-query-plan",
+          "method": "AivisSpeech audio_query identity and independent waveform recovery",
+          "phrases": [
+            "きいてください"
+          ]
+        },
+        "pause": {
+          "status": "validated-query-plan",
+          "method": "Objective silence analysis",
+          "notes": "One compact carrier phrase with bounded leading, trailing, and interior silence."
+        },
+        "direction": {
+          "status": "reviewed-model-direction",
+          "basis": "A calm classmate voice at a deliberately measured pace supports first-contact phonics without overstating the vowel."
+        },
+        "independentModel": {
+          "status": "findings-incorporated",
+          "reviewRef": "$.reviews",
+          "auditoryClaim": true
+        },
+        "listening": {
+          "status": "codex-accepted-objective-and-independent-audio-review",
+          "checkedOn": "2026-07-23",
+          "checkedBy": "Codex using objective QA and independent waveform review",
+          "ownerLineByLineReviewed": false,
+          "audioModelReviewed": true,
+          "humanReviewed": false,
+          "independentAudioModelReviews": 2,
+          "evidence": [
+            "docs/academy/audio/learning-voice-acceptance.json",
+            "docs/academy/audio/learning-voice-model-reviews.json"
+          ],
+          "basis": "Codex accepted this line without claiming human listening, after both local Japanese recognizers recovered the complete carrier phrase and the exact staged bytes passed objective audio checks.",
+          "limitation": "No human line-by-line audition is claimed.",
+          "codexAccepted": true
+        }
+      },
+      "reviewStatus": "accepted",
+      "qualityApprovalStatus": "codex-accepted",
+      "disclosure": {
+        "synthetic": true,
+        "officialCharacterVoice": false,
+        "livingPersonSource": true
+      },
+      "provenance": "Yomu-authored"
+    },
+    {
+      "lineId": "rie-classroom-write",
+      "speakerId": "rie",
+      "role": "academy-character",
+      "intent": "Ask the class to write with a calm, distinct request that remains easy to contrast by ear.",
+      "locale": "ja-JP",
+      "band": "native",
+      "surface": "lesson-zero-classroom",
+      "japanese": "かいてください",
+      "bindings": [
+        {
+          "lineId": "lesson-zero:classroom-instruction:write",
+          "surface": "lesson-zero-classroom",
+          "accessibleReplayLabel": {
+            "en": "Replay Rie saying please write",
+            "ja": "りえ先生の「かいてください」をもう一度聞く"
+          }
+        }
+      ],
+      "sourceSha256": "69472717888dbcdbd5277f2328ef49f43377f200832ce224244f8cf3ac56af82",
+      "sourceRevision": "69472717888dbcdbd5277f2328ef49f43377f200832ce224244f8cf3ac56af82",
+      "audioQuerySha256": "613fa224bf4d121bebbbe4e2c98aa9e973c11a4772b933e723524beac2e7b2e5",
+      "cacheKey": "07925423b74b64b7b9bbdee83a3e6e07ce78d5e3e001df2de3cdfce83769a782",
+      "assetSha256": "b8cac9c144b4ce94324a98b3a1096596766e08e33b60b1dc391cd1d235f80775",
+      "bytes": 11172,
+      "durationSeconds": 1.461396,
+      "url": "/academy/audio/learning-lines/rie/rie-classroom-write__07925423b74b64b7.opus",
+      "modelUuid": "e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43",
+      "modelName": "hinakoyuhara",
+      "modelVersion": "1.0.0",
+      "modelSourceUrl": "https://hub.aivis-project.com/aivm-models/e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43",
+      "modelLicense": "ACML-1.0",
+      "modelPayloadSha256": "674d495898d367092de7105ef760f070a03ae5f74c61670bf98c1e62aa159adb",
+      "styleId": 2058221186,
+      "styleName": "落ち着き",
+      "queryOverrides": {
+        "speedScale": 0.92,
+        "pitchScale": -0.01,
+        "intonationScale": 1.02,
+        "volumeScale": 0.84,
+        "prePhonemeLength": 0.1,
+        "postPhonemeLength": 0.16,
+        "pauseLengthScale": 0.98
+      },
+      "moraOverrides": [],
+      "review": {
+        "naturalness": {
+          "status": "reviewed-text",
+          "reviewedOn": "2026-07-23",
+          "basis": "A short, concrete Japanese carrier word keeps the opening vowel audible without an English sound approximation."
+        },
+        "accent": {
+          "status": "validated-query-plan",
+          "method": "AivisSpeech audio_query identity and independent waveform recovery",
+          "phrases": [
+            "かいてください"
+          ]
+        },
+        "pause": {
+          "status": "validated-query-plan",
+          "method": "Objective silence analysis",
+          "notes": "One compact carrier phrase with bounded leading, trailing, and interior silence."
+        },
+        "direction": {
+          "status": "reviewed-model-direction",
+          "basis": "A calm classmate voice at a deliberately measured pace supports first-contact phonics without overstating the vowel."
+        },
+        "independentModel": {
+          "status": "findings-incorporated",
+          "reviewRef": "$.reviews",
+          "auditoryClaim": true
+        },
+        "listening": {
+          "status": "codex-accepted-objective-and-independent-audio-review",
+          "checkedOn": "2026-07-23",
+          "checkedBy": "Codex using objective QA and independent waveform review",
+          "ownerLineByLineReviewed": false,
+          "audioModelReviewed": true,
+          "humanReviewed": false,
+          "independentAudioModelReviews": 2,
+          "evidence": [
+            "docs/academy/audio/learning-voice-acceptance.json",
+            "docs/academy/audio/learning-voice-model-reviews.json"
+          ],
+          "basis": "Codex accepted this line without claiming human listening, after both local Japanese recognizers recovered the complete carrier phrase and the exact staged bytes passed objective audio checks.",
+          "limitation": "No human line-by-line audition is claimed.",
+          "codexAccepted": true
+        }
+      },
+      "reviewStatus": "accepted",
+      "qualityApprovalStatus": "codex-accepted",
+      "disclosure": {
+        "synthetic": true,
+        "officialCharacterVoice": false,
+        "livingPersonSource": true
+      },
+      "provenance": "Yomu-authored"
     }
   ],
   "acceptancePolicy": {

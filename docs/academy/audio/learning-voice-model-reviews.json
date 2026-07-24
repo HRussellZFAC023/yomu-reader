@@ -45,12 +45,19 @@
         "0c949c52634727f8e27730cd45ca175d9d43ec05e06e4c189c1609a641195a90",
         "0f66cd7f8f8746acc4f6cf48eea70f19d81021e77a178a5df725363062181f0b",
         "139fcc5abad785ada11c470ba36db8e55b73849a07e9c7ab68a51b15d8cef07e",
+        "1af5a59cc331de1204697087771b97b39f04430ca42525f141d073e0ca17e58b",
         "3a518a64e393b26b0c723d3ac60a78280fda8fde0343558f76ebf19bb586a51a",
         "582a8f6e440ee92470c8beade4f9cc2b80a9cc28a9cea4fcbcaa7ba7dd864c37",
+        "7c9d841fbde752f509887763e6fd130004081257f21156afc5a8ddfd85969771",
+        "8174141e164da8e062921d45f34e0232bbf5b6f02f654924026ba661e3ffecc2",
         "86dbec0a4e0c4ed17984993569eb7056fe2246569c382a10a7a15c274e840f06",
+        "93160d80b29b8a21688ca5620b69da072e9370705c7d42cc52e27853c78b8a11",
+        "aa51ae04d9e114b326eae5d8f9604ffe18603003c5be44c74a119d70792441ec",
         "b056b8f146eb4ed8e702c0ac398aba51e01d88e8a140867fd7160dfb69c627d3",
         "b37a4487325904650805566b20d13cb40bf025ba107c35f51e4a5781aa9858bb",
+        "b8cac9c144b4ce94324a98b3a1096596766e08e33b60b1dc391cd1d235f80775",
         "dea978a9cc61b721c8bade349b1f3f046549b3a5d8a1cbc8052e3efedfb85fdb",
+        "e25636d68f5a0a569c63057fbb43d04dae7daecca34489f45d9b7c31c611d870",
         "e94c91b82c6c2e54f77677cebc25d356f256c7ec6627d594711d21eb457399e9"
       ],
       "lines": [
@@ -198,6 +205,105 @@
           ],
           "criticalPhraseGatePassed": true,
           "verdict": "pass"
+        },
+        {
+          "lineId": "rie-classroom-begin",
+          "filename": "rie-classroom-begin__1936dd4ce470abf7.opus",
+          "assetSha256": "93160d80b29b8a21688ca5620b69da072e9370705c7d42cc52e27853c78b8a11",
+          "expectedJapanese": "はじめましょう",
+          "heardTranscript": "始めましょう。",
+          "normalizedTranscript": "はじめましょう",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "はじめましょう"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "rie-classroom-finish",
+          "filename": "rie-classroom-finish__fe6dfa2f04674f25.opus",
+          "assetSha256": "e25636d68f5a0a569c63057fbb43d04dae7daecca34489f45d9b7c31c611d870",
+          "expectedJapanese": "おわりましょう",
+          "heardTranscript": "終わりましょう。",
+          "normalizedTranscript": "おわりましょう",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "おわりましょう"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "rie-classroom-break",
+          "filename": "rie-classroom-break__f9704bf324e8e6b6.opus",
+          "assetSha256": "8174141e164da8e062921d45f34e0232bbf5b6f02f654924026ba661e3ffecc2",
+          "expectedJapanese": "やすみましょう",
+          "heardTranscript": "休みましょう。",
+          "normalizedTranscript": "やすみましょう",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "やすみましょう"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "rie-classroom-look",
+          "filename": "rie-classroom-look__b8fd6410f80d8195.opus",
+          "assetSha256": "aa51ae04d9e114b326eae5d8f9604ffe18603003c5be44c74a119d70792441ec",
+          "expectedJapanese": "みてください",
+          "heardTranscript": "見てください。",
+          "normalizedTranscript": "みてください",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "みてください"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "rie-classroom-say-together",
+          "filename": "rie-classroom-say-together__71551a1f952d144c.opus",
+          "assetSha256": "7c9d841fbde752f509887763e6fd130004081257f21156afc5a8ddfd85969771",
+          "expectedJapanese": "みなさんでいってください",
+          "heardTranscript": "皆さんで言ってください。",
+          "normalizedTranscript": "みなさんでいってください",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "みなさんで",
+            "いってください"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "rie-classroom-listen",
+          "filename": "rie-classroom-listen__00d8b11e0a97bb62.opus",
+          "assetSha256": "1af5a59cc331de1204697087771b97b39f04430ca42525f141d073e0ca17e58b",
+          "expectedJapanese": "きいてください",
+          "heardTranscript": "聞いてください。",
+          "normalizedTranscript": "きいてください",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "きいてください"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "rie-classroom-write",
+          "filename": "rie-classroom-write__07925423b74b64b7.opus",
+          "assetSha256": "b8cac9c144b4ce94324a98b3a1096596766e08e33b60b1dc391cd1d235f80775",
+          "expectedJapanese": "かいてください",
+          "heardTranscript": "書いてください",
+          "normalizedTranscript": "かいてください",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "かいてください"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
         }
       ],
       "overallVerdict": "pass",
@@ -225,12 +331,19 @@
         "0c949c52634727f8e27730cd45ca175d9d43ec05e06e4c189c1609a641195a90",
         "0f66cd7f8f8746acc4f6cf48eea70f19d81021e77a178a5df725363062181f0b",
         "139fcc5abad785ada11c470ba36db8e55b73849a07e9c7ab68a51b15d8cef07e",
+        "1af5a59cc331de1204697087771b97b39f04430ca42525f141d073e0ca17e58b",
         "3a518a64e393b26b0c723d3ac60a78280fda8fde0343558f76ebf19bb586a51a",
         "582a8f6e440ee92470c8beade4f9cc2b80a9cc28a9cea4fcbcaa7ba7dd864c37",
+        "7c9d841fbde752f509887763e6fd130004081257f21156afc5a8ddfd85969771",
+        "8174141e164da8e062921d45f34e0232bbf5b6f02f654924026ba661e3ffecc2",
         "86dbec0a4e0c4ed17984993569eb7056fe2246569c382a10a7a15c274e840f06",
+        "93160d80b29b8a21688ca5620b69da072e9370705c7d42cc52e27853c78b8a11",
+        "aa51ae04d9e114b326eae5d8f9604ffe18603003c5be44c74a119d70792441ec",
         "b056b8f146eb4ed8e702c0ac398aba51e01d88e8a140867fd7160dfb69c627d3",
         "b37a4487325904650805566b20d13cb40bf025ba107c35f51e4a5781aa9858bb",
+        "b8cac9c144b4ce94324a98b3a1096596766e08e33b60b1dc391cd1d235f80775",
         "dea978a9cc61b721c8bade349b1f3f046549b3a5d8a1cbc8052e3efedfb85fdb",
+        "e25636d68f5a0a569c63057fbb43d04dae7daecca34489f45d9b7c31c611d870",
         "e94c91b82c6c2e54f77677cebc25d356f256c7ec6627d594711d21eb457399e9"
       ],
       "lines": [
@@ -378,6 +491,105 @@
           ],
           "criticalPhraseGatePassed": true,
           "verdict": "pass"
+        },
+        {
+          "lineId": "rie-classroom-begin",
+          "filename": "rie-classroom-begin__1936dd4ce470abf7.opus",
+          "assetSha256": "93160d80b29b8a21688ca5620b69da072e9370705c7d42cc52e27853c78b8a11",
+          "expectedJapanese": "はじめましょう",
+          "heardTranscript": "始め ましょ",
+          "normalizedTranscript": "はじめましょう",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "はじめましょう"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "rie-classroom-finish",
+          "filename": "rie-classroom-finish__fe6dfa2f04674f25.opus",
+          "assetSha256": "e25636d68f5a0a569c63057fbb43d04dae7daecca34489f45d9b7c31c611d870",
+          "expectedJapanese": "おわりましょう",
+          "heardTranscript": "終わり ましょ",
+          "normalizedTranscript": "おわりましょう",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "おわりましょう"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "rie-classroom-break",
+          "filename": "rie-classroom-break__f9704bf324e8e6b6.opus",
+          "assetSha256": "8174141e164da8e062921d45f34e0232bbf5b6f02f654924026ba661e3ffecc2",
+          "expectedJapanese": "やすみましょう",
+          "heardTranscript": "休み ましょ",
+          "normalizedTranscript": "やすみましょう",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "やすみましょう"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "rie-classroom-look",
+          "filename": "rie-classroom-look__b8fd6410f80d8195.opus",
+          "assetSha256": "aa51ae04d9e114b326eae5d8f9604ffe18603003c5be44c74a119d70792441ec",
+          "expectedJapanese": "みてください",
+          "heardTranscript": "見 て ください",
+          "normalizedTranscript": "みてください",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "みてください"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "rie-classroom-say-together",
+          "filename": "rie-classroom-say-together__71551a1f952d144c.opus",
+          "assetSha256": "7c9d841fbde752f509887763e6fd130004081257f21156afc5a8ddfd85969771",
+          "expectedJapanese": "みなさんでいってください",
+          "heardTranscript": "皆 さん で 言っ て ください",
+          "normalizedTranscript": "みなさんでいってください",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "みなさんで",
+            "いってください"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "rie-classroom-listen",
+          "filename": "rie-classroom-listen__00d8b11e0a97bb62.opus",
+          "assetSha256": "1af5a59cc331de1204697087771b97b39f04430ca42525f141d073e0ca17e58b",
+          "expectedJapanese": "きいてください",
+          "heardTranscript": "聞い て ください",
+          "normalizedTranscript": "きいてください",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "きいてください"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "rie-classroom-write",
+          "filename": "rie-classroom-write__07925423b74b64b7.opus",
+          "assetSha256": "b8cac9c144b4ce94324a98b3a1096596766e08e33b60b1dc391cd1d235f80775",
+          "expectedJapanese": "かいてください",
+          "heardTranscript": "書い て ください",
+          "normalizedTranscript": "かいてください",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "かいてください"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
         }
       ],
       "overallVerdict": "pass",
@@ -450,7 +662,56 @@
       "acceptedBy": "Codex",
       "humanReviewed": false,
       "independentAudioModelReviews": 2
+    },
+    {
+      "lineId": "rie-classroom-begin",
+      "verdict": "accepted",
+      "acceptedBy": "Codex",
+      "humanReviewed": false,
+      "independentAudioModelReviews": 2
+    },
+    {
+      "lineId": "rie-classroom-finish",
+      "verdict": "accepted",
+      "acceptedBy": "Codex",
+      "humanReviewed": false,
+      "independentAudioModelReviews": 2
+    },
+    {
+      "lineId": "rie-classroom-break",
+      "verdict": "accepted",
+      "acceptedBy": "Codex",
+      "humanReviewed": false,
+      "independentAudioModelReviews": 2
+    },
+    {
+      "lineId": "rie-classroom-look",
+      "verdict": "accepted",
+      "acceptedBy": "Codex",
+      "humanReviewed": false,
+      "independentAudioModelReviews": 2
+    },
+    {
+      "lineId": "rie-classroom-say-together",
+      "verdict": "accepted",
+      "acceptedBy": "Codex",
+      "humanReviewed": false,
+      "independentAudioModelReviews": 2
+    },
+    {
+      "lineId": "rie-classroom-listen",
+      "verdict": "accepted",
+      "acceptedBy": "Codex",
+      "humanReviewed": false,
+      "independentAudioModelReviews": 2
+    },
+    {
+      "lineId": "rie-classroom-write",
+      "verdict": "accepted",
+      "acceptedBy": "Codex",
+      "humanReviewed": false,
+      "independentAudioModelReviews": 2
     }
   ],
-  "overallVerdict": "mixed-8-accepted-two-rejected"
+  "overallVerdict": "mixed-15-accepted-two-rejected"
 }

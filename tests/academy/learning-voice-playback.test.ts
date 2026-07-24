@@ -137,7 +137,7 @@ describe('Academy static learning voices', () => {
             application: 'voip',
         });
         expect(catalog.entries.filter(entry => entry.role === 'textbook-character')).toHaveLength(1);
-        expect(catalog.entries.filter(entry => entry.role === 'academy-character')).toHaveLength(7);
+        expect(catalog.entries.filter(entry => entry.role === 'academy-character')).toHaveLength(14);
         for (const entry of catalog.entries) {
             const relative = entry.url.replace('/academy/audio/', '');
             expect(relative).toContain(`__${entry.cacheKey.slice(0, 16)}.opus`);
@@ -526,13 +526,13 @@ describe('Academy static learning voices', () => {
             schema: 'yomu-academy.learning-voice-locks.v5',
             acceptedBy: 'Codex',
             humanReviewed: false,
-            acceptedEntries: 8,
+            acceptedEntries: 15,
             rejectedEntries: 2,
-            acceptedBindings: 9,
+            acceptedBindings: 16,
         });
-        expect(locks.entries).toHaveLength(8);
+        expect(locks.entries).toHaveLength(15);
         expect(locks.rejected).toHaveLength(2);
-        expect(locks.entries.flatMap((entry: { bindingIds: string[] }) => entry.bindingIds)).toHaveLength(9);
+        expect(locks.entries.flatMap((entry: { bindingIds: string[] }) => entry.bindingIds)).toHaveLength(16);
         for (const [sourcePath, sourceHash] of Object.entries(locks.toolchain) as Array<[string, string]>) {
             expect(createHash('sha256').update(readFileSync(resolve(root, sourcePath))).digest('hex'))
                 .toBe(sourceHash);
@@ -572,14 +572,14 @@ describe('Academy static learning voices', () => {
         expect(modelReviews).toMatchObject({
             audioModelReviewed: true,
             humanReviewed: false,
-            overallVerdict: 'mixed-8-accepted-two-rejected',
+            overallVerdict: 'mixed-15-accepted-two-rejected',
         });
         expect(new Set(modelReviews.reviews.map((review: { reviewer: { modelFamily: string } }) => review.reviewer.modelFamily)).size).toBe(2);
         expect(acceptance).toMatchObject({
             schema: 'yomu-academy.learning-voice-acceptance.v5',
             complete: true,
             codexAcceptance: { acceptedBy: 'Codex', humanReviewed: false },
-            counts: { reviewedCandidates: 10, accepted: 8, rejected: 2, bindings: 9 },
+            counts: { reviewedCandidates: 17, accepted: 15, rejected: 2, bindings: 16 },
         });
         expect(acceptance.entries.every((entry: { verdict: string }) => entry.verdict === 'pass')).toBe(true);
         expect(acceptance.rejectedCandidates.every((entry: { shipped: boolean }) => entry.shipped === false)).toBe(true);
@@ -594,6 +594,13 @@ describe('Academy static learning voices', () => {
                 'xingyu-lesson-zero-vowel-u',
                 'xingyu-lesson-zero-vowel-e',
                 'xingyu-lesson-zero-vowel-o',
+                'rie-classroom-begin',
+                'rie-classroom-finish',
+                'rie-classroom-break',
+                'rie-classroom-look',
+                'rie-classroom-say-together',
+                'rie-classroom-listen',
+                'rie-classroom-write',
             ],
             rejectedVoiceLineIds: ['lesson-textbook-pair-prompt', 'mary-cafe-order'],
         });
@@ -681,12 +688,12 @@ describe('Academy static learning voices', () => {
         expect(validation.stderr).toBe('');
         expect(validation.status).toBe(0);
         expect(JSON.parse(validation.stdout)).toEqual({
-            reviewedCandidates: 10,
-            accepted: 8,
+            reviewedCandidates: 17,
+            accepted: 15,
             rejected: 2,
-            bindings: 9,
-            nativeBand: 8,
-            archivedQueries: 10,
+            bindings: 16,
+            nativeBand: 15,
+            archivedQueries: 17,
             acceptedBy: 'Codex',
             humanReviewed: false,
         });
@@ -699,6 +706,14 @@ describe('Academy static learning voices', () => {
         const vowelAnchors = readFileSync(resolve(root, 'src/academy/content/lesson-zero-vowel-anchors.ts'), 'utf8');
         const vowelScreen = readFileSync(resolve(root, 'src/academy/ui/lesson-zero-vowel-screen.ts'), 'utf8');
         const vowelWritingScreen = readFileSync(resolve(root, 'src/academy/ui/lesson-zero-vowel-writing-screen.ts'), 'utf8');
+        const classroomInstructionContent = readFileSync(
+            resolve(root, 'src/academy/content/lesson-zero-follow-instructions.ts'),
+            'utf8',
+        );
+        const classroomInstructionScreen = readFileSync(
+            resolve(root, 'src/academy/ui/classroom-instruction-screen.ts'),
+            'utf8',
+        );
         const speakingLines = loadCatalog().entries;
         expect(worldScreen).toContain('`world-practice:${practice.id}`');
         expect(Object.keys(LEARNING_VOICE_BINDING_IDENTITIES)).toEqual([
@@ -708,6 +723,13 @@ describe('Academy static learning voices', () => {
             'lesson-zero:vowel:hira-u',
             'lesson-zero:vowel:hira-e',
             'lesson-zero:vowel:hira-o',
+            'lesson-zero:classroom-instruction:begin',
+            'lesson-zero:classroom-instruction:finish',
+            'lesson-zero:classroom-instruction:break',
+            'lesson-zero:classroom-instruction:look',
+            'lesson-zero:classroom-instruction:say-together',
+            'lesson-zero:classroom-instruction:listen',
+            'lesson-zero:classroom-instruction:write',
             'lesson-screen:textbook-pair-prompt',
             'world-practice:cafe-coffee-price',
             'world-practice:cafe-coffee-counter',
@@ -723,6 +745,13 @@ describe('Academy static learning voices', () => {
             'xingyu-lesson-zero-vowel-u',
             'xingyu-lesson-zero-vowel-e',
             'xingyu-lesson-zero-vowel-o',
+            'rie-classroom-begin',
+            'rie-classroom-finish',
+            'rie-classroom-break',
+            'rie-classroom-look',
+            'rie-classroom-say-together',
+            'rie-classroom-listen',
+            'rie-classroom-write',
         ]);
         for (const binding of speakingLines.flatMap(line => line.bindings)) {
             if (binding.lineId.startsWith('world-practice:')) {
@@ -732,6 +761,9 @@ describe('Academy static learning voices', () => {
                 expect(vowelAnchors).toContain(`bindingId: '${binding.lineId}'`);
                 expect(vowelScreen).toContain('playLearningVoiceBinding');
                 expect(vowelWritingScreen).toContain('playLearningVoiceBinding');
+            } else if (binding.lineId.startsWith('lesson-zero:classroom-instruction:')) {
+                expect(classroomInstructionContent).toContain(`'${binding.lineId}'`);
+                expect(classroomInstructionScreen).toContain('playLearningVoiceBinding');
             } else {
                 expect(binding.lineId).toBe('lesson-zero:greeting-rie-model');
                 expect(greetingScreen).toContain(`'${binding.lineId}'`);

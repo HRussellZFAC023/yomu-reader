@@ -91,11 +91,11 @@ describe('unbounded Academy day availability', () => {
             .flatMap(entry => Object.values(entry.delivery));
         expect(gaps.length).toBeGreaterThan(0);
         expect(gaps.length).toBeLessThan(DAY_ONE_AVAILABILITY_MANIFEST.entries.length * DAY_CLOSURE_DIMENSIONS.length);
-        expect(deliveryStates.filter(state => state === 'verified')).toHaveLength(130);
-        expect(deliveryStates.filter(state => state === 'partial')).toHaveLength(15);
+        expect(deliveryStates.filter(state => state === 'verified')).toHaveLength(133);
+        expect(deliveryStates.filter(state => state === 'partial')).toHaveLength(12);
         expect(deliveryStates.filter(state => state === 'unverified')).toHaveLength(115);
         expect(DAY_ONE_AVAILABILITY_MANIFEST.entries.filter(entry =>
-            Object.values(entry.delivery).every(state => state === 'verified'))).toHaveLength(24);
+            Object.values(entry.delivery).every(state => state === 'verified'))).toHaveLength(25);
         expect(DAY_ONE_AVAILABILITY_MANIFEST.entries.find(entry =>
             entry.id === 'day:1:access')?.delivery).toEqual({
             implementation: 'verified',
@@ -223,10 +223,10 @@ describe('unbounded Academy day availability', () => {
         expect(DAY_ONE_AVAILABILITY_MANIFEST.entries.find(entry =>
             entry.contentIds.includes('activity:lesson-zero-follow-instructions'))?.delivery).toEqual({
             implementation: 'verified',
-            reachability: 'partial',
-            media: 'partial',
+            reachability: 'verified',
+            media: 'verified',
             persistence: 'verified',
-            journeyProof: 'partial',
+            journeyProof: 'verified',
         });
         expect(DAY_ONE_AVAILABILITY_MANIFEST.entries.find(entry =>
             entry.contentIds.includes('activity:lesson-zero-reconstruct-repair'))?.delivery).toEqual({

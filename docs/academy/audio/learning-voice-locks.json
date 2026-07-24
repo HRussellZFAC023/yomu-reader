@@ -3,68 +3,71 @@
   "batchId": "academy-learning-native-20260720-01",
   "acceptedBy": "Codex",
   "humanReviewed": false,
-  "acceptedEntries": 8,
+  "acceptedEntries": 15,
   "rejectedEntries": 2,
-  "acceptedBindings": 9,
+  "acceptedBindings": 16,
   "toolchain": {
     "src/academy/integration/yomu-bridge.ts": "053c1d4798b9d1b74bada14e3c6596795b5e45a0988c4bd02f3ee24a7fc41547",
     "src/academy/audio/browser-speech.ts": "5d2da93a3b9abbd3a77e96ab324c0b5fa0654aa4fb29743244702b81853b7dce",
-    "src/academy/audio/learning-voice.ts": "b0abb9415aff0bd094bc4459801c528d33e496e35a4353af97e4cb9ded07b0a1",
+    "src/academy/audio/learning-voice.ts": "98b1f56744bc03d1f4d90a8e5872bf7b1ee11d9b817f34d18da23d8ff1007fbb",
     "src/academy/audio/worker-tts.ts": "757804bcfea92880e4d9a13373a05e0c1a66933f72afa2f2b0e535cecfbc3548",
+    "src/academy/content/lesson-zero-follow-instructions.ts": "a7caed645a62cb2639ab1602197b26be7959072c3f1d1bf2aa93a48c9cbea78d",
     "src/academy/content/lesson-zero-greeting.ts": "7079535a0a2310dafbdc212d772fbc815513849a83172430f81f0e86aaff95eb",
     "src/academy/content/lesson-zero-vowel-anchors.ts": "acf6ee825e45c813cb127c596ef2a08fc356fe7f1effdd054aff7bca2dd81b7c",
+    "src/academy/domain/classroom-instruction-session.ts": "7b7a0de23568e9ba352a70cb07467ff884a99a1b999edf52deb8145632e758d5",
     "src/academy/domain/world-locations.ts": "8dff402868198871a95498d004bc318dfe0b48f1995429ae9c0f6d33490739e5",
+    "src/academy/ui/classroom-instruction-screen.ts": "49d7c165cf259fc699aa4e6fa17f1f5c41630e0e53659642d7ba806de1b8b54e",
     "src/academy/ui/lesson-zero-greeting-screen.ts": "965932e71c795b3b8f238c55288dd0784d2e26a50812f9794915357e2ca74480",
     "src/academy/ui/lesson-zero-vowel-screen.ts": "125d6e092df2ecd476d727a13162a3822a9bdc2bcbe3de6b3b78cbc5a4ecf12d",
     "src/academy/ui/lesson-zero-vowel-writing-screen.ts": "8e25b6bbd6295817a5a964776d937b64f8ddc08342e7790f29f1a27aa87cd787",
     "src/academy/ui/cafe-world.ts": "8f0ea99a7744127eee42ad05a14a2baa08407436d58a966c9aead1eb6fde9ec2",
     "scripts/academy-voice/archive-learning-voice-provenance.mjs": "1a747b8d79943b1abef967f616f578f7b39f6b157170ddc1032d8cfa00bd0604",
-    "scripts/academy-voice/capture-learning-voice-local-expected.mjs": "709bb9739167149fabed02c2b0820524e868fd7f4bb70bd241b0569414fb01d7",
-    "scripts/academy-voice/learning-voice-local-browser-proof.mjs": "9ca9736b06422be9eee2f1696e843768d1aa5783c5137173c845540a1eb7b643",
+    "scripts/academy-voice/capture-learning-voice-local-expected.mjs": "229f5c836be0d9fabe047f9dfc1d79a2d5ca55bf2f2d2166f889b232a0758408",
+    "scripts/academy-voice/learning-voice-local-browser-proof.mjs": "117bc6c0da2f9045d4d04e31719d567c177a3b9317b355c4184346229ac7f6f9",
     "scripts/academy-voice/learning-voice-production-proof.mjs": "7d012172c8dea5002fdd64a38bdacaac67292297f9f7580f345debc53ef3209a",
-    "scripts/academy-voice/lock-learning-voice.mjs": "74de5206ef2d833823feb14020650d49524e72ca54df8a7273e62d4583d9ce07",
+    "scripts/academy-voice/lock-learning-voice.mjs": "da27e0d3e2a3e2d30f0f46586ce203287972a4067c983c63434aae9ad589853a",
     "scripts/academy-voice/promote-learning-voice-candidates.mjs": "55c7c4404a7cf9bb44a918055b59a95ed4d4e7c8519d3f5bb979b1c6a86b4eff",
     "scripts/academy-voice/qa-learning-voice.mjs": "c00cf82868ad44387450bdc87898842ca14978ae1a6da06e2b481e48c9263ac3",
     "scripts/academy-voice/reconcile-learning-voice-evidence.mjs": "bc0609e565dfba128a95973d5439758541cad426bf090c47d35266f5165abbd5",
     "scripts/academy-voice/render-learning-voice.py": "7fa97626c3f78105c93b0891eb31bef9e12a35a07c4dc68542470c9372436c3d",
-    "scripts/academy-voice/review-learning-voice-models.mjs": "4c55b605117034b3cf313e2ac47050dd6a68642779c4371d6b676fc63c1a91a4"
+    "scripts/academy-voice/review-learning-voice-models.mjs": "faaf9c8949651f15fac89d635b25a7483ee6543624979c8a36b8a7b81efa7fb3"
   },
   "evidence": {
     "productionContract": {
       "path": "docs/academy/audio/learning-voice-production.json",
-      "sha256": "a2ad4f8477a931547e436750c87d261d4d9c93d9f44d598c22524f788074bbba"
+      "sha256": "b21373539b6598836cfb415b7ec2f25ca54728f721cef3d74ab62dc92a5a8505"
     },
     "modelEvidence": {
       "path": "docs/academy/audio/learning-voice-model-evidence.json",
-      "sha256": "3e8a664016fa53f9f56c6830f9f429888087bad7d15352c83e81fede6fdb5c9c"
+      "sha256": "a5c245bb851452ea059b381554d42047ac196f1f3640328f49b618ff695f9fe2"
     },
     "queryEvidence": {
       "path": "docs/academy/audio/learning-voice-query-evidence.json",
-      "sha256": "d458500af0ad20dde85ec28c2e3bf8b1e68808ef1704e4af5f3f4e6a2cd968a4"
+      "sha256": "a36840daca8ebb4ea69ff15ac52ab9c6cada30ab21a8e84544294cdaefff7c0c"
     },
     "modelReviews": {
       "path": "docs/academy/audio/learning-voice-model-reviews.json",
-      "sha256": "0efb037d2b2e12eb3029cef24abe46520d4ff250b541a4de70fdd5592e75fe2c"
+      "sha256": "40ea72d198a998ab973fc643fc1410592382964bed6b82e58d69f7c5f86b9820"
     },
     "objectiveQa": {
       "path": "docs/academy/audio/learning-voice-acceptance.json",
-      "sha256": "bf79eb6e01edf2158f95bd67f8962cee9f7355332605be5b1d3e4492c647c813"
+      "sha256": "65d21fa2f12444b73f717205f00a3080c1b811c07db3b707c11b8ae62619388d"
     },
     "localExpected": {
       "path": "docs/academy/audio/learning-voice-local-expected.json",
-      "sha256": "b7dc139c906c08b49f9b23e4fd9aa536c1aa1174cb4a77d3a114102dbcc3a720"
+      "sha256": "1f5a92acf355f3b82438425a34f01a697ac6c6745433fce4b156c2e033d194bf"
     },
     "productionProof": {
       "path": "docs/academy/audio/learning-voice-production-proof.json",
-      "sha256": "ec1d2ea6d318665a21f4b34db71b7d94c2b763e5be91423d8caa952ca89598e0"
+      "sha256": "d7bd7aa88ba4fa11322573c2b27f183574014f77fcc977a8d7d128ca1cde8556"
     },
     "catalog": {
       "path": "public/academy/audio/learning-voice-playback.json",
-      "sha256": "0cf7c605af838e8c1e0fb17a3cd47862c833d7b9433a3c6a698ed21b9fbbb923"
+      "sha256": "e99c5df5951320296ac7444ac98443538f41987e2572b8c0be87850a3c98990e"
     },
     "hostedCatalog": {
       "path": "docs/public/academy/audio/learning-voice-playback.json",
-      "sha256": "0cf7c605af838e8c1e0fb17a3cd47862c833d7b9433a3c6a698ed21b9fbbb923"
+      "sha256": "e99c5df5951320296ac7444ac98443538f41987e2572b8c0be87850a3c98990e"
     }
   },
   "entries": [
@@ -246,6 +249,167 @@
         "styleId": 2051283136,
         "styleName": "ノーマル",
         "license": "CC-BY-SA-4.0"
+      },
+      "acceptance": {
+        "acceptedBy": "Codex",
+        "humanReviewed": false,
+        "objectiveVerdict": "pass"
+      }
+    },
+    {
+      "lineId": "rie-classroom-begin",
+      "bindingIds": [
+        "lesson-zero:classroom-instruction:begin"
+      ],
+      "sourceRevision": "1fbd90adcac45c55e62abde3e46439d3a5348552fc4a69b9f78a7edb10e58c52",
+      "audioQuerySha256": "c0d46368f8bf7ca524ddbaa4294754ee270c552b97c98e6a9e22856ef1409361",
+      "cacheKey": "1936dd4ce470abf7bdb351a0a0de3091a246654a8148838f21cc6415dca301bd",
+      "assetSha256": "93160d80b29b8a21688ca5620b69da072e9370705c7d42cc52e27853c78b8a11",
+      "bytes": 11252,
+      "model": {
+        "uuid": "e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43",
+        "payloadSha256": "674d495898d367092de7105ef760f070a03ae5f74c61670bf98c1e62aa159adb",
+        "styleId": 2058221186,
+        "styleName": "落ち着き",
+        "license": "ACML-1.0"
+      },
+      "acceptance": {
+        "acceptedBy": "Codex",
+        "humanReviewed": false,
+        "objectiveVerdict": "pass"
+      }
+    },
+    {
+      "lineId": "rie-classroom-finish",
+      "bindingIds": [
+        "lesson-zero:classroom-instruction:finish"
+      ],
+      "sourceRevision": "9c5f2de672f343767619e9450b5f7649d72be094c829777a39a201b08c394b6d",
+      "audioQuerySha256": "7d305a7bda5909e06938130c3e9251b9799398558d3c5345b3e1aad16ca1a17b",
+      "cacheKey": "fe6dfa2f04674f2565ab9ef6a0ec8c93d4bf58a5f561972721eb7da5acca54ae",
+      "assetSha256": "e25636d68f5a0a569c63057fbb43d04dae7daecca34489f45d9b7c31c611d870",
+      "bytes": 9814,
+      "model": {
+        "uuid": "e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43",
+        "payloadSha256": "674d495898d367092de7105ef760f070a03ae5f74c61670bf98c1e62aa159adb",
+        "styleId": 2058221186,
+        "styleName": "落ち着き",
+        "license": "ACML-1.0"
+      },
+      "acceptance": {
+        "acceptedBy": "Codex",
+        "humanReviewed": false,
+        "objectiveVerdict": "pass"
+      }
+    },
+    {
+      "lineId": "rie-classroom-break",
+      "bindingIds": [
+        "lesson-zero:classroom-instruction:break"
+      ],
+      "sourceRevision": "b9041e360b4b73ffcb249050cd789905004ced48a50353f7e626d0c88e545d26",
+      "audioQuerySha256": "1e574b7059e32df2e9ef03ae72354c43fa99e98e404d09f8369d528db92c8e1a",
+      "cacheKey": "f9704bf324e8e6b6256f65c034f8e8e73ae496fbceb93526f40fac4efb353dd7",
+      "assetSha256": "8174141e164da8e062921d45f34e0232bbf5b6f02f654924026ba661e3ffecc2",
+      "bytes": 11416,
+      "model": {
+        "uuid": "e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43",
+        "payloadSha256": "674d495898d367092de7105ef760f070a03ae5f74c61670bf98c1e62aa159adb",
+        "styleId": 2058221186,
+        "styleName": "落ち着き",
+        "license": "ACML-1.0"
+      },
+      "acceptance": {
+        "acceptedBy": "Codex",
+        "humanReviewed": false,
+        "objectiveVerdict": "pass"
+      }
+    },
+    {
+      "lineId": "rie-classroom-look",
+      "bindingIds": [
+        "lesson-zero:classroom-instruction:look"
+      ],
+      "sourceRevision": "9668a8b62bbb7c64c409ed7186efb71815b77fbfdcd3ed8c74bcbd7b7d67fb7d",
+      "audioQuerySha256": "b34de74832ec7a52f73be331ae10b7c05e04ac4db1c933c5f9291fb4c1e24da0",
+      "cacheKey": "b8fd6410f80d819588df5b1746f9939679bd14891a63d0d352bf152b7a976b89",
+      "assetSha256": "aa51ae04d9e114b326eae5d8f9604ffe18603003c5be44c74a119d70792441ec",
+      "bytes": 9958,
+      "model": {
+        "uuid": "e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43",
+        "payloadSha256": "674d495898d367092de7105ef760f070a03ae5f74c61670bf98c1e62aa159adb",
+        "styleId": 2058221186,
+        "styleName": "落ち着き",
+        "license": "ACML-1.0"
+      },
+      "acceptance": {
+        "acceptedBy": "Codex",
+        "humanReviewed": false,
+        "objectiveVerdict": "pass"
+      }
+    },
+    {
+      "lineId": "rie-classroom-say-together",
+      "bindingIds": [
+        "lesson-zero:classroom-instruction:say-together"
+      ],
+      "sourceRevision": "aef85b41f752da817cd2f71a5d514813bc92f65c32cd9fc59c9c067e3a78bc06",
+      "audioQuerySha256": "33b80cdb91c8f00e64f89de936bb60a10976f7bc8eb043350240ef0b488ec420",
+      "cacheKey": "71551a1f952d144c762c3f0dcfe676a88fd599495c448574ebf249eb1a14fad6",
+      "assetSha256": "7c9d841fbde752f509887763e6fd130004081257f21156afc5a8ddfd85969771",
+      "bytes": 15533,
+      "model": {
+        "uuid": "e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43",
+        "payloadSha256": "674d495898d367092de7105ef760f070a03ae5f74c61670bf98c1e62aa159adb",
+        "styleId": 2058221186,
+        "styleName": "落ち着き",
+        "license": "ACML-1.0"
+      },
+      "acceptance": {
+        "acceptedBy": "Codex",
+        "humanReviewed": false,
+        "objectiveVerdict": "pass"
+      }
+    },
+    {
+      "lineId": "rie-classroom-listen",
+      "bindingIds": [
+        "lesson-zero:classroom-instruction:listen"
+      ],
+      "sourceRevision": "6e4eaeb1c7ea595b1d3b0a1dd39dc0d6bae2d544ef4e4565b21796adc3f0d6e9",
+      "audioQuerySha256": "0eb38ff97b8000f1be77ae21acb42ee6b5797dd190edf1dca9a3b7a6c431ae7c",
+      "cacheKey": "00d8b11e0a97bb62af6f2631b48508fdf9bd438497d3891876aea92f1eb15849",
+      "assetSha256": "1af5a59cc331de1204697087771b97b39f04430ca42525f141d073e0ca17e58b",
+      "bytes": 12067,
+      "model": {
+        "uuid": "e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43",
+        "payloadSha256": "674d495898d367092de7105ef760f070a03ae5f74c61670bf98c1e62aa159adb",
+        "styleId": 2058221186,
+        "styleName": "落ち着き",
+        "license": "ACML-1.0"
+      },
+      "acceptance": {
+        "acceptedBy": "Codex",
+        "humanReviewed": false,
+        "objectiveVerdict": "pass"
+      }
+    },
+    {
+      "lineId": "rie-classroom-write",
+      "bindingIds": [
+        "lesson-zero:classroom-instruction:write"
+      ],
+      "sourceRevision": "69472717888dbcdbd5277f2328ef49f43377f200832ce224244f8cf3ac56af82",
+      "audioQuerySha256": "613fa224bf4d121bebbbe4e2c98aa9e973c11a4772b933e723524beac2e7b2e5",
+      "cacheKey": "07925423b74b64b7b9bbdee83a3e6e07ce78d5e3e001df2de3cdfce83769a782",
+      "assetSha256": "b8cac9c144b4ce94324a98b3a1096596766e08e33b60b1dc391cd1d235f80775",
+      "bytes": 11172,
+      "model": {
+        "uuid": "e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43",
+        "payloadSha256": "674d495898d367092de7105ef760f070a03ae5f74c61670bf98c1e62aa159adb",
+        "styleId": 2058221186,
+        "styleName": "落ち着き",
+        "license": "ACML-1.0"
       },
       "acceptance": {
         "acceptedBy": "Codex",

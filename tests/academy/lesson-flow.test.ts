@@ -188,7 +188,7 @@ describe('Academy lesson flow', () => {
         });
         const recordActivity = vi.fn(async () => undefined);
         const recordSupportUse = vi.fn(async () => undefined);
-        const play = vi.fn(async () => ({ dispose() {} }));
+        const play = vi.fn(async (_text: string) => ({ dispose() {} }));
         const flow = createLessonFlow({
             evidence: { recordActivity, recordSupportUse } as never,
             pronunciation: { play } as never,
@@ -198,13 +198,16 @@ describe('Academy lesson flow', () => {
         await flow.render('source-activity', route.value);
         expect(route.shell.current?.dataset.academyScreen).toBe('classroom-instruction');
         route.shell.current?.querySelector<HTMLButtonElement>('.academy-classroom-instruction-start')?.click();
-        await vi.waitFor(() => expect(play).toHaveBeenCalledWith('みてください', 'みてください'));
-        route.shell.current?.querySelector<HTMLButtonElement>('[data-action-id="look"]')?.click();
+        await vi.waitFor(() => expect(play).toHaveBeenCalled());
+        expect(play.mock.calls[0]?.[0]).toBe('はじめましょう');
+        route.shell.current?.querySelector<HTMLButtonElement>('.academy-classroom-instruction-try')?.click();
+        await vi.waitFor(() => expect(route.shell.current?.querySelectorAll('[data-action-id]')).toHaveLength(3));
+        route.shell.current?.querySelector<HTMLButtonElement>('[data-action-id="begin"]')?.click();
         await vi.waitFor(() => expect(recordActivity).toHaveBeenCalledWith(
             expect.objectContaining({
                 attempt: expect.objectContaining({
-                    activityId: 'activity:lesson-zero-follow-instructions:look',
-                    sourceQuestionId: 'source-question:classroom-phrase-04',
+                    activityId: 'activity:lesson-zero-follow-instructions:begin',
+                    sourceQuestionId: 'source-question:classroom-phrase-01',
                     outcome: 'pass',
                 }),
             }),
@@ -215,7 +218,7 @@ describe('Academy lesson flow', () => {
         await vi.waitFor(() => expect(route.save).toHaveBeenCalledWith(expect.objectContaining({
             classroomInstructionProgress: expect.objectContaining({
                 cursor: 1,
-                passedCueIds: ['cue:lesson-zero-instruction:look'],
+                passedCueIds: ['cue:lesson-zero-instruction:begin'],
             }),
         })));
 

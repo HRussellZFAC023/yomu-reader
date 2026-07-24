@@ -92,8 +92,10 @@ describe('Academy voice production manifest', () => {
 
     it('accounts for the accepted native-band learning slice without inflating human review', () => {
         const learning = manifest.entries.filter(entry => entry.surface === 'learning');
-        expect(learning).toHaveLength(1);
-        expect(learning.flatMap(entry => entry.bindingIds ?? [])).toHaveLength(1);
+        const bindingIds = learning.flatMap(entry => entry.bindingIds ?? []);
+        expect(learning).toHaveLength(15);
+        expect(bindingIds).toHaveLength(16);
+        expect(new Set(bindingIds).size).toBe(bindingIds.length);
         expect(learning.every(entry => entry.status === 'accepted')).toBe(true);
         expect(learning.every(entry => entry.band === 'native')).toBe(true);
         expect(learning.every(entry => entry.codexAccepted === true)).toBe(true);
