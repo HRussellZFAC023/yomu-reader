@@ -15,6 +15,10 @@ interface ProjectionRecord {
     measure: () => DOMRect | null;
     footprintWidth: number;
     footprintHeight: number;
+    cachedTopmost?: boolean;
+    cachedOcclusionEpoch?: number;
+    lastGoodRect?: DOMRect | null;
+    graceFramesRemaining?: number;
 }
 
 interface ProjectionPaint {
@@ -36,6 +40,8 @@ interface DocumentOverlay {
     scheduleRefresh: () => void;
     scheduleTopologyRefresh: () => void;
     rootsDirty: boolean;
+    occlusionEpoch: number;
+    hitTestBudgetRemaining: number;
 }
 
 interface ProjectionReadContext {
@@ -104,6 +110,7 @@ export function syncProjectedReadings(
     if (records.size) ownerRecords.set(owner, records);
     else ownerRecords.delete(owner);
     pruneDisconnectedRecords(overlay);
+    overlay.occlusionEpoch += 1;
     // Annotation can appear inside an already-open shadow root that the
     // document MutationObserver cannot see. One coalesced refresh after sync
     // lets the new foreground surface immediately occlude older projections.
@@ -164,9 +171,12 @@ function documentOverlay(document: Document): DocumentOverlay {
         refreshFrame: 0,
         observer: null,
         shadowRootReferences: new Map(),
+        occlusionEpoch: 0,
+        hitTestBudgetRemaining: 12,
         scheduleRefresh: () => scheduleProjectionRefresh(document, overlay),
         scheduleTopologyRefresh: () => {
             overlay.rootsDirty = true;
+            overlay.occlusionEpoch += 1;
             scheduleProjectionRefresh(document, overlay);
         },
         rootsDirty: false,
@@ -230,13 +240,40 @@ function readProjectedReadingPaint(
     const anchorVisible = context
         ? visibleAnchor(record.anchor, context)
         : anchorIsPainted(record.anchor);
+    const sourceAllowed = sourceAllowsProjectedReading(record);
+
+    let effectiveRect: DOMRect | null = valid;
+    let visible = false;
+
+    if (valid && sourceAllowed && anchorVisible) {
+        record.lastGoodRect = valid;
+        record.graceFramesRemaining = 3;
+
+        let topmost: boolean;
+        const overlay = context?.overlay;
+        if (overlay && record.cachedOcclusionEpoch === overlay.occlusionEpoch && record.cachedTopmost !== undefined) {
+            topmost = record.cachedTopmost;
+        } else if (overlay && overlay.hitTestBudgetRemaining <= 0 && record.cachedTopmost !== undefined) {
+            topmost = record.cachedTopmost;
+        } else {
+            topmost = projectionIsTopmost(record, valid, context?.occludingPaint);
+            if (overlay) {
+                overlay.hitTestBudgetRemaining -= 1;
+                record.cachedOcclusionEpoch = overlay.occlusionEpoch;
+                record.cachedTopmost = topmost;
+            }
+        }
+        visible = topmost;
+    } else if (!valid && record.lastGoodRect && record.graceFramesRemaining && record.graceFramesRemaining > 0 && sourceAllowed && anchorVisible) {
+        record.graceFramesRemaining -= 1;
+        effectiveRect = record.lastGoodRect;
+        visible = record.cachedTopmost ?? true;
+    }
+
     return {
         record,
-        rect: valid,
-        visible: Boolean(valid
-            && sourceAllowsProjectedReading(record)
-            && anchorVisible
-            && projectionIsTopmost(record, valid, context?.occludingPaint)),
+        rect: effectiveRect,
+        visible,
     };
 }
 
@@ -276,6 +313,7 @@ function scheduleProjectionRefresh(document: Document, overlay: DocumentOverlay)
 
 function refreshProjectedReadingPositions(overlay: DocumentOverlay): void {
     pruneDisconnectedRecords(overlay);
+    overlay.hitTestBudgetRemaining = 12;
     // Frameworks can move an already-annotated node between shadow trees
     // without asking the reader to sync it again. After a DOM/slot mutation,
     // reconcile composed ancestry before choosing records so listeners follow
@@ -347,7 +385,7 @@ function observeProjectionIntersections(
             });
         }
         scheduleProjectionRefresh(document, overlay);
-    }, { root: null, rootMargin: '64px' });
+    }, { root: null, rootMargin: '600px 0px 600px 0px' });
 }
 
 function trackProjectionAnchor(record: ProjectionRecord, overlay: DocumentOverlay): void {
@@ -429,7 +467,7 @@ function observeProjectionEnvironment(document: Document, overlay: DocumentOverl
     const root = document.documentElement;
     if (!Observer || !root) return null;
     const observer = new Observer(mutations => {
-        if (!overlay.records.size || !mutations.some(mutation => mutationAffectsProjection(mutation, overlay.layer))) return;
+        if (!overlay.records.size || !mutations.some(mutation => mutationAffectsProjection(mutation, overlay))) return;
         overlay.scheduleTopologyRefresh();
     });
     observeProjectionMutations(observer, root);
@@ -480,10 +518,59 @@ function rebuildProjectionMutationRoots(overlay: DocumentOverlay): void {
     }
 }
 
-function mutationAffectsProjection(mutation: MutationRecord, layer: HTMLElement): boolean {
-    if (mutation.target instanceof Node && layer.contains(mutation.target)) return false;
-    return [...mutation.addedNodes, ...mutation.removedNodes]
-        .every(node => node !== layer && !layer.contains(node));
+function isYomuOwnedNode(node: Node, layer: HTMLElement): boolean {
+    if (node === layer || layer.contains(node)) return true;
+    if (node instanceof Element) {
+        if (node.hasAttribute(PROJECTED_READING_ATTRIBUTE) || node.hasAttribute('data-jpdb-reader-surface-ignore')) return true;
+        const className = typeof node.className === 'string' ? node.className : '';
+        if (className.includes('jpdb-reader-') || className.includes('yomu-')) return true;
+    }
+    return false;
+}
+
+function mutationAffectsProjection(mutation: MutationRecord, overlay: DocumentOverlay): boolean {
+    const target = mutation.target;
+    if (isYomuOwnedNode(target, overlay.layer)) return false;
+
+    const affectedNodes = [...mutation.addedNodes, ...mutation.removedNodes];
+    if (affectedNodes.length > 0 && affectedNodes.every(node => isYomuOwnedNode(node, overlay.layer))) {
+        return false;
+    }
+
+    if (!overlay.records.size) return false;
+
+    const rootNode = target.getRootNode();
+    if (rootNode instanceof ShadowRoot && overlay.shadowRootReferences.has(rootNode)) {
+        return true;
+    }
+
+    if (target instanceof Element && isAnchorOrAncestor(target, overlay)) {
+        return true;
+    }
+
+    for (const node of affectedNodes) {
+        if (node instanceof Element && (isAnchorOrAncestor(node, overlay) || containsTrackedAnchor(node, overlay))) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function isAnchorOrAncestor(element: Element, overlay: DocumentOverlay): boolean {
+    for (const anchor of overlay.anchorRecords.keys()) {
+        if (anchor === element || anchor.contains(element) || element.contains(anchor)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function containsTrackedAnchor(element: Element, overlay: DocumentOverlay): boolean {
+    for (const anchor of overlay.anchorRecords.keys()) {
+        if (element.contains(anchor)) return true;
+    }
+    return false;
 }
 
 function safeMeasure(record: ProjectionRecord): DOMRect | null {

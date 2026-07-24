@@ -192,6 +192,42 @@ writeFileSync(entryPath, `
         second.platform.remove();
         return scrollResult(before, after);
     };
+
+    window.runMidScrollThrottledProbe = async () => {
+        const platform = document.createElement('dynamic-platform');
+        platform.style.cssText = 'display:block;width:280px;margin:100px 0 0 80px;';
+        const root = platform.attachShadow({ mode: 'open' });
+        root.innerHTML = \`
+            <style>
+                #scroller { height:120px;overflow:auto;border:1px solid #999;background:white; }
+                #content { box-sizing:border-box;height:360px;padding-top:52px; }
+            </style>
+            <div id="scroller"><div id="content"></div></div>
+        \`;
+        const scroller = root.getElementById('scroller');
+        const content = root.getElementById('content');
+        if (!(scroller instanceof HTMLElement) || !(content instanceof HTMLElement)) {
+            throw new Error('throttled dynamic component did not mount');
+        }
+        const anchor = document.createElement('span');
+        const { owner, source } = makeReading(anchor, '連続', 'れんぞく');
+        content.append(anchor);
+        document.body.append(platform);
+        const measure = () => anchor.getBoundingClientRect();
+        syncProjectedReadings(owner, [{ source, anchor, rect: measure(), measure }]);
+        await settleProjection();
+
+        const midScrollSnapshots = [];
+        for (let step = 1; step <= 5; step++) {
+            scroller.scrollTop = step * 8;
+            await nextPaint();
+            midScrollSnapshots.push(readingSnapshot(anchor));
+        }
+
+        clearProjectedReadings(owner);
+        platform.remove();
+        return midScrollSnapshots;
+    };
 `);
 
 esbuild.buildSync({
@@ -234,6 +270,10 @@ async function verifyEngine(name, browserType) {
     const browser = await browserType.launch({ headless: true });
     try {
         const page = await browser.newPage({ viewport: { width: 640, height: 480 } });
+        if (name === 'chromium') {
+            const client = await page.context().newCDPSession(page);
+            await client.send('Emulation.setCPUThrottlingRate', { rate: 4 });
+        }
         await page.route('https://www.youtube.com/**', route => route.fulfill({
             status: 200,
             contentType: 'text/html',
@@ -246,6 +286,12 @@ async function verifyEngine(name, browserType) {
         verifyScrollResult(name, 'slotted', slotted);
         const moved = await page.evaluate(() => window.runMovedReadingScrollProbe());
         verifyScrollResult(name, 'moved-root', moved);
+        const midScrollSnapshots = await page.evaluate(() => window.runMidScrollThrottledProbe());
+        for (const [index, snapshot] of midScrollSnapshots.entries()) {
+            if (snapshot.display === 'none' || Math.abs(snapshot.alignment) > 2) {
+                fail(name, `mid-scroll frame ${index + 1} drifted or blanked`, snapshot);
+            }
+        }
     } finally {
         await browser.close();
     }

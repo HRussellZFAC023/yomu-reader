@@ -47,6 +47,7 @@
     if (records.size) ownerRecords.set(owner, records);
     else ownerRecords.delete(owner);
     pruneDisconnectedRecords(overlay);
+    overlay.occlusionEpoch += 1;
     scheduleProjectionRefresh(document2, overlay);
   }
   function clearProjectedReadings$1(owner) {
@@ -98,9 +99,12 @@
       refreshFrame: 0,
       observer: null,
       shadowRootReferences: /* @__PURE__ */ new Map(),
+      occlusionEpoch: 0,
+      hitTestBudgetRemaining: 12,
       scheduleRefresh: () => scheduleProjectionRefresh(document2, overlay),
       scheduleTopologyRefresh: () => {
         overlay.rootsDirty = true;
+        overlay.occlusionEpoch += 1;
         scheduleProjectionRefresh(document2, overlay);
       },
       rootsDirty: false
@@ -150,10 +154,36 @@
   function readProjectedReadingPaint(record2, rect, context) {
     const valid = rect && validRect(rect) ? rect : null;
     const anchorVisible = context ? visibleAnchor(record2.anchor, context) : anchorIsPainted(record2.anchor);
+    const sourceAllowed = sourceAllowsProjectedReading(record2);
+    let effectiveRect = valid;
+    let visible = false;
+    if (valid && sourceAllowed && anchorVisible) {
+      record2.lastGoodRect = valid;
+      record2.graceFramesRemaining = 3;
+      let topmost;
+      const overlay = context?.overlay;
+      if (overlay && record2.cachedOcclusionEpoch === overlay.occlusionEpoch && record2.cachedTopmost !== void 0) {
+        topmost = record2.cachedTopmost;
+      } else if (overlay && overlay.hitTestBudgetRemaining <= 0 && record2.cachedTopmost !== void 0) {
+        topmost = record2.cachedTopmost;
+      } else {
+        topmost = projectionIsTopmost(record2, valid, context?.occludingPaint);
+        if (overlay) {
+          overlay.hitTestBudgetRemaining -= 1;
+          record2.cachedOcclusionEpoch = overlay.occlusionEpoch;
+          record2.cachedTopmost = topmost;
+        }
+      }
+      visible = topmost;
+    } else if (!valid && record2.lastGoodRect && record2.graceFramesRemaining && record2.graceFramesRemaining > 0 && sourceAllowed && anchorVisible) {
+      record2.graceFramesRemaining -= 1;
+      effectiveRect = record2.lastGoodRect;
+      visible = record2.cachedTopmost ?? true;
+    }
     return {
       record: record2,
-      rect: valid,
-      visible: Boolean(valid && sourceAllowsProjectedReading(record2) && anchorVisible && projectionIsTopmost(record2, valid, context?.occludingPaint))
+      rect: effectiveRect,
+      visible
     };
   }
   function applyProjectedReadingPaint(paint) {
@@ -189,6 +219,7 @@
   }
   function refreshProjectedReadingPositions(overlay) {
     pruneDisconnectedRecords(overlay);
+    overlay.hitTestBudgetRemaining = 12;
     if (overlay.rootsDirty) {
       overlay.rootsDirty = false;
       [...overlay.anchorRecords.keys()].forEach((anchor) => refreshProjectionAnchorRoot(anchor, overlay));
@@ -245,7 +276,7 @@
         });
       }
       scheduleProjectionRefresh(document2, overlay);
-    }, { root: null, rootMargin: "64px" });
+    }, { root: null, rootMargin: "600px 0px 600px 0px" });
   }
   function trackProjectionAnchor(record2, overlay) {
     const records = overlay.anchorRecords.get(record2.anchor) ?? /* @__PURE__ */ new Set();
@@ -314,7 +345,7 @@
     const root = document2.documentElement;
     if (!Observer || !root) return null;
     const observer = new Observer((mutations) => {
-      if (!overlay.records.size || !mutations.some((mutation) => mutationAffectsProjection(mutation, overlay.layer))) return;
+      if (!overlay.records.size || !mutations.some((mutation) => mutationAffectsProjection(mutation, overlay))) return;
       overlay.scheduleTopologyRefresh();
     });
     observeProjectionMutations(observer, root);
@@ -357,9 +388,50 @@
       observeProjectionMutations(observer, root);
     }
   }
-  function mutationAffectsProjection(mutation, layer) {
-    if (mutation.target instanceof Node && layer.contains(mutation.target)) return false;
-    return [...mutation.addedNodes, ...mutation.removedNodes].every((node) => node !== layer && !layer.contains(node));
+  function isYomuOwnedNode(node, layer) {
+    if (node === layer || layer.contains(node)) return true;
+    if (node instanceof Element) {
+      if (node.hasAttribute(PROJECTED_READING_ATTRIBUTE) || node.hasAttribute("data-jpdb-reader-surface-ignore")) return true;
+      const className = typeof node.className === "string" ? node.className : "";
+      if (className.includes("jpdb-reader-") || className.includes("yomu-")) return true;
+    }
+    return false;
+  }
+  function mutationAffectsProjection(mutation, overlay) {
+    const target = mutation.target;
+    if (isYomuOwnedNode(target, overlay.layer)) return false;
+    const affectedNodes = [...mutation.addedNodes, ...mutation.removedNodes];
+    if (affectedNodes.length > 0 && affectedNodes.every((node) => isYomuOwnedNode(node, overlay.layer))) {
+      return false;
+    }
+    if (!overlay.records.size) return false;
+    const rootNode = target.getRootNode();
+    if (rootNode instanceof ShadowRoot && overlay.shadowRootReferences.has(rootNode)) {
+      return true;
+    }
+    if (target instanceof Element && isAnchorOrAncestor(target, overlay)) {
+      return true;
+    }
+    for (const node of affectedNodes) {
+      if (node instanceof Element && (isAnchorOrAncestor(node, overlay) || containsTrackedAnchor(node, overlay))) {
+        return true;
+      }
+    }
+    return false;
+  }
+  function isAnchorOrAncestor(element2, overlay) {
+    for (const anchor of overlay.anchorRecords.keys()) {
+      if (anchor === element2 || anchor.contains(element2) || element2.contains(anchor)) {
+        return true;
+      }
+    }
+    return false;
+  }
+  function containsTrackedAnchor(element2, overlay) {
+    for (const anchor of overlay.anchorRecords.keys()) {
+      if (element2.contains(anchor)) return true;
+    }
+    return false;
   }
   function safeMeasure(record2) {
     try {
@@ -17747,7 +17819,6 @@ ${scopedInner}
     "stream finished",
     "no stream handler",
     ,
-    // determined by compression function
     "no callback",
     "invalid UTF-8 data",
     "extra field too long",
@@ -48154,7 +48225,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.8.1".trim() ? "1.8.1".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.8.2".trim() ? "1.8.2".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record2 = value;

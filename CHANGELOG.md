@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.8.2] - 2026-07-25
+
+### Fixed
+
+- Furigana annotations no longer detach or drift off words while scrolling on tablets and performance-constrained devices. The visible readings were being re-evaluated for page occlusion on every single scroll frame using expensive element inspection; during fast scrolling, main-thread slowdowns dropped refresh frames, temporarily hiding readings until scrolling stopped. Occlusion checks are now cached across frames during pure scrolling and degraded smoothly under heavy load, and transient measurement gaps retain the last painted position for several frames so readings stay glued to their text throughout continuous scrolling.
+- Framework-driven web applications like YouTube, React, Vue, and Angular dashboards no longer experience heavy main-thread background thrashing from continuous furigana re-checks. Internal annotation changes and unrelated page updates previously triggered document-wide projection refreshes; environmental DOM updates are now filtered to ignore the reader's own annotation writes and unrelated page subtrees.
+
 ## [1.8.1] - 2026-07-24
 
 ### Fixed
