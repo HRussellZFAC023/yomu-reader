@@ -73,7 +73,7 @@ describe('release workflow safety', () => {
 
     it('uses bounded isolated test shards on the release runner', () => {
         expect(releaseWorkflow).toContain('YOMU_CI_SHARDED: 1');
-        expect(releaseWorkflow).toContain('YOMU_CI_REGULAR_CONCURRENCY: 2');
+        expect(releaseWorkflow).toContain('YOMU_CI_REGULAR_CONCURRENCY: 1');
         expect(releaseWorkflow).toContain('YOMU_CI_REGULAR_MAX_WORKERS: 1');
         expect(releaseWorkflow).toContain('YOMU_CI_JPDB_CONCURRENCY: 2');
         expect(releaseWorkflow).toContain('YOMU_VITEST_FORK_HEAP_MB: 1536');
