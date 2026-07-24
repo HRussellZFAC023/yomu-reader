@@ -1082,25 +1082,50 @@ span.jpdb-reader-action-pill[aria-disabled="true"] {
   display: none;
 }
 
-/* Wide sheets keep multi-accent/component graphs in the top-right tools area
-   next to the audio button. Only a genuinely narrow popup demotes the wide
-   multi-graph block to its own full-width row (pills drop to row 3). */
+/* The header keeps multi-accent/component graphs in the top-right tools area
+   next to the audio button whenever they fit. A block only drops to its own
+   full-width row (pills → row 3) when keeping it top-right would squeeze the
+   headword: expression-component blocks and "wide" variant blocks (3+ graphs or
+   long readings, flagged data-pitch-fit="wide" by renderPitchVariantGraphs) on
+   any narrow-ish popup, and even a "compact" variant block once the popup gets
+   genuinely narrow. A compact two-graph block (e.g. 与党 よとう) therefore stays
+   beside the headword at the default popup width instead of wasting a whole row. */
 @container (max-width: 520px) {
-  .jpdb-reader-card-tools:has(.jpdb-reader-pitch-components, .jpdb-reader-pitch-variants) {
+  .jpdb-reader-card-tools:has(.jpdb-reader-pitch-components, .jpdb-reader-pitch-variants[data-pitch-fit="wide"]) {
     display: contents;
   }
-  .jpdb-reader-card-tools :is(.jpdb-reader-pitch-components, .jpdb-reader-pitch-variants) {
+  .jpdb-reader-card-tools :is(.jpdb-reader-pitch-components, .jpdb-reader-pitch-variants[data-pitch-fit="wide"]) {
     grid-column: 1 / -1;
     grid-row: 2;
     width: 100%;
     margin-block: 4px 0;
   }
-  .jpdb-reader-header:has(.jpdb-reader-pitch-components, .jpdb-reader-pitch-variants) .jpdb-reader-audio-control {
+  .jpdb-reader-header:has(.jpdb-reader-pitch-components, .jpdb-reader-pitch-variants[data-pitch-fit="wide"]) .jpdb-reader-audio-control {
     grid-column: 2;
     grid-row: 1;
     justify-self: end;
   }
-  .jpdb-reader-header:has(.jpdb-reader-pitch-components, .jpdb-reader-pitch-variants) .jpdb-reader-word-pills {
+  .jpdb-reader-header:has(.jpdb-reader-pitch-components, .jpdb-reader-pitch-variants[data-pitch-fit="wide"]) .jpdb-reader-word-pills {
+    grid-row: 3;
+  }
+}
+
+@container (max-width: 400px) {
+  .jpdb-reader-card-tools:has(.jpdb-reader-pitch-variants) {
+    display: contents;
+  }
+  .jpdb-reader-card-tools .jpdb-reader-pitch-variants {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    width: 100%;
+    margin-block: 4px 0;
+  }
+  .jpdb-reader-header:has(.jpdb-reader-pitch-variants) .jpdb-reader-audio-control {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: end;
+  }
+  .jpdb-reader-header:has(.jpdb-reader-pitch-variants) .jpdb-reader-word-pills {
     grid-row: 3;
   }
 }

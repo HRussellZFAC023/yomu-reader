@@ -279592,6 +279592,7 @@ ${scopedInner}
     "stream finished",
     "no stream handler",
     ,
+    // determined by compression function
     "no callback",
     "invalid UTF-8 data",
     "extra field too long",
@@ -284925,7 +284926,15 @@ ${entry2.reading || ""}`;
     if (!graphs.length) return "";
     if (graphs.length === 1) return `<div class="jpdb-reader-pitch">${graphs[0].svg}</div>`;
     const percentages = pitchVariantDisplayPercentages(graphs.map((entry2) => entry2.variant));
-    return `<div class="jpdb-reader-pitch jpdb-reader-pitch-variants">${graphs.map((entry2, index) => `<span class="jpdb-reader-pitch-component jpdb-reader-pitch-variant${index === 0 ? " jpdb-reader-pitch-variant-primary" : ""}">${entry2.svg}<span class="jpdb-reader-pitch-variant-badge">${percentages[index]}%</span></span>`).join("")}</div>`;
+    const fit = pitchVariantBlockFit(reading, graphs.length);
+    return `<div class="jpdb-reader-pitch jpdb-reader-pitch-variants" data-pitch-fit="${fit}">${graphs.map((entry2, index) => `<span class="jpdb-reader-pitch-component jpdb-reader-pitch-variant${index === 0 ? " jpdb-reader-pitch-variant-primary" : ""}">${entry2.svg}<span class="jpdb-reader-pitch-variant-badge">${percentages[index]}%</span></span>`).join("")}</div>`;
+  }
+  const PITCH_VARIANT_COMPACT_MAX_WIDTH = 300;
+  function pitchVariantBlockFit(reading, graphCount) {
+    const graphWidth = splitMorae(reading).length * 24 + 18;
+    const chipWidth = graphWidth + 14;
+    const blockWidth = graphCount * chipWidth + Math.max(0, graphCount - 1) * 8;
+    return blockWidth <= PITCH_VARIANT_COMPACT_MAX_WIDTH ? "compact" : "wide";
   }
   function pitchVariantDisplayPercentages(variants) {
     if (!variants.length) return [];

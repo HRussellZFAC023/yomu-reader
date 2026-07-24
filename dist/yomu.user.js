@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.7.3
+// @version 1.7.4
 // @author Henry Russell
 // @description Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and a study page.
 // @license MIT
@@ -16,10 +16,10 @@
 // @require https://yomureader.com/greasyfork/yomu-kanji-study.bfc22f6012ee.user.js#sha256=v8IvYBLu/Y0wCQoDElRImFbaWbiR9yJEuDQOMnjEWMM=
 // @require https://yomureader.com/greasyfork/yomu-ocr-manga.62c4f0dc128c.user.js#sha256=YsTw3BKMFfj8KSP0mTOmaK0v0R6ZUquIzw5VPgka+1c=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.8b7ea0485899.user.js#sha256=i36gSFiZF/9rV+gLjTbAgAuXLnSfkQ5x8VeZLxZLkVc=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.f50c68b2cb90.user.js#sha256=9QxossuQ0TCOLHI2mnIo1X+VUR6IBDRJLGZ+/djbL+0=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.4069f5a517df.user.js#sha256=QGn1pRffNrfqK5Q2b5mY44gZuABS3/7swf+7WlFnXVs=
 // @require https://yomureader.com/greasyfork/yomu-bunpro.88aa755b3cb1.user.js#sha256=iKp1WzyxHBnjh2hT59JGKDJhaNz9yw3Azco+WgPy87A=
 // @require https://yomureader.com/greasyfork/yomu-video.d2235e30a955.user.js#sha256=0iNeMKlVIxwvIBymhj9ODnjMmjwP1s6BtzD4KvmZ2Qk=
-// @resource yomuCss  https://yomureader.com/yomu.ca61e9465afb.css#sha256=ymHpRlr7G7M14Z5Sh7lFeHhfjWFQ2o0POaTjp4Zmvyg=
+// @resource yomuCss  https://yomureader.com/yomu.88a4714a7c42.css#sha256=iKRxSnxCIdyr353l/MjICEpNDRsQ6jGfkyOHUmExMEY=
 // @connect api.jiten.moe
 // @connect jpdb.io
 // @connect api.wanikani.com
@@ -20411,7 +20411,15 @@ function renderPitchVariantGraphs(reading, variants) {
   if (!graphs.length) return "";
   if (graphs.length === 1) return `<div class="jpdb-reader-pitch">${graphs[0].svg}</div>`;
   const percentages = pitchVariantDisplayPercentages(graphs.map((entry) => entry.variant));
-  return `<div class="jpdb-reader-pitch jpdb-reader-pitch-variants">${graphs.map((entry, index) => `<span class="jpdb-reader-pitch-component jpdb-reader-pitch-variant${index === 0 ? " jpdb-reader-pitch-variant-primary" : ""}">${entry.svg}<span class="jpdb-reader-pitch-variant-badge">${percentages[index]}%</span></span>`).join("")}</div>`;
+  const fit = pitchVariantBlockFit(reading, graphs.length);
+  return `<div class="jpdb-reader-pitch jpdb-reader-pitch-variants" data-pitch-fit="${fit}">${graphs.map((entry, index) => `<span class="jpdb-reader-pitch-component jpdb-reader-pitch-variant${index === 0 ? " jpdb-reader-pitch-variant-primary" : ""}">${entry.svg}<span class="jpdb-reader-pitch-variant-badge">${percentages[index]}%</span></span>`).join("")}</div>`;
+}
+const PITCH_VARIANT_COMPACT_MAX_WIDTH = 300;
+function pitchVariantBlockFit(reading, graphCount) {
+  const graphWidth = splitMorae(reading).length * 24 + 18;
+  const chipWidth = graphWidth + 14;
+  const blockWidth = graphCount * chipWidth + Math.max(0, graphCount - 1) * 8;
+  return blockWidth <= PITCH_VARIANT_COMPACT_MAX_WIDTH ? "compact" : "wide";
 }
 function pitchVariantDisplayPercentages(variants) {
   if (!variants.length) return [];
@@ -36762,8 +36770,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
     `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.7.3"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.7.3"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.7.4"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.7.4"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka"];
@@ -36895,7 +36903,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.7.3"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.7.4"}`;
   } catch {
   return null;
   }

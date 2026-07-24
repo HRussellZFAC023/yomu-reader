@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.7.4] - 2026-07-24
+
+### Fixed
+
+- Words with two pitch-accent readings no longer leave an empty band at the top of the dictionary popup. The compact two-graph pitch block now sits in the top-right beside the play button, the same place a single graph already used, instead of dropping to its own centred row; blocks that are genuinely too wide (three readings, long readings, or multi-part expressions) still move to a full-width row, and every block does so on very narrow popups so the headword is never squeezed.
+
 ## [1.7.3] - 2026-07-24
 
 ### Fixed
