@@ -121,14 +121,14 @@ Grab the latest packages from the [GitHub releases page](https://github.com/HRus
 
 ## Step 3: Your first lookup
 
-The first time よむ runs, it shows a **welcome panel**. The top half is quick setup — language, theme and accent colour, Japanese text on webpages, image OCR, video subtitles, and the hover/scan shortcuts — all pre-set to sensible defaults you can scroll straight past. For webpage text, the three choices say exactly what they do: **Leave pages unchanged**, **Scan Japanese automatically**, or **Scan only when I ask**. Automatic scanning finds Japanese as a page loads; manual scanning waits for your shortcut or menu action. Image OCR is a separate setting. Under the setup sit the two choices:
+The first time よむ runs, it shows a **welcome panel**. Choose **Your language (dictionary definitions)** from the 32-language list; **Language you are learning** is fixed to Japanese for Slice 1. This choice is independent from the English/Japanese interface control. The rest of quick setup covers theme and accent colour, Japanese text on webpages, image OCR, video subtitles, and the hover/scan shortcuts — all pre-set to sensible defaults you can scroll straight past. For webpage text, the three choices say exactly what they do: **Leave pages unchanged**, **Scan Japanese automatically**, or **Scan only when I ask**. Automatic scanning finds Japanese as a page loads; manual scanning waits for your shortcut or menu action. Image OCR is a separate setting. Under the setup sit the two choices:
 
 - **Use without API key** — the highlighted first button: start reading right now, no account needed. **Pick this one to begin.**
 - **Add API source** — connect Jiten, Bunpro, or JPDB for word tracking and mining. Optional, and you can do it later ([Add an API source](#add-an-api-source-optional)).
 
 A feature grid below the buttons previews what よむ can do; you don't need to configure any of it now.
 
-The welcome screen also offers **Offline setup** (checked by default): よむ downloads the Jitendex dictionary and Kanjium pitch accents in the background, so parsing, lookup, furigana, and pitch colors all run locally in your browser — fast, private, and available offline. Leave it on unless you prefer to import your own dictionaries later in Settings → Sources.
+The welcome screen also offers **Offline setup** (checked by default). よむ installs the native-first starter dictionaries recommended for your language, using an explicit English fallback where the frozen catalogue has no native Japanese dictionary. The archives are downloaded from Yomu's public, SHA-256-addressed mirror and then parsing and lookup run locally in your browser. You can change recommendations or import your own dictionaries later in Settings → Dictionaries.
 
 Choose **Use without API key**, then try a lookup:
 
@@ -176,7 +176,7 @@ A free Reader account provides account identity and encrypted Reader sync only. 
 
 Open よむ settings with the floating よむ button to switch these on when you want them. The **Open settings** shortcut is configurable in Settings → Shortcuts. Each is covered in [Features](/features).
 
-- **Dictionaries** — import any Yomitan ZIP dictionary, or download JMdict for offline definitions. Settings → Dictionaries.
+- **Dictionaries** — install the starter set for your selected language or import any Yomitan ZIP dictionary. For a non-native definition source, automatic translation is available per source and is off by default. Google does not provide an Ancient Greek translation target, so that profile keeps original definitions instead. Settings → Dictionaries.
 - **Images (OCR)** — look up Japanese text inside manga panels and screenshots. Settings → Images. Reading manga on BookWalker or in mokuro volumes? Follow the [manga guide](/guides/read-manga-in-japanese).
 - **PC games** — download the first-party [Yomu Gaming release file](https://github.com/HRussellZFAC023/yomu-reader/releases/latest), finish the first-run setup, and set your capture shortcut. Yomu Gaming uses Yomu's default Google Lens-style OCR first; advanced local OCR is optional for offline capture.
 - **Video subtitles** — parse Japanese subtitle lines for lookup, with a transcript panel. For local files, use the [video player](/video-player/index.html).

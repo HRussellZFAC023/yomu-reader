@@ -5,6 +5,14 @@ import { readApiCredentialsFromFormData } from './api-credential';
 import { createSettingsFormReader, type SettingsFormReader } from './form-data';
 import type { AnkiFieldMappings, AudioSourceSetting, DictionaryLookupLink, DictionaryPreference, NewTabStudyChallengeStep, ReaderColorSource, ReaderSettings } from '../app/types';
 import { ocrInteractionModeFromSettings } from '../ocr/mode';
+import {
+    activateLanguageProfileForLearner,
+    activeLanguageProfile,
+    canonicalTagForSlice1Language,
+    slice1LanguageIdForTag,
+    SLICE1_TARGET_LANGUAGE,
+} from '../languages';
+import { isLearnerLanguageId, type LearnerLanguageId } from '../locales';
 
 const log = Logger.scope('SettingsForm');
 export const CUSTOM_FONT_FAMILY_VALUE = '__custom_font_family__';
@@ -123,6 +131,11 @@ export function readFormSettings(data: FormData, current: ReaderSettings): Reade
     const dictionaryPreferences = readDictionaryPreferences(data, current.dictionaryPreferences, reader);
     const kanjiDictionaryPreferences = dictionaryPreferences.filter(preference => preference.type === 'kanji');
     const apiCredentials = readApiCredentialsFromFormData(data);
+    const interfaceLanguage = readOption(
+        get('interfaceLanguage'),
+        ['auto', 'en', 'ja'] as const,
+        current.interfaceLanguage,
+    );
     const settings: ReaderSettings = {
         ...current,
         ...apiCredentials,
@@ -130,7 +143,13 @@ export function readFormSettings(data: FormData, current: ReaderSettings): Reade
         // integration uses only the frontend token. Preserve an older saved
         // value so opening Settings does not silently destroy user data.
         bunproApiKey: apiCredentials.bunproApiKey || current.bunproApiKey,
-        interfaceLanguage: readOption(get('interfaceLanguage'), ['auto', 'en', 'ja'] as const, current.interfaceLanguage),
+        interfaceLanguage,
+        ...readLanguageProfileFormSettings(
+            data,
+            current,
+            interfaceLanguage,
+            dictionaryPreferences,
+        ),
         ...readApiDefinitionFormSettings(reader, current, apiDefinitionRowsPresent),
         ...readKanjiAddonFormSettings(reader, current),
         ...readAudioFormSettings(reader, current, audioSources),
@@ -163,6 +182,100 @@ export function readFormSettings(data: FormData, current: ReaderSettings): Reade
         ankiEnabled: normalized.ankiEnabled,
     });
     return normalized;
+}
+
+function readLanguageProfileFormSettings(
+    data: FormData,
+    current: ReaderSettings,
+    interfaceLanguage: ReaderSettings['interfaceLanguage'],
+    dictionaryPreferences: ReaderSettings['dictionaryPreferences'],
+): Pick<ReaderSettings, 'languageProfiles' | 'activeLanguageProfileId'> {
+    const active = activeLanguageProfile(current.languageProfiles, current.activeLanguageProfileId);
+    if (!active) {
+        return {
+            languageProfiles: current.languageProfiles,
+            activeLanguageProfileId: current.activeLanguageProfileId,
+        };
+    }
+
+    const fallbackLearnerLanguage = slice1LanguageIdForTag(active.learnerLanguage) ?? 'en';
+    const learnerLanguage = readLearnerLanguage(data, fallbackLearnerLanguage);
+    const learnerLanguageTag = learnerLanguage === fallbackLearnerLanguage
+        ? active.learnerLanguage
+        : canonicalTagForSlice1Language(learnerLanguage);
+    const parserProvider = readOption(
+        String(data.get('parserProvider') ?? ''),
+        ['local', 'jiten', 'jpdb', 'auto'] as const,
+        current.parserProvider,
+    );
+    const definitionTranslationProviderIds = data.has('definitionTranslationControlsPresent')
+        ? normalizedStringIds(data.getAll('definitionTranslationProviderIds'))
+        : [...active.definitionTranslationProviderIds];
+    const dictionaries = languageProfileDictionariesFromPreferences(dictionaryPreferences);
+
+    if (learnerLanguage !== fallbackLearnerLanguage) {
+        const activated = activateLanguageProfileForLearner(
+            current.languageProfiles,
+            current.activeLanguageProfileId,
+            learnerLanguageTag,
+            {
+                uiLocale: interfaceLanguage,
+                parserProvider,
+                dictionaries,
+                definitionTranslationProviderIds,
+            },
+        );
+        return {
+            languageProfiles: activated.profiles,
+            activeLanguageProfileId: activated.activeProfileId,
+        };
+    }
+
+    return {
+        languageProfiles: current.languageProfiles.map(profile => profile.id === active.id
+            ? {
+                ...profile,
+                // Keep an existing supported script/region variant when the
+                // roster selection did not change (zh-Hant-TW, pt-BR, ko-KR).
+                learnerLanguage: learnerLanguageTag,
+                targetLanguage: SLICE1_TARGET_LANGUAGE,
+                uiLocale: interfaceLanguage,
+                parserProvider,
+                dictionaries,
+                definitionTranslationProviderIds,
+            }
+            : profile),
+        activeLanguageProfileId: active.id,
+    };
+}
+
+function languageProfileDictionariesFromPreferences(
+    preferences: ReaderSettings['dictionaryPreferences'],
+): ReaderSettings['languageProfiles'][number]['dictionaries'] {
+    const ordered = [...preferences].sort((left, right) => left.priority - right.priority);
+    return {
+        installed: ordered.map(preference => preference.name),
+        enabled: ordered.filter(preference => preference.enabled).map(preference => preference.name),
+        order: ordered.map(preference => preference.name),
+    };
+}
+
+function readLearnerLanguage(data: FormData, fallback: LearnerLanguageId): LearnerLanguageId {
+    const value = String(data.get('learnerLanguage') ?? '');
+    return isLearnerLanguageId(value) ? value : fallback;
+}
+
+function normalizedStringIds(values: FormDataEntryValue[]): string[] {
+    const seen = new Set<string>();
+    const result: string[] = [];
+    values.forEach(value => {
+        if (typeof value !== 'string') return;
+        const id = value.trim();
+        if (!id || id.length > 160 || seen.has(id)) return;
+        seen.add(id);
+        result.push(id);
+    });
+    return result;
 }
 
 function colorSourceFallback(key: string, fallback: ReaderColorSource): SelectableReaderColorSource {

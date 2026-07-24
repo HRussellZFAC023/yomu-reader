@@ -1,0 +1,312 @@
+{
+  "schemaVersion": 1,
+  "frozenAt": "2026-07-23",
+  "targetLanguage": "ja",
+  "expectedLearnerLanguageCount": 32,
+  "derivation": {
+    "supportedLanguagesSource": "https://yomitan.wiki/supported-languages/",
+    "dictionaryCatalogueSource": "https://github.com/MarvNC/yomitan-dictionaries",
+    "dictionaryCatalogueRevision": "574961e823e33fb36b6b86778a0d6b606af29c25",
+    "rule": "Yomitan-supported languages, excluding Japanese (the Slice 1 learning target) and Old Irish (not represented in the frozen dictionary catalogue).",
+    "excluded": [
+      {
+        "id": "ja",
+        "reason": "Slice 1 learning target; never a learner-language roster entry."
+      },
+      {
+        "id": "sga",
+        "reason": "Supported by Yomitan but absent from the frozen dictionary catalogue."
+      }
+    ]
+  },
+  "languages": [
+    {
+      "id": "sq",
+      "runtimeLocale": "sq",
+      "englishName": "Albanian",
+      "nativeName": "Shqip",
+      "defaultScript": "Latn",
+      "scripts": ["Latn"],
+      "direction": "ltr"
+    },
+    {
+      "id": "grc",
+      "runtimeLocale": "grc",
+      "englishName": "Ancient Greek",
+      "nativeName": "Ἑλληνιστί",
+      "defaultScript": "Grek",
+      "scripts": ["Grek"],
+      "direction": "ltr"
+    },
+    {
+      "id": "ar",
+      "runtimeLocale": "ar",
+      "englishName": "Arabic",
+      "nativeName": "العربية",
+      "defaultScript": "Arab",
+      "scripts": ["Arab"],
+      "direction": "rtl"
+    },
+    {
+      "id": "yue",
+      "runtimeLocale": "yue-Hant",
+      "englishName": "Cantonese",
+      "nativeName": "粵語",
+      "defaultScript": "Hant",
+      "scripts": ["Hant"],
+      "direction": "ltr"
+    },
+    {
+      "id": "zh",
+      "runtimeLocale": "zh-Hans",
+      "englishName": "Chinese",
+      "nativeName": "中文（简体）",
+      "defaultScript": "Hans",
+      "scripts": ["Hans", "Hant"],
+      "direction": "ltr"
+    },
+    {
+      "id": "da",
+      "runtimeLocale": "da",
+      "englishName": "Danish",
+      "nativeName": "Dansk",
+      "defaultScript": "Latn",
+      "scripts": ["Latn"],
+      "direction": "ltr"
+    },
+    {
+      "id": "nl",
+      "runtimeLocale": "nl",
+      "englishName": "Dutch",
+      "nativeName": "Nederlands",
+      "defaultScript": "Latn",
+      "scripts": ["Latn"],
+      "direction": "ltr"
+    },
+    {
+      "id": "en",
+      "runtimeLocale": "en",
+      "englishName": "English",
+      "nativeName": "English",
+      "defaultScript": "Latn",
+      "scripts": ["Latn"],
+      "direction": "ltr"
+    },
+    {
+      "id": "fi",
+      "runtimeLocale": "fi",
+      "englishName": "Finnish",
+      "nativeName": "Suomi",
+      "defaultScript": "Latn",
+      "scripts": ["Latn"],
+      "direction": "ltr"
+    },
+    {
+      "id": "fr",
+      "runtimeLocale": "fr",
+      "englishName": "French",
+      "nativeName": "Français",
+      "defaultScript": "Latn",
+      "scripts": ["Latn"],
+      "direction": "ltr"
+    },
+    {
+      "id": "de",
+      "runtimeLocale": "de",
+      "englishName": "German",
+      "nativeName": "Deutsch",
+      "defaultScript": "Latn",
+      "scripts": ["Latn"],
+      "direction": "ltr"
+    },
+    {
+      "id": "el",
+      "runtimeLocale": "el",
+      "englishName": "Greek",
+      "nativeName": "Ελληνικά",
+      "defaultScript": "Grek",
+      "scripts": ["Grek"],
+      "direction": "ltr"
+    },
+    {
+      "id": "hu",
+      "runtimeLocale": "hu",
+      "englishName": "Hungarian",
+      "nativeName": "Magyar",
+      "defaultScript": "Latn",
+      "scripts": ["Latn"],
+      "direction": "ltr"
+    },
+    {
+      "id": "id",
+      "runtimeLocale": "id",
+      "englishName": "Indonesian",
+      "nativeName": "Bahasa Indonesia",
+      "defaultScript": "Latn",
+      "scripts": ["Latn"],
+      "direction": "ltr"
+    },
+    {
+      "id": "it",
+      "runtimeLocale": "it",
+      "englishName": "Italian",
+      "nativeName": "Italiano",
+      "defaultScript": "Latn",
+      "scripts": ["Latn"],
+      "direction": "ltr"
+    },
+    {
+      "id": "km",
+      "runtimeLocale": "km",
+      "englishName": "Khmer",
+      "nativeName": "ខ្មែរ",
+      "defaultScript": "Khmr",
+      "scripts": ["Khmr"],
+      "direction": "ltr"
+    },
+    {
+      "id": "ko",
+      "runtimeLocale": "ko",
+      "englishName": "Korean",
+      "nativeName": "한국어",
+      "defaultScript": "Kore",
+      "scripts": ["Kore"],
+      "direction": "ltr"
+    },
+    {
+      "id": "lo",
+      "runtimeLocale": "lo",
+      "englishName": "Lao",
+      "nativeName": "ລາວ",
+      "defaultScript": "Laoo",
+      "scripts": ["Laoo"],
+      "direction": "ltr"
+    },
+    {
+      "id": "la",
+      "runtimeLocale": "la",
+      "englishName": "Latin",
+      "nativeName": "Latina",
+      "defaultScript": "Latn",
+      "scripts": ["Latn"],
+      "direction": "ltr"
+    },
+    {
+      "id": "mn",
+      "runtimeLocale": "mn-Cyrl",
+      "englishName": "Mongolian",
+      "nativeName": "Монгол",
+      "defaultScript": "Cyrl",
+      "scripts": ["Cyrl", "Mong"],
+      "direction": "ltr"
+    },
+    {
+      "id": "fa",
+      "runtimeLocale": "fa",
+      "englishName": "Persian",
+      "nativeName": "فارسی",
+      "defaultScript": "Arab",
+      "scripts": ["Arab"],
+      "direction": "rtl"
+    },
+    {
+      "id": "pl",
+      "runtimeLocale": "pl",
+      "englishName": "Polish",
+      "nativeName": "Polski",
+      "defaultScript": "Latn",
+      "scripts": ["Latn"],
+      "direction": "ltr"
+    },
+    {
+      "id": "pt",
+      "runtimeLocale": "pt",
+      "englishName": "Portuguese",
+      "nativeName": "Português",
+      "defaultScript": "Latn",
+      "scripts": ["Latn"],
+      "direction": "ltr"
+    },
+    {
+      "id": "ro",
+      "runtimeLocale": "ro",
+      "englishName": "Romanian",
+      "nativeName": "Română",
+      "defaultScript": "Latn",
+      "scripts": ["Latn"],
+      "direction": "ltr"
+    },
+    {
+      "id": "ru",
+      "runtimeLocale": "ru",
+      "englishName": "Russian",
+      "nativeName": "Русский",
+      "defaultScript": "Cyrl",
+      "scripts": ["Cyrl"],
+      "direction": "ltr"
+    },
+    {
+      "id": "sh",
+      "runtimeLocale": "sr-Latn",
+      "englishName": "Serbo-Croatian",
+      "nativeName": "Srpskohrvatski",
+      "defaultScript": "Latn",
+      "scripts": ["Latn", "Cyrl"],
+      "direction": "ltr"
+    },
+    {
+      "id": "es",
+      "runtimeLocale": "es",
+      "englishName": "Spanish",
+      "nativeName": "Español",
+      "defaultScript": "Latn",
+      "scripts": ["Latn"],
+      "direction": "ltr"
+    },
+    {
+      "id": "sv",
+      "runtimeLocale": "sv",
+      "englishName": "Swedish",
+      "nativeName": "Svenska",
+      "defaultScript": "Latn",
+      "scripts": ["Latn"],
+      "direction": "ltr"
+    },
+    {
+      "id": "tl",
+      "runtimeLocale": "fil",
+      "englishName": "Tagalog",
+      "nativeName": "Tagalog",
+      "defaultScript": "Latn",
+      "scripts": ["Latn"],
+      "direction": "ltr"
+    },
+    {
+      "id": "th",
+      "runtimeLocale": "th",
+      "englishName": "Thai",
+      "nativeName": "ไทย",
+      "defaultScript": "Thai",
+      "scripts": ["Thai"],
+      "direction": "ltr"
+    },
+    {
+      "id": "tr",
+      "runtimeLocale": "tr",
+      "englishName": "Turkish",
+      "nativeName": "Türkçe",
+      "defaultScript": "Latn",
+      "scripts": ["Latn"],
+      "direction": "ltr"
+    },
+    {
+      "id": "vi",
+      "runtimeLocale": "vi",
+      "englishName": "Vietnamese",
+      "nativeName": "Tiếng Việt",
+      "defaultScript": "Latn",
+      "scripts": ["Latn"],
+      "direction": "ltr"
+    }
+  ]
+}

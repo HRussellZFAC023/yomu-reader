@@ -13,6 +13,7 @@ import { Logger } from '../../app/logger';
 import { normalizeDictionaryPreferences } from '../../settings/index';
 import type { DictionaryPreference, InterfaceLanguage } from '../../app/types';
 import { deleteDictionaryArchive, persistDictionaryArchive } from '../archive-cache';
+import { assertDictionaryObjectIntegrity } from '../catalog/integrity';
 import { readBlobText, readDexieTableRowCounts, streamDexieTables } from './dexie-stream';
 import { fileSummary, filenameFromUrl, formatBytes, formatPercent, namedBlobFile, requestBlob, safeHost } from './file-utils';
 import { renderDictionaryScopedStyles } from './glossary';
@@ -737,6 +738,7 @@ export class YomitanDictionaryStore {
         const done = log.time('Dictionary file import', fileSummary(file, sourceUrl));
         try {
             log.info('Dictionary file import started', fileSummary(file, sourceUrl));
+            if (options.integrity) await assertDictionaryObjectIntegrity(file, options.integrity);
             // UT-72: imports live in IndexedDB, which Safari evicts after ~7
             // days of inactivity for non-persisted origins. Ask for durable
             // storage up front.
@@ -854,7 +856,13 @@ export class YomitanDictionaryStore {
         // Replication itself imports with persistArchive:false to avoid
         // re-writing the archive it just read.
         if (options.persistArchive !== false) {
-            await persistDictionaryArchive({ title: dictionary, filename: file.name, downloadUrl: sourceUrl || undefined, file: sourceUrl ? undefined : file });
+            await persistDictionaryArchive({
+                title: dictionary,
+                filename: file.name,
+                downloadUrl: sourceUrl || undefined,
+                file: sourceUrl ? undefined : file,
+                integrity: options.integrity,
+            });
         }
         log.info('ZIP dictionary import parsed', summary);
         return summary;

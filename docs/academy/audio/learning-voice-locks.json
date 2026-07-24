@@ -52,7 +52,7 @@
     },
     "localExpected": {
       "path": "docs/academy/audio/learning-voice-local-expected.json",
-      "sha256": "67e6efc5d58957448a3c9fd39d0b1a03d86085e5025d33a1c015f0262899dff6"
+      "sha256": "eda9d59442ae6aa3742525cb2c3ddd4b41e4fdceb4336727c0bd268747b6e05c"
     },
     "productionProof": {
       "path": "docs/academy/audio/learning-voice-production-proof.json",

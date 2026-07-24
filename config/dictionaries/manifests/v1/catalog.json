@@ -1,0 +1,432 @@
+{
+  "schemaVersion": 1,
+  "revision": "2026-07-23.574961e8",
+  "generatedAt": "2026-07-23T00:00:00.000Z",
+  "targetLanguage": "ja",
+  "objectsBaseUrl": "https://dictionaries.yomureader.com/",
+  "sourceSnapshot": {
+    "catalogueRepository": "https://github.com/MarvNC/yomitan-dictionaries",
+    "catalogueCommit": "574961e823e33fb36b6b86778a0d6b606af29c25",
+    "catalogueFile": "readme.md",
+    "driveFolderUrl": "https://drive.google.com/drive/folders/1LXMIOoaWASIntlx1w08njNU005lS5lez",
+    "capturedAt": "2026-07-23T00:00:00.000Z"
+  },
+  "entries": [
+    {
+      "id": "jmdict-nl",
+      "title": "JMdict (nl)",
+      "format": "yomitan",
+      "version": "2026-07-23",
+      "categories": [
+        "terms"
+      ],
+      "headwordLanguages": [
+        "ja"
+      ],
+      "definitionLanguages": [
+        "nl"
+      ],
+      "source": {
+        "acquisitionId": "jmdict-nl",
+        "url": "https://github.com/yomidevs/jmdict-yomitan/releases/download/2026-07-23/JMdict_dutch.zip",
+        "projectUrl": "https://github.com/yomidevs/jmdict-yomitan",
+        "catalogueSection": "Japanese / Terms"
+      },
+      "license": {
+        "spdx": "CC-BY-SA-4.0",
+        "attribution": "Electronic Dictionary Research and Development Group (EDRDG) and jmdict-yomitan contributors",
+        "sourceUrl": "https://github.com/yomidevs/jmdict-yomitan",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "redistribution": "allowed",
+        "reviewNote": "The generated dictionaries are published by jmdict-yomitan under CC BY-SA 4.0."
+      },
+      "distribution": {
+        "state": "source-only"
+      }
+    },
+    {
+      "id": "jmdict-en",
+      "title": "JMdict (en)",
+      "format": "yomitan",
+      "version": "2026-07-23",
+      "categories": [
+        "terms"
+      ],
+      "headwordLanguages": [
+        "ja"
+      ],
+      "definitionLanguages": [
+        "en"
+      ],
+      "source": {
+        "acquisitionId": "jmdict-en",
+        "url": "https://github.com/yomidevs/jmdict-yomitan/releases/download/2026-07-23/JMdict_english.zip",
+        "projectUrl": "https://github.com/yomidevs/jmdict-yomitan",
+        "catalogueSection": "Japanese / Terms"
+      },
+      "license": {
+        "spdx": "CC-BY-SA-4.0",
+        "attribution": "Electronic Dictionary Research and Development Group (EDRDG) and jmdict-yomitan contributors",
+        "sourceUrl": "https://github.com/yomidevs/jmdict-yomitan",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "redistribution": "allowed",
+        "reviewNote": "The generated dictionaries are published by jmdict-yomitan under CC BY-SA 4.0."
+      },
+      "distribution": {
+        "state": "source-only"
+      }
+    },
+    {
+      "id": "jmdict-fr",
+      "title": "JMdict (fr)",
+      "format": "yomitan",
+      "version": "2026-07-23",
+      "categories": [
+        "terms"
+      ],
+      "headwordLanguages": [
+        "ja"
+      ],
+      "definitionLanguages": [
+        "fr"
+      ],
+      "source": {
+        "acquisitionId": "jmdict-fr",
+        "url": "https://github.com/yomidevs/jmdict-yomitan/releases/download/2026-07-23/JMdict_french.zip",
+        "projectUrl": "https://github.com/yomidevs/jmdict-yomitan",
+        "catalogueSection": "Japanese / Terms"
+      },
+      "license": {
+        "spdx": "CC-BY-SA-4.0",
+        "attribution": "Electronic Dictionary Research and Development Group (EDRDG) and jmdict-yomitan contributors",
+        "sourceUrl": "https://github.com/yomidevs/jmdict-yomitan",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "redistribution": "allowed",
+        "reviewNote": "The generated dictionaries are published by jmdict-yomitan under CC BY-SA 4.0."
+      },
+      "distribution": {
+        "state": "source-only"
+      }
+    },
+    {
+      "id": "jmdict-de",
+      "title": "JMdict (de)",
+      "format": "yomitan",
+      "version": "2026-07-23",
+      "categories": [
+        "terms"
+      ],
+      "headwordLanguages": [
+        "ja"
+      ],
+      "definitionLanguages": [
+        "de"
+      ],
+      "source": {
+        "acquisitionId": "jmdict-de",
+        "url": "https://github.com/yomidevs/jmdict-yomitan/releases/download/2026-07-23/JMdict_german.zip",
+        "projectUrl": "https://github.com/yomidevs/jmdict-yomitan",
+        "catalogueSection": "Japanese / Terms"
+      },
+      "license": {
+        "spdx": "CC-BY-SA-4.0",
+        "attribution": "Electronic Dictionary Research and Development Group (EDRDG) and jmdict-yomitan contributors",
+        "sourceUrl": "https://github.com/yomidevs/jmdict-yomitan",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "redistribution": "allowed",
+        "reviewNote": "The generated dictionaries are published by jmdict-yomitan under CC BY-SA 4.0."
+      },
+      "distribution": {
+        "state": "source-only"
+      }
+    },
+    {
+      "id": "jmdict-hu",
+      "title": "JMdict (hu)",
+      "format": "yomitan",
+      "version": "2026-07-23",
+      "categories": [
+        "terms"
+      ],
+      "headwordLanguages": [
+        "ja"
+      ],
+      "definitionLanguages": [
+        "hu"
+      ],
+      "source": {
+        "acquisitionId": "jmdict-hu",
+        "url": "https://github.com/yomidevs/jmdict-yomitan/releases/download/2026-07-23/JMdict_hungarian.zip",
+        "projectUrl": "https://github.com/yomidevs/jmdict-yomitan",
+        "catalogueSection": "Japanese / Terms"
+      },
+      "license": {
+        "spdx": "CC-BY-SA-4.0",
+        "attribution": "Electronic Dictionary Research and Development Group (EDRDG) and jmdict-yomitan contributors",
+        "sourceUrl": "https://github.com/yomidevs/jmdict-yomitan",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "redistribution": "allowed",
+        "reviewNote": "The generated dictionaries are published by jmdict-yomitan under CC BY-SA 4.0."
+      },
+      "distribution": {
+        "state": "source-only"
+      }
+    },
+    {
+      "id": "jmdict-ru",
+      "title": "JMdict (ru)",
+      "format": "yomitan",
+      "version": "2026-07-23",
+      "categories": [
+        "terms"
+      ],
+      "headwordLanguages": [
+        "ja"
+      ],
+      "definitionLanguages": [
+        "ru"
+      ],
+      "source": {
+        "acquisitionId": "jmdict-ru",
+        "url": "https://github.com/yomidevs/jmdict-yomitan/releases/download/2026-07-23/JMdict_russian.zip",
+        "projectUrl": "https://github.com/yomidevs/jmdict-yomitan",
+        "catalogueSection": "Japanese / Terms"
+      },
+      "license": {
+        "spdx": "CC-BY-SA-4.0",
+        "attribution": "Electronic Dictionary Research and Development Group (EDRDG) and jmdict-yomitan contributors",
+        "sourceUrl": "https://github.com/yomidevs/jmdict-yomitan",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "redistribution": "allowed",
+        "reviewNote": "The generated dictionaries are published by jmdict-yomitan under CC BY-SA 4.0."
+      },
+      "distribution": {
+        "state": "source-only"
+      }
+    },
+    {
+      "id": "jmdict-es",
+      "title": "JMdict (es)",
+      "format": "yomitan",
+      "version": "2026-07-23",
+      "categories": [
+        "terms"
+      ],
+      "headwordLanguages": [
+        "ja"
+      ],
+      "definitionLanguages": [
+        "es"
+      ],
+      "source": {
+        "acquisitionId": "jmdict-es",
+        "url": "https://github.com/yomidevs/jmdict-yomitan/releases/download/2026-07-23/JMdict_spanish.zip",
+        "projectUrl": "https://github.com/yomidevs/jmdict-yomitan",
+        "catalogueSection": "Japanese / Terms"
+      },
+      "license": {
+        "spdx": "CC-BY-SA-4.0",
+        "attribution": "Electronic Dictionary Research and Development Group (EDRDG) and jmdict-yomitan contributors",
+        "sourceUrl": "https://github.com/yomidevs/jmdict-yomitan",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "redistribution": "allowed",
+        "reviewNote": "The generated dictionaries are published by jmdict-yomitan under CC BY-SA 4.0."
+      },
+      "distribution": {
+        "state": "source-only"
+      }
+    },
+    {
+      "id": "jmdict-sv",
+      "title": "JMdict (sv)",
+      "format": "yomitan",
+      "version": "2026-07-23",
+      "categories": [
+        "terms"
+      ],
+      "headwordLanguages": [
+        "ja"
+      ],
+      "definitionLanguages": [
+        "sv"
+      ],
+      "source": {
+        "acquisitionId": "jmdict-sv",
+        "url": "https://github.com/yomidevs/jmdict-yomitan/releases/download/2026-07-23/JMdict_swedish.zip",
+        "projectUrl": "https://github.com/yomidevs/jmdict-yomitan",
+        "catalogueSection": "Japanese / Terms"
+      },
+      "license": {
+        "spdx": "CC-BY-SA-4.0",
+        "attribution": "Electronic Dictionary Research and Development Group (EDRDG) and jmdict-yomitan contributors",
+        "sourceUrl": "https://github.com/yomidevs/jmdict-yomitan",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "redistribution": "allowed",
+        "reviewNote": "The generated dictionaries are published by jmdict-yomitan under CC BY-SA 4.0."
+      },
+      "distribution": {
+        "state": "source-only"
+      }
+    },
+    {
+      "id": "jmnedict",
+      "title": "JMnedict (en)",
+      "format": "yomitan",
+      "version": "2026-07-23",
+      "categories": [
+        "names"
+      ],
+      "headwordLanguages": [
+        "ja"
+      ],
+      "definitionLanguages": [
+        "en"
+      ],
+      "source": {
+        "acquisitionId": "jmnedict",
+        "url": "https://github.com/yomidevs/jmdict-yomitan/releases/download/2026-07-23/JMnedict.zip",
+        "projectUrl": "https://github.com/yomidevs/jmdict-yomitan",
+        "catalogueSection": "Japanese / Terms"
+      },
+      "license": {
+        "spdx": "CC-BY-SA-4.0",
+        "attribution": "Electronic Dictionary Research and Development Group (EDRDG) and jmdict-yomitan contributors",
+        "sourceUrl": "https://github.com/yomidevs/jmdict-yomitan",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "redistribution": "allowed",
+        "reviewNote": "The generated dictionaries are published by jmdict-yomitan under CC BY-SA 4.0."
+      },
+      "distribution": {
+        "state": "source-only"
+      }
+    },
+    {
+      "id": "kanjidic-en",
+      "title": "KANJIDIC (en)",
+      "format": "yomitan",
+      "version": "2026-07-23",
+      "categories": [
+        "kanji"
+      ],
+      "headwordLanguages": [
+        "ja"
+      ],
+      "definitionLanguages": [
+        "en"
+      ],
+      "source": {
+        "acquisitionId": "kanjidic-en",
+        "url": "https://github.com/yomidevs/jmdict-yomitan/releases/download/2026-07-23/KANJIDIC_english.zip",
+        "projectUrl": "https://github.com/yomidevs/jmdict-yomitan",
+        "catalogueSection": "Japanese / Kanji / KANJIDIC"
+      },
+      "license": {
+        "spdx": "CC-BY-SA-4.0",
+        "attribution": "Electronic Dictionary Research and Development Group (EDRDG) and jmdict-yomitan contributors",
+        "sourceUrl": "https://github.com/yomidevs/jmdict-yomitan",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "redistribution": "allowed",
+        "reviewNote": "The generated dictionaries are published by jmdict-yomitan under CC BY-SA 4.0."
+      },
+      "distribution": {
+        "state": "source-only"
+      }
+    },
+    {
+      "id": "kanjidic-fr",
+      "title": "KANJIDIC (fr)",
+      "format": "yomitan",
+      "version": "2026-07-23",
+      "categories": [
+        "kanji"
+      ],
+      "headwordLanguages": [
+        "ja"
+      ],
+      "definitionLanguages": [
+        "fr"
+      ],
+      "source": {
+        "acquisitionId": "kanjidic-fr",
+        "url": "https://github.com/yomidevs/jmdict-yomitan/releases/download/2026-07-23/KANJIDIC_french.zip",
+        "projectUrl": "https://github.com/yomidevs/jmdict-yomitan",
+        "catalogueSection": "Japanese / Kanji / KANJIDIC"
+      },
+      "license": {
+        "spdx": "CC-BY-SA-4.0",
+        "attribution": "Electronic Dictionary Research and Development Group (EDRDG) and jmdict-yomitan contributors",
+        "sourceUrl": "https://github.com/yomidevs/jmdict-yomitan",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "redistribution": "allowed",
+        "reviewNote": "The generated dictionaries are published by jmdict-yomitan under CC BY-SA 4.0."
+      },
+      "distribution": {
+        "state": "source-only"
+      }
+    },
+    {
+      "id": "kanjidic-pt",
+      "title": "KANJIDIC (pt)",
+      "format": "yomitan",
+      "version": "2026-07-23",
+      "categories": [
+        "kanji"
+      ],
+      "headwordLanguages": [
+        "ja"
+      ],
+      "definitionLanguages": [
+        "pt"
+      ],
+      "source": {
+        "acquisitionId": "kanjidic-pt",
+        "url": "https://github.com/yomidevs/jmdict-yomitan/releases/download/2026-07-23/KANJIDIC_portuguese.zip",
+        "projectUrl": "https://github.com/yomidevs/jmdict-yomitan",
+        "catalogueSection": "Japanese / Kanji / KANJIDIC"
+      },
+      "license": {
+        "spdx": "CC-BY-SA-4.0",
+        "attribution": "Electronic Dictionary Research and Development Group (EDRDG) and jmdict-yomitan contributors",
+        "sourceUrl": "https://github.com/yomidevs/jmdict-yomitan",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "redistribution": "allowed",
+        "reviewNote": "The generated dictionaries are published by jmdict-yomitan under CC BY-SA 4.0."
+      },
+      "distribution": {
+        "state": "source-only"
+      }
+    },
+    {
+      "id": "kanjidic-es",
+      "title": "KANJIDIC (es)",
+      "format": "yomitan",
+      "version": "2026-07-23",
+      "categories": [
+        "kanji"
+      ],
+      "headwordLanguages": [
+        "ja"
+      ],
+      "definitionLanguages": [
+        "es"
+      ],
+      "source": {
+        "acquisitionId": "kanjidic-es",
+        "url": "https://github.com/yomidevs/jmdict-yomitan/releases/download/2026-07-23/KANJIDIC_spanish.zip",
+        "projectUrl": "https://github.com/yomidevs/jmdict-yomitan",
+        "catalogueSection": "Japanese / Kanji / KANJIDIC"
+      },
+      "license": {
+        "spdx": "CC-BY-SA-4.0",
+        "attribution": "Electronic Dictionary Research and Development Group (EDRDG) and jmdict-yomitan contributors",
+        "sourceUrl": "https://github.com/yomidevs/jmdict-yomitan",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "redistribution": "allowed",
+        "reviewNote": "The generated dictionaries are published by jmdict-yomitan under CC BY-SA 4.0."
+      },
+      "distribution": {
+        "state": "source-only"
+      }
+    }
+  ]
+}

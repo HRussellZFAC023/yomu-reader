@@ -4,7 +4,7 @@ import { yomuKanjiStudyCompanion } from '../companions/registry';
 import type { GrammarHint } from './tools';
 import type { InterfaceLanguage } from '../app/types';
 
-export async function renderStudyToolResult(button: HTMLButtonElement, action: string, sentence?: string, grammarHints?: GrammarHint[], language: InterfaceLanguage = 'en', options: { audioEnabled?: boolean } = {}): Promise<void> {
+export async function renderStudyToolResult(button: HTMLButtonElement, action: string, sentence?: string, grammarHints?: GrammarHint[], language: InterfaceLanguage = 'en', options: { audioEnabled?: boolean; translationLanguage?: string } = {}): Promise<void> {
     await yomuKanjiStudyCompanion()?.renderStudyToolResult?.(button, action, sentence, grammarHints, language, options);
 }
 

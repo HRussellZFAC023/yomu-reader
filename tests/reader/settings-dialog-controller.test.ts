@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { createAudioPreviewCard } from '../../src/reader/cards/utils';
 import { SETTINGS_CHANGE_EVENT } from '../../src/reader/app/constants';
+import { recommendedDictionariesForLearnerLanguage } from '../../src/reader/dictionaries/recommended';
+import { normalizeReaderSettings } from '../../src/reader/settings';
 import { testEnSettings } from './helpers/settings-fixture';
 import type { SettingsDialogController as SettingsDialogControllerInstance } from '../../src/reader/settings/dialog-controller';
 
@@ -19,7 +21,6 @@ vi.mock('../../src/reader/anki/transport', async importOriginal => {
         diagnoseAnkiConnectFailure: vi.fn(async () => 'unreachable' as const),
     };
 });
-
 vi.mock('../../src/reader/settings/form', async importOriginal => {
     const actual = await importOriginal<typeof import('../../src/reader/settings/form')>();
     return {
@@ -1578,6 +1579,46 @@ describe('settings dialog dictionary imports', () => {
         expect(dialog.form.querySelector<HTMLElement>('[data-dictionary-status]')?.textContent).toContain('terms 42');
     });
 
+    it('keeps the active and unsaved learner language through dictionary refreshes', async () => {
+        const baseProfile = DEFAULT_SETTINGS.languageProfiles[0]!;
+        let settings: ReaderSettings = {
+            ...DEFAULT_SETTINGS,
+            languageProfiles: [{ ...baseProfile, learnerLanguage: 'ko' }],
+            activeLanguageProfileId: baseProfile.id,
+        };
+        const summary = vi.fn().mockResolvedValue({
+            dictionaries: [],
+            terms: 0,
+            kanji: 0,
+            termMeta: 0,
+            kanjiMeta: 0,
+        });
+        const { form } = createSettingsDialog({
+            getSettings: () => settings,
+            setSettings: (next: ReaderSettings) => { settings = next; },
+            dictionaries: {
+                summary,
+                // Presence keeps the helper's first open-time refresh deferred
+                // while allowing the language-change refresh to run for real.
+                importFromUrl: vi.fn(),
+            },
+        });
+
+        expect(form.querySelector('[data-catalog-recommendation-seed="ko"]')).not.toBeNull();
+        expect(form.querySelector('[data-catalog-recommendation="jmdict-en"]')?.getAttribute('data-translation-mode')).toBe('offer');
+
+        const learnerLanguage = form.querySelector<HTMLSelectElement>('select[name="learnerLanguage"]')!;
+        learnerLanguage.value = 'de';
+        learnerLanguage.dispatchEvent(new Event('change', { bubbles: true }));
+
+        await waitForCondition(() =>
+            form.querySelector('[data-catalog-recommendation-seed="de"]') !== null);
+
+        expect(form.querySelector('[data-catalog-recommendation="jmdict-de"]')?.getAttribute('data-translation-mode')).toBe('off');
+        expect(form.querySelector('[data-dictionary-id="jitendex"]')).not.toBeNull();
+        expect(summary).toHaveBeenCalled();
+    });
+
     it('queues recommended dictionary installs and blocks Save until the queue finishes', async () => {
         const firstImport = deferred<ImportSummary>();
         const secondImport = deferred<ImportSummary>();
@@ -1601,6 +1642,7 @@ describe('settings dialog dictionary imports', () => {
         recommendedButton(form, 'jmdict').click();
 
         await waitForCondition(() => importFromUrl.mock.calls.length === 1);
+        expect(importFromUrl.mock.calls[0]?.[3]).toBeUndefined();
 
         expect(recommendedButton(form, 'jitendex').dataset.importState).toBe('installing');
         expect(recommendedStatus(form, 'jitendex').textContent).toContain('Reading dictionary ZIP');
@@ -1630,6 +1672,64 @@ describe('settings dialog dictionary imports', () => {
         expect(form.querySelector<HTMLElement>('[data-settings-save-status]')?.hidden).toBe(true);
         expect(form.querySelector<HTMLButtonElement>('button[type="submit"]')?.textContent).toBe('Save');
     }, 30_000);
+
+    it('verifies a catalogue download and atomically enables it in the active profile', async () => {
+        const recommendation = recommendedDictionariesForLearnerLanguage('ko')[0]!;
+        const profile = {
+            ...DEFAULT_SETTINGS.languageProfiles[0]!,
+            learnerLanguage: 'ko',
+            dictionaries: {
+                installed: ['Existing Korean dictionary'],
+                enabled: ['Existing Korean dictionary'],
+                order: ['Existing Korean dictionary'],
+            },
+        };
+        let settings: ReaderSettings = {
+            ...DEFAULT_SETTINGS,
+            activeLanguageProfileId: profile.id,
+            languageProfiles: [profile],
+            dictionaryPreferences: [{
+                name: 'Existing Korean dictionary',
+                alias: 'Existing Korean dictionary',
+                enabled: true,
+                priority: 0,
+                type: 'terms',
+            }],
+        };
+        const importedTitle = 'JMdict [2026-07-23]';
+        const importFromUrl = vi.fn().mockResolvedValue(importSummary(importedTitle));
+        const { form } = createSettingsDialog({
+            getSettings: () => settings,
+            setSettings: (next: ReaderSettings) => { settings = next; },
+            dictionaries: {
+                summary: vi.fn().mockResolvedValue({ dictionaries: [], terms: 0, kanji: 0, termMeta: 0 }),
+                importFromUrl,
+            },
+        });
+
+        recommendedButton(form, recommendation.id).click();
+        await waitForCondition(() =>
+            settings.languageProfiles[0]?.dictionaries.enabled.includes(importedTitle) === true);
+
+        expect(importFromUrl).toHaveBeenCalledWith(
+            recommendation.downloadUrl,
+            expect.any(String),
+            expect.any(Function),
+            {
+                integrity: {
+                    sha256: recommendation.sha256,
+                    bytes: recommendation.bytes,
+                },
+            },
+        );
+        expect(settings.languageProfiles[0]?.dictionaries).toEqual({
+            installed: ['Existing Korean dictionary', importedTitle],
+            enabled: ['Existing Korean dictionary', importedTitle],
+            order: ['Existing Korean dictionary', importedTitle],
+        });
+        expect(normalizeReaderSettings(settings).dictionaryPreferences
+            .find(preference => preference.name === importedTitle)?.enabled).toBe(true);
+    });
 
     it('shows a toast when a recommended dictionary install fails', async () => {
         const importFromUrl = vi.fn().mockRejectedValue(new Error('Could not remove old dictionary entries.'));

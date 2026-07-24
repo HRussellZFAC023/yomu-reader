@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "revision": "2026-07-23.574961e8",
+  "capturedAt": "2026-07-23T00:00:00.000Z",
+  "catalogueRepository": "https://github.com/MarvNC/yomitan-dictionaries",
+  "catalogueCommit": "574961e823e33fb36b6b86778a0d6b606af29c25",
+  "catalogueFile": "readme.md",
+  "driveFolderUrl": "https://drive.google.com/drive/folders/1LXMIOoaWASIntlx1w08njNU005lS5lez",
+  "driveInventoryEvidence": {
+    "japanese": {
+      "files": 97,
+      "folders": 1,
+      "bytes": 3645369796
+    },
+    "mandarin": {
+      "files": 38,
+      "folders": 2,
+      "bytes": 543233673
+    },
+    "cantonese": {
+      "files": 10,
+      "folders": 0,
+      "bytes": 38023871
+    },
+    "starterPack": {
+      "files": 18,
+      "deduplication": "Skip the starter-pack folder because its objects are already represented by the Japanese collection."
+    }
+  },
+  "rosterDecision": {
+    "count": 32,
+    "targetLanguage": "ja",
+    "excluded": [
+      {
+        "tag": "sga",
+        "name": "Old Irish",
+        "reason": "Absent from the frozen catalogue inventory."
+      }
+    ]
+  },
+  "dictionaryInventoryDecision": {
+    "expectedUniqueEntries": 173,
+    "starterPackPolicy": "Deduplicate starter-pack archives already present in the Japanese collection by content hash."
+  }
+}

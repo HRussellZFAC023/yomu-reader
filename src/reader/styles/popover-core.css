@@ -454,6 +454,19 @@
   padding: 8px 10px;
   font: 750 14px/1.2 var(--jpdb-reader-font);
 }
+.jpdb-reader-onboarding-target-language output {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 42px;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 8px;
+  background: var(--jpdb-reader-surface-2);
+  color: var(--jpdb-reader-text);
+  font: 750 14px/1.2 var(--jpdb-reader-font);
+}
 .jpdb-reader-onboarding-theme {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;

@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.7.2] - 2026-07-24
+
+### Added
+
+- Reader language profiles now separate the learner's definition language, the English/Japanese interface, and the fixed Japanese Slice 1 target. Onboarding and Settings expose exactly 32 definition languages with explicit Simplified Chinese, Traditional Cantonese, Latin-script Serbo-Croatian, and Tagalog runtime identities.
+- Settings recommends a native-language Japanese dictionary where the frozen catalogue has one and an explicit English fallback otherwise. The published catalogue contains 186 entries backed by 167 immutable SHA-256 objects, with a ready recommendation manifest for every Slice 1 language.
+- Non-native local, Jiten, JPDB, Bunpro, and WaniKani definitions can be translated automatically per source. Translation is off by default, sends only selected definition or gloss text to Google Translate, appears before the untouched original, and fails without hiding the source definition. Personal WaniKani notes, mnemonics, readings, account state, and controls are excluded. Ancient Greek keeps its dictionaries and original definitions without offering Google's unavailable target.
+
+### Changed
+
+- Sentence translation now follows the active learner/definition language instead of treating the English/Japanese interface choice as the translation target. Subtitle translation respects the language chosen for the translated track instead of forcing English.
+
 ## [1.7.1] - 2026-07-23
 
 ### Changed

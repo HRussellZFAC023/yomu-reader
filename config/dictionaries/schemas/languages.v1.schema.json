@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dictionaries.yomureader.com/schemas/languages.v1.schema.json",
+  "title": "Yomu Slice 1 language roster v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "revision",
+    "generatedAt",
+    "targetLanguage",
+    "count",
+    "languages"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "revision": { "type": "string", "minLength": 1 },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "targetLanguage": { "const": "ja" },
+    "count": { "const": 32 },
+    "languages": {
+      "type": "array",
+      "minItems": 32,
+      "maxItems": 32,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "tag",
+          "englishName",
+          "nativeName",
+          "direction",
+          "targetLanguage",
+          "status",
+          "catalogueEvidence"
+        ],
+        "properties": {
+          "tag": {
+            "enum": [
+              "sq",
+              "grc",
+              "ar",
+              "yue",
+              "zh",
+              "da",
+              "nl",
+              "en",
+              "fi",
+              "fr",
+              "de",
+              "el",
+              "hu",
+              "id",
+              "it",
+              "km",
+              "ko",
+              "lo",
+              "la",
+              "mn",
+              "fa",
+              "pl",
+              "pt",
+              "ro",
+              "ru",
+              "sh",
+              "es",
+              "sv",
+              "tl",
+              "th",
+              "tr",
+              "vi"
+            ]
+          },
+          "englishName": { "type": "string", "minLength": 1 },
+          "nativeName": { "type": "string", "minLength": 1 },
+          "direction": { "enum": ["ltr", "rtl"] },
+          "defaultScript": { "type": "string", "pattern": "^[A-Z][a-z]{3}$" },
+          "targetLanguage": { "const": "ja" },
+          "status": { "const": "slice1" },
+          "catalogueEvidence": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    }
+  }
+}
+

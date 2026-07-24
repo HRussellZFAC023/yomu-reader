@@ -1,0 +1,171 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dictionaries.yomureader.com/schemas/catalog.v1.schema.json",
+  "title": "Yomu dictionary catalogue v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "revision",
+    "generatedAt",
+    "targetLanguage",
+    "objectsBaseUrl",
+    "sourceSnapshot",
+    "entries"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "revision": { "type": "string", "minLength": 1 },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "targetLanguage": { "const": "ja" },
+    "objectsBaseUrl": { "type": "string", "format": "uri", "pattern": "^https://" },
+    "sourceSnapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "catalogueRepository",
+        "catalogueCommit",
+        "catalogueFile",
+        "driveFolderUrl",
+        "capturedAt"
+      ],
+      "properties": {
+        "catalogueRepository": { "type": "string", "format": "uri", "pattern": "^https://" },
+        "catalogueCommit": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+        "catalogueFile": { "type": "string", "minLength": 1 },
+        "driveFolderUrl": { "type": "string", "format": "uri", "pattern": "^https://" },
+        "capturedAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "entries": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/catalogueEntry" }
+    }
+  },
+  "$defs": {
+    "languageTag": {
+      "type": "string",
+      "pattern": "^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$"
+    },
+    "catalogueEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "title",
+        "format",
+        "version",
+        "categories",
+        "headwordLanguages",
+        "definitionLanguages",
+        "source",
+        "license",
+        "distribution"
+      ],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+        "title": { "type": "string", "minLength": 1 },
+        "format": { "const": "yomitan" },
+        "version": { "type": "string", "minLength": 1 },
+        "categories": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "terms",
+              "names",
+              "grammar",
+              "kanji",
+              "frequency",
+              "pronunciation",
+              "examples",
+              "thesaurus",
+              "encyclopedia",
+              "utility"
+            ]
+          }
+        },
+        "headwordLanguages": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/languageTag" }
+        },
+        "definitionLanguages": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/languageTag" }
+        },
+        "source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["acquisitionId", "url"],
+          "properties": {
+            "acquisitionId": { "type": "string", "minLength": 1 },
+            "url": { "type": "string", "format": "uri", "pattern": "^https://" },
+            "projectUrl": { "type": "string", "format": "uri", "pattern": "^https://" },
+            "catalogueSection": { "type": "string", "minLength": 1 }
+          }
+        },
+        "license": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["spdx", "attribution", "sourceUrl", "redistribution"],
+          "properties": {
+            "spdx": { "type": ["string", "null"] },
+            "attribution": { "type": "string", "minLength": 1 },
+            "sourceUrl": { "type": "string", "format": "uri", "pattern": "^https://" },
+            "licenseUrl": { "type": "string", "format": "uri", "pattern": "^https://" },
+            "redistribution": { "enum": ["allowed", "pending", "blocked"] },
+            "reviewNote": { "type": "string", "minLength": 1 }
+          }
+        },
+        "distribution": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["state"],
+              "properties": { "state": { "const": "source-only" } }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["state", "reason"],
+              "properties": {
+                "state": { "const": "blocked" },
+                "reason": { "type": "string", "minLength": 1 }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["state", "object"],
+              "properties": {
+                "state": { "const": "published" },
+                "object": { "$ref": "#/$defs/dictionaryObject" }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "dictionaryObject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "sha256", "bytes", "contentType"],
+      "properties": {
+        "key": {
+          "type": "string",
+          "pattern": "^objects/sha256/[a-f0-9]{64}\\.zip$"
+        },
+        "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "bytes": { "type": "integer", "minimum": 1 },
+        "contentType": { "const": "application/zip" }
+      }
+    }
+  }
+}
+

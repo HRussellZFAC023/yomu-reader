@@ -11,14 +11,20 @@ import { configureLogger, Logger, loggingSettingsSummary } from '../app/logger';
 import { clearNewTabOfflineCache } from '../newtab/cache';
 import { requestJson } from '../network/http';
 import { compareYomuVersions, CURRENT_YOMU_VERSION, latestYomuVersionFromVersionJson } from '../app/version';
-import { RECOMMENDED_JAPANESE_DICTIONARIES, findRecommendedDictionary } from '../dictionaries/recommended';
+import {
+    findRecommendedDictionary,
+    recommendedDictionaryImportOptions,
+    type RecommendedDictionary,
+} from '../dictionaries/recommended';
 import { installSettingsDrawerHandle } from '../popup/shell';
 import { mergeDictionaryPreferences, normalizeReaderSettings, retireStaleDictionaryPreferences, saveSettings } from './index';
+import { captureActiveLanguageProfileDictionaries } from './dictionary';
 import { effectiveJpdbApiKey, effectiveWanikaniApiToken, hasJitenApiCredential, mergeApiCredentialValues } from './api-credential';
 import { WanikaniClient } from '../wanikani/wanikani';
 import { exportManagedStoredValues, gmStorageDelete, gmStorageGet, gmStorageSet, importStoredValues } from '../app/storage';
 import {
     activateSettingsPanel,
+    activeLearnerLanguageId,
     applySettingsSearch,
     ankiStatusLineForSettings,
     getFormInterfaceLanguage,
@@ -62,6 +68,7 @@ import { CLOUD_SETTINGS_SYNC_ENABLED, cloudSettingsAuthRedirectResult, cloudSett
 import { dateStamp, downloadBlob, getReaderDictionaryExport, getReaderSettingsExport, pickFile, readerDictionaryExportHasData, recommendedDictionaryFilename } from './file-io';
 import type { AnkiLibraryScanResult } from '../anki/types';
 import type { AnkiFieldMappingRole, InterfaceLanguage, ReaderSettings } from '../app/types';
+import { isLearnerLanguageId, type LearnerLanguageId } from '../locales';
 import { formatUiText, uiText } from '../app/i18n';
 import { YomitanDictionaryStore, parseYomitanSettingsExport, type ImportSummary } from '../dictionaries/yomitan';
 import { dispatchWindowEvent, createWindowCustomEvent } from '../platform/window-events';
@@ -82,7 +89,6 @@ import {
 interface Refreshable {
     refresh: () => void;
 }
-
 interface SettingsDialogDependencies {
     getSettings: () => ReaderSettings;
     // `transient` marks a temporary form-derived swap (Anki probes, audio
@@ -137,7 +143,6 @@ function isSettingsCommandWord(word: HTMLElement): boolean {
     return Boolean(word.closest('a[href],button,[role="button"],[role="link"],[role="menuitem"],[role="option"],[role="tab"],[data-action]'));
 }
 
-type RecommendedDictionary = (typeof RECOMMENDED_JAPANESE_DICTIONARIES)[number];
 type RecommendedDictionaryInstallState = 'queued' | 'installing';
 type ModalSiblingState = Array<{ element: HTMLElement; ariaHidden: string | null; inert: boolean }>;
 type AnkiScanSelectableInput = HTMLInputElement | HTMLSelectElement;
@@ -514,11 +519,21 @@ function dictionaryStatusElements(form: HTMLFormElement): DictionaryStatusElemen
     };
 }
 
-function renderDictionaryStatusElements(elements: DictionaryStatusElements, summary: DictionarySummary, settings: ReaderSettings): void {
+function renderDictionaryStatusElements(
+    elements: DictionaryStatusElements,
+    summary: DictionarySummary,
+    settings: ReaderSettings,
+    learnerLanguage: LearnerLanguageId,
+): void {
     if (elements.status) elements.status.textContent = dictionaryStatusText(summary, settings.interfaceLanguage);
     if (elements.priorities) setInnerHtml(elements.priorities, renderDictionarySourceRows(settings));
     if (elements.lookupPills) setInnerHtml(elements.lookupPills, renderLookupPillsEditor(settings, summary.dictionaries));
-    if (elements.recommended) setInnerHtml(elements.recommended, renderRecommendedDictionaries(summary.dictionaries));
+    if (elements.recommended) setInnerHtml(elements.recommended, renderRecommendedDictionaries(summary.dictionaries, learnerLanguage));
+}
+
+function selectedLearnerLanguage(form: HTMLFormElement, settings: ReaderSettings): LearnerLanguageId {
+    const value = form.querySelector<HTMLSelectElement>('select[name="learnerLanguage"]')?.value;
+    return value && isLearnerLanguageId(value) ? value : activeLearnerLanguageId(settings);
 }
 
 function dictionaryStatusText(summary: DictionarySummary, language: InterfaceLanguage): string {
@@ -947,6 +962,9 @@ export class SettingsDialogController {
             if (this.isAnkiModelControl(event.target)) this.renderAnkiFieldMappingEditor(form);
             if (this.isSubtitleControl(event.target)) syncSubtitlePreview(form);
             if (this.isColorSourceControl(event.target) || this.isReaderDisplayControl(event.target)) applyThemePreview();
+        });
+        form.querySelector<HTMLSelectElement>('select[name="learnerLanguage"]')?.addEventListener('change', () => {
+            void this.refreshDictionaryStatus(form);
         });
         this.bindAppearancePresets(form, applyThemePreview);
         form.querySelector<HTMLSelectElement>('select[name="popupMode"]')?.addEventListener('change', () => syncStickyBottomSheetAvailability(form));
@@ -1520,7 +1538,12 @@ export class SettingsDialogController {
     private async applyDictionaryStatus(form: HTMLFormElement, elements: DictionaryStatusElements, summary: DictionarySummary): Promise<void> {
         await this.mergeDictionaryPreferencesFromSummary(summary);
         await this.dependencies.refreshDictionaryStyles();
-        renderDictionaryStatusElements(elements, summary, this.settings);
+        renderDictionaryStatusElements(
+            elements,
+            summary,
+            this.settings,
+            selectedLearnerLanguage(form, this.settings),
+        );
         localizeSettingsForm(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
         this.syncRecommendedDictionaryInstallControls(form);
         this.syncDictionaryOperationState(form);
@@ -2342,8 +2365,16 @@ export class SettingsDialogController {
     }
 
     private async persistDictionaryImport(summary: ImportSummary): Promise<void> {
-        this.settings.dictionaryPreferences = mergeDictionaryPreferences(this.settings.dictionaryPreferences, summary.dictionaries, summary.dictionaryTypes ?? {}, summary.replacedDictionaries ?? []);
-        this.settings.localDictionariesEnabled = true;
+        const dictionaryPreferences = mergeDictionaryPreferences(
+            this.settings.dictionaryPreferences,
+            summary.dictionaries,
+            summary.dictionaryTypes ?? {},
+            summary.replacedDictionaries ?? [],
+        );
+        this.settings = captureActiveLanguageProfileDictionaries(
+            { ...this.settings, localDictionariesEnabled: true },
+            dictionaryPreferences,
+        );
         await saveSettings(this.settings);
         await this.dependencies.refreshDictionaryStyles();
         this.dependencies.scheduleDictionaryRescan();
@@ -2357,7 +2388,19 @@ export class SettingsDialogController {
         if (!dictionary.downloadUrl) return null;
         const downloadUrl = dictionary.downloadUrl;
         try {
-            return await this.dependencies.dictionaries.importFromUrl(downloadUrl, recommendedDictionaryFilename(dictionary), message => setStatus(message));
+            const importOptions = recommendedDictionaryImportOptions(dictionary);
+            return importOptions
+                ? await this.dependencies.dictionaries.importFromUrl(
+                    downloadUrl,
+                    recommendedDictionaryFilename(dictionary),
+                    message => setStatus(message),
+                    importOptions,
+                )
+                : await this.dependencies.dictionaries.importFromUrl(
+                    downloadUrl,
+                    recommendedDictionaryFilename(dictionary),
+                    message => setStatus(message),
+                );
         } catch (error) {
             return this.handleRecommendedDictionaryDownloadError(dictionary, downloadUrl, control, setStatus, error);
         }

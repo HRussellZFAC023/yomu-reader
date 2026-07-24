@@ -1,6 +1,7 @@
 import { Logger } from '../app/logger';
 import { gmStorageDelete, gmStorageGet, gmStorageSet } from '../app/storage';
 import { yomitanDictionaryIdentity } from './yomitan/zip-normalize';
+import type { DictionaryImportIntegrity } from './yomitan/types';
 
 const log = Logger.scope('DictionaryArchiveCache');
 
@@ -24,23 +25,27 @@ export interface DictionaryArchiveMeta {
     title: string;
     filename: string;
     downloadUrl?: string;
+    sha256?: string;
     size: number;
     chunkCount: number;
 }
 
 export type DictionaryArchiveIndex = Record<string, DictionaryArchiveMeta>;
 
+interface DictionaryArchiveInput {
+    title: string;
+    filename: string;
+    downloadUrl?: string;
+    file?: Blob;
+    integrity?: DictionaryImportIntegrity;
+}
+
 export async function listDictionaryArchives(): Promise<DictionaryArchiveIndex> {
     const index = await gmStorageGet<DictionaryArchiveIndex | null>(ARCHIVE_INDEX_KEY, null);
     return index && typeof index === 'object' ? index : {};
 }
 
-export async function persistDictionaryArchive(input: {
-    title: string;
-    filename: string;
-    downloadUrl?: string;
-    file?: Blob;
-}): Promise<void> {
+export async function persistDictionaryArchive(input: DictionaryArchiveInput): Promise<void> {
     const identity = yomitanDictionaryIdentity(input.title);
     try {
         const previous = (await listDictionaryArchives())[identity];
@@ -86,9 +91,16 @@ export async function deleteDictionaryArchive(title: string): Promise<void> {
     log.info('Dictionary archive deleted', { identity });
 }
 
-async function writeArchivePayload(identity: string, input: { title: string; filename: string; downloadUrl?: string; file?: Blob }): Promise<DictionaryArchiveMeta | null> {
+async function writeArchivePayload(identity: string, input: DictionaryArchiveInput): Promise<DictionaryArchiveMeta | null> {
     if (input.downloadUrl) {
-        return { title: input.title, filename: input.filename, downloadUrl: input.downloadUrl, size: input.file?.size ?? 0, chunkCount: 0 };
+        return {
+            title: input.title,
+            filename: input.filename,
+            downloadUrl: input.downloadUrl,
+            ...(input.integrity?.sha256 ? { sha256: input.integrity.sha256 } : {}),
+            size: input.integrity?.bytes ?? input.file?.size ?? 0,
+            chunkCount: 0,
+        };
     }
     if (!input.file) return null;
     if (input.file.size > MAX_ARCHIVE_BYTES) {
@@ -101,7 +113,13 @@ async function writeArchivePayload(identity: string, input: { title: string; fil
         const slice = bytes.subarray(chunk * ARCHIVE_CHUNK_BYTES, (chunk + 1) * ARCHIVE_CHUNK_BYTES);
         await gmStorageSet(archiveChunkKey(identity, chunk), bytesToBase64(slice));
     }
-    return { title: input.title, filename: input.filename, size: bytes.length, chunkCount };
+    return {
+        title: input.title,
+        filename: input.filename,
+        ...(input.integrity?.sha256 ? { sha256: input.integrity.sha256 } : {}),
+        size: bytes.length,
+        chunkCount,
+    };
 }
 
 async function updateArchiveIndex(update: (index: DictionaryArchiveIndex) => DictionaryArchiveIndex): Promise<void> {

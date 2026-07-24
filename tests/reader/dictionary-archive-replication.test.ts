@@ -83,6 +83,23 @@ describe('dictionary archive cache', () => {
         expect(await readDictionaryArchiveFile('kanjium pitch')).toBeNull();
     });
 
+    it('keeps catalogue integrity metadata with a URL-only archive', async () => {
+        const sha256 = 'a'.repeat(64);
+        await persistDictionaryArchive({
+            title: 'JMdict [2026-07-23]',
+            filename: 'jmdict.zip',
+            downloadUrl: 'https://dictionaries.yomureader.com/objects/jmdict.zip',
+            integrity: { sha256, bytes: 123_456 },
+        });
+
+        expect((await listDictionaryArchives()).jmdict).toMatchObject({
+            downloadUrl: 'https://dictionaries.yomureader.com/objects/jmdict.zip',
+            sha256,
+            size: 123_456,
+            chunkCount: 0,
+        });
+    });
+
     it('deletes archives with their chunks', async () => {
         await persistDictionaryArchive({ title: 'Jitendex.org [2026-06-06]', filename: 'jitendex.zip', file: new Blob([new Uint8Array(1000)]) });
         await deleteDictionaryArchive('Jitendex.org [2026-06-06]');
@@ -199,6 +216,37 @@ describe('ensureLocalDictionariesReplicated', () => {
         });
         expect(imported).toEqual(['Kanjium Pitch']);
         expect(importFromUrl).toHaveBeenCalledWith('https://example.test/kanjium.zip', 'kanjium.zip', undefined, { persistArchive: false });
+    });
+
+    it('reapplies catalogue integrity checks when a URL archive replicates to another origin', async () => {
+        const sha256 = 'b'.repeat(64);
+        await persistDictionaryArchive({
+            title: 'JMdict [2026-07-23]',
+            filename: 'jmdict.zip',
+            downloadUrl: 'https://dictionaries.yomureader.com/objects/jmdict.zip',
+            integrity: { sha256, bytes: 654_321 },
+        });
+        const importFromUrl = vi.fn(async () => importSummary('JMdict [2026-07-23]'));
+
+        await ensureLocalDictionariesReplicated({
+            dictionaries: {
+                summary: async () => ({ dictionaries: [] }),
+                importFile: vi.fn(async () => importSummary('unused')),
+                importFromUrl,
+            },
+            getSettings: () => settingsWith([{ name: 'JMdict [2026-07-23]', enabled: true }]),
+            onReplicated: vi.fn(),
+        });
+
+        expect(importFromUrl).toHaveBeenCalledWith(
+            'https://dictionaries.yomureader.com/objects/jmdict.zip',
+            'jmdict.zip',
+            undefined,
+            {
+                persistArchive: false,
+                integrity: { sha256, bytes: 654_321 },
+            },
+        );
     });
 
     it('backs off an archive that keeps failing on this origin', async () => {

@@ -1,6 +1,17 @@
 export type SettingsDialogControllerClass = typeof import('../settings/dialog-controller').SettingsDialogController;
 export type SettingsDialogControllerInstance = InstanceType<SettingsDialogControllerClass>;
 export type OnboardingControllerClass = typeof import('../app/onboarding').OnboardingController;
+type InstallOfflineParsingDictionariesFn = typeof import('../dictionaries/offline-setup').installOfflineParsingDictionaries;
+type InstallDefinitionTranslationBehaviorsFn = typeof import('../sources/definition-translation').installDefinitionTranslationBehaviors;
+interface SettingsSelfEnhancementCompanion {
+    SETTINGS_PARSE_TARGET_LIMIT: typeof import('../lookup/nested-text-parse').SETTINGS_PARSE_TARGET_LIMIT;
+    nestedSettingsParseAlreadyRendered: typeof import('../lookup/nested-text-parse').nestedSettingsParseAlreadyRendered;
+    nestedSettingsTextParsePlan: typeof import('../lookup/nested-text-parse').nestedSettingsTextParsePlan;
+    parsedSettingsTargetsForCurrentPlan: typeof import('../lookup/settings-fallback-tokens').parsedSettingsTargetsForCurrentPlan;
+    supplementSettingsFallbackTokens: typeof import('../lookup/settings-fallback-tokens').supplementSettingsFallbackTokens;
+    addSettingsRubyFromRenderedReadings: typeof import('../lookup/settings-parse-render').addSettingsRubyFromRenderedReadings;
+    settingsForSettingsFormParse: typeof import('../lookup/settings-parse-render').settingsForSettingsFormParse;
+}
 export type SubtitlePlayerControllerClass = typeof import('../subtitles/controller').SubtitlePlayerController;
 export type SubtitlePlayerControllerInstance = InstanceType<SubtitlePlayerControllerClass>;
 export type YoutubeImmersionFilterClass = typeof import('../subtitles/youtube').YoutubeImmersionFilter;
@@ -107,6 +118,11 @@ interface YomuCompanionRegistry {
     settings?: {
         SettingsDialogController: SettingsDialogControllerClass;
         OnboardingController: OnboardingControllerClass;
+        // Multilingual catalogues and locale copy are intentionally owned by
+        // the settings companion so they do not enter the size-limited core.
+        installOfflineParsingDictionaries: InstallOfflineParsingDictionariesFn;
+        installDefinitionTranslationBehaviors: InstallDefinitionTranslationBehaviorsFn;
+        selfEnhancement: SettingsSelfEnhancementCompanion;
     };
     video?: {
         SubtitlePlayerController: SubtitlePlayerControllerClass;
@@ -211,6 +227,10 @@ export function yomuSettingsDialogController(): SettingsDialogControllerClass | 
 
 export function yomuOnboardingController(): OnboardingControllerClass | undefined {
     return yomuCompanions().settings?.OnboardingController;
+}
+
+export function yomuSettingsSurfaceCompanion(): NonNullable<YomuCompanionRegistry['settings']> | undefined {
+    return yomuCompanions().settings;
 }
 
 export function yomuAnkiCompanion(): NonNullable<YomuCompanionRegistry['anki']> | undefined {

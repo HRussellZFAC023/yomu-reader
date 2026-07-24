@@ -27,6 +27,7 @@ import type { JPDBCard, JPDBGrade, JPDBToken, ReaderSettings } from '../app/type
 import type { YomitanDictionaryStore } from '../dictionaries/yomitan';
 import type { YomuSrsAdapter } from '../srs';
 import type { GrammarHint } from '../study/tools';
+import { resolvedLearnerLanguage } from '../languages';
 
 interface ShowCardOptions {
     autoPlay?: boolean;
@@ -183,7 +184,10 @@ export class CardActionController {
 
     private async performStudyTool(button: HTMLButtonElement, action: string, sentence?: string): Promise<boolean> {
         const settings = this.options.getSettings();
-        await renderStudyToolResult(button, action, sentence, undefined, settings.interfaceLanguage, { audioEnabled: settings.audioEnabled });
+        await renderStudyToolResult(button, action, sentence, undefined, settings.interfaceLanguage, {
+            audioEnabled: settings.audioEnabled,
+            translationLanguage: resolvedLearnerLanguage(settings),
+        });
         void this.reparsePopoverJapanese(button);
         return false;
     }

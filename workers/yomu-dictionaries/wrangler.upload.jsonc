@@ -1,0 +1,17 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "yomu-dictionaries-uploader",
+  "main": "src/multipart-uploader.ts",
+  "compatibility_date": "2026-07-23",
+  "workers_dev": true,
+  "preview_urls": false,
+  "r2_buckets": [
+    {
+      "binding": "DICTIONARY_BUCKET",
+      "bucket_name": "yomu-dictionaries"
+    }
+  ],
+  "observability": {
+    "enabled": false
+  }
+}

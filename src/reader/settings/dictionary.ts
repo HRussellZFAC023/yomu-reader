@@ -1,5 +1,6 @@
 import { booleanValue, finiteNumber, hasOwn, objectRecord, stringValue } from './values';
 import { NEW_TAB_PAGE_URL } from '../app/constants';
+import { activeLanguageProfile } from '../languages';
 import { yomitanDictionaryIdentity } from '../dictionaries/yomitan/zip-normalize';
 import { IMMERSION_KIT_SEARCH_URL_TEMPLATE, NADESHIKO_SEARCH_URL_TEMPLATE } from '../immersion/search-links';
 import type { DictionaryLookupLink, DictionaryPreference, ReaderSettings } from '../app/types';
@@ -476,6 +477,33 @@ export function mergeDictionaryPreferences(current: DictionaryPreference[], name
         mergeDictionaryPreference(merged, name, types[name] ?? inferDictionaryTypeFromName(name), inherited.get(name));
     }
     return normalizeDictionaryPreferences([...merged.values()]);
+}
+
+/**
+ * Captures dictionary preferences and the active profile's dictionary snapshot
+ * in one settings value. Persisting only the root preferences lets profile
+ * normalization disable a newly imported dictionary when the profile already
+ * owns an independent snapshot.
+ */
+export function captureActiveLanguageProfileDictionaries(
+    settings: ReaderSettings,
+    dictionaryPreferences: ReaderSettings['dictionaryPreferences'],
+): ReaderSettings {
+    const active = activeLanguageProfile(settings.languageProfiles, settings.activeLanguageProfileId);
+    if (!active) return { ...settings, dictionaryPreferences };
+    const ordered = [...dictionaryPreferences].sort((left, right) => left.priority - right.priority);
+    const dictionaries = {
+        installed: ordered.map(preference => preference.name),
+        enabled: ordered.filter(preference => preference.enabled).map(preference => preference.name),
+        order: ordered.map(preference => preference.name),
+    };
+    return {
+        ...settings,
+        dictionaryPreferences,
+        languageProfiles: settings.languageProfiles.map(profile => profile.id === active.id
+            ? { ...profile, dictionaries }
+            : profile),
+    };
 }
 
 // Self-heal for installs that imported a newer dictionary revision before

@@ -1,0 +1,110 @@
+{
+  "schemaVersion": 1,
+  "snapshotRevision": "2026-07-23.574961e8",
+  "collections": [
+    {
+      "id": "marvnc-public-drive",
+      "method": "google-drive-folder",
+      "folderUrl": "https://drive.google.com/drive/folders/1LXMIOoaWASIntlx1w08njNU005lS5lez",
+      "recurse": true,
+      "includeExtensions": [".zip"],
+      "skipFolderNames": ["Japanese Dictionaries Starter Pack"],
+      "acquisitionReview": "allowed",
+      "redistributionReview": "allowed",
+      "note": "Redistribution rights are confirmed for the frozen collection. Publication still requires verified connector metadata, a valid Yomitan ZIP, and a matching content-addressed SHA-256 object."
+    }
+  ],
+  "sources": [
+    {
+      "id": "jmdict-nl",
+      "url": "https://github.com/yomidevs/jmdict-yomitan/releases/download/2026-07-23/JMdict_dutch.zip",
+      "filename": "JMdict_dutch.zip",
+      "acquisitionReview": "allowed",
+      "redistributionReview": "allowed"
+    },
+    {
+      "id": "jmdict-en",
+      "url": "https://github.com/yomidevs/jmdict-yomitan/releases/download/2026-07-23/JMdict_english.zip",
+      "filename": "JMdict_english.zip",
+      "acquisitionReview": "allowed",
+      "redistributionReview": "allowed"
+    },
+    {
+      "id": "jmdict-fr",
+      "url": "https://github.com/yomidevs/jmdict-yomitan/releases/download/2026-07-23/JMdict_french.zip",
+      "filename": "JMdict_french.zip",
+      "acquisitionReview": "allowed",
+      "redistributionReview": "allowed"
+    },
+    {
+      "id": "jmdict-de",
+      "url": "https://github.com/yomidevs/jmdict-yomitan/releases/download/2026-07-23/JMdict_german.zip",
+      "filename": "JMdict_german.zip",
+      "acquisitionReview": "allowed",
+      "redistributionReview": "allowed"
+    },
+    {
+      "id": "jmdict-hu",
+      "url": "https://github.com/yomidevs/jmdict-yomitan/releases/download/2026-07-23/JMdict_hungarian.zip",
+      "filename": "JMdict_hungarian.zip",
+      "acquisitionReview": "allowed",
+      "redistributionReview": "allowed"
+    },
+    {
+      "id": "jmdict-ru",
+      "url": "https://github.com/yomidevs/jmdict-yomitan/releases/download/2026-07-23/JMdict_russian.zip",
+      "filename": "JMdict_russian.zip",
+      "acquisitionReview": "allowed",
+      "redistributionReview": "allowed"
+    },
+    {
+      "id": "jmdict-es",
+      "url": "https://github.com/yomidevs/jmdict-yomitan/releases/download/2026-07-23/JMdict_spanish.zip",
+      "filename": "JMdict_spanish.zip",
+      "acquisitionReview": "allowed",
+      "redistributionReview": "allowed"
+    },
+    {
+      "id": "jmdict-sv",
+      "url": "https://github.com/yomidevs/jmdict-yomitan/releases/download/2026-07-23/JMdict_swedish.zip",
+      "filename": "JMdict_swedish.zip",
+      "acquisitionReview": "allowed",
+      "redistributionReview": "allowed"
+    },
+    {
+      "id": "jmnedict",
+      "url": "https://github.com/yomidevs/jmdict-yomitan/releases/download/2026-07-23/JMnedict.zip",
+      "filename": "JMnedict.zip",
+      "acquisitionReview": "allowed",
+      "redistributionReview": "allowed"
+    },
+    {
+      "id": "kanjidic-en",
+      "url": "https://github.com/yomidevs/jmdict-yomitan/releases/download/2026-07-23/KANJIDIC_english.zip",
+      "filename": "KANJIDIC_english.zip",
+      "acquisitionReview": "allowed",
+      "redistributionReview": "allowed"
+    },
+    {
+      "id": "kanjidic-fr",
+      "url": "https://github.com/yomidevs/jmdict-yomitan/releases/download/2026-07-23/KANJIDIC_french.zip",
+      "filename": "KANJIDIC_french.zip",
+      "acquisitionReview": "allowed",
+      "redistributionReview": "allowed"
+    },
+    {
+      "id": "kanjidic-pt",
+      "url": "https://github.com/yomidevs/jmdict-yomitan/releases/download/2026-07-23/KANJIDIC_portuguese.zip",
+      "filename": "KANJIDIC_portuguese.zip",
+      "acquisitionReview": "allowed",
+      "redistributionReview": "allowed"
+    },
+    {
+      "id": "kanjidic-es",
+      "url": "https://github.com/yomidevs/jmdict-yomitan/releases/download/2026-07-23/KANJIDIC_spanish.zip",
+      "filename": "KANJIDIC_spanish.zip",
+      "acquisitionReview": "allowed",
+      "redistributionReview": "allowed"
+    }
+  ]
+}

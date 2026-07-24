@@ -1,8 +1,6 @@
-import { pruneOldestCacheEntries } from '../core/cache-utils';
 import { DOCS_BASE_URL } from '../app/constants';
 import { escapeHtml } from '../dom';
 import { grammarRuleText, uiText, type UiCopyKey } from '../app/i18n';
-import { Logger } from '../app/logger';
 import { requestJson as requestReaderJson } from '../network/http';
 import {
     renderStudyEmpty,
@@ -17,8 +15,7 @@ import {
     setKnownGrammarVisible as persistKnownGrammarVisible,
 } from './grammar-knowledge';
 import { YOMU_GRAMMAR_REGISTRY } from './grammar-registry';
-
-const log = Logger.scope('StudyTools');
+import { translateText } from '../translation/google';
 
 export interface GrammarHint {
     ruleId: string;
@@ -90,7 +87,6 @@ const PARTICLE_CHUNK = String.raw`[^はがをにへとでもやのて、。！�
 const FORM_CHUNK = String.raw`[^はがをにへとでもやのてで、。！？!?\s]{0,24}`;
 const MAX_LOCAL_GRAMMAR_HINTS = 12;
 const GRAMMAR_HINT_CACHE_LIMIT = 240;
-const TRANSLATION_CACHE_LIMIT = 160;
 const TRANSLATION_TIMEOUT_MS = 5000;
 const GRAMMAR_RULE_DATA_TIMEOUT_MS = 15000;
 const EN_GRAMMAR_RULE_DATA_URL = `${DOCS_BASE_URL}data/en-grammar-rule-copy.json`;
@@ -123,8 +119,6 @@ function grammarPatternFromRule(rule: (typeof YOMU_GRAMMAR_REGISTRY)[number]): G
 
 const GRAMMAR_PATTERNS: GrammarPattern[] = YOMU_GRAMMAR_REGISTRY.map(grammarPatternFromRule);
 
-const translationCache = new Map<string, string>();
-const translationInFlight = new Map<string, Promise<string>>();
 const grammarHintCache = new Map<string, GrammarHint[]>();
 let grammarRuleDataPromise: Promise<Record<string, GrammarRuleData>> | undefined;
 
@@ -188,7 +182,7 @@ export function preloadGrammarResources(sentence: string, language: InterfaceLan
     return hints;
 }
 
-export function preloadJapaneseSentenceTranslation(sentence: string, language: InterfaceLanguage = 'en'): void {
+export function preloadJapaneseSentenceTranslation(sentence: string, language = 'en'): void {
     void translateJapaneseSentence(sentence, language).catch(() => undefined);
 }
 
@@ -282,50 +276,22 @@ export function isTranslatableJapaneseSentence(sentence: string): boolean {
     return japanese / dense >= 0.15;
 }
 
-export async function translateJapaneseSentence(sentence: string, language: InterfaceLanguage = 'en'): Promise<string> {
+export async function translateJapaneseSentence(sentence: string, language = 'en'): Promise<string> {
     const trimmed = sentence.trim();
     if (!trimmed || !isTranslatableJapaneseSentence(trimmed)) return '';
     const requestSentence = normalizeSentenceForTranslationRequest(trimmed);
     const targetLanguage = translationTargetLanguage(language);
-    const cacheKey = `${targetLanguage}:${requestSentence}`;
-    const cached = translationCache.get(cacheKey);
-    if (cached) {
-        return cached;
-    }
-    const inFlight = translationInFlight.get(cacheKey);
-    if (inFlight) {
-        return inFlight;
-    }
-    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=ja&tl=${targetLanguage}&dt=t&dt=bd&dj=1&q=${encodeURIComponent(requestSentence)}`;
-    const promise = (async () => {
-        const done = log.time('Translate sentence', { sentenceLength: trimmed.length });
-        try {
-            const json = await requestJson<GoogleTranslateResponse>(url);
-            const translated = (json.sentences ?? []).map(item => item.trans ?? '').join('').trim();
-            if (!translated) throw new Error('No translation returned.');
-            translationCache.set(cacheKey, translated);
-            pruneOldestCacheEntries(translationCache, TRANSLATION_CACHE_LIMIT);
-            log.info('Translation completed', { sentenceLength: trimmed.length, translationLength: translated.length });
-            return translated;
-        } catch (error) {
-            log.warn('Translation failed', { sentenceLength: trimmed.length, error });
-            throw error;
-        } finally {
-            done();
-        }
-    })();
-    translationInFlight.set(cacheKey, promise);
-    void promise.then(() => {
-        if (translationInFlight.get(cacheKey) === promise) translationInFlight.delete(cacheKey);
-    }, () => {
-        if (translationInFlight.get(cacheKey) === promise) translationInFlight.delete(cacheKey);
+    return translateText(requestSentence, {
+        sourceLanguage: 'ja',
+        targetLanguage,
+        timeoutMs: TRANSLATION_TIMEOUT_MS,
+        includeDictionaryData: true,
     });
-    return promise;
 }
 
-function translationTargetLanguage(_language: InterfaceLanguage): string {
+function translationTargetLanguage(language: InterfaceLanguage | string): string {
     // The source is Japanese; Japanese UI is immersion chrome, not a translation target.
-    return 'en';
+    return language === 'auto' || language === 'ja' ? 'en' : language;
 }
 
 function normalizeSentenceForTranslationRequest(sentence: string): string {
@@ -687,10 +653,6 @@ function normalizeGrammarExamples(value: unknown): GrammarExample[] {
 
 function isObjectRecord(value: unknown): value is Record<string, unknown> {
     return Boolean(value && typeof value === 'object' && !Array.isArray(value));
-}
-
-interface GoogleTranslateResponse {
-    sentences?: Array<{ trans?: string }>;
 }
 
 interface StudyJsonRequestOptions {

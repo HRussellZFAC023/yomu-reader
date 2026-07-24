@@ -10,6 +10,12 @@ import { cacheManagedValueForHostedStartup, gmStorageDelete, gmStorageGet, gmSto
 import { HOSTED_DEMO_SETTINGS_KEYS } from '../app/hosted-demo-settings';
 import { beginManagedStateReset, endManagedStateReset } from '../app/managed-state-registry';
 import { sharedContrastRatio, sharedMixHex } from '../core/color-math';
+import {
+    activeLanguageProfile,
+    createDefaultLanguageProfile,
+    DEFAULT_LANGUAGE_PROFILE_ID,
+    normalizeLanguageProfiles,
+} from '../languages/profiles';
 import type { AnkiTemplateMode, AudioAutoPlayMode, AudioSourceSetting, AudioSourceType, AudioTtsMode, FuriganaMode, ImmersionExampleSource, ImmersionKitCategory, ImmersionKitSort, InterfaceLanguage, NewTabStudyChallengeStep, OcrOverlayTheme, OcrProvider, ReaderColorSource, ReaderSettings } from '../app/types';
 export { formatShortcutEvent, matchesShortcut, shortcutIsPressed } from './shortcuts';
 export { COPY_LOOKUP_LINK, MAX_DICTIONARY_LOOKUP_LINKS, defaultDictionaryLookupLinks, mergeDictionaryPreferences, normalizeDictionaryLookupLinks, normalizeDictionaryPreferences, retireStaleDictionaryPreferences } from './dictionary';
@@ -283,6 +289,8 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     wanikaniApiToken: '',
     onboardingSeen: false,
     interfaceLanguage: 'en',
+    languageProfiles: [createDefaultLanguageProfile()],
+    activeLanguageProfileId: DEFAULT_LANGUAGE_PROFILE_ID,
     accentColor: DEFAULT_ACCENT_COLOR,
     wordColorNew: DEFAULT_WORD_COLORS.new,
     wordColorLearning: DEFAULT_WORD_COLORS.learning,
@@ -585,6 +593,13 @@ function mergeSettings(value: LegacyReaderSettings | null): ReaderSettings {
     const audio = normalizeAudioSettings(settingsValue);
     const supportedSettings = stripUnsupportedSettings(settingsValue);
     const apiCredentials = normalizeApiCredentialSettings(settingsValue);
+    const parserProvider = normalizeParserProvider(settingsValue);
+    const dictionaryPreferences = normalizeDictionaryPreferences(settingsValue?.dictionaryPreferences);
+    const languageProfileSettings = normalizeLanguageProfileSettings(
+        settingsValue,
+        parserProvider,
+        dictionaryPreferences,
+    );
     return {
         ...DEFAULT_SETTINGS,
         ...(supportedSettings ?? {}),
@@ -601,9 +616,8 @@ function mergeSettings(value: LegacyReaderSettings | null): ReaderSettings {
         ...normalizeMiningSettings(settingsValue),
         ...normalizeSourceAliasSettings(settingsValue),
         ...normalizeRemovedDictionarySettings(settingsValue),
-        dictionaryPreferences: normalizeDictionaryPreferences(settingsValue?.dictionaryPreferences),
         dictionaryLookupLinks: normalizeDictionaryLookupLinkSettings(settingsValue),
-        parserProvider: normalizeParserProvider(settingsValue),
+        ...languageProfileSettings,
         shortcuts: normalizeShortcutSettings(settingsValue),
     };
 }
@@ -619,6 +633,125 @@ function normalizeParserProvider(value: LegacyReaderSettings | null): ReaderSett
 
 export function normalizeReaderSettings(value: Partial<ReaderSettings> | null | undefined): ReaderSettings {
     return mergeSettings(value as LegacyReaderSettings | null);
+}
+
+function normalizeLanguageProfileSettings(
+    value: LegacyReaderSettings | null,
+    parserProvider: ReaderSettings['parserProvider'],
+    dictionaryPreferences: ReaderSettings['dictionaryPreferences'],
+): Pick<
+    ReaderSettings,
+    'languageProfiles' | 'activeLanguageProfileId' | 'parserProvider' | 'interfaceLanguage' | 'dictionaryPreferences'
+> {
+    const hasPersistedProfiles = Array.isArray(value?.languageProfiles)
+        && value.languageProfiles.some(profile => (
+            profile
+            && typeof profile === 'object'
+            && 'schemaVersion' in profile
+            && profile.schemaVersion === 1
+        ));
+    const normalized = normalizeLanguageProfiles(
+        value?.languageProfiles,
+        value?.activeLanguageProfileId,
+        {
+            // Existing Japanese UI users are not necessarily native Japanese
+            // speakers. Preserve their UI choice but default the new learner
+            // language independently to English until onboarding asks.
+            learnerLanguage: 'en',
+            uiLocale: value?.interfaceLanguage ?? DEFAULT_SETTINGS.interfaceLanguage,
+            parserProvider,
+        },
+    );
+    const active = activeLanguageProfile(normalized.profiles, normalized.activeProfileId);
+    if (!active) {
+        return {
+            languageProfiles: normalized.profiles,
+            activeLanguageProfileId: normalized.activeProfileId,
+            parserProvider,
+            interfaceLanguage: value?.interfaceLanguage ?? DEFAULT_SETTINGS.interfaceLanguage,
+            dictionaryPreferences,
+        };
+    }
+    const profilesAreAuthoritative = hasPersistedProfiles
+        && normalized.profiles.some(languageProfileHasIndependentState);
+    if (!profilesAreAuthoritative) {
+        active.parserProvider = parserProvider;
+        active.uiLocale = normalizeInterfaceLanguage(value?.interfaceLanguage);
+        active.dictionaries = languageProfileDictionariesFromPreferences(dictionaryPreferences);
+    }
+    return {
+        languageProfiles: normalized.profiles,
+        activeLanguageProfileId: normalized.activeProfileId,
+        parserProvider: active.parserProvider,
+        interfaceLanguage: profileInterfaceLanguage(active.uiLocale, value?.interfaceLanguage),
+        dictionaryPreferences: profilesAreAuthoritative
+            ? dictionaryPreferencesForLanguageProfile(dictionaryPreferences, active.dictionaries)
+            : dictionaryPreferences,
+    };
+}
+
+function languageProfileHasIndependentState(
+    profile: ReaderSettings['languageProfiles'][number],
+): boolean {
+    return profile.id !== DEFAULT_LANGUAGE_PROFILE_ID
+        || profile.learnerLanguage !== 'en'
+        || profile.targetLanguage !== 'ja'
+        || profile.uiLocale !== DEFAULT_SETTINGS.interfaceLanguage
+        || profile.parserProvider !== DEFAULT_SETTINGS.parserProvider
+        || profile.dictionaries.installed.length > 0
+        || profile.definitionTranslationProviderIds.length > 0;
+}
+
+function languageProfileDictionariesFromPreferences(
+    preferences: ReaderSettings['dictionaryPreferences'],
+): ReaderSettings['languageProfiles'][number]['dictionaries'] {
+    const ordered = [...preferences].sort((left, right) => left.priority - right.priority);
+    return {
+        installed: ordered.map(preference => preference.name),
+        enabled: ordered.filter(preference => preference.enabled).map(preference => preference.name),
+        order: ordered.map(preference => preference.name),
+    };
+}
+
+function dictionaryPreferencesForLanguageProfile(
+    preferences: ReaderSettings['dictionaryPreferences'],
+    dictionaries: ReaderSettings['languageProfiles'][number]['dictionaries'],
+): ReaderSettings['dictionaryPreferences'] {
+    // Empty is the migration/uninitialized state. A profile becomes
+    // authoritative as soon as it has captured at least one installed
+    // dictionary; this avoids disabling a dictionary imported by an older
+    // client before profile-aware persistence existed.
+    if (!dictionaries.installed.length) return preferences;
+    const installed = new Set(dictionaries.installed.map(normalizedProfileDictionaryId));
+    const enabled = new Set(dictionaries.enabled.map(normalizedProfileDictionaryId));
+    const order = new Map(
+        dictionaries.order.map((id, index) => [normalizedProfileDictionaryId(id), index]),
+    );
+    return preferences
+        .map((preference, index) => {
+            const key = normalizedProfileDictionaryId(preference.name);
+            return {
+                ...preference,
+                enabled: installed.has(key) && enabled.has(key),
+                priority: order.get(key) ?? dictionaries.order.length + index,
+            };
+        })
+        .sort((left, right) => left.priority - right.priority || left.name.localeCompare(right.name));
+}
+
+function normalizedProfileDictionaryId(value: string): string {
+    return value.normalize('NFKC').trim().toLocaleLowerCase('en-US');
+}
+
+function profileInterfaceLanguage(
+    value: ReaderSettings['languageProfiles'][number]['uiLocale'],
+    fallback: ReaderSettings['interfaceLanguage'] | undefined,
+): ReaderSettings['interfaceLanguage'] {
+    return value === 'auto' || value === 'en' || value === 'ja'
+        ? value
+        : fallback === 'auto' || fallback === 'en' || fallback === 'ja'
+            ? fallback
+            : DEFAULT_SETTINGS.interfaceLanguage;
 }
 
 function normalizeApiCredentialSettings(value: LegacyReaderSettings | null | undefined): Pick<ReaderSettings, 'apiKey' | 'jitenApiKey' | 'bunproApiKey' | 'bunproFrontendApiToken' | 'bunproFrontendApiTokenExpiresAt' | 'wanikaniApiToken'> {

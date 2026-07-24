@@ -1,3 +1,7 @@
+import type { LanguageProfile, ParserProvider } from '../languages/types';
+
+export type { LanguageProfile, ParserProvider } from '../languages/types';
+
 export type CardState =
     | 'new'
     | 'learning'
@@ -92,11 +96,6 @@ export type NewTabStudyChallengeStep =
 export type NewTabTypeWordInputMode = 'keyboard' | 'handwriting';
 
 export type ReaderColorSource = 'auto' | 'status' | 'jpdb' | 'anki' | 'pitch' | 'off';
-
-// 'local' parses with imported dictionaries only (no parse network traffic
-// while term dictionaries are installed); 'jiten'/'jpdb' pin that API when its
-// credential is set; 'auto' prefers Jiten, then JPDB.
-export type ParserProvider = 'local' | 'jiten' | 'jpdb' | 'auto';
 
 export type FuriganaMode = 'auto' | 'all' | 'difficult-kanji' | 'known-status' | 'hover' | 'off';
 
@@ -295,6 +294,12 @@ export interface ReaderSettings {
     wanikaniApiToken: string;
     onboardingSeen: boolean;
     interfaceLanguage: InterfaceLanguage;
+    /**
+     * Versioned multilingual profiles. Root-level language/parser settings
+     * remain compatibility mirrors while callers move to the active profile.
+     */
+    languageProfiles: LanguageProfile[];
+    activeLanguageProfileId: string;
     accentColor: string;
     wordColorNew: string;
     wordColorLearning: string;

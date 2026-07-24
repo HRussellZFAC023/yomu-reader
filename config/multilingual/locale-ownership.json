@@ -1,0 +1,198 @@
+{
+  "schemaVersion": 1,
+  "policy": "One locale catalogue file, one owning language thread. Shared message keys remain coordinator-owned.",
+  "catalogues": [
+    {
+      "locale": "sq",
+      "path": "src/reader/locales/catalogs/sq.ts",
+      "owner": "locale-sq",
+      "reviewStatus": "scaffold"
+    },
+    {
+      "locale": "grc",
+      "path": "src/reader/locales/catalogs/grc.ts",
+      "owner": "locale-grc",
+      "reviewStatus": "scaffold"
+    },
+    {
+      "locale": "ar",
+      "path": "src/reader/locales/catalogs/ar.ts",
+      "owner": "locale-ar",
+      "reviewStatus": "scaffold"
+    },
+    {
+      "locale": "yue",
+      "path": "src/reader/locales/catalogs/yue.ts",
+      "owner": "locale-yue",
+      "reviewStatus": "scaffold"
+    },
+    {
+      "locale": "zh",
+      "path": "src/reader/locales/catalogs/zh.ts",
+      "owner": "locale-zh",
+      "reviewStatus": "scaffold"
+    },
+    {
+      "locale": "da",
+      "path": "src/reader/locales/catalogs/da.ts",
+      "owner": "locale-da",
+      "reviewStatus": "scaffold"
+    },
+    {
+      "locale": "nl",
+      "path": "src/reader/locales/catalogs/nl.ts",
+      "owner": "locale-nl",
+      "reviewStatus": "scaffold"
+    },
+    {
+      "locale": "en",
+      "path": "src/reader/locales/catalogs/en.ts",
+      "owner": "locale-en",
+      "reviewStatus": "source-approved"
+    },
+    {
+      "locale": "fi",
+      "path": "src/reader/locales/catalogs/fi.ts",
+      "owner": "locale-fi",
+      "reviewStatus": "scaffold"
+    },
+    {
+      "locale": "fr",
+      "path": "src/reader/locales/catalogs/fr.ts",
+      "owner": "locale-fr",
+      "reviewStatus": "scaffold"
+    },
+    {
+      "locale": "de",
+      "path": "src/reader/locales/catalogs/de.ts",
+      "owner": "locale-de",
+      "reviewStatus": "scaffold"
+    },
+    {
+      "locale": "el",
+      "path": "src/reader/locales/catalogs/el.ts",
+      "owner": "locale-el",
+      "reviewStatus": "scaffold"
+    },
+    {
+      "locale": "hu",
+      "path": "src/reader/locales/catalogs/hu.ts",
+      "owner": "locale-hu",
+      "reviewStatus": "scaffold"
+    },
+    {
+      "locale": "id",
+      "path": "src/reader/locales/catalogs/id.ts",
+      "owner": "locale-id",
+      "reviewStatus": "scaffold"
+    },
+    {
+      "locale": "it",
+      "path": "src/reader/locales/catalogs/it.ts",
+      "owner": "locale-it",
+      "reviewStatus": "scaffold"
+    },
+    {
+      "locale": "km",
+      "path": "src/reader/locales/catalogs/km.ts",
+      "owner": "locale-km",
+      "reviewStatus": "scaffold"
+    },
+    {
+      "locale": "ko",
+      "path": "src/reader/locales/catalogs/ko.ts",
+      "owner": "locale-ko",
+      "reviewStatus": "scaffold"
+    },
+    {
+      "locale": "lo",
+      "path": "src/reader/locales/catalogs/lo.ts",
+      "owner": "locale-lo",
+      "reviewStatus": "scaffold"
+    },
+    {
+      "locale": "la",
+      "path": "src/reader/locales/catalogs/la.ts",
+      "owner": "locale-la",
+      "reviewStatus": "scaffold"
+    },
+    {
+      "locale": "mn",
+      "path": "src/reader/locales/catalogs/mn.ts",
+      "owner": "locale-mn",
+      "reviewStatus": "scaffold"
+    },
+    {
+      "locale": "fa",
+      "path": "src/reader/locales/catalogs/fa.ts",
+      "owner": "locale-fa",
+      "reviewStatus": "scaffold"
+    },
+    {
+      "locale": "pl",
+      "path": "src/reader/locales/catalogs/pl.ts",
+      "owner": "locale-pl",
+      "reviewStatus": "scaffold"
+    },
+    {
+      "locale": "pt",
+      "path": "src/reader/locales/catalogs/pt.ts",
+      "owner": "locale-pt",
+      "reviewStatus": "scaffold"
+    },
+    {
+      "locale": "ro",
+      "path": "src/reader/locales/catalogs/ro.ts",
+      "owner": "locale-ro",
+      "reviewStatus": "scaffold"
+    },
+    {
+      "locale": "ru",
+      "path": "src/reader/locales/catalogs/ru.ts",
+      "owner": "locale-ru",
+      "reviewStatus": "scaffold"
+    },
+    {
+      "locale": "sh",
+      "path": "src/reader/locales/catalogs/sh.ts",
+      "owner": "locale-sh",
+      "reviewStatus": "scaffold"
+    },
+    {
+      "locale": "es",
+      "path": "src/reader/locales/catalogs/es.ts",
+      "owner": "locale-es",
+      "reviewStatus": "scaffold"
+    },
+    {
+      "locale": "sv",
+      "path": "src/reader/locales/catalogs/sv.ts",
+      "owner": "locale-sv",
+      "reviewStatus": "scaffold"
+    },
+    {
+      "locale": "tl",
+      "path": "src/reader/locales/catalogs/tl.ts",
+      "owner": "locale-tl",
+      "reviewStatus": "scaffold"
+    },
+    {
+      "locale": "th",
+      "path": "src/reader/locales/catalogs/th.ts",
+      "owner": "locale-th",
+      "reviewStatus": "scaffold"
+    },
+    {
+      "locale": "tr",
+      "path": "src/reader/locales/catalogs/tr.ts",
+      "owner": "locale-tr",
+      "reviewStatus": "scaffold"
+    },
+    {
+      "locale": "vi",
+      "path": "src/reader/locales/catalogs/vi.ts",
+      "owner": "locale-vi",
+      "reviewStatus": "scaffold"
+    }
+  ]
+}

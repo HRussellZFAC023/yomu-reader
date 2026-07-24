@@ -1,0 +1,370 @@
+{
+  "schemaVersion": 1,
+  "revision": "2026-07-23.574961e8",
+  "generatedAt": "2026-07-23T00:00:00.000Z",
+  "targetLanguage": "ja",
+  "count": 32,
+  "languages": [
+    {
+      "tag": "sq",
+      "englishName": "Albanian",
+      "nativeName": "Shqip",
+      "direction": "ltr",
+      "targetLanguage": "ja",
+      "status": "slice1",
+      "catalogueEvidence": [
+        "kaikki-to-yomitan"
+      ]
+    },
+    {
+      "tag": "grc",
+      "englishName": "Ancient Greek",
+      "nativeName": "Ἑλληνική",
+      "direction": "ltr",
+      "targetLanguage": "ja",
+      "status": "slice1",
+      "catalogueEvidence": [
+        "kaikki-to-yomitan"
+      ]
+    },
+    {
+      "tag": "ar",
+      "englishName": "Arabic",
+      "nativeName": "العربية",
+      "direction": "rtl",
+      "defaultScript": "Arab",
+      "targetLanguage": "ja",
+      "status": "slice1",
+      "catalogueEvidence": [
+        "Lingoes and Apple bilingual collections"
+      ]
+    },
+    {
+      "tag": "yue",
+      "englishName": "Cantonese",
+      "nativeName": "粵語",
+      "direction": "ltr",
+      "defaultScript": "Hant",
+      "targetLanguage": "ja",
+      "status": "slice1",
+      "catalogueEvidence": [
+        "Cantonese dictionary collection"
+      ]
+    },
+    {
+      "tag": "zh",
+      "englishName": "Chinese",
+      "nativeName": "中文",
+      "direction": "ltr",
+      "defaultScript": "Hans",
+      "targetLanguage": "ja",
+      "status": "slice1",
+      "catalogueEvidence": [
+        "Mandarin dictionary collection"
+      ]
+    },
+    {
+      "tag": "da",
+      "englishName": "Danish",
+      "nativeName": "Dansk",
+      "direction": "ltr",
+      "targetLanguage": "ja",
+      "status": "slice1",
+      "catalogueEvidence": [
+        "Leipzig language collection"
+      ]
+    },
+    {
+      "tag": "nl",
+      "englishName": "Dutch",
+      "nativeName": "Nederlands",
+      "direction": "ltr",
+      "targetLanguage": "ja",
+      "status": "slice1",
+      "catalogueEvidence": [
+        "Apple bilingual collection and JMdict"
+      ]
+    },
+    {
+      "tag": "en",
+      "englishName": "English",
+      "nativeName": "English",
+      "direction": "ltr",
+      "targetLanguage": "ja",
+      "status": "slice1",
+      "catalogueEvidence": [
+        "Japanese-English dictionary collection"
+      ]
+    },
+    {
+      "tag": "fi",
+      "englishName": "Finnish",
+      "nativeName": "Suomi",
+      "direction": "ltr",
+      "targetLanguage": "ja",
+      "status": "slice1",
+      "catalogueEvidence": [
+        "Leipzig language collection"
+      ]
+    },
+    {
+      "tag": "fr",
+      "englishName": "French",
+      "nativeName": "Français",
+      "direction": "ltr",
+      "targetLanguage": "ja",
+      "status": "slice1",
+      "catalogueEvidence": [
+        "French-Japanese, Apple, and JMdict collections"
+      ]
+    },
+    {
+      "tag": "de",
+      "englishName": "German",
+      "nativeName": "Deutsch",
+      "direction": "ltr",
+      "targetLanguage": "ja",
+      "status": "slice1",
+      "catalogueEvidence": [
+        "Japanese-German, Apple, and JMdict collections"
+      ]
+    },
+    {
+      "tag": "el",
+      "englishName": "Greek",
+      "nativeName": "Ελληνικά",
+      "direction": "ltr",
+      "targetLanguage": "ja",
+      "status": "slice1",
+      "catalogueEvidence": [
+        "kaikki and Lingoes collections"
+      ]
+    },
+    {
+      "tag": "hu",
+      "englishName": "Hungarian",
+      "nativeName": "Magyar",
+      "direction": "ltr",
+      "targetLanguage": "ja",
+      "status": "slice1",
+      "catalogueEvidence": [
+        "JMdict multilingual collection"
+      ]
+    },
+    {
+      "tag": "id",
+      "englishName": "Indonesian",
+      "nativeName": "Bahasa Indonesia",
+      "direction": "ltr",
+      "targetLanguage": "ja",
+      "status": "slice1",
+      "catalogueEvidence": [
+        "Indonesian and Apple collections"
+      ]
+    },
+    {
+      "tag": "it",
+      "englishName": "Italian",
+      "nativeName": "Italiano",
+      "direction": "ltr",
+      "targetLanguage": "ja",
+      "status": "slice1",
+      "catalogueEvidence": [
+        "kaikki, Lingoes, and Apple collections"
+      ]
+    },
+    {
+      "tag": "km",
+      "englishName": "Khmer",
+      "nativeName": "ខ្មែរ",
+      "direction": "ltr",
+      "defaultScript": "Khmr",
+      "targetLanguage": "ja",
+      "status": "slice1",
+      "catalogueEvidence": [
+        "Leipzig language collection"
+      ]
+    },
+    {
+      "tag": "ko",
+      "englishName": "Korean",
+      "nativeName": "한국어",
+      "direction": "ltr",
+      "targetLanguage": "ja",
+      "status": "slice1",
+      "catalogueEvidence": [
+        "Korean dictionary collection"
+      ]
+    },
+    {
+      "tag": "lo",
+      "englishName": "Lao",
+      "nativeName": "ລາວ",
+      "direction": "ltr",
+      "defaultScript": "Laoo",
+      "targetLanguage": "ja",
+      "status": "slice1",
+      "catalogueEvidence": [
+        "Lao dictionary collection"
+      ]
+    },
+    {
+      "tag": "la",
+      "englishName": "Latin",
+      "nativeName": "Latina",
+      "direction": "ltr",
+      "targetLanguage": "ja",
+      "status": "slice1",
+      "catalogueEvidence": [
+        "kaikki and Lingoes collections"
+      ]
+    },
+    {
+      "tag": "mn",
+      "englishName": "Mongolian",
+      "nativeName": "Монгол",
+      "direction": "ltr",
+      "defaultScript": "Cyrl",
+      "targetLanguage": "ja",
+      "status": "slice1",
+      "catalogueEvidence": [
+        "Japanese-Mongolian and Korean collections"
+      ]
+    },
+    {
+      "tag": "fa",
+      "englishName": "Persian",
+      "nativeName": "فارسی",
+      "direction": "rtl",
+      "defaultScript": "Arab",
+      "targetLanguage": "ja",
+      "status": "slice1",
+      "catalogueEvidence": [
+        "kaikki-to-yomitan"
+      ]
+    },
+    {
+      "tag": "pl",
+      "englishName": "Polish",
+      "nativeName": "Polski",
+      "direction": "ltr",
+      "targetLanguage": "ja",
+      "status": "slice1",
+      "catalogueEvidence": [
+        "kaikki and Apple collections"
+      ]
+    },
+    {
+      "tag": "pt",
+      "englishName": "Portuguese",
+      "nativeName": "Português",
+      "direction": "ltr",
+      "targetLanguage": "ja",
+      "status": "slice1",
+      "catalogueEvidence": [
+        "Japanese-Portuguese, Lingoes, and Apple collections"
+      ]
+    },
+    {
+      "tag": "ro",
+      "englishName": "Romanian",
+      "nativeName": "Română",
+      "direction": "ltr",
+      "targetLanguage": "ja",
+      "status": "slice1",
+      "catalogueEvidence": [
+        "Converted Migaku collection"
+      ]
+    },
+    {
+      "tag": "ru",
+      "englishName": "Russian",
+      "nativeName": "Русский",
+      "direction": "ltr",
+      "targetLanguage": "ja",
+      "status": "slice1",
+      "catalogueEvidence": [
+        "Russian, Lingoes, Apple, and JMdict collections"
+      ]
+    },
+    {
+      "tag": "sh",
+      "englishName": "Serbo-Croatian",
+      "nativeName": "Srpskohrvatski",
+      "direction": "ltr",
+      "defaultScript": "Latn",
+      "targetLanguage": "ja",
+      "status": "slice1",
+      "catalogueEvidence": [
+        "kaikki-to-yomitan"
+      ]
+    },
+    {
+      "tag": "es",
+      "englishName": "Spanish",
+      "nativeName": "Español",
+      "direction": "ltr",
+      "targetLanguage": "ja",
+      "status": "slice1",
+      "catalogueEvidence": [
+        "Migaku, Apple, and JMdict collections"
+      ]
+    },
+    {
+      "tag": "sv",
+      "englishName": "Swedish",
+      "nativeName": "Svenska",
+      "direction": "ltr",
+      "targetLanguage": "ja",
+      "status": "slice1",
+      "catalogueEvidence": [
+        "JMdict multilingual collection"
+      ]
+    },
+    {
+      "tag": "tl",
+      "englishName": "Tagalog",
+      "nativeName": "Tagalog",
+      "direction": "ltr",
+      "targetLanguage": "ja",
+      "status": "slice1",
+      "catalogueEvidence": [
+        "Leipzig language collection"
+      ]
+    },
+    {
+      "tag": "th",
+      "englishName": "Thai",
+      "nativeName": "ไทย",
+      "direction": "ltr",
+      "defaultScript": "Thai",
+      "targetLanguage": "ja",
+      "status": "slice1",
+      "catalogueEvidence": [
+        "Thai, Korean, and Apple collections"
+      ]
+    },
+    {
+      "tag": "tr",
+      "englishName": "Turkish",
+      "nativeName": "Türkçe",
+      "direction": "ltr",
+      "targetLanguage": "ja",
+      "status": "slice1",
+      "catalogueEvidence": [
+        "Leipzig language collection"
+      ]
+    },
+    {
+      "tag": "vi",
+      "englishName": "Vietnamese",
+      "nativeName": "Tiếng Việt",
+      "direction": "ltr",
+      "targetLanguage": "ja",
+      "status": "slice1",
+      "catalogueEvidence": [
+        "Vietnamese, Korean, and Apple collections"
+      ]
+    }
+  ]
+}

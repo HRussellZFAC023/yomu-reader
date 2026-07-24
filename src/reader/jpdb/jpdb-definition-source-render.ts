@@ -19,7 +19,7 @@ export function renderJpdbDefinitionSource(card: JPDBCard, sourceAttributes: Sou
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card" data-source="jpdb" ${cardHighlightScopeAttributes(card)} ${sourceAttributes(definitionSourceStateKey(JPDB_DEFINITION_SOURCE_ID), true)}>
             <summary class="jpdb-reader-local-title">${escapeHtml(title)}</summary>
-            ${meanings ? `<div class="jpdb-reader-meanings">${meanings}</div>` : ''}
+            ${meanings ? `<div class="jpdb-reader-meanings" data-definition-translation-text>${meanings}</div>` : ''}
             ${extras}
         </details>
     `;

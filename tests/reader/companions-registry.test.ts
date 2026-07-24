@@ -1,6 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { registerYomuCompanion, yomuImageOcrController, yomuSubtitlePlayerController } from '../../src/reader/companions/registry';
+import {
+    registerYomuCompanion,
+    yomuImageOcrController,
+    yomuSettingsSurfaceCompanion,
+    yomuSubtitlePlayerController,
+} from '../../src/reader/companions/registry';
 
 const companionDescriptor = () => Object.getOwnPropertyDescriptor(globalThis, '__yomuCompanions');
 
@@ -68,5 +73,35 @@ describe('companion registry', () => {
 
         expect(defineProperty).toHaveBeenCalled();
         expect(yomuImageOcrController()).toBe(Controller);
+    });
+
+    it('exposes multilingual dictionary setup and definition translation through the settings companion', () => {
+        const SettingsDialogController = class TestSettingsDialogController {};
+        const OnboardingController = class TestOnboardingController {};
+        const installOfflineParsingDictionaries = vi.fn();
+        const installDefinitionTranslationBehaviors = vi.fn();
+
+        registerYomuCompanion('settings', {
+            SettingsDialogController: SettingsDialogController as never,
+            OnboardingController: OnboardingController as never,
+            installOfflineParsingDictionaries: installOfflineParsingDictionaries as never,
+            installDefinitionTranslationBehaviors: installDefinitionTranslationBehaviors as never,
+            selfEnhancement: {
+                SETTINGS_PARSE_TARGET_LIMIT: 120,
+                nestedSettingsParseAlreadyRendered: vi.fn(),
+                nestedSettingsTextParsePlan: vi.fn(),
+                parsedSettingsTargetsForCurrentPlan: vi.fn(),
+                supplementSettingsFallbackTokens: vi.fn(),
+                addSettingsRubyFromRenderedReadings: vi.fn(),
+                settingsForSettingsFormParse: vi.fn(),
+            } as never,
+        });
+
+        expect(yomuSettingsSurfaceCompanion()).toMatchObject({
+            SettingsDialogController,
+            OnboardingController,
+            installOfflineParsingDictionaries,
+            installDefinitionTranslationBehaviors,
+        });
     });
 });

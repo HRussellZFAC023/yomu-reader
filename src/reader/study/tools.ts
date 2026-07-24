@@ -54,11 +54,11 @@ export function preloadGrammarResources(sentence: string, language: InterfaceLan
     return yomuKanjiStudyCompanion()?.preloadGrammarResources?.(sentence, language) ?? [];
 }
 
-export function preloadJapaneseSentenceTranslation(sentence: string, language: InterfaceLanguage = 'en'): void {
+export function preloadJapaneseSentenceTranslation(sentence: string, language = 'en'): void {
     yomuKanjiStudyCompanion()?.preloadJapaneseSentenceTranslation?.(sentence, language);
 }
 
-export async function translateJapaneseSentence(sentence: string, language: InterfaceLanguage = 'en'): Promise<string> {
+export async function translateJapaneseSentence(sentence: string, language = 'en'): Promise<string> {
     // Empty means "no translation to show" — never parrot the input back as
     // if it were a translation when the companion is unavailable.
     return await (yomuKanjiStudyCompanion()?.translateJapaneseSentence?.(sentence, language) ?? Promise.resolve(''));

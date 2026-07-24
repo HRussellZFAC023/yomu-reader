@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import 'fake-indexeddb/auto';
 import { YomitanDictionaryStore } from '../../src/reader/dictionaries/yomitan';
+import { sha256Hex } from '../../src/reader/dictionaries/catalog';
 import { yomitanZipBlob } from './zip-fixture';
 
 const DB_NAME = 'jpdb-popup-reader-yomitan';
@@ -49,6 +50,30 @@ describe('Yomitan ZIP import performance path', () => {
         expect(progress).toContain('Importing Multi Bank JMdict: Parsing term_bank_3.json (3/3)...');
         expect(progress).toContain('Importing Multi Bank JMdict: Saving terms 6 / 6 entries...');
         expect(progress).toContain('Importing Multi Bank JMdict: terms 6 entries saved...');
+    });
+
+    it('rejects a catalogue archive with mismatched integrity before changing dictionary rows', async () => {
+        const store = createStore();
+        await store.clear();
+        const file = new File([yomitanZipBlob({
+            'index.json': { title: 'Integrity Fixture', format: 3 },
+            'term_bank_1.json': [['読む', 'よむ', '', 'v5m', 10, ['to read'], 1, '']],
+        })], 'integrity-fixture.zip', { type: 'application/zip' });
+
+        await expect(store.importFile(file, undefined, 'https://dictionaries.yomureader.com/fixture.zip', {
+            integrity: { sha256: '0'.repeat(64), bytes: file.size + 1 },
+        })).rejects.toThrow(/size mismatch/);
+        await expect(store.summary()).resolves.toMatchObject({ dictionaries: [], terms: 0 });
+
+        await expect(store.importFile(file, undefined, 'https://dictionaries.yomureader.com/fixture.zip', {
+            integrity: { sha256: '0'.repeat(64), bytes: file.size },
+        })).rejects.toThrow(/SHA-256 mismatch/);
+        await expect(store.summary()).resolves.toMatchObject({ dictionaries: [], terms: 0 });
+
+        const sha256 = await sha256Hex(file);
+        await expect(store.importFile(file, undefined, 'https://dictionaries.yomureader.com/fixture.zip', {
+            integrity: { sha256, bytes: file.size },
+        })).resolves.toMatchObject({ dictionaries: ['Integrity Fixture'], terms: 1 });
     });
 
     it('replaces the previous revision when re-importing a revisioned dictionary', async () => {

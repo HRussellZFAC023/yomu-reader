@@ -21,7 +21,7 @@ export class WanikaniSourceController {
         private readonly lookup: WanikaniLookupClient,
         private readonly getSettings: () => ReaderSettings,
         private readonly sourceAttributes: SourceAttributes,
-        private readonly onRendered?: () => void,
+        private readonly onRendered?: (mount: HTMLElement) => void,
     ) {}
 
     installDefinitionMounts(root: ParentNode, card: JPDBCard): void {
@@ -43,7 +43,7 @@ export class WanikaniSourceController {
                     settings.wanikaniDefinitionsAlias || 'WaniKani',
                 ));
                 mount.dataset.wanikaniLoaded = 'true';
-                this.onRendered?.();
+                this.onRendered?.(mount);
             }).catch(() => {
                 if (mount.isConnected) mount.remove();
             }).finally(() => delete mount.dataset.wanikaniLoading);
@@ -74,7 +74,7 @@ export class WanikaniSourceController {
                 settings.wanikaniKanjiAlias || 'WaniKani',
             ));
             mount.dataset.wanikaniLoaded = 'true';
-            this.onRendered?.();
+            this.onRendered?.(mount);
         }).catch(() => {
             if (mount.isConnected) mount.remove();
         }).finally(() => delete mount.dataset.wanikaniLoading);
@@ -95,13 +95,21 @@ export function renderWanikaniSource(info: WanikaniLookupInfo, settings: ReaderS
     const related = renderSubjectLinks('Related vocabulary', info.relatedVocabulary);
     const sentences = subject.contextSentences.map(sentence => `<li><span lang="ja">${escapeHtml(sentence.ja)}</span><br>${escapeHtml(sentence.en)}</li>`).join('');
     const audio = preferredWanikaniAudio(subject.audio).map((item, index) => `<button type="button" class="jpdb-reader-action-pill" data-action="wanikani-audio" data-audio-url="${escapeHtml(item.url)}" aria-label="Play WaniKani pronunciation ${index + 1}"${item.voiceDescription ? ` title="${escapeHtml(item.voiceDescription)}"` : ''}>▶ ${escapeHtml(item.voiceActorName || `Audio ${index + 1}`)}</button>`).join(' ');
+    const publicDefinitionPayload = [
+        ...subject.meanings.map(item => item.meaning),
+        ...subject.auxiliaryMeanings
+            .filter(item => item.type === 'whitelist' || item.type === 'blacklist')
+            .map(item => item.meaning),
+    ].filter(Boolean).join('\n');
     return `<details class="jpdb-reader-local jpdb-reader-source-card yomu-wanikani-source" data-source="wanikani" ${attributes}>
         <summary class="jpdb-reader-local-title">${escapeHtml(label)}</summary>
         <div class="jpdb-reader-local-entry yomu-wanikani-body">
             <div class="jpdb-reader-meta">Level ${subject.level}${stage ? ` · ${escapeHtml(stage)}` : ''}${due ? ` · due ${escapeHtml(due)}` : ''}${info.reviewStatistic ? ` · ${info.reviewStatistic.percentageCorrect}% correct` : ''}</div>
-            <p><strong>Meanings:</strong> ${meanings}</p>
-            ${acceptedAlternatives ? `<p><strong>Also accepted:</strong> ${acceptedAlternatives}</p>` : ''}
-            ${blockedAlternatives ? `<p><strong>Not accepted:</strong> ${blockedAlternatives}</p>` : ''}
+            <div class="yomu-wanikani-public-definitions"${publicDefinitionPayload ? ` data-definition-translation-text data-definition-translation-payload="${escapeHtml(publicDefinitionPayload)}"` : ''}>
+                <p><strong>Meanings:</strong> ${meanings}</p>
+                ${acceptedAlternatives ? `<p><strong>Also accepted:</strong> ${acceptedAlternatives}</p>` : ''}
+                ${blockedAlternatives ? `<p><strong>Not accepted:</strong> ${blockedAlternatives}</p>` : ''}
+            </div>
             ${readings ? `<p><strong>Readings:</strong> ${readings}</p>` : ''}
             ${synonyms ? `<p><strong>Your synonyms:</strong> ${synonyms}</p>` : ''}
             ${audio ? `<div class="yomu-wanikani-audio">${audio}</div>` : ''}

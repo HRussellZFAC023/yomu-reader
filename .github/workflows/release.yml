@@ -36,14 +36,16 @@ jobs:
       release_tag: ${{ steps.browser-store-gate.outputs.release_tag }}
       publish_browser_stores: ${{ steps.browser-store-gate.outputs.publish_browser_stores }}
     # Unlike PR CI, this job runs the whole check on one small 4-core runner.
-    # The single-process vitest path sizes workers from the core count; cap it
-    # explicitly so the parallel check lanes (tests ∥ builds) never oversubscribe
-    # the runner into fork OOMs.
+    # The all-in-one reused-fork path can exhaust that runner before Vitest can
+    # report a summary. Use the same isolated shards proven by CI, with one
+    # 1.5 GB regular jsdom worker while the parallel build lanes are running.
     env:
       TZ: UTC
-      YOMU_CI_REGULAR_CONCURRENCY: 2
-      YOMU_CI_MAX_WORKERS: 3
-      YOMU_VITEST_FORK_HEAP_MB: 1024
+      YOMU_CI_SHARDED: 1
+      YOMU_CI_REGULAR_CONCURRENCY: 1
+      YOMU_CI_REGULAR_MAX_WORKERS: 1
+      YOMU_CI_JPDB_CONCURRENCY: 2
+      YOMU_VITEST_FORK_HEAP_MB: 1536
     steps:
       - name: Checkout Yomu
         uses: actions/checkout@v6
