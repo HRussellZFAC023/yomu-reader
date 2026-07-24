@@ -1,6 +1,8 @@
 import type { AcademyLanguage } from '../../reader/app/academy-copy';
 import { installKanjiDoodle, type DoodleStroke } from '../../reader/kanji/doodle';
 import { assessKanjiStrokes } from '../../reader/kanji/stroke-grader';
+import { playLearningVoiceBinding } from '../audio/learning-voice';
+import { lessonZeroVowelAnchor } from '../content/lesson-zero-vowel-anchors';
 import {
     evaluateLessonZeroVowelWriting,
     type LessonZeroVowelWritingDefinition,
@@ -228,13 +230,14 @@ export function createLessonZeroVowelWritingScreen(
     };
 
     const targetCard = (item: LessonZeroVowelWritingItem, signal: AbortSignal): HTMLElement => {
+        const anchor = lessonZeroVowelAnchor(item.id);
         const card = element('section', 'academy-vowel-writing-target');
         card.append(targetGlyph(item));
         const copy = element('div', 'academy-vowel-writing-target-copy');
         const line = element('p', 'academy-vowel-writing-target-line');
         line.textContent = options.language === 'ja'
-            ? `音は「${item.kana}」。形を一度だけ見てください。`
-            : `The sound is ${item.romaji}. Look at the shape once.`;
+            ? `「${anchor.meaning.ja}」の最初の音は「${item.kana}」。形を一度だけ見てください。`
+            : `Listen for ${item.kana} at the start of “${anchor.meaning.en}.” Then look at its shape once.`;
         line.dataset.jpdbReaderSurfaceIgnore = '';
         const controls = element('div', 'academy-vowel-writing-target-actions');
         controls.append(
@@ -514,7 +517,14 @@ export function createLessonZeroVowelWritingScreen(
         button.disabled = true;
         button.textContent = COPY.soundPlaying[options.language];
         try {
-            const active = await options.pronunciation.play(item.kana, item.kana, lifecycle.signal);
+            const anchor = lessonZeroVowelAnchor(item.id);
+            const active = await playLearningVoiceBinding(
+                options.pronunciation,
+                anchor.bindingId,
+                anchor.spokenJapanese,
+                lifecycle.signal,
+            );
+            if (!active) return;
             if (disposed) active.dispose();
             else playback = active;
         } catch {

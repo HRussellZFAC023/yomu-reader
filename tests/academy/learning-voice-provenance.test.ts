@@ -39,11 +39,14 @@ describe('learning voice reproducible provenance', () => {
         const mappings = new Map(production.voiceMappings.map((entry: any) => [entry.mappingId, entry]));
         const catalogById = new Map(catalog.entries.map((entry: any) => [entry.lineId, entry]));
 
-        expect(models.schema).toBe('yomu-academy.learning-voice-model-evidence.v3');
+        expect(models.schema).toBe('yomu-academy.learning-voice-model-evidence.v4');
         expect(models.productionContractSha256).toBe(sha256(read(paths.production)));
         expect(models.engine.versionResponseSha256).toBe(production.render.engine.versionResponseSha256);
-        expect(sha256(models.license.text)).toBe(models.license.sha256);
-        expect(models.models).toHaveLength(4);
+        expect(models.licenses).toHaveLength(2);
+        for (const license of models.licenses) {
+            expect(sha256(license.text)).toBe(license.sha256);
+        }
+        expect(models.models).toHaveLength(production.voiceMappings.length);
         for (const model of models.models) {
             expect(model.distribution).toMatchObject({
                 kind: 'installed-aivmx-distribution',

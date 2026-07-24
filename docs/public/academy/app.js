@@ -2881,6 +2881,31 @@
       japanese: "こんばんは。はじめまして。りえです。よろしくお願いします。",
       sourceSha256: "832669f3318ff75391fb8badac54f8817dded282db4a770df8978a5bd9a136bc"
     }),
+    "lesson-zero:vowel:hira-a": Object.freeze({
+      lineId: "lesson-zero:vowel:hira-a",
+      japanese: "あさです",
+      sourceSha256: "f799443c78776f5b5340a58b9d1454fc1ad8dc4111e974eac1755c72ab68afa1"
+    }),
+    "lesson-zero:vowel:hira-i": Object.freeze({
+      lineId: "lesson-zero:vowel:hira-i",
+      japanese: "いぬです",
+      sourceSha256: "37f5138a57017798eaa60549c3d5fa532b864a5ac8535e80a4a596af69a651fe"
+    }),
+    "lesson-zero:vowel:hira-u": Object.freeze({
+      lineId: "lesson-zero:vowel:hira-u",
+      japanese: "うみです",
+      sourceSha256: "ef31cd953ba025568aaf4b84e3cc7e81e3f3b508c6de66fee12ede24b8978b19"
+    }),
+    "lesson-zero:vowel:hira-e": Object.freeze({
+      lineId: "lesson-zero:vowel:hira-e",
+      japanese: "えほんです",
+      sourceSha256: "824d073e41a20ea93762e4c6e64ed2797448fc05674ac8eb5e8a17bfebc5c55b"
+    }),
+    "lesson-zero:vowel:hira-o": Object.freeze({
+      lineId: "lesson-zero:vowel:hira-o",
+      japanese: "おちゃです",
+      sourceSha256: "11dc3f8cc0b518f844783a3d86e1d24d650874acdc97a9f460ad0ddd57232001"
+    }),
     "lesson-screen:textbook-pair-prompt": Object.freeze({
       lineId: "lesson-screen:textbook-pair-prompt",
       japanese: "では、教科書の五ページを開いて、二人で話してください。",
@@ -3211,7 +3236,7 @@
     if (!isRecord$a(value) || !isRecord$a(value.queryOverrides) || !Array.isArray(value.bindings) || !Array.isArray(value.moraOverrides)) return false;
     const queryOverrides = Object.entries(value.queryOverrides);
     const moraOverrides = value.moraOverrides;
-    return typeof value.lineId === "string" && LINE_ID$1.test(value.lineId) && value.bindings.length > 0 && value.bindings.every(isLearningVoiceBinding) && typeof value.speakerId === "string" && LINE_ID$1.test(value.speakerId) && (value.role === "learning-ui" || value.role === "textbook-character" || value.role === "academy-character") && typeof value.intent === "string" && value.intent.trim() === value.intent && value.intent.length > 0 && value.locale === "ja-JP" && value.band === "native" && typeof value.surface === "string" && SURFACE_ID.test(value.surface) && typeof value.japanese === "string" && value.japanese.trim() === value.japanese && value.japanese.length > 0 && typeof value.sourceSha256 === "string" && SHA256$3.test(value.sourceSha256) && value.sourceRevision === value.sourceSha256 && typeof value.cacheKey === "string" && SHA256$3.test(value.cacheKey) && typeof value.audioQuerySha256 === "string" && SHA256$3.test(value.audioQuerySha256) && typeof value.assetSha256 === "string" && SHA256$3.test(value.assetSha256) && Number.isInteger(value.bytes) && Number(value.bytes) > 0 && typeof value.durationSeconds === "number" && value.durationSeconds > 0 && typeof value.url === "string" && isConfinedLearningUrl(value.url) && typeof value.modelUuid === "string" && MODEL_UUID.test(value.modelUuid) && typeof value.modelName === "string" && value.modelName.length > 0 && typeof value.modelVersion === "string" && value.modelVersion.length > 0 && typeof value.modelSourceUrl === "string" && value.modelSourceUrl === `https://hub.aivis-project.com/aivm-models/${value.modelUuid}` && value.modelLicense === "ACML-1.0" && typeof value.modelPayloadSha256 === "string" && SHA256$3.test(value.modelPayloadSha256) && Number.isInteger(value.styleId) && typeof value.styleName === "string" && value.styleName.length > 0 && queryOverrides.length === QUERY_FIELDS.size && queryOverrides.every(([field2, amount]) => QUERY_FIELDS.has(field2) && typeof amount === "number" && Number.isFinite(amount)) && moraOverrides.every(isLearningVoiceMoraOverride) && value.reviewStatus === "accepted" && value.qualityApprovalStatus === "codex-accepted" && isLearningVoiceReview(value.review) && isLearningVoiceDisclosure(value.disclosure) && value.provenance === "Yomu-authored";
+    return typeof value.lineId === "string" && LINE_ID$1.test(value.lineId) && value.bindings.length > 0 && value.bindings.every(isLearningVoiceBinding) && typeof value.speakerId === "string" && LINE_ID$1.test(value.speakerId) && (value.role === "learning-ui" || value.role === "textbook-character" || value.role === "academy-character") && typeof value.intent === "string" && value.intent.trim() === value.intent && value.intent.length > 0 && value.locale === "ja-JP" && value.band === "native" && typeof value.surface === "string" && SURFACE_ID.test(value.surface) && typeof value.japanese === "string" && value.japanese.trim() === value.japanese && value.japanese.length > 0 && typeof value.sourceSha256 === "string" && SHA256$3.test(value.sourceSha256) && value.sourceRevision === value.sourceSha256 && typeof value.cacheKey === "string" && SHA256$3.test(value.cacheKey) && typeof value.audioQuerySha256 === "string" && SHA256$3.test(value.audioQuerySha256) && typeof value.assetSha256 === "string" && SHA256$3.test(value.assetSha256) && Number.isInteger(value.bytes) && Number(value.bytes) > 0 && typeof value.durationSeconds === "number" && value.durationSeconds > 0 && typeof value.url === "string" && isConfinedLearningUrl(value.url) && typeof value.modelUuid === "string" && MODEL_UUID.test(value.modelUuid) && typeof value.modelName === "string" && value.modelName.length > 0 && typeof value.modelVersion === "string" && value.modelVersion.length > 0 && typeof value.modelSourceUrl === "string" && value.modelSourceUrl === `https://hub.aivis-project.com/aivm-models/${value.modelUuid}` && (value.modelLicense === "ACML-1.0" || value.modelLicense === "CC-BY-SA-4.0") && typeof value.modelPayloadSha256 === "string" && SHA256$3.test(value.modelPayloadSha256) && Number.isInteger(value.styleId) && typeof value.styleName === "string" && value.styleName.length > 0 && queryOverrides.length === QUERY_FIELDS.size && queryOverrides.every(([field2, amount]) => QUERY_FIELDS.has(field2) && typeof amount === "number" && Number.isFinite(amount)) && moraOverrides.every(isLearningVoiceMoraOverride) && value.reviewStatus === "accepted" && value.qualityApprovalStatus === "codex-accepted" && isLearningVoiceReview(value.review) && isLearningVoiceDisclosure(value.disclosure) && value.provenance === "Yomu-authored";
   }
   function isLearningVoiceDisclosure(value) {
     return isRecord$a(value) && Object.keys(value).sort().join(",") === "livingPersonSource,officialCharacterVoice,synthetic" && value.synthetic === true && value.officialCharacterVoice === false && typeof value.livingPersonSource === "boolean";
@@ -41791,13 +41816,6 @@ ${spelling}`);
     persistence: "verified",
     journeyProof: "partial"
   });
-  const VERIFIED_JOURNEY_PENDING_MEDIA_DELIVERY = Object.freeze({
-    implementation: "verified",
-    reachability: "verified",
-    media: "partial",
-    persistence: "verified",
-    journeyProof: "verified"
-  });
   const VERIFIED_DELIVERY = Object.freeze({
     implementation: "verified",
     reachability: "verified",
@@ -41874,6 +41892,7 @@ ${spelling}`);
     "activity:lesson-zero-close-room": "Close the first classroom session"
   };
   const DAY_ONE_VERIFIED_ACTIVITY_IDS = /* @__PURE__ */ new Set([
+    "activity:lesson-zero-vowel-listen",
     "activity:lesson-zero-sound-input",
     "activity:lesson-zero-text-input",
     "activity:lesson-zero-speaking-input",
@@ -42049,7 +42068,7 @@ ${spelling}`);
     `Attempt, support, and completion evidence persist for ${activityId}.`,
     `The story handoff, direct resume, repair, and return path are proved for ${activityId}.`,
     [],
-    DAY_ONE_VERIFIED_ACTIVITY_IDS.has(activityId) ? VERIFIED_DELIVERY : activityId === "activity:lesson-zero-greet-rie" ? VERIFIED_JOURNEY_PENDING_MEDIA_DELIVERY : activityId === "activity:lesson-zero-vowel-listen" || activityId === "activity:lesson-zero-vowel-doodle" || activityId === "activity:lesson-zero-follow-instructions" || activityId === "activity:lesson-zero-reconstruct-repair" || activityId === "activity:lesson-zero-desk-language" || activityId === "activity:lesson-zero-build-sentence-frames" || activityId === "activity:lesson-zero-name-card-draft" ? VERIFIED_STANDALONE_ACTIVITY_DELIVERY : UNVERIFIED_DELIVERY
+    DAY_ONE_VERIFIED_ACTIVITY_IDS.has(activityId) ? VERIFIED_DELIVERY : activityId === "activity:lesson-zero-greet-rie" ? VERIFIED_DELIVERY : activityId === "activity:lesson-zero-vowel-doodle" || activityId === "activity:lesson-zero-follow-instructions" || activityId === "activity:lesson-zero-reconstruct-repair" || activityId === "activity:lesson-zero-desk-language" || activityId === "activity:lesson-zero-build-sentence-frames" || activityId === "activity:lesson-zero-name-card-draft" ? VERIFIED_STANDALONE_ACTIVITY_DELIVERY : UNVERIFIED_DELIVERY
   ));
   [
     entry$P(
@@ -42098,7 +42117,7 @@ ${spelling}`);
       "Each heard choice and confusion pair can seed review.",
       "A full randomized board is playable with deterministic audio and no answer-first cue.",
       [],
-      VERIFIED_JOURNEY_PENDING_MEDIA_DELIVERY
+      VERIFIED_DELIVERY
     ),
     entry$P(
       "day:1:game:kana-trace",
@@ -262303,6 +262322,73 @@ ${spelling}`);
     node2.textContent = text2;
     return node2;
   }
+  const LESSON_ZERO_VOWEL_ANCHORS = Object.freeze({
+    "hira-a": Object.freeze({
+      itemId: "hira-a",
+      kana: "あ",
+      spokenJapanese: "あさです",
+      wordKana: "あさ",
+      meaning: Object.freeze({ en: "morning", ja: "朝" }),
+      mouthCue: Object.freeze({
+        en: "Open your mouth and release the sound quickly.",
+        ja: "口を開いて、短く音を出します。"
+      }),
+      bindingId: "lesson-zero:vowel:hira-a"
+    }),
+    "hira-i": Object.freeze({
+      itemId: "hira-i",
+      kana: "い",
+      spokenJapanese: "いぬです",
+      wordKana: "いぬ",
+      meaning: Object.freeze({ en: "dog", ja: "犬" }),
+      mouthCue: Object.freeze({
+        en: "Relax your lips and keep the sound short.",
+        ja: "唇を楽にして、短く音を出します。"
+      }),
+      bindingId: "lesson-zero:vowel:hira-i"
+    }),
+    "hira-u": Object.freeze({
+      itemId: "hira-u",
+      kana: "う",
+      spokenJapanese: "うみです",
+      wordKana: "うみ",
+      meaning: Object.freeze({ en: "sea", ja: "海" }),
+      mouthCue: Object.freeze({
+        en: "Keep your lips relaxed and let the sound go.",
+        ja: "唇を丸めすぎず、軽く音を出します。"
+      }),
+      bindingId: "lesson-zero:vowel:hira-u"
+    }),
+    "hira-e": Object.freeze({
+      itemId: "hira-e",
+      kana: "え",
+      spokenJapanese: "えほんです",
+      wordKana: "えほん",
+      meaning: Object.freeze({ en: "picture book", ja: "絵本" }),
+      mouthCue: Object.freeze({
+        en: "Keep it short; do not add a second sound.",
+        ja: "次の音を足さず、短く出します。"
+      }),
+      bindingId: "lesson-zero:vowel:hira-e"
+    }),
+    "hira-o": Object.freeze({
+      itemId: "hira-o",
+      kana: "お",
+      spokenJapanese: "おちゃです",
+      wordKana: "おちゃ",
+      meaning: Object.freeze({ en: "tea", ja: "お茶" }),
+      mouthCue: Object.freeze({
+        en: "Round your lips lightly, then release.",
+        ja: "唇を軽く丸めて、すぐに音を出します。"
+      }),
+      bindingId: "lesson-zero:vowel:hira-o"
+    })
+  });
+  function lessonZeroVowelAnchor(itemId) {
+    const anchor = LESSON_ZERO_VOWEL_ANCHORS[itemId];
+    if (!anchor) throw new Error(`Unknown Lesson Zero vowel anchor: ${itemId}`);
+    return anchor;
+  }
   const COPY$1 = {
     eyebrow: { en: "First sound lab", ja: "最初の音ラボ" },
     introTitle: { en: "Five sounds open the language", ja: "五つの音から、日本語が始まる" },
@@ -262319,10 +262405,10 @@ ${spelling}`);
     audioMode: { en: "Sound", ja: "音で進む" },
     visualMode: { en: "Visual cue", ja: "目で進む" },
     accessNote: {
-      en: "Both routes teach the same five characters and save the same review set.",
+      en: "Use Sound when you can listen. Visual cue works anywhere.",
       ja: "どちらの方法でも、同じ五文字を学び、同じ復習に保存します。"
     },
-    hear: { en: "Hear this sound", ja: "この音を聞く" },
+    hear: { en: "Hear it in a word", ja: "ことばの中で聞く" },
     hearAgain: { en: "Hear it again", ja: "もう一度聞く" },
     studyShape: { en: "Hold this shape", ja: "この形を覚える" },
     nextSound: { en: "Keep this sound", ja: "この音を残す" },
@@ -262332,14 +262418,15 @@ ${spelling}`);
       ja: "シンユ：五つを新しい順番で流します。選ぶ前に聞いてください。時間制限はありません。"
     },
     beginAttempt: { en: "Listen without the paper", ja: "紙を見ずに聞く" },
-    attemptTitle: { en: "Which character did you hear?", ja: "どの文字が聞こえましたか" },
+    attemptTitle: { en: "Which first sound did you hear?", ja: "最初に、どの音が聞こえましたか" },
     bingoTitle: { en: "Sound bingo", ja: "音のビンゴ" },
     playSound: { en: "Play the sound", ja: "音を再生" },
     replaySound: { en: "Replay", ja: "もう一度" },
     playing: { en: "Playing…", ja: "再生中…" },
     chooseAfter: { en: "Now choose one character.", ja: "聞こえた文字を一つ選びましょう。" },
     visualCue: { en: "Accessible cue", ja: "視覚の手がかり" },
-    visualCueBody: { en: "Match this vowel cue to its hiragana:", ja: "この母音を、ひらがなに結びましょう：" },
+    visualCueBody: { en: "Choose the hiragana for this first sound:", ja: "この最初の音に合うひらがなを選びましょう：" },
+    firstSoundOnly: { en: "Focus on the first sound.", ja: "最初の音だけに注目します。" },
     saveError: { en: "That step did not save. Please try it once more.", ja: "保存できませんでした。もう一度お試しください。" },
     audioError: {
       en: "The sound did not play. Retry, or switch to the visual route without losing your place.",
@@ -262366,13 +262453,6 @@ ${spelling}`);
     playAgain: { en: "Shuffle another board", ja: "もう一枚まぜる" },
     continue: { en: "Continue into class", ja: "授業へ進む" },
     restart: { en: "Start the five sounds again", ja: "五つの音を最初から" }
-  };
-  const ARTICULATION = {
-    "hira-a": { en: "Open and brief: a, as in father.", ja: "口を開いて、短く「あ」。" },
-    "hira-i": { en: "Light and clear: i, with relaxed lips.", ja: "唇を楽にして、明るく「い」。" },
-    "hira-u": { en: "Soft and unrounded: u, not a long English “oo”.", ja: "唇を丸めすぎず、短く「う」。" },
-    "hira-e": { en: "Short and clean: e, without adding another vowel.", ja: "次の音を足さず、短く「え」。" },
-    "hira-o": { en: "Round once and release: o.", ja: "一度だけ丸くして、「お」。" }
   };
   function createLessonZeroVowelScreen(options) {
     const lifecycle = new AbortController();
@@ -262461,14 +262541,31 @@ ${spelling}`);
       body.append(scene2);
     };
     const teachingNote = (item2, signal) => {
+      const anchor = lessonZeroVowelAnchor(item2.id);
       const note = element("section", "academy-vowel-teaching-note");
       const kana = element("span", "academy-vowel-kana");
       kana.lang = "ja";
       kana.textContent = item2.kana;
       const romaji = element("span", "academy-vowel-romaji");
       romaji.textContent = item2.romaji;
-      const cue = ARTICULATION[item2.id];
-      note.append(kana, romaji, localized("p", "academy-vowel-articulation", cue, options.language));
+      const word = element("p", "academy-vowel-anchor-word");
+      word.lang = "ja";
+      const first2 = element("span", "academy-vowel-anchor-first");
+      first2.textContent = anchor.kana;
+      const rest = element("span", "academy-vowel-anchor-rest");
+      rest.textContent = anchor.spokenJapanese.slice(anchor.kana.length);
+      word.append(first2, rest);
+      const meaning = element("p", "academy-vowel-anchor-meaning");
+      meaning.textContent = anchor.meaning[options.language];
+      meaning.dataset.jpdbReaderSurfaceIgnore = "";
+      note.append(
+        kana,
+        romaji,
+        word,
+        meaning,
+        localized("p", "academy-vowel-first-sound", COPY$1.firstSoundOnly, options.language),
+        localized("p", "academy-vowel-articulation", anchor.mouthCue, options.language)
+      );
       const label = state.mode === "audio" ? COPY$1.hear : COPY$1.studyShape;
       note.append(action2(label, "listen", signal, async (button2) => {
         if (state.mode === "audio") {
@@ -262498,11 +262595,13 @@ ${spelling}`);
         }));
         if (heard) prompt2.append(localized("p", "academy-vowel-choice-instruction", COPY$1.chooseAfter, options.language));
       } else {
+        const anchor = lessonZeroVowelAnchor(item2.id);
         const cue = element("div", "academy-vowel-visual-cue");
         cue.append(
           localized("span", "academy-vowel-visual-label", COPY$1.visualCue, options.language),
           localized("span", "academy-vowel-visual-copy", COPY$1.visualCueBody, options.language),
-          textNode("strong", "academy-vowel-visual-romaji", item2.romaji)
+          textNode("strong", "academy-vowel-visual-romaji", item2.romaji),
+          textNode("span", "academy-vowel-visual-anchor", anchor.meaning[options.language])
         );
         prompt2.append(cue);
       }
@@ -262636,7 +262735,14 @@ ${spelling}`);
       const label = button2.textContent ?? "";
       button2.textContent = COPY$1.playing[options.language];
       try {
-        const active = await options.pronunciation.play(item2.kana, item2.kana, lifecycle.signal);
+        const anchor = lessonZeroVowelAnchor(item2.id);
+        const active = await playLearningVoiceBinding(
+          options.pronunciation,
+          anchor.bindingId,
+          anchor.spokenJapanese,
+          lifecycle.signal
+        );
+        if (!active) return false;
         if (disposed) active.dispose();
         else playback = active;
         message = "";
@@ -262993,11 +263099,12 @@ ${spelling}`);
       appendScene(paper, "academy-vowel-writing-complete");
     };
     const targetCard = (item2, signal) => {
+      const anchor = lessonZeroVowelAnchor(item2.id);
       const card = element("section", "academy-vowel-writing-target");
       card.append(targetGlyph(item2));
       const copy2 = element("div", "academy-vowel-writing-target-copy");
       const line2 = element("p", "academy-vowel-writing-target-line");
-      line2.textContent = options.language === "ja" ? `音は「${item2.kana}」。形を一度だけ見てください。` : `The sound is ${item2.romaji}. Look at the shape once.`;
+      line2.textContent = options.language === "ja" ? `「${anchor.meaning.ja}」の最初の音は「${item2.kana}」。形を一度だけ見てください。` : `Listen for ${item2.kana} at the start of “${anchor.meaning.en}.” Then look at its shape once.`;
       line2.dataset.jpdbReaderSurfaceIgnore = "";
       const controls = element("div", "academy-vowel-writing-target-actions");
       controls.append(
@@ -263252,7 +263359,14 @@ ${spelling}`);
       button2.disabled = true;
       button2.textContent = COPY.soundPlaying[options.language];
       try {
-        const active = await options.pronunciation.play(item2.kana, item2.kana, lifecycle.signal);
+        const anchor = lessonZeroVowelAnchor(item2.id);
+        const active = await playLearningVoiceBinding(
+          options.pronunciation,
+          anchor.bindingId,
+          anchor.spokenJapanese,
+          lifecycle.signal
+        );
+        if (!active) return;
         if (disposed) active.dispose();
         else playback = active;
       } catch {

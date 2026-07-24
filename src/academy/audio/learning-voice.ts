@@ -10,6 +10,31 @@ export const LEARNING_VOICE_BINDING_IDENTITIES = Object.freeze({
         japanese: 'こんばんは。はじめまして。りえです。よろしくお願いします。',
         sourceSha256: '832669f3318ff75391fb8badac54f8817dded282db4a770df8978a5bd9a136bc',
     }),
+    'lesson-zero:vowel:hira-a': Object.freeze({
+        lineId: 'lesson-zero:vowel:hira-a',
+        japanese: 'あさです',
+        sourceSha256: 'f799443c78776f5b5340a58b9d1454fc1ad8dc4111e974eac1755c72ab68afa1',
+    }),
+    'lesson-zero:vowel:hira-i': Object.freeze({
+        lineId: 'lesson-zero:vowel:hira-i',
+        japanese: 'いぬです',
+        sourceSha256: '37f5138a57017798eaa60549c3d5fa532b864a5ac8535e80a4a596af69a651fe',
+    }),
+    'lesson-zero:vowel:hira-u': Object.freeze({
+        lineId: 'lesson-zero:vowel:hira-u',
+        japanese: 'うみです',
+        sourceSha256: 'ef31cd953ba025568aaf4b84e3cc7e81e3f3b508c6de66fee12ede24b8978b19',
+    }),
+    'lesson-zero:vowel:hira-e': Object.freeze({
+        lineId: 'lesson-zero:vowel:hira-e',
+        japanese: 'えほんです',
+        sourceSha256: '824d073e41a20ea93762e4c6e64ed2797448fc05674ac8eb5e8a17bfebc5c55b',
+    }),
+    'lesson-zero:vowel:hira-o': Object.freeze({
+        lineId: 'lesson-zero:vowel:hira-o',
+        japanese: 'おちゃです',
+        sourceSha256: '11dc3f8cc0b518f844783a3d86e1d24d650874acdc97a9f460ad0ddd57232001',
+    }),
     'lesson-screen:textbook-pair-prompt': Object.freeze({
         lineId: 'lesson-screen:textbook-pair-prompt',
         japanese: 'では、教科書の五ページを開いて、二人で話してください。',
@@ -73,7 +98,7 @@ export interface LearningVoiceEntry {
     readonly modelName: string;
     readonly modelVersion: string;
     readonly modelSourceUrl: string;
-    readonly modelLicense: 'ACML-1.0';
+    readonly modelLicense: 'ACML-1.0' | 'CC-BY-SA-4.0';
     readonly modelPayloadSha256: string;
     readonly styleId: number;
     readonly styleName: string;
@@ -574,7 +599,7 @@ function isLearningVoiceEntry(value: unknown): value is LearningVoiceEntry {
         && value.modelVersion.length > 0
         && typeof value.modelSourceUrl === 'string'
         && value.modelSourceUrl === `https://hub.aivis-project.com/aivm-models/${value.modelUuid}`
-        && value.modelLicense === 'ACML-1.0'
+        && (value.modelLicense === 'ACML-1.0' || value.modelLicense === 'CC-BY-SA-4.0')
         && typeof value.modelPayloadSha256 === 'string'
         && SHA256.test(value.modelPayloadSha256)
         && Number.isInteger(value.styleId)

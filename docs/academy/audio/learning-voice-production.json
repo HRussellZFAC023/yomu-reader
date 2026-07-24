@@ -2,7 +2,7 @@
   "schema": "yomu-academy.learning-voice-production.v2",
   "batchId": "academy-learning-native-20260720-01",
   "createdOn": "2026-07-20",
-  "scope": "Five reviewed native-band candidates: three accepted voice units with four reachable bindings and two rejected takes retained only as quarantine evidence.",
+  "scope": "Ten reviewed native-band candidates: eight accepted voice units with nine reachable bindings and two rejected takes retained only as quarantine evidence.",
   "qualityApproval": {
     "codexQualityAccepted": true,
     "scope": "AivisSpeech + Style-Bert-VITS2 JP-Extra output quality",
@@ -53,12 +53,22 @@
       "miller-cafe-price",
       "mary-cafe-order",
       "rie-lesson-zero-repeat",
-      "rie-lesson-zero-greeting"
+      "rie-lesson-zero-greeting",
+      "xingyu-lesson-zero-vowel-a",
+      "xingyu-lesson-zero-vowel-i",
+      "xingyu-lesson-zero-vowel-u",
+      "xingyu-lesson-zero-vowel-e",
+      "xingyu-lesson-zero-vowel-o"
     ],
     "acceptedVoiceLineIds": [
       "miller-cafe-price",
       "rie-lesson-zero-repeat",
-      "rie-lesson-zero-greeting"
+      "rie-lesson-zero-greeting",
+      "xingyu-lesson-zero-vowel-a",
+      "xingyu-lesson-zero-vowel-i",
+      "xingyu-lesson-zero-vowel-u",
+      "xingyu-lesson-zero-vowel-e",
+      "xingyu-lesson-zero-vowel-o"
     ],
     "rejectedVoiceLineIds": [
       "lesson-textbook-pair-prompt",
@@ -174,6 +184,34 @@
       "modelLicense": "ACML-1.0",
       "styleId": 2058221186,
       "styleName": "落ち着き",
+      "fallback": "worker-tts-then-browser-speech"
+    },
+    {
+      "mappingId": "xingyu-learning-dialogue",
+      "speakerId": "xingyu",
+      "castLabel": "Xingyu",
+      "surfaceClasses": [
+        "academy-character",
+        "lesson-dialogue",
+        "kana-listening",
+        "kana-writing"
+      ],
+      "engineFamily": "AivisSpeech + Style-Bert-VITS2 JP-Extra",
+      "modelUuid": "d7255c2c-ddd0-425a-808c-662cd94c7f41",
+      "modelName": "M1",
+      "modelVersion": "1.0.0",
+      "modelPayloadSha256": "6b53d8f44fab893c035146acec6b1653029cecbcaea0315cac9f27889f59261f",
+      "modelSourceUrl": "https://hub.aivis-project.com/aivm-models/d7255c2c-ddd0-425a-808c-662cd94c7f41",
+      "modelDistribution": {
+        "kind": "installed-aivmx-distribution",
+        "fileName": "d7255c2c-ddd0-425a-808c-662cd94c7f41.aivmx",
+        "bytes": 258612542,
+        "sha256": "6b53d8f44fab893c035146acec6b1653029cecbcaea0315cac9f27889f59261f",
+        "authority": "exact-distribution-bytes"
+      },
+      "modelLicense": "CC-BY-SA-4.0",
+      "styleId": 2051283136,
+      "styleName": "ノーマル",
       "fallback": "worker-tts-then-browser-speech"
     }
   ],
@@ -435,6 +473,286 @@
         "prePhonemeLength": 0.12,
         "postPhonemeLength": 0.18,
         "pauseLengthScale": 1.0
+      },
+      "moraOverrides": []
+    },
+    {
+      "identity": {
+        "voiceLineId": "xingyu-lesson-zero-vowel-a",
+        "speakerId": "xingyu",
+        "intent": "Model the vowel あ in the beginner cue あさです with one stable carrier chunk and no English approximation.",
+        "locale": "ja-JP",
+        "band": "native",
+        "sourceRevision": "f799443c78776f5b5340a58b9d1454fc1ad8dc4111e974eac1755c72ab68afa1",
+        "bindingIds": [
+          "lesson-zero:vowel:hira-a"
+        ]
+      },
+      "mappingId": "xingyu-learning-dialogue",
+      "role": "academy-character",
+      "surface": "lesson-zero-vowel",
+      "japanese": "あさです",
+      "disposition": {
+        "status": "accepted",
+        "acceptedBy": "Codex",
+        "humanReviewed": false,
+        "criticalPhraseGates": [
+          "あさです"
+        ],
+        "recognitionConfusionPhrases": [
+          "あさです",
+          "いぬです",
+          "うみです",
+          "えほんです",
+          "おちゃです",
+          "[unk]"
+        ],
+        "independentAudioReview": "The vowel-initial carrier cue must pass both local Japanese recognizers against the five-cue confusion set."
+      },
+      "bindings": [
+        {
+          "lineId": "lesson-zero:vowel:hira-a",
+          "surface": "lesson-zero-vowel",
+          "accessibleReplayLabel": {
+            "en": "Replay Xingyu saying あ",
+            "ja": "シンユの「あ」をもう一度聞く"
+          }
+        }
+      ],
+      "audioQuerySha256": "00aaf2fdac8f16f073bf40143813abbad89e8cf8f59ad39ac0365f41e660bbca",
+      "expectedCacheKey": "69145d6e8b8031cb6a98028c35eaec415b10aac7a12aa0a67040661dc201a015",
+      "queryOverrides": {
+        "speedScale": 0.84,
+        "pitchScale": 0.0,
+        "intonationScale": 1.03,
+        "volumeScale": 0.85,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.18,
+        "pauseLengthScale": 1.02
+      },
+      "moraOverrides": []
+    },
+    {
+      "identity": {
+        "voiceLineId": "xingyu-lesson-zero-vowel-i",
+        "speakerId": "xingyu",
+        "intent": "Model the vowel い in the beginner cue いぬです with one stable carrier chunk and no English approximation.",
+        "locale": "ja-JP",
+        "band": "native",
+        "sourceRevision": "37f5138a57017798eaa60549c3d5fa532b864a5ac8535e80a4a596af69a651fe",
+        "bindingIds": [
+          "lesson-zero:vowel:hira-i"
+        ]
+      },
+      "mappingId": "xingyu-learning-dialogue",
+      "role": "academy-character",
+      "surface": "lesson-zero-vowel",
+      "japanese": "いぬです",
+      "disposition": {
+        "status": "accepted",
+        "acceptedBy": "Codex",
+        "humanReviewed": false,
+        "criticalPhraseGates": [
+          "いぬです"
+        ],
+        "recognitionConfusionPhrases": [
+          "あさです",
+          "いぬです",
+          "うみです",
+          "えほんです",
+          "おちゃです",
+          "[unk]"
+        ],
+        "independentAudioReview": "The vowel-initial carrier cue must pass both local Japanese recognizers against the five-cue confusion set."
+      },
+      "bindings": [
+        {
+          "lineId": "lesson-zero:vowel:hira-i",
+          "surface": "lesson-zero-vowel",
+          "accessibleReplayLabel": {
+            "en": "Replay Xingyu saying い",
+            "ja": "シンユの「い」をもう一度聞く"
+          }
+        }
+      ],
+      "audioQuerySha256": "e08c156ebb1f44d42a7190105c93ef863a182e518e2af667008b829417f2e322",
+      "expectedCacheKey": "2814106b6370ab14542816833d34a11b017b18f18d3be9a129d75cc04a7904b3",
+      "queryOverrides": {
+        "speedScale": 0.84,
+        "pitchScale": 0.0,
+        "intonationScale": 1.03,
+        "volumeScale": 0.85,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.18,
+        "pauseLengthScale": 1.02
+      },
+      "moraOverrides": []
+    },
+    {
+      "identity": {
+        "voiceLineId": "xingyu-lesson-zero-vowel-u",
+        "speakerId": "xingyu",
+        "intent": "Model the vowel う in the beginner cue うみです with one stable carrier chunk and no English approximation.",
+        "locale": "ja-JP",
+        "band": "native",
+        "sourceRevision": "ef31cd953ba025568aaf4b84e3cc7e81e3f3b508c6de66fee12ede24b8978b19",
+        "bindingIds": [
+          "lesson-zero:vowel:hira-u"
+        ]
+      },
+      "mappingId": "xingyu-learning-dialogue",
+      "role": "academy-character",
+      "surface": "lesson-zero-vowel",
+      "japanese": "うみです",
+      "disposition": {
+        "status": "accepted",
+        "acceptedBy": "Codex",
+        "humanReviewed": false,
+        "criticalPhraseGates": [
+          "うみです"
+        ],
+        "recognitionConfusionPhrases": [
+          "あさです",
+          "いぬです",
+          "うみです",
+          "えほんです",
+          "おちゃです",
+          "[unk]"
+        ],
+        "independentAudioReview": "The vowel-initial carrier cue must pass both local Japanese recognizers against the five-cue confusion set."
+      },
+      "bindings": [
+        {
+          "lineId": "lesson-zero:vowel:hira-u",
+          "surface": "lesson-zero-vowel",
+          "accessibleReplayLabel": {
+            "en": "Replay Xingyu saying う",
+            "ja": "シンユの「う」をもう一度聞く"
+          }
+        }
+      ],
+      "audioQuerySha256": "ba13ed8e07e013767b137562ff0ece8ae83baca9ef5931df3db76231aca8c5e4",
+      "expectedCacheKey": "95545b7309f157a773df141cab770a66538333bbc78f2d80deb9d5134211f331",
+      "queryOverrides": {
+        "speedScale": 0.84,
+        "pitchScale": 0.0,
+        "intonationScale": 1.03,
+        "volumeScale": 0.57,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.18,
+        "pauseLengthScale": 1.02
+      },
+      "moraOverrides": []
+    },
+    {
+      "identity": {
+        "voiceLineId": "xingyu-lesson-zero-vowel-e",
+        "speakerId": "xingyu",
+        "intent": "Model the vowel え in the beginner cue えほんです with one stable carrier chunk and no English approximation.",
+        "locale": "ja-JP",
+        "band": "native",
+        "sourceRevision": "824d073e41a20ea93762e4c6e64ed2797448fc05674ac8eb5e8a17bfebc5c55b",
+        "bindingIds": [
+          "lesson-zero:vowel:hira-e"
+        ]
+      },
+      "mappingId": "xingyu-learning-dialogue",
+      "role": "academy-character",
+      "surface": "lesson-zero-vowel",
+      "japanese": "えほんです",
+      "disposition": {
+        "status": "accepted",
+        "acceptedBy": "Codex",
+        "humanReviewed": false,
+        "criticalPhraseGates": [
+          "えほんです"
+        ],
+        "recognitionConfusionPhrases": [
+          "あさです",
+          "いぬです",
+          "うみです",
+          "えほんです",
+          "おちゃです",
+          "[unk]"
+        ],
+        "independentAudioReview": "The vowel-initial carrier cue must pass both local Japanese recognizers against the five-cue confusion set."
+      },
+      "bindings": [
+        {
+          "lineId": "lesson-zero:vowel:hira-e",
+          "surface": "lesson-zero-vowel",
+          "accessibleReplayLabel": {
+            "en": "Replay Xingyu saying え",
+            "ja": "シンユの「え」をもう一度聞く"
+          }
+        }
+      ],
+      "audioQuerySha256": "26e7930cb4d5c0cd80078d414b9e06a622458480b239d410b9ab210cd49d0a98",
+      "expectedCacheKey": "553503599bdf886cdcec6d2900e17d061be67e549e6d1b158cbf2fc63760219f",
+      "queryOverrides": {
+        "speedScale": 0.84,
+        "pitchScale": 0.0,
+        "intonationScale": 1.03,
+        "volumeScale": 0.6,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.18,
+        "pauseLengthScale": 1.02
+      },
+      "moraOverrides": []
+    },
+    {
+      "identity": {
+        "voiceLineId": "xingyu-lesson-zero-vowel-o",
+        "speakerId": "xingyu",
+        "intent": "Model the vowel お in the beginner cue おちゃです with one stable carrier chunk and no English approximation.",
+        "locale": "ja-JP",
+        "band": "native",
+        "sourceRevision": "11dc3f8cc0b518f844783a3d86e1d24d650874acdc97a9f460ad0ddd57232001",
+        "bindingIds": [
+          "lesson-zero:vowel:hira-o"
+        ]
+      },
+      "mappingId": "xingyu-learning-dialogue",
+      "role": "academy-character",
+      "surface": "lesson-zero-vowel",
+      "japanese": "おちゃです",
+      "disposition": {
+        "status": "accepted",
+        "acceptedBy": "Codex",
+        "humanReviewed": false,
+        "criticalPhraseGates": [
+          "おちゃです"
+        ],
+        "recognitionConfusionPhrases": [
+          "あさです",
+          "いぬです",
+          "うみです",
+          "えほんです",
+          "おちゃです",
+          "[unk]"
+        ],
+        "independentAudioReview": "The vowel-initial carrier cue must pass both local Japanese recognizers against the five-cue confusion set."
+      },
+      "bindings": [
+        {
+          "lineId": "lesson-zero:vowel:hira-o",
+          "surface": "lesson-zero-vowel",
+          "accessibleReplayLabel": {
+            "en": "Replay Xingyu saying お",
+            "ja": "シンユの「お」をもう一度聞く"
+          }
+        }
+      ],
+      "audioQuerySha256": "f5d41641da49552403af3063b00a79b757ed440806b0a6b9a729a20b2a4dd0dd",
+      "expectedCacheKey": "212e0286edbf17dfb18d305ee763f3fc03010959ed531cb4bbab5568bcde0fd3",
+      "queryOverrides": {
+        "speedScale": 0.84,
+        "pitchScale": 0.0,
+        "intonationScale": 1.03,
+        "volumeScale": 0.85,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.18,
+        "pauseLengthScale": 1.02
       },
       "moraOverrides": []
     }

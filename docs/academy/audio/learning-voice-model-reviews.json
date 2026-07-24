@@ -1,6 +1,6 @@
 {
   "schema": "yomu-academy.learning-voice-model-reviews.v2",
-  "reviewedOn": "2026-07-23",
+  "reviewedOn": "2026-07-24",
   "audioModelReviewed": true,
   "humanReviewed": false,
   "policy": {
@@ -27,8 +27,8 @@
       "reviewer": {
         "service": "whisper.cpp local inference",
         "modelFamily": "OpenAI Whisper",
-        "displayedModel": "ggml-base.bin",
-        "modelPayloadSha256": "60ed5bc3dd14eea856493d334349b405782ddcaf0028d4b5df4088345fba2efe",
+        "displayedModel": "ggml-large-v3-turbo-q5_0.bin",
+        "modelPayloadSha256": "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2",
         "independentReviewIndex": 1
       },
       "audioActuallyAuditioned": true,
@@ -42,10 +42,15 @@
         "character error rate at or below 0.15 after every critical gate passes"
       ],
       "assetSha256s": [
+        "0c949c52634727f8e27730cd45ca175d9d43ec05e06e4c189c1609a641195a90",
         "0f66cd7f8f8746acc4f6cf48eea70f19d81021e77a178a5df725363062181f0b",
+        "139fcc5abad785ada11c470ba36db8e55b73849a07e9c7ab68a51b15d8cef07e",
         "3a518a64e393b26b0c723d3ac60a78280fda8fde0343558f76ebf19bb586a51a",
+        "582a8f6e440ee92470c8beade4f9cc2b80a9cc28a9cea4fcbcaa7ba7dd864c37",
         "86dbec0a4e0c4ed17984993569eb7056fe2246569c382a10a7a15c274e840f06",
         "b056b8f146eb4ed8e702c0ac398aba51e01d88e8a140867fd7160dfb69c627d3",
+        "b37a4487325904650805566b20d13cb40bf025ba107c35f51e4a5781aa9858bb",
+        "dea978a9cc61b721c8bade349b1f3f046549b3a5d8a1cbc8052e3efedfb85fdb",
         "e94c91b82c6c2e54f77677cebc25d356f256c7ec6627d594711d21eb457399e9"
       ],
       "lines": [
@@ -97,7 +102,7 @@
           "filename": "rie-lesson-zero-repeat__39120279d3b659e0.opus",
           "assetSha256": "0f66cd7f8f8746acc4f6cf48eea70f19d81021e77a178a5df725363062181f0b",
           "expectedJapanese": "もう一度お願いします。",
-          "heardTranscript": "もう一度お願いします。",
+          "heardTranscript": "もう一度お願いします",
           "normalizedTranscript": "もう一度おねがいします",
           "characterErrorRate": 0,
           "criticalPhraseGates": [
@@ -120,6 +125,76 @@
             "はじめまして",
             "りえ",
             "よろしくお願いします"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "xingyu-lesson-zero-vowel-a",
+          "filename": "xingyu-lesson-zero-vowel-a__69145d6e8b8031cb.opus",
+          "assetSha256": "b37a4487325904650805566b20d13cb40bf025ba107c35f51e4a5781aa9858bb",
+          "expectedJapanese": "あさです",
+          "heardTranscript": "朝です",
+          "normalizedTranscript": "あさです",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "あさです"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "xingyu-lesson-zero-vowel-i",
+          "filename": "xingyu-lesson-zero-vowel-i__2814106b6370ab14.opus",
+          "assetSha256": "0c949c52634727f8e27730cd45ca175d9d43ec05e06e4c189c1609a641195a90",
+          "expectedJapanese": "いぬです",
+          "heardTranscript": "犬です",
+          "normalizedTranscript": "いぬです",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "いぬです"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "xingyu-lesson-zero-vowel-u",
+          "filename": "xingyu-lesson-zero-vowel-u__95545b7309f157a7.opus",
+          "assetSha256": "139fcc5abad785ada11c470ba36db8e55b73849a07e9c7ab68a51b15d8cef07e",
+          "expectedJapanese": "うみです",
+          "heardTranscript": "海です。",
+          "normalizedTranscript": "うみです",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "うみです"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "xingyu-lesson-zero-vowel-e",
+          "filename": "xingyu-lesson-zero-vowel-e__553503599bdf886c.opus",
+          "assetSha256": "dea978a9cc61b721c8bade349b1f3f046549b3a5d8a1cbc8052e3efedfb85fdb",
+          "expectedJapanese": "えほんです",
+          "heardTranscript": "絵本です",
+          "normalizedTranscript": "えほんです",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "えほんです"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "xingyu-lesson-zero-vowel-o",
+          "filename": "xingyu-lesson-zero-vowel-o__212e0286edbf17df.opus",
+          "assetSha256": "582a8f6e440ee92470c8beade4f9cc2b80a9cc28a9cea4fcbcaa7ba7dd864c37",
+          "expectedJapanese": "おちゃです",
+          "heardTranscript": "お茶です。",
+          "normalizedTranscript": "おちゃです",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "おちゃです"
           ],
           "criticalPhraseGatePassed": true,
           "verdict": "pass"
@@ -147,10 +222,15 @@
         "character error rate at or below 0.15 after every critical gate passes"
       ],
       "assetSha256s": [
+        "0c949c52634727f8e27730cd45ca175d9d43ec05e06e4c189c1609a641195a90",
         "0f66cd7f8f8746acc4f6cf48eea70f19d81021e77a178a5df725363062181f0b",
+        "139fcc5abad785ada11c470ba36db8e55b73849a07e9c7ab68a51b15d8cef07e",
         "3a518a64e393b26b0c723d3ac60a78280fda8fde0343558f76ebf19bb586a51a",
+        "582a8f6e440ee92470c8beade4f9cc2b80a9cc28a9cea4fcbcaa7ba7dd864c37",
         "86dbec0a4e0c4ed17984993569eb7056fe2246569c382a10a7a15c274e840f06",
         "b056b8f146eb4ed8e702c0ac398aba51e01d88e8a140867fd7160dfb69c627d3",
+        "b37a4487325904650805566b20d13cb40bf025ba107c35f51e4a5781aa9858bb",
+        "dea978a9cc61b721c8bade349b1f3f046549b3a5d8a1cbc8052e3efedfb85fdb",
         "e94c91b82c6c2e54f77677cebc25d356f256c7ec6627d594711d21eb457399e9"
       ],
       "lines": [
@@ -228,6 +308,76 @@
           ],
           "criticalPhraseGatePassed": true,
           "verdict": "pass"
+        },
+        {
+          "lineId": "xingyu-lesson-zero-vowel-a",
+          "filename": "xingyu-lesson-zero-vowel-a__69145d6e8b8031cb.opus",
+          "assetSha256": "b37a4487325904650805566b20d13cb40bf025ba107c35f51e4a5781aa9858bb",
+          "expectedJapanese": "あさです",
+          "heardTranscript": "あさ です",
+          "normalizedTranscript": "あさです",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "あさです"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "xingyu-lesson-zero-vowel-i",
+          "filename": "xingyu-lesson-zero-vowel-i__2814106b6370ab14.opus",
+          "assetSha256": "0c949c52634727f8e27730cd45ca175d9d43ec05e06e4c189c1609a641195a90",
+          "expectedJapanese": "いぬです",
+          "heardTranscript": "いぬ です",
+          "normalizedTranscript": "いぬです",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "いぬです"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "xingyu-lesson-zero-vowel-u",
+          "filename": "xingyu-lesson-zero-vowel-u__95545b7309f157a7.opus",
+          "assetSha256": "139fcc5abad785ada11c470ba36db8e55b73849a07e9c7ab68a51b15d8cef07e",
+          "expectedJapanese": "うみです",
+          "heardTranscript": "うみ です",
+          "normalizedTranscript": "うみです",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "うみです"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "xingyu-lesson-zero-vowel-e",
+          "filename": "xingyu-lesson-zero-vowel-e__553503599bdf886c.opus",
+          "assetSha256": "dea978a9cc61b721c8bade349b1f3f046549b3a5d8a1cbc8052e3efedfb85fdb",
+          "expectedJapanese": "えほんです",
+          "heardTranscript": "えほん です",
+          "normalizedTranscript": "えほんです",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "えほんです"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "xingyu-lesson-zero-vowel-o",
+          "filename": "xingyu-lesson-zero-vowel-o__212e0286edbf17df.opus",
+          "assetSha256": "582a8f6e440ee92470c8beade4f9cc2b80a9cc28a9cea4fcbcaa7ba7dd864c37",
+          "expectedJapanese": "おちゃです",
+          "heardTranscript": "おちゃ です",
+          "normalizedTranscript": "おちゃです",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "おちゃです"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
         }
       ],
       "overallVerdict": "pass",
@@ -265,7 +415,42 @@
       "acceptedBy": "Codex",
       "humanReviewed": false,
       "independentAudioModelReviews": 2
+    },
+    {
+      "lineId": "xingyu-lesson-zero-vowel-a",
+      "verdict": "accepted",
+      "acceptedBy": "Codex",
+      "humanReviewed": false,
+      "independentAudioModelReviews": 2
+    },
+    {
+      "lineId": "xingyu-lesson-zero-vowel-i",
+      "verdict": "accepted",
+      "acceptedBy": "Codex",
+      "humanReviewed": false,
+      "independentAudioModelReviews": 2
+    },
+    {
+      "lineId": "xingyu-lesson-zero-vowel-u",
+      "verdict": "accepted",
+      "acceptedBy": "Codex",
+      "humanReviewed": false,
+      "independentAudioModelReviews": 2
+    },
+    {
+      "lineId": "xingyu-lesson-zero-vowel-e",
+      "verdict": "accepted",
+      "acceptedBy": "Codex",
+      "humanReviewed": false,
+      "independentAudioModelReviews": 2
+    },
+    {
+      "lineId": "xingyu-lesson-zero-vowel-o",
+      "verdict": "accepted",
+      "acceptedBy": "Codex",
+      "humanReviewed": false,
+      "independentAudioModelReviews": 2
     }
   ],
-  "overallVerdict": "mixed-three-accepted-two-rejected"
+  "overallVerdict": "mixed-8-accepted-two-rejected"
 }

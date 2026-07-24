@@ -2,24 +2,27 @@
   "schema": "yomu-academy.learning-voice-local-expected.v1",
   "batchId": "academy-learning-native-20260720-01",
   "scope": "Immutable expectation for loopback browser proof only; this is not deployment evidence.",
-  "catalogSha256": "59ce9a954523b124e7b980064db04043612ce01ec4194529e90a6907496b6f3c",
-  "productionContractSha256": "4f4f51331733a33318a4764b3fcb954f33229b8aef017a412cf1fe45b0c0aa3c",
+  "catalogSha256": "0cf7c605af838e8c1e0fb17a3cd47862c833d7b9433a3c6a698ed21b9fbbb923",
+  "productionContractSha256": "a2ad4f8477a931547e436750c87d261d4d9c93d9f44d598c22524f788074bbba",
   "build": {
     "distApp": "dist/academy/app.js",
     "hostedApp": "docs/public/academy/app.js",
-    "appSha256": "81751ca7e62be0718cd2663c2d2d5d9f116e5f85045a14acfb4eb9af2b1ab67b",
+    "appSha256": "0bd2a32f6b603bb95b4eb4ae7d07f3ff40a5f769ee7dbd441d98f1a24577d888",
     "byteParityRequired": true
   },
   "runtimeSources": {
     "src/academy/integration/yomu-bridge.ts": "053c1d4798b9d1b74bada14e3c6596795b5e45a0988c4bd02f3ee24a7fc41547",
     "src/academy/audio/browser-speech.ts": "5d2da93a3b9abbd3a77e96ab324c0b5fa0654aa4fb29743244702b81853b7dce",
-    "src/academy/audio/learning-voice.ts": "1571d726f16b0dab65f5e274746efe6d2744ec862ac62ea6c378ccd2118d37aa",
+    "src/academy/audio/learning-voice.ts": "b0abb9415aff0bd094bc4459801c528d33e496e35a4353af97e4cb9ded07b0a1",
     "src/academy/audio/worker-tts.ts": "757804bcfea92880e4d9a13373a05e0c1a66933f72afa2f2b0e535cecfbc3548",
     "src/academy/content/lesson-zero-greeting.ts": "7079535a0a2310dafbdc212d772fbc815513849a83172430f81f0e86aaff95eb",
+    "src/academy/content/lesson-zero-vowel-anchors.ts": "acf6ee825e45c813cb127c596ef2a08fc356fe7f1effdd054aff7bca2dd81b7c",
     "src/academy/domain/world-locations.ts": "8dff402868198871a95498d004bc318dfe0b48f1995429ae9c0f6d33490739e5",
     "src/academy/routing/world-flow.ts": "8b0ceb7463347d6e006ac595114222a9211d1d05a5fd326980764e151db43ec7",
     "src/academy/ui/cafe-world.ts": "8f0ea99a7744127eee42ad05a14a2baa08407436d58a966c9aead1eb6fde9ec2",
     "src/academy/ui/lesson-zero-greeting-screen.ts": "965932e71c795b3b8f238c55288dd0784d2e26a50812f9794915357e2ca74480",
+    "src/academy/ui/lesson-zero-vowel-screen.ts": "125d6e092df2ecd476d727a13162a3822a9bdc2bcbe3de6b3b78cbc5a4ecf12d",
+    "src/academy/ui/lesson-zero-vowel-writing-screen.ts": "a94130f5bbad7b81053edfacc9ce73deb4c6658606720139c29f858353a44819",
     "src/academy/ui/lesson-screen.ts": "d279e813fc647715d83425984bca44f4151b161de638a0bca01eedc9f5562972",
     "src/academy/ui/world-screen.ts": "1a157bf0d5f9f50beaeda86a81c52070614a4a937ac930f431e814688d3f54e5"
   },
@@ -35,10 +38,35 @@
     "/academy/audio/learning-lines/rie/rie-lesson-zero-greeting__2f535f136fc8fa96.opus": {
       "sha256": "b056b8f146eb4ed8e702c0ac398aba51e01d88e8a140867fd7160dfb69c627d3",
       "bytes": 37070
+    },
+    "/academy/audio/learning-lines/xingyu/xingyu-lesson-zero-vowel-a__69145d6e8b8031cb.opus": {
+      "sha256": "b37a4487325904650805566b20d13cb40bf025ba107c35f51e4a5781aa9858bb",
+      "bytes": 8239
+    },
+    "/academy/audio/learning-lines/xingyu/xingyu-lesson-zero-vowel-i__2814106b6370ab14.opus": {
+      "sha256": "0c949c52634727f8e27730cd45ca175d9d43ec05e06e4c189c1609a641195a90",
+      "bytes": 7968
+    },
+    "/academy/audio/learning-lines/xingyu/xingyu-lesson-zero-vowel-u__95545b7309f157a7.opus": {
+      "sha256": "139fcc5abad785ada11c470ba36db8e55b73849a07e9c7ab68a51b15d8cef07e",
+      "bytes": 7601
+    },
+    "/academy/audio/learning-lines/xingyu/xingyu-lesson-zero-vowel-e__553503599bdf886c.opus": {
+      "sha256": "dea978a9cc61b721c8bade349b1f3f046549b3a5d8a1cbc8052e3efedfb85fdb",
+      "bytes": 8339
+    },
+    "/academy/audio/learning-lines/xingyu/xingyu-lesson-zero-vowel-o__212e0286edbf17df.opus": {
+      "sha256": "582a8f6e440ee92470c8beade4f9cc2b80a9cc28a9cea4fcbcaa7ba7dd864c37",
+      "bytes": 8431
     }
   },
   "acceptedBindingIds": [
     "lesson-zero:greeting-rie-model",
+    "lesson-zero:vowel:hira-a",
+    "lesson-zero:vowel:hira-e",
+    "lesson-zero:vowel:hira-i",
+    "lesson-zero:vowel:hira-o",
+    "lesson-zero:vowel:hira-u",
     "world-practice:cafe-coffee-price",
     "world-practice:lab-classroom-repair",
     "world-practice:lab-classroom-repeat"

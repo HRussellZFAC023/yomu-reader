@@ -91,11 +91,11 @@ describe('unbounded Academy day availability', () => {
             .flatMap(entry => Object.values(entry.delivery));
         expect(gaps.length).toBeGreaterThan(0);
         expect(gaps.length).toBeLessThan(DAY_ONE_AVAILABILITY_MANIFEST.entries.length * DAY_CLOSURE_DIMENSIONS.length);
-        expect(deliveryStates.filter(state => state === 'verified')).toHaveLength(123);
-        expect(deliveryStates.filter(state => state === 'partial')).toHaveLength(22);
+        expect(deliveryStates.filter(state => state === 'verified')).toHaveLength(127);
+        expect(deliveryStates.filter(state => state === 'partial')).toHaveLength(18);
         expect(deliveryStates.filter(state => state === 'unverified')).toHaveLength(115);
         expect(DAY_ONE_AVAILABILITY_MANIFEST.entries.filter(entry =>
-            Object.values(entry.delivery).every(state => state === 'verified'))).toHaveLength(21);
+            Object.values(entry.delivery).every(state => state === 'verified'))).toHaveLength(23);
         expect(DAY_ONE_AVAILABILITY_MANIFEST.entries.find(entry =>
             entry.id === 'day:1:access')?.delivery).toEqual({
             implementation: 'verified',
@@ -205,6 +205,14 @@ describe('unbounded Academy day availability', () => {
             journeyProof: 'verified',
         });
         expect(DAY_ONE_AVAILABILITY_MANIFEST.entries.find(entry =>
+            entry.contentIds.includes('activity:lesson-zero-vowel-listen'))?.delivery).toEqual({
+            implementation: 'verified',
+            reachability: 'verified',
+            media: 'verified',
+            persistence: 'verified',
+            journeyProof: 'verified',
+        });
+        expect(DAY_ONE_AVAILABILITY_MANIFEST.entries.find(entry =>
             entry.contentIds.includes('activity:lesson-zero-vowel-doodle'))?.delivery).toEqual({
             implementation: 'verified',
             reachability: 'partial',
@@ -256,7 +264,7 @@ describe('unbounded Academy day availability', () => {
             entry.contentIds.includes('game:lesson-zero-vowel-listening-bingo'))?.delivery).toEqual({
             implementation: 'verified',
             reachability: 'verified',
-            media: 'partial',
+            media: 'verified',
             persistence: 'verified',
             journeyProof: 'verified',
         });

@@ -100,14 +100,6 @@ const VERIFIED_STANDALONE_ACTIVITY_DELIVERY: DayActivityDelivery = Object.freeze
     journeyProof: 'partial',
 });
 
-const VERIFIED_JOURNEY_PENDING_MEDIA_DELIVERY: DayActivityDelivery = Object.freeze({
-    implementation: 'verified',
-    reachability: 'verified',
-    media: 'partial',
-    persistence: 'verified',
-    journeyProof: 'verified',
-});
-
 const VERIFIED_DELIVERY: DayActivityDelivery = Object.freeze({
     implementation: 'verified',
     reachability: 'verified',
@@ -208,6 +200,7 @@ const DAY_ONE_LESSON_ACTIVITY_TITLES = {
 } as const satisfies Readonly<Record<typeof DAY_ONE_LESSON_ACTIVITY_IDS[number], string>>;
 
 const DAY_ONE_VERIFIED_ACTIVITY_IDS = new Set<typeof DAY_ONE_LESSON_ACTIVITY_IDS[number]>([
+    'activity:lesson-zero-vowel-listen',
     'activity:lesson-zero-sound-input',
     'activity:lesson-zero-text-input',
     'activity:lesson-zero-speaking-input',
@@ -317,8 +310,7 @@ const DAY_ONE_LESSON: readonly DayActivityAvailability[] = DAY_ONE_LESSON_ACTIVI
             ? VERIFIED_DELIVERY
             : activityId === 'activity:lesson-zero-greet-rie'
             ? VERIFIED_DELIVERY
-            : activityId === 'activity:lesson-zero-vowel-listen'
-                || activityId === 'activity:lesson-zero-vowel-doodle'
+            : activityId === 'activity:lesson-zero-vowel-doodle'
                 || activityId === 'activity:lesson-zero-follow-instructions'
                 || activityId === 'activity:lesson-zero-reconstruct-repair'
                 || activityId === 'activity:lesson-zero-desk-language'
@@ -351,7 +343,7 @@ const DAY_ONE_GAMES: readonly DayActivityAvailability[] = [
         { route: 'source-activity', context: { lessonId: 'lesson:foundation-00', activityId: 'activity:lesson-zero-vowel-listen' } },
         ['game:lesson-zero-vowel-listening-bingo'], { audio: 'learning-audio', visual: 'interactive' },
         'Each heard choice and confusion pair can seed review.', 'A full randomized board is playable with deterministic audio and no answer-first cue.',
-        [], VERIFIED_JOURNEY_PENDING_MEDIA_DELIVERY),
+        [], VERIFIED_DELIVERY),
     entry('day:1:game:kana-trace', 'Trace the first kana', 'minigame', ['required', 'repeatable'],
         { route: 'writing-practice', context: { lessonId: 'lesson:foundation-00', activityId: 'activity:lesson-zero-kanji-one' } },
         ['activity:lesson-zero-kanji-one', 'cue:kana-trace-one-stroke'], { audio: 'music-ambience-sfx', visual: 'interactive' },

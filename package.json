@@ -57,6 +57,7 @@
     "academy:learning-voice:contract": "python3 scripts/academy-voice/render-learning-voice.py",
     "academy:learning-voice:archive-queries": "python3 scripts/academy-voice/render-learning-voice.py --archive-query-evidence",
     "academy:learning-voice:render": "python3 scripts/academy-voice/render-learning-voice.py --render-staging",
+    "academy:learning-voice:promote": "node scripts/academy-voice/promote-learning-voice-candidates.mjs",
     "academy:learning-voice:qa": "node scripts/academy-voice/qa-learning-voice.mjs",
     "academy:learning-voice:qa:write": "node scripts/academy-voice/qa-learning-voice.mjs --write",
     "academy:learning-voice:review:historical": "node scripts/academy-voice/review-learning-voice-models.mjs",

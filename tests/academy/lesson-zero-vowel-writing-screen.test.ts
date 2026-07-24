@@ -43,11 +43,16 @@ describe('Lesson Zero five-vowel writing screen', () => {
         const definition = createLessonZeroVowelWritingDefinition();
         let persisted = startLessonZeroVowelWritingSession(definition);
         const onComplete = vi.fn();
+        const play = vi.fn(async () => ({ dispose() {} }));
+        const playLine = vi.fn(async (_identity: { japanese: string }) => ({
+            status: 'playing' as const,
+            playback: { dispose() {} },
+        }));
         const screen = createLessonZeroVowelWritingScreen({
             language: 'en',
             definition,
             initialState: persisted,
-            pronunciation: { play: vi.fn(async () => ({ dispose() {} })) } as never,
+            pronunciation: { play, playLine } as never,
             rieSprite: '/academy/art/characters/rie/test.png',
             onTransition: async (_before, transition) => { persisted = transition.state; },
             onRestart: vi.fn(),
@@ -58,6 +63,10 @@ describe('Lesson Zero five-vowel writing screen', () => {
         expect(screen.element.textContent).toContain('Let the five sounds leave a mark');
         buttonByText(screen.element, 'Open the practice book').click();
         await vi.waitFor(() => expect(persisted.status).toBe('active'));
+        buttonByText(screen.element, 'Hear the sound').click();
+        await vi.waitFor(() => expect(playLine).toHaveBeenCalledOnce());
+        expect(playLine.mock.calls[0][0].japanese).toBe('あさです');
+        expect(play).not.toHaveBeenCalled();
         buttonByText(screen.element, 'Choose the stroke plan').click();
         await vi.waitFor(() => expect(persisted.mode).toBe('plan'));
 

@@ -10,17 +10,43 @@ const voskModel = requiredPath('VOSK_MODEL');
 const uv = process.env.UV_BIN ?? resolve(process.env.HOME ?? '', '.local/bin/uv');
 const catalog = JSON.parse(await readFile(resolve(root, 'public/academy/audio/learning-voice-playback.json'), 'utf8'));
 const production = JSON.parse(await readFile(resolve(root, 'docs/academy/audio/learning-voice-production.json'), 'utf8'));
+const stagingReport = JSON.parse(await readFile(
+    resolve(root, 'qa-artifacts/academy-learning-voice/staging/render-report.json'),
+    'utf8',
+));
 const existingReport = JSON.parse(await readFile(
     resolve(root, 'docs/academy/audio/learning-voice-model-reviews.json'),
     'utf8',
 ));
 const productionById = new Map(production.entries.map(entry => [entry.identity.voiceLineId, entry]));
+const catalogById = new Map(catalog.entries.map(entry => [entry.lineId, entry]));
+const stagedById = new Map(stagingReport.entries.map(entry => [entry.voiceLineId, entry]));
 const temporary = await mkdtemp(resolve(tmpdir(), 'yomu-learning-voice-reviews-'));
 
 try {
     const prepared = [];
-    for (const entry of catalog.entries) {
-        const assetPath = resolve(root, 'public', entry.url.replace(/^\//u, ''));
+    for (const source of production.entries.filter(entry => entry.disposition.status === 'accepted')) {
+        const lineId = source.identity.voiceLineId;
+        const catalogEntry = catalogById.get(lineId);
+        const stagedEntry = stagedById.get(lineId);
+        if (!catalogEntry && (!stagedEntry
+            || stagedEntry.disposition !== 'accepted'
+            || stagedEntry.drift === true)) {
+            throw new Error(`Accepted candidate is neither shipped nor safely staged: ${lineId}.`);
+        }
+        const assetPath = catalogEntry
+            ? resolve(root, 'public', catalogEntry.url.replace(/^\//u, ''))
+            : resolve(root, stagedEntry.path);
+        const asset = await readFile(assetPath);
+        const entry = catalogEntry ?? {
+            lineId,
+            japanese: source.japanese,
+            assetSha256: sha256(asset),
+            url: `/${relative(root, assetPath)}`,
+        };
+        if (sha256(asset) !== entry.assetSha256) {
+            throw new Error(`Reviewed candidate bytes do not match their lock: ${lineId}.`);
+        }
         const wavPath = resolve(temporary, `${entry.lineId}.wav`);
         run('ffmpeg', [
             '-hide_banner', '-loglevel', 'error', '-y', '-i', assetPath,
@@ -256,6 +282,14 @@ function normalizeJapanese(value) {
         .join('');
     return compact
         .replaceAll('三百', '300')
+        .replaceAll('雨', 'あめ')
+        .replaceAll('朝', 'あさ')
+        .replaceAll('家', 'いえ')
+        .replaceAll('犬', 'いぬ')
+        .replaceAll('歌', 'うた')
+        .replaceAll('海', 'うみ')
+        .replaceAll('絵本', 'えほん')
+        .replaceAll('お茶', 'おちゃ')
         .replaceAll('今晩は', 'こんばんは')
         .replaceAll('始めまして', 'はじめまして')
         .replaceAll('宜しく', 'よろしく')
@@ -307,6 +341,8 @@ for item in config:
     path = item['path']
     with wave.open(path, 'rb') as audio:
         grammar = item.get('recognitionConfusionPhrases')
+        if grammar:
+            grammar = [phrase.replace('です', ' です') for phrase in grammar]
         recognizer = (
             KaldiRecognizer(model, audio.getframerate(), json.dumps(grammar, ensure_ascii=False))
             if grammar else KaldiRecognizer(model, audio.getframerate())

@@ -378,9 +378,41 @@
     font-weight: 900;
 }
 
+.academy-vowel-anchor-word {
+    margin: 6px 0 0;
+    color: var(--academy-paper-ink);
+    font-family: var(--academy-japanese-font);
+    font-size: 1.65rem;
+    font-weight: 850;
+    line-height: 1.2;
+}
+
+.academy-vowel-anchor-first {
+    border-bottom: 4px solid var(--academy-accent);
+}
+
+.academy-vowel-anchor-rest {
+    color: color-mix(in srgb, var(--academy-paper-ink) 72%, transparent);
+}
+
+.academy-vowel-anchor-meaning {
+    margin: 2px 0 5px;
+    color: var(--academy-paper-muted);
+    font-size: 0.9rem;
+    font-weight: 750;
+    text-transform: uppercase;
+}
+
+.academy-vowel-first-sound {
+    margin: 4px 0 0;
+    color: var(--academy-paper-ink);
+    font-weight: 800;
+}
+
 .academy-vowel-articulation {
     align-self: start;
-    margin-top: 4px;
+    margin: 2px 0 0;
+    color: var(--academy-paper-muted);
 }
 
 .academy-vowel-teaching-note > .academy-vowel-action {
@@ -423,6 +455,12 @@
 .academy-vowel-visual-romaji {
     color: var(--academy-paper-ink);
     font-size: 2rem;
+}
+
+.academy-vowel-visual-anchor {
+    color: var(--academy-paper-muted);
+    font-size: 0.9rem;
+    font-weight: 750;
 }
 
 .academy-vowel-choices {
@@ -618,6 +656,14 @@
 
     .academy-vowel-kana {
         font-size: 4.25rem;
+    }
+
+    .academy-vowel-teaching-note {
+        gap: 2px 14px;
+    }
+
+    .academy-vowel-anchor-word {
+        font-size: 1.45rem;
     }
 
     .academy-vowel-choices {

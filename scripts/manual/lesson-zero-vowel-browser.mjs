@@ -22,9 +22,23 @@ async function verifyVowelRoute(viewport, name, complete = false) {
     const page = await context.newPage();
     const pageErrors = [];
     const consoleErrors = [];
+    const audioResponses = [];
     page.on('pageerror', error => pageErrors.push(error.message));
     page.on('console', message => {
         if (message.type() === 'error') consoleErrors.push(message.text());
+    });
+    page.on('response', response => {
+        if (response.url().includes('/academy/audio/learning-lines/xingyu/')) {
+            audioResponses.push({ url: response.url(), status: response.status() });
+        }
+    });
+    await page.addInitScript(() => {
+        const originalPlay = HTMLMediaElement.prototype.play;
+        window.__academyVowelPlayedUrls = [];
+        HTMLMediaElement.prototype.play = function (...args) {
+            window.__academyVowelPlayedUrls.push(this.currentSrc || this.src);
+            return originalPlay.apply(this, args);
+        };
     });
     await reachVowels(page, `vowels-${name}-${Date.now()}`);
     await page.waitForTimeout(450);
@@ -59,16 +73,27 @@ async function verifyVowelRoute(viewport, name, complete = false) {
         return;
     }
 
+    await page.getByRole('button', { name: 'Sound' }).click();
     for (let index = 1; index < 5; index += 1) {
-        await page.getByRole('button', { name: 'Hold this shape' }).click();
+        const before = await playedAudioCount(page);
+        await page.getByRole('button', { name: 'Hear it in a word' }).click();
+        await page.waitForFunction(count => window.__academyVowelPlayedUrls.length > count, before);
     }
     await page.getByRole('button', { name: 'Listen without the paper' }).click();
-    await completeVisualRound(page);
+    await completeAudioRound(page);
     await page.waitForTimeout(500);
     if (await page.locator('.academy-vowel-complete').count() === 0) {
         throw new Error(`Five-vowel completion did not render: ${await page.locator('.academy-vowel-screen').innerText()}\n${consoleErrors.join('\n')}`);
     }
     assert.match(await page.locator('.academy-vowel-completed-row').innerText(), /あ・い・う・え・お/u);
+    const playedUrls = await page.evaluate(() => window.__academyVowelPlayedUrls);
+    assert.deepEqual(
+        [...new Set(playedUrls.map(url => /vowel-([aiueo])__/u.exec(url)?.[1]).filter(Boolean))].sort(),
+        ['a', 'e', 'i', 'o', 'u'],
+        'the completing route must play all five exact reviewed vowel assets',
+    );
+    assert.ok(audioResponses.every(entry => [200, 206].includes(entry.status)),
+        `exact vowel assets must resolve: ${JSON.stringify(audioResponses)}`);
     assert.equal(await page.locator('.jpdb-reader-popover').count(), 0, 'kana choices must not open the Reader lookup sheet');
     await assertAccessible(page);
     await page.screenshot({ path: path.join(artifactDir, `${name}-complete.png`), fullPage: true });
@@ -102,6 +127,24 @@ async function completeVisualRound(page) {
     }
 }
 
+async function completeAudioRound(page) {
+    const kanaForSound = { a: 'あ', i: 'い', u: 'う', e: 'え', o: 'お' };
+    for (let index = 0; index < 5; index += 1) {
+        const before = await playedAudioCount(page);
+        await page.getByRole('button', { name: 'Play the sound' }).click();
+        await page.waitForFunction(count => window.__academyVowelPlayedUrls.length > count, before);
+        const url = await page.evaluate(() => window.__academyVowelPlayedUrls.at(-1));
+        const sound = /\/xingyu-lesson-zero-vowel-([aiueo])__/u.exec(url)?.[1];
+        const kana = kanaForSound[sound];
+        assert.ok(kana, `unknown vowel audio binding: ${url}`);
+        await page.getByRole('button', { name: `Choose ${kana}` }).click();
+    }
+}
+
+async function playedAudioCount(page) {
+    return page.evaluate(() => window.__academyVowelPlayedUrls.length);
+}
+
 async function reachVowels(page, runId) {
     await page.goto(`${baseUrl}/academy/?qa-auth=bypass&qa-run=${runId}`, { waitUntil: 'domcontentloaded' });
     await page.getByRole('textbox').fill('YOMU-LOCAL');
@@ -111,12 +154,43 @@ async function reachVowels(page, runId) {
     await page.locator('textarea[name="learningReason"]').fill('To understand Japanese as people use it');
     await page.getByRole('button', { name: 'Continue' }).click();
     await page.locator('input[name="portrait"]').first().check();
-    await page.getByRole('button', { name: 'Tell Rie' }).click();
-    await page.getByRole('button', { name: 'Choose where to begin' }).click();
-    await page.getByRole('button', { name: /Begin with Lesson 0/ }).click();
+    await page.getByRole('button', { name: 'That’s me' }).click();
+    const introduction = page.locator('[data-academy-screen="rie-introduction"]');
+    await introduction.waitFor();
+    const action = introduction.locator('.academy-rie-introduction-primary');
+    await action.waitFor();
+    if ((await action.textContent())?.trim() !== 'Come in') {
+        await action.click();
+        await page.waitForFunction(() => {
+            const button = document.querySelector('.academy-rie-introduction-primary');
+            return button?.textContent?.trim() === 'Come in' && !button.disabled;
+        });
+    }
+    await action.evaluate(button => button.click());
+    const start = page.locator('.academy-start-screen[data-academy-route="start"]');
+    await start.waitFor();
+    await start.locator('[data-start-route="lesson-zero"]').click();
+    await page.locator('[data-story-arc-id="arc:bridge:opening-arrival"]').waitFor();
+    await advanceOpeningArrival(page);
+    await page.locator('.academy-story-next').click();
     await page.getByRole('button', { name: /Read the board and enter class/ }).waitFor();
     await openVowelsDirectly(page);
     await page.locator('.academy-vowel-screen').waitFor();
+}
+
+async function advanceOpeningArrival(page) {
+    for (let index = 0; index < 40; index += 1) {
+        const moment = await page.locator('[data-story-arc-id="arc:bridge:opening-arrival"]')
+            .getAttribute('data-story-moment');
+        if (moment === 'complete') return;
+        const choice = page.locator('[data-story-option-id]').first();
+        const action = page.locator('.academy-vn-action-slot .academy-vn-primary-action').first();
+        if (await choice.count()) await choice.click();
+        else if (await action.count()) await action.click();
+        else throw new Error(`Opening arrival stalled at ${moment ?? 'unknown'}.`);
+        await page.waitForTimeout(40);
+    }
+    throw new Error('Opening arrival did not complete within 40 actions.');
 }
 
 async function openVowelsDirectly(page) {

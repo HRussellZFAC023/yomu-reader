@@ -1,4 +1,6 @@
 import type { AcademyLanguage } from '../../reader/app/academy-copy';
+import { playLearningVoiceBinding } from '../audio/learning-voice';
+import { lessonZeroVowelAnchor } from '../content/lesson-zero-vowel-anchors';
 import type { ActivityEvaluation } from '../domain/activity-runtime';
 import {
     lessonZeroVowelResponse,
@@ -52,10 +54,10 @@ const COPY = {
     audioMode: { en: 'Sound', ja: '音で進む' },
     visualMode: { en: 'Visual cue', ja: '目で進む' },
     accessNote: {
-        en: 'Both routes teach the same five characters and save the same review set.',
+        en: 'Use Sound when you can listen. Visual cue works anywhere.',
         ja: 'どちらの方法でも、同じ五文字を学び、同じ復習に保存します。',
     },
-    hear: { en: 'Hear this sound', ja: 'この音を聞く' },
+    hear: { en: 'Hear it in a word', ja: 'ことばの中で聞く' },
     hearAgain: { en: 'Hear it again', ja: 'もう一度聞く' },
     studyShape: { en: 'Hold this shape', ja: 'この形を覚える' },
     nextSound: { en: 'Keep this sound', ja: 'この音を残す' },
@@ -65,14 +67,15 @@ const COPY = {
         ja: 'シンユ：五つを新しい順番で流します。選ぶ前に聞いてください。時間制限はありません。',
     },
     beginAttempt: { en: 'Listen without the paper', ja: '紙を見ずに聞く' },
-    attemptTitle: { en: 'Which character did you hear?', ja: 'どの文字が聞こえましたか' },
+    attemptTitle: { en: 'Which first sound did you hear?', ja: '最初に、どの音が聞こえましたか' },
     bingoTitle: { en: 'Sound bingo', ja: '音のビンゴ' },
     playSound: { en: 'Play the sound', ja: '音を再生' },
     replaySound: { en: 'Replay', ja: 'もう一度' },
     playing: { en: 'Playing…', ja: '再生中…' },
     chooseAfter: { en: 'Now choose one character.', ja: '聞こえた文字を一つ選びましょう。' },
     visualCue: { en: 'Accessible cue', ja: '視覚の手がかり' },
-    visualCueBody: { en: 'Match this vowel cue to its hiragana:', ja: 'この母音を、ひらがなに結びましょう：' },
+    visualCueBody: { en: 'Choose the hiragana for this first sound:', ja: 'この最初の音に合うひらがなを選びましょう：' },
+    firstSoundOnly: { en: 'Focus on the first sound.', ja: '最初の音だけに注目します。' },
     saveError: { en: 'That step did not save. Please try it once more.', ja: '保存できませんでした。もう一度お試しください。' },
     audioError: {
         en: 'The sound did not play. Retry, or switch to the visual route without losing your place.',
@@ -101,14 +104,6 @@ const COPY = {
     restart: { en: 'Start the five sounds again', ja: '五つの音を最初から' },
     leave: { en: 'Save and return', ja: '保存して戻る' },
 } as const;
-
-const ARTICULATION: Readonly<Record<string, LocalizedCopy>> = {
-    'hira-a': { en: 'Open and brief: a, as in father.', ja: '口を開いて、短く「あ」。' },
-    'hira-i': { en: 'Light and clear: i, with relaxed lips.', ja: '唇を楽にして、明るく「い」。' },
-    'hira-u': { en: 'Soft and unrounded: u, not a long English “oo”.', ja: '唇を丸めすぎず、短く「う」。' },
-    'hira-e': { en: 'Short and clean: e, without adding another vowel.', ja: '次の音を足さず、短く「え」。' },
-    'hira-o': { en: 'Round once and release: o.', ja: '一度だけ丸くして、「お」。' },
-};
 
 export function createLessonZeroVowelScreen(options: LessonZeroVowelScreenOptions): LessonZeroVowelScreen {
     const lifecycle = new AbortController();
@@ -199,14 +194,31 @@ export function createLessonZeroVowelScreen(options: LessonZeroVowelScreenOption
     };
 
     const teachingNote = (item: KanaSoundMapItem, signal: AbortSignal): HTMLElement => {
+        const anchor = lessonZeroVowelAnchor(item.id);
         const note = element('section', 'academy-vowel-teaching-note');
         const kana = element('span', 'academy-vowel-kana');
         kana.lang = 'ja';
         kana.textContent = item.kana;
         const romaji = element('span', 'academy-vowel-romaji');
         romaji.textContent = item.romaji;
-        const cue = ARTICULATION[item.id];
-        note.append(kana, romaji, localized('p', 'academy-vowel-articulation', cue, options.language));
+        const word = element('p', 'academy-vowel-anchor-word');
+        word.lang = 'ja';
+        const first = element('span', 'academy-vowel-anchor-first');
+        first.textContent = anchor.kana;
+        const rest = element('span', 'academy-vowel-anchor-rest');
+        rest.textContent = anchor.spokenJapanese.slice(anchor.kana.length);
+        word.append(first, rest);
+        const meaning = element('p', 'academy-vowel-anchor-meaning');
+        meaning.textContent = anchor.meaning[options.language];
+        meaning.dataset.jpdbReaderSurfaceIgnore = '';
+        note.append(
+            kana,
+            romaji,
+            word,
+            meaning,
+            localized('p', 'academy-vowel-first-sound', COPY.firstSoundOnly, options.language),
+            localized('p', 'academy-vowel-articulation', anchor.mouthCue, options.language),
+        );
         const label = state.mode === 'audio' ? COPY.hear : COPY.studyShape;
         note.append(action(label, 'listen', signal, async button => {
             if (state.mode === 'audio') {
@@ -237,11 +249,13 @@ export function createLessonZeroVowelScreen(options: LessonZeroVowelScreenOption
             }));
             if (heard) prompt.append(localized('p', 'academy-vowel-choice-instruction', COPY.chooseAfter, options.language));
         } else {
+            const anchor = lessonZeroVowelAnchor(item.id);
             const cue = element('div', 'academy-vowel-visual-cue');
             cue.append(
                 localized('span', 'academy-vowel-visual-label', COPY.visualCue, options.language),
                 localized('span', 'academy-vowel-visual-copy', COPY.visualCueBody, options.language),
                 textNode('strong', 'academy-vowel-visual-romaji', item.romaji),
+                textNode('span', 'academy-vowel-visual-anchor', anchor.meaning[options.language]),
             );
             prompt.append(cue);
         }
@@ -381,7 +395,14 @@ export function createLessonZeroVowelScreen(options: LessonZeroVowelScreenOption
         const label = button.textContent ?? '';
         button.textContent = COPY.playing[options.language];
         try {
-            const active = await options.pronunciation.play(item.kana, item.kana, lifecycle.signal);
+            const anchor = lessonZeroVowelAnchor(item.id);
+            const active = await playLearningVoiceBinding(
+                options.pronunciation,
+                anchor.bindingId,
+                anchor.spokenJapanese,
+                lifecycle.signal,
+            );
+            if (!active) return false;
             if (disposed) active.dispose();
             else playback = active;
             message = '';

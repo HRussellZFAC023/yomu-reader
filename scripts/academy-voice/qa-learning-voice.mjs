@@ -27,7 +27,7 @@ const { catalog, hostedCatalog, model, query, reviews, production } = Object.fro
 
 require(loaded.catalog.source.equals(loaded.hostedCatalog.source), 'Hosted learning voice catalog mirror is stale.');
 require(production.schema === 'yomu-academy.learning-voice-production.v2', 'Production contract schema is stale.');
-require(model.schema === 'yomu-academy.learning-voice-model-evidence.v3', 'Model evidence schema is stale.');
+require(model.schema === 'yomu-academy.learning-voice-model-evidence.v4', 'Model evidence schema is stale.');
 require(query.schema === 'yomu-academy.learning-voice-query-evidence.v2', 'Query evidence schema is stale.');
 require(reviews.schema === 'yomu-academy.learning-voice-model-reviews.v2', 'Model review schema is stale.');
 require(model.productionContractSha256 === sha256(loaded.production.source), 'Model evidence is stale.');
@@ -38,6 +38,7 @@ const contractValidation = JSON.parse(run('python3', ['scripts/academy-voice/ren
 const sourceById = new Map(production.entries.map(entry => [entry.identity.voiceLineId, entry]));
 const mappingById = new Map(production.voiceMappings.map(mapping => [mapping.mappingId, mapping]));
 const modelByUuid = new Map(model.models.map(entry => [entry.uuid, entry]));
+const licenseById = new Map(model.licenses.map(entry => [entry.id, entry]));
 const queryById = new Map(query.entries.map(entry => [entry.voiceLineId, entry]));
 const dispositionById = new Map(reviews.lineDispositions.map(entry => [entry.lineId, entry]));
 const reviewLinesById = new Map();
@@ -62,6 +63,7 @@ for (const entry of catalog.entries) {
     const source = sourceById.get(entry.lineId);
     const mapping = mappingById.get(source?.mappingId);
     const archivedModel = modelByUuid.get(entry.modelUuid);
+    const archivedLicense = licenseById.get(entry.modelLicense);
     const archivedQuery = queryById.get(entry.lineId);
     const reviewDisposition = dispositionById.get(entry.lineId);
     const independentReviews = reviewLinesById.get(entry.lineId) ?? [];
@@ -93,7 +95,8 @@ for (const entry of catalog.entries) {
         distributionIdentity: mapping?.modelPayloadSha256 === entry.modelPayloadSha256
             && archivedModel?.distribution?.sha256 === entry.modelPayloadSha256
             && archivedModel?.distribution?.bytes === mapping?.modelDistribution?.bytes
-            && archivedModel?.licenseSha256 === model.license.sha256,
+            && archivedModel?.licenseId === entry.modelLicense
+            && archivedModel?.licenseSha256 === archivedLicense?.sha256,
         assetHash: sha256(asset) === entry.assetSha256,
         bytes: assetStat.size === entry.bytes,
         hostedMirror: asset.equals(hostedAsset),
@@ -154,8 +157,10 @@ const report = {
     archivedLicenceEvidence: {
         path: paths.model,
         schema: model.schema,
-        id: model.license.id,
-        sha256: model.license.sha256,
+        licenses: model.licenses.map(entry => ({
+            id: entry.id,
+            sha256: entry.sha256,
+        })),
         modelEvidenceSha256: sha256(loaded.model.source),
         engine: model.engine,
         engineStyleSource: model.engineStyleSource,
