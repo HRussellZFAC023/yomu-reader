@@ -13,6 +13,18 @@ const GOOGLE_DRIVE_SYNC_BRIDGE_MARKER = 'yomu-google-drive-settings-sync-bridge'
 const PACKAGED_READER_CSS_MARKER = 'yomu-extension-packaged-reader-css';
 const GOOGLE_DRIVE_APPDATA_SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
 
+// addons.mozilla.org refuses to parse any file over 5 MB and reports
+// FILE_TOO_LARGE as a hard lint error, so a Firefox content.js above this never
+// reaches review. Chrome has no equivalent ceiling.
+const AMO_FILE_SIZE_LIMIT = 5 * 1024 * 1024;
+// The compiler nests the whole userscript in `then(() => { try { ... } })` and
+// indents every line of it by four spaces (its indent() is a plain per-line
+// prefix). Across ~107k lines that is ~429 KB of leading whitespace — on its own
+// enough to push content.js past the AMO ceiling. These anchors bracket exactly
+// the region it indented, so removing four spaces per line is its exact inverse.
+const CONTENT_BODY_PREFIX = 'Promise.resolve(globalThis.__USC_READY).catch(() => {}).then(() => {\n  try {\n';
+const CONTENT_BODY_SUFFIX = "\n  } catch (error) {\n    console.error('Userscript failed:', error);\n  }\n});";
+
 const UNSAFE_EXTENSION_EVENT_PATTERNS = [
     [/\bapi\.tabs\.onRemoved\.addListener\(/g, 'api.tabs?.onRemoved?.addListener?.('],
     [/\bapi\.tabs\.onRemoved\.removeListener\(/g, 'api.tabs?.onRemoved?.removeListener?.('],
@@ -336,7 +348,15 @@ async function hardenGeneratedReleaseArchives(root, packageAssets, archiveTimest
                     googleOAuthClientId,
                 }));
             } else if (name === CONTENT_FILE) {
-                entries[name] = strToU8(hardenExtensionContentSource(new TextDecoder().decode(bytes)));
+                // This archive is patched from its own entries rather than from the
+                // already-hardened package directory, so the Firefox size fix has
+                // to be applied here as well or the shipped .xpi keeps the padding.
+                let content = hardenExtensionContentSource(new TextDecoder().decode(bytes));
+                if (target === 'firefox') {
+                    content = unindentContentScriptBody(content);
+                    assertFirefoxContentScriptFitsAmo(content, file);
+                }
+                entries[name] = strToU8(content);
             } else if (name === MANIFEST_FILE) {
                 const manifest = JSON.parse(new TextDecoder().decode(bytes));
                 entries[name] = strToU8(`${JSON.stringify(hardenExtensionManifest(manifest, {
@@ -368,9 +388,48 @@ async function hardenGeneratedExtensionContentScripts(root) {
     const files = await collectNamedFiles(root, CONTENT_FILE);
     for (const file of files) {
         const source = await readFile(file, 'utf8');
-        const hardened = hardenExtensionContentSource(source);
+        let hardened = hardenExtensionContentSource(source);
+        // Firefox only: Chrome ships and reviews fine as generated, so its bytes
+        // are left exactly as they are.
+        if (extensionTargetFromPath(file, root) === 'firefox') {
+            hardened = unindentContentScriptBody(hardened);
+            assertFirefoxContentScriptFitsAmo(hardened, file);
+        }
         if (hardened !== source) await writeFile(file, hardened);
     }
+}
+
+// Undoes the compiler's blanket four-space body indent. Semantically this is a
+// no-op for code, and for the multi-line template literals in the bundle it
+// restores the exact strings the userscript build produced, so the packaged
+// Firefox script matches dist/yomu.user.js rather than a padded copy of it.
+export function unindentContentScriptBody(source) {
+    const start = source.indexOf(CONTENT_BODY_PREFIX);
+    const end = source.lastIndexOf(CONTENT_BODY_SUFFIX);
+    if (start < 0 || end < 0 || end <= start) {
+        throw new Error('Generated content.js no longer uses the expected userscript body wrapper; the Firefox size fix needs updating.');
+    }
+    const bodyStart = start + CONTENT_BODY_PREFIX.length;
+    const lines = source.slice(bodyStart, end).split('\n');
+    const unindented = lines.map(line => {
+        // Every line was prefixed unconditionally, so anything shorter than the
+        // prefix means the wrapper changed shape and the inverse is unsafe.
+        if (!line.startsWith('    ') && line.trim() !== '') {
+            throw new Error('Generated content.js body is not uniformly indented; refusing to rewrite it.');
+        }
+        return line.startsWith('    ') ? line.slice(4) : line.trimEnd();
+    });
+    return source.slice(0, bodyStart) + unindented.join('\n') + source.slice(end);
+}
+
+function assertFirefoxContentScriptFitsAmo(source, file) {
+    const bytes = Buffer.byteLength(source, 'utf8');
+    if (bytes <= AMO_FILE_SIZE_LIMIT) return;
+    throw new Error([
+        `${path.basename(file)} is ${bytes} bytes, over the ${AMO_FILE_SIZE_LIMIT}-byte addons.mozilla.org parse limit.`,
+        'web-ext lint fails this as FILE_TOO_LARGE, so the Firefox submission would be rejected before review.',
+        'Move code out of the content script (ADR-0003 companions) or split the packaged script.',
+    ].join('\n'));
 }
 
 async function stageGeneratedExtensionAssets(root, packageAssets) {
