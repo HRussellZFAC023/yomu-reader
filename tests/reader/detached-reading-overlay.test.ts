@@ -319,6 +319,219 @@ describe('detached reading overlay occlusion', () => {
         clearProjectedReadings(second.owner);
     });
 
+    it('remeasures a projection when a composed shadow ancestor scrolls', async () => {
+        const host = document.createElement('dynamic-platform');
+        const shadow = host.attachShadow({ mode: 'open' });
+        const scroller = document.createElement('div');
+        const component = document.createElement('dynamic-component');
+        const componentShadow = component.attachShadow({ mode: 'open' });
+        const target = readingOwner('どうてき');
+        target.anchor.remove();
+        componentShadow.append(target.anchor);
+        scroller.append(component);
+        shadow.append(scroller);
+        document.body.append(host);
+        mockElementsFromPoint([host]);
+        Object.defineProperty(shadow, 'elementsFromPoint', {
+            configurable: true,
+            value: vi.fn(() => [component]),
+        });
+        Object.defineProperty(componentShadow, 'elementsFromPoint', {
+            configurable: true,
+            value: vi.fn(() => [target.anchor]),
+        });
+        let sourceRect = rect(80, 120);
+        target.anchor.getBoundingClientRect = () => sourceRect;
+        syncProjectedReadings(target.owner, [{
+            source: target.source,
+            anchor: target.anchor,
+            rect: sourceRect,
+            measure: () => sourceRect,
+        }]);
+        expect(projectedReading('どうてき')?.style.top).toBe('120px');
+        await nextProjectionFrame();
+
+        sourceRect = rect(80, 60);
+        scroller.dispatchEvent(new Event('scroll'));
+        await nextProjectionFrame();
+
+        expect(projectedReading('どうてき')?.style.top).toBe('60px');
+        clearProjectedReadings(target.owner);
+    });
+
+    it('tracks the shadow scroller that renders a slotted light-DOM projection', async () => {
+        const host = document.createElement('dynamic-platform');
+        const shadow = host.attachShadow({ mode: 'open' });
+        const scroller = document.createElement('div');
+        const slot = document.createElement('slot');
+        slot.name = 'label';
+        scroller.append(slot);
+        shadow.append(scroller);
+        const target = readingOwner('すろっと');
+        target.anchor.remove();
+        target.anchor.slot = 'label';
+        host.append(target.anchor);
+        document.body.append(host);
+        expect(target.anchor.assignedSlot).toBe(slot);
+        mockElementsFromPoint([document.body]);
+        let sourceRect = rect(80, 120);
+        target.anchor.getBoundingClientRect = () => sourceRect;
+        syncProjectedReadings(target.owner, [{
+            source: target.source,
+            anchor: target.anchor,
+            rect: sourceRect,
+            measure: () => sourceRect,
+        }]);
+        await nextProjectionFrame();
+
+        sourceRect = rect(80, 60);
+        scroller.dispatchEvent(new Event('scroll'));
+        await nextProjectionFrame();
+        expect(projectedReading('すろっと')?.style.top).toBe('60px');
+
+        sourceRect = rect(80, 40);
+        slot.dispatchEvent(new Event('slotchange'));
+        await nextProjectionFrame();
+        expect(projectedReading('すろっと')?.style.top).toBe('40px');
+        clearProjectedReadings(target.owner);
+    });
+
+    it('tracks every shadow boundary when slotted hosts are nested', async () => {
+        const platform = document.createElement('dynamic-platform');
+        const platformRoot = platform.attachShadow({ mode: 'open' });
+        const scroller = document.createElement('div');
+        const platformSlot = document.createElement('slot');
+        platformSlot.name = 'component';
+        scroller.append(platformSlot);
+        platformRoot.append(scroller);
+        const component = document.createElement('dynamic-component');
+        component.slot = 'component';
+        const componentRoot = component.attachShadow({ mode: 'open' });
+        const componentSlot = document.createElement('slot');
+        componentSlot.name = 'label';
+        componentRoot.append(componentSlot);
+        platform.append(component);
+        const target = readingOwner('にじゅう');
+        target.anchor.remove();
+        target.anchor.slot = 'label';
+        component.append(target.anchor);
+        document.body.append(platform);
+        expect(component.assignedSlot).toBe(platformSlot);
+        expect(target.anchor.assignedSlot).toBe(componentSlot);
+        mockElementsFromPoint([document.body]);
+        let sourceRect = rect(80, 120);
+        target.anchor.getBoundingClientRect = () => sourceRect;
+        syncProjectedReadings(target.owner, [{
+            source: target.source,
+            anchor: target.anchor,
+            rect: sourceRect,
+            measure: () => sourceRect,
+        }]);
+        await nextProjectionFrame();
+
+        sourceRect = rect(80, 60);
+        scroller.dispatchEvent(new Event('scroll'));
+        await nextProjectionFrame();
+        expect(projectedReading('にじゅう')?.style.top).toBe('60px');
+        clearProjectedReadings(target.owner);
+    });
+
+    it('adopts a newly matching slot without requiring another annotation sync', async () => {
+        const host = document.createElement('dynamic-platform');
+        const shadow = host.attachShadow({ mode: 'open' });
+        const scroller = document.createElement('div');
+        const slot = document.createElement('slot');
+        slot.name = 'other';
+        scroller.append(slot);
+        shadow.append(scroller);
+        const target = readingOwner('あとから');
+        target.anchor.remove();
+        target.anchor.slot = 'label';
+        host.append(target.anchor);
+        document.body.append(host);
+        expect(target.anchor.assignedSlot).toBeNull();
+        mockElementsFromPoint([document.body]);
+        let sourceRect = rect(80, 120);
+        target.anchor.getBoundingClientRect = () => sourceRect;
+        syncProjectedReadings(target.owner, [{
+            source: target.source,
+            anchor: target.anchor,
+            rect: sourceRect,
+            measure: () => sourceRect,
+        }]);
+        await nextProjectionFrame();
+
+        sourceRect = rect(80, 80);
+        slot.name = 'label';
+        await nextProjectionFrame();
+        expect(target.anchor.assignedSlot).toBe(slot);
+        expect(projectedReading('あとから')?.style.top).toBe('80px');
+
+        sourceRect = rect(80, 60);
+        scroller.dispatchEvent(new Event('scroll'));
+        await nextProjectionFrame();
+        expect(projectedReading('あとから')?.style.top).toBe('60px');
+        clearProjectedReadings(target.owner);
+    });
+
+    it('retracks a moved projection before listening to its new shadow scroller', async () => {
+        const firstHost = document.createElement('dynamic-platform');
+        const firstRoot = firstHost.attachShadow({ mode: 'open' });
+        const firstScroller = document.createElement('div');
+        firstRoot.append(firstScroller);
+        const secondHost = document.createElement('dynamic-platform');
+        const secondRoot = secondHost.attachShadow({ mode: 'open' });
+        const secondScroller = document.createElement('div');
+        secondRoot.append(secondScroller);
+        document.body.append(firstHost, secondHost);
+        const removeFirstListener = vi.spyOn(firstRoot, 'removeEventListener');
+        const addSecondListener = vi.spyOn(secondRoot, 'addEventListener');
+        const target = readingOwner('うつる');
+        target.anchor.remove();
+        firstScroller.append(target.anchor);
+        mockElementsFromPoint([document.body]);
+        let sourceRect = rect(80, 120);
+        target.anchor.getBoundingClientRect = () => sourceRect;
+        syncProjectedReadings(target.owner, [{
+            source: target.source,
+            anchor: target.anchor,
+            rect: sourceRect,
+            measure: () => sourceRect,
+        }]);
+        await nextProjectionFrame();
+
+        // Moving the existing annotation itself must be enough; frameworks do
+        // not necessarily ask Yomu to sync the same reading again.
+        secondScroller.append(target.anchor);
+        await nextProjectionFrame();
+        expect(removeFirstListener).toHaveBeenCalledWith(
+            'scroll',
+            expect.any(Function),
+            { capture: true },
+        );
+        expect(removeFirstListener).toHaveBeenCalledWith(
+            'slotchange',
+            expect.any(Function),
+            { capture: true },
+        );
+        expect(addSecondListener).toHaveBeenCalledWith(
+            'scroll',
+            expect.any(Function),
+            { capture: true, passive: true },
+        );
+        expect(addSecondListener).toHaveBeenCalledWith(
+            'slotchange',
+            expect.any(Function),
+            { capture: true, passive: true },
+        );
+
+        sourceRect = rect(80, 60);
+        secondScroller.dispatchEvent(new Event('scroll'));
+        await nextProjectionFrame();
+        expect(projectedReading('うつる')?.style.top).toBe('60px');
+        clearProjectedReadings(target.owner);
+    });
+
     it.each(['resize', 'orientationchange'])(
         'remeasures projected readings after viewport %s',
         async eventName => {

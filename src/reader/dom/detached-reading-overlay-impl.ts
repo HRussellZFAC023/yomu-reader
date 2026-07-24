@@ -27,12 +27,15 @@ interface DocumentOverlay {
     layer: HTMLElement;
     records: Set<ProjectionRecord>;
     anchorRecords: Map<HTMLElement, Set<ProjectionRecord>>;
-    anchorRoots: Map<HTMLElement, Node>;
+    anchorRoots: Map<HTMLElement, readonly ShadowRoot[]>;
     intersectingAnchors: Set<HTMLElement>;
     intersectionObserver: IntersectionObserver | null;
     refreshFrame: number;
     observer: MutationObserver | null;
     shadowRootReferences: Map<ShadowRoot, number>;
+    scheduleRefresh: () => void;
+    scheduleTopologyRefresh: () => void;
+    rootsDirty: boolean;
 }
 
 interface ProjectionReadContext {
@@ -161,20 +164,25 @@ function documentOverlay(document: Document): DocumentOverlay {
         refreshFrame: 0,
         observer: null,
         shadowRootReferences: new Map(),
+        scheduleRefresh: () => scheduleProjectionRefresh(document, overlay),
+        scheduleTopologyRefresh: () => {
+            overlay.rootsDirty = true;
+            scheduleProjectionRefresh(document, overlay);
+        },
+        rootsDirty: false,
     };
     overlays.set(document, overlay);
     overlay.intersectionObserver = observeProjectionIntersections(document, overlay);
-    const schedule = (): void => scheduleProjectionRefresh(document, overlay);
-    document.addEventListener('scroll', schedule, { capture: true, passive: true });
-    document.addEventListener('pointerover', schedule, { capture: true, passive: true });
-    document.addEventListener('pointerout', schedule, { capture: true, passive: true });
-    document.addEventListener('focusin', schedule, { capture: true, passive: true });
-    document.addEventListener('focusout', schedule, { capture: true, passive: true });
+    document.addEventListener('scroll', overlay.scheduleRefresh, { capture: true, passive: true });
+    document.addEventListener('pointerover', overlay.scheduleRefresh, { capture: true, passive: true });
+    document.addEventListener('pointerout', overlay.scheduleRefresh, { capture: true, passive: true });
+    document.addEventListener('focusin', overlay.scheduleRefresh, { capture: true, passive: true });
+    document.addEventListener('focusout', overlay.scheduleRefresh, { capture: true, passive: true });
     const viewport = document.defaultView;
-    viewport?.addEventListener('resize', schedule, { passive: true });
-    viewport?.addEventListener('orientationchange', schedule, { passive: true });
-    viewport?.visualViewport?.addEventListener('scroll', schedule, { passive: true });
-    viewport?.visualViewport?.addEventListener('resize', schedule, { passive: true });
+    viewport?.addEventListener('resize', overlay.scheduleRefresh, { passive: true });
+    viewport?.addEventListener('orientationchange', overlay.scheduleRefresh, { passive: true });
+    viewport?.visualViewport?.addEventListener('scroll', overlay.scheduleRefresh, { passive: true });
+    viewport?.visualViewport?.addEventListener('resize', overlay.scheduleRefresh, { passive: true });
     overlay.observer = observeProjectionEnvironment(document, overlay);
     return overlay;
 }
@@ -268,6 +276,14 @@ function scheduleProjectionRefresh(document: Document, overlay: DocumentOverlay)
 
 function refreshProjectedReadingPositions(overlay: DocumentOverlay): void {
     pruneDisconnectedRecords(overlay);
+    // Frameworks can move an already-annotated node between shadow trees
+    // without asking the reader to sync it again. After a DOM/slot mutation,
+    // reconcile composed ancestry before choosing records so listeners follow
+    // the source rather than remaining attached to its previous root.
+    if (overlay.rootsDirty) {
+        overlay.rootsDirty = false;
+        [...overlay.anchorRecords.keys()].forEach(anchor => refreshProjectionAnchorRoot(anchor, overlay));
+    }
     // Range geometry, computed visibility, and hit-testing can all trigger a
     // layout read. Finish every record's read phase before any clone writes so
     // a scroll frame cannot alternate forced layout and style invalidation.
@@ -342,9 +358,9 @@ function trackProjectionAnchor(record: ProjectionRecord, overlay: DocumentOverla
         // anchors asynchronously and owns the steady-state scroll registry.
         overlay.intersectingAnchors.add(record.anchor);
         overlay.intersectionObserver?.observe(record.anchor);
-        const root = record.anchor.getRootNode();
-        overlay.anchorRoots.set(record.anchor, root);
-        trackProjectionRoot(root, overlay);
+        const roots = projectionShadowRoots(record.anchor);
+        overlay.anchorRoots.set(record.anchor, roots);
+        roots.forEach(root => trackProjectionRoot(root, overlay));
     }
     records.add(record);
 }
@@ -357,18 +373,49 @@ function untrackProjectionAnchor(record: ProjectionRecord, overlay: DocumentOver
     overlay.anchorRecords.delete(record.anchor);
     overlay.intersectingAnchors.delete(record.anchor);
     overlay.intersectionObserver?.unobserve(record.anchor);
-    const root = overlay.anchorRoots.get(record.anchor);
+    const roots = overlay.anchorRoots.get(record.anchor) ?? [];
     overlay.anchorRoots.delete(record.anchor);
-    if (root) untrackProjectionRoot(root, overlay);
+    roots.forEach(root => untrackProjectionRoot(root, overlay));
 }
 
 function refreshProjectionAnchorRoot(anchor: HTMLElement, overlay: DocumentOverlay): void {
-    const tracked = overlay.anchorRoots.get(anchor);
-    const current = anchor.getRootNode();
-    if (tracked === current) return;
-    if (tracked) untrackProjectionRoot(tracked, overlay);
+    const tracked = overlay.anchorRoots.get(anchor) ?? [];
+    const current = projectionShadowRoots(anchor);
+    if (tracked.length === current.length && tracked.every((root, index) => root === current[index])) return;
+    const trackedSet = new Set(tracked);
+    const currentSet = new Set(current);
+    tracked.filter(root => !currentSet.has(root)).forEach(root => untrackProjectionRoot(root, overlay));
     overlay.anchorRoots.set(anchor, current);
-    trackProjectionRoot(current, overlay);
+    current.filter(root => !trackedSet.has(root)).forEach(root => trackProjectionRoot(root, overlay));
+}
+
+function projectionShadowRoots(anchor: HTMLElement): ShadowRoot[] {
+    const roots: ShadowRoot[] = [];
+    const rootSet = new Set<ShadowRoot>();
+    const addRoot = (root: ShadowRoot): void => {
+        if (rootSet.has(root)) return;
+        rootSet.add(root);
+        roots.push(root);
+    };
+    const visited = new Set<Node>();
+    let node: Node | null = anchor;
+    while (node && !visited.has(node)) {
+        visited.add(node);
+        if (node instanceof ShadowRoot) addRoot(node);
+        node = composedParentNode(node);
+    }
+    // Also watch open distribution roots on the ordinary DOM/host ancestry.
+    // An unmatched light-DOM node has no assignedSlot yet, but a later slot
+    // insertion or name change can make that root part of its composed tree.
+    const domVisited = new Set<Node>();
+    for (let domNode: Node | null = anchor; domNode && !domVisited.has(domNode);) {
+        domVisited.add(domNode);
+        const parent: Node | null = domNode.parentNode
+            ?? (domNode instanceof ShadowRoot ? domNode.host : null);
+        if (parent instanceof Element && parent.shadowRoot) addRoot(parent.shadowRoot);
+        domNode = parent;
+    }
+    return roots;
 }
 
 function refreshableRecords(overlay: DocumentOverlay): ProjectionRecord[] {
@@ -383,7 +430,7 @@ function observeProjectionEnvironment(document: Document, overlay: DocumentOverl
     if (!Observer || !root) return null;
     const observer = new Observer(mutations => {
         if (!overlay.records.size || !mutations.some(mutation => mutationAffectsProjection(mutation, overlay.layer))) return;
-        scheduleProjectionRefresh(document, overlay);
+        overlay.scheduleTopologyRefresh();
     });
     observeProjectionMutations(observer, root);
     return observer;
@@ -392,27 +439,33 @@ function observeProjectionEnvironment(document: Document, overlay: DocumentOverl
 function observeProjectionMutations(observer: MutationObserver, root: Node): void {
     observer.observe(root, {
         attributes: true,
-        attributeFilter: ['aria-expanded', 'aria-hidden', 'class', 'hidden', 'open', 'style'],
+        attributeFilter: ['aria-expanded', 'aria-hidden', 'class', 'hidden', 'name', 'open', 'slot', 'style'],
         childList: true,
         subtree: true,
     });
 }
 
-function trackProjectionRoot(root: Node, overlay: DocumentOverlay): void {
-    if (!(root instanceof ShadowRoot)) return;
+function trackProjectionRoot(root: ShadowRoot, overlay: DocumentOverlay): void {
     const references = overlay.shadowRootReferences.get(root) ?? 0;
     overlay.shadowRootReferences.set(root, references + 1);
-    if (references === 0) rebuildProjectionMutationRoots(overlay);
+    if (references !== 0) return;
+    // Element scroll events are not composed: a document capture listener
+    // cannot observe a scroller inside a shadow tree. The viewport portal must
+    // listen at every shadow boundary in the source's composed ancestry.
+    root.addEventListener('scroll', overlay.scheduleRefresh, { capture: true, passive: true });
+    root.addEventListener('slotchange', overlay.scheduleTopologyRefresh, { capture: true, passive: true });
+    rebuildProjectionMutationRoots(overlay);
 }
 
-function untrackProjectionRoot(root: Node, overlay: DocumentOverlay): void {
-    if (!(root instanceof ShadowRoot)) return;
+function untrackProjectionRoot(root: ShadowRoot, overlay: DocumentOverlay): void {
     const references = overlay.shadowRootReferences.get(root) ?? 0;
     if (references > 1) {
         overlay.shadowRootReferences.set(root, references - 1);
         return;
     }
     if (!overlay.shadowRootReferences.delete(root)) return;
+    root.removeEventListener('scroll', overlay.scheduleRefresh, { capture: true });
+    root.removeEventListener('slotchange', overlay.scheduleTopologyRefresh, { capture: true });
     rebuildProjectionMutationRoots(overlay);
 }
 
@@ -629,18 +682,27 @@ function anchorIntersectsViewport(anchor: HTMLElement): boolean {
 }
 
 function composedParentElement(element: Element): Element | null {
-    if (element.parentElement) return element.parentElement;
-    const root = element.getRootNode();
-    return root instanceof ShadowRoot ? root.host : null;
+    let parent = composedParentNode(element);
+    while (parent && !(parent instanceof Element)) parent = composedParentNode(parent);
+    return parent;
 }
 
 function composedContains(ancestor: Element, descendant: Element): boolean {
-    for (let node: Node | null = descendant; node;) {
+    const visited = new Set<Node>();
+    for (let node: Node | null = descendant; node && !visited.has(node); node = composedParentNode(node)) {
+        visited.add(node);
         if (node === ancestor) return true;
-        const root = node.getRootNode();
-        node = node.parentNode ?? (root instanceof ShadowRoot ? root.host : null);
     }
     return false;
+}
+
+function composedParentNode(node: Node): Node | null {
+    // A light-DOM node renders beneath its assigned slot, not beneath its DOM
+    // parent. Follow that edge before ordinary ancestry, then cross a shadow
+    // root through its host.
+    if (node instanceof Element && node.assignedSlot) return node.assignedSlot;
+    if (node.parentNode) return node.parentNode;
+    return node instanceof ShadowRoot ? node.host : null;
 }
 
 function safeComputedStyle(element: Element): CSSStyleDeclaration {
