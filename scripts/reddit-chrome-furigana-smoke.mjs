@@ -275,10 +275,13 @@ for (const engine of [{ name: 'chromium', type: chromium }, { name: 'webkit', ty
                 },
             });
         } catch (retryError) {
+            const retryFailure = String(retryError);
             failures.push([
-                `${engine.name}: performance gate failed twice`,
+                isRetryablePerformanceFailure(retryFailure)
+                    ? `${engine.name}: performance gate failed twice`
+                    : `${engine.name}: clean-context retry failed after a retryable performance sample`,
                 `first: ${firstFailure.slice(0, 3500)}`,
-                `retry: ${String(retryError).slice(0, 3500)}`,
+                `retry: ${retryFailure.slice(0, 3500)}`,
             ].join('\n'));
         }
     } finally {
@@ -1755,6 +1758,7 @@ function snapshotRedditElement(element, expected) {
 function snapshotSortMenuSafety(host) {
     const menu = host.shadowRoot.querySelector('#sort-menu');
     const projection = window.__yomuProjectedReadingDiagnostics(menu);
+    const documentProjection = window.__yomuProjectedReadingDiagnostics(document);
     const readings = projection.sources;
     const visible = projection.associations.map(association => association.clone)
         .filter(projection.visible);
@@ -1782,6 +1786,7 @@ function snapshotSortMenuSafety(host) {
     }
     return {
         wordCount: menu.querySelectorAll('.jpdb-reader-word').length,
+        openProjectedReadingCloneCount: documentProjection.clones.length,
         readingCount: readings.length,
         projectedReadingCount: projection.associations.length,
         visibleReadingCount: visible.length,
@@ -1906,6 +1911,9 @@ function snapshotRedditPageSummary() {
             rubyRoomCount: document.querySelectorAll('[data-yomu-ruby-room]').length,
             projectedReadingCloneCount: readingProjection.clones.length,
             visibleProjectedReadingCloneCount: readingProjection.clones.filter(readingProjection.visible).length,
+            hiddenProjectedReadingCloneCount: readingProjection.clones.filter(
+                clone => !readingProjection.visible(clone),
+            ).length,
             detachedReadingOverlayCount: document.querySelectorAll('.jpdb-reader-detached-reading-overlay').length,
             controlBoxes: {
                 create: boxGeometry(document.querySelector('#create-post')),
@@ -2111,11 +2119,26 @@ function assertStableFixtureLayout(engineName, baseline, layout, menuSafety) {
     assert(layout.cardToPostGap <= baseline.cardToPostGap + 2, `${engineName}: a large gap appeared below the card`, { baseline, layout });
     assert(layout.scrollWidth <= layout.viewportWidth + 2, `${engineName}: annotations caused horizontal overflow`, layout);
     assert(layout.rubyRoomCount === 0, `${engineName}: Reddit fixture received ruby-room growth`, layout);
-    assert(layout.projectedReadingCloneCount > 0
-        && layout.projectedReadingCloneCount === layout.visibleProjectedReadingCloneCount
-            + menuSafety.projectedReadingCount
+    const backgroundProjectedReadingCloneCount = menuSafety.openProjectedReadingCloneCount
+        - menuSafety.projectedReadingCount;
+    // Hiding the shadow menu schedules projection cleanup. Depending on when
+    // WebKit delivers that mutation relative to the two-frame snapshot fence,
+    // the menu's clones are either all retained but hidden or all removed.
+    // Require either complete state so visible leaks and partial cleanup fail.
+    const retainedHiddenMenuClones = layout.projectedReadingCloneCount === menuSafety.openProjectedReadingCloneCount
+        && layout.visibleProjectedReadingCloneCount === backgroundProjectedReadingCloneCount
+        && layout.hiddenProjectedReadingCloneCount === menuSafety.projectedReadingCount;
+    const removedMenuClones = layout.projectedReadingCloneCount === backgroundProjectedReadingCloneCount
+        && layout.visibleProjectedReadingCloneCount === backgroundProjectedReadingCloneCount
+        && layout.hiddenProjectedReadingCloneCount === 0;
+    assert(backgroundProjectedReadingCloneCount > 0
+        && menuSafety.projectedReadingCount > 0
+        && (retainedHiddenMenuClones || removedMenuClones)
         && layout.detachedReadingOverlayCount === 1,
-    `${engineName}: projected reading inventory did not retain exactly the closed menu clones`, layout);
+    `${engineName}: closed menu did not reach an atomic projected reading inventory`, {
+        layout,
+        menuSafety,
+    });
     for (const name of ['create', 'share', 'join', 'sort']) {
         assert(boxGeometryMatches(baseline.controlBoxes[name], layout.controlBoxes[name]),
             `${engineName}: ${name} changed authored overflow or scroll geometry`, {
