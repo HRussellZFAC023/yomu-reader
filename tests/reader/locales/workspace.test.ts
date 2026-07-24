@@ -3,14 +3,18 @@ import { describe, expect, it } from "vitest";
 import { LEARNER_LANGUAGE_IDS } from "../../../src/reader/locales";
 
 describe("multilingual delivery workspace", () => {
-  it("keeps an honest 0/32 closure ledger until journeys are proven", () => {
+  it("distinguishes broad 0/32 localization from the narrow 32/32 runtime gate", () => {
     const ledger = readFileSync("docs/multilingual/closure-ledger.md", "utf8");
     const rowIds = [...ledger.matchAll(/^\|\s*`([^`]+)`\s*\|/gm)].map(
       (match) => match[1],
     );
 
     expect(rowIds).toEqual([...LEARNER_LANGUAGE_IDS]);
-    expect(ledger).toContain("**Release completion: 0/32.**");
+    expect(ledger).toContain("**Full-product localization completion: 0/32.**");
+    expect(ledger).toContain(
+      "not the release gate for the narrower 32-input-language Reader runtime slice",
+    );
+    expect(ledger).toContain("That slice has its own 32/32 contract");
     expect(ledger.match(/\|\s*No\s*\|$/gm)).toHaveLength(32);
     expect(ledger).toContain("Academy is excluded from this ledger.");
   });

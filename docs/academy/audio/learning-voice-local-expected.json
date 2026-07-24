@@ -7,7 +7,7 @@
   "build": {
     "distApp": "dist/academy/app.js",
     "hostedApp": "docs/public/academy/app.js",
-    "appSha256": "acb8392a4f4ffd4a29593865aaff9e194f8d4298d0a5c973c0e60c7eff189e1a",
+    "appSha256": "2981b740ade0c636eb7609f2b2c51a9f3300e062ffd27cbf3d8516343022bfe4",
     "byteParityRequired": true
   },
   "runtimeSources": {

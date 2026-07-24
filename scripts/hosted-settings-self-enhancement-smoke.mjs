@@ -154,12 +154,12 @@ try {
     await page.waitForSelector('.jpdb-reader-newtab-more summary', { timeout: 15_000 });
     await page.locator('.jpdb-reader-newtab-more summary').click();
     if (INJECT_USERSCRIPT) {
-        await page.locator('[data-newtab-action="settings"]').evaluate(button => {
+        await page.locator('.jpdb-reader-newtab-more [data-newtab-action="settings"]').evaluate(button => {
             if (!(button instanceof HTMLButtonElement)) throw new Error('Settings menu item is not a button.');
             button.click();
         });
     } else {
-        await page.locator('[data-newtab-action="settings"]').click();
+        await page.locator('.jpdb-reader-newtab-more [data-newtab-action="settings"]').click();
     }
     await page.waitForSelector('.jpdb-reader-settings', { state: 'visible', timeout: 20_000 });
     const immediateHelpClick = await page.evaluate(() => new Promise(resolve => {
@@ -389,7 +389,7 @@ async function verifyDurableHostedSettings({ page, requests }) {
 
 async function openSettings(page) {
     await page.locator('.jpdb-reader-newtab-more summary').click();
-    await page.locator('[data-newtab-action="settings"]').evaluate(button => {
+    await page.locator('.jpdb-reader-newtab-more [data-newtab-action="settings"]').evaluate(button => {
         if (!(button instanceof HTMLButtonElement)) throw new Error('Settings menu item is not a button.');
         button.click();
     });
