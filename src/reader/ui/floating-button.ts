@@ -17,6 +17,7 @@ import {
 import type { OcrInteractionMode } from '../ocr/mode';
 import {
     applyOverlayPageScale,
+    hasOverlayPageScale,
     layoutPointToOverlay,
     layoutRectToOverlay,
     overlayViewport,
@@ -27,6 +28,10 @@ import {
 // enough to outlast an inertial scroll's tail so the layout read runs once the
 // page is still, short enough that the puck steps off a revealed video promptly.
 const VIDEO_AVOIDANCE_SETTLE_MS = 120;
+// iPadOS can deliver the last resize event before window/screen metrics finish
+// settling after a rotation. Reconcile once more after that short transition so
+// a transient 2x reading cannot leave the puck stuck at inverse (half) scale.
+const VIEWPORT_SCALE_SETTLE_MS = 240;
 
 function hostHasBottomActionDock(): boolean {
     return location.hostname === 'jiten.moe' && location.pathname.startsWith('/srs/');
@@ -271,6 +276,7 @@ export class FloatingButtonController {
         const controller = new AbortController();
         this.abortController = controller;
         let settleTimer: number | undefined;
+        let viewportSettleTimer: number | undefined;
         let frame: number | undefined;
         const recompute = (): void => {
             // rAF-coalesced: a burst of resize events (window drag-resize) folds
@@ -279,7 +285,9 @@ export class FloatingButtonController {
             frame = requestAnimationFrame(() => {
                 frame = undefined;
                 applyOverlayPageScale(button);
-                if (this.settings) avoidVideoOverlap(button, this.settings, this.save);
+                if (this.settings && avoidanceCouldChange()) {
+                    avoidVideoOverlap(button, this.settings, this.save);
+                }
             });
         };
         // When the overlay is unscaled, the page has no <video> at all, and the
@@ -291,6 +299,7 @@ export class FloatingButtonController {
         // getBoundingClientRect walk it guards.
         const avoidanceCouldChange = (): boolean =>
             overlayViewport().pageScale !== 1
+            || hasOverlayPageScale(button)
             || button.classList.contains('jpdb-reader-fab-over-video')
             || Boolean(document.querySelector('video'));
         // Scroll fires continuously during a fling, and each recompute reads the
@@ -307,11 +316,18 @@ export class FloatingButtonController {
         // view), not a per-frame stream like scroll: the puck must mark/clear a
         // video overlap within a frame of it, so it recomputes immediately
         // (rAF-coalesced above), never on the settle delay.
-        const handleResize = (): void => {
-            if (!avoidanceCouldChange()) return;
-            recompute();
+        const handleViewportChange = (): void => {
+            // Apply an observable change immediately. Also keep the delayed pass:
+            // an orientation event can arrive before the new metrics are
+            // observable, so a current "scale 1" reading is not a safe reason to
+            // skip the post-transition synchronization.
+            if (avoidanceCouldChange()) recompute();
+            window.clearTimeout(viewportSettleTimer);
+            viewportSettleTimer = window.setTimeout(recompute, VIEWPORT_SCALE_SETTLE_MS);
         };
-        window.addEventListener('resize', handleResize, { passive: true, signal: controller.signal });
+        window.addEventListener('resize', handleViewportChange, { passive: true, signal: controller.signal });
+        window.addEventListener('orientationchange', handleViewportChange, { passive: true, signal: controller.signal });
+        window.visualViewport?.addEventListener('resize', handleViewportChange, { passive: true, signal: controller.signal });
         window.addEventListener('scroll', scheduleSettle, { passive: true, signal: controller.signal });
         // Entering/leaving fullscreen changes the avoidance rules this frame
         // (the puck may need to clear a now-fullscreen video, or return once it
@@ -319,6 +335,7 @@ export class FloatingButtonController {
         document.addEventListener('fullscreenchange', recompute, { signal: controller.signal });
         controller.signal.addEventListener('abort', () => {
             window.clearTimeout(settleTimer);
+            window.clearTimeout(viewportSettleTimer);
             if (frame !== undefined) window.cancelAnimationFrame(frame);
         });
         recompute();
@@ -362,7 +379,10 @@ export class FloatingButtonController {
             dragging = true;
             moved = false;
             button.dataset.jpdbReaderMoved = 'false';
-            dragPageScale = overlayViewport().pageScale;
+            // Apply and consume one scale snapshot. Reading the environment
+            // independently here used to let a stale inverse zoom and newly
+            // settled pointer coordinates disagree after iPad rotation.
+            dragPageScale = applyOverlayPageScale(button);
             const start = layoutPointToOverlay({ x: event.clientX, y: event.clientY }, dragPageScale);
             startX = start.x;
             startY = start.y;

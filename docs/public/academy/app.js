@@ -116879,13 +116879,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const pageScale = overlayPageScale(environment);
     if (pageScale === 1) {
       clearOwnedScale(element2);
-      return;
+      return pageScale;
     }
     const inverseScale = 1 / pageScale;
     element2.style.setProperty("zoom", formatScale(inverseScale), "important");
     element2.dataset.jpdbReaderScaleAdapter = APPLE_TOUCH_ADAPTER;
     element2.dataset.jpdbReaderPageScale = formatScale(pageScale);
     element2.dataset.jpdbReaderScaleCompensation = formatScale(inverseScale);
+    return pageScale;
   }
   function hasOverlayPageScale(element2) {
     return element2?.dataset.jpdbReaderScaleAdapter === APPLE_TOUCH_ADAPTER;

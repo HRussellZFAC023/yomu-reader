@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.7.3] - 2026-07-24
+
+### Fixed
+
+- On iPad, the settings puck now keeps its intended size and follows the finger after rotating portrait → landscape → portrait. Viewport scale is reconciled after orientation settles, and drag coordinates use the exact applied scale.
+
 ## [1.7.2] - 2026-07-24
 
 ### Added

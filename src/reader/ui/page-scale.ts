@@ -227,11 +227,11 @@ function compensatedOverlayRoot(source: Node | null | undefined): HTMLElement | 
 export function applyOverlayPageScale(
     element: HTMLElement,
     environment = currentEnvironment(),
-): void {
+): number {
     const pageScale = overlayPageScale(environment);
     if (pageScale === 1) {
         clearOwnedScale(element);
-        return;
+        return pageScale;
     }
 
     const inverseScale = 1 / pageScale;
@@ -239,6 +239,7 @@ export function applyOverlayPageScale(
     element.dataset.jpdbReaderScaleAdapter = APPLE_TOUCH_ADAPTER;
     element.dataset.jpdbReaderPageScale = formatScale(pageScale);
     element.dataset.jpdbReaderScaleCompensation = formatScale(inverseScale);
+    return pageScale;
 }
 
 export function hasOverlayPageScale(element: HTMLElement | null | undefined): boolean {

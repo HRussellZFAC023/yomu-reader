@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.7.2
+// @version 1.7.3
 // @author Henry Russell
 // @description Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and a study page.
 // @license MIT
@@ -16,7 +16,7 @@
 // @require https://yomureader.com/greasyfork/yomu-kanji-study.bfc22f6012ee.user.js#sha256=v8IvYBLu/Y0wCQoDElRImFbaWbiR9yJEuDQOMnjEWMM=
 // @require https://yomureader.com/greasyfork/yomu-ocr-manga.62c4f0dc128c.user.js#sha256=YsTw3BKMFfj8KSP0mTOmaK0v0R6ZUquIzw5VPgka+1c=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.8b7ea0485899.user.js#sha256=i36gSFiZF/9rV+gLjTbAgAuXLnSfkQ5x8VeZLxZLkVc=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.b8c0a7216f1c.user.js#sha256=uMCnIW8cVanHZpmzMsg3w72E3oHZI1M2jw860OGETOU=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.f50c68b2cb90.user.js#sha256=9QxossuQ0TCOLHI2mnIo1X+VUR6IBDRJLGZ+/djbL+0=
 // @require https://yomureader.com/greasyfork/yomu-bunpro.88aa755b3cb1.user.js#sha256=iKp1WzyxHBnjh2hT59JGKDJhaNz9yw3Azco+WgPy87A=
 // @require https://yomureader.com/greasyfork/yomu-video.d2235e30a955.user.js#sha256=0iNeMKlVIxwvIBymhj9ODnjMmjwP1s6BtzD4KvmZ2Qk=
 // @resource yomuCss  https://yomureader.com/yomu.ca61e9465afb.css#sha256=ymHpRlr7G7M14Z5Sh7lFeHhfjWFQ2o0POaTjp4Zmvyg=
@@ -16052,13 +16052,14 @@ function applyOverlayPageScale(element, environment = currentEnvironment()) {
   const pageScale = overlayPageScale(environment);
   if (pageScale === 1) {
   clearOwnedScale(element);
-  return;
+  return pageScale;
   }
   const inverseScale = 1 / pageScale;
   element.style.setProperty("zoom", formatScale(inverseScale), "important");
   element.dataset.jpdbReaderScaleAdapter = APPLE_TOUCH_ADAPTER;
   element.dataset.jpdbReaderPageScale = formatScale(pageScale);
   element.dataset.jpdbReaderScaleCompensation = formatScale(inverseScale);
+  return pageScale;
 }
 function hasOverlayPageScale(element) {
   return element?.dataset.jpdbReaderScaleAdapter === APPLE_TOUCH_ADAPTER;
@@ -28102,6 +28103,7 @@ function radialYoutubeIcon() {
   return `${SVG_OPEN}<rect x="3" y="6" width="18" height="12" rx="3"></rect><path d="M10.2 9.6 14.4 12l-4.2 2.4z" fill="currentColor" stroke="none"></path></svg>`;
 }
 const VIDEO_AVOIDANCE_SETTLE_MS = 120;
+const VIEWPORT_SCALE_SETTLE_MS = 240;
 function hostHasBottomActionDock() {
   return location.hostname === "jiten.moe" && location.pathname.startsWith("/srs/");
 }
@@ -28280,30 +28282,37 @@ class FloatingButtonController {
   const controller = new AbortController();
   this.abortController = controller;
   let settleTimer;
+  let viewportSettleTimer;
   let frame;
   const recompute = () => {
     if (frame !== void 0) return;
     frame = requestAnimationFrame(() => {
       frame = void 0;
       applyOverlayPageScale(button);
-      if (this.settings) avoidVideoOverlap(button, this.settings, this.save);
+      if (this.settings && avoidanceCouldChange()) {
+        avoidVideoOverlap(button, this.settings, this.save);
+      }
     });
   };
-  const avoidanceCouldChange = () => overlayViewport().pageScale !== 1 || button.classList.contains("jpdb-reader-fab-over-video") || Boolean(document.querySelector("video"));
+  const avoidanceCouldChange = () => overlayViewport().pageScale !== 1 || hasOverlayPageScale(button) || button.classList.contains("jpdb-reader-fab-over-video") || Boolean(document.querySelector("video"));
   const scheduleSettle = () => {
     if (!avoidanceCouldChange()) return;
     window.clearTimeout(settleTimer);
     settleTimer = window.setTimeout(recompute, VIDEO_AVOIDANCE_SETTLE_MS);
   };
-  const handleResize = () => {
-    if (!avoidanceCouldChange()) return;
-    recompute();
+  const handleViewportChange = () => {
+    if (avoidanceCouldChange()) recompute();
+    window.clearTimeout(viewportSettleTimer);
+    viewportSettleTimer = window.setTimeout(recompute, VIEWPORT_SCALE_SETTLE_MS);
   };
-  window.addEventListener("resize", handleResize, { passive: true, signal: controller.signal });
+  window.addEventListener("resize", handleViewportChange, { passive: true, signal: controller.signal });
+  window.addEventListener("orientationchange", handleViewportChange, { passive: true, signal: controller.signal });
+  window.visualViewport?.addEventListener("resize", handleViewportChange, { passive: true, signal: controller.signal });
   window.addEventListener("scroll", scheduleSettle, { passive: true, signal: controller.signal });
   document.addEventListener("fullscreenchange", recompute, { signal: controller.signal });
   controller.signal.addEventListener("abort", () => {
     window.clearTimeout(settleTimer);
+    window.clearTimeout(viewportSettleTimer);
     if (frame !== void 0) window.cancelAnimationFrame(frame);
   });
   recompute();
@@ -28346,7 +28355,7 @@ class FloatingButtonController {
     dragging = true;
     moved = false;
     button.dataset.jpdbReaderMoved = "false";
-    dragPageScale = overlayViewport().pageScale;
+    dragPageScale = applyOverlayPageScale(button);
     const start = layoutPointToOverlay({ x: event.clientX, y: event.clientY }, dragPageScale);
     startX = start.x;
     startY = start.y;
@@ -36753,8 +36762,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
     `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.7.2"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.7.2"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.7.3"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.7.3"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka"];
@@ -36886,7 +36895,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.7.2"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.7.3"}`;
   } catch {
   return null;
   }

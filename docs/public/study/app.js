@@ -31182,13 +31182,14 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     const pageScale = overlayPageScale(environment);
     if (pageScale === 1) {
       clearOwnedScale(element2);
-      return;
+      return pageScale;
     }
     const inverseScale = 1 / pageScale;
     element2.style.setProperty("zoom", formatScale(inverseScale), "important");
     element2.dataset.jpdbReaderScaleAdapter = APPLE_TOUCH_ADAPTER;
     element2.dataset.jpdbReaderPageScale = formatScale(pageScale);
     element2.dataset.jpdbReaderScaleCompensation = formatScale(inverseScale);
+    return pageScale;
   }
   function hasOverlayPageScale(element2) {
     return element2?.dataset.jpdbReaderScaleAdapter === APPLE_TOUCH_ADAPTER;
@@ -48050,7 +48051,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.7.2".trim() ? "1.7.2".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.7.3".trim() ? "1.7.3".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record2 = value;
