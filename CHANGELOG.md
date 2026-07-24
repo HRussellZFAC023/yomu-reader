@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.8.1] - 2026-07-24
+
+### Fixed
+
+- The Firefox add-on package can be reviewed again. Its content script was a few hundred kilobytes over the size Mozilla is willing to parse, so every submission was rejected before a reviewer saw it; the packaged script no longer carries the wrapper indentation that pushed it over, which also restores the exact multi-line text the reader builds. The Chrome and Safari packages are unchanged.
+
 ## [1.8.0] - 2026-07-24
 
 ### Fixed
