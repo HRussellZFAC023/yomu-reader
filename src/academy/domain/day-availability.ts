@@ -316,7 +316,7 @@ const DAY_ONE_LESSON: readonly DayActivityAvailability[] = DAY_ONE_LESSON_ACTIVI
         DAY_ONE_VERIFIED_ACTIVITY_IDS.has(activityId)
             ? VERIFIED_DELIVERY
             : activityId === 'activity:lesson-zero-greet-rie'
-            ? VERIFIED_JOURNEY_PENDING_MEDIA_DELIVERY
+            ? VERIFIED_DELIVERY
             : activityId === 'activity:lesson-zero-vowel-listen'
                 || activityId === 'activity:lesson-zero-vowel-doodle'
                 || activityId === 'activity:lesson-zero-follow-instructions'
