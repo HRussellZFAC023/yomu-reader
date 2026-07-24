@@ -14911,6 +14911,48 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       reviewSeeds: [reviewSeed$i(definition2, item2, passed ? "new-learning" : "repair")]
     };
   }
+  function evaluateLessonZeroVowelWritingRecall(definition2, item2, response) {
+    const selected2 = definition2.items.find((candidate2) => candidate2.id === response.selectedItemId);
+    if (!selected2) throw new TypeError(`Unknown vowel-writing recall choice: ${response.selectedItemId}.`);
+    const passed = selected2.id === item2.id;
+    const errorTags = passed ? [`vowel-writing-${item2.romaji}`, "vowel-writing-delayed-recall"] : [`vowel-writing-${item2.romaji}`, "vowel-writing-sound-shape-link"];
+    return {
+      result: passed ? {
+        outcome: "pass",
+        score: 1,
+        errorTags,
+        feedback: {
+          explanation: {
+            en: `${item2.kana} came back from the sound alone.`,
+            ja: `音だけで「${item2.kana}」を思い出せました。`
+          }
+        }
+      } : {
+        outcome: "lapse",
+        score: 0,
+        errorTags,
+        feedback: {
+          explanation: {
+            en: `That word begins with ${item2.kana}. Look once, then find it again.`,
+            ja: `その言葉の最初の音は「${item2.kana}」です。一度見て、もう一度探しましょう。`
+          },
+          repairPrompt: item2.directionCue,
+          nearbyExample: item2.memoryCue
+        }
+      },
+      attempt: {
+        kind: "attempt-recorded",
+        activityId: lessonZeroVowelWritingChildActivityId(item2.id),
+        sourceQuestionId: definition2.sourceQuestionId,
+        conceptIds: ["concept:hiragana-vowel-row"],
+        responseKind: "kana-choice",
+        outcome: passed ? "pass" : "lapse",
+        score: passed ? 1 : 0,
+        errorTags
+      },
+      reviewSeeds: [reviewSeed$i(definition2, item2, passed ? "new-learning" : "repair")]
+    };
+  }
   function lessonZeroVowelWritingCompletionEvaluation(definition2, score) {
     return {
       result: {
@@ -42307,6 +42349,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       learnedItemIds: [],
       completedItemIds: [],
       guideItemIds: [],
+      recalledItemIds: [],
       attempts: []
     };
   }
@@ -42350,8 +42393,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
       };
     }
     if (action2.kind === "begin-retry") {
-      requireState(state.stage === "repair", "There is no writing repair to retry.");
-      return { state: { ...state, stage: "attempt" } };
+      requireState(state.stage === "repair" || state.stage === "recall-repair", "There is no vowel-writing repair to retry.");
+      return { state: { ...state, stage: state.stage === "repair" ? "attempt" : "recall" } };
     }
     if (action2.kind === "record-result") {
       requireState(state.stage === "attempt", "There is no active vowel-writing attempt.");
@@ -42388,13 +42431,56 @@ recommendedJiten	Jiten由来の頻度バッジです。
         };
       }
       const completedItemIds = [...state.completedItemIds, item2.id];
-      const finished = completedItemIds.length === definition2.items.length;
+      const readyForRecall = completedItemIds.length === definition2.items.length;
+      return {
+        state: {
+          ...state,
+          status: "active",
+          stage: readyForRecall ? "recall" : "learn",
+          completedItemIds,
+          attempts
+        },
+        evaluation: action2.evaluation,
+        adaptive
+      };
+    }
+    if (action2.kind === "record-recall-result") {
+      requireState(state.stage === "recall", "There is no active delayed-recall attempt.");
+      const item2 = currentItem(definition2, state);
+      requireState(Boolean(item2), "All five vowel kana are already recalled.");
+      requireState(
+        action2.evaluation.attempt.activityId === lessonZeroVowelWritingChildActivityId(item2.id),
+        "The recall grade does not belong to the current kana."
+      );
+      requireState(
+        action2.evaluation.attempt.responseKind === "kana-choice",
+        "The delayed-recall grade must use a kana choice."
+      );
+      const attempt = {
+        itemId: item2.id,
+        mode: "recall",
+        outcome: action2.evaluation.result.outcome,
+        score: action2.evaluation.result.score,
+        errorTags: [...action2.evaluation.result.errorTags],
+        at
+      };
+      const attempts = [...state.attempts, attempt];
+      const adaptive = adaptiveEvidence(state, item2.id, action2.evaluation, at, attempts.length, true);
+      if (action2.evaluation.result.outcome === "lapse") {
+        return {
+          state: { ...state, stage: "recall-repair", attempts },
+          evaluation: action2.evaluation,
+          adaptive
+        };
+      }
+      const recalledItemIds = [...state.recalledItemIds ?? [], item2.id];
+      const finished = recalledItemIds.length === definition2.items.length;
       return {
         state: {
           ...state,
           status: finished ? "complete" : "active",
-          stage: finished ? "complete" : "learn",
-          completedItemIds,
+          stage: finished ? "complete" : "recall",
+          recalledItemIds,
           attempts
         },
         evaluation: action2.evaluation,
@@ -42406,13 +42492,15 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function lessonZeroVowelWritingSessionSnapshotShapeIsValid(value) {
     if (!value || typeof value !== "object") return false;
     const state = value;
-    if (state.schemaVersion !== 1 || state.sessionId !== LESSON_ZERO_VOWEL_WRITING_SESSION_ID || !["ready", "active", "paused", "complete"].includes(state.status ?? "") || !["learn", "attempt", "repair", "complete"].includes(state.stage ?? "") || !["draw", "plan"].includes(state.mode ?? "")) return false;
+    if (state.schemaVersion !== 1 || state.sessionId !== LESSON_ZERO_VOWEL_WRITING_SESSION_ID || !["ready", "active", "paused", "complete"].includes(state.status ?? "") || !["learn", "attempt", "repair", "recall", "recall-repair", "complete"].includes(state.stage ?? "") || !["draw", "plan"].includes(state.mode ?? "")) return false;
     if (!itemIdArray(state.learnedItemIds) || !itemIdArray(state.completedItemIds) || !itemIdArray(state.guideItemIds)) return false;
-    if (!Array.isArray(state.attempts) || state.attempts.some((attempt) => !attempt || !isItemId(attempt.itemId) || !["draw", "plan"].includes(attempt.mode) || !["pass", "lapse"].includes(attempt.outcome) || !Number.isFinite(attempt.score) || attempt.score < 0 || attempt.score > 1 || !stringArray$2(attempt.errorTags) || !Number.isSafeInteger(attempt.at) || attempt.at < 0)) return false;
-    if (new Set(state.learnedItemIds).size !== state.learnedItemIds.length || new Set(state.completedItemIds).size !== state.completedItemIds.length || new Set(state.guideItemIds).size !== state.guideItemIds.length || state.completedItemIds.length > state.learnedItemIds.length) return false;
-    if (state.status === "ready" && (state.stage !== "learn" || state.learnedItemIds.length > 0 || state.completedItemIds.length > 0)) return false;
-    if (state.status === "complete" && (state.stage !== "complete" || state.completedItemIds.length !== 5)) return false;
+    if (state.recalledItemIds !== void 0 && !itemIdArray(state.recalledItemIds)) return false;
+    if (!Array.isArray(state.attempts) || state.attempts.some((attempt) => !attempt || !isItemId(attempt.itemId) || !["draw", "plan", "recall"].includes(attempt.mode) || !["pass", "lapse"].includes(attempt.outcome) || !Number.isFinite(attempt.score) || attempt.score < 0 || attempt.score > 1 || !stringArray$2(attempt.errorTags) || !Number.isSafeInteger(attempt.at) || attempt.at < 0)) return false;
+    if (new Set(state.learnedItemIds).size !== state.learnedItemIds.length || new Set(state.completedItemIds).size !== state.completedItemIds.length || new Set(state.guideItemIds).size !== state.guideItemIds.length || new Set(state.recalledItemIds ?? []).size !== (state.recalledItemIds ?? []).length || state.completedItemIds.length > state.learnedItemIds.length) return false;
+    if (state.status === "ready" && (state.stage !== "learn" || state.learnedItemIds.length > 0 || state.completedItemIds.length > 0 || (state.recalledItemIds ?? []).length > 0)) return false;
+    if (state.status === "complete" && (state.stage !== "complete" || state.completedItemIds.length !== 5 || state.recalledItemIds !== void 0 && state.recalledItemIds.length !== 5)) return false;
     if (state.stage === "complete" && state.status !== "complete") return false;
+    if ((state.stage === "recall" || state.stage === "recall-repair") && (state.completedItemIds.length !== 5 || state.status === "ready" || state.status === "complete" || (state.recalledItemIds ?? []).length >= 5)) return false;
     if (state.stage === "repair") {
       const currentId = ITEM_IDS[state.completedItemIds.length];
       if (!currentId || !state.guideItemIds.includes(currentId)) return false;
@@ -42420,22 +42508,31 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return true;
   }
   function lessonZeroVowelWritingAveragePassScore(state) {
-    const latestPasses = ITEM_IDS.map((itemId) => [...state.attempts].reverse().find((attempt) => attempt.itemId === itemId && attempt.outcome === "pass"));
+    const latestPasses = ITEM_IDS.map((itemId) => [...state.attempts].reverse().find((attempt) => attempt.itemId === itemId && attempt.mode !== "recall" && attempt.outcome === "pass"));
     if (latestPasses.some((attempt) => !attempt)) throw new Error("All five kana need a passing attempt before completion.");
     return latestPasses.reduce((sum, attempt) => sum + (attempt?.score ?? 0), 0) / latestPasses.length;
   }
   const ITEM_IDS = ["hira-a", "hira-i", "hira-u", "hira-e", "hira-o"];
-  function currentItem(definition2, state) {
+  const LESSON_ZERO_VOWEL_WRITING_RECALL_ORDER = ["hira-u", "hira-a", "hira-o", "hira-i", "hira-e"];
+  function lessonZeroVowelWritingCurrentItem(definition2, state) {
+    if (state.stage === "recall" || state.stage === "recall-repair") {
+      const id2 = LESSON_ZERO_VOWEL_WRITING_RECALL_ORDER[(state.recalledItemIds ?? []).length];
+      return definition2.items.find((item2) => item2.id === id2);
+    }
     return definition2.items[state.completedItemIds.length];
   }
-  function adaptiveEvidence(state, itemId, evaluation, at, attemptNumber) {
-    const repairing = state.guideItemIds.includes(itemId);
+  function currentItem(definition2, state) {
+    return lessonZeroVowelWritingCurrentItem(definition2, state);
+  }
+  function adaptiveEvidence(state, itemId, evaluation, at, attemptNumber, recall = false) {
+    const lastRecall = [...state.attempts].reverse().find((attempt) => attempt.itemId === itemId && attempt.mode === "recall");
+    const repairing = recall ? lastRecall?.outcome === "lapse" : state.guideItemIds.includes(itemId);
     return {
       eventId: `adaptive:lesson-zero-vowel-writing:${itemId}:${attemptNumber}:${at}`,
       at,
-      modeId: `lesson-zero-vowel-writing:${state.mode}`,
-      skill: repairing ? "repair" : state.mode === "draw" ? "writing" : "kana",
-      action: repairing ? "repair" : state.mode === "draw" ? "write" : "recall",
+      modeId: `lesson-zero-vowel-writing:${recall ? "recall" : state.mode}`,
+      skill: repairing ? "repair" : recall ? "kana" : state.mode === "draw" ? "writing" : "kana",
+      action: repairing ? "repair" : recall ? "recall" : state.mode === "draw" ? "write" : "recall",
       sourceId: evaluation.attempt.sourceQuestionId ?? evaluation.attempt.activityId,
       independent: true
     };
@@ -42445,6 +42542,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const prefix = (values) => values.every((id2, index) => id2 === ids2[index]);
     if (!prefix(state.learnedItemIds) || !prefix(state.completedItemIds)) {
       throw new TypeError("Lesson Zero vowel-writing order drifted from the canonical five vowels.");
+    }
+    const recalled = state.recalledItemIds ?? [];
+    if (!recalled.every((id2, index) => id2 === LESSON_ZERO_VOWEL_WRITING_RECALL_ORDER[index])) {
+      throw new TypeError("Lesson Zero vowel-writing recall order drifted from the balanced retrieval sequence.");
     }
     const known = new Set(ids2);
     for (const id2 of state.guideItemIds) {
@@ -42741,6 +42842,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   };
   const DAY_ONE_VERIFIED_ACTIVITY_IDS = /* @__PURE__ */ new Set([
     "activity:lesson-zero-vowel-listen",
+    "activity:lesson-zero-vowel-doodle",
     "activity:lesson-zero-sound-input",
     "activity:lesson-zero-text-input",
     "activity:lesson-zero-speaking-input",
@@ -117472,7 +117574,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function rankKanjiStrokeCandidates(strokes, candidates, limit = 8) {
     const writtenStrokes = strokes.filter((stroke) => stroke.length > 1);
     if (!writtenStrokes.length) return [];
-    const written = extractFeatures(momentNormalize(toPattern(writtenStrokes)), FEATURE_INTERVAL);
+    const written = normalizedFeatures(toPattern(writtenStrokes));
     return candidates.map((candidate2) => kanjiShapeMatch(candidate2, written, writtenStrokes.length)).filter((match) => Boolean(match)).sort((a, b) => b.score - a.score || a.expectedStrokes - b.expectedStrokes || a.kanji.localeCompare(b.kanji)).slice(0, limit);
   }
   function totalDistance(strokes) {
@@ -117505,8 +117607,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function assessStrokeShape(strokes, referenceStrokes, expectedStrokes) {
     if (!referenceStrokes || strokes.length !== expectedStrokes || referenceStrokes.length !== expectedStrokes) return null;
-    const written = extractFeatures(momentNormalize(toPattern(strokes)), FEATURE_INTERVAL);
-    const reference = extractFeatures(momentNormalize(toPattern(referenceStrokes)), FEATURE_INTERVAL);
+    const written = normalizedFeatures(toPattern(strokes));
+    const reference = normalizedFeatures(toPattern(referenceStrokes));
     if (written.length !== reference.length || written.some((stroke, index) => stroke.length < 2 || reference[index].length < 2)) return null;
     const scores = written.map((stroke, index) => strokeCorrespondenceScore(stroke, reference[index]));
     const average = scores.reduce((sum, score) => sum + score, 0) / scores.length;
@@ -117520,7 +117622,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const strokeDelta = Math.abs(actualStrokes - expectedStrokes);
     const allowedDelta = Math.max(2, Math.ceil(Math.min(actualStrokes, expectedStrokes) * 0.45));
     if (strokeDelta > allowedDelta) return null;
-    const reference = extractFeatures(momentNormalize(toPattern(referenceStrokes)), FEATURE_INTERVAL);
+    const reference = normalizedFeatures(toPattern(referenceStrokes));
     if (!reference.length) return null;
     const strokeShapeScore = unorderedStrokeShapeScore(written, reference);
     const skeletonScore = wholeSkeletonScore(written, reference);
@@ -117633,21 +117735,38 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return Number.isFinite(value) ? value : 0;
   }
   function extractFeatures(pattern, interval) {
-    return pattern.map((stroke) => {
-      const extracted = [];
-      let distance = 0;
-      for (let index = 0; index < stroke.length; index += 1) {
-        if (index === 0) extracted.push(stroke[0]);
-        if (index > 0) distance += euclid(stroke[index - 1], stroke[index]);
-        if (distance >= interval && index > 1) {
-          distance -= interval;
-          extracted.push(stroke[index]);
-        }
+    return pattern.map((stroke) => resampleStroke(stroke, interval));
+  }
+  function normalizedFeatures(pattern) {
+    const densityIndependent = extractFeatures(pattern, FEATURE_INTERVAL);
+    return extractFeatures(momentNormalize(densityIndependent), FEATURE_INTERVAL);
+  }
+  function resampleStroke(stroke, interval) {
+    if (stroke.length < 2 || !Number.isFinite(interval) || interval <= 0) return [...stroke];
+    const sampled = [{ ...stroke[0] }];
+    let distanceSinceSample = 0;
+    for (let index = 1; index < stroke.length; index += 1) {
+      let from = stroke[index - 1];
+      const to = stroke[index];
+      let segmentLength = euclid(from, to);
+      if (segmentLength <= Number.EPSILON) continue;
+      while (distanceSinceSample + segmentLength >= interval) {
+        const ratio = (interval - distanceSinceSample) / segmentLength;
+        const point = {
+          x: from.x + (to.x - from.x) * ratio,
+          y: from.y + (to.y - from.y) * ratio
+        };
+        sampled.push(point);
+        from = point;
+        segmentLength = euclid(from, to);
+        distanceSinceSample = 0;
+        if (segmentLength <= Number.EPSILON) break;
       }
-      if (extracted.length === 1) extracted.push(stroke[stroke.length - 1]);
-      else if (distance > interval * 0.75) extracted.push(stroke[stroke.length - 1]);
-      return extracted;
-    });
+      distanceSinceSample += segmentLength;
+    }
+    const last = stroke[stroke.length - 1];
+    if (euclid(sampled[sampled.length - 1], last) > Number.EPSILON) sampled.push({ ...last });
+    return sampled;
   }
   function strokeCorrespondenceScore(stroke, reference) {
     const whole = wholeWholeDistance(stroke, reference);
@@ -263766,27 +263885,27 @@ recommendedJiten	Jiten由来の頻度バッジです。
     choices2[next].focus();
   }
   const COPY = {
-    eyebrow: { en: "First writing desk", ja: "最初の文字机" },
-    introTitle: { en: "Let the five sounds leave a mark", ja: "五つの音を、紙に残そう" },
+    eyebrow: { en: "Five-vowel writing", ja: "五つの母音を書く" },
+    introTitle: { en: "Give each sound a shape", ja: "五つの音を、形にしよう" },
     introDialogue: {
-      en: "Rie: You already found these sounds with your ears. Now we'll give each one a shape your hand can remember.",
-      ja: "りえ：耳で見つけた五つの音に、今度は手で覚えられる形をつけましょう。"
+      en: "Rie: You heard all five. Now let your hand learn their shapes.",
+      ja: "りえ：五つとも聞けましたね。今度は、手で形を覚えましょう。"
     },
     introReason: {
-      en: "Writing is not a decoration here. It makes the small turns and separate strokes visible, which helps you tell similar kana apart later.",
-      ja: "ここで書くのは飾りではありません。線の曲がり方や離れ方が見えると、あとで似たかなを区別しやすくなります。"
+      en: "Look once, try from memory, and fix only what trips you up.",
+      ja: "一度見て、思い出して書き、迷ったところだけ直します。"
     },
-    start: { en: "Open the practice book", ja: "練習帳を開く" },
-    learnTitle: { en: "Meet the shape before the pen moves", ja: "書く前に、形と会う" },
+    start: { en: "Start with あ", ja: "「あ」から始める" },
+    learnTitle: { en: "Look once. Then try.", ja: "一度見て、書いてみよう" },
     learnDialogue: {
-      en: "Rie: Look once, say the sound, then make your own attempt. I won't put the stroke guide under your hand unless you need it.",
-      ja: "りえ：一度見て、音を言ってから、自分で書いてみましょう。必要になるまで、書き順の見本は下に置きません。"
+      en: "Rie: Hear the word and watch its first shape. Then make it your way.",
+      ja: "りえ：言葉を聞いて、最初の音の形を見ます。それから、自分でやってみましょう。"
     },
     drawMode: { en: "Draw it", ja: "書いて進む" },
     planMode: { en: "Choose the stroke plan", ja: "書き順で進む" },
     accessNote: {
-      en: "Both routes check stroke count, order, and direction. The drawing route also checks the shape you made.",
-      ja: "どちらも画数・順番・方向を確認します。書くルートでは、できた形も確認します。"
+      en: "Write it, or choose the stroke plan. Both routes teach the same movement.",
+      ja: "書いても、書き順を選んでも大丈夫です。どちらも同じ動きを覚えます。"
     },
     hear: { en: "Hear the sound", ja: "音を聞く" },
     beginDraw: { en: "Write this kana", ja: "このかなを書く" },
@@ -263803,21 +263922,34 @@ recommendedJiten	Jiten由来の頻度バッジです。
     chooseFirst: { en: "Choose a stroke plan first.", ja: "先に書き順を一つ選んでください。" },
     drawFirst: { en: "Make at least one complete stroke first.", ja: "まず一画、最後まで書いてください。" },
     saveError: { en: "That attempt did not save. Please try it once more.", ja: "保存できませんでした。もう一度お試しください。" },
-    repairTitle: { en: "Keep the kana. Repair only the movement.", ja: "かなはそのまま。動きだけ直そう" },
+    repairTitle: { en: "Try the movement again", ja: "動きを、もう一度" },
     repairDialogue: {
-      en: "Rie: Good. Now we know exactly where the pen lost the shape. Look at this one guide, then try the same kana again.",
-      ja: "りえ：大丈夫。どこで形が離れたか分かりました。この一つだけ見て、同じかなをもう一度書きましょう。"
+      en: "Rie: One part slipped. Check this guide, then try the same kana again.",
+      ja: "りえ：一か所だけ迷いました。この見本を見て、同じかなをもう一度やってみましょう。"
     },
     practiceSheet: { en: "Rie's five-vowel practice sheet", ja: "りえの五十音練習シート" },
     guideNote: { en: "The numbered line appears on your next attempt.", ja: "次の練習では、番号つきの線が表示されます。" },
     retry: { en: "Try this kana again", ja: "このかなをもう一度" },
-    completeTitle: { en: "The first line is yours", ja: "最初の一行が、できました" },
-    completeDialogue: {
-      en: "Rie: There. Five sounds, five marks. You don't need to make them beautiful yet. You only need to know how each one begins.",
-      ja: "りえ：できました。五つの音、五つの形。まだきれいでなくて大丈夫です。それぞれの始まり方が分かれば十分です。"
+    recallTitle: { en: "Can you find them out of order?", ja: "順番が変わっても、見つけられる？" },
+    recallDialogue: {
+      en: "Rie: I'll mix the five words. Hear one, then choose the shape of its first sound.",
+      ja: "りえ：五つの言葉を混ぜます。聞いて、最初の音の形を選んでください。"
     },
-    completeNote: { en: "The five kana are now in your review queue, one shape at a time.", ja: "五つのかなが、一文字ずつ復習に入りました。" },
-    continue: { en: "Carry the line into class", ja: "この一行を授業へ持っていく" },
+    recallPrompt: { en: "Hear the word. Which kana starts it?", ja: "言葉を聞いて、最初のかなを選びましょう。" },
+    checkRecall: { en: "Check my choice", ja: "選んだかなを確認" },
+    recallRepairTitle: { en: "Listen once more", ja: "もう一度、聞こう" },
+    recallRepairDialogue: {
+      en: "Rie: That was close. Look at this one shape, then listen again.",
+      ja: "りえ：おしいです。この一つだけ見て、もう一度聞きましょう。"
+    },
+    retryRecall: { en: "Try the sound again", ja: "もう一度、音を聞く" },
+    completeTitle: { en: "Five sounds. Five shapes.", ja: "五つの音、五つの形" },
+    completeDialogue: {
+      en: "Rie: You found them again in a new order. That's enough to keep going.",
+      ja: "りえ：違う順番でも、もう一度見つけられました。これなら、先へ進めます。"
+    },
+    completeNote: { en: "They'll come back in short reviews.", ja: "この五つは、短い復習でまた出てきます。" },
+    continue: { en: "Continue into class", ja: "授業へ進む" },
     restart: { en: "Practice all five again", ja: "五つを最初から練習" }
   };
   function createLessonZeroVowelWritingScreen(options) {
@@ -263828,6 +263960,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     let activeDoodle = null;
     let activeStrokes = [];
     let selectedPlanId = "";
+    let selectedRecallItemId = "";
     let busy = false;
     let disposed = false;
     let message = "";
@@ -263855,6 +263988,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       activeDoodle = null;
       activeStrokes = [];
       selectedPlanId = "";
+      selectedRecallItemId = "";
       renderLifecycle.abort();
       renderLifecycle = new AbortController();
       const signal = renderLifecycle.signal;
@@ -263870,6 +264004,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
       else if (state.stage === "learn") renderLearn(signal);
       else if (state.stage === "attempt") renderAttempt(signal);
       else if (state.stage === "repair") renderRepair(signal);
+      else if (state.stage === "recall") renderRecall(signal);
+      else if (state.stage === "recall-repair") renderRecallRepair(signal);
       else renderComplete(signal);
     };
     const renderIntro = (signal) => {
@@ -263930,6 +264066,55 @@ recommendedJiten	Jiten由来の頻度バッジです。
       );
       appendScene(paper, "academy-vowel-writing-repair");
     };
+    const renderRecall = (signal) => {
+      const item2 = currentItem2();
+      if (!item2) return;
+      const paper = livingPaper2("academy-vowel-writing-recall-paper");
+      paper.append(
+        localized2("h1", "academy-vowel-title", COPY.recallTitle),
+        dialogue2(COPY.recallDialogue),
+        completedLine(),
+        localized2("p", "academy-vowel-writing-prompt", COPY.recallPrompt),
+        action2(COPY.hear, "listen", signal, (button2) => play(item2, button2)),
+        recallChoices(signal),
+        action2(COPY.checkRecall, "primary", signal, async () => {
+          if (!selectedRecallItemId) {
+            message = options.language === "ja" ? "かなを一つ選んでください。" : "Choose one kana first.";
+            live.textContent = message;
+            return;
+          }
+          const evaluation = evaluateLessonZeroVowelWritingRecall(
+            options.definition,
+            item2,
+            { selectedItemId: selectedRecallItemId }
+          );
+          await apply({ kind: "record-recall-result", evaluation });
+        })
+      );
+      appendScene(paper, "academy-vowel-writing-recall");
+    };
+    const renderRecallRepair = (signal) => {
+      const item2 = currentItem2();
+      if (!item2) return;
+      const anchor = lessonZeroVowelAnchor(item2.id);
+      const answer2 = element("p", "academy-vowel-writing-recall-answer");
+      answer2.lang = "ja";
+      answer2.textContent = `${anchor.spokenJapanese} → ${item2.kana}`;
+      answer2.dataset.jpdbReaderSurfaceIgnore = "";
+      const paper = livingPaper2("academy-vowel-writing-recall-repair-paper");
+      paper.append(
+        localized2("h1", "academy-vowel-title", COPY.recallRepairTitle),
+        dialogue2(COPY.recallRepairDialogue),
+        targetGlyph(item2),
+        answer2,
+        localized2("p", "academy-vowel-writing-direction", item2.directionCue),
+        action2(COPY.hear, "listen", signal, (button2) => play(item2, button2)),
+        action2(COPY.retryRecall, "primary", signal, async () => {
+          await apply({ kind: "begin-retry" });
+        })
+      );
+      appendScene(paper, "academy-vowel-writing-recall-repair");
+    };
     const renderComplete = (signal) => {
       const paper = livingPaper2("academy-vowel-writing-complete-paper");
       paper.append(
@@ -263952,7 +264137,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       card.append(targetGlyph(item2));
       const copy2 = element("div", "academy-vowel-writing-target-copy");
       const line2 = element("p", "academy-vowel-writing-target-line");
-      line2.textContent = options.language === "ja" ? `「${anchor.meaning.ja}」の最初の音は「${item2.kana}」。形を一度だけ見てください。` : `Listen for ${item2.kana} at the start of “${anchor.meaning.en}.” Then look at its shape once.`;
+      line2.textContent = options.language === "ja" ? `「${anchor.spokenJapanese}」の最初の音は「${item2.kana}」です。形を一度見てください。` : `Hear ${anchor.spokenJapanese}. Its first sound is ${item2.kana}. Look at the shape once.`;
       line2.dataset.jpdbReaderSurfaceIgnore = "";
       const controls = element("div", "academy-vowel-writing-target-actions");
       controls.append(
@@ -264047,6 +264232,33 @@ recommendedJiten	Jiten由来の頻度バッジです。
         })
       );
       return section2;
+    };
+    const recallChoices = (signal) => {
+      const choices2 = element("div", "academy-vowel-writing-recall-choices");
+      choices2.setAttribute("role", "group");
+      choices2.setAttribute("aria-label", options.language === "ja" ? "聞こえた最初のかな" : "Kana at the start of the word");
+      const order2 = ["hira-e", "hira-a", "hira-u", "hira-o", "hira-i"];
+      order2.forEach((itemId, index) => {
+        const item2 = options.definition.items.find((candidate2) => candidate2.id === itemId);
+        if (!item2) return;
+        const button2 = element("button", "academy-vowel-writing-recall-choice");
+        button2.type = "button";
+        button2.lang = "ja";
+        button2.dataset.option = choiceToken(index);
+        button2.dataset.jpdbReaderSurfaceIgnore = "";
+        button2.setAttribute("aria-pressed", "false");
+        button2.setAttribute("aria-label", options.language === "ja" ? `${item2.kana}を選ぶ` : `Choose ${item2.kana}`);
+        button2.textContent = item2.kana;
+        button2.addEventListener("click", () => {
+          selectedRecallItemId = item2.id;
+          choices2.querySelectorAll("button").forEach((candidate2) => candidate2.setAttribute("aria-pressed", String(candidate2 === button2)));
+          message = "";
+          live.textContent = "";
+        }, { signal });
+        choices2.append(button2);
+      });
+      choices2.addEventListener("keydown", (event) => movePlanFocus(event, choices2), { signal });
+      return choices2;
     };
     const doodleShell = (item2, guided) => {
       const root = element("div", "academy-doodle academy-vowel-writing-doodle jpdb-reader-kanjivg");
@@ -264163,7 +264375,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     };
     const progressLabel = () => {
       const label = element("p", "academy-vowel-progress");
-      label.textContent = `${state.completedItemIds.length}/5`;
+      label.textContent = state.stage === "recall" || state.stage === "recall-repair" ? `${options.language === "ja" ? "思い出す" : "Recall"} ${(state.recalledItemIds ?? []).length}/5` : `${state.completedItemIds.length}/5`;
       label.dataset.jpdbReaderSurfaceIgnore = "";
       return label;
     };
@@ -264172,7 +264384,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       const shift = [1, 2, 0, 1, 2][Math.max(0, index)] ?? 0;
       return [...item2.plans.slice(shift), ...item2.plans.slice(0, shift)];
     };
-    const currentItem2 = () => options.definition.items[state.completedItemIds.length];
+    const currentItem2 = () => lessonZeroVowelWritingCurrentItem(options.definition, state);
     const submit2 = async (item2, response) => {
       const evaluation = evaluateLessonZeroVowelWriting(options.definition, item2, response);
       await apply({ kind: "record-result", evaluation });

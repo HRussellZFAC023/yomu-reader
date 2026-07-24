@@ -16,7 +16,7 @@
     "src/academy/domain/world-locations.ts": "8dff402868198871a95498d004bc318dfe0b48f1995429ae9c0f6d33490739e5",
     "src/academy/ui/lesson-zero-greeting-screen.ts": "965932e71c795b3b8f238c55288dd0784d2e26a50812f9794915357e2ca74480",
     "src/academy/ui/lesson-zero-vowel-screen.ts": "125d6e092df2ecd476d727a13162a3822a9bdc2bcbe3de6b3b78cbc5a4ecf12d",
-    "src/academy/ui/lesson-zero-vowel-writing-screen.ts": "a94130f5bbad7b81053edfacc9ce73deb4c6658606720139c29f858353a44819",
+    "src/academy/ui/lesson-zero-vowel-writing-screen.ts": "8e25b6bbd6295817a5a964776d937b64f8ddc08342e7790f29f1a27aa87cd787",
     "src/academy/ui/cafe-world.ts": "8f0ea99a7744127eee42ad05a14a2baa08407436d58a966c9aead1eb6fde9ec2",
     "scripts/academy-voice/archive-learning-voice-provenance.mjs": "1a747b8d79943b1abef967f616f578f7b39f6b157170ddc1032d8cfa00bd0604",
     "scripts/academy-voice/capture-learning-voice-local-expected.mjs": "709bb9739167149fabed02c2b0820524e868fd7f4bb70bd241b0569414fb01d7",
@@ -52,7 +52,7 @@
     },
     "localExpected": {
       "path": "docs/academy/audio/learning-voice-local-expected.json",
-      "sha256": "eda9d59442ae6aa3742525cb2c3ddd4b41e4fdceb4336727c0bd268747b6e05c"
+      "sha256": "b7dc139c906c08b49f9b23e4fd9aa536c1aa1174cb4a77d3a114102dbcc3a720"
     },
     "productionProof": {
       "path": "docs/academy/audio/learning-voice-production-proof.json",

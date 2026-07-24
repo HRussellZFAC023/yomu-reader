@@ -48,6 +48,10 @@ export type LessonZeroVowelWritingResponse =
     | Readonly<{ mode: 'draw'; assessment: KanjiStrokeAssessment }>
     | Readonly<{ mode: 'plan'; selectedPlanId: string }>;
 
+export interface LessonZeroVowelWritingRecallResponse {
+    readonly selectedItemId: LessonZeroVowelWritingItemId;
+}
+
 const STROKE_SHAPES: Readonly<Record<LessonZeroVowelWritingItemId, readonly KanjiVGStrokeShape[]>> = {
     'hira-a': [
         [{ x: 0.18, y: 0.28 }, { x: 0.42, y: 0.25 }, { x: 0.70, y: 0.24 }],
@@ -206,6 +210,55 @@ export function evaluateLessonZeroVowelWriting(
             outcome: passed ? 'pass' : 'lapse',
             score,
             errorTags: resultErrorTags,
+        },
+        reviewSeeds: [reviewSeed(definition, item, passed ? 'new-learning' : 'repair')],
+    };
+}
+
+export function evaluateLessonZeroVowelWritingRecall(
+    definition: LessonZeroVowelWritingDefinition,
+    item: LessonZeroVowelWritingItem,
+    response: LessonZeroVowelWritingRecallResponse,
+): ActivityEvaluation {
+    const selected = definition.items.find(candidate => candidate.id === response.selectedItemId);
+    if (!selected) throw new TypeError(`Unknown vowel-writing recall choice: ${response.selectedItemId}.`);
+    const passed = selected.id === item.id;
+    const errorTags = passed
+        ? [`vowel-writing-${item.romaji}`, 'vowel-writing-delayed-recall']
+        : [`vowel-writing-${item.romaji}`, 'vowel-writing-sound-shape-link'];
+    return {
+        result: passed ? {
+            outcome: 'pass',
+            score: 1,
+            errorTags,
+            feedback: {
+                explanation: {
+                    en: `${item.kana} came back from the sound alone.`,
+                    ja: `音だけで「${item.kana}」を思い出せました。`,
+                },
+            },
+        } : {
+            outcome: 'lapse',
+            score: 0,
+            errorTags,
+            feedback: {
+                explanation: {
+                    en: `That word begins with ${item.kana}. Look once, then find it again.`,
+                    ja: `その言葉の最初の音は「${item.kana}」です。一度見て、もう一度探しましょう。`,
+                },
+                repairPrompt: item.directionCue,
+                nearbyExample: item.memoryCue,
+            },
+        },
+        attempt: {
+            kind: 'attempt-recorded',
+            activityId: lessonZeroVowelWritingChildActivityId(item.id),
+            sourceQuestionId: definition.sourceQuestionId,
+            conceptIds: ['concept:hiragana-vowel-row'],
+            responseKind: 'kana-choice',
+            outcome: passed ? 'pass' : 'lapse',
+            score: passed ? 1 : 0,
+            errorTags,
         },
         reviewSeeds: [reviewSeed(definition, item, passed ? 'new-learning' : 'repair')],
     };

@@ -52,7 +52,7 @@ export function assessKanjiStrokes(strokes: DoodleStroke[], expectedStrokes: num
 export function rankKanjiStrokeCandidates(strokes: DoodleStroke[], candidates: KanjiShapeCandidate[], limit = 8): KanjiShapeMatch[] {
     const writtenStrokes = strokes.filter(stroke => stroke.length > 1);
     if (!writtenStrokes.length) return [];
-    const written = extractFeatures(momentNormalize(toPattern(writtenStrokes)), FEATURE_INTERVAL);
+    const written = normalizedFeatures(toPattern(writtenStrokes));
     return candidates
         .map(candidate => kanjiShapeMatch(candidate, written, writtenStrokes.length))
         .filter((match): match is KanjiShapeMatch => Boolean(match))
@@ -95,8 +95,8 @@ function assessmentMessage(passed: boolean, actualStrokes: number, expectedStrok
 
 function assessStrokeShape(strokes: DoodleStroke[], referenceStrokes: KanjiVGStrokeShape[] | undefined, expectedStrokes: number): number | null {
     if (!referenceStrokes || strokes.length !== expectedStrokes || referenceStrokes.length !== expectedStrokes) return null;
-    const written = extractFeatures(momentNormalize(toPattern(strokes)), FEATURE_INTERVAL);
-    const reference = extractFeatures(momentNormalize(toPattern(referenceStrokes)), FEATURE_INTERVAL);
+    const written = normalizedFeatures(toPattern(strokes));
+    const reference = normalizedFeatures(toPattern(referenceStrokes));
     if (written.length !== reference.length || written.some((stroke, index) => stroke.length < 2 || reference[index].length < 2)) return null;
 
     const scores = written.map((stroke, index) => strokeCorrespondenceScore(stroke, reference[index]));
@@ -115,7 +115,7 @@ function kanjiShapeMatch(candidate: KanjiShapeCandidate, written: StrokePattern,
     const allowedDelta = Math.max(2, Math.ceil(Math.min(actualStrokes, expectedStrokes) * 0.45));
     if (strokeDelta > allowedDelta) return null;
 
-    const reference = extractFeatures(momentNormalize(toPattern(referenceStrokes)), FEATURE_INTERVAL);
+    const reference = normalizedFeatures(toPattern(referenceStrokes));
     if (!reference.length) return null;
     const strokeShapeScore = unorderedStrokeShapeScore(written, reference);
     const skeletonScore = wholeSkeletonScore(written, reference);
@@ -250,21 +250,46 @@ function finiteScale(value: number): number {
 }
 
 function extractFeatures(pattern: StrokePattern, interval: number): StrokePattern {
-    return pattern.map(stroke => {
-        const extracted: StrokePoint[] = [];
-        let distance = 0;
-        for (let index = 0; index < stroke.length; index += 1) {
-            if (index === 0) extracted.push(stroke[0]);
-            if (index > 0) distance += euclid(stroke[index - 1], stroke[index]);
-            if (distance >= interval && index > 1) {
-                distance -= interval;
-                extracted.push(stroke[index]);
-            }
+    return pattern.map(stroke => resampleStroke(stroke, interval));
+}
+
+function normalizedFeatures(pattern: StrokePattern): StrokePattern {
+    // Pointer hardware reports wildly different sample densities. Resample
+    // before moment normalization so a slow, careful stroke is not weighted
+    // differently from the same path drawn quickly.
+    const densityIndependent = extractFeatures(pattern, FEATURE_INTERVAL);
+    return extractFeatures(momentNormalize(densityIndependent), FEATURE_INTERVAL);
+}
+
+function resampleStroke(stroke: StrokePoint[], interval: number): StrokePoint[] {
+    if (stroke.length < 2 || !Number.isFinite(interval) || interval <= 0) return [...stroke];
+    const sampled: StrokePoint[] = [{ ...stroke[0] }];
+    let distanceSinceSample = 0;
+
+    for (let index = 1; index < stroke.length; index += 1) {
+        let from = stroke[index - 1];
+        const to = stroke[index];
+        let segmentLength = euclid(from, to);
+        if (segmentLength <= Number.EPSILON) continue;
+
+        while (distanceSinceSample + segmentLength >= interval) {
+            const ratio = (interval - distanceSinceSample) / segmentLength;
+            const point = {
+                x: from.x + (to.x - from.x) * ratio,
+                y: from.y + (to.y - from.y) * ratio,
+            };
+            sampled.push(point);
+            from = point;
+            segmentLength = euclid(from, to);
+            distanceSinceSample = 0;
+            if (segmentLength <= Number.EPSILON) break;
         }
-        if (extracted.length === 1) extracted.push(stroke[stroke.length - 1]);
-        else if (distance > interval * 0.75) extracted.push(stroke[stroke.length - 1]);
-        return extracted;
-    });
+        distanceSinceSample += segmentLength;
+    }
+
+    const last = stroke[stroke.length - 1];
+    if (euclid(sampled[sampled.length - 1], last) > Number.EPSILON) sampled.push({ ...last });
+    return sampled;
 }
 
 function strokeCorrespondenceScore(stroke: StrokePoint[], reference: StrokePoint[]): number {

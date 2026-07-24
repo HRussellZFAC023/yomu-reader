@@ -9,11 +9,12 @@ import {
 export const LESSON_ZERO_VOWEL_WRITING_SESSION_ID = 'session:lesson-zero-vowel-doodle' as const;
 
 export type LessonZeroVowelWritingMode = 'draw' | 'plan';
-export type LessonZeroVowelWritingStage = 'learn' | 'attempt' | 'repair' | 'complete';
+export type LessonZeroVowelWritingAttemptMode = LessonZeroVowelWritingMode | 'recall';
+export type LessonZeroVowelWritingStage = 'learn' | 'attempt' | 'repair' | 'recall' | 'recall-repair' | 'complete';
 
 export interface LessonZeroVowelWritingAttempt {
     readonly itemId: LessonZeroVowelWritingItemId;
-    readonly mode: LessonZeroVowelWritingMode;
+    readonly mode: LessonZeroVowelWritingAttemptMode;
     readonly outcome: 'pass' | 'lapse';
     readonly score: number;
     readonly errorTags: readonly string[];
@@ -29,6 +30,11 @@ export interface LessonZeroVowelWritingSessionState {
     readonly learnedItemIds: readonly LessonZeroVowelWritingItemId[];
     readonly completedItemIds: readonly LessonZeroVowelWritingItemId[];
     readonly guideItemIds: readonly LessonZeroVowelWritingItemId[];
+    /**
+     * Optional only so snapshots written before delayed recall shipped remain
+     * resumable. Every newly written snapshot includes this field.
+     */
+    readonly recalledItemIds?: readonly LessonZeroVowelWritingItemId[];
     readonly attempts: readonly LessonZeroVowelWritingAttempt[];
 }
 
@@ -37,6 +43,7 @@ export type LessonZeroVowelWritingAction =
     | { readonly kind: 'choose-mode'; readonly mode: LessonZeroVowelWritingMode }
     | { readonly kind: 'learn-item'; readonly itemId: LessonZeroVowelWritingItemId }
     | { readonly kind: 'record-result'; readonly evaluation: ActivityEvaluation }
+    | { readonly kind: 'record-recall-result'; readonly evaluation: ActivityEvaluation }
     | { readonly kind: 'begin-retry' }
     | { readonly kind: 'pause' }
     | { readonly kind: 'resume' };
@@ -78,6 +85,7 @@ export function startLessonZeroVowelWritingSession(
         learnedItemIds: [],
         completedItemIds: [],
         guideItemIds: [],
+        recalledItemIds: [],
         attempts: [],
     };
 }
@@ -134,8 +142,8 @@ export function transitionLessonZeroVowelWritingSession(
         };
     }
     if (action.kind === 'begin-retry') {
-        requireState(state.stage === 'repair', 'There is no writing repair to retry.');
-        return { state: { ...state, stage: 'attempt' } };
+        requireState(state.stage === 'repair' || state.stage === 'recall-repair', 'There is no vowel-writing repair to retry.');
+        return { state: { ...state, stage: state.stage === 'repair' ? 'attempt' : 'recall' } };
     }
     if (action.kind === 'record-result') {
         requireState(state.stage === 'attempt', 'There is no active vowel-writing attempt.');
@@ -168,13 +176,52 @@ export function transitionLessonZeroVowelWritingSession(
             };
         }
         const completedItemIds = [...state.completedItemIds, item!.id];
-        const finished = completedItemIds.length === definition.items.length;
+        const readyForRecall = completedItemIds.length === definition.items.length;
+        return {
+            state: {
+                ...state,
+                status: 'active',
+                stage: readyForRecall ? 'recall' : 'learn',
+                completedItemIds,
+                attempts,
+            },
+            evaluation: action.evaluation,
+            adaptive,
+        };
+    }
+    if (action.kind === 'record-recall-result') {
+        requireState(state.stage === 'recall', 'There is no active delayed-recall attempt.');
+        const item = currentItem(definition, state);
+        requireState(Boolean(item), 'All five vowel kana are already recalled.');
+        requireState(action.evaluation.attempt.activityId === lessonZeroVowelWritingChildActivityId(item!.id),
+            'The recall grade does not belong to the current kana.');
+        requireState(action.evaluation.attempt.responseKind === 'kana-choice',
+            'The delayed-recall grade must use a kana choice.');
+        const attempt: LessonZeroVowelWritingAttempt = {
+            itemId: item!.id,
+            mode: 'recall',
+            outcome: action.evaluation.result.outcome,
+            score: action.evaluation.result.score,
+            errorTags: [...action.evaluation.result.errorTags],
+            at,
+        };
+        const attempts = [...state.attempts, attempt];
+        const adaptive = adaptiveEvidence(state, item!.id, action.evaluation, at, attempts.length, true);
+        if (action.evaluation.result.outcome === 'lapse') {
+            return {
+                state: { ...state, stage: 'recall-repair', attempts },
+                evaluation: action.evaluation,
+                adaptive,
+            };
+        }
+        const recalledItemIds = [...(state.recalledItemIds ?? []), item!.id];
+        const finished = recalledItemIds.length === definition.items.length;
         return {
             state: {
                 ...state,
                 status: finished ? 'complete' : 'active',
-                stage: finished ? 'complete' : 'learn',
-                completedItemIds,
+                stage: finished ? 'complete' : 'recall',
+                recalledItemIds,
                 attempts,
             },
             evaluation: action.evaluation,
@@ -191,11 +238,12 @@ export function lessonZeroVowelWritingSessionSnapshotShapeIsValid(
     const state = value as Partial<LessonZeroVowelWritingSessionState>;
     if (state.schemaVersion !== 1 || state.sessionId !== LESSON_ZERO_VOWEL_WRITING_SESSION_ID
         || !['ready', 'active', 'paused', 'complete'].includes(state.status ?? '')
-        || !['learn', 'attempt', 'repair', 'complete'].includes(state.stage ?? '')
+        || !['learn', 'attempt', 'repair', 'recall', 'recall-repair', 'complete'].includes(state.stage ?? '')
         || !['draw', 'plan'].includes(state.mode ?? '')) return false;
     if (!itemIdArray(state.learnedItemIds) || !itemIdArray(state.completedItemIds) || !itemIdArray(state.guideItemIds)) return false;
+    if (state.recalledItemIds !== undefined && !itemIdArray(state.recalledItemIds)) return false;
     if (!Array.isArray(state.attempts) || state.attempts.some(attempt => !attempt
-        || !isItemId(attempt.itemId) || !['draw', 'plan'].includes(attempt.mode)
+        || !isItemId(attempt.itemId) || !['draw', 'plan', 'recall'].includes(attempt.mode)
         || !['pass', 'lapse'].includes(attempt.outcome)
         || !Number.isFinite(attempt.score) || attempt.score < 0 || attempt.score > 1
         || !stringArray(attempt.errorTags)
@@ -203,10 +251,16 @@ export function lessonZeroVowelWritingSessionSnapshotShapeIsValid(
     if (new Set(state.learnedItemIds).size !== state.learnedItemIds.length
         || new Set(state.completedItemIds).size !== state.completedItemIds.length
         || new Set(state.guideItemIds).size !== state.guideItemIds.length
+        || new Set(state.recalledItemIds ?? []).size !== (state.recalledItemIds ?? []).length
         || state.completedItemIds.length > state.learnedItemIds.length) return false;
-    if (state.status === 'ready' && (state.stage !== 'learn' || state.learnedItemIds.length > 0 || state.completedItemIds.length > 0)) return false;
-    if (state.status === 'complete' && (state.stage !== 'complete' || state.completedItemIds.length !== 5)) return false;
+    if (state.status === 'ready' && (state.stage !== 'learn' || state.learnedItemIds.length > 0
+        || state.completedItemIds.length > 0 || (state.recalledItemIds ?? []).length > 0)) return false;
+    if (state.status === 'complete' && (state.stage !== 'complete' || state.completedItemIds.length !== 5
+        || (state.recalledItemIds !== undefined && state.recalledItemIds.length !== 5))) return false;
     if (state.stage === 'complete' && state.status !== 'complete') return false;
+    if ((state.stage === 'recall' || state.stage === 'recall-repair')
+        && (state.completedItemIds.length !== 5 || state.status === 'ready' || state.status === 'complete'
+            || (state.recalledItemIds ?? []).length >= 5)) return false;
     if (state.stage === 'repair') {
         const currentId = ITEM_IDS[state.completedItemIds.length];
         if (!currentId || !state.guideItemIds.includes(currentId)) return false;
@@ -216,15 +270,27 @@ export function lessonZeroVowelWritingSessionSnapshotShapeIsValid(
 
 export function lessonZeroVowelWritingAveragePassScore(state: LessonZeroVowelWritingSessionState): number {
     const latestPasses = ITEM_IDS.map(itemId => [...state.attempts].reverse().find(attempt =>
-        attempt.itemId === itemId && attempt.outcome === 'pass'));
+        attempt.itemId === itemId && attempt.mode !== 'recall' && attempt.outcome === 'pass'));
     if (latestPasses.some(attempt => !attempt)) throw new Error('All five kana need a passing attempt before completion.');
     return latestPasses.reduce((sum, attempt) => sum + (attempt?.score ?? 0), 0) / latestPasses.length;
 }
 
 const ITEM_IDS = ['hira-a', 'hira-i', 'hira-u', 'hira-e', 'hira-o'] as const;
+export const LESSON_ZERO_VOWEL_WRITING_RECALL_ORDER = ['hira-u', 'hira-a', 'hira-o', 'hira-i', 'hira-e'] as const;
+
+export function lessonZeroVowelWritingCurrentItem(
+    definition: LessonZeroVowelWritingDefinition,
+    state: LessonZeroVowelWritingSessionState,
+) {
+    if (state.stage === 'recall' || state.stage === 'recall-repair') {
+        const id = LESSON_ZERO_VOWEL_WRITING_RECALL_ORDER[(state.recalledItemIds ?? []).length];
+        return definition.items.find(item => item.id === id);
+    }
+    return definition.items[state.completedItemIds.length];
+}
 
 function currentItem(definition: LessonZeroVowelWritingDefinition, state: LessonZeroVowelWritingSessionState) {
-    return definition.items[state.completedItemIds.length];
+    return lessonZeroVowelWritingCurrentItem(definition, state);
 }
 
 function adaptiveEvidence(
@@ -233,14 +299,19 @@ function adaptiveEvidence(
     evaluation: ActivityEvaluation,
     at: number,
     attemptNumber: number,
+    recall = false,
 ): LessonZeroVowelWritingAdaptiveEvidence {
-    const repairing = state.guideItemIds.includes(itemId);
+    const lastRecall = [...state.attempts].reverse().find(attempt =>
+        attempt.itemId === itemId && attempt.mode === 'recall');
+    const repairing = recall
+        ? lastRecall?.outcome === 'lapse'
+        : state.guideItemIds.includes(itemId);
     return {
         eventId: `adaptive:lesson-zero-vowel-writing:${itemId}:${attemptNumber}:${at}`,
         at,
-        modeId: `lesson-zero-vowel-writing:${state.mode}`,
-        skill: repairing ? 'repair' : state.mode === 'draw' ? 'writing' : 'kana',
-        action: repairing ? 'repair' : state.mode === 'draw' ? 'write' : 'recall',
+        modeId: `lesson-zero-vowel-writing:${recall ? 'recall' : state.mode}`,
+        skill: repairing ? 'repair' : recall ? 'kana' : state.mode === 'draw' ? 'writing' : 'kana',
+        action: repairing ? 'repair' : recall ? 'recall' : state.mode === 'draw' ? 'write' : 'recall',
         sourceId: evaluation.attempt.sourceQuestionId ?? evaluation.attempt.activityId,
         independent: true,
     };
@@ -254,6 +325,10 @@ function validateSnapshotAgainstDefinition(
     const prefix = (values: readonly LessonZeroVowelWritingItemId[]) => values.every((id, index) => id === ids[index]);
     if (!prefix(state.learnedItemIds) || !prefix(state.completedItemIds)) {
         throw new TypeError('Lesson Zero vowel-writing order drifted from the canonical five vowels.');
+    }
+    const recalled = state.recalledItemIds ?? [];
+    if (!recalled.every((id, index) => id === LESSON_ZERO_VOWEL_WRITING_RECALL_ORDER[index])) {
+        throw new TypeError('Lesson Zero vowel-writing recall order drifted from the balanced retrieval sequence.');
     }
     const known = new Set(ids);
     for (const id of state.guideItemIds) {

@@ -7,7 +7,7 @@
   "build": {
     "distApp": "dist/academy/app.js",
     "hostedApp": "docs/public/academy/app.js",
-    "appSha256": "2207119bd047986db3b49380c40f409ade7e7988ecb00b05a5f4c92218f68dd8",
+    "appSha256": "b832d4692e0970cb5fdf2aa5db5583f89a79b9469f991b3204d9c72f527374ae",
     "byteParityRequired": true
   },
   "runtimeSources": {
@@ -22,7 +22,7 @@
     "src/academy/ui/cafe-world.ts": "8f0ea99a7744127eee42ad05a14a2baa08407436d58a966c9aead1eb6fde9ec2",
     "src/academy/ui/lesson-zero-greeting-screen.ts": "965932e71c795b3b8f238c55288dd0784d2e26a50812f9794915357e2ca74480",
     "src/academy/ui/lesson-zero-vowel-screen.ts": "125d6e092df2ecd476d727a13162a3822a9bdc2bcbe3de6b3b78cbc5a4ecf12d",
-    "src/academy/ui/lesson-zero-vowel-writing-screen.ts": "a94130f5bbad7b81053edfacc9ce73deb4c6658606720139c29f858353a44819",
+    "src/academy/ui/lesson-zero-vowel-writing-screen.ts": "8e25b6bbd6295817a5a964776d937b64f8ddc08342e7790f29f1a27aa87cd787",
     "src/academy/ui/lesson-screen.ts": "d279e813fc647715d83425984bca44f4151b161de638a0bca01eedc9f5562972",
     "src/academy/ui/world-screen.ts": "1a157bf0d5f9f50beaeda86a81c52070614a4a937ac930f431e814688d3f54e5"
   },

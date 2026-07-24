@@ -7,6 +7,7 @@ import { validateLessonZeroPackage } from '../../src/academy/content/lesson-zero
 import { createLessonZeroVowelSoundMap } from '../../src/academy/content/lesson-zero-vowel-sound-map';
 import { createLessonZeroVowelWritingDefinition } from '../../src/academy/content/lesson-zero-vowel-writing';
 import { projectLearnerRecord } from '../../src/academy/domain/learner-record';
+import { LESSON_ZERO_VOWEL_WRITING_RECALL_ORDER } from '../../src/academy/domain/lesson-zero-vowel-writing-session';
 import {
     startLessonZeroVowelSession,
     transitionLessonZeroVowelSession,
@@ -534,8 +535,8 @@ describe('Academy lesson flow', () => {
             .find(button => button.textContent?.trim() === label)!.click();
         click('Take the headphones');
         for (let index = 0; index < 5; index += 1) {
-            await vi.waitFor(() => expect(route.shell.current?.textContent).toContain('Hear this sound'));
-            click('Hear this sound');
+            await vi.waitFor(() => expect(route.shell.current?.textContent).toContain('Hear it in a word'));
+            click('Hear it in a word');
         }
         await vi.waitFor(() => expect(route.shell.current?.textContent).toContain('Listen without the paper'));
         click('Listen without the paper');
@@ -570,7 +571,7 @@ describe('Academy lesson flow', () => {
         expect(route.shell.current?.textContent).toContain('Play sound bingo');
     });
 
-    it('routes Rie\'s writing desk through five child grades before recording the parent milestone', async () => {
+    it('routes Rie\'s writing desk through five child grades and delayed recall before the parent milestone', async () => {
         const route = context('lesson:foundation-00', {
             route: 'source-activity',
             activityId: 'activity:lesson-zero-vowel-doodle',
@@ -589,7 +590,7 @@ describe('Academy lesson flow', () => {
         }));
         const click = (label: string) => [...route.shell.current!.querySelectorAll<HTMLButtonElement>('button')]
             .find(button => button.textContent?.trim() === label)!.click();
-        click('Open the practice book');
+        click('Start with あ');
         await vi.waitFor(() => expect(route.shell.current?.textContent).toContain('Choose the stroke plan'));
         click('Choose the stroke plan');
 
@@ -600,6 +601,21 @@ describe('Academy lesson flow', () => {
             await vi.waitFor(() => expect(route.shell.current?.textContent).toContain('Check the plan'));
             click(item.plans.find(plan => plan.id === item.correctPlanId)!.label.en);
             click('Check the plan');
+        }
+
+        await vi.waitFor(() => expect(route.shell.current?.textContent).toContain('Can you find them out of order?'));
+        for (const [index, itemId] of LESSON_ZERO_VOWEL_WRITING_RECALL_ORDER.entries()) {
+            const item = definition.items.find(candidate => candidate.id === itemId)!;
+            click(item.kana);
+            click('Check my choice');
+            await vi.waitFor(() => {
+                if (index === LESSON_ZERO_VOWEL_WRITING_RECALL_ORDER.length - 1) {
+                    expect(route.shell.current?.textContent).toContain('Five sounds. Five shapes.');
+                } else {
+                    expect(route.shell.current?.querySelector('.academy-vowel-progress')?.textContent)
+                        .toBe(`Recall ${index + 1}/5`);
+                }
+            });
         }
 
         await vi.waitFor(() => expect(recordActivity).toHaveBeenCalledWith(
@@ -629,11 +645,29 @@ describe('Academy lesson flow', () => {
                 undefined,
                 expect.objectContaining({ independent: true }),
             );
+            expect(recordActivity).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    attempt: expect.objectContaining({
+                        activityId: `activity:lesson-zero-vowel-doodle:${item.id}`,
+                        responseKind: 'kana-choice',
+                        outcome: 'pass',
+                    }),
+                    reviewSeeds: [expect.objectContaining({ id: `review:lesson-zero:vowel-writing:${item.id}` })],
+                }),
+                'lesson:foundation-00',
+                undefined,
+                expect.objectContaining({
+                    modeId: 'lesson-zero-vowel-writing:recall',
+                    action: 'recall',
+                    independent: true,
+                }),
+            );
         }
         expect(route.save).toHaveBeenCalledWith(expect.objectContaining({
             lessonZeroVowelWritingProgress: expect.objectContaining({
                 status: 'complete',
                 completedItemIds: ['hira-a', 'hira-i', 'hira-u', 'hira-e', 'hira-o'],
+                recalledItemIds: ['hira-u', 'hira-a', 'hira-o', 'hira-i', 'hira-e'],
             }),
         }));
     });

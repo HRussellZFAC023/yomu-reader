@@ -5,10 +5,13 @@ import { playLearningVoiceBinding } from '../audio/learning-voice';
 import { lessonZeroVowelAnchor } from '../content/lesson-zero-vowel-anchors';
 import {
     evaluateLessonZeroVowelWriting,
+    evaluateLessonZeroVowelWritingRecall,
     type LessonZeroVowelWritingDefinition,
     type LessonZeroVowelWritingItem,
+    type LessonZeroVowelWritingItemId,
 } from '../content/lesson-zero-vowel-writing';
 import {
+    lessonZeroVowelWritingCurrentItem,
     restartLessonZeroVowelWritingSession,
     transitionLessonZeroVowelWritingSession,
     type LessonZeroVowelWritingSessionState,
@@ -41,27 +44,27 @@ export interface LessonZeroVowelWritingScreen {
 }
 
 const COPY = {
-    eyebrow: { en: 'First writing desk', ja: '最初の文字机' },
-    introTitle: { en: 'Let the five sounds leave a mark', ja: '五つの音を、紙に残そう' },
+    eyebrow: { en: 'Five-vowel writing', ja: '五つの母音を書く' },
+    introTitle: { en: 'Give each sound a shape', ja: '五つの音を、形にしよう' },
     introDialogue: {
-        en: "Rie: You already found these sounds with your ears. Now we'll give each one a shape your hand can remember.",
-        ja: 'りえ：耳で見つけた五つの音に、今度は手で覚えられる形をつけましょう。',
+        en: 'Rie: You heard all five. Now let your hand learn their shapes.',
+        ja: 'りえ：五つとも聞けましたね。今度は、手で形を覚えましょう。',
     },
     introReason: {
-        en: 'Writing is not a decoration here. It makes the small turns and separate strokes visible, which helps you tell similar kana apart later.',
-        ja: 'ここで書くのは飾りではありません。線の曲がり方や離れ方が見えると、あとで似たかなを区別しやすくなります。',
+        en: 'Look once, try from memory, and fix only what trips you up.',
+        ja: '一度見て、思い出して書き、迷ったところだけ直します。',
     },
-    start: { en: 'Open the practice book', ja: '練習帳を開く' },
-    learnTitle: { en: 'Meet the shape before the pen moves', ja: '書く前に、形と会う' },
+    start: { en: 'Start with あ', ja: '「あ」から始める' },
+    learnTitle: { en: 'Look once. Then try.', ja: '一度見て、書いてみよう' },
     learnDialogue: {
-        en: "Rie: Look once, say the sound, then make your own attempt. I won't put the stroke guide under your hand unless you need it.",
-        ja: 'りえ：一度見て、音を言ってから、自分で書いてみましょう。必要になるまで、書き順の見本は下に置きません。',
+        en: 'Rie: Hear the word and watch its first shape. Then make it your way.',
+        ja: 'りえ：言葉を聞いて、最初の音の形を見ます。それから、自分でやってみましょう。',
     },
     drawMode: { en: 'Draw it', ja: '書いて進む' },
     planMode: { en: 'Choose the stroke plan', ja: '書き順で進む' },
     accessNote: {
-        en: 'Both routes check stroke count, order, and direction. The drawing route also checks the shape you made.',
-        ja: 'どちらも画数・順番・方向を確認します。書くルートでは、できた形も確認します。',
+        en: 'Write it, or choose the stroke plan. Both routes teach the same movement.',
+        ja: '書いても、書き順を選んでも大丈夫です。どちらも同じ動きを覚えます。',
     },
     hear: { en: 'Hear the sound', ja: '音を聞く' },
     beginDraw: { en: 'Write this kana', ja: 'このかなを書く' },
@@ -78,21 +81,34 @@ const COPY = {
     chooseFirst: { en: 'Choose a stroke plan first.', ja: '先に書き順を一つ選んでください。' },
     drawFirst: { en: 'Make at least one complete stroke first.', ja: 'まず一画、最後まで書いてください。' },
     saveError: { en: 'That attempt did not save. Please try it once more.', ja: '保存できませんでした。もう一度お試しください。' },
-    repairTitle: { en: 'Keep the kana. Repair only the movement.', ja: 'かなはそのまま。動きだけ直そう' },
+    repairTitle: { en: 'Try the movement again', ja: '動きを、もう一度' },
     repairDialogue: {
-        en: "Rie: Good. Now we know exactly where the pen lost the shape. Look at this one guide, then try the same kana again.",
-        ja: 'りえ：大丈夫。どこで形が離れたか分かりました。この一つだけ見て、同じかなをもう一度書きましょう。',
+        en: 'Rie: One part slipped. Check this guide, then try the same kana again.',
+        ja: 'りえ：一か所だけ迷いました。この見本を見て、同じかなをもう一度やってみましょう。',
     },
     practiceSheet: { en: "Rie's five-vowel practice sheet", ja: 'りえの五十音練習シート' },
     guideNote: { en: 'The numbered line appears on your next attempt.', ja: '次の練習では、番号つきの線が表示されます。' },
     retry: { en: 'Try this kana again', ja: 'このかなをもう一度' },
-    completeTitle: { en: 'The first line is yours', ja: '最初の一行が、できました' },
-    completeDialogue: {
-        en: "Rie: There. Five sounds, five marks. You don't need to make them beautiful yet. You only need to know how each one begins.",
-        ja: 'りえ：できました。五つの音、五つの形。まだきれいでなくて大丈夫です。それぞれの始まり方が分かれば十分です。',
+    recallTitle: { en: 'Can you find them out of order?', ja: '順番が変わっても、見つけられる？' },
+    recallDialogue: {
+        en: "Rie: I'll mix the five words. Hear one, then choose the shape of its first sound.",
+        ja: 'りえ：五つの言葉を混ぜます。聞いて、最初の音の形を選んでください。',
     },
-    completeNote: { en: 'The five kana are now in your review queue, one shape at a time.', ja: '五つのかなが、一文字ずつ復習に入りました。' },
-    continue: { en: 'Carry the line into class', ja: 'この一行を授業へ持っていく' },
+    recallPrompt: { en: 'Hear the word. Which kana starts it?', ja: '言葉を聞いて、最初のかなを選びましょう。' },
+    checkRecall: { en: 'Check my choice', ja: '選んだかなを確認' },
+    recallRepairTitle: { en: 'Listen once more', ja: 'もう一度、聞こう' },
+    recallRepairDialogue: {
+        en: 'Rie: That was close. Look at this one shape, then listen again.',
+        ja: 'りえ：おしいです。この一つだけ見て、もう一度聞きましょう。',
+    },
+    retryRecall: { en: 'Try the sound again', ja: 'もう一度、音を聞く' },
+    completeTitle: { en: 'Five sounds. Five shapes.', ja: '五つの音、五つの形' },
+    completeDialogue: {
+        en: "Rie: You found them again in a new order. That's enough to keep going.",
+        ja: 'りえ：違う順番でも、もう一度見つけられました。これなら、先へ進めます。',
+    },
+    completeNote: { en: "They'll come back in short reviews.", ja: 'この五つは、短い復習でまた出てきます。' },
+    continue: { en: 'Continue into class', ja: '授業へ進む' },
     restart: { en: 'Practice all five again', ja: '五つを最初から練習' },
 } as const;
 
@@ -106,6 +122,7 @@ export function createLessonZeroVowelWritingScreen(
     let activeDoodle: DoodleRoot | null = null;
     let activeStrokes: DoodleStroke[] = [];
     let selectedPlanId = '';
+    let selectedRecallItemId: LessonZeroVowelWritingItemId | '' = '';
     let busy = false;
     let disposed = false;
     let message = '';
@@ -136,6 +153,7 @@ export function createLessonZeroVowelWritingScreen(
         activeDoodle = null;
         activeStrokes = [];
         selectedPlanId = '';
+        selectedRecallItemId = '';
         renderLifecycle.abort();
         renderLifecycle = new AbortController();
         const signal = renderLifecycle.signal;
@@ -151,6 +169,8 @@ export function createLessonZeroVowelWritingScreen(
         else if (state.stage === 'learn') renderLearn(signal);
         else if (state.stage === 'attempt') renderAttempt(signal);
         else if (state.stage === 'repair') renderRepair(signal);
+        else if (state.stage === 'recall') renderRecall(signal);
+        else if (state.stage === 'recall-repair') renderRecallRepair(signal);
         else renderComplete(signal);
     };
 
@@ -212,6 +232,55 @@ export function createLessonZeroVowelWritingScreen(
         appendScene(paper, 'academy-vowel-writing-repair');
     };
 
+    const renderRecall = (signal: AbortSignal): void => {
+        const item = currentItem();
+        if (!item) return;
+        const paper = livingPaper('academy-vowel-writing-recall-paper');
+        paper.append(
+            localized('h1', 'academy-vowel-title', COPY.recallTitle),
+            dialogue(COPY.recallDialogue),
+            completedLine(),
+            localized('p', 'academy-vowel-writing-prompt', COPY.recallPrompt),
+            action(COPY.hear, 'listen', signal, button => play(item, button)),
+            recallChoices(signal),
+            action(COPY.checkRecall, 'primary', signal, async () => {
+                if (!selectedRecallItemId) {
+                    message = options.language === 'ja' ? 'かなを一つ選んでください。' : 'Choose one kana first.';
+                    live.textContent = message;
+                    return;
+                }
+                const evaluation = evaluateLessonZeroVowelWritingRecall(
+                    options.definition,
+                    item,
+                    { selectedItemId: selectedRecallItemId },
+                );
+                await apply({ kind: 'record-recall-result', evaluation });
+            }),
+        );
+        appendScene(paper, 'academy-vowel-writing-recall');
+    };
+
+    const renderRecallRepair = (signal: AbortSignal): void => {
+        const item = currentItem();
+        if (!item) return;
+        const anchor = lessonZeroVowelAnchor(item.id);
+        const answer = element('p', 'academy-vowel-writing-recall-answer');
+        answer.lang = 'ja';
+        answer.textContent = `${anchor.spokenJapanese} → ${item.kana}`;
+        answer.dataset.jpdbReaderSurfaceIgnore = '';
+        const paper = livingPaper('academy-vowel-writing-recall-repair-paper');
+        paper.append(
+            localized('h1', 'academy-vowel-title', COPY.recallRepairTitle),
+            dialogue(COPY.recallRepairDialogue),
+            targetGlyph(item),
+            answer,
+            localized('p', 'academy-vowel-writing-direction', item.directionCue),
+            action(COPY.hear, 'listen', signal, button => play(item, button)),
+            action(COPY.retryRecall, 'primary', signal, async () => { await apply({ kind: 'begin-retry' }); }),
+        );
+        appendScene(paper, 'academy-vowel-writing-recall-repair');
+    };
+
     const renderComplete = (signal: AbortSignal): void => {
         const paper = livingPaper('academy-vowel-writing-complete-paper');
         paper.append(
@@ -236,8 +305,8 @@ export function createLessonZeroVowelWritingScreen(
         const copy = element('div', 'academy-vowel-writing-target-copy');
         const line = element('p', 'academy-vowel-writing-target-line');
         line.textContent = options.language === 'ja'
-            ? `「${anchor.meaning.ja}」の最初の音は「${item.kana}」。形を一度だけ見てください。`
-            : `Listen for ${item.kana} at the start of “${anchor.meaning.en}.” Then look at its shape once.`;
+            ? `「${anchor.spokenJapanese}」の最初の音は「${item.kana}」です。形を一度見てください。`
+            : `Hear ${anchor.spokenJapanese}. Its first sound is ${item.kana}. Look at the shape once.`;
         line.dataset.jpdbReaderSurfaceIgnore = '';
         const controls = element('div', 'academy-vowel-writing-target-actions');
         controls.append(
@@ -334,6 +403,35 @@ export function createLessonZeroVowelWritingScreen(
             }),
         );
         return section;
+    };
+
+    const recallChoices = (signal: AbortSignal): HTMLElement => {
+        const choices = element('div', 'academy-vowel-writing-recall-choices');
+        choices.setAttribute('role', 'group');
+        choices.setAttribute('aria-label', options.language === 'ja' ? '聞こえた最初のかな' : 'Kana at the start of the word');
+        const order = ['hira-e', 'hira-a', 'hira-u', 'hira-o', 'hira-i'] as const;
+        order.forEach((itemId, index) => {
+            const item = options.definition.items.find(candidate => candidate.id === itemId);
+            if (!item) return;
+            const button = element('button', 'academy-vowel-writing-recall-choice');
+            button.type = 'button';
+            button.lang = 'ja';
+            button.dataset.option = choiceToken(index);
+            button.dataset.jpdbReaderSurfaceIgnore = '';
+            button.setAttribute('aria-pressed', 'false');
+            button.setAttribute('aria-label', options.language === 'ja' ? `${item.kana}を選ぶ` : `Choose ${item.kana}`);
+            button.textContent = item.kana;
+            button.addEventListener('click', () => {
+                selectedRecallItemId = item.id;
+                choices.querySelectorAll<HTMLButtonElement>('button').forEach(candidate =>
+                    candidate.setAttribute('aria-pressed', String(candidate === button)));
+                message = '';
+                live.textContent = '';
+            }, { signal });
+            choices.append(button);
+        });
+        choices.addEventListener('keydown', event => movePlanFocus(event, choices), { signal });
+        return choices;
     };
 
     const doodleShell = (item: LessonZeroVowelWritingItem, guided: boolean): DoodleRoot => {
@@ -462,7 +560,9 @@ export function createLessonZeroVowelWritingScreen(
 
     const progressLabel = (): HTMLElement => {
         const label = element('p', 'academy-vowel-progress');
-        label.textContent = `${state.completedItemIds.length}/5`;
+        label.textContent = state.stage === 'recall' || state.stage === 'recall-repair'
+            ? `${options.language === 'ja' ? '思い出す' : 'Recall'} ${(state.recalledItemIds ?? []).length}/5`
+            : `${state.completedItemIds.length}/5`;
         label.dataset.jpdbReaderSurfaceIgnore = '';
         return label;
     };
@@ -474,7 +574,7 @@ export function createLessonZeroVowelWritingScreen(
     };
 
     const currentItem = (): LessonZeroVowelWritingItem | undefined =>
-        options.definition.items[state.completedItemIds.length];
+        lessonZeroVowelWritingCurrentItem(options.definition, state);
 
     const submit = async (
         item: LessonZeroVowelWritingItem,
