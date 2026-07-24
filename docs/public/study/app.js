@@ -4754,7 +4754,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
     { owner: "srs/account-sync", kind: "gm", key: "yomu:private:academy-device-pending:v1" },
     { owner: "app/logger", kind: "gm", key: "yomu:enable-logs" },
     { owner: "app/main", kind: "gm", key: "yomu:jpdb-review-examples-visible:v1" },
-    { owner: "app/preferred-site-language", kind: "gm", key: "yomu:prefer-japanese-site-language" },
+    // Written with a raw localStorage.setItem, deliberately per-origin: it is the
+    // bootstrap hint for this site, never the preference itself.
+    { owner: "app/preferred-site-language", kind: "local", key: "yomu:prefer-japanese-site-language" },
     { owner: "app/preferred-site-language", kind: "session", key: "yomu:jps" },
     { owner: "app/preferred-site-language", kind: "session", key: "yomu:jps:hosts" },
     // Local no-account SRS deck.
@@ -17745,6 +17747,7 @@ ${scopedInner}
     "stream finished",
     "no stream handler",
     ,
+    // determined by compression function
     "no callback",
     "invalid UTF-8 data",
     "extra field too long",
@@ -48151,7 +48154,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.7.6".trim() ? "1.7.6".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.8.0".trim() ? "1.8.0".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record2 = value;
@@ -82714,6 +82717,23 @@ ${reading}`);
   const EN_LOCALE_RE = /^en(?:[-_][a-z]{2})?$/i;
   const JA_PARAMS = { hl: JA_LANG, gl: JA_COUNTRY };
   const JA_NEWS = { hl: JA_LANG, gl: JA_COUNTRY, ceid: "JP:ja" };
+  const JA_MARKER_PARAM_KEYS = [
+    "hl",
+    "gl",
+    "ceid",
+    "locale",
+    "ui_locale",
+    "mkt",
+    "market",
+    "lang",
+    "language",
+    "lng",
+    "region",
+    "country",
+    "cc"
+  ];
+  const JA_MARKER_VALUE_RE = /^(?:ja(?:[-_]jp)?|jp(?::ja)?)$/i;
+  const JA_PATH_SEGMENT_RE = /^ja(?:[-_]jp)?$/i;
   let alternateRedirectCleanup;
   function installPreferredJapaneseSiteLanguageFromStoredSettings() {
     const syncPreference = readStoredPreferenceEnabledSync();
@@ -82721,6 +82741,7 @@ ${reading}`);
       applyPreferredJapaneseSiteLanguage(syncPreference);
       return;
     }
+    if (readCachedPreferenceEnabled() === true) applyPageContextJapanesePreferences(true);
     void readStoredPreferenceEnabledAsync().then(applyPreferredJapaneseSiteLanguage);
   }
   function applyPreferredJapaneseSiteLanguage(enabled, revertOnDisable = false) {
@@ -82730,11 +82751,11 @@ ${reading}`);
     if (enabled) {
       applySitePreferenceCookies();
       schedulePreferredJapaneseSiteRedirect();
-    } else {
-      clearSitePreferenceCookies();
-      cancelPreferredJapaneseSiteRedirectWatcher();
-      if (revertOnDisable) attemptPreferredDefaultSiteRedirect();
+      return;
     }
+    clearSitePreferenceCookies();
+    cancelPreferredJapaneseSiteRedirectWatcher();
+    if (revertOnDisable) attemptPreferredDefaultSiteRedirect();
   }
   function preferredJapaneseSiteUrl(sourceHref, root) {
     const current = parseHttpUrl(sourceHref);
@@ -82745,9 +82766,14 @@ ${reading}`);
     if (!target || target.href === current.href) return null;
     return target.href;
   }
+  function preferredDefaultSiteUrl(sourceHref, root) {
+    const current = parseHttpUrl(sourceHref);
+    if (!current) return null;
+    const target = defaultAlternateLinkUrl(current, root) ?? withoutJapaneseMarkers(current);
+    if (!target || target.href === current.href) return null;
+    return target.href;
+  }
   function readStoredPreferenceEnabledSync() {
-    const cached = readCachedPreferenceEnabled();
-    if (typeof cached === "boolean") return cached;
     for (const key of SETTINGS_STORAGE_KEYS) {
       const stored = gmStorageGetSync(key, void 0);
       if (stored && typeof stored === "object" && typeof stored.preferJapaneseSiteLanguage === "boolean") {
@@ -82757,15 +82783,14 @@ ${reading}`);
     return void 0;
   }
   async function readStoredPreferenceEnabledAsync() {
-    const cached = readCachedPreferenceEnabled();
-    if (typeof cached === "boolean") return cached;
     for (const key of SETTINGS_STORAGE_KEYS) {
       const stored = await gmStorageGet(key, void 0);
       if (stored && typeof stored === "object" && typeof stored.preferJapaneseSiteLanguage === "boolean") {
         return stored.preferJapaneseSiteLanguage;
       }
     }
-    return DEFAULT_SETTINGS.preferJapaneseSiteLanguage;
+    const cached = readCachedPreferenceEnabled();
+    return typeof cached === "boolean" ? cached : DEFAULT_SETTINGS.preferJapaneseSiteLanguage;
   }
   function readCachedPreferenceEnabled() {
     try {
@@ -82895,7 +82920,15 @@ ${reading}`);
   function currentLocationHostname() {
     return typeof location.hostname === "string" ? location.hostname.toLowerCase() : "";
   }
+  function isTopLevelFrame() {
+    try {
+      return window.top === window;
+    } catch {
+      return false;
+    }
+  }
   function schedulePreferredJapaneseSiteRedirect() {
+    if (!isTopLevelFrame()) return;
     if (hostAlreadyRedirectedThisSession()) return;
     if (attemptPreferredJapaneseSiteRedirect()) return;
     installAlternateRedirectWatcher();
@@ -82940,11 +82973,25 @@ ${reading}`);
     }
   }
   function attemptPreferredDefaultSiteRedirect() {
+    if (!isTopLevelFrame()) return false;
     const href = currentLocationHref();
-    const target = href ? rememberedRedirectSourceForTarget(href) : null;
-    if (!target) return false;
+    const target = href ? rememberedRedirectSourceForTarget(href) ?? preferredDefaultSiteUrl(href, document) : null;
+    forgetSessionRedirectState();
+    if (!target || target === href) return false;
     replaceLocation(target);
     return true;
+  }
+  function forgetSessionRedirectState() {
+    try {
+      sessionStorage.removeItem(REDIRECT_CACHE_KEY);
+      const host = currentLocationHost();
+      const raw = host ? sessionStorage.getItem(REDIRECT_HOSTS_KEY) : null;
+      if (!raw) return;
+      const hosts = JSON.parse(raw).filter((entry) => entry !== host);
+      if (hosts.length) sessionStorage.setItem(REDIRECT_HOSTS_KEY, JSON.stringify(hosts));
+      else sessionStorage.removeItem(REDIRECT_HOSTS_KEY);
+    } catch {
+    }
   }
   function currentLocationHref() {
     return typeof location.href === "string" ? location.href : "";
@@ -83032,10 +83079,16 @@ ${reading}`);
     }
   }
   function japaneseAlternateLinkUrl(current, root) {
+    return alternateLinkUrl(current, root, /^ja(?:[-_]|$)/i, alts);
+  }
+  function defaultAlternateLinkUrl(current, root) {
+    return alternateLinkUrl(current, root, /^x-default$/i, metadataAlts) ?? alternateLinkUrl(current, root, EN_LOCALE_RE, metadataAlts);
+  }
+  function alternateLinkUrl(current, root, hreflang, candidates) {
     if (!root) return null;
     try {
-      for (const element2 of alts(root)) {
-        if (!/^ja(?:[-_]|$)/i.test(element2.getAttribute("hreflang") ?? "")) continue;
+      for (const element2 of candidates(root)) {
+        if (!hreflang.test(element2.getAttribute("hreflang") ?? "")) continue;
         const href = element2.getAttribute("href");
         const candidate = href ? parseHttpUrl(new URL(href, current.href).href) : null;
         if (candidate && candidate.href !== current.href) return candidate;
@@ -83045,8 +83098,28 @@ ${reading}`);
     }
     return null;
   }
+  function withoutJapaneseMarkers(current) {
+    const next = new URL(current.href);
+    let changed = false;
+    for (const key of JA_MARKER_PARAM_KEYS) {
+      const value = next.searchParams.get(key);
+      if (!value || !JA_MARKER_VALUE_RE.test(value)) continue;
+      next.searchParams.delete(key);
+      changed = true;
+    }
+    const parts = next.pathname.split("/");
+    if (JA_PATH_SEGMENT_RE.test(parts[1] ?? "")) {
+      parts.splice(1, 1);
+      next.pathname = parts.join("/") || "/";
+      changed = true;
+    }
+    return changed ? next : null;
+  }
   function alts(root) {
     return root.querySelectorAll("link[rel~=alternate][hreflang][href],a[hreflang][href]");
+  }
+  function metadataAlts(root) {
+    return root.querySelectorAll("link[rel~=alternate][hreflang][href]");
   }
   function siteRuleJapaneseUrl(current) {
     const hostname = current.hostname.toLowerCase();

@@ -25379,7 +25379,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     { owner: "srs/account-sync", kind: "gm", key: "yomu:private:academy-device-pending:v1" },
     { owner: "app/logger", kind: "gm", key: "yomu:enable-logs" },
     { owner: "app/main", kind: "gm", key: "yomu:jpdb-review-examples-visible:v1" },
-    { owner: "app/preferred-site-language", kind: "gm", key: "yomu:prefer-japanese-site-language" },
+    // Written with a raw localStorage.setItem, deliberately per-origin: it is the
+    // bootstrap hint for this site, never the preference itself.
+    { owner: "app/preferred-site-language", kind: "local", key: "yomu:prefer-japanese-site-language" },
     { owner: "app/preferred-site-language", kind: "session", key: "yomu:jps" },
     { owner: "app/preferred-site-language", kind: "session", key: "yomu:jps:hosts" },
     // Local no-account SRS deck.
@@ -279592,6 +279594,7 @@ ${scopedInner}
     "stream finished",
     "no stream handler",
     ,
+    // determined by compression function
     "no callback",
     "invalid UTF-8 data",
     "extra field too long",

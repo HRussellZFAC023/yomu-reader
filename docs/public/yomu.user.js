@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.7.6
+// @version 1.8.0
 // @author Henry Russell
 // @description Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and a study page.
 // @license MIT
@@ -12,13 +12,13 @@
 // @match *://*/*
 // @match file:///*
 // @require https://yomureader.com/greasyfork/yomu-annotations.42580e0d7ee9.user.js#sha256=QlgODX7pz1AizEkSrlBXzJuvl63KRU21y3ToTb5Q8kQ=
-// @require https://yomureader.com/greasyfork/yomu-anki.d36f764e0f24.user.js#sha256=0292Tg8kRFbt3mkaAcUJ1zBkVjbHN1dgiAYYRT00VSk=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.fadc4b60017c.user.js#sha256=+txLYAF8+TQ6DorT/6maHam0zKP66nNXLEzZTh9hqQo=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.62c4f0dc128c.user.js#sha256=YsTw3BKMFfj8KSP0mTOmaK0v0R6ZUquIzw5VPgka+1c=
+// @require https://yomureader.com/greasyfork/yomu-anki.8ca4c5aa9440.user.js#sha256=jKTFqpRAy8hsV7ABuAMure3EHhMCflzqa5MCl12lmAI=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.d622212fbf18.user.js#sha256=1iIhL78YArM5Xmxm33D/vbSJ/QTWoOTOHUagwrbjHV4=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.86105c6dc56f.user.js#sha256=hhBcbcVv1kfYArrl5B72rS0Ke0WNowISKyI+gnp0/x4=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.8b7ea0485899.user.js#sha256=i36gSFiZF/9rV+gLjTbAgAuXLnSfkQ5x8VeZLxZLkVc=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.12f755e0adb5.user.js#sha256=EvdV4K21kV7RFpQYantHOosglc11JGHLpgA0xi//zVs=
-// @require https://yomureader.com/greasyfork/yomu-bunpro.88aa755b3cb1.user.js#sha256=iKp1WzyxHBnjh2hT59JGKDJhaNz9yw3Azco+WgPy87A=
-// @require https://yomureader.com/greasyfork/yomu-video.d2235e30a955.user.js#sha256=0iNeMKlVIxwvIBymhj9ODnjMmjwP1s6BtzD4KvmZ2Qk=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.5f8be3ad6a65.user.js#sha256=X4vjrWplty1LP7sIHDs3H5s4Nv8c8Xv//CArJrvMEv8=
+// @require https://yomureader.com/greasyfork/yomu-bunpro.a0f59f7944a4.user.js#sha256=oPWfeUSk6mRINABeckq7gCFcmhI5HLh6rTuyOSYyR4o=
+// @require https://yomureader.com/greasyfork/yomu-video.721d22534eed.user.js#sha256=ch0iU07tR2W+v0EbojzVhQHBhL2PKEI/bJWptRpv1sE=
 // @resource yomuCss  https://yomureader.com/yomu.88a4714a7c42.css#sha256=iKRxSnxCIdyr353l/MjICEpNDRsQ6jGfkyOHUmExMEY=
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -3347,7 +3347,7 @@ const MANAGED_STATE_MANIFEST = [
   { owner: "srs/account-sync", kind: "gm", key: "yomu:private:academy-device-pending:v1" },
   { owner: "app/logger", kind: "gm", key: "yomu:enable-logs" },
   { owner: "app/main", kind: "gm", key: "yomu:jpdb-review-examples-visible:v1" },
-  { owner: "app/preferred-site-language", kind: "gm", key: "yomu:prefer-japanese-site-language" },
+  { owner: "app/preferred-site-language", kind: "local", key: "yomu:prefer-japanese-site-language" },
   { owner: "app/preferred-site-language", kind: "session", key: "yomu:jps" },
   { owner: "app/preferred-site-language", kind: "session", key: "yomu:jps:hosts" },
   { owner: "app/storage", kind: "gm", key: "yomu:srs-local:v1" },
@@ -36805,8 +36805,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
     `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.7.6"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.7.6"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.0"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.8.0"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka"];
@@ -36938,7 +36938,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.7.6"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.8.0"}`;
   } catch {
   return null;
   }
@@ -38091,6 +38091,9 @@ function isJsdomRuntime() {
 function firstLocalPitchPattern(resolution) {
   return resolution.patterns[0] ?? "";
 }
+function japaneseSiteLanguageDisabled(previous, next) {
+  return previous.preferJapaneseSiteLanguage && !next.preferJapaneseSiteLanguage;
+}
 function pageAddonKeysMatch(expected, mounted) {
   if (expected === mounted) return true;
   const expectedParts = expected.split(":");
@@ -38490,9 +38493,10 @@ class ReaderApp {
   return new Controller({
     getSettings: () => this.settings,
     setSettings: (settings) => {
+      const japaneseSiteOptOut = japaneseSiteLanguageDisabled(this.settings, settings);
       this.settings = settings;
       this.applyTheme();
-      this.applyPreferredJapaneseSiteLanguage();
+      this.applyPreferredJapaneseSiteLanguage(settings, japaneseSiteOptOut);
     },
     showSettings: (panel) => this.showSettings(panel),
     parseJapanese: (panel) => void this.parseOnboardingJapanese(panel),
@@ -38709,9 +38713,10 @@ class ReaderApp {
   }
   async applyRemoteSettings(settings) {
   const pauseChanged = settings.annotationsPaused !== this.settings.annotationsPaused;
+  const japaneseSiteOptOut = japaneseSiteLanguageDisabled(this.settings, settings);
   this.settings = settings;
   configureLogger({ forceEnabled: settings.enableLogging });
-  this.applyPreferredJapaneseSiteLanguage(settings);
+  this.applyPreferredJapaneseSiteLanguage(settings, japaneseSiteOptOut);
   this.applyTheme(settings);
   this.applyWordColors(settings);
   if (!this.embeddedFrame) this.installFab();
@@ -45172,9 +45177,10 @@ class ReaderApp {
     getSettings: () => this.settings,
     setSettings: (settings, options) => {
       const pauseChanged = settings.annotationsPaused !== this.settings.annotationsPaused;
+      const japaneseSiteOptOut = japaneseSiteLanguageDisabled(this.settings, settings);
       this.settings = settings;
       if (options?.transient) return;
-      this.applyPreferredJapaneseSiteLanguage();
+      this.applyPreferredJapaneseSiteLanguage(settings, japaneseSiteOptOut);
       if (!settings.ankiEnabled) this.clearRenderedAnkiWordStates();
       if (pauseChanged) this.applyAnnotationsPausedState();
     },
