@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.8.7] - 2026-07-25
+
+### Fixed
+
+- Buttons, chips, menu items and other interface controls now show their furigana readings all the time, exactly like body text. Two separate problems had left controls bare: a recent change deliberately hid readings on buttons until they were hovered, which made them unreachable on touch screens; and a longer-standing defect where a control's own hover and ripple layers were mistaken for a menu covering the word, so the reading was created and then immediately hidden. Controls keep their exact size, spacing and tap targets, and a real menu or dropdown opened over a control still hides the readings beneath it as before.
+- Stray floating furigana no longer linger in odd corners of the page after the text they belonged to has gone. A reading kept at its last known position to bridge a brief relayout depended on some later page activity to be cleaned up; on a quiet page that cleanup never ran, so the stale reading floated indefinitely. The cleanup now schedules itself and the bridging tolerance is capped by time.
+- Furigana no longer lags behind the page while scrolling through video feeds on tablets. Titles trimmed to a fixed number of lines and bylines shortened with an ellipsis were still being repositioned frame by frame during scrolling; they now travel with the page itself like ordinary text does.
+- Long video descriptions are now annotated all the way through. Text past roughly the first two hundred and forty characters of a block was silently skipped by the local dictionary lookup, which left the middle of an expanded description completely bare while the top and bottom were annotated.
+- Dragging the floating subtitle control rail on a phone or tablet now moves the rail instead of scrolling the page. The rail's drag handle asked to own its touch gesture, but a general touch-sizing rule for the rail's buttons overrode it, leaving the browser in charge of the gesture.
+- Pressing Cancel in the settings dialog while it is open over a playing video now closes the dialog. A protective layer that stops stray taps on displaced subtitles from activating links underneath judged clicks purely by their position on screen, so it also swallowed clicks aimed at the reader's own dialogs and focused the player instead, which is why the site's player controls appeared rather than the dialog closing.
+- The subtitle overlay now hides when scrolling down to read comments while the video keeps playing in a small docked mini player. Only pausing used to hide it, because the overlay judged visibility purely by where the player box sat on screen, and the docked box is fully on screen. A mini player opened deliberately keeps its overlay, and an overlay hidden this way returns if the page later puts the player back in the flow of the page.
+- Kanji inside subtitle words no longer look darker than the rest of the word. The highlight was painted twice over the kanji run, once for the word and once for an inner wrapper, and the two translucent layers stacked.
+- Some words on dark pages no longer show a noticeably darker highlight than their neighbours until hovered, with the same problem inverted on light pages. Words carrying no colour of their own were losing the sampled page background that every other word mixes its highlight against. Relatedly, a text colour changed by hovering now always reverts when the pointer leaves instead of occasionally sticking.
+- The meaning section of the study card no longer gets stuck showing a translating message forever. When the translation request travelled through a transport that ignored its time limit, a lost message meant the request never finished; the reader now enforces its own deadline and moves on. Sections that finish empty now also hide reliably.
+- Yomu now goes properly to sleep in background tabs. Several internal observers and timers kept working at full rate while a tab was hidden, which drained battery and warmed the device; they now pause when the tab is hidden and catch up once when it returns.
+- The account menu on the Yomu website itself is now annotated like the rest of the page.
+
 ## [1.8.6] - 2026-07-25
 
 ### Changed

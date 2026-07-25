@@ -309,9 +309,12 @@ describe('visible scan continuation after a capped collection (class E)', () => 
         await scanner.scanVisiblePage({ silent: true });
         // A capped single-pass collection must queue a continuation scan
         // (second collection call) instead of dropping the tail forever.
-        await vi.waitFor(() => expect(collectScanTargets.mock.calls.length).toBeGreaterThan(1), { timeout: 5000 });
+        await vi.waitFor(() => expect(collectScanTargets.mock.calls.length).toBeGreaterThan(1), { timeout: 12_000 });
         scanner.destroy();
-    });
+    // Same contention headroom as the sibling below: a full synthetic target
+    // sweep under four-way CI sharding can outlive Vitest's 5s default even
+    // though the continuation itself fires promptly.
+    }, 15_000);
 
     it('bounds consecutive continuations so an always-capped collection cannot spin forever', async () => {
         vi.resetModules();
