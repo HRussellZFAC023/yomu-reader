@@ -6,7 +6,7 @@ import {
     type LessonZeroVowelWritingItemId,
 } from '../content/lesson-zero-vowel-writing';
 
-export const LESSON_ZERO_VOWEL_WRITING_SESSION_ID = 'session:lesson-zero-vowel-doodle' as const;
+const LESSON_ZERO_VOWEL_WRITING_SESSION_ID = 'session:lesson-zero-vowel-doodle' as const;
 
 export type LessonZeroVowelWritingMode = 'draw' | 'plan';
 export type LessonZeroVowelWritingAttemptMode = LessonZeroVowelWritingMode | 'recall';

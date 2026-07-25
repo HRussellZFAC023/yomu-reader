@@ -206,8 +206,9 @@ describe('Overlay page-scale isolation', () => {
 
     it('applies and stamps the inverse page scale with inline priority', () => {
         const { element, style } = overlayElement();
-        applyOverlayPageScale(element, scaledReddit);
+        const appliedScale = applyOverlayPageScale(element, scaledReddit);
 
+        expect(appliedScale).toBe(1.6);
         expect(style.setProperty).toHaveBeenCalledWith('zoom', '0.625', 'important');
         expect(style.removeProperty).not.toHaveBeenCalled();
         expect(element.dataset.jpdbReaderScaleAdapter).toBe('apple-touch-page-scale');
@@ -218,8 +219,9 @@ describe('Overlay page-scale isolation', () => {
     it('removes compensation when a previously scaled viewport returns to normal', () => {
         const { element, style } = overlayElement();
         applyOverlayPageScale(element, scaledReddit);
-        applyOverlayPageScale(element, { ...scaledReddit, outerWidth: 475 });
+        const appliedScale = applyOverlayPageScale(element, { ...scaledReddit, outerWidth: 475 });
 
+        expect(appliedScale).toBe(1);
         expect(style.removeProperty).toHaveBeenCalledWith('zoom');
         expect(element.dataset.jpdbReaderScaleAdapter).toBeUndefined();
         expect(element.dataset.jpdbReaderPageScale).toBeUndefined();

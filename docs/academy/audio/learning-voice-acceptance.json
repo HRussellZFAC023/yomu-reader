@@ -25,7 +25,7 @@
         "sha256": "dccdcb6bd68407d0ae1bca0d6eccf96fe9d9185b5fb2d01737983da4533fbe31"
       }
     ],
-    "modelEvidenceSha256": "a5c245bb851452ea059b381554d42047ac196f1f3640328f49b618ff695f9fe2",
+    "modelEvidenceSha256": "a868ffbc1e27705a91cb61ba7672f95553f31e0ef5b10f98a171bafcbe4f19b8",
     "engine": {
       "name": "AivisSpeech Engine",
       "version": "1.2.0",
@@ -42,20 +42,20 @@
   "archivedQueryEvidence": {
     "path": "docs/academy/audio/learning-voice-query-evidence.json",
     "schema": "yomu-academy.learning-voice-query-evidence.v2",
-    "sha256": "a36840daca8ebb4ea69ff15ac52ab9c6cada30ab21a8e84544294cdaefff7c0c",
-    "candidates": 17,
+    "sha256": "9e832129ac8d98c760863b4be1b7ea7bc6712d5474d8680cc35fca580503e782",
+    "candidates": 19,
     "styleMappings": 5
   },
   "productionContract": {
     "path": "docs/academy/audio/learning-voice-production.json",
-    "sha256": "b21373539b6598836cfb415b7ec2f25ca54728f721cef3d74ab62dc92a5a8505",
+    "sha256": "36ca2c8e4458ac4f30dab3b7aa8868b0f5258d63d7003f92bd383392236edd9e",
     "validation": {
-      "reviewedCandidates": 17,
-      "accepted": 15,
+      "reviewedCandidates": 19,
+      "accepted": 17,
       "rejected": 2,
-      "bindings": 16,
-      "nativeBand": 15,
-      "archivedQueries": 17,
+      "bindings": 18,
+      "nativeBand": 17,
+      "archivedQueries": 19,
       "acceptedBy": "Codex",
       "humanReviewed": false
     }
@@ -63,13 +63,13 @@
   "historicalModelReviewEvidence": {
     "path": "docs/academy/audio/learning-voice-model-reviews.json",
     "schema": "yomu-academy.learning-voice-model-reviews.v2",
-    "sha256": "40ea72d198a998ab973fc643fc1410592382964bed6b82e58d69f7c5f86b9820",
+    "sha256": "384db38419827151e9f39a9625fef536bf0d2e850e417731b4e7d6d8ad45fe4e",
     "audioModelReviewed": true,
     "humanReviewed": false,
     "independentReviewerFamilies": 2,
     "blanketCharacterErrorRateAllowed": false
   },
-  "catalogSha256": "e99c5df5951320296ac7444ac98443538f41987e2572b8c0be87850a3c98990e",
+  "catalogSha256": "57d8f5742d2dbc8d443d68f4921369ebf8e518d3d699b0ed17830ba50aac4350",
   "entries": [
     {
       "lineId": "miller-cafe-price",
@@ -1356,6 +1356,176 @@
         "interiorSilence": true
       },
       "verdict": "pass"
+    },
+    {
+      "lineId": "rie-lesson-zero-homework",
+      "bindingIds": [
+        "lesson-zero:desk-language:homework"
+      ],
+      "intent": "Model the take-home homework label clearly, then repeat it once so a beginner can bind the sound to the prop.",
+      "locale": "ja-JP",
+      "band": "native",
+      "sourceSha256": "6d79b7fadcc1887054829bb886255dc2eaced84e8021a528ecb3a82fa9c0ac29",
+      "sourceRevision": "6d79b7fadcc1887054829bb886255dc2eaced84e8021a528ecb3a82fa9c0ac29",
+      "audioQuerySha256": "97b40d31ed53caca2e9f1d03e7e17f2dd019e5ea0531b5767d7122f84b1081eb",
+      "cacheKey": "870ba7f1bb64aa13a7c5a1f550870d207b24af5f165cf471877bb1fc58506f51",
+      "assetSha256": "bf2d773c1a71df81053c845e4effc1b50c0feaffd5b352534507cc2b678592a8",
+      "modelUuid": "e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43",
+      "modelPayloadSha256": "674d495898d367092de7105ef760f070a03ae5f74c61670bf98c1e62aa159adb",
+      "measurements": {
+        "codec": "opus",
+        "sampleRate": 48000,
+        "channels": 1,
+        "durationSeconds": 2.065813,
+        "integratedLufs": -20.1,
+        "truePeakDbfs": -1.6,
+        "leadingSeconds": 0.162,
+        "trailingSeconds": 0.412,
+        "longestInteriorSeconds": 0.31
+      },
+      "independentWaveformReviews": [
+        {
+          "reviewer": {
+            "service": "whisper.cpp local inference",
+            "modelFamily": "OpenAI Whisper",
+            "displayedModel": "ggml-large-v3-turbo-q5_0.bin",
+            "modelPayloadSha256": "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2",
+            "independentReviewIndex": 1
+          },
+          "heardTranscript": "宿題、宿題です。",
+          "normalizedTranscript": "しゅくだいしゅくだいです",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "しゅくだい"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "reviewer": {
+            "service": "Vosk local inference",
+            "modelFamily": "Kaldi Vosk Japanese",
+            "displayedModel": "vosk-model-small-ja-0.22",
+            "modelPayloadSha256": "bb0632b2bb9fe0b72fb0199573bc5533bd5ae9161091f670b788d197770f306d",
+            "independentReviewIndex": 2
+          },
+          "heardTranscript": "宿題 宿題 です",
+          "normalizedTranscript": "しゅくだいしゅくだいです",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "しゅくだい"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        }
+      ],
+      "checks": {
+        "acceptedDisposition": true,
+        "explicitCodexAcceptance": true,
+        "independentCriticalPhraseReview": true,
+        "noBlanketCerAcceptance": true,
+        "sourceHash": true,
+        "queryIdentity": true,
+        "distributionIdentity": true,
+        "assetHash": true,
+        "bytes": true,
+        "hostedMirror": true,
+        "codec": true,
+        "sampleRate": true,
+        "channels": true,
+        "duration": true,
+        "loudness": true,
+        "truePeak": true,
+        "leadingSilence": true,
+        "trailingSilence": true,
+        "interiorSilence": true
+      },
+      "verdict": "pass"
+    },
+    {
+      "lineId": "rie-lesson-zero-example",
+      "bindingIds": [
+        "lesson-zero:desk-language:example"
+      ],
+      "intent": "Model the worked-example label clearly, then repeat it once so a beginner can bind the sound to the prop.",
+      "locale": "ja-JP",
+      "band": "native",
+      "sourceSha256": "73e674f41209f7b8dd1b945d973fe88ac51f6dfc510b7546ae4cff246d071a4b",
+      "sourceRevision": "73e674f41209f7b8dd1b945d973fe88ac51f6dfc510b7546ae4cff246d071a4b",
+      "audioQuerySha256": "5e373be80dbb54d67c7d1cda6cf2d13e6a9c36dcc83cc79af71c7fddc373b7eb",
+      "cacheKey": "10f47eefee150c44c3c9a506e4b5eee889aa0a48ba88ec4d0f4ecf65bb345bb9",
+      "assetSha256": "877837076979db131e43595095422105b3c60a25cbfbf3f918a6a16696a9aafb",
+      "modelUuid": "e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43",
+      "modelPayloadSha256": "674d495898d367092de7105ef760f070a03ae5f74c61670bf98c1e62aa159adb",
+      "measurements": {
+        "codec": "opus",
+        "sampleRate": 48000,
+        "channels": 1,
+        "durationSeconds": 2.674542,
+        "integratedLufs": -18,
+        "truePeakDbfs": -2.5,
+        "leadingSeconds": 0.157,
+        "trailingSeconds": 0.46,
+        "longestInteriorSeconds": 0.35
+      },
+      "independentWaveformReviews": [
+        {
+          "reviewer": {
+            "service": "whisper.cpp local inference",
+            "modelFamily": "OpenAI Whisper",
+            "displayedModel": "ggml-large-v3-turbo-q5_0.bin",
+            "modelPayloadSha256": "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2",
+            "independentReviewIndex": 1
+          },
+          "heardTranscript": "これは例です。例。",
+          "normalizedTranscript": "これはれいですれい",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "れい"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "reviewer": {
+            "service": "Vosk local inference",
+            "modelFamily": "Kaldi Vosk Japanese",
+            "displayedModel": "vosk-model-small-ja-0.22",
+            "modelPayloadSha256": "bb0632b2bb9fe0b72fb0199573bc5533bd5ae9161091f670b788d197770f306d",
+            "independentReviewIndex": 2
+          },
+          "heardTranscript": "これ は 例 です 例",
+          "normalizedTranscript": "これはれいですれい",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "れい"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        }
+      ],
+      "checks": {
+        "acceptedDisposition": true,
+        "explicitCodexAcceptance": true,
+        "independentCriticalPhraseReview": true,
+        "noBlanketCerAcceptance": true,
+        "sourceHash": true,
+        "queryIdentity": true,
+        "distributionIdentity": true,
+        "assetHash": true,
+        "bytes": true,
+        "hostedMirror": true,
+        "codec": true,
+        "sampleRate": true,
+        "channels": true,
+        "duration": true,
+        "loudness": true,
+        "truePeak": true,
+        "leadingSilence": true,
+        "trailingSilence": true,
+        "interiorSilence": true
+      },
+      "verdict": "pass"
     }
   ],
   "rejectedCandidates": [
@@ -1390,12 +1560,12 @@
     }
   ],
   "counts": {
-    "reviewedCandidates": 17,
-    "accepted": 15,
+    "reviewedCandidates": 19,
+    "accepted": 17,
     "rejected": 2,
-    "objectivePassed": 15,
-    "nativeBand": 15,
-    "bindings": 16
+    "objectivePassed": 17,
+    "nativeBand": 17,
+    "bindings": 18
   },
   "complete": true
 }

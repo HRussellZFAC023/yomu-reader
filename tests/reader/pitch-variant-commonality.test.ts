@@ -5,7 +5,7 @@ import {
     pitchPatternFromPosition,
     validPitchPositions,
 } from '../../src/reader/lookup/pitch-accent';
-import { pitchVariantDisplayPercentages, renderPitch } from '../../src/reader/popup/pitch';
+import { pitchVariantBlockFit, pitchVariantDisplayPercentages, renderPitch } from '../../src/reader/popup/pitch';
 import type { JPDBCard } from '../../src/reader/app/types';
 
 function card(pitchAccent: string[]): JPDBCard {
@@ -113,4 +113,39 @@ describe('renderPitch commonality badges', () => {
     });
 
 
+});
+
+describe('pitchVariantBlockFit', () => {
+    it('keeps a two-graph block of a short reading compact (fits beside the headword)', () => {
+        expect(pitchVariantBlockFit('ふたご', 2)).toBe('compact');
+    });
+
+    it('treats three graphs as wide so they demote to their own row', () => {
+        expect(pitchVariantBlockFit('ふたご', 3)).toBe('wide');
+    });
+
+    it('treats a long reading as wide even with only two graphs', () => {
+        expect(pitchVariantBlockFit('いっしょうけんめい', 2)).toBe('wide');
+    });
+});
+
+describe('renderPitch fit hint', () => {
+    it('marks a compact two-variant block so the header keeps it top-right', () => {
+        const root = document.createElement('div');
+        root.innerHTML = renderPitch(card([
+            pitchPatternFromPosition('ふたご', 0),
+            pitchPatternFromPosition('ふたご', 3),
+        ]));
+        expect(root.querySelector('.jpdb-reader-pitch-variants')?.getAttribute('data-pitch-fit')).toBe('compact');
+    });
+
+    it('marks a three-variant block wide so it demotes to a full-width row', () => {
+        const root = document.createElement('div');
+        root.innerHTML = renderPitch(card([
+            pitchPatternFromPosition('ふたご', 0),
+            pitchPatternFromPosition('ふたご', 1),
+            pitchPatternFromPosition('ふたご', 3),
+        ]));
+        expect(root.querySelector('.jpdb-reader-pitch-variants')?.getAttribute('data-pitch-fit')).toBe('wide');
+    });
 });

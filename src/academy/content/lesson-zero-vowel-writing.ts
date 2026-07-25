@@ -8,7 +8,7 @@ import {
 } from './lesson-zero-source-material';
 
 export const LESSON_ZERO_VOWEL_WRITING_ID = 'activity:lesson-zero-vowel-doodle' as const;
-export const LESSON_ZERO_VOWEL_WRITING_SOURCE_QUESTION_ID = 'source-question:classroom-phrase-07' as const;
+const LESSON_ZERO_VOWEL_WRITING_SOURCE_QUESTION_ID = 'source-question:classroom-phrase-07' as const;
 
 export type LessonZeroVowelWritingItemId = typeof LESSON_ZERO_KANA_SEQUENCE[number]['id'];
 

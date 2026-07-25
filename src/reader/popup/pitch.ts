@@ -37,9 +37,31 @@ export function renderPitchVariantGraphs(reading: string, variants: PitchVariant
     if (!graphs.length) return '';
     if (graphs.length === 1) return `<div class="jpdb-reader-pitch">${graphs[0].svg}</div>`;
     const percentages = pitchVariantDisplayPercentages(graphs.map(entry => entry.variant));
-    return `<div class="jpdb-reader-pitch jpdb-reader-pitch-variants">${graphs
+    const fit = pitchVariantBlockFit(reading, graphs.length);
+    return `<div class="jpdb-reader-pitch jpdb-reader-pitch-variants" data-pitch-fit="${fit}">${graphs
         .map((entry, index) => `<span class="jpdb-reader-pitch-component jpdb-reader-pitch-variant${index === 0 ? ' jpdb-reader-pitch-variant-primary' : ''}">${entry.svg}<span class="jpdb-reader-pitch-variant-badge">${percentages[index]}%</span></span>`)
         .join('')}</div>`;
+}
+
+// Whether a multi-variant graph block is narrow enough to sit in the header's
+// top-right tools row beside the audio button, or wide enough that it must drop
+// to its own full-width row so the headword isn't squeezed. All variants share
+// the same reading, so every mini graph is the same width. The estimate mirrors
+// the rendered geometry: each graph SVG is `morae*24 + 18` wide (co-located in
+// renderPitchGraphSvg below, and both call the same splitMorae so the mora count
+// can't drift) inside a `.jpdb-reader-pitch-variant` chip whose 6px side padding
+// + 1px border add 14px, joined by an 8px flex column-gap.
+// KEEP IN SYNC with the chip geometry in styles/kanji.css (.jpdb-reader-pitch-variant
+// padding/border, .jpdb-reader-pitch-variants gap) — if those change, update 14/8 here.
+// styles/popover-core.css then keeps a "compact" block top-right until the popup
+// is genuinely narrow; a "wide" block always demotes on narrow popups.
+const PITCH_VARIANT_COMPACT_MAX_WIDTH = 300;
+
+export function pitchVariantBlockFit(reading: string, graphCount: number): 'compact' | 'wide' {
+    const graphWidth = splitMorae(reading).length * 24 + 18;
+    const chipWidth = graphWidth + 14;
+    const blockWidth = graphCount * chipWidth + Math.max(0, graphCount - 1) * 8;
+    return blockWidth <= PITCH_VARIANT_COMPACT_MAX_WIDTH ? 'compact' : 'wide';
 }
 
 // Current pitch banks expose source order, not measured prevalence. For those

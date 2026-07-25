@@ -1527,6 +1527,9 @@ html.jpdb-reader-doodle-active * {
    first/source-preferred reading does not appear larger or more authoritative
    than the other legitimate readings. Source order remains visible through
    the first badge colour, while two or three cards wrap as equal siblings. */
+/* KEEP IN SYNC with pitchVariantBlockFit in reader/popup/pitch.ts: the 8px gap
+   and the chip's 6px side padding + 1px border feed its top-right/full-width
+   fit estimate. If these change, update the 14/8 constants there. */
 .jpdb-reader-pitch.jpdb-reader-pitch-variants {
   justify-content: center;
   gap: 4px 8px;

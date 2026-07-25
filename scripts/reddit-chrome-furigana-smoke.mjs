@@ -38,6 +38,20 @@ const ROOT = smokePaths.root;
 const ARTIFACTS = smokePaths.artifacts;
 const SCRIPT_PATH = path.resolve(process.env.YOMU_REDDIT_SMOKE_USERSCRIPT ?? smokePaths.scriptPath);
 const CSS_PATH = path.resolve(process.env.YOMU_REDDIT_SMOKE_CSS ?? smokePaths.cssPath);
+
+// Command controls (button/summary/[role=button] minus the content escape
+// hatches) render bare at rest via the non-destructive control mirror: reading
+// stays PARSED for the popup, but the detached furigana lane + pitch underline
+// are visibility:hidden until hover/focus. Every other fixture label (content
+// titles, card flair, vote/comment metadata, timestamps, menu items, foreign
+// chips) keeps its visible/projected-at-rest reading. Verified per fixture
+// tag/role: create/join/sort/share are <button>, lateJoin/lateHydrate/
+// lateUpgrade are shadow <button>; feed is a <span>, the menu heading/options +
+// foreign row are role=menuitem/plain divs, flair/metadata are spans, time is
+// <time> — all content, so they are NOT in this set.
+const COMMAND_CONTROL_LABELS = new Set([
+    'create', 'join', 'sort', 'share', 'lateJoin', 'lateHydrate', 'lateUpgrade',
+]);
 const REQUIRED_COMPANION_PATHS = userscriptCompanionPaths(SCRIPT_PATH);
 // Browser DOMRects include the font line box. Directly stacked reading/base
 // glyphs can therefore report up to 3px of contact without visibly overlapping.
@@ -407,11 +421,16 @@ async function runEngine(engineName, browser) {
             page.locator('.jpdb-reader-fab').waitFor({ timeout: 20_000 }),
             signInFrame.locator('#google-signin .jpdb-reader-word[data-expression="続ける"]').waitFor({ timeout: 20_000 }),
         ]);
+        // The iframe sign-in button is rendered via the DESTRUCTIVE in-place path
+        // (word spans injected straight into the <button>). The command marker is
+        // stamped on the control ancestor at apply time, so the bare-until-hover
+        // tier covers the in-place path too: the reading stays PARSED (so the popup
+        // still opens on tap) but no projected clone is painted at rest.
         await signInFrame.waitForFunction(() => {
             const button = document.querySelector('#google-signin');
             const readings = window.__yomuProjectedReadingDiagnostics(button);
             return readings.sources.length > 0
-                && readings.associations.length === readings.sources.length;
+                && readings.associations.length === 0;
         }, null, { timeout: 20_000 });
         const lateLocalizedSignIn = await signInFrame.locator('#google-signin').evaluate(button => {
             const readings = window.__yomuProjectedReadingDiagnostics(button);
@@ -426,13 +445,23 @@ async function runEngine(engineName, browser) {
                 pitchWords: button.querySelectorAll('.jpdb-reader-word[data-pitch-class]:not([data-pitch-class="unknown"])').length,
             };
         });
+        // In-place path, now covered by the control-scoped command tier: the
+        // sign-in button is enriched (word parsed, source furigana + pitch present)
+        // but bare at rest — no projected clone painted until hover/focus.
         assert(lateLocalizedSignIn.expressions.includes('続ける')
             && lateLocalizedSignIn.words > 0
             && lateLocalizedSignIn.sourceFurigana > 0
             && lateLocalizedSignIn.sourceFuriganaVisible === 0
-            && lateLocalizedSignIn.projectedFurigana === lateLocalizedSignIn.sourceFurigana
+            && lateLocalizedSignIn.projectedFurigana === 0
             && lateLocalizedSignIn.pitchWords > 0,
         `${engineName}: a Latin embedded control was not enriched after Japanese localization`, lateLocalizedSignIn);
+        // The command control carries the host marker that drives the bare-until-
+        // hover tier (verified in the unit suite + reader CSS); the reading stays
+        // parsed above (sourceFurigana > 0), so it is hidden at rest, not dropped.
+        const signInCommandHost = await signInFrame.locator('#google-signin').evaluate(button =>
+            Boolean(button.closest('[data-yomu-command-control="true"]')
+                ?? button.querySelector('[data-yomu-command-control="true"]')));
+        assert(signInCommandHost, `${engineName}: sign-in command control was not marked bare-until-hover`, { signInCommandHost });
         await page.waitForTimeout(400);
         const responsiveness = await page.evaluate(stopRedditResponsivenessProbe);
         // Let Yomu's deliberately delayed 1.5s clamp/readings sweep finish,
@@ -1452,9 +1481,15 @@ function installProjectedReadingDiagnostics() {
                 && rect.width > 0
                 && rect.height > 0;
         };
-        const sources = [...root.querySelectorAll(
-            '.jpdb-reader-detached-furi:not([data-yomu-projected-reading="true"])',
-        )];
+        // Pierce open shadow roots so document-level associations cover the
+        // fixture's web-component sources (join/sort/feed) too.
+        const collectSources = node => [
+            ...node.querySelectorAll('.jpdb-reader-detached-furi:not([data-yomu-projected-reading="true"])'),
+            ...[...node.querySelectorAll('*')]
+                .filter(element => element.shadowRoot)
+                .flatMap(element => collectSources(element.shadowRoot)),
+        ];
+        const sources = collectSources(root);
         const clones = [...document.querySelectorAll('[data-yomu-projected-reading="true"]')];
         const available = new Set(clones.filter(visible));
         const associations = [];
@@ -1473,7 +1508,12 @@ function installProjectedReadingDiagnostics() {
                             + Math.abs(rect.bottom - baseRect.top),
                     };
                 })
-                .sort((left, right) => left.score - right.score)[0]?.clone;
+                .sort((left, right) => left.score - right.score)
+                // A genuine projection sits directly above its base word. Without
+                // this cap, a command control whose own clone is suppressed at
+                // rest would steal a same-text clone from an unrelated content
+                // row (sort's 賛成票 matching the metadata row's 賛成票).
+                .filter(entry => entry.score <= 48)[0]?.clone;
             if (!candidate) continue;
             available.delete(candidate);
             const cloneRect = candidate.getBoundingClientRect();
@@ -1636,6 +1676,7 @@ function snapshotRedditElement(element, expected) {
         });
     });
     return {
+        commandMarked: Boolean(element.closest('[data-yomu-command-control="true"]') || element.querySelector('[data-yomu-command-control="true"]')),
         expected,
         visibleText,
         height: rect.height,
@@ -1787,6 +1828,7 @@ function snapshotSortMenuSafety(host) {
     return {
         wordCount: menu.querySelectorAll('.jpdb-reader-word').length,
         openProjectedReadingCloneCount: documentProjection.clones.length,
+        openVisibleProjectedReadingCloneCount: documentProjection.clones.filter(documentProjection.visible).length,
         readingCount: readings.length,
         projectedReadingCount: projection.associations.length,
         visibleReadingCount: visible.length,
@@ -1914,7 +1956,18 @@ function snapshotRedditPageSummary() {
             hiddenProjectedReadingCloneCount: readingProjection.clones.filter(
                 clone => !readingProjection.visible(clone),
             ).length,
-            detachedReadingOverlayCount: document.querySelectorAll('.jpdb-reader-detached-reading-overlay').length,
+            // A visible clone with no live source association is a leak (a
+            // closed menu's clone left painted, or a duplicate).
+            orphanVisibleProjectedReadingCloneCount: readingProjection.clones.filter(readingProjection.visible).length
+                - readingProjection.associations.length,
+            // Readings are split across a viewport layer and a document-space
+            // layer by scroll context; exactly one of each must ever exist.
+            viewportReadingLayerCount: document.querySelectorAll(
+                '.jpdb-reader-detached-reading-overlay:not(.jpdb-reader-detached-reading-document-layer)',
+            ).length,
+            documentReadingLayerCount: document.querySelectorAll(
+                '.jpdb-reader-detached-reading-document-layer',
+            ).length,
             controlBoxes: {
                 create: boxGeometry(document.querySelector('#create-post')),
                 share: boxGeometry(document.querySelector('#share')),
@@ -2065,9 +2118,15 @@ function assertAnnotatedLabels(engineName, labels) {
         }
         assert(label.sourceReadingVisibleCount === 0,
             `${engineName}: ${name} source furigana entered page layout`, label);
-        assert(label.projectedReadingCount === label.readingCount
-            && label.visibleReadingCount === label.projectedReadingCount,
-        `${engineName}: ${name} lost a projected furigana clone`, label);
+        if (COMMAND_CONTROL_LABELS.has(name)) {
+            // Bare at rest: reading parsed but no projected paint, nothing visible.
+            assert(label.projectedReadingCount === 0 && label.visibleReadingCount === 0,
+                `${engineName}: ${name} command control revealed furigana at rest`, label);
+        } else {
+            assert(label.projectedReadingCount === label.readingCount
+                && label.visibleReadingCount === label.projectedReadingCount,
+            `${engineName}: ${name} lost a projected furigana clone`, label);
+        }
         assert(projectedReadingsAreAligned(label.projectedReadings),
             `${engineName}: ${name} projected furigana lost its source range`, label);
         const expectedPitchExpressions = label.expressions.filter(expression => MOCK_PITCH_EXPRESSIONS.has(expression));
@@ -2090,20 +2149,34 @@ function assertAnnotatedLabels(engineName, labels) {
         assert(label.readingClipped === false, `${engineName}: ${name} furigana is clipped`, label);
         assert(label.readingBaseOverlap <= MAX_FONT_BOX_CONTACT_PX,
             `${engineName}: ${name} furigana intrudes into base text`, label);
-        assert(label.hiddenReadingCount === 0,
-            `${engineName}: ${name} has source furigana without projected paint`, label);
+        if (COMMAND_CONTROL_LABELS.has(name)) {
+            // Every parsed reading is a hidden source reading at rest — present
+            // (so tap/hover still opens the popup) but not painted.
+            assert(label.hiddenReadingCount === label.readingCount,
+                `${engineName}: ${name} command control painted furigana at rest`, label);
+        } else {
+            assert(label.hiddenReadingCount === 0,
+                `${engineName}: ${name} has source furigana without projected paint`, label);
+        }
         assert(label.rubyRoomCount === 0, `${engineName}: ${name} reserved ruby room`, label);
         assert(label.visibleWords, `${engineName}: ${name} annotation base is clipped or invisible`, label);
         for (const fragment of label.expected.split('・')) {
             assert(label.visibleText.includes(fragment), `${engineName}: ${name} lost visible base text "${fragment}"`, label);
         }
     }
-    for (const name of ['create', 'join', 'sort', 'time', 'share']) {
+    // Command buttons must stay bare at rest (reading parsed, nothing painted)…
+    for (const name of ['create', 'join', 'sort', 'share']) {
         const label = labels[name];
-        assert(label.projectedReadingCount === label.readingCount
-            && label.visibleReadingCount === label.projectedReadingCount,
-            `${engineName}: ${name} hid furigana`, label);
+        assert(label.projectedReadingCount === 0
+            && label.visibleReadingCount === 0
+            && label.readingCount > 0,
+            `${engineName}: ${name} command control did not stay bare at rest`, label);
     }
+    // …while the timestamp metadata row keeps its projected reading visible.
+    const timeLabel = labels.time;
+    assert(timeLabel.projectedReadingCount === timeLabel.readingCount
+        && timeLabel.visibleReadingCount === timeLabel.projectedReadingCount,
+        `${engineName}: time hid furigana`, timeLabel);
 }
 
 function assertRejectedSourceRanges(engineName, rejected) {
@@ -2119,22 +2192,22 @@ function assertStableFixtureLayout(engineName, baseline, layout, menuSafety) {
     assert(layout.cardToPostGap <= baseline.cardToPostGap + 2, `${engineName}: a large gap appeared below the card`, { baseline, layout });
     assert(layout.scrollWidth <= layout.viewportWidth + 2, `${engineName}: annotations caused horizontal overflow`, layout);
     assert(layout.rubyRoomCount === 0, `${engineName}: Reddit fixture received ruby-room growth`, layout);
-    const backgroundProjectedReadingCloneCount = menuSafety.openProjectedReadingCloneCount
-        - menuSafety.projectedReadingCount;
-    // Hiding the shadow menu schedules projection cleanup. Depending on when
-    // WebKit delivers that mutation relative to the two-frame snapshot fence,
-    // the menu's clones are either all retained but hidden or all removed.
-    // Require either complete state so visible leaks and partial cleanup fail.
-    const retainedHiddenMenuClones = layout.projectedReadingCloneCount === menuSafety.openProjectedReadingCloneCount
-        && layout.visibleProjectedReadingCloneCount === backgroundProjectedReadingCloneCount
-        && layout.hiddenProjectedReadingCloneCount === menuSafety.projectedReadingCount;
-    const removedMenuClones = layout.projectedReadingCloneCount === backgroundProjectedReadingCloneCount
-        && layout.visibleProjectedReadingCloneCount === backgroundProjectedReadingCloneCount
-        && layout.hiddenProjectedReadingCloneCount === 0;
-    assert(backgroundProjectedReadingCloneCount > 0
+    // Command controls retain hidden clones at rest and closing the menu
+    // restores background readings it had occluded, so per-count identities
+    // between the open and closed snapshots no longer hold. The leak contract
+    // is instead: the clone pool either kept or dropped exactly the menu's
+    // clones, every clone still visible is associated with a live source
+    // (a closed menu's clone left painted has none), and content rows still
+    // project readings at rest.
+    const retainedHiddenMenuClones = layout.projectedReadingCloneCount === menuSafety.openProjectedReadingCloneCount;
+    const removedMenuClones = layout.projectedReadingCloneCount
+        === menuSafety.openProjectedReadingCloneCount - menuSafety.projectedReadingCount;
+    assert(layout.visibleProjectedReadingCloneCount > 0
+        && layout.orphanVisibleProjectedReadingCloneCount === 0
         && menuSafety.projectedReadingCount > 0
         && (retainedHiddenMenuClones || removedMenuClones)
-        && layout.detachedReadingOverlayCount === 1,
+        && layout.viewportReadingLayerCount === 1
+        && layout.documentReadingLayerCount === 1,
     `${engineName}: closed menu did not reach an atomic projected reading inventory`, {
         layout,
         menuSafety,

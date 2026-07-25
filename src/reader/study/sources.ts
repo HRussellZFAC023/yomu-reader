@@ -22,7 +22,11 @@ const STUDY_GRAMMAR_CACHE_LIMIT = 160;
 const STUDY_TRANSLATION_CACHE_LIMIT = 80;
 
 interface StudyTranslationResult {
-    tokens: JPDBToken[];
+    // A promise, not a value: the MEANING must resolve on the translation
+    // alone. Parsing only enriches the original line with ruby, and it can
+    // stall (iPad WebKit IndexedDB), so it is applied opportunistically and
+    // never gates the translation.
+    tokens: Promise<JPDBToken[]>;
     translated: string;
 }
 
@@ -201,11 +205,22 @@ export class StudySourceController {
     }
 
     private async loadTranslationContent(sentence: string): Promise<StudyTranslationResult> {
-        const [tokens, translated] = await Promise.all([
-            this.dependencies.parseJapanese([sentence], { jpdbTimeoutMs: 1_200, allowJpdbTimeoutFallback: true }).then(([parsed]) => parsed ?? []),
-            translateJapaneseSentence(sentence, resolvedLearnerLanguage(this.settings())),
-        ]);
+        // Resolve on the (always-bounded) translation alone. The old
+        // Promise.all also awaited parseJapanese; when that stalled — an iPad
+        // WebKit IndexedDB failure mode — the MEANING was stranded on
+        // "Translating..." forever and the empty-translation hide never ran.
+        // Parse now runs only when there is a translation to enrich, and its
+        // tokens are handed back as a promise applied without blocking.
+        const translated = await translateJapaneseSentence(sentence, resolvedLearnerLanguage(this.settings()));
+        const tokens = translated ? this.parseTranslationTokens(sentence) : Promise.resolve<JPDBToken[]>([]);
         return { tokens, translated };
+    }
+
+    private parseTranslationTokens(sentence: string): Promise<JPDBToken[]> {
+        return this.dependencies
+            .parseJapanese([sentence], { jpdbTimeoutMs: 1_200, allowJpdbTimeoutFallback: true })
+            .then(([parsed]) => parsed ?? [])
+            .catch(() => []);
     }
 
     private cachedGrammarHints(sentence: string): Promise<GrammarHint[]> {
@@ -247,13 +262,20 @@ export class StudySourceController {
             container.hidden = true;
             return;
         }
-        const original = container.querySelector<HTMLElement>('[data-study-original-render]');
-        if (original) setInnerHtml(original, renderTokensToHtml(sentence, translation.tokens, this.settings()));
         const result = container.querySelector<HTMLElement>('[data-study-translation-result]');
         if (result) result.textContent = translation.translated;
-        void this.dependencies.parsePopoverJapanese(popover);
-        void this.dependencies.enrichPitchWords(translation.tokens);
-        void this.dependencies.enrichAnkiWords(translation.tokens, [container]);
+        // Upgrade the original line to ruby and annotate the popover once tokens
+        // land; never block the MEANING on it, so a stalled parse can't strand
+        // the card. Parse is bounded upstream, so tokens always resolves — this
+        // runs the same work the old synchronous path did, just deferred.
+        void translation.tokens.then(tokens => {
+            if (!this.canApplyTranslation(popover, container)) return;
+            const original = container.querySelector<HTMLElement>('[data-study-original-render]');
+            if (original) setInnerHtml(original, renderTokensToHtml(sentence, tokens, this.settings()));
+            void this.dependencies.parsePopoverJapanese(popover);
+            void this.dependencies.enrichPitchWords(tokens);
+            void this.dependencies.enrichAnkiWords(tokens, [container]);
+        }).catch(() => undefined);
     }
 
     private renderTranslationError(sentence: string, container: HTMLElement, error: unknown): void {

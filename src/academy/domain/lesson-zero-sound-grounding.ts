@@ -4,7 +4,7 @@ import type {
 } from './grounded-lesson';
 
 export const LESSON_ZERO_SOUND_SURFACE_ID = 'surface:lesson-zero-sound-input';
-export const LESSON_ZERO_SOUND_RENDERER_REVISION = 'lesson-zero-sound-screen.v1';
+const LESSON_ZERO_SOUND_RENDERER_REVISION = 'lesson-zero-sound-screen.v1';
 export const LESSON_ZERO_SOUND_RENDERER_SHA256 =
     '3fdf52cede21a60d19df8f6d2f6b9cdecbea40b62aae81f81f475b5b1f6e4aa7';
 

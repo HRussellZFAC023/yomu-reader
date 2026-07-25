@@ -2,27 +2,31 @@
   "schema": "yomu-academy.learning-voice-local-expected.v1",
   "batchId": "academy-learning-native-20260720-01",
   "scope": "Immutable expectation for loopback browser proof only; this is not deployment evidence.",
-  "catalogSha256": "e99c5df5951320296ac7444ac98443538f41987e2572b8c0be87850a3c98990e",
-  "productionContractSha256": "b21373539b6598836cfb415b7ec2f25ca54728f721cef3d74ab62dc92a5a8505",
+  "catalogSha256": "57d8f5742d2dbc8d443d68f4921369ebf8e518d3d699b0ed17830ba50aac4350",
+  "productionContractSha256": "36ca2c8e4458ac4f30dab3b7aa8868b0f5258d63d7003f92bd383392236edd9e",
   "build": {
     "distApp": "dist/academy/app.js",
     "hostedApp": "docs/public/academy/app.js",
-    "appSha256": "e09f76f039fededdedc773574ca90c6b6c90a9e3ad6f489aad5a543c3d34b4ec",
+    "appSha256": "0de5d2e701a66321b0a9d18615af739ad2331b7d0384fced7f3f8b6466727ab9",
     "byteParityRequired": true
   },
   "runtimeSources": {
     "src/academy/integration/yomu-bridge.ts": "053c1d4798b9d1b74bada14e3c6596795b5e45a0988c4bd02f3ee24a7fc41547",
     "src/academy/audio/browser-speech.ts": "5d2da93a3b9abbd3a77e96ab324c0b5fa0654aa4fb29743244702b81853b7dce",
-    "src/academy/audio/learning-voice.ts": "98b1f56744bc03d1f4d90a8e5872bf7b1ee11d9b817f34d18da23d8ff1007fbb",
+    "src/academy/audio/learning-voice.ts": "44b5064671ea9a03f9031a169c6357c8ac4c86fe6ab6d2a93b2a866dbf3986d3",
     "src/academy/audio/worker-tts.ts": "757804bcfea92880e4d9a13373a05e0c1a66933f72afa2f2b0e535cecfbc3548",
     "src/academy/content/lesson-zero-follow-instructions.ts": "a7caed645a62cb2639ab1602197b26be7959072c3f1d1bf2aa93a48c9cbea78d",
     "src/academy/content/lesson-zero-greeting.ts": "7079535a0a2310dafbdc212d772fbc815513849a83172430f81f0e86aaff95eb",
+    "src/academy/content/lesson-zero-desk-language.ts": "2807c811466f261da7b7a1eee667b4957db8b2f10d3b6edf2e69a0eb3f4a3707",
     "src/academy/content/lesson-zero-vowel-anchors.ts": "acf6ee825e45c813cb127c596ef2a08fc356fe7f1effdd054aff7bca2dd81b7c",
     "src/academy/domain/classroom-instruction-session.ts": "7b7a0de23568e9ba352a70cb07467ff884a99a1b999edf52deb8145632e758d5",
+    "src/academy/domain/lesson-zero-desk-language-session.ts": "e05c468e94652522d9a4bb68a8fa17f3ccfa38c3ae38c0825258177220e0c4e9",
     "src/academy/domain/world-locations.ts": "8dff402868198871a95498d004bc318dfe0b48f1995429ae9c0f6d33490739e5",
+    "src/academy/routing/lesson-flow.ts": "d7a14bbed34247922f65b06422a3056282912b688226136a837b550e6b8b541c",
     "src/academy/routing/world-flow.ts": "8b0ceb7463347d6e006ac595114222a9211d1d05a5fd326980764e151db43ec7",
     "src/academy/ui/cafe-world.ts": "8f0ea99a7744127eee42ad05a14a2baa08407436d58a966c9aead1eb6fde9ec2",
     "src/academy/ui/classroom-instruction-screen.ts": "49d7c165cf259fc699aa4e6fa17f1f5c41630e0e53659642d7ba806de1b8b54e",
+    "src/academy/ui/lesson-zero-desk-language-screen.ts": "124049a58af13c4de77ae69fb4ddcec1cf37efe43e5f1a5c307b96163a924c44",
     "src/academy/ui/lesson-zero-greeting-screen.ts": "965932e71c795b3b8f238c55288dd0784d2e26a50812f9794915357e2ca74480",
     "src/academy/ui/lesson-zero-vowel-screen.ts": "125d6e092df2ecd476d727a13162a3822a9bdc2bcbe3de6b3b78cbc5a4ecf12d",
     "src/academy/ui/lesson-zero-vowel-writing-screen.ts": "8e25b6bbd6295817a5a964776d937b64f8ddc08342e7790f29f1a27aa87cd787",
@@ -89,6 +93,14 @@
     "/academy/audio/learning-lines/rie/rie-classroom-write__07925423b74b64b7.opus": {
       "sha256": "b8cac9c144b4ce94324a98b3a1096596766e08e33b60b1dc391cd1d235f80775",
       "bytes": 11172
+    },
+    "/academy/audio/learning-lines/rie/rie-lesson-zero-homework__870ba7f1bb64aa13.opus": {
+      "sha256": "bf2d773c1a71df81053c845e4effc1b50c0feaffd5b352534507cc2b678592a8",
+      "bytes": 15434
+    },
+    "/academy/audio/learning-lines/rie/rie-lesson-zero-example__10f47eefee150c44.opus": {
+      "sha256": "877837076979db131e43595095422105b3c60a25cbfbf3f918a6a16696a9aafb",
+      "bytes": 19678
     }
   },
   "acceptedBindingIds": [
@@ -99,6 +111,8 @@
     "lesson-zero:classroom-instruction:look",
     "lesson-zero:classroom-instruction:say-together",
     "lesson-zero:classroom-instruction:write",
+    "lesson-zero:desk-language:example",
+    "lesson-zero:desk-language:homework",
     "lesson-zero:greeting-rie-model",
     "lesson-zero:vowel:hira-a",
     "lesson-zero:vowel:hira-e",

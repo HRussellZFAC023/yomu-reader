@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 // @ts-expect-error The packaging hardener is a Node ESM script exercised directly by the build.
-import { deterministicExtensionTimestamp, hardenExtensionBackgroundSource, hardenExtensionContentSource, hardenExtensionManifest, hardenExtensionPopupSource, hardenExtensionSubmissionGuide, reconcilePackageValidationAudit } from '../../scripts/lib/extension-runtime-hardening.mjs';
+import { deterministicExtensionTimestamp, hardenExtensionBackgroundSource, hardenExtensionContentSource, hardenExtensionManifest, hardenExtensionPopupSource, hardenExtensionSubmissionGuide, reconcilePackageValidationAudit, unindentContentScriptBody } from '../../scripts/lib/extension-runtime-hardening.mjs';
 
 describe('extension runtime hardening', () => {
     it('uses SOURCE_DATE_EPOCH with a deterministic Git commit fallback', () => {
@@ -70,6 +70,51 @@ describe('extension runtime hardening', () => {
         expect(hardened).not.toContain('raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css');
         expect(hardened).not.toContain('https://yomureader.com/yomu.012345abcdef.css');
         expect(hardenExtensionContentSource(hardened)).toBe(hardened);
+    });
+
+    // addons.mozilla.org rejects any file over 5MB with FILE_TOO_LARGE before a
+    // human ever sees it, and the compiler's blanket four-space body indent alone
+    // accounts for ~429KB of the packaged script.
+    it('removes the compiler body indent so the Firefox content script can be parsed', () => {
+        const body = [
+            'const greeting = "hi";',
+            'const template = `line one',
+            'line two`;',
+            '',
+            'function run() {',
+            '  return greeting;',
+            '}',
+        ];
+        const wrapped = [
+            '/* UserScript Compiler GM compatibility runtime. */',
+            '(() => {})();',
+            '',
+            'Promise.resolve(globalThis.__USC_READY).catch(() => {}).then(() => {',
+            '  try {',
+            ...body.map(line => (line === '' ? '    ' : `    ${line}`)),
+            '  } catch (error) {',
+            "    console.error('Userscript failed:', error);",
+            '  }',
+            '});',
+            '',
+        ].join('\n');
+
+        const unindented = unindentContentScriptBody(wrapped);
+
+        // The wrapper survives; only the body loses its four-space prefix, so the
+        // multi-line template literal carries the exact string the userscript built.
+        expect(unindented).toContain('Promise.resolve(globalThis.__USC_READY)');
+        expect(unindented).toContain("    console.error('Userscript failed:', error);");
+        expect(unindented).toContain('const template = `line one\nline two`;');
+        expect(unindented).not.toContain('    const greeting');
+        expect(unindented.length).toBe(wrapped.length - 4 * body.length);
+        // Idempotence would silently eat a real indent level, so it must refuse.
+        expect(() => unindentContentScriptBody(unindented)).toThrow(/uniformly indented/);
+    });
+
+    it('refuses to rewrite a content script whose wrapper the compiler changed', () => {
+        expect(() => unindentContentScriptBody('(() => {})();\nconsole.log("no wrapper");\n'))
+            .toThrow(/expected userscript body wrapper/);
     });
 
     it('adds the Google Drive settings sync bridge only to configured Chrome backgrounds', () => {

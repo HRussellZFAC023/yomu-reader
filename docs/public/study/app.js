@@ -12,8 +12,11 @@
       overlay,
       anchorPaint: /* @__PURE__ */ new Map(),
       elementPaint: /* @__PURE__ */ new Map(),
-      occludingPaint: /* @__PURE__ */ new Map()
+      occludingPaint: /* @__PURE__ */ new Map(),
+      documentScroll: /* @__PURE__ */ new Map(),
+      styleReads: /* @__PURE__ */ new Map()
     };
+    overlay.documentLayerOrigin = null;
     for (const [source, record2] of records) {
       if (currentSources.has(source)) continue;
       removeRecord(record2, overlay);
@@ -22,14 +25,25 @@
     for (const projection of projections) {
       let record2 = records.get(projection.source);
       if (!record2) {
+        const documentSpace = elementScrollsWithDocument(
+          projection.anchor,
+          context.documentScroll,
+          context.styleReads
+        );
         record2 = {
           owner,
           source: projection.source,
           anchor: projection.anchor,
-          clone: createProjectedReading(projection.source, overlay.layer),
+          clone: createProjectedReading(
+            projection.source,
+            documentSpace ? overlay.documentLayer : overlay.layer,
+            documentSpace
+          ),
           measure: projection.measure,
           footprintWidth: 0,
-          footprintHeight: 0
+          footprintHeight: 0,
+          documentSpace,
+          scrollContextEpoch: overlay.scrollContextEpoch
         };
         records.set(projection.source, record2);
         overlay.records.add(record2);
@@ -47,6 +61,7 @@
     if (records.size) ownerRecords.set(owner, records);
     else ownerRecords.delete(owner);
     pruneDisconnectedRecords(overlay);
+    overlay.occlusionEpoch += 1;
     scheduleProjectionRefresh(document2, overlay);
   }
   function clearProjectedReadings$1(owner) {
@@ -78,18 +93,20 @@
   function documentOverlay(document2) {
     const existing = overlays.get(document2);
     if (existing) {
-      if (!existing.layer.isConnected) {
-        (document2.documentElement ?? document2.body).append(existing.layer);
-      }
+      const host = document2.documentElement ?? document2.body;
+      if (!existing.layer.isConnected) host.append(existing.layer);
+      if (!existing.documentLayer.isConnected) host.append(existing.documentLayer);
       return existing;
     }
-    const layer = document2.createElement("div");
-    layer.className = "jpdb-reader-detached-reading-overlay";
-    layer.setAttribute("aria-hidden", "true");
-    layer.setAttribute("data-jpdb-reader-surface-ignore", "true");
-    (document2.documentElement ?? document2.body).append(layer);
+    const layer = createProjectionLayer(document2, "jpdb-reader-detached-reading-overlay");
+    const documentLayer = createProjectionLayer(
+      document2,
+      "jpdb-reader-detached-reading-overlay jpdb-reader-detached-reading-document-layer"
+    );
     const overlay = {
       layer,
+      documentLayer,
+      documentLayerOrigin: null,
       records: /* @__PURE__ */ new Set(),
       anchorRecords: /* @__PURE__ */ new Map(),
       anchorRoots: /* @__PURE__ */ new Map(),
@@ -97,27 +114,46 @@
       intersectionObserver: null,
       refreshFrame: 0,
       observer: null,
-      shadowRootReferences: /* @__PURE__ */ new Map()
+      shadowRootReferences: /* @__PURE__ */ new Map(),
+      occlusionEpoch: 0,
+      scrollContextEpoch: 0,
+      hitTestBudgetRemaining: 12,
+      scheduleRefresh: () => scheduleProjectionRefresh(document2, overlay),
+      scheduleTopologyRefresh: () => {
+        overlay.rootsDirty = true;
+        overlay.occlusionEpoch += 1;
+        overlay.scrollContextEpoch += 1;
+        scheduleProjectionRefresh(document2, overlay);
+      },
+      rootsDirty: false
     };
     overlays.set(document2, overlay);
     overlay.intersectionObserver = observeProjectionIntersections(document2, overlay);
-    const schedule = () => scheduleProjectionRefresh(document2, overlay);
-    document2.addEventListener("scroll", schedule, { capture: true, passive: true });
-    document2.addEventListener("pointerover", schedule, { capture: true, passive: true });
-    document2.addEventListener("pointerout", schedule, { capture: true, passive: true });
-    document2.addEventListener("focusin", schedule, { capture: true, passive: true });
-    document2.addEventListener("focusout", schedule, { capture: true, passive: true });
+    document2.addEventListener("scroll", overlay.scheduleRefresh, { capture: true, passive: true });
+    document2.addEventListener("pointerover", overlay.scheduleRefresh, { capture: true, passive: true });
+    document2.addEventListener("pointerout", overlay.scheduleRefresh, { capture: true, passive: true });
+    document2.addEventListener("focusin", overlay.scheduleRefresh, { capture: true, passive: true });
+    document2.addEventListener("focusout", overlay.scheduleRefresh, { capture: true, passive: true });
     const viewport = document2.defaultView;
-    viewport?.addEventListener("resize", schedule, { passive: true });
-    viewport?.addEventListener("orientationchange", schedule, { passive: true });
-    viewport?.visualViewport?.addEventListener("scroll", schedule, { passive: true });
-    viewport?.visualViewport?.addEventListener("resize", schedule, { passive: true });
+    viewport?.addEventListener("resize", overlay.scheduleTopologyRefresh, { passive: true });
+    viewport?.addEventListener("orientationchange", overlay.scheduleTopologyRefresh, { passive: true });
+    viewport?.visualViewport?.addEventListener("scroll", overlay.scheduleRefresh, { passive: true });
+    viewport?.visualViewport?.addEventListener("resize", overlay.scheduleRefresh, { passive: true });
     overlay.observer = observeProjectionEnvironment(document2, overlay);
     return overlay;
   }
-  function createProjectedReading(source, layer) {
+  function createProjectionLayer(document2, className) {
+    const layer = document2.createElement("div");
+    layer.className = className;
+    layer.setAttribute("aria-hidden", "true");
+    layer.setAttribute("data-jpdb-reader-surface-ignore", "true");
+    (document2.documentElement ?? document2.body).append(layer);
+    return layer;
+  }
+  function createProjectedReading(source, layer, documentSpace = false) {
     const clone = source.ownerDocument.createElement("span");
     clone.className = "jpdb-reader-furi jpdb-reader-detached-furi jpdb-reader-projected-furi";
+    if (documentSpace) clone.classList.add("jpdb-reader-projected-furi-document");
     clone.setAttribute("aria-hidden", "true");
     clone.setAttribute(PROJECTED_READING_ATTRIBUTE, "true");
     clone.textContent = source.textContent ?? "";
@@ -140,28 +176,57 @@
     clone.style.setProperty("text-shadow", baseStyle.textShadow || "none", "important");
   }
   function paintProjectedReading(record2, rect, context) {
-    applyProjectedReadingPaint(readProjectedReadingPaint(record2, rect, context));
+    applyProjectedReadingPaint(readProjectedReadingPaint(record2, rect, context), context);
   }
   function readProjectedReadingPaint(record2, rect, context) {
     const valid = rect && validRect(rect) ? rect : null;
     const anchorVisible = context ? visibleAnchor(record2.anchor, context) : anchorIsPainted(record2.anchor);
+    const sourceAllowed = sourceAllowsProjectedReading(record2);
+    let effectiveRect = valid;
+    let visible = false;
+    if (valid && sourceAllowed && anchorVisible) {
+      record2.lastGoodRect = valid;
+      record2.graceFramesRemaining = 3;
+      let topmost;
+      const overlay = context?.overlay;
+      if (overlay && record2.cachedOcclusionEpoch === overlay.occlusionEpoch && record2.cachedTopmost !== void 0) {
+        topmost = record2.cachedTopmost;
+      } else if (overlay && overlay.hitTestBudgetRemaining <= 0 && record2.cachedTopmost !== void 0) {
+        topmost = record2.cachedTopmost;
+      } else {
+        topmost = projectionIsTopmost(record2, valid, context?.occludingPaint);
+        if (overlay) {
+          overlay.hitTestBudgetRemaining -= 1;
+          record2.cachedOcclusionEpoch = overlay.occlusionEpoch;
+          record2.cachedTopmost = topmost;
+        }
+      }
+      visible = topmost;
+    } else if (!valid && record2.lastGoodRect && record2.graceFramesRemaining && record2.graceFramesRemaining > 0 && sourceAllowed && anchorVisible) {
+      record2.graceFramesRemaining -= 1;
+      effectiveRect = record2.lastGoodRect;
+      visible = record2.cachedTopmost ?? true;
+    }
     return {
       record: record2,
-      rect: valid,
-      visible: Boolean(valid && sourceAllowsProjectedReading(record2) && anchorVisible && projectionIsTopmost(record2, valid, context?.occludingPaint))
+      rect: effectiveRect,
+      visible
     };
   }
-  function applyProjectedReadingPaint(paint) {
+  function applyProjectedReadingPaint(paint, context) {
     if (!paint.visible || !paint.rect) {
       paint.record.clone.style.setProperty("display", "none", "important");
       return;
     }
-    positionProjectedReading(paint.record.clone, paint.rect);
+    positionProjectedReading(paint.record, paint.rect, context);
   }
-  function positionProjectedReading(clone, rect) {
+  function positionProjectedReading(record2, rect, context) {
+    const { clone } = record2;
+    const documentSpace = context ? adoptProjectionLayer(record2, context) : false;
+    const origin = documentSpace && context ? documentLayerOrigin(context.overlay) : { x: 0, y: 0 };
     clone.style.setProperty("display", "block", "important");
-    clone.style.setProperty("left", `${rect.left + rect.width / 2}px`, "important");
-    clone.style.setProperty("top", `${rect.top}px`, "important");
+    clone.style.setProperty("left", `${rect.left + rect.width / 2 + origin.x}px`, "important");
+    clone.style.setProperty("top", `${rect.top + origin.y}px`, "important");
     clone.style.setProperty("right", "auto", "important");
     clone.style.setProperty("bottom", "auto", "important");
     clone.style.setProperty("transform", "translate(-50%, -100%)", "important");
@@ -169,6 +234,58 @@
     clone.dataset.yomuSourceTop = String(rect.top);
     clone.dataset.yomuSourceWidth = String(rect.width);
     clone.dataset.yomuSourceHeight = String(rect.height);
+  }
+  function adoptProjectionLayer(record2, context) {
+    const { overlay } = context;
+    const documentSpace = projectionUsesDocumentSpace(record2, context);
+    const layer = documentSpace ? overlay.documentLayer : overlay.layer;
+    if (record2.clone.parentElement !== layer) layer.append(record2.clone);
+    record2.clone.classList.toggle("jpdb-reader-projected-furi-document", documentSpace);
+    return documentSpace;
+  }
+  function projectionUsesDocumentSpace(record2, context) {
+    const { overlay } = context;
+    if (record2.scrollContextEpoch === overlay.scrollContextEpoch && record2.documentSpace !== void 0) {
+      return record2.documentSpace;
+    }
+    const documentSpace = elementScrollsWithDocument(
+      record2.anchor,
+      context.documentScroll,
+      context.styleReads
+    );
+    record2.scrollContextEpoch = overlay.scrollContextEpoch;
+    record2.documentSpace = documentSpace;
+    return documentSpace;
+  }
+  function documentLayerOrigin(overlay) {
+    if (overlay.documentLayerOrigin) return overlay.documentLayerOrigin;
+    const rect = overlay.documentLayer.getBoundingClientRect();
+    const origin = { x: -rect.left, y: -rect.top };
+    overlay.documentLayerOrigin = origin;
+    return origin;
+  }
+  function elementScrollsWithDocument(element2, cache2, styles) {
+    const cached = cache2.get(element2);
+    if (cached !== void 0) return cached;
+    const document2 = element2.ownerDocument;
+    const view = document2.defaultView;
+    let scrolls;
+    if (!view) {
+      scrolls = false;
+    } else if (element2 === document2.documentElement || element2 === document2.body) {
+      scrolls = true;
+    } else {
+      const style = memoizedComputedStyle(element2, styles);
+      const parent = composedParentElement(element2);
+      scrolls = style.position !== "fixed" && style.position !== "sticky" && !elementScrollsIndependently(element2, style) && Boolean(parent) && elementScrollsWithDocument(parent, cache2, styles);
+    }
+    cache2.set(element2, scrolls);
+    return scrolls;
+  }
+  function elementScrollsIndependently(element2, style) {
+    const holdsScroll = (overflow) => overflow === "auto" || overflow === "scroll" || overflow === "overlay" || overflow === "hidden";
+    if (holdsScroll(style.overflowY) && element2.scrollHeight > element2.clientHeight + 1) return true;
+    return holdsScroll(style.overflowX) && element2.scrollWidth > element2.clientWidth + 1;
   }
   function scheduleProjectionRefresh(document2, overlay) {
     if (!overlay.records.size || overlay.refreshFrame) return;
@@ -184,11 +301,19 @@
   }
   function refreshProjectedReadingPositions(overlay) {
     pruneDisconnectedRecords(overlay);
+    overlay.hitTestBudgetRemaining = 12;
+    overlay.documentLayerOrigin = null;
+    if (overlay.rootsDirty) {
+      overlay.rootsDirty = false;
+      [...overlay.anchorRecords.keys()].forEach((anchor) => refreshProjectionAnchorRoot(anchor, overlay));
+    }
     const context = {
       overlay,
       anchorPaint: /* @__PURE__ */ new Map(),
       elementPaint: /* @__PURE__ */ new Map(),
-      occludingPaint: /* @__PURE__ */ new Map()
+      occludingPaint: /* @__PURE__ */ new Map(),
+      documentScroll: /* @__PURE__ */ new Map(),
+      styleReads: /* @__PURE__ */ new Map()
     };
     const paints = refreshableRecords(overlay).map((record2) => {
       if (!visibleAnchor(record2.anchor, context)) {
@@ -196,7 +321,7 @@
       }
       return readProjectedReadingPaint(record2, safeMeasure(record2), context);
     });
-    paints.forEach(applyProjectedReadingPaint);
+    paints.forEach((paint) => applyProjectedReadingPaint(paint, context));
   }
   function pruneDisconnectedRecords(overlay) {
     for (const record2 of overlay.records) {
@@ -236,7 +361,7 @@
         });
       }
       scheduleProjectionRefresh(document2, overlay);
-    }, { root: null, rootMargin: "64px" });
+    }, { root: null, rootMargin: "600px 0px 600px 0px" });
   }
   function trackProjectionAnchor(record2, overlay) {
     const records = overlay.anchorRecords.get(record2.anchor) ?? /* @__PURE__ */ new Set();
@@ -244,9 +369,9 @@
       overlay.anchorRecords.set(record2.anchor, records);
       overlay.intersectingAnchors.add(record2.anchor);
       overlay.intersectionObserver?.observe(record2.anchor);
-      const root = record2.anchor.getRootNode();
-      overlay.anchorRoots.set(record2.anchor, root);
-      trackProjectionRoot(root, overlay);
+      const roots = projectionShadowRoots(record2.anchor);
+      overlay.anchorRoots.set(record2.anchor, roots);
+      roots.forEach((root) => trackProjectionRoot(root, overlay));
     }
     records.add(record2);
   }
@@ -258,17 +383,43 @@
     overlay.anchorRecords.delete(record2.anchor);
     overlay.intersectingAnchors.delete(record2.anchor);
     overlay.intersectionObserver?.unobserve(record2.anchor);
-    const root = overlay.anchorRoots.get(record2.anchor);
+    const roots = overlay.anchorRoots.get(record2.anchor) ?? [];
     overlay.anchorRoots.delete(record2.anchor);
-    if (root) untrackProjectionRoot(root, overlay);
+    roots.forEach((root) => untrackProjectionRoot(root, overlay));
   }
   function refreshProjectionAnchorRoot(anchor, overlay) {
-    const tracked = overlay.anchorRoots.get(anchor);
-    const current = anchor.getRootNode();
-    if (tracked === current) return;
-    if (tracked) untrackProjectionRoot(tracked, overlay);
+    const tracked = overlay.anchorRoots.get(anchor) ?? [];
+    const current = projectionShadowRoots(anchor);
+    if (tracked.length === current.length && tracked.every((root, index) => root === current[index])) return;
+    const trackedSet = new Set(tracked);
+    const currentSet = new Set(current);
+    tracked.filter((root) => !currentSet.has(root)).forEach((root) => untrackProjectionRoot(root, overlay));
     overlay.anchorRoots.set(anchor, current);
-    trackProjectionRoot(current, overlay);
+    current.filter((root) => !trackedSet.has(root)).forEach((root) => trackProjectionRoot(root, overlay));
+  }
+  function projectionShadowRoots(anchor) {
+    const roots = [];
+    const rootSet = /* @__PURE__ */ new Set();
+    const addRoot = (root) => {
+      if (rootSet.has(root)) return;
+      rootSet.add(root);
+      roots.push(root);
+    };
+    const visited = /* @__PURE__ */ new Set();
+    let node = anchor;
+    while (node && !visited.has(node)) {
+      visited.add(node);
+      if (node instanceof ShadowRoot) addRoot(node);
+      node = composedParentNode(node);
+    }
+    const domVisited = /* @__PURE__ */ new Set();
+    for (let domNode = anchor; domNode && !domVisited.has(domNode); ) {
+      domVisited.add(domNode);
+      const parent = domNode.parentNode ?? (domNode instanceof ShadowRoot ? domNode.host : null);
+      if (parent instanceof Element && parent.shadowRoot) addRoot(parent.shadowRoot);
+      domNode = parent;
+    }
+    return roots;
   }
   function refreshableRecords(overlay) {
     if (!overlay.intersectionObserver) return [...overlay.records];
@@ -279,8 +430,8 @@
     const root = document2.documentElement;
     if (!Observer || !root) return null;
     const observer = new Observer((mutations) => {
-      if (!overlay.records.size || !mutations.some((mutation) => mutationAffectsProjection(mutation, overlay.layer))) return;
-      scheduleProjectionRefresh(document2, overlay);
+      if (!overlay.records.size || !mutations.some((mutation) => mutationAffectsProjection(mutation, overlay))) return;
+      overlay.scheduleTopologyRefresh();
     });
     observeProjectionMutations(observer, root);
     return observer;
@@ -288,25 +439,28 @@
   function observeProjectionMutations(observer, root) {
     observer.observe(root, {
       attributes: true,
-      attributeFilter: ["aria-expanded", "aria-hidden", "class", "hidden", "open", "style"],
+      attributeFilter: ["aria-expanded", "aria-hidden", "class", "hidden", "name", "open", "slot", "style"],
       childList: true,
       subtree: true
     });
   }
   function trackProjectionRoot(root, overlay) {
-    if (!(root instanceof ShadowRoot)) return;
     const references = overlay.shadowRootReferences.get(root) ?? 0;
     overlay.shadowRootReferences.set(root, references + 1);
-    if (references === 0) rebuildProjectionMutationRoots(overlay);
+    if (references !== 0) return;
+    root.addEventListener("scroll", overlay.scheduleRefresh, { capture: true, passive: true });
+    root.addEventListener("slotchange", overlay.scheduleTopologyRefresh, { capture: true, passive: true });
+    rebuildProjectionMutationRoots(overlay);
   }
   function untrackProjectionRoot(root, overlay) {
-    if (!(root instanceof ShadowRoot)) return;
     const references = overlay.shadowRootReferences.get(root) ?? 0;
     if (references > 1) {
       overlay.shadowRootReferences.set(root, references - 1);
       return;
     }
     if (!overlay.shadowRootReferences.delete(root)) return;
+    root.removeEventListener("scroll", overlay.scheduleRefresh, { capture: true });
+    root.removeEventListener("slotchange", overlay.scheduleTopologyRefresh, { capture: true });
     rebuildProjectionMutationRoots(overlay);
   }
   function rebuildProjectionMutationRoots(overlay) {
@@ -319,9 +473,52 @@
       observeProjectionMutations(observer, root);
     }
   }
-  function mutationAffectsProjection(mutation, layer) {
-    if (mutation.target instanceof Node && layer.contains(mutation.target)) return false;
-    return [...mutation.addedNodes, ...mutation.removedNodes].every((node) => node !== layer && !layer.contains(node));
+  function isYomuOwnedNode(node, overlay) {
+    for (const layer of [overlay.layer, overlay.documentLayer]) {
+      if (node === layer || layer.contains(node)) return true;
+    }
+    if (node instanceof Element) {
+      if (node.hasAttribute(PROJECTED_READING_ATTRIBUTE) || node.hasAttribute("data-jpdb-reader-surface-ignore")) return true;
+      const className = typeof node.className === "string" ? node.className : "";
+      if (className.includes("jpdb-reader-") || className.includes("yomu-")) return true;
+    }
+    return false;
+  }
+  function mutationAffectsProjection(mutation, overlay) {
+    const target = mutation.target;
+    if (isYomuOwnedNode(target, overlay)) return false;
+    const affectedNodes = [...mutation.addedNodes, ...mutation.removedNodes];
+    if (affectedNodes.length > 0 && affectedNodes.every((node) => isYomuOwnedNode(node, overlay))) {
+      return false;
+    }
+    if (!overlay.records.size) return false;
+    const rootNode = target.getRootNode();
+    if (rootNode instanceof ShadowRoot && overlay.shadowRootReferences.has(rootNode)) {
+      return true;
+    }
+    if (target instanceof Element && isAnchorOrAncestor(target, overlay)) {
+      return true;
+    }
+    for (const node of affectedNodes) {
+      if (node instanceof Element && (isAnchorOrAncestor(node, overlay) || containsTrackedAnchor(node, overlay))) {
+        return true;
+      }
+    }
+    return false;
+  }
+  function isAnchorOrAncestor(element2, overlay) {
+    for (const anchor of overlay.anchorRecords.keys()) {
+      if (anchor === element2 || anchor.contains(element2) || element2.contains(anchor)) {
+        return true;
+      }
+    }
+    return false;
+  }
+  function containsTrackedAnchor(element2, overlay) {
+    for (const anchor of overlay.anchorRecords.keys()) {
+      if (element2.contains(anchor)) return true;
+    }
+    return false;
   }
   function safeMeasure(record2) {
     try {
@@ -439,16 +636,16 @@
     const cached = context.anchorPaint.get(anchor);
     if (cached !== void 0) return cached;
     const intersects = context.overlay.intersectionObserver ? context.overlay.intersectingAnchors.has(anchor) : anchorIntersectsViewport(anchor);
-    const visible = intersects && anchorIsPainted(anchor, context.elementPaint);
+    const visible = intersects && anchorIsPainted(anchor, context.elementPaint, context.styleReads);
     context.anchorPaint.set(anchor, visible);
     return visible;
   }
-  function anchorIsPainted(anchor, cache2 = /* @__PURE__ */ new Map()) {
+  function anchorIsPainted(anchor, cache2 = /* @__PURE__ */ new Map(), styles) {
     const cached = cache2.get(anchor);
     if (cached !== void 0) return cached;
-    const style = safeComputedStyle$1(anchor);
+    const style = memoizedComputedStyle(anchor, styles);
     const parent = composedParentElement(anchor);
-    const visible = style.display !== "none" && style.visibility !== "hidden" && style.visibility !== "collapse" && style.contentVisibility !== "hidden" && (style.opacity === "" || Number.parseFloat(style.opacity) !== 0) && (!parent || anchorIsPainted(parent, cache2));
+    const visible = style.display !== "none" && style.visibility !== "hidden" && style.visibility !== "collapse" && style.contentVisibility !== "hidden" && (style.opacity === "" || Number.parseFloat(style.opacity) !== 0) && (!parent || anchorIsPainted(parent, cache2, styles));
     cache2.set(anchor, visible);
     return visible;
   }
@@ -461,17 +658,30 @@
     return rect.right >= -margin && rect.bottom >= -margin && rect.left <= viewport.innerWidth + margin && rect.top <= viewport.innerHeight + margin;
   }
   function composedParentElement(element2) {
-    if (element2.parentElement) return element2.parentElement;
-    const root = element2.getRootNode();
-    return root instanceof ShadowRoot ? root.host : null;
+    let parent = composedParentNode(element2);
+    while (parent && !(parent instanceof Element)) parent = composedParentNode(parent);
+    return parent;
   }
   function composedContains(ancestor, descendant) {
-    for (let node = descendant; node; ) {
+    const visited = /* @__PURE__ */ new Set();
+    for (let node = descendant; node && !visited.has(node); node = composedParentNode(node)) {
+      visited.add(node);
       if (node === ancestor) return true;
-      const root = node.getRootNode();
-      node = node.parentNode ?? (root instanceof ShadowRoot ? root.host : null);
     }
     return false;
+  }
+  function composedParentNode(node) {
+    if (node instanceof Element && node.assignedSlot) return node.assignedSlot;
+    if (node.parentNode) return node.parentNode;
+    return node instanceof ShadowRoot ? node.host : null;
+  }
+  function memoizedComputedStyle(element2, cache2) {
+    if (!cache2) return safeComputedStyle$1(element2);
+    const cached = cache2.get(element2);
+    if (cached) return cached;
+    const style = safeComputedStyle$1(element2);
+    cache2.set(element2, style);
+    return style;
   }
   function safeComputedStyle$1(element2) {
     try {
@@ -2371,6 +2581,10 @@
       audioCustomJsonPlaceholder: "Yomitan or Ultimate audio source URL",
       audioCustomUrlPlaceholder: "Direct audio file URL",
       audioBuiltInPlaceholder: "Built-in source, no URL needed",
+      audioDetectingSubSources: "Checking included sources…",
+      audioNoSubSourcesDetected: "No named sources reported by this URL.",
+      audioSubSourcesHelp: "Sources offered by this URL — untick any you don’t want:",
+      audioSubSourceOverlapHint: "also listed as its own source",
       defaultVoiceSuffix: "default",
       audioGuideLinkLabel: "Yomitan audio guide",
       audioProxyGuideSummary: "Make your own Cloudflare proxy",
@@ -4031,6 +4245,10 @@ audioSourceCustomJson	カスタムURL
 audioCustomJsonPlaceholder	Yomitan/Ultimate音声URL
 audioCustomUrlPlaceholder	直接音声ファイルURL
 audioBuiltInPlaceholder	内蔵ソースはURL不要
+audioDetectingSubSources	内部ソースを確認中…
+audioNoSubSourcesDetected	このURLは名前付きソースを返しませんでした。
+audioSubSourcesHelp	このURLが提供するソース。不要なものはオフに:
+audioSubSourceOverlapHint	下の単独ソースと重複
 defaultVoiceSuffix	標準
 audioGuideLinkLabel	Yomitan音声ガイド
 audioProxyGuideSummary	Cloudflareプロキシ
@@ -4711,7 +4929,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
     { owner: "srs/account-sync", kind: "gm", key: "yomu:private:academy-device-pending:v1" },
     { owner: "app/logger", kind: "gm", key: "yomu:enable-logs" },
     { owner: "app/main", kind: "gm", key: "yomu:jpdb-review-examples-visible:v1" },
-    { owner: "app/preferred-site-language", kind: "gm", key: "yomu:prefer-japanese-site-language" },
+    // Written with a raw localStorage.setItem, deliberately per-origin: it is the
+    // bootstrap hint for this site, never the preference itself.
+    { owner: "app/preferred-site-language", kind: "local", key: "yomu:prefer-japanese-site-language" },
     { owner: "app/preferred-site-language", kind: "session", key: "yomu:jps" },
     { owner: "app/preferred-site-language", kind: "session", key: "yomu:jps:hosts" },
     // Local no-account SRS deck.
@@ -7828,6 +8048,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const INTERACTIVE_LINK_CONTEXT_SELECTOR = roleSelectors("menu,menubar,toolbar,tablist");
   const CONTENT_CHIP_ROOT_SELECTOR = ".yomu-hosted-overflow-group";
   const NAMED_CONTENT_ROOT_SELECTOR = `${CONTENT_CHIP_ROOT_SELECTOR},.viewer-title-bar,.bookTitleText,#bookDescription`;
+  const COMMAND_CONTROL_SELECTOR = 'button,summary,[role="button"]';
+  function isCommandControl(el2) {
+    const control = el2.closest(COMMAND_CONTROL_SELECTOR);
+    if (!control) return false;
+    if (isConversationTextClass(control) || isMediaTextContentControl(control)) return false;
+    return !control.closest(CONTENT_CHIP_ROOT_SELECTOR) && !control.closest(NAMED_CONTENT_ROOT_SELECTOR);
+  }
   function interactivePassiveControl(element2) {
     const temporalMetadata = element2.closest("time,[datetime]");
     if (temporalMetadata && isCompactTemporalMetadata(temporalMetadata)) return temporalMetadata;
@@ -10627,6 +10854,183 @@ ${spelling}`);
       parseInt(safe.slice(5, 7), 16)
     ];
   }
+  const YOMU_HOSTED_AUDIO_SOURCE = { type: "custom-json", url: YOMU_HOSTED_AUDIO_URL, voice: "", enabled: true };
+  function getOrderedAudioSources(settings) {
+    const sources = settings.audioSources.filter((source) => source.enabled);
+    if (!settings.audioEnableDefaultSources) return sources;
+    const hosted = settings.audioSources.find(isYomuHostedAudioSource) ?? YOMU_HOSTED_AUDIO_SOURCE;
+    return [
+      ...hosted.enabled ? [{ ...hosted }] : [],
+      ...sources.filter((source) => !isYomuHostedAudioSource(source))
+    ];
+  }
+  function isYomuHostedAudioSource(source) {
+    return source.type === "custom-json" && source.url.trim() === YOMU_HOSTED_AUDIO_URL;
+  }
+  function preloadableAudioSources(sources, settings) {
+    return settings.audioTtsMode === "source-order" ? sources.filter((source) => !isBrowserTextToSpeechSource(source)) : sources.filter((source) => !isTextToSpeechFallbackSource(source));
+  }
+  function cheapCandidatePreloadAudioSources(sources, card) {
+    return sources.filter((source) => canResolveAudioCandidatesWithoutNetwork(source, card));
+  }
+  function canResolveAudioCandidatesWithoutNetwork(source, card) {
+    switch (source.type) {
+      case "custom":
+      case "jpod101":
+      case "bunpro":
+        return true;
+      case "jiten-tts":
+        return hasJitenAudioReference(card);
+      default:
+        return false;
+    }
+  }
+  function hasJitenAudioReference(card) {
+    return isPositiveFiniteInteger(card.jitenWordId) && isFiniteNonNegativeInteger(card.jitenReadingIndex) || card.source === "jiten" && isPositiveFiniteInteger(card.vid) && isFiniteNonNegativeInteger(card.sid);
+  }
+  function isPositiveFiniteInteger(value) {
+    return typeof value === "number" && Number.isInteger(value) && value > 0;
+  }
+  function isFiniteNonNegativeInteger(value) {
+    return typeof value === "number" && Number.isInteger(value) && value >= 0;
+  }
+  function audioPreloadLimits(options) {
+    return {
+      sourceLimit: Math.max(1, options.sourceLimit ?? 1),
+      candidateLimit: Math.max(1, options.candidateLimit ?? 1),
+      prepareAudio: options.prepareAudio !== false
+    };
+  }
+  function orderAudioCandidates(candidates, mode, bagKey, shuffledAudio) {
+    return orderAudioDeckEntries(candidates.map((candidate, index) => ({
+      candidate,
+      id: audioCandidateDeckId(candidate, index)
+    })), mode, bagKey, shuffledAudio);
+  }
+  function audioCandidateSelectionMode(sourceType, mode) {
+    return sourceType === "jpdb-tts" || sourceType === "jiten-tts" ? "random" : mode;
+  }
+  function orderAudioSources(sources, card) {
+    return audioSourceDeckEntries(sources, getAudioSourceBagKey(sources, card));
+  }
+  function audioSourceDeckEntries(sources, bagKey) {
+    return sources.map((source, index) => {
+      const signature = getAudioSourceSignature(source);
+      return {
+        source,
+        id: getAudioSourceDeckId(signature, index),
+        bagKey,
+        signature
+      };
+    });
+  }
+  function isBrowserTextToSpeechSource(source) {
+    return source.type === "text-to-speech" || source.type === "text-to-speech-reading";
+  }
+  function isApiTextToSpeechSource(source) {
+    return source.type === "jiten-tts" || source.type === "jpdb-tts";
+  }
+  function isTextToSpeechFallbackSource(source) {
+    return isApiTextToSpeechSource(source) || isBrowserTextToSpeechSource(source);
+  }
+  function audioSubSourceNameKey(name) {
+    return name.trim().normalize("NFC").toLowerCase();
+  }
+  function disabledAudioSubSourceNameKeys(source) {
+    return new Set((source.subSources ?? []).filter((subSource) => !subSource.enabled).map((subSource) => audioSubSourceNameKey(subSource.name)));
+  }
+  function audioSubSourceFilterKey(source) {
+    return [...disabledAudioSubSourceNameKeys(source)].sort().join("");
+  }
+  function registerAudioAttempt(triedUrls, candidate) {
+    const candidateKey2 = normalizeAttemptedAudioUrl(candidate.url);
+    if (triedUrls.has(candidateKey2)) return false;
+    triedUrls.add(candidateKey2);
+    return true;
+  }
+  function getAudioBagKey(source, card) {
+    return [
+      source.type,
+      source.url,
+      source.voice,
+      audioSubSourceFilterKey(source),
+      card.spelling,
+      card.reading
+    ].join("");
+  }
+  function getJpdbAudioBagKey(audioIds) {
+    return [
+      "jpdb-audio",
+      ...[...audioIds].sort()
+    ].join("");
+  }
+  function getAudioCandidateCacheKey(source, card) {
+    return [
+      source.type,
+      source.url.trim(),
+      source.voice.trim(),
+      audioSubSourceFilterKey(source),
+      card.spelling,
+      card.reading
+    ].join("");
+  }
+  function preparedAudioCacheKey(candidate, mode, audioViaBlob) {
+    return [
+      normalizeAttemptedAudioUrl(candidate.url),
+      normalizeAttemptedAudioUrl(candidate.sourceUrl),
+      mode,
+      audioViaBlob ? "blob" : "direct"
+    ].join("");
+  }
+  function cloneAudioCandidates(candidates) {
+    return candidates.map((candidate) => ({ ...candidate }));
+  }
+  function normalizeAttemptedAudioUrl(value) {
+    try {
+      const url = new URL(value, location.href);
+      url.hash = "";
+      return url.href;
+    } catch {
+      return value;
+    }
+  }
+  function audioCandidateDeckId(candidate, index) {
+    if (candidate.jpdbAudioId) return `jpdb:${candidate.jpdbAudioId}`;
+    return [
+      normalizeAttemptedAudioUrl(candidate.url),
+      normalizeAttemptedAudioUrl(candidate.sourceUrl),
+      index
+    ].join("\0");
+  }
+  function orderAudioDeckEntries(entries2, mode, bagKey, shuffledAudio) {
+    if (mode !== "random" || !entries2.length) return entries2;
+    const byId = new Map(entries2.map((entry) => [entry.id, entry]));
+    const ordered = [];
+    for (const id of shuffledAudio.order(bagKey, entries2.map((entry) => entry.id))) {
+      const entry = byId.get(id);
+      if (entry) ordered.push(entry);
+    }
+    return ordered;
+  }
+  function getAudioSourceBagKey(sources, card) {
+    return [
+      "audio-sources",
+      card.spelling,
+      card.reading,
+      ...sources.map(getAudioSourceSignature)
+    ].join("");
+  }
+  function getAudioSourceDeckId(signature, index) {
+    return `${index}\0${signature}`;
+  }
+  function getAudioSourceSignature(source) {
+    return [
+      source.type,
+      source.url.trim(),
+      source.voice.trim(),
+      audioSubSourceFilterKey(source)
+    ].join("\0");
+  }
   function matchesShortcut(event, shortcut = "") {
     if (!shortcut) return false;
     const parts = parseShortcut(shortcut);
@@ -12184,12 +12588,30 @@ ${spelling}`);
     const record2 = audioSourceRecord(value);
     if (!record2) return null;
     if (!isAudioSourceType(record2.type)) return null;
+    const subSources = normalizeAudioSubSources(record2.subSources);
     return {
       type: record2.type,
       url: stringValue$4(record2.url),
       voice: stringValue$4(record2.voice),
-      enabled: audioSourceEnabled(record2.enabled)
+      enabled: audioSourceEnabled(record2.enabled),
+      ...subSources.length ? { subSources } : {}
     };
+  }
+  function normalizeAudioSubSources(value) {
+    if (!Array.isArray(value)) return [];
+    const seen = /* @__PURE__ */ new Set();
+    const subSources = [];
+    for (const entry of value) {
+      if (!entry || typeof entry !== "object") continue;
+      const record2 = entry;
+      const name = stringValue$4(record2.name).trim();
+      if (!name) continue;
+      const key = audioSubSourceNameKey(name);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      subSources.push({ name, enabled: audioSourceEnabled(record2.enabled) });
+    }
+    return subSources;
   }
   function audioSourceRecord(value) {
     return value && typeof value === "object" ? value : null;
@@ -12464,6 +12886,7 @@ ${spelling}`);
     if (decoration === "skip") return null;
     const suppressRuby = decorationSuppressesRuby(decoration);
     const passiveInteraction = suppressRuby || trimmedFragments.every((fragment2) => fragment2.passiveInteraction);
+    const commandControl = decoration === "interactive-passive" && isCommandControl(parent);
     return {
       text: text2,
       parent,
@@ -12473,6 +12896,7 @@ ${spelling}`);
       proseWrap: shouldWrapScanTargetAsProse(parent, suppressRuby, passiveInteraction),
       layoutSensitive: trimmedFragments.some((fragment2) => fragment2.layoutSensitive),
       passiveInteraction,
+      commandControl,
       forceInlineRender: options.forceInlineRender,
       suppressRepaintLoopMirror: options.suppressRepaintLoopMirror,
       ...shadowDomTargetMetadata(parent)
@@ -12955,6 +13379,7 @@ ${spelling}`);
     if (decoration !== "interactive-passive") return;
     const control = interactivePassiveControl(target.parent);
     if (control) stampDecorationState(control, decoration);
+    if (target.commandControl) (control ?? host).setAttribute("data-yomu-command-control", "true");
     applyPassiveChromeMarks(compactScanRubySuppression(target.parent).marks);
   }
   function applyTokensToScanTarget(target, tokens, settings) {
@@ -13625,7 +14050,7 @@ ${spelling}`);
   function mountNonDestructiveTextMirror(host, target, settings, context) {
     const mirror = createNonDestructiveTextMirror(context);
     const controlMirror = target.decoration === "interactive-passive";
-    if (controlMirror) mirror.dataset.yomuControlMirror = "true";
+    if (controlMirror) mirror.dataset.yomuControlMirror = target.commandControl ? "command" : "true";
     if (context.detachedReadings && !controlMirror) {
       mirror.dataset.yomuReadingLaneCandidate = "true";
     }
@@ -23045,171 +23470,6 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     const index = ids.indexOf(id);
     if (index >= 0) ids.splice(index, 1);
   }
-  const YOMU_HOSTED_AUDIO_SOURCE = { type: "custom-json", url: YOMU_HOSTED_AUDIO_URL, voice: "", enabled: true };
-  function getOrderedAudioSources(settings) {
-    const sources = settings.audioSources.filter((source) => source.enabled);
-    if (!settings.audioEnableDefaultSources) return sources;
-    const hosted = settings.audioSources.find(isYomuHostedAudioSource) ?? YOMU_HOSTED_AUDIO_SOURCE;
-    return [
-      ...hosted.enabled ? [{ ...hosted }] : [],
-      ...sources.filter((source) => !isYomuHostedAudioSource(source))
-    ];
-  }
-  function isYomuHostedAudioSource(source) {
-    return source.type === "custom-json" && source.url.trim() === YOMU_HOSTED_AUDIO_URL;
-  }
-  function preloadableAudioSources(sources, settings) {
-    return settings.audioTtsMode === "source-order" ? sources.filter((source) => !isBrowserTextToSpeechSource(source)) : sources.filter((source) => !isTextToSpeechFallbackSource(source));
-  }
-  function cheapCandidatePreloadAudioSources(sources, card) {
-    return sources.filter((source) => canResolveAudioCandidatesWithoutNetwork(source, card));
-  }
-  function canResolveAudioCandidatesWithoutNetwork(source, card) {
-    switch (source.type) {
-      case "custom":
-      case "jpod101":
-      case "bunpro":
-        return true;
-      case "jiten-tts":
-        return hasJitenAudioReference(card);
-      default:
-        return false;
-    }
-  }
-  function hasJitenAudioReference(card) {
-    return isPositiveFiniteInteger(card.jitenWordId) && isFiniteNonNegativeInteger(card.jitenReadingIndex) || card.source === "jiten" && isPositiveFiniteInteger(card.vid) && isFiniteNonNegativeInteger(card.sid);
-  }
-  function isPositiveFiniteInteger(value) {
-    return typeof value === "number" && Number.isInteger(value) && value > 0;
-  }
-  function isFiniteNonNegativeInteger(value) {
-    return typeof value === "number" && Number.isInteger(value) && value >= 0;
-  }
-  function audioPreloadLimits(options) {
-    return {
-      sourceLimit: Math.max(1, options.sourceLimit ?? 1),
-      candidateLimit: Math.max(1, options.candidateLimit ?? 1),
-      prepareAudio: options.prepareAudio !== false
-    };
-  }
-  function orderAudioCandidates(candidates, mode, bagKey, shuffledAudio) {
-    return orderAudioDeckEntries(candidates.map((candidate, index) => ({
-      candidate,
-      id: audioCandidateDeckId(candidate, index)
-    })), mode, bagKey, shuffledAudio);
-  }
-  function audioCandidateSelectionMode(sourceType, mode) {
-    return sourceType === "jpdb-tts" || sourceType === "jiten-tts" ? "random" : mode;
-  }
-  function orderAudioSources(sources, card) {
-    return audioSourceDeckEntries(sources, getAudioSourceBagKey(sources, card));
-  }
-  function audioSourceDeckEntries(sources, bagKey) {
-    return sources.map((source, index) => {
-      const signature = getAudioSourceSignature(source);
-      return {
-        source,
-        id: getAudioSourceDeckId(signature, index),
-        bagKey,
-        signature
-      };
-    });
-  }
-  function isBrowserTextToSpeechSource(source) {
-    return source.type === "text-to-speech" || source.type === "text-to-speech-reading";
-  }
-  function isApiTextToSpeechSource(source) {
-    return source.type === "jiten-tts" || source.type === "jpdb-tts";
-  }
-  function isTextToSpeechFallbackSource(source) {
-    return isApiTextToSpeechSource(source) || isBrowserTextToSpeechSource(source);
-  }
-  function registerAudioAttempt(triedUrls, candidate) {
-    const candidateKey2 = normalizeAttemptedAudioUrl(candidate.url);
-    if (triedUrls.has(candidateKey2)) return false;
-    triedUrls.add(candidateKey2);
-    return true;
-  }
-  function getAudioBagKey(source, card) {
-    return [
-      source.type,
-      source.url,
-      source.voice,
-      card.spelling,
-      card.reading
-    ].join("");
-  }
-  function getJpdbAudioBagKey(audioIds) {
-    return [
-      "jpdb-audio",
-      ...[...audioIds].sort()
-    ].join("");
-  }
-  function getAudioCandidateCacheKey(source, card) {
-    return [
-      source.type,
-      source.url.trim(),
-      source.voice.trim(),
-      card.spelling,
-      card.reading
-    ].join("");
-  }
-  function preparedAudioCacheKey(candidate, mode, audioViaBlob) {
-    return [
-      normalizeAttemptedAudioUrl(candidate.url),
-      normalizeAttemptedAudioUrl(candidate.sourceUrl),
-      mode,
-      audioViaBlob ? "blob" : "direct"
-    ].join("");
-  }
-  function cloneAudioCandidates(candidates) {
-    return candidates.map((candidate) => ({ ...candidate }));
-  }
-  function normalizeAttemptedAudioUrl(value) {
-    try {
-      const url = new URL(value, location.href);
-      url.hash = "";
-      return url.href;
-    } catch {
-      return value;
-    }
-  }
-  function audioCandidateDeckId(candidate, index) {
-    if (candidate.jpdbAudioId) return `jpdb:${candidate.jpdbAudioId}`;
-    return [
-      normalizeAttemptedAudioUrl(candidate.url),
-      normalizeAttemptedAudioUrl(candidate.sourceUrl),
-      index
-    ].join("\0");
-  }
-  function orderAudioDeckEntries(entries2, mode, bagKey, shuffledAudio) {
-    if (mode !== "random" || !entries2.length) return entries2;
-    const byId = new Map(entries2.map((entry) => [entry.id, entry]));
-    const ordered = [];
-    for (const id of shuffledAudio.order(bagKey, entries2.map((entry) => entry.id))) {
-      const entry = byId.get(id);
-      if (entry) ordered.push(entry);
-    }
-    return ordered;
-  }
-  function getAudioSourceBagKey(sources, card) {
-    return [
-      "audio-sources",
-      card.spelling,
-      card.reading,
-      ...sources.map(getAudioSourceSignature)
-    ].join("");
-  }
-  function getAudioSourceDeckId(signature, index) {
-    return `${index}\0${signature}`;
-  }
-  function getAudioSourceSignature(source) {
-    return [
-      source.type,
-      source.url.trim(),
-      source.voice.trim()
-    ].join("\0");
-  }
   function requestAudioUrl(responseUrl, responseType, timeoutMs, options = {}) {
     const language2 = options.language ?? "en";
     const requestOptions = {
@@ -23598,8 +23858,107 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     if (!template) return [];
     const sourceUrl = formatAudioUrl(withAudioQueryPlaceholders(template), card);
     const response = await requestAudioUrl(sourceUrl, "text", timeoutMs, { proxyUrl });
-    const urls = typeof response === "string" ? findAudioUrls(JSON.parse(response), sourceUrl) : [];
-    return urls.map((url) => ({ url, sourceUrl }));
+    if (typeof response !== "string") return [];
+    return customJsonAudioCandidates(JSON.parse(response), source, sourceUrl);
+  }
+  function customJsonAudioCandidates(payload, source, sourceUrl) {
+    const named = namedAudioSubSources(payload);
+    recordAudioSubSourceNames(source.url, named.map((entry) => entry.name));
+    const disabled = disabledAudioSubSourceNameKeys(source);
+    if (named.length && disabled.size) {
+      const allowed = named.filter((entry) => !disabled.has(audioSubSourceNameKey(entry.name)));
+      return uniqueAudioUrls(allowed.flatMap((entry) => findAudioUrls(entry.url, sourceUrl))).map((url) => ({ url, sourceUrl }));
+    }
+    return findAudioUrls(payload, sourceUrl).map((url) => ({ url, sourceUrl }));
+  }
+  function namedAudioSubSources(value) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return [];
+    const record2 = value;
+    const entries2 = [];
+    for (const list of [record2.audioSources, record2.sources]) {
+      if (!Array.isArray(list)) continue;
+      for (const item of list) {
+        const entry = namedAudioSubSource(item);
+        if (entry) entries2.push(entry);
+      }
+    }
+    return entries2;
+  }
+  function namedAudioSubSource(value) {
+    if (!value || typeof value !== "object") return null;
+    const record2 = value;
+    if (typeof record2.name !== "string" || !record2.name.trim()) return null;
+    if (typeof record2.url !== "string" || !record2.url.trim()) return null;
+    return { name: record2.name.trim(), url: record2.url };
+  }
+  const knownAudioSubSourcesByUrl = /* @__PURE__ */ new Map();
+  const audioSubSourceProbes = /* @__PURE__ */ new Map();
+  function recordAudioSubSourceNames(url, names) {
+    const template = url.trim();
+    if (!template) return [];
+    const known = knownAudioSubSourcesByUrl.get(template) ?? [];
+    const seen = new Set(known.map(audioSubSourceNameKey));
+    const merged = [...known];
+    for (const name of names) {
+      const trimmed = name.trim();
+      if (!trimmed || seen.has(audioSubSourceNameKey(trimmed))) continue;
+      seen.add(audioSubSourceNameKey(trimmed));
+      merged.push(trimmed);
+    }
+    knownAudioSubSourcesByUrl.set(template, merged);
+    return [...merged];
+  }
+  function knownAudioSubSourceNames(url) {
+    return [...knownAudioSubSourcesByUrl.get(url.trim()) ?? []];
+  }
+  const AUDIO_SUB_SOURCE_PROBES = [
+    { spelling: "日本", reading: "にほん" },
+    { spelling: "食べる", reading: "たべる" },
+    { spelling: "ヨム音声テスト", reading: "" }
+  ];
+  function detectCustomJsonAudioSubSources(url, timeoutMs, proxyUrl) {
+    const template = url.trim();
+    if (!template) return Promise.resolve([]);
+    const pending2 = audioSubSourceProbes.get(template);
+    if (pending2) return pending2;
+    const probe = probeCustomJsonAudioSubSources(template, timeoutMs, proxyUrl).then((result) => {
+      if (!result.reached) audioSubSourceProbes.delete(template);
+      return recordAudioSubSourceNames(template, result.names);
+    }, (error) => {
+      audioSubSourceProbes.delete(template);
+      throw error;
+    });
+    audioSubSourceProbes.set(template, probe);
+    return probe;
+  }
+  async function probeCustomJsonAudioSubSources(template, timeoutMs, proxyUrl) {
+    const results = await Promise.allSettled(AUDIO_SUB_SOURCE_PROBES.map(async (probe) => {
+      const sourceUrl = formatAudioUrl(withAudioQueryPlaceholders(template), probe);
+      const response = await requestAudioUrl(sourceUrl, "text", timeoutMs, { proxyUrl });
+      if (typeof response !== "string") throw new Error("Audio source returned no text.");
+      return namedAudioSubSources(parseJsonValue(response));
+    }));
+    const seen = /* @__PURE__ */ new Set();
+    const names = [];
+    let reached = false;
+    for (const result of results) {
+      if (result.status !== "fulfilled") continue;
+      reached = true;
+      for (const entry of result.value) {
+        const key = audioSubSourceNameKey(entry.name);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        names.push(entry.name);
+      }
+    }
+    return { names, reached };
+  }
+  function parseJsonValue(text2) {
+    try {
+      return JSON.parse(text2);
+    } catch {
+      return null;
+    }
   }
   function withAudioQueryPlaceholders(template) {
     if (AUDIO_QUERY_PLACEHOLDER_RE.test(template)) return template;
@@ -29687,7 +30046,15 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     if (!graphs.length) return "";
     if (graphs.length === 1) return `<div class="jpdb-reader-pitch">${graphs[0].svg}</div>`;
     const percentages = pitchVariantDisplayPercentages(graphs.map((entry) => entry.variant));
-    return `<div class="jpdb-reader-pitch jpdb-reader-pitch-variants">${graphs.map((entry, index) => `<span class="jpdb-reader-pitch-component jpdb-reader-pitch-variant${index === 0 ? " jpdb-reader-pitch-variant-primary" : ""}">${entry.svg}<span class="jpdb-reader-pitch-variant-badge">${percentages[index]}%</span></span>`).join("")}</div>`;
+    const fit = pitchVariantBlockFit(reading, graphs.length);
+    return `<div class="jpdb-reader-pitch jpdb-reader-pitch-variants" data-pitch-fit="${fit}">${graphs.map((entry, index) => `<span class="jpdb-reader-pitch-component jpdb-reader-pitch-variant${index === 0 ? " jpdb-reader-pitch-variant-primary" : ""}">${entry.svg}<span class="jpdb-reader-pitch-variant-badge">${percentages[index]}%</span></span>`).join("")}</div>`;
+  }
+  const PITCH_VARIANT_COMPACT_MAX_WIDTH = 300;
+  function pitchVariantBlockFit(reading, graphCount) {
+    const graphWidth = splitMorae(reading).length * 24 + 18;
+    const chipWidth = graphWidth + 14;
+    const blockWidth = graphCount * chipWidth + Math.max(0, graphCount - 1) * 8;
+    return blockWidth <= PITCH_VARIANT_COMPACT_MAX_WIDTH ? "compact" : "wide";
   }
   function pitchVariantDisplayPercentages(variants) {
     if (!variants.length) return [];
@@ -31182,13 +31549,14 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     const pageScale = overlayPageScale(environment);
     if (pageScale === 1) {
       clearOwnedScale(element2);
-      return;
+      return pageScale;
     }
     const inverseScale = 1 / pageScale;
     element2.style.setProperty("zoom", formatScale(inverseScale), "important");
     element2.dataset.jpdbReaderScaleAdapter = APPLE_TOUCH_ADAPTER;
     element2.dataset.jpdbReaderPageScale = formatScale(pageScale);
     element2.dataset.jpdbReaderScaleCompensation = formatScale(inverseScale);
+    return pageScale;
   }
   function hasOverlayPageScale(element2) {
     return element2?.dataset.jpdbReaderScaleAdapter === APPLE_TOUCH_ADAPTER;
@@ -35504,6 +35872,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   const LOCAL_BOUNDARY_CANDIDATE_LIMIT = 8;
   const LOCAL_BOUNDARY_LOOKUP_CONCURRENCY = 4;
   const JPDB_PARSE_FALLBACK_TIMEOUT_MS = 6e3;
+  const LOCAL_PARSE_TIMEOUT_MS = 8e3;
   const YOUTUBE_VIEW_METRIC_RE = /回視聴/gu;
   const JITEN_MIN_BATCH_CHARS = 24;
   const JAPANESE_CHAR_COUNT_RE = /[぀-ヿ㐀-鿿々\uff66-\uff9f]/gu;
@@ -35547,12 +35916,15 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       });
       try {
         const parsed = await this.parseWithPreferredSource(paragraphs, options, settings);
-        const boundaryReconciled = await this.withExactLocalBoundaryEvidence(paragraphs, parsed, options);
-        const rubyAligned = await this.withLocallySplitKanjiRubies(paragraphs, boundaryReconciled);
+        const rubyAligned = await this.reconcileLocalParse(paragraphs, parsed, options);
         const normalized = this.withNormalizedMetricParseResult(paragraphs, rubyAligned);
         if (!settings.yomuLocalSrsEnabled || !this.dependencies.yomuLocalSrs) return normalized;
         try {
-          return await hydrateYomuLocalSrsCardStates(normalized, this.dependencies.yomuLocalSrs);
+          return await withTimeout(
+            hydrateYomuLocalSrsCardStates(normalized, this.dependencies.yomuLocalSrs),
+            LOCAL_PARSE_TIMEOUT_MS,
+            () => new Error("Academy SRS state hydration timed out.")
+          );
         } catch (error) {
           log$x.warn("Academy SRS state hydration failed; keeping provider states", error);
           return normalized;
@@ -35560,6 +35932,26 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       } finally {
         done();
       }
+    }
+    // The boundary + kanji-ruby reconciliation both read IndexedDB. Like the
+    // leaf local parse, an iPad-WebKit stall in either would hang parse()
+    // forever. These steps only REFINE an already-valid parse, so a stall (or
+    // any failure) degrades to the un-reconciled tokens rather than blocking.
+    async reconcileLocalParse(paragraphs, parsed, options) {
+      try {
+        return await withTimeout(
+          this.reconcileLocalParseResolved(paragraphs, parsed, options),
+          LOCAL_PARSE_TIMEOUT_MS,
+          () => new Error("Local parse reconciliation timed out.")
+        );
+      } catch (error) {
+        log$x.warn("Local parse reconciliation timed out or failed; keeping unreconciled parse", error);
+        return parsed;
+      }
+    }
+    async reconcileLocalParseResolved(paragraphs, parsed, options) {
+      const boundaryReconciled = await this.withExactLocalBoundaryEvidence(paragraphs, parsed, options);
+      return this.withLocallySplitKanjiRubies(paragraphs, boundaryReconciled);
     }
     async parseWithPreferredSource(paragraphs, options, settings) {
       if (settings.parserProvider === "local" && await this.hasLocalTermDictionaries(true)) {
@@ -35734,12 +36126,33 @@ ${entry.reading}`);
       return promise;
     }
     async parseLocalOrSegmentedTextUncached(text2, options) {
+      try {
+        return await withTimeout(
+          this.resolveLocalOrSegmentedText(text2, options),
+          LOCAL_PARSE_TIMEOUT_MS,
+          () => new Error("Local parse timed out.")
+        );
+      } catch (error) {
+        log$x.warn("Local parse timed out; using segmented fallback", { length: text2.length }, error);
+        return this.localParseTimeoutFallback(text2, options);
+      }
+    }
+    async resolveLocalOrSegmentedText(text2, options) {
       if (this.canUseLocalDictionaryFallback()) {
         const tokens = await this.parseLocalDictionaryText(text2, options);
         if (tokens.length) {
           return options.allowSegmentedFallback === true ? this.fillSegmentedFallbackGaps(text2, tokens) : tokens;
         }
       }
+      return options.allowSegmentedFallback === true ? this.parseSegmentedText(text2) : [];
+    }
+    // The timeout path RESOLVES to this fallback (rather than rejecting), so
+    // parseLocalOrSegmentedText caches it. That is deliberate: a WebKit IDB
+    // stall rarely recovers within a page session, and caching the segmented
+    // result avoids re-hitting the dead request on every later lookup. The cost
+    // is that a genuinely transient stall keeps that one sentence ruby-less
+    // until LRU eviction — an accepted trade for not re-freezing.
+    localParseTimeoutFallback(text2, options) {
       return options.allowSegmentedFallback === true ? this.parseSegmentedText(text2) : [];
     }
     rememberLocalParseCacheEntry(key, promise) {
@@ -40448,11 +40861,12 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       return this.dependencies.isCurrentPopoverRoot(popover) && container.isConnected;
     }
     async loadTranslationContent(sentence) {
-      const [tokens, translated] = await Promise.all([
-        this.dependencies.parseJapanese([sentence], { jpdbTimeoutMs: 1200, allowJpdbTimeoutFallback: true }).then(([parsed]) => parsed ?? []),
-        translateJapaneseSentence(sentence, resolvedLearnerLanguage(this.settings()))
-      ]);
+      const translated = await translateJapaneseSentence(sentence, resolvedLearnerLanguage(this.settings()));
+      const tokens = translated ? this.parseTranslationTokens(sentence) : Promise.resolve([]);
       return { tokens, translated };
+    }
+    parseTranslationTokens(sentence) {
+      return this.dependencies.parseJapanese([sentence], { jpdbTimeoutMs: 1200, allowJpdbTimeoutFallback: true }).then(([parsed]) => parsed ?? []).catch(() => []);
     }
     cachedGrammarHints(sentence) {
       const key = this.studyCacheKey(sentence);
@@ -40483,13 +40897,16 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         container.hidden = true;
         return;
       }
-      const original = container.querySelector("[data-study-original-render]");
-      if (original) setInnerHtml(original, renderTokensToHtml(sentence, translation.tokens, this.settings()));
       const result = container.querySelector("[data-study-translation-result]");
       if (result) result.textContent = translation.translated;
-      void this.dependencies.parsePopoverJapanese(popover);
-      void this.dependencies.enrichPitchWords(translation.tokens);
-      void this.dependencies.enrichAnkiWords(translation.tokens, [container]);
+      void translation.tokens.then((tokens) => {
+        if (!this.canApplyTranslation(popover, container)) return;
+        const original = container.querySelector("[data-study-original-render]");
+        if (original) setInnerHtml(original, renderTokensToHtml(sentence, tokens, this.settings()));
+        void this.dependencies.parsePopoverJapanese(popover);
+        void this.dependencies.enrichPitchWords(tokens);
+        void this.dependencies.enrichAnkiWords(tokens, [container]);
+      }).catch(() => void 0);
     }
     renderTranslationError(sentence, container, error) {
       log$r.warn("Automatic sentence translation failed", { sentenceLength: sentence.length }, error);
@@ -48050,7 +48467,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.7.2".trim() ? "1.7.2".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.8.6".trim() ? "1.8.6".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record2 = value;
@@ -57353,493 +57770,6 @@ ${spelling}`);
       return language2;
     }
   }
-  const WANIKANI_API_BASE_URL = "https://api.wanikani.com/v2";
-  const WANIKANI_REVISION = "20170710";
-  const WANIKANI_TOKEN_SETTINGS_URL = "https://www.wanikani.com/settings/personal_access_tokens";
-  const REQUEST_TIMEOUT_MS$4 = 3e4;
-  const FREE_TIER_MAX_LEVEL = 3;
-  class WanikaniApiError extends Error {
-    constructor(message, status) {
-      super(message);
-      this.status = status;
-      this.name = "WanikaniApiError";
-    }
-  }
-  const MIN_REQUEST_INTERVAL_MS = 1100;
-  function fingerprintWanikaniToken(value) {
-    const token = value.trim();
-    if (!token) return "";
-    let first2 = 2166136261;
-    let second = 2654435769;
-    for (let index = 0; index < token.length; index += 1) {
-      const code = token.charCodeAt(index);
-      first2 = Math.imul(first2 ^ code, 16777619) >>> 0;
-      second = Math.imul(second ^ code, 2246822507) >>> 0;
-    }
-    return `${first2.toString(16).padStart(8, "0")}${second.toString(16).padStart(8, "0")}:${token.length}`;
-  }
-  class WanikaniClient {
-    getToken;
-    baseUrl;
-    requestImpl;
-    timeoutMs;
-    minRequestIntervalMs;
-    now;
-    sleep;
-    lastRequestAt = 0;
-    requestStartQueue = Promise.resolve();
-    pending = /* @__PURE__ */ new Map();
-    responseCache = /* @__PURE__ */ new Map();
-    verifiedUser = null;
-    verifiedFingerprint = "";
-    constructor(options = {}) {
-      this.getToken = options.getToken ?? (() => "");
-      this.baseUrl = trimBaseUrl(options.baseUrl ?? WANIKANI_API_BASE_URL);
-      this.requestImpl = options.requestImpl ?? requestHttp;
-      this.timeoutMs = options.timeoutMs ?? REQUEST_TIMEOUT_MS$4;
-      this.minRequestIntervalMs = Math.max(0, options.minRequestIntervalMs ?? MIN_REQUEST_INTERVAL_MS);
-      this.now = options.now ?? Date.now;
-      this.sleep = options.sleep ?? ((milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)));
-    }
-    hasCredential() {
-      return Boolean(this.getToken().trim());
-    }
-    tokenFingerprint() {
-      return fingerprintWanikaniToken(this.getToken());
-    }
-    async getUser(force = false) {
-      const fingerprint = this.currentFingerprint();
-      if (!force && this.verifiedUser && this.verifiedFingerprint === fingerprint) return this.verifiedUser;
-      const raw = await this.request("/user", {}, { cacheTtlMs: force ? 0 : 6e4 });
-      const user = parseWanikaniUser(raw);
-      this.verifiedUser = user;
-      this.verifiedFingerprint = fingerprint;
-      return user;
-    }
-    async effectiveMaxLevel() {
-      const user = this.verifiedUser ?? await this.getUser();
-      const subscription = user.subscription;
-      if (!subscription.active) return FREE_TIER_MAX_LEVEL;
-      if (!KNOWN_SUBSCRIPTION_TYPES.has(subscription.type)) return FREE_TIER_MAX_LEVEL;
-      if (subscription.type === "free") return FREE_TIER_MAX_LEVEL;
-      const granted = Number(subscription.max_level_granted);
-      return Number.isFinite(granted) && granted > 0 ? Math.min(60, granted) : FREE_TIER_MAX_LEVEL;
-    }
-    async getSummary() {
-      await this.ensureUser();
-      return this.request("/summary", {}, { cacheTtlMs: 3e4 });
-    }
-    async getAssignments(options = {}) {
-      await this.ensureUser();
-      return this.collect("/assignments", options, 3e4);
-    }
-    async getSubjects(options = {}) {
-      await this.ensureUser();
-      const maxLevel = await this.effectiveMaxLevel();
-      const requestedLevels = options.levels?.filter((level) => level >= 1 && level <= maxLevel);
-      if (options.levels?.length && !requestedLevels?.length) return [];
-      const levels = requestedLevels?.length ? requestedLevels : Array.from({ length: maxLevel }, (_, index) => index + 1);
-      const subjects = await this.collect("/subjects", { ...options, levels }, 24 * 60 * 60 * 1e3);
-      return subjects.filter((subject) => rawSubjectLevel(subject) <= maxLevel);
-    }
-    async getStudyMaterials(options = {}) {
-      await this.ensureUser();
-      return this.collect("/study_materials", options, 6e4);
-    }
-    async getReviewStatistics(options = {}) {
-      await this.ensureUser();
-      return this.collect("/review_statistics", options, 6e4);
-    }
-    async createReview(body) {
-      await this.ensureUser();
-      const response = await this.request("/reviews", {
-        method: "POST",
-        body: { review: body }
-      });
-      this.invalidateReviewStateCaches();
-      return response;
-    }
-    async ensureUser() {
-      return this.getUser();
-    }
-    async collect(path, options, cacheTtlMs = 0) {
-      const dedupeKey = `${this.currentFingerprint()}:${path}?${stableOptionsKey(options)}`;
-      const cachedResponse = this.responseCache.get(dedupeKey);
-      if (cachedResponse && cachedResponse.expiresAt > this.now()) return cachedResponse.value;
-      const cached = this.pending.get(dedupeKey);
-      if (cached) return cached;
-      const promise = this.collectUncached(path, options).then((items) => {
-        if (cacheTtlMs > 0) this.responseCache.set(dedupeKey, { expiresAt: this.now() + cacheTtlMs, value: items });
-        return items;
-      }).finally(() => this.pending.delete(dedupeKey));
-      this.pending.set(dedupeKey, promise);
-      return promise;
-    }
-    async collectUncached(path, options) {
-      const items = [];
-      let url = `${this.baseUrl}${path}${queryString(options)}`;
-      const visited = /* @__PURE__ */ new Set();
-      while (url) {
-        if (!this.isSafeApiUrl(url)) throw new WanikaniApiError("WaniKani returned an unsafe pagination URL.");
-        if (visited.has(url)) throw new WanikaniApiError("WaniKani pagination repeated a page URL.");
-        if (visited.size >= 1e3) throw new WanikaniApiError("WaniKani pagination exceeded the safety limit.");
-        visited.add(url);
-        const page = await this.requestUrl(url);
-        if (Array.isArray(page.data)) items.push(...page.data);
-        url = typeof page.pages?.next_url === "string" ? page.pages.next_url : null;
-      }
-      return items;
-    }
-    request(path, options = {}, cache2 = {}) {
-      const url = `${this.baseUrl}${path}`;
-      if (!cache2.cacheTtlMs || options.method === "POST") return this.requestUrl(url, options);
-      const key = `${this.currentFingerprint()}:${url}`;
-      const cached = this.responseCache.get(key);
-      if (cached && cached.expiresAt > this.now()) return Promise.resolve(cached.value);
-      const pending2 = this.pending.get(key);
-      if (pending2) return pending2;
-      const request = this.requestUrl(url, options).then((value) => {
-        this.responseCache.set(key, { expiresAt: this.now() + (cache2.cacheTtlMs ?? 0), value });
-        return value;
-      }).finally(() => this.pending.delete(key));
-      this.pending.set(key, request);
-      return request;
-    }
-    async requestUrl(url, options = {}) {
-      const token = this.getToken().trim();
-      if (!token) throw new WanikaniApiError("WaniKani API token is not set.");
-      if (!this.isSafeApiUrl(url)) throw new WanikaniApiError("Blocked a WaniKani request outside the official API origin.");
-      let attempt = 0;
-      while (true) {
-        await this.throttle();
-        try {
-          return await this.requestImpl(url, {
-            method: options.method ?? "GET",
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Wanikani-Revision": WANIKANI_REVISION,
-              Accept: "application/json",
-              "Content-Type": "application/json"
-            },
-            data: options.body === void 0 ? void 0 : JSON.stringify(options.body),
-            responseType: "json",
-            timeoutMs: this.timeoutMs,
-            preferFetch: true,
-            allowDirectCrossOrigin: true,
-            proxyUrl: "",
-            allowPublicProxies: false,
-            allowConfiguredProxy: false,
-            credentials: "omit",
-            referrerPolicy: "no-referrer",
-            failureLabel: "WaniKani request",
-            statusFailureMessage: (status) => status === 401 ? "WaniKani token expired or was denied (401)." : status === 403 ? "WaniKani token lacks permission for this request (403)." : `WaniKani API request failed (${status}).`
-          });
-        } catch (error) {
-          const normalized = normalizeWanikaniError(error);
-          if (attempt === 0 && isRateLimitError(normalized)) {
-            attempt += 1;
-            await this.sleep(Math.max(2e3, this.minRequestIntervalMs * 2));
-            continue;
-          }
-          throw normalized;
-        }
-      }
-    }
-    throttle() {
-      const scheduled2 = this.requestStartQueue.then(async () => {
-        const wait = this.lastRequestAt + this.minRequestIntervalMs - this.now();
-        if (wait > 0) await this.sleep(wait);
-        this.lastRequestAt = this.now();
-      });
-      this.requestStartQueue = scheduled2.catch(() => void 0);
-      return scheduled2;
-    }
-    currentFingerprint() {
-      const fingerprint = this.tokenFingerprint();
-      if (!fingerprint) throw new WanikaniApiError("WaniKani API token is not set.");
-      if (this.verifiedFingerprint && this.verifiedFingerprint !== fingerprint) {
-        this.verifiedUser = null;
-        this.verifiedFingerprint = "";
-        this.pending.clear();
-        this.responseCache.clear();
-      }
-      return fingerprint;
-    }
-    invalidateReviewStateCaches() {
-      const fingerprint = this.tokenFingerprint();
-      const summaryKey = `${fingerprint}:${this.baseUrl}/summary`;
-      for (const key of this.responseCache.keys()) {
-        if (key === summaryKey || key.startsWith(`${fingerprint}:/assignments?`) || key.startsWith(`${fingerprint}:/review_statistics?`)) {
-          this.responseCache.delete(key);
-        }
-      }
-    }
-    isSafeApiUrl(value) {
-      try {
-        const url = new URL(value);
-        const base = new URL(`${this.baseUrl}/`);
-        return url.protocol === "https:" && url.origin === base.origin && url.pathname.startsWith(base.pathname);
-      } catch {
-        return false;
-      }
-    }
-  }
-  const KNOWN_SUBSCRIPTION_TYPES = /* @__PURE__ */ new Set(["free", "recurring", "lifetime"]);
-  function parseWanikaniUser(raw) {
-    const record2 = isRecord$3(raw) ? isRecord$3(raw.data) ? raw.data : raw : {};
-    const subscriptionRaw = isRecord$3(record2.subscription) ? record2.subscription : {};
-    return {
-      id: typeof record2.id === "string" ? record2.id : "",
-      level: typeof record2.level === "number" ? record2.level : 0,
-      subscription: {
-        active: subscriptionRaw.active === true,
-        type: typeof subscriptionRaw.type === "string" ? subscriptionRaw.type : "",
-        max_level_granted: typeof subscriptionRaw.max_level_granted === "number" ? subscriptionRaw.max_level_granted : 0,
-        period_ends_at: typeof subscriptionRaw.period_ends_at === "string" ? subscriptionRaw.period_ends_at : null
-      }
-    };
-  }
-  function queryString(options) {
-    const params = new URLSearchParams();
-    if (options.ids?.length) params.set("ids", options.ids.join(","));
-    if (options.levels?.length) params.set("levels", options.levels.join(","));
-    if (options.types?.length) params.set("types", options.types.join(","));
-    if (options.updatedAfter) params.set("updated_after", options.updatedAfter);
-    if (options.hidden !== void 0) params.set("hidden", String(options.hidden));
-    if (options.immediatelyAvailableForReview !== void 0) params.set("immediately_available_for_review", String(options.immediatelyAvailableForReview));
-    if (options.immediatelyAvailableForLessons !== void 0) params.set("immediately_available_for_lessons", String(options.immediatelyAvailableForLessons));
-    if (options.subjectIds?.length) params.set("subject_ids", options.subjectIds.join(","));
-    if (options.slugs?.length) params.set("slugs", options.slugs.join(","));
-    if (options.srsStages?.length) params.set("srs_stages", options.srsStages.join(","));
-    if (options.availableBefore) params.set("available_before", options.availableBefore);
-    if (options.started !== void 0) params.set("started", String(options.started));
-    if (options.unlocked !== void 0) params.set("unlocked", String(options.unlocked));
-    if (options.page !== void 0) params.set("page", String(options.page));
-    const query = params.toString();
-    return query ? `?${query}` : "";
-  }
-  function normalizeWanikaniError(error) {
-    if (error instanceof WanikaniApiError) return error;
-    const status = httpStatusFromError(error);
-    if (!(error instanceof Error)) return new WanikaniApiError("WaniKani request failed.", status);
-    if (status === 401) return new WanikaniApiError("WaniKani token expired or was denied.", 401);
-    if (status === 403) return new WanikaniApiError("WaniKani token lacks permission for this request.", 403);
-    if (status !== void 0) return new WanikaniApiError(error.message, status);
-    return error;
-  }
-  function isRateLimitError(error) {
-    return error instanceof WanikaniApiError && error.status === 429 || /\(429\)|rate limit/i.test(error.message);
-  }
-  function rawSubjectLevel(value) {
-    if (!isRecord$3(value) || !isRecord$3(value.data)) return Number.POSITIVE_INFINITY;
-    return typeof value.data.level === "number" ? value.data.level : Number.POSITIVE_INFINITY;
-  }
-  function stableOptionsKey(options) {
-    return JSON.stringify(Object.fromEntries(Object.entries(options).sort(([left], [right]) => left.localeCompare(right))));
-  }
-  function trimBaseUrl(value) {
-    return value.replace(/\/+$/u, "");
-  }
-  function isRecord$3(value) {
-    return typeof value === "object" && value !== null;
-  }
-  const SETTINGS_LABEL_TEXT_CLASS = "jpdb-reader-settings-label-text";
-  function input(name, label, value, type = "text", attributes = {}) {
-    const fieldClass = ["jpdb-reader-settings-field"];
-    if (type === "number" || type === "color") fieldClass.push(`jpdb-reader-settings-field-${type}`);
-    return `<label class="${fieldClass.join(" ")}">${label}<input name="${name}" type="${type}" value="${escapeHtml$2(value)}" autocomplete="off"${attributeHtml(attributes)}></label>`;
-  }
-  function shortcutInput(name, label, value, placeholder = "Press keys") {
-    return `<label>${label}<input data-shortcut-input name="${name}" type="text" value="${escapeHtml$2(value)}" placeholder="${escapeHtml$2(placeholder)}" autocomplete="off" inputmode="none" aria-label="${escapeHtml$2(label)}"></label>`;
-  }
-  function checkbox(name, label, checked, attributes = {}) {
-    return `<label class="inline"><input name="${name}" type="checkbox" ${checked ? "checked" : ""}${booleanAttributeHtml(attributes)}>${label}</label>`;
-  }
-  function select(name, label, value, options) {
-    return `<label>${label}<select name="${name}">${options.map(
-      ([optionValue, text2]) => `<option value="${escapeHtml$2(optionValue)}" ${optionValue === value ? "selected" : ""}>${escapeHtml$2(text2)}</option>`
-    ).join("")}</select></label>`;
-  }
-  function radioGroup(name, label, value, options) {
-    return `<fieldset class="jpdb-reader-radio-group"><legend>${label}</legend>${options.map(
-      ([optionValue, text2]) => `<label class="inline"><input name="${name}" type="radio" value="${escapeHtml$2(optionValue)}" ${optionValue === value ? "checked" : ""}>${escapeHtml$2(text2)}</label>`
-    ).join("")}</fieldset>`;
-  }
-  function settingsTabButton(panel, label, active = false) {
-    return `<button class="jpdb-reader-settings-tab" type="button" role="tab" data-action="settings-panel" data-panel="${escapeHtml$2(panel)}" aria-controls="${settingsTabControls(panel)}" aria-selected="${active ? "true" : "false"}" tabindex="${active ? "0" : "-1"}">${escapeHtml$2(label)}</button>`;
-  }
-  function miniIcon(name) {
-    const paths = {
-      drag: '<path d="M9 5h.01"></path><path d="M15 5h.01"></path><path d="M9 12h.01"></path><path d="M15 12h.01"></path><path d="M9 19h.01"></path><path d="M15 19h.01"></path>',
-      up: '<path d="M12 19V5"></path><path d="m5 12 7-7 7 7"></path>',
-      down: '<path d="M12 5v14"></path><path d="m19 12-7 7-7-7"></path>',
-      remove: '<path d="M18 6 6 18"></path><path d="m6 6 12 12"></path>'
-    };
-    return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">${paths[name]}</svg>`;
-  }
-  function settingsTabControls(panel) {
-    return {
-      api: "jpdb-reader-settings-panel-api",
-      newTab: "jpdb-reader-settings-panel-newtab",
-      appearance: "jpdb-reader-settings-panel-appearance jpdb-reader-settings-panel-reader",
-      backup: "jpdb-reader-settings-panel-backup",
-      reading: "jpdb-reader-settings-panel-reader jpdb-reader-settings-panel-kanji",
-      dictionaries: "jpdb-reader-settings-panel-dictionaries jpdb-reader-settings-panel-kanji",
-      media: "jpdb-reader-settings-panel-audio jpdb-reader-settings-panel-immersion-kit jpdb-reader-settings-panel-ocr jpdb-reader-settings-panel-video jpdb-reader-settings-panel-youtube",
-      mining: "jpdb-reader-settings-panel-mining",
-      shortcuts: "jpdb-reader-settings-panel-shortcuts",
-      help: "jpdb-reader-settings-panel-help"
-    }[panel] ?? "jpdb-reader-settings-panel-api";
-  }
-  function attributeHtml(attributes) {
-    return Object.entries(attributes).map(([key, attributeValue]) => ` ${key}="${escapeHtml$2(String(attributeValue))}"`).join("");
-  }
-  function booleanAttributeHtml(attributes) {
-    return Object.entries(attributes).filter(([, value]) => value).map(([key]) => ` ${key}`).join("");
-  }
-  function updateSourceRowEditor(action, control) {
-    const row = control?.closest("[data-source-row]");
-    const container = row?.closest("[data-source-editor]");
-    if (!container || !row) return;
-    const rows = Array.from(container.querySelectorAll("[data-source-row]"));
-    const index = rows.indexOf(row);
-    const targetIndex = action === "dictionary-source-up" ? index - 1 : index + 1;
-    moveSourceRow(container, index, targetIndex);
-  }
-  function installSourceRowDrag(root) {
-    let drag = null;
-    const dragDocument = root.ownerDocument;
-    root.addEventListener("pointerdown", (event) => {
-      if (drag) return;
-      if (event.pointerType === "mouse" && event.button !== 0) return;
-      const handle = event.target.closest("[data-source-drag-handle]");
-      if (!handle || !root.contains(handle)) return;
-      const row = handle.closest("[data-source-row]");
-      const container = row?.closest("[data-source-editor]");
-      if (!row || !container) return;
-      event.preventDefault();
-      setSourceRowPointerCapture(handle, event.pointerId);
-      const pageScale = overlayViewport().pageScale;
-      drag = {
-        active: false,
-        container,
-        handle,
-        pageScale,
-        pointerId: event.pointerId,
-        row,
-        startY: sourceRowOverlayY(event.clientY, pageScale)
-      };
-      row.classList.add("jpdb-reader-order-row-drag-pending");
-      dragDocument.addEventListener("pointermove", moveDrag);
-      dragDocument.addEventListener("pointerup", finishDrag);
-      dragDocument.addEventListener("pointercancel", finishDrag);
-    });
-    const moveDrag = (event) => {
-      if (!drag || event.pointerId !== drag.pointerId) return;
-      const overlayY = sourceRowOverlayY(event.clientY, drag.pageScale);
-      if (!drag.active && Math.abs(overlayY - drag.startY) < 4) return;
-      event.preventDefault();
-      drag.active = true;
-      drag.row.classList.add("jpdb-reader-order-row-dragging");
-      moveSourceRowToPointer(drag.container, drag.row, overlayY, drag.pageScale);
-    };
-    const finishDrag = (event) => {
-      if (!drag || event.pointerId !== drag.pointerId) return;
-      releaseSourceRowPointerCapture(drag.handle, event.pointerId);
-      drag.row.classList.remove("jpdb-reader-order-row-drag-pending", "jpdb-reader-order-row-dragging");
-      syncSourceRowOrder(drag.container);
-      drag = null;
-      dragDocument.removeEventListener("pointermove", moveDrag);
-      dragDocument.removeEventListener("pointerup", finishDrag);
-      dragDocument.removeEventListener("pointercancel", finishDrag);
-    };
-    root.addEventListener("pointermove", moveDrag);
-    root.addEventListener("pointerup", finishDrag);
-    root.addEventListener("pointercancel", finishDrag);
-  }
-  function moveSourceRow(container, index, targetIndex) {
-    const rows = Array.from(container.querySelectorAll("[data-source-row]"));
-    if (!canMoveSourceRow(index, targetIndex, rows.length)) return;
-    const row = rows[index];
-    const target = rows[targetIndex];
-    if (targetIndex < index) container.insertBefore(row, target);
-    else container.insertBefore(row, target.nextSibling);
-    syncSourceRowOrder(container);
-  }
-  function setSourceRowPointerCapture(handle, pointerId) {
-    try {
-      handle.setPointerCapture?.(pointerId);
-    } catch {
-    }
-  }
-  function releaseSourceRowPointerCapture(handle, pointerId) {
-    try {
-      handle.releasePointerCapture?.(pointerId);
-    } catch {
-    }
-  }
-  function moveSourceRowToPointer(container, row, overlayY, pageScale) {
-    const rows = Array.from(container.querySelectorAll("[data-source-row]")).filter((candidate) => candidate !== row);
-    const target = rows.find((candidate) => {
-      const rect = sourceRectToOverlay(candidate.getBoundingClientRect(), candidate, pageScale);
-      return overlayY < rect.top + rect.height / 2;
-    });
-    if (target) container.insertBefore(row, target);
-    else container.appendChild(row);
-    syncSourceRowOrder(container);
-  }
-  function sourceRowOverlayY(clientY, pageScale) {
-    return layoutPointToOverlay({ x: 0, y: clientY }, pageScale).y;
-  }
-  function canMoveSourceRow(index, targetIndex, rowCount) {
-    return index >= 0 && targetIndex >= 0 && index < rowCount && targetIndex < rowCount && index !== targetIndex;
-  }
-  function syncSourceRowOrder(container) {
-    const rows = Array.from(container.querySelectorAll("[data-source-row]"));
-    rows.forEach((row, index) => {
-      const priority = row.querySelector('input[name$=".priority"]');
-      if (priority) priority.value = String(index);
-      const indexLabel = row.querySelector(".jpdb-reader-order-toggle span");
-      if (indexLabel) indexLabel.textContent = String(index + 1);
-    });
-    if (container.matches("[data-audio-source-editor]")) syncAudioSourceIndexes(container, rows);
-    if (container.classList.contains("jpdb-reader-lookup-links")) syncDictionaryLookupLinkIndexes(container, rows);
-  }
-  function syncAudioSourceIndexes(container, rows = Array.from(container.querySelectorAll("[data-audio-source-row]"))) {
-    const language2 = settingsLanguageForElement(container);
-    rows.forEach((row, index) => {
-      row.dataset.sourceId = `audio-${index}`;
-      row.querySelectorAll('[name^="audioSources."]').forEach((control) => {
-        control.name = control.name.replace(/^audioSources\.\d+\./, `audioSources.${index}.`);
-        if (control instanceof HTMLSelectElement && control.name.endsWith(".type")) {
-          control.setAttribute("aria-label", uiText(language2, "audioSourceNumber").replace("{number}", String(index + 1)));
-        }
-        if (control instanceof HTMLInputElement && control.name.endsWith(".enabled")) {
-          control.setAttribute("aria-label", uiText(language2, "enableAudioSourceNumber").replace("{number}", String(index + 1)));
-        }
-        if (control instanceof HTMLSelectElement && control.name.endsWith(".voice")) {
-          control.setAttribute("aria-label", uiText(language2, "textToSpeechVoiceNumber").replace("{number}", String(index + 1)));
-        }
-      });
-    });
-  }
-  function syncDictionaryLookupLinkIndexes(container, rows = Array.from(container.querySelectorAll("[data-lookup-link-row]"))) {
-    const language2 = settingsLanguageForElement(container);
-    rows.forEach((row, index) => {
-      row.dataset.index = String(index);
-      row.dataset.sourceId = `lookup-link-${index}`;
-      row.querySelectorAll('[name^="dictionaryLookupLinks."]').forEach((control) => {
-        control.name = control.name.replace(/^dictionaryLookupLinks\.\d+\./, `dictionaryLookupLinks.${index}.`);
-        if (control.name.endsWith(".label")) control.setAttribute("aria-label", uiText(language2, "lookupPillLabelNumber").replace("{number}", String(index + 1)));
-        if (control.name.endsWith(".urlTemplate")) control.setAttribute("aria-label", uiText(language2, "lookupUrlTemplateNumber").replace("{number}", String(index + 1)));
-      });
-    });
-  }
-  function settingsLanguageForElement(element2) {
-    const control = element2.closest("form")?.elements.namedItem("interfaceLanguage");
-    const value = control instanceof HTMLSelectElement ? control.value : "en";
-    return value === "auto" || value === "en" || value === "ja" ? value : "en";
-  }
   function createSettingsFormReader(data, colorSource) {
     const get = (key) => String(data.get(key) ?? "");
     const getAll = (key) => data.getAll(key).map((value) => String(value));
@@ -58517,8 +58447,19 @@ ${spelling}`);
       type: get(`audioSources.${index}.type`),
       url: get(`audioSources.${index}.url`).trim(),
       voice: get(`audioSources.${index}.voice`).trim(),
-      enabled: data.has(`audioSources.${index}.enabled`)
+      enabled: data.has(`audioSources.${index}.enabled`),
+      subSources: readAudioSubSources(data, get, index)
     });
+  }
+  function readAudioSubSources(data, get, index) {
+    const count = Math.max(0, Number(get(`audioSources.${index}.subSourceCount`)) || 0);
+    const subSources = [];
+    for (let subIndex = 0; subIndex < count; subIndex++) {
+      const name = get(`audioSources.${index}.subSources.${subIndex}.name`).trim();
+      if (!name) continue;
+      subSources.push({ name, enabled: data.has(`audioSources.${index}.subSources.${subIndex}.enabled`) });
+    }
+    return subSources;
   }
   function shouldSkipAudioSourceRow(source, builtInTypes) {
     return !source.enabled && !source.url && !source.voice && !builtInTypes.has(source.type);
@@ -58561,6 +58502,493 @@ ${spelling}`);
   }
   function dictionaryLookupLinkUrlTemplate(urlTemplate, action) {
     return action === "copy" || action === "frequency-live" || action === "frequency-local" ? "" : urlTemplate;
+  }
+  const WANIKANI_API_BASE_URL = "https://api.wanikani.com/v2";
+  const WANIKANI_REVISION = "20170710";
+  const WANIKANI_TOKEN_SETTINGS_URL = "https://www.wanikani.com/settings/personal_access_tokens";
+  const REQUEST_TIMEOUT_MS$4 = 3e4;
+  const FREE_TIER_MAX_LEVEL = 3;
+  class WanikaniApiError extends Error {
+    constructor(message, status) {
+      super(message);
+      this.status = status;
+      this.name = "WanikaniApiError";
+    }
+  }
+  const MIN_REQUEST_INTERVAL_MS = 1100;
+  function fingerprintWanikaniToken(value) {
+    const token = value.trim();
+    if (!token) return "";
+    let first2 = 2166136261;
+    let second = 2654435769;
+    for (let index = 0; index < token.length; index += 1) {
+      const code = token.charCodeAt(index);
+      first2 = Math.imul(first2 ^ code, 16777619) >>> 0;
+      second = Math.imul(second ^ code, 2246822507) >>> 0;
+    }
+    return `${first2.toString(16).padStart(8, "0")}${second.toString(16).padStart(8, "0")}:${token.length}`;
+  }
+  class WanikaniClient {
+    getToken;
+    baseUrl;
+    requestImpl;
+    timeoutMs;
+    minRequestIntervalMs;
+    now;
+    sleep;
+    lastRequestAt = 0;
+    requestStartQueue = Promise.resolve();
+    pending = /* @__PURE__ */ new Map();
+    responseCache = /* @__PURE__ */ new Map();
+    verifiedUser = null;
+    verifiedFingerprint = "";
+    constructor(options = {}) {
+      this.getToken = options.getToken ?? (() => "");
+      this.baseUrl = trimBaseUrl(options.baseUrl ?? WANIKANI_API_BASE_URL);
+      this.requestImpl = options.requestImpl ?? requestHttp;
+      this.timeoutMs = options.timeoutMs ?? REQUEST_TIMEOUT_MS$4;
+      this.minRequestIntervalMs = Math.max(0, options.minRequestIntervalMs ?? MIN_REQUEST_INTERVAL_MS);
+      this.now = options.now ?? Date.now;
+      this.sleep = options.sleep ?? ((milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)));
+    }
+    hasCredential() {
+      return Boolean(this.getToken().trim());
+    }
+    tokenFingerprint() {
+      return fingerprintWanikaniToken(this.getToken());
+    }
+    async getUser(force = false) {
+      const fingerprint = this.currentFingerprint();
+      if (!force && this.verifiedUser && this.verifiedFingerprint === fingerprint) return this.verifiedUser;
+      const raw = await this.request("/user", {}, { cacheTtlMs: force ? 0 : 6e4 });
+      const user = parseWanikaniUser(raw);
+      this.verifiedUser = user;
+      this.verifiedFingerprint = fingerprint;
+      return user;
+    }
+    async effectiveMaxLevel() {
+      const user = this.verifiedUser ?? await this.getUser();
+      const subscription = user.subscription;
+      if (!subscription.active) return FREE_TIER_MAX_LEVEL;
+      if (!KNOWN_SUBSCRIPTION_TYPES.has(subscription.type)) return FREE_TIER_MAX_LEVEL;
+      if (subscription.type === "free") return FREE_TIER_MAX_LEVEL;
+      const granted = Number(subscription.max_level_granted);
+      return Number.isFinite(granted) && granted > 0 ? Math.min(60, granted) : FREE_TIER_MAX_LEVEL;
+    }
+    async getSummary() {
+      await this.ensureUser();
+      return this.request("/summary", {}, { cacheTtlMs: 3e4 });
+    }
+    async getAssignments(options = {}) {
+      await this.ensureUser();
+      return this.collect("/assignments", options, 3e4);
+    }
+    async getSubjects(options = {}) {
+      await this.ensureUser();
+      const maxLevel = await this.effectiveMaxLevel();
+      const requestedLevels = options.levels?.filter((level) => level >= 1 && level <= maxLevel);
+      if (options.levels?.length && !requestedLevels?.length) return [];
+      const levels = requestedLevels?.length ? requestedLevels : Array.from({ length: maxLevel }, (_, index) => index + 1);
+      const subjects = await this.collect("/subjects", { ...options, levels }, 24 * 60 * 60 * 1e3);
+      return subjects.filter((subject) => rawSubjectLevel(subject) <= maxLevel);
+    }
+    async getStudyMaterials(options = {}) {
+      await this.ensureUser();
+      return this.collect("/study_materials", options, 6e4);
+    }
+    async getReviewStatistics(options = {}) {
+      await this.ensureUser();
+      return this.collect("/review_statistics", options, 6e4);
+    }
+    async createReview(body) {
+      await this.ensureUser();
+      const response = await this.request("/reviews", {
+        method: "POST",
+        body: { review: body }
+      });
+      this.invalidateReviewStateCaches();
+      return response;
+    }
+    async ensureUser() {
+      return this.getUser();
+    }
+    async collect(path, options, cacheTtlMs = 0) {
+      const dedupeKey = `${this.currentFingerprint()}:${path}?${stableOptionsKey(options)}`;
+      const cachedResponse = this.responseCache.get(dedupeKey);
+      if (cachedResponse && cachedResponse.expiresAt > this.now()) return cachedResponse.value;
+      const cached = this.pending.get(dedupeKey);
+      if (cached) return cached;
+      const promise = this.collectUncached(path, options).then((items) => {
+        if (cacheTtlMs > 0) this.responseCache.set(dedupeKey, { expiresAt: this.now() + cacheTtlMs, value: items });
+        return items;
+      }).finally(() => this.pending.delete(dedupeKey));
+      this.pending.set(dedupeKey, promise);
+      return promise;
+    }
+    async collectUncached(path, options) {
+      const items = [];
+      let url = `${this.baseUrl}${path}${queryString(options)}`;
+      const visited = /* @__PURE__ */ new Set();
+      while (url) {
+        if (!this.isSafeApiUrl(url)) throw new WanikaniApiError("WaniKani returned an unsafe pagination URL.");
+        if (visited.has(url)) throw new WanikaniApiError("WaniKani pagination repeated a page URL.");
+        if (visited.size >= 1e3) throw new WanikaniApiError("WaniKani pagination exceeded the safety limit.");
+        visited.add(url);
+        const page = await this.requestUrl(url);
+        if (Array.isArray(page.data)) items.push(...page.data);
+        url = typeof page.pages?.next_url === "string" ? page.pages.next_url : null;
+      }
+      return items;
+    }
+    request(path, options = {}, cache2 = {}) {
+      const url = `${this.baseUrl}${path}`;
+      if (!cache2.cacheTtlMs || options.method === "POST") return this.requestUrl(url, options);
+      const key = `${this.currentFingerprint()}:${url}`;
+      const cached = this.responseCache.get(key);
+      if (cached && cached.expiresAt > this.now()) return Promise.resolve(cached.value);
+      const pending2 = this.pending.get(key);
+      if (pending2) return pending2;
+      const request = this.requestUrl(url, options).then((value) => {
+        this.responseCache.set(key, { expiresAt: this.now() + (cache2.cacheTtlMs ?? 0), value });
+        return value;
+      }).finally(() => this.pending.delete(key));
+      this.pending.set(key, request);
+      return request;
+    }
+    async requestUrl(url, options = {}) {
+      const token = this.getToken().trim();
+      if (!token) throw new WanikaniApiError("WaniKani API token is not set.");
+      if (!this.isSafeApiUrl(url)) throw new WanikaniApiError("Blocked a WaniKani request outside the official API origin.");
+      let attempt = 0;
+      while (true) {
+        await this.throttle();
+        try {
+          return await this.requestImpl(url, {
+            method: options.method ?? "GET",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Wanikani-Revision": WANIKANI_REVISION,
+              Accept: "application/json",
+              "Content-Type": "application/json"
+            },
+            data: options.body === void 0 ? void 0 : JSON.stringify(options.body),
+            responseType: "json",
+            timeoutMs: this.timeoutMs,
+            preferFetch: true,
+            allowDirectCrossOrigin: true,
+            proxyUrl: "",
+            allowPublicProxies: false,
+            allowConfiguredProxy: false,
+            credentials: "omit",
+            referrerPolicy: "no-referrer",
+            failureLabel: "WaniKani request",
+            statusFailureMessage: (status) => status === 401 ? "WaniKani token expired or was denied (401)." : status === 403 ? "WaniKani token lacks permission for this request (403)." : `WaniKani API request failed (${status}).`
+          });
+        } catch (error) {
+          const normalized = normalizeWanikaniError(error);
+          if (attempt === 0 && isRateLimitError(normalized)) {
+            attempt += 1;
+            await this.sleep(Math.max(2e3, this.minRequestIntervalMs * 2));
+            continue;
+          }
+          throw normalized;
+        }
+      }
+    }
+    throttle() {
+      const scheduled2 = this.requestStartQueue.then(async () => {
+        const wait = this.lastRequestAt + this.minRequestIntervalMs - this.now();
+        if (wait > 0) await this.sleep(wait);
+        this.lastRequestAt = this.now();
+      });
+      this.requestStartQueue = scheduled2.catch(() => void 0);
+      return scheduled2;
+    }
+    currentFingerprint() {
+      const fingerprint = this.tokenFingerprint();
+      if (!fingerprint) throw new WanikaniApiError("WaniKani API token is not set.");
+      if (this.verifiedFingerprint && this.verifiedFingerprint !== fingerprint) {
+        this.verifiedUser = null;
+        this.verifiedFingerprint = "";
+        this.pending.clear();
+        this.responseCache.clear();
+      }
+      return fingerprint;
+    }
+    invalidateReviewStateCaches() {
+      const fingerprint = this.tokenFingerprint();
+      const summaryKey = `${fingerprint}:${this.baseUrl}/summary`;
+      for (const key of this.responseCache.keys()) {
+        if (key === summaryKey || key.startsWith(`${fingerprint}:/assignments?`) || key.startsWith(`${fingerprint}:/review_statistics?`)) {
+          this.responseCache.delete(key);
+        }
+      }
+    }
+    isSafeApiUrl(value) {
+      try {
+        const url = new URL(value);
+        const base = new URL(`${this.baseUrl}/`);
+        return url.protocol === "https:" && url.origin === base.origin && url.pathname.startsWith(base.pathname);
+      } catch {
+        return false;
+      }
+    }
+  }
+  const KNOWN_SUBSCRIPTION_TYPES = /* @__PURE__ */ new Set(["free", "recurring", "lifetime"]);
+  function parseWanikaniUser(raw) {
+    const record2 = isRecord$3(raw) ? isRecord$3(raw.data) ? raw.data : raw : {};
+    const subscriptionRaw = isRecord$3(record2.subscription) ? record2.subscription : {};
+    return {
+      id: typeof record2.id === "string" ? record2.id : "",
+      level: typeof record2.level === "number" ? record2.level : 0,
+      subscription: {
+        active: subscriptionRaw.active === true,
+        type: typeof subscriptionRaw.type === "string" ? subscriptionRaw.type : "",
+        max_level_granted: typeof subscriptionRaw.max_level_granted === "number" ? subscriptionRaw.max_level_granted : 0,
+        period_ends_at: typeof subscriptionRaw.period_ends_at === "string" ? subscriptionRaw.period_ends_at : null
+      }
+    };
+  }
+  function queryString(options) {
+    const params = new URLSearchParams();
+    if (options.ids?.length) params.set("ids", options.ids.join(","));
+    if (options.levels?.length) params.set("levels", options.levels.join(","));
+    if (options.types?.length) params.set("types", options.types.join(","));
+    if (options.updatedAfter) params.set("updated_after", options.updatedAfter);
+    if (options.hidden !== void 0) params.set("hidden", String(options.hidden));
+    if (options.immediatelyAvailableForReview !== void 0) params.set("immediately_available_for_review", String(options.immediatelyAvailableForReview));
+    if (options.immediatelyAvailableForLessons !== void 0) params.set("immediately_available_for_lessons", String(options.immediatelyAvailableForLessons));
+    if (options.subjectIds?.length) params.set("subject_ids", options.subjectIds.join(","));
+    if (options.slugs?.length) params.set("slugs", options.slugs.join(","));
+    if (options.srsStages?.length) params.set("srs_stages", options.srsStages.join(","));
+    if (options.availableBefore) params.set("available_before", options.availableBefore);
+    if (options.started !== void 0) params.set("started", String(options.started));
+    if (options.unlocked !== void 0) params.set("unlocked", String(options.unlocked));
+    if (options.page !== void 0) params.set("page", String(options.page));
+    const query = params.toString();
+    return query ? `?${query}` : "";
+  }
+  function normalizeWanikaniError(error) {
+    if (error instanceof WanikaniApiError) return error;
+    const status = httpStatusFromError(error);
+    if (!(error instanceof Error)) return new WanikaniApiError("WaniKani request failed.", status);
+    if (status === 401) return new WanikaniApiError("WaniKani token expired or was denied.", 401);
+    if (status === 403) return new WanikaniApiError("WaniKani token lacks permission for this request.", 403);
+    if (status !== void 0) return new WanikaniApiError(error.message, status);
+    return error;
+  }
+  function isRateLimitError(error) {
+    return error instanceof WanikaniApiError && error.status === 429 || /\(429\)|rate limit/i.test(error.message);
+  }
+  function rawSubjectLevel(value) {
+    if (!isRecord$3(value) || !isRecord$3(value.data)) return Number.POSITIVE_INFINITY;
+    return typeof value.data.level === "number" ? value.data.level : Number.POSITIVE_INFINITY;
+  }
+  function stableOptionsKey(options) {
+    return JSON.stringify(Object.fromEntries(Object.entries(options).sort(([left], [right]) => left.localeCompare(right))));
+  }
+  function trimBaseUrl(value) {
+    return value.replace(/\/+$/u, "");
+  }
+  function isRecord$3(value) {
+    return typeof value === "object" && value !== null;
+  }
+  const SETTINGS_LABEL_TEXT_CLASS = "jpdb-reader-settings-label-text";
+  function input(name, label, value, type = "text", attributes = {}) {
+    const fieldClass = ["jpdb-reader-settings-field"];
+    if (type === "number" || type === "color") fieldClass.push(`jpdb-reader-settings-field-${type}`);
+    return `<label class="${fieldClass.join(" ")}">${label}<input name="${name}" type="${type}" value="${escapeHtml$2(value)}" autocomplete="off"${attributeHtml(attributes)}></label>`;
+  }
+  function shortcutInput(name, label, value, placeholder = "Press keys") {
+    return `<label>${label}<input data-shortcut-input name="${name}" type="text" value="${escapeHtml$2(value)}" placeholder="${escapeHtml$2(placeholder)}" autocomplete="off" inputmode="none" aria-label="${escapeHtml$2(label)}"></label>`;
+  }
+  function checkbox(name, label, checked, attributes = {}) {
+    return `<label class="inline"><input name="${name}" type="checkbox" ${checked ? "checked" : ""}${booleanAttributeHtml(attributes)}>${label}</label>`;
+  }
+  function select(name, label, value, options) {
+    return `<label>${label}<select name="${name}">${options.map(
+      ([optionValue, text2]) => `<option value="${escapeHtml$2(optionValue)}" ${optionValue === value ? "selected" : ""}>${escapeHtml$2(text2)}</option>`
+    ).join("")}</select></label>`;
+  }
+  function radioGroup(name, label, value, options) {
+    return `<fieldset class="jpdb-reader-radio-group"><legend>${label}</legend>${options.map(
+      ([optionValue, text2]) => `<label class="inline"><input name="${name}" type="radio" value="${escapeHtml$2(optionValue)}" ${optionValue === value ? "checked" : ""}>${escapeHtml$2(text2)}</label>`
+    ).join("")}</fieldset>`;
+  }
+  function settingsTabButton(panel, label, active = false) {
+    return `<button class="jpdb-reader-settings-tab" type="button" role="tab" data-action="settings-panel" data-panel="${escapeHtml$2(panel)}" aria-controls="${settingsTabControls(panel)}" aria-selected="${active ? "true" : "false"}" tabindex="${active ? "0" : "-1"}">${escapeHtml$2(label)}</button>`;
+  }
+  function miniIcon(name) {
+    const paths = {
+      drag: '<path d="M9 5h.01"></path><path d="M15 5h.01"></path><path d="M9 12h.01"></path><path d="M15 12h.01"></path><path d="M9 19h.01"></path><path d="M15 19h.01"></path>',
+      up: '<path d="M12 19V5"></path><path d="m5 12 7-7 7 7"></path>',
+      down: '<path d="M12 5v14"></path><path d="m19 12-7 7-7-7"></path>',
+      remove: '<path d="M18 6 6 18"></path><path d="m6 6 12 12"></path>'
+    };
+    return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">${paths[name]}</svg>`;
+  }
+  function settingsTabControls(panel) {
+    return {
+      api: "jpdb-reader-settings-panel-api",
+      newTab: "jpdb-reader-settings-panel-newtab",
+      appearance: "jpdb-reader-settings-panel-appearance jpdb-reader-settings-panel-reader",
+      backup: "jpdb-reader-settings-panel-backup",
+      reading: "jpdb-reader-settings-panel-reader jpdb-reader-settings-panel-kanji",
+      dictionaries: "jpdb-reader-settings-panel-dictionaries jpdb-reader-settings-panel-kanji",
+      media: "jpdb-reader-settings-panel-audio jpdb-reader-settings-panel-immersion-kit jpdb-reader-settings-panel-ocr jpdb-reader-settings-panel-video jpdb-reader-settings-panel-youtube",
+      mining: "jpdb-reader-settings-panel-mining",
+      shortcuts: "jpdb-reader-settings-panel-shortcuts",
+      help: "jpdb-reader-settings-panel-help"
+    }[panel] ?? "jpdb-reader-settings-panel-api";
+  }
+  function attributeHtml(attributes) {
+    return Object.entries(attributes).map(([key, attributeValue]) => ` ${key}="${escapeHtml$2(String(attributeValue))}"`).join("");
+  }
+  function booleanAttributeHtml(attributes) {
+    return Object.entries(attributes).filter(([, value]) => value).map(([key]) => ` ${key}`).join("");
+  }
+  function updateSourceRowEditor(action, control) {
+    const row = control?.closest("[data-source-row]");
+    const container = row?.closest("[data-source-editor]");
+    if (!container || !row) return;
+    const rows = Array.from(container.querySelectorAll("[data-source-row]"));
+    const index = rows.indexOf(row);
+    const targetIndex = action === "dictionary-source-up" ? index - 1 : index + 1;
+    moveSourceRow(container, index, targetIndex);
+  }
+  function installSourceRowDrag(root) {
+    let drag = null;
+    const dragDocument = root.ownerDocument;
+    root.addEventListener("pointerdown", (event) => {
+      if (drag) return;
+      if (event.pointerType === "mouse" && event.button !== 0) return;
+      const handle = event.target.closest("[data-source-drag-handle]");
+      if (!handle || !root.contains(handle)) return;
+      const row = handle.closest("[data-source-row]");
+      const container = row?.closest("[data-source-editor]");
+      if (!row || !container) return;
+      event.preventDefault();
+      setSourceRowPointerCapture(handle, event.pointerId);
+      const pageScale = overlayViewport().pageScale;
+      drag = {
+        active: false,
+        container,
+        handle,
+        pageScale,
+        pointerId: event.pointerId,
+        row,
+        startY: sourceRowOverlayY(event.clientY, pageScale)
+      };
+      row.classList.add("jpdb-reader-order-row-drag-pending");
+      dragDocument.addEventListener("pointermove", moveDrag);
+      dragDocument.addEventListener("pointerup", finishDrag);
+      dragDocument.addEventListener("pointercancel", finishDrag);
+    });
+    const moveDrag = (event) => {
+      if (!drag || event.pointerId !== drag.pointerId) return;
+      const overlayY = sourceRowOverlayY(event.clientY, drag.pageScale);
+      if (!drag.active && Math.abs(overlayY - drag.startY) < 4) return;
+      event.preventDefault();
+      drag.active = true;
+      drag.row.classList.add("jpdb-reader-order-row-dragging");
+      moveSourceRowToPointer(drag.container, drag.row, overlayY, drag.pageScale);
+    };
+    const finishDrag = (event) => {
+      if (!drag || event.pointerId !== drag.pointerId) return;
+      releaseSourceRowPointerCapture(drag.handle, event.pointerId);
+      drag.row.classList.remove("jpdb-reader-order-row-drag-pending", "jpdb-reader-order-row-dragging");
+      syncSourceRowOrder(drag.container);
+      drag = null;
+      dragDocument.removeEventListener("pointermove", moveDrag);
+      dragDocument.removeEventListener("pointerup", finishDrag);
+      dragDocument.removeEventListener("pointercancel", finishDrag);
+    };
+    root.addEventListener("pointermove", moveDrag);
+    root.addEventListener("pointerup", finishDrag);
+    root.addEventListener("pointercancel", finishDrag);
+  }
+  function moveSourceRow(container, index, targetIndex) {
+    const rows = Array.from(container.querySelectorAll("[data-source-row]"));
+    if (!canMoveSourceRow(index, targetIndex, rows.length)) return;
+    const row = rows[index];
+    const target = rows[targetIndex];
+    if (targetIndex < index) container.insertBefore(row, target);
+    else container.insertBefore(row, target.nextSibling);
+    syncSourceRowOrder(container);
+  }
+  function setSourceRowPointerCapture(handle, pointerId) {
+    try {
+      handle.setPointerCapture?.(pointerId);
+    } catch {
+    }
+  }
+  function releaseSourceRowPointerCapture(handle, pointerId) {
+    try {
+      handle.releasePointerCapture?.(pointerId);
+    } catch {
+    }
+  }
+  function moveSourceRowToPointer(container, row, overlayY, pageScale) {
+    const rows = Array.from(container.querySelectorAll("[data-source-row]")).filter((candidate) => candidate !== row);
+    const target = rows.find((candidate) => {
+      const rect = sourceRectToOverlay(candidate.getBoundingClientRect(), candidate, pageScale);
+      return overlayY < rect.top + rect.height / 2;
+    });
+    if (target) container.insertBefore(row, target);
+    else container.appendChild(row);
+    syncSourceRowOrder(container);
+  }
+  function sourceRowOverlayY(clientY, pageScale) {
+    return layoutPointToOverlay({ x: 0, y: clientY }, pageScale).y;
+  }
+  function canMoveSourceRow(index, targetIndex, rowCount) {
+    return index >= 0 && targetIndex >= 0 && index < rowCount && targetIndex < rowCount && index !== targetIndex;
+  }
+  function syncSourceRowOrder(container) {
+    const rows = Array.from(container.querySelectorAll("[data-source-row]"));
+    rows.forEach((row, index) => {
+      const priority = row.querySelector('input[name$=".priority"]');
+      if (priority) priority.value = String(index);
+      const indexLabel = row.querySelector(".jpdb-reader-order-toggle span");
+      if (indexLabel) indexLabel.textContent = String(index + 1);
+    });
+    if (container.matches("[data-audio-source-editor]")) syncAudioSourceIndexes(container, rows);
+    if (container.classList.contains("jpdb-reader-lookup-links")) syncDictionaryLookupLinkIndexes(container, rows);
+  }
+  function syncAudioSourceIndexes(container, rows = Array.from(container.querySelectorAll("[data-audio-source-row]"))) {
+    const language2 = settingsLanguageForElement(container);
+    rows.forEach((row, index) => {
+      row.dataset.sourceId = `audio-${index}`;
+      row.querySelectorAll('[name^="audioSources."]').forEach((control) => {
+        control.name = control.name.replace(/^audioSources\.\d+\./, `audioSources.${index}.`);
+        if (control instanceof HTMLSelectElement && control.name.endsWith(".type")) {
+          control.setAttribute("aria-label", uiText(language2, "audioSourceNumber").replace("{number}", String(index + 1)));
+        }
+        if (control instanceof HTMLInputElement && control.name.endsWith(".enabled")) {
+          control.setAttribute("aria-label", uiText(language2, "enableAudioSourceNumber").replace("{number}", String(index + 1)));
+        }
+        if (control instanceof HTMLSelectElement && control.name.endsWith(".voice")) {
+          control.setAttribute("aria-label", uiText(language2, "textToSpeechVoiceNumber").replace("{number}", String(index + 1)));
+        }
+      });
+    });
+  }
+  function syncDictionaryLookupLinkIndexes(container, rows = Array.from(container.querySelectorAll("[data-lookup-link-row]"))) {
+    const language2 = settingsLanguageForElement(container);
+    rows.forEach((row, index) => {
+      row.dataset.index = String(index);
+      row.dataset.sourceId = `lookup-link-${index}`;
+      row.querySelectorAll('[name^="dictionaryLookupLinks."]').forEach((control) => {
+        control.name = control.name.replace(/^dictionaryLookupLinks\.\d+\./, `dictionaryLookupLinks.${index}.`);
+        if (control.name.endsWith(".label")) control.setAttribute("aria-label", uiText(language2, "lookupPillLabelNumber").replace("{number}", String(index + 1)));
+        if (control.name.endsWith(".urlTemplate")) control.setAttribute("aria-label", uiText(language2, "lookupUrlTemplateNumber").replace("{number}", String(index + 1)));
+      });
+    });
+  }
+  function settingsLanguageForElement(element2) {
+    const control = element2.closest("form")?.elements.namedItem("interfaceLanguage");
+    const value = control instanceof HTMLSelectElement ? control.value : "en";
+    return value === "auto" || value === "en" || value === "ja" ? value : "en";
   }
   const SOURCE_ROW_COPY_KEYS_BY_ID = {
     __jpdb__: { helpKey: "sourceHelpJpdb" },
@@ -58759,9 +59187,73 @@ ${spelling}`);
                 </div>
                 ${orderTools}
                 ${removeTools}
+                ${renderAudioSubSourcePanel(index, source, rows, language2)}
             </div>
         `).join("")}
     `;
+  }
+  function renderAudioSubSourcePanel(index, source, rows, language2) {
+    const visible = source.type === "custom-json";
+    return `
+        <div class="jpdb-reader-audio-subsources" data-audio-subsources ${visible ? "" : "hidden"}>
+            <div class="jpdb-reader-audio-subsource-list" data-audio-subsource-list>
+                ${renderAudioSubSourceList(index, audioSubSourcesForRow(source), rows, language2)}
+            </div>
+            <span class="jpdb-reader-audio-subsource-status" data-audio-subsource-status hidden></span>
+        </div>
+    `;
+  }
+  function audioSubSourcesForRow(source) {
+    return mergeAudioSubSources(source.subSources ?? [], knownAudioSubSourceNames(source.url));
+  }
+  function renderAudioSubSourceList(index, subSources, rows, language2) {
+    const help = subSources.length ? `<span class="jpdb-reader-audio-subsource-help">${escapedUiText$3(language2, "audioSubSourcesHelp")}</span>` : "";
+    return `
+        <input type="hidden" name="audioSources.${index}.subSourceCount" value="${subSources.length}">
+        ${help}
+        ${subSources.map((subSource, subIndex) => renderAudioSubSourceRow(index, subIndex, subSource, rows, language2)).join("")}
+    `;
+  }
+  function renderAudioSubSourceRow(index, subIndex, subSource, rows, language2) {
+    const overlap = audioSubSourceOverlapsEnabledRow(subSource, index, rows) ? `<span class="jpdb-reader-audio-subsource-overlap">${escapedUiText$3(language2, "audioSubSourceOverlapHint")}</span>` : "";
+    const toggleLabel = uiText(language2, "enableSourceName").replace("{name}", subSource.name);
+    return `
+        <label class="inline jpdb-reader-audio-subsource">
+            <input type="checkbox" name="audioSources.${index}.subSources.${subIndex}.enabled" aria-label="${escapeHtml$2(toggleLabel)}" ${subSource.enabled ? "checked" : ""}>
+            <span>${escapeHtml$2(subSource.name)}</span>
+            ${overlap}
+        </label>
+        <input type="hidden" name="audioSources.${index}.subSources.${subIndex}.name" value="${escapeHtml$2(subSource.name)}">
+    `;
+  }
+  const AUDIO_SUB_SOURCE_OVERLAP_TYPES = {
+    jpod: ["jpod101", "language-pod-101"],
+    jpod101: ["jpod101", "language-pod-101"],
+    japanesepod101: ["jpod101", "language-pod-101"],
+    languagepod101: ["language-pod-101"],
+    jisho: ["jisho"],
+    bunpro: ["bunpro"],
+    wiktionary: ["wiktionary"],
+    "lingua libre": ["lingua-libre"],
+    "lingua-libre": ["lingua-libre"]
+  };
+  function mergeAudioSubSources(existing, detectedNames) {
+    const merged = existing.map((subSource) => ({ ...subSource }));
+    const seen = new Set(merged.map((subSource) => audioSubSourceNameKey(subSource.name)));
+    for (const name of detectedNames) {
+      const trimmed = name.trim();
+      const key = audioSubSourceNameKey(trimmed);
+      if (!trimmed || seen.has(key)) continue;
+      seen.add(key);
+      merged.push({ name: trimmed, enabled: true });
+    }
+    return merged;
+  }
+  function audioSubSourceOverlapsEnabledRow(subSource, rowIndex, rows) {
+    if (!subSource.enabled) return false;
+    const overlapTypes = AUDIO_SUB_SOURCE_OVERLAP_TYPES[audioSubSourceNameKey(subSource.name)];
+    if (!overlapTypes) return false;
+    return rows.some((row, index) => index !== rowIndex && row.enabled && overlapTypes.includes(row.type));
   }
   function audioSourceSelectOptions(type, language2) {
     if (type === "custom") {
@@ -58824,6 +59316,9 @@ ${spelling}`);
     if (!row) return;
     row.querySelectorAll("[data-audio-url-field]").forEach((node) => {
       node.hidden = !audioSourceUsesUrl(type);
+    });
+    row.querySelectorAll("[data-audio-subsources]").forEach((node) => {
+      node.hidden = type !== "custom-json";
     });
     row.querySelectorAll("[data-audio-voice-field]").forEach((node) => {
       const voiceKind = audioSourceVoiceKind(type);
@@ -63974,6 +64469,7 @@ ${spelling}`);
     "textarea"
   ].join(",");
   const SETTINGS_FOCUS_SCROLL_MARGIN_PX = 16;
+  const AUDIO_SUB_SOURCE_TYPING_DELAY_MS = 900;
   const SETTINGS_FOCUS_SCROLL_RETRY_MS = 320;
   const CLOUD_SETTINGS_PENDING_ACTION_KEY = "__yomu_cloud_settings_sync_pending_action";
   const CLOUD_SETTINGS_PENDING_ACTION_TTL_MS = 10 * 60 * 1e3;
@@ -63996,6 +64492,19 @@ ${spelling}`);
   }
   function sourceRowIndex(form, row) {
     return Array.from(form.querySelectorAll("[data-audio-source-row]")).indexOf(row);
+  }
+  function probeableAudioSourceUrl(row) {
+    if (row.querySelector('select[name$=".type"]')?.value !== "custom-json") return "";
+    if (row.querySelector('input[name$=".enabled"]')?.checked === false) return "";
+    const url = row.querySelector("[data-audio-url-field]")?.value.trim() ?? "";
+    return isProbeableAudioSourceUrl(url) ? url : "";
+  }
+  function isProbeableAudioSourceUrl(url) {
+    try {
+      return ["http:", "https:"].includes(new URL(url).protocol);
+    } catch {
+      return false;
+    }
   }
   function recommendedDictionaryForControl(control) {
     const dictionary = control?.dataset.dictionaryId ? findRecommendedDictionary(control.dataset.dictionaryId) : void 0;
@@ -64693,6 +65202,7 @@ ${spelling}`);
     bindEditorControls(form) {
       suppressCredentialAutofill(form);
       syncBrowserTtsVoiceOptions(form);
+      this.bindAudioSubSourceDetection(form);
       if ("speechSynthesis" in window) {
         window.speechSynthesis.addEventListener("voiceschanged", () => syncBrowserTtsVoiceOptions(form), { once: true });
       }
@@ -64760,12 +65270,29 @@ ${spelling}`);
       void this.dependencies.lookupText(expression, word.dataset.sentence || expression, word);
       return true;
     }
+    // A pasted or corrected URL should fill its provider list without waiting
+    // for a blur, but not probe a prefix of what is still being typed.
+    bindAudioSubSourceDetection(form) {
+      let pending2;
+      form.addEventListener("input", (event) => {
+        const field = event.target?.closest("[data-audio-url-field]");
+        const row = field?.closest("[data-audio-source-row]");
+        if (!row) return;
+        clearTimeout(pending2);
+        pending2 = setTimeout(() => this.refreshAudioSubSources(form, row), AUDIO_SUB_SOURCE_TYPING_DELAY_MS);
+      });
+    }
     handleSettingsFormChange(form, event) {
       const sourceSelect = event.target.closest('select[name^="audioSources."][name$=".type"]');
       if (sourceSelect) {
         syncAudioSourceRow(sourceSelect.closest("[data-audio-source-row]"), sourceSelect.value);
         syncBrowserTtsVoiceOptions(form);
       }
+      const audioSourceControl = event.target.closest(
+        'select[name^="audioSources."][name$=".type"], [data-audio-url-field], input[name^="audioSources."][name$=".enabled"]'
+      );
+      const audioRow = audioSourceControl?.closest("[data-audio-source-row]");
+      if (audioRow) this.refreshAudioSubSources(form, audioRow);
       const templateControl = event.target.closest('select[name="ankiTemplateMode"], input[name="ankiFrontReading"], input[name="ankiFrontSentence"], input[name="ankiFrontImage"]');
       if (templateControl) {
         const preview = form.querySelector("[data-anki-template-preview]");
@@ -65372,8 +65899,67 @@ ${spelling}`);
       } finally {
         this.restoreTransientSettings(previous);
         button2?.removeAttribute("disabled");
+        this.renderKnownAudioSubSources(form);
       }
       return true;
+    }
+    /**
+     * Fills in each aggregator row's provider list without anything to press.
+     *
+     * Providers seen during ordinary lookups are already merged in when the
+     * rows render, so the common case costs no requests at all — including
+     * after a preview, which is why playback re-renders the lists.
+     *
+     * Sample lookups are only sent for a row the user just acted on (typing a
+     * URL, switching a row to Custom URL, enabling one). Merely opening
+     * Settings must never reach out on its own: the URL can be a private or
+     * third-party host the user has not agreed to contact yet.
+     */
+    refreshAudioSubSources(form, row) {
+      void this.detectAudioSubSourcesForRow(form, row);
+    }
+    renderKnownAudioSubSources(form) {
+      const language2 = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
+      for (const row of form.querySelectorAll("[data-audio-source-row]")) {
+        const url = row.querySelector("[data-audio-url-field]")?.value.trim() ?? "";
+        const known = url ? knownAudioSubSourceNames(url) : [];
+        if (known.length) this.renderDetectedAudioSubSources(form, row, known, language2);
+      }
+    }
+    async detectAudioSubSourcesForRow(form, row) {
+      const url = probeableAudioSourceUrl(row);
+      if (!url) return;
+      const language2 = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
+      const setDetectStatus = (message) => {
+        const status = row.querySelector("[data-audio-subsource-status]");
+        if (!status) return;
+        status.textContent = message;
+        status.hidden = !message;
+      };
+      const known = knownAudioSubSourceNames(url);
+      if (!known.length) setDetectStatus(uiText(language2, "audioDetectingSubSources"));
+      try {
+        const detected = await detectCustomJsonAudioSubSources(url, this.settings.audioTimeoutMs, this.settings.corsProxyUrl);
+        if (probeableAudioSourceUrl(row) !== url || !row.isConnected) return;
+        this.renderDetectedAudioSubSources(form, row, detected, language2);
+        setDetectStatus(detected.length ? "" : uiText(language2, "audioNoSubSourcesDetected"));
+      } catch (error) {
+        log$l.warn("Audio sub-source detection failed", error);
+        setDetectStatus(known.length ? "" : uiText(language2, "audioNoSubSourcesDetected"));
+      }
+    }
+    // Merges the detected names over whatever the form currently holds, so a
+    // toggle the user just changed survives a probe landing underneath them and
+    // a provider missing from this round keeps its saved state.
+    renderDetectedAudioSubSources(form, row, detected, language2) {
+      const list = row.querySelector("[data-audio-subsource-list]");
+      if (!list) return;
+      const index = Array.from(form.querySelectorAll("[data-audio-source-row]")).indexOf(row);
+      if (index < 0) return;
+      const data = new FormData(form);
+      const get = (key) => String(data.get(key) ?? "");
+      const merged = mergeAudioSubSources(normalizeAudioSubSources(readAudioSubSources(data, get, index)), detected);
+      setInnerHtml(list, renderAudioSubSourceList(index, merged, readAudioSources(data), language2));
     }
     async handleSettingsDictionaryAction(form, action, control, setStatus) {
       if (action === "delete-yomitan-dictionary") {
@@ -82613,6 +83199,23 @@ ${reading}`);
   const EN_LOCALE_RE = /^en(?:[-_][a-z]{2})?$/i;
   const JA_PARAMS = { hl: JA_LANG, gl: JA_COUNTRY };
   const JA_NEWS = { hl: JA_LANG, gl: JA_COUNTRY, ceid: "JP:ja" };
+  const JA_MARKER_PARAM_KEYS = [
+    "hl",
+    "gl",
+    "ceid",
+    "locale",
+    "ui_locale",
+    "mkt",
+    "market",
+    "lang",
+    "language",
+    "lng",
+    "region",
+    "country",
+    "cc"
+  ];
+  const JA_MARKER_VALUE_RE = /^(?:ja(?:[-_]jp)?|jp(?::ja)?)$/i;
+  const JA_PATH_SEGMENT_RE = /^ja(?:[-_]jp)?$/i;
   let alternateRedirectCleanup;
   function installPreferredJapaneseSiteLanguageFromStoredSettings() {
     const syncPreference = readStoredPreferenceEnabledSync();
@@ -82620,6 +83223,7 @@ ${reading}`);
       applyPreferredJapaneseSiteLanguage(syncPreference);
       return;
     }
+    if (readCachedPreferenceEnabled() === true) applyPageContextJapanesePreferences(true);
     void readStoredPreferenceEnabledAsync().then(applyPreferredJapaneseSiteLanguage);
   }
   function applyPreferredJapaneseSiteLanguage(enabled, revertOnDisable = false) {
@@ -82629,11 +83233,11 @@ ${reading}`);
     if (enabled) {
       applySitePreferenceCookies();
       schedulePreferredJapaneseSiteRedirect();
-    } else {
-      clearSitePreferenceCookies();
-      cancelPreferredJapaneseSiteRedirectWatcher();
-      if (revertOnDisable) attemptPreferredDefaultSiteRedirect();
+      return;
     }
+    clearSitePreferenceCookies();
+    cancelPreferredJapaneseSiteRedirectWatcher();
+    if (revertOnDisable) attemptPreferredDefaultSiteRedirect();
   }
   function preferredJapaneseSiteUrl(sourceHref, root) {
     const current = parseHttpUrl(sourceHref);
@@ -82644,9 +83248,14 @@ ${reading}`);
     if (!target || target.href === current.href) return null;
     return target.href;
   }
+  function preferredDefaultSiteUrl(sourceHref, root) {
+    const current = parseHttpUrl(sourceHref);
+    if (!current) return null;
+    const target = defaultAlternateLinkUrl(current, root) ?? withoutJapaneseMarkers(current);
+    if (!target || target.href === current.href) return null;
+    return target.href;
+  }
   function readStoredPreferenceEnabledSync() {
-    const cached = readCachedPreferenceEnabled();
-    if (typeof cached === "boolean") return cached;
     for (const key of SETTINGS_STORAGE_KEYS) {
       const stored = gmStorageGetSync(key, void 0);
       if (stored && typeof stored === "object" && typeof stored.preferJapaneseSiteLanguage === "boolean") {
@@ -82656,15 +83265,14 @@ ${reading}`);
     return void 0;
   }
   async function readStoredPreferenceEnabledAsync() {
-    const cached = readCachedPreferenceEnabled();
-    if (typeof cached === "boolean") return cached;
     for (const key of SETTINGS_STORAGE_KEYS) {
       const stored = await gmStorageGet(key, void 0);
       if (stored && typeof stored === "object" && typeof stored.preferJapaneseSiteLanguage === "boolean") {
         return stored.preferJapaneseSiteLanguage;
       }
     }
-    return DEFAULT_SETTINGS.preferJapaneseSiteLanguage;
+    const cached = readCachedPreferenceEnabled();
+    return typeof cached === "boolean" ? cached : DEFAULT_SETTINGS.preferJapaneseSiteLanguage;
   }
   function readCachedPreferenceEnabled() {
     try {
@@ -82794,7 +83402,15 @@ ${reading}`);
   function currentLocationHostname() {
     return typeof location.hostname === "string" ? location.hostname.toLowerCase() : "";
   }
+  function isTopLevelFrame() {
+    try {
+      return window.top === window;
+    } catch {
+      return false;
+    }
+  }
   function schedulePreferredJapaneseSiteRedirect() {
+    if (!isTopLevelFrame()) return;
     if (hostAlreadyRedirectedThisSession()) return;
     if (attemptPreferredJapaneseSiteRedirect()) return;
     installAlternateRedirectWatcher();
@@ -82839,11 +83455,25 @@ ${reading}`);
     }
   }
   function attemptPreferredDefaultSiteRedirect() {
+    if (!isTopLevelFrame()) return false;
     const href = currentLocationHref();
-    const target = href ? rememberedRedirectSourceForTarget(href) : null;
-    if (!target) return false;
+    const target = href ? rememberedRedirectSourceForTarget(href) ?? preferredDefaultSiteUrl(href, document) : null;
+    forgetSessionRedirectState();
+    if (!target || target === href) return false;
     replaceLocation(target);
     return true;
+  }
+  function forgetSessionRedirectState() {
+    try {
+      sessionStorage.removeItem(REDIRECT_CACHE_KEY);
+      const host = currentLocationHost();
+      const raw = host ? sessionStorage.getItem(REDIRECT_HOSTS_KEY) : null;
+      if (!raw) return;
+      const hosts = JSON.parse(raw).filter((entry) => entry !== host);
+      if (hosts.length) sessionStorage.setItem(REDIRECT_HOSTS_KEY, JSON.stringify(hosts));
+      else sessionStorage.removeItem(REDIRECT_HOSTS_KEY);
+    } catch {
+    }
   }
   function currentLocationHref() {
     return typeof location.href === "string" ? location.href : "";
@@ -82931,10 +83561,16 @@ ${reading}`);
     }
   }
   function japaneseAlternateLinkUrl(current, root) {
+    return alternateLinkUrl(current, root, /^ja(?:[-_]|$)/i, alts);
+  }
+  function defaultAlternateLinkUrl(current, root) {
+    return alternateLinkUrl(current, root, /^x-default$/i, metadataAlts) ?? alternateLinkUrl(current, root, EN_LOCALE_RE, metadataAlts);
+  }
+  function alternateLinkUrl(current, root, hreflang, candidates) {
     if (!root) return null;
     try {
-      for (const element2 of alts(root)) {
-        if (!/^ja(?:[-_]|$)/i.test(element2.getAttribute("hreflang") ?? "")) continue;
+      for (const element2 of candidates(root)) {
+        if (!hreflang.test(element2.getAttribute("hreflang") ?? "")) continue;
         const href = element2.getAttribute("href");
         const candidate = href ? parseHttpUrl(new URL(href, current.href).href) : null;
         if (candidate && candidate.href !== current.href) return candidate;
@@ -82944,8 +83580,28 @@ ${reading}`);
     }
     return null;
   }
+  function withoutJapaneseMarkers(current) {
+    const next = new URL(current.href);
+    let changed = false;
+    for (const key of JA_MARKER_PARAM_KEYS) {
+      const value = next.searchParams.get(key);
+      if (!value || !JA_MARKER_VALUE_RE.test(value)) continue;
+      next.searchParams.delete(key);
+      changed = true;
+    }
+    const parts = next.pathname.split("/");
+    if (JA_PATH_SEGMENT_RE.test(parts[1] ?? "")) {
+      parts.splice(1, 1);
+      next.pathname = parts.join("/") || "/";
+      changed = true;
+    }
+    return changed ? next : null;
+  }
   function alts(root) {
     return root.querySelectorAll("link[rel~=alternate][hreflang][href],a[hreflang][href]");
+  }
+  function metadataAlts(root) {
+    return root.querySelectorAll("link[rel~=alternate][hreflang][href]");
   }
   function siteRuleJapaneseUrl(current) {
     const hostname = current.hostname.toLowerCase();

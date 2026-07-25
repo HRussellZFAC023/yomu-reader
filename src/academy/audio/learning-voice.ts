@@ -1,8 +1,8 @@
 import type { Disposable, PronunciationService } from '../integration/yomu-bridge';
 import type { AudioDirector } from './director';
 
-export const LEARNING_VOICE_CATALOG_URL = '/academy/audio/learning-voice-playback.json';
-export const LEARNING_VOICE_SCHEMA = 'yomu-academy.learning-voice-playback.v3';
+const LEARNING_VOICE_CATALOG_URL = '/academy/audio/learning-voice-playback.json';
+const LEARNING_VOICE_SCHEMA = 'yomu-academy.learning-voice-playback.v3';
 
 export const LEARNING_VOICE_BINDING_IDENTITIES = Object.freeze({
     'lesson-zero:greeting-rie-model': Object.freeze({
@@ -71,12 +71,12 @@ export const LEARNING_VOICE_BINDING_IDENTITIES = Object.freeze({
         sourceSha256: '69472717888dbcdbd5277f2328ef49f43377f200832ce224244f8cf3ac56af82',
     }),
     'lesson-zero:desk-language:homework': Object.freeze({
-        lineId: 'rie-lesson-zero-homework',
+        lineId: 'lesson-zero:desk-language:homework',
         japanese: 'しゅくだい。しゅくだいです。',
         sourceSha256: '6d79b7fadcc1887054829bb886255dc2eaced84e8021a528ecb3a82fa9c0ac29',
     }),
     'lesson-zero:desk-language:example': Object.freeze({
-        lineId: 'rie-lesson-zero-example',
+        lineId: 'lesson-zero:desk-language:example',
         japanese: 'これは、れいです。れい。',
         sourceSha256: '73e674f41209f7b8dd1b945d973fe88ac51f6dfc510b7546ae4cff246d071a4b',
     }),
@@ -107,7 +107,7 @@ export const LEARNING_VOICE_BINDING_IDENTITIES = Object.freeze({
     }),
 } satisfies Readonly<Record<string, LearningVoiceLineIdentity>>);
 
-export type LearningVoiceBindingId = keyof typeof LEARNING_VOICE_BINDING_IDENTITIES;
+type LearningVoiceBindingId = keyof typeof LEARNING_VOICE_BINDING_IDENTITIES;
 
 export interface LearningVoiceBinding {
     readonly lineId: string;

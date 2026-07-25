@@ -724,6 +724,13 @@ function firstLocalPitchPattern(resolution: LocalPitchResolution): string {
 // expected reading as a wildcard. Once the current DOM exposes a real reading,
 // require it to match so consecutive homographs cannot retain reading-specific
 // definitions from the preceding card.
+// Only an on -> off transition undoes the Japanese URL; re-applying an already-off
+// preference (every startup, every unrelated settings write) must leave a Japanese
+// page the user navigated to themselves exactly where it is.
+function japaneseSiteLanguageDisabled(previous: ReaderSettings, next: ReaderSettings): boolean {
+    return previous.preferJapaneseSiteLanguage && !next.preferJapaneseSiteLanguage;
+}
+
 function pageAddonKeysMatch(expected: string, mounted: string): boolean {
     if (expected === mounted) return true;
     const expectedParts = expected.split(':');
@@ -1181,9 +1188,10 @@ export class ReaderApp {
         return new Controller({
             getSettings: () => this.settings,
             setSettings: settings => {
+                const japaneseSiteOptOut = japaneseSiteLanguageDisabled(this.settings, settings);
                 this.settings = settings;
                 this.applyTheme();
-                this.applyPreferredJapaneseSiteLanguage();
+                this.applyPreferredJapaneseSiteLanguage(settings, japaneseSiteOptOut);
             },
             showSettings: panel => this.showSettings(panel),
             parseJapanese: panel => void this.parseOnboardingJapanese(panel),
@@ -1444,9 +1452,13 @@ export class ReaderApp {
 
     private async applyRemoteSettings(settings: ReaderSettings): Promise<void> {
         const pauseChanged = settings.annotationsPaused !== this.settings.annotationsPaused;
+        // Turning the preference off in another tab is still the user turning it
+        // off here, so this tab leaves its Japanese URL as well instead of staying
+        // Japanese until its next reload.
+        const japaneseSiteOptOut = japaneseSiteLanguageDisabled(this.settings, settings);
         this.settings = settings;
         configureLogger({ forceEnabled: settings.enableLogging });
-        this.applyPreferredJapaneseSiteLanguage(settings);
+        this.applyPreferredJapaneseSiteLanguage(settings, japaneseSiteOptOut);
         this.applyTheme(settings);
         this.applyWordColors(settings);
         if (!this.embeddedFrame) this.installFab();
@@ -9974,9 +9986,14 @@ export class ReaderApp {
                 // (Anki tests, audio previews with unsaved form values) apply
                 // the values but never the transition.
                 const pauseChanged = settings.annotationsPaused !== this.settings.annotationsPaused;
+                // Unticking the Japanese-site-language box is the same opt-out as
+                // the puck's 日, so it has to leave the site's Japanese URL too;
+                // only the transition reverts, or saving any unrelated setting
+                // would navigate away from a Japanese page the user chose.
+                const japaneseSiteOptOut = japaneseSiteLanguageDisabled(this.settings, settings);
                 this.settings = settings;
                 if (options?.transient) return;
-                this.applyPreferredJapaneseSiteLanguage();
+                this.applyPreferredJapaneseSiteLanguage(settings, japaneseSiteOptOut);
                 if (!settings.ankiEnabled) this.clearRenderedAnkiWordStates();
                 if (pauseChanged) this.applyAnnotationsPausedState();
             },

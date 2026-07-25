@@ -26,12 +26,16 @@ const RUNTIME_SOURCE_PATHS = [
     'src/academy/audio/worker-tts.ts',
     'src/academy/content/lesson-zero-follow-instructions.ts',
     'src/academy/content/lesson-zero-greeting.ts',
+    'src/academy/content/lesson-zero-desk-language.ts',
     'src/academy/content/lesson-zero-vowel-anchors.ts',
     'src/academy/domain/classroom-instruction-session.ts',
+    'src/academy/domain/lesson-zero-desk-language-session.ts',
     'src/academy/domain/world-locations.ts',
+    'src/academy/routing/lesson-flow.ts',
     'src/academy/routing/world-flow.ts',
     'src/academy/ui/cafe-world.ts',
     'src/academy/ui/classroom-instruction-screen.ts',
+    'src/academy/ui/lesson-zero-desk-language-screen.ts',
     'src/academy/ui/lesson-zero-greeting-screen.ts',
     'src/academy/ui/lesson-zero-vowel-screen.ts',
     'src/academy/ui/lesson-zero-vowel-writing-screen.ts',
@@ -123,6 +127,22 @@ const scenarios = [
         },
         ready: '.academy-classroom-instruction-screen[data-session-status="ready"]',
         success: '.academy-classroom-instruction-screen[data-session-status="complete"]',
+    },
+    {
+        name: 'desk language',
+        kind: 'desk-language',
+        bindingIds: [
+            'lesson-zero:desk-language:homework',
+            'lesson-zero:desk-language:example',
+        ],
+        route: 'source-activity',
+        context: {
+            lessonId: 'lesson:foundation-00',
+            activityId: 'activity:lesson-zero-desk-language',
+            lessonZeroDeskLanguageProgress: '__DELETE__',
+        },
+        ready: '.academy-desk-language-screen[data-session-status="ready"][data-session-stage="meet-homework"]',
+        success: '.academy-desk-language-screen[data-session-status="complete"][data-session-stage="complete"]',
     },
 ];
 const catalogSource = readFileSync(CATALOG_PATH);
@@ -301,6 +321,7 @@ async function runScenario(page, scenario, expected) {
     try {
         if (scenario.kind === 'vowels') await playVowelTeachingSequence(page);
         else if (scenario.kind === 'classroom') await completeClassroomRhythm(page);
+        else if (scenario.kind === 'desk-language') await completeDeskLanguage(page);
         else await page.locator(scenario.selector).click();
 
         await page.locator(scenario.success).waitFor({ state: 'visible' });
@@ -364,6 +385,38 @@ async function completeClassroomRhythm(page) {
         await page.locator('.academy-classroom-instruction-feedback[data-outcome="pass"]').waitFor();
         await page.locator('.academy-classroom-instruction-continue').click();
     }
+}
+
+async function completeDeskLanguage(page) {
+    const replay = page.locator('[data-desk-action="replay"]');
+    const nextIntroduction = page.locator('[data-desk-action="next-introduction"]');
+
+    await playDeskWord(page, replay, 'lesson-zero:desk-language:homework');
+    await nextIntroduction.click();
+    await page.locator('.academy-desk-language-screen[data-session-stage="meet-example"]').waitFor();
+    await playDeskWord(page, replay, 'lesson-zero:desk-language:example');
+    await nextIntroduction.click();
+    await page.locator('.academy-desk-language-screen[data-session-stage="practice"]').waitFor();
+
+    await page.locator('[data-choice="option-0"]').click();
+    await page.locator('.academy-desk-language-screen[data-session-stage="practice"]').waitFor();
+    await page.locator('[data-choice="option-1"]').click();
+    await page.locator('[data-desk-action="begin-transfer"]').click();
+    await page.locator('.academy-desk-language-screen[data-session-stage="transfer"]').waitFor();
+    await page.locator('[data-choice="option-0"]').click();
+    await page.locator('.academy-desk-language-screen[data-session-stage="transfer"]').waitFor();
+    await page.locator('[data-choice="option-1"]').click();
+}
+
+async function playDeskWord(page, replay, bindingId) {
+    const asset = catalogByBinding.get(bindingId).url;
+    await Promise.all([
+        page.waitForResponse(response => (
+            [200, 206].includes(response.status())
+            && new URL(response.url()).pathname === asset
+        )),
+        replay.click(),
+    ]);
 }
 
 async function enroll(page) {

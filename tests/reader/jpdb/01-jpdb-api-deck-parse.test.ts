@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { hostedAccentCssVariables } from '../../../src/reader/core/hosted-accent-css';
 import {
     registerReaderHelpersCleanup,
     DEFAULT_SETTINGS,
@@ -784,7 +785,10 @@ describe('reader helpers', () => {
         expect(normalizedDocsCss).toContain('.dark .VPButton.brand:hover, .dark .VPButton.brand:focus-visible { border-color: var(--vp-button-brand-hover-border) !important; background-color: var(--vp-button-brand-hover-bg) !important; color: var(--vp-button-brand-hover-text) !important; }');
         expect(normalizedDocsCss).toContain('.dark .VPButton.brand:active { border-color: var(--vp-button-brand-active-border) !important; background-color: var(--vp-button-brand-active-bg) !important; color: var(--vp-button-brand-active-text) !important; }');
         expect(normalizedDocsCss).not.toContain('.dark .VPButton.brand { border-color: #25573d !important; background-color: #25573d !important;');
-        expect(DOCS_THEME_TS).toContain("root.style.setProperty('--vp-button-brand-active-bg', brandActive);");
+        // Those variables come from the shared accent map, stamped by both the
+        // pre-paint bootstrap and the hydrated theme.
+        expect(hostedAccentCssVariables('#5ea780', true)['--vp-button-brand-active-bg']).toMatch(/^#[0-9a-f]{6}$/);
+        expect(DOCS_THEME_TS).toContain('for (const [name, value] of Object.entries(variables)) root.style.setProperty(name, value);');
     });
 
 

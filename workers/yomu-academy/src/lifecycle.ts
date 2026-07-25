@@ -18,7 +18,7 @@ interface DeletionReceiptRow {
 }
 
 export const DELETION_RECEIPT_RETENTION_MS = 90 * 24 * 60 * 60_000;
-export const LIFECYCLE_PROOF_GRANT_TTL_MS = 60 * 60_000;
+const LIFECYCLE_PROOF_GRANT_TTL_MS = 60 * 60_000;
 
 const PRODUCTION_PROOF_SCOPE = 'account-lifecycle-production-test';
 const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;

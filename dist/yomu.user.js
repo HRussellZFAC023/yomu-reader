@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.7.2
+// @version 1.8.6
 // @author Henry Russell
 // @description Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and a study page.
 // @license MIT
@@ -11,15 +11,15 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-annotations.681e22120d9a.user.js#sha256=aB4iEg2agBbiuHLTqi/ZxxG/C7r2Nuw4ILg5UF9Qttk=
-// @require https://yomureader.com/greasyfork/yomu-anki.d36f764e0f24.user.js#sha256=0292Tg8kRFbt3mkaAcUJ1zBkVjbHN1dgiAYYRT00VSk=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.bfc22f6012ee.user.js#sha256=v8IvYBLu/Y0wCQoDElRImFbaWbiR9yJEuDQOMnjEWMM=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.62c4f0dc128c.user.js#sha256=YsTw3BKMFfj8KSP0mTOmaK0v0R6ZUquIzw5VPgka+1c=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.8b7ea0485899.user.js#sha256=i36gSFiZF/9rV+gLjTbAgAuXLnSfkQ5x8VeZLxZLkVc=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.b8c0a7216f1c.user.js#sha256=uMCnIW8cVanHZpmzMsg3w72E3oHZI1M2jw860OGETOU=
-// @require https://yomureader.com/greasyfork/yomu-bunpro.88aa755b3cb1.user.js#sha256=iKp1WzyxHBnjh2hT59JGKDJhaNz9yw3Azco+WgPy87A=
-// @require https://yomureader.com/greasyfork/yomu-video.d2235e30a955.user.js#sha256=0iNeMKlVIxwvIBymhj9ODnjMmjwP1s6BtzD4KvmZ2Qk=
-// @resource yomuCss  https://yomureader.com/yomu.ca61e9465afb.css#sha256=ymHpRlr7G7M14Z5Sh7lFeHhfjWFQ2o0POaTjp4Zmvyg=
+// @require https://yomureader.com/greasyfork/yomu-annotations.2029f45a0ce0.user.js#sha256=ICn0WgzgGAd0tLoF8aHksLr0mTnI+lzWr0F6x6q3nCM=
+// @require https://yomureader.com/greasyfork/yomu-anki.d8f901f9abba.user.js#sha256=2PkB+au6tagHYrn0c3R9HV5iSUXmw6t2SPEbaXPeVek=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.cc3205d51a13.user.js#sha256=zDIF1RoTZcJAX6CD82h+PpzRC2qUMeAm4m1OMLk1DWE=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.a0095cf148dd.user.js#sha256=oAlc8UjdhTdBNLgwGI1eu2eqjEZueexI6EjFpoHh6nI=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.6db9d7818640.user.js#sha256=bbnXgYZA9WrWhizlRfvezrm4SRJGDlg0TAWs3RN3C9k=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.a809ada67399.user.js#sha256=qAmtpnOZGbLUb6nwpAbNxkWj/76j5/+gpBuRuuyvOZk=
+// @require https://yomureader.com/greasyfork/yomu-bunpro.5291183ed9dc.user.js#sha256=UpEYPtncf4zmiscNz/3sX0fIrQQQxn8saW8XwuootWk=
+// @require https://yomureader.com/greasyfork/yomu-video.66c7e871c623.user.js#sha256=ZsfoccYjUZG5qO95MFKY0clsLOT3xkeRGDWWJVIiDM4=
+// @resource yomuCss  https://yomureader.com/yomu.fd5e193e82d9.css#sha256=/V4ZPoLZVoOfgzg87wq1PdiaX+BViV5VpfvYRarTPUs=
 // @connect api.jiten.moe
 // @connect jpdb.io
 // @connect api.wanikani.com
@@ -1440,6 +1440,13 @@ const INTERACTIVE_LINK_SELECTOR = 'a[href],[role="link"]';
 const INTERACTIVE_LINK_CONTEXT_SELECTOR = roleSelectors("menu,menubar,toolbar,tablist");
 const CONTENT_CHIP_ROOT_SELECTOR = ".yomu-hosted-overflow-group";
 const NAMED_CONTENT_ROOT_SELECTOR = `${CONTENT_CHIP_ROOT_SELECTOR},.viewer-title-bar,.bookTitleText,#bookDescription`;
+const COMMAND_CONTROL_SELECTOR = 'button,summary,[role="button"]';
+function isCommandControl(el) {
+  const control = el.closest(COMMAND_CONTROL_SELECTOR);
+  if (!control) return false;
+  if (isConversationTextClass(control) || isMediaTextContentControl(control)) return false;
+  return !control.closest(CONTENT_CHIP_ROOT_SELECTOR) && !control.closest(NAMED_CONTENT_ROOT_SELECTOR);
+}
 function interactivePassiveControl(element) {
   const temporalMetadata = element.closest("time,[datetime]");
   if (temporalMetadata && isCompactTemporalMetadata(temporalMetadata)) return temporalMetadata;
@@ -3347,7 +3354,7 @@ const MANAGED_STATE_MANIFEST = [
   { owner: "srs/account-sync", kind: "gm", key: "yomu:private:academy-device-pending:v1" },
   { owner: "app/logger", kind: "gm", key: "yomu:enable-logs" },
   { owner: "app/main", kind: "gm", key: "yomu:jpdb-review-examples-visible:v1" },
-  { owner: "app/preferred-site-language", kind: "gm", key: "yomu:prefer-japanese-site-language" },
+  { owner: "app/preferred-site-language", kind: "local", key: "yomu:prefer-japanese-site-language" },
   { owner: "app/preferred-site-language", kind: "session", key: "yomu:jps" },
   { owner: "app/preferred-site-language", kind: "session", key: "yomu:jps:hosts" },
   { owner: "app/storage", kind: "gm", key: "yomu:srs-local:v1" },
@@ -6306,6 +6313,183 @@ function sharedHexToRgb(color, normalizeColor = normalizeHexColor) {
   parseInt(safe.slice(5, 7), 16)
   ];
 }
+const YOMU_HOSTED_AUDIO_SOURCE = { type: "custom-json", url: YOMU_HOSTED_AUDIO_URL, voice: "", enabled: true };
+function getOrderedAudioSources(settings) {
+  const sources = settings.audioSources.filter((source) => source.enabled);
+  if (!settings.audioEnableDefaultSources) return sources;
+  const hosted = settings.audioSources.find(isYomuHostedAudioSource) ?? YOMU_HOSTED_AUDIO_SOURCE;
+  return [
+  ...hosted.enabled ? [{ ...hosted }] : [],
+  ...sources.filter((source) => !isYomuHostedAudioSource(source))
+  ];
+}
+function isYomuHostedAudioSource(source) {
+  return source.type === "custom-json" && source.url.trim() === YOMU_HOSTED_AUDIO_URL;
+}
+function preloadableAudioSources(sources, settings) {
+  return settings.audioTtsMode === "source-order" ? sources.filter((source) => !isBrowserTextToSpeechSource(source)) : sources.filter((source) => !isTextToSpeechFallbackSource(source));
+}
+function cheapCandidatePreloadAudioSources(sources, card) {
+  return sources.filter((source) => canResolveAudioCandidatesWithoutNetwork(source, card));
+}
+function canResolveAudioCandidatesWithoutNetwork(source, card) {
+  switch (source.type) {
+  case "custom":
+  case "jpod101":
+  case "bunpro":
+    return true;
+  case "jiten-tts":
+    return hasJitenAudioReference(card);
+  default:
+    return false;
+  }
+}
+function hasJitenAudioReference(card) {
+  return isPositiveFiniteInteger(card.jitenWordId) && isFiniteNonNegativeInteger(card.jitenReadingIndex) || card.source === "jiten" && isPositiveFiniteInteger(card.vid) && isFiniteNonNegativeInteger(card.sid);
+}
+function isPositiveFiniteInteger(value) {
+  return typeof value === "number" && Number.isInteger(value) && value > 0;
+}
+function isFiniteNonNegativeInteger(value) {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0;
+}
+function audioPreloadLimits$1(options) {
+  return {
+  sourceLimit: Math.max(1, options.sourceLimit ?? 1),
+  candidateLimit: Math.max(1, options.candidateLimit ?? 1),
+  prepareAudio: options.prepareAudio !== false
+  };
+}
+function orderAudioCandidates(candidates, mode, bagKey, shuffledAudio) {
+  return orderAudioDeckEntries(candidates.map((candidate, index) => ({
+  candidate,
+  id: audioCandidateDeckId(candidate, index)
+  })), mode, bagKey, shuffledAudio);
+}
+function audioCandidateSelectionMode(sourceType, mode) {
+  return sourceType === "jpdb-tts" || sourceType === "jiten-tts" ? "random" : mode;
+}
+function orderAudioSources(sources, card) {
+  return audioSourceDeckEntries(sources, getAudioSourceBagKey(sources, card));
+}
+function audioSourceDeckEntries(sources, bagKey) {
+  return sources.map((source, index) => {
+  const signature = getAudioSourceSignature(source);
+  return {
+    source,
+    id: getAudioSourceDeckId(signature, index),
+    bagKey,
+    signature
+  };
+  });
+}
+function isBrowserTextToSpeechSource(source) {
+  return source.type === "text-to-speech" || source.type === "text-to-speech-reading";
+}
+function isApiTextToSpeechSource(source) {
+  return source.type === "jiten-tts" || source.type === "jpdb-tts";
+}
+function isTextToSpeechFallbackSource(source) {
+  return isApiTextToSpeechSource(source) || isBrowserTextToSpeechSource(source);
+}
+function audioSubSourceNameKey(name) {
+  return name.trim().normalize("NFC").toLowerCase();
+}
+function disabledAudioSubSourceNameKeys(source) {
+  return new Set((source.subSources ?? []).filter((subSource) => !subSource.enabled).map((subSource) => audioSubSourceNameKey(subSource.name)));
+}
+function audioSubSourceFilterKey(source) {
+  return [...disabledAudioSubSourceNameKeys(source)].sort().join("");
+}
+function registerAudioAttempt(triedUrls, candidate) {
+  const candidateKey2 = normalizeAttemptedAudioUrl(candidate.url);
+  if (triedUrls.has(candidateKey2)) return false;
+  triedUrls.add(candidateKey2);
+  return true;
+}
+function getAudioBagKey(source, card) {
+  return [
+  source.type,
+  source.url,
+  source.voice,
+  audioSubSourceFilterKey(source),
+  card.spelling,
+  card.reading
+  ].join("");
+}
+function getJpdbAudioBagKey(audioIds) {
+  return [
+  "jpdb-audio",
+  ...[...audioIds].sort()
+  ].join("");
+}
+function getAudioCandidateCacheKey(source, card) {
+  return [
+  source.type,
+  source.url.trim(),
+  source.voice.trim(),
+  audioSubSourceFilterKey(source),
+  card.spelling,
+  card.reading
+  ].join("");
+}
+function preparedAudioCacheKey(candidate, mode, audioViaBlob) {
+  return [
+  normalizeAttemptedAudioUrl(candidate.url),
+  normalizeAttemptedAudioUrl(candidate.sourceUrl),
+  mode,
+  audioViaBlob ? "blob" : "direct"
+  ].join("");
+}
+function cloneAudioCandidates(candidates) {
+  return candidates.map((candidate) => ({ ...candidate }));
+}
+function normalizeAttemptedAudioUrl(value) {
+  try {
+  const url = new URL(value, location.href);
+  url.hash = "";
+  return url.href;
+  } catch {
+  return value;
+  }
+}
+function audioCandidateDeckId(candidate, index) {
+  if (candidate.jpdbAudioId) return `jpdb:${candidate.jpdbAudioId}`;
+  return [
+  normalizeAttemptedAudioUrl(candidate.url),
+  normalizeAttemptedAudioUrl(candidate.sourceUrl),
+  index
+  ].join("\0");
+}
+function orderAudioDeckEntries(entries2, mode, bagKey, shuffledAudio) {
+  if (mode !== "random" || !entries2.length) return entries2;
+  const byId = new Map(entries2.map((entry) => [entry.id, entry]));
+  const ordered = [];
+  for (const id of shuffledAudio.order(bagKey, entries2.map((entry) => entry.id))) {
+  const entry = byId.get(id);
+  if (entry) ordered.push(entry);
+  }
+  return ordered;
+}
+function getAudioSourceBagKey(sources, card) {
+  return [
+  "audio-sources",
+  card.spelling,
+  card.reading,
+  ...sources.map(getAudioSourceSignature)
+  ].join("");
+}
+function getAudioSourceDeckId(signature, index) {
+  return `${index}\0${signature}`;
+}
+function getAudioSourceSignature(source) {
+  return [
+  source.type,
+  source.url.trim(),
+  source.voice.trim(),
+  audioSubSourceFilterKey(source)
+  ].join("\0");
+}
 function matchesShortcut(event, shortcut = "") {
   if (!shortcut) return false;
   const parts = parseShortcut(shortcut);
@@ -7892,12 +8076,30 @@ function normalizeAudioSource(value) {
   const record = audioSourceRecord(value);
   if (!record) return null;
   if (!isAudioSourceType(record.type)) return null;
+  const subSources = normalizeAudioSubSources(record.subSources);
   return {
   type: record.type,
   url: stringValue$2(record.url),
   voice: stringValue$2(record.voice),
-  enabled: audioSourceEnabled(record.enabled)
+  enabled: audioSourceEnabled(record.enabled),
+  ...subSources.length ? { subSources } : {}
   };
+}
+function normalizeAudioSubSources(value) {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set();
+  const subSources = [];
+  for (const entry of value) {
+  if (!entry || typeof entry !== "object") continue;
+  const record = entry;
+  const name = stringValue$2(record.name).trim();
+  if (!name) continue;
+  const key = audioSubSourceNameKey(name);
+  if (seen.has(key)) continue;
+  seen.add(key);
+  subSources.push({ name, enabled: audioSourceEnabled(record.enabled) });
+  }
+  return subSources;
 }
 function audioSourceRecord(value) {
   return value && typeof value === "object" ? value : null;
@@ -8246,6 +8448,7 @@ function textTargetFromAcceptedNode(node) {
   }
   const suppressRuby = decorationSuppressesRuby(decoration);
   const passiveInteraction = isPassiveInteractionElement(parent) || suppressRuby;
+  const commandControl = decoration === "interactive-passive" && isCommandControl(parent);
   return {
   node,
   text,
@@ -8255,7 +8458,8 @@ function textTargetFromAcceptedNode(node) {
   suppressRuby,
   proseWrap: shouldWrapScanTargetAsProse(parent, suppressRuby, passiveInteraction),
   layoutSensitive: isLayoutSensitiveScanElement(parent) || isGeometryFragileText(parent, text),
-  passiveInteraction
+  passiveInteraction,
+  commandControl
   };
 }
 function shouldWrapScanTargetAsProse(parent, suppressRuby, passiveInteraction) {
@@ -8395,6 +8599,7 @@ function fragmentTextTargetFrom(fragments, options) {
   if (decoration === "skip") return null;
   const suppressRuby = decorationSuppressesRuby(decoration);
   const passiveInteraction = suppressRuby || trimmedFragments.every((fragment) => fragment.passiveInteraction);
+  const commandControl = decoration === "interactive-passive" && isCommandControl(parent);
   return {
   text,
   parent,
@@ -8404,6 +8609,7 @@ function fragmentTextTargetFrom(fragments, options) {
   proseWrap: shouldWrapScanTargetAsProse(parent, suppressRuby, passiveInteraction),
   layoutSensitive: trimmedFragments.some((fragment) => fragment.layoutSensitive),
   passiveInteraction,
+  commandControl,
   forceInlineRender: options.forceInlineRender,
   suppressRepaintLoopMirror: options.suppressRepaintLoopMirror,
   ...shadowDomTargetMetadata(parent)
@@ -8950,6 +9156,7 @@ function stampTargetDecoration(target, host) {
   if (decoration !== "interactive-passive") return;
   const control = interactivePassiveControl(target.parent);
   if (control) stampDecorationState(control, decoration);
+  if (target.commandControl) (control ?? host).setAttribute("data-yomu-command-control", "true");
   applyPassiveChromeMarks(compactScanRubySuppression(target.parent).marks);
 }
 function applyTokensToScanTarget(target, tokens, settings) {
@@ -9578,7 +9785,7 @@ function createNonDestructiveTextMirror(context) {
 function mountNonDestructiveTextMirror(host, target, settings, context) {
   const mirror = createNonDestructiveTextMirror(context);
   const controlMirror = target.decoration === "interactive-passive";
-  if (controlMirror) mirror.dataset.yomuControlMirror = "true";
+  if (controlMirror) mirror.dataset.yomuControlMirror = target.commandControl ? "command" : "true";
   if (context.detachedReadings && !controlMirror) {
   mirror.dataset.yomuReadingLaneCandidate = "true";
   }
@@ -12659,171 +12866,6 @@ function removeAudioDeckId(ids, id) {
   const index = ids.indexOf(id);
   if (index >= 0) ids.splice(index, 1);
 }
-const YOMU_HOSTED_AUDIO_SOURCE = { type: "custom-json", url: YOMU_HOSTED_AUDIO_URL, voice: "", enabled: true };
-function getOrderedAudioSources(settings) {
-  const sources = settings.audioSources.filter((source) => source.enabled);
-  if (!settings.audioEnableDefaultSources) return sources;
-  const hosted = settings.audioSources.find(isYomuHostedAudioSource) ?? YOMU_HOSTED_AUDIO_SOURCE;
-  return [
-  ...hosted.enabled ? [{ ...hosted }] : [],
-  ...sources.filter((source) => !isYomuHostedAudioSource(source))
-  ];
-}
-function isYomuHostedAudioSource(source) {
-  return source.type === "custom-json" && source.url.trim() === YOMU_HOSTED_AUDIO_URL;
-}
-function preloadableAudioSources(sources, settings) {
-  return settings.audioTtsMode === "source-order" ? sources.filter((source) => !isBrowserTextToSpeechSource(source)) : sources.filter((source) => !isTextToSpeechFallbackSource(source));
-}
-function cheapCandidatePreloadAudioSources(sources, card) {
-  return sources.filter((source) => canResolveAudioCandidatesWithoutNetwork(source, card));
-}
-function canResolveAudioCandidatesWithoutNetwork(source, card) {
-  switch (source.type) {
-  case "custom":
-  case "jpod101":
-  case "bunpro":
-    return true;
-  case "jiten-tts":
-    return hasJitenAudioReference(card);
-  default:
-    return false;
-  }
-}
-function hasJitenAudioReference(card) {
-  return isPositiveFiniteInteger(card.jitenWordId) && isFiniteNonNegativeInteger(card.jitenReadingIndex) || card.source === "jiten" && isPositiveFiniteInteger(card.vid) && isFiniteNonNegativeInteger(card.sid);
-}
-function isPositiveFiniteInteger(value) {
-  return typeof value === "number" && Number.isInteger(value) && value > 0;
-}
-function isFiniteNonNegativeInteger(value) {
-  return typeof value === "number" && Number.isInteger(value) && value >= 0;
-}
-function audioPreloadLimits$1(options) {
-  return {
-  sourceLimit: Math.max(1, options.sourceLimit ?? 1),
-  candidateLimit: Math.max(1, options.candidateLimit ?? 1),
-  prepareAudio: options.prepareAudio !== false
-  };
-}
-function orderAudioCandidates(candidates, mode, bagKey, shuffledAudio) {
-  return orderAudioDeckEntries(candidates.map((candidate, index) => ({
-  candidate,
-  id: audioCandidateDeckId(candidate, index)
-  })), mode, bagKey, shuffledAudio);
-}
-function audioCandidateSelectionMode(sourceType, mode) {
-  return sourceType === "jpdb-tts" || sourceType === "jiten-tts" ? "random" : mode;
-}
-function orderAudioSources(sources, card) {
-  return audioSourceDeckEntries(sources, getAudioSourceBagKey(sources, card));
-}
-function audioSourceDeckEntries(sources, bagKey) {
-  return sources.map((source, index) => {
-  const signature = getAudioSourceSignature(source);
-  return {
-    source,
-    id: getAudioSourceDeckId(signature, index),
-    bagKey,
-    signature
-  };
-  });
-}
-function isBrowserTextToSpeechSource(source) {
-  return source.type === "text-to-speech" || source.type === "text-to-speech-reading";
-}
-function isApiTextToSpeechSource(source) {
-  return source.type === "jiten-tts" || source.type === "jpdb-tts";
-}
-function isTextToSpeechFallbackSource(source) {
-  return isApiTextToSpeechSource(source) || isBrowserTextToSpeechSource(source);
-}
-function registerAudioAttempt(triedUrls, candidate) {
-  const candidateKey2 = normalizeAttemptedAudioUrl(candidate.url);
-  if (triedUrls.has(candidateKey2)) return false;
-  triedUrls.add(candidateKey2);
-  return true;
-}
-function getAudioBagKey(source, card) {
-  return [
-  source.type,
-  source.url,
-  source.voice,
-  card.spelling,
-  card.reading
-  ].join("");
-}
-function getJpdbAudioBagKey(audioIds) {
-  return [
-  "jpdb-audio",
-  ...[...audioIds].sort()
-  ].join("");
-}
-function getAudioCandidateCacheKey(source, card) {
-  return [
-  source.type,
-  source.url.trim(),
-  source.voice.trim(),
-  card.spelling,
-  card.reading
-  ].join("");
-}
-function preparedAudioCacheKey(candidate, mode, audioViaBlob) {
-  return [
-  normalizeAttemptedAudioUrl(candidate.url),
-  normalizeAttemptedAudioUrl(candidate.sourceUrl),
-  mode,
-  audioViaBlob ? "blob" : "direct"
-  ].join("");
-}
-function cloneAudioCandidates(candidates) {
-  return candidates.map((candidate) => ({ ...candidate }));
-}
-function normalizeAttemptedAudioUrl(value) {
-  try {
-  const url = new URL(value, location.href);
-  url.hash = "";
-  return url.href;
-  } catch {
-  return value;
-  }
-}
-function audioCandidateDeckId(candidate, index) {
-  if (candidate.jpdbAudioId) return `jpdb:${candidate.jpdbAudioId}`;
-  return [
-  normalizeAttemptedAudioUrl(candidate.url),
-  normalizeAttemptedAudioUrl(candidate.sourceUrl),
-  index
-  ].join("\0");
-}
-function orderAudioDeckEntries(entries2, mode, bagKey, shuffledAudio) {
-  if (mode !== "random" || !entries2.length) return entries2;
-  const byId = new Map(entries2.map((entry) => [entry.id, entry]));
-  const ordered = [];
-  for (const id of shuffledAudio.order(bagKey, entries2.map((entry) => entry.id))) {
-  const entry = byId.get(id);
-  if (entry) ordered.push(entry);
-  }
-  return ordered;
-}
-function getAudioSourceBagKey(sources, card) {
-  return [
-  "audio-sources",
-  card.spelling,
-  card.reading,
-  ...sources.map(getAudioSourceSignature)
-  ].join("");
-}
-function getAudioSourceDeckId(signature, index) {
-  return `${index}\0${signature}`;
-}
-function getAudioSourceSignature(source) {
-  return [
-  source.type,
-  source.url.trim(),
-  source.voice.trim()
-  ].join("\0");
-}
 function isAppleTouchBrowser() {
   if (typeof navigator === "undefined") return false;
   const userAgent = navigator.userAgent ?? "";
@@ -14099,8 +14141,54 @@ async function loadCustomJsonAudioCandidates(source, card, timeoutMs, proxyUrl) 
   if (!template) return [];
   const sourceUrl = formatAudioUrl(withAudioQueryPlaceholders(template), card);
   const response = await requestAudioUrl(sourceUrl, "text", timeoutMs, { proxyUrl });
-  const urls = typeof response === "string" ? findAudioUrls(JSON.parse(response), sourceUrl) : [];
-  return urls.map((url) => ({ url, sourceUrl }));
+  if (typeof response !== "string") return [];
+  return customJsonAudioCandidates(JSON.parse(response), source, sourceUrl);
+}
+function customJsonAudioCandidates(payload, source, sourceUrl) {
+  const named = namedAudioSubSources(payload);
+  recordAudioSubSourceNames(source.url, named.map((entry) => entry.name));
+  const disabled = disabledAudioSubSourceNameKeys(source);
+  if (named.length && disabled.size) {
+  const allowed = named.filter((entry) => !disabled.has(audioSubSourceNameKey(entry.name)));
+  return uniqueAudioUrls(allowed.flatMap((entry) => findAudioUrls(entry.url, sourceUrl))).map((url) => ({ url, sourceUrl }));
+  }
+  return findAudioUrls(payload, sourceUrl).map((url) => ({ url, sourceUrl }));
+}
+function namedAudioSubSources(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return [];
+  const record = value;
+  const entries2 = [];
+  for (const list of [record.audioSources, record.sources]) {
+  if (!Array.isArray(list)) continue;
+  for (const item of list) {
+    const entry = namedAudioSubSource(item);
+    if (entry) entries2.push(entry);
+  }
+  }
+  return entries2;
+}
+function namedAudioSubSource(value) {
+  if (!value || typeof value !== "object") return null;
+  const record = value;
+  if (typeof record.name !== "string" || !record.name.trim()) return null;
+  if (typeof record.url !== "string" || !record.url.trim()) return null;
+  return { name: record.name.trim(), url: record.url };
+}
+const knownAudioSubSourcesByUrl = new Map();
+function recordAudioSubSourceNames(url, names) {
+  const template = url.trim();
+  if (!template) return [];
+  const known = knownAudioSubSourcesByUrl.get(template) ?? [];
+  const seen = new Set(known.map(audioSubSourceNameKey));
+  const merged = [...known];
+  for (const name of names) {
+  const trimmed = name.trim();
+  if (!trimmed || seen.has(audioSubSourceNameKey(trimmed))) continue;
+  seen.add(audioSubSourceNameKey(trimmed));
+  merged.push(trimmed);
+  }
+  knownAudioSubSourcesByUrl.set(template, merged);
+  return [...merged];
 }
 function withAudioQueryPlaceholders(template) {
   if (AUDIO_QUERY_PLACEHOLDER_RE.test(template)) return template;
@@ -16052,13 +16140,14 @@ function applyOverlayPageScale(element, environment = currentEnvironment()) {
   const pageScale = overlayPageScale(environment);
   if (pageScale === 1) {
   clearOwnedScale(element);
-  return;
+  return pageScale;
   }
   const inverseScale = 1 / pageScale;
   element.style.setProperty("zoom", formatScale(inverseScale), "important");
   element.dataset.jpdbReaderScaleAdapter = APPLE_TOUCH_ADAPTER;
   element.dataset.jpdbReaderPageScale = formatScale(pageScale);
   element.dataset.jpdbReaderScaleCompensation = formatScale(inverseScale);
+  return pageScale;
 }
 function hasOverlayPageScale(element) {
   return element?.dataset.jpdbReaderScaleAdapter === APPLE_TOUCH_ADAPTER;
@@ -20410,7 +20499,15 @@ function renderPitchVariantGraphs(reading, variants) {
   if (!graphs.length) return "";
   if (graphs.length === 1) return `<div class="jpdb-reader-pitch">${graphs[0].svg}</div>`;
   const percentages = pitchVariantDisplayPercentages(graphs.map((entry) => entry.variant));
-  return `<div class="jpdb-reader-pitch jpdb-reader-pitch-variants">${graphs.map((entry, index) => `<span class="jpdb-reader-pitch-component jpdb-reader-pitch-variant${index === 0 ? " jpdb-reader-pitch-variant-primary" : ""}">${entry.svg}<span class="jpdb-reader-pitch-variant-badge">${percentages[index]}%</span></span>`).join("")}</div>`;
+  const fit = pitchVariantBlockFit(reading, graphs.length);
+  return `<div class="jpdb-reader-pitch jpdb-reader-pitch-variants" data-pitch-fit="${fit}">${graphs.map((entry, index) => `<span class="jpdb-reader-pitch-component jpdb-reader-pitch-variant${index === 0 ? " jpdb-reader-pitch-variant-primary" : ""}">${entry.svg}<span class="jpdb-reader-pitch-variant-badge">${percentages[index]}%</span></span>`).join("")}</div>`;
+}
+const PITCH_VARIANT_COMPACT_MAX_WIDTH = 300;
+function pitchVariantBlockFit(reading, graphCount) {
+  const graphWidth = splitMorae(reading).length * 24 + 18;
+  const chipWidth = graphWidth + 14;
+  const blockWidth = graphCount * chipWidth + Math.max(0, graphCount - 1) * 8;
+  return blockWidth <= PITCH_VARIANT_COMPACT_MAX_WIDTH ? "compact" : "wide";
 }
 function pitchVariantDisplayPercentages(variants) {
   if (!variants.length) return [];
@@ -22824,6 +22921,7 @@ const LOCAL_BOUNDARY_MATCH_LIMIT = 8;
 const LOCAL_BOUNDARY_CANDIDATE_LIMIT = 8;
 const LOCAL_BOUNDARY_LOOKUP_CONCURRENCY = 4;
 const JPDB_PARSE_FALLBACK_TIMEOUT_MS = 6e3;
+const LOCAL_PARSE_TIMEOUT_MS = 8e3;
 const YOUTUBE_VIEW_METRIC_RE = /回視聴/gu;
 const JITEN_MIN_BATCH_CHARS = 24;
 const JAPANESE_CHAR_COUNT_RE = /[぀-ヿ㐀-鿿々\uff66-\uff9f]/gu;
@@ -22867,12 +22965,15 @@ class ReaderParser {
   });
   try {
     const parsed = await this.parseWithPreferredSource(paragraphs, options, settings);
-    const boundaryReconciled = await this.withExactLocalBoundaryEvidence(paragraphs, parsed, options);
-    const rubyAligned = await this.withLocallySplitKanjiRubies(paragraphs, boundaryReconciled);
+    const rubyAligned = await this.reconcileLocalParse(paragraphs, parsed, options);
     const normalized = this.withNormalizedMetricParseResult(paragraphs, rubyAligned);
     if (!settings.yomuLocalSrsEnabled || !this.dependencies.yomuLocalSrs) return normalized;
     try {
-      return await hydrateYomuLocalSrsCardStates(normalized, this.dependencies.yomuLocalSrs);
+      return await withTimeout(
+        hydrateYomuLocalSrsCardStates(normalized, this.dependencies.yomuLocalSrs),
+        LOCAL_PARSE_TIMEOUT_MS,
+        () => new Error("Academy SRS state hydration timed out.")
+      );
     } catch (error) {
       log$b.warn("Academy SRS state hydration failed; keeping provider states", error);
       return normalized;
@@ -22880,6 +22981,22 @@ class ReaderParser {
   } finally {
     done();
   }
+  }
+  async reconcileLocalParse(paragraphs, parsed, options) {
+  try {
+    return await withTimeout(
+      this.reconcileLocalParseResolved(paragraphs, parsed, options),
+      LOCAL_PARSE_TIMEOUT_MS,
+      () => new Error("Local parse reconciliation timed out.")
+    );
+  } catch (error) {
+    log$b.warn("Local parse reconciliation timed out or failed; keeping unreconciled parse", error);
+    return parsed;
+  }
+  }
+  async reconcileLocalParseResolved(paragraphs, parsed, options) {
+  const boundaryReconciled = await this.withExactLocalBoundaryEvidence(paragraphs, parsed, options);
+  return this.withLocallySplitKanjiRubies(paragraphs, boundaryReconciled);
   }
   async parseWithPreferredSource(paragraphs, options, settings) {
   if (settings.parserProvider === "local" && await this.hasLocalTermDictionaries(true)) {
@@ -23047,12 +23164,27 @@ ${entry.reading}`);
   return promise;
   }
   async parseLocalOrSegmentedTextUncached(text, options) {
+  try {
+    return await withTimeout(
+      this.resolveLocalOrSegmentedText(text, options),
+      LOCAL_PARSE_TIMEOUT_MS,
+      () => new Error("Local parse timed out.")
+    );
+  } catch (error) {
+    log$b.warn("Local parse timed out; using segmented fallback", { length: text.length }, error);
+    return this.localParseTimeoutFallback(text, options);
+  }
+  }
+  async resolveLocalOrSegmentedText(text, options) {
   if (this.canUseLocalDictionaryFallback()) {
     const tokens = await this.parseLocalDictionaryText(text, options);
     if (tokens.length) {
       return options.allowSegmentedFallback === true ? this.fillSegmentedFallbackGaps(text, tokens) : tokens;
     }
   }
+  return options.allowSegmentedFallback === true ? this.parseSegmentedText(text) : [];
+  }
+  localParseTimeoutFallback(text, options) {
   return options.allowSegmentedFallback === true ? this.parseSegmentedText(text) : [];
   }
   rememberLocalParseCacheEntry(key, promise) {
@@ -28102,6 +28234,7 @@ function radialYoutubeIcon() {
   return `${SVG_OPEN}<rect x="3" y="6" width="18" height="12" rx="3"></rect><path d="M10.2 9.6 14.4 12l-4.2 2.4z" fill="currentColor" stroke="none"></path></svg>`;
 }
 const VIDEO_AVOIDANCE_SETTLE_MS = 120;
+const VIEWPORT_SCALE_SETTLE_MS = 240;
 function hostHasBottomActionDock() {
   return location.hostname === "jiten.moe" && location.pathname.startsWith("/srs/");
 }
@@ -28280,30 +28413,37 @@ class FloatingButtonController {
   const controller = new AbortController();
   this.abortController = controller;
   let settleTimer;
+  let viewportSettleTimer;
   let frame;
   const recompute = () => {
     if (frame !== void 0) return;
     frame = requestAnimationFrame(() => {
       frame = void 0;
       applyOverlayPageScale(button);
-      if (this.settings) avoidVideoOverlap(button, this.settings, this.save);
+      if (this.settings && avoidanceCouldChange()) {
+        avoidVideoOverlap(button, this.settings, this.save);
+      }
     });
   };
-  const avoidanceCouldChange = () => overlayViewport().pageScale !== 1 || button.classList.contains("jpdb-reader-fab-over-video") || Boolean(document.querySelector("video"));
+  const avoidanceCouldChange = () => overlayViewport().pageScale !== 1 || hasOverlayPageScale(button) || button.classList.contains("jpdb-reader-fab-over-video") || Boolean(document.querySelector("video"));
   const scheduleSettle = () => {
     if (!avoidanceCouldChange()) return;
     window.clearTimeout(settleTimer);
     settleTimer = window.setTimeout(recompute, VIDEO_AVOIDANCE_SETTLE_MS);
   };
-  const handleResize = () => {
-    if (!avoidanceCouldChange()) return;
-    recompute();
+  const handleViewportChange = () => {
+    if (avoidanceCouldChange()) recompute();
+    window.clearTimeout(viewportSettleTimer);
+    viewportSettleTimer = window.setTimeout(recompute, VIEWPORT_SCALE_SETTLE_MS);
   };
-  window.addEventListener("resize", handleResize, { passive: true, signal: controller.signal });
+  window.addEventListener("resize", handleViewportChange, { passive: true, signal: controller.signal });
+  window.addEventListener("orientationchange", handleViewportChange, { passive: true, signal: controller.signal });
+  window.visualViewport?.addEventListener("resize", handleViewportChange, { passive: true, signal: controller.signal });
   window.addEventListener("scroll", scheduleSettle, { passive: true, signal: controller.signal });
   document.addEventListener("fullscreenchange", recompute, { signal: controller.signal });
   controller.signal.addEventListener("abort", () => {
     window.clearTimeout(settleTimer);
+    window.clearTimeout(viewportSettleTimer);
     if (frame !== void 0) window.cancelAnimationFrame(frame);
   });
   recompute();
@@ -28346,7 +28486,7 @@ class FloatingButtonController {
     dragging = true;
     moved = false;
     button.dataset.jpdbReaderMoved = "false";
-    dragPageScale = overlayViewport().pageScale;
+    dragPageScale = applyOverlayPageScale(button);
     const start = layoutPointToOverlay({ x: event.clientX, y: event.clientY }, dragPageScale);
     startX = start.x;
     startY = start.y;
@@ -36753,8 +36893,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
     `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.7.2"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.7.2"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.6"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.8.6"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka"];
@@ -36886,7 +37026,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.7.2"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.8.6"}`;
   } catch {
   return null;
   }
@@ -38039,6 +38179,9 @@ function isJsdomRuntime() {
 function firstLocalPitchPattern(resolution) {
   return resolution.patterns[0] ?? "";
 }
+function japaneseSiteLanguageDisabled(previous, next) {
+  return previous.preferJapaneseSiteLanguage && !next.preferJapaneseSiteLanguage;
+}
 function pageAddonKeysMatch(expected, mounted) {
   if (expected === mounted) return true;
   const expectedParts = expected.split(":");
@@ -38438,9 +38581,10 @@ class ReaderApp {
   return new Controller({
     getSettings: () => this.settings,
     setSettings: (settings) => {
+      const japaneseSiteOptOut = japaneseSiteLanguageDisabled(this.settings, settings);
       this.settings = settings;
       this.applyTheme();
-      this.applyPreferredJapaneseSiteLanguage();
+      this.applyPreferredJapaneseSiteLanguage(settings, japaneseSiteOptOut);
     },
     showSettings: (panel) => this.showSettings(panel),
     parseJapanese: (panel) => void this.parseOnboardingJapanese(panel),
@@ -38657,9 +38801,10 @@ class ReaderApp {
   }
   async applyRemoteSettings(settings) {
   const pauseChanged = settings.annotationsPaused !== this.settings.annotationsPaused;
+  const japaneseSiteOptOut = japaneseSiteLanguageDisabled(this.settings, settings);
   this.settings = settings;
   configureLogger({ forceEnabled: settings.enableLogging });
-  this.applyPreferredJapaneseSiteLanguage(settings);
+  this.applyPreferredJapaneseSiteLanguage(settings, japaneseSiteOptOut);
   this.applyTheme(settings);
   this.applyWordColors(settings);
   if (!this.embeddedFrame) this.installFab();
@@ -45120,9 +45265,10 @@ class ReaderApp {
     getSettings: () => this.settings,
     setSettings: (settings, options) => {
       const pauseChanged = settings.annotationsPaused !== this.settings.annotationsPaused;
+      const japaneseSiteOptOut = japaneseSiteLanguageDisabled(this.settings, settings);
       this.settings = settings;
       if (options?.transient) return;
-      this.applyPreferredJapaneseSiteLanguage();
+      this.applyPreferredJapaneseSiteLanguage(settings, japaneseSiteOptOut);
       if (!settings.ankiEnabled) this.clearRenderedAnkiWordStates();
       if (pauseChanged) this.applyAnnotationsPausedState();
     },

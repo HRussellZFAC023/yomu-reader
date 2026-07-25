@@ -64,7 +64,7 @@ export function createN3MockListeningRuntime() {
     return createActivityRuntime([n3MockListeningPlugin]);
 }
 
-export function validateN3MockListening(model: N3MockListeningModel): readonly ValidationIssue[] {
+function validateN3MockListening(model: N3MockListeningModel): readonly ValidationIssue[] {
     const issues: ValidationIssue[] = [];
     if (model.answerSupport?.id !== ACADEMY_ASSESSED_ANSWER_SUPPORT.id) {
         issues.push({ path: 'answerSupport', message: 'The assessed answer-support contract is required.' });

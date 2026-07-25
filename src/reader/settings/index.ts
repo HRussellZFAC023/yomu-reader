@@ -10,13 +10,14 @@ import { cacheManagedValueForHostedStartup, gmStorageDelete, gmStorageGet, gmSto
 import { HOSTED_DEMO_SETTINGS_KEYS } from '../app/hosted-demo-settings';
 import { beginManagedStateReset, endManagedStateReset } from '../app/managed-state-registry';
 import { sharedContrastRatio, sharedMixHex } from '../core/color-math';
+import { audioSubSourceNameKey } from '../audio/source-resolution';
 import {
     activeLanguageProfile,
     createDefaultLanguageProfile,
     DEFAULT_LANGUAGE_PROFILE_ID,
     normalizeLanguageProfiles,
 } from '../languages/profiles';
-import type { AnkiTemplateMode, AudioAutoPlayMode, AudioSourceSetting, AudioSourceType, AudioTtsMode, FuriganaMode, ImmersionExampleSource, ImmersionKitCategory, ImmersionKitSort, InterfaceLanguage, NewTabStudyChallengeStep, OcrOverlayTheme, OcrProvider, ReaderColorSource, ReaderSettings } from '../app/types';
+import type { AnkiTemplateMode, AudioAutoPlayMode, AudioSourceSetting, AudioSourceType, AudioSubSourceSetting, AudioTtsMode, FuriganaMode, ImmersionExampleSource, ImmersionKitCategory, ImmersionKitSort, InterfaceLanguage, NewTabStudyChallengeStep, OcrOverlayTheme, OcrProvider, ReaderColorSource, ReaderSettings } from '../app/types';
 export { formatShortcutEvent, matchesShortcut, shortcutIsPressed } from './shortcuts';
 export { COPY_LOOKUP_LINK, MAX_DICTIONARY_LOOKUP_LINKS, defaultDictionaryLookupLinks, mergeDictionaryPreferences, normalizeDictionaryLookupLinks, normalizeDictionaryPreferences, retireStaleDictionaryPreferences } from './dictionary';
 
@@ -1948,17 +1949,36 @@ export function normalizeAudioSource(value: unknown): AudioSourceSetting | null 
     const record = audioSourceRecord(value);
     if (!record) return null;
     if (!isAudioSourceType(record.type)) return null;
+    const subSources = normalizeAudioSubSources(record.subSources);
     return {
         type: record.type,
         url: stringValue(record.url),
         voice: stringValue(record.voice),
         enabled: audioSourceEnabled(record.enabled),
+        ...(subSources.length ? { subSources } : {}),
     };
 }
 
-function audioSourceRecord(value: unknown): Partial<AudioSourceSetting> & { type?: unknown; url?: unknown; voice?: unknown; enabled?: unknown } | null {
+export function normalizeAudioSubSources(value: unknown): AudioSubSourceSetting[] {
+    if (!Array.isArray(value)) return [];
+    const seen = new Set<string>();
+    const subSources: AudioSubSourceSetting[] = [];
+    for (const entry of value) {
+        if (!entry || typeof entry !== 'object') continue;
+        const record = entry as { name?: unknown; enabled?: unknown };
+        const name = stringValue(record.name).trim();
+        if (!name) continue;
+        const key = audioSubSourceNameKey(name);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        subSources.push({ name, enabled: audioSourceEnabled(record.enabled) });
+    }
+    return subSources;
+}
+
+function audioSourceRecord(value: unknown): Partial<AudioSourceSetting> & { type?: unknown; url?: unknown; voice?: unknown; enabled?: unknown; subSources?: unknown } | null {
     return value && typeof value === 'object'
-        ? value as Partial<AudioSourceSetting> & { type?: unknown; url?: unknown; voice?: unknown; enabled?: unknown }
+        ? value as Partial<AudioSourceSetting> & { type?: unknown; url?: unknown; voice?: unknown; enabled?: unknown; subSources?: unknown }
         : null;
 }
 

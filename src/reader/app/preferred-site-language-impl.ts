@@ -18,6 +18,14 @@ const ALTERNATE_REDIRECT_RETRY_MS = 125;
 const EN_LOCALE_RE = /^en(?:[-_][a-z]{2})?$/i;
 const JA_PARAMS: Record<string, string> = { hl: JA_LANG, gl: JA_COUNTRY };
 const JA_NEWS: Record<string, string> = { hl: JA_LANG, gl: JA_COUNTRY, ceid: 'JP:ja' };
+// Every query key applyParams / JA_PARAMS / JA_NEWS / the site rules can leave a
+// Japanese marker in, and the marker values worth removing on the way back out.
+const JA_MARKER_PARAM_KEYS = [
+    'hl', 'gl', 'ceid', 'locale', 'ui_locale', 'mkt', 'market',
+    'lang', 'language', 'lng', 'region', 'country', 'cc',
+];
+const JA_MARKER_VALUE_RE = /^(?:ja(?:[-_]jp)?|jp(?::ja)?)$/i;
+const JA_PATH_SEGMENT_RE = /^ja(?:[-_]jp)?$/i;
 
 type StoredSettings = Partial<Pick<ReaderSettings, 'preferJapaneseSiteLanguage'>> | null;
 type QueryRoot = Pick<ParentNode, 'querySelectorAll'> & Partial<Pick<Document, 'readyState'>>;
@@ -30,6 +38,12 @@ export function installPreferredJapaneseSiteLanguageFromStoredSettings(): void {
         applyPreferredJapaneseSiteLanguage(syncPreference);
         return;
     }
+    // The shared setting is behind async-only storage here. This origin's cache
+    // only records what the last visit to THIS site resolved to, and a toggle on
+    // any other site cannot reach it, so it is a hint and never the answer:
+    // install the cheap reversible page hints it implies to avoid a flash of the
+    // wrong locale, but never write it back and never navigate on it.
+    if (readCachedPreferenceEnabled() === true) applyPageContextJapanesePreferences(true);
     void readStoredPreferenceEnabledAsync().then(applyPreferredJapaneseSiteLanguage);
 }
 
@@ -40,11 +54,13 @@ export function applyPreferredJapaneseSiteLanguage(enabled: boolean, revertOnDis
     if (enabled) {
         applySitePreferenceCookies();
         schedulePreferredJapaneseSiteRedirect();
-    } else {
-        clearSitePreferenceCookies();
-        cancelPreferredJapaneseSiteRedirectWatcher();
-        if (revertOnDisable) attemptPreferredDefaultSiteRedirect();
+        return;
     }
+    clearSitePreferenceCookies();
+    cancelPreferredJapaneseSiteRedirectWatcher();
+    // A deliberate opt-out also has to undo the navigation the preference caused;
+    // leaving the site on its Japanese URL reads as the toggle having done nothing.
+    if (revertOnDisable) attemptPreferredDefaultSiteRedirect();
 }
 
 export function preferredJapaneseSiteUrl(sourceHref: string, root?: QueryRoot): string | null {
@@ -57,9 +73,25 @@ export function preferredJapaneseSiteUrl(sourceHref: string, root?: QueryRoot): 
     return target.href;
 }
 
+// The way back out: the URL the user should be on once they stop preferring
+// Japanese. Site rules add markers that were never in the original URL (reddit's
+// ?locale=ja-JP) and rewrite ones that were (hl=en -> hl=ja), and neither is
+// recoverable from the URL alone, so removing every Japanese marker we know how
+// to add is the honest inverse: the site then serves its own default again.
+function preferredDefaultSiteUrl(sourceHref: string, root?: QueryRoot): string | null {
+    const current = parseHttpUrl(sourceHref);
+    if (!current) return null;
+    const target = defaultAlternateLinkUrl(current, root) ?? withoutJapaneseMarkers(current);
+    if (!target || target.href === current.href) return null;
+    return target.href;
+}
+
+// The shared settings store is the only cross-site record of the preference, so
+// it always outranks the per-origin cache below. Reading the cache first used to
+// pin every site the user had ever opened while the preference was on to "on":
+// turning it off elsewhere could not reach them, and each load rewrote the cache
+// from itself, so the toggle had to be pressed again on every site, forever.
 function readStoredPreferenceEnabledSync(): boolean | undefined {
-    const cached = readCachedPreferenceEnabled();
-    if (typeof cached === 'boolean') return cached;
     for (const key of SETTINGS_STORAGE_KEYS) {
         const stored = gmStorageGetSync<StoredSettings | undefined>(key, undefined);
         if (stored && typeof stored === 'object' && typeof stored.preferJapaneseSiteLanguage === 'boolean') {
@@ -70,15 +102,16 @@ function readStoredPreferenceEnabledSync(): boolean | undefined {
 }
 
 async function readStoredPreferenceEnabledAsync(): Promise<boolean> {
-    const cached = readCachedPreferenceEnabled();
-    if (typeof cached === 'boolean') return cached;
     for (const key of SETTINGS_STORAGE_KEYS) {
         const stored = await gmStorageGet<StoredSettings | undefined>(key, undefined);
         if (stored && typeof stored === 'object' && typeof stored.preferJapaneseSiteLanguage === 'boolean') {
             return stored.preferJapaneseSiteLanguage;
         }
     }
-    return DEFAULT_SETTINGS.preferJapaneseSiteLanguage;
+    // No stored settings at all (a fresh install): an explicit local opt-out still
+    // beats the default-on, it is just no longer allowed to outrank a real setting.
+    const cached = readCachedPreferenceEnabled();
+    return typeof cached === 'boolean' ? cached : DEFAULT_SETTINGS.preferJapaneseSiteLanguage;
 }
 
 function readCachedPreferenceEnabled(): boolean | undefined {
@@ -240,7 +273,22 @@ function currentLocationHostname(): string {
     return typeof location.hostname === 'string' ? location.hostname.toLowerCase() : '';
 }
 
+// The script matches every URL in every frame, so without this an embedded
+// player, comment widget or sign-in frame gets navigated to its Japanese URL on
+// its own — the page's own frame, replaced under it, which is exactly the "sites
+// behaved oddly" shape. Locale hints and cookies still apply in sub-frames; only
+// the navigation is reserved for the tab the user is actually looking at.
+function isTopLevelFrame(): boolean {
+    try {
+        return window.top === window;
+    } catch {
+        // A cross-origin parent throws on access, which itself means we are framed.
+        return false;
+    }
+}
+
 function schedulePreferredJapaneseSiteRedirect(): void {
+    if (!isTopLevelFrame()) return;
     // Redirect at most ONCE per host per tab session. SPA sites (notably
     // m.youtube.com) rewrite their URL on every in-app navigation without keeping
     // hl=ja, so the alternate-redirect watcher would keep computing a "more
@@ -298,11 +346,31 @@ function markHostRedirectedThisSession(): void {
 }
 
 function attemptPreferredDefaultSiteRedirect(): boolean {
+    if (!isTopLevelFrame()) return false;
     const href = currentLocationHref();
-    const target = href ? rememberedRedirectSourceForTarget(href) : null;
-    if (!target) return false;
+    // The remembered source is exact, so it wins; it only exists when this tab
+    // performed the redirect and has not navigated since, which is the minority
+    // of opt-outs. Otherwise undo the Japanese markers the preference adds.
+    const target = href ? (rememberedRedirectSourceForTarget(href) ?? preferredDefaultSiteUrl(href, document)) : null;
+    // Switching the preference back on must be able to redirect this host again.
+    forgetSessionRedirectState();
+    if (!target || target === href) return false;
     replaceLocation(target);
     return true;
+}
+
+function forgetSessionRedirectState(): void {
+    try {
+        sessionStorage.removeItem(REDIRECT_CACHE_KEY);
+        const host = currentLocationHost();
+        const raw = host ? sessionStorage.getItem(REDIRECT_HOSTS_KEY) : null;
+        if (!raw) return;
+        const hosts = (JSON.parse(raw) as string[]).filter(entry => entry !== host);
+        if (hosts.length) sessionStorage.setItem(REDIRECT_HOSTS_KEY, JSON.stringify(hosts));
+        else sessionStorage.removeItem(REDIRECT_HOSTS_KEY);
+    } catch {
+        // Session bookkeeping only; failing it must never block the opt-out.
+    }
 }
 
 function currentLocationHref(): string {
@@ -405,10 +473,30 @@ function parseHttpUrl(sourceHref: string): URL | null {
 }
 
 function japaneseAlternateLinkUrl(current: URL, root: QueryRoot | undefined): URL | null {
+    return alternateLinkUrl(current, root, /^ja(?:[-_]|$)/i, alts);
+}
+
+// x-default is the page's own answer to "which URL for a visitor with no
+// Japanese preference", so it beats guessing; a plain English alternate is the
+// next best thing when the site does not publish one. Head metadata only: an
+// <a hreflang="ja"> is a deliberate "read this in Japanese" affordance, but an
+// <a hreflang="en"> is usually just a link to some unrelated English page, and
+// following one would drop the reader somewhere they never asked to go.
+function defaultAlternateLinkUrl(current: URL, root: QueryRoot | undefined): URL | null {
+    return alternateLinkUrl(current, root, /^x-default$/i, metadataAlts)
+        ?? alternateLinkUrl(current, root, EN_LOCALE_RE, metadataAlts);
+}
+
+function alternateLinkUrl(
+    current: URL,
+    root: QueryRoot | undefined,
+    hreflang: RegExp,
+    candidates: (root: QueryRoot) => NodeListOf<HTMLLinkElement | HTMLAnchorElement>,
+): URL | null {
     if (!root) return null;
     try {
-        for (const element of alts(root)) {
-            if (!/^ja(?:[-_]|$)/i.test(element.getAttribute('hreflang') ?? '')) continue;
+        for (const element of candidates(root)) {
+            if (!hreflang.test(element.getAttribute('hreflang') ?? '')) continue;
             const href = element.getAttribute('href');
             const candidate = href ? parseHttpUrl(new URL(href, current.href).href) : null;
             if (candidate && candidate.href !== current.href) return candidate;
@@ -419,8 +507,33 @@ function japaneseAlternateLinkUrl(current: URL, root: QueryRoot | undefined): UR
     return null;
 }
 
+function withoutJapaneseMarkers(current: URL): URL | null {
+    const next = new URL(current.href);
+    let changed = false;
+    for (const key of JA_MARKER_PARAM_KEYS) {
+        const value = next.searchParams.get(key);
+        if (!value || !JA_MARKER_VALUE_RE.test(value)) continue;
+        next.searchParams.delete(key);
+        changed = true;
+    }
+    // Drop a leading /ja/ or /ja-jp/ rather than swapping in a guessed English
+    // one: every host we add such a segment to redirects the segment-less path
+    // to the visitor's own default, and an invented /en/ can 404.
+    const parts = next.pathname.split('/');
+    if (JA_PATH_SEGMENT_RE.test(parts[1] ?? '')) {
+        parts.splice(1, 1);
+        next.pathname = parts.join('/') || '/';
+        changed = true;
+    }
+    return changed ? next : null;
+}
+
 function alts(root: QueryRoot): NodeListOf<HTMLLinkElement | HTMLAnchorElement> {
     return root.querySelectorAll<HTMLLinkElement | HTMLAnchorElement>('link[rel~=alternate][hreflang][href],a[hreflang][href]');
+}
+
+function metadataAlts(root: QueryRoot): NodeListOf<HTMLLinkElement | HTMLAnchorElement> {
+    return root.querySelectorAll<HTMLLinkElement | HTMLAnchorElement>('link[rel~=alternate][hreflang][href]');
 }
 
 function siteRuleJapaneseUrl(current: URL): URL | null {

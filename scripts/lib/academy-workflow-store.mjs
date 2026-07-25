@@ -30,7 +30,7 @@ function fsyncDirectory(directoryPath) {
     }
 }
 
-export function writeFileDurably(target, value) {
+function writeFileDurably(target, value) {
     fs.mkdirSync(path.dirname(target), { recursive: true });
     const temporary = `${target}.${process.pid}.${crypto.randomUUID()}.tmp`;
     const mode = fs.existsSync(target) ? fs.statSync(target).mode & 0o777 : 0o600;
@@ -62,7 +62,7 @@ function journalPath(stateRoot) {
     return path.join(stateRoot, 'prepared-transition.json');
 }
 
-export function writeSnapshot(target, value) {
+function writeSnapshot(target, value) {
     if (!value.exists) {
         removeFileDurably(target);
         return;

@@ -1,6 +1,11 @@
+import { createRequire } from 'node:module';
 import { defineConfig, type HeadConfig } from 'vitepress';
 import { jpdbAudioDevProxyPlugin } from '../../config/vite/jpdb-audio-proxy';
 import pkg from '../../package.json' with { type: 'json' };
+
+const { hostedAppearanceBootSnippet } = createRequire(import.meta.url)('../../scripts/lib/hosted-appearance-boot.cjs') as {
+    hostedAppearanceBootSnippet(mode: 'docs' | 'surface'): string;
+};
 
 const repositoryName = 'yomu-reader';
 const base = '/';
@@ -234,6 +239,12 @@ export default defineConfig({
         ['meta', { name: 'apple-mobile-web-app-title', content: 'よむ' }],
         ['meta', { name: 'mobile-web-app-capable', content: 'yes' }],
         ['meta', { name: 'theme-color', content: '#5ea780' }],
+        // Runs while the head is still parsing, so the reader's accent and
+        // theme are on <html> before the first paint. Without it the static
+        // brand green paints first and every page flashes green before the
+        // hydrated bundle re-applies the chosen accent. Placed after the
+        // theme-color meta so the snippet can repoint it too.
+        ['script', {}, hostedAppearanceBootSnippet('docs')],
         ['meta', { property: 'og:type', content: 'website' }],
         ['meta', { property: 'og:site_name', content: 'よむ' }],
         ['meta', { property: 'og:locale', content: 'en_US' }],

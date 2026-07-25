@@ -751,7 +751,7 @@ describe('performance cache bounds', () => {
         expect(testable.loadTranslationContent).toHaveBeenCalledTimes(82);
     });
 
-    it('scopes study translation Anki enrichment to the study container', () => {
+    it('scopes study translation Anki enrichment to the study container', async () => {
         const token: JPDBToken = {
             card: cardFor(2),
             start: 0,
@@ -780,11 +780,15 @@ describe('performance cache bounds', () => {
         popover.append(container);
         document.body.append(popover);
         const testable = controller as unknown as {
-            applyTranslation(popover: HTMLElement, sentence: string, container: HTMLElement, translation: { tokens: JPDBToken[]; translated: string }): void;
+            applyTranslation(popover: HTMLElement, sentence: string, container: HTMLElement, translation: { tokens: Promise<JPDBToken[]>; translated: string }): void;
         };
 
         try {
-            testable.applyTranslation(popover, '単語2です。', container, { tokens: [token], translated: 'word two' });
+            // tokens now arrive as a promise (parsing never gates the MEANING),
+            // so the container-scoped Anki enrichment runs once tokens resolve.
+            testable.applyTranslation(popover, '単語2です。', container, { tokens: Promise.resolve([token]), translated: 'word two' });
+            await Promise.resolve();
+            await Promise.resolve();
 
             expect(enrichAnkiWords).toHaveBeenCalledWith([token], [container]);
         } finally {

@@ -904,6 +904,23 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   z-index: 2147482000 !important;
   contain: layout style !important;
 }
+/* Readings whose word rides the document scroller live here instead, stamped
+   in page coordinates. The compositor then scrolls the reading and its word
+   together, so a refresh frame that arrives late — or never — can no longer
+   leave the reading behind. The box is zero-sized and layout-contained: it is
+   only a containing block for the readings inside it, and must not add to the
+   page's scrollable area. */
+.jpdb-reader-detached-reading-overlay.jpdb-reader-detached-reading-document-layer {
+  position: absolute !important;
+  inset: auto !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+.jpdb-reader-projected-furi.jpdb-reader-projected-furi-document {
+  position: absolute !important;
+}
 .jpdb-reader-projected-furi {
   position: fixed !important;
   display: block !important;
@@ -2476,4 +2493,46 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
 .jpdb-reader-text-mirror[data-yomu-control-mirror="true"]:has(.jpdb-reader-keyboard-active) rt.jpdb-reader-furi {
   display: ruby-text !important;
   visibility: visible;
+}
+
+/* Command controls (質問/参加/共有/アワードを贈る-class chrome buttons — a generic
+   tag/role verdict, never a site rule) render bare at rest: no in-flow rt, no
+   detached reading lane, and no pitch underline sitting on the label. Hover /
+   focus-within / keyboard reveals every enabled annotation through the same
+   detached-lane machinery the "true" tier uses — flipping the source reading's
+   visibility drives the projected clone too (see sourceAllowsProjectedReading),
+   so the reading parks off-screen until the control is actually engaged. */
+:is([data-yomu-command-control="true"], .jpdb-reader-text-mirror[data-yomu-control-mirror="command"]) rt.jpdb-reader-furi {
+  display: none !important;
+  visibility: hidden;
+}
+:is([data-yomu-command-control="true"], .jpdb-reader-text-mirror[data-yomu-control-mirror="command"]) .jpdb-reader-detached-furi {
+  visibility: hidden !important;
+}
+:is([data-yomu-command-control="true"], .jpdb-reader-text-mirror[data-yomu-control-mirror="command"]) .jpdb-reader-word {
+  text-decoration-color: transparent !important;
+}
+:is([data-yomu-command-control="true"], .jpdb-reader-text-mirror[data-yomu-control-mirror="command"]) :is(.jpdb-reader-word, .jpdb-reader-source-fragment)::after {
+  visibility: hidden !important;
+}
+:is([data-yomu-command-control="true"], .jpdb-reader-text-mirror[data-yomu-control-mirror="command"]):hover rt.jpdb-reader-furi,
+:is([data-yomu-command-control="true"], .jpdb-reader-text-mirror[data-yomu-control-mirror="command"]):focus-within rt.jpdb-reader-furi,
+:is([data-yomu-command-control="true"], .jpdb-reader-text-mirror[data-yomu-control-mirror="command"]):has(.jpdb-reader-keyboard-active) rt.jpdb-reader-furi {
+  display: ruby-text !important;
+  visibility: visible;
+}
+:is([data-yomu-command-control="true"], .jpdb-reader-text-mirror[data-yomu-control-mirror="command"]):hover .jpdb-reader-detached-furi,
+:is([data-yomu-command-control="true"], .jpdb-reader-text-mirror[data-yomu-control-mirror="command"]):focus-within .jpdb-reader-detached-furi,
+:is([data-yomu-command-control="true"], .jpdb-reader-text-mirror[data-yomu-control-mirror="command"]):has(.jpdb-reader-keyboard-active) .jpdb-reader-detached-furi {
+  visibility: visible !important;
+}
+:is([data-yomu-command-control="true"], .jpdb-reader-text-mirror[data-yomu-control-mirror="command"]):hover .jpdb-reader-word,
+:is([data-yomu-command-control="true"], .jpdb-reader-text-mirror[data-yomu-control-mirror="command"]):focus-within .jpdb-reader-word,
+:is([data-yomu-command-control="true"], .jpdb-reader-text-mirror[data-yomu-control-mirror="command"]):has(.jpdb-reader-keyboard-active) .jpdb-reader-word {
+  text-decoration-color: var(--jpdb-reader-word-underline, transparent) !important;
+}
+:is([data-yomu-command-control="true"], .jpdb-reader-text-mirror[data-yomu-control-mirror="command"]):hover :is(.jpdb-reader-word, .jpdb-reader-source-fragment)::after,
+:is([data-yomu-command-control="true"], .jpdb-reader-text-mirror[data-yomu-control-mirror="command"]):focus-within :is(.jpdb-reader-word, .jpdb-reader-source-fragment)::after,
+:is([data-yomu-command-control="true"], .jpdb-reader-text-mirror[data-yomu-control-mirror="command"]):has(.jpdb-reader-keyboard-active) :is(.jpdb-reader-word, .jpdb-reader-source-fragment)::after {
+  visibility: visible !important;
 }

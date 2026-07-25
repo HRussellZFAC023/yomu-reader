@@ -1,5 +1,78 @@
 # Changelog
 
+## [1.8.6] - 2026-07-25
+
+### Changed
+
+- The providers bundled inside an audio source URL are now listed on their own, with no button to press. Yomu remembers which providers each URL hands out as you look words up, so the list fills itself in from audio you were playing anyway, and it appears straight away when you open Settings or press Preview. A URL Yomu has not heard from yet is checked once in the background when you finish typing or pasting it, switch a source to Custom URL, or switch one on — the moments you are actually asking about that source. Opening Settings never contacts an audio source by itself, so a private or company audio server is only ever reached when you ask for it. The per-provider checkboxes, the overlap markers, and the saved choices behave exactly as before; only the manual detection step is gone.
+
+## [1.8.5] - 2026-07-25
+
+### Added
+
+- Audio source URLs that bundle several providers can now be inspected and controlled per provider. Aggregator endpoints such as the built-in hosted Yomu source answer a single lookup with clips from several named providers — Yomu's own hosted recordings plus a JapanesePod101 fallback, for example — and until now the whole URL could only be kept or dropped as one block. Every Custom URL row under Settings → Media → Audio sources now has a Detect included sources button that probes the URL with sample lookups and lists every provider it reports, each with its own checkbox. Clips from unticked providers are skipped during playback, and providers that appear later stay enabled until you switch them off, so nothing silently disappears.
+- The provider list also marks entries that duplicate another enabled row in the audio source list, such as the JapanesePod101 provider inside the hosted source sitting next to the stand-alone JapanesePod101 row, so overlapping sources are visible at a glance and either the provider checkbox or the duplicate row can be switched off.
+
+## [1.8.4] - 2026-07-25
+
+### Fixed
+
+- Your accent colour is now painted before the page appears, so yomureader.com no longer flashes its default green before switching to your colour. The accent used to be applied only once the page's scripts had downloaded and run, leaving the built-in green on screen for the first frames of every cold or slow load. The accent, and the light or dark theme it is derived against, are now resolved and applied while the page is still being parsed. The Study page, PDF reader, and video player were fixed the same way, from the one shared definition the rest of the interface already uses, so no surface can drift back to its own copy.
+
+## [1.8.3] - 2026-07-25
+
+### Fixed
+
+- Furigana readings now stay glued to their words throughout a scroll on tablets and other touch devices, including the fast flings where the previous release could still leave them adrift. The readings are painted in a reader-owned layer floating above the page, and until now that layer was pinned to the screen rather than to the page, so every reading's position had to be rewritten by the reader on every single scroll frame. A touch device scrolls the page on its own without waiting for that work, so any frame where the rewrite arrived late showed the readings sitting where the words used to be. Readings belonging to ordinary page text are now placed in page coordinates instead of screen coordinates, so the device carries a reading and its word together as one, with no per-frame work to fall behind on. Readings inside a scrolling panel, a pinned header, or any other separately moving region keep the previous screen-anchored behaviour, which is correct for them.
+
+## [1.8.2] - 2026-07-25
+
+### Fixed
+
+- Furigana annotations no longer detach or drift off words while scrolling on tablets and performance-constrained devices. The visible readings were being re-evaluated for page occlusion on every single scroll frame using expensive element inspection; during fast scrolling, main-thread slowdowns dropped refresh frames, temporarily hiding readings until scrolling stopped. Occlusion checks are now cached across frames during pure scrolling and degraded smoothly under heavy load, and transient measurement gaps retain the last painted position for several frames so readings stay glued to their text throughout continuous scrolling.
+- Framework-driven web applications like YouTube, React, Vue, and Angular dashboards no longer experience heavy main-thread background thrashing from continuous furigana re-checks. Internal annotation changes and unrelated page updates previously triggered document-wide projection refreshes; environmental DOM updates are now filtered to ignore the reader's own annotation writes and unrelated page subtrees.
+- Interface command buttons such as Reddit's 質問, 参加, 共有, and アワードを贈る now stay bare at rest, showing their furigana and pitch only on hover or keyboard focus. Tapping still opens the dictionary popup. Post titles, body text, community links, and metadata keep their annotations at rest.
+
+## [1.8.1] - 2026-07-24
+
+### Fixed
+
+- The Firefox add-on package can be reviewed again. Its content script was a few hundred kilobytes over the size Mozilla is willing to parse, so every submission was rejected before a reviewer saw it; the packaged script no longer carries the wrapper indentation that pushed it over, which also restores the exact multi-line text the reader builds. The Chrome and Safari packages are unchanged.
+
+## [1.8.0] - 2026-07-24
+
+### Fixed
+
+- Turning off Prefer Japanese site language now stays off on every site. The choice is stored once for the whole browser, but each site also kept its own copy of it, and that copy was read first: any site opened while the preference was on stayed pinned to on, so it had to be turned off again on every site, forever. The shared setting now wins everywhere, and a site that has not heard about the change yet corrects itself as soon as it loads.
+- Turning the preference off now also leaves the Japanese URL it sent you to, instead of stranding you on a page that stays Japanese. Reddit's locale=ja-JP, YouTube's hl and gl, a leading /ja/ or /ja-jp/ path and the other Japanese locale markers are removed; when the page offers its own default-language link, that link is used instead.
+- Unticking Prefer Japanese site language in Settings, or turning it off in another tab, now undoes the Japanese URL exactly like the puck's toggle already did. Saving any unrelated setting still leaves a Japanese page you opened yourself alone.
+- Turning the preference back on redirects the site again in the same tab. The once-per-site guard that stops redirect loops was never cleared when the preference was switched off, so switching it on again quietly did nothing until the tab was closed.
+- Embedded frames are no longer sent to their own Japanese URL. An embedded player, comment box or sign-in frame could navigate itself out from under the page it belongs to; Japanese locale hints still apply inside frames, only the redirect is now reserved for the tab you are looking at.
+
+## [1.7.6] - 2026-07-24
+
+### Fixed
+
+- Furigana and other projected readings now stay anchored to their source text while scrolling inside YouTube and other dynamic web components. The shared viewport renderer follows the source's composed tree across nested and slotted shadow roots, and migrates its listeners when frameworks move existing text, so readings no longer follow the viewport after their source moves.
+
+## [1.7.5] - 2026-07-24
+
+### Fixed
+
+- On iPad, the Meaning under a study Translation card no longer gets stuck on Translating forever. A local dictionary lookup that never returned on iPad Safari used to strand it; the Meaning now appears, or the section hides when there is nothing to translate, as soon as the translation is ready, and a stalled lookup can no longer freeze sentence parsing for reading, hover lookups, or page annotation.
+
+## [1.7.4] - 2026-07-24
+
+### Fixed
+
+- Words with two pitch-accent readings no longer leave an empty band at the top of the dictionary popup. The compact two-graph pitch block now sits in the top-right beside the play button, the same place a single graph already used, instead of dropping to its own centred row; blocks that are genuinely too wide (three readings, long readings, or multi-part expressions) still move to a full-width row, and every block does so on very narrow popups so the headword is never squeezed.
+
+## [1.7.3] - 2026-07-24
+
+### Fixed
+
+- On iPad, the settings puck now keeps its intended size and follows the finger after rotating portrait → landscape → portrait. Viewport scale is reconciled after orientation settles, and drag coordinates use the exact applied scale.
+
 ## [1.7.2] - 2026-07-24
 
 ### Added

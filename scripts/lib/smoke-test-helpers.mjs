@@ -19,7 +19,7 @@ export async function addScriptTagWithCspFallback(page, scriptPath) {
     await addSingleScriptTagWithCspFallback(page, scriptPath);
 }
 
-export function localUserscriptCompanionPaths(userscriptPath) {
+function localUserscriptCompanionPaths(userscriptPath) {
     const root = path.resolve(path.dirname(userscriptPath), '..');
     return readFileSync(userscriptPath, 'utf8')
         .split(/\r?\n/u)

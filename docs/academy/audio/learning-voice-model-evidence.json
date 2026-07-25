@@ -2,7 +2,7 @@
   "schema": "yomu-academy.learning-voice-model-evidence.v4",
   "capturedOn": "2026-07-23",
   "batchId": "academy-learning-native-20260720-01",
-  "productionContractSha256": "b21373539b6598836cfb415b7ec2f25ca54728f721cef3d74ab62dc92a5a8505",
+  "productionContractSha256": "36ca2c8e4458ac4f30dab3b7aa8868b0f5258d63d7003f92bd383392236edd9e",
   "sourceKind": "installed-aivmx-embedded-manifest-and-engine-cache",
   "scope": "Model, licence, speaker and style identity only; weights, icons, portraits and voice samples are not copied.",
   "licenses": [

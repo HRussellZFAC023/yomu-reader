@@ -144,6 +144,20 @@ export function isTextToSpeechFallbackSource(source: AudioSourceSetting): boolea
     return isApiTextToSpeechSource(source) || isBrowserTextToSpeechSource(source);
 }
 
+export function audioSubSourceNameKey(name: string): string {
+    return name.trim().normalize('NFC').toLowerCase();
+}
+
+export function disabledAudioSubSourceNameKeys(source: AudioSourceSetting): Set<string> {
+    return new Set((source.subSources ?? [])
+        .filter(subSource => !subSource.enabled)
+        .map(subSource => audioSubSourceNameKey(subSource.name)));
+}
+
+function audioSubSourceFilterKey(source: AudioSourceSetting): string {
+    return [...disabledAudioSubSourceNameKeys(source)].sort().join('\u0002');
+}
+
 export function registerAudioAttempt(triedUrls: Set<string>, candidate: AudioCandidate): boolean {
     const candidateKey = normalizeAttemptedAudioUrl(candidate.url);
     if (triedUrls.has(candidateKey)) return false;
@@ -156,6 +170,7 @@ export function getAudioBagKey(source: AudioSourceSetting, card: JPDBCard): stri
         source.type,
         source.url,
         source.voice,
+        audioSubSourceFilterKey(source),
         card.spelling,
         card.reading,
     ].join('\u0001');
@@ -173,6 +188,7 @@ export function getAudioCandidateCacheKey(source: AudioSourceSetting, card: JPDB
         source.type,
         source.url.trim(),
         source.voice.trim(),
+        audioSubSourceFilterKey(source),
         card.spelling,
         card.reading,
     ].join('\u0001');
@@ -245,5 +261,6 @@ function getAudioSourceSignature(source: AudioSourceSetting): string {
         source.type,
         source.url.trim(),
         source.voice.trim(),
+        audioSubSourceFilterKey(source),
     ].join('\u0000');
 }

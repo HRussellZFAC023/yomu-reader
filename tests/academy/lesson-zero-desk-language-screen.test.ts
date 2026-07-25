@@ -73,7 +73,7 @@ describe('Lesson Zero desk-language screen', () => {
         button(screen.element, '[data-desk-action="replay"]').click();
         await vi.waitFor(() => expect(playLine).toHaveBeenCalledWith(
             expect.objectContaining({
-                lineId: 'rie-lesson-zero-homework',
+                lineId: 'lesson-zero:desk-language:homework',
                 japanese: 'しゅくだい。しゅくだいです。',
                 sourceSha256: '6d79b7fadcc1887054829bb886255dc2eaced84e8021a528ecb3a82fa9c0ac29',
             }),

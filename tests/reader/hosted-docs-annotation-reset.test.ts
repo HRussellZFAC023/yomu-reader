@@ -3,6 +3,7 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { readableTextOn } from '../../docs/.vitepress/theme/color-contrast';
+import { hostedAccentCssVariables } from '../../src/reader/core/hosted-accent-css';
 import { contrastRatio } from '../../src/reader/theme/color-utils';
 
 const ROOT = process.cwd();
@@ -104,8 +105,14 @@ describe('hosted docs synchronous accent contrast', () => {
             expect(contrastRatio(token(block, '--yomu-doc-brand-ink'), token(block, '--vp-c-brand-1'))).toBeGreaterThanOrEqual(4.5);
             expect(contrastRatio(token(block, '--yomu-doc-brand-hover-ink'), token(block, '--vp-c-brand-2'))).toBeGreaterThanOrEqual(4.5);
         }
-        expect(theme).toContain("root.style.setProperty('--yomu-brand-ink', brandText);");
-        expect(theme).toContain("root.style.setProperty('--yomu-brand-hover-ink', brandHoverText);");
+        // The hydrated theme stamps the shared variable map (the same one the
+        // pre-paint bootstrap uses), so the guard is on the map's own values.
+        for (const dark of [false, true]) {
+            const variables = hostedAccentCssVariables(token(dark ? darkRoot : lightRoot, '--vp-c-brand-3'), dark);
+            expect(contrastRatio(variables['--yomu-brand-ink'], variables['--vp-c-brand-1'])).toBeGreaterThanOrEqual(4.5);
+            expect(contrastRatio(variables['--yomu-brand-hover-ink'], variables['--vp-c-brand-2'])).toBeGreaterThanOrEqual(4.5);
+        }
+        expect(theme).toContain('const variables = hostedAccentCssVariables(accent, dark);');
     });
 
     it('falls back to pure black when near-black and white both miss AA on a mid-tone hover', () => {

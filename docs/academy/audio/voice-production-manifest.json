@@ -3,29 +3,29 @@
   "learningVoiceEvidence": {
     "catalog": {
       "path": "public/academy/audio/learning-voice-playback.json",
-      "sha256": "e99c5df5951320296ac7444ac98443538f41987e2572b8c0be87850a3c98990e"
+      "sha256": "57d8f5742d2dbc8d443d68f4921369ebf8e518d3d699b0ed17830ba50aac4350"
     },
     "locks": {
       "path": "docs/academy/audio/learning-voice-locks.json",
-      "sha256": "23d0a5b296457210864df807bf42869e95fa3c3ef05d076e967f6b9fdf0ee22f"
+      "sha256": "abc29246d15975277635fb459a258d1beff62926e4a625d7d5dd3a35b7ac58e3"
     },
     "acceptance": {
       "path": "docs/academy/audio/learning-voice-acceptance.json",
-      "sha256": "65d21fa2f12444b73f717205f00a3080c1b811c07db3b707c11b8ae62619388d"
+      "sha256": "6139b4faf9bd188a7386669018dfcce051e888ec7ea5dcd90b46a77592c407cb"
     }
   },
   "counts": {
-    "entries": 1810,
+    "entries": 1812,
     "storyVariants": 1472,
     "uiLines": 323,
-    "learningVoiceLines": 15,
-    "learningBindings": 16,
-    "nativeBandLearningLines": 15,
-    "acceptedLearningLines": 15,
-    "codexAcceptedLearningLines": 15,
+    "learningVoiceLines": 17,
+    "learningBindings": 18,
+    "nativeBandLearningLines": 17,
+    "acceptedLearningLines": 17,
+    "codexAcceptedLearningLines": 17,
     "humanReviewedLearningLines": 0,
     "locked": 51,
-    "productionReady": 66,
+    "productionReady": 68,
     "pilotRendered": 5,
     "storyRendered": 52,
     "staleLocks": 1,
@@ -42818,6 +42818,98 @@
         "prePhonemeLength": 0.1,
         "postPhonemeLength": 0.16,
         "pauseLengthScale": 0.98
+      },
+      "moraOverrides": []
+    },
+    {
+      "key": "learning:rie-lesson-zero-homework",
+      "surface": "learning",
+      "sourceId": "rie-lesson-zero-homework",
+      "lineId": "rie-lesson-zero-homework",
+      "bindingIds": [
+        "lesson-zero:desk-language:homework"
+      ],
+      "speakerId": "rie",
+      "role": "academy-character",
+      "intent": "Model the take-home homework label clearly, then repeat it once so a beginner can bind the sound to the prop.",
+      "locale": "ja-JP",
+      "band": "native",
+      "japanese": "しゅくだい。しゅくだいです。",
+      "sourceSha256": "6d79b7fadcc1887054829bb886255dc2eaced84e8021a528ecb3a82fa9c0ac29",
+      "sourceRevision": "6d79b7fadcc1887054829bb886255dc2eaced84e8021a528ecb3a82fa9c0ac29",
+      "audioQuerySha256": "97b40d31ed53caca2e9f1d03e7e17f2dd019e5ea0531b5767d7122f84b1081eb",
+      "cacheKey": "870ba7f1bb64aa13a7c5a1f550870d207b24af5f165cf471877bb1fc58506f51",
+      "assetSha256": "bf2d773c1a71df81053c845e4effc1b50c0feaffd5b352534507cc2b678592a8",
+      "output": "/academy/audio/learning-lines/rie/rie-lesson-zero-homework__870ba7f1bb64aa13.opus",
+      "status": "accepted",
+      "codexAccepted": true,
+      "ownerLineByLineReviewed": false,
+      "audioModelReviewed": true,
+      "humanReviewed": false,
+      "voiceModel": {
+        "uuid": "e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43",
+        "name": "hinakoyuhara",
+        "version": "1.0.0",
+        "payloadSha256": "674d495898d367092de7105ef760f070a03ae5f74c61670bf98c1e62aa159adb",
+        "sourceUrl": "https://hub.aivis-project.com/aivm-models/e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43",
+        "license": "ACML-1.0",
+        "styleId": 2058221186,
+        "styleName": "落ち着き"
+      },
+      "queryOverrides": {
+        "speedScale": 0.86,
+        "pitchScale": -0.01,
+        "intonationScale": 1.02,
+        "volumeScale": 0.84,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.14,
+        "pauseLengthScale": 1.08
+      },
+      "moraOverrides": []
+    },
+    {
+      "key": "learning:rie-lesson-zero-example",
+      "surface": "learning",
+      "sourceId": "rie-lesson-zero-example",
+      "lineId": "rie-lesson-zero-example",
+      "bindingIds": [
+        "lesson-zero:desk-language:example"
+      ],
+      "speakerId": "rie",
+      "role": "academy-character",
+      "intent": "Model the worked-example label clearly, then repeat it once so a beginner can bind the sound to the prop.",
+      "locale": "ja-JP",
+      "band": "native",
+      "japanese": "これは、れいです。れい。",
+      "sourceSha256": "73e674f41209f7b8dd1b945d973fe88ac51f6dfc510b7546ae4cff246d071a4b",
+      "sourceRevision": "73e674f41209f7b8dd1b945d973fe88ac51f6dfc510b7546ae4cff246d071a4b",
+      "audioQuerySha256": "5e373be80dbb54d67c7d1cda6cf2d13e6a9c36dcc83cc79af71c7fddc373b7eb",
+      "cacheKey": "10f47eefee150c44c3c9a506e4b5eee889aa0a48ba88ec4d0f4ecf65bb345bb9",
+      "assetSha256": "877837076979db131e43595095422105b3c60a25cbfbf3f918a6a16696a9aafb",
+      "output": "/academy/audio/learning-lines/rie/rie-lesson-zero-example__10f47eefee150c44.opus",
+      "status": "accepted",
+      "codexAccepted": true,
+      "ownerLineByLineReviewed": false,
+      "audioModelReviewed": true,
+      "humanReviewed": false,
+      "voiceModel": {
+        "uuid": "e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43",
+        "name": "hinakoyuhara",
+        "version": "1.0.0",
+        "payloadSha256": "674d495898d367092de7105ef760f070a03ae5f74c61670bf98c1e62aa159adb",
+        "sourceUrl": "https://hub.aivis-project.com/aivm-models/e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43",
+        "license": "ACML-1.0",
+        "styleId": 2058221186,
+        "styleName": "落ち着き"
+      },
+      "queryOverrides": {
+        "speedScale": 0.86,
+        "pitchScale": -0.01,
+        "intonationScale": 1.02,
+        "volumeScale": 0.84,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.14,
+        "pauseLengthScale": 1.08
       },
       "moraOverrides": []
     }

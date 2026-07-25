@@ -2,7 +2,7 @@ import type { ActivityEvaluation, ReviewSeed } from './activity-runtime';
 import type { LearnerEventInput, LearningAction, LearningSkill } from './learner-record';
 import type { LocalizedText } from './source-library';
 
-export const LESSON_ZERO_SENTENCE_FRAME_IDS = Object.freeze([
+const LESSON_ZERO_SENTENCE_FRAME_IDS = Object.freeze([
     'identity',
     'correction',
     'question',

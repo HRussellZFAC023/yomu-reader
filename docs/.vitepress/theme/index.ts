@@ -3,10 +3,10 @@ import { useData, type Theme } from 'vitepress';
 import { defineComponent, h, onMounted, provide, type Ref } from 'vue';
 import pkg from '../../../package.json' with { type: 'json' };
 import {
-    sharedContrastRatio,
-    sharedHexToRgba,
-    sharedMixHex,
-} from '../../../src/reader/core/color-math';
+    hostedAccentColorFromValue,
+    hostedAccentCssVariables,
+    sanitizeHostedAccentColor,
+} from '../../../src/reader/core/hosted-accent-css';
 import {
     rememberSupportBannerDismissal,
     shouldShowSupportBannerImpression,
@@ -14,7 +14,6 @@ import {
 import { shouldInstallHostedReaderRuntime } from '../../../src/reader/app/runtime-presence';
 import { gmStorageGet, gmStorageSet } from '../../../src/reader/app/storage';
 import { HOSTED_DEMO_VIDEO_SETTINGS_PATCH } from '../../../src/reader/app/hosted-demo-settings';
-import { DOC_COLOR_TOKENS, readableTextOn } from './color-contrast';
 import { cleanupHostedDocsAnnotations } from './chrome-annotation-cleanup';
 import { syncHostedAcademyAccountControls } from './academy-account';
 import './custom.css';
@@ -59,7 +58,6 @@ const HOSTED_DOCS_HEAD_TRANSLATION_SELECTOR = [
     'meta[name="twitter:description"]',
     'meta[name="twitter:image:alt"]',
 ].join(',');
-const DEFAULT_ACCENT_COLOR = '#5ea780';
 const HOSTED_DOCS_LOCALE_META: Record<InterfaceLanguage, string> = {
     en: 'en_US',
     ja: 'ja_JP',
@@ -210,6 +208,24 @@ const HOSTED_MANGA_OCR_VOCABULARY = [
     { surface: '当主', spelling: '当主', reading: 'とうしゅ', pitchPosition: 1 },
 ] as const;
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
+    'The providers bundled inside an audio source URL are now listed on their own, with no button to press. Yomu remembers which providers each URL hands out as you look words up, so the list fills itself in from audio you were playing anyway, and it appears straight away when you open Settings or press Preview. A URL Yomu has not heard from yet is checked once in the background when you finish typing or pasting it, switch a source to Custom URL, or switch one on — the moments you are actually asking about that source. Opening Settings never contacts an audio source by itself, so a private or company audio server is only ever reached when you ask for it. The per-provider checkboxes, the overlap markers, and the saved choices behave exactly as before; only the manual detection step is gone.': '音声ソースURLに含まれる提供元が、ボタンを押さなくても一覧表示されるようになりました。単語を調べるたびに、それぞれのURLがどの提供元を返したかをYomuが記憶するため、もともと再生していた音声から一覧が自動的に埋まり、設定を開いたときや試聴を押したときにすぐ表示されます。まだ応答を受け取っていないURLについては、入力や貼り付けを終えたとき、ソースをカスタムURLに切り替えたとき、ソースをオンにしたときという、そのソースについて実際に尋ねている場面に限り、バックグラウンドで一度だけ問い合わせます。設定を開いただけで音声ソースに接続することはないため、プライベートな音声サーバーや社内サーバーには、ユーザーが求めたときにのみアクセスします。提供元ごとのチェックボックス、重複の表示、保存された設定はこれまでと同じ動作で、手動での検出操作だけがなくなりました。',
+    "Audio source URLs that bundle several providers can now be inspected and controlled per provider. Aggregator endpoints such as the built-in hosted Yomu source answer a single lookup with clips from several named providers — Yomu's own hosted recordings plus a JapanesePod101 fallback, for example — and until now the whole URL could only be kept or dropped as one block. Every Custom URL row under Settings → Media → Audio sources now has a Detect included sources button that probes the URL with sample lookups and lists every provider it reports, each with its own checkbox. Clips from unticked providers are skipped during playback, and providers that appear later stay enabled until you switch them off, so nothing silently disappears.": '複数の提供元をまとめた音声ソースURLを、提供元ごとに確認してオン・オフできるようになりました。内蔵のYomuホスト音声のような集約エンドポイントは、1回の検索に対して複数の名前付き提供元のクリップ（たとえばYomu自身のホスト録音とJapanesePod101のフォールバック）を返しますが、これまではURL全体を一括で使うか外すかしか選べませんでした。設定 → メディア → 音声ソースの各カスタムURL行に「内部ソースを検出」ボタンが追加され、サンプル検索でそのURLが報告する提供元を一覧化し、それぞれにチェックボックスが付きます。チェックを外した提供元のクリップは再生時にスキップされ、後から現れた提供元はオフにするまで有効のままなので、音声が黙って消えることはありません。',
+    'The provider list also marks entries that duplicate another enabled row in the audio source list, such as the JapanesePod101 provider inside the hosted source sitting next to the stand-alone JapanesePod101 row, so overlapping sources are visible at a glance and either the provider checkbox or the duplicate row can be switched off.': '提供元リストでは、音声ソース一覧の別の有効な行と重複する項目（たとえばホストソース内のJapanesePod101と、単独のJapanesePod101行）に印が付くようになり、重複がひと目で分かるため、提供元のチェックか重複行のどちらかをオフにして二重再生を避けられます。',
+    "Your accent colour is now painted before the page appears, so yomureader.com no longer flashes its default green before switching to your colour. The accent used to be applied only once the page's scripts had downloaded and run, leaving the built-in green on screen for the first frames of every cold or slow load. The accent, and the light or dark theme it is derived against, are now resolved and applied while the page is still being parsed. The Study page, PDF reader, and video player were fixed the same way, from the one shared definition the rest of the interface already uses, so no surface can drift back to its own copy.": 'アクセントカラーがページの表示前に適用されるようになり、yomureader.comで既定の緑が一瞬表示されてから選んだ色に切り替わることがなくなりました。これまではページのスクリプトが読み込まれて実行された後でしかアクセントが適用されず、初回や低速な読み込みでは最初の数フレームのあいだ内蔵の緑が画面に残っていました。アクセントカラーと、その配色の基準となるライト／ダークテーマは、ページの解析中に決定して適用するようになりました。Studyページ、PDFリーダー、動画プレーヤーも同じ方法で修正し、インターフェースの他の部分と同じ唯一の定義を共有しているため、どの画面も独自の実装に戻ってしまうことはありません。',
+    'Furigana readings now stay glued to their words throughout a scroll on tablets and other touch devices, including the fast flings where the previous release could still leave them adrift. The readings are painted in a reader-owned layer floating above the page, and until now that layer was pinned to the screen rather than to the page, so every reading\'s position had to be rewritten by the reader on every single scroll frame. A touch device scrolls the page on its own without waiting for that work, so any frame where the rewrite arrived late showed the readings sitting where the words used to be. Readings belonging to ordinary page text are now placed in page coordinates instead of screen coordinates, so the device carries a reading and its word together as one, with no per-frame work to fall behind on. Readings inside a scrolling panel, a pinned header, or any other separately moving region keep the previous screen-anchored behaviour, which is correct for them.': 'タブレットなどのタッチ端末でスクロールしている間、ふりがなの読みが単語に固定され続けるようになりました。前回のリリースでも残っていた、勢いよくスクロールしたときのズレも解消しています。読みはページの上に浮かぶリーダー専用のレイヤーに描画されますが、これまでそのレイヤーはページではなく画面に固定されていたため、すべての読みの位置を毎スクロールフレームごとにリーダー側で描き直す必要がありました。タッチ端末はその処理を待たずに自力でページをスクロールするため、描き直しが間に合わなかったフレームでは、読みが単語のあった場所に取り残されて見えていました。通常のページ本文に属する読みは画面座標ではなくページ座標に配置されるようになり、端末が読みと単語をひとつのものとして一緒に動かすため、遅れの原因となるフレームごとの処理そのものがなくなりました。スクロールする小さな領域や固定ヘッダーなど、独立して動く領域の中にある読みは、それが正しい挙動であるため従来どおり画面を基準に追従します。',
+    'Furigana annotations no longer detach or drift off words while scrolling on tablets and performance-constrained devices. The visible readings were being re-evaluated for page occlusion on every single scroll frame using expensive element inspection; during fast scrolling, main-thread slowdowns dropped refresh frames, temporarily hiding readings until scrolling stopped. Occlusion checks are now cached across frames during pure scrolling and degraded smoothly under heavy load, and transient measurement gaps retain the last painted position for several frames so readings stay glued to their text throughout continuous scrolling.': 'タブレットや処理性能が制限された端末でスクロールした際、ふりがな注釈が単語から外れたりズレたりすることがなくなりました。表示中の読みは毎スクロールフレームで負荷の高い要素検査による遮蔽判定を行っていたため、高速スクロール時にメインスレッドが圧迫されると描画更新が落ち、スクロールが止まるまで一時的に読みが消えていました。通常のスクロール中は遮蔽判定の結果をフレーム間で保持し、高負荷時にも段階的に処理を分散するほか、一時的な測定漏れが生じても数フレーム間は前回の描画位置を維持することで、連続スクロール中も読みがテキストに固定され続けるようになりました。',
+    'Framework-driven web applications like YouTube, React, Vue, and Angular dashboards no longer experience heavy main-thread background thrashing from continuous furigana re-checks. Internal annotation changes and unrelated page updates previously triggered document-wide projection refreshes; environmental DOM updates are now filtered to ignore the reader\'s own annotation writes and unrelated page subtrees.': 'YouTube、React、Vue、Angularで構築されたダッシュボードなどのフレームワーク駆動Webアプリケーションにおいて、連続するふりがな再チェックによるメインスレッドのバックグラウンド負荷が解消されました。従来は内部の注釈更新や無関係なページの変更によってドキュメント全体の投影再処理が誘発されていましたが、環境のDOM変更検知を絞り込み、リーダー自身の注釈書き込みや無関係なDOMサブツリーの変更を無視するよう改善しました。',
+    'The Firefox add-on package can be reviewed again. Its content script was a few hundred kilobytes over the size Mozilla is willing to parse, so every submission was rejected before a reviewer saw it; the packaged script no longer carries the wrapper indentation that pushed it over, which also restores the exact multi-line text the reader builds. The Chrome and Safari packages are unchanged.': 'Firefoxアドオンのパッケージが再び審査を受けられるようになりました。コンテンツスクリプトがMozillaの解析できる上限を数百キロバイト超えていたため、審査担当者が見る前にすべての申請が却下されていました。パッケージ化されたスクリプトから、上限を超える原因になっていたラッパーのインデントを取り除き、あわせてリーダーが生成する複数行のテキストも本来のとおりに戻しました。ChromeとSafariのパッケージに変更はありません。',
+    'Turning off Prefer Japanese site language now stays off on every site. The choice is stored once for the whole browser, but each site also kept its own copy of it, and that copy was read first: any site opened while the preference was on stayed pinned to on, so it had to be turned off again on every site, forever. The shared setting now wins everywhere, and a site that has not heard about the change yet corrects itself as soon as it loads.': '「サイトの言語と地域を日本優先にする」をオフにすると、すべてのサイトでオフのままになります。この設定はブラウザー全体で一度だけ保存されますが、各サイトも独自の控えを持っていて、そちらが先に読まれていました。そのため、設定がオンのときに一度でも開いたサイトはオンに固定され、サイトごとに何度もオフにし直す必要がありました。今後は共有された設定がどこでも優先され、まだ変更を受け取っていないサイトも読み込んだ時点で自動的に直ります。',
+    'Turning the preference off now also leaves the Japanese URL it sent you to, instead of stranding you on a page that stays Japanese. Reddit\'s locale=ja-JP, YouTube\'s hl and gl, a leading /ja/ or /ja-jp/ path and the other Japanese locale markers are removed; when the page offers its own default-language link, that link is used instead.': '設定をオフにすると、転送先だった日本語URLからも離れるようになり、日本語のままのページに取り残されることがなくなりました。Redditのlocale=ja-JP、YouTubeのhlとgl、先頭の/ja/や/ja-jp/のパスなど、日本語ロケールを指定する印を取り除きます。ページ自身が既定言語へのリンクを用意している場合は、そのリンクを使います。',
+    'Unticking Prefer Japanese site language in Settings, or turning it off in another tab, now undoes the Japanese URL exactly like the puck\'s toggle already did. Saving any unrelated setting still leaves a Japanese page you opened yourself alone.': '設定画面で「サイトの言語と地域を日本優先にする」のチェックを外したときや、別のタブでオフにしたときも、パックの切り替えと同じように日本語URLを元に戻すようになりました。関係のない設定を保存しただけのときは、自分で開いた日本語のページはそのままにします。',
+    'Turning the preference back on redirects the site again in the same tab. The once-per-site guard that stops redirect loops was never cleared when the preference was switched off, so switching it on again quietly did nothing until the tab was closed.': '設定をオンに戻すと、同じタブでもサイトがもう一度転送されるようになりました。転送の繰り返しを防ぐためのサイトごとの一度きりの制御が、設定をオフにしても解除されないままだったため、オンに戻してもタブを閉じるまで何も起きませんでした。',
+    'Embedded frames are no longer sent to their own Japanese URL. An embedded player, comment box or sign-in frame could navigate itself out from under the page it belongs to; Japanese locale hints still apply inside frames, only the redirect is now reserved for the tab you are looking at.': '埋め込みフレームが単独で日本語URLへ転送されることがなくなりました。埋め込みの再生プレーヤー、コメント欄、サインイン用のフレームが、属しているページの下で勝手に移動してしまうことがありました。フレーム内でも日本語ロケールの指定は引き続き適用され、転送だけを実際に見ているタブに限定します。',
+    'Furigana and other projected readings now stay anchored to their source text while scrolling inside YouTube and other dynamic web components. The shared viewport renderer follows the source\'s composed tree across nested and slotted shadow roots, and migrates its listeners when frameworks move existing text, so readings no longer follow the viewport after their source moves.': 'YouTubeなどの動的なWebコンポーネント内をスクロールしても、ふりがななどの投影された読みが元のテキストに追従するようになりました。共通のビューポート描画処理は、入れ子やスロット配置されたShadowRootを含む元テキストの合成ツリーをたどり、フレームワークが既存テキストを移動した際にも監視先を移すため、元のテキストが移動した後に読みだけが古い画面位置へ残りません。',
+    'On iPad, the Meaning under a study Translation card no longer gets stuck on Translating forever. A local dictionary lookup that never returned on iPad Safari used to strand it; the Meaning now appears, or the section hides when there is nothing to translate, as soon as the translation is ready, and a stalled lookup can no longer freeze sentence parsing for reading, hover lookups, or page annotation.': 'iPadで、学習用の翻訳カードの「意味」欄が「Translating」の表示のまま止まってしまうことがなくなりました。iPad Safariでローカル辞書の検索が返らないと意味欄が読み込み中のまま取り残されていましたが、翻訳が用意でき次第すぐに意味を表示するか、訳すものがなければその欄を隠すようになり、検索が止まっても本文の読み取り・ホバー辞書・ページ注釈のための解析が固まることはなくなりました。',
+    'Words with two pitch-accent readings no longer leave an empty band at the top of the dictionary popup. The compact two-graph pitch block now sits in the top-right beside the play button, the same place a single graph already used, instead of dropping to its own centred row; blocks that are genuinely too wide (three readings, long readings, or multi-part expressions) still move to a full-width row, and every block does so on very narrow popups so the headword is never squeezed.': '2つのピッチアクセント読みを持つ単語で、辞書ポップアップの上部に空白の帯が残らなくなりました。コンパクトな2グラフのピッチ表示は、独立した中央寄せの行に落ちる代わりに、これまで単一グラフが置かれていたのと同じ右上の再生ボタン横に配置されます。本当に幅の広いブロック（3つの読み、長い読み、複数要素からなる表現）は引き続き全幅の行へ移動し、すべてのブロックは非常に狭いポップアップでは見出し語を圧迫しないよう全幅の行へ移動します。',
+    'Interface command buttons such as Reddit\'s 質問, 参加, 共有, and アワードを贈る now stay bare at rest, showing their furigana and pitch only on hover or keyboard focus. Tapping still opens the dictionary popup. Post titles, body text, community links, and metadata keep their annotations at rest.': 'Redditの質問・参加・共有・アワードを贈るのような操作用のコマンドボタンは、待機時に注釈を表示せず、ふりがなとピッチをホバー時またはキーボードフォーカス時にのみ表示するようになりました。タップすれば引き続き辞書ポップアップが開きます。投稿タイトル、本文、コミュニティのリンク、メタデータは、待機時も注釈を表示し続けます。',
+    'On iPad, the settings puck now keeps its intended size and follows the finger after rotating portrait → landscape → portrait. Viewport scale is reconciled after orientation settles, and drag coordinates use the exact applied scale.': 'iPadで縦向き→横向き→縦向きと回転した後も、設定用パックが本来の大きさを保ち、指の動きに正確に追従するようになりました。向き変更後にビューポート倍率を再同期し、ドラッグ座標には実際に適用した倍率を使用します。',
     'Reader language profiles now separate the learner\'s definition language, the English/Japanese interface, and the fixed Japanese Slice 1 target. Onboarding and Settings expose exactly 32 definition languages with explicit Simplified Chinese, Traditional Cantonese, Latin-script Serbo-Croatian, and Tagalog runtime identities.': 'Readerの言語プロファイルで、利用者の辞書定義言語、英語／日本語のインターフェース、Slice 1で日本語に固定された学習対象を個別に扱うようになりました。オンボーディングと設定には、簡体字中国語、繁体字広東語、ラテン文字のセルボ・クロアチア語、タガログ語の実行時IDを明示した、正確に32の定義言語が表示されます。',
     'Settings recommends a native-language Japanese dictionary where the frozen catalogue has one and an explicit English fallback otherwise. The published catalogue contains 186 entries backed by 167 immutable SHA-256 objects, with a ready recommendation manifest for every Slice 1 language.': '設定では、凍結済みカタログにその言語向けの日本語辞書がある場合は母語の辞書を推奨し、ない場合は英語へのフォールバックを明示します。公開カタログには、不変のSHA-256オブジェクト167件で構成される186件のエントリーがあり、Slice 1の全言語に対応する準備完了済みの推奨マニフェストを収録しています。',
     'Non-native local, Jiten, JPDB, Bunpro, and WaniKani definitions can be translated automatically per source. Translation is off by default, sends only selected definition or gloss text to Google Translate, appears before the untouched original, and fails without hiding the source definition. Personal WaniKani notes, mnemonics, readings, account state, and controls are excluded. Ancient Greek keeps its dictionaries and original definitions without offering Google\'s unavailable target.': '母語と一致しないローカル、Jiten、JPDB、Bunpro、WaniKaniの定義は、ソースごとに自動翻訳できます。翻訳は既定でオフで、選択した定義または語釈のテキストだけをGoogle翻訳へ送信し、変更していない原文より先に表示します。翻訳に失敗しても元の定義は隠しません。WaniKaniの個人メモ、記憶術、読み、アカウント状態、操作項目は送信対象外です。Googleが翻訳先として提供していない古代ギリシア語では、辞書と元の定義をそのまま利用します。',
@@ -3863,7 +3879,7 @@ function rememberHostedSettingsChange(settings: Record<string, unknown>, persist
 function hostedSettingsPatch(settings: Record<string, unknown>): Record<string, any> {
     const patch: Record<string, any> = {};
     const theme = hostedThemePreferenceFromValue(settings.theme);
-    const accentColor = hostedAccentFromValue(settings.accentColor);
+    const accentColor = hostedAccentColorFromValue(settings.accentColor);
     const interfaceLanguage = hostedInterfaceLanguagePreferenceFromValue(settings.interfaceLanguage);
     if (theme) patch.theme = theme;
     if (accentColor) patch.accentColor = accentColor;
@@ -3945,95 +3961,22 @@ function syncHostedAccent(source?: unknown): void {
         const change = settingsFromChangeEvent(source);
         if (change) rememberHostedSettingsChange(change.settings, !change.preview);
     }
-    const accent = sanitizeHostedAccent(readEffectiveHostedSettings().accentColor);
+    const accent = sanitizeHostedAccentColor(readEffectiveHostedSettings().accentColor);
     const root = document.documentElement;
     const dark = root.classList.contains('dark');
     const signature = `${accent}|${dark ? 'dark' : 'light'}`;
     if (hostedAccentSignature === signature) return;
     hostedAccentSignature = signature;
-    const pageBackground = dark ? DOC_COLOR_TOKENS.pageBgDark : DOC_COLOR_TOKENS.pageBgLight;
-    const brandReadable = readableOn(accent, pageBackground, 4.5);
-    const brandHover = readableOn(mixHex(accent, dark ? DOC_COLOR_TOKENS.white : DOC_COLOR_TOKENS.black, 0.18), pageBackground, 3.5);
-    const brandActive = readableOn(mixHex(accent, DOC_COLOR_TOKENS.black, 0.18), pageBackground, 3.5);
-    const brandSoft = hexToRgba(accent, dark ? 0.22 : 0.16);
-    const accentText = readableTextOn(accent);
-    const brandText = readableTextOn(brandReadable);
-    const brandHoverText = readableTextOn(brandHover);
 
-    root.style.setProperty('--yomu-accent', accent);
-    root.style.setProperty('--yomu-accent-readable', brandReadable);
-    root.style.setProperty('--yomu-accent-ink', accentText);
-    root.style.setProperty('--yomu-brand-ink', brandText);
-    root.style.setProperty('--yomu-brand-hover-ink', brandHoverText);
-    root.style.setProperty('--vp-c-brand-1', brandReadable);
-    root.style.setProperty('--vp-c-brand-2', brandHover);
-    root.style.setProperty('--vp-c-brand-3', accent);
-    root.style.setProperty('--vp-c-brand-soft', brandSoft);
-    root.style.setProperty('--vp-button-brand-border', brandReadable);
-    root.style.setProperty('--vp-button-brand-bg', accent);
-    root.style.setProperty('--vp-button-brand-text', accentText);
-    root.style.setProperty('--vp-button-brand-hover-border', brandHover);
-    root.style.setProperty('--vp-button-brand-hover-bg', brandHover);
-    root.style.setProperty('--vp-button-brand-hover-text', accentText);
-    root.style.setProperty('--vp-button-brand-active-border', brandActive);
-    root.style.setProperty('--vp-button-brand-active-bg', brandActive);
-    root.style.setProperty('--vp-button-brand-active-text', accentText);
-    root.style.setProperty('--vp-home-hero-name-color', brandReadable);
-    root.style.setProperty('--jpdb-reader-accent', accent);
-    root.style.setProperty('--jpdb-reader-accent-readable', brandReadable);
-    root.style.setProperty('--jpdb-reader-accent-text', accentText);
-    root.style.setProperty('--jpdb-reader-accent-soft', brandSoft);
+    // Same variable map the pre-paint bootstrap stamps (see
+    // src/reader/core/hosted-appearance-boot.ts), so re-applying it after
+    // hydration is a no-op instead of a visible colour correction.
+    const variables = hostedAccentCssVariables(accent, dark);
+    for (const [name, value] of Object.entries(variables)) root.style.setProperty(name, value);
 
     document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')?.setAttribute('content', accent);
 }
 
-function sanitizeHostedAccent(value: unknown, fallback = DEFAULT_ACCENT_COLOR): string {
-    return hostedAccentFromValue(value) ?? fallback;
-}
-
-function hostedAccentFromValue(value: unknown): string | undefined {
-    if (typeof value !== 'string') return undefined;
-    const trimmed = value.trim();
-    if (/^#[0-9a-f]{6}$/i.test(trimmed)) return trimmed.toLowerCase();
-    const shortHex = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/i.exec(trimmed);
-    return shortHex ? `#${shortHex[1]}${shortHex[1]}${shortHex[2]}${shortHex[2]}${shortHex[3]}${shortHex[3]}`.toLowerCase() : undefined;
-}
-
-function readableOn(color: string, background: string, targetContrast: number): string {
-    const safe = sanitizeHostedAccent(color);
-    if (hasTargetContrast(safe, background, targetContrast)) return safe;
-    return readableMixedColor(safe, background, targetContrast, readableMixTarget(background));
-}
-
-function readableMixedColor(color: string, background: string, targetContrast: number, toward: string): string {
-    for (let amount = 0.08; amount <= 1; amount += 0.08) {
-        const mixed = mixHex(color, toward, amount);
-        if (hasTargetContrast(mixed, background, targetContrast)) return mixed;
-    }
-    return toward;
-}
-
-function readableMixTarget(background: string): string {
-    return contrastRatio(background, DOC_COLOR_TOKENS.black) > contrastRatio(background, DOC_COLOR_TOKENS.white)
-        ? DOC_COLOR_TOKENS.black
-        : DOC_COLOR_TOKENS.white;
-}
-
-function hasTargetContrast(color: string, background: string, targetContrast: number): boolean {
-    return contrastRatio(color, background) >= targetContrast;
-}
-
-function contrastRatio(a: string, b: string): number {
-    return sharedContrastRatio(a, b, sanitizeHostedAccent);
-}
-
-function mixHex(from: string, to: string, amount: number): string {
-    return sharedMixHex(from, to, amount, sanitizeHostedAccent);
-}
-
-function hexToRgba(color: string, alpha: number): string {
-    return sharedHexToRgba(color, alpha, sanitizeHostedAccent);
-}
 
 function browserPrefersJapanese(): boolean {
     const languages = [...(navigator.languages ?? []), navigator.language];

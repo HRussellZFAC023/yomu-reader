@@ -103,11 +103,17 @@ export type FuriganaStateGroup = 'new' | 'learning' | 'known' | 'due' | 'failed'
 
 export type WordColorStates = 'all' | 'new-only';
 
+export interface AudioSubSourceSetting {
+    name: string;
+    enabled: boolean;
+}
+
 export interface AudioSourceSetting {
     type: AudioSourceType;
     url: string;
     voice: string;
     enabled: boolean;
+    subSources?: AudioSubSourceSetting[];
 }
 
 export interface DictionaryPreference {

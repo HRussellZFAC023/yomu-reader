@@ -15,6 +15,14 @@ const {
   immutableLibraryFileName,
   immutableReaderCssFileName,
 } = require('./lib/greasyfork-libraries.cjs');
+const { stampAppearanceBoot } = require('./lib/hosted-appearance-boot.cjs');
+
+// Standalone hosted pages that paint their own chrome and need the pre-paint
+// accent bootstrap stamped into their marked <head> block.
+const APPEARANCE_BOOT_PAGES = [
+  join(root, 'docs', 'public', 'pdf-reader', 'index.html'),
+  join(root, 'docs', 'public', 'video-player', 'index.html'),
+];
 
 const STUDY_BUILD_DIRECTORY = join(root, 'dist', 'newtab');
 const STUDY_HOST_DIRECTORY = join(root, 'docs', 'public', 'study');
@@ -46,6 +54,18 @@ prepareStudyBuild();
 syncCanonicalStudyRoute();
 syncNewTabCompatibilityAlias();
 syncUserscript();
+stampStandaloneAppearanceBoot();
+
+function stampStandaloneAppearanceBoot() {
+  for (const page of APPEARANCE_BOOT_PAGES) {
+    if (!existsSync(page)) fail(`Missing hosted page: ${page}`);
+    const source = readFileSync(page, 'utf8');
+    const stamped = stampAppearanceBoot(source, 'surface');
+    if (!stamped) fail(`Missing appearance-boot markers in ${page}`);
+    if (stamped !== source) writeFileSync(page, stamped);
+    console.log(`Stamped pre-paint appearance boot into ${page}`);
+  }
+}
 
 function syncUserscript() {
   if (!existsSync(DIST_USERSCRIPT_PATH)) fail(`Missing built userscript: ${DIST_USERSCRIPT_PATH}`);
@@ -66,7 +86,9 @@ function prepareStudyBuild() {
   const appHash = fileHash(appSource);
   const cssHash = fileHash(cssSource);
   const buildId = `${packageVersion()}-${appHash}`;
-  const html = readFileSync(indexSource, 'utf8')
+  const template = stampAppearanceBoot(readFileSync(indexSource, 'utf8'), 'surface');
+  if (!template) fail(`Missing appearance-boot markers in ${indexSource}`);
+  const html = template
     .replaceAll('__YOMU_NEW_TAB_APP_HASH__', appHash)
     .replaceAll('__YOMU_NEW_TAB_BUILD_ID__', buildId)
     .replaceAll('__YOMU_NEW_TAB_CSS_HASH__', cssHash)

@@ -37,6 +37,10 @@ vi.mock('../../src/reader/settings/form', async importOriginal => {
 // before this file's mocks. Reload it here so the form seams above are active.
 vi.resetModules();
 const { SettingsDialogController } = await import('../../src/reader/settings/dialog-controller');
+// Same module instance the controller above resolved: opening a dialog probes
+// each aggregator audio URL once and memoizes it, so every test must start
+// without another test's cached (or still in-flight) probe.
+const { getAudioCandidates, resetAudioSubSourceDiscoveryForTests } = await import('../../src/reader/audio/candidates');
 
 type SettingsDialogControllerConstructor = new (dependencies: Record<string, unknown>) => SettingsDialogControllerInstance;
 type RefreshableSettingsDialogController = {
@@ -330,6 +334,7 @@ describe('settings dialog keyboard dismissal', () => {
     afterEach(() => {
         document.body.replaceChildren();
         localStorage.clear();
+        resetAudioSubSourceDiscoveryForTests();
         vi.restoreAllMocks();
         vi.unstubAllGlobals();
     });
@@ -919,6 +924,47 @@ describe('settings dialog keyboard dismissal', () => {
 
         expect(play).toHaveBeenCalledWith(createAudioPreviewCard(), { userGesture: true });
         expect(playJpdbAudio).not.toHaveBeenCalled();
+    });
+
+    it('reaches no audio source on its own when settings opens', async () => {
+        const request = vi.fn();
+        vi.stubGlobal('GM_xmlhttpRequest', request);
+        const { form } = createSettingsDialog();
+        await flushPromises();
+        await flushPromises();
+
+        expect(request).not.toHaveBeenCalled();
+        expect(form.querySelector('[data-action="audio-source-detect"]')).toBeNull();
+    });
+
+    it('lists an aggregator URL\'s providers once a lookup reveals them, with nothing to press', async () => {
+        const play = vi.fn(async () => {
+            await getAudioCandidates(
+                { type: 'custom-json', url: 'https://audio.yomureader.com/?term={term}&reading={reading}', voice: '', enabled: true },
+                { vid: 0, sid: 0, spelling: '日本', reading: 'にほん' } as never,
+                1000,
+                '',
+            );
+            return true;
+        });
+        vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({
+            type: 'audioSourceList',
+            audioSources: [
+                { name: 'Yomu audio', url: 'https://audio.yomureader.com/audio/clips/nihon-1.mp3' },
+                { name: 'jpod', url: 'https://assets.languagepod101.com/dictionary/japanese/audiomp3.php?kana=%E3%81%AB%E3%81%BB%E3%82%93' },
+            ],
+        }), { status: 200, headers: { 'Content-Type': 'application/json' } })));
+        const { form } = createSettingsDialog({ audio: { play, stop: vi.fn() } });
+        const hostedRow = Array.from(form.querySelectorAll<HTMLElement>('[data-audio-source-row]'))
+            .find(row => row.querySelector<HTMLInputElement>('[data-audio-url-field]')?.value.includes('audio.yomureader.com'));
+        expect(hostedRow?.querySelector('input[name$=".subSources.0.name"]')).toBeNull();
+
+        hostedRow?.querySelector<HTMLButtonElement>('[data-action="preview-audio"]')?.click();
+        await waitForCondition(() => Boolean(hostedRow?.querySelector('input[name$=".subSources.0.name"]')));
+
+        const providers = Array.from(hostedRow?.querySelectorAll<HTMLInputElement>('input[name*=".subSources."][name$=".name"]') ?? [])
+            .map(input => input.value);
+        expect(providers).toEqual(['Yomu audio', 'jpod']);
     });
 
     it('tests Anki with a read-only connection check without warming disabled status', async () => {
