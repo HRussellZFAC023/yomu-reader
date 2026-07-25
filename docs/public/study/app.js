@@ -1,8 +1,81 @@
 (function() {
   "use strict";
+  function scopedDocument(scope = {}) {
+    if (scope.document) return scope.document;
+    return typeof document === "undefined" ? null : document;
+  }
+  function isPageDormant(scope = {}) {
+    return scopedDocument(scope)?.visibilityState === "hidden";
+  }
+  function onPageActivityChange(listener, scope = {}) {
+    const owner = scopedDocument(scope);
+    if (!owner) return () => void 0;
+    const handler = () => listener(owner.visibilityState === "hidden");
+    owner.addEventListener("visibilitychange", handler, { signal: scope.signal });
+    return () => owner.removeEventListener("visibilitychange", handler);
+  }
+  class ParkableObserver {
+    // One init per target: every call site observes a given node exactly one
+    // way, and keeping the latest init makes re-attachment deterministic.
+    targets = /* @__PURE__ */ new Map();
+    observer;
+    reconcile;
+    unsubscribe;
+    parked;
+    constructor(observer, options = {}) {
+      this.observer = observer;
+      this.reconcile = options.reconcile;
+      this.parked = isPageDormant(options);
+      this.unsubscribe = onPageActivityChange((dormant) => {
+        if (dormant) this.park();
+        else this.wake();
+      }, options);
+    }
+    observe(target, init) {
+      this.targets.set(target, init);
+      if (!this.parked) this.observer?.observe(target, init);
+    }
+    /** Native semantics: forget every target, not just detach from them. */
+    disconnect() {
+      this.targets.clear();
+      this.drain();
+      this.observer?.disconnect();
+    }
+    /** Detach for good — drops the visibility subscription with the targets. */
+    dispose() {
+      this.unsubscribe();
+      this.disconnect();
+    }
+    get dormant() {
+      return this.parked;
+    }
+    park() {
+      if (this.parked) return;
+      this.parked = true;
+      this.drain();
+      this.observer?.disconnect();
+    }
+    wake() {
+      if (!this.parked) return;
+      this.parked = false;
+      this.targets.forEach((init, target) => this.observer?.observe(target, init));
+      this.reconcile?.();
+    }
+    drain() {
+      this.observer?.takeRecords?.();
+    }
+  }
+  function parkableMutationObserver(callback, options = {}) {
+    const owner = scopedDocument(options);
+    const Observer = owner?.defaultView?.MutationObserver ?? (typeof MutationObserver === "function" ? MutationObserver : void 0);
+    if (!Observer) return null;
+    const observer = new Observer(callback);
+    return new ParkableObserver(observer, options);
+  }
   const overlays = /* @__PURE__ */ new WeakMap();
   const ownerRecords = /* @__PURE__ */ new WeakMap();
   const PROJECTED_READING_ATTRIBUTE = "data-yomu-projected-reading";
+  const PROJECTION_GRACE_MAX_AGE_MS = 250;
   function syncProjectedReadings$1(owner, projections) {
     const document2 = owner.ownerDocument;
     const overlay = documentOverlay(document2);
@@ -118,6 +191,7 @@
       occlusionEpoch: 0,
       scrollContextEpoch: 0,
       hitTestBudgetRemaining: 12,
+      graceRefreshNeeded: false,
       scheduleRefresh: () => scheduleProjectionRefresh(document2, overlay),
       scheduleTopologyRefresh: () => {
         overlay.rootsDirty = true;
@@ -186,6 +260,7 @@
     let visible = false;
     if (valid && sourceAllowed && anchorVisible) {
       record2.lastGoodRect = valid;
+      record2.lastGoodAt = Date.now();
       record2.graceFramesRemaining = 3;
       let topmost;
       const overlay = context?.overlay;
@@ -202,10 +277,11 @@
         }
       }
       visible = topmost;
-    } else if (!valid && record2.lastGoodRect && record2.graceFramesRemaining && record2.graceFramesRemaining > 0 && sourceAllowed && anchorVisible) {
+    } else if (!valid && record2.lastGoodRect && record2.graceFramesRemaining && record2.graceFramesRemaining > 0 && sourceAllowed && anchorVisible && Date.now() - (record2.lastGoodAt ?? 0) <= PROJECTION_GRACE_MAX_AGE_MS) {
       record2.graceFramesRemaining -= 1;
       effectiveRect = record2.lastGoodRect;
       visible = record2.cachedTopmost ?? true;
+      if (context) context.overlay.graceRefreshNeeded = true;
     }
     return {
       record: record2,
@@ -276,7 +352,7 @@
       scrolls = true;
     } else {
       const style = memoizedComputedStyle(element2, styles);
-      const parent = composedParentElement(element2);
+      const parent = composedParentElement$1(element2);
       scrolls = style.position !== "fixed" && style.position !== "sticky" && !elementScrollsIndependently(element2, style) && Boolean(parent) && elementScrollsWithDocument(parent, cache2, styles);
     }
     cache2.set(element2, scrolls);
@@ -325,6 +401,10 @@
       return readProjectedReadingPaint(record2, safeMeasure(record2), context);
     });
     paints.forEach((paint) => applyProjectedReadingPaint(paint, context));
+    if (overlay.graceRefreshNeeded) {
+      overlay.graceRefreshNeeded = false;
+      overlay.scheduleRefresh();
+    }
   }
   function pruneDisconnectedRecords(overlay) {
     for (const record2 of overlay.records) {
@@ -429,13 +509,13 @@
     return [...overlay.intersectingAnchors].flatMap((anchor) => [...overlay.anchorRecords.get(anchor) ?? []]);
   }
   function observeProjectionEnvironment(document2, overlay) {
-    const Observer = document2.defaultView?.MutationObserver;
     const root = document2.documentElement;
-    if (!Observer || !root) return null;
-    const observer = new Observer((mutations) => {
+    if (!root) return null;
+    const observer = parkableMutationObserver((mutations) => {
       if (!overlay.records.size || !mutations.some((mutation) => mutationAffectsProjection(mutation, overlay))) return;
       overlay.scheduleTopologyRefresh();
-    });
+    }, { document: document2, reconcile: () => overlay.scheduleTopologyRefresh() });
+    if (!observer) return null;
     observeProjectionMutations(observer, root);
     return observer;
   }
@@ -603,7 +683,7 @@
       if (composedContains(anchor, deepest) || composedContains(surface, deepest)) return true;
       if (composedContains(deepest, anchor) || composedContains(deepest, surface)) return true;
       if (ownChrome?.contains(deepest)) continue;
-      for (let element2 = deepest; element2; element2 = composedParentElement(element2)) {
+      for (let element2 = deepest; element2; element2 = composedParentElement$1(element2)) {
         if (composedContains(element2, anchor) || composedContains(element2, surface)) break;
         if (elementPaintsOccludingSurface(element2, occludingPaint)) return false;
       }
@@ -657,7 +737,7 @@
     const cached = cache2.get(anchor);
     if (cached !== void 0) return cached;
     const style = memoizedComputedStyle(anchor, styles);
-    const parent = composedParentElement(anchor);
+    const parent = composedParentElement$1(anchor);
     const visible = style.display !== "none" && style.visibility !== "hidden" && style.visibility !== "collapse" && style.contentVisibility !== "hidden" && (style.opacity === "" || Number.parseFloat(style.opacity) !== 0) && (!parent || anchorIsPainted(parent, cache2, styles));
     cache2.set(anchor, visible);
     return visible;
@@ -670,7 +750,7 @@
     const margin = 64;
     return rect.right >= -margin && rect.bottom >= -margin && rect.left <= viewport.innerWidth + margin && rect.top <= viewport.innerHeight + margin;
   }
-  function composedParentElement(element2) {
+  function composedParentElement$1(element2) {
     let parent = composedParentNode(element2);
     while (parent && !(parent instanceof Element)) parent = composedParentNode(parent);
     return parent;
@@ -2109,7 +2189,16 @@
         } catch {
         }
       };
-      const handleLoad = (response) => {
+      let settled = false;
+      let deadline;
+      const finish = (settle) => {
+        if (settled) return;
+        settled = true;
+        if (deadline !== void 0) clearTimeout(deadline);
+        if (signal) signal.removeEventListener("abort", onAbort);
+        settle();
+      };
+      const handleLoad = (response) => finish(() => {
         if (response.status < 200 || response.status >= 300) {
           reject(new Error(formatStatusFailure(options, response.status)));
           return;
@@ -2119,12 +2208,17 @@
         } catch (error) {
           reject(error);
         }
+      });
+      const handleTimeout = () => {
+        tryAbort();
+        finish(() => reject(new Error(options.timeoutLabel ?? `${options.failureLabel ?? "Request"} timed out.`)));
       };
       const onAbort = () => {
         tryAbort();
-        reject(abortError());
+        finish(() => reject(abortError()));
       };
       if (signal) signal.addEventListener("abort", onAbort, { once: true });
+      if (options.timeoutMs) deadline = setTimeout(handleTimeout, options.timeoutMs);
       const result = userscriptRequest({
         method: options.method ?? "GET",
         url,
@@ -2136,14 +2230,11 @@
         withCredentials: options.withCredentials,
         cookie: options.cookie,
         onload: handleLoad,
-        onerror: (error) => reject(error instanceof Error ? error : new Error(formatFailure(options))),
-        ontimeout: () => {
-          tryAbort();
-          reject(new Error(options.timeoutLabel ?? `${options.failureLabel ?? "Request"} timed out.`));
-        }
+        onerror: (error) => finish(() => reject(error instanceof Error ? error : new Error(formatFailure(options)))),
+        ontimeout: handleTimeout
       });
       if (result && typeof result.then === "function") {
-        result.then(handleLoad, (error) => reject(error instanceof Error ? error : new Error(formatFailure(options))));
+        result.then(handleLoad, (error) => finish(() => reject(error instanceof Error ? error : new Error(formatFailure(options)))));
       } else if (result && typeof result.abort === "function") {
         handle = result;
       }
@@ -19177,7 +19268,10 @@ ${entry.reading}`;
     }
     async findTermMatches(text2, limit = 32, preferences = []) {
       const done = log$G.time("Inline term match search", { length: text2.length, limit, dictionaries: preferences.length });
-      const source = text2.slice(0, 240);
+      const source = text2.slice(0, 2e4);
+      if (source.length < text2.length) {
+        log$G.warn("Inline term match source trimmed", { length: text2.length, kept: source.length });
+      }
       if (!source.trim()) {
         done();
         return [];
@@ -35540,6 +35634,9 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     "jpdb-pitch-nakadaka",
     "jpdb-pitch-odaka"
   ]);
+  const NEUTRAL_CLEARED_CONTRAST_VARS = RENDERED_WORD_CONTRAST_VARS.filter(
+    (name) => name !== "--jpdb-reader-highlight-backdrop"
+  );
   const pendingHoverContrastRefresh = /* @__PURE__ */ new WeakSet();
   const appliedContrastState = /* @__PURE__ */ new WeakMap();
   function refreshReaderWordContrast(root = document) {
@@ -35548,6 +35645,8 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     const activeBackgrounds = [];
     const unknownBackgroundWords = [];
     const neutralWords = [];
+    const neutralPageWords = [];
+    const neutralPageBackgrounds = [];
     const backgroundByParent = /* @__PURE__ */ new Map();
     const cachedPageBackgroundFor = (word) => {
       const parent = word.parentElement;
@@ -35569,7 +35668,13 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         continue;
       }
       if (isNeutralReaderWord(word)) {
-        neutralWords.push(word);
+        const neutralBackground = cachedPageBackgroundFor(word);
+        if (neutralBackground) {
+          neutralPageWords.push(word);
+          neutralPageBackgrounds.push(neutralBackground);
+        } else {
+          neutralWords.push(word);
+        }
         continue;
       }
       const background = cachedPageBackgroundFor(word);
@@ -35579,17 +35684,14 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         continue;
       }
       const isHovered = word.matches(":hover, :focus");
+      if (isHovered) scheduleHoverSettledContrastRefresh(word);
       const previous = appliedContrastState.get(word);
       const parentColor = getComputedStyle(word.parentElement ?? word).color;
       if (previous && previous.background === background.css && previous.className === word.className && previous.cssText === word.style.cssText && previous.hovered === isHovered && previous.parentColor === parentColor) {
         continue;
       }
       if (hasAnkiAccessibleColor && isHovered && !hasInlineTextColor && existingAccessibleColorRemainsReadableOnHover(word, background)) {
-        scheduleHoverSettledContrastRefresh(word);
         continue;
-      }
-      if (isHovered) {
-        scheduleHoverSettledContrastRefresh(word);
       }
       activeWords.push(word);
       activeBackgrounds.push(background);
@@ -35618,6 +35720,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       };
     });
     neutralWords.forEach((word) => clearContrastVars(word));
+    neutralPageWords.forEach((word, i2) => applyNeutralPageBackdrop(word, neutralPageBackgrounds[i2]));
     unknownBackgroundWords.forEach((word) => applyUnknownBackgroundFallback(word));
     activeWords.forEach((word, i2) => {
       savedVars[i2].forEach(({ name, value, priority }) => {
@@ -35797,6 +35900,11 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function applyUnknownBackgroundFallback(word) {
     RENDERED_WORD_CONTRAST_VARS_WITHOUT_SHADOW.forEach((name) => word.style.removeProperty(name));
     word.style.setProperty("--jpdb-reader-word-contrast-shadow", PAGE_WORD_COLOR_TOKENS.unknownBackgroundShadow);
+  }
+  function applyNeutralPageBackdrop(word, background) {
+    NEUTRAL_CLEARED_CONTRAST_VARS.forEach((name) => word.style.removeProperty(name));
+    if (word.style.getPropertyValue("--jpdb-reader-highlight-backdrop") === background.css) return;
+    word.style.setProperty("--jpdb-reader-highlight-backdrop", background.css);
   }
   function clearContrastVars(word) {
     RENDERED_WORD_CONTRAST_VARS.forEach((name) => word.style.removeProperty(name));
@@ -73063,6 +73171,112 @@ ${reading}`);
   function shouldAllowSegmentedSubtitleFallback(_settings) {
     return true;
   }
+  const PINNED_FRAME_DRIFT_TOLERANCE = 8;
+  class SubtitlePinnedPlayerTracker {
+    anchored;
+    anchor;
+    pinned = false;
+    pinnedSample;
+    reset() {
+      this.anchored = void 0;
+      this.anchor = void 0;
+      this.pinned = false;
+      this.pinnedSample = void 0;
+    }
+    // Called once per alignment pass with the frame box the gate is about to
+    // judge, so the anchor is refreshed from the same measurement the layout
+    // uses and cannot drift out of step with it.
+    observe(video, rect, suspended = false) {
+      if (!video || suspended) {
+        this.reset();
+        return;
+      }
+      if (video !== this.anchored) {
+        this.reset();
+        this.anchored = video;
+      }
+      const documentRect = toDocumentSpace(video, rect);
+      if (!this.anchor) {
+        if (framePinning(video) !== "fixed") this.anchor = documentRect;
+        this.pinned = false;
+        return;
+      }
+      if (Math.abs(documentRect.top - this.anchor.top) <= PINNED_FRAME_DRIFT_TOLERANCE) {
+        this.anchor = documentRect;
+        this.pinned = false;
+        this.pinnedSample = void 0;
+        return;
+      }
+      if (framePinning(video) === "none") {
+        this.anchor = documentRect;
+        this.pinned = false;
+        this.pinnedSample = void 0;
+        return;
+      }
+      const scrollY = scrollOffsetY(video.ownerDocument.defaultView);
+      const previous = this.pinnedSample;
+      this.pinnedSample = { top: documentRect.top, scrollY };
+      if (previous && Math.abs(scrollY - previous.scrollY) > PINNED_FRAME_DRIFT_TOLERANCE && Math.abs(documentRect.top - previous.top) <= PINNED_FRAME_DRIFT_TOLERANCE) {
+        this.anchor = documentRect;
+        this.pinned = false;
+        this.pinnedSample = void 0;
+        return;
+      }
+      this.pinned = true;
+    }
+    // The box the visibility gate should judge: the live one normally, the
+    // frame's in-flow box projected back into the viewport once it is pinned.
+    visibilityRect(video, rect) {
+      if (!this.pinned || !this.anchor || !video || video !== this.anchored) return rect;
+      const view = video.ownerDocument.defaultView;
+      return new DOMRect(
+        this.anchor.left - scrollOffsetX(view),
+        this.anchor.top - scrollOffsetY(view),
+        this.anchor.width,
+        this.anchor.height
+      );
+    }
+  }
+  function toDocumentSpace(video, rect) {
+    const view = video.ownerDocument.defaultView;
+    return {
+      left: rect.left + scrollOffsetX(view),
+      top: rect.top + scrollOffsetY(view),
+      width: rect.width,
+      height: rect.height
+    };
+  }
+  function framePinning(video) {
+    const document2 = video.ownerDocument;
+    const view = document2.defaultView;
+    if (!view) return "none";
+    let sticky = false;
+    let current = video;
+    while (current && current !== document2.documentElement && current !== document2.body) {
+      const position = view.getComputedStyle(current).position;
+      if (position === "fixed") return "fixed";
+      if (position === "sticky") sticky = true;
+      current = composedParentElement(current);
+    }
+    return sticky ? "sticky" : "none";
+  }
+  function composedParentElement(element2) {
+    const slot = element2.assignedSlot;
+    if (slot) return slot;
+    const parent = element2.parentNode;
+    if (parent && parent.nodeType === Node.DOCUMENT_FRAGMENT_NODE) {
+      return parent.host ?? null;
+    }
+    return element2.parentElement;
+  }
+  function scrollOffsetX(view) {
+    if (!view) return 0;
+    return view.scrollX || view.pageXOffset || view.document?.documentElement?.scrollLeft || 0;
+  }
+  function scrollOffsetY(view) {
+    if (!view) return 0;
+    return view.scrollY || view.pageYOffset || view.document?.documentElement?.scrollTop || 0;
+  }
   function renderControllerPrimarySubtitle(options) {
     const hasReusablePrimary = options.lastRenderedKey === options.parseKey && (parsedSubtitleHtmlHasReaderWords(options.lastRenderedHtml) || options.hasFreshEmptyParsedHtml);
     return renderSubtitlePrimary({
@@ -74870,6 +75084,7 @@ ${reading}`);
     lastYomuCaptionsActive = false;
     youtubeDomCaptionFallbackTrackId = "";
     fullscreen = false;
+    pinnedPlayer = new SubtitlePinnedPlayerTracker();
     lastRenderedPrimaryText = "";
     lastRenderedPrimaryHtml = "";
     lastRenderedPrimaryKey = "";
@@ -75927,6 +76142,7 @@ ${reading}`);
     alignToVideo() {
       if (!this.root) return;
       if (!this.video) {
+        this.pinnedPlayer.reset();
         setClassState(this.root, "jpdb-subtitle-has-video-frame", false);
         setClassState(this.root, "jpdb-subtitle-compact-video", false);
         setClassState(this.root, "jpdb-subtitle-video-out-of-view", true);
@@ -75935,6 +76151,7 @@ ${reading}`);
         return;
       }
       const rect = this.videoLayoutRect();
+      this.pinnedPlayer.observe(this.video, rect, this.fullscreen);
       this.lastAlignedVideoRectKey = videoRectKey(rect);
       this.applyVideoLayout(rect);
     }
@@ -75968,8 +76185,13 @@ ${reading}`);
       this.lastShortsNavVideoId = videoId;
       if (!firstSync) this.handleYouTubeNavigation();
     }
+    // Judge the frame where the document put it, not where the page parked it: a
+    // player the page pinned to the viewport as the reader scrolled past is a
+    // fully visible box that nobody is looking at, and the overlay belongs with
+    // the content the reader left behind.
     isVideoOverlayVisible(rect) {
-      return isSubtitleOverlayVideoVisible(rect) && (!isYouTubePage() || this.fullscreen || youtubeWatchPlayerMeaningfullyVisible(rect)) && (!this.video || isSubtitleVideoElementRenderable(this.video)) && this.videoHasPlayerAffordances();
+      const gateRect = this.fullscreen ? rect : this.pinnedPlayer.visibilityRect(this.video, rect);
+      return isSubtitleOverlayVideoVisible(gateRect) && (!isYouTubePage() || this.fullscreen || youtubeWatchPlayerMeaningfullyVisible(gateRect)) && (!this.video || isSubtitleVideoElementRenderable(this.video)) && this.videoHasPlayerAffordances();
     }
     applyVideoLayout(rect) {
       if (!this.root) return;

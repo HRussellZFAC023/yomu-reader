@@ -1311,9 +1311,14 @@ describe('reader helpers', () => {
             xmlHttpRequest: (details: Parameters<UserscriptHttpRequest>[0]) => {
                 requested.push(details.url);
                 if (details.url === 'http://x.test/preferred-slow.mp3') {
+                    // Slow but comfortably inside the request budget (6s by
+                    // default). Answering AT the budget is a tie the transport
+                    // may legitimately lose now that it enforces its own
+                    // deadline — real managers honouring the timeout field
+                    // always could — and a tie is not the contract under test.
                     window.setTimeout(() => {
                         details.onload?.({ status: 200, response: new Blob(['audio'], { type: 'audio/mpeg' }) });
-                    }, 6000);
+                    }, 3000);
                     return;
                 }
                 details.onload?.({ status: 200, response: new Blob(['audio'], { type: 'audio/mpeg' }) });

@@ -4796,10 +4796,6 @@ ${candidate.depth}`;
       audioCustomJsonPlaceholder: "Yomitan or Ultimate audio source URL",
       audioCustomUrlPlaceholder: "Direct audio file URL",
       audioBuiltInPlaceholder: "Built-in source, no URL needed",
-      audioDetectingSubSources: "Checking included sources…",
-      audioNoSubSourcesDetected: "No named sources reported by this URL.",
-      audioSubSourcesHelp: "Sources offered by this URL — untick any you don’t want:",
-      audioSubSourceOverlapHint: "also listed as its own source",
       defaultVoiceSuffix: "default",
       audioGuideLinkLabel: "Yomitan audio guide",
       audioProxyGuideSummary: "Make your own Cloudflare proxy",
@@ -6441,10 +6437,6 @@ audioSourceCustomJson	カスタムURL
 audioCustomJsonPlaceholder	Yomitan/Ultimate音声URL
 audioCustomUrlPlaceholder	直接音声ファイルURL
 audioBuiltInPlaceholder	内蔵ソースはURL不要
-audioDetectingSubSources	内部ソースを確認中…
-audioNoSubSourcesDetected	このURLは名前付きソースを返しませんでした。
-audioSubSourcesHelp	このURLが提供するソース。不要なものはオフに:
-audioSubSourceOverlapHint	下の単独ソースと重複
 defaultVoiceSuffix	標準
 audioGuideLinkLabel	Yomitan音声ガイド
 audioProxyGuideSummary	Cloudflareプロキシ

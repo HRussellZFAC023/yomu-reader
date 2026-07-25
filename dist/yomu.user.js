@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.8.4
+// @version 1.8.6
 // @author Henry Russell
 // @description Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and a study page.
 // @license MIT
@@ -11,15 +11,15 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-annotations.48a384eb13dd.user.js#sha256=SKOE6xPdCJ47TRwC7skyh4QoO+AEeXBfgfBy3PFt1rI=
-// @require https://yomureader.com/greasyfork/yomu-anki.2610bb8f5ffa.user.js#sha256=JhC7j1/62t4boNvp0wG7xjhnIRTTW+IpAeDpQe/cflM=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.f1c37504507e.user.js#sha256=8cN1BFB+CHmqW0Uf3e5mRHuEuycSbgAYT11FiexZUDE=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.86105c6dc56f.user.js#sha256=hhBcbcVv1kfYArrl5B72rS0Ke0WNowISKyI+gnp0/x4=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.e97756036040.user.js#sha256=6XdWA2BAxoqzovwU4lwWZDPzoUIuYhd/M3CEYBIcJcA=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.2e1dfeff9ade.user.js#sha256=Lh3+/5re6hROllxXynJdYpqyyDcIcnbVs99mjHGaoYw=
-// @require https://yomureader.com/greasyfork/yomu-bunpro.0cde00c56cef.user.js#sha256=DN4AxWzvr5/eGWFV5ZMHfvHzm4qXmL9F68milSvlHuo=
-// @require https://yomureader.com/greasyfork/yomu-video.c79a1b4fdd6c.user.js#sha256=x5obT91sNXiB/+urgcZzIhUY0LB62wapLHNza81F5H4=
-// @resource yomuCss  https://yomureader.com/yomu.35e3f0db5c76.css#sha256=NePw21x26ytMJ2NWnR0FIRiN9YwBDVGSeonEvtsssKg=
+// @require https://yomureader.com/greasyfork/yomu-annotations.12a7820b6104.user.js#sha256=EqeCC2EEadCbzompH7pBrDXGSEM2jfac9EfwExbXSbA=
+// @require https://yomureader.com/greasyfork/yomu-anki.7fde558a0f92.user.js#sha256=f95Vig+SAe6ROYMmzSV/pyuvo6vyOMI0JlJdDnC3Kc4=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.1ef4e9c91eff.user.js#sha256=HvTpyR7/kuWqhtwHHUzXsvQizxe0oSGDHldhHp2TNaM=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.a0095cf148dd.user.js#sha256=oAlc8UjdhTdBNLgwGI1eu2eqjEZueexI6EjFpoHh6nI=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.73a09153fe79.user.js#sha256=c6CRU/559XerqHWgLrLnqEVSjEPiygnZMc+vCmbF6WA=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.571f5d69db78.user.js#sha256=Vx9dadt4iHmbYMujfZuzHWQp+UEO2cmbEqCXsqUIqx0=
+// @require https://yomureader.com/greasyfork/yomu-bunpro.4e99257b06b1.user.js#sha256=Tpklewax5ze9sy6L7bpSMOFh7jtoUopO0+Rj+LzQRqY=
+// @require https://yomureader.com/greasyfork/yomu-video.37270db1839a.user.js#sha256=NycNsYOatBatYGlRm41WnxH8jc3D5t7+b9PXItVvAyA=
+// @resource yomuCss  https://yomureader.com/yomu.76513423ef7a.css#sha256=dlE0I+96HhOzvJ+rAewvfiXixGsUyfXePW2v+hKyAec=
 // @connect api.jiten.moe
 // @connect jpdb.io
 // @connect api.wanikani.com
@@ -6306,6 +6306,183 @@ function sharedHexToRgb(color, normalizeColor = normalizeHexColor) {
   parseInt(safe.slice(5, 7), 16)
   ];
 }
+const YOMU_HOSTED_AUDIO_SOURCE = { type: "custom-json", url: YOMU_HOSTED_AUDIO_URL, voice: "", enabled: true };
+function getOrderedAudioSources(settings) {
+  const sources = settings.audioSources.filter((source) => source.enabled);
+  if (!settings.audioEnableDefaultSources) return sources;
+  const hosted = settings.audioSources.find(isYomuHostedAudioSource) ?? YOMU_HOSTED_AUDIO_SOURCE;
+  return [
+  ...hosted.enabled ? [{ ...hosted }] : [],
+  ...sources.filter((source) => !isYomuHostedAudioSource(source))
+  ];
+}
+function isYomuHostedAudioSource(source) {
+  return source.type === "custom-json" && source.url.trim() === YOMU_HOSTED_AUDIO_URL;
+}
+function preloadableAudioSources(sources, settings) {
+  return settings.audioTtsMode === "source-order" ? sources.filter((source) => !isBrowserTextToSpeechSource(source)) : sources.filter((source) => !isTextToSpeechFallbackSource(source));
+}
+function cheapCandidatePreloadAudioSources(sources, card) {
+  return sources.filter((source) => canResolveAudioCandidatesWithoutNetwork(source, card));
+}
+function canResolveAudioCandidatesWithoutNetwork(source, card) {
+  switch (source.type) {
+  case "custom":
+  case "jpod101":
+  case "bunpro":
+    return true;
+  case "jiten-tts":
+    return hasJitenAudioReference(card);
+  default:
+    return false;
+  }
+}
+function hasJitenAudioReference(card) {
+  return isPositiveFiniteInteger(card.jitenWordId) && isFiniteNonNegativeInteger(card.jitenReadingIndex) || card.source === "jiten" && isPositiveFiniteInteger(card.vid) && isFiniteNonNegativeInteger(card.sid);
+}
+function isPositiveFiniteInteger(value) {
+  return typeof value === "number" && Number.isInteger(value) && value > 0;
+}
+function isFiniteNonNegativeInteger(value) {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0;
+}
+function audioPreloadLimits$1(options) {
+  return {
+  sourceLimit: Math.max(1, options.sourceLimit ?? 1),
+  candidateLimit: Math.max(1, options.candidateLimit ?? 1),
+  prepareAudio: options.prepareAudio !== false
+  };
+}
+function orderAudioCandidates(candidates, mode, bagKey, shuffledAudio) {
+  return orderAudioDeckEntries(candidates.map((candidate, index) => ({
+  candidate,
+  id: audioCandidateDeckId(candidate, index)
+  })), mode, bagKey, shuffledAudio);
+}
+function audioCandidateSelectionMode(sourceType, mode) {
+  return sourceType === "jpdb-tts" || sourceType === "jiten-tts" ? "random" : mode;
+}
+function orderAudioSources(sources, card) {
+  return audioSourceDeckEntries(sources, getAudioSourceBagKey(sources, card));
+}
+function audioSourceDeckEntries(sources, bagKey) {
+  return sources.map((source, index) => {
+  const signature = getAudioSourceSignature(source);
+  return {
+    source,
+    id: getAudioSourceDeckId(signature, index),
+    bagKey,
+    signature
+  };
+  });
+}
+function isBrowserTextToSpeechSource(source) {
+  return source.type === "text-to-speech" || source.type === "text-to-speech-reading";
+}
+function isApiTextToSpeechSource(source) {
+  return source.type === "jiten-tts" || source.type === "jpdb-tts";
+}
+function isTextToSpeechFallbackSource(source) {
+  return isApiTextToSpeechSource(source) || isBrowserTextToSpeechSource(source);
+}
+function audioSubSourceNameKey(name) {
+  return name.trim().normalize("NFC").toLowerCase();
+}
+function disabledAudioSubSourceNameKeys(source) {
+  return new Set((source.subSources ?? []).filter((subSource) => !subSource.enabled).map((subSource) => audioSubSourceNameKey(subSource.name)));
+}
+function audioSubSourceFilterKey(source) {
+  return [...disabledAudioSubSourceNameKeys(source)].sort().join("");
+}
+function registerAudioAttempt(triedUrls, candidate) {
+  const candidateKey2 = normalizeAttemptedAudioUrl(candidate.url);
+  if (triedUrls.has(candidateKey2)) return false;
+  triedUrls.add(candidateKey2);
+  return true;
+}
+function getAudioBagKey(source, card) {
+  return [
+  source.type,
+  source.url,
+  source.voice,
+  audioSubSourceFilterKey(source),
+  card.spelling,
+  card.reading
+  ].join("");
+}
+function getJpdbAudioBagKey(audioIds) {
+  return [
+  "jpdb-audio",
+  ...[...audioIds].sort()
+  ].join("");
+}
+function getAudioCandidateCacheKey(source, card) {
+  return [
+  source.type,
+  source.url.trim(),
+  source.voice.trim(),
+  audioSubSourceFilterKey(source),
+  card.spelling,
+  card.reading
+  ].join("");
+}
+function preparedAudioCacheKey(candidate, mode, audioViaBlob) {
+  return [
+  normalizeAttemptedAudioUrl(candidate.url),
+  normalizeAttemptedAudioUrl(candidate.sourceUrl),
+  mode,
+  audioViaBlob ? "blob" : "direct"
+  ].join("");
+}
+function cloneAudioCandidates(candidates) {
+  return candidates.map((candidate) => ({ ...candidate }));
+}
+function normalizeAttemptedAudioUrl(value) {
+  try {
+  const url = new URL(value, location.href);
+  url.hash = "";
+  return url.href;
+  } catch {
+  return value;
+  }
+}
+function audioCandidateDeckId(candidate, index) {
+  if (candidate.jpdbAudioId) return `jpdb:${candidate.jpdbAudioId}`;
+  return [
+  normalizeAttemptedAudioUrl(candidate.url),
+  normalizeAttemptedAudioUrl(candidate.sourceUrl),
+  index
+  ].join("\0");
+}
+function orderAudioDeckEntries(entries2, mode, bagKey, shuffledAudio) {
+  if (mode !== "random" || !entries2.length) return entries2;
+  const byId = new Map(entries2.map((entry) => [entry.id, entry]));
+  const ordered = [];
+  for (const id of shuffledAudio.order(bagKey, entries2.map((entry) => entry.id))) {
+  const entry = byId.get(id);
+  if (entry) ordered.push(entry);
+  }
+  return ordered;
+}
+function getAudioSourceBagKey(sources, card) {
+  return [
+  "audio-sources",
+  card.spelling,
+  card.reading,
+  ...sources.map(getAudioSourceSignature)
+  ].join("");
+}
+function getAudioSourceDeckId(signature, index) {
+  return `${index}\0${signature}`;
+}
+function getAudioSourceSignature(source) {
+  return [
+  source.type,
+  source.url.trim(),
+  source.voice.trim(),
+  audioSubSourceFilterKey(source)
+  ].join("\0");
+}
 function matchesShortcut(event, shortcut = "") {
   if (!shortcut) return false;
   const parts = parseShortcut(shortcut);
@@ -7892,12 +8069,30 @@ function normalizeAudioSource(value) {
   const record = audioSourceRecord(value);
   if (!record) return null;
   if (!isAudioSourceType(record.type)) return null;
+  const subSources = normalizeAudioSubSources(record.subSources);
   return {
   type: record.type,
   url: stringValue$2(record.url),
   voice: stringValue$2(record.voice),
-  enabled: audioSourceEnabled(record.enabled)
+  enabled: audioSourceEnabled(record.enabled),
+  ...subSources.length ? { subSources } : {}
   };
+}
+function normalizeAudioSubSources(value) {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set();
+  const subSources = [];
+  for (const entry of value) {
+  if (!entry || typeof entry !== "object") continue;
+  const record = entry;
+  const name = stringValue$2(record.name).trim();
+  if (!name) continue;
+  const key = audioSubSourceNameKey(name);
+  if (seen.has(key)) continue;
+  seen.add(key);
+  subSources.push({ name, enabled: audioSourceEnabled(record.enabled) });
+  }
+  return subSources;
 }
 function audioSourceRecord(value) {
   return value && typeof value === "object" ? value : null;
@@ -12659,171 +12854,6 @@ function removeAudioDeckId(ids, id) {
   const index = ids.indexOf(id);
   if (index >= 0) ids.splice(index, 1);
 }
-const YOMU_HOSTED_AUDIO_SOURCE = { type: "custom-json", url: YOMU_HOSTED_AUDIO_URL, voice: "", enabled: true };
-function getOrderedAudioSources(settings) {
-  const sources = settings.audioSources.filter((source) => source.enabled);
-  if (!settings.audioEnableDefaultSources) return sources;
-  const hosted = settings.audioSources.find(isYomuHostedAudioSource) ?? YOMU_HOSTED_AUDIO_SOURCE;
-  return [
-  ...hosted.enabled ? [{ ...hosted }] : [],
-  ...sources.filter((source) => !isYomuHostedAudioSource(source))
-  ];
-}
-function isYomuHostedAudioSource(source) {
-  return source.type === "custom-json" && source.url.trim() === YOMU_HOSTED_AUDIO_URL;
-}
-function preloadableAudioSources(sources, settings) {
-  return settings.audioTtsMode === "source-order" ? sources.filter((source) => !isBrowserTextToSpeechSource(source)) : sources.filter((source) => !isTextToSpeechFallbackSource(source));
-}
-function cheapCandidatePreloadAudioSources(sources, card) {
-  return sources.filter((source) => canResolveAudioCandidatesWithoutNetwork(source, card));
-}
-function canResolveAudioCandidatesWithoutNetwork(source, card) {
-  switch (source.type) {
-  case "custom":
-  case "jpod101":
-  case "bunpro":
-    return true;
-  case "jiten-tts":
-    return hasJitenAudioReference(card);
-  default:
-    return false;
-  }
-}
-function hasJitenAudioReference(card) {
-  return isPositiveFiniteInteger(card.jitenWordId) && isFiniteNonNegativeInteger(card.jitenReadingIndex) || card.source === "jiten" && isPositiveFiniteInteger(card.vid) && isFiniteNonNegativeInteger(card.sid);
-}
-function isPositiveFiniteInteger(value) {
-  return typeof value === "number" && Number.isInteger(value) && value > 0;
-}
-function isFiniteNonNegativeInteger(value) {
-  return typeof value === "number" && Number.isInteger(value) && value >= 0;
-}
-function audioPreloadLimits$1(options) {
-  return {
-  sourceLimit: Math.max(1, options.sourceLimit ?? 1),
-  candidateLimit: Math.max(1, options.candidateLimit ?? 1),
-  prepareAudio: options.prepareAudio !== false
-  };
-}
-function orderAudioCandidates(candidates, mode, bagKey, shuffledAudio) {
-  return orderAudioDeckEntries(candidates.map((candidate, index) => ({
-  candidate,
-  id: audioCandidateDeckId(candidate, index)
-  })), mode, bagKey, shuffledAudio);
-}
-function audioCandidateSelectionMode(sourceType, mode) {
-  return sourceType === "jpdb-tts" || sourceType === "jiten-tts" ? "random" : mode;
-}
-function orderAudioSources(sources, card) {
-  return audioSourceDeckEntries(sources, getAudioSourceBagKey(sources, card));
-}
-function audioSourceDeckEntries(sources, bagKey) {
-  return sources.map((source, index) => {
-  const signature = getAudioSourceSignature(source);
-  return {
-    source,
-    id: getAudioSourceDeckId(signature, index),
-    bagKey,
-    signature
-  };
-  });
-}
-function isBrowserTextToSpeechSource(source) {
-  return source.type === "text-to-speech" || source.type === "text-to-speech-reading";
-}
-function isApiTextToSpeechSource(source) {
-  return source.type === "jiten-tts" || source.type === "jpdb-tts";
-}
-function isTextToSpeechFallbackSource(source) {
-  return isApiTextToSpeechSource(source) || isBrowserTextToSpeechSource(source);
-}
-function registerAudioAttempt(triedUrls, candidate) {
-  const candidateKey2 = normalizeAttemptedAudioUrl(candidate.url);
-  if (triedUrls.has(candidateKey2)) return false;
-  triedUrls.add(candidateKey2);
-  return true;
-}
-function getAudioBagKey(source, card) {
-  return [
-  source.type,
-  source.url,
-  source.voice,
-  card.spelling,
-  card.reading
-  ].join("");
-}
-function getJpdbAudioBagKey(audioIds) {
-  return [
-  "jpdb-audio",
-  ...[...audioIds].sort()
-  ].join("");
-}
-function getAudioCandidateCacheKey(source, card) {
-  return [
-  source.type,
-  source.url.trim(),
-  source.voice.trim(),
-  card.spelling,
-  card.reading
-  ].join("");
-}
-function preparedAudioCacheKey(candidate, mode, audioViaBlob) {
-  return [
-  normalizeAttemptedAudioUrl(candidate.url),
-  normalizeAttemptedAudioUrl(candidate.sourceUrl),
-  mode,
-  audioViaBlob ? "blob" : "direct"
-  ].join("");
-}
-function cloneAudioCandidates(candidates) {
-  return candidates.map((candidate) => ({ ...candidate }));
-}
-function normalizeAttemptedAudioUrl(value) {
-  try {
-  const url = new URL(value, location.href);
-  url.hash = "";
-  return url.href;
-  } catch {
-  return value;
-  }
-}
-function audioCandidateDeckId(candidate, index) {
-  if (candidate.jpdbAudioId) return `jpdb:${candidate.jpdbAudioId}`;
-  return [
-  normalizeAttemptedAudioUrl(candidate.url),
-  normalizeAttemptedAudioUrl(candidate.sourceUrl),
-  index
-  ].join("\0");
-}
-function orderAudioDeckEntries(entries2, mode, bagKey, shuffledAudio) {
-  if (mode !== "random" || !entries2.length) return entries2;
-  const byId = new Map(entries2.map((entry) => [entry.id, entry]));
-  const ordered = [];
-  for (const id of shuffledAudio.order(bagKey, entries2.map((entry) => entry.id))) {
-  const entry = byId.get(id);
-  if (entry) ordered.push(entry);
-  }
-  return ordered;
-}
-function getAudioSourceBagKey(sources, card) {
-  return [
-  "audio-sources",
-  card.spelling,
-  card.reading,
-  ...sources.map(getAudioSourceSignature)
-  ].join("");
-}
-function getAudioSourceDeckId(signature, index) {
-  return `${index}\0${signature}`;
-}
-function getAudioSourceSignature(source) {
-  return [
-  source.type,
-  source.url.trim(),
-  source.voice.trim()
-  ].join("\0");
-}
 function isAppleTouchBrowser() {
   if (typeof navigator === "undefined") return false;
   const userAgent = navigator.userAgent ?? "";
@@ -14110,8 +14140,54 @@ async function loadCustomJsonAudioCandidates(source, card, timeoutMs, proxyUrl) 
   if (!template) return [];
   const sourceUrl = formatAudioUrl(withAudioQueryPlaceholders(template), card);
   const response = await requestAudioUrl(sourceUrl, "text", timeoutMs, { proxyUrl });
-  const urls = typeof response === "string" ? findAudioUrls(JSON.parse(response), sourceUrl) : [];
-  return urls.map((url) => ({ url, sourceUrl }));
+  if (typeof response !== "string") return [];
+  return customJsonAudioCandidates(JSON.parse(response), source, sourceUrl);
+}
+function customJsonAudioCandidates(payload, source, sourceUrl) {
+  const named = namedAudioSubSources(payload);
+  recordAudioSubSourceNames(source.url, named.map((entry) => entry.name));
+  const disabled = disabledAudioSubSourceNameKeys(source);
+  if (named.length && disabled.size) {
+  const allowed = named.filter((entry) => !disabled.has(audioSubSourceNameKey(entry.name)));
+  return uniqueAudioUrls(allowed.flatMap((entry) => findAudioUrls(entry.url, sourceUrl))).map((url) => ({ url, sourceUrl }));
+  }
+  return findAudioUrls(payload, sourceUrl).map((url) => ({ url, sourceUrl }));
+}
+function namedAudioSubSources(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return [];
+  const record = value;
+  const entries2 = [];
+  for (const list of [record.audioSources, record.sources]) {
+  if (!Array.isArray(list)) continue;
+  for (const item of list) {
+    const entry = namedAudioSubSource(item);
+    if (entry) entries2.push(entry);
+  }
+  }
+  return entries2;
+}
+function namedAudioSubSource(value) {
+  if (!value || typeof value !== "object") return null;
+  const record = value;
+  if (typeof record.name !== "string" || !record.name.trim()) return null;
+  if (typeof record.url !== "string" || !record.url.trim()) return null;
+  return { name: record.name.trim(), url: record.url };
+}
+const knownAudioSubSourcesByUrl = new Map();
+function recordAudioSubSourceNames(url, names) {
+  const template = url.trim();
+  if (!template) return [];
+  const known = knownAudioSubSourcesByUrl.get(template) ?? [];
+  const seen = new Set(known.map(audioSubSourceNameKey));
+  const merged = [...known];
+  for (const name of names) {
+  const trimmed = name.trim();
+  if (!trimmed || seen.has(audioSubSourceNameKey(trimmed))) continue;
+  seen.add(audioSubSourceNameKey(trimmed));
+  merged.push(trimmed);
+  }
+  knownAudioSubSourcesByUrl.set(template, merged);
+  return [...merged];
 }
 function withAudioQueryPlaceholders(template) {
   if (AUDIO_QUERY_PLACEHOLDER_RE.test(template)) return template;
@@ -27948,6 +28024,76 @@ function scheduleIdleCallback(callback, timeoutMs = 75) {
   requestIdleCallback2.call(window, callback, { timeout: timeoutMs });
   return true;
 }
+function scopedDocument(scope = {}) {
+  if (scope.document) return scope.document;
+  return typeof document === "undefined" ? null : document;
+}
+function isPageDormant(scope = {}) {
+  return scopedDocument(scope)?.visibilityState === "hidden";
+}
+function onPageActivityChange(listener, scope = {}) {
+  const owner = scopedDocument(scope);
+  if (!owner) return () => void 0;
+  const handler = () => listener(owner.visibilityState === "hidden");
+  owner.addEventListener("visibilitychange", handler, { signal: scope.signal });
+  return () => owner.removeEventListener("visibilitychange", handler);
+}
+class ParkableObserver {
+  targets = new Map();
+  observer;
+  reconcile;
+  unsubscribe;
+  parked;
+  constructor(observer, options = {}) {
+  this.observer = observer;
+  this.reconcile = options.reconcile;
+  this.parked = isPageDormant(options);
+  this.unsubscribe = onPageActivityChange((dormant) => {
+    if (dormant) this.park();
+    else this.wake();
+  }, options);
+  }
+  observe(target, init) {
+  this.targets.set(target, init);
+  if (!this.parked) this.observer?.observe(target, init);
+  }
+  /** Native semantics: forget every target, not just detach from them. */
+  disconnect() {
+  this.targets.clear();
+  this.drain();
+  this.observer?.disconnect();
+  }
+  /** Detach for good — drops the visibility subscription with the targets. */
+  dispose() {
+  this.unsubscribe();
+  this.disconnect();
+  }
+  get dormant() {
+  return this.parked;
+  }
+  park() {
+  if (this.parked) return;
+  this.parked = true;
+  this.drain();
+  this.observer?.disconnect();
+  }
+  wake() {
+  if (!this.parked) return;
+  this.parked = false;
+  this.targets.forEach((init, target) => this.observer?.observe(target, init));
+  this.reconcile?.();
+  }
+  drain() {
+  this.observer?.takeRecords?.();
+  }
+}
+function parkableMutationObserver(callback, options = {}) {
+  const owner = scopedDocument(options);
+  const Observer = owner?.defaultView?.MutationObserver ?? (typeof MutationObserver === "function" ? MutationObserver : void 0);
+  if (!Observer) return null;
+  const observer = new Observer(callback);
+  return new ParkableObserver(observer, options);
+}
 const ITEM_EXIT_MS = 180;
 const PI = Math.PI;
 const MIN_GAP = 62;
@@ -36830,8 +36976,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
     `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.4"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.8.4"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.6"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.8.6"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka"];
@@ -36963,7 +37109,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.8.4"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.8.6"}`;
   } catch {
   return null;
   }
@@ -37175,7 +37321,7 @@ class VisiblePageScanner {
   this.clampSweepTimer = void 0;
   window.clearTimeout(this.settleRefreshTimer);
   this.settleRefreshTimer = void 0;
-  this.settleResizeObserver?.disconnect();
+  this.settleResizeObserver?.dispose();
   this.settleResizeObserver = void 0;
   this.settleSignalAbort?.abort();
   this.settleSignalAbort = void 0;
@@ -37246,13 +37392,14 @@ class VisiblePageScanner {
   window.visualViewport?.addEventListener("resize", schedule, { signal: controller.signal });
   window.addEventListener("resize", schedule, { signal: controller.signal });
   if (typeof ResizeObserver === "function" && document.body) {
-    const observer = new ResizeObserver((entries2) => {
+    const raw = new ResizeObserver((entries2) => {
       const width = entries2[entries2.length - 1]?.contentRect.width ?? -1;
       const priming = this.lastSettleWidth < 0;
       if (Math.abs(width - this.lastSettleWidth) < 0.5) return;
       this.lastSettleWidth = width;
       if (!priming) schedule();
     });
+    const observer = new ParkableObserver(raw, { signal: controller.signal });
     observer.observe(document.body);
     this.settleResizeObserver = observer;
   }
@@ -40076,7 +40223,10 @@ class ReaderApp {
     document.removeEventListener("wheel", onScrollWheel, true);
   };
   const syncScrollDrive = () => setScrollDrive(Boolean(document.querySelector(READER_ROOT_SCROLL_BODY_SELECTOR)));
-  const scrollDriveObserver = new MutationObserver(syncScrollDrive);
+  const scrollDriveObserver = parkableMutationObserver(syncScrollDrive, {
+    reconcile: syncScrollDrive,
+    signal: abortSignal
+  });
   let scrollDriveObservedRoot = null;
   const observeScrollDriveRoot = () => {
     const root = document.body ?? document.documentElement;
@@ -40087,25 +40237,27 @@ class ReaderApp {
       return;
     }
     if (scrollDriveObservedRoot === root) return;
-    scrollDriveObserver.disconnect();
+    scrollDriveObserver?.disconnect();
     scrollDriveObservedRoot = root;
-    scrollDriveObserver.observe(root, { childList: true });
+    scrollDriveObserver?.observe(root, { childList: true });
     syncScrollDrive();
   };
   const rebindScrollDriveRoot = () => {
     syncScrollDrive();
     observeScrollDriveRoot();
   };
-  scrollDriveObserver.disconnect();
-  scrollDriveObserver.takeRecords();
-  const rootObserver = new MutationObserver(rebindScrollDriveRoot);
+  scrollDriveObserver?.disconnect();
+  const rootObserver = parkableMutationObserver(rebindScrollDriveRoot, {
+    reconcile: observeScrollDriveRoot,
+    signal: abortSignal
+  });
   const htmlRoot = document.documentElement;
-  if (htmlRoot) rootObserver.observe(htmlRoot, { childList: true });
+  if (htmlRoot) rootObserver?.observe(htmlRoot, { childList: true });
   observeScrollDriveRoot();
   this.abortController.signal.addEventListener("abort", () => {
     setScrollDrive(false);
-    scrollDriveObserver.disconnect();
-    rootObserver.disconnect();
+    scrollDriveObserver?.dispose();
+    rootObserver?.dispose();
   }, { once: true });
   document.addEventListener("click", (event) => this.handleDocumentClick(event), { capture: true, signal: abortSignal });
   document.addEventListener("mousedown", (event) => {

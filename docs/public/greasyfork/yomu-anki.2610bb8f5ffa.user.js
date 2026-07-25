@@ -1639,10 +1639,6 @@
       audioCustomJsonPlaceholder: "Yomitan or Ultimate audio source URL",
       audioCustomUrlPlaceholder: "Direct audio file URL",
       audioBuiltInPlaceholder: "Built-in source, no URL needed",
-      audioDetectingSubSources: "Checking included sources…",
-      audioNoSubSourcesDetected: "No named sources reported by this URL.",
-      audioSubSourcesHelp: "Sources offered by this URL — untick any you don’t want:",
-      audioSubSourceOverlapHint: "also listed as its own source",
       defaultVoiceSuffix: "default",
       audioGuideLinkLabel: "Yomitan audio guide",
       audioProxyGuideSummary: "Make your own Cloudflare proxy",
@@ -3303,10 +3299,6 @@ audioSourceCustomJson	カスタムURL
 audioCustomJsonPlaceholder	Yomitan/Ultimate音声URL
 audioCustomUrlPlaceholder	直接音声ファイルURL
 audioBuiltInPlaceholder	内蔵ソースはURL不要
-audioDetectingSubSources	内部ソースを確認中…
-audioNoSubSourcesDetected	このURLは名前付きソースを返しませんでした。
-audioSubSourcesHelp	このURLが提供するソース。不要なものはオフに:
-audioSubSourceOverlapHint	下の単独ソースと重複
 defaultVoiceSuffix	標準
 audioGuideLinkLabel	Yomitan音声ガイド
 audioProxyGuideSummary	Cloudflareプロキシ
@@ -6752,113 +6744,6 @@ ${candidate.depth}`;
       parseInt(safe.slice(5, 7), 16)
     ];
   }
-  const YOMU_HOSTED_AUDIO_SOURCE = { type: "custom-json", url: YOMU_HOSTED_AUDIO_URL, voice: "", enabled: true };
-  function getOrderedAudioSources(settings) {
-    const sources = settings.audioSources.filter((source) => source.enabled);
-    if (!settings.audioEnableDefaultSources) return sources;
-    const hosted = settings.audioSources.find(isYomuHostedAudioSource) ?? YOMU_HOSTED_AUDIO_SOURCE;
-    return [
-      ...hosted.enabled ? [{ ...hosted }] : [],
-      ...sources.filter((source) => !isYomuHostedAudioSource(source))
-    ];
-  }
-  function isYomuHostedAudioSource(source) {
-    return source.type === "custom-json" && source.url.trim() === YOMU_HOSTED_AUDIO_URL;
-  }
-  function orderAudioCandidates(candidates, mode, bagKey, shuffledAudio) {
-    return orderAudioDeckEntries(candidates.map((candidate, index) => ({
-      candidate,
-      id: audioCandidateDeckId(candidate, index)
-    })), mode, bagKey, shuffledAudio);
-  }
-  function orderAudioSources(sources, card) {
-    return audioSourceDeckEntries(sources, getAudioSourceBagKey(sources, card));
-  }
-  function audioSourceDeckEntries(sources, bagKey) {
-    return sources.map((source, index) => {
-      const signature = getAudioSourceSignature(source);
-      return {
-        source,
-        id: getAudioSourceDeckId(signature, index),
-        bagKey,
-        signature
-      };
-    });
-  }
-  function isBrowserTextToSpeechSource(source) {
-    return source.type === "text-to-speech" || source.type === "text-to-speech-reading";
-  }
-  function audioSubSourceNameKey(name) {
-    return name.trim().normalize("NFC").toLowerCase();
-  }
-  function disabledAudioSubSourceNameKeys(source) {
-    return new Set((source.subSources ?? []).filter((subSource) => !subSource.enabled).map((subSource) => audioSubSourceNameKey(subSource.name)));
-  }
-  function audioSubSourceFilterKey(source) {
-    return [...disabledAudioSubSourceNameKeys(source)].sort().join("");
-  }
-  function registerAudioAttempt(triedUrls, candidate) {
-    const candidateKey2 = normalizeAttemptedAudioUrl(candidate.url);
-    if (triedUrls.has(candidateKey2)) return false;
-    triedUrls.add(candidateKey2);
-    return true;
-  }
-  function getAudioBagKey(source, card) {
-    return [
-      source.type,
-      source.url,
-      source.voice,
-      audioSubSourceFilterKey(source),
-      card.spelling,
-      card.reading
-    ].join("");
-  }
-  function normalizeAttemptedAudioUrl(value) {
-    try {
-      const url = new URL(value, location.href);
-      url.hash = "";
-      return url.href;
-    } catch {
-      return value;
-    }
-  }
-  function audioCandidateDeckId(candidate, index) {
-    if (candidate.jpdbAudioId) return `jpdb:${candidate.jpdbAudioId}`;
-    return [
-      normalizeAttemptedAudioUrl(candidate.url),
-      normalizeAttemptedAudioUrl(candidate.sourceUrl),
-      index
-    ].join("\0");
-  }
-  function orderAudioDeckEntries(entries, mode, bagKey, shuffledAudio) {
-    if (mode !== "random" || !entries.length) return entries;
-    const byId = new Map(entries.map((entry) => [entry.id, entry]));
-    const ordered = [];
-    for (const id of shuffledAudio.order(bagKey, entries.map((entry) => entry.id))) {
-      const entry = byId.get(id);
-      if (entry) ordered.push(entry);
-    }
-    return ordered;
-  }
-  function getAudioSourceBagKey(sources, card) {
-    return [
-      "audio-sources",
-      card.spelling,
-      card.reading,
-      ...sources.map(getAudioSourceSignature)
-    ].join("");
-  }
-  function getAudioSourceDeckId(signature, index) {
-    return `${index}\0${signature}`;
-  }
-  function getAudioSourceSignature(source) {
-    return [
-      source.type,
-      source.url.trim(),
-      source.voice.trim(),
-      audioSubSourceFilterKey(source)
-    ].join("\0");
-  }
   Logger.scope("Settings");
   const DEFAULT_ACCENT_COLOR = BRAND_COLOR_TOKENS.accent;
   const OCR_BACKGROUND_MIN_TEXT_CONTRAST = 4.5;
@@ -10143,6 +10028,102 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     const index = ids.indexOf(id);
     if (index >= 0) ids.splice(index, 1);
   }
+  const YOMU_HOSTED_AUDIO_SOURCE = { type: "custom-json", url: YOMU_HOSTED_AUDIO_URL, voice: "", enabled: true };
+  function getOrderedAudioSources(settings) {
+    const sources = settings.audioSources.filter((source) => source.enabled);
+    if (!settings.audioEnableDefaultSources) return sources;
+    const hosted = settings.audioSources.find(isYomuHostedAudioSource) ?? YOMU_HOSTED_AUDIO_SOURCE;
+    return [
+      ...hosted.enabled ? [{ ...hosted }] : [],
+      ...sources.filter((source) => !isYomuHostedAudioSource(source))
+    ];
+  }
+  function isYomuHostedAudioSource(source) {
+    return source.type === "custom-json" && source.url.trim() === YOMU_HOSTED_AUDIO_URL;
+  }
+  function orderAudioCandidates(candidates, mode, bagKey, shuffledAudio) {
+    return orderAudioDeckEntries(candidates.map((candidate, index) => ({
+      candidate,
+      id: audioCandidateDeckId(candidate, index)
+    })), mode, bagKey, shuffledAudio);
+  }
+  function orderAudioSources(sources, card) {
+    return audioSourceDeckEntries(sources, getAudioSourceBagKey(sources, card));
+  }
+  function audioSourceDeckEntries(sources, bagKey) {
+    return sources.map((source, index) => {
+      const signature = getAudioSourceSignature(source);
+      return {
+        source,
+        id: getAudioSourceDeckId(signature, index),
+        bagKey,
+        signature
+      };
+    });
+  }
+  function isBrowserTextToSpeechSource(source) {
+    return source.type === "text-to-speech" || source.type === "text-to-speech-reading";
+  }
+  function registerAudioAttempt(triedUrls, candidate) {
+    const candidateKey2 = normalizeAttemptedAudioUrl(candidate.url);
+    if (triedUrls.has(candidateKey2)) return false;
+    triedUrls.add(candidateKey2);
+    return true;
+  }
+  function getAudioBagKey(source, card) {
+    return [
+      source.type,
+      source.url,
+      source.voice,
+      card.spelling,
+      card.reading
+    ].join("");
+  }
+  function normalizeAttemptedAudioUrl(value) {
+    try {
+      const url = new URL(value, location.href);
+      url.hash = "";
+      return url.href;
+    } catch {
+      return value;
+    }
+  }
+  function audioCandidateDeckId(candidate, index) {
+    if (candidate.jpdbAudioId) return `jpdb:${candidate.jpdbAudioId}`;
+    return [
+      normalizeAttemptedAudioUrl(candidate.url),
+      normalizeAttemptedAudioUrl(candidate.sourceUrl),
+      index
+    ].join("\0");
+  }
+  function orderAudioDeckEntries(entries, mode, bagKey, shuffledAudio) {
+    if (mode !== "random" || !entries.length) return entries;
+    const byId = new Map(entries.map((entry) => [entry.id, entry]));
+    const ordered = [];
+    for (const id of shuffledAudio.order(bagKey, entries.map((entry) => entry.id))) {
+      const entry = byId.get(id);
+      if (entry) ordered.push(entry);
+    }
+    return ordered;
+  }
+  function getAudioSourceBagKey(sources, card) {
+    return [
+      "audio-sources",
+      card.spelling,
+      card.reading,
+      ...sources.map(getAudioSourceSignature)
+    ].join("");
+  }
+  function getAudioSourceDeckId(signature, index) {
+    return `${index}\0${signature}`;
+  }
+  function getAudioSourceSignature(source) {
+    return [
+      source.type,
+      source.url.trim(),
+      source.voice.trim()
+    ].join("\0");
+  }
   function requestAudioUrl(responseUrl, responseType, timeoutMs, options = {}) {
     const language = options.language ?? "en";
     const requestOptions = {
@@ -10492,54 +10473,8 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     if (!template) return [];
     const sourceUrl = formatAudioUrl(withAudioQueryPlaceholders(template), card);
     const response = await requestAudioUrl(sourceUrl, "text", timeoutMs, { proxyUrl });
-    if (typeof response !== "string") return [];
-    return customJsonAudioCandidates(JSON.parse(response), source, sourceUrl);
-  }
-  function customJsonAudioCandidates(payload, source, sourceUrl) {
-    const named = namedAudioSubSources(payload);
-    recordAudioSubSourceNames(source.url, named.map((entry) => entry.name));
-    const disabled = disabledAudioSubSourceNameKeys(source);
-    if (named.length && disabled.size) {
-      const allowed = named.filter((entry) => !disabled.has(audioSubSourceNameKey(entry.name)));
-      return uniqueAudioUrls(allowed.flatMap((entry) => findAudioUrls(entry.url, sourceUrl))).map((url) => ({ url, sourceUrl }));
-    }
-    return findAudioUrls(payload, sourceUrl).map((url) => ({ url, sourceUrl }));
-  }
-  function namedAudioSubSources(value) {
-    if (!value || typeof value !== "object" || Array.isArray(value)) return [];
-    const record = value;
-    const entries = [];
-    for (const list of [record.audioSources, record.sources]) {
-      if (!Array.isArray(list)) continue;
-      for (const item of list) {
-        const entry = namedAudioSubSource(item);
-        if (entry) entries.push(entry);
-      }
-    }
-    return entries;
-  }
-  function namedAudioSubSource(value) {
-    if (!value || typeof value !== "object") return null;
-    const record = value;
-    if (typeof record.name !== "string" || !record.name.trim()) return null;
-    if (typeof record.url !== "string" || !record.url.trim()) return null;
-    return { name: record.name.trim(), url: record.url };
-  }
-  const knownAudioSubSourcesByUrl = /* @__PURE__ */ new Map();
-  function recordAudioSubSourceNames(url, names) {
-    const template = url.trim();
-    if (!template) return [];
-    const known = knownAudioSubSourcesByUrl.get(template) ?? [];
-    const seen = new Set(known.map(audioSubSourceNameKey));
-    const merged = [...known];
-    for (const name of names) {
-      const trimmed = name.trim();
-      if (!trimmed || seen.has(audioSubSourceNameKey(trimmed))) continue;
-      seen.add(audioSubSourceNameKey(trimmed));
-      merged.push(trimmed);
-    }
-    knownAudioSubSourcesByUrl.set(template, merged);
-    return [...merged];
+    const urls = typeof response === "string" ? findAudioUrls(JSON.parse(response), sourceUrl) : [];
+    return urls.map((url) => ({ url, sourceUrl }));
   }
   function withAudioQueryPlaceholders(template) {
     if (AUDIO_QUERY_PLACEHOLDER_RE.test(template)) return template;
