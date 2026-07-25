@@ -32,6 +32,12 @@ const COLORED_READER_WORD_CLASSES = new Set([
     'jpdb-pitch-nakadaka',
     'jpdb-pitch-odaka',
 ]);
+// A word can need no derived colours and still paint a highlight: the CSS mixes
+// every status wash against the sampled backdrop, so that one var has to
+// survive the clear even for words we otherwise leave alone.
+const NEUTRAL_CLEARED_CONTRAST_VARS = RENDERED_WORD_CONTRAST_VARS.filter(
+    name => name !== '--jpdb-reader-highlight-backdrop',
+);
 const pendingHoverContrastRefresh = new WeakSet<HTMLElement>();
 const appliedContrastState = new WeakMap<HTMLElement, {
     background: string;
@@ -53,6 +59,8 @@ export function refreshReaderWordContrast(root: ParentNode = document): void {
     const activeBackgrounds: PageBackground[] = [];
     const unknownBackgroundWords: HTMLElement[] = [];
     const neutralWords: HTMLElement[] = [];
+    const neutralPageWords: HTMLElement[] = [];
+    const neutralPageBackgrounds: PageBackground[] = [];
     // pageBackgroundFor walks the word's ancestors calling getComputedStyle on
     // each — identical for every word under the same parent. Memoize per parent
     // for this pass so a paragraph of N words costs one ancestor walk, not N
@@ -79,7 +87,18 @@ export function refreshReaderWordContrast(root: ParentNode = document): void {
             continue;
         }
         if (isNeutralReaderWord(word)) {
-            neutralWords.push(word);
+            // Neutral only means "derives no colours of its own"; the status
+            // wash is still painted, so it needs the same sampled backdrop its
+            // coloured neighbours mix against. Falling back to the reader
+            // theme's own token rendered these words a different darkness from
+            // the rest of the line until a hover happened to recompute them.
+            const neutralBackground = cachedPageBackgroundFor(word);
+            if (neutralBackground) {
+                neutralPageWords.push(word);
+                neutralPageBackgrounds.push(neutralBackground);
+            } else {
+                neutralWords.push(word);
+            }
             continue;
         }
         const background = cachedPageBackgroundFor(word);
@@ -89,6 +108,12 @@ export function refreshReaderWordContrast(root: ParentNode = document): void {
             continue;
         }
         const isHovered = word.matches(':hover, :focus');
+        // Hover colours are derived against the hover overlay, and the settled
+        // poll is the only thing that ever notices the pointer leaving. Keep it
+        // alive on every pass that reads as hovered, short-circuiting ones
+        // included: a word that stopped changing while the pointer rested on it
+        // used to end the chain and keep its hover colours for good.
+        if (isHovered) scheduleHoverSettledContrastRefresh(word);
         const previous = appliedContrastState.get(word);
         const parentColor = getComputedStyle(word.parentElement ?? word).color;
         if (previous
@@ -100,11 +125,7 @@ export function refreshReaderWordContrast(root: ParentNode = document): void {
             continue;
         }
         if (hasAnkiAccessibleColor && isHovered && !hasInlineTextColor && existingAccessibleColorRemainsReadableOnHover(word, background)) {
-            scheduleHoverSettledContrastRefresh(word);
             continue;
-        }
-        if (isHovered) {
-            scheduleHoverSettledContrastRefresh(word);
         }
         activeWords.push(word);
         activeBackgrounds.push(background);
@@ -137,6 +158,7 @@ export function refreshReaderWordContrast(root: ParentNode = document): void {
     });
 
     neutralWords.forEach(word => clearContrastVars(word));
+    neutralPageWords.forEach((word, i) => applyNeutralPageBackdrop(word, neutralPageBackgrounds[i]));
     unknownBackgroundWords.forEach(word => applyUnknownBackgroundFallback(word));
 
     activeWords.forEach((word, i) => {
@@ -403,6 +425,12 @@ function readableHighlightBackground(color: string, background: string): string 
 function applyUnknownBackgroundFallback(word: HTMLElement): void {
     RENDERED_WORD_CONTRAST_VARS_WITHOUT_SHADOW.forEach(name => word.style.removeProperty(name));
     word.style.setProperty('--jpdb-reader-word-contrast-shadow', PAGE_WORD_COLOR_TOKENS.unknownBackgroundShadow);
+}
+
+function applyNeutralPageBackdrop(word: HTMLElement, background: PageBackground): void {
+    NEUTRAL_CLEARED_CONTRAST_VARS.forEach(name => word.style.removeProperty(name));
+    if (word.style.getPropertyValue('--jpdb-reader-highlight-backdrop') === background.css) return;
+    word.style.setProperty('--jpdb-reader-highlight-backdrop', background.css);
 }
 
 function clearContrastVars(word: HTMLElement): void {

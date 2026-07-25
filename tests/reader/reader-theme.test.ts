@@ -672,6 +672,51 @@ describe('reader theme', () => {
         expect(getComputedStyle(word).color).toBe('rgb(32, 40, 52)');
     });
 
+    it('keeps the sampled page backdrop on a not-in-deck word that derives no colors', () => {
+        document.body.innerHTML = `
+            <div style="background: rgb(24, 26, 27);">
+                <p style="color: rgb(232, 230, 227);">
+                    <span class="jpdb-reader-word jpdb-not-in-deck jpdb-pitch-heiban">読む</span>
+                    <span class="jpdb-reader-word jpdb-not-in-deck">本</span>
+                </p>
+            </div>`;
+        const [colored, neutral] = Array.from(document.querySelectorAll<HTMLElement>('.jpdb-reader-word'));
+
+        refreshReaderWordContrast(document.body);
+
+        // Both words paint the same not-in-deck wash, so both have to mix it
+        // against the same sampled page color — dropping it from the neutral
+        // one left it mixing against the reader theme token instead and made
+        // it visibly darker than its neighbour on dark pages.
+        expect(neutral.style.getPropertyValue('--jpdb-reader-highlight-backdrop')).toBe('rgb(24, 26, 27)');
+        expect(neutral.style.getPropertyValue('--jpdb-reader-highlight-backdrop'))
+            .toBe(colored.style.getPropertyValue('--jpdb-reader-highlight-backdrop'));
+        expect(neutral.style.getPropertyValue('--jpdb-reader-word-accessible-color')).toBe('');
+        expect(neutral.style.getPropertyValue('--jpdb-reader-word-accessible-underline')).toBe('');
+    });
+
+    it('restores a hover-derived word color after the pointer leaves a word nothing else changed', async () => {
+        const { word, stopHovering } = hoveredReaderWord('<span class="jpdb-reader-word jpdb-known" style="color: rgb(90, 90, 90); --jpdb-reader-hover: rgba(20, 20, 20, 0.72);">読む</span>');
+
+        refreshReaderWordContrastForWord(word);
+        const hoveredText = word.style.getPropertyValue('--jpdb-reader-word-accessible-color');
+        // The hover overlay darkens the backdrop to roughly the word's own
+        // grey, so hovering has to drive the text off that grey to stay legible.
+        expect(contrastRatio(hoveredText, '#565656')).toBeGreaterThan(contrastRatio('#5a5a5a', '#565656'));
+
+        // Refreshes that land while the pointer still rests on the word find
+        // nothing to change; they must not end the watch that restores the
+        // resting color on leave.
+        await vi.advanceTimersByTimeAsync(200);
+        refreshReaderWordContrastForWord(word);
+
+        await stopHovering();
+
+        const settledText = word.style.getPropertyValue('--jpdb-reader-word-accessible-color');
+        expect(settledText).not.toBe(hoveredText);
+        expect(contrastRatio(settledText, '#ffffff')).toBeGreaterThanOrEqual(4.5);
+    });
+
     it('leaves Yomu-owned reader surfaces on their theme colors', () => {
         const word = readerWordAfterRefresh(`
             <div data-jpdb-reader-root>
