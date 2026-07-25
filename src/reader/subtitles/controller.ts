@@ -128,6 +128,7 @@ import {
     waitForBackgroundTranscriptParseTurn,
     type SubtitleParseOptions,
 } from './subtitle-parse-policy';
+import { SubtitlePinnedPlayerTracker } from './subtitle-pinned-player';
 import { renderControllerPrimarySubtitle } from './subtitle-primary-render';
 import {
     planProvisionalSubtitleParseBatch,
@@ -1051,6 +1052,7 @@ export class SubtitlePlayerController {
     private lastYomuCaptionsActive = false;
     private youtubeDomCaptionFallbackTrackId = '';
     private fullscreen = false;
+    private pinnedPlayer = new SubtitlePinnedPlayerTracker();
     private lastRenderedPrimaryText = '';
     private lastRenderedPrimaryHtml = '';
     private lastRenderedPrimaryKey = '';
@@ -2291,6 +2293,7 @@ export class SubtitlePlayerController {
     private alignToVideo(): void {
         if (!this.root) return;
         if (!this.video) {
+            this.pinnedPlayer.reset();
             setClassState(this.root, 'jpdb-subtitle-has-video-frame', false);
             setClassState(this.root, 'jpdb-subtitle-compact-video', false);
             setClassState(this.root, 'jpdb-subtitle-video-out-of-view', true);
@@ -2299,6 +2302,9 @@ export class SubtitlePlayerController {
             return;
         }
         const rect = this.videoLayoutRect();
+        // Fullscreen measures the viewport, not the frame's own box, so there is
+        // no in-flow position worth remembering while it lasts.
+        this.pinnedPlayer.observe(this.video, rect, this.fullscreen);
         this.lastAlignedVideoRectKey = videoRectKey(rect);
         this.applyVideoLayout(rect);
     }
@@ -2342,9 +2348,14 @@ export class SubtitlePlayerController {
         if (!firstSync) this.handleYouTubeNavigation();
     }
 
+    // Judge the frame where the document put it, not where the page parked it: a
+    // player the page pinned to the viewport as the reader scrolled past is a
+    // fully visible box that nobody is looking at, and the overlay belongs with
+    // the content the reader left behind.
     private isVideoOverlayVisible(rect: DOMRect): boolean {
-        return isSubtitleOverlayVideoVisible(rect)
-            && (!isYouTubePage() || this.fullscreen || youtubeWatchPlayerMeaningfullyVisible(rect))
+        const gateRect = this.fullscreen ? rect : this.pinnedPlayer.visibilityRect(this.video, rect);
+        return isSubtitleOverlayVideoVisible(gateRect)
+            && (!isYouTubePage() || this.fullscreen || youtubeWatchPlayerMeaningfullyVisible(gateRect))
             && (!this.video || isSubtitleVideoElementRenderable(this.video))
             && this.videoHasPlayerAffordances();
     }
