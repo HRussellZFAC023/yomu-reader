@@ -453,12 +453,20 @@ function elementScrollsIndependently(element: Element, style: CSSStyleDeclaratio
 
 function scheduleProjectionRefresh(document: Document, overlay: DocumentOverlay): void {
     if (!overlay.records.size || overlay.refreshFrame) return;
-    const frame = document.defaultView?.requestAnimationFrame;
-    if (!frame) {
+    // Call rAF as a METHOD on its window. Detaching it into a local and invoking it
+    // as a free function reaches Gecko's WebIDL binding with no Window receiver, which
+    // throws "'requestAnimationFrame' called on an object that does not implement
+    // interface Window" inside a Firefox userscript-manager sandbox (it only works in
+    // the page world, where the free call still finds a Window global). The throw
+    // escapes before refreshFrame is assigned, so the guard above stays 0 and every
+    // scroll/pointer/focus event re-enters and re-throws — which silently freezes
+    // projected-reading repositioning for the whole page.
+    const view = document.defaultView;
+    if (typeof view?.requestAnimationFrame !== 'function') {
         refreshProjectedReadingPositions(overlay);
         return;
     }
-    overlay.refreshFrame = frame(() => {
+    overlay.refreshFrame = view.requestAnimationFrame(() => {
         overlay.refreshFrame = 0;
         refreshProjectedReadingPositions(overlay);
     });

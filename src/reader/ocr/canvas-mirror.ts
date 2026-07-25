@@ -880,14 +880,28 @@ export function recorderBootstrap(win: PageWindowLike, opts: RecorderOpts): void
         ].join('|');
         return `o:${hashText(payload)}`;
     };
+    // Memoize on the record's OWN op state, not on the global turn epoch. The
+    // reader-side cache is epoch-keyed and the recorder bumps the epoch on every
+    // composite, so one repaint anywhere invalidated the token for EVERY page
+    // canvas and forced a full leaf-fingerprint rescan of each one's whole op
+    // graph (measured ~48 ms per canvas, ~627 ms across 13 canvases, 2-3x per
+    // page turn — the bulk of the multi-second scroll stalls). A record whose ops
+    // have not changed cannot have a different token, whatever the epoch does.
     const summaryToken = (id: string): string => {
-        const record = S.records[id];
+        const record = S.records[id] as (MirrorRecord & { tok?: string; tokStamp?: string }) | undefined;
         if (!record) return '';
+        const ops = record.ops;
+        const stamp = ops.length + ':' + (ops.length ? ops[ops.length - 1].seq : -1);
+        if (record.tokStamp === stamp && typeof record.tok === 'string') return record.tok;
         const leafs = Object.create(null) as Record<string, boolean>;
         addLeafFingerprints(id, Number.POSITIVE_INFINITY, leafs, Object.create(null) as Record<string, boolean>, 0);
         const keys = Object.keys(leafs).sort();
-        if (keys.length) return `m:${hashText(keys.join('\u0001'))}`;
-        return operationSummaryToken(id, record);
+        const token = keys.length
+            ? `m:${hashText(keys.join('\u0001'))}`
+            : operationSummaryToken(id, record);
+        record.tok = token;
+        record.tokStamp = stamp;
+        return token;
     };
     const requestedSummaries = (id: string): Record<string, string> => {
         const out = Object.create(null) as Record<string, string>;

@@ -289,12 +289,12 @@
   }
   function scheduleProjectionRefresh(document2, overlay) {
     if (!overlay.records.size || overlay.refreshFrame) return;
-    const frame = document2.defaultView?.requestAnimationFrame;
-    if (!frame) {
+    const view = document2.defaultView;
+    if (typeof view?.requestAnimationFrame !== "function") {
       refreshProjectedReadingPositions(overlay);
       return;
     }
-    overlay.refreshFrame = frame(() => {
+    overlay.refreshFrame = view.requestAnimationFrame(() => {
       overlay.refreshFrame = 0;
       refreshProjectedReadingPositions(overlay);
     });
@@ -38948,7 +38948,7 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
   function rankKanjiStrokeCandidates(strokes, candidates, limit = 8) {
     const writtenStrokes = strokes.filter((stroke) => stroke.length > 1);
     if (!writtenStrokes.length) return [];
-    const written = extractFeatures(momentNormalize(toPattern(writtenStrokes)), FEATURE_INTERVAL);
+    const written = normalizedFeatures(toPattern(writtenStrokes));
     return candidates.map((candidate) => kanjiShapeMatch(candidate, written, writtenStrokes.length)).filter((match) => Boolean(match)).sort((a, b) => b.score - a.score || a.expectedStrokes - b.expectedStrokes || a.kanji.localeCompare(b.kanji)).slice(0, limit);
   }
   function totalDistance(strokes) {
@@ -38981,8 +38981,8 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
   }
   function assessStrokeShape(strokes, referenceStrokes, expectedStrokes) {
     if (!referenceStrokes || strokes.length !== expectedStrokes || referenceStrokes.length !== expectedStrokes) return null;
-    const written = extractFeatures(momentNormalize(toPattern(strokes)), FEATURE_INTERVAL);
-    const reference = extractFeatures(momentNormalize(toPattern(referenceStrokes)), FEATURE_INTERVAL);
+    const written = normalizedFeatures(toPattern(strokes));
+    const reference = normalizedFeatures(toPattern(referenceStrokes));
     if (written.length !== reference.length || written.some((stroke, index) => stroke.length < 2 || reference[index].length < 2)) return null;
     const scores = written.map((stroke, index) => strokeCorrespondenceScore(stroke, reference[index]));
     const average = scores.reduce((sum, score) => sum + score, 0) / scores.length;
@@ -38996,7 +38996,7 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
     const strokeDelta = Math.abs(actualStrokes - expectedStrokes);
     const allowedDelta = Math.max(2, Math.ceil(Math.min(actualStrokes, expectedStrokes) * 0.45));
     if (strokeDelta > allowedDelta) return null;
-    const reference = extractFeatures(momentNormalize(toPattern(referenceStrokes)), FEATURE_INTERVAL);
+    const reference = normalizedFeatures(toPattern(referenceStrokes));
     if (!reference.length) return null;
     const strokeShapeScore = unorderedStrokeShapeScore(written, reference);
     const skeletonScore = wholeSkeletonScore(written, reference);
@@ -39109,21 +39109,38 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
     return Number.isFinite(value) ? value : 0;
   }
   function extractFeatures(pattern, interval) {
-    return pattern.map((stroke) => {
-      const extracted = [];
-      let distance = 0;
-      for (let index = 0; index < stroke.length; index += 1) {
-        if (index === 0) extracted.push(stroke[0]);
-        if (index > 0) distance += euclid(stroke[index - 1], stroke[index]);
-        if (distance >= interval && index > 1) {
-          distance -= interval;
-          extracted.push(stroke[index]);
-        }
+    return pattern.map((stroke) => resampleStroke(stroke, interval));
+  }
+  function normalizedFeatures(pattern) {
+    const densityIndependent = extractFeatures(pattern, FEATURE_INTERVAL);
+    return extractFeatures(momentNormalize(densityIndependent), FEATURE_INTERVAL);
+  }
+  function resampleStroke(stroke, interval) {
+    if (stroke.length < 2 || !Number.isFinite(interval) || interval <= 0) return [...stroke];
+    const sampled = [{ ...stroke[0] }];
+    let distanceSinceSample = 0;
+    for (let index = 1; index < stroke.length; index += 1) {
+      let from = stroke[index - 1];
+      const to = stroke[index];
+      let segmentLength = euclid(from, to);
+      if (segmentLength <= Number.EPSILON) continue;
+      while (distanceSinceSample + segmentLength >= interval) {
+        const ratio = (interval - distanceSinceSample) / segmentLength;
+        const point = {
+          x: from.x + (to.x - from.x) * ratio,
+          y: from.y + (to.y - from.y) * ratio
+        };
+        sampled.push(point);
+        from = point;
+        segmentLength = euclid(from, to);
+        distanceSinceSample = 0;
+        if (segmentLength <= Number.EPSILON) break;
       }
-      if (extracted.length === 1) extracted.push(stroke[stroke.length - 1]);
-      else if (distance > interval * 0.75) extracted.push(stroke[stroke.length - 1]);
-      return extracted;
-    });
+      distanceSinceSample += segmentLength;
+    }
+    const last = stroke[stroke.length - 1];
+    if (euclid(sampled[sampled.length - 1], last) > Number.EPSILON) sampled.push({ ...last });
+    return sampled;
   }
   function strokeCorrespondenceScore(stroke, reference) {
     const whole = wholeWholeDistance(stroke, reference);
@@ -41641,11 +41658,16 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const summaryToken = (id) => {
       const record2 = S.records[id];
       if (!record2) return "";
+      const ops = record2.ops;
+      const stamp = ops.length + ":" + (ops.length ? ops[ops.length - 1].seq : -1);
+      if (record2.tokStamp === stamp && typeof record2.tok === "string") return record2.tok;
       const leafs = /* @__PURE__ */ Object.create(null);
       addLeafFingerprints(id, Number.POSITIVE_INFINITY, leafs, /* @__PURE__ */ Object.create(null), 0);
       const keys = Object.keys(leafs).sort();
-      if (keys.length) return `m:${hashText(keys.join(""))}`;
-      return operationSummaryToken(id, record2);
+      const token = keys.length ? `m:${hashText(keys.join(""))}` : operationSummaryToken(id, record2);
+      record2.tok = token;
+      record2.tokStamp = stamp;
+      return token;
     };
     const requestedSummaries = (id) => {
       const out = /* @__PURE__ */ Object.create(null);
@@ -43662,7 +43684,19 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const coversArea = rect.width * rect.height >= viewportWidth * viewportHeight * VIEWPORT_AREA_FRACTION;
     return coversAxis && coversArea;
   }
+  const canvasTaintVerdict = /* @__PURE__ */ new WeakMap();
+  const CANVAS_TAINT_VERDICT_TTL_MS = 1e4;
+  function canvasKnownTainted(canvas) {
+    const hit = canvasTaintVerdict.get(canvas);
+    if (!hit || !hit.tainted) return false;
+    if (hit.key !== `${canvas.width}x${canvas.height}`) return false;
+    return Date.now() - hit.at < CANVAS_TAINT_VERDICT_TTL_MS;
+  }
+  function rememberCanvasTaint(canvas, tainted) {
+    canvasTaintVerdict.set(canvas, { key: `${canvas.width}x${canvas.height}`, tainted, at: Date.now() });
+  }
   function sampleCanvasContent(canvas) {
+    if (canvasKnownTainted(canvas)) return null;
     try {
       const sample = document.createElement("canvas");
       sample.width = CONTENT_SAMPLE_SIZE;
@@ -43696,10 +43730,18 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         hash ^= luminance;
         hash = Math.imul(hash, 16777619) >>> 0;
       }
+      rememberCanvasTaint(canvas, false);
       return { buckets: buckets.size, contrast: max2 - min, hash, opaque };
-    } catch {
+    } catch (error) {
+      if (isCanvasTaintError(error)) rememberCanvasTaint(canvas, true);
       return null;
     }
+  }
+  function isCanvasTaintError(error) {
+    if (typeof DOMException !== "undefined" && error instanceof DOMException) {
+      return error.name === "SecurityError";
+    }
+    return error instanceof Error && /insecure|tainted|cross-origin/i.test(error.message);
   }
   function looksLikeRenderedCanvasImage(canvas) {
     return Boolean(canvasRenderedContentSignature(canvas));
@@ -43990,9 +44032,18 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       const context = markCanvasMirrorSkip(scaled.getContext("2d"));
       if (!context) return void 0;
       context.drawImage(canvas, 0, 0, scaled.width, scaled.height);
-      return scaled.toDataURL("image/jpeg", 0.86);
+      const dataUrl = scaled.toDataURL("image/jpeg", 0.86);
+      releaseTransientCanvas(scaled);
+      return dataUrl;
     } catch {
       return void 0;
+    }
+  }
+  function releaseTransientCanvas(canvas) {
+    try {
+      canvas.width = 0;
+      canvas.height = 0;
+    } catch {
     }
   }
   function captureCanvasRegionDataUrl(canvas, surfaceRect, regionRect, maxPixels) {
@@ -44013,7 +44064,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       const context = markCanvasMirrorSkip(out.getContext("2d"));
       if (!context) return void 0;
       context.drawImage(canvas, sx, sy, sw, sh, 0, 0, out.width, out.height);
-      return out.toDataURL("image/jpeg", 0.86);
+      const dataUrl = out.toDataURL("image/jpeg", 0.86);
+      releaseTransientCanvas(out);
+      return dataUrl;
     } catch {
       return void 0;
     }
@@ -44338,7 +44391,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const candidate = safeUrl(rawUrl);
     if (!candidate || candidate.origin !== current.origin) return false;
     if (!BOOKWALKER_CONTENT_SESSION_PATHS.has(candidate.pathname)) return false;
-    if (!candidate.searchParams.get("BID")) return false;
     return !contentId || candidate.searchParams.get("cid") === contentId;
   }
   function parseContentAuthorization(value) {
@@ -44381,7 +44433,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function isBookwalkerAssetUrl(rawUrl) {
     const url = safeUrl(rawUrl);
-    return Boolean(url && isBookwalkerHost(url.hostname) && /\/OPS\/images\//.test(url.pathname));
+    if (!url || !isBookwalkerHost(url.hostname)) return false;
+    return url.searchParams.has("Policy") && url.searchParams.has("Signature") && url.searchParams.has("Key-Pair-Id");
   }
   function isBookwalkerHost(hostname) {
     return hostname === "bookwalker.jp" || hostname.endsWith(".bookwalker.jp");
@@ -46374,12 +46427,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       if (!frameSrc) return void 0;
       const mirrorSignature = canvasRenderedContentSignature(mirror);
       const contentToken = mirror.dataset.yomuMirrorContentToken || startContentToken;
-      return {
-        frameSrc,
-        frameRect,
-        contentKey: bookwalkerCanvasContentKey(contentToken, regionKey) ?? (mirrorSignature ? `cv:${mirrorSignature}:${mirror.width}x${mirror.height}${regionKey}` : void 0),
-        contentToken
-      };
+      const contentKey = bookwalkerCanvasContentKey(contentToken, regionKey) ?? (mirrorSignature ? `cv:${mirrorSignature}:${mirror.width}x${mirror.height}${regionKey}` : void 0);
+      return { frameSrc, frameRect, contentKey, contentToken };
     }
     commitCanvasSnapshot(canvas, pendingSnapshot, key, canvasRect, captured, userRequested) {
       if (this.destroyed || !canvas.isConnected || this.canvasFrames.has(canvas)) return;
@@ -48467,7 +48516,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.8.6".trim() ? "1.8.6".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.8.8".trim() ? "1.8.8".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record2 = value;

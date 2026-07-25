@@ -1029,3 +1029,54 @@ describe('detached reading scroll context', () => {
         expect(layer?.parentElement).toBe(document.documentElement);
     });
 });
+
+// Firefox enforces a WebIDL receiver check on requestAnimationFrame: calling it
+// without a real Window `this` throws. In the page world a detached free call
+// still resolves a Window global, so the bug is invisible there — it only bites
+// inside a userscript-manager sandbox (Tampermonkey on Firefox), which is where
+// the user hit it. This stubs Gecko's check so the regression is deterministic.
+describe('projected reading refresh under a Firefox userscript sandbox', () => {
+    it('calls requestAnimationFrame with its window as receiver', async () => {
+        const view = document.defaultView!;
+        // Let any frame scheduled by an earlier test settle, otherwise the
+        // schedule guard short-circuits and this test exercises nothing.
+        await new Promise<void>(resolve => view.requestAnimationFrame(() => resolve()));
+        await new Promise<void>(resolve => setTimeout(resolve, 0));
+        const original = view.requestAnimationFrame;
+        const receivers: unknown[] = [];
+        const geckoLike = function (this: unknown, cb: FrameRequestCallback): number {
+            receivers.push(this);
+            // Exactly what Gecko throws for a receiver that is not a Window.
+            if (this !== view) {
+                throw new TypeError(
+                    "'requestAnimationFrame' called on an object that does not implement interface Window.",
+                );
+            }
+            void cb;
+            return 1;
+        };
+        Object.defineProperty(view, 'requestAnimationFrame', {
+            configurable: true, writable: true, value: geckoLike,
+        });
+
+        try {
+            const target = readingOwner('日本語');
+            mockElementsFromPoint([target.source]);
+            // Must not throw, and must schedule with a Window receiver.
+            expect(() => syncProjectedReadings(target.owner, [{
+                source: target.source,
+                anchor: target.anchor,
+                rect: rect(),
+                measure: () => rect(),
+            }])).not.toThrow();
+            expect(receivers.length).toBeGreaterThan(0);
+            expect(receivers.every(r => r === view)).toBe(true);
+            clearProjectedReadings(target.owner);
+            target.anchor.remove();
+        } finally {
+            Object.defineProperty(view, 'requestAnimationFrame', {
+                configurable: true, writable: true, value: original,
+            });
+        }
+    });
+});

@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.8.8] - 2026-07-25
+
+### Fixed
+
+- Manga pages on BookWalker no longer stop scanning after a few pages of reading. BookWalker only signs each page image for about a minute and fetches upcoming pages ahead of you, so reading at a normal pace meant Yomu was asking for pictures whose access had already lapsed; every page then reported that its text could not be read until the reader was reloaded. Yomu now renews that access when it has lapsed, so pages keep scanning however slowly you read.
+- Furigana on pages that hold their own layout, such as the cookie notice on BookWalker, no longer freeze in place in Firefox. A repositioning step failed on the very first scroll and never recovered, leaving readings where they were first drawn.
+- Scrolling a BookWalker book is smoother. Yomu was re-examining every page surface on screen each time any part of the page repainted, and re-reading whole page images it had already found it could not read.
+
+## [1.8.7] - 2026-07-25
+
+### Fixed
+
+- **Write** in the Study Type step accepts drawing again, including for WaniKani vocabulary reviews. A stale pre-reveal guard made the canvas visible but prevented it from receiving finger, Pencil, stylus, or mouse input; the guard now leaves the active Type handwriting surface interactive while retaining its protection for inactive doodle surfaces.
+
 ## [1.8.6] - 2026-07-25
 
 ### Changed

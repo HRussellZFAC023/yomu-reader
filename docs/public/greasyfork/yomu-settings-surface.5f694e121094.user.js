@@ -10081,7 +10081,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.8.8".trim() ? "1.8.8".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.8.7".trim() ? "1.8.7".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record2 = value;
