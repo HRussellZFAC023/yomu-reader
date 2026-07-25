@@ -424,3 +424,17 @@
 [data-source-drag-handle] {
   touch-action: none !important;
 }
+
+/* `hidden` is authoritative on every reader-owned surface.
+
+   Reader components hide finished or empty sections by setting the hidden
+   attribute, but many reader rules carry `display: ... !important` to survive
+   host-page CSS, and any of those beats the UA's plain [hidden] rule — the
+   element stays visible and stale ("Translating..." lingering after the
+   request settled empty was this). One-off restatements existed per component;
+   this states the contract once, for every current and future reader surface,
+   instead of relying on each component to remember. */
+:is(.jpdb-reader-popover, .jpdb-reader-settings, .jpdb-reader-onboarding,
+    .jpdb-reader-newtab, .jpdb-subtitle-player, [data-jpdb-reader-root]) [hidden] {
+  display: none !important;
+}

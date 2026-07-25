@@ -12,14 +12,14 @@
 // @match *://*/*
 // @match file:///*
 // @require https://yomureader.com/greasyfork/yomu-annotations.48a384eb13dd.user.js#sha256=SKOE6xPdCJ47TRwC7skyh4QoO+AEeXBfgfBy3PFt1rI=
-// @require https://yomureader.com/greasyfork/yomu-anki.8ca4c5aa9440.user.js#sha256=jKTFqpRAy8hsV7ABuAMure3EHhMCflzqa5MCl12lmAI=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.d622212fbf18.user.js#sha256=1iIhL78YArM5Xmxm33D/vbSJ/QTWoOTOHUagwrbjHV4=
+// @require https://yomureader.com/greasyfork/yomu-anki.2610bb8f5ffa.user.js#sha256=JhC7j1/62t4boNvp0wG7xjhnIRTTW+IpAeDpQe/cflM=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.f1c37504507e.user.js#sha256=8cN1BFB+CHmqW0Uf3e5mRHuEuycSbgAYT11FiexZUDE=
 // @require https://yomureader.com/greasyfork/yomu-ocr-manga.86105c6dc56f.user.js#sha256=hhBcbcVv1kfYArrl5B72rS0Ke0WNowISKyI+gnp0/x4=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.8b7ea0485899.user.js#sha256=i36gSFiZF/9rV+gLjTbAgAuXLnSfkQ5x8VeZLxZLkVc=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.d376864e4962.user.js#sha256=03aGTkliCvQ0SUfJGoGxBfqFtKi8ZpMthKnaJMisaFM=
-// @require https://yomureader.com/greasyfork/yomu-bunpro.a0f59f7944a4.user.js#sha256=oPWfeUSk6mRINABeckq7gCFcmhI5HLh6rTuyOSYyR4o=
-// @require https://yomureader.com/greasyfork/yomu-video.582d35a07bb2.user.js#sha256=WC01oHuy5/OwL9y4QKAIIDon0Z0lIofRYdcm4TDazd4=
-// @resource yomuCss  https://yomureader.com/yomu.9252e14660a1.css#sha256=klLhRmChE/4y73MTCBzgnocXioaZWtkAkT+MfJwmm2o=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.e97756036040.user.js#sha256=6XdWA2BAxoqzovwU4lwWZDPzoUIuYhd/M3CEYBIcJcA=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.2e1dfeff9ade.user.js#sha256=Lh3+/5re6hROllxXynJdYpqyyDcIcnbVs99mjHGaoYw=
+// @require https://yomureader.com/greasyfork/yomu-bunpro.0cde00c56cef.user.js#sha256=DN4AxWzvr5/eGWFV5ZMHfvHzm4qXmL9F68milSvlHuo=
+// @require https://yomureader.com/greasyfork/yomu-video.c79a1b4fdd6c.user.js#sha256=x5obT91sNXiB/+urgcZzIhUY0LB62wapLHNza81F5H4=
+// @resource yomuCss  https://yomureader.com/yomu.35e3f0db5c76.css#sha256=NePw21x26ytMJ2NWnR0FIRiN9YwBDVGSeonEvtsssKg=
 // @connect api.jiten.moe
 // @connect jpdb.io
 // @connect api.wanikani.com
@@ -13567,7 +13567,16 @@ function requestViaUserscript$1(url, options, userscriptRequest) {
     } catch {
     }
   };
-  const handleLoad = (response) => {
+  let settled = false;
+  let deadline;
+  const finish = (settle) => {
+    if (settled) return;
+    settled = true;
+    if (deadline !== void 0) clearTimeout(deadline);
+    if (signal) signal.removeEventListener("abort", onAbort);
+    settle();
+  };
+  const handleLoad = (response) => finish(() => {
     if (response.status < 200 || response.status >= 300) {
       reject(new Error(formatStatusFailure(options, response.status)));
       return;
@@ -13577,12 +13586,17 @@ function requestViaUserscript$1(url, options, userscriptRequest) {
     } catch (error) {
       reject(error);
     }
+  });
+  const handleTimeout = () => {
+    tryAbort();
+    finish(() => reject(new Error(options.timeoutLabel ?? `${options.failureLabel ?? "Request"} timed out.`)));
   };
   const onAbort = () => {
     tryAbort();
-    reject(abortError());
+    finish(() => reject(abortError()));
   };
   if (signal) signal.addEventListener("abort", onAbort, { once: true });
+  if (options.timeoutMs) deadline = setTimeout(handleTimeout, options.timeoutMs);
   const result = userscriptRequest({
     method: options.method ?? "GET",
     url,
@@ -13594,14 +13608,11 @@ function requestViaUserscript$1(url, options, userscriptRequest) {
     withCredentials: options.withCredentials,
     cookie: options.cookie,
     onload: handleLoad,
-    onerror: (error) => reject(error instanceof Error ? error : new Error(formatFailure(options))),
-    ontimeout: () => {
-      tryAbort();
-      reject(new Error(options.timeoutLabel ?? `${options.failureLabel ?? "Request"} timed out.`));
-    }
+    onerror: (error) => finish(() => reject(error instanceof Error ? error : new Error(formatFailure(options)))),
+    ontimeout: handleTimeout
   });
   if (result && typeof result.then === "function") {
-    result.then(handleLoad, (error) => reject(error instanceof Error ? error : new Error(formatFailure(options))));
+    result.then(handleLoad, (error) => finish(() => reject(error instanceof Error ? error : new Error(formatFailure(options)))));
   } else if (result && typeof result.abort === "function") {
     handle = result;
   }
@@ -17029,6 +17040,9 @@ const COLORED_READER_WORD_CLASSES = new Set([
   "jpdb-pitch-nakadaka",
   "jpdb-pitch-odaka"
 ]);
+const NEUTRAL_CLEARED_CONTRAST_VARS = RENDERED_WORD_CONTRAST_VARS.filter(
+  (name) => name !== "--jpdb-reader-highlight-backdrop"
+);
 const pendingHoverContrastRefresh = new WeakSet();
 const appliedContrastState = new WeakMap();
 function refreshReaderWordContrast(root = document) {
@@ -17037,6 +17051,8 @@ function refreshReaderWordContrast(root = document) {
   const activeBackgrounds = [];
   const unknownBackgroundWords = [];
   const neutralWords = [];
+  const neutralPageWords = [];
+  const neutralPageBackgrounds = [];
   const backgroundByParent = new Map();
   const cachedPageBackgroundFor = (word) => {
   const parent = word.parentElement;
@@ -17058,7 +17074,13 @@ function refreshReaderWordContrast(root = document) {
     continue;
   }
   if (isNeutralReaderWord(word)) {
-    neutralWords.push(word);
+    const neutralBackground = cachedPageBackgroundFor(word);
+    if (neutralBackground) {
+      neutralPageWords.push(word);
+      neutralPageBackgrounds.push(neutralBackground);
+    } else {
+      neutralWords.push(word);
+    }
     continue;
   }
   const background = cachedPageBackgroundFor(word);
@@ -17068,17 +17090,14 @@ function refreshReaderWordContrast(root = document) {
     continue;
   }
   const isHovered = word.matches(":hover, :focus");
+  if (isHovered) scheduleHoverSettledContrastRefresh(word);
   const previous = appliedContrastState.get(word);
   const parentColor = getComputedStyle(word.parentElement ?? word).color;
   if (previous && previous.background === background.css && previous.className === word.className && previous.cssText === word.style.cssText && previous.hovered === isHovered && previous.parentColor === parentColor) {
     continue;
   }
   if (hasAnkiAccessibleColor && isHovered && !hasInlineTextColor && existingAccessibleColorRemainsReadableOnHover(word, background)) {
-    scheduleHoverSettledContrastRefresh(word);
     continue;
-  }
-  if (isHovered) {
-    scheduleHoverSettledContrastRefresh(word);
   }
   activeWords.push(word);
   activeBackgrounds.push(background);
@@ -17107,6 +17126,7 @@ function refreshReaderWordContrast(root = document) {
   };
   });
   neutralWords.forEach((word) => clearContrastVars(word));
+  neutralPageWords.forEach((word, i) => applyNeutralPageBackdrop(word, neutralPageBackgrounds[i]));
   unknownBackgroundWords.forEach((word) => applyUnknownBackgroundFallback(word));
   activeWords.forEach((word, i) => {
   savedVars[i].forEach(({ name, value, priority: priority2 }) => {
@@ -17299,6 +17319,11 @@ function readableHighlightBackground(color, background) {
 function applyUnknownBackgroundFallback(word) {
   RENDERED_WORD_CONTRAST_VARS_WITHOUT_SHADOW.forEach((name) => word.style.removeProperty(name));
   word.style.setProperty("--jpdb-reader-word-contrast-shadow", PAGE_WORD_COLOR_TOKENS.unknownBackgroundShadow);
+}
+function applyNeutralPageBackdrop(word, background) {
+  NEUTRAL_CLEARED_CONTRAST_VARS.forEach((name) => word.style.removeProperty(name));
+  if (word.style.getPropertyValue("--jpdb-reader-highlight-backdrop") === background.css) return;
+  word.style.setProperty("--jpdb-reader-highlight-backdrop", background.css);
 }
 function clearContrastVars(word) {
   RENDERED_WORD_CONTRAST_VARS.forEach((name) => word.style.removeProperty(name));
