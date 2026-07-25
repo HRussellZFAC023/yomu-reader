@@ -245,8 +245,11 @@ export class HostedAcademyAccountControls {
             ? 'item yomu-hosted-account yomu-hosted-account-mobile'
             : 'yomu-hosted-account yomu-hosted-account-desktop';
         control.dataset.yomuHostedAccount = mobile ? 'mobile' : 'desktop';
+        // The component renders its own JA copy, so the docs localizer must not
+        // rewrite it — but the READER must still annotate it. This control is
+        // ordinary page text to the reader; marking it reader-owned chrome left
+        // サインイン / アカウントを作成 as the only unannotated text in the header.
         control.dataset.yomuLocalize = 'off';
-        control.dataset.jpdbReaderSurfaceIgnore = 'true';
         return control;
     }
 

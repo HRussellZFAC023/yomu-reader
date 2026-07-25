@@ -140,7 +140,10 @@ describe('hosted Academy account controls', () => {
             expect(control.textContent).not.toContain('#400');
             expect(control.textContent).not.toContain('419213');
             expect(control.dataset.yomuLocalize).toBe('off');
-            expect(control.dataset.jpdbReaderSurfaceIgnore).toBe('true');
+            // The account control is ordinary page text to the READER — the
+            // owner wants every surface annotated, and the surface-ignore stamp
+            // here left サインイン / アカウントを作成 as the only bare text in the header.
+            expect(control.dataset.jpdbReaderSurfaceIgnore).toBeUndefined();
             expect(control.querySelector('a')?.getAttribute('href')).toBe('/academy/?view=profile-sync');
         }
 
