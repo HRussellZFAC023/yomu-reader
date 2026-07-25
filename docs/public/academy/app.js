@@ -28769,6 +28769,13 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   const INTERACTIVE_LINK_CONTEXT_SELECTOR = roleSelectors("menu,menubar,toolbar,tablist");
   const CONTENT_CHIP_ROOT_SELECTOR = ".yomu-hosted-overflow-group";
   const NAMED_CONTENT_ROOT_SELECTOR = `${CONTENT_CHIP_ROOT_SELECTOR},.viewer-title-bar,.bookTitleText,#bookDescription`;
+  const COMMAND_CONTROL_SELECTOR = 'button,summary,[role="button"]';
+  function isCommandControl(el2) {
+    const control2 = el2.closest(COMMAND_CONTROL_SELECTOR);
+    if (!control2) return false;
+    if (isConversationTextClass(control2) || isMediaTextContentControl(control2)) return false;
+    return !control2.closest(CONTENT_CHIP_ROOT_SELECTOR) && !control2.closest(NAMED_CONTENT_ROOT_SELECTOR);
+  }
   function interactivePassiveControl(element2) {
     const temporalMetadata = element2.closest("time,[datetime]");
     if (temporalMetadata && isCompactTemporalMetadata(temporalMetadata)) return temporalMetadata;
@@ -36936,6 +36943,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (decoration === "skip") return null;
     const suppressRuby = decorationSuppressesRuby(decoration);
     const passiveInteraction = suppressRuby || trimmedFragments.every((fragment2) => fragment2.passiveInteraction);
+    const commandControl = decoration === "interactive-passive" && isCommandControl(parent);
     return {
       text: text2,
       parent,
@@ -36945,6 +36953,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       proseWrap: shouldWrapScanTargetAsProse(parent, suppressRuby, passiveInteraction),
       layoutSensitive: trimmedFragments.some((fragment2) => fragment2.layoutSensitive),
       passiveInteraction,
+      commandControl,
       forceInlineRender: options.forceInlineRender,
       suppressRepaintLoopMirror: options.suppressRepaintLoopMirror,
       ...shadowDomTargetMetadata(parent)
@@ -37427,6 +37436,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (decoration !== "interactive-passive") return;
     const control2 = interactivePassiveControl(target2.parent);
     if (control2) stampDecorationState(control2, decoration);
+    if (target2.commandControl) (control2 ?? host2).setAttribute("data-yomu-command-control", "true");
     applyPassiveChromeMarks(compactScanRubySuppression(target2.parent).marks);
   }
   function applyTokensToScanTarget(target2, tokens, settings) {
@@ -38097,7 +38107,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function mountNonDestructiveTextMirror(host2, target2, settings, context2) {
     const mirror = createNonDestructiveTextMirror(context2);
     const controlMirror = target2.decoration === "interactive-passive";
-    if (controlMirror) mirror.dataset.yomuControlMirror = "true";
+    if (controlMirror) mirror.dataset.yomuControlMirror = target2.commandControl ? "command" : "true";
     if (context2.detachedReadings && !controlMirror) {
       mirror.dataset.yomuReadingLaneCandidate = "true";
     }

@@ -152,8 +152,9 @@ describe('mirrored interactive chrome keeps furigana', () => {
         expect(mirror.dataset.yomuDetachedReadings).toBe('true');
         // Detached readings stay out of the button's line box while the
         // control-mirror stamp keeps the base glyph on the exact native
-        // metrics instead of the roomier prose mirror metrics.
-        expect(mirror.dataset.yomuControlMirror).toBe('true');
+        // metrics instead of the roomier prose mirror metrics. A bare button is
+        // a command control, so the reading lane is hover-revealed (command tier).
+        expect(mirror.dataset.yomuControlMirror).toBe('command');
     });
 
     it('uses the same detached-reading channel on YouTube controls', () => {
@@ -167,6 +168,6 @@ describe('mirrored interactive chrome keeps furigana', () => {
         const mirror = host.querySelector<HTMLElement>('.jpdb-reader-text-mirror')!;
         expect(mirror.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('にほんご');
         expect(mirror.dataset.yomuDetachedReadings).toBe('true');
-        expect(mirror.dataset.yomuControlMirror).toBe('true');
+        expect(mirror.dataset.yomuControlMirror).toBe('command');
     });
 });
