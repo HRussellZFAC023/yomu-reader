@@ -76,6 +76,55 @@ describe('detached reading overlay occlusion', () => {
         clearProjectedReadings(background.owner);
     });
 
+    // A button stacks its own ripple/hover/focus layers as SIBLINGS of the
+    // label, directly under where the reading is painted. Scoring those as a
+    // covering surface blanks the reading, and because the in-word source is
+    // display:none the clone is the only visible copy — so the button ends up
+    // with an underline and no furigana at all, which is the reported bug.
+    it('keeps a projection over its own control chrome', () => {
+        const button = document.createElement('button');
+        const target = readingOwner('さんか');
+        button.append(target.anchor);
+        document.body.append(button);
+        const ripple = document.createElement('span');
+        ripple.style.backgroundColor = 'rgba(0, 0, 0, 0.4)';
+        button.append(ripple);
+        mockElementsFromPoint([ripple, button]);
+
+        syncProjectedReadings(target.owner, [{
+            source: target.source,
+            anchor: target.anchor,
+            rect: rect(),
+            measure: () => rect(),
+        }]);
+
+        expect(projectedReading('さんか')?.style.display).toBe('block');
+        clearProjectedReadings(target.owner);
+    });
+
+    // The exemption is scoped to the control the word lives in: a real menu
+    // drawn over that button still hides the reading, or readings would bleed
+    // through dropdowns.
+    it('still hides a projection under a surface outside its own control', () => {
+        const button = document.createElement('button');
+        const target = readingOwner('きょひ');
+        button.append(target.anchor);
+        const menu = document.createElement('div');
+        menu.style.backgroundColor = 'rgb(0, 0, 0)';
+        document.body.append(button, menu);
+        mockElementsFromPoint([menu, button]);
+
+        syncProjectedReadings(target.owner, [{
+            source: target.source,
+            anchor: target.anchor,
+            rect: rect(),
+            measure: () => rect(),
+        }]);
+
+        expect(projectedReading('きょひ')?.style.display).toBe('none');
+        clearProjectedReadings(target.owner);
+    });
+
     it('hides a projection when only its predicted reading footprint is covered', () => {
         const background = readingOwner('よみ');
         const menu = document.createElement('div');

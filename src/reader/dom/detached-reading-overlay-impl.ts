@@ -830,6 +830,22 @@ function projectedReadingFootprint(record: ProjectionRecord, sourceRect: DOMRect
     return rectFromEdges(left, top, left + width, sourceRect.top);
 }
 
+// Control shapes whose interior is their own chrome. Deliberately narrow: a
+// bare `a` is excluded because a link can wrap a whole card, and treating that
+// much of the page as one control would let a genuine overlay inside it hide
+// nothing. This file has no imports on purpose — the scroll smoke esbuilds it
+// standalone — so the selector lives here rather than in the decoration policy.
+const OWN_CHROME_CONTROL_SELECTOR = 'button,summary,label,'
+    + '[role="button"],[role="tab"],[role="menuitem"],[role="menuitemradio"],[role="menuitemcheckbox"],[role="option"]';
+
+function anchorOwnControl(anchor: HTMLElement): Element | null {
+    try {
+        return anchor.closest(OWN_CHROME_CONTROL_SELECTOR);
+    } catch {
+        return null;
+    }
+}
+
 function anchorOwnsTopmostPoint(
     anchor: HTMLElement,
     surface: Element,
@@ -839,6 +855,7 @@ function anchorOwnsTopmostPoint(
 ): boolean {
     const document = anchor.ownerDocument;
     if (typeof document.elementsFromPoint !== 'function') return true;
+    const ownChrome = anchorOwnControl(anchor);
     for (const hit of document.elementsFromPoint(x, y)) {
         if (hit.closest('.jpdb-reader-detached-reading-overlay')
             || hit === document.body
@@ -846,6 +863,16 @@ function anchorOwnsTopmostPoint(
         const deepest = deepestOpenShadowHit(hit, x, y);
         if (composedContains(anchor, deepest) || composedContains(surface, deepest)) return true;
         if (composedContains(deepest, anchor) || composedContains(deepest, surface)) return true;
+        // A control's own decorative layers — the ripple, hover wash and focus
+        // ring frameworks stack inside a button — are siblings of the word, not
+        // ancestors of it, so the walk below would score them as a surface
+        // covering the reading and blank it. They are the control's own chrome:
+        // the reading is painted above them either way, and rejecting on them
+        // means a button never shows furigana at all, because the in-word
+        // source is display:none and the clone is the only visible copy.
+        // Anything OUTSIDE the control still occludes normally, so a real menu
+        // or dropdown over the button hides the reading as before.
+        if (ownChrome?.contains(deepest)) continue;
         for (let element: Element | null = deepest; element; element = composedParentElement(element)) {
             if (composedContains(element, anchor) || composedContains(element, surface)) break;
             if (elementPaintsOccludingSurface(element, occludingPaint)) return false;

@@ -146,6 +146,11 @@ try {
                     width: Math.round(r.width),
                     documentSpace: c.classList.contains('jpdb-reader-projected-furi-document'),
                     stampedTop: c.dataset.yomuSourceTop ?? null,
+                    // Content behind a modal is correctly blanked; distinguish
+                    // that from a reading lost on a surface the user can see.
+                    behindModal: Boolean(c.dataset.yomuExpression && [...document.querySelectorAll('.jpdb-reader-word')]
+                        .filter(w => w.textContent?.includes(c.dataset.yomuExpression))
+                        .some(w => w.closest('[aria-hidden="true"],[inert]'))),
                 };
             }),
             diag: (() => {

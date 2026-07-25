@@ -585,14 +585,24 @@
     const top = sourceRect.top - height;
     return rectFromEdges(left, top, left + width, sourceRect.top);
   }
+  const OWN_CHROME_CONTROL_SELECTOR = 'button,summary,label,[role="button"],[role="tab"],[role="menuitem"],[role="menuitemradio"],[role="menuitemcheckbox"],[role="option"]';
+  function anchorOwnControl(anchor) {
+    try {
+      return anchor.closest(OWN_CHROME_CONTROL_SELECTOR);
+    } catch {
+      return null;
+    }
+  }
   function anchorOwnsTopmostPoint(anchor, surface, x2, y, occludingPaint) {
     const document2 = anchor.ownerDocument;
     if (typeof document2.elementsFromPoint !== "function") return true;
+    const ownChrome = anchorOwnControl(anchor);
     for (const hit of document2.elementsFromPoint(x2, y)) {
       if (hit.closest(".jpdb-reader-detached-reading-overlay") || hit === document2.body || hit === document2.documentElement) continue;
       const deepest = deepestOpenShadowHit(hit, x2, y);
       if (composedContains(anchor, deepest) || composedContains(surface, deepest)) return true;
       if (composedContains(deepest, anchor) || composedContains(deepest, surface)) return true;
+      if (ownChrome?.contains(deepest)) continue;
       for (let element2 = deepest; element2; element2 = composedParentElement(element2)) {
         if (composedContains(element2, anchor) || composedContains(element2, surface)) break;
         if (elementPaintsOccludingSurface(element2, occludingPaint)) return false;
