@@ -191,7 +191,7 @@
     "smoke:release": "npm run smoke:p0 && npm run smoke:layout-regressions && npm run smoke:offline-study && npm run smoke:furigana-local-default && npm run smoke:youtube-controls-wake && npm run smoke:youtube-title-recycler && npm run smoke:study-flow-stability",
     "smoke:nightly": "node scripts/run-nightly-smokes.mjs",
     "smoke:reddit-chrome": "node scripts/reddit-chrome-furigana-smoke.mjs",
-    "smoke:layout-regressions": "npm run smoke:chip-mirror && npm run smoke:annotation-scroll && npm run smoke:constrained-gate && npm run smoke:reddit-chrome && npm run smoke:drag-handle",
+    "smoke:layout-regressions": "npm run smoke:chip-mirror && npm run smoke:annotation-scroll && npm run smoke:constrained-gate && npm run smoke:reddit-chrome && npm run smoke:drag-handle && npm run smoke:subtitle-highlight",
     "manual:settings-layout": "node scripts/manual/settings-layout-smoke.mjs",
     "manual:subtitle-live-sites": "node scripts/manual/subtitle-live-video-site-smoke.mjs",
     "manual:subtitle-live-compat": "YOMU_LIVE_VIDEO_SITE_SET=compat node scripts/manual/subtitle-live-video-site-smoke.mjs",
@@ -223,7 +223,8 @@
     "manual:live-furigana-layout": "node scripts/manual/live-furigana-layout-smoke.mjs",
     "manual:lookup-popover-strip": "node scripts/manual/lookup-popover-strip-smoke.mjs",
     "smoke:transcript-drawer": "node scripts/transcript-drawer-row-smoke.mjs",
-    "smoke:drag-handle": "node scripts/drag-handle-gesture-smoke.mjs"
+    "smoke:drag-handle": "node scripts/drag-handle-gesture-smoke.mjs",
+    "smoke:subtitle-highlight": "node scripts/subtitle-highlight-layers-smoke.mjs"
   },
   "dependencies": {
     "aws4fetch": "^1.0.20",

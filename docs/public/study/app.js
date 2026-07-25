@@ -283,7 +283,10 @@
     return scrolls;
   }
   function elementScrollsIndependently(element2, style) {
-    const holdsScroll = (overflow) => overflow === "auto" || overflow === "scroll" || overflow === "overlay" || overflow === "hidden";
+    const advertisesScroll = (overflow) => overflow === "auto" || overflow === "scroll" || overflow === "overlay";
+    const clipsContent = (overflow) => overflow === "hidden" || overflow === "clip";
+    const scrolled = element2.scrollTop !== 0 || element2.scrollLeft !== 0;
+    const holdsScroll = (overflow) => advertisesScroll(overflow) || clipsContent(overflow) && scrolled;
     if (holdsScroll(style.overflowY) && element2.scrollHeight > element2.clientHeight + 1) return true;
     return holdsScroll(style.overflowX) && element2.scrollWidth > element2.clientWidth + 1;
   }
@@ -8048,13 +8051,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const INTERACTIVE_LINK_CONTEXT_SELECTOR = roleSelectors("menu,menubar,toolbar,tablist");
   const CONTENT_CHIP_ROOT_SELECTOR = ".yomu-hosted-overflow-group";
   const NAMED_CONTENT_ROOT_SELECTOR = `${CONTENT_CHIP_ROOT_SELECTOR},.viewer-title-bar,.bookTitleText,#bookDescription`;
-  const COMMAND_CONTROL_SELECTOR = 'button,summary,[role="button"]';
-  function isCommandControl(el2) {
-    const control = el2.closest(COMMAND_CONTROL_SELECTOR);
-    if (!control) return false;
-    if (isConversationTextClass(control) || isMediaTextContentControl(control)) return false;
-    return !control.closest(CONTENT_CHIP_ROOT_SELECTOR) && !control.closest(NAMED_CONTENT_ROOT_SELECTOR);
-  }
   function interactivePassiveControl(element2) {
     const temporalMetadata = element2.closest("time,[datetime]");
     if (temporalMetadata && isCompactTemporalMetadata(temporalMetadata)) return temporalMetadata;
@@ -12886,7 +12882,6 @@ ${spelling}`);
     if (decoration === "skip") return null;
     const suppressRuby = decorationSuppressesRuby(decoration);
     const passiveInteraction = suppressRuby || trimmedFragments.every((fragment2) => fragment2.passiveInteraction);
-    const commandControl = decoration === "interactive-passive" && isCommandControl(parent);
     return {
       text: text2,
       parent,
@@ -12896,7 +12891,6 @@ ${spelling}`);
       proseWrap: shouldWrapScanTargetAsProse(parent, suppressRuby, passiveInteraction),
       layoutSensitive: trimmedFragments.some((fragment2) => fragment2.layoutSensitive),
       passiveInteraction,
-      commandControl,
       forceInlineRender: options.forceInlineRender,
       suppressRepaintLoopMirror: options.suppressRepaintLoopMirror,
       ...shadowDomTargetMetadata(parent)
@@ -13379,7 +13373,6 @@ ${spelling}`);
     if (decoration !== "interactive-passive") return;
     const control = interactivePassiveControl(target.parent);
     if (control) stampDecorationState(control, decoration);
-    if (target.commandControl) (control ?? host).setAttribute("data-yomu-command-control", "true");
     applyPassiveChromeMarks(compactScanRubySuppression(target.parent).marks);
   }
   function applyTokensToScanTarget(target, tokens, settings) {
@@ -14050,7 +14043,7 @@ ${spelling}`);
   function mountNonDestructiveTextMirror(host, target, settings, context) {
     const mirror = createNonDestructiveTextMirror(context);
     const controlMirror = target.decoration === "interactive-passive";
-    if (controlMirror) mirror.dataset.yomuControlMirror = target.commandControl ? "command" : "true";
+    if (controlMirror) mirror.dataset.yomuControlMirror = "true";
     if (context.detachedReadings && !controlMirror) {
       mirror.dataset.yomuReadingLaneCandidate = "true";
     }
@@ -77042,6 +77035,8 @@ ${reading}`);
     // test does not add a pointer-catching layer over transparent player space.
     wakeControlsFromSubtitleSurface(event) {
       if (!this.pointInVisibleSubtitleSurface(event.clientX, event.clientY)) return;
+      const target = event.target instanceof Element ? event.target : null;
+      if (target && !this.isInSubtitleUi(target) && this.isInReaderSurface(target)) return;
       this.lastControlsInputWasKeyboard = false;
       this.showControlsTemporarily({ independentOfPlayerChrome: true });
     }
@@ -77050,6 +77045,7 @@ ${reading}`);
       const target = event.target instanceof Element ? event.target : null;
       const hitSubtitleContent = Boolean(target && this.isInSubtitleUi(target));
       if (hitSubtitleContent) return;
+      if (target && this.isInReaderSurface(target)) return;
       if (target && this.isInNativeVideoPlayer(target)) return;
       event.preventDefault();
       event.stopPropagation();
@@ -77075,6 +77071,16 @@ ${reading}`);
     }
     isInSubtitleUi(element2) {
       return Boolean(this.root?.contains(element2) || this.asbPlayerSubtitleMoveRoots().some((root) => root.contains(element2)));
+    }
+    // Every reader-owned surface — the settings dialog, the popover, the
+    // onboarding sheet — paints ABOVE the subtitle layer. A click that lands on
+    // one of them is therefore never page content the subtitle frame is
+    // covering, whatever the geometry says, so the shield must let it through
+    // untouched. Without this the shield's stopPropagation at document capture
+    // kills the dialog's own button listeners: pressing Cancel over a video did
+    // nothing except focus the player, which made the site reveal its controls.
+    isInReaderSurface(element2) {
+      return Boolean(element2.closest(READER_ROOT_SELECTOR));
     }
     isInNativeVideoPlayer(element2) {
       if (element2 === this.video) return true;

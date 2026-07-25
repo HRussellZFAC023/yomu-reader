@@ -9256,48 +9256,6 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
   visibility: visible;
 }
 
-/* Command controls (質問/参加/共有/アワードを贈る-class chrome buttons — a generic
-   tag/role verdict, never a site rule) render bare at rest: no in-flow rt, no
-   detached reading lane, and no pitch underline sitting on the label. Hover /
-   focus-within / keyboard reveals every enabled annotation through the same
-   detached-lane machinery the "true" tier uses — flipping the source reading's
-   visibility drives the projected clone too (see sourceAllowsProjectedReading),
-   so the reading parks off-screen until the control is actually engaged. */
-:is([data-yomu-command-control="true"], .jpdb-reader-text-mirror[data-yomu-control-mirror="command"]) rt.jpdb-reader-furi {
-  display: none !important;
-  visibility: hidden;
-}
-:is([data-yomu-command-control="true"], .jpdb-reader-text-mirror[data-yomu-control-mirror="command"]) .jpdb-reader-detached-furi {
-  visibility: hidden !important;
-}
-:is([data-yomu-command-control="true"], .jpdb-reader-text-mirror[data-yomu-control-mirror="command"]) .jpdb-reader-word {
-  text-decoration-color: transparent !important;
-}
-:is([data-yomu-command-control="true"], .jpdb-reader-text-mirror[data-yomu-control-mirror="command"]) :is(.jpdb-reader-word, .jpdb-reader-source-fragment)::after {
-  visibility: hidden !important;
-}
-:is([data-yomu-command-control="true"], .jpdb-reader-text-mirror[data-yomu-control-mirror="command"]):hover rt.jpdb-reader-furi,
-:is([data-yomu-command-control="true"], .jpdb-reader-text-mirror[data-yomu-control-mirror="command"]):focus-within rt.jpdb-reader-furi,
-:is([data-yomu-command-control="true"], .jpdb-reader-text-mirror[data-yomu-control-mirror="command"]):has(.jpdb-reader-keyboard-active) rt.jpdb-reader-furi {
-  display: ruby-text !important;
-  visibility: visible;
-}
-:is([data-yomu-command-control="true"], .jpdb-reader-text-mirror[data-yomu-control-mirror="command"]):hover .jpdb-reader-detached-furi,
-:is([data-yomu-command-control="true"], .jpdb-reader-text-mirror[data-yomu-control-mirror="command"]):focus-within .jpdb-reader-detached-furi,
-:is([data-yomu-command-control="true"], .jpdb-reader-text-mirror[data-yomu-control-mirror="command"]):has(.jpdb-reader-keyboard-active) .jpdb-reader-detached-furi {
-  visibility: visible !important;
-}
-:is([data-yomu-command-control="true"], .jpdb-reader-text-mirror[data-yomu-control-mirror="command"]):hover .jpdb-reader-word,
-:is([data-yomu-command-control="true"], .jpdb-reader-text-mirror[data-yomu-control-mirror="command"]):focus-within .jpdb-reader-word,
-:is([data-yomu-command-control="true"], .jpdb-reader-text-mirror[data-yomu-control-mirror="command"]):has(.jpdb-reader-keyboard-active) .jpdb-reader-word {
-  text-decoration-color: var(--jpdb-reader-word-underline, transparent) !important;
-}
-:is([data-yomu-command-control="true"], .jpdb-reader-text-mirror[data-yomu-control-mirror="command"]):hover :is(.jpdb-reader-word, .jpdb-reader-source-fragment)::after,
-:is([data-yomu-command-control="true"], .jpdb-reader-text-mirror[data-yomu-control-mirror="command"]):focus-within :is(.jpdb-reader-word, .jpdb-reader-source-fragment)::after,
-:is([data-yomu-command-control="true"], .jpdb-reader-text-mirror[data-yomu-control-mirror="command"]):has(.jpdb-reader-keyboard-active) :is(.jpdb-reader-word, .jpdb-reader-source-fragment)::after {
-  visibility: visible !important;
-}
-
 
 /* Source: src/reader/styles/popover-core.css */
 .jpdb-reader-backdrop {
@@ -18161,45 +18119,12 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
   background-repeat: no-repeat !important;
   background-size: var(--jpdb-reader-word-highlight-size) 100% !important;
 }
-:is(.jpdb-reader-subtitle-highlight-status, .jpdb-reader-subtitle-highlight-jpdb, .jpdb-reader-subtitle-highlight-anki, .jpdb-reader-subtitle-highlight-pitch) :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom) .jpdb-reader-word.jpdb-reader-has-furi {
-  background-color: transparent !important;
-  background-image: linear-gradient(var(--jpdb-reader-word-highlight-paint), var(--jpdb-reader-word-highlight-paint)) !important;
-  background-position: center !important;
-  background-repeat: no-repeat !important;
-  background-size: var(--jpdb-reader-word-highlight-size) 100% !important;
-}
-:is(.jpdb-reader-subtitle-highlight-status, .jpdb-reader-subtitle-highlight-jpdb, .jpdb-reader-subtitle-highlight-anki, .jpdb-reader-subtitle-highlight-pitch) :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom) .jpdb-reader-word.jpdb-reader-has-furi .jpdb-reader-ruby-base {
-  background-color: transparent !important;
-  background-image: linear-gradient(var(--jpdb-reader-word-highlight-paint), var(--jpdb-reader-word-highlight-paint)) !important;
-  background-position: center !important;
-  background-repeat: no-repeat !important;
-  background-size: var(--jpdb-reader-word-highlight-size) 100% !important;
-  border-radius: 3px;
-  -webkit-box-decoration-break: clone;
-  box-decoration-break: clone;
-}
 .jpdb-reader-subtitle-highlight-pitch :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom) .jpdb-reader-word:is(.jpdb-pitch-heiban, .jpdb-pitch-atamadaka, .jpdb-pitch-nakadaka, .jpdb-pitch-odaka) {
   --jpdb-reader-word-highlight-paint: color-mix(
     in srgb,
     var(--jpdb-reader-subtitle-pitch-text) 30%,
     var(--jpdb-reader-highlight-backdrop)
   );
-  background-color: transparent !important;
-  background-image: linear-gradient(var(--jpdb-reader-word-highlight-paint), var(--jpdb-reader-word-highlight-paint)) !important;
-  background-position: center !important;
-  background-repeat: no-repeat !important;
-  background-size: var(--jpdb-reader-word-highlight-size) 100% !important;
-  box-shadow: var(--jpdb-reader-highlight-shadow);
-}
-.jpdb-reader-subtitle-highlight-pitch :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom) .jpdb-reader-word.jpdb-reader-has-furi:is(.jpdb-pitch-heiban, .jpdb-pitch-atamadaka, .jpdb-pitch-nakadaka, .jpdb-pitch-odaka) {
-  background-color: transparent !important;
-  background-image: linear-gradient(var(--jpdb-reader-word-highlight-paint), var(--jpdb-reader-word-highlight-paint)) !important;
-  background-position: center !important;
-  background-repeat: no-repeat !important;
-  background-size: var(--jpdb-reader-word-highlight-size) 100% !important;
-  box-shadow: var(--jpdb-reader-highlight-shadow);
-}
-.jpdb-reader-subtitle-highlight-pitch :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .jpdb-reader-subtitle-surface, .asbplayer-subtitles-container-bottom) .jpdb-reader-word.jpdb-reader-has-furi:is(.jpdb-pitch-heiban, .jpdb-pitch-atamadaka, .jpdb-pitch-nakadaka, .jpdb-pitch-odaka) .jpdb-reader-ruby-base {
   background-color: transparent !important;
   background-image: linear-gradient(var(--jpdb-reader-word-highlight-paint), var(--jpdb-reader-word-highlight-paint)) !important;
   background-position: center !important;
@@ -20942,4 +20867,21 @@ html[dark] .jpdb-youtube-channel-shelf,
   .jpdb-subtitle-style-popover:not([hidden]) {
     animation: none !important;
   }
+}
+
+/* A drag handle owns its touch gesture.
+
+   Toolbars give every control in the family a coarse-pointer touch-target rule
+   (`.jpdb-subtitle-rail button { ... touch-action: manipulation }`). That
+   family selector outranks the handle's own `touch-action: none`, so on phones
+   and tablets the browser keeps the pan gesture and dragging the handle
+   scrolls the page instead of moving the control — the handle looks draggable
+   and simply refuses to move.
+
+   Declare the contract once, keyed on the handle marker rather than on any
+   element shape, so no present or future family rule can outrank it. */
+[data-subtitle-rail-drag-handle],
+[data-subtitle-drag-handle],
+[data-source-drag-handle] {
+  touch-action: none !important;
 }
