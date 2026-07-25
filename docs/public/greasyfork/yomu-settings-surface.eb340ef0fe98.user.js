@@ -1523,13 +1523,6 @@
   const INTERACTIVE_LINK_CONTEXT_SELECTOR = roleSelectors("menu,menubar,toolbar,tablist");
   const CONTENT_CHIP_ROOT_SELECTOR = ".yomu-hosted-overflow-group";
   const NAMED_CONTENT_ROOT_SELECTOR = `${CONTENT_CHIP_ROOT_SELECTOR},.viewer-title-bar,.bookTitleText,#bookDescription`;
-  const COMMAND_CONTROL_SELECTOR = 'button,summary,[role="button"]';
-  function isCommandControl(el) {
-    const control = el.closest(COMMAND_CONTROL_SELECTOR);
-    if (!control) return false;
-    if (isConversationTextClass(control) || isMediaTextContentControl(control)) return false;
-    return !control.closest(CONTENT_CHIP_ROOT_SELECTOR) && !control.closest(NAMED_CONTENT_ROOT_SELECTOR);
-  }
   function interactivePassiveControl(element2) {
     const temporalMetadata = element2.closest("time,[datetime]");
     if (temporalMetadata && isCompactTemporalMetadata(temporalMetadata)) return temporalMetadata;
@@ -9535,7 +9528,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (decoration === "skip") return null;
     const suppressRuby = decorationSuppressesRuby(decoration);
     const passiveInteraction = suppressRuby || trimmedFragments.every((fragment) => fragment.passiveInteraction);
-    const commandControl = decoration === "interactive-passive" && isCommandControl(parent);
     return {
       text: text2,
       parent,
@@ -9545,7 +9537,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
       proseWrap: shouldWrapScanTargetAsProse(parent, suppressRuby, passiveInteraction),
       layoutSensitive: trimmedFragments.some((fragment) => fragment.layoutSensitive),
       passiveInteraction,
-      commandControl,
       forceInlineRender: options.forceInlineRender,
       suppressRepaintLoopMirror: options.suppressRepaintLoopMirror,
       ...shadowDomTargetMetadata(parent)

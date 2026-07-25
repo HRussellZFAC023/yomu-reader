@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.8.3] - 2026-07-25
+
+### Fixed
+
+- Furigana readings now stay glued to their words throughout a scroll on tablets and other touch devices, including the fast flings where the previous release could still leave them adrift. The readings are painted in a reader-owned layer floating above the page, and until now that layer was pinned to the screen rather than to the page, so every reading's position had to be rewritten by the reader on every single scroll frame. A touch device scrolls the page on its own without waiting for that work, so any frame where the rewrite arrived late showed the readings sitting where the words used to be. Readings belonging to ordinary page text are now placed in page coordinates instead of screen coordinates, so the device carries a reading and its word together as one, with no per-frame work to fall behind on. Readings inside a scrolling panel, a pinned header, or any other separately moving region keep the previous screen-anchored behaviour, which is correct for them.
+
 ## [1.8.2] - 2026-07-25
 
 ### Fixed

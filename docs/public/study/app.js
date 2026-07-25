@@ -12,8 +12,11 @@
       overlay,
       anchorPaint: /* @__PURE__ */ new Map(),
       elementPaint: /* @__PURE__ */ new Map(),
-      occludingPaint: /* @__PURE__ */ new Map()
+      occludingPaint: /* @__PURE__ */ new Map(),
+      documentScroll: /* @__PURE__ */ new Map(),
+      styleReads: /* @__PURE__ */ new Map()
     };
+    overlay.documentLayerOrigin = null;
     for (const [source, record2] of records) {
       if (currentSources.has(source)) continue;
       removeRecord(record2, overlay);
@@ -22,14 +25,25 @@
     for (const projection of projections) {
       let record2 = records.get(projection.source);
       if (!record2) {
+        const documentSpace = elementScrollsWithDocument(
+          projection.anchor,
+          context.documentScroll,
+          context.styleReads
+        );
         record2 = {
           owner,
           source: projection.source,
           anchor: projection.anchor,
-          clone: createProjectedReading(projection.source, overlay.layer),
+          clone: createProjectedReading(
+            projection.source,
+            documentSpace ? overlay.documentLayer : overlay.layer,
+            documentSpace
+          ),
           measure: projection.measure,
           footprintWidth: 0,
-          footprintHeight: 0
+          footprintHeight: 0,
+          documentSpace,
+          scrollContextEpoch: overlay.scrollContextEpoch
         };
         records.set(projection.source, record2);
         overlay.records.add(record2);
@@ -79,18 +93,20 @@
   function documentOverlay(document2) {
     const existing = overlays.get(document2);
     if (existing) {
-      if (!existing.layer.isConnected) {
-        (document2.documentElement ?? document2.body).append(existing.layer);
-      }
+      const host = document2.documentElement ?? document2.body;
+      if (!existing.layer.isConnected) host.append(existing.layer);
+      if (!existing.documentLayer.isConnected) host.append(existing.documentLayer);
       return existing;
     }
-    const layer = document2.createElement("div");
-    layer.className = "jpdb-reader-detached-reading-overlay";
-    layer.setAttribute("aria-hidden", "true");
-    layer.setAttribute("data-jpdb-reader-surface-ignore", "true");
-    (document2.documentElement ?? document2.body).append(layer);
+    const layer = createProjectionLayer(document2, "jpdb-reader-detached-reading-overlay");
+    const documentLayer = createProjectionLayer(
+      document2,
+      "jpdb-reader-detached-reading-overlay jpdb-reader-detached-reading-document-layer"
+    );
     const overlay = {
       layer,
+      documentLayer,
+      documentLayerOrigin: null,
       records: /* @__PURE__ */ new Set(),
       anchorRecords: /* @__PURE__ */ new Map(),
       anchorRoots: /* @__PURE__ */ new Map(),
@@ -100,11 +116,13 @@
       observer: null,
       shadowRootReferences: /* @__PURE__ */ new Map(),
       occlusionEpoch: 0,
+      scrollContextEpoch: 0,
       hitTestBudgetRemaining: 12,
       scheduleRefresh: () => scheduleProjectionRefresh(document2, overlay),
       scheduleTopologyRefresh: () => {
         overlay.rootsDirty = true;
         overlay.occlusionEpoch += 1;
+        overlay.scrollContextEpoch += 1;
         scheduleProjectionRefresh(document2, overlay);
       },
       rootsDirty: false
@@ -117,16 +135,25 @@
     document2.addEventListener("focusin", overlay.scheduleRefresh, { capture: true, passive: true });
     document2.addEventListener("focusout", overlay.scheduleRefresh, { capture: true, passive: true });
     const viewport = document2.defaultView;
-    viewport?.addEventListener("resize", overlay.scheduleRefresh, { passive: true });
-    viewport?.addEventListener("orientationchange", overlay.scheduleRefresh, { passive: true });
+    viewport?.addEventListener("resize", overlay.scheduleTopologyRefresh, { passive: true });
+    viewport?.addEventListener("orientationchange", overlay.scheduleTopologyRefresh, { passive: true });
     viewport?.visualViewport?.addEventListener("scroll", overlay.scheduleRefresh, { passive: true });
     viewport?.visualViewport?.addEventListener("resize", overlay.scheduleRefresh, { passive: true });
     overlay.observer = observeProjectionEnvironment(document2, overlay);
     return overlay;
   }
-  function createProjectedReading(source, layer) {
+  function createProjectionLayer(document2, className) {
+    const layer = document2.createElement("div");
+    layer.className = className;
+    layer.setAttribute("aria-hidden", "true");
+    layer.setAttribute("data-jpdb-reader-surface-ignore", "true");
+    (document2.documentElement ?? document2.body).append(layer);
+    return layer;
+  }
+  function createProjectedReading(source, layer, documentSpace = false) {
     const clone = source.ownerDocument.createElement("span");
     clone.className = "jpdb-reader-furi jpdb-reader-detached-furi jpdb-reader-projected-furi";
+    if (documentSpace) clone.classList.add("jpdb-reader-projected-furi-document");
     clone.setAttribute("aria-hidden", "true");
     clone.setAttribute(PROJECTED_READING_ATTRIBUTE, "true");
     clone.textContent = source.textContent ?? "";
@@ -149,7 +176,7 @@
     clone.style.setProperty("text-shadow", baseStyle.textShadow || "none", "important");
   }
   function paintProjectedReading(record2, rect, context) {
-    applyProjectedReadingPaint(readProjectedReadingPaint(record2, rect, context));
+    applyProjectedReadingPaint(readProjectedReadingPaint(record2, rect, context), context);
   }
   function readProjectedReadingPaint(record2, rect, context) {
     const valid = rect && validRect(rect) ? rect : null;
@@ -186,17 +213,20 @@
       visible
     };
   }
-  function applyProjectedReadingPaint(paint) {
+  function applyProjectedReadingPaint(paint, context) {
     if (!paint.visible || !paint.rect) {
       paint.record.clone.style.setProperty("display", "none", "important");
       return;
     }
-    positionProjectedReading(paint.record.clone, paint.rect);
+    positionProjectedReading(paint.record, paint.rect, context);
   }
-  function positionProjectedReading(clone, rect) {
+  function positionProjectedReading(record2, rect, context) {
+    const { clone } = record2;
+    const documentSpace = context ? adoptProjectionLayer(record2, context) : false;
+    const origin = documentSpace && context ? documentLayerOrigin(context.overlay) : { x: 0, y: 0 };
     clone.style.setProperty("display", "block", "important");
-    clone.style.setProperty("left", `${rect.left + rect.width / 2}px`, "important");
-    clone.style.setProperty("top", `${rect.top}px`, "important");
+    clone.style.setProperty("left", `${rect.left + rect.width / 2 + origin.x}px`, "important");
+    clone.style.setProperty("top", `${rect.top + origin.y}px`, "important");
     clone.style.setProperty("right", "auto", "important");
     clone.style.setProperty("bottom", "auto", "important");
     clone.style.setProperty("transform", "translate(-50%, -100%)", "important");
@@ -204,6 +234,58 @@
     clone.dataset.yomuSourceTop = String(rect.top);
     clone.dataset.yomuSourceWidth = String(rect.width);
     clone.dataset.yomuSourceHeight = String(rect.height);
+  }
+  function adoptProjectionLayer(record2, context) {
+    const { overlay } = context;
+    const documentSpace = projectionUsesDocumentSpace(record2, context);
+    const layer = documentSpace ? overlay.documentLayer : overlay.layer;
+    if (record2.clone.parentElement !== layer) layer.append(record2.clone);
+    record2.clone.classList.toggle("jpdb-reader-projected-furi-document", documentSpace);
+    return documentSpace;
+  }
+  function projectionUsesDocumentSpace(record2, context) {
+    const { overlay } = context;
+    if (record2.scrollContextEpoch === overlay.scrollContextEpoch && record2.documentSpace !== void 0) {
+      return record2.documentSpace;
+    }
+    const documentSpace = elementScrollsWithDocument(
+      record2.anchor,
+      context.documentScroll,
+      context.styleReads
+    );
+    record2.scrollContextEpoch = overlay.scrollContextEpoch;
+    record2.documentSpace = documentSpace;
+    return documentSpace;
+  }
+  function documentLayerOrigin(overlay) {
+    if (overlay.documentLayerOrigin) return overlay.documentLayerOrigin;
+    const rect = overlay.documentLayer.getBoundingClientRect();
+    const origin = { x: -rect.left, y: -rect.top };
+    overlay.documentLayerOrigin = origin;
+    return origin;
+  }
+  function elementScrollsWithDocument(element2, cache2, styles) {
+    const cached = cache2.get(element2);
+    if (cached !== void 0) return cached;
+    const document2 = element2.ownerDocument;
+    const view = document2.defaultView;
+    let scrolls;
+    if (!view) {
+      scrolls = false;
+    } else if (element2 === document2.documentElement || element2 === document2.body) {
+      scrolls = true;
+    } else {
+      const style = memoizedComputedStyle(element2, styles);
+      const parent = composedParentElement(element2);
+      scrolls = style.position !== "fixed" && style.position !== "sticky" && !elementScrollsIndependently(element2, style) && Boolean(parent) && elementScrollsWithDocument(parent, cache2, styles);
+    }
+    cache2.set(element2, scrolls);
+    return scrolls;
+  }
+  function elementScrollsIndependently(element2, style) {
+    const holdsScroll = (overflow) => overflow === "auto" || overflow === "scroll" || overflow === "overlay" || overflow === "hidden";
+    if (holdsScroll(style.overflowY) && element2.scrollHeight > element2.clientHeight + 1) return true;
+    return holdsScroll(style.overflowX) && element2.scrollWidth > element2.clientWidth + 1;
   }
   function scheduleProjectionRefresh(document2, overlay) {
     if (!overlay.records.size || overlay.refreshFrame) return;
@@ -220,6 +302,7 @@
   function refreshProjectedReadingPositions(overlay) {
     pruneDisconnectedRecords(overlay);
     overlay.hitTestBudgetRemaining = 12;
+    overlay.documentLayerOrigin = null;
     if (overlay.rootsDirty) {
       overlay.rootsDirty = false;
       [...overlay.anchorRecords.keys()].forEach((anchor) => refreshProjectionAnchorRoot(anchor, overlay));
@@ -228,7 +311,9 @@
       overlay,
       anchorPaint: /* @__PURE__ */ new Map(),
       elementPaint: /* @__PURE__ */ new Map(),
-      occludingPaint: /* @__PURE__ */ new Map()
+      occludingPaint: /* @__PURE__ */ new Map(),
+      documentScroll: /* @__PURE__ */ new Map(),
+      styleReads: /* @__PURE__ */ new Map()
     };
     const paints = refreshableRecords(overlay).map((record2) => {
       if (!visibleAnchor(record2.anchor, context)) {
@@ -236,7 +321,7 @@
       }
       return readProjectedReadingPaint(record2, safeMeasure(record2), context);
     });
-    paints.forEach(applyProjectedReadingPaint);
+    paints.forEach((paint) => applyProjectedReadingPaint(paint, context));
   }
   function pruneDisconnectedRecords(overlay) {
     for (const record2 of overlay.records) {
@@ -388,8 +473,10 @@
       observeProjectionMutations(observer, root);
     }
   }
-  function isYomuOwnedNode(node, layer) {
-    if (node === layer || layer.contains(node)) return true;
+  function isYomuOwnedNode(node, overlay) {
+    for (const layer of [overlay.layer, overlay.documentLayer]) {
+      if (node === layer || layer.contains(node)) return true;
+    }
     if (node instanceof Element) {
       if (node.hasAttribute(PROJECTED_READING_ATTRIBUTE) || node.hasAttribute("data-jpdb-reader-surface-ignore")) return true;
       const className = typeof node.className === "string" ? node.className : "";
@@ -399,9 +486,9 @@
   }
   function mutationAffectsProjection(mutation, overlay) {
     const target = mutation.target;
-    if (isYomuOwnedNode(target, overlay.layer)) return false;
+    if (isYomuOwnedNode(target, overlay)) return false;
     const affectedNodes = [...mutation.addedNodes, ...mutation.removedNodes];
-    if (affectedNodes.length > 0 && affectedNodes.every((node) => isYomuOwnedNode(node, overlay.layer))) {
+    if (affectedNodes.length > 0 && affectedNodes.every((node) => isYomuOwnedNode(node, overlay))) {
       return false;
     }
     if (!overlay.records.size) return false;
@@ -549,16 +636,16 @@
     const cached = context.anchorPaint.get(anchor);
     if (cached !== void 0) return cached;
     const intersects = context.overlay.intersectionObserver ? context.overlay.intersectingAnchors.has(anchor) : anchorIntersectsViewport(anchor);
-    const visible = intersects && anchorIsPainted(anchor, context.elementPaint);
+    const visible = intersects && anchorIsPainted(anchor, context.elementPaint, context.styleReads);
     context.anchorPaint.set(anchor, visible);
     return visible;
   }
-  function anchorIsPainted(anchor, cache2 = /* @__PURE__ */ new Map()) {
+  function anchorIsPainted(anchor, cache2 = /* @__PURE__ */ new Map(), styles) {
     const cached = cache2.get(anchor);
     if (cached !== void 0) return cached;
-    const style = safeComputedStyle$1(anchor);
+    const style = memoizedComputedStyle(anchor, styles);
     const parent = composedParentElement(anchor);
-    const visible = style.display !== "none" && style.visibility !== "hidden" && style.visibility !== "collapse" && style.contentVisibility !== "hidden" && (style.opacity === "" || Number.parseFloat(style.opacity) !== 0) && (!parent || anchorIsPainted(parent, cache2));
+    const visible = style.display !== "none" && style.visibility !== "hidden" && style.visibility !== "collapse" && style.contentVisibility !== "hidden" && (style.opacity === "" || Number.parseFloat(style.opacity) !== 0) && (!parent || anchorIsPainted(parent, cache2, styles));
     cache2.set(anchor, visible);
     return visible;
   }
@@ -587,6 +674,14 @@
     if (node instanceof Element && node.assignedSlot) return node.assignedSlot;
     if (node.parentNode) return node.parentNode;
     return node instanceof ShadowRoot ? node.host : null;
+  }
+  function memoizedComputedStyle(element2, cache2) {
+    if (!cache2) return safeComputedStyle$1(element2);
+    const cached = cache2.get(element2);
+    if (cached) return cached;
+    const style = safeComputedStyle$1(element2);
+    cache2.set(element2, style);
+    return style;
   }
   function safeComputedStyle$1(element2) {
     try {
@@ -48235,7 +48330,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.8.2".trim() ? "1.8.2".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.8.3".trim() ? "1.8.3".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record2 = value;
