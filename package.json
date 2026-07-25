@@ -54,6 +54,7 @@
     "academy:source:census": "node scripts/academy-source-pipeline.mjs census",
     "academy:source:pipeline": "node scripts/academy-source-pipeline.mjs all",
     "academy:honen:bundle": "node scripts/academy-honen/source-bundle.mjs",
+    "academy:honen:ledger": "node scripts/academy-honen/upload-ledger.mjs",
     "academy:honen:mcp": "node scripts/academy-honen/codex-mcp-bridge.mjs",
     "academy:honen:split-context": "node scripts/academy-honen/split-context.mjs",
     "academy:audio:catalog": "node scripts/academy-audio-source-catalog.mjs",
