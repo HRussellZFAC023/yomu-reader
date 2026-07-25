@@ -281,6 +281,35 @@ async function runGoogleSearchCaseWithBrowser(engineName, browser) {
         assertGoogleSearchSnapshot(afterHover, 'after hover', { expectStatusHighlight: true, baseline });
         assert(afterHover.snippetFirstWord.backgroundImage.includes('linear-gradient'), 'Passive Google snippet word lost its highlight backing on hover', afterHover.snippetFirstWord);
 
+        // Command-chip hover contract: hovering the role=button chip reveals
+        // its projected readings; moving the pointer away hides them again.
+        await page.locator('#chip').hover();
+        await page.waitForFunction(() => {
+            const visible = clone => {
+                const style = getComputedStyle(clone);
+                const rect = clone.getBoundingClientRect();
+                return style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0;
+            };
+            const texts = new Set([...document.querySelectorAll('[data-yomu-projected-reading="true"]')]
+                .filter(visible)
+                .map(clone => clone.textContent));
+            return texts.has('けんさくけっか') && texts.has('ひょうじ');
+        }, null, { timeout: 10_000 });
+        const chipHover = await snapshotGoogleSearchFixture(page);
+        assertGoogleChipRevealed(chipHover.chip, 'chip hover');
+        await page.mouse.move(2, 2);
+        await page.waitForFunction(() => {
+            const visible = clone => {
+                const style = getComputedStyle(clone);
+                const rect = clone.getBoundingClientRect();
+                return style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0;
+            };
+            const texts = new Set([...document.querySelectorAll('[data-yomu-projected-reading="true"]')]
+                .filter(visible)
+                .map(clone => clone.textContent));
+            return !texts.has('けんさくけっか') && !texts.has('ひょうじ');
+        }, null, { timeout: 10_000 });
+
         await page.screenshot({ path: path.join(ARTIFACTS, `google-search-reader-smoke-${engineName}.png`), fullPage: true });
         return { baseline, beforeHover, afterHover, requests: requests.length };
     } finally {
@@ -581,15 +610,24 @@ function assertGoogleChip(chip, label) {
     assert(chip.labelHeight <= 20, `${label}: Google chip label grew beyond its plain-text layout`, chip);
     assert(['hidden', 'visible'].includes(chip.labelOverflow), `${label}: Google chip label overflow contract changed`, chip);
     assert(chip.overflowY === 'hidden', `${label}: Google chip authored clipping was opened`, chip);
+    // The chip is a role=button COMMAND control: bare until hover. Its reading
+    // bases stay parsed (rubyBaseCount asserted above keeps the popup alive),
+    // but no projected clone is painted at rest — the hover-reveal phase in the
+    // runner asserts the readings appear on pointer hover and hide again after.
+    assert(chip.projectedReadings.length === 0,
+        `${label}: Google command chip revealed projected readings at rest`, chip);
+}
+
+function assertGoogleChipRevealed(chip, label) {
     const readings = new Set(chip.projectedReadings.map(reading => reading.text));
     assert(readings.has('けんさくけっか') && readings.has('ひょうじ'),
-        `${label}: Google chip projected readings are incomplete`, chip);
+        `${label}: Google chip hover readings are incomplete`, chip);
     assert(chip.projectedReadings.every(reading => reading.visible),
-        `${label}: Google chip projected reading is not visible`, chip);
+        `${label}: Google chip hover reading is not visible`, chip);
     assert(chip.projectedReadings.every(reading => Math.abs(reading.centerDelta) <= 1),
-        `${label}: Google chip projected reading is not centred on its source`, chip);
+        `${label}: Google chip hover reading is not centred on its source`, chip);
     assert(chip.projectedReadings.every(reading => Math.abs(reading.baseGap) <= 1),
-        `${label}: Google chip projected reading is detached from its source`, chip);
+        `${label}: Google chip hover reading is detached from its source`, chip);
 }
 
 function assertGoogleClippedRows(snapshot, label) {
