@@ -407,3 +407,20 @@
     animation: none !important;
   }
 }
+
+/* A drag handle owns its touch gesture.
+
+   Toolbars give every control in the family a coarse-pointer touch-target rule
+   (`.jpdb-subtitle-rail button { ... touch-action: manipulation }`). That
+   family selector outranks the handle's own `touch-action: none`, so on phones
+   and tablets the browser keeps the pan gesture and dragging the handle
+   scrolls the page instead of moving the control — the handle looks draggable
+   and simply refuses to move.
+
+   Declare the contract once, keyed on the handle marker rather than on any
+   element shape, so no present or future family rule can outrank it. */
+[data-subtitle-rail-drag-handle],
+[data-subtitle-drag-handle],
+[data-source-drag-handle] {
+  touch-action: none !important;
+}
