@@ -303,7 +303,7 @@ function namedAudioSubSource(value: unknown): NamedAudioSubSource | null {
 const knownAudioSubSourcesByUrl = new Map<string, string[]>();
 const audioSubSourceProbes = new Map<string, Promise<string[]>>();
 
-export function recordAudioSubSourceNames(url: string, names: string[]): string[] {
+function recordAudioSubSourceNames(url: string, names: string[]): string[] {
     const template = url.trim();
     if (!template) return [];
     const known = knownAudioSubSourcesByUrl.get(template) ?? [];

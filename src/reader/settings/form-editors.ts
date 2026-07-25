@@ -114,7 +114,7 @@ function renderAudioSubSourcePanel(index: number, source: AudioSourceSetting, ro
     `;
 }
 
-export function audioSubSourcesForRow(source: AudioSourceSetting): AudioSubSourceSetting[] {
+function audioSubSourcesForRow(source: AudioSourceSetting): AudioSubSourceSetting[] {
     return mergeAudioSubSources(source.subSources ?? [], knownAudioSubSourceNames(source.url));
 }
 
