@@ -295,4 +295,31 @@ describe('Japanese inflection lookup boundaries', () => {
             ['動き', '動き'],
         ]);
     });
+
+    // An expanded video description is one long block; a hard input cap used to
+    // drop everything past 240 characters, so the middle of the description went
+    // completely bare while the top parsed. Long input must be covered in full.
+    it('matches terms far past the old 240-character truncation point', async () => {
+        const store = new YomitanDictionaryStore();
+        stores.push(store);
+        await store.clear();
+        await store.importFile(new File([JSON.stringify({
+            formatName: 'dexie',
+            data: {
+                data: [{
+                    tableName: 'terms',
+                    rows: [
+                        { $: [1, { expression: '本', reading: 'ほん', glossary: ['book'], score: 20, dictionary: 'Jitendex' }] },
+                    ],
+                }],
+            },
+        })], 'long-input.json', { type: 'application/json' }));
+
+        const filler = 'あ'.repeat(600);
+        const matches = await store.findTermMatches(`${filler}本`, 16);
+
+        expect(matches.map(match => [match.surface, match.start, match.end])).toEqual([
+            ['本', 600, 601],
+        ]);
+    });
 });

@@ -415,7 +415,17 @@ export class YomitanDictionaryStore {
 
     async findTermMatches(text: string, limit = 32, preferences: DictionaryPreference[] = []): Promise<YomitanTermMatch[]> {
         const done = log.time('Inline term match search', { length: text.length, limit, dictionaries: preferences.length });
-        const source = text.slice(0, 240);
+        // Candidate collection is linear in the text and the candidate map
+        // dedups by term, so long input is cheap to cover in full. The old 240
+        // character cap silently dropped everything past it: an expanded video
+        // description parsed at the top, went completely bare through the
+        // middle, and picked up again in a later segment. The remaining ceiling
+        // exists only to bound a pathological megabyte text node, sits far
+        // above real content, and is logged when it ever trims.
+        const source = text.slice(0, 20_000);
+        if (source.length < text.length) {
+            log.warn('Inline term match source trimmed', { length: text.length, kept: source.length });
+        }
         if (!source.trim()) {
             done();
             return [];
