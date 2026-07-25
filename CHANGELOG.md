@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.8.4] - 2026-07-25
+
+### Fixed
+
+- Your accent colour is now painted before the page appears, so yomureader.com no longer flashes its default green before switching to your colour. The accent used to be applied only once the page's scripts had downloaded and run, leaving the built-in green on screen for the first frames of every cold or slow load. The accent, and the light or dark theme it is derived against, are now resolved and applied while the page is still being parsed. The Study page, PDF reader, and video player were fixed the same way, from the one shared definition the rest of the interface already uses, so no surface can drift back to its own copy.
+
 ## [1.8.3] - 2026-07-25
 
 ### Fixed
