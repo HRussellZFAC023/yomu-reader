@@ -46,7 +46,7 @@ A fresh standalone session starts at its first enabled learning step — **Kanji
 
 - **Draw the kanji** from memory on a tracing pad before the answer shows.
 - **Read the word** inside a real example sentence.
-- **Produce the word** — type its spelling or reading, or choose **Write** to draw its kanji. Mixed words keep kana in place: 飲み物 becomes ＿み＿. Kana-only words stay in typing mode.
+- **Produce the word** — type its spelling or reading, or choose **Write** to draw its kanji with a finger, Pencil, stylus, or mouse before the reveal. This works for every Study source, including WaniKani. Mixed words keep kana in place: 飲み物 becomes ＿み＿. Kana-only words stay in typing mode.
 - **Fill in the blank** — the sentence reappears with the word removed and you type the Japanese back. Exact spellings count, and a matching reading is accepted too. If nothing comes to mind, **Hint** gives you a nudge (a first kana, the length, the meaning) one step at a time.
 - **Pick the pitch** — よむ plays the word and you choose its shape from labelled contour buttons.
 - **Say it aloud** — record yourself and よむ scores your pitch against the model, on your device.

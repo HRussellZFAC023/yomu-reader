@@ -3722,9 +3722,13 @@ button.jpdb-reader-newtab-study-hint-btn:active {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* Non-kanji steps used to retain a hidden doodle front before reveal. Keep
+   that stale-surface guard, but Type → Write is itself the active answer. */
+
 .jpdb-reader-newtab:not(.jpdb-reader-newtab-revealed):not(
     .jpdb-reader-newtab-kanji-mode
   )
+  .jpdb-reader-newtab-study:not([data-newtab-study-step="type-word"])
   .jpdb-reader-newtab-doodle
   .jpdb-reader-doodle-canvas {
   pointer-events: none;

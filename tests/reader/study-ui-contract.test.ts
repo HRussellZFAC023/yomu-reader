@@ -61,6 +61,11 @@ describe('Reader Study UI contract', () => {
         expect(newTabCss).toContain('position: sticky; bottom: max(12px, env(safe-area-inset-bottom));');
     });
 
+    it('keeps the unrevealed Type Write canvas interactive', () => {
+        expect(newTabCss).toContain('.jpdb-reader-newtab:not(.jpdb-reader-newtab-revealed):not( .jpdb-reader-newtab-kanji-mode ) .jpdb-reader-newtab-study:not([data-newtab-study-step="type-word"]) .jpdb-reader-newtab-doodle .jpdb-reader-doodle-canvas { pointer-events: none; }');
+        expect(newTabCss).not.toContain('.jpdb-reader-newtab:not(.jpdb-reader-newtab-revealed):not( .jpdb-reader-newtab-kanji-mode ) .jpdb-reader-newtab-doodle .jpdb-reader-doodle-canvas { pointer-events: none; }');
+    });
+
     it('uses native-style bottom navigation and a single-line step rail on phones', () => {
         expect(newTabCss).toContain('.jpdb-reader-newtab-app-nav { display: none; }');
         expect(newTabCss).toContain('grid-template-columns: repeat(4, minmax(0, 1fr));');

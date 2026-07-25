@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.8.7] - 2026-07-25
+
+### Fixed
+
+- **Write** in the Study Type step accepts drawing again, including for WaniKani vocabulary reviews. A stale pre-reveal guard made the canvas visible but prevented it from receiving finger, Pencil, stylus, or mouse input; the guard now leaves the active Type handwriting surface interactive while retaining its protection for inactive doodle surfaces.
+
 ## [1.8.6] - 2026-07-25
 
 ### Changed

@@ -432,6 +432,31 @@ describe('type-word typed answers', () => {
         }
     });
 
+    it('mounts an interactive Write surface for an unrevealed WaniKani vocabulary card', () => {
+        const card = typeCard({
+            vid: 8801,
+            sid: 7701,
+            source: 'wanikani',
+            reviewSource: 'wanikani-api',
+            wanikaniSubjectId: 8801,
+            wanikaniAssignmentId: 7701,
+            wanikaniSubjectType: 'vocabulary',
+            wanikaniSrsStage: 'apprentice',
+        });
+        const { controller, internals } = typeWordController([card], { newTabTypeWordInputMode: 'handwriting' });
+        const root = studyRoot();
+        try {
+            internals.state.source = 'wanikani';
+            renderTypeWordStep(internals, root, card);
+            expect(root.classList.contains('jpdb-reader-newtab-revealed')).toBe(false);
+            expect(root.classList.contains('jpdb-reader-newtab-kanji-mode')).toBe(false);
+            expect(root.querySelector<HTMLElement>('[data-newtab-study]')?.dataset.newtabStudyStep).toBe('type-word');
+            expect(root.querySelector('.jpdb-reader-doodle-canvas')).not.toBeNull();
+        } finally {
+            controller.destroy();
+        }
+    });
+
     it('keeps kana visible and asks for only the kanji in a mixed word', () => {
         const card = typeCard();
         const { controller, internals } = typeWordController([card], { newTabTypeWordInputMode: 'handwriting' });

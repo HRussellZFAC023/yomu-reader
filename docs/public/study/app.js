@@ -38948,7 +38948,7 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
   function rankKanjiStrokeCandidates(strokes, candidates, limit = 8) {
     const writtenStrokes = strokes.filter((stroke) => stroke.length > 1);
     if (!writtenStrokes.length) return [];
-    const written = extractFeatures(momentNormalize(toPattern(writtenStrokes)), FEATURE_INTERVAL);
+    const written = normalizedFeatures(toPattern(writtenStrokes));
     return candidates.map((candidate) => kanjiShapeMatch(candidate, written, writtenStrokes.length)).filter((match) => Boolean(match)).sort((a, b) => b.score - a.score || a.expectedStrokes - b.expectedStrokes || a.kanji.localeCompare(b.kanji)).slice(0, limit);
   }
   function totalDistance(strokes) {
@@ -38981,8 +38981,8 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
   }
   function assessStrokeShape(strokes, referenceStrokes, expectedStrokes) {
     if (!referenceStrokes || strokes.length !== expectedStrokes || referenceStrokes.length !== expectedStrokes) return null;
-    const written = extractFeatures(momentNormalize(toPattern(strokes)), FEATURE_INTERVAL);
-    const reference = extractFeatures(momentNormalize(toPattern(referenceStrokes)), FEATURE_INTERVAL);
+    const written = normalizedFeatures(toPattern(strokes));
+    const reference = normalizedFeatures(toPattern(referenceStrokes));
     if (written.length !== reference.length || written.some((stroke, index) => stroke.length < 2 || reference[index].length < 2)) return null;
     const scores = written.map((stroke, index) => strokeCorrespondenceScore(stroke, reference[index]));
     const average = scores.reduce((sum, score) => sum + score, 0) / scores.length;
@@ -38996,7 +38996,7 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
     const strokeDelta = Math.abs(actualStrokes - expectedStrokes);
     const allowedDelta = Math.max(2, Math.ceil(Math.min(actualStrokes, expectedStrokes) * 0.45));
     if (strokeDelta > allowedDelta) return null;
-    const reference = extractFeatures(momentNormalize(toPattern(referenceStrokes)), FEATURE_INTERVAL);
+    const reference = normalizedFeatures(toPattern(referenceStrokes));
     if (!reference.length) return null;
     const strokeShapeScore = unorderedStrokeShapeScore(written, reference);
     const skeletonScore = wholeSkeletonScore(written, reference);
@@ -39109,21 +39109,38 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
     return Number.isFinite(value) ? value : 0;
   }
   function extractFeatures(pattern, interval) {
-    return pattern.map((stroke) => {
-      const extracted = [];
-      let distance = 0;
-      for (let index = 0; index < stroke.length; index += 1) {
-        if (index === 0) extracted.push(stroke[0]);
-        if (index > 0) distance += euclid(stroke[index - 1], stroke[index]);
-        if (distance >= interval && index > 1) {
-          distance -= interval;
-          extracted.push(stroke[index]);
-        }
+    return pattern.map((stroke) => resampleStroke(stroke, interval));
+  }
+  function normalizedFeatures(pattern) {
+    const densityIndependent = extractFeatures(pattern, FEATURE_INTERVAL);
+    return extractFeatures(momentNormalize(densityIndependent), FEATURE_INTERVAL);
+  }
+  function resampleStroke(stroke, interval) {
+    if (stroke.length < 2 || !Number.isFinite(interval) || interval <= 0) return [...stroke];
+    const sampled = [{ ...stroke[0] }];
+    let distanceSinceSample = 0;
+    for (let index = 1; index < stroke.length; index += 1) {
+      let from = stroke[index - 1];
+      const to = stroke[index];
+      let segmentLength = euclid(from, to);
+      if (segmentLength <= Number.EPSILON) continue;
+      while (distanceSinceSample + segmentLength >= interval) {
+        const ratio = (interval - distanceSinceSample) / segmentLength;
+        const point = {
+          x: from.x + (to.x - from.x) * ratio,
+          y: from.y + (to.y - from.y) * ratio
+        };
+        sampled.push(point);
+        from = point;
+        segmentLength = euclid(from, to);
+        distanceSinceSample = 0;
+        if (segmentLength <= Number.EPSILON) break;
       }
-      if (extracted.length === 1) extracted.push(stroke[stroke.length - 1]);
-      else if (distance > interval * 0.75) extracted.push(stroke[stroke.length - 1]);
-      return extracted;
-    });
+      distanceSinceSample += segmentLength;
+    }
+    const last = stroke[stroke.length - 1];
+    if (euclid(sampled[sampled.length - 1], last) > Number.EPSILON) sampled.push({ ...last });
+    return sampled;
   }
   function strokeCorrespondenceScore(stroke, reference) {
     const whole = wholeWholeDistance(stroke, reference);
@@ -48499,7 +48516,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.8.6".trim() ? "1.8.6".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.8.7".trim() ? "1.8.7".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record2 = value;
