@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.8.5
+// @version 1.8.6
 // @author Henry Russell
 // @description Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and a study page.
 // @license MIT
@@ -12,14 +12,14 @@
 // @match *://*/*
 // @match file:///*
 // @require https://yomureader.com/greasyfork/yomu-annotations.2029f45a0ce0.user.js#sha256=ICn0WgzgGAd0tLoF8aHksLr0mTnI+lzWr0F6x6q3nCM=
-// @require https://yomureader.com/greasyfork/yomu-anki.cf881ff32115.user.js#sha256=z4gf8yEVZZ+KgYfZuXvbBlmqinyLeVygX4foK1csb8I=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.07121a25b293.user.js#sha256=BxIaJbKTiYQPtJhwzAFFvhpZZKhhYocIv973+YSbC5k=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.a7d19ac8c56d.user.js#sha256=p9GayMVtz9SYB/zvL8qXNcZT48OfaVReHtJ+Tluy/+Q=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.605feabce606.user.js#sha256=YF/qvOYGsTn7ZeVaYNw6fD4dm8Aq+Xk77tlr/z+K9Xk=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.f395530a43aa.user.js#sha256=85VTCkOqLeVmRS4C/uirOvTQzeZPevfM5CnxshzzQwo=
-// @require https://yomureader.com/greasyfork/yomu-bunpro.aafa4ae8b8aa.user.js#sha256=qvpK6LiqvKm+CODHy8S14Lu7ATXyMjbYS53tltDTJX0=
-// @require https://yomureader.com/greasyfork/yomu-video.f2b84d19d62b.user.js#sha256=8rhNGdYrgM1Ovq+kptZUsFnAZh9XqJxYHwWXCs3X+FY=
-// @resource yomuCss  https://yomureader.com/yomu.af6e270f7d9f.css#sha256=r24nD32fu9vh8aG8QoH6MiNpRNIab3dL0p62SKK3Pe8=
+// @require https://yomureader.com/greasyfork/yomu-anki.d8f901f9abba.user.js#sha256=2PkB+au6tagHYrn0c3R9HV5iSUXmw6t2SPEbaXPeVek=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.cc3205d51a13.user.js#sha256=zDIF1RoTZcJAX6CD82h+PpzRC2qUMeAm4m1OMLk1DWE=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.a0095cf148dd.user.js#sha256=oAlc8UjdhTdBNLgwGI1eu2eqjEZueexI6EjFpoHh6nI=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.6db9d7818640.user.js#sha256=bbnXgYZA9WrWhizlRfvezrm4SRJGDlg0TAWs3RN3C9k=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.a809ada67399.user.js#sha256=qAmtpnOZGbLUb6nwpAbNxkWj/76j5/+gpBuRuuyvOZk=
+// @require https://yomureader.com/greasyfork/yomu-bunpro.5291183ed9dc.user.js#sha256=UpEYPtncf4zmiscNz/3sX0fIrQQQxn8saW8XwuootWk=
+// @require https://yomureader.com/greasyfork/yomu-video.66c7e871c623.user.js#sha256=ZsfoccYjUZG5qO95MFKY0clsLOT3xkeRGDWWJVIiDM4=
+// @resource yomuCss  https://yomureader.com/yomu.fd5e193e82d9.css#sha256=/V4ZPoLZVoOfgzg87wq1PdiaX+BViV5VpfvYRarTPUs=
 // @connect api.jiten.moe
 // @connect jpdb.io
 // @connect api.wanikani.com
@@ -14146,6 +14146,7 @@ async function loadCustomJsonAudioCandidates(source, card, timeoutMs, proxyUrl) 
 }
 function customJsonAudioCandidates(payload, source, sourceUrl) {
   const named = namedAudioSubSources(payload);
+  recordAudioSubSourceNames(source.url, named.map((entry) => entry.name));
   const disabled = disabledAudioSubSourceNameKeys(source);
   if (named.length && disabled.size) {
   const allowed = named.filter((entry) => !disabled.has(audioSubSourceNameKey(entry.name)));
@@ -14172,6 +14173,22 @@ function namedAudioSubSource(value) {
   if (typeof record.name !== "string" || !record.name.trim()) return null;
   if (typeof record.url !== "string" || !record.url.trim()) return null;
   return { name: record.name.trim(), url: record.url };
+}
+const knownAudioSubSourcesByUrl = new Map();
+function recordAudioSubSourceNames(url, names) {
+  const template = url.trim();
+  if (!template) return [];
+  const known = knownAudioSubSourcesByUrl.get(template) ?? [];
+  const seen = new Set(known.map(audioSubSourceNameKey));
+  const merged = [...known];
+  for (const name of names) {
+  const trimmed = name.trim();
+  if (!trimmed || seen.has(audioSubSourceNameKey(trimmed))) continue;
+  seen.add(audioSubSourceNameKey(trimmed));
+  merged.push(trimmed);
+  }
+  knownAudioSubSourcesByUrl.set(template, merged);
+  return [...merged];
 }
 function withAudioQueryPlaceholders(template) {
   if (AUDIO_QUERY_PLACEHOLDER_RE.test(template)) return template;
@@ -36876,8 +36893,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
     `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.5"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.8.5"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.6"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.8.6"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka"];
@@ -37009,7 +37026,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.8.5"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.8.6"}`;
   } catch {
   return null;
   }

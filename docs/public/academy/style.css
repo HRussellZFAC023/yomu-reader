@@ -17868,18 +17868,6 @@ html.jpdb-reader-doodle-active * {
   font-size: 11px;
 }
 
-.jpdb-reader-audio-subsource-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.jpdb-reader-audio-subsource-actions .jpdb-reader-btn {
-  padding: 3px 10px;
-  font-size: 11px;
-}
-
 .jpdb-reader-audio-subsource-status {
   color: var(--jpdb-reader-muted);
   font-size: 11px;

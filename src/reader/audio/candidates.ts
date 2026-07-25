@@ -261,6 +261,7 @@ async function loadCustomJsonAudioCandidates(source: AudioSourceSetting, card: J
 // keep the generic URL extraction.
 function customJsonAudioCandidates(payload: unknown, source: AudioSourceSetting, sourceUrl: string): AudioCandidate[] {
     const named = namedAudioSubSources(payload);
+    recordAudioSubSourceNames(source.url, named.map(entry => entry.name));
     const disabled = disabledAudioSubSourceNameKeys(source);
     if (named.length && disabled.size) {
         const allowed = named.filter(entry => !disabled.has(audioSubSourceNameKey(entry.name)));
@@ -297,28 +298,80 @@ function namedAudioSubSource(value: unknown): NamedAudioSubSource | null {
     return { name: record.name.trim(), url: record.url };
 }
 
-// Sample lookups used by Settings to discover which providers an aggregator
-// URL can answer with. Multiple probes because provider coverage differs per
-// term (e.g. the hosted source only reveals its JapanesePod101 fallback for
-// terms missing from the indexed collection).
+// Provider names an aggregator URL has been seen to answer with, learned from
+// ordinary lookups so Settings can list them without any probe of its own.
+const knownAudioSubSourcesByUrl = new Map<string, string[]>();
+const audioSubSourceProbes = new Map<string, Promise<string[]>>();
+
+export function recordAudioSubSourceNames(url: string, names: string[]): string[] {
+    const template = url.trim();
+    if (!template) return [];
+    const known = knownAudioSubSourcesByUrl.get(template) ?? [];
+    const seen = new Set(known.map(audioSubSourceNameKey));
+    const merged = [...known];
+    for (const name of names) {
+        const trimmed = name.trim();
+        if (!trimmed || seen.has(audioSubSourceNameKey(trimmed))) continue;
+        seen.add(audioSubSourceNameKey(trimmed));
+        merged.push(trimmed);
+    }
+    knownAudioSubSourcesByUrl.set(template, merged);
+    return [...merged];
+}
+
+export function knownAudioSubSourceNames(url: string): string[] {
+    return [...(knownAudioSubSourcesByUrl.get(url.trim()) ?? [])];
+}
+
+// Sample lookups used to discover which providers an aggregator URL can answer
+// with. Multiple probes because provider coverage differs per term (e.g. the
+// hosted source only reveals its JapanesePod101 fallback for terms missing from
+// the indexed collection).
 const AUDIO_SUB_SOURCE_PROBES: ReadonlyArray<{ spelling: string; reading: string }> = [
     { spelling: '日本', reading: 'にほん' },
     { spelling: '食べる', reading: 'たべる' },
     { spelling: 'ヨム音声テスト', reading: '' },
 ];
 
-export async function detectCustomJsonAudioSubSources(url: string, timeoutMs: number, proxyUrl: string): Promise<string[]> {
+/**
+ * Resolves the provider names a `custom-json` URL offers, probing it with the
+ * sample lookups above. Each URL is probed at most once per session; a probe
+ * that never reached the endpoint is not remembered, so a later attempt (after
+ * the network comes back, say) tries again instead of reporting nothing.
+ */
+export function detectCustomJsonAudioSubSources(url: string, timeoutMs: number, proxyUrl: string): Promise<string[]> {
     const template = url.trim();
-    if (!template) return [];
+    if (!template) return Promise.resolve([]);
+    const pending = audioSubSourceProbes.get(template);
+    if (pending) return pending;
+    const probe = probeCustomJsonAudioSubSources(template, timeoutMs, proxyUrl).then(result => {
+        if (!result.reached) audioSubSourceProbes.delete(template);
+        return recordAudioSubSourceNames(template, result.names);
+    }, error => {
+        audioSubSourceProbes.delete(template);
+        throw error;
+    });
+    audioSubSourceProbes.set(template, probe);
+    return probe;
+}
+
+async function probeCustomJsonAudioSubSources(
+    template: string,
+    timeoutMs: number,
+    proxyUrl: string,
+): Promise<{ names: string[]; reached: boolean }> {
     const results = await Promise.allSettled(AUDIO_SUB_SOURCE_PROBES.map(async probe => {
         const sourceUrl = formatAudioUrl(withAudioQueryPlaceholders(template), probe as unknown as JPDBCard);
         const response = await requestUrl(sourceUrl, 'text', timeoutMs, { proxyUrl });
-        return typeof response === 'string' ? namedAudioSubSources(parseJsonValue(response)) : [];
+        if (typeof response !== 'string') throw new Error('Audio source returned no text.');
+        return namedAudioSubSources(parseJsonValue(response));
     }));
     const seen = new Set<string>();
     const names: string[] = [];
+    let reached = false;
     for (const result of results) {
         if (result.status !== 'fulfilled') continue;
+        reached = true;
         for (const entry of result.value) {
             const key = audioSubSourceNameKey(entry.name);
             if (seen.has(key)) continue;
@@ -326,7 +379,12 @@ export async function detectCustomJsonAudioSubSources(url: string, timeoutMs: nu
             names.push(entry.name);
         }
     }
-    return names;
+    return { names, reached };
+}
+
+export function resetAudioSubSourceDiscoveryForTests(): void {
+    knownAudioSubSourcesByUrl.clear();
+    audioSubSourceProbes.clear();
 }
 
 function parseJsonValue(text: string): unknown {

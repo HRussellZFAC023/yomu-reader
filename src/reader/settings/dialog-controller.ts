@@ -19,7 +19,7 @@ import {
 import { installSettingsDrawerHandle } from '../popup/shell';
 import { mergeDictionaryPreferences, normalizeAudioSubSources, normalizeReaderSettings, retireStaleDictionaryPreferences, saveSettings } from './index';
 import { readAudioSources, readAudioSubSources } from './form-read';
-import { detectCustomJsonAudioSubSources } from '../audio/candidates';
+import { detectCustomJsonAudioSubSources, knownAudioSubSourceNames } from '../audio/candidates';
 import { captureActiveLanguageProfileDictionaries } from './dictionary';
 import { effectiveJpdbApiKey, effectiveWanikaniApiToken, hasJitenApiCredential, mergeApiCredentialValues } from './api-credential';
 import { WanikaniClient } from '../wanikani/wanikani';
@@ -191,6 +191,7 @@ const SETTINGS_FOCUS_SCROLL_SELECTOR = [
     'textarea',
 ].join(',');
 const SETTINGS_FOCUS_SCROLL_MARGIN_PX = 16;
+const AUDIO_SUB_SOURCE_TYPING_DELAY_MS = 900;
 const SETTINGS_FOCUS_SCROLL_RETRY_MS = 320;
 const CLOUD_SETTINGS_PENDING_ACTION_KEY = '__yomu_cloud_settings_sync_pending_action';
 const CLOUD_SETTINGS_PENDING_ACTION_TTL_MS = 10 * 60 * 1000;
@@ -222,6 +223,24 @@ function focusPreviewAudioSource(form: HTMLFormElement, button: HTMLButtonElemen
 
 function sourceRowIndex(form: HTMLFormElement, row: HTMLElement): number {
     return Array.from(form.querySelectorAll('[data-audio-source-row]')).indexOf(row);
+}
+
+// Only enabled aggregator rows carrying a usable absolute URL are worth
+// probing: a half-typed URL would burn a lookup on a certain failure, and a
+// switched-off row is not resolving audio for anyone.
+function probeableAudioSourceUrl(row: HTMLElement): string {
+    if (row.querySelector<HTMLSelectElement>('select[name$=".type"]')?.value !== 'custom-json') return '';
+    if (row.querySelector<HTMLInputElement>('input[name$=".enabled"]')?.checked === false) return '';
+    const url = row.querySelector<HTMLInputElement>('[data-audio-url-field]')?.value.trim() ?? '';
+    return isProbeableAudioSourceUrl(url) ? url : '';
+}
+
+function isProbeableAudioSourceUrl(url: string): boolean {
+    try {
+        return ['http:', 'https:'].includes(new URL(url).protocol);
+    } catch {
+        return false;
+    }
 }
 
 function recommendedDictionaryForControl(control: HTMLElement | null | undefined): RecommendedDictionary {
@@ -1031,6 +1050,7 @@ export class SettingsDialogController {
     private bindEditorControls(form: HTMLFormElement): void {
         suppressCredentialAutofill(form);
         syncBrowserTtsVoiceOptions(form);
+        this.bindAudioSubSourceDetection(form);
         if ('speechSynthesis' in window) {
             window.speechSynthesis.addEventListener('voiceschanged', () => syncBrowserTtsVoiceOptions(form), { once: true });
         }
@@ -1108,12 +1128,30 @@ export class SettingsDialogController {
         return true;
     }
 
+    // A pasted or corrected URL should fill its provider list without waiting
+    // for a blur, but not probe a prefix of what is still being typed.
+    private bindAudioSubSourceDetection(form: HTMLFormElement): void {
+        let pending: ReturnType<typeof setTimeout> | undefined;
+        form.addEventListener('input', event => {
+            const field = (event.target as HTMLElement | null)?.closest<HTMLElement>('[data-audio-url-field]');
+            const row = field?.closest<HTMLElement>('[data-audio-source-row]');
+            if (!row) return;
+            clearTimeout(pending);
+            pending = setTimeout(() => this.refreshAudioSubSources(form, row), AUDIO_SUB_SOURCE_TYPING_DELAY_MS);
+        });
+    }
+
     private handleSettingsFormChange(form: HTMLFormElement, event: Event): void {
         const sourceSelect = (event.target as HTMLElement).closest<HTMLSelectElement>('select[name^="audioSources."][name$=".type"]');
         if (sourceSelect) {
             syncAudioSourceRow(sourceSelect.closest('[data-audio-source-row]'), sourceSelect.value);
             syncBrowserTtsVoiceOptions(form);
         }
+        const audioSourceControl = (event.target as HTMLElement).closest<HTMLElement>(
+            'select[name^="audioSources."][name$=".type"], [data-audio-url-field], input[name^="audioSources."][name$=".enabled"]',
+        );
+        const audioRow = audioSourceControl?.closest<HTMLElement>('[data-audio-source-row]');
+        if (audioRow) this.refreshAudioSubSources(form, audioRow);
         const templateControl = (event.target as HTMLElement).closest<HTMLElement>('select[name="ankiTemplateMode"], input[name="ankiFrontReading"], input[name="ankiFrontSentence"], input[name="ankiFrontImage"]');
         if (templateControl) {
             const preview = form.querySelector<HTMLElement>('[data-anki-template-preview]');
@@ -1787,10 +1825,6 @@ export class SettingsDialogController {
     }
 
     private async handleSettingsAudioAction(form: HTMLFormElement, action: string, control?: HTMLElement | null): Promise<boolean> {
-        if (action === 'audio-source-detect') {
-            await this.detectAudioSubSourcesFromSettings(form, control);
-            return true;
-        }
         if (action !== 'preview-audio') return false;
 
         const button = settingsActionButton(control);
@@ -1815,47 +1849,76 @@ export class SettingsDialogController {
         } finally {
             this.restoreTransientSettings(previous);
             button?.removeAttribute('disabled');
+            // The preview just resolved real clips, so the providers behind the
+            // previewed URL are now known without a probe of our own.
+            this.renderKnownAudioSubSources(form);
         }
         return true;
     }
 
-    // Probes the row's aggregator URL with sample lookups and lists every named
-    // provider it answered with, so the user can untick unwanted ones. Merges
-    // with already-saved sub-sources: probes are samples, not exhaustive, and a
-    // provider missing from this round must not lose its saved toggle.
-    private async detectAudioSubSourcesFromSettings(form: HTMLFormElement, control?: HTMLElement | null): Promise<void> {
-        const button = settingsActionButton(control);
-        const row = control?.closest<HTMLElement>('[data-audio-source-row]');
-        if (!row) return;
-        const index = sourceRowIndex(form, row);
+    /**
+     * Fills in each aggregator row's provider list without anything to press.
+     *
+     * Providers seen during ordinary lookups are already merged in when the
+     * rows render, so the common case costs no requests at all — including
+     * after a preview, which is why playback re-renders the lists.
+     *
+     * Sample lookups are only sent for a row the user just acted on (typing a
+     * URL, switching a row to Custom URL, enabling one). Merely opening
+     * Settings must never reach out on its own: the URL can be a private or
+     * third-party host the user has not agreed to contact yet.
+     */
+    private refreshAudioSubSources(form: HTMLFormElement, row: HTMLElement): void {
+        void this.detectAudioSubSourcesForRow(form, row);
+    }
+
+    private renderKnownAudioSubSources(form: HTMLFormElement): void {
         const language = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
-        const status = row.querySelector<HTMLElement>('[data-audio-subsource-status]');
+        for (const row of form.querySelectorAll<HTMLElement>('[data-audio-source-row]')) {
+            const url = row.querySelector<HTMLInputElement>('[data-audio-url-field]')?.value.trim() ?? '';
+            const known = url ? knownAudioSubSourceNames(url) : [];
+            if (known.length) this.renderDetectedAudioSubSources(form, row, known, language);
+        }
+    }
+
+    private async detectAudioSubSourcesForRow(form: HTMLFormElement, row: HTMLElement): Promise<void> {
+        const url = probeableAudioSourceUrl(row);
+        if (!url) return;
+        const language = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
         const setDetectStatus = (message: string) => {
+            const status = row.querySelector<HTMLElement>('[data-audio-subsource-status]');
             if (!status) return;
             status.textContent = message;
             status.hidden = !message;
         };
-        const url = String(new FormData(form).get(`audioSources.${index}.url`) ?? '').trim();
-        if (!url) {
-            setDetectStatus(uiText(language, 'audioNoSubSourcesDetected'));
-            return;
-        }
-        button?.setAttribute('disabled', 'true');
-        setDetectStatus(uiText(language, 'audioDetectingSubSources'));
+        const known = knownAudioSubSourceNames(url);
+        if (!known.length) setDetectStatus(uiText(language, 'audioDetectingSubSources'));
         try {
             const detected = await detectCustomJsonAudioSubSources(url, this.settings.audioTimeoutMs, this.settings.corsProxyUrl);
-            const data = new FormData(form);
-            const get = (key: string) => String(data.get(key) ?? '');
-            const merged = mergeAudioSubSources(normalizeAudioSubSources(readAudioSubSources(data, get, index)), detected);
-            const list = row.querySelector<HTMLElement>('[data-audio-subsource-list]');
-            if (list) setInnerHtml(list, renderAudioSubSourceList(index, merged, readAudioSources(data), language));
-            setDetectStatus(merged.length ? '' : uiText(language, 'audioNoSubSourcesDetected'));
+            // The row can be re-rendered, reordered, or removed while the probe
+            // is in flight, so re-resolve it and bail unless it still holds the
+            // URL that was probed.
+            if (probeableAudioSourceUrl(row) !== url || !row.isConnected) return;
+            this.renderDetectedAudioSubSources(form, row, detected, language);
+            setDetectStatus(detected.length ? '' : uiText(language, 'audioNoSubSourcesDetected'));
         } catch (error) {
             log.warn('Audio sub-source detection failed', error);
-            setDetectStatus(uiText(language, 'audioNoSubSourcesDetected'));
-        } finally {
-            button?.removeAttribute('disabled');
+            setDetectStatus(known.length ? '' : uiText(language, 'audioNoSubSourcesDetected'));
         }
+    }
+
+    // Merges the detected names over whatever the form currently holds, so a
+    // toggle the user just changed survives a probe landing underneath them and
+    // a provider missing from this round keeps its saved state.
+    private renderDetectedAudioSubSources(form: HTMLFormElement, row: HTMLElement, detected: string[], language: InterfaceLanguage): void {
+        const list = row.querySelector<HTMLElement>('[data-audio-subsource-list]');
+        if (!list) return;
+        const index = Array.from(form.querySelectorAll('[data-audio-source-row]')).indexOf(row);
+        if (index < 0) return;
+        const data = new FormData(form);
+        const get = (key: string) => String(data.get(key) ?? '');
+        const merged = mergeAudioSubSources(normalizeAudioSubSources(readAudioSubSources(data, get, index)), detected);
+        setInnerHtml(list, renderAudioSubSourceList(index, merged, readAudioSources(data), language));
     }
 
     private async handleSettingsDictionaryAction(form: HTMLFormElement, action: string, control: HTMLElement | null | undefined, setStatus: SettingsStatusSetter): Promise<boolean> {

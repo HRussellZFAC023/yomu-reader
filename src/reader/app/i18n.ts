@@ -345,7 +345,6 @@ const COPY = {
         audioCustomJsonPlaceholder: 'Yomitan or Ultimate audio source URL',
         audioCustomUrlPlaceholder: 'Direct audio file URL',
         audioBuiltInPlaceholder: 'Built-in source, no URL needed',
-        audioDetectSubSources: 'Detect included sources',
         audioDetectingSubSources: 'Checking included sources…',
         audioNoSubSourcesDetected: 'No named sources reported by this URL.',
         audioSubSourcesHelp: 'Sources offered by this URL — untick any you don’t want:',
@@ -2016,7 +2015,6 @@ audioSourceCustomJson	カスタムURL
 audioCustomJsonPlaceholder	Yomitan/Ultimate音声URL
 audioCustomUrlPlaceholder	直接音声ファイルURL
 audioBuiltInPlaceholder	内蔵ソースはURL不要
-audioDetectSubSources	内部ソースを検出
 audioDetectingSubSources	内部ソースを確認中…
 audioNoSubSourcesDetected	このURLは名前付きソースを返しませんでした。
 audioSubSourcesHelp	このURLが提供するソース。不要なものはオフに:

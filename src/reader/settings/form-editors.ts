@@ -3,6 +3,7 @@ import { audioSourceLabel, uiText } from '../app/i18n';
 import { speakerIcon } from '../ui/icons';
 import { AUDIO_SOURCE_UI_TYPE_VALUES, DEFAULT_AUDIO_SOURCES, MAX_DICTIONARY_LOOKUP_LINKS, normalizeDictionaryLookupLinks } from './index';
 import { audioSubSourceNameKey } from '../audio/source-resolution';
+import { knownAudioSubSourceNames } from '../audio/candidates';
 import { moveSourceRow } from './form-order';
 import { readAudioSources, readDictionaryLookupLinks } from './form-read';
 import { miniIconButton, renderRowOrderTools, renderRowRemoveTools } from './form-source-rows';
@@ -98,20 +99,23 @@ function renderAudioSourceRows(rows: AudioSourceSetting[], language: InterfaceLa
 
 // Aggregator URLs (type custom-json) can answer with several named providers
 // per word. The panel lists every provider the URL reported so users can turn
-// individual ones off without dropping the whole source.
+// individual ones off without dropping the whole source. Providers seen during
+// ordinary lookups are merged in, so the list is already populated for a URL
+// that has played audio before the settings dialog probes anything.
 function renderAudioSubSourcePanel(index: number, source: AudioSourceSetting, rows: AudioSourceSetting[], language: InterfaceLanguage): string {
     const visible = source.type === 'custom-json';
     return `
         <div class="jpdb-reader-audio-subsources" data-audio-subsources ${visible ? '' : 'hidden'}>
             <div class="jpdb-reader-audio-subsource-list" data-audio-subsource-list>
-                ${renderAudioSubSourceList(index, source.subSources ?? [], rows, language)}
+                ${renderAudioSubSourceList(index, audioSubSourcesForRow(source), rows, language)}
             </div>
-            <div class="jpdb-reader-audio-subsource-actions">
-                <button type="button" class="jpdb-reader-btn" data-action="audio-source-detect">${escapedUiText(language, 'audioDetectSubSources')}</button>
-                <span class="jpdb-reader-audio-subsource-status" data-audio-subsource-status hidden></span>
-            </div>
+            <span class="jpdb-reader-audio-subsource-status" data-audio-subsource-status hidden></span>
         </div>
     `;
+}
+
+export function audioSubSourcesForRow(source: AudioSourceSetting): AudioSubSourceSetting[] {
+    return mergeAudioSubSources(source.subSources ?? [], knownAudioSubSourceNames(source.url));
 }
 
 export function renderAudioSubSourceList(index: number, subSources: AudioSubSourceSetting[], rows: AudioSourceSetting[], language: InterfaceLanguage): string {

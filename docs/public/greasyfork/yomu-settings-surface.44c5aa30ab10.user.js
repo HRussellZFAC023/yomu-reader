@@ -31485,6 +31485,7 @@ ${glossaryKey}`;
     bindEditorControls(form) {
       suppressCredentialAutofill(form);
       syncBrowserTtsVoiceOptions(form);
+      this.refreshAudioSubSources(form);
       this.bindAudioSubSourceDetection(form);
       if ("speechSynthesis" in window) {
         window.speechSynthesis.addEventListener("voiceschanged", () => syncBrowserTtsVoiceOptions(form), { once: true });
@@ -31566,15 +31567,12 @@ ${glossaryKey}`;
       });
     }
     handleSettingsFormChange(form, event) {
+      const audioRow = event.target.closest("[data-audio-source-row]");
       const sourceSelect = event.target.closest('select[name^="audioSources."][name$=".type"]');
       if (sourceSelect) {
         syncAudioSourceRow(sourceSelect.closest("[data-audio-source-row]"), sourceSelect.value);
         syncBrowserTtsVoiceOptions(form);
       }
-      const audioSourceControl = event.target.closest(
-        'select[name^="audioSources."][name$=".type"], [data-audio-url-field], input[name^="audioSources."][name$=".enabled"]'
-      );
-      const audioRow = audioSourceControl?.closest("[data-audio-source-row]");
       if (audioRow) this.refreshAudioSubSources(form, audioRow);
       const templateControl = event.target.closest('select[name="ankiTemplateMode"], input[name="ankiFrontReading"], input[name="ankiFrontSentence"], input[name="ankiFrontImage"]');
       if (templateControl) {
@@ -32140,6 +32138,7 @@ ${glossaryKey}`;
         updateAudioSourceEditor(form, action, control);
         localizeSettingsForm(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
         syncBrowserTtsVoiceOptions(form);
+        this.refreshAudioSubSources(form);
         return true;
       }
       if (isLookupLinkEditorAction(action)) {
@@ -32182,32 +32181,16 @@ ${glossaryKey}`;
       } finally {
         this.restoreTransientSettings(previous);
         button2?.removeAttribute("disabled");
-        this.renderKnownAudioSubSources(form);
       }
       return true;
     }
-    /**
-     * Fills in each aggregator row's provider list without anything to press.
-     *
-     * Providers seen during ordinary lookups are already merged in when the
-     * rows render, so the common case costs no requests at all — including
-     * after a preview, which is why playback re-renders the lists.
-     *
-     * Sample lookups are only sent for a row the user just acted on (typing a
-     * URL, switching a row to Custom URL, enabling one). Merely opening
-     * Settings must never reach out on its own: the URL can be a private or
-     * third-party host the user has not agreed to contact yet.
-     */
+    // Fills in each aggregator row's provider list on its own: names learned
+    // from ordinary lookups render immediately, and any URL not seen yet is
+    // probed once with sample lookups. Runs when the dialog opens and whenever
+    // a row's URL, type, or enabled state changes, so there is nothing to press.
     refreshAudioSubSources(form, row) {
-      void this.detectAudioSubSourcesForRow(form, row);
-    }
-    renderKnownAudioSubSources(form) {
-      const language2 = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
-      for (const row of form.querySelectorAll("[data-audio-source-row]")) {
-        const url = row.querySelector("[data-audio-url-field]")?.value.trim() ?? "";
-        const known = url ? knownAudioSubSourceNames(url) : [];
-        if (known.length) this.renderDetectedAudioSubSources(form, row, known, language2);
-      }
+      const rows = row ? [row] : Array.from(form.querySelectorAll("[data-audio-source-row]"));
+      for (const target of rows) void this.detectAudioSubSourcesForRow(form, target);
     }
     async detectAudioSubSourcesForRow(form, row) {
       const url = probeableAudioSourceUrl(row);

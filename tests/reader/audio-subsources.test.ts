@@ -1,6 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { getAudioCandidates } from '../../src/reader/audio/player';
-import { detectCustomJsonAudioSubSources, namedAudioSubSources } from '../../src/reader/audio/candidates';
+import {
+    detectCustomJsonAudioSubSources,
+    knownAudioSubSourceNames,
+    namedAudioSubSources,
+    resetAudioSubSourceDiscoveryForTests,
+} from '../../src/reader/audio/candidates';
 import { mergeAudioSubSources, renderAudioSourceEditor } from '../../src/reader/settings/form-editors';
 import { readAudioSources } from '../../src/reader/settings/form-read';
 import { normalizeAudioSources } from '../../src/reader/settings/index';
@@ -35,6 +40,7 @@ function stubAggregatorFetch(payload: unknown = AGGREGATOR_RESPONSE): void {
 
 afterEach(() => {
     vi.unstubAllGlobals();
+    resetAudioSubSourceDiscoveryForTests();
 });
 
 describe('audio aggregator sub-sources', () => {
@@ -94,6 +100,40 @@ describe('audio aggregator sub-sources', () => {
             headers: { 'Content-Type': 'application/json' },
         })));
         await expect(detectCustomJsonAudioSubSources(HOSTED_URL, 1000, '')).resolves.toEqual(['Yomu audio', 'jpod']);
+    });
+
+    it('learns provider names from ordinary lookups, with no probe of its own', async () => {
+        stubAggregatorFetch();
+        expect(knownAudioSubSourceNames(HOSTED_URL)).toEqual([]);
+
+        await getAudioCandidates(hostedSource(), testCard(), 1000, '');
+
+        expect(knownAudioSubSourceNames(HOSTED_URL)).toEqual(['Yomu audio', 'jpod']);
+    });
+
+    it('lists learned providers in the settings editor without any saved sub-sources', async () => {
+        stubAggregatorFetch();
+        await getAudioCandidates(hostedSource(), testCard(), 1000, '');
+
+        const html = renderAudioSourceEditor([hostedSource()], 'en');
+        expect(html).toContain('audioSources.0.subSources.0.name" value="Yomu audio"');
+        expect(html).toContain('audioSources.0.subSources.1.name" value="jpod"');
+        expect(html).not.toContain('data-action="audio-source-detect"');
+    });
+
+    it('probes each URL once per session and retries when nothing was reachable', async () => {
+        const failing = vi.fn(async () => { throw new Error('offline'); });
+        vi.stubGlobal('fetch', failing);
+        await expect(detectCustomJsonAudioSubSources(HOSTED_URL, 1000, '')).resolves.toEqual([]);
+        const attemptsWhileOffline = failing.mock.calls.length;
+        expect(attemptsWhileOffline).toBeGreaterThan(0);
+
+        stubAggregatorFetch();
+        await expect(detectCustomJsonAudioSubSources(HOSTED_URL, 1000, '')).resolves.toEqual(['Yomu audio', 'jpod']);
+
+        const reachedCalls = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.length;
+        await expect(detectCustomJsonAudioSubSources(HOSTED_URL, 1000, '')).resolves.toEqual(['Yomu audio', 'jpod']);
+        expect((globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.length).toBe(reachedCalls);
     });
 
     it('merges newly detected names without losing saved toggles', () => {
