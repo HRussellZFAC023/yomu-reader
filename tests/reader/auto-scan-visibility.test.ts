@@ -9,8 +9,9 @@ import type { ReaderSettings } from '../../src/reader/app/types';
 // must reach a true zero-timer idle — the MutationObserver disconnected, every
 // pending debounce/sweep timer cleared, the scanner's geometry sweeps parked —
 // and it must rebuild itself and run one settle scan when the tab is shown
-// again. The subtitle/ocr/newtab paths already gate on document.hidden; this
-// pins the same behaviour for the auto-scan loop.
+// again. This pins that behaviour for the auto-scan loop; the always-on
+// observers that had no park discipline at all now share the platform dormancy
+// primitive instead, pinned by page-activity-parking.
 
 interface AppInternals {
     isDestroyed: boolean;

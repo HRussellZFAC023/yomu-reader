@@ -21,6 +21,7 @@ import { Logger } from './logger';
 import { collectScanTargetsInSteps, effectiveSiteScanCollectionLimit } from './site-parsers';
 import { shouldLookupAnkiStatus, shouldLookupBunproWordStates } from '../settings/index';
 import { applyAuthoredVocabularyOverrides } from '../lookup/authored-vocabulary';
+import { ParkableObserver } from '../platform/page-activity';
 import type { JPDBToken, ReaderSettings } from './types';
 import { isYouTubeAppHostname } from './youtube-host';
 
@@ -141,7 +142,7 @@ export class VisiblePageScanner {
     // signals re-run the same read-then-write sweep once, coalesced.
     private settleTriggersInstalled = false;
     private settleRefreshTimer: number | undefined;
-    private settleResizeObserver?: ResizeObserver;
+    private settleResizeObserver?: ParkableObserver<Element, ResizeObserverOptions>;
     private settleSignalAbort?: AbortController;
     private lastSettleWidth = -1;
     constructor(private readonly dependencies: VisiblePageScannerDependencies) {}
@@ -159,7 +160,7 @@ export class VisiblePageScanner {
         this.clampSweepTimer = undefined;
         window.clearTimeout(this.settleRefreshTimer);
         this.settleRefreshTimer = undefined;
-        this.settleResizeObserver?.disconnect();
+        this.settleResizeObserver?.dispose();
         this.settleResizeObserver = undefined;
         this.settleSignalAbort?.abort();
         this.settleSignalAbort = undefined;
@@ -175,9 +176,11 @@ export class VisiblePageScanner {
 
     // A hidden tab cannot show a healed line, so clear the pending clamp/settle
     // geometry timers and the ASB drain when the page is backgrounded. The
-    // settle SIGNALS (resize/font/ResizeObserver) stay wired — they simply
-    // re-arm nothing while hidden (scheduleSettleRefresh bails) — and the next
-    // scan after the page returns re-arms the sweep with fresh geometry.
+    // event-driven settle signals (resize/font) stay wired — they simply re-arm
+    // nothing while hidden (scheduleSettleRefresh bails) — and the next scan
+    // after the page returns re-arms the sweep with fresh geometry. The
+    // ResizeObserver parks itself on the shared dormancy signal instead, since
+    // a swallowed background delivery would otherwise lose its reflow outright.
     pauseGeometrySweeps(): void {
         window.clearTimeout(this.clampSweepTimer);
         this.clampSweepTimer = undefined;
@@ -282,7 +285,7 @@ export class VisiblePageScanner {
         // recalc storm the silent-scan path was built to avoid. The width-gated
         // sweep is idempotent, so its own reflows never re-trigger it.
         if (typeof ResizeObserver === 'function' && document.body) {
-            const observer = new ResizeObserver(entries => {
+            const raw = new ResizeObserver(entries => {
                 const width = entries[entries.length - 1]?.contentRect.width ?? -1;
                 // The observer's mandatory initial callback just reports the
                 // current size — nothing settled, so prime the baseline without
@@ -293,6 +296,13 @@ export class VisiblePageScanner {
                 this.lastSettleWidth = width;
                 if (!priming) schedule();
             });
+            // Park it while the tab is hidden: a background reflow heals
+            // nothing visible, and letting the callback keep landing meant the
+            // width baseline moved with no sweep to match it — the reflow was
+            // swallowed rather than deferred. Re-observing on wake replays the
+            // current size, so the whole hidden-time drift is healed once, and
+            // only when the width actually moved.
+            const observer = new ParkableObserver<Element, ResizeObserverOptions>(raw, { signal: controller.signal });
             observer.observe(document.body);
             this.settleResizeObserver = observer;
         }

@@ -78,6 +78,7 @@ import { installProviderExampleBehaviors } from '../sources/provider-examples';
 import { isUsefulImmersionPreloadQuery } from '../immersion/query';
 import type { ImmersionSearchOptions } from '../immersion/popover-controller';
 import { waitForIdle as waitForBrowserIdle } from '../platform/idle';
+import { parkableMutationObserver } from '../platform/page-activity';
 import { FloatingButtonController } from '../ui/floating-button';
 import { JitenApiClient, type JitenKanjiInfo, type JitenVocabularyInfo } from '../dictionaries/jiten';
 import { JitenPublicVocabularyClient, JITEN_BACKGROUND_DETAIL_TIMEOUT_MS, parsedCardHydrationKey, publicJitenBackoffRemainingMs } from '../dictionaries/jiten-public-vocabulary';
@@ -3248,7 +3249,13 @@ export class ReaderApp {
         // one carrying a scroll body is present (cheap querySelector, run only when body's
         // direct children change — never on every scroll).
         const syncScrollDrive = (): void => setScrollDrive(Boolean(document.querySelector(READER_ROOT_SCROLL_BODY_SELECTOR)));
-        const scrollDriveObserver = new MutationObserver(syncScrollDrive);
+        // A hidden tab receives no touch or wheel input, so every body-children
+        // record it delivers pays for a document-wide selector match nobody can
+        // act on. Park both watchers and re-decide once on wake.
+        const scrollDriveObserver = parkableMutationObserver(syncScrollDrive, {
+            reconcile: syncScrollDrive,
+            signal: abortSignal,
+        });
         let scrollDriveObservedRoot: Node | null = null;
         const observeScrollDriveRoot = (): void => {
             const root = document.body ?? document.documentElement;
@@ -3259,20 +3266,22 @@ export class ReaderApp {
                 return;
             }
             if (scrollDriveObservedRoot === root) return;
-            scrollDriveObserver.disconnect();
+            scrollDriveObserver?.disconnect();
             scrollDriveObservedRoot = root;
-            scrollDriveObserver.observe(root, { childList: true });
+            scrollDriveObserver?.observe(root, { childList: true });
             syncScrollDrive();
         };
         const rebindScrollDriveRoot = (): void => {
             syncScrollDrive();
             observeScrollDriveRoot();
         };
-        scrollDriveObserver.disconnect();
-        scrollDriveObserver.takeRecords();
-        const rootObserver = new MutationObserver(rebindScrollDriveRoot);
+        scrollDriveObserver?.disconnect();
+        const rootObserver = parkableMutationObserver(rebindScrollDriveRoot, {
+            reconcile: observeScrollDriveRoot,
+            signal: abortSignal,
+        });
         const htmlRoot = document.documentElement;
-        if (htmlRoot) rootObserver.observe(htmlRoot, { childList: true });
+        if (htmlRoot) rootObserver?.observe(htmlRoot, { childList: true });
         observeScrollDriveRoot();
         this.abortController.signal.addEventListener('abort', () => {
             // Reap the scroll-drive touch/wheel listeners FIRST. They are added
@@ -3282,8 +3291,8 @@ export class ReaderApp {
             // body was open at teardown, the 5 listeners would otherwise survive
             // the abort and stack on every re-boot (retaining their closures).
             setScrollDrive(false);
-            scrollDriveObserver.disconnect();
-            rootObserver.disconnect();
+            scrollDriveObserver?.dispose();
+            rootObserver?.dispose();
         }, { once: true });
 
         document.addEventListener('click', event => this.handleDocumentClick(event), { capture: true, signal: abortSignal });

@@ -1,5 +1,7 @@
 // Runtime implementation. Product code reaches this through the annotations
 // companion facade in detached-reading-overlay.ts.
+import { ParkableObserver, parkableMutationObserver } from '../platform/page-activity';
+
 export interface DetachedReadingProjection {
     source: HTMLElement;
     anchor: HTMLElement;
@@ -29,6 +31,8 @@ interface ProjectionPaint {
     visible: boolean;
 }
 
+type ProjectionEnvironmentObserver = ParkableObserver<Node, MutationObserverInit>;
+
 interface DocumentOverlay {
     layer: HTMLElement;
     documentLayer: HTMLElement;
@@ -39,7 +43,7 @@ interface DocumentOverlay {
     intersectingAnchors: Set<HTMLElement>;
     intersectionObserver: IntersectionObserver | null;
     refreshFrame: number;
-    observer: MutationObserver | null;
+    observer: ProjectionEnvironmentObserver | null;
     shadowRootReferences: Map<ShadowRoot, number>;
     scheduleRefresh: () => void;
     scheduleTopologyRefresh: () => void;
@@ -632,19 +636,24 @@ function refreshableRecords(overlay: DocumentOverlay): ProjectionRecord[] {
         .flatMap(anchor => [...(overlay.anchorRecords.get(anchor) ?? [])]);
 }
 
-function observeProjectionEnvironment(document: Document, overlay: DocumentOverlay): MutationObserver | null {
-    const Observer = document.defaultView?.MutationObserver;
+function observeProjectionEnvironment(document: Document, overlay: DocumentOverlay): ProjectionEnvironmentObserver | null {
     const root = document.documentElement;
-    if (!Observer || !root) return null;
-    const observer = new Observer(mutations => {
+    if (!root) return null;
+    // Subtree + attributes over the whole document is the single busiest
+    // watcher the reader owns, and a hidden tab cannot paint a reprojection —
+    // park it, and stand the entire missed batch up as one topology refresh
+    // when the tab comes back (roots, occlusion and scroll contexts all get
+    // recomputed there, which is exactly what the records would have caused).
+    const observer = parkableMutationObserver(mutations => {
         if (!overlay.records.size || !mutations.some(mutation => mutationAffectsProjection(mutation, overlay))) return;
         overlay.scheduleTopologyRefresh();
-    });
+    }, { document, reconcile: () => overlay.scheduleTopologyRefresh() });
+    if (!observer) return null;
     observeProjectionMutations(observer, root);
     return observer;
 }
 
-function observeProjectionMutations(observer: MutationObserver, root: Node): void {
+function observeProjectionMutations(observer: ProjectionEnvironmentObserver, root: Node): void {
     observer.observe(root, {
         attributes: true,
         attributeFilter: ['aria-expanded', 'aria-hidden', 'class', 'hidden', 'name', 'open', 'slot', 'style'],
