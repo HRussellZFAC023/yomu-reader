@@ -1960,7 +1960,14 @@ function snapshotRedditPageSummary() {
             // closed menu's clone left painted, or a duplicate).
             orphanVisibleProjectedReadingCloneCount: readingProjection.clones.filter(readingProjection.visible).length
                 - readingProjection.associations.length,
-            detachedReadingOverlayCount: document.querySelectorAll('.jpdb-reader-detached-reading-overlay').length,
+            // Readings are split across a viewport layer and a document-space
+            // layer by scroll context; exactly one of each must ever exist.
+            viewportReadingLayerCount: document.querySelectorAll(
+                '.jpdb-reader-detached-reading-overlay:not(.jpdb-reader-detached-reading-document-layer)',
+            ).length,
+            documentReadingLayerCount: document.querySelectorAll(
+                '.jpdb-reader-detached-reading-document-layer',
+            ).length,
             controlBoxes: {
                 create: boxGeometry(document.querySelector('#create-post')),
                 share: boxGeometry(document.querySelector('#share')),
@@ -2199,7 +2206,8 @@ function assertStableFixtureLayout(engineName, baseline, layout, menuSafety) {
         && layout.orphanVisibleProjectedReadingCloneCount === 0
         && menuSafety.projectedReadingCount > 0
         && (retainedHiddenMenuClones || removedMenuClones)
-        && layout.detachedReadingOverlayCount === 1,
+        && layout.viewportReadingLayerCount === 1
+        && layout.documentReadingLayerCount === 1,
     `${engineName}: closed menu did not reach an atomic projected reading inventory`, {
         layout,
         menuSafety,
