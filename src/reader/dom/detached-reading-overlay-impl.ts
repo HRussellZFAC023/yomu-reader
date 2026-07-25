@@ -97,14 +97,28 @@ export function syncProjectedReadings(
     for (const projection of projections) {
         let record = records.get(projection.source);
         if (!record) {
+            // Decide the scroll context before the clone exists so a new
+            // reading is born in its final layer instead of being appended
+            // once and moved again on its first paint.
+            const documentSpace = elementScrollsWithDocument(
+                projection.anchor,
+                context.documentScroll,
+                context.styleReads,
+            );
             record = {
                 owner,
                 source: projection.source,
                 anchor: projection.anchor,
-                clone: createProjectedReading(projection.source, overlay.layer),
+                clone: createProjectedReading(
+                    projection.source,
+                    documentSpace ? overlay.documentLayer : overlay.layer,
+                    documentSpace,
+                ),
                 measure: projection.measure,
                 footprintWidth: 0,
                 footprintHeight: 0,
+                documentSpace,
+                scrollContextEpoch: overlay.scrollContextEpoch,
             };
             records.set(projection.source, record);
             overlay.records.add(record);
@@ -231,9 +245,14 @@ function createProjectionLayer(document: Document, className: string): HTMLEleme
     return layer;
 }
 
-function createProjectedReading(source: HTMLElement, layer: HTMLElement): HTMLElement {
+function createProjectedReading(
+    source: HTMLElement,
+    layer: HTMLElement,
+    documentSpace = false,
+): HTMLElement {
     const clone = source.ownerDocument.createElement('span');
     clone.className = 'jpdb-reader-furi jpdb-reader-detached-furi jpdb-reader-projected-furi';
+    if (documentSpace) clone.classList.add('jpdb-reader-projected-furi-document');
     clone.setAttribute('aria-hidden', 'true');
     clone.setAttribute(PROJECTED_READING_ATTRIBUTE, 'true');
     clone.textContent = source.textContent ?? '';
