@@ -422,7 +422,13 @@ export class YomitanDictionaryStore {
         // middle, and picked up again in a later segment. The remaining ceiling
         // exists only to bound a pathological megabyte text node, sits far
         // above real content, and is logged when it ever trims.
-        const source = text.slice(0, 20_000);
+        // Candidate collection is a synchronous O(n * 18) walk feeding an
+        // IndexedDB fan-out, so this bound is a main-thread budget, not a
+        // formality: at 20,000 characters it blocked for seconds on a tablet.
+        // The old 240 was far below real content and silently gutted the middle
+        // of any long block; 4,000 covers an expanded video description or a
+        // long comment whole while keeping the walk bounded.
+        const source = text.slice(0, 4_000);
         if (source.length < text.length) {
             log.warn('Inline term match source trimmed', { length: text.length, kept: source.length });
         }
