@@ -39,19 +39,12 @@ const ARTIFACTS = smokePaths.artifacts;
 const SCRIPT_PATH = path.resolve(process.env.YOMU_REDDIT_SMOKE_USERSCRIPT ?? smokePaths.scriptPath);
 const CSS_PATH = path.resolve(process.env.YOMU_REDDIT_SMOKE_CSS ?? smokePaths.cssPath);
 
-// Command controls (button/summary/[role=button] minus the content escape
-// hatches) render bare at rest via the non-destructive control mirror: reading
-// stays PARSED for the popup, but the detached furigana lane + pitch underline
-// are visibility:hidden until hover/focus. Every other fixture label (content
-// titles, card flair, vote/comment metadata, timestamps, menu items, foreign
-// chips) keeps its visible/projected-at-rest reading. Verified per fixture
-// tag/role: create/join/sort/share are <button>, lateJoin/lateHydrate/
-// lateUpgrade are shadow <button>; feed is a <span>, the menu heading/options +
-// foreign row are role=menuitem/plain divs, flair/metadata are spans, time is
-// <time> — all content, so they are NOT in this set.
-const COMMAND_CONTROL_LABELS = new Set([
-    'create', 'join', 'sort', 'share', 'lateJoin', 'lateHydrate', 'lateUpgrade',
-]);
+// Every fixture label is annotated at rest, chrome and content alike — buttons
+// (create/join/sort/share and their shadow-DOM twins), menu items, flair,
+// metadata, timestamps and foreign chips all take the same path. Controls stay
+// safe because their readings ride an out-of-flow lane that cannot change the
+// control's line height, hit target, or clipping, which the geometry assertions
+// below enforce — not because anything is hidden until hover.
 const REQUIRED_COMPANION_PATHS = userscriptCompanionPaths(SCRIPT_PATH);
 // Browser DOMRects include the font line box. Directly stacked reading/base
 // glyphs can therefore report up to 3px of contact without visibly overlapping.
@@ -422,15 +415,13 @@ async function runEngine(engineName, browser) {
             signInFrame.locator('#google-signin .jpdb-reader-word[data-expression="続ける"]').waitFor({ timeout: 20_000 }),
         ]);
         // The iframe sign-in button is rendered via the DESTRUCTIVE in-place path
-        // (word spans injected straight into the <button>). The command marker is
-        // stamped on the control ancestor at apply time, so the bare-until-hover
-        // tier covers the in-place path too: the reading stays PARSED (so the popup
-        // still opens on tap) but no projected clone is painted at rest.
+        // (word spans injected straight into the <button>), so it proves chrome is
+        // annotated at rest on that path too, not just through the control mirror.
         await signInFrame.waitForFunction(() => {
             const button = document.querySelector('#google-signin');
             const readings = window.__yomuProjectedReadingDiagnostics(button);
             return readings.sources.length > 0
-                && readings.associations.length === 0;
+                && readings.associations.length === readings.sources.length;
         }, null, { timeout: 20_000 });
         const lateLocalizedSignIn = await signInFrame.locator('#google-signin').evaluate(button => {
             const readings = window.__yomuProjectedReadingDiagnostics(button);
@@ -451,17 +442,17 @@ async function runEngine(engineName, browser) {
         assert(lateLocalizedSignIn.expressions.includes('続ける')
             && lateLocalizedSignIn.words > 0
             && lateLocalizedSignIn.sourceFurigana > 0
+            // The source reading stays out of page layout; the projected clone
+            // is what the user actually reads, and chrome shows it at rest.
             && lateLocalizedSignIn.sourceFuriganaVisible === 0
-            && lateLocalizedSignIn.projectedFurigana === 0
+            && lateLocalizedSignIn.projectedFurigana > 0
             && lateLocalizedSignIn.pitchWords > 0,
         `${engineName}: a Latin embedded control was not enriched after Japanese localization`, lateLocalizedSignIn);
-        // The command control carries the host marker that drives the bare-until-
-        // hover tier (verified in the unit suite + reader CSS); the reading stays
-        // parsed above (sourceFurigana > 0), so it is hidden at rest, not dropped.
-        const signInCommandHost = await signInFrame.locator('#google-signin').evaluate(button =>
-            Boolean(button.closest('[data-yomu-command-control="true"]')
-                ?? button.querySelector('[data-yomu-command-control="true"]')));
-        assert(signInCommandHost, `${engineName}: sign-in command control was not marked bare-until-hover`, { signInCommandHost });
+        // No rest-hiding marker may exist anywhere: chrome is annotated at rest.
+        const commandMarkers = await signInFrame.locator('#google-signin').evaluate(button =>
+            Number(Boolean(button.closest('[data-yomu-command-control]')))
+            + button.querySelectorAll('[data-yomu-command-control]').length);
+        assert(commandMarkers === 0, `${engineName}: a bare-until-hover marker survived on chrome`, { commandMarkers });
         await page.waitForTimeout(400);
         const responsiveness = await page.evaluate(stopRedditResponsivenessProbe);
         // Let Yomu's deliberately delayed 1.5s clamp/readings sweep finish,
@@ -1676,7 +1667,6 @@ function snapshotRedditElement(element, expected) {
         });
     });
     return {
-        commandMarked: Boolean(element.closest('[data-yomu-command-control="true"]') || element.querySelector('[data-yomu-command-control="true"]')),
         expected,
         visibleText,
         height: rect.height,
@@ -2118,15 +2108,9 @@ function assertAnnotatedLabels(engineName, labels) {
         }
         assert(label.sourceReadingVisibleCount === 0,
             `${engineName}: ${name} source furigana entered page layout`, label);
-        if (COMMAND_CONTROL_LABELS.has(name)) {
-            // Bare at rest: reading parsed but no projected paint, nothing visible.
-            assert(label.projectedReadingCount === 0 && label.visibleReadingCount === 0,
-                `${engineName}: ${name} command control revealed furigana at rest`, label);
-        } else {
-            assert(label.projectedReadingCount === label.readingCount
-                && label.visibleReadingCount === label.projectedReadingCount,
-            `${engineName}: ${name} lost a projected furigana clone`, label);
-        }
+        assert(label.projectedReadingCount === label.readingCount
+            && label.visibleReadingCount === label.projectedReadingCount,
+        `${engineName}: ${name} lost a projected furigana clone`, label);
         assert(projectedReadingsAreAligned(label.projectedReadings),
             `${engineName}: ${name} projected furigana lost its source range`, label);
         const expectedPitchExpressions = label.expressions.filter(expression => MOCK_PITCH_EXPRESSIONS.has(expression));
@@ -2149,34 +2133,23 @@ function assertAnnotatedLabels(engineName, labels) {
         assert(label.readingClipped === false, `${engineName}: ${name} furigana is clipped`, label);
         assert(label.readingBaseOverlap <= MAX_FONT_BOX_CONTACT_PX,
             `${engineName}: ${name} furigana intrudes into base text`, label);
-        if (COMMAND_CONTROL_LABELS.has(name)) {
-            // Every parsed reading is a hidden source reading at rest — present
-            // (so tap/hover still opens the popup) but not painted.
-            assert(label.hiddenReadingCount === label.readingCount,
-                `${engineName}: ${name} command control painted furigana at rest`, label);
-        } else {
-            assert(label.hiddenReadingCount === 0,
-                `${engineName}: ${name} has source furigana without projected paint`, label);
-        }
+        assert(label.hiddenReadingCount === 0,
+            `${engineName}: ${name} has source furigana without projected paint`, label);
         assert(label.rubyRoomCount === 0, `${engineName}: ${name} reserved ruby room`, label);
         assert(label.visibleWords, `${engineName}: ${name} annotation base is clipped or invisible`, label);
         for (const fragment of label.expected.split('・')) {
             assert(label.visibleText.includes(fragment), `${engineName}: ${name} lost visible base text "${fragment}"`, label);
         }
     }
-    // Command buttons must stay bare at rest (reading parsed, nothing painted)…
-    for (const name of ['create', 'join', 'sort', 'share']) {
+    // Chrome buttons and metadata rows alike keep every parsed reading painted
+    // at rest — the point of the whole tier is layout safety, not hiding.
+    for (const name of ['create', 'join', 'sort', 'share', 'time']) {
         const label = labels[name];
-        assert(label.projectedReadingCount === 0
-            && label.visibleReadingCount === 0
-            && label.readingCount > 0,
-            `${engineName}: ${name} command control did not stay bare at rest`, label);
+        assert(label.readingCount > 0
+            && label.projectedReadingCount === label.readingCount
+            && label.visibleReadingCount === label.projectedReadingCount,
+            `${engineName}: ${name} is not annotated at rest`, label);
     }
-    // …while the timestamp metadata row keeps its projected reading visible.
-    const timeLabel = labels.time;
-    assert(timeLabel.projectedReadingCount === timeLabel.readingCount
-        && timeLabel.visibleReadingCount === timeLabel.projectedReadingCount,
-        `${engineName}: time hid furigana`, timeLabel);
 }
 
 function assertRejectedSourceRanges(engineName, rejected) {

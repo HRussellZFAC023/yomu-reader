@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.8.4
+// @version 1.8.3
 // @author Henry Russell
 // @description Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and a study page.
 // @license MIT
@@ -16,10 +16,10 @@
 // @require https://yomureader.com/greasyfork/yomu-kanji-study.d622212fbf18.user.js#sha256=1iIhL78YArM5Xmxm33D/vbSJ/QTWoOTOHUagwrbjHV4=
 // @require https://yomureader.com/greasyfork/yomu-ocr-manga.86105c6dc56f.user.js#sha256=hhBcbcVv1kfYArrl5B72rS0Ke0WNowISKyI+gnp0/x4=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.8b7ea0485899.user.js#sha256=i36gSFiZF/9rV+gLjTbAgAuXLnSfkQ5x8VeZLxZLkVc=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.43f5cdb988a7.user.js#sha256=Q/XNuYinSb5TLZ2fd+jelfOsaDJe/KqpQVhkGgryTSA=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.eb340ef0fe98.user.js#sha256=6zQO8P6YpH9DG644A26gBufxxHoL5VA3WZwtG4dT/IE=
 // @require https://yomureader.com/greasyfork/yomu-bunpro.a0f59f7944a4.user.js#sha256=oPWfeUSk6mRINABeckq7gCFcmhI5HLh6rTuyOSYyR4o=
 // @require https://yomureader.com/greasyfork/yomu-video.721d22534eed.user.js#sha256=ch0iU07tR2W+v0EbojzVhQHBhL2PKEI/bJWptRpv1sE=
-// @resource yomuCss  https://yomureader.com/yomu.5b991917f878.css#sha256=W5kZF/h42billqHFdPzVjrToJhpbZsLnxDuVQfpWD3E=
+// @resource yomuCss  https://yomureader.com/yomu.0f5690197da8.css#sha256=D1aQGX2oPl6uUQ1Ca2jRtIKV/+3BVYkrJlGeJyRiwik=
 // @connect api.jiten.moe
 // @connect jpdb.io
 // @connect api.wanikani.com
@@ -1440,13 +1440,6 @@ const INTERACTIVE_LINK_SELECTOR = 'a[href],[role="link"]';
 const INTERACTIVE_LINK_CONTEXT_SELECTOR = roleSelectors("menu,menubar,toolbar,tablist");
 const CONTENT_CHIP_ROOT_SELECTOR = ".yomu-hosted-overflow-group";
 const NAMED_CONTENT_ROOT_SELECTOR = `${CONTENT_CHIP_ROOT_SELECTOR},.viewer-title-bar,.bookTitleText,#bookDescription`;
-const COMMAND_CONTROL_SELECTOR = 'button,summary,[role="button"]';
-function isCommandControl(el) {
-  const control = el.closest(COMMAND_CONTROL_SELECTOR);
-  if (!control) return false;
-  if (isConversationTextClass(control) || isMediaTextContentControl(control)) return false;
-  return !control.closest(CONTENT_CHIP_ROOT_SELECTOR) && !control.closest(NAMED_CONTENT_ROOT_SELECTOR);
-}
 function interactivePassiveControl(element) {
   const temporalMetadata = element.closest("time,[datetime]");
   if (temporalMetadata && isCompactTemporalMetadata(temporalMetadata)) return temporalMetadata;
@@ -8253,7 +8246,6 @@ function textTargetFromAcceptedNode(node) {
   }
   const suppressRuby = decorationSuppressesRuby(decoration);
   const passiveInteraction = isPassiveInteractionElement(parent) || suppressRuby;
-  const commandControl = decoration === "interactive-passive" && isCommandControl(parent);
   return {
   node,
   text,
@@ -8263,8 +8255,7 @@ function textTargetFromAcceptedNode(node) {
   suppressRuby,
   proseWrap: shouldWrapScanTargetAsProse(parent, suppressRuby, passiveInteraction),
   layoutSensitive: isLayoutSensitiveScanElement(parent) || isGeometryFragileText(parent, text),
-  passiveInteraction,
-  commandControl
+  passiveInteraction
   };
 }
 function shouldWrapScanTargetAsProse(parent, suppressRuby, passiveInteraction) {
@@ -8404,7 +8395,6 @@ function fragmentTextTargetFrom(fragments, options) {
   if (decoration === "skip") return null;
   const suppressRuby = decorationSuppressesRuby(decoration);
   const passiveInteraction = suppressRuby || trimmedFragments.every((fragment) => fragment.passiveInteraction);
-  const commandControl = decoration === "interactive-passive" && isCommandControl(parent);
   return {
   text,
   parent,
@@ -8414,7 +8404,6 @@ function fragmentTextTargetFrom(fragments, options) {
   proseWrap: shouldWrapScanTargetAsProse(parent, suppressRuby, passiveInteraction),
   layoutSensitive: trimmedFragments.some((fragment) => fragment.layoutSensitive),
   passiveInteraction,
-  commandControl,
   forceInlineRender: options.forceInlineRender,
   suppressRepaintLoopMirror: options.suppressRepaintLoopMirror,
   ...shadowDomTargetMetadata(parent)
@@ -8961,7 +8950,6 @@ function stampTargetDecoration(target, host) {
   if (decoration !== "interactive-passive") return;
   const control = interactivePassiveControl(target.parent);
   if (control) stampDecorationState(control, decoration);
-  if (target.commandControl) (control ?? host).setAttribute("data-yomu-command-control", "true");
   applyPassiveChromeMarks(compactScanRubySuppression(target.parent).marks);
 }
 function applyTokensToScanTarget(target, tokens, settings) {
@@ -9590,7 +9578,7 @@ function createNonDestructiveTextMirror(context) {
 function mountNonDestructiveTextMirror(host, target, settings, context) {
   const mirror = createNonDestructiveTextMirror(context);
   const controlMirror = target.decoration === "interactive-passive";
-  if (controlMirror) mirror.dataset.yomuControlMirror = target.commandControl ? "command" : "true";
+  if (controlMirror) mirror.dataset.yomuControlMirror = "true";
   if (context.detachedReadings && !controlMirror) {
   mirror.dataset.yomuReadingLaneCandidate = "true";
   }
@@ -36817,8 +36805,8 @@ function renderKanjiPracticeShell(options, sourceStateKey) {
     `;
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.4"}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.8.4"}`;
+const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.3"}`;
+const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${"1.8.3"}`;
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
   const pitchClasses = ["heiban", "atamadaka", "nakadaka", "odaka"];
@@ -36950,7 +36938,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.8.4"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.8.3"}`;
   } catch {
   return null;
   }

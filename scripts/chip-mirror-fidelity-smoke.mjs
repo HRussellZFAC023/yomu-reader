@@ -1011,37 +1011,41 @@ function logProbe(name, label, result) {
 }
 
 function verifyChip(name, result) {
-    // The chip is a role=button COMMAND control: bare until hover. Readings
-    // stay parsed (detached sources retained) so the popup works, but no
-    // projected clone, no visible reading, and no pitch underline paint at
-    // rest — only geometry and parse guards remain unconditional.
+    // The chip is a role=button control: annotated AT REST like any other
+    // text. The reading rides the out-of-flow lane, so the control keeps its
+    // authored geometry and hit target — that is the whole safety mechanism,
+    // and the geometry guards below are what enforce it. Nothing is hidden.
     if (!result.mirror) fail(`${name}: compact closed control did not use the additive mirror path`, result);
     if (result.detachedReadingCount < 1) fail(`${name}: compact control reading missing`, result);
     if (result.sourceReadingVisibleCount !== 0) fail(`${name}: compact control source reading entered page layout`, result);
-    if (result.projectedReadingCount !== 0
-        || result.visibleReadingCount !== 0) fail(`${name}: compact command control revealed its reading at rest`, result);
+    if (result.projectedReadingCount === 0
+        || result.visibleReadingCount === 0) fail(`${name}: compact control is not annotated at rest`, result);
     if (result.inlineRubyCount !== 0) fail(`${name}: compact control used an in-flow ruby lane`, result);
     if (Math.abs(result.chipWidthGrowth) > MAX_GEOMETRY_DELTA_PX || Math.abs(result.chipHeightGrowth) > MAX_GEOMETRY_DELTA_PX) fail(`${name}: compact control geometry changed`, result);
     if (!sameBoxGeometry(result.chipBoxBefore, result.chipBoxAfter)) fail(`${name}: compact control changed authored overflow or scroll geometry`, result);
     if (result.readingClipped) fail(`${name}: compact control reading is clipped`, result);
     if (result.readingBaseOverlap > MAX_FONT_BOX_CONTACT_PX) fail(`${name}: compact control reading intrudes into its base`, result);
-    if (result.visiblePitchUnderlines !== 0) fail(`${name}: compact command control painted a pitch underline at rest`, result);
+    // The pitch underline is a status signal on the word itself; it costs no
+    // layout, so a control shows it at rest exactly like body text does.
+    if (result.visiblePitchUnderlines === 0) fail(`${name}: compact control lost its pitch underline at rest`, result);
 }
 
 function verifyYouTubeGeometry(name, youtube) {
     if (!youtube.additiveMirror || youtube.inlineRubyCount !== 0 || youtube.detachedReadingCount < 1) fail(`${name}: YouTube action chip did not use detached additive rendering`, youtube);
-    // The 質問する action chip is a <button> COMMAND control: reading parsed
-    // but bare at rest — no projected clone, no visible reading paint.
+    // The 質問する action chip is a <button>: annotated at rest like any other
+    // text. The source reading stays out of page layout and the projected clone
+    // is what the user reads; the geometry guards below prove the chip is
+    // unaffected, which is what makes annotating chrome safe.
     if (youtube.sourceReadingVisibleCount !== 0
-        || youtube.projectedReadingCount !== 0) fail(`${name}: YouTube action chip revealed its furigana at rest`, youtube);
+        || youtube.projectedReadingCount === 0) fail(`${name}: YouTube action chip is not annotated at rest`, youtube);
     if (!youtube.nativeTextNodePreserved || youtube.nativeSourceText !== '質問する') fail(`${name}: additive rendering replaced or changed the source text node`, youtube);
     if (Math.abs(youtube.nativeBaseCenterDelta) > MAX_GEOMETRY_DELTA_PX) fail(`${name}: YouTube action chip base moved vertically`, youtube);
     if (Math.abs(youtube.chipWidthGrowth) > MAX_GEOMETRY_DELTA_PX || Math.abs(youtube.chipHeightGrowth) > MAX_GEOMETRY_DELTA_PX) fail(`${name}: YouTube action chip geometry changed`, youtube);
     if (!sameBoxGeometry(youtube.chipBoxBefore, youtube.chipBoxAfter)) fail(`${name}: YouTube action chip changed authored overflow or scroll geometry`, youtube);
     if (youtube.readingBaseClearance < -MAX_FONT_BOX_CONTACT_PX) fail(`${name}: YouTube action chip furigana intrudes into its base`, youtube);
-    // Command tier: the pitch underline is transparent at rest and the mirror
-    // paints no ::after lane; hover/focus restores the native decoration.
-    if ((youtube.nativeUnderline !== 'transparent' && youtube.nativeUnderline !== 'rgba(0, 0, 0, 0)') || youtube.pseudoContent !== 'none') fail(`${name}: YouTube command chip painted a pitch underline at rest`, youtube);
+    // The pitch underline is a status signal painted on the word itself, so it
+    // costs no layout and a chip carries it at rest exactly like body text.
+    if (youtube.nativeUnderline === 'transparent' || youtube.nativeUnderline === 'rgba(0, 0, 0, 0)') fail(`${name}: YouTube action chip lost its pitch underline at rest`, youtube);
     if (!youtube.metadataReadingRetained || youtube.metadataSourceReadingVisible) fail(`${name}: metadata source reading entered page layout`, youtube);
     if (!youtube.metadataProjectedBefore || !youtube.metadataProjectedSafe || !youtube.metadataProjectedAgain) fail(`${name}: metadata projected furigana did not remain visible across reflow`, youtube);
     if (Math.abs(youtube.metadataReflowTopDelta) > MAX_GEOMETRY_DELTA_PX || Math.abs(youtube.metadataReflowHeightDelta) > MAX_GEOMETRY_DELTA_PX) fail(`${name}: metadata reflow probe changed the source row geometry`, youtube);
@@ -1100,13 +1104,11 @@ function verifyCompoundPitch(name, compound) {
     if (compound.gradientOffsets[0] !== '0px' || !compound.gradientOffsets.slice(1).some(offset => Number.parseFloat(offset) < 0)) fail(`${name}: wrapped compound gradient restarted on a later line`, compound);
 }
 
-function verifyCompactLabel(name, label, result, geometryBefore, geometryAfter, { command = false } = {}) {
+function verifyCompactLabel(name, label, result, geometryBefore, geometryAfter) {
     if (result.detachedReadingCount < 1) fail(`${name}: ${label} reading missing`, result);
-    if (command) {
-        // Command control: reading parsed but bare at rest — nothing projected.
-        if (result.sourceReadingVisibleCount !== 0
-            || result.projectedReadingCount !== 0) fail(`${name}: ${label} command control revealed its reading at rest`, result);
-    } else if (result.sourceReadingVisibleCount !== 0
+    // One contract for every compact label, chrome or content: the source
+    // reading stays out of page layout and every one of them is projected.
+    if (result.sourceReadingVisibleCount !== 0
         || result.projectedReadingCount !== result.detachedReadingCount
         || !projectedAssociationsAreAligned(result.projectedReadings)) fail(`${name}: ${label} projected reading missing or misaligned`, result);
     if (result.inlineRubyCount !== 0) fail(`${name}: ${label} used an in-flow ruby lane`, result);
@@ -1196,7 +1198,7 @@ async function runPrimaryProbes(name, browser) {
 
     const more = await page.evaluate(() => window.runShowMoreProbe());
     logProbe(name, 'show-more', more);
-    verifyCompactLabel(name, 'show-more', more, more.clipBoxBefore, more.clipBoxAfter, { command: true });
+    verifyCompactLabel(name, 'show-more', more, more.clipBoxBefore, more.clipBoxAfter);
 
     const tab = await page.evaluate(() => window.runTabProbe());
     logProbe(name, 'tab', tab);

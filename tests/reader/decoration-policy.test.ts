@@ -13,7 +13,7 @@ import {
     withMirrorTokenApply,
     type FragmentTextTarget,
 } from '../../src/reader/dom';
-import { closestRubyFragileConstrainedRow, isClipConstrainedRow, isCommandControl, noteConstrainedRowLayoutSettled } from '../../src/reader/dom/decoration-policy';
+import { closestRubyFragileConstrainedRow, isClipConstrainedRow, noteConstrainedRowLayoutSettled } from '../../src/reader/dom/decoration-policy';
 import { setRenderedWordPitchClass } from '../../src/reader/dom/rendered-word-state';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import type { JPDBCard, JPDBToken } from '../../src/reader/app/types';
@@ -1261,8 +1261,7 @@ describe('interactive-passive mirror channel under furigana-mode=all', () => {
 
         const mirror = button.querySelector<HTMLElement>('.jpdb-reader-text-mirror')!;
         expect(mirror.dataset.yomuDetachedReadings).toBe('true');
-        expect(mirror.dataset.yomuControlMirror).toBe('command');
-        expect(collected.commandControl).toBe(true);
+        expect(mirror.dataset.yomuControlMirror).toBe('true');
         expect(mirror.querySelector('.jpdb-reader-detached-furi')?.textContent)
             .toBe('さんせいひょうりつじゅん');
         expect(button.style.getPropertyValue('overflow')).toBe('hidden');
@@ -1303,7 +1302,7 @@ describe('interactive-passive mirror channel under furigana-mode=all', () => {
         expect(button.querySelectorAll('rt')).toHaveLength(0);
         expect(mirror?.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('とうろく');
         // Subscribe is a command button: its reading lane is hover-revealed.
-        expect(mirror?.dataset.yomuControlMirror).toBe('command');
+        expect(mirror?.dataset.yomuControlMirror).toBe('true');
         expect(button.dataset.yomuRubyRoom).toBeUndefined();
     });
 
@@ -1328,7 +1327,7 @@ describe('interactive-passive mirror channel under furigana-mode=all', () => {
         expect(word.dataset.pitchAccent).toBe('LHHHHHLL|HLLLLLLL');
         expect(word.classList.contains('jpdb-pitch-nakadaka')).toBe(true);
         expect(mirror.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('とうろくしゃすう');
-        expect(mirror.dataset.yomuControlMirror).toBe('command');
+        expect(mirror.dataset.yomuControlMirror).toBe('true');
         expect(button.dataset.yomuRubyRoom).toBeUndefined();
     });
 
@@ -1357,7 +1356,6 @@ describe('interactive-passive mirror channel under furigana-mode=all', () => {
         // A metadata SPAN is not a command control — its readings stay visible
         // at rest on the "true" tier.
         expect(row.querySelector<HTMLElement>('.jpdb-reader-text-mirror')?.dataset.yomuControlMirror).toBe('true');
-        expect(collected.commandControl).toBeFalsy();
         expect(row.getBoundingClientRect().height).toBe(18);
         expect(row.dataset.yomuRubyRoom).toBeUndefined();
         expect(row.closest('[data-yomu-ruby-room="true"]')).toBeNull();
@@ -1383,9 +1381,9 @@ describe('interactive-passive mirror channel under furigana-mode=all', () => {
         expect(mirror.querySelector('.jpdb-reader-word')).toBeTruthy();
         expect(mirror.querySelector('rt')).toBeNull();
         expect(mirror.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('さんか');
-        // 参加 is a Reddit command button: bare until hover (command tier).
-        expect(mirror.dataset.yomuControlMirror).toBe('command');
-        expect(collected!.commandControl).toBe(true);
+        // 参加 is a Reddit chrome button: annotated at rest through the
+        // out-of-flow reading lane, like every other control.
+        expect(mirror.dataset.yomuControlMirror).toBe('true');
         expect(mirror.classList.contains('jpdb-reader-additive-text-mirror')).toBe(true);
         expect(mirror.classList.contains('jpdb-reader-clip-hover-mirror')).toBe(false);
         expect(button.dataset.yomuClipHoverHost).toBeUndefined();
@@ -1443,7 +1441,6 @@ describe('interactive-passive mirror channel under furigana-mode=all', () => {
         expect(metadata.querySelector('.jpdb-reader-text-mirror')).toBeTruthy();
         // A metadata span inside a linked card is not a command control.
         expect(metadata.querySelector<HTMLElement>('.jpdb-reader-text-mirror')?.dataset.yomuControlMirror).toBe('true');
-        expect(collected!.commandControl).toBeFalsy();
         expect(metadata.querySelector('rt')).toBeNull();
         expect(metadata.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('こくち');
         expect(metadata.textContent).toContain('告知');
@@ -1651,74 +1648,55 @@ describe('clip-constrained rows keep detached readings without ruby-room growth'
     });
 });
 
-// The command-control tier (1.8.2): generic chrome buttons (Reddit's
-// 質問 / 参加 / 共有 / アワードを贈る and their kind) stay interactive-passive and
-// fully parsed — the popup still opens on tap — but carry commandControl, so
-// their mirror is stamped "command" and renders bare until hover. The verdict
-// is tag/role only (button/summary/[role="button"]); content chrome (titles,
-// body prose, community links, metadata rows) is deliberately excluded.
-describe('command-control tier (bare-until-hover chrome buttons)', () => {
-    function commandMirror(button: HTMLElement, text: string, reading: string): HTMLElement {
+// Chrome buttons (Reddit's 質問 / 参加 / 共有 / アワードを贈る and their kind) are
+// annotated AT REST like any other text. They stay interactive-passive, so the
+// reading rides an out-of-flow lane and the control keeps its authored line
+// height and hit target — that is layout safety, not a reason to hide the
+// reading. There is no bare-until-hover tier: a reading the user cannot see
+// until they hover is a reading they cannot read.
+describe('chrome buttons are annotated at rest', () => {
+    function chromeMirror(button: HTMLElement, text: string, reading: string): HTMLElement {
         mockRect(button, { width: 120, height: 40 });
         const collected = collectTargets(button).find(candidate => candidate.text === text)!;
         expect(collected).toBeTruthy();
         expect(collected.decoration).toBe('interactive-passive');
-        expect(collected.commandControl).toBe(true);
         applyTokensToScanTarget({ ...collected, nonDestructive: true, passiveInteraction: true }, [
             token(text, 0, text, reading),
         ], FURIGANA_SETTINGS);
         return button.querySelector<HTMLElement>('.jpdb-reader-text-mirror')!;
     }
 
-    it('marks a search-bar 質問 button as a bare-until-hover command mirror', () => {
-        document.body.innerHTML = '<div role="search"><button id="ask">質問</button></div>';
-        const mirror = commandMirror(document.querySelector<HTMLElement>('#ask')!, '質問', 'しつもん');
-        expect(mirror.dataset.yomuControlMirror).toBe('command');
-        // Parsed and popup-able: the word is present; only its reading lane is
-        // hover-gated by CSS.
+    // Every case asserts the same contract: the reading exists in the detached
+    // lane at rest, and no in-flow rt can grow the button.
+    it.each([
+        ['search-bar 質問 button', '<div role="search"><button id="c">質問</button></div>', '質問', 'しつもん'],
+        ['参加 join button', '<button id="c">参加</button>', '参加', 'さんか'],
+        ['共有 share button with an icon child', '<button id="c"><svg aria-hidden="true"></svg><span>共有</span></button>', '共有', 'きょうゆう'],
+        ['アワードを贈る comment action', '<div class="comment-action-row"><button id="c">アワードを贈る</button></div>', 'アワードを贈る', 'おく'],
+    ])('annotates a %s at rest', (_name, html, text, reading) => {
+        document.body.innerHTML = html;
+        const mirror = chromeMirror(document.querySelector<HTMLElement>('#c')!, text, reading);
+        expect(mirror.dataset.yomuControlMirror).toBe('true');
         expect(mirror.querySelector('.jpdb-reader-word')).toBeTruthy();
         expect(mirror.querySelector('rt')).toBeNull();
-        expect(mirror.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('しつもん');
+        expect(mirror.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe(reading);
     });
 
-    it('marks a 参加 join button as a command mirror', () => {
-        document.body.innerHTML = '<button id="join">参加</button>';
-        const mirror = commandMirror(document.querySelector<HTMLElement>('#join')!, '参加', 'さんか');
-        expect(mirror.dataset.yomuControlMirror).toBe('command');
-        expect(mirror.querySelector('.jpdb-reader-word')).toBeTruthy();
-        expect(mirror.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('さんか');
+    // Nothing may reintroduce a rest-hiding marker on chrome.
+    it('leaves no bare-until-hover marker on an annotated control', () => {
+        document.body.innerHTML = '<button id="c">参加</button>';
+        chromeMirror(document.querySelector<HTMLElement>('#c')!, '参加', 'さんか');
+        expect(document.querySelector('[data-yomu-command-control]')).toBeNull();
+        expect(document.querySelector('[data-yomu-control-mirror="command"]')).toBeNull();
     });
 
-    it('marks a 共有 share button with an icon child as a command mirror', () => {
-        document.body.innerHTML = '<button id="share"><svg aria-hidden="true"></svg><span id="share-label">共有</span></button>';
-        // An SVG glyph is not thumbnail media, so the icon+label button stays a
-        // command control rather than a media-text card.
-        expect(isCommandControl(document.querySelector('#share-label')!)).toBe(true);
-        const mirror = commandMirror(document.querySelector<HTMLElement>('#share')!, '共有', 'きょうゆう');
-        expect(mirror.dataset.yomuControlMirror).toBe('command');
-        expect(mirror.querySelector('.jpdb-reader-word')).toBeTruthy();
-    });
-
-    it('marks an アワードを贈る comment-action button as a command mirror', () => {
-        document.body.innerHTML = '<div class="comment-action-row"><button id="award">アワードを贈る</button></div>';
-        const mirror = commandMirror(document.querySelector<HTMLElement>('#award')!, 'アワードを贈る', 'アワードをおくる');
-        expect(mirror.dataset.yomuControlMirror).toBe('command');
-        expect(mirror.querySelector('.jpdb-reader-word')).toBeTruthy();
-    });
-
-    it('leaves content chrome unmarked (post title, promo prose, community link, timestamp)', () => {
+    it('keeps content chrome on its content tiers', () => {
         document.body.innerHTML = `
             <article>
                 <h1 id="post-title">日本語の投稿タイトル</h1>
                 <p id="promo">インターネットで最もリアルな場所に参加しましょう</p>
-                <a id="community" href="/r/japan">日本語コミュニティ</a>
-                <div class="meta"><time id="stamp" datetime="2026-07-24T00:00:00Z">2時間前</time></div>
             </article>
         `;
-        expect(isCommandControl(document.querySelector('#post-title')!)).toBe(false);
-        expect(isCommandControl(document.querySelector('#promo')!)).toBe(false);
-        expect(isCommandControl(document.querySelector('#community')!)).toBe(false);
-        expect(isCommandControl(document.querySelector('#stamp')!)).toBe(false);
         expect(classifyDecoration(document.querySelector('#post-title')!)).toBe('content-ruby');
         expect(classifyDecoration(document.querySelector('#promo')!)).toBe('prose-full');
     });

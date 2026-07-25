@@ -268,9 +268,8 @@ async function runGoogleSearchCaseWithBrowser(engineName, browser) {
             throw new Error(`Google Search smoke did not parse fixture: ${String(error)}\n${JSON.stringify({ debug, requests, consoleErrors }, null, 2)}`);
         }
 
-        // Passive CONTENT words (the link-wrapped snippet) keep their status
-        // highlight at rest — only chrome-stamped hosts are bare-until-hover
-        // (owner report 2026-07-19; reversal of the 1.6.2 blanket rule).
+        // Every annotated word keeps its status highlight at rest — content
+        // and chrome alike. Chrome is protected by geometry, never by hiding.
         const beforeHover = await snapshotGoogleSearchFixture(page);
         assertGoogleSearchSnapshot(beforeHover, 'before hover', { expectStatusHighlight: true, baseline });
 
@@ -281,34 +280,16 @@ async function runGoogleSearchCaseWithBrowser(engineName, browser) {
         assertGoogleSearchSnapshot(afterHover, 'after hover', { expectStatusHighlight: true, baseline });
         assert(afterHover.snippetFirstWord.backgroundImage.includes('linear-gradient'), 'Passive Google snippet word lost its highlight backing on hover', afterHover.snippetFirstWord);
 
-        // Command-chip hover contract: hovering the role=button chip reveals
-        // its projected readings; moving the pointer away hides them again.
+        // Chrome-chip contract: a role=button chip is annotated AT REST, and
+        // hovering changes nothing about whether the reading is shown. What
+        // keeps that safe is geometry, not hiding — assertGoogleChipBare's
+        // growth and clipping guards run on the at-rest snapshot above.
         await page.locator('#chip').hover();
-        await page.waitForFunction(() => {
-            const visible = clone => {
-                const style = getComputedStyle(clone);
-                const rect = clone.getBoundingClientRect();
-                return style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0;
-            };
-            const texts = new Set([...document.querySelectorAll('[data-yomu-projected-reading="true"]')]
-                .filter(visible)
-                .map(clone => clone.textContent));
-            return texts.has('けんさくけっか') && texts.has('ひょうじ');
-        }, null, { timeout: 10_000 });
-        const chipHover = await snapshotGoogleSearchFixture(page);
-        assertGoogleChipRevealed(chipHover.chip, 'chip hover');
+        await page.waitForTimeout(250);
+        assertGoogleChipRevealed((await snapshotGoogleSearchFixture(page)).chip, 'chip hover');
         await page.mouse.move(2, 2);
-        await page.waitForFunction(() => {
-            const visible = clone => {
-                const style = getComputedStyle(clone);
-                const rect = clone.getBoundingClientRect();
-                return style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0;
-            };
-            const texts = new Set([...document.querySelectorAll('[data-yomu-projected-reading="true"]')]
-                .filter(visible)
-                .map(clone => clone.textContent));
-            return !texts.has('けんさくけっか') && !texts.has('ひょうじ');
-        }, null, { timeout: 10_000 });
+        await page.waitForTimeout(250);
+        assertGoogleChipRevealed((await snapshotGoogleSearchFixture(page)).chip, 'chip after hover');
 
         await page.screenshot({ path: path.join(ARTIFACTS, `google-search-reader-smoke-${engineName}.png`), fullPage: true });
         return { baseline, beforeHover, afterHover, requests: requests.length };
@@ -610,12 +591,14 @@ function assertGoogleChip(chip, label) {
     assert(chip.labelHeight <= 20, `${label}: Google chip label grew beyond its plain-text layout`, chip);
     assert(['hidden', 'visible'].includes(chip.labelOverflow), `${label}: Google chip label overflow contract changed`, chip);
     assert(chip.overflowY === 'hidden', `${label}: Google chip authored clipping was opened`, chip);
-    // The chip is a role=button COMMAND control: bare until hover. Its reading
-    // bases stay parsed (rubyBaseCount asserted above keeps the popup alive),
-    // but no projected clone is painted at rest — the hover-reveal phase in the
-    // runner asserts the readings appear on pointer hover and hide again after.
-    assert(chip.projectedReadings.length === 0,
-        `${label}: Google command chip revealed projected readings at rest`, chip);
+    // A role=button chip is chrome, and chrome is annotated at rest like any
+    // other text. The guards above are what makes that safe: no ruby room, no
+    // growth past the plain-text layout, authored clipping untouched. The
+    // reading itself must be painted, not hidden until the user hovers.
+    assert(chip.projectedReadings.length > 0,
+        `${label}: Google chip is not annotated at rest`, chip);
+    assert(chip.projectedReadings.every(reading => reading.visible),
+        `${label}: Google chip reading is present but not visible at rest`, chip);
 }
 
 function assertGoogleChipRevealed(chip, label) {

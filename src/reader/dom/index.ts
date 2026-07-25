@@ -19,7 +19,6 @@ import {
     decorationStateForWord,
     decorationSuppressesRuby,
     interactivePassiveControl,
-    isCommandControl,
     stampDecorationState,
     CONSTRAINED_ROW_VERDICT_TTL_MS,
     isCompactPassiveChromeElement,
@@ -210,10 +209,6 @@ export interface TextTarget {
     proseWrap?: boolean;
     layoutSensitive?: boolean;
     passiveInteraction?: boolean;
-    // An interactive-passive control that is a genuine command button
-    // (button/summary/role=button). Its mirror renders bare until hover — see
-    // isCommandControl and the data-yomu-control-mirror="command" CSS tier.
-    commandControl?: boolean;
     singlePassScan?: boolean;
     nonDestructive?: boolean;
     forceInlineRender?: boolean;
@@ -252,10 +247,6 @@ export interface FragmentTextTarget {
     proseWrap?: boolean;
     layoutSensitive?: boolean;
     passiveInteraction?: boolean;
-    // An interactive-passive control that is a genuine command button
-    // (button/summary/role=button). Its mirror renders bare until hover — see
-    // isCommandControl and the data-yomu-control-mirror="command" CSS tier.
-    commandControl?: boolean;
     singlePassScan?: boolean;
     nonDestructive?: boolean;
     forceInlineRender?: boolean;
@@ -742,7 +733,6 @@ function textTargetFromAcceptedNode(node: Node): TextTarget | null {
     }
     const suppressRuby = decorationSuppressesRuby(decoration);
     const passiveInteraction = isPassiveInteractionElement(parent) || suppressRuby;
-    const commandControl = decoration === 'interactive-passive' && isCommandControl(parent);
     return {
         node: node as Text,
         text,
@@ -753,7 +743,6 @@ function textTargetFromAcceptedNode(node: Node): TextTarget | null {
         proseWrap: shouldWrapScanTargetAsProse(parent, suppressRuby, passiveInteraction),
         layoutSensitive: isLayoutSensitiveScanElement(parent) || isGeometryFragileText(parent, text),
         passiveInteraction,
-        commandControl,
     };
 }
 
@@ -948,7 +937,6 @@ function fragmentTextTargetFrom(
     if (decoration === 'skip') return null;
     const suppressRuby = decorationSuppressesRuby(decoration);
     const passiveInteraction = suppressRuby || trimmedFragments.every(fragment => fragment.passiveInteraction);
-    const commandControl = decoration === 'interactive-passive' && isCommandControl(parent);
     return {
         text,
         parent,
@@ -958,7 +946,6 @@ function fragmentTextTargetFrom(
         proseWrap: shouldWrapScanTargetAsProse(parent, suppressRuby, passiveInteraction),
         layoutSensitive: trimmedFragments.some(fragment => fragment.layoutSensitive),
         passiveInteraction,
-        commandControl,
         forceInlineRender: options.forceInlineRender,
         suppressRepaintLoopMirror: options.suppressRepaintLoopMirror,
         ...shadowDomTargetMetadata(parent),
@@ -1890,11 +1877,6 @@ function stampTargetDecoration(target: ScanTextTarget, host: HTMLElement): void 
     if (decoration !== 'interactive-passive') return;
     const control = interactivePassiveControl(target.parent);
     if (control) stampDecorationState(control, decoration);
-    // A command control (chrome action button) is marked on its control ancestor
-    // (falling back to the render host) so the bare-until-hover CSS tier scopes the
-    // whole chip across BOTH render paths — the non-destructive control mirror and
-    // the destructive in-place word spans alike.
-    if (target.commandControl) (control ?? host).setAttribute('data-yomu-command-control', 'true');
     applyPassiveChromeMarks(compactScanRubySuppression(target.parent).marks);
 }
 
@@ -2904,7 +2886,7 @@ function mountNonDestructiveTextMirror(
     // tier further than a plain passive control: the CSS command tier renders it
     // bare at rest and reveals every annotation only on hover/focus. Everything
     // else (metadata rows, content links) keeps the always-visible "true" tier.
-    if (controlMirror) mirror.dataset.yomuControlMirror = target.commandControl ? 'command' : 'true';
+    if (controlMirror) mirror.dataset.yomuControlMirror = 'true';
     // A clip-constrained mirror must lay out EXACTLY like its host: the
     // ruby-friendly line-height (~1.78em) under the clamp-box height cap left
     // room for only one tall line — hiding base glyphs (invisible subscriber

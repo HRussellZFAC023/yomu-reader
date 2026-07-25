@@ -915,24 +915,6 @@ const CONTENT_CHIP_ROOT_SELECTOR = '.yomu-hosted-overflow-group';
 // compact chrome. Replaces the old profile-level ruby kill-switch.
 const NAMED_CONTENT_ROOT_SELECTOR = `${CONTENT_CHIP_ROOT_SELECTOR},.viewer-title-bar,.bookTitleText,#bookDescription`;
 
-// A COMMAND control is the interactive-passive subset that is a genuine
-// button-shaped action (button/summary/role=button) — Reddit's 質問/参加/共有/
-// アワードを贈る chrome and their kind. Unlike a metadata row or a content link
-// (which also classify interactive-passive), a command button carries no
-// reading the user needs at rest, so its mirror is stamped one tier further:
-// bare until hover. The verdict is tag/role only (site-neutral); content
-// chrome that merely wraps text in a clickable shell is excluded so its
-// annotations still show at rest — conversation bodies, media-text cards,
-// hosted content chips, and named content roots.
-const COMMAND_CONTROL_SELECTOR = 'button,summary,[role="button"]';
-
-export function isCommandControl(el: Element): boolean {
-    const control = el.closest<HTMLElement>(COMMAND_CONTROL_SELECTOR);
-    if (!control) return false;
-    if (isConversationTextClass(control) || isMediaTextContentControl(control)) return false;
-    return !control.closest(CONTENT_CHIP_ROOT_SELECTOR) && !control.closest(NAMED_CONTENT_ROOT_SELECTOR);
-}
-
 export function interactivePassiveControl(element: Element): HTMLElement | null {
     const temporalMetadata = element.closest<HTMLElement>('time,[datetime]');
     if (temporalMetadata && isCompactTemporalMetadata(temporalMetadata)) return temporalMetadata;
