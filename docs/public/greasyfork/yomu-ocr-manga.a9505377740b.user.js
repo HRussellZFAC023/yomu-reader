@@ -4172,10 +4172,6 @@ ${candidate.depth}`;
       audioCustomJsonPlaceholder: "Yomitan or Ultimate audio source URL",
       audioCustomUrlPlaceholder: "Direct audio file URL",
       audioBuiltInPlaceholder: "Built-in source, no URL needed",
-      audioDetectingSubSources: "Checking included sources…",
-      audioNoSubSourcesDetected: "No named sources reported by this URL.",
-      audioSubSourcesHelp: "Sources offered by this URL — untick any you don’t want:",
-      audioSubSourceOverlapHint: "also listed as its own source",
       defaultVoiceSuffix: "default",
       audioGuideLinkLabel: "Yomitan audio guide",
       audioProxyGuideSummary: "Make your own Cloudflare proxy",
@@ -5817,10 +5813,6 @@ audioSourceCustomJson	カスタムURL
 audioCustomJsonPlaceholder	Yomitan/Ultimate音声URL
 audioCustomUrlPlaceholder	直接音声ファイルURL
 audioBuiltInPlaceholder	内蔵ソースはURL不要
-audioDetectingSubSources	内部ソースを確認中…
-audioNoSubSourcesDetected	このURLは名前付きソースを返しませんでした。
-audioSubSourcesHelp	このURLが提供するソース。不要なものはオフに:
-audioSubSourceOverlapHint	下の単独ソースと重複
 defaultVoiceSuffix	標準
 audioGuideLinkLabel	Yomitan音声ガイド
 audioProxyGuideSummary	Cloudflareプロキシ
@@ -11548,8 +11540,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
       if (!frameSrc) return void 0;
       const mirrorSignature = canvasRenderedContentSignature(mirror);
       const contentToken = mirror.dataset.yomuMirrorContentToken || startContentToken;
-      const contentKey = bookwalkerCanvasContentKey(contentToken, regionKey) ?? (mirrorSignature ? `cv:${mirrorSignature}:${mirror.width}x${mirror.height}${regionKey}` : void 0);
-      return { frameSrc, frameRect, contentKey, contentToken };
+      releaseTransientCanvas(mirror);
+      return {
+        frameSrc,
+        frameRect,
+        contentKey: bookwalkerCanvasContentKey(contentToken, regionKey) ?? (mirrorSignature ? `cv:${mirrorSignature}:${mirror.width}x${mirror.height}${regionKey}` : void 0),
+        contentToken
+      };
     }
     commitCanvasSnapshot(canvas, pendingSnapshot, key, canvasRect, captured, userRequested) {
       if (this.destroyed || !canvas.isConnected || this.canvasFrames.has(canvas)) return;

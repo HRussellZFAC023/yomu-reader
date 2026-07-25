@@ -32,17 +32,39 @@
   const counter = document.getElementById('pageSliderCounter');
   const canvas = document.querySelector('canvas.default');
   let page = 0;
+  // Paint the page the way the real NFBR engine does: build the page bitmap in an
+  // offscreen canvas, then composite it onto the visible surface with drawImage in
+  // TILES. The previous fixture used ctx.fillText and made ZERO drawImage calls, so
+  // a recorder that hooks drawImage recorded nothing from it — which is exactly why
+  // this fixture could never fail while the real viewer was broken.
+  const TILE = 64;
+  function renderPageBitmap(index) {
+    const src = document.createElement('canvas');
+    src.width = canvas.width;
+    src.height = canvas.height;
+    const sctx = src.getContext('2d');
+    sctx.fillStyle = '#fff'; sctx.fillRect(0, 0, src.width, src.height);
+    sctx.fillStyle = '#111';
+    sctx.font = '44px "Hiragino Sans", "Noto Sans JP", sans-serif';
+    sctx.textBaseline = 'top';
+    PAGES[index].forEach((line, i) => sctx.fillText(line, 60, 120 + i * 90));
+    return src;
+  }
   function draw() {
     const ctx = canvas.getContext('2d');
-    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = '#111';
-    ctx.font = '44px "Hiragino Sans", "Noto Sans JP", sans-serif';
-    ctx.textBaseline = 'top';
-    PAGES[page].forEach((line, i) => ctx.fillText(line, 60, 120 + i * 90));
+    const src = renderPageBitmap(page);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // Tile the composite so the recorder sees many drawImage ops per page turn,
+    // like the real engine (which issues thousands).
+    for (let y = 0; y < canvas.height; y += TILE) {
+      for (let x = 0; x < canvas.width; x += TILE) {
+        const w = Math.min(TILE, canvas.width - x);
+        const h = Math.min(TILE, canvas.height - y);
+        ctx.drawImage(src, x, y, w, h, x, y, w, h);
+      }
+    }
     counter.textContent = `${page + 1} / ${PAGES.length}`;
   }
-  document.getElementById('next').addEventListener('click', () => { page = Math.min(PAGES.length - 1, page + 1); draw(); });
-  document.getElementById('prev').addEventListener('click', () => { page = Math.max(0, page - 1); draw(); });
   draw();
 </script>
 </body></html>

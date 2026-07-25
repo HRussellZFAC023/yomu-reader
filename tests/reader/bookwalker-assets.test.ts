@@ -124,3 +124,84 @@ function policy(expiresAt: number): string {
     });
     return btoa(json).replace(/\+/g, '-').replace(/=/g, '_').replace(/\//g, '~');
 }
+
+// Shapes below are copied verbatim from the live production viewer (captured
+// 2026-07-25), not invented. The previous fixtures used `viewer-trial…`,
+// `/trial-page/c` and `OPS/images/…`; production uses `viewer.bookwalker.jp`,
+// `/browserWebApi/c` and `…/OEBPS/text/p_XXXX.xhtml/<hash>.jpeg`, so the resolver
+// matched nothing, never renewed a signature, and every replayed asset 403'd.
+// Signed URLs live ~52 seconds, so this path runs constantly in real reading.
+describe('BookWalker signed asset resolver (production URL shapes)', () => {
+    const PROD_VIEWER = 'https://viewer.bookwalker.jp/03/30/viewer.html?cid=1ade5c5d-286d-41db-8d9e-db484715aab7&cty=1';
+    const PROD_SESSION = 'https://viewer.bookwalker.jp/browserWebApi/c?cid=1ade5c5d-286d-41db-8d9e-db484715aab7';
+    const PROD_BASE = 'https://bw-bv-epubs.bookwalker.jp/1_product/1ade5c5d-286d-41db-8d9e-db484715aab7/1/3409568/';
+    const PROD_ASSET = `${PROD_BASE}OEBPS/text/p_0000.xhtml/103d38b134e55abf63.jpeg`;
+
+    const prodPolicy = (epoch: number) => btoa(JSON.stringify({
+        Statement: [{ Resource: `${PROD_BASE}*`, Condition: { DateLessThan: { 'AWS:EpochTime': epoch } } }],
+    })).replace(/\+/g, '-').replace(/=/g, '_').replace(/\//g, '~');
+
+    const prodAssetUrl = (epoch: number, signature: string) =>
+        `${PROD_ASSET}?hti=2ef4d5fcc2254651de839be9cbdf1ff8&cfg=1&pfCd=03`
+        + `&Policy=${prodPolicy(epoch)}&Signature=${signature}-signature&Key-Pair-Id=APKAJXSHZG2ORSHLUG5A`;
+
+    const prodSessionResponse = (epoch: number, signature: string) => ({
+        status: '200',
+        url: PROD_BASE,
+        auth_info: {
+            Policy: prodPolicy(epoch),
+            Signature: `${signature}-signature`,
+            'Key-Pair-Id': 'APKAJXSHZG2ORSHLUG5A',
+        },
+    });
+
+    it('treats an /OEBPS/text asset as refreshable — the old /OPS/images matcher ignored it', () => {
+        // 20 s before expiry is inside the refresh margin: the reader must renew
+        // rather than replay a URL that is about to 403.
+        expect(bookwalkerSignedUrlNeedsRefresh(prodAssetUrl(1_785_005_892, 'old'), 1_785_005_872_000)).toBe(true);
+    });
+
+    it('renews an expired production asset URL through /browserWebApi/c', async () => {
+        const fetchJson = vi.fn(async () => prodSessionResponse(1_785_006_500, 'fresh'));
+        const resolver = new BookwalkerAssetResolver({
+            currentUrl: () => PROD_VIEWER,
+            resourceUrls: () => [PROD_SESSION],
+            fetchJson,
+            now: () => 1_785_005_900_000,
+        });
+
+        const resolved = new URL(await resolver.resolve(prodAssetUrl(1_785_005_892, 'stale')));
+
+        expect(fetchJson).toHaveBeenCalledWith(PROD_SESSION);
+        expect(resolved.origin + resolved.pathname).toBe(PROD_ASSET);
+        expect(resolved.searchParams.get('Signature')).toBe('fresh-signature');
+        // Content-bearing parameters must survive the swap.
+        expect(resolved.searchParams.get('hti')).toBe('2ef4d5fcc2254651de839be9cbdf1ff8');
+    });
+
+    it('finds the session endpoint without a BID parameter', async () => {
+        const fetchJson = vi.fn(async () => prodSessionResponse(1_785_006_500, 'fresh'));
+        const resolver = new BookwalkerAssetResolver({
+            currentUrl: () => PROD_VIEWER,
+            resourceUrls: () => [PROD_SESSION],
+            fetchJson,
+            now: () => 1_785_005_900_000,
+        });
+
+        expect(await resolver.refresh(prodAssetUrl(1_785_005_892, 'stale'))).toContain('fresh-signature');
+    });
+
+    it('never rewrites a URL outside the content session base path', async () => {
+        const fetchJson = vi.fn(async () => prodSessionResponse(1_785_006_500, 'fresh'));
+        const resolver = new BookwalkerAssetResolver({
+            currentUrl: () => PROD_VIEWER,
+            resourceUrls: () => [PROD_SESSION],
+            fetchJson,
+            now: () => 1_785_005_900_000,
+        });
+        const foreign = 'https://bw-bv-epubs.bookwalker.jp/1_product/some-other-book/1/1/OEBPS/text/p_0000.xhtml/x.jpeg'
+            + `?Policy=${prodPolicy(1_785_005_892)}&Signature=stale-signature&Key-Pair-Id=APKAJXSHZG2ORSHLUG5A`;
+
+        expect(await resolver.refresh(foreign)).toBeUndefined();
+    });
+});

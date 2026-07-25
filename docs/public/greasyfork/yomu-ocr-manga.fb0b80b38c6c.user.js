@@ -4172,10 +4172,6 @@ ${candidate.depth}`;
       audioCustomJsonPlaceholder: "Yomitan or Ultimate audio source URL",
       audioCustomUrlPlaceholder: "Direct audio file URL",
       audioBuiltInPlaceholder: "Built-in source, no URL needed",
-      audioDetectingSubSources: "Checking included sources…",
-      audioNoSubSourcesDetected: "No named sources reported by this URL.",
-      audioSubSourcesHelp: "Sources offered by this URL — untick any you don’t want:",
-      audioSubSourceOverlapHint: "also listed as its own source",
       defaultVoiceSuffix: "default",
       audioGuideLinkLabel: "Yomitan audio guide",
       audioProxyGuideSummary: "Make your own Cloudflare proxy",
@@ -5817,10 +5813,6 @@ audioSourceCustomJson	カスタムURL
 audioCustomJsonPlaceholder	Yomitan/Ultimate音声URL
 audioCustomUrlPlaceholder	直接音声ファイルURL
 audioBuiltInPlaceholder	内蔵ソースはURL不要
-audioDetectingSubSources	内部ソースを確認中…
-audioNoSubSourcesDetected	このURLは名前付きソースを返しませんでした。
-audioSubSourcesHelp	このURLが提供するソース。不要なものはオフに:
-audioSubSourceOverlapHint	下の単独ソースと重複
 defaultVoiceSuffix	標準
 audioGuideLinkLabel	Yomitan音声ガイド
 audioProxyGuideSummary	Cloudflareプロキシ
@@ -8847,16 +8839,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
       }
       rememberCanvasTaint(canvas, false);
       return { buckets: buckets.size, contrast: max - min, hash, opaque };
-    } catch (error) {
-      if (isCanvasTaintError(error)) rememberCanvasTaint(canvas, true);
+    } catch {
+      rememberCanvasTaint(canvas, true);
       return null;
     }
-  }
-  function isCanvasTaintError(error) {
-    if (typeof DOMException !== "undefined" && error instanceof DOMException) {
-      return error.name === "SecurityError";
-    }
-    return error instanceof Error && /insecure|tainted|cross-origin/i.test(error.message);
   }
   function looksLikeRenderedCanvasImage(canvas) {
     return Boolean(canvasRenderedContentSignature(canvas));
@@ -9147,18 +9133,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
       const context = markCanvasMirrorSkip(scaled.getContext("2d"));
       if (!context) return void 0;
       context.drawImage(canvas, 0, 0, scaled.width, scaled.height);
-      const dataUrl = scaled.toDataURL("image/jpeg", 0.86);
-      releaseTransientCanvas(scaled);
-      return dataUrl;
+      return scaled.toDataURL("image/jpeg", 0.86);
     } catch {
       return void 0;
-    }
-  }
-  function releaseTransientCanvas(canvas) {
-    try {
-      canvas.width = 0;
-      canvas.height = 0;
-    } catch {
     }
   }
   function captureCanvasRegionDataUrl(canvas, surfaceRect, regionRect, maxPixels) {
@@ -9179,9 +9156,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       const context = markCanvasMirrorSkip(out.getContext("2d"));
       if (!context) return void 0;
       context.drawImage(canvas, sx, sy, sw, sh, 0, 0, out.width, out.height);
-      const dataUrl = out.toDataURL("image/jpeg", 0.86);
-      releaseTransientCanvas(out);
-      return dataUrl;
+      return out.toDataURL("image/jpeg", 0.86);
     } catch {
       return void 0;
     }
@@ -11548,8 +11523,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
       if (!frameSrc) return void 0;
       const mirrorSignature = canvasRenderedContentSignature(mirror);
       const contentToken = mirror.dataset.yomuMirrorContentToken || startContentToken;
-      const contentKey = bookwalkerCanvasContentKey(contentToken, regionKey) ?? (mirrorSignature ? `cv:${mirrorSignature}:${mirror.width}x${mirror.height}${regionKey}` : void 0);
-      return { frameSrc, frameRect, contentKey, contentToken };
+      return {
+        frameSrc,
+        frameRect,
+        contentKey: bookwalkerCanvasContentKey(contentToken, regionKey) ?? (mirrorSignature ? `cv:${mirrorSignature}:${mirror.width}x${mirror.height}${regionKey}` : void 0),
+        contentToken
+      };
     }
     commitCanvasSnapshot(canvas, pendingSnapshot, key, canvasRect, captured, userRequested) {
       if (this.destroyed || !canvas.isConnected || this.canvasFrames.has(canvas)) return;
