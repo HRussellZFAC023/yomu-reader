@@ -984,10 +984,22 @@ describe('detached reading scroll context', () => {
             .toBe(false);
     });
 
-    // An overflow:hidden box still scrolls when script sets scrollTop, so it
-    // has to disqualify document space the same way a visible scroller does.
-    it('keeps a reading inside a clipped scrollable box on the viewport layer', () => {
-        const reading = projectInto(makeScroller('hidden'), 'かくれ');
+    // A line-clamped title or ellipsised byline is overflow:hidden with content
+    // that overflows by design — the commonest annotated shape on a feed. It
+    // clips, but it never scrolls, so it must still reach document space or the
+    // reading drifts for the whole scrolled frame on every one of them.
+    it('anchors a reading inside an unscrolled clipping box in document space', () => {
+        const reading = projectInto(makeScroller('hidden'), 'きりとり');
+        expect(reading.classList.contains('jpdb-reader-projected-furi-document')).toBe(true);
+    });
+
+    // Once something has actually scrolled that box — only script can, on a
+    // clipping box — its offset is real and document space would strand the
+    // reading, so it falls back to the follow path.
+    it('keeps a reading inside a scrolled clipping box on the viewport layer', () => {
+        const scroller = makeScroller('hidden');
+        Object.defineProperty(scroller, 'scrollTop', { configurable: true, value: 24 });
+        const reading = projectInto(scroller, 'かくれ');
         expect(reading.classList.contains('jpdb-reader-projected-furi-document')).toBe(false);
     });
 

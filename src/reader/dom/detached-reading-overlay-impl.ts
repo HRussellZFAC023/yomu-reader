@@ -443,10 +443,22 @@ function elementScrollsWithDocument(
  * guessing conservatively only keeps today's follow behaviour.
  */
 function elementScrollsIndependently(element: Element, style: CSSStyleDeclaration): boolean {
-    const holdsScroll = (overflow: string): boolean => overflow === 'auto'
+    // auto/scroll/overlay advertise a scroll offset, so overflowing content in
+    // one is enough to disqualify document space.
+    const advertisesScroll = (overflow: string): boolean => overflow === 'auto'
         || overflow === 'scroll'
-        || overflow === 'overlay'
-        || overflow === 'hidden';
+        || overflow === 'overlay';
+    // A clipping box is different: line-clamped titles and ellipsised bylines
+    // are `overflow: hidden` with content that overflows by design, and they
+    // are the most common annotated shape on a feed. Treating "clips" as "holds
+    // a scroll offset" pushed every one of them back onto the per-frame follow
+    // path, where the reading still drifts for the whole scrolled frame. A
+    // clipping box only matters once something has actually scrolled it, which
+    // only script can do, and that shows up as a non-zero offset.
+    const clipsContent = (overflow: string): boolean => overflow === 'hidden' || overflow === 'clip';
+    const scrolled = element.scrollTop !== 0 || element.scrollLeft !== 0;
+    const holdsScroll = (overflow: string): boolean => advertisesScroll(overflow)
+        || (clipsContent(overflow) && scrolled);
     if (holdsScroll(style.overflowY) && element.scrollHeight > element.clientHeight + 1) return true;
     return holdsScroll(style.overflowX) && element.scrollWidth > element.clientWidth + 1;
 }

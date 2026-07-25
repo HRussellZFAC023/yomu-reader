@@ -272,12 +272,23 @@ writeFileSync(entryPath, `
         const anchors: HTMLElement[] = [];
         const owners: HTMLElement[] = [];
         for (let index = 0; index < readingCount; index++) {
+            // Half the rows are line-clamped feed titles — overflow:hidden with
+            // content that overflows by design, the commonest annotated shape on
+            // a video feed. They must reach document space like plain rows do.
             const row = document.createElement('p');
-            row.style.cssText = 'margin:0;padding:16px 0;font:16px sans-serif;';
+            row.style.cssText = index % 2 === 1
+                ? 'display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;'
+                    + 'margin:0;padding:16px 0;font:16px sans-serif;max-width:200px;'
+                : 'margin:0;padding:16px 0;font:16px sans-serif;';
             const anchor = document.createElement('span');
             const { owner } = makeReading(anchor, '連続', 'れんぞく');
             owner.dataset.expression = 'r' + index;
             row.append(anchor);
+            // A clamped row only clips if its content genuinely overflows, which
+            // is what makes scrollHeight exceed clientHeight on a real title.
+            // The filler goes AFTER the anchor so the annotated word stays on
+            // the visible first line and only the tail is clipped.
+            if (index % 2 === 1) row.append(document.createTextNode('とても長いタイトルのテキストがここに入ります'.repeat(2)));
             page.append(row);
             anchors.push(anchor);
             owners.push(owner);
