@@ -989,6 +989,38 @@ describe('detached reading overlay occlusion', () => {
     });
 });
 
+describe('detached reading grace termination', () => {
+    // The refresh pump is event-driven. A pass that painted a stale clone from
+    // its grace allowance used to depend on SOME later event to run the pass
+    // that retires it — on a quiet page that pass never came, and the stale
+    // clone floated at its last position with no word under it (the "stray
+    // furigana over the logo" report). A grace paint now schedules its own
+    // follow-up, so one event is enough for the clone to retire by itself.
+    it('retires a stale clone after one event with no further activity', async () => {
+        const target = readingOwner('まいご');
+        mockElementsFromPoint([target.anchor]);
+        let broken = false;
+        const measure = () => (broken ? null : rect());
+        syncProjectedReadings(target.owner, [{
+            source: target.source,
+            anchor: target.anchor,
+            rect: rect(),
+            measure,
+        }]);
+        await nextProjectionFrame();
+        expect(projectedReading('まいご')?.style.display).toBe('block');
+
+        // The word is recycled away: measurement starts failing for good.
+        broken = true;
+        document.dispatchEvent(new Event('scroll'));
+        // No further events — only the self-scheduled follow-ups may run.
+        for (let i = 0; i < 6; i++) await nextProjectionFrame();
+
+        expect(projectedReading('まいご')?.style.display).toBe('none');
+        clearProjectedReadings(target.owner);
+    });
+});
+
 describe('detached reading scroll context', () => {
     function makeScroller(overflow = 'auto'): HTMLElement {
         const scroller = document.createElement('div');

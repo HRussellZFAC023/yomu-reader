@@ -20,6 +20,7 @@ interface ProjectionRecord {
     cachedTopmost?: boolean;
     cachedOcclusionEpoch?: number;
     lastGoodRect?: DOMRect | null;
+    lastGoodAt?: number;
     graceFramesRemaining?: number;
     documentSpace?: boolean;
     scrollContextEpoch?: number;
@@ -51,6 +52,12 @@ interface DocumentOverlay {
     occlusionEpoch: number;
     scrollContextEpoch: number;
     hitTestBudgetRemaining: number;
+    // Set when a pass painted any clone from its grace allowance. The refresh
+    // pump is event-driven, so without a self-scheduled follow-up the pass
+    // that would retire an expired grace never arrives and the stale clone
+    // stays painted indefinitely — the "stray furigana with no word under it"
+    // report.
+    graceRefreshNeeded: boolean;
 }
 
 interface ProjectionReadContext {
@@ -68,6 +75,9 @@ interface ProjectionReadContext {
 const overlays = new WeakMap<Document, DocumentOverlay>();
 const ownerRecords = new WeakMap<HTMLElement, Map<HTMLElement, ProjectionRecord>>();
 const PROJECTED_READING_ATTRIBUTE = 'data-yomu-projected-reading';
+// Grace may bridge a measurement gap for a few frames, never longer: past this
+// age a missing rect means the word is gone, not mid-relayout.
+const PROJECTION_GRACE_MAX_AGE_MS = 250;
 
 /**
  * Paint detached readings in a reader-owned viewport layer. The source
@@ -210,6 +220,7 @@ function documentOverlay(document: Document): DocumentOverlay {
         occlusionEpoch: 0,
         scrollContextEpoch: 0,
         hitTestBudgetRemaining: 12,
+        graceRefreshNeeded: false,
         scheduleRefresh: () => scheduleProjectionRefresh(document, overlay),
         scheduleTopologyRefresh: () => {
             overlay.rootsDirty = true;
@@ -304,6 +315,7 @@ function readProjectedReadingPaint(
 
     if (valid && sourceAllowed && anchorVisible) {
         record.lastGoodRect = valid;
+        record.lastGoodAt = Date.now();
         record.graceFramesRemaining = 3;
 
         let topmost: boolean;
@@ -321,10 +333,18 @@ function readProjectedReadingPaint(
             }
         }
         visible = topmost;
-    } else if (!valid && record.lastGoodRect && record.graceFramesRemaining && record.graceFramesRemaining > 0 && sourceAllowed && anchorVisible) {
+    } else if (!valid && record.lastGoodRect && record.graceFramesRemaining && record.graceFramesRemaining > 0 && sourceAllowed && anchorVisible
+        // Grace bridges a transient measurement gap of a few FRAMES. Passes
+        // arrive on events, not on a clock, so the counter alone let three
+        // sparse passes stretch the bridge across minutes — a recycled word's
+        // clone floated at its stale position the whole time. Age caps it.
+        && Date.now() - (record.lastGoodAt ?? 0) <= PROJECTION_GRACE_MAX_AGE_MS) {
         record.graceFramesRemaining -= 1;
         effectiveRect = record.lastGoodRect;
         visible = record.cachedTopmost ?? true;
+        // A grace paint is a promise to look again; the pump does not promise
+        // that on its own.
+        if (context) context.overlay.graceRefreshNeeded = true;
     }
 
     return {
@@ -512,6 +532,12 @@ function refreshProjectedReadingPositions(overlay: DocumentOverlay): void {
         return readProjectedReadingPaint(record, safeMeasure(record), context);
     });
     paints.forEach(paint => applyProjectedReadingPaint(paint, context));
+    // A pass that consumed grace owes the follow-up pass that retires it; the
+    // coalesced scheduler makes this one extra frame, not a loop.
+    if (overlay.graceRefreshNeeded) {
+        overlay.graceRefreshNeeded = false;
+        overlay.scheduleRefresh();
+    }
 }
 
 function pruneDisconnectedRecords(overlay: DocumentOverlay): void {
