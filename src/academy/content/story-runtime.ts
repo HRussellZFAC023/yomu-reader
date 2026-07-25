@@ -342,7 +342,7 @@ export function loadOpeningArrivalArc(): StoryPlayableArc {
 }
 
 /** Chapter 1 without the one-time welcome threshold that precedes it. */
-export function loadBlankAtlasArc(): StoryPlayableArc {
+function loadBlankAtlasArc(): StoryPlayableArc {
     if (!cachedBlankAtlasArc) {
         cachedBlankAtlasArc = compileStoryPackage(blankAtlasSource as unknown as StoryPackageSource);
     }

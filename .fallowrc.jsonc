@@ -13,12 +13,16 @@
     "src/gaming/preload.ts",
     "src/gaming/renderer/app.ts",
     "src/academy/entrypoint.ts",
+    "workers/yomu-academy/src/index.ts",
     "scripts/academy-baseline-inventory.mjs",
     "scripts/build-openapi.mjs",
     // Standalone, documented Academy operations/authoring CLIs. They are
     // intentionally run directly rather than through the application graph.
+    "scripts/academy-account-lifecycle-live-proof.mjs",
     "scripts/academy-audio-media.mjs",
+    "scripts/academy-production-workflow.mjs",
     "scripts/academy-source-pipeline.mjs",
+    "scripts/academy-voice/archive-learning-voice-provenance.mjs",
     "scripts/academy-voice/build-voice-production-manifest.mjs",
     // Standalone dictionary acquisition, release, publication, and live-proof
     // CLIs. Operators invoke these directly during a catalogue release; they
@@ -50,6 +54,7 @@
     "scripts/generate-academy-voice-lines.mjs",
     // Manual Academy world/lesson QA browsers — run directly during content
     // review, never through the application graph.
+    "scripts/manual/academy-story-recovery-browser.mjs",
     "scripts/japan-centre-world-browser.mjs",
     "scripts/lesson-28-cafe-assets-browser.mjs",
     "scripts/lesson-35-presentation-browser.mjs",
@@ -116,7 +121,7 @@
     // KanjiStudyCompanionSlot constructor, which obscures concrete dispatch.
     {
       "implements": "ImmersionPopoverControl",
-      "members": ["abortPendingRequests", "hasActiveContext", "rememberTermMiningContext"]
+      "members": ["abortPendingRequests", "hasActiveContext", "rememberTermMiningContext", "preferredExampleFor"]
     },
     // The app owns this store behind an optional field, which obscures the
     // concrete receiver at the settings-driven cache invalidation call.
@@ -262,6 +267,14 @@
     {
       "file": "src/academy/domain/grounded-answer-concealment-audit.ts",
       "exports": ["GROUNDED_ANSWER_CONCEALMENT_AUDIT_REVISION"]
+    },
+    {
+      "file": "src/academy/ui/lesson-screen.ts",
+      "exports": ["renderArrivalBridge"]
+    },
+    {
+      "file": "workers/yomu-academy/src/profiles.ts",
+      "exports": ["attachSessionProfileToAccount"]
     },
     {
       "file": "src/academy/integration/yomu-bridge.ts",

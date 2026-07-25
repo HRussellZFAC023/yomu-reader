@@ -1,8 +1,8 @@
 import type { Disposable, PronunciationService } from '../integration/yomu-bridge';
 import type { AudioDirector } from './director';
 
-export const LEARNING_VOICE_CATALOG_URL = '/academy/audio/learning-voice-playback.json';
-export const LEARNING_VOICE_SCHEMA = 'yomu-academy.learning-voice-playback.v3';
+const LEARNING_VOICE_CATALOG_URL = '/academy/audio/learning-voice-playback.json';
+const LEARNING_VOICE_SCHEMA = 'yomu-academy.learning-voice-playback.v3';
 
 export const LEARNING_VOICE_BINDING_IDENTITIES = Object.freeze({
     'lesson-screen:textbook-pair-prompt': Object.freeze({
@@ -32,7 +32,7 @@ export const LEARNING_VOICE_BINDING_IDENTITIES = Object.freeze({
     }),
 } satisfies Readonly<Record<string, LearningVoiceLineIdentity>>);
 
-export type LearningVoiceBindingId = keyof typeof LEARNING_VOICE_BINDING_IDENTITIES;
+type LearningVoiceBindingId = keyof typeof LEARNING_VOICE_BINDING_IDENTITIES;
 
 export interface LearningVoiceBinding {
     readonly lineId: string;

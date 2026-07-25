@@ -4,8 +4,6 @@ import type { PlacementListeningMode } from '../domain/placement-session';
 import { resolvePackagedAcademyListeningLocator } from '../content/listening/listening-crosswalk';
 import { ORIENTATION_SOURCE_ITEMS } from './orientation-bank';
 
-export type { PlacementMockDraft } from '../domain/placement-session';
-
 export interface PlacementProductionPrompt {
     readonly speaking: Readonly<{ model: LocalizedText; task: LocalizedText }>;
     readonly writing: Readonly<{ model: LocalizedText; task: LocalizedText }>;

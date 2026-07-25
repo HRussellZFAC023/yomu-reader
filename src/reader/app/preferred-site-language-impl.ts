@@ -78,7 +78,7 @@ export function preferredJapaneseSiteUrl(sourceHref: string, root?: QueryRoot): 
 // ?locale=ja-JP) and rewrite ones that were (hl=en -> hl=ja), and neither is
 // recoverable from the URL alone, so removing every Japanese marker we know how
 // to add is the honest inverse: the site then serves its own default again.
-export function preferredDefaultSiteUrl(sourceHref: string, root?: QueryRoot): string | null {
+function preferredDefaultSiteUrl(sourceHref: string, root?: QueryRoot): string | null {
     const current = parseHttpUrl(sourceHref);
     if (!current) return null;
     const target = defaultAlternateLinkUrl(current, root) ?? withoutJapaneseMarkers(current);

@@ -2,7 +2,7 @@ import type { ActivityEvaluation } from './activity-runtime';
 import type { LearningAction, LearningSkill } from './learner-record';
 import type { KanaSoundMapModel, KanaSoundMapResponse } from '../minigames/kana-sound-map';
 
-export const LESSON_ZERO_VOWEL_SESSION_ID = 'session:lesson-zero-vowel-listen' as const;
+const LESSON_ZERO_VOWEL_SESSION_ID = 'session:lesson-zero-vowel-listen' as const;
 export const LESSON_ZERO_VOWEL_BINGO_ID = 'game:lesson-zero-vowel-listening-bingo' as const;
 
 export type LessonZeroVowelMode = 'audio' | 'visual';

@@ -76,7 +76,7 @@ export async function handlePullReaderSrsEvents(request: Request, env: Env, cloc
     return jsonResponse(await readReaderSrsEventPage(env, context.profile.id, cursor, limit));
 }
 
-export async function readReaderSrsEventPage(env: Env, profileId: string, cursor: number, limit: number): Promise<Record<string, unknown>> {
+async function readReaderSrsEventPage(env: Env, profileId: string, cursor: number, limit: number): Promise<Record<string, unknown>> {
     const result = await env.ACADEMY_DB.prepare(
         'SELECT e.sequence, e.event_id, e.occurred_at, e.key_version, e.nonce, e.ciphertext, '
         + 'd.public_id AS source_device_public_id, e.received_at FROM reader_srs_events e '

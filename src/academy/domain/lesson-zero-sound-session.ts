@@ -2,12 +2,12 @@ import type { ActivityEvaluation, ReviewSeed } from './activity-runtime';
 import type { LearnerEventInput, LearningAction, LearningSkill } from './learner-record';
 import type { LocalizedText } from './source-library';
 
-export const LESSON_ZERO_SOUND_LINE_IDS = Object.freeze([
+const LESSON_ZERO_SOUND_LINE_IDS = Object.freeze([
     'line:lesson-zero-sound-xingyu',
     'line:lesson-zero-sound-mika',
 ] as const);
 
-export const LESSON_ZERO_SOUND_SPEAKER_IDS = Object.freeze(['xingyu', 'mika'] as const);
+const LESSON_ZERO_SOUND_SPEAKER_IDS = Object.freeze(['xingyu', 'mika'] as const);
 
 export type LessonZeroSoundLineId = typeof LESSON_ZERO_SOUND_LINE_IDS[number];
 export type LessonZeroSoundSpeakerId = typeof LESSON_ZERO_SOUND_SPEAKER_IDS[number];

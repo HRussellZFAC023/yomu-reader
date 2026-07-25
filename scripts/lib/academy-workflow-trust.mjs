@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 
-export const GOVERNANCE_TRUST_SCHEMA = 'yomu-academy.governance-trust/v1';
+const GOVERNANCE_TRUST_SCHEMA = 'yomu-academy.governance-trust/v1';
 
 function isInside(root, candidate) {
     const relative = path.relative(root, candidate);
@@ -19,7 +19,7 @@ function validDate(value) {
     return typeof value === 'string' && !Number.isNaN(Date.parse(value));
 }
 
-export function governanceTrustStorePath(repoRoot, environment = process.env, home = os.homedir()) {
+function governanceTrustStorePath(repoRoot, environment = process.env, home = os.homedir()) {
     const configured = environment.YOMU_ACADEMY_GOVERNANCE_TRUST_STORE;
     const lexical = path.resolve(configured || path.join(home, '.config/yomu/academy-production-governance-trust.json'));
     if (isInside(fs.realpathSync.native(repoRoot), lexical)) {
@@ -210,7 +210,7 @@ export function trustBindings(config, store) {
     };
 }
 
-export function findExecutable(command, pathValue = process.env.PATH ?? '') {
+function findExecutable(command, pathValue = process.env.PATH ?? '') {
     if (!/^[A-Za-z0-9._-]+$/u.test(command)) throw new Error(`Unsafe executable name: ${command}`);
     for (const entry of pathValue.split(path.delimiter)) {
         if (!entry) continue;

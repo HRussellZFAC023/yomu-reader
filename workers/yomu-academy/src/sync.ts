@@ -12,7 +12,7 @@ const MAX_EVENT_CIPHERTEXT_BYTES = 16 * 1024;
 const MAX_CLOCK_SKEW_MS = 5 * 60_000;
 const UUID_V4_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
 
-export interface EncryptedSyncEventInput {
+interface EncryptedSyncEventInput {
     readonly id: string;
     readonly occurredAt: number;
     readonly keyVersion: number;
@@ -20,13 +20,13 @@ export interface EncryptedSyncEventInput {
     readonly ciphertext: string;
 }
 
-export interface EncryptedSyncEvent extends EncryptedSyncEventInput {
+interface EncryptedSyncEvent extends EncryptedSyncEventInput {
     readonly cursor: number;
     readonly sourceDeviceId: string | null;
     readonly receivedAt: number;
 }
 
-export interface SyncPage {
+interface SyncPage {
     readonly events: readonly EncryptedSyncEvent[];
     readonly nextCursor: number;
     readonly hasMore: boolean;
@@ -116,7 +116,7 @@ export async function handleSyncPull(request: Request, env: Env, clock: Clock): 
     return jsonResponse(await readSyncPage(env, context.profile.id, cursor, limit));
 }
 
-export async function readSyncPage(
+async function readSyncPage(
     env: Env,
     profileId: string,
     cursor: number,
@@ -146,7 +146,7 @@ export async function readSyncPage(
     };
 }
 
-export function readPageRequest(url: URL): { cursor: number; limit: number } {
+function readPageRequest(url: URL): { cursor: number; limit: number } {
     const cursor = integerQuery(url.searchParams.get('cursor'), 'cursor', 0, Number.MAX_SAFE_INTEGER, 0);
     const limit = integerQuery(url.searchParams.get('limit'), 'limit', 1, MAX_PULL_LIMIT, DEFAULT_PULL_LIMIT);
     return { cursor, limit };

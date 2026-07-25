@@ -21,7 +21,7 @@ import type { LearnerEvent, LearnerEventRepository } from '../domain/learner-rec
 const STORAGE_KEY = 'yomu:academy:profile-sync:v1';
 const SYNC_BATCH_SIZE = 50;
 const PAIRING_INFO = 'yomu-academy-device-pairing-v1';
-export const ACADEMY_EXPORT_FALLBACK_MAX_BYTES = 32 * 1024 * 1024;
+const ACADEMY_EXPORT_FALLBACK_MAX_BYTES = 32 * 1024 * 1024;
 
 /**
  * Observable states for the paid-account and sync surface.
