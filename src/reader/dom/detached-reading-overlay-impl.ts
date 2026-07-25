@@ -19,6 +19,8 @@ interface ProjectionRecord {
     cachedOcclusionEpoch?: number;
     lastGoodRect?: DOMRect | null;
     graceFramesRemaining?: number;
+    documentSpace?: boolean;
+    scrollContextEpoch?: number;
 }
 
 interface ProjectionPaint {
@@ -29,6 +31,8 @@ interface ProjectionPaint {
 
 interface DocumentOverlay {
     layer: HTMLElement;
+    documentLayer: HTMLElement;
+    documentLayerOrigin: { x: number; y: number } | null;
     records: Set<ProjectionRecord>;
     anchorRecords: Map<HTMLElement, Set<ProjectionRecord>>;
     anchorRoots: Map<HTMLElement, readonly ShadowRoot[]>;
@@ -41,6 +45,7 @@ interface DocumentOverlay {
     scheduleTopologyRefresh: () => void;
     rootsDirty: boolean;
     occlusionEpoch: number;
+    scrollContextEpoch: number;
     hitTestBudgetRemaining: number;
 }
 
@@ -49,6 +54,11 @@ interface ProjectionReadContext {
     anchorPaint: Map<HTMLElement, boolean>;
     elementPaint: Map<Element, boolean>;
     occludingPaint: Map<Element, boolean>;
+    documentScroll: Map<Element, boolean>;
+    // Paint visibility and scroll context both walk the composed ancestry and
+    // both want the same computed style. Reading it once per element per pass
+    // keeps a dense page from paying for the same style resolution twice.
+    styleReads: Map<Element, CSSStyleDeclaration>;
 }
 
 const overlays = new WeakMap<Document, DocumentOverlay>();
@@ -73,7 +83,10 @@ export function syncProjectedReadings(
         anchorPaint: new Map(),
         elementPaint: new Map(),
         occludingPaint: new Map(),
+        documentScroll: new Map(),
+        styleReads: new Map(),
     };
+    overlay.documentLayerOrigin = null;
 
     for (const [source, record] of records) {
         if (currentSources.has(source)) continue;
@@ -149,20 +162,25 @@ export function pruneProjectedReadings(document: Document): void {
 function documentOverlay(document: Document): DocumentOverlay {
     const existing = overlays.get(document);
     if (existing) {
-        if (!existing.layer.isConnected) {
-            (document.documentElement ?? document.body).append(existing.layer);
-        }
+        const host = document.documentElement ?? document.body;
+        if (!existing.layer.isConnected) host.append(existing.layer);
+        if (!existing.documentLayer.isConnected) host.append(existing.documentLayer);
         return existing;
     }
 
-    const layer = document.createElement('div');
-    layer.className = 'jpdb-reader-detached-reading-overlay';
-    layer.setAttribute('aria-hidden', 'true');
-    layer.setAttribute('data-jpdb-reader-surface-ignore', 'true');
-    (document.documentElement ?? document.body).append(layer);
+    const layer = createProjectionLayer(document, 'jpdb-reader-detached-reading-overlay');
+    // Readings whose word scrolls with the document are stamped in document
+    // space inside this second layer, so the compositor carries clone and word
+    // together and a dropped refresh frame cannot pull them apart.
+    const documentLayer = createProjectionLayer(
+        document,
+        'jpdb-reader-detached-reading-overlay jpdb-reader-detached-reading-document-layer',
+    );
 
     const overlay: DocumentOverlay = {
         layer,
+        documentLayer,
+        documentLayerOrigin: null,
         records: new Set(),
         anchorRecords: new Map(),
         anchorRoots: new Map(),
@@ -172,11 +190,16 @@ function documentOverlay(document: Document): DocumentOverlay {
         observer: null,
         shadowRootReferences: new Map(),
         occlusionEpoch: 0,
+        scrollContextEpoch: 0,
         hitTestBudgetRemaining: 12,
         scheduleRefresh: () => scheduleProjectionRefresh(document, overlay),
         scheduleTopologyRefresh: () => {
             overlay.rootsDirty = true;
             overlay.occlusionEpoch += 1;
+            // A word's scroll container can only change when the page's
+            // structure or styling does, so recompute modes here and never on
+            // an ordinary scroll frame.
+            overlay.scrollContextEpoch += 1;
             scheduleProjectionRefresh(document, overlay);
         },
         rootsDirty: false,
@@ -189,12 +212,23 @@ function documentOverlay(document: Document): DocumentOverlay {
     document.addEventListener('focusin', overlay.scheduleRefresh, { capture: true, passive: true });
     document.addEventListener('focusout', overlay.scheduleRefresh, { capture: true, passive: true });
     const viewport = document.defaultView;
-    viewport?.addEventListener('resize', overlay.scheduleRefresh, { passive: true });
-    viewport?.addEventListener('orientationchange', overlay.scheduleRefresh, { passive: true });
+    // A resize can make an inner box start or stop scrolling, so it has to
+    // re-decide scroll contexts rather than just re-measure.
+    viewport?.addEventListener('resize', overlay.scheduleTopologyRefresh, { passive: true });
+    viewport?.addEventListener('orientationchange', overlay.scheduleTopologyRefresh, { passive: true });
     viewport?.visualViewport?.addEventListener('scroll', overlay.scheduleRefresh, { passive: true });
     viewport?.visualViewport?.addEventListener('resize', overlay.scheduleRefresh, { passive: true });
     overlay.observer = observeProjectionEnvironment(document, overlay);
     return overlay;
+}
+
+function createProjectionLayer(document: Document, className: string): HTMLElement {
+    const layer = document.createElement('div');
+    layer.className = className;
+    layer.setAttribute('aria-hidden', 'true');
+    layer.setAttribute('data-jpdb-reader-surface-ignore', 'true');
+    (document.documentElement ?? document.body).append(layer);
+    return layer;
 }
 
 function createProjectedReading(source: HTMLElement, layer: HTMLElement): HTMLElement {
@@ -228,7 +262,7 @@ function paintProjectedReading(
     rect: DOMRect,
     context: ProjectionReadContext,
 ): void {
-    applyProjectedReadingPaint(readProjectedReadingPaint(record, rect, context));
+    applyProjectedReadingPaint(readProjectedReadingPaint(record, rect, context), context);
 }
 
 function readProjectedReadingPaint(
@@ -277,25 +311,125 @@ function readProjectedReadingPaint(
     };
 }
 
-function applyProjectedReadingPaint(paint: ProjectionPaint): void {
+function applyProjectedReadingPaint(paint: ProjectionPaint, context?: ProjectionReadContext): void {
     if (!paint.visible || !paint.rect) {
         paint.record.clone.style.setProperty('display', 'none', 'important');
         return;
     }
-    positionProjectedReading(paint.record.clone, paint.rect);
+    positionProjectedReading(paint.record, paint.rect, context);
 }
 
-function positionProjectedReading(clone: HTMLElement, rect: DOMRect): void {
+function positionProjectedReading(
+    record: ProjectionRecord,
+    rect: DOMRect,
+    context?: ProjectionReadContext,
+): void {
+    const { clone } = record;
+    const documentSpace = context ? adoptProjectionLayer(record, context) : false;
+    const origin = documentSpace && context
+        ? documentLayerOrigin(context.overlay)
+        : { x: 0, y: 0 };
     clone.style.setProperty('display', 'block', 'important');
-    clone.style.setProperty('left', `${rect.left + rect.width / 2}px`, 'important');
-    clone.style.setProperty('top', `${rect.top}px`, 'important');
+    clone.style.setProperty('left', `${rect.left + rect.width / 2 + origin.x}px`, 'important');
+    clone.style.setProperty('top', `${rect.top + origin.y}px`, 'important');
     clone.style.setProperty('right', 'auto', 'important');
     clone.style.setProperty('bottom', 'auto', 'important');
     clone.style.setProperty('transform', 'translate(-50%, -100%)', 'important');
+    // Stamps stay in viewport space in both modes so alignment guards and the
+    // settle sweep keep reading one coordinate system.
     clone.dataset.yomuSourceLeft = String(rect.left);
     clone.dataset.yomuSourceTop = String(rect.top);
     clone.dataset.yomuSourceWidth = String(rect.width);
     clone.dataset.yomuSourceHeight = String(rect.height);
+}
+
+/**
+ * Move a clone into the layer its word's scroll context calls for, and report
+ * whether that layer is document-space. Words that ride the document scroller
+ * are stamped once in page coordinates and then need no per-frame work at all;
+ * words inside an inner scroller, or under a fixed or sticky ancestor, keep the
+ * viewport layer and its refresh-frame follow.
+ */
+function adoptProjectionLayer(record: ProjectionRecord, context: ProjectionReadContext): boolean {
+    const { overlay } = context;
+    const documentSpace = projectionUsesDocumentSpace(record, context);
+    const layer = documentSpace ? overlay.documentLayer : overlay.layer;
+    if (record.clone.parentElement !== layer) layer.append(record.clone);
+    record.clone.classList.toggle('jpdb-reader-projected-furi-document', documentSpace);
+    return documentSpace;
+}
+
+function projectionUsesDocumentSpace(record: ProjectionRecord, context: ProjectionReadContext): boolean {
+    const { overlay } = context;
+    if (record.scrollContextEpoch === overlay.scrollContextEpoch && record.documentSpace !== undefined) {
+        return record.documentSpace;
+    }
+    const documentSpace = elementScrollsWithDocument(
+        record.anchor,
+        context.documentScroll,
+        context.styleReads,
+    );
+    record.scrollContextEpoch = overlay.scrollContextEpoch;
+    record.documentSpace = documentSpace;
+    return documentSpace;
+}
+
+/**
+ * Layout containment makes the document layer the containing block for the
+ * clones inside it, so document-space offsets are stamped relative to that
+ * layer's own box rather than to the page origin. Both that box and the word
+ * are measured in viewport coordinates in the same pass, so the scroll offset
+ * cancels and the stamped value holds still while the page scrolls. It is read
+ * once per pass rather than once per reading.
+ */
+function documentLayerOrigin(overlay: DocumentOverlay): { x: number; y: number } {
+    if (overlay.documentLayerOrigin) return overlay.documentLayerOrigin;
+    const rect = overlay.documentLayer.getBoundingClientRect();
+    const origin = { x: -rect.left, y: -rect.top };
+    overlay.documentLayerOrigin = origin;
+    return origin;
+}
+
+function elementScrollsWithDocument(
+    element: Element,
+    cache: Map<Element, boolean>,
+    styles?: Map<Element, CSSStyleDeclaration>,
+): boolean {
+    const cached = cache.get(element);
+    if (cached !== undefined) return cached;
+    const document = element.ownerDocument;
+    const view = document.defaultView;
+    let scrolls: boolean;
+    if (!view) {
+        scrolls = false;
+    } else if (element === document.documentElement || element === document.body) {
+        scrolls = true;
+    } else {
+        const style = memoizedComputedStyle(element, styles);
+        const parent = composedParentElement(element);
+        scrolls = style.position !== 'fixed'
+            && style.position !== 'sticky'
+            && !elementScrollsIndependently(element, style)
+            && Boolean(parent)
+            && elementScrollsWithDocument(parent as Element, cache, styles);
+    }
+    cache.set(element, scrolls);
+    return scrolls;
+}
+
+/**
+ * Anything that can hold its own scroll offset disqualifies a word from
+ * document space, including overflow:hidden boxes — those still scroll when
+ * script sets scrollTop, and guessing wrong here detaches the reading, while
+ * guessing conservatively only keeps today's follow behaviour.
+ */
+function elementScrollsIndependently(element: Element, style: CSSStyleDeclaration): boolean {
+    const holdsScroll = (overflow: string): boolean => overflow === 'auto'
+        || overflow === 'scroll'
+        || overflow === 'overlay'
+        || overflow === 'hidden';
+    if (holdsScroll(style.overflowY) && element.scrollHeight > element.clientHeight + 1) return true;
+    return holdsScroll(style.overflowX) && element.scrollWidth > element.clientWidth + 1;
 }
 
 function scheduleProjectionRefresh(document: Document, overlay: DocumentOverlay): void {
@@ -314,6 +448,9 @@ function scheduleProjectionRefresh(document: Document, overlay: DocumentOverlay)
 function refreshProjectedReadingPositions(overlay: DocumentOverlay): void {
     pruneDisconnectedRecords(overlay);
     overlay.hitTestBudgetRemaining = 12;
+    // The layer's viewport box moves with every scroll; only its value within
+    // a single pass may be reused.
+    overlay.documentLayerOrigin = null;
     // Frameworks can move an already-annotated node between shadow trees
     // without asking the reader to sync it again. After a DOM/slot mutation,
     // reconcile composed ancestry before choosing records so listeners follow
@@ -330,6 +467,8 @@ function refreshProjectedReadingPositions(overlay: DocumentOverlay): void {
         anchorPaint: new Map(),
         elementPaint: new Map(),
         occludingPaint: new Map(),
+        documentScroll: new Map(),
+        styleReads: new Map(),
     };
     const paints = refreshableRecords(overlay).map(record => {
         if (!visibleAnchor(record.anchor, context)) {
@@ -337,7 +476,7 @@ function refreshProjectedReadingPositions(overlay: DocumentOverlay): void {
         }
         return readProjectedReadingPaint(record, safeMeasure(record), context);
     });
-    paints.forEach(applyProjectedReadingPaint);
+    paints.forEach(paint => applyProjectedReadingPaint(paint, context));
 }
 
 function pruneDisconnectedRecords(overlay: DocumentOverlay): void {
@@ -518,8 +657,10 @@ function rebuildProjectionMutationRoots(overlay: DocumentOverlay): void {
     }
 }
 
-function isYomuOwnedNode(node: Node, layer: HTMLElement): boolean {
-    if (node === layer || layer.contains(node)) return true;
+function isYomuOwnedNode(node: Node, overlay: DocumentOverlay): boolean {
+    for (const layer of [overlay.layer, overlay.documentLayer]) {
+        if (node === layer || layer.contains(node)) return true;
+    }
     if (node instanceof Element) {
         if (node.hasAttribute(PROJECTED_READING_ATTRIBUTE) || node.hasAttribute('data-jpdb-reader-surface-ignore')) return true;
         const className = typeof node.className === 'string' ? node.className : '';
@@ -530,10 +671,10 @@ function isYomuOwnedNode(node: Node, layer: HTMLElement): boolean {
 
 function mutationAffectsProjection(mutation: MutationRecord, overlay: DocumentOverlay): boolean {
     const target = mutation.target;
-    if (isYomuOwnedNode(target, overlay.layer)) return false;
+    if (isYomuOwnedNode(target, overlay)) return false;
 
     const affectedNodes = [...mutation.addedNodes, ...mutation.removedNodes];
-    if (affectedNodes.length > 0 && affectedNodes.every(node => isYomuOwnedNode(node, overlay.layer))) {
+    if (affectedNodes.length > 0 && affectedNodes.every(node => isYomuOwnedNode(node, overlay))) {
         return false;
     }
 
@@ -736,22 +877,26 @@ function visibleAnchor(anchor: HTMLElement, context: ProjectionReadContext): boo
     const intersects = context.overlay.intersectionObserver
         ? context.overlay.intersectingAnchors.has(anchor)
         : anchorIntersectsViewport(anchor);
-    const visible = intersects && anchorIsPainted(anchor, context.elementPaint);
+    const visible = intersects && anchorIsPainted(anchor, context.elementPaint, context.styleReads);
     context.anchorPaint.set(anchor, visible);
     return visible;
 }
 
-function anchorIsPainted(anchor: Element, cache = new Map<Element, boolean>()): boolean {
+function anchorIsPainted(
+    anchor: Element,
+    cache = new Map<Element, boolean>(),
+    styles?: Map<Element, CSSStyleDeclaration>,
+): boolean {
     const cached = cache.get(anchor);
     if (cached !== undefined) return cached;
-    const style = safeComputedStyle(anchor);
+    const style = memoizedComputedStyle(anchor, styles);
     const parent = composedParentElement(anchor);
     const visible = style.display !== 'none'
         && style.visibility !== 'hidden'
         && style.visibility !== 'collapse'
         && style.contentVisibility !== 'hidden'
         && (style.opacity === '' || Number.parseFloat(style.opacity) !== 0)
-        && (!parent || anchorIsPainted(parent, cache));
+        && (!parent || anchorIsPainted(parent, cache, styles));
     cache.set(anchor, visible);
     return visible;
 }
@@ -790,6 +935,18 @@ function composedParentNode(node: Node): Node | null {
     if (node instanceof Element && node.assignedSlot) return node.assignedSlot;
     if (node.parentNode) return node.parentNode;
     return node instanceof ShadowRoot ? node.host : null;
+}
+
+function memoizedComputedStyle(
+    element: Element,
+    cache?: Map<Element, CSSStyleDeclaration>,
+): CSSStyleDeclaration {
+    if (!cache) return safeComputedStyle(element);
+    const cached = cache.get(element);
+    if (cached) return cached;
+    const style = safeComputedStyle(element);
+    cache.set(element, style);
+    return style;
 }
 
 function safeComputedStyle(element: Element): CSSStyleDeclaration {

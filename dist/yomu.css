@@ -1281,6 +1281,23 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   z-index: 2147482000 !important;
   contain: layout style !important;
 }
+/* Readings whose word rides the document scroller live here instead, stamped
+   in page coordinates. The compositor then scrolls the reading and its word
+   together, so a refresh frame that arrives late — or never — can no longer
+   leave the reading behind. The box is zero-sized and layout-contained: it is
+   only a containing block for the readings inside it, and must not add to the
+   page's scrollable area. */
+.jpdb-reader-detached-reading-overlay.jpdb-reader-detached-reading-document-layer {
+  position: absolute !important;
+  inset: auto !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+.jpdb-reader-projected-furi.jpdb-reader-projected-furi-document {
+  position: absolute !important;
+}
 .jpdb-reader-projected-furi {
   position: fixed !important;
   display: block !important;

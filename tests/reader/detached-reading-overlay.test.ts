@@ -939,3 +939,93 @@ describe('detached reading overlay occlusion', () => {
         clearProjectedReadings(mirror);
     });
 });
+
+describe('detached reading scroll context', () => {
+    function makeScroller(overflow = 'auto'): HTMLElement {
+        const scroller = document.createElement('div');
+        // jsdom does not expand the overflow shorthand into longhands, so set
+        // the axis the projection actually consults.
+        scroller.style.overflowY = overflow;
+        Object.defineProperty(scroller, 'clientHeight', { configurable: true, value: 100 });
+        Object.defineProperty(scroller, 'scrollHeight', { configurable: true, value: 400 });
+        return scroller;
+    }
+
+    function projectInto(host: HTMLElement | null, text: string): HTMLElement {
+        const target = readingOwner(text);
+        if (host) {
+            document.body.append(host);
+            host.append(target.anchor);
+        }
+        mockElementsFromPoint([target.anchor]);
+        syncProjectedReadings(target.owner, [{
+            source: target.source,
+            anchor: target.anchor,
+            rect: rect(),
+            measure: () => rect(),
+        }]);
+        return projectedReading(text)!;
+    }
+
+    // A word on the ordinary page rides the document scroller, so its reading
+    // is stamped in page space and the compositor carries the two together —
+    // a refresh frame that never arrives can no longer strand the reading.
+    it('anchors a reading on plain page text in document space', () => {
+        const reading = projectInto(null, 'ふつう');
+        expect(reading.classList.contains('jpdb-reader-projected-furi-document')).toBe(true);
+        expect(reading.parentElement?.classList.contains('jpdb-reader-detached-reading-document-layer'))
+            .toBe(true);
+    });
+
+    it('keeps a reading inside an inner scroller on the viewport layer', () => {
+        const reading = projectInto(makeScroller(), 'なか');
+        expect(reading.classList.contains('jpdb-reader-projected-furi-document')).toBe(false);
+        expect(reading.parentElement?.classList.contains('jpdb-reader-detached-reading-document-layer'))
+            .toBe(false);
+    });
+
+    // An overflow:hidden box still scrolls when script sets scrollTop, so it
+    // has to disqualify document space the same way a visible scroller does.
+    it('keeps a reading inside a clipped scrollable box on the viewport layer', () => {
+        const reading = projectInto(makeScroller('hidden'), 'かくれ');
+        expect(reading.classList.contains('jpdb-reader-projected-furi-document')).toBe(false);
+    });
+
+    it.each(['fixed', 'sticky'])('keeps a reading under a %s ancestor on the viewport layer', position => {
+        const pinned = document.createElement('div');
+        pinned.style.position = position;
+        const reading = projectInto(pinned, `ぴん${position}`);
+        expect(reading.classList.contains('jpdb-reader-projected-furi-document')).toBe(false);
+    });
+
+    it('re-decides the layer when the word gains a scrolling ancestor', async () => {
+        const target = readingOwner('いどう');
+        mockElementsFromPoint([target.anchor]);
+        syncProjectedReadings(target.owner, [{
+            source: target.source,
+            anchor: target.anchor,
+            rect: rect(),
+            measure: () => rect(),
+        }]);
+        expect(projectedReading('いどう')?.classList.contains('jpdb-reader-projected-furi-document'))
+            .toBe(true);
+
+        const scroller = makeScroller();
+        document.body.append(scroller);
+        scroller.append(target.anchor);
+        await nextProjectionFrame();
+
+        expect(projectedReading('いどう')?.classList.contains('jpdb-reader-projected-furi-document'))
+            .toBe(false);
+        clearProjectedReadings(target.owner);
+    });
+
+    // Document-space readings are absolutely positioned, so the layer holding
+    // them must never contribute to the page's own scrollable area.
+    it('keeps the document layer out of page layout', () => {
+        projectInto(null, 'そとわく');
+        const layer = document.querySelector<HTMLElement>('.jpdb-reader-detached-reading-document-layer');
+        expect(layer?.isConnected).toBe(true);
+        expect(layer?.parentElement).toBe(document.documentElement);
+    });
+});

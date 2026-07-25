@@ -56,6 +56,7 @@ writeFileSync(entryPath, `
             stampedSourceTop: Number(clone.dataset.yomuSourceTop),
             alignment: cloneRect.bottom - sourceRect.top,
             display: getComputedStyle(clone).display,
+            documentSpace: clone.classList.contains('jpdb-reader-projected-furi-document'),
         };
     };
     const scrollResult = (before, after) => ({
@@ -228,6 +229,114 @@ writeFileSync(entryPath, `
         platform.remove();
         return midScrollSnapshots;
     };
+
+    // A masthead pinned over the page does not move when the page scrolls, so
+    // its readings must stay on the follow path; document-space anchoring would
+    // scroll them away from a word that never moved.
+    window.runPinnedReadingProbe = async () => {
+        const masthead = document.createElement('header');
+        masthead.style.cssText = 'position:fixed;top:0;left:0;right:0;height:56px;background:white;';
+        const anchor = document.createElement('span');
+        const { owner, source } = makeReading(anchor, '固定', 'こてい');
+        masthead.append(anchor);
+        document.body.append(masthead);
+        const spacer = document.createElement('div');
+        spacer.style.cssText = 'height:2400px;';
+        document.body.append(spacer);
+        const measure = () => anchor.getBoundingClientRect();
+        syncProjectedReadings(owner, [{ source, anchor, rect: measure(), measure }]);
+        await settleProjection();
+
+        scrollBy(0, 240);
+        const inFrame = readingSnapshot(anchor);
+        await nextPaint();
+        const settled = readingSnapshot(anchor);
+
+        clearProjectedReadings(owner);
+        masthead.remove();
+        spacer.remove();
+        scrollTo(0, 0);
+        return { inFrame, settled };
+    };
+
+    // The reported tablet symptom is the document scroller carrying a dense
+    // page of readings, not one reading in an inner box. Two properties matter
+    // and they fail differently: readings must survive a sustained fling where
+    // no frame ever settles, and they must stay glued to their word within the
+    // scrolled frame itself, before any main-thread work runs. A tablet's
+    // compositor moves the page without waiting for script, so a reading that
+    // needs a refresh frame to catch up is a reading that visibly comes adrift.
+    window.runRootFlingProbe = async (readingCount = 60, steps = 12, distance = 96) => {
+        const page = document.createElement('div');
+        page.style.cssText = 'margin:0;padding:0;';
+        const anchors: HTMLElement[] = [];
+        const owners: HTMLElement[] = [];
+        for (let index = 0; index < readingCount; index++) {
+            const row = document.createElement('p');
+            row.style.cssText = 'margin:0;padding:16px 0;font:16px sans-serif;';
+            const anchor = document.createElement('span');
+            const { owner } = makeReading(anchor, '連続', 'れんぞく');
+            owner.dataset.expression = 'r' + index;
+            row.append(anchor);
+            page.append(row);
+            anchors.push(anchor);
+            owners.push(owner);
+        }
+        document.body.append(page);
+        const root = document.documentElement;
+        const extentBefore = { width: root.scrollWidth, height: root.scrollHeight };
+        for (const [index, anchor] of anchors.entries()) {
+            const owner = owners[index];
+            const source = owner.querySelector('.jpdb-reader-detached-furi');
+            if (!(source instanceof HTMLElement)) throw new Error('fling reading source missing');
+            const measure = () => anchor.getBoundingClientRect();
+            syncProjectedReadings(owner, [{ source, anchor, rect: measure(), measure }]);
+        }
+        await settleProjection();
+        // Document-space readings are absolutely positioned, so they must not
+        // grow the page's scrollable area or a reading could raise a scrollbar.
+        const extentAfter = { width: root.scrollWidth, height: root.scrollHeight };
+        const documentSpaceCount = document
+            .querySelectorAll('.jpdb-reader-projected-furi-document').length;
+
+        const sampleFrame = (frame: number, phase: string) => {
+            const clones = new Map<string, HTMLElement>();
+            for (const clone of document.querySelectorAll('[data-yomu-projected-reading="true"]')) {
+                if (clone instanceof HTMLElement) clones.set(clone.dataset.yomuExpression ?? '', clone);
+            }
+            let checked = 0;
+            let blanked = 0;
+            let worstAlignment = 0;
+            for (const [index, anchor] of anchors.entries()) {
+                const rect = anchor.getBoundingClientRect();
+                if (rect.top < 24 || rect.bottom > innerHeight - 8) continue;
+                checked += 1;
+                const clone = clones.get('r' + index);
+                if (!clone) { blanked += 1; continue; }
+                if (getComputedStyle(clone).display === 'none') { blanked += 1; continue; }
+                const alignment = clone.getBoundingClientRect().bottom - rect.top;
+                if (Math.abs(alignment) > Math.abs(worstAlignment)) worstAlignment = alignment;
+            }
+            return { frame, phase, checked, blanked, worstAlignment, scrollY: Math.round(scrollY) };
+        };
+
+        const sustained = [];
+        const inFrame = [];
+        for (let step = 1; step <= steps; step++) {
+            scrollBy(0, distance);
+            // Same script turn as the scroll: no rAF has run, so this is the
+            // page as the compositor would show it before any catch-up work.
+            inFrame.push(sampleFrame(step, 'in-frame'));
+            // Then one frame later, still without a settle pass.
+            await nextPaint();
+            sustained.push(sampleFrame(step, 'sustained'));
+        }
+
+        owners.forEach(owner => clearProjectedReadings(owner));
+        page.remove();
+        scrollTo(0, 0);
+        return { inFrame, sustained, extentBefore, extentAfter, documentSpaceCount, readingCount };
+    };
 `);
 
 esbuild.buildSync({
@@ -264,6 +373,29 @@ function verifyScrollResult(engine, scenario, result) {
     if (Math.abs(result.after.alignment) > 1 || result.after.display === 'none') {
         fail(`${engine} ${scenario}`, 'projected reading was not visibly anchored after scroll', result);
     }
+    // Every scenario here sits inside an inner scroller, whose offset the
+    // document layer knows nothing about. Document-space anchoring would leave
+    // these readings behind mid-scroll, so they must keep the follow path.
+    if (result.after.documentSpace) {
+        fail(`${engine} ${scenario}`, 'reading inside an inner scroller claimed document-space anchoring', result);
+    }
+}
+
+function verifyFlingFrames(engine, phase, frames) {
+    const worst = frames.reduce((carry, frame) => (frame.blanked > carry.blanked
+        || (frame.blanked === carry.blanked && Math.abs(frame.worstAlignment) > Math.abs(carry.worstAlignment))
+        ? frame
+        : carry), frames[0]);
+    console.log(`${engine} root fling ${phase}: ${JSON.stringify(worst)}`);
+    if (!worst.checked) fail(engine, `root fling ${phase} inspected no readings`, worst);
+    for (const frame of frames) {
+        if (frame.blanked > 0) {
+            fail(engine, `root fling ${phase} frame ${frame.frame} blanked ${frame.blanked} readings`, frame);
+        }
+        if (Math.abs(frame.worstAlignment) > 2) {
+            fail(engine, `root fling ${phase} frame ${frame.frame} drifted off its word`, frame);
+        }
+    }
 }
 
 async function verifyEngine(name, browserType) {
@@ -292,6 +424,28 @@ async function verifyEngine(name, browserType) {
                 fail(name, `mid-scroll frame ${index + 1} drifted or blanked`, snapshot);
             }
         }
+        const pinned = await page.evaluate(() => window.runPinnedReadingProbe());
+        console.log(`${name} pinned masthead: ${JSON.stringify(pinned)}`);
+        if (pinned.inFrame.documentSpace || pinned.settled.documentSpace) {
+            fail(name, 'reading under a fixed masthead claimed document-space anchoring', pinned);
+        }
+        for (const [phase, snapshot] of Object.entries(pinned)) {
+            if (snapshot.display === 'none' || Math.abs(snapshot.alignment) > 2) {
+                fail(name, `pinned masthead reading drifted or blanked (${phase})`, snapshot);
+            }
+        }
+        const fling = await page.evaluate(() => window.runRootFlingProbe());
+        console.log(`${name} root fling modes: ${fling.documentSpaceCount}/${fling.readingCount} document-space, `
+            + `page extent ${JSON.stringify(fling.extentBefore)} -> ${JSON.stringify(fling.extentAfter)}`);
+        if (fling.documentSpaceCount !== fling.readingCount) {
+            fail(name, 'plain document text did not use document-space anchoring', fling.documentSpaceCount);
+        }
+        if (fling.extentAfter.width > fling.extentBefore.width
+            || fling.extentAfter.height > fling.extentBefore.height) {
+            fail(name, 'projected readings grew the page scroll area', fling);
+        }
+        verifyFlingFrames(name, 'sustained', fling.sustained);
+        verifyFlingFrames(name, 'in-frame', fling.inFrame);
     } finally {
         await browser.close();
     }

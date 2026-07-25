@@ -11,15 +11,15 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-annotations.fc76267b0666.user.js#sha256=/HYmewZmlm8Q8o2WYxjXrchPcEuUGAooML9SPPeaFb0=
+// @require https://yomureader.com/greasyfork/yomu-annotations.6acdcbabe119.user.js#sha256=as3Lq+EZZrpPH8wURePfTYtFDuA7F6AVFHEekyXTHlU=
 // @require https://yomureader.com/greasyfork/yomu-anki.8ca4c5aa9440.user.js#sha256=jKTFqpRAy8hsV7ABuAMure3EHhMCflzqa5MCl12lmAI=
 // @require https://yomureader.com/greasyfork/yomu-kanji-study.d622212fbf18.user.js#sha256=1iIhL78YArM5Xmxm33D/vbSJ/QTWoOTOHUagwrbjHV4=
 // @require https://yomureader.com/greasyfork/yomu-ocr-manga.86105c6dc56f.user.js#sha256=hhBcbcVv1kfYArrl5B72rS0Ke0WNowISKyI+gnp0/x4=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.8b7ea0485899.user.js#sha256=i36gSFiZF/9rV+gLjTbAgAuXLnSfkQ5x8VeZLxZLkVc=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.89ae870aafe2.user.js#sha256=ia6HCq/iE6F98QU0/lFAkwTomH7M/nCaHsHHtvn3DSE=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.7b85ca5ab191.user.js#sha256=e4XKWrGRjGMXaTmTa0sSTS9apLjABT+/8BOEJ2Lok1I=
 // @require https://yomureader.com/greasyfork/yomu-bunpro.a0f59f7944a4.user.js#sha256=oPWfeUSk6mRINABeckq7gCFcmhI5HLh6rTuyOSYyR4o=
 // @require https://yomureader.com/greasyfork/yomu-video.721d22534eed.user.js#sha256=ch0iU07tR2W+v0EbojzVhQHBhL2PKEI/bJWptRpv1sE=
-// @resource yomuCss  https://yomureader.com/yomu.91830472d58e.css#sha256=kYMEctWOMomXNEAMTXZkXtYesoGm2zAH1ksMjiq5qcU=
+// @resource yomuCss  https://yomureader.com/yomu.e486aac5a568.css#sha256=5IaqxaVodHFkLfPWw6CrErxORKECY9oUoY4ywU2s9Qg=
 // @connect api.jiten.moe
 // @connect jpdb.io
 // @connect api.wanikani.com
@@ -1440,13 +1440,6 @@ const INTERACTIVE_LINK_SELECTOR = 'a[href],[role="link"]';
 const INTERACTIVE_LINK_CONTEXT_SELECTOR = roleSelectors("menu,menubar,toolbar,tablist");
 const CONTENT_CHIP_ROOT_SELECTOR = ".yomu-hosted-overflow-group";
 const NAMED_CONTENT_ROOT_SELECTOR = `${CONTENT_CHIP_ROOT_SELECTOR},.viewer-title-bar,.bookTitleText,#bookDescription`;
-const COMMAND_CONTROL_SELECTOR = 'button,summary,[role="button"]';
-function isCommandControl(el) {
-  const control = el.closest(COMMAND_CONTROL_SELECTOR);
-  if (!control) return false;
-  if (isConversationTextClass(control) || isMediaTextContentControl(control)) return false;
-  return !control.closest(CONTENT_CHIP_ROOT_SELECTOR) && !control.closest(NAMED_CONTENT_ROOT_SELECTOR);
-}
 function interactivePassiveControl(element) {
   const temporalMetadata = element.closest("time,[datetime]");
   if (temporalMetadata && isCompactTemporalMetadata(temporalMetadata)) return temporalMetadata;
@@ -8253,7 +8246,6 @@ function textTargetFromAcceptedNode(node) {
   }
   const suppressRuby = decorationSuppressesRuby(decoration);
   const passiveInteraction = isPassiveInteractionElement(parent) || suppressRuby;
-  const commandControl = decoration === "interactive-passive" && isCommandControl(parent);
   return {
   node,
   text,
@@ -8263,8 +8255,7 @@ function textTargetFromAcceptedNode(node) {
   suppressRuby,
   proseWrap: shouldWrapScanTargetAsProse(parent, suppressRuby, passiveInteraction),
   layoutSensitive: isLayoutSensitiveScanElement(parent) || isGeometryFragileText(parent, text),
-  passiveInteraction,
-  commandControl
+  passiveInteraction
   };
 }
 function shouldWrapScanTargetAsProse(parent, suppressRuby, passiveInteraction) {
@@ -8404,7 +8395,6 @@ function fragmentTextTargetFrom(fragments, options) {
   if (decoration === "skip") return null;
   const suppressRuby = decorationSuppressesRuby(decoration);
   const passiveInteraction = suppressRuby || trimmedFragments.every((fragment) => fragment.passiveInteraction);
-  const commandControl = decoration === "interactive-passive" && isCommandControl(parent);
   return {
   text,
   parent,
@@ -8414,7 +8404,6 @@ function fragmentTextTargetFrom(fragments, options) {
   proseWrap: shouldWrapScanTargetAsProse(parent, suppressRuby, passiveInteraction),
   layoutSensitive: trimmedFragments.some((fragment) => fragment.layoutSensitive),
   passiveInteraction,
-  commandControl,
   forceInlineRender: options.forceInlineRender,
   suppressRepaintLoopMirror: options.suppressRepaintLoopMirror,
   ...shadowDomTargetMetadata(parent)
@@ -8961,7 +8950,6 @@ function stampTargetDecoration(target, host) {
   if (decoration !== "interactive-passive") return;
   const control = interactivePassiveControl(target.parent);
   if (control) stampDecorationState(control, decoration);
-  if (target.commandControl) (control ?? host).setAttribute("data-yomu-command-control", "true");
   applyPassiveChromeMarks(compactScanRubySuppression(target.parent).marks);
 }
 function applyTokensToScanTarget(target, tokens, settings) {
@@ -9590,7 +9578,7 @@ function createNonDestructiveTextMirror(context) {
 function mountNonDestructiveTextMirror(host, target, settings, context) {
   const mirror = createNonDestructiveTextMirror(context);
   const controlMirror = target.decoration === "interactive-passive";
-  if (controlMirror) mirror.dataset.yomuControlMirror = target.commandControl ? "command" : "true";
+  if (controlMirror) mirror.dataset.yomuControlMirror = "true";
   if (context.detachedReadings && !controlMirror) {
   mirror.dataset.yomuReadingLaneCandidate = "true";
   }
