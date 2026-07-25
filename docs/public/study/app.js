@@ -667,11 +667,17 @@
   }
   const OWN_CHROME_CONTROL_SELECTOR = 'button,summary,label,[role="button"],[role="tab"],[role="menuitem"],[role="menuitemradio"],[role="menuitemcheckbox"],[role="option"]';
   function anchorOwnControl(anchor) {
-    try {
-      return anchor.closest(OWN_CHROME_CONTROL_SELECTOR);
-    } catch {
-      return null;
+    const visited = /* @__PURE__ */ new Set();
+    for (let node = anchor; node && !visited.has(node); node = composedParentNode(node)) {
+      visited.add(node);
+      if (!(node instanceof Element)) continue;
+      try {
+        if (node.matches(OWN_CHROME_CONTROL_SELECTOR)) return node;
+      } catch {
+        return null;
+      }
     }
+    return null;
   }
   function anchorOwnsTopmostPoint(anchor, surface, x2, y, occludingPaint) {
     const document2 = anchor.ownerDocument;

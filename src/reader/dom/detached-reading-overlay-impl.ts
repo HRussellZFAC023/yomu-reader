@@ -874,11 +874,24 @@ const OWN_CHROME_CONTROL_SELECTOR = 'button,summary,label,'
     + '[role="button"],[role="tab"],[role="menuitem"],[role="menuitemradio"],[role="menuitemcheckbox"],[role="option"]';
 
 function anchorOwnControl(anchor: HTMLElement): Element | null {
-    try {
-        return anchor.closest(OWN_CHROME_CONTROL_SELECTOR);
-    } catch {
-        return null;
+    // closest() stops dead at a shadow boundary, and framework chrome puts the
+    // label inside a shadow tree whose control is the host outside it — Reddit
+    // renders well over a hundred shadow hosts per page that way. Using
+    // closest() here meant the exemption never applied on exactly the pages
+    // that need it, and every reading inside that chrome stayed blanked by the
+    // control's own hover wash. Walk the COMPOSED ancestry so the control is
+    // found on either side of the boundary.
+    const visited = new Set<Node>();
+    for (let node: Node | null = anchor; node && !visited.has(node); node = composedParentNode(node)) {
+        visited.add(node);
+        if (!(node instanceof Element)) continue;
+        try {
+            if (node.matches(OWN_CHROME_CONTROL_SELECTOR)) return node;
+        } catch {
+            return null;
+        }
     }
+    return null;
 }
 
 function anchorOwnsTopmostPoint(

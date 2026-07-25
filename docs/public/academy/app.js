@@ -28769,13 +28769,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   const INTERACTIVE_LINK_CONTEXT_SELECTOR = roleSelectors("menu,menubar,toolbar,tablist");
   const CONTENT_CHIP_ROOT_SELECTOR = ".yomu-hosted-overflow-group";
   const NAMED_CONTENT_ROOT_SELECTOR = `${CONTENT_CHIP_ROOT_SELECTOR},.viewer-title-bar,.bookTitleText,#bookDescription`;
-  const COMMAND_CONTROL_SELECTOR = 'button,summary,[role="button"]';
-  function isCommandControl(el2) {
-    const control2 = el2.closest(COMMAND_CONTROL_SELECTOR);
-    if (!control2) return false;
-    if (isConversationTextClass(control2) || isMediaTextContentControl(control2)) return false;
-    return !control2.closest(CONTENT_CHIP_ROOT_SELECTOR) && !control2.closest(NAMED_CONTENT_ROOT_SELECTOR);
-  }
   function interactivePassiveControl(element2) {
     const temporalMetadata = element2.closest("time,[datetime]");
     if (temporalMetadata && isCompactTemporalMetadata(temporalMetadata)) return temporalMetadata;
@@ -31947,7 +31940,16 @@ ${spelling}`);
         } catch {
         }
       };
-      const handleLoad = (response) => {
+      let settled = false;
+      let deadline;
+      const finish = (settle) => {
+        if (settled) return;
+        settled = true;
+        if (deadline !== void 0) clearTimeout(deadline);
+        if (signal) signal.removeEventListener("abort", onAbort);
+        settle();
+      };
+      const handleLoad = (response) => finish(() => {
         if (response.status < 200 || response.status >= 300) {
           reject(new Error(formatStatusFailure(options, response.status)));
           return;
@@ -31957,12 +31959,17 @@ ${spelling}`);
         } catch (error) {
           reject(error);
         }
+      });
+      const handleTimeout = () => {
+        tryAbort();
+        finish(() => reject(new Error(options.timeoutLabel ?? `${options.failureLabel ?? "Request"} timed out.`)));
       };
       const onAbort = () => {
         tryAbort();
-        reject(abortError());
+        finish(() => reject(abortError()));
       };
       if (signal) signal.addEventListener("abort", onAbort, { once: true });
+      if (options.timeoutMs) deadline = setTimeout(handleTimeout, options.timeoutMs);
       const result2 = userscriptRequest({
         method: options.method ?? "GET",
         url,
@@ -31974,14 +31981,11 @@ ${spelling}`);
         withCredentials: options.withCredentials,
         cookie: options.cookie,
         onload: handleLoad,
-        onerror: (error) => reject(error instanceof Error ? error : new Error(formatFailure(options))),
-        ontimeout: () => {
-          tryAbort();
-          reject(new Error(options.timeoutLabel ?? `${options.failureLabel ?? "Request"} timed out.`));
-        }
+        onerror: (error) => finish(() => reject(error instanceof Error ? error : new Error(formatFailure(options)))),
+        ontimeout: handleTimeout
       });
       if (result2 && typeof result2.then === "function") {
-        result2.then(handleLoad, (error) => reject(error instanceof Error ? error : new Error(formatFailure(options))));
+        result2.then(handleLoad, (error) => finish(() => reject(error instanceof Error ? error : new Error(formatFailure(options)))));
       } else if (result2 && typeof result2.abort === "function") {
         handle = result2;
       }
@@ -37146,7 +37150,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (decoration === "skip") return null;
     const suppressRuby = decorationSuppressesRuby(decoration);
     const passiveInteraction = suppressRuby || trimmedFragments.every((fragment2) => fragment2.passiveInteraction);
-    const commandControl = decoration === "interactive-passive" && isCommandControl(parent);
     return {
       text: text2,
       parent,
@@ -37156,7 +37159,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
       proseWrap: shouldWrapScanTargetAsProse(parent, suppressRuby, passiveInteraction),
       layoutSensitive: trimmedFragments.some((fragment2) => fragment2.layoutSensitive),
       passiveInteraction,
-      commandControl,
       forceInlineRender: options.forceInlineRender,
       suppressRepaintLoopMirror: options.suppressRepaintLoopMirror,
       ...shadowDomTargetMetadata(parent)
@@ -37639,7 +37641,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (decoration !== "interactive-passive") return;
     const control2 = interactivePassiveControl(target2.parent);
     if (control2) stampDecorationState(control2, decoration);
-    if (target2.commandControl) (control2 ?? host2).setAttribute("data-yomu-command-control", "true");
     applyPassiveChromeMarks(compactScanRubySuppression(target2.parent).marks);
   }
   function applyTokensToScanTarget(target2, tokens, settings) {
@@ -38310,7 +38311,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function mountNonDestructiveTextMirror(host2, target2, settings, context2) {
     const mirror = createNonDestructiveTextMirror(context2);
     const controlMirror = target2.decoration === "interactive-passive";
-    if (controlMirror) mirror.dataset.yomuControlMirror = target2.commandControl ? "command" : "true";
+    if (controlMirror) mirror.dataset.yomuControlMirror = "true";
     if (context2.detachedReadings && !controlMirror) {
       mirror.dataset.yomuReadingLaneCandidate = "true";
     }
@@ -276008,6 +276009,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
     "jpdb-pitch-nakadaka",
     "jpdb-pitch-odaka"
   ]);
+  const NEUTRAL_CLEARED_CONTRAST_VARS = RENDERED_WORD_CONTRAST_VARS.filter(
+    (name) => name !== "--jpdb-reader-highlight-backdrop"
+  );
   const pendingHoverContrastRefresh = /* @__PURE__ */ new WeakSet();
   const appliedContrastState = /* @__PURE__ */ new WeakMap();
   function refreshReaderWordContrast(root = document) {
@@ -276016,6 +276020,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const activeBackgrounds = [];
     const unknownBackgroundWords = [];
     const neutralWords = [];
+    const neutralPageWords = [];
+    const neutralPageBackgrounds = [];
     const backgroundByParent = /* @__PURE__ */ new Map();
     const cachedPageBackgroundFor = (word) => {
       const parent = word.parentElement;
@@ -276037,7 +276043,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
         continue;
       }
       if (isNeutralReaderWord(word)) {
-        neutralWords.push(word);
+        const neutralBackground = cachedPageBackgroundFor(word);
+        if (neutralBackground) {
+          neutralPageWords.push(word);
+          neutralPageBackgrounds.push(neutralBackground);
+        } else {
+          neutralWords.push(word);
+        }
         continue;
       }
       const background = cachedPageBackgroundFor(word);
@@ -276047,17 +276059,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
         continue;
       }
       const isHovered = word.matches(":hover, :focus");
+      if (isHovered) scheduleHoverSettledContrastRefresh(word);
       const previous = appliedContrastState.get(word);
       const parentColor = getComputedStyle(word.parentElement ?? word).color;
       if (previous && previous.background === background.css && previous.className === word.className && previous.cssText === word.style.cssText && previous.hovered === isHovered && previous.parentColor === parentColor) {
         continue;
       }
       if (hasAnkiAccessibleColor && isHovered && !hasInlineTextColor && existingAccessibleColorRemainsReadableOnHover(word, background)) {
-        scheduleHoverSettledContrastRefresh(word);
         continue;
-      }
-      if (isHovered) {
-        scheduleHoverSettledContrastRefresh(word);
       }
       activeWords.push(word);
       activeBackgrounds.push(background);
@@ -276086,6 +276095,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       };
     });
     neutralWords.forEach((word) => clearContrastVars(word));
+    neutralPageWords.forEach((word, i2) => applyNeutralPageBackdrop(word, neutralPageBackgrounds[i2]));
     unknownBackgroundWords.forEach((word) => applyUnknownBackgroundFallback(word));
     activeWords.forEach((word, i2) => {
       savedVars[i2].forEach(({ name, value, priority }) => {
@@ -276265,6 +276275,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function applyUnknownBackgroundFallback(word) {
     RENDERED_WORD_CONTRAST_VARS_WITHOUT_SHADOW.forEach((name) => word.style.removeProperty(name));
     word.style.setProperty("--jpdb-reader-word-contrast-shadow", PAGE_WORD_COLOR_TOKENS.unknownBackgroundShadow);
+  }
+  function applyNeutralPageBackdrop(word, background) {
+    NEUTRAL_CLEARED_CONTRAST_VARS.forEach((name) => word.style.removeProperty(name));
+    if (word.style.getPropertyValue("--jpdb-reader-highlight-backdrop") === background.css) return;
+    word.style.setProperty("--jpdb-reader-highlight-backdrop", background.css);
   }
   function clearContrastVars(word) {
     RENDERED_WORD_CONTRAST_VARS.forEach((name) => word.style.removeProperty(name));
@@ -280788,7 +280803,10 @@ ${entry2.reading}`;
     }
     async findTermMatches(text2, limit = 32, preferences = []) {
       const done = log$m.time("Inline term match search", { length: text2.length, limit, dictionaries: preferences.length });
-      const source2 = text2.slice(0, 240);
+      const source2 = text2.slice(0, 2e4);
+      if (source2.length < text2.length) {
+        log$m.warn("Inline term match source trimmed", { length: text2.length, kept: source2.length });
+      }
       if (!source2.trim()) {
         done();
         return [];

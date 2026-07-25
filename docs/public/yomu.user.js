@@ -11,7 +11,7 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-annotations.12a7820b6104.user.js#sha256=EqeCC2EEadCbzompH7pBrDXGSEM2jfac9EfwExbXSbA=
+// @require https://yomureader.com/greasyfork/yomu-annotations.8b7d54168dad.user.js#sha256=i31UFo2tU9ZHEblPWx91kdrhXJnpb30v3QbeAFyqyyQ=
 // @require https://yomureader.com/greasyfork/yomu-anki.7fde558a0f92.user.js#sha256=f95Vig+SAe6ROYMmzSV/pyuvo6vyOMI0JlJdDnC3Kc4=
 // @require https://yomureader.com/greasyfork/yomu-kanji-study.1ef4e9c91eff.user.js#sha256=HvTpyR7/kuWqhtwHHUzXsvQizxe0oSGDHldhHp2TNaM=
 // @require https://yomureader.com/greasyfork/yomu-ocr-manga.a0095cf148dd.user.js#sha256=oAlc8UjdhTdBNLgwGI1eu2eqjEZueexI6EjFpoHh6nI=
