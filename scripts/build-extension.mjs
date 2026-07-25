@@ -22,9 +22,12 @@ const compilerCli = resolveCompilerCli();
 
 if (!compilerCli) {
     console.error([
-        'Could not find UserScript Compiler.',
-        'This workspace expects it at tools/UserScript-Compiler,',
+        'Could not find UserScript Compiler. Clone it into tools/:',
+        '  git clone https://github.com/HRussellZFAC023/UserScript-Compiler.git tools/UserScript-Compiler',
+        '  npm --prefix tools/UserScript-Compiler ci',
         'or set USERSCRIPT_COMPILER_CLI=/absolute/path/to/UserScript-Compiler/src/cli.mjs.',
+        'Looked in:',
+        ...compilerCliCandidates().map(candidate => `  ${candidate}`),
     ].join('\n'));
     process.exit(1);
 }
@@ -432,12 +435,18 @@ function verifyDirectoryArtifact(directory, requiredFiles) {
     }
 }
 
-function resolveCompilerCli() {
-    const candidates = [
+function compilerCliCandidates() {
+    return [
         process.env.USERSCRIPT_COMPILER_CLI,
+        // The checkout this workspace documents, and the one CI reproduces:
+        // the compiler cloned into tools/ inside the repository.
+        path.join(root, 'tools', 'UserScript-Compiler', 'src', 'cli.mjs'),
         path.join(root, '..', '..', 'tools', 'UserScript-Compiler', 'src', 'cli.mjs'),
         path.join(root, '..', 'UserScript-Compiler', 'src', 'cli.mjs'),
         path.join(root, 'node_modules', '.bin', 'userscript-compiler'),
     ].filter(Boolean);
-    return candidates.find(candidate => existsSync(candidate));
+}
+
+function resolveCompilerCli() {
+    return compilerCliCandidates().find(candidate => existsSync(candidate));
 }
