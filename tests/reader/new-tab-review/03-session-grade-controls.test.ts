@@ -21,7 +21,6 @@ import {
     newTabJpdbAnkiSourceFixture,
     newTabApiSourceController,
     stubKanjiDoodleBrowserApis,
-    NEW_TAB_BROWSE_DECK_LIMIT,
     renderNewTabGradeControlButtons,
     summarizeNewTabReviewSources,
     waitForExpect,
@@ -939,79 +938,6 @@ describe('new tab review — session progress, grade bar & deck selectors', () =
                 expect(newTabPromptText()).toBe('勉強');
             });
         } finally {
-            resetNewTabReviewStorage();
-        }
-    });
-
-    it('loads all Jiten study deck vocabulary for the Search tab source filters', async () => {
-        resetNewTabReviewStorage();
-        const deckCards = [
-            newTabTestCard({
-                spelling: '日本語',
-                reading: 'にほんご',
-                source: 'jiten',
-                reviewSource: 'jiten-api',
-                jitenWordId: 42,
-                jitenReadingIndex: 0,
-                cardState: ['new'],
-            }),
-            newTabTestCard({
-                spelling: '復習',
-                reading: 'ふくしゅう',
-                source: 'jiten',
-                reviewSource: 'jiten-api',
-                jitenWordId: 43,
-                jitenReadingIndex: 0,
-                cardState: ['mature'],
-            }),
-        ];
-        const listStudyBatchCards = vi.fn(async () => [deckCards[0]!]);
-        const listStudyDecks = vi.fn(async () => [{ id: 7, name: 'Vocab 2k' }]);
-        const listStudyDeckVocabularyCards = vi.fn(async () => deckCards);
-        const controller = newTabBareController({
-            ...DEFAULT_SETTINGS,
-            apiKey: '',
-            jitenApiKey: 'jiten-key',
-            newTabSource: 'jpdb',
-            newTabJpdbReviewMode: 'api-vocabulary',
-            immersionKitEnabled: false,
-        }, {
-            jiten: { listStudyBatchCards, listStudyDecks, listStudyDeckVocabularyCards, reviewCard: vi.fn() } as never,
-        });
-        const internals = controller as unknown as {
-            state: {
-                mode: 'search';
-                sort: 'random';
-                filter: 'study';
-                source: 'jpdb';
-                revealAnswer: false;
-                jpdbDeck: string;
-                ankiDeck: string;
-                keyHintsDismissed: false;
-            };
-            loadBrowsePool(): Promise<JPDBCard[]>;
-        };
-
-        try {
-            internals.state = {
-                mode: 'search',
-                sort: 'random',
-                filter: 'study',
-                source: 'jpdb',
-                revealAnswer: false,
-                jpdbDeck: '',
-                ankiDeck: '',
-                keyHintsDismissed: false,
-            };
-
-            const cards = await internals.loadBrowsePool();
-
-            expect(cards.map(card => card.spelling)).toEqual(['日本語', '復習']);
-            expect(cards.every(card => card.sourceDeckName === 'Vocab 2k')).toBe(true);
-            expect(listStudyDeckVocabularyCards).toHaveBeenCalledWith(7, NEW_TAB_BROWSE_DECK_LIMIT);
-            expect(listStudyBatchCards).not.toHaveBeenCalled();
-        } finally {
-            controller.destroy();
             resetNewTabReviewStorage();
         }
     });

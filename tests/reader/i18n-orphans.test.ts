@@ -51,6 +51,16 @@ function i18nConsumerText(i18n: string): { consumer: string; keys: string[] } {
     return { consumer: blanked.join('\n'), keys };
 }
 
+// Every identifier that appears between a matching pair of quotes, collected in one
+// pass. Rescanning the multi-megabyte haystack four times per key, for over a
+// thousand keys, is what made this the slowest single test in the suite; the closing
+// quote stays unconsumed via lookahead so back-to-back literals still both register.
+function quotedIdentifiers(haystack: string): Set<string> {
+    const found = new Set<string>();
+    for (const match of haystack.matchAll(/(['"`])([A-Za-z][A-Za-z0-9_]*)(?=\1)/g)) found.add(match[2]);
+    return found;
+}
+
 describe('i18n en copy keys', () => {
     it('are all referenced by consumer code (no orphans)', () => {
         const i18n = readFileSync(I18N_PATH, 'utf8');
@@ -58,12 +68,11 @@ describe('i18n en copy keys', () => {
         expect(keys.length).toBeGreaterThan(500);
 
         const haystack = [consumer, ...collectTsFiles(SRC_DIR).map(file => readFileSync(file, 'utf8'))].join('\n');
-        const orphans = keys.filter(key => !(
-            haystack.includes(`'${key}'`)
-            || haystack.includes(`"${key}"`)
-            || haystack.includes('`' + key + '`')
-            || haystack.includes(`.${key}`)
-        ));
+        // The property-access form stays a substring scan (`.key` also counts inside a
+        // longer member name), but only the handful of keys no quoted literal claimed
+        // ever reach it.
+        const quoted = quotedIdentifiers(haystack);
+        const orphans = keys.filter(key => !(quoted.has(key) || haystack.includes(`.${key}`)));
 
         expect(orphans, `Orphaned i18n copy keys (defined in i18n.ts en table but referenced by no consumer code):\n${orphans.join('\n')}`).toEqual([]);
     });

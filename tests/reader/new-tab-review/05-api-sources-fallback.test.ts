@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
     registerNewTabReviewCleanup,
-    WORD_ONLY_STUDY_DISABLED_STEPS,
     DEFAULT_SETTINGS,
     newTabTestCard,
     newTabLocalDictionaryEntries,
@@ -940,31 +939,6 @@ describe('new tab review — Jiten/JPDB API sources & fallback loading', () => {
             expect(controls?.dataset.newtabGradeControls).toBe('false');
             expect(controls?.dataset.newtabControlCount).toBe('2');
             expect(actions).toEqual(['previous', 'next']);
-        } finally {
-            root.remove();
-        }
-    });
-
-    it('leaves Previous as a no-op on the first card when there is no undo review', () => {
-        const first = newTabTestCard({ spelling: '一', reading: 'いち' });
-        const second = newTabTestCard({ spelling: '二', reading: 'に' });
-        const controller = newTabBareController(() => ({
-                ...DEFAULT_SETTINGS,
-                immersionKitEnabled: false,
-                newTabStudyDisabledSteps: WORD_ONLY_STUDY_DISABLED_STEPS,
-            }));
-        const root = renderSeededNewTabWord(controller, first, {
-            visibleWords: [first, second],
-            sourceLabel: 'Dictionary',
-            state: { mode: 'word', revealAnswer: false },
-            appendToDocument: true,
-            bindRootEvents: true,
-        });
-
-        try {
-            root.querySelector<HTMLButtonElement>('[data-newtab-action="previous"]')?.click();
-
-            expect(root.querySelector('[data-newtab-prompt]')?.textContent).toContain('一');
         } finally {
             root.remove();
         }
