@@ -143,6 +143,41 @@ describe('SubtitlePlayerController — idle controls, overlay drag & rail visibi
             expect(underlayClick).not.toHaveBeenCalled();
             expect(document.activeElement).toBe(document.querySelector('#movie_player'));
 
+            // A reader-owned surface paints ABOVE the subtitle layer, so a
+            // press on it is never page content the frame is covering — the
+            // shield must not touch it. Previously the capture-phase
+            // stopPropagation killed the dialog's own listeners, so Cancel over
+            // a video did nothing but focus the player and reveal its controls.
+            const dialog = document.createElement('div');
+            dialog.dataset.jpdbReaderRoot = 'true';
+            const cancel = document.createElement('button');
+            const cancelClick = vi.fn();
+            cancel.addEventListener('click', cancelClick);
+            dialog.append(cancel);
+            document.body.append(dialog);
+            internals.hideControlsImmediately();
+            await vi.advanceTimersByTimeAsync(400);
+
+            cancel.dispatchEvent(pointerEvent('pointerdown', {
+                clientX: 320,
+                clientY: 430,
+                pointerId: 23,
+                pointerType: 'touch',
+            }));
+            // Pressing the dialog must not wake the rail either.
+            expect(root.classList.contains('jpdb-subtitle-controls-idle')).toBe(true);
+
+            const dialogClick = new MouseEvent('click', {
+                bubbles: true,
+                cancelable: true,
+                clientX: 320,
+                clientY: 430,
+            });
+            cancel.dispatchEvent(dialogClick);
+            expect(dialogClick.defaultPrevented).toBe(false);
+            expect(cancelClick).toHaveBeenCalledTimes(1);
+            dialog.remove();
+
             await vi.advanceTimersByTimeAsync(2600);
             expect(root.classList.contains('jpdb-subtitle-controls-idle')).toBe(true);
 

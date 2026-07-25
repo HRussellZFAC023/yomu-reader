@@ -1,6 +1,7 @@
 import { isNonNullObject as isRecord } from '../core/object-utils';
 import { createWindowCustomEvent } from '../platform/window-events';
 import { currentFullscreenElement } from '../core/fullscreen';
+import { READER_ROOT_SELECTOR } from '../dom/constants';
 import { escapeHtml, renderTokensToHtml, setInnerHtml, unwrapReaderWords } from '../dom/index';
 import {
     cueHasExactWordTimings,
@@ -3661,6 +3662,12 @@ export class SubtitlePlayerController {
     // test does not add a pointer-catching layer over transparent player space.
     private wakeControlsFromSubtitleSurface(event: PointerEvent): void {
         if (!this.pointInVisibleSubtitleSurface(event.clientX, event.clientY)) return;
+        const target = event.target instanceof Element ? event.target : null;
+        // Pressing inside a reader dialog that happens to overlap the video is
+        // not a press on the subtitle surface, so it must not wake the rail.
+        // The subtitle UI is itself a reader surface, and pressing THAT is
+        // exactly the gesture this wake exists for, so it stays eligible.
+        if (target && !this.isInSubtitleUi(target) && this.isInReaderSurface(target)) return;
         this.lastControlsInputWasKeyboard = false;
         this.showControlsTemporarily({ independentOfPlayerChrome: true });
     }
@@ -3670,6 +3677,7 @@ export class SubtitlePlayerController {
         const target = event.target instanceof Element ? event.target : null;
         const hitSubtitleContent = Boolean(target && this.isInSubtitleUi(target));
         if (hitSubtitleContent) return;
+        if (target && this.isInReaderSurface(target)) return;
         // While the subtitle is still over the video, preserve the player's
         // native click/tap behavior (play/pause or revealing its own chrome).
         // The click shield is only for a displaced line landing over page
@@ -3714,6 +3722,17 @@ export class SubtitlePlayerController {
     private isInSubtitleUi(element: Element): boolean {
         return Boolean(this.root?.contains(element)
             || this.asbPlayerSubtitleMoveRoots().some(root => root.contains(element)));
+    }
+
+    // Every reader-owned surface — the settings dialog, the popover, the
+    // onboarding sheet — paints ABOVE the subtitle layer. A click that lands on
+    // one of them is therefore never page content the subtitle frame is
+    // covering, whatever the geometry says, so the shield must let it through
+    // untouched. Without this the shield's stopPropagation at document capture
+    // kills the dialog's own button listeners: pressing Cancel over a video did
+    // nothing except focus the player, which made the site reveal its controls.
+    private isInReaderSurface(element: Element): boolean {
+        return Boolean(element.closest(READER_ROOT_SELECTOR));
     }
 
     private isInNativeVideoPlayer(element: Element): boolean {
