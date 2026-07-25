@@ -2495,7 +2495,7 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
 :is([data-yomu-command-control="true"], .jpdb-reader-text-mirror[data-yomu-control-mirror="command"]) .jpdb-reader-word {
   text-decoration-color: transparent !important;
 }
-:is([data-yomu-command-control="true"], .jpdb-reader-text-mirror[data-yomu-control-mirror="command"]) .jpdb-reader-source-fragment::after {
+:is([data-yomu-command-control="true"], .jpdb-reader-text-mirror[data-yomu-control-mirror="command"]) :is(.jpdb-reader-word, .jpdb-reader-source-fragment)::after {
   visibility: hidden !important;
 }
 :is([data-yomu-command-control="true"], .jpdb-reader-text-mirror[data-yomu-control-mirror="command"]):hover rt.jpdb-reader-furi,
@@ -2514,8 +2514,8 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
 :is([data-yomu-command-control="true"], .jpdb-reader-text-mirror[data-yomu-control-mirror="command"]):has(.jpdb-reader-keyboard-active) .jpdb-reader-word {
   text-decoration-color: var(--jpdb-reader-word-underline, transparent) !important;
 }
-:is([data-yomu-command-control="true"], .jpdb-reader-text-mirror[data-yomu-control-mirror="command"]):hover .jpdb-reader-source-fragment::after,
-:is([data-yomu-command-control="true"], .jpdb-reader-text-mirror[data-yomu-control-mirror="command"]):focus-within .jpdb-reader-source-fragment::after,
-:is([data-yomu-command-control="true"], .jpdb-reader-text-mirror[data-yomu-control-mirror="command"]):has(.jpdb-reader-keyboard-active) .jpdb-reader-source-fragment::after {
+:is([data-yomu-command-control="true"], .jpdb-reader-text-mirror[data-yomu-control-mirror="command"]):hover :is(.jpdb-reader-word, .jpdb-reader-source-fragment)::after,
+:is([data-yomu-command-control="true"], .jpdb-reader-text-mirror[data-yomu-control-mirror="command"]):focus-within :is(.jpdb-reader-word, .jpdb-reader-source-fragment)::after,
+:is([data-yomu-command-control="true"], .jpdb-reader-text-mirror[data-yomu-control-mirror="command"]):has(.jpdb-reader-keyboard-active) :is(.jpdb-reader-word, .jpdb-reader-source-fragment)::after {
   visibility: visible !important;
 }
