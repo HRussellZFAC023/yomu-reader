@@ -51,11 +51,13 @@
         "7c9d841fbde752f509887763e6fd130004081257f21156afc5a8ddfd85969771",
         "8174141e164da8e062921d45f34e0232bbf5b6f02f654924026ba661e3ffecc2",
         "86dbec0a4e0c4ed17984993569eb7056fe2246569c382a10a7a15c274e840f06",
+        "877837076979db131e43595095422105b3c60a25cbfbf3f918a6a16696a9aafb",
         "93160d80b29b8a21688ca5620b69da072e9370705c7d42cc52e27853c78b8a11",
         "aa51ae04d9e114b326eae5d8f9604ffe18603003c5be44c74a119d70792441ec",
         "b056b8f146eb4ed8e702c0ac398aba51e01d88e8a140867fd7160dfb69c627d3",
         "b37a4487325904650805566b20d13cb40bf025ba107c35f51e4a5781aa9858bb",
         "b8cac9c144b4ce94324a98b3a1096596766e08e33b60b1dc391cd1d235f80775",
+        "bf2d773c1a71df81053c845e4effc1b50c0feaffd5b352534507cc2b678592a8",
         "dea978a9cc61b721c8bade349b1f3f046549b3a5d8a1cbc8052e3efedfb85fdb",
         "e25636d68f5a0a569c63057fbb43d04dae7daecca34489f45d9b7c31c611d870",
         "e94c91b82c6c2e54f77677cebc25d356f256c7ec6627d594711d21eb457399e9"
@@ -304,6 +306,34 @@
           ],
           "criticalPhraseGatePassed": true,
           "verdict": "pass"
+        },
+        {
+          "lineId": "rie-lesson-zero-homework",
+          "filename": "rie-lesson-zero-homework__870ba7f1bb64aa13.opus",
+          "assetSha256": "bf2d773c1a71df81053c845e4effc1b50c0feaffd5b352534507cc2b678592a8",
+          "expectedJapanese": "しゅくだい。しゅくだいです。",
+          "heardTranscript": "宿題、宿題です。",
+          "normalizedTranscript": "しゅくだいしゅくだいです",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "しゅくだい"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "rie-lesson-zero-example",
+          "filename": "rie-lesson-zero-example__10f47eefee150c44.opus",
+          "assetSha256": "877837076979db131e43595095422105b3c60a25cbfbf3f918a6a16696a9aafb",
+          "expectedJapanese": "これは、れいです。れい。",
+          "heardTranscript": "これは例です。例。",
+          "normalizedTranscript": "これはれいですれい",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "れい"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
         }
       ],
       "overallVerdict": "pass",
@@ -337,11 +367,13 @@
         "7c9d841fbde752f509887763e6fd130004081257f21156afc5a8ddfd85969771",
         "8174141e164da8e062921d45f34e0232bbf5b6f02f654924026ba661e3ffecc2",
         "86dbec0a4e0c4ed17984993569eb7056fe2246569c382a10a7a15c274e840f06",
+        "877837076979db131e43595095422105b3c60a25cbfbf3f918a6a16696a9aafb",
         "93160d80b29b8a21688ca5620b69da072e9370705c7d42cc52e27853c78b8a11",
         "aa51ae04d9e114b326eae5d8f9604ffe18603003c5be44c74a119d70792441ec",
         "b056b8f146eb4ed8e702c0ac398aba51e01d88e8a140867fd7160dfb69c627d3",
         "b37a4487325904650805566b20d13cb40bf025ba107c35f51e4a5781aa9858bb",
         "b8cac9c144b4ce94324a98b3a1096596766e08e33b60b1dc391cd1d235f80775",
+        "bf2d773c1a71df81053c845e4effc1b50c0feaffd5b352534507cc2b678592a8",
         "dea978a9cc61b721c8bade349b1f3f046549b3a5d8a1cbc8052e3efedfb85fdb",
         "e25636d68f5a0a569c63057fbb43d04dae7daecca34489f45d9b7c31c611d870",
         "e94c91b82c6c2e54f77677cebc25d356f256c7ec6627d594711d21eb457399e9"
@@ -590,6 +622,34 @@
           ],
           "criticalPhraseGatePassed": true,
           "verdict": "pass"
+        },
+        {
+          "lineId": "rie-lesson-zero-homework",
+          "filename": "rie-lesson-zero-homework__870ba7f1bb64aa13.opus",
+          "assetSha256": "bf2d773c1a71df81053c845e4effc1b50c0feaffd5b352534507cc2b678592a8",
+          "expectedJapanese": "しゅくだい。しゅくだいです。",
+          "heardTranscript": "宿題 宿題 です",
+          "normalizedTranscript": "しゅくだいしゅくだいです",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "しゅくだい"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "rie-lesson-zero-example",
+          "filename": "rie-lesson-zero-example__10f47eefee150c44.opus",
+          "assetSha256": "877837076979db131e43595095422105b3c60a25cbfbf3f918a6a16696a9aafb",
+          "expectedJapanese": "これは、れいです。れい。",
+          "heardTranscript": "これ は 例 です 例",
+          "normalizedTranscript": "これはれいですれい",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "れい"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
         }
       ],
       "overallVerdict": "pass",
@@ -711,7 +771,21 @@
       "acceptedBy": "Codex",
       "humanReviewed": false,
       "independentAudioModelReviews": 2
+    },
+    {
+      "lineId": "rie-lesson-zero-homework",
+      "verdict": "accepted",
+      "acceptedBy": "Codex",
+      "humanReviewed": false,
+      "independentAudioModelReviews": 2
+    },
+    {
+      "lineId": "rie-lesson-zero-example",
+      "verdict": "accepted",
+      "acceptedBy": "Codex",
+      "humanReviewed": false,
+      "independentAudioModelReviews": 2
     }
   ],
-  "overallVerdict": "mixed-15-accepted-two-rejected"
+  "overallVerdict": "mixed-17-accepted-two-rejected"
 }

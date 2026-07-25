@@ -2,7 +2,7 @@
   "schema": "yomu-academy.learning-voice-production.v2",
   "batchId": "academy-learning-native-20260720-01",
   "createdOn": "2026-07-20",
-  "scope": "Seventeen reviewed native-band candidates: fifteen accepted voice units with sixteen reachable bindings and two rejected takes retained only as quarantine evidence.",
+  "scope": "Nineteen reviewed native-band candidates: seventeen accepted voice units with eighteen reachable bindings and two rejected takes retained only as quarantine evidence.",
   "qualityApproval": {
     "codexQualityAccepted": true,
     "scope": "AivisSpeech + Style-Bert-VITS2 JP-Extra output quality",
@@ -65,7 +65,9 @@
       "rie-classroom-look",
       "rie-classroom-say-together",
       "rie-classroom-listen",
-      "rie-classroom-write"
+      "rie-classroom-write",
+      "rie-lesson-zero-homework",
+      "rie-lesson-zero-example"
     ],
     "acceptedVoiceLineIds": [
       "miller-cafe-price",
@@ -82,7 +84,9 @@
       "rie-classroom-look",
       "rie-classroom-say-together",
       "rie-classroom-listen",
-      "rie-classroom-write"
+      "rie-classroom-write",
+      "rie-lesson-zero-homework",
+      "rie-lesson-zero-example"
     ],
     "rejectedVoiceLineIds": [
       "lesson-textbook-pair-prompt",
@@ -1244,6 +1248,112 @@
         "prePhonemeLength": 0.1,
         "postPhonemeLength": 0.16,
         "pauseLengthScale": 0.98
+      },
+      "moraOverrides": []
+    },
+    {
+      "identity": {
+        "voiceLineId": "rie-lesson-zero-homework",
+        "speakerId": "rie",
+        "intent": "Model the take-home homework label clearly, then repeat it once so a beginner can bind the sound to the prop.",
+        "locale": "ja-JP",
+        "band": "native",
+        "sourceRevision": "6d79b7fadcc1887054829bb886255dc2eaced84e8021a528ecb3a82fa9c0ac29",
+        "bindingIds": [
+          "lesson-zero:desk-language:homework"
+        ]
+      },
+      "mappingId": "rie-learning-dialogue",
+      "role": "academy-character",
+      "surface": "lesson-zero-desk-language",
+      "japanese": "しゅくだい。しゅくだいです。",
+      "disposition": {
+        "status": "accepted",
+        "acceptedBy": "Codex",
+        "humanReviewed": false,
+        "criticalPhraseGates": [
+          "しゅくだい"
+        ],
+        "recognitionConfusionPhrases": [
+          "宿題 宿題 です",
+          "例 です 例",
+          "[unk]"
+        ],
+        "independentAudioReview": "Both local Japanese recognizers must recover the complete desk label and distinguish it from the paired example label."
+      },
+      "bindings": [
+        {
+          "lineId": "lesson-zero:desk-language:homework",
+          "surface": "lesson-zero-desk-language",
+          "accessibleReplayLabel": {
+            "en": "Replay Rie saying homework",
+            "ja": "りえ先生の「しゅくだい」をもう一度聞く"
+          }
+        }
+      ],
+      "audioQuerySha256": "97b40d31ed53caca2e9f1d03e7e17f2dd019e5ea0531b5767d7122f84b1081eb",
+      "expectedCacheKey": "870ba7f1bb64aa13a7c5a1f550870d207b24af5f165cf471877bb1fc58506f51",
+      "queryOverrides": {
+        "speedScale": 0.86,
+        "pitchScale": -0.01,
+        "intonationScale": 1.02,
+        "volumeScale": 0.84,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.14,
+        "pauseLengthScale": 1.08
+      },
+      "moraOverrides": []
+    },
+    {
+      "identity": {
+        "voiceLineId": "rie-lesson-zero-example",
+        "speakerId": "rie",
+        "intent": "Model the worked-example label clearly, then repeat it once so a beginner can bind the sound to the prop.",
+        "locale": "ja-JP",
+        "band": "native",
+        "sourceRevision": "73e674f41209f7b8dd1b945d973fe88ac51f6dfc510b7546ae4cff246d071a4b",
+        "bindingIds": [
+          "lesson-zero:desk-language:example"
+        ]
+      },
+      "mappingId": "rie-learning-dialogue",
+      "role": "academy-character",
+      "surface": "lesson-zero-desk-language",
+      "japanese": "これは、れいです。れい。",
+      "disposition": {
+        "status": "accepted",
+        "acceptedBy": "Codex",
+        "humanReviewed": false,
+        "criticalPhraseGates": [
+          "れい"
+        ],
+        "recognitionConfusionPhrases": [
+          "これ は 例 です 例",
+          "宿題 宿題 です",
+          "[unk]"
+        ],
+        "independentAudioReview": "Both local Japanese recognizers must recover the complete desk label and distinguish it from the paired homework label."
+      },
+      "bindings": [
+        {
+          "lineId": "lesson-zero:desk-language:example",
+          "surface": "lesson-zero-desk-language",
+          "accessibleReplayLabel": {
+            "en": "Replay Rie saying example",
+            "ja": "りえ先生の「れい」をもう一度聞く"
+          }
+        }
+      ],
+      "audioQuerySha256": "5e373be80dbb54d67c7d1cda6cf2d13e6a9c36dcc83cc79af71c7fddc373b7eb",
+      "expectedCacheKey": "10f47eefee150c44c3c9a506e4b5eee889aa0a48ba88ec4d0f4ecf65bb345bb9",
+      "queryOverrides": {
+        "speedScale": 0.86,
+        "pitchScale": -0.01,
+        "intonationScale": 1.02,
+        "volumeScale": 0.84,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.14,
+        "pauseLengthScale": 1.08
       },
       "moraOverrides": []
     }

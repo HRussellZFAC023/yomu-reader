@@ -235,6 +235,112 @@ describe('Academy lesson flow', () => {
         ));
     });
 
+    it('routes the two desk papers through guided retrieval, changed layout, exact SRS, and completion', async () => {
+        const route = context('lesson:foundation-00', {
+            route: 'source-activity',
+            activityId: 'activity:lesson-zero-desk-language',
+        });
+        const recordActivity = vi.fn(async () => undefined);
+        const recordSupportUse = vi.fn(async () => undefined);
+        const flow = createLessonFlow({
+            evidence: { recordActivity, recordSupportUse } as never,
+            pronunciation: { play: vi.fn(async () => ({ dispose() {} })) } as never,
+            kanjiWriting: {} as never,
+        });
+
+        await flow.render('source-activity', route.value);
+        expect(route.shell.current?.dataset.academyScreen).toBe('lesson-zero-desk-language');
+        expect(route.save).toHaveBeenCalledWith(expect.objectContaining({
+            lessonZeroDeskLanguageProgress: expect.objectContaining({
+                stage: 'meet-homework',
+                status: 'ready',
+            }),
+        }));
+
+        route.shell.current
+            ?.querySelector<HTMLButtonElement>('[data-desk-action="next-introduction"]')
+            ?.click();
+        await vi.waitFor(() => expect(route.shell.current?.dataset.sessionStage).toBe('meet-example'));
+        route.shell.current
+            ?.querySelector<HTMLButtonElement>('[data-desk-action="next-introduction"]')
+            ?.click();
+        await vi.waitFor(() => expect(route.shell.current?.dataset.sessionStage).toBe('practice'));
+
+        route.shell.current?.querySelector<HTMLButtonElement>('[data-choice="option-0"]')?.click();
+        await vi.waitFor(() => expect(recordActivity).toHaveBeenCalledWith(
+            expect.objectContaining({
+                attempt: expect.objectContaining({
+                    activityId: 'activity:lesson-zero-desk-language:practice:homework',
+                    sourceQuestionId: 'source-question:classroom-phrase-13',
+                    outcome: 'pass',
+                }),
+                reviewSeeds: [
+                    expect.objectContaining({ id: 'review:lesson-zero:classroom-13-homework' }),
+                ],
+            }),
+            'lesson:foundation-00',
+            undefined,
+            expect.objectContaining({
+                modeId: 'lesson-zero-desk-language',
+                skill: 'listening',
+                action: 'recognise',
+            }),
+        ));
+        route.shell.current?.querySelector<HTMLButtonElement>('[data-choice="option-1"]')?.click();
+        await vi.waitFor(() => expect(route.shell.current?.dataset.sessionStage).toBe('transfer-ready'));
+        expect(recordActivity).toHaveBeenCalledWith(
+            expect.objectContaining({
+                reviewSeeds: [
+                    expect.objectContaining({ id: 'review:lesson-zero:classroom-14-example' }),
+                ],
+            }),
+            'lesson:foundation-00',
+            undefined,
+            expect.anything(),
+        );
+
+        route.shell.current
+            ?.querySelector<HTMLButtonElement>('[data-desk-action="begin-transfer"]')
+            ?.click();
+        await vi.waitFor(() => expect(route.shell.current?.dataset.sessionStage).toBe('transfer'));
+        route.shell.current?.querySelector<HTMLButtonElement>('[data-choice="option-0"]')?.click();
+        await vi.waitFor(() => expect(route.save).toHaveBeenCalledWith(expect.objectContaining({
+            lessonZeroDeskLanguageProgress: expect.objectContaining({
+                transferPassedWordIds: ['example'],
+            }),
+        })));
+        route.shell.current?.querySelector<HTMLButtonElement>('[data-choice="option-1"]')?.click();
+        await vi.waitFor(() => expect(route.shell.current?.dataset.sessionStage).toBe('complete'));
+
+        expect(recordActivity).toHaveBeenCalledWith(
+            expect.objectContaining({
+                attempt: expect.objectContaining({
+                    activityId: 'activity:lesson-zero-desk-language:transfer:homework',
+                    outcome: 'pass',
+                }),
+                reviewSeeds: [],
+            }),
+            'lesson:foundation-00',
+            undefined,
+            expect.objectContaining({ skill: 'transfer', independent: true }),
+        );
+        expect(recordActivity).toHaveBeenCalledWith(
+            expect.objectContaining({
+                attempt: expect.objectContaining({
+                    activityId: 'activity:lesson-zero-desk-language',
+                    outcome: 'pass',
+                }),
+            }),
+            'lesson:foundation-00',
+            expect.objectContaining({
+                id: 'lesson-zero-desk-language-transfer',
+                journalLine: expect.objectContaining({
+                    lineId: 'journal:lesson-zero:desk-language',
+                }),
+            }),
+        );
+    });
+
     it('routes Rie\'s seven instructions through embodied listening evidence and durable pause', async () => {
         const route = context('lesson:foundation-00', {
             route: 'source-activity',

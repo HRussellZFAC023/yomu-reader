@@ -18,6 +18,10 @@ import { LESSON_ZERO_GREETING_ACTIVITY_ID } from './lesson-zero-greeting';
 import { LESSON_ZERO_MISSION_ACTIVITY_IDS } from './lesson-zero-mission-activity';
 import { LESSON_ZERO_NAME_CARD_ACTIVITY_ID } from './lesson-zero-name-card';
 import {
+    LESSON_ZERO_DESK_LANGUAGE_ACTIVITY_ID,
+    LESSON_ZERO_DESK_LANGUAGE_CHILD_ACTIVITY_IDS,
+} from './lesson-zero-desk-language';
+import {
     LESSON_ZERO_REPEAT_REQUEST_ACTIVITY_ID,
     LESSON_ZERO_REPEAT_REQUEST_CHILD_ACTIVITY_IDS,
 } from './lesson-zero-repeat-request';
@@ -168,7 +172,8 @@ export const ACADEMY_LESSON_CONTENT_REGISTRY: readonly LessonContentRegistration
             ...LESSON_ZERO_MISSION_ACTIVITY_IDS,
             LESSON_ZERO_REPEAT_REQUEST_ACTIVITY_ID,
             ...LESSON_ZERO_REPEAT_REQUEST_CHILD_ACTIVITY_IDS,
-            'activity:lesson-zero-desk-language',
+            LESSON_ZERO_DESK_LANGUAGE_ACTIVITY_ID,
+            ...LESSON_ZERO_DESK_LANGUAGE_CHILD_ACTIVITY_IDS,
             'activity:lesson-zero-first-repair:sound',
             'activity:lesson-zero-first-repair:text',
             'activity:lesson-zero-first-repair:speaking',

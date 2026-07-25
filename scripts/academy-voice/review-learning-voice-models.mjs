@@ -8,6 +8,9 @@ const root = process.cwd();
 const whisperModel = requiredPath('WHISPER_MODEL');
 const voskModel = requiredPath('VOSK_MODEL');
 const uv = process.env.UV_BIN ?? resolve(process.env.HOME ?? '', '.local/bin/uv');
+const existingReviewPath = process.env.LEARNING_VOICE_EXISTING_REVIEW
+    ? requiredPath('LEARNING_VOICE_EXISTING_REVIEW')
+    : resolve(root, 'docs/academy/audio/learning-voice-model-reviews.json');
 const catalog = JSON.parse(await readFile(resolve(root, 'public/academy/audio/learning-voice-playback.json'), 'utf8'));
 const production = JSON.parse(await readFile(resolve(root, 'docs/academy/audio/learning-voice-production.json'), 'utf8'));
 const stagingReport = JSON.parse(await readFile(
@@ -15,9 +18,11 @@ const stagingReport = JSON.parse(await readFile(
     'utf8',
 ));
 const existingReport = JSON.parse(await readFile(
-    resolve(root, 'docs/academy/audio/learning-voice-model-reviews.json'),
+    existingReviewPath,
     'utf8',
 ));
+const whisperModelSha256 = sha256(await readFile(whisperModel));
+const voskModelSha256 = await directorySha256(voskModel);
 const productionById = new Map(production.entries.map(entry => [entry.identity.voiceLineId, entry]));
 const catalogById = new Map(catalog.entries.map(entry => [entry.lineId, entry]));
 const stagedById = new Map(stagingReport.entries.map(entry => [entry.voiceLineId, entry]));
@@ -46,6 +51,12 @@ try {
         };
         if (sha256(asset) !== entry.assetSha256) {
             throw new Error(`Reviewed candidate bytes do not match their lock: ${lineId}.`);
+        }
+        if (reviewAlreadyCoversAsset(existingReport, lineId, entry.assetSha256, [
+            ['OpenAI Whisper', whisperModelSha256],
+            ['Kaldi Vosk Japanese', voskModelSha256],
+        ])) {
+            continue;
         }
         const wavPath = resolve(temporary, `${entry.lineId}.wav`);
         run('ffmpeg', [
@@ -96,14 +107,14 @@ try {
             service: 'whisper.cpp local inference',
             modelFamily: 'OpenAI Whisper',
             displayedModel: basename(whisperModel),
-            modelPayloadSha256: sha256(await readFile(whisperModel)),
+            modelPayloadSha256: whisperModelSha256,
             independentReviewIndex: 1,
         }, mergeLines(existingReport.reviews?.[0]?.lines, whisperLines), production),
         buildReview({
             service: 'Vosk local inference',
             modelFamily: 'Kaldi Vosk Japanese',
             displayedModel: basename(voskModel),
-            modelPayloadSha256: await directorySha256(voskModel),
+            modelPayloadSha256: voskModelSha256,
             independentReviewIndex: 2,
         }, mergeLines(existingReport.reviews?.[1]?.lines, voskLines), production),
     ];
@@ -211,6 +222,14 @@ function mergeLines(existingLines = [], currentLines = []) {
     return [...merged.values()];
 }
 
+function reviewAlreadyCoversAsset(report, lineId, assetSha256, reviewers) {
+    return reviewers.every(([modelFamily, modelPayloadSha256]) => report.reviews?.some(review =>
+        review.reviewer?.modelFamily === modelFamily
+        && review.reviewer?.modelPayloadSha256 === modelPayloadSha256
+        && review.lines?.some(line =>
+            line.lineId === lineId && line.assetSha256 === assetSha256)));
+}
+
 function dispositionFor(entry, reviews) {
     const lineId = entry.identity.voiceLineId;
     const lines = reviews.flatMap(review => (
@@ -291,6 +310,8 @@ function normalizeJapanese(value, options = {}) {
         .replaceAll('海', 'うみ')
         .replaceAll('絵本', 'えほん')
         .replaceAll('お茶', 'おちゃ')
+        .replaceAll('宿題', 'しゅくだい')
+        .replaceAll('例', 'れい')
         .replaceAll('今晩は', 'こんばんは')
         .replaceAll('始めまして', 'はじめまして')
         .replaceAll('始めましょう', 'はじめましょう')
@@ -307,7 +328,8 @@ function normalizeJapanese(value, options = {}) {
     return canonical
         .replaceAll('始めましょ', 'はじめましょう')
         .replaceAll('終わりましょ', 'おわりましょう')
-        .replaceAll('休みましょ', 'やすみましょう');
+        .replaceAll('休みましょ', 'やすみましょう')
+        .replace(/^unk|unk$/gu, '');
 }
 
 function hiraganaForKatakana(character) {

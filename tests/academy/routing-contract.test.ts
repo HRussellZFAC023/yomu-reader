@@ -221,6 +221,23 @@ describe('Academy resume route contract', () => {
                         at: 100,
                     }],
                 },
+                lessonZeroDeskLanguageProgress: {
+                    schemaVersion: 1,
+                    sessionId: 'session:lesson-zero-desk-language',
+                    status: 'paused',
+                    stage: 'practice',
+                    practiceIndex: 1,
+                    transferIndex: 0,
+                    practicePassedWordIds: ['homework'],
+                    transferPassedWordIds: [],
+                    attempts: [{
+                        round: 'practice',
+                        wordId: 'homework',
+                        chosenPropId: 'take-home-sheet',
+                        outcome: 'pass',
+                        at: 100,
+                    }],
+                },
                 lessonZeroGreetingProgress: {
                     schemaVersion: 1,
                     sessionId: 'session:lesson-zero-greet-rie',
@@ -275,6 +292,11 @@ describe('Academy resume route contract', () => {
             },
         });
         expect(expired.classroomInstructionProgress).toMatchObject({ status: 'paused', cursor: 1 });
+        expect(expired.lessonZeroDeskLanguageProgress).toMatchObject({
+            status: 'paused',
+            stage: 'practice',
+            practicePassedWordIds: ['homework'],
+        });
         expect(expired.lessonZeroGreetingProgress).toMatchObject({ status: 'paused', stage: 'rehearse' });
         expect(expired.lessonZeroVowelProgress).toMatchObject({ status: 'paused', learnedItemIds: ['hira-a'] });
         expect(expired.lessonZeroVowelWritingProgress).toMatchObject({

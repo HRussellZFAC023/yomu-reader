@@ -70,6 +70,16 @@ export const LEARNING_VOICE_BINDING_IDENTITIES = Object.freeze({
         japanese: 'かいてください',
         sourceSha256: '69472717888dbcdbd5277f2328ef49f43377f200832ce224244f8cf3ac56af82',
     }),
+    'lesson-zero:desk-language:homework': Object.freeze({
+        lineId: 'rie-lesson-zero-homework',
+        japanese: 'しゅくだい。しゅくだいです。',
+        sourceSha256: '6d79b7fadcc1887054829bb886255dc2eaced84e8021a528ecb3a82fa9c0ac29',
+    }),
+    'lesson-zero:desk-language:example': Object.freeze({
+        lineId: 'rie-lesson-zero-example',
+        japanese: 'これは、れいです。れい。',
+        sourceSha256: '73e674f41209f7b8dd1b945d973fe88ac51f6dfc510b7546ae4cff246d071a4b',
+    }),
     'lesson-screen:textbook-pair-prompt': Object.freeze({
         lineId: 'lesson-screen:textbook-pair-prompt',
         japanese: 'では、教科書の五ページを開いて、二人で話してください。',
