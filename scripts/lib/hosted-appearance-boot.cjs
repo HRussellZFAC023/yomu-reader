@@ -48,4 +48,8 @@ function stampAppearanceBoot(html, mode) {
   return `${html.slice(0, start)}${START_MARKER}${hostedAppearanceBootSnippet(mode)}${html.slice(end)}`;
 }
 
-module.exports = { END_MARKER, START_MARKER, hostedAppearanceBootSnippet, stampAppearanceBoot };
+// The markers stay internal: they delimit the stamped block for
+// stampAppearanceBoot, and the test that checks a stamped document asserts the
+// literal strings on purpose, so importing them from here would make that
+// assertion agree with itself no matter what the markers became.
+module.exports = { hostedAppearanceBootSnippet, stampAppearanceBoot };

@@ -140,6 +140,14 @@ Greasy Fork's upload budget is 2,000,000 raw bytes for `dist/yomu.user.js`; `npm
 
 Run `npm run check:repository` for the fast tracked-file boundary check, or `npm run check` for the full gate.
 
+`npm run build:extension` also needs the UserScript Compiler, which lives in its own repository. Clone it into the ignored `tools/` directory and install its dependencies once:
+
+```bash
+git clone https://github.com/HRussellZFAC023/UserScript-Compiler.git tools/UserScript-Compiler && npm --prefix tools/UserScript-Compiler ci
+```
+
+Set `USERSCRIPT_COMPILER_CLI` to that checkout's `src/cli.mjs` instead if you keep it somewhere else.
+
 <details>
 <summary>Deployment notes</summary>
 
