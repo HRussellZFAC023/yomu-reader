@@ -39,7 +39,7 @@ import { googleTranslationLanguageCapability } from '../translation/google';
 import dictionaryCatalog from '../../../config/dictionaries/published/v1/catalog.json';
 
 export { readDictionaryLookupLinks, readFormSettings } from './form-read';
-export { renderAudioSourceEditor, renderDictionaryLookupLinkEditor, syncAudioSourceRow, syncBrowserTtsVoiceOptions, updateAudioSourceEditor, updateDictionaryLookupLinkEditor } from './form-editors';
+export { mergeAudioSubSources, renderAudioSourceEditor, renderAudioSubSourceList, renderDictionaryLookupLinkEditor, syncAudioSourceRow, syncBrowserTtsVoiceOptions, updateAudioSourceEditor, updateDictionaryLookupLinkEditor } from './form-editors';
 export { installSourceRowDrag, updateSourceRowEditor } from './form-order';
 export { renderAnkiDeckLibraryOptions, renderAnkiFieldMappingEditor, renderAnkiLibraryOptions, renderAnkiTemplatePreview, renderDeckControls } from './anki-mining-panel';
 export { ankiStatusLineForSettings, bunproStatusLineForSettings, formatSettingsStatusLine, jpdbStatusLineForSettings, renderAnkiStatusHtml, wanikaniStatusLineForSettings } from './status-lines';

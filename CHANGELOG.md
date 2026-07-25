@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.8.5] - 2026-07-25
+
+### Added
+
+- Audio source URLs that bundle several providers can now be inspected and controlled per provider. Aggregator endpoints such as the built-in hosted Yomu source answer a single lookup with clips from several named providers — Yomu's own hosted recordings plus a JapanesePod101 fallback, for example — and until now the whole URL could only be kept or dropped as one block. Every Custom URL row under Settings → Media → Audio sources now has a Detect included sources button that probes the URL with sample lookups and lists every provider it reports, each with its own checkbox. Clips from unticked providers are skipped during playback, and providers that appear later stay enabled until you switch them off, so nothing silently disappears.
+- The provider list also marks entries that duplicate another enabled row in the audio source list, such as the JapanesePod101 provider inside the hosted source sitting next to the stand-alone JapanesePod101 row, so overlapping sources are visible at a glance and either the provider checkbox or the duplicate row can be switched off.
+
 ## [1.8.4] - 2026-07-25
 
 ### Fixed

@@ -2,10 +2,11 @@ import { escapeHtml, setInnerHtml } from '../dom/index';
 import { audioSourceLabel, uiText } from '../app/i18n';
 import { speakerIcon } from '../ui/icons';
 import { AUDIO_SOURCE_UI_TYPE_VALUES, DEFAULT_AUDIO_SOURCES, MAX_DICTIONARY_LOOKUP_LINKS, normalizeDictionaryLookupLinks } from './index';
+import { audioSubSourceNameKey } from '../audio/source-resolution';
 import { moveSourceRow } from './form-order';
 import { readAudioSources, readDictionaryLookupLinks } from './form-read';
 import { miniIconButton, renderRowOrderTools, renderRowRemoveTools } from './form-source-rows';
-import type { AudioSourceSetting, DictionaryLookupLink, DictionaryPreference, InterfaceLanguage } from '../app/types';
+import type { AudioSourceSetting, AudioSourceType, AudioSubSourceSetting, DictionaryLookupLink, DictionaryPreference, InterfaceLanguage } from '../app/types';
 
 type SettingsTextKey = Parameters<typeof uiText>[1];
 
@@ -89,9 +90,89 @@ function renderAudioSourceRows(rows: AudioSourceSetting[], language: InterfaceLa
                 </div>
                 ${orderTools}
                 ${removeTools}
+                ${renderAudioSubSourcePanel(index, source, rows, language)}
             </div>
         `).join('')}
     `;
+}
+
+// Aggregator URLs (type custom-json) can answer with several named providers
+// per word. The panel lists every provider the URL reported so users can turn
+// individual ones off without dropping the whole source.
+function renderAudioSubSourcePanel(index: number, source: AudioSourceSetting, rows: AudioSourceSetting[], language: InterfaceLanguage): string {
+    const visible = source.type === 'custom-json';
+    return `
+        <div class="jpdb-reader-audio-subsources" data-audio-subsources ${visible ? '' : 'hidden'}>
+            <div class="jpdb-reader-audio-subsource-list" data-audio-subsource-list>
+                ${renderAudioSubSourceList(index, source.subSources ?? [], rows, language)}
+            </div>
+            <div class="jpdb-reader-audio-subsource-actions">
+                <button type="button" class="jpdb-reader-btn" data-action="audio-source-detect">${escapedUiText(language, 'audioDetectSubSources')}</button>
+                <span class="jpdb-reader-audio-subsource-status" data-audio-subsource-status hidden></span>
+            </div>
+        </div>
+    `;
+}
+
+export function renderAudioSubSourceList(index: number, subSources: AudioSubSourceSetting[], rows: AudioSourceSetting[], language: InterfaceLanguage): string {
+    const help = subSources.length
+        ? `<span class="jpdb-reader-audio-subsource-help">${escapedUiText(language, 'audioSubSourcesHelp')}</span>`
+        : '';
+    return `
+        <input type="hidden" name="audioSources.${index}.subSourceCount" value="${subSources.length}">
+        ${help}
+        ${subSources.map((subSource, subIndex) => renderAudioSubSourceRow(index, subIndex, subSource, rows, language)).join('')}
+    `;
+}
+
+function renderAudioSubSourceRow(index: number, subIndex: number, subSource: AudioSubSourceSetting, rows: AudioSourceSetting[], language: InterfaceLanguage): string {
+    const overlap = audioSubSourceOverlapsEnabledRow(subSource, index, rows)
+        ? `<span class="jpdb-reader-audio-subsource-overlap">${escapedUiText(language, 'audioSubSourceOverlapHint')}</span>`
+        : '';
+    const toggleLabel = uiText(language, 'enableSourceName').replace('{name}', subSource.name);
+    return `
+        <label class="inline jpdb-reader-audio-subsource">
+            <input type="checkbox" name="audioSources.${index}.subSources.${subIndex}.enabled" aria-label="${escapeHtml(toggleLabel)}" ${subSource.enabled ? 'checked' : ''}>
+            <span>${escapeHtml(subSource.name)}</span>
+            ${overlap}
+        </label>
+        <input type="hidden" name="audioSources.${index}.subSources.${subIndex}.name" value="${escapeHtml(subSource.name)}">
+    `;
+}
+
+// Providers surfaced inside an aggregator can duplicate stand-alone source
+// rows (the hosted URL hands out JapanesePod101 clips, and so does the
+// dedicated JapanesePod101 row). Flag the overlap so users can keep one.
+const AUDIO_SUB_SOURCE_OVERLAP_TYPES: Record<string, AudioSourceType[]> = {
+    jpod: ['jpod101', 'language-pod-101'],
+    jpod101: ['jpod101', 'language-pod-101'],
+    japanesepod101: ['jpod101', 'language-pod-101'],
+    languagepod101: ['language-pod-101'],
+    jisho: ['jisho'],
+    bunpro: ['bunpro'],
+    wiktionary: ['wiktionary'],
+    'lingua libre': ['lingua-libre'],
+    'lingua-libre': ['lingua-libre'],
+};
+
+export function mergeAudioSubSources(existing: AudioSubSourceSetting[], detectedNames: string[]): AudioSubSourceSetting[] {
+    const merged = existing.map(subSource => ({ ...subSource }));
+    const seen = new Set(merged.map(subSource => audioSubSourceNameKey(subSource.name)));
+    for (const name of detectedNames) {
+        const trimmed = name.trim();
+        const key = audioSubSourceNameKey(trimmed);
+        if (!trimmed || seen.has(key)) continue;
+        seen.add(key);
+        merged.push({ name: trimmed, enabled: true });
+    }
+    return merged;
+}
+
+function audioSubSourceOverlapsEnabledRow(subSource: AudioSubSourceSetting, rowIndex: number, rows: AudioSourceSetting[]): boolean {
+    if (!subSource.enabled) return false;
+    const overlapTypes = AUDIO_SUB_SOURCE_OVERLAP_TYPES[audioSubSourceNameKey(subSource.name)];
+    if (!overlapTypes) return false;
+    return rows.some((row, index) => index !== rowIndex && row.enabled && overlapTypes.includes(row.type));
 }
 
 function audioSourceSelectOptions(type: AudioSourceSetting['type'], language: InterfaceLanguage): [AudioSourceSetting['type'], string][] {
@@ -164,6 +245,7 @@ function jpdbTtsVoiceSelectOptions(selectedVoice: string): string {
 export function syncAudioSourceRow(row: Element | null, type: string): void {
     if (!row) return;
     row.querySelectorAll<HTMLElement>('[data-audio-url-field]').forEach(node => { node.hidden = !audioSourceUsesUrl(type); });
+    row.querySelectorAll<HTMLElement>('[data-audio-subsources]').forEach(node => { node.hidden = type !== 'custom-json'; });
     row.querySelectorAll<HTMLElement>('[data-audio-voice-field]').forEach(node => {
         const voiceKind = audioSourceVoiceKind(type);
         node.hidden = voiceKind === 'none';

@@ -32432,6 +32432,11 @@ ${spelling}`);
       audioCustomJsonPlaceholder: "Yomitan or Ultimate audio source URL",
       audioCustomUrlPlaceholder: "Direct audio file URL",
       audioBuiltInPlaceholder: "Built-in source, no URL needed",
+      audioDetectSubSources: "Detect included sources",
+      audioDetectingSubSources: "Checking included sources…",
+      audioNoSubSourcesDetected: "No named sources reported by this URL.",
+      audioSubSourcesHelp: "Sources offered by this URL — untick any you don’t want:",
+      audioSubSourceOverlapHint: "also listed as its own source",
       defaultVoiceSuffix: "default",
       audioGuideLinkLabel: "Yomitan audio guide",
       audioProxyGuideSummary: "Make your own Cloudflare proxy",
@@ -34092,6 +34097,11 @@ audioSourceCustomJson	カスタムURL
 audioCustomJsonPlaceholder	Yomitan/Ultimate音声URL
 audioCustomUrlPlaceholder	直接音声ファイルURL
 audioBuiltInPlaceholder	内蔵ソースはURL不要
+audioDetectSubSources	内部ソースを検出
+audioDetectingSubSources	内部ソースを確認中…
+audioNoSubSourcesDetected	このURLは名前付きソースを返しませんでした。
+audioSubSourcesHelp	このURLが提供するソース。不要なものはオフに:
+audioSubSourceOverlapHint	下の単独ソースと重複
 defaultVoiceSuffix	標準
 audioGuideLinkLabel	Yomitan音声ガイド
 audioProxyGuideSummary	Cloudflareプロキシ
@@ -35105,6 +35115,183 @@ recommendedJiten	Jiten由来の頻度バッジです。
       parseInt(safe.slice(3, 5), 16),
       parseInt(safe.slice(5, 7), 16)
     ];
+  }
+  const YOMU_HOSTED_AUDIO_SOURCE = { type: "custom-json", url: YOMU_HOSTED_AUDIO_URL, voice: "", enabled: true };
+  function getOrderedAudioSources(settings) {
+    const sources = settings.audioSources.filter((source2) => source2.enabled);
+    if (!settings.audioEnableDefaultSources) return sources;
+    const hosted = settings.audioSources.find(isYomuHostedAudioSource) ?? YOMU_HOSTED_AUDIO_SOURCE;
+    return [
+      ...hosted.enabled ? [{ ...hosted }] : [],
+      ...sources.filter((source2) => !isYomuHostedAudioSource(source2))
+    ];
+  }
+  function isYomuHostedAudioSource(source2) {
+    return source2.type === "custom-json" && source2.url.trim() === YOMU_HOSTED_AUDIO_URL;
+  }
+  function preloadableAudioSources(sources, settings) {
+    return settings.audioTtsMode === "source-order" ? sources.filter((source2) => !isBrowserTextToSpeechSource(source2)) : sources.filter((source2) => !isTextToSpeechFallbackSource(source2));
+  }
+  function cheapCandidatePreloadAudioSources(sources, card) {
+    return sources.filter((source2) => canResolveAudioCandidatesWithoutNetwork(source2, card));
+  }
+  function canResolveAudioCandidatesWithoutNetwork(source2, card) {
+    switch (source2.type) {
+      case "custom":
+      case "jpod101":
+      case "bunpro":
+        return true;
+      case "jiten-tts":
+        return hasJitenAudioReference(card);
+      default:
+        return false;
+    }
+  }
+  function hasJitenAudioReference(card) {
+    return isPositiveFiniteInteger(card.jitenWordId) && isFiniteNonNegativeInteger(card.jitenReadingIndex) || card.source === "jiten" && isPositiveFiniteInteger(card.vid) && isFiniteNonNegativeInteger(card.sid);
+  }
+  function isPositiveFiniteInteger(value) {
+    return typeof value === "number" && Number.isInteger(value) && value > 0;
+  }
+  function isFiniteNonNegativeInteger(value) {
+    return typeof value === "number" && Number.isInteger(value) && value >= 0;
+  }
+  function audioPreloadLimits(options) {
+    return {
+      sourceLimit: Math.max(1, options.sourceLimit ?? 1),
+      candidateLimit: Math.max(1, options.candidateLimit ?? 1),
+      prepareAudio: options.prepareAudio !== false
+    };
+  }
+  function orderAudioCandidates(candidates, mode, bagKey, shuffledAudio) {
+    return orderAudioDeckEntries(candidates.map((candidate2, index) => ({
+      candidate: candidate2,
+      id: audioCandidateDeckId(candidate2, index)
+    })), mode, bagKey, shuffledAudio);
+  }
+  function audioCandidateSelectionMode(sourceType, mode) {
+    return sourceType === "jpdb-tts" || sourceType === "jiten-tts" ? "random" : mode;
+  }
+  function orderAudioSources(sources, card) {
+    return audioSourceDeckEntries(sources, getAudioSourceBagKey(sources, card));
+  }
+  function audioSourceDeckEntries(sources, bagKey) {
+    return sources.map((source2, index) => {
+      const signature = getAudioSourceSignature(source2);
+      return {
+        source: source2,
+        id: getAudioSourceDeckId(signature, index),
+        bagKey,
+        signature
+      };
+    });
+  }
+  function isBrowserTextToSpeechSource(source2) {
+    return source2.type === "text-to-speech" || source2.type === "text-to-speech-reading";
+  }
+  function isApiTextToSpeechSource(source2) {
+    return source2.type === "jiten-tts" || source2.type === "jpdb-tts";
+  }
+  function isTextToSpeechFallbackSource(source2) {
+    return isApiTextToSpeechSource(source2) || isBrowserTextToSpeechSource(source2);
+  }
+  function audioSubSourceNameKey(name) {
+    return name.trim().normalize("NFC").toLowerCase();
+  }
+  function disabledAudioSubSourceNameKeys(source2) {
+    return new Set((source2.subSources ?? []).filter((subSource) => !subSource.enabled).map((subSource) => audioSubSourceNameKey(subSource.name)));
+  }
+  function audioSubSourceFilterKey(source2) {
+    return [...disabledAudioSubSourceNameKeys(source2)].sort().join("");
+  }
+  function registerAudioAttempt(triedUrls, candidate2) {
+    const candidateKey2 = normalizeAttemptedAudioUrl(candidate2.url);
+    if (triedUrls.has(candidateKey2)) return false;
+    triedUrls.add(candidateKey2);
+    return true;
+  }
+  function getAudioBagKey(source2, card) {
+    return [
+      source2.type,
+      source2.url,
+      source2.voice,
+      audioSubSourceFilterKey(source2),
+      card.spelling,
+      card.reading
+    ].join("");
+  }
+  function getJpdbAudioBagKey(audioIds) {
+    return [
+      "jpdb-audio",
+      ...[...audioIds].sort()
+    ].join("");
+  }
+  function getAudioCandidateCacheKey(source2, card) {
+    return [
+      source2.type,
+      source2.url.trim(),
+      source2.voice.trim(),
+      audioSubSourceFilterKey(source2),
+      card.spelling,
+      card.reading
+    ].join("");
+  }
+  function preparedAudioCacheKey(candidate2, mode, audioViaBlob) {
+    return [
+      normalizeAttemptedAudioUrl(candidate2.url),
+      normalizeAttemptedAudioUrl(candidate2.sourceUrl),
+      mode,
+      audioViaBlob ? "blob" : "direct"
+    ].join("");
+  }
+  function cloneAudioCandidates(candidates) {
+    return candidates.map((candidate2) => ({ ...candidate2 }));
+  }
+  function normalizeAttemptedAudioUrl(value) {
+    try {
+      const url = new URL(value, location.href);
+      url.hash = "";
+      return url.href;
+    } catch {
+      return value;
+    }
+  }
+  function audioCandidateDeckId(candidate2, index) {
+    if (candidate2.jpdbAudioId) return `jpdb:${candidate2.jpdbAudioId}`;
+    return [
+      normalizeAttemptedAudioUrl(candidate2.url),
+      normalizeAttemptedAudioUrl(candidate2.sourceUrl),
+      index
+    ].join("\0");
+  }
+  function orderAudioDeckEntries(entries2, mode, bagKey, shuffledAudio) {
+    if (mode !== "random" || !entries2.length) return entries2;
+    const byId2 = new Map(entries2.map((entry2) => [entry2.id, entry2]));
+    const ordered = [];
+    for (const id2 of shuffledAudio.order(bagKey, entries2.map((entry2) => entry2.id))) {
+      const entry2 = byId2.get(id2);
+      if (entry2) ordered.push(entry2);
+    }
+    return ordered;
+  }
+  function getAudioSourceBagKey(sources, card) {
+    return [
+      "audio-sources",
+      card.spelling,
+      card.reading,
+      ...sources.map(getAudioSourceSignature)
+    ].join("");
+  }
+  function getAudioSourceDeckId(signature, index) {
+    return `${index}\0${signature}`;
+  }
+  function getAudioSourceSignature(source2) {
+    return [
+      source2.type,
+      source2.url.trim(),
+      source2.voice.trim(),
+      audioSubSourceFilterKey(source2)
+    ].join("\0");
   }
   function matchesShortcut(event, shortcut = "") {
     if (!shortcut) return false;
@@ -36663,12 +36850,30 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const record2 = audioSourceRecord(value);
     if (!record2) return null;
     if (!isAudioSourceType(record2.type)) return null;
+    const subSources = normalizeAudioSubSources(record2.subSources);
     return {
       type: record2.type,
       url: stringValue$2(record2.url),
       voice: stringValue$2(record2.voice),
-      enabled: audioSourceEnabled(record2.enabled)
+      enabled: audioSourceEnabled(record2.enabled),
+      ...subSources.length ? { subSources } : {}
     };
+  }
+  function normalizeAudioSubSources(value) {
+    if (!Array.isArray(value)) return [];
+    const seen = /* @__PURE__ */ new Set();
+    const subSources = [];
+    for (const entry2 of value) {
+      if (!entry2 || typeof entry2 !== "object") continue;
+      const record2 = entry2;
+      const name = stringValue$2(record2.name).trim();
+      if (!name) continue;
+      const key2 = audioSubSourceNameKey(name);
+      if (seen.has(key2)) continue;
+      seen.add(key2);
+      subSources.push({ name, enabled: audioSourceEnabled(record2.enabled) });
+    }
+    return subSources;
   }
   function audioSourceRecord(value) {
     return value && typeof value === "object" ? value : null;
@@ -272113,171 +272318,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const index = ids2.indexOf(id2);
     if (index >= 0) ids2.splice(index, 1);
   }
-  const YOMU_HOSTED_AUDIO_SOURCE = { type: "custom-json", url: YOMU_HOSTED_AUDIO_URL, voice: "", enabled: true };
-  function getOrderedAudioSources(settings) {
-    const sources = settings.audioSources.filter((source2) => source2.enabled);
-    if (!settings.audioEnableDefaultSources) return sources;
-    const hosted = settings.audioSources.find(isYomuHostedAudioSource) ?? YOMU_HOSTED_AUDIO_SOURCE;
-    return [
-      ...hosted.enabled ? [{ ...hosted }] : [],
-      ...sources.filter((source2) => !isYomuHostedAudioSource(source2))
-    ];
-  }
-  function isYomuHostedAudioSource(source2) {
-    return source2.type === "custom-json" && source2.url.trim() === YOMU_HOSTED_AUDIO_URL;
-  }
-  function preloadableAudioSources(sources, settings) {
-    return settings.audioTtsMode === "source-order" ? sources.filter((source2) => !isBrowserTextToSpeechSource(source2)) : sources.filter((source2) => !isTextToSpeechFallbackSource(source2));
-  }
-  function cheapCandidatePreloadAudioSources(sources, card) {
-    return sources.filter((source2) => canResolveAudioCandidatesWithoutNetwork(source2, card));
-  }
-  function canResolveAudioCandidatesWithoutNetwork(source2, card) {
-    switch (source2.type) {
-      case "custom":
-      case "jpod101":
-      case "bunpro":
-        return true;
-      case "jiten-tts":
-        return hasJitenAudioReference(card);
-      default:
-        return false;
-    }
-  }
-  function hasJitenAudioReference(card) {
-    return isPositiveFiniteInteger(card.jitenWordId) && isFiniteNonNegativeInteger(card.jitenReadingIndex) || card.source === "jiten" && isPositiveFiniteInteger(card.vid) && isFiniteNonNegativeInteger(card.sid);
-  }
-  function isPositiveFiniteInteger(value) {
-    return typeof value === "number" && Number.isInteger(value) && value > 0;
-  }
-  function isFiniteNonNegativeInteger(value) {
-    return typeof value === "number" && Number.isInteger(value) && value >= 0;
-  }
-  function audioPreloadLimits(options) {
-    return {
-      sourceLimit: Math.max(1, options.sourceLimit ?? 1),
-      candidateLimit: Math.max(1, options.candidateLimit ?? 1),
-      prepareAudio: options.prepareAudio !== false
-    };
-  }
-  function orderAudioCandidates(candidates, mode, bagKey, shuffledAudio) {
-    return orderAudioDeckEntries(candidates.map((candidate2, index) => ({
-      candidate: candidate2,
-      id: audioCandidateDeckId(candidate2, index)
-    })), mode, bagKey, shuffledAudio);
-  }
-  function audioCandidateSelectionMode(sourceType, mode) {
-    return sourceType === "jpdb-tts" || sourceType === "jiten-tts" ? "random" : mode;
-  }
-  function orderAudioSources(sources, card) {
-    return audioSourceDeckEntries(sources, getAudioSourceBagKey(sources, card));
-  }
-  function audioSourceDeckEntries(sources, bagKey) {
-    return sources.map((source2, index) => {
-      const signature = getAudioSourceSignature(source2);
-      return {
-        source: source2,
-        id: getAudioSourceDeckId(signature, index),
-        bagKey,
-        signature
-      };
-    });
-  }
-  function isBrowserTextToSpeechSource(source2) {
-    return source2.type === "text-to-speech" || source2.type === "text-to-speech-reading";
-  }
-  function isApiTextToSpeechSource(source2) {
-    return source2.type === "jiten-tts" || source2.type === "jpdb-tts";
-  }
-  function isTextToSpeechFallbackSource(source2) {
-    return isApiTextToSpeechSource(source2) || isBrowserTextToSpeechSource(source2);
-  }
-  function registerAudioAttempt(triedUrls, candidate2) {
-    const candidateKey2 = normalizeAttemptedAudioUrl(candidate2.url);
-    if (triedUrls.has(candidateKey2)) return false;
-    triedUrls.add(candidateKey2);
-    return true;
-  }
-  function getAudioBagKey(source2, card) {
-    return [
-      source2.type,
-      source2.url,
-      source2.voice,
-      card.spelling,
-      card.reading
-    ].join("");
-  }
-  function getJpdbAudioBagKey(audioIds) {
-    return [
-      "jpdb-audio",
-      ...[...audioIds].sort()
-    ].join("");
-  }
-  function getAudioCandidateCacheKey(source2, card) {
-    return [
-      source2.type,
-      source2.url.trim(),
-      source2.voice.trim(),
-      card.spelling,
-      card.reading
-    ].join("");
-  }
-  function preparedAudioCacheKey(candidate2, mode, audioViaBlob) {
-    return [
-      normalizeAttemptedAudioUrl(candidate2.url),
-      normalizeAttemptedAudioUrl(candidate2.sourceUrl),
-      mode,
-      audioViaBlob ? "blob" : "direct"
-    ].join("");
-  }
-  function cloneAudioCandidates(candidates) {
-    return candidates.map((candidate2) => ({ ...candidate2 }));
-  }
-  function normalizeAttemptedAudioUrl(value) {
-    try {
-      const url = new URL(value, location.href);
-      url.hash = "";
-      return url.href;
-    } catch {
-      return value;
-    }
-  }
-  function audioCandidateDeckId(candidate2, index) {
-    if (candidate2.jpdbAudioId) return `jpdb:${candidate2.jpdbAudioId}`;
-    return [
-      normalizeAttemptedAudioUrl(candidate2.url),
-      normalizeAttemptedAudioUrl(candidate2.sourceUrl),
-      index
-    ].join("\0");
-  }
-  function orderAudioDeckEntries(entries2, mode, bagKey, shuffledAudio) {
-    if (mode !== "random" || !entries2.length) return entries2;
-    const byId2 = new Map(entries2.map((entry2) => [entry2.id, entry2]));
-    const ordered = [];
-    for (const id2 of shuffledAudio.order(bagKey, entries2.map((entry2) => entry2.id))) {
-      const entry2 = byId2.get(id2);
-      if (entry2) ordered.push(entry2);
-    }
-    return ordered;
-  }
-  function getAudioSourceBagKey(sources, card) {
-    return [
-      "audio-sources",
-      card.spelling,
-      card.reading,
-      ...sources.map(getAudioSourceSignature)
-    ].join("");
-  }
-  function getAudioSourceDeckId(signature, index) {
-    return `${index}\0${signature}`;
-  }
-  function getAudioSourceSignature(source2) {
-    return [
-      source2.type,
-      source2.url.trim(),
-      source2.voice.trim()
-    ].join("\0");
-  }
   function requestAudioUrl(responseUrl, responseType, timeoutMs, options = {}) {
     const language2 = options.language ?? "en";
     const requestOptions = {
@@ -272663,8 +272703,70 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (!template) return [];
     const sourceUrl = formatAudioUrl(withAudioQueryPlaceholders(template), card);
     const response = await requestAudioUrl(sourceUrl, "text", timeoutMs, { proxyUrl });
-    const urls = typeof response === "string" ? findAudioUrls(JSON.parse(response), sourceUrl) : [];
-    return urls.map((url) => ({ url, sourceUrl }));
+    if (typeof response !== "string") return [];
+    return customJsonAudioCandidates(JSON.parse(response), source2, sourceUrl);
+  }
+  function customJsonAudioCandidates(payload, source2, sourceUrl) {
+    const named = namedAudioSubSources(payload);
+    const disabled = disabledAudioSubSourceNameKeys(source2);
+    if (named.length && disabled.size) {
+      const allowed = named.filter((entry2) => !disabled.has(audioSubSourceNameKey(entry2.name)));
+      return uniqueAudioUrls(allowed.flatMap((entry2) => findAudioUrls(entry2.url, sourceUrl))).map((url) => ({ url, sourceUrl }));
+    }
+    return findAudioUrls(payload, sourceUrl).map((url) => ({ url, sourceUrl }));
+  }
+  function namedAudioSubSources(value) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return [];
+    const record2 = value;
+    const entries2 = [];
+    for (const list2 of [record2.audioSources, record2.sources]) {
+      if (!Array.isArray(list2)) continue;
+      for (const item2 of list2) {
+        const entry2 = namedAudioSubSource(item2);
+        if (entry2) entries2.push(entry2);
+      }
+    }
+    return entries2;
+  }
+  function namedAudioSubSource(value) {
+    if (!value || typeof value !== "object") return null;
+    const record2 = value;
+    if (typeof record2.name !== "string" || !record2.name.trim()) return null;
+    if (typeof record2.url !== "string" || !record2.url.trim()) return null;
+    return { name: record2.name.trim(), url: record2.url };
+  }
+  const AUDIO_SUB_SOURCE_PROBES = [
+    { spelling: "日本", reading: "にほん" },
+    { spelling: "食べる", reading: "たべる" },
+    { spelling: "ヨム音声テスト", reading: "" }
+  ];
+  async function detectCustomJsonAudioSubSources(url, timeoutMs, proxyUrl) {
+    const template = url.trim();
+    if (!template) return [];
+    const results = await Promise.allSettled(AUDIO_SUB_SOURCE_PROBES.map(async (probe) => {
+      const sourceUrl = formatAudioUrl(withAudioQueryPlaceholders(template), probe);
+      const response = await requestAudioUrl(sourceUrl, "text", timeoutMs, { proxyUrl });
+      return typeof response === "string" ? namedAudioSubSources(parseJsonValue(response)) : [];
+    }));
+    const seen = /* @__PURE__ */ new Set();
+    const names = [];
+    for (const result2 of results) {
+      if (result2.status !== "fulfilled") continue;
+      for (const entry2 of result2.value) {
+        const key2 = audioSubSourceNameKey(entry2.name);
+        if (seen.has(key2)) continue;
+        seen.add(key2);
+        names.push(entry2.name);
+      }
+    }
+    return names;
+  }
+  function parseJsonValue(text2) {
+    try {
+      return JSON.parse(text2);
+    } catch {
+      return null;
+    }
   }
   function withAudioQueryPlaceholders(template) {
     if (AUDIO_QUERY_PLACEHOLDER_RE.test(template)) return template;
@@ -322571,203 +322673,6 @@ ${entry2.url}`),
       return language2;
     }
   }
-  const SETTINGS_LABEL_TEXT_CLASS = "jpdb-reader-settings-label-text";
-  function input(name, label, value, type = "text", attributes = {}) {
-    const fieldClass = ["jpdb-reader-settings-field"];
-    if (type === "number" || type === "color") fieldClass.push(`jpdb-reader-settings-field-${type}`);
-    return `<label class="${fieldClass.join(" ")}">${label}<input name="${name}" type="${type}" value="${escapeHtml$2(value)}" autocomplete="off"${attributeHtml(attributes)}></label>`;
-  }
-  function shortcutInput(name, label, value, placeholder = "Press keys") {
-    return `<label>${label}<input data-shortcut-input name="${name}" type="text" value="${escapeHtml$2(value)}" placeholder="${escapeHtml$2(placeholder)}" autocomplete="off" inputmode="none" aria-label="${escapeHtml$2(label)}"></label>`;
-  }
-  function checkbox(name, label, checked, attributes = {}) {
-    return `<label class="inline"><input name="${name}" type="checkbox" ${checked ? "checked" : ""}${booleanAttributeHtml(attributes)}>${label}</label>`;
-  }
-  function select(name, label, value, options) {
-    return `<label>${label}<select name="${name}">${options.map(
-      ([optionValue, text2]) => `<option value="${escapeHtml$2(optionValue)}" ${optionValue === value ? "selected" : ""}>${escapeHtml$2(text2)}</option>`
-    ).join("")}</select></label>`;
-  }
-  function radioGroup(name, label, value, options) {
-    return `<fieldset class="jpdb-reader-radio-group"><legend>${label}</legend>${options.map(
-      ([optionValue, text2]) => `<label class="inline"><input name="${name}" type="radio" value="${escapeHtml$2(optionValue)}" ${optionValue === value ? "checked" : ""}>${escapeHtml$2(text2)}</label>`
-    ).join("")}</fieldset>`;
-  }
-  function settingsTabButton(panel, label, active = false) {
-    return `<button class="jpdb-reader-settings-tab" type="button" role="tab" data-action="settings-panel" data-panel="${escapeHtml$2(panel)}" aria-controls="${settingsTabControls(panel)}" aria-selected="${active ? "true" : "false"}" tabindex="${active ? "0" : "-1"}">${escapeHtml$2(label)}</button>`;
-  }
-  function miniIcon(name) {
-    const paths = {
-      drag: '<path d="M9 5h.01"></path><path d="M15 5h.01"></path><path d="M9 12h.01"></path><path d="M15 12h.01"></path><path d="M9 19h.01"></path><path d="M15 19h.01"></path>',
-      up: '<path d="M12 19V5"></path><path d="m5 12 7-7 7 7"></path>',
-      down: '<path d="M12 5v14"></path><path d="m19 12-7 7-7-7"></path>',
-      remove: '<path d="M18 6 6 18"></path><path d="m6 6 12 12"></path>'
-    };
-    return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">${paths[name]}</svg>`;
-  }
-  function settingsTabControls(panel) {
-    return {
-      api: "jpdb-reader-settings-panel-api",
-      newTab: "jpdb-reader-settings-panel-newtab",
-      appearance: "jpdb-reader-settings-panel-appearance jpdb-reader-settings-panel-reader",
-      backup: "jpdb-reader-settings-panel-backup",
-      reading: "jpdb-reader-settings-panel-reader jpdb-reader-settings-panel-kanji",
-      dictionaries: "jpdb-reader-settings-panel-dictionaries jpdb-reader-settings-panel-kanji",
-      media: "jpdb-reader-settings-panel-audio jpdb-reader-settings-panel-immersion-kit jpdb-reader-settings-panel-ocr jpdb-reader-settings-panel-video jpdb-reader-settings-panel-youtube",
-      mining: "jpdb-reader-settings-panel-mining",
-      shortcuts: "jpdb-reader-settings-panel-shortcuts",
-      help: "jpdb-reader-settings-panel-help"
-    }[panel] ?? "jpdb-reader-settings-panel-api";
-  }
-  function attributeHtml(attributes) {
-    return Object.entries(attributes).map(([key2, attributeValue]) => ` ${key2}="${escapeHtml$2(String(attributeValue))}"`).join("");
-  }
-  function booleanAttributeHtml(attributes) {
-    return Object.entries(attributes).filter(([, value]) => value).map(([key2]) => ` ${key2}`).join("");
-  }
-  function updateSourceRowEditor(action2, control2) {
-    const row = control2?.closest("[data-source-row]");
-    const container = row?.closest("[data-source-editor]");
-    if (!container || !row) return;
-    const rows = Array.from(container.querySelectorAll("[data-source-row]"));
-    const index = rows.indexOf(row);
-    const targetIndex = action2 === "dictionary-source-up" ? index - 1 : index + 1;
-    moveSourceRow(container, index, targetIndex);
-  }
-  function installSourceRowDrag(root) {
-    let drag = null;
-    const dragDocument = root.ownerDocument;
-    root.addEventListener("pointerdown", (event) => {
-      if (drag) return;
-      if (event.pointerType === "mouse" && event.button !== 0) return;
-      const handle = event.target.closest("[data-source-drag-handle]");
-      if (!handle || !root.contains(handle)) return;
-      const row = handle.closest("[data-source-row]");
-      const container = row?.closest("[data-source-editor]");
-      if (!row || !container) return;
-      event.preventDefault();
-      setSourceRowPointerCapture(handle, event.pointerId);
-      const pageScale = overlayViewport().pageScale;
-      drag = {
-        active: false,
-        container,
-        handle,
-        pageScale,
-        pointerId: event.pointerId,
-        row,
-        startY: sourceRowOverlayY(event.clientY, pageScale)
-      };
-      row.classList.add("jpdb-reader-order-row-drag-pending");
-      dragDocument.addEventListener("pointermove", moveDrag);
-      dragDocument.addEventListener("pointerup", finishDrag);
-      dragDocument.addEventListener("pointercancel", finishDrag);
-    });
-    const moveDrag = (event) => {
-      if (!drag || event.pointerId !== drag.pointerId) return;
-      const overlayY = sourceRowOverlayY(event.clientY, drag.pageScale);
-      if (!drag.active && Math.abs(overlayY - drag.startY) < 4) return;
-      event.preventDefault();
-      drag.active = true;
-      drag.row.classList.add("jpdb-reader-order-row-dragging");
-      moveSourceRowToPointer(drag.container, drag.row, overlayY, drag.pageScale);
-    };
-    const finishDrag = (event) => {
-      if (!drag || event.pointerId !== drag.pointerId) return;
-      releaseSourceRowPointerCapture(drag.handle, event.pointerId);
-      drag.row.classList.remove("jpdb-reader-order-row-drag-pending", "jpdb-reader-order-row-dragging");
-      syncSourceRowOrder(drag.container);
-      drag = null;
-      dragDocument.removeEventListener("pointermove", moveDrag);
-      dragDocument.removeEventListener("pointerup", finishDrag);
-      dragDocument.removeEventListener("pointercancel", finishDrag);
-    };
-    root.addEventListener("pointermove", moveDrag);
-    root.addEventListener("pointerup", finishDrag);
-    root.addEventListener("pointercancel", finishDrag);
-  }
-  function moveSourceRow(container, index, targetIndex) {
-    const rows = Array.from(container.querySelectorAll("[data-source-row]"));
-    if (!canMoveSourceRow(index, targetIndex, rows.length)) return;
-    const row = rows[index];
-    const target2 = rows[targetIndex];
-    if (targetIndex < index) container.insertBefore(row, target2);
-    else container.insertBefore(row, target2.nextSibling);
-    syncSourceRowOrder(container);
-  }
-  function setSourceRowPointerCapture(handle, pointerId) {
-    try {
-      handle.setPointerCapture?.(pointerId);
-    } catch {
-    }
-  }
-  function releaseSourceRowPointerCapture(handle, pointerId) {
-    try {
-      handle.releasePointerCapture?.(pointerId);
-    } catch {
-    }
-  }
-  function moveSourceRowToPointer(container, row, overlayY, pageScale) {
-    const rows = Array.from(container.querySelectorAll("[data-source-row]")).filter((candidate2) => candidate2 !== row);
-    const target2 = rows.find((candidate2) => {
-      const rect = sourceRectToOverlay(candidate2.getBoundingClientRect(), candidate2, pageScale);
-      return overlayY < rect.top + rect.height / 2;
-    });
-    if (target2) container.insertBefore(row, target2);
-    else container.appendChild(row);
-    syncSourceRowOrder(container);
-  }
-  function sourceRowOverlayY(clientY, pageScale) {
-    return layoutPointToOverlay({ x: 0, y: clientY }, pageScale).y;
-  }
-  function canMoveSourceRow(index, targetIndex, rowCount) {
-    return index >= 0 && targetIndex >= 0 && index < rowCount && targetIndex < rowCount && index !== targetIndex;
-  }
-  function syncSourceRowOrder(container) {
-    const rows = Array.from(container.querySelectorAll("[data-source-row]"));
-    rows.forEach((row, index) => {
-      const priority = row.querySelector('input[name$=".priority"]');
-      if (priority) priority.value = String(index);
-      const indexLabel = row.querySelector(".jpdb-reader-order-toggle span");
-      if (indexLabel) indexLabel.textContent = String(index + 1);
-    });
-    if (container.matches("[data-audio-source-editor]")) syncAudioSourceIndexes(container, rows);
-    if (container.classList.contains("jpdb-reader-lookup-links")) syncDictionaryLookupLinkIndexes(container, rows);
-  }
-  function syncAudioSourceIndexes(container, rows = Array.from(container.querySelectorAll("[data-audio-source-row]"))) {
-    const language2 = settingsLanguageForElement(container);
-    rows.forEach((row, index) => {
-      row.dataset.sourceId = `audio-${index}`;
-      row.querySelectorAll('[name^="audioSources."]').forEach((control2) => {
-        control2.name = control2.name.replace(/^audioSources\.\d+\./, `audioSources.${index}.`);
-        if (control2 instanceof HTMLSelectElement && control2.name.endsWith(".type")) {
-          control2.setAttribute("aria-label", uiText(language2, "audioSourceNumber").replace("{number}", String(index + 1)));
-        }
-        if (control2 instanceof HTMLInputElement && control2.name.endsWith(".enabled")) {
-          control2.setAttribute("aria-label", uiText(language2, "enableAudioSourceNumber").replace("{number}", String(index + 1)));
-        }
-        if (control2 instanceof HTMLSelectElement && control2.name.endsWith(".voice")) {
-          control2.setAttribute("aria-label", uiText(language2, "textToSpeechVoiceNumber").replace("{number}", String(index + 1)));
-        }
-      });
-    });
-  }
-  function syncDictionaryLookupLinkIndexes(container, rows = Array.from(container.querySelectorAll("[data-lookup-link-row]"))) {
-    const language2 = settingsLanguageForElement(container);
-    rows.forEach((row, index) => {
-      row.dataset.index = String(index);
-      row.dataset.sourceId = `lookup-link-${index}`;
-      row.querySelectorAll('[name^="dictionaryLookupLinks."]').forEach((control2) => {
-        control2.name = control2.name.replace(/^dictionaryLookupLinks\.\d+\./, `dictionaryLookupLinks.${index}.`);
-        if (control2.name.endsWith(".label")) control2.setAttribute("aria-label", uiText(language2, "lookupPillLabelNumber").replace("{number}", String(index + 1)));
-        if (control2.name.endsWith(".urlTemplate")) control2.setAttribute("aria-label", uiText(language2, "lookupUrlTemplateNumber").replace("{number}", String(index + 1)));
-      });
-    });
-  }
-  function settingsLanguageForElement(element2) {
-    const control2 = element2.closest("form")?.elements.namedItem("interfaceLanguage");
-    const value = control2 instanceof HTMLSelectElement ? control2.value : "en";
-    return value === "auto" || value === "en" || value === "ja" ? value : "en";
-  }
   function createSettingsFormReader(data, colorSource) {
     const get = (key2) => String(data.get(key2) ?? "");
     const getAll = (key2) => data.getAll(key2).map((value) => String(value));
@@ -323449,8 +323354,19 @@ ${entry2.url}`),
       type: get(`audioSources.${index}.type`),
       url: get(`audioSources.${index}.url`).trim(),
       voice: get(`audioSources.${index}.voice`).trim(),
-      enabled: data.has(`audioSources.${index}.enabled`)
+      enabled: data.has(`audioSources.${index}.enabled`),
+      subSources: readAudioSubSources(data, get, index)
     });
+  }
+  function readAudioSubSources(data, get, index) {
+    const count2 = Math.max(0, Number(get(`audioSources.${index}.subSourceCount`)) || 0);
+    const subSources = [];
+    for (let subIndex = 0; subIndex < count2; subIndex++) {
+      const name = get(`audioSources.${index}.subSources.${subIndex}.name`).trim();
+      if (!name) continue;
+      subSources.push({ name, enabled: data.has(`audioSources.${index}.subSources.${subIndex}.enabled`) });
+    }
+    return subSources;
   }
   function shouldSkipAudioSourceRow(source2, builtInTypes) {
     return !source2.enabled && !source2.url && !source2.voice && !builtInTypes.has(source2.type);
@@ -323493,6 +323409,203 @@ ${entry2.url}`),
   }
   function dictionaryLookupLinkUrlTemplate(urlTemplate, action2) {
     return action2 === "copy" || action2 === "frequency-live" || action2 === "frequency-local" ? "" : urlTemplate;
+  }
+  const SETTINGS_LABEL_TEXT_CLASS = "jpdb-reader-settings-label-text";
+  function input(name, label, value, type = "text", attributes = {}) {
+    const fieldClass = ["jpdb-reader-settings-field"];
+    if (type === "number" || type === "color") fieldClass.push(`jpdb-reader-settings-field-${type}`);
+    return `<label class="${fieldClass.join(" ")}">${label}<input name="${name}" type="${type}" value="${escapeHtml$2(value)}" autocomplete="off"${attributeHtml(attributes)}></label>`;
+  }
+  function shortcutInput(name, label, value, placeholder = "Press keys") {
+    return `<label>${label}<input data-shortcut-input name="${name}" type="text" value="${escapeHtml$2(value)}" placeholder="${escapeHtml$2(placeholder)}" autocomplete="off" inputmode="none" aria-label="${escapeHtml$2(label)}"></label>`;
+  }
+  function checkbox(name, label, checked, attributes = {}) {
+    return `<label class="inline"><input name="${name}" type="checkbox" ${checked ? "checked" : ""}${booleanAttributeHtml(attributes)}>${label}</label>`;
+  }
+  function select(name, label, value, options) {
+    return `<label>${label}<select name="${name}">${options.map(
+      ([optionValue, text2]) => `<option value="${escapeHtml$2(optionValue)}" ${optionValue === value ? "selected" : ""}>${escapeHtml$2(text2)}</option>`
+    ).join("")}</select></label>`;
+  }
+  function radioGroup(name, label, value, options) {
+    return `<fieldset class="jpdb-reader-radio-group"><legend>${label}</legend>${options.map(
+      ([optionValue, text2]) => `<label class="inline"><input name="${name}" type="radio" value="${escapeHtml$2(optionValue)}" ${optionValue === value ? "checked" : ""}>${escapeHtml$2(text2)}</label>`
+    ).join("")}</fieldset>`;
+  }
+  function settingsTabButton(panel, label, active = false) {
+    return `<button class="jpdb-reader-settings-tab" type="button" role="tab" data-action="settings-panel" data-panel="${escapeHtml$2(panel)}" aria-controls="${settingsTabControls(panel)}" aria-selected="${active ? "true" : "false"}" tabindex="${active ? "0" : "-1"}">${escapeHtml$2(label)}</button>`;
+  }
+  function miniIcon(name) {
+    const paths = {
+      drag: '<path d="M9 5h.01"></path><path d="M15 5h.01"></path><path d="M9 12h.01"></path><path d="M15 12h.01"></path><path d="M9 19h.01"></path><path d="M15 19h.01"></path>',
+      up: '<path d="M12 19V5"></path><path d="m5 12 7-7 7 7"></path>',
+      down: '<path d="M12 5v14"></path><path d="m19 12-7 7-7-7"></path>',
+      remove: '<path d="M18 6 6 18"></path><path d="m6 6 12 12"></path>'
+    };
+    return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">${paths[name]}</svg>`;
+  }
+  function settingsTabControls(panel) {
+    return {
+      api: "jpdb-reader-settings-panel-api",
+      newTab: "jpdb-reader-settings-panel-newtab",
+      appearance: "jpdb-reader-settings-panel-appearance jpdb-reader-settings-panel-reader",
+      backup: "jpdb-reader-settings-panel-backup",
+      reading: "jpdb-reader-settings-panel-reader jpdb-reader-settings-panel-kanji",
+      dictionaries: "jpdb-reader-settings-panel-dictionaries jpdb-reader-settings-panel-kanji",
+      media: "jpdb-reader-settings-panel-audio jpdb-reader-settings-panel-immersion-kit jpdb-reader-settings-panel-ocr jpdb-reader-settings-panel-video jpdb-reader-settings-panel-youtube",
+      mining: "jpdb-reader-settings-panel-mining",
+      shortcuts: "jpdb-reader-settings-panel-shortcuts",
+      help: "jpdb-reader-settings-panel-help"
+    }[panel] ?? "jpdb-reader-settings-panel-api";
+  }
+  function attributeHtml(attributes) {
+    return Object.entries(attributes).map(([key2, attributeValue]) => ` ${key2}="${escapeHtml$2(String(attributeValue))}"`).join("");
+  }
+  function booleanAttributeHtml(attributes) {
+    return Object.entries(attributes).filter(([, value]) => value).map(([key2]) => ` ${key2}`).join("");
+  }
+  function updateSourceRowEditor(action2, control2) {
+    const row = control2?.closest("[data-source-row]");
+    const container = row?.closest("[data-source-editor]");
+    if (!container || !row) return;
+    const rows = Array.from(container.querySelectorAll("[data-source-row]"));
+    const index = rows.indexOf(row);
+    const targetIndex = action2 === "dictionary-source-up" ? index - 1 : index + 1;
+    moveSourceRow(container, index, targetIndex);
+  }
+  function installSourceRowDrag(root) {
+    let drag = null;
+    const dragDocument = root.ownerDocument;
+    root.addEventListener("pointerdown", (event) => {
+      if (drag) return;
+      if (event.pointerType === "mouse" && event.button !== 0) return;
+      const handle = event.target.closest("[data-source-drag-handle]");
+      if (!handle || !root.contains(handle)) return;
+      const row = handle.closest("[data-source-row]");
+      const container = row?.closest("[data-source-editor]");
+      if (!row || !container) return;
+      event.preventDefault();
+      setSourceRowPointerCapture(handle, event.pointerId);
+      const pageScale = overlayViewport().pageScale;
+      drag = {
+        active: false,
+        container,
+        handle,
+        pageScale,
+        pointerId: event.pointerId,
+        row,
+        startY: sourceRowOverlayY(event.clientY, pageScale)
+      };
+      row.classList.add("jpdb-reader-order-row-drag-pending");
+      dragDocument.addEventListener("pointermove", moveDrag);
+      dragDocument.addEventListener("pointerup", finishDrag);
+      dragDocument.addEventListener("pointercancel", finishDrag);
+    });
+    const moveDrag = (event) => {
+      if (!drag || event.pointerId !== drag.pointerId) return;
+      const overlayY = sourceRowOverlayY(event.clientY, drag.pageScale);
+      if (!drag.active && Math.abs(overlayY - drag.startY) < 4) return;
+      event.preventDefault();
+      drag.active = true;
+      drag.row.classList.add("jpdb-reader-order-row-dragging");
+      moveSourceRowToPointer(drag.container, drag.row, overlayY, drag.pageScale);
+    };
+    const finishDrag = (event) => {
+      if (!drag || event.pointerId !== drag.pointerId) return;
+      releaseSourceRowPointerCapture(drag.handle, event.pointerId);
+      drag.row.classList.remove("jpdb-reader-order-row-drag-pending", "jpdb-reader-order-row-dragging");
+      syncSourceRowOrder(drag.container);
+      drag = null;
+      dragDocument.removeEventListener("pointermove", moveDrag);
+      dragDocument.removeEventListener("pointerup", finishDrag);
+      dragDocument.removeEventListener("pointercancel", finishDrag);
+    };
+    root.addEventListener("pointermove", moveDrag);
+    root.addEventListener("pointerup", finishDrag);
+    root.addEventListener("pointercancel", finishDrag);
+  }
+  function moveSourceRow(container, index, targetIndex) {
+    const rows = Array.from(container.querySelectorAll("[data-source-row]"));
+    if (!canMoveSourceRow(index, targetIndex, rows.length)) return;
+    const row = rows[index];
+    const target2 = rows[targetIndex];
+    if (targetIndex < index) container.insertBefore(row, target2);
+    else container.insertBefore(row, target2.nextSibling);
+    syncSourceRowOrder(container);
+  }
+  function setSourceRowPointerCapture(handle, pointerId) {
+    try {
+      handle.setPointerCapture?.(pointerId);
+    } catch {
+    }
+  }
+  function releaseSourceRowPointerCapture(handle, pointerId) {
+    try {
+      handle.releasePointerCapture?.(pointerId);
+    } catch {
+    }
+  }
+  function moveSourceRowToPointer(container, row, overlayY, pageScale) {
+    const rows = Array.from(container.querySelectorAll("[data-source-row]")).filter((candidate2) => candidate2 !== row);
+    const target2 = rows.find((candidate2) => {
+      const rect = sourceRectToOverlay(candidate2.getBoundingClientRect(), candidate2, pageScale);
+      return overlayY < rect.top + rect.height / 2;
+    });
+    if (target2) container.insertBefore(row, target2);
+    else container.appendChild(row);
+    syncSourceRowOrder(container);
+  }
+  function sourceRowOverlayY(clientY, pageScale) {
+    return layoutPointToOverlay({ x: 0, y: clientY }, pageScale).y;
+  }
+  function canMoveSourceRow(index, targetIndex, rowCount) {
+    return index >= 0 && targetIndex >= 0 && index < rowCount && targetIndex < rowCount && index !== targetIndex;
+  }
+  function syncSourceRowOrder(container) {
+    const rows = Array.from(container.querySelectorAll("[data-source-row]"));
+    rows.forEach((row, index) => {
+      const priority = row.querySelector('input[name$=".priority"]');
+      if (priority) priority.value = String(index);
+      const indexLabel = row.querySelector(".jpdb-reader-order-toggle span");
+      if (indexLabel) indexLabel.textContent = String(index + 1);
+    });
+    if (container.matches("[data-audio-source-editor]")) syncAudioSourceIndexes(container, rows);
+    if (container.classList.contains("jpdb-reader-lookup-links")) syncDictionaryLookupLinkIndexes(container, rows);
+  }
+  function syncAudioSourceIndexes(container, rows = Array.from(container.querySelectorAll("[data-audio-source-row]"))) {
+    const language2 = settingsLanguageForElement(container);
+    rows.forEach((row, index) => {
+      row.dataset.sourceId = `audio-${index}`;
+      row.querySelectorAll('[name^="audioSources."]').forEach((control2) => {
+        control2.name = control2.name.replace(/^audioSources\.\d+\./, `audioSources.${index}.`);
+        if (control2 instanceof HTMLSelectElement && control2.name.endsWith(".type")) {
+          control2.setAttribute("aria-label", uiText(language2, "audioSourceNumber").replace("{number}", String(index + 1)));
+        }
+        if (control2 instanceof HTMLInputElement && control2.name.endsWith(".enabled")) {
+          control2.setAttribute("aria-label", uiText(language2, "enableAudioSourceNumber").replace("{number}", String(index + 1)));
+        }
+        if (control2 instanceof HTMLSelectElement && control2.name.endsWith(".voice")) {
+          control2.setAttribute("aria-label", uiText(language2, "textToSpeechVoiceNumber").replace("{number}", String(index + 1)));
+        }
+      });
+    });
+  }
+  function syncDictionaryLookupLinkIndexes(container, rows = Array.from(container.querySelectorAll("[data-lookup-link-row]"))) {
+    const language2 = settingsLanguageForElement(container);
+    rows.forEach((row, index) => {
+      row.dataset.index = String(index);
+      row.dataset.sourceId = `lookup-link-${index}`;
+      row.querySelectorAll('[name^="dictionaryLookupLinks."]').forEach((control2) => {
+        control2.name = control2.name.replace(/^dictionaryLookupLinks\.\d+\./, `dictionaryLookupLinks.${index}.`);
+        if (control2.name.endsWith(".label")) control2.setAttribute("aria-label", uiText(language2, "lookupPillLabelNumber").replace("{number}", String(index + 1)));
+        if (control2.name.endsWith(".urlTemplate")) control2.setAttribute("aria-label", uiText(language2, "lookupUrlTemplateNumber").replace("{number}", String(index + 1)));
+      });
+    });
+  }
+  function settingsLanguageForElement(element2) {
+    const control2 = element2.closest("form")?.elements.namedItem("interfaceLanguage");
+    const value = control2 instanceof HTMLSelectElement ? control2.value : "en";
+    return value === "auto" || value === "en" || value === "ja" ? value : "en";
   }
   const SOURCE_ROW_COPY_KEYS_BY_ID = {
     __jpdb__: { helpKey: "sourceHelpJpdb" },
@@ -323691,9 +323804,73 @@ ${entry2.url}`),
                 </div>
                 ${orderTools}
                 ${removeTools}
+                ${renderAudioSubSourcePanel(index, source2, rows, language2)}
             </div>
         `).join("")}
     `;
+  }
+  function renderAudioSubSourcePanel(index, source2, rows, language2) {
+    const visible = source2.type === "custom-json";
+    return `
+        <div class="jpdb-reader-audio-subsources" data-audio-subsources ${visible ? "" : "hidden"}>
+            <div class="jpdb-reader-audio-subsource-list" data-audio-subsource-list>
+                ${renderAudioSubSourceList(index, source2.subSources ?? [], rows, language2)}
+            </div>
+            <div class="jpdb-reader-audio-subsource-actions">
+                <button type="button" class="jpdb-reader-btn" data-action="audio-source-detect">${escapedUiText$3(language2, "audioDetectSubSources")}</button>
+                <span class="jpdb-reader-audio-subsource-status" data-audio-subsource-status hidden></span>
+            </div>
+        </div>
+    `;
+  }
+  function renderAudioSubSourceList(index, subSources, rows, language2) {
+    const help = subSources.length ? `<span class="jpdb-reader-audio-subsource-help">${escapedUiText$3(language2, "audioSubSourcesHelp")}</span>` : "";
+    return `
+        <input type="hidden" name="audioSources.${index}.subSourceCount" value="${subSources.length}">
+        ${help}
+        ${subSources.map((subSource, subIndex) => renderAudioSubSourceRow(index, subIndex, subSource, rows, language2)).join("")}
+    `;
+  }
+  function renderAudioSubSourceRow(index, subIndex, subSource, rows, language2) {
+    const overlap = audioSubSourceOverlapsEnabledRow(subSource, index, rows) ? `<span class="jpdb-reader-audio-subsource-overlap">${escapedUiText$3(language2, "audioSubSourceOverlapHint")}</span>` : "";
+    const toggleLabel = uiText(language2, "enableSourceName").replace("{name}", subSource.name);
+    return `
+        <label class="inline jpdb-reader-audio-subsource">
+            <input type="checkbox" name="audioSources.${index}.subSources.${subIndex}.enabled" aria-label="${escapeHtml$2(toggleLabel)}" ${subSource.enabled ? "checked" : ""}>
+            <span>${escapeHtml$2(subSource.name)}</span>
+            ${overlap}
+        </label>
+        <input type="hidden" name="audioSources.${index}.subSources.${subIndex}.name" value="${escapeHtml$2(subSource.name)}">
+    `;
+  }
+  const AUDIO_SUB_SOURCE_OVERLAP_TYPES = {
+    jpod: ["jpod101", "language-pod-101"],
+    jpod101: ["jpod101", "language-pod-101"],
+    japanesepod101: ["jpod101", "language-pod-101"],
+    languagepod101: ["language-pod-101"],
+    jisho: ["jisho"],
+    bunpro: ["bunpro"],
+    wiktionary: ["wiktionary"],
+    "lingua libre": ["lingua-libre"],
+    "lingua-libre": ["lingua-libre"]
+  };
+  function mergeAudioSubSources(existing, detectedNames) {
+    const merged = existing.map((subSource) => ({ ...subSource }));
+    const seen = new Set(merged.map((subSource) => audioSubSourceNameKey(subSource.name)));
+    for (const name of detectedNames) {
+      const trimmed = name.trim();
+      const key2 = audioSubSourceNameKey(trimmed);
+      if (!trimmed || seen.has(key2)) continue;
+      seen.add(key2);
+      merged.push({ name: trimmed, enabled: true });
+    }
+    return merged;
+  }
+  function audioSubSourceOverlapsEnabledRow(subSource, rowIndex, rows) {
+    if (!subSource.enabled) return false;
+    const overlapTypes = AUDIO_SUB_SOURCE_OVERLAP_TYPES[audioSubSourceNameKey(subSource.name)];
+    if (!overlapTypes) return false;
+    return rows.some((row, index) => index !== rowIndex && row.enabled && overlapTypes.includes(row.type));
   }
   function audioSourceSelectOptions(type, language2) {
     if (type === "custom") {
@@ -323756,6 +323933,9 @@ ${entry2.url}`),
     if (!row) return;
     row.querySelectorAll("[data-audio-url-field]").forEach((node2) => {
       node2.hidden = !audioSourceUsesUrl(type);
+    });
+    row.querySelectorAll("[data-audio-subsources]").forEach((node2) => {
+      node2.hidden = type !== "custom-json";
     });
     row.querySelectorAll("[data-audio-voice-field]").forEach((node2) => {
       const voiceKind = audioSourceVoiceKind(type);
@@ -329320,6 +329500,10 @@ ${entry2.url}`),
       return true;
     }
     async handleSettingsAudioAction(form2, action2, control2) {
+      if (action2 === "audio-source-detect") {
+        await this.detectAudioSubSourcesFromSettings(form2, control2);
+        return true;
+      }
       if (action2 !== "preview-audio") return false;
       const button2 = settingsActionButton(control2);
       const previewSettings = readFormSettings(new FormData(form2), this.settings);
@@ -329343,6 +329527,44 @@ ${entry2.url}`),
         button2?.removeAttribute("disabled");
       }
       return true;
+    }
+    // Probes the row's aggregator URL with sample lookups and lists every named
+    // provider it answered with, so the user can untick unwanted ones. Merges
+    // with already-saved sub-sources: probes are samples, not exhaustive, and a
+    // provider missing from this round must not lose its saved toggle.
+    async detectAudioSubSourcesFromSettings(form2, control2) {
+      const button2 = settingsActionButton(control2);
+      const row = control2?.closest("[data-audio-source-row]");
+      if (!row) return;
+      const index = sourceRowIndex(form2, row);
+      const language2 = getFormInterfaceLanguage(form2, this.settings.interfaceLanguage);
+      const status = row.querySelector("[data-audio-subsource-status]");
+      const setDetectStatus = (message) => {
+        if (!status) return;
+        status.textContent = message;
+        status.hidden = !message;
+      };
+      const url = String(new FormData(form2).get(`audioSources.${index}.url`) ?? "").trim();
+      if (!url) {
+        setDetectStatus(uiText(language2, "audioNoSubSourcesDetected"));
+        return;
+      }
+      button2?.setAttribute("disabled", "true");
+      setDetectStatus(uiText(language2, "audioDetectingSubSources"));
+      try {
+        const detected = await detectCustomJsonAudioSubSources(url, this.settings.audioTimeoutMs, this.settings.corsProxyUrl);
+        const data = new FormData(form2);
+        const get = (key2) => String(data.get(key2) ?? "");
+        const merged = mergeAudioSubSources(normalizeAudioSubSources(readAudioSubSources(data, get, index)), detected);
+        const list2 = row.querySelector("[data-audio-subsource-list]");
+        if (list2) setInnerHtml(list2, renderAudioSubSourceList(index, merged, readAudioSources(data), language2));
+        setDetectStatus(merged.length ? "" : uiText(language2, "audioNoSubSourcesDetected"));
+      } catch (error) {
+        log$2.warn("Audio sub-source detection failed", error);
+        setDetectStatus(uiText(language2, "audioNoSubSourcesDetected"));
+      } finally {
+        button2?.removeAttribute("disabled");
+      }
     }
     async handleSettingsDictionaryAction(form2, action2, control2, setStatus) {
       if (action2 === "delete-yomitan-dictionary") {

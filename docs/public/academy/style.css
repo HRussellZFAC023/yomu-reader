@@ -17830,6 +17830,61 @@ html.jpdb-reader-doodle-active * {
   line-height: 1.35;
 }
 
+.jpdb-reader-audio-subsources {
+  grid-column: 2 / -1;
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.jpdb-reader-audio-subsources[hidden] {
+  display: none;
+}
+
+.jpdb-reader-audio-subsource-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  align-items: center;
+  min-width: 0;
+}
+
+.jpdb-reader-audio-subsource-help {
+  flex-basis: 100%;
+  color: var(--jpdb-reader-muted);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.jpdb-reader-audio-subsource {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+}
+
+.jpdb-reader-audio-subsource-overlap {
+  color: var(--jpdb-reader-muted);
+  font-size: 11px;
+}
+
+.jpdb-reader-audio-subsource-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.jpdb-reader-audio-subsource-actions .jpdb-reader-btn {
+  padding: 3px 10px;
+  font-size: 11px;
+}
+
+.jpdb-reader-audio-subsource-status {
+  color: var(--jpdb-reader-muted);
+  font-size: 11px;
+}
+
 .jpdb-reader-settings-study-steps {
   display: grid;
   gap: 8px;

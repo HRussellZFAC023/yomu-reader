@@ -776,7 +776,19 @@ function readAudioSourceRow(data: FormData, get: (key: string) => string, index:
         url: get(`audioSources.${index}.url`).trim(),
         voice: get(`audioSources.${index}.voice`).trim(),
         enabled: data.has(`audioSources.${index}.enabled`),
+        subSources: readAudioSubSources(data, get, index),
     });
+}
+
+export function readAudioSubSources(data: FormData, get: (key: string) => string, index: number): Array<{ name: string; enabled: boolean }> {
+    const count = Math.max(0, Number(get(`audioSources.${index}.subSourceCount`)) || 0);
+    const subSources: Array<{ name: string; enabled: boolean }> = [];
+    for (let subIndex = 0; subIndex < count; subIndex++) {
+        const name = get(`audioSources.${index}.subSources.${subIndex}.name`).trim();
+        if (!name) continue;
+        subSources.push({ name, enabled: data.has(`audioSources.${index}.subSources.${subIndex}.enabled`) });
+    }
+    return subSources;
 }
 
 function shouldSkipAudioSourceRow(source: AudioSourceSetting, builtInTypes: Set<string>): boolean {

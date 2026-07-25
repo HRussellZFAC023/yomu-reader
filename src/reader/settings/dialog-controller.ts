@@ -17,7 +17,9 @@ import {
     type RecommendedDictionary,
 } from '../dictionaries/recommended';
 import { installSettingsDrawerHandle } from '../popup/shell';
-import { mergeDictionaryPreferences, normalizeReaderSettings, retireStaleDictionaryPreferences, saveSettings } from './index';
+import { mergeDictionaryPreferences, normalizeAudioSubSources, normalizeReaderSettings, retireStaleDictionaryPreferences, saveSettings } from './index';
+import { readAudioSources, readAudioSubSources } from './form-read';
+import { detectCustomJsonAudioSubSources } from '../audio/candidates';
 import { captureActiveLanguageProfileDictionaries } from './dictionary';
 import { effectiveJpdbApiKey, effectiveWanikaniApiToken, hasJitenApiCredential, mergeApiCredentialValues } from './api-credential';
 import { WanikaniClient } from '../wanikani/wanikani';
@@ -28,6 +30,8 @@ import {
     applySettingsSearch,
     ankiStatusLineForSettings,
     getFormInterfaceLanguage,
+    mergeAudioSubSources,
+    renderAudioSubSourceList,
     formatSettingsStatusLine,
     renderAnkiStatusHtml,
     installSourceRowDrag,
@@ -1783,6 +1787,10 @@ export class SettingsDialogController {
     }
 
     private async handleSettingsAudioAction(form: HTMLFormElement, action: string, control?: HTMLElement | null): Promise<boolean> {
+        if (action === 'audio-source-detect') {
+            await this.detectAudioSubSourcesFromSettings(form, control);
+            return true;
+        }
         if (action !== 'preview-audio') return false;
 
         const button = settingsActionButton(control);
@@ -1809,6 +1817,45 @@ export class SettingsDialogController {
             button?.removeAttribute('disabled');
         }
         return true;
+    }
+
+    // Probes the row's aggregator URL with sample lookups and lists every named
+    // provider it answered with, so the user can untick unwanted ones. Merges
+    // with already-saved sub-sources: probes are samples, not exhaustive, and a
+    // provider missing from this round must not lose its saved toggle.
+    private async detectAudioSubSourcesFromSettings(form: HTMLFormElement, control?: HTMLElement | null): Promise<void> {
+        const button = settingsActionButton(control);
+        const row = control?.closest<HTMLElement>('[data-audio-source-row]');
+        if (!row) return;
+        const index = sourceRowIndex(form, row);
+        const language = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
+        const status = row.querySelector<HTMLElement>('[data-audio-subsource-status]');
+        const setDetectStatus = (message: string) => {
+            if (!status) return;
+            status.textContent = message;
+            status.hidden = !message;
+        };
+        const url = String(new FormData(form).get(`audioSources.${index}.url`) ?? '').trim();
+        if (!url) {
+            setDetectStatus(uiText(language, 'audioNoSubSourcesDetected'));
+            return;
+        }
+        button?.setAttribute('disabled', 'true');
+        setDetectStatus(uiText(language, 'audioDetectingSubSources'));
+        try {
+            const detected = await detectCustomJsonAudioSubSources(url, this.settings.audioTimeoutMs, this.settings.corsProxyUrl);
+            const data = new FormData(form);
+            const get = (key: string) => String(data.get(key) ?? '');
+            const merged = mergeAudioSubSources(normalizeAudioSubSources(readAudioSubSources(data, get, index)), detected);
+            const list = row.querySelector<HTMLElement>('[data-audio-subsource-list]');
+            if (list) setInnerHtml(list, renderAudioSubSourceList(index, merged, readAudioSources(data), language));
+            setDetectStatus(merged.length ? '' : uiText(language, 'audioNoSubSourcesDetected'));
+        } catch (error) {
+            log.warn('Audio sub-source detection failed', error);
+            setDetectStatus(uiText(language, 'audioNoSubSourcesDetected'));
+        } finally {
+            button?.removeAttribute('disabled');
+        }
     }
 
     private async handleSettingsDictionaryAction(form: HTMLFormElement, action: string, control: HTMLElement | null | undefined, setStatus: SettingsStatusSetter): Promise<boolean> {
