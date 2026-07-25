@@ -3,10 +3,10 @@ import { useData, type Theme } from 'vitepress';
 import { defineComponent, h, onMounted, provide, type Ref } from 'vue';
 import pkg from '../../../package.json' with { type: 'json' };
 import {
-    sharedContrastRatio,
-    sharedHexToRgba,
-    sharedMixHex,
-} from '../../../src/reader/core/color-math';
+    hostedAccentColorFromValue,
+    hostedAccentCssVariables,
+    sanitizeHostedAccentColor,
+} from '../../../src/reader/core/hosted-accent-css';
 import {
     rememberSupportBannerDismissal,
     shouldShowSupportBannerImpression,
@@ -14,7 +14,6 @@ import {
 import { shouldInstallHostedReaderRuntime } from '../../../src/reader/app/runtime-presence';
 import { gmStorageGet, gmStorageSet } from '../../../src/reader/app/storage';
 import { HOSTED_DEMO_VIDEO_SETTINGS_PATCH } from '../../../src/reader/app/hosted-demo-settings';
-import { DOC_COLOR_TOKENS, readableTextOn } from './color-contrast';
 import { cleanupHostedDocsAnnotations } from './chrome-annotation-cleanup';
 import { syncHostedAcademyAccountControls } from './academy-account';
 import './custom.css';
@@ -59,7 +58,6 @@ const HOSTED_DOCS_HEAD_TRANSLATION_SELECTOR = [
     'meta[name="twitter:description"]',
     'meta[name="twitter:image:alt"]',
 ].join(',');
-const DEFAULT_ACCENT_COLOR = '#5ea780';
 const HOSTED_DOCS_LOCALE_META: Record<InterfaceLanguage, string> = {
     en: 'en_US',
     ja: 'ja_JP',
@@ -210,6 +208,7 @@ const HOSTED_MANGA_OCR_VOCABULARY = [
     { surface: '当主', spelling: '当主', reading: 'とうしゅ', pitchPosition: 1 },
 ] as const;
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
+    "Your accent colour is now painted before the page appears, so yomureader.com no longer flashes its default green before switching to your colour. The accent used to be applied only once the page's scripts had downloaded and run, leaving the built-in green on screen for the first frames of every cold or slow load. The accent, and the light or dark theme it is derived against, are now resolved and applied while the page is still being parsed. The Study page, PDF reader, and video player were fixed the same way, from the one shared definition the rest of the interface already uses, so no surface can drift back to its own copy.": 'アクセントカラーがページの表示前に適用されるようになり、yomureader.comで既定の緑が一瞬表示されてから選んだ色に切り替わることがなくなりました。これまではページのスクリプトが読み込まれて実行された後でしかアクセントが適用されず、初回や低速な読み込みでは最初の数フレームのあいだ内蔵の緑が画面に残っていました。アクセントカラーと、その配色の基準となるライト／ダークテーマは、ページの解析中に決定して適用するようになりました。Studyページ、PDFリーダー、動画プレーヤーも同じ方法で修正し、インターフェースの他の部分と同じ唯一の定義を共有しているため、どの画面も独自の実装に戻ってしまうことはありません。',
     'Furigana readings now stay glued to their words throughout a scroll on tablets and other touch devices, including the fast flings where the previous release could still leave them adrift. The readings are painted in a reader-owned layer floating above the page, and until now that layer was pinned to the screen rather than to the page, so every reading\'s position had to be rewritten by the reader on every single scroll frame. A touch device scrolls the page on its own without waiting for that work, so any frame where the rewrite arrived late showed the readings sitting where the words used to be. Readings belonging to ordinary page text are now placed in page coordinates instead of screen coordinates, so the device carries a reading and its word together as one, with no per-frame work to fall behind on. Readings inside a scrolling panel, a pinned header, or any other separately moving region keep the previous screen-anchored behaviour, which is correct for them.': 'タブレットなどのタッチ端末でスクロールしている間、ふりがなの読みが単語に固定され続けるようになりました。前回のリリースでも残っていた、勢いよくスクロールしたときのズレも解消しています。読みはページの上に浮かぶリーダー専用のレイヤーに描画されますが、これまでそのレイヤーはページではなく画面に固定されていたため、すべての読みの位置を毎スクロールフレームごとにリーダー側で描き直す必要がありました。タッチ端末はその処理を待たずに自力でページをスクロールするため、描き直しが間に合わなかったフレームでは、読みが単語のあった場所に取り残されて見えていました。通常のページ本文に属する読みは画面座標ではなくページ座標に配置されるようになり、端末が読みと単語をひとつのものとして一緒に動かすため、遅れの原因となるフレームごとの処理そのものがなくなりました。スクロールする小さな領域や固定ヘッダーなど、独立して動く領域の中にある読みは、それが正しい挙動であるため従来どおり画面を基準に追従します。',
     'Furigana annotations no longer detach or drift off words while scrolling on tablets and performance-constrained devices. The visible readings were being re-evaluated for page occlusion on every single scroll frame using expensive element inspection; during fast scrolling, main-thread slowdowns dropped refresh frames, temporarily hiding readings until scrolling stopped. Occlusion checks are now cached across frames during pure scrolling and degraded smoothly under heavy load, and transient measurement gaps retain the last painted position for several frames so readings stay glued to their text throughout continuous scrolling.': 'タブレットや処理性能が制限された端末でスクロールした際、ふりがな注釈が単語から外れたりズレたりすることがなくなりました。表示中の読みは毎スクロールフレームで負荷の高い要素検査による遮蔽判定を行っていたため、高速スクロール時にメインスレッドが圧迫されると描画更新が落ち、スクロールが止まるまで一時的に読みが消えていました。通常のスクロール中は遮蔽判定の結果をフレーム間で保持し、高負荷時にも段階的に処理を分散するほか、一時的な測定漏れが生じても数フレーム間は前回の描画位置を維持することで、連続スクロール中も読みがテキストに固定され続けるようになりました。',
     'Framework-driven web applications like YouTube, React, Vue, and Angular dashboards no longer experience heavy main-thread background thrashing from continuous furigana re-checks. Internal annotation changes and unrelated page updates previously triggered document-wide projection refreshes; environmental DOM updates are now filtered to ignore the reader\'s own annotation writes and unrelated page subtrees.': 'YouTube、React、Vue、Angularで構築されたダッシュボードなどのフレームワーク駆動Webアプリケーションにおいて、連続するふりがな再チェックによるメインスレッドのバックグラウンド負荷が解消されました。従来は内部の注釈更新や無関係なページの変更によってドキュメント全体の投影再処理が誘発されていましたが、環境のDOM変更検知を絞り込み、リーダー自身の注釈書き込みや無関係なDOMサブツリーの変更を無視するよう改善しました。',
@@ -3877,7 +3876,7 @@ function rememberHostedSettingsChange(settings: Record<string, unknown>, persist
 function hostedSettingsPatch(settings: Record<string, unknown>): Record<string, any> {
     const patch: Record<string, any> = {};
     const theme = hostedThemePreferenceFromValue(settings.theme);
-    const accentColor = hostedAccentFromValue(settings.accentColor);
+    const accentColor = hostedAccentColorFromValue(settings.accentColor);
     const interfaceLanguage = hostedInterfaceLanguagePreferenceFromValue(settings.interfaceLanguage);
     if (theme) patch.theme = theme;
     if (accentColor) patch.accentColor = accentColor;
@@ -3959,95 +3958,22 @@ function syncHostedAccent(source?: unknown): void {
         const change = settingsFromChangeEvent(source);
         if (change) rememberHostedSettingsChange(change.settings, !change.preview);
     }
-    const accent = sanitizeHostedAccent(readEffectiveHostedSettings().accentColor);
+    const accent = sanitizeHostedAccentColor(readEffectiveHostedSettings().accentColor);
     const root = document.documentElement;
     const dark = root.classList.contains('dark');
     const signature = `${accent}|${dark ? 'dark' : 'light'}`;
     if (hostedAccentSignature === signature) return;
     hostedAccentSignature = signature;
-    const pageBackground = dark ? DOC_COLOR_TOKENS.pageBgDark : DOC_COLOR_TOKENS.pageBgLight;
-    const brandReadable = readableOn(accent, pageBackground, 4.5);
-    const brandHover = readableOn(mixHex(accent, dark ? DOC_COLOR_TOKENS.white : DOC_COLOR_TOKENS.black, 0.18), pageBackground, 3.5);
-    const brandActive = readableOn(mixHex(accent, DOC_COLOR_TOKENS.black, 0.18), pageBackground, 3.5);
-    const brandSoft = hexToRgba(accent, dark ? 0.22 : 0.16);
-    const accentText = readableTextOn(accent);
-    const brandText = readableTextOn(brandReadable);
-    const brandHoverText = readableTextOn(brandHover);
 
-    root.style.setProperty('--yomu-accent', accent);
-    root.style.setProperty('--yomu-accent-readable', brandReadable);
-    root.style.setProperty('--yomu-accent-ink', accentText);
-    root.style.setProperty('--yomu-brand-ink', brandText);
-    root.style.setProperty('--yomu-brand-hover-ink', brandHoverText);
-    root.style.setProperty('--vp-c-brand-1', brandReadable);
-    root.style.setProperty('--vp-c-brand-2', brandHover);
-    root.style.setProperty('--vp-c-brand-3', accent);
-    root.style.setProperty('--vp-c-brand-soft', brandSoft);
-    root.style.setProperty('--vp-button-brand-border', brandReadable);
-    root.style.setProperty('--vp-button-brand-bg', accent);
-    root.style.setProperty('--vp-button-brand-text', accentText);
-    root.style.setProperty('--vp-button-brand-hover-border', brandHover);
-    root.style.setProperty('--vp-button-brand-hover-bg', brandHover);
-    root.style.setProperty('--vp-button-brand-hover-text', accentText);
-    root.style.setProperty('--vp-button-brand-active-border', brandActive);
-    root.style.setProperty('--vp-button-brand-active-bg', brandActive);
-    root.style.setProperty('--vp-button-brand-active-text', accentText);
-    root.style.setProperty('--vp-home-hero-name-color', brandReadable);
-    root.style.setProperty('--jpdb-reader-accent', accent);
-    root.style.setProperty('--jpdb-reader-accent-readable', brandReadable);
-    root.style.setProperty('--jpdb-reader-accent-text', accentText);
-    root.style.setProperty('--jpdb-reader-accent-soft', brandSoft);
+    // Same variable map the pre-paint bootstrap stamps (see
+    // src/reader/core/hosted-appearance-boot.ts), so re-applying it after
+    // hydration is a no-op instead of a visible colour correction.
+    const variables = hostedAccentCssVariables(accent, dark);
+    for (const [name, value] of Object.entries(variables)) root.style.setProperty(name, value);
 
     document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')?.setAttribute('content', accent);
 }
 
-function sanitizeHostedAccent(value: unknown, fallback = DEFAULT_ACCENT_COLOR): string {
-    return hostedAccentFromValue(value) ?? fallback;
-}
-
-function hostedAccentFromValue(value: unknown): string | undefined {
-    if (typeof value !== 'string') return undefined;
-    const trimmed = value.trim();
-    if (/^#[0-9a-f]{6}$/i.test(trimmed)) return trimmed.toLowerCase();
-    const shortHex = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/i.exec(trimmed);
-    return shortHex ? `#${shortHex[1]}${shortHex[1]}${shortHex[2]}${shortHex[2]}${shortHex[3]}${shortHex[3]}`.toLowerCase() : undefined;
-}
-
-function readableOn(color: string, background: string, targetContrast: number): string {
-    const safe = sanitizeHostedAccent(color);
-    if (hasTargetContrast(safe, background, targetContrast)) return safe;
-    return readableMixedColor(safe, background, targetContrast, readableMixTarget(background));
-}
-
-function readableMixedColor(color: string, background: string, targetContrast: number, toward: string): string {
-    for (let amount = 0.08; amount <= 1; amount += 0.08) {
-        const mixed = mixHex(color, toward, amount);
-        if (hasTargetContrast(mixed, background, targetContrast)) return mixed;
-    }
-    return toward;
-}
-
-function readableMixTarget(background: string): string {
-    return contrastRatio(background, DOC_COLOR_TOKENS.black) > contrastRatio(background, DOC_COLOR_TOKENS.white)
-        ? DOC_COLOR_TOKENS.black
-        : DOC_COLOR_TOKENS.white;
-}
-
-function hasTargetContrast(color: string, background: string, targetContrast: number): boolean {
-    return contrastRatio(color, background) >= targetContrast;
-}
-
-function contrastRatio(a: string, b: string): number {
-    return sharedContrastRatio(a, b, sanitizeHostedAccent);
-}
-
-function mixHex(from: string, to: string, amount: number): string {
-    return sharedMixHex(from, to, amount, sanitizeHostedAccent);
-}
-
-function hexToRgba(color: string, alpha: number): string {
-    return sharedHexToRgba(color, alpha, sanitizeHostedAccent);
-}
 
 function browserPrefersJapanese(): boolean {
     const languages = [...(navigator.languages ?? []), navigator.language];

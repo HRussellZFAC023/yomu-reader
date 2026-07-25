@@ -6,6 +6,7 @@ import { copyFile, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promi
 import path from 'node:path';
 import process from 'node:process';
 import { promisify } from 'node:util';
+import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { unzipSync } from 'fflate';
 import { run } from './lib/ci-utils.mjs';
@@ -27,6 +28,8 @@ if (!compilerCli) {
     ].join('\n'));
     process.exit(1);
 }
+
+const { hostedAppearanceBootSnippet } = createRequire(import.meta.url)('./lib/hosted-appearance-boot.cjs');
 
 const userscript = path.join(root, 'dist', 'yomu.user.js');
 const readerCss = path.join(root, 'dist', 'yomu.css');
@@ -89,6 +92,7 @@ async function stageNewTabShell() {
     const buildId = `${await packageVersion()}-${appHash}`;
     const index = await readFile(publicNewtabIndex, 'utf8');
     await writeFile(newtabIndex, extensionNewTabIndex(index, appHash, buildId));
+    await writeFile(path.join(newtab, 'appearance-boot.js'), `${hostedAppearanceBootSnippet('surface')}\n`);
     await writeFile(path.join(newtab, 'version-loader.js'), extensionNewTabVersionLoader(appHash, buildId));
     await writeFile(path.join(newtab, 'sw-register.js'), extensionNewTabServiceWorkerRegister());
     await writeFile(path.join(newtab, 'version.json'), `${JSON.stringify({ appHash, buildId, generatedAt }, null, 2)}\n`);
@@ -178,6 +182,11 @@ function extensionNewTabIndex(index, appHash, buildId) {
         // Externalize the service-worker registration block into sw-register.js.
         // The web-hosted public/newtab/index.html keeps its inline copy untouched.
         .replace(/<script>\s*if \('serviceWorker' in navigator && location\.protocol !== 'file:'\) \{[\s\S]*?<\/script>/, `<script src="./sw-register.js?v=${appHash}"></script>`)
+        // The pre-paint appearance bootstrap is inline on the web, where it must
+        // beat the first paint with no extra request. Extension pages forbid
+        // inline script, so it ships as a local file loaded from the same head
+        // position — still before any body content paints.
+        .replace(/<script>\/\* yomu:appearance-boot:start \*\/[\s\S]*?\/\* yomu:appearance-boot:end \*\/<\/script>/, `<script src="./appearance-boot.js?v=${appHash}"></script>`)
         .replace(/<script src="\.\/app\.js(?:\?v=[^"]*)?"><\/script>/, `<script src="./app.js?v=${appHash}"></script>`);
     assertNoInlineScripts(externalized);
     return externalized;
