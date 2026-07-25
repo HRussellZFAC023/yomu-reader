@@ -59,7 +59,24 @@ function requestViaUserscript(
         }
         let handle: UserscriptHttpRequestHandle | undefined;
         const tryAbort = () => { try { handle?.abort?.(); } catch { /* ignore */ } };
-        const handleLoad = (response: UserscriptHttpResponse) => {
+        // The timeout below is only a REQUEST to the userscript manager, and
+        // some transports ignore it entirely — the hosted DOM-event bridge, and
+        // managers that predate the field. A dropped bridge message then never
+        // calls back at all, this promise never settles, and every await above
+        // it hangs forever: the study card sat on "Translating..." until the
+        // page was reloaded. The deadline must be enforced HERE, transport
+        // behaviour notwithstanding, and settlement must be single-shot so a
+        // late manager callback cannot double-settle.
+        let settled = false;
+        let deadline: ReturnType<typeof setTimeout> | undefined;
+        const finish = (settle: () => void) => {
+            if (settled) return;
+            settled = true;
+            if (deadline !== undefined) clearTimeout(deadline);
+            if (signal) signal.removeEventListener('abort', onAbort);
+            settle();
+        };
+        const handleLoad = (response: UserscriptHttpResponse) => finish(() => {
             if (response.status < 200 || response.status >= 300) {
                 reject(new Error(formatStatusFailure(options, response.status)));
                 return;
@@ -69,12 +86,17 @@ function requestViaUserscript(
             } catch (error) {
                 reject(error);
             }
+        });
+        const handleTimeout = () => {
+            tryAbort();
+            finish(() => reject(new Error(options.timeoutLabel ?? `${options.failureLabel ?? 'Request'} timed out.`)));
         };
         const onAbort = () => {
             tryAbort();
-            reject(abortError());
+            finish(() => reject(abortError()));
         };
         if (signal) signal.addEventListener('abort', onAbort, { once: true });
+        if (options.timeoutMs) deadline = setTimeout(handleTimeout, options.timeoutMs);
         const result = userscriptRequest({
             method: options.method ?? 'GET',
             url,
@@ -86,14 +108,11 @@ function requestViaUserscript(
             withCredentials: options.withCredentials,
             cookie: options.cookie,
             onload: handleLoad,
-            onerror: error => reject(error instanceof Error ? error : new Error(formatFailure(options))),
-            ontimeout: () => {
-                tryAbort();
-                reject(new Error(options.timeoutLabel ?? `${options.failureLabel ?? 'Request'} timed out.`));
-            },
+            onerror: error => finish(() => reject(error instanceof Error ? error : new Error(formatFailure(options)))),
+            ontimeout: handleTimeout,
         });
         if (result && typeof (result as Promise<UserscriptHttpResponse>).then === 'function') {
-            (result as Promise<UserscriptHttpResponse>).then(handleLoad, error => reject(error instanceof Error ? error : new Error(formatFailure(options))));
+            (result as Promise<UserscriptHttpResponse>).then(handleLoad, error => finish(() => reject(error instanceof Error ? error : new Error(formatFailure(options)))));
         } else if (result && typeof (result as UserscriptHttpRequestHandle).abort === 'function') {
             handle = result as UserscriptHttpRequestHandle;
         }
