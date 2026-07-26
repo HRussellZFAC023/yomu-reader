@@ -68,7 +68,7 @@ import {
 } from './form';
 import type { AnkiAdapterState, SettingsStatusAction, SettingsStatusDetail, SettingsStatusLine } from './form';
 import { installCatalogBrowseFilter } from './catalog-browse-filter';
-import { applyAnkiModelUpdatePrompt } from './anki-mining-panel';
+import { ankiModelUpdatePromptTarget, applyAnkiModelUpdatePrompt } from './anki-mining-panel';
 import { updateAnkiTagsEditor } from './form-tags';
 import { CLOUD_SETTINGS_SYNC_ENABLED, cloudSettingsAuthRedirectResult, cloudSettingsSyncAvailable, downloadCloudSettingsFromCloud, uploadCloudSettingsToCloud } from './cloud-sync';
 import { dateStamp, downloadBlob, getReaderDictionaryExport, getReaderSettingsExport, pickFile, readerDictionaryExportHasData, recommendedDictionaryFilename } from './file-io';
@@ -604,6 +604,7 @@ export class SettingsDialogController {
     private jpdbConnectionProbeId = 0;
     private wanikaniConnectionProbeId = 0;
     private ankiLibraryScanId = 0;
+    private ankiModelUpdatePromptId = 0;
     private yomuUpdateCheckId = 0;
     private readonly academyAccountSync: AcademyAccountSyncSettingsController;
     private settingsJapaneseParseRefreshFrame: number | undefined;
@@ -1097,6 +1098,10 @@ export class SettingsDialogController {
         form.querySelector<HTMLInputElement>('input[name="ankiEnabled"]')?.addEventListener('change', () => void this.refreshAnkiConnectionStatus(form));
         form.querySelector<HTMLInputElement>('input[name="ankiMobileHandoff"]')?.addEventListener('change', () => void this.refreshAnkiConnectionStatus(form));
         form.querySelector<HTMLInputElement>('input[name="ankiConnectUrl"]')?.addEventListener('change', () => void this.refreshAnkiConnectionStatus(form));
+        form.querySelector<HTMLSelectElement>('select[name="ankiModel"]')?.addEventListener('change', () => {
+            this.retireAnkiModelUpdatePrompt(form);
+            void this.refreshAnkiModelUpdatePrompt(form);
+        });
         form.addEventListener('change', event => this.handleSettingsFormChange(form, event));
         installShortcutCapture(form);
         installSourceRowDrag(form);
@@ -1423,7 +1428,7 @@ export class SettingsDialogController {
         this.setAnkiStatus(form, initialLine.message, initialLine.tone, initialLine.action);
         // Re-earned by the probe below. Without this the offer would linger
         // after mining is switched off or Anki goes away.
-        applyAnkiModelUpdatePrompt(form, null, language);
+        this.retireAnkiModelUpdatePrompt(form);
         if (!formSettings.ankiEnabled) return;
 
         const previous = this.swapSettingsTransiently(formSettings);
@@ -1455,27 +1460,43 @@ export class SettingsDialogController {
         const requestId = ++this.ankiLibraryScanId;
         window.setTimeout(() => {
             void this.refreshAnkiLibraryScan(form, requestId, language)
-                .then(() => this.refreshAnkiModelUpdatePrompt(form, requestId))
+                .then(() => this.refreshAnkiModelUpdatePrompt(form))
                 .finally(() => {
                     void this.warmAnkiStatusIndexForConnection(form, requestId);
                 });
         }, 0);
     }
 
-    // Anki is reachable, so ask whether the configured Yomu note type still
+    // Anki is reachable, so ask whether the note type the form now shows still
     // carries every field this release writes. A plan means the panel offers
     // the update; null hides the offer, which is what ends it for good once
     // the user accepts.
-    private async refreshAnkiModelUpdatePrompt(form: HTMLFormElement, requestId: number): Promise<void> {
+    //
+    // The offer names one note type, so it gets its own request id: picking a
+    // different note type retires the offer on screen and starts this again
+    // without disturbing the library scan already running.
+    private async refreshAnkiModelUpdatePrompt(form: HTMLFormElement): Promise<void> {
+        const requestId = ++this.ankiModelUpdatePromptId;
         const plan = await this.ankiModelUpdatePlan(form, requestId);
-        if (!this.shouldApplyAnkiLibraryScan(form, requestId)) return;
+        if (!this.shouldApplyAnkiModelUpdatePrompt(form, requestId)) return;
         applyAnkiModelUpdatePrompt(form, plan, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
+    }
+
+    // The picker moved, so the offer is about a note type the user has left.
+    // It goes at once and re-earns itself against the new selection.
+    private retireAnkiModelUpdatePrompt(form: HTMLFormElement): void {
+        this.ankiModelUpdatePromptId++;
+        applyAnkiModelUpdatePrompt(form, null, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
+    }
+
+    private shouldApplyAnkiModelUpdatePrompt(form: HTMLFormElement, requestId: number): boolean {
+        return this.currentForm === form && form.isConnected && requestId === this.ankiModelUpdatePromptId;
     }
 
     private async ankiModelUpdatePlan(form: HTMLFormElement, requestId: number): Promise<AnkiModelUpdatePlan | null> {
         const yomuModelUpdatePlan = this.dependencies.anki.yomuModelUpdatePlan;
         if (typeof yomuModelUpdatePlan !== 'function') return null;
-        if (!this.shouldApplyAnkiLibraryScan(form, requestId)) return null;
+        if (!this.shouldApplyAnkiModelUpdatePrompt(form, requestId)) return null;
         // The plan is read against the note type the form now shows, which the
         // scan may have just picked, not the last saved one.
         const previous = this.swapSettingsTransiently(readFormSettings(new FormData(form), this.settings));
@@ -2174,13 +2195,25 @@ export class SettingsDialogController {
     // Runs from the user pressing Update, never from the scan that spots the
     // gap: the offer is a question, not a migration. The re-scan it queues
     // clears the offer, because the note type now matches.
+    //
+    // The write is aimed by the offer on screen, not by the picker, and the
+    // client declines anything else — so an offer the user has moved past adds
+    // nothing rather than widening whichever note type is selected now.
     private async updateAnkiModelAction(form: HTMLFormElement, setAnkiStatus: AnkiStatusSetter, language: InterfaceLanguage): Promise<void> {
         const addMissingYomuModelFields = this.dependencies.anki.addMissingYomuModelFields;
         if (typeof addMissingYomuModelFields !== 'function') return;
-        const added = await addMissingYomuModelFields.call(this.dependencies.anki);
-        setAnkiStatus(formatUiText(language, 'ankiModelUpdated', { fields: added.join(', ') }), 'success');
+        const offeredModel = ankiModelUpdatePromptTarget(form);
+        if (!offeredModel) {
+            setAnkiStatus(uiText(language, 'ankiConnectionReady'), 'success');
+            this.queueAutomaticAnkiLibraryScan(form, language);
+            return;
+        }
+        const added = await addMissingYomuModelFields.call(this.dependencies.anki, offeredModel);
+        setAnkiStatus(added.length
+            ? formatUiText(language, 'ankiModelUpdated', { fields: added.join(', ') })
+            : uiText(language, 'ankiModelUpToDate'), 'success');
         this.queueAutomaticAnkiLibraryScan(form, language);
-        log.info('Anki note type updated', { model: this.settings.ankiModel, fields: added });
+        log.info('Anki note type updated', { model: offeredModel, fields: added });
     }
 
     private handleAnkiConnectionActionError(error: unknown, setAnkiStatus: AnkiStatusSetter, language: InterfaceLanguage): void {

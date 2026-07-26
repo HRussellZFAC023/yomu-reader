@@ -91,6 +91,10 @@ export function renderAnkiMiningSettingsPanel(settings: ReaderSettings, ankiStat
 // Shown only while a Yomu note type is a release behind, and cleared the
 // moment it matches (plan === null), so accepting the offer ends it. Nothing
 // here writes to Anki: the button beside it does, on a click.
+//
+// The offer carries the note type it names, so accepting it can only ever
+// widen that one — an offer left over from a different note type is declined,
+// not retargeted.
 export function applyAnkiModelUpdatePrompt(
     form: HTMLFormElement,
     plan: AnkiModelUpdatePlan | null,
@@ -99,6 +103,8 @@ export function applyAnkiModelUpdatePrompt(
     const prompt = form.querySelector<HTMLElement>('[data-anki-model-update]');
     if (!prompt) return;
     prompt.hidden = !plan;
+    if (plan) prompt.dataset.ankiModelUpdateTarget = plan.modelName;
+    else delete prompt.dataset.ankiModelUpdateTarget;
     const message = prompt.querySelector<HTMLElement>('[data-anki-model-update-message]');
     if (!message) return;
     message.textContent = plan
@@ -107,6 +113,15 @@ export function applyAnkiModelUpdatePrompt(
             fields: plan.missingFields.join(', '),
         })
         : '';
+}
+
+// The note type the offer on screen names, or null when there is no live
+// offer. Accepting reads this, never the picker, so a prompt the user has
+// moved past cannot aim the write at whatever is selected now.
+export function ankiModelUpdatePromptTarget(form: HTMLFormElement): string | null {
+    const prompt = form.querySelector<HTMLElement>('[data-anki-model-update]');
+    if (!prompt || prompt.hidden) return null;
+    return prompt.dataset.ankiModelUpdateTarget || null;
 }
 
 export function renderAnkiLibraryOptions(options: string[], value: string, language: InterfaceLanguage = 'en'): string {

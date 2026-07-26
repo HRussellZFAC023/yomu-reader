@@ -538,7 +538,8 @@ const COPY = {
         updateAnkiModel: 'Update note type',
         ankiModelUpdateAvailable: 'New fields are ready for "{model}": {fields}.',
         ankiModelUpdating: 'Adding note type fields...',
-        ankiModelUpdated: 'Note type up to date. Added {fields}.',
+        ankiModelUpdated: 'Note type updated. Added {fields}.',
+        ankiModelUpToDate: 'Note type is up to date.',
         ankiCheckingConnection: 'Checking AnkiConnect at {url}.',
         ankiMiningDisabledStatus: 'Anki mining disabled.',
         ankiTesting: 'Checking AnkiConnect...',
@@ -2204,7 +2205,8 @@ prepareAnki	よむノートタイプを準備
 updateAnkiModel	ノートタイプを更新
 ankiModelUpdateAvailable	「{model}」に追加できる新しいフィールドがあります: {fields}
 ankiModelUpdating	ノートタイプにフィールドを追加中...
-ankiModelUpdated	ノートタイプは最新です。{fields} を追加しました。
+ankiModelUpdated	ノートタイプを更新しました。{fields} を追加しました。
+ankiModelUpToDate	ノートタイプは最新です。
 ankiCheckingConnection	{url} のAnkiConnectを確認中。
 ankiMiningDisabledStatus	Ankiマイニングは無効です。
 ankiTesting	AnkiConnectを確認中...
