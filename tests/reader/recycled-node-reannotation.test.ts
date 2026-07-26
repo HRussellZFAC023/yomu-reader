@@ -64,10 +64,10 @@ function silentScanTexts(): string[] {
     return silentScan().map(target => target.text.replace(/\s+/g, ' '));
 }
 
+const SETTINGS = { ...DEFAULT_SETTINGS, furiganaMode: 'all' as const };
+
 function paint(targets: ReturnType<typeof collectScanTargets>): void {
-    for (const target of targets) {
-        applyTokensToScanTarget(target, tokensFor(target.text), { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
-    }
+    for (const target of targets) applyTokensToScanTarget(target, tokensFor(target.text), SETTINGS);
 }
 
 function paintSilentScan(): string[] {
@@ -129,6 +129,25 @@ describe('recycled node re-annotation', () => {
         expect(silentScanTexts()).toEqual([]);
     });
 
+    // "Already annotated" has to mean a word actually stands over every part of
+    // the line, not merely that SOME render covered it: a target the render
+    // only half covered is still half bare, and only a re-offer can heal it.
+    it('keeps offering a line the render only partly covered', () => {
+        stubMobileYouTube();
+        document.body.innerHTML = `<ytm-rich-grid-renderer>${ROW('日本語の題名', '9.3万回視聴')}</ytm-rich-grid-renderer>`;
+        const metadata = silentScan().find(target => target.text.includes('9.3万回視聴'))!;
+        expect(metadata.text).toContain('2時間前');
+
+        // Only the badge gets a token; the view count and the age stay bare.
+        applyTokensToScanTarget(metadata, tokensFor(metadata.text).slice(0, 1), SETTINGS);
+        expect(annotatedWords().join('|')).toContain('新着');
+        expect(annotatedWords().join('|')).not.toContain('回視聴');
+
+        expect(silentScanTexts().join('|')).toContain('9.3万回視聴');
+        paintSilentScan();
+        expect(annotatedWords().join('|')).toContain('回視聴');
+    });
+
     it('keeps the freshly recycled row the only work after a settle scan', () => {
         stubMobileYouTube();
         document.body.innerHTML = `<ytm-rich-grid-renderer>${
@@ -149,7 +168,7 @@ describe('recycled node re-annotation', () => {
     // whole host text while carrying words for only ONE of them. The other line
     // is genuinely bare and must keep being offered.
     describe('two targets sharing one framework-owned host', () => {
-        function mountSharedHostRow(): { annotated: HTMLElement; bare: HTMLElement } {
+        function mountSharedHostRow(): { bare: HTMLElement } {
             stubMobileYouTube();
             document.body.innerHTML = '<ytm-rich-grid-renderer><ytm-video-with-context-renderer>'
                 + '<div class="yt-core-attributed-string wrap">'
@@ -159,10 +178,7 @@ describe('recycled node re-annotation', () => {
             const wrap = document.querySelector<HTMLElement>('.wrap')!;
             // The private expando a framework leaves on the nodes it owns.
             Object.defineProperty(wrap, '__reactFiber$test', { value: {}, configurable: true });
-            return {
-                annotated: document.querySelector<HTMLElement>('.badge-line')!,
-                bare: document.querySelector<HTMLElement>('.views-line')!,
-            };
+            return { bare: document.querySelector<HTMLElement>('.views-line')! };
         }
 
         it('still offers the line nobody annotated', () => {
@@ -182,24 +198,75 @@ describe('recycled node re-annotation', () => {
 
             expect(silentScanTexts()).toEqual(['9.3万回視聴']);
 
-            // And the offer is real work: painting it annotates the bare line.
+            // And the offer is real work: painting it annotates the bare line
+            // WITHOUT taking the neighbour's words away.
             paintSilentScan();
             expect(annotatedWords().join('|')).toContain('回視聴');
             expect(bare.textContent).toContain('9.3万回視聴');
+            // The words live in the shared host's mirror, so the neighbour's
+            // paint is exactly where the first line's words could be lost.
+            expect(annotatedWords().join('|')).toContain('新着');
         });
 
-        it('re-offers a line whose render a neighbour replaced', () => {
+        // One apply renders one target, but the mirror it mounts is host-scoped
+        // — so the second line's render used to tear the first line's words
+        // down with the mirror they lived in. Half the row could never be
+        // annotated, and once the settle scan started re-offering the bare half
+        // correctly the two halves alternated on every scroll. A neighbour's
+        // paint must AUGMENT the standing render.
+        it('adds the second line without erasing the first', () => {
             mountSharedHostRow();
             const targets = silentScan();
             paint(targets.slice(0, 1));
-            expect(silentScanTexts()).toEqual(['9.3万回視聴']);
+            expect(annotatedWords().join('|')).toContain('新着');
 
-            // The neighbour's render replaces the shared host's mirror, taking
-            // the first line's words with it. "Already annotated" is a fact
-            // about the standing render, not a one-way flag, so the first line
-            // becomes work again instead of staying bare forever.
             paint(targets.slice(1));
-            expect(silentScanTexts()).toContain('新着の動画');
+            expect(annotatedWords().join('|')).toContain('新着');
+            expect(annotatedWords().join('|')).toContain('回視聴');
+        });
+
+        // The whole point of the skip is that scanning settles. Repeat the
+        // settle loop and require BOTH: the offers reach empty, and no round
+        // ever loses a word an earlier round had annotated.
+        it('settles to no work with a monotonically growing annotation', () => {
+            mountSharedHostRow();
+            let offers = ['unrun'];
+            let previous: string[] = [];
+            for (let round = 0; round < 8 && offers.length; round += 1) {
+                offers = paintSilentScan();
+                const words = annotatedWords();
+                expect(words).toEqual(expect.arrayContaining(previous));
+                previous = words;
+            }
+            expect(offers).toEqual([]);
+            expect(previous.join('|')).toContain('新着');
+            expect(previous.join('|')).toContain('回視聴');
+        });
+
+        // "Already annotated" stays a fact about the standing render, never a
+        // one-way flag: whatever takes the words away makes the lines work
+        // again rather than stranding them bare.
+        it('re-offers both lines once their render is gone', () => {
+            mountSharedHostRow();
+            paintSilentScan();
+            paintSilentScan();
+            expect(silentScanTexts()).toEqual([]);
+
+            removeNonDestructiveScanMirrors(document);
+            expect(silentScanTexts()).toEqual(['新着の動画', '9.3万回視聴']);
+        });
+
+        // Framework reconciliation (and browser translation) can replace a
+        // mirror's children in place, leaving a shell with the right source
+        // text and no words at all.
+        it('re-offers both lines when the mirror lost its words', () => {
+            mountSharedHostRow();
+            paintSilentScan();
+            paintSilentScan();
+            expect(silentScanTexts()).toEqual([]);
+
+            mountedMirrors()[0]!.textContent = '新着の動画9.3万回視聴';
+            expect(silentScanTexts()).toEqual(['新着の動画', '9.3万回視聴']);
         });
     });
 });
