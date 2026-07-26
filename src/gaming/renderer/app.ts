@@ -32,6 +32,7 @@ import {
     normalizeGamingOcrResponse,
     type GamingOcrResult,
 } from '../shared';
+import type { OcrOverlayFrame } from '../../reader/ocr/ocr-overlay-geometry';
 import { activateWordWithPointer, GamepadOverlayController } from './gamepad-overlay';
 import { layoutOverlayOcrLines, overlayOcrFrame, overlayOcrLayerHtml } from './ocr-lines';
 import type { YomuGamingBridge, YomuGamingCaptureMode, YomuGamingCaptureSource, YomuGamingEnvironment, YomuGamingOcrProvider, YomuGamingSelectionRect } from '../ipc';
@@ -878,6 +879,10 @@ class OverlaySelectionController {
     render(): void {
         const mode = this.overlayMode();
         const idleArea = this.captureMode === 'area' && !this.busy && !this.result && !this.selection;
+        // Measured before the markup is replaced (off the backdrop already on screen,
+        // which is the same capture at the same size) and again after, so the boxes are
+        // stored and read back in one space.
+        const frame = this.ocrFrame();
         this.root.innerHTML = `
             <main class="overlay-shell" data-yomu-gaming-ready="true" data-yomu-gaming-overlay-ready="true" data-overlay-mode="${mode}" data-capture-mode="${this.captureMode}" data-overlay-busy="${this.busy}">
                 ${overlayBackdropHtml(this.capture)}
@@ -885,11 +890,11 @@ class OverlaySelectionController {
                 ${this.busy ? overlayStatusHtml(this.overlayInstruction()) : ''}
                 ${idleArea ? overlayHintHtml() : ''}
                 ${this.selection && !this.result ? overlaySelectionHtml(this.selection) : ''}
-                ${this.result ? overlayResultHtml(this.result, this.selection) : ''}
+                ${this.result ? overlayResultHtml(this.result, this.selection, frame) : ''}
             </main>
         `;
         this.bind();
-        layoutOverlayOcrLines(this.root, overlayOcrFrame(), this.settings.ocrFontScale);
+        layoutOverlayOcrLines(this.root, this.ocrFrame(), this.settings.ocrFontScale);
         this.gamepad.reconcileFocus();
         if (!this.started) {
             this.started = true;
@@ -908,7 +913,15 @@ class OverlaySelectionController {
 
     private scheduleOcrLineLayout(): void {
         window.cancelAnimationFrame(this.ocrLayoutFrame);
-        this.ocrLayoutFrame = window.requestAnimationFrame(() => layoutOverlayOcrLines(this.root, overlayOcrFrame(), this.settings.ocrFontScale));
+        this.ocrLayoutFrame = window.requestAnimationFrame(() => layoutOverlayOcrLines(this.root, this.ocrFrame(), this.settings.ocrFontScale));
+    }
+
+    // One rect for the whole surface: the frozen capture as it is painted right now. The
+    // area crop is taken through it and every OCR line is measured and clamped against
+    // it, so the picture, the crop and the recognized text cannot disagree — including
+    // after the window is resized, when the picture re-letterboxes underneath them.
+    private ocrFrame(): OcrOverlayFrame {
+        return overlayOcrFrame(this.root, this.capture?.size ?? null);
     }
 
     private async begin(): Promise<void> {
@@ -1044,7 +1057,7 @@ class OverlaySelectionController {
         this.render();
         try {
             const capture = this.capture;
-            const frameRect = frameRectForCapture(capture.size);
+            const frameRect = frameRectForCapture(this.ocrFrame());
             const crop = await cropSelection(capture, selection ? scaleViewportSelection(selection, capture.size, frameRect) : null);
             const response = await this.gamingBridge.requestOcr({
                 provider: gamingCaptureOcrProvider(this.settings.ocrProvider),
@@ -1214,8 +1227,8 @@ function overlayStatusHtml(label: string): string {
     return `<div class="overlay-status" role="status" aria-live="polite"><strong>よむ</strong><span>${escapeHtml(label)}</span></div>`;
 }
 
-function overlayResultHtml(result: OverlayResult, selection: YomuGamingSelectionRect | null): string {
-    if (result.lines?.length) return overlayInlineResultHtml(result);
+function overlayResultHtml(result: OverlayResult, selection: YomuGamingSelectionRect | null, frame: OcrOverlayFrame): string {
+    if (result.lines?.length) return overlayInlineResultHtml(result, frame);
     const style = overlayResultStyle(selection);
     if (result.error) {
         return `<section class="overlay-result" style="${style}" role="alert">
@@ -1237,8 +1250,8 @@ function overlayResultHtml(result: OverlayResult, selection: YomuGamingSelection
     </section>`;
 }
 
-function overlayInlineResultHtml(result: OverlayResult): string {
-    return overlayOcrLayerHtml(result.lines ?? [], overlayOcrFrame());
+function overlayInlineResultHtml(result: OverlayResult, frame: OcrOverlayFrame): string {
+    return overlayOcrLayerHtml(result.lines ?? [], frame);
 }
 
 function overlayResultStyle(selection: YomuGamingSelectionRect | null): string {
@@ -1264,17 +1277,13 @@ function normalizedViewportSelection(start: { x: number; y: number }, end: { x: 
 // The frozen frame is shown aspect-preserved (object-fit: contain), so it occupies a
 // centered, possibly-letterboxed rect inside the overlay. OCR boxes and area selections
 // map through this rect — never the raw viewport — so nothing is stretched or offset.
-function frameRectForCapture(size: { width: number; height: number }): YomuGamingSelectionRect {
-    const viewportWidth = window.innerWidth;
-    const viewportHeight = window.innerHeight;
-    const scale = Math.min(viewportWidth / Math.max(1, size.width), viewportHeight / Math.max(1, size.height));
-    const width = size.width * scale;
-    const height = size.height * scale;
+// It is the same rect the OCR lines are laid out in, derived once in ocr-lines.ts.
+function frameRectForCapture(frame: OcrOverlayFrame): YomuGamingSelectionRect {
     return {
-        left: (viewportWidth - width) / 2,
-        top: (viewportHeight - height) / 2,
-        width,
-        height,
+        left: frame.imageLeft,
+        top: frame.imageTop,
+        width: frame.imageWidth,
+        height: frame.imageHeight,
     };
 }
 

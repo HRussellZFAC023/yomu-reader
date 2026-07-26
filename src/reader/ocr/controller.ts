@@ -12,7 +12,7 @@ import {
     offsetOcrResult,
     splitImageIntoPageColumns,
 } from './image-preprocess';
-import { fittedObjectSize, imageContentBox, layoutOcrOverlayLines, objectPositionOffset, type OcrOverlayFrame } from './ocr-overlay-geometry';
+import { fittedObjectSize, imageContentBox, layoutOcrOverlayLines, objectPositionOffset, paintedImageFrame, type OcrOverlayFrame } from './ocr-overlay-geometry';
 import { isOcrProviderConfigured, ocrRecognizer, requestBlob, type OcrRecognizer } from './ocr-providers';
 import { imageCacheKey, isOcrRequestTimeout, localOcrEndpointUrl, ocrAttemptTimeoutMs } from './ocr-shared';
 import { normalizeOcrRenderedText } from './rendered-text';
@@ -3825,14 +3825,15 @@ function renderedOcrImageFrame(image: HTMLImageElement, rect: DOMRect, result: O
     const style = getComputedStyle(image);
     const content = imageContentBox(image, rect, style);
     const { sourceWidth, sourceHeight } = ocrSourceDimensions(image, rect, content, result);
-    const object = fittedObjectSize(style.objectFit, sourceWidth, sourceHeight, content.width, content.height);
-    const offset = objectPositionOffset(style.objectPosition, content.width - object.width, content.height - object.height);
-    return {
-        imageLeft: content.left + offset.x,
-        imageTop: content.top + offset.y,
-        imageWidth: Math.max(1, object.width),
-        imageHeight: Math.max(1, object.height),
-    };
+    return paintedImageFrame({
+        image,
+        rect,
+        style,
+        objectFit: style.objectFit,
+        objectPosition: style.objectPosition,
+        sourceWidth,
+        sourceHeight,
+    });
 }
 
 function renderedPausedVideoFrame(image: HTMLImageElement, rect: DOMRect): OcrRenderedImageFrame | null {

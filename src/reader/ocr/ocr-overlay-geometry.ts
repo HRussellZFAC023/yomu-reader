@@ -216,6 +216,38 @@ function clampNumber(value: number, min: number, max: number): number {
     return Math.min(max, Math.max(min, value));
 }
 
+export interface OcrPaintedImage {
+    image: HTMLImageElement;
+    /** Border-box rect of the element showing the picture. */
+    rect: DOMRect;
+    style: CSSStyleDeclaration;
+    objectFit: string;
+    objectPosition: string;
+    /** Intrinsic size of the picture being shown. */
+    sourceWidth: number;
+    sourceHeight: number;
+}
+
+// Where the picture is actually painted inside the element that shows it. `object-fit`
+// letterboxes a picture whose aspect ratio differs from its element, so the picture
+// occupies a centered sub-rect — and THAT rect, never the element's own box, is the
+// space OCR boxes were mapped into. Taking the element instead is identity only while
+// the element keeps the shape the picture was measured at, and walks every line off its
+// text the moment it does not (a scrolled/zoomed image in the reader, a resized window
+// in the gaming overlay). Answered relative to the element's border box, which is the
+// space its OCR layer covers.
+export function paintedImageFrame(input: OcrPaintedImage): OcrOverlayFrame {
+    const content = imageContentBox(input.image, input.rect, input.style);
+    const object = fittedObjectSize(input.objectFit, input.sourceWidth, input.sourceHeight, content.width, content.height);
+    const offset = objectPositionOffset(input.objectPosition, content.width - object.width, content.height - object.height);
+    return {
+        imageLeft: content.left + offset.x,
+        imageTop: content.top + offset.y,
+        imageWidth: Math.max(1, object.width),
+        imageHeight: Math.max(1, object.height),
+    };
+}
+
 export function imageContentBox(image: HTMLImageElement, rect: DOMRect, style: CSSStyleDeclaration): OcrRect {
     const scaleX = rectScale(rect.width, image.offsetWidth);
     const scaleY = rectScale(rect.height, image.offsetHeight);

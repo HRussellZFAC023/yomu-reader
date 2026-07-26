@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { layoutOverlayOcrLines, overlayOcrLayerHtml } from '../../src/gaming/renderer/ocr-lines';
+import { layoutOverlayOcrLines, overlayOcrFrame, overlayOcrLayerHtml } from '../../src/gaming/renderer/ocr-lines';
 import {
     layoutOcrOverlayLines,
     ocrLineFrame,
@@ -140,6 +140,110 @@ describe('Yomu Gaming renders OCR lines with the reader’s overlay geometry', (
         // The reader scans these nodes in place; the gaming gamepad driver finds the
         // annotated words through [data-ocr-line].
         expect(html).toContain('data-ocr-line');
+    });
+});
+
+// A 16:9 frozen capture shown in windows of two different shapes. object-fit: contain
+// letterboxes it, so the picture is NOT the window: 1920x1080 in 1280x800 paints
+// 1280x720 at top 40; in 800x800 it paints 800x450 at top 175.
+const CAPTURE = { width: 1920, height: 1080 };
+const WIDE_WINDOW = { width: 1280, height: 800 };
+const TALL_WINDOW = { width: 800, height: 800 };
+// A line of dialogue in the capture's own pixels.
+const CAPTURE_BOX = { left: 960, top: 900, width: 400, height: 60 };
+
+function overlayHost(window: { width: number; height: number }): HTMLElement {
+    const host = document.createElement('div');
+    const backdrop = document.createElement('img');
+    backdrop.className = 'overlay-backdrop';
+    host.append(backdrop);
+    resizeOverlay(host, window);
+    return host;
+}
+
+// .overlay-backdrop is position:fixed inset:0, so it always measures the whole window.
+function resizeOverlay(host: HTMLElement, window: { width: number; height: number }): void {
+    const backdrop = host.querySelector<HTMLImageElement>('img.overlay-backdrop');
+    if (!backdrop) throw new Error('no backdrop');
+    backdrop.getBoundingClientRect = () => new DOMRect(0, 0, window.width, window.height);
+}
+
+// Where a box on the frozen capture lands in the overlay, exactly as app.ts maps it.
+function boxOnCapture(box: typeof CAPTURE_BOX, frame: OcrOverlayFrame): typeof CAPTURE_BOX {
+    const scaleX = frame.imageWidth / CAPTURE.width;
+    const scaleY = frame.imageHeight / CAPTURE.height;
+    return {
+        left: frame.imageLeft + box.left * scaleX,
+        top: frame.imageTop + box.top * scaleY,
+        width: box.width * scaleX,
+        height: box.height * scaleY,
+    };
+}
+
+function renderLine(host: HTMLElement, box: typeof CAPTURE_BOX, frame: OcrOverlayFrame): void {
+    host.insertAdjacentHTML('beforeend', overlayOcrLayerHtml([{ text: LINE_TEXT, box, vertical: false }], frame));
+    stubMeasuredText(host);
+    layoutOverlayOcrLines(host, frame);
+}
+
+// A resized line and a freshly built one reach the same place by different arithmetic —
+// one divides by the old frame and multiplies by the new, the other does neither — so
+// they agree to about a thousandth of a pixel rather than to the last bit of a double.
+function expectSamePlacement(actual: Record<string, string>, expected: Record<string, string>): void {
+    expect(Object.keys(actual)).toEqual(Object.keys(expected));
+    for (const [key, value] of Object.entries(actual)) {
+        expect(Number.parseFloat(value), key).toBeCloseTo(Number.parseFloat(expected[key]), 3);
+    }
+}
+
+describe('Yomu Gaming anchors OCR lines to the capture, not to the window', () => {
+    it('frames the lines with the letterboxed picture rather than the overlay window', () => {
+        const frame = overlayOcrFrame(overlayHost(TALL_WINDOW), CAPTURE);
+
+        expect(frame.imageLeft).toBeCloseTo(0, 3);
+        expect(frame.imageTop).toBeCloseTo(175, 3);
+        expect(frame.imageWidth).toBeCloseTo(800, 3);
+        expect(frame.imageHeight).toBeCloseTo(450, 3);
+    });
+
+    it('keeps a line on the same point of the capture when the window changes shape', () => {
+        const host = overlayHost(WIDE_WINDOW);
+        const wide = overlayOcrFrame(host, CAPTURE);
+        renderLine(host, boxOnCapture(CAPTURE_BOX, wide), wide);
+
+        resizeOverlay(host, TALL_WINDOW);
+        const tall = overlayOcrFrame(host, CAPTURE);
+        layoutOverlayOcrLines(host, tall); // what the resize listener does
+
+        // The reference: the same line, built from scratch at the new window shape.
+        const fresh = overlayHost(TALL_WINDOW);
+        renderLine(fresh, boxOnCapture(CAPTURE_BOX, tall), tall);
+
+        expectSamePlacement(placedGeometry(host), placedGeometry(fresh));
+        // The box sits at capture y=900, which is overlay y=550 once the picture
+        // re-letterboxes to 800x450 at top 175 — the window-sized frame left it at 647.
+        expect(Number.parseFloat(placedGeometry(host).top)).toBeCloseTo(543, 3);
+    });
+
+    it('clamps an edge line onto the picture instead of the letterbox bar', () => {
+        const host = overlayHost(TALL_WINDOW);
+        const frame = overlayOcrFrame(host, CAPTURE);
+        renderLine(host, boxOnCapture({ left: 1500, top: 1040, width: 400, height: 40 }, frame), frame);
+        const placed = placedGeometry(host);
+
+        expect(Number.parseFloat(placed.top)).toBeGreaterThanOrEqual(frame.imageTop);
+        expect(Number.parseFloat(placed.top) + Number.parseFloat(placed.height))
+            .toBeLessThanOrEqual(frame.imageTop + frame.imageHeight + 0.001);
+        expect(Number.parseFloat(placed.left) + Number.parseFloat(placed.width))
+            .toBeLessThanOrEqual(frame.imageLeft + frame.imageWidth + 0.001);
+    });
+
+    it('still frames the capture before the backdrop has been painted', () => {
+        const frame = overlayOcrFrame(document.createElement('div'), CAPTURE);
+
+        expect(frame.imageWidth / frame.imageHeight).toBeCloseTo(CAPTURE.width / CAPTURE.height, 5);
+        expect(frame.imageWidth).toBeLessThanOrEqual(window.innerWidth);
+        expect(frame.imageHeight).toBeLessThanOrEqual(window.innerHeight);
     });
 });
 
