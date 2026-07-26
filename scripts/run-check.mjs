@@ -19,12 +19,12 @@
 //
 // YOMU_CHECK_RELEASE=1 (set by check:release) forces byte-level hashing and full
 // academy re-sync in every stage that supports caching.
-import { spawn, execFileSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { vitestOutputIndicatesFailure } from './lib/check-log-guard.mjs';
-import { GENERATED_ARTIFACT_PATHS } from './lib/generated-artifacts.mjs';
+import { artifactDrift, describeArtifactDrift, hasUncommittedSourceEdits } from './lib/artifact-drift.mjs';
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const LOG_DIR = join(ROOT, 'artifacts', 'check-logs');
@@ -32,11 +32,10 @@ mkdirSync(LOG_DIR, { recursive: true });
 const startedAt = Date.now();
 const timings = [];
 
-// Whether the tree matched HEAD when the gate started, captured before any
-// stage can rebuild anything. This is what makes the artifact-drift guard at
-// the end meaningful: on a clean tree the build lane regenerating a tracked
-// file can only mean the committed copy was stale.
-const startedClean = workingTreeIsClean();
+// Captured before any stage can rebuild anything: were there local edits that
+// would legitimately explain regenerated output? Read now, because the gate's
+// own stages dirty the tree as they run.
+const startedWithSourceEdits = hasUncommittedSourceEdits(ROOT);
 
 function stage(name, command, options = {}) {
     return { name, command, ...options };
@@ -150,49 +149,17 @@ if (!reportArtifactDrift()) {
 }
 printSummary(true);
 
-// The gate rebuilds and re-syncs the artifacts it then verifies, so `verify`
-// only ever compares freshly written bytes with freshly written bytes. What it
-// cannot see -- and what this reports -- is the gate quietly rewriting tracked
-// build output on its way through, which means the committed copy was stale.
-//
-// On a clean tree that is a hard failure: nothing but a stale artifact can
-// explain it. On a dirty tree it is expected (you changed something the build
-// output depends on), so it prints the exact paths to stage instead. Directory
-// paths matter there: a new content-addressed companion is a NEW file, and
-// `git add -u` would ship a userscript pinning a URL that 404s.
+// See scripts/lib/artifact-drift.mjs: `verify` compares bytes this pipeline has
+// just written, so it can never see a stale COMMITTED artifact. This can -- the
+// gate rewriting tracked build output on a commit with nothing to explain it
+// means the committed copy was out of date.
 function reportArtifactDrift() {
-    const drifted = dirtyArtifactPaths();
-    if (drifted.length === 0) return true;
-    const list = drifted.map(path => `  ${path}`).join('\n');
-    if (!startedClean) {
-        console.log(`\n[check] this run regenerated tracked build output:\n${list}`);
-        console.log(`[check] stage it with your change: git add -f -- ${GENERATED_ARTIFACT_PATHS.join(' ')}`);
-        return true;
-    }
-    console.error(`\n[check] FAIL artifact-drift — the tree was clean, but this run rewrote tracked build output:\n${list}`);
-    console.error('[check] HEAD ships stale artifacts. Commit the regenerated files above.');
-    return false;
-}
-
-function dirtyArtifactPaths() {
-    try {
-        return execFileSync('git', ['status', '--porcelain', '--', ...GENERATED_ARTIFACT_PATHS], { cwd: ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
-            .split('\n')
-            .filter(Boolean)
-            .map(line => line.slice(3).trim());
-    } catch {
-        return [];
-    }
-}
-
-function workingTreeIsClean() {
-    try {
-        return execFileSync('git', ['status', '--porcelain'], { cwd: ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }).trim() === '';
-    } catch {
-        // No git (or no repository) means there is no committed baseline to
-        // compare against; the drift guard stays quiet rather than guessing.
-        return false;
-    }
+    const { ok, lines } = describeArtifactDrift({
+        drifted: artifactDrift(ROOT),
+        sourceEdits: startedWithSourceEdits,
+    });
+    for (const line of lines) (ok ? console.log : console.error)(line);
+    return ok;
 }
 
 function printSummary(passed) {
