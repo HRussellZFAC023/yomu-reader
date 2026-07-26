@@ -21,6 +21,7 @@ interface ProjectionRecord {
     cachedOcclusionEpoch?: number;
     lastGoodRect?: DOMRect | null;
     lastGoodAt?: number;
+    lastGoodOrigin?: { x: number; y: number } | null;
     graceFramesRemaining?: number;
     documentSpace?: boolean;
     scrollContextEpoch?: number;
@@ -41,6 +42,10 @@ interface DocumentOverlay {
     records: Set<ProjectionRecord>;
     anchorRecords: Map<HTMLElement, Set<ProjectionRecord>>;
     anchorRoots: Map<HTMLElement, readonly ShadowRoot[]>;
+    // Reference-counted parents of tracked anchors. A mutation landing in one
+    // of these can move an anchor without touching it, which is the cheap
+    // proximity test the reposition tier runs per mutation.
+    anchorContainers: Map<Element, number>;
     intersectingAnchors: Set<HTMLElement>;
     intersectionObserver: IntersectionObserver | null;
     refreshFrame: number;
@@ -52,6 +57,10 @@ interface DocumentOverlay {
     occlusionEpoch: number;
     scrollContextEpoch: number;
     hitTestBudgetRemaining: number;
+    // True for the duration of a pass. A realm without animation frames runs
+    // scheduled passes inline, and the grace follow-up would then re-enter the
+    // pass that asked for it.
+    refreshing: boolean;
     // Set when a pass painted any clone from its grace allowance. The refresh
     // pump is event-driven, so without a self-scheduled follow-up the pass
     // that would retire an expired grace never arrives and the stale clone
@@ -78,6 +87,9 @@ const PROJECTED_READING_ATTRIBUTE = 'data-yomu-projected-reading';
 // Grace may bridge a measurement gap for a few frames, never longer: past this
 // age a missing rect means the word is gone, not mid-relayout.
 const PROJECTION_GRACE_MAX_AGE_MS = 250;
+// Stands in for an animation-frame handle while a pass waits on a microtask, so
+// further events coalesce into it exactly as they would into a frame.
+const FRAMELESS_REFRESH_PENDING = -1;
 
 /**
  * Paint detached readings in a reader-owned viewport layer. The source
@@ -212,6 +224,7 @@ function documentOverlay(document: Document): DocumentOverlay {
         records: new Set(),
         anchorRecords: new Map(),
         anchorRoots: new Map(),
+        anchorContainers: new Map(),
         intersectingAnchors: new Set(),
         intersectionObserver: null,
         refreshFrame: 0,
@@ -220,6 +233,7 @@ function documentOverlay(document: Document): DocumentOverlay {
         occlusionEpoch: 0,
         scrollContextEpoch: 0,
         hitTestBudgetRemaining: 12,
+        refreshing: false,
         graceRefreshNeeded: false,
         scheduleRefresh: () => scheduleProjectionRefresh(document, overlay),
         scheduleTopologyRefresh: () => {
@@ -316,6 +330,7 @@ function readProjectedReadingPaint(
     if (valid && sourceAllowed && anchorVisible) {
         record.lastGoodRect = valid;
         record.lastGoodAt = Date.now();
+        record.lastGoodOrigin = context ? projectionPaintOrigin(record, context) : null;
         record.graceFramesRemaining = 3;
 
         let topmost: boolean;
@@ -340,7 +355,7 @@ function readProjectedReadingPaint(
         // clone floated at its stale position the whole time. Age caps it.
         && Date.now() - (record.lastGoodAt ?? 0) <= PROJECTION_GRACE_MAX_AGE_MS) {
         record.graceFramesRemaining -= 1;
-        effectiveRect = record.lastGoodRect;
+        effectiveRect = graceProjectionRect(record, context);
         visible = record.cachedTopmost ?? true;
         // A grace paint is a promise to look again; the pump does not promise
         // that on its own.
@@ -384,6 +399,48 @@ function positionProjectedReading(
     clone.dataset.yomuSourceTop = String(rect.top);
     clone.dataset.yomuSourceWidth = String(rect.width);
     clone.dataset.yomuSourceHeight = String(rect.height);
+}
+
+/**
+ * The offset the pass that paints this record adds to a measured rect: a
+ * document-space clone is stamped through the document layer's current viewport
+ * box, a viewport clone straight off the rect.
+ */
+function projectionPaintOrigin(
+    record: ProjectionRecord,
+    context: ProjectionReadContext,
+): { x: number; y: number } {
+    return projectionUsesDocumentSpace(record, context)
+        ? documentLayerOrigin(context.overlay)
+        : { x: 0, y: 0 };
+}
+
+/**
+ * A stored rect is viewport-space, but a document-space clone is stamped
+ * through the layer origin of the pass that paints it. Replaying the rect
+ * verbatim after the page has scrolled therefore adds the whole scroll delta
+ * and parks the reading over unrelated text — the "stray furigana in an odd
+ * corner" report. Re-derive where the word must be now from the origin the good
+ * paint was measured against, so a bridged frame holds the reading against its
+ * word instead of sliding it down the page.
+ */
+function graceProjectionRect(
+    record: ProjectionRecord,
+    context?: ProjectionReadContext,
+): DOMRect | null {
+    const stored = record.lastGoodRect ?? null;
+    const captured = record.lastGoodOrigin;
+    if (!stored || !captured || !context) return stored;
+    const origin = projectionPaintOrigin(record, context);
+    const shiftX = captured.x - origin.x;
+    const shiftY = captured.y - origin.y;
+    if (shiftX === 0 && shiftY === 0) return stored;
+    return rectFromEdges(
+        stored.left + shiftX,
+        stored.top + shiftY,
+        stored.right + shiftX,
+        stored.bottom + shiftY,
+    );
 }
 
 /**
@@ -489,9 +546,10 @@ function elementScrollsIndependently(element: Element, style: CSSStyleDeclaratio
 
 function scheduleProjectionRefresh(document: Document, overlay: DocumentOverlay): void {
     if (!overlay.records.size || overlay.refreshFrame) return;
-    const frame = document.defaultView?.requestAnimationFrame;
+    const view = document.defaultView;
+    const frame = view?.requestAnimationFrame;
     if (!frame) {
-        refreshProjectedReadingPositions(overlay);
+        scheduleFramelessProjectionRefresh(view, overlay);
         return;
     }
     overlay.refreshFrame = frame(() => {
@@ -500,7 +558,38 @@ function scheduleProjectionRefresh(document: Document, overlay: DocumentOverlay)
     });
 }
 
+/**
+ * A realm without animation frames — an embedded webview, a sandboxed frame —
+ * has nothing to wait for, so a scheduled pass runs inline. The grace follow-up
+ * asks for its pass from inside the pass that owes it, and running that inline
+ * re-enters the read/write cycle on the same stack: one event then burns the
+ * whole grace allowance in nested passes. Hand the follow-up to a microtask so
+ * the retirement still happens promptly, one pass at a time.
+ */
+function scheduleFramelessProjectionRefresh(view: Window | null | undefined, overlay: DocumentOverlay): void {
+    if (!overlay.refreshing) {
+        refreshProjectedReadingPositions(overlay);
+        return;
+    }
+    const microtask = view?.queueMicrotask;
+    if (typeof microtask !== 'function') return;
+    overlay.refreshFrame = FRAMELESS_REFRESH_PENDING;
+    microtask.call(view, () => {
+        overlay.refreshFrame = 0;
+        refreshProjectedReadingPositions(overlay);
+    });
+}
+
 function refreshProjectedReadingPositions(overlay: DocumentOverlay): void {
+    overlay.refreshing = true;
+    try {
+        runProjectionRefreshPass(overlay);
+    } finally {
+        overlay.refreshing = false;
+    }
+}
+
+function runProjectionRefreshPass(overlay: DocumentOverlay): void {
     pruneDisconnectedRecords(overlay);
     overlay.hitTestBudgetRemaining = 12;
     // The layer's viewport box moves with every scroll; only its value within
@@ -599,6 +688,7 @@ function trackProjectionAnchor(record: ProjectionRecord, overlay: DocumentOverla
         const roots = projectionShadowRoots(record.anchor);
         overlay.anchorRoots.set(record.anchor, roots);
         roots.forEach(root => trackProjectionRoot(root, overlay));
+        trackAnchorContainer(record.anchor, overlay);
     }
     records.add(record);
 }
@@ -609,6 +699,7 @@ function untrackProjectionAnchor(record: ProjectionRecord, overlay: DocumentOver
     records.delete(record);
     if (records.size) return;
     overlay.anchorRecords.delete(record.anchor);
+    untrackAnchorContainer(record.anchor, overlay);
     overlay.intersectingAnchors.delete(record.anchor);
     overlay.intersectionObserver?.unobserve(record.anchor);
     const roots = overlay.anchorRoots.get(record.anchor) ?? [];
@@ -671,8 +762,19 @@ function observeProjectionEnvironment(document: Document, overlay: DocumentOverl
     // when the tab comes back (roots, occlusion and scroll contexts all get
     // recomputed there, which is exactly what the records would have caused).
     const observer = parkableMutationObserver(mutations => {
-        if (!overlay.records.size || !mutations.some(mutation => mutationAffectsProjection(mutation, overlay))) return;
-        overlay.scheduleTopologyRefresh();
+        if (!overlay.records.size) return;
+        let reposition = false;
+        for (const mutation of mutations) {
+            if (mutationAffectsProjection(mutation, overlay)) {
+                overlay.scheduleTopologyRefresh();
+                return;
+            }
+            reposition ||= mutationMovesTrackedAnchor(mutation, overlay);
+        }
+        // Nothing structural about the projection changed, but something in a
+        // container that holds an annotated word did. Re-measure what is on
+        // screen; that is one scroll frame's work, not a topology pass.
+        if (reposition) overlay.scheduleRefresh();
     }, { document, reconcile: () => overlay.scheduleTopologyRefresh() });
     if (!observer) return null;
     observeProjectionMutations(observer, root);
@@ -764,6 +866,55 @@ function mutationAffectsProjection(mutation: MutationRecord, overlay: DocumentOv
     return false;
 }
 
+function trackAnchorContainer(anchor: HTMLElement, overlay: DocumentOverlay): void {
+    const container = anchor.parentElement;
+    if (!container) return;
+    overlay.anchorContainers.set(container, (overlay.anchorContainers.get(container) ?? 0) + 1);
+}
+
+function untrackAnchorContainer(anchor: HTMLElement, overlay: DocumentOverlay): void {
+    const container = anchor.parentElement;
+    if (!container) return;
+    const references = overlay.anchorContainers.get(container) ?? 0;
+    if (references > 1) overlay.anchorContainers.set(container, references - 1);
+    else overlay.anchorContainers.delete(container);
+}
+
+/**
+ * A mutation that touches no tracked anchor can still MOVE one: an inline gloss
+ * appended next to an annotated word reflows the rest of the line, and the
+ * projected readings keep the coordinates they were measured at. Answering
+ * "could this have moved an anchor?" exactly would cost a document-wide
+ * measure, so ask the cheap structural question instead — did it land in a
+ * container that holds a tracked anchor? A bounded walk keeps this O(1) per
+ * mutation, and distant subtrees stay rejected.
+ */
+const ANCHOR_CONTAINER_PROXIMITY = 3;
+
+function mutationMovesTrackedAnchor(mutation: MutationRecord, overlay: DocumentOverlay): boolean {
+    // Our own clones live in the overlay layers and are repositioned by the very
+    // pass this would schedule. Accepting them would spin a refresh loop.
+    if (isProjectionOutputNode(mutation.target, overlay)) return false;
+    const start = mutation.target instanceof Element
+        ? mutation.target
+        : mutation.target.parentElement;
+    let node: Element | null = start;
+    for (let depth = 0; node && depth <= ANCHOR_CONTAINER_PROXIMITY; depth += 1) {
+        if (overlay.anchorContainers.has(node)) return true;
+        node = node.parentElement;
+    }
+    return false;
+}
+
+function isProjectionOutputNode(node: Node, overlay: DocumentOverlay): boolean {
+    for (const layer of [overlay.layer, overlay.documentLayer]) {
+        if (node === layer || layer.contains(node)) return true;
+    }
+    return node instanceof Element
+        && (node.hasAttribute(PROJECTED_READING_ATTRIBUTE)
+            || node.hasAttribute('data-jpdb-reader-surface-ignore'));
+}
+
 function isAnchorOrAncestor(element: Element, overlay: DocumentOverlay): boolean {
     for (const anchor of overlay.anchorRecords.keys()) {
         if (anchor === element || anchor.contains(element) || element.contains(anchor)) {
@@ -835,14 +986,15 @@ function projectionIsTopmost(
         [footprint.left + insetX, footprint.bottom - insetY],
         [footprint.right - insetX, footprint.bottom - insetY],
     ];
-    const surface = projectionRenderSurface(record);
-    return points.every(([x, y]) => anchorOwnsTopmostPoint(
-        record.anchor,
-        surface,
-        x,
-        y,
+    const probe: OcclusionProbe = {
+        anchor: record.anchor,
+        surface: projectionRenderSurface(record),
+        // Resolved once per record: the control and its size decide the same
+        // way at every probe point.
+        chrome: ownChromeControl(record.anchor, sourceRect),
         occludingPaint,
-    ));
+    };
+    return points.every(([x, y]) => anchorOwnsTopmostPoint(probe, x, y));
 }
 
 function projectionRenderSurface(record: ProjectionRecord): Element {
@@ -868,12 +1020,32 @@ function projectedReadingFootprint(record: ProjectionRecord, sourceRect: DOMRect
 // Control shapes whose interior is their own chrome. Deliberately narrow: a
 // bare `a` is excluded because a link can wrap a whole card, and treating that
 // much of the page as one control would let a genuine overlay inside it hide
-// nothing. This file has no imports on purpose — the scroll smoke esbuilds it
-// standalone — so the selector lives here rather than in the decoration policy.
+// nothing.
 const OWN_CHROME_CONTROL_SELECTOR = 'button,summary,label,'
     + '[role="button"],[role="tab"],[role="menuitem"],[role="menuitemradio"],[role="menuitemcheckbox"],[role="option"]';
+// Past this many of the word's own line boxes a control has room to stack
+// content above its label — a media tile, a radio card, a label wrapped around
+// a whole row — and its interior stops being chrome.
+const OWN_CHROME_MAX_CONTROL_LINES = 4;
+// A hover wash lets its control's label read through. At this alpha the layer
+// is a surface, and whatever is behind it — the word, or the space the reading
+// is about to land in — is gone.
+const OPAQUE_SURFACE_ALPHA = 0.9;
+// Chrome is an empty box. Anything drawing its own pixels is content.
+const RENDERED_CONTENT_SELECTOR = 'img,svg,video,canvas,picture,iframe,object,embed';
 
-function anchorOwnControl(anchor: HTMLElement): Element | null {
+interface OcclusionProbe {
+    anchor: HTMLElement;
+    surface: Element;
+    chrome: Element | null;
+    occludingPaint: Map<Element, boolean>;
+}
+
+/**
+ * The control whose interior counts as this word's own chrome, or null when the
+ * word's control is too big for that to be true.
+ */
+function ownChromeControl(anchor: HTMLElement, sourceRect: DOMRect): Element | null {
     // closest() stops dead at a shadow boundary, and framework chrome puts the
     // label inside a shadow tree whose control is the host outside it — Reddit
     // renders well over a hundred shadow hosts per page that way. Using
@@ -881,29 +1053,34 @@ function anchorOwnControl(anchor: HTMLElement): Element | null {
     // that need it, and every reading inside that chrome stayed blanked by the
     // control's own hover wash. Walk the COMPOSED ancestry so the control is
     // found on either side of the boundary.
+    let chrome: Element | null = null;
     const visited = new Set<Node>();
     for (let node: Node | null = anchor; node && !visited.has(node); node = composedParentNode(node)) {
         visited.add(node);
         if (!(node instanceof Element)) continue;
         try {
-            if (node.matches(OWN_CHROME_CONTROL_SELECTOR)) return node;
+            if (!node.matches(OWN_CHROME_CONTROL_SELECTOR)) continue;
         } catch {
-            return null;
+            return chrome;
         }
+        // A word can sit in a button nested in a menu row, and the row's own
+        // hover wash is chrome too — so keep climbing while each candidate is
+        // still small enough to be one, and stop at the first that is not.
+        if (!controlIsOwnChromeSized(node, sourceRect)) break;
+        chrome = node;
     }
-    return null;
+    return chrome;
 }
 
-function anchorOwnsTopmostPoint(
-    anchor: HTMLElement,
-    surface: Element,
-    x: number,
-    y: number,
-    occludingPaint: Map<Element, boolean>,
-): boolean {
+function controlIsOwnChromeSized(control: Element, sourceRect: DOMRect): boolean {
+    return control.getBoundingClientRect().height
+        <= sourceRect.height * OWN_CHROME_MAX_CONTROL_LINES;
+}
+
+function anchorOwnsTopmostPoint(probe: OcclusionProbe, x: number, y: number): boolean {
+    const { anchor, surface } = probe;
     const document = anchor.ownerDocument;
     if (typeof document.elementsFromPoint !== 'function') return true;
-    const ownChrome = anchorOwnControl(anchor);
     for (const hit of document.elementsFromPoint(x, y)) {
         if (hit.closest('.jpdb-reader-detached-reading-overlay')
             || hit === document.body
@@ -911,22 +1088,47 @@ function anchorOwnsTopmostPoint(
         const deepest = deepestOpenShadowHit(hit, x, y);
         if (composedContains(anchor, deepest) || composedContains(surface, deepest)) return true;
         if (composedContains(deepest, anchor) || composedContains(deepest, surface)) return true;
-        // A control's own decorative layers — the ripple, hover wash and focus
-        // ring frameworks stack inside a button — are siblings of the word, not
-        // ancestors of it, so the walk below would score them as a surface
-        // covering the reading and blank it. They are the control's own chrome:
-        // the reading is painted above them either way, and rejecting on them
-        // means a button never shows furigana at all, because the in-word
-        // source is display:none and the clone is the only visible copy.
-        // Anything OUTSIDE the control still occludes normally, so a real menu
-        // or dropdown over the button hides the reading as before.
-        if (ownChrome?.contains(deepest)) continue;
         for (let element: Element | null = deepest; element; element = composedParentElement(element)) {
             if (composedContains(element, anchor) || composedContains(element, surface)) break;
-            if (elementPaintsOccludingSurface(element, occludingPaint)) return false;
+            if (elementIsOwnControlChrome(element, probe)) continue;
+            if (elementPaintsOccludingSurface(element, probe.occludingPaint)) return false;
         }
     }
     return true;
+}
+
+/**
+ * A control's own decorative layers — the ripple, hover wash and focus ring
+ * frameworks stack inside a button — are siblings of the word, not ancestors of
+ * it, so the walk would score them as a surface covering the reading and blank
+ * it. They are the control's own chrome: the reading is painted above them
+ * either way, and rejecting on them means a button never shows furigana at all,
+ * because the in-word source is display:none and the clone is the only visible
+ * copy. Chrome is an empty box that its control's label reads through, so a
+ * layer carrying content of its own, or opaque enough to take the word with it,
+ * is the occluder it looks like — a dropdown that opens over its trigger and a
+ * loading veil across a control both still hide the reading.
+ */
+function elementIsOwnControlChrome(element: Element, probe: OcclusionProbe): boolean {
+    const { chrome } = probe;
+    // Framework chrome routinely renders inside a component's own shadow tree,
+    // which node-tree containment cannot see.
+    if (!chrome || !composedContains(chrome, element)) return false;
+    if (elementRendersOwnContent(element)) return false;
+    // The layer was hit at this point, so an opaque one covers it: the word
+    // under a loading veil is gone, and a reading painted onto an opaque badge
+    // is unreadable. Only what the label reads through counts as decoration.
+    return elementSurfaceAlpha(safeComputedStyle(element)) < OPAQUE_SURFACE_ALPHA;
+}
+
+function elementRendersOwnContent(element: Element): boolean {
+    if ((element.textContent ?? '').trim() !== '') return true;
+    try {
+        return element.matches(RENDERED_CONTENT_SELECTOR)
+            || Boolean(element.querySelector(RENDERED_CONTENT_SELECTOR));
+    } catch {
+        return false;
+    }
 }
 
 function deepestOpenShadowHit(element: Element, x: number, y: number): Element {
@@ -954,10 +1156,22 @@ function elementPaintsOccludingSurface(element: Element, cache: Map<Element, boo
     const cached = cache.get(element);
     if (cached !== undefined) return cached;
     const style = safeComputedStyle(element);
-    const paints = style.backgroundImage !== '' && style.backgroundImage !== 'none'
-        || cssColorAlpha(style.backgroundColor) > 0;
+    // A layer the compositor draws nothing for cannot hide anything. Framework
+    // ripples and press fills sit in the hit list at opacity 0 waiting for a
+    // press, and scoring those as a covering surface blanked the reading on
+    // every control that stacks one over its label.
+    const paints = style.visibility !== 'hidden' && elementSurfaceAlpha(style) > 0;
     cache.set(element, paints);
     return paints;
+}
+
+/** How much of what is behind an element its own background hides. */
+function elementSurfaceAlpha(style: CSSStyleDeclaration): number {
+    const background = style.backgroundImage !== '' && style.backgroundImage !== 'none'
+        ? 1
+        : cssColorAlpha(style.backgroundColor);
+    const opacity = style.opacity === '' ? 1 : Number.parseFloat(style.opacity);
+    return background * (Number.isFinite(opacity) ? opacity : 1);
 }
 
 function cssColorAlpha(color: string): number {
