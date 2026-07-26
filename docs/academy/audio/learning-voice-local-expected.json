@@ -7,7 +7,7 @@
   "build": {
     "distApp": "dist/academy/app.js",
     "hostedApp": "docs/public/academy/app.js",
-    "appSha256": "bdf371067e4d66185aa3351cc428f57225c1964df7986bec4bb04ea194f995f6",
+    "appSha256": "1263900caf55acb5e21fc63e9efbbb8b8d6fdc323afba443a14d1487a3afa7ba",
     "byteParityRequired": true
   },
   "runtimeSources": {
@@ -15,11 +15,11 @@
     "src/academy/audio/browser-speech.ts": "5d2da93a3b9abbd3a77e96ab324c0b5fa0654aa4fb29743244702b81853b7dce",
     "src/academy/audio/learning-voice.ts": "bb7368dc244d3a09ec31d2781f5fd64f827f9fe9a80c9fb4b2b188dcf098fd68",
     "src/academy/audio/worker-tts.ts": "757804bcfea92880e4d9a13373a05e0c1a66933f72afa2f2b0e535cecfbc3548",
-    "src/academy/content/lesson-zero-follow-instructions.ts": "a7caed645a62cb2639ab1602197b26be7959072c3f1d1bf2aa93a48c9cbea78d",
+    "src/academy/content/lesson-zero-follow-instructions.ts": "6505ebf953d056cb2e2dc1bbee7e03b11361a7c651550e6770b76a26227c75b1",
     "src/academy/content/lesson-zero-greeting.ts": "7079535a0a2310dafbdc212d772fbc815513849a83172430f81f0e86aaff95eb",
     "src/academy/content/lesson-zero-desk-language.ts": "2807c811466f261da7b7a1eee667b4957db8b2f10d3b6edf2e69a0eb3f4a3707",
     "src/academy/content/lesson-zero-sentence-frames.ts": "a2c29ea70d346c5caffda83cd77040015dd55de7c7f925503af713bd3f37c1b9",
-    "src/academy/content/lesson-zero-vowel-anchors.ts": "acf6ee825e45c813cb127c596ef2a08fc356fe7f1effdd054aff7bca2dd81b7c",
+    "src/academy/content/lesson-zero-vowel-anchors.ts": "12920c27962ab9d8c6d22fef6c2bc494c155b36f916e6fb7923ab2cb17ffa2b6",
     "src/academy/domain/classroom-instruction-session.ts": "7b7a0de23568e9ba352a70cb07467ff884a99a1b999edf52deb8145632e758d5",
     "src/academy/domain/lesson-zero-desk-language-session.ts": "e05c468e94652522d9a4bb68a8fa17f3ccfa38c3ae38c0825258177220e0c4e9",
     "src/academy/domain/lesson-zero-sentence-frame-session.ts": "4038e9615bc6ba02e67fa3363acd6bcc2e5acd30ef334cc1756374b6c2db4f58",
