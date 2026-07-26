@@ -476,16 +476,23 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
      which is what made kanji carrying a reading render dirtier than the
      okurigana beside them:
 
-       * The clear space between the reading's ink and the kanji's ink is a
-         size-INVARIANT fraction of the reading — measured at ~0.25em in Blink
-         and ~0.43em in WebKit across 20/28/40/60px cues.
+       * The clear space between the reading's ink and the kanji's ink is NOT a
+         constant. It varies with the cue size, with the WORD, and with the
+         engine. Measured across 続ける / 志す / 承る / 見る at 20/28/40/60px:
+         0.185-0.345em in Blink, 0.345-0.489em in WebKit. At one 28px cue in
+         Blink it is 0.246em for 続ける but 0.185em for 志す, because a wide
+         four-kana reading sits lower over its kanji. An earlier version of this
+         comment claimed a size-INVARIANT ~0.25em; that was measured on 続ける
+         alone and is false in both directions. Nothing here may assume a fixed
+         gap — the smoke measures it per word, per size, per engine.
        * A fixed 7px halo is 0.20em of the reading in a 60px cue but 0.43em in a
          28px cue and 0.60em in a 20px one. So the same declaration that sits
-         inside the gap on a big cue overshoots it by ~1.7x at the product
-         default, painting a dark wash across the top of the kanji's band — and
-         only there, because okurigana carries no reading. Measured reach into
-         that band was 1.25x the whole gap at 20px and 28px: the halo did not
-         merely approach the kanji, it crossed onto it.
+         inside the gap on a big cue overshoots it at the product default,
+         painting a dark wash across the top of the kanji's band — and only
+         there, because okurigana carries no reading. Measured reach into that
+         band ran to 2.00x the whole gap in Blink and 1.50x in WebKit (worst on
+         the wide readings, at 20px and 28px): the halo did not merely approach
+         the kanji, it crossed onto it.
 
      Shrinking the radii alone is not enough, and neither is a plain px->em
      conversion: em radii calibrated to today's 28px look are 0.43em at EVERY
@@ -510,9 +517,13 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
      at every size in both engines is now at or above BOTH the owner-tuned pixel
      build and that interim version — e.g. Blink 28px down 14.59 (pixel build)
      / 4.96 (interim) / 17.94 (here); WebKit 20px down 3.25 / 4.23 / 7.33.
-     Downward reach is 0.086-0.172em, at most 0.50x the clear space, and the
-     wash the outline lays on the half of that space adjacent to the kanji is
-     <=0.08 luminance against <=5.52 for the pixel build. Verified by
+     Downward reach is 0.043-0.172em across those four words. Stated against the
+     room each one actually has, it spends at most 0.67x the clear space — that
+     worst case is 志す at 28px in Blink, where the whole clear band is only
+     THREE device pixel rows and the outline occupies two of them, still leaving
+     a clear row before the kanji's first ink. The wash it lays on the lower half
+     of that space and the top of the kanji's own band is <=0.20 luminance,
+     against <=3.10 for the pixel build. Verified by
      scripts/subtitle-furigana-outline-scale-smoke.mjs in Blink and WebKit. */
   text-shadow:
     0 .022em .035em var(--subtitle-outline, var(--jpdb-reader-video-outline)),

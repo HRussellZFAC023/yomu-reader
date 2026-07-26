@@ -3056,8 +3056,15 @@ interface AdditiveMirrorProjectionContext {
  * the source of truth for every line fragment. */
 export function projectAdditiveTextMirror(mirror: HTMLElement, host: HTMLElement): void {
     const context = additiveMirrorProjectionContext(mirror, host);
-    if (!context) {
+    if (typeof context === 'string') {
         clearProjectedReadings(mirror);
+        // Everything a pass projected is an absolute rect measured against the
+        // host text the mirror was rendered from. Once that text is gone the
+        // boxes describe nothing, so keeping them paints this word's status
+        // tint and pitch/status underline over whatever the recycler put at the
+        // old coordinates. A merely unmeasurable frame is different: the source
+        // still exists, so the paint stays and the next pass re-measures it.
+        if (context === 'source-changed') clearAdditiveMirrorSourceProjection(mirror);
         return;
     }
     const readingProjections: DetachedReadingProjection[] = [];
@@ -3070,15 +3077,38 @@ export function projectAdditiveTextMirror(mirror: HTMLElement, host: HTMLElement
     syncProjectedReadings(mirror, readingProjections);
     if (projected) mirror.dataset.yomuSourceProjected = 'true';
     else delete mirror.dataset.yomuSourceProjected;
+    // A pass got a context, so this mirror's host text matches what it was
+    // rendered from again: it is no longer stale and may paint its own lane.
+    delete mirror.dataset.yomuSourceStale;
+    for (const word of mirror.querySelectorAll<HTMLElement>('.jpdb-reader-word')) {
+        word.style.removeProperty('--jpdb-reader-word-decoration-source');
+    }
+    styleAdditiveMirrorPaint(mirror);
 }
+
+/**
+ * Why a pass could not project.
+ *
+ * `unmeasurable` is transient — the engine has no Range geometry, the host is
+ * momentarily off-DOM, or its box has collapsed — and the source text the
+ * mirror was rendered from still exists, so whatever is painted stays put and
+ * the next pass re-measures it.
+ *
+ * `source-changed` is not transient: a recycler rewrote the host's own text
+ * under a surviving mirror (YouTube reuses `#owner-sub-count` and the watch-info
+ * line for different content), so every stamped offset now indexes a string
+ * that is gone. Nothing here can be re-measured, only discarded.
+ */
+type AdditiveMirrorProjectionGap = 'unmeasurable' | 'source-changed';
 
 function additiveMirrorProjectionContext(
     mirror: HTMLElement,
     host: HTMLElement,
-): AdditiveMirrorProjectionContext | null {
-    if (typeof Range !== 'function' || typeof Range.prototype.getClientRects !== 'function') return null;
+): AdditiveMirrorProjectionContext | AdditiveMirrorProjectionGap {
+    if (typeof Range !== 'function' || typeof Range.prototype.getClientRects !== 'function') return 'unmeasurable';
     const source = hostOriginalTextWithNodeOffsets(host);
-    if (!host.isConnected || mirrorSourceHostText(mirror) !== source.hostText) return null;
+    if (!host.isConnected) return 'unmeasurable';
+    if (mirrorSourceHostText(mirror) !== source.hostText) return 'source-changed';
 
     const hostRect = host.getBoundingClientRect();
     // An absolute child is laid out from the host's padding box. Match that
@@ -3090,7 +3120,7 @@ function additiveMirrorProjectionContext(
     mirror.style.setProperty('padding', '0');
     mirror.style.setProperty('transform', 'none');
     const mirrorRect = mirror.getBoundingClientRect();
-    if (mirrorRect.width <= 0 || mirrorRect.height <= 0) return null;
+    if (mirrorRect.width <= 0 || mirrorRect.height <= 0) return 'unmeasurable';
 
     const clipRow = closestRubyFragileConstrainedRow(host);
     return {
@@ -3136,13 +3166,70 @@ function sourceFragmentProjections(
     }).filter(({ rect }) => !context.clipRect || rectsIntersect(rect, context.clipRect));
 }
 
+// The exact geometry each projection writer owns. Every writer below is typed
+// against its list, so a property added to one is a compile error until the
+// teardown that undoes it knows about it too — the drift that would otherwise
+// strand a box on the page after the projection is withdrawn.
+const PROJECTED_SOURCE_WORD_STYLE_PROPERTIES = ['position', 'inset', 'width', 'height', 'margin'] as const;
+const PROJECTED_SOURCE_ELEMENT_STYLE_PROPERTIES = ['position', 'left', 'top', 'width', 'height', 'margin'] as const;
+
+function writeProjectedGeometry<Property extends string>(
+    element: HTMLElement,
+    properties: readonly Property[],
+    values: Record<Property, string>,
+): void {
+    for (const property of properties) element.style.setProperty(property, values[property], 'important');
+}
+
 function styleProjectedSourceWord(word: HTMLElement): void {
     word.dataset.yomuSourceProjected = 'true';
-    word.style.setProperty('position', 'absolute', 'important');
-    word.style.setProperty('inset', '0', 'important');
-    word.style.setProperty('width', 'auto', 'important');
-    word.style.setProperty('height', 'auto', 'important');
-    word.style.setProperty('margin', '0', 'important');
+    writeProjectedGeometry(word, PROJECTED_SOURCE_WORD_STYLE_PROPERTIES, {
+        position: 'absolute',
+        inset: '0',
+        width: 'auto',
+        height: 'auto',
+        margin: '0',
+    });
+}
+
+/**
+ * Hand a mirror back to the un-projected state it was mounted in.
+ *
+ * Only ever called once the host's own text no longer matches what the mirror
+ * was rendered from. Every box a pass left behind — the exact source fragments
+ * that carry the status tint and the pitch/status underline, the full-host word
+ * shell, the absolute detached-ruby wrappers — is pinned to coordinates the
+ * page has since reused, and the CSS that neutralises a projected word keys off
+ * the flags cleared here, so the flags and the geometry must go together or the
+ * word would repaint its own highlight across the whole host box. The stale
+ * mirror is already queued for re-scan; until that lands the surface simply
+ * carries no decoration rather than the wrong word's.
+ */
+function clearAdditiveMirrorSourceProjection(mirror: HTMLElement): void {
+    delete mirror.dataset.yomuSourceProjected;
+    // Removing the projection is not enough to stop this mirror painting. An
+    // additive mirror word carries its OWN pitch/status underline:
+    // styleAdditiveMirrorPaint writes --jpdb-reader-word-decoration-source
+    // inline and .jpdb-reader-word::after draws it, and that lane is suppressed
+    // only WHILE the word is projected. Tearing the projection down therefore
+    // un-suppresses it, and because the word falls back into the mirror's own
+    // flow at the host's metrics it lands on very nearly the same pixels the
+    // stale fragment occupied — the same wrong glyphs underlined, 4% shorter.
+    // The mirror is stale, not resting, so the lane stays off until a pass can
+    // measure the host again.
+    mirror.dataset.yomuSourceStale = 'true';
+    for (const word of mirror.querySelectorAll<HTMLElement>('.jpdb-reader-word[data-yomu-source-projected]')) {
+        word.style.setProperty('--jpdb-reader-word-decoration-source', 'transparent');
+        word.querySelectorAll(`.${SOURCE_FRAGMENT_CLASS}`).forEach(fragment => fragment.remove());
+        for (const wrapper of word.querySelectorAll<HTMLElement>('.jpdb-reader-detached-ruby')) {
+            PROJECTED_SOURCE_ELEMENT_STYLE_PROPERTIES.forEach(property => wrapper.style.removeProperty(property));
+            // styleDetachedReadingElements' resting value for a wrapper the
+            // projection had lifted out of flow.
+            wrapper.style.setProperty('position', 'relative', 'important');
+        }
+        PROJECTED_SOURCE_WORD_STYLE_PROPERTIES.forEach(property => word.style.removeProperty(property));
+        delete word.dataset.yomuSourceProjected;
+    }
 }
 
 function appendSourceFragments(
@@ -3254,12 +3341,14 @@ function positionProjectedElement(
     scaleX: number,
     scaleY: number,
 ): void {
-    element.style.setProperty('position', 'absolute', 'important');
-    element.style.setProperty('left', `${(rect.left - mirrorRect.left) / scaleX}px`, 'important');
-    element.style.setProperty('top', `${(rect.top - mirrorRect.top) / scaleY}px`, 'important');
-    element.style.setProperty('width', `${rect.width / scaleX}px`, 'important');
-    element.style.setProperty('height', `${rect.height / scaleY}px`, 'important');
-    element.style.setProperty('margin', '0', 'important');
+    writeProjectedGeometry(element, PROJECTED_SOURCE_ELEMENT_STYLE_PROPERTIES, {
+        position: 'absolute',
+        left: `${(rect.left - mirrorRect.left) / scaleX}px`,
+        top: `${(rect.top - mirrorRect.top) / scaleY}px`,
+        width: `${rect.width / scaleX}px`,
+        height: `${rect.height / scaleY}px`,
+        margin: '0',
+    });
 }
 
 function rectsIntersect(left: DOMRect, right: DOMRect): boolean {

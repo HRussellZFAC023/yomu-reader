@@ -30,6 +30,16 @@ export function parseRecommendationShelf(policy) {
   if (!Array.isArray(policy.slots) || !policy.slots.length) {
     throw new Error('Recommendation shelf must declare at least one slot.');
   }
+  // The policy file is itself a way to lose the shelf: delete a slot from it and
+  // every regeneration afterwards ships a narrower shelf, correctly, quietly and
+  // for ever. SHELF_ROLES is the set of roles the recommendations schema knows
+  // outside the bilingual starter, so requiring the policy to cover all of them
+  // makes "the shelf is whole" a property this script checks rather than one the
+  // shipped bytes happen to have.
+  const missing = [...SHELF_ROLES].filter(role => !policy.slots.some(slot => slot?.role === role));
+  if (missing.length) {
+    throw new Error(`Recommendation shelf policy is missing a title for ${missing.join(', ')}. Every shelf role must name a dictionary; deleting a slot narrows the shelf for all 32 learner languages.`);
+  }
   const slots = policy.slots.map((slot, index) => {
     const label = `Recommendation shelf slot ${index}`;
     if (!SHELF_ROLES.has(slot?.role)) throw new Error(`${label} must name a shelf role outside the bilingual starter.`);
@@ -88,6 +98,60 @@ export function applyRecommendationShelf(recommendation, catalog, slots) {
     ...recommendation,
     dictionaries: [...starter, ...added].sort((left, right) => left.priority - right.priority),
   };
+}
+
+/**
+ * applyRecommendationShelf is deliberately CONDITIONAL: it skips a slot whose
+ * dictionary the catalogue cannot serve, so a pre-release catalogue still yields
+ * the plain starter. That conditional is right for exactly one situation — a
+ * catalogue with nothing mirrored yet — and silently wrong for every other
+ * reason a slot can fail to resolve. Measured against the published catalogue,
+ * ALL of these narrowed the shelf and let the release write anyway:
+ *
+ *   * a shelf title demoted to source-only (8 rows -> 7)
+ *   * a shelf title's id churned by a re-import (8 -> 7)
+ *   * a shelf title losing `ja` from headwordLanguages (8 -> 7)
+ *   * a shelf title dropped from the catalogue entirely (8 -> 7)
+ *   * one learner language whose STARTER already names a shelf title, so the
+ *     slot is skipped as already-seeded and that language alone loses the role
+ *     (only 1 of 32 manifests narrows, and the summary's total barely moves)
+ *
+ * The real release runs against an operator-supplied connector inventory and
+ * acquisition ledger, neither of which is tracked here, so the first two are
+ * ordinary outcomes of a re-import rather than exotic ones. This is the check
+ * that tells the two situations apart: nothing mirrored is a stage, anything
+ * else is a defect. A release that genuinely means to ship a narrower shelf has
+ * to say so by editing the frozen policy, which is reviewable.
+ */
+export function assertRecommendationShelfIntact(recommendations, catalog, slots) {
+  const published = catalog.entries.filter(entry => entry.distribution?.state === 'published');
+  if (!published.length) return { shelfStage: 'pre-release', shelfSlotsPerLanguage: 0 };
+  const entryById = new Map(catalog.entries.map(entry => [entry.id, entry]));
+  for (const slot of slots) {
+    const entry = entryById.get(slot.dictionaryId);
+    const because = !entry
+      ? 'no catalogue entry carries that id — the policy is stale, or a re-import renamed it'
+      : entry.distribution?.state !== 'published'
+        ? `its catalogue entry is ${entry.distribution?.state ?? 'missing a distribution'} rather than published, so no mirrored object backs it`
+        : !entry.headwordLanguages?.includes(catalog.targetLanguage)
+          ? `its catalogue entry no longer lists ${catalog.targetLanguage} in headwordLanguages`
+          : '';
+    if (because) {
+      throw new Error(`Recommendation shelf slot ${slot.role} (${slot.dictionaryId}) cannot be served by a catalogue that publishes ${published.length} entries: ${because}. Regenerating now would ship every learner language a narrower shelf than the one already published.`);
+    }
+  }
+  for (const { filename, manifest } of recommendations) {
+    for (const slot of slots) {
+      const row = manifest.dictionaries.find(item => item.role === slot.role);
+      if (!row) {
+        throw new Error(`${filename} came out of the release without its ${slot.role} row. The shelf title is in the catalogue, so this language lost it for a reason local to its own manifest — most often a starter row that already names ${slot.dictionaryId}, which makes the slot look already-seeded.`);
+      }
+      if (row.dictionaryId !== slot.dictionaryId) {
+        throw new Error(`${filename} fills the ${slot.role} row with ${row.dictionaryId}, but the frozen policy names ${slot.dictionaryId}.`);
+      }
+    }
+  }
+  return { shelfStage: 'released', shelfSlotsPerLanguage: slots.length };
 }
 
 // A frequency or pitch list has no prose to translate, and a definition already
@@ -154,12 +218,16 @@ export async function prepareDictionaryRelease({
     }
     recommendations.push({ filename, manifest: recommendation });
   }
+  // Before the summary, and before any write: a dry run is where an operator
+  // should learn the shelf would narrow, not after the files are on disk.
+  const shelf = assertRecommendationShelfIntact(recommendations, catalog, shelfSlots);
   const summary = {
     mode: write ? 'write' : 'dry-run',
     releaseRoot: safeReleaseRoot,
     catalogEntries: catalog.entries.length,
     promotedObjects: promoted,
     shelfRecommendationRows: shelfRows,
+    ...shelf,
     readyLanguages: recommendations.filter(item => item.manifest.readiness === 'ready').length,
     blockedLanguages: recommendations.filter(item => item.manifest.readiness === 'blocked').length,
   };

@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.8.13] - 2026-07-26
+
+### Fixed
+
+- A pitch underline no longer stays behind on the wrong words when a site reuses a line for different content. Video pages recycle the element holding the subscriber count and the view-count row, swapping the text while Yomu's annotation layer survives, and every position that layer held then pointed at characters that were gone — so the underline sat over whatever had taken their place until something else redrew the page. That layer is now taken down as soon as the text beneath it changes, including the word's own underline, which was otherwise handed straight back and repainted in the same wrong place.
+
 ## [1.8.12] - 2026-07-26
 
 ### Added

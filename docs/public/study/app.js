@@ -14552,8 +14552,9 @@ ${spelling}`);
   const SOURCE_FRAGMENT_CLASS = "jpdb-reader-source-fragment";
   function projectAdditiveTextMirror(mirror, host) {
     const context = additiveMirrorProjectionContext(mirror, host);
-    if (!context) {
+    if (typeof context === "string") {
       clearProjectedReadings(mirror);
+      if (context === "source-changed") clearAdditiveMirrorSourceProjection(mirror);
       return;
     }
     const readingProjections = [];
@@ -14564,11 +14565,17 @@ ${spelling}`);
     syncProjectedReadings(mirror, readingProjections);
     if (projected) mirror.dataset.yomuSourceProjected = "true";
     else delete mirror.dataset.yomuSourceProjected;
+    delete mirror.dataset.yomuSourceStale;
+    for (const word of mirror.querySelectorAll(".jpdb-reader-word")) {
+      word.style.removeProperty("--jpdb-reader-word-decoration-source");
+    }
+    styleAdditiveMirrorPaint(mirror);
   }
   function additiveMirrorProjectionContext(mirror, host) {
-    if (typeof Range !== "function" || typeof Range.prototype.getClientRects !== "function") return null;
+    if (typeof Range !== "function" || typeof Range.prototype.getClientRects !== "function") return "unmeasurable";
     const source = hostOriginalTextWithNodeOffsets(host);
-    if (!host.isConnected || mirrorSourceHostText(mirror) !== source.hostText) return null;
+    if (!host.isConnected) return "unmeasurable";
+    if (mirrorSourceHostText(mirror) !== source.hostText) return "source-changed";
     const hostRect = host.getBoundingClientRect();
     mirror.style.setProperty("inset", "0 auto auto 0");
     mirror.style.setProperty("width", `${host.clientWidth || hostRect.width}px`);
@@ -14576,7 +14583,7 @@ ${spelling}`);
     mirror.style.setProperty("padding", "0");
     mirror.style.setProperty("transform", "none");
     const mirrorRect = mirror.getBoundingClientRect();
-    if (mirrorRect.width <= 0 || mirrorRect.height <= 0) return null;
+    if (mirrorRect.width <= 0 || mirrorRect.height <= 0) return "unmeasurable";
     const clipRow = closestRubyFragileConstrainedRow(host);
     return {
       host,
@@ -14609,13 +14616,34 @@ ${spelling}`);
       return projection;
     }).filter(({ rect }) => !context.clipRect || rectsIntersect(rect, context.clipRect));
   }
+  const PROJECTED_SOURCE_WORD_STYLE_PROPERTIES = ["position", "inset", "width", "height", "margin"];
+  const PROJECTED_SOURCE_ELEMENT_STYLE_PROPERTIES = ["position", "left", "top", "width", "height", "margin"];
+  function writeProjectedGeometry(element2, properties, values) {
+    for (const property of properties) element2.style.setProperty(property, values[property], "important");
+  }
   function styleProjectedSourceWord(word) {
     word.dataset.yomuSourceProjected = "true";
-    word.style.setProperty("position", "absolute", "important");
-    word.style.setProperty("inset", "0", "important");
-    word.style.setProperty("width", "auto", "important");
-    word.style.setProperty("height", "auto", "important");
-    word.style.setProperty("margin", "0", "important");
+    writeProjectedGeometry(word, PROJECTED_SOURCE_WORD_STYLE_PROPERTIES, {
+      position: "absolute",
+      inset: "0",
+      width: "auto",
+      height: "auto",
+      margin: "0"
+    });
+  }
+  function clearAdditiveMirrorSourceProjection(mirror) {
+    delete mirror.dataset.yomuSourceProjected;
+    mirror.dataset.yomuSourceStale = "true";
+    for (const word of mirror.querySelectorAll(".jpdb-reader-word[data-yomu-source-projected]")) {
+      word.style.setProperty("--jpdb-reader-word-decoration-source", "transparent");
+      word.querySelectorAll(`.${SOURCE_FRAGMENT_CLASS}`).forEach((fragment2) => fragment2.remove());
+      for (const wrapper of word.querySelectorAll(".jpdb-reader-detached-ruby")) {
+        PROJECTED_SOURCE_ELEMENT_STYLE_PROPERTIES.forEach((property) => wrapper.style.removeProperty(property));
+        wrapper.style.setProperty("position", "relative", "important");
+      }
+      PROJECTED_SOURCE_WORD_STYLE_PROPERTIES.forEach((property) => word.style.removeProperty(property));
+      delete word.dataset.yomuSourceProjected;
+    }
   }
   function appendSourceFragments(word, fragments, sourceRects, context) {
     const gradientWidth = sourceRects.reduce((width, rect) => width + rect.width / context.scaleX, 0);
@@ -14692,12 +14720,14 @@ ${spelling}`);
     return merged;
   }
   function positionProjectedElement(element2, rect, mirrorRect, scaleX, scaleY) {
-    element2.style.setProperty("position", "absolute", "important");
-    element2.style.setProperty("left", `${(rect.left - mirrorRect.left) / scaleX}px`, "important");
-    element2.style.setProperty("top", `${(rect.top - mirrorRect.top) / scaleY}px`, "important");
-    element2.style.setProperty("width", `${rect.width / scaleX}px`, "important");
-    element2.style.setProperty("height", `${rect.height / scaleY}px`, "important");
-    element2.style.setProperty("margin", "0", "important");
+    writeProjectedGeometry(element2, PROJECTED_SOURCE_ELEMENT_STYLE_PROPERTIES, {
+      position: "absolute",
+      left: `${(rect.left - mirrorRect.left) / scaleX}px`,
+      top: `${(rect.top - mirrorRect.top) / scaleY}px`,
+      width: `${rect.width / scaleX}px`,
+      height: `${rect.height / scaleY}px`,
+      margin: "0"
+    });
   }
   function rectsIntersect(left, right) {
     return left.right > right.left + 0.5 && left.left < right.right - 0.5 && left.bottom > right.top + 0.5 && left.top < right.bottom - 0.5;
@@ -52335,7 +52365,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.8.12".trim() ? "1.8.12".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.8.13".trim() ? "1.8.13".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record2 = value;

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.8.12
+// @version 1.8.13
 // @author Henry Russell
 // @description Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and a study page.
 // @license MIT
@@ -17,13 +17,13 @@
 // @require https://yomureader.com/greasyfork/yomu-kanji-study.3d27bbc49f5a.user.js#sha256=PSe7xJ9a4sk+j5jeAVG+PQrPlxbE4DsnAFqr4j6wYDg=
 // @require https://yomureader.com/greasyfork/yomu-ocr-manga.bca604445f53.user.js#sha256=vKYERF9TNBSYw8yBXsLknZJdrY5i6dDakrRuGd0wISw=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.7e0a7848ae68.user.js#sha256=fgp4SK5o4kvvjO2Lo2QIdDd+EUHHg+9X5WpZB2A/whs=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.a2d41593c106.user.js#sha256=otQVk8EGa2iMajl0T8Dy+rE6d2oVsFUkaL0Rq/yukRk=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.e3b839b0f403.user.js#sha256=47g5sPQDWovBdkYgymmJixESIS7LCtb1xQ7mTb6iMH0=
 // @require https://yomureader.com/greasyfork/yomu-bunpro.9d4738bbea30.user.js#sha256=nUc4u+owYMkdiLaP1ppcGAmXD5pCErLByE3Dbf0J2tk=
 // @require https://yomureader.com/greasyfork/yomu-jpdb.a838ee2d91c2.user.js#sha256=qDjuLZHC5pQ3vJ4NKbOumxv27JseZh+KmYz2BIw7udY=
 // @require https://yomureader.com/greasyfork/yomu-jiten.8ffd573707f9.user.js#sha256=j/1XNwf5YI4jg42uSVVI2KKECuJXBJgkHgcROclffBE=
 // @require https://yomureader.com/greasyfork/yomu-wanikani.02b958835de9.user.js#sha256=ArlYg13pO1i1xt6cyOiWmjTa3Jr1UPhITAlC7DdwzHw=
 // @require https://yomureader.com/greasyfork/yomu-video.67941d3300f2.user.js#sha256=Z5QdMwDyjIowcPlWg76NajLFbrmNv6xHSfEpbazCCkA=
-// @resource yomuCss  https://yomureader.com/yomu.cf6dbdc75f60.css#sha256=z229x19gc0FhIeHfR+4iPWFkgPGYA29oCFfQ7z0BGS8=
+// @resource yomuCss  https://yomureader.com/yomu.7cea02aaadb1.css#sha256=fOoCqq2x8wrbyLq2fCIquhgDaoolcwCF4AxI+6BBbhs=
 // @connect api.jiten.moe
 // @connect jpdb.io
 // @connect api.wanikani.com
@@ -9452,8 +9452,9 @@ function stampProjectedRubySourceRanges(word, surface, token, sourceStart) {
 const SOURCE_FRAGMENT_CLASS = "jpdb-reader-source-fragment";
 function projectAdditiveTextMirror(mirror, host) {
   const context = additiveMirrorProjectionContext(mirror, host);
-  if (!context) {
+  if (typeof context === "string") {
   clearProjectedReadings(mirror);
+  if (context === "source-changed") clearAdditiveMirrorSourceProjection(mirror);
   return;
   }
   const readingProjections = [];
@@ -9464,11 +9465,17 @@ function projectAdditiveTextMirror(mirror, host) {
   syncProjectedReadings(mirror, readingProjections);
   if (projected) mirror.dataset.yomuSourceProjected = "true";
   else delete mirror.dataset.yomuSourceProjected;
+  delete mirror.dataset.yomuSourceStale;
+  for (const word of mirror.querySelectorAll(".jpdb-reader-word")) {
+  word.style.removeProperty("--jpdb-reader-word-decoration-source");
+  }
+  styleAdditiveMirrorPaint(mirror);
 }
 function additiveMirrorProjectionContext(mirror, host) {
-  if (typeof Range !== "function" || typeof Range.prototype.getClientRects !== "function") return null;
+  if (typeof Range !== "function" || typeof Range.prototype.getClientRects !== "function") return "unmeasurable";
   const source = hostOriginalTextWithNodeOffsets(host);
-  if (!host.isConnected || mirrorSourceHostText(mirror) !== source.hostText) return null;
+  if (!host.isConnected) return "unmeasurable";
+  if (mirrorSourceHostText(mirror) !== source.hostText) return "source-changed";
   const hostRect = host.getBoundingClientRect();
   mirror.style.setProperty("inset", "0 auto auto 0");
   mirror.style.setProperty("width", `${host.clientWidth || hostRect.width}px`);
@@ -9476,7 +9483,7 @@ function additiveMirrorProjectionContext(mirror, host) {
   mirror.style.setProperty("padding", "0");
   mirror.style.setProperty("transform", "none");
   const mirrorRect = mirror.getBoundingClientRect();
-  if (mirrorRect.width <= 0 || mirrorRect.height <= 0) return null;
+  if (mirrorRect.width <= 0 || mirrorRect.height <= 0) return "unmeasurable";
   const clipRow = closestRubyFragileConstrainedRow(host);
   return {
   host,
@@ -9509,13 +9516,34 @@ function sourceFragmentProjections(sourceRects, context) {
   return projection;
   }).filter(({ rect }) => !context.clipRect || rectsIntersect(rect, context.clipRect));
 }
+const PROJECTED_SOURCE_WORD_STYLE_PROPERTIES = ["position", "inset", "width", "height", "margin"];
+const PROJECTED_SOURCE_ELEMENT_STYLE_PROPERTIES = ["position", "left", "top", "width", "height", "margin"];
+function writeProjectedGeometry(element, properties, values) {
+  for (const property of properties) element.style.setProperty(property, values[property], "important");
+}
 function styleProjectedSourceWord(word) {
   word.dataset.yomuSourceProjected = "true";
-  word.style.setProperty("position", "absolute", "important");
-  word.style.setProperty("inset", "0", "important");
-  word.style.setProperty("width", "auto", "important");
-  word.style.setProperty("height", "auto", "important");
-  word.style.setProperty("margin", "0", "important");
+  writeProjectedGeometry(word, PROJECTED_SOURCE_WORD_STYLE_PROPERTIES, {
+  position: "absolute",
+  inset: "0",
+  width: "auto",
+  height: "auto",
+  margin: "0"
+  });
+}
+function clearAdditiveMirrorSourceProjection(mirror) {
+  delete mirror.dataset.yomuSourceProjected;
+  mirror.dataset.yomuSourceStale = "true";
+  for (const word of mirror.querySelectorAll(".jpdb-reader-word[data-yomu-source-projected]")) {
+  word.style.setProperty("--jpdb-reader-word-decoration-source", "transparent");
+  word.querySelectorAll(`.${SOURCE_FRAGMENT_CLASS}`).forEach((fragment) => fragment.remove());
+  for (const wrapper of word.querySelectorAll(".jpdb-reader-detached-ruby")) {
+    PROJECTED_SOURCE_ELEMENT_STYLE_PROPERTIES.forEach((property) => wrapper.style.removeProperty(property));
+    wrapper.style.setProperty("position", "relative", "important");
+  }
+  PROJECTED_SOURCE_WORD_STYLE_PROPERTIES.forEach((property) => word.style.removeProperty(property));
+  delete word.dataset.yomuSourceProjected;
+  }
 }
 function appendSourceFragments(word, fragments, sourceRects, context) {
   const gradientWidth = sourceRects.reduce((width, rect) => width + rect.width / context.scaleX, 0);
@@ -9592,12 +9620,14 @@ function mergeSourceLineRects(rects) {
   return merged;
 }
 function positionProjectedElement(element, rect, mirrorRect, scaleX, scaleY) {
-  element.style.setProperty("position", "absolute", "important");
-  element.style.setProperty("left", `${(rect.left - mirrorRect.left) / scaleX}px`, "important");
-  element.style.setProperty("top", `${(rect.top - mirrorRect.top) / scaleY}px`, "important");
-  element.style.setProperty("width", `${rect.width / scaleX}px`, "important");
-  element.style.setProperty("height", `${rect.height / scaleY}px`, "important");
-  element.style.setProperty("margin", "0", "important");
+  writeProjectedGeometry(element, PROJECTED_SOURCE_ELEMENT_STYLE_PROPERTIES, {
+  position: "absolute",
+  left: `${(rect.left - mirrorRect.left) / scaleX}px`,
+  top: `${(rect.top - mirrorRect.top) / scaleY}px`,
+  width: `${rect.width / scaleX}px`,
+  height: `${rect.height / scaleY}px`,
+  margin: "0"
+  });
 }
 function rectsIntersect(left, right) {
   return left.right > right.left + 0.5 && left.left < right.right - 0.5 && left.bottom > right.top + 0.5 && left.top < right.bottom - 0.5;
@@ -30096,8 +30126,8 @@ function collapseWhitespace(value) {
   return value.replace(/\/\*[\s\S]*?\*\//gu, " ").replace(/\s+/gu, " ").trim();
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.12"}`;
-const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.12"}`;
+const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.13"}`;
+const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.13"}`;
 const READER_CSS_CACHE_KEY = "yomu:reader-css-cache:v3";
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
@@ -30240,7 +30270,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.8.12"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.8.13"}`;
   } catch {
   return null;
   }

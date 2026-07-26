@@ -7,34 +7,46 @@
 // okurigana beside them". It is not the highlight family — it reproduces with
 // every highlight channel off. The cause is geometric:
 //
-//   * The clear space between the reading's ink and the kanji's ink is a
-//     size-invariant fraction of the reading (~0.25em Blink, ~0.43em WebKit).
-//   * The reading's outline used fixed pixel radii (0 1px 1px / 0 0 3px /
-//     0 0 7px). 7px is 0.20em of the reading in a 60px cue but 0.43em in a 28px
-//     cue and 0.60em in a 20px one, so the smaller the cue the further the dark
-//     halo reached past the gap and onto the top of the kanji's band. Okurigana
-//     carries no reading, so nothing washes it — hence the visible difference
-//     WITHIN one word.
+//   * The OUTLINE used fixed pixel radii (0 1px 1px / 0 0 3px / 0 0 7px), so its
+//     reach measured as a fraction of the reading grew as the cue shrank:
+//     0.144em at 60px but 0.431em at 20px in Blink (0.517em in WebKit).
+//   * The clear space between the reading's ink and the base glyph's ink does
+//     NOT grow to match — see the note on MAX_REACH_SPEND below. So on small
+//     cues the halo crossed out of that space and onto the top of the kanji's
+//     band. Okurigana carries no reading, so nothing washes it — hence the
+//     visible difference WITHIN one word.
 //
-// The fixture is therefore 続ける: ONE word containing an annotated kanji and
-// plain okurigana, which is the comparison the bug report actually makes. An
-// earlier version of this file rendered a bare annotated 続 with no okurigana,
-// so it could assert things about the kanji but never measure the difference
-// the user sees.
+// SEVERAL words are measured, not one. The clear space is a property of the
+// word, not just of the cue size (again, see MAX_REACH_SPEND), so a threshold
+// calibrated on a single fixture is a threshold calibrated on that fixture's
+// glyphs. An earlier version of this file measured only 続ける and passed a flat
+// 0.6x-of-the-gap cap; the same shipped stylesheet measured 0.67x on 志す, whose
+// four-kana reading over one kanji leaves visibly less room. That was a
+// threshold artefact, not a regression — but a smoke that only holds for one
+// word is not a regression test, it is a fixture.
+//
+// Every word is an annotated kanji plus plain okurigana in ONE word, which is
+// the comparison the bug report actually makes. An earlier version rendered a
+// bare annotated 続 with no okurigana, so it could assert things about the kanji
+// but never measure the difference the user sees.
 //
 // Three things are asserted, because fixing any one alone is a regression:
 //
-//   (i)   REACH — the outline's downward reach must stay inside the clear space
-//         that band actually has, at every cue size. A fixed-pixel declaration
-//         cannot satisfy this: its reach in pixels is the same on every cue
-//         while the gap shrinks with the cue, so the ratio climbs until the halo
-//         crosses into the kanji (measured 1.25x the whole gap at 20px and 28px
-//         in both engines).
-//   (ii)  WASH — in the half of that clear space ADJACENT TO THE KANJI, the
-//         kanji's column must not be measurably darker than the okurigana's
-//         column beside it. Both columns are sampled over rows that contain no
-//         glyph ink in either, against a layout-identical control, so the number
-//         is the reported comparison and nothing else.
+//   (i)   REACH — THE LOAD-BEARING ASSERTION. The outline's downward reach must
+//         stay inside the clear space that word actually has, at every cue size,
+//         in both engines. A fixed-pixel declaration cannot satisfy this: its
+//         reach in pixels is the same on every cue while the gap shrinks with
+//         the cue, so the ratio climbs until the halo crosses onto the kanji
+//         (measured up to 2.00x the whole gap in Blink, 1.50x in WebKit).
+//   (ii)  WASH — the same physics restated as the quantity the bug report names:
+//         in the clear space adjacent to the kanji AND over the top of the
+//         kanji's own band, the annotated kanji's column must not be measurably
+//         darker than the okurigana's column beside it. Be honest about what
+//         this adds: a halo can only darken the kanji by reaching it, so (ii)
+//         essentially cannot fail while (i) passes. It is kept because it is the
+//         user-visible number and because it is measured in the columns and rows
+//         the reader actually looks at, but REACH is the assertion doing the
+//         work, and a change that weakens (i) is not excused by a clean (ii).
 //   (iii) LEGIBILITY — the reading's contrast over a BRIGHT, video-like backdrop
 //         must not drop below what the owner-tuned build achieved, asserted PER
 //         DIRECTION. A median or mean over directions is what let an interim fix
@@ -84,22 +96,63 @@ try {
 // user's size control move it either way, so the whole working range is checked.
 const SIZES = [20, 28, 40, 60];
 
-// The outline may spend at most this fraction of the clear space between the
-// reading's ink and the kanji's ink. Stated as a fraction of the MEASURED gap
-// rather than a flat em number for two reasons: it is the physically meaningful
-// statement (the outline has to fit in the room it has), and the two engines lay
-// ruby out differently (~0.25em of clear space in Blink, ~0.43em in WebKit), so
-// a flat cap would be slack in one and tight in the other.
+// One annotated kanji plus plain okurigana each, spanning the range of reading
+// widths a reader actually meets: one kana over the kanji (見る) up to five
+// (承る). The wide ones are not decoration — 志す is the word on which the old
+// single-fixture threshold turned out to be wrong, and both wide words are the
+// case where Blink stretches the ruby base past the ruby box (see the partition
+// note in measure()).
 //
-// This is the assertion a fixed-pixel radius cannot pass: the pre-fix build
-// measured 1.25x at both 20px and 28px in both engines.
-const MAX_REACH_OVER_GAP = 0.6;
+// `legibility` marks the word whose per-direction contrast floors below were
+// measured on the owner-tuned pre-fix build. Those floors are that build's own
+// numbers for THAT word; the other words are geometry-only rather than have
+// floors invented for them.
+const WORDS = [
+    { base: '続', reading: 'つづ', okurigana: 'ける', legibility: true },
+    { base: '志', reading: 'こころざ', okurigana: 'す' },
+    { base: '承', reading: 'うけたまわ', okurigana: 'る' },
+    { base: '見', reading: 'み', okurigana: 'る' },
+].map(word => ({ ...word, label: `${word.base}${word.okurigana}` }));
 
-// How much darker (0-255 luminance) the annotated kanji's column may be than the
-// plain okurigana's column, in the half of the clear band that sits against the
-// two glyphs. This IS the reported bug, stated as a number. The pre-fix build
-// measured up to 5.52 here; a correct outline measures ~0.
-const MAX_WASH_DIFFERENTIAL = 0.5;
+// How much of the clear space between the reading's ink and the base glyph's ink
+// the outline may spend, as a fraction of the space THAT word, size and engine
+// actually measured. It has to be per-measurement, because the space is neither
+// size-invariant nor word-invariant. Measured on the shipped stylesheet:
+//
+//   * per word, same 28px cue, Blink: 続ける 0.246em, 承る 0.246em, 見る 0.246em,
+//     志す 0.185em. A wide reading sits lower over its kanji.
+//   * per size, same word (続ける), Blink: 0.345 / 0.246 / 0.259 / 0.259em at
+//     20 / 28 / 40 / 60px.
+//   * per engine: 0.185-0.345em Blink, 0.345-0.489em WebKit.
+//
+// An earlier version of this file asserted a flat 0.6x against a "size-invariant
+// ~0.25em" gap. Neither half of that was true, and the flat cap failed the
+// shipped stylesheet on 志す for a reason that is pure arithmetic, not physics:
+// the clear band is only THREE DEVICE PIXELS tall there, so 0.6 x 3 rows = 1.8
+// rows, and a two-row reach that still leaves a clear row of daylight before the
+// kanji "exceeds" it by rounding alone.
+//
+// So the cap is computed in whole device pixel rows, and it is the tighter of:
+//   * one clear row of daylight — the halo's deepest darkened row must stay at
+//     least one row above the kanji's first ink. This is the physical statement,
+//     and it is what a fixed-pixel radius cannot pass.
+//   * MAX_REACH_SPEND of the measured band, rounded up to a whole row. This is
+//     what keeps a big-gap cell honest (WebKit at 60px measures 17 rows), where
+//     "one row of daylight" alone would allow a halo twice the shipped depth.
+const MAX_REACH_SPEND = 0.6;
+const maxReachRows = gapRows => Math.min(gapRows - 1, Math.max(1, Math.ceil(gapRows * MAX_REACH_SPEND)));
+
+// How much darker (0-255 luminance) the annotated kanji's columns may be than
+// the plain okurigana's columns, over the clear space against the two glyphs and
+// the top of the base glyphs' own band. This IS the reported bug, stated as a
+// number. The pre-fix build measured up to 3.10 here; the shipped build measures
+// at most 0.20 across every word, size and engine.
+// Calibrated against the strong (gap-strip) metric, measured on this fixture
+// set: the pre-fix fixed-pixel radii score 4.37-5.52 and the shipped em-relative
+// outline scores at most 1.08. A cap of 2 rejects the former and accepts the
+// latter with room, and would catch any regression at even half the old size.
+// It is NOT 0.5 — that number belongs to the diluted mean this metric replaced.
+const MAX_WASH_DIFFERENTIAL = 2;
 
 // Per-direction glyph-vs-outline contrast the reading must still achieve over a
 // bright frame, per engine and cue size. Every floor is the value the OWNER-
@@ -124,12 +177,12 @@ const LEGIBILITY_FLOOR = {
 const BRIGHT_BACKDROP = '#ebebeb';
 const VIDEO_BACKDROP = '#808080';
 
-// Exactly what renderRuby emits for 続ける: an annotated kanji run followed by a
-// bare okurigana text node, inside one subtitle word, inside the on-video cue's
-// real container chain. The okurigana is deliberately NOT wrapped in a span —
-// its column is located with a Range, so the control column is untouched
-// product markup rather than a probe the stylesheet could style differently.
-const fixture = (size, backdrop, mode) => `<!doctype html>
+// Exactly what renderRuby emits: an annotated kanji run followed by a bare
+// okurigana text node, inside one subtitle word, inside the on-video cue's real
+// container chain. The okurigana is deliberately NOT wrapped in a span — its
+// column is located with a Range, so the control column is untouched product
+// markup rather than a probe the stylesheet could style differently.
+const fixture = (word, size, backdrop, mode) => `<!doctype html>
 <html><head><meta charset="utf-8"><style>${css}
   html, body { margin: 0; padding: 0; background: ${backdrop}; }
   .jpdb-subtitle-player { --subtitle-font-size-target: ${size}px; }
@@ -141,9 +194,9 @@ const fixture = (size, backdrop, mode) => `<!doctype html>
 <body>
   <div class="jpdb-subtitle-player"><div class="jpdb-subtitle-text"><div class="jpdb-subtitle-lines">
     <div class="jpdb-subtitle-primary-row"><div class="jpdb-subtitle-primary"><span
-      class="jpdb-reader-word jpdb-reader-has-furi" id="word" data-expression="続ける"
-      ><ruby><span class="jpdb-reader-ruby-base" id="annotated">続</span><rp>(</rp><rt
-      class="jpdb-reader-furi" id="reading">つづ</rt><rp>)</rp></ruby>ける<span class="probe" id="probe"></span></span></div></div>
+      class="jpdb-reader-word jpdb-reader-has-furi" id="word" data-expression="${word.label}"
+      ><ruby><span class="jpdb-reader-ruby-base" id="annotated">${word.base}</span><rp>(</rp><rt
+      class="jpdb-reader-furi" id="reading">${word.reading}</rt><rp>)</rp></ruby>${word.okurigana}<span class="probe" id="probe"></span></span></div></div>
   </div></div></div>
 </body></html>`;
 
@@ -167,8 +220,8 @@ async function toPixels([dataUrl]) {
     return { width, height, out };
 }
 
-async function shoot(page, size, backdrop, mode, clip) {
-    await page.setContent(fixture(size, backdrop, mode), { waitUntil: 'domcontentloaded' });
+async function shoot(page, word, size, backdrop, mode, clip) {
+    await page.setContent(fixture(word, size, backdrop, mode), { waitUntil: 'domcontentloaded' });
     await page.evaluate(() => document.fonts.ready);
     const geometry = await page.evaluate(() => {
         const rect = box => ({ left: box.left, top: box.top, right: box.right, bottom: box.bottom, width: box.width, height: box.height });
@@ -209,15 +262,15 @@ function fail(context, message, detail) {
     throw new Error(`${context}: ${message}\n${JSON.stringify(detail, null, 2)}`);
 }
 
-async function measure(page, size, context) {
-    const painted = await shoot(page, size, VIDEO_BACKDROP, 'paint');
+async function measure(page, word, size, context) {
+    const painted = await shoot(page, word, size, VIDEO_BACKDROP, 'paint');
     // Layout-identical control: the reading still occupies its annotation box,
     // it just paints nothing. Everything geometric therefore cancels in the
     // subtraction instead of being modelled.
-    const control = await shoot(page, size, VIDEO_BACKDROP, 'control', painted.box);
+    const control = await shoot(page, word, size, VIDEO_BACKDROP, 'control', painted.box);
     // Black backdrop with every outline off: only real glyph pixels are bright,
     // which is what defines where the reading ends and each base glyph begins.
-    const inked = await shoot(page, size, '#000000', 'ink', painted.box);
+    const inked = await shoot(page, word, size, '#000000', 'ink', painted.box);
     // `reading` is in this list on purpose: a control that removed the reading
     // from layout instead of merely un-painting it (display:none, or a future
     // stylesheet that collapses an empty rt) leaves the base glyphs in place in
@@ -237,8 +290,8 @@ async function measure(page, size, context) {
         Math.max(0, Math.round(rect.left) - painted.box.x),
         Math.min(width, Math.round(rect.right) - painted.box.x),
     ];
-    const [kanjiLeft, kanjiRight] = column(painted.geometry.annotated);
-    const [okuriLeft, okuriRight] = column(painted.geometry.okurigana);
+    const [kanjiBoxLeft, kanjiBoxRight] = column(painted.geometry.annotated);
+    const [okuriBoxLeft, okuriBoxRight] = column(painted.geometry.okurigana);
     const rowHasInk = (y, from, to) => {
         for (let x = from; x < to; x += 1) if (inked.pixels.out[y * width + x] > 60) return true;
         return false;
@@ -246,6 +299,42 @@ async function measure(page, size, context) {
     const readingBoxBottom = Math.round(painted.geometry.reading.bottom) - painted.box.y;
     let readingInkBottom = -1;
     for (let y = 0; y <= readingBoxBottom; y += 1) if (rowHasInk(y, 0, width)) readingInkBottom = y;
+    if (readingInkBottom < 0) fail(context, 'the reading painted no ink at all, so the fixture stopped rendering the annotation', {});
+
+    // Partition the base line into two columns that share no pixel. Two engine
+    // facts make the raw layout boxes unusable for this:
+    //   * Blink stretches the ruby BASE box out to the annotation's width and
+    //     lets it overflow the ruby box itself. On 志す at 28px the base span
+    //     reports 60px wide while the ruby reserves 52px, so the base box
+    //     overlaps the okurigana's box by 8px: the "annotated" and "plain"
+    //     samples would literally share the す pixels, and the kanji's ink
+    //     extent would come out 43px wide instead of the glyph's 25px.
+    //   * WebKit does not stretch it, so the same fixture partitions cleanly
+    //     there — which is why a narrow-reading fixture never showed this.
+    // Clipping each box against the other and THEN narrowing to the columns that
+    // actually hold ink makes the comparison the same shape in both engines and
+    // at every reading width.
+    const inkColumns = (from, to) => {
+        let first = -1;
+        let last = -1;
+        for (let x = from; x < to; x += 1) {
+            let hasInk = false;
+            for (let y = readingInkBottom + 1; y < height; y += 1) {
+                if (inked.pixels.out[y * width + x] > 60) { hasInk = true; break; }
+            }
+            if (hasInk) {
+                if (first < 0) first = x;
+                last = x;
+            }
+        }
+        return [first, last + 1];
+    };
+    const [kanjiLeft, kanjiRight] = inkColumns(kanjiBoxLeft, Math.min(kanjiBoxRight, okuriBoxLeft));
+    const [okuriLeft, okuriRight] = inkColumns(Math.max(okuriBoxLeft, kanjiBoxRight), okuriBoxRight);
+    if (kanjiLeft < 0 || okuriLeft < 0 || kanjiRight > okuriLeft) {
+        fail(context, 'could not partition the base line into a kanji column and a plain okurigana column that share no pixel, so the wash comparison would be comparing a column against itself', { kanjiBoxLeft, kanjiBoxRight, okuriBoxLeft, okuriBoxRight, kanjiLeft, kanjiRight, okuriLeft, okuriRight });
+    }
+
     let kanjiInkTop = -1;
     let kanjiInkBottom = -1;
     let okuriInkTop = -1;
@@ -256,8 +345,8 @@ async function measure(page, size, context) {
         }
         if (okuriInkTop < 0 && rowHasInk(y, okuriLeft, okuriRight)) okuriInkTop = y;
     }
-    if (readingInkBottom < 0 || kanjiInkTop < 0 || okuriInkTop < 0) {
-        fail(context, 'could not locate the reading, the kanji and the okurigana as three separate runs of ink; the fixture stopped rendering 続ける as an annotated word', { readingInkBottom, kanjiInkTop, okuriInkTop });
+    if (kanjiInkTop < 0 || okuriInkTop < 0) {
+        fail(context, `could not locate the reading, the kanji and the okurigana as three separate runs of ink; the fixture stopped rendering ${word.label} as an annotated word`, { readingInkBottom, kanjiInkTop, okuriInkTop });
     }
 
     // The clear band: below the reading's ink, above the FIRST ink of either
@@ -275,18 +364,28 @@ async function measure(page, size, context) {
         }
         return sum / count;
     };
-    // Lower half of that band: the rows against the kanji, which is where a halo
-    // that makes the kanji "look dirty" actually lands. Sampling the whole band
-    // instead would average in the rows that hug the reading's own underside,
-    // where dark ink is the outline doing its job.
+    // From the middle of the clear band down to the row above the base glyphs'
+    // first ink. Starting at the band's midpoint rather than its top skips the
+    // rows that hug the reading's underside, where dark ink is the outline doing
+    // its job.
+    //
+    // The band deliberately stops SHORT of the glyphs' own rows. Extending over
+    // them is sound in principle — the base ink cancels in the subtraction, since
+    // painted and control differ only in the reading — but this is a MEAN, and
+    // those rows are mostly ones the halo never reaches. Measured: extending the
+    // band a third of the way into the glyphs moved the pre-fix wash from
+    // 4.37/5.52 to 1.21/1.35 at chromium 20/28px, a 76% dilution of the very
+    // signal being asserted. A cap applied to a diluted mean is a weaker cap.
     const lowerTop = bandTop + Math.floor((bandBottom - bandTop + 1) / 2);
-    const wash = (from, to) => columnMean(control.pixels, from, to, lowerTop, bandBottom) - columnMean(painted.pixels, from, to, lowerTop, bandBottom);
+    const glyphBottom = Math.max(lowerTop, kanjiInkTop - 1);
+    const wash = (from, to) => columnMean(control.pixels, from, to, lowerTop, glyphBottom) - columnMean(painted.pixels, from, to, lowerTop, glyphBottom);
     const kanjiWash = wash(kanjiLeft, kanjiRight);
     const okuriWash = wash(okuriLeft, okuriRight);
 
-    // Reach: the deepest row under the reading where the kanji's column is
+    // Reach: the deepest row under the reading where the kanji's columns are
     // measurably darker than the control, i.e. how far the outline actually
-    // carries down toward the glyph it annotates.
+    // carries down toward the glyph it annotates. Counted in device pixel rows,
+    // because that is the resolution the assertion has to live at.
     let reachRows = 0;
     for (let y = bandTop; y <= kanjiInkBottom; y += 1) {
         let painting = 0;
@@ -297,6 +396,22 @@ async function measure(page, size, context) {
         }
         if ((clean - painting) / (kanjiRight - kanjiLeft) > 0.5) reachRows = y - readingInkBottom;
     }
+    const gapRows = bandBottom - bandTop + 1;
+
+    const result = {
+        word: word.label,
+        size,
+        readingEm,
+        gapRows,
+        reachRows,
+        gapEm: gapRows / readingEm,
+        reachEm: reachRows / readingEm,
+        kanjiWash,
+        okuriWash,
+        washDifferential: kanjiWash - okuriWash,
+        legibility: null,
+    };
+    if (!word.legibility) return result;
 
     // Legibility over a bright frame, PER DIRECTION. From every boundary pixel
     // of the reading, walk outward in each direction that leaves the ink and
@@ -306,7 +421,7 @@ async function measure(page, size, context) {
     // glyph's own antialiasing from washing the number out. Each direction is
     // reduced and asserted on its own — combining them is what hid the interim
     // fix's downward regression behind its upward gain.
-    const bright = await shoot(page, size, BRIGHT_BACKDROP, 'paint', painted.box);
+    const bright = await shoot(page, word, size, BRIGHT_BACKDROP, 'paint', painted.box);
     const top = Math.max(1, Math.floor(bright.geometry.reading.top) - bright.box.y - 8);
     const bottom = Math.min(height - 1, Math.ceil(bright.geometry.reading.bottom) - bright.box.y + 8);
     const left = Math.max(1, Math.floor(bright.geometry.reading.left) - bright.box.x - 8);
@@ -342,17 +457,7 @@ async function measure(page, size, context) {
         rays[name].sort((a, b) => a - b);
         legibility[name] = contrastRatio(bodyLevel, median(rays[name]));
     }
-
-    return {
-        size,
-        readingEm,
-        gapEm: (bandBottom - bandTop + 1) / readingEm,
-        reachEm: reachRows / readingEm,
-        kanjiWash,
-        okuriWash,
-        washDifferential: kanjiWash - okuriWash,
-        legibility,
-    };
+    return { ...result, legibility };
 }
 
 async function verifyEngine(name, browserType) {
@@ -360,32 +465,49 @@ async function verifyEngine(name, browserType) {
     const readings = [];
     try {
         const page = await browser.newPage({ viewport: { width: 1200, height: 600 }, deviceScaleFactor: 1 });
-        for (const size of SIZES) {
-            const context = `${name} ${size}px cue`;
-            const result = await measure(page, size, context);
-            readings.push(result);
-
-            const spend = result.reachEm / result.gapEm;
-            if (spend > MAX_REACH_OVER_GAP) {
-                fail(context, `the reading's outline reaches ${result.reachEm.toFixed(3)}em down toward the kanji, ${spend.toFixed(2)}x the ${result.gapEm.toFixed(3)}em of clear space it has (cap ${MAX_REACH_OVER_GAP}x) — the outline is wider than the room it has, so it paints on the kanji`, { ...result, reachOverGap: spend });
+        for (const word of WORDS) {
+            for (const size of SIZES) {
+                readings.push(await measure(page, word, size, `${name} ${size}px cue on ${word.label}`));
             }
-            if (result.washDifferential > MAX_WASH_DIFFERENTIAL) {
-                fail(context, `in the clear space against the two glyphs, the annotated kanji's column is ${result.washDifferential.toFixed(2)} luminance darker than the plain okurigana's column beside it (cap ${MAX_WASH_DIFFERENTIAL}); that difference within one word IS the reported bug`, result);
-            }
-            const floors = LEGIBILITY_FLOOR[name][size];
-            for (const [direction, floor] of Object.entries(floors)) {
-                if (result.legibility[direction] < floor) {
-                    fail(context, `the reading's ${direction}-side glyph-vs-outline contrast over a bright frame is ${result.legibility[direction].toFixed(2)}, under the ${floor} the owner-tuned build achieved. The cure for the wash must never be a weaker outline, and it must not be a weaker outline on ONE side either — pushing the mass to the opposite edge is not a fix, it is a trade`, { ...result, direction, floor });
-                }
-            }
-        }
-
-        for (const entry of readings) {
-            const { legibility: legible } = entry;
-            console.log(`${name} ${String(entry.size).padStart(2)}px: reach ${entry.reachEm.toFixed(3)}em = ${(entry.reachEm / entry.gapEm).toFixed(2)}x the ${entry.gapEm.toFixed(3)}em gap, kanji-vs-okurigana wash ${entry.washDifferential.toFixed(2)}, legibility up ${legible.up.toFixed(2)} down ${legible.down.toFixed(2)} left ${legible.left.toFixed(2)} right ${legible.right.toFixed(2)}`);
         }
     } finally {
         await browser.close();
+    }
+
+    // Print every cell BEFORE asserting, so a failure hands over the whole
+    // measured table rather than only the cell that happened to trip first.
+    for (const entry of readings) {
+        const legible = entry.legibility
+            ? `, legibility up ${entry.legibility.up.toFixed(2)} down ${entry.legibility.down.toFixed(2)} left ${entry.legibility.left.toFixed(2)} right ${entry.legibility.right.toFixed(2)}`
+            : '';
+        console.log(`${name} ${entry.word} ${String(entry.size).padStart(2)}px: reach ${entry.reachRows}/${entry.gapRows} rows (${entry.reachEm.toFixed(3)}em of ${entry.gapEm.toFixed(3)}em, cap ${maxReachRows(entry.gapRows)} rows), kanji-vs-okurigana wash ${entry.washDifferential.toFixed(2)}${legible}`);
+    }
+
+    // Asserted in three passes over the whole table rather than cell by cell, so
+    // that when a change trips more than one of them the report names REACH —
+    // the geometric cause — ahead of the wash and the legibility it drags with
+    // it. A naive px->em conversion of the pre-fix radii trips all three; being
+    // told about its legibility first would send the next reader after the wrong
+    // one.
+    const context = entry => `${name} ${entry.size}px cue on ${entry.word}`;
+    for (const entry of readings) {
+        const cap = maxReachRows(entry.gapRows);
+        if (entry.reachRows > cap) {
+            fail(context(entry), `the reading's outline reaches ${entry.reachRows} device pixel rows (${entry.reachEm.toFixed(3)}em) down toward the kanji, past the ${cap} rows it may spend of the ${entry.gapRows} rows (${entry.gapEm.toFixed(3)}em) of clear space this word has here — the outline is wider than the room it has, so it paints on the kanji`, { ...entry, cap, spendOfGap: entry.reachRows / entry.gapRows });
+        }
+    }
+    for (const entry of readings) {
+        if (entry.washDifferential > MAX_WASH_DIFFERENTIAL) {
+            fail(context(entry), `in the clear space against the two glyphs and over the top of their band, the annotated kanji's columns are ${entry.washDifferential.toFixed(2)} luminance darker than the plain okurigana's columns beside them (cap ${MAX_WASH_DIFFERENTIAL}); that difference within one word IS the reported bug`, entry);
+        }
+    }
+    for (const entry of readings) {
+        if (!entry.legibility) continue;
+        for (const [direction, floor] of Object.entries(LEGIBILITY_FLOOR[name][entry.size])) {
+            if (entry.legibility[direction] < floor) {
+                fail(context(entry), `the reading's ${direction}-side glyph-vs-outline contrast over a bright frame is ${entry.legibility[direction].toFixed(2)}, under the ${floor} the owner-tuned build achieved. The cure for the wash must never be a weaker outline, and it must not be a weaker outline on ONE side either — pushing the mass to the opposite edge is not a fix, it is a trade`, { ...entry, direction, floor });
+            }
+        }
     }
 }
 
