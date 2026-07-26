@@ -557,7 +557,6 @@ describe('Academy lesson flow', () => {
         const lesson = validateLessonZeroPackage(JSON.parse(fs.readFileSync(LESSON_PATH, 'utf8'))).lesson;
         const definition = createLessonZeroSentenceFrameDefinition(
             lesson.activities.find(activity => activity.id === 'activity:lesson-zero-build-sentence-frames')!,
-            'Henry',
         );
         for (const [index, frame] of definition.frames.entries()) {
             await vi.waitFor(() => expect(route.shell.current?.dataset.frameId).toBe(frame.id));
@@ -580,7 +579,7 @@ describe('Academy lesson flow', () => {
             await vi.waitFor(() => expect(
                 route.shell.current?.querySelector<HTMLButtonElement>('.academy-sentence-frame-action-primary')?.disabled,
             ).toBe(false));
-            clickButton(route.shell.current!, 'Let Rie read it');
+            clickButton(route.shell.current!, 'Check the sentence');
             if (index < definition.frames.length - 1) {
                 await vi.waitFor(() => expect(route.shell.current?.dataset.sessionStage).toBe('result'));
                 clickButton(route.shell.current!, 'Use the next shape');
@@ -611,7 +610,7 @@ describe('Academy lesson flow', () => {
             'lesson:foundation-00',
             expect.objectContaining({ id: 'lesson-zero-first-sentences' }),
         );
-        expect(route.shell.current?.textContent).toContain('わたしもです。これで、同じクラスですね。');
+        expect(route.shell.current?.textContent).toContain('はい。わたしたちは同じクラスですね。');
         expect(route.save).toHaveBeenCalledWith(expect.objectContaining({
             lessonZeroSentenceFrameProgress: expect.objectContaining({
                 status: 'complete',

@@ -80,6 +80,81 @@ export const LEARNING_VOICE_BINDING_IDENTITIES = Object.freeze({
         japanese: 'これは、れいです。れい。',
         sourceSha256: '73e674f41209f7b8dd1b945d973fe88ac51f6dfc510b7546ae4cff246d071a4b',
     }),
+    'lesson-zero:sentence-frame:identity:example': Object.freeze({
+        lineId: 'lesson-zero:sentence-frame:identity:example',
+        japanese: 'ソフィーさんは学生です。',
+        sourceSha256: 'ded522f0e2985fa308b651743160eebd98a1bb7f56b67a5d7117e625746f137e',
+    }),
+    'lesson-zero:sentence-frame:identity:target': Object.freeze({
+        lineId: 'lesson-zero:sentence-frame:identity:target',
+        japanese: 'わたしは学生です。',
+        sourceSha256: '0ce8978c8fe0ab0de70ff341c8997bac83decd5f3672ecd65f4b59e91fc33172',
+    }),
+    'lesson-zero:sentence-frame:identity:response': Object.freeze({
+        lineId: 'lesson-zero:sentence-frame:identity:response',
+        japanese: 'はい。学生ですね。よろしくお願いします。',
+        sourceSha256: '226d823df4ea4eaf286f9695b0c80ca1266168fb89890fed7f4c06c5d8e3898c',
+    }),
+    'lesson-zero:sentence-frame:correction:example': Object.freeze({
+        lineId: 'lesson-zero:sentence-frame:correction:example',
+        japanese: 'ソフィーさんは先生じゃありません。',
+        sourceSha256: 'aef95a4ca63097d85c473ccdec70587914edb5442492f48eb5dfefc8eb0a7aca',
+    }),
+    'lesson-zero:sentence-frame:correction:target': Object.freeze({
+        lineId: 'lesson-zero:sentence-frame:correction:target',
+        japanese: 'りえ先生は学生じゃありません。',
+        sourceSha256: '71cc8bd36c15f7485515f012155b809740d81afd6f3adbe64e65162678dea9ed',
+    }),
+    'lesson-zero:sentence-frame:correction:response': Object.freeze({
+        lineId: 'lesson-zero:sentence-frame:correction:response',
+        japanese: 'そうです。わたしは先生です。',
+        sourceSha256: '25b5223d3929abf67e68c031e34a8eb9b29676bda7caa7abd1f35f4a1ae5d70d',
+    }),
+    'lesson-zero:sentence-frame:question:example': Object.freeze({
+        lineId: 'lesson-zero:sentence-frame:question:example',
+        japanese: 'りえ先生は先生ですか。',
+        sourceSha256: '1b3f033e65251a14e49d2280e1cd3d8a1b9a76a5bfc9b6df4204f4ec4e23d0d2',
+    }),
+    'lesson-zero:sentence-frame:question:target': Object.freeze({
+        lineId: 'lesson-zero:sentence-frame:question:target',
+        japanese: 'ソフィーさんは学生ですか。',
+        sourceSha256: '0a7e793265200f754d798afd6c989cb230590b6d4c2b929cb1247965ff886df7',
+    }),
+    'lesson-zero:sentence-frame:question:response': Object.freeze({
+        lineId: 'lesson-zero:sentence-frame:question:response',
+        japanese: 'はい、学生です。よろしく。',
+        sourceSha256: 'b5317e038c67ed83aaa0d641a3eae2388dbf36e05816e6c0ae3fc01c8c0f8f60',
+    }),
+    'lesson-zero:sentence-frame:noun-link:example': Object.freeze({
+        lineId: 'lesson-zero:sentence-frame:noun-link:example',
+        japanese: '日本語のクラスです。',
+        sourceSha256: 'df4e78aa6efb8370ca04f00250afdbfca9e6e35d364f2df15f7743fbc2a89051',
+    }),
+    'lesson-zero:sentence-frame:noun-link:target': Object.freeze({
+        lineId: 'lesson-zero:sentence-frame:noun-link:target',
+        japanese: 'りえ先生のクラスです。',
+        sourceSha256: 'cf4c2af2c9ba5099c1a725dc82c4269ec0cf2d4ea61ecff5c2cdef76359279fa',
+    }),
+    'lesson-zero:sentence-frame:noun-link:response': Object.freeze({
+        lineId: 'lesson-zero:sentence-frame:noun-link:response',
+        japanese: 'はい。今日から、あなたのクラスです。',
+        sourceSha256: '326e9c0f1a23afcd8a3161c6b3818f7b662e7e395979e22c7f2bafe0fd792e75',
+    }),
+    'lesson-zero:sentence-frame:parallel:example': Object.freeze({
+        lineId: 'lesson-zero:sentence-frame:parallel:example',
+        japanese: 'わたしは学生です。',
+        sourceSha256: '0ce8978c8fe0ab0de70ff341c8997bac83decd5f3672ecd65f4b59e91fc33172',
+    }),
+    'lesson-zero:sentence-frame:parallel:target': Object.freeze({
+        lineId: 'lesson-zero:sentence-frame:parallel:target',
+        japanese: 'ソフィーさんも学生です。',
+        sourceSha256: '7135c35cb21c295c02e6f53151d1ba621cebc146b27f4ef312786a61b69d6f4b',
+    }),
+    'lesson-zero:sentence-frame:parallel:response': Object.freeze({
+        lineId: 'lesson-zero:sentence-frame:parallel:response',
+        japanese: 'はい。わたしたちは同じクラスですね。',
+        sourceSha256: '6d9a673fb50902191e539ae668f32833e1ae4e69e1aa781a111b255d8a6f13b7',
+    }),
     'lesson-screen:textbook-pair-prompt': Object.freeze({
         lineId: 'lesson-screen:textbook-pair-prompt',
         japanese: 'では、教科書の五ページを開いて、二人で話してください。',

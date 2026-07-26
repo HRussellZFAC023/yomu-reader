@@ -10,6 +10,7 @@ import {
     type LessonZeroSentenceFrameSessionTransition,
 } from '../domain/lesson-zero-sentence-frame-session';
 import type { Disposable, PronunciationService } from '../integration/yomu-bridge';
+import { playLearningVoiceBinding } from '../audio/learning-voice';
 import { academyBackgroundPicture, backButton, element } from './dom';
 
 type LocalizedCopy = Readonly<{ en: string; ja: string }>;
@@ -35,19 +36,19 @@ export interface LessonZeroSentenceFrameScreen {
 
 const COPY = {
     eyebrow: { en: 'First sentences', ja: 'はじめての文' },
-    title: { en: 'Make the room answer back', ja: '教室と話してみよう' },
-    readyProgress: { en: 'Five useful shapes', ja: '五つの大切な形' },
+    title: { en: 'Build five useful sentences', ja: '使える文を五つ作ろう' },
+    readyProgress: { en: 'Five sentences', ja: '五つの文' },
     welcome: {
-        en: 'You already have enough Japanese to make the room answer you. Say one true thing, fix one wrong thing, ask Sophie a question, then we will join two more thoughts.',
-        ja: 'もう、教室から返事をもらえるだけの日本語があります。本当のことを一つ言い、まちがいを一つ直し、ソフィーさんに質問しましょう。そのあと、もう二つの考えをつなぎます。',
+        en: 'First say you are a student. Then correct one mistake, ask Sophie a question, and connect two nouns.',
+        ja: 'まず、「学生です」と言います。次に、まちがいを直し、ソフィーさんに質問し、二つの名詞をつなぎます。',
     },
     welcomeReason: {
-        en: 'We will use every shape here today. Build the meaning first; the grammar name can wait.',
-        ja: '今日、この五つを全部使います。まず意味を作りましょう。文法の名前はあとで大丈夫です。',
+        en: 'We will use these again today. Build each meaning first; I will explain the grammar as we go.',
+        ja: '今日、もう一度使います。まず意味を作りましょう。文法は、そのつど説明します。',
     },
     begin: { en: 'Make the first sentence', ja: '最初の文を作る' },
-    pattern: { en: 'The shape', ja: '文の形' },
-    example: { en: 'Rie’s nearby example', ja: 'りえ先生の近い例' },
+    pattern: { en: 'Sentence pattern', ja: '文の形' },
+    example: { en: 'Example', ja: '例' },
     hearExample: { en: 'Hear the example', ja: '例を聞く' },
     playing: { en: 'Playing…', ja: '再生中…' },
     tryTurn: { en: 'Try this turn', ja: 'この文を作る' },
@@ -55,20 +56,20 @@ const COPY = {
     wordDesk: { en: 'Words on the desk', ja: '机のことば' },
     empty: { en: 'Choose the first word.', ja: '最初のことばを選んでください。' },
     clear: { en: 'Put every word back', ja: 'ことばを全部戻す' },
-    check: { en: 'Let Rie read it', ja: 'りえ先生に見せる' },
-    repairTitle: { en: 'The words changed jobs', ja: 'ことばの役割が入れ替わりました' },
+    check: { en: 'Check the sentence', ja: '文を確かめる' },
+    repairTitle: { en: 'A word is out of place', ja: 'ことばの場所がちがいます' },
     repairBody: {
-        en: 'Keep your thought. Use the rail above to put each word back in its job.',
-        ja: '伝えたいことはそのままで大丈夫です。上の形を見て、ことばを役割の場所へ戻しましょう。',
+        en: 'Use the pattern above and put the words in the same order.',
+        ja: '上の形を見て、ことばを同じ順番に並べましょう。',
     },
-    showModel: { en: 'Show Rie’s sentence', ja: 'りえ先生の文を見る' },
-    modelLabel: { en: 'Rie leaves this line beside you', ja: 'りえ先生が置いた一行' },
+    showModel: { en: 'Show the answer', ja: '答えを見る' },
+    modelLabel: { en: 'Model sentence', ja: 'お手本の文' },
     retry: { en: 'Rebuild the sentence', ja: '文をもう一度作る' },
     next: { en: 'Use the next shape', ja: '次の形を使う' },
     completeTitle: { en: 'The room answered', ja: '教室から返事が来ました' },
     completeBody: {
-        en: 'You introduced yourself, corrected a label, asked Sophie, named this class, and joined the group. Those are not five isolated formulas. They are the beginning of one conversation.',
-        ja: '自己紹介をし、札を直し、ソフィーさんに質問し、このクラスを名づけ、仲間に加わりました。五つの別々の公式ではありません。一つの会話の始まりです。',
+        en: 'You said you are a student, corrected Rie’s card, asked Sophie a question, and described the class. All five sentences are now ready for review.',
+        ja: '学生だと伝え、りえ先生の札を直し、ソフィーさんに質問し、クラスについて話しました。五つの文は、復習に入りました。',
     },
     memories: { en: 'Five lines are waiting in review', ja: '五つの文が復習に入りました' },
     continue: { en: 'Continue your day', ja: '今日の続きを始める' },
@@ -285,7 +286,12 @@ export function createLessonZeroSentenceFrameScreen(
             localized('h3', 'academy-sentence-frame-small-title', COPY.example, options.language),
             japaneseLine(frame.nearbyExample.japanese, 'academy-sentence-frame-example-japanese'),
             localized('p', 'academy-sentence-frame-example-meaning', frame.nearbyExample.meaning, options.language),
-            audioButton(COPY.hearExample, frame.nearbyExample.japanese, frame.nearbyExample.reading, signal),
+            audioButton(
+                COPY.hearExample,
+                `lesson-zero:sentence-frame:${frame.id}:example`,
+                frame.nearbyExample.japanese,
+                signal,
+            ),
         );
         return sheet;
     };
@@ -297,7 +303,12 @@ export function createLessonZeroSentenceFrameScreen(
             localized('h3', 'academy-sentence-frame-small-title', COPY.modelLabel, options.language),
             japaneseLine(frame.target.japanese, 'academy-sentence-frame-model-japanese'),
             localized('p', 'academy-sentence-frame-model-meaning', frame.target.meaning, options.language),
-            audioButton({ en: 'Hear Rie’s sentence', ja: 'りえ先生の文を聞く' }, frame.target.japanese, frame.target.reading, signal),
+            audioButton(
+                { en: 'Hear Rie’s sentence', ja: 'りえ先生の文を聞く' },
+                `lesson-zero:sentence-frame:${frame.id}:target`,
+                frame.target.japanese,
+                signal,
+            ),
         );
         return sheet;
     };
@@ -310,8 +321,8 @@ export function createLessonZeroSentenceFrameScreen(
             localized('p', 'academy-sentence-frame-response-meaning', frame.response.meaning, options.language),
             audioButton(
                 { en: `Hear ${frame.response.speakerName.en}`, ja: `${frame.response.speakerName.ja}を聞く` },
+                `lesson-zero:sentence-frame:${frame.id}:response`,
                 frame.response.japanese,
-                frame.response.reading,
                 signal,
             ),
         );
@@ -320,8 +331,8 @@ export function createLessonZeroSentenceFrameScreen(
 
     const audioButton = (
         copy: LocalizedCopy,
+        bindingId: string,
         japanese: string,
-        reading: string,
         signal: AbortSignal,
     ): HTMLButtonElement => {
         const button = actionButton(copy, 'listen', signal, async () => {
@@ -332,8 +343,13 @@ export function createLessonZeroSentenceFrameScreen(
             const label = button.textContent;
             button.textContent = COPY.playing[options.language];
             try {
-                const active = await options.pronunciation.play(japanese, reading);
-                if (disposed) active.dispose();
+                const active = await playLearningVoiceBinding(
+                    options.pronunciation,
+                    bindingId,
+                    japanese,
+                    signal,
+                );
+                if (disposed) active?.dispose();
                 else playback = active;
             } catch {
                 live.textContent = COPY.audioError[options.language];

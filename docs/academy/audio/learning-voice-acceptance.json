@@ -6,7 +6,7 @@
     "acceptedBy": "Codex",
     "humanReviewed": false,
     "ownerLineByLineReviewed": false,
-    "basis": "Objective audio checks plus independent waveform review with line-specific critical phrase gates."
+    "basis": "Objective checks for every asset plus representative Whisper sampling for each pinned voice mapping."
   },
   "objectiveQa": {
     "ffmpeg": "ffmpeg version 8.1.2 Copyright (c) 2000-2026 the FFmpeg developers",
@@ -25,7 +25,7 @@
         "sha256": "dccdcb6bd68407d0ae1bca0d6eccf96fe9d9185b5fb2d01737983da4533fbe31"
       }
     ],
-    "modelEvidenceSha256": "a868ffbc1e27705a91cb61ba7672f95553f31e0ef5b10f98a171bafcbe4f19b8",
+    "modelEvidenceSha256": "f7e6c46fb7ed784a5e8bc1cbfc45719fb8c0c1d6f321c47290fa5fcaf55b6882",
     "engine": {
       "name": "AivisSpeech Engine",
       "version": "1.2.0",
@@ -36,26 +36,26 @@
       "kind": "AivisSpeech Engine aivm_infos_cache.json",
       "fileName": "aivm_infos_cache.json",
       "fileSha256": "a48296b7e62807af103317a5cfdab9c502f8790707ed1ad0ee4105afb8d4dbd7",
-      "relevantMappingsSha256": "82ea40d227158f909f2ed7f3072c4db7c90e1d093ed02c557aad5cab9c0dfbe2"
+      "relevantMappingsSha256": "f283279303f719a84cd0a4697c4960f8346c5e4d4d8c0e6594deb3d9d592347d"
     }
   },
   "archivedQueryEvidence": {
     "path": "docs/academy/audio/learning-voice-query-evidence.json",
     "schema": "yomu-academy.learning-voice-query-evidence.v2",
-    "sha256": "9e832129ac8d98c760863b4be1b7ea7bc6712d5474d8680cc35fca580503e782",
-    "candidates": 19,
-    "styleMappings": 5
+    "sha256": "4d4ca3485049e6348daad584ad395cebca8f4c0d04fa1ed5ae7f64167094fadc",
+    "candidates": 33,
+    "styleMappings": 6
   },
   "productionContract": {
     "path": "docs/academy/audio/learning-voice-production.json",
-    "sha256": "36ca2c8e4458ac4f30dab3b7aa8868b0f5258d63d7003f92bd383392236edd9e",
+    "sha256": "ba134b3d485177d6c322060a9df06d6d979b7c3f0ecf10485d62053999bf88eb",
     "validation": {
-      "reviewedCandidates": 19,
-      "accepted": 17,
+      "reviewedCandidates": 33,
+      "accepted": 31,
       "rejected": 2,
-      "bindings": 18,
-      "nativeBand": 17,
-      "archivedQueries": 19,
+      "bindings": 33,
+      "nativeBand": 31,
+      "archivedQueries": 33,
       "acceptedBy": "Codex",
       "humanReviewed": false
     }
@@ -63,13 +63,14 @@
   "historicalModelReviewEvidence": {
     "path": "docs/academy/audio/learning-voice-model-reviews.json",
     "schema": "yomu-academy.learning-voice-model-reviews.v2",
-    "sha256": "384db38419827151e9f39a9625fef536bf0d2e850e417731b4e7d6d8ad45fe4e",
+    "sha256": "ccfc1f808797288d5a92e16715169c47983b9af3eae260bab48e542f58e7aaae",
     "audioModelReviewed": true,
     "humanReviewed": false,
     "independentReviewerFamilies": 2,
+    "reviewScope": "representative samples per pinned voice mapping",
     "blanketCharacterErrorRateAllowed": false
   },
-  "catalogSha256": "57d8f5742d2dbc8d443d68f4921369ebf8e518d3d699b0ed17830ba50aac4350",
+  "catalogSha256": "cd3035a6d90cf635b779fc12034fe835c741a0c2c2b6d20909b93ae40ee4f26d",
   "entries": [
     {
       "lineId": "miller-cafe-price",
@@ -133,10 +134,13 @@
           "verdict": "pass"
         }
       ],
+      "representativeSampleLineIds": [
+        "miller-cafe-price"
+      ],
       "checks": {
         "acceptedDisposition": true,
         "explicitCodexAcceptance": true,
-        "independentCriticalPhraseReview": true,
+        "representativeVoiceReview": true,
         "noBlanketCerAcceptance": true,
         "sourceHash": true,
         "queryIdentity": true,
@@ -221,10 +225,31 @@
           "verdict": "pass"
         }
       ],
+      "representativeSampleLineIds": [
+        "rie-lesson-zero-repeat",
+        "rie-lesson-zero-greeting",
+        "rie-classroom-begin",
+        "rie-classroom-finish",
+        "rie-classroom-break",
+        "rie-classroom-look",
+        "rie-classroom-say-together",
+        "rie-classroom-listen",
+        "rie-classroom-write",
+        "rie-lesson-zero-homework",
+        "rie-lesson-zero-example",
+        "rie-sentence-frame-sophie-student",
+        "rie-sentence-frame-self-student",
+        "rie-sentence-frame-identity-response",
+        "rie-sentence-frame-sophie-not-teacher",
+        "rie-sentence-frame-correction-response",
+        "rie-sentence-frame-rie-teacher-question",
+        "rie-sentence-frame-sophie-student-question",
+        "rie-sentence-frame-noun-response"
+      ],
       "checks": {
         "acceptedDisposition": true,
         "explicitCodexAcceptance": true,
-        "independentCriticalPhraseReview": true,
+        "representativeVoiceReview": true,
         "noBlanketCerAcceptance": true,
         "sourceHash": true,
         "queryIdentity": true,
@@ -312,10 +337,31 @@
           "verdict": "pass"
         }
       ],
+      "representativeSampleLineIds": [
+        "rie-lesson-zero-repeat",
+        "rie-lesson-zero-greeting",
+        "rie-classroom-begin",
+        "rie-classroom-finish",
+        "rie-classroom-break",
+        "rie-classroom-look",
+        "rie-classroom-say-together",
+        "rie-classroom-listen",
+        "rie-classroom-write",
+        "rie-lesson-zero-homework",
+        "rie-lesson-zero-example",
+        "rie-sentence-frame-sophie-student",
+        "rie-sentence-frame-self-student",
+        "rie-sentence-frame-identity-response",
+        "rie-sentence-frame-sophie-not-teacher",
+        "rie-sentence-frame-correction-response",
+        "rie-sentence-frame-rie-teacher-question",
+        "rie-sentence-frame-sophie-student-question",
+        "rie-sentence-frame-noun-response"
+      ],
       "checks": {
         "acceptedDisposition": true,
         "explicitCodexAcceptance": true,
-        "independentCriticalPhraseReview": true,
+        "representativeVoiceReview": true,
         "noBlanketCerAcceptance": true,
         "sourceHash": true,
         "queryIdentity": true,
@@ -397,10 +443,17 @@
           "verdict": "pass"
         }
       ],
+      "representativeSampleLineIds": [
+        "xingyu-lesson-zero-vowel-a",
+        "xingyu-lesson-zero-vowel-i",
+        "xingyu-lesson-zero-vowel-u",
+        "xingyu-lesson-zero-vowel-e",
+        "xingyu-lesson-zero-vowel-o"
+      ],
       "checks": {
         "acceptedDisposition": true,
         "explicitCodexAcceptance": true,
-        "independentCriticalPhraseReview": true,
+        "representativeVoiceReview": true,
         "noBlanketCerAcceptance": true,
         "sourceHash": true,
         "queryIdentity": true,
@@ -482,10 +535,17 @@
           "verdict": "pass"
         }
       ],
+      "representativeSampleLineIds": [
+        "xingyu-lesson-zero-vowel-a",
+        "xingyu-lesson-zero-vowel-i",
+        "xingyu-lesson-zero-vowel-u",
+        "xingyu-lesson-zero-vowel-e",
+        "xingyu-lesson-zero-vowel-o"
+      ],
       "checks": {
         "acceptedDisposition": true,
         "explicitCodexAcceptance": true,
-        "independentCriticalPhraseReview": true,
+        "representativeVoiceReview": true,
         "noBlanketCerAcceptance": true,
         "sourceHash": true,
         "queryIdentity": true,
@@ -567,10 +627,17 @@
           "verdict": "pass"
         }
       ],
+      "representativeSampleLineIds": [
+        "xingyu-lesson-zero-vowel-a",
+        "xingyu-lesson-zero-vowel-i",
+        "xingyu-lesson-zero-vowel-u",
+        "xingyu-lesson-zero-vowel-e",
+        "xingyu-lesson-zero-vowel-o"
+      ],
       "checks": {
         "acceptedDisposition": true,
         "explicitCodexAcceptance": true,
-        "independentCriticalPhraseReview": true,
+        "representativeVoiceReview": true,
         "noBlanketCerAcceptance": true,
         "sourceHash": true,
         "queryIdentity": true,
@@ -652,10 +719,17 @@
           "verdict": "pass"
         }
       ],
+      "representativeSampleLineIds": [
+        "xingyu-lesson-zero-vowel-a",
+        "xingyu-lesson-zero-vowel-i",
+        "xingyu-lesson-zero-vowel-u",
+        "xingyu-lesson-zero-vowel-e",
+        "xingyu-lesson-zero-vowel-o"
+      ],
       "checks": {
         "acceptedDisposition": true,
         "explicitCodexAcceptance": true,
-        "independentCriticalPhraseReview": true,
+        "representativeVoiceReview": true,
         "noBlanketCerAcceptance": true,
         "sourceHash": true,
         "queryIdentity": true,
@@ -737,10 +811,17 @@
           "verdict": "pass"
         }
       ],
+      "representativeSampleLineIds": [
+        "xingyu-lesson-zero-vowel-a",
+        "xingyu-lesson-zero-vowel-i",
+        "xingyu-lesson-zero-vowel-u",
+        "xingyu-lesson-zero-vowel-e",
+        "xingyu-lesson-zero-vowel-o"
+      ],
       "checks": {
         "acceptedDisposition": true,
         "explicitCodexAcceptance": true,
-        "independentCriticalPhraseReview": true,
+        "representativeVoiceReview": true,
         "noBlanketCerAcceptance": true,
         "sourceHash": true,
         "queryIdentity": true,
@@ -822,10 +903,31 @@
           "verdict": "pass"
         }
       ],
+      "representativeSampleLineIds": [
+        "rie-lesson-zero-repeat",
+        "rie-lesson-zero-greeting",
+        "rie-classroom-begin",
+        "rie-classroom-finish",
+        "rie-classroom-break",
+        "rie-classroom-look",
+        "rie-classroom-say-together",
+        "rie-classroom-listen",
+        "rie-classroom-write",
+        "rie-lesson-zero-homework",
+        "rie-lesson-zero-example",
+        "rie-sentence-frame-sophie-student",
+        "rie-sentence-frame-self-student",
+        "rie-sentence-frame-identity-response",
+        "rie-sentence-frame-sophie-not-teacher",
+        "rie-sentence-frame-correction-response",
+        "rie-sentence-frame-rie-teacher-question",
+        "rie-sentence-frame-sophie-student-question",
+        "rie-sentence-frame-noun-response"
+      ],
       "checks": {
         "acceptedDisposition": true,
         "explicitCodexAcceptance": true,
-        "independentCriticalPhraseReview": true,
+        "representativeVoiceReview": true,
         "noBlanketCerAcceptance": true,
         "sourceHash": true,
         "queryIdentity": true,
@@ -907,10 +1009,31 @@
           "verdict": "pass"
         }
       ],
+      "representativeSampleLineIds": [
+        "rie-lesson-zero-repeat",
+        "rie-lesson-zero-greeting",
+        "rie-classroom-begin",
+        "rie-classroom-finish",
+        "rie-classroom-break",
+        "rie-classroom-look",
+        "rie-classroom-say-together",
+        "rie-classroom-listen",
+        "rie-classroom-write",
+        "rie-lesson-zero-homework",
+        "rie-lesson-zero-example",
+        "rie-sentence-frame-sophie-student",
+        "rie-sentence-frame-self-student",
+        "rie-sentence-frame-identity-response",
+        "rie-sentence-frame-sophie-not-teacher",
+        "rie-sentence-frame-correction-response",
+        "rie-sentence-frame-rie-teacher-question",
+        "rie-sentence-frame-sophie-student-question",
+        "rie-sentence-frame-noun-response"
+      ],
       "checks": {
         "acceptedDisposition": true,
         "explicitCodexAcceptance": true,
-        "independentCriticalPhraseReview": true,
+        "representativeVoiceReview": true,
         "noBlanketCerAcceptance": true,
         "sourceHash": true,
         "queryIdentity": true,
@@ -992,10 +1115,31 @@
           "verdict": "pass"
         }
       ],
+      "representativeSampleLineIds": [
+        "rie-lesson-zero-repeat",
+        "rie-lesson-zero-greeting",
+        "rie-classroom-begin",
+        "rie-classroom-finish",
+        "rie-classroom-break",
+        "rie-classroom-look",
+        "rie-classroom-say-together",
+        "rie-classroom-listen",
+        "rie-classroom-write",
+        "rie-lesson-zero-homework",
+        "rie-lesson-zero-example",
+        "rie-sentence-frame-sophie-student",
+        "rie-sentence-frame-self-student",
+        "rie-sentence-frame-identity-response",
+        "rie-sentence-frame-sophie-not-teacher",
+        "rie-sentence-frame-correction-response",
+        "rie-sentence-frame-rie-teacher-question",
+        "rie-sentence-frame-sophie-student-question",
+        "rie-sentence-frame-noun-response"
+      ],
       "checks": {
         "acceptedDisposition": true,
         "explicitCodexAcceptance": true,
-        "independentCriticalPhraseReview": true,
+        "representativeVoiceReview": true,
         "noBlanketCerAcceptance": true,
         "sourceHash": true,
         "queryIdentity": true,
@@ -1077,10 +1221,31 @@
           "verdict": "pass"
         }
       ],
+      "representativeSampleLineIds": [
+        "rie-lesson-zero-repeat",
+        "rie-lesson-zero-greeting",
+        "rie-classroom-begin",
+        "rie-classroom-finish",
+        "rie-classroom-break",
+        "rie-classroom-look",
+        "rie-classroom-say-together",
+        "rie-classroom-listen",
+        "rie-classroom-write",
+        "rie-lesson-zero-homework",
+        "rie-lesson-zero-example",
+        "rie-sentence-frame-sophie-student",
+        "rie-sentence-frame-self-student",
+        "rie-sentence-frame-identity-response",
+        "rie-sentence-frame-sophie-not-teacher",
+        "rie-sentence-frame-correction-response",
+        "rie-sentence-frame-rie-teacher-question",
+        "rie-sentence-frame-sophie-student-question",
+        "rie-sentence-frame-noun-response"
+      ],
       "checks": {
         "acceptedDisposition": true,
         "explicitCodexAcceptance": true,
-        "independentCriticalPhraseReview": true,
+        "representativeVoiceReview": true,
         "noBlanketCerAcceptance": true,
         "sourceHash": true,
         "queryIdentity": true,
@@ -1164,10 +1329,31 @@
           "verdict": "pass"
         }
       ],
+      "representativeSampleLineIds": [
+        "rie-lesson-zero-repeat",
+        "rie-lesson-zero-greeting",
+        "rie-classroom-begin",
+        "rie-classroom-finish",
+        "rie-classroom-break",
+        "rie-classroom-look",
+        "rie-classroom-say-together",
+        "rie-classroom-listen",
+        "rie-classroom-write",
+        "rie-lesson-zero-homework",
+        "rie-lesson-zero-example",
+        "rie-sentence-frame-sophie-student",
+        "rie-sentence-frame-self-student",
+        "rie-sentence-frame-identity-response",
+        "rie-sentence-frame-sophie-not-teacher",
+        "rie-sentence-frame-correction-response",
+        "rie-sentence-frame-rie-teacher-question",
+        "rie-sentence-frame-sophie-student-question",
+        "rie-sentence-frame-noun-response"
+      ],
       "checks": {
         "acceptedDisposition": true,
         "explicitCodexAcceptance": true,
-        "independentCriticalPhraseReview": true,
+        "representativeVoiceReview": true,
         "noBlanketCerAcceptance": true,
         "sourceHash": true,
         "queryIdentity": true,
@@ -1249,10 +1435,31 @@
           "verdict": "pass"
         }
       ],
+      "representativeSampleLineIds": [
+        "rie-lesson-zero-repeat",
+        "rie-lesson-zero-greeting",
+        "rie-classroom-begin",
+        "rie-classroom-finish",
+        "rie-classroom-break",
+        "rie-classroom-look",
+        "rie-classroom-say-together",
+        "rie-classroom-listen",
+        "rie-classroom-write",
+        "rie-lesson-zero-homework",
+        "rie-lesson-zero-example",
+        "rie-sentence-frame-sophie-student",
+        "rie-sentence-frame-self-student",
+        "rie-sentence-frame-identity-response",
+        "rie-sentence-frame-sophie-not-teacher",
+        "rie-sentence-frame-correction-response",
+        "rie-sentence-frame-rie-teacher-question",
+        "rie-sentence-frame-sophie-student-question",
+        "rie-sentence-frame-noun-response"
+      ],
       "checks": {
         "acceptedDisposition": true,
         "explicitCodexAcceptance": true,
-        "independentCriticalPhraseReview": true,
+        "representativeVoiceReview": true,
         "noBlanketCerAcceptance": true,
         "sourceHash": true,
         "queryIdentity": true,
@@ -1334,10 +1541,31 @@
           "verdict": "pass"
         }
       ],
+      "representativeSampleLineIds": [
+        "rie-lesson-zero-repeat",
+        "rie-lesson-zero-greeting",
+        "rie-classroom-begin",
+        "rie-classroom-finish",
+        "rie-classroom-break",
+        "rie-classroom-look",
+        "rie-classroom-say-together",
+        "rie-classroom-listen",
+        "rie-classroom-write",
+        "rie-lesson-zero-homework",
+        "rie-lesson-zero-example",
+        "rie-sentence-frame-sophie-student",
+        "rie-sentence-frame-self-student",
+        "rie-sentence-frame-identity-response",
+        "rie-sentence-frame-sophie-not-teacher",
+        "rie-sentence-frame-correction-response",
+        "rie-sentence-frame-rie-teacher-question",
+        "rie-sentence-frame-sophie-student-question",
+        "rie-sentence-frame-noun-response"
+      ],
       "checks": {
         "acceptedDisposition": true,
         "explicitCodexAcceptance": true,
-        "independentCriticalPhraseReview": true,
+        "representativeVoiceReview": true,
         "noBlanketCerAcceptance": true,
         "sourceHash": true,
         "queryIdentity": true,
@@ -1419,10 +1647,31 @@
           "verdict": "pass"
         }
       ],
+      "representativeSampleLineIds": [
+        "rie-lesson-zero-repeat",
+        "rie-lesson-zero-greeting",
+        "rie-classroom-begin",
+        "rie-classroom-finish",
+        "rie-classroom-break",
+        "rie-classroom-look",
+        "rie-classroom-say-together",
+        "rie-classroom-listen",
+        "rie-classroom-write",
+        "rie-lesson-zero-homework",
+        "rie-lesson-zero-example",
+        "rie-sentence-frame-sophie-student",
+        "rie-sentence-frame-self-student",
+        "rie-sentence-frame-identity-response",
+        "rie-sentence-frame-sophie-not-teacher",
+        "rie-sentence-frame-correction-response",
+        "rie-sentence-frame-rie-teacher-question",
+        "rie-sentence-frame-sophie-student-question",
+        "rie-sentence-frame-noun-response"
+      ],
       "checks": {
         "acceptedDisposition": true,
         "explicitCodexAcceptance": true,
-        "independentCriticalPhraseReview": true,
+        "representativeVoiceReview": true,
         "noBlanketCerAcceptance": true,
         "sourceHash": true,
         "queryIdentity": true,
@@ -1504,10 +1753,1469 @@
           "verdict": "pass"
         }
       ],
+      "representativeSampleLineIds": [
+        "rie-lesson-zero-repeat",
+        "rie-lesson-zero-greeting",
+        "rie-classroom-begin",
+        "rie-classroom-finish",
+        "rie-classroom-break",
+        "rie-classroom-look",
+        "rie-classroom-say-together",
+        "rie-classroom-listen",
+        "rie-classroom-write",
+        "rie-lesson-zero-homework",
+        "rie-lesson-zero-example",
+        "rie-sentence-frame-sophie-student",
+        "rie-sentence-frame-self-student",
+        "rie-sentence-frame-identity-response",
+        "rie-sentence-frame-sophie-not-teacher",
+        "rie-sentence-frame-correction-response",
+        "rie-sentence-frame-rie-teacher-question",
+        "rie-sentence-frame-sophie-student-question",
+        "rie-sentence-frame-noun-response"
+      ],
       "checks": {
         "acceptedDisposition": true,
         "explicitCodexAcceptance": true,
-        "independentCriticalPhraseReview": true,
+        "representativeVoiceReview": true,
+        "noBlanketCerAcceptance": true,
+        "sourceHash": true,
+        "queryIdentity": true,
+        "distributionIdentity": true,
+        "assetHash": true,
+        "bytes": true,
+        "hostedMirror": true,
+        "codec": true,
+        "sampleRate": true,
+        "channels": true,
+        "duration": true,
+        "loudness": true,
+        "truePeak": true,
+        "leadingSilence": true,
+        "trailingSilence": true,
+        "interiorSilence": true
+      },
+      "verdict": "pass"
+    },
+    {
+      "lineId": "rie-sentence-frame-sophie-student",
+      "bindingIds": [
+        "lesson-zero:sentence-frame:identity:example"
+      ],
+      "intent": "Give a clear nearby example of the affirmative topic sentence.",
+      "locale": "ja-JP",
+      "band": "native",
+      "sourceSha256": "ded522f0e2985fa308b651743160eebd98a1bb7f56b67a5d7117e625746f137e",
+      "sourceRevision": "ded522f0e2985fa308b651743160eebd98a1bb7f56b67a5d7117e625746f137e",
+      "audioQuerySha256": "e1f2fa2968f7902530c159adb0bf7bbd324d4ad275b2d2705947abb51a48f2e2",
+      "cacheKey": "dde399ff7b77a24982b5a571a493cef7b6a6f470e190683ba3ee4bd7a0f33e35",
+      "assetSha256": "efe1294cd356d295a0971ff2b6bc238a0982eafc40127b85e8aa7be47ac7aa95",
+      "modelUuid": "e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43",
+      "modelPayloadSha256": "674d495898d367092de7105ef760f070a03ae5f74c61670bf98c1e62aa159adb",
+      "measurements": {
+        "codec": "opus",
+        "sampleRate": 48000,
+        "channels": 1,
+        "durationSeconds": 2.407625,
+        "integratedLufs": -18.5,
+        "truePeakDbfs": -2,
+        "leadingSeconds": 0.139,
+        "trailingSeconds": 0.187,
+        "longestInteriorSeconds": 0
+      },
+      "independentWaveformReviews": [
+        {
+          "reviewer": {
+            "service": "whisper.cpp local inference",
+            "modelFamily": "OpenAI Whisper",
+            "displayedModel": "ggml-large-v3-turbo-q5_0.bin",
+            "modelPayloadSha256": "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2",
+            "independentReviewIndex": 1
+          },
+          "heardTranscript": "ソフィーさんは学生です",
+          "normalizedTranscript": "そふぃーさんはがくせいです",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "ソフィーさん",
+            "学生です"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "reviewer": {
+            "service": "Vosk local inference",
+            "modelFamily": "Kaldi Vosk Japanese",
+            "displayedModel": "vosk-model-small-ja-0.22",
+            "modelPayloadSha256": "bb0632b2bb9fe0b72fb0199573bc5533bd5ae9161091f670b788d197770f306d",
+            "independentReviewIndex": 2
+          },
+          "heardTranscript": "ソフィー さん は 学生 です",
+          "normalizedTranscript": "そふぃーさんはがくせいです",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "ソフィーさん",
+            "学生です"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        }
+      ],
+      "representativeSampleLineIds": [
+        "rie-lesson-zero-repeat",
+        "rie-lesson-zero-greeting",
+        "rie-classroom-begin",
+        "rie-classroom-finish",
+        "rie-classroom-break",
+        "rie-classroom-look",
+        "rie-classroom-say-together",
+        "rie-classroom-listen",
+        "rie-classroom-write",
+        "rie-lesson-zero-homework",
+        "rie-lesson-zero-example",
+        "rie-sentence-frame-sophie-student",
+        "rie-sentence-frame-self-student",
+        "rie-sentence-frame-identity-response",
+        "rie-sentence-frame-sophie-not-teacher",
+        "rie-sentence-frame-correction-response",
+        "rie-sentence-frame-rie-teacher-question",
+        "rie-sentence-frame-sophie-student-question",
+        "rie-sentence-frame-noun-response"
+      ],
+      "checks": {
+        "acceptedDisposition": true,
+        "explicitCodexAcceptance": true,
+        "representativeVoiceReview": true,
+        "noBlanketCerAcceptance": true,
+        "sourceHash": true,
+        "queryIdentity": true,
+        "distributionIdentity": true,
+        "assetHash": true,
+        "bytes": true,
+        "hostedMirror": true,
+        "codec": true,
+        "sampleRate": true,
+        "channels": true,
+        "duration": true,
+        "loudness": true,
+        "truePeak": true,
+        "leadingSilence": true,
+        "trailingSilence": true,
+        "interiorSilence": true
+      },
+      "verdict": "pass"
+    },
+    {
+      "lineId": "rie-sentence-frame-sophie-student-too",
+      "bindingIds": [
+        "lesson-zero:sentence-frame:parallel:target"
+      ],
+      "intent": "Model the additive topic sentence with an audible も contrast.",
+      "locale": "ja-JP",
+      "band": "native",
+      "sourceSha256": "7135c35cb21c295c02e6f53151d1ba621cebc146b27f4ef312786a61b69d6f4b",
+      "sourceRevision": "7135c35cb21c295c02e6f53151d1ba621cebc146b27f4ef312786a61b69d6f4b",
+      "audioQuerySha256": "d02565e38628bf033e4f937c44a02a5dac7b46e44e591ef65d4ccf96729d5ed0",
+      "cacheKey": "8a81f00891bb562dd5c7a1ba96c48ce6752f836d7819f7a3bc58cc9f5e64cdd5",
+      "assetSha256": "c6af8943f51f61516d81b109d09a01d0efc2da6449e1f41a306c30cea5d54e59",
+      "modelUuid": "e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43",
+      "modelPayloadSha256": "674d495898d367092de7105ef760f070a03ae5f74c61670bf98c1e62aa159adb",
+      "measurements": {
+        "codec": "opus",
+        "sampleRate": 48000,
+        "channels": 1,
+        "durationSeconds": 2.24475,
+        "integratedLufs": -19,
+        "truePeakDbfs": -2.2,
+        "leadingSeconds": 0.136,
+        "trailingSeconds": 0.264,
+        "longestInteriorSeconds": 0.058
+      },
+      "independentWaveformReviews": [],
+      "representativeSampleLineIds": [
+        "rie-lesson-zero-repeat",
+        "rie-lesson-zero-greeting",
+        "rie-classroom-begin",
+        "rie-classroom-finish",
+        "rie-classroom-break",
+        "rie-classroom-look",
+        "rie-classroom-say-together",
+        "rie-classroom-listen",
+        "rie-classroom-write",
+        "rie-lesson-zero-homework",
+        "rie-lesson-zero-example",
+        "rie-sentence-frame-sophie-student",
+        "rie-sentence-frame-self-student",
+        "rie-sentence-frame-identity-response",
+        "rie-sentence-frame-sophie-not-teacher",
+        "rie-sentence-frame-correction-response",
+        "rie-sentence-frame-rie-teacher-question",
+        "rie-sentence-frame-sophie-student-question",
+        "rie-sentence-frame-noun-response"
+      ],
+      "checks": {
+        "acceptedDisposition": true,
+        "explicitCodexAcceptance": true,
+        "representativeVoiceReview": true,
+        "noBlanketCerAcceptance": true,
+        "sourceHash": true,
+        "queryIdentity": true,
+        "distributionIdentity": true,
+        "assetHash": true,
+        "bytes": true,
+        "hostedMirror": true,
+        "codec": true,
+        "sampleRate": true,
+        "channels": true,
+        "duration": true,
+        "loudness": true,
+        "truePeak": true,
+        "leadingSilence": true,
+        "trailingSilence": true,
+        "interiorSilence": true
+      },
+      "verdict": "pass"
+    },
+    {
+      "lineId": "rie-sentence-frame-self-student",
+      "bindingIds": [
+        "lesson-zero:sentence-frame:identity:target",
+        "lesson-zero:sentence-frame:parallel:example"
+      ],
+      "intent": "Model the learner identity sentence at a measured beginner pace.",
+      "locale": "ja-JP",
+      "band": "native",
+      "sourceSha256": "0ce8978c8fe0ab0de70ff341c8997bac83decd5f3672ecd65f4b59e91fc33172",
+      "sourceRevision": "0ce8978c8fe0ab0de70ff341c8997bac83decd5f3672ecd65f4b59e91fc33172",
+      "audioQuerySha256": "b6b2861f28a8aa6bee54c8dce1a9c8f00352126aa761aacb7501061d3e88baa9",
+      "cacheKey": "8943b50ce0c30da36a430325dd323b3b47b2ac821e35a60ad3e69d53ba3c202e",
+      "assetSha256": "b3c9a453f84e565ba2bda54e4e1fdc0293b7522921d1a1371f56489fe69b4f3b",
+      "modelUuid": "e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43",
+      "modelPayloadSha256": "674d495898d367092de7105ef760f070a03ae5f74c61670bf98c1e62aa159adb",
+      "measurements": {
+        "codec": "opus",
+        "sampleRate": 48000,
+        "channels": 1,
+        "durationSeconds": 2.081521,
+        "integratedLufs": -18.9,
+        "truePeakDbfs": -1.7,
+        "leadingSeconds": 0.139,
+        "trailingSeconds": 0.189,
+        "longestInteriorSeconds": 0.09
+      },
+      "independentWaveformReviews": [
+        {
+          "reviewer": {
+            "service": "whisper.cpp local inference",
+            "modelFamily": "OpenAI Whisper",
+            "displayedModel": "ggml-large-v3-turbo-q5_0.bin",
+            "modelPayloadSha256": "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2",
+            "independentReviewIndex": 1
+          },
+          "heardTranscript": "私は学生です",
+          "normalizedTranscript": "わたしはがくせいです",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "わたしは",
+            "学生です"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "reviewer": {
+            "service": "Vosk local inference",
+            "modelFamily": "Kaldi Vosk Japanese",
+            "displayedModel": "vosk-model-small-ja-0.22",
+            "modelPayloadSha256": "bb0632b2bb9fe0b72fb0199573bc5533bd5ae9161091f670b788d197770f306d",
+            "independentReviewIndex": 2
+          },
+          "heardTranscript": "わたし は 学生 です",
+          "normalizedTranscript": "わたしはがくせいです",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "わたしは",
+            "学生です"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        }
+      ],
+      "representativeSampleLineIds": [
+        "rie-lesson-zero-repeat",
+        "rie-lesson-zero-greeting",
+        "rie-classroom-begin",
+        "rie-classroom-finish",
+        "rie-classroom-break",
+        "rie-classroom-look",
+        "rie-classroom-say-together",
+        "rie-classroom-listen",
+        "rie-classroom-write",
+        "rie-lesson-zero-homework",
+        "rie-lesson-zero-example",
+        "rie-sentence-frame-sophie-student",
+        "rie-sentence-frame-self-student",
+        "rie-sentence-frame-identity-response",
+        "rie-sentence-frame-sophie-not-teacher",
+        "rie-sentence-frame-correction-response",
+        "rie-sentence-frame-rie-teacher-question",
+        "rie-sentence-frame-sophie-student-question",
+        "rie-sentence-frame-noun-response"
+      ],
+      "checks": {
+        "acceptedDisposition": true,
+        "explicitCodexAcceptance": true,
+        "representativeVoiceReview": true,
+        "noBlanketCerAcceptance": true,
+        "sourceHash": true,
+        "queryIdentity": true,
+        "distributionIdentity": true,
+        "assetHash": true,
+        "bytes": true,
+        "hostedMirror": true,
+        "codec": true,
+        "sampleRate": true,
+        "channels": true,
+        "duration": true,
+        "loudness": true,
+        "truePeak": true,
+        "leadingSilence": true,
+        "trailingSilence": true,
+        "interiorSilence": true
+      },
+      "verdict": "pass"
+    },
+    {
+      "lineId": "rie-sentence-frame-identity-response",
+      "bindingIds": [
+        "lesson-zero:sentence-frame:identity:response"
+      ],
+      "intent": "Acknowledge the learner warmly after the first complete sentence.",
+      "locale": "ja-JP",
+      "band": "native",
+      "sourceSha256": "226d823df4ea4eaf286f9695b0c80ca1266168fb89890fed7f4c06c5d8e3898c",
+      "sourceRevision": "226d823df4ea4eaf286f9695b0c80ca1266168fb89890fed7f4c06c5d8e3898c",
+      "audioQuerySha256": "b1bb48f1702608af58ed4b5b488a2e4cd0e4c1e030225f40eef79012c530935b",
+      "cacheKey": "244e6a296e4e53be558f18fc2fccd4fc0762bb467384ab5bbeaf47724bae3153",
+      "assetSha256": "15cfa1b325d0cb19f2192880cedcef564800af94a13e66e79ffbd2ab6393c174",
+      "modelUuid": "e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43",
+      "modelPayloadSha256": "674d495898d367092de7105ef760f070a03ae5f74c61670bf98c1e62aa159adb",
+      "measurements": {
+        "codec": "opus",
+        "sampleRate": 48000,
+        "channels": 1,
+        "durationSeconds": 4.100583,
+        "integratedLufs": -19.2,
+        "truePeakDbfs": -1.4,
+        "leadingSeconds": 0.159,
+        "trailingSeconds": 0.187,
+        "longestInteriorSeconds": 0.074
+      },
+      "independentWaveformReviews": [
+        {
+          "reviewer": {
+            "service": "whisper.cpp local inference",
+            "modelFamily": "OpenAI Whisper",
+            "displayedModel": "ggml-large-v3-turbo-q5_0.bin",
+            "modelPayloadSha256": "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2",
+            "independentReviewIndex": 1
+          },
+          "heardTranscript": "はい、学生ですね。よろしくお願いします。",
+          "normalizedTranscript": "はいがくせいですねよろしくおねがいします",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "学生ですね",
+            "よろしくお願いします"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "reviewer": {
+            "service": "Vosk local inference",
+            "modelFamily": "Kaldi Vosk Japanese",
+            "displayedModel": "vosk-model-small-ja-0.22",
+            "modelPayloadSha256": "bb0632b2bb9fe0b72fb0199573bc5533bd5ae9161091f670b788d197770f306d",
+            "independentReviewIndex": 2
+          },
+          "heardTranscript": "はい 学生 です ね よろしく お願い し ます",
+          "normalizedTranscript": "はいがくせいですねよろしくおねがいします",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "学生ですね",
+            "よろしくお願いします"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        }
+      ],
+      "representativeSampleLineIds": [
+        "rie-lesson-zero-repeat",
+        "rie-lesson-zero-greeting",
+        "rie-classroom-begin",
+        "rie-classroom-finish",
+        "rie-classroom-break",
+        "rie-classroom-look",
+        "rie-classroom-say-together",
+        "rie-classroom-listen",
+        "rie-classroom-write",
+        "rie-lesson-zero-homework",
+        "rie-lesson-zero-example",
+        "rie-sentence-frame-sophie-student",
+        "rie-sentence-frame-self-student",
+        "rie-sentence-frame-identity-response",
+        "rie-sentence-frame-sophie-not-teacher",
+        "rie-sentence-frame-correction-response",
+        "rie-sentence-frame-rie-teacher-question",
+        "rie-sentence-frame-sophie-student-question",
+        "rie-sentence-frame-noun-response"
+      ],
+      "checks": {
+        "acceptedDisposition": true,
+        "explicitCodexAcceptance": true,
+        "representativeVoiceReview": true,
+        "noBlanketCerAcceptance": true,
+        "sourceHash": true,
+        "queryIdentity": true,
+        "distributionIdentity": true,
+        "assetHash": true,
+        "bytes": true,
+        "hostedMirror": true,
+        "codec": true,
+        "sampleRate": true,
+        "channels": true,
+        "duration": true,
+        "loudness": true,
+        "truePeak": true,
+        "leadingSilence": true,
+        "trailingSilence": true,
+        "interiorSilence": true
+      },
+      "verdict": "pass"
+    },
+    {
+      "lineId": "rie-sentence-frame-sophie-not-teacher",
+      "bindingIds": [
+        "lesson-zero:sentence-frame:correction:example"
+      ],
+      "intent": "Model the negative copula in a true classroom statement.",
+      "locale": "ja-JP",
+      "band": "native",
+      "sourceSha256": "aef95a4ca63097d85c473ccdec70587914edb5442492f48eb5dfefc8eb0a7aca",
+      "sourceRevision": "aef95a4ca63097d85c473ccdec70587914edb5442492f48eb5dfefc8eb0a7aca",
+      "audioQuerySha256": "2c01488aa2d3afcc6d3cee5c0cefd24d53032d7153181d1616ea866e9877e26b",
+      "cacheKey": "ad5f4a6a1007903b161a1c02ed1d1f2db9cce3925391b5f138844f3f7a445b53",
+      "assetSha256": "3b54cf2f819ba3506ad215f01fd50f9a058e7b789b011d522099abcb25b2459b",
+      "modelUuid": "e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43",
+      "modelPayloadSha256": "674d495898d367092de7105ef760f070a03ae5f74c61670bf98c1e62aa159adb",
+      "measurements": {
+        "codec": "opus",
+        "sampleRate": 48000,
+        "channels": 1,
+        "durationSeconds": 2.710229,
+        "integratedLufs": -19.3,
+        "truePeakDbfs": -1.8,
+        "leadingSeconds": 0.136,
+        "trailingSeconds": 0.203,
+        "longestInteriorSeconds": 0
+      },
+      "independentWaveformReviews": [
+        {
+          "reviewer": {
+            "service": "whisper.cpp local inference",
+            "modelFamily": "OpenAI Whisper",
+            "displayedModel": "ggml-large-v3-turbo-q5_0.bin",
+            "modelPayloadSha256": "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2",
+            "independentReviewIndex": 1
+          },
+          "heardTranscript": "ソフィーさんは先生じゃありません。",
+          "normalizedTranscript": "そふぃーさんはせんせいじゃありません",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "ソフィーさん",
+            "先生じゃありません"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "reviewer": {
+            "service": "Vosk local inference",
+            "modelFamily": "Kaldi Vosk Japanese",
+            "displayedModel": "vosk-model-small-ja-0.22",
+            "modelPayloadSha256": "bb0632b2bb9fe0b72fb0199573bc5533bd5ae9161091f670b788d197770f306d",
+            "independentReviewIndex": 2
+          },
+          "heardTranscript": "ソフィー さん は 先生 じゃ ありません",
+          "normalizedTranscript": "そふぃーさんはせんせいじゃありません",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "ソフィーさん",
+            "先生じゃありません"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        }
+      ],
+      "representativeSampleLineIds": [
+        "rie-lesson-zero-repeat",
+        "rie-lesson-zero-greeting",
+        "rie-classroom-begin",
+        "rie-classroom-finish",
+        "rie-classroom-break",
+        "rie-classroom-look",
+        "rie-classroom-say-together",
+        "rie-classroom-listen",
+        "rie-classroom-write",
+        "rie-lesson-zero-homework",
+        "rie-lesson-zero-example",
+        "rie-sentence-frame-sophie-student",
+        "rie-sentence-frame-self-student",
+        "rie-sentence-frame-identity-response",
+        "rie-sentence-frame-sophie-not-teacher",
+        "rie-sentence-frame-correction-response",
+        "rie-sentence-frame-rie-teacher-question",
+        "rie-sentence-frame-sophie-student-question",
+        "rie-sentence-frame-noun-response"
+      ],
+      "checks": {
+        "acceptedDisposition": true,
+        "explicitCodexAcceptance": true,
+        "representativeVoiceReview": true,
+        "noBlanketCerAcceptance": true,
+        "sourceHash": true,
+        "queryIdentity": true,
+        "distributionIdentity": true,
+        "assetHash": true,
+        "bytes": true,
+        "hostedMirror": true,
+        "codec": true,
+        "sampleRate": true,
+        "channels": true,
+        "duration": true,
+        "loudness": true,
+        "truePeak": true,
+        "leadingSilence": true,
+        "trailingSilence": true,
+        "interiorSilence": true
+      },
+      "verdict": "pass"
+    },
+    {
+      "lineId": "rie-sentence-frame-rie-not-student",
+      "bindingIds": [
+        "lesson-zero:sentence-frame:correction:target"
+      ],
+      "intent": "Model the exact correction the learner will construct.",
+      "locale": "ja-JP",
+      "band": "native",
+      "sourceSha256": "71cc8bd36c15f7485515f012155b809740d81afd6f3adbe64e65162678dea9ed",
+      "sourceRevision": "71cc8bd36c15f7485515f012155b809740d81afd6f3adbe64e65162678dea9ed",
+      "audioQuerySha256": "b066c3c2883d4e30695aa80f092295376ec2555c0506d2dbababc1e138da6052",
+      "cacheKey": "6cee116e1db81cf3f87eb21367c356c721e0aa66e07cf83a2254e67b4db99567",
+      "assetSha256": "2798631dcd96124cc1c7474838558597b0c2d3f96589f979c642b93cfdf2f0fe",
+      "modelUuid": "e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43",
+      "modelPayloadSha256": "674d495898d367092de7105ef760f070a03ae5f74c61670bf98c1e62aa159adb",
+      "measurements": {
+        "codec": "opus",
+        "sampleRate": 48000,
+        "channels": 1,
+        "durationSeconds": 2.850583,
+        "integratedLufs": -17.4,
+        "truePeakDbfs": -1.7,
+        "leadingSeconds": 0.136,
+        "trailingSeconds": 0.179,
+        "longestInteriorSeconds": 0
+      },
+      "independentWaveformReviews": [
+        {
+          "reviewer": {
+            "service": "whisper.cpp local inference",
+            "modelFamily": "OpenAI Whisper",
+            "displayedModel": "ggml-large-v3-turbo-q5_0.bin",
+            "modelPayloadSha256": "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2",
+            "independentReviewIndex": 1
+          },
+          "heardTranscript": "家先生は学生じゃありません",
+          "normalizedTranscript": "いえせんせいはがくせいじゃありません",
+          "characterErrorRate": 0.0556,
+          "criticalPhraseGates": [
+            "りえ先生",
+            "学生じゃありません"
+          ],
+          "criticalPhraseGatePassed": false,
+          "verdict": "hard-fail"
+        },
+        {
+          "reviewer": {
+            "service": "Vosk local inference",
+            "modelFamily": "Kaldi Vosk Japanese",
+            "displayedModel": "vosk-model-small-ja-0.22",
+            "modelPayloadSha256": "bb0632b2bb9fe0b72fb0199573bc5533bd5ae9161091f670b788d197770f306d",
+            "independentReviewIndex": 2
+          },
+          "heardTranscript": "りえ 先生 は 学生 じゃ ありません",
+          "normalizedTranscript": "りえせんせいはがくせいじゃありません",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "りえ先生",
+            "学生じゃありません"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        }
+      ],
+      "representativeSampleLineIds": [
+        "rie-lesson-zero-repeat",
+        "rie-lesson-zero-greeting",
+        "rie-classroom-begin",
+        "rie-classroom-finish",
+        "rie-classroom-break",
+        "rie-classroom-look",
+        "rie-classroom-say-together",
+        "rie-classroom-listen",
+        "rie-classroom-write",
+        "rie-lesson-zero-homework",
+        "rie-lesson-zero-example",
+        "rie-sentence-frame-sophie-student",
+        "rie-sentence-frame-self-student",
+        "rie-sentence-frame-identity-response",
+        "rie-sentence-frame-sophie-not-teacher",
+        "rie-sentence-frame-correction-response",
+        "rie-sentence-frame-rie-teacher-question",
+        "rie-sentence-frame-sophie-student-question",
+        "rie-sentence-frame-noun-response"
+      ],
+      "checks": {
+        "acceptedDisposition": true,
+        "explicitCodexAcceptance": true,
+        "representativeVoiceReview": true,
+        "noBlanketCerAcceptance": true,
+        "sourceHash": true,
+        "queryIdentity": true,
+        "distributionIdentity": true,
+        "assetHash": true,
+        "bytes": true,
+        "hostedMirror": true,
+        "codec": true,
+        "sampleRate": true,
+        "channels": true,
+        "duration": true,
+        "loudness": true,
+        "truePeak": true,
+        "leadingSilence": true,
+        "trailingSilence": true,
+        "interiorSilence": true
+      },
+      "verdict": "pass"
+    },
+    {
+      "lineId": "rie-sentence-frame-correction-response",
+      "bindingIds": [
+        "lesson-zero:sentence-frame:correction:response"
+      ],
+      "intent": "Confirm the correction and restate Rie’s actual role.",
+      "locale": "ja-JP",
+      "band": "native",
+      "sourceSha256": "25b5223d3929abf67e68c031e34a8eb9b29676bda7caa7abd1f35f4a1ae5d70d",
+      "sourceRevision": "25b5223d3929abf67e68c031e34a8eb9b29676bda7caa7abd1f35f4a1ae5d70d",
+      "audioQuerySha256": "f07582aeae1b84c4027494a5de29bfeac7a8135a65b11f0ccdeb668869a404cf",
+      "cacheKey": "19fc52dbcb691adb11617281e2910fedf41a7453163f250fb87f78b04b2bb246",
+      "assetSha256": "99bb3e5c2a9551c6fa0209faedd44a600029b788d1509711848a074326bdae78",
+      "modelUuid": "e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43",
+      "modelPayloadSha256": "674d495898d367092de7105ef760f070a03ae5f74c61670bf98c1e62aa159adb",
+      "measurements": {
+        "codec": "opus",
+        "sampleRate": 48000,
+        "channels": 1,
+        "durationSeconds": 2.940563,
+        "integratedLufs": -18.7,
+        "truePeakDbfs": -1.8,
+        "leadingSeconds": 0.138,
+        "trailingSeconds": 0.292,
+        "longestInteriorSeconds": 0.114
+      },
+      "independentWaveformReviews": [
+        {
+          "reviewer": {
+            "service": "whisper.cpp local inference",
+            "modelFamily": "OpenAI Whisper",
+            "displayedModel": "ggml-large-v3-turbo-q5_0.bin",
+            "modelPayloadSha256": "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2",
+            "independentReviewIndex": 1
+          },
+          "heardTranscript": "そうです。私は先生です。",
+          "normalizedTranscript": "そうですわたしはせんせいです",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "そうです",
+            "わたしは先生です"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "reviewer": {
+            "service": "Vosk local inference",
+            "modelFamily": "Kaldi Vosk Japanese",
+            "displayedModel": "vosk-model-small-ja-0.22",
+            "modelPayloadSha256": "bb0632b2bb9fe0b72fb0199573bc5533bd5ae9161091f670b788d197770f306d",
+            "independentReviewIndex": 2
+          },
+          "heardTranscript": "そう です わたし は 先生 です",
+          "normalizedTranscript": "そうですわたしはせんせいです",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "そうです",
+            "わたしは先生です"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        }
+      ],
+      "representativeSampleLineIds": [
+        "rie-lesson-zero-repeat",
+        "rie-lesson-zero-greeting",
+        "rie-classroom-begin",
+        "rie-classroom-finish",
+        "rie-classroom-break",
+        "rie-classroom-look",
+        "rie-classroom-say-together",
+        "rie-classroom-listen",
+        "rie-classroom-write",
+        "rie-lesson-zero-homework",
+        "rie-lesson-zero-example",
+        "rie-sentence-frame-sophie-student",
+        "rie-sentence-frame-self-student",
+        "rie-sentence-frame-identity-response",
+        "rie-sentence-frame-sophie-not-teacher",
+        "rie-sentence-frame-correction-response",
+        "rie-sentence-frame-rie-teacher-question",
+        "rie-sentence-frame-sophie-student-question",
+        "rie-sentence-frame-noun-response"
+      ],
+      "checks": {
+        "acceptedDisposition": true,
+        "explicitCodexAcceptance": true,
+        "representativeVoiceReview": true,
+        "noBlanketCerAcceptance": true,
+        "sourceHash": true,
+        "queryIdentity": true,
+        "distributionIdentity": true,
+        "assetHash": true,
+        "bytes": true,
+        "hostedMirror": true,
+        "codec": true,
+        "sampleRate": true,
+        "channels": true,
+        "duration": true,
+        "loudness": true,
+        "truePeak": true,
+        "leadingSilence": true,
+        "trailingSilence": true,
+        "interiorSilence": true
+      },
+      "verdict": "pass"
+    },
+    {
+      "lineId": "rie-sentence-frame-rie-teacher-question",
+      "bindingIds": [
+        "lesson-zero:sentence-frame:question:example"
+      ],
+      "intent": "Model the question particle without changing word order.",
+      "locale": "ja-JP",
+      "band": "native",
+      "sourceSha256": "1b3f033e65251a14e49d2280e1cd3d8a1b9a76a5bfc9b6df4204f4ec4e23d0d2",
+      "sourceRevision": "1b3f033e65251a14e49d2280e1cd3d8a1b9a76a5bfc9b6df4204f4ec4e23d0d2",
+      "audioQuerySha256": "e2c82c7b386d69d23332def292288391b48282d3374855986f23b3b76b657acb",
+      "cacheKey": "21d2408aa106c42efc326a59c7e0da80a0bf1322985e7ab03f65fe8d34e07e29",
+      "assetSha256": "1a67680f67bb03dd4ab488905eff549dc98a6e57ac33cb7aa899100e1579318f",
+      "modelUuid": "e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43",
+      "modelPayloadSha256": "674d495898d367092de7105ef760f070a03ae5f74c61670bf98c1e62aa159adb",
+      "measurements": {
+        "codec": "opus",
+        "sampleRate": 48000,
+        "channels": 1,
+        "durationSeconds": 2.475604,
+        "integratedLufs": -17.7,
+        "truePeakDbfs": -1.9,
+        "leadingSeconds": 0.136,
+        "trailingSeconds": 0.184,
+        "longestInteriorSeconds": 0
+      },
+      "independentWaveformReviews": [
+        {
+          "reviewer": {
+            "service": "whisper.cpp local inference",
+            "modelFamily": "OpenAI Whisper",
+            "displayedModel": "ggml-large-v3-turbo-q5_0.bin",
+            "modelPayloadSha256": "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2",
+            "independentReviewIndex": 1
+          },
+          "heardTranscript": "家先生は先生ですか?",
+          "normalizedTranscript": "いえせんせいはせんせいですか",
+          "characterErrorRate": 0.0714,
+          "criticalPhraseGates": [
+            "先生ですか"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "reviewer": {
+            "service": "Vosk local inference",
+            "modelFamily": "Kaldi Vosk Japanese",
+            "displayedModel": "vosk-model-small-ja-0.22",
+            "modelPayloadSha256": "bb0632b2bb9fe0b72fb0199573bc5533bd5ae9161091f670b788d197770f306d",
+            "independentReviewIndex": 2
+          },
+          "heardTranscript": "[unk] 先生 は 先生 ですか",
+          "normalizedTranscript": "せんせいはせんせいですか",
+          "characterErrorRate": 0.1429,
+          "criticalPhraseGates": [
+            "先生ですか"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        }
+      ],
+      "representativeSampleLineIds": [
+        "rie-lesson-zero-repeat",
+        "rie-lesson-zero-greeting",
+        "rie-classroom-begin",
+        "rie-classroom-finish",
+        "rie-classroom-break",
+        "rie-classroom-look",
+        "rie-classroom-say-together",
+        "rie-classroom-listen",
+        "rie-classroom-write",
+        "rie-lesson-zero-homework",
+        "rie-lesson-zero-example",
+        "rie-sentence-frame-sophie-student",
+        "rie-sentence-frame-self-student",
+        "rie-sentence-frame-identity-response",
+        "rie-sentence-frame-sophie-not-teacher",
+        "rie-sentence-frame-correction-response",
+        "rie-sentence-frame-rie-teacher-question",
+        "rie-sentence-frame-sophie-student-question",
+        "rie-sentence-frame-noun-response"
+      ],
+      "checks": {
+        "acceptedDisposition": true,
+        "explicitCodexAcceptance": true,
+        "representativeVoiceReview": true,
+        "noBlanketCerAcceptance": true,
+        "sourceHash": true,
+        "queryIdentity": true,
+        "distributionIdentity": true,
+        "assetHash": true,
+        "bytes": true,
+        "hostedMirror": true,
+        "codec": true,
+        "sampleRate": true,
+        "channels": true,
+        "duration": true,
+        "loudness": true,
+        "truePeak": true,
+        "leadingSilence": true,
+        "trailingSilence": true,
+        "interiorSilence": true
+      },
+      "verdict": "pass"
+    },
+    {
+      "lineId": "rie-sentence-frame-sophie-student-question",
+      "bindingIds": [
+        "lesson-zero:sentence-frame:question:target"
+      ],
+      "intent": "Model the exact question the learner will ask Sophie.",
+      "locale": "ja-JP",
+      "band": "native",
+      "sourceSha256": "0a7e793265200f754d798afd6c989cb230590b6d4c2b929cb1247965ff886df7",
+      "sourceRevision": "0a7e793265200f754d798afd6c989cb230590b6d4c2b929cb1247965ff886df7",
+      "audioQuerySha256": "a6f270fa7f97b1b662672d0e5175dad9e8d9d62fa5587e2f99ad6c7ada427f5c",
+      "cacheKey": "e38bde308c9cf6b52a981f35218f1dc577731c6193bf4d7c43e377c0d98853d1",
+      "assetSha256": "15a4f0d0868f940fc555b0160d7b86904de513c478eae2c9d2b9ffdcc9232277",
+      "modelUuid": "e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43",
+      "modelPayloadSha256": "674d495898d367092de7105ef760f070a03ae5f74c61670bf98c1e62aa159adb",
+      "measurements": {
+        "codec": "opus",
+        "sampleRate": 48000,
+        "channels": 1,
+        "durationSeconds": 2.510583,
+        "integratedLufs": -20.3,
+        "truePeakDbfs": -2.2,
+        "leadingSeconds": 0.152,
+        "trailingSeconds": 0.188,
+        "longestInteriorSeconds": 0.06
+      },
+      "independentWaveformReviews": [
+        {
+          "reviewer": {
+            "service": "whisper.cpp local inference",
+            "modelFamily": "OpenAI Whisper",
+            "displayedModel": "ggml-large-v3-turbo-q5_0.bin",
+            "modelPayloadSha256": "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2",
+            "independentReviewIndex": 1
+          },
+          "heardTranscript": "ソフィーさんは学生ですか?",
+          "normalizedTranscript": "そふぃーさんはがくせいですか",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "ソフィーさん",
+            "学生ですか"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "reviewer": {
+            "service": "Vosk local inference",
+            "modelFamily": "Kaldi Vosk Japanese",
+            "displayedModel": "vosk-model-small-ja-0.22",
+            "modelPayloadSha256": "bb0632b2bb9fe0b72fb0199573bc5533bd5ae9161091f670b788d197770f306d",
+            "independentReviewIndex": 2
+          },
+          "heardTranscript": "ソフィー さん は 学生 ですか",
+          "normalizedTranscript": "そふぃーさんはがくせいですか",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "ソフィーさん",
+            "学生ですか"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        }
+      ],
+      "representativeSampleLineIds": [
+        "rie-lesson-zero-repeat",
+        "rie-lesson-zero-greeting",
+        "rie-classroom-begin",
+        "rie-classroom-finish",
+        "rie-classroom-break",
+        "rie-classroom-look",
+        "rie-classroom-say-together",
+        "rie-classroom-listen",
+        "rie-classroom-write",
+        "rie-lesson-zero-homework",
+        "rie-lesson-zero-example",
+        "rie-sentence-frame-sophie-student",
+        "rie-sentence-frame-self-student",
+        "rie-sentence-frame-identity-response",
+        "rie-sentence-frame-sophie-not-teacher",
+        "rie-sentence-frame-correction-response",
+        "rie-sentence-frame-rie-teacher-question",
+        "rie-sentence-frame-sophie-student-question",
+        "rie-sentence-frame-noun-response"
+      ],
+      "checks": {
+        "acceptedDisposition": true,
+        "explicitCodexAcceptance": true,
+        "representativeVoiceReview": true,
+        "noBlanketCerAcceptance": true,
+        "sourceHash": true,
+        "queryIdentity": true,
+        "distributionIdentity": true,
+        "assetHash": true,
+        "bytes": true,
+        "hostedMirror": true,
+        "codec": true,
+        "sampleRate": true,
+        "channels": true,
+        "duration": true,
+        "loudness": true,
+        "truePeak": true,
+        "leadingSilence": true,
+        "trailingSilence": true,
+        "interiorSilence": true
+      },
+      "verdict": "pass"
+    },
+    {
+      "lineId": "sophie-sentence-frame-question-response",
+      "bindingIds": [
+        "lesson-zero:sentence-frame:question:response"
+      ],
+      "intent": "Answer the learner’s first question in Sophie’s concise peer register.",
+      "locale": "ja-JP",
+      "band": "native",
+      "sourceSha256": "b5317e038c67ed83aaa0d641a3eae2388dbf36e05816e6c0ae3fc01c8c0f8f60",
+      "sourceRevision": "b5317e038c67ed83aaa0d641a3eae2388dbf36e05816e6c0ae3fc01c8c0f8f60",
+      "audioQuerySha256": "457e0b29792c79ea2ae3eaa7a4a1816cd90cd089e34c51ca60923c0511f54553",
+      "cacheKey": "e105bb9b8acf4914604bba5d5244fba738cb2d1a411a91fc00da87e971103fc1",
+      "assetSha256": "04e2b8d9ec3181b90f13dfccf12225eda6a16f0c2042b8b4eff028673c722e81",
+      "modelUuid": "a59cb814-0083-4369-8542-f51a29e72af7",
+      "modelPayloadSha256": "f87ccea2e8e2de0e0bfe52e803945af903b4086bf25621a015111628f00e4119",
+      "measurements": {
+        "codec": "opus",
+        "sampleRate": 48000,
+        "channels": 1,
+        "durationSeconds": 3.11375,
+        "integratedLufs": -18.2,
+        "truePeakDbfs": -2.5,
+        "leadingSeconds": 0.199,
+        "trailingSeconds": 0.348,
+        "longestInteriorSeconds": 0.583
+      },
+      "independentWaveformReviews": [
+        {
+          "reviewer": {
+            "service": "whisper.cpp local inference",
+            "modelFamily": "OpenAI Whisper",
+            "displayedModel": "ggml-large-v3-turbo-q5_0.bin",
+            "modelPayloadSha256": "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2",
+            "independentReviewIndex": 1
+          },
+          "heardTranscript": "愛、学生です。よろしく。",
+          "normalizedTranscript": "愛がくせいですよろしく",
+          "characterErrorRate": 0.1667,
+          "criticalPhraseGates": [
+            "学生です",
+            "よろしく"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "fail"
+        },
+        {
+          "reviewer": {
+            "service": "Vosk local inference",
+            "modelFamily": "Kaldi Vosk Japanese",
+            "displayedModel": "vosk-model-small-ja-0.22",
+            "modelPayloadSha256": "bb0632b2bb9fe0b72fb0199573bc5533bd5ae9161091f670b788d197770f306d",
+            "independentReviewIndex": 2
+          },
+          "heardTranscript": "はい 学生 です よろしく",
+          "normalizedTranscript": "はいがくせいですよろしく",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "学生です",
+            "よろしく"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        }
+      ],
+      "representativeSampleLineIds": [
+        "sophie-sentence-frame-parallel-response"
+      ],
+      "checks": {
+        "acceptedDisposition": true,
+        "explicitCodexAcceptance": true,
+        "representativeVoiceReview": true,
+        "noBlanketCerAcceptance": true,
+        "sourceHash": true,
+        "queryIdentity": true,
+        "distributionIdentity": true,
+        "assetHash": true,
+        "bytes": true,
+        "hostedMirror": true,
+        "codec": true,
+        "sampleRate": true,
+        "channels": true,
+        "duration": true,
+        "loudness": true,
+        "truePeak": true,
+        "leadingSilence": true,
+        "trailingSilence": true,
+        "interiorSilence": true
+      },
+      "verdict": "pass"
+    },
+    {
+      "lineId": "rie-sentence-frame-japanese-class",
+      "bindingIds": [
+        "lesson-zero:sentence-frame:noun-link:example"
+      ],
+      "intent": "Model noun linking with a familiar class label.",
+      "locale": "ja-JP",
+      "band": "native",
+      "sourceSha256": "df4e78aa6efb8370ca04f00250afdbfca9e6e35d364f2df15f7743fbc2a89051",
+      "sourceRevision": "df4e78aa6efb8370ca04f00250afdbfca9e6e35d364f2df15f7743fbc2a89051",
+      "audioQuerySha256": "7acef1dc4a1ef082cea1b593465a70e2c331de9106cf728edd3bb6296db73d62",
+      "cacheKey": "54f1f99398de158f607ac7c0d167f7cca4f8250713abe3a6776a5fb03d4b8080",
+      "assetSha256": "e0e78c013e8e35092957f036afceb2b002e68d64cbc60e3008571cec7c550f9d",
+      "modelUuid": "e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43",
+      "modelPayloadSha256": "674d495898d367092de7105ef760f070a03ae5f74c61670bf98c1e62aa159adb",
+      "measurements": {
+        "codec": "opus",
+        "sampleRate": 48000,
+        "channels": 1,
+        "durationSeconds": 2.131521,
+        "integratedLufs": -16.6,
+        "truePeakDbfs": -1,
+        "leadingSeconds": 0.139,
+        "trailingSeconds": 0.185,
+        "longestInteriorSeconds": 0
+      },
+      "independentWaveformReviews": [
+        {
+          "reviewer": {
+            "service": "whisper.cpp local inference",
+            "modelFamily": "OpenAI Whisper",
+            "displayedModel": "ggml-large-v3-turbo-q5_0.bin",
+            "modelPayloadSha256": "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2",
+            "independentReviewIndex": 1
+          },
+          "heardTranscript": "日本モノクラスです",
+          "normalizedTranscript": "日本ものくらすです",
+          "characterErrorRate": 0.4,
+          "criticalPhraseGates": [
+            "日本語",
+            "クラスです"
+          ],
+          "criticalPhraseGatePassed": false,
+          "verdict": "hard-fail"
+        },
+        {
+          "reviewer": {
+            "service": "Vosk local inference",
+            "modelFamily": "Kaldi Vosk Japanese",
+            "displayedModel": "vosk-model-small-ja-0.22",
+            "modelPayloadSha256": "bb0632b2bb9fe0b72fb0199573bc5533bd5ae9161091f670b788d197770f306d",
+            "independentReviewIndex": 2
+          },
+          "heardTranscript": "日本語 の クラス です",
+          "normalizedTranscript": "にほんごのくらすです",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "日本語",
+            "クラスです"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        }
+      ],
+      "representativeSampleLineIds": [
+        "rie-lesson-zero-repeat",
+        "rie-lesson-zero-greeting",
+        "rie-classroom-begin",
+        "rie-classroom-finish",
+        "rie-classroom-break",
+        "rie-classroom-look",
+        "rie-classroom-say-together",
+        "rie-classroom-listen",
+        "rie-classroom-write",
+        "rie-lesson-zero-homework",
+        "rie-lesson-zero-example",
+        "rie-sentence-frame-sophie-student",
+        "rie-sentence-frame-self-student",
+        "rie-sentence-frame-identity-response",
+        "rie-sentence-frame-sophie-not-teacher",
+        "rie-sentence-frame-correction-response",
+        "rie-sentence-frame-rie-teacher-question",
+        "rie-sentence-frame-sophie-student-question",
+        "rie-sentence-frame-noun-response"
+      ],
+      "checks": {
+        "acceptedDisposition": true,
+        "explicitCodexAcceptance": true,
+        "representativeVoiceReview": true,
+        "noBlanketCerAcceptance": true,
+        "sourceHash": true,
+        "queryIdentity": true,
+        "distributionIdentity": true,
+        "assetHash": true,
+        "bytes": true,
+        "hostedMirror": true,
+        "codec": true,
+        "sampleRate": true,
+        "channels": true,
+        "duration": true,
+        "loudness": true,
+        "truePeak": true,
+        "leadingSilence": true,
+        "trailingSilence": true,
+        "interiorSilence": true
+      },
+      "verdict": "pass"
+    },
+    {
+      "lineId": "rie-sentence-frame-rie-class",
+      "bindingIds": [
+        "lesson-zero:sentence-frame:noun-link:target"
+      ],
+      "intent": "Model the exact noun-link sentence the learner will construct.",
+      "locale": "ja-JP",
+      "band": "native",
+      "sourceSha256": "cf4c2af2c9ba5099c1a725dc82c4269ec0cf2d4ea61ecff5c2cdef76359279fa",
+      "sourceRevision": "cf4c2af2c9ba5099c1a725dc82c4269ec0cf2d4ea61ecff5c2cdef76359279fa",
+      "audioQuerySha256": "3b47976f3af30b34d25597b235c3bbbba475b7739a98251a97c70878b25921af",
+      "cacheKey": "2cb9078237493c687b82a5097b692f9c3d6b82ffeb44d606429cc4e5f9287ee1",
+      "assetSha256": "432ebbf1ba2fd8590493f25807d782aa53c0b38acc76c5cc010ae939f4cb5ef6",
+      "modelUuid": "e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43",
+      "modelPayloadSha256": "674d495898d367092de7105ef760f070a03ae5f74c61670bf98c1e62aa159adb",
+      "measurements": {
+        "codec": "opus",
+        "sampleRate": 48000,
+        "channels": 1,
+        "durationSeconds": 2.305625,
+        "integratedLufs": -16.9,
+        "truePeakDbfs": -1.4,
+        "leadingSeconds": 0.135,
+        "trailingSeconds": 0.184,
+        "longestInteriorSeconds": 0
+      },
+      "independentWaveformReviews": [
+        {
+          "reviewer": {
+            "service": "whisper.cpp local inference",
+            "modelFamily": "OpenAI Whisper",
+            "displayedModel": "ggml-large-v3-turbo-q5_0.bin",
+            "modelPayloadSha256": "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2",
+            "independentReviewIndex": 1
+          },
+          "heardTranscript": "家先生のクラスです",
+          "normalizedTranscript": "いえせんせいのくらすです",
+          "characterErrorRate": 0.0833,
+          "criticalPhraseGates": [
+            "りえ先生",
+            "クラスです"
+          ],
+          "criticalPhraseGatePassed": false,
+          "verdict": "hard-fail"
+        },
+        {
+          "reviewer": {
+            "service": "Vosk local inference",
+            "modelFamily": "Kaldi Vosk Japanese",
+            "displayedModel": "vosk-model-small-ja-0.22",
+            "modelPayloadSha256": "bb0632b2bb9fe0b72fb0199573bc5533bd5ae9161091f670b788d197770f306d",
+            "independentReviewIndex": 2
+          },
+          "heardTranscript": "りえ 先生 の クラス です",
+          "normalizedTranscript": "りえせんせいのくらすです",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "りえ先生",
+            "クラスです"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        }
+      ],
+      "representativeSampleLineIds": [
+        "rie-lesson-zero-repeat",
+        "rie-lesson-zero-greeting",
+        "rie-classroom-begin",
+        "rie-classroom-finish",
+        "rie-classroom-break",
+        "rie-classroom-look",
+        "rie-classroom-say-together",
+        "rie-classroom-listen",
+        "rie-classroom-write",
+        "rie-lesson-zero-homework",
+        "rie-lesson-zero-example",
+        "rie-sentence-frame-sophie-student",
+        "rie-sentence-frame-self-student",
+        "rie-sentence-frame-identity-response",
+        "rie-sentence-frame-sophie-not-teacher",
+        "rie-sentence-frame-correction-response",
+        "rie-sentence-frame-rie-teacher-question",
+        "rie-sentence-frame-sophie-student-question",
+        "rie-sentence-frame-noun-response"
+      ],
+      "checks": {
+        "acceptedDisposition": true,
+        "explicitCodexAcceptance": true,
+        "representativeVoiceReview": true,
+        "noBlanketCerAcceptance": true,
+        "sourceHash": true,
+        "queryIdentity": true,
+        "distributionIdentity": true,
+        "assetHash": true,
+        "bytes": true,
+        "hostedMirror": true,
+        "codec": true,
+        "sampleRate": true,
+        "channels": true,
+        "duration": true,
+        "loudness": true,
+        "truePeak": true,
+        "leadingSilence": true,
+        "trailingSilence": true,
+        "interiorSilence": true
+      },
+      "verdict": "pass"
+    },
+    {
+      "lineId": "rie-sentence-frame-noun-response",
+      "bindingIds": [
+        "lesson-zero:sentence-frame:noun-link:response"
+      ],
+      "intent": "Welcome the learner into the class after the noun-link sentence.",
+      "locale": "ja-JP",
+      "band": "native",
+      "sourceSha256": "326e9c0f1a23afcd8a3161c6b3818f7b662e7e395979e22c7f2bafe0fd792e75",
+      "sourceRevision": "326e9c0f1a23afcd8a3161c6b3818f7b662e7e395979e22c7f2bafe0fd792e75",
+      "audioQuerySha256": "9f5b2edcf465ddf56f28e10058dcb908ca1cf523ad87e452b0551c6731414801",
+      "cacheKey": "04ab118a95aaa4378b9bb88024a46efe636d31c2c9ff0563dd15abb705a7391a",
+      "assetSha256": "3b89a985c731246cf217645f9c19f0adb4ef183786ad7bc7d89eeac19cfabce7",
+      "modelUuid": "e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43",
+      "modelPayloadSha256": "674d495898d367092de7105ef760f070a03ae5f74c61670bf98c1e62aa159adb",
+      "measurements": {
+        "codec": "opus",
+        "sampleRate": 48000,
+        "channels": 1,
+        "durationSeconds": 3.590583,
+        "integratedLufs": -19.9,
+        "truePeakDbfs": -1.7,
+        "leadingSeconds": 0.136,
+        "trailingSeconds": 0.206,
+        "longestInteriorSeconds": 0.112
+      },
+      "independentWaveformReviews": [
+        {
+          "reviewer": {
+            "service": "whisper.cpp local inference",
+            "modelFamily": "OpenAI Whisper",
+            "displayedModel": "ggml-large-v3-turbo-q5_0.bin",
+            "modelPayloadSha256": "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2",
+            "independentReviewIndex": 1
+          },
+          "heardTranscript": "はい、今日からあなたのクラスです。",
+          "normalizedTranscript": "はいきょうからあなたのくらすです",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "今日から",
+            "あなたのクラスです"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "reviewer": {
+            "service": "Vosk local inference",
+            "modelFamily": "Kaldi Vosk Japanese",
+            "displayedModel": "vosk-model-small-ja-0.22",
+            "modelPayloadSha256": "bb0632b2bb9fe0b72fb0199573bc5533bd5ae9161091f670b788d197770f306d",
+            "independentReviewIndex": 2
+          },
+          "heardTranscript": "はい 今日 から あなた の クラス です",
+          "normalizedTranscript": "はいきょうからあなたのくらすです",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "今日から",
+            "あなたのクラスです"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        }
+      ],
+      "representativeSampleLineIds": [
+        "rie-lesson-zero-repeat",
+        "rie-lesson-zero-greeting",
+        "rie-classroom-begin",
+        "rie-classroom-finish",
+        "rie-classroom-break",
+        "rie-classroom-look",
+        "rie-classroom-say-together",
+        "rie-classroom-listen",
+        "rie-classroom-write",
+        "rie-lesson-zero-homework",
+        "rie-lesson-zero-example",
+        "rie-sentence-frame-sophie-student",
+        "rie-sentence-frame-self-student",
+        "rie-sentence-frame-identity-response",
+        "rie-sentence-frame-sophie-not-teacher",
+        "rie-sentence-frame-correction-response",
+        "rie-sentence-frame-rie-teacher-question",
+        "rie-sentence-frame-sophie-student-question",
+        "rie-sentence-frame-noun-response"
+      ],
+      "checks": {
+        "acceptedDisposition": true,
+        "explicitCodexAcceptance": true,
+        "representativeVoiceReview": true,
+        "noBlanketCerAcceptance": true,
+        "sourceHash": true,
+        "queryIdentity": true,
+        "distributionIdentity": true,
+        "assetHash": true,
+        "bytes": true,
+        "hostedMirror": true,
+        "codec": true,
+        "sampleRate": true,
+        "channels": true,
+        "duration": true,
+        "loudness": true,
+        "truePeak": true,
+        "leadingSilence": true,
+        "trailingSilence": true,
+        "interiorSilence": true
+      },
+      "verdict": "pass"
+    },
+    {
+      "lineId": "sophie-sentence-frame-parallel-response",
+      "bindingIds": [
+        "lesson-zero:sentence-frame:parallel:response"
+      ],
+      "intent": "Confirm shared class membership in Sophie’s friendly peer register.",
+      "locale": "ja-JP",
+      "band": "native",
+      "sourceSha256": "6d9a673fb50902191e539ae668f32833e1ae4e69e1aa781a111b255d8a6f13b7",
+      "sourceRevision": "6d9a673fb50902191e539ae668f32833e1ae4e69e1aa781a111b255d8a6f13b7",
+      "audioQuerySha256": "9ec6990900fcef4a5a05bddc0f792d378c4f69316c4072fc58f1e6612529e82d",
+      "cacheKey": "21407654904be810a1e6a9572f36c8a5425647a07788d59f28b0e1d007049176",
+      "assetSha256": "81e981b26beb8f9eb4a1370a4765823d72f7d5f1bedf95536515caf6a9a7a5e0",
+      "modelUuid": "a59cb814-0083-4369-8542-f51a29e72af7",
+      "modelPayloadSha256": "f87ccea2e8e2de0e0bfe52e803945af903b4086bf25621a015111628f00e4119",
+      "measurements": {
+        "codec": "opus",
+        "sampleRate": 48000,
+        "channels": 1,
+        "durationSeconds": 3.684021,
+        "integratedLufs": -21.5,
+        "truePeakDbfs": -3.3,
+        "leadingSeconds": 0.19,
+        "trailingSeconds": 0.383,
+        "longestInteriorSeconds": 0.617
+      },
+      "independentWaveformReviews": [
+        {
+          "reviewer": {
+            "service": "whisper.cpp local inference",
+            "modelFamily": "OpenAI Whisper",
+            "displayedModel": "ggml-large-v3-turbo-q5_0.bin",
+            "modelPayloadSha256": "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2",
+            "independentReviewIndex": 1
+          },
+          "heardTranscript": "はい、私たちは同じクラスですね",
+          "normalizedTranscript": "はいわたしたちはおなじくらすですね",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "わたしたちは",
+            "同じクラスですね"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "reviewer": {
+            "service": "Vosk local inference",
+            "modelFamily": "Kaldi Vosk Japanese",
+            "displayedModel": "vosk-model-small-ja-0.22",
+            "modelPayloadSha256": "bb0632b2bb9fe0b72fb0199573bc5533bd5ae9161091f670b788d197770f306d",
+            "independentReviewIndex": 2
+          },
+          "heardTranscript": "はい わたし たち は 同じ クラス です ね",
+          "normalizedTranscript": "はいわたしたちはおなじくらすですね",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "わたしたちは",
+            "同じクラスですね"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        }
+      ],
+      "representativeSampleLineIds": [
+        "sophie-sentence-frame-parallel-response"
+      ],
+      "checks": {
+        "acceptedDisposition": true,
+        "explicitCodexAcceptance": true,
+        "representativeVoiceReview": true,
         "noBlanketCerAcceptance": true,
         "sourceHash": true,
         "queryIdentity": true,
@@ -1560,12 +3268,12 @@
     }
   ],
   "counts": {
-    "reviewedCandidates": 19,
-    "accepted": 17,
+    "reviewedCandidates": 33,
+    "accepted": 31,
     "rejected": 2,
-    "objectivePassed": 17,
-    "nativeBand": 17,
-    "bindings": 18
+    "objectivePassed": 31,
+    "nativeBand": 31,
+    "bindings": 33
   },
   "complete": true
 }

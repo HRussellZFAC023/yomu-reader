@@ -2,33 +2,36 @@
   "schema": "yomu-academy.learning-voice-local-expected.v1",
   "batchId": "academy-learning-native-20260720-01",
   "scope": "Immutable expectation for loopback browser proof only; this is not deployment evidence.",
-  "catalogSha256": "57d8f5742d2dbc8d443d68f4921369ebf8e518d3d699b0ed17830ba50aac4350",
-  "productionContractSha256": "36ca2c8e4458ac4f30dab3b7aa8868b0f5258d63d7003f92bd383392236edd9e",
+  "catalogSha256": "cd3035a6d90cf635b779fc12034fe835c741a0c2c2b6d20909b93ae40ee4f26d",
+  "productionContractSha256": "ba134b3d485177d6c322060a9df06d6d979b7c3f0ecf10485d62053999bf88eb",
   "build": {
     "distApp": "dist/academy/app.js",
     "hostedApp": "docs/public/academy/app.js",
-    "appSha256": "0de5d2e701a66321b0a9d18615af739ad2331b7d0384fced7f3f8b6466727ab9",
+    "appSha256": "bdf371067e4d66185aa3351cc428f57225c1964df7986bec4bb04ea194f995f6",
     "byteParityRequired": true
   },
   "runtimeSources": {
     "src/academy/integration/yomu-bridge.ts": "053c1d4798b9d1b74bada14e3c6596795b5e45a0988c4bd02f3ee24a7fc41547",
     "src/academy/audio/browser-speech.ts": "5d2da93a3b9abbd3a77e96ab324c0b5fa0654aa4fb29743244702b81853b7dce",
-    "src/academy/audio/learning-voice.ts": "44b5064671ea9a03f9031a169c6357c8ac4c86fe6ab6d2a93b2a866dbf3986d3",
+    "src/academy/audio/learning-voice.ts": "bb7368dc244d3a09ec31d2781f5fd64f827f9fe9a80c9fb4b2b188dcf098fd68",
     "src/academy/audio/worker-tts.ts": "757804bcfea92880e4d9a13373a05e0c1a66933f72afa2f2b0e535cecfbc3548",
     "src/academy/content/lesson-zero-follow-instructions.ts": "a7caed645a62cb2639ab1602197b26be7959072c3f1d1bf2aa93a48c9cbea78d",
     "src/academy/content/lesson-zero-greeting.ts": "7079535a0a2310dafbdc212d772fbc815513849a83172430f81f0e86aaff95eb",
     "src/academy/content/lesson-zero-desk-language.ts": "2807c811466f261da7b7a1eee667b4957db8b2f10d3b6edf2e69a0eb3f4a3707",
+    "src/academy/content/lesson-zero-sentence-frames.ts": "a2c29ea70d346c5caffda83cd77040015dd55de7c7f925503af713bd3f37c1b9",
     "src/academy/content/lesson-zero-vowel-anchors.ts": "acf6ee825e45c813cb127c596ef2a08fc356fe7f1effdd054aff7bca2dd81b7c",
     "src/academy/domain/classroom-instruction-session.ts": "7b7a0de23568e9ba352a70cb07467ff884a99a1b999edf52deb8145632e758d5",
     "src/academy/domain/lesson-zero-desk-language-session.ts": "e05c468e94652522d9a4bb68a8fa17f3ccfa38c3ae38c0825258177220e0c4e9",
+    "src/academy/domain/lesson-zero-sentence-frame-session.ts": "4038e9615bc6ba02e67fa3363acd6bcc2e5acd30ef334cc1756374b6c2db4f58",
     "src/academy/domain/world-locations.ts": "8dff402868198871a95498d004bc318dfe0b48f1995429ae9c0f6d33490739e5",
-    "src/academy/routing/lesson-flow.ts": "d7a14bbed34247922f65b06422a3056282912b688226136a837b550e6b8b541c",
+    "src/academy/routing/lesson-flow.ts": "0e8b4ec02be8b8c25c2bbf100a14bdf0209b1ac73808d51ef7f1a2c74ba908e6",
     "src/academy/routing/world-flow.ts": "8b0ceb7463347d6e006ac595114222a9211d1d05a5fd326980764e151db43ec7",
     "src/academy/ui/cafe-world.ts": "8f0ea99a7744127eee42ad05a14a2baa08407436d58a966c9aead1eb6fde9ec2",
     "src/academy/ui/classroom-instruction-screen.ts": "49d7c165cf259fc699aa4e6fa17f1f5c41630e0e53659642d7ba806de1b8b54e",
     "src/academy/ui/lesson-zero-desk-language-screen.ts": "124049a58af13c4de77ae69fb4ddcec1cf37efe43e5f1a5c307b96163a924c44",
     "src/academy/ui/lesson-zero-greeting-screen.ts": "965932e71c795b3b8f238c55288dd0784d2e26a50812f9794915357e2ca74480",
-    "src/academy/ui/lesson-zero-vowel-screen.ts": "125d6e092df2ecd476d727a13162a3822a9bdc2bcbe3de6b3b78cbc5a4ecf12d",
+    "src/academy/ui/lesson-zero-sentence-frame-screen.ts": "79458154ddfab6821119a46b3f85aea9b875b18d512c81465c00e2cdc62fd1d0",
+    "src/academy/ui/lesson-zero-vowel-screen.ts": "7e23373c5666cb64b8cb02a4fbf648792e0ce5ffd5206d5f0160bc7fc650aae4",
     "src/academy/ui/lesson-zero-vowel-writing-screen.ts": "8e25b6bbd6295817a5a964776d937b64f8ddc08342e7790f29f1a27aa87cd787",
     "src/academy/ui/lesson-screen.ts": "d279e813fc647715d83425984bca44f4151b161de638a0bca01eedc9f5562972",
     "src/academy/ui/world-screen.ts": "1a157bf0d5f9f50beaeda86a81c52070614a4a937ac930f431e814688d3f54e5"
@@ -101,6 +104,62 @@
     "/academy/audio/learning-lines/rie/rie-lesson-zero-example__10f47eefee150c44.opus": {
       "sha256": "877837076979db131e43595095422105b3c60a25cbfbf3f918a6a16696a9aafb",
       "bytes": 19678
+    },
+    "/academy/audio/learning-lines/rie/rie-sentence-frame-sophie-student__dde399ff7b77a249.opus": {
+      "sha256": "efe1294cd356d295a0971ff2b6bc238a0982eafc40127b85e8aa7be47ac7aa95",
+      "bytes": 18813
+    },
+    "/academy/audio/learning-lines/rie/rie-sentence-frame-sophie-student-too__8a81f00891bb562d.opus": {
+      "sha256": "c6af8943f51f61516d81b109d09a01d0efc2da6449e1f41a306c30cea5d54e59",
+      "bytes": 17334
+    },
+    "/academy/audio/learning-lines/rie/rie-sentence-frame-self-student__8943b50ce0c30da3.opus": {
+      "sha256": "b3c9a453f84e565ba2bda54e4e1fdc0293b7522921d1a1371f56489fe69b4f3b",
+      "bytes": 16684
+    },
+    "/academy/audio/learning-lines/rie/rie-sentence-frame-identity-response__244e6a296e4e53be.opus": {
+      "sha256": "15cfa1b325d0cb19f2192880cedcef564800af94a13e66e79ffbd2ab6393c174",
+      "bytes": 31282
+    },
+    "/academy/audio/learning-lines/rie/rie-sentence-frame-sophie-not-teacher__ad5f4a6a1007903b.opus": {
+      "sha256": "3b54cf2f819ba3506ad215f01fd50f9a058e7b789b011d522099abcb25b2459b",
+      "bytes": 21023
+    },
+    "/academy/audio/learning-lines/rie/rie-sentence-frame-rie-not-student__6cee116e1db81cf3.opus": {
+      "sha256": "2798631dcd96124cc1c7474838558597b0c2d3f96589f979c642b93cfdf2f0fe",
+      "bytes": 22589
+    },
+    "/academy/audio/learning-lines/rie/rie-sentence-frame-correction-response__19fc52dbcb691adb.opus": {
+      "sha256": "99bb3e5c2a9551c6fa0209faedd44a600029b788d1509711848a074326bdae78",
+      "bytes": 22327
+    },
+    "/academy/audio/learning-lines/rie/rie-sentence-frame-rie-teacher-question__21d2408aa106c42e.opus": {
+      "sha256": "1a67680f67bb03dd4ab488905eff549dc98a6e57ac33cb7aa899100e1579318f",
+      "bytes": 19059
+    },
+    "/academy/audio/learning-lines/rie/rie-sentence-frame-sophie-student-question__e38bde308c9cf6b5.opus": {
+      "sha256": "15a4f0d0868f940fc555b0160d7b86904de513c478eae2c9d2b9ffdcc9232277",
+      "bytes": 19560
+    },
+    "/academy/audio/learning-lines/sophie/sophie-sentence-frame-question-response__e105bb9b8acf4914.opus": {
+      "sha256": "04e2b8d9ec3181b90f13dfccf12225eda6a16f0c2042b8b4eff028673c722e81",
+      "bytes": 24007
+    },
+    "/academy/audio/learning-lines/rie/rie-sentence-frame-japanese-class__54f1f99398de158f.opus": {
+      "sha256": "e0e78c013e8e35092957f036afceb2b002e68d64cbc60e3008571cec7c550f9d",
+      "bytes": 16363
+    },
+    "/academy/audio/learning-lines/rie/rie-sentence-frame-rie-class__2cb9078237493c68.opus": {
+      "sha256": "432ebbf1ba2fd8590493f25807d782aa53c0b38acc76c5cc010ae939f4cb5ef6",
+      "bytes": 17830
+    },
+    "/academy/audio/learning-lines/rie/rie-sentence-frame-noun-response__04ab118a95aaa437.opus": {
+      "sha256": "3b89a985c731246cf217645f9c19f0adb4ef183786ad7bc7d89eeac19cfabce7",
+      "bytes": 27182
+    },
+    "/academy/audio/learning-lines/sophie/sophie-sentence-frame-parallel-response__21407654904be810.opus": {
+      "sha256": "81e981b26beb8f9eb4a1370a4765823d72f7d5f1bedf95536515caf6a9a7a5e0",
+      "bytes": 27184
     }
   },
   "acceptedBindingIds": [
@@ -114,6 +173,21 @@
     "lesson-zero:desk-language:example",
     "lesson-zero:desk-language:homework",
     "lesson-zero:greeting-rie-model",
+    "lesson-zero:sentence-frame:correction:example",
+    "lesson-zero:sentence-frame:correction:response",
+    "lesson-zero:sentence-frame:correction:target",
+    "lesson-zero:sentence-frame:identity:example",
+    "lesson-zero:sentence-frame:identity:response",
+    "lesson-zero:sentence-frame:identity:target",
+    "lesson-zero:sentence-frame:noun-link:example",
+    "lesson-zero:sentence-frame:noun-link:response",
+    "lesson-zero:sentence-frame:noun-link:target",
+    "lesson-zero:sentence-frame:parallel:example",
+    "lesson-zero:sentence-frame:parallel:response",
+    "lesson-zero:sentence-frame:parallel:target",
+    "lesson-zero:sentence-frame:question:example",
+    "lesson-zero:sentence-frame:question:response",
+    "lesson-zero:sentence-frame:question:target",
     "lesson-zero:vowel:hira-a",
     "lesson-zero:vowel:hira-e",
     "lesson-zero:vowel:hira-i",

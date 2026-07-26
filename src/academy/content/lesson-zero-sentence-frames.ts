@@ -32,25 +32,22 @@ const EXPECTED_PATTERNS = [
 
 export function createLessonZeroSentenceFrameDefinition(
     activity: LessonZeroActivity,
-    learnerName: string,
 ): LessonZeroSentenceFrameSessionDefinition {
     validateActivity(activity);
-    const name = learnerName.trim();
-    if (!name) throw new TypeError('The sentence-frame lesson needs the learner name from arrival.');
     const frames: readonly LessonZeroSentenceFrameDefinition[] = [
         {
             id: 'identity',
             activityId: 'activity:lesson-zero-build-sentence-frames:identity',
             conceptId: EXPECTED_CONCEPTS[0],
             pattern: EXPECTED_PATTERNS[0],
-            title: { en: 'Put yourself in the sentence', ja: '自分を文に入れる' },
+            title: { en: 'Say who you are', ja: '自分のことを言う' },
             teaching: {
-                en: '“は” tells us who this thought is about. “です” joins that person to what is true. Sophie can lend us an example before you make your own.',
-                ja: '「は」で、だれについて話すかを示します。「です」で、その人と本当のことを結びます。まず、ソフィーさんの例を見ましょう。',
+                en: '“は” marks who we are talking about. “です” tells us what is true about them.',
+                ja: '「は」で、だれの話かを示します。「です」で、その人について言います。',
             },
             prompt: {
-                en: 'Your turn. Tell the room your name in one sentence.',
-                ja: 'では、自分の名前を一つの文で教室に伝えてください。',
+                en: 'Build: “I am a student.”',
+                ja: '「わたしは学生です」を作ってください。',
             },
             nearbyExample: {
                 japanese: 'ソフィーさんは学生です。',
@@ -58,25 +55,25 @@ export function createLessonZeroSentenceFrameDefinition(
                 meaning: { en: 'Sophie is a student.', ja: 'ソフィーさんは学生です。' },
             },
             target: target(
-                `わたしは${name}です。`,
-                `わたしは${name}です`,
-                { en: `I am ${name}.`, ja: `わたしは${name}です。` },
+                'わたしは学生です。',
+                'わたしはがくせいです',
+                { en: 'I am a student.', ja: 'わたしは学生です。' },
                 [
                     ['self', 'わたし'],
                     ['topic', 'は'],
-                    ['name', name],
+                    ['student', '学生'],
                     ['copula', 'です'],
                     ['stop', '。'],
                 ],
-                ['self', 'topic', 'name', 'copula', 'stop'],
-                ['name', 'copula', 'self', 'stop', 'topic'],
+                ['self', 'topic', 'student', 'copula', 'stop'],
+                ['student', 'copula', 'self', 'stop', 'topic'],
             ),
             response: {
                 speakerId: 'rie',
                 speakerName: { en: 'Rie-sensei', ja: 'りえ先生' },
-                japanese: `${name}さん。はい、届きました。`,
-                reading: `${name}さん。はい、とどきました`,
-                meaning: { en: `${name}. Yes, I heard you.`, ja: `${name}さん。はい、届きました。` },
+                japanese: 'はい。学生ですね。よろしくお願いします。',
+                reading: 'はい。がくせいですね。よろしくおねがいします',
+                meaning: { en: 'Yes, you’re a student. Nice to meet you.', ja: 'はい。学生ですね。よろしくお願いします。' },
             },
         },
         {
@@ -84,10 +81,10 @@ export function createLessonZeroSentenceFrameDefinition(
             activityId: 'activity:lesson-zero-build-sentence-frames:correction',
             conceptId: EXPECTED_CONCEPTS[1],
             pattern: EXPECTED_PATTERNS[1],
-            title: { en: 'Fix a label that is wrong', ja: 'まちがった札を直す' },
+            title: { en: 'Say what isn’t true', ja: 'ちがうことを言う' },
             teaching: {
-                en: 'When a label does not fit, keep the topic and replace “です” with “じゃありません.” It corrects the thought without stopping the conversation.',
-                ja: '札が合わないときは、話題をそのままにして、「です」を「じゃありません」に替えます。会話を止めずに直せます。',
+                en: 'Use “じゃありません” when a label is wrong.',
+                ja: 'ちがうときは、「じゃありません」を使います。',
             },
             prompt: {
                 en: 'This card calls Rie a student. Correct it for her.',
@@ -115,9 +112,9 @@ export function createLessonZeroSentenceFrameDefinition(
             response: {
                 speakerId: 'rie',
                 speakerName: { en: 'Rie-sensei', ja: 'りえ先生' },
-                japanese: 'そうです。先生です。よかった。',
-                reading: 'そうです。せんせいです。よかった',
-                meaning: { en: 'That’s right. I’m the teacher. Good.', ja: 'そうです。先生です。よかった。' },
+                japanese: 'そうです。わたしは先生です。',
+                reading: 'そうです。わたしはせんせいです',
+                meaning: { en: 'That’s right. I’m the teacher.', ja: 'そうです。わたしは先生です。' },
             },
         },
         {
@@ -125,10 +122,10 @@ export function createLessonZeroSentenceFrameDefinition(
             activityId: 'activity:lesson-zero-build-sentence-frames:question',
             conceptId: EXPECTED_CONCEPTS[2],
             pattern: EXPECTED_PATTERNS[2],
-            title: { en: 'Open the sentence into a question', ja: '文を質問にする' },
+            title: { en: 'Ask a yes-or-no question', ja: 'はい・いいえの質問をする' },
             teaching: {
-                en: 'A statement can invite an answer. Keep the same order and let “か” at the end open the turn to the other person.',
-                ja: '同じ語順のまま、最後の「か」で相手に答えてもらう文にできます。',
+                en: 'Add “か” after “です.” The word order stays the same.',
+                ja: '「です」のあとに「か」をつけます。語順は同じです。',
             },
             prompt: {
                 en: 'Sophie has joined the desk. Ask whether she is a student.',
@@ -166,10 +163,10 @@ export function createLessonZeroSentenceFrameDefinition(
             activityId: 'activity:lesson-zero-build-sentence-frames:noun-link',
             conceptId: EXPECTED_CONCEPTS[3],
             pattern: EXPECTED_PATTERNS[3],
-            title: { en: 'Clip two nouns together', ja: '二つの名詞をつなぐ' },
+            title: { en: 'Join two nouns', ja: '二つの名詞をつなぐ' },
             teaching: {
-                en: '“の” clips two nouns together. The first noun tells us whose thing it is, or what kind of thing comes next.',
-                ja: '「の」は二つの名詞をつなぎます。前の名詞が、だれのものか、どんなものかを教えます。',
+                en: 'Put “の” between two nouns. The first noun describes the second.',
+                ja: '二つの名詞の間に「の」を入れます。前の名詞が、あとの名詞を説明します。',
             },
             prompt: {
                 en: 'Name the room you have just entered: Rie’s class.',
@@ -197,9 +194,9 @@ export function createLessonZeroSentenceFrameDefinition(
             response: {
                 speakerId: 'rie',
                 speakerName: { en: 'Rie-sensei', ja: 'りえ先生' },
-                japanese: 'はい。今日から、あなたのクラスでもあります。',
-                reading: 'はい。きょうから、あなたのくらすでもあります',
-                meaning: { en: 'Yes. From today, it is your class too.', ja: 'はい。今日から、あなたのクラスでもあります。' },
+                japanese: 'はい。今日から、あなたのクラスです。',
+                reading: 'はい。きょうから、あなたのくらすです',
+                meaning: { en: 'Yes. From today, this is your class.', ja: 'はい。今日から、あなたのクラスです。' },
             },
         },
         {
@@ -207,40 +204,40 @@ export function createLessonZeroSentenceFrameDefinition(
             activityId: 'activity:lesson-zero-build-sentence-frames:parallel',
             conceptId: EXPECTED_CONCEPTS[4],
             pattern: EXPECTED_PATTERNS[4],
-            title: { en: 'Step into the same fact', ja: '同じことに加わる' },
+            title: { en: 'Say “too”', ja: '「も」を使う' },
             teaching: {
-                en: 'When the same fact is true for someone else, “も” takes the place of “は.” It means you are joining what was just said.',
-                ja: '同じことが別の人にも当てはまるとき、「は」の代わりに「も」を使います。今の話に加わることばです。',
+                en: 'Use “も” instead of “は” when the same thing is true for someone else.',
+                ja: 'ほかの人も同じときは、「は」の代わりに「も」を使います。',
             },
             prompt: {
-                en: 'Sophie said she is a student. Add yourself to the same fact.',
-                ja: 'ソフィーさんが「学生です」と言いました。自分も同じだと伝えてください。',
+                en: 'You are a student. Say that Sophie is a student too.',
+                ja: 'あなたは学生です。ソフィーさんも学生だと言ってください。',
             },
             nearbyExample: {
-                japanese: 'ソフィーさんも学生です。',
-                reading: 'そふぃーさんもがくせいです',
-                meaning: { en: 'Sophie is a student too.', ja: 'ソフィーさんも学生です。' },
+                japanese: 'わたしは学生です。',
+                reading: 'わたしはがくせいです',
+                meaning: { en: 'I am a student.', ja: 'わたしは学生です。' },
             },
             target: target(
-                'わたしも学生です。',
-                'わたしもがくせいです',
-                { en: 'I am a student too.', ja: 'わたしも学生です。' },
+                'ソフィーさんも学生です。',
+                'そふぃーさんもがくせいです',
+                { en: 'Sophie is a student too.', ja: 'ソフィーさんも学生です。' },
                 [
-                    ['self', 'わたし'],
+                    ['sophie', 'ソフィーさん'],
                     ['also', 'も'],
                     ['student', '学生'],
                     ['copula', 'です'],
                     ['stop', '。'],
                 ],
-                ['self', 'also', 'student', 'copula', 'stop'],
-                ['student', 'copula', 'self', 'stop', 'also'],
+                ['sophie', 'also', 'student', 'copula', 'stop'],
+                ['student', 'copula', 'sophie', 'stop', 'also'],
             ),
             response: {
                 speakerId: 'sophie',
                 speakerName: { en: 'Sophie', ja: 'ソフィー' },
-                japanese: 'わたしもです。これで、同じクラスですね。',
-                reading: 'わたしもです。これで、おなじくらすですね',
-                meaning: { en: 'Me too. Now we are in the same class.', ja: 'わたしもです。これで、同じクラスですね。' },
+                japanese: 'はい。わたしたちは同じクラスですね。',
+                reading: 'はい。わたしたちはおなじくらすですね',
+                meaning: { en: 'Yes. We’re in the same class.', ja: 'はい。わたしたちは同じクラスですね。' },
             },
         },
     ];

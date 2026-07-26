@@ -2,7 +2,7 @@
   "schema": "yomu-academy.learning-voice-model-evidence.v4",
   "capturedOn": "2026-07-23",
   "batchId": "academy-learning-native-20260720-01",
-  "productionContractSha256": "36ca2c8e4458ac4f30dab3b7aa8868b0f5258d63d7003f92bd383392236edd9e",
+  "productionContractSha256": "ba134b3d485177d6c322060a9df06d6d979b7c3f0ecf10485d62053999bf88eb",
   "sourceKind": "installed-aivmx-embedded-manifest-and-engine-cache",
   "scope": "Model, licence, speaker and style identity only; weights, icons, portraits and voice samples are not copied.",
   "licenses": [
@@ -296,6 +296,66 @@
           ]
         }
       ]
+    },
+    {
+      "uuid": "a59cb814-0083-4369-8542-f51a29e72af7",
+      "name": "まお",
+      "version": "1.2.0",
+      "creators": [
+        "オズチャット -Oz Chat- <cs@tr1ppy.com> (https://0z.chat)",
+        "Trippy <cs@tr1ppy.com> (https://tr1ppy.com)",
+        "ねゆたろ (https://x.com/___neyu_zzz)"
+      ],
+      "modelArchitecture": "Style-Bert-VITS2 (JP-Extra)",
+      "modelFormat": "ONNX",
+      "payloadFileName": "a59cb814-0083-4369-8542-f51a29e72af7.aivmx",
+      "payloadSha256": "f87ccea2e8e2de0e0bfe52e803945af903b4086bf25621a015111628f00e4119",
+      "manifestSha256": "008b873342317bda1de4b9d5a83fe8df563741ca8df04ee48e332cbf785dfef2",
+      "licenseId": "ACML-1.0",
+      "licenseSha256": "841ec166f293db138d5e0ccacf2aaab71bb0eecdad128af8ab3378708e3259dc",
+      "distribution": {
+        "kind": "installed-aivmx-distribution",
+        "fileName": "a59cb814-0083-4369-8542-f51a29e72af7.aivmx",
+        "bytes": 258037076,
+        "sha256": "f87ccea2e8e2de0e0bfe52e803945af903b4086bf25621a015111628f00e4119",
+        "authority": "exact-distribution-bytes"
+      },
+      "sourceRecord": {
+        "url": "https://hub.aivis-project.com/aivm-models/a59cb814-0083-4369-8542-f51a29e72af7",
+        "authority": "discovery-record-only",
+        "authoritativeForDistributionBytes": false
+      },
+      "speakers": [
+        {
+          "name": "まお",
+          "styles": [
+            {
+              "name": "ノーマル",
+              "localId": 0
+            },
+            {
+              "name": "ふつー",
+              "localId": 1
+            },
+            {
+              "name": "あまあま",
+              "localId": 2
+            },
+            {
+              "name": "おちつき",
+              "localId": 3
+            },
+            {
+              "name": "からかい",
+              "localId": 4
+            },
+            {
+              "name": "せつなめ",
+              "localId": 5
+            }
+          ]
+        }
+      ]
     }
   ],
   "engine": {
@@ -308,7 +368,7 @@
     "kind": "AivisSpeech Engine aivm_infos_cache.json",
     "fileName": "aivm_infos_cache.json",
     "fileSha256": "a48296b7e62807af103317a5cfdab9c502f8790707ed1ad0ee4105afb8d4dbd7",
-    "relevantMappingsSha256": "82ea40d227158f909f2ed7f3072c4db7c90e1d093ed02c557aad5cab9c0dfbe2"
+    "relevantMappingsSha256": "f283279303f719a84cd0a4697c4960f8346c5e4d4d8c0e6594deb3d9d592347d"
   },
   "engineStyleMappings": [
     {
@@ -406,6 +466,26 @@
       "engineSpeakerName": "M1",
       "styleId": 2051283136,
       "styleName": "ノーマル",
+      "styleType": "talk"
+    },
+    {
+      "mappingId": "sophie-learning-dialogue",
+      "speakerId": "sophie",
+      "surfaceClasses": [
+        "academy-character",
+        "lesson-dialogue",
+        "sentence-frame-response",
+        "world-practice"
+      ],
+      "engineFamily": "AivisSpeech + Style-Bert-VITS2 JP-Extra",
+      "modelUuid": "a59cb814-0083-4369-8542-f51a29e72af7",
+      "modelName": "まお",
+      "modelVersion": "1.2.0",
+      "modelPayloadSha256": "f87ccea2e8e2de0e0bfe52e803945af903b4086bf25621a015111628f00e4119",
+      "engineSpeakerUuid": "e756b8e4-b606-4e15-99b1-3f9c6a1b2317",
+      "engineSpeakerName": "まお",
+      "styleId": 888753763,
+      "styleName": "おちつき",
       "styleType": "talk"
     }
   ]

@@ -5,8 +5,8 @@
   "verdict": "pending",
   "base020Status": "open",
   "deploymentBaseUrl": null,
-  "productionContractSha256": "36ca2c8e4458ac4f30dab3b7aa8868b0f5258d63d7003f92bd383392236edd9e",
-  "catalogSha256": "57d8f5742d2dbc8d443d68f4921369ebf8e518d3d699b0ed17830ba50aac4350",
+  "productionContractSha256": "ba134b3d485177d6c322060a9df06d6d979b7c3f0ecf10485d62053999bf88eb",
+  "catalogSha256": "cd3035a6d90cf635b779fc12034fe835c741a0c2c2b6d20909b93ae40ee4f26d",
   "requiredCapabilities": [
     "response-content-sha256",
     "audio-decode",

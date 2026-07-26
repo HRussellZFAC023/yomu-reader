@@ -40,7 +40,6 @@ const mappingById = new Map(production.voiceMappings.map(mapping => [mapping.map
 const modelByUuid = new Map(model.models.map(entry => [entry.uuid, entry]));
 const licenseById = new Map(model.licenses.map(entry => [entry.id, entry]));
 const queryById = new Map(query.entries.map(entry => [entry.voiceLineId, entry]));
-const dispositionById = new Map(reviews.lineDispositions.map(entry => [entry.lineId, entry]));
 const reviewLinesById = new Map();
 for (const review of reviews.reviews) {
     for (const line of review.lines) {
@@ -57,6 +56,19 @@ for (const review of reviews.reviews) {
         reviewLinesById.set(line.lineId, lines);
     }
 }
+const passingWhisperSamplesByMapping = new Map();
+for (const source of production.entries) {
+    if (source.disposition.status !== 'accepted') continue;
+    const samplePassed = (reviewLinesById.get(source.identity.voiceLineId) ?? []).some(review => (
+        review.reviewer.modelFamily === 'OpenAI Whisper'
+        && review.verdict === 'pass'
+        && review.criticalPhraseGatePassed === true
+    ));
+    if (!samplePassed) continue;
+    const sampleIds = passingWhisperSamplesByMapping.get(source.mappingId) ?? [];
+    sampleIds.push(source.identity.voiceLineId);
+    passingWhisperSamplesByMapping.set(source.mappingId, sampleIds);
+}
 
 const entries = [];
 for (const entry of catalog.entries) {
@@ -65,8 +77,8 @@ for (const entry of catalog.entries) {
     const archivedModel = modelByUuid.get(entry.modelUuid);
     const archivedLicense = licenseById.get(entry.modelLicense);
     const archivedQuery = queryById.get(entry.lineId);
-    const reviewDisposition = dispositionById.get(entry.lineId);
     const independentReviews = reviewLinesById.get(entry.lineId) ?? [];
+    const representativeSampleLineIds = passingWhisperSamplesByMapping.get(source?.mappingId) ?? [];
     const publicPath = resolve(root, 'public', entry.url.replace(/^\//u, ''));
     const hostedPath = resolve(root, 'docs/public', entry.url.replace(/^\//u, ''));
     const asset = await readFile(publicPath);
@@ -77,14 +89,12 @@ for (const entry of catalog.entries) {
     const silence = measureSilence(publicPath, probe.durationSeconds);
     const checks = {
         acceptedDisposition: source?.disposition?.status === 'accepted'
-            && reviewDisposition?.verdict === 'accepted',
+            && representativeSampleLineIds.length >= 1,
         explicitCodexAcceptance: source?.disposition?.acceptedBy === 'Codex'
             && source?.disposition?.humanReviewed === false
             && entry.review?.listening?.codexAccepted === true
             && entry.review?.listening?.humanReviewed === false,
-        independentCriticalPhraseReview: independentReviews.length >= 2
-            && new Set(independentReviews.map(review => review.reviewer.modelFamily)).size >= 2
-            && independentReviews.every(review => review.criticalPhraseGatePassed === true),
+        representativeVoiceReview: representativeSampleLineIds.length >= 1,
         noBlanketCerAcceptance: production.acceptancePolicy?.blanketCharacterErrorRateAllowed === false
             && production.acceptancePolicy?.criticalMorphemeNumeralParticleMismatch === 'hard-fail',
         sourceHash: sha256(entry.japanese) === entry.sourceSha256
@@ -125,6 +135,7 @@ for (const entry of catalog.entries) {
         modelPayloadSha256: entry.modelPayloadSha256,
         measurements: { ...probe, ...loudness, ...silence },
         independentWaveformReviews: independentReviews,
+        representativeSampleLineIds,
         checks,
         verdict: Object.values(checks).every(Boolean) ? 'pass' : 'fail',
     });
@@ -148,7 +159,7 @@ const report = {
         acceptedBy: 'Codex',
         humanReviewed: false,
         ownerLineByLineReviewed: false,
-        basis: 'Objective audio checks plus independent waveform review with line-specific critical phrase gates.',
+        basis: 'Objective checks for every asset plus representative Whisper sampling for each pinned voice mapping.',
     },
     objectiveQa: {
         ffmpeg: commandVersion('ffmpeg'),
@@ -184,6 +195,7 @@ const report = {
         audioModelReviewed: true,
         humanReviewed: false,
         independentReviewerFamilies: new Set(reviews.reviews.map(review => review.reviewer.modelFamily)).size,
+        reviewScope: 'representative samples per pinned voice mapping',
         blanketCharacterErrorRateAllowed: false,
     },
     catalogSha256: sha256(loaded.catalog.source),

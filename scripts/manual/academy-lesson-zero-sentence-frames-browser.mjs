@@ -55,7 +55,7 @@ async function preparePage(page) {
         const activity = content.lesson.activities.find(candidate =>
             candidate.id === 'activity:lesson-zero-build-sentence-frames');
         if (!activity) throw new Error('Authored sentence-frame activity is missing.');
-        const definition = createLessonZeroSentenceFrameDefinition(activity, 'Henry');
+        const definition = createLessonZeroSentenceFrameDefinition(activity);
         const proof = {
             definition,
             state: startLessonZeroSentenceFrameSession(definition),
@@ -121,14 +121,14 @@ async function playCompleteSession(page, testCase) {
     const definition = await page.evaluate(() => window.__sentenceFrameProof.definition);
     const first = definition.frames[0];
     for (const tokenId of first.target.bankOrder) await chooseToken(page, tokenId);
-    await click(page, 'Let Rie read it');
+    await click(page, 'Check the sentence');
     await waitForState(page, 'active', 'result');
     assert.equal(await screen.locator('.academy-sentence-frame-paper[data-outcome="lapse"]').count(), 1,
         `${testCase.name} first committed attempt must be a lapse`);
     assert.equal(await screen.locator('[data-repair-model]').count(), 0,
         `${testCase.name} model answer must remain hidden before earned support`);
 
-    await click(page, 'Show Rie’s sentence');
+    await click(page, 'Show the answer');
     assert.equal(await screen.locator('[data-repair-model="identity"]').count(), 1,
         `${testCase.name} lapse must unlock the model sentence`);
     assert.equal(await page.evaluate(() => window.__sentenceFrameProof.supportEvents.length), 3,
@@ -147,7 +147,7 @@ async function playCompleteSession(page, testCase) {
         `${testCase.name} paused sentence must resume with its selected word`);
 
     for (const tokenId of first.target.correctOrder.slice(1)) await chooseToken(page, tokenId);
-    await click(page, 'Let Rie read it');
+    await click(page, 'Check the sentence');
     await waitForState(page, 'active', 'result');
     assert.equal(await screen.locator('.academy-sentence-frame-paper[data-outcome="pass"]').count(), 1);
     await click(page, 'Hear Rie-sensei');
@@ -159,7 +159,7 @@ async function playCompleteSession(page, testCase) {
         await click(page, 'Try this turn');
         await waitForState(page, 'active', 'build');
         for (const tokenId of frame.target.correctOrder) await chooseToken(page, tokenId);
-        await click(page, 'Let Rie read it');
+        await click(page, 'Check the sentence');
         if (frame.id !== 'parallel') {
             await waitForState(page, 'active', 'result');
             await click(page, 'Use the next shape');
@@ -180,7 +180,7 @@ async function playCompleteSession(page, testCase) {
     assert.equal(proof.evaluations.flatMap(evaluation => evaluation.reviewSeeds).length, 5,
         `${testCase.name} must seed one review item for each repaired/passed shape`);
     assert.deepEqual(proof.supportEvents.map(event => event.supportKind), ['transcript', 'translation', 'model-answer']);
-    assert.match(proof.audio[0]?.term ?? '', /届きました/u);
+    assert.equal(proof.audio[0]?.term, definition.frames[0].response.japanese);
     assert.equal(await screen.locator('.academy-sentence-frame-finished-line').count(), 5);
 
     await assertResponsiveGeometry(page, testCase);
