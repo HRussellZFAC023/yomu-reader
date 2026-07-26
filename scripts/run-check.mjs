@@ -19,17 +19,24 @@
 //
 // YOMU_CHECK_RELEASE=1 (set by check:release) forces byte-level hashing and full
 // academy re-sync in every stage that supports caching.
-import { spawn } from 'node:child_process';
+import { spawn, execFileSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { vitestOutputIndicatesFailure } from './lib/check-log-guard.mjs';
+import { GENERATED_ARTIFACT_PATHS } from './lib/generated-artifacts.mjs';
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const LOG_DIR = join(ROOT, 'artifacts', 'check-logs');
 mkdirSync(LOG_DIR, { recursive: true });
 const startedAt = Date.now();
 const timings = [];
+
+// Whether the tree matched HEAD when the gate started, captured before any
+// stage can rebuild anything. This is what makes the artifact-drift guard at
+// the end meaningful: on a clean tree the build lane regenerating a tracked
+// file can only mean the committed copy was stale.
+const startedClean = workingTreeIsClean();
 
 function stage(name, command, options = {}) {
     return { name, command, ...options };
@@ -87,8 +94,12 @@ async function lane(...stages) {
     for (const s of stages) await runStage(s);
 }
 
+// Both of these read the repository as it is, so they run before the build lane
+// can regenerate anything. check:artifacts reads committed bytes out of git and
+// so is immune to stage order; running it first just fails fast.
 try {
     await runStage(stage('repository-hygiene', 'npm run -s check:repository'));
+    await runStage(stage('committed-artifacts', 'npm run -s check:artifacts'));
 } catch {
     printSummary(false);
     process.exit(1);
@@ -132,7 +143,57 @@ try {
     printSummary(false);
     process.exit(1);
 }
+
+if (!reportArtifactDrift()) {
+    printSummary(false);
+    process.exit(1);
+}
 printSummary(true);
+
+// The gate rebuilds and re-syncs the artifacts it then verifies, so `verify`
+// only ever compares freshly written bytes with freshly written bytes. What it
+// cannot see -- and what this reports -- is the gate quietly rewriting tracked
+// build output on its way through, which means the committed copy was stale.
+//
+// On a clean tree that is a hard failure: nothing but a stale artifact can
+// explain it. On a dirty tree it is expected (you changed something the build
+// output depends on), so it prints the exact paths to stage instead. Directory
+// paths matter there: a new content-addressed companion is a NEW file, and
+// `git add -u` would ship a userscript pinning a URL that 404s.
+function reportArtifactDrift() {
+    const drifted = dirtyArtifactPaths();
+    if (drifted.length === 0) return true;
+    const list = drifted.map(path => `  ${path}`).join('\n');
+    if (!startedClean) {
+        console.log(`\n[check] this run regenerated tracked build output:\n${list}`);
+        console.log(`[check] stage it with your change: git add -f -- ${GENERATED_ARTIFACT_PATHS.join(' ')}`);
+        return true;
+    }
+    console.error(`\n[check] FAIL artifact-drift — the tree was clean, but this run rewrote tracked build output:\n${list}`);
+    console.error('[check] HEAD ships stale artifacts. Commit the regenerated files above.');
+    return false;
+}
+
+function dirtyArtifactPaths() {
+    try {
+        return execFileSync('git', ['status', '--porcelain', '--', ...GENERATED_ARTIFACT_PATHS], { cwd: ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
+            .split('\n')
+            .filter(Boolean)
+            .map(line => line.slice(3).trim());
+    } catch {
+        return [];
+    }
+}
+
+function workingTreeIsClean() {
+    try {
+        return execFileSync('git', ['status', '--porcelain'], { cwd: ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }).trim() === '';
+    } catch {
+        // No git (or no repository) means there is no committed baseline to
+        // compare against; the drift guard stays quiet rather than guessing.
+        return false;
+    }
+}
 
 function printSummary(passed) {
     const total = (Date.now() - startedAt) / 1000;

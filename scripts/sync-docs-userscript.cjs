@@ -121,8 +121,28 @@ function syncNewTabCompatibilityAlias() {
 }
 
 function writeStudyVersion(appHash, buildId) {
-  const version = `${JSON.stringify({ appHash, buildId, generatedAt: new Date().toISOString() }, null, 2)}\n`;
+  const version = `${JSON.stringify({ appHash, buildId, generatedAt: studyGeneratedAt(appHash, buildId) }, null, 2)}\n`;
   writeFileSync(join(STUDY_BUILD_DIRECTORY, 'version.json'), version);
+}
+
+// Re-syncing an unchanged build must produce unchanged bytes. A wall-clock
+// timestamp made this the one file every gate run rewrote, so the tree was
+// always dirty afterwards and real artifact drift had nowhere to show up.
+// The stamp now moves only when the build it describes moves. Read before
+// syncCanonicalStudyRoute() clears the hosted directory.
+function studyGeneratedAt(appHash, buildId) {
+  const hostedVersion = join(STUDY_HOST_DIRECTORY, 'version.json');
+  if (existsSync(hostedVersion)) {
+    try {
+      const previous = JSON.parse(readFileSync(hostedVersion, 'utf8'));
+      if (previous.appHash === appHash && previous.buildId === buildId && typeof previous.generatedAt === 'string') {
+        return previous.generatedAt;
+      }
+    } catch {
+      // An unreadable hosted copy just means this build gets a fresh stamp.
+    }
+  }
+  return new Date().toISOString();
 }
 
 function writeStudyServiceWorker(appHash) {
