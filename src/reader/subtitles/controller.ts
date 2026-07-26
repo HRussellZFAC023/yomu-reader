@@ -254,8 +254,15 @@ const ASBPLAYER_SUBTITLE_DRAG_CLASSES = [
 const YOUTUBE_MOBILE_BOTTOM_SHEET_OPEN_CLASS = 'jpdb-subtitle-yt-sheet-open';
 const NATIVE_FULLSCREEN_CUE_TRACK_LABEL = 'Yomu';
 const SUBTITLE_NATIVE_CONTROL_SAFE_ZONE_ATTRIBUTE = 'data-jpdb-subtitle-native-control-safe-zone';
+// Everything inside the click-through overlay that opts back into pointer
+// events, and so has to stand down over a native player control.
+const SUBTITLE_HIT_TESTED_OVERLAY_SELECTOR = `.jpdb-subtitle-primary .jpdb-reader-word,.${SUBTITLE_SECONDARY_CLASS},.${SUBTITLE_SECONDARY_CLASS} .jpdb-reader-word`;
 const NATIVE_PLAYER_CONTROL_SELECTOR = 'button,[role="button"],a[href],[tabindex]:not([tabindex="-1"])';
 const NATIVE_SUBTITLE_BLUR_CONTROL_SELECTOR = `[data-action="${TOGGLE_NATIVE_BLUR_ACTION}"]`;
+// A drawer control under a finger must survive until its tap is delivered, but
+// a stuck press must not freeze the drawer: past this the finger is resting,
+// not tapping.
+const PANEL_PRESS_RENDER_HOLD_MAX_MS = 700;
 
 interface SubtitlePlayerOptions {
     getSettings: () => ReaderSettings;
@@ -1112,6 +1119,12 @@ export class SubtitlePlayerController {
     private nativeFullscreenCueVideo?: HTMLVideoElement;
     private nativeFullscreenHostTracksRestored = false;
     private transcriptResizeActive = false;
+    // A drawer render replaces the whole panel, so it rebuilds every control in
+    // it. While a finger is on one of those controls the render waits here and
+    // is replayed once the tap has been delivered.
+    private panelPressHeld = false;
+    private panelPressHoldTimer?: number;
+    private heldPanelRender?: () => void;
     private asbMoveHandlesActive = false;
     private readonly asbSubtitleDragHandles = new WeakSet<HTMLElement>();
     private readonly asbSubtitleBaseTransforms = new WeakMap<HTMLElement, string>();
@@ -1340,6 +1353,7 @@ export class SubtitlePlayerController {
         this.transcriptVirtualRenderFrame = clearWindowAnimationFrame(this.transcriptVirtualRenderFrame);
         this.tracksVirtualRenderFrame = clearWindowAnimationFrame(this.tracksVirtualRenderFrame);
         this.clearDeferredTranscriptPanelRender();
+        this.resetPanelPressHold();
         this.transcriptInsetRealignFrame = clearWindowAnimationFrame(this.transcriptInsetRealignFrame);
         this.transcriptViewportStabilizeTimer = clearWindowTimeout(this.transcriptViewportStabilizeTimer);
         this.transcriptResizeBackgroundResumeTimer = clearWindowTimeout(this.transcriptResizeBackgroundResumeTimer);
@@ -1486,6 +1500,11 @@ export class SubtitlePlayerController {
         this.transcriptPanel = root.querySelector('.jpdb-subtitle-list') as HTMLElement;
         this.transcriptPanel.dataset.jpdbReaderRoot = 'true';
         this.transcriptPanel.addEventListener('click', event => this.transcriptPanelSurface.handlePanelClick(event), this.eventOptions());
+        // Bound after the click handler above so a held render replays with the
+        // tap's own effect already applied, and never before the tap lands.
+        this.transcriptPanel.addEventListener('pointerdown', event => this.beginPanelPress(event), this.eventOptions({ passive: true }));
+        this.transcriptPanel.addEventListener('pointercancel', () => this.endPanelPress(), this.eventOptions({ passive: true }));
+        this.transcriptPanel.addEventListener('click', () => this.endPanelPress(), this.eventOptions());
         this.transcriptPanel.addEventListener('keydown', event => this.transcriptPanelSurface.handlePanelKeydown(event), this.eventOptions());
         for (const eventName of TRANSCRIPT_PANEL_OWNED_POINTER_EVENTS) {
             this.transcriptPanel.addEventListener(eventName, event => this.transcriptPanelSurface.stopPanelPropagation(event), this.eventOptions());
@@ -4418,22 +4437,23 @@ export class SubtitlePlayerController {
     }
 
     // Native player controls must win when a moved/long subtitle crosses them.
-    // The overlay frame is already click-through, but individual lookup words
-    // opt back into pointer events. Mark only words whose painted box overlaps
-    // a small, visible native control; CSS then returns that word's hit testing
-    // to the player while every other subtitle word remains lookupable.
+    // The overlay frame is already click-through, but everything in it that a
+    // finger can act on opts back into pointer events: lookup words, and the
+    // native caption line, which is a toggle with a finger-sized box on touch.
+    // Sweep all of them — a control left out of this sweep is an invisible strip
+    // of the overlay stealing taps meant for the seek bar. Mark only boxes that
+    // overlap a small, visible native control; CSS then returns just those to
+    // the player while the rest of the subtitle stays interactive.
     private syncNativePlayerControlHitProtection(): void {
-        const words = Array.from(this.root?.querySelectorAll<HTMLElement>(
-            '.jpdb-subtitle-primary .jpdb-reader-word,.jpdb-subtitle-secondary .jpdb-reader-word',
-        ) ?? []);
-        words.forEach(word => word.removeAttribute(SUBTITLE_NATIVE_CONTROL_SAFE_ZONE_ATTRIBUTE));
+        const targets = Array.from(this.root?.querySelectorAll<HTMLElement>(SUBTITLE_HIT_TESTED_OVERLAY_SELECTOR) ?? []);
+        targets.forEach(target => target.removeAttribute(SUBTITLE_NATIVE_CONTROL_SAFE_ZONE_ATTRIBUTE));
         const safeZones = this.nativePlayerControlSafeZones();
         if (!safeZones.length) return;
-        for (const word of words) {
-            const rect = word.getBoundingClientRect();
+        for (const target of targets) {
+            const rect = target.getBoundingClientRect();
             if (rect.width <= 0 || rect.height <= 0) continue;
             if (safeZones.some(zone => rectsOverlap(rect, zone))) {
-                word.setAttribute(SUBTITLE_NATIVE_CONTROL_SAFE_ZONE_ATTRIBUTE, 'true');
+                target.setAttribute(SUBTITLE_NATIVE_CONTROL_SAFE_ZONE_ATTRIBUTE, 'true');
             }
         }
     }
@@ -6005,9 +6025,53 @@ export class SubtitlePlayerController {
         this.syncControls();
     }
 
+    // Every drawer render re-emits the panel as markup, so a cue advance
+    // destroys and recreates each control in it — including whichever one a
+    // finger is currently on. Measured in Chromium: when the pressed node is
+    // removed before release, a mouse click is dropped outright, and a touch
+    // click is re-hit-tested at release, landing on whatever control the
+    // rebuild moved into that spot (tap "hide the translation", get a seek).
+    // Node identity is not enough to save it: re-attaching the very same
+    // element in the same task still loses the mouse click. So the render waits
+    // for the finger instead.
+    //
+    // The release is the click, not pointerup: a touch click is dispatched
+    // after pointerup — and after a task boundary — so flushing any earlier
+    // still eats the tap. pointercancel (a scroll taking the pointer) and a
+    // safety cap cover taps that never become a click.
+    private holdPanelRenderDuringPress(render: () => void): boolean {
+        if (!this.panelPressHeld) return false;
+        this.heldPanelRender = render;
+        return true;
+    }
+
+    private beginPanelPress(event: Event): void {
+        const target = event.target as HTMLElement | null;
+        if (!target?.closest?.('button,[data-action]')) return;
+        this.panelPressHeld = true;
+        this.panelPressHoldTimer = clearWindowTimeout(this.panelPressHoldTimer);
+        this.panelPressHoldTimer = window.setTimeout(() => this.endPanelPress(), PANEL_PRESS_RENDER_HOLD_MAX_MS);
+    }
+
+    private endPanelPress(): void {
+        this.panelPressHoldTimer = clearWindowTimeout(this.panelPressHoldTimer);
+        if (!this.panelPressHeld) return;
+        this.panelPressHeld = false;
+        const held = this.heldPanelRender;
+        this.heldPanelRender = undefined;
+        if (held && !this.destroyed) held();
+    }
+
+    private resetPanelPressHold(): void {
+        this.panelPressHoldTimer = clearWindowTimeout(this.panelPressHoldTimer);
+        this.panelPressHeld = false;
+        this.heldPanelRender = undefined;
+    }
+
     private renderTranscriptPanel(force = false): void {
         const panel = this.renderableTranscriptPanel();
         if (!panel) return;
+        if (this.holdPanelRenderDuringPress(() => this.renderTranscriptPanel(force))) return;
         this.clearDeferredTranscriptPanelRender();
         this.transcriptPreviewPlayerResizeDeferred = false;
         const state = this.transcriptPanelRenderState();
@@ -6042,6 +6106,7 @@ export class SubtitlePlayerController {
     private renderShadowPanel(force = false): void {
         const panel = this.renderableShadowPanel();
         if (!panel) return;
+        if (this.holdPanelRenderDuringPress(() => this.renderShadowPanel(force))) return;
         const state = this.shadowPanelRenderState();
         if (!force && state.signature === this.lastShadowSignature) return;
         this.lastShadowSignature = state.signature;
@@ -6228,6 +6293,7 @@ export class SubtitlePlayerController {
 
     private renderBatchMiningPanel(): void {
         if (!this.transcriptPanel || this.transcriptPanel.hidden || this.transcriptPanelClosing || this.panelMode !== 'mine') return;
+        if (this.holdPanelRenderDuringPress(() => this.renderBatchMiningPanel())) return;
         this.clearDeferredTranscriptPanelRender();
         this.transcriptTextTargetsByParseKey.clear();
         setInnerHtml(this.transcriptPanel, renderSubtitleBatchMiningPanel(this.batchMiningPanelRenderState()));
@@ -7454,6 +7520,7 @@ export class SubtitlePlayerController {
 
     private renderTrackPanel(): void {
         if (!this.transcriptPanel || this.transcriptPanel.hidden || this.transcriptPanelClosing || this.panelMode !== 'tracks') return;
+        if (this.holdPanelRenderDuringPress(() => this.renderTrackPanel())) return;
         this.transcriptTextTargetsByParseKey.clear();
         const state = subtitleTrackPanelState(this.tracks);
         const settings = this.options.getSettings();

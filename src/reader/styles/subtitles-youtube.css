@@ -69,10 +69,12 @@
 .jpdb-subtitle-secondary .jpdb-reader-word {
   pointer-events: auto;
 }
-/* Parsed words normally opt back into hit testing for dictionary lookup. If a
-   moved subtitle crosses a native player action, however, that small overlap
-   must remain click-through so Share/fullscreen/settings still work. */
-.jpdb-subtitle-player .jpdb-reader-word[data-jpdb-subtitle-native-control-safe-zone="true"] {
+/* Subtitle content normally opts back into hit testing — parsed words for
+   dictionary lookup, the native line because it is a toggle. If a moved or long
+   subtitle crosses a native player action, however, that overlap must remain
+   click-through so Share/fullscreen/settings still work. Marked by the sweep in
+   the controller, which measures every element that opts in, not just words. */
+.jpdb-subtitle-player [data-jpdb-subtitle-native-control-safe-zone="true"] {
   pointer-events: none !important;
 }
 .jpdb-subtitle-drag-handle {
@@ -248,19 +250,23 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
   text-shadow: 0 2px 2px var(--jpdb-reader-black), 0 0 7px var(--jpdb-reader-video-shadow-heavy);
   opacity: 1;
 }
-/* A caption line is ~24px tall — under half a fingertip. Grow the tappable box
-   with an invisible halo instead of padding so the caption layout and the
-   font-fit loop stay exactly where they are. The top edge stays inside the 8px
-   margin so the halo can never cover the annotated line above and swallow a
-   word lookup; the slack goes downward into empty subtitle space. */
+/* A caption line is ~24px tall — under half a fingertip. On touch, grow the
+   control's OWN box: padding takes it to 42px and the matching negative margin
+   hands the space straight back, so the line, its wrapping and the font-fit
+   loop stay exactly where they are (min-height carries the padding, and the
+   24px content box is unmoved). The growth is 4px up — inside the existing 8px
+   gap, so it can never cover the annotated line and swallow a word lookup —
+   and 14px down into empty subtitle space. Deliberately the element's own box
+   rather than a pseudo-element halo: the native-player safe-zone sweep measures
+   getBoundingClientRect, which a halo is invisible to, and that sweep is what
+   makes the overlay stand down over the seek bar. */
 @media (pointer: coarse) {
   .jpdb-subtitle-secondary {
-    position: relative;
-  }
-  .jpdb-subtitle-secondary::after {
-    content: "";
-    position: absolute;
-    inset: -4px -12px -14px;
+    min-height: 42px;
+    margin-top: 4px;
+    margin-bottom: -14px;
+    padding-top: 4px;
+    padding-bottom: 14px;
   }
 }
 .jpdb-subtitle-karaoke-word {

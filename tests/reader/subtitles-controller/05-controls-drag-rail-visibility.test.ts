@@ -343,10 +343,20 @@ describe('SubtitlePlayerController — idle controls, overlay drag & rail visibi
         expect(SUBTITLES_YOUTUBE_CSS).toMatch(/\.jpdb-subtitle-secondary-blurred:focus-visible \{/);
         // No double-tap-zoom hold-back on a control that is only ever a toggle.
         expect(SUBTITLES_YOUTUBE_CSS).toMatch(/\.jpdb-subtitle-secondary \{[^}]*touch-action: manipulation/);
-        // A ~24px line gets a finger-sized halo on touch without moving layout.
-        expect(SUBTITLES_YOUTUBE_CSS).toMatch(
-            /@media \(pointer: coarse\)[\s\S]*?\.jpdb-subtitle-secondary::after \{[^}]*inset:/,
+        // On touch the ~24px line gets a 42px box of its own, with the padding
+        // handed straight back as negative margin so nothing moves. It has to be
+        // the element's own box, not a pseudo-element halo: the safe-zone sweep
+        // measures getBoundingClientRect, which a halo is invisible to.
+        const coarse = SUBTITLES_YOUTUBE_CSS.match(
+            /@media \(pointer: coarse\) \{\s*\.jpdb-subtitle-secondary \{([^}]*)\}/,
         );
+        expect(coarse?.[1]).toBeDefined();
+        expect(coarse![1]).toMatch(/min-height: 42px/);
+        expect(coarse![1]).toMatch(/padding-top: 4px/);
+        expect(coarse![1]).toMatch(/padding-bottom: 14px/);
+        expect(coarse![1]).toMatch(/margin-top: 4px/);
+        expect(coarse![1]).toMatch(/margin-bottom: -14px/);
+        expect(SUBTITLES_YOUTUBE_CSS).not.toMatch(/\.jpdb-subtitle-secondary::after/);
     });
 
     it('marks the rail away while the player chrome is hidden so it disappears entirely', async () => {
@@ -429,7 +439,7 @@ describe('SubtitlePlayerController — idle controls, overlay drag & rail visibi
         }
     });
 
-    it('returns subtitle word hit testing to overlapping YouTube native controls only', () => {
+    it('returns subtitle hit testing to overlapping YouTube native controls only', () => {
         const originalLocation = window.location;
         Object.defineProperty(window, 'location', {
             configurable: true,
@@ -467,6 +477,14 @@ describe('SubtitlePlayerController — idle controls, overlay drag & rail visibi
                 <span id="fullscreen-word" class="jpdb-reader-word">全画面</span>
                 <span id="clear-word" class="jpdb-reader-word">字幕</span>
             `;
+            // The native caption line is a control too, and on touch its box is
+            // grown to finger size — an invisible strip of overlay that has to
+            // stand down over the player's own controls exactly like a word.
+            const nativeLine = document.createElement('button');
+            nativeLine.className = 'jpdb-subtitle-secondary';
+            nativeLine.dataset.action = 'toggle-native-blur';
+            document.querySelector('.jpdb-subtitle-lines')!.appendChild(nativeLine);
+
             const share = document.querySelector<HTMLElement>('#shorts-share')!;
             const fullscreen = document.querySelector<HTMLElement>('#shorts-fullscreen')!;
             const shareWord = document.querySelector<HTMLElement>('#share-word')!;
@@ -477,6 +495,8 @@ describe('SubtitlePlayerController — idle controls, overlay drag & rail visibi
             mockElementRect(shareWord, new DOMRect(320, 605, 72, 58));
             mockElementRect(fullscreenWord, new DOMRect(320, 675, 72, 58));
             mockElementRect(clearWord, new DOMRect(140, 605, 72, 58));
+            // Its grown box reaches down onto the fullscreen button.
+            mockElementRect(nativeLine, new DOMRect(120, 660, 240, 42));
 
             const internals = controllerInternals<{ syncNativePlayerControlHitProtection: () => void }>(controller);
             internals.syncNativePlayerControlHitProtection();
@@ -484,8 +504,9 @@ describe('SubtitlePlayerController — idle controls, overlay drag & rail visibi
             expect(shareWord.dataset.jpdbSubtitleNativeControlSafeZone).toBe('true');
             expect(fullscreenWord.dataset.jpdbSubtitleNativeControlSafeZone).toBe('true');
             expect(clearWord.dataset.jpdbSubtitleNativeControlSafeZone).toBeUndefined();
+            expect(nativeLine.dataset.jpdbSubtitleNativeControlSafeZone).toBe('true');
             expect(SUBTITLES_YOUTUBE_CSS).toContain(
-                '.jpdb-subtitle-player .jpdb-reader-word[data-jpdb-subtitle-native-control-safe-zone="true"]',
+                '.jpdb-subtitle-player [data-jpdb-subtitle-native-control-safe-zone="true"]',
             );
             expect(SUBTITLES_YOUTUBE_CSS).toMatch(/native-control-safe-zone="true"[^}]+pointer-events:\s*none\s*!important/s);
 
@@ -494,6 +515,7 @@ describe('SubtitlePlayerController — idle controls, overlay drag & rail visibi
             internals.syncNativePlayerControlHitProtection();
             expect(shareWord.dataset.jpdbSubtitleNativeControlSafeZone).toBeUndefined();
             expect(fullscreenWord.dataset.jpdbSubtitleNativeControlSafeZone).toBeUndefined();
+            expect(nativeLine.dataset.jpdbSubtitleNativeControlSafeZone).toBeUndefined();
         } finally {
             controller.destroy();
             document.body.innerHTML = '';

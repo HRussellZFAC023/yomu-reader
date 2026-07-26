@@ -151,6 +151,106 @@ describe('SubtitlePlayerController — shadowing, transcript virtualization & pa
         }
     });
 
+    // Owner-reported on a phone: the line that hides the translation had to be
+    // tapped several times. The drawer re-emits every control it owns as markup
+    // and replaces the panel on each cue, so a cue advancing mid-tap rebuilds
+    // the very control under the finger. Measured in Chromium: once the pressed
+    // node is removed, a mouse click is dropped outright and a touch click is
+    // re-hit-tested at release — landing on whichever control the rebuild moved
+    // into that spot, which in this card is a seek. Re-attaching the same node
+    // does not rescue it either, so the render waits for the finger instead.
+    it('holds a drawer rebuild while a finger is on one of its controls', () => {
+        const { settings, controller } = createInstalledSubtitleController({
+            subtitleSecondaryVisible: true,
+            subtitleNativeBlurred: true,
+        });
+        const cue = { start: 3, end: 5, text: '今日は読む。', transcriptEligible: true };
+        const nextCue = { start: 5, end: 7, text: '別の行です。', transcriptEligible: true };
+        const secondaryCue = { start: 3, end: 5, text: 'I will read today.', transcriptEligible: false };
+        const nextSecondaryCue = { start: 5, end: 7, text: 'Another line.', transcriptEligible: false };
+        const internals = controllerInternals<{
+            cues: Array<typeof cue>;
+            currentCue: typeof cue;
+            secondaryCues: Array<typeof secondaryCue>;
+            renderShadowPanel: (force?: boolean) => void;
+        }>(controller);
+
+        try {
+            attachVideo(controller, { currentTime: 3.25 });
+            internals.cues = [cue, nextCue];
+            internals.currentCue = cue;
+            internals.secondaryCues = [secondaryCue, nextSecondaryCue];
+            controller.refresh();
+
+            document.querySelector<HTMLButtonElement>('.jpdb-subtitle-rail [data-action="panel"]')!.click();
+            document.querySelector<HTMLButtonElement>('.jpdb-subtitle-list [data-action="panel-shadow"]')!.click();
+
+            const panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
+            const line = panel.querySelector<HTMLButtonElement>('.jpdb-subtitle-shadow-secondary')!;
+            expect(line.classList.contains('jpdb-subtitle-secondary-blurred')).toBe(true);
+
+            // The finger lands on the control.
+            line.dispatchEvent(pointerEvent('pointerdown', { pointerType: 'touch', pointerId: 9 }));
+
+            // The video plays on under it: the cue advances and the drawer
+            // would otherwise rebuild its whole card.
+            internals.currentCue = nextCue;
+            internals.renderShadowPanel(true);
+
+            expect(line.isConnected).toBe(true);
+            expect(panel.querySelector('.jpdb-subtitle-shadow-secondary')).toBe(line);
+            expect(panel.querySelector('.jpdb-subtitle-shadow-line')?.textContent).toContain('今日は読む。');
+
+            // One tap, one toggle.
+            line.click();
+
+            expect(settings.subtitleNativeBlurred).toBe(false);
+            // ...and the drawer catches up with the cue it held back.
+            expect(panel.querySelector('.jpdb-subtitle-shadow-line')?.textContent).toContain('別の行です。');
+            expect(panel.querySelector('.jpdb-subtitle-shadow-secondary')?.textContent).toContain('Another line.');
+            expect(panel.querySelector<HTMLElement>('.jpdb-subtitle-shadow-secondary')?.classList.contains('jpdb-subtitle-secondary-clear')).toBe(true);
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    // A tap that never becomes a click — a scroll steals the pointer — must not
+    // leave the drawer frozen on a stale cue.
+    it('releases a held drawer rebuild when the press is cancelled', () => {
+        const { controller } = createInstalledSubtitleController({ subtitleSecondaryVisible: true });
+        const cue = { start: 3, end: 5, text: '今日は読む。', transcriptEligible: true };
+        const nextCue = { start: 5, end: 7, text: '別の行です。', transcriptEligible: true };
+        const internals = controllerInternals<{
+            cues: Array<typeof cue>;
+            currentCue: typeof cue;
+            renderShadowPanel: (force?: boolean) => void;
+        }>(controller);
+
+        try {
+            attachVideo(controller, { currentTime: 3.25 });
+            internals.cues = [cue, nextCue];
+            internals.currentCue = cue;
+            controller.refresh();
+
+            document.querySelector<HTMLButtonElement>('.jpdb-subtitle-rail [data-action="panel"]')!.click();
+            document.querySelector<HTMLButtonElement>('.jpdb-subtitle-list [data-action="panel-shadow"]')!.click();
+
+            const panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
+            const replay = panel.querySelector<HTMLButtonElement>('[data-action="shadow-replay"]')!;
+            replay.dispatchEvent(pointerEvent('pointerdown', { pointerType: 'touch', pointerId: 11 }));
+
+            internals.currentCue = nextCue;
+            internals.renderShadowPanel(true);
+            expect(panel.querySelector('.jpdb-subtitle-shadow-line')?.textContent).toContain('今日は読む。');
+
+            replay.dispatchEvent(pointerEvent('pointercancel', { pointerType: 'touch', pointerId: 11 }));
+
+            expect(panel.querySelector('.jpdb-subtitle-shadow-line')?.textContent).toContain('別の行です。');
+        } finally {
+            controller.destroy();
+        }
+    });
+
     it('toggles shadow auto-pause from the drawer and pauses near the cue end', () => {
         const onSettingsChange = vi.fn();
         const { settings, controller } = createInstalledSubtitleController({ subtitleShadowAutoPause: false }, { onSettingsChange });
