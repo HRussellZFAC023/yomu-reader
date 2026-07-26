@@ -94,82 +94,100 @@ textarea {
     overflow: hidden;
 }
 
-.yomu-gaming-controlbar {
+/* Home and Settings are alternatives, never a stack. */
+.yomu-gaming-home[hidden],
+.yomu-gaming-settings.jpdb-reader-settings[hidden] {
+    display: none;
+}
+
+.yomu-gaming-home {
     display: grid;
-    grid-template-columns: minmax(220px, 1fr) auto;
-    gap: 10px 16px;
-    align-items: center;
+    flex: 1 1 auto;
+    place-items: center;
     width: 100%;
-    min-height: 72px;
-    margin: 0;
-    padding: 12px 14px;
-    border: 1px solid var(--jpdb-reader-border);
-    border-width: 0 0 1px;
-    border-radius: 0;
-    background: var(--jpdb-reader-surface);
-    box-shadow: none;
+    min-height: 0;
+    padding: 32px 24px;
+    overflow: auto;
 }
 
-.yomu-gaming-app-title {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    min-width: 0;
-}
-
-.yomu-gaming-app-title img {
-    width: 42px;
-    height: 42px;
-    border-radius: 9px;
-    flex: 0 0 auto;
-}
-
-.yomu-gaming-app-title div {
+.yomu-gaming-home-card {
     display: grid;
-    gap: 2px;
-    min-width: 0;
+    justify-items: center;
+    gap: 10px;
+    width: min(560px, 100%);
+    text-align: center;
 }
 
-.yomu-gaming-app-title strong {
-    color: var(--jpdb-reader-text);
-    font-size: 18px;
-    font-weight: 900;
-    line-height: 1.15;
+.yomu-gaming-home-icon {
+    width: 72px;
+    height: 72px;
+    border-radius: 16px;
 }
 
-.yomu-gaming-app-title span,
-.yomu-gaming-shell-status {
-    overflow: hidden;
+.yomu-gaming-home-mark {
+    margin: 0;
     color: var(--jpdb-reader-muted);
     font-size: 12px;
-    line-height: 1.35;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
 }
 
-.yomu-gaming-capture-controls {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 8px;
-    min-width: 0;
+.yomu-gaming-home h1 {
+    margin: 0;
+    max-width: 18ch;
+    color: var(--jpdb-reader-text);
+    font-size: clamp(26px, 3.4vw, 36px);
+    font-weight: 900;
+    line-height: 1.1;
 }
 
-.yomu-gaming-capture-controls kbd {
-    max-width: 142px;
-    overflow: hidden;
-    padding: 7px 9px;
-    border: 1px solid var(--jpdb-reader-border);
-    border-radius: 8px;
-    background: var(--jpdb-reader-surface-2);
+.yomu-gaming-home-lede {
+    margin: 0;
+    max-width: 44ch;
     color: var(--jpdb-reader-muted);
-    font: 850 11px/1 var(--jpdb-reader-font);
-    text-overflow: ellipsis;
+    font-size: 15px;
+    line-height: 1.45;
+}
+
+.yomu-gaming-home-primary.jpdb-reader-btn {
+    min-height: 48px;
+    margin-top: 8px;
+    padding: 0 30px;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 900;
+}
+
+.yomu-gaming-home-shortcut {
+    margin: 0;
+    color: var(--jpdb-reader-muted);
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+.yomu-gaming-home-shortcut kbd {
+    padding: 3px 8px;
+    border: 1px solid var(--jpdb-reader-border);
+    border-radius: 7px;
+    background: var(--jpdb-reader-surface-2);
+    color: var(--jpdb-reader-text);
+    font: 850 12px/1.35 var(--jpdb-reader-font);
     white-space: nowrap;
+}
+
+.yomu-gaming-home-secondary {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 6px;
 }
 
 .yomu-gaming-shell-status {
-    grid-column: 1 / -1;
+    color: var(--jpdb-reader-muted);
+    font-size: 13px;
+    line-height: 1.4;
 }
 
 .yomu-gaming-shell-status[data-status-tone="success"] {
@@ -185,7 +203,7 @@ textarea {
 }
 
 .yomu-gaming-session-note {
-    grid-column: 1 / -1;
+    max-width: 46ch;
     padding: 7px 10px;
     border: 1px solid color-mix(in srgb, var(--jpdb-reader-accent) 34%, transparent);
     border-radius: 8px;
@@ -219,167 +237,38 @@ textarea {
 }
 
 .yomu-gaming-settings .jpdb-reader-settings-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
     padding-top: 16px;
+}
+
+.yomu-gaming-settings .jpdb-reader-settings-head h2 {
+    flex: 0 0 auto;
+}
+
+.yomu-gaming-settings .jpdb-reader-settings-head .yomu-gaming-shell-status {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-align: right;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.yomu-gaming-settings-back.jpdb-reader-btn {
+    flex: 0 0 auto;
 }
 
 .yomu-gaming-settings .jpdb-reader-settings-drag-handle {
     display: none;
 }
 
-.yomu-gaming-onboarding {
-    display: grid;
-    grid-template-columns: minmax(240px, 0.72fr) minmax(460px, 1.28fr);
-    gap: 8px 12px;
-    width: 100%;
-    margin: 0;
-    padding: 10px 12px;
-    overflow: visible;
-    border: 1px solid var(--jpdb-reader-border);
-    border-width: 0 0 1px;
-    border-radius: 0;
-    background: color-mix(in srgb, var(--jpdb-reader-surface-2) 72%, transparent);
-}
-
-.yomu-gaming-first-run-copy {
-    display: grid;
-    gap: 3px;
-    align-content: start;
-}
-
-.yomu-gaming-kicker {
-    margin: 0;
-    color: var(--jpdb-reader-accent);
-    font-size: 11px;
-    font-weight: 900;
-    letter-spacing: 0;
-    text-transform: uppercase;
-}
-
-.yomu-gaming-first-run-copy h1 {
-    margin: 0;
-    color: var(--jpdb-reader-text);
-    font-size: 20px;
-    line-height: 1.1;
-}
-
-.yomu-gaming-first-run-copy p:not(.yomu-gaming-kicker) {
-    margin: 0;
-    max-width: 58ch;
-    color: var(--jpdb-reader-muted);
-    font-size: 11px;
-    line-height: 1.3;
-}
-
-.yomu-gaming-first-run-controls {
-    display: grid;
-    grid-template-columns: minmax(150px, 0.46fr) minmax(360px, 1.54fr);
-    gap: 7px;
-    align-content: start;
-    align-items: start;
-}
-
-.yomu-gaming-first-run-controls label {
-    display: grid;
-    gap: 5px;
-    min-width: 0;
-}
-
-.yomu-gaming-first-run-controls label span {
-    color: var(--jpdb-reader-muted);
-    font-size: 11px;
-    font-weight: 850;
-}
-
-.yomu-gaming-first-run-controls input {
-    width: 100%;
-    min-width: 0;
-    min-height: 32px;
-    padding: 0 11px;
-    border: 1px solid var(--jpdb-reader-border);
-    border-radius: 8px;
-    background: var(--jpdb-reader-surface);
-    color: var(--jpdb-reader-text);
-    font-weight: 800;
-}
-
-.yomu-gaming-page-scan-setup {
-    display: grid;
-    grid-template-columns: minmax(170px, 0.88fr) minmax(190px, 1.12fr);
-    gap: 5px 7px;
-    min-width: 0;
-    margin: 0;
-    padding: 6px;
-    border: 1px solid color-mix(in srgb, var(--jpdb-reader-border) 78%, transparent);
-    border-radius: 8px;
-    background: color-mix(in srgb, var(--jpdb-reader-surface) 58%, transparent);
-}
-
-.yomu-gaming-page-scan-setup legend {
-    padding: 0 4px;
-    color: var(--jpdb-reader-text);
-    font-size: 12px;
-    font-weight: 850;
-}
-
-.yomu-gaming-segmented {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    min-height: 30px;
-    overflow: hidden;
-    border: 1px solid var(--jpdb-reader-border);
-    border-radius: 8px;
-    background: var(--jpdb-reader-surface);
-}
-
-.yomu-gaming-segmented label {
-    position: relative;
-    display: grid;
-    place-items: center;
-    min-width: 0;
-    cursor: pointer;
-}
-
-.yomu-gaming-segmented label + label {
-    border-left: 1px solid var(--jpdb-reader-border);
-}
-
-.yomu-gaming-segmented input {
-    position: absolute;
-    inset: 0;
-    z-index: 1;
-    width: 100%;
-    height: 100%;
-    opacity: 0;
-    cursor: pointer;
-}
-
-.yomu-gaming-segmented span {
-    display: grid;
-    place-items: center;
-    width: 100%;
-    min-height: 30px;
-    color: var(--jpdb-reader-muted);
-    font-size: 11px;
-    font-weight: 850;
-    pointer-events: none;
-}
-
-.yomu-gaming-segmented input:checked + span {
-    background: var(--jpdb-reader-accent);
-    color: var(--jpdb-reader-accent-text);
-}
-
-.yomu-gaming-segmented input:focus-visible + span {
-    box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--jpdb-reader-accent) 24%, var(--jpdb-reader-white));
-}
-
-.yomu-gaming-first-run-controls input:disabled,
 .yomu-gaming-native-shortcut input:disabled {
     color: var(--jpdb-reader-muted);
     cursor: progress;
 }
 
-.yomu-gaming-first-run-controls input:focus,
 .yomu-gaming-native-shortcut input:focus {
     border-color: var(--jpdb-reader-accent);
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--jpdb-reader-accent) 18%, transparent);
@@ -407,89 +296,8 @@ textarea {
     font-weight: 800;
 }
 
-.yomu-gaming-first-run-features {
-    display: grid;
-    grid-column: 1 / -1;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-    gap: 5px;
-}
-
-.yomu-gaming-first-run-features > div {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
-    gap: 4px;
-    align-items: baseline;
-    min-width: 0;
-    min-height: 28px;
-    padding: 4px 7px;
-    border: 1px solid color-mix(in srgb, var(--jpdb-reader-border) 72%, transparent);
-    border-radius: 8px;
-    background: color-mix(in srgb, var(--jpdb-reader-surface) 74%, transparent);
-}
-
-.yomu-gaming-first-run-features span {
-    white-space: nowrap;
-}
-
-.yomu-gaming-onboarding-summary {
-    display: grid;
-    grid-column: 1 / 2;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 6px;
-    min-width: 0;
-}
-
-.yomu-gaming-onboarding-summary > div {
-    display: grid;
-    gap: 3px;
-    min-width: 0;
-}
-
-.yomu-gaming-onboarding strong {
-    color: var(--jpdb-reader-text);
-    font-size: 12px;
-    font-weight: 850;
-}
-
-.yomu-gaming-onboarding span {
-    overflow: hidden;
-    color: var(--jpdb-reader-muted);
-    font-size: 11px;
-    line-height: 1.25;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.yomu-gaming-first-run-actions {
-    display: flex;
-    grid-column: 2 / 3;
-    flex-wrap: wrap;
-    align-items: end;
-    justify-content: flex-end;
-    gap: 6px;
-}
-
 .yomu-gaming-settings .jpdb-reader-settings-scroll {
     padding-bottom: 112px;
-}
-
-.yomu-gaming-capture-button.jpdb-reader-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.yomu-gaming-capture-button kbd {
-    max-width: 136px;
-    overflow: hidden;
-    padding: 3px 7px;
-    border: 1px solid color-mix(in srgb, currentColor 22%, transparent);
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--jpdb-reader-white) 18%, transparent);
-    color: inherit;
-    font: 800 10px/1 var(--jpdb-reader-font);
-    text-overflow: ellipsis;
-    white-space: nowrap;
 }
 
 .overlay-shell {
@@ -975,25 +783,17 @@ textarea {
         padding: 0;
     }
 
-    .yomu-gaming-controlbar {
-        grid-template-columns: 1fr;
+    .yomu-gaming-home {
+        padding: 24px 18px;
+    }
+
+    .yomu-gaming-home-secondary {
         width: 100%;
-        min-height: 0;
-        border-width: 0 0 1px;
-        border-radius: 0;
-        box-shadow: none;
     }
 
-    .yomu-gaming-capture-controls {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        justify-content: stretch;
-    }
-
-    .yomu-gaming-capture-controls kbd {
-        grid-column: 1 / -1;
-        max-width: none;
-        text-align: center;
+    .yomu-gaming-home-secondary .jpdb-reader-btn {
+        flex: 1 1 140px;
+        justify-content: center;
     }
 
     .yomu-gaming-settings.jpdb-reader-settings {
@@ -1005,45 +805,14 @@ textarea {
         border-radius: 0;
     }
 
-    .yomu-gaming-capture-button.jpdb-reader-btn {
-        justify-content: center;
+    .yomu-gaming-settings .jpdb-reader-settings-head {
+        flex-wrap: wrap;
+        gap: 6px 10px;
     }
 
-    .yomu-gaming-onboarding {
-        align-items: stretch;
-        grid-template-columns: 1fr;
-        width: 100%;
-        overflow: auto;
-        border-width: 0 0 1px;
-        border-radius: 0;
-    }
-
-    .yomu-gaming-onboarding-summary {
-        grid-column: 1 / -1;
-        grid-template-columns: 1fr;
-    }
-
-    .yomu-gaming-first-run-controls,
-    .yomu-gaming-page-scan-setup {
-        grid-template-columns: 1fr;
-    }
-
-    .yomu-gaming-first-run-actions {
-        grid-column: 1 / -1;
-        justify-content: stretch;
-    }
-
-    .yomu-gaming-first-run-actions .jpdb-reader-btn {
-        flex: 1 1 120px;
-        justify-content: center;
-    }
-
-    .yomu-gaming-first-run-features {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .yomu-gaming-onboarding span {
-        white-space: normal;
+    .yomu-gaming-settings .jpdb-reader-settings-head .yomu-gaming-shell-status {
+        flex-basis: 100%;
+        text-align: left;
     }
 
     .overlay-inline-text {

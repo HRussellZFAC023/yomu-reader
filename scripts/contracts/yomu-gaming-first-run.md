@@ -2,22 +2,30 @@
 
 Owner: native Electron app implementation.
 
-Public docs and release metadata expect the first-party Yomu Gaming app to expose this first-run flow:
+Public docs and release metadata expect the first-party Yomu Gaming app to open on a home
+screen that answers two questions on one surface: what this app is, and what to press.
 
-- Show capture shortcut setup before the user has to browse the full settings form.
-- Describe the action as Print Screen style: press the shortcut to read the whole screen, or use Select area for noisy scenes.
-- Include a quick test action that opens the capture overlay from the first-run surface.
-- Keep local OCR endpoint setup out of first-run; Yomu Gaming should start from the same image-reading default as browser Yomu. Local OCR belongs in advanced OCR settings for native overlay builds that need it.
-- Do not include page-scanning setup, modifier setup, or a feature grid in first-run. Those belong in Settings.
-- Persist the selected shortcut through the native app settings path.
-- Keep the first-run surface compact. It should feel like native setup, not a permanent dashboard.
-- Remove the first-run surface after dismissal so the app returns to a clean settings/control window.
+- One hero. The app name, one sentence saying what it does, one primary button, and the
+  capture shortcut shown exactly once.
+- Say what it does, not how. The whole display is captured, so the copy stays about
+  reading Japanese on screen — no game-only framing, and no OCR or provider mechanics.
+- One primary action (`Read my screen`). Reading part of the screen and Settings are
+  quiet secondary controls; every action appears once.
+- Settings is a place you go from home, never the landing surface, and it opens on the
+  capture shortcut — never on the reader's Media tab.
+- Settings owns shortcut editing, and the chosen shortcut persists through the native app
+  settings path.
+- Keep local OCR endpoint setup out of home; Yomu Gaming starts from the same
+  image-reading default as browser Yomu. Local OCR belongs in advanced OCR settings for
+  native overlay builds that need it.
+- Home is the app's resting surface, not a dismissible banner: every launch lands there,
+  and the overlay's Settings button lands on Settings.
 
-Suggested smoke selectors:
+Smoke selectors:
 
-- `[data-yomu-gaming-first-run]`
-- `[data-capture-shortcut-input]`
-- `[data-action="test-capture-overlay"]`
-- `[data-action="start-overlay"]`
+- `[data-gaming-home]` with a single `h1` and `[data-action="instant-capture"]`
+- `[data-action="area-capture"]`, `[data-action="open-settings"]`, `[data-action="close-settings"]`
+- `[data-native-capture-shortcut] [data-capture-shortcut-input]`
 
-The current release workflow packages the app after `npm run smoke:gaming`; once the native flow lands, the smoke should assert those selectors on a fresh app profile.
+The release workflow packages the app after `npm run smoke:gaming`, which asserts these on
+a fresh app profile.

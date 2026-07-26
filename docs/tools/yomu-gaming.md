@@ -25,8 +25,8 @@ Steam Deck note: the AppImage is the realistic free install path for Desktop Mod
 ## Setup
 
 1. Install the Yomu Gaming package for your platform.
-2. Open Yomu Gaming and finish the short first-run setup.
-3. Set the capture shortcut. Use it like Print Screen for instant full-screen reading, or choose Capture area for noisy scenes.
+2. Open Yomu Gaming. The home screen shows the capture shortcut and a **Read my screen** button.
+3. Press the shortcut like Print Screen to read the whole screen, or choose **Read part of the screen** for busy scenes. Pick your own shortcut in **Settings**.
 
 Yomu Gaming starts with the same image-reading defaults as browser Yomu. Advanced local OCR is optional in **Image text (OCR)** when you want an offline endpoint. If you do not see a Yomu Gaming file for your platform on the latest release yet, use the repository's **Release Yomu Gaming** workflow artifact or wait for the next tagged release.
 
