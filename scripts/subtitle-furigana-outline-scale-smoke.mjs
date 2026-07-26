@@ -140,7 +140,9 @@ const WORDS = [
 //     what keeps a big-gap cell honest (WebKit at 60px measures 17 rows), where
 //     "one row of daylight" alone would allow a halo twice the shipped depth.
 const MAX_REACH_SPEND = 0.6;
-const maxReachRows = gapRows => Math.min(gapRows - 1, Math.max(1, Math.ceil(gapRows * MAX_REACH_SPEND)));
+const maxReachRows = gapRows => gapRows > 0
+    ? Math.min(gapRows - 1, Math.max(1, Math.ceil(gapRows * MAX_REACH_SPEND)))
+    : null;
 
 // How much darker (0-255 luminance) the annotated kanji's columns may be than
 // the plain okurigana's columns, over the clear space against the two glyphs and
@@ -338,12 +340,16 @@ async function measure(page, word, size, context) {
     let kanjiInkTop = -1;
     let kanjiInkBottom = -1;
     let okuriInkTop = -1;
+    let okuriInkBottom = -1;
     for (let y = readingInkBottom + 1; y < height; y += 1) {
         if (rowHasInk(y, kanjiLeft, kanjiRight)) {
             if (kanjiInkTop < 0) kanjiInkTop = y;
             kanjiInkBottom = y;
         }
-        if (okuriInkTop < 0 && rowHasInk(y, okuriLeft, okuriRight)) okuriInkTop = y;
+        if (rowHasInk(y, okuriLeft, okuriRight)) {
+            if (okuriInkTop < 0) okuriInkTop = y;
+            okuriInkBottom = y;
+        }
     }
     if (kanjiInkTop < 0 || okuriInkTop < 0) {
         fail(context, `could not locate the reading, the kanji and the okurigana as three separate runs of ink; the fixture stopped rendering ${word.label} as an annotated word`, { readingInkBottom, kanjiInkTop, okuriInkTop });
@@ -355,7 +361,7 @@ async function measure(page, word, size, context) {
     // the outline and only the outline.
     const bandTop = readingInkBottom + 1;
     const bandBottom = Math.min(kanjiInkTop, okuriInkTop) - 1;
-    if (bandBottom - bandTop < 1) fail(context, 'the reading and the base glyphs have no clear space between them at all, so the wash comparison has nowhere to sample', { bandTop, bandBottom });
+    const gapRows = Math.max(0, bandBottom - bandTop + 1);
     const columnMean = (pixels, from, to, firstRow, lastRow) => {
         let sum = 0;
         let count = 0;
@@ -376,9 +382,35 @@ async function measure(page, word, size, context) {
     // band a third of the way into the glyphs moved the pre-fix wash from
     // 4.37/5.52 to 1.21/1.35 at chromium 20/28px, a 76% dilution of the very
     // signal being asserted. A cap applied to a diluted mean is a weaker cap.
-    const lowerTop = bandTop + Math.floor((bandBottom - bandTop + 1) / 2);
-    const glyphBottom = Math.max(lowerTop, kanjiInkTop - 1);
-    const wash = (from, to) => columnMean(control.pixels, from, to, lowerTop, glyphBottom) - columnMean(painted.pixels, from, to, lowerTop, glyphBottom);
+    // Linux's default Japanese font can rasterise the reading's last ink row
+    // immediately above the base glyphs' first ink row. There is then no blank
+    // strip to sample, but the layout-identical subtraction still lets us
+    // measure the reported bug directly over the top of both glyphs: their own
+    // ink cancels, leaving only any extra darkness cast by the reading outline.
+    const hasClearBand = gapRows > 0;
+    const glyphSampleTop = Math.max(kanjiInkTop, okuriInkTop);
+    const glyphSampleBottom = Math.min(
+        kanjiInkBottom,
+        okuriInkBottom,
+        glyphSampleTop + Math.max(1, Math.round(painted.geometry.fontSize * 0.12)) - 1,
+    );
+    if (!hasClearBand && glyphSampleBottom < glyphSampleTop) {
+        fail(context, 'the reading has no clear row and the base glyphs have no common top band, so the outline wash cannot be compared', {
+            bandTop,
+            bandBottom,
+            kanjiInkTop,
+            kanjiInkBottom,
+            okuriInkTop,
+            okuriInkBottom,
+        });
+    }
+    const lowerTop = hasClearBand
+        ? bandTop + Math.floor(gapRows / 2)
+        : glyphSampleTop;
+    const washBottom = hasClearBand
+        ? Math.max(lowerTop, kanjiInkTop - 1)
+        : glyphSampleBottom;
+    const wash = (from, to) => columnMean(control.pixels, from, to, lowerTop, washBottom) - columnMean(painted.pixels, from, to, lowerTop, washBottom);
     const kanjiWash = wash(kanjiLeft, kanjiRight);
     const okuriWash = wash(okuriLeft, okuriRight);
 
@@ -396,8 +428,6 @@ async function measure(page, word, size, context) {
         }
         if ((clean - painting) / (kanjiRight - kanjiLeft) > 0.5) reachRows = y - readingInkBottom;
     }
-    const gapRows = bandBottom - bandTop + 1;
-
     const result = {
         word: word.label,
         size,
@@ -409,6 +439,7 @@ async function measure(page, word, size, context) {
         kanjiWash,
         okuriWash,
         washDifferential: kanjiWash - okuriWash,
+        washSample: hasClearBand ? 'clear-gap' : 'glyph-top',
         legibility: null,
     };
     if (!word.legibility) return result;
@@ -480,7 +511,9 @@ async function verifyEngine(name, browserType) {
         const legible = entry.legibility
             ? `, legibility up ${entry.legibility.up.toFixed(2)} down ${entry.legibility.down.toFixed(2)} left ${entry.legibility.left.toFixed(2)} right ${entry.legibility.right.toFixed(2)}`
             : '';
-        console.log(`${name} ${entry.word} ${String(entry.size).padStart(2)}px: reach ${entry.reachRows}/${entry.gapRows} rows (${entry.reachEm.toFixed(3)}em of ${entry.gapEm.toFixed(3)}em, cap ${maxReachRows(entry.gapRows)} rows), kanji-vs-okurigana wash ${entry.washDifferential.toFixed(2)}${legible}`);
+        const cap = maxReachRows(entry.gapRows);
+        const reachGate = cap === null ? 'direct glyph-top wash gate' : `cap ${cap} rows`;
+        console.log(`${name} ${entry.word} ${String(entry.size).padStart(2)}px: reach ${entry.reachRows}/${entry.gapRows} rows (${entry.reachEm.toFixed(3)}em of ${entry.gapEm.toFixed(3)}em, ${reachGate}), kanji-vs-okurigana wash ${entry.washDifferential.toFixed(2)} (${entry.washSample})${legible}`);
     }
 
     // Asserted in three passes over the whole table rather than cell by cell, so
@@ -492,7 +525,7 @@ async function verifyEngine(name, browserType) {
     const context = entry => `${name} ${entry.size}px cue on ${entry.word}`;
     for (const entry of readings) {
         const cap = maxReachRows(entry.gapRows);
-        if (entry.reachRows > cap) {
+        if (cap !== null && entry.reachRows > cap) {
             fail(context(entry), `the reading's outline reaches ${entry.reachRows} device pixel rows (${entry.reachEm.toFixed(3)}em) down toward the kanji, past the ${cap} rows it may spend of the ${entry.gapRows} rows (${entry.gapEm.toFixed(3)}em) of clear space this word has here — the outline is wider than the room it has, so it paints on the kanji`, { ...entry, cap, spendOfGap: entry.reachRows / entry.gapRows });
         }
     }
