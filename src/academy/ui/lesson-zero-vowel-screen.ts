@@ -87,6 +87,7 @@ const COPY = {
         ja: 'シンユ：最初からやり直しません。迷った音だけ戻してから、五つをもう一度つなげます。',
     },
     repairReady: { en: 'Try the five again', ja: '五つをもう一度試す' },
+    contrastTitle: { en: 'Compare the neighbours', ja: '近い音を比べる' },
     lessonCompleteTitle: { en: 'You can hear the room now', ja: '教室の音が聞こえました' },
     lessonCompleteDialogue: {
         en: "Xingyu: That’s the first map. あ・い・う・え・お will keep turning up, but now each one has somewhere to land.",
@@ -117,6 +118,14 @@ export function createLessonZeroVowelScreen(options: LessonZeroVowelScreenOption
     const screen = element('section', 'academy-screen academy-vowel-screen');
     screen.dataset.academyScreen = 'lesson-zero-vowel-lab';
     screen.dataset.activityId = options.model.id;
+    const augmentation = options.bingoModel.payload.source.augmentation;
+    if (augmentation) {
+        screen.dataset.curriculumAugmentation = augmentation.provider;
+        screen.dataset.curriculumCourseId = augmentation.courseId;
+        screen.dataset.curriculumTopicId = augmentation.topicId;
+        screen.dataset.curriculumActivityId = augmentation.activityId;
+        screen.dataset.curriculumRenderOwner = augmentation.renderOwner;
+    }
     screen.append(academyBackgroundPicture('languageLab'));
 
     const shell = element('div', 'academy-vowel-shell');
@@ -289,6 +298,19 @@ export function createLessonZeroVowelScreen(options: LessonZeroVowelScreenOption
                 await apply({ kind: 'complete-repair-item', itemId: item.id });
             }));
             paper.append(repair);
+            const contrast = state.variant === 'bingo'
+                ? options.bingoModel.payload.contrastRepairs?.find(candidate =>
+                    candidate.itemIds.includes(item.id))
+                : undefined;
+            if (contrast) {
+                const note = element('aside', 'academy-vowel-contrast-repair');
+                note.dataset.curriculumQuestionId = contrast.sourceQuestionId;
+                note.append(
+                    localized('h2', 'academy-vowel-contrast-title', COPY.contrastTitle, options.language),
+                    localized('p', 'academy-vowel-contrast-copy', contrast.cue, options.language),
+                );
+                paper.append(note);
+            }
         } else {
             paper.append(action(COPY.repairReady, 'primary', signal, async () => { await apply({ kind: 'begin-retry' }); }));
         }

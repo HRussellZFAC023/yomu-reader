@@ -1,4 +1,5 @@
 import type { ActivityModel, FeedbackBlock } from '../../domain/activity-runtime';
+import type { CurriculumAugmentation } from '../../domain/curriculum-augmentation';
 import type { LocalizedText } from '../../domain/source-library';
 
 export const KANA_SOUND_MAP_KIND = 'kana-sound-map' as const;
@@ -29,10 +30,17 @@ export interface KanaSoundMapSource {
     readonly sourceSha256: string;
     readonly locus: string;
     readonly answerGate: 'after-attempt';
+    readonly augmentation?: CurriculumAugmentation;
     readonly storyHook: Readonly<{
         sceneId: string;
         activityId: string;
     }>;
+}
+
+export interface KanaSoundMapContrastRepair {
+    readonly itemIds: readonly string[];
+    readonly sourceQuestionId: string;
+    readonly cue: LocalizedText;
 }
 
 export interface KanaSoundMapModel extends ActivityModel {
@@ -41,6 +49,7 @@ export interface KanaSoundMapModel extends ActivityModel {
     readonly payload: Readonly<{
         items: readonly KanaSoundMapItem[];
         source: KanaSoundMapSource;
+        contrastRepairs?: readonly KanaSoundMapContrastRepair[];
         passScore: number;
         feedback: Readonly<{
             pass: FeedbackBlock;

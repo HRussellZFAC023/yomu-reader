@@ -42,6 +42,22 @@ async function verifyVowelRoute(viewport, name, complete = false) {
     });
     await reachVowels(page, `vowels-${name}-${Date.now()}`);
     await page.waitForTimeout(450);
+    const augmentation = await page.locator('.academy-vowel-screen').evaluate(screen => ({
+        provider: screen.dataset.curriculumAugmentation,
+        courseId: screen.dataset.curriculumCourseId,
+        topicId: screen.dataset.curriculumTopicId,
+        activityId: screen.dataset.curriculumActivityId,
+        renderOwner: screen.dataset.curriculumRenderOwner,
+        iframeCount: screen.querySelectorAll('iframe').length,
+    }));
+    assert.deepEqual(augmentation, {
+        provider: 'honen',
+        courseId: '6a6538d092ef865026522aa5',
+        topicId: '6a653ad6ba9069fd1d52ec37',
+        activityId: '6a65476ec6b17a86e3547383',
+        renderOwner: 'yomu',
+        iframeCount: 0,
+    }, `${name} must render the mapped curriculum through Yomu`);
 
     const intro = await geometry(page);
     assert.equal(intro.scrollWidth, viewport.width, `${name} must not overflow horizontally`);
@@ -101,6 +117,19 @@ async function verifyVowelRoute(viewport, name, complete = false) {
     await page.getByRole('button', { name: 'Play sound bingo' }).click();
     await page.getByRole('button', { name: 'Visual cue' }).click();
     assert.equal(await page.locator('.academy-vowel-bingo-tile').count(), 9, 'bingo must render its complete stable board');
+    await completeVisualRound(page, true);
+    await page.getByRole('heading', { name: 'Stay with the sound that slipped' }).waitFor();
+    const contrast = page.locator('.academy-vowel-contrast-repair');
+    await contrast.waitFor();
+    assert.match(await contrast.innerText(), /Compare the neighbours/u);
+    assert.match(
+        await contrast.getAttribute('data-curriculum-question-id'),
+        /^6a653ad6ba9069fd1d52ec37-g-[123]$/u,
+        'the repair must retain the exact Honen question identity',
+    );
+    await page.screenshot({ path: path.join(artifactDir, `${name}-honen-repair.png`), fullPage: true });
+    await page.getByRole('button', { name: 'Keep this sound' }).click();
+    await page.getByRole('button', { name: 'Try the five again' }).click();
     await completeVisualRound(page);
     await page.getByRole('heading', { name: 'Bingo. The five still held.' }).waitFor();
     assert.equal((await geometry(page)).scrollWidth, viewport.width);
@@ -111,11 +140,12 @@ async function verifyVowelRoute(viewport, name, complete = false) {
     await context.close();
 }
 
-async function completeVisualRound(page) {
+async function completeVisualRound(page, missFirst = false) {
     const kanaForReading = { a: 'あ', i: 'い', u: 'う', e: 'え', o: 'お' };
+    const alternatives = { a: 'い', i: 'あ', u: 'お', e: 'い', o: 'う' };
     for (let index = 0; index < 5; index += 1) {
         const reading = (await page.locator('.academy-vowel-visual-romaji').innerText()).trim();
-        const kana = kanaForReading[reading];
+        const kana = missFirst && index === 0 ? alternatives[reading] : kanaForReading[reading];
         assert.ok(kana, `unknown visual vowel cue: ${reading}`);
         await page.getByRole('button', { name: `Choose ${kana}` }).click();
         if (index < 4) {

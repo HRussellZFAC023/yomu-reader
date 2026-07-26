@@ -1,5 +1,9 @@
 import { ACADEMY_ASSESSED_ANSWER_SUPPORT } from '../domain/activity-runtime';
 import { LESSON_ZERO_VOWEL_BINGO_ID } from '../domain/lesson-zero-vowel-session';
+import {
+    HONEN_DAY_ONE_VOWEL_CONTRASTS,
+    honenDayOneAugmentation,
+} from '../integration/honen-day-one';
 import type { KanaSoundMapModel } from '../minigames/kana-sound-map';
 import {
     LESSON_ZERO_KANA_SEQUENCE,
@@ -39,6 +43,7 @@ export function createLessonZeroVowelSoundMap(): KanaSoundMapModel {
                 sourceSha256: LESSON_ZERO_SOURCE_PROVENANCE.hiraganaARowSha256,
                 locus: 'page 1',
                 answerGate: 'after-attempt' as const,
+                augmentation: honenDayOneAugmentation(LESSON_ZERO_VOWEL_SOUND_MAP_ID, 'QUIZ'),
                 storyHook: Object.freeze({
                     sceneId: 'scene:blank-atlas:sound-script-map',
                     activityId: LESSON_ZERO_VOWEL_SOUND_MAP_ID,
@@ -86,8 +91,10 @@ export function createLessonZeroVowelBingo(): KanaSoundMapModel {
         }),
         payload: Object.freeze({
             ...lesson.payload,
+            contrastRepairs: HONEN_DAY_ONE_VOWEL_CONTRASTS,
             source: Object.freeze({
                 ...lesson.payload.source,
+                augmentation: honenDayOneAugmentation(LESSON_ZERO_VOWEL_BINGO_ID, 'GAME'),
                 storyHook: Object.freeze({
                     ...lesson.payload.source.storyHook,
                     activityId: LESSON_ZERO_VOWEL_BINGO_ID,
