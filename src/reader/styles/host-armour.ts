@@ -34,15 +34,19 @@
  *
  * Deliberate limits, both load-bearing:
  *
- *  - Only rules whose selector names a Yomu class are mirrored, so the armour
- *    can never strengthen a Yomu rule that reaches host content. Yomu styling
- *    must not leak onto the page any more than the page may leak onto Yomu.
+ *  - Only rules that paint an element Yomu itself created are mirrored — see
+ *    armourableSelector(). Yomu's sheet also styles markup it does not own (the
+ *    platform's native captions while Yomu's subtitles are showing, third-party
+ *    dictionary HTML inside the popover); strengthening those would point the
+ *    armour at the host. Yomu styling must not leak onto the page any more than
+ *    the page may leak onto Yomu.
  *  - Only properties Yomu never writes inline are mirrored. An `!important`
- *    author declaration outranks a plain inline style, so armouring e.g.
- *    `color`, `padding`, `transform` or `transition` would silently break the
- *    runtime that writes them (mirror fidelity, detached-reading placement,
- *    popover drag). `tests/reader/host-css-armour.test.ts` fails if a source
- *    file starts writing an armoured property inline.
+ *    author declaration outranks a plain inline style, so armouring `padding`,
+ *    `min-height`, `transform` or `transition` would silently break the runtime
+ *    that writes them (mirror fidelity, detached-reading placement, popover
+ *    drag). `tests/reader/host-css-armour.test.ts` fails if a source file starts
+ *    writing an armoured property inline. `color` is the one scoped exception,
+ *    documented at HOST_DERIVED_COLOUR_SELECTOR.
  *
  * Browsers without `@layer` drop the block wholesale and fall back to today's
  * behaviour, so this can only ever add protection.
@@ -50,8 +54,8 @@
 
 /**
  * Properties a host sheet can reach through `*` or a bare element selector, and
- * that Yomu paints only from CSS. Keep in sync with INLINE_STYLE_SAFE in the
- * test: adding a property here is only safe while no runtime writes it inline.
+ * that Yomu paints only from CSS. Adding a property here is only safe while no
+ * runtime writes it inline — the test enforces that.
  */
 export const ARMOURED_PROPERTIES: ReadonlySet<string> = new Set([
     'border-radius',
