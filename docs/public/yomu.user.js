@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.8.12
+// @version 1.8.15
 // @author Henry Russell
 // @description Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and a study page.
 // @license MIT
@@ -12,18 +12,18 @@
 // @match *://*/*
 // @match file:///*
 // @require https://yomureader.com/greasyfork/yomu-annotations.3427649b4084.user.js#sha256=NCdkm0CEEk2jWcMGYLJsOwkU5UBirJ/ucHgkKgbD9u8=
-// @require https://yomureader.com/greasyfork/yomu-anki.81826465b07c.user.js#sha256=gYJkZbB8UiSWn95u6pokXgFO7oaxzGnSsYIlNEU7bWM=
-// @require https://yomureader.com/greasyfork/yomu-audio.406c9c662b46.user.js#sha256=QGycZitGTDXIWhHKqO9ucnEqjJLRBvUpCAqIB97J1Z4=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.3d27bbc49f5a.user.js#sha256=PSe7xJ9a4sk+j5jeAVG+PQrPlxbE4DsnAFqr4j6wYDg=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.bca604445f53.user.js#sha256=vKYERF9TNBSYw8yBXsLknZJdrY5i6dDakrRuGd0wISw=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.7e0a7848ae68.user.js#sha256=fgp4SK5o4kvvjO2Lo2QIdDd+EUHHg+9X5WpZB2A/whs=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.a2d41593c106.user.js#sha256=otQVk8EGa2iMajl0T8Dy+rE6d2oVsFUkaL0Rq/yukRk=
-// @require https://yomureader.com/greasyfork/yomu-bunpro.9d4738bbea30.user.js#sha256=nUc4u+owYMkdiLaP1ppcGAmXD5pCErLByE3Dbf0J2tk=
-// @require https://yomureader.com/greasyfork/yomu-jpdb.a838ee2d91c2.user.js#sha256=qDjuLZHC5pQ3vJ4NKbOumxv27JseZh+KmYz2BIw7udY=
-// @require https://yomureader.com/greasyfork/yomu-jiten.8ffd573707f9.user.js#sha256=j/1XNwf5YI4jg42uSVVI2KKECuJXBJgkHgcROclffBE=
-// @require https://yomureader.com/greasyfork/yomu-wanikani.02b958835de9.user.js#sha256=ArlYg13pO1i1xt6cyOiWmjTa3Jr1UPhITAlC7DdwzHw=
-// @require https://yomureader.com/greasyfork/yomu-video.67941d3300f2.user.js#sha256=Z5QdMwDyjIowcPlWg76NajLFbrmNv6xHSfEpbazCCkA=
-// @resource yomuCss  https://yomureader.com/yomu.cf6dbdc75f60.css#sha256=z229x19gc0FhIeHfR+4iPWFkgPGYA29oCFfQ7z0BGS8=
+// @require https://yomureader.com/greasyfork/yomu-anki.bba5ca533489.user.js#sha256=u6XKUzSJS+NXS3d68IZicrivcQNDgjJc21I4i16LeZ0=
+// @require https://yomureader.com/greasyfork/yomu-audio.a5ef44346f8e.user.js#sha256=pe9ENG+Odv9c+9WTK9VVzi8YXsZ4r9KhSwG1ZaJcpBA=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.adf7fb812927.user.js#sha256=rff7gSknpSL79aHFwzBneNKIEtlMnIp21lcI+kcB7Lk=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.6f0db2f10e3d.user.js#sha256=bw2y8Q49VLVzahZxmoo7RRt6g+rz9QMxsKQQ7EmizDc=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.eb2b28696842.user.js#sha256=6ysoaWhCMQcplIS7/1cBDUQkbu8hoAqGzU/OKjUqUKQ=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.8067ec5124f0.user.js#sha256=gGfsUSTwBS62F+qRpkQxtfvaKZONmcaPAt2JfHw1idc=
+// @require https://yomureader.com/greasyfork/yomu-bunpro.1b3cb52e19d1.user.js#sha256=Gzy1LhnRFZdHnawzycpInecDBEtkQ49IQ8r9bLzVqIs=
+// @require https://yomureader.com/greasyfork/yomu-jpdb.7a79b49a3a2e.user.js#sha256=enm0mjourtmpSGscnBknbVM0ZZVC2gXDmFKyHWNvxF8=
+// @require https://yomureader.com/greasyfork/yomu-jiten.507f826074bc.user.js#sha256=UH+CYHS8jrP2uni+8TawdBSeumOD4E/Z4HFcI7JO2Rg=
+// @require https://yomureader.com/greasyfork/yomu-wanikani.109802965c3f.user.js#sha256=EJgCllw/bZvWpAg/kGX8ujjhu3duSqS1dYRrhIkgdkA=
+// @require https://yomureader.com/greasyfork/yomu-video.605dbf0d6be0.user.js#sha256=YF2/DWvg2KqhwZt2Ia7p9/CXDUAMc7y2nBVSv/VeGzk=
+// @resource yomuCss  https://yomureader.com/yomu.7cea02aaadb1.css#sha256=fOoCqq2x8wrbyLq2fCIquhgDaoolcwCF4AxI+6BBbhs=
 // @connect api.jiten.moe
 // @connect jpdb.io
 // @connect api.wanikani.com
@@ -201,9 +201,38 @@ function addDeckSourceClasses(classes, source, names) {
   classes.add(`${source}-deck-${slug}`);
   });
 }
+const HIRAGANA = "぀-ゟ";
+const KATAKANA = "゠-ヿ";
+const KANA = "぀-ヿ";
+const HALFWIDTH_KATAKANA = "ｦ-ﾟ";
+const KANJI = "㐀-鿿";
+const ITERATION_MARK = "々";
+const ITERATION_MARKS = `${ITERATION_MARK}〆`;
+const KANA_COUNTERS = "ヵヶ";
+const PROLONGED_SOUND_MARK = "ー";
+const KATAKANA_MIDDLE_DOT = "・";
+const JAPANESE_SENTENCE_PUNCTUATION = "、。！？・";
+const COMBINING_KANA_MARKS = "゙゚";
+const HIRAGANA_LETTERS = "ぁ-ゖゝ-ゟ";
+const KATAKANA_LETTERS = "ァ-ヺヽ-ヿ";
+const HALFWIDTH_KATAKANA_LETTERS = "ｦ-ｯｱ-ﾝ";
+const KANJI_LIKE = `${KANJI}${ITERATION_MARKS}`;
+const KANJI_LIKE_WITH_COUNTERS = `${KANJI_LIKE}${KANA_COUNTERS}`;
+const HIRAGANA_WITH_PROLONGED = `${HIRAGANA}${PROLONGED_SOUND_MARK}`;
+const KATAKANA_WITH_PROLONGED = `${KATAKANA}${PROLONGED_SOUND_MARK}`;
+const KANA_WITH_PROLONGED = `${KANA}${PROLONGED_SOUND_MARK}`;
+const READING_KANA = `${KANA}${PROLONGED_SOUND_MARK}${KATAKANA_MIDDLE_DOT}`;
+const JAPANESE_SCRIPT = `${KANA}${KANJI}${ITERATION_MARKS}${HALFWIDTH_KATAKANA}`;
+const JAPANESE_LETTERS = `${HIRAGANA_LETTERS}${KATAKANA_LETTERS}${KANJI}${HALFWIDTH_KATAKANA_LETTERS}`;
+const HAS_JAPANESE = new RegExp(`[${JAPANESE_SCRIPT}]`);
+const HAS_JAPANESE_LETTER = new RegExp(`[${JAPANESE_LETTERS}]`, "u");
+const KANJI_RE$2 = new RegExp(`[${KANJI}]`, "u");
+const KANA_ONLY_RUN_RE = new RegExp(`^[${KANA_WITH_PROLONGED}]+$`, "u");
+const READING_KANA_CHAR_RE = new RegExp(`[${READING_KANA}]`, "u");
+const READING_KANA_ONLY_RE = new RegExp(`^[${READING_KANA}]+$`, "u");
 const PITCH_LEVELS = new Set(["H", "L"]);
 const SMALL_KANA = new Set("ゃゅょぁぃぅぇぉゎャュョァィゥェォヮ゙゚");
-const PRONUNCIATION_KANA = /^[\u3040-\u30ff\u3099\u309A]+$/u;
+const PRONUNCIATION_KANA = new RegExp(`^[${KANA}${COMBINING_KANA_MARKS}]+$`, "u");
 const PITCH_CLASS_RULES = [
   { className: "heiban", matches: (pitchNumber) => pitchNumber === 0 },
   { className: "atamadaka", matches: (pitchNumber) => pitchNumber === 1 },
@@ -644,9 +673,1100 @@ function renderedWordReadingIndex(card, source = renderedWordCardSource(card)) {
 function yieldToNextTask() {
   return new Promise((resolve) => window.setTimeout(resolve, 0));
 }
-const HAS_JAPANESE = /[\u3040-\u30ff\u3400-\u9fff々〆\uff66-\uff9f]/;
-const HAS_JAPANESE_LETTER = /[\u3041-\u3096\u309d-\u309f\u30a1-\u30fa\u30fd-\u30ff\u3400-\u9fff\uff66-\uff6f\uff71-\uff9d]/u;
 const READER_ROOT_SELECTOR$3 = "[data-jpdb-reader-root]";
+const RTL_SCRIPTS = new Set([
+  "Adlm",
+  "Arab",
+  "Hebr",
+  "Nkoo",
+  "Rohg",
+  "Syrc",
+  "Thaa"
+]);
+const RTL_LANGUAGES = new Set([
+  "ar",
+  "dv",
+  "fa",
+  "he",
+  "ku",
+  "ps",
+  "ur",
+  "yi"
+]);
+function canonicalLanguageTag(value) {
+  if (typeof value !== "string") return null;
+  const candidate = value.trim().replace(/_/g, "-");
+  if (!candidate || candidate.length > 255) return null;
+  try {
+  return Intl.getCanonicalLocales(candidate)[0] ?? null;
+  } catch {
+  return null;
+  }
+}
+function languageSubtag(value) {
+  const canonical = canonicalLanguageTag(value);
+  if (!canonical) return null;
+  try {
+  return new Intl.Locale(canonical).language;
+  } catch {
+  return canonical.split("-")[0]?.toLowerCase() ?? null;
+  }
+}
+function localeDirection(value) {
+  const canonical = canonicalLanguageTag(value);
+  if (!canonical) return "ltr";
+  try {
+  const locale = new Intl.Locale(canonical);
+  const script = locale.script || locale.maximize().script;
+  if (script && RTL_SCRIPTS.has(script)) return "rtl";
+  return RTL_LANGUAGES.has(locale.language) ? "rtl" : "ltr";
+  } catch {
+  return RTL_LANGUAGES.has(canonical.split("-")[0]?.toLowerCase() ?? "") ? "rtl" : "ltr";
+  }
+}
+const JAPANESE_TEXT_RE = /[\u3040-\u30ff\u3400-\u9fff々〆]/u;
+function cardHighlightTargets(card) {
+  const spelling = cleanCardHighlightValue(card.spelling);
+  const reading = optionalJapaneseCardReading(card);
+  return uniqueCardHighlightValues([spelling, reading]);
+}
+function normalizedJapaneseCardReading(spelling, reading) {
+  const cleanSpelling = cleanCardHighlightValue(spelling);
+  const cleanReading = cleanCardHighlightValue(reading);
+  return cleanReading && JAPANESE_TEXT_RE.test(cleanReading) ? cleanReading : cleanSpelling;
+}
+function cleanCardHighlightValue(value) {
+  return (value ?? "").replace(/\s+/g, " ").trim();
+}
+function compactCardHighlightValue(value) {
+  return cleanCardHighlightValue(value).replace(/\s+/g, "");
+}
+function optionalJapaneseCardReading(card) {
+  const spelling = cleanCardHighlightValue(card.spelling);
+  const reading = normalizedJapaneseCardReading(spelling, card.reading);
+  return reading && reading !== spelling ? reading : "";
+}
+function uniqueCardHighlightValues(values) {
+  const seen = new Set();
+  return values.map(cleanCardHighlightValue).filter((value) => {
+  if (!value || seen.has(value)) return false;
+  seen.add(value);
+  return true;
+  });
+}
+const GODAN_ROWS = [
+  { ending: "う", a: "わ", i: "い", e: "え", o: "お", te: "って", ta: "った", rules: ["v5u", "v5"] },
+  { ending: "く", a: "か", i: "き", e: "け", o: "こ", te: "いて", ta: "いた", rules: ["v5k", "v5"] },
+  { ending: "ぐ", a: "が", i: "ぎ", e: "げ", o: "ご", te: "いで", ta: "いだ", rules: ["v5g", "v5"] },
+  { ending: "す", a: "さ", i: "し", e: "せ", o: "そ", te: "して", ta: "した", rules: ["v5s", "v5"] },
+  { ending: "つ", a: "た", i: "ち", e: "て", o: "と", te: "って", ta: "った", rules: ["v5t", "v5"] },
+  { ending: "ぬ", a: "な", i: "に", e: "ね", o: "の", te: "んで", ta: "んだ", rules: ["v5n", "v5"] },
+  { ending: "ぶ", a: "ば", i: "び", e: "べ", o: "ぼ", te: "んで", ta: "んだ", rules: ["v5b", "v5"] },
+  { ending: "む", a: "ま", i: "み", e: "め", o: "も", te: "んで", ta: "んだ", rules: ["v5m", "v5"] },
+  { ending: "る", a: "ら", i: "り", e: "れ", o: "ろ", te: "って", ta: "った", rules: ["v5r", "v5"] }
+];
+const ICHIDAN_RULES = [
+  ["ながら", "る", "simultaneous action"],
+  ["ました", "る", "polite past"],
+  ["ませんでした", "る", "polite negative past"],
+  ["ません", "る", "polite negative"],
+  ["ましょう", "る", "polite volitional"],
+  ["ます", "る", "polite"],
+  ["なかった", "る", "negative past"],
+  ["なくて", "る", "negative te-form"],
+  ["なければ", "る", "negative conditional"],
+  ["ない", "る", "negative"],
+  ["ず", "る", "negative archaic"],
+  ["たかった", "る", "desiderative past"],
+  ["たくなかった", "る", "desiderative negative past"],
+  ["たくない", "る", "desiderative negative"],
+  ["たい", "る", "desiderative"],
+  ["なさい", "る", "polite request"],
+  ["すぎる", "る", "excessive"],
+  ["られなかった", "る", "potential/passive negative past"],
+  ["られない", "る", "potential/passive negative"],
+  ["られて", "る", "potential/passive te-form"],
+  ["られた", "る", "potential/passive past"],
+  ["られる", "る", "potential/passive"],
+  ["させられた", "る", "causative passive past"],
+  ["させられる", "る", "causative passive"],
+  ["させない", "る", "causative negative"],
+  ["させて", "る", "causative te-form"],
+  ["させた", "る", "causative past"],
+  ["させる", "る", "causative"],
+  ["れば", "る", "conditional"],
+  ["よう", "る", "volitional"],
+  ["ろ", "る", "imperative"],
+  ["て", "る", "te-form"],
+  ["た", "る", "past"]
+];
+const I_ADJECTIVE_RULES = [
+  ["くなかった", "い", "negative past"],
+  ["くありませんでした", "い", "polite negative past"],
+  ["くありません", "い", "polite negative"],
+  ["かった", "い", "past"],
+  ["くない", "い", "negative"],
+  ["くて", "い", "te-form"],
+  ["ければ", "い", "conditional"],
+  ["そう", "い", "looks"],
+  ["すぎる", "い", "excessive"],
+  ["く", "い", "adverbial"]
+];
+const SURU_RULES = [
+  ["しながら", "する", "simultaneous action"],
+  ["しませんでした", "する", "polite negative past"],
+  ["しません", "する", "polite negative"],
+  ["しました", "する", "polite past"],
+  ["しましょう", "する", "polite volitional"],
+  ["します", "する", "polite"],
+  ["しなかった", "する", "negative past"],
+  ["しなくて", "する", "negative te-form"],
+  ["しなければ", "する", "negative conditional"],
+  ["しない", "する", "negative"],
+  ["せず", "する", "negative archaic"],
+  ["しなさい", "する", "polite request"],
+  ["しすぎる", "する", "excessive"],
+  ["された", "する", "passive past"],
+  ["されて", "する", "passive te-form"],
+  ["される", "する", "passive"],
+  ["させた", "する", "causative past"],
+  ["させて", "する", "causative te-form"],
+  ["させる", "する", "causative"],
+  ["できなかった", "する", "potential negative past"],
+  ["できない", "する", "potential negative"],
+  ["できた", "する", "potential past"],
+  ["できて", "する", "potential te-form"],
+  ["できる", "する", "potential"],
+  ["すれば", "する", "conditional"],
+  ["しよう", "する", "volitional"],
+  ["しろ", "する", "imperative"],
+  ["せよ", "する", "imperative"],
+  ["した", "する", "past"],
+  ["して", "する", "te-form"]
+];
+const KURU_RULES = [
+  ["来ながら", "来る", "simultaneous action"],
+  ["来ませんでした", "来る", "polite negative past"],
+  ["来ません", "来る", "polite negative"],
+  ["来ました", "来る", "polite past"],
+  ["来ます", "来る", "polite"],
+  ["来なかった", "来る", "negative past"],
+  ["来なくて", "来る", "negative te-form"],
+  ["来ない", "来る", "negative"],
+  ["来なさい", "来る", "polite request"],
+  ["来すぎる", "来る", "excessive"],
+  ["来られた", "来る", "potential/passive past"],
+  ["来られて", "来る", "potential/passive te-form"],
+  ["来られる", "来る", "potential/passive"],
+  ["来れば", "来る", "conditional"],
+  ["来よう", "来る", "volitional"],
+  ["来い", "来る", "imperative"],
+  ["来た", "来る", "past"],
+  ["来て", "来る", "te-form"],
+  ["きながら", "くる", "simultaneous action"],
+  ["きませんでした", "くる", "polite negative past"],
+  ["きません", "くる", "polite negative"],
+  ["きました", "くる", "polite past"],
+  ["きます", "くる", "polite"],
+  ["こなかった", "くる", "negative past"],
+  ["こなくて", "くる", "negative te-form"],
+  ["こない", "くる", "negative"],
+  ["こず", "くる", "negative archaic"],
+  ["きなさい", "くる", "polite request"],
+  ["きすぎる", "くる", "excessive"],
+  ["こられた", "くる", "potential/passive past"],
+  ["こられて", "くる", "potential/passive te-form"],
+  ["こられる", "くる", "potential/passive"],
+  ["くれば", "くる", "conditional"],
+  ["こよう", "くる", "volitional"],
+  ["こい", "くる", "imperative"],
+  ["きた", "くる", "past"],
+  ["きて", "くる", "te-form"]
+];
+const TE_ASPECT_SUFFIXES = [
+  ["いる", "progressive"],
+  ["います", "polite progressive"],
+  ["いました", "polite progressive past"],
+  ["いません", "polite progressive negative"],
+  ["いませんでした", "polite progressive negative past"],
+  ["いた", "progressive past"],
+  ["いて", "progressive te-form"],
+  ["いない", "progressive negative"],
+  ["いなかった", "progressive negative past"],
+  ["いれば", "progressive conditional"],
+  ["る", "contracted progressive"],
+  ["ます", "contracted polite progressive"],
+  ["ました", "contracted polite progressive past"],
+  ["た", "contracted progressive past"],
+  ["て", "contracted progressive te-form"],
+  ["ない", "contracted progressive negative"],
+  ["なかった", "contracted progressive negative past"]
+];
+const TE_COMPLETION_SUFFIXES = [
+  ["しまう", "completion"],
+  ["しまった", "completion past"],
+  ["しまって", "completion te-form"],
+  ["しまわない", "completion negative"],
+  ["しまいます", "polite completion"],
+  ["しまいました", "polite completion past"]
+];
+const CONTRACTED_COMPLETION_SUFFIXES = [
+  ["う", "contracted completion"],
+  ["った", "contracted completion past"],
+  ["って", "contracted completion te-form"],
+  ["わない", "contracted completion negative"],
+  ["います", "contracted polite completion"],
+  ["いました", "contracted polite completion past"]
+];
+const RULES = [
+  ...ICHIDAN_RULES.map(([from, to, reason]) => ({ from, to, reason, rules: ["v1"] })),
+  ...teCompoundRules("て", "る", ["v1"]),
+  ...I_ADJECTIVE_RULES.map(([from, to, reason]) => ({ from, to, reason, rules: ["adj-i", "i-adj"] })),
+  ...SURU_RULES.map(([from, to, reason]) => ({ from, to, reason, rules: ["vs", "vs-s", "suru"] })),
+  ...teCompoundRules("して", "する", ["vs", "vs-s", "suru"]),
+  ...KURU_RULES.map(([from, to, reason]) => ({ from, to, reason, rules: ["vk", "kuru"] })),
+  ...teCompoundRules("来て", "来る", ["vk", "kuru"]),
+  ...teCompoundRules("きて", "くる", ["vk", "kuru"]),
+  ...GODAN_ROWS.flatMap((row) => godanRules(row)),
+  { from: "行って", to: "行く", reason: "te-form", rules: ["v5k", "v5"] },
+  { from: "行った", to: "行く", reason: "past", rules: ["v5k", "v5"] },
+  { from: "行っちゃう", to: "行く", reason: "contracted completion", rules: ["v5k", "v5"] },
+  { from: "行っちゃった", to: "行く", reason: "contracted completion past", rules: ["v5k", "v5"] }
+];
+const DEINFLECTION_CACHE_MAX = 4e3;
+const deinflectionCache = new Map();
+function deinflectJapaneseTerm(source) {
+  const cached = deinflectionCache.get(source);
+  if (cached) return cached;
+  const results = [{ term: source, rules: [], reasons: [], depth: 0 }];
+  const seen = new Set([candidateKey(results[0])]);
+  const queue = [results[0]];
+  expandDeinflectionQueue(queue, results, seen);
+  const sorted = sortDeinflectedTerms(results);
+  if (deinflectionCache.size >= DEINFLECTION_CACHE_MAX) {
+  const oldest = deinflectionCache.keys().next().value;
+  if (oldest !== void 0) deinflectionCache.delete(oldest);
+  }
+  deinflectionCache.set(source, sorted);
+  return sorted;
+}
+function expandDeinflectionQueue(queue, results, seen) {
+  for (let index = 0; index < queue.length; index++) {
+  expandDeinflectedTerm(queue[index], queue, results, seen);
+  }
+}
+function expandDeinflectedTerm(current, queue, results, seen) {
+  if (isTerminalDeinflection(current)) return;
+  for (const rule of RULES) {
+  rememberExpandedDeinflection(current, rule, queue, results, seen);
+  }
+}
+function isTerminalDeinflection(current) {
+  return current.depth >= 2 || current.reasons.at(-1) === "simultaneous action";
+}
+function rememberExpandedDeinflection(current, rule, queue, results, seen) {
+  const next = deinflectedCandidate(current, rule);
+  if (!next) return;
+  if (!rememberDeinflectedCandidate(next, seen)) return;
+  results.push(next);
+  queue.push(next);
+}
+function sortDeinflectedTerms(results) {
+  return results.sort((a, b) => a.depth - b.depth || b.term.length - a.term.length || a.term.localeCompare(b.term));
+}
+function deinflectedCandidate(current, rule) {
+  if (!canApplyDeinflectionRule(current.term, rule)) return null;
+  const term = `${current.term.slice(0, -rule.from.length)}${rule.to}`;
+  if (!term || term === current.term) return null;
+  return {
+  term,
+  rules: rule.rules,
+  reasons: [...current.reasons, rule.reason],
+  depth: current.depth + 1
+  };
+}
+function canApplyDeinflectionRule(term, rule) {
+  return term.endsWith(rule.from) && (term.length > rule.from.length || rule.to.length > 0);
+}
+function rememberDeinflectedCandidate(candidate, seen) {
+  const key = candidateKey(candidate);
+  if (seen.has(key)) return false;
+  seen.add(key);
+  return true;
+}
+function termRulesMatch(entryRules, candidateRules) {
+  if (!candidateRules.length) return true;
+  const entryRuleSet = entryRulesSet(entryRules);
+  return entryRuleSet.size > 0 && candidateRules.some((rule) => termRuleMatches(rule, entryRuleSet));
+}
+function entryRulesSet(entryRules) {
+  return new Set((entryRules ?? "").split(/\s+/).filter(Boolean));
+}
+function termRuleMatches(rule, entryRuleSet) {
+  return TERM_RULE_MATCHERS.some((matches) => matches(rule, entryRuleSet));
+}
+const TERM_RULE_MATCHERS = [
+  (rule, entryRuleSet) => entryRuleSet.has(rule),
+  (rule, entryRuleSet) => rule.startsWith("v5") && entryRuleSet.has("v5"),
+  (rule, entryRuleSet) => rule === "v5" && [...entryRuleSet].some((entryRule) => entryRule.startsWith("v5")),
+  (rule, entryRuleSet) => rule === "i-adj" && entryRuleSet.has("adj-i"),
+  (rule, entryRuleSet) => rule === "adj-i" && entryRuleSet.has("i-adj")
+];
+function godanRules(row) {
+  const rules = row.rules;
+  return [
+  ...teCompoundRules(row.te, row.ending, rules),
+  { from: `${row.i}ながら`, to: row.ending, reason: "simultaneous action", rules },
+  { from: row.i, to: row.ending, reason: "continuative stem", rules },
+  { from: row.te, to: row.ending, reason: "te-form", rules },
+  { from: row.ta, to: row.ending, reason: "past", rules },
+  { from: `${row.a}なかった`, to: row.ending, reason: "negative past", rules },
+  { from: `${row.a}なくて`, to: row.ending, reason: "negative te-form", rules },
+  { from: `${row.a}なければ`, to: row.ending, reason: "negative conditional", rules },
+  { from: `${row.a}ない`, to: row.ending, reason: "negative", rules },
+  { from: `${row.a}ず`, to: row.ending, reason: "negative archaic", rules },
+  { from: `${row.i}ませんでした`, to: row.ending, reason: "polite negative past", rules },
+  { from: `${row.i}ません`, to: row.ending, reason: "polite negative", rules },
+  { from: `${row.i}ました`, to: row.ending, reason: "polite past", rules },
+  { from: `${row.i}ましょう`, to: row.ending, reason: "polite volitional", rules },
+  { from: `${row.i}ます`, to: row.ending, reason: "polite", rules },
+  { from: `${row.i}たかった`, to: row.ending, reason: "desiderative past", rules },
+  { from: `${row.i}たくなかった`, to: row.ending, reason: "desiderative negative past", rules },
+  { from: `${row.i}たくない`, to: row.ending, reason: "desiderative negative", rules },
+  { from: `${row.i}たい`, to: row.ending, reason: "desiderative", rules },
+  { from: `${row.i}なさい`, to: row.ending, reason: "polite request", rules },
+  { from: `${row.i}すぎる`, to: row.ending, reason: "excessive", rules },
+  { from: `${row.e}ば`, to: row.ending, reason: "conditional", rules },
+  { from: `${row.o}う`, to: row.ending, reason: "volitional", rules },
+  { from: `${row.e}なかった`, to: row.ending, reason: "potential negative past", rules },
+  { from: `${row.e}ない`, to: row.ending, reason: "potential negative", rules },
+  { from: `${row.e}た`, to: row.ending, reason: "potential past", rules },
+  { from: `${row.e}て`, to: row.ending, reason: "potential te-form", rules },
+  { from: `${row.e}る`, to: row.ending, reason: "potential", rules },
+  { from: `${row.a}れなかった`, to: row.ending, reason: "passive negative past", rules },
+  { from: `${row.a}れない`, to: row.ending, reason: "passive negative", rules },
+  { from: `${row.a}れて`, to: row.ending, reason: "passive te-form", rules },
+  { from: `${row.a}れた`, to: row.ending, reason: "passive past", rules },
+  { from: `${row.a}れる`, to: row.ending, reason: "passive", rules },
+  { from: `${row.a}せない`, to: row.ending, reason: "causative negative", rules },
+  { from: `${row.a}せて`, to: row.ending, reason: "causative te-form", rules },
+  { from: `${row.a}せた`, to: row.ending, reason: "causative past", rules },
+  { from: `${row.a}せる`, to: row.ending, reason: "causative", rules },
+  { from: row.e, to: row.ending, reason: "imperative", rules }
+  ];
+}
+function teCompoundRules(te, to, rules) {
+  return [
+  ...TE_ASPECT_SUFFIXES.map(([suffix, reason]) => ({ from: `${te}${suffix}`, to, reason, rules })),
+  ...TE_COMPLETION_SUFFIXES.map(([suffix, reason]) => ({ from: `${te}${suffix}`, to, reason, rules })),
+  ...contractedCompletionRules(te, to, rules)
+  ];
+}
+function contractedCompletionRules(te, to, rules) {
+  const stem = contractedCompletionStem(te);
+  return stem ? CONTRACTED_COMPLETION_SUFFIXES.map(([suffix, reason]) => ({ from: `${stem}${suffix}`, to, reason, rules })) : [];
+}
+function contractedCompletionStem(te) {
+  if (te.endsWith("て")) return `${te.slice(0, -1)}ちゃ`;
+  if (te.endsWith("で")) return `${te.slice(0, -1)}じゃ`;
+  return "";
+}
+function candidateKey(candidate) {
+  return `${candidate.term}
+${candidate.rules.join(" ")}
+${candidate.depth}`;
+}
+function uniqueStrings(values, options = {}) {
+  const seen = new Set();
+  const result = [];
+  for (const value of values) {
+  const normalized = options.trim ? value?.trim() : value;
+  if (normalized === void 0 || normalized === null) continue;
+  if (options.dropEmpty && !normalized) continue;
+  if (seen.has(normalized)) continue;
+  seen.add(normalized);
+  result.push(normalized);
+  }
+  return result;
+}
+function uniqueNonEmptyStrings(values) {
+  return uniqueStrings(values, { dropEmpty: true });
+}
+function uniqueTrimmedStrings(values) {
+  return uniqueStrings(values, { trim: true, dropEmpty: true });
+}
+function stableHash32(value) {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+  hash ^= value.charCodeAt(index);
+  hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+function stablePositiveHashId(value) {
+  return stableHash32(value) || 1;
+}
+const JAPANESE_SCRIPT_GROUP_RE = new RegExp(`[${KANJI_LIKE_WITH_COUNTERS}]+|[${HIRAGANA_WITH_PROLONGED}]+|[${KATAKANA_WITH_PROLONGED}]+|[${HALFWIDTH_KATAKANA}]+`, "gu");
+const JAPANESE_TEXT_RUN_RE = new RegExp(`[${KANA}${KANJI_LIKE_WITH_COUNTERS}${PROLONGED_SOUND_MARK}${HALFWIDTH_KATAKANA}]+`, "gu");
+const JAPANESE_CHARACTER_RE = new RegExp(`[${KANA}${KANJI_LIKE_WITH_COUNTERS}${HALFWIDTH_KATAKANA}]`, "u");
+const FALLBACK_INFLECTION_MAX_SEGMENTS = 8;
+const FALLBACK_INFLECTION_MAX_LENGTH = 18;
+const FALLBACK_LOOKUP_TERM_LIMIT = 8;
+const INFLECTION_BOUNDARY_SEGMENTS = new Set(["は", "が", "を", "に", "へ", "と", "で", "の", "や", "から", "まで", "より", "だけ", "しか", "など", "ね"]);
+const PARTICLE_PREFIX_SEGMENTS = [...INFLECTION_BOUNDARY_SEGMENTS].sort((first, second) => second.length - first.length);
+const PARTICLE_PREFIX_REMAINDER_RE = new RegExp(`^[${KANJI_LIKE_WITH_COUNTERS}${KATAKANA_WITH_PROLONGED}]`, "u");
+const INFLECTION_CONTINUATION_SEGMENT_RE = /^(?:っ?た|っ?て|だ|で|ん|んで|ま|ない|なか|なかっ|なかった|ながら|ます|まし|ました|ませ|ません|ましょう|たい|たく|しま|した|し|する|でき|出来|できる|できます|できた|できて|できない|できなかった|いる|い|いた|いて|れる|られ|せる|させる)$/u;
+const HIRAGANA_SEGMENT_RE = new RegExp(`^[${HIRAGANA_WITH_PROLONGED}]+$`, "u");
+const KATAKANA_SEGMENT_RE = new RegExp(`^[${KATAKANA}${HALFWIDTH_KATAKANA}${PROLONGED_SOUND_MARK}]+$`, "u");
+const SINGLE_KANJI_SEGMENT_RE = new RegExp(`^[${KANJI}]$`, "u");
+const SINGLE_KANJI_HIRAGANA_STEM_RE = new RegExp(`^[${KANJI}][${HIRAGANA_WITH_PROLONGED}]*$`, "u");
+const KANJI_KANA_KANJI_SPAN_RE = new RegExp(`[${KANJI_LIKE_WITH_COUNTERS}][${HIRAGANA_WITH_PROLONGED}]+[${KANJI_LIKE_WITH_COUNTERS}]`, "u");
+const HIRAGANA_END_RE = new RegExp(`[${HIRAGANA_WITH_PROLONGED}]$`, "u");
+const TRAILING_POLITE_PARTICLE_RE = /(?:ます|ません|です|でした)ね$/u;
+const SURU_STEM_SEGMENT_RE = new RegExp(`[${KANJI_LIKE_WITH_COUNTERS}${KATAKANA}]`, "u");
+const SURU_AUXILIARY_SUFFIX_RE = /^(?:し|する|した|して|します|しました|しましょう|しない|でき|出来|できる|できます|できた|できて|できない|できなかった)/u;
+const NUMERIC_COUNTER_SUFFIX_SEGMENTS = new Set(["話", "巻", "回", "章", "部", "番", "号", "版", "人", "名", "匹", "頭", "羽", "枚", "本", "冊", "個", "台", "件", "分", "秒", "時", "日", "月", "年", "泊", "円"]);
+const NUMERIC_RANGE_BEFORE_RE = /(?:第\s*)?(?:[0-9０-９]+|[一二三四五六七八九十百千万億兆]+)(?:\s*[〜～~\-ー−―–]\s*(?:[0-9０-９]+|[一二三四五六七八九十百千万億兆]+))*$/u;
+const BOGUS_SMALL_TSU_FINAL_RE = /っ[うくぐすずつづぬふぶぷむゆる]$/u;
+const SEGMENTER_COMPOUND_OVERRIDES = new Set(["巨乳"]);
+const SEGMENTER_COMPOUND_OVERRIDE_MAX_LENGTH = Array.from(SEGMENTER_COMPOUND_OVERRIDES).reduce((max, value) => Math.max(max, value.length), 0);
+const KANA_VERB_STEM_END_RE = /[うくぐすずつづぬふぶぷむゆる]$/u;
+const KANA_I_ADJECTIVE_END_RE = /い$/u;
+const SMALL_TSU_RE = /っ/u;
+const KANA_CONTENT_WORD_MIN_LENGTH = 3;
+const NON_HIRAGANA_SCRIPT_RE = new RegExp(`[${KANJI_LIKE_WITH_COUNTERS}${KATAKANA}${HALFWIDTH_KATAKANA}]`, "u");
+function normalizeFallbackTerm(text) {
+  return text.replace(/\s+/g, " ").trim().slice(0, 80);
+}
+function bareFallbackCardFromText(text) {
+  const spelling = normalizeFallbackTerm(text);
+  const id = -stablePositiveHashId(`fallback
+${spelling}`);
+  const fallbackLookupTerms = fallbackLookupTermsForText(spelling).slice(1);
+  return {
+  vid: id,
+  sid: id,
+  rid: 0,
+  spelling,
+  reading: "",
+  frequencyRank: null,
+  partOfSpeech: [],
+  meanings: [],
+  cardState: ["not-in-deck"],
+  provisionalState: true,
+  pitchAccent: [],
+  wordWithReading: null,
+  source: "fallback",
+  ...fallbackLookupTerms.length ? { fallbackLookupTerms } : {}
+  };
+}
+let cachedSegmenterConstructor;
+let cachedJapaneseWordSegmenter;
+function segmentJapaneseText(text) {
+  const segmenter = japaneseWordSegmenter();
+  if (!segmenter) {
+  return Array.from(text.matchAll(JAPANESE_SCRIPT_GROUP_RE)).flatMap((match) => {
+    const start = match.index ?? 0;
+    return finalizeJapaneseRunSegments(fallbackJapaneseRunSegment(match[0], start), text);
+  });
+  }
+  return Array.from(text.matchAll(JAPANESE_TEXT_RUN_RE)).flatMap((match) => {
+  const start = match.index ?? 0;
+  return segmentJapaneseRun(match[0], start, segmenter, text);
+  });
+}
+function segmentJapaneseRun(text, offset, segmenter, sourceText) {
+  const segments = Array.from(segmenter.segment(text)).filter(isUsefulJapaneseSegment).map((segment) => ({
+  surface: segment.segment,
+  start: offset + segment.index,
+  end: offset + segment.index + segment.segment.length
+  }));
+  if (segments.at(-1)?.end !== offset + text.length) {
+  return finalizeJapaneseRunSegments(fallbackJapaneseRunSegment(text, offset), sourceText);
+  }
+  return finalizeJapaneseRunSegments(segments, sourceText);
+}
+function finalizeJapaneseRunSegments(segments, sourceText) {
+  const normalizedSegments = splitTrailingPoliteParticleSegments(
+  mergeContiguousKanaSegments(mergeContiguousKatakanaSegments(mergeSegmenterCompoundOverrides(splitNumericCounterPrefixSegments(segments, sourceText))))
+  );
+  return mergeInflectedFallbackSegments(
+  splitLeadingParticleSegments(normalizedSegments),
+  sourceText
+  );
+}
+function splitTrailingPoliteParticleSegments(segments) {
+  return segments.flatMap((segment, index) => {
+  if (!segment.surface.endsWith("ね") || segment.surface === "ね") return [segment];
+  const previous = segments[index - 1]?.surface ?? "";
+  if (!TRAILING_POLITE_PARTICLE_RE.test(`${previous}${segment.surface}`)) return [segment];
+  const particleStart = segment.end - 1;
+  const stem = segment.surface.slice(0, -1);
+  return [
+    ...stem ? [{ surface: stem, start: segment.start, end: particleStart }] : [],
+    { surface: "ね", start: particleStart, end: segment.end }
+  ];
+  });
+}
+function mergeContiguousKanaSegments(segments) {
+  if (segments.some((segment) => NON_HIRAGANA_SCRIPT_RE.test(segment.surface))) return segments;
+  const merged = [];
+  for (let index = 0; index < segments.length; ) {
+  const span = contiguousKanaMergeSpanAt(segments, index);
+  if (span) {
+    merged.push(span.segment);
+    index = span.nextIndex;
+    continue;
+  }
+  merged.push(segments[index]);
+  index += 1;
+  }
+  return merged;
+}
+function mergeContiguousKatakanaSegments(segments) {
+  const merged = [];
+  for (let index = 0; index < segments.length; ) {
+  const first = segments[index];
+  if (!KATAKANA_SEGMENT_RE.test(first.surface)) {
+    merged.push(first);
+    index += 1;
+    continue;
+  }
+  let surface = first.surface;
+  let runEnd = index + 1;
+  while (runEnd < segments.length && KATAKANA_SEGMENT_RE.test(segments[runEnd].surface) && segments[runEnd].start === segments[runEnd - 1].end) {
+    surface += segments[runEnd].surface;
+    runEnd += 1;
+  }
+  merged.push(runEnd - index > 1 ? { surface, start: first.start, end: segments[runEnd - 1].end } : first);
+  index = runEnd;
+  }
+  return merged;
+}
+function contiguousKanaMergeSpanAt(segments, startIndex) {
+  const first = segments[startIndex];
+  if (!first || !isPureKanaSegment(first.surface)) return null;
+  const previous = segments[startIndex - 1];
+  const atKanaRunStart = !previous || !isPureKanaSegment(previous.surface) || previous.end !== first.start;
+  if (isBoundarySegment(first.surface) && !atKanaRunStart) return null;
+  const runEnd = contiguousKanaRunEnd(segments, startIndex);
+  if (runEnd - startIndex < 2) return null;
+  let surface = first.surface;
+  let lastIndex = startIndex;
+  for (let index = startIndex + 1; index < runEnd; index += 1) {
+  const current = segments[index];
+  const trailingSpan = sliceKanaSpanSurface(segments, index, runEnd);
+  if (isBoundarySegment(current.surface) || isKanaContentWordSpan(trailingSpan)) break;
+  surface += current.surface;
+  lastIndex = index;
+  }
+  if (lastIndex === startIndex) return null;
+  return {
+  segment: { surface, start: first.start, end: segments[lastIndex].end },
+  nextIndex: lastIndex + 1
+  };
+}
+function contiguousKanaRunEnd(segments, startIndex) {
+  let index = startIndex + 1;
+  while (index < segments.length && isPureKanaSegment(segments[index].surface) && segments[index].start === segments[index - 1].end) {
+  index += 1;
+  }
+  return index;
+}
+function sliceKanaSpanSurface(segments, startIndex, endIndex) {
+  let surface = "";
+  for (let index = startIndex; index < endIndex; index += 1) surface += segments[index].surface;
+  return surface;
+}
+function isPureKanaSegment(surface) {
+  return HIRAGANA_SEGMENT_RE.test(surface);
+}
+function isKanaContentWordSpan(span) {
+  if (isKanaInflectableBaseShape(span)) return true;
+  return deinflectJapaneseTerm(span).some((candidate) => candidate.depth > 0 && Array.from(candidate.term).length >= 2 && !SMALL_TSU_RE.test(candidate.term) && (KANA_VERB_STEM_END_RE.test(candidate.term) || KANA_I_ADJECTIVE_END_RE.test(candidate.term)));
+}
+function isKanaInflectableBaseShape(span) {
+  if (Array.from(span).length < KANA_CONTENT_WORD_MIN_LENGTH || SMALL_TSU_RE.test(span)) return false;
+  return KANA_VERB_STEM_END_RE.test(span) || KANA_I_ADJECTIVE_END_RE.test(span);
+}
+function splitNumericCounterPrefixSegments(segments, sourceText) {
+  return segments.flatMap((segment) => splitNumericCounterPrefixSegment(segment, sourceText));
+}
+function splitNumericCounterPrefixSegment(segment, sourceText) {
+  const first = Array.from(segment.surface)[0] ?? "";
+  if (!first || first === segment.surface || !NUMERIC_COUNTER_SUFFIX_SEGMENTS.has(first)) return [segment];
+  if (!numericRangeImmediatelyBefore(sourceText, segment.start)) return [segment];
+  const second = Array.from(segment.surface)[1] ?? "";
+  if (second === "間") return [segment];
+  return [
+  { surface: first, start: segment.start, end: segment.start + first.length },
+  { surface: segment.surface.slice(first.length), start: segment.start + first.length, end: segment.end }
+  ];
+}
+function splitLeadingParticleSegments(segments) {
+  return segments.flatMap(splitLeadingParticleSegment);
+}
+function splitLeadingParticleSegment(segment) {
+  const prefix = PARTICLE_PREFIX_SEGMENTS.find((candidate) => {
+  if (!segment.surface.startsWith(candidate) || segment.surface.length <= candidate.length) return false;
+  return PARTICLE_PREFIX_REMAINDER_RE.test(segment.surface.slice(candidate.length));
+  });
+  if (!prefix) return [segment];
+  return [
+  { surface: prefix, start: segment.start, end: segment.start + prefix.length },
+  { surface: segment.surface.slice(prefix.length), start: segment.start + prefix.length, end: segment.end }
+  ];
+}
+function mergeSegmenterCompoundOverrides(segments) {
+  const merged = [];
+  for (let index = 0; index < segments.length; ) {
+  const span = segmenterCompoundOverrideSpanAt(segments, index);
+  if (span) {
+    merged.push(span.segment);
+    index = span.nextIndex;
+    continue;
+  }
+  merged.push(segments[index]);
+  index += 1;
+  }
+  return merged;
+}
+function segmenterCompoundOverrideSpanAt(segments, startIndex) {
+  const first = segments[startIndex];
+  if (!first) return null;
+  let surface = "";
+  let best = null;
+  for (let index = startIndex; index < segments.length; index += 1) {
+  const current = segments[index];
+  if (!current || index > startIndex && segments[index - 1]?.end !== current.start) break;
+  surface += current.surface;
+  if (surface.length > SEGMENTER_COMPOUND_OVERRIDE_MAX_LENGTH) break;
+  if (index > startIndex && SEGMENTER_COMPOUND_OVERRIDES.has(surface)) {
+    best = {
+      segment: { surface, start: first.start, end: current.end },
+      nextIndex: index + 1
+    };
+  }
+  }
+  return best;
+}
+function mergeInflectedFallbackSegments(segments, sourceText) {
+  const merged = [];
+  for (let index = 0; index < segments.length; ) {
+  const span = inflectedFallbackSpanAt(segments, index, sourceText);
+  if (span) {
+    merged.push(span.segment);
+    index = span.nextIndex;
+    continue;
+  }
+  merged.push(segments[index]);
+  index += 1;
+  }
+  return merged;
+}
+function inflectedFallbackSpanAt(segments, startIndex, sourceText) {
+  const first = segments[startIndex];
+  if (!first || isBoundarySegment(first.surface)) return null;
+  let surface = "";
+  let best = null;
+  for (let index = startIndex; index < fallbackInflectionScanEnd(segments, startIndex); index += 1) {
+  const current = nextInflectedFallbackSegment(segments, index, startIndex, first, surface, sourceText);
+  if (!current) break;
+  surface += current.surface;
+  if (surface.length > FALLBACK_INFLECTION_MAX_LENGTH) break;
+  best = inflectedFallbackCandidateAt(segments, startIndex, index, first, current, surface) ?? best;
+  }
+  return best;
+}
+function fallbackInflectionScanEnd(segments, startIndex) {
+  return Math.min(segments.length, startIndex + FALLBACK_INFLECTION_MAX_SEGMENTS);
+}
+function nextInflectedFallbackSegment(segments, index, startIndex, first, surface, sourceText) {
+  const current = segments[index];
+  if (!current || !isContiguousFallbackSegment(segments, index, startIndex, first)) return null;
+  if (index > startIndex && isNumericCounterFallbackStem(first, sourceText)) return null;
+  const politeNegativePast = index > startIndex && isPoliteNegativePastContinuation(segments, index, surface);
+  if (index > startIndex && isBoundarySegment(current.surface) && !politeNegativePast) return null;
+  if (index > startIndex && !politeNegativePast && !canContinueInflectedFallbackSpan(surface, current.surface)) return null;
+  return current;
+}
+function isPoliteNegativePastContinuation(segments, index, surface) {
+  return surface.endsWith("ません") && segments[index]?.surface === "で" && segments[index + 1]?.surface === "した";
+}
+function isContiguousFallbackSegment(segments, index, startIndex, first) {
+  const expectedStart = index === startIndex ? first.start : segments[index - 1]?.end;
+  return segments[index]?.start === expectedStart;
+}
+function inflectedFallbackCandidateAt(segments, startIndex, index, first, current, surface) {
+  if (index === startIndex) return null;
+  const lookupTerms = fallbackLookupTermsForText(surface);
+  if (lookupTerms.length <= 1) return null;
+  if (shouldKeepSuruAuxiliaryBoundary(segments, startIndex, surface, lookupTerms)) return null;
+  return {
+  segment: { surface, start: first.start, end: current.end },
+  nextIndex: index + 1
+  };
+}
+function isBoundarySegment(surface) {
+  return INFLECTION_BOUNDARY_SEGMENTS.has(surface);
+}
+function isInflectionContinuationSegment(surface) {
+  return INFLECTION_CONTINUATION_SEGMENT_RE.test(surface);
+}
+function canContinueInflectedFallbackSpan(currentSurface, nextSurface) {
+  return isInflectionContinuationSegment(nextSurface) || SINGLE_KANJI_HIRAGANA_STEM_RE.test(currentSurface) && HIRAGANA_END_RE.test(currentSurface) && SINGLE_KANJI_SEGMENT_RE.test(nextSurface) || HIRAGANA_SEGMENT_RE.test(nextSurface) && (SINGLE_KANJI_HIRAGANA_STEM_RE.test(currentSurface) || KANJI_KANA_KANJI_SPAN_RE.test(currentSurface)) && !hasUsefulFallbackDeinflection(currentSurface);
+}
+function isNumericCounterFallbackStem(segment, sourceText) {
+  return NUMERIC_COUNTER_SUFFIX_SEGMENTS.has(segment.surface) && numericRangeImmediatelyBefore(sourceText, segment.start);
+}
+function numericRangeImmediatelyBefore(sourceText, start) {
+  const before = sourceText.slice(Math.max(0, start - 24), start).replace(/\s+$/u, "");
+  return NUMERIC_RANGE_BEFORE_RE.test(before);
+}
+function hasUsefulFallbackDeinflection(surface) {
+  return fallbackLookupTermsForText(surface).length > 1;
+}
+function shouldKeepSuruAuxiliaryBoundary(segments, startIndex, surface, lookupTerms) {
+  const first = segments[startIndex]?.surface ?? "";
+  if (!first || !SURU_STEM_SEGMENT_RE.test(first)) return false;
+  const suffix = surface.slice(first.length);
+  if (!SURU_AUXILIARY_SUFFIX_RE.test(suffix)) return false;
+  if (hasSingleKanjiGodanSAlternative(first, lookupTerms)) return false;
+  return true;
+}
+function hasSingleKanjiGodanSAlternative(first, lookupTerms) {
+  return SINGLE_KANJI_SEGMENT_RE.test(first) && lookupTerms.some((term) => term === `${first}す`);
+}
+function japaneseWordSegmenter() {
+  const Segmenter = intlSegmenter();
+  if (!Segmenter) {
+  cachedSegmenterConstructor = null;
+  cachedJapaneseWordSegmenter = null;
+  return null;
+  }
+  if (cachedSegmenterConstructor !== Segmenter) {
+  cachedSegmenterConstructor = Segmenter;
+  cachedJapaneseWordSegmenter = new Segmenter("ja", { granularity: "word" });
+  }
+  return cachedJapaneseWordSegmenter ?? null;
+}
+function isUsefulJapaneseSegment(segment) {
+  const surface = segment.segment.trim();
+  return JAPANESE_CHARACTER_RE.test(surface);
+}
+function intlSegmenter() {
+  const candidate = Intl.Segmenter;
+  return typeof candidate === "function" ? candidate : null;
+}
+function fallbackJapaneseRunSegment(text, offset) {
+  const surface = text.trim();
+  if (!surface || !JAPANESE_CHARACTER_RE.test(surface)) return [];
+  const start = offset + text.indexOf(surface);
+  return [{ surface, start, end: start + surface.length }];
+}
+function fallbackLookupTermsForText(text) {
+  const source = normalizeFallbackTerm(text);
+  if (!source) return [];
+  const terms = deinflectJapaneseTerm(source).filter(isUsefulFallbackLookupCandidate).sort(compareFallbackLookupCandidates).map((candidate) => normalizeFallbackTerm(candidate.term)).filter(Boolean);
+  return uniqueNonEmptyStrings([source, ...terms]).slice(0, FALLBACK_LOOKUP_TERM_LIMIT);
+}
+function fallbackDictionaryLookupTermsForText(text) {
+  const terms = fallbackLookupTermsForText(text);
+  return dictionaryFirstFallbackLookupTerms(terms, hasAmbiguousContinuativeStemCandidate(terms[0] ?? ""));
+}
+function fallbackLookupTermsForCard(card) {
+  const terms = uniqueNonEmptyStrings([card.spelling, ...card.fallbackLookupTerms ?? []].map(normalizeFallbackTerm).filter(Boolean));
+  return dictionaryFirstFallbackLookupTerms(terms, hasAmbiguousContinuativeStemCandidate(terms[0] ?? ""));
+}
+function isUsefulFallbackLookupCandidate(candidate) {
+  return candidate.depth > 0 && JAPANESE_CHARACTER_RE.test(candidate.term) && candidate.term.length > 1;
+}
+function compareFallbackLookupCandidates(a, b) {
+  return a.depth - b.depth || fallbackRulePriority(a) - fallbackRulePriority(b) || b.term.length - a.term.length || a.term.localeCompare(b.term);
+}
+function fallbackRulePriority(candidate) {
+  if (candidate.rules.some((rule) => rule === "vs" || rule === "vs-s" || rule === "suru" || rule === "vk" || rule === "kuru")) return 0;
+  if (candidate.rules.some((rule) => rule === "v1")) return 1;
+  if (candidate.rules.some((rule) => rule.startsWith("v5") || rule === "v5")) return 1;
+  if (candidate.rules.some((rule) => rule === "adj-i" || rule === "i-adj")) return 2;
+  return 3;
+}
+function dictionaryFirstFallbackLookupTerms(terms, sourceFirst = false) {
+  const [source, ...candidates] = terms;
+  const terminal = candidates.filter(isTerminalDictionaryFallbackTerm);
+  return uniqueNonEmptyStrings(sourceFirst ? [source ?? "", ...terminal, ...candidates] : [...terminal, ...candidates, source ?? ""]);
+}
+function hasAmbiguousContinuativeStemCandidate(source) {
+  return deinflectJapaneseTerm(source).some((candidate) => candidate.depth === 1 && candidate.reasons.length === 1 && candidate.reasons[0] === "continuative stem");
+}
+function isTerminalDictionaryFallbackTerm(term) {
+  return !BOGUS_SMALL_TSU_FINAL_RE.test(term) && fallbackLookupTermsForText(term).length <= 1;
+}
+const LANGUAGE_PROFILE_SCHEMA_VERSION = 1;
+const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 3;
+const SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS = [3];
+function isSupportedLearningTargetModuleInterfaceVersion(value) {
+  return SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS.includes(value);
+}
+const LEARNING_TARGET_CAPABILITY_IDS = [
+  "term-lookup",
+  "character-lookup",
+  "segmentation",
+  "morphology",
+  "reading-annotation",
+  "pronunciation",
+  "frequency",
+  "examples",
+  "grammar",
+  "audio",
+  "text-to-speech",
+  "ocr",
+  "subtitles",
+  "mining",
+  "srs",
+  "grading",
+  "typing",
+  "handwriting"
+];
+const NO_CAPABILITIES = Object.freeze(
+  Object.fromEntries(LEARNING_TARGET_CAPABILITY_IDS.map((id) => [id, false]))
+);
+function learningTargetCapabilities(declared = {}) {
+  return Object.freeze({ ...NO_CAPABILITIES, ...declared });
+}
+function createLearningTargetModule(spec) {
+  const language = canonicalLanguageTag(spec.language) ?? spec.language;
+  const base = languageSubtag(language) ?? language;
+  const regionalTag = maximizedLocaleTag(language);
+  const direction = spec.direction ?? localeDirection(language);
+  const detects = detectorFor(spec.detectsText);
+  const normalizeText = spec.normalizeText ?? defaultNormalizeText;
+  return Object.freeze({
+  interfaceVersion: spec.interfaceVersion ?? LEARNING_TARGET_MODULE_INTERFACE_VERSION,
+  id: spec.id,
+  language,
+  direction,
+  collationLocale: spec.collationLocale ?? language,
+  capabilities: learningTargetCapabilities(spec.capabilities),
+  featureSemantics: Object.freeze({
+    ...spec.featureSemantics,
+    phoneticScripts: Object.freeze([...spec.featureSemantics.phoneticScripts])
+  }),
+  typography: Object.freeze({
+    contentLocale: language,
+    direction,
+    readingAnnotationMode: "none",
+    supportsVerticalWriting: false,
+    ...spec.typography
+  }),
+  audio: Object.freeze({
+    speechSynthesisLocale: regionalTag,
+    templateLanguageToken: base,
+    ...spec.audio
+  }),
+  ocr: Object.freeze({
+    defaultLanguage: regionalTag,
+    languageHint: base,
+    ...spec.ocr
+  }),
+  subtitles: Object.freeze({
+    languageTag: spec.subtitles?.languageTag ?? base,
+    languageAliases: Object.freeze([...spec.subtitles?.languageAliases ?? []])
+  }),
+  normalizeText,
+  isLookupableText(text) {
+    return Boolean(text) && detects(text);
+  },
+  segment: spec.segment ?? defaultSegment,
+  lookupCandidates: spec.lookupCandidates ?? ((text) => defaultLookupCandidates(normalizeText(text))),
+  matchesLookupCandidateRules: spec.matchesLookupCandidateRules ?? defaultMatchesLookupCandidateRules,
+  normalizeReading: spec.normalizeReading ?? defaultNormalizeReading
+  });
+}
+function maximizedLocaleTag(language) {
+  try {
+  const locale = new Intl.Locale(language);
+  if (locale.region) return `${locale.language}-${locale.region}`;
+  const region = locale.maximize().region;
+  return region ? `${locale.language}-${region}` : locale.language;
+  } catch {
+  return language;
+  }
+}
+function detectorFor(value) {
+  if (typeof value === "function") return value;
+  if (value instanceof RegExp) return (text) => value.test(text);
+  return () => false;
+}
+function defaultNormalizeText(text) {
+  return text.normalize("NFKC").replace(/\s+/gu, " ").trim();
+}
+function defaultSegment(text) {
+  const segments = [];
+  const pattern = /\S+/gu;
+  let match = pattern.exec(text);
+  while (match) {
+  segments.push({ text: match[0], start: match.index, end: match.index + match[0].length });
+  match = pattern.exec(text);
+  }
+  return segments;
+}
+function defaultLookupCandidates(term) {
+  return term ? [{ term, rules: [], reasons: [], depth: 0 }] : [];
+}
+function defaultMatchesLookupCandidateRules(entryRules, candidateRules) {
+  if (!candidateRules.length) return true;
+  const entryRuleSet = new Set((entryRules ?? "").split(/\s+/u).filter(Boolean));
+  return candidateRules.some((rule) => entryRuleSet.has(rule));
+}
+function defaultNormalizeReading(spelling, reading) {
+  return (reading ?? "").trim() || spelling.trim();
+}
+const JAPANESE_LEARNING_TARGET = createLearningTargetModule({
+  id: "japanese-v1",
+  language: "ja",
+  direction: "ltr",
+  collationLocale: "ja",
+  capabilities: {
+  "term-lookup": true,
+  "character-lookup": true,
+  segmentation: true,
+  morphology: true,
+  "reading-annotation": true,
+  pronunciation: true,
+  frequency: true,
+  examples: true,
+  grammar: true,
+  audio: true,
+  "text-to-speech": true,
+  ocr: true,
+  subtitles: true,
+  mining: true,
+  srs: true,
+  grading: true,
+  typing: true,
+  handwriting: true
+  },
+  featureSemantics: {
+  characterSystem: "kanji",
+  phoneticScripts: ["hiragana", "katakana"],
+  pronunciation: "pitch-accent",
+  readingAnnotation: "furigana"
+  },
+  typography: {
+  contentLocale: "ja",
+  readingAnnotationMode: "ruby",
+  supportsVerticalWriting: true
+  },
+  audio: {
+  speechSynthesisLocale: "ja-JP",
+  templateLanguageToken: "ja"
+  },
+  ocr: {
+  defaultLanguage: "ja-JP",
+  languageHint: "ja"
+  },
+  subtitles: {
+  languageTag: "ja",
+  languageAliases: []
+  },
+  detectsText: HAS_JAPANESE,
+  normalizeText: normalizeJapaneseTargetText,
+  segment(text) {
+  return segmentJapaneseText(text).map((segment) => ({
+    text: segment.surface,
+    start: segment.start,
+    end: segment.end
+  }));
+  },
+  lookupCandidates: deinflectJapaneseTerm,
+  matchesLookupCandidateRules: termRulesMatch,
+  normalizeReading(spelling, reading) {
+  return normalizedJapaneseCardReading(spelling, reading);
+  }
+});
+function normalizeJapaneseTargetText(text) {
+  return normalizeFallbackTerm(text.normalize("NFKC"));
+}
+const HAS_HANGUL = /[가-힣ᄀ-ᇿ㄰-㆏ﾠ-ￜ]/u;
+const KOREAN_LEARNING_TARGET = createLearningTargetModule({
+  id: "korean-thin-v1",
+  language: "ko",
+  capabilities: {
+  segmentation: true,
+  "text-to-speech": true,
+  ocr: true,
+  subtitles: true,
+  typing: true
+  },
+  featureSemantics: {
+  characterSystem: "hangul",
+  phoneticScripts: ["hangul"],
+  pronunciation: "none",
+  readingAnnotation: "none"
+  },
+  subtitles: {
+  languageAliases: ["kor", "korean"]
+  },
+  detectsText: HAS_HANGUL
+});
+const DEFAULT_LEARNING_TARGET_LANGUAGE = "ja";
+const MODULES_BY_LANGUAGE = new Map();
+let registryRevision = 0;
+function learningTargetRegistryRevision() {
+  return registryRevision;
+}
+function registerLearningTargetModule(module) {
+  if (!isSupportedLearningTargetModuleInterfaceVersion(module.interfaceVersion)) {
+  throw new Error(
+    `Learning target "${module.id}" declares contract revision ${String(module.interfaceVersion)}; this build supports ${SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS.join(", ")}.`
+  );
+  }
+  const base = languageSubtag(module.language);
+  if (!base) throw new Error(`Learning target "${module.id}" has an unusable language tag.`);
+  MODULES_BY_LANGUAGE.set(base, module);
+  registryRevision++;
+  return module;
+}
+function learningTargetModuleFor(language) {
+  const canonical = canonicalLanguageTag(language);
+  const base = languageSubtag(canonical);
+  return base ? MODULES_BY_LANGUAGE.get(base) ?? null : null;
+}
+function normalizeLearningTargetLanguage(value) {
+  return learningTargetModuleFor(value)?.language ?? defaultLearningTargetModule().language;
+}
+function defaultLearningTargetModule() {
+  return MODULES_BY_LANGUAGE.get(DEFAULT_LEARNING_TARGET_LANGUAGE) ?? JAPANESE_LEARNING_TARGET;
+}
+registerLearningTargetModule(JAPANESE_LEARNING_TARGET);
+registerLearningTargetModule(KOREAN_LEARNING_TARGET);
+let requestedTargetLanguage = DEFAULT_LEARNING_TARGET_LANGUAGE;
+let cachedTarget = null;
+let cachedForLanguage = "";
+let cachedForRegistryRevision = -1;
+function activeLearningTarget() {
+  const revision = learningTargetRegistryRevision();
+  if (cachedTarget && cachedForLanguage === requestedTargetLanguage && cachedForRegistryRevision === revision) {
+  return cachedTarget;
+  }
+  cachedTarget = learningTargetModuleFor(requestedTargetLanguage) ?? defaultLearningTargetModule();
+  cachedForLanguage = requestedTargetLanguage;
+  cachedForRegistryRevision = revision;
+  return cachedTarget;
+}
+function setActiveLearningTargetLanguage(value) {
+  const module = learningTargetModuleFor(value);
+  if (!module) return null;
+  requestedTargetLanguage = module.language;
+  return module;
+}
+function isTargetLanguageText(text) {
+  return activeLearningTarget().isLookupableText(text);
+}
+function segmentTargetLanguageText(text) {
+  return activeLearningTarget().segment(text);
+}
 const CORE_COLOR_TOKENS = {
   black: "#000000",
   white: "#ffffff",
@@ -1106,7 +2226,7 @@ function compactPassiveInteractionRubyElement(parent) {
 }
 function isCompactInteractiveChromeText(text) {
   const length = compactLength(text);
-  return length >= 2 && length <= COMPACT_INTERACTIVE_CHROME_TEXT_LIMIT && HAS_JAPANESE.test(text);
+  return length >= 2 && length <= COMPACT_INTERACTIVE_CHROME_TEXT_LIMIT && isTargetLanguageText(text);
 }
 function isCompactInteractiveChromeLink(link, parent, text) {
   if (isLikelyProseLink(link, parent)) return false;
@@ -1295,7 +2415,7 @@ function isCompactMetadataElement(element) {
   const text = element.textContent?.replace(/\s+/g, " ").trim() ?? "";
   const height = element.getBoundingClientRect().height;
   return [
-  HAS_JAPANESE.test(text),
+  isTargetLanguageText(text),
   compactLength(text) <= COMPACT_LINKED_CARD_METADATA_TEXT_LIMIT,
   height === 0 || height <= COMPACT_LINKED_CARD_METADATA_MAX_HEIGHT_PX
   ].every(Boolean);
@@ -2349,7 +3469,7 @@ function sentenceSearchIndex(text, search) {
   return text.indexOf(search);
 }
 function isJapaneseSentenceContext(text) {
-  return Boolean(text && HAS_JAPANESE.test(text));
+  return Boolean(text && isTargetLanguageText(text));
 }
 function sentenceSearchText(text, surface, fallback) {
   const cleanSurface = cleanReadableSentence(surface);
@@ -2371,7 +3491,7 @@ function isUsefulContextSentence(sentence, fallback, surface) {
   return fallback ? isRicherThanFallback(sentence, fallback) : true;
 }
 function isJapaneseContextSentence(sentence) {
-  return Boolean(sentence && HAS_JAPANESE.test(sentence));
+  return Boolean(sentence && isTargetLanguageText(sentence));
 }
 function containsSurfaceContext(sentence, surface) {
   return !surface || sentence.includes(surface);
@@ -2423,8 +3543,16 @@ function isIgnoredReadableElement(element) {
 function isSurfaceIgnoredElement$1(element) {
   return READABLE_IGNORED_TAGS.has(element.tagName) || element.matches("[data-jpdb-reader-surface-ignore],.jpdb-reader-furi,.jpdb-ocr-furi");
 }
+const SPACE_BEFORE_JAPANESE_PUNCTUATION_RE = new RegExp(
+  `([${KANA}${KANJI_LIKE_WITH_COUNTERS}])\\s+([${JAPANESE_SENTENCE_PUNCTUATION}])`,
+  "gu"
+);
+const SPACE_AFTER_JAPANESE_PUNCTUATION_RE = new RegExp(
+  `([${JAPANESE_SENTENCE_PUNCTUATION}])\\s+([${KANA}${KANJI_LIKE_WITH_COUNTERS}])`,
+  "gu"
+);
 function cleanReadableSentence(value) {
-  return value.replace(/\s+/g, " ").replace(/([\u3040-\u30ff\u3400-\u9fff々〆ヵヶ])\s+([、。！？・])/gu, "$1$2").replace(/([、。！？・])\s+([\u3040-\u30ff\u3400-\u9fff々〆ヵヶ])/gu, "$1$2").trim();
+  return value.replace(/\s+/g, " ").replace(SPACE_BEFORE_JAPANESE_PUNCTUATION_RE, "$1$2").replace(SPACE_AFTER_JAPANESE_PUNCTUATION_RE, "$1$2").trim();
 }
 function hardBoundedSentence(text, index, length) {
   const start = sentenceStartIndex(text, index);
@@ -2495,7 +3623,7 @@ function isStrongWhitespaceBoundary(text, index) {
   if (!/\s/u.test(char)) return false;
   const before = text.slice(Math.max(0, index - 24), index);
   const after = text.slice(index + 1, Math.min(text.length, index + 25));
-  return HAS_JAPANESE.test(before) && HAS_JAPANESE.test(after);
+  return isTargetLanguageText(before) && isTargetLanguageText(after);
 }
 function clampLongSentence(sentence, surface) {
   if (sentence.length <= MAX_CONTEXT_SENTENCE_LENGTH) return sentence;
@@ -4120,27 +5248,6 @@ function finiteNumber$1(value, fallback) {
 function booleanValue(value, fallback) {
   return typeof value === "boolean" ? value : fallback;
 }
-const LANGUAGE_PROFILE_SCHEMA_VERSION = 1;
-const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 1;
-function canonicalLanguageTag(value) {
-  if (typeof value !== "string") return null;
-  const candidate = value.trim().replace(/_/g, "-");
-  if (!candidate || candidate.length > 255) return null;
-  try {
-  return Intl.getCanonicalLocales(candidate)[0] ?? null;
-  } catch {
-  return null;
-  }
-}
-function languageSubtag(value) {
-  const canonical = canonicalLanguageTag(value);
-  if (!canonical) return null;
-  try {
-  return new Intl.Locale(canonical).language;
-  } catch {
-  return canonical.split("-")[0]?.toLowerCase() ?? null;
-  }
-}
 const languages = [
   {
   id: "sq",
@@ -4607,7 +5714,7 @@ function createDefaultLanguageProfile(defaults = {}) {
     defaults.learnerLanguage,
     DEFAULT_SLICE1_LEARNER_LANGUAGE
   ),
-  targetLanguage: SLICE1_TARGET_LANGUAGE,
+  targetLanguage: normalizeLearningTargetLanguage(defaults.targetLanguage),
   uiLocale: normalizeUiLocale(defaults.uiLocale, "en"),
   parserProvider: normalizeParserProvider$1(defaults.parserProvider, "local"),
   dictionaries: emptyProfileDictionaries(),
@@ -4670,7 +5777,7 @@ function normalizeLanguageProfile(value, index, defaults) {
     value.learnerLanguage,
     normalizeSlice1LearnerLanguage(defaults.learnerLanguage)
   ),
-  targetLanguage: SLICE1_TARGET_LANGUAGE,
+  targetLanguage: normalizeLearningTargetLanguage(value.targetLanguage ?? defaults.targetLanguage),
   uiLocale: normalizeUiLocale(value.uiLocale, normalizeUiLocale(defaults.uiLocale, "en")),
   parserProvider: normalizeParserProvider$1(value.parserProvider, normalizeParserProvider$1(defaults.parserProvider, "local")),
   dictionaries: normalizeProfileDictionaries(value.dictionaries),
@@ -4732,834 +5839,18 @@ function normalizeStringIds(value) {
 function isRecord$1(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
-const JAPANESE_TEXT_RE = /[\u3040-\u30ff\u3400-\u9fff々〆]/u;
-function cardHighlightTargets(card) {
-  const spelling = cleanCardHighlightValue(card.spelling);
-  const reading = optionalJapaneseCardReading(card);
-  return uniqueCardHighlightValues([spelling, reading]);
+function adoptLearningTargetFromSettings(value) {
+  return adoptLearningTargetLanguage(resolveLanguageProfile(value).targetLanguage);
 }
-function normalizedJapaneseCardReading(spelling, reading) {
-  const cleanSpelling = cleanCardHighlightValue(spelling);
-  const cleanReading = cleanCardHighlightValue(reading);
-  return cleanReading && JAPANESE_TEXT_RE.test(cleanReading) ? cleanReading : cleanSpelling;
+function adoptLearningTargetLanguage(value) {
+  const requested = setActiveLearningTargetLanguage(value);
+  if (requested) return requested;
+  const fallback = defaultLearningTargetModule();
+  return setActiveLearningTargetLanguage(fallback.language) ?? fallback;
 }
-function cleanCardHighlightValue(value) {
-  return (value ?? "").replace(/\s+/g, " ").trim();
+function targetLookupCandidates(text) {
+  return activeLearningTarget().lookupCandidates(text);
 }
-function compactCardHighlightValue(value) {
-  return cleanCardHighlightValue(value).replace(/\s+/g, "");
-}
-function optionalJapaneseCardReading(card) {
-  const spelling = cleanCardHighlightValue(card.spelling);
-  const reading = normalizedJapaneseCardReading(spelling, card.reading);
-  return reading && reading !== spelling ? reading : "";
-}
-function uniqueCardHighlightValues(values) {
-  const seen = new Set();
-  return values.map(cleanCardHighlightValue).filter((value) => {
-  if (!value || seen.has(value)) return false;
-  seen.add(value);
-  return true;
-  });
-}
-const GODAN_ROWS = [
-  { ending: "う", a: "わ", i: "い", e: "え", o: "お", te: "って", ta: "った", rules: ["v5u", "v5"] },
-  { ending: "く", a: "か", i: "き", e: "け", o: "こ", te: "いて", ta: "いた", rules: ["v5k", "v5"] },
-  { ending: "ぐ", a: "が", i: "ぎ", e: "げ", o: "ご", te: "いで", ta: "いだ", rules: ["v5g", "v5"] },
-  { ending: "す", a: "さ", i: "し", e: "せ", o: "そ", te: "して", ta: "した", rules: ["v5s", "v5"] },
-  { ending: "つ", a: "た", i: "ち", e: "て", o: "と", te: "って", ta: "った", rules: ["v5t", "v5"] },
-  { ending: "ぬ", a: "な", i: "に", e: "ね", o: "の", te: "んで", ta: "んだ", rules: ["v5n", "v5"] },
-  { ending: "ぶ", a: "ば", i: "び", e: "べ", o: "ぼ", te: "んで", ta: "んだ", rules: ["v5b", "v5"] },
-  { ending: "む", a: "ま", i: "み", e: "め", o: "も", te: "んで", ta: "んだ", rules: ["v5m", "v5"] },
-  { ending: "る", a: "ら", i: "り", e: "れ", o: "ろ", te: "って", ta: "った", rules: ["v5r", "v5"] }
-];
-const ICHIDAN_RULES = [
-  ["ながら", "る", "simultaneous action"],
-  ["ました", "る", "polite past"],
-  ["ませんでした", "る", "polite negative past"],
-  ["ません", "る", "polite negative"],
-  ["ましょう", "る", "polite volitional"],
-  ["ます", "る", "polite"],
-  ["なかった", "る", "negative past"],
-  ["なくて", "る", "negative te-form"],
-  ["なければ", "る", "negative conditional"],
-  ["ない", "る", "negative"],
-  ["ず", "る", "negative archaic"],
-  ["たかった", "る", "desiderative past"],
-  ["たくなかった", "る", "desiderative negative past"],
-  ["たくない", "る", "desiderative negative"],
-  ["たい", "る", "desiderative"],
-  ["なさい", "る", "polite request"],
-  ["すぎる", "る", "excessive"],
-  ["られなかった", "る", "potential/passive negative past"],
-  ["られない", "る", "potential/passive negative"],
-  ["られて", "る", "potential/passive te-form"],
-  ["られた", "る", "potential/passive past"],
-  ["られる", "る", "potential/passive"],
-  ["させられた", "る", "causative passive past"],
-  ["させられる", "る", "causative passive"],
-  ["させない", "る", "causative negative"],
-  ["させて", "る", "causative te-form"],
-  ["させた", "る", "causative past"],
-  ["させる", "る", "causative"],
-  ["れば", "る", "conditional"],
-  ["よう", "る", "volitional"],
-  ["ろ", "る", "imperative"],
-  ["て", "る", "te-form"],
-  ["た", "る", "past"]
-];
-const I_ADJECTIVE_RULES = [
-  ["くなかった", "い", "negative past"],
-  ["くありませんでした", "い", "polite negative past"],
-  ["くありません", "い", "polite negative"],
-  ["かった", "い", "past"],
-  ["くない", "い", "negative"],
-  ["くて", "い", "te-form"],
-  ["ければ", "い", "conditional"],
-  ["そう", "い", "looks"],
-  ["すぎる", "い", "excessive"],
-  ["く", "い", "adverbial"]
-];
-const SURU_RULES = [
-  ["しながら", "する", "simultaneous action"],
-  ["しませんでした", "する", "polite negative past"],
-  ["しません", "する", "polite negative"],
-  ["しました", "する", "polite past"],
-  ["しましょう", "する", "polite volitional"],
-  ["します", "する", "polite"],
-  ["しなかった", "する", "negative past"],
-  ["しなくて", "する", "negative te-form"],
-  ["しなければ", "する", "negative conditional"],
-  ["しない", "する", "negative"],
-  ["せず", "する", "negative archaic"],
-  ["しなさい", "する", "polite request"],
-  ["しすぎる", "する", "excessive"],
-  ["された", "する", "passive past"],
-  ["されて", "する", "passive te-form"],
-  ["される", "する", "passive"],
-  ["させた", "する", "causative past"],
-  ["させて", "する", "causative te-form"],
-  ["させる", "する", "causative"],
-  ["できなかった", "する", "potential negative past"],
-  ["できない", "する", "potential negative"],
-  ["できた", "する", "potential past"],
-  ["できて", "する", "potential te-form"],
-  ["できる", "する", "potential"],
-  ["すれば", "する", "conditional"],
-  ["しよう", "する", "volitional"],
-  ["しろ", "する", "imperative"],
-  ["せよ", "する", "imperative"],
-  ["した", "する", "past"],
-  ["して", "する", "te-form"]
-];
-const KURU_RULES = [
-  ["来ながら", "来る", "simultaneous action"],
-  ["来ませんでした", "来る", "polite negative past"],
-  ["来ません", "来る", "polite negative"],
-  ["来ました", "来る", "polite past"],
-  ["来ます", "来る", "polite"],
-  ["来なかった", "来る", "negative past"],
-  ["来なくて", "来る", "negative te-form"],
-  ["来ない", "来る", "negative"],
-  ["来なさい", "来る", "polite request"],
-  ["来すぎる", "来る", "excessive"],
-  ["来られた", "来る", "potential/passive past"],
-  ["来られて", "来る", "potential/passive te-form"],
-  ["来られる", "来る", "potential/passive"],
-  ["来れば", "来る", "conditional"],
-  ["来よう", "来る", "volitional"],
-  ["来い", "来る", "imperative"],
-  ["来た", "来る", "past"],
-  ["来て", "来る", "te-form"],
-  ["きながら", "くる", "simultaneous action"],
-  ["きませんでした", "くる", "polite negative past"],
-  ["きません", "くる", "polite negative"],
-  ["きました", "くる", "polite past"],
-  ["きます", "くる", "polite"],
-  ["こなかった", "くる", "negative past"],
-  ["こなくて", "くる", "negative te-form"],
-  ["こない", "くる", "negative"],
-  ["こず", "くる", "negative archaic"],
-  ["きなさい", "くる", "polite request"],
-  ["きすぎる", "くる", "excessive"],
-  ["こられた", "くる", "potential/passive past"],
-  ["こられて", "くる", "potential/passive te-form"],
-  ["こられる", "くる", "potential/passive"],
-  ["くれば", "くる", "conditional"],
-  ["こよう", "くる", "volitional"],
-  ["こい", "くる", "imperative"],
-  ["きた", "くる", "past"],
-  ["きて", "くる", "te-form"]
-];
-const TE_ASPECT_SUFFIXES = [
-  ["いる", "progressive"],
-  ["います", "polite progressive"],
-  ["いました", "polite progressive past"],
-  ["いません", "polite progressive negative"],
-  ["いませんでした", "polite progressive negative past"],
-  ["いた", "progressive past"],
-  ["いて", "progressive te-form"],
-  ["いない", "progressive negative"],
-  ["いなかった", "progressive negative past"],
-  ["いれば", "progressive conditional"],
-  ["る", "contracted progressive"],
-  ["ます", "contracted polite progressive"],
-  ["ました", "contracted polite progressive past"],
-  ["た", "contracted progressive past"],
-  ["て", "contracted progressive te-form"],
-  ["ない", "contracted progressive negative"],
-  ["なかった", "contracted progressive negative past"]
-];
-const TE_COMPLETION_SUFFIXES = [
-  ["しまう", "completion"],
-  ["しまった", "completion past"],
-  ["しまって", "completion te-form"],
-  ["しまわない", "completion negative"],
-  ["しまいます", "polite completion"],
-  ["しまいました", "polite completion past"]
-];
-const CONTRACTED_COMPLETION_SUFFIXES = [
-  ["う", "contracted completion"],
-  ["った", "contracted completion past"],
-  ["って", "contracted completion te-form"],
-  ["わない", "contracted completion negative"],
-  ["います", "contracted polite completion"],
-  ["いました", "contracted polite completion past"]
-];
-const RULES = [
-  ...ICHIDAN_RULES.map(([from, to, reason]) => ({ from, to, reason, rules: ["v1"] })),
-  ...teCompoundRules("て", "る", ["v1"]),
-  ...I_ADJECTIVE_RULES.map(([from, to, reason]) => ({ from, to, reason, rules: ["adj-i", "i-adj"] })),
-  ...SURU_RULES.map(([from, to, reason]) => ({ from, to, reason, rules: ["vs", "vs-s", "suru"] })),
-  ...teCompoundRules("して", "する", ["vs", "vs-s", "suru"]),
-  ...KURU_RULES.map(([from, to, reason]) => ({ from, to, reason, rules: ["vk", "kuru"] })),
-  ...teCompoundRules("来て", "来る", ["vk", "kuru"]),
-  ...teCompoundRules("きて", "くる", ["vk", "kuru"]),
-  ...GODAN_ROWS.flatMap((row) => godanRules(row)),
-  { from: "行って", to: "行く", reason: "te-form", rules: ["v5k", "v5"] },
-  { from: "行った", to: "行く", reason: "past", rules: ["v5k", "v5"] },
-  { from: "行っちゃう", to: "行く", reason: "contracted completion", rules: ["v5k", "v5"] },
-  { from: "行っちゃった", to: "行く", reason: "contracted completion past", rules: ["v5k", "v5"] }
-];
-const DEINFLECTION_CACHE_MAX = 4e3;
-const deinflectionCache = new Map();
-function deinflectJapaneseTerm(source) {
-  const cached = deinflectionCache.get(source);
-  if (cached) return cached;
-  const results = [{ term: source, rules: [], reasons: [], depth: 0 }];
-  const seen = new Set([candidateKey(results[0])]);
-  const queue = [results[0]];
-  expandDeinflectionQueue(queue, results, seen);
-  const sorted = sortDeinflectedTerms(results);
-  if (deinflectionCache.size >= DEINFLECTION_CACHE_MAX) {
-  const oldest = deinflectionCache.keys().next().value;
-  if (oldest !== void 0) deinflectionCache.delete(oldest);
-  }
-  deinflectionCache.set(source, sorted);
-  return sorted;
-}
-function expandDeinflectionQueue(queue, results, seen) {
-  for (let index = 0; index < queue.length; index++) {
-  expandDeinflectedTerm(queue[index], queue, results, seen);
-  }
-}
-function expandDeinflectedTerm(current, queue, results, seen) {
-  if (isTerminalDeinflection(current)) return;
-  for (const rule of RULES) {
-  rememberExpandedDeinflection(current, rule, queue, results, seen);
-  }
-}
-function isTerminalDeinflection(current) {
-  return current.depth >= 2 || current.reasons.at(-1) === "simultaneous action";
-}
-function rememberExpandedDeinflection(current, rule, queue, results, seen) {
-  const next = deinflectedCandidate(current, rule);
-  if (!next) return;
-  if (!rememberDeinflectedCandidate(next, seen)) return;
-  results.push(next);
-  queue.push(next);
-}
-function sortDeinflectedTerms(results) {
-  return results.sort((a, b) => a.depth - b.depth || b.term.length - a.term.length || a.term.localeCompare(b.term));
-}
-function deinflectedCandidate(current, rule) {
-  if (!canApplyDeinflectionRule(current.term, rule)) return null;
-  const term = `${current.term.slice(0, -rule.from.length)}${rule.to}`;
-  if (!term || term === current.term) return null;
-  return {
-  term,
-  rules: rule.rules,
-  reasons: [...current.reasons, rule.reason],
-  depth: current.depth + 1
-  };
-}
-function canApplyDeinflectionRule(term, rule) {
-  return term.endsWith(rule.from) && (term.length > rule.from.length || rule.to.length > 0);
-}
-function rememberDeinflectedCandidate(candidate, seen) {
-  const key = candidateKey(candidate);
-  if (seen.has(key)) return false;
-  seen.add(key);
-  return true;
-}
-function godanRules(row) {
-  const rules = row.rules;
-  return [
-  ...teCompoundRules(row.te, row.ending, rules),
-  { from: `${row.i}ながら`, to: row.ending, reason: "simultaneous action", rules },
-  { from: row.i, to: row.ending, reason: "continuative stem", rules },
-  { from: row.te, to: row.ending, reason: "te-form", rules },
-  { from: row.ta, to: row.ending, reason: "past", rules },
-  { from: `${row.a}なかった`, to: row.ending, reason: "negative past", rules },
-  { from: `${row.a}なくて`, to: row.ending, reason: "negative te-form", rules },
-  { from: `${row.a}なければ`, to: row.ending, reason: "negative conditional", rules },
-  { from: `${row.a}ない`, to: row.ending, reason: "negative", rules },
-  { from: `${row.a}ず`, to: row.ending, reason: "negative archaic", rules },
-  { from: `${row.i}ませんでした`, to: row.ending, reason: "polite negative past", rules },
-  { from: `${row.i}ません`, to: row.ending, reason: "polite negative", rules },
-  { from: `${row.i}ました`, to: row.ending, reason: "polite past", rules },
-  { from: `${row.i}ましょう`, to: row.ending, reason: "polite volitional", rules },
-  { from: `${row.i}ます`, to: row.ending, reason: "polite", rules },
-  { from: `${row.i}たかった`, to: row.ending, reason: "desiderative past", rules },
-  { from: `${row.i}たくなかった`, to: row.ending, reason: "desiderative negative past", rules },
-  { from: `${row.i}たくない`, to: row.ending, reason: "desiderative negative", rules },
-  { from: `${row.i}たい`, to: row.ending, reason: "desiderative", rules },
-  { from: `${row.i}なさい`, to: row.ending, reason: "polite request", rules },
-  { from: `${row.i}すぎる`, to: row.ending, reason: "excessive", rules },
-  { from: `${row.e}ば`, to: row.ending, reason: "conditional", rules },
-  { from: `${row.o}う`, to: row.ending, reason: "volitional", rules },
-  { from: `${row.e}なかった`, to: row.ending, reason: "potential negative past", rules },
-  { from: `${row.e}ない`, to: row.ending, reason: "potential negative", rules },
-  { from: `${row.e}た`, to: row.ending, reason: "potential past", rules },
-  { from: `${row.e}て`, to: row.ending, reason: "potential te-form", rules },
-  { from: `${row.e}る`, to: row.ending, reason: "potential", rules },
-  { from: `${row.a}れなかった`, to: row.ending, reason: "passive negative past", rules },
-  { from: `${row.a}れない`, to: row.ending, reason: "passive negative", rules },
-  { from: `${row.a}れて`, to: row.ending, reason: "passive te-form", rules },
-  { from: `${row.a}れた`, to: row.ending, reason: "passive past", rules },
-  { from: `${row.a}れる`, to: row.ending, reason: "passive", rules },
-  { from: `${row.a}せない`, to: row.ending, reason: "causative negative", rules },
-  { from: `${row.a}せて`, to: row.ending, reason: "causative te-form", rules },
-  { from: `${row.a}せた`, to: row.ending, reason: "causative past", rules },
-  { from: `${row.a}せる`, to: row.ending, reason: "causative", rules },
-  { from: row.e, to: row.ending, reason: "imperative", rules }
-  ];
-}
-function teCompoundRules(te, to, rules) {
-  return [
-  ...TE_ASPECT_SUFFIXES.map(([suffix, reason]) => ({ from: `${te}${suffix}`, to, reason, rules })),
-  ...TE_COMPLETION_SUFFIXES.map(([suffix, reason]) => ({ from: `${te}${suffix}`, to, reason, rules })),
-  ...contractedCompletionRules(te, to, rules)
-  ];
-}
-function contractedCompletionRules(te, to, rules) {
-  const stem = contractedCompletionStem(te);
-  return stem ? CONTRACTED_COMPLETION_SUFFIXES.map(([suffix, reason]) => ({ from: `${stem}${suffix}`, to, reason, rules })) : [];
-}
-function contractedCompletionStem(te) {
-  if (te.endsWith("て")) return `${te.slice(0, -1)}ちゃ`;
-  if (te.endsWith("で")) return `${te.slice(0, -1)}じゃ`;
-  return "";
-}
-function candidateKey(candidate) {
-  return `${candidate.term}
-${candidate.rules.join(" ")}
-${candidate.depth}`;
-}
-function uniqueStrings(values, options = {}) {
-  const seen = new Set();
-  const result = [];
-  for (const value of values) {
-  const normalized = options.trim ? value?.trim() : value;
-  if (normalized === void 0 || normalized === null) continue;
-  if (options.dropEmpty && !normalized) continue;
-  if (seen.has(normalized)) continue;
-  seen.add(normalized);
-  result.push(normalized);
-  }
-  return result;
-}
-function uniqueNonEmptyStrings(values) {
-  return uniqueStrings(values, { dropEmpty: true });
-}
-function uniqueTrimmedStrings(values) {
-  return uniqueStrings(values, { trim: true, dropEmpty: true });
-}
-function stableHash32(value) {
-  let hash = 2166136261;
-  for (let index = 0; index < value.length; index += 1) {
-  hash ^= value.charCodeAt(index);
-  hash = Math.imul(hash, 16777619);
-  }
-  return hash >>> 0;
-}
-function stablePositiveHashId(value) {
-  return stableHash32(value) || 1;
-}
-const JAPANESE_SCRIPT_GROUP_RE = /[\u3400-\u9fff々〆ヵヶ]+|[\u3040-\u309fー]+|[\u30a0-\u30ffー]+|[\uff66-\uff9f]+/gu;
-const JAPANESE_TEXT_RUN_RE = /[\u3040-\u30ff\u3400-\u9fff々〆ヵヶー\uff66-\uff9f]+/gu;
-const JAPANESE_CHARACTER_RE = /[\u3040-\u30ff\u3400-\u9fff々〆ヵヶ\uff66-\uff9f]/u;
-const FALLBACK_INFLECTION_MAX_SEGMENTS = 8;
-const FALLBACK_INFLECTION_MAX_LENGTH = 18;
-const FALLBACK_LOOKUP_TERM_LIMIT = 8;
-const INFLECTION_BOUNDARY_SEGMENTS = new Set(["は", "が", "を", "に", "へ", "と", "で", "の", "や", "から", "まで", "より", "だけ", "しか", "など", "ね"]);
-const PARTICLE_PREFIX_SEGMENTS = [...INFLECTION_BOUNDARY_SEGMENTS].sort((first, second) => second.length - first.length);
-const PARTICLE_PREFIX_REMAINDER_RE = /^[\u3400-\u9fff々〆ヵヶ\u30a0-\u30ffー]/u;
-const INFLECTION_CONTINUATION_SEGMENT_RE = /^(?:っ?た|っ?て|だ|で|ん|んで|ま|ない|なか|なかっ|なかった|ながら|ます|まし|ました|ませ|ません|ましょう|たい|たく|しま|した|し|する|でき|出来|できる|できます|できた|できて|できない|できなかった|いる|い|いた|いて|れる|られ|せる|させる)$/u;
-const HIRAGANA_SEGMENT_RE = /^[\u3040-\u309fー]+$/u;
-const KATAKANA_SEGMENT_RE = /^[\u30a0-\u30ff\uff66-\uff9fー]+$/u;
-const SINGLE_KANJI_SEGMENT_RE = /^[\u3400-\u9fff]$/u;
-const SINGLE_KANJI_HIRAGANA_STEM_RE = /^[\u3400-\u9fff][\u3040-\u309fー]*$/u;
-const KANJI_KANA_KANJI_SPAN_RE = /[\u3400-\u9fff々〆ヵヶ][\u3040-\u309fー]+[\u3400-\u9fff々〆ヵヶ]/u;
-const HIRAGANA_END_RE = /[\u3040-\u309fー]$/u;
-const TRAILING_POLITE_PARTICLE_RE = /(?:ます|ません|です|でした)ね$/u;
-const SURU_STEM_SEGMENT_RE = /[\u3400-\u9fff々〆ヵヶ\u30a0-\u30ff]/u;
-const SURU_AUXILIARY_SUFFIX_RE = /^(?:し|する|した|して|します|しました|しましょう|しない|でき|出来|できる|できます|できた|できて|できない|できなかった)/u;
-const NUMERIC_COUNTER_SUFFIX_SEGMENTS = new Set(["話", "巻", "回", "章", "部", "番", "号", "版", "人", "名", "匹", "頭", "羽", "枚", "本", "冊", "個", "台", "件", "分", "秒", "時", "日", "月", "年", "泊", "円"]);
-const NUMERIC_RANGE_BEFORE_RE = /(?:第\s*)?(?:[0-9０-９]+|[一二三四五六七八九十百千万億兆]+)(?:\s*[〜～~\-ー−―–]\s*(?:[0-9０-９]+|[一二三四五六七八九十百千万億兆]+))*$/u;
-const BOGUS_SMALL_TSU_FINAL_RE = /っ[うくぐすずつづぬふぶぷむゆる]$/u;
-const SEGMENTER_COMPOUND_OVERRIDES = new Set(["巨乳"]);
-const SEGMENTER_COMPOUND_OVERRIDE_MAX_LENGTH = Array.from(SEGMENTER_COMPOUND_OVERRIDES).reduce((max, value) => Math.max(max, value.length), 0);
-const KANA_VERB_STEM_END_RE = /[うくぐすずつづぬふぶぷむゆる]$/u;
-const KANA_I_ADJECTIVE_END_RE = /い$/u;
-const SMALL_TSU_RE = /っ/u;
-const KANA_CONTENT_WORD_MIN_LENGTH = 3;
-const NON_HIRAGANA_SCRIPT_RE = /[㐀-鿿々〆ヵヶ゠-ヿ\uff66-\uff9f]/u;
-function normalizeFallbackTerm(text) {
-  return text.replace(/\s+/g, " ").trim().slice(0, 80);
-}
-function bareFallbackCardFromText(text) {
-  const spelling = normalizeFallbackTerm(text);
-  const id = -stablePositiveHashId(`fallback
-${spelling}`);
-  const fallbackLookupTerms = fallbackLookupTermsForText(spelling).slice(1);
-  return {
-  vid: id,
-  sid: id,
-  rid: 0,
-  spelling,
-  reading: "",
-  frequencyRank: null,
-  partOfSpeech: [],
-  meanings: [],
-  cardState: ["not-in-deck"],
-  provisionalState: true,
-  pitchAccent: [],
-  wordWithReading: null,
-  source: "fallback",
-  ...fallbackLookupTerms.length ? { fallbackLookupTerms } : {}
-  };
-}
-let cachedSegmenterConstructor;
-let cachedJapaneseWordSegmenter;
-function segmentJapaneseText(text) {
-  const segmenter = japaneseWordSegmenter();
-  if (!segmenter) {
-  return Array.from(text.matchAll(JAPANESE_SCRIPT_GROUP_RE)).flatMap((match) => {
-    const start = match.index ?? 0;
-    return finalizeJapaneseRunSegments(fallbackJapaneseRunSegment(match[0], start), text);
-  });
-  }
-  return Array.from(text.matchAll(JAPANESE_TEXT_RUN_RE)).flatMap((match) => {
-  const start = match.index ?? 0;
-  return segmentJapaneseRun(match[0], start, segmenter, text);
-  });
-}
-function segmentJapaneseRun(text, offset, segmenter, sourceText) {
-  const segments = Array.from(segmenter.segment(text)).filter(isUsefulJapaneseSegment).map((segment) => ({
-  surface: segment.segment,
-  start: offset + segment.index,
-  end: offset + segment.index + segment.segment.length
-  }));
-  if (segments.at(-1)?.end !== offset + text.length) {
-  return finalizeJapaneseRunSegments(fallbackJapaneseRunSegment(text, offset), sourceText);
-  }
-  return finalizeJapaneseRunSegments(segments, sourceText);
-}
-function finalizeJapaneseRunSegments(segments, sourceText) {
-  const normalizedSegments = splitTrailingPoliteParticleSegments(
-  mergeContiguousKanaSegments(mergeContiguousKatakanaSegments(mergeSegmenterCompoundOverrides(splitNumericCounterPrefixSegments(segments, sourceText))))
-  );
-  return mergeInflectedFallbackSegments(
-  splitLeadingParticleSegments(normalizedSegments),
-  sourceText
-  );
-}
-function splitTrailingPoliteParticleSegments(segments) {
-  return segments.flatMap((segment, index) => {
-  if (!segment.surface.endsWith("ね") || segment.surface === "ね") return [segment];
-  const previous = segments[index - 1]?.surface ?? "";
-  if (!TRAILING_POLITE_PARTICLE_RE.test(`${previous}${segment.surface}`)) return [segment];
-  const particleStart = segment.end - 1;
-  const stem = segment.surface.slice(0, -1);
-  return [
-    ...stem ? [{ surface: stem, start: segment.start, end: particleStart }] : [],
-    { surface: "ね", start: particleStart, end: segment.end }
-  ];
-  });
-}
-function mergeContiguousKanaSegments(segments) {
-  if (segments.some((segment) => NON_HIRAGANA_SCRIPT_RE.test(segment.surface))) return segments;
-  const merged = [];
-  for (let index = 0; index < segments.length; ) {
-  const span = contiguousKanaMergeSpanAt(segments, index);
-  if (span) {
-    merged.push(span.segment);
-    index = span.nextIndex;
-    continue;
-  }
-  merged.push(segments[index]);
-  index += 1;
-  }
-  return merged;
-}
-function mergeContiguousKatakanaSegments(segments) {
-  const merged = [];
-  for (let index = 0; index < segments.length; ) {
-  const first = segments[index];
-  if (!KATAKANA_SEGMENT_RE.test(first.surface)) {
-    merged.push(first);
-    index += 1;
-    continue;
-  }
-  let surface = first.surface;
-  let runEnd = index + 1;
-  while (runEnd < segments.length && KATAKANA_SEGMENT_RE.test(segments[runEnd].surface) && segments[runEnd].start === segments[runEnd - 1].end) {
-    surface += segments[runEnd].surface;
-    runEnd += 1;
-  }
-  merged.push(runEnd - index > 1 ? { surface, start: first.start, end: segments[runEnd - 1].end } : first);
-  index = runEnd;
-  }
-  return merged;
-}
-function contiguousKanaMergeSpanAt(segments, startIndex) {
-  const first = segments[startIndex];
-  if (!first || !isPureKanaSegment(first.surface)) return null;
-  const previous = segments[startIndex - 1];
-  const atKanaRunStart = !previous || !isPureKanaSegment(previous.surface) || previous.end !== first.start;
-  if (isBoundarySegment(first.surface) && !atKanaRunStart) return null;
-  const runEnd = contiguousKanaRunEnd(segments, startIndex);
-  if (runEnd - startIndex < 2) return null;
-  let surface = first.surface;
-  let lastIndex = startIndex;
-  for (let index = startIndex + 1; index < runEnd; index += 1) {
-  const current = segments[index];
-  const trailingSpan = sliceKanaSpanSurface(segments, index, runEnd);
-  if (isBoundarySegment(current.surface) || isKanaContentWordSpan(trailingSpan)) break;
-  surface += current.surface;
-  lastIndex = index;
-  }
-  if (lastIndex === startIndex) return null;
-  return {
-  segment: { surface, start: first.start, end: segments[lastIndex].end },
-  nextIndex: lastIndex + 1
-  };
-}
-function contiguousKanaRunEnd(segments, startIndex) {
-  let index = startIndex + 1;
-  while (index < segments.length && isPureKanaSegment(segments[index].surface) && segments[index].start === segments[index - 1].end) {
-  index += 1;
-  }
-  return index;
-}
-function sliceKanaSpanSurface(segments, startIndex, endIndex) {
-  let surface = "";
-  for (let index = startIndex; index < endIndex; index += 1) surface += segments[index].surface;
-  return surface;
-}
-function isPureKanaSegment(surface) {
-  return HIRAGANA_SEGMENT_RE.test(surface);
-}
-function isKanaContentWordSpan(span) {
-  if (isKanaInflectableBaseShape(span)) return true;
-  return deinflectJapaneseTerm(span).some((candidate) => candidate.depth > 0 && Array.from(candidate.term).length >= 2 && !SMALL_TSU_RE.test(candidate.term) && (KANA_VERB_STEM_END_RE.test(candidate.term) || KANA_I_ADJECTIVE_END_RE.test(candidate.term)));
-}
-function isKanaInflectableBaseShape(span) {
-  if (Array.from(span).length < KANA_CONTENT_WORD_MIN_LENGTH || SMALL_TSU_RE.test(span)) return false;
-  return KANA_VERB_STEM_END_RE.test(span) || KANA_I_ADJECTIVE_END_RE.test(span);
-}
-function splitNumericCounterPrefixSegments(segments, sourceText) {
-  return segments.flatMap((segment) => splitNumericCounterPrefixSegment(segment, sourceText));
-}
-function splitNumericCounterPrefixSegment(segment, sourceText) {
-  const first = Array.from(segment.surface)[0] ?? "";
-  if (!first || first === segment.surface || !NUMERIC_COUNTER_SUFFIX_SEGMENTS.has(first)) return [segment];
-  if (!numericRangeImmediatelyBefore(sourceText, segment.start)) return [segment];
-  const second = Array.from(segment.surface)[1] ?? "";
-  if (second === "間") return [segment];
-  return [
-  { surface: first, start: segment.start, end: segment.start + first.length },
-  { surface: segment.surface.slice(first.length), start: segment.start + first.length, end: segment.end }
-  ];
-}
-function splitLeadingParticleSegments(segments) {
-  return segments.flatMap(splitLeadingParticleSegment);
-}
-function splitLeadingParticleSegment(segment) {
-  const prefix = PARTICLE_PREFIX_SEGMENTS.find((candidate) => {
-  if (!segment.surface.startsWith(candidate) || segment.surface.length <= candidate.length) return false;
-  return PARTICLE_PREFIX_REMAINDER_RE.test(segment.surface.slice(candidate.length));
-  });
-  if (!prefix) return [segment];
-  return [
-  { surface: prefix, start: segment.start, end: segment.start + prefix.length },
-  { surface: segment.surface.slice(prefix.length), start: segment.start + prefix.length, end: segment.end }
-  ];
-}
-function mergeSegmenterCompoundOverrides(segments) {
-  const merged = [];
-  for (let index = 0; index < segments.length; ) {
-  const span = segmenterCompoundOverrideSpanAt(segments, index);
-  if (span) {
-    merged.push(span.segment);
-    index = span.nextIndex;
-    continue;
-  }
-  merged.push(segments[index]);
-  index += 1;
-  }
-  return merged;
-}
-function segmenterCompoundOverrideSpanAt(segments, startIndex) {
-  const first = segments[startIndex];
-  if (!first) return null;
-  let surface = "";
-  let best = null;
-  for (let index = startIndex; index < segments.length; index += 1) {
-  const current = segments[index];
-  if (!current || index > startIndex && segments[index - 1]?.end !== current.start) break;
-  surface += current.surface;
-  if (surface.length > SEGMENTER_COMPOUND_OVERRIDE_MAX_LENGTH) break;
-  if (index > startIndex && SEGMENTER_COMPOUND_OVERRIDES.has(surface)) {
-    best = {
-      segment: { surface, start: first.start, end: current.end },
-      nextIndex: index + 1
-    };
-  }
-  }
-  return best;
-}
-function mergeInflectedFallbackSegments(segments, sourceText) {
-  const merged = [];
-  for (let index = 0; index < segments.length; ) {
-  const span = inflectedFallbackSpanAt(segments, index, sourceText);
-  if (span) {
-    merged.push(span.segment);
-    index = span.nextIndex;
-    continue;
-  }
-  merged.push(segments[index]);
-  index += 1;
-  }
-  return merged;
-}
-function inflectedFallbackSpanAt(segments, startIndex, sourceText) {
-  const first = segments[startIndex];
-  if (!first || isBoundarySegment(first.surface)) return null;
-  let surface = "";
-  let best = null;
-  for (let index = startIndex; index < fallbackInflectionScanEnd(segments, startIndex); index += 1) {
-  const current = nextInflectedFallbackSegment(segments, index, startIndex, first, surface, sourceText);
-  if (!current) break;
-  surface += current.surface;
-  if (surface.length > FALLBACK_INFLECTION_MAX_LENGTH) break;
-  best = inflectedFallbackCandidateAt(segments, startIndex, index, first, current, surface) ?? best;
-  }
-  return best;
-}
-function fallbackInflectionScanEnd(segments, startIndex) {
-  return Math.min(segments.length, startIndex + FALLBACK_INFLECTION_MAX_SEGMENTS);
-}
-function nextInflectedFallbackSegment(segments, index, startIndex, first, surface, sourceText) {
-  const current = segments[index];
-  if (!current || !isContiguousFallbackSegment(segments, index, startIndex, first)) return null;
-  if (index > startIndex && isNumericCounterFallbackStem(first, sourceText)) return null;
-  const politeNegativePast = index > startIndex && isPoliteNegativePastContinuation(segments, index, surface);
-  if (index > startIndex && isBoundarySegment(current.surface) && !politeNegativePast) return null;
-  if (index > startIndex && !politeNegativePast && !canContinueInflectedFallbackSpan(surface, current.surface)) return null;
-  return current;
-}
-function isPoliteNegativePastContinuation(segments, index, surface) {
-  return surface.endsWith("ません") && segments[index]?.surface === "で" && segments[index + 1]?.surface === "した";
-}
-function isContiguousFallbackSegment(segments, index, startIndex, first) {
-  const expectedStart = index === startIndex ? first.start : segments[index - 1]?.end;
-  return segments[index]?.start === expectedStart;
-}
-function inflectedFallbackCandidateAt(segments, startIndex, index, first, current, surface) {
-  if (index === startIndex) return null;
-  const lookupTerms = fallbackLookupTermsForText(surface);
-  if (lookupTerms.length <= 1) return null;
-  if (shouldKeepSuruAuxiliaryBoundary(segments, startIndex, surface, lookupTerms)) return null;
-  return {
-  segment: { surface, start: first.start, end: current.end },
-  nextIndex: index + 1
-  };
-}
-function isBoundarySegment(surface) {
-  return INFLECTION_BOUNDARY_SEGMENTS.has(surface);
-}
-function isInflectionContinuationSegment(surface) {
-  return INFLECTION_CONTINUATION_SEGMENT_RE.test(surface);
-}
-function canContinueInflectedFallbackSpan(currentSurface, nextSurface) {
-  return isInflectionContinuationSegment(nextSurface) || SINGLE_KANJI_HIRAGANA_STEM_RE.test(currentSurface) && HIRAGANA_END_RE.test(currentSurface) && SINGLE_KANJI_SEGMENT_RE.test(nextSurface) || HIRAGANA_SEGMENT_RE.test(nextSurface) && (SINGLE_KANJI_HIRAGANA_STEM_RE.test(currentSurface) || KANJI_KANA_KANJI_SPAN_RE.test(currentSurface)) && !hasUsefulFallbackDeinflection(currentSurface);
-}
-function isNumericCounterFallbackStem(segment, sourceText) {
-  return NUMERIC_COUNTER_SUFFIX_SEGMENTS.has(segment.surface) && numericRangeImmediatelyBefore(sourceText, segment.start);
-}
-function numericRangeImmediatelyBefore(sourceText, start) {
-  const before = sourceText.slice(Math.max(0, start - 24), start).replace(/\s+$/u, "");
-  return NUMERIC_RANGE_BEFORE_RE.test(before);
-}
-function hasUsefulFallbackDeinflection(surface) {
-  return fallbackLookupTermsForText(surface).length > 1;
-}
-function shouldKeepSuruAuxiliaryBoundary(segments, startIndex, surface, lookupTerms) {
-  const first = segments[startIndex]?.surface ?? "";
-  if (!first || !SURU_STEM_SEGMENT_RE.test(first)) return false;
-  const suffix = surface.slice(first.length);
-  if (!SURU_AUXILIARY_SUFFIX_RE.test(suffix)) return false;
-  if (hasSingleKanjiGodanSAlternative(first, lookupTerms)) return false;
-  return true;
-}
-function hasSingleKanjiGodanSAlternative(first, lookupTerms) {
-  return SINGLE_KANJI_SEGMENT_RE.test(first) && lookupTerms.some((term) => term === `${first}す`);
-}
-function japaneseWordSegmenter() {
-  const Segmenter = intlSegmenter();
-  if (!Segmenter) {
-  cachedSegmenterConstructor = null;
-  cachedJapaneseWordSegmenter = null;
-  return null;
-  }
-  if (cachedSegmenterConstructor !== Segmenter) {
-  cachedSegmenterConstructor = Segmenter;
-  cachedJapaneseWordSegmenter = new Segmenter("ja", { granularity: "word" });
-  }
-  return cachedJapaneseWordSegmenter ?? null;
-}
-function isUsefulJapaneseSegment(segment) {
-  const surface = segment.segment.trim();
-  return JAPANESE_CHARACTER_RE.test(surface);
-}
-function intlSegmenter() {
-  const candidate = Intl.Segmenter;
-  return typeof candidate === "function" ? candidate : null;
-}
-function fallbackJapaneseRunSegment(text, offset) {
-  const surface = text.trim();
-  if (!surface || !JAPANESE_CHARACTER_RE.test(surface)) return [];
-  const start = offset + text.indexOf(surface);
-  return [{ surface, start, end: start + surface.length }];
-}
-function fallbackLookupTermsForText(text) {
-  const source = normalizeFallbackTerm(text);
-  if (!source) return [];
-  const terms = deinflectJapaneseTerm(source).filter(isUsefulFallbackLookupCandidate).sort(compareFallbackLookupCandidates).map((candidate) => normalizeFallbackTerm(candidate.term)).filter(Boolean);
-  return uniqueNonEmptyStrings([source, ...terms]).slice(0, FALLBACK_LOOKUP_TERM_LIMIT);
-}
-function fallbackDictionaryLookupTermsForText(text) {
-  const terms = fallbackLookupTermsForText(text);
-  return dictionaryFirstFallbackLookupTerms(terms, hasAmbiguousContinuativeStemCandidate(terms[0] ?? ""));
-}
-function fallbackLookupTermsForCard(card) {
-  const terms = uniqueNonEmptyStrings([card.spelling, ...card.fallbackLookupTerms ?? []].map(normalizeFallbackTerm).filter(Boolean));
-  return dictionaryFirstFallbackLookupTerms(terms, hasAmbiguousContinuativeStemCandidate(terms[0] ?? ""));
-}
-function isUsefulFallbackLookupCandidate(candidate) {
-  return candidate.depth > 0 && JAPANESE_CHARACTER_RE.test(candidate.term) && candidate.term.length > 1;
-}
-function compareFallbackLookupCandidates(a, b) {
-  return a.depth - b.depth || fallbackRulePriority(a) - fallbackRulePriority(b) || b.term.length - a.term.length || a.term.localeCompare(b.term);
-}
-function fallbackRulePriority(candidate) {
-  if (candidate.rules.some((rule) => rule === "vs" || rule === "vs-s" || rule === "suru" || rule === "vk" || rule === "kuru")) return 0;
-  if (candidate.rules.some((rule) => rule === "v1")) return 1;
-  if (candidate.rules.some((rule) => rule.startsWith("v5") || rule === "v5")) return 1;
-  if (candidate.rules.some((rule) => rule === "adj-i" || rule === "i-adj")) return 2;
-  return 3;
-}
-function dictionaryFirstFallbackLookupTerms(terms, sourceFirst = false) {
-  const [source, ...candidates] = terms;
-  const terminal = candidates.filter(isTerminalDictionaryFallbackTerm);
-  return uniqueNonEmptyStrings(sourceFirst ? [source ?? "", ...terminal, ...candidates] : [...terminal, ...candidates, source ?? ""]);
-}
-function hasAmbiguousContinuativeStemCandidate(source) {
-  return deinflectJapaneseTerm(source).some((candidate) => candidate.depth === 1 && candidate.reasons.length === 1 && candidate.reasons[0] === "continuative stem");
-}
-function isTerminalDictionaryFallbackTerm(term) {
-  return !BOGUS_SMALL_TSU_FINAL_RE.test(term) && fallbackLookupTermsForText(term).length <= 1;
-}
-const JAPANESE_CAPABILITIES = Object.freeze({
-  "term-lookup": true,
-  "character-lookup": true,
-  segmentation: true,
-  morphology: true,
-  "reading-annotation": true,
-  pronunciation: true,
-  frequency: true,
-  examples: true,
-  grammar: true,
-  audio: true,
-  "text-to-speech": true,
-  ocr: true,
-  subtitles: true,
-  mining: true,
-  srs: true,
-  grading: true,
-  typing: true,
-  handwriting: true
-});
-const JAPANESE_LEARNING_TARGET = Object.freeze({
-  interfaceVersion: LEARNING_TARGET_MODULE_INTERFACE_VERSION,
-  id: "japanese-v1",
-  language: "ja",
-  direction: "ltr",
-  defaultOcrLanguage: "ja",
-  capabilities: JAPANESE_CAPABILITIES,
-  featureSemantics: Object.freeze({
-  characterSystem: "kanji",
-  phoneticScripts: Object.freeze(["hiragana", "katakana"]),
-  pronunciation: "pitch-accent",
-  readingAnnotation: "furigana"
-  }),
-  normalizeText(text) {
-  return normalizeJapaneseTargetText(text);
-  },
-  isLookupableText(text) {
-  return Boolean(text && HAS_JAPANESE.test(text));
-  },
-  segment(text) {
-  return segmentJapaneseText(text).map((segment) => ({
-    text: segment.surface,
-    start: segment.start,
-    end: segment.end
-  }));
-  },
-  lookupCandidates(text) {
-  const normalized = normalizeJapaneseTargetText(text);
-  const deinflected = deinflectJapaneseTerm(normalized);
-  return fallbackLookupTermsForText(normalized).map((term) => {
-    const evidence = deinflected.find((candidate) => candidate.term === term);
-    return {
-      term,
-      rules: evidence?.rules ?? [],
-      reasons: evidence?.reasons ?? []
-    };
-  });
-  },
-  normalizeReading(spelling, reading) {
-  return normalizedJapaneseCardReading(spelling, reading);
-  }
-});
-function normalizeJapaneseTargetText(text) {
-  return normalizeFallbackTerm(text.normalize("NFKC"));
-}
-new Map([
-  [JAPANESE_LEARNING_TARGET.language, JAPANESE_LEARNING_TARGET]
-]);
 const CARD_STATE_LABEL_KEYS = {
   new: "stateNew",
   learning: "stateLearning",
@@ -6720,7 +7011,7 @@ function normalizeLanguageProfileSettings(value, parserProvider, dictionaryPrefe
   };
 }
 function languageProfileHasIndependentState(profile) {
-  return profile.id !== DEFAULT_LANGUAGE_PROFILE_ID || profile.learnerLanguage !== "en" || profile.targetLanguage !== "ja" || profile.uiLocale !== DEFAULT_SETTINGS.interfaceLanguage || profile.parserProvider !== DEFAULT_SETTINGS.parserProvider || profile.dictionaries.installed.length > 0 || profile.definitionTranslationProviderIds.length > 0;
+  return profile.id !== DEFAULT_LANGUAGE_PROFILE_ID || profile.learnerLanguage !== "en" || profile.targetLanguage !== SLICE1_TARGET_LANGUAGE || profile.uiLocale !== DEFAULT_SETTINGS.interfaceLanguage || profile.parserProvider !== DEFAULT_SETTINGS.parserProvider || profile.dictionaries.installed.length > 0 || profile.definitionTranslationProviderIds.length > 0;
 }
 function languageProfileDictionariesFromPreferences(preferences) {
   const ordered = [...preferences].sort((left, right) => left.priority - right.priority);
@@ -7729,9 +8020,6 @@ function ensureBuiltInAudioSource(sources, source, beforeType) {
   if (insertIndex < 0) sources.push(source);
   else sources.splice(insertIndex, 0, source);
 }
-const KANJI_RE$2 = /[\u3400-\u9fff]/u;
-const KANA_CHAR_RE$1 = /[\u3040-\u30ffー・]/u;
-const KANA_RE = /^[\u3040-\u30ffー・]+$/u;
 const TRAILING_DIGITS_RE = /[0-9０-９]+$/u;
 const NUMBER_BIND_CLASS = "jpdb-reader-number-bind";
 const BLOCK_FLOW_TAG_NAMES = new Set("ADDRESS,ARTICLE,ASIDE,BLOCKQUOTE,DD,DETAILS,DIALOG,DIV,DL,DT,FIELDSET,FIGCAPTION,FIGURE,FOOTER,FORM,H1,H2,H3,H4,H5,H6,HEADER,HR,LI,MAIN,NAV,OL,P,PRE,SECTION,TABLE,TBODY,TD,TFOOT,TH,THEAD,TR,UL".split(","));
@@ -7935,7 +8223,7 @@ function isAnnotatableChipControl(blocked) {
   const control = blocked.closest(ANNOTATABLE_CONTROL_SELECTOR) ?? blocked;
   if (isComposerActionControl(control)) return false;
   const text = control.textContent?.replace(/\s+/g, "").trim() ?? "";
-  return text.length > 0 && text.length <= CONTROL_LABEL_TEXT_LIMIT && HAS_JAPANESE.test(text);
+  return text.length > 0 && text.length <= CONTROL_LABEL_TEXT_LIMIT && isTargetLanguageText(text);
 }
 function isComposerActionControl(control) {
   return !!control.parentElement?.closest("[class*=composer i],[id*=composer i]")?.querySelector(EDITABLE_FRAGMENT_ROOT_SELECTOR);
@@ -7969,7 +8257,7 @@ function textTargetFilterResult(node, visibleOnly, options) {
 }
 function isCandidateScanText(text) {
   if (text.length < 2) return false;
-  return HAS_JAPANESE.test(text);
+  return isTargetLanguageText(text);
 }
 function textTargetParentFilterResult(parent, text, visibleOnly, options) {
   if (shouldRejectTextTargetParent(parent, text, visibleOnly, options)) return NodeFilter.FILTER_REJECT;
@@ -8116,7 +8404,7 @@ function formControlLookupText(control, options = {}) {
 function selectLookupText(select, mode) {
   const selectedText = uniqueControlTexts(Array.from(select.selectedOptions).map(optionText));
   if (mode === "selected") return selectedText.join(" / ");
-  const optionTextList = uniqueControlTexts(Array.from(select.options).map(optionText)).filter((text) => HAS_JAPANESE.test(text));
+  const optionTextList = uniqueControlTexts(Array.from(select.options).map(optionText)).filter((text) => isTargetLanguageText(text));
   const compactOptionList = compactSelectOptionListText(optionTextList);
   return compactOptionList || selectedText.join(" / ") || optionTextList.slice(0, FORM_CONTROL_SELECT_OPTION_LIMIT).join(" / ");
 }
@@ -8130,7 +8418,7 @@ function optionText(option) {
 }
 function pushUniqueControlText(parts, text) {
   const normalized = normalizedControlText(text);
-  if (!normalized || !HAS_JAPANESE.test(normalized) || parts.includes(normalized)) return;
+  if (!normalized || !isTargetLanguageText(normalized) || parts.includes(normalized)) return;
   parts.push(normalized);
 }
 function uniqueControlTexts(texts) {
@@ -8143,7 +8431,7 @@ function normalizedControlText(text) {
 }
 function isCollectableControlText(text) {
   const compact2 = compactLength(text);
-  return compact2 > 0 && compact2 <= FORM_CONTROL_TEXT_MAX_LENGTH && HAS_JAPANESE.test(text);
+  return compact2 > 0 && compact2 <= FORM_CONTROL_TEXT_MAX_LENGTH && isTargetLanguageText(text);
 }
 function fragmentText(items) {
   return items.map((fragment) => fragment.node.data.slice(fragment.start, fragment.end)).join("");
@@ -8205,7 +8493,7 @@ function fragmentTargetDecoration(parent, fragments) {
   return parentDecoration;
 }
 function isCollectableFragmentText(text, fragments, options) {
-  if (!HAS_JAPANESE.test(text)) return false;
+  if (!isTargetLanguageText(text)) return false;
   if (compactFragmentTextLength(text) >= (options.minLength ?? 2)) return true;
   return fragments.some((fragment) => fragment.hasNativeRuby);
 }
@@ -8275,7 +8563,7 @@ function visitFragmentShadowRoot(element, state) {
   state.shadowDepth -= 1;
 }
 function shadowBranchHasJapanese(root, remainingDepth, budget = { inspectedElements: 0, exhausted: false }) {
-  let foundJapanese = HAS_JAPANESE.test(root.textContent ?? "");
+  let foundJapanese = isTargetLanguageText(root.textContent ?? "");
   if (remainingDepth <= 1) {
   const foundNested = shadowRootHasNestedShadowRoot(root, budget);
   return foundJapanese || foundNested;
@@ -8326,7 +8614,7 @@ function textWalkerHasJapaneseWithinBudget(walker, budget) {
   const remaining = budget.limit - budget.inspectedCharacters;
   const sampled = text.slice(0, remaining);
   budget.inspectedCharacters += sampled.length;
-  if (HAS_JAPANESE.test(sampled)) return true;
+  if (isTargetLanguageText(sampled)) return true;
   if (budget.inspectedCharacters >= budget.limit) return false;
   }
   return false;
@@ -8417,12 +8705,12 @@ function isBoxlessFragmentWrapper(rect) {
 }
 function hasVisibleJapaneseFragmentDescendant(element) {
   const shadowBudget = { inspectedElements: 0, exhausted: false };
-  const lightJapanese = HAS_JAPANESE.test(element.textContent ?? "");
+  const lightJapanese = isTargetLanguageText(element.textContent ?? "");
   if (element.shadowRoot && isVisible(element) && shadowBranchHasJapanese(element.shadowRoot, 2, shadowBudget)) return true;
   const walker = element.ownerDocument.createTreeWalker(element, NodeFilter.SHOW_ELEMENT);
   for (let inspected = 0, node = walker.nextNode(); node && inspected < VISIBLE_FRAGMENT_DESCENDANT_LOOKAHEAD_LIMIT; inspected += 1, node = walker.nextNode()) {
   const descendant = node;
-  if (lightJapanese && HAS_JAPANESE.test(descendant.textContent ?? "") && isVisible(descendant)) return true;
+  if (lightJapanese && isTargetLanguageText(descendant.textContent ?? "") && isVisible(descendant)) return true;
   const shadow = descendant.shadowRoot;
   if (shadow && isVisible(descendant) && shadowBranchHasJapanese(shadow, 2, shadowBudget)) return true;
   }
@@ -8499,7 +8787,7 @@ function isVisibleAriaHiddenJapanese(parent, blocked) {
   return elementOwnsVisibleJapanese(parent);
 }
 function ariaHiddenSubtreeHasVisibleJapanese(root) {
-  if (!HAS_JAPANESE.test(root.textContent ?? "")) return false;
+  if (!isTargetLanguageText(root.textContent ?? "")) return false;
   if (elementOwnsVisibleJapanese(root)) return true;
   const walker = root.ownerDocument.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
   for (let inspected = 0, node = walker.nextNode(); node && inspected < VISIBLE_FRAGMENT_DESCENDANT_LOOKAHEAD_LIMIT; inspected += 1, node = walker.nextNode()) {
@@ -8514,7 +8802,7 @@ function elementOwnsVisibleJapanese(element) {
 }
 function elementHasOwnJapaneseText(element) {
   for (const node of Array.from(element.childNodes)) {
-  if (node.nodeType === Node.TEXT_NODE && HAS_JAPANESE.test(node.textContent ?? "")) return true;
+  if (node.nodeType === Node.TEXT_NODE && isTargetLanguageText(node.textContent ?? "")) return true;
   }
   return false;
 }
@@ -8531,7 +8819,7 @@ function isAriaHiddenAccessibleNameDuplicate(element) {
 function controlHasVisibleJapaneseOutside(control, hiddenRoot) {
   const walker = control.ownerDocument.createTreeWalker(control, NodeFilter.SHOW_TEXT);
   for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-  if (hiddenRoot.contains(node) || !HAS_JAPANESE.test(node.textContent ?? "")) continue;
+  if (hiddenRoot.contains(node) || !isTargetLanguageText(node.textContent ?? "")) continue;
   const parent = node.parentElement;
   if (!parent || parent.closest("rt,rp,.jpdb-reader-detached-furi,[hidden],script,style,noscript,template")) continue;
   if (isVisible(parent)) return true;
@@ -8542,7 +8830,7 @@ function isFragmentParagraphBoundary(element, options) {
   return isPassiveInteractionBoundaryElement(element, options) || options.includeFormChrome && FORM_CHROME_BOUNDARY_TAGS.includes(`,${element.tagName},`) || isCustomElementTextBoundary(element) || isParagraphBoundary(element);
 }
 function isCustomElementTextBoundary(element) {
-  if (!element.localName.includes("-") || !HAS_JAPANESE.test(element.textContent ?? "")) return false;
+  if (!element.localName.includes("-") || !isTargetLanguageText(element.textContent ?? "")) return false;
   const parent = element.parentElement;
   return !parent || !isLikelyProseElement(parent);
 }
@@ -8578,7 +8866,7 @@ function hasRawJapaneseOutsideReaderWords(element) {
     if (!parent || parent.closest(".jpdb-reader-word,.jpdb-reader-text-mirror,.jpdb-reader-control-text-mirror,[data-jpdb-reader-root],script,style,noscript,rt,rp")) {
       return NodeFilter.FILTER_REJECT;
     }
-    return HAS_JAPANESE.test(node.textContent ?? "") ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+    return isTargetLanguageText(node.textContent ?? "") ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
   }
   });
   return Boolean(walker.nextNode());
@@ -8664,7 +8952,7 @@ function scanTargetDecorationIsStale(target) {
 function isCurrentFragmentScanTarget(target) {
   if (!target.parent.isConnected) return false;
   if (target.controlTextMirror) return formControlLookupText(target.parent, { selectTextMode: target.controlSelectTextMode }) === target.text;
-  if (!target.fragments.length) return Boolean(target.nonDestructive && HAS_JAPANESE.test(target.text));
+  if (!target.fragments.length) return Boolean(target.nonDestructive && isTargetLanguageText(target.text));
   const text = target.fragments.map((fragment) => {
   if (!fragment.node.isConnected || !fragment.node.parentElement) return null;
   return fragment.node.data.slice(fragment.start, fragment.end);
@@ -8773,7 +9061,7 @@ function applyTokensToReactiveLeafMirrors(target, tokens, settings) {
   for (const run of reactiveLeafRuns(indexed)) {
   const text = target.text.slice(run.globalStart, run.globalEnd);
   const runTokens = tokens.map((token) => tokenPieceForReactiveLeaf(token, run.globalStart, run.globalEnd)).filter((token) => token !== null);
-  if (!runTokens.length || !HAS_JAPANESE.test(text)) continue;
+  if (!runTokens.length || !isTargetLanguageText(text)) continue;
   const crossesLeafBoundary = tokens.some((token) => token.start < run.globalStart && token.end > run.globalStart || token.start < run.globalEnd && token.end > run.globalEnd);
   const leafTarget = {
     ...target,
@@ -8996,9 +9284,9 @@ function collectHostGapFallbackTokens(tokens, hostText, rangeStart, rangeEnd, ad
   }
 }
 function appendSegmentedHostFallbackTokens(hostText, gapStart, gapEnd, additions) {
-  for (const segment of segmentJapaneseText(hostText.slice(gapStart, gapEnd))) {
+  for (const segment of segmentTargetLanguageText(hostText.slice(gapStart, gapEnd))) {
   additions.push({
-    card: bareFallbackCardFromText(segment.surface),
+    card: bareFallbackCardFromText(segment.text),
     start: gapStart + segment.start,
     end: gapStart + segment.end,
     length: segment.end - segment.start,
@@ -9452,8 +9740,9 @@ function stampProjectedRubySourceRanges(word, surface, token, sourceStart) {
 const SOURCE_FRAGMENT_CLASS = "jpdb-reader-source-fragment";
 function projectAdditiveTextMirror(mirror, host) {
   const context = additiveMirrorProjectionContext(mirror, host);
-  if (!context) {
+  if (typeof context === "string") {
   clearProjectedReadings(mirror);
+  if (context === "source-changed") clearAdditiveMirrorSourceProjection(mirror);
   return;
   }
   const readingProjections = [];
@@ -9464,11 +9753,17 @@ function projectAdditiveTextMirror(mirror, host) {
   syncProjectedReadings(mirror, readingProjections);
   if (projected) mirror.dataset.yomuSourceProjected = "true";
   else delete mirror.dataset.yomuSourceProjected;
+  delete mirror.dataset.yomuSourceStale;
+  for (const word of mirror.querySelectorAll(".jpdb-reader-word")) {
+  word.style.removeProperty("--jpdb-reader-word-decoration-source");
+  }
+  styleAdditiveMirrorPaint(mirror);
 }
 function additiveMirrorProjectionContext(mirror, host) {
-  if (typeof Range !== "function" || typeof Range.prototype.getClientRects !== "function") return null;
+  if (typeof Range !== "function" || typeof Range.prototype.getClientRects !== "function") return "unmeasurable";
   const source = hostOriginalTextWithNodeOffsets(host);
-  if (!host.isConnected || mirrorSourceHostText(mirror) !== source.hostText) return null;
+  if (!host.isConnected) return "unmeasurable";
+  if (mirrorSourceHostText(mirror) !== source.hostText) return "source-changed";
   const hostRect = host.getBoundingClientRect();
   mirror.style.setProperty("inset", "0 auto auto 0");
   mirror.style.setProperty("width", `${host.clientWidth || hostRect.width}px`);
@@ -9476,7 +9771,7 @@ function additiveMirrorProjectionContext(mirror, host) {
   mirror.style.setProperty("padding", "0");
   mirror.style.setProperty("transform", "none");
   const mirrorRect = mirror.getBoundingClientRect();
-  if (mirrorRect.width <= 0 || mirrorRect.height <= 0) return null;
+  if (mirrorRect.width <= 0 || mirrorRect.height <= 0) return "unmeasurable";
   const clipRow = closestRubyFragileConstrainedRow(host);
   return {
   host,
@@ -9509,13 +9804,34 @@ function sourceFragmentProjections(sourceRects, context) {
   return projection;
   }).filter(({ rect }) => !context.clipRect || rectsIntersect(rect, context.clipRect));
 }
+const PROJECTED_SOURCE_WORD_STYLE_PROPERTIES = ["position", "inset", "width", "height", "margin"];
+const PROJECTED_SOURCE_ELEMENT_STYLE_PROPERTIES = ["position", "left", "top", "width", "height", "margin"];
+function writeProjectedGeometry(element, properties, values) {
+  for (const property of properties) element.style.setProperty(property, values[property], "important");
+}
 function styleProjectedSourceWord(word) {
   word.dataset.yomuSourceProjected = "true";
-  word.style.setProperty("position", "absolute", "important");
-  word.style.setProperty("inset", "0", "important");
-  word.style.setProperty("width", "auto", "important");
-  word.style.setProperty("height", "auto", "important");
-  word.style.setProperty("margin", "0", "important");
+  writeProjectedGeometry(word, PROJECTED_SOURCE_WORD_STYLE_PROPERTIES, {
+  position: "absolute",
+  inset: "0",
+  width: "auto",
+  height: "auto",
+  margin: "0"
+  });
+}
+function clearAdditiveMirrorSourceProjection(mirror) {
+  delete mirror.dataset.yomuSourceProjected;
+  mirror.dataset.yomuSourceStale = "true";
+  for (const word of mirror.querySelectorAll(".jpdb-reader-word[data-yomu-source-projected]")) {
+  word.style.setProperty("--jpdb-reader-word-decoration-source", "transparent");
+  word.querySelectorAll(`.${SOURCE_FRAGMENT_CLASS}`).forEach((fragment) => fragment.remove());
+  for (const wrapper of word.querySelectorAll(".jpdb-reader-detached-ruby")) {
+    PROJECTED_SOURCE_ELEMENT_STYLE_PROPERTIES.forEach((property) => wrapper.style.removeProperty(property));
+    wrapper.style.setProperty("position", "relative", "important");
+  }
+  PROJECTED_SOURCE_WORD_STYLE_PROPERTIES.forEach((property) => word.style.removeProperty(property));
+  delete word.dataset.yomuSourceProjected;
+  }
 }
 function appendSourceFragments(word, fragments, sourceRects, context) {
   const gradientWidth = sourceRects.reduce((width, rect) => width + rect.width / context.scaleX, 0);
@@ -9538,6 +9854,24 @@ function collectProjectedWordReadings(word, context, readings) {
   if (projection) readings.push(projection);
   }
 }
+function liveMirrorSourceOffsets(context) {
+  if (context.sourceLost) return NO_SOURCE_OFFSETS;
+  if (mirrorSourceNodesConnected(context.source.nodeOffsets)) return context.source.nodeOffsets;
+  const refreshed = hostOriginalTextWithNodeOffsets(context.host);
+  if (refreshed.hostText !== context.source.hostText) {
+  context.sourceLost = true;
+  return NO_SOURCE_OFFSETS;
+  }
+  context.source = refreshed;
+  return refreshed.nodeOffsets;
+}
+const NO_SOURCE_OFFSETS = new Map();
+function mirrorSourceNodesConnected(nodeOffsets) {
+  for (const node of nodeOffsets.keys()) {
+  if (!node.isConnected) return false;
+  }
+  return true;
+}
 function projectedRubyReading(ruby, context) {
   const reading = ruby.querySelector(".jpdb-reader-detached-furi");
   if (!reading) return null;
@@ -9546,7 +9880,7 @@ function projectedRubyReading(ruby, context) {
   const measure = () => {
   if (!context.host.isConnected || pageConcealsTextMirrorHost(context.host)) return null;
   const clipRect = context.clipRow?.getBoundingClientRect() ?? null;
-  return sourceClientRects(context.host, context.source.nodeOffsets, start, end).find((rect2) => !clipRect || rectsIntersect(rect2, clipRect)) ?? null;
+  return sourceClientRects(context.host, liveMirrorSourceOffsets(context), start, end).find((rect2) => !clipRect || rectsIntersect(rect2, clipRect)) ?? null;
   };
   const rect = measure();
   if (!rect) return null;
@@ -9592,12 +9926,14 @@ function mergeSourceLineRects(rects) {
   return merged;
 }
 function positionProjectedElement(element, rect, mirrorRect, scaleX, scaleY) {
-  element.style.setProperty("position", "absolute", "important");
-  element.style.setProperty("left", `${(rect.left - mirrorRect.left) / scaleX}px`, "important");
-  element.style.setProperty("top", `${(rect.top - mirrorRect.top) / scaleY}px`, "important");
-  element.style.setProperty("width", `${rect.width / scaleX}px`, "important");
-  element.style.setProperty("height", `${rect.height / scaleY}px`, "important");
-  element.style.setProperty("margin", "0", "important");
+  writeProjectedGeometry(element, PROJECTED_SOURCE_ELEMENT_STYLE_PROPERTIES, {
+  position: "absolute",
+  left: `${(rect.left - mirrorRect.left) / scaleX}px`,
+  top: `${(rect.top - mirrorRect.top) / scaleY}px`,
+  width: `${rect.width / scaleX}px`,
+  height: `${rect.height / scaleY}px`,
+  margin: "0"
+  });
 }
 function rectsIntersect(left, right) {
   return left.right > right.left + 0.5 && left.left < right.right - 0.5 && left.bottom > right.top + 0.5 && left.top < right.bottom - 0.5;
@@ -10388,7 +10724,7 @@ function observeTextMirrorHost(host) {
   if (mutations.every(mutationInsideTextMirror)) return;
   if (!currentTextMirror(liveHost)) {
     const wipedHostText = normalizedMirrorHostText(nativeTextMirrorHostText(liveHost));
-    if (liveHost.isConnected && HAS_JAPANESE.test(wipedHostText)) {
+    if (liveHost.isConnected && isTargetLanguageText(wipedHostText)) {
       if (wipedHostText === liveState.sourceText && mutationsRewroteHostContent(mutations) && replayNonDestructiveRenderFromCache(liveHost)) return;
       dispatchTextMirrorStale(liveHost);
     }
@@ -10409,9 +10745,12 @@ function observeTextMirrorHost(host) {
   }
   if (!mutations.some((mutation) => mutation.type === "childList" || mutation.type === "characterData")) return;
   const currentText = normalizedMirrorHostText(nativeTextMirrorHostText(liveHost));
-  if (!liveHost.isConnected || !HAS_JAPANESE.test(currentText)) {
+  if (!liveHost.isConnected || !isTargetLanguageText(currentText)) {
     removeTextMirror(liveHost);
     return;
+  }
+  if (currentText === liveState.sourceText && mutationsRewroteHostContent(mutations)) {
+    scheduleAdditiveMirrorProjection(liveHost.getRootNode());
   }
   if (currentText !== liveState.sourceText) {
     dispatchTextMirrorStale(liveHost);
@@ -10584,9 +10923,9 @@ function nativeTextMirrorHostText(host) {
   }
   });
   for (let node = walker.nextNode(); node; node = walker.nextNode()) text += node.textContent ?? "";
-  if (HAS_JAPANESE.test(text)) return text;
+  if (isTargetLanguageText(text)) return text;
   const labelledText = Array.from(host.querySelectorAll("[aria-label]")).filter((element) => !element.closest(TEXT_MIRROR_ARIA_LABEL_SKIP_SELECTOR)).map((element) => element.getAttribute("aria-label") ?? "").join(" • ");
-  return HAS_JAPANESE.test(labelledText) ? labelledText : text;
+  return isTargetLanguageText(labelledText) ? labelledText : text;
 }
 function normalizedMirrorHostText(text) {
   return text.replace(/\s+/g, " ").trim();
@@ -10749,7 +11088,7 @@ function appendPlainTextBeforeToken(fragment, text, start, end, followedByToken 
 }
 function markRenderedScanTarget(target) {
   const text = normalizedRenderedHostText(target.text);
-  if (!text || !HAS_JAPANESE.test(text) || !target.parent.isConnected) return;
+  if (!text || !isTargetLanguageText(text) || !target.parent.isConnected) return;
   const previous = renderedScanHosts.get(target.parent);
   const now = Date.now();
   const keepBackoff = previous && previous.text === text && previous.lastRejectedAt !== void 0 && now - previous.lastRejectedAt < RENDERED_SCAN_HOST_REJECTION_RESET_MS;
@@ -11565,19 +11904,19 @@ function inferredInflectedSurfaceRubies(surface, spelling, reading) {
   const baseSpelling = spelling.trim();
   const baseReading = reading.trim();
   if (!visibleSurface || !baseSpelling || visibleSurface === baseSpelling) return [];
-  if (!KANJI_RE$2.test(visibleSurface) || !KANA_RE.test(baseReading) || baseReading === baseSpelling) return [];
+  if (!KANJI_RE$2.test(visibleSurface) || !READING_KANA_ONLY_RE.test(baseReading) || baseReading === baseSpelling) return [];
   for (const spellingSuffix of trailingKanaSuffixes(baseSpelling)) {
   if (!baseReading.endsWith(spellingSuffix)) continue;
   const spellingStem = baseSpelling.slice(0, -spellingSuffix.length);
   if (!spellingStem || !visibleSurface.startsWith(spellingStem)) continue;
   const surfaceSuffix = visibleSurface.slice(spellingStem.length);
-  if (surfaceSuffix && !KANA_RE.test(surfaceSuffix)) continue;
+  if (surfaceSuffix && !READING_KANA_ONLY_RE.test(surfaceSuffix)) continue;
   const rubies = stemRubiesForInflectedSurface(spellingStem, baseReading.slice(0, -spellingSuffix.length));
   if (rubies.length) return rubies;
   }
-  if (visibleSurface.startsWith(baseSpelling) && !KANA_CHAR_RE$1.test(baseSpelling)) {
+  if (visibleSurface.startsWith(baseSpelling) && !READING_KANA_CHAR_RE.test(baseSpelling)) {
   const surfaceSuffix = visibleSurface.slice(baseSpelling.length);
-  if (!surfaceSuffix || KANA_RE.test(surfaceSuffix)) {
+  if (!surfaceSuffix || READING_KANA_ONLY_RE.test(surfaceSuffix)) {
     return [{
       text: baseReading,
       start: 0,
@@ -11592,14 +11931,14 @@ function trailingKanaSuffixes(value) {
   const suffixes = [];
   for (let index = 0; index < value.length; index += 1) {
   const suffix = value.slice(index);
-  if (suffix && KANA_RE.test(suffix)) suffixes.push(suffix);
+  if (suffix && READING_KANA_ONLY_RE.test(suffix)) suffixes.push(suffix);
   }
   return suffixes.sort((first, second) => second.length - first.length);
 }
 function stemRubiesForInflectedSurface(surfaceStem, readingStem) {
   const trimmed = trimSharedKanaAffixes$1(surfaceStem, readingStem);
   if (!trimmed.surface || !trimmed.reading) return [];
-  if (!KANJI_RE$2.test(trimmed.surface) || !KANA_RE.test(trimmed.reading)) return [];
+  if (!KANJI_RE$2.test(trimmed.surface) || !READING_KANA_ONLY_RE.test(trimmed.reading)) return [];
   return [{
   text: trimmed.reading,
   start: trimmed.offset,
@@ -11626,7 +11965,7 @@ function trimSharedKanaAffixes$1(surface, reading) {
   return { surface: trimmedSurface, reading: trimmedReading, offset };
 }
 function sameKanaCharacter(first, second) {
-  return Boolean(first && second && first === second && KANA_RE.test(first));
+  return Boolean(first && second && first === second && READING_KANA_ONLY_RE.test(first));
 }
 function effectiveTokenRubies(surface, token, preserveTokenRubies = false) {
   const sources = sourceTokenRubies(surface, token);
@@ -11636,7 +11975,7 @@ function effectiveTokenRubies(surface, token, preserveTokenRubies = false) {
     if (!range) return [];
     const base = surface.slice(range.start, range.end);
     if (!KANJI_RE$2.test(base)) return [];
-    if (!KANA_CHAR_RE$1.test(base)) return [ruby];
+    if (!READING_KANA_CHAR_RE.test(base)) return [ruby];
     const parts = kanjiOnlyRubySegments(surface, token, ruby);
     return parts.length ? parts : [ruby];
   });
@@ -11646,7 +11985,7 @@ function effectiveTokenRubies(surface, token, preserveTokenRubies = false) {
 function sourceTokenRubies(surface, token) {
   if (token.rubies.length) return token.rubies;
   const reading = token.card.reading.trim();
-  if (!surface || !KANJI_RE$2.test(surface) || !reading || reading === surface || !KANA_RE.test(reading)) return [];
+  if (!surface || !KANJI_RE$2.test(surface) || !reading || reading === surface || !READING_KANA_ONLY_RE.test(reading)) return [];
   const inferred = inferredInflectedSurfaceRubies(surface, token.card.spelling, reading);
   if (inferred.length) {
   return inferred.map((ruby) => ({
@@ -11676,7 +12015,7 @@ function localRubyRange(surface, token, ruby) {
 }
 function kanjiRubyParts(base, reading) {
   if (!base || !reading || !KANJI_RE$2.test(base)) return [];
-  if (!KANA_RE.test(reading)) return [{ text: reading, start: 0, end: base.length }];
+  if (!READING_KANA_ONLY_RE.test(reading)) return [{ text: reading, start: 0, end: base.length }];
   const anchors = alignRubyKanaAnchors(base, reading);
   if (!anchors) return trimRubyPartToKanji(base, reading);
   const parts = [];
@@ -11712,7 +12051,7 @@ function trimRubyPartToKanji(base, reading) {
   }];
 }
 function kanaTrimmedKanjiRange(base, reading) {
-  if (!KANA_RE.test(reading) || !KANA_CHAR_RE$1.test(base)) return null;
+  if (!READING_KANA_ONLY_RE.test(reading) || !READING_KANA_CHAR_RE.test(base)) return null;
   const chars = Array.from(base);
   const first = chars.findIndex((char) => KANJI_RE$2.test(char));
   if (first < 0) return null;
@@ -11771,7 +12110,7 @@ function rubyBaseKanaRuns(base) {
   const runs = [];
   let start = -1;
   for (let index = 0; index <= base.length; index += 1) {
-  const isKana = index < base.length && KANA_CHAR_RE$1.test(base[index]);
+  const isKana = index < base.length && READING_KANA_CHAR_RE.test(base[index]);
   if (isKana && start < 0) start = index;
   if ((!isKana || index === base.length) && start >= 0) {
     runs.push({ text: base.slice(start, index), baseStart: start, baseEnd: index });
@@ -15550,58 +15889,6 @@ function addAnkiReviewTargetLabel(candidates, cardId, label, cardName = "") {
   const template = cardName.trim();
   candidates.set(id, template ? [deck, `${template} #${id}`].join(" · ") : [deck, `#${id}`].join(" "));
 }
-const CARD_HIGHLIGHT_CLASS = "jpdb-reader-example-target";
-function cardHighlightScopeAttributes(card) {
-  if (!card) return "";
-  const spelling = cleanCardHighlightValue(card.spelling);
-  if (!spelling) return "";
-  return [
-  `data-card-highlight-spelling="${escapeHtml$1(spelling)}"`,
-  `data-card-highlight-reading="${escapeHtml$1(cleanCardHighlightValue(card.reading))}"`,
-  card.vid !== void 0 ? `data-card-highlight-vid="${escapeHtml$1(String(card.vid))}"` : "",
-  card.sid !== void 0 ? `data-card-highlight-sid="${escapeHtml$1(String(card.sid))}"` : ""
-  ].filter(Boolean).join(" ");
-}
-function highlightCardTargetWords(root, card) {
-  const words = cardHighlightWords(root);
-  for (const word of words) {
-  if (isCardHighlightWord(word, card)) word.classList.add(CARD_HIGHLIGHT_CLASS);
-  }
-}
-function highlightCardTargetScopes(root) {
-  for (const scope of cardHighlightScopes(root)) {
-  const card = cardHighlightTargetFromScope(scope);
-  if (card) highlightCardTargetWords(scope, card);
-  }
-}
-function isCardHighlightWord(word, card) {
-  const cardVid = card.vid === void 0 ? "" : String(card.vid);
-  const cardSid = card.sid === void 0 ? "" : String(card.sid);
-  if (cardVid && cardSid && word.dataset.vid === cardVid && word.dataset.sid === cardSid) return true;
-  const surface = compactCardHighlightValue(readerWordSurfaceText(word));
-  if (!surface) return false;
-  return cardHighlightTargets(card).map(compactCardHighlightValue).filter(Boolean).some((target) => surface.includes(target));
-}
-function cardHighlightWords(root) {
-  const words = Array.from(root.querySelectorAll(".jpdb-reader-word"));
-  return root instanceof HTMLElement && root.matches(".jpdb-reader-word") ? [root, ...words] : words;
-}
-function cardHighlightScopes(root) {
-  const selector = "[data-card-highlight-spelling]";
-  const scopes = Array.from(root.querySelectorAll(selector));
-  return root instanceof HTMLElement && root.matches(selector) ? [root, ...scopes] : scopes;
-}
-function cardHighlightTargetFromScope(scope) {
-  const spelling = cleanCardHighlightValue(scope.dataset.cardHighlightSpelling);
-  if (!spelling) return null;
-  const reading = cleanCardHighlightValue(scope.dataset.cardHighlightReading);
-  return {
-  spelling,
-  reading,
-  vid: scope.dataset.cardHighlightVid,
-  sid: scope.dataset.cardHighlightSid
-  };
-}
 const KANJI_RE$1 = /[\u3400-\u9fff]/u;
 const ANNOTATED_READING_RE = /([^\[\]]+)\[([^\]]+)\]/g;
 const TRAILING_KANJI_RUN_RE = /([\u3400-\u9fff\u3005\u303b\u30f6]+)$/u;
@@ -15617,7 +15904,7 @@ function renderCardSpellingWithFurigana(card, settings, kanjiNavigation) {
 function cardSpellingFuriganaToken(card, spelling) {
   const rubies = annotatedWordRubies(spelling, card.wordWithReading ?? "");
   const annotatedReading = rubies.length ? readingFromSurfaceRubies(spelling, rubies) : "";
-  const reading = annotatedReading || normalizedJapaneseCardReading(spelling, card.reading).trim();
+  const reading = annotatedReading || activeLearningTarget().normalizeReading(spelling, card.reading).trim();
   return {
   card: { ...card, spelling, reading },
   start: 0,
@@ -15686,6 +15973,58 @@ function renderHeadwordComponentPitchSpans(card, segments, settings, kanjiNaviga
   }, settings, kanjiNavigation);
   return `<span class="jpdb-reader-pitch-component-headword jpdb-pitch-${pitchClass}" data-pitch-class="${escapeHtml$1(pitchClass)}">${content}</span>`;
   }).join("");
+}
+const CARD_HIGHLIGHT_CLASS = "jpdb-reader-example-target";
+function cardHighlightScopeAttributes(card) {
+  if (!card) return "";
+  const spelling = cleanCardHighlightValue(card.spelling);
+  if (!spelling) return "";
+  return [
+  `data-card-highlight-spelling="${escapeHtml$1(spelling)}"`,
+  `data-card-highlight-reading="${escapeHtml$1(cleanCardHighlightValue(card.reading))}"`,
+  card.vid !== void 0 ? `data-card-highlight-vid="${escapeHtml$1(String(card.vid))}"` : "",
+  card.sid !== void 0 ? `data-card-highlight-sid="${escapeHtml$1(String(card.sid))}"` : ""
+  ].filter(Boolean).join(" ");
+}
+function highlightCardTargetWords(root, card) {
+  const words = cardHighlightWords(root);
+  for (const word of words) {
+  if (isCardHighlightWord(word, card)) word.classList.add(CARD_HIGHLIGHT_CLASS);
+  }
+}
+function highlightCardTargetScopes(root) {
+  for (const scope of cardHighlightScopes(root)) {
+  const card = cardHighlightTargetFromScope(scope);
+  if (card) highlightCardTargetWords(scope, card);
+  }
+}
+function isCardHighlightWord(word, card) {
+  const cardVid = card.vid === void 0 ? "" : String(card.vid);
+  const cardSid = card.sid === void 0 ? "" : String(card.sid);
+  if (cardVid && cardSid && word.dataset.vid === cardVid && word.dataset.sid === cardSid) return true;
+  const surface = compactCardHighlightValue(readerWordSurfaceText(word));
+  if (!surface) return false;
+  return cardHighlightTargets(card).map(compactCardHighlightValue).filter(Boolean).some((target) => surface.includes(target));
+}
+function cardHighlightWords(root) {
+  const words = Array.from(root.querySelectorAll(".jpdb-reader-word"));
+  return root instanceof HTMLElement && root.matches(".jpdb-reader-word") ? [root, ...words] : words;
+}
+function cardHighlightScopes(root) {
+  const selector = "[data-card-highlight-spelling]";
+  const scopes = Array.from(root.querySelectorAll(selector));
+  return root instanceof HTMLElement && root.matches(selector) ? [root, ...scopes] : scopes;
+}
+function cardHighlightTargetFromScope(scope) {
+  const spelling = cleanCardHighlightValue(scope.dataset.cardHighlightSpelling);
+  if (!spelling) return null;
+  const reading = cleanCardHighlightValue(scope.dataset.cardHighlightReading);
+  return {
+  spelling,
+  reading,
+  vid: scope.dataset.cardHighlightVid,
+  sid: scope.dataset.cardHighlightSid
+  };
 }
 const KANJI_STROKE_SOURCE_ID = "__kanji_stroke__";
 const KANJI_JPDB_SOURCE_ID = "__kanji_jpdb__";
@@ -17502,9 +17841,9 @@ async function localPitchResolutionFromMetaLookup(spelling, reading, lookupMeta,
   return { patterns: await deconjugatedHeibanPitchPatterns(expression, pronunciation, lookupMeta) };
 }
 const DECONJUGATION_PITCH_CANDIDATE_LIMIT = 4;
-const KANA_SUFFIX_RE = /^[\u3040-\u30ff\u3099\u309A]*$/u;
+const KANA_SUFFIX_RE = new RegExp(`^[${KANA}${COMBINING_KANA_MARKS}]*$`, "u");
 async function deconjugatedHeibanPitchPatterns(expression, reading, lookupMeta) {
-  const candidates = deinflectJapaneseTerm(expression).filter((candidate) => candidate.term !== expression).slice(0, DECONJUGATION_PITCH_CANDIDATE_LIMIT);
+  const candidates = targetLookupCandidates(expression).filter((candidate) => candidate.term !== expression).slice(0, DECONJUGATION_PITCH_CANDIDATE_LIMIT);
   for (const candidate of candidates) {
   const baseReading = deconjugatedReading(expression, candidate.term, reading);
   if (!baseReading) continue;
@@ -19912,14 +20251,13 @@ function endpointUrl(baseUrl, endpoint, query) {
   const queryString = params.toString();
   return queryString ? `${url}?${queryString}` : url;
 }
-const KANA_ONLY_RE = /^[぀-ヿー]+$/u;
-const KANA_CHAR_RE = /^[぀-ヿー]$/u;
+const KANA_CHAR_RE = new RegExp(`^[${KANA_WITH_PROLONGED}]$`, "u");
 const KANJI_CHAR_RE = /^[㐀-鿿々]$/u;
 function splitReadingAcrossKanji(base, reading, readingsForKanji) {
   if (kanjiCharacterCount(base) < 2) return null;
   const sourceReading = reading.trim();
   const kana = toHiragana(sourceReading);
-  if (!kana || !KANA_ONLY_RE.test(kana)) return null;
+  if (!kana || !KANA_ONLY_RUN_RE.test(kana)) return null;
   const trimmed = trimSharedKanaAffixes(base, kana);
   const characters = Array.from(trimmed.base);
   if (characters.length < 2 || !characters.every((char) => KANJI_CHAR_RE.test(char))) return null;
@@ -19978,7 +20316,7 @@ function candidateReadings(kanji, readingsForKanji) {
   const seen = new Set();
   for (const raw of readingsForKanji(kanji)) {
   const normalized = toHiragana(raw.trim()).replace(/[.\-．].*$/u, "");
-  if (!normalized || !KANA_ONLY_RE.test(normalized)) continue;
+  if (!normalized || !KANA_ONLY_RUN_RE.test(normalized)) continue;
   seen.add(normalized);
   const voiced = withInitialDakuten(normalized);
   if (voiced) seen.add(voiced);
@@ -20027,14 +20365,13 @@ const JPDB_PARSE_FALLBACK_TIMEOUT_MS = 6e3;
 const LOCAL_PARSE_TIMEOUT_MS = 8e3;
 const YOUTUBE_VIEW_METRIC_RE = /回視聴/gu;
 const JITEN_MIN_BATCH_CHARS = 24;
-const JAPANESE_CHAR_COUNT_RE = /[぀-ヿ㐀-鿿々\uff66-\uff9f]/gu;
+const JAPANESE_CHAR_COUNT_RE = new RegExp(`[${KANA}${KANJI}${ITERATION_MARK}${HALFWIDTH_KATAKANA}]`, "gu");
 function japaneseBatchCharCount(paragraphs) {
   return paragraphs.reduce((total, text) => total + (text.match(JAPANESE_CHAR_COUNT_RE)?.length ?? 0), 0);
 }
-const LOCAL_RUBY_SPLIT_BASE_RE = /^[\u3040-\u30ff\u3400-\u9fff々ー・]+$/u;
-const LOCAL_RUBY_SPLIT_KANJI_RE = /[\u3400-\u9fff々]/u;
-const LOCAL_RUBY_SPLIT_KANJI_CHAR_RE = /^[\u3400-\u9fff々]$/u;
-const LOCAL_RUBY_SPLIT_READING_RE = /^[\u3040-\u30ffー・]+$/u;
+const LOCAL_RUBY_SPLIT_BASE_RE = new RegExp(`^[${KANA}${KANJI}${ITERATION_MARK}${PROLONGED_SOUND_MARK}${KATAKANA_MIDDLE_DOT}]+$`, "u");
+const LOCAL_RUBY_SPLIT_KANJI_RE = new RegExp(`[${KANJI}${ITERATION_MARK}]`, "u");
+const LOCAL_RUBY_SPLIT_KANJI_CHAR_RE = new RegExp(`^[${KANJI}${ITERATION_MARK}]$`, "u");
 const log$5 = Logger.scope("ReaderParser");
 const sharedBoundaryEvidenceGate = new ConcurrencyGate(LOCAL_BOUNDARY_LOOKUP_CONCURRENCY);
 function apiFirstParseOptions(options = {}) {
@@ -20384,8 +20721,8 @@ ${entry.reading}`);
   return this.localTermDictionaryAvailability;
   }
   parseSegmentedText(text) {
-  return segmentJapaneseText(text).map((segment) => {
-    const card = this.fallbackCardFromText(segment.surface);
+  return segmentTargetLanguageText(text).map((segment) => {
+    const card = this.fallbackCardFromText(segment.text);
     return {
       card,
       start: segment.start,
@@ -20601,7 +20938,7 @@ function remoteParseFallbackTimeoutMs(options) {
   return options.allowApiTimeoutFallback ?? options.allowJpdbTimeoutFallback ? options.apiTimeoutMs ?? options.jpdbTimeoutMs ?? JPDB_PARSE_FALLBACK_TIMEOUT_MS : 0;
 }
 function shouldTryLocalKanjiRubySplit(base, reading) {
-  return Array.from(base).length >= 2 && LOCAL_RUBY_SPLIT_BASE_RE.test(base) && LOCAL_RUBY_SPLIT_KANJI_RE.test(base) && LOCAL_RUBY_SPLIT_READING_RE.test(reading.trim());
+  return Array.from(base).length >= 2 && LOCAL_RUBY_SPLIT_BASE_RE.test(base) && LOCAL_RUBY_SPLIT_KANJI_RE.test(base) && READING_KANA_ONLY_RE.test(reading.trim());
 }
 function rubiesEqual(first, second) {
   return first.length === second.length && first.every((ruby, index) => {
@@ -20747,7 +21084,7 @@ function fallbackLookupTermAtOffset(text, offset) {
 }
 function fallbackLookupRangeAtOffset(text, offset) {
   const clampedOffset = Math.max(0, Math.min(offset, Math.max(0, text.length - 1)));
-  const segment = segmentJapaneseText(text).find((item) => offsetInsideFallbackMatch(item.start, item.end, clampedOffset));
+  const segment = segmentTargetLanguageText(text).find((item) => offsetInsideFallbackMatch(item.start, item.end, clampedOffset));
   if (segment) return { start: segment.start, end: segment.end };
   for (const match of text.matchAll(JAPANESE_SCRIPT_GROUP_RE)) {
   const start = match.index ?? 0;
@@ -23541,7 +23878,7 @@ function collectYouTubeSyntheticTextTargets(profile, context) {
   if (!siteScanHasRoom(context)) break;
   if (context.targets.some((target) => target.parent === root)) continue;
   const text = syntheticYouTubeElementText(root);
-  if (!text || !HAS_JAPANESE.test(text)) continue;
+  if (!text || !isTargetLanguageText(text)) continue;
   context.targets.push(siteScanTargetWithProfileOptions(profile, {
     text,
     parent: root,
@@ -23559,17 +23896,17 @@ function syntheticYouTubeElementText(root) {
   root.textContent
   ]) {
   const normalized = text?.replace(/\s+/g, " ").trim();
-  if (normalized && HAS_JAPANESE.test(normalized)) return normalized;
+  if (normalized && isTargetLanguageText(normalized)) return normalized;
   }
   return "";
 }
 function syntheticYouTubeWatchInfoText(root) {
   const parts = Array.from(root.querySelectorAll(YOUTUBE_WATCH_INFO_ARIA_PARTS)).map((element) => normalizedAttributeText(element, "aria-label")).filter((text2) => Boolean(text2));
   const text = parts.join(" • ");
-  if (HAS_JAPANESE.test(text)) return text;
+  if (isTargetLanguageText(text)) return text;
   for (const attribute of ["aria-label", "title"]) {
   const fallback = normalizedAttributeText(root, attribute);
-  if (fallback && HAS_JAPANESE.test(fallback)) return fallback;
+  if (fallback && isTargetLanguageText(fallback)) return fallback;
   }
   return "";
 }
@@ -23598,7 +23935,7 @@ function collectRootScanTargets(profile, root, context, excludeSelector = siteSc
 }
 function collectCanvasFallbackTextTarget(profile, canvas, context) {
   const text = canvasFallbackText(canvas);
-  if (!text || !HAS_JAPANESE.test(text)) return false;
+  if (!text || !isTargetLanguageText(text)) return false;
   context.targets.push(siteScanTargetWithProfileOptions(profile, {
   text,
   parent: canvas,
@@ -24094,7 +24431,7 @@ function appendResidualVisibleTarget(targets, seen, target) {
   const parent = fragments[0]?.node.parentElement;
   if (!parent) continue;
   const text = fragments.map((fragment) => fragment.node.data.slice(fragment.start, fragment.end)).join("");
-  if (!HAS_JAPANESE.test(text)) continue;
+  if (!isTargetLanguageText(text)) continue;
   const decoration = classifyDecoration(parent);
   if (decoration === "skip") continue;
   appendAdmittedFragmentTarget(targets, seen, {
@@ -24171,7 +24508,7 @@ function isUsefulGenericProseRoot(root) {
   if (root.closest(GENERIC_PROSE_EXCLUDE)) return false;
   const text = compactRootText(root);
   if (text.length < 12) return false;
-  return HAS_JAPANESE.test(text);
+  return isTargetLanguageText(text);
 }
 function isUsefulSafeUiChromeRoot(root) {
   return isUsefulCompactJapaneseRoot(root, safeUiChromeExcludeForRoot(root), 2, SAFE_UI_CHROME_MAX_COMPACT_LENGTH);
@@ -24183,7 +24520,7 @@ function isUsefulCompactJapaneseRoot(root, exclude, minLength, maxLength) {
   if (exclude && (safeElementMatches(root, exclude) || root.closest(exclude))) return false;
   if (!isVisibleSafeUiChromeRoot(root)) return false;
   const text = compactRootText(root);
-  return HAS_JAPANESE.test(text) && text.length >= minLength && text.length <= maxLength;
+  return isTargetLanguageText(text) && text.length >= minLength && text.length <= maxLength;
 }
 function compactRootText(root) {
   return root.textContent?.replace(/\s+/g, "").trim() ?? "";
@@ -24482,7 +24819,7 @@ function isUsefulImmersionPreloadQuery(query) {
   return isUsefulStandaloneQuery(query);
 }
 function isUsefulStandaloneQuery(query) {
-  if (!query || !HAS_JAPANESE.test(query)) return false;
+  if (!query || !isTargetLanguageText(query)) return false;
   if (COMMON_PARTICLES.has(queryKey(query))) return false;
   return queryLength(query) >= 2;
 }
@@ -25392,17 +25729,17 @@ const CompanionBackedJpdbVocabularyClient = class {
 function updateKanjiMiningControlsMount(popover, controls, setMiningControlsExpanded2) {
   yomuKanjiStudyCompanion()?.updateKanjiMiningControlsMount?.(popover, controls, setMiningControlsExpanded2);
 }
-const SINGLE_HIRAGANA_MORA_RE = /^[\u3040-\u309fー]$/u;
-const SUBSTANTIVE_LOCAL_EXPANSION_RE = /[\u3400-\u9fff々〆ヵヶ\u30a0-\u30ff]/u;
+const SINGLE_HIRAGANA_MORA_RE = new RegExp(`^[${HIRAGANA_WITH_PROLONGED}]$`, "u");
+const SUBSTANTIVE_LOCAL_EXPANSION_RE = new RegExp(`[${KANJI_LIKE_WITH_COUNTERS}${KATAKANA}]`, "u");
 function normalizedLookupText(text) {
   return text.replace(/\s+/g, " ").trim();
 }
-function isLookupableJapaneseText(text) {
-  return Boolean(text && HAS_JAPANESE.test(text));
+function isLookupableTargetLanguageText(text) {
+  return activeLearningTarget().isLookupableText(text);
 }
 function lookupCandidateSentence(text, start = 0, end = text.length) {
   const sentence = sentenceAroundRange(text, start, end) || normalizedLookupText(text);
-  return isLookupableJapaneseText(sentence) ? sentence : "";
+  return isLookupableTargetLanguageText(sentence) ? sentence : "";
 }
 function pointerTokenAtOffset(tokens, offset) {
   return tokens.find((token) => tokenContainsPointerOffset(token, offset));
@@ -25460,7 +25797,7 @@ function pitchEnrichmentTokenForCard(card) {
   pitchClass: ""
   };
 }
-const JAPANESE_RUN_RE = /[\u3040-\u30ff\u3400-\u9fff々〆ヵヶー]/u;
+const JAPANESE_RUN_RE = new RegExp(`[${KANA}${KANJI_LIKE_WITH_COUNTERS}${PROLONGED_SOUND_MARK}]`, "u");
 const JPDB_POINTER_CANDIDATE_MAX_LENGTH = 18;
 const JPDB_POINTER_CANDIDATE_START_WINDOW = 8;
 const JPDB_POINTER_CANDIDATE_LIMIT = 24;
@@ -26144,7 +26481,7 @@ const SUBTITLE_SURFACE_SELECTOR = [
   ".asbplayer-offscreen",
   ".jpdb-reader-subtitle-surface"
 ].join(", ");
-const KANA_ONLY_LOOKUP_RUN_RE = /^[\u3040-\u30ffー]+$/u;
+const KANA_ONLY_LOOKUP_RUN_RE = KANA_ONLY_RUN_RE;
 const ANKI_RECOLOR_SCAN_CHUNK_SIZE = 600;
 const TWO_BUTTON_REVIEW_SHORTCUTS = [
   ["gradeFail", "fail"],
@@ -26996,7 +27333,7 @@ function renderTokenSentenceWord(token, surface, settings) {
 }
 function createTextLookupDisplayContext(text, options, state) {
   const selected = normalizedLookupText(text);
-  if (!isLookupableJapaneseText(selected)) return null;
+  if (!isLookupableTargetLanguageText(selected)) return null;
   const trigger = options.trigger ?? state.defaultTrigger;
   const navigation = options.navigation ?? "reset";
   return {
@@ -28227,7 +28564,7 @@ function textNodeMayContainJapanese(node, budget) {
   const remainingLength = MUTATION_TEXT_SCAN_LIMIT - budget.inspectedTextLength;
   const sampledText = text.slice(0, remainingLength);
   budget.inspectedTextLength += sampledText.length;
-  if (HAS_JAPANESE.test(sampledText)) return true;
+  if (isTargetLanguageText(sampledText)) return true;
   if (sampledText.length < text.length) {
   budget.textBudgetExhausted = true;
   return true;
@@ -28262,7 +28599,7 @@ function nodeMayAffectJpdbPageEnhancements(node) {
   return elementMayAffectJpdbPageEnhancements(element);
 }
 function textNodeMayAffectJpdbPageEnhancements(node, parent) {
-  return HAS_JAPANESE.test(node.textContent ?? "") && Boolean(parent.closest(JPDB_PAGE_ENHANCEMENT_ROOT_SELECTOR));
+  return isTargetLanguageText(node.textContent ?? "") && Boolean(parent.closest(JPDB_PAGE_ENHANCEMENT_ROOT_SELECTOR));
 }
 function elementMayAffectJpdbPageEnhancements(element) {
   return elementMatchesJpdbPageEnhancementTarget(element) || elementContainsJpdbPageEnhancementTarget(element) || elementTextMayAffectJpdbPageEnhancements(element);
@@ -28274,7 +28611,7 @@ function elementContainsJpdbPageEnhancementTarget(element) {
   return Boolean(element.querySelector(JPDB_PAGE_ENHANCEMENT_TARGET_SELECTOR));
 }
 function elementTextMayAffectJpdbPageEnhancements(element) {
-  return HAS_JAPANESE.test(element.textContent ?? "") && Boolean(element.closest(JPDB_PAGE_ENHANCEMENT_ROOT_SELECTOR));
+  return isTargetLanguageText(element.textContent ?? "") && Boolean(element.closest(JPDB_PAGE_ENHANCEMENT_ROOT_SELECTOR));
 }
 function mutationNodeElement(node) {
   if (node.nodeType === Node.ELEMENT_NODE) return node;
@@ -28473,7 +28810,7 @@ function hasUnparsedJapaneseText(parseRoot, excludeSelector = "") {
   acceptNode: (node) => {
     const parent = node.parentElement;
     if (!parent || parent.closest(READER_WORD_SELECTOR) || parent.closest("[data-jpdb-reader-surface-ignore]") || excludeSelector && parent.closest(excludeSelector)) return NodeFilter.FILTER_REJECT;
-    return HAS_JAPANESE.test(node.textContent || "") ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+    return isTargetLanguageText(node.textContent || "") ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
   }
   });
   return Boolean(walker.nextNode());
@@ -28713,8 +29050,9 @@ function bindReaderRuntimeEvents(handlers, signal) {
   addWindowEventListener(SETTINGS_CHANGE_EVENT, (event) => {
   if (handlers.isDestroyed()) return;
   const detail = event.detail;
-  const theme = settingsThemeChangeDetail(detail);
   const settings = handlers.getSettings();
+  adoptLearningTargetFromSettings(settings);
+  const theme = settingsThemeChangeDetail(detail);
   if (!theme || settings.theme === theme) return;
   settings.theme = theme;
   handlers.setSettings(settings);
@@ -28749,6 +29087,7 @@ const initJpdbReviewPageBridge = () => yomuJpdbCompanion()?.initJpdbReviewPageBr
 async function loadReaderStartupSettings(options) {
   const loadedSettings = adoptHostedInterfaceLanguage(await loadSettings());
   const settings = applyUrlBootstrapSettings(loadedSettings);
+  adoptLearningTargetFromSettings(settings);
   return {
   settings,
   settingsSummary: loggingSettingsSummary(settings),
@@ -30098,8 +30437,8 @@ function collapseWhitespace(value) {
   return value.replace(/\/\*[\s\S]*?\*\//gu, " ").replace(/\s+/gu, " ").trim();
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.12"}`;
-const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.12"}`;
+const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.15"}`;
+const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.15"}`;
 const READER_CSS_CACHE_KEY = "yomu:reader-css-cache:v3";
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
@@ -30242,7 +30581,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.8.12"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.8.15"}`;
   } catch {
   return null;
   }
@@ -30339,7 +30678,7 @@ function normalizedJapaneseText(value, allowLayoutWhitespace = false) {
   return text;
 }
 function isKanaReading(value) {
-  return /^[\u3040-\u30ffー]+$/u.test(value);
+  return KANA_ONLY_RUN_RE.test(value);
 }
 function authoredVocabularyReplacements(text, annotations, parsedTokens) {
   const replacements = [];
@@ -31165,7 +31504,7 @@ function pitchEnrichmentQueueOptions(options) {
   urgent: options.urgent
   };
 }
-const SUBSTANTIVE_PUBLIC_PITCH_LOOKUP_RE = /[\u3400-\u9fff々〆ヵヶ]|[\u30a0-\u30ffー]{2,}|[\u3040-\u309fー]{2,}/u;
+const SUBSTANTIVE_PUBLIC_PITCH_LOOKUP_RE = new RegExp(`[${KANJI_LIKE_WITH_COUNTERS}]|[${KATAKANA_WITH_PROLONGED}]{2,}|[${HIRAGANA_WITH_PROLONGED}]{2,}`, "u");
 function isSubstantivePublicPitchLookupToken(token) {
   const surface = token.sentence?.slice(token.start, token.end) ?? "";
   return SUBSTANTIVE_PUBLIC_PITCH_LOOKUP_RE.test(token.card.spelling) || SUBSTANTIVE_PUBLIC_PITCH_LOOKUP_RE.test(token.card.reading) || SUBSTANTIVE_PUBLIC_PITCH_LOOKUP_RE.test(surface);
@@ -31227,7 +31566,6 @@ function mergePitchPatterns(preferred, existing) {
   return [...preferred, ...existing.filter((pattern) => !preferred.includes(pattern))];
 }
 const log = Logger.scope("ReaderApp");
-const POINTER_TEXT_KANA_SURFACE_RE = /^[\u3040-\u30ffー]+$/u;
 const READER_ROOT_GESTURE_EVENTS = ["touchstart", "touchend", "pointerdown", "pointerup", "mousedown", "mouseup", "click"];
 const READER_ROOT_SELECTOR = "[data-jpdb-reader-root]";
 const MIRROR_STALE_SCAN_MIN_INTERVAL_MS = 2500;
@@ -31260,7 +31598,7 @@ function eventTargetsInteractiveControl(event) {
 }
 function knownStateBackfillSurface(word) {
   const surface = (word.dataset.expression || readerWordSurfaceText(word)).trim();
-  return surface && HAS_JAPANESE.test(surface) ? surface : "";
+  return surface && isTargetLanguageText(surface) ? surface : "";
 }
 function knownStateBackfillCardForSurface(surface, tokens) {
   const card = (tokens.find((token) => token.card.spelling === surface) ?? tokens.find((token) => token.start === 0) ?? tokens[0])?.card;
@@ -35174,7 +35512,7 @@ class ReaderApp {
   return true;
   }
   async lookupDictionaryReference(query, reading, sourceDictionary, anchor, trigger, preservePosition = false) {
-  if (!HAS_JAPANESE.test(query)) return;
+  if (!isTargetLanguageText(query)) return;
   const normalizedReading = reading.replace(/\s+/g, " ").trim();
   const navigation = trigger === "modal" ? "push-current" : "reset";
   const done = log.time("dictionaryReferenceLookup", { query, hasReading: Boolean(normalizedReading), sourceDictionary, trigger });
@@ -35456,7 +35794,7 @@ class ReaderApp {
   return fallbackLookupTermAtOffset(candidate.text, candidate.offset);
   }
   shouldPreferPointerFallbackSurface(candidate, range, surface) {
-  return surface.length > 1 && range.start === candidate.start && range.end === candidate.end && POINTER_TEXT_KANA_SURFACE_RE.test(surface);
+  return surface.length > 1 && range.start === candidate.start && range.end === candidate.end && KANA_ONLY_RUN_RE.test(surface);
   }
   isOverbroadPointerFallback(candidate, range) {
   const fallbackLength = range.end - range.start;
@@ -35645,7 +35983,7 @@ class ReaderApp {
   }
   async lookupUncachedPageWord(word, options) {
   const expression = renderedWordLookupText(word);
-  if (!isLookupableJapaneseText(expression)) return false;
+  if (!isLookupableTargetLanguageText(expression)) return false;
   const trigger = this.renderedWordTrigger(options.trigger, false);
   const navigation = options.navigation ?? renderedWordNavigationMode(false, trigger);
   const expansionLookup = renderedWordExpansionLookup(word, expression, this.renderedWordSentence(word));
@@ -35717,7 +36055,7 @@ class ReaderApp {
   }
   async lookupUncachedPopupWord(word, options) {
   const expression = renderedWordLookupText(word);
-  if (!isLookupableJapaneseText(expression)) return false;
+  if (!isLookupableTargetLanguageText(expression)) return false;
   const trigger = this.renderedWordTrigger(options.trigger, true);
   const navigation = options.navigation ?? renderedWordNavigationMode(true, trigger);
   const sentence = this.renderedWordSentence(word) ?? expression;
@@ -36008,7 +36346,7 @@ class ReaderApp {
   renderedAnchorSentence(anchor) {
   const word = anchor?.closest(".jpdb-reader-word");
   const sentence = normalizedLookupText(word?.dataset.sentence ?? anchor?.dataset.sentence ?? "");
-  return HAS_JAPANESE.test(sentence) ? sentence : "";
+  return isTargetLanguageText(sentence) ? sentence : "";
   }
   rememberCardMiningContext(card, sentence, anchor, options) {
   const hasNestedImmersionContext = options.insideReaderPopup && Boolean(this.immersionPopover?.activeContextFor(card));
@@ -39165,7 +39503,7 @@ function embeddedFrameHasVideo() {
 }
 function embeddedFrameHasJapaneseText() {
   const text = document.body?.textContent ?? document.documentElement?.textContent ?? "";
-  return HAS_JAPANESE.test(text.slice(0, 2e5));
+  return isTargetLanguageText(text.slice(0, 2e5));
 }
 let embeddedFrameEligibilityObserver;
 function watchEmbeddedFrameForEligibleContent() {
@@ -39187,11 +39525,11 @@ function watchEmbeddedFrameForEligibleContent() {
 }
 function mutationContainsEmbeddedFrameEligibilitySignal(mutation) {
   if (mutation.type === "characterData") {
-  return HAS_JAPANESE.test((mutation.target.textContent ?? "").slice(0, 2e5));
+  return isTargetLanguageText((mutation.target.textContent ?? "").slice(0, 2e5));
   }
   return [...mutation.addedNodes].some((node) => {
   if (node instanceof Element && (node.matches("video") || Boolean(node.querySelector("video")))) return true;
-  return HAS_JAPANESE.test((node.textContent ?? "").slice(0, 2e5));
+  return isTargetLanguageText((node.textContent ?? "").slice(0, 2e5));
   });
 }
 function isYouTubeMediaFrame() {

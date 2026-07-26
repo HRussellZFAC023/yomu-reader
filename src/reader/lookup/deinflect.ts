@@ -1,9 +1,14 @@
-export interface DeinflectedTerm {
-    term: string;
-    rules: string[];
-    reasons: string[];
-    depth: number;
-}
+import type { LanguageLookupCandidate } from '../languages/types';
+
+/**
+ * The Japanese-named spelling of the language-neutral morphology shape. It is
+ * an alias, not a separate type: the generic Yomitan layer stores one of these
+ * on every term match, and a dictionary engine must not be holding a type whose
+ * name asserts the language it is looking words up in. New code should say
+ * `LanguageLookupCandidate`; this name stays only so the Japanese primitives
+ * below and their callers keep reading naturally.
+ */
+export type DeinflectedTerm = LanguageLookupCandidate;
 
 interface DeinflectionRule {
     from: string;
@@ -280,7 +285,13 @@ function rememberDeinflectedCandidate(candidate: DeinflectedTerm, seen: Set<stri
     return true;
 }
 
-export function termRulesMatch(entryRules: string | undefined, candidateRules: string[]): boolean {
+/**
+ * Japanese rule-tag matching against JMdict part-of-speech strings. Reached
+ * through `LearningTargetModule.matchesLookupCandidateRules`; a dictionary
+ * engine must not call it directly, or it applies Japanese verb classes to
+ * every language it holds entries for.
+ */
+export function termRulesMatch(entryRules: string | undefined, candidateRules: readonly string[]): boolean {
     if (!candidateRules.length) return true;
     const entryRuleSet = entryRulesSet(entryRules);
     return entryRuleSet.size > 0 && candidateRules.some(rule => termRuleMatches(rule, entryRuleSet));

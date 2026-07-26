@@ -2,11 +2,14 @@ import { describe, expect, it } from 'vitest';
 
 import { JAPANESE_LEARNING_TARGET } from '../../../src/reader/languages/japanese';
 import { learningTargetModuleFor, supportedLearningTargetLanguages } from '../../../src/reader/languages/registry';
-import { LEARNING_TARGET_CAPABILITY_IDS } from '../../../src/reader/languages/types';
+import {
+    LEARNING_TARGET_CAPABILITY_IDS,
+    LEARNING_TARGET_MODULE_INTERFACE_VERSION,
+} from '../../../src/reader/languages/types';
 
 describe('Japanese learning-target Adapter', () => {
     it('publishes the complete current Japanese capability semantics', () => {
-        expect(JAPANESE_LEARNING_TARGET.interfaceVersion).toBe(1);
+        expect(JAPANESE_LEARNING_TARGET.interfaceVersion).toBe(LEARNING_TARGET_MODULE_INTERFACE_VERSION);
         expect(JAPANESE_LEARNING_TARGET.language).toBe('ja');
         expect(JAPANESE_LEARNING_TARGET.featureSemantics).toEqual({
             characterSystem: 'kanji',
@@ -43,7 +46,7 @@ describe('Japanese learning-target Adapter', () => {
 
     it('resolves canonical Japanese locale variants through the registry', () => {
         expect(learningTargetModuleFor('ja-JP')).toBe(JAPANESE_LEARNING_TARGET);
-        expect(learningTargetModuleFor('ko')).toBeNull();
-        expect(supportedLearningTargetLanguages()).toEqual(['ja']);
+        expect(learningTargetModuleFor('und')).toBeNull();
+        expect(supportedLearningTargetLanguages()).toContain('ja');
     });
 });

@@ -1,9 +1,10 @@
-import { HAS_JAPANESE } from '../dom/index';
+import { isTargetLanguageText } from '../lookup/target-text';
 import { normalizeCloudVisionResponse } from './cloud-vision';
 import { googleLensUploadCallbackLiteral, parseJsDataLiteral } from './google-lens-data';
 import { cleanOcrText, clampBox, isVerticalOcrBox, numberFrom, pushJapaneseOcrLine, unionBoxes } from './response-shared';
 import type { OcrLine, OcrRect, OcrResult } from './response-shared';
 import type { JPDBToken } from '../app/types';
+import { KANJI_LIKE_RE as OCR_KANJI_RE, READING_KANA_ONLY_RE as OCR_KANA_ONLY_RE } from '../lookup/japanese-script';
 
 type NullableOcrRect = { left: number | null; top: number | null; width: number | null; height: number | null };
 export type { OcrLine, OcrRect, OcrResult } from './response-shared';
@@ -28,8 +29,6 @@ interface ProtoBoxDimensions {
 }
 
 const LENS_WRITING_TOP_TO_BOTTOM = 2;
-const OCR_KANA_ONLY_RE = /^[\u3040-\u30ffー・]+$/u;
-const OCR_KANJI_RE = /[\u3400-\u9fff々〆]/u;
 
 export function normalizeOcrResult(value: unknown, fallbackWidth = 1, fallbackHeight = 1): OcrResult | null {
     if (!value || typeof value !== 'object') return null;
@@ -108,7 +107,7 @@ function offsetRegionLines(lines: OcrLine[], regionBox: OcrRect | null, width: n
 
 function japaneseOcrResult(width: number, height: number, lines: OcrLine[]): OcrResult | null {
     const japaneseLines = removeStandaloneFuriganaLines(lines)
-        .filter(line => line.text.length > 0 && HAS_JAPANESE.test(line.text));
+        .filter(line => line.text.length > 0 && isTargetLanguageText(line.text));
     return japaneseLines.length ? { width, height, lines: japaneseLines } : null;
 }
 
@@ -232,7 +231,7 @@ function googleLensLine(
     const lineBox = protoBox(protoFirstMessage(line, 2), width, height);
     const words = googleLensWords(line, width, height);
     const text = googleLensLineText(words, paragraphVertical);
-    if (!text || !HAS_JAPANESE.test(text)) return null;
+    if (!text || !isTargetLanguageText(text)) return null;
     const box = googleLensLineBox(lineBox, words, paragraphBox);
     if (!box) return null;
     return {

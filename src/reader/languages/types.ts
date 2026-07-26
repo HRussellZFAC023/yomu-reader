@@ -1,5 +1,30 @@
 export const LANGUAGE_PROFILE_SCHEMA_VERSION = 1 as const;
-export const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 1 as const;
+
+/**
+ * Revision of the `LearningTargetModule` contract that this build of core
+ * speaks. Bump it whenever the shape below gains, loses, or changes the
+ * meaning of a member.
+ */
+export const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 3 as const;
+
+/**
+ * Revisions core can still drive. A target module declares the revision it was
+ * written against and the registry refuses anything outside this set, so a
+ * module built against a different contract (a companion bundle, an
+ * out-of-tree target) fails loudly at registration instead of silently
+ * missing a capability at some call site months later.
+ */
+export const SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS = [3] as const;
+
+export type LearningTargetModuleInterfaceVersion =
+    typeof SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS[number];
+
+export function isSupportedLearningTargetModuleInterfaceVersion(
+    value: unknown,
+): value is LearningTargetModuleInterfaceVersion {
+    return (SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS as readonly number[])
+        .includes(value as number);
+}
 
 /**
  * A canonical BCP-47 language tag. Runtime inputs must cross the locale
@@ -50,10 +75,25 @@ export interface LanguageTextSegment {
     end: number;
 }
 
+/**
+ * One morphological analysis of a surface form, stated language-neutrally.
+ *
+ * This is the shape a dictionary engine consumes, so nothing on it may name a
+ * language: `rules` are opaque part-of-speech/inflection tags in whatever
+ * vocabulary the target and its dictionaries share (JMdict `v5m`/`adj-i` for
+ * Japanese, something else entirely elsewhere) and are only ever compared
+ * through `LearningTargetModule.matchesLookupCandidateRules`.
+ *
+ * `depth` is load-bearing, not decoration: it is how many transformations were
+ * applied to reach `term`, and a dictionary ranks a shallower analysis above a
+ * deeper one because a shallower one is a more literal reading of the surface.
+ * A target with no morphology returns the surface at depth 0 and nothing else.
+ */
 export interface LanguageLookupCandidate {
     term: string;
     rules: readonly string[];
     reasons: readonly string[];
+    depth: number;
 }
 
 export const LEARNING_TARGET_CAPABILITY_IDS = [
@@ -80,6 +120,7 @@ export const LEARNING_TARGET_CAPABILITY_IDS = [
 export type LearningTargetCapability = typeof LEARNING_TARGET_CAPABILITY_IDS[number];
 export type LearningTargetCapabilities = Readonly<Record<LearningTargetCapability, boolean>>;
 
+/** Script and pronunciation facts, stated in the target language's own terms. */
 export interface LearningTargetFeatureSemantics {
     characterSystem: string;
     phoneticScripts: readonly string[];
@@ -87,23 +128,94 @@ export interface LearningTargetFeatureSemantics {
     readingAnnotation: string;
 }
 
+/** How target-language text must be marked up and laid out on a page. */
+export interface LearningTargetTypography {
+    /** BCP-47 value stamped in `lang=` on rendered target-language content. */
+    contentLocale: LanguageTag;
+    direction: TextDirection;
+    /** How a reading attaches to its base text when one is rendered. */
+    readingAnnotationMode: 'ruby' | 'inline' | 'none';
+    /** Whether vertical writing has to be supported for this target. */
+    supportsVerticalWriting: boolean;
+}
+
+/** Audio and speech-synthesis facts. */
+export interface LearningTargetAudio {
+    /** `SpeechSynthesisUtterance.lang` for target-language playback. */
+    speechSynthesisLocale: LanguageTag;
+    /** Value substituted for `{language}` in user audio URL templates. */
+    templateLanguageToken: string;
+}
+
+/** OCR request facts for providers that need a language up front. */
+export interface LearningTargetOcr {
+    /** Default BCP-47 tag when the user has not configured one. */
+    defaultLanguage: LanguageTag;
+    /** Bare code for providers that only accept a two-letter hint. */
+    languageHint: string;
+}
+
+/** How a subtitle track is recognised as being in the target language. */
+export interface LearningTargetSubtitles {
+    languageTag: LanguageTag;
+    /** Extra lowercase codes/labels that also mean "target language". */
+    languageAliases: readonly string[];
+}
+
 /**
  * The versioned seam between shared Reader/Study flows and target-language
- * behaviour. Callers ask this Module for language operations and capabilities;
- * they do not branch on a language tag.
+ * behaviour. Callers ask this Module for language operations, facts, and
+ * capabilities; they do not branch on a language tag.
+ *
+ * Capability domains, and where each one lives on this contract:
+ *   detection             -> isLookupableText
+ *   segmentation          -> segment
+ *   morphology            -> lookupCandidates, matchesLookupCandidateRules
+ *   reading normalization -> normalizeText, normalizeReading
+ *   script/pronunciation  -> featureSemantics
+ *   typography            -> typography, direction
+ *   audio + TTS           -> audio
+ *   OCR                   -> ocr
+ *   subtitles             -> subtitles
+ *   mining                -> normalizeReading, collationLocale
+ *   SRS                   -> normalizeReading, capabilities.srs/grading
  */
 export interface LearningTargetModule {
-    readonly interfaceVersion: typeof LEARNING_TARGET_MODULE_INTERFACE_VERSION;
+    /**
+     * Contract revision this module implements. Deliberately a plain `number`
+     * so a module object built against another revision can still be handed to
+     * the registry and be rejected, rather than being unrepresentable.
+     */
+    readonly interfaceVersion: number;
     readonly id: string;
     readonly language: LanguageTag;
     readonly direction: TextDirection;
-    readonly defaultOcrLanguage: LanguageTag;
+    /** Locale used to sort target-language strings (mining lists, browse). */
+    readonly collationLocale: LanguageTag;
     readonly capabilities: LearningTargetCapabilities;
     readonly featureSemantics: LearningTargetFeatureSemantics;
+    readonly typography: LearningTargetTypography;
+    readonly audio: LearningTargetAudio;
+    readonly ocr: LearningTargetOcr;
+    readonly subtitles: LearningTargetSubtitles;
 
     normalizeText(text: string): string;
     isLookupableText(text: string): boolean;
     segment(text: string): readonly LanguageTextSegment[];
+    /**
+     * Every dictionary form `text` could be an inflection of, most literal
+     * first, with the surface itself always present at depth 0. This is the
+     * whole of morphology: a dictionary engine asks for candidates and never
+     * knows which language's rules produced them.
+     */
     lookupCandidates(text: string): readonly LanguageLookupCandidate[];
+    /**
+     * Whether a dictionary entry tagged `entryRules` may answer a candidate
+     * produced with `candidateRules`. The tag vocabulary and its aliases are
+     * target-language facts (Japanese treats `v5m` as a kind of `v5`, and
+     * `adj-i`/`i-adj` as one tag), so the comparison belongs to the target and
+     * not to the engine holding the entries.
+     */
+    matchesLookupCandidateRules(entryRules: string | undefined, candidateRules: readonly string[]): boolean;
     normalizeReading(spelling: string, reading?: string): string;
 }

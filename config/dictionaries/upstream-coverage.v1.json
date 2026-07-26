@@ -1,0 +1,468 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-07-26T00:00:00.000Z",
+  "snapshotRevision": "2026-07-23.574961e8",
+  "note": "Every upstream artifact the frozen sources hold, with the disposition each one has in the catalogue. \"mirrored\" means the mirror serves those exact bytes; \"catalogued-not-mirrored\" means a source-only catalogue entry describes it and no object exists yet; \"superseded\" means a newer build of the same dictionary is mirrored under the named entry.",
+  "collections": [
+    {
+      "id": "marvnc-repository-archives",
+      "label": "MarvNC/yomitan-dictionaries repository archives",
+      "kind": "git-repository",
+      "url": "https://github.com/MarvNC/yomitan-dictionaries",
+      "commit": "574961e823e33fb36b6b86778a0d6b606af29c25",
+      "surveyedAt": "2026-07-26T00:00:00.000Z",
+      "surveyMethod": "GitHub trees API at the frozen commit (recursive, truncated=false); every .zip blob downloaded and SHA-256 computed locally, then compared against every published object digest.",
+      "artifacts": [
+        {
+          "path": "dl/[Cantonese] Cantodict.zip",
+          "bytes": 6938729,
+          "sha256": "fd280b50aaaadfd68e86489cf5ed057d85ede564efe399cd1e36451b62a453cc",
+          "downloadUrl": "https://raw.githubusercontent.com/MarvNC/yomitan-dictionaries/574961e823e33fb36b6b86778a0d6b606af29c25/dl/%5BCantonese%5D%20Cantodict.zip",
+          "disposition": "mirrored",
+          "catalogEntryIds": [
+            "drive-cantonese-yue-en-cantodict-eoambdgefg"
+          ]
+        },
+        {
+          "path": "dl/[Freq] Aozora Bunko.zip",
+          "bytes": 899404,
+          "sha256": "116009c3034d97a16b257fda10f2138067815986c954bffbb5c93aad60faa867",
+          "downloadUrl": "https://raw.githubusercontent.com/MarvNC/yomitan-dictionaries/574961e823e33fb36b6b86778a0d6b606af29c25/dl/%5BFreq%5D%20Aozora%20Bunko.zip",
+          "disposition": "mirrored",
+          "catalogEntryIds": [
+            "drive-japanese-ja-freq-aozora-bunko-pdmkz2ibar"
+          ]
+        },
+        {
+          "path": "dl/[Hanzi] Wiktionary.zip",
+          "bytes": 3877011,
+          "sha256": "f3b4dd79c1a8616b8f6f1ae5c09590bab3e49d08b640a9af5052de7ee5493813",
+          "downloadUrl": "https://raw.githubusercontent.com/MarvNC/yomitan-dictionaries/574961e823e33fb36b6b86778a0d6b606af29c25/dl/%5BHanzi%5D%20Wiktionary.zip",
+          "disposition": "mirrored",
+          "catalogEntryIds": [
+            "drive-mandarin-hanzi-wiktionary-xeuiwganun"
+          ]
+        },
+        {
+          "path": "dl/[JP-Mongolian] Japanese-Mongolian 日・モ辞典 (No Sentences).zip",
+          "bytes": 449088,
+          "sha256": "1ad708e62ed41e6ceb31ac2e07f279d74b80fb1d6e8f3f27992281d7b7c0ab16",
+          "downloadUrl": "https://raw.githubusercontent.com/MarvNC/yomitan-dictionaries/574961e823e33fb36b6b86778a0d6b606af29c25/dl/%5BJP-Mongolian%5D%20Japanese-Mongolian%20%E6%97%A5%E3%83%BB%E3%83%A2%E8%BE%9E%E5%85%B8%20(No%20Sentences).zip",
+          "disposition": "catalogued-not-mirrored",
+          "catalogEntryIds": [
+            "marvnc-jp-mongolian-no-sentences"
+          ]
+        },
+        {
+          "path": "dl/[JP-Mongolian] Japanese-Mongolian 日・モ辞典.zip",
+          "bytes": 682060,
+          "sha256": "677ddb83747c60be77d1baffb9b99253baf4c60b01d32dae7f7c81cf3b1cc8aa",
+          "downloadUrl": "https://raw.githubusercontent.com/MarvNC/yomitan-dictionaries/574961e823e33fb36b6b86778a0d6b606af29c25/dl/%5BJP-Mongolian%5D%20Japanese-Mongolian%20%E6%97%A5%E3%83%BB%E3%83%A2%E8%BE%9E%E5%85%B8.zip",
+          "disposition": "catalogued-not-mirrored",
+          "catalogEntryIds": [
+            "marvnc-jp-mongolian"
+          ]
+        },
+        {
+          "path": "dl/[Kanji Frequency] Aozora Bunko.zip",
+          "bytes": 81484,
+          "sha256": "9a5c9f208de92fb413a07cba5f3a91ada73601ae073b143aceb23f83bd1e7198",
+          "downloadUrl": "https://raw.githubusercontent.com/MarvNC/yomitan-dictionaries/574961e823e33fb36b6b86778a0d6b606af29c25/dl/%5BKanji%20Frequency%5D%20Aozora%20Bunko.zip",
+          "disposition": "mirrored",
+          "catalogEntryIds": [
+            "drive-japanese-kanji-frequency-aozora-bunko-xmlyq2unyr"
+          ]
+        },
+        {
+          "path": "dl/[Kanji Frequency] Innocent Corpus Kanji.zip",
+          "bytes": 69289,
+          "sha256": "af3e01f785692b69ff0405e8f3ee8f9654185f347e51feb2b6676ecc7659bb95",
+          "downloadUrl": "https://raw.githubusercontent.com/MarvNC/yomitan-dictionaries/574961e823e33fb36b6b86778a0d6b606af29c25/dl/%5BKanji%20Frequency%5D%20Innocent%20Corpus%20Kanji.zip",
+          "disposition": "mirrored",
+          "catalogEntryIds": [
+            "drive-japanese-kanji-frequency-innocent-corpus-kanji-p-u1iudi46"
+          ]
+        },
+        {
+          "path": "dl/[Kanji Frequency] JPDB Kanji.zip",
+          "bytes": 30363,
+          "sha256": "1b02fc3ff6fa1215db43e47e087f192892887954d7d66b7f3ed60f59c9d52590",
+          "downloadUrl": "https://raw.githubusercontent.com/MarvNC/yomitan-dictionaries/574961e823e33fb36b6b86778a0d6b606af29c25/dl/%5BKanji%20Frequency%5D%20JPDB%20Kanji.zip",
+          "disposition": "mirrored",
+          "catalogEntryIds": [
+            "drive-japanese-kanji-frequency-jpdb-kanji-uapfwjd95i"
+          ]
+        },
+        {
+          "path": "dl/[Kanji Frequency] Wikipedia.zip",
+          "bytes": 107739,
+          "sha256": "6e2acfc52c505068e87fbbfa2c923cb2a8a6f0b59addf0ca67938c046b0b4419",
+          "downloadUrl": "https://raw.githubusercontent.com/MarvNC/yomitan-dictionaries/574961e823e33fb36b6b86778a0d6b606af29c25/dl/%5BKanji%20Frequency%5D%20Wikipedia.zip",
+          "disposition": "mirrored",
+          "catalogEntryIds": [
+            "drive-japanese-kanji-frequency-wikipedia-deojwepeyv"
+          ]
+        },
+        {
+          "path": "dl/[Kanji] jitai.zip",
+          "bytes": 12696,
+          "sha256": "c32018de61ae76b7d7c4391d8630c97053848997e97ef4baf70c467c1c58b401",
+          "downloadUrl": "https://raw.githubusercontent.com/MarvNC/yomitan-dictionaries/574961e823e33fb36b6b86778a0d6b606af29c25/dl/%5BKanji%5D%20jitai.zip",
+          "disposition": "mirrored",
+          "catalogEntryIds": [
+            "drive-japanese-kanji-jitai-gjw8of1bl"
+          ]
+        },
+        {
+          "path": "dl/[Kanji] JPDB Kanji.zip",
+          "bytes": 381784,
+          "sha256": "536e9e3f5e244eacbc8848eca1122b6e3690a9eda2e6fdf1d6c0500c1f2dc08d",
+          "downloadUrl": "https://raw.githubusercontent.com/MarvNC/yomitan-dictionaries/574961e823e33fb36b6b86778a0d6b606af29c25/dl/%5BKanji%5D%20JPDB%20Kanji.zip",
+          "disposition": "mirrored",
+          "catalogEntryIds": [
+            "drive-japanese-kanji-jpdb-kanji-gyuvmtw8ve",
+            "drive-starter-pack-kanji-jpdb-kanji-iibmlavzob"
+          ]
+        },
+        {
+          "path": "dl/[Kanji] mozc Kanji Variants.zip",
+          "bytes": 19126,
+          "sha256": "44a980885ee852b124bb3f37fd67a0bd320474234013b62f3d98b108c0752cff",
+          "downloadUrl": "https://raw.githubusercontent.com/MarvNC/yomitan-dictionaries/574961e823e33fb36b6b86778a0d6b606af29c25/dl/%5BKanji%5D%20mozc%20Kanji%20Variants.zip",
+          "disposition": "mirrored",
+          "catalogEntryIds": [
+            "drive-japanese-kanji-mozc-kanji-variants-hibcouxfti"
+          ]
+        },
+        {
+          "path": "dl/[Kanji] TheKanjiMap.zip",
+          "bytes": 119178,
+          "sha256": "cf0201cd27dbee86c4d4d60394c0b283ebf9a7a8cc9e640a5db0b7e877fe9f75",
+          "downloadUrl": "https://raw.githubusercontent.com/MarvNC/yomitan-dictionaries/574961e823e33fb36b6b86778a0d6b606af29c25/dl/%5BKanji%5D%20TheKanjiMap.zip",
+          "disposition": "mirrored",
+          "catalogEntryIds": [
+            "drive-japanese-kanji-thekanjimap-e1cr78racv"
+          ]
+        },
+        {
+          "path": "dl/[Kanji] Wiktionary.zip",
+          "bytes": 721592,
+          "sha256": "ad77bed59ca3f5aa0f77efbf070db760cc191c770d16885ed711d6ec6c00f195",
+          "downloadUrl": "https://raw.githubusercontent.com/MarvNC/yomitan-dictionaries/574961e823e33fb36b6b86778a0d6b606af29c25/dl/%5BKanji%5D%20Wiktionary.zip",
+          "disposition": "mirrored",
+          "catalogEntryIds": [
+            "drive-japanese-kanji-wiktionary-dhu4mgq95b"
+          ]
+        },
+        {
+          "path": "dl/[Monolingual] Pixiv.zip",
+          "bytes": 91846607,
+          "sha256": "eeb84942ad9d1949382edd23ad77c3e322d598ef8b0b087e4ed2658a0b998957",
+          "downloadUrl": "https://raw.githubusercontent.com/MarvNC/yomitan-dictionaries/574961e823e33fb36b6b86778a0d6b606af29c25/dl/%5BMonolingual%5D%20Pixiv.zip",
+          "disposition": "catalogued-not-mirrored",
+          "catalogEntryIds": [
+            "marvnc-monolingual-pixiv"
+          ]
+        },
+        {
+          "path": "dl/[Monolingual] PixivLight.zip",
+          "bytes": 30112129,
+          "sha256": "bf87a45ef30f885e120e82fdb29d45de99bf1d6f654846e86accbf1963aa4299",
+          "downloadUrl": "https://raw.githubusercontent.com/MarvNC/yomitan-dictionaries/574961e823e33fb36b6b86778a0d6b606af29c25/dl/%5BMonolingual%5D%20PixivLight.zip",
+          "disposition": "superseded",
+          "catalogEntryIds": [
+            "drive-japanese-ja-ja-encyclopedia-pixivlight-2026-07-23-b2yz0hz8ye"
+          ],
+          "note": "Yomitan title \"PixivLight [2023-11-24]\"; the mirror serves the newer Drive build \"[JA-JA Encyclopedia] PixivLight_2026-07-23\" (51170783 bytes)."
+        },
+        {
+          "path": "dl/[Monolingual] surasura.zip",
+          "bytes": 104920,
+          "sha256": "f8d882b8db922e9638d4d577885c0e939266a15d285c0807c5117ee59d13f56e",
+          "downloadUrl": "https://raw.githubusercontent.com/MarvNC/yomitan-dictionaries/574961e823e33fb36b6b86778a0d6b606af29c25/dl/%5BMonolingual%5D%20surasura.zip",
+          "disposition": "mirrored",
+          "catalogEntryIds": [
+            "drive-japanese-ja-ja-onomatopoeia-surasura-x-6i-8iy8"
+          ]
+        },
+        {
+          "path": "dl/[Other] Nico-Pixiv.zip",
+          "bytes": 2119655,
+          "sha256": "2519accd87ca3c230dec0c43c50ccbf2a99aacfa967497903ece6968a3a30484",
+          "downloadUrl": "https://raw.githubusercontent.com/MarvNC/yomitan-dictionaries/574961e823e33fb36b6b86778a0d6b606af29c25/dl/%5BOther%5D%20Nico-Pixiv.zip",
+          "disposition": "catalogued-not-mirrored",
+          "catalogEntryIds": [
+            "marvnc-other-nico-pixiv"
+          ]
+        },
+        {
+          "path": "dl/[Other] 複合語起源.zip",
+          "bytes": 5280,
+          "sha256": "4e15250659268f5470fd5e8ab848fc9b259c94876d3027716481f9f83303f4b8",
+          "downloadUrl": "https://raw.githubusercontent.com/MarvNC/yomitan-dictionaries/574961e823e33fb36b6b86778a0d6b606af29c25/dl/%5BOther%5D%20%E8%A4%87%E5%90%88%E8%AA%9E%E8%B5%B7%E6%BA%90.zip",
+          "disposition": "mirrored",
+          "catalogEntryIds": [
+            "drive-japanese-ja-ja-origins-7y7yihcsxo"
+          ]
+        },
+        {
+          "path": "japanese/freq/innocent_corpus/innocent_corpus.zip",
+          "bytes": 2138624,
+          "sha256": "a8a3143e6da092f5a4566606757440dba098056f463da003444158ba04a97b50",
+          "downloadUrl": "https://raw.githubusercontent.com/MarvNC/yomitan-dictionaries/574961e823e33fb36b6b86778a0d6b606af29c25/japanese/freq/innocent_corpus/innocent_corpus.zip",
+          "disposition": "catalogued-not-mirrored",
+          "catalogEntryIds": [
+            "marvnc-ja-freq-innocent-corpus"
+          ]
+        },
+        {
+          "path": "util/[Kanji] KANJIDIC (English).zip",
+          "bytes": 749575,
+          "sha256": "f5a7ed6ff6e77bef02f939506df92b37cd4338ec99aa653fcdf2874492fb96f0",
+          "downloadUrl": "https://raw.githubusercontent.com/MarvNC/yomitan-dictionaries/574961e823e33fb36b6b86778a0d6b606af29c25/util/%5BKanji%5D%20KANJIDIC%20(English).zip",
+          "disposition": "superseded",
+          "catalogEntryIds": [
+            "kanjidic-en"
+          ],
+          "note": "Yomitan title \"KANJIDIC (English)\"; the mirror serves the 2026-07-23 jmdict-yomitan build as kanjidic-en (721025 bytes)."
+        },
+        {
+          "path": "util/jmdict_english.zip",
+          "bytes": 7735676,
+          "sha256": "2583ad84ffc446122230aace230a8c5979751aaf19b28593ab7853c04a48e4f5",
+          "downloadUrl": "https://raw.githubusercontent.com/MarvNC/yomitan-dictionaries/574961e823e33fb36b6b86778a0d6b606af29c25/util/jmdict_english.zip",
+          "disposition": "superseded",
+          "catalogEntryIds": [
+            "jmdict-en"
+          ],
+          "note": "Yomitan title \"JMdict (English)\"; the mirror serves the 2026-07-23 jmdict-yomitan build as jmdict-en (15509389 bytes)."
+        }
+      ]
+    },
+    {
+      "id": "jmdict-yomitan-release",
+      "label": "yomidevs/jmdict-yomitan release 2026-07-23",
+      "kind": "github-release",
+      "url": "https://github.com/yomidevs/jmdict-yomitan/releases/tag/2026-07-23",
+      "releaseTag": "2026-07-23",
+      "surveyedAt": "2026-07-26T00:00:00.000Z",
+      "surveyMethod": "GitHub releases API asset list; each .zip asset matched to the acquisition source whose URL names it.",
+      "artifacts": [
+        {
+          "path": "JMdict_dutch.zip",
+          "bytes": 3107202,
+          "downloadUrl": "https://github.com/yomidevs/jmdict-yomitan/releases/download/2026-07-23/JMdict_dutch.zip",
+          "disposition": "mirrored",
+          "catalogEntryIds": [
+            "jmdict-nl"
+          ]
+        },
+        {
+          "path": "JMdict_english_legacy_without_proper_names.zip",
+          "bytes": 9726471,
+          "downloadUrl": "https://github.com/yomidevs/jmdict-yomitan/releases/download/2026-07-23/JMdict_english_legacy_without_proper_names.zip",
+          "disposition": "catalogued-not-mirrored",
+          "catalogEntryIds": [
+            "jmdict-en-legacy-without-proper-names"
+          ]
+        },
+        {
+          "path": "JMdict_english_legacy.zip",
+          "bytes": 9992648,
+          "downloadUrl": "https://github.com/yomidevs/jmdict-yomitan/releases/download/2026-07-23/JMdict_english_legacy.zip",
+          "disposition": "catalogued-not-mirrored",
+          "catalogEntryIds": [
+            "jmdict-en-legacy"
+          ]
+        },
+        {
+          "path": "JMdict_english_with_examples.zip",
+          "bytes": 17981154,
+          "downloadUrl": "https://github.com/yomidevs/jmdict-yomitan/releases/download/2026-07-23/JMdict_english_with_examples.zip",
+          "disposition": "catalogued-not-mirrored",
+          "catalogEntryIds": [
+            "jmdict-en-with-examples"
+          ]
+        },
+        {
+          "path": "JMdict_english_without_proper_names.zip",
+          "bytes": 15190205,
+          "downloadUrl": "https://github.com/yomidevs/jmdict-yomitan/releases/download/2026-07-23/JMdict_english_without_proper_names.zip",
+          "disposition": "catalogued-not-mirrored",
+          "catalogEntryIds": [
+            "jmdict-en-without-proper-names"
+          ]
+        },
+        {
+          "path": "JMdict_english.zip",
+          "bytes": 15509389,
+          "downloadUrl": "https://github.com/yomidevs/jmdict-yomitan/releases/download/2026-07-23/JMdict_english.zip",
+          "disposition": "mirrored",
+          "catalogEntryIds": [
+            "jmdict-en"
+          ]
+        },
+        {
+          "path": "JMdict_forms.zip",
+          "bytes": 6130072,
+          "downloadUrl": "https://github.com/yomidevs/jmdict-yomitan/releases/download/2026-07-23/JMdict_forms.zip",
+          "disposition": "catalogued-not-mirrored",
+          "catalogEntryIds": [
+            "jmdict-forms"
+          ]
+        },
+        {
+          "path": "JMdict_french.zip",
+          "bytes": 576727,
+          "downloadUrl": "https://github.com/yomidevs/jmdict-yomitan/releases/download/2026-07-23/JMdict_french.zip",
+          "disposition": "mirrored",
+          "catalogEntryIds": [
+            "jmdict-fr"
+          ]
+        },
+        {
+          "path": "JMdict_german.zip",
+          "bytes": 6341873,
+          "downloadUrl": "https://github.com/yomidevs/jmdict-yomitan/releases/download/2026-07-23/JMdict_german.zip",
+          "disposition": "mirrored",
+          "catalogEntryIds": [
+            "jmdict-de"
+          ]
+        },
+        {
+          "path": "JMdict_hungarian.zip",
+          "bytes": 1814012,
+          "downloadUrl": "https://github.com/yomidevs/jmdict-yomitan/releases/download/2026-07-23/JMdict_hungarian.zip",
+          "disposition": "mirrored",
+          "catalogEntryIds": [
+            "jmdict-hu"
+          ]
+        },
+        {
+          "path": "JMdict_russian.zip",
+          "bytes": 3452083,
+          "downloadUrl": "https://github.com/yomidevs/jmdict-yomitan/releases/download/2026-07-23/JMdict_russian.zip",
+          "disposition": "mirrored",
+          "catalogEntryIds": [
+            "jmdict-ru"
+          ]
+        },
+        {
+          "path": "JMdict_slovenian.zip",
+          "bytes": 336282,
+          "downloadUrl": "https://github.com/yomidevs/jmdict-yomitan/releases/download/2026-07-23/JMdict_slovenian.zip",
+          "disposition": "catalogued-not-mirrored",
+          "catalogEntryIds": [
+            "jmdict-sl"
+          ]
+        },
+        {
+          "path": "JMdict_spanish.zip",
+          "bytes": 1332886,
+          "downloadUrl": "https://github.com/yomidevs/jmdict-yomitan/releases/download/2026-07-23/JMdict_spanish.zip",
+          "disposition": "mirrored",
+          "catalogEntryIds": [
+            "jmdict-es"
+          ]
+        },
+        {
+          "path": "JMdict_swedish.zip",
+          "bytes": 398940,
+          "downloadUrl": "https://github.com/yomidevs/jmdict-yomitan/releases/download/2026-07-23/JMdict_swedish.zip",
+          "disposition": "mirrored",
+          "catalogEntryIds": [
+            "jmdict-sv"
+          ]
+        },
+        {
+          "path": "JMnedict.zip",
+          "bytes": 11423324,
+          "downloadUrl": "https://github.com/yomidevs/jmdict-yomitan/releases/download/2026-07-23/JMnedict.zip",
+          "disposition": "mirrored",
+          "catalogEntryIds": [
+            "jmnedict"
+          ]
+        },
+        {
+          "path": "KANJIDIC_english.zip",
+          "bytes": 721025,
+          "downloadUrl": "https://github.com/yomidevs/jmdict-yomitan/releases/download/2026-07-23/KANJIDIC_english.zip",
+          "disposition": "mirrored",
+          "catalogEntryIds": [
+            "kanjidic-en"
+          ]
+        },
+        {
+          "path": "KANJIDIC_french.zip",
+          "bytes": 301439,
+          "downloadUrl": "https://github.com/yomidevs/jmdict-yomitan/releases/download/2026-07-23/KANJIDIC_french.zip",
+          "disposition": "mirrored",
+          "catalogEntryIds": [
+            "kanjidic-fr"
+          ]
+        },
+        {
+          "path": "KANJIDIC_portuguese.zip",
+          "bytes": 283592,
+          "downloadUrl": "https://github.com/yomidevs/jmdict-yomitan/releases/download/2026-07-23/KANJIDIC_portuguese.zip",
+          "disposition": "mirrored",
+          "catalogEntryIds": [
+            "kanjidic-pt"
+          ]
+        },
+        {
+          "path": "KANJIDIC_spanish.zip",
+          "bytes": 339023,
+          "downloadUrl": "https://github.com/yomidevs/jmdict-yomitan/releases/download/2026-07-23/KANJIDIC_spanish.zip",
+          "disposition": "mirrored",
+          "catalogEntryIds": [
+            "kanjidic-es"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "marvnc-public-drive",
+      "label": "MarvNC public Google Drive dictionary folder",
+      "kind": "google-drive-folder",
+      "url": "https://drive.google.com/drive/folders/1LXMIOoaWASIntlx1w08njNU005lS5lez",
+      "surveyedAt": "2026-07-26T00:00:00.000Z",
+      "surveyMethod": "Aggregate only. The frozen inventory decision fixes this folder at 173 unique dictionary archives; the catalogue is checked for exactly that many drive-sourced entries rather than per-file, because the connector inventory that names the individual Drive file ids is operator-supplied and not tracked here.",
+      "expectedCatalogEntries": 173,
+      "catalogEntryIdPrefix": "drive-"
+    }
+  ],
+  "unsurveyedCollections": [
+    {
+      "id": "salwynn-dictionaries",
+      "label": "Salwynn's dictionaries",
+      "url": "https://drive.google.com/drive/folders/1CPPAgKzz_PDEb7JUPHGioONTEQg0aCHW",
+      "readmeHeading": "Salwynn's dictionaries"
+    },
+    {
+      "id": "other-chinese-dictionaries",
+      "label": "Other Chinese Dictionaries",
+      "url": "https://drive.google.com/drive/folders/14OiowSI28LcP_rtGVuis7Sy8Kt_yqsiI",
+      "readmeHeading": "Other Chinese Dictionaries"
+    },
+    {
+      "id": "cantonese-misc-dictionaries",
+      "label": "Cantonese misc dictionaries",
+      "url": "https://drive.google.com/drive/folders/1aybpEp9_-JlOpvnJ8-5c0qlfachb83nA",
+      "readmeHeading": "Misc Dictionaries"
+    },
+    {
+      "id": "english-english",
+      "label": "English-English",
+      "url": "https://drive.google.com/drive/folders/1APj14ap2yMv0WZvSCEGJq9jfMUpZy6Ao",
+      "readmeHeading": "English-English"
+    },
+    {
+      "id": "french-japanese-pocket-progressive",
+      "label": "ポケットプログレッシブ仏和・和仏辞典 第3版",
+      "url": "https://drive.google.com/drive/folders/1qG6L8HMlHhLjg09VrjkJ34f9YBchwHdn",
+      "readmeHeading": "French-Japanese"
+    }
+  ],
+  "unsurveyedNote": "These are third-party Google Drive folders linked from the frozen readme, not part of the pinned collection folder. They are recorded so the next acquisition run can reach them; nothing in them is catalogued, because their contents were not downloaded and cannot be confirmed to be Yomitan dictionaries from their file names alone. The five folder ids are the complete set of drive.google.com/drive/folders links in readme.md at commit 574961e823e33fb36b6b86778a0d6b606af29c25 other than the pinned collection folder."
+}

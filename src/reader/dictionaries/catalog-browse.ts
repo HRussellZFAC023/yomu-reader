@@ -19,6 +19,23 @@ export interface CatalogBrowseGroup {
     dictionaries: readonly RecommendedDictionary[];
 }
 
+/**
+ * One shelf of the browse panel: every mirrored dictionary whose *headwords* are
+ * written in `headwordLanguage`, split into the usual category groups.
+ *
+ * The mirror hosts Mandarin, Cantonese and Literary Chinese archives beside the
+ * Japanese ones. Keying panel membership to the catalogue's target language hid
+ * those behind a URL nobody has, so they are shelved by their own language
+ * instead of dropped — reachable, but never mixed into the shelf the reader is
+ * actually studying.
+ */
+export interface CatalogBrowseLanguageSection {
+    headwordLanguage: string;
+    /** True for the one shelf that matches what this catalogue is built to read. */
+    isTargetLanguage: boolean;
+    groups: readonly CatalogBrowseGroup[];
+}
+
 export interface CatalogBrowseOptions {
     /** Definition languages matching the learner sort first inside each group. */
     learnerLanguage?: string;
@@ -52,46 +69,60 @@ const UI_CATEGORY_BY_CATALOG_CATEGORY: Readonly<Record<DictionaryCategory, Recom
     utility: 'terms',
 };
 
-export function catalogBrowseCardId(targetLanguage: string, catalogDictionaryId: string): string {
-    return `mirror-${targetLanguage}-${catalogDictionaryId}`;
+export function catalogBrowseCardId(headwordLanguage: string, catalogDictionaryId: string): string {
+    return `mirror-${headwordLanguage}-${catalogDictionaryId}`;
 }
 
 /**
- * The catalogue mirrors dictionaries for several headword languages. Only the
- * ones written in the catalogue's own target language can help this reader, so
- * the target language — not a hardcoded 'ja' — decides membership.
+ * Every mirrored archive, in shelf order: the reader's target language first,
+ * then the other headword languages the mirror carries.
  */
 export function catalogBrowseDictionaries(
     catalog: DictionaryCatalogManifest = FROZEN_DICTIONARY_CATALOG,
 ): readonly RecommendedDictionary[] {
     return catalog === FROZEN_DICTIONARY_CATALOG
         ? FROZEN_CATALOG_BROWSE_DICTIONARIES
-        : buildCatalogBrowseDictionaries(catalog);
+        : catalogBrowseShelves(catalog).flatMap(shelf => shelf.dictionaries);
 }
 
+/**
+ * Category groups for one headword language. Defaults to the catalogue's target
+ * language so callers that only care about the studied language keep reading
+ * exactly the shelf they used to get.
+ */
 export function catalogBrowseGroups(
     options: CatalogBrowseOptions = {},
     catalog: DictionaryCatalogManifest = FROZEN_DICTIONARY_CATALOG,
+    headwordLanguage: string = catalog.targetLanguage,
 ): readonly CatalogBrowseGroup[] {
-    const excluded = options.excludeCatalogIds;
-    const dictionaries = catalogBrowseDictionaries(catalog).filter(
-        dictionary => !excluded?.has(dictionary.catalogDictionaryId ?? ''),
-    );
-    const byCategory = new Map<DictionaryCategory, RecommendedDictionary[]>();
-    for (const dictionary of dictionaries) {
-        const category = dictionary.catalogCategory ?? 'utility';
-        const bucket = byCategory.get(category);
-        if (bucket) bucket.push(dictionary);
-        else byCategory.set(category, [dictionary]);
-    }
-    return CATEGORY_ORDER.flatMap(category => {
-        const bucket = byCategory.get(category);
-        if (!bucket?.length) return [];
+    const shelf = catalogBrowseShelves(catalog).find(candidate => candidate.language === headwordLanguage);
+    return shelf ? groupShelfByCategory(shelf, options) : [];
+}
+
+/**
+ * The whole panel: one section per headword language, target language first.
+ * A section with nothing left to show (its entire shelf is already rendered as
+ * the recommendation seed) is dropped rather than left as a bare heading.
+ */
+export function catalogBrowseLanguageSections(
+    options: CatalogBrowseOptions = {},
+    catalog: DictionaryCatalogManifest = FROZEN_DICTIONARY_CATALOG,
+): readonly CatalogBrowseLanguageSection[] {
+    return catalogBrowseShelves(catalog).flatMap(shelf => {
+        const groups = groupShelfByCategory(shelf, options);
+        if (!groups.length) return [];
         return [{
-            category,
-            dictionaries: bucket.sort(compareForLearnerLanguage(options.learnerLanguage, catalog.targetLanguage)),
+            headwordLanguage: shelf.language,
+            isTargetLanguage: shelf.language === catalog.targetLanguage,
+            groups,
         }];
     });
+}
+
+export function catalogBrowseSectionGroups(
+    sections: readonly CatalogBrowseLanguageSection[],
+): readonly CatalogBrowseGroup[] {
+    return sections.flatMap(section => section.groups);
 }
 
 export function catalogBrowseTotalBytes(groups: readonly CatalogBrowseGroup[]): number {
@@ -99,6 +130,31 @@ export function catalogBrowseTotalBytes(groups: readonly CatalogBrowseGroup[]): 
         (total, group) => group.dictionaries.reduce((sum, dictionary) => sum + (dictionary.bytes ?? 0), total),
         0,
     );
+}
+
+/**
+ * Endonyms for the headword languages the mirror carries.
+ *
+ * ICU knows 'ja', 'zh' and 'yue' in practically every locale but hands back the
+ * bare tag for 'lzh' in several, and a heading reading "lzh" is not chrome any
+ * reader can use. Falling back to the language's own name keeps the shelf
+ * readable without dropping 31 learner languages into English.
+ */
+const HEADWORD_LANGUAGE_ENDONYMS: Readonly<Record<string, string>> = Object.freeze({
+    ja: '日本語',
+    zh: '中文',
+    yue: '粵語',
+    lzh: '文言',
+});
+
+export function headwordLanguageEndonym(language: string): string {
+    return HEADWORD_LANGUAGE_ENDONYMS[language] ?? language;
+}
+
+/** The shelf heading: the language's name, in the language of the panel. */
+export function headwordLanguageName(language: string, locale = 'en'): string {
+    const display = displayLanguageName(language, locale);
+    return display === language ? headwordLanguageEndonym(language) : display;
 }
 
 export function formatDictionaryBytes(bytes: number, locale = 'en'): string {
@@ -113,20 +169,80 @@ export function formatDictionaryBytes(bytes: number, locale = 'en'): string {
     return `${new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(value)} ${unit}`;
 }
 
-function buildCatalogBrowseDictionaries(catalog: DictionaryCatalogManifest): readonly RecommendedDictionary[] {
+interface CatalogBrowseShelf {
+    language: string;
+    dictionaries: readonly RecommendedDictionary[];
+}
+
+function catalogBrowseShelves(catalog: DictionaryCatalogManifest): readonly CatalogBrowseShelf[] {
+    return catalog === FROZEN_DICTIONARY_CATALOG
+        ? FROZEN_CATALOG_BROWSE_SHELVES
+        : buildCatalogBrowseShelves(catalog);
+}
+
+function groupShelfByCategory(
+    shelf: CatalogBrowseShelf,
+    options: CatalogBrowseOptions,
+): readonly CatalogBrowseGroup[] {
+    const excluded = options.excludeCatalogIds;
+    const byCategory = new Map<DictionaryCategory, RecommendedDictionary[]>();
+    for (const dictionary of shelf.dictionaries) {
+        if (excluded?.has(dictionary.catalogDictionaryId ?? '')) continue;
+        const category = dictionary.catalogCategory ?? 'utility';
+        const bucket = byCategory.get(category);
+        if (bucket) bucket.push(dictionary);
+        else byCategory.set(category, [dictionary]);
+    }
+    return CATEGORY_ORDER.flatMap(category => {
+        const bucket = byCategory.get(category);
+        if (!bucket?.length) return [];
+        // A shelf ranks its own monolingual titles the way the Japanese shelf
+        // ranks Japanese ones: the learner's language first, then the language
+        // being read, then the English fallback.
+        return [{ category, dictionaries: bucket.sort(compareForLearnerLanguage(options.learnerLanguage, shelf.language)) }];
+    });
+}
+
+/**
+ * Shelf order is the reader's target language, then the biggest remaining
+ * collections. Ordering by card count rather than by name keeps the order
+ * identical in all 32 interface locales, so a test or a screenshot means the
+ * same thing everywhere.
+ */
+function buildCatalogBrowseShelves(catalog: DictionaryCatalogManifest): readonly CatalogBrowseShelf[] {
+    const entriesByLanguage = new Map<string, DictionaryCatalogEntry[]>();
+    for (const entry of catalog.entries) {
+        for (const language of entry.headwordLanguages) {
+            const bucket = entriesByLanguage.get(language);
+            if (bucket) bucket.push(entry);
+            else entriesByLanguage.set(language, [entry]);
+        }
+    }
+    const shelves = [...entriesByLanguage].map(([language, entries]) => ({
+        language,
+        dictionaries: Object.freeze(
+            dedupeByPublishedObject(entries)
+                .map(entry => browseCard(catalog, language, entry))
+                .sort(compareForLearnerLanguage(undefined, language)),
+        ),
+    }));
     const target = catalog.targetLanguage;
-    const forTarget = catalog.entries.filter(entry => entry.headwordLanguages.includes(target));
-    return Object.freeze(
-        dedupeByPublishedObject(forTarget)
-            .map(entry => browseCard(catalog, entry))
-            .sort(compareForLearnerLanguage(undefined, target)),
-    );
+    return Object.freeze(shelves.sort((left, right) => {
+        if ((left.language === target) !== (right.language === target)) return left.language === target ? -1 : 1;
+        return right.dictionaries.length - left.dictionaries.length
+            || left.language.localeCompare(right.language, 'en');
+    }));
 }
 
 /**
  * The mirror keeps a starter-pack copy of archives that also live in the main
  * language collection. They are byte-identical, so one content hash must not
  * produce two Settings rows offering the same download twice.
+ *
+ * Deduplication is per shelf on purpose. One object is published under both a
+ * Cantonese and a Mandarin catalogue entry; collapsing those globally would
+ * make a dictionary vanish from one language's shelf entirely, which is the
+ * unreachability this panel exists to stop.
  */
 function dedupeByPublishedObject(entries: readonly DictionaryCatalogEntry[]): DictionaryCatalogEntry[] {
     const preferred = new Map<string, DictionaryCatalogEntry>();
@@ -153,11 +269,16 @@ function isStarterPackEntry(entry: DictionaryCatalogEntry): boolean {
     return entry.source.catalogueSection === 'starter-pack' || entry.id.startsWith('drive-starter-pack-');
 }
 
-function browseCard(catalog: DictionaryCatalogManifest, entry: DictionaryCatalogEntry): RecommendedDictionary {
+function browseCard(
+    catalog: DictionaryCatalogManifest,
+    headwordLanguage: string,
+    entry: DictionaryCatalogEntry,
+): RecommendedDictionary {
     const primaryCategory = primaryCatalogCategory(entry);
     const object = entry.distribution.state === 'published' ? entry.distribution.object : undefined;
     return {
-        id: catalogBrowseCardId(catalog.targetLanguage, entry.id),
+        id: catalogBrowseCardId(headwordLanguage, entry.id),
+        headwordLanguage,
         category: UI_CATEGORY_BY_CATALOG_CATEGORY[primaryCategory],
         catalogCategory: primaryCategory,
         name: entry.title,
@@ -233,4 +354,8 @@ function displayLanguageName(language: string, locale = 'en'): string {
     }
 }
 
-const FROZEN_CATALOG_BROWSE_DICTIONARIES = buildCatalogBrowseDictionaries(FROZEN_DICTIONARY_CATALOG);
+const FROZEN_CATALOG_BROWSE_SHELVES = buildCatalogBrowseShelves(FROZEN_DICTIONARY_CATALOG);
+
+const FROZEN_CATALOG_BROWSE_DICTIONARIES: readonly RecommendedDictionary[] = Object.freeze(
+    FROZEN_CATALOG_BROWSE_SHELVES.flatMap(shelf => shelf.dictionaries),
+);

@@ -16,6 +16,13 @@ export interface CatalogBrowseCopy {
     readonly summary: string;
     readonly searchLabel: string;
     readonly noResults: string;
+    /**
+     * Sits under the heading of every shelf that is not the language being
+     * studied. The heading already names the language, so this line only has to
+     * say that the shelf is not part of the reader's Japanese setup — which is
+     * why it needs no interpolation and stays translatable as one flat sentence.
+     */
+    readonly otherLanguageNote: string;
     readonly categories: Readonly<Record<DictionaryCategory, string>>;
 }
 
@@ -40,6 +47,7 @@ interface CatalogBrowseCopySource {
     readonly summary: string;
     readonly searchLabel: string;
     readonly noResults: string;
+    readonly otherLanguageNote: string;
     readonly categories: CategoryNames;
 }
 
@@ -49,6 +57,7 @@ const CATALOG_BROWSE_COPY_SOURCE: Readonly<Record<LearnerLanguageId, CatalogBrow
         summary: '{count} fjalorë të tjerë · gjithsej {size}',
         searchLabel: 'Kërko fjalorë',
         noResults: 'Asnjë fjalor nuk përputhet me kërkimin.',
+        otherLanguageNote: 'Këta fjalorë nuk janë për leximin e japonishtes.',
         categories: ['Fjalorë fjalësh', 'Fjalorë emrash', 'Fjalorë gramatikorë', 'Fjalorë kanxhish', 'Fjalorë frekuence', 'Fjalorë theksi', 'Fjalorë me fjali shembull', 'Fjalorë sinonimish', 'Enciklopedi', 'Fjalorë ndihmës'],
     },
     grc: {
@@ -56,6 +65,7 @@ const CATALOG_BROWSE_COPY_SOURCE: Readonly<Record<LearnerLanguageId, CatalogBrow
         summary: 'Ἕτερα λεξικά: {count} · σύμπαν {size}',
         searchLabel: 'Ζήτει λεξικά',
         noResults: 'Οὐδὲν λεξικὸν εὑρέθη.',
+        otherLanguageNote: 'Ταῦτα τὰ λεξικὰ οὐ πρὸς τὴν Ἰαπωνικὴν ἀνάγνωσίν ἐστιν.',
         categories: ['Λεξικὰ λέξεων', 'Λεξικὰ ὀνομάτων', 'Λεξικὰ γραμματικῆς', 'Λεξικὰ κανζί', 'Λεξικὰ συχνότητος', 'Λεξικὰ τόνου', 'Λεξικὰ παραδειγμάτων', 'Λεξικὰ συνωνύμων', 'Ἐγκυκλοπαίδειαι', 'Λεξικὰ βοηθητικά'],
     },
     ar: {
@@ -63,6 +73,7 @@ const CATALOG_BROWSE_COPY_SOURCE: Readonly<Record<LearnerLanguageId, CatalogBrow
         summary: 'قواميس أخرى: ⁨{count}⁩ · الإجمالي ⁨{size}⁩',
         searchLabel: 'ابحث في القواميس',
         noResults: 'لا توجد قواميس مطابقة لبحثك.',
+        otherLanguageNote: 'هذه القواميس ليست لقراءة اليابانية.',
         categories: ['قواميس المفردات', 'قواميس أسماء الأعلام', 'قواميس القواعد', 'قواميس الكانجي', 'قواميس التكرار', 'قواميس النبر', 'قواميس الجمل التوضيحية', 'معاجم المترادفات', 'الموسوعات', 'قواميس مساعدة'],
     },
     yue: {
@@ -70,6 +81,7 @@ const CATALOG_BROWSE_COPY_SOURCE: Readonly<Record<LearnerLanguageId, CatalogBrow
         summary: '仲有 {count} 本字典 · 合共 {size}',
         searchLabel: '搜尋字典',
         noResults: '搵唔到符合嘅字典。',
+        otherLanguageNote: '呢啲字典唔係用嚟讀日文嘅。',
         categories: ['詞語字典', '專名字典', '文法字典', '漢字字典', '詞頻字典', '聲調字典', '例句字典', '同義詞字典', '百科全書', '輔助字典'],
     },
     zh: {
@@ -77,6 +89,7 @@ const CATALOG_BROWSE_COPY_SOURCE: Readonly<Record<LearnerLanguageId, CatalogBrow
         summary: '另有 {count} 部词典 · 共 {size}',
         searchLabel: '搜索词典',
         noResults: '没有匹配的词典。',
+        otherLanguageNote: '这些词典不是用来阅读日语的。',
         categories: ['词语词典', '专名词典', '语法词典', '汉字词典', '词频词典', '音调词典', '例句词典', '同义词词典', '百科全书', '辅助词典'],
     },
     da: {
@@ -84,6 +97,7 @@ const CATALOG_BROWSE_COPY_SOURCE: Readonly<Record<LearnerLanguageId, CatalogBrow
         summary: '{count} flere ordbøger · {size} i alt',
         searchLabel: 'Søg i ordbøger',
         noResults: 'Ingen ordbøger matcher din søgning.',
+        otherLanguageNote: 'Disse ordbøger er ikke til at læse japansk.',
         categories: ['Ordbøger', 'Navneordbøger', 'Grammatikordbøger', 'Kanji-ordbøger', 'Frekvensordbøger', 'Tonegangsordbøger', 'Eksempelsætningsordbøger', 'Synonymordbøger', 'Encyklopædier', 'Hjælpeordbøger'],
     },
     nl: {
@@ -91,6 +105,7 @@ const CATALOG_BROWSE_COPY_SOURCE: Readonly<Record<LearnerLanguageId, CatalogBrow
         summary: '{count} extra woordenboeken · {size} in totaal',
         searchLabel: 'Woordenboeken zoeken',
         noResults: 'Geen woordenboeken gevonden voor je zoekopdracht.',
+        otherLanguageNote: 'Deze woordenboeken zijn niet bedoeld om Japans te lezen.',
         categories: ['Woordenboeken', 'Namenwoordenboeken', 'Grammaticawoordenboeken', 'Kanjiwoordenboeken', 'Frequentiewoordenboeken', 'Toonhoogtewoordenboeken', 'Voorbeeldzinwoordenboeken', 'Synoniemenwoordenboeken', 'Encyclopedieën', 'Hulpwoordenboeken'],
     },
     en: {
@@ -98,6 +113,7 @@ const CATALOG_BROWSE_COPY_SOURCE: Readonly<Record<LearnerLanguageId, CatalogBrow
         summary: '{count} more dictionaries · {size} total',
         searchLabel: 'Search dictionaries',
         noResults: 'No dictionaries match your search.',
+        otherLanguageNote: 'These dictionaries are not for reading Japanese.',
         categories: ['Term dictionaries', 'Name dictionaries', 'Grammar dictionaries', 'Kanji dictionaries', 'Frequency dictionaries', 'Pitch dictionaries', 'Example sentence dictionaries', 'Thesauruses', 'Encyclopedias', 'Utility dictionaries'],
     },
     fi: {
@@ -105,6 +121,7 @@ const CATALOG_BROWSE_COPY_SOURCE: Readonly<Record<LearnerLanguageId, CatalogBrow
         summary: '{count} sanakirjaa lisää · yhteensä {size}',
         searchLabel: 'Hae sanakirjoja',
         noResults: 'Hakua vastaavia sanakirjoja ei löytynyt.',
+        otherLanguageNote: 'Nämä sanakirjat eivät ole japanin lukemiseen.',
         categories: ['Sanakirjat', 'Nimisanakirjat', 'Kielioppisanakirjat', 'Kanji-sanakirjat', 'Yleisyyssanakirjat', 'Sävelkulkusanakirjat', 'Esimerkkilausesanakirjat', 'Synonyymisanakirjat', 'Tietosanakirjat', 'Apusanakirjat'],
     },
     fr: {
@@ -112,6 +129,7 @@ const CATALOG_BROWSE_COPY_SOURCE: Readonly<Record<LearnerLanguageId, CatalogBrow
         summary: '{count} dictionnaires de plus · {size} au total',
         searchLabel: 'Rechercher des dictionnaires',
         noResults: 'Aucun dictionnaire ne correspond à votre recherche.',
+        otherLanguageNote: 'Ces dictionnaires ne servent pas à lire le japonais.',
         categories: ['Dictionnaires de mots', 'Dictionnaires de noms propres', 'Dictionnaires de grammaire', 'Dictionnaires de kanji', 'Dictionnaires de fréquence', 'Dictionnaires d’accent tonique', 'Dictionnaires de phrases d’exemple', 'Dictionnaires de synonymes', 'Encyclopédies', 'Dictionnaires utilitaires'],
     },
     de: {
@@ -119,6 +137,7 @@ const CATALOG_BROWSE_COPY_SOURCE: Readonly<Record<LearnerLanguageId, CatalogBrow
         summary: '{count} weitere Wörterbücher · {size} insgesamt',
         searchLabel: 'Wörterbücher durchsuchen',
         noResults: 'Keine Wörterbücher passen zu deiner Suche.',
+        otherLanguageNote: 'Diese Wörterbücher sind nicht zum Lesen von Japanisch gedacht.',
         categories: ['Wortwörterbücher', 'Namenswörterbücher', 'Grammatikwörterbücher', 'Kanji-Wörterbücher', 'Häufigkeitswörterbücher', 'Tonhöhenwörterbücher', 'Beispielsatzwörterbücher', 'Synonymwörterbücher', 'Enzyklopädien', 'Hilfswörterbücher'],
     },
     el: {
@@ -126,6 +145,7 @@ const CATALOG_BROWSE_COPY_SOURCE: Readonly<Record<LearnerLanguageId, CatalogBrow
         summary: '{count} επιπλέον λεξικά · {size} συνολικά',
         searchLabel: 'Αναζήτηση λεξικών',
         noResults: 'Κανένα λεξικό δεν ταιριάζει με την αναζήτησή σας.',
+        otherLanguageNote: 'Αυτά τα λεξικά δεν είναι για την ανάγνωση των ιαπωνικών.',
         categories: ['Λεξικά λέξεων', 'Λεξικά κύριων ονομάτων', 'Λεξικά γραμματικής', 'Λεξικά κανζί', 'Λεξικά συχνότητας', 'Λεξικά τονισμού', 'Λεξικά παραδειγμάτων', 'Λεξικά συνωνύμων', 'Εγκυκλοπαίδειες', 'Βοηθητικά λεξικά'],
     },
     hu: {
@@ -133,6 +153,7 @@ const CATALOG_BROWSE_COPY_SOURCE: Readonly<Record<LearnerLanguageId, CatalogBrow
         summary: 'További szótárak: {count} · összesen {size}',
         searchLabel: 'Szótárak keresése',
         noResults: 'Nincs a keresésnek megfelelő szótár.',
+        otherLanguageNote: 'Ezek a szótárak nem a japán olvasásához valók.',
         categories: ['Szótárak', 'Névszótárak', 'Nyelvtani szótárak', 'Kandzsiszótárak', 'Gyakorisági szótárak', 'Hangsúlyszótárak', 'Példamondat-szótárak', 'Szinonimaszótárak', 'Lexikonok', 'Segédszótárak'],
     },
     id: {
@@ -140,6 +161,7 @@ const CATALOG_BROWSE_COPY_SOURCE: Readonly<Record<LearnerLanguageId, CatalogBrow
         summary: '{count} kamus lainnya · total {size}',
         searchLabel: 'Cari kamus',
         noResults: 'Tidak ada kamus yang cocok dengan pencarian Anda.',
+        otherLanguageNote: 'Kamus-kamus ini bukan untuk membaca bahasa Jepang.',
         categories: ['Kamus kata', 'Kamus nama diri', 'Kamus tata bahasa', 'Kamus kanji', 'Kamus frekuensi', 'Kamus aksen nada', 'Kamus kalimat contoh', 'Tesaurus', 'Ensiklopedia', 'Kamus pendukung'],
     },
     it: {
@@ -147,6 +169,7 @@ const CATALOG_BROWSE_COPY_SOURCE: Readonly<Record<LearnerLanguageId, CatalogBrow
         summary: 'Altri {count} dizionari · {size} in totale',
         searchLabel: 'Cerca dizionari',
         noResults: 'Nessun dizionario corrisponde alla ricerca.',
+        otherLanguageNote: 'Questi dizionari non servono a leggere il giapponese.',
         categories: ['Dizionari di parole', 'Dizionari di nomi propri', 'Dizionari di grammatica', 'Dizionari di kanji', 'Dizionari di frequenza', 'Dizionari di accento tonale', 'Dizionari di frasi di esempio', 'Dizionari dei sinonimi', 'Enciclopedie', 'Dizionari di utilità'],
     },
     km: {
@@ -154,6 +177,7 @@ const CATALOG_BROWSE_COPY_SOURCE: Readonly<Record<LearnerLanguageId, CatalogBrow
         summary: 'វចនានុក្រមផ្សេងទៀត៖ {count} · សរុប {size}',
         searchLabel: 'ស្វែងរកវចនានុក្រម',
         noResults: 'រកមិនឃើញវចនានុក្រមដែលត្រូវនឹងការស្វែងរកទេ។',
+        otherLanguageNote: 'វចនានុក្រមទាំងនេះមិនមែនសម្រាប់អានភាសាជប៉ុនទេ។',
         categories: ['វចនានុក្រមពាក្យ', 'វចនានុក្រមឈ្មោះ', 'វចនានុក្រមវេយ្យាករណ៍', 'វចនានុក្រមកានជិ', 'វចនានុក្រមប្រេកង់', 'វចនានុក្រមសំឡេងកម្ពស់', 'វចនានុក្រមឧទាហរណ៍ប្រយោគ', 'វចនានុក្រមពាក្យដូច', 'សព្វវចនាធិប្បាយ', 'វចនានុក្រមជំនួយ'],
     },
     ko: {
@@ -161,6 +185,7 @@ const CATALOG_BROWSE_COPY_SOURCE: Readonly<Record<LearnerLanguageId, CatalogBrow
         summary: '사전 {count}개 더 · 총 {size}',
         searchLabel: '사전 검색',
         noResults: '검색과 일치하는 사전이 없습니다.',
+        otherLanguageNote: '이 사전들은 일본어를 읽기 위한 것이 아닙니다.',
         categories: ['어휘 사전', '고유명사 사전', '문법 사전', '한자 사전', '빈도 사전', '악센트 사전', '예문 사전', '유의어 사전', '백과사전', '보조 사전'],
     },
     lo: {
@@ -168,6 +193,7 @@ const CATALOG_BROWSE_COPY_SOURCE: Readonly<Record<LearnerLanguageId, CatalogBrow
         summary: 'ວັດຈະນານຸກົມອື່ນ {count} ຫົວ · ລວມ {size}',
         searchLabel: 'ຄົ້ນຫາວັດຈະນານຸກົມ',
         noResults: 'ບໍ່ພົບວັດຈະນານຸກົມທີ່ກົງກັບການຄົ້ນຫາ.',
+        otherLanguageNote: 'ວັດຈະນານຸກົມເຫຼົ່ານີ້ບໍ່ແມ່ນສຳລັບການອ່ານພາສາຍີ່ປຸ່ນ.',
         categories: ['ວັດຈະນານຸກົມຄຳສັບ', 'ວັດຈະນານຸກົມຊື່ສະເພາະ', 'ວັດຈະນານຸກົມໄວຍາກອນ', 'ວັດຈະນານຸກົມຄັນຈິ', 'ວັດຈະນານຸກົມຄວາມຖີ່', 'ວັດຈະນານຸກົມສຽງສູງຕ່ຳ', 'ວັດຈະນານຸກົມປະໂຫຍກຕົວຢ່າງ', 'ວັດຈະນານຸກົມຄຳຄ້າຍ', 'ສາລານຸກົມ', 'ວັດຈະນານຸກົມຊ່ວຍ'],
     },
     la: {
@@ -175,6 +201,7 @@ const CATALOG_BROWSE_COPY_SOURCE: Readonly<Record<LearnerLanguageId, CatalogBrow
         summary: 'Dictionaria alia: {count} · summa {size}',
         searchLabel: 'Dictionaria quaerere',
         noResults: 'Nulla dictionaria quaesitis respondent.',
+        otherLanguageNote: 'Haec dictionaria non sunt ad Iaponicam legendam.',
         categories: ['Dictionaria verborum', 'Dictionaria nominum', 'Dictionaria grammatica', 'Dictionaria kanji', 'Dictionaria frequentiae', 'Dictionaria accentus', 'Dictionaria exemplorum', 'Dictionaria synonymorum', 'Encyclopaediae', 'Dictionaria auxiliaria'],
     },
     mn: {
@@ -182,6 +209,7 @@ const CATALOG_BROWSE_COPY_SOURCE: Readonly<Record<LearnerLanguageId, CatalogBrow
         summary: 'Бусад толь бичиг: {count} · нийт {size}',
         searchLabel: 'Толь бичиг хайх',
         noResults: 'Хайлтад тохирох толь бичиг олдсонгүй.',
+        otherLanguageNote: 'Эдгээр толь бичиг япон хэл унших зориулалтгүй.',
         categories: ['Үгийн толь', 'Нэрийн толь', 'Хэл зүйн толь', 'Ханзны толь', 'Давтамжийн толь', 'Өргөлтийн толь', 'Жишээ өгүүлбэрийн толь', 'Ойролцоо утгын толь', 'Нэвтэрхий толь', 'Туслах толь'],
     },
     fa: {
@@ -189,6 +217,7 @@ const CATALOG_BROWSE_COPY_SOURCE: Readonly<Record<LearnerLanguageId, CatalogBrow
         summary: 'واژه‌نامه‌های دیگر: ⁨{count}⁩ · مجموع ⁨{size}⁩',
         searchLabel: 'جست‌وجوی واژه‌نامه‌ها',
         noResults: 'هیچ واژه‌نامه‌ای با جست‌وجوی شما مطابقت ندارد.',
+        otherLanguageNote: 'این واژه‌نامه‌ها برای خواندن ژاپنی نیستند.',
         categories: ['واژه‌نامه‌های واژگان', 'واژه‌نامه‌های اسامی خاص', 'واژه‌نامه‌های دستور زبان', 'واژه‌نامه‌های کانجی', 'واژه‌نامه‌های بسامد', 'واژه‌نامه‌های آهنگ واژه', 'واژه‌نامه‌های جمله‌های نمونه', 'واژه‌نامه‌های هم‌معنا', 'دانشنامه‌ها', 'واژه‌نامه‌های کمکی'],
     },
     pl: {
@@ -196,6 +225,7 @@ const CATALOG_BROWSE_COPY_SOURCE: Readonly<Record<LearnerLanguageId, CatalogBrow
         summary: 'Więcej słowników: {count} · łącznie {size}',
         searchLabel: 'Szukaj słowników',
         noResults: 'Żaden słownik nie pasuje do wyszukiwania.',
+        otherLanguageNote: 'Te słowniki nie służą do czytania po japońsku.',
         categories: ['Słowniki wyrazów', 'Słowniki nazw własnych', 'Słowniki gramatyczne', 'Słowniki kanji', 'Słowniki frekwencyjne', 'Słowniki akcentu tonicznego', 'Słowniki zdań przykładowych', 'Słowniki synonimów', 'Encyklopedie', 'Słowniki pomocnicze'],
     },
     pt: {
@@ -203,6 +233,7 @@ const CATALOG_BROWSE_COPY_SOURCE: Readonly<Record<LearnerLanguageId, CatalogBrow
         summary: 'Mais {count} dicionários · {size} no total',
         searchLabel: 'Pesquisar dicionários',
         noResults: 'Nenhum dicionário corresponde à sua pesquisa.',
+        otherLanguageNote: 'Estes dicionários não servem para ler japonês.',
         categories: ['Dicionários de palavras', 'Dicionários de nomes próprios', 'Dicionários de gramática', 'Dicionários de kanji', 'Dicionários de frequência', 'Dicionários de acento tonal', 'Dicionários de frases de exemplo', 'Dicionários de sinónimos', 'Enciclopédias', 'Dicionários utilitários'],
     },
     ro: {
@@ -210,6 +241,7 @@ const CATALOG_BROWSE_COPY_SOURCE: Readonly<Record<LearnerLanguageId, CatalogBrow
         summary: 'Încă {count} dicționare · {size} în total',
         searchLabel: 'Caută dicționare',
         noResults: 'Niciun dicționar nu corespunde căutării.',
+        otherLanguageNote: 'Aceste dicționare nu sunt pentru citirea japonezei.',
         categories: ['Dicționare de cuvinte', 'Dicționare de nume proprii', 'Dicționare de gramatică', 'Dicționare de kanji', 'Dicționare de frecvență', 'Dicționare de accent tonal', 'Dicționare de propoziții exemplu', 'Dicționare de sinonime', 'Enciclopedii', 'Dicționare auxiliare'],
     },
     ru: {
@@ -217,6 +249,7 @@ const CATALOG_BROWSE_COPY_SOURCE: Readonly<Record<LearnerLanguageId, CatalogBrow
         summary: 'Ещё словарей: {count} · всего {size}',
         searchLabel: 'Поиск словарей',
         noResults: 'Ни один словарь не соответствует запросу.',
+        otherLanguageNote: 'Эти словари не предназначены для чтения на японском.',
         categories: ['Словари слов', 'Словари имён собственных', 'Грамматические словари', 'Словари кандзи', 'Частотные словари', 'Словари тонального ударения', 'Словари примеров', 'Словари синонимов', 'Энциклопедии', 'Вспомогательные словари'],
     },
     sh: {
@@ -224,6 +257,7 @@ const CATALOG_BROWSE_COPY_SOURCE: Readonly<Record<LearnerLanguageId, CatalogBrow
         summary: 'Još rečnika: {count} · ukupno {size}',
         searchLabel: 'Pretraži rečnike',
         noResults: 'Nijedan rečnik ne odgovara pretrazi.',
+        otherLanguageNote: 'Ovi rečnici nisu za čitanje japanskog.',
         categories: ['Rečnici reči', 'Rečnici vlastitih imena', 'Gramatički rečnici', 'Rečnici kandžija', 'Frekvencijski rečnici', 'Rečnici tonskog akcenta', 'Rečnici primera rečenica', 'Rečnici sinonima', 'Enciklopedije', 'Pomoćni rečnici'],
     },
     es: {
@@ -231,6 +265,7 @@ const CATALOG_BROWSE_COPY_SOURCE: Readonly<Record<LearnerLanguageId, CatalogBrow
         summary: '{count} diccionarios más · {size} en total',
         searchLabel: 'Buscar diccionarios',
         noResults: 'Ningún diccionario coincide con tu búsqueda.',
+        otherLanguageNote: 'Estos diccionarios no sirven para leer japonés.',
         categories: ['Diccionarios de palabras', 'Diccionarios de nombres propios', 'Diccionarios de gramática', 'Diccionarios de kanji', 'Diccionarios de frecuencia', 'Diccionarios de acento tonal', 'Diccionarios de oraciones de ejemplo', 'Diccionarios de sinónimos', 'Enciclopedias', 'Diccionarios auxiliares'],
     },
     sv: {
@@ -238,6 +273,7 @@ const CATALOG_BROWSE_COPY_SOURCE: Readonly<Record<LearnerLanguageId, CatalogBrow
         summary: '{count} ordböcker till · {size} totalt',
         searchLabel: 'Sök ordböcker',
         noResults: 'Inga ordböcker matchar din sökning.',
+        otherLanguageNote: 'De här ordböckerna är inte till för att läsa japanska.',
         categories: ['Ordböcker', 'Namnordböcker', 'Grammatikordböcker', 'Kanjiordböcker', 'Frekvensordböcker', 'Tonaccentordböcker', 'Exempelmeningsordböcker', 'Synonymordböcker', 'Uppslagsverk', 'Hjälpordböcker'],
     },
     tl: {
@@ -245,6 +281,7 @@ const CATALOG_BROWSE_COPY_SOURCE: Readonly<Record<LearnerLanguageId, CatalogBrow
         summary: '{count} pang diksyunaryo · {size} sa kabuuan',
         searchLabel: 'Maghanap ng diksyunaryo',
         noResults: 'Walang diksyunaryong tumutugma sa paghahanap.',
+        otherLanguageNote: 'Hindi para sa pagbasa ng Hapon ang mga diksyunaryong ito.',
         categories: ['Diksyunaryo ng salita', 'Diksyunaryo ng pangngalang pantangi', 'Diksyunaryo ng gramatika', 'Diksyunaryo ng kanji', 'Diksyunaryo ng dalas', 'Diksyunaryo ng tono', 'Diksyunaryo ng halimbawang pangungusap', 'Diksyunaryo ng kasingkahulugan', 'Ensiklopedya', 'Pantulong na diksyunaryo'],
     },
     th: {
@@ -252,6 +289,7 @@ const CATALOG_BROWSE_COPY_SOURCE: Readonly<Record<LearnerLanguageId, CatalogBrow
         summary: 'พจนานุกรมอีก {count} เล่ม · รวม {size}',
         searchLabel: 'ค้นหาพจนานุกรม',
         noResults: 'ไม่พบพจนานุกรมที่ตรงกับการค้นหา',
+        otherLanguageNote: 'พจนานุกรมเหล่านี้ไม่ได้ใช้สำหรับอ่านภาษาญี่ปุ่น',
         categories: ['พจนานุกรมคำศัพท์', 'พจนานุกรมวิสามานยนาม', 'พจนานุกรมไวยากรณ์', 'พจนานุกรมคันจิ', 'พจนานุกรมความถี่', 'พจนานุกรมระดับเสียง', 'พจนานุกรมประโยคตัวอย่าง', 'พจนานุกรมคำพ้องความหมาย', 'สารานุกรม', 'พจนานุกรมเสริม'],
     },
     tr: {
@@ -259,6 +297,7 @@ const CATALOG_BROWSE_COPY_SOURCE: Readonly<Record<LearnerLanguageId, CatalogBrow
         summary: '{count} sözlük daha · toplam {size}',
         searchLabel: 'Sözlüklerde ara',
         noResults: 'Aramanızla eşleşen sözlük yok.',
+        otherLanguageNote: 'Bu sözlükler Japonca okumak için değildir.',
         categories: ['Sözcük sözlükleri', 'Özel ad sözlükleri', 'Dil bilgisi sözlükleri', 'Kanji sözlükleri', 'Sıklık sözlükleri', 'Vurgu sözlükleri', 'Örnek cümle sözlükleri', 'Eş anlamlı sözlükler', 'Ansiklopediler', 'Yardımcı sözlükler'],
     },
     vi: {
@@ -266,6 +305,7 @@ const CATALOG_BROWSE_COPY_SOURCE: Readonly<Record<LearnerLanguageId, CatalogBrow
         summary: 'Thêm {count} từ điển · tổng {size}',
         searchLabel: 'Tìm từ điển',
         noResults: 'Không có từ điển nào khớp với tìm kiếm.',
+        otherLanguageNote: 'Những từ điển này không dùng để đọc tiếng Nhật.',
         categories: ['Từ điển từ vựng', 'Từ điển danh từ riêng', 'Từ điển ngữ pháp', 'Từ điển kanji', 'Từ điển tần suất', 'Từ điển trọng âm', 'Từ điển câu ví dụ', 'Từ điển đồng nghĩa', 'Bách khoa toàn thư', 'Từ điển hỗ trợ'],
     },
 };
@@ -286,6 +326,7 @@ function freezeCopy(source: CatalogBrowseCopySource): CatalogBrowseCopy {
         summary: source.summary,
         searchLabel: source.searchLabel,
         noResults: source.noResults,
+        otherLanguageNote: source.otherLanguageNote,
         categories: Object.freeze(
             Object.fromEntries(
                 CATALOG_BROWSE_CATEGORY_ORDER.map((category, index) => {

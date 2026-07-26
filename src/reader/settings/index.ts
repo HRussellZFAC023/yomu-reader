@@ -17,6 +17,7 @@ import {
     DEFAULT_LANGUAGE_PROFILE_ID,
     normalizeLanguageProfiles,
 } from '../languages/profiles';
+import { SLICE1_TARGET_LANGUAGE } from '../languages/roster';
 import type { AnkiTemplateMode, AudioAutoPlayMode, AudioSourceSetting, AudioSourceType, AudioSubSourceSetting, AudioTtsMode, FuriganaMode, ImmersionExampleSource, ImmersionKitCategory, ImmersionKitSort, InterfaceLanguage, NewTabStudyChallengeStep, OcrOverlayTheme, OcrProvider, ReaderColorSource, ReaderSettings } from '../app/types';
 export { formatShortcutEvent, matchesShortcut, shortcutIsPressed } from './shortcuts';
 export { COPY_LOOKUP_LINK, MAX_DICTIONARY_LOOKUP_LINKS, defaultDictionaryLookupLinks, mergeDictionaryPreferences, normalizeDictionaryLookupLinks, normalizeDictionaryPreferences, retireStaleDictionaryPreferences } from './dictionary';
@@ -691,12 +692,17 @@ function normalizeLanguageProfileSettings(
     };
 }
 
+// Independence means "differs from the profile Yomu would create", so every
+// clause compares against that profile's own defaults. The target clause is
+// unreachable while normalizeLanguageProfile stamps SLICE1_TARGET_LANGUAGE on
+// every profile it returns; comparing against the same constant is what keeps
+// it correct rather than merely equal on the day it becomes reachable.
 function languageProfileHasIndependentState(
     profile: ReaderSettings['languageProfiles'][number],
 ): boolean {
     return profile.id !== DEFAULT_LANGUAGE_PROFILE_ID
         || profile.learnerLanguage !== 'en'
-        || profile.targetLanguage !== 'ja'
+        || profile.targetLanguage !== SLICE1_TARGET_LANGUAGE
         || profile.uiLocale !== DEFAULT_SETTINGS.interfaceLanguage
         || profile.parserProvider !== DEFAULT_SETTINGS.parserProvider
         || profile.dictionaries.installed.length > 0

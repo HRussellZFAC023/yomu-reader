@@ -6,8 +6,8 @@ import {
     bareFallbackCardFromText,
     isBoundarySegment,
     normalizeFallbackTerm,
-    segmentJapaneseText,
 } from './japanese-segments';
+import { segmentTargetLanguageText } from './target-text';
 import { splitReadingAcrossKanji } from './kanji-ruby-split';
 import { getPitchClass } from '../jpdb/jpdb-parser';
 import { inferredInflectedSurfaceRubies, nonOverlappingTokens } from '../dom';
@@ -20,6 +20,15 @@ import type { JPDBCard, JPDBToken, ReaderSettings } from '../app/types';
 import { glossaryToText, type YomitanDictionaryStore, type YomitanMetaEntry, type YomitanTermEntry, type YomitanTermMatch } from '../dictionaries/yomitan';
 import { hydrateYomuLocalSrsCardStates } from '../srs/local-yomu-state';
 import type { YomuSrsAdapter } from '../srs/types';
+import {
+    HALFWIDTH_KATAKANA,
+    ITERATION_MARK,
+    KANA,
+    KANJI,
+    KATAKANA_MIDDLE_DOT,
+    PROLONGED_SOUND_MARK,
+    READING_KANA_ONLY_RE as LOCAL_RUBY_SPLIT_READING_RE,
+} from './japanese-script';
 
 export { fallbackJapaneseSegments, fallbackLookupTermsForText, fallbackDictionaryLookupTermsForText, fallbackLookupTermsForCard } from './japanese-segments';
 
@@ -54,14 +63,13 @@ const YOUTUBE_VIEW_METRIC_RE = /回視聴/gu;
 // instead — only when local term dictionaries exist, so Jiten-only users are
 // unaffected.
 const JITEN_MIN_BATCH_CHARS = 24;
-const JAPANESE_CHAR_COUNT_RE = /[぀-ヿ㐀-鿿々\uff66-\uff9f]/gu;
+const JAPANESE_CHAR_COUNT_RE = new RegExp(`[${KANA}${KANJI}${ITERATION_MARK}${HALFWIDTH_KATAKANA}]`, 'gu');
 function japaneseBatchCharCount(paragraphs: string[]): number {
     return paragraphs.reduce((total, text) => total + (text.match(JAPANESE_CHAR_COUNT_RE)?.length ?? 0), 0);
 }
-const LOCAL_RUBY_SPLIT_BASE_RE = /^[\u3040-\u30ff\u3400-\u9fff々ー・]+$/u;
-const LOCAL_RUBY_SPLIT_KANJI_RE = /[\u3400-\u9fff々]/u;
-const LOCAL_RUBY_SPLIT_KANJI_CHAR_RE = /^[\u3400-\u9fff々]$/u;
-const LOCAL_RUBY_SPLIT_READING_RE = /^[\u3040-\u30ffー・]+$/u;
+const LOCAL_RUBY_SPLIT_BASE_RE = new RegExp(`^[${KANA}${KANJI}${ITERATION_MARK}${PROLONGED_SOUND_MARK}${KATAKANA_MIDDLE_DOT}]+$`, 'u');
+const LOCAL_RUBY_SPLIT_KANJI_RE = new RegExp(`[${KANJI}${ITERATION_MARK}]`, 'u');
+const LOCAL_RUBY_SPLIT_KANJI_CHAR_RE = new RegExp(`^[${KANJI}${ITERATION_MARK}]$`, 'u');
 const log = Logger.scope('ReaderParser');
 // Boundary evidence is IndexedDB-backed and parser instances can overlap
 // during reactive rescans, so the gate must be shared at module scope.
@@ -536,8 +544,8 @@ export class ReaderParser {
     }
 
     private parseSegmentedText(text: string): JPDBToken[] {
-        return segmentJapaneseText(text).map(segment => {
-            const card = this.fallbackCardFromText(segment.surface);
+        return segmentTargetLanguageText(text).map(segment => {
+            const card = this.fallbackCardFromText(segment.text);
             return {
                 card,
                 start: segment.start,
@@ -1007,7 +1015,7 @@ export function fallbackLookupTermAtOffset(text: string, offset: number): string
 
 export function fallbackLookupRangeAtOffset(text: string, offset: number): { start: number; end: number } | undefined {
     const clampedOffset = Math.max(0, Math.min(offset, Math.max(0, text.length - 1)));
-    const segment = segmentJapaneseText(text).find(item => offsetInsideFallbackMatch(item.start, item.end, clampedOffset));
+    const segment = segmentTargetLanguageText(text).find(item => offsetInsideFallbackMatch(item.start, item.end, clampedOffset));
     if (segment) return { start: segment.start, end: segment.end };
     for (const match of text.matchAll(JAPANESE_SCRIPT_GROUP_RE)) {
         const start = match.index ?? 0;

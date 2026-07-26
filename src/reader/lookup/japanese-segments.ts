@@ -2,25 +2,35 @@ import { deinflectJapaneseTerm, type DeinflectedTerm } from './deinflect';
 import { uniqueNonEmptyStrings as uniqueStrings } from '../core/string-utils';
 import { stablePositiveHashId } from '../core/stable-hash';
 import type { JPDBCard } from '../app/types';
+import {
+    HALFWIDTH_KATAKANA,
+    HIRAGANA_WITH_PROLONGED,
+    KANA,
+    KANJI,
+    KANJI_LIKE_WITH_COUNTERS,
+    KATAKANA,
+    KATAKANA_WITH_PROLONGED,
+    PROLONGED_SOUND_MARK,
+} from './japanese-script';
 
-export const JAPANESE_SCRIPT_GROUP_RE = /[\u3400-\u9fff々〆ヵヶ]+|[\u3040-\u309fー]+|[\u30a0-\u30ffー]+|[\uff66-\uff9f]+/gu;
-const JAPANESE_TEXT_RUN_RE = /[\u3040-\u30ff\u3400-\u9fff々〆ヵヶー\uff66-\uff9f]+/gu;
-export const JAPANESE_CHARACTER_RE = /[\u3040-\u30ff\u3400-\u9fff々〆ヵヶ\uff66-\uff9f]/u;
+export const JAPANESE_SCRIPT_GROUP_RE = new RegExp(`[${KANJI_LIKE_WITH_COUNTERS}]+|[${HIRAGANA_WITH_PROLONGED}]+|[${KATAKANA_WITH_PROLONGED}]+|[${HALFWIDTH_KATAKANA}]+`, 'gu');
+const JAPANESE_TEXT_RUN_RE = new RegExp(`[${KANA}${KANJI_LIKE_WITH_COUNTERS}${PROLONGED_SOUND_MARK}${HALFWIDTH_KATAKANA}]+`, 'gu');
+export const JAPANESE_CHARACTER_RE = new RegExp(`[${KANA}${KANJI_LIKE_WITH_COUNTERS}${HALFWIDTH_KATAKANA}]`, 'u');
 const FALLBACK_INFLECTION_MAX_SEGMENTS = 8;
 const FALLBACK_INFLECTION_MAX_LENGTH = 18;
 const FALLBACK_LOOKUP_TERM_LIMIT = 8;
 const INFLECTION_BOUNDARY_SEGMENTS = new Set(['は', 'が', 'を', 'に', 'へ', 'と', 'で', 'の', 'や', 'から', 'まで', 'より', 'だけ', 'しか', 'など', 'ね']);
 const PARTICLE_PREFIX_SEGMENTS = [...INFLECTION_BOUNDARY_SEGMENTS].sort((first, second) => second.length - first.length);
-const PARTICLE_PREFIX_REMAINDER_RE = /^[\u3400-\u9fff々〆ヵヶ\u30a0-\u30ffー]/u;
+const PARTICLE_PREFIX_REMAINDER_RE = new RegExp(`^[${KANJI_LIKE_WITH_COUNTERS}${KATAKANA_WITH_PROLONGED}]`, 'u');
 const INFLECTION_CONTINUATION_SEGMENT_RE = /^(?:っ?た|っ?て|だ|で|ん|んで|ま|ない|なか|なかっ|なかった|ながら|ます|まし|ました|ませ|ません|ましょう|たい|たく|しま|した|し|する|でき|出来|できる|できます|できた|できて|できない|できなかった|いる|い|いた|いて|れる|られ|せる|させる)$/u;
-const HIRAGANA_SEGMENT_RE = /^[\u3040-\u309fー]+$/u;
-const KATAKANA_SEGMENT_RE = /^[\u30a0-\u30ff\uff66-\uff9fー]+$/u;
-const SINGLE_KANJI_SEGMENT_RE = /^[\u3400-\u9fff]$/u;
-const SINGLE_KANJI_HIRAGANA_STEM_RE = /^[\u3400-\u9fff][\u3040-\u309fー]*$/u;
-const KANJI_KANA_KANJI_SPAN_RE = /[\u3400-\u9fff々〆ヵヶ][\u3040-\u309fー]+[\u3400-\u9fff々〆ヵヶ]/u;
-const HIRAGANA_END_RE = /[\u3040-\u309fー]$/u;
+const HIRAGANA_SEGMENT_RE = new RegExp(`^[${HIRAGANA_WITH_PROLONGED}]+$`, 'u');
+const KATAKANA_SEGMENT_RE = new RegExp(`^[${KATAKANA}${HALFWIDTH_KATAKANA}${PROLONGED_SOUND_MARK}]+$`, 'u');
+const SINGLE_KANJI_SEGMENT_RE = new RegExp(`^[${KANJI}]$`, 'u');
+const SINGLE_KANJI_HIRAGANA_STEM_RE = new RegExp(`^[${KANJI}][${HIRAGANA_WITH_PROLONGED}]*$`, 'u');
+const KANJI_KANA_KANJI_SPAN_RE = new RegExp(`[${KANJI_LIKE_WITH_COUNTERS}][${HIRAGANA_WITH_PROLONGED}]+[${KANJI_LIKE_WITH_COUNTERS}]`, 'u');
+const HIRAGANA_END_RE = new RegExp(`[${HIRAGANA_WITH_PROLONGED}]$`, 'u');
 const TRAILING_POLITE_PARTICLE_RE = /(?:ます|ません|です|でした)ね$/u;
-const SURU_STEM_SEGMENT_RE = /[\u3400-\u9fff々〆ヵヶ\u30a0-\u30ff]/u;
+const SURU_STEM_SEGMENT_RE = new RegExp(`[${KANJI_LIKE_WITH_COUNTERS}${KATAKANA}]`, 'u');
 const SURU_AUXILIARY_SUFFIX_RE = /^(?:し|する|した|して|します|しました|しましょう|しない|でき|出来|できる|できます|できた|できて|できない|できなかった)/u;
 const NUMERIC_COUNTER_SUFFIX_SEGMENTS = new Set(['話', '巻', '回', '章', '部', '番', '号', '版', '人', '名', '匹', '頭', '羽', '枚', '本', '冊', '個', '台', '件', '分', '秒', '時', '日', '月', '年', '泊', '円']);
 const NUMERIC_RANGE_BEFORE_RE = /(?:第\s*)?(?:[0-9０-９]+|[一二三四五六七八九十百千万億兆]+)(?:\s*[〜～~\-ー−―–]\s*(?:[0-9０-９]+|[一二三四五六七八九十百千万億兆]+))*$/u;
@@ -39,7 +49,7 @@ const SMALL_TSU_RE = /っ/u;
 const KANA_CONTENT_WORD_MIN_LENGTH = 3;
 // Any kanji or katakana — its presence means a segment is NOT pure hiragana, so
 // the kana-merge pass leaves the surrounding (real, mixed-script) sentence alone.
-const NON_HIRAGANA_SCRIPT_RE = /[㐀-鿿々〆ヵヶ゠-ヿ\uff66-\uff9f]/u;
+const NON_HIRAGANA_SCRIPT_RE = new RegExp(`[${KANJI_LIKE_WITH_COUNTERS}${KATAKANA}${HALFWIDTH_KATAKANA}]`, 'u');
 
 export function normalizeFallbackTerm(text: string): string {
     return text.replace(/\s+/g, ' ').trim().slice(0, 80);

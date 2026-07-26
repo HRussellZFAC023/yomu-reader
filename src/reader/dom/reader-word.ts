@@ -1,6 +1,8 @@
-import { HAS_JAPANESE, READER_ROOT_SELECTOR } from './constants';
+import { READER_ROOT_SELECTOR } from './constants';
+import { isTargetLanguageText } from '../lookup/target-text';
 import { clearProjectedReadingsWithin } from './detached-reading-overlay';
 import { coordinateInRange, hasPositiveRectArea } from './rect';
+import { JAPANESE_SENTENCE_PUNCTUATION, KANA, KANJI_LIKE_WITH_COUNTERS } from '../lookup/japanese-script';
 
 const READABLE_IGNORED_TAGS = new Set(['RT', 'RP', 'SCRIPT', 'STYLE']);
 const MAX_CONTEXT_SENTENCE_LENGTH = 180;
@@ -214,7 +216,7 @@ function sentenceSearchIndex(text: string, search: string): number {
 }
 
 function isJapaneseSentenceContext(text: string): boolean {
-    return Boolean(text && HAS_JAPANESE.test(text));
+    return Boolean(text && isTargetLanguageText(text));
 }
 
 function sentenceSearchText(text: string, surface: string, fallback: string): string {
@@ -241,7 +243,7 @@ function isUsefulContextSentence(sentence: string, fallback: string, surface: st
 }
 
 function isJapaneseContextSentence(sentence: string): boolean {
-    return Boolean(sentence && HAS_JAPANESE.test(sentence));
+    return Boolean(sentence && isTargetLanguageText(sentence));
 }
 
 function containsSurfaceContext(sentence: string, surface: string): boolean {
@@ -306,11 +308,22 @@ function isSurfaceIgnoredElement(element: Element): boolean {
         || element.matches('[data-jpdb-reader-surface-ignore],.jpdb-reader-furi,.jpdb-ocr-furi');
 }
 
+// OCR and mirrored DOM text leak whitespace around Japanese sentence
+// punctuation, which Japanese does not write. Close the gap on both sides.
+const SPACE_BEFORE_JAPANESE_PUNCTUATION_RE = new RegExp(
+    `([${KANA}${KANJI_LIKE_WITH_COUNTERS}])\\s+([${JAPANESE_SENTENCE_PUNCTUATION}])`,
+    'gu',
+);
+const SPACE_AFTER_JAPANESE_PUNCTUATION_RE = new RegExp(
+    `([${JAPANESE_SENTENCE_PUNCTUATION}])\\s+([${KANA}${KANJI_LIKE_WITH_COUNTERS}])`,
+    'gu',
+);
+
 function cleanReadableSentence(value: string): string {
     return value
         .replace(/\s+/g, ' ')
-        .replace(/([\u3040-\u30ff\u3400-\u9fff々〆ヵヶ])\s+([、。！？・])/gu, '$1$2')
-        .replace(/([、。！？・])\s+([\u3040-\u30ff\u3400-\u9fff々〆ヵヶ])/gu, '$1$2')
+        .replace(SPACE_BEFORE_JAPANESE_PUNCTUATION_RE, '$1$2')
+        .replace(SPACE_AFTER_JAPANESE_PUNCTUATION_RE, '$1$2')
         .trim();
 }
 
@@ -392,7 +405,7 @@ function isStrongWhitespaceBoundary(text: string, index: number): boolean {
     if (!/\s/u.test(char)) return false;
     const before = text.slice(Math.max(0, index - 24), index);
     const after = text.slice(index + 1, Math.min(text.length, index + 25));
-    return HAS_JAPANESE.test(before) && HAS_JAPANESE.test(after);
+    return isTargetLanguageText(before) && isTargetLanguageText(after);
 }
 
 function clampLongSentence(sentence: string, surface: string): string {

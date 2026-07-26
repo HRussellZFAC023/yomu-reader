@@ -1,9 +1,11 @@
+import { targetOcrLanguageHint, targetOcrLanguageTag } from '../languages/resolve';
+
 const LENS_PLATFORM_WEB = 3;
 const LENS_SURFACE_CHROMIUM = 4;
 const LENS_AUTO_FILTER = 7;
 
 export function createGoogleLensRequest(imageBytes: Uint8Array, width: number, height: number, locale: string): Uint8Array {
-    const [language = 'ja', region = 'US'] = (locale || 'ja-JP').split(/[-_]/);
+    const [language = '', region = 'US'] = (locale || targetOcrLanguageTag()).split(/[-_]/);
     const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
     const requestId = protoMessage(
         protoVarintField(1, BigInt(Date.now()) * 1000000n + BigInt(Math.floor(Math.random() * 1000000))),
@@ -12,7 +14,7 @@ export function createGoogleLensRequest(imageBytes: Uint8Array, width: number, h
         protoBytesField(4, randomBytes(16)),
     );
     const localeContext = protoMessage(
-        protoStringField(1, language || 'ja'),
+        protoStringField(1, language || targetOcrLanguageHint()),
         protoStringField(2, region || 'US'),
         protoStringField(3, timeZone),
     );

@@ -1,5 +1,5 @@
 import { appendToDocumentHead } from '../dom/index';
-import { HAS_JAPANESE } from '../dom/constants';
+import { isTargetLanguageText } from '../lookup/target-text';
 import { ReaderApp } from './main';
 import { addWindowEventListener, createWindowCustomEvent, dispatchWindowEvent } from '../platform/window-events';
 import {
@@ -161,7 +161,7 @@ function embeddedFrameHasJapaneseText(): boolean {
     // Reader's ordinary visible-surface collector applies the precise
     // visibility, annotation-scope, and text budgets after boot.
     const text = document.body?.textContent ?? document.documentElement?.textContent ?? '';
-    return HAS_JAPANESE.test(text.slice(0, 200_000));
+    return isTargetLanguageText(text.slice(0, 200_000));
 }
 
 // Streaming sites (kaa.lt et al.) host their player in a third-party iframe
@@ -194,11 +194,11 @@ function watchEmbeddedFrameForEligibleContent(): void {
 
 function mutationContainsEmbeddedFrameEligibilitySignal(mutation: MutationRecord): boolean {
     if (mutation.type === 'characterData') {
-        return HAS_JAPANESE.test((mutation.target.textContent ?? '').slice(0, 200_000));
+        return isTargetLanguageText((mutation.target.textContent ?? '').slice(0, 200_000));
     }
     return [...mutation.addedNodes].some(node => {
         if (node instanceof Element && (node.matches('video') || Boolean(node.querySelector('video')))) return true;
-        return HAS_JAPANESE.test((node.textContent ?? '').slice(0, 200_000));
+        return isTargetLanguageText((node.textContent ?? '').slice(0, 200_000));
     });
 }
 

@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.8.15] - 2026-07-26
+
+### Fixed
+
+- Installing no longer dead-ends when your script manager saves the userscript instead of opening it. Some managers do not take over the install link, so the file lands in Downloads and nothing tells you what to do next; the homepage now shows the install URL and the exact "install from URL" step for Tampermonkey, Violentmonkey and ScriptCat.
+
+## [1.8.14] - 2026-07-26
+
+### Fixed
+
+- Readings no longer disappear for a second or two when a page redraws itself. Sites that rebuild part of the page as you use them — a video page swapping in new titles, a feed refreshing a row — left every reading hidden until something unrelated happened to redraw them, which on a quiet page could be a long wait.
+- The dictionary catalogue is no longer keyed to a single study language, so dictionaries for other languages are reachable rather than silently filtered out of the panel.
+
+## [1.8.13] - 2026-07-26
+
+### Fixed
+
+- A pitch underline no longer stays behind on the wrong words when a site reuses a line for different content. Video pages recycle the element holding the subscriber count and the view-count row, swapping the text while Yomu's annotation layer survives, and every position that layer held then pointed at characters that were gone — so the underline sat over whatever had taken their place until something else redrew the page. That layer is now taken down as soon as the text beneath it changes, including the word's own underline, which was otherwise handed straight back and repainted in the same wrong place.
+
 ## [1.8.12] - 2026-07-26
 
 ### Added

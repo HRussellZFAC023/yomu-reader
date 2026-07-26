@@ -7,8 +7,12 @@
       "method": "google-drive-folder",
       "folderUrl": "https://drive.google.com/drive/folders/1LXMIOoaWASIntlx1w08njNU005lS5lez",
       "recurse": true,
-      "includeExtensions": [".zip"],
-      "skipFolderNames": ["Japanese Dictionaries Starter Pack"],
+      "includeExtensions": [
+        ".zip"
+      ],
+      "skipFolderNames": [
+        "Japanese Dictionaries Starter Pack"
+      ],
       "acquisitionReview": "allowed",
       "redistributionReview": "allowed",
       "note": "Redistribution rights are confirmed for the frozen collection. Publication still requires verified connector metadata, a valid Yomitan ZIP, and a matching content-addressed SHA-256 object."
@@ -103,6 +107,83 @@
       "id": "kanjidic-es",
       "url": "https://github.com/yomidevs/jmdict-yomitan/releases/download/2026-07-23/KANJIDIC_spanish.zip",
       "filename": "KANJIDIC_spanish.zip",
+      "acquisitionReview": "allowed",
+      "redistributionReview": "allowed"
+    },
+    {
+      "id": "marvnc-monolingual-pixiv",
+      "url": "https://raw.githubusercontent.com/MarvNC/yomitan-dictionaries/574961e823e33fb36b6b86778a0d6b606af29c25/dl/%5BMonolingual%5D%20Pixiv.zip",
+      "filename": "[Monolingual] Pixiv.zip",
+      "acquisitionReview": "allowed",
+      "redistributionReview": "allowed"
+    },
+    {
+      "id": "marvnc-other-nico-pixiv",
+      "url": "https://raw.githubusercontent.com/MarvNC/yomitan-dictionaries/574961e823e33fb36b6b86778a0d6b606af29c25/dl/%5BOther%5D%20Nico-Pixiv.zip",
+      "filename": "[Other] Nico-Pixiv.zip",
+      "acquisitionReview": "allowed",
+      "redistributionReview": "allowed"
+    },
+    {
+      "id": "marvnc-jp-mongolian",
+      "url": "https://raw.githubusercontent.com/MarvNC/yomitan-dictionaries/574961e823e33fb36b6b86778a0d6b606af29c25/dl/%5BJP-Mongolian%5D%20Japanese-Mongolian%20%E6%97%A5%E3%83%BB%E3%83%A2%E8%BE%9E%E5%85%B8.zip",
+      "filename": "[JP-Mongolian] Japanese-Mongolian 日・モ辞典.zip",
+      "acquisitionReview": "allowed",
+      "redistributionReview": "allowed"
+    },
+    {
+      "id": "marvnc-jp-mongolian-no-sentences",
+      "url": "https://raw.githubusercontent.com/MarvNC/yomitan-dictionaries/574961e823e33fb36b6b86778a0d6b606af29c25/dl/%5BJP-Mongolian%5D%20Japanese-Mongolian%20%E6%97%A5%E3%83%BB%E3%83%A2%E8%BE%9E%E5%85%B8%20(No%20Sentences).zip",
+      "filename": "[JP-Mongolian] Japanese-Mongolian 日・モ辞典 (No Sentences).zip",
+      "acquisitionReview": "allowed",
+      "redistributionReview": "allowed"
+    },
+    {
+      "id": "marvnc-ja-freq-innocent-corpus",
+      "url": "https://raw.githubusercontent.com/MarvNC/yomitan-dictionaries/574961e823e33fb36b6b86778a0d6b606af29c25/japanese/freq/innocent_corpus/innocent_corpus.zip",
+      "filename": "innocent_corpus.zip",
+      "acquisitionReview": "allowed",
+      "redistributionReview": "allowed"
+    },
+    {
+      "id": "jmdict-en-legacy",
+      "url": "https://github.com/yomidevs/jmdict-yomitan/releases/download/2026-07-23/JMdict_english_legacy.zip",
+      "filename": "JMdict_english_legacy.zip",
+      "acquisitionReview": "allowed",
+      "redistributionReview": "allowed"
+    },
+    {
+      "id": "jmdict-en-legacy-without-proper-names",
+      "url": "https://github.com/yomidevs/jmdict-yomitan/releases/download/2026-07-23/JMdict_english_legacy_without_proper_names.zip",
+      "filename": "JMdict_english_legacy_without_proper_names.zip",
+      "acquisitionReview": "allowed",
+      "redistributionReview": "allowed"
+    },
+    {
+      "id": "jmdict-en-without-proper-names",
+      "url": "https://github.com/yomidevs/jmdict-yomitan/releases/download/2026-07-23/JMdict_english_without_proper_names.zip",
+      "filename": "JMdict_english_without_proper_names.zip",
+      "acquisitionReview": "allowed",
+      "redistributionReview": "allowed"
+    },
+    {
+      "id": "jmdict-en-with-examples",
+      "url": "https://github.com/yomidevs/jmdict-yomitan/releases/download/2026-07-23/JMdict_english_with_examples.zip",
+      "filename": "JMdict_english_with_examples.zip",
+      "acquisitionReview": "allowed",
+      "redistributionReview": "allowed"
+    },
+    {
+      "id": "jmdict-forms",
+      "url": "https://github.com/yomidevs/jmdict-yomitan/releases/download/2026-07-23/JMdict_forms.zip",
+      "filename": "JMdict_forms.zip",
+      "acquisitionReview": "allowed",
+      "redistributionReview": "allowed"
+    },
+    {
+      "id": "jmdict-sl",
+      "url": "https://github.com/yomidevs/jmdict-yomitan/releases/download/2026-07-23/JMdict_slovenian.zip",
+      "filename": "JMdict_slovenian.zip",
       "acquisitionReview": "allowed",
       "redistributionReview": "allowed"
     }

@@ -20,6 +20,12 @@ const JPDB_TESTS_DIR = join(ROOT, 'tests/reader/jpdb');
 // eight in the equivalent isolated pass until repeated isolate:false runs prove
 // a narrower boundary.
 const ISOLATED_PASS_FILES = [
+    // Selects the active learning target through mocked modules, so it must not
+    // share a host with the reader pass that reads the real registry.
+    join(ROOT, 'tests/reader/languages/learning-target-selection.test.ts'),
+    // Builds a live overlay and asserts a reading reaches it. Passes alone; inherits
+    // overlay/document state from earlier files in the fork-reuse pass.
+    join(ROOT, 'tests/reader/late-enrichment-projection.test.ts'),
     join(ROOT, 'tests/reader/reader-boot.test.ts'),
     join(ROOT, 'tests/reader/academy-account-settings.test.ts'),
     // The late bridge test owns storage-bridge globals and is deterministic

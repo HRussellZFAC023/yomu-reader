@@ -5,6 +5,7 @@ import {
     USERSCRIPT_HTTP_BRIDGE_READY_EVENT,
 } from './constants';
 import type { InterfaceLanguage, ReaderSettings } from './types';
+import { adoptLearningTargetFromSettings } from '../languages/target-selection';
 import { addWindowEventListener } from '../platform/window-events';
 
 type InterfaceLanguageChangeDetail = Partial<{ language: unknown; interfaceLanguage: unknown }>;
@@ -40,8 +41,14 @@ export function bindReaderRuntimeEvents(
     addWindowEventListener(SETTINGS_CHANGE_EVENT, event => {
         if (handlers.isDestroyed()) return;
         const detail = (event as CustomEvent<SettingsChangeEventDetail>).detail;
-        const theme = settingsThemeChangeDetail(detail);
         const settings = handlers.getSettings();
+        // Every persisted settings write dispatches this, so it is the one
+        // hook that covers the settings dialog, onboarding, and cross-tab
+        // storage sync alike: the active learning target follows the profile
+        // the user actually has, not the one they had at boot. Idempotent, and
+        // ahead of the theme guard below, which returns early on most events.
+        adoptLearningTargetFromSettings(settings);
+        const theme = settingsThemeChangeDetail(detail);
         if (!theme || settings.theme === theme) return;
         settings.theme = theme;
         handlers.setSettings(settings);

@@ -18,21 +18,47 @@ export function normalizeSearchQuery(value: string): string {
 export function applyCatalogBrowseFilter(section: HTMLElement, query: string): number {
     const normalized = normalizeSearchQuery(query);
     let visible = 0;
-    section.querySelectorAll<HTMLElement>('[data-catalog-browse-group]').forEach(group => {
-        const heading = normalizeSearchQuery(group.querySelector('[data-catalog-browse-category]')?.textContent ?? '');
-        let matched = 0;
-        group.querySelectorAll<HTMLElement>(CARD_SELECTOR).forEach(card => {
-            const matches = !normalized || cardMatches(card, heading, normalized);
-            card.hidden = !matches;
-            if (matches) matched += 1;
+    section.querySelectorAll<HTMLElement>('[data-catalog-browse-language]').forEach(shelf => {
+        const language = shelfSearchText(shelf);
+        let shelfMatches = 0;
+        shelf.querySelectorAll<HTMLElement>('[data-catalog-browse-group]').forEach(group => {
+            const heading = normalizeSearchQuery(group.querySelector('[data-catalog-browse-category]')?.textContent ?? '');
+            let matched = 0;
+            group.querySelectorAll<HTMLElement>(CARD_SELECTOR).forEach(card => {
+                const matches = !normalized || cardMatches(card, `${heading} ${language}`, normalized);
+                card.hidden = !matches;
+                if (matches) matched += 1;
+            });
+            group.hidden = matched === 0;
+            shelfMatches += matched;
         });
-        group.hidden = matched === 0;
-        visible += matched;
+        // A shelf whose every group emptied out must not leave its language
+        // heading floating above nothing.
+        shelf.hidden = shelfMatches === 0;
+        visible += shelfMatches;
     });
     const empty = section.querySelector<HTMLElement>('[data-catalog-browse-empty]');
     if (empty) empty.hidden = visible > 0;
     section.dataset.catalogBrowseFiltering = normalized ? 'true' : 'false';
     return visible;
+}
+
+/**
+ * A shelf matches by its localized language name, by the language's own name,
+ * and by its BCP-47 tag, so "cantonese", "粵語" and "yue" all narrow the panel
+ * to that shelf. This is the language filter: one more thing the search box
+ * already does, rather than a second control with a mode to get stuck in.
+ *
+ * The "not for reading Japanese" note is deliberately left out of the haystack —
+ * it names Japanese, so including it would make a search for "japanese" match
+ * every dictionary that is explicitly not Japanese.
+ */
+function shelfSearchText(shelf: HTMLElement): string {
+    return normalizeSearchQuery([
+        shelf.querySelector('[data-catalog-browse-language-title]')?.textContent ?? '',
+        shelf.dataset.catalogBrowseLanguageEndonym ?? '',
+        shelf.dataset.catalogBrowseLanguage ?? '',
+    ].join(' '));
 }
 
 export function catalogBrowseSection(root: ParentNode): HTMLElement | null {
@@ -61,15 +87,16 @@ export function installCatalogBrowseFilter(root: ParentNode): void {
 
 /**
  * The card's own text carries the title, the definition language and the
- * download size; the group heading carries the localized category, so
- * "pitch"/"ピッチ" finds pitch dictionaries. The catalogue id is matched too so a
- * shared link or a bug report id resolves to a row.
+ * download size; `context` carries the localized category heading and the
+ * shelf's language, so "pitch"/"ピッチ" finds pitch dictionaries and
+ * "cantonese"/"粵語"/"yue" finds the Cantonese shelf. The catalogue id is
+ * matched too so a shared link or a bug report id resolves to a row.
  */
-function cardMatches(card: HTMLElement, heading: string, query: string): boolean {
+function cardMatches(card: HTMLElement, context: string, query: string): boolean {
     const haystack = normalizeSearchQuery([
         card.textContent ?? '',
         card.dataset.catalogRecommendation ?? '',
         card.dataset.definitionLanguage ?? '',
     ].join(' '));
-    return haystack.includes(query) || heading.includes(query);
+    return haystack.includes(query) || context.includes(query);
 }

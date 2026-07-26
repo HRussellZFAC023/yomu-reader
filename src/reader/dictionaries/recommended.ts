@@ -12,7 +12,13 @@ import {
     type Slice1LearnerLanguage,
     type TranslationMode,
 } from './catalog';
-import { catalogBrowseDictionaries, catalogBrowseGroups, type CatalogBrowseGroup } from './catalog-browse';
+import {
+    catalogBrowseDictionaries,
+    catalogBrowseGroups,
+    catalogBrowseLanguageSections,
+    type CatalogBrowseGroup,
+    type CatalogBrowseLanguageSection,
+} from './catalog-browse';
 import { LOCALE_CATALOGS, learnerLanguageById } from '../locales';
 import { yomitanDictionaryIdentity } from './yomitan/zip-normalize';
 import type { DictionaryImportOptions } from './yomitan';
@@ -30,6 +36,8 @@ export interface RecommendedDictionary {
     helpUrl?: string;
     origin?: RecommendedDictionaryOrigin;
     learnerLanguage?: Slice1LearnerLanguage;
+    /** Language of the dictionary's headwords — the text it can actually match. */
+    headwordLanguage?: string;
     catalogDictionaryId?: string;
     catalogCategory?: DictionaryCategory;
     role?: RecommendationRole;
@@ -230,6 +238,7 @@ function recommendedDictionariesFromCatalog(
             ...(entry.source.projectUrl ? { helpUrl: entry.source.projectUrl } : {}),
             origin: 'catalog',
             learnerLanguage: manifest.learnerLanguage,
+            headwordLanguage: entry.headwordLanguages[0],
             catalogDictionaryId: entry.id,
             role: recommendation.role,
             selectedByDefault: recommendation.selectedByDefault,
@@ -250,6 +259,19 @@ export function catalogBrowseGroupsForLearnerLanguage(
     learnerLanguage: Slice1LearnerLanguage,
 ): readonly CatalogBrowseGroup[] {
     return catalogBrowseGroups({
+        learnerLanguage,
+        excludeCatalogIds: recommendedCatalogIds(learnerLanguage),
+    });
+}
+
+/**
+ * The same shelf, continued past the studied language: Japanese first, then the
+ * Mandarin, Cantonese and Literary Chinese archives the mirror also hosts.
+ */
+export function catalogBrowseLanguageSectionsForLearnerLanguage(
+    learnerLanguage: Slice1LearnerLanguage,
+): readonly CatalogBrowseLanguageSection[] {
+    return catalogBrowseLanguageSections({
         learnerLanguage,
         excludeCatalogIds: recommendedCatalogIds(learnerLanguage),
     });

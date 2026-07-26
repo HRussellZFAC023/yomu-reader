@@ -31,6 +31,17 @@ export function applyRecommendationShelf(
   slots: readonly RecommendationShelfSlot[],
 ): DictionaryRecommendationManifestJson;
 
+export interface RecommendationShelfIntegrity {
+  shelfStage: 'pre-release' | 'released';
+  shelfSlotsPerLanguage: number;
+}
+
+export function assertRecommendationShelfIntact(
+  recommendations: ReadonlyArray<{ filename: string; manifest: DictionaryRecommendationManifestJson }>,
+  catalog: { targetLanguage: string; entries: Array<Record<string, unknown>> },
+  slots: readonly RecommendationShelfSlot[],
+): RecommendationShelfIntegrity;
+
 export function prepareDictionaryRelease(options?: {
   manifestRoot?: string;
   stagingRoot?: string;
@@ -44,6 +55,8 @@ export function prepareDictionaryRelease(options?: {
   catalogEntries: number;
   promotedObjects: number;
   shelfRecommendationRows: number;
+  shelfStage: 'pre-release' | 'released';
+  shelfSlotsPerLanguage: number;
   readyLanguages: number;
   blockedLanguages: number;
 }>;

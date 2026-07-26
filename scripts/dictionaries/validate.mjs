@@ -8,6 +8,7 @@ import {
   readJson,
 } from './lib.mjs';
 import { SLICE1_LANGUAGES } from './build-frozen-manifests.mjs';
+import { assertDictionaryCoverage } from './coverage.mjs';
 
 export async function validateDictionaryManifests({
   manifestRoot = defaultManifestRoot,
@@ -94,7 +95,12 @@ function assert(condition, message) {
 
 async function main() {
   const result = await validateDictionaryManifests();
-  console.log(JSON.stringify({ status: 'valid', ...result }, null, 2));
+  // validateDictionaryManifests only ever sees the pre-release manifests, which
+  // publish nothing; the catalogue Settings actually reads is the published
+  // snapshot. Coverage is checked against that one, and against the record of
+  // which objects the mirror is known to serve.
+  const coverage = await assertDictionaryCoverage();
+  console.log(JSON.stringify({ status: 'valid', ...result, coverage }, null, 2));
 }
 
 const invokedPath = process.argv[1] ? pathToFileURL(resolve(process.argv[1])).href : '';

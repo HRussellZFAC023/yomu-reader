@@ -140,7 +140,12 @@ function assertNoStandaloneLegacyCopy() {
     'docs/public/greasyfork/yomu-video.user.js',
   ]) {
     const text = readText(join(ROOT, relativePath));
-    const matches = text.match(/\bLegacy\b/g) ?? [];
+    // "Legacy" as UI COPY is what this guards — a stale label shipping to users.
+    // Upstream dictionary TITLES are data, not copy: yomidevs publishes builds named
+    // "JMdict Legacy (en)" and "JMdict Legacy without proper names (en)", and the
+    // catalogue carries their real names. Excluding that one phrase keeps the guard
+    // meaningful instead of forcing us to rename a third party's dictionary.
+    const matches = text.replace(/JMdict Legacy/g, '').match(/\bLegacy\b/g) ?? [];
     if (matches.length) fail(`${relativePath} ships ${matches.length} standalone Legacy copy token(s).`);
   }
 }

@@ -427,6 +427,354 @@
       "distribution": {
         "state": "source-only"
       }
+    },
+    {
+      "id": "marvnc-monolingual-pixiv",
+      "title": "[Monolingual] Pixiv",
+      "format": "yomitan",
+      "version": "2023-11-24",
+      "categories": [
+        "encyclopedia"
+      ],
+      "headwordLanguages": [
+        "ja"
+      ],
+      "definitionLanguages": [
+        "ja"
+      ],
+      "source": {
+        "acquisitionId": "marvnc-monolingual-pixiv",
+        "url": "https://raw.githubusercontent.com/MarvNC/yomitan-dictionaries/574961e823e33fb36b6b86778a0d6b606af29c25/dl/%5BMonolingual%5D%20Pixiv.zip",
+        "projectUrl": "https://github.com/MarvNC/yomitan-dictionaries",
+        "catalogueSection": "Japanese / Monolingual"
+      },
+      "license": {
+        "spdx": null,
+        "attribution": "Frozen MarvNC Yomitan dictionary collection item: [Monolingual] Pixiv",
+        "sourceUrl": "https://github.com/MarvNC/yomitan-dictionaries",
+        "redistribution": "allowed",
+        "reviewNote": "Redistribution rights confirmed for the frozen Slice 1 dictionary collection."
+      },
+      "distribution": {
+        "state": "source-only"
+      }
+    },
+    {
+      "id": "marvnc-other-nico-pixiv",
+      "title": "[Other] Nico-Pixiv",
+      "format": "yomitan",
+      "version": "2022-12-24",
+      "categories": [
+        "terms"
+      ],
+      "headwordLanguages": [
+        "ja"
+      ],
+      "definitionLanguages": [
+        "ja"
+      ],
+      "source": {
+        "acquisitionId": "marvnc-other-nico-pixiv",
+        "url": "https://raw.githubusercontent.com/MarvNC/yomitan-dictionaries/574961e823e33fb36b6b86778a0d6b606af29c25/dl/%5BOther%5D%20Nico-Pixiv.zip",
+        "projectUrl": "https://github.com/MarvNC/yomitan-dictionaries",
+        "catalogueSection": "Japanese / Other"
+      },
+      "license": {
+        "spdx": null,
+        "attribution": "Frozen MarvNC Yomitan dictionary collection item: [Other] Nico-Pixiv",
+        "sourceUrl": "https://github.com/MarvNC/yomitan-dictionaries",
+        "redistribution": "allowed",
+        "reviewNote": "Redistribution rights confirmed for the frozen Slice 1 dictionary collection."
+      },
+      "distribution": {
+        "state": "source-only"
+      }
+    },
+    {
+      "id": "marvnc-jp-mongolian",
+      "title": "[JP-Mongolian] Japanese-Mongolian 日・モ辞典",
+      "format": "yomitan",
+      "version": "2023-03-07",
+      "categories": [
+        "terms"
+      ],
+      "headwordLanguages": [
+        "ja"
+      ],
+      "definitionLanguages": [
+        "mn"
+      ],
+      "source": {
+        "acquisitionId": "marvnc-jp-mongolian",
+        "url": "https://raw.githubusercontent.com/MarvNC/yomitan-dictionaries/574961e823e33fb36b6b86778a0d6b606af29c25/dl/%5BJP-Mongolian%5D%20Japanese-Mongolian%20%E6%97%A5%E3%83%BB%E3%83%A2%E8%BE%9E%E5%85%B8.zip",
+        "projectUrl": "https://github.com/MarvNC/yomitan-dictionaries",
+        "catalogueSection": "Japanese / Bilingual"
+      },
+      "license": {
+        "spdx": null,
+        "attribution": "Frozen MarvNC Yomitan dictionary collection item: [JP-Mongolian] Japanese-Mongolian 日・モ辞典",
+        "sourceUrl": "https://github.com/MarvNC/yomitan-dictionaries",
+        "redistribution": "allowed",
+        "reviewNote": "Redistribution rights confirmed for the frozen Slice 1 dictionary collection."
+      },
+      "distribution": {
+        "state": "source-only"
+      }
+    },
+    {
+      "id": "marvnc-jp-mongolian-no-sentences",
+      "title": "[JP-Mongolian] Japanese-Mongolian 日・モ辞典 (No Sentences)",
+      "format": "yomitan",
+      "version": "2023-03-08",
+      "categories": [
+        "terms"
+      ],
+      "headwordLanguages": [
+        "ja"
+      ],
+      "definitionLanguages": [
+        "mn"
+      ],
+      "source": {
+        "acquisitionId": "marvnc-jp-mongolian-no-sentences",
+        "url": "https://raw.githubusercontent.com/MarvNC/yomitan-dictionaries/574961e823e33fb36b6b86778a0d6b606af29c25/dl/%5BJP-Mongolian%5D%20Japanese-Mongolian%20%E6%97%A5%E3%83%BB%E3%83%A2%E8%BE%9E%E5%85%B8%20(No%20Sentences).zip",
+        "projectUrl": "https://github.com/MarvNC/yomitan-dictionaries",
+        "catalogueSection": "Japanese / Bilingual"
+      },
+      "license": {
+        "spdx": null,
+        "attribution": "Frozen MarvNC Yomitan dictionary collection item: [JP-Mongolian] Japanese-Mongolian 日・モ辞典 (No Sentences)",
+        "sourceUrl": "https://github.com/MarvNC/yomitan-dictionaries",
+        "redistribution": "allowed",
+        "reviewNote": "Redistribution rights confirmed for the frozen Slice 1 dictionary collection."
+      },
+      "distribution": {
+        "state": "source-only"
+      }
+    },
+    {
+      "id": "marvnc-ja-freq-innocent-corpus",
+      "title": "[JA Freq] Innocent Corpus",
+      "format": "yomitan",
+      "version": "frequency1",
+      "categories": [
+        "frequency"
+      ],
+      "headwordLanguages": [
+        "ja"
+      ],
+      "definitionLanguages": [
+        "ja"
+      ],
+      "source": {
+        "acquisitionId": "marvnc-ja-freq-innocent-corpus",
+        "url": "https://raw.githubusercontent.com/MarvNC/yomitan-dictionaries/574961e823e33fb36b6b86778a0d6b606af29c25/japanese/freq/innocent_corpus/innocent_corpus.zip",
+        "projectUrl": "https://github.com/MarvNC/yomitan-dictionaries",
+        "catalogueSection": "Japanese / Frequency"
+      },
+      "license": {
+        "spdx": null,
+        "attribution": "Frozen MarvNC Yomitan dictionary collection item: [JA Freq] Innocent Corpus",
+        "sourceUrl": "https://github.com/MarvNC/yomitan-dictionaries",
+        "redistribution": "allowed",
+        "reviewNote": "Redistribution rights confirmed for the frozen Slice 1 dictionary collection."
+      },
+      "distribution": {
+        "state": "source-only"
+      }
+    },
+    {
+      "id": "jmdict-en-legacy",
+      "title": "JMdict Legacy (en)",
+      "format": "yomitan",
+      "version": "2026-07-23",
+      "categories": [
+        "terms"
+      ],
+      "headwordLanguages": [
+        "ja"
+      ],
+      "definitionLanguages": [
+        "en"
+      ],
+      "source": {
+        "acquisitionId": "jmdict-en-legacy",
+        "url": "https://github.com/yomidevs/jmdict-yomitan/releases/download/2026-07-23/JMdict_english_legacy.zip",
+        "projectUrl": "https://github.com/yomidevs/jmdict-yomitan",
+        "catalogueSection": "Japanese / Terms"
+      },
+      "license": {
+        "spdx": "CC-BY-SA-4.0",
+        "attribution": "Electronic Dictionary Research and Development Group (EDRDG) and jmdict-yomitan contributors",
+        "sourceUrl": "https://github.com/yomidevs/jmdict-yomitan",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "redistribution": "allowed",
+        "reviewNote": "The generated dictionaries are published by jmdict-yomitan under CC BY-SA 4.0."
+      },
+      "distribution": {
+        "state": "source-only"
+      }
+    },
+    {
+      "id": "jmdict-en-legacy-without-proper-names",
+      "title": "JMdict Legacy without proper names (en)",
+      "format": "yomitan",
+      "version": "2026-07-23",
+      "categories": [
+        "terms"
+      ],
+      "headwordLanguages": [
+        "ja"
+      ],
+      "definitionLanguages": [
+        "en"
+      ],
+      "source": {
+        "acquisitionId": "jmdict-en-legacy-without-proper-names",
+        "url": "https://github.com/yomidevs/jmdict-yomitan/releases/download/2026-07-23/JMdict_english_legacy_without_proper_names.zip",
+        "projectUrl": "https://github.com/yomidevs/jmdict-yomitan",
+        "catalogueSection": "Japanese / Terms"
+      },
+      "license": {
+        "spdx": "CC-BY-SA-4.0",
+        "attribution": "Electronic Dictionary Research and Development Group (EDRDG) and jmdict-yomitan contributors",
+        "sourceUrl": "https://github.com/yomidevs/jmdict-yomitan",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "redistribution": "allowed",
+        "reviewNote": "The generated dictionaries are published by jmdict-yomitan under CC BY-SA 4.0."
+      },
+      "distribution": {
+        "state": "source-only"
+      }
+    },
+    {
+      "id": "jmdict-en-without-proper-names",
+      "title": "JMdict without proper names (en)",
+      "format": "yomitan",
+      "version": "2026-07-23",
+      "categories": [
+        "terms"
+      ],
+      "headwordLanguages": [
+        "ja"
+      ],
+      "definitionLanguages": [
+        "en"
+      ],
+      "source": {
+        "acquisitionId": "jmdict-en-without-proper-names",
+        "url": "https://github.com/yomidevs/jmdict-yomitan/releases/download/2026-07-23/JMdict_english_without_proper_names.zip",
+        "projectUrl": "https://github.com/yomidevs/jmdict-yomitan",
+        "catalogueSection": "Japanese / Terms"
+      },
+      "license": {
+        "spdx": "CC-BY-SA-4.0",
+        "attribution": "Electronic Dictionary Research and Development Group (EDRDG) and jmdict-yomitan contributors",
+        "sourceUrl": "https://github.com/yomidevs/jmdict-yomitan",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "redistribution": "allowed",
+        "reviewNote": "The generated dictionaries are published by jmdict-yomitan under CC BY-SA 4.0."
+      },
+      "distribution": {
+        "state": "source-only"
+      }
+    },
+    {
+      "id": "jmdict-en-with-examples",
+      "title": "JMdict with examples (en)",
+      "format": "yomitan",
+      "version": "2026-07-23",
+      "categories": [
+        "terms",
+        "examples"
+      ],
+      "headwordLanguages": [
+        "ja"
+      ],
+      "definitionLanguages": [
+        "en"
+      ],
+      "source": {
+        "acquisitionId": "jmdict-en-with-examples",
+        "url": "https://github.com/yomidevs/jmdict-yomitan/releases/download/2026-07-23/JMdict_english_with_examples.zip",
+        "projectUrl": "https://github.com/yomidevs/jmdict-yomitan",
+        "catalogueSection": "Japanese / Terms"
+      },
+      "license": {
+        "spdx": "CC-BY-SA-4.0",
+        "attribution": "Electronic Dictionary Research and Development Group (EDRDG) and jmdict-yomitan contributors",
+        "sourceUrl": "https://github.com/yomidevs/jmdict-yomitan",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "redistribution": "allowed",
+        "reviewNote": "The generated dictionaries are published by jmdict-yomitan under CC BY-SA 4.0."
+      },
+      "distribution": {
+        "state": "source-only"
+      }
+    },
+    {
+      "id": "jmdict-forms",
+      "title": "JMdict Forms",
+      "format": "yomitan",
+      "version": "2026-07-23",
+      "categories": [
+        "terms"
+      ],
+      "headwordLanguages": [
+        "ja"
+      ],
+      "definitionLanguages": [
+        "ja"
+      ],
+      "source": {
+        "acquisitionId": "jmdict-forms",
+        "url": "https://github.com/yomidevs/jmdict-yomitan/releases/download/2026-07-23/JMdict_forms.zip",
+        "projectUrl": "https://github.com/yomidevs/jmdict-yomitan",
+        "catalogueSection": "Japanese / Terms"
+      },
+      "license": {
+        "spdx": "CC-BY-SA-4.0",
+        "attribution": "Electronic Dictionary Research and Development Group (EDRDG) and jmdict-yomitan contributors",
+        "sourceUrl": "https://github.com/yomidevs/jmdict-yomitan",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "redistribution": "allowed",
+        "reviewNote": "The generated dictionaries are published by jmdict-yomitan under CC BY-SA 4.0."
+      },
+      "distribution": {
+        "state": "source-only"
+      }
+    },
+    {
+      "id": "jmdict-sl",
+      "title": "JMdict (sl)",
+      "format": "yomitan",
+      "version": "2026-07-23",
+      "categories": [
+        "terms"
+      ],
+      "headwordLanguages": [
+        "ja"
+      ],
+      "definitionLanguages": [
+        "sl"
+      ],
+      "source": {
+        "acquisitionId": "jmdict-sl",
+        "url": "https://github.com/yomidevs/jmdict-yomitan/releases/download/2026-07-23/JMdict_slovenian.zip",
+        "projectUrl": "https://github.com/yomidevs/jmdict-yomitan",
+        "catalogueSection": "Japanese / Terms"
+      },
+      "license": {
+        "spdx": "CC-BY-SA-4.0",
+        "attribution": "Electronic Dictionary Research and Development Group (EDRDG) and jmdict-yomitan contributors",
+        "sourceUrl": "https://github.com/yomidevs/jmdict-yomitan",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "redistribution": "allowed",
+        "reviewNote": "The generated dictionaries are published by jmdict-yomitan under CC BY-SA 4.0."
+      },
+      "distribution": {
+        "state": "source-only"
+      }
     }
   ]
 }

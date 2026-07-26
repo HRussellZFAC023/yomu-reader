@@ -1,5 +1,5 @@
 import { mutationInsideClosest } from '../dom/mutation';
-import { HAS_JAPANESE } from '../dom/constants';
+import { isTargetLanguageText } from '../lookup/target-text';
 import {
     noteScannedShadowRoot,
     watchPotentialOpenShadowRootHost,
@@ -366,7 +366,7 @@ function textNodeMayContainJapanese(node: Node, budget: MutationJapaneseScanBudg
     const remainingLength = MUTATION_TEXT_SCAN_LIMIT - budget.inspectedTextLength;
     const sampledText = text.slice(0, remainingLength);
     budget.inspectedTextLength += sampledText.length;
-    if (HAS_JAPANESE.test(sampledText)) return true;
+    if (isTargetLanguageText(sampledText)) return true;
     if (sampledText.length < text.length) {
         budget.textBudgetExhausted = true;
         return true;
@@ -410,7 +410,7 @@ function nodeMayAffectJpdbPageEnhancements(node: Node): boolean {
 }
 
 function textNodeMayAffectJpdbPageEnhancements(node: Node, parent: Element): boolean {
-    return HAS_JAPANESE.test(node.textContent ?? '')
+    return isTargetLanguageText(node.textContent ?? '')
         && Boolean(parent.closest(JPDB_PAGE_ENHANCEMENT_ROOT_SELECTOR));
 }
 
@@ -430,7 +430,7 @@ function elementContainsJpdbPageEnhancementTarget(element: Element): boolean {
 }
 
 function elementTextMayAffectJpdbPageEnhancements(element: Element): boolean {
-    return HAS_JAPANESE.test(element.textContent ?? '')
+    return isTargetLanguageText(element.textContent ?? '')
         && Boolean(element.closest(JPDB_PAGE_ENHANCEMENT_ROOT_SELECTOR));
 }
 

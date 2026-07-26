@@ -1,6 +1,7 @@
+import { COMBINING_KANA_MARKS, KANA } from './japanese-script';
 const PITCH_LEVELS = new Set(['H', 'L']);
 const SMALL_KANA = new Set('ゃゅょぁぃぅぇぉゎャュョァィゥェォヮ\u3099\u309A');
-const PRONUNCIATION_KANA = /^[\u3040-\u30ff\u3099\u309A]+$/u;
+const PRONUNCIATION_KANA = new RegExp(`^[${KANA}${COMBINING_KANA_MARKS}]+$`, 'u');
 
 export type PitchClassName = 'atamadaka' | 'odaka' | 'heiban' | 'nakadaka';
 

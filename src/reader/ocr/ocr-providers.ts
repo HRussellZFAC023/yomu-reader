@@ -9,6 +9,7 @@ import { isAbortError } from '../core/errors';
 import { readBlobAsDataUrl } from '../core/blob-data-url';
 import { getUserscriptHttpRequest, requestViaUserscriptManager } from '../userscript/index';
 import { Logger } from '../app/logger';
+import { targetOcrLanguageHint, targetOcrLanguageTag } from '../languages/resolve';
 import type { ReaderSettings } from '../app/types';
 import {
     normalizeOcrResult,
@@ -52,10 +53,10 @@ async function recognizeViaLocalService(image: HTMLImageElement, settings: Reade
     const engine = settings.ocrEngine === 'auto' ? '' : settings.ocrEngine;
     const body = JSON.stringify({
         id: imageCacheKey(image),
-        language_code: settings.ocrLanguage || 'ja-JP',
+        language_code: targetOcrLanguageTag(settings.ocrLanguage),
         language: {
-            bcp47_tag: settings.ocrLanguage || 'ja-JP',
-            two_letter_code: (settings.ocrLanguage || 'ja').slice(0, 2),
+            bcp47_tag: targetOcrLanguageTag(settings.ocrLanguage),
+            two_letter_code: targetOcrLanguageHint(settings.ocrLanguage),
         },
         base64_image: payload.base64,
         image: payload.base64,
@@ -76,7 +77,7 @@ async function recognizeViaCloudVision(image: HTMLImageElement, settings: Reader
         requests: [{
             image: { content: payload.base64 },
             features: [{ type: 'TEXT_DETECTION', maxResults: 50, model: 'builtin/latest' }],
-            imageContext: { languageHints: [(settings.ocrLanguage || 'ja-JP').slice(0, 2)] },
+            imageContext: { languageHints: [targetOcrLanguageHint(settings.ocrLanguage)] },
         }],
     });
     const url = `https://vision.googleapis.com/v1/images:annotate?key=${encodeURIComponent(apiKey)}`;

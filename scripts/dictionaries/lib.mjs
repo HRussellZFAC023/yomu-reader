@@ -13,6 +13,8 @@ export const repositoryRoot = resolve(scriptsDirectory, '../..');
 export const defaultAcquisitionPath = resolve(repositoryRoot, 'config/dictionaries/acquisition.v1.json');
 export const defaultManifestRoot = resolve(repositoryRoot, 'config/dictionaries/manifests/v1');
 export const defaultPublishedManifestRoot = resolve(repositoryRoot, 'config/dictionaries/published/v1');
+export const defaultMirrorObjectLedgerPath = resolve(repositoryRoot, 'config/dictionaries/mirror-objects.v1.json');
+export const defaultUpstreamCoveragePath = resolve(repositoryRoot, 'config/dictionaries/upstream-coverage.v1.json');
 export const defaultStagingRoot = resolve(repositoryRoot, 'artifacts/dictionaries-staging');
 export const defaultReleaseRoot = resolve(repositoryRoot, 'artifacts/dictionaries-release');
 

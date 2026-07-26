@@ -1,4 +1,5 @@
-import { fallbackLookupTermsForText, segmentJapaneseText } from '../reader/lookup/japanese-segments';
+import { fallbackLookupTermsForText } from '../reader/lookup/japanese-segments';
+import { segmentTargetLanguageText } from '../reader/lookup/target-text';
 
 const HAS_JAPANESE_RE = /[\u3040-\u30ff\u3400-\u9fff々〆ヵヶ]/u;
 const OCR_LOOKUP_LIMIT = 18;
@@ -51,7 +52,7 @@ export function normalizeGamingOcrResponse(value: unknown, fallbackWidth: number
 export function gamingLookupCandidates(text: string): string[] {
     const candidates = [
         normalizedJapaneseText(text),
-        ...segmentJapaneseText(text).flatMap(segment => fallbackLookupTermsForText(segment.surface)),
+        ...segmentTargetLanguageText(text).flatMap(segment => fallbackLookupTermsForText(segment.text)),
         ...fallbackLookupTermsForText(text),
     ];
     return uniqueStrings(candidates)

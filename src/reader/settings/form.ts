@@ -29,8 +29,8 @@ import {
 import { uniqueStrings } from '../core/string-utils';
 import type { DictionaryPreference, ImmersionExampleSource, InterfaceLanguage, NewTabStudyChallengeStep, ReaderColorSource, ReaderSettings } from '../app/types';
 import { WANIKANI_TOKEN_SETTINGS_URL } from '../wanikani/wanikani';
-import { RECOMMENDED_JAPANESE_DICTIONARIES, catalogBrowseGroupsForLearnerLanguage, findRecommendedDictionary, recommendedDictionariesForLearnerLanguage, type RecommendedDictionary, type RecommendedDictionaryCategory } from '../dictionaries/recommended';
-import { catalogBrowseDescription, catalogBrowseTotalBytes, formatDictionaryBytes, type CatalogBrowseGroup } from '../dictionaries/catalog-browse';
+import { RECOMMENDED_JAPANESE_DICTIONARIES, catalogBrowseLanguageSectionsForLearnerLanguage, findRecommendedDictionary, recommendedDictionariesForLearnerLanguage, type RecommendedDictionary, type RecommendedDictionaryCategory } from '../dictionaries/recommended';
+import { catalogBrowseDescription, catalogBrowseSectionGroups, catalogBrowseTotalBytes, formatDictionaryBytes, headwordLanguageEndonym, headwordLanguageName, type CatalogBrowseLanguageSection } from '../dictionaries/catalog-browse';
 import { catalogBrowseCopy, type CatalogBrowseCopy } from '../dictionaries/catalog-browse-copy';
 import { applyCatalogBrowseFilter, normalizeSearchQuery } from './catalog-browse-filter';
 import type { DictionaryCategory } from '../dictionaries/catalog';
@@ -2104,7 +2104,7 @@ function localizeCatalogBrowseSection(form: HTMLFormElement, text: SettingsText)
     const learnerLanguageId = learnerLanguageByIdOrNull(section.dataset.catalogBrowseLearnerLanguage ?? '')?.id ?? 'en';
     const japaneseInterface = interfaceLanguage === 'ja';
     const learnerLanguage = learnerLanguageById(learnerLanguageId);
-    const locale = japaneseInterface ? 'ja' : learnerLanguage.runtimeLocale;
+    const locale = japaneseInterface ? interfaceLanguage : learnerLanguage.runtimeLocale;
     const copy: CatalogBrowseCopy | undefined = japaneseInterface ? undefined : catalogBrowseCopy(learnerLanguageId);
     // The wrapper's lang/dir must describe the text actually rendered, or a
     // right-to-left learner keeps an RTL box around Japanese chrome.
@@ -2124,6 +2124,16 @@ function localizeCatalogBrowseSection(form: HTMLFormElement, text: SettingsText)
             ? copy.categories[category]
             : text(CATALOG_BROWSE_CATEGORY_TEXT_KEYS[category]);
         if (label) title.replaceChildren(label);
+    });
+    // The shelf headings name languages, so they follow the panel's locale like
+    // every other string here — a Vietnamese reader must not meet "Cantonese".
+    section.querySelectorAll<HTMLElement>('[data-catalog-browse-language]').forEach((shelf) => {
+        const language = shelf.dataset.catalogBrowseLanguage;
+        if (!language) return;
+        shelf.querySelector<HTMLElement>('[data-catalog-browse-language-title]')
+            ?.replaceChildren(headwordLanguageName(language, locale));
+        shelf.querySelector<HTMLElement>('[data-catalog-browse-language-note]')
+            ?.replaceChildren(copy?.otherLanguageNote ?? text('mirroredDictionaryOtherLanguage'));
     });
     let count = 0;
     let bytes = 0;
@@ -2897,7 +2907,7 @@ export function renderRecommendedDictionaries(installed: YomitanDictionaryInfo[]
             `;
             })
             .join('')}
-        ${renderCatalogBrowseSection(catalogBrowseGroupsForLearnerLanguage(learnerLanguage), installed, learnerLanguage)}
+        ${renderCatalogBrowseSection(catalogBrowseLanguageSectionsForLearnerLanguage(learnerLanguage), installed, learnerLanguage)}
     `;
 }
 
@@ -2906,10 +2916,11 @@ export function renderRecommendedDictionaries(installed: YomitanDictionaryInfo[]
 // by knowing its URL. Over a hundred cards is a list nobody scrolls, so the
 // panel carries its own filter — grouping alone does not make it searchable.
 function renderCatalogBrowseSection(
-    groups: readonly CatalogBrowseGroup[],
+    sections: readonly CatalogBrowseLanguageSection[],
     installed: YomitanDictionaryInfo[],
     learnerLanguageId: LearnerLanguageId,
 ): string {
+    const groups = catalogBrowseSectionGroups(sections);
     const count = groups.reduce((total, group) => total + group.dictionaries.length, 0);
     if (!count) return '';
     const learnerLanguage = learnerLanguageById(learnerLanguageId);
@@ -2926,17 +2937,36 @@ function renderCatalogBrowseSection(
                 </label>
             </div>
             <div id="jpdb-reader-catalog-browse-results" data-catalog-browse-results>
-                ${groups
-                    .map((group) => `
-                    <div class="jpdb-reader-recommended-group" data-catalog-browse-group="${escapeHtml(group.category)}">
-                        <div class="jpdb-reader-recommended-group-title" data-catalog-browse-category="${escapeHtml(group.category)}">${escapeHtml(copy.categories[group.category])}</div>
-                        ${group.dictionaries.map((dictionary) => renderRecommendedDictionary(dictionary, installed)).join('')}
-                    </div>
-                `)
-                    .join('')}
+                ${sections.map(section => renderCatalogBrowseLanguage(section, copy, locale, installed)).join('')}
             </div>
             <div class="jpdb-reader-help" data-catalog-browse-empty role="status" aria-live="polite" hidden>${escapeHtml(copy.noResults)}</div>
         </section>
+    `;
+}
+
+// A dictionary for a language the reader is not studying stays one scroll away
+// instead of one URL away, but it is never mixed into the studied language's
+// groups: it sits under its own language heading, with a line saying so.
+function renderCatalogBrowseLanguage(
+    section: CatalogBrowseLanguageSection,
+    copy: CatalogBrowseCopy,
+    locale: string,
+    installed: YomitanDictionaryInfo[],
+): string {
+    const language = section.headwordLanguage;
+    return `
+        <div class="jpdb-reader-recommended-group jpdb-reader-catalog-browse-language" data-catalog-browse-language="${escapeHtml(language)}" data-catalog-browse-language-endonym="${escapeHtml(headwordLanguageEndonym(language))}"${section.isTargetLanguage ? ' data-catalog-browse-language-target' : ''}>
+            <div class="jpdb-reader-recommended-title" data-catalog-browse-language-title>${escapeHtml(headwordLanguageName(language, locale))}</div>
+            ${section.isTargetLanguage ? '' : `<div class="jpdb-reader-help" data-catalog-browse-language-note>${escapeHtml(copy.otherLanguageNote)}</div>`}
+            ${section.groups
+                .map(group => `
+                    <div class="jpdb-reader-recommended-group" data-catalog-browse-group="${escapeHtml(group.category)}">
+                        <div class="jpdb-reader-recommended-group-title" data-catalog-browse-category="${escapeHtml(group.category)}">${escapeHtml(copy.categories[group.category])}</div>
+                        ${group.dictionaries.map(dictionary => renderRecommendedDictionary(dictionary, installed)).join('')}
+                    </div>
+                `)
+                .join('')}
+        </div>
     `;
 }
 
@@ -2984,7 +3014,7 @@ function renderRecommendedDictionary(dictionary: RecommendedDictionary, installe
           ? `<a class="jpdb-reader-btn" href="${escapeHtml(dictionary.helpUrl)}" target="_blank" rel="noopener" data-dictionary-id="${escapeHtml(dictionary.id)}" data-recommended-dictionary-guide>${externalButtonLabel('Guide')}</a>`
           : '';
     const description = dictionary.description ?? (dictionary.descriptionKey ? uiText('en', dictionary.descriptionKey) : '');
-    const catalogAttributes = dictionary.origin === 'catalog' ? ` data-catalog-recommendation="${escapeHtml(dictionary.catalogDictionaryId ?? '')}" data-learner-language="${escapeHtml(dictionary.learnerLanguage ?? '')}" data-definition-language="${escapeHtml(dictionary.definitionLanguage ?? '')}" data-translation-mode="${escapeHtml(dictionary.translationMode ?? '')}"${dictionary.sha256 ? ` data-sha256="${dictionary.sha256}"` : ''}` : '';
+    const catalogAttributes = dictionary.origin === 'catalog' ? ` data-catalog-recommendation="${escapeHtml(dictionary.catalogDictionaryId ?? '')}" data-learner-language="${escapeHtml(dictionary.learnerLanguage ?? '')}" data-headword-language="${escapeHtml(dictionary.headwordLanguage ?? '')}" data-definition-language="${escapeHtml(dictionary.definitionLanguage ?? '')}" data-translation-mode="${escapeHtml(dictionary.translationMode ?? '')}"${dictionary.sha256 ? ` data-sha256="${dictionary.sha256}"` : ''}` : '';
     return `
         <div class="jpdb-reader-recommended-item"${catalogAttributes}>
             <div>

@@ -4,6 +4,7 @@ import { pathToFileURL } from 'node:url';
 import { execFile as execFileCallback } from 'node:child_process';
 import { promisify } from 'node:util';
 import {
+  defaultMirrorObjectLedgerPath,
   defaultPublishedManifestRoot,
   defaultReleaseRoot,
   defaultStagingRoot,
@@ -12,16 +13,33 @@ import {
   readJson,
   sha256File,
 } from './lib.mjs';
+import { assertPublishedObjectsResolvable } from './coverage.mjs';
 
 const execFile = promisify(execFileCallback);
 const WORKER_CONFIG = 'workers/yomu-dictionaries/wrangler.jsonc';
 const WRANGLER_SINGLE_UPLOAD_LIMIT = 300 * 1024 * 1024;
 
+/**
+ * `manifestsOnly` publishes the four manifest kinds and nothing else.
+ *
+ * Objects are immutable and content-addressed, so a catalogue edit that adds,
+ * retires or re-describes rows without changing a single digest needs no object
+ * upload at all. The full plan still insists every published object is present
+ * in the local staging tree and rehashes it — around 6 GB that a fresh clone
+ * does not have and cannot obtain without re-acquiring the whole collection.
+ * That made a manifest-only correction cost a full re-acquisition, which is why
+ * catalogue fixes did not ship. The safety this drops is the staging rehash, and
+ * the mirror object ledger replaces it: every digest in the catalogue has been
+ * observed live, and assertPublishedObjectsResolvable fails the release gate if
+ * one has not. Objects the catalogue does not yet have are exactly the ones this
+ * mode must not invent, and it cannot: it uploads no objects.
+ */
 export async function buildUploadPlan({
   releaseRoot = defaultReleaseRoot,
   publishedManifestRoot = defaultPublishedManifestRoot,
   stagingRoot = defaultStagingRoot,
   bucket = 'yomu-dictionaries',
+  manifestsOnly = false,
 } = {}) {
   const releaseV1 = await fileExists(resolve(releaseRoot, 'v1/catalog.json'))
     ? resolve(releaseRoot, 'v1')
@@ -39,10 +57,16 @@ export async function buildUploadPlan({
   if (releaseV1 !== publishedManifestRoot) {
     await assertManifestSetMatchesTrackedPublished(releaseV1, publishedManifestRoot, recommendationFiles);
   }
+  if (manifestsOnly) {
+    // Skipping the staging rehash is only safe while something else vouches for
+    // the objects. Fail here rather than publish a catalogue whose Install
+    // buttons point at keys nobody has seen.
+    assertPublishedObjectsResolvable(catalog, await readJson(defaultMirrorObjectLedgerPath));
+  }
   for (const filename of recommendationFiles) {
     items.push(manifestUpload(bucket, `v1/recommendations/${filename}`, resolve(releaseV1, 'recommendations', filename)));
   }
-  for (const entry of catalog.entries) {
+  for (const entry of manifestsOnly ? [] : catalog.entries) {
     if (entry.distribution?.state !== 'published') continue;
     const object = entry.distribution.object;
     const path = resolve(stagingRoot, object.key);
@@ -61,6 +85,16 @@ export async function buildUploadPlan({
   return deduplicateUploadItems(items);
 }
 
+// A catalogue row that is not published carries no object and therefore no
+// Install button; Settings renders it as a guide link to the upstream project.
+// That is how the catalogue describes a dictionary the mirror has not taken yet,
+// and refusing to upload such a catalogue would mean the only way to record an
+// unmirrored upstream dictionary is to leave it out — which is precisely how the
+// gap stayed invisible. What must never ship is the opposite mistake: a row that
+// claims publication with no object behind it, or a catalogue that has stopped
+// publishing anything at all.
+const DISTRIBUTION_STATES = new Set(['published', 'source-only', 'blocked']);
+
 async function assertPublishableManifestSet(root, catalog, languages, recommendationFiles) {
   if (languages.count !== 32 || languages.languages?.length !== 32) {
     throw new Error('Dictionary upload requires the exact 32-language Slice 1 manifest.');
@@ -68,11 +102,19 @@ async function assertPublishableManifestSet(root, catalog, languages, recommenda
   if (recommendationFiles.length !== 32) {
     throw new Error(`Dictionary upload requires 32 recommendation manifests, found ${recommendationFiles.length}.`);
   }
-  const unpublished = catalog.entries.filter(entry => entry.distribution?.state !== 'published');
-  if (unpublished.length) {
-    throw new Error(`Dictionary upload refuses a catalogue with ${unpublished.length} unpublished entries.`);
+  const unknownState = catalog.entries.filter(entry => !DISTRIBUTION_STATES.has(entry.distribution?.state));
+  if (unknownState.length) {
+    throw new Error(`Dictionary upload refuses ${unknownState.length} catalogue entries in an unknown distribution state: ${unknownState.map(entry => `${entry.id}=${entry.distribution?.state}`).sort().join(', ')}.`);
   }
-  const publishedIds = new Set(catalog.entries.map(entry => entry.id));
+  const publishedEntries = catalog.entries.filter(entry => entry.distribution.state === 'published');
+  if (!publishedEntries.length) {
+    throw new Error('Dictionary upload refuses a catalogue that publishes nothing; it would replace the live catalogue with one Settings can install none of.');
+  }
+  const withoutObject = publishedEntries.filter(entry => !entry.distribution.object?.sha256);
+  if (withoutObject.length) {
+    throw new Error(`Dictionary upload refuses ${withoutObject.length} published entries with no object: ${withoutObject.map(entry => entry.id).sort().join(', ')}.`);
+  }
+  const publishedIds = new Set(publishedEntries.map(entry => entry.id));
   for (const filename of recommendationFiles) {
     const recommendation = await readJson(resolve(root, 'recommendations', filename));
     if (recommendation.readiness !== 'ready' || recommendation.blockers?.length) {
@@ -229,16 +271,20 @@ async function runPool(items, concurrency, worker) {
 }
 
 async function main() {
-  const args = parseCommonArguments(process.argv.slice(2));
+  const argv = process.argv.slice(2);
+  const manifestsOnly = argv.includes('--manifests-only');
+  const args = parseCommonArguments(argv, new Set(['--manifests-only']));
   if (args.help) {
-    console.log('Usage: node scripts/dictionaries/upload.mjs [--release-dir DIR] [--staging-dir DIR] [--bucket NAME] [--execute --confirm-bucket NAME]');
+    console.log('Usage: node scripts/dictionaries/upload.mjs [--release-dir DIR] [--staging-dir DIR] [--bucket NAME] [--manifests-only] [--execute --confirm-bucket NAME]');
     console.log('The default is a non-mutating upload plan. This command never creates or deletes an R2 bucket.');
+    console.log('--manifests-only publishes the catalogue, language and recommendation manifests without touching objects, for a catalogue edit that adds no new content hash. It needs no staging tree.');
     return;
   }
   const plan = await buildUploadPlan({
     releaseRoot: args.release,
     stagingRoot: args.staging,
     bucket: args.bucket,
+    manifestsOnly,
   });
   const result = await uploadDictionaryRelease(plan, {
     execute: args.execute,

@@ -8,6 +8,7 @@ import { normalizedLookupText } from '../lookup/text-helpers';
 import { cardPronunciationReading } from '../popup/pitch';
 import { PITCH_ENRICHMENT_LIMIT, isYouTubeHostname, type PitchEnrichmentOptions } from './main-helpers';
 import { JPDBCard, JPDBToken, ReaderSettings } from './types';
+import { HIRAGANA_WITH_PROLONGED, KANJI_LIKE_WITH_COUNTERS, KATAKANA_WITH_PROLONGED } from '../lookup/japanese-script';
 
 export function uniqueTokensByCard(tokens: JPDBToken[]): JPDBToken[] {
     const seen = new Set<string>();
@@ -86,7 +87,7 @@ export function pitchEnrichmentQueueOptions(
     };
 }
 
-const SUBSTANTIVE_PUBLIC_PITCH_LOOKUP_RE = /[\u3400-\u9fff々〆ヵヶ]|[\u30a0-\u30ffー]{2,}|[\u3040-\u309fー]{2,}/u;
+const SUBSTANTIVE_PUBLIC_PITCH_LOOKUP_RE = new RegExp(`[${KANJI_LIKE_WITH_COUNTERS}]|[${KATAKANA_WITH_PROLONGED}]{2,}|[${HIRAGANA_WITH_PROLONGED}]{2,}`, 'u');
 
 export function isSubstantivePublicPitchLookupToken(token: JPDBToken): boolean {
     const surface = token.sentence?.slice(token.start, token.end) ?? '';

@@ -44,6 +44,7 @@ import {
 import { ObjectUrlCache } from '../core/object-url-cache';
 import { pruneExpiringMapEntries } from '../core/expiring-map';
 import { createPageMediaUrl, getPageMediaBlob, revokePageMediaUrl } from '../app/page-media-url';
+import { targetSpeechSynthesisLocale } from '../languages/resolve';
 import type { AudioSelectionMode, AudioSourceSetting, AudioSourceType, JPDBCard, ReaderSettings } from '../app/types';
 
 interface AudioPlaybackOptions {
@@ -1133,7 +1134,7 @@ export class AudioPlayer {
         if (!('speechSynthesis' in window)) throw new Error(uiText(settings.interfaceLanguage, 'textToSpeechUnavailable'));
         return new Promise((resolve, reject) => {
             const utterance = new SpeechSynthesisUtterance(text);
-            utterance.lang = 'ja-JP';
+            utterance.lang = targetSpeechSynthesisLocale();
             const voices = speechSynthesis.getVoices();
             const choice = this.textToSpeechVoiceChoice(voices, voiceName, deckKey);
             const identity = textToSpeechPlaybackIdentity(text, choice.voice);

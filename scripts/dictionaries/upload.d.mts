@@ -11,6 +11,7 @@ export function buildUploadPlan(options?: {
   publishedManifestRoot?: string;
   stagingRoot?: string;
   bucket?: string;
+  manifestsOnly?: boolean;
 }): Promise<DictionaryUploadItem[]>;
 
 export function uploadDictionaryRelease(
