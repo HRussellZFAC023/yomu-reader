@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.8.15] - 2026-07-26
+
+### Fixed
+
+- Installing no longer dead-ends when your script manager saves the userscript instead of opening it. Some managers do not take over the install link, so the file lands in Downloads and nothing tells you what to do next; the homepage now shows the install URL and the exact "install from URL" step for Tampermonkey, Violentmonkey and ScriptCat.
+
 ## [1.8.14] - 2026-07-26
 
 ### Fixed

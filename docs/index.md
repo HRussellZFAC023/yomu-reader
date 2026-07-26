@@ -47,6 +47,18 @@ hero:
     <div class="yomu-install-step" role="listitem"><a class="yomu-install-step-link" href="https://yomureader.com/yomu.user.js" aria-label="Install the よむ userscript"><span class="yomu-install-step-number" aria-hidden="true">2</span> <span class="yomu-install-step-label">Install</span></a></div>
     <div class="yomu-install-step" role="listitem"><a class="yomu-install-step-link" href="/getting-started#step-3-your-first-lookup" aria-label="Open a Japanese page"><span class="yomu-install-step-number" aria-hidden="true">3</span> <span class="yomu-install-step-label">Read</span></a></div>
   </div>
+  <!-- Install works by the manager INTERCEPTING navigation to the .user.js URL.
+       Managers differ on whether they do: ScriptCat downloads the file instead,
+       and some Chrome setups refuse the navigation outright — leaving the user
+       with a stray .js in Downloads and no way forward. Both reported cases were
+       recovered by pasting the URL into the manager's own "install from URL",
+       so that path is stated up front rather than left as support folklore. -->
+  <details class="yomu-install-fallback">
+    <summary>Downloaded a file instead of installing?</summary>
+    <p>Some managers don't intercept the link. Copy this URL and use your manager's <strong>install from URL</strong>:</p>
+    <p><code data-yomu-localize="off">https://yomureader.com/yomu.user.js</code></p>
+    <p>Tampermonkey: <em>Utilities → Install from URL</em>. Violentmonkey: <em>+ → Install from URL</em>. ScriptCat: <em>Script list → Create → Install from URL</em>, or drag the downloaded file onto the ScriptCat tab.</p>
+  </details>
 </div>
 
 <section class="yomu-demo yomu-reveal" aria-labelledby="yomu-demo-title">
