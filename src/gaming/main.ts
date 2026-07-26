@@ -167,6 +167,14 @@ function resolveCaptureTarget(): GamingCaptureTarget {
     return captureTargetForDisplay(displays.map(displayGeometry), displayGeometry(display));
 }
 
+function displayCount(): number {
+    try {
+        return screen.getAllDisplays().length;
+    } catch {
+        return 1;
+    }
+}
+
 function displayGeometry(display: Electron.Display): GamingDisplayGeometry {
     return {
         id: String(display.id),
@@ -369,6 +377,7 @@ function environmentStatus(): YomuGamingEnvironment {
         desktop,
         isSteamDeckSession: /gamescope|steamdeck|steam/i.test(`${desktop} ${process.env.SESSION_DESKTOP ?? ''}`),
         isPackaged: app.isPackaged,
+        displayCount: displayCount(),
         hotkey,
         hotkeyRegistered,
         hotkeyError: hotkeyError || undefined,
