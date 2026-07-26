@@ -213,7 +213,7 @@ export function shouldLoadReaderCssFallback(hasLinkedReaderCss: boolean, css = R
 // corporate networks block. Deduped so a hosted yomureader.com page does not
 // fetch the same URL twice.
 export function readerCssFallbackUrls(href = safeLocationHref()): string[] {
-    const urls = [hostedReaderCssUrl(href), READER_CSS_RAW_FALLBACK_URL];
+    const urls = [hostedReaderCssUrl(href), READER_CSS_HOSTED_FALLBACK_URL, READER_CSS_RAW_FALLBACK_URL];
     return [...new Set(urls.filter((url): url is string => Boolean(url)))];
 }
 

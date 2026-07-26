@@ -23,9 +23,6 @@ const {
 } = require('./lib/userscript-build-utils.cjs');
 const { GREASY_FORK_LIBRARIES, greasyForkLibraryPath, immutableLibraryUrl, immutableReaderCssUrl, readerCssResourceUrl } = require('./lib/greasyfork-libraries.cjs');
 
-if (!fileExists(DIST_USERSCRIPT_PATH)) fail(`${USERSCRIPT_RELATIVE_PATH} is missing. Run npm run build first.`);
-const MIN_READABLE_LINE_COUNT = 10_000;
-const MAX_READABLE_LINE_LENGTH = 2_000;
 const READER_CSS_NETWORK_SKIP_ENV = 'YOMU_VERIFY_SKIP_NETWORK';
 const READER_CSS_REQUEST_TIMEOUT_MS = 30_000;
 // The runtime's own acceptance test for a fetched sheet (isFullReaderCss in
@@ -38,6 +35,10 @@ const FULL_READER_CSS_MARKERS = [
   '.jpdb-subtitle-player',
   '.jpdb-ocr-layer',
 ];
+
+if (!fileExists(DIST_USERSCRIPT_PATH)) fail(`${USERSCRIPT_RELATIVE_PATH} is missing. Run npm run build first.`);
+const MIN_READABLE_LINE_COUNT = 10_000;
+const MAX_READABLE_LINE_LENGTH = 2_000;
 const code = readBuiltUserscript();
 const size = byteLengthUtf8(code);
 const lines = code.split(/\r?\n/);
