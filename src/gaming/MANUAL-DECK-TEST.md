@@ -25,6 +25,7 @@ add it to Steam as a non-Steam game so it can launch from Game Mode.
 | A2 | Check the session note under the hero. | A note reads **"Steam Deck detected…"**. If SteamOS reports Wayland it warns about the capture portal. (Driven by `isSteamDeckSession` / `displayServer` in `environmentStatus()`.) |
 | A3 | Add the AppImage to Steam → switch to **Game Mode** → launch it from the library. | App launches full-screen in Game Mode without a desktop-session error. |
 | A4 | Read the home screen. | One hero: "Read Japanese anywhere on your screen", one primary "Read my screen", the capture shortcut shown once, then "Read part of the screen" and "Settings". Fits without vertical scroll at 800px. |
+| A5 | Read the line under **Read my screen**. | If gamescope kept the chord (`globalShortcut.register` returned false), that line reads **"Pick a shortcut in Settings to read from any app."** instead of naming a key — the home screen never tells you to press something the session did not hand over. Setting a shortcut that the session also keeps answers "… is taken here. Try another key." and stays on that line, never a green "saved". |
 
 ## B. Capture shortcut via Steam Input (controller-only)
 

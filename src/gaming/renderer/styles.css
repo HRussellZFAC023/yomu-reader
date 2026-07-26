@@ -166,6 +166,12 @@ textarea {
     line-height: 1.4;
 }
 
+/* Same line, same slot: when the keyboard is still to be set up, the sentence that
+   names a key becomes the sentence that offers one. */
+.yomu-gaming-home-shortcut[data-shortcut-ready="false"] {
+    color: #8a5a00;
+}
+
 .yomu-gaming-home-shortcut kbd {
     padding: 3px 8px;
     border: 1px solid var(--jpdb-reader-border);

@@ -105,12 +105,9 @@ try {
         throw new Error(`Instant capture did not send the full simulated screen: ${JSON.stringify(fullScreenRequest.png)}`);
     }
     await overlay.screenshot({ path: instantResultScreenshotPath });
-    await overlay.evaluate(async () => {
-        await window.yomuGaming?.showApp();
-        await window.yomuGaming?.hideOverlay();
-    });
-    await page.bringToFront();
-    await page.waitForSelector('[data-yomu-gaming-ready="true"]', { timeout: 10_000 });
+    step('open settings from the overlay');
+    await assertOverlaySettingsLandsOnSettings(page, overlay);
+    await returnToHome(page);
     step('open area capture overlay');
     await homeCaptureButton(page).scrollIntoViewIfNeeded();
     await homeCaptureButton(page).click();
@@ -324,6 +321,28 @@ async function assertFirstRunClarity(page) {
     }
     if (/endpoint|127\.0\.0\.1/i.test(copy)) throw new Error(`Yomu Gaming first run still exposes advanced OCR setup: ${copy}`);
     if (ambiguousScanCopyPattern.test(copy)) throw new Error(`Yomu Gaming first run still uses ambiguous scan copy: ${copy}`);
+}
+
+// The overlay is a second window with its own web preferences, so "Settings" there
+// reaching the app window is a cross-window fact that only the packaged app can prove.
+async function assertOverlaySettingsLandsOnSettings(page, overlay) {
+    // The word popover from the OCR check is still open, and it owns the click layer.
+    // Escape closes the popover and leaves the overlay up, exactly as it does for a player.
+    if (await overlay.locator('.jpdb-reader-popover').count()) {
+        await overlay.keyboard.press('Escape');
+        await overlay.locator('.jpdb-reader-popover').first().waitFor({ state: 'detached', timeout: 10_000 });
+    }
+    await overlay.locator('[data-action="overlay-settings"]').first().click();
+    await page.bringToFront();
+    await page.waitForFunction(
+        () => document.querySelector('.yomu-gaming-shell')?.dataset.shellView === 'settings',
+        undefined,
+        { timeout: 10_000 },
+    );
+    await page.locator('.jpdb-reader-settings[data-yomu-gaming-settings]:visible').waitFor({ timeout: 10_000 });
+    if (await page.locator('.yomu-gaming-home:visible').count()) {
+        throw new Error('Yomu Gaming showed home and settings at once after the overlay asked for settings.');
+    }
 }
 
 // Media is the reader's deepest tab (audio sources, text-to-speech, proxy URL). Landing

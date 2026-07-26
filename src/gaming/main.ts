@@ -550,7 +550,9 @@ async function updateCaptureShortcut(value: string): Promise<YomuGamingEnvironme
     if (!hotkeyRegistered) {
         hotkey = previousHotkey;
         registerGlobalShortcuts();
-        hotkeyError = `${normalized.shortcut} could not be registered. Another app may already be using it.`;
+        // The renderer shows this verbatim, so it is written as advice, not as a report:
+        // the previous shortcut is already back in place by the time it is read.
+        hotkeyError = `${normalized.shortcut} is taken here. Try another key.`;
         return environmentStatus();
     }
     hotkeyError = '';

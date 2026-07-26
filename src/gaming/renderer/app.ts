@@ -79,6 +79,9 @@ const PREVIOUS_OCR_ENGINE_STORAGE_KEY = 'yomu-gaming-ocr-engine';
 // Capture is what this app does, so its own shortcut is the first thing Settings shows.
 // Media (audio sources, text-to-speech, proxy URL) is the deepest reader tab there is.
 const DEFAULT_SETTINGS_PANEL = 'shortcuts';
+// What the hero says instead of naming a key that the system has not handed over.
+const CAPTURE_SHORTCUT_SETUP_LINE = 'Pick a shortcut in Settings to read from any app.';
+const CAPTURE_SHORTCUT_HELP = 'Focus the field and press the keys to read the screen.';
 const DEFAULT_GAMING_OCR_PROVIDER: ReaderSettings['ocrProvider'] = 'google-lens';
 const DEFAULT_GAMING_OCR_ENDPOINT = '';
 const UNSUPPORTED_SETTINGS_ACTIONS = new Set([
@@ -133,9 +136,10 @@ async function boot(): Promise<void> {
     renderShell();
     watchForRequestedView();
     shellState.environment = await bridge.getEnvironment();
-    updateHotkeyCopy();
+    // The hero itself now carries whether the keyboard is in play, so a fresh launch
+    // reports nothing extra: one screen, one message.
+    updateCaptureShortcutCopy();
     updateSessionGuidance();
-    updateCaptureOnboardingStatus();
 }
 
 function renderShell(): void {
@@ -180,7 +184,7 @@ function renderGamingHome(): string {
                 <h1>Read Japanese anywhere on your screen</h1>
                 <p class="yomu-gaming-home-lede">Point at any word to see its reading and meaning.</p>
                 <button class="jpdb-reader-btn add yomu-gaming-home-primary" type="button" data-action="instant-capture">Read my screen</button>
-                <p class="yomu-gaming-home-shortcut">Or press <kbd data-hotkey>${escapeHtml(hotkeyLabel())}</kbd> any time, in any app.</p>
+                <p class="yomu-gaming-home-shortcut" data-gaming-shortcut-line data-shortcut-ready="${captureShortcutReady()}">${captureShortcutLineHtml()}</p>
                 <div class="yomu-gaming-shell-status" data-gaming-shell-status data-status-tone="${shellState.statusTone}" role="status" aria-live="polite" hidden></div>
                 <div class="yomu-gaming-session-note" data-gaming-session-note hidden></div>
                 <div class="yomu-gaming-home-secondary">
@@ -190,6 +194,27 @@ function renderGamingHome(): string {
             </div>
         </section>
     `;
+}
+
+// One state, one sentence. The hero used to name a key unconditionally and let a second
+// line quietly say the same key was unavailable, so the screen told you to press
+// something that did nothing. Everything the keyboard has to say is decided here, from
+// `hotkeyRegistered`, and rendered in one place.
+function captureShortcutReady(): boolean {
+    return shellState.environment ? shellState.environment.hotkeyRegistered : true;
+}
+
+function captureShortcutLineHtml(): string {
+    if (!captureShortcutReady()) return escapeHtml(CAPTURE_SHORTCUT_SETUP_LINE);
+    return `Or press <kbd data-hotkey>${escapeHtml(hotkeyLabel())}</kbd> any time, in any app.`;
+}
+
+// Success is a fact about the keyboard, so it is read off the environment the main
+// process just handed back rather than assumed from "the call returned".
+function captureShortcutSaveStatus(environment: YomuGamingEnvironment): { text: string; tone: SettingsShellState['statusTone'] } {
+    if (environment.hotkeyError) return { text: environment.hotkeyError, tone: 'warning' };
+    if (environment.hotkeyRegistered) return { text: `Capture shortcut saved: ${hotkeyLabel()}.`, tone: 'success' };
+    return { text: 'Try another key to use the keyboard.', tone: 'warning' };
 }
 
 function applyShellView(): void {
@@ -226,6 +251,12 @@ function watchForRequestedView(): void {
         const requested = consumeRequestedView();
         if (requested && requested !== shellState.view) showView(requested);
     };
+    // `storage` reaches this window the moment the overlay writes, without waiting on the
+    // compositor to hand focus over; focus and visibility stay as the catch-up path for
+    // an embedder that keeps storage events to itself.
+    window.addEventListener('storage', event => {
+        if (event.key === null || event.key === GAMING_PENDING_VIEW_STORAGE_KEY) consume();
+    });
     window.addEventListener('focus', consume);
     document.addEventListener('visibilitychange', () => {
         if (!document.hidden) consume();
@@ -317,7 +348,7 @@ function installGamingCaptureShortcutSection(form: HTMLFormElement): void {
             <span class="jpdb-reader-settings-label-text">Capture shortcut</span>
             <input data-capture-shortcut-input value="${escapeHtml(hotkeyLabel())}" aria-label="Capture shortcut" autocomplete="off" inputmode="none" spellcheck="false">
         </label>
-        <div class="jpdb-reader-help" data-capture-shortcut-help>${escapeHtml(captureShortcutHelpText())}</div>
+        <div class="jpdb-reader-help" data-capture-shortcut-help>${escapeHtml(CAPTURE_SHORTCUT_HELP)}</div>
     `;
     const grid = panel.querySelector<HTMLElement>('.grid');
     panel.insertBefore(section, grid ?? panel.firstChild);
@@ -502,9 +533,9 @@ async function persistCaptureShortcutFromInput(root: HTMLElement, shortcut: stri
         if (token !== captureShortcutPersistToken) return;
         shellState.environment = environment;
         syncCaptureShortcutInputValues(root, hotkeyLabel());
-        updateHotkeyCopy();
-        updateCaptureOnboardingStatus();
-        setShellStatus(`Capture shortcut saved: ${hotkeyLabel()}.`, 'success');
+        updateCaptureShortcutCopy();
+        const saved = captureShortcutSaveStatus(environment);
+        setShellStatus(saved.text, saved.tone);
     } catch (error) {
         if (token !== captureShortcutPersistToken) return;
         syncCaptureShortcutInputValues(root, hotkeyLabel());
@@ -562,7 +593,7 @@ function persistSettingsFromForm(form: HTMLFormElement): void {
     persistGamingSettings(shellState.settings);
     applyDocumentTheme(shellState.settings);
     syncDisabledSettingsControlDescriptions(form, shellState.settings.interfaceLanguage);
-    updateHotkeyCopy();
+    updateCaptureShortcutCopy();
 }
 
 async function handleNativeSettingsSyncAction(form: HTMLFormElement, action: 'sync-cloud-settings' | 'restore-cloud-settings', button: HTMLButtonElement | null): Promise<void> {
@@ -687,30 +718,20 @@ function setShellStatus(status: string, tone: SettingsShellState['statusTone'] =
     });
 }
 
-function updateHotkeyCopy(): void {
-    appRoot.querySelectorAll<HTMLElement>('[data-hotkey]').forEach(element => {
-        element.textContent = hotkeyLabel();
+// Re-renders every surface that speaks about the shortcut from the current environment,
+// so the hero and the settings field can never drift into telling different stories.
+function updateCaptureShortcutCopy(): void {
+    const ready = captureShortcutReady();
+    appRoot.querySelectorAll<HTMLElement>('[data-gaming-shortcut-line]').forEach(element => {
+        element.dataset.shortcutReady = String(ready);
+        element.innerHTML = captureShortcutLineHtml();
     });
     appRoot.querySelectorAll<HTMLInputElement>('[data-capture-shortcut-input]').forEach(element => {
         element.value = hotkeyLabel();
     });
     appRoot.querySelectorAll<HTMLElement>('[data-capture-shortcut-help]').forEach(element => {
-        element.textContent = captureShortcutHelpText();
+        element.textContent = CAPTURE_SHORTCUT_HELP;
     });
-}
-
-// The hero already says what to press, so a working shortcut says nothing at all here.
-// Only the cases that need a decision get a line.
-function updateCaptureOnboardingStatus(): void {
-    if (shellState.environment?.hotkeyError) {
-        setShellStatus(shellState.environment.hotkeyError, 'error');
-        return;
-    }
-    if (shellState.environment?.hotkeyRegistered) {
-        setShellStatus('', 'idle');
-        return;
-    }
-    setShellStatus('Pick a different shortcut in Settings to use the keyboard.', 'warning');
 }
 
 function hotkeyLabel(): string {
@@ -721,12 +742,6 @@ function hotkeyLabel(): string {
         .replace(/\bCommand\b/g, 'Cmd')
         .replace(/\bOption\b/g, shellState.environment?.platform === 'darwin' ? 'Option' : 'Alt')
         .replace(/\bSuper\b/g, 'Meta');
-}
-
-function captureShortcutHelpText(): string {
-    return shellState.environment?.hotkeyError
-        ? shellState.environment.hotkeyError
-        : 'Focus the field and press the keys to read the screen.';
 }
 
 function currentOverlayCaptureMode(): YomuGamingCaptureMode {
@@ -1352,7 +1367,7 @@ function browserFallbackBridge(): YomuGamingBridge {
             isPackaged: false,
             hotkey: shortcut,
             hotkeyRegistered: false,
-            hotkeyError: 'Desktop shortcuts are only available in the Electron app.',
+            hotkeyError: 'Shortcuts work in the Yomu Gaming app.',
             screenAccess: 'unsupported',
         }),
         syncSettingsSnapshot: async (settings: unknown) => {
