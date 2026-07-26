@@ -32,6 +32,7 @@ on:
       - .github/workflows/deploy-pages.yml
 
 permissions:
+  actions: write
   contents: read
   pages: write
   id-token: write
@@ -46,6 +47,8 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      pages_artifact_id: ${{ steps.pages_artifact.outputs.artifact_id }}
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
@@ -89,6 +92,7 @@ jobs:
           YOMU_KOFI_URL: ${{ vars.YOMU_KOFI_URL }}
       - run: npm run verify
       - name: Upload Pages artifact
+        id: pages_artifact
         uses: actions/upload-pages-artifact@v5
         with:
           path: docs/.vitepress/dist
@@ -100,6 +104,45 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      # GitHub's artifact finalization retry can create multiple immutable
+      # records after one large upload, even though this workflow has one
+      # upload step. deploy-pages refuses an ambiguous artifact name. Keep the
+      # exact artifact ID returned by upload-pages-artifact and delete only
+      # same-run duplicates before deployment.
+      - name: Reconcile duplicate Pages upload retries
+        uses: actions/github-script@v8
+        env:
+          KEEP_ARTIFACT_ID: ${{ needs.build.outputs.pages_artifact_id }}
+        with:
+          script: |
+            const keepArtifactId = Number(process.env.KEEP_ARTIFACT_ID);
+            if (!Number.isSafeInteger(keepArtifactId)) {
+              core.setFailed(`Invalid Pages artifact ID: ${process.env.KEEP_ARTIFACT_ID}`);
+              return;
+            }
+            const response = await github.rest.actions.listWorkflowRunArtifacts({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: context.runId,
+              name: 'github-pages',
+              per_page: 100,
+            });
+            const pagesArtifacts = response.data.artifacts.filter(
+              artifact => artifact.name === 'github-pages',
+            );
+            if (!pagesArtifacts.some(artifact => artifact.id === keepArtifactId)) {
+              core.setFailed(`Uploaded Pages artifact ${keepArtifactId} was not found in this run.`);
+              return;
+            }
+            for (const artifact of pagesArtifacts) {
+              if (artifact.id === keepArtifactId) continue;
+              core.info(`Deleting duplicate Pages artifact ${artifact.id}; keeping ${keepArtifactId}.`);
+              await github.rest.actions.deleteArtifact({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                artifact_id: artifact.id,
+              });
+            }
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v5
