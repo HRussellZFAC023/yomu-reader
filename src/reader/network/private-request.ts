@@ -1,4 +1,4 @@
-import { getUserscriptHttpRequest, isUserscriptEventBridgeRequest } from '../userscript';
+import { getUserscriptHttpRequest, isUserscriptEventBridgeRequest, requestViaUserscriptManager } from '../userscript';
 
 /**
  * Direct, raw-response transport for account bearer traffic. It never uses a
@@ -18,10 +18,15 @@ export async function requestPrivateApi(url: string, init: RequestInit = {}): Pr
     });
 }
 
+// No `timeout` is sent: bearer sync deliberately names no budget, and adding one
+// would change what the manager does. The budget it lacked was a LOCAL one — this
+// path always runs on a raw GM call (the bridge is excluded above), and a manager
+// that drops the callback left every account/sync await pending forever. The
+// shared helper's dropped-callback backstop is that local floor.
 function requestViaUserscript(request: UserscriptHttpRequest, url: string, init: RequestInit): Promise<Response> {
-    return new Promise((resolve, reject) => {
-        const headers = new Headers(init.headers);
-        const details: Parameters<UserscriptHttpRequest>[0] = {
+    const headers = new Headers(init.headers);
+    return requestViaUserscriptManager<Response>(request, {
+        details: {
             method: init.method ?? 'GET',
             url,
             headers: Object.fromEntries(headers.entries()),
@@ -29,20 +34,12 @@ function requestViaUserscript(request: UserscriptHttpRequest, url: string, init:
             responseType: 'text',
             anonymous: true,
             withCredentials: false,
-            onload: response => resolve(new Response(
-                String(response.responseText ?? response.response ?? ''),
-                { status: response.status },
-            )),
-            onerror: error => reject(error instanceof Error ? error : new Error('Reader account request failed.')),
-            ontimeout: () => reject(new Error('Reader account request timed out.')),
-        };
-        try {
-            const result = request(details);
-            if (result && typeof (result as Promise<UserscriptHttpResponse>).then === 'function') {
-                (result as Promise<UserscriptHttpResponse>).then(details.onload, details.onerror);
-            }
-        } catch (error) {
-            reject(error);
-        }
+        },
+        readResponse: response => new Response(
+            String(response.responseText ?? response.response ?? ''),
+            { status: response.status },
+        ),
+        onError: error => error instanceof Error ? error : new Error('Reader account request failed.'),
+        onTimeout: () => new Error('Reader account request timed out.'),
     });
 }

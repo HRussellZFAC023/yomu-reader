@@ -2,7 +2,7 @@ import { Logger } from '../app/logger';
 import { configuredProxyFetchUrl, shouldPreferConfiguredProxyForJpdbApi } from '../network/proxy-fetch-rules';
 import { delay } from '../core/async-utils';
 import { isAbortError } from '../core/errors';
-import { getUserscriptHttpRequest } from '../userscript';
+import { getUserscriptHttpRequest, requestViaUserscriptManager } from '../userscript';
 
 const API_BASE = 'https://jpdb.io/api/v1';
 const RATE_LIMIT_BACKOFF_MS = 30_000;
@@ -208,26 +208,29 @@ function postJsonWithUserscriptRequest(
     headers: Record<string, string>,
     data?: string,
 ): Promise<JsonPostResponse> {
-    return new Promise((resolve, reject) => {
-        const handleLoad = (response: UserscriptHttpResponse) => resolve({
-            status: response.status,
-            ok: response.status >= 200 && response.status < 300,
-            text: String(response.responseText ?? response.response ?? ''),
-        });
-        const result = request({
+    // REQUEST_TIMEOUT_MS was only ever handed to the manager. A manager that
+    // drops the callback then left this pending forever, and lookup/parser only
+    // wraps postJson in withTimeout when allowApiTimeoutFallback is set — so page
+    // annotation stalled with no recovery. The helper enforces the same 30 s
+    // locally; the manager still gets its own copy of the field.
+    return requestViaUserscriptManager<JsonPostResponse>(request, {
+        details: {
             method: 'POST',
             url,
             headers,
             data,
             responseType: 'text',
             timeout: REQUEST_TIMEOUT_MS,
-            onload: handleLoad,
-            onerror: reject,
-            ontimeout: () => reject(new Error('JPDB request timed out.')),
-        });
-        if (result && typeof (result as Promise<UserscriptHttpResponse>).then === 'function') {
-            (result as Promise<UserscriptHttpResponse>).then(handleLoad, reject);
-        }
+        },
+        readResponse: response => ({
+            status: response.status,
+            ok: response.status >= 200 && response.status < 300,
+            text: String(response.responseText ?? response.response ?? ''),
+        }),
+        // Matches the old bare `onerror: reject`: the transport error is passed
+        // through untouched so callers keep classifying it as they always did.
+        onError: error => error,
+        onTimeout: () => new Error('JPDB request timed out.'),
     });
 }
 

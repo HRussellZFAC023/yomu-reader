@@ -7,7 +7,7 @@
 // isOcrRequestTimeout) live in the ocr-shared leaf so neither module imports the other.
 import { isAbortError } from '../core/errors';
 import { readBlobAsDataUrl } from '../core/blob-data-url';
-import { getUserscriptHttpRequest } from '../userscript/index';
+import { getUserscriptHttpRequest, requestViaUserscriptManager } from '../userscript/index';
 import { Logger } from '../app/logger';
 import type { ReaderSettings } from '../app/types';
 import {
@@ -369,51 +369,20 @@ function requestViaUserscript<T>(
         log.warnOnce('no-userscript-http-request', 'No userscript HTTP request (GM_xmlhttpRequest / GM.xmlHttpRequest) available — cross-origin OCR/image fetch is blocked. Grant GM.xmlHttpRequest in the userscript manager.');
         return null;
     }
-    return new Promise((resolve, reject) => {
-        let settled = false;
-        let requestHandle: UserscriptHttpRequestHandle | undefined;
-        let timeoutId = 0;
-        const settle = (fn: () => void): void => {
-            if (settled) return;
-            settled = true;
-            if (timeoutId) window.clearTimeout(timeoutId);
-            fn();
-        };
-        const onload = (response: UserscriptHttpResponse): void => {
-            settle(() => {
-                if (isSuccessfulHttpStatus(response.status)) resolve(readResponse(response));
-                else reject(new Error(statusMessage(response.status)));
-            });
-        };
-        const fail = (error: unknown): void => {
-            settle(() => reject(error instanceof Error ? error : new Error(String(error || 'Request failed.'))));
-        };
-        const timeout = Math.max(0, Math.round(options.timeout || 0));
-        if (timeout) {
-            timeoutId = window.setTimeout(() => {
-                try { requestHandle?.abort?.(); } catch { /* ignored */ }
-                fail(new Error(timeoutMessage ?? 'Request timed out.'));
-            }, timeout);
-        }
-        try {
-            const result = userscriptRequest({
-                ...options,
-                onload,
-                onerror: fail,
-                ...(timeoutMessage ? { ontimeout: () => fail(new Error(timeoutMessage)) } : {}),
-            });
-            if (result && typeof (result as Promise<UserscriptHttpResponse>).then === 'function') {
-                // GM4 / the Safari "Userscripts" extension: GM.xmlHttpRequest can RESOLVE a
-                // promise instead of (or as well as) firing onload. Bridge that so a
-                // promise-only manager isn't left hanging until the 30s timeout (which broke
-                // OCR + the BookWalker mirror image fetch on those harnesses).
-                (result as Promise<UserscriptHttpResponse>).then(onload, fail);
-            } else if (result) {
-                requestHandle = result as UserscriptHttpRequestHandle;
-            }
-        } catch (error) {
-            fail(error);
-        }
+    // GM4 / the Safari "Userscripts" extension: GM.xmlHttpRequest can RESOLVE a
+    // promise instead of (or as well as) firing onload, and Violentmonkey's
+    // returns a thenable that ALSO carries abort() — the old local branch only
+    // took the handle when the result was NOT thenable, so the deadline had
+    // nothing to cancel there and the image transfer ran on orphaned. The shared
+    // helper bridges both shapes and takes the handle either way.
+    return requestViaUserscriptManager<T>(userscriptRequest, {
+        details: options,
+        readResponse: response => {
+            if (!isSuccessfulHttpStatus(response.status)) throw new Error(statusMessage(response.status));
+            return readResponse(response);
+        },
+        onError: error => error instanceof Error ? error : new Error(String(error || 'Request failed.')),
+        onTimeout: () => new Error(timeoutMessage ?? 'Request timed out.'),
     });
 }
 

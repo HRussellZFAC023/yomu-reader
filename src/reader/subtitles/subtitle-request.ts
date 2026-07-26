@@ -1,5 +1,5 @@
 import { isYouTubePage } from './subtitle-youtube';
-import { getUserscriptHttpRequest } from '../userscript/index';
+import { getUserscriptHttpRequest, requestViaUserscriptManager } from '../userscript/index';
 
 const SUBTITLE_REQUEST_TIMEOUT_MS = 8000;
 const SUBTITLE_REQUEST_MAX_ATTEMPTS = 2;
@@ -63,23 +63,23 @@ export function subtitleRequestFailureDetails(url: string): Record<string, strin
 function requestSubtitleTextWithUserscript(url: string, pageFetchError?: unknown): Promise<string> {
     const userscriptRequest = getUserscriptHttpRequest();
     if (userscriptRequest) {
-        return new Promise((resolve, reject) => {
-            userscriptRequest({
+        // SUBTITLE_REQUEST_TIMEOUT_MS used to be handed to the manager only, and
+        // the promise-returning managers (GM4 / Safari Userscripts / the hosted
+        // bridge) were not bridged at all — caption loading hung with no retry.
+        // The helper enforces the same 8 s locally and bridges both shapes.
+        return requestViaUserscriptManager<string>(userscriptRequest, {
+            details: {
                 method: 'GET',
                 url,
                 responseType: 'text',
                 timeout: SUBTITLE_REQUEST_TIMEOUT_MS,
-                onload: response => {
-                    try {
-                        assertCompleteSubtitleStatus(response.status);
-                        resolve(String(response.responseText ?? response.response ?? ''));
-                    } catch (error) {
-                        reject(error);
-                    }
-                },
-                onerror: () => reject(new SubtitleRequestError('Subtitle request failed during transport.', true)),
-                ontimeout: () => reject(new SubtitleRequestError('Subtitle request timed out.', true)),
-            });
+            },
+            readResponse: response => {
+                assertCompleteSubtitleStatus(response.status);
+                return String(response.responseText ?? response.response ?? '');
+            },
+            onError: () => new SubtitleRequestError('Subtitle request failed during transport.', true),
+            onTimeout: () => new SubtitleRequestError('Subtitle request timed out.', true),
         });
     }
     if (pageFetchError) return Promise.reject(pageFetchError);

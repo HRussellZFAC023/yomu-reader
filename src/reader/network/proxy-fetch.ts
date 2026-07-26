@@ -60,6 +60,13 @@ export async function fetchWithCorsFallbacks(
     if (!candidates.length) throw new Error(NO_PROXY_TRANSPORT_MESSAGE);
     let lastError: unknown;
     for (const [index, candidate] of candidates.entries()) {
+        // A caller that has already given up must not reach the network at all,
+        // and one that gives up part-way through must not have the remaining
+        // candidates tried on its behalf — this walks several hosts per call, so
+        // an ignored abort turns one cancelled request into a fan of live ones.
+        // Checked outside the try so the abort cannot be swallowed into lastError
+        // and retried as though it were a transport failure.
+        if (options.signal?.aborted) throw abortReasonFor(options.signal);
         try {
             const attempt = fetchAttemptForCandidate(targetUrl, candidate, options);
             const response = await fetchWithTimeout(attempt.url, attempt.options);
@@ -73,6 +80,11 @@ export async function fetchWithCorsFallbacks(
         }
     }
     throw lastError instanceof Error ? lastError : new Error('Cross-origin request failed.');
+}
+
+/** The caller's own reason where it gave one, so `AbortError` handling upstream still matches. */
+function abortReasonFor(signal: AbortSignal): unknown {
+    return signal.reason ?? new DOMException('Aborted', 'AbortError');
 }
 
 function fetchAttemptForCandidate(targetUrl: string, candidate: FetchUrlCandidate, options: ProxyFetchOptions): FetchAttempt {

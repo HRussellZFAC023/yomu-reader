@@ -1,9 +1,4 @@
-import { getUserscriptHttpRequest } from '../userscript/index';
-
-interface UserscriptHttpResponse {
-    status: number;
-    response: unknown;
-}
+import { getUserscriptHttpRequest, requestViaUserscriptManager } from '../userscript/index';
 
 // "request bridge" keeps isAnkiConnectAvailabilityError() matching this, so a
 // bridge-less cross-origin endpoint is treated as a normal unavailable state
@@ -69,31 +64,31 @@ export function isAnkiConnectAvailabilityError(error: unknown): boolean {
     return /timed out|failed to fetch|networkerror|request bridge/i.test(error.message);
 }
 
+// timeoutMs used to reach the manager only, and no abort handle was ever taken.
+// A manager that drops the callback left every AnkiConnect probe pending, so the
+// availability cooldown never armed and the "needs bridge" UI never appeared.
+// The helper enforces the same caller-supplied budget locally and aborts on it.
 function postAnkiJsonWithUserscript<T>(
     userscriptRequest: UserscriptHttpRequest,
     url: string,
     body: string,
     timeoutMs: number,
 ): Promise<T> {
-    return new Promise((resolve, reject) => {
-        const handleLoad = (response: UserscriptHttpResponse) => {
-            if (response.status >= 200 && response.status < 300) resolve(response.response as T);
-            else reject(new Error(`AnkiConnect request failed (${response.status}).`));
-        };
-        const result = userscriptRequest({
+    return requestViaUserscriptManager<T>(userscriptRequest, {
+        details: {
             method: 'POST',
             url,
             headers: { 'Content-Type': 'application/json' },
             data: body,
             responseType: 'json',
             timeout: timeoutMs,
-            onload: handleLoad,
-            onerror: error => reject(error instanceof Error ? error : new Error('AnkiConnect request failed.')),
-            ontimeout: () => reject(new Error('AnkiConnect timed out.')),
-        });
-        if (result && typeof (result as Promise<UserscriptHttpResponse>).then === 'function') {
-            (result as Promise<UserscriptHttpResponse>).then(handleLoad, reject);
-        }
+        },
+        readResponse: response => {
+            if (response.status < 200 || response.status >= 300) throw new Error(`AnkiConnect request failed (${response.status}).`);
+            return response.response as T;
+        },
+        onError: error => error instanceof Error ? error : new Error('AnkiConnect request failed.'),
+        onTimeout: () => new Error('AnkiConnect timed out.'),
     });
 }
 

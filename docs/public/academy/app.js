@@ -2823,7 +2823,7 @@
       signal?.addEventListener("abort", onAbort, { once: true });
       if (signal?.aborted) {
         onAbort();
-        throw abortError$3(signal);
+        throw abortError$2(signal);
       }
       try {
         speechSynthesis.cancel();
@@ -2850,18 +2850,18 @@
     }
   }
   function throwIfAborted(signal) {
-    if (signal?.aborted) throw abortError$3(signal);
+    if (signal?.aborted) throw abortError$2(signal);
   }
-  function abortError$3(signal) {
+  function abortError$2(signal) {
     return signal.reason ?? new DOMException("Playback aborted.", "AbortError");
   }
   function waitForAbort$2(promise, signal) {
     if (!signal) return promise;
-    if (signal.aborted) return Promise.reject(abortError$3(signal));
+    if (signal.aborted) return Promise.reject(abortError$2(signal));
     return new Promise((resolve, reject) => {
       const onAbort = () => {
         signal.removeEventListener("abort", onAbort);
-        reject(abortError$3(signal));
+        reject(abortError$2(signal));
       };
       signal.addEventListener("abort", onAbort, { once: true });
       void promise.then((value) => {
@@ -3239,10 +3239,10 @@
       return this.isCurrent(generation2, signal) ? { status: "miss" } : { status: "superseded" };
     }
     async getCatalog(signal) {
-      if (this.disposed) throw abortError$2(signal);
+      if (this.disposed) throw abortError$1(signal);
       if (this.catalog) return this.catalog;
       const catalog2 = await this.catalogSource(signal);
-      if (this.disposed || signal.aborted) throw abortError$2(signal);
+      if (this.disposed || signal.aborted) throw abortError$1(signal);
       this.catalog = catalog2;
       return catalog2;
     }
@@ -3257,15 +3257,15 @@
       this.catalog = null;
     }
   }
-  function abortError$2(signal) {
+  function abortError$1(signal) {
     return signal.reason ?? new DOMException("Playback aborted.", "AbortError");
   }
   function waitForAbort$1(promise, signal) {
-    if (signal.aborted) return Promise.reject(abortError$2(signal));
+    if (signal.aborted) return Promise.reject(abortError$1(signal));
     return new Promise((resolve, reject) => {
       const onAbort = () => {
         signal.removeEventListener("abort", onAbort);
-        reject(abortError$2(signal));
+        reject(abortError$1(signal));
       };
       signal.addEventListener("abort", onAbort, { once: true });
       void promise.then((value) => {
@@ -3620,15 +3620,15 @@
       }
     }
   }
-  function abortError$1(signal) {
+  function abortError(signal) {
     return signal.reason ?? new DOMException("Playback aborted.", "AbortError");
   }
   function waitForAbort(promise, signal) {
-    if (signal.aborted) return Promise.reject(abortError$1(signal));
+    if (signal.aborted) return Promise.reject(abortError(signal));
     return new Promise((resolve, reject) => {
       const onAbort = () => {
         signal.removeEventListener("abort", onAbort);
-        reject(abortError$1(signal));
+        reject(abortError(signal));
       };
       signal.addEventListener("abort", onAbort, { once: true });
       void promise.then((value) => {
@@ -25433,7 +25433,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function delay(ms) {
     return new Promise((resolve) => window.setTimeout(resolve, ms));
   }
-  function isPromiseLike(value) {
+  function isPromiseLike$1(value) {
     return Boolean(value && typeof value.then === "function");
   }
   function promiseWithTimeout(promise, timeoutMs, message) {
@@ -26308,7 +26308,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function gmStorageSyncRead(key2, getValue) {
     try {
       const value = getValue(key2, MISSING);
-      if (isPromiseLike(value)) return { kind: "fallback" };
+      if (isPromiseLike$1(value)) return { kind: "fallback" };
       if (!isMissingSentinel(value)) return { kind: "found", value };
       return migratedLocalStorageSyncValue(key2);
     } catch (error) {
@@ -26391,7 +26391,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (typeof GM_setValue === "function") {
       try {
         const result2 = GM_setValue(key2, value);
-        if (!isPromiseLike(result2)) {
+        if (!isPromiseLike$1(result2)) {
           mirrorManagedValueToHostedStorage(key2, value);
           return;
         }
@@ -26435,7 +26435,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (typeof GM_deleteValue === "function") {
       try {
         const result2 = GM_deleteValue(key2);
-        if (isPromiseLike(result2)) result2.catch((error) => debugStorageError("GM storage async delete failed", key2, error));
+        if (isPromiseLike$1(result2)) result2.catch((error) => debugStorageError("GM storage async delete failed", key2, error));
       } catch (error) {
         debugStorageError("GM storage sync delete failed", key2, error);
       }
@@ -32288,6 +32288,7 @@ ${spelling}`);
     if (!candidates.length) throw new Error(NO_PROXY_TRANSPORT_MESSAGE);
     let lastError;
     for (const [index, candidate2] of candidates.entries()) {
+      if (options.signal?.aborted) throw abortReasonFor(options.signal);
       try {
         const attempt = fetchAttemptForCandidate(targetUrl, candidate2, options);
         const response = await fetchWithTimeout$2(attempt.url, attempt.options);
@@ -32301,6 +32302,9 @@ ${spelling}`);
       }
     }
     throw lastError instanceof Error ? lastError : new Error("Cross-origin request failed.");
+  }
+  function abortReasonFor(signal) {
+    return signal.reason ?? new DOMException("Aborted", "AbortError");
   }
   function fetchAttemptForCandidate(targetUrl, candidate2, options) {
     if (candidate2.kind === "direct" || !isJpdbPublicAudioUrl(targetUrl) || !isYomuPublicProxyUrl(candidate2.url)) {
@@ -32428,6 +32432,9 @@ ${spelling}`);
   }
   function asUserscriptRequest(value) {
     return typeof value === "function" ? value : void 0;
+  }
+  function isPromiseLike(value) {
+    return Boolean(value) && typeof value.then === "function";
   }
   function directUserscriptGlobals() {
     return {
@@ -32616,6 +32623,94 @@ ${spelling}`);
   }
   function noop() {
   }
+  function requestViaUserscriptManager(request2, config) {
+    return new Promise((resolve, reject) => {
+      const signal = config.signal;
+      if (signal?.aborted) {
+        reject(abortReason(config));
+        return;
+      }
+      let handle;
+      let aborted = false;
+      const tryAbort = () => {
+        if (aborted) return;
+        aborted = true;
+        try {
+          handle?.abort?.();
+        } catch {
+        }
+      };
+      let settled = false;
+      let deadline;
+      const finish = (settle) => {
+        if (settled) return;
+        settled = true;
+        if (deadline !== void 0) clearTimeout(deadline);
+        if (signal) signal.removeEventListener("abort", onAbort);
+        try {
+          settle();
+        } catch (error) {
+          reject(error);
+        }
+      };
+      const handleLoad = (response) => finish(() => {
+        resolve(config.readResponse(response));
+      });
+      const handleError = (error) => finish(() => reject(errorReason(config, error)));
+      const handleTimeout = () => {
+        finish(() => reject(timeoutReason(config)));
+        tryAbort();
+      };
+      const onAbort = () => {
+        finish(() => reject(abortReason(config)));
+        tryAbort();
+      };
+      if (signal) signal.addEventListener("abort", onAbort, { once: true });
+      deadline = setTimeout(handleTimeout, localDeadlineMs(config));
+      const reportProgress = config.details.onprogress;
+      const onprogress = reportProgress === void 0 ? void 0 : (event) => {
+        if (!settled) {
+          if (deadline !== void 0) clearTimeout(deadline);
+          deadline = setTimeout(handleTimeout, localDeadlineMs(config));
+        }
+        reportProgress(event);
+      };
+      try {
+        const result2 = request2({
+          ...config.details,
+          ...onprogress === void 0 ? {} : { onprogress },
+          onload: handleLoad,
+          onerror: handleError,
+          ontimeout: handleTimeout
+        });
+        if (result2 && typeof result2.abort === "function") {
+          handle = result2;
+        }
+        if (isPromiseLike(result2)) result2.then(handleLoad, handleError);
+      } catch (error) {
+        handleError(error);
+      }
+    });
+  }
+  const DROPPED_CALLBACK_DEADLINE_MS = 12e4;
+  function localDeadlineMs(config) {
+    const budget = config.deadlineMs ?? config.details.timeout;
+    return budget && budget > 0 ? budget : DROPPED_CALLBACK_DEADLINE_MS;
+  }
+  function errorReason(config, error) {
+    if (config.onError) return config.onError(error);
+    return error instanceof Error ? error : new Error("Request failed.");
+  }
+  function timeoutReason(config) {
+    return config.onTimeout ? config.onTimeout() : new Error("Request timed out.");
+  }
+  function abortReason(config) {
+    if (config.onAbort) return config.onAbort();
+    if (typeof DOMException === "function") return new DOMException("Aborted", "AbortError");
+    const error = new Error("Aborted");
+    error.name = "AbortError";
+    return error;
+  }
   async function requestHttp(url, options = {}) {
     if (__YOMU_NEWTAB_BUILD__ && !navigator.onLine && !isSameOriginUrl(url)) throw Error("Offline");
     let userscriptRequest = getUserscriptHttpRequest();
@@ -32642,81 +32737,27 @@ ${spelling}`);
     return requestViaFetch(url, browserFetchFallbackOptions(url, options, userscriptRequest), userscriptRequest ?? null);
   }
   function requestViaUserscript$1(url, options, userscriptRequest) {
-    return new Promise((resolve, reject) => {
-      const signal = options.signal;
-      if (signal?.aborted) {
-        reject(abortError());
-        return;
-      }
-      let handle;
-      const tryAbort = () => {
-        try {
-          handle?.abort?.();
-        } catch {
-        }
-      };
-      let settled = false;
-      let deadline;
-      const finish = (settle) => {
-        if (settled) return;
-        settled = true;
-        if (deadline !== void 0) clearTimeout(deadline);
-        if (signal) signal.removeEventListener("abort", onAbort);
-        settle();
-      };
-      const handleLoad = (response) => finish(() => {
-        if (response.status < 200 || response.status >= 300) {
-          reject(new Error(formatStatusFailure(options, response.status)));
-          return;
-        }
-        try {
-          resolve(normalizeUserscriptResponse(response, options.responseType ?? "text"));
-        } catch (error) {
-          reject(error);
-        }
-      });
-      const handleTimeout = () => {
-        tryAbort();
-        finish(() => reject(new Error(options.timeoutLabel ?? `${options.failureLabel ?? "Request"} timed out.`)));
-      };
-      const onAbort = () => {
-        tryAbort();
-        finish(() => reject(abortError()));
-      };
-      if (signal) signal.addEventListener("abort", onAbort, { once: true });
-      deadline = setTimeout(handleTimeout, options.timeoutMs || DROPPED_CALLBACK_DEADLINE_MS);
-      let result2;
-      try {
-        result2 = userscriptRequest({
-          method: options.method ?? "GET",
-          url,
-          headers: recordHeaders(options.headers),
-          data: options.data,
-          responseType: options.responseType,
-          timeout: options.timeoutMs,
-          anonymous: options.anonymous,
-          withCredentials: options.withCredentials,
-          cookie: options.cookie,
-          onload: handleLoad,
-          onerror: (error) => finish(() => reject(error instanceof Error ? error : new Error(formatFailure(options)))),
-          ontimeout: handleTimeout
-        });
-      } catch (error) {
-        finish(() => reject(error instanceof Error ? error : new Error(formatFailure(options))));
-        return;
-      }
-      if (result2 && typeof result2.abort === "function") handle = result2;
-      if (result2 && typeof result2.then === "function") {
-        result2.then(handleLoad, (error) => finish(() => reject(error instanceof Error ? error : new Error(formatFailure(options)))));
-      }
+    return requestViaUserscriptManager(userscriptRequest, {
+      details: {
+        method: options.method ?? "GET",
+        url,
+        headers: recordHeaders(options.headers),
+        data: options.data,
+        responseType: options.responseType,
+        timeout: options.timeoutMs,
+        anonymous: options.anonymous,
+        withCredentials: options.withCredentials,
+        cookie: options.cookie
+      },
+      deadlineMs: options.timeoutMs,
+      signal: options.signal ?? void 0,
+      readResponse: (response) => {
+        if (response.status < 200 || response.status >= 300) throw new Error(formatStatusFailure(options, response.status));
+        return normalizeUserscriptResponse(response, options.responseType ?? "text");
+      },
+      onError: (error) => error instanceof Error ? error : new Error(formatFailure(options)),
+      onTimeout: () => new Error(options.timeoutLabel ?? `${options.failureLabel ?? "Request"} timed out.`)
     });
-  }
-  const DROPPED_CALLBACK_DEADLINE_MS = 12e4;
-  function abortError() {
-    if (typeof DOMException === "function") return new DOMException("Aborted", "AbortError");
-    const error = new Error("Aborted");
-    error.name = "AbortError";
-    return error;
   }
   function normalizeUserscriptResponse(response, responseType) {
     return USERSCRIPT_RESPONSE_NORMALIZERS[responseType]?.(response) ?? userscriptTextResponse(response);
@@ -282004,25 +282045,8 @@ ${item2.sequence ?? ""}`;
     return await requestBlobViaFetch(url, proxyUrl, done, onProgress, language2);
   }
   function requestBlobViaUserscript(url, userscriptRequest, done, onProgress, language2 = "en") {
-    return new Promise((resolve, reject) => {
-      const handleLoad = (response) => {
-        if (response.response instanceof Blob && (response.status === 0 || response.status >= 200 && response.status < 300)) {
-          log$o.info("Dictionary download completed", { host: safeHost(url), status: response.status, size: response.response.size });
-          done();
-          resolve(response.response);
-          return;
-        }
-        if (response.status < 200 || response.status >= 300) {
-          log$o.warn("Dictionary download HTTP error", { host: safeHost(url), status: response.status });
-          done();
-          reject(new Error(formatDictionaryDownloadFailed(language2, response.status)));
-          return;
-        }
-        log$o.warn("Dictionary download payload failed", { host: safeHost(url), status: response.status });
-        done();
-        reject(new Error(uiText(language2, "dictionaryDownloadNotZip")));
-      };
-      const result2 = userscriptRequest({
+    return requestViaUserscriptManager(userscriptRequest, {
+      details: {
         method: "GET",
         url,
         headers: { accept: "application/zip,application/octet-stream,*/*" },
@@ -282032,25 +282056,32 @@ ${item2.sequence ?? ""}`;
           if (event.lengthComputable && event.total > 0) {
             onProgress?.(`${uiText(language2, "dictionaryDownloadProgress")} ${Math.round(event.loaded / event.total * 100)}%...`);
           }
-        },
-        onload: handleLoad,
-        onerror: () => {
-          log$o.warn("Dictionary download failed", { host: safeHost(url) });
-          done();
-          reject(new Error(uiText(language2, "dictionaryDownloadFailed")));
-        },
-        ontimeout: () => {
-          log$o.warn("Dictionary download timed out", { host: safeHost(url) });
-          done();
-          reject(new Error(uiText(language2, "dictionaryDownloadTimedOut")));
         }
-      });
-      if (result2 && typeof result2.then === "function") {
-        result2.then(handleLoad, () => {
-          log$o.warn("Dictionary download failed", { host: safeHost(url) });
+      },
+      readResponse: (response) => {
+        if (response.response instanceof Blob && (response.status === 0 || response.status >= 200 && response.status < 300)) {
+          log$o.info("Dictionary download completed", { host: safeHost(url), status: response.status, size: response.response.size });
           done();
-          reject(new Error(uiText(language2, "dictionaryDownloadFailed")));
-        });
+          return response.response;
+        }
+        if (response.status < 200 || response.status >= 300) {
+          log$o.warn("Dictionary download HTTP error", { host: safeHost(url), status: response.status });
+          done();
+          throw new Error(formatDictionaryDownloadFailed(language2, response.status));
+        }
+        log$o.warn("Dictionary download payload failed", { host: safeHost(url), status: response.status });
+        done();
+        throw new Error(uiText(language2, "dictionaryDownloadNotZip"));
+      },
+      onError: () => {
+        log$o.warn("Dictionary download failed", { host: safeHost(url) });
+        done();
+        return new Error(uiText(language2, "dictionaryDownloadFailed"));
+      },
+      onTimeout: () => {
+        log$o.warn("Dictionary download timed out", { host: safeHost(url) });
+        done();
+        return new Error(uiText(language2, "dictionaryDownloadTimedOut"));
       }
     });
   }
@@ -296761,26 +296792,24 @@ ${component.reading}`;
     return [...new Set(candidates.filter((candidate2) => Boolean(candidate2)))];
   }
   function postJsonWithUserscriptRequest(request2, url, headers, data) {
-    return new Promise((resolve, reject) => {
-      const handleLoad = (response) => resolve({
-        status: response.status,
-        ok: response.status >= 200 && response.status < 300,
-        text: String(response.responseText ?? response.response ?? "")
-      });
-      const result2 = request2({
+    return requestViaUserscriptManager(request2, {
+      details: {
         method: "POST",
         url,
         headers,
         data,
         responseType: "text",
-        timeout: REQUEST_TIMEOUT_MS$4,
-        onload: handleLoad,
-        onerror: reject,
-        ontimeout: () => reject(new Error("JPDB request timed out."))
-      });
-      if (result2 && typeof result2.then === "function") {
-        result2.then(handleLoad, reject);
-      }
+        timeout: REQUEST_TIMEOUT_MS$4
+      },
+      readResponse: (response) => ({
+        status: response.status,
+        ok: response.status >= 200 && response.status < 300,
+        text: String(response.responseText ?? response.response ?? "")
+      }),
+      // Matches the old bare `onerror: reject`: the transport error is passed
+      // through untouched so callers keep classifying it as they always did.
+      onError: (error) => error,
+      onTimeout: () => new Error("JPDB request timed out.")
     });
   }
   function endpointLabel(url) {
@@ -327620,7 +327649,7 @@ ${entry2.url}`),
       const timer = window.setTimeout(() => fail2(new Error("Google Drive settings sync timed out.")), GOOGLE_DRIVE_SYNC_TIMEOUT_MS);
       try {
         const maybePromise = extension.runtime.sendMessage?.(message, finish);
-        if (isPromiseLike(maybePromise)) void maybePromise.then(finish, fail2);
+        if (isPromiseLike$1(maybePromise)) void maybePromise.then(finish, fail2);
       } catch (error) {
         fail2(error);
       }
@@ -330988,31 +331017,23 @@ ${entry2.url}`),
     });
   }
   function requestViaUserscript(request2, url, init) {
-    return new Promise((resolve, reject) => {
-      const headers = new Headers(init.headers);
-      const details = {
+    const headers = new Headers(init.headers);
+    return requestViaUserscriptManager(request2, {
+      details: {
         method: init.method ?? "GET",
         url,
         headers: Object.fromEntries(headers.entries()),
         data: typeof init.body === "string" ? init.body : void 0,
         responseType: "text",
         anonymous: true,
-        withCredentials: false,
-        onload: (response) => resolve(new Response(
-          String(response.responseText ?? response.response ?? ""),
-          { status: response.status }
-        )),
-        onerror: (error) => reject(error instanceof Error ? error : new Error("Reader account request failed.")),
-        ontimeout: () => reject(new Error("Reader account request timed out."))
-      };
-      try {
-        const result2 = request2(details);
-        if (result2 && typeof result2.then === "function") {
-          result2.then(details.onload, details.onerror);
-        }
-      } catch (error) {
-        reject(error);
-      }
+        withCredentials: false
+      },
+      readResponse: (response) => new Response(
+        String(response.responseText ?? response.response ?? ""),
+        { status: response.status }
+      ),
+      onError: (error) => error instanceof Error ? error : new Error("Reader account request failed."),
+      onTimeout: () => new Error("Reader account request timed out.")
     });
   }
   const API_ORIGIN = "https://yomureader.com";

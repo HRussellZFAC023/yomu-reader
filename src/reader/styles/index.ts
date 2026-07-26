@@ -1,5 +1,5 @@
 import { gmStorageGet, gmStorageSet } from '../app/storage';
-import { getUserscriptHttpRequest } from '../userscript/index';
+import { getUserscriptHttpRequest, requestViaUserscriptManager } from '../userscript/index';
 import { withHostCssArmour } from './host-armour';
 
 const READER_CSS_RESOURCE = 'yomuCss';
@@ -174,28 +174,26 @@ async function fetchReaderCssFallbackUrl(url: string, fetcher: typeof fetch): Pr
     return await response.text();
 }
 
+// The 6 s budget used to be the manager's alone: a manager that dropped the
+// callback never rejected, so the fallback walk above never advanced to the next
+// URL and never reached the plain-fetch tier — the reader silently stayed on the
+// critical CSS subset. The helper enforces the same 6 s locally, so each URL in
+// the walk still gets exactly one 6 s attempt before the next one is tried.
 function requestReaderCssViaUserscript(url: string, request: UserscriptHttpRequest): Promise<string> {
-    return new Promise((resolve, reject) => {
-        const handleLoad = (response: UserscriptHttpResponse) => {
-            if (response.status < 200 || response.status >= 300) {
-                reject(new Error(`Reader CSS request failed (${response.status}).`));
-                return;
-            }
-            resolve(String(response.responseText ?? response.response ?? ''));
-        };
-        const result = request({
+    return requestViaUserscriptManager<string>(request, {
+        details: {
             method: 'GET',
             url,
             responseType: 'text',
             timeout: 6000,
             anonymous: true,
-            onload: handleLoad,
-            onerror: error => reject(error instanceof Error ? error : new Error('Reader CSS request failed.')),
-            ontimeout: () => reject(new Error('Reader CSS request timed out.')),
-        });
-        if (result && typeof (result as Promise<UserscriptHttpResponse>).then === 'function') {
-            (result as Promise<UserscriptHttpResponse>).then(handleLoad, error => reject(error instanceof Error ? error : new Error('Reader CSS request failed.')));
-        }
+        },
+        readResponse: response => {
+            if (response.status < 200 || response.status >= 300) throw new Error(`Reader CSS request failed (${response.status}).`);
+            return String(response.responseText ?? response.response ?? '');
+        },
+        onError: error => error instanceof Error ? error : new Error('Reader CSS request failed.'),
+        onTimeout: () => new Error('Reader CSS request timed out.'),
     });
 }
 

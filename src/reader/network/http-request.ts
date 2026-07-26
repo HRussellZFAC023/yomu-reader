@@ -1,7 +1,7 @@
 import { fetchWithCorsFallbacks } from './proxy-fetch';
 import { isKnownDirectCorsTarget, isProxySafeRequest, isSharedPublicProxySafeRequest, YOMU_SHARED_PUBLIC_PROXY_URL } from './proxy-fetch-rules';
 import type { ReaderHttpOptions } from './http-options';
-import { getUserscriptHttpRequest, isUserscriptEventBridgeRequest, probeUserscriptEventBridge } from '../userscript/index';
+import { getUserscriptHttpRequest, isUserscriptEventBridgeRequest, probeUserscriptEventBridge, requestViaUserscriptManager } from '../userscript/index';
 
 export async function requestHttp(url: string, options: ReaderHttpOptions = {}): Promise<unknown> {
     // Offline-first: when the browser is offline, skip the cross-origin attempt and
@@ -46,103 +46,37 @@ export async function requestHttp(url: string, options: ReaderHttpOptions = {}):
     return requestViaFetch(url, browserFetchFallbackOptions(url, options, userscriptRequest), userscriptRequest ?? null);
 }
 
+// The manager's own `timeout` field is only a REQUEST, and some transports drop
+// it entirely — the hosted DOM-event bridge, and managers that predate the
+// field. requestViaUserscriptManager enforces the deadline locally whatever the
+// transport does, keeps settlement single-shot, and tears the timer and abort
+// listener down on every exit path (see ../userscript/manager-request).
 function requestViaUserscript(
     url: string,
     options: ReaderHttpOptions,
     userscriptRequest: UserscriptHttpRequest,
 ): Promise<unknown> {
-    return new Promise((resolve, reject) => {
-        const signal = options.signal;
-        if (signal?.aborted) {
-            reject(abortError());
-            return;
-        }
-        let handle: UserscriptHttpRequestHandle | undefined;
-        const tryAbort = () => { try { handle?.abort?.(); } catch { /* ignore */ } };
-        // The timeout below is only a REQUEST to the userscript manager, and
-        // some transports ignore it entirely — the hosted DOM-event bridge, and
-        // managers that predate the field. A dropped bridge message then never
-        // calls back at all, this promise never settles, and every await above
-        // it hangs forever: the study card sat on "Translating..." until the
-        // page was reloaded. The deadline must be enforced HERE, transport
-        // behaviour notwithstanding, and settlement must be single-shot so a
-        // late manager callback cannot double-settle.
-        let settled = false;
-        let deadline: ReturnType<typeof setTimeout> | undefined;
-        const finish = (settle: () => void) => {
-            if (settled) return;
-            settled = true;
-            if (deadline !== undefined) clearTimeout(deadline);
-            if (signal) signal.removeEventListener('abort', onAbort);
-            settle();
-        };
-        const handleLoad = (response: UserscriptHttpResponse) => finish(() => {
-            if (response.status < 200 || response.status >= 300) {
-                reject(new Error(formatStatusFailure(options, response.status)));
-                return;
-            }
-            try {
-                resolve(normalizeUserscriptResponse(response, options.responseType ?? 'text'));
-            } catch (error) {
-                reject(error);
-            }
-        });
-        const handleTimeout = () => {
-            tryAbort();
-            finish(() => reject(new Error(options.timeoutLabel ?? `${options.failureLabel ?? 'Request'} timed out.`)));
-        };
-        const onAbort = () => {
-            tryAbort();
-            finish(() => reject(abortError()));
-        };
-        if (signal) signal.addEventListener('abort', onAbort, { once: true });
-        deadline = setTimeout(handleTimeout, options.timeoutMs || DROPPED_CALLBACK_DEADLINE_MS);
-        let result: ReturnType<UserscriptHttpRequest>;
-        try {
-            result = userscriptRequest({
-                method: options.method ?? 'GET',
-                url,
-                headers: recordHeaders(options.headers),
-                data: options.data,
-                responseType: options.responseType,
-                timeout: options.timeoutMs,
-                anonymous: options.anonymous,
-                withCredentials: options.withCredentials,
-                cookie: options.cookie,
-                onload: handleLoad,
-                onerror: error => finish(() => reject(error instanceof Error ? error : new Error(formatFailure(options)))),
-                ontimeout: handleTimeout,
-            });
-        } catch (error) {
-            // A manager can refuse synchronously (a host outside @connect, a dead
-            // page-world binding). Settling through finish tears the deadline and
-            // the abort listener down; a bare throw out of the executor would
-            // leave both alive holding this closure until the budget expired.
-            finish(() => reject(error instanceof Error ? error : new Error(formatFailure(options))));
-            return;
-        }
-        // Take the handle whenever one is offered, not only when the result is
-        // handle-shaped: Violentmonkey's GM.xmlHttpRequest returns a thenable that
-        // ALSO carries abort(), and letting the promise branch claim it left the
-        // deadline with nothing to cancel — the transfer kept running and its
-        // bytes were thrown away, which on a slow link stacks up behind retries.
-        if (result && typeof (result as UserscriptHttpRequestHandle).abort === 'function') handle = result as UserscriptHttpRequestHandle;
-        if (result && typeof (result as Promise<UserscriptHttpResponse>).then === 'function') {
-            (result as Promise<UserscriptHttpResponse>).then(handleLoad, error => finish(() => reject(error instanceof Error ? error : new Error(formatFailure(options)))));
-        }
+    return requestViaUserscriptManager<unknown>(userscriptRequest, {
+        details: {
+            method: options.method ?? 'GET',
+            url,
+            headers: recordHeaders(options.headers),
+            data: options.data,
+            responseType: options.responseType,
+            timeout: options.timeoutMs,
+            anonymous: options.anonymous,
+            withCredentials: options.withCredentials,
+            cookie: options.cookie,
+        },
+        deadlineMs: options.timeoutMs,
+        signal: options.signal ?? undefined,
+        readResponse: response => {
+            if (response.status < 200 || response.status >= 300) throw new Error(formatStatusFailure(options, response.status));
+            return normalizeUserscriptResponse(response, options.responseType ?? 'text');
+        },
+        onError: error => error instanceof Error ? error : new Error(formatFailure(options)),
+        onTimeout: () => new Error(options.timeoutLabel ?? `${options.failureLabel ?? 'Request'} timed out.`),
     });
-}
-
-// Callers that name no budget still must not be able to hang the page when the
-// manager drops the callback. This backstop sits far above every real budget in
-// the reader (the widest is 30 s), so it can only ever fire on a dead transport.
-const DROPPED_CALLBACK_DEADLINE_MS = 120_000;
-
-function abortError(): Error {
-    if (typeof DOMException === 'function') return new DOMException('Aborted', 'AbortError');
-    const error = new Error('Aborted');
-    error.name = 'AbortError';
-    return error;
 }
 
 function normalizeUserscriptResponse(response: UserscriptHttpResponse, responseType: NonNullable<ReaderHttpOptions['responseType']>): unknown {

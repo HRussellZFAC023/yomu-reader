@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.8.10
+// @version 1.8.11
 // @author Henry Russell
 // @description Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and a study page.
 // @license MIT
@@ -12,15 +12,15 @@
 // @match *://*/*
 // @match file:///*
 // @require https://yomureader.com/greasyfork/yomu-annotations.6afc05636e17.user.js#sha256=avwFY24XRECpNwROmNw9OHPoz6Hdvs6Vx1bDbcyxQaM=
-// @require https://yomureader.com/greasyfork/yomu-anki.6a90a948dc12.user.js#sha256=apCpSNwS7BVnZfMWht76epbf7khdxtO/eVCTeT7mEjA=
-// @require https://yomureader.com/greasyfork/yomu-audio.9d1b369bc67c.user.js#sha256=nRs2m8Z8y161OYhwSopPZcdvY/8QL4iDj4bD4ma7JJI=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.9306f0711bca.user.js#sha256=kwbwcRvK1quf0Q7xYYLAFTYDy0j0jsUlMm6TmjMP1xo=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.9ab1851ab7a4.user.js#sha256=mrGFGrekKlvFCNU6f03d6E1ScL9b2FZyVjTTf9RQKYc=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.65d6d6f10401.user.js#sha256=ZdbW8QQBVMrQJhInzGsRFz9gbVEF0aHeR02OVJl0Dz4=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.258c62294a0c.user.js#sha256=JYxiKUoMjB42rqI8P44Qi4KwcRDKzCiNz9hFFLLroyQ=
-// @require https://yomureader.com/greasyfork/yomu-bunpro.bfb0398f4fe7.user.js#sha256=v7A5j0/nlAMlRdBqaAV5Bkj+GBGF16PmplH6k0C72gg=
-// @require https://yomureader.com/greasyfork/yomu-wanikani.5e953e15f475.user.js#sha256=XpU+FfR12VNMLuFnMxybSfen6w+VvEJbJbsNWVBdaX8=
-// @require https://yomureader.com/greasyfork/yomu-video.630cc0aa8a63.user.js#sha256=YwzAqopjGFejikgXxBF8WuUakNgVXkUOCyKp6AUChvc=
+// @require https://yomureader.com/greasyfork/yomu-anki.b0d9ad483962.user.js#sha256=sNmtSDlis1IaAlRj2c85lWtjJtV0eBnmSnoXg8YJlaE=
+// @require https://yomureader.com/greasyfork/yomu-audio.ed8b656eeab2.user.js#sha256=7YtlbuqyoRS51/mi8DO97iGRKi4MKtnpnKJMXB+n53U=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.55f2c8659cd4.user.js#sha256=VfLIZZzUhfqtVhU/qTkoeJaGgL4IsuynPgCVl0n6UWU=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.7155f5ce7fcb.user.js#sha256=cVX1zn/LAQ77t/YhMUXw6WQatz19KZIXeP8oB1VWjyY=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.a1279b387e6e.user.js#sha256=oSebOH5uY8C08DYp1oc1IgOjX8ZjPeCxgnJ28YScNT8=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.4b76b8f393ae.user.js#sha256=S3a485OuiTktZPGgOo94l97C4qLENPWoyEeY8K0Hrlk=
+// @require https://yomureader.com/greasyfork/yomu-bunpro.90ac5ff76b29.user.js#sha256=kKxf92sp6wq4wAgoaHgjQ6VMa84eS72AO9UUkw6OEDI=
+// @require https://yomureader.com/greasyfork/yomu-wanikani.7532aaf06f4c.user.js#sha256=dTKq8G9MvBwiHBHveLWZ19yd73nUCsi5apUZl4lVuvA=
+// @require https://yomureader.com/greasyfork/yomu-video.2961b525d660.user.js#sha256=KWG1JdZga4jaheOGoTJR3SvxNqanthWihDQhsaTLJcs=
 // @resource yomuCss  https://yomureader.com/yomu.77a5cdf1a736.css#sha256=d6XN8ac2Ox4sNwYWB8JQRFYAXXK4YjMsUBv5w/nBvao=
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -12927,6 +12927,94 @@ function rememberBridgeRequestId(ids, id) {
 }
 function noop() {
 }
+function requestViaUserscriptManager(request, config) {
+  return new Promise((resolve, reject) => {
+  const signal = config.signal;
+  if (signal?.aborted) {
+    reject(abortReason(config));
+    return;
+  }
+  let handle;
+  let aborted = false;
+  const tryAbort = () => {
+    if (aborted) return;
+    aborted = true;
+    try {
+      handle?.abort?.();
+    } catch {
+    }
+  };
+  let settled = false;
+  let deadline;
+  const finish = (settle) => {
+    if (settled) return;
+    settled = true;
+    if (deadline !== void 0) clearTimeout(deadline);
+    if (signal) signal.removeEventListener("abort", onAbort);
+    try {
+      settle();
+    } catch (error) {
+      reject(error);
+    }
+  };
+  const handleLoad = (response) => finish(() => {
+    resolve(config.readResponse(response));
+  });
+  const handleError = (error) => finish(() => reject(errorReason(config, error)));
+  const handleTimeout = () => {
+    finish(() => reject(timeoutReason(config)));
+    tryAbort();
+  };
+  const onAbort = () => {
+    finish(() => reject(abortReason(config)));
+    tryAbort();
+  };
+  if (signal) signal.addEventListener("abort", onAbort, { once: true });
+  deadline = setTimeout(handleTimeout, localDeadlineMs(config));
+  const reportProgress = config.details.onprogress;
+  const onprogress = reportProgress === void 0 ? void 0 : (event) => {
+    if (!settled) {
+      if (deadline !== void 0) clearTimeout(deadline);
+      deadline = setTimeout(handleTimeout, localDeadlineMs(config));
+    }
+    reportProgress(event);
+  };
+  try {
+    const result = request({
+      ...config.details,
+      ...onprogress === void 0 ? {} : { onprogress },
+      onload: handleLoad,
+      onerror: handleError,
+      ontimeout: handleTimeout
+    });
+    if (result && typeof result.abort === "function") {
+      handle = result;
+    }
+    if (isPromiseLike(result)) result.then(handleLoad, handleError);
+  } catch (error) {
+    handleError(error);
+  }
+  });
+}
+const DROPPED_CALLBACK_DEADLINE_MS = 12e4;
+function localDeadlineMs(config) {
+  const budget = config.deadlineMs ?? config.details.timeout;
+  return budget && budget > 0 ? budget : DROPPED_CALLBACK_DEADLINE_MS;
+}
+function errorReason(config, error) {
+  if (config.onError) return config.onError(error);
+  return error instanceof Error ? error : new Error("Request failed.");
+}
+function timeoutReason(config) {
+  return config.onTimeout ? config.onTimeout() : new Error("Request timed out.");
+}
+function abortReason(config) {
+  if (config.onAbort) return config.onAbort();
+  if (typeof DOMException === "function") return new DOMException("Aborted", "AbortError");
+  const error = new Error("Aborted");
+  error.name = "AbortError";
+  return error;
+}
 const ANKI_NEVER_FORGET_TAG = "yomu-never-forget";
 class AnkiConnectClient {
   constructor(getSettings) {
@@ -16557,6 +16645,7 @@ async function fetchWithCorsFallbacks(targetUrl, configuredProxyUrl = "", option
   if (!candidates.length) throw new Error(NO_PROXY_TRANSPORT_MESSAGE);
   let lastError;
   for (const [index, candidate] of candidates.entries()) {
+  if (options.signal?.aborted) throw abortReasonFor(options.signal);
   try {
     const attempt = fetchAttemptForCandidate(targetUrl, candidate, options);
     const response = await fetchWithTimeout$2(attempt.url, attempt.options);
@@ -16570,6 +16659,9 @@ async function fetchWithCorsFallbacks(targetUrl, configuredProxyUrl = "", option
   }
   }
   throw lastError instanceof Error ? lastError : new Error("Cross-origin request failed.");
+}
+function abortReasonFor(signal) {
+  return signal.reason ?? new DOMException("Aborted", "AbortError");
 }
 function fetchAttemptForCandidate(targetUrl, candidate, options) {
   if (candidate.kind === "direct" || !isJpdbPublicAudioUrl(targetUrl) || !isYomuPublicProxyUrl(candidate.url)) {
@@ -17772,81 +17864,27 @@ async function requestHttp(url, options = {}) {
   return requestViaFetch(url, browserFetchFallbackOptions(url, options, userscriptRequest), userscriptRequest ?? null);
 }
 function requestViaUserscript(url, options, userscriptRequest) {
-  return new Promise((resolve, reject) => {
-  const signal = options.signal;
-  if (signal?.aborted) {
-    reject(abortError());
-    return;
-  }
-  let handle;
-  const tryAbort = () => {
-    try {
-      handle?.abort?.();
-    } catch {
-    }
-  };
-  let settled = false;
-  let deadline;
-  const finish = (settle) => {
-    if (settled) return;
-    settled = true;
-    if (deadline !== void 0) clearTimeout(deadline);
-    if (signal) signal.removeEventListener("abort", onAbort);
-    settle();
-  };
-  const handleLoad = (response) => finish(() => {
-    if (response.status < 200 || response.status >= 300) {
-      reject(new Error(formatStatusFailure(options, response.status)));
-      return;
-    }
-    try {
-      resolve(normalizeUserscriptResponse(response, options.responseType ?? "text"));
-    } catch (error) {
-      reject(error);
-    }
+  return requestViaUserscriptManager(userscriptRequest, {
+  details: {
+    method: options.method ?? "GET",
+    url,
+    headers: recordHeaders(options.headers),
+    data: options.data,
+    responseType: options.responseType,
+    timeout: options.timeoutMs,
+    anonymous: options.anonymous,
+    withCredentials: options.withCredentials,
+    cookie: options.cookie
+  },
+  deadlineMs: options.timeoutMs,
+  signal: options.signal ?? void 0,
+  readResponse: (response) => {
+    if (response.status < 200 || response.status >= 300) throw new Error(formatStatusFailure(options, response.status));
+    return normalizeUserscriptResponse(response, options.responseType ?? "text");
+  },
+  onError: (error) => error instanceof Error ? error : new Error(formatFailure(options)),
+  onTimeout: () => new Error(options.timeoutLabel ?? `${options.failureLabel ?? "Request"} timed out.`)
   });
-  const handleTimeout = () => {
-    tryAbort();
-    finish(() => reject(new Error(options.timeoutLabel ?? `${options.failureLabel ?? "Request"} timed out.`)));
-  };
-  const onAbort = () => {
-    tryAbort();
-    finish(() => reject(abortError()));
-  };
-  if (signal) signal.addEventListener("abort", onAbort, { once: true });
-  deadline = setTimeout(handleTimeout, options.timeoutMs || DROPPED_CALLBACK_DEADLINE_MS);
-  let result;
-  try {
-    result = userscriptRequest({
-      method: options.method ?? "GET",
-      url,
-      headers: recordHeaders(options.headers),
-      data: options.data,
-      responseType: options.responseType,
-      timeout: options.timeoutMs,
-      anonymous: options.anonymous,
-      withCredentials: options.withCredentials,
-      cookie: options.cookie,
-      onload: handleLoad,
-      onerror: (error) => finish(() => reject(error instanceof Error ? error : new Error(formatFailure(options)))),
-      ontimeout: handleTimeout
-    });
-  } catch (error) {
-    finish(() => reject(error instanceof Error ? error : new Error(formatFailure(options))));
-    return;
-  }
-  if (result && typeof result.abort === "function") handle = result;
-  if (result && typeof result.then === "function") {
-    result.then(handleLoad, (error) => finish(() => reject(error instanceof Error ? error : new Error(formatFailure(options)))));
-  }
-  });
-}
-const DROPPED_CALLBACK_DEADLINE_MS = 12e4;
-function abortError() {
-  if (typeof DOMException === "function") return new DOMException("Aborted", "AbortError");
-  const error = new Error("Aborted");
-  error.name = "AbortError";
-  return error;
 }
 function normalizeUserscriptResponse(response, responseType) {
   return USERSCRIPT_RESPONSE_NORMALIZERS[responseType]?.(response) ?? userscriptTextResponse(response);
@@ -26885,26 +26923,22 @@ function jpdbApiFetchCandidates(url, proxyUrl) {
   return [...new Set(candidates.filter((candidate) => Boolean(candidate)))];
 }
 function postJsonWithUserscriptRequest(request, url, headers, data) {
-  return new Promise((resolve, reject) => {
-  const handleLoad = (response) => resolve({
-    status: response.status,
-    ok: response.status >= 200 && response.status < 300,
-    text: String(response.responseText ?? response.response ?? "")
-  });
-  const result = request({
+  return requestViaUserscriptManager(request, {
+  details: {
     method: "POST",
     url,
     headers,
     data,
     responseType: "text",
-    timeout: REQUEST_TIMEOUT_MS$1,
-    onload: handleLoad,
-    onerror: reject,
-    ontimeout: () => reject(new Error("JPDB request timed out."))
-  });
-  if (result && typeof result.then === "function") {
-    result.then(handleLoad, reject);
-  }
+    timeout: REQUEST_TIMEOUT_MS$1
+  },
+  readResponse: (response) => ({
+    status: response.status,
+    ok: response.status >= 200 && response.status < 300,
+    text: String(response.responseText ?? response.response ?? "")
+  }),
+  onError: (error) => error,
+  onTimeout: () => new Error("JPDB request timed out.")
   });
 }
 function endpointLabel(url) {
@@ -33231,8 +33265,8 @@ function collapseWhitespace(value) {
   return value.replace(/\/\*[\s\S]*?\*\//gu, " ").replace(/\s+/gu, " ").trim();
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.10"}`;
-const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.10"}`;
+const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.11"}`;
+const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.11"}`;
 const READER_CSS_CACHE_KEY = "yomu:reader-css-cache:v3";
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
@@ -33331,27 +33365,20 @@ async function fetchReaderCssFallbackUrl(url, fetcher) {
   return await response.text();
 }
 function requestReaderCssViaUserscript(url, request) {
-  return new Promise((resolve, reject) => {
-  const handleLoad = (response) => {
-    if (response.status < 200 || response.status >= 300) {
-      reject(new Error(`Reader CSS request failed (${response.status}).`));
-      return;
-    }
-    resolve(String(response.responseText ?? response.response ?? ""));
-  };
-  const result = request({
+  return requestViaUserscriptManager(request, {
+  details: {
     method: "GET",
     url,
     responseType: "text",
     timeout: 6e3,
-    anonymous: true,
-    onload: handleLoad,
-    onerror: (error) => reject(error instanceof Error ? error : new Error("Reader CSS request failed.")),
-    ontimeout: () => reject(new Error("Reader CSS request timed out."))
-  });
-  if (result && typeof result.then === "function") {
-    result.then(handleLoad, (error) => reject(error instanceof Error ? error : new Error("Reader CSS request failed.")));
-  }
+    anonymous: true
+  },
+  readResponse: (response) => {
+    if (response.status < 200 || response.status >= 300) throw new Error(`Reader CSS request failed (${response.status}).`);
+    return String(response.responseText ?? response.response ?? "");
+  },
+  onError: (error) => error instanceof Error ? error : new Error("Reader CSS request failed."),
+  onTimeout: () => new Error("Reader CSS request timed out.")
   });
 }
 function readerCssNeedsFallback(css = READER_CSS) {
@@ -33382,7 +33409,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.8.10"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.8.11"}`;
   } catch {
   return null;
   }

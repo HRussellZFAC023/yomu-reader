@@ -2,7 +2,7 @@ import { uiText } from '../../app/i18n';
 import { Logger } from '../../app/logger';
 import { fetchWithCorsFallbacks } from '../../network/proxy-fetch';
 import type { InterfaceLanguage } from '../../app/types';
-import { getUserscriptHttpRequest } from '../../userscript/index';
+import { getUserscriptHttpRequest, requestViaUserscriptManager } from '../../userscript/index';
 
 const log = Logger.scope('Yomitan');
 
@@ -72,25 +72,12 @@ function requestBlobViaUserscript(
     onProgress?: (message: string) => void,
     language: InterfaceLanguage = 'en',
 ): Promise<Blob> {
-    return new Promise((resolve, reject) => {
-        const handleLoad = (response: UserscriptHttpResponse) => {
-            if (response.response instanceof Blob && (response.status === 0 || (response.status >= 200 && response.status < 300))) {
-                log.info('Dictionary download completed', { host: safeHost(url), status: response.status, size: response.response.size });
-                done();
-                resolve(response.response);
-                return;
-            }
-            if (response.status < 200 || response.status >= 300) {
-                log.warn('Dictionary download HTTP error', { host: safeHost(url), status: response.status });
-                done();
-                reject(new Error(formatDictionaryDownloadFailed(language, response.status)));
-                return;
-            }
-            log.warn('Dictionary download payload failed', { host: safeHost(url), status: response.status });
-            done();
-            reject(new Error(uiText(language, 'dictionaryDownloadNotZip')));
-        };
-        const result = userscriptRequest({
+    // A dictionary archive legitimately needs the widest budget in the reader, so
+    // the 120 s stays exactly as it was — it is now enforced locally too, because
+    // a manager that drops the callback used to leave the import dialog on its
+    // progress line forever with no error and no way back.
+    return requestViaUserscriptManager<Blob>(userscriptRequest, {
+        details: {
             method: 'GET',
             url,
             headers: { accept: 'application/zip,application/octet-stream,*/*' },
@@ -101,25 +88,32 @@ function requestBlobViaUserscript(
                     onProgress?.(`${uiText(language, 'dictionaryDownloadProgress')} ${Math.round((event.loaded / event.total) * 100)}%...`);
                 }
             },
-            onload: handleLoad,
-            onerror: () => {
-                log.warn('Dictionary download failed', { host: safeHost(url) });
+        },
+        readResponse: response => {
+            if (response.response instanceof Blob && (response.status === 0 || (response.status >= 200 && response.status < 300))) {
+                log.info('Dictionary download completed', { host: safeHost(url), status: response.status, size: response.response.size });
                 done();
-                reject(new Error(uiText(language, 'dictionaryDownloadFailed')));
-            },
-            ontimeout: () => {
-                log.warn('Dictionary download timed out', { host: safeHost(url) });
+                return response.response;
+            }
+            if (response.status < 200 || response.status >= 300) {
+                log.warn('Dictionary download HTTP error', { host: safeHost(url), status: response.status });
                 done();
-                reject(new Error(uiText(language, 'dictionaryDownloadTimedOut')));
-            },
-        });
-        if (result && typeof (result as Promise<UserscriptHttpResponse>).then === 'function') {
-            (result as Promise<UserscriptHttpResponse>).then(handleLoad, () => {
-                log.warn('Dictionary download failed', { host: safeHost(url) });
-                done();
-                reject(new Error(uiText(language, 'dictionaryDownloadFailed')));
-            });
-        }
+                throw new Error(formatDictionaryDownloadFailed(language, response.status));
+            }
+            log.warn('Dictionary download payload failed', { host: safeHost(url), status: response.status });
+            done();
+            throw new Error(uiText(language, 'dictionaryDownloadNotZip'));
+        },
+        onError: () => {
+            log.warn('Dictionary download failed', { host: safeHost(url) });
+            done();
+            return new Error(uiText(language, 'dictionaryDownloadFailed'));
+        },
+        onTimeout: () => {
+            log.warn('Dictionary download timed out', { host: safeHost(url) });
+            done();
+            return new Error(uiText(language, 'dictionaryDownloadTimedOut'));
+        },
     });
 }
 

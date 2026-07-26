@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.8.11] - 2026-07-26
+
+### Fixed
+
+- Parts of Yomu that wait on the network no longer hang indefinitely when the browser's userscript manager drops a reply. Yomu asks the manager to fetch on its behalf and to apply a time limit, but several managers silently ignore that limit, so a reply that never arrived left the request waiting forever with no error anywhere — the settings panel reporting that its companion did not load, a study card stuck on translating, page text recognition latched on a failure it could not clear. Every such request now enforces its own limit and cancels the abandoned transfer instead of leaving it running. A large dictionary download still takes as long as it needs, because its limit counts from the last sign of progress rather than from the start.
+- A cancelled request no longer keeps contacting servers after it was abandoned. A lookup that tries several hosts in turn checked whether the caller had given up only before the first one, so cancelling part-way through still worked through every remaining host.
+
 ## [1.8.10] - 2026-07-26
 
 ### Added
