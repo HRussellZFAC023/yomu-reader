@@ -14095,6 +14095,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
           en: "Build: “I am a student.”",
           ja: "「わたしは学生です」を作ってください。"
         },
+        transferPrompt: {
+          en: "Sophie looks at your card. Tell her who you are without looking at the pattern.",
+          ja: "ソフィーさんがあなたの札を見ています。文の形を見ずに、自分のことを伝えてください。"
+        },
         nearbyExample: {
           japanese: "ソフィーさんは学生です。",
           reading: "そふぃーさんはがくせいです",
@@ -14135,6 +14139,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         prompt: {
           en: "This card calls Rie a student. Correct it for her.",
           ja: "この札では、りえ先生が学生になっています。直してください。"
+        },
+        transferPrompt: {
+          en: "The role card is wrong again. Correct it without looking at the pattern.",
+          ja: "役割の札がまたまちがっています。文の形を見ずに直してください。"
         },
         nearbyExample: {
           japanese: "ソフィーさんは先生じゃありません。",
@@ -14177,6 +14185,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
           en: "Sophie has joined the desk. Ask whether she is a student.",
           ja: "ソフィーさんが机に来ました。学生かどうか聞いてください。"
         },
+        transferPrompt: {
+          en: "The example is covered. Ask Sophie your question again.",
+          ja: "例をかくしました。ソフィーさんに、もう一度質問してください。"
+        },
         nearbyExample: {
           japanese: "りえ先生は先生ですか。",
           reading: "りえせんせいはせんせいですか",
@@ -14217,6 +14229,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         prompt: {
           en: "Name the room you have just entered: Rie’s class.",
           ja: "今入った教室を「りえ先生のクラス」と言ってください。"
+        },
+        transferPrompt: {
+          en: "Rie points to the classroom door. Say whose class it is.",
+          ja: "りえ先生が教室のドアを指しています。だれのクラスか言ってください。"
         },
         nearbyExample: {
           japanese: "日本語のクラスです。",
@@ -14259,6 +14275,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
           en: "You are a student. Say that Sophie is a student too.",
           ja: "あなたは学生です。ソフィーさんも学生だと言ってください。"
         },
+        transferPrompt: {
+          en: "Sophie looks from your card to hers. Say that she is a student too.",
+          ja: "ソフィーさんが二人の札を見ています。ソフィーさんも学生だと言ってください。"
+        },
         nearbyExample: {
           japanese: "わたしは学生です。",
           reading: "わたしはがくせいです",
@@ -14295,14 +14315,14 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       frames
     });
   }
-  function target$1(japanese2, reading, meaning, tokenPairs, correctOrder, bankOrder) {
+  function target$1(japanese2, reading, meaning, tokenPairs, correctOrder, bankOrder2) {
     return {
       japanese: japanese2,
       reading,
       meaning,
       tokens: tokenPairs.map(([id2, tokenJapanese]) => ({ id: id2, japanese: tokenJapanese })),
       correctOrder,
-      bankOrder
+      bankOrder: bankOrder2
     };
   }
   function validateActivity(activity2) {
@@ -43410,17 +43430,21 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function startLessonZeroSentenceFrameSession(definition2, snapshot) {
     validateDefinition$3(definition2);
     if (snapshot !== void 0) {
-      if (frameIdSetIsValid(snapshot.passedFrameIds)) {
-        const expectedPrefix = definition2.frames.slice(0, snapshot.passedFrameIds.length).map((frame2) => frame2.id);
-        if (!sameList$1(snapshot.passedFrameIds, expectedPrefix)) {
+      const normalized2 = {
+        ...structuredClone(snapshot),
+        revealedTransferModelFrameIds: [...snapshot.revealedTransferModelFrameIds ?? []]
+      };
+      if (frameIdSetIsValid(normalized2.passedFrameIds)) {
+        const expectedPrefix = definition2.frames.slice(0, normalized2.passedFrameIds.length).map((frame2) => frame2.id);
+        if (!sameList$1(normalized2.passedFrameIds, expectedPrefix)) {
           throw new TypeError("Sentence-frame snapshot completion is not chronological.");
         }
       }
-      if (!lessonZeroSentenceFrameSessionSnapshotShapeIsValid(snapshot)) {
+      if (!lessonZeroSentenceFrameSessionSnapshotShapeIsValid(normalized2)) {
         throw new TypeError("Invalid Lesson Zero sentence-frame snapshot.");
       }
-      validateSnapshotAgainstDefinition$2(definition2, snapshot);
-      return structuredClone(snapshot);
+      validateSnapshotAgainstDefinition$2(definition2, normalized2);
+      return normalized2;
     }
     return {
       schemaVersion: 1,
@@ -43431,7 +43455,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
       selectedTokenIds: [],
       attempts: [],
       passedFrameIds: [],
-      revealedModelFrameIds: []
+      revealedModelFrameIds: [],
+      revealedTransferModelFrameIds: []
     };
   }
   function transitionLessonZeroSentenceFrameSession(definition2, state, action2, at) {
@@ -43456,35 +43481,62 @@ recommendedJiten	Jiten由来の頻度バッジです。
       return unchanged$1({ ...state, stage: "build", selectedTokenIds: [] });
     }
     if (action2.kind === "select-token") {
-      if (state.stage !== "build" || state.selectedTokenIds.includes(action2.tokenId) || !frame2.target.tokens.some((token) => token.id === action2.tokenId)) return unchanged$1(state);
+      if (!isBuildStage(state.stage) || state.selectedTokenIds.includes(action2.tokenId) || !frame2.target.tokens.some((token) => token.id === action2.tokenId)) return unchanged$1(state);
       return unchanged$1({ ...state, selectedTokenIds: [...state.selectedTokenIds, action2.tokenId] });
     }
     if (action2.kind === "remove-token") {
-      if (state.stage !== "build") return unchanged$1(state);
+      if (!isBuildStage(state.stage)) return unchanged$1(state);
       return unchanged$1({
         ...state,
         selectedTokenIds: state.selectedTokenIds.filter((id2) => id2 !== action2.tokenId)
       });
     }
     if (action2.kind === "clear-tokens") {
-      if (state.stage !== "build" || state.selectedTokenIds.length === 0) return unchanged$1(state);
+      if (!isBuildStage(state.stage) || state.selectedTokenIds.length === 0) return unchanged$1(state);
       return unchanged$1({ ...state, selectedTokenIds: [] });
     }
-    if (action2.kind === "check") return checkFrame(definition2, state, frame2, at);
+    if (action2.kind === "check") {
+      return checkFrame(definition2, state, frame2, at, state.stage === "transfer-build" ? "transfer" : "practice");
+    }
     if (action2.kind === "reveal-model") return revealModel$1(definition2, state, frame2, at);
     if (action2.kind === "retry") {
-      const last = lastFrameAttempt(state, frame2.id);
-      if (state.stage !== "result" || last?.outcome !== "lapse") return unchanged$1(state);
-      return unchanged$1({ ...state, stage: "build", selectedTokenIds: [] });
+      const phase = phaseForResultStage(state.stage);
+      const last = phase ? lastFrameAttempt(state, frame2.id, phase) : void 0;
+      if (!phase || last?.outcome !== "lapse") return unchanged$1(state);
+      return unchanged$1({
+        ...state,
+        stage: phase === "transfer" ? "transfer-build" : "build",
+        selectedTokenIds: []
+      });
     }
     if (action2.kind === "next-frame") {
-      const last = lastFrameAttempt(state, frame2.id);
+      const last = lastFrameAttempt(state, frame2.id, "practice");
       if (state.stage !== "result" || last?.outcome !== "pass" || state.cursor >= definition2.frames.length - 1) {
         return unchanged$1(state);
       }
       return unchanged$1({
         ...state,
         stage: "teach",
+        cursor: state.cursor + 1,
+        selectedTokenIds: []
+      });
+    }
+    if (action2.kind === "begin-transfer") {
+      const last = lastFrameAttempt(state, frame2.id, "practice");
+      if (state.stage !== "result" || state.cursor !== definition2.frames.length - 1 || state.passedFrameIds.length !== definition2.frames.length || last?.outcome !== "pass") return unchanged$1(state);
+      return unchanged$1({
+        ...state,
+        stage: "transfer-build",
+        cursor: 0,
+        selectedTokenIds: []
+      });
+    }
+    if (action2.kind === "next-transfer") {
+      const last = lastFrameAttempt(state, frame2.id, "transfer");
+      if (state.stage !== "transfer-result" || last?.outcome !== "pass" || state.cursor >= definition2.frames.length - 1) return unchanged$1(state);
+      return unchanged$1({
+        ...state,
+        stage: "transfer-build",
         cursor: state.cursor + 1,
         selectedTokenIds: []
       });
@@ -43497,33 +43549,43 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const selected2 = candidate2.selectedTokenIds;
     const passed = candidate2.passedFrameIds;
     const revealed = candidate2.revealedModelFrameIds;
+    const revealedTransfer = candidate2.revealedTransferModelFrameIds ?? [];
     const attempts = candidate2.attempts;
-    if (candidate2.schemaVersion !== 1 || candidate2.sessionId !== "session:lesson-zero-sentence-frames" || !["ready", "active", "paused", "complete"].includes(candidate2.status ?? "") || !["teach", "build", "result", "complete"].includes(candidate2.stage ?? "") || !Number.isInteger(candidate2.cursor) || (candidate2.cursor ?? -1) < 0 || (candidate2.cursor ?? Number.MAX_SAFE_INTEGER) >= LESSON_ZERO_SENTENCE_FRAME_IDS.length || !stringSetIsValid(selected2) || !frameIdSetIsValid(passed) || !frameIdSetIsValid(revealed) || !Array.isArray(attempts) || !attempts.every(attemptShapeIsValid$1)) return false;
+    if (candidate2.schemaVersion !== 1 || candidate2.sessionId !== "session:lesson-zero-sentence-frames" || !["ready", "active", "paused", "complete"].includes(candidate2.status ?? "") || !["teach", "build", "result", "transfer-build", "transfer-result", "complete"].includes(candidate2.stage ?? "") || !Number.isInteger(candidate2.cursor) || (candidate2.cursor ?? -1) < 0 || (candidate2.cursor ?? Number.MAX_SAFE_INTEGER) >= LESSON_ZERO_SENTENCE_FRAME_IDS.length || !stringSetIsValid(selected2) || !frameIdSetIsValid(passed) || !frameIdSetIsValid(revealed) || !frameIdSetIsValid(revealedTransfer) || !Array.isArray(attempts) || !attempts.every(attemptShapeIsValid$1)) return false;
     const passedPrefix = LESSON_ZERO_SENTENCE_FRAME_IDS.slice(0, passed?.length);
     if (!passed?.every((frameId, index) => passedPrefix[index] === frameId)) return false;
-    if (attempts.some((attempt) => LESSON_ZERO_SENTENCE_FRAME_IDS.indexOf(attempt.frameId) > candidate2.cursor)) {
+    if (passed.some((frameId) => !attempts.some((attempt) => attempt.frameId === frameId && phaseOf(attempt) === "practice" && attempt.outcome === "pass"))) {
       return false;
     }
-    if (passed.some((frameId) => !attempts.some((attempt) => attempt.frameId === frameId && attempt.outcome === "pass"))) {
-      return false;
-    }
+    const transferPasses = passedTransferFrameIds(attempts);
+    const transferPrefix = LESSON_ZERO_SENTENCE_FRAME_IDS.slice(0, transferPasses.length);
+    if (!sameList$1(transferPasses, transferPrefix)) return false;
+    const legacyComplete = attempts.length > 0 && attempts.every((attempt) => attempt.phase === void 0);
     if (candidate2.status === "complete") {
-      return candidate2.stage === "complete" && candidate2.cursor === LESSON_ZERO_SENTENCE_FRAME_IDS.length - 1 && passed.length === LESSON_ZERO_SENTENCE_FRAME_IDS.length;
+      return candidate2.stage === "complete" && candidate2.cursor === LESSON_ZERO_SENTENCE_FRAME_IDS.length - 1 && passed.length === LESSON_ZERO_SENTENCE_FRAME_IDS.length && (legacyComplete || transferPasses.length === LESSON_ZERO_SENTENCE_FRAME_IDS.length);
     }
     if (candidate2.stage === "complete") return false;
     if (candidate2.status === "ready") {
       return candidate2.stage === "teach" && candidate2.cursor === 0 && selected2?.length === 0 && attempts.length === 0 && passed?.length === 0 && revealed?.length === 0;
     }
+    if (candidate2.stage === "transfer-build" || candidate2.stage === "transfer-result") {
+      if (passed.length !== LESSON_ZERO_SENTENCE_FRAME_IDS.length || transferPasses.length < candidate2.cursor || transferPasses.length > candidate2.cursor + 1) return false;
+      if (candidate2.stage === "transfer-build") return transferPasses.length === candidate2.cursor;
+      const currentFrameId2 = LESSON_ZERO_SENTENCE_FRAME_IDS[candidate2.cursor];
+      return attempts.some((attempt) => attempt.frameId === currentFrameId2 && phaseOf(attempt) === "transfer");
+    }
+    if (attempts.some((attempt) => phaseOf(attempt) === "practice" && LESSON_ZERO_SENTENCE_FRAME_IDS.indexOf(attempt.frameId) > candidate2.cursor)) return false;
     if (passed.length < candidate2.cursor || passed.length > candidate2.cursor + 1) return false;
     if (candidate2.stage === "teach" || candidate2.stage === "build") {
       return passed.length === candidate2.cursor;
     }
     const currentFrameId = LESSON_ZERO_SENTENCE_FRAME_IDS[candidate2.cursor];
-    if (candidate2.stage === "result" && !attempts.some((attempt) => attempt.frameId === currentFrameId)) return false;
+    if (candidate2.stage === "result" && !attempts.some((attempt) => attempt.frameId === currentFrameId && phaseOf(attempt) === "practice")) return false;
     return true;
   }
-  function checkFrame(definition2, state, frame2, at) {
-    if (state.stage !== "build" || state.selectedTokenIds.length !== frame2.target.tokens.length) {
+  function checkFrame(definition2, state, frame2, at, phase) {
+    const expectedStage = phase === "transfer" ? "transfer-build" : "build";
+    if (state.stage !== expectedStage || state.selectedTokenIds.length !== frame2.target.tokens.length) {
       return unchanged$1(state);
     }
     const correctPositions = state.selectedTokenIds.filter((id2, index) => frame2.target.correctOrder[index] === id2).length;
@@ -43531,33 +43593,35 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const outcome = score === 1 ? "pass" : "lapse";
     const attempt = {
       frameId: frame2.id,
+      phase,
       order: [...state.selectedTokenIds],
       outcome,
       score,
       at
     };
-    const repairing = outcome === "lapse" || state.attempts.some((candidate2) => candidate2.frameId === frame2.id && candidate2.outcome === "lapse");
-    const passedFrameIds = outcome === "pass" ? unique$a([...state.passedFrameIds, frame2.id]) : state.passedFrameIds;
-    const finalPass = outcome === "pass" && passedFrameIds.length === definition2.frames.length;
-    const attemptNumber = state.attempts.filter((candidate2) => candidate2.frameId === frame2.id).length + 1;
-    const eventStem = `${definition2.id}:${frame2.id}:attempt:${attemptNumber}:${at}`;
+    const repairing = outcome === "lapse" || state.attempts.some((candidate2) => candidate2.frameId === frame2.id && phaseOf(candidate2) === phase && candidate2.outcome === "lapse");
+    const passedFrameIds = phase === "practice" && outcome === "pass" ? unique$a([...state.passedFrameIds, frame2.id]) : state.passedFrameIds;
+    const transferPasses = phase === "transfer" && outcome === "pass" ? unique$a([...passedTransferFrameIds(state.attempts), frame2.id]) : passedTransferFrameIds(state.attempts);
+    const finalPass = phase === "transfer" && outcome === "pass" && transferPasses.length === definition2.frames.length;
+    const attemptNumber = state.attempts.filter((candidate2) => candidate2.frameId === frame2.id && phaseOf(candidate2) === phase).length + 1;
+    const eventStem = `${definition2.id}:${frame2.id}:${phase}:attempt:${attemptNumber}:${at}`;
     const nextState = {
       ...state,
       status: finalPass ? "complete" : "active",
-      stage: finalPass ? "complete" : "result",
+      stage: finalPass ? "complete" : phase === "transfer" ? "transfer-result" : "result",
       attempts: [...state.attempts, attempt],
       passedFrameIds
     };
     return {
       state: nextState,
-      evaluation: evaluationFor$1(frame2, attempt, repairing, eventStem),
+      evaluation: evaluationFor$1(frame2, attempt, phase, repairing, eventStem),
       ...finalPass ? { completionEvaluation: completionEvaluation(definition2, at) } : {},
       adaptive: {
         eventId: `${eventStem}:learning`,
         at,
         modeId: "lesson-zero-sentence-frames",
         skill: "writing",
-        action: repairing ? "repair" : "produce",
+        action: repairing ? "repair" : phase === "transfer" ? "transfer" : "produce",
         sourceId: definition2.activityId,
         independent: !repairing
       },
@@ -43565,13 +43629,15 @@ recommendedJiten	Jiten由来の頻度バッジです。
     };
   }
   function revealModel$1(definition2, state, frame2, at) {
-    const last = lastFrameAttempt(state, frame2.id);
-    if (state.stage !== "result" || last?.outcome !== "lapse" || state.revealedModelFrameIds.includes(frame2.id)) return unchanged$1(state);
-    const eventStem = `${definition2.id}:${frame2.id}:support:${at}`;
+    const phase = phaseForResultStage(state.stage);
+    const last = phase ? lastFrameAttempt(state, frame2.id, phase) : void 0;
+    const revealed = phase === "transfer" ? state.revealedTransferModelFrameIds ?? [] : state.revealedModelFrameIds;
+    if (!phase || last?.outcome !== "lapse" || revealed.includes(frame2.id)) return unchanged$1(state);
+    const eventStem = `${definition2.id}:${frame2.id}:${phase}:support:${at}`;
     return {
       state: {
         ...state,
-        revealedModelFrameIds: [...state.revealedModelFrameIds, frame2.id]
+        ...phase === "transfer" ? { revealedTransferModelFrameIds: [...revealed, frame2.id] } : { revealedModelFrameIds: [...revealed, frame2.id] }
       },
       supportEvents: [
         supportEvent$1(frame2.activityId, "transcript", `${eventStem}:transcript`, at),
@@ -43580,9 +43646,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
       ]
     };
   }
-  function evaluationFor$1(frame2, attempt, repairing, eventId) {
-    const errorTags = attempt.outcome === "pass" ? [] : [`sentence-frame-order:${frame2.id}`];
-    const reviewSeeds2 = attempt.outcome === "pass" ? [{
+  function evaluationFor$1(frame2, attempt, phase, repairing, eventId) {
+    const errorTags = attempt.outcome === "pass" ? [] : [`sentence-frame-${phase}-order:${frame2.id}`];
+    const reviewSeeds2 = phase === "practice" && attempt.outcome === "pass" ? [{
       id: `review:lesson-zero:sentence-frame:${frame2.id}`,
       conceptId: frame2.conceptId,
       reason: repairing ? "repair" : "new-learning",
@@ -43600,7 +43666,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         at: attempt.at,
         activityId: frame2.activityId,
         conceptIds: [frame2.conceptId],
-        responseKind: "tapped-token-order",
+        responseKind: phase === "transfer" ? "tapped-token-order-transfer" : "tapped-token-order",
         outcome: attempt.outcome,
         score: attempt.score,
         ...errorTags.length ? { errorTags } : {}
@@ -43611,8 +43677,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
         errorTags,
         feedback: attempt.outcome === "pass" ? {
           explanation: {
-            en: "The words are carrying the meaning you chose.",
-            ja: "選んだ意味が、その語順で伝わっています。"
+            en: phase === "transfer" ? "You recalled the whole sentence without looking at the pattern." : "The words are carrying the meaning you chose.",
+            ja: phase === "transfer" ? "文の形を見ずに、文を思い出せました。" : "選んだ意味が、その語順で伝わっています。"
           }
         } : {
           explanation: {
@@ -43620,8 +43686,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
             ja: "必要なことばはそろっていますが、役割の順番が入れ替わっています。"
           },
           repairPrompt: {
-            en: `Look at the ${frame2.pattern} rail and rebuild the same thought.`,
-            ja: `「${frame2.pattern}」の形を見て、同じ意味をもう一度作りましょう。`
+            en: phase === "transfer" ? "Replay the sentence in your head, then rebuild it once more." : `Use this pattern again: ${frame2.pattern}.`,
+            ja: phase === "transfer" ? "文を頭の中で聞いてから、もう一度作りましょう。" : `「${frame2.pattern}」の形を見て、同じ意味をもう一度作りましょう。`
           },
           nearbyExample: frame2.nearbyExample.meaning
         }
@@ -43647,8 +43713,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
         errorTags: [],
         feedback: {
           explanation: {
-            en: "Five sentence shapes are ready for the rest of the day.",
-            ja: "今日これから使う五つの文の形がそろいました。"
+            en: "You built all five sentences, then recalled them without looking at the patterns.",
+            ja: "五つの文を作り、文の形を見ずにもう一度思い出せました。"
           }
         }
       },
@@ -43661,7 +43727,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     definition2.frames.forEach((frame2) => {
       const tokenIds = frame2.target.tokens.map((token) => token.id);
-      if (frame2.activityId !== `${definition2.activityId}:${frame2.id}` || !frame2.pattern.trim() || tokenIds.length < 3 || new Set(tokenIds).size !== tokenIds.length || frame2.target.tokens.some((token) => !token.id.trim() || !token.japanese.trim()) || !sameSet(frame2.target.correctOrder, tokenIds) || !sameSet(frame2.target.bankOrder, tokenIds) || assembled(frame2, frame2.target.correctOrder) !== frame2.target.japanese || frame2.nearbyExample.japanese === frame2.target.japanese) {
+      if (frame2.activityId !== `${definition2.activityId}:${frame2.id}` || !frame2.pattern.trim() || tokenIds.length < 3 || new Set(tokenIds).size !== tokenIds.length || frame2.target.tokens.some((token) => !token.id.trim() || !token.japanese.trim()) || !sameSet(frame2.target.correctOrder, tokenIds) || !sameSet(frame2.target.bankOrder, tokenIds) || assembled(frame2, frame2.target.correctOrder) !== frame2.target.japanese || !frame2.transferPrompt.en.trim() || !frame2.transferPrompt.ja.trim() || frame2.nearbyExample.japanese === frame2.target.japanese) {
         throw new TypeError(`Invalid Lesson Zero sentence frame ${frame2.id}.`);
       }
     });
@@ -43678,6 +43744,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
         throw new TypeError("Sentence-frame snapshot contains an impossible attempt.");
       }
     }
+    if (snapshot.attempts.some((attempt) => phaseOf(attempt) === "transfer") && snapshot.passedFrameIds.length !== definition2.frames.length) {
+      throw new TypeError("Sentence-frame transfer began before guided practice was complete.");
+    }
     const expectedPrefix = definition2.frames.slice(0, snapshot.passedFrameIds.length).map((candidate2) => candidate2.id);
     if (!sameList$1(snapshot.passedFrameIds, expectedPrefix)) {
       throw new TypeError("Sentence-frame snapshot completion is not chronological.");
@@ -43686,13 +43755,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function assembled(frame2, order2) {
     return order2.map((id2) => frame2.target.tokens.find((token) => token.id === id2)?.japanese ?? "").join("");
   }
-  function lastFrameAttempt(state, frameId) {
-    return [...state.attempts].reverse().find((attempt) => attempt.frameId === frameId);
+  function lastFrameAttempt(state, frameId, phase) {
+    return [...state.attempts].reverse().find((attempt) => attempt.frameId === frameId && phaseOf(attempt) === phase);
   }
   function attemptShapeIsValid$1(value) {
     if (!value || typeof value !== "object") return false;
     const candidate2 = value;
-    return isFrameId(candidate2.frameId) && Array.isArray(candidate2.order) && candidate2.order.every((item2) => typeof item2 === "string" && Boolean(item2)) && new Set(candidate2.order).size === candidate2.order.length && (candidate2.outcome === "pass" || candidate2.outcome === "lapse") && typeof candidate2.score === "number" && Number.isFinite(candidate2.score) && candidate2.score >= 0 && candidate2.score <= 1 && typeof candidate2.at === "number" && Number.isFinite(candidate2.at);
+    return isFrameId(candidate2.frameId) && Array.isArray(candidate2.order) && candidate2.order.every((item2) => typeof item2 === "string" && Boolean(item2)) && new Set(candidate2.order).size === candidate2.order.length && (candidate2.phase === void 0 || candidate2.phase === "practice" || candidate2.phase === "transfer") && (candidate2.outcome === "pass" || candidate2.outcome === "lapse") && typeof candidate2.score === "number" && Number.isFinite(candidate2.score) && candidate2.score >= 0 && candidate2.score <= 1 && typeof candidate2.at === "number" && Number.isFinite(candidate2.at);
   }
   function supportEvent$1(activityId, supportKind, eventId, at) {
     return { kind: "support-used", eventId, at, activityId, supportKind };
@@ -43714,6 +43783,20 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function unique$a(values) {
     return [...new Set(values)];
+  }
+  function phaseOf(attempt) {
+    return attempt.phase ?? "practice";
+  }
+  function phaseForResultStage(stage2) {
+    if (stage2 === "result") return "practice";
+    if (stage2 === "transfer-result") return "transfer";
+    return void 0;
+  }
+  function isBuildStage(stage2) {
+    return stage2 === "build" || stage2 === "transfer-build";
+  }
+  function passedTransferFrameIds(attempts) {
+    return LESSON_ZERO_SENTENCE_FRAME_IDS.filter((frameId) => attempts.some((attempt) => attempt.frameId === frameId && phaseOf(attempt) === "transfer" && attempt.outcome === "pass"));
   }
   function unchanged$1(state) {
     return { state, supportEvents: [] };
@@ -44472,6 +44555,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     "activity:lesson-zero-follow-instructions",
     "activity:lesson-zero-reconstruct-repair",
     "activity:lesson-zero-desk-language",
+    "activity:lesson-zero-build-sentence-frames",
     "activity:lesson-zero-sound-input",
     "activity:lesson-zero-text-input",
     "activity:lesson-zero-speaking-input",
@@ -44647,7 +44731,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     `Attempt, support, and completion evidence persist for ${activityId}.`,
     `The story handoff, direct resume, repair, and return path are proved for ${activityId}.`,
     [],
-    DAY_ONE_VERIFIED_ACTIVITY_IDS.has(activityId) ? VERIFIED_DELIVERY : activityId === "activity:lesson-zero-greet-rie" ? VERIFIED_DELIVERY : activityId === "activity:lesson-zero-vowel-doodle" || activityId === "activity:lesson-zero-follow-instructions" || activityId === "activity:lesson-zero-reconstruct-repair" || activityId === "activity:lesson-zero-build-sentence-frames" || activityId === "activity:lesson-zero-name-card-draft" ? VERIFIED_STANDALONE_ACTIVITY_DELIVERY : UNVERIFIED_DELIVERY
+    DAY_ONE_VERIFIED_ACTIVITY_IDS.has(activityId) ? VERIFIED_DELIVERY : activityId === "activity:lesson-zero-greet-rie" ? VERIFIED_DELIVERY : activityId === "activity:lesson-zero-vowel-doodle" || activityId === "activity:lesson-zero-follow-instructions" || activityId === "activity:lesson-zero-reconstruct-repair" || activityId === "activity:lesson-zero-name-card-draft" ? VERIFIED_STANDALONE_ACTIVITY_DELIVERY : UNVERIFIED_DELIVERY
   ));
   [
     entry$P(
@@ -265344,17 +265428,17 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   const COPY$3 = {
     eyebrow: { en: "First sentences", ja: "はじめての文" },
-    title: { en: "Build five useful sentences", ja: "使える文を五つ作ろう" },
+    title: { en: "Your first five sentences", ja: "最初の五つの文" },
     readyProgress: { en: "Five sentences", ja: "五つの文" },
     welcome: {
-      en: "First say you are a student. Then correct one mistake, ask Sophie a question, and connect two nouns.",
-      ja: "まず、「学生です」と言います。次に、まちがいを直し、ソフィーさんに質問し、二つの名詞をつなぎます。"
+      en: "I’ve put five sentence starters on the desk. We’ll use them to introduce you, fix a mix-up, ask Sophie a question, and talk about this class.",
+      ja: "机に、五つの文の始まりを置きました。自己紹介をして、まちがいを直し、ソフィーさんに質問して、このクラスについて話します。"
     },
     welcomeReason: {
-      en: "We will use these again today. Build each meaning first; I will explain the grammar as we go.",
-      ja: "今日、もう一度使います。まず意味を作りましょう。文法は、そのつど説明します。"
+      en: "I’ll show you one pattern at a time. After all five, I’ll cover the patterns and you’ll try them once more.",
+      ja: "文の形を一つずつ見せます。五つ作ったら、形をかくして、もう一度使います。"
     },
-    begin: { en: "Make the first sentence", ja: "最初の文を作る" },
+    begin: { en: "Start with “I am…”", ja: "「わたしは…」から始める" },
     pattern: { en: "Sentence pattern", ja: "文の形" },
     example: { en: "Example", ja: "例" },
     hearExample: { en: "Hear the example", ja: "例を聞く" },
@@ -265367,19 +265451,31 @@ recommendedJiten	Jiten由来の頻度バッジです。
     check: { en: "Check the sentence", ja: "文を確かめる" },
     repairTitle: { en: "A word is out of place", ja: "ことばの場所がちがいます" },
     repairBody: {
-      en: "Use the pattern above and put the words in the same order.",
-      ja: "上の形を見て、ことばを同じ順番に並べましょう。"
+      en: "Look at the pattern again, then put the words in that order.",
+      ja: "もう一度、文の形を見て、その順番にことばを並べましょう。"
+    },
+    transferRepairBody: {
+      en: "Listen to the sentence in your head. If you need it, uncover Rie’s model, then rebuild it.",
+      ja: "頭の中で文を聞いてみましょう。必要なら、りえ先生のお手本を見て、もう一度作りましょう。"
     },
     showModel: { en: "Show the answer", ja: "答えを見る" },
     modelLabel: { en: "Model sentence", ja: "お手本の文" },
     retry: { en: "Rebuild the sentence", ja: "文をもう一度作る" },
     next: { en: "Use the next shape", ja: "次の形を使う" },
-    completeTitle: { en: "The room answered", ja: "教室から返事が来ました" },
-    completeBody: {
-      en: "You said you are a student, corrected Rie’s card, asked Sophie a question, and described the class. All five sentences are now ready for review.",
-      ja: "学生だと伝え、りえ先生の札を直し、ソフィーさんに質問し、クラスについて話しました。五つの文は、復習に入りました。"
+    beginTransfer: { en: "Try all five without the patterns", ja: "文の形を見ずに五つ使う" },
+    transferEyebrow: { en: "From memory", ja: "思い出して" },
+    transferNote: {
+      en: "The pattern is covered now. Rebuild the sentence from the conversation.",
+      ja: "文の形をかくしました。会話を思い出して、文を作ってください。"
     },
-    memories: { en: "Five lines are waiting in review", ja: "五つの文が復習に入りました" },
+    transferPass: { en: "Good. One more is ready.", ja: "いいですね。次もいきましょう。" },
+    nextTransfer: { en: "Recall the next sentence", ja: "次の文を思い出す" },
+    completeTitle: { en: "You joined the conversation", ja: "会話に入れました" },
+    completeBody: {
+      en: "You introduced yourself, fixed a mix-up, asked Sophie a question, and described the class. Those five lines are now in review.",
+      ja: "自己紹介をして、まちがいを直し、ソフィーさんに質問して、クラスについて話しました。五つの文は復習に入りました。"
+    },
+    memories: { en: "Five lines are now in review", ja: "五つの文が復習に入りました" },
     continue: { en: "Continue your day", ja: "今日の続きを始める" },
     again: { en: "Build the five lines again", ja: "五つの文をもう一度作る" },
     saveError: { en: "That turn did not save. Please try once more.", ja: "保存できませんでした。もう一度お試しください。" },
@@ -265412,7 +265508,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     progress2.setAttribute("role", "status");
     progress2.setAttribute("aria-live", "polite");
     header.append(back, heading, progress2);
-    const body = element("main", "academy-sentence-frame-body");
+    const body = element("div", "academy-sentence-frame-body");
     const live = element("p", "academy-sentence-frame-live");
     live.setAttribute("role", "status");
     live.setAttribute("aria-live", "polite");
@@ -265426,14 +265522,19 @@ recommendedJiten	Jiten由来の頻度バッジです。
       live.textContent = "";
       screen.dataset.sessionStatus = state.status;
       screen.dataset.sessionStage = state.stage;
+      screen.dataset.sessionPhase = isTransferStage(state.stage) ? "transfer" : "practice";
       screen.dataset.frameId = currentFrame().id;
-      screen.dataset.frameProgress = `${state.passedFrameIds.length}/${options.definition.frames.length}`;
+      const completed = isTransferStage(state.stage) ? options.definition.frames.filter((frame2) => state.attempts.some((attempt) => attempt.frameId === frame2.id && attempt.phase === "transfer" && attempt.outcome === "pass")).length : state.passedFrameIds.length;
+      screen.dataset.frameProgress = `${completed}/${options.definition.frames.length}`;
       progress2.textContent = progressText();
       if (state.status === "ready") renderWelcome(signal);
       else if (state.status === "complete") renderComplete(signal);
       else if (state.stage === "teach") renderTeach(signal);
-      else if (state.stage === "build") renderBuild(signal);
-      else renderResult(signal);
+      else if (state.stage === "build" || state.stage === "transfer-build") {
+        renderBuild(signal, state.stage === "transfer-build");
+      } else {
+        renderResult(signal, state.stage === "transfer-result");
+      }
     };
     const renderWelcome = (signal) => {
       const scene2 = sceneWithPortrait("rie");
@@ -265462,16 +265563,23 @@ recommendedJiten	Jiten由来の頻度バッジです。
       scene2.append(portrait("rie"), paper2);
       body.append(scene2);
     };
-    const renderBuild = (signal) => {
+    const renderBuild = (signal, transfer) => {
       const frame2 = currentFrame();
       const scene2 = sceneWithPortrait("rie");
       const paper2 = livingPaper();
       paper2.append(
         speakerName("rie", options.language),
-        localized$2("h2", "academy-sentence-frame-section-title", frame2.prompt, options.language),
-        patternRail(frame2, options.language)
+        ...transfer ? [
+          localized$2("p", "academy-sentence-frame-small-title", COPY$3.transferEyebrow, options.language),
+          localized$2("h2", "academy-sentence-frame-section-title", frame2.transferPrompt, options.language),
+          localized$2("p", "academy-sentence-frame-note", COPY$3.transferNote, options.language)
+        ] : [
+          localized$2("h2", "academy-sentence-frame-section-title", frame2.prompt, options.language),
+          patternRail(frame2, options.language)
+        ]
       );
-      if (state.revealedModelFrameIds.includes(frame2.id)) paper2.append(modelSheet(frame2, signal));
+      const revealed = transfer ? state.revealedTransferModelFrameIds ?? [] : state.revealedModelFrameIds;
+      if (revealed.includes(frame2.id)) paper2.append(modelSheet(frame2, signal));
       const workspace = element("div", "academy-sentence-frame-workspace");
       const selectedSection = element("section", "academy-sentence-frame-selected");
       selectedSection.append(localized$2("h3", "academy-sentence-frame-small-title", COPY$3.yourSentence, options.language));
@@ -265493,7 +265601,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       const bank = element("div", "academy-sentence-frame-bank");
       bank.setAttribute("role", "group");
       bank.setAttribute("aria-label", COPY$3.wordDesk[options.language]);
-      frame2.target.bankOrder.forEach((tokenId) => {
+      bankOrder(frame2, transfer).forEach((tokenId) => {
         if (state.selectedTokenIds.includes(tokenId)) return;
         const token = tokenButton(frame2, tokenId, false);
         token.addEventListener("click", () => void apply({ kind: "select-token", tokenId }), { signal });
@@ -265512,12 +265620,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
       scene2.append(portrait("rie"), paper2);
       body.append(scene2);
     };
-    const renderResult = (signal) => {
+    const renderResult = (signal, transfer) => {
       const frame2 = currentFrame();
-      const attempt = lastAttempt(frame2);
+      const attempt = lastAttempt(frame2, transfer ? "transfer" : "practice");
       if (!attempt) throw new TypeError(`Sentence-frame result ${frame2.id} has no attempt.`);
       const passed = attempt.outcome === "pass";
-      const speaker = passed ? frame2.response.speakerId : "rie";
+      const speaker = passed && !transfer ? frame2.response.speakerId : "rie";
       const scene2 = sceneWithPortrait(speaker);
       const paper2 = livingPaper();
       paper2.dataset.outcome = attempt.outcome;
@@ -265527,16 +265635,45 @@ recommendedJiten	Jiten由来の頻度バッジです。
         builtLine(frame2, attempt.order, attempt.outcome)
       );
       if (passed) {
-        paper2.append(
-          localized$2("p", "academy-sentence-frame-meaning", frame2.target.meaning, options.language),
-          responseLine(frame2, signal),
-          actionButton$2(COPY$3.next, "primary", signal, () => apply({ kind: "next-frame" }), options.language)
-        );
+        if (transfer) {
+          paper2.append(
+            localized$2("p", "academy-sentence-frame-dialogue", COPY$3.transferPass, options.language),
+            actionButton$2(
+              COPY$3.nextTransfer,
+              "primary",
+              signal,
+              () => apply({ kind: "next-transfer" }),
+              options.language
+            )
+          );
+        } else {
+          const finalPractice = state.cursor === options.definition.frames.length - 1;
+          paper2.append(
+            localized$2("p", "academy-sentence-frame-meaning", frame2.target.meaning, options.language),
+            responseLine(frame2, signal),
+            actionButton$2(
+              finalPractice ? COPY$3.beginTransfer : COPY$3.next,
+              "primary",
+              signal,
+              () => apply({ kind: finalPractice ? "begin-transfer" : "next-frame" }),
+              options.language
+            )
+          );
+        }
       } else {
-        paper2.append(localized$2("p", "academy-sentence-frame-dialogue", COPY$3.repairBody, options.language));
-        if (state.revealedModelFrameIds.includes(frame2.id)) paper2.append(modelSheet(frame2, signal));
+        if (!transfer) paper2.append(patternRail(frame2, options.language));
+        paper2.append(
+          localized$2(
+            "p",
+            "academy-sentence-frame-dialogue",
+            transfer ? COPY$3.transferRepairBody : COPY$3.repairBody,
+            options.language
+          )
+        );
+        const revealed = transfer ? state.revealedTransferModelFrameIds ?? [] : state.revealedModelFrameIds;
+        if (revealed.includes(frame2.id)) paper2.append(modelSheet(frame2, signal));
         const actions = element("div", "academy-sentence-frame-actions");
-        if (!state.revealedModelFrameIds.includes(frame2.id)) {
+        if (!revealed.includes(frame2.id)) {
           actions.append(actionButton$2(COPY$3.showModel, "secondary", signal, () => apply({ kind: "reveal-model" }), options.language));
         }
         actions.append(actionButton$2(COPY$3.retry, "primary", signal, () => apply({ kind: "retry" }), options.language));
@@ -265694,10 +265831,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
       render2();
     };
     const currentFrame = () => options.definition.frames[state.cursor];
-    const lastAttempt = (frame2) => [...state.attempts].reverse().find((attempt) => attempt.frameId === frame2.id);
+    const lastAttempt = (frame2, phase) => [...state.attempts].reverse().find((attempt) => attempt.frameId === frame2.id && (attempt.phase ?? "practice") === phase);
     const progressText = () => {
       if (state.status === "ready") return COPY$3.readyProgress[options.language];
       if (state.status === "complete") return options.language === "ja" ? "5 / 5 完了" : "5 / 5 complete";
+      if (isTransferStage(state.stage)) {
+        return options.language === "ja" ? `思い出す ${state.cursor + 1} / ${options.definition.frames.length}` : `Recall ${state.cursor + 1} / ${options.definition.frames.length}`;
+      }
       return options.language === "ja" ? `${state.cursor + 1} / ${options.definition.frames.length} · ${currentFrame().title.ja}` : `${state.cursor + 1} / ${options.definition.frames.length} · ${currentFrame().title.en}`;
     };
     render2();
@@ -265767,6 +265907,17 @@ recommendedJiten	Jiten由来の頻度バッジです。
     button2.textContent = token.japanese;
     button2.setAttribute("aria-label", `${selected2 ? "Return" : "Add"} ${token.japanese}`);
     return button2;
+  }
+  function bankOrder(frame2, transfer) {
+    if (!transfer) return frame2.target.bankOrder;
+    const offset = 2;
+    return [
+      ...frame2.target.bankOrder.slice(offset),
+      ...frame2.target.bankOrder.slice(0, offset)
+    ];
+  }
+  function isTransferStage(stage2) {
+    return stage2 === "transfer-build" || stage2 === "transfer-result";
   }
   function japaneseLine(value, className) {
     const node2 = element("p", className);
@@ -268213,8 +268364,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
                   lineId: "journal:lesson-zero:first-sentences",
                   characterId: "rie",
                   text: {
-                    ja: "りえ先生とソフィーさんに、最初の五つの文を使った。教室から日本語で返事が来た。",
-                    en: "I used my first five sentence shapes with Rie-sensei and Sophie. The room answered me in Japanese."
+                    ja: "自己紹介をして、まちがいを直し、ソフィーさんに質問して、クラスについて日本語で話した。",
+                    en: "I introduced myself, fixed a mix-up, asked Sophie a question, and spoke about the class in Japanese."
                   }
                 }
               }

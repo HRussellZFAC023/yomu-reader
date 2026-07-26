@@ -36,17 +36,17 @@ export interface LessonZeroSentenceFrameScreen {
 
 const COPY = {
     eyebrow: { en: 'First sentences', ja: 'はじめての文' },
-    title: { en: 'Build five useful sentences', ja: '使える文を五つ作ろう' },
+    title: { en: 'Your first five sentences', ja: '最初の五つの文' },
     readyProgress: { en: 'Five sentences', ja: '五つの文' },
     welcome: {
-        en: 'First say you are a student. Then correct one mistake, ask Sophie a question, and connect two nouns.',
-        ja: 'まず、「学生です」と言います。次に、まちがいを直し、ソフィーさんに質問し、二つの名詞をつなぎます。',
+        en: 'I’ve put five sentence starters on the desk. We’ll use them to introduce you, fix a mix-up, ask Sophie a question, and talk about this class.',
+        ja: '机に、五つの文の始まりを置きました。自己紹介をして、まちがいを直し、ソフィーさんに質問して、このクラスについて話します。',
     },
     welcomeReason: {
-        en: 'We will use these again today. Build each meaning first; I will explain the grammar as we go.',
-        ja: '今日、もう一度使います。まず意味を作りましょう。文法は、そのつど説明します。',
+        en: 'I’ll show you one pattern at a time. After all five, I’ll cover the patterns and you’ll try them once more.',
+        ja: '文の形を一つずつ見せます。五つ作ったら、形をかくして、もう一度使います。',
     },
-    begin: { en: 'Make the first sentence', ja: '最初の文を作る' },
+    begin: { en: 'Start with “I am…”', ja: '「わたしは…」から始める' },
     pattern: { en: 'Sentence pattern', ja: '文の形' },
     example: { en: 'Example', ja: '例' },
     hearExample: { en: 'Hear the example', ja: '例を聞く' },
@@ -59,19 +59,31 @@ const COPY = {
     check: { en: 'Check the sentence', ja: '文を確かめる' },
     repairTitle: { en: 'A word is out of place', ja: 'ことばの場所がちがいます' },
     repairBody: {
-        en: 'Use the pattern above and put the words in the same order.',
-        ja: '上の形を見て、ことばを同じ順番に並べましょう。',
+        en: 'Look at the pattern again, then put the words in that order.',
+        ja: 'もう一度、文の形を見て、その順番にことばを並べましょう。',
+    },
+    transferRepairBody: {
+        en: 'Listen to the sentence in your head. If you need it, uncover Rie’s model, then rebuild it.',
+        ja: '頭の中で文を聞いてみましょう。必要なら、りえ先生のお手本を見て、もう一度作りましょう。',
     },
     showModel: { en: 'Show the answer', ja: '答えを見る' },
     modelLabel: { en: 'Model sentence', ja: 'お手本の文' },
     retry: { en: 'Rebuild the sentence', ja: '文をもう一度作る' },
     next: { en: 'Use the next shape', ja: '次の形を使う' },
-    completeTitle: { en: 'The room answered', ja: '教室から返事が来ました' },
-    completeBody: {
-        en: 'You said you are a student, corrected Rie’s card, asked Sophie a question, and described the class. All five sentences are now ready for review.',
-        ja: '学生だと伝え、りえ先生の札を直し、ソフィーさんに質問し、クラスについて話しました。五つの文は、復習に入りました。',
+    beginTransfer: { en: 'Try all five without the patterns', ja: '文の形を見ずに五つ使う' },
+    transferEyebrow: { en: 'From memory', ja: '思い出して' },
+    transferNote: {
+        en: 'The pattern is covered now. Rebuild the sentence from the conversation.',
+        ja: '文の形をかくしました。会話を思い出して、文を作ってください。',
     },
-    memories: { en: 'Five lines are waiting in review', ja: '五つの文が復習に入りました' },
+    transferPass: { en: 'Good. One more is ready.', ja: 'いいですね。次もいきましょう。' },
+    nextTransfer: { en: 'Recall the next sentence', ja: '次の文を思い出す' },
+    completeTitle: { en: 'You joined the conversation', ja: '会話に入れました' },
+    completeBody: {
+        en: 'You introduced yourself, fixed a mix-up, asked Sophie a question, and described the class. Those five lines are now in review.',
+        ja: '自己紹介をして、まちがいを直し、ソフィーさんに質問して、クラスについて話しました。五つの文は復習に入りました。',
+    },
+    memories: { en: 'Five lines are now in review', ja: '五つの文が復習に入りました' },
     continue: { en: 'Continue your day', ja: '今日の続きを始める' },
     again: { en: 'Build the five lines again', ja: '五つの文をもう一度作る' },
     saveError: { en: 'That turn did not save. Please try once more.', ja: '保存できませんでした。もう一度お試しください。' },
@@ -109,7 +121,7 @@ export function createLessonZeroSentenceFrameScreen(
     progress.setAttribute('role', 'status');
     progress.setAttribute('aria-live', 'polite');
     header.append(back, heading, progress);
-    const body = element('main', 'academy-sentence-frame-body');
+    const body = element('div', 'academy-sentence-frame-body');
     const live = element('p', 'academy-sentence-frame-live');
     live.setAttribute('role', 'status');
     live.setAttribute('aria-live', 'polite');
@@ -124,14 +136,24 @@ export function createLessonZeroSentenceFrameScreen(
         live.textContent = '';
         screen.dataset.sessionStatus = state.status;
         screen.dataset.sessionStage = state.stage;
+        screen.dataset.sessionPhase = isTransferStage(state.stage) ? 'transfer' : 'practice';
         screen.dataset.frameId = currentFrame().id;
-        screen.dataset.frameProgress = `${state.passedFrameIds.length}/${options.definition.frames.length}`;
+        const completed = isTransferStage(state.stage)
+            ? options.definition.frames.filter(frame => state.attempts.some(attempt =>
+                attempt.frameId === frame.id
+                && attempt.phase === 'transfer'
+                && attempt.outcome === 'pass')).length
+            : state.passedFrameIds.length;
+        screen.dataset.frameProgress = `${completed}/${options.definition.frames.length}`;
         progress.textContent = progressText();
         if (state.status === 'ready') renderWelcome(signal);
         else if (state.status === 'complete') renderComplete(signal);
         else if (state.stage === 'teach') renderTeach(signal);
-        else if (state.stage === 'build') renderBuild(signal);
-        else renderResult(signal);
+        else if (state.stage === 'build' || state.stage === 'transfer-build') {
+            renderBuild(signal, state.stage === 'transfer-build');
+        } else {
+            renderResult(signal, state.stage === 'transfer-result');
+        }
     };
 
     const renderWelcome = (signal: AbortSignal): void => {
@@ -163,16 +185,27 @@ export function createLessonZeroSentenceFrameScreen(
         body.append(scene);
     };
 
-    const renderBuild = (signal: AbortSignal): void => {
+    const renderBuild = (signal: AbortSignal, transfer: boolean): void => {
         const frame = currentFrame();
         const scene = sceneWithPortrait('rie');
         const paper = livingPaper();
         paper.append(
             speakerName('rie', options.language),
-            localized('h2', 'academy-sentence-frame-section-title', frame.prompt, options.language),
-            patternRail(frame, options.language),
+            ...(transfer
+                ? [
+                    localized('p', 'academy-sentence-frame-small-title', COPY.transferEyebrow, options.language),
+                    localized('h2', 'academy-sentence-frame-section-title', frame.transferPrompt, options.language),
+                    localized('p', 'academy-sentence-frame-note', COPY.transferNote, options.language),
+                ]
+                : [
+                    localized('h2', 'academy-sentence-frame-section-title', frame.prompt, options.language),
+                    patternRail(frame, options.language),
+                ]),
         );
-        if (state.revealedModelFrameIds.includes(frame.id)) paper.append(modelSheet(frame, signal));
+        const revealed = transfer
+            ? state.revealedTransferModelFrameIds ?? []
+            : state.revealedModelFrameIds;
+        if (revealed.includes(frame.id)) paper.append(modelSheet(frame, signal));
         const workspace = element('div', 'academy-sentence-frame-workspace');
         const selectedSection = element('section', 'academy-sentence-frame-selected');
         selectedSection.append(localized('h3', 'academy-sentence-frame-small-title', COPY.yourSentence, options.language));
@@ -195,7 +228,7 @@ export function createLessonZeroSentenceFrameScreen(
         const bank = element('div', 'academy-sentence-frame-bank');
         bank.setAttribute('role', 'group');
         bank.setAttribute('aria-label', COPY.wordDesk[options.language]);
-        frame.target.bankOrder.forEach(tokenId => {
+        bankOrder(frame, transfer).forEach(tokenId => {
             if (state.selectedTokenIds.includes(tokenId)) return;
             const token = tokenButton(frame, tokenId, false);
             token.addEventListener('click', () => void apply({ kind: 'select-token', tokenId }), { signal });
@@ -216,12 +249,12 @@ export function createLessonZeroSentenceFrameScreen(
         body.append(scene);
     };
 
-    const renderResult = (signal: AbortSignal): void => {
+    const renderResult = (signal: AbortSignal, transfer: boolean): void => {
         const frame = currentFrame();
-        const attempt = lastAttempt(frame);
+        const attempt = lastAttempt(frame, transfer ? 'transfer' : 'practice');
         if (!attempt) throw new TypeError(`Sentence-frame result ${frame.id} has no attempt.`);
         const passed = attempt.outcome === 'pass';
-        const speaker = passed ? frame.response.speakerId : 'rie';
+        const speaker = passed && !transfer ? frame.response.speakerId : 'rie';
         const scene = sceneWithPortrait(speaker);
         const paper = livingPaper();
         paper.dataset.outcome = attempt.outcome;
@@ -231,16 +264,47 @@ export function createLessonZeroSentenceFrameScreen(
             builtLine(frame, attempt.order, attempt.outcome),
         );
         if (passed) {
-            paper.append(
-                localized('p', 'academy-sentence-frame-meaning', frame.target.meaning, options.language),
-                responseLine(frame, signal),
-                actionButton(COPY.next, 'primary', signal, () => apply({ kind: 'next-frame' }), options.language),
-            );
+            if (transfer) {
+                paper.append(
+                    localized('p', 'academy-sentence-frame-dialogue', COPY.transferPass, options.language),
+                    actionButton(
+                        COPY.nextTransfer,
+                        'primary',
+                        signal,
+                        () => apply({ kind: 'next-transfer' }),
+                        options.language,
+                    ),
+                );
+            } else {
+                const finalPractice = state.cursor === options.definition.frames.length - 1;
+                paper.append(
+                    localized('p', 'academy-sentence-frame-meaning', frame.target.meaning, options.language),
+                    responseLine(frame, signal),
+                    actionButton(
+                        finalPractice ? COPY.beginTransfer : COPY.next,
+                        'primary',
+                        signal,
+                        () => apply({ kind: finalPractice ? 'begin-transfer' : 'next-frame' }),
+                        options.language,
+                    ),
+                );
+            }
         } else {
-            paper.append(localized('p', 'academy-sentence-frame-dialogue', COPY.repairBody, options.language));
-            if (state.revealedModelFrameIds.includes(frame.id)) paper.append(modelSheet(frame, signal));
+            if (!transfer) paper.append(patternRail(frame, options.language));
+            paper.append(
+                localized(
+                    'p',
+                    'academy-sentence-frame-dialogue',
+                    transfer ? COPY.transferRepairBody : COPY.repairBody,
+                    options.language,
+                ),
+            );
+            const revealed = transfer
+                ? state.revealedTransferModelFrameIds ?? []
+                : state.revealedModelFrameIds;
+            if (revealed.includes(frame.id)) paper.append(modelSheet(frame, signal));
             const actions = element('div', 'academy-sentence-frame-actions');
-            if (!state.revealedModelFrameIds.includes(frame.id)) {
+            if (!revealed.includes(frame.id)) {
                 actions.append(actionButton(COPY.showModel, 'secondary', signal, () => apply({ kind: 'reveal-model' }), options.language));
             }
             actions.append(actionButton(COPY.retry, 'primary', signal, () => apply({ kind: 'retry' }), options.language));
@@ -412,11 +476,19 @@ export function createLessonZeroSentenceFrameScreen(
     };
 
     const currentFrame = (): LessonZeroSentenceFrameDefinition => options.definition.frames[state.cursor]!;
-    const lastAttempt = (frame: LessonZeroSentenceFrameDefinition) =>
-        [...state.attempts].reverse().find(attempt => attempt.frameId === frame.id);
+    const lastAttempt = (
+        frame: LessonZeroSentenceFrameDefinition,
+        phase: 'practice' | 'transfer',
+    ) => [...state.attempts].reverse().find(attempt =>
+        attempt.frameId === frame.id && (attempt.phase ?? 'practice') === phase);
     const progressText = (): string => {
         if (state.status === 'ready') return COPY.readyProgress[options.language];
         if (state.status === 'complete') return options.language === 'ja' ? '5 / 5 完了' : '5 / 5 complete';
+        if (isTransferStage(state.stage)) {
+            return options.language === 'ja'
+                ? `思い出す ${state.cursor + 1} / ${options.definition.frames.length}`
+                : `Recall ${state.cursor + 1} / ${options.definition.frames.length}`;
+        }
         return options.language === 'ja'
             ? `${state.cursor + 1} / ${options.definition.frames.length} · ${currentFrame().title.ja}`
             : `${state.cursor + 1} / ${options.definition.frames.length} · ${currentFrame().title.en}`;
@@ -512,6 +584,22 @@ function tokenButton(
     button.textContent = token.japanese;
     button.setAttribute('aria-label', `${selected ? 'Return' : 'Add'} ${token.japanese}`);
     return button;
+}
+
+function bankOrder(
+    frame: LessonZeroSentenceFrameDefinition,
+    transfer: boolean,
+): readonly string[] {
+    if (!transfer) return frame.target.bankOrder;
+    const offset = 2;
+    return [
+        ...frame.target.bankOrder.slice(offset),
+        ...frame.target.bankOrder.slice(0, offset),
+    ];
+}
+
+function isTransferStage(stage: LessonZeroSentenceFrameSessionState['stage']): boolean {
+    return stage === 'transfer-build' || stage === 'transfer-result';
 }
 
 function japaneseLine(value: string, className: string): HTMLElement {

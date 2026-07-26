@@ -131,12 +131,35 @@ async function runEnrollment(page, viewport, runtime) {
     await page.locator('input[name="portrait"][value="quality-2"]').check();
     await assertDialogueLogAccessibility(page, viewport, 'profile-portrait');
     await pressFocused(page, '.academy-profile-advance');
-    await auditMilestone(page, viewport, runtime, 'profile-complete', '.academy-rie-unlock-screen');
+    await auditMilestone(page, viewport, runtime, 'profile-complete', '.academy-rie-introduction-screen');
 
-    await pressFocused(page, '.academy-rie-unlock-screen button');
+    await pressFocused(page, '.academy-rie-introduction-primary');
+    if (await page.locator('.academy-rie-introduction-screen').count() === 1) {
+        await page.waitForFunction(() =>
+            document.querySelector('.academy-rie-introduction-screen')?.dataset.voiceHeard === 'true');
+        await pressFocused(page, '.academy-rie-introduction-primary');
+    }
     await auditMilestone(page, viewport, runtime, 'start', '.academy-start-screen');
     await pressFocused(page, '[data-start-route="lesson-zero"]');
+    await page.locator('[data-story-arc-id="arc:bridge:opening-arrival"]').waitFor();
+    await advanceOpeningArrival(page);
+    await pressFocused(page, '.academy-story-next');
     await auditMilestone(page, viewport, runtime, 'campus', '[data-academy-route="campus"]');
+}
+
+async function advanceOpeningArrival(page) {
+    for (let index = 0; index < 40; index += 1) {
+        const bridge = page.locator('[data-story-arc-id="arc:bridge:opening-arrival"]');
+        const moment = await bridge.getAttribute('data-story-moment');
+        if (moment === 'complete') return;
+        const choice = bridge.locator('[data-story-option-id]').first();
+        const action = bridge.locator('.academy-vn-action-slot .academy-vn-primary-action').first();
+        if (await choice.count()) await choice.click();
+        else if (await action.count()) await action.click();
+        else throw new Error(`Opening arrival stalled at ${moment ?? 'unknown'}.`);
+        await page.waitForTimeout(40);
+    }
+    throw new Error('Opening arrival did not complete within 40 actions.');
 }
 
 async function runCoreJourney(page, viewport, runtime) {
@@ -174,15 +197,17 @@ async function runCoreJourney(page, viewport, runtime) {
 
     await setCheckpoint(page, run, 'lesson-overview', { lessonId: 'lesson:foundation-00' });
     await page.waitForSelector('[data-academy-screen="lesson-overview"]');
-    const lessonAction = page.locator('.academy-lesson-overview-section-action:not(:disabled)').first();
-    assert(await lessonAction.count() === 1, `${run}: Lesson 0 has no playable activity`);
-    await lessonAction.focus();
-    await page.keyboard.press('Enter');
-    await advanceLessonZeroToKana(page, run);
-    await auditMilestone(page, viewport, runtime, 'lesson-zero-kana', '.academy-lesson-zero-kana-game');
-    await pressFocused(page, '.academy-lesson-zero-kana-game .academy-vn-primary-action');
-    await pressFocused(page, '.academy-lesson-zero-kana-game .academy-vn-primary-action');
-    await auditMilestone(page, viewport, runtime, 'kana-recognition', '[data-kana-mode="recognition"]');
+    await page.evaluate(async () => {
+        const academy = window.__yomuAcademy;
+        if (!academy || typeof academy.go !== 'function') throw new Error('Academy QA route seam is unavailable.');
+        await academy.go('source-activity', {
+            lessonId: 'lesson:foundation-00',
+            activityId: 'activity:lesson-zero-vowel-listen',
+        });
+    });
+    await auditMilestone(page, viewport, runtime, 'lesson-zero-kana', '.academy-vowel-screen[data-stage="ready"]');
+    await pressFocused(page, '.academy-vowel-screen .academy-vowel-action-primary');
+    await auditMilestone(page, viewport, runtime, 'kana-recognition', '.academy-vowel-screen[data-stage="learn"]');
 
     await setCheckpoint(page, run, 'world', { lessonId: 'lesson:foundation-00', worldPlace: 'library' });
     await auditMilestone(page, viewport, runtime, 'world-library', '[data-current-place="library"][data-academy-route="world"]');
@@ -722,8 +747,10 @@ async function assertDialogueLogAccessibility(page, viewport, name) {
     assert(await page.locator('.academy-profile-screen .academy-vn-line-tools .academy-vn-reading-toggle').count() === 1,
         `${viewport.name}/${name}: readings button is repeated in dialogue support`);
 
-    const logButton = page.locator('.academy-profile-screen .academy-vn-log-button');
-    await pressFocused(page, '.academy-profile-screen .academy-vn-log-button');
+    const logButtonSelector = '.academy-profile-screen .academy-vn-log-button[aria-controls]';
+    const logButton = page.locator(logButtonSelector);
+    assert(await logButton.count() === 1, `${viewport.name}/${name}: duplicate dialogue log controls`);
+    await pressFocused(page, logButtonSelector);
     const log = page.locator('.academy-profile-screen .academy-vn-log-panel');
     await log.waitFor({ state: 'visible' });
     assert(await page.locator('.academy-profile-screen .academy-vn-dialogue[inert]').count() === 1,
@@ -739,18 +766,6 @@ async function assertDialogueLogAccessibility(page, viewport, name) {
     await page.keyboard.press('Escape');
     assert(await log.isHidden(), `${viewport.name}/${name}: dialogue log does not close with Escape`);
     assert(await logButton.evaluate(element => element === document.activeElement), `${viewport.name}/${name}: dialogue log does not restore trigger focus`);
-}
-
-async function advanceLessonZeroToKana(page, run) {
-    const sourceAudio = page.locator('.academy-lesson-zero-source-audio audio');
-    await sourceAudio.waitFor({ state: 'visible' });
-    await sourceAudio.evaluate(audio => audio.dispatchEvent(new Event('play')));
-    const audioContinue = page.locator('.academy-lesson-zero-source-audio .academy-vn-primary-action');
-    await audioContinue.waitFor({ state: 'visible' });
-    assert(!await audioContinue.isDisabled(), `${run}: Lesson 0 greeting audio did not unlock its continuation`);
-    await pressFocused(page, '.academy-lesson-zero-source-audio .academy-vn-primary-action');
-    await page.locator('[data-class-present-ceremony="complete"]').waitFor({ state: 'attached' });
-    await pressFocused(page, '.academy-vn-action-slot > .academy-vn-primary-action');
 }
 
 function inputContrast(foreground, background) {

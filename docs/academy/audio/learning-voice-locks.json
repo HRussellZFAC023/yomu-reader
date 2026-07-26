@@ -18,7 +18,7 @@
     "src/academy/domain/classroom-instruction-session.ts": "7b7a0de23568e9ba352a70cb07467ff884a99a1b999edf52deb8145632e758d5",
     "src/academy/domain/lesson-zero-desk-language-session.ts": "e05c468e94652522d9a4bb68a8fa17f3ccfa38c3ae38c0825258177220e0c4e9",
     "src/academy/domain/world-locations.ts": "8dff402868198871a95498d004bc318dfe0b48f1995429ae9c0f6d33490739e5",
-    "src/academy/routing/lesson-flow.ts": "0e8b4ec02be8b8c25c2bbf100a14bdf0209b1ac73808d51ef7f1a2c74ba908e6",
+    "src/academy/routing/lesson-flow.ts": "a38732b9deb15e84ff4cf947f4aa85862803581524651b742617671e21d36663",
     "src/academy/ui/classroom-instruction-screen.ts": "49d7c165cf259fc699aa4e6fa17f1f5c41630e0e53659642d7ba806de1b8b54e",
     "src/academy/ui/lesson-zero-desk-language-screen.ts": "124049a58af13c4de77ae69fb4ddcec1cf37efe43e5f1a5c307b96163a924c44",
     "src/academy/ui/lesson-zero-greeting-screen.ts": "965932e71c795b3b8f238c55288dd0784d2e26a50812f9794915357e2ca74480",
@@ -27,7 +27,7 @@
     "src/academy/ui/cafe-world.ts": "8f0ea99a7744127eee42ad05a14a2baa08407436d58a966c9aead1eb6fde9ec2",
     "scripts/academy-voice/archive-learning-voice-provenance.mjs": "1a747b8d79943b1abef967f616f578f7b39f6b157170ddc1032d8cfa00bd0604",
     "scripts/academy-voice/capture-learning-voice-local-expected.mjs": "79ba828cd0ab9539829159d6558803431b15e37a5bb070df45ec4cfa145a2dbb",
-    "scripts/academy-voice/learning-voice-local-browser-proof.mjs": "82da33a89f7133131856298aaad147024915daa83019a72c8877d64da1cbbc8c",
+    "scripts/academy-voice/learning-voice-local-browser-proof.mjs": "289ae2d62ea75ed517189a30b41cafd1e0bc0981ce6c482537159eda13c236a4",
     "scripts/academy-voice/learning-voice-production-proof.mjs": "7d012172c8dea5002fdd64a38bdacaac67292297f9f7580f345debc53ef3209a",
     "scripts/academy-voice/lock-learning-voice.mjs": "4987ea2a2bd0b5a0790d7dd6c8b81b8995252899275e96173206d857311c4df8",
     "scripts/academy-voice/promote-learning-voice-candidates.mjs": "26dee2217dd4cb9a095e09bff54eecd65be53de59e3d292d8e1f437101b55149",
@@ -59,7 +59,7 @@
     },
     "localExpected": {
       "path": "docs/academy/audio/learning-voice-local-expected.json",
-      "sha256": "a2fe327b65d2dd151b46886da851e314f503ef93b26ac680137af0227987c328"
+      "sha256": "357d563659ffa6a1d318a78bb64142ecb690ed9befeed8df13cbf6e09edc4702"
     },
     "productionProof": {
       "path": "docs/academy/audio/learning-voice-production-proof.json",

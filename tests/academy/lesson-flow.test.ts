@@ -553,7 +553,7 @@ describe('Academy lesson flow', () => {
             lessonZeroSentenceFrameProgress: expect.objectContaining({ status: 'ready' }),
         }));
 
-        clickButton(route.shell.current!, 'Make the first sentence');
+        clickButton(route.shell.current!, 'Start with “I am…”');
         const lesson = validateLessonZeroPackage(JSON.parse(fs.readFileSync(LESSON_PATH, 'utf8'))).lesson;
         const definition = createLessonZeroSentenceFrameDefinition(
             lesson.activities.find(activity => activity.id === 'activity:lesson-zero-build-sentence-frames')!,
@@ -583,11 +583,38 @@ describe('Academy lesson flow', () => {
             if (index < definition.frames.length - 1) {
                 await vi.waitFor(() => expect(route.shell.current?.dataset.sessionStage).toBe('result'));
                 clickButton(route.shell.current!, 'Use the next shape');
+            } else {
+                await vi.waitFor(() => expect(route.shell.current?.dataset.sessionStage).toBe('result'));
+                clickButton(route.shell.current!, 'Try all five without the patterns');
+            }
+        }
+
+        for (const [index, frame] of definition.frames.entries()) {
+            await vi.waitFor(() => expect(route.shell.current?.dataset.sessionStage).toBe('transfer-build'));
+            await vi.waitFor(() => expect(route.shell.current?.dataset.frameId).toBe(frame.id));
+            for (const tokenId of frame.target.correctOrder) {
+                await vi.waitFor(() => expect(
+                    route.shell.current?.querySelector(`.academy-sentence-frame-bank [data-token-id="${tokenId}"]`),
+                ).not.toBeNull());
+                route.shell.current!
+                    .querySelector<HTMLButtonElement>(`.academy-sentence-frame-bank [data-token-id="${tokenId}"]`)!
+                    .click();
+                await vi.waitFor(() => expect(
+                    route.shell.current?.querySelector(`.academy-sentence-frame-selected-rail [data-token-id="${tokenId}"]`),
+                ).not.toBeNull());
+            }
+            await vi.waitFor(() => expect(
+                route.shell.current?.querySelector<HTMLButtonElement>('.academy-sentence-frame-action-primary')?.disabled,
+            ).toBe(false));
+            clickButton(route.shell.current!, 'Check the sentence');
+            if (index < definition.frames.length - 1) {
+                await vi.waitFor(() => expect(route.shell.current?.dataset.sessionStage).toBe('transfer-result'));
+                clickButton(route.shell.current!, 'Recall the next sentence');
             }
         }
 
         await vi.waitFor(() => expect(route.shell.current?.dataset.sessionStatus).toBe('complete'));
-        await vi.waitFor(() => expect(recordActivity).toHaveBeenCalledTimes(6));
+        await vi.waitFor(() => expect(recordActivity).toHaveBeenCalledTimes(11));
         for (const frame of definition.frames) {
             expect(recordActivity).toHaveBeenCalledWith(
                 expect.objectContaining({
@@ -597,6 +624,19 @@ describe('Academy lesson flow', () => {
                 'lesson:foundation-00',
                 undefined,
                 expect.objectContaining({ action: 'produce', independent: true, skill: 'writing' }),
+            );
+            expect(recordActivity).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    attempt: expect.objectContaining({
+                        activityId: frame.activityId,
+                        outcome: 'pass',
+                        responseKind: 'tapped-token-order-transfer',
+                    }),
+                    reviewSeeds: [],
+                }),
+                'lesson:foundation-00',
+                undefined,
+                expect.objectContaining({ action: 'transfer', independent: true, skill: 'writing' }),
             );
         }
         expect(recordActivity).toHaveBeenCalledWith(

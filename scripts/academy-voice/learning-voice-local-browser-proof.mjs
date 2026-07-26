@@ -479,7 +479,9 @@ async function completeSentenceFrames(page) {
         'noun-link': ['class', 'rie', 'copula', 'link', 'stop'],
         parallel: ['student', 'copula', 'sophie', 'stop', 'also'],
     };
-    await page.getByRole('button', { name: 'Make the first sentence' }).click();
+    await page.locator(
+        '.academy-sentence-frame-screen[data-session-status="ready"] .academy-sentence-frame-action-primary',
+    ).click();
     for (const [frameId, correctOrder] of Object.entries(correctOrders)) {
         const screen = page.locator(
             `.academy-sentence-frame-screen[data-frame-id="${frameId}"][data-session-stage="teach"]`,
@@ -503,14 +505,30 @@ async function completeSentenceFrames(page) {
             await page.locator(`.academy-sentence-frame-selected-rail [data-token-id="${tokenId}"]`).waitFor();
         }
         await page.getByRole('button', { name: 'Check the sentence' }).click();
-        if (frameId === 'parallel') {
-            await page.locator('.academy-sentence-frame-screen[data-session-status="complete"]').waitFor();
-            await page.locator('.academy-sentence-frame-response .academy-sentence-frame-action-listen').click();
-            continue;
-        }
         await page.locator('.academy-sentence-frame-paper[data-outcome="pass"]').waitFor();
         await page.locator('.academy-sentence-frame-response .academy-sentence-frame-action-listen').click();
-        await page.getByRole('button', { name: 'Use the next shape' }).click();
+        await page.getByRole('button', {
+            name: frameId === 'parallel'
+                ? 'Try all five without the patterns'
+                : 'Use the next shape',
+        }).click();
+    }
+
+    for (const [frameId, correctOrder] of Object.entries(correctOrders)) {
+        await page.locator(
+            `.academy-sentence-frame-screen[data-frame-id="${frameId}"][data-session-stage="transfer-build"]`,
+        ).waitFor();
+        for (const tokenId of correctOrder) {
+            await page.locator(`.academy-sentence-frame-bank [data-token-id="${tokenId}"]`).click();
+            await page.locator(`.academy-sentence-frame-selected-rail [data-token-id="${tokenId}"]`).waitFor();
+        }
+        await page.getByRole('button', { name: 'Check the sentence' }).click();
+        if (frameId === 'parallel') {
+            await page.locator('.academy-sentence-frame-screen[data-session-status="complete"]').waitFor();
+        } else {
+            await page.locator('.academy-sentence-frame-paper[data-outcome="pass"]').waitFor();
+            await page.getByRole('button', { name: 'Recall the next sentence' }).click();
+        }
     }
 }
 

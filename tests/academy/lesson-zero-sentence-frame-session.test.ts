@@ -102,27 +102,118 @@ describe('Lesson Zero first-sentence session', () => {
         expect(repaired.state.stage).toBe('result');
     });
 
-    it('completes the canonical activity only after all five frames pass', () => {
+    it('repairs a recall lapse without scheduling a duplicate review card', () => {
+        const content = definition();
+        let state = started(content);
+        for (const [index, frame] of content.frames.entries()) {
+            state = selectOrder(content, state, frame.target.correctOrder);
+            const checked = transitionLessonZeroSentenceFrameSession(content, state, { kind: 'check' }, 80 + index);
+            state = index < content.frames.length - 1
+                ? transitionLessonZeroSentenceFrameSession(
+                    content,
+                    checked.state,
+                    { kind: 'next-frame' },
+                    90 + index,
+                ).state
+                : transitionLessonZeroSentenceFrameSession(
+                    content,
+                    checked.state,
+                    { kind: 'begin-transfer' },
+                    100,
+                ).state;
+        }
+
+        const frame = content.frames[0]!;
+        state = selectOrder(content, state, frame.target.bankOrder);
+        const lapse = transitionLessonZeroSentenceFrameSession(content, state, { kind: 'check' }, 101);
+        expect(lapse.evaluation).toMatchObject({
+            attempt: {
+                responseKind: 'tapped-token-order-transfer',
+                outcome: 'lapse',
+            },
+            reviewSeeds: [],
+        });
+        const support = transitionLessonZeroSentenceFrameSession(
+            content,
+            lapse.state,
+            { kind: 'reveal-model' },
+            102,
+        );
+        expect(support.state.revealedTransferModelFrameIds).toEqual(['identity']);
+        expect(support.supportEvents.map(event => event.supportKind)).toEqual([
+            'transcript',
+            'translation',
+            'model-answer',
+        ]);
+        state = transitionLessonZeroSentenceFrameSession(content, support.state, { kind: 'retry' }, 103).state;
+        state = selectOrder(content, state, frame.target.correctOrder);
+        const repaired = transitionLessonZeroSentenceFrameSession(content, state, { kind: 'check' }, 104);
+        expect(repaired.evaluation?.reviewSeeds).toEqual([]);
+        expect(repaired.adaptive).toMatchObject({ action: 'repair', independent: false, skill: 'writing' });
+        expect(repaired.state.stage).toBe('transfer-result');
+    });
+
+    it('completes only after five guided builds and five unscaffolded recalls', () => {
         const content = definition();
         let state = started(content);
         for (const [index, frame] of content.frames.entries()) {
             state = selectOrder(content, state, frame.target.correctOrder);
             const checked = transitionLessonZeroSentenceFrameSession(content, state, { kind: 'check' }, 10 + index);
             expect(checked.evaluation?.attempt.activityId).toBe(frame.activityId);
+            expect(checked.evaluation?.attempt.responseKind).toBe('tapped-token-order');
+            expect(checked.evaluation?.reviewSeeds).toEqual([
+                expect.objectContaining({ id: `review:lesson-zero:sentence-frame:${frame.id}` }),
+            ]);
+            expect(checked.completionEvaluation).toBeUndefined();
             if (index < content.frames.length - 1) {
-                expect(checked.completionEvaluation).toBeUndefined();
                 state = transitionLessonZeroSentenceFrameSession(content, checked.state, { kind: 'next-frame' }, 20 + index).state;
             } else {
-                expect(checked.completionEvaluation?.attempt).toMatchObject({
+                state = transitionLessonZeroSentenceFrameSession(
+                    content,
+                    checked.state,
+                    { kind: 'begin-transfer' },
+                    30,
+                ).state;
+            }
+        }
+        expect(state).toMatchObject({ stage: 'transfer-build', cursor: 0, status: 'active' });
+
+        for (const [index, frame] of content.frames.entries()) {
+            state = selectOrder(content, state, frame.target.correctOrder);
+            const recalled = transitionLessonZeroSentenceFrameSession(content, state, { kind: 'check' }, 40 + index);
+            expect(recalled.evaluation).toMatchObject({
+                attempt: {
+                    activityId: frame.activityId,
+                    responseKind: 'tapped-token-order-transfer',
+                    outcome: 'pass',
+                },
+                reviewSeeds: [],
+            });
+            expect(recalled.adaptive).toMatchObject({
+                action: 'transfer',
+                independent: true,
+                skill: 'writing',
+            });
+            if (index < content.frames.length - 1) {
+                expect(recalled.completionEvaluation).toBeUndefined();
+                state = transitionLessonZeroSentenceFrameSession(
+                    content,
+                    recalled.state,
+                    { kind: 'next-transfer' },
+                    50 + index,
+                ).state;
+            } else {
+                expect(recalled.completionEvaluation?.attempt).toMatchObject({
                     activityId: 'activity:lesson-zero-build-sentence-frames',
                     responseKind: 'sentence-constructions',
                     outcome: 'pass',
                 });
-                state = checked.state;
+                state = recalled.state;
             }
         }
         expect(state.status).toBe('complete');
         expect(state.passedFrameIds).toEqual(['identity', 'correction', 'question', 'noun-link', 'parallel']);
+        expect(state.attempts.filter(attempt => attempt.phase === 'transfer')).toHaveLength(5);
     });
 
     it('round-trips a paused build and rejects impossible chronological completion', () => {
@@ -140,5 +231,35 @@ describe('Lesson Zero first-sentence session', () => {
             ...paused,
             passedFrameIds: ['correction'],
         })).toThrow(/chronological/i);
+    });
+
+    it('keeps a completed checkpoint from the pre-recall release valid', () => {
+        const content = definition();
+        let state = started(content);
+        for (const [index, frame] of content.frames.entries()) {
+            state = selectOrder(content, state, frame.target.correctOrder);
+            const checked = transitionLessonZeroSentenceFrameSession(content, state, { kind: 'check' }, 60 + index);
+            const legacyAttempts = checked.state.attempts.map(({ phase: _phase, ...attempt }) => attempt);
+            if (index < content.frames.length - 1) {
+                state = transitionLessonZeroSentenceFrameSession(
+                    content,
+                    { ...checked.state, attempts: legacyAttempts },
+                    { kind: 'next-frame' },
+                    70 + index,
+                ).state;
+            } else {
+                const legacy = {
+                    ...checked.state,
+                    status: 'complete' as const,
+                    stage: 'complete' as const,
+                    attempts: legacyAttempts,
+                };
+                expect(lessonZeroSentenceFrameSessionSnapshotShapeIsValid(legacy)).toBe(true);
+                expect(startLessonZeroSentenceFrameSession(content, legacy)).toMatchObject({
+                    status: 'complete',
+                    stage: 'complete',
+                });
+            }
+        }
     });
 });

@@ -49,6 +49,10 @@ export function createLessonZeroSentenceFrameDefinition(
                 en: 'Build: “I am a student.”',
                 ja: '「わたしは学生です」を作ってください。',
             },
+            transferPrompt: {
+                en: 'Sophie looks at your card. Tell her who you are without looking at the pattern.',
+                ja: 'ソフィーさんがあなたの札を見ています。文の形を見ずに、自分のことを伝えてください。',
+            },
             nearbyExample: {
                 japanese: 'ソフィーさんは学生です。',
                 reading: 'そふぃーさんはがくせいです',
@@ -89,6 +93,10 @@ export function createLessonZeroSentenceFrameDefinition(
             prompt: {
                 en: 'This card calls Rie a student. Correct it for her.',
                 ja: 'この札では、りえ先生が学生になっています。直してください。',
+            },
+            transferPrompt: {
+                en: 'The role card is wrong again. Correct it without looking at the pattern.',
+                ja: '役割の札がまたまちがっています。文の形を見ずに直してください。',
             },
             nearbyExample: {
                 japanese: 'ソフィーさんは先生じゃありません。',
@@ -131,6 +139,10 @@ export function createLessonZeroSentenceFrameDefinition(
                 en: 'Sophie has joined the desk. Ask whether she is a student.',
                 ja: 'ソフィーさんが机に来ました。学生かどうか聞いてください。',
             },
+            transferPrompt: {
+                en: 'The example is covered. Ask Sophie your question again.',
+                ja: '例をかくしました。ソフィーさんに、もう一度質問してください。',
+            },
             nearbyExample: {
                 japanese: 'りえ先生は先生ですか。',
                 reading: 'りえせんせいはせんせいですか',
@@ -172,6 +184,10 @@ export function createLessonZeroSentenceFrameDefinition(
                 en: 'Name the room you have just entered: Rie’s class.',
                 ja: '今入った教室を「りえ先生のクラス」と言ってください。',
             },
+            transferPrompt: {
+                en: 'Rie points to the classroom door. Say whose class it is.',
+                ja: 'りえ先生が教室のドアを指しています。だれのクラスか言ってください。',
+            },
             nearbyExample: {
                 japanese: '日本語のクラスです。',
                 reading: 'にほんごのくらすです',
@@ -212,6 +228,10 @@ export function createLessonZeroSentenceFrameDefinition(
             prompt: {
                 en: 'You are a student. Say that Sophie is a student too.',
                 ja: 'あなたは学生です。ソフィーさんも学生だと言ってください。',
+            },
+            transferPrompt: {
+                en: 'Sophie looks from your card to hers. Say that she is a student too.',
+                ja: 'ソフィーさんが二人の札を見ています。ソフィーさんも学生だと言ってください。',
             },
             nearbyExample: {
                 japanese: 'わたしは学生です。',

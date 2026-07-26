@@ -192,6 +192,17 @@
     background: var(--academy-accent-strong);
 }
 
+.academy-sentence-frame-screen[data-session-phase='transfer'] .academy-sentence-frame-paper {
+    background:
+        linear-gradient(90deg, transparent 0 48px, color-mix(in srgb, var(--academy-accent-strong) 22%, transparent) 49px 51px, transparent 52px),
+        repeating-linear-gradient(180deg, transparent 0 37px, rgba(69, 67, 56, 0.13) 38px 39px),
+        var(--academy-paper);
+}
+
+.academy-sentence-frame-screen[data-session-phase='transfer'] .academy-sentence-frame-paper::before {
+    background: var(--academy-accent-strong);
+}
+
 .academy-sentence-frame-paperclip {
     position: absolute;
     top: 13px;
@@ -432,7 +443,7 @@
 
 .academy-sentence-frame-action-primary {
     padding: 12px 30px 12px 20px;
-    color: var(--academy-paper);
+    color: var(--academy-paper-ink);
     background: var(--academy-accent);
 }
 
@@ -601,7 +612,9 @@
     .academy-sentence-frame-response-japanese,
     .academy-sentence-frame-built-line {
         font-size: 1.18rem;
-        overflow-wrap: anywhere;
+        overflow-wrap: normal;
+        word-break: normal;
+        line-break: strict;
     }
 
     .academy-sentence-frame-selected-rail,

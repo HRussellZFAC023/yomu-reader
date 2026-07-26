@@ -1025,8 +1025,8 @@ class LessonFlow implements AcademyRouteFlow {
                                 lineId: 'journal:lesson-zero:first-sentences',
                                 characterId: 'rie',
                                 text: {
-                                    ja: 'りえ先生とソフィーさんに、最初の五つの文を使った。教室から日本語で返事が来た。',
-                                    en: 'I used my first five sentence shapes with Rie-sensei and Sophie. The room answered me in Japanese.',
+                                    ja: '自己紹介をして、まちがいを直し、ソフィーさんに質問して、クラスについて日本語で話した。',
+                                    en: 'I introduced myself, fixed a mix-up, asked Sophie a question, and spoke about the class in Japanese.',
                                 },
                             },
                         },

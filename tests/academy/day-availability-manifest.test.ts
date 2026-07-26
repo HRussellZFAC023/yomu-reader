@@ -91,11 +91,11 @@ describe('unbounded Academy day availability', () => {
             .flatMap(entry => Object.values(entry.delivery));
         expect(gaps.length).toBeGreaterThan(0);
         expect(gaps.length).toBeLessThan(DAY_ONE_AVAILABILITY_MANIFEST.entries.length * DAY_CLOSURE_DIMENSIONS.length);
-        expect(deliveryStates.filter(state => state === 'verified')).toHaveLength(139);
-        expect(deliveryStates.filter(state => state === 'partial')).toHaveLength(6);
+        expect(deliveryStates.filter(state => state === 'verified')).toHaveLength(142);
+        expect(deliveryStates.filter(state => state === 'partial')).toHaveLength(3);
         expect(deliveryStates.filter(state => state === 'unverified')).toHaveLength(115);
         expect(DAY_ONE_AVAILABILITY_MANIFEST.entries.filter(entry =>
-            Object.values(entry.delivery).every(state => state === 'verified'))).toHaveLength(27);
+            Object.values(entry.delivery).every(state => state === 'verified'))).toHaveLength(28);
         expect(DAY_ONE_AVAILABILITY_MANIFEST.entries.find(entry =>
             entry.id === 'day:1:access')?.delivery).toEqual({
             implementation: 'verified',
@@ -247,10 +247,10 @@ describe('unbounded Academy day availability', () => {
         expect(DAY_ONE_AVAILABILITY_MANIFEST.entries.find(entry =>
             entry.contentIds.includes('activity:lesson-zero-build-sentence-frames'))?.delivery).toEqual({
             implementation: 'verified',
-            reachability: 'partial',
-            media: 'partial',
+            reachability: 'verified',
+            media: 'verified',
             persistence: 'verified',
-            journeyProof: 'partial',
+            journeyProof: 'verified',
         });
         expect(DAY_ONE_AVAILABILITY_MANIFEST.entries.find(entry =>
             entry.contentIds.includes('activity:lesson-zero-name-card-draft'))?.delivery).toEqual({

@@ -33,7 +33,7 @@ describe('Lesson Zero sentence-frame screen', () => {
         document.body.append(screen.element);
         expect(screen.element.textContent).not.toContain(target);
 
-        click(screen.element, 'Make the first sentence');
+        click(screen.element, 'Start with “I am…”');
         await vi.waitFor(() => expect(screen.element.textContent).toContain('Sophie is a student.'));
         click(screen.element, 'Try this turn');
         await vi.waitFor(() => expect(screen.element.querySelectorAll('.academy-sentence-frame-token')).toHaveLength(5));

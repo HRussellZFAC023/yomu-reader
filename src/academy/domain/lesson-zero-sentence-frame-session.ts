@@ -25,6 +25,7 @@ export interface LessonZeroSentenceFrameDefinition {
     readonly title: LocalizedText;
     readonly teaching: LocalizedText;
     readonly prompt: LocalizedText;
+    readonly transferPrompt: LocalizedText;
     readonly nearbyExample: Readonly<{
         japanese: string;
         reading: string;
@@ -57,6 +58,11 @@ export interface LessonZeroSentenceFrameSessionDefinition {
 
 export interface LessonZeroSentenceFrameAttempt {
     readonly frameId: LessonZeroSentenceFrameId;
+    /**
+     * Older checkpoints predate the recall round. An omitted phase is the
+     * original guided practice and remains valid when those checkpoints load.
+     */
+    readonly phase?: 'practice' | 'transfer';
     readonly order: readonly string[];
     readonly outcome: 'pass' | 'lapse';
     readonly score: number;
@@ -67,12 +73,14 @@ export interface LessonZeroSentenceFrameSessionState {
     readonly schemaVersion: 1;
     readonly sessionId: LessonZeroSentenceFrameSessionDefinition['id'];
     readonly status: 'ready' | 'active' | 'paused' | 'complete';
-    readonly stage: 'teach' | 'build' | 'result' | 'complete';
+    readonly stage: 'teach' | 'build' | 'result' | 'transfer-build' | 'transfer-result' | 'complete';
     readonly cursor: number;
     readonly selectedTokenIds: readonly string[];
     readonly attempts: readonly LessonZeroSentenceFrameAttempt[];
     readonly passedFrameIds: readonly LessonZeroSentenceFrameId[];
     readonly revealedModelFrameIds: readonly LessonZeroSentenceFrameId[];
+    /** Optional only for compatibility with checkpoints saved before the recall round. */
+    readonly revealedTransferModelFrameIds?: readonly LessonZeroSentenceFrameId[];
 }
 
 export type LessonZeroSentenceFrameSessionAction =
@@ -85,6 +93,8 @@ export type LessonZeroSentenceFrameSessionAction =
     | { readonly kind: 'reveal-model' }
     | { readonly kind: 'retry' }
     | { readonly kind: 'next-frame' }
+    | { readonly kind: 'begin-transfer' }
+    | { readonly kind: 'next-transfer' }
     | { readonly kind: 'pause' }
     | { readonly kind: 'resume' };
 
@@ -112,19 +122,23 @@ export function startLessonZeroSentenceFrameSession(
 ): LessonZeroSentenceFrameSessionState {
     validateDefinition(definition);
     if (snapshot !== undefined) {
-        if (frameIdSetIsValid(snapshot.passedFrameIds)) {
+        const normalized = {
+            ...structuredClone(snapshot),
+            revealedTransferModelFrameIds: [...(snapshot.revealedTransferModelFrameIds ?? [])],
+        };
+        if (frameIdSetIsValid(normalized.passedFrameIds)) {
             const expectedPrefix = definition.frames
-                .slice(0, snapshot.passedFrameIds.length)
+                .slice(0, normalized.passedFrameIds.length)
                 .map(frame => frame.id);
-            if (!sameList(snapshot.passedFrameIds, expectedPrefix)) {
+            if (!sameList(normalized.passedFrameIds, expectedPrefix)) {
                 throw new TypeError('Sentence-frame snapshot completion is not chronological.');
             }
         }
-        if (!lessonZeroSentenceFrameSessionSnapshotShapeIsValid(snapshot)) {
+        if (!lessonZeroSentenceFrameSessionSnapshotShapeIsValid(normalized)) {
             throw new TypeError('Invalid Lesson Zero sentence-frame snapshot.');
         }
-        validateSnapshotAgainstDefinition(definition, snapshot);
-        return structuredClone(snapshot);
+        validateSnapshotAgainstDefinition(definition, normalized);
+        return normalized;
     }
     return {
         schemaVersion: 1,
@@ -136,6 +150,7 @@ export function startLessonZeroSentenceFrameSession(
         attempts: [],
         passedFrameIds: [],
         revealedModelFrameIds: [],
+        revealedTransferModelFrameIds: [],
     };
 }
 
@@ -166,37 +181,69 @@ export function transitionLessonZeroSentenceFrameSession(
         return unchanged({ ...state, stage: 'build', selectedTokenIds: [] });
     }
     if (action.kind === 'select-token') {
-        if (state.stage !== 'build'
+        if (!isBuildStage(state.stage)
             || state.selectedTokenIds.includes(action.tokenId)
             || !frame.target.tokens.some(token => token.id === action.tokenId)) return unchanged(state);
         return unchanged({ ...state, selectedTokenIds: [...state.selectedTokenIds, action.tokenId] });
     }
     if (action.kind === 'remove-token') {
-        if (state.stage !== 'build') return unchanged(state);
+        if (!isBuildStage(state.stage)) return unchanged(state);
         return unchanged({
             ...state,
             selectedTokenIds: state.selectedTokenIds.filter(id => id !== action.tokenId),
         });
     }
     if (action.kind === 'clear-tokens') {
-        if (state.stage !== 'build' || state.selectedTokenIds.length === 0) return unchanged(state);
+        if (!isBuildStage(state.stage) || state.selectedTokenIds.length === 0) return unchanged(state);
         return unchanged({ ...state, selectedTokenIds: [] });
     }
-    if (action.kind === 'check') return checkFrame(definition, state, frame, at);
+    if (action.kind === 'check') {
+        return checkFrame(definition, state, frame, at, state.stage === 'transfer-build' ? 'transfer' : 'practice');
+    }
     if (action.kind === 'reveal-model') return revealModel(definition, state, frame, at);
     if (action.kind === 'retry') {
-        const last = lastFrameAttempt(state, frame.id);
-        if (state.stage !== 'result' || last?.outcome !== 'lapse') return unchanged(state);
-        return unchanged({ ...state, stage: 'build', selectedTokenIds: [] });
+        const phase = phaseForResultStage(state.stage);
+        const last = phase ? lastFrameAttempt(state, frame.id, phase) : undefined;
+        if (!phase || last?.outcome !== 'lapse') return unchanged(state);
+        return unchanged({
+            ...state,
+            stage: phase === 'transfer' ? 'transfer-build' : 'build',
+            selectedTokenIds: [],
+        });
     }
     if (action.kind === 'next-frame') {
-        const last = lastFrameAttempt(state, frame.id);
+        const last = lastFrameAttempt(state, frame.id, 'practice');
         if (state.stage !== 'result' || last?.outcome !== 'pass' || state.cursor >= definition.frames.length - 1) {
             return unchanged(state);
         }
         return unchanged({
             ...state,
             stage: 'teach',
+            cursor: state.cursor + 1,
+            selectedTokenIds: [],
+        });
+    }
+    if (action.kind === 'begin-transfer') {
+        const last = lastFrameAttempt(state, frame.id, 'practice');
+        if (state.stage !== 'result'
+            || state.cursor !== definition.frames.length - 1
+            || state.passedFrameIds.length !== definition.frames.length
+            || last?.outcome !== 'pass') return unchanged(state);
+        return unchanged({
+            ...state,
+            stage: 'transfer-build',
+            cursor: 0,
+            selectedTokenIds: [],
+        });
+    }
+    if (action.kind === 'next-transfer') {
+        const last = lastFrameAttempt(state, frame.id, 'transfer');
+        if (state.stage !== 'transfer-result'
+            || last?.outcome !== 'pass'
+            || state.cursor >= definition.frames.length - 1) return unchanged(state);
+        return unchanged({
+            ...state,
+            stage: 'transfer-build',
             cursor: state.cursor + 1,
             selectedTokenIds: [],
         });
@@ -212,31 +259,36 @@ export function lessonZeroSentenceFrameSessionSnapshotShapeIsValid(
     const selected = candidate.selectedTokenIds;
     const passed = candidate.passedFrameIds;
     const revealed = candidate.revealedModelFrameIds;
+    const revealedTransfer = candidate.revealedTransferModelFrameIds ?? [];
     const attempts = candidate.attempts;
     if (candidate.schemaVersion !== 1
         || candidate.sessionId !== 'session:lesson-zero-sentence-frames'
         || !['ready', 'active', 'paused', 'complete'].includes(candidate.status ?? '')
-        || !['teach', 'build', 'result', 'complete'].includes(candidate.stage ?? '')
+        || !['teach', 'build', 'result', 'transfer-build', 'transfer-result', 'complete'].includes(candidate.stage ?? '')
         || !Number.isInteger(candidate.cursor)
         || (candidate.cursor ?? -1) < 0
         || (candidate.cursor ?? Number.MAX_SAFE_INTEGER) >= LESSON_ZERO_SENTENCE_FRAME_IDS.length
         || !stringSetIsValid(selected)
         || !frameIdSetIsValid(passed)
         || !frameIdSetIsValid(revealed)
+        || !frameIdSetIsValid(revealedTransfer)
         || !Array.isArray(attempts)
         || !attempts.every(attemptShapeIsValid)) return false;
     const passedPrefix = LESSON_ZERO_SENTENCE_FRAME_IDS.slice(0, passed?.length);
     if (!passed?.every((frameId, index) => passedPrefix[index] === frameId)) return false;
-    if (attempts.some(attempt => LESSON_ZERO_SENTENCE_FRAME_IDS.indexOf(attempt.frameId) > candidate.cursor!)) {
+    if (passed.some(frameId => !attempts.some(attempt =>
+        attempt.frameId === frameId && phaseOf(attempt) === 'practice' && attempt.outcome === 'pass'))) {
         return false;
     }
-    if (passed.some(frameId => !attempts.some(attempt => attempt.frameId === frameId && attempt.outcome === 'pass'))) {
-        return false;
-    }
+    const transferPasses = passedTransferFrameIds(attempts);
+    const transferPrefix = LESSON_ZERO_SENTENCE_FRAME_IDS.slice(0, transferPasses.length);
+    if (!sameList(transferPasses, transferPrefix)) return false;
+    const legacyComplete = attempts.length > 0 && attempts.every(attempt => attempt.phase === undefined);
     if (candidate.status === 'complete') {
         return candidate.stage === 'complete'
             && candidate.cursor === LESSON_ZERO_SENTENCE_FRAME_IDS.length - 1
-            && passed.length === LESSON_ZERO_SENTENCE_FRAME_IDS.length;
+            && passed.length === LESSON_ZERO_SENTENCE_FRAME_IDS.length
+            && (legacyComplete || transferPasses.length === LESSON_ZERO_SENTENCE_FRAME_IDS.length);
     }
     if (candidate.stage === 'complete') return false;
     if (candidate.status === 'ready') {
@@ -247,13 +299,26 @@ export function lessonZeroSentenceFrameSessionSnapshotShapeIsValid(
             && passed?.length === 0
             && revealed?.length === 0;
     }
+    if (candidate.stage === 'transfer-build' || candidate.stage === 'transfer-result') {
+        if (passed.length !== LESSON_ZERO_SENTENCE_FRAME_IDS.length
+            || transferPasses.length < candidate.cursor!
+            || transferPasses.length > candidate.cursor! + 1) return false;
+        if (candidate.stage === 'transfer-build') return transferPasses.length === candidate.cursor;
+        const currentFrameId = LESSON_ZERO_SENTENCE_FRAME_IDS[candidate.cursor!];
+        return attempts.some(attempt =>
+            attempt.frameId === currentFrameId && phaseOf(attempt) === 'transfer');
+    }
+    if (attempts.some(attempt =>
+        phaseOf(attempt) === 'practice'
+        && LESSON_ZERO_SENTENCE_FRAME_IDS.indexOf(attempt.frameId) > candidate.cursor!)) return false;
     if (passed.length < candidate.cursor! || passed.length > candidate.cursor! + 1) return false;
     if (candidate.stage === 'teach' || candidate.stage === 'build') {
         return passed.length === candidate.cursor;
     }
     const currentFrameId = LESSON_ZERO_SENTENCE_FRAME_IDS[candidate.cursor!];
     if (candidate.stage === 'result'
-        && !attempts.some(attempt => attempt.frameId === currentFrameId)) return false;
+        && !attempts.some(attempt =>
+            attempt.frameId === currentFrameId && phaseOf(attempt) === 'practice')) return false;
     return true;
 }
 
@@ -262,8 +327,10 @@ function checkFrame(
     state: LessonZeroSentenceFrameSessionState,
     frame: LessonZeroSentenceFrameDefinition,
     at: number,
+    phase: 'practice' | 'transfer',
 ): LessonZeroSentenceFrameSessionTransition {
-    if (state.stage !== 'build' || state.selectedTokenIds.length !== frame.target.tokens.length) {
+    const expectedStage = phase === 'transfer' ? 'transfer-build' : 'build';
+    if (state.stage !== expectedStage || state.selectedTokenIds.length !== frame.target.tokens.length) {
         return unchanged(state);
     }
     const correctPositions = state.selectedTokenIds.filter((id, index) => frame.target.correctOrder[index] === id).length;
@@ -271,36 +338,44 @@ function checkFrame(
     const outcome = score === 1 ? 'pass' : 'lapse';
     const attempt: LessonZeroSentenceFrameAttempt = {
         frameId: frame.id,
+        phase,
         order: [...state.selectedTokenIds],
         outcome,
         score,
         at,
     };
     const repairing = outcome === 'lapse'
-        || state.attempts.some(candidate => candidate.frameId === frame.id && candidate.outcome === 'lapse');
-    const passedFrameIds = outcome === 'pass'
+        || state.attempts.some(candidate =>
+            candidate.frameId === frame.id && phaseOf(candidate) === phase && candidate.outcome === 'lapse');
+    const passedFrameIds = phase === 'practice' && outcome === 'pass'
         ? unique([...state.passedFrameIds, frame.id])
         : state.passedFrameIds;
-    const finalPass = outcome === 'pass' && passedFrameIds.length === definition.frames.length;
-    const attemptNumber = state.attempts.filter(candidate => candidate.frameId === frame.id).length + 1;
-    const eventStem = `${definition.id}:${frame.id}:attempt:${attemptNumber}:${at}`;
+    const transferPasses = phase === 'transfer' && outcome === 'pass'
+        ? unique([...passedTransferFrameIds(state.attempts), frame.id])
+        : passedTransferFrameIds(state.attempts);
+    const finalPass = phase === 'transfer'
+        && outcome === 'pass'
+        && transferPasses.length === definition.frames.length;
+    const attemptNumber = state.attempts.filter(candidate =>
+        candidate.frameId === frame.id && phaseOf(candidate) === phase).length + 1;
+    const eventStem = `${definition.id}:${frame.id}:${phase}:attempt:${attemptNumber}:${at}`;
     const nextState: LessonZeroSentenceFrameSessionState = {
         ...state,
         status: finalPass ? 'complete' : 'active',
-        stage: finalPass ? 'complete' : 'result',
+        stage: finalPass ? 'complete' : phase === 'transfer' ? 'transfer-result' : 'result',
         attempts: [...state.attempts, attempt],
         passedFrameIds,
     };
     return {
         state: nextState,
-        evaluation: evaluationFor(frame, attempt, repairing, eventStem),
+        evaluation: evaluationFor(frame, attempt, phase, repairing, eventStem),
         ...(finalPass ? { completionEvaluation: completionEvaluation(definition, at) } : {}),
         adaptive: {
             eventId: `${eventStem}:learning`,
             at,
             modeId: 'lesson-zero-sentence-frames',
             skill: 'writing',
-            action: repairing ? 'repair' : 'produce',
+            action: repairing ? 'repair' : phase === 'transfer' ? 'transfer' : 'produce',
             sourceId: definition.activityId,
             independent: !repairing,
         },
@@ -314,14 +389,19 @@ function revealModel(
     frame: LessonZeroSentenceFrameDefinition,
     at: number,
 ): LessonZeroSentenceFrameSessionTransition {
-    const last = lastFrameAttempt(state, frame.id);
-    if (state.stage !== 'result' || last?.outcome !== 'lapse'
-        || state.revealedModelFrameIds.includes(frame.id)) return unchanged(state);
-    const eventStem = `${definition.id}:${frame.id}:support:${at}`;
+    const phase = phaseForResultStage(state.stage);
+    const last = phase ? lastFrameAttempt(state, frame.id, phase) : undefined;
+    const revealed = phase === 'transfer'
+        ? state.revealedTransferModelFrameIds ?? []
+        : state.revealedModelFrameIds;
+    if (!phase || last?.outcome !== 'lapse' || revealed.includes(frame.id)) return unchanged(state);
+    const eventStem = `${definition.id}:${frame.id}:${phase}:support:${at}`;
     return {
         state: {
             ...state,
-            revealedModelFrameIds: [...state.revealedModelFrameIds, frame.id],
+            ...(phase === 'transfer'
+                ? { revealedTransferModelFrameIds: [...revealed, frame.id] }
+                : { revealedModelFrameIds: [...revealed, frame.id] }),
         },
         supportEvents: [
             supportEvent(frame.activityId, 'transcript', `${eventStem}:transcript`, at),
@@ -334,11 +414,12 @@ function revealModel(
 function evaluationFor(
     frame: LessonZeroSentenceFrameDefinition,
     attempt: LessonZeroSentenceFrameAttempt,
+    phase: 'practice' | 'transfer',
     repairing: boolean,
     eventId: string,
 ): ActivityEvaluation {
-    const errorTags = attempt.outcome === 'pass' ? [] : [`sentence-frame-order:${frame.id}`];
-    const reviewSeeds: readonly ReviewSeed[] = attempt.outcome === 'pass' ? [{
+    const errorTags = attempt.outcome === 'pass' ? [] : [`sentence-frame-${phase}-order:${frame.id}`];
+    const reviewSeeds: readonly ReviewSeed[] = phase === 'practice' && attempt.outcome === 'pass' ? [{
         id: `review:lesson-zero:sentence-frame:${frame.id}`,
         conceptId: frame.conceptId,
         reason: repairing ? 'repair' : 'new-learning',
@@ -356,7 +437,7 @@ function evaluationFor(
             at: attempt.at,
             activityId: frame.activityId,
             conceptIds: [frame.conceptId],
-            responseKind: 'tapped-token-order',
+            responseKind: phase === 'transfer' ? 'tapped-token-order-transfer' : 'tapped-token-order',
             outcome: attempt.outcome,
             score: attempt.score,
             ...(errorTags.length ? { errorTags } : {}),
@@ -368,8 +449,12 @@ function evaluationFor(
             feedback: attempt.outcome === 'pass'
                 ? {
                     explanation: {
-                        en: 'The words are carrying the meaning you chose.',
-                        ja: '選んだ意味が、その語順で伝わっています。',
+                        en: phase === 'transfer'
+                            ? 'You recalled the whole sentence without looking at the pattern.'
+                            : 'The words are carrying the meaning you chose.',
+                        ja: phase === 'transfer'
+                            ? '文の形を見ずに、文を思い出せました。'
+                            : '選んだ意味が、その語順で伝わっています。',
                     },
                 }
                 : {
@@ -378,8 +463,12 @@ function evaluationFor(
                         ja: '必要なことばはそろっていますが、役割の順番が入れ替わっています。',
                     },
                     repairPrompt: {
-                        en: `Look at the ${frame.pattern} rail and rebuild the same thought.`,
-                        ja: `「${frame.pattern}」の形を見て、同じ意味をもう一度作りましょう。`,
+                        en: phase === 'transfer'
+                            ? 'Replay the sentence in your head, then rebuild it once more.'
+                            : `Use this pattern again: ${frame.pattern}.`,
+                        ja: phase === 'transfer'
+                            ? '文を頭の中で聞いてから、もう一度作りましょう。'
+                            : `「${frame.pattern}」の形を見て、同じ意味をもう一度作りましょう。`,
                     },
                     nearbyExample: frame.nearbyExample.meaning,
                 },
@@ -409,8 +498,8 @@ function completionEvaluation(
             errorTags: [],
             feedback: {
                 explanation: {
-                    en: 'Five sentence shapes are ready for the rest of the day.',
-                    ja: '今日これから使う五つの文の形がそろいました。',
+                    en: 'You built all five sentences, then recalled them without looking at the patterns.',
+                    ja: '五つの文を作り、文の形を見ずにもう一度思い出せました。',
                 },
             },
         },
@@ -437,6 +526,8 @@ function validateDefinition(definition: LessonZeroSentenceFrameSessionDefinition
             || !sameSet(frame.target.correctOrder, tokenIds)
             || !sameSet(frame.target.bankOrder, tokenIds)
             || assembled(frame, frame.target.correctOrder) !== frame.target.japanese
+            || !frame.transferPrompt.en.trim()
+            || !frame.transferPrompt.ja.trim()
             || frame.nearbyExample.japanese === frame.target.japanese) {
             throw new TypeError(`Invalid Lesson Zero sentence frame ${frame.id}.`);
         }
@@ -458,6 +549,10 @@ function validateSnapshotAgainstDefinition(
             throw new TypeError('Sentence-frame snapshot contains an impossible attempt.');
         }
     }
+    if (snapshot.attempts.some(attempt => phaseOf(attempt) === 'transfer')
+        && snapshot.passedFrameIds.length !== definition.frames.length) {
+        throw new TypeError('Sentence-frame transfer began before guided practice was complete.');
+    }
     const expectedPrefix = definition.frames.slice(0, snapshot.passedFrameIds.length).map(candidate => candidate.id);
     if (!sameList(snapshot.passedFrameIds, expectedPrefix)) {
         throw new TypeError('Sentence-frame snapshot completion is not chronological.');
@@ -471,8 +566,10 @@ function assembled(frame: LessonZeroSentenceFrameDefinition, order: readonly str
 function lastFrameAttempt(
     state: LessonZeroSentenceFrameSessionState,
     frameId: LessonZeroSentenceFrameId,
+    phase: 'practice' | 'transfer',
 ): LessonZeroSentenceFrameAttempt | undefined {
-    return [...state.attempts].reverse().find(attempt => attempt.frameId === frameId);
+    return [...state.attempts].reverse().find(attempt =>
+        attempt.frameId === frameId && phaseOf(attempt) === phase);
 }
 
 function attemptShapeIsValid(value: unknown): value is LessonZeroSentenceFrameAttempt {
@@ -482,6 +579,7 @@ function attemptShapeIsValid(value: unknown): value is LessonZeroSentenceFrameAt
         && Array.isArray(candidate.order)
         && candidate.order.every(item => typeof item === 'string' && Boolean(item))
         && new Set(candidate.order).size === candidate.order.length
+        && (candidate.phase === undefined || candidate.phase === 'practice' || candidate.phase === 'transfer')
         && (candidate.outcome === 'pass' || candidate.outcome === 'lapse')
         && typeof candidate.score === 'number'
         && Number.isFinite(candidate.score)
@@ -527,6 +625,30 @@ function sameSet(actual: readonly string[], expected: readonly string[]): boolea
 
 function unique<T>(values: readonly T[]): T[] {
     return [...new Set(values)];
+}
+
+function phaseOf(attempt: LessonZeroSentenceFrameAttempt): 'practice' | 'transfer' {
+    return attempt.phase ?? 'practice';
+}
+
+function phaseForResultStage(
+    stage: LessonZeroSentenceFrameSessionState['stage'],
+): 'practice' | 'transfer' | undefined {
+    if (stage === 'result') return 'practice';
+    if (stage === 'transfer-result') return 'transfer';
+    return undefined;
+}
+
+function isBuildStage(stage: LessonZeroSentenceFrameSessionState['stage']): boolean {
+    return stage === 'build' || stage === 'transfer-build';
+}
+
+function passedTransferFrameIds(
+    attempts: readonly LessonZeroSentenceFrameAttempt[],
+): LessonZeroSentenceFrameId[] {
+    return LESSON_ZERO_SENTENCE_FRAME_IDS.filter(frameId =>
+        attempts.some(attempt =>
+            attempt.frameId === frameId && phaseOf(attempt) === 'transfer' && attempt.outcome === 'pass'));
 }
 
 function unchanged(state: LessonZeroSentenceFrameSessionState): LessonZeroSentenceFrameSessionTransition {
