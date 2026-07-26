@@ -138,6 +138,13 @@ export interface AnkiLibraryScanResult {
     suggestedModel: AnkiModelScanResult | null;
 }
 
+// A Yomu-managed note type from an earlier release and the fields this
+// release would add to it. Null instead of an empty plan: nothing to offer.
+export interface AnkiModelUpdatePlan {
+    modelName: string;
+    missingFields: string[];
+}
+
 export interface AnkiCardContext {
     deckName?: string;
     imageDataUrl?: string;

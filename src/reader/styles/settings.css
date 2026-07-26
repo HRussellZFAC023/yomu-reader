@@ -982,6 +982,18 @@
   white-space: normal;
   line-height: 1.15;
 }
+.jpdb-reader-anki-model-update {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--jpdb-reader-accent);
+  border-radius: 10px;
+}
+.jpdb-reader-anki-model-update[hidden] {
+  display: none;
+}
+.jpdb-reader-anki-model-update .jpdb-reader-settings-actions {
+  margin-top: 8px;
+}
 .jpdb-reader-anki-choice-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

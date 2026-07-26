@@ -534,11 +534,15 @@ const COPY = {
         ankiRoleAudio: 'Audio',
         ankiRoleImage: 'Image',
         testAnki: 'Check AnkiConnect',
-        prepareAnki: 'Create Yomu note type',
+        prepareAnki: 'Set up Yomu note type',
+        updateAnkiModel: 'Update note type',
+        ankiModelUpdateAvailable: 'New fields are ready for "{model}": {fields}.',
+        ankiModelUpdating: 'Adding note type fields...',
+        ankiModelUpdated: 'Note type up to date. Added {fields}.',
         ankiCheckingConnection: 'Checking AnkiConnect at {url}.',
         ankiMiningDisabledStatus: 'Anki mining disabled.',
         ankiTesting: 'Checking AnkiConnect...',
-        ankiPreparing: 'Creating Yomu deck/note type...',
+        ankiPreparing: 'Setting up Yomu deck and note type...',
         ankiScanning: 'Reading decks, note types, fields...',
         ankiScanSummary: 'Decks {decks}, types {models}. Best: {model}. {fields}',
         ankiScanNoModels: 'Found {decks} decks. Note types unavailable.',
@@ -2196,7 +2200,11 @@ ankiRoleSentence	文
 ankiRoleAudio	音声
 ankiRoleImage	画像
 testAnki	AnkiConnectを確認
-prepareAnki	よむノートタイプを作成
+prepareAnki	よむノートタイプを準備
+updateAnkiModel	ノートタイプを更新
+ankiModelUpdateAvailable	「{model}」に追加できる新しいフィールドがあります: {fields}
+ankiModelUpdating	ノートタイプにフィールドを追加中...
+ankiModelUpdated	ノートタイプは最新です。{fields} を追加しました。
 ankiCheckingConnection	{url} のAnkiConnectを確認中。
 ankiMiningDisabledStatus	Ankiマイニングは無効です。
 ankiTesting	AnkiConnectを確認中...

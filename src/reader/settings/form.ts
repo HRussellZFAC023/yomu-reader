@@ -1566,6 +1566,7 @@ const HIDE_GROUP_LEGEND_TEXT_KEYS = [
 const SETTINGS_ACTION_TEXT_KEYS = [
     ['[data-action="test-anki"]', 'testAnki'],
     ['[data-action="prepare-anki"]', 'prepareAnki'],
+    ['[data-action="update-anki-model"]', 'updateAnkiModel'],
     ['[data-action="copy-newtab-url"]', 'copyAddress'],
     ['[data-newtab-url-link]', 'openNewTabPage'],
     ['[data-action="import-yomitan-settings"]', 'importSettings'],
