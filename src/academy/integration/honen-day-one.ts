@@ -5,7 +5,7 @@ import type {
 } from '../domain/curriculum-augmentation';
 
 export const HONEN_DAY_ONE_COURSE_ID = '6a6538d092ef865026522aa5' as const;
-export const HONEN_DAY_ONE_LESSON_ID = 'lesson:foundation-00' as const;
+const HONEN_DAY_ONE_LESSON_ID = 'lesson:foundation-00' as const;
 
 export type HonenLearningStage =
     | 'guided-exposure'

@@ -12,7 +12,4 @@ export {
 } from './storage-bridge';
 export {
     requestViaUserscriptManager,
-    DROPPED_CALLBACK_DEADLINE_MS,
-    type UserscriptManagerRequestConfig,
-    type UserscriptManagerRequestDetails,
 } from './manager-request';
