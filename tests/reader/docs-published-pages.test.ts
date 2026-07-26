@@ -1,0 +1,146 @@
+import { readFileSync, readdirSync } from 'node:fs';
+import path from 'node:path';
+import { describe, expect, it } from 'vitest';
+import {
+    internalDocsExcludeGlobs,
+    isInternalDocPath,
+    navigationRoutes,
+    sitemapItemsForRoutes,
+    sitemapRouteKey,
+} from '../../config/docs/published-pages';
+
+const ROOT = process.cwd();
+const DOCS = path.join(ROOT, 'docs');
+
+// Every page yomureader.com is meant to publish, as VitePress sitemap urls
+// (docs-relative, cleanUrls applied). Anything else under docs/ is a working
+// note that must stay in the repo and off the site.
+const PUBLIC_ROUTES = [
+    '',
+    'api/',
+    'changelog',
+    'features',
+    'getting-started',
+    'guides/',
+    'guides/comprehensible-input-youtube',
+    'guides/mine-sentences-to-anki',
+    'guides/read-manga-in-japanese',
+    'guides/study-setup',
+    'local-audio',
+    'privacy/',
+    'support',
+    'tools/',
+    'tools/furigana-reader',
+    'tools/japanese-ocr',
+    'tools/japanese-subtitle-reader',
+    'tools/kanji-stroke-order',
+    'tools/study-page',
+    'tools/yomu-gaming',
+    'tools/youtube-japanese',
+];
+
+function readProjectFile(file: string): string {
+    return readFileSync(path.join(ROOT, file), 'utf8');
+}
+
+function docsMarkdownFiles(directory = DOCS): string[] {
+    return readdirSync(directory, { withFileTypes: true }).flatMap(entry => {
+        const entryPath = path.join(directory, entry.name);
+        if (entry.isDirectory()) {
+            return entry.name === '.vitepress' ? [] : docsMarkdownFiles(entryPath);
+        }
+        if (!entry.isFile() || path.extname(entry.name) !== '.md') return [];
+        return [path.relative(DOCS, entryPath).split(path.sep).join('/')];
+    });
+}
+
+function routeFor(relativePath: string): string {
+    return relativePath.replace(/(^|\/)index\.md$/, '$1').replace(/\.md$/, '');
+}
+
+describe('published docs pages', () => {
+    it('routes only the user-facing pages', () => {
+        const published = docsMarkdownFiles()
+            .filter(file => !isInternalDocPath(file))
+            .map(routeFor)
+            .sort();
+
+        expect(published).toEqual(PUBLIC_ROUTES);
+    });
+
+    it('keeps engineering notes, QA probes, and reviewer notes off the site', () => {
+        const internal = [
+            'academy/STATUS.md',
+            'academy/shared-study-srs.md',
+            'academy/story/dossiers/rie.md',
+            'carryover-workstream-2026-07-18.md',
+            'dev/browser-store-automation.md',
+            'dev/check-exit-code-incident-2026-07-18.md',
+            'dev/check-performance.md',
+            'multilingual/README.md',
+            'multilingual/roster-source.md',
+            'nuclear-backlog-2026-07-16.md',
+            'public/academy/vendor/kanjivg/ATTRIBUTION.md',
+            'qa/ANNOTATION-FIX-PROBE-20260715.md',
+            'store-review-notes.md',
+        ];
+
+        for (const file of internal) {
+            expect(isInternalDocPath(file), file).toBe(true);
+        }
+        for (const file of ['index.md', 'features.md', 'guides/study-setup.md', 'tools/japanese-ocr.md']) {
+            expect(isInternalDocPath(file), file).toBe(false);
+        }
+    });
+
+    it('links every published page from the site navigation', () => {
+        const config = readProjectFile('docs/.vitepress/config.mts');
+
+        for (const route of PUBLIC_ROUTES) {
+            const bare = sitemapRouteKey(route);
+            const linked = config.includes(`link: '/${bare}'`) || config.includes(`link: '/${bare}/'`);
+            expect(linked, `/${bare} is published but nothing links to it`).toBe(true);
+        }
+    });
+
+    it('wires the exclusion list and the sitemap filter into the VitePress config', () => {
+        const config = readProjectFile('docs/.vitepress/config.mts');
+
+        expect(config).toContain('srcExclude: internalDocsExcludeGlobs');
+        expect(config).toContain('sitemapItemsForRoutes(items, linkedRoutes)');
+        expect(internalDocsExcludeGlobs).toContain('academy/**/*.md');
+    });
+});
+
+describe('sitemap filtering', () => {
+    it('collects same-site routes from nested navigation and ignores externals', () => {
+        const routes = navigationRoutes([
+            { text: 'Install', link: '/getting-started' },
+            { text: 'Stats', link: '/study/?mode=stats' },
+            { text: 'Source', link: 'https://github.com/example/repo' },
+            { text: 'More', items: [{ text: 'Privacy', link: '/privacy' }] },
+        ]);
+
+        expect([...routes].sort()).toEqual(['getting-started', 'privacy', 'study']);
+    });
+
+    it('keeps linked pages and drops unlinked ones, index and directory urls alike', () => {
+        const routes = navigationRoutes([
+            { text: 'Overview', link: '/' },
+            { text: 'Privacy', link: '/privacy' },
+            { text: 'Tools', link: '/tools/' },
+        ]);
+        const items = [
+            { url: '' },
+            { url: 'privacy/' },
+            { url: 'tools/' },
+            { url: 'nuclear-backlog-2026-07-16' },
+        ];
+
+        expect(sitemapItemsForRoutes(items, routes)).toEqual([
+            { url: '' },
+            { url: 'privacy/' },
+            { url: 'tools/' },
+        ]);
+    });
+});
