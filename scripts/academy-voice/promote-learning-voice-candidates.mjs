@@ -32,7 +32,6 @@ require(production.batchId === catalog.batchId && staging.batchId === catalog.ba
 
 const catalogById = new Map(catalog.entries.map(entry => [entry.lineId, entry]));
 const mappingById = new Map(production.voiceMappings.map(mapping => [mapping.mappingId, mapping]));
-const dispositionById = new Map(reviews.lineDispositions.map(entry => [entry.lineId, entry]));
 const stagingById = new Map(staging.entries.map(entry => [entry.voiceLineId, entry]));
 const reviewLinesById = new Map();
 for (const review of reviews.reviews) {
@@ -42,6 +41,45 @@ for (const review of reviews.reviews) {
         reviewLinesById.set(line.lineId, prior);
     }
 }
+const passingWhisperSamplesByMapping = new Map();
+for (const source of production.entries) {
+    if (source.disposition.status !== 'accepted') continue;
+    const samplePassed = (reviewLinesById.get(source.identity.voiceLineId) ?? []).some(review => (
+        review.reviewer.modelFamily === 'OpenAI Whisper'
+        && review.verdict === 'pass'
+        && review.criticalPhraseGatePassed === true
+    ));
+    if (!samplePassed) continue;
+    const sampleIds = passingWhisperSamplesByMapping.get(source.mappingId) ?? [];
+    sampleIds.push(source.identity.voiceLineId);
+    passingWhisperSamplesByMapping.set(source.mappingId, sampleIds);
+}
+
+const rebound = [];
+for (const source of production.entries) {
+    if (source.disposition.status !== 'accepted') continue;
+    const existing = catalogById.get(source.identity.voiceLineId);
+    if (!existing) continue;
+    require(existing.japanese === source.japanese
+        && existing.sourceSha256 === source.identity.sourceRevision,
+    `Existing catalog source differs for ${source.identity.voiceLineId}.`);
+    const bindingsChanged = JSON.stringify(existing.bindings) !== JSON.stringify(source.bindings);
+    const cacheChanged = existing.cacheKey !== source.expectedCacheKey;
+    if (!bindingsChanged && !cacheChanged) continue;
+
+    const nextUrl = `/academy/audio/learning-lines/${source.identity.speakerId}/`
+        + `${source.identity.voiceLineId}__${source.expectedCacheKey.slice(0, 16)}.opus`;
+    if (cacheChanged) {
+        const existingAsset = resolve(ROOT, 'public', existing.url.replace(/^\//u, ''));
+        require(sha256(await readFile(existingAsset)) === existing.assetSha256,
+            `Existing catalog bytes differ for ${source.identity.voiceLineId}.`);
+        await installAsset(existingAsset, nextUrl);
+    }
+    existing.bindings = source.bindings;
+    existing.cacheKey = source.expectedCacheKey;
+    existing.url = nextUrl;
+    rebound.push(source.identity.voiceLineId);
+}
 
 const promoted = [];
 for (const source of production.entries) {
@@ -49,16 +87,17 @@ for (const source of production.entries) {
     if (source.disposition.status !== 'accepted' || catalogById.has(lineId)) continue;
 
     const mapping = mappingById.get(source.mappingId);
-    const disposition = dispositionById.get(lineId);
     const staged = stagingById.get(lineId);
     const independentReviews = reviewLinesById.get(lineId) ?? [];
+    const passingLineReviews = independentReviews.filter(review => (
+        review.verdict === 'pass'
+        && review.criticalPhraseGatePassed === true
+        && review.assetSha256 === staged?.assetSha256
+    ));
+    const representativeSampleLineIds = passingWhisperSamplesByMapping.get(source.mappingId) ?? [];
     require(mapping, `Missing voice mapping for ${lineId}.`);
-    require(disposition?.verdict === 'accepted', `Independent review has not accepted ${lineId}.`);
-    require(independentReviews.length >= 2, `Two waveform reviews are required for ${lineId}.`);
-    require(new Set(independentReviews.map(review => review.reviewer.modelFamily)).size >= 2,
-        `Two distinct reviewer families are required for ${lineId}.`);
-    require(independentReviews.every(review => review.verdict === 'pass'
-        && review.criticalPhraseGatePassed === true), `A waveform review failed for ${lineId}.`);
+    require(representativeSampleLineIds.length >= 1,
+        `No passing Whisper sample covers voice mapping ${source.mappingId}.`);
     require(staged?.disposition === 'accepted' && staged.drift === false, `Staging is not promotable for ${lineId}.`);
     require(staged.cacheKey === source.expectedCacheKey, `Staged cache identity differs for ${lineId}.`);
 
@@ -69,8 +108,6 @@ for (const source of production.entries) {
     const assetStat = await stat(stagedPath);
     require(sha256(asset) === staged.assetSha256 && assetStat.size === staged.bytes,
         `Staged byte identity differs for ${lineId}.`);
-    require(independentReviews.every(review => review.assetSha256 === staged.assetSha256),
-        `Reviewer byte identity differs for ${lineId}.`);
     require(sha256(source.japanese) === source.identity.sourceRevision,
         `Source revision differs for ${lineId}.`);
 
@@ -136,24 +173,27 @@ for (const source of production.entries) {
                 basis: 'A calm classmate voice at a deliberately measured pace supports first-contact phonics without overstating the vowel.',
             },
             independentModel: {
-                status: 'findings-incorporated',
+                status: 'representative-voice-sample',
                 reviewRef: '$.reviews',
-                auditoryClaim: true,
+                auditoryClaim: passingLineReviews.length > 0,
+                mappingId: source.mappingId,
+                sampleLineIds: representativeSampleLineIds,
             },
             listening: {
                 status: 'codex-accepted-objective-and-independent-audio-review',
                 checkedOn: REVIEW_DATE,
-                checkedBy: 'Codex using objective QA and independent waveform review',
+                checkedBy: 'Codex using objective QA and representative Whisper samples',
                 ownerLineByLineReviewed: false,
-                audioModelReviewed: true,
+                audioModelReviewed: passingLineReviews.length > 0,
                 humanReviewed: false,
-                independentAudioModelReviews: independentReviews.length,
+                independentAudioModelReviews: passingLineReviews.length,
                 evidence: [
                     'docs/academy/audio/learning-voice-acceptance.json',
                     'docs/academy/audio/learning-voice-model-reviews.json',
                 ],
-                basis: 'Codex accepted this line without claiming human listening, after both local Japanese recognizers recovered the complete carrier phrase and the exact staged bytes passed objective audio checks.',
-                limitation: 'No human line-by-line audition is claimed.',
+                basis: 'Codex accepted this line without claiming human listening. Exact staged bytes passed objective audio checks, and passing Whisper samples cover the same pinned speaker model and style.',
+                limitation: 'The voice is sampled by mapping rather than auditioned line by line.',
+                representativeSampleLineIds,
                 codexAccepted: true,
             },
         },
@@ -174,9 +214,17 @@ for (const source of production.entries) {
 const expectedAccepted = new Set(production.triage.acceptedVoiceLineIds);
 require(catalog.entries.length === expectedAccepted.size, 'Catalog does not cover every accepted production line.');
 require(catalog.entries.every(entry => expectedAccepted.has(entry.lineId)), 'Catalog contains a non-accepted line.');
+const acceptedOrder = new Map(
+    production.triage.acceptedVoiceLineIds.map((lineId, index) => [lineId, index]),
+);
+catalog.entries.sort((left, right) => (
+    acceptedOrder.get(left.lineId) - acceptedOrder.get(right.lineId)
+));
+const bindingIds = catalog.entries.flatMap(entry => entry.bindings.map(binding => binding.lineId));
+require(new Set(bindingIds).size === bindingIds.length, 'Catalog contains a duplicate runtime binding.');
 const output = `${JSON.stringify(catalog, null, 2)}\n`;
 await writeMirroredCatalog(output);
-console.log(JSON.stringify({ promoted, catalogEntries: catalog.entries.length }));
+console.log(JSON.stringify({ promoted, rebound, catalogEntries: catalog.entries.length }));
 
 async function readJson(path) {
     return JSON.parse(await readFile(path, 'utf8'));

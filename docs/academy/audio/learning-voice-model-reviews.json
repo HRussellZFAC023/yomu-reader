@@ -1,6 +1,6 @@
 {
   "schema": "yomu-academy.learning-voice-model-reviews.v2",
-  "reviewedOn": "2026-07-24",
+  "reviewedOn": "2026-07-26",
   "audioModelReviewed": true,
   "humanReviewed": false,
   "policy": {
@@ -42,25 +42,38 @@
         "character error rate at or below 0.15 after every critical gate passes"
       ],
       "assetSha256s": [
+        "02e77857bf975546fb0df6fc77d6ee35c73259344728bc505410ad3bb2f330d3",
         "0c949c52634727f8e27730cd45ca175d9d43ec05e06e4c189c1609a641195a90",
         "0f66cd7f8f8746acc4f6cf48eea70f19d81021e77a178a5df725363062181f0b",
         "139fcc5abad785ada11c470ba36db8e55b73849a07e9c7ab68a51b15d8cef07e",
+        "15a4f0d0868f940fc555b0160d7b86904de513c478eae2c9d2b9ffdcc9232277",
+        "15cfa1b325d0cb19f2192880cedcef564800af94a13e66e79ffbd2ab6393c174",
+        "1a67680f67bb03dd4ab488905eff549dc98a6e57ac33cb7aa899100e1579318f",
         "1af5a59cc331de1204697087771b97b39f04430ca42525f141d073e0ca17e58b",
+        "2798631dcd96124cc1c7474838558597b0c2d3f96589f979c642b93cfdf2f0fe",
         "3a518a64e393b26b0c723d3ac60a78280fda8fde0343558f76ebf19bb586a51a",
+        "3b54cf2f819ba3506ad215f01fd50f9a058e7b789b011d522099abcb25b2459b",
+        "3b89a985c731246cf217645f9c19f0adb4ef183786ad7bc7d89eeac19cfabce7",
+        "432ebbf1ba2fd8590493f25807d782aa53c0b38acc76c5cc010ae939f4cb5ef6",
         "582a8f6e440ee92470c8beade4f9cc2b80a9cc28a9cea4fcbcaa7ba7dd864c37",
         "7c9d841fbde752f509887763e6fd130004081257f21156afc5a8ddfd85969771",
         "8174141e164da8e062921d45f34e0232bbf5b6f02f654924026ba661e3ffecc2",
         "86dbec0a4e0c4ed17984993569eb7056fe2246569c382a10a7a15c274e840f06",
         "877837076979db131e43595095422105b3c60a25cbfbf3f918a6a16696a9aafb",
         "93160d80b29b8a21688ca5620b69da072e9370705c7d42cc52e27853c78b8a11",
+        "99bb3e5c2a9551c6fa0209faedd44a600029b788d1509711848a074326bdae78",
+        "9d1ba8009c99f96ff0816b4637ca32251a261e77cf0845122214ab109264d629",
         "aa51ae04d9e114b326eae5d8f9604ffe18603003c5be44c74a119d70792441ec",
         "b056b8f146eb4ed8e702c0ac398aba51e01d88e8a140867fd7160dfb69c627d3",
         "b37a4487325904650805566b20d13cb40bf025ba107c35f51e4a5781aa9858bb",
+        "b3c9a453f84e565ba2bda54e4e1fdc0293b7522921d1a1371f56489fe69b4f3b",
         "b8cac9c144b4ce94324a98b3a1096596766e08e33b60b1dc391cd1d235f80775",
         "bf2d773c1a71df81053c845e4effc1b50c0feaffd5b352534507cc2b678592a8",
         "dea978a9cc61b721c8bade349b1f3f046549b3a5d8a1cbc8052e3efedfb85fdb",
+        "e0e78c013e8e35092957f036afceb2b002e68d64cbc60e3008571cec7c550f9d",
         "e25636d68f5a0a569c63057fbb43d04dae7daecca34489f45d9b7c31c611d870",
-        "e94c91b82c6c2e54f77677cebc25d356f256c7ec6627d594711d21eb457399e9"
+        "e94c91b82c6c2e54f77677cebc25d356f256c7ec6627d594711d21eb457399e9",
+        "efe1294cd356d295a0971ff2b6bc238a0982eafc40127b85e8aa7be47ac7aa95"
       ],
       "lines": [
         {
@@ -334,10 +347,209 @@
           ],
           "criticalPhraseGatePassed": true,
           "verdict": "pass"
+        },
+        {
+          "lineId": "rie-sentence-frame-sophie-student",
+          "filename": "rie-sentence-frame-sophie-student__4ab0d5d2dbf41d5d.opus",
+          "assetSha256": "efe1294cd356d295a0971ff2b6bc238a0982eafc40127b85e8aa7be47ac7aa95",
+          "expectedJapanese": "ソフィーさんは学生です。",
+          "heardTranscript": "ソフィーさんは学生です",
+          "normalizedTranscript": "そふぃーさんはがくせいです",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "ソフィーさん",
+            "学生です"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "rie-sentence-frame-self-student",
+          "filename": "rie-sentence-frame-self-student__8943b50ce0c30da3.opus",
+          "assetSha256": "b3c9a453f84e565ba2bda54e4e1fdc0293b7522921d1a1371f56489fe69b4f3b",
+          "expectedJapanese": "わたしは学生です。",
+          "heardTranscript": "私は学生です",
+          "normalizedTranscript": "わたしはがくせいです",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "わたしは",
+            "学生です"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "rie-sentence-frame-identity-response",
+          "filename": "rie-sentence-frame-identity-response__244e6a296e4e53be.opus",
+          "assetSha256": "15cfa1b325d0cb19f2192880cedcef564800af94a13e66e79ffbd2ab6393c174",
+          "expectedJapanese": "はい。学生ですね。よろしくお願いします。",
+          "heardTranscript": "はい、学生ですね。よろしくお願いします。",
+          "normalizedTranscript": "はいがくせいですねよろしくおねがいします",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "学生ですね",
+            "よろしくお願いします"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "rie-sentence-frame-sophie-not-teacher",
+          "filename": "rie-sentence-frame-sophie-not-teacher__ad5f4a6a1007903b.opus",
+          "assetSha256": "3b54cf2f819ba3506ad215f01fd50f9a058e7b789b011d522099abcb25b2459b",
+          "expectedJapanese": "ソフィーさんは先生じゃありません。",
+          "heardTranscript": "ソフィーさんは先生じゃありません。",
+          "normalizedTranscript": "そふぃーさんはせんせいじゃありません",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "ソフィーさん",
+            "先生じゃありません"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "rie-sentence-frame-rie-not-student",
+          "filename": "rie-sentence-frame-rie-not-student__6cee116e1db81cf3.opus",
+          "assetSha256": "2798631dcd96124cc1c7474838558597b0c2d3f96589f979c642b93cfdf2f0fe",
+          "expectedJapanese": "りえ先生は学生じゃありません。",
+          "heardTranscript": "家先生は学生じゃありません",
+          "normalizedTranscript": "いえせんせいはがくせいじゃありません",
+          "characterErrorRate": 0.0556,
+          "criticalPhraseGates": [
+            "りえ先生",
+            "学生じゃありません"
+          ],
+          "criticalPhraseGatePassed": false,
+          "verdict": "hard-fail"
+        },
+        {
+          "lineId": "rie-sentence-frame-correction-response",
+          "filename": "rie-sentence-frame-correction-response__19fc52dbcb691adb.opus",
+          "assetSha256": "99bb3e5c2a9551c6fa0209faedd44a600029b788d1509711848a074326bdae78",
+          "expectedJapanese": "そうです。わたしは先生です。",
+          "heardTranscript": "そうです。私は先生です。",
+          "normalizedTranscript": "そうですわたしはせんせいです",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "そうです",
+            "わたしは先生です"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "rie-sentence-frame-rie-teacher-question",
+          "filename": "rie-sentence-frame-rie-teacher-question__21d2408aa106c42e.opus",
+          "assetSha256": "1a67680f67bb03dd4ab488905eff549dc98a6e57ac33cb7aa899100e1579318f",
+          "expectedJapanese": "りえ先生は先生ですか。",
+          "heardTranscript": "家先生は先生ですか?",
+          "normalizedTranscript": "いえせんせいはせんせいですか",
+          "characterErrorRate": 0.0714,
+          "criticalPhraseGates": [
+            "先生ですか"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "rie-sentence-frame-sophie-student-question",
+          "filename": "rie-sentence-frame-sophie-student-question__e38bde308c9cf6b5.opus",
+          "assetSha256": "15a4f0d0868f940fc555b0160d7b86904de513c478eae2c9d2b9ffdcc9232277",
+          "expectedJapanese": "ソフィーさんは学生ですか。",
+          "heardTranscript": "ソフィーさんは学生ですか?",
+          "normalizedTranscript": "そふぃーさんはがくせいですか",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "ソフィーさん",
+            "学生ですか"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "sophie-sentence-frame-question-response",
+          "filename": "sophie-sentence-frame-question-response__1637efe4ffdffdd6.opus",
+          "assetSha256": "02e77857bf975546fb0df6fc77d6ee35c73259344728bc505410ad3bb2f330d3",
+          "expectedJapanese": "はい、学生です。よろしく。",
+          "heardTranscript": "愛、学生です。よろしく。",
+          "normalizedTranscript": "愛がくせいですよろしく",
+          "characterErrorRate": 0.1667,
+          "criticalPhraseGates": [
+            "学生です",
+            "よろしく"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "fail"
+        },
+        {
+          "lineId": "rie-sentence-frame-japanese-class",
+          "filename": "rie-sentence-frame-japanese-class__54f1f99398de158f.opus",
+          "assetSha256": "e0e78c013e8e35092957f036afceb2b002e68d64cbc60e3008571cec7c550f9d",
+          "expectedJapanese": "日本語のクラスです。",
+          "heardTranscript": "日本モノクラスです",
+          "normalizedTranscript": "日本ものくらすです",
+          "characterErrorRate": 0.4,
+          "criticalPhraseGates": [
+            "日本語",
+            "クラスです"
+          ],
+          "criticalPhraseGatePassed": false,
+          "verdict": "hard-fail"
+        },
+        {
+          "lineId": "rie-sentence-frame-rie-class",
+          "filename": "rie-sentence-frame-rie-class__2cb9078237493c68.opus",
+          "assetSha256": "432ebbf1ba2fd8590493f25807d782aa53c0b38acc76c5cc010ae939f4cb5ef6",
+          "expectedJapanese": "りえ先生のクラスです。",
+          "heardTranscript": "家先生のクラスです",
+          "normalizedTranscript": "いえせんせいのくらすです",
+          "characterErrorRate": 0.0833,
+          "criticalPhraseGates": [
+            "りえ先生",
+            "クラスです"
+          ],
+          "criticalPhraseGatePassed": false,
+          "verdict": "hard-fail"
+        },
+        {
+          "lineId": "rie-sentence-frame-noun-response",
+          "filename": "rie-sentence-frame-noun-response__04ab118a95aaa437.opus",
+          "assetSha256": "3b89a985c731246cf217645f9c19f0adb4ef183786ad7bc7d89eeac19cfabce7",
+          "expectedJapanese": "はい。今日から、あなたのクラスです。",
+          "heardTranscript": "はい、今日からあなたのクラスです。",
+          "normalizedTranscript": "はいきょうからあなたのくらすです",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "今日から",
+            "あなたのクラスです"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "sophie-sentence-frame-parallel-response",
+          "filename": "sophie-sentence-frame-parallel-response__a941a95ae17c2a74.opus",
+          "assetSha256": "9d1ba8009c99f96ff0816b4637ca32251a261e77cf0845122214ab109264d629",
+          "expectedJapanese": "はい。わたしたちは同じクラスですね。",
+          "heardTranscript": "はい、私たちは同じクラスですね",
+          "normalizedTranscript": "はいわたしたちはおなじくらすですね",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "わたしたちは",
+            "同じクラスですね"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
         }
       ],
-      "overallVerdict": "pass",
-      "blockingDefects": []
+      "overallVerdict": "fail",
+      "blockingDefects": [
+        "rie-sentence-frame-rie-not-student: hard-fail; CER 0.0556",
+        "sophie-sentence-frame-question-response: fail; CER 0.1667",
+        "rie-sentence-frame-japanese-class: hard-fail; CER 0.4",
+        "rie-sentence-frame-rie-class: hard-fail; CER 0.0833"
+      ]
     },
     {
       "reviewer": {
@@ -358,25 +570,38 @@
         "character error rate at or below 0.15 after every critical gate passes"
       ],
       "assetSha256s": [
+        "02e77857bf975546fb0df6fc77d6ee35c73259344728bc505410ad3bb2f330d3",
         "0c949c52634727f8e27730cd45ca175d9d43ec05e06e4c189c1609a641195a90",
         "0f66cd7f8f8746acc4f6cf48eea70f19d81021e77a178a5df725363062181f0b",
         "139fcc5abad785ada11c470ba36db8e55b73849a07e9c7ab68a51b15d8cef07e",
+        "15a4f0d0868f940fc555b0160d7b86904de513c478eae2c9d2b9ffdcc9232277",
+        "15cfa1b325d0cb19f2192880cedcef564800af94a13e66e79ffbd2ab6393c174",
+        "1a67680f67bb03dd4ab488905eff549dc98a6e57ac33cb7aa899100e1579318f",
         "1af5a59cc331de1204697087771b97b39f04430ca42525f141d073e0ca17e58b",
+        "2798631dcd96124cc1c7474838558597b0c2d3f96589f979c642b93cfdf2f0fe",
         "3a518a64e393b26b0c723d3ac60a78280fda8fde0343558f76ebf19bb586a51a",
+        "3b54cf2f819ba3506ad215f01fd50f9a058e7b789b011d522099abcb25b2459b",
+        "3b89a985c731246cf217645f9c19f0adb4ef183786ad7bc7d89eeac19cfabce7",
+        "432ebbf1ba2fd8590493f25807d782aa53c0b38acc76c5cc010ae939f4cb5ef6",
         "582a8f6e440ee92470c8beade4f9cc2b80a9cc28a9cea4fcbcaa7ba7dd864c37",
         "7c9d841fbde752f509887763e6fd130004081257f21156afc5a8ddfd85969771",
         "8174141e164da8e062921d45f34e0232bbf5b6f02f654924026ba661e3ffecc2",
         "86dbec0a4e0c4ed17984993569eb7056fe2246569c382a10a7a15c274e840f06",
         "877837076979db131e43595095422105b3c60a25cbfbf3f918a6a16696a9aafb",
         "93160d80b29b8a21688ca5620b69da072e9370705c7d42cc52e27853c78b8a11",
+        "99bb3e5c2a9551c6fa0209faedd44a600029b788d1509711848a074326bdae78",
+        "9d1ba8009c99f96ff0816b4637ca32251a261e77cf0845122214ab109264d629",
         "aa51ae04d9e114b326eae5d8f9604ffe18603003c5be44c74a119d70792441ec",
         "b056b8f146eb4ed8e702c0ac398aba51e01d88e8a140867fd7160dfb69c627d3",
         "b37a4487325904650805566b20d13cb40bf025ba107c35f51e4a5781aa9858bb",
+        "b3c9a453f84e565ba2bda54e4e1fdc0293b7522921d1a1371f56489fe69b4f3b",
         "b8cac9c144b4ce94324a98b3a1096596766e08e33b60b1dc391cd1d235f80775",
         "bf2d773c1a71df81053c845e4effc1b50c0feaffd5b352534507cc2b678592a8",
         "dea978a9cc61b721c8bade349b1f3f046549b3a5d8a1cbc8052e3efedfb85fdb",
+        "e0e78c013e8e35092957f036afceb2b002e68d64cbc60e3008571cec7c550f9d",
         "e25636d68f5a0a569c63057fbb43d04dae7daecca34489f45d9b7c31c611d870",
-        "e94c91b82c6c2e54f77677cebc25d356f256c7ec6627d594711d21eb457399e9"
+        "e94c91b82c6c2e54f77677cebc25d356f256c7ec6627d594711d21eb457399e9",
+        "efe1294cd356d295a0971ff2b6bc238a0982eafc40127b85e8aa7be47ac7aa95"
       ],
       "lines": [
         {
@@ -650,6 +875,200 @@
           ],
           "criticalPhraseGatePassed": true,
           "verdict": "pass"
+        },
+        {
+          "lineId": "rie-sentence-frame-sophie-student",
+          "filename": "rie-sentence-frame-sophie-student__4ab0d5d2dbf41d5d.opus",
+          "assetSha256": "efe1294cd356d295a0971ff2b6bc238a0982eafc40127b85e8aa7be47ac7aa95",
+          "expectedJapanese": "ソフィーさんは学生です。",
+          "heardTranscript": "ソフィー さん は 学生 です",
+          "normalizedTranscript": "そふぃーさんはがくせいです",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "ソフィーさん",
+            "学生です"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "rie-sentence-frame-self-student",
+          "filename": "rie-sentence-frame-self-student__8943b50ce0c30da3.opus",
+          "assetSha256": "b3c9a453f84e565ba2bda54e4e1fdc0293b7522921d1a1371f56489fe69b4f3b",
+          "expectedJapanese": "わたしは学生です。",
+          "heardTranscript": "わたし は 学生 です",
+          "normalizedTranscript": "わたしはがくせいです",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "わたしは",
+            "学生です"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "rie-sentence-frame-identity-response",
+          "filename": "rie-sentence-frame-identity-response__244e6a296e4e53be.opus",
+          "assetSha256": "15cfa1b325d0cb19f2192880cedcef564800af94a13e66e79ffbd2ab6393c174",
+          "expectedJapanese": "はい。学生ですね。よろしくお願いします。",
+          "heardTranscript": "はい 学生 です ね よろしく お願い し ます",
+          "normalizedTranscript": "はいがくせいですねよろしくおねがいします",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "学生ですね",
+            "よろしくお願いします"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "rie-sentence-frame-sophie-not-teacher",
+          "filename": "rie-sentence-frame-sophie-not-teacher__ad5f4a6a1007903b.opus",
+          "assetSha256": "3b54cf2f819ba3506ad215f01fd50f9a058e7b789b011d522099abcb25b2459b",
+          "expectedJapanese": "ソフィーさんは先生じゃありません。",
+          "heardTranscript": "ソフィー さん は 先生 じゃ ありません",
+          "normalizedTranscript": "そふぃーさんはせんせいじゃありません",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "ソフィーさん",
+            "先生じゃありません"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "rie-sentence-frame-rie-not-student",
+          "filename": "rie-sentence-frame-rie-not-student__6cee116e1db81cf3.opus",
+          "assetSha256": "2798631dcd96124cc1c7474838558597b0c2d3f96589f979c642b93cfdf2f0fe",
+          "expectedJapanese": "りえ先生は学生じゃありません。",
+          "heardTranscript": "りえ 先生 は 学生 じゃ ありません",
+          "normalizedTranscript": "りえせんせいはがくせいじゃありません",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "りえ先生",
+            "学生じゃありません"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "rie-sentence-frame-correction-response",
+          "filename": "rie-sentence-frame-correction-response__19fc52dbcb691adb.opus",
+          "assetSha256": "99bb3e5c2a9551c6fa0209faedd44a600029b788d1509711848a074326bdae78",
+          "expectedJapanese": "そうです。わたしは先生です。",
+          "heardTranscript": "そう です わたし は 先生 です",
+          "normalizedTranscript": "そうですわたしはせんせいです",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "そうです",
+            "わたしは先生です"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "rie-sentence-frame-rie-teacher-question",
+          "filename": "rie-sentence-frame-rie-teacher-question__21d2408aa106c42e.opus",
+          "assetSha256": "1a67680f67bb03dd4ab488905eff549dc98a6e57ac33cb7aa899100e1579318f",
+          "expectedJapanese": "りえ先生は先生ですか。",
+          "heardTranscript": "[unk] 先生 は 先生 ですか",
+          "normalizedTranscript": "せんせいはせんせいですか",
+          "characterErrorRate": 0.1429,
+          "criticalPhraseGates": [
+            "先生ですか"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "rie-sentence-frame-sophie-student-question",
+          "filename": "rie-sentence-frame-sophie-student-question__e38bde308c9cf6b5.opus",
+          "assetSha256": "15a4f0d0868f940fc555b0160d7b86904de513c478eae2c9d2b9ffdcc9232277",
+          "expectedJapanese": "ソフィーさんは学生ですか。",
+          "heardTranscript": "ソフィー さん は 学生 ですか",
+          "normalizedTranscript": "そふぃーさんはがくせいですか",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "ソフィーさん",
+            "学生ですか"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "sophie-sentence-frame-question-response",
+          "filename": "sophie-sentence-frame-question-response__1637efe4ffdffdd6.opus",
+          "assetSha256": "02e77857bf975546fb0df6fc77d6ee35c73259344728bc505410ad3bb2f330d3",
+          "expectedJapanese": "はい、学生です。よろしく。",
+          "heardTranscript": "はい 学生 です よろしく",
+          "normalizedTranscript": "はいがくせいですよろしく",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "学生です",
+            "よろしく"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "rie-sentence-frame-japanese-class",
+          "filename": "rie-sentence-frame-japanese-class__54f1f99398de158f.opus",
+          "assetSha256": "e0e78c013e8e35092957f036afceb2b002e68d64cbc60e3008571cec7c550f9d",
+          "expectedJapanese": "日本語のクラスです。",
+          "heardTranscript": "日本語 の クラス です",
+          "normalizedTranscript": "にほんごのくらすです",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "日本語",
+            "クラスです"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "rie-sentence-frame-rie-class",
+          "filename": "rie-sentence-frame-rie-class__2cb9078237493c68.opus",
+          "assetSha256": "432ebbf1ba2fd8590493f25807d782aa53c0b38acc76c5cc010ae939f4cb5ef6",
+          "expectedJapanese": "りえ先生のクラスです。",
+          "heardTranscript": "りえ 先生 の クラス です",
+          "normalizedTranscript": "りえせんせいのくらすです",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "りえ先生",
+            "クラスです"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "rie-sentence-frame-noun-response",
+          "filename": "rie-sentence-frame-noun-response__04ab118a95aaa437.opus",
+          "assetSha256": "3b89a985c731246cf217645f9c19f0adb4ef183786ad7bc7d89eeac19cfabce7",
+          "expectedJapanese": "はい。今日から、あなたのクラスです。",
+          "heardTranscript": "はい 今日 から あなた の クラス です",
+          "normalizedTranscript": "はいきょうからあなたのくらすです",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "今日から",
+            "あなたのクラスです"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "sophie-sentence-frame-parallel-response",
+          "filename": "sophie-sentence-frame-parallel-response__a941a95ae17c2a74.opus",
+          "assetSha256": "9d1ba8009c99f96ff0816b4637ca32251a261e77cf0845122214ab109264d629",
+          "expectedJapanese": "はい。わたしたちは同じクラスですね。",
+          "heardTranscript": "はい わたし たち は 同じ クラス です ね",
+          "normalizedTranscript": "はいわたしたちはおなじくらすですね",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "わたしたちは",
+            "同じクラスですね"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
         }
       ],
       "overallVerdict": "pass",
@@ -785,7 +1204,90 @@
       "acceptedBy": "Codex",
       "humanReviewed": false,
       "independentAudioModelReviews": 2
+    },
+    {
+      "lineId": "rie-sentence-frame-sophie-student",
+      "verdict": "accepted",
+      "acceptedBy": "Codex",
+      "humanReviewed": false,
+      "independentAudioModelReviews": 2
+    },
+    {
+      "lineId": "rie-sentence-frame-self-student",
+      "verdict": "accepted",
+      "acceptedBy": "Codex",
+      "humanReviewed": false,
+      "independentAudioModelReviews": 2
+    },
+    {
+      "lineId": "rie-sentence-frame-identity-response",
+      "verdict": "accepted",
+      "acceptedBy": "Codex",
+      "humanReviewed": false,
+      "independentAudioModelReviews": 2
+    },
+    {
+      "lineId": "rie-sentence-frame-sophie-not-teacher",
+      "verdict": "accepted",
+      "acceptedBy": "Codex",
+      "humanReviewed": false,
+      "independentAudioModelReviews": 2
+    },
+    {
+      "lineId": "rie-sentence-frame-rie-not-student",
+      "verdict": "review-failed",
+      "reason": "An accepted production candidate did not pass both independent waveform reviews."
+    },
+    {
+      "lineId": "rie-sentence-frame-correction-response",
+      "verdict": "accepted",
+      "acceptedBy": "Codex",
+      "humanReviewed": false,
+      "independentAudioModelReviews": 2
+    },
+    {
+      "lineId": "rie-sentence-frame-rie-teacher-question",
+      "verdict": "accepted",
+      "acceptedBy": "Codex",
+      "humanReviewed": false,
+      "independentAudioModelReviews": 2
+    },
+    {
+      "lineId": "rie-sentence-frame-sophie-student-question",
+      "verdict": "accepted",
+      "acceptedBy": "Codex",
+      "humanReviewed": false,
+      "independentAudioModelReviews": 2
+    },
+    {
+      "lineId": "sophie-sentence-frame-question-response",
+      "verdict": "review-failed",
+      "reason": "An accepted production candidate did not pass both independent waveform reviews."
+    },
+    {
+      "lineId": "rie-sentence-frame-japanese-class",
+      "verdict": "review-failed",
+      "reason": "An accepted production candidate did not pass both independent waveform reviews."
+    },
+    {
+      "lineId": "rie-sentence-frame-rie-class",
+      "verdict": "review-failed",
+      "reason": "An accepted production candidate did not pass both independent waveform reviews."
+    },
+    {
+      "lineId": "rie-sentence-frame-noun-response",
+      "verdict": "accepted",
+      "acceptedBy": "Codex",
+      "humanReviewed": false,
+      "independentAudioModelReviews": 2
+    },
+    {
+      "lineId": "sophie-sentence-frame-parallel-response",
+      "verdict": "accepted",
+      "acceptedBy": "Codex",
+      "humanReviewed": false,
+      "independentAudioModelReviews": 2
     }
   ],
-  "overallVerdict": "mixed-17-accepted-two-rejected"
+  "overallVerdict": "fail"
 }

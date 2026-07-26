@@ -12,7 +12,6 @@ function definition() {
     ))).lesson;
     return createLessonZeroSentenceFrameDefinition(
         lesson.activities.find(activity => activity.id === 'activity:lesson-zero-build-sentence-frames')!,
-        'Henry',
     );
 }
 
@@ -46,11 +45,11 @@ describe('Lesson Zero sentence-frame screen', () => {
                 screen.element.querySelector(`.academy-sentence-frame-bank [data-token-id="${tokenId}"]`),
             ).toBeNull());
         }
-        click(screen.element, 'Let Rie read it');
+        click(screen.element, 'Check the sentence');
         await vi.waitFor(() => expect(screen.element.dataset.sessionStage).toBe('result'));
         expect(screen.element.textContent).not.toContain(target);
 
-        click(screen.element, 'Show Rie’s sentence');
+        click(screen.element, 'Show the answer');
         await vi.waitFor(() => expect(screen.element.textContent).toContain(target));
         expect(transitions).toHaveLength(9);
         screen.dispose();

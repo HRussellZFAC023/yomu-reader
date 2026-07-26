@@ -17,7 +17,6 @@ function definition(): LessonZeroSentenceFrameSessionDefinition {
     ))).lesson;
     return createLessonZeroSentenceFrameDefinition(
         lesson.activities.find(activity => activity.id === 'activity:lesson-zero-build-sentence-frames')!,
-        'Henry',
     );
 }
 
@@ -55,11 +54,11 @@ describe('Lesson Zero first-sentence session', () => {
             'N も N です',
         ]);
         expect(content.frames.map(frame => frame.target.japanese)).toEqual([
-            'わたしはHenryです。',
+            'わたしは学生です。',
             'りえ先生は学生じゃありません。',
             'ソフィーさんは学生ですか。',
             'りえ先生のクラスです。',
-            'わたしも学生です。',
+            'ソフィーさんも学生です。',
         ]);
         expect(content.frames.every(frame => frame.nearbyExample.japanese !== frame.target.japanese)).toBe(true);
     });

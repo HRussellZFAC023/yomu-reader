@@ -969,9 +969,7 @@ class LessonFlow implements AcademyRouteFlow {
         const activity = content.lesson.activities.find(candidate =>
             candidate.id === LESSON_ZERO_SENTENCE_FRAMES_ACTIVITY_ID);
         if (!activity) throw new TypeError('Lesson Zero is missing its first-sentence activity.');
-        const learnerName = context.projection.profile?.displayName;
-        if (!learnerName) throw new TypeError('The first sentences require the learner profile created during arrival.');
-        const definition = createLessonZeroSentenceFrameDefinition(activity, learnerName);
+        const definition = createLessonZeroSentenceFrameDefinition(activity);
         let state;
         try {
             state = startLessonZeroSentenceFrameSession(

@@ -1704,6 +1704,1916 @@
         "livingPersonSource": true
       },
       "provenance": "Yomu-authored"
+    },
+    {
+      "lineId": "rie-sentence-frame-sophie-student",
+      "speakerId": "rie",
+      "role": "academy-character",
+      "intent": "Give a clear nearby example of the affirmative topic sentence.",
+      "locale": "ja-JP",
+      "band": "native",
+      "surface": "lesson-zero-sentence-frames",
+      "japanese": "ソフィーさんは学生です。",
+      "bindings": [
+        {
+          "lineId": "lesson-zero:sentence-frame:identity:example",
+          "surface": "lesson-zero-sentence-frames",
+          "accessibleReplayLabel": {
+            "en": "Replay the example sentence",
+            "ja": "例の文をもう一度聞く"
+          }
+        }
+      ],
+      "sourceSha256": "ded522f0e2985fa308b651743160eebd98a1bb7f56b67a5d7117e625746f137e",
+      "sourceRevision": "ded522f0e2985fa308b651743160eebd98a1bb7f56b67a5d7117e625746f137e",
+      "audioQuerySha256": "e1f2fa2968f7902530c159adb0bf7bbd324d4ad275b2d2705947abb51a48f2e2",
+      "cacheKey": "dde399ff7b77a24982b5a571a493cef7b6a6f470e190683ba3ee4bd7a0f33e35",
+      "assetSha256": "efe1294cd356d295a0971ff2b6bc238a0982eafc40127b85e8aa7be47ac7aa95",
+      "bytes": 18813,
+      "durationSeconds": 2.407625,
+      "url": "/academy/audio/learning-lines/rie/rie-sentence-frame-sophie-student__dde399ff7b77a249.opus",
+      "modelUuid": "e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43",
+      "modelName": "hinakoyuhara",
+      "modelVersion": "1.0.0",
+      "modelSourceUrl": "https://hub.aivis-project.com/aivm-models/e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43",
+      "modelLicense": "ACML-1.0",
+      "modelPayloadSha256": "674d495898d367092de7105ef760f070a03ae5f74c61670bf98c1e62aa159adb",
+      "styleId": 2058221186,
+      "styleName": "落ち着き",
+      "queryOverrides": {
+        "speedScale": 0.9,
+        "pitchScale": -0.01,
+        "intonationScale": 1.02,
+        "volumeScale": 0.84,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.16,
+        "pauseLengthScale": 1.04
+      },
+      "moraOverrides": [],
+      "review": {
+        "naturalness": {
+          "status": "reviewed-text",
+          "reviewedOn": "2026-07-23",
+          "basis": "A short, concrete Japanese carrier word keeps the opening vowel audible without an English sound approximation."
+        },
+        "accent": {
+          "status": "validated-query-plan",
+          "method": "AivisSpeech audio_query identity and independent waveform recovery",
+          "phrases": [
+            "ソフィーさんは学生です。"
+          ]
+        },
+        "pause": {
+          "status": "validated-query-plan",
+          "method": "Objective silence analysis",
+          "notes": "One compact carrier phrase with bounded leading, trailing, and interior silence."
+        },
+        "direction": {
+          "status": "reviewed-model-direction",
+          "basis": "A calm classmate voice at a deliberately measured pace supports first-contact phonics without overstating the vowel."
+        },
+        "independentModel": {
+          "status": "representative-voice-sample",
+          "reviewRef": "$.reviews",
+          "auditoryClaim": true,
+          "mappingId": "rie-learning-dialogue",
+          "sampleLineIds": [
+            "rie-lesson-zero-repeat",
+            "rie-lesson-zero-greeting",
+            "rie-classroom-begin",
+            "rie-classroom-finish",
+            "rie-classroom-break",
+            "rie-classroom-look",
+            "rie-classroom-say-together",
+            "rie-classroom-listen",
+            "rie-classroom-write",
+            "rie-lesson-zero-homework",
+            "rie-lesson-zero-example",
+            "rie-sentence-frame-sophie-student",
+            "rie-sentence-frame-self-student",
+            "rie-sentence-frame-identity-response",
+            "rie-sentence-frame-sophie-not-teacher",
+            "rie-sentence-frame-correction-response",
+            "rie-sentence-frame-rie-teacher-question",
+            "rie-sentence-frame-sophie-student-question",
+            "rie-sentence-frame-noun-response"
+          ]
+        },
+        "listening": {
+          "status": "codex-accepted-objective-and-independent-audio-review",
+          "checkedOn": "2026-07-23",
+          "checkedBy": "Codex using objective QA and representative Whisper samples",
+          "ownerLineByLineReviewed": false,
+          "audioModelReviewed": true,
+          "humanReviewed": false,
+          "independentAudioModelReviews": 2,
+          "evidence": [
+            "docs/academy/audio/learning-voice-acceptance.json",
+            "docs/academy/audio/learning-voice-model-reviews.json"
+          ],
+          "basis": "Codex accepted this line without claiming human listening. Exact staged bytes passed objective audio checks, and passing Whisper samples cover the same pinned speaker model and style.",
+          "limitation": "The voice is sampled by mapping rather than auditioned line by line.",
+          "representativeSampleLineIds": [
+            "rie-lesson-zero-repeat",
+            "rie-lesson-zero-greeting",
+            "rie-classroom-begin",
+            "rie-classroom-finish",
+            "rie-classroom-break",
+            "rie-classroom-look",
+            "rie-classroom-say-together",
+            "rie-classroom-listen",
+            "rie-classroom-write",
+            "rie-lesson-zero-homework",
+            "rie-lesson-zero-example",
+            "rie-sentence-frame-sophie-student",
+            "rie-sentence-frame-self-student",
+            "rie-sentence-frame-identity-response",
+            "rie-sentence-frame-sophie-not-teacher",
+            "rie-sentence-frame-correction-response",
+            "rie-sentence-frame-rie-teacher-question",
+            "rie-sentence-frame-sophie-student-question",
+            "rie-sentence-frame-noun-response"
+          ],
+          "codexAccepted": true
+        }
+      },
+      "reviewStatus": "accepted",
+      "qualityApprovalStatus": "codex-accepted",
+      "disclosure": {
+        "synthetic": true,
+        "officialCharacterVoice": false,
+        "livingPersonSource": true
+      },
+      "provenance": "Yomu-authored"
+    },
+    {
+      "lineId": "rie-sentence-frame-sophie-student-too",
+      "speakerId": "rie",
+      "role": "academy-character",
+      "intent": "Model the additive topic sentence with an audible も contrast.",
+      "locale": "ja-JP",
+      "band": "native",
+      "surface": "lesson-zero-sentence-frames",
+      "japanese": "ソフィーさんも学生です。",
+      "bindings": [
+        {
+          "lineId": "lesson-zero:sentence-frame:parallel:target",
+          "surface": "lesson-zero-sentence-frames",
+          "accessibleReplayLabel": {
+            "en": "Replay the sentence about Sophie too",
+            "ja": "ソフィーさんの「も」の文をもう一度聞く"
+          }
+        }
+      ],
+      "sourceSha256": "7135c35cb21c295c02e6f53151d1ba621cebc146b27f4ef312786a61b69d6f4b",
+      "sourceRevision": "7135c35cb21c295c02e6f53151d1ba621cebc146b27f4ef312786a61b69d6f4b",
+      "audioQuerySha256": "d02565e38628bf033e4f937c44a02a5dac7b46e44e591ef65d4ccf96729d5ed0",
+      "cacheKey": "8a81f00891bb562dd5c7a1ba96c48ce6752f836d7819f7a3bc58cc9f5e64cdd5",
+      "assetSha256": "c6af8943f51f61516d81b109d09a01d0efc2da6449e1f41a306c30cea5d54e59",
+      "bytes": 17334,
+      "durationSeconds": 2.24475,
+      "url": "/academy/audio/learning-lines/rie/rie-sentence-frame-sophie-student-too__8a81f00891bb562d.opus",
+      "modelUuid": "e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43",
+      "modelName": "hinakoyuhara",
+      "modelVersion": "1.0.0",
+      "modelSourceUrl": "https://hub.aivis-project.com/aivm-models/e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43",
+      "modelLicense": "ACML-1.0",
+      "modelPayloadSha256": "674d495898d367092de7105ef760f070a03ae5f74c61670bf98c1e62aa159adb",
+      "styleId": 2058221186,
+      "styleName": "落ち着き",
+      "queryOverrides": {
+        "speedScale": 0.9,
+        "pitchScale": -0.01,
+        "intonationScale": 1.02,
+        "volumeScale": 0.84,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.16,
+        "pauseLengthScale": 1.04
+      },
+      "moraOverrides": [],
+      "review": {
+        "naturalness": {
+          "status": "reviewed-text",
+          "reviewedOn": "2026-07-23",
+          "basis": "A short, concrete Japanese carrier word keeps the opening vowel audible without an English sound approximation."
+        },
+        "accent": {
+          "status": "validated-query-plan",
+          "method": "AivisSpeech audio_query identity and independent waveform recovery",
+          "phrases": [
+            "ソフィーさんも学生です。"
+          ]
+        },
+        "pause": {
+          "status": "validated-query-plan",
+          "method": "Objective silence analysis",
+          "notes": "One compact carrier phrase with bounded leading, trailing, and interior silence."
+        },
+        "direction": {
+          "status": "reviewed-model-direction",
+          "basis": "A calm classmate voice at a deliberately measured pace supports first-contact phonics without overstating the vowel."
+        },
+        "independentModel": {
+          "status": "representative-voice-sample",
+          "reviewRef": "$.reviews",
+          "auditoryClaim": false,
+          "mappingId": "rie-learning-dialogue",
+          "sampleLineIds": [
+            "rie-lesson-zero-repeat",
+            "rie-lesson-zero-greeting",
+            "rie-classroom-begin",
+            "rie-classroom-finish",
+            "rie-classroom-break",
+            "rie-classroom-look",
+            "rie-classroom-say-together",
+            "rie-classroom-listen",
+            "rie-classroom-write",
+            "rie-lesson-zero-homework",
+            "rie-lesson-zero-example",
+            "rie-sentence-frame-sophie-student",
+            "rie-sentence-frame-self-student",
+            "rie-sentence-frame-identity-response",
+            "rie-sentence-frame-sophie-not-teacher",
+            "rie-sentence-frame-correction-response",
+            "rie-sentence-frame-rie-teacher-question",
+            "rie-sentence-frame-sophie-student-question",
+            "rie-sentence-frame-noun-response"
+          ]
+        },
+        "listening": {
+          "status": "codex-accepted-objective-and-independent-audio-review",
+          "checkedOn": "2026-07-23",
+          "checkedBy": "Codex using objective QA and representative Whisper samples",
+          "ownerLineByLineReviewed": false,
+          "audioModelReviewed": false,
+          "humanReviewed": false,
+          "independentAudioModelReviews": 0,
+          "evidence": [
+            "docs/academy/audio/learning-voice-acceptance.json",
+            "docs/academy/audio/learning-voice-model-reviews.json"
+          ],
+          "basis": "Codex accepted this line without claiming human listening. Exact staged bytes passed objective audio checks, and passing Whisper samples cover the same pinned speaker model and style.",
+          "limitation": "The voice is sampled by mapping rather than auditioned line by line.",
+          "representativeSampleLineIds": [
+            "rie-lesson-zero-repeat",
+            "rie-lesson-zero-greeting",
+            "rie-classroom-begin",
+            "rie-classroom-finish",
+            "rie-classroom-break",
+            "rie-classroom-look",
+            "rie-classroom-say-together",
+            "rie-classroom-listen",
+            "rie-classroom-write",
+            "rie-lesson-zero-homework",
+            "rie-lesson-zero-example",
+            "rie-sentence-frame-sophie-student",
+            "rie-sentence-frame-self-student",
+            "rie-sentence-frame-identity-response",
+            "rie-sentence-frame-sophie-not-teacher",
+            "rie-sentence-frame-correction-response",
+            "rie-sentence-frame-rie-teacher-question",
+            "rie-sentence-frame-sophie-student-question",
+            "rie-sentence-frame-noun-response"
+          ],
+          "codexAccepted": true
+        }
+      },
+      "reviewStatus": "accepted",
+      "qualityApprovalStatus": "codex-accepted",
+      "disclosure": {
+        "synthetic": true,
+        "officialCharacterVoice": false,
+        "livingPersonSource": true
+      },
+      "provenance": "Yomu-authored"
+    },
+    {
+      "lineId": "rie-sentence-frame-self-student",
+      "speakerId": "rie",
+      "role": "academy-character",
+      "intent": "Model the learner identity sentence at a measured beginner pace.",
+      "locale": "ja-JP",
+      "band": "native",
+      "surface": "lesson-zero-sentence-frames",
+      "japanese": "わたしは学生です。",
+      "bindings": [
+        {
+          "lineId": "lesson-zero:sentence-frame:identity:target",
+          "surface": "lesson-zero-sentence-frames",
+          "accessibleReplayLabel": {
+            "en": "Replay I am a student",
+            "ja": "「わたしは学生です」をもう一度聞く"
+          }
+        },
+        {
+          "lineId": "lesson-zero:sentence-frame:parallel:example",
+          "surface": "lesson-zero-sentence-frames",
+          "accessibleReplayLabel": {
+            "en": "Replay the topic sentence before adding too",
+            "ja": "「も」を使う前の文をもう一度聞く"
+          }
+        }
+      ],
+      "sourceSha256": "0ce8978c8fe0ab0de70ff341c8997bac83decd5f3672ecd65f4b59e91fc33172",
+      "sourceRevision": "0ce8978c8fe0ab0de70ff341c8997bac83decd5f3672ecd65f4b59e91fc33172",
+      "audioQuerySha256": "b6b2861f28a8aa6bee54c8dce1a9c8f00352126aa761aacb7501061d3e88baa9",
+      "cacheKey": "8943b50ce0c30da36a430325dd323b3b47b2ac821e35a60ad3e69d53ba3c202e",
+      "assetSha256": "b3c9a453f84e565ba2bda54e4e1fdc0293b7522921d1a1371f56489fe69b4f3b",
+      "bytes": 16684,
+      "durationSeconds": 2.081521,
+      "url": "/academy/audio/learning-lines/rie/rie-sentence-frame-self-student__8943b50ce0c30da3.opus",
+      "modelUuid": "e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43",
+      "modelName": "hinakoyuhara",
+      "modelVersion": "1.0.0",
+      "modelSourceUrl": "https://hub.aivis-project.com/aivm-models/e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43",
+      "modelLicense": "ACML-1.0",
+      "modelPayloadSha256": "674d495898d367092de7105ef760f070a03ae5f74c61670bf98c1e62aa159adb",
+      "styleId": 2058221186,
+      "styleName": "落ち着き",
+      "queryOverrides": {
+        "speedScale": 0.9,
+        "pitchScale": -0.01,
+        "intonationScale": 1.02,
+        "volumeScale": 0.84,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.16,
+        "pauseLengthScale": 1.04
+      },
+      "moraOverrides": [],
+      "review": {
+        "naturalness": {
+          "status": "reviewed-text",
+          "reviewedOn": "2026-07-23",
+          "basis": "A short, concrete Japanese carrier word keeps the opening vowel audible without an English sound approximation."
+        },
+        "accent": {
+          "status": "validated-query-plan",
+          "method": "AivisSpeech audio_query identity and independent waveform recovery",
+          "phrases": [
+            "わたしは学生です。"
+          ]
+        },
+        "pause": {
+          "status": "validated-query-plan",
+          "method": "Objective silence analysis",
+          "notes": "One compact carrier phrase with bounded leading, trailing, and interior silence."
+        },
+        "direction": {
+          "status": "reviewed-model-direction",
+          "basis": "A calm classmate voice at a deliberately measured pace supports first-contact phonics without overstating the vowel."
+        },
+        "independentModel": {
+          "status": "representative-voice-sample",
+          "reviewRef": "$.reviews",
+          "auditoryClaim": true,
+          "mappingId": "rie-learning-dialogue",
+          "sampleLineIds": [
+            "rie-lesson-zero-repeat",
+            "rie-lesson-zero-greeting",
+            "rie-classroom-begin",
+            "rie-classroom-finish",
+            "rie-classroom-break",
+            "rie-classroom-look",
+            "rie-classroom-say-together",
+            "rie-classroom-listen",
+            "rie-classroom-write",
+            "rie-lesson-zero-homework",
+            "rie-lesson-zero-example",
+            "rie-sentence-frame-sophie-student",
+            "rie-sentence-frame-self-student",
+            "rie-sentence-frame-identity-response",
+            "rie-sentence-frame-sophie-not-teacher",
+            "rie-sentence-frame-correction-response",
+            "rie-sentence-frame-rie-teacher-question",
+            "rie-sentence-frame-sophie-student-question",
+            "rie-sentence-frame-noun-response"
+          ]
+        },
+        "listening": {
+          "status": "codex-accepted-objective-and-independent-audio-review",
+          "checkedOn": "2026-07-23",
+          "checkedBy": "Codex using objective QA and representative Whisper samples",
+          "ownerLineByLineReviewed": false,
+          "audioModelReviewed": true,
+          "humanReviewed": false,
+          "independentAudioModelReviews": 2,
+          "evidence": [
+            "docs/academy/audio/learning-voice-acceptance.json",
+            "docs/academy/audio/learning-voice-model-reviews.json"
+          ],
+          "basis": "Codex accepted this line without claiming human listening. Exact staged bytes passed objective audio checks, and passing Whisper samples cover the same pinned speaker model and style.",
+          "limitation": "The voice is sampled by mapping rather than auditioned line by line.",
+          "representativeSampleLineIds": [
+            "rie-lesson-zero-repeat",
+            "rie-lesson-zero-greeting",
+            "rie-classroom-begin",
+            "rie-classroom-finish",
+            "rie-classroom-break",
+            "rie-classroom-look",
+            "rie-classroom-say-together",
+            "rie-classroom-listen",
+            "rie-classroom-write",
+            "rie-lesson-zero-homework",
+            "rie-lesson-zero-example",
+            "rie-sentence-frame-sophie-student",
+            "rie-sentence-frame-self-student",
+            "rie-sentence-frame-identity-response",
+            "rie-sentence-frame-sophie-not-teacher",
+            "rie-sentence-frame-correction-response",
+            "rie-sentence-frame-rie-teacher-question",
+            "rie-sentence-frame-sophie-student-question",
+            "rie-sentence-frame-noun-response"
+          ],
+          "codexAccepted": true
+        }
+      },
+      "reviewStatus": "accepted",
+      "qualityApprovalStatus": "codex-accepted",
+      "disclosure": {
+        "synthetic": true,
+        "officialCharacterVoice": false,
+        "livingPersonSource": true
+      },
+      "provenance": "Yomu-authored"
+    },
+    {
+      "lineId": "rie-sentence-frame-identity-response",
+      "speakerId": "rie",
+      "role": "academy-character",
+      "intent": "Acknowledge the learner warmly after the first complete sentence.",
+      "locale": "ja-JP",
+      "band": "native",
+      "surface": "lesson-zero-sentence-frames",
+      "japanese": "はい。学生ですね。よろしくお願いします。",
+      "bindings": [
+        {
+          "lineId": "lesson-zero:sentence-frame:identity:response",
+          "surface": "lesson-zero-sentence-frames",
+          "accessibleReplayLabel": {
+            "en": "Replay Rie’s response",
+            "ja": "りえ先生の返事をもう一度聞く"
+          }
+        }
+      ],
+      "sourceSha256": "226d823df4ea4eaf286f9695b0c80ca1266168fb89890fed7f4c06c5d8e3898c",
+      "sourceRevision": "226d823df4ea4eaf286f9695b0c80ca1266168fb89890fed7f4c06c5d8e3898c",
+      "audioQuerySha256": "b1bb48f1702608af58ed4b5b488a2e4cd0e4c1e030225f40eef79012c530935b",
+      "cacheKey": "244e6a296e4e53be558f18fc2fccd4fc0762bb467384ab5bbeaf47724bae3153",
+      "assetSha256": "15cfa1b325d0cb19f2192880cedcef564800af94a13e66e79ffbd2ab6393c174",
+      "bytes": 31282,
+      "durationSeconds": 4.100583,
+      "url": "/academy/audio/learning-lines/rie/rie-sentence-frame-identity-response__244e6a296e4e53be.opus",
+      "modelUuid": "e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43",
+      "modelName": "hinakoyuhara",
+      "modelVersion": "1.0.0",
+      "modelSourceUrl": "https://hub.aivis-project.com/aivm-models/e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43",
+      "modelLicense": "ACML-1.0",
+      "modelPayloadSha256": "674d495898d367092de7105ef760f070a03ae5f74c61670bf98c1e62aa159adb",
+      "styleId": 2058221186,
+      "styleName": "落ち着き",
+      "queryOverrides": {
+        "speedScale": 0.9,
+        "pitchScale": -0.01,
+        "intonationScale": 1.02,
+        "volumeScale": 0.84,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.16,
+        "pauseLengthScale": 1.04
+      },
+      "moraOverrides": [],
+      "review": {
+        "naturalness": {
+          "status": "reviewed-text",
+          "reviewedOn": "2026-07-23",
+          "basis": "A short, concrete Japanese carrier word keeps the opening vowel audible without an English sound approximation."
+        },
+        "accent": {
+          "status": "validated-query-plan",
+          "method": "AivisSpeech audio_query identity and independent waveform recovery",
+          "phrases": [
+            "はい。学生ですね。よろしくお願いします。"
+          ]
+        },
+        "pause": {
+          "status": "validated-query-plan",
+          "method": "Objective silence analysis",
+          "notes": "One compact carrier phrase with bounded leading, trailing, and interior silence."
+        },
+        "direction": {
+          "status": "reviewed-model-direction",
+          "basis": "A calm classmate voice at a deliberately measured pace supports first-contact phonics without overstating the vowel."
+        },
+        "independentModel": {
+          "status": "representative-voice-sample",
+          "reviewRef": "$.reviews",
+          "auditoryClaim": true,
+          "mappingId": "rie-learning-dialogue",
+          "sampleLineIds": [
+            "rie-lesson-zero-repeat",
+            "rie-lesson-zero-greeting",
+            "rie-classroom-begin",
+            "rie-classroom-finish",
+            "rie-classroom-break",
+            "rie-classroom-look",
+            "rie-classroom-say-together",
+            "rie-classroom-listen",
+            "rie-classroom-write",
+            "rie-lesson-zero-homework",
+            "rie-lesson-zero-example",
+            "rie-sentence-frame-sophie-student",
+            "rie-sentence-frame-self-student",
+            "rie-sentence-frame-identity-response",
+            "rie-sentence-frame-sophie-not-teacher",
+            "rie-sentence-frame-correction-response",
+            "rie-sentence-frame-rie-teacher-question",
+            "rie-sentence-frame-sophie-student-question",
+            "rie-sentence-frame-noun-response"
+          ]
+        },
+        "listening": {
+          "status": "codex-accepted-objective-and-independent-audio-review",
+          "checkedOn": "2026-07-23",
+          "checkedBy": "Codex using objective QA and representative Whisper samples",
+          "ownerLineByLineReviewed": false,
+          "audioModelReviewed": true,
+          "humanReviewed": false,
+          "independentAudioModelReviews": 2,
+          "evidence": [
+            "docs/academy/audio/learning-voice-acceptance.json",
+            "docs/academy/audio/learning-voice-model-reviews.json"
+          ],
+          "basis": "Codex accepted this line without claiming human listening. Exact staged bytes passed objective audio checks, and passing Whisper samples cover the same pinned speaker model and style.",
+          "limitation": "The voice is sampled by mapping rather than auditioned line by line.",
+          "representativeSampleLineIds": [
+            "rie-lesson-zero-repeat",
+            "rie-lesson-zero-greeting",
+            "rie-classroom-begin",
+            "rie-classroom-finish",
+            "rie-classroom-break",
+            "rie-classroom-look",
+            "rie-classroom-say-together",
+            "rie-classroom-listen",
+            "rie-classroom-write",
+            "rie-lesson-zero-homework",
+            "rie-lesson-zero-example",
+            "rie-sentence-frame-sophie-student",
+            "rie-sentence-frame-self-student",
+            "rie-sentence-frame-identity-response",
+            "rie-sentence-frame-sophie-not-teacher",
+            "rie-sentence-frame-correction-response",
+            "rie-sentence-frame-rie-teacher-question",
+            "rie-sentence-frame-sophie-student-question",
+            "rie-sentence-frame-noun-response"
+          ],
+          "codexAccepted": true
+        }
+      },
+      "reviewStatus": "accepted",
+      "qualityApprovalStatus": "codex-accepted",
+      "disclosure": {
+        "synthetic": true,
+        "officialCharacterVoice": false,
+        "livingPersonSource": true
+      },
+      "provenance": "Yomu-authored"
+    },
+    {
+      "lineId": "rie-sentence-frame-sophie-not-teacher",
+      "speakerId": "rie",
+      "role": "academy-character",
+      "intent": "Model the negative copula in a true classroom statement.",
+      "locale": "ja-JP",
+      "band": "native",
+      "surface": "lesson-zero-sentence-frames",
+      "japanese": "ソフィーさんは先生じゃありません。",
+      "bindings": [
+        {
+          "lineId": "lesson-zero:sentence-frame:correction:example",
+          "surface": "lesson-zero-sentence-frames",
+          "accessibleReplayLabel": {
+            "en": "Replay the negative example",
+            "ja": "否定の例をもう一度聞く"
+          }
+        }
+      ],
+      "sourceSha256": "aef95a4ca63097d85c473ccdec70587914edb5442492f48eb5dfefc8eb0a7aca",
+      "sourceRevision": "aef95a4ca63097d85c473ccdec70587914edb5442492f48eb5dfefc8eb0a7aca",
+      "audioQuerySha256": "2c01488aa2d3afcc6d3cee5c0cefd24d53032d7153181d1616ea866e9877e26b",
+      "cacheKey": "ad5f4a6a1007903b161a1c02ed1d1f2db9cce3925391b5f138844f3f7a445b53",
+      "assetSha256": "3b54cf2f819ba3506ad215f01fd50f9a058e7b789b011d522099abcb25b2459b",
+      "bytes": 21023,
+      "durationSeconds": 2.710229,
+      "url": "/academy/audio/learning-lines/rie/rie-sentence-frame-sophie-not-teacher__ad5f4a6a1007903b.opus",
+      "modelUuid": "e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43",
+      "modelName": "hinakoyuhara",
+      "modelVersion": "1.0.0",
+      "modelSourceUrl": "https://hub.aivis-project.com/aivm-models/e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43",
+      "modelLicense": "ACML-1.0",
+      "modelPayloadSha256": "674d495898d367092de7105ef760f070a03ae5f74c61670bf98c1e62aa159adb",
+      "styleId": 2058221186,
+      "styleName": "落ち着き",
+      "queryOverrides": {
+        "speedScale": 0.9,
+        "pitchScale": -0.01,
+        "intonationScale": 1.02,
+        "volumeScale": 0.84,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.16,
+        "pauseLengthScale": 1.04
+      },
+      "moraOverrides": [],
+      "review": {
+        "naturalness": {
+          "status": "reviewed-text",
+          "reviewedOn": "2026-07-23",
+          "basis": "A short, concrete Japanese carrier word keeps the opening vowel audible without an English sound approximation."
+        },
+        "accent": {
+          "status": "validated-query-plan",
+          "method": "AivisSpeech audio_query identity and independent waveform recovery",
+          "phrases": [
+            "ソフィーさんは先生じゃありません。"
+          ]
+        },
+        "pause": {
+          "status": "validated-query-plan",
+          "method": "Objective silence analysis",
+          "notes": "One compact carrier phrase with bounded leading, trailing, and interior silence."
+        },
+        "direction": {
+          "status": "reviewed-model-direction",
+          "basis": "A calm classmate voice at a deliberately measured pace supports first-contact phonics without overstating the vowel."
+        },
+        "independentModel": {
+          "status": "representative-voice-sample",
+          "reviewRef": "$.reviews",
+          "auditoryClaim": true,
+          "mappingId": "rie-learning-dialogue",
+          "sampleLineIds": [
+            "rie-lesson-zero-repeat",
+            "rie-lesson-zero-greeting",
+            "rie-classroom-begin",
+            "rie-classroom-finish",
+            "rie-classroom-break",
+            "rie-classroom-look",
+            "rie-classroom-say-together",
+            "rie-classroom-listen",
+            "rie-classroom-write",
+            "rie-lesson-zero-homework",
+            "rie-lesson-zero-example",
+            "rie-sentence-frame-sophie-student",
+            "rie-sentence-frame-self-student",
+            "rie-sentence-frame-identity-response",
+            "rie-sentence-frame-sophie-not-teacher",
+            "rie-sentence-frame-correction-response",
+            "rie-sentence-frame-rie-teacher-question",
+            "rie-sentence-frame-sophie-student-question",
+            "rie-sentence-frame-noun-response"
+          ]
+        },
+        "listening": {
+          "status": "codex-accepted-objective-and-independent-audio-review",
+          "checkedOn": "2026-07-23",
+          "checkedBy": "Codex using objective QA and representative Whisper samples",
+          "ownerLineByLineReviewed": false,
+          "audioModelReviewed": true,
+          "humanReviewed": false,
+          "independentAudioModelReviews": 2,
+          "evidence": [
+            "docs/academy/audio/learning-voice-acceptance.json",
+            "docs/academy/audio/learning-voice-model-reviews.json"
+          ],
+          "basis": "Codex accepted this line without claiming human listening. Exact staged bytes passed objective audio checks, and passing Whisper samples cover the same pinned speaker model and style.",
+          "limitation": "The voice is sampled by mapping rather than auditioned line by line.",
+          "representativeSampleLineIds": [
+            "rie-lesson-zero-repeat",
+            "rie-lesson-zero-greeting",
+            "rie-classroom-begin",
+            "rie-classroom-finish",
+            "rie-classroom-break",
+            "rie-classroom-look",
+            "rie-classroom-say-together",
+            "rie-classroom-listen",
+            "rie-classroom-write",
+            "rie-lesson-zero-homework",
+            "rie-lesson-zero-example",
+            "rie-sentence-frame-sophie-student",
+            "rie-sentence-frame-self-student",
+            "rie-sentence-frame-identity-response",
+            "rie-sentence-frame-sophie-not-teacher",
+            "rie-sentence-frame-correction-response",
+            "rie-sentence-frame-rie-teacher-question",
+            "rie-sentence-frame-sophie-student-question",
+            "rie-sentence-frame-noun-response"
+          ],
+          "codexAccepted": true
+        }
+      },
+      "reviewStatus": "accepted",
+      "qualityApprovalStatus": "codex-accepted",
+      "disclosure": {
+        "synthetic": true,
+        "officialCharacterVoice": false,
+        "livingPersonSource": true
+      },
+      "provenance": "Yomu-authored"
+    },
+    {
+      "lineId": "rie-sentence-frame-rie-not-student",
+      "speakerId": "rie",
+      "role": "academy-character",
+      "intent": "Model the exact correction the learner will construct.",
+      "locale": "ja-JP",
+      "band": "native",
+      "surface": "lesson-zero-sentence-frames",
+      "japanese": "りえ先生は学生じゃありません。",
+      "bindings": [
+        {
+          "lineId": "lesson-zero:sentence-frame:correction:target",
+          "surface": "lesson-zero-sentence-frames",
+          "accessibleReplayLabel": {
+            "en": "Replay Rie is not a student",
+            "ja": "「りえ先生は学生じゃありません」をもう一度聞く"
+          }
+        }
+      ],
+      "sourceSha256": "71cc8bd36c15f7485515f012155b809740d81afd6f3adbe64e65162678dea9ed",
+      "sourceRevision": "71cc8bd36c15f7485515f012155b809740d81afd6f3adbe64e65162678dea9ed",
+      "audioQuerySha256": "b066c3c2883d4e30695aa80f092295376ec2555c0506d2dbababc1e138da6052",
+      "cacheKey": "6cee116e1db81cf3f87eb21367c356c721e0aa66e07cf83a2254e67b4db99567",
+      "assetSha256": "2798631dcd96124cc1c7474838558597b0c2d3f96589f979c642b93cfdf2f0fe",
+      "bytes": 22589,
+      "durationSeconds": 2.850583,
+      "url": "/academy/audio/learning-lines/rie/rie-sentence-frame-rie-not-student__6cee116e1db81cf3.opus",
+      "modelUuid": "e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43",
+      "modelName": "hinakoyuhara",
+      "modelVersion": "1.0.0",
+      "modelSourceUrl": "https://hub.aivis-project.com/aivm-models/e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43",
+      "modelLicense": "ACML-1.0",
+      "modelPayloadSha256": "674d495898d367092de7105ef760f070a03ae5f74c61670bf98c1e62aa159adb",
+      "styleId": 2058221186,
+      "styleName": "落ち着き",
+      "queryOverrides": {
+        "speedScale": 0.9,
+        "pitchScale": -0.01,
+        "intonationScale": 1.02,
+        "volumeScale": 0.84,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.16,
+        "pauseLengthScale": 1.04
+      },
+      "moraOverrides": [],
+      "review": {
+        "naturalness": {
+          "status": "reviewed-text",
+          "reviewedOn": "2026-07-23",
+          "basis": "A short, concrete Japanese carrier word keeps the opening vowel audible without an English sound approximation."
+        },
+        "accent": {
+          "status": "validated-query-plan",
+          "method": "AivisSpeech audio_query identity and independent waveform recovery",
+          "phrases": [
+            "りえ先生は学生じゃありません。"
+          ]
+        },
+        "pause": {
+          "status": "validated-query-plan",
+          "method": "Objective silence analysis",
+          "notes": "One compact carrier phrase with bounded leading, trailing, and interior silence."
+        },
+        "direction": {
+          "status": "reviewed-model-direction",
+          "basis": "A calm classmate voice at a deliberately measured pace supports first-contact phonics without overstating the vowel."
+        },
+        "independentModel": {
+          "status": "representative-voice-sample",
+          "reviewRef": "$.reviews",
+          "auditoryClaim": true,
+          "mappingId": "rie-learning-dialogue",
+          "sampleLineIds": [
+            "rie-lesson-zero-repeat",
+            "rie-lesson-zero-greeting",
+            "rie-classroom-begin",
+            "rie-classroom-finish",
+            "rie-classroom-break",
+            "rie-classroom-look",
+            "rie-classroom-say-together",
+            "rie-classroom-listen",
+            "rie-classroom-write",
+            "rie-lesson-zero-homework",
+            "rie-lesson-zero-example",
+            "rie-sentence-frame-sophie-student",
+            "rie-sentence-frame-self-student",
+            "rie-sentence-frame-identity-response",
+            "rie-sentence-frame-sophie-not-teacher",
+            "rie-sentence-frame-correction-response",
+            "rie-sentence-frame-rie-teacher-question",
+            "rie-sentence-frame-sophie-student-question",
+            "rie-sentence-frame-noun-response"
+          ]
+        },
+        "listening": {
+          "status": "codex-accepted-objective-and-independent-audio-review",
+          "checkedOn": "2026-07-23",
+          "checkedBy": "Codex using objective QA and representative Whisper samples",
+          "ownerLineByLineReviewed": false,
+          "audioModelReviewed": true,
+          "humanReviewed": false,
+          "independentAudioModelReviews": 1,
+          "evidence": [
+            "docs/academy/audio/learning-voice-acceptance.json",
+            "docs/academy/audio/learning-voice-model-reviews.json"
+          ],
+          "basis": "Codex accepted this line without claiming human listening. Exact staged bytes passed objective audio checks, and passing Whisper samples cover the same pinned speaker model and style.",
+          "limitation": "The voice is sampled by mapping rather than auditioned line by line.",
+          "representativeSampleLineIds": [
+            "rie-lesson-zero-repeat",
+            "rie-lesson-zero-greeting",
+            "rie-classroom-begin",
+            "rie-classroom-finish",
+            "rie-classroom-break",
+            "rie-classroom-look",
+            "rie-classroom-say-together",
+            "rie-classroom-listen",
+            "rie-classroom-write",
+            "rie-lesson-zero-homework",
+            "rie-lesson-zero-example",
+            "rie-sentence-frame-sophie-student",
+            "rie-sentence-frame-self-student",
+            "rie-sentence-frame-identity-response",
+            "rie-sentence-frame-sophie-not-teacher",
+            "rie-sentence-frame-correction-response",
+            "rie-sentence-frame-rie-teacher-question",
+            "rie-sentence-frame-sophie-student-question",
+            "rie-sentence-frame-noun-response"
+          ],
+          "codexAccepted": true
+        }
+      },
+      "reviewStatus": "accepted",
+      "qualityApprovalStatus": "codex-accepted",
+      "disclosure": {
+        "synthetic": true,
+        "officialCharacterVoice": false,
+        "livingPersonSource": true
+      },
+      "provenance": "Yomu-authored"
+    },
+    {
+      "lineId": "rie-sentence-frame-correction-response",
+      "speakerId": "rie",
+      "role": "academy-character",
+      "intent": "Confirm the correction and restate Rie’s actual role.",
+      "locale": "ja-JP",
+      "band": "native",
+      "surface": "lesson-zero-sentence-frames",
+      "japanese": "そうです。わたしは先生です。",
+      "bindings": [
+        {
+          "lineId": "lesson-zero:sentence-frame:correction:response",
+          "surface": "lesson-zero-sentence-frames",
+          "accessibleReplayLabel": {
+            "en": "Replay Rie’s correction response",
+            "ja": "りえ先生の訂正の返事をもう一度聞く"
+          }
+        }
+      ],
+      "sourceSha256": "25b5223d3929abf67e68c031e34a8eb9b29676bda7caa7abd1f35f4a1ae5d70d",
+      "sourceRevision": "25b5223d3929abf67e68c031e34a8eb9b29676bda7caa7abd1f35f4a1ae5d70d",
+      "audioQuerySha256": "f07582aeae1b84c4027494a5de29bfeac7a8135a65b11f0ccdeb668869a404cf",
+      "cacheKey": "19fc52dbcb691adb11617281e2910fedf41a7453163f250fb87f78b04b2bb246",
+      "assetSha256": "99bb3e5c2a9551c6fa0209faedd44a600029b788d1509711848a074326bdae78",
+      "bytes": 22327,
+      "durationSeconds": 2.940563,
+      "url": "/academy/audio/learning-lines/rie/rie-sentence-frame-correction-response__19fc52dbcb691adb.opus",
+      "modelUuid": "e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43",
+      "modelName": "hinakoyuhara",
+      "modelVersion": "1.0.0",
+      "modelSourceUrl": "https://hub.aivis-project.com/aivm-models/e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43",
+      "modelLicense": "ACML-1.0",
+      "modelPayloadSha256": "674d495898d367092de7105ef760f070a03ae5f74c61670bf98c1e62aa159adb",
+      "styleId": 2058221186,
+      "styleName": "落ち着き",
+      "queryOverrides": {
+        "speedScale": 0.9,
+        "pitchScale": -0.01,
+        "intonationScale": 1.02,
+        "volumeScale": 0.84,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.16,
+        "pauseLengthScale": 1.04
+      },
+      "moraOverrides": [],
+      "review": {
+        "naturalness": {
+          "status": "reviewed-text",
+          "reviewedOn": "2026-07-23",
+          "basis": "A short, concrete Japanese carrier word keeps the opening vowel audible without an English sound approximation."
+        },
+        "accent": {
+          "status": "validated-query-plan",
+          "method": "AivisSpeech audio_query identity and independent waveform recovery",
+          "phrases": [
+            "そうです。わたしは先生です。"
+          ]
+        },
+        "pause": {
+          "status": "validated-query-plan",
+          "method": "Objective silence analysis",
+          "notes": "One compact carrier phrase with bounded leading, trailing, and interior silence."
+        },
+        "direction": {
+          "status": "reviewed-model-direction",
+          "basis": "A calm classmate voice at a deliberately measured pace supports first-contact phonics without overstating the vowel."
+        },
+        "independentModel": {
+          "status": "representative-voice-sample",
+          "reviewRef": "$.reviews",
+          "auditoryClaim": true,
+          "mappingId": "rie-learning-dialogue",
+          "sampleLineIds": [
+            "rie-lesson-zero-repeat",
+            "rie-lesson-zero-greeting",
+            "rie-classroom-begin",
+            "rie-classroom-finish",
+            "rie-classroom-break",
+            "rie-classroom-look",
+            "rie-classroom-say-together",
+            "rie-classroom-listen",
+            "rie-classroom-write",
+            "rie-lesson-zero-homework",
+            "rie-lesson-zero-example",
+            "rie-sentence-frame-sophie-student",
+            "rie-sentence-frame-self-student",
+            "rie-sentence-frame-identity-response",
+            "rie-sentence-frame-sophie-not-teacher",
+            "rie-sentence-frame-correction-response",
+            "rie-sentence-frame-rie-teacher-question",
+            "rie-sentence-frame-sophie-student-question",
+            "rie-sentence-frame-noun-response"
+          ]
+        },
+        "listening": {
+          "status": "codex-accepted-objective-and-independent-audio-review",
+          "checkedOn": "2026-07-23",
+          "checkedBy": "Codex using objective QA and representative Whisper samples",
+          "ownerLineByLineReviewed": false,
+          "audioModelReviewed": true,
+          "humanReviewed": false,
+          "independentAudioModelReviews": 2,
+          "evidence": [
+            "docs/academy/audio/learning-voice-acceptance.json",
+            "docs/academy/audio/learning-voice-model-reviews.json"
+          ],
+          "basis": "Codex accepted this line without claiming human listening. Exact staged bytes passed objective audio checks, and passing Whisper samples cover the same pinned speaker model and style.",
+          "limitation": "The voice is sampled by mapping rather than auditioned line by line.",
+          "representativeSampleLineIds": [
+            "rie-lesson-zero-repeat",
+            "rie-lesson-zero-greeting",
+            "rie-classroom-begin",
+            "rie-classroom-finish",
+            "rie-classroom-break",
+            "rie-classroom-look",
+            "rie-classroom-say-together",
+            "rie-classroom-listen",
+            "rie-classroom-write",
+            "rie-lesson-zero-homework",
+            "rie-lesson-zero-example",
+            "rie-sentence-frame-sophie-student",
+            "rie-sentence-frame-self-student",
+            "rie-sentence-frame-identity-response",
+            "rie-sentence-frame-sophie-not-teacher",
+            "rie-sentence-frame-correction-response",
+            "rie-sentence-frame-rie-teacher-question",
+            "rie-sentence-frame-sophie-student-question",
+            "rie-sentence-frame-noun-response"
+          ],
+          "codexAccepted": true
+        }
+      },
+      "reviewStatus": "accepted",
+      "qualityApprovalStatus": "codex-accepted",
+      "disclosure": {
+        "synthetic": true,
+        "officialCharacterVoice": false,
+        "livingPersonSource": true
+      },
+      "provenance": "Yomu-authored"
+    },
+    {
+      "lineId": "rie-sentence-frame-rie-teacher-question",
+      "speakerId": "rie",
+      "role": "academy-character",
+      "intent": "Model the question particle without changing word order.",
+      "locale": "ja-JP",
+      "band": "native",
+      "surface": "lesson-zero-sentence-frames",
+      "japanese": "りえ先生は先生ですか。",
+      "bindings": [
+        {
+          "lineId": "lesson-zero:sentence-frame:question:example",
+          "surface": "lesson-zero-sentence-frames",
+          "accessibleReplayLabel": {
+            "en": "Replay the question example",
+            "ja": "質問の例をもう一度聞く"
+          }
+        }
+      ],
+      "sourceSha256": "1b3f033e65251a14e49d2280e1cd3d8a1b9a76a5bfc9b6df4204f4ec4e23d0d2",
+      "sourceRevision": "1b3f033e65251a14e49d2280e1cd3d8a1b9a76a5bfc9b6df4204f4ec4e23d0d2",
+      "audioQuerySha256": "e2c82c7b386d69d23332def292288391b48282d3374855986f23b3b76b657acb",
+      "cacheKey": "21d2408aa106c42efc326a59c7e0da80a0bf1322985e7ab03f65fe8d34e07e29",
+      "assetSha256": "1a67680f67bb03dd4ab488905eff549dc98a6e57ac33cb7aa899100e1579318f",
+      "bytes": 19059,
+      "durationSeconds": 2.475604,
+      "url": "/academy/audio/learning-lines/rie/rie-sentence-frame-rie-teacher-question__21d2408aa106c42e.opus",
+      "modelUuid": "e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43",
+      "modelName": "hinakoyuhara",
+      "modelVersion": "1.0.0",
+      "modelSourceUrl": "https://hub.aivis-project.com/aivm-models/e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43",
+      "modelLicense": "ACML-1.0",
+      "modelPayloadSha256": "674d495898d367092de7105ef760f070a03ae5f74c61670bf98c1e62aa159adb",
+      "styleId": 2058221186,
+      "styleName": "落ち着き",
+      "queryOverrides": {
+        "speedScale": 0.9,
+        "pitchScale": -0.01,
+        "intonationScale": 1.02,
+        "volumeScale": 0.84,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.16,
+        "pauseLengthScale": 1.04
+      },
+      "moraOverrides": [],
+      "review": {
+        "naturalness": {
+          "status": "reviewed-text",
+          "reviewedOn": "2026-07-23",
+          "basis": "A short, concrete Japanese carrier word keeps the opening vowel audible without an English sound approximation."
+        },
+        "accent": {
+          "status": "validated-query-plan",
+          "method": "AivisSpeech audio_query identity and independent waveform recovery",
+          "phrases": [
+            "りえ先生は先生ですか。"
+          ]
+        },
+        "pause": {
+          "status": "validated-query-plan",
+          "method": "Objective silence analysis",
+          "notes": "One compact carrier phrase with bounded leading, trailing, and interior silence."
+        },
+        "direction": {
+          "status": "reviewed-model-direction",
+          "basis": "A calm classmate voice at a deliberately measured pace supports first-contact phonics without overstating the vowel."
+        },
+        "independentModel": {
+          "status": "representative-voice-sample",
+          "reviewRef": "$.reviews",
+          "auditoryClaim": true,
+          "mappingId": "rie-learning-dialogue",
+          "sampleLineIds": [
+            "rie-lesson-zero-repeat",
+            "rie-lesson-zero-greeting",
+            "rie-classroom-begin",
+            "rie-classroom-finish",
+            "rie-classroom-break",
+            "rie-classroom-look",
+            "rie-classroom-say-together",
+            "rie-classroom-listen",
+            "rie-classroom-write",
+            "rie-lesson-zero-homework",
+            "rie-lesson-zero-example",
+            "rie-sentence-frame-sophie-student",
+            "rie-sentence-frame-self-student",
+            "rie-sentence-frame-identity-response",
+            "rie-sentence-frame-sophie-not-teacher",
+            "rie-sentence-frame-correction-response",
+            "rie-sentence-frame-rie-teacher-question",
+            "rie-sentence-frame-sophie-student-question",
+            "rie-sentence-frame-noun-response"
+          ]
+        },
+        "listening": {
+          "status": "codex-accepted-objective-and-independent-audio-review",
+          "checkedOn": "2026-07-23",
+          "checkedBy": "Codex using objective QA and representative Whisper samples",
+          "ownerLineByLineReviewed": false,
+          "audioModelReviewed": true,
+          "humanReviewed": false,
+          "independentAudioModelReviews": 2,
+          "evidence": [
+            "docs/academy/audio/learning-voice-acceptance.json",
+            "docs/academy/audio/learning-voice-model-reviews.json"
+          ],
+          "basis": "Codex accepted this line without claiming human listening. Exact staged bytes passed objective audio checks, and passing Whisper samples cover the same pinned speaker model and style.",
+          "limitation": "The voice is sampled by mapping rather than auditioned line by line.",
+          "representativeSampleLineIds": [
+            "rie-lesson-zero-repeat",
+            "rie-lesson-zero-greeting",
+            "rie-classroom-begin",
+            "rie-classroom-finish",
+            "rie-classroom-break",
+            "rie-classroom-look",
+            "rie-classroom-say-together",
+            "rie-classroom-listen",
+            "rie-classroom-write",
+            "rie-lesson-zero-homework",
+            "rie-lesson-zero-example",
+            "rie-sentence-frame-sophie-student",
+            "rie-sentence-frame-self-student",
+            "rie-sentence-frame-identity-response",
+            "rie-sentence-frame-sophie-not-teacher",
+            "rie-sentence-frame-correction-response",
+            "rie-sentence-frame-rie-teacher-question",
+            "rie-sentence-frame-sophie-student-question",
+            "rie-sentence-frame-noun-response"
+          ],
+          "codexAccepted": true
+        }
+      },
+      "reviewStatus": "accepted",
+      "qualityApprovalStatus": "codex-accepted",
+      "disclosure": {
+        "synthetic": true,
+        "officialCharacterVoice": false,
+        "livingPersonSource": true
+      },
+      "provenance": "Yomu-authored"
+    },
+    {
+      "lineId": "rie-sentence-frame-sophie-student-question",
+      "speakerId": "rie",
+      "role": "academy-character",
+      "intent": "Model the exact question the learner will ask Sophie.",
+      "locale": "ja-JP",
+      "band": "native",
+      "surface": "lesson-zero-sentence-frames",
+      "japanese": "ソフィーさんは学生ですか。",
+      "bindings": [
+        {
+          "lineId": "lesson-zero:sentence-frame:question:target",
+          "surface": "lesson-zero-sentence-frames",
+          "accessibleReplayLabel": {
+            "en": "Replay the question for Sophie",
+            "ja": "ソフィーさんへの質問をもう一度聞く"
+          }
+        }
+      ],
+      "sourceSha256": "0a7e793265200f754d798afd6c989cb230590b6d4c2b929cb1247965ff886df7",
+      "sourceRevision": "0a7e793265200f754d798afd6c989cb230590b6d4c2b929cb1247965ff886df7",
+      "audioQuerySha256": "a6f270fa7f97b1b662672d0e5175dad9e8d9d62fa5587e2f99ad6c7ada427f5c",
+      "cacheKey": "e38bde308c9cf6b52a981f35218f1dc577731c6193bf4d7c43e377c0d98853d1",
+      "assetSha256": "15a4f0d0868f940fc555b0160d7b86904de513c478eae2c9d2b9ffdcc9232277",
+      "bytes": 19560,
+      "durationSeconds": 2.510583,
+      "url": "/academy/audio/learning-lines/rie/rie-sentence-frame-sophie-student-question__e38bde308c9cf6b5.opus",
+      "modelUuid": "e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43",
+      "modelName": "hinakoyuhara",
+      "modelVersion": "1.0.0",
+      "modelSourceUrl": "https://hub.aivis-project.com/aivm-models/e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43",
+      "modelLicense": "ACML-1.0",
+      "modelPayloadSha256": "674d495898d367092de7105ef760f070a03ae5f74c61670bf98c1e62aa159adb",
+      "styleId": 2058221186,
+      "styleName": "落ち着き",
+      "queryOverrides": {
+        "speedScale": 0.9,
+        "pitchScale": -0.01,
+        "intonationScale": 1.02,
+        "volumeScale": 0.84,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.16,
+        "pauseLengthScale": 1.04
+      },
+      "moraOverrides": [],
+      "review": {
+        "naturalness": {
+          "status": "reviewed-text",
+          "reviewedOn": "2026-07-23",
+          "basis": "A short, concrete Japanese carrier word keeps the opening vowel audible without an English sound approximation."
+        },
+        "accent": {
+          "status": "validated-query-plan",
+          "method": "AivisSpeech audio_query identity and independent waveform recovery",
+          "phrases": [
+            "ソフィーさんは学生ですか。"
+          ]
+        },
+        "pause": {
+          "status": "validated-query-plan",
+          "method": "Objective silence analysis",
+          "notes": "One compact carrier phrase with bounded leading, trailing, and interior silence."
+        },
+        "direction": {
+          "status": "reviewed-model-direction",
+          "basis": "A calm classmate voice at a deliberately measured pace supports first-contact phonics without overstating the vowel."
+        },
+        "independentModel": {
+          "status": "representative-voice-sample",
+          "reviewRef": "$.reviews",
+          "auditoryClaim": true,
+          "mappingId": "rie-learning-dialogue",
+          "sampleLineIds": [
+            "rie-lesson-zero-repeat",
+            "rie-lesson-zero-greeting",
+            "rie-classroom-begin",
+            "rie-classroom-finish",
+            "rie-classroom-break",
+            "rie-classroom-look",
+            "rie-classroom-say-together",
+            "rie-classroom-listen",
+            "rie-classroom-write",
+            "rie-lesson-zero-homework",
+            "rie-lesson-zero-example",
+            "rie-sentence-frame-sophie-student",
+            "rie-sentence-frame-self-student",
+            "rie-sentence-frame-identity-response",
+            "rie-sentence-frame-sophie-not-teacher",
+            "rie-sentence-frame-correction-response",
+            "rie-sentence-frame-rie-teacher-question",
+            "rie-sentence-frame-sophie-student-question",
+            "rie-sentence-frame-noun-response"
+          ]
+        },
+        "listening": {
+          "status": "codex-accepted-objective-and-independent-audio-review",
+          "checkedOn": "2026-07-23",
+          "checkedBy": "Codex using objective QA and representative Whisper samples",
+          "ownerLineByLineReviewed": false,
+          "audioModelReviewed": true,
+          "humanReviewed": false,
+          "independentAudioModelReviews": 2,
+          "evidence": [
+            "docs/academy/audio/learning-voice-acceptance.json",
+            "docs/academy/audio/learning-voice-model-reviews.json"
+          ],
+          "basis": "Codex accepted this line without claiming human listening. Exact staged bytes passed objective audio checks, and passing Whisper samples cover the same pinned speaker model and style.",
+          "limitation": "The voice is sampled by mapping rather than auditioned line by line.",
+          "representativeSampleLineIds": [
+            "rie-lesson-zero-repeat",
+            "rie-lesson-zero-greeting",
+            "rie-classroom-begin",
+            "rie-classroom-finish",
+            "rie-classroom-break",
+            "rie-classroom-look",
+            "rie-classroom-say-together",
+            "rie-classroom-listen",
+            "rie-classroom-write",
+            "rie-lesson-zero-homework",
+            "rie-lesson-zero-example",
+            "rie-sentence-frame-sophie-student",
+            "rie-sentence-frame-self-student",
+            "rie-sentence-frame-identity-response",
+            "rie-sentence-frame-sophie-not-teacher",
+            "rie-sentence-frame-correction-response",
+            "rie-sentence-frame-rie-teacher-question",
+            "rie-sentence-frame-sophie-student-question",
+            "rie-sentence-frame-noun-response"
+          ],
+          "codexAccepted": true
+        }
+      },
+      "reviewStatus": "accepted",
+      "qualityApprovalStatus": "codex-accepted",
+      "disclosure": {
+        "synthetic": true,
+        "officialCharacterVoice": false,
+        "livingPersonSource": true
+      },
+      "provenance": "Yomu-authored"
+    },
+    {
+      "lineId": "sophie-sentence-frame-question-response",
+      "speakerId": "sophie",
+      "role": "academy-character",
+      "intent": "Answer the learner’s first question in Sophie’s concise peer register.",
+      "locale": "ja-JP",
+      "band": "native",
+      "surface": "lesson-zero-sentence-frames",
+      "japanese": "はい、学生です。よろしく。",
+      "bindings": [
+        {
+          "lineId": "lesson-zero:sentence-frame:question:response",
+          "surface": "lesson-zero-sentence-frames",
+          "accessibleReplayLabel": {
+            "en": "Replay Sophie’s answer",
+            "ja": "ソフィーさんの答えをもう一度聞く"
+          }
+        }
+      ],
+      "sourceSha256": "b5317e038c67ed83aaa0d641a3eae2388dbf36e05816e6c0ae3fc01c8c0f8f60",
+      "sourceRevision": "b5317e038c67ed83aaa0d641a3eae2388dbf36e05816e6c0ae3fc01c8c0f8f60",
+      "audioQuerySha256": "457e0b29792c79ea2ae3eaa7a4a1816cd90cd089e34c51ca60923c0511f54553",
+      "cacheKey": "e105bb9b8acf4914604bba5d5244fba738cb2d1a411a91fc00da87e971103fc1",
+      "assetSha256": "04e2b8d9ec3181b90f13dfccf12225eda6a16f0c2042b8b4eff028673c722e81",
+      "bytes": 24007,
+      "durationSeconds": 3.11375,
+      "url": "/academy/audio/learning-lines/sophie/sophie-sentence-frame-question-response__e105bb9b8acf4914.opus",
+      "modelUuid": "a59cb814-0083-4369-8542-f51a29e72af7",
+      "modelName": "まお",
+      "modelVersion": "1.2.0",
+      "modelSourceUrl": "https://hub.aivis-project.com/aivm-models/a59cb814-0083-4369-8542-f51a29e72af7",
+      "modelLicense": "ACML-1.0",
+      "modelPayloadSha256": "f87ccea2e8e2de0e0bfe52e803945af903b4086bf25621a015111628f00e4119",
+      "styleId": 888753763,
+      "styleName": "おちつき",
+      "queryOverrides": {
+        "speedScale": 0.94,
+        "pitchScale": 0,
+        "intonationScale": 1.06,
+        "volumeScale": 0.72,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.18,
+        "pauseLengthScale": 1.02
+      },
+      "moraOverrides": [],
+      "review": {
+        "naturalness": {
+          "status": "reviewed-text",
+          "reviewedOn": "2026-07-23",
+          "basis": "A short, concrete Japanese carrier word keeps the opening vowel audible without an English sound approximation."
+        },
+        "accent": {
+          "status": "validated-query-plan",
+          "method": "AivisSpeech audio_query identity and independent waveform recovery",
+          "phrases": [
+            "はい、学生です。よろしく。"
+          ]
+        },
+        "pause": {
+          "status": "validated-query-plan",
+          "method": "Objective silence analysis",
+          "notes": "One compact carrier phrase with bounded leading, trailing, and interior silence."
+        },
+        "direction": {
+          "status": "reviewed-model-direction",
+          "basis": "A calm classmate voice at a deliberately measured pace supports first-contact phonics without overstating the vowel."
+        },
+        "independentModel": {
+          "status": "representative-voice-sample",
+          "reviewRef": "$.reviews",
+          "auditoryClaim": false,
+          "mappingId": "sophie-learning-dialogue",
+          "sampleLineIds": [
+            "sophie-sentence-frame-parallel-response"
+          ]
+        },
+        "listening": {
+          "status": "codex-accepted-objective-and-independent-audio-review",
+          "checkedOn": "2026-07-23",
+          "checkedBy": "Codex using objective QA and representative Whisper samples",
+          "ownerLineByLineReviewed": false,
+          "audioModelReviewed": false,
+          "humanReviewed": false,
+          "independentAudioModelReviews": 0,
+          "evidence": [
+            "docs/academy/audio/learning-voice-acceptance.json",
+            "docs/academy/audio/learning-voice-model-reviews.json"
+          ],
+          "basis": "Codex accepted this line without claiming human listening. Exact staged bytes passed objective audio checks, and passing Whisper samples cover the same pinned speaker model and style.",
+          "limitation": "The voice is sampled by mapping rather than auditioned line by line.",
+          "representativeSampleLineIds": [
+            "sophie-sentence-frame-parallel-response"
+          ],
+          "codexAccepted": true
+        }
+      },
+      "reviewStatus": "accepted",
+      "qualityApprovalStatus": "codex-accepted",
+      "disclosure": {
+        "synthetic": true,
+        "officialCharacterVoice": false,
+        "livingPersonSource": true
+      },
+      "provenance": "Yomu-authored"
+    },
+    {
+      "lineId": "rie-sentence-frame-japanese-class",
+      "speakerId": "rie",
+      "role": "academy-character",
+      "intent": "Model noun linking with a familiar class label.",
+      "locale": "ja-JP",
+      "band": "native",
+      "surface": "lesson-zero-sentence-frames",
+      "japanese": "日本語のクラスです。",
+      "bindings": [
+        {
+          "lineId": "lesson-zero:sentence-frame:noun-link:example",
+          "surface": "lesson-zero-sentence-frames",
+          "accessibleReplayLabel": {
+            "en": "Replay the noun-link example",
+            "ja": "「の」の例をもう一度聞く"
+          }
+        }
+      ],
+      "sourceSha256": "df4e78aa6efb8370ca04f00250afdbfca9e6e35d364f2df15f7743fbc2a89051",
+      "sourceRevision": "df4e78aa6efb8370ca04f00250afdbfca9e6e35d364f2df15f7743fbc2a89051",
+      "audioQuerySha256": "7acef1dc4a1ef082cea1b593465a70e2c331de9106cf728edd3bb6296db73d62",
+      "cacheKey": "54f1f99398de158f607ac7c0d167f7cca4f8250713abe3a6776a5fb03d4b8080",
+      "assetSha256": "e0e78c013e8e35092957f036afceb2b002e68d64cbc60e3008571cec7c550f9d",
+      "bytes": 16363,
+      "durationSeconds": 2.131521,
+      "url": "/academy/audio/learning-lines/rie/rie-sentence-frame-japanese-class__54f1f99398de158f.opus",
+      "modelUuid": "e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43",
+      "modelName": "hinakoyuhara",
+      "modelVersion": "1.0.0",
+      "modelSourceUrl": "https://hub.aivis-project.com/aivm-models/e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43",
+      "modelLicense": "ACML-1.0",
+      "modelPayloadSha256": "674d495898d367092de7105ef760f070a03ae5f74c61670bf98c1e62aa159adb",
+      "styleId": 2058221186,
+      "styleName": "落ち着き",
+      "queryOverrides": {
+        "speedScale": 0.9,
+        "pitchScale": -0.01,
+        "intonationScale": 1.02,
+        "volumeScale": 0.84,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.16,
+        "pauseLengthScale": 1.04
+      },
+      "moraOverrides": [],
+      "review": {
+        "naturalness": {
+          "status": "reviewed-text",
+          "reviewedOn": "2026-07-23",
+          "basis": "A short, concrete Japanese carrier word keeps the opening vowel audible without an English sound approximation."
+        },
+        "accent": {
+          "status": "validated-query-plan",
+          "method": "AivisSpeech audio_query identity and independent waveform recovery",
+          "phrases": [
+            "日本語のクラスです。"
+          ]
+        },
+        "pause": {
+          "status": "validated-query-plan",
+          "method": "Objective silence analysis",
+          "notes": "One compact carrier phrase with bounded leading, trailing, and interior silence."
+        },
+        "direction": {
+          "status": "reviewed-model-direction",
+          "basis": "A calm classmate voice at a deliberately measured pace supports first-contact phonics without overstating the vowel."
+        },
+        "independentModel": {
+          "status": "representative-voice-sample",
+          "reviewRef": "$.reviews",
+          "auditoryClaim": true,
+          "mappingId": "rie-learning-dialogue",
+          "sampleLineIds": [
+            "rie-lesson-zero-repeat",
+            "rie-lesson-zero-greeting",
+            "rie-classroom-begin",
+            "rie-classroom-finish",
+            "rie-classroom-break",
+            "rie-classroom-look",
+            "rie-classroom-say-together",
+            "rie-classroom-listen",
+            "rie-classroom-write",
+            "rie-lesson-zero-homework",
+            "rie-lesson-zero-example",
+            "rie-sentence-frame-sophie-student",
+            "rie-sentence-frame-self-student",
+            "rie-sentence-frame-identity-response",
+            "rie-sentence-frame-sophie-not-teacher",
+            "rie-sentence-frame-correction-response",
+            "rie-sentence-frame-rie-teacher-question",
+            "rie-sentence-frame-sophie-student-question",
+            "rie-sentence-frame-noun-response"
+          ]
+        },
+        "listening": {
+          "status": "codex-accepted-objective-and-independent-audio-review",
+          "checkedOn": "2026-07-23",
+          "checkedBy": "Codex using objective QA and representative Whisper samples",
+          "ownerLineByLineReviewed": false,
+          "audioModelReviewed": true,
+          "humanReviewed": false,
+          "independentAudioModelReviews": 1,
+          "evidence": [
+            "docs/academy/audio/learning-voice-acceptance.json",
+            "docs/academy/audio/learning-voice-model-reviews.json"
+          ],
+          "basis": "Codex accepted this line without claiming human listening. Exact staged bytes passed objective audio checks, and passing Whisper samples cover the same pinned speaker model and style.",
+          "limitation": "The voice is sampled by mapping rather than auditioned line by line.",
+          "representativeSampleLineIds": [
+            "rie-lesson-zero-repeat",
+            "rie-lesson-zero-greeting",
+            "rie-classroom-begin",
+            "rie-classroom-finish",
+            "rie-classroom-break",
+            "rie-classroom-look",
+            "rie-classroom-say-together",
+            "rie-classroom-listen",
+            "rie-classroom-write",
+            "rie-lesson-zero-homework",
+            "rie-lesson-zero-example",
+            "rie-sentence-frame-sophie-student",
+            "rie-sentence-frame-self-student",
+            "rie-sentence-frame-identity-response",
+            "rie-sentence-frame-sophie-not-teacher",
+            "rie-sentence-frame-correction-response",
+            "rie-sentence-frame-rie-teacher-question",
+            "rie-sentence-frame-sophie-student-question",
+            "rie-sentence-frame-noun-response"
+          ],
+          "codexAccepted": true
+        }
+      },
+      "reviewStatus": "accepted",
+      "qualityApprovalStatus": "codex-accepted",
+      "disclosure": {
+        "synthetic": true,
+        "officialCharacterVoice": false,
+        "livingPersonSource": true
+      },
+      "provenance": "Yomu-authored"
+    },
+    {
+      "lineId": "rie-sentence-frame-rie-class",
+      "speakerId": "rie",
+      "role": "academy-character",
+      "intent": "Model the exact noun-link sentence the learner will construct.",
+      "locale": "ja-JP",
+      "band": "native",
+      "surface": "lesson-zero-sentence-frames",
+      "japanese": "りえ先生のクラスです。",
+      "bindings": [
+        {
+          "lineId": "lesson-zero:sentence-frame:noun-link:target",
+          "surface": "lesson-zero-sentence-frames",
+          "accessibleReplayLabel": {
+            "en": "Replay Rie’s class",
+            "ja": "「りえ先生のクラスです」をもう一度聞く"
+          }
+        }
+      ],
+      "sourceSha256": "cf4c2af2c9ba5099c1a725dc82c4269ec0cf2d4ea61ecff5c2cdef76359279fa",
+      "sourceRevision": "cf4c2af2c9ba5099c1a725dc82c4269ec0cf2d4ea61ecff5c2cdef76359279fa",
+      "audioQuerySha256": "3b47976f3af30b34d25597b235c3bbbba475b7739a98251a97c70878b25921af",
+      "cacheKey": "2cb9078237493c687b82a5097b692f9c3d6b82ffeb44d606429cc4e5f9287ee1",
+      "assetSha256": "432ebbf1ba2fd8590493f25807d782aa53c0b38acc76c5cc010ae939f4cb5ef6",
+      "bytes": 17830,
+      "durationSeconds": 2.305625,
+      "url": "/academy/audio/learning-lines/rie/rie-sentence-frame-rie-class__2cb9078237493c68.opus",
+      "modelUuid": "e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43",
+      "modelName": "hinakoyuhara",
+      "modelVersion": "1.0.0",
+      "modelSourceUrl": "https://hub.aivis-project.com/aivm-models/e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43",
+      "modelLicense": "ACML-1.0",
+      "modelPayloadSha256": "674d495898d367092de7105ef760f070a03ae5f74c61670bf98c1e62aa159adb",
+      "styleId": 2058221186,
+      "styleName": "落ち着き",
+      "queryOverrides": {
+        "speedScale": 0.9,
+        "pitchScale": -0.01,
+        "intonationScale": 1.02,
+        "volumeScale": 0.84,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.16,
+        "pauseLengthScale": 1.04
+      },
+      "moraOverrides": [],
+      "review": {
+        "naturalness": {
+          "status": "reviewed-text",
+          "reviewedOn": "2026-07-23",
+          "basis": "A short, concrete Japanese carrier word keeps the opening vowel audible without an English sound approximation."
+        },
+        "accent": {
+          "status": "validated-query-plan",
+          "method": "AivisSpeech audio_query identity and independent waveform recovery",
+          "phrases": [
+            "りえ先生のクラスです。"
+          ]
+        },
+        "pause": {
+          "status": "validated-query-plan",
+          "method": "Objective silence analysis",
+          "notes": "One compact carrier phrase with bounded leading, trailing, and interior silence."
+        },
+        "direction": {
+          "status": "reviewed-model-direction",
+          "basis": "A calm classmate voice at a deliberately measured pace supports first-contact phonics without overstating the vowel."
+        },
+        "independentModel": {
+          "status": "representative-voice-sample",
+          "reviewRef": "$.reviews",
+          "auditoryClaim": true,
+          "mappingId": "rie-learning-dialogue",
+          "sampleLineIds": [
+            "rie-lesson-zero-repeat",
+            "rie-lesson-zero-greeting",
+            "rie-classroom-begin",
+            "rie-classroom-finish",
+            "rie-classroom-break",
+            "rie-classroom-look",
+            "rie-classroom-say-together",
+            "rie-classroom-listen",
+            "rie-classroom-write",
+            "rie-lesson-zero-homework",
+            "rie-lesson-zero-example",
+            "rie-sentence-frame-sophie-student",
+            "rie-sentence-frame-self-student",
+            "rie-sentence-frame-identity-response",
+            "rie-sentence-frame-sophie-not-teacher",
+            "rie-sentence-frame-correction-response",
+            "rie-sentence-frame-rie-teacher-question",
+            "rie-sentence-frame-sophie-student-question",
+            "rie-sentence-frame-noun-response"
+          ]
+        },
+        "listening": {
+          "status": "codex-accepted-objective-and-independent-audio-review",
+          "checkedOn": "2026-07-23",
+          "checkedBy": "Codex using objective QA and representative Whisper samples",
+          "ownerLineByLineReviewed": false,
+          "audioModelReviewed": true,
+          "humanReviewed": false,
+          "independentAudioModelReviews": 1,
+          "evidence": [
+            "docs/academy/audio/learning-voice-acceptance.json",
+            "docs/academy/audio/learning-voice-model-reviews.json"
+          ],
+          "basis": "Codex accepted this line without claiming human listening. Exact staged bytes passed objective audio checks, and passing Whisper samples cover the same pinned speaker model and style.",
+          "limitation": "The voice is sampled by mapping rather than auditioned line by line.",
+          "representativeSampleLineIds": [
+            "rie-lesson-zero-repeat",
+            "rie-lesson-zero-greeting",
+            "rie-classroom-begin",
+            "rie-classroom-finish",
+            "rie-classroom-break",
+            "rie-classroom-look",
+            "rie-classroom-say-together",
+            "rie-classroom-listen",
+            "rie-classroom-write",
+            "rie-lesson-zero-homework",
+            "rie-lesson-zero-example",
+            "rie-sentence-frame-sophie-student",
+            "rie-sentence-frame-self-student",
+            "rie-sentence-frame-identity-response",
+            "rie-sentence-frame-sophie-not-teacher",
+            "rie-sentence-frame-correction-response",
+            "rie-sentence-frame-rie-teacher-question",
+            "rie-sentence-frame-sophie-student-question",
+            "rie-sentence-frame-noun-response"
+          ],
+          "codexAccepted": true
+        }
+      },
+      "reviewStatus": "accepted",
+      "qualityApprovalStatus": "codex-accepted",
+      "disclosure": {
+        "synthetic": true,
+        "officialCharacterVoice": false,
+        "livingPersonSource": true
+      },
+      "provenance": "Yomu-authored"
+    },
+    {
+      "lineId": "rie-sentence-frame-noun-response",
+      "speakerId": "rie",
+      "role": "academy-character",
+      "intent": "Welcome the learner into the class after the noun-link sentence.",
+      "locale": "ja-JP",
+      "band": "native",
+      "surface": "lesson-zero-sentence-frames",
+      "japanese": "はい。今日から、あなたのクラスです。",
+      "bindings": [
+        {
+          "lineId": "lesson-zero:sentence-frame:noun-link:response",
+          "surface": "lesson-zero-sentence-frames",
+          "accessibleReplayLabel": {
+            "en": "Replay Rie’s welcome",
+            "ja": "りえ先生の歓迎のことばをもう一度聞く"
+          }
+        }
+      ],
+      "sourceSha256": "326e9c0f1a23afcd8a3161c6b3818f7b662e7e395979e22c7f2bafe0fd792e75",
+      "sourceRevision": "326e9c0f1a23afcd8a3161c6b3818f7b662e7e395979e22c7f2bafe0fd792e75",
+      "audioQuerySha256": "9f5b2edcf465ddf56f28e10058dcb908ca1cf523ad87e452b0551c6731414801",
+      "cacheKey": "04ab118a95aaa4378b9bb88024a46efe636d31c2c9ff0563dd15abb705a7391a",
+      "assetSha256": "3b89a985c731246cf217645f9c19f0adb4ef183786ad7bc7d89eeac19cfabce7",
+      "bytes": 27182,
+      "durationSeconds": 3.590583,
+      "url": "/academy/audio/learning-lines/rie/rie-sentence-frame-noun-response__04ab118a95aaa437.opus",
+      "modelUuid": "e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43",
+      "modelName": "hinakoyuhara",
+      "modelVersion": "1.0.0",
+      "modelSourceUrl": "https://hub.aivis-project.com/aivm-models/e5bd2b5e-90a8-4fb3-a69f-2fbd2d3a8a43",
+      "modelLicense": "ACML-1.0",
+      "modelPayloadSha256": "674d495898d367092de7105ef760f070a03ae5f74c61670bf98c1e62aa159adb",
+      "styleId": 2058221186,
+      "styleName": "落ち着き",
+      "queryOverrides": {
+        "speedScale": 0.9,
+        "pitchScale": -0.01,
+        "intonationScale": 1.02,
+        "volumeScale": 0.84,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.16,
+        "pauseLengthScale": 1.04
+      },
+      "moraOverrides": [],
+      "review": {
+        "naturalness": {
+          "status": "reviewed-text",
+          "reviewedOn": "2026-07-23",
+          "basis": "A short, concrete Japanese carrier word keeps the opening vowel audible without an English sound approximation."
+        },
+        "accent": {
+          "status": "validated-query-plan",
+          "method": "AivisSpeech audio_query identity and independent waveform recovery",
+          "phrases": [
+            "はい。今日から、あなたのクラスです。"
+          ]
+        },
+        "pause": {
+          "status": "validated-query-plan",
+          "method": "Objective silence analysis",
+          "notes": "One compact carrier phrase with bounded leading, trailing, and interior silence."
+        },
+        "direction": {
+          "status": "reviewed-model-direction",
+          "basis": "A calm classmate voice at a deliberately measured pace supports first-contact phonics without overstating the vowel."
+        },
+        "independentModel": {
+          "status": "representative-voice-sample",
+          "reviewRef": "$.reviews",
+          "auditoryClaim": true,
+          "mappingId": "rie-learning-dialogue",
+          "sampleLineIds": [
+            "rie-lesson-zero-repeat",
+            "rie-lesson-zero-greeting",
+            "rie-classroom-begin",
+            "rie-classroom-finish",
+            "rie-classroom-break",
+            "rie-classroom-look",
+            "rie-classroom-say-together",
+            "rie-classroom-listen",
+            "rie-classroom-write",
+            "rie-lesson-zero-homework",
+            "rie-lesson-zero-example",
+            "rie-sentence-frame-sophie-student",
+            "rie-sentence-frame-self-student",
+            "rie-sentence-frame-identity-response",
+            "rie-sentence-frame-sophie-not-teacher",
+            "rie-sentence-frame-correction-response",
+            "rie-sentence-frame-rie-teacher-question",
+            "rie-sentence-frame-sophie-student-question",
+            "rie-sentence-frame-noun-response"
+          ]
+        },
+        "listening": {
+          "status": "codex-accepted-objective-and-independent-audio-review",
+          "checkedOn": "2026-07-23",
+          "checkedBy": "Codex using objective QA and representative Whisper samples",
+          "ownerLineByLineReviewed": false,
+          "audioModelReviewed": true,
+          "humanReviewed": false,
+          "independentAudioModelReviews": 2,
+          "evidence": [
+            "docs/academy/audio/learning-voice-acceptance.json",
+            "docs/academy/audio/learning-voice-model-reviews.json"
+          ],
+          "basis": "Codex accepted this line without claiming human listening. Exact staged bytes passed objective audio checks, and passing Whisper samples cover the same pinned speaker model and style.",
+          "limitation": "The voice is sampled by mapping rather than auditioned line by line.",
+          "representativeSampleLineIds": [
+            "rie-lesson-zero-repeat",
+            "rie-lesson-zero-greeting",
+            "rie-classroom-begin",
+            "rie-classroom-finish",
+            "rie-classroom-break",
+            "rie-classroom-look",
+            "rie-classroom-say-together",
+            "rie-classroom-listen",
+            "rie-classroom-write",
+            "rie-lesson-zero-homework",
+            "rie-lesson-zero-example",
+            "rie-sentence-frame-sophie-student",
+            "rie-sentence-frame-self-student",
+            "rie-sentence-frame-identity-response",
+            "rie-sentence-frame-sophie-not-teacher",
+            "rie-sentence-frame-correction-response",
+            "rie-sentence-frame-rie-teacher-question",
+            "rie-sentence-frame-sophie-student-question",
+            "rie-sentence-frame-noun-response"
+          ],
+          "codexAccepted": true
+        }
+      },
+      "reviewStatus": "accepted",
+      "qualityApprovalStatus": "codex-accepted",
+      "disclosure": {
+        "synthetic": true,
+        "officialCharacterVoice": false,
+        "livingPersonSource": true
+      },
+      "provenance": "Yomu-authored"
+    },
+    {
+      "lineId": "sophie-sentence-frame-parallel-response",
+      "speakerId": "sophie",
+      "role": "academy-character",
+      "intent": "Confirm shared class membership in Sophie’s friendly peer register.",
+      "locale": "ja-JP",
+      "band": "native",
+      "surface": "lesson-zero-sentence-frames",
+      "japanese": "はい。わたしたちは同じクラスですね。",
+      "bindings": [
+        {
+          "lineId": "lesson-zero:sentence-frame:parallel:response",
+          "surface": "lesson-zero-sentence-frames",
+          "accessibleReplayLabel": {
+            "en": "Replay Sophie’s response",
+            "ja": "ソフィーさんの返事をもう一度聞く"
+          }
+        }
+      ],
+      "sourceSha256": "6d9a673fb50902191e539ae668f32833e1ae4e69e1aa781a111b255d8a6f13b7",
+      "sourceRevision": "6d9a673fb50902191e539ae668f32833e1ae4e69e1aa781a111b255d8a6f13b7",
+      "audioQuerySha256": "9ec6990900fcef4a5a05bddc0f792d378c4f69316c4072fc58f1e6612529e82d",
+      "cacheKey": "21407654904be810a1e6a9572f36c8a5425647a07788d59f28b0e1d007049176",
+      "assetSha256": "81e981b26beb8f9eb4a1370a4765823d72f7d5f1bedf95536515caf6a9a7a5e0",
+      "bytes": 27184,
+      "durationSeconds": 3.684021,
+      "url": "/academy/audio/learning-lines/sophie/sophie-sentence-frame-parallel-response__21407654904be810.opus",
+      "modelUuid": "a59cb814-0083-4369-8542-f51a29e72af7",
+      "modelName": "まお",
+      "modelVersion": "1.2.0",
+      "modelSourceUrl": "https://hub.aivis-project.com/aivm-models/a59cb814-0083-4369-8542-f51a29e72af7",
+      "modelLicense": "ACML-1.0",
+      "modelPayloadSha256": "f87ccea2e8e2de0e0bfe52e803945af903b4086bf25621a015111628f00e4119",
+      "styleId": 888753763,
+      "styleName": "おちつき",
+      "queryOverrides": {
+        "speedScale": 0.94,
+        "pitchScale": 0,
+        "intonationScale": 1.06,
+        "volumeScale": 0.72,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.18,
+        "pauseLengthScale": 1.02
+      },
+      "moraOverrides": [],
+      "review": {
+        "naturalness": {
+          "status": "reviewed-text",
+          "reviewedOn": "2026-07-23",
+          "basis": "A short, concrete Japanese carrier word keeps the opening vowel audible without an English sound approximation."
+        },
+        "accent": {
+          "status": "validated-query-plan",
+          "method": "AivisSpeech audio_query identity and independent waveform recovery",
+          "phrases": [
+            "はい。わたしたちは同じクラスですね。"
+          ]
+        },
+        "pause": {
+          "status": "validated-query-plan",
+          "method": "Objective silence analysis",
+          "notes": "One compact carrier phrase with bounded leading, trailing, and interior silence."
+        },
+        "direction": {
+          "status": "reviewed-model-direction",
+          "basis": "A calm classmate voice at a deliberately measured pace supports first-contact phonics without overstating the vowel."
+        },
+        "independentModel": {
+          "status": "representative-voice-sample",
+          "reviewRef": "$.reviews",
+          "auditoryClaim": false,
+          "mappingId": "sophie-learning-dialogue",
+          "sampleLineIds": [
+            "sophie-sentence-frame-parallel-response"
+          ]
+        },
+        "listening": {
+          "status": "codex-accepted-objective-and-independent-audio-review",
+          "checkedOn": "2026-07-23",
+          "checkedBy": "Codex using objective QA and representative Whisper samples",
+          "ownerLineByLineReviewed": false,
+          "audioModelReviewed": false,
+          "humanReviewed": false,
+          "independentAudioModelReviews": 0,
+          "evidence": [
+            "docs/academy/audio/learning-voice-acceptance.json",
+            "docs/academy/audio/learning-voice-model-reviews.json"
+          ],
+          "basis": "Codex accepted this line without claiming human listening. Exact staged bytes passed objective audio checks, and passing Whisper samples cover the same pinned speaker model and style.",
+          "limitation": "The voice is sampled by mapping rather than auditioned line by line.",
+          "representativeSampleLineIds": [
+            "sophie-sentence-frame-parallel-response"
+          ],
+          "codexAccepted": true
+        }
+      },
+      "reviewStatus": "accepted",
+      "qualityApprovalStatus": "codex-accepted",
+      "disclosure": {
+        "synthetic": true,
+        "officialCharacterVoice": false,
+        "livingPersonSource": true
+      },
+      "provenance": "Yomu-authored"
     }
   ],
   "acceptancePolicy": {

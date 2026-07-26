@@ -27,9 +27,11 @@ const RUNTIME_SOURCE_PATHS = [
     'src/academy/content/lesson-zero-follow-instructions.ts',
     'src/academy/content/lesson-zero-greeting.ts',
     'src/academy/content/lesson-zero-desk-language.ts',
+    'src/academy/content/lesson-zero-sentence-frames.ts',
     'src/academy/content/lesson-zero-vowel-anchors.ts',
     'src/academy/domain/classroom-instruction-session.ts',
     'src/academy/domain/lesson-zero-desk-language-session.ts',
+    'src/academy/domain/lesson-zero-sentence-frame-session.ts',
     'src/academy/domain/world-locations.ts',
     'src/academy/routing/lesson-flow.ts',
     'src/academy/routing/world-flow.ts',
@@ -37,6 +39,7 @@ const RUNTIME_SOURCE_PATHS = [
     'src/academy/ui/classroom-instruction-screen.ts',
     'src/academy/ui/lesson-zero-desk-language-screen.ts',
     'src/academy/ui/lesson-zero-greeting-screen.ts',
+    'src/academy/ui/lesson-zero-sentence-frame-screen.ts',
     'src/academy/ui/lesson-zero-vowel-screen.ts',
     'src/academy/ui/lesson-zero-vowel-writing-screen.ts',
     'src/academy/ui/lesson-screen.ts',
@@ -144,6 +147,35 @@ const scenarios = [
         ready: '.academy-desk-language-screen[data-session-status="ready"][data-session-stage="meet-homework"]',
         success: '.academy-desk-language-screen[data-session-status="complete"][data-session-stage="complete"]',
     },
+    {
+        name: 'first sentence frames',
+        kind: 'sentence-frames',
+        bindingIds: [
+            'lesson-zero:sentence-frame:identity:example',
+            'lesson-zero:sentence-frame:identity:target',
+            'lesson-zero:sentence-frame:identity:response',
+            'lesson-zero:sentence-frame:correction:example',
+            'lesson-zero:sentence-frame:correction:target',
+            'lesson-zero:sentence-frame:correction:response',
+            'lesson-zero:sentence-frame:question:example',
+            'lesson-zero:sentence-frame:question:target',
+            'lesson-zero:sentence-frame:question:response',
+            'lesson-zero:sentence-frame:noun-link:example',
+            'lesson-zero:sentence-frame:noun-link:target',
+            'lesson-zero:sentence-frame:noun-link:response',
+            'lesson-zero:sentence-frame:parallel:example',
+            'lesson-zero:sentence-frame:parallel:target',
+            'lesson-zero:sentence-frame:parallel:response',
+        ],
+        route: 'source-activity',
+        context: {
+            lessonId: 'lesson:foundation-00',
+            activityId: 'activity:lesson-zero-build-sentence-frames',
+            lessonZeroSentenceFrameProgress: '__DELETE__',
+        },
+        ready: '.academy-sentence-frame-screen[data-session-status="ready"]',
+        success: '.academy-sentence-frame-screen[data-session-status="complete"]',
+    },
 ];
 const catalogSource = readFileSync(CATALOG_PATH);
 const productionSource = readFileSync(PRODUCTION_PATH);
@@ -194,6 +226,11 @@ try {
         locale: 'en-GB',
         serviceWorkers: 'block',
     });
+    await context.route(/^https:\/\/.*$/u, route => route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: [] }),
+    }));
     const page = await context.newPage();
     const errors = [];
     page.on('pageerror', error => errors.push(`pageerror: ${error.message}`));
@@ -307,13 +344,20 @@ async function runScenario(page, scenario, expected) {
             bindingId,
             asset,
             response: null,
+            body: null,
         }];
     }));
     const captureResponse = response => {
         if (![200, 206].includes(response.status())) return;
         const pathname = new URL(response.url()).pathname;
-        for (const pending of pendingByBinding.values()) {
-            if (pending.asset === pathname && pending.response === null) pending.response = response;
+        const matches = [...pendingByBinding.values()].filter(pending => (
+            pending.asset === pathname && pending.response === null
+        ));
+        if (matches.length === 0) return;
+        const body = response.body();
+        for (const pending of matches) {
+            pending.response = response;
+            pending.body = body;
         }
     };
     page.on('response', captureResponse);
@@ -322,6 +366,7 @@ async function runScenario(page, scenario, expected) {
         if (scenario.kind === 'vowels') await playVowelTeachingSequence(page);
         else if (scenario.kind === 'classroom') await completeClassroomRhythm(page);
         else if (scenario.kind === 'desk-language') await completeDeskLanguage(page);
+        else if (scenario.kind === 'sentence-frames') await completeSentenceFrames(page);
         else await page.locator(scenario.selector).click();
 
         await page.locator(scenario.success).waitFor({ state: 'visible' });
@@ -338,7 +383,7 @@ async function runScenario(page, scenario, expected) {
     assert(missing.length === 0, `Scenario "${scenario.name}" did not request every accepted asset`, { missing });
     return Promise.all([...pendingByBinding.values()].map(async pending => {
         const response = pending.response;
-        const body = await response.body();
+        const body = await pending.body;
         const contentSha256 = sha256(body);
         assert(contentSha256 === expected.assets[pending.asset]?.sha256,
             `Local response bytes differ from immutable expectation: ${pending.asset}`);
@@ -417,6 +462,56 @@ async function playDeskWord(page, replay, bindingId) {
         )),
         replay.click(),
     ]);
+}
+
+async function completeSentenceFrames(page) {
+    const correctOrders = {
+        identity: ['self', 'topic', 'student', 'copula', 'stop'],
+        correction: ['rie', 'topic', 'student', 'negative', 'stop'],
+        question: ['sophie', 'topic', 'student', 'question', 'stop'],
+        'noun-link': ['rie', 'link', 'class', 'copula', 'stop'],
+        parallel: ['sophie', 'also', 'student', 'copula', 'stop'],
+    };
+    const firstAttemptOrders = {
+        identity: ['student', 'copula', 'self', 'stop', 'topic'],
+        correction: ['negative', 'rie', 'student', 'stop', 'topic'],
+        question: ['student', 'question', 'sophie', 'topic', 'stop'],
+        'noun-link': ['class', 'rie', 'copula', 'link', 'stop'],
+        parallel: ['student', 'copula', 'sophie', 'stop', 'also'],
+    };
+    await page.getByRole('button', { name: 'Make the first sentence' }).click();
+    for (const [frameId, correctOrder] of Object.entries(correctOrders)) {
+        const screen = page.locator(
+            `.academy-sentence-frame-screen[data-frame-id="${frameId}"][data-session-stage="teach"]`,
+        );
+        await screen.waitFor();
+        await screen.locator('.academy-sentence-frame-example .academy-sentence-frame-action-listen').click();
+        await page.getByRole('button', { name: 'Try this turn' }).click();
+
+        for (const tokenId of firstAttemptOrders[frameId]) {
+            await page.locator(`.academy-sentence-frame-bank [data-token-id="${tokenId}"]`).click();
+            await page.locator(`.academy-sentence-frame-selected-rail [data-token-id="${tokenId}"]`).waitFor();
+        }
+        await page.getByRole('button', { name: 'Check the sentence' }).click();
+        await page.locator('.academy-sentence-frame-paper[data-outcome="lapse"]').waitFor();
+        await page.getByRole('button', { name: 'Show the answer' }).click();
+        await page.locator('.academy-sentence-frame-model .academy-sentence-frame-action-listen').click();
+        await page.getByRole('button', { name: 'Rebuild the sentence' }).click();
+
+        for (const tokenId of correctOrder) {
+            await page.locator(`.academy-sentence-frame-bank [data-token-id="${tokenId}"]`).click();
+            await page.locator(`.academy-sentence-frame-selected-rail [data-token-id="${tokenId}"]`).waitFor();
+        }
+        await page.getByRole('button', { name: 'Check the sentence' }).click();
+        if (frameId === 'parallel') {
+            await page.locator('.academy-sentence-frame-screen[data-session-status="complete"]').waitFor();
+            await page.locator('.academy-sentence-frame-response .academy-sentence-frame-action-listen').click();
+            continue;
+        }
+        await page.locator('.academy-sentence-frame-paper[data-outcome="pass"]').waitFor();
+        await page.locator('.academy-sentence-frame-response .academy-sentence-frame-action-listen').click();
+        await page.getByRole('button', { name: 'Use the next shape' }).click();
+    }
 }
 
 async function enroll(page) {
