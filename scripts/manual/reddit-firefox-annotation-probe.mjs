@@ -109,12 +109,52 @@ try {
             const rect = element.getBoundingClientRect();
             return style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0;
         };
-        const projected = [...document.querySelectorAll('[data-yomu-projected-reading="true"]')];
-        const words = [...document.querySelectorAll('.jpdb-reader-word')];
+        // querySelectorAll does NOT cross shadow boundaries, and reddit puts a
+        // large share of its post bodies inside custom elements. A light-DOM-only
+        // census therefore undercounts words while the projection overlay still
+        // holds clones for the shadow ones — a second way to manufacture a
+        // "parsed but never painted" gap out of nothing. Both censuses walk the
+        // shadow roots so the two figures are drawn from the same tree.
+        const collectDeep = (root, selector, out = []) => {
+            out.push(...root.querySelectorAll(selector));
+            for (const host of root.querySelectorAll('*')) {
+                if (host.shadowRoot) collectDeep(host.shadowRoot, selector, out);
+            }
+            return out;
+        };
+        const projected = collectDeep(document, '[data-yomu-projected-reading="true"]');
+        const words = collectDeep(document, '.jpdb-reader-word');
         // A word whose reading exists but paints nowhere is the "missing
         // furigana" symptom; the hover-only symptom is the same word becoming
         // visible under :hover, which we sample separately below.
-        const withSource = words.filter(w => w.querySelector('.jpdb-reader-detached-furi, rt'));
+        //
+        // Yomu paints readings through TWO channels, and they are different
+        // populations that must never be unioned into one figure. Ordinary page
+        // prose gets in-flow `<ruby><rt class="jpdb-reader-furi">` written by
+        // renderRuby (src/reader/dom/index.ts) and laid out by the browser's own
+        // ruby engine; only clipped rows fall back to the detached overlay
+        // (targetUsesDetachedReadings). In-flow readings are never cloned, so
+        // they can never appear in projectedTotal. A previous
+        // `('.jpdb-reader-detached-furi, rt')` union counted both, and the
+        // resulting "N parsed -> far fewer cloned" gap was read twice as furigana
+        // Yomu had lost. Only detachedReadingWords is comparable with
+        // projectedTotal.
+        //
+        // The `rt` split below is by OWNER, not by "native vs Yomu": on reddit
+        // every `rt` on the page is Yomu's own (the site ships no ruby at all).
+        // Counting all `rt` as the page's would mean that if the in-flow channel
+        // ever broke, this figure would fall to zero while still being labelled
+        // "not Yomu's work" — the regression would be invisible here.
+        const hasDetached = w => Boolean(w.querySelector('.jpdb-reader-detached-furi'));
+        const hasInFlowRuby = w => Boolean(w.querySelector('rt.jpdb-reader-furi'));
+        const hasPageRuby = w => Boolean(w.querySelector('rt:not(.jpdb-reader-furi)'));
+        const hasAnyRuby = w => hasInFlowRuby(w) || hasPageRuby(w);
+        const detachedReadingWords = words.filter(w => hasDetached(w) && !hasAnyRuby(w));
+        const inFlowRubyWords = words.filter(w => hasInFlowRuby(w) && !hasDetached(w));
+        const pageRubyWords = words.filter(w => hasPageRuby(w) && !hasInFlowRuby(w) && !hasDetached(w));
+        // Expected to be 0. Reported rather than folded into either count so an
+        // overlap can never hide inside one of them.
+        const bothReadingSourceWords = words.filter(w => hasDetached(w) && hasAnyRuby(w));
         return {
             companionsPresent: {
                 // The registry publishes companions on __yomuCompanions; the
@@ -125,7 +165,17 @@ try {
             },
             readerBooted: Boolean(document.querySelector('.jpdb-reader-fab, [data-jpdb-reader-root]')),
             words: words.length,
-            wordsWithSourceReading: withSource.length,
+            // Yomu's own readings, shadow roots included — the only population
+            // projectedTotal draws from, so the only one it may be compared with.
+            detachedReadingWords: detachedReadingWords.length,
+            // Yomu's OWN in-flow ruby, laid out by the browser. Never cloned, so
+            // never comparable with projectedTotal — but still Yomu's work, so a
+            // drop here is a regression, not a page that stopped shipping ruby.
+            inFlowRubyWords: inFlowRubyWords.length,
+            // Ruby the PAGE itself ships. Not Yomu's work at all. Expected 0 on
+            // reddit; a non-zero value means the site added its own ruby.
+            pageRubyWords: pageRubyWords.length,
+            bothReadingSourceWords: bothReadingSourceWords.length,
             projectedTotal: projected.length,
             projectedVisible: projected.filter(paints).length,
             hiddenSamples: projected.filter(c => !paints(c)).slice(0, 8).map(c => {

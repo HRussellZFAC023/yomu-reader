@@ -8,13 +8,14 @@ describe('Slice 1 multilingual dictionary recommendations', () => {
     it('uses explicit English fallback dictionaries with a translation offer for Korean', () => {
         const korean = recommendedDictionariesForLearnerLanguage('ko');
 
-        expect(korean).toHaveLength(3);
         expect(
-            korean.map(dictionary => ({
-                id: dictionary.catalogDictionaryId,
-                definitionLanguage: dictionary.definitionLanguage,
-                translationMode: dictionary.translationMode,
-            })),
+            korean
+                .filter(dictionary => dictionary.role === 'fallback-terms' || dictionary.role === 'names' || dictionary.role === 'kanji')
+                .map(dictionary => ({
+                    id: dictionary.catalogDictionaryId,
+                    definitionLanguage: dictionary.definitionLanguage,
+                    translationMode: dictionary.translationMode,
+                })),
         ).toEqual([
             { id: 'jmdict-en', definitionLanguage: 'en', translationMode: 'offer' },
             { id: 'jmnedict', definitionLanguage: 'en', translationMode: 'offer' },
@@ -49,7 +50,6 @@ describe('Slice 1 multilingual dictionary recommendations', () => {
     it('publishes Ancient Greek fallback dictionaries without a broken translation offer', () => {
         const ancientGreek = recommendedDictionariesForLearnerLanguage('grc');
 
-        expect(ancientGreek).toHaveLength(3);
         expect(ancientGreek.every(dictionary => dictionary.translationMode === 'off')).toBe(true);
         expect(ancientGreek.every(dictionary => !dictionary.description?.includes(' · '))).toBe(true);
     });
@@ -58,8 +58,8 @@ describe('Slice 1 multilingual dictionary recommendations', () => {
         const cards = SLICE1_LEARNER_LANGUAGES.flatMap(language => recommendedDictionariesForLearnerLanguage(language));
         const catalogEntries = new Map(FROZEN_DICTIONARY_CATALOG.entries.map(entry => [entry.id, entry]));
 
-        expect(cards).toHaveLength(96);
-        expect(new Set(cards.map(dictionary => dictionary.id))).toHaveLength(96);
+        expect(cards).toHaveLength(SLICE1_LEARNER_LANGUAGES.length * 8);
+        expect(new Set(cards.map(dictionary => dictionary.id))).toHaveLength(cards.length);
         cards.forEach(dictionary => {
             expect(dictionary.id).toBe(catalogRecommendedDictionaryId(dictionary.learnerLanguage!, dictionary.catalogDictionaryId!));
             expect(findRecommendedDictionary(dictionary.id)).toBe(dictionary);
@@ -83,8 +83,8 @@ describe('Slice 1 multilingual dictionary recommendations', () => {
 
         expect(seed?.lang).toBe('ko');
         expect(seed?.querySelector('.jpdb-reader-catalog-seed-title')?.textContent).toBe('추천 일본어 사전');
-        expect(seed?.querySelector('.jpdb-reader-catalog-seed-summary')?.textContent).toContain('사전 3개');
-        expect(seed?.querySelectorAll('[data-catalog-recommendation]')).toHaveLength(3);
+        expect(seed?.querySelector('.jpdb-reader-catalog-seed-summary')?.textContent).toContain('사전 8개');
+        expect(seed?.querySelectorAll('[data-catalog-recommendation]')).toHaveLength(8);
         expect(seed?.querySelector('[data-catalog-recommendation="jmdict-en"]')?.getAttribute('data-translation-mode')).toBe('offer');
 
         for (const curated of RECOMMENDED_JAPANESE_DICTIONARIES) {

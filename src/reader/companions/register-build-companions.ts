@@ -2,6 +2,8 @@ import './annotations';
 import './anki';
 import './audio';
 import './bunpro';
+import './jiten';
+import './jpdb';
 import './kanji-study';
 import './ocr-manga';
 import './settings-surface';

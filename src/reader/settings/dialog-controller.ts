@@ -67,6 +67,7 @@ import {
     updateSourceRowEditor,
 } from './form';
 import type { AnkiAdapterState, SettingsStatusAction, SettingsStatusDetail, SettingsStatusLine } from './form';
+import { installCatalogBrowseFilter } from './catalog-browse-filter';
 import { updateAnkiTagsEditor } from './form-tags';
 import { CLOUD_SETTINGS_SYNC_ENABLED, cloudSettingsAuthRedirectResult, cloudSettingsSyncAvailable, downloadCloudSettingsFromCloud, uploadCloudSettingsToCloud } from './cloud-sync';
 import { dateStamp, downloadBlob, getReaderDictionaryExport, getReaderSettingsExport, pickFile, readerDictionaryExportHasData, recommendedDictionaryFilename } from './file-io';
@@ -620,6 +621,7 @@ export class SettingsDialogController {
         this.bindFormSubmit(form);
         this.bindFocusedControlScrolling(form);
         this.bindSettingsSearch(form);
+        installCatalogBrowseFilter(form);
         this.bindSettingsTabs(form);
         this.bindLivePreview(form);
         this.bindEditorControls(form);
@@ -1593,6 +1595,9 @@ export class SettingsDialogController {
             selectedLearnerLanguage(form, this.settings),
         );
         localizeSettingsForm(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
+        // The Sources panel re-renders its whole dictionary block here, so the
+        // filter input is a brand-new element that needs rebinding.
+        installCatalogBrowseFilter(form);
         this.syncRecommendedDictionaryInstallControls(form);
         this.syncDictionaryOperationState(form);
         this.refreshSettingsJapaneseParse(form);

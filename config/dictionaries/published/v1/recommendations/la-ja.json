@@ -30,6 +30,46 @@
       "selectedByDefault": true,
       "definitionLanguage": "en",
       "translationMode": "offer"
+    },
+    {
+      "dictionaryId": "drive-japanese-ja-ja-ukmi3vhk6",
+      "role": "monolingual",
+      "priority": 40,
+      "selectedByDefault": false,
+      "definitionLanguage": "ja",
+      "translationMode": "offer"
+    },
+    {
+      "dictionaryId": "drive-japanese-ja-en-grammar-dojg-consolidated-v1-01-hkdf6lnvmw",
+      "role": "grammar",
+      "priority": 50,
+      "selectedByDefault": false,
+      "definitionLanguage": "en",
+      "translationMode": "offer"
+    },
+    {
+      "dictionaryId": "drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0",
+      "role": "frequency",
+      "priority": 60,
+      "selectedByDefault": true,
+      "definitionLanguage": "ja",
+      "translationMode": "off"
+    },
+    {
+      "dictionaryId": "drive-japanese-pitch-nhk-lpvpeu-xlu",
+      "role": "pronunciation",
+      "priority": 70,
+      "selectedByDefault": true,
+      "definitionLanguage": "ja",
+      "translationMode": "off"
+    },
+    {
+      "dictionaryId": "drive-japanese-ja-ja-sentences-jp-82ywlzigse",
+      "role": "examples",
+      "priority": 80,
+      "selectedByDefault": false,
+      "definitionLanguage": "ja",
+      "translationMode": "offer"
     }
   ]
 }

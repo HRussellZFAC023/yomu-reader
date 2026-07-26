@@ -25,9 +25,12 @@ import {
 
 const log = Logger.scope('OfflineDictionarySetup');
 
-// Every language profile receives its frozen native-first starter set. Kanjium
-// remains a shared pronunciation supplement because the Slice 1 manifests
-// intentionally cover definition and kanji language, not pitch metadata.
+// Every language profile receives the part of its frozen native-first
+// recommendation the manifest marks selectedByDefault. The rest of the shelf —
+// the Japanese monolingual, the grammar reference, the example sentences — is a
+// deliberate opt-in from Settings, not a silent multi-hundred-megabyte download
+// behind a "set up offline dictionaries" button. Kanjium stays as a shared
+// pitch supplement whose metadata merges with the seeded pitch dictionary.
 const OFFLINE_PITCH_DICTIONARY_ID = 'kanjium-pitch';
 
 export interface OfflineDictionarySetupStore {
@@ -101,7 +104,8 @@ async function offlineDictionarySetupPlan(
     result: OfflineDictionarySetupResult,
 ): Promise<OfflineDictionarySetupPlan> {
     const targets = [
-        ...recommendedDictionariesForLearnerLanguage(learnerLanguage),
+        ...recommendedDictionariesForLearnerLanguage(learnerLanguage)
+            .filter(dictionary => dictionary.selectedByDefault !== false),
         findRecommendedDictionary(OFFLINE_PITCH_DICTIONARY_ID),
     ]
         .filter((dictionary): dictionary is RecommendedDictionary => Boolean(dictionary?.downloadUrl));

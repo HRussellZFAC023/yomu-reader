@@ -60,6 +60,20 @@ const GREASY_FORK_LIBRARIES = [
     globalName: 'YomuBunproLibrary',
   },
   {
+    id: 'jpdb',
+    label: 'Yomu JPDB',
+    entry: 'src/reader/companions/jpdb.ts',
+    fileName: 'yomu-jpdb.user.js',
+    globalName: 'YomuJpdbLibrary',
+  },
+  {
+    id: 'jiten',
+    label: 'Yomu Jiten',
+    entry: 'src/reader/companions/jiten.ts',
+    fileName: 'yomu-jiten.user.js',
+    globalName: 'YomuJitenLibrary',
+  },
+  {
     id: 'wanikani',
     label: 'Yomu WaniKani',
     entry: 'src/reader/companions/wanikani.ts',

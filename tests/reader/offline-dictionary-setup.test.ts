@@ -9,8 +9,13 @@ import type { DictionaryImportOptions, ImportSummary } from '../../src/reader/di
 import type { ReaderSettings } from '../../src/reader/app/types';
 
 const KANJIUM_URL = findRecommendedDictionary('kanjium-pitch')!.downloadUrl!;
+// Offline setup installs the preselected part of a learner language's
+// recommendation. The rest of the shelf is opt-in from Settings, so it must not
+// appear in these download plans.
+const preselected = (learnerLanguage: 'en' | 'de' | 'ko') =>
+    recommendedDictionariesForLearnerLanguage(learnerLanguage).filter(dictionary => dictionary.selectedByDefault !== false);
 const ENGLISH_STARTER = [
-    ...recommendedDictionariesForLearnerLanguage('en'),
+    ...preselected('en'),
     findRecommendedDictionary('kanjium-pitch')!,
 ];
 const STARTER_BY_URL = new Map(
@@ -89,7 +94,7 @@ describe('offline dictionary setup', () => {
         expect(harness.getSettings().localDictionariesEnabled).toBe(true);
         expect(harness.getSettings().languageProfiles[0]?.dictionaries.installed)
             .toEqual(ENGLISH_STARTER.map(dictionary => dictionary.name));
-        ENGLISH_STARTER.slice(0, 3).forEach((dictionary, index) => {
+        ENGLISH_STARTER.slice(0, ENGLISH_STARTER.length - 1).forEach((dictionary, index) => {
             expect(harness.importFromUrl.mock.calls[index]?.[3]).toEqual({
                 integrity: {
                     sha256: dictionary.sha256,
@@ -131,7 +136,7 @@ describe('offline dictionary setup', () => {
             languageProfiles: [{ ...profile, learnerLanguage: 'de' }],
             localDictionariesEnabled: false,
         };
-        const german = recommendedDictionariesForLearnerLanguage('de');
+        const german = preselected('de');
         const harness = setupHarness({
             installedTitles: ['JMdict (German) [2026-07-20]'],
         }, settings);
@@ -158,6 +163,20 @@ describe('offline dictionary setup', () => {
         expect(harness.getSettings().localDictionariesEnabled).toBe(true);
     });
 
+    it('never auto-downloads the opt-in half of the shelf', async () => {
+        const harness = setupHarness();
+
+        await harness.run();
+
+        const requested = new Set(harness.importFromUrl.mock.calls.map(([url]) => url));
+        const optIn = recommendedDictionariesForLearnerLanguage('en').filter(dictionary => dictionary.selectedByDefault === false);
+
+        expect(optIn.map(dictionary => dictionary.role).sort()).toEqual(['examples', 'grammar', 'monolingual']);
+        optIn.forEach(dictionary => {
+            expect(requested.has(dictionary.downloadUrl!), dictionary.name).toBe(false);
+        });
+    });
+
     it('uses the active Korean profile recommendations instead of the English curated default', async () => {
         const profile = DEFAULT_SETTINGS.languageProfiles[0]!;
         const settings: ReaderSettings = {
@@ -169,9 +188,8 @@ describe('offline dictionary setup', () => {
 
         await harness.run();
 
-        const koreanUrls = recommendedDictionariesForLearnerLanguage('ko')
-            .map(dictionary => dictionary.downloadUrl);
-        expect(harness.importFromUrl.mock.calls.map(([url]) => url).slice(0, 3))
+        const koreanUrls = preselected('ko').map(dictionary => dictionary.downloadUrl);
+        expect(harness.importFromUrl.mock.calls.map(([url]) => url).slice(0, koreanUrls.length))
             .toEqual(koreanUrls);
         expect(koreanUrls.every(url => url?.startsWith('https://dictionaries.yomureader.com/objects/sha256/')))
             .toBe(true);

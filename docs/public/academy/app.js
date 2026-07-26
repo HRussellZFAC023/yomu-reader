@@ -33557,6 +33557,8 @@ ${spelling}`);
       utilityDictionaries: "Utility dictionaries",
       mirroredDictionaries: "All mirrored dictionaries",
       mirroredDictionariesSummary: "{count} more dictionaries · {size} total",
+      mirroredDictionarySearch: "Search dictionaries",
+      mirroredDictionarySearchNoResults: "No dictionaries match your search.",
       install: "Install",
       installing: "Installing",
       queued: "Queued",
@@ -35207,6 +35209,8 @@ encyclopediaDictionaries	百科事典
 utilityDictionaries	補助辞書
 mirroredDictionaries	配信中のすべての辞書
 mirroredDictionariesSummary	他{count}件の辞書 · 合計{size}
+mirroredDictionarySearch	辞書を検索
+mirroredDictionarySearchNoResults	検索に一致する辞書がありません。
 install	インストール
 installing	インストール中
 queued	待機中
@@ -39191,7 +39195,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         removeTextMirror(host2);
         return;
       }
-      stampMirrorWordSourceRanges(mirror, context2.safeTokens);
+      stampMirrorWordSourceRanges(mirror, context2.safeTokens, context2.hostText);
       ensureReaderStylesForHost(host2);
       host2.append(mirror);
       registerTextMirrorOwner(mirror, host2);
@@ -39214,16 +39218,48 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const height = host2.getBoundingClientRect().height;
     if (height > 0) mirror.style.setProperty("line-height", `${height}px`, "important");
   }
-  function stampMirrorWordSourceRanges(mirror, tokens) {
+  function stampMirrorWordSourceRanges(mirror, tokens, hostText = "") {
     const words = Array.from(mirror.querySelectorAll(".jpdb-reader-word.jpdb-reader-scan-word"));
-    const sourceText = mirror.dataset.sourceText ?? "";
+    const renderText = mirror.dataset.sourceText ?? "";
+    const hostStarts = mirrorHostSourceStarts(renderText, tokens, hostText);
+    if (hostStarts) mirror.dataset.yomuHostSourceText = hostText;
+    else delete mirror.dataset.yomuHostSourceText;
     for (const [index, word] of words.entries()) {
       const token = tokens[index];
       if (!token) continue;
-      word.dataset.yomuSourceStart = String(token.start);
-      word.dataset.yomuSourceEnd = String(token.end);
-      stampProjectedRubySourceRanges(word, sourceText.slice(token.start, token.end), token, token.start);
+      if (hostStarts) clearMirrorWordSourceRange(word);
+      const start = hostStarts ? hostStarts.get(token) : token.start;
+      if (start === void 0) continue;
+      const surface = renderText.slice(token.start, token.end);
+      word.dataset.yomuSourceStart = String(start);
+      word.dataset.yomuSourceEnd = String(start + surface.length);
+      stampProjectedRubySourceRanges(word, surface, token, start);
     }
+  }
+  function clearMirrorWordSourceRange(word) {
+    delete word.dataset.yomuSourceStart;
+    delete word.dataset.yomuSourceEnd;
+    for (const wrapper of word.querySelectorAll(".jpdb-reader-detached-ruby")) {
+      delete wrapper.dataset.yomuSourceStart;
+      delete wrapper.dataset.yomuSourceEnd;
+    }
+  }
+  function mirrorHostSourceStarts(renderText, tokens, hostText) {
+    if (!hostText || !renderText || hostText === renderText) return null;
+    const starts = /* @__PURE__ */ new Map();
+    let cursor = 0;
+    for (const token of tokens) {
+      const surface = renderText.slice(token.start, token.end);
+      if (!surface) continue;
+      const start = hostText.indexOf(surface, cursor);
+      if (start < 0) continue;
+      starts.set(token, start);
+      cursor = start + surface.length;
+    }
+    return starts.size ? starts : null;
+  }
+  function mirrorSourceHostText(mirror) {
+    return mirror.dataset.yomuHostSourceText ?? mirror.dataset.sourceText ?? "";
   }
   function stampProjectedRubySourceRanges(word, surface, token, sourceStart) {
     const rubies = effectiveTokenRubies(surface, token, true);
@@ -39254,7 +39290,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function additiveMirrorProjectionContext(mirror, host2) {
     if (typeof Range !== "function" || typeof Range.prototype.getClientRects !== "function") return null;
     const source2 = hostOriginalTextWithNodeOffsets(host2);
-    if (!host2.isConnected || mirror.dataset.sourceText !== source2.hostText) return null;
+    if (!host2.isConnected || mirrorSourceHostText(mirror) !== source2.hostText) return null;
     const hostRect = host2.getBoundingClientRect();
     mirror.style.setProperty("inset", "0 auto auto 0");
     mirror.style.setProperty("width", `${host2.clientWidth || hostRect.width}px`);
@@ -300205,11 +300241,11 @@ ${kanaInsensitiveKey(newTabCardReading(card))}`;
     return grade2 === "nothing" || grade2 === "fail" || grade2 === "something";
   }
   const NEW_TAB_PUBLIC_JPDB_MIN_WORD_LENGTH = 2;
-  function normalizeSearchQuery(value) {
+  function normalizeSearchQuery$1(value) {
     return value.replace(/\s+/g, " ").trim().slice(0, 80);
   }
   function appendSearchHandwritingCandidate(currentQuery, candidate2) {
-    return normalizeSearchQuery(`${currentQuery}${candidate2}`);
+    return normalizeSearchQuery$1(`${currentQuery}${candidate2}`);
   }
   function queryHasJapanese(value) {
     return /[\u3040-\u30ff\u3400-\u9fff々〆]/u.test(value);
@@ -300309,7 +300345,7 @@ ${kanaInsensitiveKey(newTabCardReading(card))}`;
     return Boolean(normalizedQuery) && (normalizedSearchWordIdentity$1(card.spelling) === normalizedQuery || normalizedSearchWordIdentity$1(newTabCardReading(card)) === normalizedQuery);
   }
   function normalizedSearchWordIdentity$1(value) {
-    return normalizeSearchQuery(value).replace(/\s+/g, "").toLocaleLowerCase();
+    return normalizeSearchQuery$1(value).replace(/\s+/g, "").toLocaleLowerCase();
   }
   function searchWordsAreSameSurfacePlaceholder(card, existing) {
     return card.spelling.trim() === existing.spelling.trim() && (isSearchPlaceholderWord(card) || isSearchPlaceholderWord(existing));
@@ -303218,7 +303254,7 @@ ${entry2.url}`),
     onSearchInput(root, value) {
       this.searchQuery = value;
       this.searchActiveSuggestionIndex = -1;
-      this.renderSearchAutocomplete(root, normalizeSearchQuery(this.searchQuery), this.localSearchSuggestions(this.searchQuery));
+      this.renderSearchAutocomplete(root, normalizeSearchQuery$1(this.searchQuery), this.localSearchSuggestions(this.searchQuery));
       this.scheduleSearch(root);
     }
     // --- Rendering --------------------------------------------------------
@@ -303247,7 +303283,7 @@ ${entry2.url}`),
       }
       this.setSearchQuery(root, this.searchQuery);
       this.installSearchHandwriting(root);
-      const query = normalizeSearchQuery(this.searchQuery);
+      const query = normalizeSearchQuery$1(this.searchQuery);
       this.renderSearchAutocomplete(root, query, this.localSearchSuggestions(query));
       const results = this.searchResultsMount(root);
       if (!query) {
@@ -303265,7 +303301,7 @@ ${entry2.url}`),
       this.searchQuery = query;
       const input2 = this.searchInput(root);
       if (input2 && input2.value !== query) input2.value = query;
-      this.renderSearchAutocomplete(root, normalizeSearchQuery(query), this.localSearchSuggestions(query));
+      this.renderSearchAutocomplete(root, normalizeSearchQuery$1(query), this.localSearchSuggestions(query));
     }
     selectSearchSuggestion(root, query) {
       if (!query) return;
@@ -303344,7 +303380,7 @@ ${entry2.url}`),
     }
     scheduleSearch(root) {
       this.clearSearchDebounce();
-      const query = normalizeSearchQuery(this.searchQuery);
+      const query = normalizeSearchQuery$1(this.searchQuery);
       if (!query) {
         this.searchGeneration++;
         this.renderSearchIdle(root);
@@ -303370,7 +303406,7 @@ ${entry2.url}`),
       this.renderSearchHandwritingCandidates(root, [], "");
     }
     acceptSearchHandwritingCandidate(root, query) {
-      const candidate2 = normalizeSearchQuery(query);
+      const candidate2 = normalizeSearchQuery$1(query);
       if (!candidate2) return;
       const currentQuery = this.searchInput(root)?.value ?? this.searchQuery;
       const nextQuery = appendSearchHandwritingCandidate(currentQuery, candidate2);
@@ -303512,7 +303548,7 @@ ${entry2.url}`),
     }
     performSearch(root, rawQuery) {
       this.clearSearchDebounce();
-      const query = normalizeSearchQuery(rawQuery);
+      const query = normalizeSearchQuery$1(rawQuery);
       this.setSearchQuery(root, query);
       this.syncSearchUrl(query);
       if (!query) {
@@ -303531,7 +303567,7 @@ ${entry2.url}`),
       });
     }
     isCurrentSearch(root, generation2, query) {
-      return root.isConnected && this.currentRoute() === "search" && this.searchGeneration === generation2 && normalizeSearchQuery(this.searchQuery) === query;
+      return root.isConnected && this.currentRoute() === "search" && this.searchGeneration === generation2 && normalizeSearchQuery$1(this.searchQuery) === query;
     }
     async loadSearchResults(query) {
       const settings = this.deps.getDependencies().getSettings();
@@ -303570,7 +303606,7 @@ ${entry2.url}`),
       });
     }
     searchLoadedWordCards(query) {
-      const normalized2 = normalizeSearchQuery(query).toLocaleLowerCase();
+      const normalized2 = normalizeSearchQuery$1(query).toLocaleLowerCase();
       if (!normalized2) return [];
       return this.deps.getAllWords().filter((card) => cardMatchesSearchResult(card, normalized2));
     }
@@ -303606,11 +303642,11 @@ ${entry2.url}`),
       ]);
     }
     localSearchSuggestions(rawQuery) {
-      const query = normalizeSearchQuery(rawQuery);
+      const query = normalizeSearchQuery$1(rawQuery);
       return query ? this.cardSearchSuggestions(query, this.deps.getAllWords()) : [];
     }
     cardSearchSuggestions(query, cards) {
-      const normalized2 = normalizeSearchQuery(query).toLocaleLowerCase();
+      const normalized2 = normalizeSearchQuery$1(query).toLocaleLowerCase();
       if (!normalized2) return [];
       const suggestions = [];
       const seen = /* @__PURE__ */ new Set();
@@ -304170,7 +304206,7 @@ ${entry2.url}`),
     }, newTabText(language2, "typeOrPasteKanji"));
   }
   function normalizedSearchWordIdentity(value) {
-    return normalizeSearchQuery(value).replace(/\s+/g, "").toLocaleLowerCase();
+    return normalizeSearchQuery$1(value).replace(/\s+/g, "").toLocaleLowerCase();
   }
   function normalizedKeywordText(value) {
     return value.trim().replace(/\s+/g, " ").toLocaleLowerCase();
@@ -307557,7 +307593,7 @@ ${entry2.url}`),
   }
   function newTabRouteSearchQuery(url) {
     for (const key2 of ["q", "query", "search"]) {
-      const value = normalizeSearchQuery(url.searchParams.get(key2) ?? "");
+      const value = normalizeSearchQuery$1(url.searchParams.get(key2) ?? "");
       if (value) return value;
     }
     return "";
@@ -309806,7 +309842,7 @@ ${entry2.url}`),
       return !this.currentModeStudyCardCount(accumulator.cards) && accumulator.reviewCountMode && !this.shouldKeepEmptyReviewLoad(accumulator);
     }
     shouldLoadQueryStudyFallback(accumulator) {
-      return Boolean(normalizeSearchQuery(this.searchController.query)) && !this.currentModeStudyCardCount(accumulator.cards) && !this.shouldKeepEmptyReviewLoad(accumulator);
+      return Boolean(normalizeSearchQuery$1(this.searchController.query)) && !this.currentModeStudyCardCount(accumulator.cards) && !this.shouldKeepEmptyReviewLoad(accumulator);
     }
     shouldKeepEmptyReviewLoad(accumulator) {
       return accumulator.labels.some((label) => label.includes(this.text("liveReview")));
@@ -314329,7 +314365,7 @@ ${entry2.url}`),
     }
     refreshBrowseAfterChipChange(root) {
       this.browsePage = 0;
-      const query = normalizeSearchQuery(this.searchController.query);
+      const query = normalizeSearchQuery$1(this.searchController.query);
       if (!this.browseScopeActive() && query) {
         this.searchController.performSearch(root, query);
         return true;
@@ -314361,11 +314397,11 @@ ${entry2.url}`),
       if (!this.browsePool) replaceChildrenWith(results, el("div", { class: "jpdb-reader-newtab-search-empty" }, this.text("loading")));
       await this.loadBrowsePool(() => {
         const mount2 = this.searchResultsMount(root);
-        const query2 = normalizeSearchQuery(this.searchController.query);
+        const query2 = normalizeSearchQuery$1(this.searchController.query);
         if (mount2?.isConnected && this.state.route === "search" && (!query2 || this.browseScopeActive())) this.renderBrowseResults(mount2);
       });
       const mount = this.searchResultsMount(root);
-      const query = normalizeSearchQuery(this.searchController.query);
+      const query = normalizeSearchQuery$1(this.searchController.query);
       if (!mount || !mount.isConnected || this.state.route !== "search" || query && !this.browseScopeActive()) return;
       this.renderBrowseResults(mount);
     }
@@ -314412,7 +314448,7 @@ ${entry2.url}`),
     renderBrowseResults(mount) {
       const cards = this.browsePool ?? [];
       const language2 = this.language();
-      const query = this.browseScopeActive() ? normalizeSearchQuery(this.searchController.query) : "";
+      const query = this.browseScopeActive() ? normalizeSearchQuery$1(this.searchController.query) : "";
       const filtered = sortBrowseCards(
         filterBrowseCards(cards, this.browseFilters, query, this.browseSourceFilters),
         this.browseSort,
@@ -323734,6 +323770,46 @@ ${entry2.url}`),
       selectedByDefault: true,
       definitionLanguage: "en",
       translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-ja-ukmi3vhk6",
+      role: "monolingual",
+      priority: 40,
+      selectedByDefault: false,
+      definitionLanguage: "ja",
+      translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-en-grammar-dojg-consolidated-v1-01-hkdf6lnvmw",
+      role: "grammar",
+      priority: 50,
+      selectedByDefault: false,
+      definitionLanguage: "en",
+      translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0",
+      role: "frequency",
+      priority: 60,
+      selectedByDefault: true,
+      definitionLanguage: "ja",
+      translationMode: "off"
+    },
+    {
+      dictionaryId: "drive-japanese-pitch-nhk-lpvpeu-xlu",
+      role: "pronunciation",
+      priority: 70,
+      selectedByDefault: true,
+      definitionLanguage: "ja",
+      translationMode: "off"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-ja-sentences-jp-82ywlzigse",
+      role: "examples",
+      priority: 80,
+      selectedByDefault: false,
+      definitionLanguage: "ja",
+      translationMode: "offer"
     }
   ];
   const arRecommendations = {
@@ -323776,6 +323852,46 @@ ${entry2.url}`),
       priority: 30,
       selectedByDefault: true,
       definitionLanguage: "en",
+      translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-ja-ukmi3vhk6",
+      role: "monolingual",
+      priority: 40,
+      selectedByDefault: false,
+      definitionLanguage: "ja",
+      translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-en-grammar-dojg-consolidated-v1-01-hkdf6lnvmw",
+      role: "grammar",
+      priority: 50,
+      selectedByDefault: false,
+      definitionLanguage: "en",
+      translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0",
+      role: "frequency",
+      priority: 60,
+      selectedByDefault: true,
+      definitionLanguage: "ja",
+      translationMode: "off"
+    },
+    {
+      dictionaryId: "drive-japanese-pitch-nhk-lpvpeu-xlu",
+      role: "pronunciation",
+      priority: 70,
+      selectedByDefault: true,
+      definitionLanguage: "ja",
+      translationMode: "off"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-ja-sentences-jp-82ywlzigse",
+      role: "examples",
+      priority: 80,
+      selectedByDefault: false,
+      definitionLanguage: "ja",
       translationMode: "offer"
     }
   ];
@@ -323820,6 +323936,46 @@ ${entry2.url}`),
       selectedByDefault: true,
       definitionLanguage: "en",
       translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-ja-ukmi3vhk6",
+      role: "monolingual",
+      priority: 40,
+      selectedByDefault: false,
+      definitionLanguage: "ja",
+      translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-en-grammar-dojg-consolidated-v1-01-hkdf6lnvmw",
+      role: "grammar",
+      priority: 50,
+      selectedByDefault: false,
+      definitionLanguage: "en",
+      translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0",
+      role: "frequency",
+      priority: 60,
+      selectedByDefault: true,
+      definitionLanguage: "ja",
+      translationMode: "off"
+    },
+    {
+      dictionaryId: "drive-japanese-pitch-nhk-lpvpeu-xlu",
+      role: "pronunciation",
+      priority: 70,
+      selectedByDefault: true,
+      definitionLanguage: "ja",
+      translationMode: "off"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-ja-sentences-jp-82ywlzigse",
+      role: "examples",
+      priority: 80,
+      selectedByDefault: false,
+      definitionLanguage: "ja",
+      translationMode: "offer"
     }
   ];
   const deRecommendations = {
@@ -323862,6 +324018,46 @@ ${entry2.url}`),
       priority: 30,
       selectedByDefault: true,
       definitionLanguage: "en",
+      translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-ja-ukmi3vhk6",
+      role: "monolingual",
+      priority: 40,
+      selectedByDefault: false,
+      definitionLanguage: "ja",
+      translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-en-grammar-dojg-consolidated-v1-01-hkdf6lnvmw",
+      role: "grammar",
+      priority: 50,
+      selectedByDefault: false,
+      definitionLanguage: "en",
+      translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0",
+      role: "frequency",
+      priority: 60,
+      selectedByDefault: true,
+      definitionLanguage: "ja",
+      translationMode: "off"
+    },
+    {
+      dictionaryId: "drive-japanese-pitch-nhk-lpvpeu-xlu",
+      role: "pronunciation",
+      priority: 70,
+      selectedByDefault: true,
+      definitionLanguage: "ja",
+      translationMode: "off"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-ja-sentences-jp-82ywlzigse",
+      role: "examples",
+      priority: 80,
+      selectedByDefault: false,
+      definitionLanguage: "ja",
       translationMode: "offer"
     }
   ];
@@ -323906,6 +324102,46 @@ ${entry2.url}`),
       selectedByDefault: true,
       definitionLanguage: "en",
       translationMode: "off"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-ja-ukmi3vhk6",
+      role: "monolingual",
+      priority: 40,
+      selectedByDefault: false,
+      definitionLanguage: "ja",
+      translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-en-grammar-dojg-consolidated-v1-01-hkdf6lnvmw",
+      role: "grammar",
+      priority: 50,
+      selectedByDefault: false,
+      definitionLanguage: "en",
+      translationMode: "off"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0",
+      role: "frequency",
+      priority: 60,
+      selectedByDefault: true,
+      definitionLanguage: "ja",
+      translationMode: "off"
+    },
+    {
+      dictionaryId: "drive-japanese-pitch-nhk-lpvpeu-xlu",
+      role: "pronunciation",
+      priority: 70,
+      selectedByDefault: true,
+      definitionLanguage: "ja",
+      translationMode: "off"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-ja-sentences-jp-82ywlzigse",
+      role: "examples",
+      priority: 80,
+      selectedByDefault: false,
+      definitionLanguage: "ja",
+      translationMode: "offer"
     }
   ];
   const enRecommendations = {
@@ -323949,6 +324185,46 @@ ${entry2.url}`),
       selectedByDefault: true,
       definitionLanguage: "es",
       translationMode: "off"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-ja-ukmi3vhk6",
+      role: "monolingual",
+      priority: 40,
+      selectedByDefault: false,
+      definitionLanguage: "ja",
+      translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-en-grammar-dojg-consolidated-v1-01-hkdf6lnvmw",
+      role: "grammar",
+      priority: 50,
+      selectedByDefault: false,
+      definitionLanguage: "en",
+      translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0",
+      role: "frequency",
+      priority: 60,
+      selectedByDefault: true,
+      definitionLanguage: "ja",
+      translationMode: "off"
+    },
+    {
+      dictionaryId: "drive-japanese-pitch-nhk-lpvpeu-xlu",
+      role: "pronunciation",
+      priority: 70,
+      selectedByDefault: true,
+      definitionLanguage: "ja",
+      translationMode: "off"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-ja-sentences-jp-82ywlzigse",
+      role: "examples",
+      priority: 80,
+      selectedByDefault: false,
+      definitionLanguage: "ja",
+      translationMode: "offer"
     }
   ];
   const esRecommendations = {
@@ -323991,6 +324267,46 @@ ${entry2.url}`),
       priority: 30,
       selectedByDefault: true,
       definitionLanguage: "en",
+      translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-ja-ukmi3vhk6",
+      role: "monolingual",
+      priority: 40,
+      selectedByDefault: false,
+      definitionLanguage: "ja",
+      translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-en-grammar-dojg-consolidated-v1-01-hkdf6lnvmw",
+      role: "grammar",
+      priority: 50,
+      selectedByDefault: false,
+      definitionLanguage: "en",
+      translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0",
+      role: "frequency",
+      priority: 60,
+      selectedByDefault: true,
+      definitionLanguage: "ja",
+      translationMode: "off"
+    },
+    {
+      dictionaryId: "drive-japanese-pitch-nhk-lpvpeu-xlu",
+      role: "pronunciation",
+      priority: 70,
+      selectedByDefault: true,
+      definitionLanguage: "ja",
+      translationMode: "off"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-ja-sentences-jp-82ywlzigse",
+      role: "examples",
+      priority: 80,
+      selectedByDefault: false,
+      definitionLanguage: "ja",
       translationMode: "offer"
     }
   ];
@@ -324035,6 +324351,46 @@ ${entry2.url}`),
       selectedByDefault: true,
       definitionLanguage: "en",
       translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-ja-ukmi3vhk6",
+      role: "monolingual",
+      priority: 40,
+      selectedByDefault: false,
+      definitionLanguage: "ja",
+      translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-en-grammar-dojg-consolidated-v1-01-hkdf6lnvmw",
+      role: "grammar",
+      priority: 50,
+      selectedByDefault: false,
+      definitionLanguage: "en",
+      translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0",
+      role: "frequency",
+      priority: 60,
+      selectedByDefault: true,
+      definitionLanguage: "ja",
+      translationMode: "off"
+    },
+    {
+      dictionaryId: "drive-japanese-pitch-nhk-lpvpeu-xlu",
+      role: "pronunciation",
+      priority: 70,
+      selectedByDefault: true,
+      definitionLanguage: "ja",
+      translationMode: "off"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-ja-sentences-jp-82ywlzigse",
+      role: "examples",
+      priority: 80,
+      selectedByDefault: false,
+      definitionLanguage: "ja",
+      translationMode: "offer"
     }
   ];
   const fiRecommendations = {
@@ -324078,6 +324434,46 @@ ${entry2.url}`),
       selectedByDefault: true,
       definitionLanguage: "fr",
       translationMode: "off"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-ja-ukmi3vhk6",
+      role: "monolingual",
+      priority: 40,
+      selectedByDefault: false,
+      definitionLanguage: "ja",
+      translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-en-grammar-dojg-consolidated-v1-01-hkdf6lnvmw",
+      role: "grammar",
+      priority: 50,
+      selectedByDefault: false,
+      definitionLanguage: "en",
+      translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0",
+      role: "frequency",
+      priority: 60,
+      selectedByDefault: true,
+      definitionLanguage: "ja",
+      translationMode: "off"
+    },
+    {
+      dictionaryId: "drive-japanese-pitch-nhk-lpvpeu-xlu",
+      role: "pronunciation",
+      priority: 70,
+      selectedByDefault: true,
+      definitionLanguage: "ja",
+      translationMode: "off"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-ja-sentences-jp-82ywlzigse",
+      role: "examples",
+      priority: 80,
+      selectedByDefault: false,
+      definitionLanguage: "ja",
+      translationMode: "offer"
     }
   ];
   const frRecommendations = {
@@ -324120,6 +324516,46 @@ ${entry2.url}`),
       priority: 30,
       selectedByDefault: true,
       definitionLanguage: "en",
+      translationMode: "off"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-ja-ukmi3vhk6",
+      role: "monolingual",
+      priority: 40,
+      selectedByDefault: false,
+      definitionLanguage: "ja",
+      translationMode: "off"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-en-grammar-dojg-consolidated-v1-01-hkdf6lnvmw",
+      role: "grammar",
+      priority: 50,
+      selectedByDefault: false,
+      definitionLanguage: "en",
+      translationMode: "off"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0",
+      role: "frequency",
+      priority: 60,
+      selectedByDefault: true,
+      definitionLanguage: "ja",
+      translationMode: "off"
+    },
+    {
+      dictionaryId: "drive-japanese-pitch-nhk-lpvpeu-xlu",
+      role: "pronunciation",
+      priority: 70,
+      selectedByDefault: true,
+      definitionLanguage: "ja",
+      translationMode: "off"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-ja-sentences-jp-82ywlzigse",
+      role: "examples",
+      priority: 80,
+      selectedByDefault: false,
+      definitionLanguage: "ja",
       translationMode: "off"
     }
   ];
@@ -324164,6 +324600,46 @@ ${entry2.url}`),
       selectedByDefault: true,
       definitionLanguage: "en",
       translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-ja-ukmi3vhk6",
+      role: "monolingual",
+      priority: 40,
+      selectedByDefault: false,
+      definitionLanguage: "ja",
+      translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-en-grammar-dojg-consolidated-v1-01-hkdf6lnvmw",
+      role: "grammar",
+      priority: 50,
+      selectedByDefault: false,
+      definitionLanguage: "en",
+      translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0",
+      role: "frequency",
+      priority: 60,
+      selectedByDefault: true,
+      definitionLanguage: "ja",
+      translationMode: "off"
+    },
+    {
+      dictionaryId: "drive-japanese-pitch-nhk-lpvpeu-xlu",
+      role: "pronunciation",
+      priority: 70,
+      selectedByDefault: true,
+      definitionLanguage: "ja",
+      translationMode: "off"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-ja-sentences-jp-82ywlzigse",
+      role: "examples",
+      priority: 80,
+      selectedByDefault: false,
+      definitionLanguage: "ja",
+      translationMode: "offer"
     }
   ];
   const huRecommendations = {
@@ -324206,6 +324682,46 @@ ${entry2.url}`),
       priority: 30,
       selectedByDefault: true,
       definitionLanguage: "en",
+      translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-ja-ukmi3vhk6",
+      role: "monolingual",
+      priority: 40,
+      selectedByDefault: false,
+      definitionLanguage: "ja",
+      translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-en-grammar-dojg-consolidated-v1-01-hkdf6lnvmw",
+      role: "grammar",
+      priority: 50,
+      selectedByDefault: false,
+      definitionLanguage: "en",
+      translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0",
+      role: "frequency",
+      priority: 60,
+      selectedByDefault: true,
+      definitionLanguage: "ja",
+      translationMode: "off"
+    },
+    {
+      dictionaryId: "drive-japanese-pitch-nhk-lpvpeu-xlu",
+      role: "pronunciation",
+      priority: 70,
+      selectedByDefault: true,
+      definitionLanguage: "ja",
+      translationMode: "off"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-ja-sentences-jp-82ywlzigse",
+      role: "examples",
+      priority: 80,
+      selectedByDefault: false,
+      definitionLanguage: "ja",
       translationMode: "offer"
     }
   ];
@@ -324250,6 +324766,46 @@ ${entry2.url}`),
       selectedByDefault: true,
       definitionLanguage: "en",
       translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-ja-ukmi3vhk6",
+      role: "monolingual",
+      priority: 40,
+      selectedByDefault: false,
+      definitionLanguage: "ja",
+      translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-en-grammar-dojg-consolidated-v1-01-hkdf6lnvmw",
+      role: "grammar",
+      priority: 50,
+      selectedByDefault: false,
+      definitionLanguage: "en",
+      translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0",
+      role: "frequency",
+      priority: 60,
+      selectedByDefault: true,
+      definitionLanguage: "ja",
+      translationMode: "off"
+    },
+    {
+      dictionaryId: "drive-japanese-pitch-nhk-lpvpeu-xlu",
+      role: "pronunciation",
+      priority: 70,
+      selectedByDefault: true,
+      definitionLanguage: "ja",
+      translationMode: "off"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-ja-sentences-jp-82ywlzigse",
+      role: "examples",
+      priority: 80,
+      selectedByDefault: false,
+      definitionLanguage: "ja",
+      translationMode: "offer"
     }
   ];
   const itRecommendations = {
@@ -324292,6 +324848,46 @@ ${entry2.url}`),
       priority: 30,
       selectedByDefault: true,
       definitionLanguage: "en",
+      translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-ja-ukmi3vhk6",
+      role: "monolingual",
+      priority: 40,
+      selectedByDefault: false,
+      definitionLanguage: "ja",
+      translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-en-grammar-dojg-consolidated-v1-01-hkdf6lnvmw",
+      role: "grammar",
+      priority: 50,
+      selectedByDefault: false,
+      definitionLanguage: "en",
+      translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0",
+      role: "frequency",
+      priority: 60,
+      selectedByDefault: true,
+      definitionLanguage: "ja",
+      translationMode: "off"
+    },
+    {
+      dictionaryId: "drive-japanese-pitch-nhk-lpvpeu-xlu",
+      role: "pronunciation",
+      priority: 70,
+      selectedByDefault: true,
+      definitionLanguage: "ja",
+      translationMode: "off"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-ja-sentences-jp-82ywlzigse",
+      role: "examples",
+      priority: 80,
+      selectedByDefault: false,
+      definitionLanguage: "ja",
       translationMode: "offer"
     }
   ];
@@ -324336,6 +324932,46 @@ ${entry2.url}`),
       selectedByDefault: true,
       definitionLanguage: "en",
       translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-ja-ukmi3vhk6",
+      role: "monolingual",
+      priority: 40,
+      selectedByDefault: false,
+      definitionLanguage: "ja",
+      translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-en-grammar-dojg-consolidated-v1-01-hkdf6lnvmw",
+      role: "grammar",
+      priority: 50,
+      selectedByDefault: false,
+      definitionLanguage: "en",
+      translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0",
+      role: "frequency",
+      priority: 60,
+      selectedByDefault: true,
+      definitionLanguage: "ja",
+      translationMode: "off"
+    },
+    {
+      dictionaryId: "drive-japanese-pitch-nhk-lpvpeu-xlu",
+      role: "pronunciation",
+      priority: 70,
+      selectedByDefault: true,
+      definitionLanguage: "ja",
+      translationMode: "off"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-ja-sentences-jp-82ywlzigse",
+      role: "examples",
+      priority: 80,
+      selectedByDefault: false,
+      definitionLanguage: "ja",
+      translationMode: "offer"
     }
   ];
   const koRecommendations = {
@@ -324378,6 +325014,46 @@ ${entry2.url}`),
       priority: 30,
       selectedByDefault: true,
       definitionLanguage: "en",
+      translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-ja-ukmi3vhk6",
+      role: "monolingual",
+      priority: 40,
+      selectedByDefault: false,
+      definitionLanguage: "ja",
+      translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-en-grammar-dojg-consolidated-v1-01-hkdf6lnvmw",
+      role: "grammar",
+      priority: 50,
+      selectedByDefault: false,
+      definitionLanguage: "en",
+      translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0",
+      role: "frequency",
+      priority: 60,
+      selectedByDefault: true,
+      definitionLanguage: "ja",
+      translationMode: "off"
+    },
+    {
+      dictionaryId: "drive-japanese-pitch-nhk-lpvpeu-xlu",
+      role: "pronunciation",
+      priority: 70,
+      selectedByDefault: true,
+      definitionLanguage: "ja",
+      translationMode: "off"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-ja-sentences-jp-82ywlzigse",
+      role: "examples",
+      priority: 80,
+      selectedByDefault: false,
+      definitionLanguage: "ja",
       translationMode: "offer"
     }
   ];
@@ -324422,6 +325098,46 @@ ${entry2.url}`),
       selectedByDefault: true,
       definitionLanguage: "en",
       translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-ja-ukmi3vhk6",
+      role: "monolingual",
+      priority: 40,
+      selectedByDefault: false,
+      definitionLanguage: "ja",
+      translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-en-grammar-dojg-consolidated-v1-01-hkdf6lnvmw",
+      role: "grammar",
+      priority: 50,
+      selectedByDefault: false,
+      definitionLanguage: "en",
+      translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0",
+      role: "frequency",
+      priority: 60,
+      selectedByDefault: true,
+      definitionLanguage: "ja",
+      translationMode: "off"
+    },
+    {
+      dictionaryId: "drive-japanese-pitch-nhk-lpvpeu-xlu",
+      role: "pronunciation",
+      priority: 70,
+      selectedByDefault: true,
+      definitionLanguage: "ja",
+      translationMode: "off"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-ja-sentences-jp-82ywlzigse",
+      role: "examples",
+      priority: 80,
+      selectedByDefault: false,
+      definitionLanguage: "ja",
+      translationMode: "offer"
     }
   ];
   const loRecommendations = {
@@ -324464,6 +325180,46 @@ ${entry2.url}`),
       priority: 30,
       selectedByDefault: true,
       definitionLanguage: "en",
+      translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-ja-ukmi3vhk6",
+      role: "monolingual",
+      priority: 40,
+      selectedByDefault: false,
+      definitionLanguage: "ja",
+      translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-en-grammar-dojg-consolidated-v1-01-hkdf6lnvmw",
+      role: "grammar",
+      priority: 50,
+      selectedByDefault: false,
+      definitionLanguage: "en",
+      translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0",
+      role: "frequency",
+      priority: 60,
+      selectedByDefault: true,
+      definitionLanguage: "ja",
+      translationMode: "off"
+    },
+    {
+      dictionaryId: "drive-japanese-pitch-nhk-lpvpeu-xlu",
+      role: "pronunciation",
+      priority: 70,
+      selectedByDefault: true,
+      definitionLanguage: "ja",
+      translationMode: "off"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-ja-sentences-jp-82ywlzigse",
+      role: "examples",
+      priority: 80,
+      selectedByDefault: false,
+      definitionLanguage: "ja",
       translationMode: "offer"
     }
   ];
@@ -324508,6 +325264,46 @@ ${entry2.url}`),
       selectedByDefault: true,
       definitionLanguage: "en",
       translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-ja-ukmi3vhk6",
+      role: "monolingual",
+      priority: 40,
+      selectedByDefault: false,
+      definitionLanguage: "ja",
+      translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-en-grammar-dojg-consolidated-v1-01-hkdf6lnvmw",
+      role: "grammar",
+      priority: 50,
+      selectedByDefault: false,
+      definitionLanguage: "en",
+      translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0",
+      role: "frequency",
+      priority: 60,
+      selectedByDefault: true,
+      definitionLanguage: "ja",
+      translationMode: "off"
+    },
+    {
+      dictionaryId: "drive-japanese-pitch-nhk-lpvpeu-xlu",
+      role: "pronunciation",
+      priority: 70,
+      selectedByDefault: true,
+      definitionLanguage: "ja",
+      translationMode: "off"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-ja-sentences-jp-82ywlzigse",
+      role: "examples",
+      priority: 80,
+      selectedByDefault: false,
+      definitionLanguage: "ja",
+      translationMode: "offer"
     }
   ];
   const nlRecommendations = {
@@ -324550,6 +325346,46 @@ ${entry2.url}`),
       priority: 30,
       selectedByDefault: true,
       definitionLanguage: "en",
+      translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-ja-ukmi3vhk6",
+      role: "monolingual",
+      priority: 40,
+      selectedByDefault: false,
+      definitionLanguage: "ja",
+      translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-en-grammar-dojg-consolidated-v1-01-hkdf6lnvmw",
+      role: "grammar",
+      priority: 50,
+      selectedByDefault: false,
+      definitionLanguage: "en",
+      translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0",
+      role: "frequency",
+      priority: 60,
+      selectedByDefault: true,
+      definitionLanguage: "ja",
+      translationMode: "off"
+    },
+    {
+      dictionaryId: "drive-japanese-pitch-nhk-lpvpeu-xlu",
+      role: "pronunciation",
+      priority: 70,
+      selectedByDefault: true,
+      definitionLanguage: "ja",
+      translationMode: "off"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-ja-sentences-jp-82ywlzigse",
+      role: "examples",
+      priority: 80,
+      selectedByDefault: false,
+      definitionLanguage: "ja",
       translationMode: "offer"
     }
   ];
@@ -324594,6 +325430,46 @@ ${entry2.url}`),
       selectedByDefault: true,
       definitionLanguage: "pt",
       translationMode: "off"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-ja-ukmi3vhk6",
+      role: "monolingual",
+      priority: 40,
+      selectedByDefault: false,
+      definitionLanguage: "ja",
+      translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-en-grammar-dojg-consolidated-v1-01-hkdf6lnvmw",
+      role: "grammar",
+      priority: 50,
+      selectedByDefault: false,
+      definitionLanguage: "en",
+      translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0",
+      role: "frequency",
+      priority: 60,
+      selectedByDefault: true,
+      definitionLanguage: "ja",
+      translationMode: "off"
+    },
+    {
+      dictionaryId: "drive-japanese-pitch-nhk-lpvpeu-xlu",
+      role: "pronunciation",
+      priority: 70,
+      selectedByDefault: true,
+      definitionLanguage: "ja",
+      translationMode: "off"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-ja-sentences-jp-82ywlzigse",
+      role: "examples",
+      priority: 80,
+      selectedByDefault: false,
+      definitionLanguage: "ja",
+      translationMode: "offer"
     }
   ];
   const ptRecommendations = {
@@ -324636,6 +325512,46 @@ ${entry2.url}`),
       priority: 30,
       selectedByDefault: true,
       definitionLanguage: "en",
+      translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-ja-ukmi3vhk6",
+      role: "monolingual",
+      priority: 40,
+      selectedByDefault: false,
+      definitionLanguage: "ja",
+      translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-en-grammar-dojg-consolidated-v1-01-hkdf6lnvmw",
+      role: "grammar",
+      priority: 50,
+      selectedByDefault: false,
+      definitionLanguage: "en",
+      translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0",
+      role: "frequency",
+      priority: 60,
+      selectedByDefault: true,
+      definitionLanguage: "ja",
+      translationMode: "off"
+    },
+    {
+      dictionaryId: "drive-japanese-pitch-nhk-lpvpeu-xlu",
+      role: "pronunciation",
+      priority: 70,
+      selectedByDefault: true,
+      definitionLanguage: "ja",
+      translationMode: "off"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-ja-sentences-jp-82ywlzigse",
+      role: "examples",
+      priority: 80,
+      selectedByDefault: false,
+      definitionLanguage: "ja",
       translationMode: "offer"
     }
   ];
@@ -324680,6 +325596,46 @@ ${entry2.url}`),
       selectedByDefault: true,
       definitionLanguage: "en",
       translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-ja-ukmi3vhk6",
+      role: "monolingual",
+      priority: 40,
+      selectedByDefault: false,
+      definitionLanguage: "ja",
+      translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-en-grammar-dojg-consolidated-v1-01-hkdf6lnvmw",
+      role: "grammar",
+      priority: 50,
+      selectedByDefault: false,
+      definitionLanguage: "en",
+      translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0",
+      role: "frequency",
+      priority: 60,
+      selectedByDefault: true,
+      definitionLanguage: "ja",
+      translationMode: "off"
+    },
+    {
+      dictionaryId: "drive-japanese-pitch-nhk-lpvpeu-xlu",
+      role: "pronunciation",
+      priority: 70,
+      selectedByDefault: true,
+      definitionLanguage: "ja",
+      translationMode: "off"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-ja-sentences-jp-82ywlzigse",
+      role: "examples",
+      priority: 80,
+      selectedByDefault: false,
+      definitionLanguage: "ja",
+      translationMode: "offer"
     }
   ];
   const ruRecommendations = {
@@ -324722,6 +325678,46 @@ ${entry2.url}`),
       priority: 30,
       selectedByDefault: true,
       definitionLanguage: "en",
+      translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-ja-ukmi3vhk6",
+      role: "monolingual",
+      priority: 40,
+      selectedByDefault: false,
+      definitionLanguage: "ja",
+      translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-en-grammar-dojg-consolidated-v1-01-hkdf6lnvmw",
+      role: "grammar",
+      priority: 50,
+      selectedByDefault: false,
+      definitionLanguage: "en",
+      translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0",
+      role: "frequency",
+      priority: 60,
+      selectedByDefault: true,
+      definitionLanguage: "ja",
+      translationMode: "off"
+    },
+    {
+      dictionaryId: "drive-japanese-pitch-nhk-lpvpeu-xlu",
+      role: "pronunciation",
+      priority: 70,
+      selectedByDefault: true,
+      definitionLanguage: "ja",
+      translationMode: "off"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-ja-sentences-jp-82ywlzigse",
+      role: "examples",
+      priority: 80,
+      selectedByDefault: false,
+      definitionLanguage: "ja",
       translationMode: "offer"
     }
   ];
@@ -324766,6 +325762,46 @@ ${entry2.url}`),
       selectedByDefault: true,
       definitionLanguage: "en",
       translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-ja-ukmi3vhk6",
+      role: "monolingual",
+      priority: 40,
+      selectedByDefault: false,
+      definitionLanguage: "ja",
+      translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-en-grammar-dojg-consolidated-v1-01-hkdf6lnvmw",
+      role: "grammar",
+      priority: 50,
+      selectedByDefault: false,
+      definitionLanguage: "en",
+      translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0",
+      role: "frequency",
+      priority: 60,
+      selectedByDefault: true,
+      definitionLanguage: "ja",
+      translationMode: "off"
+    },
+    {
+      dictionaryId: "drive-japanese-pitch-nhk-lpvpeu-xlu",
+      role: "pronunciation",
+      priority: 70,
+      selectedByDefault: true,
+      definitionLanguage: "ja",
+      translationMode: "off"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-ja-sentences-jp-82ywlzigse",
+      role: "examples",
+      priority: 80,
+      selectedByDefault: false,
+      definitionLanguage: "ja",
+      translationMode: "offer"
     }
   ];
   const sqRecommendations = {
@@ -324808,6 +325844,46 @@ ${entry2.url}`),
       priority: 30,
       selectedByDefault: true,
       definitionLanguage: "en",
+      translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-ja-ukmi3vhk6",
+      role: "monolingual",
+      priority: 40,
+      selectedByDefault: false,
+      definitionLanguage: "ja",
+      translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-en-grammar-dojg-consolidated-v1-01-hkdf6lnvmw",
+      role: "grammar",
+      priority: 50,
+      selectedByDefault: false,
+      definitionLanguage: "en",
+      translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0",
+      role: "frequency",
+      priority: 60,
+      selectedByDefault: true,
+      definitionLanguage: "ja",
+      translationMode: "off"
+    },
+    {
+      dictionaryId: "drive-japanese-pitch-nhk-lpvpeu-xlu",
+      role: "pronunciation",
+      priority: 70,
+      selectedByDefault: true,
+      definitionLanguage: "ja",
+      translationMode: "off"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-ja-sentences-jp-82ywlzigse",
+      role: "examples",
+      priority: 80,
+      selectedByDefault: false,
+      definitionLanguage: "ja",
       translationMode: "offer"
     }
   ];
@@ -324852,6 +325928,46 @@ ${entry2.url}`),
       selectedByDefault: true,
       definitionLanguage: "en",
       translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-ja-ukmi3vhk6",
+      role: "monolingual",
+      priority: 40,
+      selectedByDefault: false,
+      definitionLanguage: "ja",
+      translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-en-grammar-dojg-consolidated-v1-01-hkdf6lnvmw",
+      role: "grammar",
+      priority: 50,
+      selectedByDefault: false,
+      definitionLanguage: "en",
+      translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0",
+      role: "frequency",
+      priority: 60,
+      selectedByDefault: true,
+      definitionLanguage: "ja",
+      translationMode: "off"
+    },
+    {
+      dictionaryId: "drive-japanese-pitch-nhk-lpvpeu-xlu",
+      role: "pronunciation",
+      priority: 70,
+      selectedByDefault: true,
+      definitionLanguage: "ja",
+      translationMode: "off"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-ja-sentences-jp-82ywlzigse",
+      role: "examples",
+      priority: 80,
+      selectedByDefault: false,
+      definitionLanguage: "ja",
+      translationMode: "offer"
     }
   ];
   const thRecommendations = {
@@ -324894,6 +326010,46 @@ ${entry2.url}`),
       priority: 30,
       selectedByDefault: true,
       definitionLanguage: "en",
+      translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-ja-ukmi3vhk6",
+      role: "monolingual",
+      priority: 40,
+      selectedByDefault: false,
+      definitionLanguage: "ja",
+      translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-en-grammar-dojg-consolidated-v1-01-hkdf6lnvmw",
+      role: "grammar",
+      priority: 50,
+      selectedByDefault: false,
+      definitionLanguage: "en",
+      translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0",
+      role: "frequency",
+      priority: 60,
+      selectedByDefault: true,
+      definitionLanguage: "ja",
+      translationMode: "off"
+    },
+    {
+      dictionaryId: "drive-japanese-pitch-nhk-lpvpeu-xlu",
+      role: "pronunciation",
+      priority: 70,
+      selectedByDefault: true,
+      definitionLanguage: "ja",
+      translationMode: "off"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-ja-sentences-jp-82ywlzigse",
+      role: "examples",
+      priority: 80,
+      selectedByDefault: false,
+      definitionLanguage: "ja",
       translationMode: "offer"
     }
   ];
@@ -324938,6 +326094,46 @@ ${entry2.url}`),
       selectedByDefault: true,
       definitionLanguage: "en",
       translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-ja-ukmi3vhk6",
+      role: "monolingual",
+      priority: 40,
+      selectedByDefault: false,
+      definitionLanguage: "ja",
+      translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-en-grammar-dojg-consolidated-v1-01-hkdf6lnvmw",
+      role: "grammar",
+      priority: 50,
+      selectedByDefault: false,
+      definitionLanguage: "en",
+      translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0",
+      role: "frequency",
+      priority: 60,
+      selectedByDefault: true,
+      definitionLanguage: "ja",
+      translationMode: "off"
+    },
+    {
+      dictionaryId: "drive-japanese-pitch-nhk-lpvpeu-xlu",
+      role: "pronunciation",
+      priority: 70,
+      selectedByDefault: true,
+      definitionLanguage: "ja",
+      translationMode: "off"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-ja-sentences-jp-82ywlzigse",
+      role: "examples",
+      priority: 80,
+      selectedByDefault: false,
+      definitionLanguage: "ja",
+      translationMode: "offer"
     }
   ];
   const trRecommendations = {
@@ -324980,6 +326176,46 @@ ${entry2.url}`),
       priority: 30,
       selectedByDefault: true,
       definitionLanguage: "en",
+      translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-ja-ukmi3vhk6",
+      role: "monolingual",
+      priority: 40,
+      selectedByDefault: false,
+      definitionLanguage: "ja",
+      translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-en-grammar-dojg-consolidated-v1-01-hkdf6lnvmw",
+      role: "grammar",
+      priority: 50,
+      selectedByDefault: false,
+      definitionLanguage: "en",
+      translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0",
+      role: "frequency",
+      priority: 60,
+      selectedByDefault: true,
+      definitionLanguage: "ja",
+      translationMode: "off"
+    },
+    {
+      dictionaryId: "drive-japanese-pitch-nhk-lpvpeu-xlu",
+      role: "pronunciation",
+      priority: 70,
+      selectedByDefault: true,
+      definitionLanguage: "ja",
+      translationMode: "off"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-ja-sentences-jp-82ywlzigse",
+      role: "examples",
+      priority: 80,
+      selectedByDefault: false,
+      definitionLanguage: "ja",
       translationMode: "offer"
     }
   ];
@@ -325024,6 +326260,46 @@ ${entry2.url}`),
       selectedByDefault: true,
       definitionLanguage: "en",
       translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-ja-ukmi3vhk6",
+      role: "monolingual",
+      priority: 40,
+      selectedByDefault: false,
+      definitionLanguage: "ja",
+      translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-en-grammar-dojg-consolidated-v1-01-hkdf6lnvmw",
+      role: "grammar",
+      priority: 50,
+      selectedByDefault: false,
+      definitionLanguage: "en",
+      translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0",
+      role: "frequency",
+      priority: 60,
+      selectedByDefault: true,
+      definitionLanguage: "ja",
+      translationMode: "off"
+    },
+    {
+      dictionaryId: "drive-japanese-pitch-nhk-lpvpeu-xlu",
+      role: "pronunciation",
+      priority: 70,
+      selectedByDefault: true,
+      definitionLanguage: "ja",
+      translationMode: "off"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-ja-sentences-jp-82ywlzigse",
+      role: "examples",
+      priority: 80,
+      selectedByDefault: false,
+      definitionLanguage: "ja",
+      translationMode: "offer"
     }
   ];
   const yueRecommendations = {
@@ -325066,6 +326342,46 @@ ${entry2.url}`),
       priority: 30,
       selectedByDefault: true,
       definitionLanguage: "en",
+      translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-ja-ukmi3vhk6",
+      role: "monolingual",
+      priority: 40,
+      selectedByDefault: false,
+      definitionLanguage: "ja",
+      translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-en-grammar-dojg-consolidated-v1-01-hkdf6lnvmw",
+      role: "grammar",
+      priority: 50,
+      selectedByDefault: false,
+      definitionLanguage: "en",
+      translationMode: "offer"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0",
+      role: "frequency",
+      priority: 60,
+      selectedByDefault: true,
+      definitionLanguage: "ja",
+      translationMode: "off"
+    },
+    {
+      dictionaryId: "drive-japanese-pitch-nhk-lpvpeu-xlu",
+      role: "pronunciation",
+      priority: 70,
+      selectedByDefault: true,
+      definitionLanguage: "ja",
+      translationMode: "off"
+    },
+    {
+      dictionaryId: "drive-japanese-ja-ja-sentences-jp-82ywlzigse",
+      role: "examples",
+      priority: 80,
+      selectedByDefault: false,
+      definitionLanguage: "ja",
       translationMode: "offer"
     }
   ];
@@ -325136,10 +326452,13 @@ ${entry2.url}`),
   const RECOMMENDATION_ROLES = /* @__PURE__ */ new Set([
     "primary-terms",
     "fallback-terms",
+    "monolingual",
     "names",
     "kanji",
+    "grammar",
     "frequency",
-    "pronunciation"
+    "pronunciation",
+    "examples"
   ]);
   class DictionaryManifestError extends Error {
     constructor(path, message) {
@@ -328180,6 +329499,316 @@ ${entry2.url}`),
   function isInitialAnkiSettingsStatus(value) {
     return /Checking AnkiConnect|Anki mining disabled|AnkiConnect.*確認中|Ankiマイニングは無効/.test(value);
   }
+  const CATALOG_BROWSE_CATEGORY_ORDER = [
+    "terms",
+    "names",
+    "grammar",
+    "kanji",
+    "frequency",
+    "pronunciation",
+    "examples",
+    "thesaurus",
+    "encyclopedia",
+    "utility"
+  ];
+  const CATALOG_BROWSE_COPY_SOURCE = {
+    sq: {
+      title: "Të gjithë fjalorët e pasqyruar",
+      summary: "{count} fjalorë të tjerë · gjithsej {size}",
+      searchLabel: "Kërko fjalorë",
+      noResults: "Asnjë fjalor nuk përputhet me kërkimin.",
+      categories: ["Fjalorë fjalësh", "Fjalorë emrash", "Fjalorë gramatikorë", "Fjalorë kanxhish", "Fjalorë frekuence", "Fjalorë theksi", "Fjalorë me fjali shembull", "Fjalorë sinonimish", "Enciklopedi", "Fjalorë ndihmës"]
+    },
+    grc: {
+      title: "Πάντα τὰ λεξικὰ τοῦ ταμιείου",
+      summary: "Ἕτερα λεξικά: {count} · σύμπαν {size}",
+      searchLabel: "Ζήτει λεξικά",
+      noResults: "Οὐδὲν λεξικὸν εὑρέθη.",
+      categories: ["Λεξικὰ λέξεων", "Λεξικὰ ὀνομάτων", "Λεξικὰ γραμματικῆς", "Λεξικὰ κανζί", "Λεξικὰ συχνότητος", "Λεξικὰ τόνου", "Λεξικὰ παραδειγμάτων", "Λεξικὰ συνωνύμων", "Ἐγκυκλοπαίδειαι", "Λεξικὰ βοηθητικά"]
+    },
+    ar: {
+      title: "كل القواميس المستضافة",
+      summary: "قواميس أخرى: ⁨{count}⁩ · الإجمالي ⁨{size}⁩",
+      searchLabel: "ابحث في القواميس",
+      noResults: "لا توجد قواميس مطابقة لبحثك.",
+      categories: ["قواميس المفردات", "قواميس أسماء الأعلام", "قواميس القواعد", "قواميس الكانجي", "قواميس التكرار", "قواميس النبر", "قواميس الجمل التوضيحية", "معاجم المترادفات", "الموسوعات", "قواميس مساعدة"]
+    },
+    yue: {
+      title: "所有鏡像字典",
+      summary: "仲有 {count} 本字典 · 合共 {size}",
+      searchLabel: "搜尋字典",
+      noResults: "搵唔到符合嘅字典。",
+      categories: ["詞語字典", "專名字典", "文法字典", "漢字字典", "詞頻字典", "聲調字典", "例句字典", "同義詞字典", "百科全書", "輔助字典"]
+    },
+    zh: {
+      title: "全部镜像词典",
+      summary: "另有 {count} 部词典 · 共 {size}",
+      searchLabel: "搜索词典",
+      noResults: "没有匹配的词典。",
+      categories: ["词语词典", "专名词典", "语法词典", "汉字词典", "词频词典", "音调词典", "例句词典", "同义词词典", "百科全书", "辅助词典"]
+    },
+    da: {
+      title: "Alle spejlede ordbøger",
+      summary: "{count} flere ordbøger · {size} i alt",
+      searchLabel: "Søg i ordbøger",
+      noResults: "Ingen ordbøger matcher din søgning.",
+      categories: ["Ordbøger", "Navneordbøger", "Grammatikordbøger", "Kanji-ordbøger", "Frekvensordbøger", "Tonegangsordbøger", "Eksempelsætningsordbøger", "Synonymordbøger", "Encyklopædier", "Hjælpeordbøger"]
+    },
+    nl: {
+      title: "Alle gespiegelde woordenboeken",
+      summary: "{count} extra woordenboeken · {size} in totaal",
+      searchLabel: "Woordenboeken zoeken",
+      noResults: "Geen woordenboeken gevonden voor je zoekopdracht.",
+      categories: ["Woordenboeken", "Namenwoordenboeken", "Grammaticawoordenboeken", "Kanjiwoordenboeken", "Frequentiewoordenboeken", "Toonhoogtewoordenboeken", "Voorbeeldzinwoordenboeken", "Synoniemenwoordenboeken", "Encyclopedieën", "Hulpwoordenboeken"]
+    },
+    en: {
+      title: "All mirrored dictionaries",
+      summary: "{count} more dictionaries · {size} total",
+      searchLabel: "Search dictionaries",
+      noResults: "No dictionaries match your search.",
+      categories: ["Term dictionaries", "Name dictionaries", "Grammar dictionaries", "Kanji dictionaries", "Frequency dictionaries", "Pitch dictionaries", "Example sentence dictionaries", "Thesauruses", "Encyclopedias", "Utility dictionaries"]
+    },
+    fi: {
+      title: "Kaikki peilatut sanakirjat",
+      summary: "{count} sanakirjaa lisää · yhteensä {size}",
+      searchLabel: "Hae sanakirjoja",
+      noResults: "Hakua vastaavia sanakirjoja ei löytynyt.",
+      categories: ["Sanakirjat", "Nimisanakirjat", "Kielioppisanakirjat", "Kanji-sanakirjat", "Yleisyyssanakirjat", "Sävelkulkusanakirjat", "Esimerkkilausesanakirjat", "Synonyymisanakirjat", "Tietosanakirjat", "Apusanakirjat"]
+    },
+    fr: {
+      title: "Tous les dictionnaires hébergés",
+      summary: "{count} dictionnaires de plus · {size} au total",
+      searchLabel: "Rechercher des dictionnaires",
+      noResults: "Aucun dictionnaire ne correspond à votre recherche.",
+      categories: ["Dictionnaires de mots", "Dictionnaires de noms propres", "Dictionnaires de grammaire", "Dictionnaires de kanji", "Dictionnaires de fréquence", "Dictionnaires d’accent tonique", "Dictionnaires de phrases d’exemple", "Dictionnaires de synonymes", "Encyclopédies", "Dictionnaires utilitaires"]
+    },
+    de: {
+      title: "Alle gespiegelten Wörterbücher",
+      summary: "{count} weitere Wörterbücher · {size} insgesamt",
+      searchLabel: "Wörterbücher durchsuchen",
+      noResults: "Keine Wörterbücher passen zu deiner Suche.",
+      categories: ["Wortwörterbücher", "Namenswörterbücher", "Grammatikwörterbücher", "Kanji-Wörterbücher", "Häufigkeitswörterbücher", "Tonhöhenwörterbücher", "Beispielsatzwörterbücher", "Synonymwörterbücher", "Enzyklopädien", "Hilfswörterbücher"]
+    },
+    el: {
+      title: "Όλα τα φιλοξενούμενα λεξικά",
+      summary: "{count} επιπλέον λεξικά · {size} συνολικά",
+      searchLabel: "Αναζήτηση λεξικών",
+      noResults: "Κανένα λεξικό δεν ταιριάζει με την αναζήτησή σας.",
+      categories: ["Λεξικά λέξεων", "Λεξικά κύριων ονομάτων", "Λεξικά γραμματικής", "Λεξικά κανζί", "Λεξικά συχνότητας", "Λεξικά τονισμού", "Λεξικά παραδειγμάτων", "Λεξικά συνωνύμων", "Εγκυκλοπαίδειες", "Βοηθητικά λεξικά"]
+    },
+    hu: {
+      title: "Az összes tükrözött szótár",
+      summary: "További szótárak: {count} · összesen {size}",
+      searchLabel: "Szótárak keresése",
+      noResults: "Nincs a keresésnek megfelelő szótár.",
+      categories: ["Szótárak", "Névszótárak", "Nyelvtani szótárak", "Kandzsiszótárak", "Gyakorisági szótárak", "Hangsúlyszótárak", "Példamondat-szótárak", "Szinonimaszótárak", "Lexikonok", "Segédszótárak"]
+    },
+    id: {
+      title: "Semua kamus yang dicerminkan",
+      summary: "{count} kamus lainnya · total {size}",
+      searchLabel: "Cari kamus",
+      noResults: "Tidak ada kamus yang cocok dengan pencarian Anda.",
+      categories: ["Kamus kata", "Kamus nama diri", "Kamus tata bahasa", "Kamus kanji", "Kamus frekuensi", "Kamus aksen nada", "Kamus kalimat contoh", "Tesaurus", "Ensiklopedia", "Kamus pendukung"]
+    },
+    it: {
+      title: "Tutti i dizionari ospitati",
+      summary: "Altri {count} dizionari · {size} in totale",
+      searchLabel: "Cerca dizionari",
+      noResults: "Nessun dizionario corrisponde alla ricerca.",
+      categories: ["Dizionari di parole", "Dizionari di nomi propri", "Dizionari di grammatica", "Dizionari di kanji", "Dizionari di frequenza", "Dizionari di accento tonale", "Dizionari di frasi di esempio", "Dizionari dei sinonimi", "Enciclopedie", "Dizionari di utilità"]
+    },
+    km: {
+      title: "វចនានុក្រមទាំងអស់ដែលបានចម្លង",
+      summary: "វចនានុក្រមផ្សេងទៀត៖ {count} · សរុប {size}",
+      searchLabel: "ស្វែងរកវចនានុក្រម",
+      noResults: "រកមិនឃើញវចនានុក្រមដែលត្រូវនឹងការស្វែងរកទេ។",
+      categories: ["វចនានុក្រមពាក្យ", "វចនានុក្រមឈ្មោះ", "វចនានុក្រមវេយ្យាករណ៍", "វចនានុក្រមកានជិ", "វចនានុក្រមប្រេកង់", "វចនានុក្រមសំឡេងកម្ពស់", "វចនានុក្រមឧទាហរណ៍ប្រយោគ", "វចនានុក្រមពាក្យដូច", "សព្វវចនាធិប្បាយ", "វចនានុក្រមជំនួយ"]
+    },
+    ko: {
+      title: "미러링된 모든 사전",
+      summary: "사전 {count}개 더 · 총 {size}",
+      searchLabel: "사전 검색",
+      noResults: "검색과 일치하는 사전이 없습니다.",
+      categories: ["어휘 사전", "고유명사 사전", "문법 사전", "한자 사전", "빈도 사전", "악센트 사전", "예문 사전", "유의어 사전", "백과사전", "보조 사전"]
+    },
+    lo: {
+      title: "ວັດຈະນານຸກົມທັງໝົດທີ່ເກັບໄວ້",
+      summary: "ວັດຈະນານຸກົມອື່ນ {count} ຫົວ · ລວມ {size}",
+      searchLabel: "ຄົ້ນຫາວັດຈະນານຸກົມ",
+      noResults: "ບໍ່ພົບວັດຈະນານຸກົມທີ່ກົງກັບການຄົ້ນຫາ.",
+      categories: ["ວັດຈະນານຸກົມຄຳສັບ", "ວັດຈະນານຸກົມຊື່ສະເພາະ", "ວັດຈະນານຸກົມໄວຍາກອນ", "ວັດຈະນານຸກົມຄັນຈິ", "ວັດຈະນານຸກົມຄວາມຖີ່", "ວັດຈະນານຸກົມສຽງສູງຕ່ຳ", "ວັດຈະນານຸກົມປະໂຫຍກຕົວຢ່າງ", "ວັດຈະນານຸກົມຄຳຄ້າຍ", "ສາລານຸກົມ", "ວັດຈະນານຸກົມຊ່ວຍ"]
+    },
+    la: {
+      title: "Omnia dictionaria in promptuario",
+      summary: "Dictionaria alia: {count} · summa {size}",
+      searchLabel: "Dictionaria quaerere",
+      noResults: "Nulla dictionaria quaesitis respondent.",
+      categories: ["Dictionaria verborum", "Dictionaria nominum", "Dictionaria grammatica", "Dictionaria kanji", "Dictionaria frequentiae", "Dictionaria accentus", "Dictionaria exemplorum", "Dictionaria synonymorum", "Encyclopaediae", "Dictionaria auxiliaria"]
+    },
+    mn: {
+      title: "Толгой хуулбарласан бүх толь бичиг",
+      summary: "Бусад толь бичиг: {count} · нийт {size}",
+      searchLabel: "Толь бичиг хайх",
+      noResults: "Хайлтад тохирох толь бичиг олдсонгүй.",
+      categories: ["Үгийн толь", "Нэрийн толь", "Хэл зүйн толь", "Ханзны толь", "Давтамжийн толь", "Өргөлтийн толь", "Жишээ өгүүлбэрийн толь", "Ойролцоо утгын толь", "Нэвтэрхий толь", "Туслах толь"]
+    },
+    fa: {
+      title: "همهٔ واژه‌نامه‌های میزبانی‌شده",
+      summary: "واژه‌نامه‌های دیگر: ⁨{count}⁩ · مجموع ⁨{size}⁩",
+      searchLabel: "جست‌وجوی واژه‌نامه‌ها",
+      noResults: "هیچ واژه‌نامه‌ای با جست‌وجوی شما مطابقت ندارد.",
+      categories: ["واژه‌نامه‌های واژگان", "واژه‌نامه‌های اسامی خاص", "واژه‌نامه‌های دستور زبان", "واژه‌نامه‌های کانجی", "واژه‌نامه‌های بسامد", "واژه‌نامه‌های آهنگ واژه", "واژه‌نامه‌های جمله‌های نمونه", "واژه‌نامه‌های هم‌معنا", "دانشنامه‌ها", "واژه‌نامه‌های کمکی"]
+    },
+    pl: {
+      title: "Wszystkie kopiowane słowniki",
+      summary: "Więcej słowników: {count} · łącznie {size}",
+      searchLabel: "Szukaj słowników",
+      noResults: "Żaden słownik nie pasuje do wyszukiwania.",
+      categories: ["Słowniki wyrazów", "Słowniki nazw własnych", "Słowniki gramatyczne", "Słowniki kanji", "Słowniki frekwencyjne", "Słowniki akcentu tonicznego", "Słowniki zdań przykładowych", "Słowniki synonimów", "Encyklopedie", "Słowniki pomocnicze"]
+    },
+    pt: {
+      title: "Todos os dicionários espelhados",
+      summary: "Mais {count} dicionários · {size} no total",
+      searchLabel: "Pesquisar dicionários",
+      noResults: "Nenhum dicionário corresponde à sua pesquisa.",
+      categories: ["Dicionários de palavras", "Dicionários de nomes próprios", "Dicionários de gramática", "Dicionários de kanji", "Dicionários de frequência", "Dicionários de acento tonal", "Dicionários de frases de exemplo", "Dicionários de sinónimos", "Enciclopédias", "Dicionários utilitários"]
+    },
+    ro: {
+      title: "Toate dicționarele găzduite",
+      summary: "Încă {count} dicționare · {size} în total",
+      searchLabel: "Caută dicționare",
+      noResults: "Niciun dicționar nu corespunde căutării.",
+      categories: ["Dicționare de cuvinte", "Dicționare de nume proprii", "Dicționare de gramatică", "Dicționare de kanji", "Dicționare de frecvență", "Dicționare de accent tonal", "Dicționare de propoziții exemplu", "Dicționare de sinonime", "Enciclopedii", "Dicționare auxiliare"]
+    },
+    ru: {
+      title: "Все зеркалируемые словари",
+      summary: "Ещё словарей: {count} · всего {size}",
+      searchLabel: "Поиск словарей",
+      noResults: "Ни один словарь не соответствует запросу.",
+      categories: ["Словари слов", "Словари имён собственных", "Грамматические словари", "Словари кандзи", "Частотные словари", "Словари тонального ударения", "Словари примеров", "Словари синонимов", "Энциклопедии", "Вспомогательные словари"]
+    },
+    sh: {
+      title: "Svi preslikani rečnici",
+      summary: "Još rečnika: {count} · ukupno {size}",
+      searchLabel: "Pretraži rečnike",
+      noResults: "Nijedan rečnik ne odgovara pretrazi.",
+      categories: ["Rečnici reči", "Rečnici vlastitih imena", "Gramatički rečnici", "Rečnici kandžija", "Frekvencijski rečnici", "Rečnici tonskog akcenta", "Rečnici primera rečenica", "Rečnici sinonima", "Enciklopedije", "Pomoćni rečnici"]
+    },
+    es: {
+      title: "Todos los diccionarios alojados",
+      summary: "{count} diccionarios más · {size} en total",
+      searchLabel: "Buscar diccionarios",
+      noResults: "Ningún diccionario coincide con tu búsqueda.",
+      categories: ["Diccionarios de palabras", "Diccionarios de nombres propios", "Diccionarios de gramática", "Diccionarios de kanji", "Diccionarios de frecuencia", "Diccionarios de acento tonal", "Diccionarios de oraciones de ejemplo", "Diccionarios de sinónimos", "Enciclopedias", "Diccionarios auxiliares"]
+    },
+    sv: {
+      title: "Alla speglade ordböcker",
+      summary: "{count} ordböcker till · {size} totalt",
+      searchLabel: "Sök ordböcker",
+      noResults: "Inga ordböcker matchar din sökning.",
+      categories: ["Ordböcker", "Namnordböcker", "Grammatikordböcker", "Kanjiordböcker", "Frekvensordböcker", "Tonaccentordböcker", "Exempelmeningsordböcker", "Synonymordböcker", "Uppslagsverk", "Hjälpordböcker"]
+    },
+    tl: {
+      title: "Lahat ng naka-mirror na diksyunaryo",
+      summary: "{count} pang diksyunaryo · {size} sa kabuuan",
+      searchLabel: "Maghanap ng diksyunaryo",
+      noResults: "Walang diksyunaryong tumutugma sa paghahanap.",
+      categories: ["Diksyunaryo ng salita", "Diksyunaryo ng pangngalang pantangi", "Diksyunaryo ng gramatika", "Diksyunaryo ng kanji", "Diksyunaryo ng dalas", "Diksyunaryo ng tono", "Diksyunaryo ng halimbawang pangungusap", "Diksyunaryo ng kasingkahulugan", "Ensiklopedya", "Pantulong na diksyunaryo"]
+    },
+    th: {
+      title: "พจนานุกรมทั้งหมดที่มิเรอร์ไว้",
+      summary: "พจนานุกรมอีก {count} เล่ม · รวม {size}",
+      searchLabel: "ค้นหาพจนานุกรม",
+      noResults: "ไม่พบพจนานุกรมที่ตรงกับการค้นหา",
+      categories: ["พจนานุกรมคำศัพท์", "พจนานุกรมวิสามานยนาม", "พจนานุกรมไวยากรณ์", "พจนานุกรมคันจิ", "พจนานุกรมความถี่", "พจนานุกรมระดับเสียง", "พจนานุกรมประโยคตัวอย่าง", "พจนานุกรมคำพ้องความหมาย", "สารานุกรม", "พจนานุกรมเสริม"]
+    },
+    tr: {
+      title: "Yansılanan tüm sözlükler",
+      summary: "{count} sözlük daha · toplam {size}",
+      searchLabel: "Sözlüklerde ara",
+      noResults: "Aramanızla eşleşen sözlük yok.",
+      categories: ["Sözcük sözlükleri", "Özel ad sözlükleri", "Dil bilgisi sözlükleri", "Kanji sözlükleri", "Sıklık sözlükleri", "Vurgu sözlükleri", "Örnek cümle sözlükleri", "Eş anlamlı sözlükler", "Ansiklopediler", "Yardımcı sözlükler"]
+    },
+    vi: {
+      title: "Tất cả từ điển được lưu trữ",
+      summary: "Thêm {count} từ điển · tổng {size}",
+      searchLabel: "Tìm từ điển",
+      noResults: "Không có từ điển nào khớp với tìm kiếm.",
+      categories: ["Từ điển từ vựng", "Từ điển danh từ riêng", "Từ điển ngữ pháp", "Từ điển kanji", "Từ điển tần suất", "Từ điển trọng âm", "Từ điển câu ví dụ", "Từ điển đồng nghĩa", "Bách khoa toàn thư", "Từ điển hỗ trợ"]
+    }
+  };
+  const CATALOG_BROWSE_COPY = Object.freeze(
+    Object.fromEntries(
+      LEARNER_LANGUAGE_IDS.map((language2) => [language2, freezeCopy(CATALOG_BROWSE_COPY_SOURCE[language2])])
+    )
+  );
+  function catalogBrowseCopy(language2) {
+    return CATALOG_BROWSE_COPY[language2] ?? CATALOG_BROWSE_COPY.en;
+  }
+  function freezeCopy(source2) {
+    return Object.freeze({
+      title: source2.title,
+      summary: source2.summary,
+      searchLabel: source2.searchLabel,
+      noResults: source2.noResults,
+      categories: Object.freeze(
+        Object.fromEntries(
+          CATALOG_BROWSE_CATEGORY_ORDER.map((category, index) => {
+            const name = source2.categories[index];
+            if (!name) throw new Error(`Catalogue browse copy is missing a name for the "${category}" category.`);
+            return [category, name];
+          })
+        )
+      )
+    });
+  }
+  const CARD_SELECTOR = ".jpdb-reader-recommended-item";
+  function normalizeSearchQuery(value) {
+    return value.normalize("NFKC").toLocaleLowerCase().replace(/\s+/gu, " ").trim();
+  }
+  function applyCatalogBrowseFilter(section2, query) {
+    const normalized2 = normalizeSearchQuery(query);
+    let visible = 0;
+    section2.querySelectorAll("[data-catalog-browse-group]").forEach((group2) => {
+      const heading = normalizeSearchQuery(group2.querySelector("[data-catalog-browse-category]")?.textContent ?? "");
+      let matched = 0;
+      group2.querySelectorAll(CARD_SELECTOR).forEach((card) => {
+        const matches = !normalized2 || cardMatches(card, heading, normalized2);
+        card.hidden = !matches;
+        if (matches) matched += 1;
+      });
+      group2.hidden = matched === 0;
+      visible += matched;
+    });
+    const empty = section2.querySelector("[data-catalog-browse-empty]");
+    if (empty) empty.hidden = visible > 0;
+    section2.dataset.catalogBrowseFiltering = normalized2 ? "true" : "false";
+    return visible;
+  }
+  function catalogBrowseSection(root) {
+    return root.querySelector("[data-catalog-browse]");
+  }
+  function installCatalogBrowseFilter(root) {
+    const section2 = catalogBrowseSection(root);
+    const input2 = section2?.querySelector("[data-catalog-browse-filter]");
+    if (!section2 || !input2 || input2.dataset.catalogBrowseFilterBound === "true") return;
+    input2.dataset.catalogBrowseFilterBound = "true";
+    input2.addEventListener("input", () => applyCatalogBrowseFilter(section2, input2.value));
+    input2.addEventListener("search", () => applyCatalogBrowseFilter(section2, input2.value));
+    input2.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" || event.isComposing) return;
+      event.preventDefault();
+      applyCatalogBrowseFilter(section2, input2.value);
+    });
+  }
+  function cardMatches(card, heading, query) {
+    const haystack = normalizeSearchQuery([
+      card.textContent ?? "",
+      card.dataset.catalogRecommendation ?? "",
+      card.dataset.definitionLanguage ?? ""
+    ].join(" "));
+    return haystack.includes(query) || heading.includes(query);
+  }
   const OFFICIAL_DICTIONARY_LANGUAGE_BY_NAME = Object.freeze({
     dutch: "nl",
     english: "en",
@@ -330063,12 +331692,22 @@ ${entry2.url}`),
   function localizeCatalogBrowseSection(form2, text2) {
     const section2 = form2.querySelector("[data-catalog-browse]");
     if (!section2) return;
-    const locale = resolveUiLanguageFromText(text2);
-    section2.querySelector("[data-catalog-browse-title]")?.replaceChildren(text2("mirroredDictionaries"));
+    const interfaceLanguage = resolveUiLanguageFromText(text2);
+    const learnerLanguageId = learnerLanguageByIdOrNull(section2.dataset.catalogBrowseLearnerLanguage ?? "")?.id ?? "en";
+    const japaneseInterface = interfaceLanguage === "ja";
+    const learnerLanguage2 = learnerLanguageById(learnerLanguageId);
+    const locale = japaneseInterface ? "ja" : learnerLanguage2.runtimeLocale;
+    const copy2 = japaneseInterface ? void 0 : catalogBrowseCopy(learnerLanguageId);
+    section2.lang = locale;
+    section2.dir = japaneseInterface ? "ltr" : learnerLanguage2.direction;
+    section2.querySelector("[data-catalog-browse-title]")?.replaceChildren(copy2?.title ?? text2("mirroredDictionaries"));
+    section2.querySelector("[data-catalog-browse-search-label]")?.replaceChildren(copy2?.searchLabel ?? text2("mirroredDictionarySearch"));
+    section2.querySelector("[data-catalog-browse-empty]")?.replaceChildren(copy2?.noResults ?? text2("mirroredDictionarySearchNoResults"));
     section2.querySelectorAll("[data-catalog-browse-category]").forEach((title2) => {
       const category = title2.dataset.catalogBrowseCategory;
-      const key2 = category ? CATALOG_BROWSE_CATEGORY_TEXT_KEYS[category] : void 0;
-      if (key2) title2.replaceChildren(text2(key2));
+      if (!category) return;
+      const label = copy2 ? copy2.categories[category] : text2(CATALOG_BROWSE_CATEGORY_TEXT_KEYS[category]);
+      if (label) title2.replaceChildren(label);
     });
     let count2 = 0;
     let bytes = 0;
@@ -330079,7 +331718,9 @@ ${entry2.url}`),
       bytes += dictionary.bytes ?? 0;
       item2.querySelector(".jpdb-reader-help")?.replaceChildren(catalogBrowseDescription(dictionary, locale));
     });
-    section2.querySelector("[data-catalog-browse-summary]")?.replaceChildren(catalogBrowseSummary(locale, count2, bytes));
+    const summaryTemplate = copy2?.summary ?? uiText("ja", "mirroredDictionariesSummary");
+    section2.querySelector("[data-catalog-browse-summary]")?.replaceChildren(catalogBrowseSummaryText(summaryTemplate, locale, count2, bytes));
+    applyCatalogBrowseFilter(section2, section2.querySelector("[data-catalog-browse-filter]")?.value ?? "");
   }
   function localizeRecommendedDictionaryDescriptions(form2, text2) {
     RECOMMENDED_JAPANESE_DICTIONARIES.forEach((dictionary) => {
@@ -330587,7 +332228,7 @@ ${entry2.url}`),
   function applySettingsSearch(form2, query) {
     const searchInput = form2.querySelector("[data-settings-search]");
     const empty = form2.querySelector("[data-settings-search-empty]");
-    const normalizedQuery = normalizeSettingsSearchText(query);
+    const normalizedQuery = normalizeSearchQuery(query);
     if (searchInput && searchInput.value !== query) searchInput.value = query;
     form2.dataset.settingsSearching = normalizedQuery ? "true" : "false";
     if (!normalizedQuery) {
@@ -330597,7 +332238,7 @@ ${entry2.url}`),
     }
     let visibleCount = 0;
     getSettingsPanelFieldsets(form2).forEach((fieldset) => {
-      const matches = normalizeSettingsSearchText(fieldset.textContent ?? "").includes(normalizedQuery);
+      const matches = normalizeSearchQuery(fieldset.textContent ?? "").includes(normalizedQuery);
       fieldset.hidden = !matches;
       if (matches) visibleCount += 1;
     });
@@ -330624,9 +332265,6 @@ ${entry2.url}`),
     if (panel === "reading" || panel === "reader") return "appearance";
     if (panel === "kanji") return "dictionaries";
     return panel;
-  }
-  function normalizeSettingsSearchText(value) {
-    return value.normalize("NFKC").toLocaleLowerCase().replace(/\s+/g, " ").trim();
   }
   function audioHelpHtml(language2) {
     const copy2 = uiText(language2, "audioHelp");
@@ -330863,22 +332501,34 @@ ${entry2.url}`),
                 </div>
             `;
     }).join("")}
-        ${renderCatalogBrowseSection(catalogBrowseGroupsForLearnerLanguage(learnerLanguage2), installed)}
+        ${renderCatalogBrowseSection(catalogBrowseGroupsForLearnerLanguage(learnerLanguage2), installed, learnerLanguage2)}
     `;
   }
-  function renderCatalogBrowseSection(groups, installed) {
+  function renderCatalogBrowseSection(groups, installed, learnerLanguageId) {
     const count2 = groups.reduce((total, group2) => total + group2.dictionaries.length, 0);
     if (!count2) return "";
+    const learnerLanguage2 = learnerLanguageById(learnerLanguageId);
+    const copy2 = catalogBrowseCopy(learnerLanguageId);
+    const locale = learnerLanguage2.runtimeLocale;
     return `
-        <section class="jpdb-reader-catalog-browse" data-catalog-browse>
-            <div class="jpdb-reader-recommended-title" data-catalog-browse-title>${escapedUiText("en", "mirroredDictionaries")}</div>
-            <div class="jpdb-reader-help jpdb-reader-catalog-browse-summary" data-catalog-browse-summary>${escapeHtml$2(catalogBrowseSummary("en", count2, catalogBrowseTotalBytes(groups)))}</div>
-            ${groups.map((group2) => `
-                <div class="jpdb-reader-recommended-group">
-                    <div class="jpdb-reader-recommended-group-title" data-catalog-browse-category="${escapeHtml$2(group2.category)}">${escapedUiText("en", CATALOG_BROWSE_CATEGORY_TEXT_KEYS[group2.category])}</div>
-                    ${group2.dictionaries.map((dictionary) => renderRecommendedDictionary(dictionary, installed)).join("")}
-                </div>
-            `).join("")}
+        <section class="jpdb-reader-catalog-browse" data-catalog-browse data-catalog-browse-learner-language="${escapeHtml$2(learnerLanguageId)}" lang="${escapeHtml$2(locale)}" dir="${learnerLanguage2.direction}">
+            <div class="jpdb-reader-recommended-title" data-catalog-browse-title>${escapeHtml$2(copy2.title)}</div>
+            <div class="jpdb-reader-help jpdb-reader-catalog-browse-summary" data-catalog-browse-summary>${escapeHtml$2(catalogBrowseSummaryText(copy2.summary, locale, count2, catalogBrowseTotalBytes(groups)))}</div>
+            <div class="jpdb-reader-catalog-browse-search">
+                <label>
+                    <span class="jpdb-reader-settings-label-text" data-catalog-browse-search-label>${escapeHtml$2(copy2.searchLabel)}</span>
+                    <input type="search" data-catalog-browse-filter autocomplete="off" aria-controls="jpdb-reader-catalog-browse-results"${AUTOFILL_IGNORE_ATTRIBUTE_HTML}>
+                </label>
+            </div>
+            <div id="jpdb-reader-catalog-browse-results" data-catalog-browse-results>
+                ${groups.map((group2) => `
+                    <div class="jpdb-reader-recommended-group" data-catalog-browse-group="${escapeHtml$2(group2.category)}">
+                        <div class="jpdb-reader-recommended-group-title" data-catalog-browse-category="${escapeHtml$2(group2.category)}">${escapeHtml$2(copy2.categories[group2.category])}</div>
+                        ${group2.dictionaries.map((dictionary) => renderRecommendedDictionary(dictionary, installed)).join("")}
+                    </div>
+                `).join("")}
+            </div>
+            <div class="jpdb-reader-help" data-catalog-browse-empty role="status" aria-live="polite" hidden>${escapeHtml$2(copy2.noResults)}</div>
         </section>
     `;
   }
@@ -330894,12 +332544,8 @@ ${entry2.url}`),
     encyclopedia: "encyclopediaDictionaries",
     utility: "utilityDictionaries"
   };
-  function catalogBrowseSummary(language2, count2, bytes) {
-    const locale = resolveUiLanguage(language2);
-    return formatUiText(language2, "mirroredDictionariesSummary", {
-      count: count2.toLocaleString(locale),
-      size: formatDictionaryBytes(bytes, locale)
-    });
+  function catalogBrowseSummaryText(template, locale, count2, bytes) {
+    return template.replaceAll("{count}", localizedNumber(count2, locale)).replaceAll("{size}", formatDictionaryBytes(bytes, locale));
   }
   function renderCatalogRecommendationSeed(dictionaries2, installed, learnerLanguageId) {
     if (!dictionaries2.length) return "";
@@ -332061,6 +333707,7 @@ ${entry2.url}`),
       this.bindFormSubmit(form2);
       this.bindFocusedControlScrolling(form2);
       this.bindSettingsSearch(form2);
+      installCatalogBrowseFilter(form2);
       this.bindSettingsTabs(form2);
       this.bindLivePreview(form2);
       this.bindEditorControls(form2);
@@ -332935,6 +334582,7 @@ ${entry2.url}`),
         selectedLearnerLanguage(form2, this.settings)
       );
       localizeSettingsForm(form2, getFormInterfaceLanguage(form2, this.settings.interfaceLanguage));
+      installCatalogBrowseFilter(form2);
       this.syncRecommendedDictionaryInstallControls(form2);
       this.syncDictionaryOperationState(form2);
       this.refreshSettingsJapaneseParse(form2);

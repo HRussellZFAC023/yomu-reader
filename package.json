@@ -1,6 +1,6 @@
 {
   "name": "yomu-reader",
-  "version": "1.8.11",
+  "version": "1.8.12",
   "private": true,
   "type": "module",
   "description": "\u3088\u3080: a Jiten/Bunpro/JPDB/WaniKani/Yomitan popup dictionary, study, and subtitle-mining userscript.",
@@ -29,6 +29,8 @@
       "https://yomureader.com/greasyfork/yomu-anki.user.js",
       "https://yomureader.com/greasyfork/yomu-audio.user.js",
       "https://yomureader.com/greasyfork/yomu-wanikani.user.js",
+      "https://yomureader.com/greasyfork/yomu-jpdb.user.js",
+      "https://yomureader.com/greasyfork/yomu-jiten.user.js",
       "https://yomureader.com/greasyfork/yomu-kanji-study.user.js",
       "https://yomureader.com/greasyfork/yomu-settings-surface.user.js",
       "https://yomureader.com/greasyfork/yomu-video.user.js"
@@ -198,7 +200,7 @@
     "smoke:release": "npm run smoke:p0 && npm run smoke:layout-regressions && npm run smoke:offline-study && npm run smoke:furigana-local-default && npm run smoke:youtube-controls-wake && npm run smoke:youtube-title-recycler && npm run smoke:study-flow-stability",
     "smoke:nightly": "node scripts/run-nightly-smokes.mjs",
     "smoke:reddit-chrome": "node scripts/reddit-chrome-furigana-smoke.mjs",
-    "smoke:layout-regressions": "npm run smoke:chip-mirror && npm run smoke:annotation-scroll && npm run smoke:constrained-gate && npm run smoke:reddit-chrome && npm run smoke:drag-handle && npm run smoke:subtitle-highlight && npm run smoke:host-css-armour",
+    "smoke:layout-regressions": "npm run smoke:chip-mirror && npm run smoke:annotation-scroll && npm run smoke:constrained-gate && npm run smoke:reddit-chrome && npm run smoke:drag-handle && npm run smoke:subtitle-highlight && npm run smoke:subtitle-furigana-outline && npm run smoke:host-css-armour",
     "manual:settings-layout": "node scripts/manual/settings-layout-smoke.mjs",
     "manual:subtitle-live-sites": "node scripts/manual/subtitle-live-video-site-smoke.mjs",
     "manual:subtitle-live-compat": "YOMU_LIVE_VIDEO_SITE_SET=compat node scripts/manual/subtitle-live-video-site-smoke.mjs",
@@ -232,6 +234,7 @@
     "smoke:transcript-drawer": "node scripts/transcript-drawer-row-smoke.mjs",
     "smoke:drag-handle": "node scripts/drag-handle-gesture-smoke.mjs",
     "smoke:subtitle-highlight": "node scripts/subtitle-highlight-layers-smoke.mjs",
+    "smoke:subtitle-furigana-outline": "node scripts/subtitle-furigana-outline-scale-smoke.mjs",
     "smoke:host-css-armour": "node scripts/host-css-armour-smoke.mjs"
   },
   "dependencies": {

@@ -64,6 +64,8 @@ assertCompanionBuildVersions();
 assertAnnotationsSplitBoundary();
 assertAudioSplitBoundary();
 assertWanikaniSplitBoundary();
+assertJpdbSplitBoundary();
+assertJitenSplitBoundary();
 assertKanjiStudySplitBoundary();
 assertNoStandaloneLegacyCopy();
 assertAnkiRenderSplitBoundary();
@@ -359,6 +361,48 @@ function assertWanikaniSplitBoundary() {
   ]);
   if (!code.includes('yomuWanikaniCompanion()?.WanikaniClient')) {
     fail(`${USERSCRIPT_RELATIVE_PATH} is missing the WaniKani companion facade.`);
+  }
+}
+
+function assertJpdbSplitBoundary() {
+  assertSplitBoundary('jpdb', 'Yomu JPDB', [
+    ['JpdbClient', 'class JpdbClient'],
+    ['JpdbApiClient', 'class JpdbApiClient'],
+    ['JpdbVocabularyClient', 'class JpdbVocabularyClient'],
+    ['JpdbPublicPitchClient', 'class JpdbPublicPitchClient'],
+    ['parseJpdbVocabularyHtml', 'function parseJpdbVocabularyHtml('],
+    ['jpdbParseResultToTokens', 'function jpdbParseResultToTokens('],
+    ['initJpdbReviewPageBridge', 'function initJpdbReviewPageBridge('],
+    ['parseJpdbReviewDocument', 'function parseJpdbReviewDocument('],
+    ['renderJpdbDefinitionSource', 'function renderJpdbDefinitionSource('],
+    ['renderedJpdbRelatedWords', 'function renderedJpdbRelatedWords('],
+  ]);
+  for (const facade of [
+    'yomuJpdbCompanion()?.JpdbClient',
+    'yomuJpdbCompanion()?.JpdbVocabularyClient',
+    'yomuJpdbCompanion()?.JpdbPublicPitchClient',
+    'yomuJpdbCompanion()?.initJpdbReviewPageBridge',
+    'yomuJpdbCompanion()?.renderJpdbDefinitionSource',
+    'yomuJpdbCompanion()?.renderedJpdbRelatedWords',
+  ]) {
+    if (!code.includes(facade)) fail(`${USERSCRIPT_RELATIVE_PATH} is missing the JPDB companion facade: ${facade}`);
+  }
+}
+
+function assertJitenSplitBoundary() {
+  assertSplitBoundary('jiten', 'Yomu Jiten', [
+    ['JitenPublicVocabularyClient', 'class JitenPublicVocabularyClient'],
+    ['publicJitenBackoffRemainingMs', 'function publicJitenBackoffRemainingMs('],
+    ['parsedCardHydrationKey', 'function parsedCardHydrationKey('],
+    ['renderJitenDefinitionSource', 'function renderJitenDefinitionSource('],
+  ]);
+  for (const facade of [
+    'yomuJitenCompanion()?.JitenPublicVocabularyClient',
+    'yomuJitenCompanion()?.parsedCardHydrationKey',
+    'yomuJitenCompanion()?.publicJitenBackoffRemainingMs',
+    'yomuJitenCompanion()?.renderJitenDefinitionSource',
+  ]) {
+    if (!code.includes(facade)) fail(`${USERSCRIPT_RELATIVE_PATH} is missing the Jiten companion facade: ${facade}`);
   }
 }
 

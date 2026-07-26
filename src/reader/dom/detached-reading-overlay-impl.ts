@@ -25,13 +25,29 @@ interface ProjectionRecord {
     graceFramesRemaining?: number;
     documentSpace?: boolean;
     scrollContextEpoch?: number;
+    // Painted width of the reading is natural width * readingScaleX, so the
+    // natural width can always be recovered from a live measurement.
+    readingScaleX?: number;
+    naturalReadingWidth?: number;
+    naturalReadingKey?: string;
+}
+
+/** Where a reading lands after crowding is resolved: viewport-space centre and
+ * the horizontal condense factor needed to keep it off its neighbours. */
+interface ProjectionLayout {
+    centre: number;
+    scaleX: number;
 }
 
 interface ProjectionPaint {
     record: ProjectionRecord;
     rect: DOMRect | null;
     visible: boolean;
+    layout?: ProjectionLayout;
 }
+
+/** A paint that will actually reach the page, so it competes for lane space. */
+type PlacedProjectionPaint = ProjectionPaint & { rect: DOMRect };
 
 type ProjectionEnvironmentObserver = ParkableObserver<Node, MutationObserverInit>;
 
@@ -88,6 +104,10 @@ const PROJECTED_READING_ATTRIBUTE = 'data-yomu-projected-reading';
 // Grace may bridge a measurement gap for a few frames, never longer: past this
 // age a missing rect means the word is gone, not mid-relayout.
 const PROJECTION_GRACE_MAX_AGE_MS = 250;
+// How far a reading may be condensed to stay off its neighbour. Past this the
+// kana stop being readable, so an extremely tight lane keeps a little overlap
+// rather than trading one unreadable rendering for another.
+const PROJECTED_READING_MIN_SCALE_X = 0.55;
 // Stands in for an animation-frame handle while a pass waits on a microtask, so
 // further events coalesce into it exactly as they would into a frame.
 const FRAMELESS_REFRESH_PENDING = -1;
@@ -121,6 +141,7 @@ export function syncProjectedReadings(
         records.delete(source);
     }
 
+    const paints: ProjectionPaint[] = [];
     for (const projection of projections) {
         let record = records.get(projection.source);
         if (!record) {
@@ -158,8 +179,11 @@ export function syncProjectedReadings(
         record.measure = projection.measure;
         refreshProjectionAnchorRoot(record.anchor, overlay);
         syncProjectedReadingStyle(record);
-        paintProjectedReading(record, projection.rect, context);
+        paints.push(readProjectedReadingPaint(record, projection.rect, context));
     }
+    // Crowding is a property of the WHOLE batch, so no clone may be written
+    // before every rect in it has been read.
+    applyProjectionPaints(paints, context);
 
     if (records.size) ownerRecords.set(owner, records);
     else ownerRecords.delete(owner);
@@ -308,14 +332,13 @@ function syncProjectedReadingStyle(record: ProjectionRecord): void {
     clone.style.setProperty('letter-spacing', sourceStyle.letterSpacing || baseStyle.letterSpacing, 'important');
     clone.style.setProperty('color', baseStyle.color || sourceStyle.color || 'currentColor', 'important');
     clone.style.setProperty('text-shadow', baseStyle.textShadow || 'none', 'important');
-}
-
-function paintProjectedReading(
-    record: ProjectionRecord,
-    rect: DOMRect,
-    context: ProjectionReadContext,
-): void {
-    applyProjectedReadingPaint(readProjectedReadingPaint(record, rect, context), context);
+    // Only the kana and their size decide how wide the reading wants to be, so
+    // the measured natural width survives every other repaint.
+    const key = `${clone.textContent ?? ''} ${clone.style.getPropertyValue('font-size')}`;
+    if (record.naturalReadingKey !== key) {
+        record.naturalReadingKey = key;
+        record.naturalReadingWidth = undefined;
+    }
 }
 
 function readProjectedReadingPaint(
@@ -374,36 +397,159 @@ function readProjectedReadingPaint(
     };
 }
 
+/**
+ * Write a whole batch of clones, never one. Every rect in the batch has to be
+ * read before the first write anyway (see runProjectionRefreshPass), and the
+ * crowding pass needs the batch as a unit: where a reading lands depends on
+ * where its lane neighbours land. A sync batch is one owner's readings, which is
+ * where neighbours on a line almost always live; the refresh pass that always
+ * follows a sync sees the page's whole record set and settles the rest.
+ */
+function applyProjectionPaints(paints: readonly ProjectionPaint[], context?: ProjectionReadContext): void {
+    resolveProjectedReadingCrowding(paints);
+    paints.forEach(paint => applyProjectedReadingPaint(paint, context));
+}
+
 function applyProjectedReadingPaint(paint: ProjectionPaint, context?: ProjectionReadContext): void {
     if (!paint.visible || !paint.rect) {
         paint.record.clone.style.setProperty('display', 'none', 'important');
         return;
     }
-    positionProjectedReading(paint.record, paint.rect, context);
+    positionProjectedReading(paint.record, paint.rect, context, paint.layout);
 }
 
 function positionProjectedReading(
     record: ProjectionRecord,
     rect: DOMRect,
     context?: ProjectionReadContext,
+    layout?: ProjectionLayout,
 ): void {
     const { clone } = record;
     const documentSpace = context ? adoptProjectionLayer(record, context) : false;
     const origin = documentSpace && context
         ? documentLayerOrigin(context.overlay)
         : { x: 0, y: 0 };
+    const centre = layout?.centre ?? rect.left + rect.width / 2;
+    const scaleX = layout?.scaleX ?? 1;
+    record.readingScaleX = scaleX;
     clone.style.setProperty('display', 'block', 'important');
-    clone.style.setProperty('left', `${rect.left + rect.width / 2 + origin.x}px`, 'important');
+    clone.style.setProperty('left', `${centre + origin.x}px`, 'important');
     clone.style.setProperty('top', `${rect.top + origin.y}px`, 'important');
     clone.style.setProperty('right', 'auto', 'important');
     clone.style.setProperty('bottom', 'auto', 'important');
-    clone.style.setProperty('transform', 'translate(-50%, -100%)', 'important');
+    // translate is origin-independent, but the condense is not: pin the origin
+    // so `left` stays the painted CENTRE of the reading at every scale.
+    clone.style.setProperty('transform-origin', 'center', 'important');
+    clone.style.setProperty(
+        'transform',
+        scaleX < 1 ? `translate(-50%, -100%) scaleX(${scaleX})` : 'translate(-50%, -100%)',
+        'important',
+    );
     // Stamps stay in viewport space in both modes so alignment guards and the
     // settle sweep keep reading one coordinate system.
     clone.dataset.yomuSourceLeft = String(rect.left);
     clone.dataset.yomuSourceTop = String(rect.top);
     clone.dataset.yomuSourceWidth = String(rect.width);
     clone.dataset.yomuSourceHeight = String(rect.height);
+}
+
+/**
+ * A detached reading is painted at its natural width over page-owned glyphs the
+ * reader is not allowed to widen. Native ruby makes room by stretching the base;
+ * an overlay cannot, so a reading longer than its base overhangs — and where the
+ * next word is annotated too, the two readings print on top of each other and
+ * both become unreadable (asmr-200's title paints かいらく over 快楽 and
+ * ちょうきょう over 調教 as a single smeared かいらちょうきょう; 繁體中文 loses
+ * three readings the same way).
+ *
+ * Ruby typography already has the rule: an annotation may overhang adjacent
+ * text, but never another annotation. Give each reading the space up to the
+ * midpoint between its own word and the next annotated word on the same line —
+ * so an isolated reading still overhangs freely — then condense only the part
+ * that still does not fit.
+ */
+function resolveProjectedReadingCrowding(paints: readonly ProjectionPaint[]): void {
+    const placed = paints.filter(isPlacedProjectionPaint);
+    if (placed.length < 2) return;
+    for (const lane of projectedReadingLanes(placed)) fitProjectedReadingLane(lane);
+}
+
+function isPlacedProjectionPaint(paint: ProjectionPaint): paint is PlacedProjectionPaint {
+    return paint.visible && paint.rect !== null;
+}
+
+/** Readings only crowd each other along one line of text. */
+function projectedReadingLanes(paints: readonly PlacedProjectionPaint[]): PlacedProjectionPaint[][] {
+    const sorted = [...paints].sort((first, second) =>
+        first.rect.top - second.rect.top || first.rect.left - second.rect.left);
+    const lanes: PlacedProjectionPaint[][] = [];
+    let lane: PlacedProjectionPaint[] | null = null;
+    let laneTop = 0;
+    for (const paint of sorted) {
+        // Half the word's height: a shared line varies by sub-pixel rounding and
+        // by mixed font sizes, never by a whole line.
+        if (!lane || Math.abs(paint.rect.top - laneTop) > Math.max(1, paint.rect.height / 2)) {
+            lane = [];
+            lanes.push(lane);
+            laneTop = paint.rect.top;
+        }
+        lane.push(paint);
+    }
+    return lanes;
+}
+
+function fitProjectedReadingLane(lane: PlacedProjectionPaint[]): void {
+    if (lane.length < 2) return;
+    lane.sort((first, second) => readingAnchorCentre(first) - readingAnchorCentre(second));
+    for (const [index, paint] of lane.entries()) {
+        const previous = lane[index - 1]?.rect;
+        const next = lane[index + 1]?.rect;
+        paint.layout = fitReadingBetween(
+            readingAnchorCentre(paint),
+            naturalReadingWidth(paint.record),
+            previous ? (previous.right + paint.rect.left) / 2 : Number.NEGATIVE_INFINITY,
+            next ? (paint.rect.right + next.left) / 2 : Number.POSITIVE_INFINITY,
+        );
+    }
+}
+
+function readingAnchorCentre(paint: PlacedProjectionPaint): number {
+    return paint.rect.left + paint.rect.width / 2;
+}
+
+function fitReadingBetween(centre: number, width: number, left: number, right: number): ProjectionLayout {
+    if (!(width > 0)) return { centre, scaleX: 1 };
+    const available = right - left;
+    const scaleX = available >= width ? 1 : Math.max(PROJECTED_READING_MIN_SCALE_X, available / width);
+    const painted = width * scaleX;
+    // A lane too tight even for the condense floor keeps every reading centred
+    // on its own word: sharing the remaining overlap evenly beats sliding one
+    // reading off the word it belongs to.
+    if (painted > available) return { centre, scaleX };
+    if (centre - painted / 2 < left) return { centre: left + painted / 2, scaleX };
+    if (centre + painted / 2 > right) return { centre: right - painted / 2, scaleX };
+    return { centre, scaleX };
+}
+
+/**
+ * Width the reading would take at scale 1. The painted box is that width times
+ * the condense already applied, so one live measurement recovers it; it is
+ * cached until the kana or their size change (see syncProjectedReadingStyle) so
+ * a dense page pays for it once per reading, not once per scroll frame.
+ */
+function naturalReadingWidth(record: ProjectionRecord): number {
+    if (record.naturalReadingWidth) return record.naturalReadingWidth;
+    const measured = record.clone.getBoundingClientRect().width;
+    const scale = record.readingScaleX ?? 1;
+    if (measured > 0 && scale > 0) {
+        record.naturalReadingWidth = measured / scale;
+        return record.naturalReadingWidth;
+    }
+    // A hidden clone (or a realm with no layout) still has to be placed. Kana
+    // are full-width, so the font size times the kana count is the right
+    // estimate and never caches over a real measurement.
+    const fontSize = Number.parseFloat(safeComputedStyle(record.clone).fontSize);
+    return Number.isFinite(fontSize) ? fontSize * (record.clone.textContent ?? '').length : 0;
 }
 
 /**
@@ -632,7 +778,7 @@ function runProjectionRefreshPass(overlay: DocumentOverlay): void {
         }
         return readProjectedReadingPaint(record, safeMeasure(record), context);
     });
-    paints.forEach(paint => applyProjectedReadingPaint(paint, context));
+    applyProjectionPaints(paints, context);
     // A pass that consumed grace owes the follow-up pass that retires it; the
     // coalesced scheduler makes this one extra frame, not a loop.
     if (overlay.graceRefreshNeeded) {

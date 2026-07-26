@@ -80,10 +80,13 @@
             "enum": [
               "primary-terms",
               "fallback-terms",
+              "monolingual",
               "names",
               "kanji",
+              "grammar",
               "frequency",
-              "pronunciation"
+              "pronunciation",
+              "examples"
             ]
           },
           "priority": { "type": "integer", "minimum": 0 },

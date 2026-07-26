@@ -2915,7 +2915,7 @@ function mountNonDestructiveTextMirror(
             removeTextMirror(host);
             return;
         }
-        stampMirrorWordSourceRanges(mirror, context.safeTokens);
+        stampMirrorWordSourceRanges(mirror, context.safeTokens, context.hostText);
         // Commit atomically: a framework host must never be concealed before
         // its replacement is connected and known to contain paintable text.
         ensureReaderStylesForHost(host);
@@ -2952,16 +2952,75 @@ function stabilizeReadingFreeControlMirror(mirror: HTMLElement, host: HTMLElemen
     if (height > 0) mirror.style.setProperty('line-height', `${height}px`, 'important');
 }
 
-function stampMirrorWordSourceRanges(mirror: HTMLElement, tokens: JPDBToken[]): void {
+function stampMirrorWordSourceRanges(mirror: HTMLElement, tokens: JPDBToken[], hostText = ''): void {
     const words = Array.from(mirror.querySelectorAll<HTMLElement>('.jpdb-reader-word.jpdb-reader-scan-word'));
-    const sourceText = mirror.dataset.sourceText ?? '';
+    const renderText = mirror.dataset.sourceText ?? '';
+    const hostStarts = mirrorHostSourceStarts(renderText, tokens, hostText);
+    if (hostStarts) mirror.dataset.yomuHostSourceText = hostText;
+    else delete mirror.dataset.yomuHostSourceText;
     for (const [index, word] of words.entries()) {
         const token = tokens[index];
         if (!token) continue;
-        word.dataset.yomuSourceStart = String(token.start);
-        word.dataset.yomuSourceEnd = String(token.end);
-        stampProjectedRubySourceRanges(word, sourceText.slice(token.start, token.end), token, token.start);
+        // A remapped mirror must not keep any render-coordinate stamp: the
+        // consumers below read every stamp as a host offset, so a leftover would
+        // project a reading onto unrelated glyphs.
+        if (hostStarts) clearMirrorWordSourceRange(word);
+        const start = hostStarts ? hostStarts.get(token) : token.start;
+        if (start === undefined) continue;
+        const surface = renderText.slice(token.start, token.end);
+        word.dataset.yomuSourceStart = String(start);
+        word.dataset.yomuSourceEnd = String(start + surface.length);
+        stampProjectedRubySourceRanges(word, surface, token, start);
     }
+}
+
+function clearMirrorWordSourceRange(word: HTMLElement): void {
+    delete word.dataset.yomuSourceStart;
+    delete word.dataset.yomuSourceEnd;
+    for (const wrapper of word.querySelectorAll<HTMLElement>('.jpdb-reader-detached-ruby')) {
+        delete wrapper.dataset.yomuSourceStart;
+        delete wrapper.dataset.yomuSourceEnd;
+    }
+}
+
+/**
+ * Source ranges are stamped in the coordinate system of the mirror's RENDERED
+ * text, and every consumer resolves them against the host's OWN text. Those are
+ * the same string whenever the render plan came from the host's text nodes — but
+ * a synthetic target is not: YouTube's watch-info line is assembled out of the
+ * `#view-count`/`#date-text` aria-labels joined with " • ", and a canvas
+ * fallback out of textContent. The stamps then index a string that exists
+ * nowhere in the DOM, so the live-geometry guard can never pass and BOTH source
+ * projection (no furigana at all) and source hit-testing (the word cannot be
+ * clicked) silently switch themselves off — the reported 回視聴.
+ *
+ * Re-express the stamps in host coordinates instead. The search is monotone:
+ * a surface is only accepted at or after the previous token's host end, so an
+ * invented separator or a reordered aria string can cost a token its projection
+ * but can never move one onto another word.
+ */
+function mirrorHostSourceStarts(
+    renderText: string,
+    tokens: readonly JPDBToken[],
+    hostText: string,
+): Map<JPDBToken, number> | null {
+    if (!hostText || !renderText || hostText === renderText) return null;
+    const starts = new Map<JPDBToken, number>();
+    let cursor = 0;
+    for (const token of tokens) {
+        const surface = renderText.slice(token.start, token.end);
+        if (!surface) continue;
+        const start = hostText.indexOf(surface, cursor);
+        if (start < 0) continue;
+        starts.set(token, start);
+        cursor = start + surface.length;
+    }
+    return starts.size ? starts : null;
+}
+
+/** The host text a mirror's stamped source ranges are expressed in. */
+function mirrorSourceHostText(mirror: HTMLElement): string {
+    return mirror.dataset.yomuHostSourceText ?? mirror.dataset.sourceText ?? '';
 }
 
 function stampProjectedRubySourceRanges(
@@ -3019,7 +3078,7 @@ function additiveMirrorProjectionContext(
 ): AdditiveMirrorProjectionContext | null {
     if (typeof Range !== 'function' || typeof Range.prototype.getClientRects !== 'function') return null;
     const source = hostOriginalTextWithNodeOffsets(host);
-    if (!host.isConnected || mirror.dataset.sourceText !== source.hostText) return null;
+    if (!host.isConnected || mirrorSourceHostText(mirror) !== source.hostText) return null;
 
     const hostRect = host.getBoundingClientRect();
     // An absolute child is laid out from the host's padding box. Match that
@@ -3358,12 +3417,55 @@ function scheduleAdditiveMirrorProjection(root: ParentNode = document): void {
     });
 }
 
+/** Live page geometry of the text one mirror host owns, measured once per resolve. */
+interface MirrorHostSourceGeometry {
+    hostText: string;
+    nodeOffsets: Map<Text, number>;
+    /** Client rects of the host's OWN glyphs — the run the mirror annotates. */
+    runRects: DOMRect[];
+}
+
+/** Live page geometry of one mirrored word plus the run it belongs to. */
+interface MirroredWordSourceGeometry {
+    rects: DOMRect[];
+    runRects: DOMRect[];
+}
+
+function mirrorHostSourceGeometry(
+    host: HTMLElement,
+    cache: Map<HTMLElement, MirrorHostSourceGeometry>,
+): MirrorHostSourceGeometry {
+    const cached = cache.get(host);
+    if (cached) return cached;
+    const source = hostOriginalTextWithNodeOffsets(host);
+    const geometry: MirrorHostSourceGeometry = {
+        hostText: source.hostText,
+        nodeOffsets: source.nodeOffsets,
+        runRects: source.hostText ? sourceRangeRects(host, source.nodeOffsets, 0, source.hostText.length) : [],
+    };
+    cache.set(host, geometry);
+    return geometry;
+}
+
+function sourceRangeRects(host: HTMLElement, nodeOffsets: Map<Text, number>, start: number, end: number): DOMRect[] {
+    const startBoundary = sourceRangeBoundary(nodeOffsets, start, 'start');
+    const endBoundary = sourceRangeBoundary(nodeOffsets, end, 'end');
+    if (!startBoundary || !endBoundary) return [];
+    const range = host.ownerDocument.createRange();
+    range.setStart(startBoundary.node, startBoundary.offset);
+    range.setEnd(endBoundary.node, endBoundary.offset);
+    return Array.from(range.getClientRects());
+}
+
 /**
- * Score a mirrored word against the geometry of the page-owned source range.
+ * Where a mirrored word's page-owned source text actually sits right now.
  * Additive mirrors can be displaced by framework layout/recycling; their own
  * boxes are never authoritative for hit testing.
  */
-export function readerWordSourcePointScore(word: HTMLElement, x: number, y: number): number | null {
+function mirroredWordSourceGeometry(
+    word: HTMLElement,
+    hosts: Map<HTMLElement, MirrorHostSourceGeometry> = new Map(),
+): MirroredWordSourceGeometry | null {
     const mirror = word.closest<HTMLElement>('.jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror');
     if (!mirror || typeof Range.prototype.getClientRects !== 'function') return null;
     const host = registeredTextMirrorHostFor(mirror);
@@ -3371,20 +3473,17 @@ export function readerWordSourcePointScore(word: HTMLElement, x: number, y: numb
     const start = Number.parseInt(word.dataset.yomuSourceStart ?? '', 10);
     const end = Number.parseInt(word.dataset.yomuSourceEnd ?? '', 10);
     if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return null;
-    const source = hostOriginalTextWithNodeOffsets(host);
-    if (mirror.dataset.sourceText !== source.hostText || end > source.hostText.length) return null;
-    const startBoundary = sourceRangeBoundary(source.nodeOffsets, start, 'start');
-    const endBoundary = sourceRangeBoundary(source.nodeOffsets, end, 'end');
-    if (!startBoundary || !endBoundary) return null;
-    const range = host.ownerDocument.createRange();
-    range.setStart(startBoundary.node, startBoundary.offset);
-    range.setEnd(endBoundary.node, endBoundary.offset);
-    let best: number | null = null;
-    for (const rect of Array.from(range.getClientRects())) {
-        const score = sourceRectPointScore(rect, x, y);
-        if (score !== null && (best === null || score < best)) best = score;
-    }
-    return best;
+    const geometry = mirrorHostSourceGeometry(host, hosts);
+    if (mirrorSourceHostText(mirror) !== geometry.hostText || end > geometry.hostText.length) return null;
+    return { rects: sourceRangeRects(host, geometry.nodeOffsets, start, end), runRects: geometry.runRects };
+}
+
+/**
+ * Score a mirrored word against the geometry of the page-owned source range.
+ */
+export function readerWordSourcePointScore(word: HTMLElement, x: number, y: number): number | null {
+    const geometry = mirroredWordSourceGeometry(word);
+    return geometry ? sourceRectsPointScore(geometry.rects, x, y) : null;
 }
 
 export function readerWordAtSourcePointInScope(
@@ -3393,14 +3492,34 @@ export function readerWordAtSourcePointInScope(
     y: number,
     accepts: (word: HTMLElement) => boolean = () => true,
 ): HTMLElement | null {
+    const hosts = new Map<HTMLElement, MirrorHostSourceGeometry>();
     let best: { word: HTMLElement; score: number } | null = null;
+    // A point inside an annotated run that no token covers — the digits of
+    // "4億回視聴", a "•" separator, the space in "21 年前" — used to resolve to
+    // NOTHING, and the click then fell through to the page. On YouTube's
+    // watch-info line that hands the host its own click: the description
+    // expands and the abbreviated view count is rewritten as the exact one, so
+    // the line the reader was aiming at moves out from under the pointer. The
+    // symptom is a metadata line that "cannot be clicked" however often it is
+    // tried. A run Yomu mirrored belongs to Yomu: inside it, the nearest word
+    // claims the point. Outside it nothing changes, so page links, buttons and
+    // the gaps BETWEEN runs keep their native click.
+    let nearest: { word: HTMLElement; distance: number } | null = null;
     const selector = '.jpdb-reader-additive-text-mirror .jpdb-reader-word[data-yomu-source-start][data-yomu-source-end]';
     for (const word of scope.querySelectorAll<HTMLElement>(selector)) {
         if (!accepts(word)) continue;
-        const score = readerWordSourcePointScore(word, x, y);
-        if (score !== null && (!best || score < best.score)) best = { word, score };
+        const geometry = mirroredWordSourceGeometry(word, hosts);
+        if (!geometry) continue;
+        const score = sourceRectsPointScore(geometry.rects, x, y);
+        if (score !== null) {
+            if (!best || score < best.score) best = { word, score };
+            continue;
+        }
+        if (best || !pointInsideSourceRects(geometry.runRects, x, y)) continue;
+        const distance = sourceRectsPointDistance(geometry.rects, x, y);
+        if (distance !== null && (!nearest || distance < nearest.distance)) nearest = { word, distance };
     }
-    return best?.word ?? null;
+    return best?.word ?? nearest?.word ?? null;
 }
 
 function sourceRangeBoundary(
@@ -3420,13 +3539,43 @@ function sourceRangeBoundary(
     return boundary;
 }
 
-function sourceRectPointScore(rect: DOMRect, x: number, y: number): number | null {
+const SOURCE_RECT_HIT_SLACK = 0.75;
+
+function sourceRectPointDistance(rect: DOMRect, x: number, y: number): number | null {
     if (rect.width <= 0 || rect.height <= 0) return null;
-    const slack = 0.75;
-    if (x < rect.left - slack || x > rect.right + slack || y < rect.top - slack || y > rect.bottom + slack) return null;
     const dx = x < rect.left ? rect.left - x : x > rect.right ? x - rect.right : 0;
     const dy = y < rect.top ? rect.top - y : y > rect.bottom ? y - rect.bottom : 0;
     return dx * dx + dy * dy;
+}
+
+function sourceRectPointScore(rect: DOMRect, x: number, y: number): number | null {
+    const distance = sourceRectPointDistance(rect, x, y);
+    if (distance === null) return null;
+    if (x < rect.left - SOURCE_RECT_HIT_SLACK || x > rect.right + SOURCE_RECT_HIT_SLACK
+        || y < rect.top - SOURCE_RECT_HIT_SLACK || y > rect.bottom + SOURCE_RECT_HIT_SLACK) return null;
+    return distance;
+}
+
+function sourceRectsPointScore(rects: readonly DOMRect[], x: number, y: number): number | null {
+    let best: number | null = null;
+    for (const rect of rects) {
+        const score = sourceRectPointScore(rect, x, y);
+        if (score !== null && (best === null || score < best)) best = score;
+    }
+    return best;
+}
+
+function sourceRectsPointDistance(rects: readonly DOMRect[], x: number, y: number): number | null {
+    let best: number | null = null;
+    for (const rect of rects) {
+        const distance = sourceRectPointDistance(rect, x, y);
+        if (distance !== null && (best === null || distance < best)) best = distance;
+    }
+    return best;
+}
+
+function pointInsideSourceRects(rects: readonly DOMRect[], x: number, y: number): boolean {
+    return rects.some(rect => sourceRectPointScore(rect, x, y) !== null);
 }
 
 // A document stylesheet does not cross an open shadow boundary. Keep the

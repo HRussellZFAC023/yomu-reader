@@ -19057,8 +19057,8 @@ html.jpdb-reader-doodle-active * {
   text-align: center;
   font: var(--subtitle-weight) var(--subtitle-font-size)/1.36 var(--subtitle-family);
   text-shadow:
-    0 1px 2px var(--subtitle-outline),
-    0 0 3px var(--subtitle-outline),
+    0 1px 2px var(--subtitle-outline, var(--jpdb-reader-video-outline)),
+    0 0 3px var(--subtitle-outline, var(--jpdb-reader-video-outline)),
     0 0 8px var(--jpdb-reader-video-shadow-strong),
     0 3px 12px var(--jpdb-reader-video-shadow);
   white-space: pre-wrap;
@@ -19242,7 +19242,7 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
   overflow-wrap: anywhere;
   word-break: normal;
   text-wrap: balance;
-  -webkit-text-stroke: .02em color-mix(in srgb, var(--subtitle-outline) 78%, transparent);
+  -webkit-text-stroke: .02em color-mix(in srgb, var(--subtitle-outline, var(--jpdb-reader-video-outline)) 78%, transparent);
   paint-order: stroke fill;
 }
 
@@ -19349,11 +19349,11 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
   text-underline-offset: .15em !important;
   white-space: nowrap;
   text-shadow:
-    0 1px 2px var(--subtitle-outline),
-    0 0 3px var(--subtitle-outline),
+    0 1px 2px var(--subtitle-outline, var(--jpdb-reader-video-outline)),
+    0 0 3px var(--subtitle-outline, var(--jpdb-reader-video-outline)),
     0 0 8px var(--jpdb-reader-video-shadow-strong),
     0 3px 12px var(--jpdb-reader-video-shadow);
-  -webkit-text-stroke: .02em color-mix(in srgb, var(--subtitle-outline) 78%, transparent);
+  -webkit-text-stroke: .02em color-mix(in srgb, var(--subtitle-outline, var(--jpdb-reader-video-outline)) 78%, transparent);
   paint-order: stroke fill;
 }
 
@@ -19569,10 +19569,58 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
      annotates; the outline below keeps it legible over video. */
   color: currentColor;
   opacity: 1;
+  /* Every radius and offset is em-relative, so the outline is the same SHAPE at
+     every cue size. It used to be fixed pixels (0 1px 1px / 0 0 3px / 0 0 7px),
+     which is what made kanji carrying a reading render dirtier than the
+     okurigana beside them:
+
+       * The clear space between the reading's ink and the kanji's ink is a
+         size-INVARIANT fraction of the reading — measured at ~0.25em in Blink
+         and ~0.43em in WebKit across 20/28/40/60px cues.
+       * A fixed 7px halo is 0.20em of the reading in a 60px cue but 0.43em in a
+         28px cue and 0.60em in a 20px one. So the same declaration that sits
+         inside the gap on a big cue overshoots it by ~1.7x at the product
+         default, painting a dark wash across the top of the kanji's band — and
+         only there, because okurigana carries no reading. Measured reach into
+         that band was 1.25x the whole gap at 20px and 28px: the halo did not
+         merely approach the kanji, it crossed onto it.
+
+     Shrinking the radii alone is not enough, and neither is a plain px->em
+     conversion: em radii calibrated to today's 28px look are 0.43em at EVERY
+     size, which measurably makes 40px and 60px cues worse than they are now.
+
+     The reach has to fit the gap at all sizes, and the ink lost to that has to
+     come back WITHOUT reaching further down. Depth, not width, is the lever: a
+     tight layer repeated stacks alpha in the one or two pixel rows that hug the
+     glyph, where the eye reads the edge, while its reach stays that same tight
+     radius. So the downward half is four short layers (0.022em x2, 0.045em x2)
+     rather than one wide one, and only the upward half — which paints over open
+     video, not over the kanji — is allowed a soft 0.24em atmosphere.
+
+     An interim version of this fix pushed nearly all the mass upward and left a
+     single 0.022em layer pointing down. That cured the wash but spent the
+     reading's own downward legibility, which is the thing this outline exists
+     for: glyph-vs-outline contrast BENEATH the kana over a bright frame fell
+     14.59 -> 4.96 at the 28px default and 11.29 -> 3.31 at 20px in Blink. The
+     stacked downward layers buy that back without buying back the reach.
+
+     Measured, per direction, at 20/28/40/60px in both engines: every direction
+     at every size in both engines is now at or above BOTH the owner-tuned pixel
+     build and that interim version — e.g. Blink 28px down 14.59 (pixel build)
+     / 4.96 (interim) / 17.94 (here); WebKit 20px down 3.25 / 4.23 / 7.33.
+     Downward reach is 0.086-0.172em, at most 0.50x the clear space, and the
+     wash the outline lays on the half of that space adjacent to the kanji is
+     <=0.08 luminance against <=5.52 for the pixel build. Verified by
+     scripts/subtitle-furigana-outline-scale-smoke.mjs in Blink and WebKit. */
   text-shadow:
-    0 1px 1px var(--subtitle-outline),
-    0 0 3px var(--subtitle-outline),
-    0 0 7px var(--jpdb-reader-video-shadow-heavy);
+    0 .022em .035em var(--subtitle-outline, var(--jpdb-reader-video-outline)),
+    0 .022em .035em var(--subtitle-outline, var(--jpdb-reader-video-outline)),
+    0 .045em .05em var(--subtitle-outline, var(--jpdb-reader-video-outline)),
+    0 .045em .05em var(--subtitle-outline, var(--jpdb-reader-video-outline)),
+    0 -.02em .075em var(--subtitle-outline, var(--jpdb-reader-video-outline)),
+    0 -.02em .075em var(--subtitle-outline, var(--jpdb-reader-video-outline)),
+    0 -.05em .1em var(--subtitle-outline, var(--jpdb-reader-video-outline)),
+    0 -.13em .24em var(--jpdb-reader-video-shadow-heavy);
 }
 
 :is(.jpdb-reader-popover, .yomu-jpdb-page-addon)
@@ -19609,11 +19657,11 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
   box-decoration-break: clone;
   box-shadow: none;
   text-shadow:
-    0 1px 2px var(--subtitle-outline),
-    0 0 3px var(--subtitle-outline),
+    0 1px 2px var(--subtitle-outline, var(--jpdb-reader-video-outline)),
+    0 0 3px var(--subtitle-outline, var(--jpdb-reader-video-outline)),
     0 0 8px var(--jpdb-reader-video-shadow-strong),
     0 3px 12px var(--jpdb-reader-video-shadow);
-  -webkit-text-stroke: .02em color-mix(in srgb, var(--subtitle-outline) 78%, transparent);
+  -webkit-text-stroke: .02em color-mix(in srgb, var(--subtitle-outline, var(--jpdb-reader-video-outline)) 78%, transparent);
   paint-order: stroke fill;
 }
 
@@ -19638,8 +19686,8 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
   color: var(--subtitle-color);
   font: var(--subtitle-weight) var(--subtitle-font-size)/1.36 var(--subtitle-family);
   text-shadow:
-    0 1px 2px var(--subtitle-outline),
-    0 0 3px var(--subtitle-outline),
+    0 1px 2px var(--subtitle-outline, var(--jpdb-reader-video-outline)),
+    0 0 3px var(--subtitle-outline, var(--jpdb-reader-video-outline)),
     0 0 8px var(--jpdb-reader-video-shadow-heavy);
 }
 

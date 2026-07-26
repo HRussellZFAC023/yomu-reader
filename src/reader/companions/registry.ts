@@ -16,6 +16,20 @@ export type AudioPlayerClass = typeof import('../audio/player').AudioPlayer;
 export type AudioPlayerInstance = InstanceType<AudioPlayerClass>;
 export type ReaderAudioActionsClass = typeof import('../audio/actions').ReaderAudioActions;
 export type ReaderAudioActionsInstance = InstanceType<ReaderAudioActionsClass>;
+export type JpdbClientClass = typeof import('../jpdb/jpdb').JpdbClient;
+export type JpdbClientInstance = InstanceType<JpdbClientClass>;
+export type JpdbVocabularyClientClass = typeof import('../jpdb/jpdb-vocabulary').JpdbVocabularyClient;
+export type JpdbVocabularyClientInstance = InstanceType<JpdbVocabularyClientClass>;
+export type JpdbPublicPitchClientClass = typeof import('../jpdb/jpdb-public-pitch').JpdbPublicPitchClient;
+export type JpdbPublicPitchClientInstance = InstanceType<JpdbPublicPitchClientClass>;
+type InitJpdbReviewPageBridgeFn = typeof import('../jpdb/jpdb-review-bridge').initJpdbReviewPageBridge;
+type RenderJpdbDefinitionSourceFn = typeof import('../jpdb/jpdb-definition-source-render').renderJpdbDefinitionSource;
+type RenderedJpdbRelatedWordsFn = typeof import('../jpdb/jpdb-related-words').renderedJpdbRelatedWords;
+export type JitenPublicVocabularyClientClass = typeof import('../dictionaries/jiten-public-vocabulary').JitenPublicVocabularyClient;
+export type JitenPublicVocabularyClientInstance = InstanceType<JitenPublicVocabularyClientClass>;
+type ParsedCardHydrationKeyFn = typeof import('../dictionaries/jiten-public-vocabulary').parsedCardHydrationKey;
+type PublicJitenBackoffRemainingMsFn = typeof import('../dictionaries/jiten-public-vocabulary').publicJitenBackoffRemainingMs;
+type RenderJitenDefinitionSourceFn = typeof import('../jiten/jiten-definition-source-render').renderJitenDefinitionSource;
 export type WanikaniClientClass = typeof import('../wanikani/wanikani').WanikaniClient;
 export type WanikaniLookupClientClass = typeof import('../wanikani/wanikani-lookup').WanikaniLookupClient;
 export type WanikaniSourceControllerClass = typeof import('../wanikani/wanikani-source').WanikaniSourceController;
@@ -114,6 +128,32 @@ interface YomuCompanionRegistry {
         WanikaniSourceController: WanikaniSourceControllerClass;
         renderWanikaniDefinitionMount: RenderWanikaniDefinitionMountFn;
         createWanikaniSrsAdapter: CreateWanikaniSrsAdapterFn;
+    };
+    // The JPDB provider suite (API client, public vocabulary/pitch scrapers,
+    // the jpdb.io review-page bridge, and the JPDB definition card) ships in
+    // the Yomu JPDB companion; core keeps the tiny shared text/pitch helpers
+    // its other providers already reuse. Without the companion every JPDB
+    // entry point behaves like an unconfigured provider: no requests, no
+    // review bridge, no JPDB definition section.
+    jpdb?: {
+        JpdbClient: JpdbClientClass;
+        JpdbVocabularyClient: JpdbVocabularyClientClass;
+        JpdbPublicPitchClient: JpdbPublicPitchClientClass;
+        initJpdbReviewPageBridge: InitJpdbReviewPageBridgeFn;
+        renderJpdbDefinitionSource: RenderJpdbDefinitionSourceFn;
+        renderedJpdbRelatedWords: RenderedJpdbRelatedWordsFn;
+    };
+    // The Jiten provider's keyless public vocabulary/parse client and its
+    // definition card ship in the Yomu Jiten companion. Core keeps the
+    // credentialed JitenApiClient (it is the shared card/frequency backbone);
+    // without the companion the public fallback answers nothing and the Jiten
+    // definition section renders empty rather than throwing.
+    jiten?: {
+        JitenPublicVocabularyClient: JitenPublicVocabularyClientClass;
+        JITEN_BACKGROUND_DETAIL_TIMEOUT_MS: number;
+        parsedCardHydrationKey: ParsedCardHydrationKeyFn;
+        publicJitenBackoffRemainingMs: PublicJitenBackoffRemainingMsFn;
+        renderJitenDefinitionSource: RenderJitenDefinitionSourceFn;
     };
     localDictionaries?: {
         YomitanDictionaryStore: typeof import('../dictionaries/yomitan').YomitanDictionaryStore;
@@ -280,6 +320,14 @@ export function yomuAudioCompanion(): NonNullable<YomuCompanionRegistry['audio']
 
 export function yomuWanikaniCompanion(): NonNullable<YomuCompanionRegistry['wanikani']> | undefined {
     return yomuCompanions().wanikani;
+}
+
+export function yomuJpdbCompanion(): NonNullable<YomuCompanionRegistry['jpdb']> | undefined {
+    return yomuCompanions().jpdb;
+}
+
+export function yomuJitenCompanion(): NonNullable<YomuCompanionRegistry['jiten']> | undefined {
+    return yomuCompanions().jiten;
 }
 
 export function yomuVideoCompanionSlot(): YomuCompanionRegistry['video'] | undefined {

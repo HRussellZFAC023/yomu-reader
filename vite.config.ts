@@ -159,6 +159,14 @@ function readerResolveConfig(command: string) {
         alias['../wanikani/wanikani-lookup'] = path.join(configRoot, 'src', 'reader', 'wanikani', 'wanikani-lookup-companion.ts');
         alias['../wanikani/wanikani-source'] = path.join(configRoot, 'src', 'reader', 'wanikani', 'wanikani-source-companion.ts');
         alias['../srs/wanikani'] = path.join(configRoot, 'src', 'reader', 'srs', 'wanikani-companion.ts');
+        alias['../jpdb/jpdb'] = path.join(configRoot, 'src', 'reader', 'jpdb', 'jpdb-companion.ts');
+        alias['../jpdb/jpdb-vocabulary'] = path.join(configRoot, 'src', 'reader', 'jpdb', 'jpdb-vocabulary-companion.ts');
+        alias['../jpdb/jpdb-public-pitch'] = path.join(configRoot, 'src', 'reader', 'jpdb', 'jpdb-public-pitch-companion.ts');
+        alias['../jpdb/jpdb-review-bridge'] = path.join(configRoot, 'src', 'reader', 'jpdb', 'jpdb-review-bridge-companion.ts');
+        alias['../jpdb/jpdb-definition-source-render'] = path.join(configRoot, 'src', 'reader', 'jpdb', 'jpdb-definition-source-render-companion.ts');
+        alias['../jpdb/jpdb-related-words'] = path.join(configRoot, 'src', 'reader', 'jpdb', 'jpdb-related-words-companion.ts');
+        alias['../dictionaries/jiten-public-vocabulary'] = path.join(configRoot, 'src', 'reader', 'dictionaries', 'jiten-public-vocabulary-companion.ts');
+        alias['../jiten/jiten-definition-source-render'] = path.join(configRoot, 'src', 'reader', 'jiten', 'jiten-definition-source-render-companion.ts');
         alias['../srs/account-sync'] = path.join(configRoot, 'src', 'reader', 'srs', 'account-sync-companion.ts');
         alias['../jiten/jiten-kanji-info-render'] = path.join(configRoot, 'src', 'reader', 'jiten', 'jiten-kanji-info-render-companion.ts');
         alias['../jiten/jiten-kanji-words-actions'] = path.join(configRoot, 'src', 'reader', 'jiten', 'jiten-kanji-words-actions-companion.ts');

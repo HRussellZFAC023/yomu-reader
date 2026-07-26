@@ -33,10 +33,13 @@ const CATEGORIES = new Set<DictionaryCategory>([
 const RECOMMENDATION_ROLES = new Set([
     'primary-terms',
     'fallback-terms',
+    'monolingual',
     'names',
     'kanji',
+    'grammar',
     'frequency',
     'pronunciation',
+    'examples',
 ]);
 
 class DictionaryManifestError extends Error {

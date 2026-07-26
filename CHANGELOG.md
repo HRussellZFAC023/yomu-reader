@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.8.12] - 2026-07-26
+
+### Added
+
+- Every dictionary Yomu mirrors can now be searched, and the shelf it recommends is no longer three entries deep. Settings suggested only a bilingual dictionary, a name dictionary and a kanji dictionary in every one of the thirty-two interface languages, while the monolingual Japanese dictionaries, the pitch-accent dictionaries, and the grammar, frequency and example collections sat mirrored and unreachable. The recommended shelf now spans those kinds, the full catalogue is filterable by name from the panel, and the browsing interface itself is translated into every language the rest of Settings already speaks.
+
+### Fixed
+
+- Furigana no longer collide with each other on pages of dense Japanese. A reading wider than the word beneath it overhangs on both sides, and where the next word carried a reading too, the two printed on top of one another and neither could be read. Ordinary web page ruby avoids this by stretching the word itself, which Yomu must not do to text it does not own, so readings that would overlap are now placed on separate rows instead.
+- Readings now appear on the view counts and dates beside a video title. Yomu builds that line from labels the site exposes for screen readers rather than from the page text, and those labels carry no position information, so there was nothing for a reading to be attached to.
+- Kanji carrying furigana no longer look dirtier than the plain characters beside them. The reading's dark outline, which keeps it legible over video, was sized in fixed pixels while everything around it scales with the caption, so on smaller captions it reached past the gap and washed the top of the character it belonged to. The outline now scales with the reading, and its depth is rebuilt close in rather than spread wide, so the reading stays at least as legible over bright video as it was before.
+
 ## [1.8.11] - 2026-07-26
 
 ### Fixed

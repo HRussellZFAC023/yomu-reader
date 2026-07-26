@@ -631,6 +631,8 @@ const COPY = {
         utilityDictionaries: 'Utility dictionaries',
         mirroredDictionaries: 'All mirrored dictionaries',
         mirroredDictionariesSummary: '{count} more dictionaries · {size} total',
+        mirroredDictionarySearch: 'Search dictionaries',
+        mirroredDictionarySearchNoResults: 'No dictionaries match your search.',
         install: 'Install',
         installing: 'Installing',
         queued: 'Queued',
@@ -2287,6 +2289,8 @@ encyclopediaDictionaries	百科事典
 utilityDictionaries	補助辞書
 mirroredDictionaries	配信中のすべての辞書
 mirroredDictionariesSummary	他{count}件の辞書 · 合計{size}
+mirroredDictionarySearch	辞書を検索
+mirroredDictionarySearchNoResults	検索に一致する辞書がありません。
 install	インストール
 installing	インストール中
 queued	待機中

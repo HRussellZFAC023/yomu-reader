@@ -133,7 +133,22 @@ export interface DictionaryLanguageManifest {
     languages: CatalogLanguage[];
 }
 
-export type RecommendationRole = 'primary-terms' | 'fallback-terms' | 'names' | 'kanji' | 'frequency' | 'pronunciation';
+/**
+ * A recommendation covers a whole reading setup, not just "a word list".
+ * Slice 1 shipped the bilingual starter (terms/names/kanji); the monolingual,
+ * grammar, frequency, pitch and example roles name the rest of the shelf so a
+ * learner language can seed them from the same frozen catalogue.
+ */
+export type RecommendationRole =
+    | 'primary-terms'
+    | 'fallback-terms'
+    | 'monolingual'
+    | 'names'
+    | 'kanji'
+    | 'grammar'
+    | 'frequency'
+    | 'pronunciation'
+    | 'examples';
 export type TranslationMode = 'off' | 'offer';
 
 export interface DictionaryRecommendation {

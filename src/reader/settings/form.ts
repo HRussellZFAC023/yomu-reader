@@ -31,6 +31,8 @@ import type { DictionaryPreference, ImmersionExampleSource, InterfaceLanguage, N
 import { WANIKANI_TOKEN_SETTINGS_URL } from '../wanikani/wanikani';
 import { RECOMMENDED_JAPANESE_DICTIONARIES, catalogBrowseGroupsForLearnerLanguage, findRecommendedDictionary, recommendedDictionariesForLearnerLanguage, type RecommendedDictionary, type RecommendedDictionaryCategory } from '../dictionaries/recommended';
 import { catalogBrowseDescription, catalogBrowseTotalBytes, formatDictionaryBytes, type CatalogBrowseGroup } from '../dictionaries/catalog-browse';
+import { catalogBrowseCopy, type CatalogBrowseCopy } from '../dictionaries/catalog-browse-copy';
+import { applyCatalogBrowseFilter, normalizeSearchQuery } from './catalog-browse-filter';
 import type { DictionaryCategory } from '../dictionaries/catalog';
 import { definitionSourceRows, kanjiSourceRows } from '../sources/sections';
 import type { YomitanDictionaryInfo } from '../dictionaries/yomitan';
@@ -2089,15 +2091,39 @@ function localizeRecommendedDictionaryGroups(form: HTMLFormElement, text: Settin
     });
 }
 
+/**
+ * An explicit Japanese interface owns the whole dialog, so it wins here too.
+ * Otherwise the panel keeps the learner's language: 'en' is also what 'auto'
+ * falls back to, and letting that fall-back overwrite a Vietnamese reader's
+ * chrome with English is exactly the regression this panel had.
+ */
 function localizeCatalogBrowseSection(form: HTMLFormElement, text: SettingsText): void {
     const section = form.querySelector<HTMLElement>('[data-catalog-browse]');
     if (!section) return;
-    const locale = resolveUiLanguageFromText(text);
-    section.querySelector<HTMLElement>('[data-catalog-browse-title]')?.replaceChildren(text('mirroredDictionaries'));
+    const interfaceLanguage = resolveUiLanguageFromText(text);
+    const learnerLanguageId = learnerLanguageByIdOrNull(section.dataset.catalogBrowseLearnerLanguage ?? '')?.id ?? 'en';
+    const japaneseInterface = interfaceLanguage === 'ja';
+    const learnerLanguage = learnerLanguageById(learnerLanguageId);
+    const locale = japaneseInterface ? 'ja' : learnerLanguage.runtimeLocale;
+    const copy: CatalogBrowseCopy | undefined = japaneseInterface ? undefined : catalogBrowseCopy(learnerLanguageId);
+    // The wrapper's lang/dir must describe the text actually rendered, or a
+    // right-to-left learner keeps an RTL box around Japanese chrome.
+    section.lang = locale;
+    section.dir = japaneseInterface ? 'ltr' : learnerLanguage.direction;
+
+    section.querySelector<HTMLElement>('[data-catalog-browse-title]')
+        ?.replaceChildren(copy?.title ?? text('mirroredDictionaries'));
+    section.querySelector<HTMLElement>('[data-catalog-browse-search-label]')
+        ?.replaceChildren(copy?.searchLabel ?? text('mirroredDictionarySearch'));
+    section.querySelector<HTMLElement>('[data-catalog-browse-empty]')
+        ?.replaceChildren(copy?.noResults ?? text('mirroredDictionarySearchNoResults'));
     section.querySelectorAll<HTMLElement>('[data-catalog-browse-category]').forEach((title) => {
         const category = title.dataset.catalogBrowseCategory as DictionaryCategory | undefined;
-        const key = category ? CATALOG_BROWSE_CATEGORY_TEXT_KEYS[category] : undefined;
-        if (key) title.replaceChildren(text(key));
+        if (!category) return;
+        const label = copy
+            ? copy.categories[category]
+            : text(CATALOG_BROWSE_CATEGORY_TEXT_KEYS[category]);
+        if (label) title.replaceChildren(label);
     });
     let count = 0;
     let bytes = 0;
@@ -2108,7 +2134,10 @@ function localizeCatalogBrowseSection(form: HTMLFormElement, text: SettingsText)
         bytes += dictionary.bytes ?? 0;
         item.querySelector<HTMLElement>('.jpdb-reader-help')?.replaceChildren(catalogBrowseDescription(dictionary, locale));
     });
-    section.querySelector<HTMLElement>('[data-catalog-browse-summary]')?.replaceChildren(catalogBrowseSummary(locale, count, bytes));
+    const summaryTemplate = copy?.summary ?? uiText('ja', 'mirroredDictionariesSummary');
+    section.querySelector<HTMLElement>('[data-catalog-browse-summary]')
+        ?.replaceChildren(catalogBrowseSummaryText(summaryTemplate, locale, count, bytes));
+    applyCatalogBrowseFilter(section, section.querySelector<HTMLInputElement>('[data-catalog-browse-filter]')?.value ?? '');
 }
 
 function localizeRecommendedDictionaryDescriptions(form: HTMLFormElement, text: SettingsText): void {
@@ -2552,7 +2581,7 @@ export function activateSettingsPanel(form: HTMLFormElement, panel: string): voi
 export function applySettingsSearch(form: HTMLFormElement, query: string): void {
     const searchInput = form.querySelector<HTMLInputElement>('[data-settings-search]');
     const empty = form.querySelector<HTMLElement>('[data-settings-search-empty]');
-    const normalizedQuery = normalizeSettingsSearchText(query);
+    const normalizedQuery = normalizeSearchQuery(query);
     if (searchInput && searchInput.value !== query) searchInput.value = query;
     form.dataset.settingsSearching = normalizedQuery ? 'true' : 'false';
 
@@ -2564,7 +2593,7 @@ export function applySettingsSearch(form: HTMLFormElement, query: string): void 
 
     let visibleCount = 0;
     getSettingsPanelFieldsets(form).forEach(fieldset => {
-        const matches = normalizeSettingsSearchText(fieldset.textContent ?? '').includes(normalizedQuery);
+        const matches = normalizeSearchQuery(fieldset.textContent ?? '').includes(normalizedQuery);
         fieldset.hidden = !matches;
         if (matches) visibleCount += 1;
     });
@@ -2595,10 +2624,6 @@ function normalizeSettingsPanel(panel: string): string {
     if (panel === 'reading' || panel === 'reader') return 'appearance';
     if (panel === 'kanji') return 'dictionaries';
     return panel;
-}
-
-function normalizeSettingsSearchText(value: string): string {
-    return value.normalize('NFKC').toLocaleLowerCase().replace(/\s+/g, ' ').trim();
 }
 
 function audioHelpHtml(language: InterfaceLanguage): string {
@@ -2872,28 +2897,45 @@ export function renderRecommendedDictionaries(installed: YomitanDictionaryInfo[]
             `;
             })
             .join('')}
-        ${renderCatalogBrowseSection(catalogBrowseGroupsForLearnerLanguage(learnerLanguage), installed)}
+        ${renderCatalogBrowseSection(catalogBrowseGroupsForLearnerLanguage(learnerLanguage), installed, learnerLanguage)}
     `;
 }
 
 // Recommendations are the preselected starting point; the mirror holds far more.
 // Everything else Yomu hosts is listed here so no dictionary is reachable only
-// by knowing its URL.
-function renderCatalogBrowseSection(groups: readonly CatalogBrowseGroup[], installed: YomitanDictionaryInfo[]): string {
+// by knowing its URL. Over a hundred cards is a list nobody scrolls, so the
+// panel carries its own filter — grouping alone does not make it searchable.
+function renderCatalogBrowseSection(
+    groups: readonly CatalogBrowseGroup[],
+    installed: YomitanDictionaryInfo[],
+    learnerLanguageId: LearnerLanguageId,
+): string {
     const count = groups.reduce((total, group) => total + group.dictionaries.length, 0);
     if (!count) return '';
+    const learnerLanguage = learnerLanguageById(learnerLanguageId);
+    const copy = catalogBrowseCopy(learnerLanguageId);
+    const locale = learnerLanguage.runtimeLocale;
     return `
-        <section class="jpdb-reader-catalog-browse" data-catalog-browse>
-            <div class="jpdb-reader-recommended-title" data-catalog-browse-title>${escapedUiText('en', 'mirroredDictionaries')}</div>
-            <div class="jpdb-reader-help jpdb-reader-catalog-browse-summary" data-catalog-browse-summary>${escapeHtml(catalogBrowseSummary('en', count, catalogBrowseTotalBytes(groups)))}</div>
-            ${groups
-                .map((group) => `
-                <div class="jpdb-reader-recommended-group">
-                    <div class="jpdb-reader-recommended-group-title" data-catalog-browse-category="${escapeHtml(group.category)}">${escapedUiText('en', CATALOG_BROWSE_CATEGORY_TEXT_KEYS[group.category])}</div>
-                    ${group.dictionaries.map((dictionary) => renderRecommendedDictionary(dictionary, installed)).join('')}
-                </div>
-            `)
-                .join('')}
+        <section class="jpdb-reader-catalog-browse" data-catalog-browse data-catalog-browse-learner-language="${escapeHtml(learnerLanguageId)}" lang="${escapeHtml(locale)}" dir="${learnerLanguage.direction}">
+            <div class="jpdb-reader-recommended-title" data-catalog-browse-title>${escapeHtml(copy.title)}</div>
+            <div class="jpdb-reader-help jpdb-reader-catalog-browse-summary" data-catalog-browse-summary>${escapeHtml(catalogBrowseSummaryText(copy.summary, locale, count, catalogBrowseTotalBytes(groups)))}</div>
+            <div class="jpdb-reader-catalog-browse-search">
+                <label>
+                    <span class="jpdb-reader-settings-label-text" data-catalog-browse-search-label>${escapeHtml(copy.searchLabel)}</span>
+                    <input type="search" data-catalog-browse-filter autocomplete="off" aria-controls="jpdb-reader-catalog-browse-results"${AUTOFILL_IGNORE_ATTRIBUTE_HTML}>
+                </label>
+            </div>
+            <div id="jpdb-reader-catalog-browse-results" data-catalog-browse-results>
+                ${groups
+                    .map((group) => `
+                    <div class="jpdb-reader-recommended-group" data-catalog-browse-group="${escapeHtml(group.category)}">
+                        <div class="jpdb-reader-recommended-group-title" data-catalog-browse-category="${escapeHtml(group.category)}">${escapeHtml(copy.categories[group.category])}</div>
+                        ${group.dictionaries.map((dictionary) => renderRecommendedDictionary(dictionary, installed)).join('')}
+                    </div>
+                `)
+                    .join('')}
+            </div>
+            <div class="jpdb-reader-help" data-catalog-browse-empty role="status" aria-live="polite" hidden>${escapeHtml(copy.noResults)}</div>
         </section>
     `;
 }
@@ -2911,12 +2953,10 @@ const CATALOG_BROWSE_CATEGORY_TEXT_KEYS: Readonly<Record<DictionaryCategory, Set
     utility: 'utilityDictionaries',
 };
 
-function catalogBrowseSummary(language: InterfaceLanguage, count: number, bytes: number): string {
-    const locale = resolveUiLanguage(language);
-    return formatUiText(language, 'mirroredDictionariesSummary', {
-        count: count.toLocaleString(locale),
-        size: formatDictionaryBytes(bytes, locale),
-    });
+function catalogBrowseSummaryText(template: string, locale: string, count: number, bytes: number): string {
+    return template
+        .replaceAll('{count}', localizedNumber(count, locale))
+        .replaceAll('{size}', formatDictionaryBytes(bytes, locale));
 }
 
 function renderCatalogRecommendationSeed(dictionaries: readonly RecommendedDictionary[], installed: YomitanDictionaryInfo[], learnerLanguageId: LearnerLanguageId): string {

@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "catalogRevision": "2026-07-23.574961e8",
+  "targetLanguage": "ja",
+  "note": "Roles beyond the bilingual starter (primary/fallback terms, names, kanji). One frozen catalogue title per role, chosen once for every learner language: the target language does not change with the learner's, so a monolingual, grammar, frequency, pitch or example title is the same recommendation for all 32. Priorities continue the starter's 10/20/30.",
+  "slots": [
+    {
+      "role": "monolingual",
+      "priority": 40,
+      "dictionaryId": "drive-japanese-ja-ja-ukmi3vhk6",
+      "selectedByDefault": false,
+      "offerTranslation": true,
+      "note": "新明解国語辞典 第八版 — the smallest of the mainstream monolingual desk dictionaries, so the first Japanese-in-Japanese step is a 10 MB download rather than 83 MB."
+    },
+    {
+      "role": "grammar",
+      "priority": 50,
+      "dictionaryId": "drive-japanese-ja-en-grammar-dojg-consolidated-v1-01-hkdf6lnvmw",
+      "selectedByDefault": false,
+      "offerTranslation": true,
+      "note": "Dictionary of Japanese Grammar (consolidated) — the reference grammar entry point; bilingual, so machine translation can carry it into a learner language that has no native grammar dictionary."
+    },
+    {
+      "role": "frequency",
+      "priority": 60,
+      "dictionaryId": "drive-japanese-ja-freq-jpdb-v2-2-frequency-kana-2024-10-13-p5yytox4s0",
+      "selectedByDefault": true,
+      "offerTranslation": false,
+      "note": "JPDB v2.2 kana frequency — matches the curated Japanese frequency default and orders lookups from the first install."
+    },
+    {
+      "role": "pronunciation",
+      "priority": 70,
+      "dictionaryId": "drive-japanese-pitch-nhk-lpvpeu-xlu",
+      "selectedByDefault": true,
+      "offerTranslation": false,
+      "note": "NHK日本語発音アクセント新辞典 — the reference pitch-accent dictionary; 2 MB, so pitch is on by default."
+    },
+    {
+      "role": "examples",
+      "priority": 80,
+      "dictionaryId": "drive-japanese-ja-ja-sentences-jp-82ywlzigse",
+      "selectedByDefault": false,
+      "offerTranslation": true,
+      "note": "用例.jp — the catalogue's only sentence-example collection for Japanese headwords."
+    }
+  ]
+}
