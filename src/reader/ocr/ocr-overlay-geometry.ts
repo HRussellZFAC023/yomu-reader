@@ -1,5 +1,31 @@
 import type { OcrRect } from './response';
 
+// Every OCR surface anchors recognized text over a source box, so every one of them
+// needs the same answer to "how big is this line?". Sizing it per surface is what let
+// the gaming overlay drift out of register with the text underneath it.
+export function ocrFontPx(text: string, boxWidth: number, boxHeight: number, vertical: boolean, scale: number): number {
+    const safeScale = Math.max(0.7, Math.min(1.8, scale));
+    const length = Math.max(1, visualTextLength(text));
+    const byBoxThickness = vertical ? boxWidth * 0.72 : boxHeight * 0.58;
+    const byBoxLength = vertical ? (boxHeight / length) * 1.12 : (boxWidth / length) * 1.08;
+    const fitted = Math.min(byBoxThickness, byBoxLength) * safeScale;
+    return Math.max(11, Math.min(38, fitted));
+}
+
+// Kana and kanji occupy a full em; latin and whitespace do not. Counting characters
+// instead would oversize any line with punctuation or romaji in it.
+export function visualTextLength(text: string): number {
+    return [...text.trim()].reduce((total, char) => {
+        if (/\s/.test(char)) return total + 0.35;
+        if ((char.codePointAt(0) ?? 0) <= 0xff) return total + 0.62;
+        return total + 1;
+    }, 0);
+}
+
+export function shouldCenterOcrText(text: string): boolean {
+    return visualTextLength(text) <= 1.5;
+}
+
 export function imageContentBox(image: HTMLImageElement, rect: DOMRect, style: CSSStyleDeclaration): OcrRect {
     const scaleX = rectScale(rect.width, image.offsetWidth);
     const scaleY = rectScale(rect.height, image.offsetHeight);

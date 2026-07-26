@@ -12,7 +12,7 @@ import {
     offsetOcrResult,
     splitImageIntoPageColumns,
 } from './image-preprocess';
-import { fittedObjectSize, imageContentBox, objectPositionOffset } from './ocr-overlay-geometry';
+import { fittedObjectSize, imageContentBox, objectPositionOffset, ocrFontPx, shouldCenterOcrText } from './ocr-overlay-geometry';
 import { isOcrProviderConfigured, ocrRecognizer, requestBlob, type OcrRecognizer } from './ocr-providers';
 import { imageCacheKey, isOcrRequestTimeout, localOcrEndpointUrl, ocrAttemptTimeoutMs } from './ocr-shared';
 import { normalizeOcrRenderedText } from './rendered-text';
@@ -3991,31 +3991,13 @@ function parseFallbackOcrLines(data: string | undefined, width: number, height: 
     }
 }
 
-function ocrFontPx(text: string, boxWidth: number, boxHeight: number, vertical: boolean, scale: number): number {
-    const safeScale = Math.max(0.7, Math.min(1.8, scale));
-    const length = Math.max(1, visualTextLength(text));
-    const byBoxThickness = vertical ? boxWidth * 0.72 : boxHeight * 0.58;
-    const byBoxLength = vertical ? (boxHeight / length) * 1.12 : (boxWidth / length) * 1.08;
-    const fitted = Math.min(byBoxThickness, byBoxLength) * safeScale;
-    return Math.max(11, Math.min(38, fitted));
-}
 
 function ocrWordUnderlineBleedPx(fontSize: number): number {
     return Math.ceil(fontSize * (OCR_WORD_UNDERLINE_OFFSET_EM + OCR_WORD_UNDERLINE_THICKNESS_EM))
         + OCR_WORD_UNDERLINE_CLEARANCE_PX;
 }
 
-function visualTextLength(text: string): number {
-    return [...text.trim()].reduce((total, char) => {
-        if (/\s/.test(char)) return total + 0.35;
-        if (/[\u0000-\u00ff]/.test(char)) return total + 0.62;
-        return total + 1;
-    }, 0);
-}
 
-function shouldCenterOcrText(text: string): boolean {
-    return visualTextLength(text) <= 1.5;
-}
 
 function clampNumber(value: number, min: number, max: number): number {
     return Math.min(max, Math.max(min, value));

@@ -907,7 +907,10 @@ textarea {
     margin: 0;
     min-height: 1em;
     max-width: calc(100vw - 24px);
-    font-size: 15px;
+    /* Inherit the per-line size the renderer computes from the OCR box. A fixed size
+       here rendered a 44px line of game dialogue at 15px, so the overlay drifted
+       further out of register with the text underneath it across the line. */
+    font-size: inherit;
     line-height: 1.25;
     white-space: nowrap;
     /* Hide the raw OCR text; the reader-injected word spans below are the visible layer. */
@@ -1045,6 +1048,5 @@ textarea {
 
     .overlay-inline-text {
         max-width: min(100%, calc(100vw - 24px));
-        font-size: 13px;
     }
 }

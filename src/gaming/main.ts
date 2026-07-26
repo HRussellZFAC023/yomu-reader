@@ -141,9 +141,11 @@ function mainWindowOptions(): Pick<BrowserWindowConstructorOptions, 'x' | 'y' | 
 async function ensureOverlayWindow(mode: YomuGamingCaptureMode): Promise<BrowserWindow> {
     const hash = overlayHash(mode);
     if (overlayWindow && !overlayWindow.isDestroyed()) {
-        if (new URL(overlayWindow.webContents.getURL()).hash !== `#${hash}`) {
-            await overlayWindow.loadURL(rendererUrl(hash));
-        }
+        // Always reload, even when the mode is unchanged. The renderer reads the frozen
+        // frame exactly once per document (its controller is guarded by a `started`
+        // flag), so reusing the document replayed the FIRST capture on every later
+        // press — the scene had moved on but the overlay still showed the old one.
+        await overlayWindow.loadURL(rendererUrl(hash));
         return overlayWindow;
     }
     const display = screen.getPrimaryDisplay();

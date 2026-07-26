@@ -8,6 +8,7 @@ import '../../reader/companions/register-build-companions';
 import type { InterfaceLanguage, ReaderSettings } from '../../reader/app/types';
 import { bootReaderApp } from '../../reader/app/boot';
 import { escapeHtml } from '../../reader/dom/index';
+import { ocrFontPx } from '../../reader/ocr/ocr-overlay-geometry';
 import { DEFAULT_SETTINGS, formatShortcutEvent, normalizeReaderSettings } from '../../reader/settings';
 import {
     activateSettingsPanel,
@@ -1228,7 +1229,7 @@ function overlayInlineResultHtml(result: OverlayResult): string {
 // bundled Yomu reader scans these nodes in place: it adds furigana and wires the full
 // hover/click popover (definitions, pitch, kanji, SRS) onto the words it finds.
 function overlayInlineLineHtml(line: OverlayLineResult): string {
-    return `<div class="overlay-inline-line" data-ocr-line data-vertical="${line.vertical}" style="${inlineLineStyle(line.box)}">
+    return `<div class="overlay-inline-line" data-ocr-line data-vertical="${line.vertical}" style="${inlineLineStyle(line)}">
         <p class="overlay-inline-text" lang="ja">${escapeHtml(line.text)}</p>
     </div>`;
 }
@@ -1237,12 +1238,21 @@ function overlayInlineLineHtml(line: OverlayLineResult): string {
 // stylesheet can size the text column. Vertical lines get a tall/narrow column
 // (writing-mode handled in CSS); horizontal lines get the box width. Neither path
 // truncates the recognized text any more.
-function inlineLineStyle(box: YomuGamingSelectionRect): string {
+//
+// The font size comes from the same helper the reader's OCR overlay uses, so a line
+// here lands at the size the source text actually occupies. Leaving it to a static
+// stylesheet rule rendered every line at one size, which drifted further out of
+// register with the text underneath the longer the line got.
+function inlineLineStyle(line: OverlayLineResult): string {
+    const box = line.box;
+    const width = Math.max(1, box.width);
+    const height = Math.max(1, box.height);
     return [
         `left:${Math.round(box.left)}px`,
         `top:${Math.round(box.top)}px`,
-        `--ocr-w:${Math.round(Math.max(1, box.width))}px`,
-        `--ocr-h:${Math.round(Math.max(1, box.height))}px`,
+        `--ocr-w:${Math.round(width)}px`,
+        `--ocr-h:${Math.round(height)}px`,
+        `font-size:${ocrFontPx(line.text, width, height, line.vertical, 1).toFixed(2)}px`,
     ].join(';');
 }
 
