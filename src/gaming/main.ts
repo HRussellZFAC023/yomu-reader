@@ -2,6 +2,12 @@ import { app, BrowserWindow, desktopCapturer, dialog, globalShortcut, ipcMain, n
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
+import {
+    captureTargetForDisplay,
+    selectCaptureSourceForDisplay,
+    type GamingCaptureTarget,
+    type GamingDisplayGeometry,
+} from './display';
 import { requestGamingOcr } from './ocr';
 import {
     YOMU_GAMING_CHANNELS,
@@ -16,10 +22,6 @@ import {
 
 const DEFAULT_HOTKEY = 'CommandOrControl+Shift+Y';
 const APP_NAME = 'Yomu Gaming';
-// OCR runs on the full-screen grab, so capture at the display's native framebuffer
-// (logical size x scaleFactor) instead of a 1080p thumbnail. Retina/4K text is lost
-// otherwise. Cap the long edge so a 5K/8K panel can't blow up the OCR payload.
-const MAX_CAPTURE_EDGE = 3840;
 // macOS hands back an EMPTY screen thumbnail on the first desktopCapturer call after
 // launch — ScreenCaptureKit has not warmed up yet. Measured on 5/5 cold starts, and
 // twice in a row on one of them. Without a retry the first hotkey press of every
@@ -80,6 +82,9 @@ let registeredHotkey: string | null = null;
 // then the overlay reads/crops from this frozen frame. This is what keeps the
 // overlay's own selection chrome out of the OCR'd image.
 let frozenCapture: YomuGamingCaptureSource | null = null;
+// The display this overlay session belongs to. Held for as long as the overlay is up
+// so a re-capture re-reads the same screen the player is looking at.
+let activeCaptureTarget: GamingCaptureTarget | null = null;
 
 function rendererUrl(hash = ''): string {
     const devUrl = process.env.YOMU_GAMING_RENDERER_URL;
@@ -129,7 +134,7 @@ async function createMainWindow(): Promise<void> {
 }
 
 function mainWindowOptions(): Pick<BrowserWindowConstructorOptions, 'x' | 'y' | 'width' | 'height'> {
-    const workArea = screen.getPrimaryDisplay().workArea;
+    const workArea = activeDisplay().workArea;
     return {
         x: workArea.x,
         y: workArea.y,
@@ -138,7 +143,41 @@ function mainWindowOptions(): Pick<BrowserWindowConstructorOptions, 'x' | 'y' | 
     };
 }
 
-async function ensureOverlayWindow(mode: YomuGamingCaptureMode): Promise<BrowserWindow> {
+// The display the player is looking at: the one under the pointer. Everything that
+// used to assume the primary display — the window, the overlay, the screen grab —
+// goes through here, so a game on the second monitor is read on the second monitor.
+function activeDisplay(): Electron.Display {
+    try {
+        return screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+    } catch {
+        return screen.getPrimaryDisplay();
+    }
+}
+
+// Resolved once per capture and threaded through the overlay bounds AND the grab, so
+// the two can never disagree about which screen the frozen frame came from.
+function resolveCaptureTarget(): GamingCaptureTarget {
+    const display = activeDisplay();
+    let displays: Electron.Display[] = [];
+    try {
+        displays = screen.getAllDisplays();
+    } catch {
+        displays = [display];
+    }
+    return captureTargetForDisplay(displays.map(displayGeometry), displayGeometry(display));
+}
+
+function displayGeometry(display: Electron.Display): GamingDisplayGeometry {
+    return {
+        id: String(display.id),
+        bounds: display.bounds,
+        workArea: display.workArea,
+        size: display.size,
+        scaleFactor: display.scaleFactor,
+    };
+}
+
+async function ensureOverlayWindow(mode: YomuGamingCaptureMode, target: GamingCaptureTarget): Promise<BrowserWindow> {
     const hash = overlayHash(mode);
     if (overlayWindow && !overlayWindow.isDestroyed()) {
         // Always reload, even when the mode is unchanged. The renderer reads the frozen
@@ -148,12 +187,11 @@ async function ensureOverlayWindow(mode: YomuGamingCaptureMode): Promise<Browser
         await overlayWindow.loadURL(rendererUrl(hash));
         return overlayWindow;
     }
-    const display = screen.getPrimaryDisplay();
     overlayWindow = new BrowserWindow({
-        x: display.bounds.x,
-        y: display.bounds.y,
-        width: display.bounds.width,
-        height: display.bounds.height,
+        x: target.bounds.x,
+        y: target.bounds.y,
+        width: target.bounds.width,
+        height: target.bounds.height,
         frame: false,
         transparent: true,
         fullscreenable: true,
@@ -245,16 +283,18 @@ async function showOverlay(mode: YomuGamingCaptureMode = 'instant'): Promise<voi
         await waitForCompositorFrame();
     }
     try {
-        frozenCapture = await captureFrozenFrame();
-        const window = await ensureOverlayWindow(mode);
-        const display = screen.getPrimaryDisplay();
-        window.setBounds(display.bounds);
+        const target = resolveCaptureTarget();
+        activeCaptureTarget = target;
+        frozenCapture = await captureFrozenFrame(target);
+        const window = await ensureOverlayWindow(mode, target);
+        window.setBounds(target.bounds);
         window.show();
         window.focus();
     } catch (error) {
         // We hid the app to take a clean frame. If anything after that fails we must
         // put it back, or the shortcut just makes Yomu disappear with nothing to show.
         frozenCapture = null;
+        activeCaptureTarget = null;
         if (hidMainWindow && mainWindow && !mainWindow.isDestroyed()) {
             mainWindow.show();
             mainWindow.focus();
@@ -271,16 +311,17 @@ function reportOverlayFailure(error: unknown): void {
 function hideOverlay(): void {
     overlayWindow?.hide();
     frozenCapture = null;
+    activeCaptureTarget = null;
 }
 
-async function captureFrozenFrame(): Promise<YomuGamingCaptureSource> {
+async function captureFrozenFrame(target: GamingCaptureTarget): Promise<YomuGamingCaptureSource> {
     const wasOverlayVisible = Boolean(overlayWindow && !overlayWindow.isDestroyed() && overlayWindow.isVisible());
     if (wasOverlayVisible) {
         overlayWindow?.hide();
         await waitForCompositorFrame();
     }
     try {
-        return await capturePrimaryScreen();
+        return await captureTargetScreen(target);
     } finally {
         if (wasOverlayVisible && overlayWindow && !overlayWindow.isDestroyed()) {
             overlayWindow.show();
@@ -335,16 +376,24 @@ function environmentStatus(): YomuGamingEnvironment {
     };
 }
 
-async function captureSources(width: number, height: number): Promise<YomuGamingCaptureSource[]> {
-    const simulated = simulatedCaptureSource();
-    if (simulated) return [simulated];
+interface ScreenCaptureCandidate {
+    id: string;
+    name: string;
+    kind: YomuGamingCaptureSource['kind'];
+    displayId: string;
+    thumbnail: Electron.NativeImage;
+}
+
+// Cheap listing only — the native images stay unencoded here so we can pick first
+// and pay for exactly one PNG.
+async function captureCandidates(size: { width: number; height: number }): Promise<ScreenCaptureCandidate[]> {
     assertScreenAccess();
     // Only ever the screen: we grab the whole display and crop from the frozen frame.
     // Asking for window thumbnails too made every capture render 14 extra native-size
     // images for nothing (measured 550ms vs 351ms).
     const sources = await desktopCapturer.getSources({
         types: ['screen'],
-        thumbnailSize: { width, height },
+        thumbnailSize: size,
         fetchWindowIcons: false,
     }).catch(error => {
         throw new Error(screenCaptureErrorMessage(error));
@@ -356,23 +405,34 @@ async function captureSources(width: number, height: number): Promise<YomuGaming
             name: source.name,
             kind: captureSourceKind(source.id),
             displayId: source.display_id || '',
-            thumbnailDataUrl: source.thumbnail.toDataURL(),
-            size: source.thumbnail.getSize(),
+            thumbnail: source.thumbnail,
         }));
 }
 
-async function capturePrimaryScreen(): Promise<YomuGamingCaptureSource> {
-    const primaryDisplay = screen.getPrimaryDisplay();
-    const primaryDisplayId = String(primaryDisplay.id);
-    const { width, height } = nativeCaptureSize(primaryDisplay);
+// Base64-encoding a native-size screenshot is the expensive step, so it happens once,
+// on the screen we actually chose. Encoding every returned source first charged the
+// user a full 4K PNG per extra monitor on every single press.
+function encodeCaptureSource(candidate: ScreenCaptureCandidate): YomuGamingCaptureSource {
+    return {
+        id: candidate.id,
+        name: candidate.name,
+        kind: candidate.kind,
+        displayId: candidate.displayId,
+        thumbnailDataUrl: candidate.thumbnail.toDataURL(),
+        size: candidate.thumbnail.getSize(),
+    };
+}
+
+async function captureTargetScreen(target: GamingCaptureTarget): Promise<YomuGamingCaptureSource> {
+    const simulated = simulatedCaptureSource();
+    if (simulated) return simulated;
     for (let attempt = 0; attempt < CAPTURE_ATTEMPTS; attempt += 1) {
         if (attempt > 0) await wait(CAPTURE_RETRY_DELAY_MS);
-        // An empty thumbnail is dropped by captureSources, so a cold screen simply
+        // An empty thumbnail is dropped by captureCandidates, so a cold screen simply
         // yields no sources — that is the case worth retrying.
-        const sources = await captureSources(width, height);
-        const source = sources.find(candidate => candidate.kind === 'screen' && candidate.displayId === primaryDisplayId)
-            ?? sources.find(candidate => candidate.kind === 'screen');
-        if (source) return source;
+        const candidates = await captureCandidates(target.captureSize);
+        const chosen = selectCaptureSourceForDisplay(candidates, target);
+        if (chosen) return encodeCaptureSource(chosen);
     }
     throw new Error('No capture source is available.');
 }
@@ -383,13 +443,21 @@ function wait(ms: number): Promise<void> {
 
 async function getFrozenCapture(): Promise<YomuGamingCaptureSource> {
     if (frozenCapture) return frozenCapture;
-    frozenCapture = await captureFrozenFrame();
+    frozenCapture = await captureFrozenFrame(sessionCaptureTarget());
     return frozenCapture;
 }
 
 async function recaptureFrozenFrame(): Promise<YomuGamingCaptureSource> {
-    frozenCapture = await captureFrozenFrame();
+    frozenCapture = await captureFrozenFrame(sessionCaptureTarget());
     return frozenCapture;
+}
+
+// Re-capture stays on the screen this overlay session opened on. Re-resolving from the
+// cursor mid-session would let a stray pointer swap the frame under the selection.
+function sessionCaptureTarget(): GamingCaptureTarget {
+    if (activeCaptureTarget) return activeCaptureTarget;
+    activeCaptureTarget = resolveCaptureTarget();
+    return activeCaptureTarget;
 }
 
 function normalizeOcrRequest(request: unknown): YomuGamingOcrRequest {
@@ -416,20 +484,6 @@ function normalizeOcrRequest(request: unknown): YomuGamingOcrRequest {
 function positiveInt(value: unknown, fallback: number): number {
     const parsed = Math.round(Number(value));
     return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
-}
-
-// Native framebuffer size (logical x scaleFactor), long-edge-capped, so OCR sees
-// full Retina/4K detail instead of a downscaled 1080p thumbnail.
-function nativeCaptureSize(display: Electron.Display): { width: number; height: number } {
-    const scale = display.scaleFactor || 1;
-    const rawWidth = Math.round(display.size.width * scale);
-    const rawHeight = Math.round(display.size.height * scale);
-    const longEdge = Math.max(rawWidth, rawHeight, 1);
-    const factor = longEdge > MAX_CAPTURE_EDGE ? MAX_CAPTURE_EDGE / longEdge : 1;
-    return {
-        width: Math.max(1, Math.round(rawWidth * factor)),
-        height: Math.max(1, Math.round(rawHeight * factor)),
-    };
 }
 
 function screenAccessStatus(): YomuGamingScreenAccess {
