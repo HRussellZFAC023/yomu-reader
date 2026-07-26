@@ -5,6 +5,81 @@ const LEARNING_VOICE_CATALOG_URL = '/academy/audio/learning-voice-playback.json'
 const LEARNING_VOICE_SCHEMA = 'yomu-academy.learning-voice-playback.v3';
 
 export const LEARNING_VOICE_BINDING_IDENTITIES = Object.freeze({
+    'lesson-zero:greeting-rie-model': Object.freeze({
+        lineId: 'lesson-zero:greeting-rie-model',
+        japanese: 'こんばんは。はじめまして。りえです。よろしくお願いします。',
+        sourceSha256: '832669f3318ff75391fb8badac54f8817dded282db4a770df8978a5bd9a136bc',
+    }),
+    'lesson-zero:vowel:hira-a': Object.freeze({
+        lineId: 'lesson-zero:vowel:hira-a',
+        japanese: 'あさです',
+        sourceSha256: 'f799443c78776f5b5340a58b9d1454fc1ad8dc4111e974eac1755c72ab68afa1',
+    }),
+    'lesson-zero:vowel:hira-i': Object.freeze({
+        lineId: 'lesson-zero:vowel:hira-i',
+        japanese: 'いぬです',
+        sourceSha256: '37f5138a57017798eaa60549c3d5fa532b864a5ac8535e80a4a596af69a651fe',
+    }),
+    'lesson-zero:vowel:hira-u': Object.freeze({
+        lineId: 'lesson-zero:vowel:hira-u',
+        japanese: 'うみです',
+        sourceSha256: 'ef31cd953ba025568aaf4b84e3cc7e81e3f3b508c6de66fee12ede24b8978b19',
+    }),
+    'lesson-zero:vowel:hira-e': Object.freeze({
+        lineId: 'lesson-zero:vowel:hira-e',
+        japanese: 'えほんです',
+        sourceSha256: '824d073e41a20ea93762e4c6e64ed2797448fc05674ac8eb5e8a17bfebc5c55b',
+    }),
+    'lesson-zero:vowel:hira-o': Object.freeze({
+        lineId: 'lesson-zero:vowel:hira-o',
+        japanese: 'おちゃです',
+        sourceSha256: '11dc3f8cc0b518f844783a3d86e1d24d650874acdc97a9f460ad0ddd57232001',
+    }),
+    'lesson-zero:classroom-instruction:begin': Object.freeze({
+        lineId: 'lesson-zero:classroom-instruction:begin',
+        japanese: 'はじめましょう',
+        sourceSha256: '1fbd90adcac45c55e62abde3e46439d3a5348552fc4a69b9f78a7edb10e58c52',
+    }),
+    'lesson-zero:classroom-instruction:finish': Object.freeze({
+        lineId: 'lesson-zero:classroom-instruction:finish',
+        japanese: 'おわりましょう',
+        sourceSha256: '9c5f2de672f343767619e9450b5f7649d72be094c829777a39a201b08c394b6d',
+    }),
+    'lesson-zero:classroom-instruction:break': Object.freeze({
+        lineId: 'lesson-zero:classroom-instruction:break',
+        japanese: 'やすみましょう',
+        sourceSha256: 'b9041e360b4b73ffcb249050cd789905004ced48a50353f7e626d0c88e545d26',
+    }),
+    'lesson-zero:classroom-instruction:look': Object.freeze({
+        lineId: 'lesson-zero:classroom-instruction:look',
+        japanese: 'みてください',
+        sourceSha256: '9668a8b62bbb7c64c409ed7186efb71815b77fbfdcd3ed8c74bcbd7b7d67fb7d',
+    }),
+    'lesson-zero:classroom-instruction:say-together': Object.freeze({
+        lineId: 'lesson-zero:classroom-instruction:say-together',
+        japanese: 'みなさんでいってください',
+        sourceSha256: 'aef85b41f752da817cd2f71a5d514813bc92f65c32cd9fc59c9c067e3a78bc06',
+    }),
+    'lesson-zero:classroom-instruction:listen': Object.freeze({
+        lineId: 'lesson-zero:classroom-instruction:listen',
+        japanese: 'きいてください',
+        sourceSha256: '6e4eaeb1c7ea595b1d3b0a1dd39dc0d6bae2d544ef4e4565b21796adc3f0d6e9',
+    }),
+    'lesson-zero:classroom-instruction:write': Object.freeze({
+        lineId: 'lesson-zero:classroom-instruction:write',
+        japanese: 'かいてください',
+        sourceSha256: '69472717888dbcdbd5277f2328ef49f43377f200832ce224244f8cf3ac56af82',
+    }),
+    'lesson-zero:desk-language:homework': Object.freeze({
+        lineId: 'lesson-zero:desk-language:homework',
+        japanese: 'しゅくだい。しゅくだいです。',
+        sourceSha256: '6d79b7fadcc1887054829bb886255dc2eaced84e8021a528ecb3a82fa9c0ac29',
+    }),
+    'lesson-zero:desk-language:example': Object.freeze({
+        lineId: 'lesson-zero:desk-language:example',
+        japanese: 'これは、れいです。れい。',
+        sourceSha256: '73e674f41209f7b8dd1b945d973fe88ac51f6dfc510b7546ae4cff246d071a4b',
+    }),
     'lesson-screen:textbook-pair-prompt': Object.freeze({
         lineId: 'lesson-screen:textbook-pair-prompt',
         japanese: 'では、教科書の五ページを開いて、二人で話してください。',
@@ -68,7 +143,7 @@ export interface LearningVoiceEntry {
     readonly modelName: string;
     readonly modelVersion: string;
     readonly modelSourceUrl: string;
-    readonly modelLicense: 'ACML-1.0';
+    readonly modelLicense: 'ACML-1.0' | 'CC-BY-SA-4.0';
     readonly modelPayloadSha256: string;
     readonly styleId: number;
     readonly styleName: string;
@@ -569,7 +644,7 @@ function isLearningVoiceEntry(value: unknown): value is LearningVoiceEntry {
         && value.modelVersion.length > 0
         && typeof value.modelSourceUrl === 'string'
         && value.modelSourceUrl === `https://hub.aivis-project.com/aivm-models/${value.modelUuid}`
-        && value.modelLicense === 'ACML-1.0'
+        && (value.modelLicense === 'ACML-1.0' || value.modelLicense === 'CC-BY-SA-4.0')
         && typeof value.modelPayloadSha256 === 'string'
         && SHA256.test(value.modelPayloadSha256)
         && Number.isInteger(value.styleId)

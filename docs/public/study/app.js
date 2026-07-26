@@ -218,6 +218,10 @@
       refreshing: false,
       graceRefreshNeeded: false,
       scheduleRefresh: () => scheduleProjectionRefresh(document2, overlay),
+      scheduleScrollRefresh: (event) => {
+        if (scrollMovedNoProjectedReading(event, overlay)) return;
+        scheduleProjectionRefresh(document2, overlay);
+      },
       scheduleTopologyRefresh: () => {
         overlay.rootsDirty = true;
         overlay.occlusionEpoch += 1;
@@ -228,7 +232,7 @@
     };
     overlays.set(document2, overlay);
     overlay.intersectionObserver = observeProjectionIntersections(document2, overlay);
-    document2.addEventListener("scroll", overlay.scheduleRefresh, { capture: true, passive: true });
+    document2.addEventListener("scroll", overlay.scheduleScrollRefresh, { capture: true, passive: true });
     document2.addEventListener("pointerover", overlay.scheduleRefresh, { capture: true, passive: true });
     document2.addEventListener("pointerout", overlay.scheduleRefresh, { capture: true, passive: true });
     document2.addEventListener("focusin", overlay.scheduleRefresh, { capture: true, passive: true });
@@ -413,12 +417,11 @@
   function scheduleProjectionRefresh(document2, overlay) {
     if (!overlay.records.size || overlay.refreshFrame) return;
     const view = document2.defaultView;
-    const frame = view?.requestAnimationFrame;
-    if (!frame) {
+    if (typeof view?.requestAnimationFrame !== "function") {
       scheduleFramelessProjectionRefresh(view, overlay);
       return;
     }
-    overlay.refreshFrame = frame(() => {
+    overlay.refreshFrame = view.requestAnimationFrame(() => {
       overlay.refreshFrame = 0;
       refreshProjectedReadingPositions(overlay);
     });
@@ -607,7 +610,7 @@
     const references = overlay.shadowRootReferences.get(root) ?? 0;
     overlay.shadowRootReferences.set(root, references + 1);
     if (references !== 0) return;
-    root.addEventListener("scroll", overlay.scheduleRefresh, { capture: true, passive: true });
+    root.addEventListener("scroll", overlay.scheduleScrollRefresh, { capture: true, passive: true });
     root.addEventListener("slotchange", overlay.scheduleTopologyRefresh, { capture: true, passive: true });
     rebuildProjectionMutationRoots(overlay);
   }
@@ -618,7 +621,7 @@
       return;
     }
     if (!overlay.shadowRootReferences.delete(root)) return;
-    root.removeEventListener("scroll", overlay.scheduleRefresh, { capture: true });
+    root.removeEventListener("scroll", overlay.scheduleScrollRefresh, { capture: true });
     root.removeEventListener("slotchange", overlay.scheduleTopologyRefresh, { capture: true });
     rebuildProjectionMutationRoots(overlay);
   }
@@ -894,6 +897,18 @@
     let parent = composedParentNode(element2);
     while (parent && !(parent instanceof Element)) parent = composedParentNode(parent);
     return parent;
+  }
+  function scrollMovedNoProjectedReading(event, overlay) {
+    const target = event.target;
+    if (!(target instanceof Element)) return false;
+    const document2 = target.ownerDocument;
+    if (target === document2?.documentElement || target === document2?.body) return false;
+    for (const record2 of overlay.records) {
+      if (composedContains(target, record2.anchor)) return false;
+      if (composedContains(target, record2.source)) return false;
+      if (composedContains(target, record2.owner)) return false;
+    }
+    return true;
   }
   function composedContains(ancestor, descendant) {
     const visited = /* @__PURE__ */ new Set();
@@ -11196,8 +11211,12 @@ ${spelling}`);
   function isTextToSpeechFallbackSource(source) {
     return isApiTextToSpeechSource(source) || isBrowserTextToSpeechSource(source);
   }
+  function audioSubSourceProviderName(name) {
+    const trimmed = name.trim().normalize("NFC");
+    return trimmed.split(/\s+/, 1)[0] ?? trimmed;
+  }
   function audioSubSourceNameKey(name) {
-    return name.trim().normalize("NFC").toLowerCase();
+    return audioSubSourceProviderName(name).toLowerCase();
   }
   function disabledAudioSubSourceNameKeys(source) {
     return new Set((source.subSources ?? []).filter((subSource) => !subSource.enabled).map((subSource) => audioSubSourceNameKey(subSource.name)));
@@ -24143,7 +24162,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   }
   function customJsonAudioCandidates(payload, source, sourceUrl) {
     const named = namedAudioSubSources(payload);
-    recordAudioSubSourceNames(source.url, named.map((entry) => entry.name));
+    recordAudioSubSourceNames(source.url, named.map((entry) => audioSubSourceProviderName(entry.name)));
     const disabled = disabledAudioSubSourceNameKeys(source);
     if (named.length && disabled.size) {
       const allowed = named.filter((entry) => !disabled.has(audioSubSourceNameKey(entry.name)));
@@ -24228,7 +24247,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         const key = audioSubSourceNameKey(entry.name);
         if (seen.has(key)) continue;
         seen.add(key);
-        names.push(entry.name);
+        names.push(audioSubSourceProviderName(entry.name));
       }
     }
     return { names, reached };
@@ -39409,7 +39428,7 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
   function rankKanjiStrokeCandidates(strokes, candidates, limit = 8) {
     const writtenStrokes = strokes.filter((stroke) => stroke.length > 1);
     if (!writtenStrokes.length) return [];
-    const written = extractFeatures(momentNormalize(toPattern(writtenStrokes)), FEATURE_INTERVAL);
+    const written = normalizedFeatures(toPattern(writtenStrokes));
     return candidates.map((candidate) => kanjiShapeMatch(candidate, written, writtenStrokes.length)).filter((match) => Boolean(match)).sort((a, b) => b.score - a.score || a.expectedStrokes - b.expectedStrokes || a.kanji.localeCompare(b.kanji)).slice(0, limit);
   }
   function totalDistance(strokes) {
@@ -39442,8 +39461,8 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
   }
   function assessStrokeShape(strokes, referenceStrokes, expectedStrokes) {
     if (!referenceStrokes || strokes.length !== expectedStrokes || referenceStrokes.length !== expectedStrokes) return null;
-    const written = extractFeatures(momentNormalize(toPattern(strokes)), FEATURE_INTERVAL);
-    const reference = extractFeatures(momentNormalize(toPattern(referenceStrokes)), FEATURE_INTERVAL);
+    const written = normalizedFeatures(toPattern(strokes));
+    const reference = normalizedFeatures(toPattern(referenceStrokes));
     if (written.length !== reference.length || written.some((stroke, index) => stroke.length < 2 || reference[index].length < 2)) return null;
     const scores = written.map((stroke, index) => strokeCorrespondenceScore(stroke, reference[index]));
     const average = scores.reduce((sum, score) => sum + score, 0) / scores.length;
@@ -39457,7 +39476,7 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
     const strokeDelta = Math.abs(actualStrokes - expectedStrokes);
     const allowedDelta = Math.max(2, Math.ceil(Math.min(actualStrokes, expectedStrokes) * 0.45));
     if (strokeDelta > allowedDelta) return null;
-    const reference = extractFeatures(momentNormalize(toPattern(referenceStrokes)), FEATURE_INTERVAL);
+    const reference = normalizedFeatures(toPattern(referenceStrokes));
     if (!reference.length) return null;
     const strokeShapeScore = unorderedStrokeShapeScore(written, reference);
     const skeletonScore = wholeSkeletonScore(written, reference);
@@ -39570,21 +39589,38 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
     return Number.isFinite(value) ? value : 0;
   }
   function extractFeatures(pattern, interval) {
-    return pattern.map((stroke) => {
-      const extracted = [];
-      let distance = 0;
-      for (let index = 0; index < stroke.length; index += 1) {
-        if (index === 0) extracted.push(stroke[0]);
-        if (index > 0) distance += euclid(stroke[index - 1], stroke[index]);
-        if (distance >= interval && index > 1) {
-          distance -= interval;
-          extracted.push(stroke[index]);
-        }
+    return pattern.map((stroke) => resampleStroke(stroke, interval));
+  }
+  function normalizedFeatures(pattern) {
+    const densityIndependent = extractFeatures(pattern, FEATURE_INTERVAL);
+    return extractFeatures(momentNormalize(densityIndependent), FEATURE_INTERVAL);
+  }
+  function resampleStroke(stroke, interval) {
+    if (stroke.length < 2 || !Number.isFinite(interval) || interval <= 0) return [...stroke];
+    const sampled = [{ ...stroke[0] }];
+    let distanceSinceSample = 0;
+    for (let index = 1; index < stroke.length; index += 1) {
+      let from = stroke[index - 1];
+      const to = stroke[index];
+      let segmentLength = euclid(from, to);
+      if (segmentLength <= Number.EPSILON) continue;
+      while (distanceSinceSample + segmentLength >= interval) {
+        const ratio = (interval - distanceSinceSample) / segmentLength;
+        const point = {
+          x: from.x + (to.x - from.x) * ratio,
+          y: from.y + (to.y - from.y) * ratio
+        };
+        sampled.push(point);
+        from = point;
+        segmentLength = euclid(from, to);
+        distanceSinceSample = 0;
+        if (segmentLength <= Number.EPSILON) break;
       }
-      if (extracted.length === 1) extracted.push(stroke[stroke.length - 1]);
-      else if (distance > interval * 0.75) extracted.push(stroke[stroke.length - 1]);
-      return extracted;
-    });
+      distanceSinceSample += segmentLength;
+    }
+    const last = stroke[stroke.length - 1];
+    if (euclid(sampled[sampled.length - 1], last) > Number.EPSILON) sampled.push({ ...last });
+    return sampled;
   }
   function strokeCorrespondenceScore(stroke, reference) {
     const whole = wholeWholeDistance(stroke, reference);
@@ -42470,11 +42506,16 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const summaryToken = (id) => {
       const record2 = S.records[id];
       if (!record2) return "";
+      const ops = record2.ops;
+      const stamp = ops.length + ":" + (ops.length ? ops[ops.length - 1].seq : -1);
+      if (record2.tokStamp === stamp && typeof record2.tok === "string") return record2.tok;
       const leafs = /* @__PURE__ */ Object.create(null);
       addLeafFingerprints(id, Number.POSITIVE_INFINITY, leafs, /* @__PURE__ */ Object.create(null), 0);
       const keys = Object.keys(leafs).sort();
-      if (keys.length) return `m:${hashText(keys.join(""))}`;
-      return operationSummaryToken(id, record2);
+      const token = keys.length ? `m:${hashText(keys.join(""))}` : operationSummaryToken(id, record2);
+      record2.tok = token;
+      record2.tokStamp = stamp;
+      return token;
     };
     const requestedSummaries = (id) => {
       const out = /* @__PURE__ */ Object.create(null);
@@ -44491,7 +44532,19 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const coversArea = rect.width * rect.height >= viewportWidth2 * viewportHeight2 * VIEWPORT_AREA_FRACTION;
     return coversAxis && coversArea;
   }
+  const canvasTaintVerdict = /* @__PURE__ */ new WeakMap();
+  const CANVAS_TAINT_VERDICT_TTL_MS = 1e4;
+  function canvasKnownTainted(canvas) {
+    const hit = canvasTaintVerdict.get(canvas);
+    if (!hit || !hit.tainted) return false;
+    if (hit.key !== `${canvas.width}x${canvas.height}`) return false;
+    return Date.now() - hit.at < CANVAS_TAINT_VERDICT_TTL_MS;
+  }
+  function rememberCanvasTaint(canvas, tainted) {
+    canvasTaintVerdict.set(canvas, { key: `${canvas.width}x${canvas.height}`, tainted, at: Date.now() });
+  }
   function sampleCanvasContent(canvas) {
+    if (canvasKnownTainted(canvas)) return null;
     try {
       const sample = document.createElement("canvas");
       sample.width = CONTENT_SAMPLE_SIZE;
@@ -44525,10 +44578,18 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         hash ^= luminance;
         hash = Math.imul(hash, 16777619) >>> 0;
       }
+      rememberCanvasTaint(canvas, false);
       return { buckets: buckets.size, contrast: max2 - min, hash, opaque };
-    } catch {
+    } catch (error) {
+      if (isCanvasTaintError(error)) rememberCanvasTaint(canvas, true);
       return null;
     }
+  }
+  function isCanvasTaintError(error) {
+    if (typeof DOMException !== "undefined" && error instanceof DOMException) {
+      return error.name === "SecurityError";
+    }
+    return error instanceof Error && /insecure|tainted|cross-origin/i.test(error.message);
   }
   function looksLikeRenderedCanvasImage(canvas) {
     return Boolean(canvasRenderedContentSignature(canvas));
@@ -44819,9 +44880,18 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       const context = markCanvasMirrorSkip(scaled.getContext("2d"));
       if (!context) return void 0;
       context.drawImage(canvas, 0, 0, scaled.width, scaled.height);
-      return scaled.toDataURL("image/jpeg", 0.86);
+      const dataUrl = scaled.toDataURL("image/jpeg", 0.86);
+      releaseTransientCanvas(scaled);
+      return dataUrl;
     } catch {
       return void 0;
+    }
+  }
+  function releaseTransientCanvas(canvas) {
+    try {
+      canvas.width = 0;
+      canvas.height = 0;
+    } catch {
     }
   }
   function captureCanvasRegionDataUrl(canvas, surfaceRect, regionRect, maxPixels) {
@@ -44842,7 +44912,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       const context = markCanvasMirrorSkip(out.getContext("2d"));
       if (!context) return void 0;
       context.drawImage(canvas, sx, sy, sw, sh, 0, 0, out.width, out.height);
-      return out.toDataURL("image/jpeg", 0.86);
+      const dataUrl = out.toDataURL("image/jpeg", 0.86);
+      releaseTransientCanvas(out);
+      return dataUrl;
     } catch {
       return void 0;
     }
@@ -45167,7 +45239,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const candidate = safeUrl(rawUrl);
     if (!candidate || candidate.origin !== current.origin) return false;
     if (!BOOKWALKER_CONTENT_SESSION_PATHS.has(candidate.pathname)) return false;
-    if (!candidate.searchParams.get("BID")) return false;
     return !contentId || candidate.searchParams.get("cid") === contentId;
   }
   function parseContentAuthorization(value) {
@@ -45210,7 +45281,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function isBookwalkerAssetUrl(rawUrl) {
     const url = safeUrl(rawUrl);
-    return Boolean(url && isBookwalkerHost(url.hostname) && /\/OPS\/images\//.test(url.pathname));
+    if (!url || !isBookwalkerHost(url.hostname)) return false;
+    return url.searchParams.has("Policy") && url.searchParams.has("Signature") && url.searchParams.has("Key-Pair-Id");
   }
   function isBookwalkerHost(hostname) {
     return hostname === "bookwalker.jp" || hostname.endsWith(".bookwalker.jp");
@@ -47203,12 +47275,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       if (!frameSrc) return void 0;
       const mirrorSignature = canvasRenderedContentSignature(mirror);
       const contentToken = mirror.dataset.yomuMirrorContentToken || startContentToken;
-      return {
-        frameSrc,
-        frameRect,
-        contentKey: bookwalkerCanvasContentKey(contentToken, regionKey) ?? (mirrorSignature ? `cv:${mirrorSignature}:${mirror.width}x${mirror.height}${regionKey}` : void 0),
-        contentToken
-      };
+      const contentKey = bookwalkerCanvasContentKey(contentToken, regionKey) ?? (mirrorSignature ? `cv:${mirrorSignature}:${mirror.width}x${mirror.height}${regionKey}` : void 0);
+      return { frameSrc, frameRect, contentKey, contentToken };
     }
     commitCanvasSnapshot(canvas, pendingSnapshot, key, canvasRect, captured, userRequested) {
       if (this.destroyed || !canvas.isConnected || this.canvasFrames.has(canvas)) return;
@@ -49296,7 +49364,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.8.7".trim() ? "1.8.7".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.8.10".trim() ? "1.8.10".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record2 = value;
@@ -66069,7 +66137,9 @@ ${spelling}`);
         if (nextIndex < 0) return;
         event.preventDefault();
         tabs[nextIndex]?.focus();
-        activateSettingsPanel(form, tabs[nextIndex]?.dataset.panel ?? "api");
+        const panel = tabs[nextIndex]?.dataset.panel ?? "api";
+        activateSettingsPanel(form, panel);
+        this.onSettingsPanelActivated(form, panel);
         this.refreshSettingsJapaneseParse(form);
       });
     }
@@ -66259,6 +66329,8 @@ ${spelling}`);
       suppressCredentialAutofill(form);
       syncBrowserTtsVoiceOptions(form);
       this.bindAudioSubSourceDetection(form);
+      const mediaPanel = form.querySelector('[data-settings-panel="media"]');
+      if (mediaPanel && !mediaPanel.hidden) this.refreshAudioSubSources(form);
       if ("speechSynthesis" in window) {
         window.speechSynthesis.addEventListener("voiceschanged", () => syncBrowserTtsVoiceOptions(form), { once: true });
       }
@@ -66901,7 +66973,7 @@ ${spelling}`);
       if (action === "settings-panel") {
         const panel = selectedSettingsPanel(control);
         activateSettingsPanel(form, panel);
-        if (panel === "help") void this.refreshYomuUpdateStatus(form);
+        this.onSettingsPanelActivated(form, panel);
         this.refreshSettingsJapaneseParse(form);
         return true;
       }
@@ -66972,7 +67044,17 @@ ${spelling}`);
      * third-party host the user has not agreed to contact yet.
      */
     refreshAudioSubSources(form, row) {
-      void this.detectAudioSubSourcesForRow(form, row);
+      const rows = row ? [row] : Array.from(form.querySelectorAll("[data-audio-source-row]"));
+      for (const target of rows) void this.detectAudioSubSourcesForRow(form, target);
+    }
+    // Opening the media panel is the moment the user is looking at audio
+    // sources, so that is when their providers get discovered — the same shape
+    // as the help panel refreshing the update status when it is opened. Merely
+    // rendering the dialog still reaches nothing, because a source URL can be a
+    // private host that only an explicit visit here justifies contacting.
+    onSettingsPanelActivated(form, panel) {
+      if (panel === "help") void this.refreshYomuUpdateStatus(form);
+      if (panel === "media") this.refreshAudioSubSources(form);
     }
     renderKnownAudioSubSources(form) {
       const language2 = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);

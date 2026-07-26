@@ -192,11 +192,11 @@ describe('Academy human interface', () => {
     it('keeps concise accessible names when visible Japanese receives ruby and pitch markup', () => {
         const screen = renderProfileScreen({ language: 'ja', onSubmit: vi.fn() });
         const name = screen.querySelector<HTMLInputElement>('input[name="displayName"]')!;
-        expect(name.getAttribute('aria-label')).toBe('りえ先生には、なんと呼んでほしいですか。');
+        expect(name.getAttribute('aria-label')).toBe('名前');
         name.value = 'ミナ';
         screen.querySelector<HTMLButtonElement>('.academy-profile-advance')!.click();
         const reason = screen.querySelector<HTMLTextAreaElement>('textarea[name="learningReason"]')!;
-        expect(name.getAttribute('aria-label')).toBe('りえ先生には、なんと呼んでほしいですか。');
+        expect(name.getAttribute('aria-label')).toBe('名前');
         expect(reason.getAttribute('aria-label')).toBe('日本語で、何ができるようになりたいですか。');
         reason.value = '小説を読むため';
         screen.querySelector<HTMLButtonElement>('.academy-profile-advance')!.click();
@@ -253,6 +253,8 @@ describe('Academy human interface', () => {
         expect(name.closest('.academy-profile-inline-action')?.closest('.academy-vn-action-slot')).not.toBeNull();
         expect(name.maxLength).toBe(40);
         expect(name.enterKeyHint).toBe('next');
+        expect(screen.querySelector('.academy-profile-entry-hint')?.textContent)
+            .toBe('Use the spelling you know. Rie will help with katakana in class.');
         expect(screen.querySelector('.academy-vn-translation')?.textContent).toContain('What should I call you?');
         expect(screen.querySelector('.academy-vn-translation')).toHaveProperty('hidden', false);
         expect(screen.textContent).not.toMatch(/one true role|truth|boundary|language you study/i);
@@ -270,6 +272,19 @@ describe('Academy human interface', () => {
         expect(vnStyles).toMatch(/\.academy-portrait-option:has\(input:focus-visible\)\s*\{[^}]*outline:\s*3px solid[^}]*outline-offset:\s*3px/s);
         expect(screenStyles).toMatch(/\.academy-start-screen \.academy-title,[\s\S]*font-size:\s*clamp\(3rem, 4\.2vw, 3\.6rem\)/s);
         expect(screenStyles).toMatch(/\.academy-start-screen \.academy-route-choice:hover,[\s\S]*color:\s*#18231d;[\s\S]*\.academy-route-choice:focus-visible \.academy-route-description\s*\{[^}]*color:\s*#18231d/s);
+    });
+
+    it('does not prefill the naming moment with an account email', () => {
+        const screen = renderProfileScreen({
+            language: 'en',
+            profile: {
+                displayName: 'henry@example.com',
+                learningReason: 'Read novels',
+                portraitId: 'quality-2',
+            },
+            onSubmit: vi.fn(),
+        });
+        expect(screen.querySelector<HTMLInputElement>('input[name="displayName"]')?.value).toBe('');
     });
 
     it('renders setup as a full-bleed Rie conversation and waits for portrait consent before showing the learner', () => {

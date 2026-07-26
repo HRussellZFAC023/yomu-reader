@@ -1,5 +1,8 @@
 import { createLessonZeroVowelWritingDefinition } from '../../src/academy/content/lesson-zero-vowel-writing';
-import { startLessonZeroVowelWritingSession } from '../../src/academy/domain/lesson-zero-vowel-writing-session';
+import {
+    LESSON_ZERO_VOWEL_WRITING_RECALL_ORDER,
+    startLessonZeroVowelWritingSession,
+} from '../../src/academy/domain/lesson-zero-vowel-writing-session';
 import { createLessonZeroVowelWritingScreen } from '../../src/academy/ui/lesson-zero-vowel-writing-screen';
 
 function buttonByText(root: HTMLElement, text: string): HTMLButtonElement {
@@ -39,15 +42,20 @@ describe('Lesson Zero five-vowel writing screen', () => {
         vi.unstubAllGlobals();
     });
 
-    it('completes all five kana through the no-drawing route without exposing the repair sheet', async () => {
+    it('completes the no-drawing route only after mixed-order delayed recall', async () => {
         const definition = createLessonZeroVowelWritingDefinition();
         let persisted = startLessonZeroVowelWritingSession(definition);
         const onComplete = vi.fn();
+        const play = vi.fn(async () => ({ dispose() {} }));
+        const playLine = vi.fn(async (_identity: { japanese: string }) => ({
+            status: 'playing' as const,
+            playback: { dispose() {} },
+        }));
         const screen = createLessonZeroVowelWritingScreen({
             language: 'en',
             definition,
             initialState: persisted,
-            pronunciation: { play: vi.fn(async () => ({ dispose() {} })) } as never,
+            pronunciation: { play, playLine } as never,
             rieSprite: '/academy/art/characters/rie/test.png',
             onTransition: async (_before, transition) => { persisted = transition.state; },
             onRestart: vi.fn(),
@@ -55,9 +63,13 @@ describe('Lesson Zero five-vowel writing screen', () => {
             onComplete,
         });
 
-        expect(screen.element.textContent).toContain('Let the five sounds leave a mark');
-        buttonByText(screen.element, 'Open the practice book').click();
+        expect(screen.element.textContent).toContain('Give each sound a shape');
+        buttonByText(screen.element, 'Start with あ').click();
         await vi.waitFor(() => expect(persisted.status).toBe('active'));
+        buttonByText(screen.element, 'Hear the sound').click();
+        await vi.waitFor(() => expect(playLine).toHaveBeenCalledOnce());
+        expect(playLine.mock.calls[0][0].japanese).toBe('あさです');
+        expect(play).not.toHaveBeenCalled();
         buttonByText(screen.element, 'Choose the stroke plan').click();
         await vi.waitFor(() => expect(persisted.mode).toBe('plan'));
 
@@ -71,10 +83,33 @@ describe('Lesson Zero five-vowel writing screen', () => {
             await vi.waitFor(() => expect(persisted.completedItemIds).toHaveLength(index + 1));
         }
 
+        expect(persisted).toMatchObject({ status: 'active', stage: 'recall', recalledItemIds: [] });
+        expect(screen.element.textContent).toContain('Can you find them out of order?');
+
+        const firstTarget = definition.items.find(item => item.id === LESSON_ZERO_VOWEL_WRITING_RECALL_ORDER[0])!;
+        const wrong = definition.items.find(item => item.id !== firstTarget.id)!;
+        buttonByText(screen.element, wrong.kana).click();
+        buttonByText(screen.element, 'Check my choice').click();
+        await vi.waitFor(() => expect(persisted.stage).toBe('recall-repair'));
+        expect(screen.element.textContent).toContain(`${firstTarget.kana}`);
+        expect(screen.element.querySelector('.academy-vowel-writing-source-sheet')).toBeNull();
+        expect(screen.element.querySelector('.academy-vowel-writing-guide')).toBeNull();
+        buttonByText(screen.element, 'Try the sound again').click();
+        await vi.waitFor(() => expect(persisted.stage).toBe('recall'));
+
+        for (const [index, itemId] of LESSON_ZERO_VOWEL_WRITING_RECALL_ORDER.entries()) {
+            const item = definition.items.find(candidate => candidate.id === itemId)!;
+            buttonByText(screen.element, 'Hear the sound').click();
+            await vi.waitFor(() => expect(playLine).toHaveBeenCalledTimes(index + 2));
+            buttonByText(screen.element, item.kana).click();
+            buttonByText(screen.element, 'Check my choice').click();
+            await vi.waitFor(() => expect(persisted.recalledItemIds).toHaveLength(index + 1));
+        }
+
         expect(persisted).toMatchObject({ status: 'complete', stage: 'complete' });
-        expect(screen.element.textContent).toContain('The first line is yours');
+        expect(screen.element.textContent).toContain('Five sounds. Five shapes.');
         expect(screen.element.querySelectorAll('.academy-vowel-writing-finished-mark')).toHaveLength(5);
-        buttonByText(screen.element, 'Carry the line into class').click();
+        buttonByText(screen.element, 'Continue into class').click();
         expect(onComplete).toHaveBeenCalledOnce();
         screen.dispose();
     });
@@ -94,7 +129,7 @@ describe('Lesson Zero five-vowel writing screen', () => {
             onComplete: vi.fn(),
         });
 
-        buttonByText(screen.element, 'Open the practice book').click();
+        buttonByText(screen.element, 'Start with あ').click();
         await vi.waitFor(() => expect(persisted.status).toBe('active'));
         buttonByText(screen.element, 'Choose the stroke plan').click();
         await vi.waitFor(() => expect(persisted.mode).toBe('plan'));
@@ -133,7 +168,7 @@ describe('Lesson Zero five-vowel writing screen', () => {
             onComplete: vi.fn(),
         });
 
-        buttonByText(screen.element, 'Open the practice book').click();
+        buttonByText(screen.element, 'Start with あ').click();
         await vi.waitFor(() => expect(persisted.status).toBe('active'));
         buttonByText(screen.element, 'Write this kana').click();
         await vi.waitFor(() => expect(persisted.stage).toBe('attempt'));

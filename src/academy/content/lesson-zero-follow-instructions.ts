@@ -12,7 +12,7 @@ import { lessonZeroCanonicalReading } from './lesson-zero-pedagogy-definitions';
 export const LESSON_ZERO_FOLLOW_INSTRUCTION_ACTIVITY_ID =
     'activity:lesson-zero-follow-instructions' as const;
 
-const SOURCE_ACTION_ORDER = Object.freeze([
+const LESSON_ZERO_CLASSROOM_INSTRUCTION_LEARNING_ORDER = Object.freeze([
     'begin',
     'finish',
     'break',
@@ -22,7 +22,7 @@ const SOURCE_ACTION_ORDER = Object.freeze([
     'write',
 ] as const);
 
-const CHALLENGE_ACTION_ORDER = Object.freeze([
+const LESSON_ZERO_CLASSROOM_INSTRUCTION_RECALL_ORDER = Object.freeze([
     'look',
     'begin',
     'write',
@@ -33,7 +33,8 @@ const CHALLENGE_ACTION_ORDER = Object.freeze([
 ] as const);
 
 export const LESSON_ZERO_FOLLOW_INSTRUCTION_CHILD_ACTIVITY_IDS = Object.freeze(
-    SOURCE_ACTION_ORDER.map(actionId => `${LESSON_ZERO_FOLLOW_INSTRUCTION_ACTIVITY_ID}:${actionId}`),
+    LESSON_ZERO_CLASSROOM_INSTRUCTION_LEARNING_ORDER
+        .map(actionId => `${LESSON_ZERO_FOLLOW_INSTRUCTION_ACTIVITY_ID}:${actionId}`),
 );
 
 export interface ClassroomInstructionActionPresentation {
@@ -74,6 +75,16 @@ const MEANING_BY_ACTION: Readonly<Record<ClassroomInstructionActionId, Localized
     write: { en: 'Please write it.', ja: '書いてください。' },
 });
 
+const VOICE_BINDING_BY_ACTION: Readonly<Record<ClassroomInstructionActionId, string>> = Object.freeze({
+    begin: 'lesson-zero:classroom-instruction:begin',
+    finish: 'lesson-zero:classroom-instruction:finish',
+    break: 'lesson-zero:classroom-instruction:break',
+    look: 'lesson-zero:classroom-instruction:look',
+    'say-together': 'lesson-zero:classroom-instruction:say-together',
+    listen: 'lesson-zero:classroom-instruction:listen',
+    write: 'lesson-zero:classroom-instruction:write',
+});
+
 export function createLessonZeroFollowInstructionDefinition(
     classroom: ClassroomExpressionSessionDefinition,
     activity: LessonZeroActivity,
@@ -83,11 +94,11 @@ export function createLessonZeroFollowInstructionDefinition(
         || activity.expectedEvidence.kind !== 'scene-actions') {
         throw new TypeError('Lesson Zero follow-instructions activity has the wrong contract.');
     }
-    if (!sameList(activity.expectedEvidence.values ?? [], SOURCE_ACTION_ORDER)) {
+    if (!sameList(activity.expectedEvidence.values ?? [], LESSON_ZERO_CLASSROOM_INSTRUCTION_LEARNING_ORDER)) {
         throw new TypeError('Lesson Zero follow-instructions action evidence has drifted.');
     }
     const expressionById = new Map(classroom.expressions.map(expression => [expression.id, expression]));
-    const cues: ClassroomInstructionCue[] = CHALLENGE_ACTION_ORDER.map(actionId => {
+    const cues: ClassroomInstructionCue[] = LESSON_ZERO_CLASSROOM_INSTRUCTION_LEARNING_ORDER.map(actionId => {
         const expression = expressionById.get(EXPRESSION_BY_ACTION[actionId]);
         const probe = expression?.probes[0];
         if (!expression || !probe) throw new TypeError(`Missing classroom instruction for ${actionId}.`);
@@ -100,6 +111,7 @@ export function createLessonZeroFollowInstructionDefinition(
             japanese: probe.modelAnswer,
             reading: lessonZeroCanonicalReading(probe),
             meaning: MEANING_BY_ACTION[actionId],
+            voiceBindingId: VOICE_BINDING_BY_ACTION[actionId],
         };
     });
     return Object.freeze({
@@ -107,6 +119,7 @@ export function createLessonZeroFollowInstructionDefinition(
         id: 'session:lesson-zero-follow-instructions',
         activityId: LESSON_ZERO_FOLLOW_INSTRUCTION_ACTIVITY_ID,
         cues: Object.freeze(cues),
+        recallActionOrder: LESSON_ZERO_CLASSROOM_INSTRUCTION_RECALL_ORDER,
     });
 }
 
@@ -134,8 +147,8 @@ export function lessonZeroFollowInstructionCompletionEvaluation(
             errorTags: [],
             feedback: {
                 explanation: {
-                    en: 'You followed all seven classroom instructions by ear.',
-                    ja: '七つの教室の指示を聞いて、すべて動けました。',
+                    en: 'You followed all seven classroom instructions in a new order.',
+                    ja: '七つの教室の指示を、違う順番でも聞いて動けました。',
                 },
             },
         },

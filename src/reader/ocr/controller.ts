@@ -2478,13 +2478,19 @@ export class ImageOcrController {
         if (!frameSrc) return undefined;
         const mirrorSignature = canvasRenderedContentSignature(mirror);
         const contentToken = mirror.dataset.yomuMirrorContentToken || startContentToken;
-        return {
-            frameSrc,
-            frameRect,
-            contentKey: bookwalkerCanvasContentKey(contentToken, regionKey)
-                ?? (mirrorSignature ? `cv:${mirrorSignature}:${mirror.width}x${mirror.height}${regionKey}` : undefined),
-            contentToken,
-        };
+        // Derive EVERYTHING from the mirror before releasing it. The fallback key
+        // embeds the mirror's dimensions, so releasing first silently produced
+        // `cv:<sig>:0x0` — a different page identity on every capture, which reads
+        // downstream as a commit-identity mismatch rather than as an error.
+        const contentKey = bookwalkerCanvasContentKey(contentToken, regionKey)
+            ?? (mirrorSignature ? `cv:${mirrorSignature}:${mirror.width}x${mirror.height}${regionKey}` : undefined);
+        // NOTE: the rebuilt mirror is a ~10 MB page-sized buffer and freeing it here
+        // would help the GC, but it is NOT safe to release: the mirror is supplied by
+        // captureCanvasMirror (injectable, and reused across captures in tests), so
+        // zeroing it mutates a buffer the caller may still own. Left to the collector
+        // deliberately. The genuinely local scratch canvases in canvas-readers ARE
+        // released at their point of use.
+        return { frameSrc, frameRect, contentKey, contentToken };
     }
 
     private commitCanvasSnapshot(

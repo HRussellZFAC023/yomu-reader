@@ -83,7 +83,33 @@ interface CanvasContentSample {
     opaque: number;
 }
 
+// A canvas that is origin-unclean stays that way for the life of its backing
+// store, so re-probing it is pure waste. Sampling a tainted BookWalker page canvas
+// still pays the full source→sample drawImage (a ~10 MB GPU→CPU readback for a
+// 1536x1694 page) before getImageData throws, and the page signature samples EVERY
+// page canvas on every poll — so on a multi-surface vertical reader this burned
+// tens of MB of pixel copy per poll to learn something already known. Remember the
+// verdict per canvas, re-probing only when the backing store is reallocated.
+const canvasTaintVerdict = new WeakMap<HTMLCanvasElement, { key: string; tainted: boolean; at: number }>();
+// Resetting a canvas's backing store clears its taint, and a same-size reset leaves
+// the dimension key unchanged — so the cached verdict is deliberately short-lived.
+// Never let a stale "tainted" answer become permanent: that would silently disable
+// OCR for the rest of the session, which is a far worse failure than a re-probe.
+const CANVAS_TAINT_VERDICT_TTL_MS = 10_000;
+
+function canvasKnownTainted(canvas: HTMLCanvasElement): boolean {
+    const hit = canvasTaintVerdict.get(canvas);
+    if (!hit || !hit.tainted) return false;
+    if (hit.key !== `${canvas.width}x${canvas.height}`) return false;
+    return Date.now() - hit.at < CANVAS_TAINT_VERDICT_TTL_MS;
+}
+
+function rememberCanvasTaint(canvas: HTMLCanvasElement, tainted: boolean): void {
+    canvasTaintVerdict.set(canvas, { key: `${canvas.width}x${canvas.height}`, tainted, at: Date.now() });
+}
+
 function sampleCanvasContent(canvas: HTMLCanvasElement): CanvasContentSample | null {
+    if (canvasKnownTainted(canvas)) return null;
     try {
         const sample = document.createElement('canvas');
         sample.width = CONTENT_SAMPLE_SIZE;
@@ -120,10 +146,25 @@ function sampleCanvasContent(canvas: HTMLCanvasElement): CanvasContentSample | n
             hash ^= luminance;
             hash = Math.imul(hash, 16777619) >>> 0;
         }
+        rememberCanvasTaint(canvas, false);
         return { buckets: buckets.size, contrast: max - min, hash, opaque };
-    } catch {
+    } catch (error) {
+        // ONLY a genuine cross-origin security error means "tainted". Any other
+        // failure (a context that could not be acquired, an environment without a
+        // real canvas implementation, a transient allocation failure) must NOT be
+        // cached: doing so turns one bad probe into a verdict that suppresses
+        // content sampling for every later call, which reads as "this page has no
+        // content" rather than as an error.
+        if (isCanvasTaintError(error)) rememberCanvasTaint(canvas, true);
         return null;
     }
+}
+
+function isCanvasTaintError(error: unknown): boolean {
+    if (typeof DOMException !== 'undefined' && error instanceof DOMException) {
+        return error.name === 'SecurityError';
+    }
+    return error instanceof Error && /insecure|tainted|cross-origin/i.test(error.message);
 }
 
 export function looksLikeRenderedCanvasImage(canvas: HTMLCanvasElement): boolean {
@@ -559,10 +600,27 @@ export function captureCanvasDataUrl(canvas: HTMLCanvasElement, maxPixels: numbe
         const context = markCanvasMirrorSkip(scaled.getContext('2d'));
         if (!context) return undefined;
         context.drawImage(canvas, 0, 0, scaled.width, scaled.height);
-        return scaled.toDataURL('image/jpeg', 0.86);
+        const dataUrl = scaled.toDataURL('image/jpeg', 0.86);
+        releaseTransientCanvas(scaled);
+        return dataUrl;
     } catch {
         // Tainted canvas (cross-origin DRM drawn without CORS) — skip silently.
         return undefined;
+    }
+}
+
+// Drop a scratch canvas's backing store the moment its pixels have been read out.
+// These are page-sized (a BookWalker page downscales to ~1.2 MP, and the mirror
+// rebuild allocates a full 1536x1694 ≈ 10 MB buffer), and several are created per
+// capture. Left to the collector they accumulate until Firefox runs a GC/CC, which
+// is exactly the shape of the isolated 1-2 s main-thread freeze seen while reading.
+// Setting either dimension reallocates the buffer to nothing, which is deterministic.
+function releaseTransientCanvas(canvas: HTMLCanvasElement): void {
+    try {
+        canvas.width = 0;
+        canvas.height = 0;
+    } catch {
+        // A canvas that refuses to resize simply waits for GC, as before.
     }
 }
 
@@ -589,7 +647,9 @@ export function captureCanvasRegionDataUrl(
         const context = markCanvasMirrorSkip(out.getContext('2d'));
         if (!context) return undefined;
         context.drawImage(canvas, sx, sy, sw, sh, 0, 0, out.width, out.height);
-        return out.toDataURL('image/jpeg', 0.86);
+        const dataUrl = out.toDataURL('image/jpeg', 0.86);
+        releaseTransientCanvas(out);
+        return dataUrl;
     } catch {
         return undefined;
     }

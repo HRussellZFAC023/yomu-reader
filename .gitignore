@@ -23,6 +23,9 @@ __pycache__/
 /references/
 /references-academy/
 /cast-standardize/
+# Sibling repositories cloned in for local builds — scripts/build-extension.mjs
+# looks for the UserScript Compiler at tools/UserScript-Compiler.
+/tools/
 
 dist/*
 !dist/yomu.user.js

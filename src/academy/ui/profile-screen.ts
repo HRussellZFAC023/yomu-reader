@@ -1,6 +1,7 @@
 import type { AcademyLanguage } from '../../reader/app/academy-copy';
 import { academyText } from '../../reader/app/academy-copy';
 import { ACADEMY_ASSETS, type ProtagonistPortraitId } from '../assets';
+import { profileNameForEditing } from '../content/learner-name';
 import type { LearnerProfileSnapshot } from '../domain/learner-record';
 import { createAcademyVnStage, type AcademyVnCastMember, type AcademyVnLine } from './vn-stage';
 
@@ -51,7 +52,7 @@ export function renderProfileScreen(options: ProfileScreenOptions): HTMLElement 
     name.enterKeyHint = 'next';
     name.setAttribute('aria-label', academyText(options.language, 'profileNameLabel'));
     name.placeholder = academyText(options.language, 'profileNamePlaceholder');
-    name.value = options.profile?.displayName ?? '';
+    name.value = profileNameForEditing(options.profile?.displayName);
 
     const reason = document.createElement('textarea');
     reason.className = 'academy-input academy-textarea';
@@ -67,6 +68,11 @@ export function renderProfileScreen(options: ProfileScreenOptions): HTMLElement 
     let selectedPortrait = initialPortrait;
     let currentStep: ProfileStep = 'name';
     const nameStep = entry('name', options.language, academyText(options.language, 'profileNameLabel'), name);
+    const nameHint = document.createElement('p');
+    nameHint.className = 'academy-profile-entry-hint';
+    nameHint.lang = options.language;
+    nameHint.textContent = academyText(options.language, 'profileNameHint');
+    nameStep.append(nameHint);
     const reasonStep = entry('reason', options.language, academyText(options.language, 'profileReasonLabel'), reason);
     const portraitStep = portraitEntry(options.language, selectedPortrait, portraitId => {
         selectedPortrait = portraitId;

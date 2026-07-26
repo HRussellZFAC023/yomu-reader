@@ -12,6 +12,14 @@ import {
     type ClassroomInstructionSessionState,
 } from '../domain/classroom-instruction-session';
 import {
+    lessonZeroRepeatRequestSessionSnapshotShapeIsValid,
+    type LessonZeroRepeatRequestSessionState,
+} from '../domain/lesson-zero-repeat-request-session';
+import {
+    lessonZeroDeskLanguageSessionSnapshotShapeIsValid,
+    type LessonZeroDeskLanguageSessionState,
+} from '../domain/lesson-zero-desk-language-session';
+import {
     lessonZeroGreetingSessionSnapshotShapeIsValid,
     type LessonZeroGreetingSessionState,
 } from '../domain/lesson-zero-greeting-session';
@@ -63,6 +71,10 @@ export interface AcademyCheckpoint extends AcademyRouteHistoryState {
     readonly classroomExpressionProgress?: ClassroomExpressionSessionState;
     /** Resume cursor for Rie's seven embodied classroom instructions. */
     readonly classroomInstructionProgress?: ClassroomInstructionSessionState;
+    /** Resume state for the two-chunk repetition request and changed-scene transfer. */
+    readonly lessonZeroRepeatRequestProgress?: LessonZeroRepeatRequestSessionState;
+    /** Resume state for the two classroom papers and changed-layout transfer. */
+    readonly lessonZeroDeskLanguageProgress?: LessonZeroDeskLanguageSessionState;
     /** Resume state for the learner's private first-introduction rehearsal. */
     readonly lessonZeroGreetingProgress?: LessonZeroGreetingSessionState;
     /** Resume state for the five connected first-sentence constructions. */
@@ -300,6 +312,14 @@ function validateCheckpoint(value: AcademyCheckpoint): void {
     if (value.classroomInstructionProgress !== undefined
         && !classroomInstructionSessionSnapshotShapeIsValid(value.classroomInstructionProgress)) {
         throw new TypeError('Academy checkpoint has invalid classroom-instruction progress.');
+    }
+    if (value.lessonZeroRepeatRequestProgress !== undefined
+        && !lessonZeroRepeatRequestSessionSnapshotShapeIsValid(value.lessonZeroRepeatRequestProgress)) {
+        throw new TypeError('Academy checkpoint has invalid Lesson Zero repeat-request progress.');
+    }
+    if (value.lessonZeroDeskLanguageProgress !== undefined
+        && !lessonZeroDeskLanguageSessionSnapshotShapeIsValid(value.lessonZeroDeskLanguageProgress)) {
+        throw new TypeError('Academy checkpoint has invalid Lesson Zero desk-language progress.');
     }
     if (value.lessonZeroGreetingProgress !== undefined
         && !lessonZeroGreetingSessionSnapshotShapeIsValid(value.lessonZeroGreetingProgress)) {

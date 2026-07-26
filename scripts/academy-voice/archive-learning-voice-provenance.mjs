@@ -20,6 +20,7 @@ const productionSource = await readFile(productionPath);
 const production = JSON.parse(productionSource);
 const engineCacheSource = await readFile(engineCachePath);
 const engineCache = JSON.parse(engineCacheSource);
+const supportedLicenses = new Set(['ACML-1.0', 'CC-BY-SA-4.0']);
 const models = new Map();
 for (const mapping of production.voiceMappings ?? []) {
     const existing = models.get(mapping.modelUuid);
@@ -47,7 +48,7 @@ if (models.size === 0) throw new Error('Learning voice production contract has n
 
 const evidence = [];
 const engineStyleMappings = [];
-let archivedLicense = null;
+const archivedLicenses = new Map();
 for (const expected of models.values()) {
     const fileName = `${expected.uuid}.aivmx`;
     const payload = await readFile(resolve(modelRoot, fileName));
@@ -64,7 +65,7 @@ for (const expected of models.values()) {
     }
     if (typeof expected.modelSourceUrl !== 'string'
         || !expected.modelSourceUrl.startsWith('https://hub.aivis-project.com/')
-        || expected.modelLicense !== 'ACML-1.0') {
+        || !supportedLicenses.has(expected.modelLicense)) {
         throw new Error(`Unexpected source or licence lock for ${expected.uuid}.`);
     }
     if (expected.modelDistribution?.kind !== 'installed-aivmx-distribution'
@@ -75,15 +76,16 @@ for (const expected of models.values()) {
         throw new Error(`Unexpected model distribution lock for ${expected.uuid}.`);
     }
     const licenseSha256 = sha256(manifest.license);
+    const archivedLicense = archivedLicenses.get(expected.modelLicense);
     if (archivedLicense && archivedLicense.sha256 !== licenseSha256) {
-        throw new Error(`Learning voice models do not embed the same archived licence: ${expected.uuid}.`);
+        throw new Error(`Conflicting embedded ${expected.modelLicense} text: ${expected.uuid}.`);
     }
-    archivedLicense ??= {
+    archivedLicenses.set(expected.modelLicense, archivedLicense ?? {
         id: expected.modelLicense,
         source: 'embedded aivm_manifest.license',
         sha256: licenseSha256,
         text: manifest.license,
-    };
+    });
     const cached = engineCache.aivm_infos?.[expected.uuid];
     if (!cached
         || cached.manifest?.uuid !== expected.uuid
@@ -141,6 +143,7 @@ for (const expected of models.values()) {
         payloadFileName: fileName,
         payloadSha256,
         manifestSha256: sha256(canonicalJson(manifest)),
+        licenseId: expected.modelLicense,
         licenseSha256,
         distribution: {
             kind: 'installed-aivmx-distribution',
@@ -165,13 +168,13 @@ for (const expected of models.values()) {
 }
 
 const archive = {
-    schema: 'yomu-academy.learning-voice-model-evidence.v3',
-    capturedOn: '2026-07-20',
+    schema: 'yomu-academy.learning-voice-model-evidence.v4',
+    capturedOn: '2026-07-23',
     batchId: production.batchId,
     productionContractSha256: sha256(productionSource),
     sourceKind: 'installed-aivmx-embedded-manifest-and-engine-cache',
     scope: 'Model, licence, speaker and style identity only; weights, icons, portraits and voice samples are not copied.',
-    license: archivedLicense,
+    licenses: [...archivedLicenses.values()].sort((left, right) => left.id.localeCompare(right.id)),
     models: evidence,
     engine: {
         ...production.render.engine,

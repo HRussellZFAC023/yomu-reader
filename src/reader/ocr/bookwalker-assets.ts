@@ -119,7 +119,10 @@ function isMatchingSessionEndpoint(rawUrl: string, current: URL, contentId: stri
     const candidate = safeUrl(rawUrl);
     if (!candidate || candidate.origin !== current.origin) return false;
     if (!BOOKWALKER_CONTENT_SESSION_PATHS.has(candidate.pathname)) return false;
-    if (!candidate.searchParams.get('BID')) return false;
+    // BID is not required. Same-origin + the content-session path + a matching cid
+    // already identifies this book's session endpoint, and demanding an extra
+    // parameter the viewer may omit (free-trial sessions do) would silently turn
+    // signed-URL renewal off — the same class of failure as a path-keyed matcher.
     return !contentId || candidate.searchParams.get('cid') === contentId;
 }
 
@@ -168,9 +171,20 @@ function signedUrlExpiry(url: URL): number | undefined {
     }
 }
 
+// A BookWalker content asset is anything on a BookWalker host carrying a complete
+// CloudFront signature. Deliberately NOT keyed on a directory name: the viewer has
+// already moved its layout once (`/OPS/images/` → `/OEBPS/text/…`), and a matcher
+// tied to the old path silently disables signed-URL renewal. That failure is
+// invisible — every replayed asset 403s and OCR reports "Could not read text" —
+// so the matcher keys on the property that actually makes a URL expire.
+// `applyAuthorization` still refuses anything outside the content session's own
+// base path, so widening the match here cannot rewrite an unrelated URL.
 function isBookwalkerAssetUrl(rawUrl: string): boolean {
     const url = safeUrl(rawUrl);
-    return Boolean(url && isBookwalkerHost(url.hostname) && /\/OPS\/images\//.test(url.pathname));
+    if (!url || !isBookwalkerHost(url.hostname)) return false;
+    return url.searchParams.has('Policy')
+        && url.searchParams.has('Signature')
+        && url.searchParams.has('Key-Pair-Id');
 }
 
 function isBookwalkerHost(hostname: string): boolean {

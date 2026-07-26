@@ -1,6 +1,6 @@
 {
   "schema": "yomu-academy.learning-voice-model-reviews.v2",
-  "reviewedOn": "2026-07-20",
+  "reviewedOn": "2026-07-24",
   "audioModelReviewed": true,
   "humanReviewed": false,
   "policy": {
@@ -27,8 +27,8 @@
       "reviewer": {
         "service": "whisper.cpp local inference",
         "modelFamily": "OpenAI Whisper",
-        "displayedModel": "ggml-base.bin",
-        "modelPayloadSha256": "60ed5bc3dd14eea856493d334349b405782ddcaf0028d4b5df4088345fba2efe",
+        "displayedModel": "ggml-large-v3-turbo-q5_0.bin",
+        "modelPayloadSha256": "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2",
         "independentReviewIndex": 1
       },
       "audioActuallyAuditioned": true,
@@ -38,12 +38,28 @@
       "criteria": [
         "independent acoustic intelligibility",
         "Japanese waveform-to-text recovery",
-        "character error rate at or below 0.15"
+        "line-specific critical phrase recovery",
+        "character error rate at or below 0.15 after every critical gate passes"
       ],
       "assetSha256s": [
-        "37be1d95feaf75c916ac28f904844f44532de8d47d7408a29ecc2fa814f5ac19",
+        "0c949c52634727f8e27730cd45ca175d9d43ec05e06e4c189c1609a641195a90",
+        "0f66cd7f8f8746acc4f6cf48eea70f19d81021e77a178a5df725363062181f0b",
+        "139fcc5abad785ada11c470ba36db8e55b73849a07e9c7ab68a51b15d8cef07e",
+        "1af5a59cc331de1204697087771b97b39f04430ca42525f141d073e0ca17e58b",
         "3a518a64e393b26b0c723d3ac60a78280fda8fde0343558f76ebf19bb586a51a",
+        "582a8f6e440ee92470c8beade4f9cc2b80a9cc28a9cea4fcbcaa7ba7dd864c37",
+        "7c9d841fbde752f509887763e6fd130004081257f21156afc5a8ddfd85969771",
+        "8174141e164da8e062921d45f34e0232bbf5b6f02f654924026ba661e3ffecc2",
         "86dbec0a4e0c4ed17984993569eb7056fe2246569c382a10a7a15c274e840f06",
+        "877837076979db131e43595095422105b3c60a25cbfbf3f918a6a16696a9aafb",
+        "93160d80b29b8a21688ca5620b69da072e9370705c7d42cc52e27853c78b8a11",
+        "aa51ae04d9e114b326eae5d8f9604ffe18603003c5be44c74a119d70792441ec",
+        "b056b8f146eb4ed8e702c0ac398aba51e01d88e8a140867fd7160dfb69c627d3",
+        "b37a4487325904650805566b20d13cb40bf025ba107c35f51e4a5781aa9858bb",
+        "b8cac9c144b4ce94324a98b3a1096596766e08e33b60b1dc391cd1d235f80775",
+        "bf2d773c1a71df81053c845e4effc1b50c0feaffd5b352534507cc2b678592a8",
+        "dea978a9cc61b721c8bade349b1f3f046549b3a5d8a1cbc8052e3efedfb85fdb",
+        "e25636d68f5a0a569c63057fbb43d04dae7daecca34489f45d9b7c31c611d870",
         "e94c91b82c6c2e54f77677cebc25d356f256c7ec6627d594711d21eb457399e9"
       ],
       "lines": [
@@ -67,7 +83,7 @@
           "assetSha256": "86dbec0a4e0c4ed17984993569eb7056fe2246569c382a10a7a15c274e840f06",
           "expectedJapanese": "コーヒーは三百円です。",
           "heardTranscript": "コーヒーは300円です",
-          "normalizedTranscript": "コーヒーは300円です",
+          "normalizedTranscript": "こーひーは300円です",
           "characterErrorRate": 0,
           "criticalPhraseGates": [
             "三百円"
@@ -92,11 +108,11 @@
         },
         {
           "lineId": "rie-lesson-zero-repeat",
-          "filename": "rie-lesson-zero-repeat__338d8bdd0bbfd0e4.opus",
-          "assetSha256": "37be1d95feaf75c916ac28f904844f44532de8d47d7408a29ecc2fa814f5ac19",
+          "filename": "rie-lesson-zero-repeat__39120279d3b659e0.opus",
+          "assetSha256": "0f66cd7f8f8746acc4f6cf48eea70f19d81021e77a178a5df725363062181f0b",
           "expectedJapanese": "もう一度お願いします。",
           "heardTranscript": "もう一度お願いします",
-          "normalizedTranscript": "もう一度お願いします",
+          "normalizedTranscript": "もう一度おねがいします",
           "characterErrorRate": 0,
           "criticalPhraseGates": [
             "もう一度",
@@ -104,13 +120,224 @@
           ],
           "criticalPhraseGatePassed": true,
           "verdict": "pass"
+        },
+        {
+          "lineId": "rie-lesson-zero-greeting",
+          "filename": "rie-lesson-zero-greeting__2f535f136fc8fa96.opus",
+          "assetSha256": "b056b8f146eb4ed8e702c0ac398aba51e01d88e8a140867fd7160dfb69c627d3",
+          "expectedJapanese": "こんばんは。はじめまして。りえです。よろしくお願いします。",
+          "heardTranscript": "こんばんは、はじめまして、りえです。よろしくお願いします。",
+          "normalizedTranscript": "こんばんははじめましてりえですよろしくおねがいします",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "こんばんは",
+            "はじめまして",
+            "りえ",
+            "よろしくお願いします"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "xingyu-lesson-zero-vowel-a",
+          "filename": "xingyu-lesson-zero-vowel-a__69145d6e8b8031cb.opus",
+          "assetSha256": "b37a4487325904650805566b20d13cb40bf025ba107c35f51e4a5781aa9858bb",
+          "expectedJapanese": "あさです",
+          "heardTranscript": "朝です",
+          "normalizedTranscript": "あさです",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "あさです"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "xingyu-lesson-zero-vowel-i",
+          "filename": "xingyu-lesson-zero-vowel-i__2814106b6370ab14.opus",
+          "assetSha256": "0c949c52634727f8e27730cd45ca175d9d43ec05e06e4c189c1609a641195a90",
+          "expectedJapanese": "いぬです",
+          "heardTranscript": "犬です",
+          "normalizedTranscript": "いぬです",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "いぬです"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "xingyu-lesson-zero-vowel-u",
+          "filename": "xingyu-lesson-zero-vowel-u__95545b7309f157a7.opus",
+          "assetSha256": "139fcc5abad785ada11c470ba36db8e55b73849a07e9c7ab68a51b15d8cef07e",
+          "expectedJapanese": "うみです",
+          "heardTranscript": "海です。",
+          "normalizedTranscript": "うみです",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "うみです"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "xingyu-lesson-zero-vowel-e",
+          "filename": "xingyu-lesson-zero-vowel-e__553503599bdf886c.opus",
+          "assetSha256": "dea978a9cc61b721c8bade349b1f3f046549b3a5d8a1cbc8052e3efedfb85fdb",
+          "expectedJapanese": "えほんです",
+          "heardTranscript": "絵本です",
+          "normalizedTranscript": "えほんです",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "えほんです"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "xingyu-lesson-zero-vowel-o",
+          "filename": "xingyu-lesson-zero-vowel-o__212e0286edbf17df.opus",
+          "assetSha256": "582a8f6e440ee92470c8beade4f9cc2b80a9cc28a9cea4fcbcaa7ba7dd864c37",
+          "expectedJapanese": "おちゃです",
+          "heardTranscript": "お茶です。",
+          "normalizedTranscript": "おちゃです",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "おちゃです"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "rie-classroom-begin",
+          "filename": "rie-classroom-begin__1936dd4ce470abf7.opus",
+          "assetSha256": "93160d80b29b8a21688ca5620b69da072e9370705c7d42cc52e27853c78b8a11",
+          "expectedJapanese": "はじめましょう",
+          "heardTranscript": "始めましょう。",
+          "normalizedTranscript": "はじめましょう",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "はじめましょう"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "rie-classroom-finish",
+          "filename": "rie-classroom-finish__fe6dfa2f04674f25.opus",
+          "assetSha256": "e25636d68f5a0a569c63057fbb43d04dae7daecca34489f45d9b7c31c611d870",
+          "expectedJapanese": "おわりましょう",
+          "heardTranscript": "終わりましょう。",
+          "normalizedTranscript": "おわりましょう",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "おわりましょう"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "rie-classroom-break",
+          "filename": "rie-classroom-break__f9704bf324e8e6b6.opus",
+          "assetSha256": "8174141e164da8e062921d45f34e0232bbf5b6f02f654924026ba661e3ffecc2",
+          "expectedJapanese": "やすみましょう",
+          "heardTranscript": "休みましょう。",
+          "normalizedTranscript": "やすみましょう",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "やすみましょう"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "rie-classroom-look",
+          "filename": "rie-classroom-look__b8fd6410f80d8195.opus",
+          "assetSha256": "aa51ae04d9e114b326eae5d8f9604ffe18603003c5be44c74a119d70792441ec",
+          "expectedJapanese": "みてください",
+          "heardTranscript": "見てください。",
+          "normalizedTranscript": "みてください",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "みてください"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "rie-classroom-say-together",
+          "filename": "rie-classroom-say-together__71551a1f952d144c.opus",
+          "assetSha256": "7c9d841fbde752f509887763e6fd130004081257f21156afc5a8ddfd85969771",
+          "expectedJapanese": "みなさんでいってください",
+          "heardTranscript": "皆さんで言ってください。",
+          "normalizedTranscript": "みなさんでいってください",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "みなさんで",
+            "いってください"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "rie-classroom-listen",
+          "filename": "rie-classroom-listen__00d8b11e0a97bb62.opus",
+          "assetSha256": "1af5a59cc331de1204697087771b97b39f04430ca42525f141d073e0ca17e58b",
+          "expectedJapanese": "きいてください",
+          "heardTranscript": "聞いてください。",
+          "normalizedTranscript": "きいてください",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "きいてください"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "rie-classroom-write",
+          "filename": "rie-classroom-write__07925423b74b64b7.opus",
+          "assetSha256": "b8cac9c144b4ce94324a98b3a1096596766e08e33b60b1dc391cd1d235f80775",
+          "expectedJapanese": "かいてください",
+          "heardTranscript": "書いてください",
+          "normalizedTranscript": "かいてください",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "かいてください"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "rie-lesson-zero-homework",
+          "filename": "rie-lesson-zero-homework__870ba7f1bb64aa13.opus",
+          "assetSha256": "bf2d773c1a71df81053c845e4effc1b50c0feaffd5b352534507cc2b678592a8",
+          "expectedJapanese": "しゅくだい。しゅくだいです。",
+          "heardTranscript": "宿題、宿題です。",
+          "normalizedTranscript": "しゅくだいしゅくだいです",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "しゅくだい"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "rie-lesson-zero-example",
+          "filename": "rie-lesson-zero-example__10f47eefee150c44.opus",
+          "assetSha256": "877837076979db131e43595095422105b3c60a25cbfbf3f918a6a16696a9aafb",
+          "expectedJapanese": "これは、れいです。れい。",
+          "heardTranscript": "これは例です。例。",
+          "normalizedTranscript": "これはれいですれい",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "れい"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
         }
       ],
-      "overallVerdict": "mixed",
-      "blockingDefects": [
-        "lesson-textbook-pair-prompt: critical numeral 五 was not recovered",
-        "mary-cafe-order: critical polite morpheme お願い was not recovered"
-      ]
+      "overallVerdict": "pass",
+      "blockingDefects": []
     },
     {
       "reviewer": {
@@ -127,12 +354,28 @@
       "criteria": [
         "independent acoustic intelligibility",
         "Japanese waveform-to-text recovery",
-        "character error rate at or below 0.15"
+        "line-specific critical phrase recovery",
+        "character error rate at or below 0.15 after every critical gate passes"
       ],
       "assetSha256s": [
-        "37be1d95feaf75c916ac28f904844f44532de8d47d7408a29ecc2fa814f5ac19",
+        "0c949c52634727f8e27730cd45ca175d9d43ec05e06e4c189c1609a641195a90",
+        "0f66cd7f8f8746acc4f6cf48eea70f19d81021e77a178a5df725363062181f0b",
+        "139fcc5abad785ada11c470ba36db8e55b73849a07e9c7ab68a51b15d8cef07e",
+        "1af5a59cc331de1204697087771b97b39f04430ca42525f141d073e0ca17e58b",
         "3a518a64e393b26b0c723d3ac60a78280fda8fde0343558f76ebf19bb586a51a",
+        "582a8f6e440ee92470c8beade4f9cc2b80a9cc28a9cea4fcbcaa7ba7dd864c37",
+        "7c9d841fbde752f509887763e6fd130004081257f21156afc5a8ddfd85969771",
+        "8174141e164da8e062921d45f34e0232bbf5b6f02f654924026ba661e3ffecc2",
         "86dbec0a4e0c4ed17984993569eb7056fe2246569c382a10a7a15c274e840f06",
+        "877837076979db131e43595095422105b3c60a25cbfbf3f918a6a16696a9aafb",
+        "93160d80b29b8a21688ca5620b69da072e9370705c7d42cc52e27853c78b8a11",
+        "aa51ae04d9e114b326eae5d8f9604ffe18603003c5be44c74a119d70792441ec",
+        "b056b8f146eb4ed8e702c0ac398aba51e01d88e8a140867fd7160dfb69c627d3",
+        "b37a4487325904650805566b20d13cb40bf025ba107c35f51e4a5781aa9858bb",
+        "b8cac9c144b4ce94324a98b3a1096596766e08e33b60b1dc391cd1d235f80775",
+        "bf2d773c1a71df81053c845e4effc1b50c0feaffd5b352534507cc2b678592a8",
+        "dea978a9cc61b721c8bade349b1f3f046549b3a5d8a1cbc8052e3efedfb85fdb",
+        "e25636d68f5a0a569c63057fbb43d04dae7daecca34489f45d9b7c31c611d870",
         "e94c91b82c6c2e54f77677cebc25d356f256c7ec6627d594711d21eb457399e9"
       ],
       "lines": [
@@ -156,7 +399,7 @@
           "assetSha256": "86dbec0a4e0c4ed17984993569eb7056fe2246569c382a10a7a15c274e840f06",
           "expectedJapanese": "コーヒーは三百円です。",
           "heardTranscript": "コーヒー は 三百 円 です",
-          "normalizedTranscript": "コーヒーは300円です",
+          "normalizedTranscript": "こーひーは300円です",
           "characterErrorRate": 0,
           "criticalPhraseGates": [
             "三百円"
@@ -181,32 +424,243 @@
         },
         {
           "lineId": "rie-lesson-zero-repeat",
-          "filename": "rie-lesson-zero-repeat__338d8bdd0bbfd0e4.opus",
-          "assetSha256": "37be1d95feaf75c916ac28f904844f44532de8d47d7408a29ecc2fa814f5ac19",
+          "filename": "rie-lesson-zero-repeat__39120279d3b659e0.opus",
+          "assetSha256": "0f66cd7f8f8746acc4f6cf48eea70f19d81021e77a178a5df725363062181f0b",
           "expectedJapanese": "もう一度お願いします。",
-          "heardTranscript": "もう 一 度 は 願い し ます",
-          "normalizedTranscript": "もう一度は願いします",
-          "characterErrorRate": 0.1,
+          "heardTranscript": "もう 一 度 お 願い し ます",
+          "normalizedTranscript": "もう一度おねがいします",
+          "characterErrorRate": 0,
           "criticalPhraseGates": [
             "もう一度",
             "お願いします"
           ],
-          "criticalPhraseGatePassed": false,
-          "verdict": "hard-fail"
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "rie-lesson-zero-greeting",
+          "filename": "rie-lesson-zero-greeting__2f535f136fc8fa96.opus",
+          "assetSha256": "b056b8f146eb4ed8e702c0ac398aba51e01d88e8a140867fd7160dfb69c627d3",
+          "expectedJapanese": "こんばんは。はじめまして。りえです。よろしくお願いします。",
+          "heardTranscript": "[unk] こんばんは はじめまして りえ です よろしく お 願い し ます",
+          "normalizedTranscript": "unkこんばんははじめましてりえですよろしくおねがいします",
+          "characterErrorRate": 0.1154,
+          "criticalPhraseGates": [
+            "こんばんは",
+            "はじめまして",
+            "りえ",
+            "よろしくお願いします"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "xingyu-lesson-zero-vowel-a",
+          "filename": "xingyu-lesson-zero-vowel-a__69145d6e8b8031cb.opus",
+          "assetSha256": "b37a4487325904650805566b20d13cb40bf025ba107c35f51e4a5781aa9858bb",
+          "expectedJapanese": "あさです",
+          "heardTranscript": "あさ です",
+          "normalizedTranscript": "あさです",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "あさです"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "xingyu-lesson-zero-vowel-i",
+          "filename": "xingyu-lesson-zero-vowel-i__2814106b6370ab14.opus",
+          "assetSha256": "0c949c52634727f8e27730cd45ca175d9d43ec05e06e4c189c1609a641195a90",
+          "expectedJapanese": "いぬです",
+          "heardTranscript": "いぬ です",
+          "normalizedTranscript": "いぬです",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "いぬです"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "xingyu-lesson-zero-vowel-u",
+          "filename": "xingyu-lesson-zero-vowel-u__95545b7309f157a7.opus",
+          "assetSha256": "139fcc5abad785ada11c470ba36db8e55b73849a07e9c7ab68a51b15d8cef07e",
+          "expectedJapanese": "うみです",
+          "heardTranscript": "うみ です",
+          "normalizedTranscript": "うみです",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "うみです"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "xingyu-lesson-zero-vowel-e",
+          "filename": "xingyu-lesson-zero-vowel-e__553503599bdf886c.opus",
+          "assetSha256": "dea978a9cc61b721c8bade349b1f3f046549b3a5d8a1cbc8052e3efedfb85fdb",
+          "expectedJapanese": "えほんです",
+          "heardTranscript": "えほん です",
+          "normalizedTranscript": "えほんです",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "えほんです"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "xingyu-lesson-zero-vowel-o",
+          "filename": "xingyu-lesson-zero-vowel-o__212e0286edbf17df.opus",
+          "assetSha256": "582a8f6e440ee92470c8beade4f9cc2b80a9cc28a9cea4fcbcaa7ba7dd864c37",
+          "expectedJapanese": "おちゃです",
+          "heardTranscript": "おちゃ です",
+          "normalizedTranscript": "おちゃです",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "おちゃです"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "rie-classroom-begin",
+          "filename": "rie-classroom-begin__1936dd4ce470abf7.opus",
+          "assetSha256": "93160d80b29b8a21688ca5620b69da072e9370705c7d42cc52e27853c78b8a11",
+          "expectedJapanese": "はじめましょう",
+          "heardTranscript": "始め ましょ",
+          "normalizedTranscript": "はじめましょう",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "はじめましょう"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "rie-classroom-finish",
+          "filename": "rie-classroom-finish__fe6dfa2f04674f25.opus",
+          "assetSha256": "e25636d68f5a0a569c63057fbb43d04dae7daecca34489f45d9b7c31c611d870",
+          "expectedJapanese": "おわりましょう",
+          "heardTranscript": "終わり ましょ",
+          "normalizedTranscript": "おわりましょう",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "おわりましょう"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "rie-classroom-break",
+          "filename": "rie-classroom-break__f9704bf324e8e6b6.opus",
+          "assetSha256": "8174141e164da8e062921d45f34e0232bbf5b6f02f654924026ba661e3ffecc2",
+          "expectedJapanese": "やすみましょう",
+          "heardTranscript": "休み ましょ",
+          "normalizedTranscript": "やすみましょう",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "やすみましょう"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "rie-classroom-look",
+          "filename": "rie-classroom-look__b8fd6410f80d8195.opus",
+          "assetSha256": "aa51ae04d9e114b326eae5d8f9604ffe18603003c5be44c74a119d70792441ec",
+          "expectedJapanese": "みてください",
+          "heardTranscript": "見 て ください",
+          "normalizedTranscript": "みてください",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "みてください"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "rie-classroom-say-together",
+          "filename": "rie-classroom-say-together__71551a1f952d144c.opus",
+          "assetSha256": "7c9d841fbde752f509887763e6fd130004081257f21156afc5a8ddfd85969771",
+          "expectedJapanese": "みなさんでいってください",
+          "heardTranscript": "皆 さん で 言っ て ください",
+          "normalizedTranscript": "みなさんでいってください",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "みなさんで",
+            "いってください"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "rie-classroom-listen",
+          "filename": "rie-classroom-listen__00d8b11e0a97bb62.opus",
+          "assetSha256": "1af5a59cc331de1204697087771b97b39f04430ca42525f141d073e0ca17e58b",
+          "expectedJapanese": "きいてください",
+          "heardTranscript": "聞い て ください",
+          "normalizedTranscript": "きいてください",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "きいてください"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "rie-classroom-write",
+          "filename": "rie-classroom-write__07925423b74b64b7.opus",
+          "assetSha256": "b8cac9c144b4ce94324a98b3a1096596766e08e33b60b1dc391cd1d235f80775",
+          "expectedJapanese": "かいてください",
+          "heardTranscript": "書い て ください",
+          "normalizedTranscript": "かいてください",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "かいてください"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "rie-lesson-zero-homework",
+          "filename": "rie-lesson-zero-homework__870ba7f1bb64aa13.opus",
+          "assetSha256": "bf2d773c1a71df81053c845e4effc1b50c0feaffd5b352534507cc2b678592a8",
+          "expectedJapanese": "しゅくだい。しゅくだいです。",
+          "heardTranscript": "宿題 宿題 です",
+          "normalizedTranscript": "しゅくだいしゅくだいです",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "しゅくだい"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
+        },
+        {
+          "lineId": "rie-lesson-zero-example",
+          "filename": "rie-lesson-zero-example__10f47eefee150c44.opus",
+          "assetSha256": "877837076979db131e43595095422105b3c60a25cbfbf3f918a6a16696a9aafb",
+          "expectedJapanese": "これは、れいです。れい。",
+          "heardTranscript": "これ は 例 です 例",
+          "normalizedTranscript": "これはれいですれい",
+          "characterErrorRate": 0,
+          "criticalPhraseGates": [
+            "れい"
+          ],
+          "criticalPhraseGatePassed": true,
+          "verdict": "pass"
         }
       ],
-      "overallVerdict": "mixed",
-      "blockingDefects": [
-        "lesson-textbook-pair-prompt: critical numeral 五 was not recovered",
-        "rie-lesson-zero-repeat: particle insertion and polite morpheme mismatch in a short pedagogical phrase"
-      ]
+      "overallVerdict": "pass",
+      "blockingDefects": []
     }
   ],
   "lineDispositions": [
     {
       "lineId": "lesson-textbook-pair-prompt",
       "verdict": "rejected",
-      "reason": "critical numeral mismatch in both independent waveform reviews"
+      "reason": "Independent waveform review recovered コページ and 後ページ instead of 五ページ. The take is not shipped."
     },
     {
       "lineId": "miller-cafe-price",
@@ -218,13 +672,120 @@
     {
       "lineId": "mary-cafe-order",
       "verdict": "rejected",
-      "reason": "critical polite morpheme mismatch in one independent waveform review"
+      "reason": "Independent waveform review recovered お狙いします instead of お願いします. The take is not shipped."
     },
     {
       "lineId": "rie-lesson-zero-repeat",
-      "verdict": "rejected",
-      "reason": "critical particle and polite morpheme mismatch in one independent waveform review"
+      "verdict": "accepted",
+      "acceptedBy": "Codex",
+      "humanReviewed": false,
+      "independentAudioModelReviews": 2
+    },
+    {
+      "lineId": "rie-lesson-zero-greeting",
+      "verdict": "accepted",
+      "acceptedBy": "Codex",
+      "humanReviewed": false,
+      "independentAudioModelReviews": 2
+    },
+    {
+      "lineId": "xingyu-lesson-zero-vowel-a",
+      "verdict": "accepted",
+      "acceptedBy": "Codex",
+      "humanReviewed": false,
+      "independentAudioModelReviews": 2
+    },
+    {
+      "lineId": "xingyu-lesson-zero-vowel-i",
+      "verdict": "accepted",
+      "acceptedBy": "Codex",
+      "humanReviewed": false,
+      "independentAudioModelReviews": 2
+    },
+    {
+      "lineId": "xingyu-lesson-zero-vowel-u",
+      "verdict": "accepted",
+      "acceptedBy": "Codex",
+      "humanReviewed": false,
+      "independentAudioModelReviews": 2
+    },
+    {
+      "lineId": "xingyu-lesson-zero-vowel-e",
+      "verdict": "accepted",
+      "acceptedBy": "Codex",
+      "humanReviewed": false,
+      "independentAudioModelReviews": 2
+    },
+    {
+      "lineId": "xingyu-lesson-zero-vowel-o",
+      "verdict": "accepted",
+      "acceptedBy": "Codex",
+      "humanReviewed": false,
+      "independentAudioModelReviews": 2
+    },
+    {
+      "lineId": "rie-classroom-begin",
+      "verdict": "accepted",
+      "acceptedBy": "Codex",
+      "humanReviewed": false,
+      "independentAudioModelReviews": 2
+    },
+    {
+      "lineId": "rie-classroom-finish",
+      "verdict": "accepted",
+      "acceptedBy": "Codex",
+      "humanReviewed": false,
+      "independentAudioModelReviews": 2
+    },
+    {
+      "lineId": "rie-classroom-break",
+      "verdict": "accepted",
+      "acceptedBy": "Codex",
+      "humanReviewed": false,
+      "independentAudioModelReviews": 2
+    },
+    {
+      "lineId": "rie-classroom-look",
+      "verdict": "accepted",
+      "acceptedBy": "Codex",
+      "humanReviewed": false,
+      "independentAudioModelReviews": 2
+    },
+    {
+      "lineId": "rie-classroom-say-together",
+      "verdict": "accepted",
+      "acceptedBy": "Codex",
+      "humanReviewed": false,
+      "independentAudioModelReviews": 2
+    },
+    {
+      "lineId": "rie-classroom-listen",
+      "verdict": "accepted",
+      "acceptedBy": "Codex",
+      "humanReviewed": false,
+      "independentAudioModelReviews": 2
+    },
+    {
+      "lineId": "rie-classroom-write",
+      "verdict": "accepted",
+      "acceptedBy": "Codex",
+      "humanReviewed": false,
+      "independentAudioModelReviews": 2
+    },
+    {
+      "lineId": "rie-lesson-zero-homework",
+      "verdict": "accepted",
+      "acceptedBy": "Codex",
+      "humanReviewed": false,
+      "independentAudioModelReviews": 2
+    },
+    {
+      "lineId": "rie-lesson-zero-example",
+      "verdict": "accepted",
+      "acceptedBy": "Codex",
+      "humanReviewed": false,
+      "independentAudioModelReviews": 2
     }
   ],
-  "overallVerdict": "mixed-one-accepted-three-rejected"
+  "overallVerdict": "mixed-17-accepted-two-rejected"
 }

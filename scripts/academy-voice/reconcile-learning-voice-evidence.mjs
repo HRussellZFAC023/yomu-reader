@@ -23,7 +23,7 @@ const catalog = JSON.parse(catalogSource);
 if (production.schema !== 'yomu-academy.learning-voice-production.v2') {
     throw new Error('Unexpected production contract schema.');
 }
-if (model.schema !== 'yomu-academy.learning-voice-model-evidence.v3') {
+if (model.schema !== 'yomu-academy.learning-voice-model-evidence.v4') {
     throw new Error('Unexpected model evidence schema.');
 }
 

@@ -9,6 +9,10 @@
     "config/vite/size.config.ts",
     "src/reader/userscript/entry.ts",
     "src/reader/newtab/entrypoint.ts",
+    // esbuild entry point for the inline pre-paint accent bootstrap, named by
+    // path string in scripts/lib/hosted-appearance-boot.cjs rather than
+    // imported. It ships inside the <head> of every hosted surface.
+    "src/reader/core/hosted-appearance-boot.ts",
     "src/gaming/main.ts",
     "src/gaming/preload.ts",
     "src/gaming/renderer/app.ts",
@@ -223,6 +227,14 @@
     {
       "file": "src/reader/immersion/player-view.ts",
       "exports": ["renderImmersionExampleActions"]
+    },
+    // Reached only through dynamic requires: createRequire in
+    // scripts/build-extension.mjs, and a child-process require() in
+    // tests/reader/hosted-appearance-boot.test.ts, which shells out because
+    // esbuild cannot run under jsdom.
+    {
+      "file": "scripts/lib/hosted-appearance-boot.cjs",
+      "exports": ["hostedAppearanceBootSnippet"]
     },
     {
       "file": "src/reader/settings/index.ts",

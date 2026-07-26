@@ -1,5 +1,6 @@
 import {
     audioSubSourceNameKey,
+    audioSubSourceProviderName,
     disabledAudioSubSourceNameKeys,
     normalizeAttemptedAudioUrl,
     type AudioCandidate,
@@ -261,7 +262,7 @@ async function loadCustomJsonAudioCandidates(source: AudioSourceSetting, card: J
 // keep the generic URL extraction.
 function customJsonAudioCandidates(payload: unknown, source: AudioSourceSetting, sourceUrl: string): AudioCandidate[] {
     const named = namedAudioSubSources(payload);
-    recordAudioSubSourceNames(source.url, named.map(entry => entry.name));
+    recordAudioSubSourceNames(source.url, named.map(entry => audioSubSourceProviderName(entry.name)));
     const disabled = disabledAudioSubSourceNameKeys(source);
     if (named.length && disabled.size) {
         const allowed = named.filter(entry => !disabled.has(audioSubSourceNameKey(entry.name)));
@@ -376,7 +377,7 @@ async function probeCustomJsonAudioSubSources(
             const key = audioSubSourceNameKey(entry.name);
             if (seen.has(key)) continue;
             seen.add(key);
-            names.push(entry.name);
+            names.push(audioSubSourceProviderName(entry.name));
         }
     }
     return { names, reached };

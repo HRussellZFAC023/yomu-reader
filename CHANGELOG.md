@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.8.7] - 2026-07-26
+## [1.8.10] - 2026-07-26
 
 ### Added
 
@@ -25,6 +25,27 @@
 - Sites that force their own colours, borders and shadows onto every element on the page no longer strip the reader's interface back to bare text. On such a site the floating button lost its circle, its background and its outline, leaving the label floating loose. The reader now re-asserts its own appearance in a way the page cannot outrank, without changing how the site itself looks anywhere.
 - Subtitle annotations no longer vanish for a moment, or for good, as each line appears. A line whose readings had already been prepared was compared against the wrong record of what was last drawn, so the reader concluded it had nothing ready and repainted the line as plain text — annotations returned only if a second lookup happened to land, and the repaint also wiped the colours applied a moment earlier.
 - The reader's own styling now survives a page load that cannot reach its stylesheet. Only two sources were tried, the second of which is blocked on a number of networks, so a reader that missed both rendered as unstyled native controls with no dialog frame. A third always-available source now sits between them, the last known-good stylesheet is kept across updates instead of being discarded on every release, and a load that still ends with no styling now says so in the console instead of failing silently.
+## [1.8.9] - 2026-07-26
+
+### Fixed
+
+- The providers inside an audio source URL now actually appear in Settings. Opening Media asks the source which providers it offers, so the list fills in, where before it stayed empty unless you happened to play a word in that same tab first.
+- Those providers are now listed once each, by name. The hosted source labels every individual clip rather than every source, so one lookup came back as nhk16 ニホ＼ン [2], daijisen にほ＼ん [2], forvo_jp akitomo, and more. Yomu now groups them into nhk16, daijisen, forvo_jp and jpod — one checkbox each, which still means the same thing for every other word instead of changing with the reading, pitch, or Forvo speaker. Turning one off drops all of its clips.
+- Scrolling inside Yomu's own panels, such as Settings, no longer stutters on a page full of furigana. Every scroll anywhere on the page made Yomu re-measure the position of every reading it had drawn, including scrolls inside its own windows, which cannot move page text at all. On a manga page carrying hundreds of readings that was a full re-measure per frame of scrolling. Yomu now re-measures only when the thing being scrolled actually holds readings, so page scrolling keeps following the text exactly as before.
+
+## [1.8.8] - 2026-07-25
+
+### Fixed
+
+- Manga pages on BookWalker no longer stop scanning after a few pages of reading. BookWalker only signs each page image for about a minute and fetches upcoming pages ahead of you, so reading at a normal pace meant Yomu was asking for pictures whose access had already lapsed; every page then reported that its text could not be read until the reader was reloaded. Yomu now renews that access when it has lapsed, so pages keep scanning however slowly you read.
+- Furigana on pages that hold their own layout, such as the cookie notice on BookWalker, no longer freeze in place in Firefox. A repositioning step failed on the very first scroll and never recovered, leaving readings where they were first drawn.
+- Scrolling a BookWalker book is smoother. Yomu was re-examining every page surface on screen each time any part of the page repainted, and re-reading whole page images it had already found it could not read.
+
+## [1.8.7] - 2026-07-25
+
+### Fixed
+
+- **Write** in the Study Type step accepts drawing again, including for WaniKani vocabulary reviews. A stale pre-reveal guard made the canvas visible but prevented it from receiving finger, Pencil, stylus, or mouse input; the guard now leaves the active Type handwriting surface interactive while retaining its protection for inactive doodle surfaces.
 
 ## [1.8.6] - 2026-07-25
 

@@ -144,8 +144,21 @@ export function isTextToSpeechFallbackSource(source: AudioSourceSetting): boolea
     return isApiTextToSpeechSource(source) || isBrowserTextToSpeechSource(source);
 }
 
+/**
+ * The provider an aggregator clip came from.
+ *
+ * Aggregators label each clip, not each source: the hosted source answers 日本
+ * with `nhk16 ニホ＼ん [2]`, `daijisen にほ＼ん [2]`, `forvo_jp akitomo`, `jpod`.
+ * The reading, pitch, and speaker differ per word, so only the leading token is
+ * stable enough to tick once and have it mean the same thing tomorrow.
+ */
+export function audioSubSourceProviderName(name: string): string {
+    const trimmed = name.trim().normalize('NFC');
+    return trimmed.split(/\s+/, 1)[0] ?? trimmed;
+}
+
 export function audioSubSourceNameKey(name: string): string {
-    return name.trim().normalize('NFC').toLowerCase();
+    return audioSubSourceProviderName(name).toLowerCase();
 }
 
 export function disabledAudioSubSourceNameKeys(source: AudioSourceSetting): Set<string> {

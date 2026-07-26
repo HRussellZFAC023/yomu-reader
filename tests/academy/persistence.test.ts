@@ -292,6 +292,53 @@ describe('Academy IndexedDB persistence', () => {
         persistence.close();
     });
 
+    it('persists the desk-paper transfer and rejects negative progress', async () => {
+        const persistence = await openAcademyPersistence(fakeIndexedDB, `academy-test-${crypto.randomUUID()}`);
+        const lessonZeroDeskLanguageProgress = {
+            schemaVersion: 1 as const,
+            sessionId: 'session:lesson-zero-desk-language' as const,
+            status: 'paused' as const,
+            stage: 'practice' as const,
+            practiceIndex: 1,
+            transferIndex: 0,
+            practicePassedWordIds: ['homework'] as const,
+            transferPassedWordIds: [] as const,
+            attempts: [{
+                round: 'practice' as const,
+                wordId: 'homework' as const,
+                chosenPropId: 'take-home-sheet' as const,
+                outcome: 'pass' as const,
+                at: 100,
+            }],
+        };
+        await persistence.checkpoint.save({
+            schemaVersion: 2,
+            route: 'source-activity',
+            routeHistory: [],
+            presentationMode: 'story',
+            lessonId: 'lesson:foundation-00',
+            activityId: 'activity:lesson-zero-desk-language',
+            lessonZeroDeskLanguageProgress,
+            updatedAt: 101,
+        });
+
+        expect(await persistence.checkpoint.load()).toMatchObject({ lessonZeroDeskLanguageProgress });
+        await expect(persistence.checkpoint.save({
+            schemaVersion: 2,
+            route: 'source-activity',
+            routeHistory: [],
+            presentationMode: 'story',
+            lessonId: 'lesson:foundation-00',
+            activityId: 'activity:lesson-zero-desk-language',
+            lessonZeroDeskLanguageProgress: {
+                ...lessonZeroDeskLanguageProgress,
+                practiceIndex: -1,
+            },
+            updatedAt: 102,
+        })).rejects.toThrow('invalid Lesson Zero desk-language progress');
+        persistence.close();
+    });
+
     it('persists the first greeting and rejects impossible session stages', async () => {
         const persistence = await openAcademyPersistence(fakeIndexedDB, `academy-test-${crypto.randomUUID()}`);
         const lessonZeroGreetingProgress = {

@@ -171,7 +171,7 @@ Each card walks through a short set of steps, and you only grade once at the end
 
 - **Draw the kanji** from memory on a small tracing pad, one character at a time.
 - **Read the word** in a real example sentence.
-- **Produce the word** — type its spelling or reading, or choose **Write** to draw its kanji. Mixed words keep kana in place: 飲み物 becomes ＿み＿. Kana-only words stay in typing mode.
+- **Produce the word** — type its spelling or reading, or choose **Write** to draw its kanji with a finger, Pencil, stylus, or mouse before the reveal. This works for every Study source, including WaniKani. Mixed words keep kana in place: 飲み物 becomes ＿み＿. Kana-only words stay in typing mode.
 - **Fill the blank** — the sentence appears with the word removed, and you type the Japanese back in. Stuck? Tap **Hint** for a nudge (a starting kana, the length, the meaning) without giving the answer away.
 - **Hear the pitch** — よむ plays the word and you pick its pitch shape from labelled contour buttons.
 - **Say it aloud** — record yourself and よむ scores your pitch against the model, right on your device.

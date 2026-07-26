@@ -148,6 +148,7 @@ export async function closeSmokeBrowserAndServer(browser, server) {
 
 export async function newAutoClosingPage(browser, contextOptions) {
     const context = await browser.newContext(contextOptions);
+    await maskAutomationSignals(context);
     const page = await context.newPage();
     closeContextAfterLastPage(page, context);
     return { context, page };
@@ -882,16 +883,48 @@ function initGmBridge({
     }
 }
 
+// Real reader sites degrade or refuse to run under an automated browser. BookWalker's
+// NFBR viewer is the worst case: with navigator.webdriver set it never composites a
+// page and stops answering on the main thread, so a harness that does not mask it
+// measures a dead viewer and passes. Mask it for every browser we launch — a smoke
+// run is only worth anything if the site behaves as it does for the reader.
+const AUTOMATION_MASK_PREFS = Object.freeze({
+    'dom.webdriver.enabled': false,
+    useAutomationExtension: false,
+});
+
 export async function launchSmokeBrowser(browserType = chromium, browserName = 'chromium', options = {}) {
     const configuredChannel = smokeBrowserChannel(browserName);
     if (configuredChannel) {
         try {
-            return await chromium.launch({ ...options, channel: configuredChannel });
+            return await chromium.launch({ ...withAutomationMask(options, 'chromium'), channel: configuredChannel });
         } catch (error) {
             if (!isMissingBrowserExecutable(error)) throw error;
         }
     }
-    return await launchSmokeBrowserWithFallback(browserType, browserName, options);
+    return await launchSmokeBrowserWithFallback(browserType, browserName, withAutomationMask(options, browserName));
+}
+
+// Firefox takes the pref; Chromium takes the flag. Passing either to the other
+// browser is at best ignored and at worst a launch failure, so keep them apart.
+function withAutomationMask(options, browserName) {
+    if (browserName === 'firefox') {
+        return { ...options, firefoxUserPrefs: { ...AUTOMATION_MASK_PREFS, ...(options.firefoxUserPrefs ?? {}) } };
+    }
+    if (browserName === 'chromium') {
+        return { ...options, args: [...(options.args ?? []), '--disable-blink-features=AutomationControlled'] };
+    }
+    return options;
+}
+
+// The page-side half of the mask: firefoxUserPrefs alone does not clear
+// navigator.webdriver on every channel, and Chromium needs it outright.
+async function maskAutomationSignals(contextOrPage) {
+    await contextOrPage.addInitScript(() => {
+        try {
+            Object.defineProperty(Navigator.prototype, 'webdriver', { get: () => undefined, configurable: true });
+        } catch { /* already masked or locked down */ }
+    });
 }
 
 function smokeBrowserChannel(browserName) {

@@ -91,11 +91,11 @@ describe('unbounded Academy day availability', () => {
             .flatMap(entry => Object.values(entry.delivery));
         expect(gaps.length).toBeGreaterThan(0);
         expect(gaps.length).toBeLessThan(DAY_ONE_AVAILABILITY_MANIFEST.entries.length * DAY_CLOSURE_DIMENSIONS.length);
-        expect(deliveryStates.filter(state => state === 'verified')).toHaveLength(72);
-        expect(deliveryStates.filter(state => state === 'partial')).toHaveLength(23);
-        expect(deliveryStates.filter(state => state === 'unverified')).toHaveLength(165);
+        expect(deliveryStates.filter(state => state === 'verified')).toHaveLength(136);
+        expect(deliveryStates.filter(state => state === 'partial')).toHaveLength(9);
+        expect(deliveryStates.filter(state => state === 'unverified')).toHaveLength(115);
         expect(DAY_ONE_AVAILABILITY_MANIFEST.entries.filter(entry =>
-            Object.values(entry.delivery).every(state => state === 'verified'))).toHaveLength(10);
+            Object.values(entry.delivery).every(state => state === 'verified'))).toHaveLength(26);
         expect(DAY_ONE_AVAILABILITY_MANIFEST.entries.find(entry =>
             entry.id === 'day:1:access')?.delivery).toEqual({
             implementation: 'verified',
@@ -169,36 +169,72 @@ describe('unbounded Academy day availability', () => {
             journeyProof: 'verified',
         });
         expect(DAY_ONE_AVAILABILITY_MANIFEST.entries.find(entry =>
+            entry.id === 'day:1:blank-atlas')?.delivery).toEqual({
+            implementation: 'verified',
+            reachability: 'verified',
+            media: 'verified',
+            persistence: 'verified',
+            journeyProof: 'verified',
+        });
+        [
+            'activity:lesson-zero-text-input',
+            'activity:lesson-zero-speaking-input',
+            'activity:lesson-zero-read-name-cards',
+            'activity:lesson-zero-write-name-card',
+            'activity:lesson-zero-sound-transfer',
+            'activity:lesson-zero-text-transfer',
+            'activity:lesson-zero-speaking-transfer',
+            'activity:lesson-zero-written-transfer',
+            'activity:lesson-zero-close-room',
+        ].forEach(activityId => {
+            expect(DAY_ONE_AVAILABILITY_MANIFEST.entries.find(entry =>
+                entry.contentIds.includes(activityId))?.delivery).toEqual({
+                implementation: 'verified',
+                reachability: 'verified',
+                media: 'verified',
+                persistence: 'verified',
+                journeyProof: 'verified',
+            });
+        });
+        expect(DAY_ONE_AVAILABILITY_MANIFEST.entries.find(entry =>
             entry.contentIds.includes('activity:lesson-zero-greet-rie'))?.delivery).toEqual({
             implementation: 'verified',
             reachability: 'verified',
-            media: 'partial',
+            media: 'verified',
+            persistence: 'verified',
+            journeyProof: 'verified',
+        });
+        expect(DAY_ONE_AVAILABILITY_MANIFEST.entries.find(entry =>
+            entry.contentIds.includes('activity:lesson-zero-vowel-listen'))?.delivery).toEqual({
+            implementation: 'verified',
+            reachability: 'verified',
+            media: 'verified',
             persistence: 'verified',
             journeyProof: 'verified',
         });
         expect(DAY_ONE_AVAILABILITY_MANIFEST.entries.find(entry =>
             entry.contentIds.includes('activity:lesson-zero-vowel-doodle'))?.delivery).toEqual({
             implementation: 'verified',
-            reachability: 'partial',
-            media: 'partial',
+            reachability: 'verified',
+            media: 'verified',
             persistence: 'verified',
-            journeyProof: 'partial',
+            journeyProof: 'verified',
         });
         expect(DAY_ONE_AVAILABILITY_MANIFEST.entries.find(entry =>
             entry.contentIds.includes('activity:lesson-zero-follow-instructions'))?.delivery).toEqual({
             implementation: 'verified',
-            reachability: 'partial',
-            media: 'partial',
+            reachability: 'verified',
+            media: 'verified',
             persistence: 'verified',
-            journeyProof: 'partial',
+            journeyProof: 'verified',
         });
         expect(DAY_ONE_AVAILABILITY_MANIFEST.entries.find(entry =>
             entry.contentIds.includes('activity:lesson-zero-reconstruct-repair'))?.delivery).toEqual({
             implementation: 'verified',
-            reachability: 'partial',
-            media: 'partial',
+            reachability: 'verified',
+            media: 'verified',
             persistence: 'verified',
-            journeyProof: 'partial',
+            journeyProof: 'verified',
         });
         expect(DAY_ONE_AVAILABILITY_MANIFEST.entries.find(entry =>
             entry.contentIds.includes('activity:lesson-zero-desk-language'))?.delivery).toEqual({
@@ -228,7 +264,7 @@ describe('unbounded Academy day availability', () => {
             entry.contentIds.includes('game:lesson-zero-vowel-listening-bingo'))?.delivery).toEqual({
             implementation: 'verified',
             reachability: 'verified',
-            media: 'partial',
+            media: 'verified',
             persistence: 'verified',
             journeyProof: 'verified',
         });

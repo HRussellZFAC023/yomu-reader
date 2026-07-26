@@ -34,6 +34,7 @@ MORA_FIELDS = {"accentPhrase", "mora", "pitch", "vowel_length", "consonant_lengt
 SHA256 = re.compile(r"^[a-f0-9]{64}$")
 MODEL_UUID = re.compile(r"^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$")
 LINE_ID = re.compile(r"^[a-z0-9][a-z0-9._:-]*$")
+SUPPORTED_MODEL_LICENSES = {"ACML-1.0", "CC-BY-SA-4.0"}
 
 
 def parse_args():
@@ -47,6 +48,7 @@ def parse_args():
     parser.add_argument("--staging-audio", type=Path, default=STAGING_AUDIO)
     parser.add_argument("--render-staging", action="store_true")
     parser.add_argument("--archive-query-evidence", action="store_true")
+    parser.add_argument("--fill-pending-contract", action="store_true")
     parser.add_argument("--overwrite", action="store_true")
     return parser.parse_args()
 
@@ -159,7 +161,8 @@ def validate_plan(plan):
                 and distribution.get("sha256") == mapping["modelPayloadSha256"]
                 and distribution.get("authority") == "exact-distribution-bytes",
                 f"model distribution bytes are not pinned: {mapping_id}")
-        require(mapping.get("modelLicense") == "ACML-1.0", f"model licence is not pinned: {mapping_id}")
+        require(mapping.get("modelLicense") in SUPPORTED_MODEL_LICENSES,
+                f"model licence is not pinned: {mapping_id}")
         require(type(mapping.get("styleId")) is int, f"style id is not pinned: {mapping_id}")
         require(isinstance(mapping.get("styleName"), str) and mapping["styleName"], f"style name is missing: {mapping_id}")
         require(isinstance(mapping.get("surfaceClasses"), list) and mapping["surfaceClasses"],
@@ -313,7 +316,7 @@ def validate_catalog(plan, catalog, mapping_by_id, catalog_path, mirror_catalog_
 
 def validate_query_evidence(plan, catalog, mapping_by_id, evidence, model_evidence,
                             plan_path, model_evidence_path):
-    require(model_evidence.get("schema") == "yomu-academy.learning-voice-model-evidence.v3",
+    require(model_evidence.get("schema") == "yomu-academy.learning-voice-model-evidence.v4",
             "unexpected model evidence schema")
     require(model_evidence.get("productionContractSha256") == sha256_file(plan_path),
             "model evidence production contract hash is stale")
@@ -331,6 +334,15 @@ def validate_query_evidence(plan, catalog, mapping_by_id, evidence, model_eviden
     }, "query evidence render contract is stale")
 
     model_by_uuid = {model.get("uuid"): model for model in model_evidence.get("models", [])}
+    license_by_id = {license_record.get("id"): license_record
+                     for license_record in model_evidence.get("licenses", [])}
+    require(set(license_by_id) == {mapping["modelLicense"] for mapping in mapping_by_id.values()},
+            "archived model licence set is stale")
+    require(all(SHA256.fullmatch(license_record.get("sha256", ""))
+                and isinstance(license_record.get("text"), str)
+                and sha256_bytes(license_record["text"].encode("utf-8")) == license_record["sha256"]
+                for license_record in license_by_id.values()),
+            "archived model licence text is invalid")
     engine_mapping_by_id = {
         mapping.get("mappingId"): mapping for mapping in model_evidence.get("engineStyleMappings", [])
     }
@@ -350,6 +362,11 @@ def validate_query_evidence(plan, catalog, mapping_by_id, evidence, model_eviden
                 f"archived model identity is stale: {mapping_id}")
         require(model.get("distribution") == mapping["modelDistribution"],
                 f"archived model distribution is stale: {mapping_id}")
+        license_record = license_by_id.get(mapping["modelLicense"])
+        require(license_record is not None
+                and model.get("licenseId") == mapping["modelLicense"]
+                and model.get("licenseSha256") == license_record["sha256"],
+                f"archived model licence is stale: {mapping_id}")
         matching_local_styles = [
             style for speaker in model.get("speakers", [])
             if speaker.get("name") == engine_mapping.get("engineSpeakerName")
@@ -490,7 +507,9 @@ def render_staging(args, plan, mapping_by_id):
         output.parent.mkdir(parents=True, exist_ok=True)
         if args.overwrite or not output.is_file():
             wav = request_bytes(engine, f"/synthesis?speaker={mapping['styleId']}", query)
-            temporary_output = output.with_name(f".{output.name}.{os.getpid()}.tmp")
+            temporary_output = output.with_name(
+                f".{output.stem}.{os.getpid()}.tmp{output.suffix}"
+            )
             with tempfile.NamedTemporaryFile(suffix=".wav") as temporary_wav:
                 temporary_wav.write(wav)
                 temporary_wav.flush()
@@ -611,6 +630,31 @@ def archive_query_evidence(args, plan, mapping_by_id, catalog, model_evidence,
     print(json.dumps({"archivedQueries": len(entries), "path": str(output_path.relative_to(ROOT))}))
 
 
+def fill_pending_contract(args, plan, plan_path):
+    engine = require_loopback_engine(args.engine)
+    require(request_json(engine, "/version") == plan["render"]["engine"]["version"],
+            "Aivis engine version is stale")
+    mapping_by_id = {mapping["mappingId"]: mapping for mapping in plan.get("voiceMappings", [])}
+    filled = []
+    for entry in plan.get("entries", []):
+        line_id = entry.get("identity", {}).get("voiceLineId", "<unknown>")
+        query_pending = entry.get("audioQuerySha256") == "0" * 64
+        cache_pending = entry.get("expectedCacheKey") == "0" * 64
+        require(query_pending == cache_pending, f"partial pending contract identity: {line_id}")
+        if not query_pending:
+            continue
+        mapping = mapping_by_id.get(entry.get("mappingId"))
+        require(mapping is not None, f"voice mapping is missing: {line_id}")
+        encoded = urllib.parse.urlencode({"text": entry["japanese"], "speaker": mapping["styleId"]})
+        query = apply_controls(request_json(engine, f"/audio_query?{encoded}", method="POST"), entry)
+        entry["audioQuerySha256"] = sha256_bytes(canonical_json(query).encode("utf-8"))
+        entry["expectedCacheKey"] = deterministic_cache_key(plan, entry, mapping)
+        filled.append(line_id)
+    require(filled, "no pending learning-voice contract identities were found")
+    plan_path.write_text(json.dumps(plan, ensure_ascii=False, indent=2) + "\n")
+    print(json.dumps({"filled": filled, "path": str(plan_path.relative_to(ROOT))}))
+
+
 def main():
     args = parse_args()
     plan_path = args.plan.resolve()
@@ -619,9 +663,12 @@ def main():
     catalog_path = args.catalog.resolve()
     mirror_catalog_path = args.mirror_catalog.resolve()
     plan = read_json(plan_path)
+    if args.fill_pending_contract:
+        fill_pending_contract(args, plan, plan_path)
+        return
     mappings = validate_plan(plan)
-    require(not (args.render_staging and args.archive_query_evidence),
-            "choose either live rendering or live query archiving")
+    require(sum((args.render_staging, args.archive_query_evidence, args.fill_pending_contract)) <= 1,
+            "choose one live learning-voice operation")
     if args.render_staging:
         render_staging(args, plan, mappings)
         return

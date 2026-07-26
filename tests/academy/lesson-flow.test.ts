@@ -7,6 +7,7 @@ import { validateLessonZeroPackage } from '../../src/academy/content/lesson-zero
 import { createLessonZeroVowelSoundMap } from '../../src/academy/content/lesson-zero-vowel-sound-map';
 import { createLessonZeroVowelWritingDefinition } from '../../src/academy/content/lesson-zero-vowel-writing';
 import { projectLearnerRecord } from '../../src/academy/domain/learner-record';
+import { LESSON_ZERO_VOWEL_WRITING_RECALL_ORDER } from '../../src/academy/domain/lesson-zero-vowel-writing-session';
 import {
     startLessonZeroVowelSession,
     transitionLessonZeroVowelSession,
@@ -120,7 +121,7 @@ describe('Academy lesson flow', () => {
         expect(route.back).toHaveBeenCalledOnce();
     });
 
-    it('saves and leaves the Lesson 0 classroom workshop through persisted route history', async () => {
+    it('saves and leaves the focused repetition request through persisted route history', async () => {
         const route = context('lesson:foundation-00', {
             route: 'source-activity',
             selectedFork: 'text',
@@ -133,15 +134,17 @@ describe('Academy lesson flow', () => {
         });
 
         await flow.render('source-activity', route.value);
-        route.shell.current?.querySelector<HTMLButtonElement>('.academy-classroom-expression-back')?.click();
+        route.shell.current?.querySelector<HTMLButtonElement>('[data-repeat-action="begin"]')?.click();
+        await vi.waitFor(() => expect(route.shell.current?.dataset.sessionStage).toBe('practice'));
+        route.shell.current?.querySelector<HTMLButtonElement>('.academy-repeat-request-back')?.click();
 
         await vi.waitFor(() => expect(route.back).toHaveBeenCalledOnce());
         expect(route.save).toHaveBeenCalledWith(expect.objectContaining({
-            classroomExpressionProgress: expect.objectContaining({ status: 'paused' }),
+            lessonZeroRepeatRequestProgress: expect.objectContaining({ status: 'paused' }),
         }));
     });
 
-    it('routes the exact classroom repair activity through all source-linked session evidence', async () => {
+    it('routes the repetition request through two chunks, exact evidence, and changed-context transfer', async () => {
         const route = context('lesson:foundation-00', {
             route: 'source-activity',
             activityId: 'activity:lesson-zero-reconstruct-repair',
@@ -154,30 +157,188 @@ describe('Academy lesson flow', () => {
         });
 
         await flow.render('source-activity', route.value);
-        expect(route.shell.current?.dataset.academyScreen).toBe('classroom-expression-session');
+        expect(route.shell.current?.dataset.academyScreen).toBe('lesson-zero-repeat-request');
         expect(route.save).toHaveBeenCalledWith(expect.objectContaining({
-            classroomExpressionProgress: expect.objectContaining({
-                cursor: expect.objectContaining({ probeId: 'probe:classroom-08-check' }),
-            }),
+            lessonZeroRepeatRequestProgress: expect.objectContaining({ stage: 'meet' }),
         }));
 
-        const input = route.shell.current?.querySelector<HTMLInputElement>('.academy-classroom-expression-input')!;
-        input.value = 'わかりますか';
-        route.shell.current?.querySelector<HTMLFormElement>('.academy-classroom-expression-form')
-            ?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+        route.shell.current?.querySelector<HTMLButtonElement>('[data-repeat-action="begin"]')?.click();
+        await vi.waitFor(() => expect(route.shell.current?.dataset.sessionStage).toBe('practice'));
+        clickRepeatChunk(route.shell.current!, 'once-more');
+        await vi.waitFor(() => expect(route.save).toHaveBeenCalledWith(expect.objectContaining({
+            lessonZeroRepeatRequestProgress: expect.objectContaining({
+                selectedChunkIds: ['once-more'],
+            }),
+        })));
+        clickRepeatChunk(route.shell.current!, 'please');
+        await vi.waitFor(() => expect(
+            route.shell.current?.querySelector<HTMLButtonElement>('[data-repeat-action="submit"]')?.disabled,
+        ).toBe(false));
+        route.shell.current?.querySelector<HTMLButtonElement>('[data-repeat-action="submit"]')?.click();
         await vi.waitFor(() => expect(recordActivity).toHaveBeenCalledWith(
             expect.objectContaining({
-                attempt: expect.objectContaining({ activityId: 'probe:classroom-08-check', outcome: 'pass' }),
+                attempt: expect.objectContaining({
+                    activityId: 'activity:lesson-zero-reconstruct-repair:practice',
+                    sourceQuestionId: 'source-question:classroom-phrase-09',
+                    outcome: 'pass',
+                }),
+                reviewSeeds: [
+                    expect.objectContaining({ id: 'review:lesson-zero:classroom-09-repeat' }),
+                ],
             }),
             'lesson:foundation-00',
             undefined,
-            expect.objectContaining({ modeId: 'lesson-zero-classroom-expressions' }),
+            expect.objectContaining({ modeId: 'lesson-zero-repeat-request', skill: 'repair' }),
         ));
         await vi.waitFor(() => expect(route.save).toHaveBeenCalledWith(expect.objectContaining({
-            classroomExpressionProgress: expect.objectContaining({
-                passedProbeIds: ['probe:classroom-08-check'],
+            lessonZeroRepeatRequestProgress: expect.objectContaining({
+                stage: 'transfer-ready',
+                practicePassed: true,
             }),
         })));
+
+        route.shell.current?.querySelector<HTMLButtonElement>('[data-repeat-action="begin-transfer"]')?.click();
+        await vi.waitFor(() => expect(route.shell.current?.dataset.sessionStage).toBe('transfer'));
+        clickRepeatChunk(route.shell.current!, 'once-more');
+        await vi.waitFor(() => expect(route.shell.current?.textContent).toContain('Your request'));
+        clickRepeatChunk(route.shell.current!, 'please');
+        await vi.waitFor(() => expect(
+            route.shell.current?.querySelector<HTMLButtonElement>('[data-repeat-action="submit"]')?.disabled,
+        ).toBe(false));
+        route.shell.current?.querySelector<HTMLButtonElement>('[data-repeat-action="submit"]')?.click();
+        await vi.waitFor(() => expect(recordActivity).toHaveBeenCalledWith(
+            expect.objectContaining({
+                attempt: expect.objectContaining({
+                    activityId: 'activity:lesson-zero-reconstruct-repair:transfer',
+                    outcome: 'pass',
+                }),
+                reviewSeeds: [],
+            }),
+            'lesson:foundation-00',
+            undefined,
+            expect.objectContaining({ skill: 'transfer', independent: true }),
+        ));
+        await vi.waitFor(() => expect(recordActivity).toHaveBeenCalledWith(
+            expect.objectContaining({
+                attempt: expect.objectContaining({
+                    activityId: 'activity:lesson-zero-reconstruct-repair',
+                    outcome: 'pass',
+                }),
+            }),
+            'lesson:foundation-00',
+            expect.objectContaining({
+                id: 'lesson-zero-repeat-request-transfer',
+                journalLine: expect.objectContaining({
+                    lineId: 'journal:lesson-zero:repeat-request',
+                }),
+            }),
+        ));
+    });
+
+    it('routes the two desk papers through guided retrieval, changed layout, exact SRS, and completion', async () => {
+        const route = context('lesson:foundation-00', {
+            route: 'source-activity',
+            activityId: 'activity:lesson-zero-desk-language',
+        });
+        const recordActivity = vi.fn(async () => undefined);
+        const recordSupportUse = vi.fn(async () => undefined);
+        const flow = createLessonFlow({
+            evidence: { recordActivity, recordSupportUse } as never,
+            pronunciation: { play: vi.fn(async () => ({ dispose() {} })) } as never,
+            kanjiWriting: {} as never,
+        });
+
+        await flow.render('source-activity', route.value);
+        expect(route.shell.current?.dataset.academyScreen).toBe('lesson-zero-desk-language');
+        expect(route.save).toHaveBeenCalledWith(expect.objectContaining({
+            lessonZeroDeskLanguageProgress: expect.objectContaining({
+                stage: 'meet-homework',
+                status: 'ready',
+            }),
+        }));
+
+        route.shell.current
+            ?.querySelector<HTMLButtonElement>('[data-desk-action="next-introduction"]')
+            ?.click();
+        await vi.waitFor(() => expect(route.shell.current?.dataset.sessionStage).toBe('meet-example'));
+        route.shell.current
+            ?.querySelector<HTMLButtonElement>('[data-desk-action="next-introduction"]')
+            ?.click();
+        await vi.waitFor(() => expect(route.shell.current?.dataset.sessionStage).toBe('practice'));
+
+        route.shell.current?.querySelector<HTMLButtonElement>('[data-choice="option-0"]')?.click();
+        await vi.waitFor(() => expect(recordActivity).toHaveBeenCalledWith(
+            expect.objectContaining({
+                attempt: expect.objectContaining({
+                    activityId: 'activity:lesson-zero-desk-language:practice:homework',
+                    sourceQuestionId: 'source-question:classroom-phrase-13',
+                    outcome: 'pass',
+                }),
+                reviewSeeds: [
+                    expect.objectContaining({ id: 'review:lesson-zero:classroom-13-homework' }),
+                ],
+            }),
+            'lesson:foundation-00',
+            undefined,
+            expect.objectContaining({
+                modeId: 'lesson-zero-desk-language',
+                skill: 'listening',
+                action: 'recognise',
+            }),
+        ));
+        route.shell.current?.querySelector<HTMLButtonElement>('[data-choice="option-1"]')?.click();
+        await vi.waitFor(() => expect(route.shell.current?.dataset.sessionStage).toBe('transfer-ready'));
+        expect(recordActivity).toHaveBeenCalledWith(
+            expect.objectContaining({
+                reviewSeeds: [
+                    expect.objectContaining({ id: 'review:lesson-zero:classroom-14-example' }),
+                ],
+            }),
+            'lesson:foundation-00',
+            undefined,
+            expect.anything(),
+        );
+
+        route.shell.current
+            ?.querySelector<HTMLButtonElement>('[data-desk-action="begin-transfer"]')
+            ?.click();
+        await vi.waitFor(() => expect(route.shell.current?.dataset.sessionStage).toBe('transfer'));
+        route.shell.current?.querySelector<HTMLButtonElement>('[data-choice="option-0"]')?.click();
+        await vi.waitFor(() => expect(route.save).toHaveBeenCalledWith(expect.objectContaining({
+            lessonZeroDeskLanguageProgress: expect.objectContaining({
+                transferPassedWordIds: ['example'],
+            }),
+        })));
+        route.shell.current?.querySelector<HTMLButtonElement>('[data-choice="option-1"]')?.click();
+        await vi.waitFor(() => expect(route.shell.current?.dataset.sessionStage).toBe('complete'));
+
+        expect(recordActivity).toHaveBeenCalledWith(
+            expect.objectContaining({
+                attempt: expect.objectContaining({
+                    activityId: 'activity:lesson-zero-desk-language:transfer:homework',
+                    outcome: 'pass',
+                }),
+                reviewSeeds: [],
+            }),
+            'lesson:foundation-00',
+            undefined,
+            expect.objectContaining({ skill: 'transfer', independent: true }),
+        );
+        expect(recordActivity).toHaveBeenCalledWith(
+            expect.objectContaining({
+                attempt: expect.objectContaining({
+                    activityId: 'activity:lesson-zero-desk-language',
+                    outcome: 'pass',
+                }),
+            }),
+            'lesson:foundation-00',
+            expect.objectContaining({
+                id: 'lesson-zero-desk-language-transfer',
+                journalLine: expect.objectContaining({
+                    lineId: 'journal:lesson-zero:desk-language',
+                }),
+            }),
+        );
     });
 
     it('routes Rie\'s seven instructions through embodied listening evidence and durable pause', async () => {
@@ -187,7 +348,7 @@ describe('Academy lesson flow', () => {
         });
         const recordActivity = vi.fn(async () => undefined);
         const recordSupportUse = vi.fn(async () => undefined);
-        const play = vi.fn(async () => ({ dispose() {} }));
+        const play = vi.fn(async (_text: string) => ({ dispose() {} }));
         const flow = createLessonFlow({
             evidence: { recordActivity, recordSupportUse } as never,
             pronunciation: { play } as never,
@@ -197,13 +358,16 @@ describe('Academy lesson flow', () => {
         await flow.render('source-activity', route.value);
         expect(route.shell.current?.dataset.academyScreen).toBe('classroom-instruction');
         route.shell.current?.querySelector<HTMLButtonElement>('.academy-classroom-instruction-start')?.click();
-        await vi.waitFor(() => expect(play).toHaveBeenCalledWith('みてください', 'みてください'));
-        route.shell.current?.querySelector<HTMLButtonElement>('[data-action-id="look"]')?.click();
+        await vi.waitFor(() => expect(play).toHaveBeenCalled());
+        expect(play.mock.calls[0]?.[0]).toBe('はじめましょう');
+        route.shell.current?.querySelector<HTMLButtonElement>('.academy-classroom-instruction-try')?.click();
+        await vi.waitFor(() => expect(route.shell.current?.querySelectorAll('[data-action-id]')).toHaveLength(3));
+        route.shell.current?.querySelector<HTMLButtonElement>('[data-action-id="begin"]')?.click();
         await vi.waitFor(() => expect(recordActivity).toHaveBeenCalledWith(
             expect.objectContaining({
                 attempt: expect.objectContaining({
-                    activityId: 'activity:lesson-zero-follow-instructions:look',
-                    sourceQuestionId: 'source-question:classroom-phrase-04',
+                    activityId: 'activity:lesson-zero-follow-instructions:begin',
+                    sourceQuestionId: 'source-question:classroom-phrase-01',
                     outcome: 'pass',
                 }),
             }),
@@ -214,7 +378,7 @@ describe('Academy lesson flow', () => {
         await vi.waitFor(() => expect(route.save).toHaveBeenCalledWith(expect.objectContaining({
             classroomInstructionProgress: expect.objectContaining({
                 cursor: 1,
-                passedCueIds: ['cue:lesson-zero-instruction:look'],
+                passedCueIds: ['cue:lesson-zero-instruction:begin'],
             }),
         })));
 
@@ -277,7 +441,7 @@ describe('Academy lesson flow', () => {
             activityId: 'activity:lesson-zero-write-name-card',
         }, {
             ...projectLearnerRecord([]),
-            profile: { displayName: 'Old profile', learningReason: 'Read manga', portraitId: 'quality-3' },
+            profile: { displayName: 'Henry', learningReason: 'Read manga', portraitId: 'quality-3' },
         });
         const recordActivity = vi.fn(async () => undefined);
         const saveProfile = vi.fn(async () => ({ firstIntroduction: false }));
@@ -288,8 +452,6 @@ describe('Academy lesson flow', () => {
         });
 
         await flow.render('source-activity', route.value);
-        const input = route.shell.current?.querySelector<HTMLInputElement>('.academy-mission-writing-input')!;
-        input.value = 'ヘンリー';
         route.shell.current?.querySelector('form')?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
 
         await vi.waitFor(() => expect(saveProfile).toHaveBeenCalledWith({
@@ -536,8 +698,8 @@ describe('Academy lesson flow', () => {
             .find(button => button.textContent?.trim() === label)!.click();
         click('Take the headphones');
         for (let index = 0; index < 5; index += 1) {
-            await vi.waitFor(() => expect(route.shell.current?.textContent).toContain('Hear this sound'));
-            click('Hear this sound');
+            await vi.waitFor(() => expect(route.shell.current?.textContent).toContain('Hear it in a word'));
+            click('Hear it in a word');
         }
         await vi.waitFor(() => expect(route.shell.current?.textContent).toContain('Listen without the paper'));
         click('Listen without the paper');
@@ -572,7 +734,7 @@ describe('Academy lesson flow', () => {
         expect(route.shell.current?.textContent).toContain('Play sound bingo');
     });
 
-    it('routes Rie\'s writing desk through five child grades before recording the parent milestone', async () => {
+    it('routes Rie\'s writing desk through five child grades and delayed recall before the parent milestone', async () => {
         const route = context('lesson:foundation-00', {
             route: 'source-activity',
             activityId: 'activity:lesson-zero-vowel-doodle',
@@ -591,7 +753,7 @@ describe('Academy lesson flow', () => {
         }));
         const click = (label: string) => [...route.shell.current!.querySelectorAll<HTMLButtonElement>('button')]
             .find(button => button.textContent?.trim() === label)!.click();
-        click('Open the practice book');
+        click('Start with あ');
         await vi.waitFor(() => expect(route.shell.current?.textContent).toContain('Choose the stroke plan'));
         click('Choose the stroke plan');
 
@@ -602,6 +764,21 @@ describe('Academy lesson flow', () => {
             await vi.waitFor(() => expect(route.shell.current?.textContent).toContain('Check the plan'));
             click(item.plans.find(plan => plan.id === item.correctPlanId)!.label.en);
             click('Check the plan');
+        }
+
+        await vi.waitFor(() => expect(route.shell.current?.textContent).toContain('Can you find them out of order?'));
+        for (const [index, itemId] of LESSON_ZERO_VOWEL_WRITING_RECALL_ORDER.entries()) {
+            const item = definition.items.find(candidate => candidate.id === itemId)!;
+            click(item.kana);
+            click('Check my choice');
+            await vi.waitFor(() => {
+                if (index === LESSON_ZERO_VOWEL_WRITING_RECALL_ORDER.length - 1) {
+                    expect(route.shell.current?.textContent).toContain('Five sounds. Five shapes.');
+                } else {
+                    expect(route.shell.current?.querySelector('.academy-vowel-progress')?.textContent)
+                        .toBe(`Recall ${index + 1}/5`);
+                }
+            });
         }
 
         await vi.waitFor(() => expect(recordActivity).toHaveBeenCalledWith(
@@ -631,11 +808,29 @@ describe('Academy lesson flow', () => {
                 undefined,
                 expect.objectContaining({ independent: true }),
             );
+            expect(recordActivity).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    attempt: expect.objectContaining({
+                        activityId: `activity:lesson-zero-vowel-doodle:${item.id}`,
+                        responseKind: 'kana-choice',
+                        outcome: 'pass',
+                    }),
+                    reviewSeeds: [expect.objectContaining({ id: `review:lesson-zero:vowel-writing:${item.id}` })],
+                }),
+                'lesson:foundation-00',
+                undefined,
+                expect.objectContaining({
+                    modeId: 'lesson-zero-vowel-writing:recall',
+                    action: 'recall',
+                    independent: true,
+                }),
+            );
         }
         expect(route.save).toHaveBeenCalledWith(expect.objectContaining({
             lessonZeroVowelWritingProgress: expect.objectContaining({
                 status: 'complete',
                 completedItemIds: ['hira-a', 'hira-i', 'hira-u', 'hira-e', 'hira-o'],
+                recalledItemIds: ['hira-u', 'hira-a', 'hira-o', 'hira-i', 'hira-e'],
             }),
         }));
     });
@@ -1122,5 +1317,11 @@ function clickButton(root: HTMLElement, label: string): void {
     const button = [...root.querySelectorAll<HTMLButtonElement>('button')]
         .find(candidate => candidate.textContent?.trim() === label);
     if (!button) throw new TypeError(`Missing button ${label}.`);
+    button.click();
+}
+
+function clickRepeatChunk(root: HTMLElement, chunkId: string): void {
+    const button = root.querySelector<HTMLButtonElement>(`[data-chunk-id="${chunkId}"]`);
+    if (!button) throw new TypeError(`Missing repeat-request chunk ${chunkId}.`);
     button.click();
 }

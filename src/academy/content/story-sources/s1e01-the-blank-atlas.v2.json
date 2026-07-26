@@ -140,7 +140,7 @@
   "curriculumBinding": {
     "lessonId": "lesson:foundation-00",
     "contentVersion": "2026-07-22.lesson-zero.v2-sound-mission",
-    "contentSha256": "8d34d6b367d2436770ef34da20ef6aea767adc0cfadb946db120728f58831293",
+    "contentSha256": "93a7ca8acb02cef615d18072de9f555db2abdadaa67fe90993867d2aed648b85",
     "provenancePath": "public/academy/content/lessons/lesson-zero/provenance.v1.json",
     "provenanceSha256": "3bf92fad4ec4996e0d055a0fdd76b4a585f703c544bc532be3fb22b6c189319e",
     "sectionSequence": [
@@ -1412,9 +1412,9 @@
       "id": "scene:blank-atlas:reading-writing",
       "locationId": "location:classroom",
       "timeState": "evening-late",
-      "goal": "Read the recovered class cards and make the learner's own card functional.",
-      "dramaticQuestion": "Will the learner's card become a label to display or a tool that helps someone address them correctly?",
-      "learnerNeed": "Read class cards for evidence, then write one short public class line.",
+      "goal": "Read the returned class cards, then finish the learner's own name in katakana.",
+      "dramaticQuestion": "Can the learner use one written clue, then connect their familiar name to its katakana sound?",
+      "learnerNeed": "Read one useful clue, then hear and confirm the katakana on their own card.",
       "curriculum": {
         "sectionId": "reading-writing",
         "order": 7
@@ -1494,7 +1494,7 @@
           "kind": "checkpoint",
           "id": "checkpoint:blank-atlas:before-write-name-card",
           "beatId": "beat:blank-atlas:writing-attempt",
-          "resume": "The learner's chosen disclosure scope is ready to become a functional class card."
+          "resume": "Rie has brought back the learner's saved name with a katakana draft."
         },
         {
           "kind": "activity",
@@ -1509,7 +1509,7 @@
             "kind": "activity-passed",
             "activityId": "activity:lesson-zero-write-name-card"
           },
-          "resumeContext": "Write your name and the one class fact you chose.",
+          "resumeContext": "Listen to the katakana draft, compare it with your usual spelling, and put one version on the card.",
           "onReady": "checkpoint:blank-atlas:after-write-name-card",
           "onRepair": "node:blank-atlas:write-name-card-repair",
           "onDefer": "checkpoint:blank-atlas:before-write-name-card"
@@ -1519,20 +1519,20 @@
           "id": "node:blank-atlas:write-name-card-repair",
           "beatId": "beat:blank-atlas:writing-repair",
           "cueId": "cue:name-card-function-rubric",
-          "description": "Keep your choices. Fix only the missing part."
+          "description": "Rie says the name again and points from the usual spelling to the katakana."
         },
         {
           "kind": "checkpoint",
           "id": "checkpoint:blank-atlas:after-write-name-card",
           "beatId": "beat:blank-atlas:writing-response",
-          "resume": "The learner's card is readable, bounded, and ready to help the room address them."
+          "resume": "The learner's name is on the card in the spelling they chose."
         },
         {
           "kind": "stage",
           "id": "node:blank-atlas:card-turns-over",
           "beatId": "beat:blank-atlas:reading-writing-consequence",
           "cueId": "cue:learner-card-route-label",
-          "description": "Turn the card. Only your class line enters the atlas."
+          "description": "Rie turns the finished card upright beside the others."
         }
       ],
       "exit": {

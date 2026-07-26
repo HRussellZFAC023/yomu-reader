@@ -52,6 +52,7 @@ interface DocumentOverlay {
     observer: ProjectionEnvironmentObserver | null;
     shadowRootReferences: Map<ShadowRoot, number>;
     scheduleRefresh: () => void;
+    scheduleScrollRefresh: (event: Event) => void;
     scheduleTopologyRefresh: () => void;
     rootsDirty: boolean;
     occlusionEpoch: number;
@@ -236,6 +237,10 @@ function documentOverlay(document: Document): DocumentOverlay {
         refreshing: false,
         graceRefreshNeeded: false,
         scheduleRefresh: () => scheduleProjectionRefresh(document, overlay),
+        scheduleScrollRefresh: (event: Event) => {
+            if (scrollMovedNoProjectedReading(event, overlay)) return;
+            scheduleProjectionRefresh(document, overlay);
+        },
         scheduleTopologyRefresh: () => {
             overlay.rootsDirty = true;
             overlay.occlusionEpoch += 1;
@@ -249,7 +254,7 @@ function documentOverlay(document: Document): DocumentOverlay {
     };
     overlays.set(document, overlay);
     overlay.intersectionObserver = observeProjectionIntersections(document, overlay);
-    document.addEventListener('scroll', overlay.scheduleRefresh, { capture: true, passive: true });
+    document.addEventListener('scroll', overlay.scheduleScrollRefresh, { capture: true, passive: true });
     document.addEventListener('pointerover', overlay.scheduleRefresh, { capture: true, passive: true });
     document.addEventListener('pointerout', overlay.scheduleRefresh, { capture: true, passive: true });
     document.addEventListener('focusin', overlay.scheduleRefresh, { capture: true, passive: true });
@@ -546,13 +551,20 @@ function elementScrollsIndependently(element: Element, style: CSSStyleDeclaratio
 
 function scheduleProjectionRefresh(document: Document, overlay: DocumentOverlay): void {
     if (!overlay.records.size || overlay.refreshFrame) return;
+    // Call rAF as a METHOD on its window. Detaching it into a local and invoking it
+    // as a free function reaches Gecko's WebIDL binding with no Window receiver, which
+    // throws "'requestAnimationFrame' called on an object that does not implement
+    // interface Window" inside a Firefox userscript-manager sandbox (it only works in
+    // the page world, where the free call still finds a Window global). The throw
+    // escapes before refreshFrame is assigned, so the guard above stays 0 and every
+    // scroll/pointer/focus event re-enters and re-throws — which silently freezes
+    // projected-reading repositioning for the whole page.
     const view = document.defaultView;
-    const frame = view?.requestAnimationFrame;
-    if (!frame) {
+    if (typeof view?.requestAnimationFrame !== 'function') {
         scheduleFramelessProjectionRefresh(view, overlay);
         return;
     }
-    overlay.refreshFrame = frame(() => {
+    overlay.refreshFrame = view.requestAnimationFrame(() => {
         overlay.refreshFrame = 0;
         refreshProjectedReadingPositions(overlay);
     });
@@ -797,7 +809,7 @@ function trackProjectionRoot(root: ShadowRoot, overlay: DocumentOverlay): void {
     // Element scroll events are not composed: a document capture listener
     // cannot observe a scroller inside a shadow tree. The viewport portal must
     // listen at every shadow boundary in the source's composed ancestry.
-    root.addEventListener('scroll', overlay.scheduleRefresh, { capture: true, passive: true });
+    root.addEventListener('scroll', overlay.scheduleScrollRefresh, { capture: true, passive: true });
     root.addEventListener('slotchange', overlay.scheduleTopologyRefresh, { capture: true, passive: true });
     rebuildProjectionMutationRoots(overlay);
 }
@@ -809,7 +821,7 @@ function untrackProjectionRoot(root: ShadowRoot, overlay: DocumentOverlay): void
         return;
     }
     if (!overlay.shadowRootReferences.delete(root)) return;
-    root.removeEventListener('scroll', overlay.scheduleRefresh, { capture: true });
+    root.removeEventListener('scroll', overlay.scheduleScrollRefresh, { capture: true });
     root.removeEventListener('slotchange', overlay.scheduleTopologyRefresh, { capture: true });
     rebuildProjectionMutationRoots(overlay);
 }
@@ -1237,6 +1249,35 @@ function composedParentElement(element: Element): Element | null {
     let parent = composedParentNode(element);
     while (parent && !(parent instanceof Element)) parent = composedParentNode(parent);
     return parent;
+}
+
+/**
+ * True when this scroll cannot have moved a single projected reading, so the
+ * refresh (a layout read per record) can be skipped entirely.
+ *
+ * Scrolling an element translates its composed descendants and nothing else, so
+ * a scroller holding no record moved no reading. Yomu's own settings dialog is
+ * the case that matters: on a page like BookWalker it sits over hundreds of
+ * projected readings, and without this every wheel tick inside it re-measured
+ * all of them.
+ *
+ * Skipping is only ever safe when it is provable, so anything that is not
+ * plainly an element scroller — the document, the viewport, a shadow root, a
+ * non-element target — refreshes as before. On a page scroller the readings ARE
+ * descendants, so this answers false and the behaviour is unchanged.
+ */
+function scrollMovedNoProjectedReading(event: Event, overlay: DocumentOverlay): boolean {
+    const target = event.target;
+    if (!(target instanceof Element)) return false;
+    const document = target.ownerDocument;
+    // A scroll reported by the page itself moves every record on it.
+    if (target === document?.documentElement || target === document?.body) return false;
+    for (const record of overlay.records) {
+        if (composedContains(target, record.anchor)) return false;
+        if (composedContains(target, record.source)) return false;
+        if (composedContains(target, record.owner)) return false;
+    }
+    return true;
 }
 
 function composedContains(ancestor: Element, descendant: Element): boolean {

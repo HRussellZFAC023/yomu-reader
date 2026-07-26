@@ -18,13 +18,18 @@ describe('Lesson Zero five-vowel screen', () => {
         const model = createLessonZeroVowelSoundMap();
         const bingoModel = createLessonZeroVowelBingo();
         const runtime = createAcademyActivityRuntime();
+        const play = vi.fn(async () => ({ dispose() {} }));
+        const playLine = vi.fn(async (_identity: { japanese: string }) => ({
+            status: 'playing' as const,
+            playback: { dispose() {} },
+        }));
         let persisted = startLessonZeroVowelSession(model);
         const screen = createLessonZeroVowelScreen({
             language: 'en',
             model,
             bingoModel,
             initialState: persisted,
-            pronunciation: { play: vi.fn(async () => ({ dispose() {} })) } as never,
+            pronunciation: { play, playLine } as never,
             xingyuSprite: '/academy/art/characters/xingyu/test.png',
             evaluate: (variant, response) => runtime.evaluate(variant === 'bingo' ? bingoModel : model, response),
             onTransition: async (_before, transition) => { persisted = transition.state; },
@@ -34,12 +39,22 @@ describe('Lesson Zero five-vowel screen', () => {
         });
 
         expect(screen.element.textContent).toContain('Five sounds open the language');
+        expect(screen.element.querySelectorAll('.academy-vowel-choice')).toHaveLength(0);
         buttonByText(screen.element, 'Take the headphones').click();
         await vi.waitFor(() => expect(persisted.status).toBe('active'));
         for (let index = 0; index < 5; index += 1) {
-            buttonByText(screen.element, 'Hear this sound').click();
+            expect(screen.element.querySelectorAll('.academy-vowel-teaching-note')).toHaveLength(1);
+            buttonByText(screen.element, 'Hear it in a word').click();
             await vi.waitFor(() => expect(persisted.learnedItemIds).toHaveLength(index + 1));
         }
+        expect(play).not.toHaveBeenCalled();
+        expect(playLine.mock.calls.map(([identity]) => identity.japanese)).toEqual([
+            'あさです',
+            'いぬです',
+            'うみです',
+            'えほんです',
+            'おちゃです',
+        ]);
         expect(screen.element.textContent).toContain('The paper comes away');
         buttonByText(screen.element, 'Listen without the paper').click();
         await vi.waitFor(() => expect(persisted.stage).toBe('attempt'));
@@ -56,6 +71,7 @@ describe('Lesson Zero five-vowel screen', () => {
         await vi.waitFor(() => expect(persisted.status).toBe('complete'));
         expect(screen.element.textContent).toContain('You can hear the room now');
         expect(screen.element.querySelectorAll('.academy-vowel-completed-row')).toHaveLength(1);
+        expect(buttonByText(screen.element, 'Continue into class').disabled).toBe(false);
         buttonByText(screen.element, 'Play sound bingo').click();
         await vi.waitFor(() => expect(persisted.variant).toBe('bingo'));
         expect(screen.element.querySelectorAll('.academy-vowel-bingo-tile')).toHaveLength(9);
@@ -84,7 +100,7 @@ describe('Lesson Zero five-vowel screen', () => {
         });
         buttonByText(screen.element, 'Take the headphones').click();
         await vi.waitFor(() => expect(persisted.status).toBe('active'));
-        buttonByText(screen.element, 'Hear this sound').click();
+        buttonByText(screen.element, 'Hear it in a word').click();
         await vi.waitFor(() => expect(screen.element.textContent).toContain('switch to the visual route'));
         expect(persisted.learnedItemIds).toHaveLength(0);
         buttonByText(screen.element, 'Visual cue').click();

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.8.7
+// @version 1.8.10
 // @author Henry Russell
 // @description Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and a study page.
 // @license MIT
@@ -11,13 +11,13 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-annotations.25bfc45399c5.user.js#sha256=Jb/EU5nFYN1+1McDI8ORizvlLHT4RTeltCT5+TKpIL4=
-// @require https://yomureader.com/greasyfork/yomu-anki.44ee8b841be0.user.js#sha256=RO6LhBvg9s1AD3ZcOltJHmy0NO7P6CuWaRzV47Z9SV0=
-// @require https://yomureader.com/greasyfork/yomu-audio.ab345d1d1f27.user.js#sha256=qzRdHR8n//GqC4zXIXuk95kuKAQAOwCyvrOSFDsUEiQ=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.dc0c41cdacbd.user.js#sha256=3AxBzay92ZQb44GAsb4u5vw/JMENTseXq5DwE36nXqw=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.a72f7f63cb4d.user.js#sha256=py9/Y8tN2+2pSzq7jOIgc7dyrfXE5VG1YAT6CO4TD/Q=
+// @require https://yomureader.com/greasyfork/yomu-annotations.6afc05636e17.user.js#sha256=avwFY24XRECpNwROmNw9OHPoz6Hdvs6Vx1bDbcyxQaM=
+// @require https://yomureader.com/greasyfork/yomu-anki.6a90a948dc12.user.js#sha256=apCpSNwS7BVnZfMWht76epbf7khdxtO/eVCTeT7mEjA=
+// @require https://yomureader.com/greasyfork/yomu-audio.9d1b369bc67c.user.js#sha256=nRs2m8Z8y161OYhwSopPZcdvY/8QL4iDj4bD4ma7JJI=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.9306f0711bca.user.js#sha256=kwbwcRvK1quf0Q7xYYLAFTYDy0j0jsUlMm6TmjMP1xo=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.9ab1851ab7a4.user.js#sha256=mrGFGrekKlvFCNU6f03d6E1ScL9b2FZyVjTTf9RQKYc=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.65d6d6f10401.user.js#sha256=ZdbW8QQBVMrQJhInzGsRFz9gbVEF0aHeR02OVJl0Dz4=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.d859c887047b.user.js#sha256=2FnIhwR7ob0qs86j7JQFyG0Ee7+zAZt865m1PdgyGG0=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.258c62294a0c.user.js#sha256=JYxiKUoMjB42rqI8P44Qi4KwcRDKzCiNz9hFFLLroyQ=
 // @require https://yomureader.com/greasyfork/yomu-bunpro.bfb0398f4fe7.user.js#sha256=v7A5j0/nlAMlRdBqaAV5Bkj+GBGF16PmplH6k0C72gg=
 // @require https://yomureader.com/greasyfork/yomu-wanikani.5e953e15f475.user.js#sha256=XpU+FfR12VNMLuFnMxybSfen6w+VvEJbJbsNWVBdaX8=
 // @require https://yomureader.com/greasyfork/yomu-video.630cc0aa8a63.user.js#sha256=YwzAqopjGFejikgXxBF8WuUakNgVXkUOCyKp6AUChvc=
@@ -6268,8 +6268,12 @@ function sharedHexToRgb(color, normalizeColor = normalizeHexColor) {
   parseInt(safe.slice(5, 7), 16)
   ];
 }
+function audioSubSourceProviderName(name) {
+  const trimmed = name.trim().normalize("NFC");
+  return trimmed.split(/\s+/, 1)[0] ?? trimmed;
+}
 function audioSubSourceNameKey(name) {
-  return name.trim().normalize("NFC").toLowerCase();
+  return audioSubSourceProviderName(name).toLowerCase();
 }
 function matchesShortcut(event, shortcut = "") {
   if (!shortcut) return false;
@@ -33227,8 +33231,8 @@ function collapseWhitespace(value) {
   return value.replace(/\/\*[\s\S]*?\*\//gu, " ").replace(/\s+/gu, " ").trim();
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.7"}`;
-const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.7"}`;
+const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.10"}`;
+const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.10"}`;
 const READER_CSS_CACHE_KEY = "yomu:reader-css-cache:v3";
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
@@ -33378,7 +33382,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.8.7"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.8.10"}`;
   } catch {
   return null;
   }

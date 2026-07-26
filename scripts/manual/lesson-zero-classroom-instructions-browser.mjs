@@ -1,10 +1,24 @@
 import assert from 'node:assert/strict';
-import { access, mkdir, rm } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { access, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import AxeBuilder from '@axe-core/playwright';
 import { chromium } from 'playwright';
 
 const baseUrl = process.env.ACADEMY_BASE_URL ?? 'http://127.0.0.1:5278';
+const catalogPath = path.resolve('public/academy/audio/learning-voice-playback.json');
+const catalogSource = await readFile(catalogPath);
+const catalog = JSON.parse(catalogSource);
+const practiceOrder = ['begin', 'finish', 'break', 'look', 'say-together', 'listen', 'write'];
+const recallOrder = ['look', 'begin', 'write', 'break', 'listen', 'finish', 'say-together'];
+const voiceByAction = new Map(practiceOrder.map(actionId => {
+    const bindingId = `lesson-zero:classroom-instruction:${actionId}`;
+    const entry = catalog.entries.find(candidate =>
+        candidate.bindings.some(binding => binding.lineId === bindingId));
+    assert(entry, `Missing accepted voice entry for ${bindingId}`);
+    assert.equal(entry.reviewStatus, 'accepted', `${bindingId} must remain accepted`);
+    return [actionId, entry];
+}));
 const artifactDir = path.resolve(
     process.env.CLASSROOM_INSTRUCTION_SCREENSHOTS ?? 'qa-artifacts/lesson-zero-classroom-instructions',
 );
@@ -13,9 +27,10 @@ await mkdir(artifactDir, { recursive: true });
 
 const browser = await chromium.launch({ headless: true });
 try {
-    await verifyRoute({ width: 320, height: 700 }, 'phone-320');
-    await verifyRoute({ width: 390, height: 844 }, 'phone-390', true);
-    await verifyRoute({ width: 1440, height: 900 }, 'desktop-1440');
+    const results = [];
+    results.push(await verifyRoute({ width: 320, height: 700 }, 'phone-320'));
+    results.push(await verifyRoute({ width: 390, height: 844 }, 'phone-390', true));
+    results.push(await verifyRoute({ width: 1440, height: 900 }, 'desktop-1440'));
     await Promise.all([
         'phone-320-intro.png',
         'phone-320-repair.png',
@@ -27,6 +42,20 @@ try {
         'desktop-1440-repair.png',
         'desktop-1440-resume.png',
     ].map(file => access(path.join(artifactDir, file))));
+    await writeFile(path.join(artifactDir, 'proof.json'), `${JSON.stringify({
+        schema: 'yomu-academy.classroom-instruction-browser-proof.v2',
+        verifiedAt: new Date().toISOString(),
+        catalogSha256: sha256(catalogSource),
+        pacingContract: {
+            teachingItems: 7,
+            choicesPerDecision: 3,
+            repairScope: 1,
+            delayedRecallItems: 7,
+            orderChanged: true,
+        },
+        results,
+        verdict: 'pass',
+    }, null, 2)}\n`);
 } finally {
     await browser.close();
 }
@@ -36,9 +65,20 @@ async function verifyRoute(viewport, name, complete = false) {
     const page = await context.newPage();
     const pageErrors = [];
     const consoleErrors = [];
+    const voiceResponses = new Map();
+    const actionByUrl = new Map([...voiceByAction.entries()].map(([actionId, entry]) => [entry.url, actionId]));
     page.on('pageerror', error => pageErrors.push(error.message));
     page.on('console', message => {
         if (message.type() === 'error') consoleErrors.push(message.text());
+    });
+    page.on('response', response => {
+        const actionId = actionByUrl.get(new URL(response.url()).pathname);
+        if (!actionId || ![200, 206].includes(response.status()) || voiceResponses.has(actionId)) return;
+        voiceResponses.set(actionId, {
+            status: response.status(),
+            contentType: response.headers()['content-type'],
+            body: response.body(),
+        });
     });
 
     await reachInstructions(page, `classroom-instructions-${name}-${Date.now()}`);
@@ -47,33 +87,52 @@ async function verifyRoute(viewport, name, complete = false) {
     await assertAccessible(page);
     await page.screenshot({ path: path.join(artifactDir, `${name}-intro.png`), fullPage: true });
 
-    await page.getByRole('button', { name: 'Start the rehearsal' }).click();
+    await page.getByRole('button', { name: 'Meet the first move' }).click();
+    await page.locator('.academy-classroom-instruction-teach').waitFor();
+    assert.match(
+        await page.locator('.academy-classroom-instruction-progress').innerText(),
+        /Learned 0\/7/u,
+        'the first screen must state the size of the learning pass',
+    );
+    await page.locator('.academy-classroom-instruction-replay').click();
+    await page.getByRole('button', { name: 'Try this move' }).click();
     await page.locator('.academy-classroom-instruction-actions').waitFor();
     assert.equal(
-        await page.getByText('みてください', { exact: true }).count(),
-        0,
-        'the first answer must stay hidden before commitment',
+        await page.locator('.academy-classroom-instruction-action').count(),
+        3,
+        'each listening decision must stay to three concrete room actions',
     );
-    await page.locator('[data-action-id="write"]').click();
+    assert.equal(
+        await page.getByText('はじめましょう', { exact: true }).count(),
+        0,
+        'the taught line must leave the action stage before commitment',
+    );
+    await page.locator('[data-action-id="break"]').click();
     await page.locator('.academy-classroom-instruction-feedback[data-outcome="lapse"]').waitFor();
     assert.equal(
-        await page.getByText('みてください', { exact: true }).count(),
+        await page.getByText('はじめましょう', { exact: true }).count(),
         1,
-        'a lapse must earn the exact Japanese instruction',
+        'a lapse must return only the exact line that slipped',
     );
     assert.equal(
         await page.locator('.academy-classroom-instruction-room').getAttribute('data-room-action'),
-        'write',
+        'break',
         'the room must show the learner’s committed action',
     );
     await assertLayout(page, viewport.width, `${name} lapse`);
     await page.screenshot({ path: path.join(artifactDir, `${name}-repair.png`), fullPage: true });
 
     await page.getByRole('button', { name: 'Hear it and try again' }).click();
-    await page.locator('[data-action-id="look"]').click();
-    await page.locator('.academy-classroom-instruction-feedback[data-outcome="pass"]').waitFor();
-    await page.getByRole('button', { name: 'Listen for the next instruction' }).click();
     await page.locator('.academy-classroom-instruction-actions').waitFor();
+    assert.equal(
+        await page.locator('.academy-classroom-instruction-action').count(),
+        3,
+        'repair must not widen into a full-list retest',
+    );
+    await page.locator('[data-action-id="begin"]').click();
+    await page.locator('.academy-classroom-instruction-feedback[data-outcome="pass"]').waitFor();
+    await page.getByRole('button', { name: 'Meet the next move' }).click();
+    await page.locator('.academy-classroom-instruction-teach').waitFor();
 
     await page.getByRole('button', { name: 'Save and leave' }).click();
     await page.locator('.academy-classroom-instruction-screen').waitFor({ state: 'detached' });
@@ -97,47 +156,90 @@ async function verifyRoute(viewport, name, complete = false) {
     await page.locator('.academy-classroom-instruction-screen[data-session-status="active"]').waitFor();
     assert.match(
         await page.locator('.academy-classroom-instruction-progress').innerText(),
-        /1 of 7/u,
+        /Learned 1\/7/u,
         'Back must retain the first passed instruction',
     );
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page.locator('.academy-classroom-instruction-screen[data-session-status="active"]').waitFor();
     assert.match(
         await page.locator('.academy-classroom-instruction-progress').innerText(),
-        /1 of 7/u,
+        /Learned 1\/7/u,
         'reload must retain the first passed instruction',
     );
 
     if (!complete) {
         await assertAccessible(page);
         await page.screenshot({ path: path.join(artifactDir, `${name}-resume.png`), fullPage: true });
+        const media = await validateVoiceResponses(voiceResponses, ['begin']);
         assert.deepEqual(pageErrors, []);
         assert.deepEqual(unexpectedConsoleErrors(consoleErrors), []);
         await context.close();
-        return;
+        return { viewport, complete: false, media };
     }
 
-    for (const actionId of ['begin', 'write', 'break', 'listen', 'finish', 'say-together']) {
+    for (const actionId of practiceOrder.slice(1)) {
+        await page.locator('.academy-classroom-instruction-teach').waitFor();
+        await page.locator('.academy-classroom-instruction-replay').click();
+        await page.getByRole('button', { name: 'Try this move' }).click();
+        await page.locator('.academy-classroom-instruction-actions').waitFor();
+        assert.equal(
+            await page.locator('.academy-classroom-instruction-action').count(),
+            3,
+            `${actionId} must stay a three-way listening decision`,
+        );
         await page.locator(`[data-action-id="${actionId}"]`).click();
         await page.locator('.academy-classroom-instruction-feedback[data-outcome="pass"]').waitFor();
-        const label = actionId === 'say-together'
-            ? 'See what you can now follow'
-            : 'Listen for the next instruction';
-        await page.getByRole('button', { name: label }).click();
+        await page.locator('.academy-classroom-instruction-continue').click();
+    }
+
+    for (const actionId of recallOrder) {
+        await page.locator('.academy-classroom-instruction-actions').waitFor();
+        assert.equal(
+            await page.locator('.academy-classroom-instruction-action').count(),
+            3,
+            `${actionId} recall must stay a three-way listening decision`,
+        );
+        assert.equal(
+            await page.locator('.academy-classroom-instruction-teach').count(),
+            0,
+            'mixed recall must not reteach the line before the learner commits',
+        );
+        await page.locator(`[data-action-id="${actionId}"]`).click();
+        await page.locator('.academy-classroom-instruction-feedback[data-outcome="pass"]').waitFor();
+        await page.locator('.academy-classroom-instruction-continue').click();
     }
 
     await page.locator('.academy-classroom-instruction-screen[data-session-status="complete"]').waitFor();
     assert.equal(await page.locator('.academy-classroom-instruction-complete').count(), 1);
-    assert.match(await page.locator('.academy-classroom-instruction-progress').innerText(), /7 of 7/u);
+    assert.match(await page.locator('.academy-classroom-instruction-progress').innerText(), /Mixed recall 7\/7/u);
+    const persisted = await page.evaluate(() => {
+        const state = window.__yomuAcademy?.checkpoint?.classroomInstructionProgress;
+        return state ? {
+            status: state.status,
+            stage: state.stage,
+            passed: state.passedCueIds?.length,
+            recalled: state.recalledCueIds?.length,
+            attempts: state.attempts?.length,
+        } : null;
+    });
+    assert.deepEqual(persisted, {
+        status: 'complete',
+        stage: 'complete',
+        passed: 7,
+        recalled: 7,
+        attempts: 15,
+    });
     await assertLayout(page, viewport.width, `${name} complete`);
     await assertAccessible(page);
     await page.screenshot({ path: path.join(artifactDir, `${name}-complete.png`), fullPage: true });
+    const media = await validateVoiceResponses(voiceResponses, practiceOrder);
     await page.getByRole('button', { name: 'Continue your day' }).click();
     await page.locator('.academy-classroom-instruction-screen').waitFor({ state: 'detached' });
     await page.waitForFunction(() => window.__yomuAcademy?.checkpoint?.route === 'campus');
     assert.deepEqual(pageErrors, []);
     assert.deepEqual(unexpectedConsoleErrors(consoleErrors), []);
     await context.close();
+    return { viewport, complete: true, persisted, media };
 }
 
 async function reachInstructions(page, runId) {
@@ -149,12 +251,42 @@ async function reachInstructions(page, runId) {
     await page.locator('textarea[name="learningReason"]').fill('To join conversations without translating first');
     await page.getByRole('button', { name: 'Continue' }).click();
     await page.locator('input[name="portrait"]').first().check();
-    await page.getByRole('button', { name: 'Tell Rie' }).click();
-    await page.getByRole('button', { name: 'Choose where to begin' }).click();
-    await page.getByRole('button', { name: /Begin with Lesson 0/ }).click();
+    await page.getByRole('button', { name: 'That’s me' }).click();
+    const introduction = page.locator('[data-academy-screen="rie-introduction"]');
+    await introduction.waitFor();
+    const action = introduction.locator('.academy-rie-introduction-primary');
+    await action.waitFor();
+    if ((await action.textContent())?.trim() !== 'Come in') {
+        await action.click();
+        await page.waitForFunction(() => {
+            const button = document.querySelector('.academy-rie-introduction-primary');
+            return button?.textContent?.trim() === 'Come in' && !button.disabled;
+        });
+    }
+    await action.evaluate(button => button.click());
+    const start = page.locator('.academy-start-screen[data-academy-route="start"]');
+    await start.waitFor();
+    await start.locator('[data-start-route="lesson-zero"]').click();
+    await page.locator('[data-story-arc-id="arc:bridge:opening-arrival"]').waitFor();
+    await advanceOpeningArrival(page);
+    await page.locator('.academy-story-next').click();
     await page.getByRole('button', { name: /Read the board and enter class/ }).waitFor();
     await openInstructions(page);
     await page.locator('.academy-classroom-instruction-screen').waitFor();
+}
+
+async function advanceOpeningArrival(page) {
+    for (let index = 0; index < 40; index += 1) {
+        const scene = page.locator('[data-story-arc-id="arc:bridge:opening-arrival"]');
+        const moment = await scene.getAttribute('data-story-moment');
+        if (moment === 'complete') return;
+        const choice = scene.locator('[data-story-option-id]').first();
+        const action = scene.locator('.academy-vn-action-slot .academy-vn-primary-action').first();
+        if (await choice.count()) await choice.click();
+        else if (await action.count()) await action.click();
+        else throw new Error(`Opening arrival stalled at moment ${moment ?? '<unknown>'}.`);
+    }
+    throw new Error('Opening arrival exceeded its 40-step safety limit.');
 }
 
 async function openInstructions(page) {
@@ -216,8 +348,35 @@ async function assertAccessible(page) {
     );
 }
 
+async function validateVoiceResponses(responses, expectedActions) {
+    const missing = expectedActions.filter(actionId => !responses.has(actionId));
+    assert.deepEqual(missing, [], `the reviewed voice surface did not request: ${missing.join(', ')}`);
+    return Promise.all(expectedActions.map(async actionId => {
+        const response = responses.get(actionId);
+        const entry = voiceByAction.get(actionId);
+        const body = await response.body;
+        assert.equal(sha256(body), entry.assetSha256, `${actionId} audio bytes must match the accepted catalog`);
+        assert.match(
+            response.contentType ?? '',
+            /^audio\/(?:ogg|opus)/u,
+            `${actionId} must be served as Opus audio`,
+        );
+        return {
+            actionId,
+            url: entry.url,
+            status: response.status,
+            bytes: body.length,
+            assetSha256: entry.assetSha256,
+        };
+    }));
+}
+
 function unexpectedConsoleErrors(messages) {
     return messages.filter(
         message => !/^Failed to load resource: the server responded with a status of 401 \(Unauthorized\)$/u.test(message),
     );
+}
+
+function sha256(value) {
+    return createHash('sha256').update(value).digest('hex');
 }

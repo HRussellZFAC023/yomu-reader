@@ -100,14 +100,6 @@ const VERIFIED_STANDALONE_ACTIVITY_DELIVERY: DayActivityDelivery = Object.freeze
     journeyProof: 'partial',
 });
 
-const VERIFIED_JOURNEY_PENDING_MEDIA_DELIVERY: DayActivityDelivery = Object.freeze({
-    implementation: 'verified',
-    reachability: 'verified',
-    media: 'partial',
-    persistence: 'verified',
-    journeyProof: 'verified',
-});
-
 const VERIFIED_DELIVERY: DayActivityDelivery = Object.freeze({
     implementation: 'verified',
     reachability: 'verified',
@@ -207,6 +199,23 @@ const DAY_ONE_LESSON_ACTIVITY_TITLES = {
     'activity:lesson-zero-close-room': 'Close the first classroom session',
 } as const satisfies Readonly<Record<typeof DAY_ONE_LESSON_ACTIVITY_IDS[number], string>>;
 
+const DAY_ONE_VERIFIED_ACTIVITY_IDS = new Set<typeof DAY_ONE_LESSON_ACTIVITY_IDS[number]>([
+    'activity:lesson-zero-vowel-listen',
+    'activity:lesson-zero-vowel-doodle',
+    'activity:lesson-zero-follow-instructions',
+    'activity:lesson-zero-reconstruct-repair',
+    'activity:lesson-zero-sound-input',
+    'activity:lesson-zero-text-input',
+    'activity:lesson-zero-speaking-input',
+    'activity:lesson-zero-read-name-cards',
+    'activity:lesson-zero-write-name-card',
+    'activity:lesson-zero-sound-transfer',
+    'activity:lesson-zero-text-transfer',
+    'activity:lesson-zero-speaking-transfer',
+    'activity:lesson-zero-written-transfer',
+    'activity:lesson-zero-close-room',
+]);
+
 export const DAY_ONE_CLASSROOM_EXPRESSION_IDS: readonly string[] = Object.freeze(
     Array.from({ length: 14 }, (_, index) =>
         `expression:classroom-${String(index + 1).padStart(2, '0')}`),
@@ -284,7 +293,8 @@ const DAY_ONE_STORY: readonly DayActivityAvailability[] = [
     entry('day:1:blank-atlas', 'Complete Chapter 1: The Blank Atlas', 'story', ['required', 'revisitable'],
         { route: 'story', context: { sectionId: 's1e01-the-blank-atlas' } },
         ['s1e01-the-blank-atlas'], { audio: 'voice', visual: 'scene' },
-        'Scene, encounter, activity, and story cursor evidence persist.', 'All story moments, lesson handoffs, choices, repairs, voice, and return routes are proved.'),
+        'Scene, encounter, activity, and story cursor evidence persist.', 'All story moments, lesson handoffs, choices, repairs, voice, and return routes are proved.',
+        [], VERIFIED_DELIVERY),
 ];
 
 const DAY_ONE_LESSON: readonly DayActivityAvailability[] = DAY_ONE_LESSON_ACTIVITY_IDS.map((activityId, index) =>
@@ -299,12 +309,11 @@ const DAY_ONE_LESSON: readonly DayActivityAvailability[] = DAY_ONE_LESSON_ACTIVI
         `Attempt, support, and completion evidence persist for ${activityId}.`,
         `The story handoff, direct resume, repair, and return path are proved for ${activityId}.`,
         [],
-        activityId === 'activity:lesson-zero-sound-input'
+        DAY_ONE_VERIFIED_ACTIVITY_IDS.has(activityId)
             ? VERIFIED_DELIVERY
             : activityId === 'activity:lesson-zero-greet-rie'
-            ? VERIFIED_JOURNEY_PENDING_MEDIA_DELIVERY
-            : activityId === 'activity:lesson-zero-vowel-listen'
-                || activityId === 'activity:lesson-zero-vowel-doodle'
+            ? VERIFIED_DELIVERY
+            : activityId === 'activity:lesson-zero-vowel-doodle'
                 || activityId === 'activity:lesson-zero-follow-instructions'
                 || activityId === 'activity:lesson-zero-reconstruct-repair'
                 || activityId === 'activity:lesson-zero-desk-language'
@@ -337,7 +346,7 @@ const DAY_ONE_GAMES: readonly DayActivityAvailability[] = [
         { route: 'source-activity', context: { lessonId: 'lesson:foundation-00', activityId: 'activity:lesson-zero-vowel-listen' } },
         ['game:lesson-zero-vowel-listening-bingo'], { audio: 'learning-audio', visual: 'interactive' },
         'Each heard choice and confusion pair can seed review.', 'A full randomized board is playable with deterministic audio and no answer-first cue.',
-        [], VERIFIED_JOURNEY_PENDING_MEDIA_DELIVERY),
+        [], VERIFIED_DELIVERY),
     entry('day:1:game:kana-trace', 'Trace the first kana', 'minigame', ['required', 'repeatable'],
         { route: 'writing-practice', context: { lessonId: 'lesson:foundation-00', activityId: 'activity:lesson-zero-kanji-one' } },
         ['activity:lesson-zero-kanji-one', 'cue:kana-trace-one-stroke'], { audio: 'music-ambience-sfx', visual: 'interactive' },

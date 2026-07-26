@@ -21,7 +21,6 @@ import {
 } from './lesson-zero-pedagogy-definitions';
 
 export const LESSON_ZERO_CONSTRUCTED_CLASSROOM_ACTIVITY_IDS = Object.freeze([
-    'activity:lesson-zero-reconstruct-repair',
     'activity:lesson-zero-desk-language',
 ] as const);
 

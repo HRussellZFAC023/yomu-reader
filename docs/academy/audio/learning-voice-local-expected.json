@@ -2,21 +2,34 @@
   "schema": "yomu-academy.learning-voice-local-expected.v1",
   "batchId": "academy-learning-native-20260720-01",
   "scope": "Immutable expectation for loopback browser proof only; this is not deployment evidence.",
-  "catalogSha256": "0e98b1bd6a07f4f289e9374be25e535345ce8743707dc0ae1022db6393e31d02",
-  "productionContractSha256": "0437e63f72c5b93e318f8ef0f8fb90aceb7333adcfa55f720db051e6bdf6e7ff",
+  "catalogSha256": "57d8f5742d2dbc8d443d68f4921369ebf8e518d3d699b0ed17830ba50aac4350",
+  "productionContractSha256": "36ca2c8e4458ac4f30dab3b7aa8868b0f5258d63d7003f92bd383392236edd9e",
   "build": {
     "distApp": "dist/academy/app.js",
     "hostedApp": "docs/public/academy/app.js",
-    "appSha256": "7da7222145d946773e1dd5c6e34abe190e57dab253f3b56962cbe8d55ada9a96",
+    "appSha256": "0de5d2e701a66321b0a9d18615af739ad2331b7d0384fced7f3f8b6466727ab9",
     "byteParityRequired": true
   },
   "runtimeSources": {
     "src/academy/integration/yomu-bridge.ts": "053c1d4798b9d1b74bada14e3c6596795b5e45a0988c4bd02f3ee24a7fc41547",
     "src/academy/audio/browser-speech.ts": "5d2da93a3b9abbd3a77e96ab324c0b5fa0654aa4fb29743244702b81853b7dce",
-    "src/academy/audio/learning-voice.ts": "33928e0ffbdd05473d1571ec3e7d050c082d91be4c59d429e4491762e83c5619",
+    "src/academy/audio/learning-voice.ts": "44b5064671ea9a03f9031a169c6357c8ac4c86fe6ab6d2a93b2a866dbf3986d3",
     "src/academy/audio/worker-tts.ts": "757804bcfea92880e4d9a13373a05e0c1a66933f72afa2f2b0e535cecfbc3548",
+    "src/academy/content/lesson-zero-follow-instructions.ts": "a7caed645a62cb2639ab1602197b26be7959072c3f1d1bf2aa93a48c9cbea78d",
+    "src/academy/content/lesson-zero-greeting.ts": "7079535a0a2310dafbdc212d772fbc815513849a83172430f81f0e86aaff95eb",
+    "src/academy/content/lesson-zero-desk-language.ts": "2807c811466f261da7b7a1eee667b4957db8b2f10d3b6edf2e69a0eb3f4a3707",
+    "src/academy/content/lesson-zero-vowel-anchors.ts": "acf6ee825e45c813cb127c596ef2a08fc356fe7f1effdd054aff7bca2dd81b7c",
+    "src/academy/domain/classroom-instruction-session.ts": "7b7a0de23568e9ba352a70cb07467ff884a99a1b999edf52deb8145632e758d5",
+    "src/academy/domain/lesson-zero-desk-language-session.ts": "e05c468e94652522d9a4bb68a8fa17f3ccfa38c3ae38c0825258177220e0c4e9",
+    "src/academy/domain/world-locations.ts": "8dff402868198871a95498d004bc318dfe0b48f1995429ae9c0f6d33490739e5",
+    "src/academy/routing/lesson-flow.ts": "d7a14bbed34247922f65b06422a3056282912b688226136a837b550e6b8b541c",
     "src/academy/routing/world-flow.ts": "8b0ceb7463347d6e006ac595114222a9211d1d05a5fd326980764e151db43ec7",
     "src/academy/ui/cafe-world.ts": "8f0ea99a7744127eee42ad05a14a2baa08407436d58a966c9aead1eb6fde9ec2",
+    "src/academy/ui/classroom-instruction-screen.ts": "49d7c165cf259fc699aa4e6fa17f1f5c41630e0e53659642d7ba806de1b8b54e",
+    "src/academy/ui/lesson-zero-desk-language-screen.ts": "124049a58af13c4de77ae69fb4ddcec1cf37efe43e5f1a5c307b96163a924c44",
+    "src/academy/ui/lesson-zero-greeting-screen.ts": "965932e71c795b3b8f238c55288dd0784d2e26a50812f9794915357e2ca74480",
+    "src/academy/ui/lesson-zero-vowel-screen.ts": "125d6e092df2ecd476d727a13162a3822a9bdc2bcbe3de6b3b78cbc5a4ecf12d",
+    "src/academy/ui/lesson-zero-vowel-writing-screen.ts": "8e25b6bbd6295817a5a964776d937b64f8ddc08342e7790f29f1a27aa87cd787",
     "src/academy/ui/lesson-screen.ts": "d279e813fc647715d83425984bca44f4151b161de638a0bca01eedc9f5562972",
     "src/academy/ui/world-screen.ts": "1a157bf0d5f9f50beaeda86a81c52070614a4a937ac930f431e814688d3f54e5"
   },
@@ -24,9 +37,90 @@
     "/academy/audio/learning-lines/textbook-miller/miller-cafe-price__28b3358c342c6ef9.opus": {
       "sha256": "86dbec0a4e0c4ed17984993569eb7056fe2246569c382a10a7a15c274e840f06",
       "bytes": 15916
+    },
+    "/academy/audio/learning-lines/rie/rie-lesson-zero-repeat__39120279d3b659e0.opus": {
+      "sha256": "0f66cd7f8f8746acc4f6cf48eea70f19d81021e77a178a5df725363062181f0b",
+      "bytes": 15423
+    },
+    "/academy/audio/learning-lines/rie/rie-lesson-zero-greeting__2f535f136fc8fa96.opus": {
+      "sha256": "b056b8f146eb4ed8e702c0ac398aba51e01d88e8a140867fd7160dfb69c627d3",
+      "bytes": 37070
+    },
+    "/academy/audio/learning-lines/xingyu/xingyu-lesson-zero-vowel-a__69145d6e8b8031cb.opus": {
+      "sha256": "b37a4487325904650805566b20d13cb40bf025ba107c35f51e4a5781aa9858bb",
+      "bytes": 8239
+    },
+    "/academy/audio/learning-lines/xingyu/xingyu-lesson-zero-vowel-i__2814106b6370ab14.opus": {
+      "sha256": "0c949c52634727f8e27730cd45ca175d9d43ec05e06e4c189c1609a641195a90",
+      "bytes": 7968
+    },
+    "/academy/audio/learning-lines/xingyu/xingyu-lesson-zero-vowel-u__95545b7309f157a7.opus": {
+      "sha256": "139fcc5abad785ada11c470ba36db8e55b73849a07e9c7ab68a51b15d8cef07e",
+      "bytes": 7601
+    },
+    "/academy/audio/learning-lines/xingyu/xingyu-lesson-zero-vowel-e__553503599bdf886c.opus": {
+      "sha256": "dea978a9cc61b721c8bade349b1f3f046549b3a5d8a1cbc8052e3efedfb85fdb",
+      "bytes": 8339
+    },
+    "/academy/audio/learning-lines/xingyu/xingyu-lesson-zero-vowel-o__212e0286edbf17df.opus": {
+      "sha256": "582a8f6e440ee92470c8beade4f9cc2b80a9cc28a9cea4fcbcaa7ba7dd864c37",
+      "bytes": 8431
+    },
+    "/academy/audio/learning-lines/rie/rie-classroom-begin__1936dd4ce470abf7.opus": {
+      "sha256": "93160d80b29b8a21688ca5620b69da072e9370705c7d42cc52e27853c78b8a11",
+      "bytes": 11252
+    },
+    "/academy/audio/learning-lines/rie/rie-classroom-finish__fe6dfa2f04674f25.opus": {
+      "sha256": "e25636d68f5a0a569c63057fbb43d04dae7daecca34489f45d9b7c31c611d870",
+      "bytes": 9814
+    },
+    "/academy/audio/learning-lines/rie/rie-classroom-break__f9704bf324e8e6b6.opus": {
+      "sha256": "8174141e164da8e062921d45f34e0232bbf5b6f02f654924026ba661e3ffecc2",
+      "bytes": 11416
+    },
+    "/academy/audio/learning-lines/rie/rie-classroom-look__b8fd6410f80d8195.opus": {
+      "sha256": "aa51ae04d9e114b326eae5d8f9604ffe18603003c5be44c74a119d70792441ec",
+      "bytes": 9958
+    },
+    "/academy/audio/learning-lines/rie/rie-classroom-say-together__71551a1f952d144c.opus": {
+      "sha256": "7c9d841fbde752f509887763e6fd130004081257f21156afc5a8ddfd85969771",
+      "bytes": 15533
+    },
+    "/academy/audio/learning-lines/rie/rie-classroom-listen__00d8b11e0a97bb62.opus": {
+      "sha256": "1af5a59cc331de1204697087771b97b39f04430ca42525f141d073e0ca17e58b",
+      "bytes": 12067
+    },
+    "/academy/audio/learning-lines/rie/rie-classroom-write__07925423b74b64b7.opus": {
+      "sha256": "b8cac9c144b4ce94324a98b3a1096596766e08e33b60b1dc391cd1d235f80775",
+      "bytes": 11172
+    },
+    "/academy/audio/learning-lines/rie/rie-lesson-zero-homework__870ba7f1bb64aa13.opus": {
+      "sha256": "bf2d773c1a71df81053c845e4effc1b50c0feaffd5b352534507cc2b678592a8",
+      "bytes": 15434
+    },
+    "/academy/audio/learning-lines/rie/rie-lesson-zero-example__10f47eefee150c44.opus": {
+      "sha256": "877837076979db131e43595095422105b3c60a25cbfbf3f918a6a16696a9aafb",
+      "bytes": 19678
     }
   },
   "acceptedBindingIds": [
-    "world-practice:cafe-coffee-price"
+    "lesson-zero:classroom-instruction:begin",
+    "lesson-zero:classroom-instruction:break",
+    "lesson-zero:classroom-instruction:finish",
+    "lesson-zero:classroom-instruction:listen",
+    "lesson-zero:classroom-instruction:look",
+    "lesson-zero:classroom-instruction:say-together",
+    "lesson-zero:classroom-instruction:write",
+    "lesson-zero:desk-language:example",
+    "lesson-zero:desk-language:homework",
+    "lesson-zero:greeting-rie-model",
+    "lesson-zero:vowel:hira-a",
+    "lesson-zero:vowel:hira-e",
+    "lesson-zero:vowel:hira-i",
+    "lesson-zero:vowel:hira-o",
+    "lesson-zero:vowel:hira-u",
+    "world-practice:cafe-coffee-price",
+    "world-practice:lab-classroom-repair",
+    "world-practice:lab-classroom-repeat"
   ]
 }

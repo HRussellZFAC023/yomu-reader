@@ -24,8 +24,21 @@ const RUNTIME_SOURCE_PATHS = [
     'src/academy/audio/browser-speech.ts',
     'src/academy/audio/learning-voice.ts',
     'src/academy/audio/worker-tts.ts',
+    'src/academy/content/lesson-zero-follow-instructions.ts',
+    'src/academy/content/lesson-zero-greeting.ts',
+    'src/academy/content/lesson-zero-desk-language.ts',
+    'src/academy/content/lesson-zero-vowel-anchors.ts',
+    'src/academy/domain/classroom-instruction-session.ts',
+    'src/academy/domain/lesson-zero-desk-language-session.ts',
+    'src/academy/domain/world-locations.ts',
+    'src/academy/routing/lesson-flow.ts',
     'src/academy/routing/world-flow.ts',
     'src/academy/ui/cafe-world.ts',
+    'src/academy/ui/classroom-instruction-screen.ts',
+    'src/academy/ui/lesson-zero-desk-language-screen.ts',
+    'src/academy/ui/lesson-zero-greeting-screen.ts',
+    'src/academy/ui/lesson-zero-vowel-screen.ts',
+    'src/academy/ui/lesson-zero-vowel-writing-screen.ts',
     'src/academy/ui/lesson-screen.ts',
     'src/academy/ui/world-screen.ts',
 ];
@@ -41,6 +54,96 @@ const scenarios = [
         asset: '/academy/audio/learning-lines/textbook-miller/miller-cafe-price__28b3358c342c6ef9.opus',
         success: '[data-world-practice="cafe-coffee-price"][data-cafe-order-state="choosing"]',
     },
+    {
+        name: 'classroom repair',
+        bindingId: 'world-practice:lab-classroom-repair',
+        route: 'world',
+        context: { lessonId: 'lesson:foundation-00', worldPlace: 'lab', worldVisits: { lab: 0 } },
+        selector: '[data-world-listen="lab-classroom-repair"]',
+        ready: '[data-world-practice="lab-classroom-repair"]',
+        asset: '/academy/audio/learning-lines/rie/rie-lesson-zero-repeat__39120279d3b659e0.opus',
+        success: '[data-world-practice="lab-classroom-repair"] [data-lab-speaking="ready"]',
+    },
+    {
+        name: 'classroom repeat',
+        bindingId: 'world-practice:lab-classroom-repeat',
+        route: 'world',
+        context: { lessonId: 'lesson:foundation-00', worldPlace: 'lab', worldVisits: { lab: 1 } },
+        selector: '[data-world-listen="lab-classroom-repeat"]',
+        ready: '[data-world-practice="lab-classroom-repeat"]',
+        asset: '/academy/audio/learning-lines/rie/rie-lesson-zero-repeat__39120279d3b659e0.opus',
+        success: '[data-world-practice="lab-classroom-repeat"] [data-lab-speaking="ready"]',
+    },
+    {
+        name: 'Rie greeting model',
+        bindingId: 'lesson-zero:greeting-rie-model',
+        route: 'source-activity',
+        context: {
+            lessonId: 'lesson:foundation-00',
+            activityId: 'activity:lesson-zero-greet-rie',
+            lessonZeroGreetingProgress: undefined,
+        },
+        selector: '[data-audio-target="rie-model"]',
+        ready: '.academy-greeting-screen[data-session-status="ready"]',
+        asset: '/academy/audio/learning-lines/rie/rie-lesson-zero-greeting__2f535f136fc8fa96.opus',
+        success: '.academy-greeting-screen[data-session-status="ready"]',
+    },
+    {
+        name: 'five vowel sound map',
+        kind: 'vowels',
+        bindingIds: [
+            'lesson-zero:vowel:hira-a',
+            'lesson-zero:vowel:hira-i',
+            'lesson-zero:vowel:hira-u',
+            'lesson-zero:vowel:hira-e',
+            'lesson-zero:vowel:hira-o',
+        ],
+        route: 'source-activity',
+        context: {
+            lessonId: 'lesson:foundation-00',
+            activityId: 'activity:lesson-zero-vowel-listen',
+            lessonZeroVowelProgress: '__DELETE__',
+        },
+        ready: '.academy-vowel-screen[data-stage="ready"]',
+        success: '.academy-vowel-ready',
+    },
+    {
+        name: 'classroom rhythm',
+        kind: 'classroom',
+        bindingIds: [
+            'lesson-zero:classroom-instruction:begin',
+            'lesson-zero:classroom-instruction:finish',
+            'lesson-zero:classroom-instruction:break',
+            'lesson-zero:classroom-instruction:look',
+            'lesson-zero:classroom-instruction:say-together',
+            'lesson-zero:classroom-instruction:listen',
+            'lesson-zero:classroom-instruction:write',
+        ],
+        route: 'source-activity',
+        context: {
+            lessonId: 'lesson:foundation-00',
+            activityId: 'activity:lesson-zero-follow-instructions',
+            classroomInstructionProgress: '__DELETE__',
+        },
+        ready: '.academy-classroom-instruction-screen[data-session-status="ready"]',
+        success: '.academy-classroom-instruction-screen[data-session-status="complete"]',
+    },
+    {
+        name: 'desk language',
+        kind: 'desk-language',
+        bindingIds: [
+            'lesson-zero:desk-language:homework',
+            'lesson-zero:desk-language:example',
+        ],
+        route: 'source-activity',
+        context: {
+            lessonId: 'lesson:foundation-00',
+            activityId: 'activity:lesson-zero-desk-language',
+            lessonZeroDeskLanguageProgress: '__DELETE__',
+        },
+        ready: '.academy-desk-language-screen[data-session-status="ready"][data-session-stage="meet-homework"]',
+        success: '.academy-desk-language-screen[data-session-status="complete"][data-session-stage="complete"]',
+    },
 ];
 const catalogSource = readFileSync(CATALOG_PATH);
 const productionSource = readFileSync(PRODUCTION_PATH);
@@ -49,13 +152,20 @@ const catalogByBinding = new Map(catalog.entries.flatMap(entry => (
     entry.bindings.map(binding => [binding.lineId, entry])
 )));
 for (const scenario of scenarios) {
-    assert(catalogByBinding.get(scenario.bindingId)?.url === scenario.asset,
-        `Local proof scenario is stale for ${scenario.bindingId}`);
+    for (const bindingId of scenarioBindingIds(scenario)) {
+        const entry = catalogByBinding.get(bindingId);
+        assert(entry, `Local proof scenario has no accepted binding: ${bindingId}`);
+        if (scenario.asset) {
+            assert(entry.url === scenario.asset, `Local proof scenario is stale for ${bindingId}`);
+        }
+    }
 }
-assert(catalogByBinding.size === scenarios.length,
+const coveredBindings = scenarios.flatMap(scenarioBindingIds);
+assert(catalogByBinding.size === coveredBindings.length
+    && new Set(coveredBindings).size === coveredBindings.length,
     'Local proof does not cover every accepted runtime binding', {
         catalogBindings: [...catalogByBinding.keys()],
-        scenarioBindings: scenarios.map(scenario => scenario.bindingId),
+        scenarioBindings: coveredBindings,
     });
 
 const expectedSource = readFileSync(EXPECTED_PATH);
@@ -124,27 +234,18 @@ try {
     for (const scenario of scenarios) {
         await setCheckpoint(page, scenario.route, scenario.context);
         await dismissArrival(page);
-        await page.locator(scenario.ready).waitFor({ state: 'visible' });
-        const assetResponse = page.waitForResponse(response => (
-            new URL(response.url()).pathname === scenario.asset && response.status() === 200
-        ), { timeout: 10_000 });
-        await page.locator(scenario.selector).click();
-        const response = await assetResponse;
-        const body = await response.body();
-        const contentSha256 = sha256(body);
-        assert(contentSha256 === expected.assets[scenario.asset]?.sha256,
-            `Local response bytes differ from immutable expectation: ${scenario.asset}`);
-        await page.locator(scenario.success).waitFor({ state: 'visible' });
-        results.push({
-            name: scenario.name,
-            bindingId: scenario.bindingId,
-            bindingSurface: scenario.ready,
-            asset: scenario.asset,
-            status: response.status(),
-            contentType: response.headers()['content-type'],
-            bytes: body.length,
-            contentSha256,
-        });
+        try {
+            await page.locator(scenario.ready).waitFor({ state: 'visible' });
+        } catch (error) {
+            const rendered = await page.locator('#academy-screen').innerText().catch(() => '<missing>');
+            const checkpoint = await page.evaluate(() => window.__yomuAcademy?.checkpoint ?? null);
+            throw new Error(
+                `Learning voice scenario "${scenario.name}" did not reach ${scenario.ready}.\n`
+                + `Checkpoint: ${JSON.stringify(checkpoint)}\nRendered screen: ${rendered}`,
+                { cause: error },
+            );
+        }
+        results.push(...await runScenario(page, scenario, expected));
     }
 
     const sourceModuleRequests = requests.filter(url => /\/src\//u.test(new URL(url).pathname));
@@ -194,6 +295,130 @@ try {
     await server.close();
 }
 
+function scenarioBindingIds(scenario) {
+    return scenario.bindingIds ?? [scenario.bindingId];
+}
+
+async function runScenario(page, scenario, expected) {
+    const bindingIds = scenarioBindingIds(scenario);
+    const pendingByBinding = new Map(bindingIds.map(bindingId => {
+        const asset = catalogByBinding.get(bindingId).url;
+        return [bindingId, {
+            bindingId,
+            asset,
+            response: null,
+        }];
+    }));
+    const captureResponse = response => {
+        if (![200, 206].includes(response.status())) return;
+        const pathname = new URL(response.url()).pathname;
+        for (const pending of pendingByBinding.values()) {
+            if (pending.asset === pathname && pending.response === null) pending.response = response;
+        }
+    };
+    page.on('response', captureResponse);
+
+    try {
+        if (scenario.kind === 'vowels') await playVowelTeachingSequence(page);
+        else if (scenario.kind === 'classroom') await completeClassroomRhythm(page);
+        else if (scenario.kind === 'desk-language') await completeDeskLanguage(page);
+        else await page.locator(scenario.selector).click();
+
+        await page.locator(scenario.success).waitFor({ state: 'visible' });
+        const deadline = Date.now() + 15_000;
+        while ([...pendingByBinding.values()].some(pending => pending.response === null) && Date.now() < deadline) {
+            await page.waitForTimeout(100);
+        }
+    } finally {
+        page.off('response', captureResponse);
+    }
+    const missing = [...pendingByBinding.values()]
+        .filter(pending => pending.response === null)
+        .map(pending => `${pending.bindingId} -> ${pending.asset}`);
+    assert(missing.length === 0, `Scenario "${scenario.name}" did not request every accepted asset`, { missing });
+    return Promise.all([...pendingByBinding.values()].map(async pending => {
+        const response = pending.response;
+        const body = await response.body();
+        const contentSha256 = sha256(body);
+        assert(contentSha256 === expected.assets[pending.asset]?.sha256,
+            `Local response bytes differ from immutable expectation: ${pending.asset}`);
+        return {
+            name: scenario.name,
+            bindingId: pending.bindingId,
+            bindingSurface: scenario.ready,
+            asset: pending.asset,
+            status: response.status(),
+            contentType: response.headers()['content-type'],
+            bytes: body.length,
+            contentSha256,
+        };
+    }));
+}
+
+async function playVowelTeachingSequence(page) {
+    await page.getByRole('button', { name: 'Take the headphones' }).click();
+    for (let index = 0; index < 5; index += 1) {
+        await page.getByRole('button', { name: 'Hear it in a word' }).click();
+        if (index < 4) {
+            await page.locator('.academy-vowel-rail-cell[data-state="learned"]').nth(index).waitFor();
+        } else {
+            await page.locator('.academy-vowel-ready').waitFor();
+        }
+    }
+}
+
+async function completeClassroomRhythm(page) {
+    const practiceOrder = ['begin', 'finish', 'break', 'look', 'say-together', 'listen', 'write'];
+    const recallOrder = ['look', 'begin', 'write', 'break', 'listen', 'finish', 'say-together'];
+    await page.getByRole('button', { name: 'Meet the first move' }).click();
+    for (const actionId of practiceOrder) {
+        await page.locator('.academy-classroom-instruction-teach').waitFor();
+        await page.locator('.academy-classroom-instruction-replay').click();
+        await page.locator('.academy-classroom-instruction-try').click();
+        await page.locator(`[data-action-id="${actionId}"]`).click();
+        await page.locator('.academy-classroom-instruction-feedback[data-outcome="pass"]').waitFor();
+        await page.locator('.academy-classroom-instruction-continue').click();
+    }
+    for (const actionId of recallOrder) {
+        await page.locator('.academy-classroom-instruction-actions').waitFor();
+        await page.locator(`[data-action-id="${actionId}"]`).click();
+        await page.locator('.academy-classroom-instruction-feedback[data-outcome="pass"]').waitFor();
+        await page.locator('.academy-classroom-instruction-continue').click();
+    }
+}
+
+async function completeDeskLanguage(page) {
+    const replay = page.locator('[data-desk-action="replay"]');
+    const nextIntroduction = page.locator('[data-desk-action="next-introduction"]');
+
+    await playDeskWord(page, replay, 'lesson-zero:desk-language:homework');
+    await nextIntroduction.click();
+    await page.locator('.academy-desk-language-screen[data-session-stage="meet-example"]').waitFor();
+    await playDeskWord(page, replay, 'lesson-zero:desk-language:example');
+    await nextIntroduction.click();
+    await page.locator('.academy-desk-language-screen[data-session-stage="practice"]').waitFor();
+
+    await page.locator('[data-choice="option-0"]').click();
+    await page.locator('.academy-desk-language-screen[data-session-stage="practice"]').waitFor();
+    await page.locator('[data-choice="option-1"]').click();
+    await page.locator('[data-desk-action="begin-transfer"]').click();
+    await page.locator('.academy-desk-language-screen[data-session-stage="transfer"]').waitFor();
+    await page.locator('[data-choice="option-0"]').click();
+    await page.locator('.academy-desk-language-screen[data-session-stage="transfer"]').waitFor();
+    await page.locator('[data-choice="option-1"]').click();
+}
+
+async function playDeskWord(page, replay, bindingId) {
+    const asset = catalogByBinding.get(bindingId).url;
+    await Promise.all([
+        page.waitForResponse(response => (
+            [200, 206].includes(response.status())
+            && new URL(response.url()).pathname === asset
+        )),
+        replay.click(),
+    ]);
+}
+
 async function enroll(page) {
     await openAcademy(page);
     const now = Date.now();
@@ -219,7 +444,7 @@ async function enroll(page) {
     await enterClass.waitFor({ state: 'visible' });
     await enterClass.click();
     await page.locator('[data-start-route="lesson-zero"]').click();
-    await page.locator('[data-academy-route="campus"]').waitFor();
+    await page.locator('[data-story-arc-id="arc:bridge:opening-arrival"]').waitFor();
 }
 
 async function openAcademy(page) {
@@ -260,17 +485,21 @@ async function setCheckpoint(page, route, checkpointContext) {
             request.onsuccess = () => resolve(request.result?.value);
             request.onerror = () => reject(request.error);
         });
+        const nextCheckpoint = {
+            ...existing,
+            ...checkpointContext,
+            schemaVersion: 2,
+            route,
+            routeHistory: [],
+            presentationMode: existing?.presentationMode ?? 'story',
+            updatedAt: Date.now(),
+        };
+        for (const [key, value] of Object.entries(nextCheckpoint)) {
+            if (value === '__DELETE__') delete nextCheckpoint[key];
+        }
         store.put({
             id: 'active-checkpoint',
-            value: {
-                ...existing,
-                ...checkpointContext,
-                schemaVersion: 2,
-                route,
-                routeHistory: [],
-                presentationMode: existing?.presentationMode ?? 'story',
-                updatedAt: Date.now(),
-            },
+            value: nextCheckpoint,
         });
         await new Promise((resolve, reject) => {
             transaction.oncomplete = resolve;
