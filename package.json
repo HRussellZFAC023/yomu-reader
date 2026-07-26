@@ -163,6 +163,7 @@
     "manual:academy-vowel-writing": "node scripts/manual/lesson-zero-vowel-writing-browser.mjs",
     "manual:academy-classroom-instructions": "node scripts/manual/lesson-zero-classroom-instructions-browser.mjs",
     "manual:academy-classroom-repair": "node scripts/manual/lesson-zero-repeat-request-browser.mjs",
+    "manual:academy-desk-language": "node scripts/manual/lesson-zero-desk-language-browser.mjs",
     "manual:academy-classroom-desk": "node scripts/manual/lesson-zero-classroom-constructed-browser.mjs desk",
     "smoke:hosted-settings": "node scripts/hosted-settings-self-enhancement-smoke.mjs",
     "manual:jiten-newtab": "node scripts/manual/jiten-newtab-smoke.mjs",

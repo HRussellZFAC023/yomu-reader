@@ -51266,6 +51266,15 @@ button.academy-class-week-entry:is(:hover, :focus-visible) {
         width: min(100%, 136px);
     }
 
+    .academy-desk-language-repair-sheet {
+        width: 104px;
+        margin-left: 10px;
+    }
+
+    .academy-desk-language-repair-sheet .academy-desk-language-prop-purpose {
+        visibility: hidden;
+    }
+
     .academy-desk-language-prop-purpose {
         font-size: 0.64rem;
     }
