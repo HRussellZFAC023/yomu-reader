@@ -374,7 +374,7 @@ async function assertInlineOcrResult(overlay, label) {
     // The recognized line is anchored in place and readable in full (no ellipsis truncation).
     const horizontalLine = overlay.locator('[data-ocr-line]:not([data-vertical="true"])').first();
     await horizontalLine.waitFor({ state: 'attached', timeout: 10_000 });
-    const horizontalText = horizontalLine.locator('.overlay-inline-text');
+    const horizontalText = horizontalLine.locator('.jpdb-ocr-line-text');
     const fullText = await horizontalText.evaluate(node => {
         const surface = node.cloneNode(true);
         surface.querySelectorAll('rt, rp, .jpdb-reader-detached-furi').forEach(reading => reading.remove());
@@ -426,7 +426,7 @@ async function assertInlineOcrResult(overlay, label) {
     // Vertical line renders as an upright vertical column (writing-mode), not a clipped pill.
     const verticalLine = overlay.locator('[data-ocr-line][data-vertical="true"]').first();
     await verticalLine.waitFor({ state: 'attached', timeout: 10_000 });
-    const writingMode = await verticalLine.locator('.overlay-inline-text').first().evaluate(node => getComputedStyle(node).writingMode);
+    const writingMode = await verticalLine.locator('.jpdb-ocr-line-text').first().evaluate(node => getComputedStyle(node).writingMode);
     if (!/vertical/.test(writingMode)) {
         throw new Error(`Yomu Gaming ${label} did not render the vertical line with a vertical writing-mode: ${writingMode}`);
     }

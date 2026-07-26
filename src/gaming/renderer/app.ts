@@ -1,5 +1,9 @@
 import '../../reader/styles/base.css';
 import '../../reader/styles/settings.css';
+// The overlay's recognized lines are the reader's OCR overlay, so they are styled by
+// the reader's own sheet — the same one that dresses .jpdb-ocr-line and the annotated
+// words inside it on every page Yomu reads.
+import '../../reader/styles/reader-words-ocr.css';
 import './styles.css';
 // The overlay bundles the real reader, which reaches companion-hosted
 // implementations (local dictionaries, UI copy, settings dialog) through
@@ -8,7 +12,6 @@ import '../../reader/companions/register-build-companions';
 import type { InterfaceLanguage, ReaderSettings } from '../../reader/app/types';
 import { bootReaderApp } from '../../reader/app/boot';
 import { escapeHtml } from '../../reader/dom/index';
-import { ocrFontPx } from '../../reader/ocr/ocr-overlay-geometry';
 import { DEFAULT_SETTINGS, formatShortcutEvent, normalizeReaderSettings } from '../../reader/settings';
 import {
     activateSettingsPanel,
@@ -30,6 +33,7 @@ import {
     type GamingOcrResult,
 } from '../shared';
 import { activateWordWithPointer, GamepadOverlayController } from './gamepad-overlay';
+import { layoutOverlayOcrLines, overlayOcrFrame, overlayOcrLayerHtml } from './ocr-lines';
 import type { YomuGamingBridge, YomuGamingCaptureMode, YomuGamingCaptureSource, YomuGamingEnvironment, YomuGamingOcrProvider, YomuGamingSelectionRect } from '../ipc';
 
 declare global {
@@ -827,6 +831,7 @@ class OverlaySelectionController {
     private settings = loadGamingSettings();
     private capture: YomuGamingCaptureSource | null = null;
     private started = false;
+    private ocrLayoutFrame = 0;
     // Controller navigation so the overlay is usable on a Steam Deck in Game Mode
     // (no keyboard/mouse). It drives the same OCR word DOM the pointer path uses.
     private readonly gamepad = new GamepadOverlayController({
@@ -845,6 +850,7 @@ class OverlaySelectionController {
             void this.gamingBridge.hideOverlay();
         });
         this.gamepad.start();
+        this.watchOcrLineLayout();
         // The overlay window is hidden and reused, not destroyed — without
         // this the gamepad rAF poller would keep running after dismissal.
         document.addEventListener('visibilitychange', () => {
@@ -883,11 +889,26 @@ class OverlaySelectionController {
             </main>
         `;
         this.bind();
+        layoutOverlayOcrLines(this.root, overlayOcrFrame(), this.settings.ocrFontScale);
         this.gamepad.reconcileFocus();
         if (!this.started) {
             this.started = true;
             void this.begin();
         }
+    }
+
+    // The reader re-typesets each line after it is painted — furigana and word chips
+    // change how much room the text needs — so the frames are measured again once the
+    // DOM settles, and again whenever the window resizes.
+    private watchOcrLineLayout(): void {
+        window.addEventListener('resize', () => this.scheduleOcrLineLayout());
+        new MutationObserver(() => this.scheduleOcrLineLayout())
+            .observe(this.root, { childList: true, subtree: true });
+    }
+
+    private scheduleOcrLineLayout(): void {
+        window.cancelAnimationFrame(this.ocrLayoutFrame);
+        this.ocrLayoutFrame = window.requestAnimationFrame(() => layoutOverlayOcrLines(this.root, overlayOcrFrame(), this.settings.ocrFontScale));
     }
 
     private async begin(): Promise<void> {
@@ -1131,23 +1152,20 @@ function hasOcrGeometry(result: GamingOcrResult | null): result is GamingOcrResu
     return result.lines.some(line => line.hasGeometry);
 }
 
+// The OCR box travels to the overlay exactly as the provider measured it. Padding a
+// small box out to a minimum size here was the wrong place for it: the font size is
+// derived from the box, so an inflated box typeset the line at a size the game never
+// used. The minimum hit target and the on-screen clamp both belong to the line's frame,
+// which layoutOverlayOcrLines() derives after the text is measured.
 function ocrBoxToViewport(box: YomuGamingSelectionRect, result: GamingOcrResult, target: YomuGamingSelectionRect): YomuGamingSelectionRect {
     const scaleX = target.width / Math.max(1, result.width);
     const scaleY = target.height / Math.max(1, result.height);
-    return clampViewportBox({
+    return {
         left: target.left + box.left * scaleX,
         top: target.top + box.top * scaleY,
-        width: box.width * scaleX,
-        height: box.height * scaleY,
-    });
-}
-
-function clampViewportBox(box: YomuGamingSelectionRect): YomuGamingSelectionRect {
-    const left = Math.max(6, Math.min(window.innerWidth - 28, box.left));
-    const top = Math.max(6, Math.min(window.innerHeight - 28, box.top));
-    const width = Math.max(36, Math.min(window.innerWidth - left - 6, box.width));
-    const height = Math.max(24, Math.min(window.innerHeight - top - 6, box.height));
-    return { left, top, width, height };
+        width: Math.max(1, box.width * scaleX),
+        height: Math.max(1, box.height * scaleY),
+    };
 }
 
 async function cropSelection(capture: YomuGamingCaptureSource, selection: YomuGamingSelectionRect | null): Promise<{ dataUrl: string; width: number; height: number }> {
@@ -1215,45 +1233,12 @@ function overlayResultHtml(result: OverlayResult, selection: YomuGamingSelection
     // No per-line geometry (text-only OCR): show the recognized text as one scannable
     // node so the reader still adds furigana + the popover to it.
     return `<section class="overlay-result overlay-result-compact" style="${style}" role="status" aria-label="Recognized text">
-        <p class="overlay-inline-text overlay-result-text" data-ocr-line lang="ja">${escapeHtml(result.text)}</p>
+        <p class="overlay-result-text" data-ocr-line lang="ja">${escapeHtml(result.text)}</p>
     </section>`;
 }
 
 function overlayInlineResultHtml(result: OverlayResult): string {
-    return `<section class="overlay-inline-layer" data-overlay-inline role="group" aria-label="Recognized text">
-        ${result.lines?.map(line => overlayInlineLineHtml(line)).join('') ?? ''}
-    </section>`;
-}
-
-// Each recognized line is a real Japanese text node anchored over its source box. The
-// bundled Yomu reader scans these nodes in place: it adds furigana and wires the full
-// hover/click popover (definitions, pitch, kanji, SRS) onto the words it finds.
-function overlayInlineLineHtml(line: OverlayLineResult): string {
-    return `<div class="overlay-inline-line" data-ocr-line data-vertical="${line.vertical}" style="${inlineLineStyle(line)}">
-        <p class="overlay-inline-text" lang="ja">${escapeHtml(line.text)}</p>
-    </div>`;
-}
-
-// Anchor the line to its OCR box and pass the box geometry as CSS vars so the
-// stylesheet can size the text column. Vertical lines get a tall/narrow column
-// (writing-mode handled in CSS); horizontal lines get the box width. Neither path
-// truncates the recognized text any more.
-//
-// The font size comes from the same helper the reader's OCR overlay uses, so a line
-// here lands at the size the source text actually occupies. Leaving it to a static
-// stylesheet rule rendered every line at one size, which drifted further out of
-// register with the text underneath the longer the line got.
-function inlineLineStyle(line: OverlayLineResult): string {
-    const box = line.box;
-    const width = Math.max(1, box.width);
-    const height = Math.max(1, box.height);
-    return [
-        `left:${Math.round(box.left)}px`,
-        `top:${Math.round(box.top)}px`,
-        `--ocr-w:${Math.round(width)}px`,
-        `--ocr-h:${Math.round(height)}px`,
-        `font-size:${ocrFontPx(line.text, width, height, line.vertical, 1).toFixed(2)}px`,
-    ].join(';');
+    return overlayOcrLayerHtml(result.lines ?? [], overlayOcrFrame());
 }
 
 function overlayResultStyle(selection: YomuGamingSelectionRect | null): string {
