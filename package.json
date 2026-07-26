@@ -43,7 +43,7 @@
     "gate:academy-release": "npm run release:integrity:checkpoint && node scripts/academy-release-gate.mjs",
     "build": "npm run build:userscript",
     "build:extension": "npm run build:userscript:self-contained && node scripts/build-extension.mjs",
-    "build:gaming": "npm run build:gaming:renderer && npm run build:gaming:main",
+    "build:gaming": "npm run build:gaming:icon && npm run build:gaming:renderer && npm run build:gaming:main",
     "build:gaming:icon": "node scripts/generate-gaming-icon.mjs",
     "build:gaming:main": "node scripts/build-gaming-electron.mjs",
     "build:gaming:renderer": "vite build --config config/vite/gaming.config.ts",

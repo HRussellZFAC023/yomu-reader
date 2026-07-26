@@ -16,6 +16,9 @@ import {
 
 const DEFAULT_HOTKEY = 'CommandOrControl+Shift+Y';
 const APP_NAME = 'Yomu Gaming';
+// Copied next to the bundled main.cjs by scripts/build-gaming-electron.mjs, so the
+// same __dirname lookup works from dist-gaming/electron and from inside app.asar.
+const APP_ICON_FILE = 'yomu-icon-512.png';
 // OCR runs on the full-screen grab, so capture at the display's native framebuffer
 // (logical size x scaleFactor) instead of a 1080p thumbnail. Retina/4K text is lost
 // otherwise. Cap the long edge so a 5K/8K panel can't blow up the OCR payload.
@@ -168,7 +171,23 @@ async function ensureOverlayWindow(mode: YomuGamingCaptureMode): Promise<Browser
 }
 
 function appIconPath(): string {
-    return path.join(__dirname, 'yomu-icon-512.png');
+    return path.join(__dirname, APP_ICON_FILE);
+}
+
+function applyAppIcon(): void {
+    const icon = nativeImage.createFromPath(appIconPath());
+    // nativeImage hands back an *empty* image for a path it cannot read, and every
+    // consumer of the icon — the Dock, the about panel, the Windows and Linux window
+    // icon — then keeps its default without a word. Say it out loud instead.
+    if (icon.isEmpty()) {
+        console.error(`[yomu-gaming] App icon did not load from ${appIconPath()}.`);
+        return;
+    }
+    // BrowserWindow `icon` only reaches Windows and Linux. macOS draws the Dock and
+    // app-switcher entry from the running bundle, so an unpackaged run wears stock
+    // Electron's logo until the Dock is handed our image; a packaged build already
+    // carries the multi-resolution .icns, sharper at small sizes than this PNG.
+    if (process.platform === 'darwin' && !app.isPackaged) app.dock?.setIcon(icon);
 }
 
 function gamingWebPreferences(role: 'main' | 'overlay'): BrowserWindowConstructorOptions['webPreferences'] {
@@ -600,6 +619,7 @@ function registerGlobalShortcuts(): void {
 }
 
 app.whenReady().then(async () => {
+    applyAppIcon();
     registerIpcHandlers();
     await loadCaptureShortcut();
     registerGlobalShortcuts();

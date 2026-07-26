@@ -301,6 +301,20 @@ async function assertGamingWindowIdentity(page) {
     if (title !== 'Yomu Gaming') {
         throw new Error(`Yomu Gaming window title was not branded correctly: ${title}`);
     }
+    await assertAppIconLoads();
+}
+
+// The icon ships next to the bundled main process, and every consumer of it — the
+// Dock, the about panel, the Windows and Linux window icon — falls back to a
+// default without a word when the file is absent. Ask the live main process.
+async function assertAppIconLoads() {
+    const icon = await app.evaluate(({ nativeImage }, iconPath) => {
+        const image = nativeImage.createFromPath(iconPath);
+        return { empty: image.isEmpty(), size: image.getSize() };
+    }, path.join(appRoot, 'dist-gaming', 'electron', 'yomu-icon-512.png'));
+    if (icon.empty || icon.size.width !== 512) {
+        throw new Error(`Yomu Gaming app icon did not load in the main process: ${JSON.stringify(icon)}`);
+    }
 }
 
 async function assertNativeWindowSize(page) {
