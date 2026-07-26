@@ -73,31 +73,59 @@ export function hardenExtensionContentSource(source) {
         throw new Error('Generated content.js no longer exposes the expected GM_getResourceURL resource bridge.');
     }
 
-    // Keep GM_info useful to reviewers without leaving a remote URL that the
-    // generated compatibility runtime could accidentally request.
-    hardened = hardened.replace(
-        /https:\/\/yomureader\.com\/yomu(?:\.[a-f0-9]+)?\.css(?:\?v=[^#"'\s]+)?(?:#sha256=[^"'\s]+)?/gi,
-        READER_CSS_FILE,
-    );
-
     const localReaderCssExpression = `(globalThis.browser || globalThis.chrome)?.runtime?.getURL?.("${READER_CSS_FILE}") || "${READER_CSS_FILE}"`;
-    hardened = hardened.replace(
-        /const READER_CSS_RESOURCE_URL = `https:\/\/raw\.githubusercontent\.com\/HRussellZFAC023\/yomu-reader\/main\/dist\/yomu\.css\?v=\$\{[^\n]+\}`;/,
-        `const READER_CSS_RESOURCE_URL = ${localReaderCssExpression};`,
-    );
-    if (!hardened.includes(`const READER_CSS_RESOURCE_URL = ${localReaderCssExpression};`)) {
+    const legacyFallbackDeclaration =
+        /const READER_CSS_RESOURCE_URL = `https:\/\/raw\.githubusercontent\.com\/HRussellZFAC023\/yomu-reader\/main\/dist\/yomu\.css\?v=\$\{[^`]+\}`;/;
+    const hostedFallbackDeclaration =
+        /const READER_CSS_HOSTED_FALLBACK_URL = `https:\/\/yomureader\.com\/yomu\.css\?v=\$\{[^`]+\}`;/;
+    const rawFallbackDeclaration =
+        /const READER_CSS_RAW_FALLBACK_URL = `https:\/\/raw\.githubusercontent\.com\/HRussellZFAC023\/yomu-reader\/main\/dist\/yomu\.css\?v=\$\{[^`]+\}`;/;
+    const hasHostedFallback = hostedFallbackDeclaration.test(hardened);
+    const hasRawFallback = rawFallbackDeclaration.test(hardened);
+    let packagedFallbackConstant;
+
+    if (hasHostedFallback || hasRawFallback) {
+        if (!hasHostedFallback || !hasRawFallback) {
+            throw new Error('Generated content.js contains only part of the expected reader CSS fallback chain.');
+        }
+        hardened = hardened
+            .replace(
+                hostedFallbackDeclaration,
+                `const READER_CSS_HOSTED_FALLBACK_URL = ${localReaderCssExpression};`,
+            )
+            .replace(
+                rawFallbackDeclaration,
+                `const READER_CSS_RAW_FALLBACK_URL = ${localReaderCssExpression};`,
+            );
+        packagedFallbackConstant = 'READER_CSS_RAW_FALLBACK_URL';
+    } else if (legacyFallbackDeclaration.test(hardened)) {
+        hardened = hardened.replace(
+            legacyFallbackDeclaration,
+            `const READER_CSS_RESOURCE_URL = ${localReaderCssExpression};`,
+        );
+        packagedFallbackConstant = 'READER_CSS_RESOURCE_URL';
+    } else {
         throw new Error('Generated content.js no longer contains the expected reader CSS fallback URL declaration.');
     }
 
+    // Keep GM_info useful to reviewers without leaving a remote URL that the
+    // generated compatibility runtime could accidentally request.
+    hardened = hardened.replace(
+        /https:\/\/yomureader\.com\/yomu(?:\.[a-f0-9]+)?\.css(?:\?v=[^#"'`\s]+)?(?:#sha256=[^"'`\s]+)?/gi,
+        READER_CSS_FILE,
+    );
+
     // Hosted-page fallback is appropriate for the userscript build, but the
     // extension has a packaged sheet and should never choose a network copy.
-    hardened = hardened.replace(
-        /function readerCssFallbackUrls\(href = safeLocationHref\(\)\) \{\s*const hostedUrl = hostedReaderCssUrl\(href\);\s*return hostedUrl \? \[hostedUrl, READER_CSS_RESOURCE_URL\] : \[READER_CSS_RESOURCE_URL\];\s*\}/,
-        `function readerCssFallbackUrls(href = safeLocationHref()) {\n      void href;\n      return [READER_CSS_RESOURCE_URL];\n    }`,
-    );
-    if (/function readerCssFallbackUrls\([^)]*\) \{\s*const hostedUrl = hostedReaderCssUrl/.test(hardened)) {
-        throw new Error('Generated content.js still prefers a hosted reader stylesheet on Yomu pages.');
+    const fallbackFunctionDeclaration =
+        /function readerCssFallbackUrls\(href = safeLocationHref\(\)\) \{[\s\S]*?\n\s*\}/;
+    if (!fallbackFunctionDeclaration.test(hardened)) {
+        throw new Error('Generated content.js no longer contains the expected reader CSS fallback function.');
     }
+    hardened = hardened.replace(
+        fallbackFunctionDeclaration,
+        `function readerCssFallbackUrls(href = safeLocationHref()) {\n      void href;\n      return [${packagedFallbackConstant}];\n    }`,
+    );
     return hardened;
 }
 
