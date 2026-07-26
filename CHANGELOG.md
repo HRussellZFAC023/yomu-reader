@@ -1,6 +1,10 @@
 # Changelog
 
-## [1.8.7] - 2026-07-25
+## [1.8.7] - 2026-07-26
+
+### Added
+
+- Every dictionary Yomu mirrors is now listed in Settings, not just the handful it recommends. The catalogue holds 186 titles — Japanese monolingual dictionaries, all eight pitch-accent dictionaries, grammar, thesaurus, encyclopedia and frequency lists — but only fourteen of them had ever been reachable from the interface. They now appear grouped by kind, each installable in one press and each verified against a published checksum as it downloads.
 
 ### Fixed
 
@@ -16,6 +20,11 @@
 - The meaning section of the study card no longer gets stuck showing a translating message forever. When the translation request travelled through a transport that ignored its time limit, a lost message meant the request never finished; the reader now enforces its own deadline and moves on. Sections that finish empty now also hide reliably.
 - Yomu now goes properly to sleep in background tabs. Several internal observers and timers kept working at full rate while a tab was hidden, which drained battery and warmed the device; they now pause when the tab is hidden and catch up once when it returns.
 - The account menu on the Yomu website itself is now annotated like the rest of the page.
+- Readings no longer stay behind when a page rewrites the text around an annotated word. Yomu ignores the page edits it makes itself, and the test for that was matching Yomu's own word wrappers, so a genuine edit by the site next to an annotated word looked like Yomu's own writing and was discarded — the reading stayed at the old position until something else moved it.
+- Tapping a video's own subtitle line to blur it no longer unfolds the reader's control rail over the picture. The blur always worked; the rail woke on the same tap because the wake decided purely on where the finger landed, and the platform's caption sits inside the reader's own subtitle area. Tapping blank space in that area still wakes the rail, so a rail dragged out of reach stays recoverable.
+- Sites that force their own colours, borders and shadows onto every element on the page no longer strip the reader's interface back to bare text. On such a site the floating button lost its circle, its background and its outline, leaving the label floating loose. The reader now re-asserts its own appearance in a way the page cannot outrank, without changing how the site itself looks anywhere.
+- Subtitle annotations no longer vanish for a moment, or for good, as each line appears. A line whose readings had already been prepared was compared against the wrong record of what was last drawn, so the reader concluded it had nothing ready and repainted the line as plain text — annotations returned only if a second lookup happened to land, and the repaint also wiped the colours applied a moment earlier.
+- The reader's own styling now survives a page load that cannot reach its stylesheet. Only two sources were tried, the second of which is blocked on a number of networks, so a reader that missed both rendered as unstyled native controls with no dialog frame. A third always-available source now sits between them, the last known-good stylesheet is kept across updates instead of being discarded on every release, and a load that still ends with no styling now says so in the console instead of failing silently.
 
 ## [1.8.6] - 2026-07-25
 

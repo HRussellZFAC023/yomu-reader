@@ -25405,8 +25405,12 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     { owner: "ocr/ocr-cache-store", kind: "local", key: "yomu-ocr-cache-v1" },
     { owner: "ocr/ocr-cache-store", kind: "local", key: "yomu-ocr-cache-v2" },
     { owner: "ocr/canvas-mirror", kind: "session", key: "yomu:bw:mirror-loadguard" },
-    // Reader CSS cache (version-suffixed → prefix family).
-    { owner: "styles/index", kind: "gm", prefix: "yomu:reader-css-cache:v2:" },
+    // Reader CSS last-good cache. v3 is deliberately version-independent (see
+    // styles/index) so an upgrade does not start cold; the v2 prefix family
+    // stays registered so the per-version entries older installs left behind
+    // are still swept on reset.
+    { owner: "styles/index", kind: "gm", key: "yomu:reader-css-cache:v3" },
+    { owner: "styles/index (legacy)", kind: "gm", prefix: "yomu:reader-css-cache:v2:" },
     // Study / grammar / mining stores.
     { owner: "study/grammar-knowledge", kind: "gm", key: "yomu.grammarPreferences.v1" },
     { owner: "study/mining-context", kind: "gm", prefix: "yomu-mining-context:" },
@@ -31969,28 +31973,34 @@ ${spelling}`);
         finish(() => reject(abortError()));
       };
       if (signal) signal.addEventListener("abort", onAbort, { once: true });
-      if (options.timeoutMs) deadline = setTimeout(handleTimeout, options.timeoutMs);
-      const result2 = userscriptRequest({
-        method: options.method ?? "GET",
-        url,
-        headers: recordHeaders(options.headers),
-        data: options.data,
-        responseType: options.responseType,
-        timeout: options.timeoutMs,
-        anonymous: options.anonymous,
-        withCredentials: options.withCredentials,
-        cookie: options.cookie,
-        onload: handleLoad,
-        onerror: (error) => finish(() => reject(error instanceof Error ? error : new Error(formatFailure(options)))),
-        ontimeout: handleTimeout
-      });
+      deadline = setTimeout(handleTimeout, options.timeoutMs || DROPPED_CALLBACK_DEADLINE_MS);
+      let result2;
+      try {
+        result2 = userscriptRequest({
+          method: options.method ?? "GET",
+          url,
+          headers: recordHeaders(options.headers),
+          data: options.data,
+          responseType: options.responseType,
+          timeout: options.timeoutMs,
+          anonymous: options.anonymous,
+          withCredentials: options.withCredentials,
+          cookie: options.cookie,
+          onload: handleLoad,
+          onerror: (error) => finish(() => reject(error instanceof Error ? error : new Error(formatFailure(options)))),
+          ontimeout: handleTimeout
+        });
+      } catch (error) {
+        finish(() => reject(error instanceof Error ? error : new Error(formatFailure(options))));
+        return;
+      }
+      if (result2 && typeof result2.abort === "function") handle = result2;
       if (result2 && typeof result2.then === "function") {
         result2.then(handleLoad, (error) => finish(() => reject(error instanceof Error ? error : new Error(formatFailure(options)))));
-      } else if (result2 && typeof result2.abort === "function") {
-        handle = result2;
       }
     });
   }
+  const DROPPED_CALLBACK_DEADLINE_MS = 12e4;
   function abortError() {
     if (typeof DOMException === "function") return new DOMException("Aborted", "AbortError");
     const error = new Error("Aborted");
@@ -32714,6 +32724,14 @@ ${spelling}`);
       kanjiDictionaries: "Kanji dictionaries",
       pitchDictionaries: "Pitch dictionaries",
       frequencyDictionaries: "Frequency dictionaries",
+      nameDictionaries: "Name dictionaries",
+      grammarDictionaries: "Grammar dictionaries",
+      exampleDictionaries: "Example sentence dictionaries",
+      thesaurusDictionaries: "Thesauruses",
+      encyclopediaDictionaries: "Encyclopedias",
+      utilityDictionaries: "Utility dictionaries",
+      mirroredDictionaries: "All mirrored dictionaries",
+      mirroredDictionariesSummary: "{count} more dictionaries · {size} total",
       install: "Install",
       installing: "Installing",
       queued: "Queued",
@@ -34356,6 +34374,14 @@ termDictionaries	語句辞書
 kanjiDictionaries	漢字辞書
 pitchDictionaries	ピッチ辞書
 frequencyDictionaries	頻度辞書
+nameDictionaries	固有名詞辞書
+grammarDictionaries	文法辞書
+exampleDictionaries	例文辞書
+thesaurusDictionaries	類語辞書
+encyclopediaDictionaries	百科事典
+utilityDictionaries	補助辞書
+mirroredDictionaries	配信中のすべての辞書
+mirroredDictionariesSummary	他{count}件の辞書 · 合計{size}
 install	インストール
 installing	インストール中
 queued	待機中
@@ -280591,6 +280617,8 @@ ${entry2.reading}`;
   const RANDOM_TERM_LIST_MAX_MS = 220;
   const RANDOM_TOP_TERM_LIST_MAX_ROWS = 3e4;
   const RANDOM_TOP_TERM_LIST_MAX_MS = 320;
+  const TERM_MATCH_WINDOW_CHARS = 240;
+  const TERM_MATCH_SOURCE_LIMIT = 4e3;
   const TERM_KANJI_INDEX_BATCH_SIZE = 5e3;
   const TERM_KANJI_INDEX_FALLBACK_MAX_ROWS = 12e3;
   const TERM_KANJI_INDEX_FALLBACK_MAX_MS = 140;
@@ -280803,7 +280831,7 @@ ${entry2.reading}`;
     }
     async findTermMatches(text2, limit = 32, preferences = []) {
       const done = log$m.time("Inline term match search", { length: text2.length, limit, dictionaries: preferences.length });
-      const source2 = text2.slice(0, 2e4);
+      const source2 = text2.slice(0, TERM_MATCH_SOURCE_LIMIT);
       if (source2.length < text2.length) {
         log$m.warn("Inline term match source trimmed", { length: text2.length, kept: source2.length });
       }
@@ -280811,26 +280839,40 @@ ${entry2.reading}`;
         done();
         return [];
       }
-      const candidates = this.collectTermMatchCandidates(source2);
-      if (!candidates.size) {
-        done();
-        return [];
-      }
       try {
-        const matches = await this.lookupTermMatchCandidates(candidates, preferences);
-        const results = nonOverlappingMatches(matches, limit);
-        return results;
+        return await this.sweepTermMatchWindows(source2, limit, preferences);
       } catch (error) {
-        log$m.warn("Inline term match search failed", { length: source2.length, candidates: candidates.size, error });
+        log$m.warn("Inline term match search failed", { length: source2.length, error });
         throw error;
       } finally {
         done();
       }
     }
-    collectTermMatchCandidates(source2) {
+    async sweepTermMatchWindows(source2, limit, preferences) {
+      const selected2 = [];
+      let coveredUntil = 0;
+      for (let start = 0; start < source2.length; start += TERM_MATCH_WINDOW_CHARS) {
+        if (start > 0) await nextTask();
+        const matches = await this.termMatchesInWindow(source2, start, preferences);
+        const free = matches.filter((match) => match.start >= coveredUntil);
+        for (const match of nonOverlappingMatches(free, limit)) {
+          selected2.push(match);
+          coveredUntil = Math.max(coveredUntil, match.end);
+        }
+      }
+      return selected2.sort((a, b) => a.start - b.start);
+    }
+    async termMatchesInWindow(source2, start, preferences) {
+      const candidates = this.collectTermMatchCandidates(source2, start, Math.min(start + TERM_MATCH_WINDOW_CHARS, source2.length));
+      return candidates.size ? await this.lookupTermMatchCandidates(candidates, preferences) : [];
+    }
+    // Only start positions are confined to the window; surfaces still run past
+    // its end, so a term straddling a window boundary is found exactly as it
+    // would be in a single sweep of the whole text.
+    collectTermMatchCandidates(source2, from, to) {
       const candidates = /* @__PURE__ */ new Map();
       const maxLength = Math.min(18, source2.length);
-      for (let start = 0; start < source2.length; start++) {
+      for (let start = from; start < to; start++) {
         if (!JAPANESE_RE$2.test(source2[start])) continue;
         this.collectTermMatchCandidatesAt(source2, start, maxLength, candidates);
       }
@@ -280873,6 +280915,7 @@ ${entry2.reading}`;
           requestTermMatchIndex(readingIndex, expression, addMatches, finish, reject);
         }
         tx.onerror = () => reject(tx.error);
+        tx.onabort = () => reject(transactionError(tx, "Could not read dictionary term matches."));
       });
     }
     async summary() {
@@ -322107,6 +322150,156 @@ ${entry2.url}`),
       })
     )
   );
+  const CATEGORY_ORDER = [
+    "terms",
+    "names",
+    "grammar",
+    "kanji",
+    "frequency",
+    "pronunciation",
+    "examples",
+    "thesaurus",
+    "encyclopedia",
+    "utility"
+  ];
+  const UI_CATEGORY_BY_CATALOG_CATEGORY = {
+    terms: "terms",
+    names: "terms",
+    grammar: "terms",
+    kanji: "kanji",
+    frequency: "frequency",
+    pronunciation: "pitch",
+    examples: "terms",
+    thesaurus: "terms",
+    encyclopedia: "terms",
+    utility: "terms"
+  };
+  function catalogBrowseCardId(targetLanguage2, catalogDictionaryId) {
+    return `mirror-${targetLanguage2}-${catalogDictionaryId}`;
+  }
+  function catalogBrowseDictionaries(catalog2 = FROZEN_DICTIONARY_CATALOG) {
+    return catalog2 === FROZEN_DICTIONARY_CATALOG ? FROZEN_CATALOG_BROWSE_DICTIONARIES : buildCatalogBrowseDictionaries(catalog2);
+  }
+  function catalogBrowseGroups(options = {}, catalog2 = FROZEN_DICTIONARY_CATALOG) {
+    const excluded = options.excludeCatalogIds;
+    const dictionaries2 = catalogBrowseDictionaries(catalog2).filter(
+      (dictionary) => !excluded?.has(dictionary.catalogDictionaryId ?? "")
+    );
+    const byCategory = /* @__PURE__ */ new Map();
+    for (const dictionary of dictionaries2) {
+      const category = dictionary.catalogCategory ?? "utility";
+      const bucket = byCategory.get(category);
+      if (bucket) bucket.push(dictionary);
+      else byCategory.set(category, [dictionary]);
+    }
+    return CATEGORY_ORDER.flatMap((category) => {
+      const bucket = byCategory.get(category);
+      if (!bucket?.length) return [];
+      return [{
+        category,
+        dictionaries: bucket.sort(compareForLearnerLanguage(options.learnerLanguage, catalog2.targetLanguage))
+      }];
+    });
+  }
+  function catalogBrowseTotalBytes(groups) {
+    return groups.reduce(
+      (total, group2) => group2.dictionaries.reduce((sum, dictionary) => sum + (dictionary.bytes ?? 0), total),
+      0
+    );
+  }
+  function formatDictionaryBytes(bytes, locale = "en") {
+    if (!Number.isFinite(bytes) || bytes <= 0) return "";
+    const gigabytes = bytes / 1024 ** 3;
+    const megabytes = bytes / 1024 ** 2;
+    const [value, unit] = gigabytes >= 1 ? [gigabytes, "GB"] : megabytes >= 1 ? [megabytes, "MB"] : [bytes / 1024, "KB"];
+    return `${new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(value)} ${unit}`;
+  }
+  function buildCatalogBrowseDictionaries(catalog2) {
+    const target2 = catalog2.targetLanguage;
+    const forTarget = catalog2.entries.filter((entry2) => entry2.headwordLanguages.includes(target2));
+    return Object.freeze(
+      dedupeByPublishedObject(forTarget).map((entry2) => browseCard(catalog2, entry2)).sort(compareForLearnerLanguage(void 0, target2))
+    );
+  }
+  function dedupeByPublishedObject(entries2) {
+    const preferred = /* @__PURE__ */ new Map();
+    const unpublished = [];
+    for (const entry2 of entries2) {
+      if (entry2.distribution.state !== "published") {
+        unpublished.push(entry2);
+        continue;
+      }
+      const sha2562 = entry2.distribution.object.sha256;
+      const existing = preferred.get(sha2562);
+      if (!existing || preferDuplicate(entry2, existing)) preferred.set(sha2562, entry2);
+    }
+    return [...preferred.values(), ...unpublished];
+  }
+  function preferDuplicate(candidate2, existing) {
+    const candidateIsStarterPack = isStarterPackEntry(candidate2);
+    if (candidateIsStarterPack !== isStarterPackEntry(existing)) return !candidateIsStarterPack;
+    return candidate2.id < existing.id;
+  }
+  function isStarterPackEntry(entry2) {
+    return entry2.source.catalogueSection === "starter-pack" || entry2.id.startsWith("drive-starter-pack-");
+  }
+  function browseCard(catalog2, entry2) {
+    const primaryCategory = primaryCatalogCategory(entry2);
+    const object2 = entry2.distribution.state === "published" ? entry2.distribution.object : void 0;
+    return {
+      id: catalogBrowseCardId(catalog2.targetLanguage, entry2.id),
+      category: UI_CATEGORY_BY_CATALOG_CATEGORY[primaryCategory],
+      catalogCategory: primaryCategory,
+      name: entry2.title,
+      description: describeMirroredDictionary(entry2.definitionLanguages[0], object2?.bytes),
+      ...object2 ? {
+        downloadUrl: new URL(object2.key, catalog2.objectsBaseUrl).href,
+        sha256: object2.sha256,
+        bytes: object2.bytes
+      } : {},
+      ...entry2.source.projectUrl ? { helpUrl: entry2.source.projectUrl } : {},
+      origin: "catalog",
+      catalogDictionaryId: entry2.id,
+      selectedByDefault: false,
+      definitionLanguage: entry2.definitionLanguages[0],
+      translationMode: "off",
+      installedDictionaryIdentity: yomitanDictionaryIdentity(entry2.title)
+    };
+  }
+  function primaryCatalogCategory(entry2) {
+    return entry2.categories.find((category) => CATEGORY_ORDER.includes(category)) ?? "utility";
+  }
+  function catalogBrowseDescription(dictionary, locale = "en") {
+    return describeMirroredDictionary(dictionary.definitionLanguage, dictionary.bytes, locale);
+  }
+  function describeMirroredDictionary(definitionLanguage, bytes, locale = "en") {
+    const language2 = definitionLanguage ? displayLanguageName$1(definitionLanguage, locale) : "";
+    const size = bytes === void 0 ? "" : formatDictionaryBytes(bytes, locale);
+    return [language2, size].filter(Boolean).join(" · ");
+  }
+  function compareForLearnerLanguage(learnerLanguage2, targetLanguage2) {
+    return (left, right) => {
+      const rank2 = definitionLanguageRank(right, learnerLanguage2, targetLanguage2) - definitionLanguageRank(left, learnerLanguage2, targetLanguage2);
+      if (rank2 !== 0) return rank2;
+      return left.name.localeCompare(right.name, "en");
+    };
+  }
+  function definitionLanguageRank(dictionary, learnerLanguage2, targetLanguage2) {
+    const language2 = dictionary.definitionLanguage;
+    if (!language2) return 0;
+    if (learnerLanguage2 && language2 === learnerLanguage2) return 3;
+    if (language2 === targetLanguage2) return 2;
+    if (language2 === "en") return 1;
+    return 0;
+  }
+  function displayLanguageName$1(language2, locale = "en") {
+    try {
+      return new Intl.DisplayNames([locale], { type: "language" }).of(language2) ?? language2;
+    } catch {
+      return language2;
+    }
+  }
+  const FROZEN_CATALOG_BROWSE_DICTIONARIES = buildCatalogBrowseDictionaries(FROZEN_DICTIONARY_CATALOG);
   const ENGLISH_FALLBACK_MESSAGES = {
     setupTitle: "Set up Yomu in your language",
     learnerLanguageLabel: "Your language",
@@ -322701,8 +322894,27 @@ ${entry2.url}`),
       };
     });
   }
+  function catalogBrowseGroupsForLearnerLanguage(learnerLanguage2) {
+    return catalogBrowseGroups({
+      learnerLanguage: learnerLanguage2,
+      excludeCatalogIds: recommendedCatalogIds(learnerLanguage2)
+    });
+  }
+  function recommendedCatalogIds(learnerLanguage2) {
+    const cached = RECOMMENDED_CATALOG_IDS_BY_LANGUAGE.get(learnerLanguage2);
+    if (cached) return cached;
+    const ids2 = new Set(
+      recommendedDictionariesForLearnerLanguage(learnerLanguage2).map((dictionary) => dictionary.catalogDictionaryId).filter((id2) => Boolean(id2))
+    );
+    RECOMMENDED_CATALOG_IDS_BY_LANGUAGE.set(learnerLanguage2, ids2);
+    return ids2;
+  }
+  const RECOMMENDED_CATALOG_IDS_BY_LANGUAGE = /* @__PURE__ */ new Map();
+  const CATALOG_BROWSE_BY_ID = new Map(
+    catalogBrowseDictionaries().map((dictionary) => [dictionary.id, dictionary])
+  );
   function findRecommendedDictionary(id2) {
-    return RECOMMENDED_JAPANESE_DICTIONARIES.find((dictionary) => dictionary.id === id2) ?? CATALOG_RECOMMENDATIONS_BY_ID.get(id2);
+    return RECOMMENDED_JAPANESE_DICTIONARIES.find((dictionary) => dictionary.id === id2) ?? CATALOG_RECOMMENDATIONS_BY_ID.get(id2) ?? CATALOG_BROWSE_BY_ID.get(id2);
   }
   function recommendedDictionaryCategory(recommendation) {
     if (recommendation.role === "kanji") return "kanji";
@@ -326423,6 +326635,7 @@ ${entry2.url}`),
     localizeStudyStepEditor(form2, text2);
     localizeRecommendedDictionaryGroups(form2, text2);
     localizeRecommendedDictionaryDescriptions(form2, text2);
+    localizeCatalogBrowseSection(form2, text2);
     localizeAnkiTemplatePreview(form2, text2);
     localizeAudioSourceFields(form2, text2);
     localizeRecommendedDictionaryButtons(form2, text2);
@@ -326571,6 +326784,27 @@ ${entry2.url}`),
       const category = title2.dataset.recommendedCategory;
       if (category && labels[category]) title2.replaceChildren(labels[category]);
     });
+  }
+  function localizeCatalogBrowseSection(form2, text2) {
+    const section2 = form2.querySelector("[data-catalog-browse]");
+    if (!section2) return;
+    const locale = resolveUiLanguageFromText(text2);
+    section2.querySelector("[data-catalog-browse-title]")?.replaceChildren(text2("mirroredDictionaries"));
+    section2.querySelectorAll("[data-catalog-browse-category]").forEach((title2) => {
+      const category = title2.dataset.catalogBrowseCategory;
+      const key2 = category ? CATALOG_BROWSE_CATEGORY_TEXT_KEYS[category] : void 0;
+      if (key2) title2.replaceChildren(text2(key2));
+    });
+    let count2 = 0;
+    let bytes = 0;
+    section2.querySelectorAll(".jpdb-reader-recommended-item").forEach((item2) => {
+      const dictionary = findRecommendedDictionary(item2.querySelector("[data-dictionary-id]")?.dataset.dictionaryId ?? "");
+      if (!dictionary) return;
+      count2 += 1;
+      bytes += dictionary.bytes ?? 0;
+      item2.querySelector(".jpdb-reader-help")?.replaceChildren(catalogBrowseDescription(dictionary, locale));
+    });
+    section2.querySelector("[data-catalog-browse-summary]")?.replaceChildren(catalogBrowseSummary(locale, count2, bytes));
   }
   function localizeRecommendedDictionaryDescriptions(form2, text2) {
     RECOMMENDED_JAPANESE_DICTIONARIES.forEach((dictionary) => {
@@ -327354,7 +327588,43 @@ ${entry2.url}`),
                 </div>
             `;
     }).join("")}
+        ${renderCatalogBrowseSection(catalogBrowseGroupsForLearnerLanguage(learnerLanguage2), installed)}
     `;
+  }
+  function renderCatalogBrowseSection(groups, installed) {
+    const count2 = groups.reduce((total, group2) => total + group2.dictionaries.length, 0);
+    if (!count2) return "";
+    return `
+        <section class="jpdb-reader-catalog-browse" data-catalog-browse>
+            <div class="jpdb-reader-recommended-title" data-catalog-browse-title>${escapedUiText("en", "mirroredDictionaries")}</div>
+            <div class="jpdb-reader-help jpdb-reader-catalog-browse-summary" data-catalog-browse-summary>${escapeHtml$2(catalogBrowseSummary("en", count2, catalogBrowseTotalBytes(groups)))}</div>
+            ${groups.map((group2) => `
+                <div class="jpdb-reader-recommended-group">
+                    <div class="jpdb-reader-recommended-group-title" data-catalog-browse-category="${escapeHtml$2(group2.category)}">${escapedUiText("en", CATALOG_BROWSE_CATEGORY_TEXT_KEYS[group2.category])}</div>
+                    ${group2.dictionaries.map((dictionary) => renderRecommendedDictionary(dictionary, installed)).join("")}
+                </div>
+            `).join("")}
+        </section>
+    `;
+  }
+  const CATALOG_BROWSE_CATEGORY_TEXT_KEYS = {
+    terms: "termDictionaries",
+    names: "nameDictionaries",
+    grammar: "grammarDictionaries",
+    kanji: "kanjiDictionaries",
+    frequency: "frequencyDictionaries",
+    pronunciation: "pitchDictionaries",
+    examples: "exampleDictionaries",
+    thesaurus: "thesaurusDictionaries",
+    encyclopedia: "encyclopediaDictionaries",
+    utility: "utilityDictionaries"
+  };
+  function catalogBrowseSummary(language2, count2, bytes) {
+    const locale = resolveUiLanguage(language2);
+    return formatUiText(language2, "mirroredDictionariesSummary", {
+      count: count2.toLocaleString(locale),
+      size: formatDictionaryBytes(bytes, locale)
+    });
   }
   function renderCatalogRecommendationSeed(dictionaries2, installed, learnerLanguageId) {
     if (!dictionaries2.length) return "";
