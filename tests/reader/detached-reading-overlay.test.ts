@@ -1036,6 +1036,120 @@ describe('detached reading scroll context', () => {
 // inside a userscript-manager sandbox (Tampermonkey on Firefox), which is where
 // the user hit it. This stubs Gecko's check so the regression is deterministic.
 describe('projected reading refresh under a Firefox userscript sandbox', () => {
+    // Scrolling something that holds no reading cannot have moved one, so the
+    // refresh is skipped. The safety property is the other direction: every
+    // scroller that DOES hold a reading must still refresh, including across a
+    // shadow boundary, or readings freeze mid-page (the 1.8.2/1.8.3 bug class).
+    describe('scroll refresh scoping', () => {
+        function countRefreshFrames(): { frames: number; restore: () => void } {
+            const view = window as unknown as { requestAnimationFrame: (cb: FrameRequestCallback) => number };
+            const original = view.requestAnimationFrame;
+            const state = { frames: 0, restore: () => { view.requestAnimationFrame = original; } };
+            view.requestAnimationFrame = ((callback: FrameRequestCallback) => {
+                state.frames += 1;
+                return original.call(window, callback);
+            }) as typeof view.requestAnimationFrame;
+            return state;
+        }
+
+        // syncProjectedReadings leaves a coalesced frame pending, and
+        // scheduleProjectionRefresh is a no-op while one is in flight. Let it
+        // run before counting or every case reads as "no refresh".
+        async function flushPendingFrame(): Promise<void> {
+            await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+        }
+
+        it('refreshes when the scrolled element contains the reading', async () => {
+            const target = readingOwner('日本語');
+            mockElementsFromPoint([target.source]);
+            syncProjectedReadings(target.owner, [{
+                source: target.source, anchor: target.anchor, rect: rect(), measure: () => rect(),
+            }]);
+            await flushPendingFrame();
+            const counter = countRefreshFrames();
+            try {
+                target.anchor.dispatchEvent(new Event('scroll', { bubbles: false }));
+                expect(counter.frames).toBeGreaterThan(0);
+            } finally {
+                counter.restore();
+                clearProjectedReadings(target.owner);
+                target.anchor.remove();
+            }
+        });
+
+        it('refreshes when the reading sits inside a shadow root under the scroller', async () => {
+            const scroller = document.createElement('div');
+            const host = document.createElement('div');
+            scroller.append(host);
+            document.body.append(scroller);
+            const shadow = host.attachShadow({ mode: 'open' });
+            const anchor = document.createElement('div');
+            const owner = document.createElement('span');
+            const source = document.createElement('span');
+            source.textContent = '影';
+            owner.append(source);
+            anchor.append(owner);
+            anchor.getBoundingClientRect = () => rect();
+            shadow.append(anchor);
+            mockElementsFromPoint([source]);
+            syncProjectedReadings(owner, [{ source, anchor, rect: rect(), measure: () => rect() }]);
+
+            await flushPendingFrame();
+            const counter = countRefreshFrames();
+            try {
+                scroller.dispatchEvent(new Event('scroll', { bubbles: false }));
+                expect(counter.frames).toBeGreaterThan(0);
+            } finally {
+                counter.restore();
+                clearProjectedReadings(owner);
+                scroller.remove();
+            }
+        });
+
+        it('skips the refresh for a scroller that holds no reading', async () => {
+            const target = readingOwner('日本語');
+            mockElementsFromPoint([target.source]);
+            syncProjectedReadings(target.owner, [{
+                source: target.source, anchor: target.anchor, rect: rect(), measure: () => rect(),
+            }]);
+            const unrelated = document.createElement('div');
+            document.body.append(unrelated);
+
+            await flushPendingFrame();
+            const counter = countRefreshFrames();
+            try {
+                unrelated.dispatchEvent(new Event('scroll', { bubbles: false }));
+                expect(counter.frames).toBe(0);
+            } finally {
+                counter.restore();
+                clearProjectedReadings(target.owner);
+                target.anchor.remove();
+                unrelated.remove();
+            }
+        });
+
+        it('still refreshes on a page-level scroll', async () => {
+            const target = readingOwner('日本語');
+            mockElementsFromPoint([target.source]);
+            syncProjectedReadings(target.owner, [{
+                source: target.source, anchor: target.anchor, rect: rect(), measure: () => rect(),
+            }]);
+            await flushPendingFrame();
+            const counter = countRefreshFrames();
+            try {
+                document.documentElement.dispatchEvent(new Event('scroll', { bubbles: false }));
+                expect(counter.frames).toBeGreaterThan(0);
+            } finally {
+                counter.restore();
+                clearProjectedReadings(target.owner);
+                target.anchor.remove();
+            }
+        });
+    });
+
+    // Keep this test last: its stub returns a frame id without ever running
+    // the callback, so the overlay's coalescing guard stays armed and every
+    // later scheduleProjectionRefresh in this file silently does nothing.
     it('calls requestAnimationFrame with its window as receiver', async () => {
         const view = document.defaultView!;
         // Let any frame scheduled by an earlier test settle, otherwise the

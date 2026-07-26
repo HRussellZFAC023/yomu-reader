@@ -119,6 +119,10 @@
       scrollContextEpoch: 0,
       hitTestBudgetRemaining: 12,
       scheduleRefresh: () => scheduleProjectionRefresh(document, overlay),
+      scheduleScrollRefresh: (event) => {
+        if (scrollMovedNoProjectedReading(event, overlay)) return;
+        scheduleProjectionRefresh(document, overlay);
+      },
       scheduleTopologyRefresh: () => {
         overlay.rootsDirty = true;
         overlay.occlusionEpoch += 1;
@@ -129,7 +133,7 @@
     };
     overlays.set(document, overlay);
     overlay.intersectionObserver = observeProjectionIntersections(document, overlay);
-    document.addEventListener("scroll", overlay.scheduleRefresh, { capture: true, passive: true });
+    document.addEventListener("scroll", overlay.scheduleScrollRefresh, { capture: true, passive: true });
     document.addEventListener("pointerover", overlay.scheduleRefresh, { capture: true, passive: true });
     document.addEventListener("pointerout", overlay.scheduleRefresh, { capture: true, passive: true });
     document.addEventListener("focusin", overlay.scheduleRefresh, { capture: true, passive: true });
@@ -448,7 +452,7 @@
     const references = overlay.shadowRootReferences.get(root) ?? 0;
     overlay.shadowRootReferences.set(root, references + 1);
     if (references !== 0) return;
-    root.addEventListener("scroll", overlay.scheduleRefresh, { capture: true, passive: true });
+    root.addEventListener("scroll", overlay.scheduleScrollRefresh, { capture: true, passive: true });
     root.addEventListener("slotchange", overlay.scheduleTopologyRefresh, { capture: true, passive: true });
     rebuildProjectionMutationRoots(overlay);
   }
@@ -459,7 +463,7 @@
       return;
     }
     if (!overlay.shadowRootReferences.delete(root)) return;
-    root.removeEventListener("scroll", overlay.scheduleRefresh, { capture: true });
+    root.removeEventListener("scroll", overlay.scheduleScrollRefresh, { capture: true });
     root.removeEventListener("slotchange", overlay.scheduleTopologyRefresh, { capture: true });
     rebuildProjectionMutationRoots(overlay);
   }
@@ -661,6 +665,18 @@
     let parent = composedParentNode(element);
     while (parent && !(parent instanceof Element)) parent = composedParentNode(parent);
     return parent;
+  }
+  function scrollMovedNoProjectedReading(event, overlay) {
+    const target = event.target;
+    if (!(target instanceof Element)) return false;
+    const document = target.ownerDocument;
+    if (target === document?.documentElement || target === document?.body) return false;
+    for (const record of overlay.records) {
+      if (composedContains(target, record.anchor)) return false;
+      if (composedContains(target, record.source)) return false;
+      if (composedContains(target, record.owner)) return false;
+    }
+    return true;
   }
   function composedContains(ancestor, descendant) {
     const visited = /* @__PURE__ */ new Set();

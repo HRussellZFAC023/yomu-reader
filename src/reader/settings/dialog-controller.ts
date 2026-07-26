@@ -861,7 +861,9 @@ export class SettingsDialogController {
             if (nextIndex < 0) return;
             event.preventDefault();
             tabs[nextIndex]?.focus();
-            activateSettingsPanel(form, tabs[nextIndex]?.dataset.panel ?? 'api');
+            const panel = tabs[nextIndex]?.dataset.panel ?? 'api';
+            activateSettingsPanel(form, panel);
+            this.onSettingsPanelActivated(form, panel);
             this.refreshSettingsJapaneseParse(form);
         });
     }
@@ -1051,6 +1053,10 @@ export class SettingsDialogController {
         suppressCredentialAutofill(form);
         syncBrowserTtsVoiceOptions(form);
         this.bindAudioSubSourceDetection(form);
+        // Settings can be opened straight onto a panel, so media being the
+        // panel already on screen counts as opening it.
+        const mediaPanel = form.querySelector<HTMLElement>('[data-settings-panel="media"]');
+        if (mediaPanel && !mediaPanel.hidden) this.refreshAudioSubSources(form);
         if ('speechSynthesis' in window) {
             window.speechSynthesis.addEventListener('voiceschanged', () => syncBrowserTtsVoiceOptions(form), { once: true });
         }
@@ -1790,7 +1796,7 @@ export class SettingsDialogController {
         if (action === 'settings-panel') {
             const panel = selectedSettingsPanel(control);
             activateSettingsPanel(form, panel);
-            if (panel === 'help') void this.refreshYomuUpdateStatus(form);
+            this.onSettingsPanelActivated(form, panel);
             this.refreshSettingsJapaneseParse(form);
             return true;
         }
@@ -1868,8 +1874,19 @@ export class SettingsDialogController {
      * Settings must never reach out on its own: the URL can be a private or
      * third-party host the user has not agreed to contact yet.
      */
-    private refreshAudioSubSources(form: HTMLFormElement, row: HTMLElement): void {
-        void this.detectAudioSubSourcesForRow(form, row);
+    private refreshAudioSubSources(form: HTMLFormElement, row?: HTMLElement | null): void {
+        const rows = row ? [row] : Array.from(form.querySelectorAll<HTMLElement>('[data-audio-source-row]'));
+        for (const target of rows) void this.detectAudioSubSourcesForRow(form, target);
+    }
+
+    // Opening the media panel is the moment the user is looking at audio
+    // sources, so that is when their providers get discovered — the same shape
+    // as the help panel refreshing the update status when it is opened. Merely
+    // rendering the dialog still reaches nothing, because a source URL can be a
+    // private host that only an explicit visit here justifies contacting.
+    private onSettingsPanelActivated(form: HTMLFormElement, panel: string): void {
+        if (panel === 'help') void this.refreshYomuUpdateStatus(form);
+        if (panel === 'media') this.refreshAudioSubSources(form);
     }
 
     private renderKnownAudioSubSources(form: HTMLFormElement): void {

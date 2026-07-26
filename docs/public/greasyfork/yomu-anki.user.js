@@ -6777,8 +6777,12 @@ ${candidate.depth}`;
   function isBrowserTextToSpeechSource(source) {
     return source.type === "text-to-speech" || source.type === "text-to-speech-reading";
   }
+  function audioSubSourceProviderName(name) {
+    const trimmed = name.trim().normalize("NFC");
+    return trimmed.split(/\s+/, 1)[0] ?? trimmed;
+  }
   function audioSubSourceNameKey(name) {
-    return name.trim().normalize("NFC").toLowerCase();
+    return audioSubSourceProviderName(name).toLowerCase();
   }
   function disabledAudioSubSourceNameKeys(source) {
     return new Set((source.subSources ?? []).filter((subSource) => !subSource.enabled).map((subSource) => audioSubSourceNameKey(subSource.name)));
@@ -10486,7 +10490,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   }
   function customJsonAudioCandidates(payload, source, sourceUrl) {
     const named = namedAudioSubSources(payload);
-    recordAudioSubSourceNames(source.url, named.map((entry) => entry.name));
+    recordAudioSubSourceNames(source.url, named.map((entry) => audioSubSourceProviderName(entry.name)));
     const disabled = disabledAudioSubSourceNameKeys(source);
     if (named.length && disabled.size) {
       const allowed = named.filter((entry) => !disabled.has(audioSubSourceNameKey(entry.name)));

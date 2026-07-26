@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.8.9] - 2026-07-26
+
+### Fixed
+
+- The providers inside an audio source URL now actually appear in Settings. Opening Media asks the source which providers it offers, so the list fills in, where before it stayed empty unless you happened to play a word in that same tab first.
+- Those providers are now listed once each, by name. The hosted source labels every individual clip rather than every source, so one lookup came back as nhk16 ニホ＼ン [2], daijisen にほ＼ん [2], forvo_jp akitomo, and more. Yomu now groups them into nhk16, daijisen, forvo_jp and jpod — one checkbox each, which still means the same thing for every other word instead of changing with the reading, pitch, or Forvo speaker. Turning one off drops all of its clips.
+- Scrolling inside Yomu's own panels, such as Settings, no longer stutters on a page full of furigana. Every scroll anywhere on the page made Yomu re-measure the position of every reading it had drawn, including scrolls inside its own windows, which cannot move page text at all. On a manga page carrying hundreds of readings that was a full re-measure per frame of scrolling. Yomu now re-measures only when the thing being scrolled actually holds readings, so page scrolling keeps following the text exactly as before.
+
 ## [1.8.8] - 2026-07-25
 
 ### Fixed

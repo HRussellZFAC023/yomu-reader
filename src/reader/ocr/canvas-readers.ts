@@ -615,7 +615,7 @@ export function captureCanvasDataUrl(canvas: HTMLCanvasElement, maxPixels: numbe
 // capture. Left to the collector they accumulate until Firefox runs a GC/CC, which
 // is exactly the shape of the isolated 1-2 s main-thread freeze seen while reading.
 // Setting either dimension reallocates the buffer to nothing, which is deterministic.
-export function releaseTransientCanvas(canvas: HTMLCanvasElement): void {
+function releaseTransientCanvas(canvas: HTMLCanvasElement): void {
     try {
         canvas.width = 0;
         canvas.height = 0;

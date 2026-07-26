@@ -919,7 +919,7 @@ function withAutomationMask(options, browserName) {
 
 // The page-side half of the mask: firefoxUserPrefs alone does not clear
 // navigator.webdriver on every channel, and Chromium needs it outright.
-export async function maskAutomationSignals(contextOrPage) {
+async function maskAutomationSignals(contextOrPage) {
     await contextOrPage.addInitScript(() => {
         try {
             Object.defineProperty(Navigator.prototype, 'webdriver', { get: () => undefined, configurable: true });

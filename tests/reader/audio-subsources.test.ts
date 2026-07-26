@@ -18,7 +18,7 @@ const JPOD_URL = 'https://assets.languagepod101.com/dictionary/japanese/audiomp3
 const AGGREGATOR_RESPONSE = {
     type: 'audioSourceList',
     audioSources: [
-        { name: 'Yomu audio', url: CLIP_URL },
+        { name: 'nhk16 ニホ＼ン [2]', url: CLIP_URL },
         { name: 'jpod', url: JPOD_URL },
     ],
 };
@@ -46,11 +46,52 @@ afterEach(() => {
 describe('audio aggregator sub-sources', () => {
     it('extracts named sub-sources from audioSourceList responses', () => {
         expect(namedAudioSubSources(AGGREGATOR_RESPONSE)).toEqual([
-            { name: 'Yomu audio', url: CLIP_URL },
+            { name: 'nhk16 ニホ＼ン [2]', url: CLIP_URL },
             { name: 'jpod', url: JPOD_URL },
         ]);
         expect(namedAudioSubSources({ audioSources: ['not-an-entry', { url: CLIP_URL }] })).toEqual([]);
         expect(namedAudioSubSources(null)).toEqual([]);
+    });
+
+    // The hosted aggregator labels each CLIP, not each source: readings, pitch
+    // numbers, and Forvo speakers all vary per word. Toggling those raw labels
+    // would give a different, useless set of checkboxes for every lookup, so
+    // discovery groups them by the provider token.
+    it('groups per-clip labels into one entry per provider', async () => {
+        stubAggregatorFetch({
+            type: 'audioSourceList',
+            audioSources: [
+                { name: 'daijisen にほ＼ん [2]', url: CLIP_URL },
+                { name: 'nhk16 ニッポ＼ン [3]', url: CLIP_URL },
+                { name: 'nhk16 ニホ＼ン [2]', url: CLIP_URL },
+                { name: 'shinmeikai8 ニホ＼ン [2]', url: CLIP_URL },
+                { name: 'forvo_jp akitomo', url: CLIP_URL },
+                { name: 'forvo_jp poyotan', url: CLIP_URL },
+                { name: 'jpod', url: JPOD_URL },
+            ],
+        });
+
+        await getAudioCandidates(hostedSource(), testCard(), 1000, '');
+
+        expect(knownAudioSubSourceNames(HOSTED_URL)).toEqual([
+            'daijisen', 'nhk16', 'shinmeikai8', 'forvo_jp', 'jpod',
+        ]);
+    });
+
+    it('drops every clip of a disabled provider whatever its reading or speaker', async () => {
+        stubAggregatorFetch({
+            type: 'audioSourceList',
+            audioSources: [
+                { name: 'nhk16 ニッポ＼ン [3]', url: CLIP_URL },
+                { name: 'nhk16 ニホ＼ン [2]', url: 'https://audio.yomureader.com/audio/nhk16/media/2.mp3' },
+                { name: 'forvo_jp akitomo', url: JPOD_URL },
+            ],
+        });
+        const source = hostedSource({ subSources: [{ name: 'nhk16', enabled: false }] });
+
+        await expect(getAudioCandidates(source, testCard(), 1000, '')).resolves.toEqual([
+            { url: JPOD_URL, sourceUrl: expect.stringContaining('audio.yomureader.com') },
+        ]);
     });
 
     it('keeps every named clip when no sub-source is disabled', async () => {
@@ -74,7 +115,7 @@ describe('audio aggregator sub-sources', () => {
         const source = hostedSource({
             subSources: [
                 { name: 'jpod', enabled: false },
-                { name: 'Yomu audio', enabled: false },
+                { name: 'nhk16', enabled: false },
             ],
         });
         await expect(getAudioCandidates(source, testCard(), 1000, '')).resolves.toEqual([]);
@@ -90,8 +131,8 @@ describe('audio aggregator sub-sources', () => {
 
     it('detects the union of sub-source names across probe lookups', async () => {
         const payloads = [
-            { type: 'audioSourceList', audioSources: [{ name: 'Yomu audio', url: CLIP_URL }] },
-            { type: 'audioSourceList', audioSources: [{ name: 'yomu audio', url: CLIP_URL }] },
+            { type: 'audioSourceList', audioSources: [{ name: 'nhk16 ニホ＼ン [2]', url: CLIP_URL }] },
+            { type: 'audioSourceList', audioSources: [{ name: 'daijisen にほ＼ん [2]', url: CLIP_URL }] },
             { type: 'audioSourceList', audioSources: [{ name: 'jpod', url: JPOD_URL }] },
         ];
         let call = 0;
@@ -99,7 +140,7 @@ describe('audio aggregator sub-sources', () => {
             status: 200,
             headers: { 'Content-Type': 'application/json' },
         })));
-        await expect(detectCustomJsonAudioSubSources(HOSTED_URL, 1000, '')).resolves.toEqual(['Yomu audio', 'jpod']);
+        await expect(detectCustomJsonAudioSubSources(HOSTED_URL, 1000, '')).resolves.toEqual(['nhk16', 'daijisen', 'jpod']);
     });
 
     it('learns provider names from ordinary lookups, with no probe of its own', async () => {
@@ -108,7 +149,7 @@ describe('audio aggregator sub-sources', () => {
 
         await getAudioCandidates(hostedSource(), testCard(), 1000, '');
 
-        expect(knownAudioSubSourceNames(HOSTED_URL)).toEqual(['Yomu audio', 'jpod']);
+        expect(knownAudioSubSourceNames(HOSTED_URL)).toEqual(['nhk16', 'jpod']);
     });
 
     it('lists learned providers in the settings editor without any saved sub-sources', async () => {
@@ -116,7 +157,7 @@ describe('audio aggregator sub-sources', () => {
         await getAudioCandidates(hostedSource(), testCard(), 1000, '');
 
         const html = renderAudioSourceEditor([hostedSource()], 'en');
-        expect(html).toContain('audioSources.0.subSources.0.name" value="Yomu audio"');
+        expect(html).toContain('audioSources.0.subSources.0.name" value="nhk16"');
         expect(html).toContain('audioSources.0.subSources.1.name" value="jpod"');
         expect(html).not.toContain('data-action="audio-source-detect"');
     });
@@ -129,27 +170,27 @@ describe('audio aggregator sub-sources', () => {
         expect(attemptsWhileOffline).toBeGreaterThan(0);
 
         stubAggregatorFetch();
-        await expect(detectCustomJsonAudioSubSources(HOSTED_URL, 1000, '')).resolves.toEqual(['Yomu audio', 'jpod']);
+        await expect(detectCustomJsonAudioSubSources(HOSTED_URL, 1000, '')).resolves.toEqual(['nhk16', 'jpod']);
 
         const reachedCalls = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.length;
-        await expect(detectCustomJsonAudioSubSources(HOSTED_URL, 1000, '')).resolves.toEqual(['Yomu audio', 'jpod']);
+        await expect(detectCustomJsonAudioSubSources(HOSTED_URL, 1000, '')).resolves.toEqual(['nhk16', 'jpod']);
         expect((globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.length).toBe(reachedCalls);
     });
 
     it('merges newly detected names without losing saved toggles', () => {
         expect(mergeAudioSubSources(
             [{ name: 'jpod', enabled: false }],
-            ['JPod', 'Yomu audio'],
+            ['JPod', 'nhk16'],
         )).toEqual([
             { name: 'jpod', enabled: false },
-            { name: 'Yomu audio', enabled: true },
+            { name: 'nhk16', enabled: true },
         ]);
     });
 
     it('round-trips sub-source toggles through the settings form and normalization', () => {
         const sources: AudioSourceSetting[] = [hostedSource({
             subSources: [
-                { name: 'Yomu audio', enabled: true },
+                { name: 'nhk16', enabled: true },
                 { name: 'jpod', enabled: false },
             ],
         })];
@@ -162,12 +203,12 @@ describe('audio aggregator sub-sources', () => {
                 type: 'custom-json',
                 url: HOSTED_URL,
                 subSources: [
-                    { name: 'Yomu audio', enabled: true },
+                    { name: 'nhk16', enabled: true },
                     { name: 'jpod', enabled: false },
                 ],
             });
             expect(normalizeAudioSources(read)[0]?.subSources).toEqual([
-                { name: 'Yomu audio', enabled: true },
+                { name: 'nhk16', enabled: true },
                 { name: 'jpod', enabled: false },
             ]);
         } finally {

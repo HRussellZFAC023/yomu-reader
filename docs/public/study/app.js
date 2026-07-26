@@ -119,6 +119,10 @@
       scrollContextEpoch: 0,
       hitTestBudgetRemaining: 12,
       scheduleRefresh: () => scheduleProjectionRefresh(document2, overlay),
+      scheduleScrollRefresh: (event) => {
+        if (scrollMovedNoProjectedReading(event, overlay)) return;
+        scheduleProjectionRefresh(document2, overlay);
+      },
       scheduleTopologyRefresh: () => {
         overlay.rootsDirty = true;
         overlay.occlusionEpoch += 1;
@@ -129,7 +133,7 @@
     };
     overlays.set(document2, overlay);
     overlay.intersectionObserver = observeProjectionIntersections(document2, overlay);
-    document2.addEventListener("scroll", overlay.scheduleRefresh, { capture: true, passive: true });
+    document2.addEventListener("scroll", overlay.scheduleScrollRefresh, { capture: true, passive: true });
     document2.addEventListener("pointerover", overlay.scheduleRefresh, { capture: true, passive: true });
     document2.addEventListener("pointerout", overlay.scheduleRefresh, { capture: true, passive: true });
     document2.addEventListener("focusin", overlay.scheduleRefresh, { capture: true, passive: true });
@@ -448,7 +452,7 @@
     const references = overlay.shadowRootReferences.get(root) ?? 0;
     overlay.shadowRootReferences.set(root, references + 1);
     if (references !== 0) return;
-    root.addEventListener("scroll", overlay.scheduleRefresh, { capture: true, passive: true });
+    root.addEventListener("scroll", overlay.scheduleScrollRefresh, { capture: true, passive: true });
     root.addEventListener("slotchange", overlay.scheduleTopologyRefresh, { capture: true, passive: true });
     rebuildProjectionMutationRoots(overlay);
   }
@@ -459,7 +463,7 @@
       return;
     }
     if (!overlay.shadowRootReferences.delete(root)) return;
-    root.removeEventListener("scroll", overlay.scheduleRefresh, { capture: true });
+    root.removeEventListener("scroll", overlay.scheduleScrollRefresh, { capture: true });
     root.removeEventListener("slotchange", overlay.scheduleTopologyRefresh, { capture: true });
     rebuildProjectionMutationRoots(overlay);
   }
@@ -661,6 +665,18 @@
     let parent = composedParentNode(element2);
     while (parent && !(parent instanceof Element)) parent = composedParentNode(parent);
     return parent;
+  }
+  function scrollMovedNoProjectedReading(event, overlay) {
+    const target = event.target;
+    if (!(target instanceof Element)) return false;
+    const document2 = target.ownerDocument;
+    if (target === document2?.documentElement || target === document2?.body) return false;
+    for (const record2 of overlay.records) {
+      if (composedContains(target, record2.anchor)) return false;
+      if (composedContains(target, record2.source)) return false;
+      if (composedContains(target, record2.owner)) return false;
+    }
+    return true;
   }
   function composedContains(ancestor, descendant) {
     const visited = /* @__PURE__ */ new Set();
@@ -10933,8 +10949,12 @@ ${spelling}`);
   function isTextToSpeechFallbackSource(source) {
     return isApiTextToSpeechSource(source) || isBrowserTextToSpeechSource(source);
   }
+  function audioSubSourceProviderName(name) {
+    const trimmed = name.trim().normalize("NFC");
+    return trimmed.split(/\s+/, 1)[0] ?? trimmed;
+  }
   function audioSubSourceNameKey(name) {
-    return name.trim().normalize("NFC").toLowerCase();
+    return audioSubSourceProviderName(name).toLowerCase();
   }
   function disabledAudioSubSourceNameKeys(source) {
     return new Set((source.subSources ?? []).filter((subSource) => !subSource.enabled).map((subSource) => audioSubSourceNameKey(subSource.name)));
@@ -23863,7 +23883,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   }
   function customJsonAudioCandidates(payload, source, sourceUrl) {
     const named = namedAudioSubSources(payload);
-    recordAudioSubSourceNames(source.url, named.map((entry) => entry.name));
+    recordAudioSubSourceNames(source.url, named.map((entry) => audioSubSourceProviderName(entry.name)));
     const disabled = disabledAudioSubSourceNameKeys(source);
     if (named.length && disabled.size) {
       const allowed = named.filter((entry) => !disabled.has(audioSubSourceNameKey(entry.name)));
@@ -23948,7 +23968,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         const key = audioSubSourceNameKey(entry.name);
         if (seen.has(key)) continue;
         seen.add(key);
-        names.push(entry.name);
+        names.push(audioSubSourceProviderName(entry.name));
       }
     }
     return { names, reached };
@@ -48516,7 +48536,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.8.8".trim() ? "1.8.8".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.8.9".trim() ? "1.8.9".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record2 = value;
@@ -65062,7 +65082,9 @@ ${spelling}`);
         if (nextIndex < 0) return;
         event.preventDefault();
         tabs[nextIndex]?.focus();
-        activateSettingsPanel(form, tabs[nextIndex]?.dataset.panel ?? "api");
+        const panel = tabs[nextIndex]?.dataset.panel ?? "api";
+        activateSettingsPanel(form, panel);
+        this.onSettingsPanelActivated(form, panel);
         this.refreshSettingsJapaneseParse(form);
       });
     }
@@ -65252,6 +65274,8 @@ ${spelling}`);
       suppressCredentialAutofill(form);
       syncBrowserTtsVoiceOptions(form);
       this.bindAudioSubSourceDetection(form);
+      const mediaPanel = form.querySelector('[data-settings-panel="media"]');
+      if (mediaPanel && !mediaPanel.hidden) this.refreshAudioSubSources(form);
       if ("speechSynthesis" in window) {
         window.speechSynthesis.addEventListener("voiceschanged", () => syncBrowserTtsVoiceOptions(form), { once: true });
       }
@@ -65894,7 +65918,7 @@ ${spelling}`);
       if (action === "settings-panel") {
         const panel = selectedSettingsPanel(control);
         activateSettingsPanel(form, panel);
-        if (panel === "help") void this.refreshYomuUpdateStatus(form);
+        this.onSettingsPanelActivated(form, panel);
         this.refreshSettingsJapaneseParse(form);
         return true;
       }
@@ -65965,7 +65989,17 @@ ${spelling}`);
      * third-party host the user has not agreed to contact yet.
      */
     refreshAudioSubSources(form, row) {
-      void this.detectAudioSubSourcesForRow(form, row);
+      const rows = row ? [row] : Array.from(form.querySelectorAll("[data-audio-source-row]"));
+      for (const target of rows) void this.detectAudioSubSourcesForRow(form, target);
+    }
+    // Opening the media panel is the moment the user is looking at audio
+    // sources, so that is when their providers get discovered — the same shape
+    // as the help panel refreshing the update status when it is opened. Merely
+    // rendering the dialog still reaches nothing, because a source URL can be a
+    // private host that only an explicit visit here justifies contacting.
+    onSettingsPanelActivated(form, panel) {
+      if (panel === "help") void this.refreshYomuUpdateStatus(form);
+      if (panel === "media") this.refreshAudioSubSources(form);
     }
     renderKnownAudioSubSources(form) {
       const language2 = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);

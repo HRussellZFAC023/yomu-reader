@@ -937,6 +937,29 @@ describe('settings dialog keyboard dismissal', () => {
         expect(form.querySelector('[data-action="audio-source-detect"]')).toBeNull();
     });
 
+    it('lists an aggregator URL\'s providers when the media panel is opened', async () => {
+        vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({
+            type: 'audioSourceList',
+            audioSources: [
+                { name: 'nhk16 ニホ＼ン [2]', url: 'https://audio.yomureader.com/audio/clips/nihon-1.mp3' },
+                { name: 'jpod', url: 'https://assets.languagepod101.com/dictionary/japanese/audiomp3.php?kana=%E3%81%AB%E3%81%BB%E3%82%93' },
+            ],
+        }), { status: 200, headers: { 'Content-Type': 'application/json' } })));
+        const { form } = createSettingsDialog();
+        const hostedRow = Array.from(form.querySelectorAll<HTMLElement>('[data-audio-source-row]'))
+            .find(row => row.querySelector<HTMLInputElement>('[data-audio-url-field]')?.value.includes('audio.yomureader.com'));
+        // Nothing is known about the URL on a fresh load, which is the state a
+        // user actually opens settings in.
+        expect(hostedRow?.querySelector('input[name$=".subSources.0.name"]')).toBeNull();
+
+        form.querySelector<HTMLButtonElement>('[data-action="settings-panel"][data-panel="media"]')?.click();
+        await waitForCondition(() => Boolean(hostedRow?.querySelector('input[name$=".subSources.0.name"]')));
+
+        const providers = Array.from(hostedRow?.querySelectorAll<HTMLInputElement>('input[name*=".subSources."][name$=".name"]') ?? [])
+            .map(input => input.value);
+        expect(providers).toEqual(['nhk16', 'jpod']);
+    });
+
     it('lists an aggregator URL\'s providers once a lookup reveals them, with nothing to press', async () => {
         const play = vi.fn(async () => {
             await getAudioCandidates(
@@ -950,7 +973,7 @@ describe('settings dialog keyboard dismissal', () => {
         vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({
             type: 'audioSourceList',
             audioSources: [
-                { name: 'Yomu audio', url: 'https://audio.yomureader.com/audio/clips/nihon-1.mp3' },
+                { name: 'nhk16 ニホ＼ン [2]', url: 'https://audio.yomureader.com/audio/clips/nihon-1.mp3' },
                 { name: 'jpod', url: 'https://assets.languagepod101.com/dictionary/japanese/audiomp3.php?kana=%E3%81%AB%E3%81%BB%E3%82%93' },
             ],
         }), { status: 200, headers: { 'Content-Type': 'application/json' } })));
@@ -964,7 +987,7 @@ describe('settings dialog keyboard dismissal', () => {
 
         const providers = Array.from(hostedRow?.querySelectorAll<HTMLInputElement>('input[name*=".subSources."][name$=".name"]') ?? [])
             .map(input => input.value);
-        expect(providers).toEqual(['Yomu audio', 'jpod']);
+        expect(providers).toEqual(['nhk16', 'jpod']);
     });
 
     it('tests Anki with a read-only connection check without warming disabled status', async () => {

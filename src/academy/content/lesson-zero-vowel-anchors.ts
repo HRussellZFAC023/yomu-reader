@@ -10,7 +10,7 @@ export interface LessonZeroVowelAnchor {
     readonly bindingId: `lesson-zero:vowel:${LessonZeroVowelWritingItemId}`;
 }
 
-export const LESSON_ZERO_VOWEL_ANCHORS = Object.freeze({
+const LESSON_ZERO_VOWEL_ANCHORS = Object.freeze({
     'hira-a': Object.freeze({
         itemId: 'hira-a',
         kana: 'あ',

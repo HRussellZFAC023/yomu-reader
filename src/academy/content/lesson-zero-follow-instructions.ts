@@ -12,7 +12,7 @@ import { lessonZeroCanonicalReading } from './lesson-zero-pedagogy-definitions';
 export const LESSON_ZERO_FOLLOW_INSTRUCTION_ACTIVITY_ID =
     'activity:lesson-zero-follow-instructions' as const;
 
-export const LESSON_ZERO_CLASSROOM_INSTRUCTION_LEARNING_ORDER = Object.freeze([
+const LESSON_ZERO_CLASSROOM_INSTRUCTION_LEARNING_ORDER = Object.freeze([
     'begin',
     'finish',
     'break',
@@ -22,7 +22,7 @@ export const LESSON_ZERO_CLASSROOM_INSTRUCTION_LEARNING_ORDER = Object.freeze([
     'write',
 ] as const);
 
-export const LESSON_ZERO_CLASSROOM_INSTRUCTION_RECALL_ORDER = Object.freeze([
+const LESSON_ZERO_CLASSROOM_INSTRUCTION_RECALL_ORDER = Object.freeze([
     'look',
     'begin',
     'write',
