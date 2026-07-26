@@ -1,6 +1,7 @@
 import { coordinateInRange, hasPositiveRectArea } from '../dom/rect';
+import { KANA, KANJI_LIKE_WITH_COUNTERS, PROLONGED_SOUND_MARK } from './japanese-script';
 
-const JAPANESE_RUN_RE = /[\u3040-\u30ff\u3400-\u9fff々〆ヵヶー]/u;
+const JAPANESE_RUN_RE = new RegExp(`[${KANA}${KANJI_LIKE_WITH_COUNTERS}${PROLONGED_SOUND_MARK}]`, 'u');
 const JPDB_POINTER_CANDIDATE_MAX_LENGTH = 18;
 const JPDB_POINTER_CANDIDATE_START_WINDOW = 8;
 const JPDB_POINTER_CANDIDATE_LIMIT = 24;

@@ -1,4 +1,5 @@
 import type { ReaderSettings } from '../app/types';
+import { KANJI_RE, READING_KANA_ONLY_RE } from './japanese-script';
 
 export function settingsForSettingsFormParse(form: HTMLFormElement, settings: ReaderSettings): ReaderSettings {
     const furiganaMode = form.querySelector<HTMLSelectElement>('select[name="furiganaMode"]')?.value;
@@ -20,7 +21,7 @@ export function addSettingsRubyFromRenderedReadings(form: HTMLFormElement, setti
         if (word.querySelector('rt,.jpdb-reader-furi')) continue;
         const reading = word.dataset.reading?.trim() ?? '';
         const surface = word.dataset.surface?.trim() || word.dataset.expression?.trim() || word.textContent?.trim() || '';
-        if (!surface || !reading || reading === surface || !/[\u3400-\u9fff]/u.test(surface) || !/^[\u3040-\u30ffー・]+$/u.test(reading)) continue;
+        if (!surface || !reading || reading === surface || !KANJI_RE.test(surface) || !READING_KANA_ONLY_RE.test(reading)) continue;
         const ruby = document.createElement('ruby');
         const base = document.createElement('span');
         base.className = 'jpdb-reader-ruby-base';

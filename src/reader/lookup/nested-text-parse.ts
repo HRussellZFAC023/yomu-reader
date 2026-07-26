@@ -1,4 +1,5 @@
-import { applyTokensToScanTarget, collectFormControlTextTargetsIn, collectFragmentTextTargetsIn, HAS_JAPANESE, isCurrentScanTarget, readerWordSurfaceText, unwrapReaderWords, type ScanTextTarget } from '../dom/index';
+import { applyTokensToScanTarget, collectFormControlTextTargetsIn, collectFragmentTextTargetsIn, isCurrentScanTarget, readerWordSurfaceText, unwrapReaderWords, type ScanTextTarget } from '../dom/index';
+import { isTargetLanguageText } from './target-text';
 import type { JPDBToken, ReaderSettings } from '../app/types';
 
 const PARSEABLE_SELECTOR = '.jpdb-reader-parseable';
@@ -290,7 +291,7 @@ function hasUnparsedJapaneseText(parseRoot: HTMLElement, excludeSelector = ''): 
                 || parent.closest(READER_WORD_SELECTOR)
                 || parent.closest('[data-jpdb-reader-surface-ignore]')
                 || (excludeSelector && parent.closest(excludeSelector))) return NodeFilter.FILTER_REJECT;
-            return HAS_JAPANESE.test(node.textContent || '')
+            return isTargetLanguageText(node.textContent || '')
                 ? NodeFilter.FILTER_ACCEPT
                 : NodeFilter.FILTER_REJECT;
         },

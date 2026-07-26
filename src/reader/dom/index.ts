@@ -1,7 +1,8 @@
 import { primaryCardState } from '../cards/state';
 import { cardStateProvenance, setRenderedWordCardStatus } from './rendered-word-state';
 import { cardDeckMembership, cardDeckMembershipClassNames } from '../cards/deck-membership';
-import { HAS_JAPANESE, HAS_JAPANESE_LETTER, READER_ROOT_SELECTOR } from './constants';
+import { HAS_JAPANESE_LETTER, READER_ROOT_SELECTOR } from './constants';
+import { isTargetLanguageText, segmentTargetLanguageText } from '../lookup/target-text';
 import {
     COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR,
     PASSIVE_INTERACTION_BOUNDARY_SELECTOR,
@@ -51,6 +52,11 @@ import {
     selectorPairs,
     composedAncestorElement as composedParentElement,
 } from './decoration-policy';
+import {
+    KANJI_RE,
+    READING_KANA_CHAR_RE as KANA_CHAR_RE,
+    READING_KANA_ONLY_RE as KANA_RE,
+} from '../lookup/japanese-script';
 
 export { isPassiveInteractionElement, isYouTubeHost } from './decoration-policy';
 export type { DecorationState } from './decoration-policy';
@@ -69,7 +75,7 @@ import { forEachScannedShadowRoot, watchPotentialOpenShadowRootHost } from './sh
 import { readerWordSurfaceText, sentenceAroundRange, sentenceAroundSurface, unwrapReaderWords } from './reader-word';
 import { effectiveFuriganaMode } from '../settings/index';
 import { pitchComponentUnderlineGradient } from '../lookup/pitch-components';
-import { JAPANESE_CHARACTER_RE, bareFallbackCardFromText, segmentJapaneseText } from '../lookup/japanese-segments';
+import { JAPANESE_CHARACTER_RE, bareFallbackCardFromText } from '../lookup/japanese-segments';
 import type { CardState, JPDBCard, JPDBToken, ReaderSettings } from '../app/types';
 
 export {
@@ -93,9 +99,6 @@ export {
     setInnerHtml,
 } from './html';
 
-const KANJI_RE = /[\u3400-\u9fff]/u;
-const KANA_CHAR_RE = /[\u3040-\u30ffー・]/u;
-const KANA_RE = /^[\u3040-\u30ffー・]+$/u;
 // A bare number must not wrap away from the counter/unit that follows it
 // ("7件" -> "7" / "件..."): the digits arrive as untokenized gap text right before
 // a reader-word span, so the kinsoku break opportunity sits at that text/span
@@ -620,7 +623,7 @@ function isAnnotatableChipControl(blocked: Element): boolean {
     const control = blocked.closest(ANNOTATABLE_CONTROL_SELECTOR) ?? blocked;
     if (isComposerActionControl(control)) return false;
     const text = control.textContent?.replace(/\s+/g, '').trim() ?? '';
-    return text.length > 0 && text.length <= CONTROL_LABEL_TEXT_LIMIT && HAS_JAPANESE.test(text);
+    return text.length > 0 && text.length <= CONTROL_LABEL_TEXT_LIMIT && isTargetLanguageText(text);
 }
 
 function isComposerActionControl(control: Element): boolean {
@@ -661,7 +664,7 @@ function textTargetFilterResult(node: Node, visibleOnly: boolean, options: TextT
 
 function isCandidateScanText(text: string): boolean {
     if (text.length < 2) return false;
-    return HAS_JAPANESE.test(text);
+    return isTargetLanguageText(text);
 }
 
 function textTargetParentFilterResult(parent: HTMLElement, text: string, visibleOnly: boolean, options: TextTargetCollectionOptions): number {
@@ -866,7 +869,7 @@ function selectLookupText(select: HTMLSelectElement, mode: 'options' | 'selected
     const selectedText = uniqueControlTexts(Array.from(select.selectedOptions).map(optionText));
     if (mode === 'selected') return selectedText.join(' / ');
     const optionTextList = uniqueControlTexts(Array.from(select.options).map(optionText))
-        .filter(text => HAS_JAPANESE.test(text));
+        .filter(text => isTargetLanguageText(text));
     const compactOptionList = compactSelectOptionListText(optionTextList);
     // A picker whose lone Japanese option is not the selected one (language
     // pickers on Latin-selected pages) must still surface that option instead
@@ -888,7 +891,7 @@ function optionText(option: HTMLOptionElement): string {
 
 function pushUniqueControlText(parts: string[], text: string): void {
     const normalized = normalizedControlText(text);
-    if (!normalized || !HAS_JAPANESE.test(normalized) || parts.includes(normalized)) return;
+    if (!normalized || !isTargetLanguageText(normalized) || parts.includes(normalized)) return;
     parts.push(normalized);
 }
 
@@ -904,7 +907,7 @@ function normalizedControlText(text: string): string {
 
 function isCollectableControlText(text: string): boolean {
     const compact = compactLength(text);
-    return compact > 0 && compact <= FORM_CONTROL_TEXT_MAX_LENGTH && HAS_JAPANESE.test(text);
+    return compact > 0 && compact <= FORM_CONTROL_TEXT_MAX_LENGTH && isTargetLanguageText(text);
 }
 
 function fragmentText(items: TextFragment[]): string {
@@ -988,7 +991,7 @@ function isCollectableFragmentText(
     fragments: TextFragment[],
     options: FragmentTextTargetCollectionOptions,
 ): boolean {
-    if (!HAS_JAPANESE.test(text)) return false;
+    if (!isTargetLanguageText(text)) return false;
     if (compactFragmentTextLength(text) >= (options.minLength ?? 2)) return true;
     return fragments.some(fragment => fragment.hasNativeRuby);
 }
@@ -1140,7 +1143,7 @@ function shadowBranchHasJapanese(
     remainingDepth: number,
     budget: ShadowLookaheadBudget = { inspectedElements: 0, exhausted: false },
 ): boolean {
-    let foundJapanese = HAS_JAPANESE.test(root.textContent ?? '');
+    let foundJapanese = isTargetLanguageText(root.textContent ?? '');
     if (remainingDepth <= 1) {
         // No shallow Japanese and no depth budget left to look inside nested
         // roots. If a nested root EXISTS, descend anyway ("maybe"): the walk
@@ -1219,7 +1222,7 @@ function textWalkerHasJapaneseWithinBudget(walker: TreeWalker, budget: ShadowTex
         const remaining = budget.limit - budget.inspectedCharacters;
         const sampled = text.slice(0, remaining);
         budget.inspectedCharacters += sampled.length;
-        if (HAS_JAPANESE.test(sampled)) return true;
+        if (isTargetLanguageText(sampled)) return true;
         if (budget.inspectedCharacters >= budget.limit) return false;
     }
     return false;
@@ -1378,7 +1381,7 @@ function hasVisibleJapaneseFragmentDescendant(element: HTMLElement): boolean {
     // bounded lookahead the shadow walk uses; it also registers nested roots
     // so later hydration stays observable.
     const shadowBudget: ShadowLookaheadBudget = { inspectedElements: 0, exhausted: false };
-    const lightJapanese = HAS_JAPANESE.test(element.textContent ?? '');
+    const lightJapanese = isTargetLanguageText(element.textContent ?? '');
     if (element.shadowRoot
         && isVisible(element)
         && shadowBranchHasJapanese(element.shadowRoot, 2, shadowBudget)) return true;
@@ -1387,7 +1390,7 @@ function hasVisibleJapaneseFragmentDescendant(element: HTMLElement): boolean {
         node && inspected < VISIBLE_FRAGMENT_DESCENDANT_LOOKAHEAD_LIMIT;
         inspected += 1, node = walker.nextNode()) {
         const descendant = node as HTMLElement;
-        if (lightJapanese && HAS_JAPANESE.test(descendant.textContent ?? '') && isVisible(descendant)) return true;
+        if (lightJapanese && isTargetLanguageText(descendant.textContent ?? '') && isVisible(descendant)) return true;
         const shadow = descendant.shadowRoot;
         if (shadow && isVisible(descendant) && shadowBranchHasJapanese(shadow, 2, shadowBudget)) return true;
     }
@@ -1530,7 +1533,7 @@ function isVisibleAriaHiddenJapanese(parent: HTMLElement, blocked: Element): boo
 }
 
 function ariaHiddenSubtreeHasVisibleJapanese(root: HTMLElement): boolean {
-    if (!HAS_JAPANESE.test(root.textContent ?? '')) return false;
+    if (!isTargetLanguageText(root.textContent ?? '')) return false;
     if (elementOwnsVisibleJapanese(root)) return true;
     const walker = root.ownerDocument.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
     for (let inspected = 0, node = walker.nextNode();
@@ -1552,7 +1555,7 @@ function elementOwnsVisibleJapanese(element: HTMLElement): boolean {
 
 function elementHasOwnJapaneseText(element: HTMLElement): boolean {
     for (const node of Array.from(element.childNodes)) {
-        if (node.nodeType === Node.TEXT_NODE && HAS_JAPANESE.test(node.textContent ?? '')) return true;
+        if (node.nodeType === Node.TEXT_NODE && isTargetLanguageText(node.textContent ?? '')) return true;
     }
     return false;
 }
@@ -1575,7 +1578,7 @@ function isAriaHiddenAccessibleNameDuplicate(element: HTMLElement): boolean {
 function controlHasVisibleJapaneseOutside(control: HTMLElement, hiddenRoot: HTMLElement): boolean {
     const walker = control.ownerDocument.createTreeWalker(control, NodeFilter.SHOW_TEXT);
     for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-        if (hiddenRoot.contains(node) || !HAS_JAPANESE.test(node.textContent ?? '')) continue;
+        if (hiddenRoot.contains(node) || !isTargetLanguageText(node.textContent ?? '')) continue;
         const parent = node.parentElement;
         if (!parent || parent.closest('rt,rp,.jpdb-reader-detached-furi,[hidden],script,style,noscript,template')) continue;
         if (isVisible(parent)) return true;
@@ -1600,7 +1603,7 @@ function isFragmentParagraphBoundary(
 // Preserve genuinely inline prose components, but otherwise let every web
 // component own its text boundary without naming any framework or site.
 function isCustomElementTextBoundary(element: HTMLElement): boolean {
-    if (!element.localName.includes('-') || !HAS_JAPANESE.test(element.textContent ?? '')) return false;
+    if (!element.localName.includes('-') || !isTargetLanguageText(element.textContent ?? '')) return false;
     const parent = element.parentElement;
     return !parent || !isLikelyProseElement(parent);
 }
@@ -1648,7 +1651,7 @@ function hasRawJapaneseOutsideReaderWords(element: HTMLElement): boolean {
             if (!parent || parent.closest('.jpdb-reader-word,.jpdb-reader-text-mirror,.jpdb-reader-control-text-mirror,[data-jpdb-reader-root],script,style,noscript,rt,rp')) {
                 return NodeFilter.FILTER_REJECT;
             }
-            return HAS_JAPANESE.test(node.textContent ?? '') ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+            return isTargetLanguageText(node.textContent ?? '') ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
         },
     });
     return Boolean(walker.nextNode());
@@ -1768,7 +1771,7 @@ function scanTargetDecorationIsStale(target: ScanTextTarget): boolean {
 function isCurrentFragmentScanTarget(target: FragmentTextTarget): boolean {
     if (!target.parent.isConnected) return false;
     if (target.controlTextMirror) return formControlLookupText(target.parent, { selectTextMode: target.controlSelectTextMode }) === target.text;
-    if (!target.fragments.length) return Boolean(target.nonDestructive && HAS_JAPANESE.test(target.text));
+    if (!target.fragments.length) return Boolean(target.nonDestructive && isTargetLanguageText(target.text));
     const text = target.fragments.map(fragment => {
         if (!fragment.node.isConnected || !fragment.node.parentElement) return null;
         return fragment.node.data.slice(fragment.start, fragment.end);
@@ -1974,7 +1977,7 @@ function applyTokensToReactiveLeafMirrors(target: FragmentTextTarget, tokens: JP
         const runTokens = tokens
             .map(token => tokenPieceForReactiveLeaf(token, run.globalStart, run.globalEnd))
             .filter((token): token is JPDBToken => token !== null);
-        if (!runTokens.length || !HAS_JAPANESE.test(text)) continue;
+        if (!runTokens.length || !isTargetLanguageText(text)) continue;
         const crossesLeafBoundary = tokens.some(token => token.start < run.globalStart && token.end > run.globalStart
             || token.start < run.globalEnd && token.end > run.globalEnd);
         const leafTarget: FragmentTextTarget = {
@@ -2313,9 +2316,9 @@ function appendSegmentedHostFallbackTokens(
     gapEnd: number,
     additions: JPDBToken[],
 ): void {
-    for (const segment of segmentJapaneseText(hostText.slice(gapStart, gapEnd))) {
+    for (const segment of segmentTargetLanguageText(hostText.slice(gapStart, gapEnd))) {
         additions.push({
-            card: bareFallbackCardFromText(segment.surface),
+            card: bareFallbackCardFromText(segment.text),
             start: gapStart + segment.start,
             end: gapStart + segment.end,
             length: segment.end - segment.start,
@@ -3049,6 +3052,8 @@ interface AdditiveMirrorProjectionContext {
     scaleY: number;
     clipRow: HTMLElement | null;
     clipRect: DOMRect | null;
+    /** Set once this pass's source text stops existing on the host. */
+    sourceLost?: boolean;
 }
 
 /** Project decorations and readings onto the page-owned text fragments. The
@@ -3266,6 +3271,52 @@ function collectProjectedWordReadings(
     }
 }
 
+/**
+ * The host's text-node offsets, resolved against the LIVE tree.
+ *
+ * A projection pass captures the host's own `Text` nodes by identity, and every
+ * later re-measure builds its Range out of that map. A framework re-render that
+ * replaces a node with an equivalent one — `replaceWith(cloneNode(true))`, the
+ * shape of the live watch-info cycle and of a recycler rehydrating a tile —
+ * keeps the host, the mirror, the text and the record, but swaps those `Text`
+ * nodes for fresh copies and drops the captured ones out of the tree. A Range
+ * over detached nodes reports NO client rects, so from that moment every
+ * projected reading measures null and the overlay hides it. Nothing recovers on
+ * its own: the refresh passes that do run (scroll, resize, the topology refresh
+ * this very mutation schedules) keep re-measuring the same dead nodes, so the
+ * readings stay blank until an unrelated full re-projection happens by.
+ *
+ * Re-derive from the live host as soon as the captured nodes have left it.
+ */
+function liveMirrorSourceOffsets(context: AdditiveMirrorProjectionContext): Map<Text, number> {
+    if (context.sourceLost) return NO_SOURCE_OFFSETS;
+    if (mirrorSourceNodesConnected(context.source.nodeOffsets)) return context.source.nodeOffsets;
+    const refreshed = hostOriginalTextWithNodeOffsets(context.host);
+    // Adopt a replacement only while it spells the SAME text. Different text is
+    // the `source-changed` case, which a pass discards rather than re-measures;
+    // silently re-pointing the stamped offsets at it would paint this word's
+    // reading over whatever the recycler put in its place. Latch it: the walk
+    // above probes computed styles, and re-running it per reading per frame
+    // until the queued re-scan lands is exactly the kind of repeated forced
+    // layout the projection pass exists to avoid.
+    if (refreshed.hostText !== context.source.hostText) {
+        context.sourceLost = true;
+        return NO_SOURCE_OFFSETS;
+    }
+    context.source = refreshed;
+    return refreshed.nodeOffsets;
+}
+
+/** Measures nothing: no boundary resolves, so no rect is produced. */
+const NO_SOURCE_OFFSETS: Map<Text, number> = new Map();
+
+function mirrorSourceNodesConnected(nodeOffsets: Map<Text, number>): boolean {
+    for (const node of nodeOffsets.keys()) {
+        if (!node.isConnected) return false;
+    }
+    return true;
+}
+
 function projectedRubyReading(
     ruby: HTMLElement,
     context: AdditiveMirrorProjectionContext,
@@ -3277,7 +3328,7 @@ function projectedRubyReading(
     const measure = (): DOMRect | null => {
         if (!context.host.isConnected || pageConcealsTextMirrorHost(context.host)) return null;
         const clipRect = context.clipRow?.getBoundingClientRect() ?? null;
-        return sourceClientRects(context.host, context.source.nodeOffsets, start, end)
+        return sourceClientRects(context.host, liveMirrorSourceOffsets(context), start, end)
             .find(rect => !clipRect || rectsIntersect(rect, clipRect)) ?? null;
     };
     const rect = measure();
@@ -4536,7 +4587,7 @@ function observeTextMirrorHost(host: HTMLElement): void {
             // app re-scans this surface immediately (the host-text-changed path
             // below already does this for the mirror-survived case).
             const wipedHostText = normalizedMirrorHostText(nativeTextMirrorHostText(liveHost));
-            if (liveHost.isConnected && HAS_JAPANESE.test(wipedHostText)) {
+            if (liveHost.isConnected && isTargetLanguageText(wipedHostText)) {
                 // Class Y/BB: an identical-text re-render (live watch-info
                 // cycle, scroll-recycle rehydration) re-applies the cached
                 // render synchronously in this microtask — the host stays
@@ -4580,9 +4631,20 @@ function observeTextMirrorHost(host: HTMLElement): void {
         }
         if (!mutations.some(mutation => mutation.type === 'childList' || mutation.type === 'characterData')) return;
         const currentText = normalizedMirrorHostText(nativeTextMirrorHostText(liveHost));
-        if (!liveHost.isConnected || !HAS_JAPANESE.test(currentText)) {
+        if (!liveHost.isConnected || !isTargetLanguageText(currentText)) {
             removeTextMirror(liveHost);
             return;
+        }
+        // Same text, surviving mirror — but the page still REWROTE the nodes the
+        // projection is expressed against. Everything a projection pass stamped
+        // (the source fragments carrying the status tint and the pitch/status
+        // underline, the lifted ruby wrappers, the overlay reading clones) is
+        // absolute geometry measured off the host's own text nodes, and this
+        // branch is the one live re-render shape that never re-ran that pass.
+        // The projection is coalesced into one post-paint frame, so a cadence of
+        // re-renders costs one geometry pass each, no scan and no re-parse.
+        if (currentText === liveState.sourceText && mutationsRewroteHostContent(mutations)) {
+            scheduleAdditiveMirrorProjection(liveHost.getRootNode() as ParentNode);
         }
         if (currentText !== liveState.sourceText) {
             // Keep the stale mirror briefly so a routine title re-render can
@@ -4903,12 +4965,12 @@ function nativeTextMirrorHostText(host: HTMLElement): string {
         },
     });
     for (let node = walker.nextNode(); node; node = walker.nextNode()) text += node.textContent ?? '';
-    if (HAS_JAPANESE.test(text)) return text;
+    if (isTargetLanguageText(text)) return text;
     const labelledText = Array.from(host.querySelectorAll<HTMLElement>('[aria-label]'))
         .filter(element => !element.closest(TEXT_MIRROR_ARIA_LABEL_SKIP_SELECTOR))
         .map(element => element.getAttribute('aria-label') ?? '')
         .join(' • ');
-    return HAS_JAPANESE.test(labelledText) ? labelledText : text;
+    return isTargetLanguageText(labelledText) ? labelledText : text;
 }
 
 function normalizedMirrorHostText(text: string): string {
@@ -5153,7 +5215,7 @@ function appendPlainTextBeforeToken(fragment: DocumentFragment, text: string, st
 
 function markRenderedScanTarget(target: ScanTextTarget): void {
     const text = normalizedRenderedHostText(target.text);
-    if (!text || !HAS_JAPANESE.test(text) || !target.parent.isConnected) return;
+    if (!text || !isTargetLanguageText(text) || !target.parent.isConnected) return;
     const previous = renderedScanHosts.get(target.parent);
     const now = Date.now();
     const keepBackoff = previous

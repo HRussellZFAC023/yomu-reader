@@ -1,17 +1,25 @@
-import { HAS_JAPANESE, sentenceAroundRange } from '../dom/index';
+import { sentenceAroundRange } from '../dom/index';
+import { activeLearningTarget } from '../languages/active';
 import type { japaneseRunAt } from './pointer-text-lookup';
 import type { JPDBCard, JPDBToken } from '../app/types';
+import { HIRAGANA_WITH_PROLONGED, KANJI_LIKE_WITH_COUNTERS, KATAKANA } from './japanese-script';
 
-const SINGLE_HIRAGANA_MORA_RE = /^[\u3040-\u309fー]$/u;
-const SUBSTANTIVE_LOCAL_EXPANSION_RE = /[\u3400-\u9fff々〆ヵヶ\u30a0-\u30ff]/u;
+const SINGLE_HIRAGANA_MORA_RE = new RegExp(`^[${HIRAGANA_WITH_PROLONGED}]$`, 'u');
+const SUBSTANTIVE_LOCAL_EXPANSION_RE = new RegExp(`[${KANJI_LIKE_WITH_COUNTERS}${KATAKANA}]`, 'u');
 
 export function normalizedLookupText(text: string): string {
     return text.replace(/\s+/g, ' ').trim();
 }
 
-export function isLookupableJapaneseText(text: string): boolean {
-    return Boolean(text && HAS_JAPANESE.test(text));
+/**
+ * Detection capability, resolved through the active learning target rather
+ * than against a Japanese script regex.
+ */
+export function isLookupableTargetLanguageText(text: string): boolean {
+    return activeLearningTarget().isLookupableText(text);
 }
+
+export { isLookupableTargetLanguageText as isLookupableJapaneseText };
 
 // A whole-paragraph drag that crosses an embedded Japanese word should stay a
 // plain selection the user can copy. Once enough Latin prose surrounds a sliver
@@ -26,7 +34,7 @@ export function isProseDominantSelection(text: string): boolean {
 
 export function lookupCandidateSentence(text: string, start = 0, end = text.length): string {
     const sentence = sentenceAroundRange(text, start, end) || normalizedLookupText(text);
-    return isLookupableJapaneseText(sentence) ? sentence : '';
+    return isLookupableTargetLanguageText(sentence) ? sentence : '';
 }
 
 export function pointerTokenAtOffset(tokens: JPDBToken[], offset: number): JPDBToken | undefined {

@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dictionaries.yomureader.com/schemas/upstream-coverage.v1.schema.json",
+  "title": "Yomu dictionary upstream coverage ledger v1",
+  "description": "What the upstream sources actually hold, and what the catalogue does with each item. Without this the catalogue can only be checked against itself: an upstream dictionary nobody ever acquired leaves no trace, so a complete-looking catalogue and a catalogue missing a dozen dictionaries are indistinguishable.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "generatedAt", "snapshotRevision", "collections"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "snapshotRevision": { "type": "string", "minLength": 1 },
+    "note": { "type": "string", "minLength": 1 },
+    "unsurveyedNote": { "type": "string", "minLength": 1 },
+    "collections": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/collection" }
+    },
+    "unsurveyedCollections": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "label", "url"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+          "label": { "type": "string", "minLength": 1 },
+          "url": { "type": "string", "format": "uri", "pattern": "^https://" },
+          "readmeHeading": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "collection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "label", "kind", "url", "surveyedAt", "surveyMethod"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+        "label": { "type": "string", "minLength": 1 },
+        "kind": { "enum": ["git-repository", "github-release", "google-drive-folder"] },
+        "url": { "type": "string", "format": "uri", "pattern": "^https://" },
+        "commit": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+        "releaseTag": { "type": "string", "minLength": 1 },
+        "surveyedAt": { "type": "string", "format": "date-time" },
+        "surveyMethod": { "type": "string", "minLength": 1 },
+        "expectedCatalogEntries": { "type": "integer", "minimum": 1 },
+        "catalogEntryIdPrefix": { "type": "string", "minLength": 1 },
+        "artifacts": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/artifact" }
+        }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "bytes", "downloadUrl", "disposition", "catalogEntryIds"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "bytes": { "type": "integer", "minimum": 1 },
+        "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "downloadUrl": { "type": "string", "format": "uri", "pattern": "^https://" },
+        "disposition": { "enum": ["mirrored", "catalogued-not-mirrored", "superseded"] },
+        "catalogEntryIds": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" }
+        },
+        "note": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

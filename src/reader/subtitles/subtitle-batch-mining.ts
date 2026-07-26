@@ -1,4 +1,5 @@
 import { normalizeCardStates, primaryCardState } from '../cards/state';
+import { targetCollationLocale } from '../languages/resolve';
 import { cardKey } from '../cards/utils';
 import type { CardState, JPDBCard, JPDBToken } from '../app/types';
 
@@ -170,7 +171,7 @@ function compareBatchMiningCandidates(a: CandidateDraft, b: CandidateDraft): num
         || a.sortKey.frequency - b.sortKey.frequency
         || a.sortKey.occurrenceRank - b.sortKey.occurrenceRank
         || a.sortKey.rowIndex - b.sortKey.rowIndex
-        || a.card.spelling.localeCompare(b.card.spelling, 'ja');
+        || a.card.spelling.localeCompare(b.card.spelling, targetCollationLocale());
 }
 
 function batchMiningSortKey(card: JPDBCard, rowIndex: number, iPlusOne: boolean, unknownCount: number, occurrences: number): BatchMiningSortKey {

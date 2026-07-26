@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dictionaries.yomureader.com/schemas/mirror-objects.v1.schema.json",
+  "title": "Yomu dictionary mirror object ledger v1",
+  "description": "Content-addressed objects observed on the live mirror. Repository-side evidence only; this file is never uploaded. A catalogue entry may only claim distribution.state=published when its digest appears here, so a hand-written entry cannot ship an Install button pointing at an object nobody uploaded.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "baseUrl", "generatedAt", "objects"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "baseUrl": { "type": "string", "format": "uri", "pattern": "^https://" },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "objects": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["sha256", "key", "bytes", "status", "observedAt"],
+        "properties": {
+          "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+          "key": { "type": "string", "pattern": "^objects/sha256/[a-f0-9]{64}\\.zip$" },
+          "bytes": { "type": "integer", "minimum": 1 },
+          "status": { "type": "integer", "minimum": 200, "maximum": 299 },
+          "observedAt": { "type": "string", "format": "date-time" }
+        }
+      }
+    }
+  }
+}

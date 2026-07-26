@@ -1,5 +1,4 @@
 import {
-    HAS_JAPANESE,
     classifyDecoration,
     collectFormControlTextTargetsIn,
     collectFragmentTextTargetsIn,
@@ -10,6 +9,7 @@ import {
     type FragmentTextTarget,
     type ScanTextTarget,
 } from '../dom/index';
+import { isTargetLanguageText } from '../lookup/target-text';
 import { isYomuHostedPassivePage, isYomuHostedVideoPlayerPage, isYomuHostedPdfReaderPage } from './pages';
 import { annotationScopeActive, queryWithinAnnotationScope, scanScopeRoots } from './annotation-scope';
 import { isJitenStudyFrontPrompt } from '../jiten/jiten-page-targets';
@@ -1227,7 +1227,7 @@ function collectYouTubeSyntheticTextTargets(profile: SiteParserProfile, context:
         if (!siteScanHasRoom(context)) break;
         if (context.targets.some(target => target.parent === root)) continue;
         const text = syntheticYouTubeElementText(root);
-        if (!text || !HAS_JAPANESE.test(text)) continue;
+        if (!text || !isTargetLanguageText(text)) continue;
         context.targets.push(siteScanTargetWithProfileOptions(profile, {
             text,
             parent: root,
@@ -1246,7 +1246,7 @@ function syntheticYouTubeElementText(root: HTMLElement): string {
         root.textContent,
     ]) {
         const normalized = text?.replace(/\s+/g, ' ').trim();
-        if (normalized && HAS_JAPANESE.test(normalized)) return normalized;
+        if (normalized && isTargetLanguageText(normalized)) return normalized;
     }
     return '';
 }
@@ -1256,10 +1256,10 @@ function syntheticYouTubeWatchInfoText(root: HTMLElement): string {
         .map(element => normalizedAttributeText(element, 'aria-label'))
         .filter((text): text is string => Boolean(text));
     const text = parts.join(' • ');
-    if (HAS_JAPANESE.test(text)) return text;
+    if (isTargetLanguageText(text)) return text;
     for (const attribute of ['aria-label', 'title']) {
         const fallback = normalizedAttributeText(root, attribute);
-        if (fallback && HAS_JAPANESE.test(fallback)) return fallback;
+        if (fallback && isTargetLanguageText(fallback)) return fallback;
     }
     return '';
 }
@@ -1302,7 +1302,7 @@ function collectRootScanTargets(profile: SiteParserProfile, root: Element, conte
 
 function collectCanvasFallbackTextTarget(profile: SiteParserProfile, canvas: HTMLCanvasElement, context: SiteScanContext): boolean {
     const text = canvasFallbackText(canvas);
-    if (!text || !HAS_JAPANESE.test(text)) return false;
+    if (!text || !isTargetLanguageText(text)) return false;
     context.targets.push(siteScanTargetWithProfileOptions(profile, {
         text,
         parent: canvas,
@@ -2033,7 +2033,7 @@ function appendResidualVisibleTarget(
         const parent = fragments[0]?.node.parentElement;
         if (!parent) continue;
         const text = fragments.map(fragment => fragment.node.data.slice(fragment.start, fragment.end)).join('');
-        if (!HAS_JAPANESE.test(text)) continue;
+        if (!isTargetLanguageText(text)) continue;
         const decoration = classifyDecoration(parent);
         if (decoration === 'skip') continue;
         appendAdmittedFragmentTarget(targets, seen, {
@@ -2128,7 +2128,7 @@ function isUsefulGenericProseRoot(root: HTMLElement): boolean {
     if (root.closest(GENERIC_PROSE_EXCLUDE)) return false;
     const text = compactRootText(root);
     if (text.length < 12) return false;
-    return HAS_JAPANESE.test(text);
+    return isTargetLanguageText(text);
 }
 
 function isUsefulSafeUiChromeRoot(root: HTMLElement): boolean {
@@ -2143,7 +2143,7 @@ function isUsefulCompactJapaneseRoot(root: HTMLElement, exclude: string, minLeng
     if (exclude && (safeElementMatches(root, exclude) || root.closest(exclude))) return false;
     if (!isVisibleSafeUiChromeRoot(root)) return false;
     const text = compactRootText(root);
-    return HAS_JAPANESE.test(text) && text.length >= minLength && text.length <= maxLength;
+    return isTargetLanguageText(text) && text.length >= minLength && text.length <= maxLength;
 }
 
 function compactRootText(root: HTMLElement): string {

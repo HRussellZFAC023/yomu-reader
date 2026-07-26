@@ -171,6 +171,7 @@ describe('mirrored catalogue chrome speaks every learner language', () => {
             expect(copy.title.trim(), language).not.toBe('');
             expect(copy.searchLabel.trim(), language).not.toBe('');
             expect(copy.noResults.trim(), language).not.toBe('');
+            expect(copy.otherLanguageNote.trim(), language).not.toBe('');
             expect(copy.summary, language).toContain('{count}');
             expect(copy.summary, language).toContain('{size}');
             for (const category of CATALOG_BROWSE_CATEGORY_ORDER) {
@@ -181,6 +182,7 @@ describe('mirrored catalogue chrome speaks every learner language', () => {
             // locale wearing a translated locale's tag.
             expect(copy.title, language).not.toBe(CATALOG_BROWSE_COPY.en.title);
             expect(copy.searchLabel, language).not.toBe(CATALOG_BROWSE_COPY.en.searchLabel);
+            expect(copy.otherLanguageNote, language).not.toBe(CATALOG_BROWSE_COPY.en.otherLanguageNote);
         }
         expect(titles.size).toBe(LEARNER_LANGUAGE_IDS.length);
     });

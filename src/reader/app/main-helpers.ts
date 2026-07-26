@@ -16,6 +16,7 @@ import { collectSiteScanTargets, isBookWalkerReaderPage } from './site-parsers';
 import type { JPDBCard, JPDBGrade, JPDBToken, ReaderSettings } from './types';
 import type { YomitanKanjiEntry, YomitanTermEntry } from '../dictionaries/yomitan';
 import { isYouTubeAppHostname } from './youtube-host';
+import { KANA_ONLY_RUN_RE } from '../lookup/japanese-script';
 
 export const TERM_AUDIO_PRELOAD_LIMIT = 4;
 export const NEARBY_TERM_AUDIO_PRELOAD_LIMIT = 3;
@@ -92,7 +93,7 @@ export const SUBTITLE_SURFACE_SELECTOR = [
     '.asbplayer-offscreen',
     '.jpdb-reader-subtitle-surface',
 ].join(', ');
-export const KANA_ONLY_LOOKUP_RUN_RE = /^[\u3040-\u30ffー]+$/u;
+export const KANA_ONLY_LOOKUP_RUN_RE = KANA_ONLY_RUN_RE;
 export const ANKI_RECOLOR_SCAN_CHUNK_SIZE = 600;
 
 type ReviewShortcutKey = keyof ReaderSettings['shortcuts'];

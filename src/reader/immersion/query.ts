@@ -1,7 +1,8 @@
-import { HAS_JAPANESE } from '../dom/index';
+import { isTargetLanguageText } from '../lookup/target-text';
+import { HIRAGANA_WITH_PROLONGED, KANA, KANJI_LIKE_RE, KANJI_LIKE_WITH_COUNTERS, KATAKANA_WITH_PROLONGED, PROLONGED_SOUND_MARK } from '../lookup/japanese-script';
 
-const QUERY_RUN_RE = /[\u3040-\u30ff\u3400-\u9fff々〆ヵヶー]+/gu;
-const SCRIPT_GROUP_RE = /[\u3400-\u9fff々〆ヵヶ]+|[\u3040-\u309fー]+|[\u30a0-\u30ffー]+/gu;
+const QUERY_RUN_RE = new RegExp(`[${KANA}${KANJI_LIKE_WITH_COUNTERS}${PROLONGED_SOUND_MARK}]+`, 'gu');
+const SCRIPT_GROUP_RE = new RegExp(`[${KANJI_LIKE_WITH_COUNTERS}]+|[${HIRAGANA_WITH_PROLONGED}]+|[${KATAKANA_WITH_PROLONGED}]+`, 'gu');
 const COMMON_PARTICLES = new Set(['は', 'が', 'を', 'に', 'へ', 'で', 'と', 'も', 'の', 'や', 'か', 'ね', 'よ', 'ぞ', 'ぜ', 'な', 'わ', 'から', 'まで', 'だけ', 'しか', 'より']);
 
 export const IMMERSION_FALLBACK_QUERY_LIMIT = 5;
@@ -19,7 +20,7 @@ export function queryLength(value: string): number {
 }
 
 export function queryHasKanji(value: string): boolean {
-    return /[\u3400-\u9fff々〆]/u.test(value);
+    return KANJI_LIKE_RE.test(value);
 }
 
 export function shouldRequireOriginalSurfaceMatch(value: string): boolean {
@@ -77,7 +78,7 @@ function isSameImmersionQuery(query: string, exactQuery: string): boolean {
 }
 
 function isUsefulStandaloneQuery(query: string): boolean {
-    if (!query || !HAS_JAPANESE.test(query)) return false;
+    if (!query || !isTargetLanguageText(query)) return false;
     if (COMMON_PARTICLES.has(queryKey(query))) return false;
     return queryLength(query) >= 2;
 }

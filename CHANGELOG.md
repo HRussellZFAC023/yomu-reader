@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.8.14] - 2026-07-26
+
+### Fixed
+
+- Readings no longer disappear for a second or two when a page redraws itself. Sites that rebuild part of the page as you use them — a video page swapping in new titles, a feed refreshing a row — left every reading hidden until something unrelated happened to redraw them, which on a quiet page could be a long wait.
+- The dictionary catalogue is no longer keyed to a single study language, so dictionaries for other languages are reachable rather than silently filtered out of the panel.
+
 ## [1.8.13] - 2026-07-26
 
 ### Fixed

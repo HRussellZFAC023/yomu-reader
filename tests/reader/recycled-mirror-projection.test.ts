@@ -226,8 +226,17 @@ describe('recycled additive mirror projection', () => {
         expect(mirror.dataset.yomuSourceProjected).toBe('true');
     });
 
-    // Regression guard for the other reported half: a reading that arrives after
-    // the projection pass has already settled must still reach the overlay.
+    /**
+     * Not a fix — a guard. Late enrichment reaching the overlay was reported as
+     * broken ("the reading appears on the host but never on the screen"), and a
+     * Chromium harness driving this exact transition (reading-free additive
+     * mirror, then applyPublicVocabularyFurigana) could not reproduce it: the
+     * clone appeared and 115 pixels changed above the word, before and after any
+     * further settle pass. So this test asserts behaviour that already worked,
+     * which is why it passes with any candidate "fix" removed. It still bites
+     * for the thing that matters: deleting the projection scheduling from
+     * replaceRenderedWordFurigana turns the clone into `undefined` here.
+     */
     it('projects a reading enriched after the projection pass settled', async () => {
         const { mirror } = mount();
         projectAdditiveTextMirrors(document);

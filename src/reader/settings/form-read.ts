@@ -11,6 +11,7 @@ import {
     canonicalTagForSlice1Language,
     slice1LanguageIdForTag,
     SLICE1_TARGET_LANGUAGE,
+    targetOcrLanguageTag,
 } from '../languages';
 import { isLearnerLanguageId, type LearnerLanguageId } from '../locales';
 
@@ -629,7 +630,7 @@ function readOcrFormSettings(reader: SettingsFormReader, current: ReaderSettings
         ocrEndpointUrl: get('ocrEndpointUrl').trim(),
         ocrEngine: get('ocrEngine').trim() || 'auto',
         ocrCloudVisionApiKey: get('ocrCloudVisionApiKey').trim(),
-        ocrLanguage: get('ocrLanguage').trim() || 'ja-JP',
+        ocrLanguage: targetOcrLanguageTag(get('ocrLanguage')),
         ocrMaxImagePixels: clamped('ocrMaxImagePixels', 160000, 2800000, current.ocrMaxImagePixels),
         ocrMinImageArea: clamped('ocrMinImageArea', 10000, 800000, current.ocrMinImageArea),
         ocrMaxImagesPerPage: clamped('ocrMaxImagesPerPage', 1, 30, current.ocrMaxImagesPerPage),

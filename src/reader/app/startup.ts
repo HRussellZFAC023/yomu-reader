@@ -3,6 +3,7 @@ import { isYomuNewTabUrl } from '../newtab/url';
 import { runningAsBrowserExtension } from './runtime-env';
 import { documentHasJapaneseText } from '../dom/index';
 import { initJpdbReviewPageBridge } from '../jpdb/jpdb-review-bridge';
+import { adoptLearningTargetFromSettings } from '../languages/target-selection';
 import { loggingSettingsSummary } from './logger';
 import { applyUrlBootstrapSettings, loadSettings, SETTINGS_STORAGE_KEY } from '../settings/index';
 import type { ReaderSettings } from './types';
@@ -22,6 +23,12 @@ export interface ReaderStartupSettings {
 export async function loadReaderStartupSettings(options?: ReaderAppInitOptions): Promise<ReaderStartupSettings> {
     const loadedSettings = adoptHostedInterfaceLanguage(await loadSettings());
     const settings = applyUrlBootstrapSettings(loadedSettings);
+    // Every surface that resolves a language capability reads the active
+    // target, and several of them run before the first settings-change event
+    // (the startup text probe, the initial scan, embedded frames that never
+    // bind runtime events). The target has to follow the stored profile from
+    // the moment settings exist, not from the first write afterwards.
+    adoptLearningTargetFromSettings(settings);
     return {
         settings,
         settingsSummary: loggingSettingsSummary(settings),

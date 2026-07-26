@@ -1,3 +1,4 @@
+import { KANA_ONLY_RUN_RE as KANA_ONLY_RE, KANA_WITH_PROLONGED } from './japanese-script';
 // Splits a whole-word reading across individual kanji using readings from the
 // user's imported kanji dictionaries. Shared kana affixes are trimmed first, so
 // 質問する/しつもんする can align as 質=しつ 問=もん while する stays unannotated.
@@ -8,8 +9,7 @@ export interface KanjiRubySegment {
     end: number;
 }
 
-const KANA_ONLY_RE = /^[぀-ヿー]+$/u;
-const KANA_CHAR_RE = /^[぀-ヿー]$/u;
+const KANA_CHAR_RE = new RegExp(`^[${KANA_WITH_PROLONGED}]$`, 'u');
 const KANJI_CHAR_RE = /^[㐀-鿿々]$/u;
 
 export function splitReadingAcrossKanji(

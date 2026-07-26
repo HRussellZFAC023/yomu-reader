@@ -7,6 +7,7 @@ import {
 } from './source-resolution';
 import { requestAudioUrl as requestUrl, type AudioRequestOptions } from './request';
 import { readBlobAsDataUrl } from '../core/blob-data-url';
+import { targetAudioTemplateLanguageToken } from '../languages/resolve';
 import { isAppleTouchBrowser } from '../platform/browser';
 import { uiText } from '../app/i18n';
 import { jpdbAudioPageSourceUrl, jpdbAudioRequest, normalizeJpdbAudioIds } from '../jpdb/jpdb-audio-file';
@@ -47,7 +48,7 @@ export function formatAudioUrl(template: string, card: JPDBCard): string {
     const replacements: Record<string, string> = {
         term: card.spelling,
         reading: card.reading,
-        language: 'ja',
+        language: targetAudioTemplateLanguageToken(),
     };
 
     return template.replace(/\{(term|reading|language)\}/g, (_, key: string) =>

@@ -1,8 +1,8 @@
 import { cardKey } from '../cards/utils';
 import type { JPDBCard, JPDBToken } from '../app/types';
+import { KANA_ONLY_RUN_RE as KANA_ONLY_RE } from './japanese-script';
 
 const LOW_VALUE_EXAMPLE_PART_RE = /\b(?:particle|conjunction|auxiliary)\b/i;
-const KANA_ONLY_RE = /^[\u3040-\u30ffー]+$/u;
 
 export function exampleSentenceLookupTokens(tokens: JPDBToken[], targetCard?: JPDBCard): JPDBToken[] {
     return tokens.filter(token => shouldKeepExampleSentenceToken(token, targetCard));

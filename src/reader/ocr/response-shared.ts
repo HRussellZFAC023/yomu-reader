@@ -1,4 +1,5 @@
 import { HAS_JAPANESE } from '../dom/index';
+import { isTargetLanguageText } from '../lookup/target-text';
 
 export interface OcrRect {
     left: number;
@@ -19,10 +20,12 @@ export interface OcrResult {
     lines: OcrLine[];
 }
 
-export function pushJapaneseOcrLine(lines: OcrLine[], text: string, box: OcrRect | null): void {
-    if (!text || !box || !HAS_JAPANESE.test(text)) return;
+export function pushTargetLanguageOcrLine(lines: OcrLine[], text: string, box: OcrRect | null): void {
+    if (!text || !box || !isTargetLanguageText(text)) return;
     lines.push({ text, box, vertical: isVerticalOcrBox(box, text.length) });
 }
+
+export { pushTargetLanguageOcrLine as pushJapaneseOcrLine };
 
 // Orientation fallback for OCR engines that don't report a writing direction.
 // Vertical Japanese stacks N glyphs top-to-bottom, so its box is ~N glyphs tall

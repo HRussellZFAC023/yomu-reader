@@ -9,9 +9,12 @@ import { applyOverlayPageScale } from '../ui/page-scale';
 import {
     activateLanguageProfileForLearner,
     activeLanguageProfile,
+    activeLearningTargetLanguage,
     canonicalTagForSlice1Language,
+    normalizeLearningTargetLanguage,
     slice1LanguageIdForTag,
     SLICE1_TARGET_LANGUAGE,
+    targetContentLocale,
 } from '../languages';
 import {
     LEARNER_LANGUAGES,
@@ -154,7 +157,7 @@ export class OnboardingController {
         );
         targetLanguageText.dataset.onboardingMultilingualCopy = 'targetLanguage';
         const targetLanguageValue = element('output', '', '日本語 — Japanese');
-        targetLanguageValue.lang = 'ja';
+        targetLanguageValue.lang = targetContentLocale();
         targetLanguageValue.dataset.onboardingTargetLanguage = SLICE1_TARGET_LANGUAGE;
         targetLanguage.append(targetLanguageText, targetLanguageValue);
 
@@ -313,7 +316,7 @@ export class OnboardingController {
             const selected = learnerLanguageById(learnerLanguage);
             log.info('Onboarding learner language changed', {
                 learnerLanguage,
-                targetLanguage: SLICE1_TARGET_LANGUAGE,
+                targetLanguage: activeLearningTargetLanguage(),
             });
             this.learnerLanguageSelect?.setAttribute('lang', selected.runtimeLocale);
             this.learnerLanguageSelect?.setAttribute('dir', selected.direction);
@@ -678,7 +681,10 @@ function updateActiveOnboardingLanguageProfile(
         ? {
             ...profile,
             learnerLanguage: canonicalTagForSlice1Language(learnerLanguage),
-            targetLanguage: SLICE1_TARGET_LANGUAGE,
+            // Onboarding decides the definition language, never the target.
+            // Re-stamping a constant here would silently revert a profile that
+            // already selected a different registered target.
+            targetLanguage: normalizeLearningTargetLanguage(profile.targetLanguage),
             uiLocale: interfaceLanguage,
             parserProvider: settings.parserProvider,
         }

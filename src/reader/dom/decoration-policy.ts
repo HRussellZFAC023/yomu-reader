@@ -14,7 +14,8 @@
 //                       controls keep their authored line height and hit target
 //   skip                editable/composing contexts: never decorated
 import { CORE_COLOR_TOKENS } from '../theme/color-tokens';
-import { HAS_JAPANESE, READER_ROOT_SELECTOR } from './constants';
+import { READER_ROOT_SELECTOR } from './constants';
+import { isTargetLanguageText } from '../lookup/target-text';
 import { isYouTubeAppHostname } from '../app/youtube-host';
 
 export type DecorationState = 'prose-full' | 'content-ruby' | 'interactive-passive' | 'skip';
@@ -687,7 +688,7 @@ function compactPassiveInteractionRubyElement(parent: HTMLElement): HTMLElement 
 
 export function isCompactInteractiveChromeText(text: string): boolean {
     const length = compactLength(text);
-    return length >= 2 && length <= COMPACT_INTERACTIVE_CHROME_TEXT_LIMIT && HAS_JAPANESE.test(text);
+    return length >= 2 && length <= COMPACT_INTERACTIVE_CHROME_TEXT_LIMIT && isTargetLanguageText(text);
 }
 
 function isCompactInteractiveChromeLink(link: HTMLElement, parent: HTMLElement, text: string): boolean {
@@ -1004,7 +1005,7 @@ function isCompactMetadataElement(element: HTMLElement): boolean {
     const text = element.textContent?.replace(/\s+/g, ' ').trim() ?? '';
     const height = element.getBoundingClientRect().height;
     return [
-        HAS_JAPANESE.test(text),
+        isTargetLanguageText(text),
         compactLength(text) <= COMPACT_LINKED_CARD_METADATA_TEXT_LIMIT,
         height === 0 || height <= COMPACT_LINKED_CARD_METADATA_MAX_HEIGHT_PX,
     ].every(Boolean);

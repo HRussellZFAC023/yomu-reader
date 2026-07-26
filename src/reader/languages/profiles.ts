@@ -1,9 +1,9 @@
 import { canonicalLanguageTag } from './locale';
+import { normalizeLearningTargetLanguage } from './registry';
 import {
     DEFAULT_SLICE1_LEARNER_LANGUAGE,
     normalizeSlice1LearnerLanguage,
     slice1LanguageIdForTag,
-    SLICE1_TARGET_LANGUAGE,
 } from './roster';
 import {
     LANGUAGE_PROFILE_SCHEMA_VERSION,
@@ -23,6 +23,7 @@ export interface LanguageProfileDefaults {
     learnerLanguage?: unknown;
     uiLocale?: unknown;
     parserProvider?: unknown;
+    targetLanguage?: unknown;
 }
 
 export interface NormalizedLanguageProfiles {
@@ -51,7 +52,7 @@ export function createDefaultLanguageProfile(defaults: LanguageProfileDefaults =
             defaults.learnerLanguage,
             DEFAULT_SLICE1_LEARNER_LANGUAGE,
         ),
-        targetLanguage: SLICE1_TARGET_LANGUAGE,
+        targetLanguage: normalizeLearningTargetLanguage(defaults.targetLanguage),
         uiLocale: normalizeUiLocale(defaults.uiLocale, 'en'),
         parserProvider: normalizeParserProvider(defaults.parserProvider, 'local'),
         dictionaries: emptyProfileDictionaries(),
@@ -126,7 +127,9 @@ export function activateLanguageProfileForLearner(
         ...base,
         id: uniqueProfileId(`learner-${learnerLanguageId}-ja`, usedIds),
         learnerLanguage: canonicalLearnerLanguage,
-        targetLanguage: SLICE1_TARGET_LANGUAGE,
+        // A new learner profile inherits what the person is already studying.
+        // Switching definition language is not a decision about the target.
+        targetLanguage: normalizeLearningTargetLanguage(base.targetLanguage),
         uiLocale: initial.uiLocale ?? base.uiLocale,
         parserProvider: initial.parserProvider ?? base.parserProvider,
         dictionaries: cloneProfileDictionaries(initial.dictionaries ?? base.dictionaries),
@@ -187,8 +190,10 @@ function normalizeLanguageProfile(
             value.learnerLanguage,
             normalizeSlice1LearnerLanguage(defaults.learnerLanguage),
         ),
-        // Slice 1 is deliberately 32 learner languages -> Japanese.
-        targetLanguage: SLICE1_TARGET_LANGUAGE,
+        // A stored target survives only while core still has a module for it;
+        // anything else degrades to the default rather than leaving the reader
+        // pointed at a target nothing implements.
+        targetLanguage: normalizeLearningTargetLanguage(value.targetLanguage ?? defaults.targetLanguage),
         uiLocale: normalizeUiLocale(value.uiLocale, normalizeUiLocale(defaults.uiLocale, 'en')),
         parserProvider: normalizeParserProvider(value.parserProvider, normalizeParserProvider(defaults.parserProvider, 'local')),
         dictionaries: normalizeProfileDictionaries(value.dictionaries),

@@ -1,3 +1,4 @@
+import { targetSubtitleLanguageTag } from '../languages/resolve';
 import { normalizeSubtitleCues, parseSubtitleText, type SubtitleCue } from './subtitle-cues';
 import { translateSubtitleCues } from './subtitle-translate';
 import {
@@ -59,7 +60,7 @@ async function loadTranslatedTrackCues<T extends SubtitleTrackLoadable>(
     const sourceTrack = options.tracks.find(t => t.id === track.translatedFromTrackId);
     if (!sourceTrack) return { track, cues: [] };
     const { cues: sourceCues } = await loadSubtitleTrackCues(sourceTrack, options);
-    const translatedCues = await translateSubtitleCues(sourceCues, sourceTrack.language || 'en', track.targetLanguage || track.language || 'ja');
+    const translatedCues = await translateSubtitleCues(sourceCues, sourceTrack.language || 'en', track.targetLanguage || track.language || targetSubtitleLanguageTag());
     track.cues = translatedCues;
     return { track, cues: translatedCues };
 }

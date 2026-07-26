@@ -633,6 +633,7 @@ const COPY = {
         mirroredDictionariesSummary: '{count} more dictionaries · {size} total',
         mirroredDictionarySearch: 'Search dictionaries',
         mirroredDictionarySearchNoResults: 'No dictionaries match your search.',
+        mirroredDictionaryOtherLanguage: 'These dictionaries are not for reading Japanese.',
         install: 'Install',
         installing: 'Installing',
         queued: 'Queued',
@@ -2291,6 +2292,7 @@ mirroredDictionaries	配信中のすべての辞書
 mirroredDictionariesSummary	他{count}件の辞書 · 合計{size}
 mirroredDictionarySearch	辞書を検索
 mirroredDictionarySearchNoResults	検索に一致する辞書がありません。
+mirroredDictionaryOtherLanguage	日本語を読むための辞書ではありません。
 install	インストール
 installing	インストール中
 queued	待機中

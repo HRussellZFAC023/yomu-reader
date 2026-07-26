@@ -1,6 +1,7 @@
 import { stablePositiveHashId } from '../core/stable-hash';
 import { pitchClassNameForPattern } from './pitch-accent';
 import type { JPDBCard, JPDBToken } from '../app/types';
+import { KANA_ONLY_RUN_RE } from './japanese-script';
 
 export const AUTHORED_VOCABULARY_ATTRIBUTE = 'data-yomu-authored-vocabulary';
 
@@ -95,7 +96,7 @@ function normalizedJapaneseText(value: unknown, allowLayoutWhitespace = false): 
 }
 
 function isKanaReading(value: string): boolean {
-    return /^[\u3040-\u30ffー]+$/u.test(value);
+    return KANA_ONLY_RUN_RE.test(value);
 }
 
 function authoredVocabularyReplacements(

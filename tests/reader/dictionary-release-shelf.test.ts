@@ -67,7 +67,10 @@ describe('regenerating the dictionary release keeps the wide recommendation shel
             expect(roles, filename).toHaveLength(8);
             for (const role of SHELF_ROLES) expect(roles, `${filename}/${role}`).toContain(role);
         }
-    });
+    // Regenerates all 32 published manifests and compares them byte for byte. That is
+    // genuinely slow, and under the parallel CI pass it overran the 5s default and read
+    // as a failure rather than as work.
+    }, 60_000);
 
     it('leaves a pre-release catalogue on the three starter rows instead of inventing a shelf', async () => {
         const written = await regenerateRelease(join(PRE_RELEASE_ROOT, 'catalog.json'));

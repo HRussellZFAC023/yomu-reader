@@ -1,5 +1,5 @@
 import { escapeHtml, renderKanjiNavigationText, renderRuby, shouldRenderRuby } from '../dom/index';
-import { normalizedJapaneseCardReading } from './highlight';
+import { activeLearningTarget } from '../languages/active';
 import type { HeadwordComponentPitchSegment } from '../popup/pitch';
 import { getPitchClass } from '../jpdb/jpdb-parser-pitch';
 import type { JPDBCard, JPDBToken, ReaderSettings } from '../app/types';
@@ -64,7 +64,7 @@ export function isPlainReadingRedundantForHeadword(
 function cardSpellingFuriganaToken(card: HeadwordFuriganaCard, spelling: string): JPDBToken {
     const rubies = annotatedWordRubies(spelling, card.wordWithReading ?? '');
     const annotatedReading = rubies.length ? readingFromSurfaceRubies(spelling, rubies) : '';
-    const reading = annotatedReading || normalizedJapaneseCardReading(spelling, card.reading).trim();
+    const reading = annotatedReading || activeLearningTarget().normalizeReading(spelling, card.reading).trim();
     return {
         card: { ...card, spelling, reading } as JPDBCard,
         start: 0,
@@ -79,7 +79,7 @@ function cardSpellingFuriganaToken(card: HeadwordFuriganaCard, spelling: string)
 function headwordFuriganaReading(spelling: string, token: JPDBToken): string {
     return token.rubies.length
         ? readingFromSurfaceRubies(spelling, token.rubies)
-        : normalizedJapaneseCardReading(spelling, token.card.reading).trim();
+        : activeLearningTarget().normalizeReading(spelling, token.card.reading).trim();
 }
 
 function annotatedWordRubies(spelling: string, annotated: string): JPDBToken['rubies'] {

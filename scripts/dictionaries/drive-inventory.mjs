@@ -10,6 +10,15 @@ import {
 
 const DRIVE_FOLDER_MIME = 'application/vnd.google-apps.folder';
 
+// The anonymous folder page renders a fixed first page and expects the browser
+// to fetch the rest; there is no "next page" marker in the HTML, so a folder of
+// 97 files and one of 49 produce indistinguishable documents. Only the row count
+// gives it away. Treating a full page as success is how the pinned collection
+// folder was once counted as 49 files instead of 97 — an inventory that is
+// silently short is worse than one that fails, because everything downstream
+// then reports "complete" against a truncated view of upstream.
+export const PUBLIC_DRIVE_FOLDER_PAGE_ROW_CAP = 50;
+
 export function parsePublicDriveFolderHtml(html, parent = { id: '', path: '' }) {
   const rows = [...html.matchAll(/<tr data-selectable[\s\S]*?<\/tr>/g)].map(match => match[0]);
   return rows.flatMap(row => {
@@ -39,6 +48,7 @@ export async function crawlPublicDriveFolder({
   skipFolderNames = [],
   includeExtensions = [],
   fetchImpl = fetch,
+  pageRowCap = PUBLIC_DRIVE_FOLDER_PAGE_ROW_CAP,
 }) {
   const rootId = googleDriveFolderId(folderUrl);
   const pending = [{ id: rootId, path: '' }];
@@ -56,6 +66,14 @@ export async function crawlPublicDriveFolder({
     const html = await response.text();
     const children = parsePublicDriveFolderHtml(html, folder);
     if (!children.length) throw new Error(`Drive folder page exposed no inventory rows: ${url}`);
+    if (children.length >= pageRowCap) {
+      throw new Error(
+        `Drive folder page returned ${children.length} rows, the anonymous page limit of ${pageRowCap}: ${url}. `
+        + 'The remaining files are not in this HTML and the page carries no marker saying so, so the crawl would '
+        + 'report a short inventory as a complete one. Re-inventory this folder through an authenticated connector '
+        + 'export (scripts/dictionaries/materialize-connector-export.mjs) instead of the public crawler.',
+      );
+    }
     for (const child of children) {
       if (child.kind === 'folder') {
         if (skipFolderNames.includes(child.name)) {

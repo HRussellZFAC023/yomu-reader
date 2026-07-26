@@ -44,7 +44,6 @@ import {
     scanScopeRoots,
 } from './annotation-scope';
 import {
-    HAS_JAPANESE,
     NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT,
     appendToDocumentHead,
     clearProjectedReadingsWithin,
@@ -130,6 +129,7 @@ import {
     pointerTokenAtOffset,
     preferredRenderedWordSentence,
 } from '../lookup/text-helpers';
+import { isTargetLanguageText } from '../lookup/target-text';
 import { hasPaintablePitchComponents, hasResolvedPitchComponents } from '../lookup/pitch-components';
 import { publishCardStateSignal, subscribeToCardStateSignals } from './card-state-signal';
 import { configureLogger, Logger } from './logger';
@@ -412,6 +412,7 @@ import {
     uniqueTokensByCard,
     waitForHoverCardInitialPaint,
 } from './main-lookup-helpers';
+import { KANA_ONLY_RUN_RE as POINTER_TEXT_KANA_SURFACE_RE } from '../lookup/japanese-script';
 
 const log = Logger.scope('ReaderApp');
 type KanjiStudyCompanionSlot = NonNullable<ReturnType<typeof yomuKanjiStudyCompanion>>;
@@ -423,7 +424,6 @@ type ReaderLifecycleSurface = {
 type ActivePopoverDismissOptions = DismissOptions & {
     preserveOcrLookupState?: boolean;
 };
-const POINTER_TEXT_KANA_SURFACE_RE = /^[\u3040-\u30ffー]+$/u;
 // Gesture events a host viewer (e.g. BookWalker/NFBR) uses to turn the page; Yomu
 // swallows them when they land on its own overlay/popover so a text tap looks up
 // the word instead of flipping the page.
@@ -506,7 +506,7 @@ function eventTargetsInteractiveControl(event: Event): boolean {
 // parse slot on punctuation or Latin runs.
 function knownStateBackfillSurface(word: HTMLElement): string {
     const surface = (word.dataset.expression || readerWordSurfaceText(word)).trim();
-    return surface && HAS_JAPANESE.test(surface) ? surface : '';
+    return surface && isTargetLanguageText(surface) ? surface : '';
 }
 
 // Pick the authenticated Jiten card a re-parse produced for `surface`: the token
@@ -5628,7 +5628,7 @@ export class ReaderApp {
         trigger: 'modal' | 'hover',
         preservePosition = false,
     ): Promise<void> {
-        if (!HAS_JAPANESE.test(query)) return;
+        if (!isTargetLanguageText(query)) return;
         const normalizedReading = reading.replace(/\s+/g, ' ').trim();
         const navigation: CardNavigationMode = trigger === 'modal' ? 'push-current' : 'reset';
         const done = log.time('dictionaryReferenceLookup', { query, hasReading: Boolean(normalizedReading), sourceDictionary, trigger });
@@ -6789,7 +6789,7 @@ export class ReaderApp {
     private renderedAnchorSentence(anchor: HTMLElement | undefined): string {
         const word = anchor?.closest<HTMLElement>('.jpdb-reader-word');
         const sentence = normalizedLookupText(word?.dataset.sentence ?? anchor?.dataset.sentence ?? '');
-        return HAS_JAPANESE.test(sentence) ? sentence : '';
+        return isTargetLanguageText(sentence) ? sentence : '';
     }
 
     private rememberCardMiningContext(card: JPDBCard, sentence: string | undefined, anchor: HTMLElement | undefined, options: CardDisplayOptions): void {
