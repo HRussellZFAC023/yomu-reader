@@ -523,7 +523,7 @@ const COPY = {
         exampleMeaning: 'to read',
         scanAnkiFirst: 'Connect Anki first',
         notMapped: 'Not mapped',
-        noScannedFields: '',
+        noScannedFields: 'Check AnkiConnect to load this note type\'s fields.',
         mappingForNoteType: 'Mapping for {model}',
         currentNoteType: 'current note type',
         ankiFieldMappingSelect: '{role} field',
