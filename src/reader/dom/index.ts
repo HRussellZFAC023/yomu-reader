@@ -2675,10 +2675,18 @@ function applyTokensToNonDestructiveScanTarget(target: ScanTextTarget, tokens: J
     const host = nonDestructiveScanHost(target);
     if (!host.isConnected) return;
     const context = nonDestructiveMirrorRenderContext(host, target, tokens, settings);
-    if (reuseCurrentTextMirror(host, context)) return;
-    removeTextMirror(host);
-    if (!context.safeTokens.length) return;
-    mountNonDestructiveTextMirror(host, target, settings, context);
+    if (!reuseCurrentTextMirror(host, context)) {
+        removeTextMirror(host);
+        if (!context.safeTokens.length) return;
+        mountNonDestructiveTextMirror(host, target, settings, context);
+    }
+    // Apply is the only writer of the "this target is annotated" fact the next
+    // silent scan reads back (see recordRenderedTargetFragments). Record it
+    // from the mirror that is actually mounted now, and only when this render
+    // carried tokens — a token-less pass decorates nothing and must stay
+    // collectable.
+    const mirror = context.safeTokens.length ? currentTextMirror(host) : null;
+    if (mirror) recordRenderedTargetFragments(target, mirror);
 }
 
 function reuseCurrentTextMirror(host: HTMLElement, context: NonDestructiveMirrorRenderContext): boolean {
@@ -4046,6 +4054,94 @@ export function textMirrorAlreadyRenders(host: HTMLElement, text: string): boole
         syncTextMirrorVisibilityToPage(host, mirror);
     }
     return renders;
+}
+
+// What a silent settle scan actually needs to know: was THIS target annotated?
+//
+// The mirror cannot answer that on its own. It is host-scoped — it reproduces
+// the host's whole text but carries words only for the one target it was
+// mounted for — so every host-level question gives a wrong answer for some
+// row shape. Asking "does the mirror's source text EQUAL the target text"
+// (the historic test) can only ever match a target that spans its host alone,
+// so every multi-node row — most of a mobile video list — reported "not
+// rendered" forever: each settle re-collected and re-parsed rows it had
+// already decorated, each capped continuation re-walked that same head instead
+// of advancing, and on a phone's small parse budget the freshly recycled rows
+// queued behind that waste and stayed bare. Loosening it to "does the host
+// text CONTAIN the target text" is worse: a target is then declared done
+// because a NEIGHBOUR on the same host was rendered, and nothing can ever heal
+// it — a permanently half-bare row.
+//
+// So record the fact where it is true: on the source text nodes the render
+// actually covered. A recycler that reuses a node with new text changes
+// node.data; a re-render that replaces the host's mirror detaches the recorded
+// one. Either way the record stops matching and the target is offered again,
+// which is always the safe direction — it costs one re-parse, never a bare row.
+interface RenderedFragmentRecord {
+    data: string;
+    start: number;
+    end: number;
+    mirror: WeakRef<HTMLElement>;
+}
+
+const renderedTargetFragments = new WeakMap<Text, RenderedFragmentRecord[]>();
+
+function recordRenderedTargetFragments(target: ScanTextTarget, mirror: HTMLElement): void {
+    const rendered = new WeakRef(mirror);
+    for (const { node, start, end } of nonDestructiveTargetFragments(target)) {
+        // Drop records the node's own text has already invalidated, and replace
+        // any record for this same range. Sibling ranges on the SAME node
+        // (one text node split across two targets) keep their own records —
+        // collapsing them is exactly how a neighbour's render would silently
+        // mark this target done.
+        const records = (renderedTargetFragments.get(node) ?? [])
+            .filter(record => record.data === node.data && (record.start !== start || record.end !== end));
+        records.push({ data: node.data, start, end, mirror: rendered });
+        renderedTargetFragments.set(node, records);
+    }
+}
+
+// The mirrors that rendered this target — one for a whole-host render, one per
+// layout leaf for a target the renderer split — provided every one of them is
+// still standing. A single fragment without a live record fails the whole
+// target: a partly rendered target is not a rendered target, and re-offering it
+// is what heals the half-bare row.
+function liveRenderedTargetMirrors(target: ScanTextTarget): HTMLElement[] | null {
+    const fragments = nonDestructiveTargetFragments(target);
+    if (!fragments.length) return null;
+    const rendered: HTMLElement[] = [];
+    for (const { node, start, end } of fragments) {
+        const record = renderedTargetFragments.get(node)?.find(candidate => candidate.start === start
+            && candidate.end === end
+            && candidate.data === node.data);
+        const mirror = record?.mirror.deref();
+        if (!mirror) return null;
+        // Contiguous fragments share one mirror; verify each distinct one once.
+        if (rendered.includes(mirror)) continue;
+        // removeTextMirror() detaches the node it tears down, so a record left
+        // behind by a replaced render can never pass as a standing one.
+        if (!mirror.isConnected || !textMirrorRenderIsIntact(mirror)) return null;
+        rendered.push(mirror);
+    }
+    return rendered.length ? rendered : null;
+}
+
+export function scanTargetAlreadyAnnotated(target: ScanTextTarget): boolean {
+    if (!(target.parent instanceof HTMLElement)) return false;
+    // A target that spans its host alone is fully answered by the host's own
+    // mirror, including renders replayed from cache onto fresh text nodes.
+    if (textMirrorAlreadyRenders(target.parent, target.text)) return true;
+    const mirrors = liveRenderedTargetMirrors(target);
+    if (!mirrors) return false;
+    // Same transient-hide heal as the whole-host path above: skipping a
+    // force-hidden mirror with no host mutation left to re-sync it would park
+    // the row under a concealing layer.
+    for (const mirror of mirrors) {
+        if (mirror.style.getPropertyValue('visibility') !== 'hidden') continue;
+        const host = registeredTextMirrorHostFor(mirror);
+        if (host) syncTextMirrorVisibilityToPage(host, mirror);
+    }
+    return true;
 }
 
 // Every mounted text mirror is created from at least one safe token and must

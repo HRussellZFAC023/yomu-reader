@@ -5,7 +5,7 @@ import {
     drainDepthCappedShadowHosts,
     collectVisibleTextTargets,
     isYouTubeHost,
-    textMirrorAlreadyRenders,
+    scanTargetAlreadyAnnotated,
     type FragmentTextTarget,
     type ScanTextTarget,
 } from '../dom/index';
@@ -1288,13 +1288,12 @@ function collectRootScanTargets(profile: SiteParserProfile, root: Element, conte
         allowShortCenteredHeadings: profile.allowShortCenteredHeadings,
     });
     for (const target of collected) {
-        // Silent auto-scans skip hosts whose mirror already renders this exact
-        // text — the non-destructive feed otherwise re-parses every annotated
-        // title on every scroll settle (the dominant YouTube scroll cost).
+        // Silent auto-scans skip targets that are already annotated — the
+        // non-destructive feed otherwise re-parses every annotated title on
+        // every scroll settle (the dominant YouTube scroll cost).
         if (context.skipMirroredHosts
             && profile.nonDestructive
-            && target.parent instanceof HTMLElement
-            && textMirrorAlreadyRenders(target.parent, target.text)) continue;
+            && scanTargetAlreadyAnnotated(target)) continue;
         if (!addUniqueSiteScanTarget(profile, target, context)) continue;
         if (!siteScanHasRoom(context)) break;
     }
@@ -1754,13 +1753,11 @@ function collectResidualVisibleJapaneseTargets(
         minLength: 1,
     }));
     for (const target of collected) {
-        // Class E coverage bookkeeping: silent scans skip residual hosts whose
-        // mirror already renders this exact text (same rule as the profile
-        // pass) — otherwise capped continuations re-spend budget on the same
-        // already-decorated head and never reach the residual tail.
-        if (options.skipMirroredHosts
-            && target.parent instanceof HTMLElement
-            && textMirrorAlreadyRenders(target.parent, target.text)) continue;
+        // Class E coverage bookkeeping: silent scans skip residual targets that
+        // are already annotated (same rule as the profile pass) — otherwise
+        // capped continuations re-spend budget on the same already-decorated
+        // head and never reach the residual tail.
+        if (options.skipMirroredHosts && scanTargetAlreadyAnnotated(target)) continue;
         appendResidualVisibleTarget(collection.targets, collection.seen, {
             ...target,
             parserId: RESIDUAL_VISIBLE_JAPANESE_PARSER_ID,
@@ -1980,7 +1977,7 @@ function collectFragmentTargetsFromRoot(
         ? remaining + (collection.candidateHeadroom ?? 0) + 24
         : remaining, true, exclude, options);
     for (const target of collected) {
-        if (collection.skipMirroredHosts && textMirrorAlreadyRenders(target.parent, target.text)) continue;
+        if (collection.skipMirroredHosts && scanTargetAlreadyAnnotated(target)) continue;
         appendGenericProseTarget(collection.targets, collection.seen, passiveParserId ? {
             ...target,
             parserId: passiveParserId,
