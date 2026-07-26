@@ -25,6 +25,9 @@ export interface YomuGamingEnvironment {
     hotkey: string;
     hotkeyRegistered: boolean;
     hotkeyError?: string;
+    // True while a tray/menu-bar item is live, which is what keeps Yomu reachable — and the
+    // capture shortcut working — after its window is closed.
+    trayActive: boolean;
     screenAccess: YomuGamingScreenAccess;
 }
 

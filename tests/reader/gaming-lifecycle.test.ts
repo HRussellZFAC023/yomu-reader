@@ -1,0 +1,179 @@
+import { describe, expect, it, vi } from 'vitest';
+import { captureShortcutLabel, DEFAULT_CAPTURE_SHORTCUT, normalizeCaptureShortcut } from '../../src/gaming/capture-shortcut';
+import {
+    createGamingTray,
+    gamingTrayMenuTemplate,
+    gamingTrayTooltip,
+    gamingWindowParkingHint,
+    windowCloseIntent,
+    type GamingTrayActions,
+    type GamingTrayHost,
+    type GamingTrayImage,
+    type GamingTrayItem,
+    type GamingTrayMenuItem,
+} from '../../src/gaming/lifecycle';
+
+function trayActions(): GamingTrayActions & { calls: string[] } {
+    const calls: string[] = [];
+    return {
+        calls,
+        readScreen: () => calls.push('readScreen'),
+        openSettings: () => calls.push('openSettings'),
+        quit: () => calls.push('quit'),
+    };
+}
+
+function fakeImage(empty = false): GamingTrayImage {
+    const image: GamingTrayImage = {
+        isEmpty: () => empty,
+        resize: () => image,
+    };
+    return image;
+}
+
+function fakeHost(overrides: Partial<GamingTrayHost> = {}) {
+    const listeners: string[] = [];
+    const state = { tooltip: '', menu: [] as GamingTrayMenuItem[], destroyed: 0 };
+    const item: GamingTrayItem = {
+        setToolTip: tooltip => { state.tooltip = tooltip; },
+        setContextMenu: menu => { state.menu = menu as GamingTrayMenuItem[]; },
+        on: event => { listeners.push(event); },
+        destroy: () => { state.destroyed += 1; },
+    };
+    const host: GamingTrayHost = {
+        platform: 'win32',
+        iconPath: '/icons/yomu.png',
+        createImage: () => fakeImage(),
+        createTray: () => item,
+        buildMenu: template => template,
+        ...overrides,
+    };
+    return { host, item, state, listeners };
+}
+
+describe('gaming window close policy', () => {
+    it('parks the window instead of destroying it while a tray is live', () => {
+        expect(windowCloseIntent({ quitting: false, hasTray: true, platform: 'win32' })).toBe('hide');
+        expect(windowCloseIntent({ quitting: false, hasTray: true, platform: 'linux' })).toBe('hide');
+    });
+
+    it('keeps the macOS window around even with no tray, so the dock icon still works', () => {
+        expect(windowCloseIntent({ quitting: false, hasTray: false, platform: 'darwin' })).toBe('hide');
+    });
+
+    // The P1: a hidden overlay suppresses window-all-closed, so a trayless desktop must end
+    // the session on close rather than linger with no window, no taskbar entry, and no tray.
+    it('ends the session when there is nothing left to reopen from', () => {
+        expect(windowCloseIntent({ quitting: false, hasTray: false, platform: 'win32' })).toBe('quit');
+        expect(windowCloseIntent({ quitting: false, hasTray: false, platform: 'linux' })).toBe('quit');
+    });
+
+    // Hiding on close would otherwise cancel Quit and Cmd+Q outright.
+    it('lets windows go once a quit is under way', () => {
+        expect(windowCloseIntent({ quitting: true, hasTray: true, platform: 'darwin' })).toBe('close');
+        expect(windowCloseIntent({ quitting: true, hasTray: false, platform: 'win32' })).toBe('close');
+    });
+
+    it('names where the app waits, and stays quiet when closing ends the session', () => {
+        expect(gamingWindowParkingHint({ hasTray: true, platform: 'darwin' }))
+            .toBe('Close this window and Yomu waits in the menu bar.');
+        expect(gamingWindowParkingHint({ hasTray: true, platform: 'win32' }))
+            .toBe('Close this window and Yomu waits in the system tray.');
+        expect(gamingWindowParkingHint({ hasTray: false, platform: 'win32' })).toBe('');
+    });
+});
+
+describe('gaming tray menu', () => {
+    it('offers read screen, settings, and quit', () => {
+        const actions = trayActions();
+        const template = gamingTrayMenuTemplate(actions, { shortcutLabel: 'Ctrl+Shift+Y', shortcutRegistered: true });
+        expect(template.map(entry => entry.label ?? entry.type)).toEqual([
+            'Read screen (Ctrl+Shift+Y)',
+            'Settings',
+            'separator',
+            'Quit Yomu Gaming',
+        ]);
+        for (const entry of template) entry.click?.();
+        expect(actions.calls).toEqual(['readScreen', 'openSettings', 'quit']);
+    });
+
+    it('drops the shortcut from the label when it is not registered', () => {
+        const template = gamingTrayMenuTemplate(trayActions(), { shortcutLabel: 'Ctrl+Shift+Y', shortcutRegistered: false });
+        expect(template[0].label).toBe('Read screen');
+        expect(gamingTrayTooltip({ shortcutLabel: 'Ctrl+Shift+Y', shortcutRegistered: false }))
+            .toBe('Yomu Gaming — pick a capture shortcut in Settings');
+        expect(gamingTrayTooltip({ shortcutLabel: 'Ctrl+Shift+Y', shortcutRegistered: true }))
+            .toBe('Yomu Gaming — Ctrl+Shift+Y reads the screen');
+    });
+});
+
+describe('gaming tray controller', () => {
+    it('publishes the menu and tooltip, and reopens settings on click', () => {
+        const { host, state, listeners } = fakeHost();
+        const controller = createGamingTray(host, trayActions(), { shortcutLabel: 'Ctrl+Shift+Y', shortcutRegistered: true });
+        expect(controller).not.toBeNull();
+        expect(state.tooltip).toBe('Yomu Gaming — Ctrl+Shift+Y reads the screen');
+        expect(state.menu.map(entry => entry.label ?? entry.type)).toContain('Quit Yomu Gaming');
+        expect(listeners).toEqual(['click', 'double-click']);
+    });
+
+    it('leaves the click to the macOS menu bar', () => {
+        const { host, listeners } = fakeHost({ platform: 'darwin' });
+        expect(createGamingTray(host, trayActions(), { shortcutLabel: 'Cmd+Shift+Y', shortcutRegistered: true })).not.toBeNull();
+        expect(listeners).toEqual([]);
+    });
+
+    it('relabels when the capture shortcut changes', () => {
+        const { host, state } = fakeHost();
+        const controller = createGamingTray(host, trayActions(), { shortcutLabel: 'Ctrl+Shift+Y', shortcutRegistered: true });
+        controller?.refresh({ shortcutLabel: 'Ctrl+Shift+U', shortcutRegistered: true });
+        expect(state.menu[0].label).toBe('Read screen (Ctrl+Shift+U)');
+        expect(state.tooltip).toBe('Yomu Gaming — Ctrl+Shift+U reads the screen');
+    });
+
+    // A null controller is what tells main.ts to keep the quit-on-close fallback, so a
+    // desktop with no status area can never become an unreachable process.
+    it('reports no tray when the icon is missing', () => {
+        const { host } = fakeHost({ createImage: () => fakeImage(true) });
+        expect(createGamingTray(host, trayActions(), { shortcutLabel: 'Ctrl+Shift+Y', shortcutRegistered: true })).toBeNull();
+    });
+
+    it('reports no tray when the desktop refuses one', () => {
+        const reportError = vi.fn();
+        const { host } = fakeHost({
+            reportError,
+            createTray: () => { throw new Error('no status notifier host'); },
+        });
+        expect(createGamingTray(host, trayActions(), { shortcutLabel: 'Ctrl+Shift+Y', shortcutRegistered: true })).toBeNull();
+        expect(reportError).toHaveBeenCalledOnce();
+    });
+
+    it('tears the tray down on quit', () => {
+        const { host, state } = fakeHost();
+        createGamingTray(host, trayActions(), { shortcutLabel: 'Ctrl+Shift+Y', shortcutRegistered: true })?.destroy();
+        expect(state.destroyed).toBe(1);
+    });
+});
+
+describe('capture shortcut vocabulary', () => {
+    it('labels accelerators per platform', () => {
+        expect(captureShortcutLabel('CommandOrControl+Shift+Y', 'darwin')).toBe('Cmd+Shift+Y');
+        expect(captureShortcutLabel('CommandOrControl+Shift+Y', 'win32')).toBe('Ctrl+Shift+Y');
+        expect(captureShortcutLabel('Control+Shift+U', 'darwin')).toBe('Ctrl+Shift+U');
+        expect(captureShortcutLabel('Super+Alt+F5', 'linux')).toBe('Meta+Alt+F5');
+        expect(captureShortcutLabel('', 'win32')).toBe(captureShortcutLabel(DEFAULT_CAPTURE_SHORTCUT, 'win32'));
+    });
+
+    it('normalizes and orders user-pressed shortcuts', () => {
+        expect(normalizeCaptureShortcut('ctrl+shift+u', 'win32')).toEqual({ ok: true, shortcut: 'Control+Shift+U' });
+        expect(normalizeCaptureShortcut('Shift+Alt+cmdorctrl+y', 'win32')).toEqual({ ok: true, shortcut: 'CommandOrControl+Alt+Shift+Y' });
+        expect(normalizeCaptureShortcut('Meta+Y', 'darwin')).toEqual({ ok: true, shortcut: 'Command+Y' });
+        expect(normalizeCaptureShortcut('Meta+Y', 'linux')).toEqual({ ok: true, shortcut: 'Super+Y' });
+    });
+
+    it('rejects shortcuts that cannot be registered', () => {
+        expect(normalizeCaptureShortcut('Y', 'win32').ok).toBe(false);
+        expect(normalizeCaptureShortcut('Ctrl+Shift', 'win32').ok).toBe(false);
+        expect(normalizeCaptureShortcut(7, 'win32').ok).toBe(false);
+    });
+});
