@@ -11,7 +11,12 @@ const sha = 'a'.repeat(64);
 const manifest: MediaManifest = {
     version: 1,
     bucket: 'yomu-academy-media',
-    objects: [{ key: 'persona/theme/evening.m4a', contentType: 'audio/mp4', bytes: bytes.length, sha256: sha }],
+    objects: [{
+        key: 'media/audio/persona/theme/evening.m4a',
+        contentType: 'audio/mp4',
+        bytes: bytes.length,
+        sha256: sha,
+    }],
 };
 
 async function authedAcademy(): Promise<{ academy: FakeAcademy; cookie: string }> {
@@ -32,7 +37,7 @@ async function authedAcademy(): Promise<{ academy: FakeAcademy; cookie: string }
     // Media requires a signed-in account for every invite kind.
     academy.db.sessions[0].account_id = 'acct-media-1';
     academy.db.academyGrants.add('acct-media-1');
-    academy.bucket.put('persona/theme/evening.m4a', bytes);
+    academy.bucket.put('media/audio/persona/theme/evening.m4a', bytes);
     return { academy, cookie };
 }
 
@@ -152,5 +157,13 @@ describe('Academy media manifest integrity', () => {
                 { key: 'dup.m4a', contentType: 'audio/mp4', bytes: 2, sha256: sha },
             ],
         })).toThrow(/duplicate/i);
+        expect(() => parseMediaManifest({
+            version: 1,
+            bucket: 'b',
+            objects: [
+                { key: 'v1/cue.wav', contentType: 'audio/wav', bytes: 1, sha256: sha },
+                { key: 'media/audio/v1/cue.wav', contentType: 'audio/wav', bytes: 1, sha256: sha },
+            ],
+        })).toThrow(/public route/i);
     });
 });

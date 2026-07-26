@@ -1,6 +1,11 @@
 import type { AcademyLanguage } from '../../reader/app/academy-copy';
 import { ACADEMY_ASSETS } from '../assets';
 import {
+    createVocabularyPictographIndex,
+    loadVocabularyPictographManifest,
+    mountLessonVocabularyPictographs,
+} from '../content/vocabulary-pictographs';
+import {
     startLessonZeroSentenceFrameSession,
     transitionLessonZeroSentenceFrameSession,
     type LessonZeroSentenceFrameDefinition,
@@ -12,6 +17,7 @@ import {
 import type { Disposable, PronunciationService } from '../integration/yomu-bridge';
 import { playLearningVoiceBinding } from '../audio/learning-voice';
 import { academyBackgroundPicture, backButton, element } from './dom';
+import { mountAcademySceneParallax } from './scene-parallax';
 
 type LocalizedCopy = Readonly<{ en: string; ja: string }>;
 
@@ -36,54 +42,54 @@ export interface LessonZeroSentenceFrameScreen {
 
 const COPY = {
     eyebrow: { en: 'First sentences', ja: 'はじめての文' },
-    title: { en: 'Your first five sentences', ja: '最初の五つの文' },
-    readyProgress: { en: 'Five sentences', ja: '五つの文' },
+    title: { en: 'Five sentences for today', ja: '今日使う五つの文' },
+    readyProgress: { en: '5 lines', ja: '五つの文' },
     welcome: {
-        en: 'I’ve put five sentence starters on the desk. We’ll use them to introduce you, fix a mix-up, ask Sophie a question, and talk about this class.',
-        ja: '机に、五つの文の始まりを置きました。自己紹介をして、まちがいを直し、ソフィーさんに質問して、このクラスについて話します。',
+        en: 'We’ll use five lines today: introduce yourself, fix a mix-up, ask Sophie a question, and talk about class.',
+        ja: '今日は五つの文を使います。自己紹介をして、まちがいを直し、ソフィーさんに質問して、クラスについて話します。',
     },
     welcomeReason: {
-        en: 'I’ll show you one pattern at a time. After all five, I’ll cover the patterns and you’ll try them once more.',
-        ja: '文の形を一つずつ見せます。五つ作ったら、形をかくして、もう一度使います。',
+        en: 'Build each one with me. Then try all five from memory.',
+        ja: '一つずつ作ってから、五つを思い出して使いましょう。',
     },
     begin: { en: 'Start with “I am…”', ja: '「わたしは…」から始める' },
     pattern: { en: 'Sentence pattern', ja: '文の形' },
     example: { en: 'Example', ja: '例' },
     hearExample: { en: 'Hear the example', ja: '例を聞く' },
     playing: { en: 'Playing…', ja: '再生中…' },
-    tryTurn: { en: 'Try this turn', ja: 'この文を作る' },
+    tryTurn: { en: 'Build it', ja: 'この文を作る' },
     yourSentence: { en: 'Your sentence', ja: 'あなたの文' },
     wordDesk: { en: 'Words on the desk', ja: '机のことば' },
     empty: { en: 'Choose the first word.', ja: '最初のことばを選んでください。' },
-    clear: { en: 'Put every word back', ja: 'ことばを全部戻す' },
-    check: { en: 'Check the sentence', ja: '文を確かめる' },
+    clear: { en: 'Reset', ja: 'やり直す' },
+    check: { en: 'Check', ja: '答え合わせ' },
     repairTitle: { en: 'A word is out of place', ja: 'ことばの場所がちがいます' },
     repairBody: {
-        en: 'Look at the pattern again, then put the words in that order.',
-        ja: 'もう一度、文の形を見て、その順番にことばを並べましょう。',
+        en: 'Match the pattern above.',
+        ja: '上の文の形に合わせましょう。',
     },
     transferRepairBody: {
-        en: 'Listen to the sentence in your head. If you need it, uncover Rie’s model, then rebuild it.',
-        ja: '頭の中で文を聞いてみましょう。必要なら、りえ先生のお手本を見て、もう一度作りましょう。',
+        en: 'Try it in your head. Need help? Uncover Rie’s sentence.',
+        ja: '頭の中で言ってみましょう。必要なら、りえ先生の文を見てください。',
     },
     showModel: { en: 'Show the answer', ja: '答えを見る' },
     modelLabel: { en: 'Model sentence', ja: 'お手本の文' },
     retry: { en: 'Rebuild the sentence', ja: '文をもう一度作る' },
-    next: { en: 'Use the next shape', ja: '次の形を使う' },
-    beginTransfer: { en: 'Try all five without the patterns', ja: '文の形を見ずに五つ使う' },
+    next: { en: 'Next sentence', ja: '次の文' },
+    beginTransfer: { en: 'Now try all five from memory', ja: '五つを思い出して使う' },
     transferEyebrow: { en: 'From memory', ja: '思い出して' },
     transferNote: {
-        en: 'The pattern is covered now. Rebuild the sentence from the conversation.',
-        ja: '文の形をかくしました。会話を思い出して、文を作ってください。',
+        en: 'The pattern is covered. Build the line from memory.',
+        ja: '文の形をかくしました。思い出して作りましょう。',
     },
     transferPass: { en: 'Good. One more is ready.', ja: 'いいですね。次もいきましょう。' },
-    nextTransfer: { en: 'Recall the next sentence', ja: '次の文を思い出す' },
+    nextTransfer: { en: 'Next sentence', ja: '次の文' },
     completeTitle: { en: 'You joined the conversation', ja: '会話に入れました' },
     completeBody: {
-        en: 'You introduced yourself, fixed a mix-up, asked Sophie a question, and described the class. Those five lines are now in review.',
-        ja: '自己紹介をして、まちがいを直し、ソフィーさんに質問して、クラスについて話しました。五つの文は復習に入りました。',
+        en: 'You used all five without the patterns.',
+        ja: '文の形を見ずに、五つとも使えました。',
     },
-    memories: { en: 'Five lines are now in review', ja: '五つの文が復習に入りました' },
+    memories: { en: 'Ready for review', ja: '復習に入りました' },
     continue: { en: 'Continue your day', ja: '今日の続きを始める' },
     again: { en: 'Build the five lines again', ja: '五つの文をもう一度作る' },
     saveError: { en: 'That turn did not save. Please try once more.', ja: '保存できませんでした。もう一度お試しください。' },
@@ -103,6 +109,7 @@ export function createLessonZeroSentenceFrameScreen(
     const screen = element('section', 'academy-screen academy-sentence-frame-screen');
     screen.dataset.academyScreen = 'lesson-zero-sentence-frames';
     screen.dataset.activityId = options.definition.activityId;
+    screen.dataset.jpdbReaderInteractionIgnore = '';
     screen.append(academyBackgroundPicture('classroom'));
 
     const shell = element('div', 'academy-sentence-frame-shell');
@@ -127,6 +134,7 @@ export function createLessonZeroSentenceFrameScreen(
     live.setAttribute('aria-live', 'polite');
     shell.append(header, body, live);
     screen.append(shell);
+    mountAcademySceneParallax(screen, lifecycle.signal);
 
     const render = (): void => {
         renderLifecycle.abort();
@@ -159,12 +167,15 @@ export function createLessonZeroSentenceFrameScreen(
     const renderWelcome = (signal: AbortSignal): void => {
         const scene = sceneWithPortrait('rie');
         const paper = livingPaper();
+        const visualVocabulary = element('div', 'academy-sentence-frame-vocabulary');
         paper.append(
             speakerName('rie', options.language),
             localized('p', 'academy-sentence-frame-dialogue', COPY.welcome, options.language),
+            visualVocabulary,
             localized('p', 'academy-sentence-frame-note', COPY.welcomeReason, options.language),
             actionButton(COPY.begin, 'primary', signal, () => apply({ kind: 'start' }), options.language),
         );
+        void mountFoundationVocabulary(visualVocabulary, signal, options.language);
         scene.append(portrait('rie'), paper);
         body.append(scene);
     };
@@ -506,6 +517,36 @@ export function createLessonZeroSentenceFrameScreen(
             playback = null;
         },
     };
+}
+
+async function mountFoundationVocabulary(
+    host: HTMLElement,
+    signal: AbortSignal,
+    language: AcademyLanguage,
+): Promise<void> {
+    host.dataset.vocabularyPictographs = 'loading';
+    try {
+        const manifest = await loadVocabularyPictographManifest();
+        if (signal.aborted || !host.isConnected) return;
+        const mounted = mountLessonVocabularyPictographs(
+            host,
+            createVocabularyPictographIndex(manifest),
+            'lesson:foundation-00',
+            {
+                ariaLabel: language === 'ja' ? 'この場面のことば' : 'Words in this scene',
+                heading: language === 'ja' ? 'この場面のことば' : 'Words in this scene',
+            },
+        );
+        if (signal.aborted || !host.isConnected) {
+            mounted.dispose();
+            return;
+        }
+        host.dataset.vocabularyPictographs = 'ready';
+        host.dataset.vocabularyPictographCount = String(mounted.imagePaths.length);
+        if (mounted.imagePaths.length === 0) host.remove();
+    } catch {
+        if (!signal.aborted) host.remove();
+    }
 }
 
 function sceneWithPortrait(speaker: 'rie' | 'sophie'): HTMLElement {

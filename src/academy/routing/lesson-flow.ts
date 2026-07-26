@@ -23,6 +23,10 @@ import {
     LESSON_ZERO_GREETING_ACTIVITY_ID,
 } from '../content/lesson-zero-greeting';
 import {
+    createLessonZeroHiraganaDefinition,
+    LESSON_ZERO_HIRAGANA_BOOTCAMP_ID,
+} from '../content/lesson-zero-hiragana';
+import {
     createLessonZeroNameCardDefinition,
     LESSON_ZERO_NAME_CARD_ACTIVITY_ID,
 } from '../content/lesson-zero-name-card';
@@ -104,6 +108,10 @@ import {
     transitionLessonZeroGreetingSession,
 } from '../domain/lesson-zero-greeting-session';
 import {
+    startLessonZeroHiraganaSession,
+    transitionLessonZeroHiraganaSession,
+} from '../domain/lesson-zero-hiragana-session';
+import {
     startLessonZeroNameCardSession,
     transitionLessonZeroNameCardSession,
 } from '../domain/lesson-zero-name-card-session';
@@ -150,6 +158,7 @@ import { createClassroomInstructionScreen } from '../ui/classroom-instruction-sc
 import { createLessonZeroRepeatRequestScreen } from '../ui/lesson-zero-repeat-request-screen';
 import { createLessonZeroDeskLanguageScreen } from '../ui/lesson-zero-desk-language-screen';
 import { createLessonZeroGreetingScreen } from '../ui/lesson-zero-greeting-screen';
+import { createLessonZeroHiraganaScreen } from '../ui/lesson-zero-hiragana-screen';
 import { createLessonZeroNameCardScreen } from '../ui/lesson-zero-name-card-screen';
 import { createLessonZeroMissionScreen } from '../ui/lesson-zero-mission-screen';
 import { createLessonZeroSentenceFrameScreen } from '../ui/lesson-zero-sentence-frame-screen';
@@ -495,6 +504,10 @@ class LessonFlow implements AcademyRouteFlow {
         }
         if (context.checkpoint.activityId === LESSON_ZERO_VOWEL_SOUND_MAP_ID) {
             await this.renderLessonZeroVowelSession(context);
+            return;
+        }
+        if (context.checkpoint.activityId === LESSON_ZERO_HIRAGANA_BOOTCAMP_ID) {
+            await this.renderLessonZeroHiraganaSession(context);
             return;
         }
         if (context.checkpoint.activityId === LESSON_ZERO_VOWEL_WRITING_ID) {
@@ -1319,6 +1332,74 @@ class LessonFlow implements AcademyRouteFlow {
                 await context.save?.({ lessonZeroVowelWritingProgress: transition.state });
             },
             onRestart: restart => context.save?.({ lessonZeroVowelWritingProgress: restart }),
+            onBack: () => context.back(),
+            onComplete: () => this.completeSourceActivity(context, returning),
+        });
+        screen.element.dataset.academyRoute = 'source-activity';
+        screen.element.addEventListener('academy:dispose', () => screen.dispose(), { once: true });
+        context.shell.replace(screen.element);
+    }
+
+    private async renderLessonZeroHiraganaSession(context: AcademyRouteContext): Promise<void> {
+        const definition = createLessonZeroHiraganaDefinition();
+        let state;
+        try {
+            state = startLessonZeroHiraganaSession(
+                definition,
+                context.checkpoint.lessonZeroHiraganaProgress,
+            );
+        } catch {
+            state = startLessonZeroHiraganaSession(definition);
+        }
+        if (state.status === 'paused') {
+            state = transitionLessonZeroHiraganaSession(
+                definition,
+                state,
+                { kind: 'resume' },
+                Date.now(),
+            ).state;
+        }
+        if (JSON.stringify(state) !== JSON.stringify(context.checkpoint.lessonZeroHiraganaProgress)) {
+            await context.save?.({ lessonZeroHiraganaProgress: state });
+        }
+        const returning = context.projection.completedScenes.includes(AAKASH_RAINY_DIRECTIONS_SCENE_ID);
+        const screen = createLessonZeroHiraganaScreen({
+            language: context.language,
+            definition,
+            initialState: state,
+            pronunciation: this.options.pronunciation,
+            rieSprite: ACADEMY_ASSETS.characters.approvedPerformances.rie.encouraging,
+            onTransition: async (_before, transition) => {
+                if (transition.evaluation) {
+                    this.playFeedbackSfx(transition.evaluation.result.outcome);
+                    await this.options.evidence.recordActivity(
+                        transition.evaluation,
+                        LESSON_ZERO_ID,
+                        undefined,
+                        transition.adaptive,
+                    );
+                }
+                if (transition.completionEvaluation) {
+                    await this.options.evidence.recordActivity(
+                        transition.completionEvaluation,
+                        LESSON_ZERO_ID,
+                        {
+                            id: 'lesson-zero-hiragana-route',
+                            sceneId: 'scene:lesson-zero-hiragana-route',
+                            journalLine: {
+                                lineId: 'journal:lesson-zero:hiragana-route',
+                                characterId: 'rie',
+                                text: {
+                                    ja: 'りえ先生と基本のひらがな46字を読んだ。まちがえた字も、最後にもう一度読めた。',
+                                    en: 'I read all 46 basic hiragana with Rie-sensei. The ones I missed came back, and I read them too.',
+                                },
+                            },
+                        },
+                    );
+                }
+                await context.save?.({ lessonZeroHiraganaProgress: transition.state });
+            },
+            onRestart: restart => context.save?.({ lessonZeroHiraganaProgress: restart }),
             onBack: () => context.back(),
             onComplete: () => this.completeSourceActivity(context, returning),
         });

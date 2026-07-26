@@ -52,6 +52,9 @@ export function normalizeResumeCheckpoint(
             ...(checkpoint.lessonZeroGreetingProgress
                 ? { lessonZeroGreetingProgress: checkpoint.lessonZeroGreetingProgress }
                 : {}),
+            ...(checkpoint.lessonZeroHiraganaProgress
+                ? { lessonZeroHiraganaProgress: checkpoint.lessonZeroHiraganaProgress }
+                : {}),
             ...(checkpoint.lessonZeroSentenceFrameProgress
                 ? { lessonZeroSentenceFrameProgress: checkpoint.lessonZeroSentenceFrameProgress }
                 : {}),

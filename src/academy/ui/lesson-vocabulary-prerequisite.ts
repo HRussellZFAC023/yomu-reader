@@ -9,7 +9,7 @@ export interface LessonVocabularyPrerequisiteScreenOptions {
     readonly onContinue: () => void | Promise<void>;
 }
 
-/** Shows the preserved teacher sheet before an authored lesson can mount. */
+/** Gives the learner a short vocabulary warm-up before an authored lesson mounts. */
 export function renderLessonVocabularyPrerequisiteScreen(
     options: LessonVocabularyPrerequisiteScreenOptions,
 ): HTMLElement {
@@ -21,21 +21,24 @@ export function renderLessonVocabularyPrerequisiteScreen(
     screen.dataset.parityStatus = prerequisite.evidence.status;
 
     const panel = element('article', 'academy-library-desk');
+    const hasWords = prerequisite.sheet.sourceStatus === 'exact-source';
     const eyebrow = element('p', 'academy-library-marker');
-    eyebrow.textContent = language === 'ja' ? '授業の前に' : 'Before activities';
+    eyebrow.textContent = language === 'ja' ? 'レッスンの前に' : 'Before the lesson';
     const title = element('h1', 'academy-library-title');
-    title.textContent = language === 'ja' ? '先生の単語シート' : 'Sensei vocabulary sheet';
+    title.textContent = hasWords
+        ? language === 'ja' ? '今日のことば' : 'Today’s words'
+        : language === 'ja' ? '準備できました' : 'You’re ready';
     const note = element('p', 'academy-library-note');
-    note.textContent = prerequisite.sheet.sourceStatus === 'exact-source'
+    note.textContent = hasWords
         ? language === 'ja'
-            ? '先生の資料の行を読んでから始めます。続けると、同じ行がよむの実際の復習予定に追加されます。'
-            : 'Read the preserved teacher rows before you begin. Continuing adds those same rows to Yomu’s real review schedule.'
+            ? '今日のことばを見てから始めましょう。続けると、復習にも追加されます。'
+            : 'Look through today’s words. They’ll join your reviews when you continue.'
         : language === 'ja'
-            ? 'この授業の確認済みMoodle単語シートはありません。単語を作らず、資料がないことを記録してから続けます。'
-            : 'This lesson has no verified Moodle vocabulary sheet. No vocabulary will be invented; the missing source is recorded before you continue.';
-    const evidence = evidenceList(language, prerequisite);
-    const open = button(language === 'ja' ? '先生の単語シートを開く' : 'Open teacher vocabulary sheet');
-    const continueButton = button(language === 'ja' ? 'アクティビティを始める' : 'Begin activities');
+            ? 'このレッスンの前に覚える新しいことばはありません。'
+            : 'There are no new words before this lesson.';
+    const summary = vocabularySummary(language, prerequisite);
+    const open = button(language === 'ja' ? 'ことばを見る' : 'View today’s words');
+    const continueButton = button(language === 'ja' ? 'レッスンを始める' : 'Start lesson');
     open.dataset.vocabularyPrerequisiteOpen = '';
     continueButton.dataset.vocabularyPrerequisiteContinue = '';
     let continuing = false;
@@ -57,55 +60,35 @@ export function renderLessonVocabularyPrerequisiteScreen(
         due: [],
         syllabusState: prerequisite.sheet.sourceStatus === 'exact-source' ? 'new' : 'empty',
         onPlay() {},
-        ...(prerequisite.sheet.sourceStatus === 'exact-source' ? {
+        ...(hasWords ? {
             onStart: continueToActivities,
-            startLabel: language === 'ja' ? 'アクティビティを始める' : 'Begin activities',
+            startLabel: language === 'ja' ? 'レッスンを始める' : 'Start lesson',
         } : {}),
     }, open);
     open.addEventListener('click', showSheet);
     continueButton.addEventListener('click', continueToActivities);
-    panel.append(eyebrow, title, note, evidence);
-    if (prerequisite.sheet.sourceStatus === 'exact-source') panel.append(open);
+    panel.append(eyebrow, title, note, summary);
+    if (hasWords) panel.append(open);
     panel.append(continueButton);
     screen.append(academyBackgroundPicture('library'), panel);
-    if (prerequisite.sheet.sourceStatus === 'exact-source') requestAnimationFrame(showSheet);
+    if (hasWords) requestAnimationFrame(showSheet);
     else requestAnimationFrame(() => continueButton.focus({ preventScroll: true }));
     return screen;
 }
 
-function evidenceList(language: AcademyLanguage, prerequisite: SenseiVocabularyPrerequisite): HTMLElement {
+function vocabularySummary(language: AcademyLanguage, prerequisite: SenseiVocabularyPrerequisite): HTMLElement {
     const section = element('section', 'academy-vocabulary-sheet-journey');
     const title = element('h2', 'academy-vocabulary-sheet-journey-title');
-    title.textContent = language === 'ja' ? '資料の記録' : 'Source record';
-    const source = element('p', 'academy-vocabulary-sheet-journey-note');
-    source.textContent = prerequisite.evidence.sourceSheets.length
-        ? language === 'ja'
-            ? `確認したMoodle資料: ${prerequisite.evidence.sourceSheets.length}件。表示する行は、選んだ資料の保存済みの順番です。`
-            : `Checked Moodle source records: ${prerequisite.evidence.sourceSheets.length}. Displayed rows retain their selected source order.`
-        : language === 'ja'
-            ? '確認済みのMoodle単語資料はありません。'
-            : 'There is no verified Moodle vocabulary source for this lesson.';
-    const gaps = element('ul', 'academy-vocabulary-sheet-list');
-    for (const gap of prerequisite.evidence.gaps) {
-        const item = element('li', 'academy-vocabulary-sheet-empty');
-        item.textContent = gapLabel(gap, language);
-        item.dataset.sourceGap = gap;
-        gaps.append(item);
-    }
-    section.append(title, source, gaps);
+    const copy = element('p', 'academy-vocabulary-sheet-journey-note');
+    const count = prerequisite.sheet.items.length;
+    title.textContent = count > 0
+        ? language === 'ja' ? '今日のリスト' : 'Ready to study'
+        : language === 'ja' ? 'ウォームアップなし' : 'No warm-up';
+    copy.textContent = count > 0
+        ? language === 'ja' ? `${count}語あります。` : `${count} ${count === 1 ? 'word' : 'words'} in today’s list.`
+        : language === 'ja' ? 'そのまま始められます。' : 'Start when you’re ready.';
+    section.append(title, copy);
     return section;
-}
-
-function gapLabel(gap: string, language: AcademyLanguage): string {
-    const copy: Readonly<Record<string, readonly [string, string]>> = {
-        'lesson-zero-has-no-moodle-vocabulary-sheet': ['Lesson 0 has no Moodle vocabulary sheet.', 'レッスン0にはMoodle単語シートがありません。'],
-        'no-exact-source-vocabulary-sheet': ['No exact Moodle vocabulary sheet was captured for this lesson.', 'この授業の正確なMoodle単語シートは取得されていません。'],
-        'source-sheet-extraction-incomplete': ['The captured Moodle vocabulary sheet is incomplete.', '取得したMoodle単語シートは完全ではありません。'],
-        'ordered-vocabulary-content-mismatch': ['The captured sheet order does not cover the current lesson package exactly.', '取得したシートの順番は、現在の授業パッケージを完全にはカバーしていません。'],
-        'lesson-prestudy-list-missing': ['The lesson has no source-backed pre-study list.', 'この授業には資料に基づく予習リストがありません。'],
-    };
-    const value = copy[gap];
-    return value ? value[language === 'ja' ? 1 : 0] : gap;
 }
 
 function button(label: string): HTMLButtonElement {

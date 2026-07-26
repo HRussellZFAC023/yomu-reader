@@ -1,6 +1,8 @@
 import { isJpdbHost } from '../jpdb/jpdb-page-targets';
 
 const READER_DOCUMENT_CLICK_IGNORE_SELECTOR = [
+    '[data-jpdb-reader-surface-ignore]',
+    '[data-jpdb-reader-interaction-ignore]',
     '[data-jpdb-reader-root] [data-action="kanji"][data-kanji]',
     '[data-yomu-jpdb-addon] [data-action]',
     '[data-settings-preview-lookup]',

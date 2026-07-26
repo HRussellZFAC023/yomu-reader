@@ -58,6 +58,14 @@ async function verifyVowelRoute(viewport, name, complete = false) {
         renderOwner: 'yomu',
         iframeCount: 0,
     }, `${name} must render the mapped curriculum through Yomu`);
+    const introText = await page.locator('.academy-vowel-screen').innerText();
+    assert.match(introText, /Studio A/iu);
+    assert.match(introText, /Five vowel sounds/u);
+    assert.doesNotMatch(
+        introText,
+        /First sound lab|sound lab|Stay with the sound that slipped|Compare the neighbours/u,
+        `${name} must use concise recording-studio language`,
+    );
 
     const intro = await geometry(page);
     assert.equal(intro.scrollWidth, viewport.width, `${name} must not overflow horizontally`);
@@ -70,9 +78,12 @@ async function verifyVowelRoute(viewport, name, complete = false) {
     await assertAccessible(page);
     await page.screenshot({ path: path.join(artifactDir, `${name}-intro.png`), fullPage: true });
 
-    await page.getByRole('button', { name: 'Take the headphones' }).click();
-    await page.getByRole('button', { name: 'Visual cue' }).click();
-    await page.getByRole('button', { name: 'Hold this shape' }).click();
+    await page.getByRole('button', { name: 'Put on headphones' }).click();
+    await page.locator('[data-vowel-anchor-image]').waitFor();
+    assert.equal(await page.locator('[data-vowel-anchor-image]').count(), 1, 'each introduced word needs a picture');
+    assert.ok(await page.locator('[data-vowel-anchor-image]').getAttribute('alt'), 'the anchor picture needs useful alt text');
+    await page.getByRole('button', { name: 'Visual' }).click();
+    await page.getByRole('button', { name: 'Next' }).click();
     await page.locator('.academy-vowel-back').click();
     await page.locator('.academy-vowel-screen').waitFor({ state: 'detached' });
     await openVowelsDirectly(page);
@@ -89,13 +100,13 @@ async function verifyVowelRoute(viewport, name, complete = false) {
         return;
     }
 
-    await page.getByRole('button', { name: 'Sound' }).click();
+    await page.getByRole('button', { name: 'Audio' }).click();
     for (let index = 1; index < 5; index += 1) {
         const before = await playedAudioCount(page);
-        await page.getByRole('button', { name: 'Hear it in a word' }).click();
+        await page.getByRole('button', { name: 'Play word' }).click();
         await page.waitForFunction(count => window.__academyVowelPlayedUrls.length > count, before);
     }
-    await page.getByRole('button', { name: 'Listen without the paper' }).click();
+    await page.getByRole('button', { name: 'Start' }).click();
     await completeAudioRound(page);
     await page.waitForTimeout(500);
     if (await page.locator('.academy-vowel-complete').count() === 0) {
@@ -114,24 +125,24 @@ async function verifyVowelRoute(viewport, name, complete = false) {
     await assertAccessible(page);
     await page.screenshot({ path: path.join(artifactDir, `${name}-complete.png`), fullPage: true });
 
-    await page.getByRole('button', { name: 'Play sound bingo' }).click();
-    await page.getByRole('button', { name: 'Visual cue' }).click();
+    await page.getByRole('button', { name: 'Play bingo' }).click();
+    await page.getByRole('button', { name: 'Visual' }).click();
     assert.equal(await page.locator('.academy-vowel-bingo-tile').count(), 9, 'bingo must render its complete stable board');
     await completeVisualRound(page, true);
-    await page.getByRole('heading', { name: 'Stay with the sound that slipped' }).waitFor();
+    await page.getByRole('heading', { name: /^Try . again$/u }).waitFor();
     const contrast = page.locator('.academy-vowel-contrast-repair');
     await contrast.waitFor();
-    assert.match(await contrast.innerText(), /Compare the neighbours/u);
+    assert.match(await contrast.innerText(), /Quick tip/u);
     assert.match(
         await contrast.getAttribute('data-curriculum-question-id'),
         /^6a653ad6ba9069fd1d52ec37-g-[123]$/u,
         'the repair must retain the exact Honen question identity',
     );
     await page.screenshot({ path: path.join(artifactDir, `${name}-honen-repair.png`), fullPage: true });
-    await page.getByRole('button', { name: 'Keep this sound' }).click();
-    await page.getByRole('button', { name: 'Try the five again' }).click();
+    await page.getByRole('button', { name: 'Next' }).click();
+    await page.getByRole('button', { name: 'Try again' }).click();
     await completeVisualRound(page);
-    await page.getByRole('heading', { name: 'Bingo. The five still held.' }).waitFor();
+    await page.getByRole('heading', { name: 'Bingo!' }).waitFor();
     assert.equal((await geometry(page)).scrollWidth, viewport.width);
     assert.equal(await page.locator('.jpdb-reader-popover').count(), 0, 'bingo choices must not open the Reader lookup sheet');
     await assertAccessible(page);
@@ -161,7 +172,7 @@ async function completeAudioRound(page) {
     const kanaForSound = { a: 'あ', i: 'い', u: 'う', e: 'え', o: 'お' };
     for (let index = 0; index < 5; index += 1) {
         const before = await playedAudioCount(page);
-        await page.getByRole('button', { name: 'Play the sound' }).click();
+        await page.getByRole('button', { name: 'Play' }).click();
         await page.waitForFunction(count => window.__academyVowelPlayedUrls.length > count, before);
         const url = await page.evaluate(() => window.__academyVowelPlayedUrls.at(-1));
         const sound = /\/xingyu-lesson-zero-vowel-([aiueo])__/u.exec(url)?.[1];

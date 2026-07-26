@@ -455,6 +455,12 @@ class WorldFlow implements AcademyRouteFlow {
             ...(context.projection.profile?.learningReason
                 ? { learningReason: context.projection.profile.learningReason }
                 : {}),
+            ...(context.checkpoint.sectionId === 'people'
+                ? { initialSection: 'people' as const }
+                : {}),
+            ...(context.checkpoint.activityId === 'qa:cast-review'
+                ? { reviewAllCast: true }
+                : {}),
             onBack: () => void context.back(),
             onOpenWeek: weekId => {
                 const lesson = delivery.weeks.find(entry => entry.weekId === weekId);

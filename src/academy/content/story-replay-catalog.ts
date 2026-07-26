@@ -16,7 +16,11 @@ const OPENING_ARC_REPLAY_SCENES: readonly ReplaySceneDefinition[] = Object.freez
     replayScene(
         'replay:blank-atlas:sound-script-map',
         'scene:blank-atlas:sound-script-map',
-        ['activity:lesson-zero-vowel-listen', 'activity:lesson-zero-vowel-doodle'],
+        [
+            'activity:lesson-zero-vowel-listen',
+            'activity:lesson-zero-hiragana-bootcamp',
+            'activity:lesson-zero-vowel-doodle',
+        ],
     ),
     replayScene(
         'replay:blank-atlas:classroom-survival',

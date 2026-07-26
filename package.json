@@ -162,6 +162,7 @@
     "manual:academy-placement": "node scripts/manual/placement-browser.mjs",
     "manual:academy-greeting": "node scripts/manual/lesson-zero-greeting-browser.mjs",
     "manual:academy-vowels": "node scripts/manual/lesson-zero-vowel-browser.mjs",
+    "manual:academy-hiragana": "node scripts/manual/lesson-zero-hiragana-browser.mjs",
     "manual:academy-vowel-writing": "node scripts/manual/lesson-zero-vowel-writing-browser.mjs",
     "manual:academy-classroom-instructions": "node scripts/manual/lesson-zero-classroom-instructions-browser.mjs",
     "manual:academy-classroom-repair": "node scripts/manual/lesson-zero-repeat-request-browser.mjs",

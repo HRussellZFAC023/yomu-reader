@@ -15,6 +15,7 @@ import {
 } from './lesson-zero-follow-instructions';
 import { validateLessonZeroGrounding } from './lesson-zero-grounding';
 import { LESSON_ZERO_GREETING_ACTIVITY_ID } from './lesson-zero-greeting';
+import { LESSON_ZERO_HIRAGANA_BOOTCAMP_ID } from './lesson-zero-hiragana';
 import { LESSON_ZERO_MISSION_ACTIVITY_IDS } from './lesson-zero-mission-activity';
 import { LESSON_ZERO_NAME_CARD_ACTIVITY_ID } from './lesson-zero-name-card';
 import {
@@ -162,6 +163,7 @@ export const ACADEMY_LESSON_CONTENT_REGISTRY: readonly LessonContentRegistration
         releaseChannel: 'trusted-source',
         trustedActivityIds: [
             LESSON_ZERO_GREETING_ACTIVITY_ID,
+            LESSON_ZERO_HIRAGANA_BOOTCAMP_ID,
             LESSON_ZERO_NAME_CARD_ACTIVITY_ID,
             LESSON_ZERO_SENTENCE_FRAMES_ACTIVITY_ID,
             ...LESSON_ZERO_SENTENCE_FRAME_CHILD_ACTIVITY_IDS,
@@ -187,7 +189,7 @@ export const ACADEMY_LESSON_CONTENT_REGISTRY: readonly LessonContentRegistration
         filename: 'lesson-zero.v1.json',
         lessonId: 'lesson:foundation-00',
         classWeekId: 'orientation',
-        expectedContentRevision: '2026-07-22.lesson-zero.v2-sound-mission',
+        expectedContentRevision: '2026-07-26.lesson-zero.v3-hiragana-route',
         expectedSha256: LESSON_ZERO_CONTENT_SHA256,
         audit: validateLessonZeroGrounding,
     },

@@ -68,7 +68,7 @@ describe('complete Lesson 0 content package', () => {
         const { lesson } = await loadLessonZeroContent(lessonFetcher());
 
         expect(lesson.overview.title).toEqual({ en: 'Lesson 0', ja: 'レッスン0' });
-        expect(lesson.overview.goals).toHaveLength(5);
+        expect(lesson.overview.goals).toHaveLength(6);
         expect(lesson.overview.peopleIds).toEqual([
             'rie', 'xingyu', 'mika', 'sophie', 'ruparna', 'aakash', 'sam',
         ]);

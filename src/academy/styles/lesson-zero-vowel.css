@@ -356,7 +356,7 @@
 
 .academy-vowel-teaching-note {
     display: grid;
-    grid-template-columns: auto 1fr;
+    grid-template-columns: auto minmax(96px, 132px) 1fr;
     align-items: center;
     gap: 2px 22px;
     margin-top: 22px;
@@ -372,13 +372,24 @@
 }
 
 .academy-vowel-romaji {
+    grid-column: 2;
     align-self: end;
     color: var(--academy-accent);
     font-size: 1.45rem;
     font-weight: 900;
 }
 
+.academy-vowel-anchor-image {
+    grid-column: 2;
+    grid-row: 2 / span 3;
+    width: 100%;
+    max-width: 132px;
+    aspect-ratio: 1;
+    object-fit: contain;
+}
+
 .academy-vowel-anchor-word {
+    grid-column: 3;
     margin: 6px 0 0;
     color: var(--academy-paper-ink);
     font-family: var(--academy-japanese-font);
@@ -396,6 +407,7 @@
 }
 
 .academy-vowel-anchor-meaning {
+    grid-column: 3;
     margin: 2px 0 5px;
     color: var(--academy-paper-muted);
     font-size: 0.9rem;
@@ -410,6 +422,7 @@
 }
 
 .academy-vowel-articulation {
+    grid-column: 3;
     align-self: start;
     margin: 2px 0 0;
     color: var(--academy-paper-muted);
@@ -418,6 +431,23 @@
 .academy-vowel-teaching-note > .academy-vowel-action {
     grid-column: 1 / -1;
     justify-self: start;
+}
+
+@media (max-width: 560px) {
+    .academy-vowel-teaching-note {
+        grid-template-columns: auto minmax(84px, 108px) minmax(0, 1fr);
+        gap: 4px 10px;
+    }
+
+    .academy-vowel-anchor-image {
+        max-width: 108px;
+    }
+
+    .academy-vowel-articulation {
+        grid-column: 1 / -1;
+        margin-top: 10px;
+        line-height: 1.35;
+    }
 }
 
 .academy-vowel-ready {

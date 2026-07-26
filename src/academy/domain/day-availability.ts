@@ -160,6 +160,7 @@ export function worldPracticeAvailableOnAcademyDay(
 const DAY_ONE_LESSON_ACTIVITY_IDS = [
     'activity:lesson-zero-greet-rie',
     'activity:lesson-zero-vowel-listen',
+    'activity:lesson-zero-hiragana-bootcamp',
     'activity:lesson-zero-vowel-doodle',
     'activity:lesson-zero-follow-instructions',
     'activity:lesson-zero-reconstruct-repair',
@@ -181,6 +182,7 @@ const DAY_ONE_LESSON_ACTIVITY_IDS = [
 const DAY_ONE_LESSON_ACTIVITY_TITLES = {
     'activity:lesson-zero-greet-rie': 'Greet Rie and introduce yourself',
     'activity:lesson-zero-vowel-listen': 'Hear and identify the five vowel sounds',
+    'activity:lesson-zero-hiragana-bootcamp': 'Read all 46 basic hiragana',
     'activity:lesson-zero-vowel-doodle': 'Write the five vowel kana',
     'activity:lesson-zero-follow-instructions': 'Follow Rie’s classroom instructions',
     'activity:lesson-zero-reconstruct-repair': 'Rebuild a request for repetition',
@@ -201,6 +203,7 @@ const DAY_ONE_LESSON_ACTIVITY_TITLES = {
 
 const DAY_ONE_VERIFIED_ACTIVITY_IDS = new Set<typeof DAY_ONE_LESSON_ACTIVITY_IDS[number]>([
     'activity:lesson-zero-vowel-listen',
+    'activity:lesson-zero-hiragana-bootcamp',
     'activity:lesson-zero-vowel-doodle',
     'activity:lesson-zero-follow-instructions',
     'activity:lesson-zero-reconstruct-repair',

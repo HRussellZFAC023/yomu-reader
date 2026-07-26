@@ -139,8 +139,8 @@
   },
   "curriculumBinding": {
     "lessonId": "lesson:foundation-00",
-    "contentVersion": "2026-07-22.lesson-zero.v2-sound-mission",
-    "contentSha256": "93a7ca8acb02cef615d18072de9f555db2abdadaa67fe90993867d2aed648b85",
+    "contentVersion": "2026-07-26.lesson-zero.v3-hiragana-route",
+    "contentSha256": "07b14df944f8397154ffa5f9f22288b754b22c771786d550afe529d63dd69656",
     "provenancePath": "public/academy/content/lessons/lesson-zero/provenance.v1.json",
     "provenanceSha256": "3bf92fad4ec4996e0d055a0fdd76b4a585f703c544bc532be3fb22b6c189319e",
     "sectionSequence": [
@@ -447,13 +447,75 @@
           "kind": "checkpoint",
           "id": "checkpoint:blank-atlas:after-vowel-listen",
           "beatId": "beat:blank-atlas:vowel-listen-response",
-          "resume": "The five vowel sounds are ordered; the circles still need written forms."
+          "resume": "The five vowel sounds are set. Rie clips a kana chart to the music stand."
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:blank-atlas:before-hiragana-bootcamp",
+          "beatId": "beat:blank-atlas:hiragana-route",
+          "resume": "A kana chart is waiting on the music stand."
+        },
+        {
+          "kind": "line",
+          "id": "line:blank-atlas:rie-hiragana-route",
+          "beatId": "beat:blank-atlas:hiragana-route",
+          "speakerId": "rie",
+          "intent": "Turn the five vowel sounds into a compact system for all basic hiragana.",
+          "attentionTarget": "the kana chart clipped to the music stand",
+          "variants": {
+            "foundation": {
+              "japanese": "あ、い、う、え、お。つぎは、ひらがなです。",
+              "reading": "あ、い、う、え、お。つぎは、ひらがなです。",
+              "english": "A, i, u, e, o. Next: hiragana."
+            },
+            "n5": {
+              "japanese": "五つの母音を使って、基本のひらがなを一気に読みましょう。",
+              "reading": "いつつのぼいんをつかって、きほんのひらがなをいっきによみましょう。",
+              "english": "Using those five vowels, let's read the basic hiragana in one run."
+            }
+          },
+          "support": {
+            "reading": "learner-controlled",
+            "englishMeaning": "after-need",
+            "replay": true
+          }
+        },
+        {
+          "kind": "activity",
+          "id": "activity-node:blank-atlas:hiragana-bootcamp",
+          "beatId": "beat:blank-atlas:hiragana-route",
+          "hook": {
+            "lessonId": "lesson:foundation-00",
+            "componentType": "reading",
+            "exerciseId": "activity:lesson-zero-hiragana-bootcamp"
+          },
+          "requiredEvidence": {
+            "kind": "activity-passed",
+            "activityId": "activity:lesson-zero-hiragana-bootcamp"
+          },
+          "resumeContext": "Practise ten rows, then read all 46 without the chart.",
+          "onReady": "checkpoint:blank-atlas:after-hiragana-bootcamp",
+          "onRepair": "node:blank-atlas:hiragana-repair",
+          "onDefer": "checkpoint:blank-atlas:before-hiragana-bootcamp"
+        },
+        {
+          "kind": "stage",
+          "id": "node:blank-atlas:hiragana-repair",
+          "beatId": "beat:blank-atlas:hiragana-repair",
+          "cueId": "cue:hiragana-missed-shelf-return",
+          "description": "A missed kana returns at the end. The rest stay done."
+        },
+        {
+          "kind": "checkpoint",
+          "id": "checkpoint:blank-atlas:after-hiragana-bootcamp",
+          "beatId": "beat:blank-atlas:hiragana-response",
+          "resume": "All 46 are in review. Rie turns the chart over and leaves the five vowel cards on the desk."
         },
         {
           "kind": "checkpoint",
           "id": "checkpoint:blank-atlas:before-vowel-doodle",
           "beatId": "beat:blank-atlas:vowel-writing",
-          "resume": "The sound map is ready for the learner's first hiragana marks."
+          "resume": "Rie places the five vowel cards beside a pencil."
         },
         {
           "kind": "activity",

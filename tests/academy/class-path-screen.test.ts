@@ -209,25 +209,31 @@ describe('Class path', () => {
         expect(new Set(labels).size).toBe(labels.length);
     });
 
-    it('uses only runtime-approved transparent cutouts and keeps pending likenesses name-only', () => {
+    it('uses the complete review gallery in People without promoting candidates into lesson scenes', () => {
         const screen = renderClassPathScreen({
             language: 'en',
             plan: plan(),
             currentOrder: 2,
             playableWeekIds: new Set(['l1-l01']),
+            initialSection: 'people',
+            reviewAllCast: true,
             onBack: vi.fn(),
             onOpenWeek: vi.fn(),
         });
 
         expect(screen.querySelector('.academy-class-register-mark')).toBeNull();
+        expect(screen.querySelector<HTMLElement>('#academy-class-path-people')?.hidden).toBe(false);
+        expect(screen.querySelector<HTMLElement>('#academy-class-path-weeks')?.hidden).toBe(true);
+        expect(screen.querySelectorAll('.academy-class-person-card')).toHaveLength(30);
         expect(screen.querySelector('[data-cast-id="rie"] picture.academy-sprite img')?.getAttribute('src')).toContain('/characters/rie/');
         expect(screen.querySelector('[data-cast-id="sophie"] picture.academy-sprite img')).not.toBeNull();
         const peter = screen.querySelector<HTMLElement>('[data-cast-id="peter"]')!;
-        expect(peter.dataset.portraitState).toBe('name-only');
-        expect(peter.querySelector('img')).toBeNull();
+        expect(peter.dataset.portraitState).toBe('available');
+        expect(peter.dataset.portraitPresentation).toBe('journal-review-preview');
+        expect(peter.querySelector('img')).not.toBeNull();
         const fallback = screen.querySelector<HTMLElement>('[data-cast-id="henry"]')!;
-        expect(fallback.dataset.portraitState).toBe('name-only');
-        expect(fallback.querySelector('img')).toBeNull();
+        expect(fallback.dataset.portraitState).toBe('available');
+        expect(fallback.querySelector('img')).not.toBeNull();
         expect(fallback.querySelector('.academy-class-person-name')?.textContent).toBe('Henry-san');
         expect(fallback.querySelector('.academy-class-person-caption')?.children).toHaveLength(2);
 

@@ -353,8 +353,8 @@ function renderPlayableArc(
                 stage.setLine({
                     id: moment.node.id,
                     japanese: moment.node.resumeContext ?? (options.language === 'ja'
-                        ? '登録された練習に進みます。'
-                        : 'Open the registered practice, then return here.'),
+                        ? 'やってみてから、ここに戻りましょう。'
+                        : 'Try this, then come back.'),
                     language: options.language,
                     reading: { ...storyReadingControl(options.language), available: false },
                     ...(sceneEntrySfx ? { sfx: [sceneEntrySfx] } : {}),

@@ -118,6 +118,7 @@ export class AcademyApp {
         this.sync = new AcademySyncClient({
             events: this.persistence.events,
             onRemoteEvents: async () => { await this.evidence.refresh(); },
+            ...(this.devAuthBypass ? { online: () => false } : {}),
         });
         this.evidence = createLearnerEvidence(createSyncingLearnerEventRepository(this.persistence.events, this.sync), this.review);
         await this.evidence.initialize();
@@ -147,7 +148,7 @@ export class AcademyApp {
         // normalized: an invite session alone never reopens Academy routes.
         const requestedProfileSync = new URL(location.href).searchParams.get('view') === 'profile-sync';
         const returnedFromGoogle = await this.sync.completeGoogleReturn();
-        if (!returnedFromGoogle && (restoredCheckpoint.session || requestedProfileSync)
+        if (!this.devAuthBypass && !returnedFromGoogle && (restoredCheckpoint.session || requestedProfileSync)
             && navigator.onLine && (!this.accountLinked || !this.sync.hasCurrentAccountProjection)) {
             await this.sync.connect();
         }
@@ -158,6 +159,19 @@ export class AcademyApp {
             navigator.onLine,
             this.curriculumAuthorized,
         );
+        const qaView = this.devAuthBypass
+            ? new URL(location.href).searchParams.get('qa-view')
+            : null;
+        if (qaView === 'cast') {
+            this.checkpoint = {
+                ...this.checkpoint,
+                route: 'class',
+                routeHistory: [],
+                sectionId: 'people',
+                activityId: 'qa:cast-review',
+                updatedAt: Date.now(),
+            };
+        }
         if (requestedProfileSync && this.accountLinked) {
             this.checkpoint = {
                 ...this.checkpoint,

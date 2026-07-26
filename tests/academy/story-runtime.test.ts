@@ -9,6 +9,7 @@ import {
 const LESSON_ZERO_ACTIVITY_IDS = [
     'activity:lesson-zero-greet-rie',
     'activity:lesson-zero-vowel-listen',
+    'activity:lesson-zero-hiragana-bootcamp',
     'activity:lesson-zero-vowel-doodle',
     'activity:lesson-zero-follow-instructions',
     'activity:lesson-zero-reconstruct-repair',

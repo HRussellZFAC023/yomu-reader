@@ -1,4 +1,10 @@
 .academy-sentence-frame-screen {
+    --academy-scene-background-x: 0px;
+    --academy-scene-background-y: 0px;
+    --academy-scene-foreground-x: 0px;
+    --academy-scene-foreground-y: 0px;
+    --academy-scene-paper-x: 0px;
+    --academy-scene-paper-y: 0px;
     position: relative;
     min-height: 100dvh;
     overflow-x: clip;
@@ -22,6 +28,10 @@
     object-fit: cover;
     object-position: center 46%;
     filter: saturate(0.84) brightness(0.43) contrast(1.04);
+    scale: 1.035;
+    translate: var(--academy-scene-background-x) var(--academy-scene-background-y);
+    transition: translate 160ms ease-out;
+    will-change: translate;
 }
 
 .academy-sentence-frame-screen::before {
@@ -162,6 +172,9 @@
     object-fit: contain;
     object-position: center bottom;
     filter: drop-shadow(0 24px 22px rgba(0, 0, 0, 0.34));
+    translate: var(--academy-scene-foreground-x) var(--academy-scene-foreground-y);
+    transition: translate 150ms ease-out;
+    will-change: translate;
 }
 
 .academy-sentence-frame-paper {
@@ -178,6 +191,9 @@
         var(--academy-paper);
     box-shadow: 16px 22px 0 color-mix(in srgb, var(--academy-night) 52%, transparent), var(--academy-shadow);
     clip-path: polygon(0 0, 97% 0, 100% 7%, 100% 93%, 96% 100%, 2% 99%, 0 94%);
+    translate: var(--academy-scene-paper-x) var(--academy-scene-paper-y);
+    transition: translate 170ms ease-out;
+    will-change: translate;
 }
 
 .academy-sentence-frame-paper::before {
@@ -271,15 +287,85 @@
     color: var(--academy-paper-muted);
 }
 
+.academy-sentence-frame-vocabulary {
+    margin-top: 18px;
+}
+
+.academy-sentence-frame-vocabulary .academy-vocabulary-pictographs {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    padding-block: 10px;
+    border-block: 2px solid color-mix(in srgb, var(--academy-paper-ink) 48%, transparent);
+    background:
+        linear-gradient(90deg, color-mix(in srgb, var(--academy-accent) 11%, transparent), transparent 34%),
+        color-mix(in srgb, var(--academy-paper-deep) 48%, transparent);
+}
+
+.academy-sentence-frame-vocabulary .academy-vocabulary-pictographs__heading {
+    grid-column: 1 / -1;
+    margin: 0;
+    padding: 0 10px 7px;
+    color: var(--academy-paper-muted);
+    font-size: 0.72rem;
+    font-weight: 850;
+    letter-spacing: 0;
+    text-transform: uppercase;
+}
+
+.academy-sentence-frame-vocabulary .academy-vocabulary-pictograph {
+    display: grid;
+    grid-template-rows: 70px auto;
+    gap: 5px;
+    min-width: 0;
+    margin: 0;
+    padding: 6px 8px;
+    border-right: 1px solid color-mix(in srgb, var(--academy-paper-ink) 24%, transparent);
+}
+
+.academy-sentence-frame-vocabulary .academy-vocabulary-pictograph:last-child {
+    border-right: 0;
+}
+
+.academy-sentence-frame-vocabulary .academy-vocabulary-pictograph__image {
+    width: 100%;
+    height: 70px;
+    object-fit: contain;
+}
+
+.academy-sentence-frame-vocabulary .academy-vocabulary-pictograph__caption {
+    display: grid;
+    min-width: 0;
+    justify-items: center;
+    color: var(--academy-paper-ink);
+    text-align: center;
+}
+
+.academy-sentence-frame-vocabulary .academy-vocabulary-pictograph__expression {
+    font-family: var(--academy-japanese-font);
+    font-size: 0.86rem;
+    font-weight: 850;
+}
+
+.academy-sentence-frame-vocabulary .academy-vocabulary-pictograph__reading,
+.academy-sentence-frame-vocabulary .academy-vocabulary-pictograph__meaning {
+    overflow: hidden;
+    max-width: 100%;
+    color: var(--academy-paper-muted);
+    font-size: 0.63rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .academy-sentence-frame-pattern {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: 12px 18px;
     margin-top: 22px;
-    padding: 13px 16px;
+    padding: 11px 0 11px 16px;
     border-left: 6px solid var(--academy-accent);
-    background: color-mix(in srgb, var(--academy-paper-deep) 64%, transparent);
+    border-block: 1px solid color-mix(in srgb, var(--academy-paper-ink) 20%, transparent);
+    background: transparent;
 }
 
 .academy-sentence-frame-pattern-label {
@@ -310,9 +396,10 @@
 .academy-sentence-frame-model,
 .academy-sentence-frame-response {
     margin-top: 18px;
-    padding: 16px 18px;
+    padding: 12px 0 14px 18px;
     border-left: 5px solid color-mix(in srgb, var(--academy-accent) 68%, var(--academy-paper-ink));
-    background: color-mix(in srgb, var(--academy-paper-deep) 58%, transparent);
+    border-bottom: 1px solid color-mix(in srgb, var(--academy-paper-ink) 22%, transparent);
+    background: transparent;
 }
 
 .academy-sentence-frame-model {
@@ -350,9 +437,9 @@
 
 .academy-sentence-frame-built-line {
     margin-top: 20px;
-    padding: 14px 16px;
+    padding: 12px 2px 8px;
     border-bottom: 4px solid var(--academy-accent);
-    background: color-mix(in srgb, var(--academy-paper-deep) 62%, transparent);
+    background: transparent;
 }
 
 .academy-sentence-frame-built-line[data-outcome='lapse'] {
@@ -377,7 +464,7 @@
 
 .academy-sentence-frame-selected-rail {
     border-bottom: 3px solid var(--academy-accent);
-    background: color-mix(in srgb, var(--academy-paper-deep) 58%, transparent);
+    background: transparent;
 }
 
 .academy-sentence-frame-bank {
@@ -493,9 +580,9 @@
 
 .academy-sentence-frame-finished-line {
     counter-increment: frame-line;
-    padding: 10px 14px;
-    border-left: 5px solid var(--academy-accent);
-    background: color-mix(in srgb, var(--academy-paper-deep) 58%, transparent);
+    padding: 9px 4px;
+    border-bottom: 2px solid color-mix(in srgb, var(--academy-accent) 58%, transparent);
+    background: transparent;
     color: var(--academy-paper-ink);
     font-family: var(--academy-japanese-font);
     font-size: 1.05rem;
@@ -600,6 +687,56 @@
         font-size: 0.98rem;
     }
 
+    .academy-sentence-frame-vocabulary .academy-vocabulary-pictographs {
+        grid-template-columns: minmax(0, 1fr);
+        grid-auto-flow: row;
+        padding-block: 8px;
+        overflow: visible;
+    }
+
+    .academy-sentence-frame-vocabulary .academy-vocabulary-pictographs__heading {
+        position: static;
+        grid-column: 1;
+        min-height: 0;
+        padding: 2px 8px 8px;
+        background: transparent;
+        line-height: 1.25;
+    }
+
+    .academy-sentence-frame-vocabulary .academy-vocabulary-pictograph {
+        grid-template-columns: 70px minmax(0, 1fr);
+        grid-template-rows: minmax(66px, auto);
+        align-items: center;
+        gap: 12px;
+        padding: 8px;
+        border-right: 0;
+        border-bottom: 1px solid color-mix(in srgb, var(--academy-paper-ink) 24%, transparent);
+    }
+
+    .academy-sentence-frame-vocabulary .academy-vocabulary-pictograph:last-child {
+        border-bottom: 0;
+    }
+
+    .academy-sentence-frame-vocabulary .academy-vocabulary-pictograph__image {
+        width: 66px;
+        height: 66px;
+    }
+
+    .academy-sentence-frame-vocabulary .academy-vocabulary-pictograph__caption {
+        justify-items: start;
+        text-align: left;
+    }
+
+    .academy-sentence-frame-vocabulary .academy-vocabulary-pictograph__expression {
+        font-size: 1rem;
+    }
+
+    .academy-sentence-frame-vocabulary .academy-vocabulary-pictograph__reading,
+    .academy-sentence-frame-vocabulary .academy-vocabulary-pictograph__meaning {
+        overflow: visible;
+        white-space: normal;
+    }
+
     .academy-sentence-frame-pattern {
         align-items: flex-start;
         flex-direction: column;
@@ -669,6 +806,13 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+    .academy-sentence-frame-screen > .academy-background img,
+    .academy-sentence-frame-portrait,
+    .academy-sentence-frame-paper {
+        translate: none;
+        transition: none;
+    }
+
     .academy-sentence-frame-token,
     .academy-sentence-frame-action {
         transition: none;

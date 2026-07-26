@@ -21,14 +21,19 @@ const audioPaths = Object.freeze(playback.entries
 const audioUrlByJapanese = new Map(playback.entries
     .filter(entry => entry.surface === 'lesson-zero-sentence-frames')
     .map(entry => [entry.japanese, entry.url]));
-const viewports = [
+const allViewports = [
     { viewport: { width: 320, height: 700 }, name: 'phone-320' },
     { viewport: { width: 390, height: 844 }, name: 'phone-390' },
     { viewport: { width: 1024, height: 1366 }, name: 'tablet-1024' },
     { viewport: { width: 1440, height: 900 }, name: 'desktop-1440' },
 ];
+const requestedViewport = process.env.SENTENCE_FRAME_VIEWPORT;
+const viewports = requestedViewport
+    ? allViewports.filter(scenario => scenario.name === requestedViewport)
+    : allViewports;
 
 assert.equal(audioPaths.length, 14, 'Sentence-frame proof expects 14 immutable accepted audio assets.');
+assert.ok(viewports.length, `Unknown sentence-frame viewport: ${requestedViewport ?? 'missing'}`);
 await rm(artifactDir, { recursive: true, force: true });
 await mkdir(artifactDir, { recursive: true });
 
@@ -61,12 +66,21 @@ async function verifyRoute({ viewport, name }) {
     const consoleErrors = [];
     const playedAudioPaths = [];
     const fallbackRequests = [];
+    const failedResponses = [];
+    const failedResponseDetails = [];
     page.on('pageerror', error => pageErrors.push(error.message));
     page.on('console', message => {
         if (message.type() === 'error') consoleErrors.push(message.text());
     });
     page.on('response', response => {
         const url = new URL(response.url());
+        if (response.status() >= 400 && response.status() !== 401 && response.status() !== 404) {
+            const failure = { status: response.status(), url: response.url() };
+            failedResponses.push(failure);
+            failedResponseDetails.push(response.text()
+                .then(body => ({ ...failure, body: body.slice(0, 500) }))
+                .catch(error => ({ ...failure, body: `<unreadable: ${error.message}>` })));
+        }
         if (audioPaths.includes(url.pathname)) {
             playedAudioPaths.push({ path: url.pathname, status: response.status() });
         }
@@ -82,6 +96,23 @@ async function verifyRoute({ viewport, name }) {
     const runId = `sentence-${name}-${Date.now()}`;
     await reachActivity(page, runId);
     await expectState(page, 'ready', 'teach');
+    const visualVocabulary = page.locator(
+        '.academy-sentence-frame-vocabulary[data-vocabulary-pictographs="ready"]',
+    );
+    await visualVocabulary.waitFor();
+    assert.equal(
+        await visualVocabulary.getAttribute('data-vocabulary-pictograph-count'),
+        '6',
+        'The first-sentence scene must consume all six ready Foundation pictographs.',
+    );
+    const pictographs = visualVocabulary.locator('.academy-vocabulary-pictograph__image');
+    assert.equal(await pictographs.count(), 6);
+    for (const pictograph of await pictographs.all()) {
+        assert.match(
+            await pictograph.getAttribute('src') ?? '',
+            /^\/academy\/art\/vocabulary-pictographs\/[^/]+\.webp$/u,
+        );
+    }
     assert.equal(await page.getByText('You do not need to read kana yet.', { exact: false }).count(), 0);
     await assertImagesLoaded(page);
     await assertLayout(page, viewport.width, `${name} welcome`);
@@ -102,12 +133,12 @@ async function verifyRoute({ viewport, name }) {
     for (const [index, frame] of definition.frames.entries()) {
         await expectFrame(page, frame.id, 'teach');
         await playVisibleAudio(page, '.academy-sentence-frame-example');
-        await clickButton(page, 'Try this turn');
+        await clickButton(page, 'Build it');
         await expectFrame(page, frame.id, 'build');
 
         if (index === 0) {
             await chooseOrder(page, frame.target.bankOrder);
-            await clickButton(page, 'Check the sentence');
+            await clickButton(page, 'Check');
             await expectFrame(page, frame.id, 'result');
             assert.equal(await page.locator('[data-repair-model]').count(), 0);
             await clickButton(page, 'Show the answer');
@@ -121,13 +152,13 @@ async function verifyRoute({ viewport, name }) {
         }
 
         await chooseOrder(page, frame.target.correctOrder);
-        await clickButton(page, 'Check the sentence');
+        await clickButton(page, 'Check');
         await expectFrame(page, frame.id, 'result');
         await playVisibleAudio(page, '.academy-sentence-frame-response');
         if (index < definition.frames.length - 1) {
-            await clickButton(page, 'Use the next shape');
+            await clickButton(page, 'Next sentence');
         } else {
-            await clickButton(page, 'Try all five without the patterns');
+            await clickButton(page, 'Now try all five from memory');
         }
     }
 
@@ -139,7 +170,7 @@ async function verifyRoute({ viewport, name }) {
 
     const first = definition.frames[0];
     await chooseOrder(page, first.target.bankOrder);
-    await clickButton(page, 'Check the sentence');
+    await clickButton(page, 'Check');
     await expectFrame(page, first.id, 'transfer-result');
     await clickButton(page, 'Show the answer');
     await page.locator('[data-repair-model="identity"]').waitFor();
@@ -149,9 +180,9 @@ async function verifyRoute({ viewport, name }) {
     await screenshot(page, name, 'transfer-repair');
     await clickButton(page, 'Rebuild the sentence');
     await chooseOrder(page, first.target.correctOrder);
-    await clickButton(page, 'Check the sentence');
+    await clickButton(page, 'Check');
     await expectFrame(page, first.id, 'transfer-result');
-    await clickButton(page, 'Recall the next sentence');
+    await clickButton(page, 'Next sentence');
 
     const second = definition.frames[1];
     await expectFrame(page, second.id, 'transfer-build');
@@ -175,17 +206,17 @@ async function verifyRoute({ viewport, name }) {
         `${name}: reload must preserve the selected recall token`,
     );
     await chooseOrder(page, second.target.correctOrder.slice(1));
-    await clickButton(page, 'Check the sentence');
+    await clickButton(page, 'Check');
     await expectFrame(page, second.id, 'transfer-result');
-    await clickButton(page, 'Recall the next sentence');
+    await clickButton(page, 'Next sentence');
 
     for (const frame of definition.frames.slice(2)) {
         await expectFrame(page, frame.id, 'transfer-build');
         await chooseOrder(page, frame.target.correctOrder);
-        await clickButton(page, 'Check the sentence');
+        await clickButton(page, 'Check');
         if (frame.id !== 'parallel') {
             await expectFrame(page, frame.id, 'transfer-result');
-            await clickButton(page, 'Recall the next sentence');
+            await clickButton(page, 'Next sentence');
         }
     }
 
@@ -221,7 +252,16 @@ async function verifyRoute({ viewport, name }) {
     await page.reload({ waitUntil: 'domcontentloaded' });
     await expectState(page, 'complete', 'complete');
 
+    if (failedResponses.length > 0) {
+        const cookies = await context.cookies();
+        console.error(JSON.stringify({
+            viewport: name,
+            failedResponses: await Promise.all(failedResponseDetails),
+            cookieNames: cookies.map(cookie => cookie.name),
+        }, null, 2));
+    }
     assert.deepEqual(pageErrors, []);
+    assert.deepEqual(failedResponses, []);
     assert.deepEqual(unexpectedConsoleErrors(consoleErrors), []);
     await context.close();
 }
@@ -296,9 +336,21 @@ async function expectState(page, status, stage) {
 }
 
 async function expectFrame(page, frameId, stage) {
-    await page.locator(
-        `.academy-sentence-frame-screen[data-frame-id="${frameId}"][data-session-stage="${stage}"]`,
-    ).waitFor();
+    try {
+        await page.locator(
+            `.academy-sentence-frame-screen[data-frame-id="${frameId}"][data-session-stage="${stage}"]`,
+        ).waitFor();
+    } catch (error) {
+        const state = await page.evaluate(() => ({
+            route: window.__yomuAcademy?.checkpoint?.route,
+            sentenceFrames: window.__yomuAcademy?.checkpoint?.lessonZeroSentenceFrameProgress,
+            screen: document.querySelector('.academy-sentence-frame-screen')?.outerHTML.slice(0, 800),
+        }));
+        throw new Error(
+            `Sentence-frame route did not reach ${frameId}/${stage}: ${JSON.stringify(state)}`,
+            { cause: error },
+        );
+    }
 }
 
 async function expectRoute(page, route) {
@@ -358,9 +410,29 @@ async function assertAllAudioAssets(context, label) {
 
 async function assertImagesLoaded(page) {
     for (const image of await page.locator('.academy-sentence-frame-screen img:visible').all()) {
-        assert.equal(await image.evaluate(node =>
-            node instanceof HTMLImageElement && node.complete && node.naturalWidth > 0), true);
+        const source = await image.getAttribute('src');
+        await image.scrollIntoViewIfNeeded();
+        assert.equal(
+            await image.evaluate(node => new Promise(resolve => {
+                if (!(node instanceof HTMLImageElement)) {
+                    resolve(false);
+                    return;
+                }
+                if (node.complete) {
+                    resolve(node.naturalWidth > 0);
+                    return;
+                }
+                node.addEventListener('load', () => resolve(node.naturalWidth > 0), { once: true });
+                node.addEventListener('error', () => resolve(false), { once: true });
+                window.setTimeout(() => resolve(false), 10_000);
+            })),
+            true,
+            `Visible image failed to load within 10 seconds: ${source ?? 'missing src'}`,
+        );
     }
+    await page.locator('.academy-vocabulary-pictographs').evaluateAll(rails => {
+        rails.forEach(rail => { rail.scrollLeft = 0; });
+    });
 }
 
 async function assertLayout(page, expectedWidth, label) {
@@ -376,6 +448,13 @@ async function assertLayout(page, expectedWidth, label) {
             height: box.height,
         }));
         const overflowing = visible('*')
+            .filter(({ node }) => {
+                if (node.closest('.academy-background')) return false;
+                const scroller = node.closest('.academy-vocabulary-pictographs');
+                if (!scroller) return true;
+                const overflow = getComputedStyle(scroller).overflowX;
+                return overflow !== 'auto' && overflow !== 'scroll';
+            })
             .filter(({ box }) => box.left < -1 || box.right > viewportWidth + 1)
             .map(({ node, box }) => ({
                 element: `${node.tagName.toLowerCase()}.${[...node.classList].join('.')}`,

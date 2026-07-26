@@ -1,3 +1,10 @@
+import {
+    ACADEMY_CAST_STANDARDIZATION_COVERAGE,
+    ACADEMY_CAST_STANDARDIZATION_GALLERIES,
+    ACADEMY_CAST_STANDARDIZATION_JOURNAL_REVIEW,
+    ACADEMY_CAST_STANDARDIZATION_RUNTIME_ASSETS,
+} from './domain/cast-standardization-manifest';
+
 export type AcademyRuntimeAssetKind = 'background' | 'character-sprite' | 'event-art' | 'item-art' | 'protagonist-portrait';
 export type AcademyRuntimeAssetStatus = 'approved' | 'review-preview';
 
@@ -28,31 +35,7 @@ function runtimeAsset<const T extends AcademyRuntimeAssetRecord>(record: T): T {
  * separate: an archived file is not runtime-authorized until it appears here.
  */
 export const ACADEMY_RUNTIME_ASSET_REGISTRY = {
-    'character.rie.neutral-glasses': runtimeAsset({ kind: 'character-sprite', status: 'approved', runtimeHomes: ['onboarding:profile', 'unlock:rie', 'journal:rie', 'scene:arrival-bridge', 'class:people', 'class:week-cast', 'lesson-overview:roster', 'world:person', 'lesson:l1-l01:host'], provenance: 'current-production', files: { default: '/academy/art/characters/rie/rie__neutral-glasses__front-near-front__halfbody__v001.png' } }),
-    'character.rie.happy-glasses-front': runtimeAsset({ kind: 'character-sprite', status: 'approved', runtimeHomes: ['lesson-feedback:correct-retry', 'dialogue:rie-positive', 'journal:rie-expression-gallery'], provenance: 'current-production', files: { default: '/academy/art/characters/rie/rie__happy-glasses__front-near-front__halfbody__v001.png' } }),
-    'character.rie.determined-glasses-left': runtimeAsset({ kind: 'character-sprite', status: 'approved', runtimeHomes: ['dialogue:rie-decisive-guidance', 'journal:rie-expression-gallery'], provenance: 'current-production', files: { default: '/academy/art/characters/rie/rie__determined-glasses__left-three-quarter__halfbody__v001.png' } }),
-    'character.rie.encouraging-glasses-right': runtimeAsset({ kind: 'character-sprite', status: 'approved', runtimeHomes: ['lesson-feedback:attempt', 'dialogue:rie-listening', 'journal:rie-expression-gallery'], provenance: 'current-production', files: { default: '/academy/art/characters/rie/rie__encouraging-glasses__right-three-quarter__halfbody__v001.png' } }),
-    'character.rie.sad-vulnerable-glasses-left': runtimeAsset({ kind: 'character-sprite', status: 'approved', runtimeHomes: ['lesson-feedback:repair', 'dialogue:rie-precise-hint', 'dialogue:rie-vulnerable-reflection', 'journal:rie-expression-gallery'], provenance: 'current-production', files: { default: '/academy/art/characters/rie/rie__sad-vulnerable-glasses__left-three-quarter__halfbody__v001.png' } }),
-    'character.rie.comedic-glasses-right': runtimeAsset({ kind: 'character-sprite', status: 'approved', runtimeHomes: ['dialogue:rie-light-recovery', 'journal:rie-expression-gallery'], provenance: 'current-production', files: { default: '/academy/art/characters/rie/rie__comedic-glasses__right-three-quarter__halfbody__v001.png' } }),
-    'character.aakash.neutral': runtimeAsset({ kind: 'character-sprite', status: 'approved', runtimeHomes: ['journal:aakash', 'class:people', 'class:week-cast', 'lesson-overview:roster', 'world:person', 'lesson:l1-l01:cast'], provenance: 'current-production', files: { default: '/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v009.png' } }),
-    'character.xingyu.listening': runtimeAsset({ kind: 'character-sprite', status: 'approved', runtimeHomes: ['lesson-zero:vowel-listening', 'game:lesson-zero-vowel-listening-bingo'], provenance: 'recovered-academy-tree', files: { default: '/academy/art/characters/xingyu/xingyu__listening-halfbody-v2__v001.png' } }),
-    'character.mika.sound-listening': runtimeAsset({ kind: 'character-sprite', status: 'approved', runtimeHomes: ['lesson-zero:sound-speaker-match', 'story:s1e01:mission-sound'], provenance: 'current-production', files: { default: '/academy/art/characters/mika/mika__sound-listening__halfbody__v001.png' } }),
-    'character.felix.neutral': runtimeAsset({ kind: 'character-sprite', status: 'review-preview', runtimeHomes: ['journal:felix-after-meeting', 'journal:felix-expression-gallery'], provenance: 'current-production', files: { default: '/academy/art/characters/felix/felix__neutral__halfbody__v001.png' } }),
-    'character.felix.happy-left': runtimeAsset({ kind: 'character-sprite', status: 'review-preview', runtimeHomes: ['journal:felix-expression-gallery'], provenance: 'current-production', files: { default: '/academy/art/characters/felix/felix__happy__left-three-quarter__halfbody__v001.png' } }),
-    'character.felix.surprised-right': runtimeAsset({ kind: 'character-sprite', status: 'review-preview', runtimeHomes: ['journal:felix-expression-gallery'], provenance: 'current-production', files: { default: '/academy/art/characters/felix/felix__surprised__right-three-quarter__halfbody__v001.png' } }),
-    'character.peter.neutral': runtimeAsset({ kind: 'character-sprite', status: 'review-preview', runtimeHomes: ['journal:peter', 'journal:peter-expression-gallery'], provenance: 'current-production', files: { default: '/academy/art/characters/peter/peter__neutral__halfbody__v002.png' } }),
-    'character.peter.thoughtful-left': runtimeAsset({ kind: 'character-sprite', status: 'review-preview', runtimeHomes: ['journal:peter-expression-gallery'], provenance: 'current-production', files: { default: '/academy/art/characters/peter/peter__thoughtful__left-three-quarter__halfbody__v001.png' } }),
-    'character.peter.encouraging-right': runtimeAsset({ kind: 'character-sprite', status: 'review-preview', runtimeHomes: ['journal:peter-expression-gallery'], provenance: 'current-production', files: { default: '/academy/art/characters/peter/peter__encouraging__right-three-quarter__halfbody__v001.png' } }),
-    'character.shaun.neutral': runtimeAsset({ kind: 'character-sprite', status: 'review-preview', runtimeHomes: ['journal:shaun'], provenance: 'current-production', files: { default: '/academy/art/characters/shaun/shaun__neutral__halfbody__v001.png' } }),
-    'character.sophie.neutral-right': runtimeAsset({ kind: 'character-sprite', status: 'approved', runtimeHomes: ['world:bookshop:sophie', 'journal:sophie', 'class:people', 'class:week-cast', 'lesson-overview:roster', 'world:person'], provenance: 'current-production', files: { default: '/academy/art/characters/sophie/sophie__bookshop-neutral__halfbody__v003.png' } }),
-    'character.sophie.encouraging-front': runtimeAsset({ kind: 'character-sprite', status: 'approved', runtimeHomes: ['dialogue:sophie-support', 'journal:sophie-expression-gallery'], provenance: 'current-production', files: { default: '/academy/art/characters/sophie/sophie__encouraging-listening__front-near-front__halfbody__v003.png' } }),
-    'character.sophie.determined-left': runtimeAsset({ kind: 'character-sprite', status: 'approved', runtimeHomes: ['dialogue:sophie-research', 'journal:sophie-expression-gallery'], provenance: 'current-production', files: { default: '/academy/art/characters/sophie/sophie__determined__left-three-quarter__halfbody__v003.png' } }),
-    'character.tom2.neutral-right': runtimeAsset({ kind: 'character-sprite', status: 'review-preview', runtimeHomes: ['journal:tom2', 'journal:tom2-expression-gallery'], provenance: 'current-production', files: { default: '/academy/art/characters/tom2/tom2__neutral__right-three-quarter__halfbody__v001.png' } }),
-    'character.tom2.encouraging-front': runtimeAsset({ kind: 'character-sprite', status: 'review-preview', runtimeHomes: ['journal:tom2-expression-gallery'], provenance: 'current-production', files: { default: '/academy/art/characters/tom2/tom2__encouraging-listening__front-near-front__halfbody__v001.png' } }),
-    'character.tom2.surprised-left': runtimeAsset({ kind: 'character-sprite', status: 'review-preview', runtimeHomes: ['journal:tom2-expression-gallery'], provenance: 'current-production', files: { default: '/academy/art/characters/tom2/tom2__surprised-shocked__left-three-quarter__halfbody__v001.png' } }),
-    'character.steve.neutral-front': runtimeAsset({ kind: 'character-sprite', status: 'approved', runtimeHomes: ['journal:steve', 'scene:steve-introduction'], provenance: 'current-production', files: { default: '/academy/art/characters/steve/steve__neutral__front-near-front__halfbody__v001.png' } }),
-    'character.steve.happy-right': runtimeAsset({ kind: 'character-sprite', status: 'approved', runtimeHomes: ['journal:steve-expression-gallery'], provenance: 'current-production', files: { default: '/academy/art/characters/steve/steve__happy__right-three-quarter__halfbody__v001.png' } }),
-    'character.steve.determined-left': runtimeAsset({ kind: 'character-sprite', status: 'approved', runtimeHomes: ['journal:steve-expression-gallery'], provenance: 'current-production', files: { default: '/academy/art/characters/steve/steve__determined__left-three-quarter__halfbody__v001.png' } }),
+    ...ACADEMY_CAST_STANDARDIZATION_RUNTIME_ASSETS,
     'portrait.quality-2': runtimeAsset({ kind: 'protagonist-portrait', status: 'approved', runtimeHomes: ['onboarding:portrait-choice-2', 'journal:player'], provenance: 'current-production', files: { default: '/academy/art/protagonists/quality-2__picker__v001.png' } }),
     'portrait.quality-3': runtimeAsset({ kind: 'protagonist-portrait', status: 'approved', runtimeHomes: ['onboarding:portrait-choice-3', 'journal:player'], provenance: 'current-production', files: { default: '/academy/art/protagonists/quality-3__picker__v001.png' } }),
     'portrait.quality-4': runtimeAsset({ kind: 'protagonist-portrait', status: 'approved', runtimeHomes: ['onboarding:portrait-choice-4', 'journal:player'], provenance: 'current-production', files: { default: '/academy/art/protagonists/quality-4__picker__v001.png' } }),
@@ -331,15 +314,7 @@ const ACADEMY_APPROVED_CAST_PERFORMANCES = {
 } as const;
 
 /** Reference-backed cutouts that may appear only in the learner's journal. */
-const ACADEMY_JOURNAL_REVIEW_CAST_SPRITES = {
-    rie: ACADEMY_APPROVED_CHARACTER_SPRITES.rie,
-    felix: assetFile('character.felix.neutral', 'default'),
-    peter: assetFile('character.peter.neutral', 'default'),
-    shaun: assetFile('character.shaun.neutral', 'default'),
-    sophie: ACADEMY_APPROVED_CHARACTER_SPRITES.sophie,
-    tom2: assetFile('character.tom2.neutral-right', 'default'),
-    steve: ACADEMY_APPROVED_CHARACTER_SPRITES.steve,
-} as const;
+const ACADEMY_JOURNAL_REVIEW_CAST_SPRITES = ACADEMY_CAST_STANDARDIZATION_JOURNAL_REVIEW;
 
 type AcademyCastSpritePresentation = 'approved-runtime' | 'journal-review-preview';
 
@@ -357,33 +332,7 @@ interface AcademyCastSpriteCoverageEntry {
  * Every registered cutout has one explicit presentation policy and a concrete
  * home. This is the audit surface for card, journal, and worker precache use.
  */
-export const ACADEMY_CAST_SPRITE_COVERAGE = {
-    'character.rie.neutral-glasses': { castId: 'rie', presentation: 'approved-runtime', primaryUse: 'class:people' },
-    'character.rie.happy-glasses-front': { castId: 'rie', presentation: 'approved-runtime', primaryUse: 'journal:rie-expression-gallery' },
-    'character.rie.determined-glasses-left': { castId: 'rie', presentation: 'approved-runtime', primaryUse: 'journal:rie-expression-gallery' },
-    'character.rie.encouraging-glasses-right': { castId: 'rie', presentation: 'approved-runtime', primaryUse: 'journal:rie-expression-gallery' },
-    'character.rie.sad-vulnerable-glasses-left': { castId: 'rie', presentation: 'approved-runtime', primaryUse: 'journal:rie-expression-gallery' },
-    'character.rie.comedic-glasses-right': { castId: 'rie', presentation: 'approved-runtime', primaryUse: 'journal:rie-expression-gallery' },
-    'character.aakash.neutral': { castId: 'aakash', presentation: 'approved-runtime', primaryUse: 'class:people' },
-    'character.xingyu.listening': { castId: 'xingyu', presentation: 'approved-runtime', primaryUse: 'lesson-zero:vowel-listening' },
-    'character.mika.sound-listening': { castId: 'mika', presentation: 'approved-runtime', primaryUse: 'lesson-zero:sound-speaker-match' },
-    'character.felix.neutral': { castId: 'felix', presentation: 'journal-review-preview', primaryUse: 'journal:felix-after-meeting' },
-    'character.felix.happy-left': { castId: 'felix', presentation: 'journal-review-preview', primaryUse: 'journal:felix-expression-gallery' },
-    'character.felix.surprised-right': { castId: 'felix', presentation: 'journal-review-preview', primaryUse: 'journal:felix-expression-gallery' },
-    'character.peter.neutral': { castId: 'peter', presentation: 'journal-review-preview', primaryUse: 'journal:peter' },
-    'character.peter.thoughtful-left': { castId: 'peter', presentation: 'journal-review-preview', primaryUse: 'journal:peter-expression-gallery' },
-    'character.peter.encouraging-right': { castId: 'peter', presentation: 'journal-review-preview', primaryUse: 'journal:peter-expression-gallery' },
-    'character.shaun.neutral': { castId: 'shaun', presentation: 'journal-review-preview', primaryUse: 'journal:shaun' },
-    'character.sophie.neutral-right': { castId: 'sophie', presentation: 'approved-runtime', primaryUse: 'world:bookshop:sophie' },
-    'character.sophie.encouraging-front': { castId: 'sophie', presentation: 'approved-runtime', primaryUse: 'journal:sophie-expression-gallery' },
-    'character.sophie.determined-left': { castId: 'sophie', presentation: 'approved-runtime', primaryUse: 'journal:sophie-expression-gallery' },
-    'character.tom2.neutral-right': { castId: 'tom2', presentation: 'journal-review-preview', primaryUse: 'journal:tom2' },
-    'character.tom2.encouraging-front': { castId: 'tom2', presentation: 'journal-review-preview', primaryUse: 'journal:tom2-expression-gallery' },
-    'character.tom2.surprised-left': { castId: 'tom2', presentation: 'journal-review-preview', primaryUse: 'journal:tom2-expression-gallery' },
-    'character.steve.neutral-front': { castId: 'steve', presentation: 'approved-runtime', primaryUse: 'journal:steve' },
-    'character.steve.happy-right': { castId: 'steve', presentation: 'approved-runtime', primaryUse: 'journal:steve-expression-gallery' },
-    'character.steve.determined-left': { castId: 'steve', presentation: 'approved-runtime', primaryUse: 'journal:steve-expression-gallery' },
-} as const satisfies Readonly<Record<AcademyCastSpriteAssetId, AcademyCastSpriteCoverageEntry>>;
+export const ACADEMY_CAST_SPRITE_COVERAGE = ACADEMY_CAST_STANDARDIZATION_COVERAGE satisfies Readonly<Record<AcademyCastSpriteAssetId, AcademyCastSpriteCoverageEntry>>;
 
 export const ACADEMY_ASSETS = {
     rie: ACADEMY_APPROVED_CHARACTER_SPRITES.rie,
@@ -394,38 +343,7 @@ export const ACADEMY_ASSETS = {
         approvedPerformances: ACADEMY_APPROVED_CAST_PERFORMANCES,
         journalReview: ACADEMY_JOURNAL_REVIEW_CAST_SPRITES,
     },
-    characterSpriteGalleries: {
-        rie: {
-            'neutral:front-near-front': ACADEMY_APPROVED_CAST_PERFORMANCES.rie.neutral,
-            'determined:left-three-quarter': ACADEMY_APPROVED_CAST_PERFORMANCES.rie.determined,
-            'encouraging-listening:right-three-quarter': ACADEMY_APPROVED_CAST_PERFORMANCES.rie.encouraging,
-        },
-        peter: {
-            'left-three-quarter': assetFile('character.peter.thoughtful-left', 'default'),
-            'front-near-front': assetFile('character.peter.neutral', 'default'),
-            'right-three-quarter': assetFile('character.peter.encouraging-right', 'default'),
-        },
-        felix: {
-            'left-three-quarter': assetFile('character.felix.happy-left', 'default'),
-            'front-near-front': assetFile('character.felix.neutral', 'default'),
-            'right-three-quarter': assetFile('character.felix.surprised-right', 'default'),
-        },
-        sophie: {
-            'left-three-quarter': ACADEMY_APPROVED_CAST_PERFORMANCES.sophie.determined,
-            'front-near-front': ACADEMY_APPROVED_CAST_PERFORMANCES.sophie.encouraging,
-            'right-three-quarter': ACADEMY_APPROVED_CAST_PERFORMANCES.sophie.neutral,
-        },
-        tom2: {
-            'surprised-shocked:left-three-quarter': assetFile('character.tom2.surprised-left', 'default'),
-            'encouraging-listening:front-near-front': assetFile('character.tom2.encouraging-front', 'default'),
-            'neutral:right-three-quarter': assetFile('character.tom2.neutral-right', 'default'),
-        },
-        steve: {
-            'determined:left-three-quarter': ACADEMY_APPROVED_CAST_PERFORMANCES.steve.determined,
-            'neutral:front-near-front': ACADEMY_APPROVED_CAST_PERFORMANCES.steve.neutral,
-            'happy:right-three-quarter': ACADEMY_APPROVED_CAST_PERFORMANCES.steve.happy,
-        },
-    },
+    characterSpriteGalleries: ACADEMY_CAST_STANDARDIZATION_GALLERIES,
     portraits: {
         'quality-2': assetFile('portrait.quality-2', 'default'),
         'quality-3': assetFile('portrait.quality-3', 'default'),

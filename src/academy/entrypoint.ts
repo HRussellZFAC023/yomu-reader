@@ -29,6 +29,7 @@ import './styles/classroom-instruction.css';
 import './styles/lesson-zero-repeat-request.css';
 import './styles/lesson-zero-desk-language.css';
 import './styles/lesson-zero-greeting.css';
+import './styles/lesson-zero-hiragana.css';
 import './styles/lesson-zero-vowel.css';
 import './styles/lesson-zero-vowel-writing.css';
 import './styles/lesson-zero-sentence-frames.css';

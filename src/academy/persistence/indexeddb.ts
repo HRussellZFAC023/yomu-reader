@@ -24,6 +24,10 @@ import {
     type LessonZeroGreetingSessionState,
 } from '../domain/lesson-zero-greeting-session';
 import {
+    lessonZeroHiraganaSessionSnapshotShapeIsValid,
+    type LessonZeroHiraganaSessionState,
+} from '../domain/lesson-zero-hiragana-session';
+import {
     lessonZeroNameCardSessionSnapshotShapeIsValid,
     type LessonZeroNameCardSessionState,
 } from '../domain/lesson-zero-name-card-session';
@@ -77,6 +81,8 @@ export interface AcademyCheckpoint extends AcademyRouteHistoryState {
     readonly lessonZeroDeskLanguageProgress?: LessonZeroDeskLanguageSessionState;
     /** Resume state for the learner's private first-introduction rehearsal. */
     readonly lessonZeroGreetingProgress?: LessonZeroGreetingSessionState;
+    /** Resume state for the ten-row, all-46 basic hiragana route. */
+    readonly lessonZeroHiraganaProgress?: LessonZeroHiraganaSessionState;
     /** Resume state for the five connected first-sentence constructions. */
     readonly lessonZeroSentenceFrameProgress?: LessonZeroSentenceFrameSessionState;
     /** Resume state for the saved-name + です desk-card transfer. */
@@ -324,6 +330,10 @@ function validateCheckpoint(value: AcademyCheckpoint): void {
     if (value.lessonZeroGreetingProgress !== undefined
         && !lessonZeroGreetingSessionSnapshotShapeIsValid(value.lessonZeroGreetingProgress)) {
         throw new TypeError('Academy checkpoint has invalid Lesson Zero greeting progress.');
+    }
+    if (value.lessonZeroHiraganaProgress !== undefined
+        && !lessonZeroHiraganaSessionSnapshotShapeIsValid(value.lessonZeroHiraganaProgress)) {
+        throw new TypeError('Academy checkpoint has invalid Lesson Zero hiragana progress.');
     }
     if (value.lessonZeroSentenceFrameProgress !== undefined
         && !lessonZeroSentenceFrameSessionSnapshotShapeIsValid(value.lessonZeroSentenceFrameProgress)) {

@@ -488,13 +488,13 @@ async function completeSentenceFrames(page) {
         );
         await screen.waitFor();
         await screen.locator('.academy-sentence-frame-example .academy-sentence-frame-action-listen').click();
-        await page.getByRole('button', { name: 'Try this turn' }).click();
+        await page.getByRole('button', { name: 'Build it' }).click();
 
         for (const tokenId of firstAttemptOrders[frameId]) {
             await page.locator(`.academy-sentence-frame-bank [data-token-id="${tokenId}"]`).click();
             await page.locator(`.academy-sentence-frame-selected-rail [data-token-id="${tokenId}"]`).waitFor();
         }
-        await page.getByRole('button', { name: 'Check the sentence' }).click();
+        await page.getByRole('button', { name: 'Check' }).click();
         await page.locator('.academy-sentence-frame-paper[data-outcome="lapse"]').waitFor();
         await page.getByRole('button', { name: 'Show the answer' }).click();
         await page.locator('.academy-sentence-frame-model .academy-sentence-frame-action-listen').click();
@@ -504,13 +504,13 @@ async function completeSentenceFrames(page) {
             await page.locator(`.academy-sentence-frame-bank [data-token-id="${tokenId}"]`).click();
             await page.locator(`.academy-sentence-frame-selected-rail [data-token-id="${tokenId}"]`).waitFor();
         }
-        await page.getByRole('button', { name: 'Check the sentence' }).click();
+        await page.getByRole('button', { name: 'Check' }).click();
         await page.locator('.academy-sentence-frame-paper[data-outcome="pass"]').waitFor();
         await page.locator('.academy-sentence-frame-response .academy-sentence-frame-action-listen').click();
         await page.getByRole('button', {
             name: frameId === 'parallel'
-                ? 'Try all five without the patterns'
-                : 'Use the next shape',
+                ? 'Now try all five from memory'
+                : 'Next sentence',
         }).click();
     }
 
@@ -522,12 +522,12 @@ async function completeSentenceFrames(page) {
             await page.locator(`.academy-sentence-frame-bank [data-token-id="${tokenId}"]`).click();
             await page.locator(`.academy-sentence-frame-selected-rail [data-token-id="${tokenId}"]`).waitFor();
         }
-        await page.getByRole('button', { name: 'Check the sentence' }).click();
+        await page.getByRole('button', { name: 'Check' }).click();
         if (frameId === 'parallel') {
             await page.locator('.academy-sentence-frame-screen[data-session-status="complete"]').waitFor();
         } else {
             await page.locator('.academy-sentence-frame-paper[data-outcome="pass"]').waitFor();
-            await page.getByRole('button', { name: 'Recall the next sentence' }).click();
+            await page.getByRole('button', { name: 'Next sentence' }).click();
         }
     }
 }

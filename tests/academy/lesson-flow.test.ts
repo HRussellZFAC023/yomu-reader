@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { AAKASH_RAINY_DIRECTIONS_SCENE_ID } from '../../src/academy/content/aakash-meet';
+import { createLessonZeroHiraganaDefinition } from '../../src/academy/content/lesson-zero-hiragana';
 import { createLessonZeroSentenceFrameDefinition } from '../../src/academy/content/lesson-zero-sentence-frames';
 import { serializeStoryCursor } from '../../src/academy/content/story-runner';
 import { validateLessonZeroPackage } from '../../src/academy/content/lesson-zero-validator';
@@ -12,6 +13,7 @@ import {
     startLessonZeroVowelSession,
     transitionLessonZeroVowelSession,
 } from '../../src/academy/domain/lesson-zero-vowel-session';
+import type { ActivityEvaluation } from '../../src/academy/domain/activity-runtime';
 import type { AcademyCheckpoint } from '../../src/academy/persistence/indexeddb';
 import { createLessonFlow } from '../../src/academy/routing/lesson-flow';
 import type { AcademyRouteContext } from '../../src/academy/routing/types';
@@ -55,7 +57,7 @@ function context(
     const appShell = shell();
     const go = vi.fn(async () => undefined);
     const back = vi.fn(async () => undefined);
-    const save = vi.fn(async () => undefined);
+    const save = vi.fn(async (_update: Partial<AcademyCheckpoint>) => undefined);
     const value: AcademyRouteContext = {
         language: 'en',
         checkpoint: checkpoint(lessonId, update),
@@ -562,9 +564,9 @@ describe('Academy lesson flow', () => {
             await vi.waitFor(() => expect(route.shell.current?.dataset.frameId).toBe(frame.id));
             await vi.waitFor(() => expect(
                 [...route.shell.current!.querySelectorAll<HTMLButtonElement>('button')]
-                    .some(button => button.textContent?.trim() === 'Try this turn'),
+                    .some(button => button.textContent?.trim() === 'Build it'),
             ).toBe(true));
-            clickButton(route.shell.current!, 'Try this turn');
+            clickButton(route.shell.current!, 'Build it');
             for (const tokenId of frame.target.correctOrder) {
                 await vi.waitFor(() => expect(
                     route.shell.current?.querySelector(`.academy-sentence-frame-bank [data-token-id="${tokenId}"]`),
@@ -579,13 +581,13 @@ describe('Academy lesson flow', () => {
             await vi.waitFor(() => expect(
                 route.shell.current?.querySelector<HTMLButtonElement>('.academy-sentence-frame-action-primary')?.disabled,
             ).toBe(false));
-            clickButton(route.shell.current!, 'Check the sentence');
+            clickButton(route.shell.current!, 'Check');
             if (index < definition.frames.length - 1) {
                 await vi.waitFor(() => expect(route.shell.current?.dataset.sessionStage).toBe('result'));
-                clickButton(route.shell.current!, 'Use the next shape');
+                clickButton(route.shell.current!, 'Next sentence');
             } else {
                 await vi.waitFor(() => expect(route.shell.current?.dataset.sessionStage).toBe('result'));
-                clickButton(route.shell.current!, 'Try all five without the patterns');
+                clickButton(route.shell.current!, 'Now try all five from memory');
             }
         }
 
@@ -606,10 +608,10 @@ describe('Academy lesson flow', () => {
             await vi.waitFor(() => expect(
                 route.shell.current?.querySelector<HTMLButtonElement>('.academy-sentence-frame-action-primary')?.disabled,
             ).toBe(false));
-            clickButton(route.shell.current!, 'Check the sentence');
+            clickButton(route.shell.current!, 'Check');
             if (index < definition.frames.length - 1) {
                 await vi.waitFor(() => expect(route.shell.current?.dataset.sessionStage).toBe('transfer-result'));
-                clickButton(route.shell.current!, 'Recall the next sentence');
+                clickButton(route.shell.current!, 'Next sentence');
             }
         }
 
@@ -735,13 +737,13 @@ describe('Academy lesson flow', () => {
         }));
         const click = (label: string) => [...route.shell.current!.querySelectorAll<HTMLButtonElement>('button')]
             .find(button => button.textContent?.trim() === label)!.click();
-        click('Take the headphones');
+        click('Put on headphones');
         for (let index = 0; index < 5; index += 1) {
-            await vi.waitFor(() => expect(route.shell.current?.textContent).toContain('Hear it in a word'));
-            click('Hear it in a word');
+            await vi.waitFor(() => expect(route.shell.current?.textContent).toContain('Play word'));
+            click('Play word');
         }
-        await vi.waitFor(() => expect(route.shell.current?.textContent).toContain('Listen without the paper'));
-        click('Listen without the paper');
+        await vi.waitFor(() => expect(route.shell.current?.textContent).toContain('Start'));
+        click('Start');
 
         const model = createLessonZeroVowelSoundMap();
         let expected = transitionLessonZeroVowelSession(
@@ -755,8 +757,8 @@ describe('Academy lesson flow', () => {
         }
         expected = transitionLessonZeroVowelSession(model, expected, { kind: 'begin-attempt' }, 3).state;
         for (const roundId of expected.roundOrder) {
-            await vi.waitFor(() => expect(route.shell.current?.textContent).toContain('Play the sound'));
-            click('Play the sound');
+            await vi.waitFor(() => expect(route.shell.current?.textContent).toContain('Play'));
+            click('Play');
             await vi.waitFor(() => expect(route.shell.current?.querySelectorAll('.academy-vowel-choice')).toHaveLength(5));
             const kana = model.payload.items.find(item => item.id === roundId)!.kana;
             click(kana);
@@ -770,7 +772,78 @@ describe('Academy lesson flow', () => {
             expect.objectContaining({ id: 'lesson-zero-five-vowels' }),
             expect.objectContaining({ modeId: 'lesson-zero-vowels:audio:lesson' }),
         ));
-        expect(route.shell.current?.textContent).toContain('Play sound bingo');
+        expect(route.shell.current?.textContent).toContain('Play bingo');
+    });
+
+    it('routes all 46 hiragana through mixed recall and one durable review seed per kana', async () => {
+        const route = context('lesson:foundation-00', {
+            route: 'source-activity',
+            activityId: 'activity:lesson-zero-hiragana-bootcamp',
+        });
+        const recordActivity = vi.fn(async (
+            _evaluation: ActivityEvaluation,
+            _lessonId: string,
+            _milestone?: unknown,
+        ) => undefined);
+        const flow = createLessonFlow({
+            evidence: { recordActivity, recordSupportUse: vi.fn() } as never,
+            pronunciation: { play: vi.fn(async () => ({ dispose() {} })) } as never,
+            kanjiWriting: {} as never,
+        });
+
+        await flow.render('source-activity', route.value);
+        expect(route.shell.current?.dataset.academyScreen).toBe('lesson-zero-hiragana-bootcamp');
+        expect(route.save).toHaveBeenCalledWith(expect.objectContaining({
+            lessonZeroHiraganaProgress: expect.objectContaining({ status: 'ready' }),
+        }));
+
+        const click = (label: string) => [...route.shell.current!.querySelectorAll<HTMLButtonElement>('button')]
+            .find(button => button.textContent?.trim() === label)!.click();
+        click('I know hiragana — test me');
+        await vi.waitFor(() => expect(route.shell.current?.dataset.sessionStage).toBe('mastery-ready'));
+        click('Turn over the chart');
+
+        const definition = createLessonZeroHiraganaDefinition();
+        for (let attempt = 0; attempt < 47; attempt += 1) {
+            await vi.waitFor(() => expect(route.shell.current?.querySelector<HTMLInputElement>('input[name="romaji"]')).not.toBeNull());
+            const kana = route.shell.current?.querySelector<HTMLElement>('.academy-hiragana-kana-mastery')?.textContent;
+            const item = definition.items.find(candidate => candidate.kana === kana);
+            if (!item) throw new TypeError(`Missing current hiragana item for ${kana ?? 'unknown'}.`);
+            const input = route.shell.current!.querySelector<HTMLInputElement>('input[name="romaji"]')!;
+            input.value = attempt === 0 ? 'wrong' : item.romaji;
+            route.shell.current!.querySelector<HTMLFormElement>('.academy-hiragana-recall-form')!
+                .dispatchEvent(new SubmitEvent('submit', { bubbles: true, cancelable: true }));
+            await vi.waitFor(() => expect(
+                route.save.mock.calls.some(([value]) =>
+                    value.lessonZeroHiraganaProgress?.attempts?.length === attempt + 1),
+            ).toBe(true));
+        }
+
+        await vi.waitFor(() => expect(route.shell.current?.dataset.sessionStatus).toBe('complete'));
+        expect(recordActivity).toHaveBeenCalledWith(
+            expect.objectContaining({
+                attempt: expect.objectContaining({
+                    activityId: 'activity:lesson-zero-hiragana-bootcamp',
+                    outcome: 'pass',
+                }),
+                reviewSeeds: expect.arrayContaining([
+                    expect.objectContaining({ id: 'review:lesson-zero:hiragana:hira-a', reason: 'repair' }),
+                    expect.objectContaining({ id: 'review:lesson-zero:hiragana:hira-n' }),
+                ]),
+            }),
+            'lesson:foundation-00',
+            expect.objectContaining({ id: 'lesson-zero-hiragana-route' }),
+        );
+        const completion = recordActivity.mock.calls.find(([evaluation]) =>
+            evaluation.reviewSeeds?.length === 46)?.[0];
+        expect(completion?.reviewSeeds).toHaveLength(46);
+        expect(new Set(completion?.reviewSeeds.map(seed => seed.id))).toHaveLength(46);
+        expect(route.save).toHaveBeenCalledWith(expect.objectContaining({
+            lessonZeroHiraganaProgress: expect.objectContaining({
+                status: 'complete',
+                masteryPassedItemIds: expect.arrayContaining(definition.items.map(item => item.id)),
+            }),
+        }));
     });
 
     it('routes Rie\'s writing desk through five child grades and delayed recall before the parent milestone', async () => {

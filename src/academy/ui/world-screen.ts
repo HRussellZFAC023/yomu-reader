@@ -361,7 +361,7 @@ function configureCourtyardPurposeSwitcher(
     open.type = 'button';
     open.setAttribute('aria-controls', practice.id);
     open.setAttribute('aria-expanded', 'false');
-    open.textContent = language === 'ja' ? '掲示を練習する' : 'Practice the notice';
+    open.textContent = language === 'ja' ? '掲示を読む' : 'Read the board';
 
     const close = element('button', 'academy-courtyard-practice-back');
     close.type = 'button';
@@ -876,7 +876,7 @@ function worldCourtyardPresence(options: WorldScreenOptions, personId: string): 
     }
     if (personId === 'aakash') {
         return returning
-            ? { id: 'checking-own-route', label: { ja: '自分の行き先メモを確かめている', en: 'Checking his own route note' } }
+            ? { id: 'checking-own-route', label: { ja: '道順を確かめている', en: 'Checking the directions' } }
             : { id: 'reading-own-notice', label: { ja: '自分の掲示を読んでいる', en: 'Reading his own notice' } };
     }
     return undefined;
@@ -944,7 +944,7 @@ function worldStreetPresence(options: WorldScreenOptions, personId: string): Wor
     if (personId === 'aakash') {
         return returning
             ? { id: 'checking-crossing', label: { ja: '横断歩道を確かめている', en: 'Checking the crossing' } }
-            : { id: 'holding-route-note', label: { ja: '道順のメモを見ている', en: 'Checking the route note' } };
+            : { id: 'holding-route-note', label: { ja: '道順を見ている', en: 'Reading the directions' } };
     }
     if (personId === 'peter') {
         return returning

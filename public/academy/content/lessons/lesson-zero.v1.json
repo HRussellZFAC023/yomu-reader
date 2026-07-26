@@ -181,14 +181,14 @@
   },
   "lesson": {
     "id": "lesson:foundation-00",
-    "contentVersion": "2026-07-22.lesson-zero.v2-sound-mission",
+    "contentVersion": "2026-07-26.lesson-zero.v3-hiragana-route",
     "levelBand": "foundation",
     "estimatedMinutes": { "minimum": 60, "maximum": 90 },
     "overview": {
       "title": { "en": "Lesson 0", "ja": "レッスン0" },
       "summary": {
-        "en": "Greetings, classroom Japanese, kana, and a short introduction.",
-        "ja": "あいさつ、教室の日本語、かな、短い自己紹介。"
+        "en": "Greetings, all 46 basic hiragana, classroom Japanese, and a short introduction.",
+        "ja": "あいさつ、基本のひらがな46字、教室の日本語、短い自己紹介。"
       },
       "goals": [
         { "en": "Greet someone and say your name.", "ja": "あいさつして、自分の名前を言う。" },
@@ -196,7 +196,8 @@
           "en": "Follow basic classroom instructions and ask for repetition.",
           "ja": "基本的な教室の指示に従い、聞き返す。"
         },
-        { "en": "Hear and write あ・い・う・え・お.", "ja": "あ・い・う・え・おを聞いて書く。" },
+        { "en": "Hear the five vowel sounds and read all 46 basic hiragana.", "ja": "五つの母音を聞いて、基本のひらがな46字を読む。" },
+        { "en": "Write あ・い・う・え・お, then keep writing practice in review.", "ja": "あ・い・う・え・おを書き、復習で書く練習を続ける。" },
         { "en": "Make simple identity sentences with です.", "ja": "「です」を使って簡単な文を作る。" },
         { "en": "Introduce yourself in speech and writing.", "ja": "話す・書く自己紹介をする。" }
       ],
@@ -251,7 +252,10 @@
           "kind": "kana-surface",
           "title": { "en": "Kana practice pad", "ja": "かな練習帳" },
           "state": "ready",
-          "activityIds": ["activity:lesson-zero-vowel-doodle"]
+          "activityIds": [
+            "activity:lesson-zero-hiragana-bootcamp",
+            "activity:lesson-zero-vowel-doodle"
+          ]
         },
         {
           "id": "material:lesson-zero-dialogue-audio",
@@ -294,8 +298,8 @@
         "id": "sound-script-map",
         "order": 2,
         "title": { "en": "Sound and script", "ja": "おとと文字" },
-        "outcomeIds": ["outcome:hear-five-vowels", "outcome:recognise-script-roles", "outcome:write-vowel-kana"],
-        "activityIds": ["activity:lesson-zero-vowel-listen", "activity:lesson-zero-vowel-doodle"],
+        "outcomeIds": ["outcome:hear-five-vowels", "outcome:recognise-basic-hiragana", "outcome:recognise-script-roles", "outcome:write-vowel-kana"],
+        "activityIds": ["activity:lesson-zero-vowel-listen", "activity:lesson-zero-hiragana-bootcamp", "activity:lesson-zero-vowel-doodle"],
         "resumableAfter": true
       },
       {
@@ -397,6 +401,22 @@
         "sourceQuestionIds": [],
         "inputScriptId": "input:lesson-zero-vowel-row",
         "expectedEvidence": { "kind": "ordered-sound-map", "values": ["あ", "い", "う", "え", "お"] },
+        "support": { "reading": "learner-controlled", "pitch": "learner-controlled", "englishMeaning": "after-commit", "transcript": "after-commit", "modelAnswer": "after-first-attempt" }
+      },
+      {
+        "id": "activity:lesson-zero-hiragana-bootcamp",
+        "sectionId": "sound-script-map",
+        "responseMode": "ime",
+        "assessed": true,
+        "production": true,
+        "prompt": { "en": "Practise ten rows, then read all 46 basic hiragana without the chart.", "ja": "十の行を練習して、表を見ずに基本のひらがな46字を読みます。" },
+        "conceptIds": ["concept:hiragana-basic-46", "concept:hiragana-row-system", "concept:hiragana-cumulative-recall"],
+        "sourceQuestionIds": [],
+        "expectedEvidence": {
+          "kind": "complete-hiragana-recall",
+          "values": ["あ", "い", "う", "え", "お", "か", "き", "く", "け", "こ", "さ", "し", "す", "せ", "そ", "た", "ち", "つ", "て", "と", "な", "に", "ぬ", "ね", "の", "は", "ひ", "ふ", "へ", "ほ", "ま", "み", "む", "め", "も", "や", "ゆ", "よ", "ら", "り", "る", "れ", "ろ", "わ", "を", "ん"],
+          "rubricIds": ["row-recognition", "mixed-recall", "repair-return"]
+        },
         "support": { "reading": "learner-controlled", "pitch": "learner-controlled", "englishMeaning": "after-commit", "transcript": "after-commit", "modelAnswer": "after-first-attempt" }
       },
       {

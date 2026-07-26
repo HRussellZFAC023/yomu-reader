@@ -1,5 +1,6 @@
 import type { AcademyLanguage } from '../../reader/app/academy-copy';
 import { playLearningVoiceBinding } from '../audio/learning-voice';
+import { getLessonZeroHiraganaVisualAnchor } from '../content/lesson-zero-hiragana-visuals';
 import { lessonZeroVowelAnchor } from '../content/lesson-zero-vowel-anchors';
 import type { ActivityEvaluation } from '../domain/activity-runtime';
 import {
@@ -39,71 +40,61 @@ export interface LessonZeroVowelScreen {
 }
 
 const COPY = {
-    eyebrow: { en: 'First sound lab', ja: '最初の音ラボ' },
-    introTitle: { en: 'Five sounds open the language', ja: '五つの音から、日本語が始まる' },
+    eyebrow: { en: 'Studio A', ja: 'スタジオA' },
+    introTitle: { en: 'Five vowel sounds', ja: '五つの母音' },
     introDialogue: {
-        en: "Xingyu: Japanese keeps returning to five vowel sounds. Hear those clearly and new words stop feeling like one long blur.",
-        ja: 'シンユ：日本語は、五つの母音に何度も戻ります。ここが聞こえると、新しいことばが一つの長い音に聞こえなくなります。',
+        en: 'Xingyu: Listen. Then choose.',
+        ja: 'シンユ：聞いて、選んでください。',
     },
-    introReason: {
-        en: "We'll meet each sound first. Then I'll hide the paper and play them in a new order.",
-        ja: 'まず一音ずつ会いましょう。そのあと紙を隠して、違う順番で流します。',
-    },
-    start: { en: 'Take the headphones', ja: 'ヘッドホンを取る' },
-    learnTitle: { en: 'Give each sound a place', ja: '一つずつ、音の場所を作ろう' },
-    audioMode: { en: 'Sound', ja: '音で進む' },
-    visualMode: { en: 'Visual cue', ja: '目で進む' },
+    start: { en: 'Put on headphones', ja: 'ヘッドホンをつける' },
+    learnTitle: { en: 'Listen and repeat', ja: '聞いて、まねする' },
+    audioMode: { en: 'Audio', ja: '音声' },
+    visualMode: { en: 'Visual', ja: '文字' },
     accessNote: {
-        en: 'Use Sound when you can listen. Visual cue works anywhere.',
-        ja: 'どちらの方法でも、同じ五文字を学び、同じ復習に保存します。',
+        en: 'No audio? Use Visual.',
+        ja: '音が使えないときは「文字」を選んでください。',
     },
-    hear: { en: 'Hear it in a word', ja: 'ことばの中で聞く' },
-    hearAgain: { en: 'Hear it again', ja: 'もう一度聞く' },
-    studyShape: { en: 'Hold this shape', ja: 'この形を覚える' },
-    nextSound: { en: 'Keep this sound', ja: 'この音を残す' },
-    readyTitle: { en: 'The paper comes away', ja: '紙を外します' },
+    hear: { en: 'Play word', ja: '単語を聞く' },
+    hearAgain: { en: 'Play again', ja: 'もう一度聞く' },
+    studyShape: { en: 'Next', ja: '次へ' },
+    nextSound: { en: 'Next', ja: '次へ' },
+    readyTitle: { en: 'Ready?', ja: '準備はいい？' },
     readyBody: {
-        en: "Xingyu: I’ll play all five in a fresh order. Listen before you choose; nothing is timed.",
-        ja: 'シンユ：五つを新しい順番で流します。選ぶ前に聞いてください。時間制限はありません。',
+        en: 'Xingyu: Choose all five.',
+        ja: 'シンユ：五つ全部を選んでください。',
     },
-    beginAttempt: { en: 'Listen without the paper', ja: '紙を見ずに聞く' },
-    attemptTitle: { en: 'Which first sound did you hear?', ja: '最初に、どの音が聞こえましたか' },
-    bingoTitle: { en: 'Sound bingo', ja: '音のビンゴ' },
-    playSound: { en: 'Play the sound', ja: '音を再生' },
+    beginAttempt: { en: 'Start', ja: '始める' },
+    attemptTitle: { en: 'Which sound?', ja: 'どの音？' },
+    bingoTitle: { en: 'Vowel bingo', ja: '母音ビンゴ' },
+    playSound: { en: 'Play', ja: '聞く' },
     replaySound: { en: 'Replay', ja: 'もう一度' },
     playing: { en: 'Playing…', ja: '再生中…' },
-    chooseAfter: { en: 'Now choose one character.', ja: '聞こえた文字を一つ選びましょう。' },
-    visualCue: { en: 'Accessible cue', ja: '視覚の手がかり' },
-    visualCueBody: { en: 'Choose the hiragana for this first sound:', ja: 'この最初の音に合うひらがなを選びましょう：' },
-    firstSoundOnly: { en: 'Focus on the first sound.', ja: '最初の音だけに注目します。' },
-    saveError: { en: 'That step did not save. Please try it once more.', ja: '保存できませんでした。もう一度お試しください。' },
+    chooseAfter: { en: 'Choose.', ja: '一つ選んでください。' },
+    visualCue: { en: 'Visual clue', ja: '文字ヒント' },
+    visualCueBody: { en: 'Match this sound:', ja: 'この音を選んでください：' },
+    saveError: { en: 'Not saved. Try again.', ja: '保存できませんでした。もう一度。' },
     audioError: {
-        en: 'The sound did not play. Retry, or switch to the visual route without losing your place.',
-        ja: '音を再生できませんでした。もう一度試すか、場所を失わずに視覚ルートへ切り替えられます。',
+        en: 'No sound. Replay or use Visual.',
+        ja: '音が出ません。もう一度聞くか、「文字」を使ってください。',
     },
-    repairTitle: { en: 'Stay with the sound that slipped', ja: '迷った音だけ、もう一度' },
-    repairDialogue: {
-        en: "Xingyu: No full restart. We'll listen to the sound that moved, put it back, then try the five together.",
-        ja: 'シンユ：最初からやり直しません。迷った音だけ戻してから、五つをもう一度つなげます。',
-    },
-    repairReady: { en: 'Try the five again', ja: '五つをもう一度試す' },
-    contrastTitle: { en: 'Compare the neighbours', ja: '近い音を比べる' },
-    lessonCompleteTitle: { en: 'You can hear the room now', ja: '教室の音が聞こえました' },
+    repairReady: { en: 'Try again', ja: 'もう一度' },
+    contrastTitle: { en: 'Quick tip', ja: 'ヒント' },
+    lessonCompleteTitle: { en: 'Five vowel sounds: done', ja: '五つの母音、できました' },
     lessonCompleteDialogue: {
-        en: "Xingyu: That’s the first map. あ・い・う・え・お will keep turning up, but now each one has somewhere to land.",
-        ja: 'シンユ：これが最初の地図です。「あ・い・う・え・お」は何度も出てきますが、もう一つずつ着地する場所があります。',
+        en: 'Xingyu: Good. Let’s use them.',
+        ja: 'シンユ：いいですね。次で使いましょう。',
     },
-    reviewLine: { en: 'All five are waiting in your review queue.', ja: '五つとも復習に入りました。' },
-    playBingo: { en: 'Play sound bingo', ja: '音のビンゴで遊ぶ' },
-    bingoCompleteTitle: { en: 'Bingo. The five still held.', ja: 'ビンゴ。五つの音が残りました。' },
+    reviewLine: { en: 'Saved for review.', ja: '復習に保存しました。' },
+    playBingo: { en: 'Play bingo', ja: 'ビンゴに挑戦' },
+    bingoCompleteTitle: { en: 'Bingo!', ja: 'ビンゴ！' },
     bingoCompleteDialogue: {
-        en: "Xingyu: Different order, same anchors. That is what we're keeping.",
-        ja: 'シンユ：順番が変わっても、音の場所は同じです。それを残していきましょう。',
+        en: 'Xingyu: All five.',
+        ja: 'シンユ：五つ全部、できました。',
     },
-    playAgain: { en: 'Shuffle another board', ja: 'もう一枚まぜる' },
-    continue: { en: 'Continue into class', ja: '授業へ進む' },
-    restart: { en: 'Start the five sounds again', ja: '五つの音を最初から' },
-    leave: { en: 'Save and return', ja: '保存して戻る' },
+    playAgain: { en: 'Play again', ja: 'もう一度' },
+    continue: { en: 'Continue', ja: '次へ' },
+    restart: { en: 'Restart', ja: '最初から' },
+    leave: { en: 'Save and exit', ja: '保存して戻る' },
 } as const;
 
 export function createLessonZeroVowelScreen(options: LessonZeroVowelScreenOptions): LessonZeroVowelScreen {
@@ -170,7 +161,6 @@ export function createLessonZeroVowelScreen(options: LessonZeroVowelScreenOption
         paper.append(
             localized('h1', 'academy-vowel-title', COPY.introTitle, options.language),
             dialogue(COPY.introDialogue),
-            localized('p', 'academy-vowel-copy', COPY.introReason, options.language),
             action(COPY.start, 'primary', signal, async () => { await apply({ kind: 'start' }); }),
         );
         scene.append(xingyuPortrait('academy-vowel-intro-portrait'), paper);
@@ -215,8 +205,9 @@ export function createLessonZeroVowelScreen(options: LessonZeroVowelScreenOption
         const first = element('span', 'academy-vowel-anchor-first');
         first.textContent = anchor.kana;
         const rest = element('span', 'academy-vowel-anchor-rest');
-        rest.textContent = anchor.spokenJapanese.slice(anchor.kana.length);
+        rest.textContent = anchor.wordKana.slice(anchor.kana.length);
         word.append(first, rest);
+        const image = anchorImage(item.id);
         const meaning = element('p', 'academy-vowel-anchor-meaning');
         meaning.textContent = anchor.meaning[options.language];
         meaning.dataset.jpdbReaderSurfaceIgnore = '';
@@ -224,8 +215,8 @@ export function createLessonZeroVowelScreen(options: LessonZeroVowelScreenOption
             kana,
             romaji,
             word,
+            image,
             meaning,
-            localized('p', 'academy-vowel-first-sound', COPY.firstSoundOnly, options.language),
             localized('p', 'academy-vowel-articulation', anchor.mouthCue, options.language),
         );
         const label = state.mode === 'audio' ? COPY.hear : COPY.studyShape;
@@ -280,10 +271,8 @@ export function createLessonZeroVowelScreen(options: LessonZeroVowelScreenOption
         const scene = sceneFrame('academy-vowel-repair');
         const paper = livingPaper('academy-vowel-repair-paper');
         paper.append(
-            localized('h1', 'academy-vowel-title', COPY.repairTitle, options.language),
-            dialogue(COPY.repairDialogue),
+            localized('h1', 'academy-vowel-title', repairTitle(item), options.language),
             modeSwitch(signal),
-            localized('p', 'academy-vowel-access-note', COPY.accessNote, options.language),
         );
         if (item) {
             const repair = teachingNote(item, signal);
@@ -344,7 +333,7 @@ export function createLessonZeroVowelScreen(options: LessonZeroVowelScreenOption
     const modeSwitch = (signal: AbortSignal): HTMLElement => {
         const group = element('div', 'academy-vowel-mode');
         group.setAttribute('role', 'group');
-        group.setAttribute('aria-label', options.language === 'ja' ? '学習方法' : 'Learning route');
+        group.setAttribute('aria-label', options.language === 'ja' ? '練習方法' : 'Practice mode');
         ([['audio', COPY.audioMode], ['visual', COPY.visualMode]] as const).forEach(([mode, copy]) => {
             const button = action(copy, 'mode', signal, async () => { await apply({ kind: 'choose-mode', mode }); });
             button.setAttribute('aria-pressed', String(state.mode === mode));
@@ -568,6 +557,17 @@ export function createLessonZeroVowelScreen(options: LessonZeroVowelScreenOption
         image.decoding = 'async';
         return image;
     };
+    const anchorImage = (itemId: string): HTMLImageElement => {
+        const visual = getLessonZeroHiraganaVisualAnchor(itemId);
+        const image = element('img', 'academy-vowel-anchor-image');
+        image.src = visual.imagePath;
+        image.alt = visual.imageAlt;
+        image.width = 384;
+        image.height = 384;
+        image.decoding = 'async';
+        image.dataset.vowelAnchorImage = itemId;
+        return image;
+    };
     const action = (
         copy: LocalizedCopy,
         variant: 'primary' | 'secondary' | 'listen' | 'quiet' | 'mode',
@@ -598,6 +598,11 @@ export function createLessonZeroVowelScreen(options: LessonZeroVowelScreenOption
             playback = null;
         },
     };
+}
+
+function repairTitle(item: KanaSoundMapItem | undefined): LocalizedCopy {
+    if (!item) return { en: 'Ready?', ja: '準備はいい？' };
+    return { en: `Try ${item.kana} again`, ja: `「${item.kana}」をもう一度` };
 }
 
 function localized<K extends keyof HTMLElementTagNameMap>(

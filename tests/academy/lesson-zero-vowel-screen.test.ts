@@ -38,15 +38,30 @@ describe('Lesson Zero five-vowel screen', () => {
             onComplete: vi.fn(),
         });
 
-        expect(screen.element.textContent).toContain('Five sounds open the language');
+        expect(screen.element.textContent).toContain('Studio A');
+        expect(screen.element.textContent).toContain('Five vowel sounds');
+        expect(screen.element.textContent).toContain('Listen. Then choose.');
+        expect(screen.element.textContent).not.toMatch(/First sound lab|sound lab|Stay with the sound that slipped|Compare the neighbours/u);
         expect(screen.element.querySelectorAll('.academy-vowel-choice')).toHaveLength(0);
-        buttonByText(screen.element, 'Take the headphones').click();
+        buttonByText(screen.element, 'Put on headphones').click();
         await vi.waitFor(() => expect(persisted.status).toBe('active'));
+        const anchorImages: string[] = [];
         for (let index = 0; index < 5; index += 1) {
             expect(screen.element.querySelectorAll('.academy-vowel-teaching-note')).toHaveLength(1);
-            buttonByText(screen.element, 'Hear it in a word').click();
+            const image = screen.element.querySelector<HTMLImageElement>('[data-vowel-anchor-image]');
+            expect(image?.alt).toBeTruthy();
+            expect(image?.src).toContain(`/academy/art/lesson-zero/hiragana-anchors/hira-${['a', 'i', 'u', 'e', 'o'][index]}.webp`);
+            anchorImages.push(image!.alt);
+            buttonByText(screen.element, 'Play word').click();
             await vi.waitFor(() => expect(persisted.learnedItemIds).toHaveLength(index + 1));
         }
+        expect(anchorImages).toEqual([
+            'The morning sun rising over rooftops.',
+            'A friendly dog sitting down.',
+            'An ocean wave beneath a blue sky.',
+            'An open picture book with colourful pictures.',
+            'A warm cup of Japanese tea.',
+        ]);
         expect(play).not.toHaveBeenCalled();
         expect(playLine.mock.calls.map(([identity]) => identity.japanese)).toEqual([
             'あさです',
@@ -55,11 +70,11 @@ describe('Lesson Zero five-vowel screen', () => {
             'えほんです',
             'おちゃです',
         ]);
-        expect(screen.element.textContent).toContain('The paper comes away');
-        buttonByText(screen.element, 'Listen without the paper').click();
+        expect(screen.element.textContent).toContain('Ready?');
+        buttonByText(screen.element, 'Start').click();
         await vi.waitFor(() => expect(persisted.stage).toBe('attempt'));
         for (let index = 0; index < 5; index += 1) {
-            buttonByText(screen.element, 'Play the sound').click();
+            buttonByText(screen.element, 'Play').click();
             await vi.waitFor(() => expect(
                 screen.element.querySelectorAll('.academy-vowel-choice').length,
             ).toBe(5));
@@ -69,10 +84,10 @@ describe('Lesson Zero five-vowel screen', () => {
             await vi.waitFor(() => expect(persisted.selections).toHaveLength(index + 1));
         }
         await vi.waitFor(() => expect(persisted.status).toBe('complete'));
-        expect(screen.element.textContent).toContain('You can hear the room now');
+        expect(screen.element.textContent).toContain('Five vowel sounds: done');
         expect(screen.element.querySelectorAll('.academy-vowel-completed-row')).toHaveLength(1);
-        expect(buttonByText(screen.element, 'Continue into class').disabled).toBe(false);
-        buttonByText(screen.element, 'Play sound bingo').click();
+        expect(buttonByText(screen.element, 'Continue').disabled).toBe(false);
+        buttonByText(screen.element, 'Play bingo').click();
         await vi.waitFor(() => expect(persisted.variant).toBe('bingo'));
         expect(screen.element.querySelectorAll('.academy-vowel-bingo-tile')).toHaveLength(9);
         screen.dispose();
@@ -98,15 +113,42 @@ describe('Lesson Zero five-vowel screen', () => {
             onBack: vi.fn(),
             onComplete: vi.fn(),
         });
-        buttonByText(screen.element, 'Take the headphones').click();
+        buttonByText(screen.element, 'Put on headphones').click();
         await vi.waitFor(() => expect(persisted.status).toBe('active'));
-        buttonByText(screen.element, 'Hear it in a word').click();
-        await vi.waitFor(() => expect(screen.element.textContent).toContain('switch to the visual route'));
+        buttonByText(screen.element, 'Play word').click();
+        await vi.waitFor(() => expect(screen.element.textContent).toContain('No sound. Replay or use Visual.'));
         expect(persisted.learnedItemIds).toHaveLength(0);
-        buttonByText(screen.element, 'Visual cue').click();
+        buttonByText(screen.element, 'Visual').click();
         await vi.waitFor(() => expect(persisted.mode).toBe('visual'));
-        buttonByText(screen.element, 'Hold this shape').click();
+        buttonByText(screen.element, 'Next').click();
         await vi.waitFor(() => expect(persisted.learnedItemIds).toHaveLength(1));
+        screen.dispose();
+    });
+
+    it('uses natural Japanese place and task labels', () => {
+        const model = createLessonZeroVowelSoundMap();
+        const bingoModel = createLessonZeroVowelBingo();
+        const screen = createLessonZeroVowelScreen({
+            language: 'ja',
+            model,
+            bingoModel,
+            initialState: startLessonZeroVowelSession(model),
+            pronunciation: { play: vi.fn() } as never,
+            xingyuSprite: '/academy/art/characters/xingyu/test.png',
+            evaluate: (variant, response) => createAcademyActivityRuntime().evaluate(
+                variant === 'bingo' ? bingoModel : model,
+                response,
+            ),
+            onTransition: vi.fn(),
+            onRestart: vi.fn(),
+            onBack: vi.fn(),
+            onComplete: vi.fn(),
+        });
+
+        expect(screen.element.textContent).toContain('スタジオA');
+        expect(screen.element.textContent).toContain('五つの母音');
+        expect(screen.element.textContent).toContain('聞いて、選んでください。');
+        expect(screen.element.textContent).not.toContain('音ラボ');
         screen.dispose();
     });
 });

@@ -513,6 +513,49 @@ describe('Academy IndexedDB persistence', () => {
         persistence.close();
     });
 
+    it('persists the all-46 hiragana route and rejects an empty active queue', async () => {
+        const persistence = await openAcademyPersistence(fakeIndexedDB, `academy-test-${crypto.randomUUID()}`);
+        const lessonZeroHiraganaProgress = {
+            schemaVersion: 1 as const,
+            sessionId: 'session:lesson-zero-hiragana-bootcamp' as const,
+            status: 'paused' as const,
+            stage: 'row-drill' as const,
+            route: 'guided' as const,
+            rowIndex: 0,
+            queue: ['hira-a', 'hira-i', 'hira-u', 'hira-e', 'hira-o'],
+            guidedPassedItemIds: [],
+            masteryPassedItemIds: [],
+            repairedItemIds: [],
+            attempts: [],
+        };
+        await persistence.checkpoint.save({
+            schemaVersion: 2,
+            route: 'source-activity',
+            routeHistory: [],
+            presentationMode: 'story',
+            lessonId: 'lesson:foundation-00',
+            activityId: 'activity:lesson-zero-hiragana-bootcamp',
+            lessonZeroHiraganaProgress,
+            updatedAt: 101,
+        });
+
+        expect(await persistence.checkpoint.load()).toMatchObject({ lessonZeroHiraganaProgress });
+        await expect(persistence.checkpoint.save({
+            schemaVersion: 2,
+            route: 'source-activity',
+            routeHistory: [],
+            presentationMode: 'story',
+            lessonId: 'lesson:foundation-00',
+            activityId: 'activity:lesson-zero-hiragana-bootcamp',
+            lessonZeroHiraganaProgress: {
+                ...lessonZeroHiraganaProgress,
+                queue: [],
+            },
+            updatedAt: 102,
+        })).rejects.toThrow('invalid Lesson Zero hiragana progress');
+        persistence.close();
+    });
+
     it('persists the five-vowel writing desk and rejects impossible completion snapshots', async () => {
         const persistence = await openAcademyPersistence(fakeIndexedDB, `academy-test-${crypto.randomUUID()}`);
         const lessonZeroVowelWritingProgress = {

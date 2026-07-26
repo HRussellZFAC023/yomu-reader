@@ -148,7 +148,7 @@ export function renderAakashMeetScreen(options: AakashMeetScreenOptions): HTMLEl
             content.options,
             {
                 correct: { en: 'Yes. 右 (migi) means right.', ja: 'はい。「右（みぎ）」が right です。' },
-                lapse: { en: 'That is 左 (hidari), left. Check the route note and try again.', ja: 'それは「左（ひだり）」です。メモを見て、もう一度。' },
+                lapse: { en: 'That is 左 (hidari), left. Check the directions and try again.', ja: 'それは「左（ひだり）」です。道順を見て、もう一度。' },
                 next: { en: 'Learn the frame', ja: '文の形を見る' },
             },
             showFrame,
@@ -262,7 +262,7 @@ function createDirectionsPaper(): {
     paper.className = 'academy-aakash-route-note';
     paper.dataset.object = 'aakash-route-note';
     const title = document.createElement('figcaption');
-    title.textContent = '道案内メモ / Route note';
+    title.textContent = '道案内 / Directions';
     const question = learningLine(
         AAKASH_DIRECTIONS_CONTENT.question.japanese,
         AAKASH_DIRECTIONS_CONTENT.question.reading,

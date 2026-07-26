@@ -14,9 +14,12 @@ import {
     ACADEMY_LESSON_CONTENT_REGISTRY,
     getAuthoredWeekRegistration,
 } from '../../src/academy/content/lesson-content-registry';
+import { renderLessonVocabularyPrerequisiteScreen } from '../../src/academy/ui/lesson-vocabulary-prerequisite';
 import { committedAuthoredWeekFetcher } from './helpers/authored-week-package';
 
 describe('Sensei vocabulary prerequisites', () => {
+    afterEach(() => document.body.replaceChildren());
+
     it('catalogues Lesson 0 and every registered authored lesson without a second hand-maintained range', () => {
         const authoredLessonIds = ACADEMY_LESSON_CONTENT_REGISTRY.flatMap(registration =>
             registration.kind === 'authored-week' ? [`authored-week:${registration.packageId}`] : []);
@@ -129,5 +132,27 @@ describe('Sensei vocabulary prerequisites', () => {
             gaps: ['lesson-zero-has-no-moodle-vocabulary-sheet'],
             sourceSheets: [],
         });
+    });
+
+    it('shows learner language while keeping implementation and evidence terms out of the screen', async () => {
+        const withWords = await loadSenseiVocabularyPrerequisite('authored-week:l1-l01');
+        const empty = await loadSenseiVocabularyPrerequisite('lesson:foundation-00');
+        const lessonScreen = renderLessonVocabularyPrerequisiteScreen({
+            language: 'en',
+            prerequisite: withWords,
+            onContinue() {},
+        });
+        const emptyScreen = renderLessonVocabularyPrerequisiteScreen({
+            language: 'en',
+            prerequisite: empty,
+            onContinue() {},
+        });
+
+        expect(lessonScreen.textContent).toContain('Today’s words');
+        expect(lessonScreen.textContent).toContain('27 words in today’s list.');
+        expect(emptyScreen.textContent).toContain('You’re ready');
+        expect(emptyScreen.textContent).toContain('There are no new words before this lesson.');
+        expect(`${lessonScreen.textContent} ${emptyScreen.textContent}`)
+            .not.toMatch(/Moodle|source|record|preserved|package|registered|activity/iu);
     });
 });

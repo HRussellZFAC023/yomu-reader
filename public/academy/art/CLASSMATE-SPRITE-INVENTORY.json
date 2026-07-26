@@ -37,8 +37,8 @@
     "approved": 15,
     "reviewCandidates": 10,
     "missing": 605,
-    "currentPhysicalRasters": 34,
-    "currentOffMatrixRasters": 9,
+    "currentPhysicalRasters": 88,
+    "currentOffMatrixRasters": 63,
     "historicalUniqueRasters": 469,
     "historicalOccurrences": 2016,
     "charactersWithApprovedCoverage": 6,
@@ -161,8 +161,8 @@
         {
           "path": "/academy/art/characters/rie/rie__comedic-glasses__right-three-quarter__halfbody__v001.png",
           "sha256": "2503c0eed72fbfe5c6cafed8dfd47660b396536e959abe44be6088dc8a4840b9",
-          "source": "generated-image://019f7237-d9be-7971-b32b-60e2168922dd/exec-b68a88ac-e32f-4739-a933-9437ef250a45.png",
-          "privacy": "no-private-source",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
           "status": "approved",
           "usage": {
             "runtime": [
@@ -196,8 +196,8 @@
         {
           "path": "/academy/art/characters/rie/rie__determined-glasses__left-three-quarter__halfbody__v001.png",
           "sha256": "2127d47e5bea59317114ad612b28f4d9b888047afb83ef5577d05291a7a2c24e",
-          "source": "generated-image://019f7034-38d3-74d2-88e6-dbde794c7340/exec-d34be164-7535-415d-bb30-13648da1a42e.png",
-          "privacy": "no-private-source",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
           "status": "approved",
           "usage": {
             "runtime": [
@@ -231,8 +231,8 @@
         {
           "path": "/academy/art/characters/rie/rie__encouraging-glasses__right-three-quarter__halfbody__v001.png",
           "sha256": "e893e11c8864c32980476fbe4e075960a6960991b9a45531a1c5a37ffc3f84c9",
-          "source": "generated-image://019f7034-38d3-74d2-88e6-dbde794c7340/exec-f7af56ad-43e9-449a-8fd8-2ee8a68f94d9.png",
-          "privacy": "no-private-source",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
           "status": "approved",
           "usage": {
             "runtime": [
@@ -268,8 +268,8 @@
         {
           "path": "/academy/art/characters/rie/rie__happy-glasses__front-near-front__halfbody__v001.png",
           "sha256": "1928a5e39d6c3e0f96016491c41737d1e07356d0e5923d361938d79809ee7720",
-          "source": "generated-image://019f7237-d9be-7971-b32b-60e2168922dd/exec-6fec7bb6-691e-409b-8f72-a9264dde85bd.png",
-          "privacy": "no-private-source",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
           "status": "approved",
           "usage": {
             "runtime": [
@@ -305,8 +305,8 @@
         {
           "path": "/academy/art/characters/rie/rie__neutral-glasses__front-near-front__halfbody__v001.png",
           "sha256": "24b60fe6daecf1f8640c10520f2be2f8e7f5f5fc9b899894be75d8fda2bdd282",
-          "source": "generated-image://019f7034-38d3-74d2-88e6-dbde794c7340/exec-00093501-ba15-4504-9545-d24e1e1ca5cd.png",
-          "privacy": "no-private-source",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
           "status": "approved",
           "usage": {
             "runtime": [
@@ -354,8 +354,8 @@
         {
           "path": "/academy/art/characters/rie/rie__sad-vulnerable-glasses__left-three-quarter__halfbody__v001.png",
           "sha256": "0633ab03fb189fff9f980af7ceb2f0161a0f53dbc685ec178fc1a486fd1a1954",
-          "source": "generated-image://019f7237-d9be-7971-b32b-60e2168922dd/exec-c06afe11-6a20-43d6-8d24-9dfacd644fb1.png",
-          "privacy": "no-private-source",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
           "status": "approved",
           "usage": {
             "runtime": [
@@ -393,14 +393,17 @@
         {
           "path": "/academy/art/characters/rie/rie__thinking__halfbody__v001.png",
           "sha256": "f73eb1e59d604ef728e0a0c6fda33932e5abc098b0860dbd04e0a1ce09d43d6d",
-          "source": "academy-source://release-worktrees/yomu-academy-initial-20260711/docs/public/academy/art/codex-production-v1/sprites/people/rie/rie__thinking__halfbody__v001.png",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
           "status": "review-candidate",
           "usage": {
-            "runtime": [],
+            "runtime": [
+              "journal:rie-expression-gallery",
+              "cast-standardization:rie"
+            ],
             "review": [
-              "production:sprite-performance-contract",
-              "production:sprite-batch-manifest"
+              "cast-standardization-manifest",
+              "learner-journal-preview"
             ]
           },
           "orphan": "review-bound",
@@ -416,10 +419,13 @@
             "colorType": 6,
             "transparency": "alpha-channel"
           },
-          "runtimeUses": [],
+          "runtimeUses": [
+            "journal:rie-expression-gallery",
+            "cast-standardization:rie"
+          ],
           "reviewUses": [
-            "production:sprite-performance-contract",
-            "production:sprite-batch-manifest"
+            "cast-standardization-manifest",
+            "learner-journal-preview"
           ],
           "decision": "keep",
           "migrationStatus": "retained-off-matrix-review-evidence",
@@ -757,7 +763,135 @@
         "deliveredPercent": 0,
         "approvedPercent": 0
       },
-      "currentAssets": [],
+      "currentAssets": [
+        {
+          "path": "/academy/art/characters/henry/henry__standardized-determined__left-three-quarter__halfbody__v001.png",
+          "sha256": "f45129620d42f4dcea53587b96b38dc1bf6e296b160e6fcf7555471bf6e8bf29",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "review-candidate",
+          "usage": {
+            "runtime": [
+              "journal:henry-expression-gallery",
+              "cast-standardization:henry"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "learner-journal-preview"
+            ]
+          },
+          "orphan": "review-bound",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v001",
+          "pose": "off-contract standardized-determined pose",
+          "angle": null,
+          "expression": null,
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:henry-expression-gallery",
+            "cast-standardization:henry"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "learner-journal-preview"
+          ],
+          "decision": "keep",
+          "migrationStatus": "retained-off-matrix-review-evidence",
+          "coverageStatus": "off-matrix"
+        },
+        {
+          "path": "/academy/art/characters/henry/henry__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
+          "sha256": "f104e663a0c1c00bc0d5a46f53a238b7fb57473b8454a6c8b05ba1fcdfcd083d",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "review-candidate",
+          "usage": {
+            "runtime": [
+              "journal:henry-expression-gallery",
+              "cast-standardization:henry"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "learner-journal-preview"
+            ]
+          },
+          "orphan": "review-bound",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v001",
+          "pose": "off-contract standardized-encouraging-listening pose",
+          "angle": null,
+          "expression": null,
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:henry-expression-gallery",
+            "cast-standardization:henry"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "learner-journal-preview"
+          ],
+          "decision": "keep",
+          "migrationStatus": "retained-off-matrix-review-evidence",
+          "coverageStatus": "off-matrix"
+        },
+        {
+          "path": "/academy/art/characters/henry/henry__standardized-neutral__front-near-front__halfbody__v001.png",
+          "sha256": "e7e660565d01c8106378901a9255b2d83f06eb38916b451aa3e394596c3311ee",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "review-candidate",
+          "usage": {
+            "runtime": [
+              "journal:henry",
+              "class:people-review",
+              "lesson-overview:roster-review",
+              "cast-standardization:henry"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "learner-journal-preview"
+            ]
+          },
+          "orphan": "review-bound",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v001",
+          "pose": "off-contract standardized-neutral pose",
+          "angle": null,
+          "expression": null,
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:henry",
+            "class:people-review",
+            "lesson-overview:roster-review",
+            "cast-standardization:henry"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "learner-journal-preview"
+          ],
+          "decision": "keep",
+          "migrationStatus": "retained-off-matrix-review-evidence",
+          "coverageStatus": "off-matrix"
+        }
+      ],
       "requiredVariants": [
         {
           "angle": "left-three-quarter",
@@ -1109,13 +1243,17 @@
         {
           "path": "/academy/art/characters/aakash/aakash__sprite__concerned__left-three-quarter__halfbody__v005.png",
           "sha256": "144186dfcf47073831cd60265c6797d1a73b83ed641b5174801d9c0a4e5e78f4",
-          "source": "generated-image://root/aakash-v5-style-locked-20260718/concerned",
-          "privacy": "reimagined-likeness derivative; no private reference shipped",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
           "status": "review-candidate",
           "usage": {
-            "runtime": [],
+            "runtime": [
+              "journal:aakash-expression-gallery",
+              "cast-standardization:aakash"
+            ],
             "review": [
-              "review:aakash-expression-gallery"
+              "cast-standardization-manifest",
+              "learner-journal-preview"
             ]
           },
           "orphan": "review-bound",
@@ -1131,9 +1269,13 @@
             "colorType": 6,
             "transparency": "alpha-channel"
           },
-          "runtimeUses": [],
+          "runtimeUses": [
+            "journal:aakash-expression-gallery",
+            "cast-standardization:aakash"
+          ],
           "reviewUses": [
-            "review:aakash-expression-gallery"
+            "cast-standardization-manifest",
+            "learner-journal-preview"
           ],
           "decision": "keep",
           "migrationStatus": "retained-off-matrix-review-evidence",
@@ -1142,13 +1284,17 @@
         {
           "path": "/academy/art/characters/aakash/aakash__sprite__determined__left-three-quarter__v005.png",
           "sha256": "52f263a870ce403786da35c372acacb1a377dac2f74a1dacb8c802c2ba39911f",
-          "source": "generated-image://019f725a-ef0f-7193-9cd9-b0bff73cad2b/determined",
-          "privacy": "reimagined-likeness derivative; private reference used transiently and not copied",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
           "status": "review-candidate",
           "usage": {
-            "runtime": [],
+            "runtime": [
+              "journal:aakash-expression-gallery",
+              "cast-standardization:aakash"
+            ],
             "review": [
-              "review:aakash-expression-gallery"
+              "cast-standardization-manifest",
+              "learner-journal-preview"
             ]
           },
           "orphan": "review-bound",
@@ -1164,9 +1310,13 @@
             "colorType": 6,
             "transparency": "alpha-channel"
           },
-          "runtimeUses": [],
+          "runtimeUses": [
+            "journal:aakash-expression-gallery",
+            "cast-standardization:aakash"
+          ],
           "reviewUses": [
-            "review:aakash-expression-gallery"
+            "cast-standardization-manifest",
+            "learner-journal-preview"
           ],
           "decision": "keep",
           "migrationStatus": "retained-off-matrix-review-evidence",
@@ -1175,13 +1325,17 @@
         {
           "path": "/academy/art/characters/aakash/aakash__sprite__embarrassed__front-near-front__halfbody__v005.png",
           "sha256": "bb6e1332eceaed396984a4aa2f76124c1967eb729b635cfef2b7f76fbf2ff617",
-          "source": "generated-image://root/aakash-v5-style-locked-20260718/embarrassed",
-          "privacy": "reimagined-likeness derivative; no private reference shipped",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
           "status": "review-candidate",
           "usage": {
-            "runtime": [],
+            "runtime": [
+              "journal:aakash-expression-gallery",
+              "cast-standardization:aakash"
+            ],
             "review": [
-              "review:aakash-expression-gallery"
+              "cast-standardization-manifest",
+              "learner-journal-preview"
             ]
           },
           "orphan": "review-bound",
@@ -1197,9 +1351,13 @@
             "colorType": 6,
             "transparency": "alpha-channel"
           },
-          "runtimeUses": [],
+          "runtimeUses": [
+            "journal:aakash-expression-gallery",
+            "cast-standardization:aakash"
+          ],
           "reviewUses": [
-            "review:aakash-expression-gallery"
+            "cast-standardization-manifest",
+            "learner-journal-preview"
           ],
           "decision": "keep",
           "migrationStatus": "retained-off-matrix-review-evidence",
@@ -1208,13 +1366,17 @@
         {
           "path": "/academy/art/characters/aakash/aakash__sprite__happy__right-three-quarter__v005.png",
           "sha256": "6669e161c487daea9d102b3571f34380f5dd857f2a7a6c965345cd9161f4f615",
-          "source": "generated-image://019f725a-ef0f-7193-9cd9-b0bff73cad2b/happy",
-          "privacy": "reimagined-likeness derivative; private reference used transiently and not copied",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
           "status": "review-candidate",
           "usage": {
-            "runtime": [],
+            "runtime": [
+              "journal:aakash-expression-gallery",
+              "cast-standardization:aakash"
+            ],
             "review": [
-              "review:aakash-expression-gallery"
+              "cast-standardization-manifest",
+              "learner-journal-preview"
             ]
           },
           "orphan": "review-bound",
@@ -1230,9 +1392,13 @@
             "colorType": 6,
             "transparency": "alpha-channel"
           },
-          "runtimeUses": [],
+          "runtimeUses": [
+            "journal:aakash-expression-gallery",
+            "cast-standardization:aakash"
+          ],
           "reviewUses": [
-            "review:aakash-expression-gallery"
+            "cast-standardization-manifest",
+            "learner-journal-preview"
           ],
           "decision": "keep",
           "migrationStatus": "retained-off-matrix-review-evidence",
@@ -1241,13 +1407,17 @@
         {
           "path": "/academy/art/characters/aakash/aakash__sprite__laughing__left-three-quarter__halfbody__v005.png",
           "sha256": "b7b4fd1b259cc2ca36bbe9094a40e555741dc54098011252a819f98f0a040bdb",
-          "source": "generated-image://root/aakash-v5-style-locked-20260718/laughing",
-          "privacy": "reimagined-likeness derivative; no private reference shipped",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
           "status": "review-candidate",
           "usage": {
-            "runtime": [],
+            "runtime": [
+              "journal:aakash-expression-gallery",
+              "cast-standardization:aakash"
+            ],
             "review": [
-              "review:aakash-expression-gallery"
+              "cast-standardization-manifest",
+              "learner-journal-preview"
             ]
           },
           "orphan": "review-bound",
@@ -1263,9 +1433,13 @@
             "colorType": 6,
             "transparency": "alpha-channel"
           },
-          "runtimeUses": [],
+          "runtimeUses": [
+            "journal:aakash-expression-gallery",
+            "cast-standardization:aakash"
+          ],
           "reviewUses": [
-            "review:aakash-expression-gallery"
+            "cast-standardization-manifest",
+            "learner-journal-preview"
           ],
           "decision": "keep",
           "migrationStatus": "retained-off-matrix-review-evidence",
@@ -1274,13 +1448,17 @@
         {
           "path": "/academy/art/characters/aakash/aakash__sprite__listening__right-three-quarter__v005.png",
           "sha256": "d6880e06dcec20f38f16493d115097ece2eb850a7be5270be32d31bd24feb6e8",
-          "source": "generated-image://019f725a-ef0f-7193-9cd9-b0bff73cad2b/listening",
-          "privacy": "reimagined-likeness derivative; private reference used transiently and not copied",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
           "status": "review-candidate",
           "usage": {
-            "runtime": [],
+            "runtime": [
+              "journal:aakash-expression-gallery",
+              "cast-standardization:aakash"
+            ],
             "review": [
-              "review:aakash-expression-gallery"
+              "cast-standardization-manifest",
+              "learner-journal-preview"
             ]
           },
           "orphan": "review-bound",
@@ -1296,9 +1474,13 @@
             "colorType": 6,
             "transparency": "alpha-channel"
           },
-          "runtimeUses": [],
+          "runtimeUses": [
+            "journal:aakash-expression-gallery",
+            "cast-standardization:aakash"
+          ],
           "reviewUses": [
-            "review:aakash-expression-gallery"
+            "cast-standardization-manifest",
+            "learner-journal-preview"
           ],
           "decision": "keep",
           "migrationStatus": "retained-off-matrix-review-evidence",
@@ -1307,7 +1489,7 @@
         {
           "path": "/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v009.png",
           "sha256": "cd74d5b4f3610a5d615bb4c097a63556a419555fed85933ae54ca3cddf186a65",
-          "source": "owner-approved-art://2026-07-21/aakash-neutral-v009",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
           "status": "approved",
           "usage": {
@@ -1350,13 +1532,17 @@
         {
           "path": "/academy/art/characters/aakash/aakash__sprite__surprised__right-three-quarter__halfbody__v005.png",
           "sha256": "008eaea84946630f8434919120a57760813687743b574bee67f859e27b37d90a",
-          "source": "generated-image://root/aakash-v5-style-locked-20260718/surprised",
-          "privacy": "reimagined-likeness derivative; no private reference shipped",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
           "status": "review-candidate",
           "usage": {
-            "runtime": [],
+            "runtime": [
+              "journal:aakash-expression-gallery",
+              "cast-standardization:aakash"
+            ],
             "review": [
-              "review:aakash-expression-gallery"
+              "cast-standardization-manifest",
+              "learner-journal-preview"
             ]
           },
           "orphan": "review-bound",
@@ -1372,9 +1558,13 @@
             "colorType": 6,
             "transparency": "alpha-channel"
           },
-          "runtimeUses": [],
+          "runtimeUses": [
+            "journal:aakash-expression-gallery",
+            "cast-standardization:aakash"
+          ],
           "reviewUses": [
-            "review:aakash-expression-gallery"
+            "cast-standardization-manifest",
+            "learner-journal-preview"
           ],
           "decision": "keep",
           "migrationStatus": "retained-off-matrix-review-evidence",
@@ -1383,13 +1573,17 @@
         {
           "path": "/academy/art/characters/aakash/aakash__sprite__thoughtful__front-near-front__v005.png",
           "sha256": "38617e9adf93290f94077e14c1825531ed4585411180d96ede2532fe186f60b3",
-          "source": "generated-image://019f725a-ef0f-7193-9cd9-b0bff73cad2b/thoughtful",
-          "privacy": "reimagined-likeness derivative; private reference used transiently and not copied",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
           "status": "review-candidate",
           "usage": {
-            "runtime": [],
+            "runtime": [
+              "journal:aakash-expression-gallery",
+              "cast-standardization:aakash"
+            ],
             "review": [
-              "review:aakash-expression-gallery"
+              "cast-standardization-manifest",
+              "learner-journal-preview"
             ]
           },
           "orphan": "review-bound",
@@ -1405,9 +1599,136 @@
             "colorType": 6,
             "transparency": "alpha-channel"
           },
-          "runtimeUses": [],
+          "runtimeUses": [
+            "journal:aakash-expression-gallery",
+            "cast-standardization:aakash"
+          ],
           "reviewUses": [
-            "review:aakash-expression-gallery"
+            "cast-standardization-manifest",
+            "learner-journal-preview"
+          ],
+          "decision": "keep",
+          "migrationStatus": "retained-off-matrix-review-evidence",
+          "coverageStatus": "off-matrix"
+        },
+        {
+          "path": "/academy/art/characters/aakash/aakash__standardized-determined__front-near-front__halfbody__v001.png",
+          "sha256": "b8d3c8639b183a1a7db36d7c6b4f17e1cdc6389fe5b239c74e2393e278acbd73",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "review-candidate",
+          "usage": {
+            "runtime": [
+              "journal:aakash-expression-gallery",
+              "cast-standardization:aakash"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "learner-journal-preview"
+            ]
+          },
+          "orphan": "review-bound",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v001",
+          "pose": "off-contract standardized-determined pose",
+          "angle": null,
+          "expression": null,
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:aakash-expression-gallery",
+            "cast-standardization:aakash"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "learner-journal-preview"
+          ],
+          "decision": "keep",
+          "migrationStatus": "retained-off-matrix-review-evidence",
+          "coverageStatus": "off-matrix"
+        },
+        {
+          "path": "/academy/art/characters/aakash/aakash__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
+          "sha256": "0aacde296b1f8abd300a872d2913df682ed6346e473892958e334bb3e969e166",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "review-candidate",
+          "usage": {
+            "runtime": [
+              "journal:aakash-expression-gallery",
+              "cast-standardization:aakash"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "learner-journal-preview"
+            ]
+          },
+          "orphan": "review-bound",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v001",
+          "pose": "off-contract standardized-encouraging-listening pose",
+          "angle": null,
+          "expression": null,
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:aakash-expression-gallery",
+            "cast-standardization:aakash"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "learner-journal-preview"
+          ],
+          "decision": "keep",
+          "migrationStatus": "retained-off-matrix-review-evidence",
+          "coverageStatus": "off-matrix"
+        },
+        {
+          "path": "/academy/art/characters/aakash/aakash__standardized-happy__front-near-front__halfbody__v001.png",
+          "sha256": "a887c568cf48cb9e31454d40c201c57e8699dde41d8f1eaec187f8ea6d4fb540",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "review-candidate",
+          "usage": {
+            "runtime": [
+              "journal:aakash-expression-gallery",
+              "cast-standardization:aakash"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "learner-journal-preview"
+            ]
+          },
+          "orphan": "review-bound",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v001",
+          "pose": "off-contract standardized-happy pose",
+          "angle": null,
+          "expression": null,
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:aakash-expression-gallery",
+            "cast-standardization:aakash"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "learner-journal-preview"
           ],
           "decision": "keep",
           "migrationStatus": "retained-off-matrix-review-evidence",
@@ -1764,7 +2085,135 @@
         "deliveredPercent": 0,
         "approvedPercent": 0
       },
-      "currentAssets": [],
+      "currentAssets": [
+        {
+          "path": "/academy/art/characters/alex/alex__standardized-determined__left-three-quarter__halfbody__v001.png",
+          "sha256": "ba2595a6f9f75a5781359ba25b40d6d55a1c31efb9bdf39bc9efb3032105b29a",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "review-candidate",
+          "usage": {
+            "runtime": [
+              "journal:alex-expression-gallery",
+              "cast-standardization:alex"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "learner-journal-preview"
+            ]
+          },
+          "orphan": "review-bound",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v001",
+          "pose": "off-contract standardized-determined pose",
+          "angle": null,
+          "expression": null,
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:alex-expression-gallery",
+            "cast-standardization:alex"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "learner-journal-preview"
+          ],
+          "decision": "keep",
+          "migrationStatus": "retained-off-matrix-review-evidence",
+          "coverageStatus": "off-matrix"
+        },
+        {
+          "path": "/academy/art/characters/alex/alex__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
+          "sha256": "a90c78583f278d8d93f56fb7af24905d006b6f8b7590bae12f250c34909ba3eb",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "review-candidate",
+          "usage": {
+            "runtime": [
+              "journal:alex-expression-gallery",
+              "cast-standardization:alex"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "learner-journal-preview"
+            ]
+          },
+          "orphan": "review-bound",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v001",
+          "pose": "off-contract standardized-encouraging-listening pose",
+          "angle": null,
+          "expression": null,
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:alex-expression-gallery",
+            "cast-standardization:alex"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "learner-journal-preview"
+          ],
+          "decision": "keep",
+          "migrationStatus": "retained-off-matrix-review-evidence",
+          "coverageStatus": "off-matrix"
+        },
+        {
+          "path": "/academy/art/characters/alex/alex__standardized-neutral__front-near-front__halfbody__v001.png",
+          "sha256": "9a2c1f3438bf0ec27acce9a73d0227a4de6f89739add10c9f668014873225497",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "review-candidate",
+          "usage": {
+            "runtime": [
+              "journal:alex",
+              "class:people-review",
+              "lesson-overview:roster-review",
+              "cast-standardization:alex"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "learner-journal-preview"
+            ]
+          },
+          "orphan": "review-bound",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v001",
+          "pose": "off-contract standardized-neutral pose",
+          "angle": null,
+          "expression": null,
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:alex",
+            "class:people-review",
+            "lesson-overview:roster-review",
+            "cast-standardization:alex"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "learner-journal-preview"
+          ],
+          "decision": "keep",
+          "migrationStatus": "retained-off-matrix-review-evidence",
+          "coverageStatus": "off-matrix"
+        }
+      ],
       "requiredVariants": [
         {
           "angle": "left-three-quarter",
@@ -2111,7 +2560,94 @@
         "deliveredPercent": 0,
         "approvedPercent": 0
       },
-      "currentAssets": [],
+      "currentAssets": [
+        {
+          "path": "/academy/art/characters/tom/tom__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
+          "sha256": "5655a416ea855f1edf21865a3fd5cfb26a35c2b7157ac8e7f9e30e59070417a2",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "review-candidate",
+          "usage": {
+            "runtime": [
+              "journal:tom-expression-gallery",
+              "cast-standardization:tom"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "learner-journal-preview"
+            ]
+          },
+          "orphan": "review-bound",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v001",
+          "pose": "off-contract standardized-encouraging-listening pose",
+          "angle": null,
+          "expression": null,
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:tom-expression-gallery",
+            "cast-standardization:tom"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "learner-journal-preview"
+          ],
+          "decision": "keep",
+          "migrationStatus": "retained-off-matrix-review-evidence",
+          "coverageStatus": "off-matrix"
+        },
+        {
+          "path": "/academy/art/characters/tom/tom__standardized-neutral__front-near-front__halfbody__v001.png",
+          "sha256": "e44e9cae5b5bdcd7660c6a273296882eca7efa41bc52677415575a6f3ede89f5",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "review-candidate",
+          "usage": {
+            "runtime": [
+              "journal:tom",
+              "class:people-review",
+              "lesson-overview:roster-review",
+              "cast-standardization:tom"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "learner-journal-preview"
+            ]
+          },
+          "orphan": "review-bound",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v001",
+          "pose": "off-contract standardized-neutral pose",
+          "angle": null,
+          "expression": null,
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:tom",
+            "class:people-review",
+            "lesson-overview:roster-review",
+            "cast-standardization:tom"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "learner-journal-preview"
+          ],
+          "decision": "keep",
+          "migrationStatus": "retained-off-matrix-review-evidence",
+          "coverageStatus": "off-matrix"
+        }
+      ],
       "requiredVariants": [
         {
           "angle": "left-three-quarter",
@@ -2459,7 +2995,94 @@
         "deliveredPercent": 0,
         "approvedPercent": 0
       },
-      "currentAssets": [],
+      "currentAssets": [
+        {
+          "path": "/academy/art/characters/sam/sam__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
+          "sha256": "a1745f7ec0c0ca58fdd5af1d2e1973c9726480df5ebd057a5c386e7c223dc399",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "review-candidate",
+          "usage": {
+            "runtime": [
+              "journal:sam-expression-gallery",
+              "cast-standardization:sam"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "learner-journal-preview"
+            ]
+          },
+          "orphan": "review-bound",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v001",
+          "pose": "off-contract standardized-encouraging-listening pose",
+          "angle": null,
+          "expression": null,
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:sam-expression-gallery",
+            "cast-standardization:sam"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "learner-journal-preview"
+          ],
+          "decision": "keep",
+          "migrationStatus": "retained-off-matrix-review-evidence",
+          "coverageStatus": "off-matrix"
+        },
+        {
+          "path": "/academy/art/characters/sam/sam__standardized-neutral__front-near-front__halfbody__v001.png",
+          "sha256": "0d68325becb71d9cb23c84e3a14defd5a82e387792440ae91c49b471a6ce05f0",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "review-candidate",
+          "usage": {
+            "runtime": [
+              "journal:sam",
+              "class:people-review",
+              "lesson-overview:roster-review",
+              "cast-standardization:sam"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "learner-journal-preview"
+            ]
+          },
+          "orphan": "review-bound",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v001",
+          "pose": "off-contract standardized-neutral pose",
+          "angle": null,
+          "expression": null,
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:sam",
+            "class:people-review",
+            "lesson-overview:roster-review",
+            "cast-standardization:sam"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "learner-journal-preview"
+          ],
+          "decision": "keep",
+          "migrationStatus": "retained-off-matrix-review-evidence",
+          "coverageStatus": "off-matrix"
+        }
+      ],
       "requiredVariants": [
         {
           "angle": "left-three-quarter",
@@ -2807,7 +3430,94 @@
         "deliveredPercent": 0,
         "approvedPercent": 0
       },
-      "currentAssets": [],
+      "currentAssets": [
+        {
+          "path": "/academy/art/characters/francis/francis__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
+          "sha256": "0307f241e8e0b82b9d20ae9e39d36dce22091743520a330d35ec556890fc1100",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "review-candidate",
+          "usage": {
+            "runtime": [
+              "journal:francis-expression-gallery",
+              "cast-standardization:francis"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "learner-journal-preview"
+            ]
+          },
+          "orphan": "review-bound",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v001",
+          "pose": "off-contract standardized-encouraging-listening pose",
+          "angle": null,
+          "expression": null,
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:francis-expression-gallery",
+            "cast-standardization:francis"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "learner-journal-preview"
+          ],
+          "decision": "keep",
+          "migrationStatus": "retained-off-matrix-review-evidence",
+          "coverageStatus": "off-matrix"
+        },
+        {
+          "path": "/academy/art/characters/francis/francis__standardized-neutral__front-near-front__halfbody__v001.png",
+          "sha256": "f4d339165bc50aafbea39ca01049ee3246b3c37453bce58fef5818c66d0f71c7",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "review-candidate",
+          "usage": {
+            "runtime": [
+              "journal:francis",
+              "class:people-review",
+              "lesson-overview:roster-review",
+              "cast-standardization:francis"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "learner-journal-preview"
+            ]
+          },
+          "orphan": "review-bound",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v001",
+          "pose": "off-contract standardized-neutral pose",
+          "angle": null,
+          "expression": null,
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:francis",
+            "class:people-review",
+            "lesson-overview:roster-review",
+            "cast-standardization:francis"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "learner-journal-preview"
+          ],
+          "decision": "keep",
+          "migrationStatus": "retained-off-matrix-review-evidence",
+          "coverageStatus": "off-matrix"
+        }
+      ],
       "requiredVariants": [
         {
           "angle": "left-three-quarter",
@@ -3157,7 +3867,135 @@
         "deliveredPercent": 0,
         "approvedPercent": 0
       },
-      "currentAssets": [],
+      "currentAssets": [
+        {
+          "path": "/academy/art/characters/shin/shin__standardized-determined__left-three-quarter__halfbody__v001.png",
+          "sha256": "694f116d7da78b9005a560970c85794ba058fce7a2800f4e8e4eff09e8c188d6",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "review-candidate",
+          "usage": {
+            "runtime": [
+              "journal:shin-expression-gallery",
+              "cast-standardization:shin"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "learner-journal-preview"
+            ]
+          },
+          "orphan": "review-bound",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v001",
+          "pose": "off-contract standardized-determined pose",
+          "angle": null,
+          "expression": null,
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:shin-expression-gallery",
+            "cast-standardization:shin"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "learner-journal-preview"
+          ],
+          "decision": "keep",
+          "migrationStatus": "retained-off-matrix-review-evidence",
+          "coverageStatus": "off-matrix"
+        },
+        {
+          "path": "/academy/art/characters/shin/shin__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
+          "sha256": "d70bc512b5fb04590e70a1fee1f4ffba640fe623cb04ed2515e8e04d8f50d041",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "review-candidate",
+          "usage": {
+            "runtime": [
+              "journal:shin-expression-gallery",
+              "cast-standardization:shin"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "learner-journal-preview"
+            ]
+          },
+          "orphan": "review-bound",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v001",
+          "pose": "off-contract standardized-encouraging-listening pose",
+          "angle": null,
+          "expression": null,
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:shin-expression-gallery",
+            "cast-standardization:shin"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "learner-journal-preview"
+          ],
+          "decision": "keep",
+          "migrationStatus": "retained-off-matrix-review-evidence",
+          "coverageStatus": "off-matrix"
+        },
+        {
+          "path": "/academy/art/characters/shin/shin__standardized-neutral__front-near-front__halfbody__v001.png",
+          "sha256": "d70bc512b5fb04590e70a1fee1f4ffba640fe623cb04ed2515e8e04d8f50d041",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "review-candidate",
+          "usage": {
+            "runtime": [
+              "journal:shin",
+              "class:people-review",
+              "lesson-overview:roster-review",
+              "cast-standardization:shin"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "learner-journal-preview"
+            ]
+          },
+          "orphan": "review-bound",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v001",
+          "pose": "off-contract standardized-neutral pose",
+          "angle": null,
+          "expression": null,
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:shin",
+            "class:people-review",
+            "lesson-overview:roster-review",
+            "cast-standardization:shin"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "learner-journal-preview"
+          ],
+          "decision": "keep",
+          "migrationStatus": "retained-off-matrix-review-evidence",
+          "coverageStatus": "off-matrix"
+        }
+      ],
       "requiredVariants": [
         {
           "angle": "left-three-quarter",
@@ -3511,7 +4349,94 @@
         "deliveredPercent": 0,
         "approvedPercent": 0
       },
-      "currentAssets": [],
+      "currentAssets": [
+        {
+          "path": "/academy/art/characters/jodi/jodi__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
+          "sha256": "0002290f455bfb033e85e921e267d97f015117fdddc381a0b089bf04768eceaa",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "review-candidate",
+          "usage": {
+            "runtime": [
+              "journal:jodi-expression-gallery",
+              "cast-standardization:jodi"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "learner-journal-preview"
+            ]
+          },
+          "orphan": "review-bound",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v001",
+          "pose": "off-contract standardized-encouraging-listening pose",
+          "angle": null,
+          "expression": null,
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:jodi-expression-gallery",
+            "cast-standardization:jodi"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "learner-journal-preview"
+          ],
+          "decision": "keep",
+          "migrationStatus": "retained-off-matrix-review-evidence",
+          "coverageStatus": "off-matrix"
+        },
+        {
+          "path": "/academy/art/characters/jodi/jodi__standardized-neutral__front-near-front__halfbody__v001.png",
+          "sha256": "c155476807db7875b85a0436fec7d78bb565c065e5d25d184b7bfead1ca80d3b",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "review-candidate",
+          "usage": {
+            "runtime": [
+              "journal:jodi",
+              "class:people-review",
+              "lesson-overview:roster-review",
+              "cast-standardization:jodi"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "learner-journal-preview"
+            ]
+          },
+          "orphan": "review-bound",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v001",
+          "pose": "off-contract standardized-neutral pose",
+          "angle": null,
+          "expression": null,
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:jodi",
+            "class:people-review",
+            "lesson-overview:roster-review",
+            "cast-standardization:jodi"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "learner-journal-preview"
+          ],
+          "decision": "keep",
+          "migrationStatus": "retained-off-matrix-review-evidence",
+          "coverageStatus": "off-matrix"
+        }
+      ],
       "requiredVariants": [
         {
           "angle": "left-three-quarter",
@@ -3865,7 +4790,135 @@
         "deliveredPercent": 0,
         "approvedPercent": 0
       },
-      "currentAssets": [],
+      "currentAssets": [
+        {
+          "path": "/academy/art/characters/christian/christian__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
+          "sha256": "0c5aef4ae7d40a9f4666e975bf6126c1a55100c8c090a6be5d07562f2d40cfe2",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "review-candidate",
+          "usage": {
+            "runtime": [
+              "journal:christian-expression-gallery",
+              "cast-standardization:christian"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "learner-journal-preview"
+            ]
+          },
+          "orphan": "review-bound",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v001",
+          "pose": "off-contract standardized-encouraging-listening pose",
+          "angle": null,
+          "expression": null,
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:christian-expression-gallery",
+            "cast-standardization:christian"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "learner-journal-preview"
+          ],
+          "decision": "keep",
+          "migrationStatus": "retained-off-matrix-review-evidence",
+          "coverageStatus": "off-matrix"
+        },
+        {
+          "path": "/academy/art/characters/christian/christian__standardized-happy__front-near-front__halfbody__v001.png",
+          "sha256": "0c5aef4ae7d40a9f4666e975bf6126c1a55100c8c090a6be5d07562f2d40cfe2",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "review-candidate",
+          "usage": {
+            "runtime": [
+              "journal:christian-expression-gallery",
+              "cast-standardization:christian"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "learner-journal-preview"
+            ]
+          },
+          "orphan": "review-bound",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v001",
+          "pose": "off-contract standardized-happy pose",
+          "angle": null,
+          "expression": null,
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:christian-expression-gallery",
+            "cast-standardization:christian"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "learner-journal-preview"
+          ],
+          "decision": "keep",
+          "migrationStatus": "retained-off-matrix-review-evidence",
+          "coverageStatus": "off-matrix"
+        },
+        {
+          "path": "/academy/art/characters/christian/christian__standardized-neutral__front-near-front__halfbody__v001.png",
+          "sha256": "c3610651c1c5b79cef75582482f2b18efa91a3c6f153cb0c3a1d4507c9dc1e3c",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "review-candidate",
+          "usage": {
+            "runtime": [
+              "journal:christian",
+              "class:people-review",
+              "lesson-overview:roster-review",
+              "cast-standardization:christian"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "learner-journal-preview"
+            ]
+          },
+          "orphan": "review-bound",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v001",
+          "pose": "off-contract standardized-neutral pose",
+          "angle": null,
+          "expression": null,
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:christian",
+            "class:people-review",
+            "lesson-overview:roster-review",
+            "cast-standardization:christian"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "learner-journal-preview"
+          ],
+          "decision": "keep",
+          "migrationStatus": "retained-off-matrix-review-evidence",
+          "coverageStatus": "off-matrix"
+        }
+      ],
       "requiredVariants": [
         {
           "angle": "left-three-quarter",
@@ -4221,7 +5274,94 @@
         "deliveredPercent": 0,
         "approvedPercent": 0
       },
-      "currentAssets": [],
+      "currentAssets": [
+        {
+          "path": "/academy/art/characters/jenny/jenny__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
+          "sha256": "43cc650546548045e25e2f2d3d1c3af4982c47d255a94324023efffd6719f467",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "review-candidate",
+          "usage": {
+            "runtime": [
+              "journal:jenny-expression-gallery",
+              "cast-standardization:jenny"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "learner-journal-preview"
+            ]
+          },
+          "orphan": "review-bound",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v001",
+          "pose": "off-contract standardized-encouraging-listening pose",
+          "angle": null,
+          "expression": null,
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:jenny-expression-gallery",
+            "cast-standardization:jenny"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "learner-journal-preview"
+          ],
+          "decision": "keep",
+          "migrationStatus": "retained-off-matrix-review-evidence",
+          "coverageStatus": "off-matrix"
+        },
+        {
+          "path": "/academy/art/characters/jenny/jenny__standardized-neutral__front-near-front__halfbody__v001.png",
+          "sha256": "18cd1f6de975e3e63af19e66658ad09fa38b6cc38e954fcf89cd0ad613d52ab2",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "review-candidate",
+          "usage": {
+            "runtime": [
+              "journal:jenny",
+              "class:people-review",
+              "lesson-overview:roster-review",
+              "cast-standardization:jenny"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "learner-journal-preview"
+            ]
+          },
+          "orphan": "review-bound",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v001",
+          "pose": "off-contract standardized-neutral pose",
+          "angle": null,
+          "expression": null,
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:jenny",
+            "class:people-review",
+            "lesson-overview:roster-review",
+            "cast-standardization:jenny"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "learner-journal-preview"
+          ],
+          "decision": "keep",
+          "migrationStatus": "retained-off-matrix-review-evidence",
+          "coverageStatus": "off-matrix"
+        }
+      ],
       "requiredVariants": [
         {
           "angle": "left-three-quarter",
@@ -4574,7 +5714,94 @@
         "deliveredPercent": 0,
         "approvedPercent": 0
       },
-      "currentAssets": [],
+      "currentAssets": [
+        {
+          "path": "/academy/art/characters/robert/robert__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
+          "sha256": "b50cce4b73fd75b01a623165614fcba1c9298accc596f23c81430d62f48c9382",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "review-candidate",
+          "usage": {
+            "runtime": [
+              "journal:robert-expression-gallery",
+              "cast-standardization:robert"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "learner-journal-preview"
+            ]
+          },
+          "orphan": "review-bound",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v001",
+          "pose": "off-contract standardized-encouraging-listening pose",
+          "angle": null,
+          "expression": null,
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:robert-expression-gallery",
+            "cast-standardization:robert"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "learner-journal-preview"
+          ],
+          "decision": "keep",
+          "migrationStatus": "retained-off-matrix-review-evidence",
+          "coverageStatus": "off-matrix"
+        },
+        {
+          "path": "/academy/art/characters/robert/robert__standardized-neutral__front-near-front__halfbody__v001.png",
+          "sha256": "b50cce4b73fd75b01a623165614fcba1c9298accc596f23c81430d62f48c9382",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "review-candidate",
+          "usage": {
+            "runtime": [
+              "journal:robert",
+              "class:people-review",
+              "lesson-overview:roster-review",
+              "cast-standardization:robert"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "learner-journal-preview"
+            ]
+          },
+          "orphan": "review-bound",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v001",
+          "pose": "off-contract standardized-neutral pose",
+          "angle": null,
+          "expression": null,
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:robert",
+            "class:people-review",
+            "lesson-overview:roster-review",
+            "cast-standardization:robert"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "learner-journal-preview"
+          ],
+          "decision": "keep",
+          "migrationStatus": "retained-off-matrix-review-evidence",
+          "coverageStatus": "off-matrix"
+        }
+      ],
       "requiredVariants": [
         {
           "angle": "left-three-quarter",
@@ -4938,7 +6165,7 @@
         {
           "path": "/academy/art/characters/mika/mika__sound-listening__halfbody__v001.png",
           "sha256": "56838e297a6577e5ec99d5122dd14054d58722b2648f198dbeb7b8faac46d8a8",
-          "source": "generated-image://lesson-zero-sound-mika-20260722",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
           "status": "approved",
           "usage": {
@@ -4969,6 +6196,51 @@
           "decision": "keep",
           "migrationStatus": "approved-and-registered",
           "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/mika/mika__standardized-neutral__front-near-front__halfbody__v001.png",
+          "sha256": "126a2fc704652e2a2515def882a51ff066d2cb29af14558b91276667f27ed2f5",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "review-candidate",
+          "usage": {
+            "runtime": [
+              "journal:mika",
+              "class:people-review",
+              "lesson-overview:roster-review",
+              "cast-standardization:mika"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "learner-journal-preview"
+            ]
+          },
+          "orphan": "review-bound",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v001",
+          "pose": "off-contract standardized-neutral pose",
+          "angle": null,
+          "expression": null,
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:mika",
+            "class:people-review",
+            "lesson-overview:roster-review",
+            "cast-standardization:mika"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "learner-journal-preview"
+          ],
+          "decision": "keep",
+          "migrationStatus": "retained-off-matrix-review-evidence",
+          "coverageStatus": "off-matrix"
         }
       ],
       "requiredVariants": [
@@ -5320,7 +6592,7 @@
         {
           "path": "/academy/art/characters/sophie/sophie__bookshop-neutral__halfbody__v003.png",
           "sha256": "83425d5bdec15a8cf54c5322df3e8b011d9dce383b181e861ca72897d1d79eb7",
-          "source": "current-production:approved-Sophie-painted-neutral",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
           "status": "approved",
           "usage": {
@@ -5363,7 +6635,7 @@
         {
           "path": "/academy/art/characters/sophie/sophie__determined__left-three-quarter__halfbody__v003.png",
           "sha256": "9499887d31a75713a1ea551ca9ef6124aeee6591949206dda10d8670e8d9e711",
-          "source": "generated-image://019f6809-715b-7911-99bf-b1211a580b07/exec-f9825ee1-bc15-492d-8aee-a78691204d08.png",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
           "status": "approved",
           "usage": {
@@ -5398,7 +6670,7 @@
         {
           "path": "/academy/art/characters/sophie/sophie__encouraging-listening__front-near-front__halfbody__v003.png",
           "sha256": "8b2ecd95a030f87dd210615ebf3cc0704c6b707896b4e991035ab9b52d9ef8d4",
-          "source": "generated-image://019f6809-715b-7911-99bf-b1211a580b07/exec-d2a30f91-d841-4537-ba56-d3c59e1620b0.png",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
           "status": "approved",
           "usage": {
@@ -5765,7 +7037,7 @@
         {
           "path": "/academy/art/characters/xingyu/xingyu__listening-halfbody-v2__v001.png",
           "sha256": "e79ef1bdd9bf21c90db50260c3114c0d5694ecf0c75a2ff62d6fc131a8f76c1a",
-          "source": "catalog:docs/academy/recovery/ACADEMY-ART-CATALOG.json#xingyu-listening-halfbody-v2-v001",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
           "status": "approved",
           "usage": {
@@ -5796,6 +7068,51 @@
           "decision": "keep",
           "migrationStatus": "approved-and-registered",
           "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/xingyu/xingyu__standardized-neutral__front-near-front__halfbody__v001.png",
+          "sha256": "e96fe03e0d00e8a926e3aad69ea1731a8833ff7f3475f0b1ab0a77ebfb094e5b",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "review-candidate",
+          "usage": {
+            "runtime": [
+              "journal:xingyu",
+              "class:people-review",
+              "lesson-overview:roster-review",
+              "cast-standardization:xingyu"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "learner-journal-preview"
+            ]
+          },
+          "orphan": "review-bound",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v001",
+          "pose": "off-contract standardized-neutral pose",
+          "angle": null,
+          "expression": null,
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:xingyu",
+            "class:people-review",
+            "lesson-overview:roster-review",
+            "cast-standardization:xingyu"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "learner-journal-preview"
+          ],
+          "decision": "keep",
+          "migrationStatus": "retained-off-matrix-review-evidence",
+          "coverageStatus": "off-matrix"
         }
       ],
       "requiredVariants": [
@@ -6141,7 +7458,94 @@
         "deliveredPercent": 0,
         "approvedPercent": 0
       },
-      "currentAssets": [],
+      "currentAssets": [
+        {
+          "path": "/academy/art/characters/angel/angel__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
+          "sha256": "c74fe7c0983bfe515fb787cb3688de5edcfef3b036e5c9f5e6c197e21548db30",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "review-candidate",
+          "usage": {
+            "runtime": [
+              "journal:angel-expression-gallery",
+              "cast-standardization:angel"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "learner-journal-preview"
+            ]
+          },
+          "orphan": "review-bound",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v001",
+          "pose": "off-contract standardized-encouraging-listening pose",
+          "angle": null,
+          "expression": null,
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:angel-expression-gallery",
+            "cast-standardization:angel"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "learner-journal-preview"
+          ],
+          "decision": "keep",
+          "migrationStatus": "retained-off-matrix-review-evidence",
+          "coverageStatus": "off-matrix"
+        },
+        {
+          "path": "/academy/art/characters/angel/angel__standardized-neutral__front-near-front__halfbody__v001.png",
+          "sha256": "c74fe7c0983bfe515fb787cb3688de5edcfef3b036e5c9f5e6c197e21548db30",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "review-candidate",
+          "usage": {
+            "runtime": [
+              "journal:angel",
+              "class:people-review",
+              "lesson-overview:roster-review",
+              "cast-standardization:angel"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "learner-journal-preview"
+            ]
+          },
+          "orphan": "review-bound",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v001",
+          "pose": "off-contract standardized-neutral pose",
+          "angle": null,
+          "expression": null,
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:angel",
+            "class:people-review",
+            "lesson-overview:roster-review",
+            "cast-standardization:angel"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "learner-journal-preview"
+          ],
+          "decision": "keep",
+          "migrationStatus": "retained-off-matrix-review-evidence",
+          "coverageStatus": "off-matrix"
+        }
+      ],
       "requiredVariants": [
         {
           "angle": "left-three-quarter",
@@ -6492,7 +7896,94 @@
         "deliveredPercent": 0,
         "approvedPercent": 0
       },
-      "currentAssets": [],
+      "currentAssets": [
+        {
+          "path": "/academy/art/characters/stasi/stasi__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
+          "sha256": "c8855b0c874f6e9f82f36e711bf2a936b9677c6fc1a79b74db239031d4c7d740",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "review-candidate",
+          "usage": {
+            "runtime": [
+              "journal:stasi-expression-gallery",
+              "cast-standardization:stasi"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "learner-journal-preview"
+            ]
+          },
+          "orphan": "review-bound",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v001",
+          "pose": "off-contract standardized-encouraging-listening pose",
+          "angle": null,
+          "expression": null,
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:stasi-expression-gallery",
+            "cast-standardization:stasi"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "learner-journal-preview"
+          ],
+          "decision": "keep",
+          "migrationStatus": "retained-off-matrix-review-evidence",
+          "coverageStatus": "off-matrix"
+        },
+        {
+          "path": "/academy/art/characters/stasi/stasi__standardized-neutral__front-near-front__halfbody__v001.png",
+          "sha256": "bf4693693d669c42214e155bbeec094eee8e9b074a6a11e4a06de338c4f06fba",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "review-candidate",
+          "usage": {
+            "runtime": [
+              "journal:stasi",
+              "class:people-review",
+              "lesson-overview:roster-review",
+              "cast-standardization:stasi"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "learner-journal-preview"
+            ]
+          },
+          "orphan": "review-bound",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v001",
+          "pose": "off-contract standardized-neutral pose",
+          "angle": null,
+          "expression": null,
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:stasi",
+            "class:people-review",
+            "lesson-overview:roster-review",
+            "cast-standardization:stasi"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "learner-journal-preview"
+          ],
+          "decision": "keep",
+          "migrationStatus": "retained-off-matrix-review-evidence",
+          "coverageStatus": "off-matrix"
+        }
+      ],
       "requiredVariants": [
         {
           "angle": "left-three-quarter",
@@ -6844,7 +8335,94 @@
         "deliveredPercent": 0,
         "approvedPercent": 0
       },
-      "currentAssets": [],
+      "currentAssets": [
+        {
+          "path": "/academy/art/characters/ruparna/ruparna__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
+          "sha256": "c3a505ddfa609dd7787e349e37b85ddcdb75abf25f6946cf185399c670c794ba",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "review-candidate",
+          "usage": {
+            "runtime": [
+              "journal:ruparna-expression-gallery",
+              "cast-standardization:ruparna"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "learner-journal-preview"
+            ]
+          },
+          "orphan": "review-bound",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v001",
+          "pose": "off-contract standardized-encouraging-listening pose",
+          "angle": null,
+          "expression": null,
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:ruparna-expression-gallery",
+            "cast-standardization:ruparna"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "learner-journal-preview"
+          ],
+          "decision": "keep",
+          "migrationStatus": "retained-off-matrix-review-evidence",
+          "coverageStatus": "off-matrix"
+        },
+        {
+          "path": "/academy/art/characters/ruparna/ruparna__standardized-neutral__front-near-front__halfbody__v001.png",
+          "sha256": "c3a505ddfa609dd7787e349e37b85ddcdb75abf25f6946cf185399c670c794ba",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "review-candidate",
+          "usage": {
+            "runtime": [
+              "journal:ruparna",
+              "class:people-review",
+              "lesson-overview:roster-review",
+              "cast-standardization:ruparna"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "learner-journal-preview"
+            ]
+          },
+          "orphan": "review-bound",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v001",
+          "pose": "off-contract standardized-neutral pose",
+          "angle": null,
+          "expression": null,
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:ruparna",
+            "class:people-review",
+            "lesson-overview:roster-review",
+            "cast-standardization:ruparna"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "learner-journal-preview"
+          ],
+          "decision": "keep",
+          "migrationStatus": "retained-off-matrix-review-evidence",
+          "coverageStatus": "off-matrix"
+        }
+      ],
       "requiredVariants": [
         {
           "angle": "left-three-quarter",
@@ -7195,7 +8773,94 @@
         "deliveredPercent": 0,
         "approvedPercent": 0
       },
-      "currentAssets": [],
+      "currentAssets": [
+        {
+          "path": "/academy/art/characters/rose/rose__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
+          "sha256": "7ae4d8bb9fc9990ebaa13b4acf257fe9b9914bbcbf94f92188f7a02a8036c816",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "review-candidate",
+          "usage": {
+            "runtime": [
+              "journal:rose-expression-gallery",
+              "cast-standardization:rose"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "learner-journal-preview"
+            ]
+          },
+          "orphan": "review-bound",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v001",
+          "pose": "off-contract standardized-encouraging-listening pose",
+          "angle": null,
+          "expression": null,
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:rose-expression-gallery",
+            "cast-standardization:rose"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "learner-journal-preview"
+          ],
+          "decision": "keep",
+          "migrationStatus": "retained-off-matrix-review-evidence",
+          "coverageStatus": "off-matrix"
+        },
+        {
+          "path": "/academy/art/characters/rose/rose__standardized-neutral__front-near-front__halfbody__v001.png",
+          "sha256": "7ae4d8bb9fc9990ebaa13b4acf257fe9b9914bbcbf94f92188f7a02a8036c816",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "review-candidate",
+          "usage": {
+            "runtime": [
+              "journal:rose",
+              "class:people-review",
+              "lesson-overview:roster-review",
+              "cast-standardization:rose"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "learner-journal-preview"
+            ]
+          },
+          "orphan": "review-bound",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v001",
+          "pose": "off-contract standardized-neutral pose",
+          "angle": null,
+          "expression": null,
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:rose",
+            "class:people-review",
+            "lesson-overview:roster-review",
+            "cast-standardization:rose"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "learner-journal-preview"
+          ],
+          "decision": "keep",
+          "migrationStatus": "retained-off-matrix-review-evidence",
+          "coverageStatus": "off-matrix"
+        }
+      ],
       "requiredVariants": [
         {
           "angle": "left-three-quarter",
@@ -7540,14 +9205,17 @@
         {
           "path": "/academy/art/characters/peter/peter__encouraging__right-three-quarter__halfbody__v001.png",
           "sha256": "a96f5726b20b616756149cc02e5482ac4947c81a2f0d0b85834db60f2ae0078e",
-          "source": "generated-image://019f632f-8dc5-7240-bb93-1867b491d683/exec-49ce316c-f943-40c3-9891-ac93cabddbaf.png",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
           "status": "review-candidate",
           "usage": {
             "runtime": [
               "journal:peter-expression-gallery"
             ],
-            "review": []
+            "review": [
+              "cast-standardization-manifest",
+              "learner-journal-preview"
+            ]
           },
           "orphan": "review-bound",
           "styleVersion": "current-review-family",
@@ -7565,7 +9233,10 @@
           "runtimeUses": [
             "journal:peter-expression-gallery"
           ],
-          "reviewUses": [],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "learner-journal-preview"
+          ],
           "decision": "keep",
           "migrationStatus": "retained-review-candidate-not-approved",
           "coverageStatus": "review-candidate"
@@ -7573,7 +9244,7 @@
         {
           "path": "/academy/art/characters/peter/peter__neutral__halfbody__v002.png",
           "sha256": "ecace10545e5c9d0c6e07edea6d77b20836d583ca5ffc45447f814a266fd5480",
-          "source": "generated-image://019f3220-a107-7262-95f1-b8f7573a667f/exec-4640771b-6435-4a84-b8b7-2b49f8e6509c.png",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
           "status": "review-candidate",
           "usage": {
@@ -7581,7 +9252,10 @@
               "journal:peter",
               "journal:peter-expression-gallery"
             ],
-            "review": []
+            "review": [
+              "cast-standardization-manifest",
+              "learner-journal-preview"
+            ]
           },
           "orphan": "review-bound",
           "styleVersion": "current-review-family",
@@ -7600,7 +9274,10 @@
             "journal:peter",
             "journal:peter-expression-gallery"
           ],
-          "reviewUses": [],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "learner-journal-preview"
+          ],
           "decision": "keep",
           "migrationStatus": "retained-review-candidate-not-approved",
           "coverageStatus": "review-candidate"
@@ -7608,14 +9285,17 @@
         {
           "path": "/academy/art/characters/peter/peter__thoughtful__left-three-quarter__halfbody__v001.png",
           "sha256": "d883770c0afa95668b92f179c6e6b11d565d3fe0dfed37fa243b1a01961a8d3a",
-          "source": "generated-image://019f632f-8dc5-7240-bb93-1867b491d683/exec-3942d014-b952-47ff-8a92-45b5d0fad22a.png",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
           "status": "review-candidate",
           "usage": {
             "runtime": [
               "journal:peter-expression-gallery"
             ],
-            "review": []
+            "review": [
+              "cast-standardization-manifest",
+              "learner-journal-preview"
+            ]
           },
           "orphan": "review-bound",
           "styleVersion": "current-review-family",
@@ -7633,7 +9313,10 @@
           "runtimeUses": [
             "journal:peter-expression-gallery"
           ],
-          "reviewUses": [],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "learner-journal-preview"
+          ],
           "decision": "keep",
           "migrationStatus": "retained-review-candidate-not-approved",
           "coverageStatus": "review-candidate"
@@ -7952,14 +9635,17 @@
         {
           "path": "/academy/art/characters/felix/felix__happy__left-three-quarter__halfbody__v001.png",
           "sha256": "78aa07feed685ee45ca1c10fad8c16ea5c288b00732bfffca4b42ca1be83e582",
-          "source": "generated-image://019f632f-8dc5-7240-bb93-1867b491d683/exec-1af208f4-17d9-4aa3-8c7b-5b0bbea6dc4f.png",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
           "status": "review-candidate",
           "usage": {
             "runtime": [
               "journal:felix-expression-gallery"
             ],
-            "review": []
+            "review": [
+              "cast-standardization-manifest",
+              "learner-journal-preview"
+            ]
           },
           "orphan": "review-bound",
           "styleVersion": "current-review-family",
@@ -7977,7 +9663,10 @@
           "runtimeUses": [
             "journal:felix-expression-gallery"
           ],
-          "reviewUses": [],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "learner-journal-preview"
+          ],
           "decision": "keep",
           "migrationStatus": "retained-review-candidate-not-approved",
           "coverageStatus": "review-candidate"
@@ -7985,7 +9674,7 @@
         {
           "path": "/academy/art/characters/felix/felix__neutral__halfbody__v001.png",
           "sha256": "d341faf65113447457968c03db02d1e25844e93688718ec368bf6c9b6c4825a4",
-          "source": "generated-image://019f3220-a107-7262-95f1-b8f7573a667f/exec-c0e7b1b2-04a2-4062-a165-a57b00b1b5a8.png",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
           "status": "review-candidate",
           "usage": {
@@ -7993,7 +9682,10 @@
               "journal:felix-after-meeting",
               "journal:felix-expression-gallery"
             ],
-            "review": []
+            "review": [
+              "cast-standardization-manifest",
+              "learner-journal-preview"
+            ]
           },
           "orphan": "review-bound",
           "styleVersion": "current-review-family",
@@ -8012,22 +9704,69 @@
             "journal:felix-after-meeting",
             "journal:felix-expression-gallery"
           ],
-          "reviewUses": [],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "learner-journal-preview"
+          ],
           "decision": "keep",
           "migrationStatus": "retained-review-candidate-not-approved",
           "coverageStatus": "review-candidate"
         },
         {
+          "path": "/academy/art/characters/felix/felix__standardized-encouraging-listening__left-three-quarter__halfbody__v001.png",
+          "sha256": "106d827068e7d805375156293748b79c9c90998659885104813075965ffb58a8",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "review-candidate",
+          "usage": {
+            "runtime": [
+              "journal:felix-expression-gallery",
+              "cast-standardization:felix"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "learner-journal-preview"
+            ]
+          },
+          "orphan": "review-bound",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v001",
+          "pose": "off-contract standardized-encouraging-listening pose",
+          "angle": null,
+          "expression": null,
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:felix-expression-gallery",
+            "cast-standardization:felix"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "learner-journal-preview"
+          ],
+          "decision": "keep",
+          "migrationStatus": "retained-off-matrix-review-evidence",
+          "coverageStatus": "off-matrix"
+        },
+        {
           "path": "/academy/art/characters/felix/felix__surprised__right-three-quarter__halfbody__v001.png",
           "sha256": "39ad04b91509cc3a1876b8144ca5583af14c738c8e9068be698e3ed99eedef2e",
-          "source": "generated-image://019f632f-8dc5-7240-bb93-1867b491d683/exec-3d878cc4-afc3-41dd-a7ed-a0bcc3e16be4.png",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
           "status": "review-candidate",
           "usage": {
             "runtime": [
               "journal:felix-expression-gallery"
             ],
-            "review": []
+            "review": [
+              "cast-standardization-manifest",
+              "learner-journal-preview"
+            ]
           },
           "orphan": "review-bound",
           "styleVersion": "current-review-family",
@@ -8045,7 +9784,10 @@
           "runtimeUses": [
             "journal:felix-expression-gallery"
           ],
-          "reviewUses": [],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "learner-journal-preview"
+          ],
           "decision": "keep",
           "migrationStatus": "retained-review-candidate-not-approved",
           "coverageStatus": "review-candidate"
@@ -8363,15 +10105,18 @@
       "currentAssets": [
         {
           "path": "/academy/art/characters/shaun/shaun__neutral__halfbody__v001.png",
-          "sha256": "fc0c7b1250affaf89afcd58f88302e46e2061137aed14d15c4e19674cbe4b6f1",
-          "source": "generated-image://019f5d0b-9ef8-78a1-9c38-2cf7bd8431e7/exec-ad0db31f-db3b-4a70-81df-c68e43f2bcff.png",
+          "sha256": "9636becf6269492685b6a5401a615a481190b25e7da4071be65010abb472699e",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
           "status": "review-candidate",
           "usage": {
             "runtime": [
               "journal:shaun"
             ],
-            "review": []
+            "review": [
+              "cast-standardization-manifest",
+              "learner-journal-preview"
+            ]
           },
           "orphan": "review-bound",
           "styleVersion": "current-review-family",
@@ -8380,8 +10125,8 @@
           "angle": "front-near-front",
           "expression": "neutral",
           "dimensions": {
-            "width": 1023,
-            "height": 1537,
+            "width": 1536,
+            "height": 2048,
             "bitDepth": 8,
             "colorType": 6,
             "transparency": "alpha-channel"
@@ -8389,10 +10134,95 @@
           "runtimeUses": [
             "journal:shaun"
           ],
-          "reviewUses": [],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "learner-journal-preview"
+          ],
           "decision": "keep",
           "migrationStatus": "retained-review-candidate-not-approved",
           "coverageStatus": "review-candidate"
+        },
+        {
+          "path": "/academy/art/characters/shaun/shaun__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
+          "sha256": "8bed22bc2c84f558d24d64e82bce4763109850250d77d386102002fb0072030c",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "review-candidate",
+          "usage": {
+            "runtime": [
+              "journal:shaun-expression-gallery",
+              "cast-standardization:shaun"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "learner-journal-preview"
+            ]
+          },
+          "orphan": "review-bound",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v001",
+          "pose": "off-contract standardized-encouraging-listening pose",
+          "angle": null,
+          "expression": null,
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:shaun-expression-gallery",
+            "cast-standardization:shaun"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "learner-journal-preview"
+          ],
+          "decision": "keep",
+          "migrationStatus": "retained-off-matrix-review-evidence",
+          "coverageStatus": "off-matrix"
+        },
+        {
+          "path": "/academy/art/characters/shaun/shaun__standardized-happy__front-near-front__halfbody__v001.png",
+          "sha256": "9f08b56903329bab2a6af7bd35d55d4dad6a909dc57f32b3005503be1468c1a2",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "review-candidate",
+          "usage": {
+            "runtime": [
+              "journal:shaun-expression-gallery",
+              "cast-standardization:shaun"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "learner-journal-preview"
+            ]
+          },
+          "orphan": "review-bound",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v001",
+          "pose": "off-contract standardized-happy pose",
+          "angle": null,
+          "expression": null,
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:shaun-expression-gallery",
+            "cast-standardization:shaun"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "learner-journal-preview"
+          ],
+          "decision": "keep",
+          "migrationStatus": "retained-off-matrix-review-evidence",
+          "coverageStatus": "off-matrix"
         }
       ],
       "requiredVariants": [
@@ -8722,14 +10552,17 @@
         {
           "path": "/academy/art/characters/tom2/tom2__encouraging-listening__front-near-front__halfbody__v001.png",
           "sha256": "e649084f2d3c07782c45d4acfa8cd64ce68ab6a6ed332abbdf1336b29b2b6635",
-          "source": "private-reference://owner-supplied/tom2-v1",
-          "privacy": "private-likeness-reference-not-shipped; opaque-id-and-hash-only",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
           "status": "review-candidate",
           "usage": {
             "runtime": [
               "journal:tom2-expression-gallery"
             ],
-            "review": []
+            "review": [
+              "cast-standardization-manifest",
+              "learner-journal-preview"
+            ]
           },
           "orphan": "review-bound",
           "styleVersion": "current-review-family",
@@ -8747,23 +10580,29 @@
           "runtimeUses": [
             "journal:tom2-expression-gallery"
           ],
-          "reviewUses": [],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "learner-journal-preview"
+          ],
           "decision": "keep",
           "migrationStatus": "retained-review-candidate-not-approved",
           "coverageStatus": "review-candidate"
         },
         {
           "path": "/academy/art/characters/tom2/tom2__neutral__right-three-quarter__halfbody__v001.png",
-          "sha256": "f6565d6eb7327305dfa1b4dccfae98317b147e39507c572a4118d6a71bcdd33e",
-          "source": "private-reference://owner-supplied/tom2-v1",
-          "privacy": "private-likeness-reference-not-shipped; opaque-id-and-hash-only",
+          "sha256": "bed3c072bcee6953d825ae67ab0e7f576bda625c03ad7d11060fed667e95a41c",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
           "status": "review-candidate",
           "usage": {
             "runtime": [
               "journal:tom2",
               "journal:tom2-expression-gallery"
             ],
-            "review": []
+            "review": [
+              "cast-standardization-manifest",
+              "learner-journal-preview"
+            ]
           },
           "orphan": "review-bound",
           "styleVersion": "current-review-family",
@@ -8782,7 +10621,10 @@
             "journal:tom2",
             "journal:tom2-expression-gallery"
           ],
-          "reviewUses": [],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "learner-journal-preview"
+          ],
           "decision": "keep",
           "migrationStatus": "retained-review-candidate-not-approved",
           "coverageStatus": "review-candidate"
@@ -8790,14 +10632,17 @@
         {
           "path": "/academy/art/characters/tom2/tom2__surprised-shocked__left-three-quarter__halfbody__v001.png",
           "sha256": "f0253f17a7a73bbe4b84c41630cfd1418fb244cc2397fe46af84ae19c6293eee",
-          "source": "private-reference://owner-supplied/tom2-v1",
-          "privacy": "private-likeness-reference-not-shipped; opaque-id-and-hash-only",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
           "status": "review-candidate",
           "usage": {
             "runtime": [
               "journal:tom2-expression-gallery"
             ],
-            "review": []
+            "review": [
+              "cast-standardization-manifest",
+              "learner-journal-preview"
+            ]
           },
           "orphan": "review-bound",
           "styleVersion": "current-review-family",
@@ -8815,7 +10660,10 @@
           "runtimeUses": [
             "journal:tom2-expression-gallery"
           ],
-          "reviewUses": [],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "learner-journal-preview"
+          ],
           "decision": "keep",
           "migrationStatus": "retained-review-candidate-not-approved",
           "coverageStatus": "review-candidate"
@@ -9130,8 +10978,8 @@
         {
           "path": "/academy/art/characters/steve/steve__determined__left-three-quarter__halfbody__v001.png",
           "sha256": "c673e40278296b6a656680cf135c89d29379422f322b66013c6c609cf5dc44b5",
-          "source": "owner-brief://academy/steve-v1",
-          "privacy": "written-description-only; no-private-likeness-source",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
           "status": "approved",
           "usage": {
             "runtime": [
@@ -9163,8 +11011,8 @@
         {
           "path": "/academy/art/characters/steve/steve__happy__right-three-quarter__halfbody__v001.png",
           "sha256": "c972dfecab8e6720af12d44cfc98f80ed0d09789cca53958f32d3ad5eb810b07",
-          "source": "owner-brief://academy/steve-v1",
-          "privacy": "written-description-only; no-private-likeness-source",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
           "status": "approved",
           "usage": {
             "runtime": [
@@ -9196,8 +11044,8 @@
         {
           "path": "/academy/art/characters/steve/steve__neutral__front-near-front__halfbody__v001.png",
           "sha256": "f56758c5e8d968381cebc81cd21d776dd62941a2e9a3a9aacfc1286fb8ffd1ef",
-          "source": "owner-brief://academy/steve-v1",
-          "privacy": "written-description-only; no-private-likeness-source",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
           "status": "approved",
           "usage": {
             "runtime": [
@@ -9227,6 +11075,88 @@
           "decision": "keep",
           "migrationStatus": "approved-and-registered",
           "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/steve/steve__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
+          "sha256": "705f314f90aadea87bb1cb3d5466c17cecacf77f8d64d3451d34221cca6b8710",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "review-candidate",
+          "usage": {
+            "runtime": [
+              "journal:steve-expression-gallery",
+              "cast-standardization:steve"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "learner-journal-preview"
+            ]
+          },
+          "orphan": "review-bound",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v001",
+          "pose": "off-contract standardized-encouraging-listening pose",
+          "angle": null,
+          "expression": null,
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:steve-expression-gallery",
+            "cast-standardization:steve"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "learner-journal-preview"
+          ],
+          "decision": "keep",
+          "migrationStatus": "retained-off-matrix-review-evidence",
+          "coverageStatus": "off-matrix"
+        },
+        {
+          "path": "/academy/art/characters/steve/steve__standardized-happy__front-near-front__halfbody__v001.png",
+          "sha256": "2769c2bfce3a0d1502e7fdd982d970f0cd37a1994a68074909000b1f40b0474b",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "review-candidate",
+          "usage": {
+            "runtime": [
+              "journal:steve-expression-gallery",
+              "cast-standardization:steve"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "learner-journal-preview"
+            ]
+          },
+          "orphan": "review-bound",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v001",
+          "pose": "off-contract standardized-happy pose",
+          "angle": null,
+          "expression": null,
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:steve-expression-gallery",
+            "cast-standardization:steve"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "learner-journal-preview"
+          ],
+          "decision": "keep",
+          "migrationStatus": "retained-off-matrix-review-evidence",
+          "coverageStatus": "off-matrix"
         }
       ],
       "requiredVariants": [
@@ -9534,7 +11464,94 @@
         "deliveredPercent": 0,
         "approvedPercent": 0
       },
-      "currentAssets": [],
+      "currentAssets": [
+        {
+          "path": "/academy/art/characters/nanako/nanako__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
+          "sha256": "3dd4997af1012c9cf7697e1510cc373c05f3420b8cd230dc2e400d2caaf3727f",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "review-candidate",
+          "usage": {
+            "runtime": [
+              "journal:nanako-expression-gallery",
+              "cast-standardization:nanako"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "learner-journal-preview"
+            ]
+          },
+          "orphan": "review-bound",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v001",
+          "pose": "off-contract standardized-encouraging-listening pose",
+          "angle": null,
+          "expression": null,
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:nanako-expression-gallery",
+            "cast-standardization:nanako"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "learner-journal-preview"
+          ],
+          "decision": "keep",
+          "migrationStatus": "retained-off-matrix-review-evidence",
+          "coverageStatus": "off-matrix"
+        },
+        {
+          "path": "/academy/art/characters/nanako/nanako__standardized-neutral__front-near-front__halfbody__v001.png",
+          "sha256": "0d2a673aa9e33a218544da302461c10ad7b235016aaeab92919f19d58fb66d44",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "review-candidate",
+          "usage": {
+            "runtime": [
+              "journal:nanako",
+              "class:people-review",
+              "lesson-overview:roster-review",
+              "cast-standardization:nanako"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "learner-journal-preview"
+            ]
+          },
+          "orphan": "review-bound",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v001",
+          "pose": "off-contract standardized-neutral pose",
+          "angle": null,
+          "expression": null,
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:nanako",
+            "class:people-review",
+            "lesson-overview:roster-review",
+            "cast-standardization:nanako"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "learner-journal-preview"
+          ],
+          "decision": "keep",
+          "migrationStatus": "retained-off-matrix-review-evidence",
+          "coverageStatus": "off-matrix"
+        }
+      ],
       "requiredVariants": [
         {
           "angle": "left-three-quarter",
@@ -9864,7 +11881,94 @@
         "deliveredPercent": 0,
         "approvedPercent": 0
       },
-      "currentAssets": [],
+      "currentAssets": [
+        {
+          "path": "/academy/art/characters/mira/mira__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
+          "sha256": "7eca3ea68eeab8f8bc39bb0828d1772a70fb495d5021a550962708e0ff1d78f4",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "review-candidate",
+          "usage": {
+            "runtime": [
+              "journal:mira-expression-gallery",
+              "cast-standardization:mira"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "learner-journal-preview"
+            ]
+          },
+          "orphan": "review-bound",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v001",
+          "pose": "off-contract standardized-encouraging-listening pose",
+          "angle": null,
+          "expression": null,
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:mira-expression-gallery",
+            "cast-standardization:mira"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "learner-journal-preview"
+          ],
+          "decision": "keep",
+          "migrationStatus": "retained-off-matrix-review-evidence",
+          "coverageStatus": "off-matrix"
+        },
+        {
+          "path": "/academy/art/characters/mira/mira__standardized-neutral__front-near-front__halfbody__v001.png",
+          "sha256": "c4eebe6494909e3b265b9ad477f7bed42b0d8cb12c22fc8070c237ebc831e1f8",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "review-candidate",
+          "usage": {
+            "runtime": [
+              "journal:mira",
+              "class:people-review",
+              "lesson-overview:roster-review",
+              "cast-standardization:mira"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "learner-journal-preview"
+            ]
+          },
+          "orphan": "review-bound",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v001",
+          "pose": "off-contract standardized-neutral pose",
+          "angle": null,
+          "expression": null,
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:mira",
+            "class:people-review",
+            "lesson-overview:roster-review",
+            "cast-standardization:mira"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "learner-journal-preview"
+          ],
+          "decision": "keep",
+          "migrationStatus": "retained-off-matrix-review-evidence",
+          "coverageStatus": "off-matrix"
+        }
+      ],
       "requiredVariants": [
         {
           "angle": "left-three-quarter",
@@ -10194,7 +12298,94 @@
         "deliveredPercent": 0,
         "approvedPercent": 0
       },
-      "currentAssets": [],
+      "currentAssets": [
+        {
+          "path": "/academy/art/characters/miller/miller__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
+          "sha256": "e3527b3c42cc6053bfcd235d24b9ef1c2cdee8bea5553ed54daa198f9953fa9c",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "review-candidate",
+          "usage": {
+            "runtime": [
+              "journal:miller-expression-gallery",
+              "cast-standardization:miller"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "learner-journal-preview"
+            ]
+          },
+          "orphan": "review-bound",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v001",
+          "pose": "off-contract standardized-encouraging-listening pose",
+          "angle": null,
+          "expression": null,
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:miller-expression-gallery",
+            "cast-standardization:miller"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "learner-journal-preview"
+          ],
+          "decision": "keep",
+          "migrationStatus": "retained-off-matrix-review-evidence",
+          "coverageStatus": "off-matrix"
+        },
+        {
+          "path": "/academy/art/characters/miller/miller__standardized-neutral__front-near-front__halfbody__v001.png",
+          "sha256": "e9e9503bf183a8dfd897ac1653e73c4904bc8ae2967e08c486188639ef1db30d",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "review-candidate",
+          "usage": {
+            "runtime": [
+              "journal:miller",
+              "class:people-review",
+              "lesson-overview:roster-review",
+              "cast-standardization:miller"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "learner-journal-preview"
+            ]
+          },
+          "orphan": "review-bound",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v001",
+          "pose": "off-contract standardized-neutral pose",
+          "angle": null,
+          "expression": null,
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:miller",
+            "class:people-review",
+            "lesson-overview:roster-review",
+            "cast-standardization:miller"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "learner-journal-preview"
+          ],
+          "decision": "keep",
+          "migrationStatus": "retained-off-matrix-review-evidence",
+          "coverageStatus": "off-matrix"
+        }
+      ],
       "requiredVariants": [
         {
           "angle": "left-three-quarter",
@@ -10540,7 +12731,94 @@
         "deliveredPercent": 0,
         "approvedPercent": 0
       },
-      "currentAssets": [],
+      "currentAssets": [
+        {
+          "path": "/academy/art/characters/tawapon/tawapon__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
+          "sha256": "7ccf2d30ca96bf35be6f83228349db668fa84635aa2fba581ff64c5f6d26d166",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "review-candidate",
+          "usage": {
+            "runtime": [
+              "journal:tawapon-expression-gallery",
+              "cast-standardization:tawapon"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "learner-journal-preview"
+            ]
+          },
+          "orphan": "review-bound",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v001",
+          "pose": "off-contract standardized-encouraging-listening pose",
+          "angle": null,
+          "expression": null,
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:tawapon-expression-gallery",
+            "cast-standardization:tawapon"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "learner-journal-preview"
+          ],
+          "decision": "keep",
+          "migrationStatus": "retained-off-matrix-review-evidence",
+          "coverageStatus": "off-matrix"
+        },
+        {
+          "path": "/academy/art/characters/tawapon/tawapon__standardized-neutral__front-near-front__halfbody__v001.png",
+          "sha256": "7ccf2d30ca96bf35be6f83228349db668fa84635aa2fba581ff64c5f6d26d166",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "review-candidate",
+          "usage": {
+            "runtime": [
+              "journal:tawapon",
+              "class:people-review",
+              "lesson-overview:roster-review",
+              "cast-standardization:tawapon"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "learner-journal-preview"
+            ]
+          },
+          "orphan": "review-bound",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v001",
+          "pose": "off-contract standardized-neutral pose",
+          "angle": null,
+          "expression": null,
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:tawapon",
+            "class:people-review",
+            "lesson-overview:roster-review",
+            "cast-standardization:tawapon"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "learner-journal-preview"
+          ],
+          "decision": "keep",
+          "migrationStatus": "retained-off-matrix-review-evidence",
+          "coverageStatus": "off-matrix"
+        }
+      ],
       "requiredVariants": [
         {
           "angle": "left-three-quarter",
@@ -10885,7 +13163,94 @@
         "deliveredPercent": 0,
         "approvedPercent": 0
       },
-      "currentAssets": [],
+      "currentAssets": [
+        {
+          "path": "/academy/art/characters/mary/mary__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
+          "sha256": "8b346903cffbc37c884a4a7f232f8913cfeb8e82adbfb21f714a4c9bcf81d7b2",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "review-candidate",
+          "usage": {
+            "runtime": [
+              "journal:mary-expression-gallery",
+              "cast-standardization:mary"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "learner-journal-preview"
+            ]
+          },
+          "orphan": "review-bound",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v001",
+          "pose": "off-contract standardized-encouraging-listening pose",
+          "angle": null,
+          "expression": null,
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:mary-expression-gallery",
+            "cast-standardization:mary"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "learner-journal-preview"
+          ],
+          "decision": "keep",
+          "migrationStatus": "retained-off-matrix-review-evidence",
+          "coverageStatus": "off-matrix"
+        },
+        {
+          "path": "/academy/art/characters/mary/mary__standardized-neutral__front-near-front__halfbody__v001.png",
+          "sha256": "8b346903cffbc37c884a4a7f232f8913cfeb8e82adbfb21f714a4c9bcf81d7b2",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "review-candidate",
+          "usage": {
+            "runtime": [
+              "journal:mary",
+              "class:people-review",
+              "lesson-overview:roster-review",
+              "cast-standardization:mary"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "learner-journal-preview"
+            ]
+          },
+          "orphan": "review-bound",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v001",
+          "pose": "off-contract standardized-neutral pose",
+          "angle": null,
+          "expression": null,
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:mary",
+            "class:people-review",
+            "lesson-overview:roster-review",
+            "cast-standardization:mary"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "learner-journal-preview"
+          ],
+          "decision": "keep",
+          "migrationStatus": "retained-off-matrix-review-evidence",
+          "coverageStatus": "off-matrix"
+        }
+      ],
       "requiredVariants": [
         {
           "angle": "left-three-quarter",
@@ -11226,7 +13591,94 @@
         "deliveredPercent": 0,
         "approvedPercent": 0
       },
-      "currentAssets": [],
+      "currentAssets": [
+        {
+          "path": "/academy/art/characters/takeshi/takeshi__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
+          "sha256": "942eb86fe4f40e84bb79c2ca3d573107e070c985e9ebc693ebb814619a8febb1",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "review-candidate",
+          "usage": {
+            "runtime": [
+              "journal:takeshi-expression-gallery",
+              "cast-standardization:takeshi"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "learner-journal-preview"
+            ]
+          },
+          "orphan": "review-bound",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v001",
+          "pose": "off-contract standardized-encouraging-listening pose",
+          "angle": null,
+          "expression": null,
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:takeshi-expression-gallery",
+            "cast-standardization:takeshi"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "learner-journal-preview"
+          ],
+          "decision": "keep",
+          "migrationStatus": "retained-off-matrix-review-evidence",
+          "coverageStatus": "off-matrix"
+        },
+        {
+          "path": "/academy/art/characters/takeshi/takeshi__standardized-neutral__front-near-front__halfbody__v001.png",
+          "sha256": "942eb86fe4f40e84bb79c2ca3d573107e070c985e9ebc693ebb814619a8febb1",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "review-candidate",
+          "usage": {
+            "runtime": [
+              "journal:takeshi",
+              "class:people-review",
+              "lesson-overview:roster-review",
+              "cast-standardization:takeshi"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "learner-journal-preview"
+            ]
+          },
+          "orphan": "review-bound",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v001",
+          "pose": "off-contract standardized-neutral pose",
+          "angle": null,
+          "expression": null,
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:takeshi",
+            "class:people-review",
+            "lesson-overview:roster-review",
+            "cast-standardization:takeshi"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "learner-journal-preview"
+          ],
+          "decision": "keep",
+          "migrationStatus": "retained-off-matrix-review-evidence",
+          "coverageStatus": "off-matrix"
+        }
+      ],
       "requiredVariants": [
         {
           "angle": "left-three-quarter",

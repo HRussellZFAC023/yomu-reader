@@ -16,6 +16,7 @@ import {
     type AcademyCastMemberId,
     type CastCategory,
 } from '../domain/cast-registry';
+import { ACADEMY_CAST_STANDARDIZATION_JOURNAL_REVIEW } from '../domain/cast-standardization-manifest';
 import type { DailyLearningRoute, DailyRouteAction } from '../domain/daily-learning-loop';
 import type { JlptBand } from '../domain/learner-record';
 import type { CharacterDirectoryEntryProjection } from '../domain/progress-projections';
@@ -35,6 +36,8 @@ export interface ClassPathScreenOptions {
     readonly characters?: readonly CharacterDirectoryEntryProjection[];
     readonly dailyRoute?: DailyLearningRoute;
     readonly learningReason?: string;
+    readonly initialSection?: ClassPathSectionId;
+    readonly reviewAllCast?: boolean;
     readonly onBack: () => void;
     readonly onOpenWeek: (weekId: string) => void;
     readonly onOpenAdvanced?: (packageId: string, override: boolean) => void;
@@ -126,7 +129,12 @@ export function renderClassPathScreen(options: ClassPathScreenOptions): HTMLElem
     }
 
     const people = sectionShell('academy-class-path-people', options.language, 'classPathPeople');
-    people.append(renderPeople(options.plan.weeks, options.language, options.characters));
+    people.append(renderPeople(
+        options.plan.weeks,
+        options.language,
+        options.characters,
+        options.reviewAllCast === true,
+    ));
 
     const events = sectionShell('academy-class-path-events', options.language, 'classPathEvents');
     events.append(renderEvents(options.language));
@@ -142,7 +150,7 @@ export function renderClassPathScreen(options: ClassPathScreenOptions): HTMLElem
     header.append(back, title, index);
     scene.append(header, panelHost);
     screen.append(plate, scene);
-    activateSection('weeks', index, panels);
+    activateSection(options.initialSection ?? 'weeks', index, panels);
     return screen;
 }
 
@@ -444,6 +452,7 @@ function renderPeople(
     weeks: readonly ClassWeekCastPlanEntry[],
     language: AcademyLanguage,
     characters: readonly CharacterDirectoryEntryProjection[] | undefined,
+    reviewAllCast: boolean,
 ): HTMLElement {
     const ids = new Set<AcademyCastMemberId>(['rie']);
     for (const week of weeks) {
@@ -453,8 +462,14 @@ function renderPeople(
     ACADEMY_CLASS_EVENTS.forEach(event => event.castIds.forEach(id => ids.add(id)));
     const directory = new Map(characters?.map(character => [character.characterId, character]));
     const list = element('ul', 'academy-class-register');
-    for (const member of ACADEMY_CAST.filter(candidate => ids.has(candidate.id))) {
-        list.append(renderPerson(member, language, directory.get(member.id as AcademyCastMemberId)));
+    const members = reviewAllCast ? ACADEMY_CAST : ACADEMY_CAST.filter(candidate => ids.has(candidate.id));
+    for (const member of members) {
+        list.append(renderPerson(
+            member,
+            language,
+            directory.get(member.id as AcademyCastMemberId),
+            reviewAllCast,
+        ));
     }
     return list;
 }
@@ -463,14 +478,16 @@ function renderPerson(
     member: AcademyCastMember,
     language: AcademyLanguage,
     character?: CharacterDirectoryEntryProjection,
+    reviewAllCast = false,
 ): HTMLElement {
     const item = element('li', 'academy-class-person-card');
     item.dataset.castId = member.id;
     item.dataset.castCategory = member.category;
-    const unlocked = character?.unlocked ?? true;
+    const unlocked = reviewAllCast || (character?.unlocked ?? true);
     item.dataset.unlocked = String(unlocked);
-    const portrait = unlocked ? classPathPortrait(member.id) : undefined;
+    const portrait = unlocked ? classDirectoryPortrait(member.id) : undefined;
     item.dataset.portraitState = portrait ? 'available' : unlocked ? 'name-only' : 'locked';
+    if (portrait) item.dataset.portraitPresentation = 'journal-review-preview';
     if (portrait) {
         const sprite = createAcademySprite({
             characterId: member.id,
@@ -495,6 +512,12 @@ function renderPerson(
 function classPathPortrait(id: string): string | undefined {
     if (!canRenderAcademyCastPortrait(id, 'story-runtime')) return undefined;
     return (CLASS_PATH_PORTRAITS as Readonly<Record<string, string>>)[id];
+}
+
+function classDirectoryPortrait(id: string): string | undefined {
+    const portraits: Readonly<Partial<Record<AcademyCastMemberId, string>>> =
+        ACADEMY_CAST_STANDARDIZATION_JOURNAL_REVIEW;
+    return portraits[id as AcademyCastMemberId];
 }
 
 function renderEvents(language: AcademyLanguage): HTMLElement {

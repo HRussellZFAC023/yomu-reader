@@ -35,7 +35,7 @@ describe('Lesson Zero sentence-frame screen', () => {
 
         click(screen.element, 'Start with “I am…”');
         await vi.waitFor(() => expect(screen.element.textContent).toContain('Sophie is a student.'));
-        click(screen.element, 'Try this turn');
+        click(screen.element, 'Build it');
         await vi.waitFor(() => expect(screen.element.querySelectorAll('.academy-sentence-frame-token')).toHaveLength(5));
         expect(screen.element.textContent).not.toContain(target);
 
@@ -45,7 +45,7 @@ describe('Lesson Zero sentence-frame screen', () => {
                 screen.element.querySelector(`.academy-sentence-frame-bank [data-token-id="${tokenId}"]`),
             ).toBeNull());
         }
-        click(screen.element, 'Check the sentence');
+        click(screen.element, 'Check');
         await vi.waitFor(() => expect(screen.element.dataset.sessionStage).toBe('result'));
         expect(screen.element.textContent).not.toContain(target);
 

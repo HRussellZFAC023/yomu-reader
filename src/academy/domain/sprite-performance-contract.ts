@@ -4,6 +4,7 @@ import {
     type AcademyRuntimeAssetRecord,
 } from '../assets';
 import { ACADEMY_CAST, type AcademyCastMemberId } from './cast-registry';
+import { ACADEMY_CAST_STANDARDIZATION_MANIFEST } from './cast-standardization-manifest';
 
 export const SPRITE_ANGLES = ['left-three-quarter', 'front-near-front', 'right-three-quarter'] as const;
 export type SpriteAngle = typeof SPRITE_ANGLES[number];
@@ -110,213 +111,32 @@ const SILHOUETTES = {
 
 type RasterBackedCoverage = Exclude<SpriteAssetCoverage, { readonly status: 'missing' }>;
 
-const RASTER_COVERAGE: Partial<Record<
+type RasterCoverageMap = Partial<Record<
     AcademySpriteCastMemberId,
-    Readonly<Partial<Record<SpriteAngle, Readonly<Partial<Record<SpriteExpression, RasterBackedCoverage>>>>>>
->> = {
-    rie: {
-        'front-near-front': {
-            neutral: {
-                status: 'approved',
-                assetPath: ACADEMY_RUNTIME_ASSET_REGISTRY['character.rie.neutral-glasses'].files.default,
-                approvedAssetId: 'character.rie.neutral-glasses',
-            },
-            happy: {
-                status: 'approved',
-                assetPath: ACADEMY_RUNTIME_ASSET_REGISTRY['character.rie.happy-glasses-front'].files.default,
-                approvedAssetId: 'character.rie.happy-glasses-front',
-            },
-        },
-        'left-three-quarter': {
-            determined: {
-                status: 'approved',
-                assetPath: ACADEMY_RUNTIME_ASSET_REGISTRY['character.rie.determined-glasses-left'].files.default,
-                approvedAssetId: 'character.rie.determined-glasses-left',
-            },
-            'sad-vulnerable': {
-                status: 'approved',
-                assetPath: ACADEMY_RUNTIME_ASSET_REGISTRY['character.rie.sad-vulnerable-glasses-left'].files.default,
-                approvedAssetId: 'character.rie.sad-vulnerable-glasses-left',
-            },
-        },
-        'right-three-quarter': {
-            'encouraging-listening': {
-                status: 'approved',
-                assetPath: ACADEMY_RUNTIME_ASSET_REGISTRY['character.rie.encouraging-glasses-right'].files.default,
-                approvedAssetId: 'character.rie.encouraging-glasses-right',
-            },
-            comedic: {
-                status: 'approved',
-                assetPath: ACADEMY_RUNTIME_ASSET_REGISTRY['character.rie.comedic-glasses-right'].files.default,
-                approvedAssetId: 'character.rie.comedic-glasses-right',
-            },
-        },
-    },
-    aakash: { 'front-near-front': {
-        neutral: {
-            status: 'approved',
-            assetPath: '/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v009.png',
-            approvedAssetId: 'character.aakash.neutral',
-        },
-    } },
-    xingyu: { 'front-near-front': {
-        'encouraging-listening': {
-            status: 'approved',
-            assetPath: ACADEMY_RUNTIME_ASSET_REGISTRY['character.xingyu.listening'].files.default,
-            approvedAssetId: 'character.xingyu.listening',
-        },
-    } },
-    mika: { 'front-near-front': {
-        'encouraging-listening': {
-            status: 'approved',
-            assetPath: ACADEMY_RUNTIME_ASSET_REGISTRY['character.mika.sound-listening'].files.default,
-            approvedAssetId: 'character.mika.sound-listening',
-        },
-    } },
-    peter: {
-        'left-three-quarter': { neutral: {
-            status: 'review-candidate',
-            assetPath: '/academy/art/characters/peter/peter__thoughtful__left-three-quarter__halfbody__v001.png',
-        } },
-        'front-near-front': { neutral: {
-            status: 'review-candidate',
-            assetPath: '/academy/art/characters/peter/peter__neutral__halfbody__v002.png',
-        } },
-        'right-three-quarter': { 'encouraging-listening': {
-            status: 'review-candidate',
-            assetPath: '/academy/art/characters/peter/peter__encouraging__right-three-quarter__halfbody__v001.png',
-        } },
-    },
-    felix: {
-        'left-three-quarter': { happy: {
-            status: 'review-candidate',
-            assetPath: '/academy/art/characters/felix/felix__happy__left-three-quarter__halfbody__v001.png',
-        } },
-        'front-near-front': { neutral: {
-            status: 'review-candidate',
-            assetPath: '/academy/art/characters/felix/felix__neutral__halfbody__v001.png',
-        } },
-        'right-three-quarter': { 'surprised-shocked': {
-            status: 'review-candidate',
-            assetPath: '/academy/art/characters/felix/felix__surprised__right-three-quarter__halfbody__v001.png',
-        } },
-    },
-    shaun: { 'front-near-front': {
-        neutral: {
-            status: 'review-candidate',
-            assetPath: '/academy/art/characters/shaun/shaun__neutral__halfbody__v001.png',
-        },
-    } },
-    tom2: {
-        'left-three-quarter': { 'surprised-shocked': {
-            status: 'review-candidate',
-            assetPath: '/academy/art/characters/tom2/tom2__surprised-shocked__left-three-quarter__halfbody__v001.png',
-        } },
-        'front-near-front': { 'encouraging-listening': {
-            status: 'review-candidate',
-            assetPath: '/academy/art/characters/tom2/tom2__encouraging-listening__front-near-front__halfbody__v001.png',
-        } },
-        'right-three-quarter': { neutral: {
-            status: 'review-candidate',
-            assetPath: '/academy/art/characters/tom2/tom2__neutral__right-three-quarter__halfbody__v001.png',
-        } },
-    },
-    steve: {
-        'left-three-quarter': { determined: {
-            status: 'approved',
-            assetPath: ACADEMY_RUNTIME_ASSET_REGISTRY['character.steve.determined-left'].files.default,
-            approvedAssetId: 'character.steve.determined-left',
-        } },
-        'front-near-front': { neutral: {
-            status: 'approved',
-            assetPath: ACADEMY_RUNTIME_ASSET_REGISTRY['character.steve.neutral-front'].files.default,
-            approvedAssetId: 'character.steve.neutral-front',
-        } },
-        'right-three-quarter': { happy: {
-            status: 'approved',
-            assetPath: ACADEMY_RUNTIME_ASSET_REGISTRY['character.steve.happy-right'].files.default,
-            approvedAssetId: 'character.steve.happy-right',
-        } },
-    },
-    sophie: {
-        'left-three-quarter': { determined: {
-            status: 'approved',
-            assetPath: ACADEMY_RUNTIME_ASSET_REGISTRY['character.sophie.determined-left'].files.default,
-            approvedAssetId: 'character.sophie.determined-left',
-        } },
-        'front-near-front': { 'encouraging-listening': {
-            status: 'approved',
-            assetPath: ACADEMY_RUNTIME_ASSET_REGISTRY['character.sophie.encouraging-front'].files.default,
-            approvedAssetId: 'character.sophie.encouraging-front',
-        } },
-        'right-three-quarter': { neutral: {
-            status: 'approved',
-            assetPath: ACADEMY_RUNTIME_ASSET_REGISTRY['character.sophie.neutral-right'].files.default,
-            approvedAssetId: 'character.sophie.neutral-right',
-        } },
-    },
-};
+    Partial<Record<SpriteAngle, Partial<Record<SpriteExpression, RasterBackedCoverage>>>>
+>>;
 
-const UNMAPPED_RASTERS: Partial<Record<AcademySpriteCastMemberId, readonly UnmappedSpriteRaster[]>> = {
-    rie: [
-        {
-            label: 'thinking',
+const RASTER_COVERAGE: RasterCoverageMap = {};
+
+for (const slot of ACADEMY_CAST_STANDARDIZATION_MANIFEST) {
+    if (slot.coverageStatus === 'off-matrix') continue;
+    const expression = slot.expression as SpriteExpression;
+    const angle = slot.angle as SpriteAngle;
+    const castCoverage = RASTER_COVERAGE[slot.castId] ??= {};
+    const angleCoverage = castCoverage[angle] ??= {};
+    angleCoverage[expression] = slot.status === 'approved'
+        ? {
+            status: 'approved',
+            assetPath: slot.assetPath as SpriteRasterPath,
+            approvedAssetId: slot.assetId as AcademyRuntimeAssetId,
+        }
+        : {
             status: 'review-candidate',
-            assetPath: '/academy/art/characters/rie/rie__thinking__halfbody__v001.png',
-            note: 'Thinking is recovered review art outside the required expression vocabulary.',
-        },
-    ],
-    aakash: [
-        {
-            label: 'concerned',
-            status: 'review-candidate',
-            assetPath: '/academy/art/characters/aakash/aakash__sprite__concerned__left-three-quarter__halfbody__v005.png',
-            note: 'concerned is recovered v005 review art outside the required expression vocabulary.',
-        },
-        {
-            label: 'determined',
-            status: 'review-candidate',
-            assetPath: '/academy/art/characters/aakash/aakash__sprite__determined__left-three-quarter__v005.png',
-            note: 'determined is recovered v005 review art outside the required expression vocabulary.',
-        },
-        {
-            label: 'embarrassed',
-            status: 'review-candidate',
-            assetPath: '/academy/art/characters/aakash/aakash__sprite__embarrassed__front-near-front__halfbody__v005.png',
-            note: 'embarrassed is recovered v005 review art outside the required expression vocabulary.',
-        },
-        {
-            label: 'happy',
-            status: 'review-candidate',
-            assetPath: '/academy/art/characters/aakash/aakash__sprite__happy__right-three-quarter__v005.png',
-            note: 'happy is recovered v005 review art outside the required expression vocabulary.',
-        },
-        {
-            label: 'laughing',
-            status: 'review-candidate',
-            assetPath: '/academy/art/characters/aakash/aakash__sprite__laughing__left-three-quarter__halfbody__v005.png',
-            note: 'laughing is recovered v005 review art outside the required expression vocabulary.',
-        },
-        {
-            label: 'listening',
-            status: 'review-candidate',
-            assetPath: '/academy/art/characters/aakash/aakash__sprite__listening__right-three-quarter__v005.png',
-            note: 'listening is recovered v005 review art outside the required expression vocabulary.',
-        },
-        {
-            label: 'surprised',
-            status: 'review-candidate',
-            assetPath: '/academy/art/characters/aakash/aakash__sprite__surprised__right-three-quarter__halfbody__v005.png',
-            note: 'surprised is recovered v005 review art outside the required expression vocabulary.',
-        },
-        {
-            label: 'thoughtful',
-            status: 'review-candidate',
-            assetPath: '/academy/art/characters/aakash/aakash__sprite__thoughtful__front-near-front__v005.png',
-            note: 'thoughtful is recovered v005 review art outside the required expression vocabulary.',
-        },
-    ],
-};
+            assetPath: slot.assetPath as SpriteRasterPath,
+        };
+}
+
+const UNMAPPED_RASTERS: Partial<Record<AcademySpriteCastMemberId, readonly UnmappedSpriteRaster[]>> = {};
 
 function expressionCoverage(
     castId: AcademySpriteCastMemberId,

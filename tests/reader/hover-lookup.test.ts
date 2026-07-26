@@ -43,6 +43,7 @@ interface HoverLookupInternals {
     };
     suppressPenHoverUntil: number;
     canBeginPrimaryPressLookup(event: PointerEvent): boolean;
+    pressLookupRequest(event: PointerEvent): { isMiddleScan: boolean } | null;
     handleHoverPointer(event: PointerEvent): void;
     queueHoverPointerMove(event: PointerEvent): void;
     handleHoverPointerOut(event: PointerEvent): void;
@@ -1857,6 +1858,38 @@ describe('hover lookup', () => {
             restoreElementsFromPoint();
             cleanupReaderApp(app);
             vi.unstubAllGlobals();
+        }
+    });
+
+    it('does not open hover lookup over a host surface marked as interaction-free', () => {
+        const app = new ReaderApp();
+        const internals = app as unknown as HoverLookupInternals;
+        const button = document.createElement('button');
+        button.dataset.jpdbReaderInteractionIgnore = '';
+        const word = document.createElement('span');
+        word.className = 'jpdb-reader-word';
+        word.dataset.vid = '1';
+        word.dataset.sid = '2';
+        word.textContent = '聞く';
+        button.append(word);
+        document.body.append(button);
+        const showWord = vi.fn().mockResolvedValue(undefined);
+
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            hoverOpenDelayMs: 0,
+            lookupOnHover: true,
+            shortcuts: { ...DEFAULT_SETTINGS.shortcuts, hoverLookup: '' },
+        };
+        internals.showWord = showWord;
+
+        try {
+            internals.handleHoverPointer(hoverPointerEvent(word));
+
+            expect(showWord).not.toHaveBeenCalled();
+            expect(internals.pressLookupRequest(hoverPointerEvent(word, 'mouse', 'pointerdown'))).toBeNull();
+        } finally {
+            cleanupReaderApp(app);
         }
     });
 

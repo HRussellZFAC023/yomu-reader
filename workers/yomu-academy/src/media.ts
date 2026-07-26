@@ -18,6 +18,13 @@ export interface MediaManifest {
 }
 
 const KEY_PATTERN = /^[a-z0-9][a-z0-9/_.-]{0,199}$/;
+const STORAGE_AUDIO_PREFIX = 'media/audio/';
+
+function publicRouteKey(storageKey: string): string {
+    return storageKey.startsWith(STORAGE_AUDIO_PREFIX)
+        ? storageKey.slice(STORAGE_AUDIO_PREFIX.length)
+        : storageKey;
+}
 
 /** Strict shape check so a malformed checked-in manifest fails loudly. */
 export function parseMediaManifest(value: unknown): MediaManifest {
@@ -40,6 +47,8 @@ export function parseMediaManifest(value: unknown): MediaManifest {
     });
     const keys = new Set(objects.map(object => object.key));
     if (keys.size !== objects.length) throw new TypeError('Media manifest has duplicate keys.');
+    const routeKeys = new Set(objects.map(object => publicRouteKey(object.key)));
+    if (routeKeys.size !== objects.length) throw new TypeError('Media manifest has duplicate public route keys.');
     return { version: 1, bucket: record.bucket, objects };
 }
 
@@ -47,8 +56,9 @@ export const MEDIA_MANIFEST: MediaManifest = parseMediaManifest(manifest);
 
 /**
  * GET/HEAD /academy/media/audio/<key> — authenticated, allowlisted delivery
- * from private R2. The URL path is only ever used as an exact map lookup, so
- * there is no object-key traversal surface. Tests inject their own manifest.
+ * from private R2. Public URLs omit the internal `media/audio/` storage prefix;
+ * both forms remain exact allowlist lookups, so there is no traversal surface.
+ * Tests inject their own manifest.
  */
 export async function handleMedia(request: Request, env: Env, clock: Clock, allowlist: MediaManifest = MEDIA_MANIFEST): Promise<Response> {
     if (request.method !== 'GET' && request.method !== 'HEAD') throw new HttpError(405, 'Method not allowed.');
@@ -63,7 +73,7 @@ export async function handleMedia(request: Request, env: Env, clock: Clock, allo
     } catch {
         throw new HttpError(404, 'Not found.');
     }
-    const entry = allowlist.objects.find(object => object.key === key);
+    const entry = allowlist.objects.find(object => publicRouteKey(object.key) === key);
     if (!entry) throw new HttpError(404, 'Not found.');
 
     const headers = new Headers({

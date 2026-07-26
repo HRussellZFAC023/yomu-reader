@@ -25841,6 +25841,8 @@ function rectContainsPoint(rect, x, y) {
   return hasPositiveRectArea(rect, right, bottom) && coordinateInRange(x, rect.left, right, slack) && coordinateInRange(y, rect.top, bottom, slack);
 }
 const READER_DOCUMENT_CLICK_IGNORE_SELECTOR = [
+  "[data-jpdb-reader-surface-ignore]",
+  "[data-jpdb-reader-interaction-ignore]",
   '[data-jpdb-reader-root] [data-action="kanji"][data-kanji]',
   "[data-yomu-jpdb-addon] [data-action]",
   "[data-settings-preview-lookup]",
@@ -33418,6 +33420,11 @@ class ReaderApp {
   document.addEventListener("pointerdown", (event) => {
     this.primeLookupAudioFromFirstGesture();
     if (this.isMiningDrawerHandlePointerEvent(event)) return;
+    if (this.isLookupInteractionIgnoredTarget(event.target)) {
+      this.cancelPendingHoverLookup();
+      if (this.activePopoverMode === "hover") this.dismiss({ suppressHoverTarget: false });
+      return;
+    }
     this.suppressHoverAfterPenContact(event);
     if (this.handleOcrReaderWordPointerDown(event)) return;
     this.beginTapLookup(event);
@@ -33959,6 +33966,7 @@ class ReaderApp {
   if (request.isMiddleScan) this.updatePressLookup(event);
   }
   pressLookupRequest(event) {
+  if (this.isLookupInteractionIgnoredTarget(event.target)) return null;
   const isMiddleScan = this.shouldCaptureMiddleMouseLookup(event);
   if (!this.canBeginPressLookup(event, isMiddleScan)) return null;
   if (!isMiddleScan && !this.wordFromEventTarget(event.target)) return null;
@@ -34319,6 +34327,11 @@ class ReaderApp {
   }
   shouldIgnoreHoverPointer(event) {
   if (this.isDestroyed || this.pressLookup?.source === "middle" || !this.canUseHoverLookupPointer(event) || this.shouldSuppressPenHover(event)) return true;
+  if (this.isLookupInteractionIgnoredTarget(event.target)) {
+    this.cancelPendingHoverLookup();
+    if (this.activePopoverMode === "hover") this.dismiss({ suppressHoverTarget: false });
+    return true;
+  }
   if (event.buttons) {
     this.cancelPendingHoverLookup();
     return true;
@@ -34328,6 +34341,9 @@ class ReaderApp {
   this.cancelPendingHoverLookup();
   this.cancelHoverClose();
   return true;
+  }
+  isLookupInteractionIgnoredTarget(target) {
+  return target instanceof Element && Boolean(target.closest("[data-jpdb-reader-surface-ignore], [data-jpdb-reader-interaction-ignore]"));
   }
   canUseHoverLookupPointer(event) {
   const pointerType = event.pointerType;

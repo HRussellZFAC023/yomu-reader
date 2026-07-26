@@ -221,7 +221,7 @@ function publicCardProp(
 function lanternRouteProp(lit: boolean): HTMLElement {
     const prop = section('academy-lantern-route-prop');
     prop.dataset.firstLantern = String(lit);
-    prop.setAttribute('aria-label', lit ? 'One earned lantern is lit; the other routes remain blank.' : 'A blank route waits for the transfer.');
+    prop.setAttribute('aria-label', lit ? 'One chapter is lit; the next is still dark.' : 'This chapter is still waiting.');
     const route = section('academy-lantern-route');
     for (let index = 0; index < 5; index += 1) {
         const lantern = text('span', 'academy-route-lantern', '');

@@ -19,11 +19,11 @@ describe('Lesson 0 grounding audit', () => {
         expect(grounding.lessonId).toBe('lesson:foundation-00');
         expect(grounding.activities.map(activity => activity.id))
             .toEqual(source.lesson.activities.map(activity => activity.id));
-        expect(grounding.activities).toHaveLength(18);
+        expect(grounding.activities).toHaveLength(19);
         expect(grounding.status).toBe('review-blocked');
         expect(grounding.activities.filter(activity => activity.status === 'playable').map(activity => activity.id))
             .toEqual(['activity:lesson-zero-sound-input']);
-        expect(grounding.activities.filter(activity => activity.status === 'review-blocked')).toHaveLength(17);
+        expect(grounding.activities.filter(activity => activity.status === 'review-blocked')).toHaveLength(18);
         expect(grounding.blockerIds).toEqual(expect.arrayContaining([
             'blocker:lesson-zero-grounded-prerequisites',
             'blocker:lesson-zero-grounded-authored-language-review',
@@ -100,7 +100,7 @@ describe('Lesson 0 grounding audit', () => {
                 state: 'ready',
                 provenance: 'authored',
                 assetIds: ['audio:lesson-zero-sound-hosts'],
-                revision: '2026-07-22.lesson-zero.v2-sound-mission',
+                revision: '2026-07-26.lesson-zero.v3-hiragana-route',
                 transcript: 'ready',
             },
         });

@@ -107,4 +107,15 @@ describe('reader control pointer activation', () => {
             document.removeEventListener('click', documentClickGuard, { capture: true });
         }
     });
+
+    it('leaves annotated Japanese inside a game button to the game control', () => {
+        document.body.innerHTML = `
+            <button type="button" class="academy-sentence-frame-token" data-jpdb-reader-interaction-ignore>
+                <span class="jpdb-reader-word">わたし</span>
+            </button>
+        `;
+        const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
+
+        expect(shouldIgnoreDocumentClickTarget(word)).toBe(true);
+    });
 });

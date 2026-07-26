@@ -3324,6 +3324,11 @@ export class ReaderApp {
         document.addEventListener('pointerdown', event => {
             this.primeLookupAudioFromFirstGesture();
             if (this.isMiningDrawerHandlePointerEvent(event)) return;
+            if (this.isLookupInteractionIgnoredTarget(event.target)) {
+                this.cancelPendingHoverLookup();
+                if (this.activePopoverMode === 'hover') this.dismiss({ suppressHoverTarget: false });
+                return;
+            }
             this.suppressHoverAfterPenContact(event);
             if (this.handleOcrReaderWordPointerDown(event)) return;
             this.beginTapLookup(event);
@@ -4060,6 +4065,7 @@ export class ReaderApp {
     }
 
     private pressLookupRequest(event: PointerEvent): { isMiddleScan: boolean } | null {
+        if (this.isLookupInteractionIgnoredTarget(event.target)) return null;
         const isMiddleScan = this.shouldCaptureMiddleMouseLookup(event);
         if (!this.canBeginPressLookup(event, isMiddleScan)) return null;
         if (!isMiddleScan && !this.wordFromEventTarget(event.target)) return null;
@@ -4522,6 +4528,11 @@ export class ReaderApp {
 
     private shouldIgnoreHoverPointer(event: PointerEvent): boolean {
         if (this.isDestroyed || this.pressLookup?.source === 'middle' || !this.canUseHoverLookupPointer(event) || this.shouldSuppressPenHover(event)) return true;
+        if (this.isLookupInteractionIgnoredTarget(event.target)) {
+            this.cancelPendingHoverLookup();
+            if (this.activePopoverMode === 'hover') this.dismiss({ suppressHoverTarget: false });
+            return true;
+        }
         // A held button means the pointer is DRAGGING (resizing the subtitle
         // panel, selecting text, scrubbing), not hovering to read. Running the
         // hover lookup then is pure waste — and live profiling showed it was a
@@ -4537,6 +4548,11 @@ export class ReaderApp {
         this.cancelPendingHoverLookup();
         this.cancelHoverClose();
         return true;
+    }
+
+    private isLookupInteractionIgnoredTarget(target: EventTarget | null): boolean {
+        return target instanceof Element
+            && Boolean(target.closest('[data-jpdb-reader-surface-ignore], [data-jpdb-reader-interaction-ignore]'));
     }
 
     private canUseHoverLookupPointer(event: MouseEvent | KeyboardEvent): boolean {
