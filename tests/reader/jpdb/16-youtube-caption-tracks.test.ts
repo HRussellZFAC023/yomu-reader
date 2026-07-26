@@ -29,6 +29,7 @@ import {
     parseSubtitleText,
     planTranscriptHydrationIndexes,
     readerWordSurfaceText,
+    renderControllerPrimarySubtitle,
     renderSubtitlePrimary,
     renderTokensToHtml,
     stubYouTubeAndroidFallbackEnvironment,
@@ -393,6 +394,48 @@ describe('reader helpers', () => {
         });
         expect(karaoke.karaokeActive).toBe(true);
         expect(karaoke.html).toContain('jpdb-subtitle-karaoke-word');
+    });
+
+    it('keeps an annotated cue on screen while its authoritative upgrade is in flight', () => {
+        const annotated = '<span class="jpdb-reader-word" data-card-state="known">読む</span>';
+        // The controller caches (text, html) together on every composed render
+        // but writes lastRenderedKey only on the async parsed-apply path, so a
+        // cue whose parse was already warmed carries a previous cue's key.
+        // While the authoritative upgrade runs, the controller reports no
+        // parsed html for this tick — reuse has to survive that.
+        const upgrading = renderControllerPrimarySubtitle({
+            cue: undefined,
+            text: '本を読む',
+            settings: DEFAULT_SETTINGS,
+            parseKey: 'ja|本を読む',
+            parsedHtml: undefined,
+            lastRenderedKey: 'ja|前の行',
+            lastRenderedText: '本を読む',
+            lastRenderedHtml: annotated,
+            hasFreshEmptyParsedHtml: false,
+            hasParser: true,
+            time: 0,
+        });
+        expect(upgrading.html).toBe(annotated);
+        expect(upgrading.html).not.toContain('jpdb-subtitle-primary-loading');
+
+        // A different cue must never inherit the previous cue's annotated html,
+        // even when the stale key happens to match.
+        const otherCue = renderControllerPrimarySubtitle({
+            cue: undefined,
+            text: '違う行',
+            settings: DEFAULT_SETTINGS,
+            parseKey: 'ja|前の行',
+            parsedHtml: undefined,
+            lastRenderedKey: 'ja|前の行',
+            lastRenderedText: '本を読む',
+            lastRenderedHtml: annotated,
+            hasFreshEmptyParsedHtml: false,
+            hasParser: true,
+            time: 0,
+        });
+        expect(otherCue.html).toContain('jpdb-subtitle-primary-loading');
+        expect(otherCue.html).toContain('違う行');
     });
 
     it('plans transcript hydration around active, visible, and background rows', () => {

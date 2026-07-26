@@ -17,6 +17,7 @@ import {
     settingsForSettingsFormParse,
 } from '../lookup/settings-parse-render';
 import { installDefinitionTranslationBehaviors } from '../sources/definition-translation';
+import { installAcademyReaderSrsSync } from '../srs/account-sync';
 import { registerYomuCompanion } from './registry';
 
 registerYomuCompanion('settings', {
@@ -24,6 +25,7 @@ registerYomuCompanion('settings', {
     OnboardingController,
     installOfflineParsingDictionaries,
     installDefinitionTranslationBehaviors,
+    installAcademyReaderSrsSync,
     selfEnhancement: {
         SETTINGS_PARSE_TARGET_LIMIT,
         nestedSettingsParseAlreadyRendered,

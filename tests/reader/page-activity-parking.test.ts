@@ -4,6 +4,7 @@ import {
     ParkableObserver,
     isPageDormant,
     onPageActivityChange,
+    parkableMutationObserver,
     type ParkableObserverHandle,
 } from '../../src/reader/platform/page-activity';
 import { syncProjectedReadings, clearProjectedReadings } from '../../src/reader/dom/detached-reading-overlay-impl';
@@ -77,10 +78,22 @@ afterEach(() => {
     visibility?.restore();
     visibility = undefined;
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+    observedWidths.clear();
     document.body.innerHTML = '';
 });
 
 describe('page dormancy signal', () => {
+    it('never calls a document with no browsing context dormant', () => {
+        const detached = document.implementation.createHTMLDocument('parked');
+        Object.defineProperty(detached, 'visibilityState', { configurable: true, get: () => 'hidden' });
+
+        // Such a document reports 'hidden' for good and can never fire
+        // visibilitychange, so parking on it is a one-way trip.
+        expect(detached.defaultView).toBeNull();
+        expect(isPageDormant({ document: detached })).toBe(false);
+    });
+
     it('reports dormancy and notifies subscribers on each transition', () => {
         visibility = stubVisibility('visible');
         const seen: boolean[] = [];
@@ -162,6 +175,62 @@ describe('parkable observer', () => {
         expect(fake.attachments).toEqual([{ target, init: { childList: true } }]);
     });
 
+    it('forgets a target the page discarded while parked, and keeps one that was never in the document', () => {
+        visibility = stubVisibility('visible');
+        const fake = new FakeObserver();
+        const observer = new ParkableObserver(fake, {});
+        const swapped = document.createElement('main');
+        const kept = document.createElement('section');
+        const offscreen = document.createElement('template');
+        document.body.append(swapped, kept);
+        observer.observe(swapped, { childList: true });
+        observer.observe(kept, { childList: true });
+        // Never in the document, so nothing discarded it — watching an
+        // offscreen node is a thing an adopter is allowed to ask for.
+        observer.observe(offscreen, { childList: true });
+
+        visibility.set('hidden');
+        swapped.remove();
+        visibility.set('visible');
+
+        // The removed node is neither re-observed nor still remembered, so it
+        // cannot deliver a phantom measurement and its subtree is not pinned.
+        expect(fake.attachments.slice(3).map(attachment => attachment.target)).toEqual([kept, offscreen]);
+        visibility.set('hidden');
+        visibility.set('visible');
+        expect(fake.attachments.slice(5).map(attachment => attachment.target)).toEqual([kept, offscreen]);
+    });
+
+    it('refuses to attach anything after dispose', () => {
+        visibility = stubVisibility('visible');
+        const fake = new FakeObserver();
+        const observer = new ParkableObserver(fake, {});
+        observer.dispose();
+
+        // Disposal already surrendered the subscription that parks this
+        // observer, so a late attach could never be parked again.
+        observer.observe(document.createElement('div'), { childList: true });
+        expect(fake.attachments).toEqual([]);
+    });
+
+    it('stops parking and waking once the owner aborts', () => {
+        visibility = stubVisibility('visible');
+        const fake = new FakeObserver();
+        const controller = new AbortController();
+        const reconcile = vi.fn();
+        const observer = new ParkableObserver(fake, { reconcile, signal: controller.signal });
+        observer.observe(document.body, { childList: true });
+
+        controller.abort();
+        visibility.set('hidden');
+        visibility.set('visible');
+
+        // The signal IS the disposal contract: an owner that hands one over
+        // cannot leave a subscription behind that resurrects its graph.
+        expect(fake.disconnects).toBe(0);
+        expect(reconcile).not.toHaveBeenCalled();
+    });
+
     it('forgets targets on disconnect and drops the visibility subscription on dispose', () => {
         visibility = stubVisibility('visible');
         const fake = new FakeObserver();
@@ -177,6 +246,18 @@ describe('parkable observer', () => {
         const disconnectsAfterDispose = fake.disconnects;
         visibility.set('hidden');
         expect(fake.disconnects).toBe(disconnectsAfterDispose);
+    });
+});
+
+describe('parkable mutation observer construction', () => {
+    it('reports no watcher for a document with no browsing context instead of building a dead one', () => {
+        const detached = document.implementation.createHTMLDocument('parked');
+
+        // Borrowing this realm's constructor would hand the caller something
+        // that can never deliver and can never be woken; the caller needs to
+        // know there is no watcher at all.
+        expect(parkableMutationObserver(() => undefined, { document: detached })).toBeNull();
+        expect(parkableMutationObserver(() => undefined, {})).not.toBeNull();
     });
 });
 
@@ -241,49 +322,150 @@ describe('detached reading overlay parking', () => {
     });
 });
 
+// The real ResizeObserver answers every observe() with the target's current
+// size — including zero for a detached element — so a stub that never calls
+// back cannot show whether a replayed target reaches the settle sweep.
+interface SettleObserverStub {
+    targets: Element[];
+    disconnects: number;
+    deliver: (target: Element) => void;
+}
+
+const observedWidths = new Map<Element, number>();
+
+function installSettleObserverStub(instances: SettleObserverStub[]): void {
+    class StubResizeObserver {
+        private readonly state: SettleObserverStub;
+        constructor(callback: ResizeObserverCallback) {
+            this.state = {
+                targets: [],
+                disconnects: 0,
+                deliver: target => callback(
+                    [{ contentRect: { width: observedWidths.get(target) ?? 0 } } as ResizeObserverEntry],
+                    this as unknown as ResizeObserver,
+                ),
+            };
+            instances.push(this.state);
+        }
+
+        observe(target: Element): void {
+            this.state.targets.push(target);
+            this.state.deliver(target);
+        }
+
+        unobserve(): void {}
+
+        disconnect(): void {
+            this.state.disconnects += 1;
+        }
+    }
+    vi.stubGlobal('ResizeObserver', StubResizeObserver);
+}
+
+async function scannerWithSettleObserver(sweep: () => number): Promise<SettleObserverStub> {
+    const instances: SettleObserverStub[] = [];
+    installSettleObserverStub(instances);
+    const settings = testEnSettings();
+    scanner = new VisiblePageScanner({
+        getSettings: () => settings,
+        parseJapanese: vi.fn(async () => []),
+        pauseMutationObserver: (callback: () => unknown) => callback(),
+        preloadParsedTokens: vi.fn(),
+        enrichPitchWords: vi.fn(),
+        enrichAnkiWords: vi.fn(),
+        makeRoomForRubyInCroppedRows: sweep,
+        toast: vi.fn(),
+    } as unknown as ConstructorParameters<typeof VisiblePageScanner>[0]);
+    await scanner.scanVisiblePage({ silent: true });
+    // The post-scan clamp sweep is on its own long timer; drop it so the only
+    // thing that can still reach the sweep spy is a settle delivery.
+    scanner.pauseGeometrySweeps();
+    return instances[0];
+}
+
+async function afterSettleDebounce(): Promise<void> {
+    await new Promise(resolve => setTimeout(resolve, 260));
+}
+
+function swapDocumentBody(): { previous: HTMLElement; replacement: HTMLElement } {
+    const previous = document.body;
+    const replacement = document.createElement('body');
+    document.documentElement.replaceChild(replacement, previous);
+    return { previous, replacement };
+}
+
 describe('visible page scanner settle observer parking', () => {
     it('parks the body resize observer while hidden and re-observes on wake', async () => {
         visibility = stubVisibility('visible');
-        const instances: Array<{ targets: Element[]; disconnects: number }> = [];
-        class StubResizeObserver {
-            private readonly state = { targets: [] as Element[], disconnects: 0 };
-            constructor(_callback: ResizeObserverCallback) {
-                instances.push(this.state);
-            }
+        const sweeps = vi.fn(() => 0);
+        observedWidths.set(document.body, 800);
+        const settle = await scannerWithSettleObserver(sweeps);
 
-            observe(target: Element): void {
-                this.state.targets.push(target);
-            }
-
-            unobserve(): void {}
-
-            disconnect(): void {
-                this.state.disconnects += 1;
-            }
-        }
-        vi.stubGlobal('ResizeObserver', StubResizeObserver);
-
-        const settings = testEnSettings();
-        scanner = new VisiblePageScanner({
-            getSettings: () => settings,
-            parseJapanese: vi.fn(async () => []),
-            pauseMutationObserver: (callback: () => unknown) => callback(),
-            preloadParsedTokens: vi.fn(),
-            enrichPitchWords: vi.fn(),
-            enrichAnkiWords: vi.fn(),
-            toast: vi.fn(),
-        } as unknown as ConstructorParameters<typeof VisiblePageScanner>[0]);
-        await scanner.scanVisiblePage({ silent: true });
-
-        expect(instances).toHaveLength(1);
-        expect(instances[0].targets).toEqual([document.body]);
+        expect(settle.targets).toEqual([document.body]);
 
         visibility.set('hidden');
-        expect(instances[0].disconnects).toBe(1);
+        expect(settle.disconnects).toBe(1);
 
-        visibility.set('visible');
         // Re-observing replays the body's CURRENT width, which is how a reflow
         // that happened while hidden still reaches the settle sweep.
-        expect(instances[0].targets).toEqual([document.body, document.body]);
+        observedWidths.set(document.body, 640);
+        visibility.set('visible');
+        expect(settle.targets).toEqual([document.body, document.body]);
+        await afterSettleDebounce();
+        expect(sweeps).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not replay a body the host swapped out while the tab was hidden', async () => {
+        visibility = stubVisibility('visible');
+        const sweeps = vi.fn(() => 0);
+        observedWidths.set(document.body, 800);
+        const settle = await scannerWithSettleObserver(sweeps);
+        expect(sweeps).not.toHaveBeenCalled();
+
+        visibility.set('hidden');
+        const { previous, replacement } = swapDocumentBody();
+        try {
+            // A detached element measures zero, which the width gate would read
+            // as a reflow worth a full document-wide heal — of a body that is
+            // no longer on the page.
+            observedWidths.set(previous, 0);
+            observedWidths.set(replacement, 800);
+            visibility.set('visible');
+
+            expect(settle.targets).toEqual([document.body]);
+            await afterSettleDebounce();
+            expect(sweeps).not.toHaveBeenCalled();
+        } finally {
+            document.documentElement.replaceChild(previous, replacement);
+        }
+    });
+
+    it('re-points the settle observer at a replacement body without spending a sweep on the first measure', async () => {
+        visibility = stubVisibility('visible');
+        const sweeps = vi.fn(() => 0);
+        observedWidths.set(document.body, 800);
+        const settle = await scannerWithSettleObserver(sweeps);
+
+        const { previous, replacement } = swapDocumentBody();
+        try {
+            observedWidths.set(replacement, 1024);
+            scanner!.repointGeometrySettleTarget();
+
+            expect(settle.targets).toEqual([previous, replacement]);
+            // The replacement has not settled — it has been measured for the
+            // first time — so its width must only prime the baseline.
+            await afterSettleDebounce();
+            expect(sweeps).not.toHaveBeenCalled();
+
+            // ...and from then on the live body's reflows do reach the sweep,
+            // which is what stopped happening when the observer was stranded.
+            settle.deliver(replacement);
+            observedWidths.set(replacement, 700);
+            settle.deliver(replacement);
+            await afterSettleDebounce();
+            expect(sweeps).toHaveBeenCalledTimes(1);
+        } finally {
+            document.documentElement.replaceChild(previous, replacement);
+        }
     });
 });

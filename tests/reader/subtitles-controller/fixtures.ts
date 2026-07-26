@@ -199,6 +199,62 @@ export function setupInstalledVideoController(
 
 export type TestSubtitleCue = { start: number; end: number; text: string; transcriptEligible: boolean };
 
+interface YouTubeStageInternals {
+    cues: TestSubtitleCue[];
+    currentCue: TestSubtitleCue;
+    secondaryCue?: TestSubtitleCue;
+    alignToVideo: () => void;
+    hideControlsImmediately: () => void;
+    render: () => void;
+    syncPlayerChromeIdleState: () => void;
+}
+
+const YOUTUBE_PLAYER_STAGE_HTML = '<div id="movie_player" class="html5-video-player ytp-autohide" tabindex="-1"><video></video></div>';
+
+// The stage every "what does a press on the subtitle rectangle do" test needs:
+// a YouTube-shaped player whose chrome has faded, a 640x360 video rect, one
+// active cue, and the painted subtitle frame resolved. Assembling it by hand
+// per test drifted, so the geometry two tests reason about is defined once.
+export function mountYouTubePlayerSubtitleController<TInternals extends object = Record<string, never>>(
+    options: {
+        cue?: TestSubtitleCue;
+        extraBodyHtml?: string;
+        hooks?: SubtitleControllerHooks;
+        settings?: Partial<ReaderSettings>;
+    } = {},
+): {
+    controller: SubtitlePlayerController;
+    cue: TestSubtitleCue;
+    internals: TInternals & YouTubeStageInternals;
+    root: HTMLElement;
+    settings: ReaderSettings;
+    subtitleFrame: HTMLElement;
+    video: HTMLVideoElement;
+} {
+    document.body.innerHTML = `${YOUTUBE_PLAYER_STAGE_HTML}${options.extraBodyHtml ?? ''}`;
+    const cue = options.cue ?? { start: 0, end: 2, text: '今日は読む。', transcriptEligible: true };
+    const { controller, settings } = createSubtitleController(
+        makeSubtitleSettings({ subtitleOverlayVisible: true, ...options.settings }),
+        options.hooks ?? {},
+    );
+    controller.init();
+    const video = document.querySelector<HTMLVideoElement>('video')!;
+    mockElementRect(video, new DOMRect(0, 0, 640, 360));
+    mockElementRect(document.querySelector<HTMLElement>('#movie_player')!, new DOMRect(0, 0, 640, 360));
+    attachVideo(controller, { video });
+    const internals = controllerInternals<TInternals & YouTubeStageInternals>(controller);
+    internals.cues = [cue];
+    internals.currentCue = cue;
+    controller.refresh();
+    internals.alignToVideo();
+    const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
+    // Production stamps this from the render tick once a cue paints; set it
+    // directly so the geometric subtitle-surface gate is live immediately.
+    root.classList.add('jpdb-subtitle-has-lines');
+    const subtitleFrame = root.querySelector<HTMLElement>('.jpdb-subtitle-text')!;
+    return { controller, cue, internals, root, settings, subtitleFrame, video };
+}
+
 export function setupTranscriptCueController<
     TCue extends TestSubtitleCue,
     TInternals extends object = Record<string, never>,

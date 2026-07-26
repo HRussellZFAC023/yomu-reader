@@ -282,7 +282,7 @@ async function runGoogleSearchCaseWithBrowser(engineName, browser) {
 
         // Chrome-chip contract: a role=button chip is annotated AT REST, and
         // hovering changes nothing about whether the reading is shown. What
-        // keeps that safe is geometry, not hiding — assertGoogleChipBare's
+        // keeps that safe is geometry, not hiding — assertGoogleChip's
         // growth and clipping guards run on the at-rest snapshot above.
         await page.locator('#chip').hover();
         await page.waitForTimeout(250);

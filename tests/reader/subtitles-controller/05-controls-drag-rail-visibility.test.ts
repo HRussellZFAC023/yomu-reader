@@ -12,6 +12,7 @@ import {
     attachVideo,
     setupInstalledVideoController,
     handlePointerActivity,
+    mountYouTubePlayerSubtitleController,
     pointerEvent,
     expectSubtitleControlsReturnToIdle,
     withViewport,
@@ -52,32 +53,11 @@ describe('SubtitlePlayerController — idle controls, overlay drag & rail visibi
 
     it('reveals the move handle from a displaced subtitle tap without intercepting native player space', async () => {
         vi.useFakeTimers();
-        document.body.innerHTML = '<div id="movie_player" class="html5-video-player ytp-autohide" tabindex="-1"><video></video></div><a id="subtitle-underlay" href="#unexpected">Under subtitle</a>';
-        const cue = { start: 0, end: 2, text: '今日は読む。', transcriptEligible: true };
-        const { controller } = createSubtitleController(makeSubtitleSettings({ subtitleOverlayVisible: true }));
-        controller.init();
+        const { controller, internals, root, subtitleFrame, video } = mountYouTubePlayerSubtitleController({
+            extraBodyHtml: '<a id="subtitle-underlay" href="#unexpected">Under subtitle</a>',
+        });
 
         try {
-            const video = document.querySelector<HTMLVideoElement>('video')!;
-            mockElementRect(video, new DOMRect(0, 0, 640, 360));
-            mockElementRect(document.querySelector<HTMLElement>('#movie_player')!, new DOMRect(0, 0, 640, 360));
-            attachVideo(controller, { video });
-            const internals = controllerInternals<{
-                cues: Array<typeof cue>;
-                currentCue: typeof cue;
-                alignToVideo: () => void;
-                hideControlsImmediately: () => void;
-                syncPlayerChromeIdleState: () => void;
-            }>(controller);
-            internals.cues = [cue];
-            internals.currentCue = cue;
-            controller.refresh();
-            internals.alignToVideo();
-
-            const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
-            const subtitleFrame = root.querySelector<HTMLElement>('.jpdb-subtitle-text')!;
-            root.classList.add('jpdb-subtitle-has-lines');
-
             // In the normal position, blank subtitle-band clicks still belong
             // to the native player (play/pause or revealing its chrome).
             mockElementRect(subtitleFrame, new DOMRect(16, 280, 608, 64));
@@ -190,6 +170,96 @@ describe('SubtitlePlayerController — idle controls, overlay drag & rail visibi
                 pointerType: 'mouse',
             }));
             await vi.advanceTimersByTimeAsync(20);
+            expect(root.classList.contains('jpdb-subtitle-controls-idle')).toBe(true);
+        } finally {
+            controller.destroy();
+            document.body.innerHTML = '';
+        }
+    });
+
+    // Owner-reported twice on iPad: "pressing the native subtitle to blur it
+    // instead focuses and expands the rail". The wake is a capture-phase
+    // POINTERDOWN, so on touch it answers the tap before any click handler
+    // runs — gating only the click would leave the bug exactly as reported.
+    it('blurs the native line from a touch tap while leaving the rail idle', async () => {
+        vi.useFakeTimers();
+        const onSettingsChange = vi.fn();
+        const { controller, internals, root, settings, subtitleFrame } = mountYouTubePlayerSubtitleController({
+            hooks: { onSettingsChange },
+            settings: { subtitleSecondaryVisible: true, subtitleNativeBlurred: true },
+        });
+
+        try {
+            internals.secondaryCue = { start: 0, end: 2, text: 'I will read today.', transcriptEligible: true };
+            internals.render();
+            mockElementRect(subtitleFrame, new DOMRect(16, 280, 608, 72));
+            const nativeLine = root.querySelector<HTMLButtonElement>('.jpdb-subtitle-secondary')!;
+
+            // Discoverability: the line announces as a toggle button that is
+            // currently pressed (blurred), not as unexplained caption text.
+            expect(nativeLine.getAttribute('aria-pressed')).toBe('true');
+            expect(nativeLine.getAttribute('aria-label')).toBe('Toggle native subtitle blur');
+
+            internals.hideControlsImmediately();
+            expect(root.classList.contains('jpdb-subtitle-controls-idle')).toBe(true);
+
+            // Blank space inside the same rectangle still wakes the rail — that
+            // recovery gesture is legitimate and must survive the fix. Proving
+            // it here also proves the geometric gate is live at this point, so
+            // the native-line assertions below cannot pass vacuously.
+            subtitleFrame.dispatchEvent(pointerEvent('pointerdown', {
+                clientX: 320,
+                clientY: 300,
+                pointerId: 31,
+                pointerType: 'touch',
+            }));
+            expect(root.classList.contains('jpdb-subtitle-controls-idle')).toBe(false);
+            expect(root.classList.contains('jpdb-subtitle-controls-away')).toBe(false);
+
+            internals.hideControlsImmediately();
+            await vi.advanceTimersByTimeAsync(400);
+            expect(root.classList.contains('jpdb-subtitle-controls-idle')).toBe(true);
+            expect(root.classList.contains('jpdb-subtitle-controls-away')).toBe(true);
+
+            // Same rectangle, same coordinates — only the target differs.
+            nativeLine.dispatchEvent(pointerEvent('pointerdown', {
+                clientX: 320,
+                clientY: 300,
+                pointerId: 32,
+                pointerType: 'touch',
+            }));
+            expect(root.classList.contains('jpdb-subtitle-controls-idle')).toBe(true);
+
+            // Browsers that focus a pressed button must not wake it either.
+            nativeLine.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+            expect(root.classList.contains('jpdb-subtitle-controls-idle')).toBe(true);
+
+            onSettingsChange.mockClear();
+            nativeLine.click();
+
+            expect(settings.subtitleNativeBlurred).toBe(false);
+            expect(onSettingsChange).toHaveBeenCalledTimes(1);
+            expect(nativeLine.classList.contains('jpdb-subtitle-secondary-clear')).toBe(true);
+            expect(nativeLine.getAttribute('aria-pressed')).toBe('false');
+            // Still fully hidden: the blur toggled without the rail so much as
+            // reappearing, let alone unfolding over the video.
+            expect(root.classList.contains('jpdb-subtitle-controls-away')).toBe(true);
+
+            // The in-place toggle must still match what a fresh render emits,
+            // or the next tick rebuilds the line it just updated.
+            internals.render();
+            expect(root.querySelector('.jpdb-subtitle-secondary')).toBe(nativeLine);
+            expect(root.classList.contains('jpdb-subtitle-controls-idle')).toBe(true);
+
+            // Tapping it back on is equally quiet.
+            nativeLine.dispatchEvent(pointerEvent('pointerdown', {
+                clientX: 320,
+                clientY: 300,
+                pointerId: 33,
+                pointerType: 'touch',
+            }));
+            nativeLine.click();
+            expect(settings.subtitleNativeBlurred).toBe(true);
             expect(root.classList.contains('jpdb-subtitle-controls-idle')).toBe(true);
         } finally {
             controller.destroy();

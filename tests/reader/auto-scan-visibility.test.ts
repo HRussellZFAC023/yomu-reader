@@ -9,9 +9,13 @@ import type { ReaderSettings } from '../../src/reader/app/types';
 // must reach a true zero-timer idle — the MutationObserver disconnected, every
 // pending debounce/sweep timer cleared, the scanner's geometry sweeps parked —
 // and it must rebuild itself and run one settle scan when the tab is shown
-// again. This pins that behaviour for the auto-scan loop; the always-on
-// observers that had no park discipline at all now share the platform dormancy
-// primitive instead, pinned by page-activity-parking.
+// again. This pins that behaviour for the auto-scan loop and for the body-swap
+// watcher that shares the app's lifetime.
+//
+// The class is NOT closed: the OCR controller's documentElement media observer
+// and its 1200 ms raster poll, and the subtitle controller's body observer, are
+// still always-on and still deliver at full rate in a hidden tab. Anything that
+// claims otherwise here is a claim about the reader app alone.
 
 interface AppInternals {
     isDestroyed: boolean;
@@ -21,11 +25,18 @@ interface AppInternals {
     autoScanForced: boolean;
     autoScanDebounced: boolean;
     asbScanTimer?: number;
-    pageScanner: { pauseGeometrySweeps: () => void };
+    pageScanner: { pauseGeometrySweeps: () => void; repointGeometrySettleTarget: () => void };
     observeAutoScanMutations: () => void;
     scheduleAutoScan: (delay: number, options?: { force?: boolean }) => void;
     hasVisibleAutoScanWork: () => boolean;
     handleAutoScanVisibilityChange: () => void;
+    documentBodyObserver?: { dispose: () => void };
+    documentBodyRecoveryPending: boolean;
+    setupDocumentBodyRecovery: () => void;
+    handleDocumentBodyReplacement: () => void;
+    recoverAfterDocumentBodyReplacement: () => void;
+    canParseJapanese: () => boolean;
+    installFab: () => void;
     settings: ReaderSettings;
 }
 
@@ -53,7 +64,7 @@ function makeApp(): AppInternals {
     app.autoScanDeadline = 0;
     app.autoScanForced = false;
     app.autoScanDebounced = false;
-    app.pageScanner = { pauseGeometrySweeps: vi.fn() };
+    app.pageScanner = { pauseGeometrySweeps: vi.fn(), repointGeometrySettleTarget: vi.fn() };
     app.observeAutoScanMutations = vi.fn();
     app.scheduleAutoScan = vi.fn();
     app.hasVisibleAutoScanWork = () => true;
@@ -103,6 +114,55 @@ describe('auto-scan visibility gating', () => {
             expect(app.scheduleAutoScan).toHaveBeenCalledTimes(1);
             expect(app.pageScanner.pauseGeometrySweeps).not.toHaveBeenCalled();
         } finally {
+            visibility.restore();
+        }
+    });
+});
+
+describe('document body replacement recovery', () => {
+    it('re-points the scanner geometry-settle observer at the replacement body', () => {
+        const app = makeApp();
+        const visibility = stubVisibility('visible');
+        app.installFab = vi.fn();
+        app.canParseJapanese = () => false;
+        app.documentBodyRecoveryPending = true;
+
+        try {
+            app.recoverAfterDocumentBodyReplacement();
+
+            // The settle observer is installed once and body-scoped, so without
+            // this it keeps watching the detached body and no reflow of the
+            // replacement ever reaches a geometry heal again.
+            expect(app.pageScanner.repointGeometrySettleTarget).toHaveBeenCalledTimes(1);
+        } finally {
+            visibility.restore();
+        }
+    });
+
+    it('parks the body-swap watcher and settles the whole hidden period in one call on wake', async () => {
+        const app = makeApp();
+        const visibility = stubVisibility('visible');
+        app.handleDocumentBodyReplacement = vi.fn();
+        const previous = document.body;
+        const replacement = document.createElement('body');
+
+        try {
+            app.setupDocumentBodyRecovery();
+            visibility.set('hidden');
+            document.dispatchEvent(new Event('visibilitychange'));
+
+            document.documentElement.replaceChild(replacement, previous);
+            await new Promise(resolve => setTimeout(resolve, 0));
+            expect(app.handleDocumentBodyReplacement).not.toHaveBeenCalled();
+
+            visibility.set('visible');
+            document.dispatchEvent(new Event('visibilitychange'));
+            // The handler compares the live body against the remembered one, so
+            // one call on wake settles however many swaps the host made.
+            expect(app.handleDocumentBodyReplacement).toHaveBeenCalledTimes(1);
+        } finally {
+            app.documentBodyObserver?.dispose();
+            if (replacement.isConnected) document.documentElement.replaceChild(previous, replacement);
             visibility.restore();
         }
     });

@@ -41,6 +41,12 @@ import {
     saveMiningContext,
 } from '../study/mining-context';
 import { StudySourceController } from '../study/sources';
+import {
+    jitenKanjiOriginFactLabels,
+    renderJitenKanjiInfo,
+    renderJitenKanjiKeywordLine,
+} from '../jiten/jiten-kanji-info-render';
+import { filterJitenKanjiWords, loadMoreJitenKanjiWords } from '../jiten/jiten-kanji-words-actions';
 
 registerYomuCompanion('kanjiStudy', {
     ImmersionKitClient,
@@ -90,4 +96,9 @@ registerYomuCompanion('kanjiStudy', {
     pageMiningContext,
     contextLabel,
     StudySourceController,
+    renderJitenKanjiInfo,
+    renderJitenKanjiKeywordLine,
+    jitenKanjiOriginFactLabels,
+    filterJitenKanjiWords,
+    loadMoreJitenKanjiWords,
 });

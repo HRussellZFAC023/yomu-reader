@@ -21,11 +21,23 @@ const {
   userscriptMetadataValues,
   warnIfNearGreasyForkSizeLimit,
 } = require('./lib/userscript-build-utils.cjs');
-const { GREASY_FORK_LIBRARIES, greasyForkLibraryPath, immutableLibraryUrl, immutableReaderCssUrl } = require('./lib/greasyfork-libraries.cjs');
+const { GREASY_FORK_LIBRARIES, greasyForkLibraryPath, immutableLibraryUrl, immutableReaderCssUrl, readerCssResourceUrl } = require('./lib/greasyfork-libraries.cjs');
 
 if (!fileExists(DIST_USERSCRIPT_PATH)) fail(`${USERSCRIPT_RELATIVE_PATH} is missing. Run npm run build first.`);
 const MIN_READABLE_LINE_COUNT = 10_000;
 const MAX_READABLE_LINE_LENGTH = 2_000;
+const READER_CSS_NETWORK_SKIP_ENV = 'YOMU_VERIFY_SKIP_NETWORK';
+const READER_CSS_REQUEST_TIMEOUT_MS = 30_000;
+// The runtime's own acceptance test for a fetched sheet (isFullReaderCss in
+// src/reader/styles/index.ts). A body missing any of these is an error page or
+// a truncated transfer, and the reader would refuse to paint it.
+const FULL_READER_CSS_MARKERS = [
+  '.jpdb-reader-popover',
+  '.jpdb-reader-settings',
+  '.jpdb-reader-source-card',
+  '.jpdb-subtitle-player',
+  '.jpdb-ocr-layer',
+];
 const code = readBuiltUserscript();
 const size = byteLengthUtf8(code);
 const lines = code.split(/\r?\n/);
@@ -49,6 +61,8 @@ assertNoRemoteExecutableLoaders(code);
 assertCompanionRequireSriHashes();
 assertCompanionBuildVersions();
 assertAnnotationsSplitBoundary();
+assertAudioSplitBoundary();
+assertWanikaniSplitBoundary();
 assertKanjiStudySplitBoundary();
 assertNoStandaloneLegacyCopy();
 assertAnkiRenderSplitBoundary();
@@ -95,7 +109,12 @@ assertSyncedDocsAssets();
 assertNewTabCacheBusting();
 assertPublishedChangelogIsReleaseOnly();
 
-console.log(`Verified ${DIST_USERSCRIPT_PATH} (${formatCount(size)} bytes, ${formatCount(lines.length)} lines)`);
+// The only network-touching check in the verifier, so it runs last: everything
+// above must still be enforced when a sandbox sets YOMU_VERIFY_SKIP_NETWORK=1.
+assertReaderCssIsDeliverable().then(
+  () => console.log(`Verified ${DIST_USERSCRIPT_PATH} (${formatCount(size)} bytes, ${formatCount(lines.length)} lines)`),
+  error => fail(`reader CSS delivery check failed to run: ${error instanceof Error ? error.message : String(error)}`),
+);
 
 function hasMetadataValue(key, expectedValue) {
   return userscriptMetadataValues(code, key).includes(expectedValue);
@@ -153,6 +172,75 @@ function assertReaderCssResourceMetadata() {
   if (resourceUrl !== expected) {
     fail(`yomuCss @resource must be the immutable content-addressed SRI URL ${expected}; found: ${resourceUrl}`);
   }
+}
+
+// Internal consistency (assertReaderCssResourceMetadata) only proves the pin
+// matches the bytes in dist/. It cannot see whether anything is SERVED, and a
+// build that reaches users before the docs deploy publishes the pinned file
+// leaves every install of that build falling back over the network — which is
+// how the reader ended up painting from the ~5KB critical subset (no furigana,
+// no pitch underlines, a settings dialog degraded to native selects).
+//
+// The pin is content-addressed, so it CANNOT be live when this gate runs: in
+// deploy-pages.yml `npm run verify` runs before the deploy step that publishes
+// it. An unserved pin is therefore expected, not a failure. What must never
+// ship is a build whose fallback chain cannot cover that window, so the
+// always-deployed first-party sheet is the hard gate; the pin is checked for
+// byte-identity only once it is actually live (a mutated content-addressed file
+// makes script managers refuse to run the whole userscript).
+async function assertReaderCssIsDeliverable() {
+  if (process.env[READER_CSS_NETWORK_SKIP_ENV] === '1') {
+    console.log(`[verify] ${READER_CSS_NETWORK_SKIP_ENV}=1: skipping the reader CSS delivery check (offline run).`);
+    return;
+  }
+  const fallbackUrl = readerCssResourceUrl();
+  const fallback = await probeUrl(fallbackUrl);
+  if (fallback.error) failUnreachable(fallbackUrl, fallback.error);
+  if (fallback.status !== 200) {
+    fail(`reader CSS fallback ${fallbackUrl} is not served (HTTP ${fallback.status}). Every install whose pinned @resource is not deployed yet depends on this URL; without it the reader falls back to the critical CSS subset.`);
+  }
+  if (fallback.cors !== '*') {
+    fail(`reader CSS fallback ${fallbackUrl} must send access-control-allow-origin: * so a page-context fetch can read it; found ${fallback.cors ?? 'no header'}.`);
+  }
+  const missingMarkers = FULL_READER_CSS_MARKERS.filter(marker => !fallback.body.includes(marker));
+  if (missingMarkers.length) {
+    fail(`reader CSS fallback ${fallbackUrl} is not a full sheet (missing ${missingMarkers.join(', ')}); the runtime would reject it and stay on the critical subset.`);
+  }
+
+  const content = readText(DIST_READER_CSS_PATH);
+  const pinnedUrl = immutableReaderCssUrl(content);
+  const pinned = await probeUrl(pinnedUrl);
+  if (pinned.error) failUnreachable(pinnedUrl, pinned.error);
+  if (pinned.status !== 200) {
+    console.log(`[verify] reader CSS pin ${pinnedUrl} is not published yet (HTTP ${pinned.status}); expected before the docs deploy. Installs of this build fall back to ${fallbackUrl}, which is live, CORS-open and complete.`);
+    return;
+  }
+  const servedHash = createHash('sha256').update(pinned.body).digest('base64');
+  const expectedHash = createHash('sha256').update(content).digest('base64');
+  if (servedHash !== expectedHash) {
+    fail(`reader CSS pin ${pinnedUrl} serves bytes that hash to ${servedHash}, not the pinned ${expectedHash}. Script managers re-validate the pinned #sha256 and disable the entire userscript on a mismatch.`);
+  }
+  console.log(`[verify] reader CSS pin is deployed and byte-identical (${pinnedUrl}).`);
+}
+
+async function probeUrl(url) {
+  try {
+    const response = await fetch(url, { redirect: 'follow', signal: AbortSignal.timeout(READER_CSS_REQUEST_TIMEOUT_MS) });
+    return {
+      status: response.status,
+      cors: response.headers.get('access-control-allow-origin'),
+      body: response.ok ? await response.text() : '',
+    };
+  } catch (error) {
+    return { error: error instanceof Error ? error : new Error(String(error)) };
+  }
+}
+
+// A transport failure is NOT treated as a pass: a gate that silently skips
+// itself whenever the network hiccups is the gate that let this ship. Offline
+// sandboxes opt out explicitly, and everything else in the verifier still runs.
+function failUnreachable(url, error) {
+  fail(`could not reach ${url} (${error.message}). Set ${READER_CSS_NETWORK_SKIP_ENV}=1 to run the verifier without its network check.`);
 }
 
 function assertCompanionRequireSriHashes() {
@@ -230,6 +318,46 @@ function assertZipReaderBundled() {
     'Unsupported ZIP compression method',
   ]) {
     if (!companionCode.includes(signature)) fail(`the companion ZIP reader is missing expected generated code: ${signature}`);
+  }
+}
+
+// Shared shape for the ADR-0003 surfaces: every listed implementation must be
+// absent from the size-limited core and present in the companion that owns it.
+function assertSplitBoundary(libraryId, label, signatures) {
+  const library = GREASY_FORK_LIBRARIES.find(candidate => candidate.id === libraryId);
+  if (!library) fail(`${label} companion is missing from the Greasy Fork library manifest.`);
+  const relativePath = `dist/${greasyForkLibraryPath(library.fileName)}`;
+  if (!fileExists(join(ROOT, relativePath))) fail(`${relativePath} is missing. Run npm run build first.`);
+  const companionCode = readText(join(ROOT, relativePath));
+  for (const [name, signature] of signatures) {
+    if (code.includes(signature)) fail(`ADR-0003 split regression: ${name} implementation leaked into ${USERSCRIPT_RELATIVE_PATH}.`);
+    if (!companionCode.includes(signature)) fail(`ADR-0003 split regression: ${name} is missing from ${relativePath}.`);
+  }
+}
+
+function assertAudioSplitBoundary() {
+  assertSplitBoundary('audio', 'Yomu Audio', [
+    ['AudioPlayer', 'class AudioPlayer'],
+    ['ReaderAudioActions', 'class ReaderAudioActions'],
+    ['getAudioCandidates', 'function getAudioCandidates('],
+    ['ShuffledAudioDeck', 'class ShuffledAudioDeck'],
+    ['isJapanesePod101Url', 'function isJapanesePod101Url('],
+  ]);
+  if (!code.includes('yomuAudioCompanion()?.AudioPlayer')) {
+    fail(`${USERSCRIPT_RELATIVE_PATH} is missing the audio companion facade.`);
+  }
+}
+
+function assertWanikaniSplitBoundary() {
+  assertSplitBoundary('wanikani', 'Yomu WaniKani', [
+    ['WanikaniClient', 'class WanikaniClient'],
+    ['WanikaniLookupClient', 'class WanikaniLookupClient'],
+    ['WanikaniSourceController', 'class WanikaniSourceController'],
+    ['createWanikaniSrsAdapter', 'function createWanikaniSrsAdapter('],
+    ['parseWanikaniSubject', 'function parseWanikaniSubject('],
+  ]);
+  if (!code.includes('yomuWanikaniCompanion()?.WanikaniClient')) {
+    fail(`${USERSCRIPT_RELATIVE_PATH} is missing the WaniKani companion facade.`);
   }
 }
 

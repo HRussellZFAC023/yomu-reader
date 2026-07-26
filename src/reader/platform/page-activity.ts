@@ -16,7 +16,12 @@ export interface PageActivityScope {
      * Lifetime signal for the subscription. A subscriber that outlives its
      * owner keeps the whole destroyed graph alive through this closure, so an
      * owner with an abort controller must hand it over rather than rely on
-     * remembering to dispose.
+     * remembering to dispose. Getting this wrong costs more than a leak: every
+     * later wake re-attaches the observer and re-runs the reconcile on a page
+     * whose owner is gone, so parking makes a stale watcher periodically
+     * active instead of merely resident. Optional only because a caller may
+     * genuinely own the whole document's lifetime; otherwise treat it as
+     * required and keep the handle.
      */
     signal?: AbortSignal;
 }
@@ -43,7 +48,12 @@ function scopedDocument(scope: PageActivityScope = {}): Document | null {
 }
 
 export function isPageDormant(scope: PageActivityScope = {}): boolean {
-    return scopedDocument(scope)?.visibilityState === 'hidden';
+    const owner = scopedDocument(scope);
+    // A document with no browsing context reports 'hidden' for good and can
+    // never fire visibilitychange, so calling it dormant parks a watcher that
+    // nothing is left to wake. There is no screen behind it to save either.
+    if (!owner?.defaultView) return false;
+    return owner.visibilityState === 'hidden';
 }
 
 /**
@@ -63,19 +73,31 @@ export function onPageActivityChange(
     return () => owner.removeEventListener('visibilitychange', handler);
 }
 
+interface RememberedTarget<TInit> {
+    init?: TInit;
+    wasConnected: boolean;
+}
+
+// Duck-typed: a target from an embedded frame is not an instanceof this
+// realm's Node, and a target that is not a node has no connectedness at all.
+function isConnectedTarget(target: unknown): boolean {
+    return (target as { isConnected?: unknown } | null)?.isConnected === true;
+}
+
 /**
  * An observer that remembers what it was asked to watch, detaches entirely
  * while the page is dormant, and re-attaches plus reconciles on wake. Wraps
  * anything with the observe/disconnect shape — Mutation, Resize, Intersection.
  */
 export class ParkableObserver<TTarget, TInit> {
-    // One init per target: every call site observes a given node exactly one
+    // One entry per target: every call site observes a given node exactly one
     // way, and keeping the latest init makes re-attachment deterministic.
-    private readonly targets = new Map<TTarget, TInit | undefined>();
+    private readonly targets = new Map<TTarget, RememberedTarget<TInit>>();
     private readonly observer: ParkableObserverHandle<TTarget, TInit> | null;
     private readonly reconcile?: () => void;
     private readonly unsubscribe: () => void;
     private parked: boolean;
+    private disposed = false;
 
     constructor(
         observer: ParkableObserverHandle<TTarget, TInit> | null,
@@ -91,7 +113,12 @@ export class ParkableObserver<TTarget, TInit> {
     }
 
     observe(target: TTarget, init?: TInit): void {
-        this.targets.set(target, init);
+        // Disposal is final. A disposed instance has already given up the
+        // subscription that parks it, so anything attached now would run at
+        // full rate in a hidden tab forever — on behalf of an owner that asked
+        // to be torn down.
+        if (this.disposed) return;
+        this.targets.set(target, { init, wasConnected: isConnectedTarget(target) });
         if (!this.parked) this.observer?.observe(target, init);
     }
 
@@ -104,6 +131,7 @@ export class ParkableObserver<TTarget, TInit> {
 
     /** Detach for good — drops the visibility subscription with the targets. */
     dispose(): void {
+        this.disposed = true;
         this.unsubscribe();
         this.disconnect();
     }
@@ -115,6 +143,7 @@ export class ParkableObserver<TTarget, TInit> {
     private park(): void {
         if (this.parked) return;
         this.parked = true;
+        this.forgetDiscardedTargets();
         this.drain();
         this.observer?.disconnect();
     }
@@ -122,8 +151,22 @@ export class ParkableObserver<TTarget, TInit> {
     private wake(): void {
         if (!this.parked) return;
         this.parked = false;
-        this.targets.forEach((init, target) => this.observer?.observe(target, init));
+        this.forgetDiscardedTargets();
+        this.targets.forEach((entry, target) => this.observer?.observe(target, entry.init));
         this.reconcile?.();
+    }
+
+    // A node the page threw away must not come back with us. The observers
+    // answer for a detached target rather than refusing it — a ResizeObserver
+    // reports one at zero width, which reads downstream as a reflow to heal —
+    // and remembering it pins the whole dead subtree, an edge the native
+    // observers never create. Only a target that WAS in the document counts as
+    // discarded: watching a node that was offscreen from the start is a
+    // deliberate thing to ask for, so it survives the park.
+    private forgetDiscardedTargets(): void {
+        this.targets.forEach((entry, target) => {
+            if (entry.wasConnected && !isConnectedTarget(target)) this.targets.delete(target);
+        });
     }
 
     private drain(): void {
@@ -144,8 +187,11 @@ export function parkableMutationObserver(
     options: ParkableObserverOptions = {},
 ): ParkableObserver<Node, MutationObserverInit> | null {
     const owner = scopedDocument(options);
-    const Observer = owner?.defaultView?.MutationObserver
-        ?? (typeof MutationObserver === 'function' ? MutationObserver : undefined);
+    // No ambient fallback. A document cut off from its browsing context has no
+    // constructor of its own, and borrowing this realm's would hand back a
+    // watcher that can never deliver — report the absence so the caller can
+    // give up instead of holding something permanently dead.
+    const Observer = owner?.defaultView?.MutationObserver;
     if (!Observer) return null;
     const observer = new Observer(callback) as unknown as ParkableObserverHandle<Node, MutationObserverInit>;
     return new ParkableObserver(observer, options);

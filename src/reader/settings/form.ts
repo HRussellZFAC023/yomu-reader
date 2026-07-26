@@ -29,7 +29,9 @@ import {
 import { uniqueStrings } from '../core/string-utils';
 import type { DictionaryPreference, ImmersionExampleSource, InterfaceLanguage, NewTabStudyChallengeStep, ReaderColorSource, ReaderSettings } from '../app/types';
 import { WANIKANI_TOKEN_SETTINGS_URL } from '../wanikani/wanikani';
-import { RECOMMENDED_JAPANESE_DICTIONARIES, recommendedDictionariesForLearnerLanguage, type RecommendedDictionary, type RecommendedDictionaryCategory } from '../dictionaries/recommended';
+import { RECOMMENDED_JAPANESE_DICTIONARIES, catalogBrowseGroupsForLearnerLanguage, findRecommendedDictionary, recommendedDictionariesForLearnerLanguage, type RecommendedDictionary, type RecommendedDictionaryCategory } from '../dictionaries/recommended';
+import { catalogBrowseDescription, catalogBrowseTotalBytes, formatDictionaryBytes, type CatalogBrowseGroup } from '../dictionaries/catalog-browse';
+import type { DictionaryCategory } from '../dictionaries/catalog';
 import { definitionSourceRows, kanjiSourceRows } from '../sources/sections';
 import type { YomitanDictionaryInfo } from '../dictionaries/yomitan';
 import { activeLanguageProfile, slice1LanguageIdForTag, SLICE1_TARGET_LANGUAGE } from '../languages';
@@ -1918,6 +1920,7 @@ function localizeSettingsEditorChrome(form: HTMLFormElement, text: SettingsText)
     localizeStudyStepEditor(form, text);
     localizeRecommendedDictionaryGroups(form, text);
     localizeRecommendedDictionaryDescriptions(form, text);
+    localizeCatalogBrowseSection(form, text);
     localizeAnkiTemplatePreview(form, text);
     localizeAudioSourceFields(form, text);
     localizeRecommendedDictionaryButtons(form, text);
@@ -2084,6 +2087,28 @@ function localizeRecommendedDictionaryGroups(form: HTMLFormElement, text: Settin
         const category = title.dataset.recommendedCategory as RecommendedDictionaryCategory | undefined;
         if (category && labels[category]) title.replaceChildren(labels[category]);
     });
+}
+
+function localizeCatalogBrowseSection(form: HTMLFormElement, text: SettingsText): void {
+    const section = form.querySelector<HTMLElement>('[data-catalog-browse]');
+    if (!section) return;
+    const locale = resolveUiLanguageFromText(text);
+    section.querySelector<HTMLElement>('[data-catalog-browse-title]')?.replaceChildren(text('mirroredDictionaries'));
+    section.querySelectorAll<HTMLElement>('[data-catalog-browse-category]').forEach((title) => {
+        const category = title.dataset.catalogBrowseCategory as DictionaryCategory | undefined;
+        const key = category ? CATALOG_BROWSE_CATEGORY_TEXT_KEYS[category] : undefined;
+        if (key) title.replaceChildren(text(key));
+    });
+    let count = 0;
+    let bytes = 0;
+    section.querySelectorAll<HTMLElement>('.jpdb-reader-recommended-item').forEach((item) => {
+        const dictionary = findRecommendedDictionary(item.querySelector<HTMLElement>('[data-dictionary-id]')?.dataset.dictionaryId ?? '');
+        if (!dictionary) return;
+        count += 1;
+        bytes += dictionary.bytes ?? 0;
+        item.querySelector<HTMLElement>('.jpdb-reader-help')?.replaceChildren(catalogBrowseDescription(dictionary, locale));
+    });
+    section.querySelector<HTMLElement>('[data-catalog-browse-summary]')?.replaceChildren(catalogBrowseSummary(locale, count, bytes));
 }
 
 function localizeRecommendedDictionaryDescriptions(form: HTMLFormElement, text: SettingsText): void {
@@ -2847,7 +2872,51 @@ export function renderRecommendedDictionaries(installed: YomitanDictionaryInfo[]
             `;
             })
             .join('')}
+        ${renderCatalogBrowseSection(catalogBrowseGroupsForLearnerLanguage(learnerLanguage), installed)}
     `;
+}
+
+// Recommendations are the preselected starting point; the mirror holds far more.
+// Everything else Yomu hosts is listed here so no dictionary is reachable only
+// by knowing its URL.
+function renderCatalogBrowseSection(groups: readonly CatalogBrowseGroup[], installed: YomitanDictionaryInfo[]): string {
+    const count = groups.reduce((total, group) => total + group.dictionaries.length, 0);
+    if (!count) return '';
+    return `
+        <section class="jpdb-reader-catalog-browse" data-catalog-browse>
+            <div class="jpdb-reader-recommended-title" data-catalog-browse-title>${escapedUiText('en', 'mirroredDictionaries')}</div>
+            <div class="jpdb-reader-help jpdb-reader-catalog-browse-summary" data-catalog-browse-summary>${escapeHtml(catalogBrowseSummary('en', count, catalogBrowseTotalBytes(groups)))}</div>
+            ${groups
+                .map((group) => `
+                <div class="jpdb-reader-recommended-group">
+                    <div class="jpdb-reader-recommended-group-title" data-catalog-browse-category="${escapeHtml(group.category)}">${escapedUiText('en', CATALOG_BROWSE_CATEGORY_TEXT_KEYS[group.category])}</div>
+                    ${group.dictionaries.map((dictionary) => renderRecommendedDictionary(dictionary, installed)).join('')}
+                </div>
+            `)
+                .join('')}
+        </section>
+    `;
+}
+
+const CATALOG_BROWSE_CATEGORY_TEXT_KEYS: Readonly<Record<DictionaryCategory, SettingsTextKey>> = {
+    terms: 'termDictionaries',
+    names: 'nameDictionaries',
+    grammar: 'grammarDictionaries',
+    kanji: 'kanjiDictionaries',
+    frequency: 'frequencyDictionaries',
+    pronunciation: 'pitchDictionaries',
+    examples: 'exampleDictionaries',
+    thesaurus: 'thesaurusDictionaries',
+    encyclopedia: 'encyclopediaDictionaries',
+    utility: 'utilityDictionaries',
+};
+
+function catalogBrowseSummary(language: InterfaceLanguage, count: number, bytes: number): string {
+    const locale = resolveUiLanguage(language);
+    return formatUiText(language, 'mirroredDictionariesSummary', {
+        count: count.toLocaleString(locale),
+        size: formatDictionaryBytes(bytes, locale),
+    });
 }
 
 function renderCatalogRecommendationSeed(dictionaries: readonly RecommendedDictionary[], installed: YomitanDictionaryInfo[], learnerLanguageId: LearnerLanguageId): string {

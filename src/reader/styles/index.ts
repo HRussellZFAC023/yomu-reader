@@ -1,13 +1,36 @@
 import { gmStorageGet, gmStorageSet } from '../app/storage';
 import { getUserscriptHttpRequest } from '../userscript/index';
+import { withHostCssArmour } from './host-armour';
 
 const READER_CSS_RESOURCE = 'yomuCss';
-// Cache-busted per release: raw.githubusercontent and intermediary caches key
-// on the full URL, so without ?v= a stale sheet can outlive an update.
-// (Release tags stopped at v1.6.105 while dist/ is committed to main per
-// release, so main + version query is the deterministic-enough pin available.)
-const READER_CSS_RESOURCE_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${__YOMU_VERSION__}`;
-const READER_CSS_CACHE_KEY = `yomu:reader-css-cache:v2:${__YOMU_VERSION__}`;
+// The @resource pin is content-addressed (yomu.<hash>.css) and only starts
+// serving once the docs deploy publishes that exact file. A build that reaches
+// users before that deploy lands finds the pin missing, and then the fallback
+// chain is the ONLY thing standing between the user and the ~5KB critical
+// subset — no furigana, no pitch underlines, a dead-looking popover, settings
+// degraded to native selects. One URL deep is not a chain.
+//
+// First-party and unhashed, so it is deployed continuously instead of per
+// content hash: serves access-control-allow-origin:* for page fetch and is
+// already covered by @connect yomureader.com for the GM bridge. Carries the
+// same ?v= cache-bust as the @resource URL because the CDN caches for 14400s,
+// so an unversioned URL can serve the previous release's sheet for hours.
+const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${__YOMU_VERSION__}`;
+// Last resort ONLY: raw.githubusercontent is blocked in China and on many
+// corporate networks, so it must never be the sole fallback. Cache-busted for
+// the same reason — raw and intermediary caches key on the full URL, so without
+// ?v= a stale sheet can outlive an update. (Release tags stopped at v1.6.105
+// while dist/ is committed to main per release, so main + version query is the
+// deterministic-enough pin available.)
+const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${__YOMU_VERSION__}`;
+// Version-INDEPENDENT on purpose. A per-version key started every upgrade with
+// an empty cache — precisely the moment a freshly hashed @resource is most
+// likely to be undeployed — and handed those users the critical subset. A
+// stale-but-complete sheet is strictly better, and refreshReaderCssFallback()
+// replaces it in the background on the very same page load. isFullReaderCss()
+// guards both the write and the read, so a truncated body or an HTML error page
+// is never cached and never painted as a sheet.
+const READER_CSS_CACHE_KEY = 'yomu:reader-css-cache:v3';
 
 export const READER_CSS = resourceReaderCss();
 
@@ -67,13 +90,49 @@ function criticalRubyCss(): string {
     ].join('\n');
 }
 
+// Every sheet the reader installs leaves here armoured: host pages reach Yomu's
+// injected nodes through selectors it cannot dodge (`*`, bare `button`), often
+// with `!important`, and only a cascade layer outranks that. See ./host-armour.
 export function initialReaderCss(css = READER_CSS): string {
-    return readerCssNeedsFallback(css) ? CRITICAL_READER_CSS : css;
+    return withHostCssArmour(readerCssNeedsFallback(css) ? CRITICAL_READER_CSS : css);
 }
 
 export async function loadReaderCssFallback(
     fetcher: typeof fetch | undefined = globalThis.fetch,
     href = safeLocationHref(),
+): Promise<string> {
+    const css = await resolveReaderCssFallback(fetcher, href);
+    if (!css) {
+        reportReaderCssUnavailable(href);
+        return css;
+    }
+    return withHostCssArmour(css);
+}
+
+// Every layer has failed: the @resource is empty, the last-good cache is empty
+// or invalid, and no fallback URL returned a full sheet. The reader then paints
+// from CRITICAL_READER_CSS for the rest of the session, which is what reached
+// the owner as an unexplained bug report — and nothing anywhere logged it,
+// because resourceReaderCss() catches to '', refreshReaderCssFallback() catches
+// per URL, and the caller treats '' as "nothing to swap in" so its .catch never
+// fires. Deliberately NOT the gated Logger: Logger.error is suppressed unless
+// the user has already turned logging on, which is exactly the state a fresh
+// bug report is filed in.
+function reportReaderCssUnavailable(href: string): void {
+    try {
+        console.error(
+            '[Yomu] Reader CSS unavailable: the userscript @resource, the last-good cache and every fallback URL failed. '
+            + 'The reader is running on the critical CSS subset (no furigana, no pitch underlines, unstyled settings).',
+            { fallbackUrls: readerCssFallbackUrls(href) },
+        );
+    } catch {
+        // A page that has replaced or frozen console must not break style loading.
+    }
+}
+
+async function resolveReaderCssFallback(
+    fetcher: typeof fetch | undefined,
+    href: string,
 ): Promise<string> {
     const cached = await cachedReaderCss();
     if (cached) {
@@ -148,9 +207,14 @@ export function shouldLoadReaderCssFallback(hasLinkedReaderCss: boolean, css = R
     return !hasLinkedReaderCss && readerCssNeedsFallback(css);
 }
 
+// Exhaustive by construction: the page's own origin first (no cross-origin hop
+// at all on hosted Yomu pages), then the first-party unhashed sheet, then the
+// GitHub raw mirror last because it is the one leg entire countries and
+// corporate networks block. Deduped so a hosted yomureader.com page does not
+// fetch the same URL twice.
 export function readerCssFallbackUrls(href = safeLocationHref()): string[] {
-    const hostedUrl = hostedReaderCssUrl(href);
-    return hostedUrl ? [hostedUrl, READER_CSS_RESOURCE_URL] : [READER_CSS_RESOURCE_URL];
+    const urls = [hostedReaderCssUrl(href), READER_CSS_RAW_FALLBACK_URL];
+    return [...new Set(urls.filter((url): url is string => Boolean(url)))];
 }
 
 async function cachedReaderCss(): Promise<string> {

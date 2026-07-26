@@ -94,6 +94,29 @@ writeFileSync(entryPath, `
             && rect.height > 0;
     }
 
+    // The pitch underline lands on a different surface per rendering path: an
+    // ordinary or mirrored word paints through its own ::after, while a
+    // source-projected word disables that pseudo and paints the same channel on
+    // each exact Range fragment. A probe that reads the word's inherited
+    // text-decoration-color instead reports the page's text colour whatever the
+    // pitch state is, so it can never see the underline go.
+    function pitchUnderlineSurfaces(scope: ParentNode): HTMLElement[] {
+        return [...scope.querySelectorAll<HTMLElement>('.jpdb-reader-word')].flatMap(word => {
+            const fragments = [...word.querySelectorAll<HTMLElement>('.jpdb-reader-source-fragment')];
+            return fragments.length ? fragments : [word];
+        });
+    }
+
+    function paintsPitchUnderline(surface: HTMLElement): boolean {
+        const underline = getComputedStyle(surface, '::after');
+        if (underline.content === 'none' || underline.visibility === 'hidden') return false;
+        // A single-pattern word paints a border colour; a compound word paints
+        // its per-mora gradient as a background image on the same lane.
+        const color = underline.borderBottomColor;
+        return (Boolean(color) && color !== 'transparent' && color !== 'rgba(0, 0, 0, 0)')
+            || underline.backgroundImage !== 'none';
+    }
+
     function projectedReadingAssociations(root: ParentNode): Array<{
         source: HTMLElement;
         clone: HTMLElement;
@@ -687,8 +710,8 @@ writeFileSync(entryPath, `
                 readingBaseClearance: reading && base ? base.getBoundingClientRect().top - reading.getBoundingClientRect().bottom : -1,
                 projectedReadingVisible: Boolean(reading && visibleElement(reading)),
                 projectedReadingClipped: reading ? readingIsClipped(reading) : true,
-                nativeUnderline: word ? getComputedStyle(word).textDecorationColor : '',
-                pseudoContent: word ? getComputedStyle(word, '::after').content : '',
+                pitchUnderlineSurfaces: mirror ? pitchUnderlineSurfaces(mirror).length : 0,
+                visiblePitchUnderlines: mirror ? pitchUnderlineSurfaces(mirror).filter(paintsPitchUnderline).length : 0,
                 underlineToChipBottom: word ? chipAfter.bottom - word.getBoundingClientRect().bottom : -1,
                 metadataReadingRetained: Boolean(metadataReading),
                 metadataSourceReadingVisible: Boolean(metadataReading && visibleElement(metadataReading)),
@@ -739,9 +762,9 @@ writeFileSync(entryPath, `
             const sources = [...host.querySelectorAll<HTMLElement>('.jpdb-reader-detached-furi')];
             const associations = projectedReadingAssociations(host);
             const rt = associations[0]?.clone;
-            // Command control (role=button show-more): no projected clone at
-            // rest. Return the full guard surface so the command-mode verify
-            // can still hold geometry and parse invariants.
+            // With no clone there is no rect to measure. Return the full guard
+            // surface anyway so the verify reports the missing projection
+            // against the geometry and parse invariants instead of crashing.
             if (!rt) return {
                 rtCount: 0,
                 inlineRubyCount: host.querySelectorAll('ruby,rt:not(.jpdb-reader-detached-furi)').length,
@@ -881,12 +904,8 @@ writeFileSync(entryPath, `
                 chipHeightGrowth: chipAfter.height - chipBefore.height,
                 chipBoxBefore,
                 chipBoxAfter: boxGeometry(chip),
-                visiblePitchUnderlines: words.filter(word => {
-                    const underline = getComputedStyle(word, '::after');
-                    if (underline.visibility === 'hidden') return false;
-                    const color = underline.borderBottomColor;
-                    return color && color !== 'transparent' && color !== 'rgba(0, 0, 0, 0)';
-                }).length,
+                pitchUnderlineSurfaces: pitchUnderlineSurfaces(scope).length,
+                visiblePitchUnderlines: pitchUnderlineSurfaces(scope).filter(paintsPitchUnderline).length,
             };
         },
     });
@@ -1027,6 +1046,7 @@ function verifyChip(name, result) {
     if (result.readingBaseOverlap > MAX_FONT_BOX_CONTACT_PX) fail(`${name}: compact control reading intrudes into its base`, result);
     // The pitch underline is a status signal on the word itself; it costs no
     // layout, so a control shows it at rest exactly like body text does.
+    if (result.pitchUnderlineSurfaces === 0) fail(`${name}: compact control has no pitch underline surface to measure`, result);
     if (result.visiblePitchUnderlines === 0) fail(`${name}: compact control lost its pitch underline at rest`, result);
 }
 
@@ -1045,7 +1065,8 @@ function verifyYouTubeGeometry(name, youtube) {
     if (youtube.readingBaseClearance < -MAX_FONT_BOX_CONTACT_PX) fail(`${name}: YouTube action chip furigana intrudes into its base`, youtube);
     // The pitch underline is a status signal painted on the word itself, so it
     // costs no layout and a chip carries it at rest exactly like body text.
-    if (youtube.nativeUnderline === 'transparent' || youtube.nativeUnderline === 'rgba(0, 0, 0, 0)') fail(`${name}: YouTube action chip lost its pitch underline at rest`, youtube);
+    if (youtube.pitchUnderlineSurfaces === 0) fail(`${name}: YouTube action chip has no pitch underline surface to measure`, youtube);
+    if (youtube.visiblePitchUnderlines === 0) fail(`${name}: YouTube action chip lost its pitch underline at rest`, youtube);
     if (!youtube.metadataReadingRetained || youtube.metadataSourceReadingVisible) fail(`${name}: metadata source reading entered page layout`, youtube);
     if (!youtube.metadataProjectedBefore || !youtube.metadataProjectedSafe || !youtube.metadataProjectedAgain) fail(`${name}: metadata projected furigana did not remain visible across reflow`, youtube);
     if (Math.abs(youtube.metadataReflowTopDelta) > MAX_GEOMETRY_DELTA_PX || Math.abs(youtube.metadataReflowHeightDelta) > MAX_GEOMETRY_DELTA_PX) fail(`${name}: metadata reflow probe changed the source row geometry`, youtube);

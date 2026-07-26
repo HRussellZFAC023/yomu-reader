@@ -1,8 +1,10 @@
 import './annotations';
 import './anki';
+import './audio';
 import './bunpro';
 import './kanji-study';
 import './ocr-manga';
 import './settings-surface';
 import './ui-copy';
 import './video';
+import './wanikani';

@@ -2882,10 +2882,6 @@ function mountNonDestructiveTextMirror(
     // enter the line box, but the mirror must still use the host's exact
     // control metrics rather than the additive prose channel.
     const controlMirror = target.decoration === 'interactive-passive';
-    // A command control (質問/参加/共有/アワードを贈る-class chrome button) goes one
-    // tier further than a plain passive control: the CSS command tier renders it
-    // bare at rest and reveals every annotation only on hover/focus. Everything
-    // else (metadata rows, content links) keeps the always-visible "true" tier.
     if (controlMirror) mirror.dataset.yomuControlMirror = 'true';
     // A clip-constrained mirror must lay out EXACTLY like its host: the
     // ruby-friendly line-height (~1.78em) under the clamp-box height cap left

@@ -623,6 +623,14 @@ const COPY = {
         kanjiDictionaries: 'Kanji dictionaries',
         pitchDictionaries: 'Pitch dictionaries',
         frequencyDictionaries: 'Frequency dictionaries',
+        nameDictionaries: 'Name dictionaries',
+        grammarDictionaries: 'Grammar dictionaries',
+        exampleDictionaries: 'Example sentence dictionaries',
+        thesaurusDictionaries: 'Thesauruses',
+        encyclopediaDictionaries: 'Encyclopedias',
+        utilityDictionaries: 'Utility dictionaries',
+        mirroredDictionaries: 'All mirrored dictionaries',
+        mirroredDictionariesSummary: '{count} more dictionaries · {size} total',
         install: 'Install',
         installing: 'Installing',
         queued: 'Queued',
@@ -2271,6 +2279,14 @@ termDictionaries	語句辞書
 kanjiDictionaries	漢字辞書
 pitchDictionaries	ピッチ辞書
 frequencyDictionaries	頻度辞書
+nameDictionaries	固有名詞辞書
+grammarDictionaries	文法辞書
+exampleDictionaries	例文辞書
+thesaurusDictionaries	類語辞書
+encyclopediaDictionaries	百科事典
+utilityDictionaries	補助辞書
+mirroredDictionaries	配信中のすべての辞書
+mirroredDictionariesSummary	他{count}件の辞書 · 合計{size}
 install	インストール
 installing	インストール中
 queued	待機中

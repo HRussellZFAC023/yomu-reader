@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -1301,7 +1303,8 @@ describe('interactive-passive mirror channel under furigana-mode=all', () => {
         // in-flow furigana lane that can displace fixed-height labels on WebKit.
         expect(button.querySelectorAll('rt')).toHaveLength(0);
         expect(mirror?.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('とうろく');
-        // Subscribe is a command button: its reading lane is hover-revealed.
+        // Subscribe is a control, so its mirror keeps the host's own control
+        // metrics while the reading rides the out-of-flow lane above.
         expect(mirror?.dataset.yomuControlMirror).toBe('true');
         expect(button.dataset.yomuRubyRoom).toBeUndefined();
     });
@@ -1353,8 +1356,7 @@ describe('interactive-passive mirror channel under furigana-mode=all', () => {
         expect(row.querySelector('rt')).toBeNull();
         expect(row.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('とうろくしゃすう');
         expect(row.querySelector('.jpdb-reader-text-mirror')).toBeTruthy();
-        // A metadata SPAN is not a command control — its readings stay visible
-        // at rest on the "true" tier.
+        // A metadata SPAN inside a control row takes the same control metrics.
         expect(row.querySelector<HTMLElement>('.jpdb-reader-text-mirror')?.dataset.yomuControlMirror).toBe('true');
         expect(row.getBoundingClientRect().height).toBe(18);
         expect(row.dataset.yomuRubyRoom).toBeUndefined();
@@ -1439,7 +1441,7 @@ describe('interactive-passive mirror channel under furigana-mode=all', () => {
 
         expect(metadata.style.display).toBe('inline');
         expect(metadata.querySelector('.jpdb-reader-text-mirror')).toBeTruthy();
-        // A metadata span inside a linked card is not a command control.
+        // A metadata span inside a linked card is still a control mirror.
         expect(metadata.querySelector<HTMLElement>('.jpdb-reader-text-mirror')?.dataset.yomuControlMirror).toBe('true');
         expect(metadata.querySelector('rt')).toBeNull();
         expect(metadata.querySelector('.jpdb-reader-detached-furi')?.textContent).toBe('こくち');
@@ -1688,6 +1690,33 @@ describe('chrome buttons are annotated at rest', () => {
         chromeMirror(document.querySelector<HTMLElement>('#c')!, '参加', 'さんか');
         expect(document.querySelector('[data-yomu-command-control]')).toBeNull();
         expect(document.querySelector('[data-yomu-control-mirror="command"]')).toBeNull();
+    });
+
+    // Deleting the marker is not enough on its own: the control mirror keeps a
+    // stamp, and rest-hiding CSS re-keyed on that stamp would bring the whole
+    // tier back with nothing in the gate to see it. jsdom loads no stylesheet,
+    // so paint has to be judged from the stylesheet text here — the smokes that
+    // measure real paint do not run in the check gate.
+    it('leaves no control-mirror rule that hides a reading surface at rest', () => {
+        const css = readFileSync('src/reader/styles/reader-words-ocr.css', 'utf8');
+        const controlRules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/gu)]
+            .map(match => ({ selector: match[1].trim(), body: match[2] }))
+            .filter(rule => /\[data-yomu-control-mirror|\[data-yomu-command-control/u.test(rule.selector));
+        // A renamed stamp must fail loudly rather than leave this scanning air.
+        expect(controlRules.length).toBeGreaterThan(0);
+
+        // In-flow rt is deliberately suppressed on controls — the detached lane
+        // replaces it — so the surfaces that must survive at rest are the
+        // reading itself, the word, and its exact Range fragments.
+        const readingSurface = /jpdb-reader-detached-furi|jpdb-reader-source-fragment|jpdb-reader-word(?![\w-])/u;
+        const revealState = /:hover|:focus|keyboard-active/u;
+        const hidesPaint = /display:\s*none|visibility:\s*hidden|opacity:\s*0(?![.\d])|content:\s*none|(?:text-decoration-color|border-block-end-color|border-block-end|--jpdb-reader-word-underline):\s*transparent/u;
+        const restHiders = controlRules
+            .filter(rule => readingSurface.test(rule.selector)
+                && !revealState.test(rule.selector)
+                && hidesPaint.test(rule.body))
+            .map(rule => rule.selector);
+        expect(restHiders).toEqual([]);
     });
 
     it('keeps content chrome on its content tiers', () => {

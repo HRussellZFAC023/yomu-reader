@@ -16440,6 +16440,15 @@ html.jpdb-reader-doodle-active * {
   display: grid;
   gap: 7px;
 }
+/* The mirrored-catalogue list nests category groups, so it needs the same
+   grid rhythm as the recommendations container it sits inside. */
+.jpdb-reader-catalog-browse {
+  display: grid;
+  gap: 10px;
+}
+.jpdb-reader-catalog-browse-summary {
+  margin: -4px 0 2px;
+}
 .jpdb-reader-recommended-group-title {
   color: var(--jpdb-reader-faint);
   font-size: 11px;

@@ -27,6 +27,8 @@
   "yomu": {
     "allowedRequireUrls": [
       "https://yomureader.com/greasyfork/yomu-anki.user.js",
+      "https://yomureader.com/greasyfork/yomu-audio.user.js",
+      "https://yomureader.com/greasyfork/yomu-wanikani.user.js",
       "https://yomureader.com/greasyfork/yomu-kanji-study.user.js",
       "https://yomureader.com/greasyfork/yomu-settings-surface.user.js",
       "https://yomureader.com/greasyfork/yomu-video.user.js"

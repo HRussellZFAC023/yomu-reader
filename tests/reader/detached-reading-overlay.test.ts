@@ -104,14 +104,18 @@ describe('detached reading overlay occlusion', () => {
 
     // The exemption is scoped to the control the word lives in: a real menu
     // drawn over that button still hides the reading, or readings would bleed
-    // through dropdowns.
+    // through dropdowns. The menu here is bare and translucent, so only the
+    // scope decides it — and it sits inside the link wrapped around the whole
+    // card, which is why a bare `a` may never join the control selector.
     it('still hides a projection under a surface outside its own control', () => {
+        const card = document.createElement('a');
         const button = document.createElement('button');
         const target = readingOwner('きょひ');
         button.append(target.anchor);
         const menu = document.createElement('div');
-        menu.style.backgroundColor = 'rgb(0, 0, 0)';
-        document.body.append(button, menu);
+        menu.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+        card.append(button, menu);
+        document.body.append(card);
         mockElementsFromPoint([menu, button]);
 
         syncProjectedReadings(target.owner, [{
@@ -122,6 +126,136 @@ describe('detached reading overlay occlusion', () => {
         }]);
 
         expect(projectedReading('きょひ')?.style.display).toBe('none');
+        clearProjectedReadings(target.owner);
+    });
+
+    // Inside the control the exemption stops at the control's own decoration.
+    // A panel that renders content of its own is a real surface, and a reading
+    // painted on top of it reads as nonsense over someone else's text. The
+    // panel here is translucent, so only its content decides.
+    it('still hides a projection under a panel inside its own control', () => {
+        const control = document.createElement('div');
+        control.setAttribute('role', 'button');
+        const target = readingOwner('こんだて');
+        control.append(target.anchor);
+        const panel = document.createElement('div');
+        panel.style.backgroundColor = 'rgba(30, 30, 30, 0.5)';
+        panel.textContent = '選択';
+        control.append(panel);
+        document.body.append(control);
+        mockElementsFromPoint([panel, control]);
+
+        syncProjectedReadings(target.owner, [{
+            source: target.source,
+            anchor: target.anchor,
+            rect: rect(),
+            measure: () => rect(),
+        }]);
+
+        expect(projectedReading('こんだて')?.style.display).toBe('none');
+        clearProjectedReadings(target.owner);
+    });
+
+    // Chrome is what a control's label reads through. An opaque layer is a
+    // surface: a loading veil takes the word with it, and a reading painted
+    // onto an opaque badge cannot be read at all.
+    it('still hides a projection under an opaque layer inside its own control', () => {
+        const button = document.createElement('button');
+        const target = readingOwner('おおい');
+        button.append(target.anchor);
+        const veil = document.createElement('div');
+        veil.style.backgroundColor = 'rgb(20, 20, 20)';
+        button.append(veil);
+        document.body.append(button);
+        mockElementsFromPoint([veil, button]);
+
+        syncProjectedReadings(target.owner, [{
+            source: target.source,
+            anchor: target.anchor,
+            rect: rect(),
+            measure: () => rect(),
+        }]);
+
+        expect(projectedReading('おおい')?.style.display).toBe('none');
+        clearProjectedReadings(target.owner);
+    });
+
+    // A control can wrap a whole card — a tile, a radio card, a row with a
+    // thumbnail. There is room above the label for real content there, so the
+    // card's interior is not chrome however bare the covering layer looks.
+    it('still hides a projection under a bare wash inside a card-sized control', () => {
+        const card = document.createElement('div');
+        card.setAttribute('role', 'button');
+        card.getBoundingClientRect = () => rect(0, 0, 320, 200);
+        const target = readingOwner('たいる');
+        card.append(target.anchor);
+        const wash = document.createElement('div');
+        wash.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+        card.append(wash);
+        document.body.append(card);
+        mockElementsFromPoint([wash, card]);
+
+        syncProjectedReadings(target.owner, [{
+            source: target.source,
+            anchor: target.anchor,
+            rect: rect(),
+            measure: () => rect(),
+        }]);
+
+        expect(projectedReading('たいる')?.style.display).toBe('none');
+        clearProjectedReadings(target.owner);
+    });
+
+    // Frameworks render the ripple inside the component's own shadow tree, so
+    // node-tree containment never recognises it as the control's chrome.
+    it('keeps a projection over control chrome rendered in a shadow tree', () => {
+        const button = document.createElement('button');
+        const target = readingOwner('ひかり');
+        button.append(target.anchor);
+        const rippleHost = document.createElement('div');
+        const rippleRoot = rippleHost.attachShadow({ mode: 'open' });
+        const ripple = document.createElement('span');
+        ripple.style.backgroundColor = 'rgba(0, 0, 0, 0.4)';
+        rippleRoot.append(ripple);
+        // jsdom has no layout, so the shadow hit test has to be supplied.
+        Object.defineProperty(rippleRoot, 'elementsFromPoint', {
+            configurable: true,
+            value: () => [ripple],
+        });
+        button.append(rippleHost);
+        document.body.append(button);
+        mockElementsFromPoint([rippleHost, button]);
+
+        syncProjectedReadings(target.owner, [{
+            source: target.source,
+            anchor: target.anchor,
+            rect: rect(),
+            measure: () => rect(),
+        }]);
+
+        expect(projectedReading('ひかり')?.style.display).toBe('block');
+        clearProjectedReadings(target.owner);
+    });
+
+    // A press fill waiting at opacity 0 is in the hit list but paints nothing,
+    // and treating it as a covering surface blanked the reading on every
+    // control that stacks one over its label.
+    it('keeps a projection under a layer that paints nothing', () => {
+        const target = readingOwner('とうめい');
+        const fill = document.createElement('div');
+        fill.style.backgroundColor = 'rgb(0, 0, 0)';
+        fill.style.opacity = '0';
+        document.body.append(fill);
+        mockElementsFromPoint([fill, target.anchor]);
+
+        syncProjectedReadings(target.owner, [{
+            source: target.source,
+            anchor: target.anchor,
+            rect: rect(),
+            measure: () => rect(),
+        }]);
+
+        expect(projectedReading('とうめい')?.style.display).toBe('block');
         clearProjectedReadings(target.owner);
     });
 
@@ -1018,6 +1152,103 @@ describe('detached reading grace termination', () => {
 
         expect(projectedReading('まいご')?.style.display).toBe('none');
         clearProjectedReadings(target.owner);
+    });
+
+    // A document-space clone is stamped through the layer origin of the pass
+    // that paints it. Replaying the last good VIEWPORT rect through a scrolled
+    // origin adds the whole scroll delta, which is how a bridged reading ended
+    // up floating over unrelated content in a corner of the page.
+    it('holds a bridged reading against its word while the page scrolls', async () => {
+        const target = readingOwner('まよい');
+        mockElementsFromPoint([target.anchor]);
+        let measurable = true;
+        syncProjectedReadings(target.owner, [{
+            source: target.source,
+            anchor: target.anchor,
+            rect: rect(20, 400),
+            measure: () => (measurable ? rect(20, 400) : null),
+        }]);
+        let layerTop = 0;
+        const layer = document.querySelector<HTMLElement>('.jpdb-reader-detached-reading-document-layer')!;
+        layer.getBoundingClientRect = () => rect(0, layerTop, 1200, 4000);
+        await nextProjectionFrame();
+        expect(projectedReading('まよい')?.style.top).toBe('400px');
+
+        // The page scrolls 300px with the word still on it, and the pass that
+        // lands mid-scroll cannot measure it.
+        measurable = false;
+        layerTop = -300;
+        document.dispatchEvent(new Event('scroll'));
+        await nextProjectionFrame();
+
+        const reading = projectedReading('まよい');
+        expect(reading?.style.display).toBe('block');
+        expect(reading?.style.top).toBe('400px');
+        clearProjectedReadings(target.owner);
+    });
+
+    // Grace bridges a burst of passes, not a quiet page: passes arrive on
+    // events rather than on a clock, so a rect older than a quarter second is
+    // stale enough that a missing measurement means the word is gone.
+    it('refuses to bridge a measurement gap older than the grace window', async () => {
+        const target = readingOwner('ふるび');
+        mockElementsFromPoint([target.anchor]);
+        let measurable = true;
+        syncProjectedReadings(target.owner, [{
+            source: target.source,
+            anchor: target.anchor,
+            rect: rect(),
+            measure: () => (measurable ? rect() : null),
+        }]);
+        await nextProjectionFrame();
+        expect(projectedReading('ふるび')?.style.display).toBe('block');
+
+        measurable = false;
+        const painted = Date.now();
+        vi.spyOn(Date, 'now').mockImplementation(() => painted + 400);
+        document.dispatchEvent(new Event('scroll'));
+        await nextProjectionFrame();
+
+        expect(projectedReading('ふるび')?.style.display).toBe('none');
+        clearProjectedReadings(target.owner);
+    });
+
+    // A realm with no animation frames runs scheduled passes inline. The grace
+    // follow-up is asked for from inside the pass that owes it, so scheduling
+    // it inline re-entered the read/write cycle on its own stack and burned the
+    // whole allowance before the event returned.
+    it('does not re-enter the refresh pass in a realm without animation frames', async () => {
+        const frames = Object.getOwnPropertyDescriptor(window, 'requestAnimationFrame');
+        Object.defineProperty(window, 'requestAnimationFrame', { configurable: true, value: undefined });
+        try {
+            const target = readingOwner('こだま');
+            mockElementsFromPoint([target.anchor]);
+            let measurable = true;
+            let measured = 0;
+            syncProjectedReadings(target.owner, [{
+                source: target.source,
+                anchor: target.anchor,
+                rect: rect(),
+                measure: () => {
+                    measured += 1;
+                    return measurable ? rect() : null;
+                },
+            }]);
+            expect(projectedReading('こだま')?.style.display).toBe('block');
+
+            measurable = false;
+            measured = 0;
+            document.dispatchEvent(new Event('scroll'));
+            expect(measured).toBe(1);
+
+            // The follow-ups still arrive, one turn at a time, and still retire
+            // the stale clone without waiting for another event.
+            for (let i = 0; i < 6; i++) await Promise.resolve();
+            expect(projectedReading('こだま')?.style.display).toBe('none');
+            clearProjectedReadings(target.owner);
+        } finally {
+            if (frames) Object.defineProperty(window, 'requestAnimationFrame', frames);
+        }
     });
 });
 

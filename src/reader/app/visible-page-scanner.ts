@@ -190,6 +190,20 @@ export class VisiblePageScanner {
         this.asbDrainTimer = undefined;
     }
 
+    // An SPA that replaces <body> leaves the settle observer watching a node
+    // that can never reflow again, so width-driven heals go quiet for the rest
+    // of the session. Re-point it at the live body and drop the width baseline
+    // so the observer's mandatory first delivery only primes: the replacement
+    // has not settled, it has merely been measured for the first time.
+    repointGeometrySettleTarget(): void {
+        const observer = this.settleResizeObserver;
+        if (this.destroyed || !observer) return;
+        if (typeof document === 'undefined' || !document.body) return;
+        observer.disconnect();
+        this.lastSettleWidth = -1;
+        observer.observe(document.body);
+    }
+
     async scanVisiblePage(options: { silent?: boolean } = {}): Promise<void> {
         const silent = Boolean(options.silent);
         if (!this.beginScan(silent)) return;

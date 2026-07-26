@@ -111,6 +111,19 @@ const RANDOM_TERM_LIST_MAX_ROWS = 20000;
 const RANDOM_TERM_LIST_MAX_MS = 220;
 const RANDOM_TOP_TERM_LIST_MAX_ROWS = 30000;
 const RANDOM_TOP_TERM_LIST_MAX_MS = 320;
+// Inline matching sweeps the text one window at a time. Everything expensive —
+// the synchronous substring walk, the deinflection, the IndexedDB fan-out and
+// the transaction it rides in — is per window, so none of it grows with the
+// length of the block. 240 is also the density the caller's match limit was
+// calibrated against (it used to be the whole input cap), so treating that
+// limit as a per-window budget keeps the head of a long paragraph exactly as
+// annotated as it was when only the head was parsed at all.
+const TERM_MATCH_WINDOW_CHARS = 240;
+// Ceiling for a single call. Windowing keeps the per-window cost flat but the
+// total still grows with the text, so a pathological megabyte text node stays
+// bounded. Well above real content: a whole expanded video description or a
+// long comment fits in one call.
+const TERM_MATCH_SOURCE_LIMIT = 4_000;
 const TERM_KANJI_INDEX_BATCH_SIZE = 5000;
 const TERM_KANJI_INDEX_FALLBACK_MAX_ROWS = 12000;
 const TERM_KANJI_INDEX_FALLBACK_MAX_MS = 140;
@@ -415,20 +428,17 @@ export class YomitanDictionaryStore {
 
     async findTermMatches(text: string, limit = 32, preferences: DictionaryPreference[] = []): Promise<YomitanTermMatch[]> {
         const done = log.time('Inline term match search', { length: text.length, limit, dictionaries: preferences.length });
-        // Candidate collection is linear in the text and the candidate map
-        // dedups by term, so long input is cheap to cover in full. The old 240
-        // character cap silently dropped everything past it: an expanded video
-        // description parsed at the top, went completely bare through the
-        // middle, and picked up again in a later segment. The remaining ceiling
-        // exists only to bound a pathological megabyte text node, sits far
-        // above real content, and is logged when it ever trims.
-        // Candidate collection is a synchronous O(n * 18) walk feeding an
-        // IndexedDB fan-out, so this bound is a main-thread budget, not a
-        // formality: at 20,000 characters it blocked for seconds on a tablet.
-        // The old 240 was far below real content and silently gutted the middle
-        // of any long block; 4,000 covers an expanded video description or a
-        // long comment whole while keeping the walk bounded.
-        const source = text.slice(0, 4_000);
+        // The old 240 character cap silently dropped everything past it: an
+        // expanded video description parsed at the top, went completely bare
+        // through the middle, and picked up again in a later segment. Widening
+        // the cap alone did not fix that — the match limit bounds the RESULT,
+        // and selection takes the globally longest matches, so the same handful
+        // of slots spread thin over the whole block and the head lost most of
+        // the readings it used to have. Sweeping window by window instead makes
+        // the limit a density budget: every part of the block is annotated like
+        // the head always was, and no single walk, transaction or fan-out
+        // scales with the length of the text.
+        const source = text.slice(0, TERM_MATCH_SOURCE_LIMIT);
         if (source.length < text.length) {
             log.warn('Inline term match source trimmed', { length: text.length, kept: source.length });
         }
@@ -437,29 +447,49 @@ export class YomitanDictionaryStore {
             return [];
         }
 
-        const candidates = this.collectTermMatchCandidates(source);
-        if (!candidates.size) {
-            done();
-            return [];
-        }
-
         try {
-            const matches = await this.lookupTermMatchCandidates(candidates, preferences);
-
-            const results = nonOverlappingMatches(matches, limit);
-            return results;
+            return await this.sweepTermMatchWindows(source, limit, preferences);
         } catch (error) {
-            log.warn('Inline term match search failed', { length: source.length, candidates: candidates.size, error });
+            log.warn('Inline term match search failed', { length: source.length, error });
             throw error;
         } finally {
             done();
         }
     }
 
-    private collectTermMatchCandidates(source: string): TermMatchCandidates {
+    private async sweepTermMatchWindows(source: string, limit: number, preferences: DictionaryPreference[]): Promise<YomitanTermMatch[]> {
+        const selected: YomitanTermMatch[] = [];
+        // Windows are swept in reading order and every match starts inside its
+        // own window, so the furthest end selected so far is all a later window
+        // needs to stay non-overlapping across the boundary.
+        let coveredUntil = 0;
+        for (let start = 0; start < source.length; start += TERM_MATCH_WINDOW_CHARS) {
+            // Between windows only: a single window's work is small enough to
+            // stay inside a frame, and yielding here is what lets a caller's
+            // timeout fire at all — the collection walk itself never awaits.
+            if (start > 0) await nextTask();
+            const matches = await this.termMatchesInWindow(source, start, preferences);
+            const free = matches.filter(match => match.start >= coveredUntil);
+            for (const match of nonOverlappingMatches(free, limit)) {
+                selected.push(match);
+                coveredUntil = Math.max(coveredUntil, match.end);
+            }
+        }
+        return selected.sort((a, b) => a.start - b.start);
+    }
+
+    private async termMatchesInWindow(source: string, start: number, preferences: DictionaryPreference[]): Promise<YomitanTermMatch[]> {
+        const candidates = this.collectTermMatchCandidates(source, start, Math.min(start + TERM_MATCH_WINDOW_CHARS, source.length));
+        return candidates.size ? await this.lookupTermMatchCandidates(candidates, preferences) : [];
+    }
+
+    // Only start positions are confined to the window; surfaces still run past
+    // its end, so a term straddling a window boundary is found exactly as it
+    // would be in a single sweep of the whole text.
+    private collectTermMatchCandidates(source: string, from: number, to: number): TermMatchCandidates {
         const candidates: TermMatchCandidates = new Map();
         const maxLength = Math.min(18, source.length);
-        for (let start = 0; start < source.length; start++) {
+        for (let start = from; start < to; start++) {
             if (!JAPANESE_RE.test(source[start])) continue;
             this.collectTermMatchCandidatesAt(source, start, maxLength, candidates);
         }
@@ -505,6 +535,12 @@ export class YomitanDictionaryStore {
                 requestTermMatchIndex(readingIndex, expression, addMatches, finish, reject);
             }
             tx.onerror = () => reject(tx.error);
+            // A conforming abort fires an error at every unfinished request, so
+            // this is usually redundant. It is the only signal left in the iPad
+            // WebKit failure mode this codebase already fights, where a request
+            // settles neither way: without it the callers waiting on this parse
+            // wait for a completion that is never coming.
+            tx.onabort = () => reject(transactionError(tx, 'Could not read dictionary term matches.'));
         });
     }
 

@@ -96,28 +96,47 @@ function requestViaUserscript(
             finish(() => reject(abortError()));
         };
         if (signal) signal.addEventListener('abort', onAbort, { once: true });
-        if (options.timeoutMs) deadline = setTimeout(handleTimeout, options.timeoutMs);
-        const result = userscriptRequest({
-            method: options.method ?? 'GET',
-            url,
-            headers: recordHeaders(options.headers),
-            data: options.data,
-            responseType: options.responseType,
-            timeout: options.timeoutMs,
-            anonymous: options.anonymous,
-            withCredentials: options.withCredentials,
-            cookie: options.cookie,
-            onload: handleLoad,
-            onerror: error => finish(() => reject(error instanceof Error ? error : new Error(formatFailure(options)))),
-            ontimeout: handleTimeout,
-        });
+        deadline = setTimeout(handleTimeout, options.timeoutMs || DROPPED_CALLBACK_DEADLINE_MS);
+        let result: ReturnType<UserscriptHttpRequest>;
+        try {
+            result = userscriptRequest({
+                method: options.method ?? 'GET',
+                url,
+                headers: recordHeaders(options.headers),
+                data: options.data,
+                responseType: options.responseType,
+                timeout: options.timeoutMs,
+                anonymous: options.anonymous,
+                withCredentials: options.withCredentials,
+                cookie: options.cookie,
+                onload: handleLoad,
+                onerror: error => finish(() => reject(error instanceof Error ? error : new Error(formatFailure(options)))),
+                ontimeout: handleTimeout,
+            });
+        } catch (error) {
+            // A manager can refuse synchronously (a host outside @connect, a dead
+            // page-world binding). Settling through finish tears the deadline and
+            // the abort listener down; a bare throw out of the executor would
+            // leave both alive holding this closure until the budget expired.
+            finish(() => reject(error instanceof Error ? error : new Error(formatFailure(options))));
+            return;
+        }
+        // Take the handle whenever one is offered, not only when the result is
+        // handle-shaped: Violentmonkey's GM.xmlHttpRequest returns a thenable that
+        // ALSO carries abort(), and letting the promise branch claim it left the
+        // deadline with nothing to cancel — the transfer kept running and its
+        // bytes were thrown away, which on a slow link stacks up behind retries.
+        if (result && typeof (result as UserscriptHttpRequestHandle).abort === 'function') handle = result as UserscriptHttpRequestHandle;
         if (result && typeof (result as Promise<UserscriptHttpResponse>).then === 'function') {
             (result as Promise<UserscriptHttpResponse>).then(handleLoad, error => finish(() => reject(error instanceof Error ? error : new Error(formatFailure(options)))));
-        } else if (result && typeof (result as UserscriptHttpRequestHandle).abort === 'function') {
-            handle = result as UserscriptHttpRequestHandle;
         }
     });
 }
+
+// Callers that name no budget still must not be able to hang the page when the
+// manager drops the callback. This backstop sits far above every real budget in
+// the reader (the widest is 30 s), so it can only ever fire on a dead transport.
+const DROPPED_CALLBACK_DEADLINE_MS = 120_000;
 
 function abortError(): Error {
     if (typeof DOMException === 'function') return new DOMException('Aborted', 'AbortError');

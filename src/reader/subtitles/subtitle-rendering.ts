@@ -85,18 +85,23 @@ function nextRenderedPrimaryCache(input: SubtitlePrimaryRenderInput, karaokeActi
 export const SUBTITLE_SECONDARY_BLURRED_CLASS = 'jpdb-subtitle-secondary-blurred';
 export const SUBTITLE_SECONDARY_CLEAR_CLASS = 'jpdb-subtitle-secondary-clear';
 
+// The line looks like plain caption text, so learners keep asking how to hide
+// the translation. aria-pressed is the cheap, non-intrusive half of the answer:
+// it makes the line announce as a toggle button that is currently on or off,
+// instead of as an unexplained label, and it costs no new UI copy.
 export function syncSubtitleSecondaryBlurState(button: HTMLElement, nativeBlurred: boolean, language: InterfaceLanguage = 'en'): void {
     button.classList.toggle(SUBTITLE_SECONDARY_BLURRED_CLASS, nativeBlurred);
     button.classList.toggle(SUBTITLE_SECONDARY_CLEAR_CLASS, !nativeBlurred);
     const label = uiText(language, 'toggleNativeSubtitleBlur');
     button.setAttribute('title', label);
     button.setAttribute('aria-label', label);
+    button.setAttribute('aria-pressed', String(nativeBlurred));
 }
 
 export function renderSubtitleSecondary(text: string, nativeBlurred: boolean, language: InterfaceLanguage = 'en'): string {
     const blurClass = nativeBlurred ? SUBTITLE_SECONDARY_BLURRED_CLASS : SUBTITLE_SECONDARY_CLEAR_CLASS;
     const label = uiText(language, 'toggleNativeSubtitleBlur');
-    return `<button class="jpdb-subtitle-secondary ${blurClass}" type="button" data-action="toggle-native-blur" title="${label}" aria-label="${label}">${escapeWithBreaks(text)}</button>`;
+    return `<button class="jpdb-subtitle-secondary ${blurClass}" type="button" data-action="toggle-native-blur" title="${label}" aria-label="${label}" aria-pressed="${nativeBlurred}">${escapeWithBreaks(text)}</button>`;
 }
 
 export function renderSubtitleKaraokeCue(cue: SubtitleCue | undefined, time: number): string {

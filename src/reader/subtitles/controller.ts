@@ -252,6 +252,8 @@ const YOUTUBE_MOBILE_BOTTOM_SHEET_OPEN_CLASS = 'jpdb-subtitle-yt-sheet-open';
 const NATIVE_FULLSCREEN_CUE_TRACK_LABEL = 'Yomu';
 const SUBTITLE_NATIVE_CONTROL_SAFE_ZONE_ATTRIBUTE = 'data-jpdb-subtitle-native-control-safe-zone';
 const NATIVE_PLAYER_CONTROL_SELECTOR = 'button,[role="button"],a[href],[tabindex]:not([tabindex="-1"])';
+const NATIVE_SUBTITLE_BLUR_CONTROL_SELECTOR = '[data-action="toggle-native-blur"]';
+const NATIVE_SUBTITLE_BLUR_PRESSED_PATTERN = /(data-action="toggle-native-blur"[^>]*aria-pressed=")(?:true|false)(")/g;
 
 interface SubtitlePlayerOptions {
     getSettings: () => ReaderSettings;
@@ -1339,6 +1341,10 @@ export class SubtitlePlayerController {
         this.pendingPointerActivity = undefined;
         this.clearVideoInsetForTranscriptPanel();
         this.subtitleStylePanelOpen = false;
+        // The controller instance outlives its own teardown (the app destroys and
+        // re-inits it in place), so a remembered frame would keep the detached
+        // media element alive and judge the next one against a dead anchor.
+        this.pinnedPlayer.reset();
         document.documentElement.classList.remove(YOUTUBE_MOBILE_BOTTOM_SHEET_OPEN_CLASS);
         this.removeAsbPlayerSubtitleMoveHandles();
         this.transcriptPanel?.remove();
@@ -2303,7 +2309,8 @@ export class SubtitlePlayerController {
         }
         const rect = this.videoLayoutRect();
         // Fullscreen measures the viewport, not the frame's own box, so there is
-        // no in-flow position worth remembering while it lasts.
+        // nothing worth reading into the frame's position while it lasts; the
+        // tracker suspends the pin and keeps what it already knew.
         this.pinnedPlayer.observe(this.video, rect, this.fullscreen);
         this.lastAlignedVideoRectKey = videoRectKey(rect);
         this.applyVideoLayout(rect);
@@ -3441,7 +3448,10 @@ export class SubtitlePlayerController {
         }
         event.preventDefault();
         event.stopPropagation();
-        this.showControlsTemporarily();
+        // Every rail/panel action wants the controls awake, but the native
+        // caption line is an action painted on the video itself: hiding the
+        // translation must not be paid for with an expanded rail.
+        if (!this.isNativeSubtitleBlurControl(target)) this.showControlsTemporarily();
 
         const handler = this.clickHandlers[action];
         if (!handler) return;
@@ -3680,6 +3690,13 @@ export class SubtitlePlayerController {
         // exactly the gesture this wake exists for, so it stays eligible.
         if (target && !this.isInSubtitleUi(target) && this.isInReaderSurface(target)) return;
         this.lastControlsInputWasKeyboard = false;
+        // The native caption line is not blank subtitle space — it IS the blur
+        // toggle. A press that lands on it is a deliberate act on that control,
+        // so the geometric wake must yield rather than answer the tap by
+        // unfolding the rail over the video. Touch decides this at pointerdown:
+        // this capture-phase handler runs before any click handler, so gating
+        // only the click would still expand the rail as the finger lands.
+        if (target && this.isNativeSubtitleBlurControl(target)) return;
         this.showControlsTemporarily({ independentOfPlayerChrome: true });
     }
 
@@ -3724,6 +3741,11 @@ export class SubtitlePlayerController {
     private handleSubtitleUiFocusIn(event: FocusEvent): void {
         const target = event.target instanceof Element ? event.target : null;
         if (!target || !this.isInSubtitleUi(target)) return;
+        // Tapping the native caption line focuses it on the browsers that focus
+        // buttons from a press, which would wake the rail through the back door
+        // after the pointerdown and click gates have both declined. A keyboard
+        // user who deliberately tabbed there still gets the reveal.
+        if (!this.lastControlsInputWasKeyboard && this.isNativeSubtitleBlurControl(target)) return;
         // Idle controls remain in the accessibility tree as a skip-link-style
         // gateway. Real DOM focus must paint the whole control cluster even on
         // touch browsers whose :focus-within invalidation can lag behind Tab.
@@ -3744,6 +3766,15 @@ export class SubtitlePlayerController {
     // nothing except focus the player, which made the site reveal its controls.
     private isInReaderSurface(element: Element): boolean {
         return Boolean(element.closest(READER_ROOT_SELECTOR));
+    }
+
+    // Same class of problem as isInReaderSurface: a gate that only knows where
+    // the gesture landed, not what it hit. The native (source-language) caption
+    // is rendered as a button that toggles its own blur, so every rail wake
+    // triggered merely by being inside the subtitle rectangle has to check
+    // whether the press actually landed on that button first.
+    private isNativeSubtitleBlurControl(element: Element): boolean {
+        return Boolean(element.closest(NATIVE_SUBTITLE_BLUR_CONTROL_SELECTOR));
     }
 
     private isInNativeVideoPlayer(element: Element): boolean {
@@ -5730,9 +5761,14 @@ export class SubtitlePlayerController {
             : Array.from(this.subtitleEl?.querySelectorAll<HTMLElement>('.jpdb-subtitle-secondary[data-action="toggle-native-blur"]') ?? []);
         if (!targets.length) return false;
         for (const button of targets) syncSubtitleSecondaryBlurState(button, nativeBlurred, language);
+        // Keep the cached markup byte-identical to what a fresh render would
+        // emit for the new state — every state-bearing attribute, not just the
+        // class — or the next render sees a diff and rebuilds the line in place
+        // of this cheap in-place toggle.
         this.lastAppliedSubtitleHtml = this.lastAppliedSubtitleHtml
             .split(nativeBlurred ? SUBTITLE_SECONDARY_CLEAR_CLASS : SUBTITLE_SECONDARY_BLURRED_CLASS)
-            .join(nativeBlurred ? SUBTITLE_SECONDARY_BLURRED_CLASS : SUBTITLE_SECONDARY_CLEAR_CLASS);
+            .join(nativeBlurred ? SUBTITLE_SECONDARY_BLURRED_CLASS : SUBTITLE_SECONDARY_CLEAR_CLASS)
+            .replace(NATIVE_SUBTITLE_BLUR_PRESSED_PATTERN, `$1${nativeBlurred}$2`);
         return true;
     }
 
@@ -6103,7 +6139,7 @@ export class SubtitlePlayerController {
         if (!text) return '';
         const blurClass = state.settings.subtitleNativeBlurred ? SUBTITLE_SECONDARY_BLURRED_CLASS : SUBTITLE_SECONDARY_CLEAR_CLASS;
         const label = uiText(state.settings.interfaceLanguage, 'toggleNativeSubtitleBlur');
-        return `<button class="jpdb-subtitle-shadow-secondary ${blurClass}" type="button" data-action="toggle-native-blur" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">${escapeWithBreaks(text)}</button>`;
+        return `<button class="jpdb-subtitle-shadow-secondary ${blurClass}" type="button" data-action="toggle-native-blur" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}" aria-pressed="${state.settings.subtitleNativeBlurred}">${escapeWithBreaks(text)}</button>`;
     }
 
     private renderShadowActions(language: ReaderSettings['interfaceLanguage']): string {
@@ -8003,6 +8039,9 @@ export class SubtitlePlayerController {
         // the per-sample geometry path — so a fresh host query here is cheap
         // and keeps direct syncFullscreenState() calls authoritative.
         this.fullscreenHost.invalidateHostCache();
+        // The same discrete signals are the only ones that can reposition the
+        // player's ancestor chain, which is what the pin verdict reads.
+        this.pinnedPlayer.invalidatePinning();
         // Resize, orientationchange, and fullscreen transitions all route through
         // here; reproject the remembered drag nudge so it tracks the new viewport
         // height instead of staying frozen at its previous pixel value.

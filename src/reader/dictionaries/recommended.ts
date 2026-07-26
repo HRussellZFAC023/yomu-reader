@@ -4,6 +4,7 @@ import {
     FROZEN_DICTIONARY_RECOMMENDATIONS,
     SLICE1_LEARNER_LANGUAGES,
     assertRecommendationReferencesCatalog,
+    type DictionaryCategory,
     type DictionaryCatalogManifest,
     type DictionaryRecommendation,
     type DictionaryRecommendationManifest,
@@ -11,6 +12,7 @@ import {
     type Slice1LearnerLanguage,
     type TranslationMode,
 } from './catalog';
+import { catalogBrowseDictionaries, catalogBrowseGroups, type CatalogBrowseGroup } from './catalog-browse';
 import { LOCALE_CATALOGS, learnerLanguageById } from '../locales';
 import { yomitanDictionaryIdentity } from './yomitan/zip-normalize';
 import type { DictionaryImportOptions } from './yomitan';
@@ -29,6 +31,7 @@ export interface RecommendedDictionary {
     origin?: RecommendedDictionaryOrigin;
     learnerLanguage?: Slice1LearnerLanguage;
     catalogDictionaryId?: string;
+    catalogCategory?: DictionaryCategory;
     role?: RecommendationRole;
     selectedByDefault?: boolean;
     definitionLanguage?: string;
@@ -238,10 +241,43 @@ function recommendedDictionariesFromCatalog(
     });
 }
 
+/**
+ * Settings offers the whole mirror, not just the seed: the recommendation cards
+ * stay preselected at the top and every other mirrored archive is listed below
+ * them, grouped by catalogue category.
+ */
+export function catalogBrowseGroupsForLearnerLanguage(
+    learnerLanguage: Slice1LearnerLanguage,
+): readonly CatalogBrowseGroup[] {
+    return catalogBrowseGroups({
+        learnerLanguage,
+        excludeCatalogIds: recommendedCatalogIds(learnerLanguage),
+    });
+}
+
+function recommendedCatalogIds(learnerLanguage: Slice1LearnerLanguage): ReadonlySet<string> {
+    const cached = RECOMMENDED_CATALOG_IDS_BY_LANGUAGE.get(learnerLanguage);
+    if (cached) return cached;
+    const ids = new Set(
+        recommendedDictionariesForLearnerLanguage(learnerLanguage)
+            .map(dictionary => dictionary.catalogDictionaryId)
+            .filter((id): id is string => Boolean(id)),
+    );
+    RECOMMENDED_CATALOG_IDS_BY_LANGUAGE.set(learnerLanguage, ids);
+    return ids;
+}
+
+const RECOMMENDED_CATALOG_IDS_BY_LANGUAGE = new Map<Slice1LearnerLanguage, ReadonlySet<string>>();
+
+const CATALOG_BROWSE_BY_ID = new Map<string, RecommendedDictionary>(
+    catalogBrowseDictionaries().map(dictionary => [dictionary.id, dictionary]),
+);
+
 export function findRecommendedDictionary(id: string): RecommendedDictionary | undefined {
     return (
         RECOMMENDED_JAPANESE_DICTIONARIES.find(dictionary => dictionary.id === id)
         ?? CATALOG_RECOMMENDATIONS_BY_ID.get(id)
+        ?? CATALOG_BROWSE_BY_ID.get(id)
     );
 }
 

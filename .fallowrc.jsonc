@@ -67,6 +67,11 @@
     // Manual YouTube-Music CTA regression repros (fixture + live).
     "scripts/manual/ytm-cta-fixture-repro.mjs",
     "scripts/manual/ytm-live-cta-repro.mjs",
+    // Manual chrome-annotation repros against the REAL sites, run directly with
+    // the built userscript when a fixture smoke passes but the owner's own page
+    // still shows bare chrome. Nothing imports them by design.
+    "scripts/manual/real-youtube-chrome-annotation-probe.mjs",
+    "scripts/manual/reddit-firefox-annotation-probe.mjs",
     "scripts/qa-audit.mjs",
     "scripts/bookwalker-canvas-probe.mjs",
     "scripts/build-gaming-electron.mjs",

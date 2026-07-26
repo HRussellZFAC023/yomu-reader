@@ -150,6 +150,18 @@ function readerResolveConfig(command: string) {
     const alias: Record<string, string> = {};
     if (shouldUseGreasyForkCompanions(command)) {
         alias['../companions/register-build-target'] = path.join(configRoot, 'src', 'reader', 'companions', 'register-empty.ts');
+        // Companion-backed facades: core imports the ordinary module path and
+        // the split build swaps in the delegating shell, so the implementation
+        // ships in a @require'd library instead of the size-limited core.
+        alias['../audio/player'] = path.join(configRoot, 'src', 'reader', 'audio', 'player-companion.ts');
+        alias['../audio/actions'] = path.join(configRoot, 'src', 'reader', 'audio', 'actions-companion.ts');
+        alias['../wanikani/wanikani'] = path.join(configRoot, 'src', 'reader', 'wanikani', 'wanikani-companion.ts');
+        alias['../wanikani/wanikani-lookup'] = path.join(configRoot, 'src', 'reader', 'wanikani', 'wanikani-lookup-companion.ts');
+        alias['../wanikani/wanikani-source'] = path.join(configRoot, 'src', 'reader', 'wanikani', 'wanikani-source-companion.ts');
+        alias['../srs/wanikani'] = path.join(configRoot, 'src', 'reader', 'srs', 'wanikani-companion.ts');
+        alias['../srs/account-sync'] = path.join(configRoot, 'src', 'reader', 'srs', 'account-sync-companion.ts');
+        alias['../jiten/jiten-kanji-info-render'] = path.join(configRoot, 'src', 'reader', 'jiten', 'jiten-kanji-info-render-companion.ts');
+        alias['../jiten/jiten-kanji-words-actions'] = path.join(configRoot, 'src', 'reader', 'jiten', 'jiten-kanji-words-actions-companion.ts');
         alias['../study/mining-context'] = path.join(configRoot, 'src', 'reader', 'study', 'mining-context-companion.ts');
         alias['../study/sources'] = path.join(configRoot, 'src', 'reader', 'study', 'sources-companion.ts');
         alias['../app/i18n'] = path.join(configRoot, 'src', 'reader', 'app', 'i18n-companion.ts');

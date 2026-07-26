@@ -64,8 +64,12 @@ const MANAGED_STATE_MANIFEST: readonly ManagedStateEntry[] = [
     { owner: 'ocr/ocr-cache-store', kind: 'local', key: 'yomu-ocr-cache-v2' },
     { owner: 'ocr/canvas-mirror', kind: 'session', key: 'yomu:bw:mirror-loadguard' },
 
-    // Reader CSS cache (version-suffixed → prefix family).
-    { owner: 'styles/index', kind: 'gm', prefix: 'yomu:reader-css-cache:v2:' },
+    // Reader CSS last-good cache. v3 is deliberately version-independent (see
+    // styles/index) so an upgrade does not start cold; the v2 prefix family
+    // stays registered so the per-version entries older installs left behind
+    // are still swept on reset.
+    { owner: 'styles/index', kind: 'gm', key: 'yomu:reader-css-cache:v3' },
+    { owner: 'styles/index (legacy)', kind: 'gm', prefix: 'yomu:reader-css-cache:v2:' },
 
     // Study / grammar / mining stores.
     { owner: 'study/grammar-knowledge', kind: 'gm', key: 'yomu.grammarPreferences.v1' },

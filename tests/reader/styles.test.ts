@@ -12,6 +12,9 @@ import {
 } from '../../src/reader/styles/index';
 
 const FULL_READER_CSS = '.jpdb-reader-popover{} .jpdb-reader-settings{} .jpdb-reader-source-card{} .jpdb-subtitle-player{} .jpdb-ocr-layer{}';
+const HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${__YOMU_VERSION__}`;
+const RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${__YOMU_VERSION__}`;
+const READER_CSS_CACHE_KEY = 'yomu:reader-css-cache:v3';
 
 function stubGmStorage(values = new Map<string, unknown>()): Map<string, unknown> {
     vi.stubGlobal('GM_getValue', vi.fn((key: string, fallback: unknown) => values.has(key) ? values.get(key) : fallback));
@@ -28,6 +31,10 @@ function cssResponse(css: string): Response {
     } as Response;
 }
 
+function notFoundResponse(): Response {
+    return { ok: false, status: 404, text: async () => 'Not Found' } as Response;
+}
+
 describe('reader stylesheet loading', () => {
     afterEach(() => {
         vi.unstubAllGlobals();
@@ -41,7 +48,10 @@ describe('reader stylesheet loading', () => {
     it('uses scoped critical control CSS while the full reader CSS is unavailable', () => {
         const css = initialReaderCss('');
 
-        expect(css).toBe(CRITICAL_READER_CSS);
+        // The sheet ships verbatim; the host-CSS armour layer is appended after
+        // it so a host page's `!important` cannot outrank Yomu's own paint.
+        expect(css.startsWith(CRITICAL_READER_CSS)).toBe(true);
+        expect(css).toContain('@layer jpdb-reader-armour-strong,jpdb-reader-armour;');
         expect(css).toContain('[data-jpdb-reader-root] :where(button)');
         expect(css).toContain('all:unset;');
         expect(css).toContain('cursor:pointer;');
@@ -128,25 +138,98 @@ describe('reader stylesheet loading', () => {
             anonymous: true,
             method: 'GET',
             responseType: 'text',
-            url: `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${__YOMU_VERSION__}`,
+            url: HOSTED_FALLBACK_URL,
         }));
         expect(fetcher).not.toHaveBeenCalled();
         expect([...stored.values()]).toContain(FULL_READER_CSS);
     });
 
     it('uses cached full reader CSS when fetch is unavailable', async () => {
-        stubGmStorage(new Map([[
-            `yomu:reader-css-cache:v2:${__YOMU_VERSION__}`,
-            FULL_READER_CSS,
-        ]]));
+        stubGmStorage(new Map([[READER_CSS_CACHE_KEY, FULL_READER_CSS]]));
 
         await expect(loadReaderCssFallback(undefined, 'https://example.com/article'))
             .resolves.toBe(FULL_READER_CSS);
     });
 
-    it('falls back to the raw CSS asset off the hosted site', () => {
+    // A release can reach users before the docs deploy publishes the pinned
+    // content-addressed sheet; then EVERY install of that build falls back over
+    // the network. raw.githubusercontent is blocked in China and on plenty of
+    // corporate networks, so it must never be the only entry — with one URL the
+    // reader lands on the ~5KB critical subset (no furigana, no pitch
+    // underlines, settings degraded to native selects).
+    it('offers the first-party sheet before the blockable GitHub raw mirror off the hosted site', () => {
         expect(readerCssFallbackUrls('https://example.com/article'))
-            .toEqual([`https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${__YOMU_VERSION__}`]);
+            .toEqual([HOSTED_FALLBACK_URL, RAW_FALLBACK_URL]);
+    });
+
+    it('tries the page origin first on hosted pages and never lists a URL twice', () => {
+        expect(readerCssFallbackUrls('https://hrussellzfac023.github.io/yomu-reader/')).toEqual([
+            `https://hrussellzfac023.github.io/yomu-reader/yomu.css?v=${__YOMU_VERSION__}`,
+            HOSTED_FALLBACK_URL,
+            RAW_FALLBACK_URL,
+        ]);
+        // yomureader.com's own origin URL IS the first-party fallback URL.
+        expect(readerCssFallbackUrls('https://yomureader.com/guide/'))
+            .toEqual([HOSTED_FALLBACK_URL, RAW_FALLBACK_URL]);
+    });
+
+    it('walks past a dead first-party URL to the next fallback instead of giving up', async () => {
+        const stored = stubGmStorage();
+        const fetcher = vi.fn(async (url: string) => url === RAW_FALLBACK_URL ? cssResponse(FULL_READER_CSS) : notFoundResponse());
+
+        await expect(loadReaderCssFallback(fetcher as unknown as typeof fetch, 'https://example.com/article'))
+            .resolves.toBe(FULL_READER_CSS);
+
+        expect(fetcher.mock.calls.map(call => call[0])).toEqual([HOSTED_FALLBACK_URL, RAW_FALLBACK_URL]);
+        expect(stored.get(READER_CSS_CACHE_KEY)).toBe(FULL_READER_CSS);
+    });
+
+    // The cache key is version-independent on purpose: a per-version key started
+    // every upgrade cold, which is exactly when a freshly hashed @resource is
+    // most likely to be undeployed. A stale-but-complete sheet beats the stub.
+    it('serves a last-good sheet cached by an earlier release and refreshes it in the background', async () => {
+        const stored = stubGmStorage(new Map([[READER_CSS_CACHE_KEY, FULL_READER_CSS]]));
+        const nextCss = `${FULL_READER_CSS} .jpdb-reader-next{}`;
+        const fetcher = vi.fn(async () => cssResponse(nextCss));
+
+        await expect(loadReaderCssFallback(fetcher as unknown as typeof fetch, 'https://example.com/article'))
+            .resolves.toBe(FULL_READER_CSS);
+
+        expect([...stored.keys()]).toEqual([READER_CSS_CACHE_KEY]);
+        expect([...stored.keys()].some(key => key.includes(__YOMU_VERSION__))).toBe(false);
+        await vi.waitFor(() => expect(stored.get(READER_CSS_CACHE_KEY)).toBe(nextCss));
+    });
+
+    it('never caches or serves a truncated body as the last-good sheet', async () => {
+        const stored = stubGmStorage(new Map([[READER_CSS_CACHE_KEY, '.jpdb-reader-popover{}']]));
+        const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+        const fetcher = vi.fn(async () => cssResponse('<html>404 Not Found</html>'));
+
+        await expect(loadReaderCssFallback(fetcher as unknown as typeof fetch, 'https://example.com/article'))
+            .resolves.toBe('');
+
+        expect(stored.get(READER_CSS_CACHE_KEY)).toBe('.jpdb-reader-popover{}');
+        consoleError.mockRestore();
+    });
+
+    // Nothing used to report this: the resource getter catches to '', each
+    // fallback URL catches per URL, and the consumer treats '' as "nothing to
+    // swap in" so its .catch never fires. The owner-visible symptom (dead-looking
+    // popover, no furigana) had no breadcrumb at all.
+    it('logs an error when the resource, the cache and every fallback URL have failed', async () => {
+        stubGmStorage();
+        const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+        const fetcher = vi.fn(async () => {
+            throw new Error('offline');
+        });
+
+        await expect(loadReaderCssFallback(fetcher as unknown as typeof fetch, 'https://example.com/article'))
+            .resolves.toBe('');
+
+        expect(consoleError).toHaveBeenCalledTimes(1);
+        expect(String(consoleError.mock.calls[0]?.[0])).toContain('Reader CSS unavailable');
+        expect(consoleError.mock.calls[0]?.[1]).toEqual({ fallbackUrls: [HOSTED_FALLBACK_URL, RAW_FALLBACK_URL] });
+        consoleError.mockRestore();
     });
 
     it('lets scanned prose wrap while keeping passive/mirror labels compact with furigana', () => {

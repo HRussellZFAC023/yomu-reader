@@ -436,9 +436,9 @@ async function runEngine(engineName, browser) {
                 pitchWords: button.querySelectorAll('.jpdb-reader-word[data-pitch-class]:not([data-pitch-class="unknown"])').length,
             };
         });
-        // In-place path, now covered by the control-scoped command tier: the
-        // sign-in button is enriched (word parsed, source furigana + pitch present)
-        // but bare at rest — no projected clone painted until hover/focus.
+        // In-place path: a control localized to Japanese long after boot is
+        // enriched (word parsed, source furigana + pitch present) and painted
+        // at rest, exactly like any other text.
         assert(lateLocalizedSignIn.expressions.includes('続ける')
             && lateLocalizedSignIn.words > 0
             && lateLocalizedSignIn.sourceFurigana > 0
@@ -1501,9 +1501,9 @@ function installProjectedReadingDiagnostics() {
                 })
                 .sort((left, right) => left.score - right.score)
                 // A genuine projection sits directly above its base word. Without
-                // this cap, a command control whose own clone is suppressed at
-                // rest would steal a same-text clone from an unrelated content
-                // row (sort's 賛成票 matching the metadata row's 賛成票).
+                // this cap, a word whose own clone is missing would steal a
+                // same-text clone from an unrelated row (sort's 賛成票 matching
+                // the metadata row's 賛成票).
                 .filter(entry => entry.score <= 48)[0]?.clone;
             if (!candidate) continue;
             available.delete(candidate);
@@ -2165,10 +2165,10 @@ function assertStableFixtureLayout(engineName, baseline, layout, menuSafety) {
     assert(layout.cardToPostGap <= baseline.cardToPostGap + 2, `${engineName}: a large gap appeared below the card`, { baseline, layout });
     assert(layout.scrollWidth <= layout.viewportWidth + 2, `${engineName}: annotations caused horizontal overflow`, layout);
     assert(layout.rubyRoomCount === 0, `${engineName}: Reddit fixture received ruby-room growth`, layout);
-    // Command controls retain hidden clones at rest and closing the menu
-    // restores background readings it had occluded, so per-count identities
-    // between the open and closed snapshots no longer hold. The leak contract
-    // is instead: the clone pool either kept or dropped exactly the menu's
+    // Closing the menu restores background readings it had occluded, and the
+    // menu's own clones may be either retained hidden or dropped, so per-count
+    // identities between the open and closed snapshots do not hold. The leak
+    // contract is instead: the clone pool either kept or dropped exactly the menu's
     // clones, every clone still visible is associated with a live source
     // (a closed menu's clone left painted has none), and content rows still
     // project readings at rest.

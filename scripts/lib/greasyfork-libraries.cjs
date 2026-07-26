@@ -18,6 +18,13 @@ const GREASY_FORK_LIBRARIES = [
     globalName: 'YomuAnkiLibrary',
   },
   {
+    id: 'audio',
+    label: 'Yomu Audio',
+    entry: 'src/reader/companions/audio.ts',
+    fileName: 'yomu-audio.user.js',
+    globalName: 'YomuAudioLibrary',
+  },
+  {
     id: 'kanji-study',
     label: 'Yomu Kanji/Study',
     entry: 'src/reader/companions/kanji-study.ts',
@@ -51,6 +58,13 @@ const GREASY_FORK_LIBRARIES = [
     entry: 'src/reader/companions/bunpro.ts',
     fileName: 'yomu-bunpro.user.js',
     globalName: 'YomuBunproLibrary',
+  },
+  {
+    id: 'wanikani',
+    label: 'Yomu WaniKani',
+    entry: 'src/reader/companions/wanikani.ts',
+    fileName: 'yomu-wanikani.user.js',
+    globalName: 'YomuWanikaniLibrary',
   },
   {
     id: 'video',

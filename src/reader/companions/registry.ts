@@ -12,6 +12,15 @@ interface SettingsSelfEnhancementCompanion {
     addSettingsRubyFromRenderedReadings: typeof import('../lookup/settings-parse-render').addSettingsRubyFromRenderedReadings;
     settingsForSettingsFormParse: typeof import('../lookup/settings-parse-render').settingsForSettingsFormParse;
 }
+export type AudioPlayerClass = typeof import('../audio/player').AudioPlayer;
+export type AudioPlayerInstance = InstanceType<AudioPlayerClass>;
+export type ReaderAudioActionsClass = typeof import('../audio/actions').ReaderAudioActions;
+export type ReaderAudioActionsInstance = InstanceType<ReaderAudioActionsClass>;
+export type WanikaniClientClass = typeof import('../wanikani/wanikani').WanikaniClient;
+export type WanikaniLookupClientClass = typeof import('../wanikani/wanikani-lookup').WanikaniLookupClient;
+export type WanikaniSourceControllerClass = typeof import('../wanikani/wanikani-source').WanikaniSourceController;
+export type RenderWanikaniDefinitionMountFn = typeof import('../wanikani/wanikani-source').renderWanikaniDefinitionMount;
+export type CreateWanikaniSrsAdapterFn = typeof import('../srs/wanikani').createWanikaniSrsAdapter;
 export type SubtitlePlayerControllerClass = typeof import('../subtitles/controller').SubtitlePlayerController;
 export type SubtitlePlayerControllerInstance = InstanceType<SubtitlePlayerControllerClass>;
 export type YoutubeImmersionFilterClass = typeof import('../subtitles/youtube').YoutubeImmersionFilter;
@@ -89,6 +98,23 @@ interface YomuCompanionRegistry {
         lookupBunproDefinitionResult: typeof import('../bunpro/definition').lookupBunproDefinitionResult;
         renderBunproDefinitionSource: typeof import('../bunpro/definition').renderBunproDefinitionSource;
     };
+    // Pronunciation playback (candidate discovery, blob fetching, JPDB audio
+    // files, TTS fallbacks) ships in the Yomu Audio companion; core keeps only
+    // the auto-play gate and the source-name helpers the settings model needs.
+    audio?: {
+        AudioPlayer: AudioPlayerClass;
+        ReaderAudioActions: ReaderAudioActionsClass;
+    };
+    // The WaniKani provider suite (API client, subject parsing, definition
+    // mounts, SRS adapter) ships in the Yomu WaniKani companion; without it the
+    // provider reports no credential and stays inert.
+    wanikani?: {
+        WanikaniClient: WanikaniClientClass;
+        WanikaniLookupClient: WanikaniLookupClientClass;
+        WanikaniSourceController: WanikaniSourceControllerClass;
+        renderWanikaniDefinitionMount: RenderWanikaniDefinitionMountFn;
+        createWanikaniSrsAdapter: CreateWanikaniSrsAdapterFn;
+    };
     localDictionaries?: {
         YomitanDictionaryStore: typeof import('../dictionaries/yomitan').YomitanDictionaryStore;
         // Rebuilds this origin's per-origin dictionary store from the
@@ -122,6 +148,9 @@ interface YomuCompanionRegistry {
         // the settings companion so they do not enter the size-limited core.
         installOfflineParsingDictionaries: InstallOfflineParsingDictionariesFn;
         installDefinitionTranslationBehaviors: InstallDefinitionTranslationBehaviorsFn;
+        // Academy account pairing/device sync is an account-surface feature and
+        // rides with the settings companion that owns the account panel.
+        installAcademyReaderSrsSync?: typeof import('../srs/account-sync').installAcademyReaderSrsSync;
         selfEnhancement: SettingsSelfEnhancementCompanion;
     };
     video?: {
@@ -202,6 +231,14 @@ interface YomuCompanionRegistry {
         pageMiningContext?: PageMiningContextFn;
         contextLabel?: ContextLabelFn;
         StudySourceController?: StudySourceControllerClass;
+        // Jiten kanji panels (fact rows, keyword lines, word paging) are kanji
+        // study material, so their renderers ship here; core keeps the popover
+        // shell that mounts them.
+        renderJitenKanjiInfo?: typeof import('../jiten/jiten-kanji-info-render').renderJitenKanjiInfo;
+        renderJitenKanjiKeywordLine?: typeof import('../jiten/jiten-kanji-info-render').renderJitenKanjiKeywordLine;
+        jitenKanjiOriginFactLabels?: typeof import('../jiten/jiten-kanji-info-render').jitenKanjiOriginFactLabels;
+        filterJitenKanjiWords?: typeof import('../jiten/jiten-kanji-words-actions').filterJitenKanjiWords;
+        loadMoreJitenKanjiWords?: typeof import('../jiten/jiten-kanji-words-actions').loadMoreJitenKanjiWords;
     };
 }
 
@@ -235,6 +272,14 @@ export function yomuSettingsSurfaceCompanion(): NonNullable<YomuCompanionRegistr
 
 export function yomuAnkiCompanion(): NonNullable<YomuCompanionRegistry['anki']> | undefined {
     return yomuCompanions().anki;
+}
+
+export function yomuAudioCompanion(): NonNullable<YomuCompanionRegistry['audio']> | undefined {
+    return yomuCompanions().audio;
+}
+
+export function yomuWanikaniCompanion(): NonNullable<YomuCompanionRegistry['wanikani']> | undefined {
+    return yomuCompanions().wanikani;
 }
 
 export function yomuVideoCompanionSlot(): YomuCompanionRegistry['video'] | undefined {

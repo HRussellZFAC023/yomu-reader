@@ -32,7 +32,12 @@ describe('recommended dictionary settings buttons', () => {
 
     it('shows pitch dictionaries as their own recommended group before frequency dictionaries', () => {
         const form = renderSettingsTestForm(DEFAULT_SETTINGS);
-        const groupTitles = Array.from(form.querySelectorAll<HTMLElement>('.jpdb-reader-recommended-group-title'), title => title.textContent);
+        // The mirrored-catalogue browse list below carries its own category
+        // titles; this assertion is about the curated recommendations.
+        const groupTitles = Array.from(
+            form.querySelectorAll<HTMLElement>('.jpdb-reader-recommended-group-title:not([data-catalog-browse-category])'),
+            title => title.textContent,
+        );
 
         expect(groupTitles).toEqual(['Term dictionaries', 'Kanji dictionaries', 'Pitch dictionaries', 'Frequency dictionaries']);
         expect(settingsText(form, '[data-recommended-dictionary-help]')).toContain('Install a term dictionary first');

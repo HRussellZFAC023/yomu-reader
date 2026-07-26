@@ -78,7 +78,7 @@ import { installProviderExampleBehaviors } from '../sources/provider-examples';
 import { isUsefulImmersionPreloadQuery } from '../immersion/query';
 import type { ImmersionSearchOptions } from '../immersion/popover-controller';
 import { waitForIdle as waitForBrowserIdle } from '../platform/idle';
-import { parkableMutationObserver } from '../platform/page-activity';
+import { ParkableObserver, parkableMutationObserver } from '../platform/page-activity';
 import { FloatingButtonController } from '../ui/floating-button';
 import { JitenApiClient, type JitenKanjiInfo, type JitenVocabularyInfo } from '../dictionaries/jiten';
 import { JitenPublicVocabularyClient, JITEN_BACKGROUND_DETAIL_TIMEOUT_MS, parsedCardHydrationKey, publicJitenBackoffRemainingMs } from '../dictionaries/jiten-public-vocabulary';
@@ -1043,7 +1043,7 @@ export class ReaderApp {
     // (5-10 childList mutations/sec) into a bounded scan cadence.
     private lastAutoScanStartedAt = 0;
     private autoScanObserver?: MutationObserver;
-    private documentBodyObserver?: MutationObserver;
+    private documentBodyObserver?: ParkableObserver<Node, MutationObserverInit> | null;
     private observedDocumentBody?: HTMLElement;
     private documentBodyRecoveryPending = false;
     private disposeShadowRootDiscovery?: () => void;
@@ -2690,7 +2690,7 @@ export class ReaderApp {
         setCustomElementUpgradeHook(null);
         setReviewCardFrontPredicate(null);
         this.autoScanObserver?.disconnect();
-        this.documentBodyObserver?.disconnect();
+        this.documentBodyObserver?.dispose();
         this.documentBodyObserver = undefined;
         this.observedDocumentBody = undefined;
         this.documentBodyRecoveryPending = false;
@@ -2980,14 +2980,20 @@ export class ReaderApp {
     }
 
     private setupDocumentBodyRecovery(): void {
-        this.documentBodyObserver?.disconnect();
+        this.documentBodyObserver?.dispose();
         this.observedDocumentBody = document.body ?? undefined;
         if (!document.documentElement) return;
         // The primary observer intentionally stays body-scoped to avoid head
         // churn. This O(1) companion watches only direct <html> children, so it
         // survives an SPA replacing <body> without observing ordinary page DOM.
-        this.documentBodyObserver = new MutationObserver(() => this.handleDocumentBodyReplacement());
-        this.documentBodyObserver.observe(document.documentElement, { childList: true });
+        // It parks with the page: the handler compares the live body against
+        // the remembered one, so one call on wake settles the whole hidden
+        // period no matter how many times the host swapped it.
+        this.documentBodyObserver = parkableMutationObserver(() => this.handleDocumentBodyReplacement(), {
+            reconcile: () => this.handleDocumentBodyReplacement(),
+            signal: this.abortController.signal,
+        });
+        this.documentBodyObserver?.observe(document.documentElement, { childList: true });
     }
 
     private handleDocumentBodyReplacement(): void {
@@ -3006,6 +3012,10 @@ export class ReaderApp {
         // of waiting for a later descendant mutation that might never arrive.
         this.autoScanObserver?.disconnect();
         this.observeAutoScanMutations();
+        // The scanner's settle observer is body-scoped too, and it is installed
+        // once — without this it would keep watching the detached body and no
+        // reflow of the replacement would ever reach a geometry heal.
+        this.pageScanner.repointGeometrySettleTarget?.();
         // JPDB's live Study bridge owns its own body-scoped observer. Recreate
         // it alongside the scanner so review status keeps publishing
         // immediately after JPDB swaps the document body on answer reveal.

@@ -35,6 +35,12 @@ export default defineConfig({
             './cloud-sync': path.join(configRoot, 'src', 'reader', 'settings', 'cloud-sync-web.ts'),
         },
     },
+    // Nothing consumes dist/greasyfork/<public asset> — only the companion
+    // .user.js files are read (smokes) or published (sync-docs-userscript).
+    // Copying the 270 MB public tree once per companion made every build spend
+    // minutes on redundant I/O and raced the main build's outDir wipe
+    // (ENOTEMPTY / ENOENT mid-copy) whenever two builds overlapped.
+    publicDir: false,
     build: {
         outDir: `dist/${greasyForkLibraryDir}`,
         emptyOutDir: false,

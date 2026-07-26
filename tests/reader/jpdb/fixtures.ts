@@ -87,6 +87,7 @@ import { installUchisenCarousel, loadUchisenImages, parseUchisenComponents, pars
 import { compareSubtitleTrackOptions, isEnglishSubtitleTrack, isJapaneseSubtitleTrack, shouldReplaceWaitingNativeTrack } from '../../../src/reader/subtitles/subtitle-track-metadata';
 import { loadSubtitleTrackCues, type SubtitleTrackLoadable } from '../../../src/reader/subtitles/subtitle-track-loader';
 import { renderSubtitlePrimary } from '../../../src/reader/subtitles/subtitle-rendering';
+import { renderControllerPrimarySubtitle } from '../../../src/reader/subtitles/subtitle-primary-render';
 import { planTranscriptHydrationIndexes } from '../../../src/reader/subtitles/subtitle-transcript-hydration';
 import { getUserscriptHttpRequest, installUserscriptHttpBridge, installUserscriptHttpBridgeWhenReady, uninstallUserscriptHttpBridge } from '../../../src/reader/userscript/index';
 import { renderWordPills } from '../../../src/reader/sources/word-pills';
@@ -3248,6 +3249,7 @@ export {
     renderRecommendedDictionaries,
     renderRtkInfo,
     renderSettingsForm,
+    renderControllerPrimarySubtitle,
     renderSubtitlePrimary,
     renderTokensToHtml,
     renderWordPills,
