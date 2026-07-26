@@ -39,10 +39,11 @@ describe('extension runtime hardening', () => {
             return resource?.url || '';
           }
           const GM_info = { script: { resources: [{ name: "yomuCss", url: "https://yomureader.com/yomu.012345abcdef.css#sha256=abc+123=" }] } };
-          const READER_CSS_RESOURCE_URL = \`https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=\${"1.2.3"}\`;
+          const READER_CSS_HOSTED_FALLBACK_URL = \`https://yomureader.com/yomu.css?v=\${"1.2.3"}\`;
+          const READER_CSS_RAW_FALLBACK_URL = \`https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=\${"1.2.3"}\`;
           function readerCssFallbackUrls(href = safeLocationHref()) {
-            const hostedUrl = hostedReaderCssUrl(href);
-            return hostedUrl ? [hostedUrl, READER_CSS_RESOURCE_URL] : [READER_CSS_RESOURCE_URL];
+            const urls = [hostedReaderCssUrl(href), READER_CSS_HOSTED_FALLBACK_URL, READER_CSS_RAW_FALLBACK_URL];
+            return [...new Set(urls.filter(url => Boolean(url)))];
           }
         `;
 
@@ -66,10 +67,29 @@ describe('extension runtime hardening', () => {
                 ),
             ),
         ).not.toContain('element.innerHTML = value');
-        expect(hardened).toContain('return [READER_CSS_RESOURCE_URL]');
+        expect(hardened).toContain('return [READER_CSS_RAW_FALLBACK_URL]');
         expect(hardened).not.toContain('raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css');
         expect(hardened).not.toContain('https://yomureader.com/yomu.012345abcdef.css');
         expect(hardenExtensionContentSource(hardened)).toBe(hardened);
+    });
+
+    it('continues to harden the legacy single reader CSS fallback shape', () => {
+        const source = `
+          function GM_getResourceURL(name) {
+            return name;
+          }
+          const READER_CSS_RESOURCE_URL = \`https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=\${"1.2.3"}\`;
+          function readerCssFallbackUrls(href = safeLocationHref()) {
+            const hostedUrl = hostedReaderCssUrl(href);
+            return hostedUrl ? [hostedUrl, READER_CSS_RESOURCE_URL] : [READER_CSS_RESOURCE_URL];
+          }
+        `;
+
+        const hardened = hardenExtensionContentSource(source);
+
+        expect(hardened).toContain('return [READER_CSS_RESOURCE_URL]');
+        expect(hardened).toContain('runtime?.getURL?.("yomu.css")');
+        expect(hardened).not.toContain('raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css');
     });
 
     // addons.mozilla.org rejects any file over 5MB with FILE_TOO_LARGE before a

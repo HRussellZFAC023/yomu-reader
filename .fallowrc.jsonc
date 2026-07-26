@@ -76,6 +76,9 @@
     // still shows bare chrome. Nothing imports them by design.
     "scripts/manual/real-youtube-chrome-annotation-probe.mjs",
     "scripts/manual/reddit-firefox-annotation-probe.mjs",
+    "scripts/manual/.reader-word-cascade-probe.mjs",
+    "scripts/manual/asmr-one-annotation-probe.mjs",
+    "scripts/manual/reader-css-presence-probe.mjs",
     "scripts/qa-audit.mjs",
     "scripts/bookwalker-canvas-probe.mjs",
     "scripts/build-gaming-electron.mjs",
@@ -107,6 +110,18 @@
     "src/reader/app/i18n-companion.ts",
     "src/reader/study/mining-context-companion.ts",
     "src/reader/study/sources-companion.ts",
+    // Greasy Fork companion builds substitute these facade modules through
+    // string-valued Vite aliases, so the static import graph cannot discover
+    // them from their source import specifiers.
+    "src/reader/audio/actions-companion.ts",
+    "src/reader/audio/player-companion.ts",
+    "src/reader/jiten/jiten-kanji-info-render-companion.ts",
+    "src/reader/jiten/jiten-kanji-words-actions-companion.ts",
+    "src/reader/srs/account-sync-companion.ts",
+    "src/reader/srs/wanikani-companion.ts",
+    "src/reader/wanikani/wanikani-companion.ts",
+    "src/reader/wanikani/wanikani-lookup-companion.ts",
+    "src/reader/wanikani/wanikani-source-companion.ts",
     // Deliberately parked seams (headers document the wiring plan): story
     // voice-line resolution awaits a public cached-line worker endpoint, and
     // the overflow-destination contract awaits the world-screen overflow menu.

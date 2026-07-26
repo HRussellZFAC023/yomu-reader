@@ -44471,6 +44471,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     "activity:lesson-zero-vowel-doodle",
     "activity:lesson-zero-follow-instructions",
     "activity:lesson-zero-reconstruct-repair",
+    "activity:lesson-zero-desk-language",
     "activity:lesson-zero-sound-input",
     "activity:lesson-zero-text-input",
     "activity:lesson-zero-speaking-input",
@@ -44646,7 +44647,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     `Attempt, support, and completion evidence persist for ${activityId}.`,
     `The story handoff, direct resume, repair, and return path are proved for ${activityId}.`,
     [],
-    DAY_ONE_VERIFIED_ACTIVITY_IDS.has(activityId) ? VERIFIED_DELIVERY : activityId === "activity:lesson-zero-greet-rie" ? VERIFIED_DELIVERY : activityId === "activity:lesson-zero-vowel-doodle" || activityId === "activity:lesson-zero-follow-instructions" || activityId === "activity:lesson-zero-reconstruct-repair" || activityId === "activity:lesson-zero-desk-language" || activityId === "activity:lesson-zero-build-sentence-frames" || activityId === "activity:lesson-zero-name-card-draft" ? VERIFIED_STANDALONE_ACTIVITY_DELIVERY : UNVERIFIED_DELIVERY
+    DAY_ONE_VERIFIED_ACTIVITY_IDS.has(activityId) ? VERIFIED_DELIVERY : activityId === "activity:lesson-zero-greet-rie" ? VERIFIED_DELIVERY : activityId === "activity:lesson-zero-vowel-doodle" || activityId === "activity:lesson-zero-follow-instructions" || activityId === "activity:lesson-zero-reconstruct-repair" || activityId === "activity:lesson-zero-build-sentence-frames" || activityId === "activity:lesson-zero-name-card-draft" ? VERIFIED_STANDALONE_ACTIVITY_DELIVERY : UNVERIFIED_DELIVERY
   ));
   [
     entry$P(
