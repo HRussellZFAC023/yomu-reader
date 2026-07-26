@@ -267,6 +267,88 @@ describe('SubtitlePlayerController — idle controls, overlay drag & rail visibi
         }
     });
 
+    // Owner-reported on a phone: "tapping the native line to blur it, I have to
+    // tap multiple times for it to work." Measured cause: the primary line and
+    // the native line were written as ONE innerHTML blob, so every primary
+    // change — the next cue, a karaoke tick, a parse landing — destroyed and
+    // rebuilt the native-line button. A browser only delivers click when the
+    // pressed node is still in the document at release, so any tap that spanned
+    // a caption change was dropped entirely. The finger is down for far longer
+    // than a cue lasts, so most taps lost.
+    it('toggles the native line from a single tap that spans a caption change', () => {
+        const onSettingsChange = vi.fn();
+        const { controller, internals, root, settings } = mountYouTubePlayerSubtitleController<{
+            secondaryCue?: { start: number; end: number; text: string; transcriptEligible: boolean };
+            currentCue?: { start: number; end: number; text: string; transcriptEligible: boolean };
+            render(): void;
+        }>({
+            hooks: { onSettingsChange },
+            settings: { subtitleSecondaryVisible: true, subtitleNativeBlurred: true },
+        });
+
+        try {
+            internals.secondaryCue = { start: 0, end: 2, text: 'I will read today.', transcriptEligible: true };
+            internals.render();
+            const nativeLine = root.querySelector<HTMLButtonElement>('.jpdb-subtitle-secondary')!;
+
+            // The finger lands on the control.
+            nativeLine.dispatchEvent(pointerEvent('pointerdown', { pointerType: 'touch', pointerId: 41 }));
+
+            // The video plays on under the finger: the Japanese line advances
+            // and re-renders while the tap is still in flight.
+            internals.currentCue = { start: 2, end: 4, text: '別の行です。', transcriptEligible: true };
+            internals.render();
+
+            // The pressed control must still BE the live control. If the render
+            // swapped it out, the browser never fires click and the tap is lost.
+            expect(nativeLine.isConnected).toBe(true);
+            expect(root.querySelector('.jpdb-subtitle-secondary')).toBe(nativeLine);
+
+            // The finger lifts — one tap, one toggle.
+            nativeLine.dispatchEvent(pointerEvent('pointerup', { pointerType: 'touch', pointerId: 41 }));
+            nativeLine.click();
+
+            expect(settings.subtitleNativeBlurred).toBe(false);
+            expect(onSettingsChange).toHaveBeenCalledTimes(1);
+            expect(nativeLine.classList.contains('jpdb-subtitle-secondary-clear')).toBe(true);
+            expect(nativeLine.getAttribute('aria-pressed')).toBe('false');
+
+            // The native line also survives its OWN text changing, so a tap
+            // spanning a translation change is not lost either.
+            internals.secondaryCue = { start: 2, end: 4, text: 'Another line.', transcriptEligible: true };
+            internals.render();
+            expect(root.querySelector('.jpdb-subtitle-secondary')).toBe(nativeLine);
+            expect(nativeLine.textContent).toContain('Another line.');
+            // ...and the toggled state is not resurrected by that re-render.
+            expect(nativeLine.getAttribute('aria-pressed')).toBe('false');
+
+            // A second tap toggles straight back: no dead first tap either way.
+            nativeLine.click();
+            expect(settings.subtitleNativeBlurred).toBe(true);
+            expect(nativeLine.getAttribute('aria-pressed')).toBe('true');
+        } finally {
+            controller.destroy();
+            document.body.innerHTML = '';
+        }
+    });
+
+    // The peek-on-hover reveal must not be what answers a tap: a touch browser
+    // latches :hover on first contact, so an unconditional hover rule showed the
+    // translation without toggling anything and the line needed tapping again.
+    it('keeps the native-line peek on hovering pointers and its tap target finger-sized', () => {
+        expect(SUBTITLES_YOUTUBE_CSS).toMatch(
+            /@media \(hover: hover\) and \(pointer: fine\) \{\s*\.jpdb-subtitle-secondary-blurred:hover/,
+        );
+        // Keyboard users keep the peek on every device.
+        expect(SUBTITLES_YOUTUBE_CSS).toMatch(/\.jpdb-subtitle-secondary-blurred:focus-visible \{/);
+        // No double-tap-zoom hold-back on a control that is only ever a toggle.
+        expect(SUBTITLES_YOUTUBE_CSS).toMatch(/\.jpdb-subtitle-secondary \{[^}]*touch-action: manipulation/);
+        // A ~24px line gets a finger-sized halo on touch without moving layout.
+        expect(SUBTITLES_YOUTUBE_CSS).toMatch(
+            /@media \(pointer: coarse\)[\s\S]*?\.jpdb-subtitle-secondary::after \{[^}]*inset:/,
+        );
+    });
+
     it('marks the rail away while the player chrome is hidden so it disappears entirely', async () => {
         vi.useFakeTimers();
         document.body.innerHTML = '<div id="movie_player" class="html5-video-player ytp-autohide" tabindex="-1"><video></video></div>';

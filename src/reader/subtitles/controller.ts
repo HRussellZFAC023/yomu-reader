@@ -98,11 +98,14 @@ import {
 } from './subtitle-player-context';
 import {
     SUBTITLE_SECONDARY_BLURRED_CLASS,
+    SUBTITLE_SECONDARY_CLASS,
     SUBTITLE_SECONDARY_CLEAR_CLASS,
+    TOGGLE_NATIVE_BLUR_ACTION,
+    createSubtitleSecondaryLine,
     renderSubtitleKaraokeCue,
     renderSubtitlePrimary,
-    renderSubtitleSecondary,
     syncSubtitleSecondaryBlurState,
+    syncSubtitleSecondaryText,
 } from './subtitle-rendering';
 import {
     compareNativeOverlaySubtitleTrackOptions,
@@ -252,8 +255,7 @@ const YOUTUBE_MOBILE_BOTTOM_SHEET_OPEN_CLASS = 'jpdb-subtitle-yt-sheet-open';
 const NATIVE_FULLSCREEN_CUE_TRACK_LABEL = 'Yomu';
 const SUBTITLE_NATIVE_CONTROL_SAFE_ZONE_ATTRIBUTE = 'data-jpdb-subtitle-native-control-safe-zone';
 const NATIVE_PLAYER_CONTROL_SELECTOR = 'button,[role="button"],a[href],[tabindex]:not([tabindex="-1"])';
-const NATIVE_SUBTITLE_BLUR_CONTROL_SELECTOR = '[data-action="toggle-native-blur"]';
-const NATIVE_SUBTITLE_BLUR_PRESSED_PATTERN = /(data-action="toggle-native-blur"[^>]*aria-pressed=")(?:true|false)(")/g;
+const NATIVE_SUBTITLE_BLUR_CONTROL_SELECTOR = `[data-action="${TOGGLE_NATIVE_BLUR_ACTION}"]`;
 
 interface SubtitlePlayerOptions {
     getSettings: () => ReaderSettings;
@@ -733,8 +735,14 @@ function flashSubtitleCopyFeedback(target: HTMLElement): void {
 // background pills via box-decoration-break) while giving the grid-layout
 // .jpdb-subtitle-lines a block row that is independent of the native
 // secondary line's reserved bottom row.
-function subtitlePrimaryRowHtml(primaryHtml: string): string {
-    return `<div class="jpdb-subtitle-primary-row"><div class="jpdb-subtitle-primary">${primaryHtml}</div></div>`;
+function createSubtitlePrimaryRow(primaryHtml: string): HTMLElement {
+    const row = document.createElement('div');
+    row.className = 'jpdb-subtitle-primary-row';
+    const primary = document.createElement('div');
+    primary.className = 'jpdb-subtitle-primary';
+    setInnerHtml(primary, primaryHtml);
+    row.append(primary);
+    return row;
 }
 
 function fittedSubtitleFontSize(element: HTMLElement, fitted: number, minimum: number, apply: (value: number) => void): number {
@@ -1058,7 +1066,7 @@ export class SubtitlePlayerController {
     private lastRenderedPrimaryText = '';
     private lastRenderedPrimaryHtml = '';
     private lastRenderedPrimaryKey = '';
-    private lastAppliedSubtitleHtml = '';
+    private lastAppliedPrimaryRowHtml = '';
     private parseWarmupSerial = 0;
     private lastParseWarmupAnchor = -1;
     private transcriptHydrationCursor = 0;
@@ -1638,7 +1646,7 @@ export class SubtitlePlayerController {
         this.lastAutoCopiedCueSignature = '';
         this.lastRenderedPrimaryText = '';
         this.lastRenderedPrimaryHtml = '';
-        this.lastAppliedSubtitleHtml = '';
+        this.lastAppliedPrimaryRowHtml = '';
         this.renderSerial += 1;
         this.parseWarmupSerial += 1;
         this.lastParseWarmupAnchor = -1;
@@ -2668,13 +2676,15 @@ export class SubtitlePlayerController {
 
     private renderEmptySubtitle(settings: ReaderSettings): void {
         if (!this.subtitleEl) return;
-        this.applySubtitleHtml(this.renderSecondarySubtitle(settings));
+        this.applyPrimaryRow(null);
+        this.applySecondaryLine(settings);
     }
 
     private renderActiveSubtitle(text: string, settings: ReaderSettings): void {
         if (!this.subtitleEl) return;
         const primary = this.renderPrimarySubtitle(text, settings);
-        const changed = this.applySubtitleHtml(`${subtitlePrimaryRowHtml(primary.html)}${this.renderSecondarySubtitle(settings)}`);
+        const changed = this.applyPrimaryRow(primary.html);
+        this.applySecondaryLine(settings);
         this.applyRenderedPrimarySubtitle(primary, text);
         // Re-applying state colors only matters when the DOM was rebuilt;
         // re-notifying on identical renders made pitch/state highlights
@@ -2682,18 +2692,55 @@ export class SubtitlePlayerController {
         if (changed) this.notifyParsedTokensForRenderedPrimary(text, settings, primary.html);
     }
 
-    // render() runs on every cue/time/settings tick; rebuilding identical DOM
-    // each tick wiped the async-applied word-state coloring and caused a
-    // visible rerender flicker plus constant layout work (user-reported).
-    private applySubtitleHtml(html: string): boolean {
-        if (!this.subtitleEl) return false;
-        const hasContent = this.subtitleEl.firstChild !== null;
-        const unchanged = this.lastAppliedSubtitleHtml === html
-            && (html === '' ? !hasContent : hasContent);
-        if (unchanged) return false;
-        setInnerHtml(this.subtitleEl, html);
-        this.lastAppliedSubtitleHtml = html;
+    // The subtitle body holds two independent rows: the annotated primary line
+    // and the native caption line, which is a real control (tap to hide or
+    // reveal the translation). Writing both as one innerHTML blob meant every
+    // primary change — a new cue, a karaoke tick, a parse landing — also tore
+    // down and rebuilt that button. A browser only delivers click when the
+    // pressed node is still in the document at release, so any tap spanning a
+    // caption change was dropped and had to be repeated (owner-reported on
+    // phones). Each row now reconciles on its own, so a primary render can
+    // never take the native line out from under a finger.
+    //
+    // render() also runs on every cue/time/settings tick; rebuilding identical
+    // DOM each tick wiped the async-applied word-state coloring and caused a
+    // visible rerender flicker plus constant layout work (user-reported), so
+    // both rows keep their applied-state guard.
+    private applyPrimaryRow(html: string | null): boolean {
+        const host = this.subtitleEl;
+        if (!host) return false;
+        const row = host.querySelector<HTMLElement>('.jpdb-subtitle-primary-row');
+        if (html === null) {
+            this.lastAppliedPrimaryRowHtml = '';
+            if (!row) return false;
+            row.remove();
+            return true;
+        }
+        const inner = row?.querySelector<HTMLElement>('.jpdb-subtitle-primary');
+        if (inner && this.lastAppliedPrimaryRowHtml === html) return false;
+        this.lastAppliedPrimaryRowHtml = html;
+        if (inner) {
+            setInnerHtml(inner, html);
+            return true;
+        }
+        row?.remove();
+        host.prepend(createSubtitlePrimaryRow(html));
         return true;
+    }
+
+    private applySecondaryLine(settings: ReaderSettings): void {
+        const host = this.subtitleEl;
+        if (!host) return;
+        const existing = host.querySelector<HTMLElement>(`.${SUBTITLE_SECONDARY_CLASS}`);
+        const text = settings.subtitleSecondaryVisible ? this.secondaryCue?.text ?? '' : '';
+        if (!text) {
+            existing?.remove();
+            return;
+        }
+        const line = existing ?? createSubtitleSecondaryLine();
+        syncSubtitleSecondaryText(line, text);
+        syncSubtitleSecondaryBlurState(line, settings.subtitleNativeBlurred, settings.interfaceLanguage);
+        if (!existing) host.append(line);
     }
 
     // A cache-hit render (e.g. stepping back to a previous line) inserts fresh
@@ -2744,12 +2791,6 @@ export class SubtitlePlayerController {
             return provisional;
         }
         return undefined;
-    }
-
-    private renderSecondarySubtitle(settings: ReaderSettings): string {
-        return settings.subtitleSecondaryVisible && this.secondaryCue?.text
-            ? renderSubtitleSecondary(this.secondaryCue.text, settings.subtitleNativeBlurred, settings.interfaceLanguage)
-            : '';
     }
 
     private applyRenderedPrimarySubtitle(primary: ReturnType<typeof renderSubtitlePrimary>, text: string): void {
@@ -2806,7 +2847,7 @@ export class SubtitlePlayerController {
             // Keep the applied-html cache aligned with the live DOM so the
             // next composed render() is a no-op and the freshly applied state
             // colors survive instead of being rebuilt away.
-            this.lastAppliedSubtitleHtml = `${subtitlePrimaryRowHtml(replacement)}${this.renderSecondarySubtitle(this.options.getSettings())}`;
+            this.lastAppliedPrimaryRowHtml = replacement;
             this.syncKaraokePrimary(currentCue, shouldSyncKaraoke);
             this.fitSubtitleTextToVideo();
             this.syncNativePlayerControlHitProtection();
@@ -3527,7 +3568,7 @@ export class SubtitlePlayerController {
             this.lastAutoCopiedCueSignature = '';
             this.lastRenderedPrimaryText = '';
             this.lastRenderedPrimaryHtml = '';
-            this.lastAppliedSubtitleHtml = '';
+            this.lastAppliedPrimaryRowHtml = '';
             this.renderSerial += 1;
             this.parseWarmupSerial += 1;
             this.lastParseWarmupAnchor = -1;
@@ -5758,17 +5799,12 @@ export class SubtitlePlayerController {
     private applyNativeSubtitleBlurState(nativeBlurred: boolean, language: ReaderSettings['interfaceLanguage'], target?: HTMLElement | null): boolean {
         const targets = target
             ? [target]
-            : Array.from(this.subtitleEl?.querySelectorAll<HTMLElement>('.jpdb-subtitle-secondary[data-action="toggle-native-blur"]') ?? []);
+            : Array.from(this.subtitleEl?.querySelectorAll<HTMLElement>(NATIVE_SUBTITLE_BLUR_CONTROL_SELECTOR) ?? []);
         if (!targets.length) return false;
+        // The line is state-synced in place and the next render re-syncs the
+        // same node rather than re-emitting it, so there is no cached markup
+        // left to keep byte-identical.
         for (const button of targets) syncSubtitleSecondaryBlurState(button, nativeBlurred, language);
-        // Keep the cached markup byte-identical to what a fresh render would
-        // emit for the new state — every state-bearing attribute, not just the
-        // class — or the next render sees a diff and rebuilds the line in place
-        // of this cheap in-place toggle.
-        this.lastAppliedSubtitleHtml = this.lastAppliedSubtitleHtml
-            .split(nativeBlurred ? SUBTITLE_SECONDARY_CLEAR_CLASS : SUBTITLE_SECONDARY_BLURRED_CLASS)
-            .join(nativeBlurred ? SUBTITLE_SECONDARY_BLURRED_CLASS : SUBTITLE_SECONDARY_CLEAR_CLASS)
-            .replace(NATIVE_SUBTITLE_BLUR_PRESSED_PATTERN, `$1${nativeBlurred}$2`);
         return true;
     }
 
@@ -7556,7 +7592,7 @@ export class SubtitlePlayerController {
         this.lastAutoCopiedCueSignature = '';
         this.lastRenderedPrimaryText = '';
         this.lastRenderedPrimaryHtml = '';
-        this.lastAppliedSubtitleHtml = '';
+        this.lastAppliedPrimaryRowHtml = '';
         this.renderSerial += 1;
         this.parseWarmupSerial += 1;
         this.lastParseWarmupAnchor = -1;
