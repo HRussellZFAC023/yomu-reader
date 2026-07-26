@@ -24,13 +24,17 @@ import {
     updateAudioSourceEditor,
     updateDictionaryLookupLinkEditor,
 } from '../../reader/settings/form';
+import { adoptLearningTargetFromSettings } from '../../reader/languages/target-selection';
+import { targetContentLocale } from '../../reader/languages/resolve';
 import {
+    gamingCaptureOcrProvider,
     gamingLookupCandidates,
+    gamingOcrRequest,
     normalizeGamingOcrResponse,
     type GamingOcrResult,
 } from '../shared';
 import { activateWordWithPointer, GamepadOverlayController } from './gamepad-overlay';
-import type { YomuGamingBridge, YomuGamingCaptureMode, YomuGamingCaptureSource, YomuGamingEnvironment, YomuGamingOcrProvider, YomuGamingSelectionRect } from '../ipc';
+import type { YomuGamingBridge, YomuGamingCaptureMode, YomuGamingCaptureSource, YomuGamingEnvironment, YomuGamingSelectionRect } from '../ipc';
 
 declare global {
     interface Window {
@@ -758,7 +762,7 @@ function loadGamingSettings(): ReaderSettings {
     const stored = parseStoredSettings();
     const ocrProvider = stored?.ocrProvider ?? DEFAULT_GAMING_OCR_PROVIDER;
     const useLocalOcr = ocrProvider === 'local-service';
-    return normalizeReaderSettings({
+    const settings = normalizeReaderSettings({
         ...DEFAULT_SETTINGS,
         ...stored,
         theme: stored?.theme ?? 'light',
@@ -776,6 +780,14 @@ function loadGamingSettings(): ReaderSettings {
             : DEFAULT_SETTINGS.ocrEngine,
         ocrLanguage: stored?.ocrLanguage ?? DEFAULT_SETTINGS.ocrLanguage,
     });
+    // Gaming's settings loader is the one place stored settings become runtime
+    // state here, so it is also where the study target is adopted. Capture runs
+    // long before the inline reader boots, and detection, segmentation, lookup
+    // and the OCR request language all resolve against the active target — so
+    // without this the whole capture path would answer for Japanese whatever
+    // the player chose to study.
+    adoptLearningTargetFromSettings(settings);
+    return settings;
 }
 
 function parseStoredSettings(): Partial<ReaderSettings> | null {
@@ -1025,16 +1037,7 @@ class OverlaySelectionController {
             const capture = this.capture;
             const frameRect = frameRectForCapture(capture.size);
             const crop = await cropSelection(capture, selection ? scaleViewportSelection(selection, capture.size, frameRect) : null);
-            const response = await this.gamingBridge.requestOcr({
-                provider: gamingCaptureOcrProvider(this.settings.ocrProvider),
-                endpointUrl: this.settings.ocrEndpointUrl,
-                cloudVisionApiKey: this.settings.ocrCloudVisionApiKey,
-                imageDataUrl: crop.dataUrl,
-                width: crop.width,
-                height: crop.height,
-                engine: this.settings.ocrEngine,
-                language: this.settings.ocrLanguage,
-            });
+            const response = await this.gamingBridge.requestOcr(gamingOcrRequest(this.settings, crop));
             if (!response.ok) {
                 this.result = captureErrorResult(new Error(response.error ?? 'OCR failed. Check the OCR provider in Settings.'));
                 return;
@@ -1104,11 +1107,6 @@ function gamingOcrSetupError(settings: ReaderSettings): string {
     return '';
 }
 
-function gamingCaptureOcrProvider(provider: ReaderSettings['ocrProvider']): YomuGamingOcrProvider | undefined {
-    if (provider === 'google-lens' || provider === 'cloud-vision' || provider === 'local-service' || provider === 'off') return provider;
-    return undefined;
-}
-
 function overlayResultFromOcr(result: GamingOcrResult | null, viewportSelection: YomuGamingSelectionRect | null): OverlayResult {
     const text = result?.lines.map(line => line.text).join('\n') ?? '';
     const terms = gamingLookupCandidates(text);
@@ -1123,7 +1121,7 @@ function overlayResultFromOcr(result: GamingOcrResult | null, viewportSelection:
         : [];
     return terms.length
         ? { text, terms, lines: lines.length ? lines : undefined }
-        : { text, terms: [], error: text ? 'No Japanese lookup candidates found.' : 'No Japanese text found.' };
+        : { text, terms: [], error: text ? 'Nothing to look up in that text.' : 'Aim at some text and capture again.' };
 }
 
 function hasOcrGeometry(result: GamingOcrResult | null): result is GamingOcrResult {
@@ -1179,7 +1177,7 @@ function overlayToolbarHtml(): string {
 }
 
 function overlayHintHtml(): string {
-    return `<div class="overlay-hint" role="note">Drag a box over the Japanese text to read it.</div>`;
+    return `<div class="overlay-hint" role="note">Drag a box over the text to read it.</div>`;
 }
 
 function overlaySelectionHtml(selection: YomuGamingSelectionRect): string {
@@ -1202,7 +1200,7 @@ function overlayResultHtml(result: OverlayResult, selection: YomuGamingSelection
     if (result.error) {
         return `<section class="overlay-result" style="${style}" role="alert">
             <strong>${escapeHtml(result.error)}</strong>
-            ${result.text ? `<p lang="ja">${escapeHtml(result.text)}</p>` : ''}
+            ${result.text ? `<p lang="${escapeHtml(targetContentLocale())}">${escapeHtml(result.text)}</p>` : ''}
             <div class="overlay-actions">
                 ${result.errorAction === 'screen-settings'
                     ? '<button type="button" class="overlay-action-primary" data-action="overlay-open-screen-settings">Open Screen Recording settings</button>'
@@ -1215,7 +1213,7 @@ function overlayResultHtml(result: OverlayResult, selection: YomuGamingSelection
     // No per-line geometry (text-only OCR): show the recognized text as one scannable
     // node so the reader still adds furigana + the popover to it.
     return `<section class="overlay-result overlay-result-compact" style="${style}" role="status" aria-label="Recognized text">
-        <p class="overlay-inline-text overlay-result-text" data-ocr-line lang="ja">${escapeHtml(result.text)}</p>
+        <p class="overlay-inline-text overlay-result-text" data-ocr-line lang="${escapeHtml(targetContentLocale())}">${escapeHtml(result.text)}</p>
     </section>`;
 }
 
@@ -1225,12 +1223,13 @@ function overlayInlineResultHtml(result: OverlayResult): string {
     </section>`;
 }
 
-// Each recognized line is a real Japanese text node anchored over its source box. The
-// bundled Yomu reader scans these nodes in place: it adds furigana and wires the full
-// hover/click popover (definitions, pitch, kanji, SRS) onto the words it finds.
+// Each recognized line is a real text node in the language being studied, anchored over
+// its source box and stamped with that target's own content locale. The bundled Yomu
+// reader scans these nodes in place: it adds readings and wires the full hover/click
+// popover (definitions, pitch, kanji, SRS) onto the words it finds.
 function overlayInlineLineHtml(line: OverlayLineResult): string {
     return `<div class="overlay-inline-line" data-ocr-line data-vertical="${line.vertical}" style="${inlineLineStyle(line)}">
-        <p class="overlay-inline-text" lang="ja">${escapeHtml(line.text)}</p>
+        <p class="overlay-inline-text" lang="${escapeHtml(targetContentLocale())}">${escapeHtml(line.text)}</p>
     </div>`;
 }
 

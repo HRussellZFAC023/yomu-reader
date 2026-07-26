@@ -409,7 +409,10 @@ function normalizeOcrRequest(request: unknown): YomuGamingOcrRequest {
         width: positiveInt(record.width, 0),
         height: positiveInt(record.height, 0),
         engine: typeof record.engine === 'string' ? record.engine : 'auto',
-        language: typeof record.language === 'string' ? record.language : 'ja-JP',
+        // Pass-through, never a default: only the renderer knows which language
+        // is being studied, so a literal here would quietly override its choice.
+        // An absent language means "let the provider detect it".
+        language: typeof record.language === 'string' ? record.language.trim() : '',
     };
 }
 

@@ -44,10 +44,10 @@ async function requestLocalOcr(request: YomuGamingOcrRequest): Promise<YomuGamin
             headers: { 'content-type': 'application/json' },
             body: JSON.stringify({
                 id: `yomu-gaming-${Date.now()}`,
-                language_code: request.language || 'ja-JP',
+                language_code: request.language,
                 language: {
-                    bcp47_tag: request.language || 'ja-JP',
-                    two_letter_code: (request.language || 'ja').slice(0, 2),
+                    bcp47_tag: request.language,
+                    two_letter_code: languageHint(request.language),
                 },
                 base64_image: image.base64,
                 image: image.base64,
@@ -95,6 +95,7 @@ async function requestCloudVisionOcr(request: YomuGamingOcrRequest): Promise<Yom
     if (!apiKey) return { ok: false, status: 0, body: null, error: 'Add a Google Cloud Vision API key in Settings.' };
     try {
         const image = imagePayloadFromDataUrl(request.imageDataUrl);
+        const hint = languageHint(request.language);
         const response = await fetchWithTimeout(`https://vision.googleapis.com/v1/images:annotate?key=${encodeURIComponent(apiKey)}`, {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
@@ -102,7 +103,10 @@ async function requestCloudVisionOcr(request: YomuGamingOcrRequest): Promise<Yom
                 requests: [{
                     image: { content: image.base64 },
                     features: [{ type: 'TEXT_DETECTION', maxResults: 50, model: 'builtin/latest' }],
-                    imageContext: { languageHints: [(request.language || 'ja-JP').slice(0, 2)] },
+                    // Vision detects the script on its own when no hint is given,
+                    // so an unstated language stays unstated rather than becoming
+                    // a wrong one.
+                    ...(hint ? { imageContext: { languageHints: [hint] } } : {}),
                 }],
             }),
         }, OCR_TIMEOUT_MS, 'Google Cloud Vision');
@@ -125,7 +129,7 @@ async function requestGoogleLensProtobuf(image: ImagePayload, width: number, hei
             'content-type': 'application/x-protobuf',
             'x-goog-api-key': GOOGLE_LENS_API_KEY,
             accept: '*/*',
-            'accept-language': 'ja,en-US;q=0.9,en;q=0.8',
+            'accept-language': acceptLanguageHeader(locale),
         },
         body: arrayBufferFromBytes(body),
     }, OCR_TIMEOUT_MS, 'Google Lens');
@@ -169,6 +173,20 @@ async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: numbe
     }
 }
 
+/** Bare language code for providers that only accept a two-letter hint. */
+function languageHint(locale: string): string {
+    return locale.trim().slice(0, 2).toLowerCase();
+}
+
+/**
+ * Lens weights its OCR by the caller's accept-language, so the header follows
+ * the language the request asked for instead of naming one.
+ */
+function acceptLanguageHeader(locale: string): string {
+    const language = languageHint(locale);
+    return language ? `${language},en-US;q=0.9,en;q=0.8` : 'en-US;q=0.9,en;q=0.8';
+}
+
 function isLoopbackHost(hostname: string): boolean {
     const host = hostname.replace(/^\[|\]$/g, '').toLowerCase();
     return host === 'localhost' || host === '127.0.0.1' || host === '::1' || host.endsWith('.localhost');
@@ -210,7 +228,7 @@ function isAbortError(error: unknown): boolean {
 }
 
 function createGoogleLensRequest(imageBytes: Uint8Array, width: number, height: number, locale: string): Uint8Array {
-    const [language = 'ja', region = 'US'] = (locale || 'ja-JP').split(/[-_]/);
+    const [language = '', region = 'US'] = locale.trim().split(/[-_]/);
     const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
     const requestId = protoMessage(
         protoVarintField(1, BigInt(Date.now()) * 1_000_000n + BigInt(Math.floor(Math.random() * 1_000_000))),
@@ -219,7 +237,7 @@ function createGoogleLensRequest(imageBytes: Uint8Array, width: number, height: 
         protoBytesField(4, randomBytes(16)),
     );
     const localeContext = protoMessage(
-        protoStringField(1, language || 'ja'),
+        protoStringField(1, language),
         protoStringField(2, region || 'US'),
         protoStringField(3, timeZone),
     );

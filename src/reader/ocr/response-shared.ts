@@ -1,4 +1,7 @@
-import { HAS_JAPANESE } from '../dom/index';
+// Straight from the script module rather than the reader's DOM barrel: this
+// file is shared with the Yomu Gaming capture pipeline, which has no reason to
+// pull the whole page-annotation layer in behind one regex.
+import { HAS_JAPANESE } from '../lookup/japanese-script';
 import { isTargetLanguageText } from '../lookup/target-text';
 
 export interface OcrRect {

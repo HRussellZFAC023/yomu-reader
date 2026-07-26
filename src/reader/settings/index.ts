@@ -438,7 +438,11 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     ocrEndpointUrl: '',
     ocrEngine: 'auto',
     ocrCloudVisionApiKey: '',
-    ocrLanguage: 'ja-JP',
+    // Empty means "follow the language being studied": every OCR provider
+    // resolves this through `targetOcrLanguageTag`, which falls back to the
+    // active learning target's own default. A literal here would pin a fresh
+    // install to one language no matter which target it selected.
+    ocrLanguage: '',
     ocrMaxImagePixels: 1200000,
     ocrMinImageArea: 45000,
     ocrMaxImagesPerPage: 3,
