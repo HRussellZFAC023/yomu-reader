@@ -1,8 +1,14 @@
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { AnkiConnectClient, YOMU_MODEL_FIELDS } from '../../src/reader/anki/index';
 import { testEnSettings } from './helpers/settings-fixture';
 import type { ReaderSettings } from '../../src/reader/app/types';
+
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 // The exact field list a live "Yomu Japanese" note type carries when it was
 // created before audio, pitch and dictionary mining shipped. Yomu keeps
@@ -36,13 +42,21 @@ afterEach(() => {
     vi.unstubAllGlobals();
 });
 
+// AnkiConnect answers 200 with an error string while a modal holds the
+// collection, so the daemon is up and every read fails. Stubbing an Error for
+// an action reproduces exactly that.
+class AnkiConnectStubError extends Error {}
+
 function stubAnkiConnect(resultByAction: Record<string, unknown>): MockAnkiConnectRequest[] {
     const requests: MockAnkiConnectRequest[] = [];
     vi.stubGlobal('GM', {
         xmlHttpRequest: ({ data }: { data: string }) => {
             const request = JSON.parse(data) as MockAnkiConnectRequest;
             requests.push(request);
-            return Promise.resolve({ status: 200, response: { result: resultByAction[request.action] ?? null, error: null } });
+            const result = resultByAction[request.action] ?? null;
+            return Promise.resolve(result instanceof AnkiConnectStubError
+                ? { status: 200, response: { result: null, error: result.message } }
+                : { status: 200, response: { result, error: null } });
         },
     });
     return requests;
@@ -134,7 +148,7 @@ describe('Yomu Anki note type update', () => {
         });
         const client = ankiClient();
 
-        await expect(client.addMissingYomuModelFields()).resolves.toEqual(FIELDS_THE_OLDER_NOTE_TYPE_GAINS);
+        await expect(client.addMissingYomuModelFields('よむ Japanese')).resolves.toEqual(FIELDS_THE_OLDER_NOTE_TYPE_GAINS);
         expect(requests
             .filter(request => request.action === 'modelFieldAdd')
             .map(request => request.params.fieldName)).toEqual(FIELDS_THE_OLDER_NOTE_TYPE_GAINS);
@@ -152,8 +166,64 @@ describe('Yomu Anki note type update', () => {
         });
         const client = ankiClient();
 
-        await expect(client.addMissingYomuModelFields()).resolves.toEqual([]);
-        expect(requestActions(requests)).toEqual(['modelFieldNames']);
+        await expect(client.addMissingYomuModelFields('よむ Japanese')).resolves.toEqual([]);
+        expect(requestActions(requests)).not.toContain('modelFieldAdd');
         client.destroy();
+    });
+
+    // Fifteen fields is a schema change across the whole collection, and Anki
+    // has no cheap undo for it. Every reason the plan has for staying quiet is
+    // therefore a reason to write nothing, so the write asks the plan.
+    it('adds nothing to a third-party note type the plan declines', async () => {
+        const requests = stubAnkiConnect({
+            modelNames: ['Basic'],
+            modelFieldNames: ['Front', 'Back'],
+            modelFieldAdd: null,
+        });
+        const client = ankiClient({ ankiModel: 'Basic' });
+
+        await expect(client.yomuModelUpdatePlan()).resolves.toBeNull();
+        await expect(client.addMissingYomuModelFields('Basic')).resolves.toEqual([]);
+        expect(requestActions(requests)).not.toContain('modelFieldAdd');
+        client.destroy();
+    });
+
+    it('adds nothing when the field read fails', async () => {
+        const requests = stubAnkiConnect({
+            modelNames: ['よむ Japanese'],
+            modelFieldNames: new AnkiConnectStubError('collection is not available'),
+            modelFieldAdd: null,
+        });
+        const client = ankiClient();
+
+        await expect(client.addMissingYomuModelFields('よむ Japanese')).resolves.toEqual([]);
+        expect(requestActions(requests)).not.toContain('modelFieldAdd');
+        client.destroy();
+    });
+
+    it('adds nothing when the note type moved on after the offer was made', async () => {
+        const requests = stubAnkiConnect({
+            modelNames: ['よむ Japanese'],
+            modelFieldNames: OLDER_YOMU_MODEL_FIELDS,
+            modelFieldAdd: null,
+        });
+        const client = ankiClient();
+
+        await expect(client.addMissingYomuModelFields('Kaishi 1.5k')).resolves.toEqual([]);
+        expect(requestActions(requests)).not.toContain('modelFieldAdd');
+        client.destroy();
+    });
+});
+
+// The smoke run drives the built companion through a browser, so it cannot
+// import this list. Pinning the copy here keeps model-schema.ts the one place
+// the field list is decided.
+describe('Yomu Anki note type field list', () => {
+    it('matches the copy the Anki mining smoke run mocks AnkiConnect with', () => {
+        const source = readFileSync(path.join(repoRoot, 'scripts/anki-mining-smoke.mjs'), 'utf8');
+        const literal = /const YOMU_MODEL_FIELDS = \[([^\]]*)\]/.exec(source)?.[1];
+        expect(literal).toBeTruthy();
+        const smokeFields = [...(literal ?? '').matchAll(/'([^']+)'/g)].map(match => match[1]);
+        expect(smokeFields).toEqual(YOMU_MODEL_FIELDS);
     });
 });

@@ -38,7 +38,9 @@ export interface AnkiConnectClient {
     noteFieldTargetPlan(): Promise<import('./field-render').AnkiNoteFieldTargetPlan | null>;
     scanLibrary(): Promise<AnkiLibraryScanResult>;
     yomuModelUpdatePlan(): Promise<AnkiModelUpdatePlan | null>;
-    addMissingYomuModelFields(): Promise<string[]>;
+    // The caller names the note type it is offering to widen, and the client
+    // declines anything else: a write this size must not follow a stale offer.
+    addMissingYomuModelFields(expectedModelName: string): Promise<string[]>;
     warmStatusIndex(): Promise<AnkiStatusIndex | null>;
     findExistingCards(card: JPDBCard): Promise<AnkiLookupResult>;
     findCachedStatusBatch(cards: JPDBCard[]): Promise<AnkiLookupResult[]>;
