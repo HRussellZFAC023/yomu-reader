@@ -17,8 +17,6 @@ export interface UpstreamCoverageJson {
   [key: string]: unknown;
 }
 
-export function publishedEntries(catalog: DictionaryCatalogJson): Array<Record<string, unknown>>;
-
 export function assertPublishedObjectsResolvable(
   catalog: DictionaryCatalogJson,
   ledger: MirrorObjectLedgerJson,

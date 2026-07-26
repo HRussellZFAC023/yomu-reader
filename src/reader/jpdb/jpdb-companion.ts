@@ -61,4 +61,3 @@ const CompanionBackedJpdbClient = class {
 };
 
 export { CompanionBackedJpdbClient as JpdbClient };
-export type { JpdbListDeckCardsOptions } from './jpdb';

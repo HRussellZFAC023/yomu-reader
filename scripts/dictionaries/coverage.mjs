@@ -30,7 +30,7 @@ import {
   readJson,
 } from './lib.mjs';
 
-export function publishedEntries(catalog) {
+function publishedEntries(catalog) {
   return (catalog.entries ?? []).filter(entry => entry.distribution?.state === 'published');
 }
 

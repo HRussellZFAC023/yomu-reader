@@ -49,7 +49,7 @@ const NO_CAPABILITIES: LearningTargetCapabilities = Object.freeze(
     Object.fromEntries(LEARNING_TARGET_CAPABILITY_IDS.map(id => [id, false])),
 ) as LearningTargetCapabilities;
 
-export function learningTargetCapabilities(
+function learningTargetCapabilities(
     declared: Partial<LearningTargetCapabilities> = {},
 ): LearningTargetCapabilities {
     return Object.freeze({ ...NO_CAPABILITIES, ...declared });

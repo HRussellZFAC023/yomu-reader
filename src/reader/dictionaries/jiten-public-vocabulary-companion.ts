@@ -54,4 +54,3 @@ export const publicJitenBackoffRemainingMs: typeof publicJitenBackoffRemainingMs
     yomuJitenCompanion()?.publicJitenBackoffRemainingMs?.() ?? 0;
 
 export { CompanionBackedJitenPublicVocabularyClient as JitenPublicVocabularyClient };
-export type { JitenPublicLookupManyOptions, JitenPublicVocabularyClientOptions } from './jiten-public-vocabulary';

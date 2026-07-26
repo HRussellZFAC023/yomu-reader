@@ -27,4 +27,3 @@ const CompanionBackedJpdbVocabularyClient = class {
 };
 
 export { CompanionBackedJpdbVocabularyClient as JpdbVocabularyClient };
-export type { JpdbVocabularyInfo } from './jpdb-vocabulary-types';

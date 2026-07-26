@@ -61,7 +61,7 @@ function shelfSearchText(shelf: HTMLElement): string {
     ].join(' '));
 }
 
-export function catalogBrowseSection(root: ParentNode): HTMLElement | null {
+function catalogBrowseSection(root: ParentNode): HTMLElement | null {
     return root.querySelector<HTMLElement>('[data-catalog-browse]');
 }
 

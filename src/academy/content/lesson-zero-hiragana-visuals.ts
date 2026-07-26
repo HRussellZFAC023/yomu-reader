@@ -1,4 +1,4 @@
-export const LESSON_ZERO_HIRAGANA_VISUAL_BASE_PATH =
+const LESSON_ZERO_HIRAGANA_VISUAL_BASE_PATH =
     '/academy/art/lesson-zero/hiragana-anchors' as const;
 
 export type LessonZeroHiraganaAnchorKind =

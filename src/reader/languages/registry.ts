@@ -72,10 +72,6 @@ export function supportedLearningTargetLanguages(): readonly string[] {
     return Object.freeze([...MODULES_BY_LANGUAGE.keys()]);
 }
 
-export function registeredLearningTargetModules(): readonly LearningTargetModule[] {
-    return Object.freeze([...MODULES_BY_LANGUAGE.values()]);
-}
-
 /**
  * Never null: the built-in Japanese target is registered at module init, so
  * callers can resolve a module without a null branch at every call site.

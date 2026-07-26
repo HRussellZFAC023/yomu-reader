@@ -8,5 +8,3 @@ import type { renderedJpdbRelatedWords as renderedJpdbRelatedWordsImpl } from '.
 // sees an empty list.
 export const renderedJpdbRelatedWords: typeof renderedJpdbRelatedWordsImpl = (...args) =>
     yomuJpdbCompanion()?.renderedJpdbRelatedWords?.(...args) ?? [];
-
-export type { RenderedJpdbRelatedWord } from './jpdb-related-words';

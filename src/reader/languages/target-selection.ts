@@ -28,7 +28,7 @@ export function adoptLearningTargetFromSettings(value: unknown): LearningTargetM
  * build cannot serve" must land on Japanese, not on whichever target the
  * previous profile happened to select.
  */
-export function adoptLearningTargetLanguage(value: unknown): LearningTargetModule {
+function adoptLearningTargetLanguage(value: unknown): LearningTargetModule {
     const requested = setActiveLearningTargetLanguage(value);
     if (requested) return requested;
     const fallback = defaultLearningTargetModule();

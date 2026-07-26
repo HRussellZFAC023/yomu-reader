@@ -8,10 +8,3 @@ import type { initJpdbReviewPageBridge as initJpdbReviewPageBridgeImpl } from '.
 // caller receives the same `undefined` disposer it already gets off jpdb.io.
 export const initJpdbReviewPageBridge: typeof initJpdbReviewPageBridgeImpl = () =>
     yomuJpdbCompanion()?.initJpdbReviewPageBridge?.();
-
-export type {
-    JpdbLearnSummary,
-    JpdbReviewBridgeCard,
-    JpdbReviewBridgeClient,
-    JpdbReviewBridgeStatus,
-} from './jpdb-review-bridge';
