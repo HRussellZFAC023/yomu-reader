@@ -48,13 +48,13 @@
 //         the reader actually looks at, but REACH is the assertion doing the
 //         work, and a change that weakens (i) is not excused by a clean (ii).
 //   (iii) LEGIBILITY — the reading's contrast over a BRIGHT, video-like backdrop
-//         must not drop below what the owner-tuned build achieved, asserted PER
-//         DIRECTION. A median or mean over directions is what let an interim fix
-//         ship: it moved the outline's mass upward, so up rose 3.43 -> 11.76
-//         while down fell 14.59 -> 4.96 at the default cue, and the middle of
-//         those two barely moved. The reading sits above the caption line with
-//         open video under it; the underside is exactly the edge that needs the
-//         outline most.
+//         must not drop below the owner-tuned pixel outline rendered by the SAME
+//         engine and font, asserted PER DIRECTION. A median or mean over
+//         directions is what let an interim fix ship: it moved the outline's
+//         mass upward, so up rose while down fell, and the middle of those two
+//         barely moved. The reading sits above the caption line with open video
+//         under it; the underside is exactly the edge that needs the outline
+//         most.
 //
 // Both the wash and the reach measurement toggle ONLY the reading's own
 // rendering over an otherwise identical DOM (`rt { visibility: hidden }`, which
@@ -103,10 +103,10 @@ const SIZES = [20, 28, 40, 60];
 // case where Blink stretches the ruby base past the ruby box (see the partition
 // note in measure()).
 //
-// `legibility` marks the word whose per-direction contrast floors below were
-// measured on the owner-tuned pre-fix build. Those floors are that build's own
-// numbers for THAT word; the other words are geometry-only rather than have
-// floors invented for them.
+// `legibility` marks the word whose per-direction contrast is compared with an
+// in-run owner-tuned reference. The other words are geometry-only because one
+// representative reading is enough for the paint comparison while every word
+// remains necessary for the variable ruby geometry.
 const WORDS = [
     { base: '続', reading: 'つづ', okurigana: 'ける', legibility: true },
     { base: '志', reading: 'こころざ', okurigana: 'す' },
@@ -156,25 +156,17 @@ const maxReachRows = gapRows => gapRows > 0
 // It is NOT 0.5 — that number belongs to the diluted mean this metric replaced.
 const MAX_WASH_DIFFERENTIAL = 2;
 
-// Per-direction glyph-vs-outline contrast the reading must still achieve over a
-// bright frame, per engine and cue size. Every floor is the value the OWNER-
-// TUNED pre-fix build (0 1px 1px / 0 0 3px / 0 0 7px) measured in that exact
-// cell, so any change that spends legibility in any direction to buy the wash
-// fix fails here — which is precisely what the interim fix did downward.
-const LEGIBILITY_FLOOR = {
-    chromium: {
-        20: { up: 2.87, down: 11.29, left: 3.67, right: 4.36 },
-        28: { up: 3.43, down: 14.59, left: 4.48, right: 5.59 },
-        40: { up: 4.54, down: 14.55, left: 5.49, right: 7.23 },
-        60: { up: 4.95, down: 14.94, left: 7.11, right: 9.15 },
-    },
-    webkit: {
-        20: { up: 1.66, down: 3.25, left: 1.89, right: 3.21 },
-        28: { up: 1.86, down: 4.42, left: 2.27, right: 3.36 },
-        40: { up: 1.92, down: 6.39, left: 2.17, right: 5.92 },
-        60: { up: 2.24, down: 12.27, left: 2.35, right: 13.01 },
-    },
-};
+// Compare against the original owner-tuned outline in the same browser process
+// instead of hard-coding measurements from one operating system's Japanese
+// font. Glyph rasterisation differs materially between macOS and Linux; the
+// declaration being protected does not. This keeps the quality bar strict and
+// portable: the shipped outline must equal or beat the reference on every edge.
+const OWNER_TUNED_REFERENCE_SHADOW = `
+    0 1px 1px var(--subtitle-outline, var(--jpdb-reader-video-outline)),
+    0 0 3px var(--subtitle-outline, var(--jpdb-reader-video-outline)),
+    0 0 7px var(--jpdb-reader-video-shadow-heavy)
+`;
+const LEGIBILITY_TOLERANCE = 0.02;
 
 const BRIGHT_BACKDROP = '#ebebeb';
 const VIDEO_BACKDROP = '#808080';
@@ -192,6 +184,7 @@ const fixture = (word, size, backdrop, mode) => `<!doctype html>
   .probe { display: inline-block; width: 0; height: 0; vertical-align: baseline; }
   ${mode === 'control' ? '.jpdb-subtitle-primary .jpdb-reader-furi { visibility: hidden !important; }' : ''}
   ${mode === 'ink' ? '.jpdb-subtitle-text, .jpdb-subtitle-primary .jpdb-reader-word, .jpdb-subtitle-primary .jpdb-reader-furi { text-shadow: none !important; -webkit-text-stroke: 0 !important; }' : ''}
+  ${mode === 'reference' ? `.jpdb-subtitle-primary .jpdb-reader-furi { text-shadow: ${OWNER_TUNED_REFERENCE_SHADOW} !important; }` : ''}
 </style></head>
 <body>
   <div class="jpdb-subtitle-player"><div class="jpdb-subtitle-text"><div class="jpdb-subtitle-lines">
@@ -441,6 +434,7 @@ async function measure(page, word, size, context) {
         washDifferential: kanjiWash - okuriWash,
         washSample: hasClearBand ? 'clear-gap' : 'glyph-top',
         legibility: null,
+        legibilityReference: null,
     };
     if (!word.legibility) return result;
 
@@ -453,42 +447,58 @@ async function measure(page, word, size, context) {
     // reduced and asserted on its own — combining them is what hid the interim
     // fix's downward regression behind its upward gain.
     const bright = await shoot(page, word, size, BRIGHT_BACKDROP, 'paint', painted.box);
-    const top = Math.max(1, Math.floor(bright.geometry.reading.top) - bright.box.y - 8);
-    const bottom = Math.min(height - 1, Math.ceil(bright.geometry.reading.bottom) - bright.box.y + 8);
-    const left = Math.max(1, Math.floor(bright.geometry.reading.left) - bright.box.x - 8);
-    const right = Math.min(width - 1, Math.ceil(bright.geometry.reading.right) - bright.box.x + 8);
-    const isInk = (x, y) => inked.pixels.out[y * width + x] > 140 && y <= readingInkBottom;
-    const probeReach = Math.max(2, Math.round(readingEm * 0.28));
-    const rays = { up: [], down: [], left: [], right: [] };
-    const body = [];
-    for (let y = top; y < bottom; y += 1) {
-        for (let x = left; x < right; x += 1) {
-            if (!isInk(x, y)) continue;
-            body.push(bright.pixels.out[y * width + x]);
-            for (const [name, [dx, dy]] of Object.entries(DIRECTIONS)) {
-                if (isInk(x + dx, y + dy)) continue;
-                let darkest = Infinity;
-                for (let step = 1; step <= probeReach; step += 1) {
-                    const nx = x + dx * step;
-                    const ny = y + dy * step;
-                    if (nx < left || nx >= right || ny < top || ny >= bottom) break;
-                    if (isInk(nx, ny)) break;
-                    darkest = Math.min(darkest, bright.pixels.out[ny * width + nx]);
-                }
-                if (Number.isFinite(darkest)) rays[name].push(darkest);
-            }
+    const reference = await shoot(page, word, size, BRIGHT_BACKDROP, 'reference', painted.box);
+    for (const edge of ['left', 'right', 'top', 'bottom']) {
+        if (Math.abs(bright.geometry.reading[edge] - reference.geometry.reading[edge]) > 0.01) {
+            fail(context, `the owner-tuned reference moved the reading box's ${edge} edge, so its contrast is not layout-comparable`, {
+                shipped: bright.geometry.reading,
+                reference: reference.geometry.reading,
+            });
         }
     }
-    if (!body.length) fail(context, 'the reading painted no measurable glyph; the fixture stopped rendering the annotation', {});
-    body.sort((a, b) => a - b);
-    const bodyLevel = median(body);
-    const legibility = {};
-    for (const name of Object.keys(DIRECTIONS)) {
-        if (!rays[name].length) fail(context, `the reading has no measurable ${name} edge, so that direction cannot be asserted`, {});
-        rays[name].sort((a, b) => a - b);
-        legibility[name] = contrastRatio(bodyLevel, median(rays[name]));
-    }
-    return { ...result, legibility };
+    const directionalLegibility = (render, label) => {
+        const top = Math.max(1, Math.floor(render.geometry.reading.top) - render.box.y - 8);
+        const bottom = Math.min(height - 1, Math.ceil(render.geometry.reading.bottom) - render.box.y + 8);
+        const left = Math.max(1, Math.floor(render.geometry.reading.left) - render.box.x - 8);
+        const right = Math.min(width - 1, Math.ceil(render.geometry.reading.right) - render.box.x + 8);
+        const isInk = (x, y) => inked.pixels.out[y * width + x] > 140 && y <= readingInkBottom;
+        const probeReach = Math.max(2, Math.round(readingEm * 0.28));
+        const rays = { up: [], down: [], left: [], right: [] };
+        const body = [];
+        for (let y = top; y < bottom; y += 1) {
+            for (let x = left; x < right; x += 1) {
+                if (!isInk(x, y)) continue;
+                body.push(render.pixels.out[y * width + x]);
+                for (const [name, [dx, dy]] of Object.entries(DIRECTIONS)) {
+                    if (isInk(x + dx, y + dy)) continue;
+                    let darkest = Infinity;
+                    for (let step = 1; step <= probeReach; step += 1) {
+                        const nx = x + dx * step;
+                        const ny = y + dy * step;
+                        if (nx < left || nx >= right || ny < top || ny >= bottom) break;
+                        if (isInk(nx, ny)) break;
+                        darkest = Math.min(darkest, render.pixels.out[ny * width + nx]);
+                    }
+                    if (Number.isFinite(darkest)) rays[name].push(darkest);
+                }
+            }
+        }
+        if (!body.length) fail(context, `${label} painted no measurable reading glyph`, {});
+        body.sort((a, b) => a - b);
+        const bodyLevel = median(body);
+        const measured = {};
+        for (const name of Object.keys(DIRECTIONS)) {
+            if (!rays[name].length) fail(context, `${label} has no measurable ${name} edge`, {});
+            rays[name].sort((a, b) => a - b);
+            measured[name] = contrastRatio(bodyLevel, median(rays[name]));
+        }
+        return measured;
+    };
+    return {
+        ...result,
+        legibility: directionalLegibility(bright, 'the shipped outline'),
+        legibilityReference: directionalLegibility(reference, 'the owner-tuned reference'),
+    };
 }
 
 async function verifyEngine(name, browserType) {
@@ -509,7 +519,7 @@ async function verifyEngine(name, browserType) {
     // measured table rather than only the cell that happened to trip first.
     for (const entry of readings) {
         const legible = entry.legibility
-            ? `, legibility up ${entry.legibility.up.toFixed(2)} down ${entry.legibility.down.toFixed(2)} left ${entry.legibility.left.toFixed(2)} right ${entry.legibility.right.toFixed(2)}`
+            ? `, legibility up ${entry.legibility.up.toFixed(2)}/${entry.legibilityReference.up.toFixed(2)} down ${entry.legibility.down.toFixed(2)}/${entry.legibilityReference.down.toFixed(2)} left ${entry.legibility.left.toFixed(2)}/${entry.legibilityReference.left.toFixed(2)} right ${entry.legibility.right.toFixed(2)}/${entry.legibilityReference.right.toFixed(2)} (shipped/reference)`
             : '';
         const cap = maxReachRows(entry.gapRows);
         const reachGate = cap === null ? 'direct glyph-top wash gate' : `cap ${cap} rows`;
@@ -536,9 +546,14 @@ async function verifyEngine(name, browserType) {
     }
     for (const entry of readings) {
         if (!entry.legibility) continue;
-        for (const [direction, floor] of Object.entries(LEGIBILITY_FLOOR[name][entry.size])) {
-            if (entry.legibility[direction] < floor) {
-                fail(context(entry), `the reading's ${direction}-side glyph-vs-outline contrast over a bright frame is ${entry.legibility[direction].toFixed(2)}, under the ${floor} the owner-tuned build achieved. The cure for the wash must never be a weaker outline, and it must not be a weaker outline on ONE side either — pushing the mass to the opposite edge is not a fix, it is a trade`, { ...entry, direction, floor });
+        for (const [direction, reference] of Object.entries(entry.legibilityReference)) {
+            if (entry.legibility[direction] + LEGIBILITY_TOLERANCE < reference) {
+                fail(context(entry), `the reading's ${direction}-side glyph-vs-outline contrast over a bright frame is ${entry.legibility[direction].toFixed(2)}, under the ${reference.toFixed(2)} owner-tuned reference rendered by this same engine and font. The cure for the wash must never be a weaker outline, and it must not be a weaker outline on ONE side either — pushing the mass to the opposite edge is not a fix, it is a trade`, {
+                    ...entry,
+                    direction,
+                    reference,
+                    tolerance: LEGIBILITY_TOLERANCE,
+                });
             }
         }
     }
