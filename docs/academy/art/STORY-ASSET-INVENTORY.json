@@ -46,10 +46,10 @@
     ],
     "castCount": 24,
     "backgroundGaps": 25,
-    "openingImageGaps": 100,
-    "exitImageGaps": 100,
+    "openingImageGaps": 99,
+    "exitImageGaps": 99,
     "propOrOverlayGaps": 81,
-    "generationQueue": 306
+    "generationQueue": 304
   },
   "chapters": [
     {
@@ -414,16 +414,22 @@
           "openingImage": {
             "cueId": "cue:sound-route-nameplates-only",
             "description": "Two voices. Two empty name labels.",
-            "status": "missing",
+            "status": "bound",
             "runtimeHome": "scene:blank-atlas:mission-sound",
-            "candidatePaths": []
+            "candidatePaths": [
+              "/academy/art/events/blank-atlas-mission-sound__two-blank-name-tabs__wide__v001.webp",
+              "/academy/art/events/blank-atlas-mission-sound__two-blank-name-tabs__mobile__v001.webp"
+            ]
           },
           "exitImage": {
             "cueId": "cue:sound-route-replay-one-speaker",
             "description": "Replay the missed voice. Listen just before です.",
-            "status": "missing",
+            "status": "bound",
             "runtimeHome": "scene:blank-atlas:mission-sound",
-            "candidatePaths": []
+            "candidatePaths": [
+              "/academy/art/events/blank-atlas-mission-sound__replay-one-voice__wide__v001.webp",
+              "/academy/art/events/blank-atlas-mission-sound__replay-one-voice__mobile__v001.webp"
+            ]
           },
           "propCues": []
         },
@@ -7685,40 +7691,6 @@
         "rie"
       ],
       "runtimeHome": "scene:blank-atlas:sentence-frames",
-      "status": "queued"
-    },
-    {
-      "priority": "scene-critical",
-      "chapter": 1,
-      "chapterId": "s1e01-the-blank-atlas",
-      "sceneId": "scene:blank-atlas:mission-sound",
-      "cueId": "cue:sound-route-nameplates-only",
-      "kind": "opening-image",
-      "brief": "Two voices. Two empty name labels.",
-      "locationId": "location:language-lab",
-      "timeState": "evening",
-      "castIds": [
-        "xingyu",
-        "mika"
-      ],
-      "runtimeHome": "scene:blank-atlas:mission-sound",
-      "status": "queued"
-    },
-    {
-      "priority": "payoff-critical",
-      "chapter": 1,
-      "chapterId": "s1e01-the-blank-atlas",
-      "sceneId": "scene:blank-atlas:mission-sound",
-      "cueId": "cue:sound-route-replay-one-speaker",
-      "kind": "exit-image",
-      "brief": "Replay the missed voice. Listen just before です.",
-      "locationId": "location:language-lab",
-      "timeState": "evening",
-      "castIds": [
-        "xingyu",
-        "mika"
-      ],
-      "runtimeHome": "scene:blank-atlas:mission-sound",
       "status": "queued"
     },
     {

@@ -193,6 +193,20 @@ describe('Academy Story screen', () => {
         expect(learner.dataset.performancePresence).toBe('inactive');
     });
 
+    it('uses the canonical listening performance when Xingyu teaches the sound strategy', () => {
+        const { screen } = render(cursor(
+            'scene:blank-atlas:mission-sound',
+            'line:blank-atlas:xingyu-sound-first',
+        ));
+
+        const xingyu = screen.querySelector<HTMLElement>('[data-character="xingyu"]')!;
+        const picture = xingyu.querySelector<HTMLPictureElement>('picture')!;
+        expect(picture.dataset.expression).toBe('encouraging');
+        expect(picture.querySelector('img')?.getAttribute('src')).toContain(
+            'xingyu__encouraging-listening-short-hair-round-glasses__right-three-quarter__fullbody__v002.png',
+        );
+    });
+
     it('selects only approved Rie performance cutouts for authored VN intents', () => {
         const beats = [
             ['scene:blank-atlas:sound-script-map', 'line:blank-atlas:rie-listen-first', 'determined', 'rie__determined-glasses__left-three-quarter'],

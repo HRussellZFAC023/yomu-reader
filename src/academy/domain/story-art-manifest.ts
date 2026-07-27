@@ -91,6 +91,22 @@ export const ACADEMY_STORY_ART_BY_NODE = {
         "cueId": "cue:name-card-one-rubric",
         "wide": "/academy/art/events/blank-atlas-useful-vocabulary__name-card-repair__wide__v001.webp",
         "mobile": "/academy/art/events/blank-atlas-useful-vocabulary__name-card-repair__mobile__v001.webp"
+    },
+    "node:blank-atlas:sound-nameplates": {
+        "assetId": "event.story.blank-atlas-mission-sound.two-blank-name-tabs",
+        "sceneId": "scene:blank-atlas:mission-sound",
+        "nodeId": "node:blank-atlas:sound-nameplates",
+        "cueId": "cue:sound-route-nameplates-only",
+        "wide": "/academy/art/events/blank-atlas-mission-sound__two-blank-name-tabs__wide__v001.webp",
+        "mobile": "/academy/art/events/blank-atlas-mission-sound__two-blank-name-tabs__mobile__v001.webp"
+    },
+    "node:blank-atlas:sound-input-repair": {
+        "assetId": "event.story.blank-atlas-mission-sound.replay-one-voice",
+        "sceneId": "scene:blank-atlas:mission-sound",
+        "nodeId": "node:blank-atlas:sound-input-repair",
+        "cueId": "cue:sound-route-replay-one-speaker",
+        "wide": "/academy/art/events/blank-atlas-mission-sound__replay-one-voice__wide__v001.webp",
+        "mobile": "/academy/art/events/blank-atlas-mission-sound__replay-one-voice__mobile__v001.webp"
     }
 } as const satisfies Readonly<Record<string, AcademyStoryArtBinding>>;
 
@@ -224,6 +240,32 @@ export const ACADEMY_STORY_ART_RUNTIME_ASSETS = {
             "wide": "/academy/art/events/blank-atlas-useful-vocabulary__name-card-repair__wide__v001.webp",
             "mobile": "/academy/art/events/blank-atlas-useful-vocabulary__name-card-repair__mobile__v001.webp"
         }
+    },
+    "event.story.blank-atlas-mission-sound.two-blank-name-tabs": {
+        "kind": "event-art",
+        "status": "approved",
+        "runtimeHomes": [
+            "node:blank-atlas:sound-nameplates",
+            "scene:blank-atlas:mission-sound"
+        ],
+        "provenance": "regenerated-house-style",
+        "files": {
+            "wide": "/academy/art/events/blank-atlas-mission-sound__two-blank-name-tabs__wide__v001.webp",
+            "mobile": "/academy/art/events/blank-atlas-mission-sound__two-blank-name-tabs__mobile__v001.webp"
+        }
+    },
+    "event.story.blank-atlas-mission-sound.replay-one-voice": {
+        "kind": "event-art",
+        "status": "approved",
+        "runtimeHomes": [
+            "node:blank-atlas:sound-input-repair",
+            "scene:blank-atlas:mission-sound"
+        ],
+        "provenance": "regenerated-house-style",
+        "files": {
+            "wide": "/academy/art/events/blank-atlas-mission-sound__replay-one-voice__wide__v001.webp",
+            "mobile": "/academy/art/events/blank-atlas-mission-sound__replay-one-voice__mobile__v001.webp"
+        }
     }
 } as const;
 
@@ -267,5 +309,13 @@ export const ACADEMY_STORY_ART_COVERAGE = {
     "event.story.blank-atlas-useful-vocabulary.name-card-repair": {
         "purpose": "story-event",
         "primaryUse": "node:blank-atlas:name-card-repair"
+    },
+    "event.story.blank-atlas-mission-sound.two-blank-name-tabs": {
+        "purpose": "story-event",
+        "primaryUse": "node:blank-atlas:sound-nameplates"
+    },
+    "event.story.blank-atlas-mission-sound.replay-one-voice": {
+        "purpose": "story-event",
+        "primaryUse": "node:blank-atlas:sound-input-repair"
     }
 } as const;

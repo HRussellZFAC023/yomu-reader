@@ -1,11 +1,17 @@
 import assert from 'node:assert/strict';
-import { mkdir } from 'node:fs/promises';
+import { mkdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import AxeBuilder from '@axe-core/playwright';
 import { chromium } from 'playwright';
 
 const baseUrl = process.env.ACADEMY_BASE_URL ?? 'http://127.0.0.1:5278';
 const artifactDir = path.resolve(process.env.SOUND_SCREENSHOTS ?? 'qa-artifacts/lesson-zero-sound');
+const assetUsage = JSON.parse(await readFile(path.resolve('public/academy/art/ASSET-USAGE.json'), 'utf8'));
+const approvedMikaStoryAsset = assetUsage.assets.find(asset =>
+    asset.verdict === 'approved-runtime'
+    && asset.runtimeHome?.includes('story:mika-listening'));
+const approvedMikaStoryPath = approvedMikaStoryAsset?.deliveries?.[0]?.path;
+assert.ok(approvedMikaStoryPath, 'The Academy asset ledger must own one approved Mika listening performance.');
 const cases = [
     { name: 'compact-phone', width: 320, height: 720, proveResume: true },
     { name: 'phone', width: 390, height: 844, proveResume: false },
@@ -396,7 +402,7 @@ async function assertStorySpeaker(page, testCase, characterId) {
         };
     });
     assert.equal(geometry.imageLoaded, true, `${testCase.name} story speaker image must decode`);
-    assert.equal(geometry.imageSource, '/academy/art/characters/mika/mika__sound-listening__halfbody__v001.png',
+    assert.equal(geometry.imageSource, approvedMikaStoryPath,
         `${testCase.name} story speaker must use the approved Mika performance`);
     assert.ok(geometry.opacity > 0.9, `${testCase.name} story speaker must be visibly active: ${JSON.stringify(geometry)}`);
     assert.ok(geometry.visibleWidth >= 96, `${testCase.name} story speaker needs visible width: ${JSON.stringify(geometry)}`);

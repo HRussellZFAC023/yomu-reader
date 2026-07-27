@@ -219,6 +219,50 @@
           "The composition leaves the actual learner name and です to the accessible runtime layer."
         ]
       }
+    },
+    {
+      "assetId": "event.story.blank-atlas-mission-sound.two-blank-name-tabs",
+      "chapterId": "s1e01-the-blank-atlas",
+      "sceneId": "scene:blank-atlas:mission-sound",
+      "nodeId": "node:blank-atlas:sound-nameplates",
+      "cueId": "cue:sound-route-nameplates-only",
+      "wide": "/academy/art/events/blank-atlas-mission-sound__two-blank-name-tabs__wide__v001.webp",
+      "mobile": "/academy/art/events/blank-atlas-mission-sound__two-blank-name-tabs__mobile__v001.webp",
+      "generationSources": [
+        "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/call_YLXqXMRwYFUTO7jDCgPwIcmf.png",
+        "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/call_WXXZJHd3d0rJrYViGQ5QJyki.png"
+      ],
+      "qa": {
+        "verdict": "pass",
+        "inspected": true,
+        "notes": [
+          "Two distinct listening stations and two blank removable tabs establish the matching task without revealing either name.",
+          "No person, label, or silhouette is baked into the plate; canonical runtime sprites own Xingyu and Mika.",
+          "Wide and mobile compositions preserve the rainy language lab and reserve calm regions for dialogue and controls."
+        ]
+      }
+    },
+    {
+      "assetId": "event.story.blank-atlas-mission-sound.replay-one-voice",
+      "chapterId": "s1e01-the-blank-atlas",
+      "sceneId": "scene:blank-atlas:mission-sound",
+      "nodeId": "node:blank-atlas:sound-input-repair",
+      "cueId": "cue:sound-route-replay-one-speaker",
+      "wide": "/academy/art/events/blank-atlas-mission-sound__replay-one-voice__wide__v001.webp",
+      "mobile": "/academy/art/events/blank-atlas-mission-sound__replay-one-voice__mobile__v001.webp",
+      "generationSources": [
+        "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/call_dLCNjh97sQWlvrA38DkzOdNB.png",
+        "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/call_iApgroXIWD2dV83REl38HVcy.png"
+      ],
+      "qa": {
+        "verdict": "pass",
+        "inspected": true,
+        "notes": [
+          "One station becomes the unambiguous replay target while the other remains present but quiet.",
+          "The active waveform and forward blank tab focus attention without arrows, prose, failure language, or answer leakage.",
+          "Both viewports keep the retry warm and specific rather than turning it into a punitive error screen."
+        ]
+      }
     }
   ]
 }

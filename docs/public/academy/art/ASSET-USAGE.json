@@ -18,8 +18,8 @@
     ]
   },
   "counts": {
-    "runtimeAssetHomes": 169,
-    "runtimeFiles": 211,
+    "runtimeAssetHomes": 171,
+    "runtimeFiles": 215,
     "nonRuntimeReviewFiles": 1734,
     "approvedReferenceOnly": 4,
     "explicitlyRejectedFamilies": 4,
@@ -4163,6 +4163,78 @@
         {
           "path": "/academy/art/events/blank-atlas-classroom-survival__rie-flower-mark__mobile__v001.webp",
           "sha256": "dcc7ffa13c1e3c90bbe979c6679c685fb40b4ae45c9be36357e9f33102251fee"
+        }
+      ],
+      "status": "node-bound, art-directed responsive story event"
+    },
+    {
+      "id": "event-story-blank-atlas-mission-sound-replay-one-voice",
+      "source": "manifest:docs/academy/art/STORY-ART-PROMOTIONS.json",
+      "sourceSha256": "476760b7ccb758bc585e5d3166e05015511cc9370d7218650f6da8b6f11f53b8",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "node:blank-atlas:sound-input-repair",
+        "scene:blank-atlas:mission-sound"
+      ],
+      "reviewHome": [
+        "story-art-promotions",
+        "cue:sound-route-replay-one-speaker"
+      ],
+      "usage": {
+        "runtime": [
+          "node:blank-atlas:sound-input-repair",
+          "scene:blank-atlas:mission-sound"
+        ],
+        "review": [
+          "story-art-promotions"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/events/blank-atlas-mission-sound__replay-one-voice__wide__v001.webp",
+          "sha256": "0a539abe69e7d903618212b8d5492a2e1b25e875095575a66485d47791b57af1"
+        },
+        {
+          "path": "/academy/art/events/blank-atlas-mission-sound__replay-one-voice__mobile__v001.webp",
+          "sha256": "487b026f28f6795f3dc71d94dc58404c281ba6acef02fc0cda6dd32177e3824b"
+        }
+      ],
+      "status": "node-bound, art-directed responsive story event"
+    },
+    {
+      "id": "event-story-blank-atlas-mission-sound-two-blank-name-tabs",
+      "source": "manifest:docs/academy/art/STORY-ART-PROMOTIONS.json",
+      "sourceSha256": "9b01f83cb3fe57dbb11a9d5997636e30514dae214ebe954411896bb56fc69a09",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "node:blank-atlas:sound-nameplates",
+        "scene:blank-atlas:mission-sound"
+      ],
+      "reviewHome": [
+        "story-art-promotions",
+        "cue:sound-route-nameplates-only"
+      ],
+      "usage": {
+        "runtime": [
+          "node:blank-atlas:sound-nameplates",
+          "scene:blank-atlas:mission-sound"
+        ],
+        "review": [
+          "story-art-promotions"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/events/blank-atlas-mission-sound__two-blank-name-tabs__wide__v001.webp",
+          "sha256": "3be04962ea4ed61df18d6eb79ed1cfcd244d9dd6c7097f1cb7c12bab1438c226"
+        },
+        {
+          "path": "/academy/art/events/blank-atlas-mission-sound__two-blank-name-tabs__mobile__v001.webp",
+          "sha256": "352c34721b2f30b5af09a4cf764a8bda352baf3219646733a684087dc7d24cab"
         }
       ],
       "status": "node-bound, art-directed responsive story event"

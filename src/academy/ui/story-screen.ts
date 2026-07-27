@@ -719,7 +719,12 @@ function playableStoryCast(
             },
         });
     }
-    const speakingClassmate = approvedStorySpeakerCastMember(language, speakerId, hasRie ? 'center' : 'left');
+    const speakingClassmate = approvedStorySpeakerCastMember(
+        language,
+        speakerId,
+        hasRie ? 'center' : 'left',
+        moment.kind === 'line' ? moment.node.intent : undefined,
+    );
     if (speakingClassmate) cast.push(speakingClassmate);
     if (moment.kind === 'line') {
         cast.push(learnerStoryCastMember(language, learner));
@@ -731,6 +736,7 @@ function approvedStorySpeakerCastMember(
     language: AcademyLanguage,
     speakerId: string | undefined,
     position: AcademyVnCastMember['position'],
+    intent?: string,
 ): AcademyVnCastMember | undefined {
     if (!speakerId || speakerId === 'rie' || speakerId === 'learner') return undefined;
     if (!canRenderAcademyCastPortrait(speakerId, 'story-runtime')) return undefined;
@@ -738,14 +744,25 @@ function approvedStorySpeakerCastMember(
     const still = approved[speakerId];
     if (!still) return undefined;
     const displayName = displayAcademyCastName(speakerId, language);
+    const listeningPerformance = intent?.toLowerCase().includes('listen')
+        ? approvedListeningPerformance(speakerId)
+        : undefined;
     return {
         characterId: speakerId,
         displayName,
         alt: language === 'ja' ? `${displayName}が話しています` : `${displayName} speaking`,
         position,
-        expression: 'neutral',
-        expressions: { neutral: { still } },
+        expression: listeningPerformance ? 'encouraging' : 'neutral',
+        expressions: listeningPerformance
+            ? { neutral: { still }, encouraging: { still: listeningPerformance } }
+            : { neutral: { still } },
     };
+}
+
+function approvedListeningPerformance(speakerId: string): string | undefined {
+    if (speakerId === 'xingyu') return ACADEMY_ASSETS.xingyuListening;
+    if (speakerId === 'mika') return ACADEMY_ASSETS.mikaSound;
+    return undefined;
 }
 
 function storySpeakerName(

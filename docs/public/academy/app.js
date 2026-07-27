@@ -14789,6 +14789,22 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       "cueId": "cue:name-card-one-rubric",
       "wide": "/academy/art/events/blank-atlas-useful-vocabulary__name-card-repair__wide__v001.webp",
       "mobile": "/academy/art/events/blank-atlas-useful-vocabulary__name-card-repair__mobile__v001.webp"
+    },
+    "node:blank-atlas:sound-nameplates": {
+      "assetId": "event.story.blank-atlas-mission-sound.two-blank-name-tabs",
+      "sceneId": "scene:blank-atlas:mission-sound",
+      "nodeId": "node:blank-atlas:sound-nameplates",
+      "cueId": "cue:sound-route-nameplates-only",
+      "wide": "/academy/art/events/blank-atlas-mission-sound__two-blank-name-tabs__wide__v001.webp",
+      "mobile": "/academy/art/events/blank-atlas-mission-sound__two-blank-name-tabs__mobile__v001.webp"
+    },
+    "node:blank-atlas:sound-input-repair": {
+      "assetId": "event.story.blank-atlas-mission-sound.replay-one-voice",
+      "sceneId": "scene:blank-atlas:mission-sound",
+      "nodeId": "node:blank-atlas:sound-input-repair",
+      "cueId": "cue:sound-route-replay-one-speaker",
+      "wide": "/academy/art/events/blank-atlas-mission-sound__replay-one-voice__wide__v001.webp",
+      "mobile": "/academy/art/events/blank-atlas-mission-sound__replay-one-voice__mobile__v001.webp"
     }
   };
   const ACADEMY_STORY_ART_RUNTIME_ASSETS = {
@@ -14920,6 +14936,32 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       "files": {
         "wide": "/academy/art/events/blank-atlas-useful-vocabulary__name-card-repair__wide__v001.webp",
         "mobile": "/academy/art/events/blank-atlas-useful-vocabulary__name-card-repair__mobile__v001.webp"
+      }
+    },
+    "event.story.blank-atlas-mission-sound.two-blank-name-tabs": {
+      "kind": "event-art",
+      "status": "approved",
+      "runtimeHomes": [
+        "node:blank-atlas:sound-nameplates",
+        "scene:blank-atlas:mission-sound"
+      ],
+      "provenance": "regenerated-house-style",
+      "files": {
+        "wide": "/academy/art/events/blank-atlas-mission-sound__two-blank-name-tabs__wide__v001.webp",
+        "mobile": "/academy/art/events/blank-atlas-mission-sound__two-blank-name-tabs__mobile__v001.webp"
+      }
+    },
+    "event.story.blank-atlas-mission-sound.replay-one-voice": {
+      "kind": "event-art",
+      "status": "approved",
+      "runtimeHomes": [
+        "node:blank-atlas:sound-input-repair",
+        "scene:blank-atlas:mission-sound"
+      ],
+      "provenance": "regenerated-house-style",
+      "files": {
+        "wide": "/academy/art/events/blank-atlas-mission-sound__replay-one-voice__wide__v001.webp",
+        "mobile": "/academy/art/events/blank-atlas-mission-sound__replay-one-voice__mobile__v001.webp"
       }
     }
   };
@@ -91505,28 +91547,39 @@ recommendedJiten	Jiten由来の頻度バッジです。
         }
       });
     }
-    const speakingClassmate = approvedStorySpeakerCastMember(language2, speakerId, hasRie ? "center" : "left");
+    const speakingClassmate = approvedStorySpeakerCastMember(
+      language2,
+      speakerId,
+      hasRie ? "center" : "left",
+      moment.kind === "line" ? moment.node.intent : void 0
+    );
     if (speakingClassmate) cast2.push(speakingClassmate);
     if (moment.kind === "line") {
       cast2.push(learnerStoryCastMember(language2, learner));
     }
     return cast2;
   }
-  function approvedStorySpeakerCastMember(language2, speakerId, position) {
+  function approvedStorySpeakerCastMember(language2, speakerId, position, intent) {
     if (!speakerId || speakerId === "rie" || speakerId === "learner") return void 0;
     if (!canRenderAcademyCastPortrait(speakerId)) return void 0;
     const approved = ACADEMY_ASSETS.characters.approved;
     const still = approved[speakerId];
     if (!still) return void 0;
     const displayName2 = displayAcademyCastName(speakerId, language2);
+    const listeningPerformance = intent?.toLowerCase().includes("listen") ? approvedListeningPerformance(speakerId) : void 0;
     return {
       characterId: speakerId,
       displayName: displayName2,
       alt: language2 === "ja" ? `${displayName2}が話しています` : `${displayName2} speaking`,
       position,
-      expression: "neutral",
-      expressions: { neutral: { still } }
+      expression: listeningPerformance ? "encouraging" : "neutral",
+      expressions: listeningPerformance ? { neutral: { still }, encouraging: { still: listeningPerformance } } : { neutral: { still } }
     };
+  }
+  function approvedListeningPerformance(speakerId) {
+    if (speakerId === "xingyu") return ACADEMY_ASSETS.xingyuListening;
+    if (speakerId === "mika") return ACADEMY_ASSETS.mikaSound;
+    return void 0;
   }
   function storySpeakerName(speakerId, language2, learner) {
     if (!speakerId) return void 0;
