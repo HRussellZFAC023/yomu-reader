@@ -19,9 +19,9 @@
     "deletion": "This audit never deletes, moves, or mutates Academy raster files."
   },
   "counts": {
-    "currentRasterFiles": 248,
-    "currentRasterFilesAccountedFor": 248,
-    "active": 195,
+    "currentRasterFiles": 252,
+    "currentRasterFilesAccountedFor": 252,
+    "active": 199,
     "orphaned": 53,
     "deprecated": 10,
     "deprecatedPresent": 0,
@@ -35,7 +35,7 @@
       "character-sprite": 109,
       "protagonist-portrait": 4,
       "scene-background": 66,
-      "scene-event": 8,
+      "scene-event": 12,
       "scene-item": 8
     },
     "orphanedByKind": {
@@ -2470,6 +2470,90 @@
         "reviewHomes": [
           "story-art-promotions",
           "cue:covered-atlas-open-chair"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "node-bound, art-directed responsive story event"
+      },
+      {
+        "id": "event-story-blank-atlas-sound-script-map-first-route-line",
+        "path": "/academy/art/events/blank-atlas-sound-script-map__first-route-line__mobile__v001.webp",
+        "sha256": "4b75cfdb3cc9bf31be14fa369d28bdc14ba6d8d8bb5bbd92dba6e7bcd963ef8d",
+        "ledgerSha256": "4b75cfdb3cc9bf31be14fa369d28bdc14ba6d8d8bb5bbd92dba6e7bcd963ef8d",
+        "kind": "scene-event",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "node:blank-atlas:first-line",
+          "scene:blank-atlas:sound-script-map"
+        ],
+        "reviewHomes": [
+          "story-art-promotions",
+          "cue:first-route-line-visible"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "node-bound, art-directed responsive story event"
+      },
+      {
+        "id": "event-story-blank-atlas-sound-script-map-first-route-line",
+        "path": "/academy/art/events/blank-atlas-sound-script-map__first-route-line__wide__v001.webp",
+        "sha256": "7a6d6a6d9df68b27e3ef74592835d3f8c88bdeba3a96ef1517a755c32bfa76d0",
+        "ledgerSha256": "7a6d6a6d9df68b27e3ef74592835d3f8c88bdeba3a96ef1517a755c32bfa76d0",
+        "kind": "scene-event",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "node:blank-atlas:first-line",
+          "scene:blank-atlas:sound-script-map"
+        ],
+        "reviewHomes": [
+          "story-art-promotions",
+          "cue:first-route-line-visible"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "node-bound, art-directed responsive story event"
+      },
+      {
+        "id": "event-story-blank-atlas-sound-script-map-five-empty-slots",
+        "path": "/academy/art/events/blank-atlas-sound-script-map__five-empty-slots__mobile__v001.webp",
+        "sha256": "1513b3b88bcd2bd2ee55bc2ac0b476acb0cc2053e678b6e9aa62892888375e4b",
+        "ledgerSha256": "1513b3b88bcd2bd2ee55bc2ac0b476acb0cc2053e678b6e9aa62892888375e4b",
+        "kind": "scene-event",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "node:blank-atlas:vowel-slots",
+          "scene:blank-atlas:sound-script-map"
+        ],
+        "reviewHomes": [
+          "story-art-promotions",
+          "cue:five-empty-atlas-slots"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "node-bound, art-directed responsive story event"
+      },
+      {
+        "id": "event-story-blank-atlas-sound-script-map-five-empty-slots",
+        "path": "/academy/art/events/blank-atlas-sound-script-map__five-empty-slots__wide__v001.webp",
+        "sha256": "a0c64a2f9919f86925630c934daff520193b0ef87e0f8450f02f0f8c86f4a4b6",
+        "ledgerSha256": "a0c64a2f9919f86925630c934daff520193b0ef87e0f8450f02f0f8c86f4a4b6",
+        "kind": "scene-event",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "node:blank-atlas:vowel-slots",
+          "scene:blank-atlas:sound-script-map"
+        ],
+        "reviewHomes": [
+          "story-art-promotions",
+          "cue:five-empty-atlas-slots"
         ],
         "sourceLedger": "public/academy/art/ASSET-USAGE.json",
         "ledgerVerdict": "approved-runtime",

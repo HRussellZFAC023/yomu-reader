@@ -87,6 +87,50 @@
           "The art contains no baked text or character identity."
         ]
       }
+    },
+    {
+      "assetId": "event.story.blank-atlas-classroom-survival.handout-arrives",
+      "chapterId": "s1e01-the-blank-atlas",
+      "sceneId": "scene:blank-atlas:classroom-survival",
+      "nodeId": "node:blank-atlas:handout-arrives",
+      "cueId": "cue:classroom-handout-on-desk",
+      "wide": "/academy/art/events/blank-atlas-classroom-survival__handout-arrives__wide__v001.webp",
+      "mobile": "/academy/art/events/blank-atlas-classroom-survival__handout-arrives__mobile__v001.webp",
+      "generationSources": [
+        "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/call_CN40HROrdKTZog6Q00RefdIP.png",
+        "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/call_ARpw2oV87MenYgEciGapP6Wg.png"
+      ],
+      "qa": {
+        "verdict": "pass",
+        "inspected": true,
+        "notes": [
+          "The classroom, Atlas, desk objects, and lighting remain continuous at both viewports.",
+          "The clean handout contains exactly fourteen readable pictographic action marks.",
+          "Both compositions preserve calm space for persistent game UI and dialogue."
+        ]
+      }
+    },
+    {
+      "assetId": "event.story.blank-atlas-classroom-survival.rie-flower-mark",
+      "chapterId": "s1e01-the-blank-atlas",
+      "sceneId": "scene:blank-atlas:classroom-survival",
+      "nodeId": "node:blank-atlas:handout-flower",
+      "cueId": "cue:rie-flower-mark",
+      "wide": "/academy/art/events/blank-atlas-classroom-survival__rie-flower-mark__wide__v001.webp",
+      "mobile": "/academy/art/events/blank-atlas-classroom-survival__rie-flower-mark__mobile__v001.webp",
+      "generationSources": [
+        "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/call_byS0fQve230LNF7Mqbx53hIi.png",
+        "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/call_FZLbtmh6usalDEbPRPO3EGJ5.png"
+      ],
+      "qa": {
+        "verdict": "pass",
+        "inspected": true,
+        "notes": [
+          "The payoff keeps all fourteen action marks and adds one separate hand-drawn flower.",
+          "The flower reads as Rie's quiet acknowledgement rather than a printed badge or UI.",
+          "The warm light change is restrained and coherent across wide and mobile art."
+        ]
+      }
     }
   ]
 }

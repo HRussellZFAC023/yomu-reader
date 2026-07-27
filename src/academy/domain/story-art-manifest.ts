@@ -43,6 +43,22 @@ export const ACADEMY_STORY_ART_BY_NODE = {
         "cueId": "cue:first-route-line-visible",
         "wide": "/academy/art/events/blank-atlas-sound-script-map__first-route-line__wide__v001.webp",
         "mobile": "/academy/art/events/blank-atlas-sound-script-map__first-route-line__mobile__v001.webp"
+    },
+    "node:blank-atlas:handout-arrives": {
+        "assetId": "event.story.blank-atlas-classroom-survival.handout-arrives",
+        "sceneId": "scene:blank-atlas:classroom-survival",
+        "nodeId": "node:blank-atlas:handout-arrives",
+        "cueId": "cue:classroom-handout-on-desk",
+        "wide": "/academy/art/events/blank-atlas-classroom-survival__handout-arrives__wide__v001.webp",
+        "mobile": "/academy/art/events/blank-atlas-classroom-survival__handout-arrives__mobile__v001.webp"
+    },
+    "node:blank-atlas:handout-flower": {
+        "assetId": "event.story.blank-atlas-classroom-survival.rie-flower-mark",
+        "sceneId": "scene:blank-atlas:classroom-survival",
+        "nodeId": "node:blank-atlas:handout-flower",
+        "cueId": "cue:rie-flower-mark",
+        "wide": "/academy/art/events/blank-atlas-classroom-survival__rie-flower-mark__wide__v001.webp",
+        "mobile": "/academy/art/events/blank-atlas-classroom-survival__rie-flower-mark__mobile__v001.webp"
     }
 } as const satisfies Readonly<Record<string, AcademyStoryArtBinding>>;
 
@@ -98,6 +114,32 @@ export const ACADEMY_STORY_ART_RUNTIME_ASSETS = {
             "wide": "/academy/art/events/blank-atlas-sound-script-map__first-route-line__wide__v001.webp",
             "mobile": "/academy/art/events/blank-atlas-sound-script-map__first-route-line__mobile__v001.webp"
         }
+    },
+    "event.story.blank-atlas-classroom-survival.handout-arrives": {
+        "kind": "event-art",
+        "status": "approved",
+        "runtimeHomes": [
+            "node:blank-atlas:handout-arrives",
+            "scene:blank-atlas:classroom-survival"
+        ],
+        "provenance": "regenerated-house-style",
+        "files": {
+            "wide": "/academy/art/events/blank-atlas-classroom-survival__handout-arrives__wide__v001.webp",
+            "mobile": "/academy/art/events/blank-atlas-classroom-survival__handout-arrives__mobile__v001.webp"
+        }
+    },
+    "event.story.blank-atlas-classroom-survival.rie-flower-mark": {
+        "kind": "event-art",
+        "status": "approved",
+        "runtimeHomes": [
+            "node:blank-atlas:handout-flower",
+            "scene:blank-atlas:classroom-survival"
+        ],
+        "provenance": "regenerated-house-style",
+        "files": {
+            "wide": "/academy/art/events/blank-atlas-classroom-survival__rie-flower-mark__wide__v001.webp",
+            "mobile": "/academy/art/events/blank-atlas-classroom-survival__rie-flower-mark__mobile__v001.webp"
+        }
     }
 } as const;
 
@@ -117,5 +159,13 @@ export const ACADEMY_STORY_ART_COVERAGE = {
     "event.story.blank-atlas-sound-script-map.first-route-line": {
         "purpose": "story-event",
         "primaryUse": "node:blank-atlas:first-line"
+    },
+    "event.story.blank-atlas-classroom-survival.handout-arrives": {
+        "purpose": "story-event",
+        "primaryUse": "node:blank-atlas:handout-arrives"
+    },
+    "event.story.blank-atlas-classroom-survival.rie-flower-mark": {
+        "purpose": "story-event",
+        "primaryUse": "node:blank-atlas:handout-flower"
     }
 } as const;

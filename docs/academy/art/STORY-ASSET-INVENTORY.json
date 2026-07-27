@@ -46,10 +46,10 @@
     ],
     "castCount": 24,
     "backgroundGaps": 25,
-    "openingImageGaps": 103,
-    "exitImageGaps": 103,
+    "openingImageGaps": 102,
+    "exitImageGaps": 102,
     "propOrOverlayGaps": 81,
-    "generationQueue": 312
+    "generationQueue": 310
   },
   "chapters": [
     {
@@ -226,16 +226,22 @@
           "openingImage": {
             "cueId": "cue:classroom-handout-on-desk",
             "description": "Rie places the class action sheet beside the atlas.",
-            "status": "missing",
+            "status": "bound",
             "runtimeHome": "scene:blank-atlas:classroom-survival",
-            "candidatePaths": []
+            "candidatePaths": [
+              "/academy/art/events/blank-atlas-classroom-survival__handout-arrives__wide__v001.webp",
+              "/academy/art/events/blank-atlas-classroom-survival__handout-arrives__mobile__v001.webp"
+            ]
           },
           "exitImage": {
             "cueId": "cue:rie-flower-mark",
             "description": "Rie adds a flower mark. It lands on your first turn.",
-            "status": "missing",
+            "status": "bound",
             "runtimeHome": "scene:blank-atlas:classroom-survival",
-            "candidatePaths": []
+            "candidatePaths": [
+              "/academy/art/events/blank-atlas-classroom-survival__rie-flower-mark__wide__v001.webp",
+              "/academy/art/events/blank-atlas-classroom-survival__rie-flower-mark__mobile__v001.webp"
+            ]
           },
           "propCues": [
             {
@@ -7603,38 +7609,6 @@
         "rie"
       ],
       "runtimeHome": "scene:blank-atlas:sound-script-map",
-      "status": "queued"
-    },
-    {
-      "priority": "scene-critical",
-      "chapter": 1,
-      "chapterId": "s1e01-the-blank-atlas",
-      "sceneId": "scene:blank-atlas:classroom-survival",
-      "cueId": "cue:classroom-handout-on-desk",
-      "kind": "opening-image",
-      "brief": "Rie places the class action sheet beside the atlas.",
-      "locationId": "location:classroom",
-      "timeState": "evening",
-      "castIds": [
-        "rie"
-      ],
-      "runtimeHome": "scene:blank-atlas:classroom-survival",
-      "status": "queued"
-    },
-    {
-      "priority": "payoff-critical",
-      "chapter": 1,
-      "chapterId": "s1e01-the-blank-atlas",
-      "sceneId": "scene:blank-atlas:classroom-survival",
-      "cueId": "cue:rie-flower-mark",
-      "kind": "exit-image",
-      "brief": "Rie adds a flower mark. It lands on your first turn.",
-      "locationId": "location:classroom",
-      "timeState": "evening",
-      "castIds": [
-        "rie"
-      ],
-      "runtimeHome": "scene:blank-atlas:classroom-survival",
       "status": "queued"
     },
     {

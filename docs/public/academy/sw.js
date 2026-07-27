@@ -1,4 +1,4 @@
-const VERSION = 'yomu-academy-shell-s1-7fbcaaada2fb';
+const VERSION = 'yomu-academy-shell-s1-9d8f1db979ec';
 const AUDIO_CACHE = 'yomu-academy-audio-v1-2c25b06f971c';
 const STORY_VOICE_CATALOG = '/academy/audio/story-voice-playback.json';
 const STORY_VOICE_ASSET = /^\/academy\/audio\/story-(?:pilot|lines)\/[a-z0-9][a-z0-9._-]*\.opus$/;
@@ -150,6 +150,10 @@ const RUNTIME_ART_PRECACHE = [
     '/academy/art/events/blank-atlas-arrival__atlas-uncovered-unlit__wide__v001.webp',
     '/academy/art/events/blank-atlas-arrival__covered-atlas-open-chair__mobile__v001.webp',
     '/academy/art/events/blank-atlas-arrival__covered-atlas-open-chair__wide__v001.webp',
+    '/academy/art/events/blank-atlas-classroom-survival__handout-arrives__mobile__v001.webp',
+    '/academy/art/events/blank-atlas-classroom-survival__handout-arrives__wide__v001.webp',
+    '/academy/art/events/blank-atlas-classroom-survival__rie-flower-mark__mobile__v001.webp',
+    '/academy/art/events/blank-atlas-classroom-survival__rie-flower-mark__wide__v001.webp',
     '/academy/art/events/blank-atlas-sound-script-map__first-route-line__mobile__v001.webp',
     '/academy/art/events/blank-atlas-sound-script-map__first-route-line__wide__v001.webp',
     '/academy/art/events/blank-atlas-sound-script-map__five-empty-slots__mobile__v001.webp',
@@ -249,8 +253,8 @@ const CORE = [
     '/yomu-icon.svg',
     '/academy/',
     '/academy/index.html',
-    '/academy/app.js?v=s1-7fbcaaada2fb',
-    '/academy/style.css?v=s1-7fbcaaada2fb',
+    '/academy/app.js?v=s1-9d8f1db979ec',
+    '/academy/style.css?v=s1-9d8f1db979ec',
     '/academy/manifest.webmanifest',
     ...RUNTIME_ART_PRECACHE,
     '/academy/content/vertical-slice/source-library.v1.json',

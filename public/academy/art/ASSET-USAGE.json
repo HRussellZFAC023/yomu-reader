@@ -18,8 +18,8 @@
     ]
   },
   "counts": {
-    "runtimeAssetHomes": 163,
-    "runtimeFiles": 199,
+    "runtimeAssetHomes": 165,
+    "runtimeFiles": 203,
     "nonRuntimeReviewFiles": 1734,
     "approvedReferenceOnly": 4,
     "explicitlyRejectedFamilies": 4,
@@ -4091,6 +4091,78 @@
         {
           "path": "/academy/art/events/blank-atlas-arrival__covered-atlas-open-chair__mobile__v001.webp",
           "sha256": "572f2c83e20095b52bbc5f0fc5cc76cb1b2a98c8b73629764f694ea1a726327a"
+        }
+      ],
+      "status": "node-bound, art-directed responsive story event"
+    },
+    {
+      "id": "event-story-blank-atlas-classroom-survival-handout-arrives",
+      "source": "manifest:docs/academy/art/STORY-ART-PROMOTIONS.json",
+      "sourceSha256": "fe916030833f26828179328a193b3086312335bd49924f9b44c8b9bc8bd16a0c",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "node:blank-atlas:handout-arrives",
+        "scene:blank-atlas:classroom-survival"
+      ],
+      "reviewHome": [
+        "story-art-promotions",
+        "cue:classroom-handout-on-desk"
+      ],
+      "usage": {
+        "runtime": [
+          "node:blank-atlas:handout-arrives",
+          "scene:blank-atlas:classroom-survival"
+        ],
+        "review": [
+          "story-art-promotions"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/events/blank-atlas-classroom-survival__handout-arrives__wide__v001.webp",
+          "sha256": "1d97d01eec14b189106c1598f6eb7845bf998d52c8ee7520cf2363f83c33f0cd"
+        },
+        {
+          "path": "/academy/art/events/blank-atlas-classroom-survival__handout-arrives__mobile__v001.webp",
+          "sha256": "4ac9578070c953892fe06dd8fbf980c59b00695df2ccd30d9bbcd3bcdcc41abc"
+        }
+      ],
+      "status": "node-bound, art-directed responsive story event"
+    },
+    {
+      "id": "event-story-blank-atlas-classroom-survival-rie-flower-mark",
+      "source": "manifest:docs/academy/art/STORY-ART-PROMOTIONS.json",
+      "sourceSha256": "c8c05e83ee51e5ef863dfd5c4b587e2485ecb5dcbe3eb9f54a6c0f1c4227baa4",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "node:blank-atlas:handout-flower",
+        "scene:blank-atlas:classroom-survival"
+      ],
+      "reviewHome": [
+        "story-art-promotions",
+        "cue:rie-flower-mark"
+      ],
+      "usage": {
+        "runtime": [
+          "node:blank-atlas:handout-flower",
+          "scene:blank-atlas:classroom-survival"
+        ],
+        "review": [
+          "story-art-promotions"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/events/blank-atlas-classroom-survival__rie-flower-mark__wide__v001.webp",
+          "sha256": "cea566c7453ca67a2b7ecacf7e0f4a36dc5d2744103a3ae56aa937f18a624c21"
+        },
+        {
+          "path": "/academy/art/events/blank-atlas-classroom-survival__rie-flower-mark__mobile__v001.webp",
+          "sha256": "dcc7ffa13c1e3c90bbe979c6679c685fb40b4ae45c9be36357e9f33102251fee"
         }
       ],
       "status": "node-bound, art-directed responsive story event"

@@ -14741,6 +14741,22 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       "cueId": "cue:first-route-line-visible",
       "wide": "/academy/art/events/blank-atlas-sound-script-map__first-route-line__wide__v001.webp",
       "mobile": "/academy/art/events/blank-atlas-sound-script-map__first-route-line__mobile__v001.webp"
+    },
+    "node:blank-atlas:handout-arrives": {
+      "assetId": "event.story.blank-atlas-classroom-survival.handout-arrives",
+      "sceneId": "scene:blank-atlas:classroom-survival",
+      "nodeId": "node:blank-atlas:handout-arrives",
+      "cueId": "cue:classroom-handout-on-desk",
+      "wide": "/academy/art/events/blank-atlas-classroom-survival__handout-arrives__wide__v001.webp",
+      "mobile": "/academy/art/events/blank-atlas-classroom-survival__handout-arrives__mobile__v001.webp"
+    },
+    "node:blank-atlas:handout-flower": {
+      "assetId": "event.story.blank-atlas-classroom-survival.rie-flower-mark",
+      "sceneId": "scene:blank-atlas:classroom-survival",
+      "nodeId": "node:blank-atlas:handout-flower",
+      "cueId": "cue:rie-flower-mark",
+      "wide": "/academy/art/events/blank-atlas-classroom-survival__rie-flower-mark__wide__v001.webp",
+      "mobile": "/academy/art/events/blank-atlas-classroom-survival__rie-flower-mark__mobile__v001.webp"
     }
   };
   const ACADEMY_STORY_ART_RUNTIME_ASSETS = {
@@ -14794,6 +14810,32 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       "files": {
         "wide": "/academy/art/events/blank-atlas-sound-script-map__first-route-line__wide__v001.webp",
         "mobile": "/academy/art/events/blank-atlas-sound-script-map__first-route-line__mobile__v001.webp"
+      }
+    },
+    "event.story.blank-atlas-classroom-survival.handout-arrives": {
+      "kind": "event-art",
+      "status": "approved",
+      "runtimeHomes": [
+        "node:blank-atlas:handout-arrives",
+        "scene:blank-atlas:classroom-survival"
+      ],
+      "provenance": "regenerated-house-style",
+      "files": {
+        "wide": "/academy/art/events/blank-atlas-classroom-survival__handout-arrives__wide__v001.webp",
+        "mobile": "/academy/art/events/blank-atlas-classroom-survival__handout-arrives__mobile__v001.webp"
+      }
+    },
+    "event.story.blank-atlas-classroom-survival.rie-flower-mark": {
+      "kind": "event-art",
+      "status": "approved",
+      "runtimeHomes": [
+        "node:blank-atlas:handout-flower",
+        "scene:blank-atlas:classroom-survival"
+      ],
+      "provenance": "regenerated-house-style",
+      "files": {
+        "wide": "/academy/art/events/blank-atlas-classroom-survival__rie-flower-mark__wide__v001.webp",
+        "mobile": "/academy/art/events/blank-atlas-classroom-survival__rie-flower-mark__mobile__v001.webp"
       }
     }
   };
