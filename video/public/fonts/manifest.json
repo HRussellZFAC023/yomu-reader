@@ -1,0 +1,12 @@
+{
+  "family": "Noto Sans JP",
+  "source": "Google Fonts (SIL Open Font License 1.1)",
+  "characters": 184,
+  "faces": [
+    {
+      "weightRange": "400 900",
+      "file": "noto-sans-jp-variable-subset.woff2",
+      "bytes": 63256
+    }
+  ]
+}

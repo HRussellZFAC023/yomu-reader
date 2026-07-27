@@ -1,0 +1,7 @@
+# Copyrighted game captures, staged from references/ by scripts/prepare-frames.mjs.
+# These are demo footage for a video about Yomu, not product assets, and they do
+# not belong in the product repository.
+public/frames/
+
+# Local render output. The published render goes to ../artifacts/video/.
+out/
