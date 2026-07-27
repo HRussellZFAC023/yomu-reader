@@ -120,8 +120,15 @@ function syncNewTabCompatibilityAlias() {
   console.log(`Synced lightweight /newtab/ compatibility alias ${NEW_TAB_ALIAS_DIRECTORY}`);
 }
 
+// docs/public/study/version.json is a COMMITTED artifact, so every field in it
+// has to be a function of the build input. A wall-clock stamp here rewrote the
+// file on every single build, which made the repository permanently "dirty"
+// after a rebuild and made any committed-vs-rebuilt comparison report stale
+// artifacts that were not stale. appHash and buildId already identify the
+// build, and they are the only fields the update check and the cache-busting
+// reload actually read.
 function writeStudyVersion(appHash, buildId) {
-  const version = `${JSON.stringify({ appHash, buildId, generatedAt: new Date().toISOString() }, null, 2)}\n`;
+  const version = `${JSON.stringify({ appHash, buildId }, null, 2)}\n`;
   writeFileSync(join(STUDY_BUILD_DIRECTORY, 'version.json'), version);
 }
 
