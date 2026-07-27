@@ -21,7 +21,7 @@ YouTube is full of Japanese listening practice buried under an algorithm that ke
 
 ## How the filter works
 
-On by default, the filter uses available title metadata to keep likely Japanese-learning and comprehensible-input content — even English-titled channels like Comprehensible Japanese — while hiding likely non-Japanese cards across recommendations, search, and sidebars. Playback, subtitles, and よむ controls keep working. A temporary notice shows how many cards were hidden; use **Show hidden videos** to reveal them, **Hide notice** to keep the filter without the banner, or the YouTube filter shortcut (`Shift+Y` by default, configurable in Settings → Shortcuts) to toggle it. See [all features](/features#youtube-immersion-filter) for the full breakdown.
+On by default, the filter uses available title metadata to keep likely Japanese-learning and comprehensible-input content — even English-titled channels like Comprehensible Japanese — while hiding likely non-Japanese cards across recommendations, search, and sidebars. Playback, subtitles, and よむ controls keep working. A temporary notice shows how many cards were hidden; use **Show hidden videos** to reveal them, **Hide notice** to keep the filter without the banner, or the YouTube filter shortcut (`Shift+Y` by default, configurable in Settings → Shortcuts) to toggle it. See [all features](/features#make-youtube-speak-japanese) for the full breakdown.
 
 <figure class="yomu-feature-shot">
   <img :src="'/screenshots/real-youtube-filter.png'" alt="A real YouTube page with よむ hiding non-Japanese-looking recommendation cards and showing the filter notice.">
@@ -57,7 +57,7 @@ The filter pairs with よむ's [subtitle tools](/tools/japanese-subtitle-reader)
 
 <div class="yomu-cta-grid">
   <a class="yomu-cta-button primary" href="https://yomureader.com/yomu.user.js">Install よむ (free)</a>
-  <a class="yomu-cta-button" href="/features#youtube-immersion-filter">Filter details</a>
+  <a class="yomu-cta-button" href="/features#make-youtube-speak-japanese">Filter details</a>
   <a class="yomu-cta-button" href="/tools/">All tools</a>
 </div>
 

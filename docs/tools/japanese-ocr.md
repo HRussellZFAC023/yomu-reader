@@ -58,7 +58,7 @@ Nothing is uploaded by default. Local OCR sends images only to the endpoint you 
 
 <div class="yomu-cta-grid">
   <a class="yomu-cta-button primary" href="https://yomureader.com/yomu.user.js">Install よむ (free)</a>
-  <a class="yomu-cta-button" href="/features#image-and-manga-ocr">OCR details</a>
+  <a class="yomu-cta-button" href="/features#read-manga-and-screenshots">OCR details</a>
   <a class="yomu-cta-button" href="/tools/">All tools</a>
 </div>
 

@@ -1,203 +1,147 @@
 ---
-title: Features
-description: Everything よむ does — popup dictionary lookup and mining, Yomitan dictionaries, audio and example sentences, kanji drilldown with stroke order, manga and image OCR, video subtitle mining, a YouTube immersion filter, Anki export, and a study page.
+title: What Yomu does
+description: Yomu turns any page, video, manga or game screen into a Japanese lesson — lookups, readings, and cards you keep. Here is what that looks like on each thing you read.
 ---
 
-# Features
+# What Yomu does
 
-よむ runs one loop: find Japanese in the wild, understand it quickly, and save the useful bits for study.
+Yomu turns any page, video, manga or game screen into a Japanese lesson — lookups, readings, and cards you keep.
 
-## Popup Lookup And Mining
+It is one loop, repeated everywhere you read: **meet Japanese, understand it on the spot, keep the words worth keeping.** Nothing below is required. Install Yomu, start reading, and turn things on when you want them.
 
-Choose Japanese text to open the popup; desktop hover/click and mobile touch/select are supported. It shows the reading and meaning right away, plus whatever you've turned on: Jiten, Bunpro, JPDB, and WaniKani definitions, imported dictionary entries, pitch and frequency, audio, example sentences, and kanji details. Mining buttons sit at the bottom.
+## Press a word, get an answer
 
-Slice 1 separates the language used for dictionary definitions from both the interface language and the fixed Japanese learning target. Choose from 32 definition languages in onboarding or Settings. If a native-language dictionary exists, よむ recommends it first. For a source that uses another language, **Translate automatically into _your language_** is available but stays off until you enable it. A successful translation appears first and the untouched original remains in an expandable section; a failed or unsupported translation leaves the original visible. Google Translate does not provide an Ancient Greek target, so the Ancient Greek profile keeps its dictionary recommendations and original definitions but does not offer the unavailable automatic translation.
+Press or select any Japanese word and a small panel opens over the page. It shows you:
 
-With a WaniKani personal access token, matching vocabulary and kanji can also show the account's level and SRS stage, meanings and readings, mnemonics and hints, components and visually similar subjects, context sentences, pronunciation, review accuracy, and your own synonyms and notes. The token is stored with your other local settings and sent only to the official WaniKani API; requests never use Yomu's proxy.
+- **The reading** — how the word is actually pronounced.
+- **The meaning**, in your language. Yomu ships definitions in 32 languages.
+- **How it sounds** — press the speaker to hear a real recording.
+- **Real sentences** using the word, so you see how people use it.
+- **The kanji**, broken down one character at a time.
+- **A save button**, so the word comes back later for review.
 
-Pitch decoration follows the available evidence: an exact whole-word accent takes priority, while a compound with no exact accent can show separate sourced underlines for fully aligned components. Partial component data stays undecorated rather than being combined into a guessed whole-word contour.
-
-The reader built into yomureader.com is only a no-install fallback. When the よむ userscript or extension is installed, that copy stays in control and keeps using its own language, Jiten/JPDB keys, settings, and progress.
-
-To let the official jpdb reader, Jiten Reader, or Yomitan own popups, turn off **Reader -> Show Yomu lookup popup** in Settings. よむ keeps annotations, media tools, mining, and study features without opening a second popup.
-
-Keyboard shortcuts can move lookup to the previous or next parsed word, and if you have selected a piece of text, navigation stays inside that selection. Popup Japanese font family and weight are configurable, and the default stack matches jpdb.io for kanji, readings, example sentences, grammar snippets, and dictionary terms.
-
-API mining actions can add a word, mark it Never Forget, blacklist it, or send review grades, and can be turned off while keeping popup lookup. When Anki is enabled, よむ can create a compact note with the word, reading, meaning, source sentence, source link, local dictionary content, optional context images, and Immersion Kit audio. The word-first Anki front can hide the reading, sentence, or image if you want a stricter prompt.
-
-Furigana and word colors are separate controls. You can show furigana only for harder kanji, show all parsed readings, hide furigana for known words, color words by Academy, Jiten, JPDB, or Anki state, color them by pitch accent, or turn highlight coloring off. Lookup and Study headings attach kana to the kanji as furigana; they do not repeat the same reading as trailing text.
-
-Pitch stays attached to the vocabulary it actually describes. A word with an exact accent gets one whole-word underline; an aligned compound with only component accents keeps one clickable lookup target but shows separate component-colour segments. On a wide tablet sheet, multiple pitch graphs use the upper-right header space instead of consuming a full row.
-
-The popup also has optional study helpers for the current sentence. The translation tool generates a plain sentence translation when you open that section, and the grammar tool highlights likely grammar patterns with short explanations and guide links.
+You never leave the page. Close the panel and you are exactly where you were.
 
 <figure class="yomu-feature-shot">
-  <img :src="'/screenshots/real-popup-lookup.png'" alt="A よむ popup on a Japanese Wikipedia article, showing Jiten/JPDB state, pitch, definitions, translation, grammar, and mining controls.">
-  <figcaption>Popup lookup with live study data and mining controls.</figcaption>
+  <img :src="'/screenshots/real-popup-lookup.png'" alt="A Yomu word panel open on a Japanese Wikipedia article, showing the reading, meaning, sound, and a save button.">
+  <figcaption>The word panel, open on a real article.</figcaption>
 </figure>
 
-## Yomitan Dictionaries
+## Readings above the kanji, as much or as little as you want
 
-よむ can install a language-specific starter set, import Yomitan dictionary ZIP files, import Yomitan settings exports, and restore dictionary backups. Installed dictionaries stay local in your browser. If you do not have an API source or Anki connected, よむ can still use public lookup and local dictionary words for the study page after you install a recommendation or import a Yomitan ZIP in Settings.
+Yomu can print the reading above the kanji on any Japanese page. You choose how much help you get: every word, only the hard kanji, or nothing for words you already know. Words can also be tinted by how well you know them, so a page shows you at a glance what is new.
 
-The frozen Slice 1 catalogue contains 186 entries backed by 167 unique, SHA-256-addressed archives. The published recommendations cover Albanian, Ancient Greek, Arabic, Cantonese, Chinese, Danish, Dutch, English, Finnish, French, German, Greek, Hungarian, Indonesian, Italian, Khmer, Korean, Lao, Latin, Mongolian, Persian, Polish, Portuguese, Romanian, Russian, Serbo-Croatian, Spanish, Swedish, Tagalog, Thai, Turkish, and Vietnamese. Native Japanese-to-learner dictionaries are preferred; an English fallback is explicit where no native dictionary passed the frozen catalogue.
+[More about readings and furigana →](/tools/furigana-reader)
 
-Parsing itself is local-first: with term dictionaries imported, よむ segments and annotates Japanese against your local dictionaries — deinflection, furigana, and pitch included — without contacting Jiten or JPDB. New installs get this by default, and **Settings → Sources → Parsing** switches between **Local dictionaries (offline)** and the Jiten/JPDB APIs. Installs from before this option keep API-first parsing until you switch. Dictionary downloads contact `dictionaries.yomureader.com`; subsequent lookups use the imported local copy. Opt-in automatic definition translation separately sends only selected definition or gloss text from the enabled source to Google Translate.
+## Read manga and screenshots
+
+Manga is a picture, so normally you cannot select the text in it. Yomu reads the Japanese inside the image and turns each word into something you can press. The picture stays exactly as it was until you touch a word.
+
+The same thing works on screenshots, image-only pages, and anywhere else the Japanese is baked into a picture.
+
+[More about reading images →](/tools/japanese-ocr)
 
 <figure class="yomu-feature-shot">
-  <img :src="'/screenshots/real-dictionaries.png'" alt="The よむ Dictionaries settings panel showing imported dictionary controls and definition source ordering.">
-  <figcaption>Dictionary import and source ordering controls.</figcaption>
+  <img :src="'/media/manga-ocr-sample.png'" alt="A Japanese manga page with each word in the panel ready to look up.">
+  <figcaption>Every word in the panel becomes a word you can press.</figcaption>
 </figure>
 
-## Audio And Examples
+## Read the subtitles while you watch
 
-The speaker button tries your configured audio sources in order. The default setup uses public Japanese audio sources, Jiten and optional JPDB word audio, and browser text-to-speech as fallbacks. If you already use a Yomitan-style audio source, you can add it as a custom URL.
+On a video, Yomu makes the Japanese subtitle line pressable. Look up a word without pausing, show a second subtitle line in your own language for support, and open a side panel with the whole transcript so you can jump back to a line you missed.
 
-When Bunpro is connected, its definitions use the same compact example rows as Jiten and JPDB. All three providers receive よむ furigana across the full Japanese sentence. Their translations are blurred by default and reveal on click, tap, Enter, or Space; if a provider omits the translation, よむ fills it with its cached sentence translator. よむ removes Bunpro's inline full-width kana brackets before display, then applies its own furigana and pitch annotations to the Japanese text. Bunpro's General, Anime, Novels, Netflix, and Dictionary ranks remain separately labelled because they describe different corpora. Bunpro pronunciation is also available in the audio-source list, disabled by default. Its recordings are fetched at runtime from Bunpro's public CDN; hosted/browser playback may use よむ's narrow public proxy.
+There is a practice tab that replays one line on a loop for shadowing, and a batch tab that collects the new words from an episode so you can save them all at the end.
 
-Example sentences can come from Jiten/JPDB public example rows, Immersion Kit without an API key, or Nadeshiko when you add your own Nadeshiko key. You can also use Immersion Kit + Nadeshiko together; よむ blends the results in a stable order so the same word does not reshuffle every time you open it.
+For your own video files, open the [Yomu video player](/video-player/index.html), drop in a video and a subtitle file, and everything above works there too.
 
-Every Immersion example card also links to public searches on Immersion Kit and Nadeshiko. These links work without API keys in popup lookup, Study, and enhanced jpdb/Jiten/Bunpro pages; Nadeshiko is also available as an opt-in lookup pill in Settings.
-
-The same Immersion Kit section can live directly inside jpdb, Jiten, and Bunpro. On Bunpro it follows vocabulary and grammar details, the lesson carousel, and the lesson-quiz or review SRS loop. Question prompts stay untouched; the section mounts only with revealed answer information and updates for the next item.
-
-On revealed review cards, Immersion Kit starts immediately in a centred, height-bounded 16:9 area with full-size phone controls. Jiten prefetches one exact current-card search behind the unrevealed question, reuses that same request on reveal, and leaves alternate/fallback searches until they are actually needed. It removes the previous card as soon as the next question appears and hydrates local and provider dictionaries independently after mounting the stable review shell. Installed and provider dictionaries keep the full content width, while ordinary detail pages keep their established layout.
-
-Turning JPDB or Bunpro definitions off in Settings now persists and hides that definition panel. Lookup and frequency pills remain independently configurable.
-
-Examples can show Japanese, translations, thumbnails, audio, and source filters. Settings let you choose categories, length limits, image visibility, translation visibility, playback speed, and one-time hover audio on desktop. Example translations are blurred by default; choose the translation to reveal it, or turn the blur setting off if you prefer to see translations immediately.
+[More about video →](/tools/japanese-subtitle-reader)
 
 <figure class="yomu-feature-shot">
-  <img :src="'/screenshots/real-immersion-popover.png'" alt="A よむ popup scrolled to the Immersion Kit section after a live Japanese lookup.">
-  <figcaption>Examples, translations, and audio stay inside the normal popup.</figcaption>
+  <img :src="'/screenshots/store-02-youtube-subtitles.png'" alt="The Yomu subtitle line and transcript panel open on a Japanese YouTube video.">
+  <figcaption>Subtitles and the transcript panel, on a real video.</figcaption>
 </figure>
 
-## Kanji Drilldown
+## Make YouTube speak Japanese
 
-Click a kanji inside the popup headword to open a focused kanji panel. Depending on your settings and imported data, it can show Jiten and optional JPDB facts, WaniKani level/readings/mnemonics/components, stroke count, grade, JLPT level, RTK data, related words, Uchisen mnemonic illustrations and component groups, KanjiVG stroke tracing, and a small drawing pad.
+Yomu tunes your YouTube recommendations towards Japanese. It keeps Japanese videos and learner channels — including the ones with English titles — and quietly sets the rest aside. Playback is untouched, and one shortcut turns it off again.
 
-At the top, keyword pills compare the primary Jiten or JPDB keyword with RTK, imported dictionaries, and an official Kanji Alive gloss. Matching text merges into one sourced pill; genuinely different glosses remain separate.
+If you are just starting, Yomu can also offer a list of about 100 Japanese channels with subscribe links, sorted by level.
 
-Kanji origin sources are modular and license-aware. You can turn off optional public sources independently.
+[More about the YouTube filter →](/tools/youtube-japanese)
 
 <figure class="yomu-feature-shot">
-  <img :src="'/screenshots/real-kanji-drilldown.png'" alt="A よむ kanji drilldown panel showing Jiten, JPDB, and RTK facts with a rendered KanjiVG stroke diagram.">
-  <figcaption>Kanji drilldown with live KanjiVG stroke data.</figcaption>
+  <img :src="'/screenshots/real-youtube-search-results.png'" alt="A YouTube results page where Yomu keeps beginner Japanese videos visible.">
+  <figcaption>A YouTube feed retuned towards Japanese.</figcaption>
 </figure>
 
-## Image And Manga OCR
+## Play games in Japanese
 
-OCR lets you look up Japanese text inside images. よむ can use embedded OCR metadata when a site provides it, or a local OCR app/server for MangaOCR, PaddleOCR, Apple Vision-style results, and compatible local JSON responses.
+**Yomu Gaming** is a small desktop app for PC games. Press your capture shortcut and it reads the Japanese on screen, so you can look words up mid-scene the same way you would on a web page.
 
-Recognized text stays lightweight: lookup targets sit over the image without covering it until you choose or hover a word.
+[Set up Yomu Gaming →](/tools/yomu-gaming)
 
-Use this for manga panels, screenshots, and image-heavy pages where normal text selection does not work. The image is not sent anywhere unless you enable a local OCR endpoint, and that endpoint is the one you configure in settings.
+## Slow down on a kanji
 
-For PC games, use the first-party [Yomu Gaming](/tools/yomu-gaming) app and download the release file from GitHub Releases.
+Press any kanji inside the word panel and it opens on its own. You get the stroke order animated, the readings, what level it is usually taught at, the pieces it is built from, and other words that use it. There is a pad to trace it yourself.
+
+[More about kanji →](/tools/kanji-stroke-order)
 
 <figure class="yomu-feature-shot">
-  <img :src="'/media/manga-ocr-sample.png'" alt="A Japanese manga page with text regions detected for よむ OCR lookup.">
-  <figcaption>OCR turns image text into lookup-ready reading targets.</figcaption>
+  <img :src="'/screenshots/real-kanji-drilldown.png'" alt="A Yomu kanji panel showing stroke order and readings for a single character.">
+  <figcaption>One kanji, taken apart.</figcaption>
 </figure>
 
-## Video Subtitle Mining
+## Keep the words you save
 
-よむ can add an ASB-style subtitle overlay for video pages. Japanese subtitles can be parsed into lookup-ready words, native-language subtitle tracks can be shown as a secondary line, and the subtitle drawer can sit left, right, or below the video with tabs for transcript rows, shadowing practice, and track selection.
+Every word you save comes back on the [Study page](/study/). It gives you one card at a time and a short run of steps, and you rate yourself once at the end:
 
-The transcript works like the overlay: visible Japanese lines are parsed for lookup, so you can skim, jump to a line, and open the popup from the transcript. The Shadow tab focuses on the current subtitle line with replay, loop, and hide/reveal controls for speaking practice while keeping parsed Japanese and the optional secondary line available.
+- **Draw the kanji** from memory on a tracing pad.
+- **Read the word** inside a real sentence.
+- **Write or type the word** from its meaning.
+- **Fill the blank** — the sentence comes back with the word missing. Stuck? A hint gives you the first kana, the length, or the meaning.
+- **Hear the pitch** and pick the shape you heard.
+- **Say it aloud** — record yourself and Yomu scores your pitch on your device.
 
-The Batch Mine tab scans the loaded transcript against your current study states, ranks i+1 lines first, deduplicates repeated words, and preselects useful not-in-deck candidates. Review the list at the end of the episode, add the selected words to Jiten, JPDB, or Anki, grade words directly in the sidebar, batch-assign a review grade to the current selection, or copy the batch as TSV if you want to curate it elsewhere.
+Steps that do not fit a card are skipped, so a kana-only word never asks you to draw kanji.
 
-For local files, open the [Yomu video player](/video-player/index.html), drop in a browser-supported video, and use the Subtitles button to add Japanese or native subtitle files. The page creates normal browser video and text tracks, so the same overlay and transcript tools work without a desktop bridge.
+Study works offline once it has loaded, so it is usable on the train. Add it to your Home Screen on a phone or tablet and it opens like an app.
 
-You can use shortcuts for previous subtitle, next subtitle, copy subtitle, and mining. The left-aligned subtitle rail can be moved if it covers a player control and pinned open or left to collapse; playback stays in the video's own controls. A remembered vertical position may sit below a short player while it remains visible, but is temporarily rebased into the viewport when a full-height player such as a Short would otherwise strand the subtitles off screen. The saved preference is not overwritten. Transparent space around the text is click-through, so native mobile controls such as fullscreen remain tappable while individual parsed words still open lookup. The transcript panel is off by default, opens from the subtitle controls, and can also be set to open only while the video is paused. On phones it becomes a bottom panel so the video stays usable. Auto-follow pauses only after you directly scroll it, and **Locate** always returns to the active line.
+[More about Study →](/tools/study-page)
 
 <figure class="yomu-feature-shot">
-  <img :src="'/screenshots/store-02-youtube-subtitles.png'" alt="The よむ subtitle overlay and transcript panel open on a live Comprehensible Japanese YouTube video.">
-  <figcaption>Subtitle overlay and transcript controls on a live Comprehensible Japanese video.</figcaption>
+  <img :src="'/screenshots/real-newtab.png'" alt="The Yomu study page with an example sentence and the target word blanked out.">
+  <figcaption>One card, one short run of steps.</figcaption>
 </figure>
 
-## YouTube Immersion Filter
+## Bring your own dictionaries
 
-The YouTube filter is on by default so recommendations stay focused on Japanese. When a video id is available, よむ checks the original title via oEmbed, keeps Japanese-learning and comprehensible-input titles even when written in English, and hides non-Japanese-looking cards across recommendations, search results, and sidebars. Playback, subtitles, and よむ controls keep working.
+Yomu installs a starter dictionary for your language on first run, and you can add any Yomitan dictionary file on top. Dictionaries stay on your device, so lookups keep working with no connection.
 
-YouTube page text uses the same generic scanner and open web-component boundaries as Reddit and other dynamic sites, including nested components that start empty, hydrate later, upgrade after page load, or attach an open root in a later task. Late comments, menus, navigation labels, and controls wake the same bounded annotation path; Subscribe, Join, tabs, filter chips, and disclosure buttons stay lookupable and keep their native centring and height. As on every other site, highlights, pitch underlines, lookup targets, and detached furigana are projected from the page's exact live text ranges. Readings remain visible above compact controls without changing their height, clipping, ellipsis, or scroll width, and an open menu hides unrelated readings behind it. Kana-only labels keep pitch and status paint without adding a duplicate reading.
+[Compare the dictionary and study options →](/guides/study-setup)
 
-On Reddit in iPad Safari, Yomu-owned popovers, sheets, settings, notices, and the puck menu compensate Safari's per-site full-page view scale. Their text, touch targets, anchors, and screen-edge placement stay at the intended physical size without resizing Reddit content. Inline readings, subtitles, and OCR remain in the page's coordinate space so they stay aligned; normal-scale Reddit, other browsers, and other sites are left unchanged.
+## Connect the study apps you already use
 
-On yomureader.com itself, translated navigation and documentation copy are interface text rather than reading material. よむ annotates only the site's declared demos and reading surfaces, avoiding a whole-site scan when Japanese interface mode is active.
+If you already review Japanese somewhere, Yomu saves words there instead of starting a new pile:
 
-The temporary notice shows how many cards were hidden and disappears after a few seconds. Use **Show hidden videos** to reveal them, **Hide hidden videos** to filter them again, **Hide notice** to stop showing that notice while keeping the filter enabled, or the YouTube filter shortcut (`Shift+Y` by default, configurable in Settings → Shortcuts) to toggle the filter itself.
+- **Anki** — a saved word becomes a card carrying the word, its reading, its meaning, the sentence you found it in, and the sound.
+- **Jiten, Bunpro, JPDB, and WaniKani** — Yomu shows what each service already knows about a word and sends your reviews back to it.
 
-The separate **Prefer Japanese site language and location** setting asks multilingual pages for their Japanese version by combining browser-language hints, Japan locale/location hints, Japanese preference cookies, `hreflang` alternates, existing locale query hints such as `locale=en-US`, and common URL patterns such as `en.example.com` or `/en`. The よむ puck includes the same toggle so you can turn that request on or off from the page; when よむ knows the original English/default URL, turning it off returns there.
+All of it is optional. Yomu works fully on its own.
 
-On the YouTube home feed, when よむ hides enough English-heavy recommendations, it can also offer a dismissible starter guide of Japanese YouTube channels. Use **Later** to hide it for the current page, **Never show** to turn it off, or **Show all** to browse the full 100-channel list with direct subscribe links.
+[Set these up →](/getting-started#connect-a-study-app-optional)
 
-<figure class="yomu-feature-shot">
-  <img :src="'/screenshots/real-youtube-search-results.png'" alt="A real YouTube results page where よむ keeps beginner Japanese comprehensible-input videos and Shorts visible.">
-  <figcaption>Search results stay usable for beginner Japanese comprehensible input, including English-titled videos and Shorts.</figcaption>
-</figure>
+## Sync across your devices
 
-<figure class="yomu-feature-shot">
-  <img :src="'/screenshots/real-youtube-filter.png'" alt="A real YouTube page with よむ hiding non-Japanese-looking recommendation cards and showing the filter notice.">
-  <figcaption>Filtered YouTube recommendations with temporary reveal and notice controls visible.</figcaption>
-</figure>
+Create a free Yomu account and the words you save follow you between the devices you pair. Your cards are encrypted before they leave your device, so what is stored is unreadable without your key.
 
-## Anki And Mobile Handoff
+[Read the privacy policy →](/privacy/)
 
-Anki support is optional. With [AnkiConnect](https://ankiweb.net/shared/info/2055492159) reachable, よむ can create cards from popup lookups, subtitles, and OCR; detect existing cards; update matching notes; adapt to existing decks and note types; and power Anki-backed review/status features on the Study page.
+## What it runs on
 
-On a phone or tablet, the full Anki setup still uses desktop AnkiConnect: the phone does the reading, the computer does the Anki work. See the step-by-step phone, iPad, or Android setup in [Getting Started](/getting-started#use-desktop-anki-from-a-phone-ipad-or-android).
+Yomu runs in Chrome, Edge, Firefox, and Safari on a computer, and in Safari on iPhone and iPad. It is free and open source, and the reading loop needs no account.
 
-Mobile handoff is deliberately narrower. On iPhone, iPad, and Android, よむ can open AnkiMobile or AnkiDroid when AnkiConnect is not available, but that path creates new-note drafts only. Existing-card status, note updates, automatic deck scans, media writes, full field mappings, and review queues still need desktop AnkiConnect.
-
-If you already use RTK, Core, anime-card, or other nonstandard Japanese decks, keep desktop AnkiConnect reachable. よむ inspects existing Anki shapes automatically, suggests field mappings for expression, reading, meaning, sentence, audio, and image fields, and mines into that shape when it can infer a fit. If matching is not enough, the cleanest route is to use the よむ note type or adjust mappings before mining.
-
-If you do not use Anki, leave it off. Jiten or JPDB mining and local dictionary lookup still work without it.
-
-## Study Page
-
-Open the [Yomu app](/study/) for one offline-first place to study, search your Library, inspect combined Stats, and manage Connections. Install it from **Share → Add to Home Screen** on iPhone or iPad, or your browser's **Install app** action on Android. The browser extension still leaves new tabs alone and offers **Open Study** from its toolbar.
-
-Study pulls words from Academy, Anki, Jiten, Bunpro, JPDB, WaniKani, or local dictionaries, and caches the review queue on the device for the train. **Academy** is the local Yomu SRS deck that was previously labelled Dictionary: mining and grading update its real due/new/learning/known state, swatch, and page highlighting. JPDB is omitted from the source switcher until a JPDB key is present. A fresh card starts at its first configured learning step — Kanji 1 by default — and the compact step rail, attached answer action, retry feedback, audio, and final grade stay in one focused flow. Grades for supported providers wait in a local outbox and sync after reconnecting; WaniKani writes remain live-only and are never replayed later. The old `/newtab/` URL remains a compatibility route.
-
-### Yomu account and encrypted Reader sync
-
-The website navigation offers **Create account** and **Sign in**, then shows the signed-in display name and a **Profile & sync** link. A free Reader account keeps local SRS cards synchronized but does not unlock Academy lessons; curriculum access still requires an eligible Academy grant.
-
-Pair from **Profile & sync** with a ten-minute, one-time code, then paste that code into **Study → Settings → Backup & sync**. Reader stores its device bearer and 32-byte profile key only in extension/userscript-owned storage. Card updates and tombstones are encrypted before upload, merged by their semantic card identity and timestamps, and repainted in open tabs when the winning state changes. If the website loses its local key, a paired Reader can create a reverse recovery code. The account page lists devices so an owner can revoke one that was lost or retired.
-
-Each card walks through a short set of steps, and you only grade once at the end:
-
-- **Draw the kanji** from memory on a small tracing pad, one character at a time.
-- **Read the word** in a real example sentence.
-- **Produce the word** — type its spelling or reading, or choose **Write** to draw its kanji with a finger, Pencil, stylus, or mouse before the reveal. This works for every Study source, including WaniKani. Mixed words keep kana in place: 飲み物 becomes ＿み＿. Kana-only words stay in typing mode.
-- **Fill the blank** — the sentence appears with the word removed, and you type the Japanese back in. Stuck? Tap **Hint** for a nudge (a starting kana, the length, the meaning) without giving the answer away.
-- **Hear the pitch** — よむ plays the word and you pick its pitch shape from labelled contour buttons.
-- **Say it aloud** — record yourself and よむ scores your pitch against the model, right on your device.
-- **Check and grade** — the full answer and details appear, then you rate how it went.
-
-Steps only show up when they fit the card, so a kana-only word skips the kanji drawing and a word with no classifiable pitch skips the listen and speak steps. Exact pitch can resolve from local dictionaries, Jiten, or public JPDB — including one-mora entries such as 自（じ） — and adds those steps automatically. The pitch practice keeps its own lightweight review schedule that grows from the words already feeding the page.
-
-On the hosted page, the installed よむ userscript can bridge local AnkiConnect requests on the same computer. For phone and tablet setup, follow the Tailscale steps in [Getting Started](/getting-started#use-desktop-anki-from-a-phone-ipad-or-android) instead of pointing mobile よむ at `localhost`.
-
-On iPhone, iPad, and Android, the installed app opens as a standalone client and its cached shell, local cards, and warmed review queue remain available without a connection. Full Anki status and review sync on mobile still need desktop AnkiConnect reachable over LAN or Tailscale; the [setup guide](/getting-started#use-desktop-anki-from-a-phone-ipad-or-android) covers the steps.
-
-<figure class="yomu-feature-shot">
-  <img :src="'/screenshots/real-newtab.png'" alt="The よむ study page on the Recall step, with an example sentence and the target word blanked out for you to type back in.">
-  <figcaption>Every card is one short run of steps — here, filling the blank in a real sentence.</figcaption>
-</figure>
-
-<figure class="yomu-feature-shot">
-  <img :src="'/screenshots/study-pitch-select.png'" alt="The よむ study page on the Listen step, asking which pitch shape you heard with labelled contour buttons.">
-  <figcaption>Pitch practice: hear the word, then pick its shape.</figcaption>
-</figure>
-
-## Help And Support In Settings
-
-The Help tab includes quick links to the hosted tools and docs, GitHub issues, Discord, donation support, and a Factory Reset action that clears よむ settings, API keys, cached data, and imported dictionaries back to defaults.
-
-<figure class="yomu-feature-shot">
-  <img :src="'/screenshots/real-help-settings.png'" alt="The よむ Help settings tab with donation, issue reporting, GitHub, Discord, docs, video player, and Study links.">
-  <figcaption>Support links live inside settings.</figcaption>
-</figure>
+<div class="yomu-cta-grid">
+  <a class="yomu-cta-button primary" href="/getting-started">Install Yomu</a>
+  <a class="yomu-cta-button" href="/tools/">Browse the tools</a>
+  <a class="yomu-cta-button" href="/guides/">Read the guides</a>
+</div>

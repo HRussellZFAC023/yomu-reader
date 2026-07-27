@@ -1,292 +1,232 @@
 ---
-title: Getting Started
-description: Install よむ in three steps — add a free userscript manager (Tampermonkey on desktop, Userscripts on iPhone/iPad), install よむ, then open a Japanese page and look up a word. No account needed. Optional Jiten, Bunpro, JPDB, Anki, OCR, and audio setup included.
+title: Install Yomu
+description: Install Yomu in three steps and look up your first Japanese word. Free, about two minutes, and no account needed. Works on Chrome, Edge, Firefox, iPhone, and iPad.
 ---
 
-# Getting Started
+# Install Yomu
 
-A **userscript** is a small add-on that runs inside your browser. Install a free manager once, add よむ to it, and よむ appears on Japanese pages: look up a word in the popup dictionary, save words for review, read manga with OCR, and check subtitles on video. It's free and needs no account to start.
+Yomu turns any page, video, manga or game screen into a Japanese lesson — lookups, readings, and cards you keep.
 
-## Three words to know
+Getting it takes about two minutes and three steps: add a small browser add-on, install Yomu into it, then open a Japanese page and press a word. It is free and you do not need an account.
 
-- **Userscript manager** — the browser add-on that runs よむ: Tampermonkey (computer) or Userscripts (iPhone/iPad).
-- **Lookup** — opening よむ's popup on a word.
-- **Mining** — saving a word, with its sentence, for later review.
+## Step 1: Add a userscript manager
 
-Jiten, Bunpro, JPDB, Anki, OCR, and audio are optional. Turn them on when you want them; [Turn on more tools](#turn-on-more-tools) covers that.
+Yomu runs inside a free add-on called a userscript manager. You install that once and forget it.
 
-## Update an existing install
+### Chrome, Edge, or Firefox
 
-On Chrome or Edge with Tampermonkey, update from inside Tampermonkey instead of opening the `.user.js` link as a website install:
-
-1. Open the **Tampermonkey Dashboard**.
-2. Open **Utilities**.
-3. Select **Check for userscript updates**, then accept the Yomu update.
-
-If Chrome says “Apps, extensions, and user scripts cannot be added from this website,” changing the link to GitHub Raw will not fix it—the browser permission is disabled. Open Tampermonkey’s extension details and enable **Allow User Scripts** (Chrome 138+) or enable **Developer mode**, following [Tampermonkey’s current permission guide](https://www.tampermonkey.net/faq.php?locale=en&q=Q209).
-
-## Step 1: Install a userscript manager
-
-Pick your setup.
-
-### Chrome, Edge, or Firefox (computer)
-
-1. Open [tampermonkey.net](https://www.tampermonkey.net/) and install Tampermonkey for your browser from its official store.
-2. If your browser hides extensions, pin Tampermonkey so its icon is visible.
-3. On Chrome and Edge, you may be asked to **allow user scripts** the first time. Say yes — よむ can't run otherwise.
+1. Open [tampermonkey.net](https://www.tampermonkey.net/) and install Tampermonkey for your browser.
+2. Pin the Tampermonkey icon so you can see it.
+3. On Chrome and Edge you may be asked to **allow user scripts**. Say yes — Yomu needs it to run.
 
 ### iPhone or iPad
 
-Use **Userscripts**, a free and open-source app. (Tampermonkey for Safari also works if you prefer it.)
+Use **Userscripts**, a free app.
 
-1. Install [Userscripts from the App Store](https://apps.apple.com/app/userscripts/id1463298887) and open it once. A mostly-empty screen is normal.
-2. Open **Settings → Apps → Safari → Extensions → Userscripts**. On older iOS, this is **Settings → Safari → Extensions → Userscripts**.
+1. Install [Userscripts from the App Store](https://apps.apple.com/app/userscripts/id1463298887) and open it once. A mostly empty screen is normal.
+2. Open **Settings → Apps → Safari → Extensions → Userscripts**. On older iOS this is **Settings → Safari → Extensions → Userscripts**.
 3. Turn Userscripts **On**, then set it to **Allow** on **All Websites**.
 
 <div class="yomu-callout">
-  <strong>Don't skip step 3.</strong> If Userscripts isn't turned on and allowed, it won't show up in Safari, and the next step won't work. This is the most common reason an install seems to "do nothing."
+  <strong>Don't skip step 3.</strong> Until Userscripts is turned on and allowed, it will not appear in Safari and the next step has nothing to work with. This is the most common reason an install seems to do nothing.
 </div>
 
-## Step 2: Install よむ
+## Step 2: Install Yomu
 
-[Install the よむ userscript](https://yomureader.com/yomu.user.js)
+[Install Yomu](https://yomureader.com/yomu.user.js)
 
 ### On a computer
 
-Click the link above. Tampermonkey opens an install screen for よむ. Click **Install**, then open a Japanese page and skip to [your first lookup](#step-3-your-first-lookup).
-
-To update later, open the same link again and let Tampermonkey replace the old version.
+Press the link. Tampermonkey opens an install screen. Choose **Install**, and you are done. The same link updates Yomu later.
 
 <div class="yomu-callout">
-  <strong>Seeing "Apps, extensions, and user scripts cannot be added from this website"?</strong> That popup comes from Chrome or Edge, not よむ — changing to GitHub Raw will not bypass it. Open your browser's extensions page (<code>chrome://extensions</code> or <code>edge://extensions</code>), open Tampermonkey's details, and turn on <strong>Allow User Scripts</strong> (on older browsers, turn on <strong>Developer mode</strong> at the top of the extensions page instead). Then open the install link again.
+  <strong>Got a downloaded <code>.js</code> file instead of an install screen?</strong> Some managers do not catch the link. Open your manager's dashboard and use its <strong>Install from URL</strong> option with <code data-yomu-localize="off">https://yomureader.com/yomu.user.js</code>. In Tampermonkey that is <em>Utilities → Install from URL</em>; in Violentmonkey, <em>+ → Install from URL</em>; in ScriptCat, <em>Script list → Create → Install from URL</em>. You can delete the downloaded file.
 </div>
 
 <div class="yomu-callout">
-  <strong>Clicking the link downloads a <code>.js</code> file instead of opening an install screen?</strong> Your userscript manager didn't intercept the download — some managers (for example ScriptCat) miss it. Open the manager's dashboard and use its <strong>Install from URL</strong> / import option with <code>https://yomureader.com/yomu.user.js</code>. You can delete the downloaded file.
+  <strong>Chrome or Edge says user scripts cannot be added from this website?</strong> That message is from the browser, and a different download link will not get around it. Open <code>chrome://extensions</code> or <code>edge://extensions</code>, open Tampermonkey's details, and turn on <strong>Allow User Scripts</strong>. On older browsers, turn on <strong>Developer mode</strong> at the top of the extensions page instead. Then open the install link again.
 </div>
 
 ### On iPhone or iPad
 
-1. Open the install link in Safari. You will see the よむ userscript source code — lines like the ones below. Leave that tab open; Userscripts reads it to install よむ.
-
-   ```text
-   // ==UserScript==
-   // @name         よむ
-   // @version      ...
-   // @match        *://*/*
-   // ==/UserScript==
-   (function () { "use strict"; ...
-   ```
-
-2. Open Safari's page menu from the address bar:
-   - **iPhone:** choose **AA** on the left of the address bar, then choose **Userscripts**.
-   - **iPad:** choose the **extensions icon** (a puzzle piece) in the address bar, then choose **Userscripts**.
-3. Userscripts shows **"Userscript Detected."** Choose it, review the script, and choose **Install**.
-4. Open a Japanese page and try [your first lookup](#step-3-your-first-lookup).
+1. Open the install link in Safari. You will see Yomu's source code. Leave that tab open — Userscripts reads it.
+2. Open Safari's page menu from the address bar. On iPhone choose **AA**; on iPad choose the puzzle-piece icon. Then choose **Userscripts**.
+3. Userscripts says **"Userscript Detected."** Choose it, then choose **Install**.
 
 <div class="yomu-callout">
-  <strong>"Userscripts" isn't in the AA or extensions menu?</strong> It isn't turned on yet. Go back to Step 1, enable Userscripts, and allow it on All Websites. Then reload the code page and open the menu again.
+  <strong>"Userscripts" isn't in that menu?</strong> It isn't turned on yet. Go back to Step 1, turn Userscripts on, and allow it on All Websites. Then reload the page and open the menu again.
 </div>
 
-**You'll know it worked** when a small floating よむ button appears in the corner of Japanese pages — and the first time, よむ greets you with a welcome screen.
+**You'll know it worked** when a small floating Yomu button appears in the corner of Japanese pages, and Yomu greets you the first time.
 
-## Prefer a browser extension? (Chrome and Firefox)
+## Step 3: Look up your first word
 
-On a computer, you can skip the userscript manager and install よむ as a normal browser extension instead. It's the same よむ, packaged for Chrome and Firefox, with a toolbar menu and a study page. It never replaces your browser's new-tab page; open Study when you want it from the よむ toolbar icon. Store links will appear here as they are approved, and the versioned packages on GitHub Releases remain available for direct installation and testing.
+The first time Yomu runs it asks a few quick questions: what language you want definitions in, and a colour theme. Everything else is already set sensibly — scroll past it.
 
-Grab the latest packages from the [GitHub releases page](https://github.com/HRussellZFAC023/yomu-reader/releases/latest).
+At the end you get two buttons. Choose **Use without API key**. That is the one that starts you reading right away.
 
-<figure class="yomu-feature-shot">
-  <img :src="'/screenshots/extension-popup.png'" alt="The よむ browser-extension menu with buttons to open Study, open the video player, open settings on the current page, and open the documentation." style="max-width:320px">
-  <figcaption>Clicking the よむ toolbar icon opens this quick menu.</figcaption>
-</figure>
+Yomu then installs a starter dictionary for your language so lookups work with no connection. You can add more dictionaries later.
 
-### Chrome or Edge
+Now try it:
 
-1. Download `yomureader.com-chrome.zip` from the latest release and unzip it.
-2. Open `chrome://extensions` (or `edge://extensions`) and turn on **Developer mode** in the top corner.
-3. Click **Load unpacked** and choose the folder you unzipped (the one with `manifest.json` inside).
-4. Open a Japanese page — the floating よむ button appears, and clicking the よむ toolbar icon opens a quick menu.
-
-### Firefox
-
-1. Download `yomureader.com-firefox.xpi` from the latest release.
-2. Open `about:debugging#/runtime/this-firefox`.
-3. Click **Load Temporary Add-on** and pick the `.xpi` file.
-4. Open a Japanese page to start reading.
-
-<div class="yomu-callout">
-  <strong>Which should I pick?</strong> The userscript is the easiest path and updates itself from one link, so it's the default recommendation. Choose the extension if you'd rather not run a userscript manager, or if you want quick access to Study from the browser toolbar. On iPhone and iPad, the userscript is the only option — there's no iOS extension.
-</div>
-
-## Step 3: Your first lookup
-
-The first time よむ runs, it shows a **welcome panel**. Choose **Your language (dictionary definitions)** from the 32-language list; **Language you are learning** is fixed to Japanese for Slice 1. This choice is independent from the English/Japanese interface control. The rest of quick setup covers theme and accent colour, Japanese text on webpages, image OCR, video subtitles, and the hover/scan shortcuts — all pre-set to sensible defaults you can scroll straight past. For webpage text, the three choices say exactly what they do: **Leave pages unchanged**, **Scan Japanese automatically**, or **Scan only when I ask**. Automatic scanning finds Japanese as a page loads; manual scanning waits for your shortcut or menu action. Image OCR is a separate setting. Under the setup sit the two choices:
-
-- **Use without API key** — the highlighted first button: start reading right now, no account needed. **Pick this one to begin.**
-- **Add API source** — connect Jiten, Bunpro, or JPDB for word tracking and mining. Optional, and you can do it later ([Add an API source](#add-an-api-source-optional)).
-
-A feature grid below the buttons previews what よむ can do; you don't need to configure any of it now.
-
-The welcome screen also offers **Offline setup** (checked by default). よむ installs the native-first starter dictionaries recommended for your language, using an explicit English fallback where the frozen catalogue has no native Japanese dictionary. The archives are downloaded from Yomu's public, SHA-256-addressed mirror and then parsing and lookup run locally in your browser. You can change recommendations or import your own dictionaries later in Settings → Dictionaries.
-
-Choose **Use without API key**, then try a lookup:
-
-1. Open a Japanese page. [NHK News Web Easy](https://www3.nhk.or.jp/news/easy/) is a gentle first stop — or use the sample line below, right here on this page.
-2. **Select or click** a word. On phones and tablets, touch the word; on desktop, hover also works.
-3. The popup opens with the reading, meaning, and a speaker button. Choose a kanji to see stroke order; use a mining button to save the word.
+1. Open a Japanese page. [NHK News Web Easy](https://www3.nhk.or.jp/news/easy/) is a gentle first stop — or use the line below, right here.
+2. **Press a word.** On a phone or tablet, touch it. On a computer, click or hover.
+3. The panel opens with the reading, the meaning, and a speaker button. Press a kanji to see its stroke order. Press save to keep the word.
 
 <div class="yomu-try-me">
-  <strong>Try me — look up a word</strong>
+  <strong>Try me — press a word</strong>
   <div class="yomu-try-me-text" data-yomu-furigana-mode="all" data-yomu-runtime-surface>
     <p>青空の下で、静かに本を読む。</p>
   </div>
 </div>
 
-That's the whole loop. Everything below is optional.
+That is the whole loop. Everything below is optional.
 
-## Add an API source (optional)
+## What to read next
 
-[Jiten](https://jiten.moe/), [Bunpro](https://bunpro.jp/), and [JPDB](https://jpdb.io/) can give よむ word status and mining actions. Local dictionary lookup works fine without them, but connecting one makes progress tracking easier.
+Good Yomu reading has selectable Japanese text, or pictures and subtitles Yomu can read for you. The aim is not to finish the hardest thing you can find. It is to read a little every day, where most of it makes sense and the new words are worth keeping.
 
-1. Open your Jiten or JPDB settings and copy your API key.
-2. In よむ, open settings with the floating よむ button. The **Open settings** shortcut is configurable in Settings → Shortcuts.
-3. Paste the key into the matching **API key** field and save.
-
-For Bunpro, open Bunpro's API settings while signed in and use the **Import into Yomu** button. Yomu needs only the imported **frontend token** for definitions, queue, mining, and Study grading; it does not use the older Bunpro API key. The token grants review read/write access, so treat it like a password. Yomu uses Bunpro's private frontend endpoint, which is not a documented public API and may change.
-
-The same authenticated Bunpro detail can add separately labelled General, Anime, Novels, Netflix, and Dictionary frequency ranks plus supplemental pitch evidence. These are different corpus ranks, not one universal score. **Bunpro pronunciation** appears in Settings → Audio but is disabled by default. Its recordings are fetched at runtime from Bunpro's public CDN; hosted/browser playback may use よむ's narrow public proxy.
-
-Bunpro grading is deliberately tied to a live Study queue session: regular reveal cards use **Hard / Good**, and FSRS cards use **Again / Hard / Good / Easy**. There is no Bunpro five-point scale, and Bunpro grades are not stored for later while offline because session and ghost-review ids can change.
-
-You can also study from imported dictionaries instead — see Settings → Dictionaries. Source-specific mining actions still need that source's key.
-
-## Create a Yomu account and sync Academy words (optional)
-
-You do not need an account for lookup, local dictionaries, or local Study. If you want the Academy/local SRS deck to stay synchronized between paired Readers:
-
-1. Open [yomureader.com](/) and choose **Create account** or **Sign in** in the navigation. The control changes to **Signed in as _your name_** when Google linking finishes. English and Japanese interface modes show the same account state and actions.
-2. Open **Profile & sync** and initialize the profile if asked. Choose the pairing action to create a one-time code; it expires after ten minutes and can be used once.
-3. In the userscript or browser extension, open **Study → Settings → Backup & sync**, paste the code under **Academy account sync**, and choose **Connect**. Firefox may first ask for its optional account-information permission; if the prompt cannot open on the current webpage, repeat this step from the extension's bundled Study page.
-4. Check that Settings shows **Connected as _your name_** and a last-sync time. Academy cards, grades, due states, deletions, highlights, and mining changes now reconcile through the encrypted account profile.
-
-A free Reader account provides account identity and encrypted Reader sync only. It does not grant access to the Academy curriculum. If the website key is lost but a paired Reader survives, choose **Create website recovery code** in Reader Settings and enter that code on Profile & sync. You can also list or revoke Readers, export the encrypted profile/account data, delete learning-profile data, or delete the entire account there.
-
-## Turn on more tools
-
-Open よむ settings with the floating よむ button to switch these on when you want them. The **Open settings** shortcut is configurable in Settings → Shortcuts. Each is covered in [Features](/features).
-
-- **Dictionaries** — install the starter set for your selected language or import any Yomitan ZIP dictionary. For a non-native definition source, automatic translation is available per source and is off by default. Google does not provide an Ancient Greek translation target, so that profile keeps original definitions instead. Settings → Dictionaries.
-- **Images (OCR)** — look up Japanese text inside manga panels and screenshots. Settings → Images. Reading manga on BookWalker or in mokuro volumes? Follow the [manga guide](/guides/read-manga-in-japanese).
-- **PC games** — download the first-party [Yomu Gaming release file](https://github.com/HRussellZFAC023/yomu-reader/releases/latest), finish the first-run setup, and set your capture shortcut. Yomu Gaming uses Yomu's default Google Lens-style OCR first; advanced local OCR is optional for offline capture.
-- **Video subtitles** — parse Japanese subtitle lines for lookup, with a transcript panel. For local files, use the [video player](/video-player/index.html).
-- **PDFs** — open the [PDF reader](/pdf-reader/index.html) when the Japanese is in a textbook, scan, or article file.
-- **Anki** — turn lookups into flashcards with one tap: cards carry the word, reading, meaning, the sentence you found it in, and pitch and audio when available (see [mining guide](/guides/mine-sentences-to-anki)). Desktop [AnkiConnect](https://ankiweb.net/shared/info/2055492159) is the full setup; phones and tablets can reach a desktop Anki over Wi-Fi or Tailscale, or hand off new notes to AnkiMobile/AnkiDroid.
-- **Audio** — Yomu hosted audio is on by default. Add [Ultimate Yomitan Audio](https://animecards.site/yomitan_audio/) or a local server only if you want another source.
-- **Study page** — open [Study](/study/) for daily review, or use **Open Study** from the browser-extension toolbar menu. A freshly opened standalone session starts at **Word**, a recognition-first prompt that asks you to identify the word before moving through the rest of the card.
-
-## What to read
-
-Good よむ sites have selectable Japanese text, or images and subtitles that よむ can make readable. The aim isn't to finish the hardest thing you can find — it's to read a little every day where most of it makes sense and the new words are worth saving.
-
-These are reliable starting points, ordered roughly from easiest to hardest:
+These are reliable places to start, easiest first:
 
 <div class="yomu-link-grid yomu-next-grid">
   <a class="yomu-link-card" href="https://tadoku.org/japanese/free-books-en/" target="_blank" rel="noopener">
     <strong>Tadoku free books</strong>
-    <span>Free graded readers from the very beginning. The best first stop when native sites still feel too dense.</span>
+    <span>Free graded readers from the very beginning. The best first stop when real sites still feel too dense.</span>
   </a>
   <a class="yomu-link-card" href="https://www3.nhk.or.jp/news/easy/" target="_blank" rel="noopener">
     <strong>NHK News Web Easy</strong>
-    <span>Short, simplified news with furigana and audio. A great daily habit once basic grammar clicks.</span>
+    <span>Short, simplified news with readings and audio. A good daily habit once basic grammar clicks.</span>
   </a>
   <a class="yomu-link-card" href="https://www.satorireader.com/" target="_blank" rel="noopener">
     <strong>Satori Reader</strong>
-    <span>Polished learner stories with notes and audio. よむ adds your usual Jiten, JPDB, Anki, and Yomitan flow on top.</span>
+    <span>Polished learner stories with notes and audio. Yomu adds your usual lookup and saving on top.</span>
   </a>
   <a class="yomu-link-card" href="https://watanoc.com/" target="_blank" rel="noopener">
     <strong>Watanoc</strong>
-    <span>Short articles sorted by rough JLPT level. A useful bridge from graded readers to native articles.</span>
+    <span>Short articles sorted by rough JLPT level. A useful bridge to real articles.</span>
   </a>
   <a class="yomu-link-card" href="http://hukumusume.com/douwa/" target="_blank" rel="noopener">
     <strong>Hukumusume fairy tales</strong>
-    <span>A big collection of folk tales. The repetition makes it friendly for mining common words.</span>
+    <span>A big collection of folk tales. The repetition makes common words stick.</span>
   </a>
   <a class="yomu-link-card" href="https://reader.ttsu.app/" target="_blank" rel="noopener">
     <strong>Ttsu Reader</strong>
-    <span>Read Japanese EPUBs in the browser with よむ lookup — the clean route into light novels and books.</span>
+    <span>Read Japanese ebooks in the browser with Yomu lookup. The clean route into novels.</span>
   </a>
   <a class="yomu-link-card" href="https://learnnatively.com/" target="_blank" rel="noopener">
     <strong>Learn Natively</strong>
-    <span>Find books and manga graded by difficulty, so your next read is a challenge but not a wall.</span>
+    <span>Find books and manga graded by difficulty, so your next read is a challenge and not a wall.</span>
   </a>
   <a class="yomu-link-card" href="https://kakuyomu.jp/" target="_blank" rel="noopener">
     <strong>Kakuyomu</strong>
-    <span>Native web novels with selectable text. Search for a genre you already love.</span>
+    <span>Japanese web novels with selectable text. Search for a genre you already love.</span>
   </a>
   <a class="yomu-link-card" href="https://www.youtube.com/" target="_blank" rel="noopener">
     <strong>YouTube</strong>
-    <span>Turn on subtitle lookup and the transcript panel for listening-plus-reading immersion.</span>
+    <span>Turn on subtitle lookup and read along while you listen.</span>
   </a>
 </div>
 
-For more, use [Learn Natively](https://learnnatively.com/) to find books near your level, or browse the [guides](/guides/) for manga, video, game text, and study workflows.
+Or pick a workflow from the [guides](/guides/) — manga, video, and YouTube each have one.
 
-## Using よむ on a phone or tablet
+## Turn on more when you want it
 
-On mobile, よむ can still do lookup, local dictionaries, Jiten/JPDB, OCR, subtitles, the [video player](/video-player/index.html), and the [Study page](/study/). The floating よむ button stays reachable so you can always open settings.
+Open Yomu's settings from the floating Yomu button. Everything here is off or optional until you ask for it. [What Yomu does](/features) covers each one.
 
-The only tricky part is any helper app running on your computer: AnkiConnect, a self-hosted audio server, or a local OCR app. A phone cannot reach your computer through `localhost`; use the computer's LAN or Tailscale address in よむ settings instead. The easy mobile paths — public lookup, imported dictionaries, hosted audio, the study page — don't need any of that.
+- **Reading manga and images** — press a manga panel or screenshot and Yomu reads the Japanese in it. Settings → Images.
+- **Video subtitles** — make subtitle lines pressable and open a transcript beside the video. For your own files, use the [video player](/video-player/index.html).
+- **PDFs** — open the [PDF reader](/pdf-reader/index.html) when the Japanese is in a textbook or article file.
+- **PC games** — install [Yomu Gaming](/tools/yomu-gaming) and set a capture shortcut.
+- **More dictionaries** — install more for your language, or add any Yomitan dictionary file. Settings → Dictionaries.
+- **Anki** — turn saved words into flashcards carrying the word, reading, meaning, your sentence, and the sound. See the [mining guide](/guides/mine-sentences-to-anki).
+- **Study** — open [Study](/study/) for daily review of everything you saved.
 
-### Use desktop Anki from a phone, iPad, or Android
+## Connect a study app (optional)
 
-You don't need AnkiMobile or AnkiDroid for full Anki status on mobile. Keep Anki open on your computer and let your phone talk to it; your phone is just the reading screen, while desktop AnkiConnect handles existing-card status, note updates, media, deck scans, and review queues.
+If you already review Japanese in [Jiten](https://jiten.moe/), [Bunpro](https://bunpro.jp/), [JPDB](https://jpdb.io/), or WaniKani, Yomu can save words there and show you what each one already knows about a word.
 
-The easiest private route is [Tailscale](https://tailscale.com/): it gives your own devices a private address so they can see each other, even away from home — no router setup, port forwarding, or command line. Install it on the computer that runs Anki and on the phone or tablet that runs よむ.
+1. Open that service's settings and copy your API key. For Bunpro, open its API settings while signed in and use **Import into Yomu**.
+2. In Yomu, open settings from the floating Yomu button.
+3. Paste the key into the matching **API key** field and save.
 
-Below, replace every `100.x.y.z` with your computer's Tailscale address. It usually starts with `100.`. You can also use the Tailscale device name if MagicDNS is enabled, such as `desktop-name.tailnet-name.ts.net`.
+Your key stays on your device and talks straight to that service. Treat the Bunpro and WaniKani tokens like passwords — they can change your reviews.
+
+## Prefer a browser extension?
+
+On a computer you can skip the userscript manager and install Yomu as a normal browser extension. It is the same Yomu with a toolbar menu, and it leaves your new-tab page alone.
+
+Get the packages from the [GitHub releases page](https://github.com/HRussellZFAC023/yomu-reader/releases/latest).
+
+<figure class="yomu-feature-shot">
+  <img :src="'/screenshots/extension-popup.png'" alt="The Yomu browser-extension menu, with buttons to open Study, the video player, settings, and the documentation." style="max-width:320px">
+  <figcaption>The Yomu toolbar icon opens this menu.</figcaption>
+</figure>
+
+### Chrome or Edge
+
+1. Download `yomureader.com-chrome.zip` from the latest release and unzip it.
+2. Open `chrome://extensions` (or `edge://extensions`) and turn on **Developer mode**.
+3. Choose **Load unpacked** and pick the folder you unzipped.
+4. Open a Japanese page — the floating Yomu button appears.
+
+### Firefox
+
+1. Download `yomureader.com-firefox.xpi` from the latest release.
+2. Open `about:debugging#/runtime/this-firefox`.
+3. Choose **Load Temporary Add-on** and pick the `.xpi` file.
+4. Open a Japanese page to start reading.
+
+<div class="yomu-callout">
+  <strong>Which should I pick?</strong> The userscript is the easy path and updates itself from one link, so it is the default recommendation. Pick the extension if you would rather not run a userscript manager, or you want Study on your browser toolbar. On iPhone and iPad the userscript is the only option.
+</div>
+
+## Sync your words between devices (optional)
+
+You do not need an account to read, look words up, or study locally. Create one if you want the words you save to follow you between devices.
+
+1. Open [yomureader.com](/) and choose **Create account** or **Sign in**.
+2. Open **Profile & sync** and create a pairing code. It lasts ten minutes and works once.
+3. In Yomu, open **Study → Settings → Backup & sync**, paste the code, and choose **Connect**.
+4. Settings should now show **Connected as _your name_** and a last-sync time.
+
+Your cards are encrypted on your device before they are uploaded, so what is stored is unreadable without your key. You can list your paired devices, revoke one, export your data, or delete everything from **Profile & sync**. A free account syncs your words; it does not include the Academy course.
+
+<!-- Heading text is load-bearing: it generates the #use-desktop-anki-from-a-phone-ipad-or-android anchor that every shipped userscript and extension build deep-links to from Settings (MOBILE_ANKI_SETUP_DOCS_URL). Those builds are pinned by hash and never rebuilt, so retitling this breaks the in-app link for everyone already installed. -->
+
+## Use desktop Anki from a phone, iPad, or Android
+
+You do not need AnkiMobile or AnkiDroid for full Anki support on a phone. Keep Anki open on your computer and let your phone talk to it: the phone is the reading screen, the computer does the Anki work.
+
+[Tailscale](https://tailscale.com/) is the easiest way to connect them. It gives your own devices a private address so they can find each other, even away from home — no router setup and no command line.
+
+Below, replace every `100.x.y.z` with your computer's Tailscale address. It usually starts with `100.`.
 
 1. On your computer, install Anki and the [AnkiConnect add-on](https://ankiweb.net/shared/info/2055492159).
-2. Install [Tailscale](https://tailscale.com/downloads) on the computer, sign in, and copy the computer's Tailscale address.
+2. Install [Tailscale](https://tailscale.com/downloads) on the computer, sign in, and copy its address.
 3. Install Tailscale on the phone or tablet and sign in to the **same** account.
-4. On the computer, open Anki and choose **Tools → Add-ons → AnkiConnect → Config**.
-5. Find the `webBindAddress` line. Replace `127.0.0.1` with your computer's Tailscale address, for example `100.x.y.z`.
-6. Leave `webBindPort` as `8765`.
-7. If AnkiConnect has an allowed-origins list, keep the existing entries and add `https://yomureader.com`. This helps the hosted study page talk to your own Anki.
-8. Save, restart Anki, and leave Anki open on the computer.
-9. On the phone, make sure Tailscale says it is connected. Open `http://100.x.y.z:8765` in the mobile browser. A short AnkiConnect message means the phone can reach your computer.
-10. In よむ settings → Mining, set **AnkiConnect URL** to the same address, such as `http://100.x.y.z:8765` or `http://desktop-name.tailnet-name.ts.net:8765`.
-11. Press **Check AnkiConnect**. On success, よむ can read your decks and note types, show existing-card status, update cards, and pull Anki reviews into the study page.
+4. In Anki, open **Tools → Add-ons → AnkiConnect → Config**.
+5. Find the webBindAddress line and change 127.0.0.1 to your computer's Tailscale address.
+6. Leave webBindPort as 8765.
+7. If there is an allowed-origins list, keep what is there and add `https://yomureader.com`.
+8. Save, restart Anki, and leave it open.
+9. On the phone, open `http://100.x.y.z:8765` in the browser. A short AnkiConnect message means the phone can reach your computer.
+10. In Yomu settings → Mining, set **AnkiConnect URL** to that same address.
+11. Press **Check AnkiConnect**.
 
-If **Check AnkiConnect** does not work:
+Keep AnkiConnect on Tailscale or your home Wi-Fi. It is not built to face the open internet, so do not forward port `8765` on your router.
 
-- Make sure Anki is open on the computer. AnkiConnect only answers while Anki is running.
-- Make sure both devices are signed in to the same Tailscale account.
-- Try the `100.x.y.z` address instead of the MagicDNS name.
-- Reopen the AnkiConnect config and check that `webBindAddress` is not still `127.0.0.1`. A phone cannot reach your computer through `127.0.0.1` or `localhost`.
-- If the mobile browser cannot open `http://100.x.y.z:8765`, よむ will not be able to reach it either. Check Tailscale, firewall prompts, and whether Anki was restarted after the config change.
-- If the hosted study page works on desktop but not mobile, check that the allowed-origins list includes `https://yomureader.com`.
-
-Don't put AnkiConnect on the public internet or forward port `8765` on your router. Use Tailscale or a trusted home Wi-Fi address instead.
-
-### Mobile handoff (new notes only)
-
-If you'd rather not run desktop Anki, よむ can hand a new note to **AnkiMobile** or **AnkiDroid**. Mobile Anki handoff is one-way: it only starts a new note. It cannot scan existing decks, show existing-card status, update old notes, or provide review queues — those need desktop AnkiConnect. **Mobile Anki add-note fallback** controls this path; leave it on or off as you like.
+If you would rather not run desktop Anki at all, Yomu can hand a new card to **AnkiMobile** or **AnkiDroid** instead. That path starts new cards only — reviewing and updating existing cards needs the computer.
 
 ## Back up your settings
 
-Once you're set up, open **Settings → Dictionaries → Export settings JSON**. That saves a small backup file you can import into another browser later.
+Open **Settings → Dictionaries → Export settings JSON**. That saves a small file you can import into another browser later.
 
 ## If something does not work
 
-The usual fixes:
-
-- **Nothing appears on a page** — make sure your userscript manager is enabled for that site, then refresh.
+- **Nothing appears on a page** — check that your userscript manager is enabled for that site, then refresh.
 - **Settings changes don't take effect** — refresh the page after saving.
-- **Jiten/JPDB features are missing** — recheck that the API key was pasted correctly, with no extra spaces.
-- **AnkiConnect is unreachable on mobile** — keep Anki open on the computer, keep Tailscale connected on both devices, and use your computer's Tailscale URL in よむ. `localhost` and `127.0.0.1` on a phone mean the phone itself, not your computer.
-- **Hosted AnkiConnect checks fail** — if you are using the hosted study page, use the Tailscale URL, not `localhost`. Also make sure the AnkiConnect allowed-origins list includes `https://yomureader.com`.
+- **A study service isn't showing up** — check the API key was pasted with no extra spaces.
+- **AnkiConnect is unreachable from a phone** — keep Anki open on the computer, keep Tailscale connected on both devices, and use your computer's Tailscale address. On a phone, `localhost` means the phone itself.
+- **Study looks like an old version** — open [Study](https://yomureader.com/study/) directly and refresh once, then close and reopen the tab. If it is still stale, remove and re-add the Home Screen shortcut.
 
-If the hosted Study page or a Home Screen shortcut still looks like an old version after an update, open [Study](https://yomureader.com/study/) directly, refresh once, then close and reopen the tab or shortcut. よむ checks a small `version.json` and reloads when the build changes, but mobile caches sometimes hold an old copy until the page is reopened. If it's still stale, remove and re-add the shortcut, or clear site data for `yomureader.com`.
-
-If the install link or hosted tools are down, check [Support](/support) for reinstall, Discord, and bug-report options.
+Still stuck? [Support](/support) has the bug tracker and the Discord.
