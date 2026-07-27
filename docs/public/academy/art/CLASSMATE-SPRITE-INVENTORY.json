@@ -34,15 +34,15 @@
     "totalSlots": 630
   },
   "summary": {
-    "approved": 42,
+    "approved": 54,
     "reviewCandidates": 16,
-    "missing": 572,
-    "currentPhysicalRasters": 109,
-    "currentOffMatrixRasters": 51,
+    "missing": 560,
+    "currentPhysicalRasters": 117,
+    "currentOffMatrixRasters": 47,
     "historicalUniqueRasters": 469,
     "historicalOccurrences": 2016,
-    "charactersWithApprovedCoverage": 8,
-    "charactersWithAnyCurrentCoverage": 12
+    "charactersWithApprovedCoverage": 10,
+    "charactersWithAnyCurrentCoverage": 14
   },
   "migrations": [
     {
@@ -798,35 +798,36 @@
         "slots": 21
       },
       "progress": {
-        "approved": 0,
+        "approved": 7,
         "reviewCandidates": 0,
-        "missing": 21,
-        "deliveredPercent": 0,
-        "approvedPercent": 0
+        "missing": 14,
+        "deliveredPercent": 33.33,
+        "approvedPercent": 33.33
       },
       "currentAssets": [
         {
-          "path": "/academy/art/characters/henry/henry__standardized-determined__left-three-quarter__halfbody__v001.png",
-          "sha256": "f45129620d42f4dcea53587b96b38dc1bf6e296b160e6fcf7555471bf6e8bf29",
+          "path": "/academy/art/characters/henry/henry__determined__left-three-quarter__halfbody__v002.png",
+          "sha256": "2aad05a6b41b14c85601dced378dd342f43404632fee9b2fc1f328eaf5f4aa45",
           "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
-          "status": "review-candidate",
+          "status": "approved",
           "usage": {
             "runtime": [
               "journal:henry-expression-gallery",
+              "story:cast:henry:determined",
               "cast-standardization:henry"
             ],
             "review": [
               "cast-standardization-manifest",
-              "learner-journal-preview"
+              "identity-lock"
             ]
           },
-          "orphan": "review-bound",
+          "orphan": "active-runtime",
           "styleVersion": "current-review-family",
-          "fileVersion": "v001",
-          "pose": "off-contract standardized-determined pose",
-          "angle": null,
-          "expression": null,
+          "fileVersion": "v002",
+          "pose": "shoulder dipped over a pocket notebook while a pencil pauses near his chin; left-three-quarter",
+          "angle": "left-three-quarter",
+          "expression": "determined",
           "dimensions": {
             "width": 1536,
             "height": 2048,
@@ -836,38 +837,40 @@
           },
           "runtimeUses": [
             "journal:henry-expression-gallery",
+            "story:cast:henry:determined",
             "cast-standardization:henry"
           ],
           "reviewUses": [
             "cast-standardization-manifest",
-            "learner-journal-preview"
+            "identity-lock"
           ],
           "decision": "keep",
-          "migrationStatus": "retained-off-matrix-review-evidence",
-          "coverageStatus": "off-matrix"
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
         },
         {
-          "path": "/academy/art/characters/henry/henry__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
-          "sha256": "f104e663a0c1c00bc0d5a46f53a238b7fb57473b8454a6c8b05ba1fcdfcd083d",
+          "path": "/academy/art/characters/henry/henry__encouraging-listening__right-three-quarter__halfbody__v002.png",
+          "sha256": "dde4f217e41cee9d0d2534b98414c95d3c9b4ee949dd03314734bc7cf6265347",
           "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
-          "status": "review-candidate",
+          "status": "approved",
           "usage": {
             "runtime": [
               "journal:henry-expression-gallery",
+              "story:cast:henry:encouraging-listening",
               "cast-standardization:henry"
             ],
             "review": [
               "cast-standardization-manifest",
-              "learner-journal-preview"
+              "identity-lock"
             ]
           },
-          "orphan": "review-bound",
+          "orphan": "active-runtime",
           "styleVersion": "current-review-family",
-          "fileVersion": "v001",
-          "pose": "off-contract standardized-encouraging-listening pose",
-          "angle": null,
-          "expression": null,
+          "fileVersion": "v002",
+          "pose": "shoulder dipped over a pocket notebook while a pencil pauses near his chin; right-three-quarter",
+          "angle": "right-three-quarter",
+          "expression": "encouraging-listening",
           "dimensions": {
             "width": 1536,
             "height": 2048,
@@ -877,40 +880,87 @@
           },
           "runtimeUses": [
             "journal:henry-expression-gallery",
+            "story:cast:henry:encouraging-listening",
             "cast-standardization:henry"
           ],
           "reviewUses": [
             "cast-standardization-manifest",
-            "learner-journal-preview"
+            "identity-lock"
           ],
           "decision": "keep",
-          "migrationStatus": "retained-off-matrix-review-evidence",
-          "coverageStatus": "off-matrix"
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
         },
         {
-          "path": "/academy/art/characters/henry/henry__standardized-neutral__front-near-front__halfbody__v001.png",
-          "sha256": "e7e660565d01c8106378901a9255b2d83f06eb38916b451aa3e394596c3311ee",
+          "path": "/academy/art/characters/henry/henry__happy__front-near-front__halfbody__v002.png",
+          "sha256": "153a709fd4bcd378e74a96cb0b2a98c1dd1f449ea3663557e50e5ee0ca72ce6e",
           "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
-          "status": "review-candidate",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:henry-expression-gallery",
+              "story:cast:henry:happy",
+              "cast-standardization:henry"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "shoulder dipped over a pocket notebook while a pencil pauses near his chin; front-near-front",
+          "angle": "front-near-front",
+          "expression": "happy",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:henry-expression-gallery",
+            "story:cast:henry:happy",
+            "cast-standardization:henry"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/henry/henry__neutral__front-near-front__halfbody__v002.png",
+          "sha256": "8d11ae15e5e00d1bcd98ca02088154d44287b2f1ed71507d72791935558450ea",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
           "usage": {
             "runtime": [
               "journal:henry",
-              "class:people-review",
-              "lesson-overview:roster-review",
+              "class:people",
+              "class:week-cast",
+              "lesson-overview:roster",
+              "world:person",
+              "story:cast:henry",
               "cast-standardization:henry"
             ],
             "review": [
               "cast-standardization-manifest",
-              "learner-journal-preview"
+              "identity-lock"
             ]
           },
-          "orphan": "review-bound",
+          "orphan": "active-runtime",
           "styleVersion": "current-review-family",
-          "fileVersion": "v001",
-          "pose": "off-contract standardized-neutral pose",
-          "angle": null,
-          "expression": null,
+          "fileVersion": "v002",
+          "pose": "shoulder dipped over a pocket notebook while a pencil pauses near his chin; front-near-front",
+          "angle": "front-near-front",
+          "expression": "neutral",
           "dimensions": {
             "width": 1536,
             "height": 2048,
@@ -920,17 +970,149 @@
           },
           "runtimeUses": [
             "journal:henry",
-            "class:people-review",
-            "lesson-overview:roster-review",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "story:cast:henry",
             "cast-standardization:henry"
           ],
           "reviewUses": [
             "cast-standardization-manifest",
-            "learner-journal-preview"
+            "identity-lock"
           ],
           "decision": "keep",
-          "migrationStatus": "retained-off-matrix-review-evidence",
-          "coverageStatus": "off-matrix"
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/henry/henry__sad-vulnerable__left-three-quarter__halfbody__v002.png",
+          "sha256": "f4bddcf8af3024757d82db0afa6fdecee0011c5e3b4be65585a14333e539a81d",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:henry-expression-gallery",
+              "story:cast:henry:sad-vulnerable",
+              "cast-standardization:henry"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "shoulder dipped over a pocket notebook while a pencil pauses near his chin; left-three-quarter",
+          "angle": "left-three-quarter",
+          "expression": "sad-vulnerable",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:henry-expression-gallery",
+            "story:cast:henry:sad-vulnerable",
+            "cast-standardization:henry"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/henry/henry__surprised-shocked__right-three-quarter__halfbody__v002.png",
+          "sha256": "9cd584f5f96d6dc44d211ca1f30c2e4bdf709af28e8292c339d0853c25d0777b",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:henry-expression-gallery",
+              "story:cast:henry:surprised-shocked",
+              "cast-standardization:henry"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "shoulder dipped over a pocket notebook while a pencil pauses near his chin; right-three-quarter",
+          "angle": "right-three-quarter",
+          "expression": "surprised-shocked",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:henry-expression-gallery",
+            "story:cast:henry:surprised-shocked",
+            "cast-standardization:henry"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/henry/henry__thoughtful__left-three-quarter__halfbody__v002.png",
+          "sha256": "508d8e4435f2ee4afb5d106f825554c5cc20fc1a5b8649b49ff73c9c9161f831",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:henry-expression-gallery",
+              "story:cast:henry:thoughtful",
+              "cast-standardization:henry"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "shoulder dipped over a pocket notebook while a pencil pauses near his chin; left-three-quarter",
+          "angle": "left-three-quarter",
+          "expression": "thoughtful",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:henry-expression-gallery",
+            "story:cast:henry:thoughtful",
+            "cast-standardization:henry"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
         }
       ],
       "requiredVariants": [
@@ -958,16 +1140,14 @@
         {
           "angle": "left-three-quarter",
           "expression": "thoughtful",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/henry/henry__thoughtful__left-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/henry/henry__thoughtful__left-three-quarter__halfbody__v002.png"
         },
         {
           "angle": "left-three-quarter",
           "expression": "determined",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/henry/henry__determined__left-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/henry/henry__determined__left-three-quarter__halfbody__v002.png"
         },
         {
           "angle": "left-three-quarter",
@@ -979,16 +1159,14 @@
         {
           "angle": "left-three-quarter",
           "expression": "sad-vulnerable",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/henry/henry__sad-vulnerable__left-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/henry/henry__sad-vulnerable__left-three-quarter__halfbody__v002.png"
         },
         {
           "angle": "front-near-front",
           "expression": "neutral",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/henry/henry__neutral__front-near-front__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/henry/henry__neutral__front-near-front__halfbody__v002.png"
         },
         {
           "angle": "front-near-front",
@@ -1000,9 +1178,8 @@
         {
           "angle": "front-near-front",
           "expression": "happy",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/henry/henry__happy__front-near-front__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/henry/henry__happy__front-near-front__halfbody__v002.png"
         },
         {
           "angle": "front-near-front",
@@ -1042,9 +1219,8 @@
         {
           "angle": "right-three-quarter",
           "expression": "encouraging-listening",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/henry/henry__encouraging-listening__right-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/henry/henry__encouraging-listening__right-three-quarter__halfbody__v002.png"
         },
         {
           "angle": "right-three-quarter",
@@ -1070,9 +1246,8 @@
         {
           "angle": "right-three-quarter",
           "expression": "surprised-shocked",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/henry/henry__surprised-shocked__right-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/henry/henry__surprised-shocked__right-three-quarter__halfbody__v002.png"
         },
         {
           "angle": "right-three-quarter",
@@ -1106,38 +1281,10 @@
         },
         {
           "angle": "left-three-quarter",
-          "expression": "thoughtful",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/henry/henry__thoughtful__left-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "left-three-quarter",
-          "expression": "determined",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/henry/henry__determined__left-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "left-three-quarter",
           "expression": "surprised-shocked",
           "status": "missing",
           "path": null,
           "plannedPath": "/academy/art/characters/henry/henry__surprised-shocked__left-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "left-three-quarter",
-          "expression": "sad-vulnerable",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/henry/henry__sad-vulnerable__left-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "front-near-front",
-          "expression": "neutral",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/henry/henry__neutral__front-near-front__halfbody__v001.png"
         },
         {
           "angle": "front-near-front",
@@ -1145,13 +1292,6 @@
           "status": "missing",
           "path": null,
           "plannedPath": "/academy/art/characters/henry/henry__encouraging-listening__front-near-front__halfbody__v001.png"
-        },
-        {
-          "angle": "front-near-front",
-          "expression": "happy",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/henry/henry__happy__front-near-front__halfbody__v001.png"
         },
         {
           "angle": "front-near-front",
@@ -1190,13 +1330,6 @@
         },
         {
           "angle": "right-three-quarter",
-          "expression": "encouraging-listening",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/henry/henry__encouraging-listening__right-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "right-three-quarter",
           "expression": "happy",
           "status": "missing",
           "path": null,
@@ -1215,13 +1348,6 @@
           "status": "missing",
           "path": null,
           "plannedPath": "/academy/art/characters/henry/henry__determined__right-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "right-three-quarter",
-          "expression": "surprised-shocked",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/henry/henry__surprised-shocked__right-three-quarter__halfbody__v001.png"
         },
         {
           "angle": "right-three-quarter",
@@ -2994,18 +3120,19 @@
           "sha256": "a14668bdf003c966e6000e3c7e2d7d08c8e8ba42acc5e1188786302bb34a681e",
           "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
-          "status": "review-candidate",
+          "status": "approved",
           "usage": {
             "runtime": [
               "journal:sam-expression-gallery",
+              "story:cast:sam:recording-boundary",
               "cast-standardization:sam"
             ],
             "review": [
               "cast-standardization-manifest",
-              "learner-journal-preview"
+              "identity-lock"
             ]
           },
-          "orphan": "review-bound",
+          "orphan": "active-runtime",
           "styleVersion": "current-review-family",
           "fileVersion": "v001",
           "pose": "off-contract standardized-encouraging-listening pose",
@@ -3020,14 +3147,15 @@
           },
           "runtimeUses": [
             "journal:sam-expression-gallery",
+            "story:cast:sam:recording-boundary",
             "cast-standardization:sam"
           ],
           "reviewUses": [
             "cast-standardization-manifest",
-            "learner-journal-preview"
+            "identity-lock"
           ],
           "decision": "keep",
-          "migrationStatus": "retained-off-matrix-review-evidence",
+          "migrationStatus": "approved-and-registered",
           "coverageStatus": "off-matrix"
         },
         {
@@ -3035,20 +3163,23 @@
           "sha256": "1df805d1f39c0f0c019af8ec308998995e15c532f177025601ab837a21987597",
           "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
-          "status": "review-candidate",
+          "status": "approved",
           "usage": {
             "runtime": [
               "journal:sam",
-              "class:people-review",
-              "lesson-overview:roster-review",
+              "class:people",
+              "class:week-cast",
+              "lesson-overview:roster",
+              "world:person",
+              "story:cast:sam",
               "cast-standardization:sam"
             ],
             "review": [
               "cast-standardization-manifest",
-              "learner-journal-preview"
+              "identity-lock"
             ]
           },
-          "orphan": "review-bound",
+          "orphan": "active-runtime",
           "styleVersion": "current-review-family",
           "fileVersion": "v001",
           "pose": "off-contract standardized-neutral pose",
@@ -3063,16 +3194,19 @@
           },
           "runtimeUses": [
             "journal:sam",
-            "class:people-review",
-            "lesson-overview:roster-review",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "story:cast:sam",
             "cast-standardization:sam"
           ],
           "reviewUses": [
             "cast-standardization-manifest",
-            "learner-journal-preview"
+            "identity-lock"
           ],
           "decision": "keep",
-          "migrationStatus": "retained-off-matrix-review-evidence",
+          "migrationStatus": "approved-and-registered",
           "coverageStatus": "off-matrix"
         }
       ],
@@ -6921,122 +7055,318 @@
         "slots": 21
       },
       "progress": {
-        "approved": 3,
+        "approved": 7,
         "reviewCandidates": 0,
-        "missing": 18,
-        "deliveredPercent": 14.29,
-        "approvedPercent": 14.29
+        "missing": 14,
+        "deliveredPercent": 33.33,
+        "approvedPercent": 33.33
       },
       "currentAssets": [
         {
-          "path": "/academy/art/characters/sophie/sophie__bookshop-neutral__halfbody__v003.png",
-          "sha256": "83425d5bdec15a8cf54c5322df3e8b011d9dce383b181e861ca72897d1d79eb7",
+          "path": "/academy/art/characters/sophie/sophie__determined__left-three-quarter__halfbody__v004.png",
+          "sha256": "8da0f804382a2d1f25ccda6aaff4520fd6243bfc25abb51c7e4e7ba24c4f6e27",
           "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
           "status": "approved",
           "usage": {
             "runtime": [
-              "world:bookshop:sophie",
-              "journal:sophie",
-              "class:people",
-              "class:week-cast",
-              "lesson-overview:roster",
-              "world:person"
+              "journal:sophie-expression-gallery",
+              "story:cast:sophie:determined",
+              "cast-standardization:sophie"
             ],
-            "review": []
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
           },
           "orphan": "active-runtime",
           "styleVersion": "current-hand-painted-standard",
-          "fileVersion": "v003",
-          "pose": "balanced evidence-checking stance with one hand pinning a small note against a trailing scarf; right-three-quarter",
-          "angle": "right-three-quarter",
-          "expression": "neutral",
-          "dimensions": {
-            "width": 941,
-            "height": 1672,
-            "bitDepth": 8,
-            "colorType": 6,
-            "transparency": "alpha-channel"
-          },
-          "runtimeUses": [
-            "world:bookshop:sophie",
-            "journal:sophie",
-            "class:people",
-            "class:week-cast",
-            "lesson-overview:roster",
-            "world:person"
-          ],
-          "reviewUses": [],
-          "decision": "keep",
-          "migrationStatus": "approved-and-registered",
-          "coverageStatus": "approved"
-        },
-        {
-          "path": "/academy/art/characters/sophie/sophie__determined__left-three-quarter__halfbody__v003.png",
-          "sha256": "9499887d31a75713a1ea551ca9ef6124aeee6591949206dda10d8670e8d9e711",
-          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-          "privacy": "no-private-source-recorded",
-          "status": "approved",
-          "usage": {
-            "runtime": [
-              "dialogue:sophie-research",
-              "journal:sophie-expression-gallery"
-            ],
-            "review": []
-          },
-          "orphan": "active-runtime",
-          "styleVersion": "current-hand-painted-standard",
-          "fileVersion": "v003",
+          "fileVersion": "v004",
           "pose": "balanced evidence-checking stance with one hand pinning a small note against a trailing scarf; left-three-quarter",
           "angle": "left-three-quarter",
           "expression": "determined",
           "dimensions": {
-            "width": 941,
-            "height": 1672,
+            "width": 1536,
+            "height": 2048,
             "bitDepth": 8,
             "colorType": 6,
             "transparency": "alpha-channel"
           },
           "runtimeUses": [
-            "dialogue:sophie-research",
-            "journal:sophie-expression-gallery"
+            "journal:sophie-expression-gallery",
+            "story:cast:sophie:determined",
+            "cast-standardization:sophie"
           ],
-          "reviewUses": [],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
           "decision": "keep",
           "migrationStatus": "approved-and-registered",
           "coverageStatus": "approved"
         },
         {
-          "path": "/academy/art/characters/sophie/sophie__encouraging-listening__front-near-front__halfbody__v003.png",
-          "sha256": "8b2ecd95a030f87dd210615ebf3cc0704c6b707896b4e991035ab9b52d9ef8d4",
+          "path": "/academy/art/characters/sophie/sophie__encouraging-listening__right-three-quarter__halfbody__v004.png",
+          "sha256": "58f1fd05b8b56ee60ae95d9dcc13fee9d7ba108a6ba4d0f84cedb4b17e7b22f7",
           "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
           "status": "approved",
           "usage": {
             "runtime": [
-              "dialogue:sophie-support",
-              "journal:sophie-expression-gallery"
+              "journal:sophie-expression-gallery",
+              "story:cast:sophie:encouraging-listening",
+              "cast-standardization:sophie"
             ],
-            "review": []
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
           },
           "orphan": "active-runtime",
           "styleVersion": "current-hand-painted-standard",
-          "fileVersion": "v003",
-          "pose": "balanced evidence-checking stance with one hand pinning a small note against a trailing scarf; front-near-front",
-          "angle": "front-near-front",
+          "fileVersion": "v004",
+          "pose": "balanced evidence-checking stance with one hand pinning a small note against a trailing scarf; right-three-quarter",
+          "angle": "right-three-quarter",
           "expression": "encouraging-listening",
           "dimensions": {
-            "width": 941,
-            "height": 1672,
+            "width": 1536,
+            "height": 2048,
             "bitDepth": 8,
             "colorType": 6,
             "transparency": "alpha-channel"
           },
           "runtimeUses": [
-            "dialogue:sophie-support",
-            "journal:sophie-expression-gallery"
+            "journal:sophie-expression-gallery",
+            "story:cast:sophie:encouraging-listening",
+            "cast-standardization:sophie"
           ],
-          "reviewUses": [],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/sophie/sophie__happy__front-near-front__halfbody__v004.png",
+          "sha256": "22d3cffcdb7fd80e9274cd9d9618695dc95803787926ce4689950214f3da5640",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:sophie-expression-gallery",
+              "story:cast:sophie:happy",
+              "cast-standardization:sophie"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-hand-painted-standard",
+          "fileVersion": "v004",
+          "pose": "balanced evidence-checking stance with one hand pinning a small note against a trailing scarf; front-near-front",
+          "angle": "front-near-front",
+          "expression": "happy",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:sophie-expression-gallery",
+            "story:cast:sophie:happy",
+            "cast-standardization:sophie"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/sophie/sophie__neutral__front-near-front__halfbody__v004.png",
+          "sha256": "b2eece61e2cb0d6902d80a2a83d9fa2aa9716e528c15a7d9950037d102e47101",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:sophie",
+              "class:people",
+              "class:week-cast",
+              "lesson-overview:roster",
+              "world:person",
+              "story:cast:sophie",
+              "cast-standardization:sophie"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-hand-painted-standard",
+          "fileVersion": "v004",
+          "pose": "balanced evidence-checking stance with one hand pinning a small note against a trailing scarf; front-near-front",
+          "angle": "front-near-front",
+          "expression": "neutral",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:sophie",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "story:cast:sophie",
+            "cast-standardization:sophie"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/sophie/sophie__sad-vulnerable__left-three-quarter__halfbody__v004.png",
+          "sha256": "bc0579e1225f977a0ef1df3ab4136e545751d85466f3c0bd9570997a33225b8f",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:sophie-expression-gallery",
+              "story:cast:sophie:sad-vulnerable",
+              "cast-standardization:sophie"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-hand-painted-standard",
+          "fileVersion": "v004",
+          "pose": "balanced evidence-checking stance with one hand pinning a small note against a trailing scarf; left-three-quarter",
+          "angle": "left-three-quarter",
+          "expression": "sad-vulnerable",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:sophie-expression-gallery",
+            "story:cast:sophie:sad-vulnerable",
+            "cast-standardization:sophie"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/sophie/sophie__surprised-shocked__right-three-quarter__halfbody__v004.png",
+          "sha256": "52019036d725a2918e9ff73ccca416b6a62b0fd81c1e9505a836588a7c2b302d",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:sophie-expression-gallery",
+              "story:cast:sophie:surprised-shocked",
+              "cast-standardization:sophie"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-hand-painted-standard",
+          "fileVersion": "v004",
+          "pose": "balanced evidence-checking stance with one hand pinning a small note against a trailing scarf; right-three-quarter",
+          "angle": "right-three-quarter",
+          "expression": "surprised-shocked",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:sophie-expression-gallery",
+            "story:cast:sophie:surprised-shocked",
+            "cast-standardization:sophie"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/sophie/sophie__thoughtful__left-three-quarter__halfbody__v004.png",
+          "sha256": "fa781867336aaa6b94eb410b63f288ecd094110b2503800cb26ca9aee530e14f",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:sophie-expression-gallery",
+              "story:cast:sophie:thoughtful",
+              "cast-standardization:sophie"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-hand-painted-standard",
+          "fileVersion": "v004",
+          "pose": "balanced evidence-checking stance with one hand pinning a small note against a trailing scarf; left-three-quarter",
+          "angle": "left-three-quarter",
+          "expression": "thoughtful",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:sophie-expression-gallery",
+            "story:cast:sophie:thoughtful",
+            "cast-standardization:sophie"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
           "decision": "keep",
           "migrationStatus": "approved-and-registered",
           "coverageStatus": "approved"
@@ -7067,15 +7397,14 @@
         {
           "angle": "left-three-quarter",
           "expression": "thoughtful",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/sophie/sophie__thoughtful__left-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/sophie/sophie__thoughtful__left-three-quarter__halfbody__v004.png"
         },
         {
           "angle": "left-three-quarter",
           "expression": "determined",
           "status": "approved",
-          "path": "/academy/art/characters/sophie/sophie__determined__left-three-quarter__halfbody__v003.png"
+          "path": "/academy/art/characters/sophie/sophie__determined__left-three-quarter__halfbody__v004.png"
         },
         {
           "angle": "left-three-quarter",
@@ -7087,29 +7416,27 @@
         {
           "angle": "left-three-quarter",
           "expression": "sad-vulnerable",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/sophie/sophie__sad-vulnerable__left-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/sophie/sophie__sad-vulnerable__left-three-quarter__halfbody__v004.png"
         },
         {
           "angle": "front-near-front",
           "expression": "neutral",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/sophie/sophie__neutral__front-near-front__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/sophie/sophie__neutral__front-near-front__halfbody__v004.png"
         },
         {
           "angle": "front-near-front",
           "expression": "encouraging-listening",
-          "status": "approved",
-          "path": "/academy/art/characters/sophie/sophie__encouraging-listening__front-near-front__halfbody__v003.png"
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/sophie/sophie__encouraging-listening__front-near-front__halfbody__v001.png"
         },
         {
           "angle": "front-near-front",
           "expression": "happy",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/sophie/sophie__happy__front-near-front__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/sophie/sophie__happy__front-near-front__halfbody__v004.png"
         },
         {
           "angle": "front-near-front",
@@ -7142,15 +7469,15 @@
         {
           "angle": "right-three-quarter",
           "expression": "neutral",
-          "status": "approved",
-          "path": "/academy/art/characters/sophie/sophie__bookshop-neutral__halfbody__v003.png"
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/sophie/sophie__neutral__right-three-quarter__halfbody__v001.png"
         },
         {
           "angle": "right-three-quarter",
           "expression": "encouraging-listening",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/sophie/sophie__encouraging-listening__right-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/sophie/sophie__encouraging-listening__right-three-quarter__halfbody__v004.png"
         },
         {
           "angle": "right-three-quarter",
@@ -7176,9 +7503,8 @@
         {
           "angle": "right-three-quarter",
           "expression": "surprised-shocked",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/sophie/sophie__surprised-shocked__right-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/sophie/sophie__surprised-shocked__right-three-quarter__halfbody__v004.png"
         },
         {
           "angle": "right-three-quarter",
@@ -7212,38 +7538,17 @@
         },
         {
           "angle": "left-three-quarter",
-          "expression": "thoughtful",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/sophie/sophie__thoughtful__left-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "left-three-quarter",
           "expression": "surprised-shocked",
           "status": "missing",
           "path": null,
           "plannedPath": "/academy/art/characters/sophie/sophie__surprised-shocked__left-three-quarter__halfbody__v001.png"
         },
         {
-          "angle": "left-three-quarter",
-          "expression": "sad-vulnerable",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/sophie/sophie__sad-vulnerable__left-three-quarter__halfbody__v001.png"
-        },
-        {
           "angle": "front-near-front",
-          "expression": "neutral",
+          "expression": "encouraging-listening",
           "status": "missing",
           "path": null,
-          "plannedPath": "/academy/art/characters/sophie/sophie__neutral__front-near-front__halfbody__v001.png"
-        },
-        {
-          "angle": "front-near-front",
-          "expression": "happy",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/sophie/sophie__happy__front-near-front__halfbody__v001.png"
+          "plannedPath": "/academy/art/characters/sophie/sophie__encouraging-listening__front-near-front__halfbody__v001.png"
         },
         {
           "angle": "front-near-front",
@@ -7275,10 +7580,10 @@
         },
         {
           "angle": "right-three-quarter",
-          "expression": "encouraging-listening",
+          "expression": "neutral",
           "status": "missing",
           "path": null,
-          "plannedPath": "/academy/art/characters/sophie/sophie__encouraging-listening__right-three-quarter__halfbody__v001.png"
+          "plannedPath": "/academy/art/characters/sophie/sophie__neutral__right-three-quarter__halfbody__v001.png"
         },
         {
           "angle": "right-three-quarter",
@@ -7300,13 +7605,6 @@
           "status": "missing",
           "path": null,
           "plannedPath": "/academy/art/characters/sophie/sophie__determined__right-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "right-three-quarter",
-          "expression": "surprised-shocked",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/sophie/sophie__surprised-shocked__right-three-quarter__halfbody__v001.png"
         },
         {
           "angle": "right-three-quarter",
@@ -8853,33 +9151,85 @@
         "slots": 21
       },
       "progress": {
-        "approved": 0,
+        "approved": 1,
         "reviewCandidates": 0,
-        "missing": 21,
-        "deliveredPercent": 0,
-        "approvedPercent": 0
+        "missing": 20,
+        "deliveredPercent": 4.76,
+        "approvedPercent": 4.76
       },
       "currentAssets": [
         {
-          "path": "/academy/art/characters/ruparna/ruparna__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
-          "sha256": "c3a505ddfa609dd7787e349e37b85ddcdb75abf25f6946cf185399c670c794ba",
+          "path": "/academy/art/characters/ruparna/ruparna__neutral__front-near-front__halfbody__v002.png",
+          "sha256": "909e5af42bb12f15a8cba9558ae2e29c5f763efad70a596f7751eb2d28613c1d",
           "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
-          "status": "review-candidate",
+          "status": "approved",
           "usage": {
             "runtime": [
-              "journal:ruparna-expression-gallery",
+              "journal:ruparna",
+              "class:people",
+              "class:week-cast",
+              "lesson-overview:roster",
+              "world:person",
+              "story:cast:ruparna",
               "cast-standardization:ruparna"
             ],
             "review": [
               "cast-standardization-manifest",
-              "learner-journal-preview"
+              "identity-lock"
             ]
           },
-          "orphan": "review-bound",
+          "orphan": "active-runtime",
           "styleVersion": "current-review-family",
-          "fileVersion": "v001",
-          "pose": "off-contract standardized-encouraging-listening pose",
+          "fileVersion": "v002",
+          "pose": "recipe notebook balanced on one palm with a pencil poised and the body turned in thought; front-near-front",
+          "angle": "front-near-front",
+          "expression": "neutral",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:ruparna",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "story:cast:ruparna",
+            "cast-standardization:ruparna"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/ruparna/ruparna__note-route__right-three-quarter__halfbody__v002.png",
+          "sha256": "f221ee5008c9d2746eb2f1d6cae831556eaed83f3abac52a001aba5a46e82089",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:ruparna-expression-gallery",
+              "story:cast:ruparna:note-route",
+              "cast-standardization:ruparna"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "off-contract note-route pose",
           "angle": null,
           "expression": null,
           "dimensions": {
@@ -8891,59 +9241,15 @@
           },
           "runtimeUses": [
             "journal:ruparna-expression-gallery",
+            "story:cast:ruparna:note-route",
             "cast-standardization:ruparna"
           ],
           "reviewUses": [
             "cast-standardization-manifest",
-            "learner-journal-preview"
+            "identity-lock"
           ],
           "decision": "keep",
-          "migrationStatus": "retained-off-matrix-review-evidence",
-          "coverageStatus": "off-matrix"
-        },
-        {
-          "path": "/academy/art/characters/ruparna/ruparna__standardized-neutral__front-near-front__halfbody__v001.png",
-          "sha256": "c3a505ddfa609dd7787e349e37b85ddcdb75abf25f6946cf185399c670c794ba",
-          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-          "privacy": "no-private-source-recorded",
-          "status": "review-candidate",
-          "usage": {
-            "runtime": [
-              "journal:ruparna",
-              "class:people-review",
-              "lesson-overview:roster-review",
-              "cast-standardization:ruparna"
-            ],
-            "review": [
-              "cast-standardization-manifest",
-              "learner-journal-preview"
-            ]
-          },
-          "orphan": "review-bound",
-          "styleVersion": "current-review-family",
-          "fileVersion": "v001",
-          "pose": "off-contract standardized-neutral pose",
-          "angle": null,
-          "expression": null,
-          "dimensions": {
-            "width": 1536,
-            "height": 2048,
-            "bitDepth": 8,
-            "colorType": 6,
-            "transparency": "alpha-channel"
-          },
-          "runtimeUses": [
-            "journal:ruparna",
-            "class:people-review",
-            "lesson-overview:roster-review",
-            "cast-standardization:ruparna"
-          ],
-          "reviewUses": [
-            "cast-standardization-manifest",
-            "learner-journal-preview"
-          ],
-          "decision": "keep",
-          "migrationStatus": "retained-off-matrix-review-evidence",
+          "migrationStatus": "approved-and-registered",
           "coverageStatus": "off-matrix"
         }
       ],
@@ -9000,9 +9306,8 @@
         {
           "angle": "front-near-front",
           "expression": "neutral",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/ruparna/ruparna__neutral__front-near-front__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/ruparna/ruparna__neutral__front-near-front__halfbody__v002.png"
         },
         {
           "angle": "front-near-front",
@@ -9145,13 +9450,6 @@
           "status": "missing",
           "path": null,
           "plannedPath": "/academy/art/characters/ruparna/ruparna__sad-vulnerable__left-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "front-near-front",
-          "expression": "neutral",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/ruparna/ruparna__neutral__front-near-front__halfbody__v001.png"
         },
         {
           "angle": "front-near-front",

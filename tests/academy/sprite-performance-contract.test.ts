@@ -50,10 +50,15 @@ describe('Academy VN sprite performance contract', () => {
                 status: 'approved',
             }));
         expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.sophie.coverage)
-            .toEqual({ approved: 3, reviewCandidates: 0, missing: 18 });
+            .toEqual({ approved: 7, reviewCandidates: 0, missing: 14 });
         expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.sophie.poses[0].expressions.determined.status).toBe('approved');
-        expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.sophie.poses[1].expressions['encouraging-listening'].status).toBe('approved');
         expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.sophie.poses[1].expressions.neutral.status).toBe('approved');
+        expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.sophie.poses[2].expressions['encouraging-listening'].status).toBe('approved');
+        expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.henry.coverage)
+            .toEqual({ approved: 7, reviewCandidates: 0, missing: 14 });
+        expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.henry.poses[0].expressions.thoughtful.status).toBe('approved');
+        expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.henry.poses[1].expressions.happy.status).toBe('approved');
+        expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.henry.poses[2].expressions['surprised-shocked'].status).toBe('approved');
         expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.tom2.coverage)
             .toEqual({ approved: 0, reviewCandidates: 3, missing: 18 });
         expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.steve.coverage)

@@ -19,9 +19,9 @@
     "deletion": "This audit never deletes, moves, or mutates Academy raster files."
   },
   "counts": {
-    "currentRasterFiles": 294,
-    "currentRasterFilesAccountedFor": 294,
-    "active": 241,
+    "currentRasterFiles": 291,
+    "currentRasterFilesAccountedFor": 291,
+    "active": 238,
     "orphaned": 53,
     "deprecated": 10,
     "deprecatedPresent": 0,
@@ -32,7 +32,7 @@
     "deliveredMatrixExpressionVariants": 58,
     "offMatrixDeliveredSprites": 51,
     "activeByKind": {
-      "character-sprite": 113,
+      "character-sprite": 110,
       "protagonist-portrait": 4,
       "scene-background": 68,
       "scene-event": 48,
@@ -591,71 +591,6 @@
           "class:people-review",
           "lesson-overview:roster-review",
           "cast-standardization:francis"
-        ],
-        "reviewHomes": [
-          "cast-standardization-manifest",
-          "learner-journal-preview"
-        ],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "review-candidate/runtime-preview",
-        "ledgerStatus": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-      },
-      {
-        "id": "character-henry-standardized-determined-left-three-quarter-halfbody-v001",
-        "path": "/academy/art/characters/henry/henry__standardized-determined__left-three-quarter__halfbody__v001.png",
-        "sha256": "f45129620d42f4dcea53587b96b38dc1bf6e296b160e6fcf7555471bf6e8bf29",
-        "ledgerSha256": "f45129620d42f4dcea53587b96b38dc1bf6e296b160e6fcf7555471bf6e8bf29",
-        "kind": "character-sprite",
-        "state": "active",
-        "present": true,
-        "runtimeAuthorized": true,
-        "runtimeHomes": [
-          "journal:henry-expression-gallery",
-          "cast-standardization:henry"
-        ],
-        "reviewHomes": [
-          "cast-standardization-manifest",
-          "learner-journal-preview"
-        ],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "review-candidate/runtime-preview",
-        "ledgerStatus": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-      },
-      {
-        "id": "character-henry-standardized-encouraging-listening-front-near-front-halfbody-v001",
-        "path": "/academy/art/characters/henry/henry__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
-        "sha256": "f104e663a0c1c00bc0d5a46f53a238b7fb57473b8454a6c8b05ba1fcdfcd083d",
-        "ledgerSha256": "f104e663a0c1c00bc0d5a46f53a238b7fb57473b8454a6c8b05ba1fcdfcd083d",
-        "kind": "character-sprite",
-        "state": "active",
-        "present": true,
-        "runtimeAuthorized": true,
-        "runtimeHomes": [
-          "journal:henry-expression-gallery",
-          "cast-standardization:henry"
-        ],
-        "reviewHomes": [
-          "cast-standardization-manifest",
-          "learner-journal-preview"
-        ],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "review-candidate/runtime-preview",
-        "ledgerStatus": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-      },
-      {
-        "id": "character-henry-standardized-neutral-front-near-front-halfbody-v001",
-        "path": "/academy/art/characters/henry/henry__standardized-neutral__front-near-front__halfbody__v001.png",
-        "sha256": "e7e660565d01c8106378901a9255b2d83f06eb38916b451aa3e394596c3311ee",
-        "ledgerSha256": "e7e660565d01c8106378901a9255b2d83f06eb38916b451aa3e394596c3311ee",
-        "kind": "character-sprite",
-        "state": "active",
-        "present": true,
-        "runtimeAuthorized": true,
-        "runtimeHomes": [
-          "journal:henry",
-          "class:people-review",
-          "lesson-overview:roster-review",
-          "cast-standardization:henry"
         ],
         "reviewHomes": [
           "cast-standardization-manifest",
@@ -6068,7 +6003,7 @@
         "character": "henry",
         "path": "/academy/art/characters/henry/henry__standardized-determined__left-three-quarter__halfbody__v001.png",
         "sha256": "f45129620d42f4dcea53587b96b38dc1bf6e296b160e6fcf7555471bf6e8bf29",
-        "currentState": "active",
+        "currentState": "unaccounted",
         "coverageStatus": "off-matrix",
         "migrationStatus": "retained-off-matrix-review-evidence",
         "countsTowardExpressionMatrix": false
@@ -6077,7 +6012,7 @@
         "character": "henry",
         "path": "/academy/art/characters/henry/henry__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
         "sha256": "f104e663a0c1c00bc0d5a46f53a238b7fb57473b8454a6c8b05ba1fcdfcd083d",
-        "currentState": "active",
+        "currentState": "unaccounted",
         "coverageStatus": "off-matrix",
         "migrationStatus": "retained-off-matrix-review-evidence",
         "countsTowardExpressionMatrix": false
@@ -6086,7 +6021,7 @@
         "character": "henry",
         "path": "/academy/art/characters/henry/henry__standardized-neutral__front-near-front__halfbody__v001.png",
         "sha256": "e7e660565d01c8106378901a9255b2d83f06eb38916b451aa3e394596c3311ee",
-        "currentState": "active",
+        "currentState": "unaccounted",
         "coverageStatus": "off-matrix",
         "migrationStatus": "retained-off-matrix-review-evidence",
         "countsTowardExpressionMatrix": false

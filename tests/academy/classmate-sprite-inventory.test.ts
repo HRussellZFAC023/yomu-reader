@@ -134,17 +134,22 @@ describe('Academy cast-wide sprite migration inventory', () => {
         }
     });
 
-    it('registers Sophie P0 while keeping the other eighteen cells missing', () => {
-        const sophie = inventory.characters.find(character => character.id === 'sophie')!;
+    it('registers the canonical Sophie and Henry performance families', () => {
+        for (const [castId, version] of [['sophie', 'v004'], ['henry', 'v002']] as const) {
+            const character = inventory.characters.find(candidate => candidate.id === castId)!;
 
-        expect(sophie.progress).toEqual({ approved: 3, reviewCandidates: 0, missing: 18, deliveredPercent: 14.29, approvedPercent: 14.29 });
-        expect(sophie.currentAssets.map(asset => [asset.angle, asset.expression])).toEqual([
-            ['right-three-quarter', 'neutral'],
-            ['left-three-quarter', 'determined'],
-            ['front-near-front', 'encouraging-listening'],
-        ]);
-        expect(sophie.currentAssets.every(asset => asset.path.endsWith('__v003.png'))).toBe(true);
-        expect(sophie.currentAssets.every(asset => asset.coverageStatus === 'approved')).toBe(true);
+            expect(character.progress).toEqual({
+                approved: SPRITE_EXPRESSIONS.length,
+                reviewCandidates: 0,
+                missing: inventory.target.slotsPerCharacter - SPRITE_EXPRESSIONS.length,
+                deliveredPercent: 33.33,
+                approvedPercent: 33.33,
+            });
+            expect(character.currentAssets.map(asset => asset.expression).sort())
+                .toEqual([...SPRITE_EXPRESSIONS].sort());
+            expect(character.currentAssets.every(asset => asset.path.endsWith(`__${version}.png`))).toBe(true);
+            expect(character.currentAssets.every(asset => asset.coverageStatus === 'approved')).toBe(true);
+        }
     });
 
     it('records the priority upgrade without shipping private reference paths', () => {

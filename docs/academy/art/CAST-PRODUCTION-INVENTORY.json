@@ -29,9 +29,9 @@
     "cast": 30,
     "requiredPerformancesPerCast": 7,
     "requiredSlots": 210,
-    "integratedSlots": 46,
-    "missingSlots": 164,
-    "ownerCorrectionQueue": 73,
+    "integratedSlots": 53,
+    "missingSlots": 157,
+    "ownerCorrectionQueue": 66,
     "storyCriticalQueue": 56,
     "rosterCompletionQueue": 35
   },
@@ -172,65 +172,97 @@
       "priority": "owner-correction",
       "summary": {
         "required": 7,
-        "integrated": 0,
-        "missing": 7
+        "integrated": 7,
+        "missing": 0
       },
       "performances": [
         {
           "expression": "neutral",
           "preferredAngle": "front-near-front",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.henry.neutral-front-near-front-halfbody-v002",
+          "assetPath": "/academy/art/characters/henry/henry__neutral__front-near-front__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:henry",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "story:cast:henry",
+            "cast-standardization:henry"
+          ]
         },
         {
           "expression": "encouraging-listening",
           "preferredAngle": "right-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.henry.encouraging-listening-right-three-quarter-halfbody-v002",
+          "assetPath": "/academy/art/characters/henry/henry__encouraging-listening__right-three-quarter__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:henry-expression-gallery",
+            "story:cast:henry:encouraging-listening",
+            "cast-standardization:henry"
+          ]
         },
         {
           "expression": "happy",
           "preferredAngle": "front-near-front",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.henry.happy-front-near-front-halfbody-v002",
+          "assetPath": "/academy/art/characters/henry/henry__happy__front-near-front__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:henry-expression-gallery",
+            "story:cast:henry:happy",
+            "cast-standardization:henry"
+          ]
         },
         {
           "expression": "thoughtful",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.henry.thoughtful-left-three-quarter-halfbody-v002",
+          "assetPath": "/academy/art/characters/henry/henry__thoughtful__left-three-quarter__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:henry-expression-gallery",
+            "story:cast:henry:thoughtful",
+            "cast-standardization:henry"
+          ]
         },
         {
           "expression": "determined",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.henry.determined-left-three-quarter-halfbody-v002",
+          "assetPath": "/academy/art/characters/henry/henry__determined__left-three-quarter__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:henry-expression-gallery",
+            "story:cast:henry:determined",
+            "cast-standardization:henry"
+          ]
         },
         {
           "expression": "surprised-shocked",
           "preferredAngle": "right-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.henry.surprised-shocked-right-three-quarter-halfbody-v002",
+          "assetPath": "/academy/art/characters/henry/henry__surprised-shocked__right-three-quarter__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:henry-expression-gallery",
+            "story:cast:henry:surprised-shocked",
+            "cast-standardization:henry"
+          ]
         },
         {
           "expression": "sad-vulnerable",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.henry.sad-vulnerable-left-three-quarter-halfbody-v002",
+          "assetPath": "/academy/art/characters/henry/henry__sad-vulnerable__left-three-quarter__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:henry-expression-gallery",
+            "story:cast:henry:sad-vulnerable",
+            "cast-standardization:henry"
+          ]
         }
       ]
     },
@@ -896,10 +928,11 @@
       "displayName": "Jenny",
       "identityKey": "jenny-round-face-brown-hair",
       "assetFolder": "jenny",
-      "visualLock": "Woman with brown hair, a noticeably round warm face, and a composed observant presence.",
+      "visualLock": "Slim woman with brown hair, a noticeably round warm face, and a composed observant presence.",
       "wardrobeLock": "Soft textured layers in indigo, berry, and cream; knitting only when the scene uses it.",
       "reject": [
         "narrow pointed face",
+        "broad or heavy-set body",
         "blond or black hair",
         "photographic face",
         "shoujo-child proportions"
@@ -2674,211 +2707,6 @@
     }
   ],
   "generationQueue": [
-    {
-      "key": "henry:neutral",
-      "castId": "henry",
-      "displayName": "Henry",
-      "identityKey": "henry-messy-brown-indigo",
-      "expression": "neutral",
-      "angle": "front-near-front",
-      "priority": "owner-correction",
-      "storyLines": 23,
-      "visualLock": "White man with messy short brown hair, a slightly sleepless face, and an alert technical energy.",
-      "wardrobeLock": "Casual indigo layers with a practical laptop bag or notebook only when the scene calls for it.",
-      "reject": [
-        "photographic face",
-        "formal suit",
-        "slick hair",
-        "generic heroic physique",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:henry",
-        "class:people",
-        "lesson-overview:roster",
-        "story:cast:henry"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "henry:encouraging-listening",
-      "castId": "henry",
-      "displayName": "Henry",
-      "identityKey": "henry-messy-brown-indigo",
-      "expression": "encouraging-listening",
-      "angle": "right-three-quarter",
-      "priority": "owner-correction",
-      "storyLines": 23,
-      "visualLock": "White man with messy short brown hair, a slightly sleepless face, and an alert technical energy.",
-      "wardrobeLock": "Casual indigo layers with a practical laptop bag or notebook only when the scene calls for it.",
-      "reject": [
-        "photographic face",
-        "formal suit",
-        "slick hair",
-        "generic heroic physique",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:henry-expression-gallery",
-        "story:cast:henry:encouraging-listening"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "henry:happy",
-      "castId": "henry",
-      "displayName": "Henry",
-      "identityKey": "henry-messy-brown-indigo",
-      "expression": "happy",
-      "angle": "front-near-front",
-      "priority": "owner-correction",
-      "storyLines": 23,
-      "visualLock": "White man with messy short brown hair, a slightly sleepless face, and an alert technical energy.",
-      "wardrobeLock": "Casual indigo layers with a practical laptop bag or notebook only when the scene calls for it.",
-      "reject": [
-        "photographic face",
-        "formal suit",
-        "slick hair",
-        "generic heroic physique",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:henry-expression-gallery",
-        "story:cast:henry:happy"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "henry:thoughtful",
-      "castId": "henry",
-      "displayName": "Henry",
-      "identityKey": "henry-messy-brown-indigo",
-      "expression": "thoughtful",
-      "angle": "left-three-quarter",
-      "priority": "owner-correction",
-      "storyLines": 23,
-      "visualLock": "White man with messy short brown hair, a slightly sleepless face, and an alert technical energy.",
-      "wardrobeLock": "Casual indigo layers with a practical laptop bag or notebook only when the scene calls for it.",
-      "reject": [
-        "photographic face",
-        "formal suit",
-        "slick hair",
-        "generic heroic physique",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:henry-expression-gallery",
-        "story:cast:henry:thoughtful"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "henry:determined",
-      "castId": "henry",
-      "displayName": "Henry",
-      "identityKey": "henry-messy-brown-indigo",
-      "expression": "determined",
-      "angle": "left-three-quarter",
-      "priority": "owner-correction",
-      "storyLines": 23,
-      "visualLock": "White man with messy short brown hair, a slightly sleepless face, and an alert technical energy.",
-      "wardrobeLock": "Casual indigo layers with a practical laptop bag or notebook only when the scene calls for it.",
-      "reject": [
-        "photographic face",
-        "formal suit",
-        "slick hair",
-        "generic heroic physique",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:henry-expression-gallery",
-        "story:cast:henry:determined"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "henry:surprised-shocked",
-      "castId": "henry",
-      "displayName": "Henry",
-      "identityKey": "henry-messy-brown-indigo",
-      "expression": "surprised-shocked",
-      "angle": "right-three-quarter",
-      "priority": "owner-correction",
-      "storyLines": 23,
-      "visualLock": "White man with messy short brown hair, a slightly sleepless face, and an alert technical energy.",
-      "wardrobeLock": "Casual indigo layers with a practical laptop bag or notebook only when the scene calls for it.",
-      "reject": [
-        "photographic face",
-        "formal suit",
-        "slick hair",
-        "generic heroic physique",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:henry-expression-gallery",
-        "story:cast:henry:surprised-shocked"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "henry:sad-vulnerable",
-      "castId": "henry",
-      "displayName": "Henry",
-      "identityKey": "henry-messy-brown-indigo",
-      "expression": "sad-vulnerable",
-      "angle": "left-three-quarter",
-      "priority": "owner-correction",
-      "storyLines": 23,
-      "visualLock": "White man with messy short brown hair, a slightly sleepless face, and an alert technical energy.",
-      "wardrobeLock": "Casual indigo layers with a practical laptop bag or notebook only when the scene calls for it.",
-      "reject": [
-        "photographic face",
-        "formal suit",
-        "slick hair",
-        "generic heroic physique",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:henry-expression-gallery",
-        "story:cast:henry:sad-vulnerable"
-      ],
-      "status": "queued"
-    },
     {
       "key": "aakash:neutral",
       "castId": "aakash",

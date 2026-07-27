@@ -18,8 +18,8 @@
     ]
   },
   "counts": {
-    "runtimeAssetHomes": 186,
-    "runtimeFiles": 241,
+    "runtimeAssetHomes": 190,
+    "runtimeFiles": 245,
     "nonRuntimeReviewFiles": 1734,
     "approvedReferenceOnly": 4,
     "explicitlyRejectedFamilies": 4,
@@ -1177,106 +1177,6 @@
         {
           "path": "/academy/art/characters/francis/francis__standardized-neutral__front-near-front__halfbody__v001.png",
           "sha256": "f4d339165bc50aafbea39ca01049ee3246b3c37453bce58fef5818c66d0f71c7"
-        }
-      ],
-      "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-    },
-    {
-      "id": "character-henry-standardized-determined-left-three-quarter-halfbody-v001",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "f45129620d42f4dcea53587b96b38dc1bf6e296b160e6fcf7555471bf6e8bf29",
-      "provenance": "regenerated-standardized",
-      "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": [
-        "journal:henry-expression-gallery",
-        "cast-standardization:henry"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "learner-journal-preview"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:henry-expression-gallery",
-          "cast-standardization:henry"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/henry/henry__standardized-determined__left-three-quarter__halfbody__v001.png",
-          "sha256": "f45129620d42f4dcea53587b96b38dc1bf6e296b160e6fcf7555471bf6e8bf29"
-        }
-      ],
-      "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-    },
-    {
-      "id": "character-henry-standardized-encouraging-listening-front-near-front-halfbody-v001",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "f104e663a0c1c00bc0d5a46f53a238b7fb57473b8454a6c8b05ba1fcdfcd083d",
-      "provenance": "regenerated-standardized",
-      "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": [
-        "journal:henry-expression-gallery",
-        "cast-standardization:henry"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "learner-journal-preview"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:henry-expression-gallery",
-          "cast-standardization:henry"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/henry/henry__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
-          "sha256": "f104e663a0c1c00bc0d5a46f53a238b7fb57473b8454a6c8b05ba1fcdfcd083d"
-        }
-      ],
-      "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-    },
-    {
-      "id": "character-henry-standardized-neutral-front-near-front-halfbody-v001",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "e7e660565d01c8106378901a9255b2d83f06eb38916b451aa3e394596c3311ee",
-      "provenance": "regenerated-standardized",
-      "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": [
-        "journal:henry",
-        "class:people-review",
-        "lesson-overview:roster-review",
-        "cast-standardization:henry"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "learner-journal-preview"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:henry",
-          "class:people-review",
-          "lesson-overview:roster-review",
-          "cast-standardization:henry"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/henry/henry__standardized-neutral__front-near-front__halfbody__v001.png",
-          "sha256": "e7e660565d01c8106378901a9255b2d83f06eb38916b451aa3e394596c3311ee"
         }
       ],
       "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
@@ -12824,6 +12724,252 @@
         {
           "path": "/academy/art/characters/sophie/sophie__sad-vulnerable__left-three-quarter__halfbody__v004.png",
           "sha256": "bc0579e1225f977a0ef1df3ab4136e545751d85466f3c0bd9570997a33225b8f"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-henry-neutral-front-near-front-halfbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "8d11ae15e5e00d1bcd98ca02088154d44287b2f1ed71507d72791935558450ea",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:henry",
+        "class:people",
+        "class:week-cast",
+        "lesson-overview:roster",
+        "world:person",
+        "story:cast:henry",
+        "cast-standardization:henry"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:henry",
+          "class:people",
+          "class:week-cast",
+          "lesson-overview:roster",
+          "world:person",
+          "story:cast:henry",
+          "cast-standardization:henry"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/henry/henry__neutral__front-near-front__halfbody__v002.png",
+          "sha256": "8d11ae15e5e00d1bcd98ca02088154d44287b2f1ed71507d72791935558450ea"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-henry-encouraging-listening-right-three-quarter-halfbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "dde4f217e41cee9d0d2534b98414c95d3c9b4ee949dd03314734bc7cf6265347",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:henry-expression-gallery",
+        "story:cast:henry:encouraging-listening",
+        "cast-standardization:henry"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:henry-expression-gallery",
+          "story:cast:henry:encouraging-listening",
+          "cast-standardization:henry"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/henry/henry__encouraging-listening__right-three-quarter__halfbody__v002.png",
+          "sha256": "dde4f217e41cee9d0d2534b98414c95d3c9b4ee949dd03314734bc7cf6265347"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-henry-happy-front-near-front-halfbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "153a709fd4bcd378e74a96cb0b2a98c1dd1f449ea3663557e50e5ee0ca72ce6e",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:henry-expression-gallery",
+        "story:cast:henry:happy",
+        "cast-standardization:henry"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:henry-expression-gallery",
+          "story:cast:henry:happy",
+          "cast-standardization:henry"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/henry/henry__happy__front-near-front__halfbody__v002.png",
+          "sha256": "153a709fd4bcd378e74a96cb0b2a98c1dd1f449ea3663557e50e5ee0ca72ce6e"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-henry-thoughtful-left-three-quarter-halfbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "508d8e4435f2ee4afb5d106f825554c5cc20fc1a5b8649b49ff73c9c9161f831",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:henry-expression-gallery",
+        "story:cast:henry:thoughtful",
+        "cast-standardization:henry"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:henry-expression-gallery",
+          "story:cast:henry:thoughtful",
+          "cast-standardization:henry"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/henry/henry__thoughtful__left-three-quarter__halfbody__v002.png",
+          "sha256": "508d8e4435f2ee4afb5d106f825554c5cc20fc1a5b8649b49ff73c9c9161f831"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-henry-determined-left-three-quarter-halfbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "2aad05a6b41b14c85601dced378dd342f43404632fee9b2fc1f328eaf5f4aa45",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:henry-expression-gallery",
+        "story:cast:henry:determined",
+        "cast-standardization:henry"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:henry-expression-gallery",
+          "story:cast:henry:determined",
+          "cast-standardization:henry"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/henry/henry__determined__left-three-quarter__halfbody__v002.png",
+          "sha256": "2aad05a6b41b14c85601dced378dd342f43404632fee9b2fc1f328eaf5f4aa45"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-henry-surprised-shocked-right-three-quarter-halfbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "9cd584f5f96d6dc44d211ca1f30c2e4bdf709af28e8292c339d0853c25d0777b",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:henry-expression-gallery",
+        "story:cast:henry:surprised-shocked",
+        "cast-standardization:henry"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:henry-expression-gallery",
+          "story:cast:henry:surprised-shocked",
+          "cast-standardization:henry"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/henry/henry__surprised-shocked__right-three-quarter__halfbody__v002.png",
+          "sha256": "9cd584f5f96d6dc44d211ca1f30c2e4bdf709af28e8292c339d0853c25d0777b"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-henry-sad-vulnerable-left-three-quarter-halfbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "f4bddcf8af3024757d82db0afa6fdecee0011c5e3b4be65585a14333e539a81d",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:henry-expression-gallery",
+        "story:cast:henry:sad-vulnerable",
+        "cast-standardization:henry"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:henry-expression-gallery",
+          "story:cast:henry:sad-vulnerable",
+          "cast-standardization:henry"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/henry/henry__sad-vulnerable__left-three-quarter__halfbody__v002.png",
+          "sha256": "f4bddcf8af3024757d82db0afa6fdecee0011c5e3b4be65585a14333e539a81d"
         }
       ],
       "status": "identity-locked, visually inspected, runtime-bound house-style sprite"

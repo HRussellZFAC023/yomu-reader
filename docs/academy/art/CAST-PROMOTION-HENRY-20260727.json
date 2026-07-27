@@ -1,0 +1,101 @@
+{
+  "promotions": [
+    {
+      "castId": "henry",
+      "archiveLabel": "style-superseded-20260727",
+      "replaceExpressions": [
+        "neutral",
+        "encouraging-listening",
+        "happy",
+        "thoughtful",
+        "determined",
+        "surprised-shocked",
+        "sad-vulnerable"
+      ],
+      "canonicalNeutralAssetId": "character.henry.neutral-front-near-front-halfbody-v002",
+      "slots": [
+        {
+          "assetId": "character.henry.neutral-front-near-front-halfbody-v002",
+          "expression": "neutral",
+          "angle": "front-near-front",
+          "assetPath": "/academy/art/characters/henry/henry__neutral__front-near-front__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:henry",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "story:cast:henry",
+            "cast-standardization:henry"
+          ]
+        },
+        {
+          "assetId": "character.henry.encouraging-listening-right-three-quarter-halfbody-v002",
+          "expression": "encouraging-listening",
+          "angle": "right-three-quarter",
+          "assetPath": "/academy/art/characters/henry/henry__encouraging-listening__right-three-quarter__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:henry-expression-gallery",
+            "story:cast:henry:encouraging-listening",
+            "cast-standardization:henry"
+          ]
+        },
+        {
+          "assetId": "character.henry.happy-front-near-front-halfbody-v002",
+          "expression": "happy",
+          "angle": "front-near-front",
+          "assetPath": "/academy/art/characters/henry/henry__happy__front-near-front__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:henry-expression-gallery",
+            "story:cast:henry:happy",
+            "cast-standardization:henry"
+          ]
+        },
+        {
+          "assetId": "character.henry.thoughtful-left-three-quarter-halfbody-v002",
+          "expression": "thoughtful",
+          "angle": "left-three-quarter",
+          "assetPath": "/academy/art/characters/henry/henry__thoughtful__left-three-quarter__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:henry-expression-gallery",
+            "story:cast:henry:thoughtful",
+            "cast-standardization:henry"
+          ]
+        },
+        {
+          "assetId": "character.henry.determined-left-three-quarter-halfbody-v002",
+          "expression": "determined",
+          "angle": "left-three-quarter",
+          "assetPath": "/academy/art/characters/henry/henry__determined__left-three-quarter__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:henry-expression-gallery",
+            "story:cast:henry:determined",
+            "cast-standardization:henry"
+          ]
+        },
+        {
+          "assetId": "character.henry.surprised-shocked-right-three-quarter-halfbody-v002",
+          "expression": "surprised-shocked",
+          "angle": "right-three-quarter",
+          "assetPath": "/academy/art/characters/henry/henry__surprised-shocked__right-three-quarter__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:henry-expression-gallery",
+            "story:cast:henry:surprised-shocked",
+            "cast-standardization:henry"
+          ]
+        },
+        {
+          "assetId": "character.henry.sad-vulnerable-left-three-quarter-halfbody-v002",
+          "expression": "sad-vulnerable",
+          "angle": "left-three-quarter",
+          "assetPath": "/academy/art/characters/henry/henry__sad-vulnerable__left-three-quarter__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:henry-expression-gallery",
+            "story:cast:henry:sad-vulnerable",
+            "cast-standardization:henry"
+          ]
+        }
+      ]
+    }
+  ]
+}
