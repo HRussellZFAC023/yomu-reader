@@ -22,6 +22,7 @@ const {
   warnIfNearGreasyForkSizeLimit,
 } = require('./lib/userscript-build-utils.cjs');
 const { GREASY_FORK_LIBRARIES, greasyForkLibraryPath, immutableLibraryUrl, immutableReaderCssUrl, readerCssResourceUrl } = require('./lib/greasyfork-libraries.cjs');
+const { collectBundledDependencyDrift, formatBundledDependencyDrift } = require('./lib/bundled-dependency-lock.cjs');
 
 const READER_CSS_NETWORK_SKIP_ENV = 'YOMU_VERIFY_SKIP_NETWORK';
 const READER_CSS_REQUEST_TIMEOUT_MS = 30_000;
@@ -108,6 +109,7 @@ if (lines.length < MIN_READABLE_LINE_COUNT || maxLineLength > MAX_READABLE_LINE_
 }
 failIfGreasyForkSizeExceeded(size);
 warnIfNearGreasyForkSizeLimit(size);
+assertBundledDependenciesMatchLock();
 assertSyncedDocsAssets();
 assertNewTabCacheBusting();
 assertPublishedChangelogIsReleaseOnly();
@@ -466,6 +468,21 @@ function assertAnkiRenderSplitBoundary() {
     if (code.includes(signature)) fail(`ADR-0003 split regression: ${label} implementation leaked into ${USERSCRIPT_RELATIVE_PATH}.`);
     if (!companionCode.includes(signature)) fail(`ADR-0003 split regression: ${label} is missing from dist/${greasyForkLibraryPath(ankiLibrary.fileName)}.`);
   }
+}
+
+// Runs before the artifact comparison below on purpose: a bundled dependency
+// that does not match the lock makes every committed artifact differ from a
+// rebuild, and without this the verifier would blame the artifacts instead.
+function assertBundledDependenciesMatchLock() {
+  const lockPath = join(ROOT, 'package-lock.json');
+  if (!fileExists(lockPath)) return;
+  const lockPackages = JSON.parse(readText(lockPath)).packages || {};
+  const drift = collectBundledDependencyDrift(packageJson.dependencies, lockPackages, name => {
+    const manifest = join(ROOT, 'node_modules', name, 'package.json');
+    if (!fileExists(manifest)) return null;
+    return JSON.parse(readText(manifest)).version || null;
+  });
+  if (drift.length > 0) fail(formatBundledDependencyDrift(drift));
 }
 
 function assertSyncedDocsAssets() {

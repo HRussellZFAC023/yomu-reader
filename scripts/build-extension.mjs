@@ -98,7 +98,11 @@ async function stageNewTabShell() {
     await writeFile(path.join(newtab, 'appearance-boot.js'), `${hostedAppearanceBootSnippet('surface')}\n`);
     await writeFile(path.join(newtab, 'version-loader.js'), extensionNewTabVersionLoader(appHash, buildId));
     await writeFile(path.join(newtab, 'sw-register.js'), extensionNewTabServiceWorkerRegister());
-    await writeFile(path.join(newtab, 'version.json'), `${JSON.stringify({ appHash, buildId, generatedAt }, null, 2)}\n`);
+    // Must stay byte-identical to the committed docs/public/study/version.json
+    // that scripts/sync-docs-userscript.cjs writes (verify-userscript.cjs
+    // compares the two), so this carries the same build-derived fields only.
+    // generatedAt stays out of it and is used for the ZIP archive timestamp.
+    await writeFile(path.join(newtab, 'version.json'), `${JSON.stringify({ appHash, buildId }, null, 2)}\n`);
     await stageNewTabWebManifest();
     await stageNewTabServiceWorker(appHash);
     await copyFileIfExists(publicIcon, path.join(newtab, 'yomu-icon.svg'));
