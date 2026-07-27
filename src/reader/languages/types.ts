@@ -5,7 +5,7 @@ export const LANGUAGE_PROFILE_SCHEMA_VERSION = 1 as const;
  * speaks. Bump it whenever the shape below gains, loses, or changes the
  * meaning of a member.
  */
-export const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 3 as const;
+export const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 4 as const;
 
 /**
  * Revisions core can still drive. A target module declares the revision it was
@@ -14,7 +14,7 @@ export const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 3 as const;
  * out-of-tree target) fails loudly at registration instead of silently
  * missing a capability at some call site months later.
  */
-export const SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS = [3] as const;
+export const SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS = [4] as const;
 
 export type LearningTargetModuleInterfaceVersion =
     typeof SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS[number];
@@ -170,7 +170,8 @@ export interface LearningTargetSubtitles {
  * Capability domains, and where each one lives on this contract:
  *   detection             -> isLookupableText
  *   segmentation          -> segment
- *   morphology            -> lookupCandidates, matchesLookupCandidateRules
+ *   morphology            -> lookupCandidates, compareLookupCandidates,
+ *                            matchesLookupCandidateRules
  *   reading normalization -> normalizeText, normalizeReading
  *   script/pronunciation  -> featureSemantics
  *   typography            -> typography, direction
@@ -209,6 +210,20 @@ export interface LearningTargetModule {
      * knows which language's rules produced them.
      */
     lookupCandidates(text: string): readonly LanguageLookupCandidate[];
+    /**
+     * Ranks two analyses of the same surface, most worth looking up first.
+     *
+     * `depth` alone is not enough. Two analyses can sit at the same depth and
+     * still differ in how likely they are to be the word the reader meant, and
+     * deciding that means reading `rules` — which the contract states may only
+     * ever be interpreted by the target that produced them. Japanese ranks a
+     * suru/kuru reading above ichidan/godan above i-adjective for exactly that
+     * reason; another target's tag vocabulary says nothing about those.
+     *
+     * A target with no morphology never produces two candidates to compare, so
+     * the generic implementation is simply the shape-level ordering.
+     */
+    compareLookupCandidates(a: LanguageLookupCandidate, b: LanguageLookupCandidate): number;
     /**
      * Whether a dictionary entry tagged `entryRules` may answer a candidate
      * produced with `candidateRules`. The tag vocabulary and its aliases are

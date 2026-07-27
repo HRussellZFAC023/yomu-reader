@@ -1,4 +1,5 @@
 import { escapeHtml } from '../../reader/dom/index';
+import { targetContentLocale } from '../../reader/languages/resolve';
 import {
     fittedObjectSize,
     layoutOcrOverlayLines,
@@ -35,9 +36,10 @@ export function overlayOcrLayerHtml(lines: GamingOcrLine[], frame: OcrOverlayFra
         + `</section>`;
 }
 
-// Each recognized line is a real Japanese text node anchored over its source box. The
-// bundled Yomu reader scans these nodes in place: it adds furigana and wires the full
-// hover/click popover (definitions, pitch, kanji, SRS) onto the words it finds.
+// Each recognized line is a real text node in the language being studied, anchored over
+// its source box and stamped with that target's own content locale. The bundled Yomu
+// reader scans these nodes in place: it adds readings and wires the full hover/click
+// popover (definitions, pitch, kanji, SRS) onto the words it finds.
 //
 // The line carries .jpdb-ocr-line-visible — the reader's "show the recognized text"
 // dressing: white type on a dark chip (measured rgba(24, 27, 32, 0.32), 1px border,
@@ -65,7 +67,7 @@ export function overlayOcrLineHtml(line: GamingOcrLine, frame: OcrOverlayFrame):
         + ` data-box-left="${box.left}" data-box-top="${box.top}"`
         + ` data-box-width="${box.width}" data-box-height="${box.height}"`
         + ` style="writing-mode:${line.vertical ? 'vertical-rl' : 'horizontal-tb'}">`
-        + `<span class="jpdb-ocr-line-text" lang="ja">${escapeHtml(line.text)}</span></div>`;
+        + `<span class="jpdb-ocr-line-text" lang="${escapeHtml(targetContentLocale())}">${escapeHtml(line.text)}</span></div>`;
 }
 
 // The reader's line geometry, run over the gaming overlay: the font size comes from the

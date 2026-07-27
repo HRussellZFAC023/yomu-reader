@@ -1,15 +1,18 @@
-import { fallbackLookupTermsForText } from '../reader/lookup/japanese-segments';
-import { segmentTargetLanguageText } from '../reader/lookup/target-text';
+import { activeLearningTargetLanguage } from '../reader/languages/active';
+import { targetOcrLanguageTag } from '../reader/languages/resolve';
+import {
+    isTargetLanguageText,
+    normalizeTargetLanguageText,
+    segmentTargetLanguageText,
+    targetLookupTermsForText,
+} from '../reader/lookup/target-text';
+import { cleanOcrText, clampBox, isVerticalOcrBox, type OcrRect } from '../reader/ocr/response-shared';
+import type { YomuGamingOcrProvider, YomuGamingOcrRequest } from './ipc';
 
-const HAS_JAPANESE_RE = /[\u3040-\u30ff\u3400-\u9fff々〆ヵヶ]/u;
 const OCR_LOOKUP_LIMIT = 18;
 
-export interface GamingOcrRect {
-    left: number;
-    top: number;
-    width: number;
-    height: number;
-}
+/** Same rectangle the reader's OCR pipeline uses; kept as an alias for callers. */
+export type GamingOcrRect = OcrRect;
 
 export interface GamingOcrLine {
     text: string;
@@ -24,6 +27,21 @@ export interface GamingOcrResult {
     lines: GamingOcrLine[];
 }
 
+/** The slice of settings a capture request is built from. */
+export interface GamingCaptureSettings {
+    ocrProvider: string;
+    ocrEndpointUrl: string;
+    ocrCloudVisionApiKey?: string;
+    ocrEngine: string;
+    ocrLanguage: string;
+}
+
+export interface GamingCaptureImage {
+    dataUrl: string;
+    width: number;
+    height: number;
+}
+
 interface RawOcrResult {
     text?: unknown;
     description?: unknown;
@@ -32,6 +50,32 @@ interface RawOcrResult {
     bounding_box?: unknown;
     bbox?: unknown;
     rect?: unknown;
+}
+
+/**
+ * The OCR request for one capture. The renderer is the only process that loads
+ * settings, so it resolves both languages here: the tag the provider is asked
+ * to read in — the configured one when the player set one, otherwise the active
+ * learning target's own OCR language — and the target itself, which the Electron
+ * side adopts before it parses the provider's answer.
+ */
+export function gamingOcrRequest(settings: GamingCaptureSettings, image: GamingCaptureImage): YomuGamingOcrRequest {
+    return {
+        provider: gamingCaptureOcrProvider(settings.ocrProvider),
+        endpointUrl: settings.ocrEndpointUrl,
+        cloudVisionApiKey: settings.ocrCloudVisionApiKey,
+        imageDataUrl: image.dataUrl,
+        width: image.width,
+        height: image.height,
+        engine: settings.ocrEngine,
+        language: targetOcrLanguageTag(settings.ocrLanguage),
+        targetLanguage: activeLearningTargetLanguage(),
+    };
+}
+
+export function gamingCaptureOcrProvider(provider: string): YomuGamingOcrProvider | undefined {
+    if (provider === 'google-lens' || provider === 'cloud-vision' || provider === 'local-service' || provider === 'off') return provider;
+    return undefined;
 }
 
 export function normalizeGamingOcrResponse(value: unknown, fallbackWidth: number, fallbackHeight: number): GamingOcrResult | null {
@@ -45,18 +89,23 @@ export function normalizeGamingOcrResponse(value: unknown, fallbackWidth: number
         ...normalizeRawLines(record.results, width, height),
         ...normalizeOcrRegions(record.ocr_regions, width, height),
         ...normalizeTextFallback(record.text ?? record.description, width, height),
-    ].filter(line => HAS_JAPANESE_RE.test(line.text));
+    ].filter(line => isTargetLanguageText(line.text));
     return lines.length ? { width, height, lines: uniqueOcrLines(lines) } : null;
 }
 
+/**
+ * Terms to offer for one recognized line. The whole line leads, then each
+ * segment's dictionary forms, then the line's own — the order the overlay
+ * shows them in, so the thing the player actually pointed at comes first.
+ */
 export function gamingLookupCandidates(text: string): string[] {
     const candidates = [
-        normalizedJapaneseText(text),
-        ...segmentTargetLanguageText(text).flatMap(segment => fallbackLookupTermsForText(segment.text)),
-        ...fallbackLookupTermsForText(text),
+        normalizeTargetLanguageText(text),
+        ...segmentTargetLanguageText(text).flatMap(segment => targetLookupTermsForText(segment.text)),
+        ...targetLookupTermsForText(text),
     ];
     return uniqueStrings(candidates)
-        .filter(candidate => HAS_JAPANESE_RE.test(candidate))
+        .filter(candidate => isTargetLanguageText(candidate))
         .slice(0, OCR_LOOKUP_LIMIT);
 }
 
@@ -107,12 +156,12 @@ function offsetLineToRegion(line: GamingOcrLine, region: GamingOcrRect, width: n
         width: line.box.width,
         height: line.box.height,
     }, width, height);
-    return box ? { ...line, box, hasGeometry: true, vertical: isVerticalBox(box, line.text.length) } : null;
+    return box ? { ...line, box, hasGeometry: true, vertical: isVerticalOcrBox(box, line.text.length) } : null;
 }
 
 function lineFromText(value: string, box: GamingOcrRect, hasGeometry: boolean): GamingOcrLine | null {
     const text = cleanOcrText(value);
-    return text && HAS_JAPANESE_RE.test(text) ? { text, box, hasGeometry, vertical: isVerticalBox(box, text.length) } : null;
+    return isTargetLanguageText(text) ? { text, box, hasGeometry, vertical: isVerticalOcrBox(box, text.length) } : null;
 }
 
 function normalizeBox(value: unknown, width: number, height: number): GamingOcrRect | null {
@@ -143,33 +192,8 @@ function normalizeArrayBox(values: unknown[], width: number, height: number): Ga
     return clampBox({ left, top, width: Math.max(...xs) - left, height: Math.max(...ys) - top }, width, height);
 }
 
-function clampBox(box: GamingOcrRect, width: number, height: number): GamingOcrRect | null {
-    const left = Math.max(0, Math.min(width, box.left));
-    const top = Math.max(0, Math.min(height, box.top));
-    const right = Math.max(left, Math.min(width, box.left + Math.max(0, box.width)));
-    const bottom = Math.max(top, Math.min(height, box.top + Math.max(0, box.height)));
-    if (right - left < 1 || bottom - top < 1) return null;
-    return { left, top, width: right - left, height: bottom - top };
-}
-
 function fullImageBox(width: number, height: number): GamingOcrRect {
     return { left: 0, top: 0, width, height };
-}
-
-function isVerticalBox(box: GamingOcrRect, textLength: number): boolean {
-    if (textLength <= 1) return false;
-    const aspect = box.height / Math.max(1, box.width);
-    return aspect >= (textLength >= 4 ? 1.05 : 1.2);
-}
-
-function cleanOcrText(value: unknown): string {
-    const text = typeof value === 'string' ? value : String(value ?? '');
-    const compacted = HAS_JAPANESE_RE.test(text) ? text.replace(/[ \t\r\n]+/g, '') : text.replace(/[ \t\r\n]+/g, ' ');
-    return compacted.trim().replaceAll('．．．', '…');
-}
-
-function normalizedJapaneseText(value: string): string {
-    return value.replace(/\s+/g, HAS_JAPANESE_RE.test(value) ? '' : ' ').trim();
 }
 
 function positiveNumber(value: unknown): number | undefined {

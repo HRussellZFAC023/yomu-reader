@@ -1,4 +1,6 @@
-import { randomBytes as nodeRandomBytes } from 'node:crypto';
+import { adoptLearningTargetLanguage } from '../reader/languages/active';
+import { targetOcrLanguageHint, targetOcrLanguageTag } from '../reader/languages/resolve';
+import { createGoogleLensRequest, googleLensAcceptLanguage } from '../reader/ocr/google-lens-request';
 import {
     normalizeOcrResult,
     parseGoogleLensResponse,
@@ -10,9 +12,6 @@ import type { YomuGamingOcrProvider, YomuGamingOcrRequest, YomuGamingOcrResponse
 const OCR_TIMEOUT_MS = 18_000;
 const GOOGLE_LENS_ENDPOINT = 'https://lensfrontend-pa.googleapis.com/v1/crupload';
 const GOOGLE_LENS_API_KEY = 'AIzaSyDr2UxVnv_U85AbhhY8XSHSIavUW0DC-sY';
-const LENS_PLATFORM_WEB = 3;
-const LENS_SURFACE_CHROMIUM = 4;
-const LENS_AUTO_FILTER = 7;
 const PROVIDERS = new Set<YomuGamingOcrProvider>(['google-lens', 'cloud-vision', 'local-service', 'off']);
 
 interface ImagePayload {
@@ -21,7 +20,55 @@ interface ImagePayload {
     mimeType: string;
 }
 
+/**
+ * The renderer's request as it arrives over IPC, checked back into its own type.
+ *
+ * It lives here rather than in `main.ts` because everything it decides is
+ * decided again three lines later by `requestGamingOcr`, and because `main.ts`
+ * imports Electron and so cannot be exercised by a test. The fields that carry
+ * a language are the ones worth reading twice: both are pass-through, never a
+ * default, since only the renderer loads settings and knows the answer.
+ */
+export function normalizeOcrRequest(request: unknown): YomuGamingOcrRequest {
+    if (!request || typeof request !== 'object') {
+        throw new Error('OCR request must be an object.');
+    }
+    const record = request as Record<string, unknown>;
+    const imageDataUrl = typeof record.imageDataUrl === 'string' ? record.imageDataUrl : '';
+    if (!imageDataUrl.startsWith('data:image/')) {
+        throw new Error('OCR request is missing a base64 image data URL.');
+    }
+    return {
+        provider: typeof record.provider === 'string' ? record.provider as YomuGamingOcrRequest['provider'] : undefined,
+        endpointUrl: typeof record.endpointUrl === 'string' ? record.endpointUrl : '',
+        cloudVisionApiKey: typeof record.cloudVisionApiKey === 'string' ? record.cloudVisionApiKey : undefined,
+        imageDataUrl,
+        width: positiveInt(record.width, 0),
+        height: positiveInt(record.height, 0),
+        engine: typeof record.engine === 'string' ? record.engine : 'auto',
+        // An absent language means "let the provider detect it": a literal here
+        // would quietly override the language the player chose to read in.
+        language: typeof record.language === 'string' ? record.language.trim() : '',
+        // An absent target means "whatever this build studies by default",
+        // which is the state main would be in anyway had nothing been sent.
+        targetLanguage: typeof record.targetLanguage === 'string' ? record.targetLanguage.trim() : '',
+    };
+}
+
+function positiveInt(value: unknown, fallback: number): number {
+    const parsed = Math.round(Number(value));
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
 export async function requestGamingOcr(request: YomuGamingOcrRequest): Promise<YomuGamingOcrResponse> {
+    // Before anything parses a provider answer. `normalizeOcrResult` and
+    // `parseGoogleLensResponse` below keep only lines in the language being
+    // studied, and they ask the active learning target which lines those are.
+    // This process has its own module state and never loads settings, so
+    // without this it would answer for the default target and drop every line
+    // of the language the player actually chose — the renderer's own adoption
+    // happens on the other side of the IPC boundary and cannot be seen here.
+    adoptLearningTargetLanguage(request.targetLanguage);
     const provider = normalizeProvider(request.provider, request.endpointUrl);
     if (provider === 'off') return { ok: false, status: 0, body: null, error: 'Image OCR is off.' };
     if (provider === 'local-service') return requestLocalOcr(request);
@@ -44,10 +91,12 @@ async function requestLocalOcr(request: YomuGamingOcrRequest): Promise<YomuGamin
             headers: { 'content-type': 'application/json' },
             body: JSON.stringify({
                 id: `yomu-gaming-${Date.now()}`,
-                language_code: request.language || 'ja-JP',
+                // The same two resolvers the reader's local-service recognizer
+                // uses, against the target main has just adopted.
+                language_code: targetOcrLanguageTag(request.language),
                 language: {
-                    bcp47_tag: request.language || 'ja-JP',
-                    two_letter_code: (request.language || 'ja').slice(0, 2),
+                    bcp47_tag: targetOcrLanguageTag(request.language),
+                    two_letter_code: targetOcrLanguageHint(request.language),
                 },
                 base64_image: image.base64,
                 image: image.base64,
@@ -102,7 +151,10 @@ async function requestCloudVisionOcr(request: YomuGamingOcrRequest): Promise<Yom
                 requests: [{
                     image: { content: image.base64 },
                     features: [{ type: 'TEXT_DETECTION', maxResults: 50, model: 'builtin/latest' }],
-                    imageContext: { languageHints: [(request.language || 'ja-JP').slice(0, 2)] },
+                    // Same hint the reader's Cloud Vision recognizer sends, from
+                    // the same resolver: the configured tag when the player set
+                    // one, else the adopted target's own.
+                    imageContext: { languageHints: [targetOcrLanguageHint(request.language)] },
                 }],
             }),
         }, OCR_TIMEOUT_MS, 'Google Cloud Vision');
@@ -125,7 +177,7 @@ async function requestGoogleLensProtobuf(image: ImagePayload, width: number, hei
             'content-type': 'application/x-protobuf',
             'x-goog-api-key': GOOGLE_LENS_API_KEY,
             accept: '*/*',
-            'accept-language': 'ja,en-US;q=0.9,en;q=0.8',
+            'accept-language': googleLensAcceptLanguage(locale),
         },
         body: arrayBufferFromBytes(body),
     }, OCR_TIMEOUT_MS, 'Google Lens');
@@ -209,88 +261,3 @@ function isAbortError(error: unknown): boolean {
     return error instanceof Error && error.name === 'AbortError';
 }
 
-function createGoogleLensRequest(imageBytes: Uint8Array, width: number, height: number, locale: string): Uint8Array {
-    const [language = 'ja', region = 'US'] = (locale || 'ja-JP').split(/[-_]/);
-    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
-    const requestId = protoMessage(
-        protoVarintField(1, BigInt(Date.now()) * 1_000_000n + BigInt(Math.floor(Math.random() * 1_000_000))),
-        protoVarintField(2, 1),
-        protoVarintField(3, 1),
-        protoBytesField(4, randomBytes(16)),
-    );
-    const localeContext = protoMessage(
-        protoStringField(1, language || 'ja'),
-        protoStringField(2, region || 'US'),
-        protoStringField(3, timeZone),
-    );
-    const clientFilters = protoMessage(protoMessageField(1, protoMessage(protoVarintField(1, LENS_AUTO_FILTER))));
-    const clientContext = protoMessage(
-        protoVarintField(1, LENS_PLATFORM_WEB),
-        protoVarintField(2, LENS_SURFACE_CHROMIUM),
-        protoMessageField(4, localeContext),
-        protoMessageField(17, clientFilters),
-    );
-    const requestContext = protoMessage(
-        protoMessageField(3, requestId),
-        protoMessageField(4, clientContext),
-    );
-    const imageData = protoMessage(
-        protoMessageField(1, protoMessage(protoBytesField(1, imageBytes))),
-        protoMessageField(3, protoMessage(protoVarintField(1, width), protoVarintField(2, height))),
-    );
-    return protoMessage(protoMessageField(1, protoMessage(
-        protoMessageField(1, requestContext),
-        protoMessageField(3, imageData),
-    )));
-}
-
-function protoMessage(...parts: Uint8Array[]): Uint8Array {
-    return concatBytes(parts);
-}
-
-function protoMessageField(field: number, value: Uint8Array): Uint8Array {
-    return concatBytes([protoTag(field, 2), encodeVarint(value.length), value]);
-}
-
-function protoBytesField(field: number, value: Uint8Array): Uint8Array {
-    return protoMessageField(field, value);
-}
-
-function protoStringField(field: number, value: string): Uint8Array {
-    return protoBytesField(field, new TextEncoder().encode(value));
-}
-
-function protoVarintField(field: number, value: number | bigint): Uint8Array {
-    return concatBytes([protoTag(field, 0), encodeVarint(value)]);
-}
-
-function protoTag(field: number, wire: number): Uint8Array {
-    return encodeVarint((field << 3) | wire);
-}
-
-function encodeVarint(value: number | bigint): Uint8Array {
-    let item = BigInt(value);
-    const bytes: number[] = [];
-    do {
-        let byte = Number(item & 0x7fn);
-        item >>= 7n;
-        if (item) byte |= 0x80;
-        bytes.push(byte);
-    } while (item);
-    return new Uint8Array(bytes);
-}
-
-function concatBytes(parts: Uint8Array[]): Uint8Array {
-    const length = parts.reduce((sum, part) => sum + part.length, 0);
-    const result = new Uint8Array(length);
-    let offset = 0;
-    for (const part of parts) {
-        result.set(part, offset);
-        offset += part.length;
-    }
-    return result;
-}
-
-function randomBytes(length: number): Uint8Array {
-    return new Uint8Array(nodeRandomBytes(length));
-}

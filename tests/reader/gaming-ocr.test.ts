@@ -12,6 +12,7 @@ function localRequest(endpointUrl: string) {
         height: 1,
         engine: 'auto',
         language: 'ja-JP',
+        targetLanguage: 'ja',
     };
 }
 

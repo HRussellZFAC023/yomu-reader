@@ -27,8 +27,12 @@ import {
     updateAudioSourceEditor,
     updateDictionaryLookupLinkEditor,
 } from '../../reader/settings/form';
+import { adoptLearningTargetFromSettings } from '../../reader/languages/target-selection';
+import { targetContentLocale, targetLanguageName } from '../../reader/languages/resolve';
 import {
+    gamingCaptureOcrProvider,
     gamingLookupCandidates,
+    gamingOcrRequest,
     normalizeGamingOcrResponse,
     type GamingOcrResult,
 } from '../shared';
@@ -37,7 +41,7 @@ import { captureShortcutLabel } from '../capture-shortcut';
 import { gamingWindowParkingHint } from '../lifecycle';
 import { activateWordWithPointer, GamepadOverlayController } from './gamepad-overlay';
 import { layoutOverlayOcrLines, overlayOcrFrame, overlayOcrLayerHtml } from './ocr-lines';
-import type { YomuGamingBridge, YomuGamingCaptureMode, YomuGamingCaptureSource, YomuGamingEnvironment, YomuGamingOcrProvider, YomuGamingSelectionRect } from '../ipc';
+import type { YomuGamingBridge, YomuGamingCaptureMode, YomuGamingCaptureSource, YomuGamingEnvironment, YomuGamingSelectionRect } from '../ipc';
 
 declare global {
     interface Window {
@@ -169,7 +173,7 @@ function renderGamingControlBar(): string {
                 <img src="${escapeHtml(APP_ICON_URL)}" alt="" aria-hidden="true">
                 <div>
                     <strong>Yomu Gaming</strong>
-                    <span>Read Japanese in games and desktop apps</span>
+                    <span>Read ${escapeHtml(targetLanguageName())} in games and desktop apps</span>
                 </div>
             </div>
             <div class="yomu-gaming-capture-controls">
@@ -228,7 +232,7 @@ function installGamingOnboarding(form: HTMLFormElement): void {
     section.dataset.gamingShellActions = 'true';
     section.innerHTML = `
         <div class="yomu-gaming-first-run-copy">
-            <p class="yomu-gaming-kicker">Japanese anywhere on your PC</p>
+            <p class="yomu-gaming-kicker">${escapeHtml(targetLanguageName())} anywhere on your PC</p>
             <h1>Yomu Gaming is ready.</h1>
             <p>Use Google Lens-style image OCR to place lookup targets directly over game text. Press the shortcut for a quick read, or select a smaller area when the scene is busy.</p>
         </div>
@@ -776,7 +780,7 @@ function loadGamingSettings(): ReaderSettings {
     const stored = parseStoredSettings();
     const ocrProvider = stored?.ocrProvider ?? DEFAULT_GAMING_OCR_PROVIDER;
     const useLocalOcr = ocrProvider === 'local-service';
-    return normalizeReaderSettings({
+    const settings = normalizeReaderSettings({
         ...DEFAULT_SETTINGS,
         ...stored,
         theme: stored?.theme ?? 'light',
@@ -794,6 +798,14 @@ function loadGamingSettings(): ReaderSettings {
             : DEFAULT_SETTINGS.ocrEngine,
         ocrLanguage: stored?.ocrLanguage ?? DEFAULT_SETTINGS.ocrLanguage,
     });
+    // Gaming's settings loader is the one place stored settings become runtime
+    // state here, so it is also where the study target is adopted. Capture runs
+    // long before the inline reader boots, and detection, segmentation, lookup
+    // and the OCR request language all resolve against the active target — so
+    // without this the whole capture path would answer for Japanese whatever
+    // the player chose to study.
+    adoptLearningTargetFromSettings(settings);
+    return settings;
 }
 
 function parseStoredSettings(): Partial<ReaderSettings> | null {
@@ -1072,16 +1084,7 @@ class OverlaySelectionController {
             const capture = this.capture;
             const frameRect = frameRectForCapture(this.ocrFrame());
             const crop = await cropSelection(capture, selection ? scaleViewportSelection(selection, capture.size, frameRect) : null);
-            const response = await this.gamingBridge.requestOcr({
-                provider: gamingCaptureOcrProvider(this.settings.ocrProvider),
-                endpointUrl: this.settings.ocrEndpointUrl,
-                cloudVisionApiKey: this.settings.ocrCloudVisionApiKey,
-                imageDataUrl: crop.dataUrl,
-                width: crop.width,
-                height: crop.height,
-                engine: this.settings.ocrEngine,
-                language: this.settings.ocrLanguage,
-            });
+            const response = await this.gamingBridge.requestOcr(gamingOcrRequest(this.settings, crop));
             if (!response.ok) {
                 this.result = captureErrorResult(new Error(response.error ?? 'OCR failed. Check the OCR provider in Settings.'));
                 return;
@@ -1151,11 +1154,6 @@ function gamingOcrSetupError(settings: ReaderSettings): string {
     return '';
 }
 
-function gamingCaptureOcrProvider(provider: ReaderSettings['ocrProvider']): YomuGamingOcrProvider | undefined {
-    if (provider === 'google-lens' || provider === 'cloud-vision' || provider === 'local-service' || provider === 'off') return provider;
-    return undefined;
-}
-
 function overlayResultFromOcr(result: GamingOcrResult | null, viewportSelection: YomuGamingSelectionRect | null): OverlayResult {
     const text = result?.lines.map(line => line.text).join('\n') ?? '';
     const terms = gamingLookupCandidates(text);
@@ -1170,7 +1168,7 @@ function overlayResultFromOcr(result: GamingOcrResult | null, viewportSelection:
         : [];
     return terms.length
         ? { text, terms, lines: lines.length ? lines : undefined }
-        : { text, terms: [], error: text ? 'No Japanese lookup candidates found.' : 'No Japanese text found.' };
+        : { text, terms: [], error: text ? 'Try another part of the screen.' : 'Aim at some text and capture again.' };
 }
 
 function hasOcrGeometry(result: GamingOcrResult | null): result is GamingOcrResult {
@@ -1223,7 +1221,7 @@ function overlayToolbarHtml(): string {
 }
 
 function overlayHintHtml(): string {
-    return `<div class="overlay-hint" role="note">Drag a box over the Japanese text to read it.</div>`;
+    return `<div class="overlay-hint" role="note">Drag a box over the text to read it.</div>`;
 }
 
 function overlaySelectionHtml(selection: YomuGamingSelectionRect): string {
@@ -1246,7 +1244,7 @@ function overlayResultHtml(result: OverlayResult, selection: YomuGamingSelection
     if (result.error) {
         return `<section class="overlay-result" style="${style}" role="alert">
             <strong>${escapeHtml(result.error)}</strong>
-            ${result.text ? `<p lang="ja">${escapeHtml(result.text)}</p>` : ''}
+            ${result.text ? `<p lang="${escapeHtml(targetContentLocale())}">${escapeHtml(result.text)}</p>` : ''}
             <div class="overlay-actions">
                 ${result.errorAction === 'screen-settings'
                     ? '<button type="button" class="overlay-action-primary" data-action="overlay-open-screen-settings">Open Screen Recording settings</button>'
@@ -1259,7 +1257,7 @@ function overlayResultHtml(result: OverlayResult, selection: YomuGamingSelection
     // No per-line geometry (text-only OCR): show the recognized text as one scannable
     // node so the reader still adds furigana + the popover to it.
     return `<section class="overlay-result overlay-result-compact" style="${style}" role="status" aria-label="Recognized text">
-        <p class="overlay-result-text" data-ocr-line lang="ja">${escapeHtml(result.text)}</p>
+        <p class="overlay-result-text" data-ocr-line lang="${escapeHtml(targetContentLocale())}">${escapeHtml(result.text)}</p>
     </section>`;
 }
 

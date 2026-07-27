@@ -1,5 +1,6 @@
 import { activeLearningTarget } from './active';
-import { languageSubtag } from './locale';
+import { languageDisplayName, languageSubtag } from './locale';
+import { registeredLearningTargetModules } from './registry';
 import type { LanguageTag } from './types';
 
 /**
@@ -21,6 +22,34 @@ export function targetOcrLanguageTag(configured?: string | null): LanguageTag {
 export function targetOcrLanguageHint(configured?: string | null): string {
     const target = activeLearningTarget().ocr;
     return (configured?.trim() || target.languageHint).slice(0, 2);
+}
+
+/**
+ * Whether a configured OCR tag says no more than a registered target's own
+ * default already says.
+ *
+ * Nothing in Yomu ever offers this tag as a choice — the settings field is
+ * hidden — so a value that is exactly some target's default OCR language was
+ * written by machinery, not by a person, and holding on to it only pins OCR to
+ * a language the reader may have since stopped studying. Anything else was put
+ * there deliberately (a hand-edited settings file, an import) and is left
+ * alone. Used by the settings migration that unpins those stored defaults.
+ */
+export function isTargetDefaultOcrLanguageTag(value: string | null | undefined): boolean {
+    const tag = value?.trim().toLowerCase();
+    if (!tag) return false;
+    return registeredLearningTargetModules()
+        .some(module => module.ocr.defaultLanguage.toLowerCase() === tag);
+}
+
+/**
+ * The name of the language being studied, written in `locale`, for copy that
+ * used to name Japanese in a string literal. Interface copy that says the
+ * target out loud stays true when the reader switches target instead of
+ * quietly describing a product they are not using.
+ */
+export function targetLanguageName(locale = 'en'): string {
+    return languageDisplayName(activeLearningTarget().language, locale);
 }
 
 /** `SpeechSynthesisUtterance.lang` for target-language playback. */

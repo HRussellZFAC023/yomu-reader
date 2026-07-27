@@ -394,7 +394,11 @@ function structuredOcrLineVertical(record: Record<string, unknown>, inheritedVer
 }
 
 function normalizeStructuredOcrFallback(record: Record<string, unknown>, textLines: unknown[], width: number, height: number, vertical: boolean): OcrLine[] {
-    const text = textLines.map(item => stringFrom((item as Record<string, unknown>)?.content)).filter(Boolean).join('');
+    // Joined with a space and cleaned again rather than concatenated: the clean
+    // drops the space back out between characters of a language that writes
+    // without them, so a Japanese paragraph reads exactly as it did while a
+    // space-delimited one keeps the boundary between its lines.
+    const text = cleanOcrText(textLines.map(item => stringFrom((item as Record<string, unknown>)?.content)).filter(Boolean).join(' '));
     const box = normalizeBox(record.box, width, height);
     return text && box ? [{ text, box, vertical }] : [];
 }
@@ -659,8 +663,19 @@ function scaledProtoBoxValue(value: number, scale: number, normalized: boolean):
     return normalized ? value * scale : value;
 }
 
+/**
+ * Line text out of a provider's own field, cleaned the way every other OCR
+ * surface cleans it.
+ *
+ * This used to strip every space in the string. That is only ever right for a
+ * language that writes without them: a recognizer reading a space-delimited
+ * target handed back "Tryck pa A" and this turned it into one unlookupable
+ * blob. `cleanOcrText` removes spaces only BETWEEN characters of a language
+ * that does not use them, so Japanese comes out byte-identical and everything
+ * else keeps its word boundaries.
+ */
 function stringFrom(value: unknown): string {
-    return typeof value === 'string' ? value.replace(/\s+/g, '').trim() : '';
+    return typeof value === 'string' ? cleanOcrText(value) : '';
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {

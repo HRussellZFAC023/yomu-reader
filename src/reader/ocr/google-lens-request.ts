@@ -4,6 +4,16 @@ const LENS_PLATFORM_WEB = 3;
 const LENS_SURFACE_CHROMIUM = 4;
 const LENS_AUTO_FILTER = 7;
 
+/**
+ * `accept-language` for a Lens call. Lens weights its OCR by the caller's
+ * accept-language, so the header follows the language being read rather than
+ * naming one — and it sits beside the request body it travels with, because the
+ * two have to agree about which language that is.
+ */
+export function googleLensAcceptLanguage(configured?: string | null): string {
+    return `${targetOcrLanguageHint(configured)},en-US;q=0.9,en;q=0.8`;
+}
+
 export function createGoogleLensRequest(imageBytes: Uint8Array, width: number, height: number, locale: string): Uint8Array {
     const [language = '', region = 'US'] = (locale || targetOcrLanguageTag()).split(/[-_]/);
     const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';

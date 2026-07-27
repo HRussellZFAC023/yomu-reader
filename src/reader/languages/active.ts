@@ -50,6 +50,28 @@ export function setActiveLearningTargetLanguage(value: unknown): LearningTargetM
     return module;
 }
 
+/**
+ * Switches the target, and lands on the default when the requested one cannot
+ * be served.
+ *
+ * Unlike `setActiveLearningTargetLanguage`, an unusable tag here does not leave
+ * the previous target in place. Callers run this against whatever was actually
+ * stored or sent, so "the request names a target this build cannot serve" must
+ * land on Japanese, not on whichever target the previous call happened to
+ * select.
+ *
+ * It sits beside the strict write rather than with the settings-shaped adopter
+ * in `target-selection.ts` because it takes a bare language tag: the Electron
+ * main process adopts one that arrived over IPC, and it has no settings, no
+ * profile, and no reason to carry the profile roster in its bundle.
+ */
+export function adoptLearningTargetLanguage(value: unknown): LearningTargetModule {
+    const requested = setActiveLearningTargetLanguage(value);
+    if (requested) return requested;
+    const fallback = defaultLearningTargetModule();
+    return setActiveLearningTargetLanguage(fallback.language) ?? fallback;
+}
+
 export function resetActiveLearningTargetLanguage(): void {
     requestedTargetLanguage = DEFAULT_LEARNING_TARGET_LANGUAGE;
 }

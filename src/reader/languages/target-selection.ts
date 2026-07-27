@@ -1,6 +1,5 @@
-import { setActiveLearningTargetLanguage } from './active';
+import { adoptLearningTargetLanguage } from './active';
 import { resolveLanguageProfile } from './profiles';
-import { defaultLearningTargetModule } from './registry';
 import type { LearningTargetModule } from './types';
 
 /**
@@ -14,23 +13,15 @@ import type { LearningTargetModule } from './types';
  * site.
  *
  * Callers: the reader's startup settings load (every boot, including embedded
- * frames) and the runtime settings-change handler (every persisted write, the
- * settings dialog, and cross-tab storage sync).
+ * frames), the runtime settings-change handler (every persisted write, the
+ * settings dialog, and cross-tab storage sync), and Yomu Gaming's own settings
+ * loader.
+ *
+ * A process that holds no settings cannot come through here. Electron's main
+ * process is the one such caller: the target it should answer for arrives on
+ * the capture request, and it adopts that tag with
+ * `adoptLearningTargetLanguage` in `active.ts`.
  */
 export function adoptLearningTargetFromSettings(value: unknown): LearningTargetModule {
     return adoptLearningTargetLanguage(resolveLanguageProfile(value).targetLanguage);
-}
-
-/**
- * Unlike `setActiveLearningTargetLanguage`, an unusable tag here falls back to
- * the default rather than leaving the previous target in place. This runs
- * against whatever was actually stored, so "the profile names a target this
- * build cannot serve" must land on Japanese, not on whichever target the
- * previous profile happened to select.
- */
-function adoptLearningTargetLanguage(value: unknown): LearningTargetModule {
-    const requested = setActiveLearningTargetLanguage(value);
-    if (requested) return requested;
-    const fallback = defaultLearningTargetModule();
-    return setActiveLearningTargetLanguage(fallback.language) ?? fallback;
 }

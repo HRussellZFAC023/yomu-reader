@@ -17,7 +17,7 @@ import {
     parseGoogleLensUploadHtml,
     type OcrResult,
 } from './response';
-import { createGoogleLensRequest } from './google-lens-request';
+import { createGoogleLensRequest, googleLensAcceptLanguage } from './google-lens-request';
 import {
     assertCanvasReadable,
     drawImageToCanvas,
@@ -140,7 +140,7 @@ async function recognizeViaGoogleLensProtobuf(
 ): Promise<OcrResult | null> {
     const bytes = new Uint8Array(await blob.arrayBuffer());
     const body = createGoogleLensRequest(bytes, canvas.width, canvas.height, settings.ocrLanguage);
-    const response = await requestArrayBuffer(GOOGLE_LENS_ENDPOINT, body, timeout);
+    const response = await requestArrayBuffer(GOOGLE_LENS_ENDPOINT, body, timeout, googleLensAcceptLanguage(settings.ocrLanguage));
     return parseGoogleLensResponse(new Uint8Array(response), canvas.width, canvas.height);
 }
 
@@ -238,13 +238,13 @@ function fetchJsonWithTimeout(url: string, data: string, timeout: number): Promi
         .finally(() => window.clearTimeout(timeoutId));
 }
 
-function requestArrayBuffer(url: string, data: Uint8Array, timeout: number): Promise<ArrayBuffer> {
+function requestArrayBuffer(url: string, data: Uint8Array, timeout: number, acceptLanguage: string): Promise<ArrayBuffer> {
     const body = new Uint8Array(data);
     const headers = {
         'content-type': 'application/x-protobuf',
         'x-goog-api-key': GOOGLE_LENS_API_KEY,
         accept: '*/*',
-        'accept-language': 'ja,en-US;q=0.9,en;q=0.8',
+        'accept-language': acceptLanguage,
     };
     const userscriptRequest = requestViaUserscript<ArrayBuffer>({
         method: 'POST',

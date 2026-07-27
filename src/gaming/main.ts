@@ -8,7 +8,7 @@ import {
     type GamingCaptureTarget,
     type GamingDisplayGeometry,
 } from './display';
-import { requestGamingOcr } from './ocr';
+import { normalizeOcrRequest, requestGamingOcr } from './ocr';
 import { captureShortcutLabel, DEFAULT_CAPTURE_SHORTCUT, normalizeCaptureShortcut } from './capture-shortcut';
 import {
     createGamingTray,
@@ -23,7 +23,6 @@ import {
     type YomuGamingCaptureMode,
     type YomuGamingCaptureSource,
     type YomuGamingEnvironment,
-    type YomuGamingOcrRequest,
     type YomuGamingScreenAccess,
     type YomuGamingSettingsSnapshot,
     type YomuGamingSettingsSyncMetadata,
@@ -525,31 +524,6 @@ function sessionCaptureTarget(): GamingCaptureTarget {
     return activeCaptureTarget;
 }
 
-function normalizeOcrRequest(request: unknown): YomuGamingOcrRequest {
-    if (!request || typeof request !== 'object') {
-        throw new Error('OCR request must be an object.');
-    }
-    const record = request as Record<string, unknown>;
-    const imageDataUrl = typeof record.imageDataUrl === 'string' ? record.imageDataUrl : '';
-    if (!imageDataUrl.startsWith('data:image/')) {
-        throw new Error('OCR request is missing a base64 image data URL.');
-    }
-    return {
-        provider: typeof record.provider === 'string' ? record.provider as YomuGamingOcrRequest['provider'] : undefined,
-        endpointUrl: typeof record.endpointUrl === 'string' ? record.endpointUrl : '',
-        cloudVisionApiKey: typeof record.cloudVisionApiKey === 'string' ? record.cloudVisionApiKey : undefined,
-        imageDataUrl,
-        width: positiveInt(record.width, 0),
-        height: positiveInt(record.height, 0),
-        engine: typeof record.engine === 'string' ? record.engine : 'auto',
-        language: typeof record.language === 'string' ? record.language : 'ja-JP',
-    };
-}
-
-function positiveInt(value: unknown, fallback: number): number {
-    const parsed = Math.round(Number(value));
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
-}
 
 function screenAccessStatus(): YomuGamingScreenAccess {
     if (process.platform !== 'darwin') return 'unsupported';

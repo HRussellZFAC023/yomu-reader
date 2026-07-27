@@ -73,6 +73,16 @@ export function supportedLearningTargetLanguages(): readonly string[] {
 }
 
 /**
+ * Every registered target, for the rules that have to ask all of them rather
+ * than one. `isTargetDefaultOcrLanguageTag` in `resolve.ts` is the caller:
+ * deciding whether a stored OCR tag is some target's own default means
+ * checking it against all of them, not just the active one.
+ */
+export function registeredLearningTargetModules(): readonly LearningTargetModule[] {
+    return Object.freeze([...MODULES_BY_LANGUAGE.values()]);
+}
+
+/**
  * Never null: the built-in Japanese target is registered at module init, so
  * callers can resolve a module without a null branch at every call site.
  */

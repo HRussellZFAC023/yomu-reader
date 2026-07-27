@@ -47,11 +47,13 @@ afterEach(() => {
 
 describe('LearningTargetModule contract revision', () => {
     it('lets a module declare the revision it implements and refuses the rest', () => {
-        // Revision 3 added the morphology members (lookupCandidates gained
-        // `depth`, matchesLookupCandidateRules is new), so a module built
-        // against revision 2 no longer satisfies the contract.
-        expect(LEARNING_TARGET_MODULE_INTERFACE_VERSION).toBe(3);
-        expect(isSupportedLearningTargetModuleInterfaceVersion(3)).toBe(true);
+        // Revision 4 added compareLookupCandidates: ranking two analyses of one
+        // surface needs the rule tags, which only the target that produced them
+        // may read, so the ordering had to become a contract member. Revision 3
+        // modules cannot supply it and no longer satisfy the contract.
+        expect(LEARNING_TARGET_MODULE_INTERFACE_VERSION).toBe(4);
+        expect(isSupportedLearningTargetModuleInterfaceVersion(4)).toBe(true);
+        expect(isSupportedLearningTargetModuleInterfaceVersion(3)).toBe(false);
         expect(isSupportedLearningTargetModuleInterfaceVersion(2)).toBe(false);
         expect(isSupportedLearningTargetModuleInterfaceVersion(1)).toBe(false);
 
@@ -73,6 +75,7 @@ describe('LearningTargetModule contract revision', () => {
             'audio',
             'capabilities',
             'collationLocale',
+            'compareLookupCandidates',
             'direction',
             'featureSemantics',
             'id',
