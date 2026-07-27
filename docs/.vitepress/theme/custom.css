@@ -266,337 +266,6 @@
   font-weight: 900;
 }
 
-.VPHomeHero {
-  padding-block: clamp(34px, 6vw, 68px) clamp(22px, 4vw, 44px);
-}
-
-.VPHomeHero .container {
-  align-items: center;
-  gap: clamp(28px, 6vw, 72px);
-}
-
-.VPHomeHero.has-image .main {
-  max-width: 704px;
-}
-
-.VPHomeHero .name,
-.VPHomeHero .text {
-  line-height: 1.02;
-}
-
-/* The wordmark reads as a brand label sitting above the headline, so keep it a
-   step smaller than the headline (.text) at every width rather than the giant
-   display size it used to inherit. */
-.VPHomeHero .name {
-  font-size: clamp(30px, 4.8vw, 56px);
-  /* Clear the wordmark's pitch underline from the headline below (and its
-     furigana), and keep the parsed wordmark's hover/popup off the headline. */
-  margin-bottom: 26px;
-}
-
-.VPHomeHero .text {
-  max-width: 18ch;
-  color: var(--vp-c-text-1);
-  font-size: clamp(40px, 6.4vw, 70px);
-  font-weight: 860;
-}
-
-/* The Japanese headline is naturally denser than the English display copy.
-   Use balanced wrapping and a slightly smaller scale so it stays compact at
-   tablet widths without relying on reader-generated annotation geometry. */
-html[lang="ja"] .VPHomeHero .name,
-html[lang="ja"] .VPHomeHero .text {
-  line-height: 1.28;
-  text-wrap: balance;
-}
-
-html[lang="ja"] .VPHomeHero .name {
-  font-size: clamp(28px, 4vw, 48px);
-  margin-bottom: 26px;
-}
-
-html[lang="ja"] .VPHomeHero .text {
-  max-width: 18ch;
-  font-size: clamp(32px, 4.6vw, 52px);
-}
-
-html[lang="ja"] .VPHomeHero .tagline {
-  text-wrap: pretty;
-}
-
-@media (max-width: 959px) {
-  html[lang="ja"] .VPHomeHero .text {
-    max-width: none;
-    font-size: clamp(28px, 8vw, 44px);
-  }
-}
-
-.VPHomeHero .tagline {
-  max-width: 62ch;
-  padding-top: 14px;
-  color: var(--vp-c-text-1);
-  font-size: clamp(16px, 1.8vw, 20px);
-  line-height: 1.55;
-}
-
-.VPHomeHero .actions {
-  display: flex;
-  flex-wrap: nowrap;
-  justify-content: flex-start;
-  gap: 8px;
-  max-width: 100%;
-  margin-inline: -2px;
-  padding: 16px 2px 2px;
-  overflow-x: auto;
-  scrollbar-width: none;
-  -webkit-overflow-scrolling: touch;
-}
-
-.VPHomeHero .actions::-webkit-scrollbar {
-  display: none;
-}
-
-.VPHomeHero .actions .action {
-  flex: 0 0 auto;
-  padding: 0;
-}
-
-.VPHomeHero .actions .VPButton {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 40px;
-  padding: 0 14px;
-  border-radius: 999px;
-  font-size: 14px;
-  line-height: 1.2;
-  text-align: center;
-  white-space: nowrap;
-}
-
-.VPHomeHero .image {
-  display: flex;
-  justify-content: center;
-}
-
-.VPHomeHero .VPImage.image-src[src*="yomu-icon.svg"] {
-  display: block;
-  width: min(240px, 48vw);
-  height: min(240px, 48vw);
-  aspect-ratio: 1;
-  object-fit: contain;
-  border-radius: min(53.333px, 10.667vw);
-  border: 6px solid var(--yomu-doc-icon-bg);
-  background: var(--yomu-doc-icon-bg);
-  box-shadow: 0 18px 48px var(--yomu-doc-shadow);
-}
-
-.VPHomeHero .image-container {
-  isolation: isolate;
-  transform: none;
-}
-
-.VPHomeHero .image-bg {
-  display: none;
-}
-
-@media (min-width: 1200px) {
-  .VPHomeHero .container {
-    min-height: 280px;
-  }
-
-  .VPHomeHero .image {
-    padding-inline-end: 32px;
-  }
-
-  .VPHomeHero .VPImage.image-src[src*="yomu-icon.svg"] {
-    width: 264px;
-    height: 264px;
-    border-radius: 58px;
-  }
-}
-
-@media (min-width: 960px) and (max-width: 1199px) {
-  .VPHomeHero .container {
-    gap: 48px;
-  }
-
-  .VPHomeHero.has-image .main {
-    width: min(56%, 592px);
-  }
-
-  .VPHomeHero .image {
-    min-width: 264px;
-  }
-
-  .VPHomeHero .image-container {
-    transform: none;
-  }
-
-  .VPHomeHero .VPImage.image-src[src*="yomu-icon.svg"] {
-    width: 220px;
-    height: 220px;
-  }
-}
-
-@media (max-width: 959px) {
-  .VPHomeHero {
-    padding-block: 38px 34px;
-  }
-
-  .VPHomeHero .container {
-    gap: 28px;
-  }
-
-  .VPHomeHero .main {
-    flex: 1 1 auto;
-    min-width: 0;
-    max-width: 100%;
-    text-align: left;
-  }
-
-  /* The logo/icon stays centered (it is absolutely positioned inside its own
-     column), but the wordmark and headline should hug the left edge.
-     VitePress centers them below 960px via high-specificity
-     `.VPHero.has-image .name/.text { margin: 0 auto }` rules, so override
-     with !important. */
-  .VPHomeHero .name,
-  .VPHomeHero .text {
-    width: auto !important;
-    margin-inline: 0 !important;
-  }
-
-  .VPHomeHero .text {
-    max-width: 100%;
-    font-size: clamp(34px, 9vw, 54px);
-  }
-
-  .VPHomeHero .tagline {
-    max-width: 58ch;
-    padding-top: 14px;
-    font-size: 17px;
-  }
-
-  /* Content-sized pills that remain a single row instead of chunky full-width blocks. */
-  .VPHomeHero .actions {
-    display: flex;
-    flex-wrap: nowrap;
-    justify-content: flex-start !important;
-    width: 100%;
-    max-width: 100%;
-    gap: 8px;
-    padding: 16px 2px 2px;
-  }
-
-  .VPHomeHero .actions .action,
-  .VPHomeHero .actions .VPButton {
-    width: auto;
-  }
-
-  .VPHomeHero .image {
-    order: -1;
-    justify-content: flex-start;
-  }
-
-  .VPHomeHero .VPImage.image-src[src*="yomu-icon.svg"] {
-    width: 128px;
-    height: 128px;
-    border-width: 4px;
-    border-radius: 30px;
-  }
-}
-
-/* Tablet: there is room for the desktop-style two-column layout, so put the copy
-   on the left and the logo on the right (rather than stacking the logo on top
-   with empty space beside it) and let the wordmark grow back toward its desktop
-   size. Font sizes are tied to vw so the (unbreakable, keep-all) headline always
-   fits the narrower left column. */
-@media (min-width: 720px) and (max-width: 959px) {
-  .VPHomeHero .container {
-    flex-direction: row;
-    align-items: center;
-    gap: clamp(28px, 4vw, 48px);
-  }
-
-  .VPHomeHero .main {
-    order: 1;
-    flex: 1 1 auto;
-    min-width: 0;
-  }
-
-  .VPHomeHero .image {
-    order: 2;
-    flex: 0 0 auto;
-    justify-content: center;
-    margin: 0;
-  }
-
-  /* The default hero image is absolutely positioned, which blows the column out
-     to ~390px. Make it a normal static box so the column is just the icon. */
-  .VPHomeHero .image-container {
-    width: auto;
-    height: auto;
-    margin: 0;
-  }
-
-  .VPHomeHero .VPImage.image-src[src*="yomu-icon.svg"] {
-    position: static;
-    inset: auto;
-    transform: none;
-    margin: 0;
-    width: clamp(150px, 24vw, 210px);
-    height: clamp(150px, 24vw, 210px);
-    border-width: 6px;
-    border-radius: clamp(34px, 5vw, 46px);
-  }
-
-  .VPHomeHero .name {
-    font-size: clamp(40px, 6vw, 56px);
-  }
-
-  html[lang="ja"] .VPHomeHero .name {
-    font-size: clamp(34px, 5vw, 46px);
-  }
-
-  .VPHomeHero .text {
-    font-size: clamp(34px, 5.2vw, 46px);
-  }
-
-  html[lang="ja"] .VPHomeHero .text {
-    font-size: clamp(28px, 5vw, 44px);
-  }
-}
-
-@media (max-width: 520px) {
-  .VPHomeHero {
-    padding-block: 26px 30px;
-  }
-
-  .VPHomeHero .main {
-    width: 100%;
-  }
-
-  .VPHomeHero .text {
-    max-width: 100%;
-    font-size: clamp(34px, 10.5vw, 46px);
-  }
-
-  .VPHomeHero .tagline {
-    font-size: 16px;
-    line-height: 1.55;
-  }
-
-  .VPHomeHero .actions {
-    gap: 6px;
-  }
-
-  .VPHomeHero .actions .VPButton {
-    min-height: 38px;
-    padding-inline: 12px;
-    font-size: 13px;
-  }
-}
-
 .VPSwitchAppearance {
   min-height: 24px;
 }
@@ -1002,9 +671,35 @@ html[lang="ja"] .VPHomeHero .tagline {
   }
 }
 
-@media (max-width: 767px) {
-  .VPNavBarExtra.extra {
+/* --- Nav hand-off ---
+   VitePress swaps the hamburger for the desktop nav row at 768px. Yomu's row
+   carries six sections, a language toggle, an account control and the overflow
+   flyout: measured at a 768px viewport it lays out 868px wide, so from 768px to
+   about 840px EVERY docs page scrolled sideways, homepage included. Hold the
+   mobile nav until the desktop row actually fits.
+   The desktop account control also goes: the same control is already mounted
+   inside the nav screen (#NavScreenGroup-more), so showing it in the bar as
+   well both duplicated it and cost the 360px bar 90px it did not have — the
+   3px of sideways scroll left at 360px. */
+@media (max-width: 899.98px) {
+  .VPNavBarExtra.extra,
+  .yomu-hosted-account-desktop {
     display: none !important;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 899.98px) {
+  .VPNavBarHamburger {
+    display: flex !important;
+  }
+
+  .VPNavBarMenu {
+    display: none !important;
+  }
+
+  /* Rendered only while open; VitePress hides it outright from 768px. */
+  .VPNavScreen {
+    display: block !important;
   }
 }
 
@@ -1348,10 +1043,6 @@ html[lang="ja"] .VPHomeHero .tagline {
   font-size: 13px;
   font-weight: 700;
   line-height: 1.2;
-}
-
-.VPHomeHero .actions .VPButton[href="/newtab/index.html"] {
-  font-weight: 800;
 }
 
 .yomu-store-status-row small {
@@ -1733,250 +1424,6 @@ html[lang="ja"] .VPHomeHero .tagline {
   }
 }
 
-/* ============================================================
-   Homepage: demo video, manga OCR, reveals, language nudge
-   ============================================================ */
-
-/* --- Demo video section --- */
-.yomu-demo {
-  display: grid;
-  /* Keep the copy readable while pulling the paired demo blocks toward the
-     outer page edges, matching the annotated homepage layout. */
-  grid-template-columns: minmax(0, 500px) minmax(244px, 296px);
-  justify-content: space-between;
-  align-items: center;
-  gap: clamp(28px, 4vw, 56px);
-  margin: 32px 0 56px;
-  padding: 0;
-  border: 0;
-  background: none;
-}
-
-.yomu-demo-copy h2 {
-  margin: 0 0 10px;
-  border: 0;
-  padding: 0;
-  font-size: clamp(25px, 3vw, 36px);
-  line-height: 1.12;
-  font-weight: 840;
-  letter-spacing: 0;
-  text-wrap: balance;
-}
-
-.yomu-demo-copy p {
-  margin: 0 0 14px;
-  max-width: 46ch;
-  color: var(--vp-c-text-1);
-  font-size: 16px;
-  line-height: 1.5;
-}
-
-.yomu-showcase-kicker {
-  margin: 0 0 8px !important;
-  color: var(--vp-c-brand-1) !important;
-  font-size: 13px !important;
-  font-weight: 820;
-  letter-spacing: 0;
-  line-height: 1.2 !important;
-}
-
-/* iPhone-style device frame */
-.yomu-device {
-  display: flex;
-  justify-content: flex-end;
-}
-
-.yomu-device-frame {
-  position: relative;
-  width: clamp(244px, 25vw, 296px);
-  /* Match the demo video's own aspect (720x1474) so the screen doesn't crop it.
-     Thinner side bezels than top/bottom keep the screen's content box at the
-     video's aspect — uniform padding would squeeze it narrower and clip the
-     left/right edges. */
-  aspect-ratio: 720 / 1474;
-  padding: 13px 6px;
-  border-radius: 50px;
-  background: linear-gradient(155deg, #3a3e45, #0b0c0f 62%);
-  box-shadow:
-    0 2px 3px rgba(255, 255, 255, 0.22) inset,
-    0 0 0 2px #000,
-    0 0 0 3px rgba(255, 255, 255, 0.05),
-    0 34px 70px rgba(10, 18, 28, 0.42);
-}
-
-/* Physical side buttons so the phone doesn't read as a thin slab */
-.yomu-device-frame::before {
-  content: "";
-  position: absolute;
-  left: -3px;
-  top: 27%;
-  width: 3px;
-  height: 64px;
-  border-radius: 3px 0 0 3px;
-  background: #16181d;
-}
-
-.yomu-device-frame::after {
-  content: "";
-  position: absolute;
-  right: -3px;
-  top: 33%;
-  width: 3px;
-  height: 48px;
-  border-radius: 0 3px 3px 0;
-  background: #16181d;
-}
-
-.yomu-device-island {
-  position: absolute;
-  top: 14px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 33%;
-  height: 21px;
-  border-radius: 999px;
-  background: #000;
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6);
-  z-index: 3;
-  pointer-events: none;
-}
-
-.dark .yomu-device-frame {
-  box-shadow:
-    0 2px 2px rgba(255, 255, 255, 0.12) inset,
-    0 0 0 1px rgba(255, 255, 255, 0.12),
-    0 24px 60px rgba(0, 0, 0, 0.5);
-}
-
-.yomu-demo-video {
-  display: block;
-  width: 100%;
-  height: 100%;
-  border-radius: 37px;
-  object-fit: contain;
-  background: #000;
-}
-
-.yomu-demo-video:focus-visible {
-  outline: 3px solid color-mix(in srgb, var(--vp-c-brand-2) 60%, #fff);
-  outline-offset: 4px;
-}
-
-/* --- Manga OCR section --- */
-.yomu-manga-ocr {
-  display: grid;
-  /* Pull the large image left and the explanation right while keeping both
-     columns capped to their natural content widths. */
-  grid-template-columns: minmax(0, 560px) minmax(0, 34ch);
-  justify-content: space-between;
-  align-items: center;
-  gap: clamp(18px, 3vw, 38px);
-  margin: 0 0 56px;
-  /* Reclaim the empty band beside the phone without overlapping the demo copy;
-     lower breakpoints reset this for single-column layouts. */
-  margin-top: clamp(-110px, calc(195px - 25.7vw), -40px);
-}
-
-.yomu-manga-ocr-copy {
-  grid-column: 2;
-  justify-self: end;
-  max-width: 34ch;
-}
-
-.yomu-video-copy {
-  justify-self: start;
-  max-width: 34ch;
-}
-
-.yomu-manga-ocr-copy h2,
-.yomu-video-copy h2 {
-  margin: 0 0 10px;
-  border: 0;
-  padding: 0;
-  font-size: clamp(24px, 3vw, 34px);
-  line-height: 1.15;
-  font-weight: 840;
-}
-
-.yomu-manga-ocr-copy p,
-.yomu-video-copy p {
-  margin: 0 0 10px;
-  max-width: 52ch;
-  color: var(--vp-c-text-1);
-  font-size: 16px;
-  line-height: 1.5;
-}
-
-.yomu-manga-ocr-copy p:last-child,
-.yomu-video-copy p:last-child {
-  margin-bottom: 0;
-}
-
-.yomu-manga-figure {
-  position: relative;
-  grid-column: 1;
-  grid-row: 1;
-  justify-self: start;
-  width: 100%;
-  max-width: 560px;
-  margin: 0;
-  padding: 8px;
-  border: 1px solid var(--vp-c-divider);
-  border-radius: 8px;
-  background: var(--vp-c-bg);
-  box-shadow: 0 8px 24px var(--yomu-doc-panel-shadow);
-  overflow: hidden;
-}
-
-.dark .yomu-manga-figure {
-  background: var(--vp-c-bg-soft);
-}
-
-.yomu-manga-image {
-  display: block;
-  width: 100%;
-  height: auto;
-  border-radius: 6px;
-  background: var(--vp-c-bg);
-}
-
-/* --- Video subtitle showcase --- */
-.yomu-video-showcase {
-  display: grid;
-  /* Mirror the image row: caption pulled left, video card pulled right. */
-  grid-template-columns: minmax(0, 34ch) minmax(0, 620px);
-  justify-content: space-between;
-  align-items: center;
-  gap: clamp(18px, 3vw, 38px);
-  margin: 0 0 64px;
-}
-
-.yomu-video-card {
-  position: relative;
-  justify-self: end;
-  width: 100%;
-  max-width: 620px;
-  margin: 0;
-  padding: 8px;
-  border: 1px solid var(--vp-c-divider);
-  border-radius: 8px;
-  background: var(--vp-c-bg-soft);
-  box-shadow: 0 8px 24px var(--yomu-doc-panel-shadow);
-  overflow: hidden;
-}
-
-.dark .yomu-video-card {
-  background: var(--vp-c-bg-alt);
-}
-
-.yomu-sample-player {
-  display: block;
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  border: 0;
-  border-radius: 6px;
-  background: color-mix(in srgb, var(--vp-c-text-1) 8%, var(--vp-c-bg-soft));
-}
 
 /* --- Scroll reveal --- */
 .yomu-reveal {
@@ -1996,87 +1443,14 @@ html[lang="ja"] .VPHomeHero .tagline {
   transform: none;
 }
 
-@media (min-width: 701px) and (max-width: 980px) {
-  .yomu-demo {
-    grid-template-columns: minmax(0, 1fr) minmax(164px, 216px);
-    gap: 18px;
-    margin-bottom: 4px;
-  }
-
-  .yomu-demo-copy {
-    min-width: 0;
-  }
-
-  .yomu-demo-copy h2 {
-    max-width: 18ch;
-  }
-
-  .yomu-device {
-    justify-content: flex-end;
-    margin-left: 0;
-  }
-
-  .yomu-device-frame {
-    width: min(25vw, 216px);
-  }
-
-  .yomu-manga-ocr {
-    margin-top: 12px;
-  }
-}
-
-@media (max-width: 700px) {
-  .yomu-demo {
-    grid-template-columns: 1fr;
-    gap: 18px;
-    margin: 22px 0;
-  }
-
-  .yomu-device {
-    justify-content: center;
-    margin-left: 0;
-  }
-
-  .yomu-manga-ocr,
-  .yomu-video-showcase {
-    grid-template-columns: 1fr;
-    gap: 18px;
-    margin: 22px 0;
-  }
-
-  .yomu-manga-ocr-copy,
-  .yomu-manga-figure {
-    grid-column: auto;
-    grid-row: auto;
-  }
-
-  .yomu-manga-ocr-copy,
-  .yomu-video-copy {
-    max-width: 60ch;
-  }
-
-  .yomu-manga-figure,
-  .yomu-video-card {
-    justify-self: center;
-    max-width: min(100%, 460px);
-  }
-
-  .yomu-device-frame {
-    width: min(66vw, 260px);
-  }
-}
 
 @media (max-width: 540px) {
-  .yomu-device-frame {
-    width: min(58vw, 220px);
-  }
-
   .yomu-next-grid {
     margin-bottom: 40px;
   }
 }
 
-body:has(.VPHome) .jpdb-reader-fab {
+body:has(.yomu-home) .jpdb-reader-fab {
   bottom: max(72px, calc(env(safe-area-inset-bottom) + 58px)) !important;
 }
 
@@ -2087,4 +1461,1007 @@ body:has(.VPHome) .jpdb-reader-fab {
     transition: none;
   }
 
+}
+
+/* ============================================================
+   Homepage (layout: page, pageClass: yomu-home)
+   One grammar: paper/ink slabs, 3px keylines, zero-blur offset
+   shadows, four rotation tokens, exactly one bleed per section.
+   The fold runs the real reader; everything below it is proof.
+   ============================================================ */
+
+.yomu-home {
+  --ink: #0b0e14;
+  --paper: #fbf9f4;
+  --night-1: #0f1a2e;
+  --night-2: #16233d;
+  --lamp: #e8a33d;
+  --rot-1: -3deg;
+  --rot-2: -1.5deg;
+  --rot-3: 2deg;
+  --rot-4: 3.5deg;
+  --gutter: clamp(20px, 5vw, 88px);
+  --keyline-w: 3px;
+  --fold-bg: var(--paper);
+  --slab-bg: var(--paper);
+  --slab-ink: var(--ink);
+  --keyline: var(--ink);
+  --shadow-ink: var(--ink);
+  --ja-font: "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic", sans-serif;
+}
+
+.dark .yomu-home {
+  --fold-bg: #0c1016;
+  --slab-bg: #141a23;
+  --slab-ink: var(--paper);
+  --keyline: #efece3;
+  --shadow-ink: #39414f;
+}
+
+.yomu-home .VPContent {
+  padding: 0;
+  max-width: 100%;
+}
+
+/* The fold is full-bleed, so the bar floats over it until the reader
+   scrolls; from then on it takes its normal ground back. */
+.yomu-home .VPNavBar.top,
+.yomu-home .VPNavBar.top .wrapper,
+.yomu-home .VPNavBar.top .container,
+.yomu-home .VPNavBar.top .content-body,
+.yomu-home .VPNavBar.top .title {
+  background: transparent;
+  background-color: transparent;
+  backdrop-filter: none;
+}
+
+.yomu-home .VPNavBar.top .divider-line,
+.yomu-home .VPNavBar.top .divider {
+  background: transparent;
+  background-color: transparent;
+}
+
+.yomu-home .VPNavBar.top {
+  border-bottom-color: transparent;
+}
+
+.yomu-home .VPPage {
+  background: var(--fold-bg);
+}
+
+.yomu-home :is(h1, h2, .yomu-wordmark, .yomu-band-numeral, .yomu-fold-cta) {
+  text-wrap: balance;
+}
+
+/* --- Shared slab grammar --- */
+.yomu-home .yomu-slab {
+  border: var(--keyline-w) solid var(--keyline);
+  border-radius: 2px;
+  background: var(--slab-bg);
+  box-shadow: 8px 8px 0 var(--shadow-ink);
+}
+
+/* --- ① The fold --- */
+.yomu-fold {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  align-content: center;
+  min-height: min(100svh, 860px);
+  padding: calc(var(--vp-nav-height) + clamp(28px, 6vh, 64px)) var(--gutter) clamp(28px, 6vh, 56px);
+  background: var(--fold-bg);
+  color: var(--slab-ink);
+}
+
+.yomu-fold-main {
+  position: relative;
+  z-index: 3;
+  max-width: min(620px, 100%);
+}
+
+.yomu-wordmark {
+  display: block;
+  margin: 0 0 clamp(18px, 3vh, 34px);
+  line-height: 1;
+}
+
+.yomu-wordmark-ja {
+  display: inline-block;
+  padding: 6px 18px 10px;
+  border: var(--keyline-w) solid var(--keyline);
+  border-radius: 2px;
+  background: var(--slab-bg);
+  box-shadow: 6px 6px 0 var(--shadow-ink);
+  color: var(--slab-ink);
+  font-family: var(--ja-font);
+  font-size: clamp(2.6rem, 8vw, 5rem);
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  transform: rotate(var(--rot-1));
+}
+
+.yomu-wordmark-en {
+  display: inline-block;
+  margin: -10px 0 0 40px;
+  padding: 5px 12px;
+  border: var(--keyline-w) solid var(--keyline);
+  border-radius: 2px;
+  background: var(--keyline);
+  color: var(--slab-bg);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  transform: rotate(var(--rot-3));
+}
+
+.yomu-fold-h1 {
+  max-width: 18ch;
+  margin: 0;
+  color: var(--slab-ink);
+  font-size: clamp(34px, 5vw, 68px);
+  font-weight: 800;
+  line-height: 0.98;
+  letter-spacing: -0.02em;
+  word-break: keep-all;
+}
+
+.yomu-fold-lead {
+  max-width: 34ch;
+  margin: clamp(14px, 2vh, 22px) 0 0;
+  color: var(--slab-ink);
+  font-size: clamp(17px, 1.4vw, 20px);
+  line-height: 1.5;
+}
+
+.yomu-fold-live {
+  margin: clamp(20px, 3.4vh, 40px) 0 0;
+}
+
+.yomu-fold-prompt {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  margin: 0 0 2px clamp(48px, 20%, 190px);
+  /* Amber at 82% reads as lamplight but only reaches 2.9:1 on the cream fold;
+     56% keeps the hue and clears 4.5:1 for this 13px uppercase label. */
+  color: color-mix(in srgb, var(--lamp) 56%, var(--slab-ink));
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.dark .yomu-fold-prompt {
+  color: var(--lamp);
+}
+
+.yomu-fold-arrow {
+  width: 44px;
+  height: 28px;
+  flex: none;
+  margin-bottom: -6px;
+}
+
+.yomu-fold-prompt-fallback,
+.yomu-fold-prompt[data-yomu-runtime-missing] .yomu-fold-prompt-live {
+  display: none;
+}
+
+.yomu-fold-prompt[data-yomu-runtime-missing] .yomu-fold-prompt-fallback {
+  display: inline;
+  color: inherit;
+  text-decoration: underline;
+}
+
+.yomu-home .yomu-fold-try {
+  display: block;
+  margin: 0;
+  padding: clamp(14px, 2.4vw, 26px) clamp(16px, 2.6vw, 30px) clamp(20px, 3vw, 32px);
+  border: var(--keyline-w) solid var(--keyline);
+  border-radius: 2px;
+  background: var(--slab-bg);
+  box-shadow: 8px 8px 0 var(--shadow-ink);
+  transform: rotate(var(--rot-2));
+}
+
+.yomu-home .yomu-fold-try .yomu-try-me-sample {
+  margin: 0;
+  color: var(--slab-ink);
+  font-family: var(--ja-font);
+  font-size: clamp(26px, 3.4vw, 46px);
+  line-height: 2;
+}
+
+.yomu-fold-cta,
+.yomu-install .yomu-fold-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 58px;
+  margin: clamp(26px, 4vh, 44px) 0 0;
+  padding: 0 26px;
+  border: var(--keyline-w) solid var(--keyline);
+  border-radius: 2px;
+  background: var(--vp-button-brand-bg);
+  box-shadow: 8px 8px 0 var(--shadow-ink);
+  color: var(--vp-button-brand-text);
+  font-size: clamp(17px, 1.6vw, 21px);
+  font-weight: 800;
+  text-decoration: none;
+  transform: none;
+}
+
+.yomu-fold-cta:hover,
+.yomu-fold-cta:focus-visible {
+  background: var(--vp-button-brand-hover-bg);
+  box-shadow: 4px 4px 0 var(--shadow-ink);
+  translate: 4px 4px;
+}
+
+.yomu-fold-micro {
+  margin: 12px 0 0;
+  color: color-mix(in srgb, var(--slab-ink) 72%, transparent);
+  font-size: 12px;
+  letter-spacing: 0.02em;
+}
+
+.yomu-fold-card {
+  position: absolute;
+  right: -5%;
+  bottom: -8%;
+  z-index: 2;
+  width: min(42vw, 460px);
+  margin: 0;
+  border: var(--keyline-w) solid var(--keyline);
+  border-radius: 2px;
+  background: var(--slab-bg);
+  box-shadow: 10px 10px 0 var(--shadow-ink);
+  transform: rotate(var(--rot-4));
+}
+
+.yomu-fold-card img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.yomu-fold-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 22px;
+  margin: clamp(26px, 4vh, 46px) 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.yomu-fold-legend li {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: color-mix(in srgb, var(--slab-ink) 78%, transparent);
+}
+
+.yomu-fold-legend b {
+  font-family: var(--ja-font);
+  font-weight: 700;
+}
+
+.yomu-fold-legend span {
+  text-transform: uppercase;
+}
+
+.yomu-dot {
+  width: 10px;
+  height: 10px;
+  flex: none;
+  border-radius: 50%;
+}
+
+.yomu-dot-heiban {
+  background: var(--jpdb-reader-pitch-heiban, #359eff);
+}
+
+.yomu-dot-atamadaka {
+  background: var(--jpdb-reader-pitch-atamadaka, #fe4b74);
+}
+
+.yomu-dot-nakadaka {
+  background: var(--jpdb-reader-pitch-nakadaka, #fba840);
+}
+
+.yomu-fold-legend-wrap {
+  margin: clamp(26px, 4vh, 46px) 0 0;
+}
+
+.yomu-fold-legend-title {
+  margin: 0 0 8px;
+  color: color-mix(in srgb, var(--slab-ink) 62%, transparent);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.yomu-fold-legend-wrap .yomu-fold-legend {
+  margin: 0;
+}
+
+/* layout: page still resolves a sidebar from the site config; the homepage is
+   full-bleed and must not reserve the rail. */
+.yomu-home .VPSidebar,
+.yomu-home .VPLocalNav {
+  display: none;
+}
+
+.yomu-home .VPContent.has-sidebar {
+  margin: 0;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+/* --- ② Proof bands --- */
+.yomu-band {
+  /* How far the product frame slides past the page edge. Declared once so the
+     caption inside that frame can be pushed back inside the viewport by exactly
+     the same amount at every breakpoint (see .yomu-band-frame figcaption). */
+  --bleed: calc(var(--gutter) + 9vw);
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  align-content: center;
+  align-items: center;
+  gap: clamp(24px, 4vw, 56px) 0;
+  min-height: min(100svh, 820px);
+  padding: clamp(4.5rem, 9vh, 8rem) var(--gutter);
+  color: var(--paper);
+}
+
+.yomu-band-ground {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Scrim floor: the paintings are lamplit interiors, so the floor is set
+   dark enough that paper copy clears 4.5:1 anywhere in the band and the
+   product frame stays the only lit thing in the picture. */
+.yomu-band::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: linear-gradient(180deg, rgba(9, 13, 22, 0.86) 0%, rgba(9, 13, 22, 0.62) 46%, rgba(9, 13, 22, 0.9) 100%);
+}
+
+.yomu-band-numeral {
+  position: absolute;
+  top: clamp(18px, 4vh, 44px);
+  z-index: 3;
+  margin: 0;
+  padding: 4px 16px 10px;
+  border: var(--keyline-w) solid var(--paper);
+  border-radius: 2px;
+  background: transparent;
+  color: var(--lamp);
+  font-family: var(--ja-font);
+  font-size: clamp(2.4rem, 6vw, 4.4rem);
+  font-weight: 900;
+  line-height: 1;
+}
+
+.yomu-band[data-bleed="right"] .yomu-band-numeral {
+  left: var(--gutter);
+  transform: rotate(var(--rot-1));
+}
+
+.yomu-band[data-bleed="left"] .yomu-band-numeral {
+  right: var(--gutter);
+  transform: rotate(var(--rot-3));
+}
+
+.yomu-band-copy {
+  position: relative;
+  z-index: 3;
+  padding: clamp(20px, 2.6vw, 34px);
+  border: var(--keyline-w) solid var(--paper);
+  border-radius: 2px;
+  background: rgba(8, 12, 20, 0.82);
+  box-shadow: 8px 8px 0 rgba(0, 0, 0, 0.55);
+}
+
+.yomu-band[data-bleed="right"] .yomu-band-copy {
+  grid-column: 1 / 7;
+}
+
+.yomu-band[data-bleed="left"] .yomu-band-copy {
+  grid-column: 7 / 13;
+}
+
+.yomu-band-kicker {
+  margin: 0 0 10px;
+  color: var(--lamp);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.yomu-band-copy h2 {
+  margin: 0;
+  color: var(--paper);
+  font-size: clamp(28px, 3.4vw, 44px);
+  font-weight: 800;
+  line-height: 1.06;
+  letter-spacing: -0.02em;
+}
+
+.yomu-band-lead {
+  max-width: 40ch;
+  margin: 14px 0 0;
+  color: color-mix(in srgb, var(--paper) 88%, transparent);
+  font-size: clamp(17px, 1.4vw, 20px);
+  line-height: 1.5;
+}
+
+/* Band captions live inside the figure they describe, never as a trailing line
+   in the copy card: the video band's copy card also holds the live player, so a
+   caption there captioned whichever element happened to sit above it. On
+   #16233d, paper at 82% is 9.4:1 — comfortably past 4.5:1 for 12px. */
+.yomu-band-frame figcaption,
+.yomu-band-player figcaption {
+  display: block;
+  margin: 0;
+  padding: 10px clamp(12px, 1.4vw, 18px) 12px;
+  color: color-mix(in srgb, var(--paper) 82%, transparent);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1.35;
+  text-transform: uppercase;
+}
+
+/* The caption rides inside the frame, and the frame is deliberately half off
+   the page — so on a left-bleeding band the caption lost its opening words at
+   every width ("YouTube, with the Japanese track open." rendered as "…the
+   Japanese track open.", 137px of it gone at 1440px). Inset the text by the
+   bleed so the sentence starts at the page gutter, whichever way the frame
+   slides. The picture still bleeds; only the words come back. */
+.yomu-band[data-bleed="left"] .yomu-band-frame > figcaption {
+  padding-left: calc(var(--bleed) + clamp(12px, 1.4vw, 18px));
+}
+
+.yomu-band[data-bleed="right"] .yomu-band-frame > figcaption {
+  padding-right: calc(var(--bleed) + clamp(12px, 1.4vw, 18px));
+}
+
+/* The pair has no card of its own (two stills on the bare ground), so its
+   caption needs the same dark bed the other captions inherit from the frame. */
+.yomu-band-pair figcaption {
+  margin: 14px 0 0;
+  padding: 10px 14px 11px;
+  border: 2px solid color-mix(in srgb, var(--paper) 40%, transparent);
+  border-radius: 2px;
+  background: rgba(8, 12, 20, 0.82);
+}
+
+.yomu-band-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 20px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.yomu-band-chips span {
+  display: inline-block;
+  padding: 5px 11px;
+  border: 2px solid color-mix(in srgb, var(--paper) 62%, transparent);
+  border-radius: 2px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.yomu-band-frame {
+  position: relative;
+  z-index: 2;
+  margin: 0;
+  border: var(--keyline-w) solid var(--paper);
+  border-radius: 2px;
+  background: var(--night-2);
+  box-shadow: 10px 10px 0 rgba(0, 0, 0, 0.6);
+}
+
+.yomu-band-frame img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.yomu-band[data-bleed="right"] .yomu-band-frame {
+  grid-column: 7 / 13;
+  margin-right: calc(-1 * var(--bleed));
+}
+
+.yomu-band[data-bleed="left"] .yomu-band-frame {
+  grid-column: 1 / 7;
+  grid-row: 1;
+  margin-left: calc(-1 * var(--bleed));
+}
+
+#pages .yomu-band-frame {
+  transform: rotate(var(--rot-2));
+}
+
+#manga .yomu-band-frame {
+  transform: rotate(var(--rot-1));
+}
+
+#video .yomu-band-frame {
+  transform: rotate(var(--rot-3));
+}
+
+#keep .yomu-band-frame {
+  transform: rotate(var(--rot-2));
+}
+
+.yomu-band-player {
+  margin: 22px 0 0;
+  border: 2px solid color-mix(in srgb, var(--paper) 62%, transparent);
+  border-radius: 2px;
+  background: #000;
+}
+
+.yomu-band-video {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border: 0;
+  background: #000;
+}
+
+/* §05 pairs two real stills with a hard connector so it reads as a move,
+   not as two screenshots. */
+.yomu-band-pair {
+  border: 0;
+  background: none;
+  box-shadow: none;
+}
+
+.yomu-band-pair img {
+  border: var(--keyline-w) solid var(--paper);
+  border-radius: 2px;
+  background: var(--night-2);
+  box-shadow: 10px 10px 0 rgba(0, 0, 0, 0.6);
+}
+
+.yomu-band-pair .yomu-pair-a {
+  width: 66%;
+}
+
+.yomu-band-pair .yomu-pair-b {
+  width: 66%;
+  margin: 3% 0 0 34%;
+}
+
+.yomu-pair-arrow {
+  position: absolute;
+  left: 24%;
+  top: 44%;
+  width: clamp(56px, 8vw, 108px);
+  height: auto;
+  color: var(--lamp);
+}
+
+/* --- §06 Install: hard cut to flat ink, no scene --- */
+.yomu-install {
+  padding: clamp(4rem, 8vh, 7rem) var(--gutter);
+  background: var(--ink);
+  color: var(--paper);
+}
+
+/* In dark mode the page ground is already ink, so the tonal break that makes
+   §06 read as instruction rather than atmosphere needs its own darker step. */
+.dark .yomu-home .yomu-install {
+  background: #04060a;
+}
+
+.yomu-install-inner {
+  max-width: min(720px, 100%);
+  margin: 0 auto;
+}
+
+.yomu-install-inner h2 {
+  margin: 0;
+  color: var(--paper);
+  font-size: clamp(28px, 3.4vw, 44px);
+  font-weight: 800;
+  line-height: 1.06;
+  letter-spacing: -0.02em;
+}
+
+.yomu-home .yomu-install-steps {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: 10px;
+  grid-area: auto;
+  grid-template-columns: none;
+  margin: 26px 0 0;
+  padding: 0;
+}
+
+.yomu-home .yomu-install-step {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+.yomu-home .yomu-install-steps a {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 46px;
+  padding: 0 16px;
+  border: 2px solid var(--paper);
+  border-radius: 2px;
+  background: transparent;
+  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.7);
+  /* The shared docs rule sets --vp-c-text-2 !important, a mid grey chosen for
+     a light page; on this near-black band it left the step labels at ~2.6:1.
+     The band is dark everywhere, so paper is the only correct ink here. */
+  color: var(--paper) !important;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-decoration: none;
+}
+
+.yomu-home .yomu-install-steps a:hover,
+.yomu-home .yomu-install-steps a:focus-visible {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--paper) !important;
+}
+
+.yomu-home .yomu-install-step-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 2px;
+  background: var(--lamp);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.yomu-home .yomu-install-fallback {
+  margin: 30px 0 0;
+  color: color-mix(in srgb, var(--paper) 80%, transparent);
+  font-size: 14px;
+}
+
+.yomu-home .yomu-install-fallback summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.yomu-home .yomu-install-fallback code {
+  display: inline-block;
+  padding: 3px 7px;
+  border: 2px solid color-mix(in srgb, var(--paper) 46%, transparent);
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--paper);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.yomu-home .yomu-install-fallback strong {
+  color: var(--paper);
+}
+
+.yomu-install .yomu-fold-cta {
+  border-color: var(--paper);
+  box-shadow: 8px 8px 0 rgba(0, 0, 0, 0.7);
+}
+
+.yomu-install .yomu-fold-micro {
+  color: color-mix(in srgb, var(--paper) 70%, transparent);
+}
+
+/* --- §07 Already installed --- */
+.yomu-next {
+  padding: clamp(3.5rem, 7vh, 6rem) var(--gutter) clamp(4rem, 8vh, 7rem);
+  background: var(--fold-bg);
+  color: var(--slab-ink);
+}
+
+.yomu-next h2 {
+  max-width: min(720px, 100%);
+  margin: 0 auto 26px;
+  color: var(--slab-ink);
+  font-size: clamp(24px, 2.6vw, 34px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.yomu-home .yomu-next-grid {
+  max-width: min(720px, 100%);
+  margin: 0 auto;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.yomu-home .yomu-link-card {
+  border: var(--keyline-w) solid var(--keyline);
+  border-radius: 2px;
+  background: var(--slab-bg);
+  box-shadow: 6px 6px 0 var(--shadow-ink);
+  color: var(--slab-ink);
+}
+
+.yomu-home .yomu-link-card:hover,
+.yomu-home .yomu-link-card:focus-visible {
+  box-shadow: 3px 3px 0 var(--shadow-ink);
+  translate: 3px 3px;
+}
+
+.yomu-next-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 20px;
+  max-width: min(720px, 100%);
+  margin: 26px auto 0;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.yomu-next-row a {
+  color: color-mix(in srgb, var(--slab-ink) 76%, transparent);
+  text-decoration: none;
+}
+
+.yomu-next-row a:hover,
+.yomu-next-row a:focus-visible {
+  color: var(--slab-ink);
+  text-decoration: underline;
+}
+
+/* --- Motion: a printed wipe, not a fade --- */
+.yomu-band .yomu-band-copy,
+.yomu-band .yomu-band-frame {
+  transition: clip-path 240ms cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+
+.yomu-reveal[data-yomu-reveal-ready]:not(.is-in) .yomu-band-copy,
+.yomu-reveal[data-yomu-reveal-ready]:not(.is-in) .yomu-band-frame {
+  clip-path: inset(0 100% 0 0);
+}
+
+.yomu-reveal.is-in .yomu-band-copy,
+.yomu-reveal.is-in .yomu-band-frame {
+  clip-path: inset(0 0 0 0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .yomu-band .yomu-band-copy,
+  .yomu-band .yomu-band-frame,
+  .yomu-reveal[data-yomu-reveal-ready]:not(.is-in) .yomu-band-copy,
+  .yomu-reveal[data-yomu-reveal-ready]:not(.is-in) .yomu-band-frame {
+    clip-path: none;
+    transition: none;
+  }
+}
+
+/* Rotation must never clip a focus ring. */
+.yomu-home a:focus-visible,
+.yomu-home summary:focus-visible,
+.yomu-home video:focus-visible {
+  outline: 3px solid var(--lamp);
+  outline-offset: 3px;
+}
+
+/* --- Tablet --- */
+/* --- Tablet ---
+   Below ~1080px the 12-column band stops working as two facing halves: the
+   copy card and the product frame are both squeezed under ~46% of a narrow
+   viewport, the frame's -9vw bleed drags it off-canvas, and what is left is a
+   tall band of empty ground with an illegible screenshot pinned to one edge.
+   Stack instead — copy, then the frame at full measure — so the capture is
+   large enough to read and the band stops paying 100svh for dead paint. */
+@media (max-width: 1080px) {
+  .yomu-fold-card {
+    width: min(46vw, 390px);
+    right: -5%;
+  }
+
+  .yomu-band {
+    grid-template-columns: minmax(0, 1fr);
+    align-content: start;
+    min-height: 0;
+    padding-block: clamp(3.6rem, 8vh, 5.5rem);
+  }
+
+  .yomu-band-numeral {
+    position: relative;
+    top: auto;
+    left: auto !important;
+    right: auto !important;
+    justify-self: start;
+    margin-bottom: 4px;
+  }
+
+  .yomu-band[data-bleed="right"] .yomu-band-copy,
+  .yomu-band[data-bleed="left"] .yomu-band-copy,
+  .yomu-band[data-bleed="right"] .yomu-band-frame,
+  .yomu-band[data-bleed="left"] .yomu-band-frame {
+    grid-column: 1;
+    grid-row: auto;
+  }
+
+  /* Half the desktop bleed: enough to keep the frame reading as a slide off
+     the edge of the page, not so much that the product is cropped away. */
+  .yomu-band {
+    --bleed: calc(var(--gutter) + 4vw);
+  }
+
+  .yomu-band[data-bleed="right"] .yomu-band-frame {
+    margin-right: calc(-1 * var(--bleed));
+    margin-left: 0;
+  }
+
+  .yomu-band[data-bleed="left"] .yomu-band-frame {
+    margin-left: calc(-1 * var(--bleed));
+    margin-right: 0;
+  }
+
+  /* The fold card is absolutely positioned over the right of the fold in this
+     range, so a legend that runs its full measure slides under it — at 768px
+     the last swatch ran 7px beneath the card's edge. Cap the legend at the
+     free half so it wraps instead of colliding. */
+  .yomu-fold-legend-wrap {
+    max-width: min(50%, 420px);
+  }
+}
+
+/* --- Phone --- */
+@media (max-width: 720px) {
+  .yomu-home {
+    --keyline-w: 2px;
+  }
+
+  .yomu-fold {
+    min-height: 0;
+    padding-bottom: 0;
+  }
+
+  .yomu-wordmark-ja {
+    font-size: 56px;
+  }
+
+  .yomu-fold-h1 {
+    font-size: clamp(28px, 8vw, 40px);
+  }
+
+  .yomu-home .yomu-fold-try .yomu-try-me-sample {
+    font-size: 30px;
+    line-height: 1.95;
+  }
+
+  .yomu-fold-cta {
+    width: 100%;
+    box-shadow: 6px 6px 0 var(--shadow-ink);
+  }
+
+  .yomu-fold {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .yomu-fold-main {
+    order: 1;
+  }
+
+  .yomu-fold-legend-wrap {
+    order: 2;
+    margin-top: 26px;
+  }
+
+  .yomu-fold-card {
+    order: 3;
+    position: relative;
+    right: auto;
+    bottom: auto;
+    width: 62%;
+    margin: clamp(26px, 5vh, 44px) 0 -14% auto;
+  }
+
+  .yomu-fold-legend {
+    gap: 4px 16px;
+  }
+
+  .yomu-band {
+    grid-template-columns: minmax(0, 1fr);
+    min-height: 0;
+    padding-block: clamp(3.4rem, 9vh, 4.5rem);
+  }
+
+  .yomu-band-numeral {
+    position: relative;
+    top: auto;
+    left: auto !important;
+    right: auto !important;
+    justify-self: start;
+    margin-bottom: 4px;
+    font-size: 2.4rem;
+  }
+
+  .yomu-band[data-bleed="right"] .yomu-band-copy,
+  .yomu-band[data-bleed="left"] .yomu-band-copy,
+  .yomu-band[data-bleed="right"] .yomu-band-frame,
+  .yomu-band[data-bleed="left"] .yomu-band-frame {
+    grid-column: 1;
+    grid-row: auto;
+  }
+
+  .yomu-band {
+    --bleed: calc(var(--gutter) + 12vw);
+  }
+
+  .yomu-band[data-bleed="right"] .yomu-band-frame {
+    margin-right: calc(-1 * var(--bleed));
+    margin-left: 0;
+  }
+
+  .yomu-band[data-bleed="left"] .yomu-band-frame {
+    margin-left: calc(-1 * var(--bleed));
+    margin-right: 0;
+  }
+
+  /* The card is back in flow below 720px, but the reader's own floating
+     launcher rests in the bottom-right of the viewport — and on a 414x896
+     phone it lands exactly on the third pitch swatch, so the legend named
+     three colours while covering one of them. Hold the legend out of that
+     corner; it wraps to two short rows instead of hiding an entry. */
+  .yomu-fold-legend-wrap {
+    max-width: calc(100% - 84px);
+  }
+
+  .yomu-band-pair .yomu-pair-a,
+  .yomu-band-pair .yomu-pair-b {
+    width: 76%;
+  }
+
+  .yomu-band-pair .yomu-pair-b {
+    margin: 5% 0 0 24%;
+  }
+
+  .yomu-home .yomu-next-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 420px) {
+  .yomu-home .yomu-fold-try .yomu-try-me-sample {
+    font-size: 27px;
+  }
+
+  .yomu-fold-legend {
+    font-size: 11px;
+    gap: 4px 12px;
+  }
 }

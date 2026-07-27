@@ -49,8 +49,6 @@ When the page is just pictures, よむ uses OCR to recognize Japanese text and t
 
 The result should feel like normal reading: the panel stays visible, and the words become targets for lookup.
 
-<figure class="yomu-feature-shot"><img :src="'/media/manga-ocr-sample.png'" alt="Japanese manga page with text detected for よむ OCR lookup"><figcaption>OCR makes panel text lookup-ready without covering the page.</figcaption></figure>
-
 The full reference for OCR engines, endpoints and image handling lives on the [Japanese OCR](/tools/japanese-ocr) page.
 
 ## Step 4 — Readings, furigana and meaning on demand

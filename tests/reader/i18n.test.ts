@@ -206,6 +206,23 @@ describe('interface language resolution', () => {
         expect(duplicateKeys).toEqual([]);
     });
 
+    it('keeps the homepage fold answering a press', () => {
+        // The fold's sample is pre-annotated markup, so it looks correct even
+        // when no lookup can happen. data-jpdb-reader-surface-ignore is in the
+        // reader's own READER_DOCUMENT_CLICK_IGNORE_SELECTOR: marking the
+        // sample with it leaves the page looking live while every press does
+        // nothing, which is worse than shipping a static picture. The runtime
+        // only finds the fold at all through [data-yomu-runtime-surface] /
+        // .yomu-try-me-text, so both hooks are pinned here too.
+        const homeSource = readFileSync('docs/index.md', 'utf8');
+        const sample = between(homeSource, '<p class="yomu-try-me-sample"', '</p>');
+
+        expect(sample).not.toContain('data-jpdb-reader-surface-ignore');
+        expect(homeSource).toContain('class="yomu-try-me-text');
+        expect(homeSource).toContain('data-yomu-runtime-surface');
+        expect(sample).toContain('data-yomu-localize="off"');
+    });
+
     it('keeps every hosted docs Japanese value written in Japanese', () => {
         // hasHostedDocsJaCopy only proves a key exists, so an English-for-English
         // entry ('Offline cache': 'Offline cache') satisfies every page guard
@@ -362,7 +379,8 @@ function markdownPageTextCopy(pageSource: string): string[] {
 
     let inCodeFence = false;
     let inHtmlComment = false;
-    for (const line of pageSource.slice(frontmatter ? frontmatter[0].length : 0).split('\n')) {
+    const body = untranslatedMarkupRemoved(pageSource.slice(frontmatter ? frontmatter[0].length : 0));
+    for (const line of body.split('\n')) {
         if (/^\s*```/.test(line)) { inCodeFence = !inCodeFence; continue; }
         if (inCodeFence) continue;
         // Authoring notes are not rendered, so they are not copy.
@@ -386,6 +404,19 @@ function markdownPageTextCopy(pageSource: string): string[] {
         for (const segment of markdownPageSegments(text)) add(segment);
     }
     return [...copy];
+}
+
+// Mirror what the theme's isUntranslatableElement refuses to touch, so the
+// guard only ever demands ja copy for strings a Japanese reader is shown.
+// A subtree under [data-yomu-localize="off"] (the wordmark, the annotated
+// sample, the install URL) is left in English on purpose; demanding a ja key
+// for it would put an entry in the map that the runtime can never ask for.
+// The subtree becomes an inline-code placeholder rather than nothing, because
+// it still splits the text nodes either side of it: deleting it outright would
+// glue "…use its Install from URL option with" onto ". In Tampermonkey that is"
+// and demand a ja key for a sentence the page never renders.
+function untranslatedMarkupRemoved(source: string): string {
+    return source.replace(/<(\w+)\b[^>]*\bdata-yomu-localize="off"[^>]*>[\s\S]*?<\/\1>/g, '`x`');
 }
 
 function markdownPageSegments(value: string): string[] {

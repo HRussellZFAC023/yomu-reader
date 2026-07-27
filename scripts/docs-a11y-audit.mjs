@@ -116,6 +116,18 @@ const DOCS_CONTENT_TYPES = [
 
 async function waitForStablePage(page) {
     await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => undefined);
+    // Walk the page the way a reader does before judging images: loading="lazy"
+    // stills below the fold are not "broken", they simply have not been asked
+    // for yet, and a taller page pushed one of them out of range.
+    await page.evaluate(async () => {
+        const step = Math.round(window.innerHeight * 0.6);
+        for (let y = 0; y < document.body.scrollHeight + window.innerHeight; y += step) {
+            window.scrollTo(0, y);
+            await new Promise(resolve => setTimeout(resolve, 90));
+        }
+        window.scrollTo(0, 0);
+        await new Promise(resolve => setTimeout(resolve, 200));
+    }).catch(() => undefined);
     await page.waitForFunction(() => [...document.images].every(image => image.complete), null, { timeout: 8000 }).catch(() => undefined);
 }
 
@@ -256,28 +268,79 @@ async function auditDocsPage(context, origin, viewport, pageDef, results) {
     }
 }
 
+// The homepage is a live surface, not a screenshot: the fold runs the real
+// reader on a real sentence and the video band hands a real <video> to the real
+// subtitle runtime. Both look completely correct when they are dead, so this
+// audit presses them rather than inspecting their markup.
 async function assertHomepageDemo(page, label) {
-    await page.locator('.yomu-manga-ocr').scrollIntoViewIfNeeded();
-    await page.evaluate(() => document.querySelector('.yomu-manga-ocr')?.scrollIntoView({ block: 'center', inline: 'nearest' }));
-    await page.waitForFunction(() => window.__yomuReaderAppInitialized === true, null, { timeout: 10000 });
-    const embeddedOcrLines = await page.locator('.yomu-manga-image').getAttribute('data-ocr-lines');
-    assertAudit(embeddedOcrLines === null, `${label} homepage must use provider geometry, not canned OCR boxes`);
-    // Deterministic fixture for the local accessibility audit only. Live geometry
-    // acceptance is captured separately against yomureader.com.
-    await page.evaluate(() => {
-        const image = document.querySelector('.yomu-manga-image');
-        if (!(image instanceof HTMLImageElement)) throw new Error('Homepage manga image missing');
-        image.dataset.ocrLines = JSON.stringify([
-            { text: '日本語を読む', box: { left: 0.2, top: 0.3, width: 0.4, height: 0.08 } },
-        ]);
+    await page.evaluate(() => document.querySelector('.yomu-fold-try')?.scrollIntoView({ block: 'center', inline: 'nearest' }));
+    await page.waitForFunction(() => window.__yomuReaderAppInitialized === true, null, { timeout: 15000 });
+
+    const fold = await page.evaluate(() => {
+        const attr = (selector, name) => document.querySelector(selector)?.getAttribute(name) ?? '';
+        const sample = document.querySelector('.yomu-try-me-sample');
+        return {
+            hasRuntimeSurface: Boolean(document.querySelector('.yomu-try-me-text')),
+            plainText: attr('.yomu-try-me-sample', 'aria-label'),
+            words: document.querySelectorAll('.yomu-try-me-sample .jpdb-reader-word').length,
+            pitchWords: document.querySelectorAll('.yomu-try-me-sample [class*="jpdb-pitch-"]').length,
+            ruby: document.querySelectorAll('.yomu-try-me-sample ruby, .yomu-try-me-sample rt').length,
+            rubyBasesWithKana: [...document.querySelectorAll('.yomu-try-me-sample .jpdb-reader-ruby-base')]
+                .map(element => element.textContent?.trim() ?? '')
+                .filter(value => /[ぁ-ゟ゠-ヿ]/u.test(value)),
+            // A sample the reader is told to skip stays pre-annotated and inert:
+            // it looks live and answers nothing. Never ship the fold that way.
+            lookupBlocked: Boolean(sample?.closest('[data-jpdb-reader-surface-ignore]')),
+            localizeOff: attr('.yomu-try-me-sample', 'data-yomu-localize') === 'off',
+            promptFallbackShown: Boolean(document.querySelector('[data-yomu-fold-prompt][data-yomu-runtime-missing]')),
+            installCta: [...document.querySelectorAll('.yomu-fold-cta')].map(link => link.getAttribute('href')),
+            legendSwatches: document.querySelectorAll('.yomu-fold-legend .yomu-dot').length,
+            // Every pitch class the fold paints must appear in the legend that
+            // claims to explain the colours.
+            samplePitchClasses: [...new Set([...document.querySelectorAll('.yomu-try-me-sample .jpdb-reader-word')]
+                .flatMap(word => [...word.classList])
+                .filter(name => name.startsWith('jpdb-pitch-')))].sort(),
+            legendPitchClasses: [...new Set([...document.querySelectorAll('.yomu-fold-legend .yomu-dot')]
+                .flatMap(dot => [...dot.classList])
+                .filter(name => name.startsWith('yomu-dot-'))
+                .map(name => name.replace('yomu-dot-', 'jpdb-pitch-')))].sort(),
+        };
     });
-    await page.locator('.yomu-manga-image').click();
-    await page.waitForFunction(() => (
-        document.querySelectorAll('.yomu-manga-figure .jpdb-ocr-line, .jpdb-ocr-layer .jpdb-ocr-line').length >= 1
-    ), null, { timeout: 15000 });
+
+    assertAudit(fold.hasRuntimeSurface, `${label} fold lost the .yomu-try-me-text runtime surface`);
+    assertAudit(fold.localizeOff, `${label} fold sample must opt out of docs localisation`);
+    assertAudit(!fold.lookupBlocked, `${label} fold sample is inside [data-jpdb-reader-surface-ignore]; every press would do nothing`);
+    assertAudit(fold.plainText.includes('喫茶店'), `${label} fold fixture is incomplete: ${fold.plainText}`);
+    assertAudit(fold.words >= 5 && fold.pitchWords >= 5 && fold.ruby >= 5, `${label} fold pitch/furigana fixture missing: ${JSON.stringify(fold)}`);
+    assertAudit(!fold.rubyBasesWithKana.length, `${label} fold ruby should only sit over kanji bases: ${JSON.stringify(fold.rubyBasesWithKana)}`);
+    assertAudit(!fold.promptFallbackShown, `${label} fold prompt fell back to the static link while the runtime was live`);
+    assertAudit(fold.installCta.some(href => href?.endsWith('.user.js')), `${label} fold install action missing: ${JSON.stringify(fold.installCta)}`);
+    assertAudit(
+        fold.samplePitchClasses.every(name => fold.legendPitchClasses.includes(name)),
+        `${label} fold paints pitch colours the legend does not explain: ${JSON.stringify(fold)}`,
+    );
+
+    // The claim under the arrow is "press a word". Prove a press answers.
+    const foldWord = page.locator('.yomu-try-me-sample .jpdb-reader-word').nth(2);
+    await foldWord.scrollIntoViewIfNeeded();
+    const box = await foldWord.boundingBox();
+    assertAudit(Boolean(box), `${label} fold sample word is not hittable`);
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.move(box.x + box.width / 2 + 1, box.y + box.height / 2 + 1);
+    await page.waitForFunction(
+        () => Boolean(document.querySelector('.jpdb-reader-popover')),
+        null,
+        { timeout: 15000 },
+    ).catch(() => undefined);
+    const popoverText = await page.evaluate(
+        () => document.querySelector('.jpdb-reader-popover')?.textContent?.replace(/\s+/g, ' ').trim() ?? '',
+    );
+    assertAudit(popoverText.length > 0, `${label} pressing a fold word opened no lookup popover`);
+    await page.keyboard.press('Escape').catch(() => undefined);
+
     await page.evaluate(() => {
-        document.querySelector('.yomu-video-showcase')?.scrollIntoView({ block: 'center', inline: 'nearest' });
-        const video = document.querySelector('.yomu-sample-player');
+        document.querySelector('.yomu-band-video')?.scrollIntoView({ block: 'center', inline: 'nearest' });
+        const video = document.querySelector('.yomu-band-video');
         if (video instanceof HTMLVideoElement) {
             video.currentTime = 0.25;
             void video.play().catch(() => undefined);
@@ -285,86 +348,16 @@ async function assertHomepageDemo(page, label) {
     });
     await page.waitForFunction(() => (
         document.querySelector('.jpdb-subtitle-player.jpdb-subtitle-has-lines .jpdb-subtitle-primary .jpdb-reader-word')
-    ), null, { timeout: 10000 });
-    await page.waitForFunction(() => {
-        const image = document.querySelector('.yomu-manga-image');
-        const layer = [...document.querySelectorAll('.jpdb-ocr-layer')]
-            .find(candidate => candidate.querySelector('.jpdb-ocr-line'));
-        if (!(image instanceof HTMLElement) || !(layer instanceof HTMLElement)) return false;
-        const imageRect = image.getBoundingClientRect();
-        const layerRect = layer.getBoundingClientRect();
-        return Math.max(
-            Math.abs(imageRect.left - layerRect.left),
-            Math.abs(imageRect.top - layerRect.top),
-            Math.abs(imageRect.width - layerRect.width),
-            Math.abs(imageRect.height - layerRect.height),
-        ) <= 1;
-    }, null, { timeout: 5000 });
-    const snapshot = await page.evaluate(() => {
-        const text = selector => document.querySelector(selector)?.textContent?.replace(/\s+/g, ' ').trim() ?? '';
-        const attr = (selector, name) => document.querySelector(selector)?.getAttribute(name) ?? '';
-        const phoneVideo = document.querySelector('.yomu-demo-video');
-        const sampleVideo = document.querySelector('.yomu-sample-player');
+    ), null, { timeout: 15000 });
+
+    const band = await page.evaluate(() => {
+        const sampleVideo = document.querySelector('.yomu-band-video');
         const subtitlePlayer = document.querySelector('.jpdb-subtitle-player');
-        const rect = element => {
-            if (!(element instanceof Element)) return null;
-            const box = element.getBoundingClientRect();
-            return { left: box.left, top: box.top, right: box.right, bottom: box.bottom, width: box.width, height: box.height };
-        };
-        const overlaps = (first, second) => Boolean(first && second)
-            && Math.max(0, Math.min(first.right, second.right) - Math.max(first.left, second.left)) > 1
-            && Math.max(0, Math.min(first.bottom, second.bottom) - Math.max(first.top, second.top)) > 1;
-        const subtitleRect = rect(subtitlePlayer);
-        const videoFrameRect = rect(document.querySelector('[data-yomu-video-frame]'));
-        const phoneFrameRect = rect(document.querySelector('.yomu-device-frame'));
-        const ocrLines = [...document.querySelectorAll('.jpdb-ocr-layer .jpdb-ocr-line, .yomu-manga-figure .jpdb-ocr-line')];
-        const ocrText = ocrLines.map(line => line.getAttribute('aria-label') || line.getAttribute('data-ocr-text') || line.textContent || '').join(' ');
-        const mangaImageRect = document.querySelector('.yomu-manga-image')?.getBoundingClientRect();
-        const ocrLayerRect = [...document.querySelectorAll('.jpdb-ocr-layer')]
-            .find(layer => layer.querySelector('.jpdb-ocr-line'))
-            ?.getBoundingClientRect();
-        const hasSubtitlePlayer = Boolean(subtitlePlayer);
-        const subtitleWords = document.querySelectorAll('.jpdb-subtitle-player .jpdb-subtitle-primary .jpdb-reader-word').length;
         const subtitleRailStyle = subtitlePlayer
             ? getComputedStyle(subtitlePlayer.querySelector('.jpdb-subtitle-rail') ?? subtitlePlayer)
             : null;
         const subtitleTextRect = subtitlePlayer?.querySelector('.jpdb-subtitle-text')?.getBoundingClientRect();
         return {
-            runtimeReady: window.__yomuReaderAppInitialized === true || (ocrLines.length >= 1 && hasSubtitlePlayer),
-            heroActions: [...document.querySelectorAll('.VPHomeHero .actions a')].map(link => link.textContent?.trim()),
-            nextHeading: text('#what-to-do-next'),
-            tryMeLabel: text('.yomu-try-me-label'),
-            tryMeText: text('.yomu-try-me-sample'),
-            tryMePlainText: attr('.yomu-try-me-sample', 'aria-label'),
-            tryMeWords: document.querySelectorAll('.yomu-try-me-sample .jpdb-reader-word').length,
-            tryMePitchWords: document.querySelectorAll('.yomu-try-me-sample [class*="jpdb-pitch-"]').length,
-            tryMeRuby: document.querySelectorAll('.yomu-try-me-sample ruby, .yomu-try-me-sample rt').length,
-            tryMeRubyBasesWithKana: [...document.querySelectorAll('.yomu-try-me-sample .jpdb-reader-ruby-base')]
-                .map(element => element.textContent?.trim() ?? '')
-                .filter(value => /[ぁ-ゟ゠-ヿ]/u.test(value)),
-            demoVideo: phoneVideo ? {
-                controls: phoneVideo.hasAttribute('controls'),
-                autoplay: phoneVideo.hasAttribute('autoplay'),
-                muted: phoneVideo.hasAttribute('muted'),
-                loop: phoneVideo.hasAttribute('loop'),
-                ignored: phoneVideo.closest('[data-jpdb-reader-surface-ignore]') !== null,
-                tabindex: attr('.yomu-demo-video', 'tabindex'),
-                sourceCount: phoneVideo.querySelectorAll('source[src]').length,
-            } : null,
-            imageKicker: text('.yomu-manga-ocr .yomu-showcase-kicker'),
-            mangaTextLayerCount: document.querySelectorAll('.yomu-manga-text-layer').length,
-            ocrLineCount: ocrLines.length,
-            ocrText,
-            ocrLayerEdgeDelta: mangaImageRect && ocrLayerRect ? Math.max(
-                Math.abs(mangaImageRect.left - ocrLayerRect.left),
-                Math.abs(mangaImageRect.top - ocrLayerRect.top),
-                Math.abs(mangaImageRect.width - ocrLayerRect.width),
-                Math.abs(mangaImageRect.height - ocrLayerRect.height),
-            ) : null,
-            ocrRegionCount: document.querySelectorAll('.yomu-ocr-region').length,
-            ocrCardCount: document.querySelectorAll('[data-yomu-ocr-card], .yomu-ocr-card').length,
-            figcaptionCount: document.querySelectorAll('.yomu-manga-figure figcaption').length,
-            hasScanOverlay: Boolean(document.querySelector('.yomu-manga-scan')),
             sampleVideo: sampleVideo ? {
                 controls: sampleVideo.hasAttribute('controls'),
                 autoplay: sampleVideo.hasAttribute('autoplay'),
@@ -372,16 +365,18 @@ async function assertHomepageDemo(page, label) {
                 trackCount: sampleVideo.querySelectorAll('track[kind="subtitles"][src]').length,
             } : null,
             hasVideoFrame: Boolean(document.querySelector('[data-yomu-video-frame]')),
-            hasSubtitlePlayer,
-            subtitleWords,
+            hasSubtitlePlayer: Boolean(subtitlePlayer),
+            subtitleInsideVideoFrame: Boolean(subtitlePlayer?.closest('[data-yomu-video-frame]')),
+            subtitleWords: document.querySelectorAll('.jpdb-subtitle-player .jpdb-subtitle-primary .jpdb-reader-word').length,
             subtitleVisible: Boolean(subtitlePlayer && !subtitlePlayer.classList.contains('jpdb-subtitle-hidden')),
             subtitleControlsAlways: Boolean(subtitlePlayer?.classList.contains('jpdb-subtitle-controls-always')),
             subtitleRailVisible: Boolean(subtitleRailStyle && Number(subtitleRailStyle.opacity || '1') > 0.5 && subtitleRailStyle.visibility !== 'hidden'),
             subtitleTextVisible: Boolean(subtitleTextRect && subtitleTextRect.width > 0 && subtitleTextRect.height > 0),
-            subtitleInsideVideoFrame: Boolean(subtitlePlayer?.closest('[data-yomu-video-frame]')),
-            subtitleInsidePhone: Boolean(subtitlePlayer?.closest('.yomu-device-frame')),
-            subtitleOverlapsVideoFrame: overlaps(subtitleRect, videoFrameRect),
-            subtitleOverlapsPhone: overlaps(subtitleRect, phoneFrameRect),
+            // The rebuilt page must keep drawing no chrome of its own: no fake
+            // OCR boxes, no hand-rolled caption buttons, no YouTube embed.
+            mangaTextLayerCount: document.querySelectorAll('.yomu-manga-text-layer').length,
+            ocrRegionCount: document.querySelectorAll('.yomu-ocr-region').length,
+            ocrCardCount: document.querySelectorAll('[data-yomu-ocr-card], .yomu-ocr-card').length,
             transcriptButtonCount: document.querySelectorAll('.yomu-caption-word').length,
             captionCardCount: document.querySelectorAll('[data-yomu-caption-card], .yomu-video-lookup-card').length,
             hasYoutubeFrame: Boolean(document.querySelector('.yomu-youtube-embed')),
@@ -390,40 +385,18 @@ async function assertHomepageDemo(page, label) {
         };
     });
     await page.evaluate(() => {
-        const video = document.querySelector('.yomu-sample-player');
+        const video = document.querySelector('.yomu-band-video');
         if (video instanceof HTMLVideoElement) video.pause();
     });
-    assertAudit(
-        snapshot.heroActions.includes('Install') || snapshot.heroActions.includes('Install userscript'),
-        `${label} primary install action missing: ${JSON.stringify(snapshot.heroActions)}`,
-    );
-    assertAudit(snapshot.nextHeading.startsWith('What to do next'), `${label} next heading copy regressed: ${JSON.stringify(snapshot)}`);
-    assertAudit(snapshot.tryMeLabel === 'Try me', `${label} Try me label missing: ${JSON.stringify(snapshot)}`);
-    assertAudit(snapshot.tryMePlainText.includes('喫茶店') && snapshot.tryMePlainText.includes('音声') && snapshot.tryMePlainText.includes('見えます'), `${label} Try me fixture is incomplete: ${snapshot.tryMePlainText}`);
-    assertAudit(snapshot.tryMeWords >= 8 && snapshot.tryMePitchWords >= 4 && snapshot.tryMeRuby >= 4, `${label} Try me pitch/furigana fixture missing: ${JSON.stringify(snapshot)}`);
-    assertAudit(!snapshot.tryMeRubyBasesWithKana.length, `${label} Try me ruby should only sit over kanji bases: ${JSON.stringify(snapshot.tryMeRubyBasesWithKana)}`);
-    assertAudit(!snapshot.demoVideo?.autoplay && snapshot.demoVideo?.muted && snapshot.demoVideo?.loop, `${label} phone demo should be JS-started, muted, and looping: ${JSON.stringify(snapshot.demoVideo)}`);
-    assertAudit(!snapshot.demoVideo?.controls && snapshot.demoVideo?.tabindex === '0', `${label} phone demo should be custom keyboard/click controlled: ${JSON.stringify(snapshot.demoVideo)}`);
-    assertAudit(snapshot.demoVideo?.ignored, `${label} phone demo should be ignored by the reader/subtitle runtime: ${JSON.stringify(snapshot.demoVideo)}`);
-    assertAudit(snapshot.demoVideo?.sourceCount >= 2, `${label} phone demo is missing mp4/webm sources: ${JSON.stringify(snapshot.demoVideo)}`);
-    assertAudit(snapshot.runtimeReady, `${label} hosted runtime did not initialize: ${JSON.stringify(snapshot)}`);
-    assertAudit(snapshot.imageKicker === 'Image' && !snapshot.hasScanOverlay, `${label} image showcase has fake OCR chrome: ${JSON.stringify(snapshot)}`);
-    assertAudit(snapshot.mangaTextLayerCount === 0, `${label} should not render a hardcoded manga text layer: ${JSON.stringify(snapshot)}`);
-    assertAudit(snapshot.ocrRegionCount === 0 && snapshot.ocrCardCount === 0, `${label} should not render custom OCR buttons/cards: ${JSON.stringify(snapshot)}`);
-    assertAudit(snapshot.ocrLineCount >= 1, `${label} real OCR runtime did not prepare manga lookup lines: ${JSON.stringify(snapshot)}`);
-    assertAudit(snapshot.ocrLayerEdgeDelta !== null && snapshot.ocrLayerEdgeDelta <= 1, `${label} OCR layer is not aligned to the manga image: ${snapshot.ocrLayerEdgeDelta}`);
-    assertAudit(snapshot.figcaptionCount === 0, `${label} manga caption should not be visible: ${JSON.stringify(snapshot)}`);
-    assertAudit(snapshot.sampleVideo?.controls && !snapshot.sampleVideo?.autoplay, `${label} video sample should be a controlled non-autoplay player: ${JSON.stringify(snapshot.sampleVideo)}`);
-    assertAudit(snapshot.sampleVideo?.sourceCount >= 2 && snapshot.sampleVideo?.trackCount >= 1, `${label} video sample is missing sources or subtitles: ${JSON.stringify(snapshot.sampleVideo)}`);
-    assertAudit(snapshot.hasVideoFrame && snapshot.hasSubtitlePlayer, `${label} video sample should be owned by the real subtitle runtime: ${JSON.stringify(snapshot)}`);
-    assertAudit(snapshot.subtitleWords >= 1, `${label} video sample captions were not parsed into reader words: ${JSON.stringify(snapshot)}`);
-    assertAudit(snapshot.subtitleVisible && snapshot.subtitleControlsAlways && snapshot.subtitleRailVisible, `${label} video sample subtitles/controls should be visibly on for the demo: ${JSON.stringify(snapshot)}`);
-    assertAudit(
-        snapshot.hasSubtitlePlayer && !snapshot.subtitleInsidePhone && !snapshot.subtitleOverlapsPhone,
-        `${label} subtitle runtime should attach to the real video player, not the phone demo: ${JSON.stringify(snapshot)}`,
-    );
-    assertAudit(snapshot.transcriptButtonCount === 0 && snapshot.captionCardCount === 0, `${label} should not render custom caption buttons/cards: ${JSON.stringify(snapshot)}`);
-    assertAudit(!snapshot.hasYoutubeFrame && !snapshot.hasLiteButton && !snapshot.hasYoutubeFallback, `${label} homepage should not render YouTube chrome: ${JSON.stringify(snapshot)}`);
+
+    assertAudit(band.sampleVideo?.controls && !band.sampleVideo?.autoplay, `${label} video sample should be a controlled non-autoplay player: ${JSON.stringify(band.sampleVideo)}`);
+    assertAudit(band.sampleVideo?.sourceCount >= 2 && band.sampleVideo?.trackCount >= 1, `${label} video sample is missing sources or subtitles: ${JSON.stringify(band.sampleVideo)}`);
+    assertAudit(band.hasVideoFrame && band.hasSubtitlePlayer, `${label} video sample should be owned by the real subtitle runtime: ${JSON.stringify(band)}`);
+    assertAudit(band.subtitleWords >= 1, `${label} video sample captions were not parsed into reader words: ${JSON.stringify(band)}`);
+    assertAudit(band.subtitleVisible && band.subtitleControlsAlways && band.subtitleRailVisible, `${label} video sample subtitles/controls should be visibly on for the demo: ${JSON.stringify(band)}`);
+    assertAudit(band.mangaTextLayerCount === 0 && band.ocrRegionCount === 0 && band.ocrCardCount === 0, `${label} should not render fake OCR chrome: ${JSON.stringify(band)}`);
+    assertAudit(band.transcriptButtonCount === 0 && band.captionCardCount === 0, `${label} should not render custom caption buttons/cards: ${JSON.stringify(band)}`);
+    assertAudit(!band.hasYoutubeFrame && !band.hasLiteButton && !band.hasYoutubeFallback, `${label} homepage should not render YouTube chrome: ${JSON.stringify(band)}`);
 
     const captionClickProfile = await profileHomepageSubtitleClick(page);
     assertAudit(captionClickProfile.pauseMs <= 150, `${label} caption click did not pause the sample video instantly: ${JSON.stringify(captionClickProfile)}`);
@@ -432,7 +405,7 @@ async function assertHomepageDemo(page, label) {
 
 async function profileHomepageSubtitleClick(page) {
     await page.evaluate(() => {
-        const video = document.querySelector('.yomu-sample-player');
+        const video = document.querySelector('.yomu-band-video');
         if (!(video instanceof HTMLVideoElement)) throw new Error('Sample video missing');
         let paused = false;
         window.__yomuDemoCaptionProfile = {
@@ -516,7 +489,11 @@ async function assertOcrToolPage(page, label) {
     }));
     assertAudit(snapshot.text.includes('MangaOCR') && snapshot.text.includes('PaddleOCR'), `${label} OCR engines copy missing`);
     assertAudit(snapshot.text.includes('local OCR endpoint') || snapshot.text.includes('local OCR app'), `${label} OCR local endpoint limitation missing`);
-    assertAudit(snapshot.images.some(src => src.includes('manga-ocr-sample')), `${label} OCR sample image missing`);
+    // No image assertion: the only manga still we hold is a licensed page with
+    // no product on it, and it was captioned as if it showed OCR working. The
+    // claim was cut rather than illustrated with a picture that does not show
+    // it. Restore this check when there is a real capture of Yomu reading a
+    // panel to point at.
     assertAudit(!/coming soon|placeholder/i.test(snapshot.text), `${label} OCR page contains placeholder copy`);
 }
 
