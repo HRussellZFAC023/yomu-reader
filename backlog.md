@@ -191,7 +191,7 @@ The measured picture, all re-verified this pass:
         and Migaku both default to a modifier. This is canna98's *"I just turned it off bc it was
         annoying"*.
       - **`A` is still bound twice** — `playAudio: 'A'` and `previousSubtitle: 'A'`
-        (`settings/index.ts:554,559`).
+        (`settings/index.ts:554,558`).
       - **`kifuku` is still missing from the pitch palette** — `grep -rn kifuku src` → 0 matches. The
         other four pitch colours already match the kotu lineage; the fifth is simply absent and a grey
         `unknown` sits in its slot.
@@ -599,7 +599,7 @@ These cost time. Each was verified in the tree this pass.
 | **U53** Academy Back button | no `popstate`/`pushState` in `src/academy/app.ts` |
 | **U54** "Class journal" heading on an account screen | `app/academy-copy.ts:252,285` |
 | **U108** plain-hover default | `settings/index.ts:552` → `hoverLookup: ''` |
-| **U108** `A` bound twice | `settings/index.ts:554,559` → `playAudio: 'A'`, `previousSubtitle: 'A'` |
+| **U108** `A` bound twice | `settings/index.ts:554,558` → `playAudio: 'A'`, `previousSubtitle: 'A'` |
 | **U108** `kifuku` missing | `grep -rn kifuku src` → 0 |
 | **U108 / U23** new-word colour | `theme/color-tokens.ts:46` → `new: '#ffffff'` |
 | **U77 / U103** settings open on 22 colour fields | `settings/form.ts:226` → `DEFAULT_SETTINGS_PANEL = 'appearance'`; file is 3,129 lines |
