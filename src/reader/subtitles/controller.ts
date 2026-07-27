@@ -4403,12 +4403,14 @@ export class SubtitlePlayerController {
 
     private nativePlayerControlSafeZones(): DOMRect[] {
         if (!this.video || !isYouTubePage()) return [];
-        const surface = this.youtubeNativeControlSurface();
-        if (!surface) return [];
+        const surfaces = this.youtubeNativeControlSurfaces();
+        if (!surfaces.length) return [];
         const videoRect = this.videoLayoutRect();
         const maxWidth = Math.min(240, Math.max(72, videoRect.width * .42));
         const maxHeight = Math.min(180, Math.max(56, videoRect.height * .28));
-        return Array.from(surface.querySelectorAll<HTMLElement>(NATIVE_PLAYER_CONTROL_SELECTOR))
+        const controls = new Set(surfaces.flatMap(surface =>
+            Array.from(surface.querySelectorAll<HTMLElement>(NATIVE_PLAYER_CONTROL_SELECTOR))));
+        return Array.from(controls)
             .filter(control => !control.closest('[data-jpdb-reader-root="true"]'))
             .filter(control => nativePlayerControlIsInteractive(control))
             .map(control => control.getBoundingClientRect())
@@ -4419,13 +4421,24 @@ export class SubtitlePlayerController {
                 && rectsOverlap(rect, videoRect));
     }
 
-    private youtubeNativeControlSurface(): HTMLElement | null {
-        if (!this.video) return null;
+    private youtubeNativeControlSurfaces(): HTMLElement[] {
+        if (!this.video) return [];
+        const surfaces = new Set<HTMLElement>();
+        // m.youtube.com keeps its interactive chrome in a sibling overlay,
+        // outside the ytm-player that owns the video. Scan it as well or a
+        // subtitle word's transparent line box can steal fullscreen/settings
+        // taps even though its painted glyphs stop above the visible icon.
+        const mobileOverlay = this.mobileYouTubeControlOverlay();
+        if (mobileOverlay) surfaces.add(mobileOverlay);
         if (this.isYouTubeShortsControlSurface()) {
-            return this.video.closest<HTMLElement>('ytd-reel-video-renderer,shorts-video,shorts-page,ytd-shorts')
+            const shortsSurface = this.video.closest<HTMLElement>('ytd-reel-video-renderer,shorts-video,shorts-page,ytd-shorts')
                 ?? this.video.closest<HTMLElement>('#movie_player,.html5-video-player');
+            if (shortsSurface) surfaces.add(shortsSurface);
+            return Array.from(surfaces);
         }
-        return this.video.closest<HTMLElement>('#movie_player,.html5-video-player,ytm-player,ytd-player,#player');
+        const playerSurface = this.video.closest<HTMLElement>('#movie_player,.html5-video-player,ytm-player,ytd-player,#player');
+        if (playerSurface) surfaces.add(playerSurface);
+        return Array.from(surfaces);
     }
 
     private pointInOpenTranscriptPanel(x: number, y: number): boolean {

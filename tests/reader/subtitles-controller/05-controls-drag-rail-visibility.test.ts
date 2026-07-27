@@ -523,6 +523,57 @@ describe('SubtitlePlayerController — idle controls, overlay drag & rail visibi
         }
     });
 
+    it('returns subtitle hit testing to the detached mobile YouTube fullscreen control', () => {
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://m.youtube.com/watch?v=mobile123') as unknown as Location,
+        });
+        document.body.innerHTML = `
+            <ytm-player>
+                <video></video>
+            </ytm-player>
+            <div id="player-control-overlay" class="fadein">
+                <button id="mobile-fullscreen" type="button" aria-label="Fullscreen">⛶</button>
+            </div>
+        `;
+        const { controller } = createSubtitleController(makeSubtitleSettings({ subtitleOverlayVisible: true }));
+        controller.init();
+        try {
+            const player = document.querySelector<HTMLElement>('ytm-player')!;
+            const video = document.querySelector<HTMLVideoElement>('video')!;
+            const fullscreen = document.querySelector<HTMLButtonElement>('#mobile-fullscreen')!;
+            mockElementRect(player, new DOMRect(0, 0, 390, 220));
+            mockElementRect(video, new DOMRect(0, 0, 390, 220));
+            mockElementRect(fullscreen, new DOMRect(330, 154, 48, 48));
+            attachVideo(controller, { video });
+
+            const primary = document.createElement('div');
+            primary.className = 'jpdb-subtitle-primary';
+            primary.innerHTML = `
+                <span id="fullscreen-word" class="jpdb-reader-word">新しいもの</span>
+                <span id="clear-word" class="jpdb-reader-word">字幕</span>
+            `;
+            document.querySelector('.jpdb-subtitle-lines')!.appendChild(primary);
+            const fullscreenWord = document.querySelector<HTMLElement>('#fullscreen-word')!;
+            const clearWord = document.querySelector<HTMLElement>('#clear-word')!;
+            // The visible glyphs finish above the icon, but the word's line box
+            // reaches into YouTube's larger fullscreen tap target.
+            mockElementRect(fullscreenWord, new DOMRect(292, 130, 82, 54));
+            mockElementRect(clearWord, new DOMRect(120, 130, 64, 54));
+
+            const internals = controllerInternals<{ syncNativePlayerControlHitProtection: () => void }>(controller);
+            internals.syncNativePlayerControlHitProtection();
+
+            expect(fullscreenWord.dataset.jpdbSubtitleNativeControlSafeZone).toBe('true');
+            expect(clearWord.dataset.jpdbSubtitleNativeControlSafeZone).toBeUndefined();
+        } finally {
+            controller.destroy();
+            document.body.innerHTML = '';
+            Object.defineProperty(window, 'location', { configurable: true, value: originalLocation });
+        }
+    });
+
     it('does not strobe the rail away when the player chrome fade flickers (hover-autoplay)', async () => {
         vi.useFakeTimers();
         document.body.innerHTML = '<div id="movie_player" class="html5-video-player" tabindex="-1"><video></video></div>';
