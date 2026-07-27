@@ -1,0 +1,101 @@
+{
+  "promotions": [
+    {
+      "castId": "rose",
+      "archiveLabel": "identity-and-style-superseded-20260727",
+      "replaceExpressions": [
+        "neutral",
+        "encouraging-listening",
+        "happy",
+        "thoughtful",
+        "determined",
+        "surprised-shocked",
+        "sad-vulnerable"
+      ],
+      "canonicalNeutralAssetId": "character.rose.neutral-auburn-headband-pink-cardigan-front-near-front-fullbody-v002",
+      "slots": [
+        {
+          "assetId": "character.rose.neutral-auburn-headband-pink-cardigan-front-near-front-fullbody-v002",
+          "expression": "neutral",
+          "angle": "front-near-front",
+          "assetPath": "/academy/art/characters/rose/rose__neutral-auburn-headband-pink-cardigan__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:rose",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "story:cast:rose",
+            "cast-standardization:rose"
+          ]
+        },
+        {
+          "assetId": "character.rose.encouraging-listening-auburn-headband-pink-cardigan-right-three-quarter-fullbody-v002",
+          "expression": "encouraging-listening",
+          "angle": "right-three-quarter",
+          "assetPath": "/academy/art/characters/rose/rose__encouraging-listening-auburn-headband-pink-cardigan__right-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:rose-expression-gallery",
+            "story:cast:rose:encouraging-listening",
+            "cast-standardization:rose"
+          ]
+        },
+        {
+          "assetId": "character.rose.happy-auburn-headband-pink-cardigan-front-near-front-fullbody-v002",
+          "expression": "happy",
+          "angle": "front-near-front",
+          "assetPath": "/academy/art/characters/rose/rose__happy-auburn-headband-pink-cardigan__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:rose-expression-gallery",
+            "story:cast:rose:happy",
+            "cast-standardization:rose"
+          ]
+        },
+        {
+          "assetId": "character.rose.thoughtful-auburn-headband-pink-cardigan-left-three-quarter-fullbody-v002",
+          "expression": "thoughtful",
+          "angle": "left-three-quarter",
+          "assetPath": "/academy/art/characters/rose/rose__thoughtful-auburn-headband-pink-cardigan__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:rose-expression-gallery",
+            "story:cast:rose:thoughtful",
+            "cast-standardization:rose"
+          ]
+        },
+        {
+          "assetId": "character.rose.determined-auburn-headband-pink-cardigan-front-near-front-fullbody-v002",
+          "expression": "determined",
+          "angle": "front-near-front",
+          "assetPath": "/academy/art/characters/rose/rose__determined-auburn-headband-pink-cardigan__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:rose-expression-gallery",
+            "story:cast:rose:determined",
+            "cast-standardization:rose"
+          ]
+        },
+        {
+          "assetId": "character.rose.surprised-shocked-auburn-headband-pink-cardigan-right-three-quarter-fullbody-v002",
+          "expression": "surprised-shocked",
+          "angle": "right-three-quarter",
+          "assetPath": "/academy/art/characters/rose/rose__surprised-shocked-auburn-headband-pink-cardigan__right-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:rose-expression-gallery",
+            "story:cast:rose:surprised-shocked",
+            "cast-standardization:rose"
+          ]
+        },
+        {
+          "assetId": "character.rose.sad-vulnerable-auburn-headband-pink-cardigan-left-three-quarter-fullbody-v002",
+          "expression": "sad-vulnerable",
+          "angle": "left-three-quarter",
+          "assetPath": "/academy/art/characters/rose/rose__sad-vulnerable-auburn-headband-pink-cardigan__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:rose-expression-gallery",
+            "story:cast:rose:sad-vulnerable",
+            "cast-standardization:rose"
+          ]
+        }
+      ]
+    }
+  ]
+}

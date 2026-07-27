@@ -38,6 +38,7 @@ describe('Academy VN sprite performance contract', () => {
         expect(status('rie', 'encouraging-listening')).toBe('missing');
         expect(status('aakash', 'neutral')).toBe('approved');
         expect(status('peter', 'neutral')).toBe('approved');
+        expect(status('rose', 'neutral')).toBe('approved');
         for (const castId of ['felix', 'shaun'] as const) {
             expect(status(castId, 'neutral')).toBe('review-candidate');
         }
@@ -89,6 +90,12 @@ describe('Academy VN sprite performance contract', () => {
         expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.peter.poses[0].expressions.thoughtful.status).toBe('approved');
         expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.peter.poses[1].expressions.neutral.status).toBe('approved');
         expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.peter.poses[2].expressions['encouraging-listening'].status)
+            .toBe('approved');
+        expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.rose.coverage)
+            .toEqual({ approved: 7, reviewCandidates: 0, missing: 14 });
+        expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.rose.poses[0].expressions.thoughtful.status).toBe('approved');
+        expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.rose.poses[1].expressions.neutral.status).toBe('approved');
+        expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.rose.poses[2].expressions['encouraging-listening'].status)
             .toBe('approved');
         expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.tom2.coverage)
             .toEqual({ approved: 0, reviewCandidates: 3, missing: 18 });

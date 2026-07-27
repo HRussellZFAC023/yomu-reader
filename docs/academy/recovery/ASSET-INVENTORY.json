@@ -19,20 +19,20 @@
     "deletion": "This audit never deletes, moves, or mutates Academy raster files."
   },
   "counts": {
-    "currentRasterFiles": 309,
-    "currentRasterFilesAccountedFor": 309,
-    "active": 256,
+    "currentRasterFiles": 314,
+    "currentRasterFilesAccountedFor": 314,
+    "active": 261,
     "orphaned": 53,
     "deprecated": 10,
     "deprecatedPresent": 0,
-    "missingExpressionVariants": 539,
+    "missingExpressionVariants": 535,
     "expressionMatrixSlots": 630,
-    "approvedExpressionVariants": 75,
-    "reviewCandidateExpressionVariants": 16,
-    "deliveredMatrixExpressionVariants": 91,
+    "approvedExpressionVariants": 82,
+    "reviewCandidateExpressionVariants": 13,
+    "deliveredMatrixExpressionVariants": 95,
     "offMatrixDeliveredSprites": 40,
     "activeByKind": {
-      "character-sprite": 128,
+      "character-sprite": 133,
       "protagonist-portrait": 4,
       "scene-background": 68,
       "scene-event": 48,
@@ -1500,6 +1500,164 @@
         "ledgerStatus": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
       },
       {
+        "id": "character-peter-determined-quiet-observer-front-near-front-fullbody-v003",
+        "path": "/academy/art/characters/peter/peter__determined-quiet-observer__front-near-front__fullbody__v003.png",
+        "sha256": "c9b0683c766868a75a90fa1eebc90106361cb9aaf3e6d7ce9765167d6ba669cc",
+        "ledgerSha256": "c9b0683c766868a75a90fa1eebc90106361cb9aaf3e6d7ce9765167d6ba669cc",
+        "kind": "character-sprite",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "journal:peter-expression-gallery",
+          "story:cast:peter:determined",
+          "cast-standardization:peter"
+        ],
+        "reviewHomes": [
+          "cast-standardization-manifest",
+          "identity-lock"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
+      },
+      {
+        "id": "character-peter-encouraging-listening-quiet-observer-right-three-quarter-fullbody-v003",
+        "path": "/academy/art/characters/peter/peter__encouraging-listening-quiet-observer__right-three-quarter__fullbody__v003.png",
+        "sha256": "20f9472b45ce6c96a5173579c38b374900d51734019d7b5368920c9d34ad141f",
+        "ledgerSha256": "20f9472b45ce6c96a5173579c38b374900d51734019d7b5368920c9d34ad141f",
+        "kind": "character-sprite",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "journal:peter-expression-gallery",
+          "story:cast:peter:encouraging-listening",
+          "cast-standardization:peter"
+        ],
+        "reviewHomes": [
+          "cast-standardization-manifest",
+          "identity-lock"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
+      },
+      {
+        "id": "character-peter-happy-quiet-observer-front-near-front-fullbody-v003",
+        "path": "/academy/art/characters/peter/peter__happy-quiet-observer__front-near-front__fullbody__v003.png",
+        "sha256": "b524935a6b69d16b124cc733b853eabd8bcf9c05d79dd8b36db930a3029e5224",
+        "ledgerSha256": "b524935a6b69d16b124cc733b853eabd8bcf9c05d79dd8b36db930a3029e5224",
+        "kind": "character-sprite",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "journal:peter-expression-gallery",
+          "story:cast:peter:happy",
+          "cast-standardization:peter"
+        ],
+        "reviewHomes": [
+          "cast-standardization-manifest",
+          "identity-lock"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
+      },
+      {
+        "id": "character-peter-neutral-quiet-observer-front-near-front-fullbody-v003",
+        "path": "/academy/art/characters/peter/peter__neutral-quiet-observer__front-near-front__fullbody__v003.png",
+        "sha256": "8ef8471dbc18e6a14a1db5d499d6952995a6a70441fd178500137c1b93a70211",
+        "ledgerSha256": "8ef8471dbc18e6a14a1db5d499d6952995a6a70441fd178500137c1b93a70211",
+        "kind": "character-sprite",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "journal:peter",
+          "class:people",
+          "class:week-cast",
+          "lesson-overview:roster",
+          "world:person",
+          "story:cast:peter",
+          "cast-standardization:peter"
+        ],
+        "reviewHomes": [
+          "cast-standardization-manifest",
+          "identity-lock"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
+      },
+      {
+        "id": "character-peter-sad-vulnerable-quiet-observer-left-three-quarter-fullbody-v003",
+        "path": "/academy/art/characters/peter/peter__sad-vulnerable-quiet-observer__left-three-quarter__fullbody__v003.png",
+        "sha256": "e64e0f3fe81208332ed0a351c07f186941bf1d4ae7f1ff5f18b87e833a049611",
+        "ledgerSha256": "e64e0f3fe81208332ed0a351c07f186941bf1d4ae7f1ff5f18b87e833a049611",
+        "kind": "character-sprite",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "journal:peter-expression-gallery",
+          "story:cast:peter:sad-vulnerable",
+          "cast-standardization:peter"
+        ],
+        "reviewHomes": [
+          "cast-standardization-manifest",
+          "identity-lock"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
+      },
+      {
+        "id": "character-peter-surprised-shocked-quiet-observer-right-three-quarter-fullbody-v003",
+        "path": "/academy/art/characters/peter/peter__surprised-shocked-quiet-observer__right-three-quarter__fullbody__v003.png",
+        "sha256": "bfd01dc5d0de26226048865edbf8d57ad8d61ee4216029c58324733bef2079e4",
+        "ledgerSha256": "bfd01dc5d0de26226048865edbf8d57ad8d61ee4216029c58324733bef2079e4",
+        "kind": "character-sprite",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "journal:peter-expression-gallery",
+          "story:cast:peter:surprised-shocked",
+          "cast-standardization:peter"
+        ],
+        "reviewHomes": [
+          "cast-standardization-manifest",
+          "identity-lock"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
+      },
+      {
+        "id": "character-peter-thoughtful-quiet-observer-left-three-quarter-fullbody-v003",
+        "path": "/academy/art/characters/peter/peter__thoughtful-quiet-observer__left-three-quarter__fullbody__v003.png",
+        "sha256": "8bc693148a03b1514144022b39d14f214c37c2ea363c4cfc83fa86c0f37c38d1",
+        "ledgerSha256": "8bc693148a03b1514144022b39d14f214c37c2ea363c4cfc83fa86c0f37c38d1",
+        "kind": "character-sprite",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "journal:peter-expression-gallery",
+          "story:cast:peter:thoughtful",
+          "cast-standardization:peter"
+        ],
+        "reviewHomes": [
+          "cast-standardization-manifest",
+          "identity-lock"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
+      },
+      {
         "id": "character-rie-comedic-glasses-right",
         "path": "/academy/art/characters/rie/rie__comedic-glasses__right-three-quarter__halfbody__v001.png",
         "sha256": "2503c0eed72fbfe5c6cafed8dfd47660b396536e959abe44be6088dc8a4840b9",
@@ -1699,50 +1857,6 @@
           "class:people-review",
           "lesson-overview:roster-review",
           "cast-standardization:robert"
-        ],
-        "reviewHomes": [
-          "cast-standardization-manifest",
-          "learner-journal-preview"
-        ],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "review-candidate/runtime-preview",
-        "ledgerStatus": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-      },
-      {
-        "id": "character-rose-standardized-encouraging-listening-front-near-front-halfbody-v001",
-        "path": "/academy/art/characters/rose/rose__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
-        "sha256": "7ae4d8bb9fc9990ebaa13b4acf257fe9b9914bbcbf94f92188f7a02a8036c816",
-        "ledgerSha256": "7ae4d8bb9fc9990ebaa13b4acf257fe9b9914bbcbf94f92188f7a02a8036c816",
-        "kind": "character-sprite",
-        "state": "active",
-        "present": true,
-        "runtimeAuthorized": true,
-        "runtimeHomes": [
-          "journal:rose-expression-gallery",
-          "cast-standardization:rose"
-        ],
-        "reviewHomes": [
-          "cast-standardization-manifest",
-          "learner-journal-preview"
-        ],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "review-candidate/runtime-preview",
-        "ledgerStatus": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-      },
-      {
-        "id": "character-rose-standardized-neutral-front-near-front-halfbody-v001",
-        "path": "/academy/art/characters/rose/rose__standardized-neutral__front-near-front__halfbody__v001.png",
-        "sha256": "7ae4d8bb9fc9990ebaa13b4acf257fe9b9914bbcbf94f92188f7a02a8036c816",
-        "ledgerSha256": "7ae4d8bb9fc9990ebaa13b4acf257fe9b9914bbcbf94f92188f7a02a8036c816",
-        "kind": "character-sprite",
-        "state": "active",
-        "present": true,
-        "runtimeAuthorized": true,
-        "runtimeHomes": [
-          "journal:rose",
-          "class:people-review",
-          "lesson-overview:roster-review",
-          "cast-standardization:rose"
         ],
         "reviewHomes": [
           "cast-standardization-manifest",
@@ -6489,7 +6603,7 @@
         "character": "rose",
         "path": "/academy/art/characters/rose/rose__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
         "sha256": "7ae4d8bb9fc9990ebaa13b4acf257fe9b9914bbcbf94f92188f7a02a8036c816",
-        "currentState": "active",
+        "currentState": "unaccounted",
         "coverageStatus": "off-matrix",
         "migrationStatus": "retained-off-matrix-review-evidence",
         "countsTowardExpressionMatrix": false
@@ -6498,7 +6612,7 @@
         "character": "rose",
         "path": "/academy/art/characters/rose/rose__standardized-neutral__front-near-front__halfbody__v001.png",
         "sha256": "7ae4d8bb9fc9990ebaa13b4acf257fe9b9914bbcbf94f92188f7a02a8036c816",
-        "currentState": "active",
+        "currentState": "unaccounted",
         "coverageStatus": "off-matrix",
         "migrationStatus": "retained-off-matrix-review-evidence",
         "countsTowardExpressionMatrix": false
@@ -8875,26 +8989,8 @@
       {
         "character": "peter",
         "angle": "front-near-front",
-        "expression": "determined",
-        "plannedPath": "/academy/art/characters/peter/peter__determined__front-near-front__halfbody__v001.png",
-        "state": "missing-expression-variant",
-        "present": false,
-        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
-      },
-      {
-        "character": "peter",
-        "angle": "front-near-front",
         "expression": "encouraging-listening",
         "plannedPath": "/academy/art/characters/peter/peter__encouraging-listening__front-near-front__halfbody__v001.png",
-        "state": "missing-expression-variant",
-        "present": false,
-        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
-      },
-      {
-        "character": "peter",
-        "angle": "front-near-front",
-        "expression": "happy",
-        "plannedPath": "/academy/art/characters/peter/peter__happy__front-near-front__halfbody__v001.png",
         "state": "missing-expression-variant",
         "present": false,
         "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
@@ -8965,15 +9061,6 @@
       {
         "character": "peter",
         "angle": "left-three-quarter",
-        "expression": "sad-vulnerable",
-        "plannedPath": "/academy/art/characters/peter/peter__sad-vulnerable__left-three-quarter__halfbody__v001.png",
-        "state": "missing-expression-variant",
-        "present": false,
-        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
-      },
-      {
-        "character": "peter",
-        "angle": "left-three-quarter",
         "expression": "surprised-shocked",
         "plannedPath": "/academy/art/characters/peter/peter__surprised-shocked__left-three-quarter__halfbody__v001.png",
         "state": "missing-expression-variant",
@@ -9012,15 +9099,6 @@
         "angle": "right-three-quarter",
         "expression": "sad-vulnerable",
         "plannedPath": "/academy/art/characters/peter/peter__sad-vulnerable__right-three-quarter__halfbody__v001.png",
-        "state": "missing-expression-variant",
-        "present": false,
-        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
-      },
-      {
-        "character": "peter",
-        "angle": "right-three-quarter",
-        "expression": "surprised-shocked",
-        "plannedPath": "/academy/art/characters/peter/peter__surprised-shocked__right-three-quarter__halfbody__v001.png",
         "state": "missing-expression-variant",
         "present": false,
         "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"

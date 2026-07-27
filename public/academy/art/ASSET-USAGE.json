@@ -18,8 +18,8 @@
     ]
   },
   "counts": {
-    "runtimeAssetHomes": 208,
-    "runtimeFiles": 263,
+    "runtimeAssetHomes": 213,
+    "runtimeFiles": 268,
     "nonRuntimeReviewFiles": 1734,
     "approvedReferenceOnly": 4,
     "explicitlyRejectedFamilies": 4,
@@ -2161,74 +2161,6 @@
         {
           "path": "/academy/art/characters/robert/robert__standardized-neutral__front-near-front__halfbody__v001.png",
           "sha256": "b50cce4b73fd75b01a623165614fcba1c9298accc596f23c81430d62f48c9382"
-        }
-      ],
-      "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-    },
-    {
-      "id": "character-rose-standardized-encouraging-listening-front-near-front-halfbody-v001",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "7ae4d8bb9fc9990ebaa13b4acf257fe9b9914bbcbf94f92188f7a02a8036c816",
-      "provenance": "regenerated-standardized",
-      "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": [
-        "journal:rose-expression-gallery",
-        "cast-standardization:rose"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "learner-journal-preview"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:rose-expression-gallery",
-          "cast-standardization:rose"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/rose/rose__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
-          "sha256": "7ae4d8bb9fc9990ebaa13b4acf257fe9b9914bbcbf94f92188f7a02a8036c816"
-        }
-      ],
-      "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-    },
-    {
-      "id": "character-rose-standardized-neutral-front-near-front-halfbody-v001",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "7ae4d8bb9fc9990ebaa13b4acf257fe9b9914bbcbf94f92188f7a02a8036c816",
-      "provenance": "regenerated-standardized",
-      "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": [
-        "journal:rose",
-        "class:people-review",
-        "lesson-overview:roster-review",
-        "cast-standardization:rose"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "learner-journal-preview"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:rose",
-          "class:people-review",
-          "lesson-overview:roster-review",
-          "cast-standardization:rose"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/rose/rose__standardized-neutral__front-near-front__halfbody__v001.png",
-          "sha256": "7ae4d8bb9fc9990ebaa13b4acf257fe9b9914bbcbf94f92188f7a02a8036c816"
         }
       ],
       "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
@@ -13618,6 +13550,252 @@
         {
           "path": "/academy/art/characters/peter/peter__sad-vulnerable-quiet-observer__left-three-quarter__fullbody__v003.png",
           "sha256": "e64e0f3fe81208332ed0a351c07f186941bf1d4ae7f1ff5f18b87e833a049611"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-rose-neutral-auburn-headband-pink-cardigan-front-near-front-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "a609fdbe4f4353dc9b32053d5d591ff8d013dc488109688512530a90979b0125",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:rose",
+        "class:people",
+        "class:week-cast",
+        "lesson-overview:roster",
+        "world:person",
+        "story:cast:rose",
+        "cast-standardization:rose"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:rose",
+          "class:people",
+          "class:week-cast",
+          "lesson-overview:roster",
+          "world:person",
+          "story:cast:rose",
+          "cast-standardization:rose"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/rose/rose__neutral-auburn-headband-pink-cardigan__front-near-front__fullbody__v002.png",
+          "sha256": "a609fdbe4f4353dc9b32053d5d591ff8d013dc488109688512530a90979b0125"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-rose-encouraging-listening-auburn-headband-pink-cardigan-right-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "0640154e3120d9601b5296c188ea925e07efd1f19fcc88171160d75779c9b053",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:rose-expression-gallery",
+        "story:cast:rose:encouraging-listening",
+        "cast-standardization:rose"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:rose-expression-gallery",
+          "story:cast:rose:encouraging-listening",
+          "cast-standardization:rose"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/rose/rose__encouraging-listening-auburn-headband-pink-cardigan__right-three-quarter__fullbody__v002.png",
+          "sha256": "0640154e3120d9601b5296c188ea925e07efd1f19fcc88171160d75779c9b053"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-rose-happy-auburn-headband-pink-cardigan-front-near-front-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "3bdba692715cf3fc0bf4b474528d54d6648308150db2cfb1c027072e9f52193b",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:rose-expression-gallery",
+        "story:cast:rose:happy",
+        "cast-standardization:rose"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:rose-expression-gallery",
+          "story:cast:rose:happy",
+          "cast-standardization:rose"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/rose/rose__happy-auburn-headband-pink-cardigan__front-near-front__fullbody__v002.png",
+          "sha256": "3bdba692715cf3fc0bf4b474528d54d6648308150db2cfb1c027072e9f52193b"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-rose-thoughtful-auburn-headband-pink-cardigan-left-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "473642455196a75dfe6f0f0477f1b107d6e37fc9242bc0092db310794b180486",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:rose-expression-gallery",
+        "story:cast:rose:thoughtful",
+        "cast-standardization:rose"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:rose-expression-gallery",
+          "story:cast:rose:thoughtful",
+          "cast-standardization:rose"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/rose/rose__thoughtful-auburn-headband-pink-cardigan__left-three-quarter__fullbody__v002.png",
+          "sha256": "473642455196a75dfe6f0f0477f1b107d6e37fc9242bc0092db310794b180486"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-rose-determined-auburn-headband-pink-cardigan-front-near-front-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "58e0bb86d432828059423a4e9fb7af7027f2fcbe7af5db5f6fb268e19b378edc",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:rose-expression-gallery",
+        "story:cast:rose:determined",
+        "cast-standardization:rose"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:rose-expression-gallery",
+          "story:cast:rose:determined",
+          "cast-standardization:rose"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/rose/rose__determined-auburn-headband-pink-cardigan__front-near-front__fullbody__v002.png",
+          "sha256": "58e0bb86d432828059423a4e9fb7af7027f2fcbe7af5db5f6fb268e19b378edc"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-rose-surprised-shocked-auburn-headband-pink-cardigan-right-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "e79e705d04831000538390ad49481e54659ad7574caca7b432e45673996190a4",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:rose-expression-gallery",
+        "story:cast:rose:surprised-shocked",
+        "cast-standardization:rose"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:rose-expression-gallery",
+          "story:cast:rose:surprised-shocked",
+          "cast-standardization:rose"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/rose/rose__surprised-shocked-auburn-headband-pink-cardigan__right-three-quarter__fullbody__v002.png",
+          "sha256": "e79e705d04831000538390ad49481e54659ad7574caca7b432e45673996190a4"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-rose-sad-vulnerable-auburn-headband-pink-cardigan-left-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "bb865e0502dfaf163f10a1af9996ea1101f88d85efbbce9a23ed3bd697039a41",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:rose-expression-gallery",
+        "story:cast:rose:sad-vulnerable",
+        "cast-standardization:rose"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:rose-expression-gallery",
+          "story:cast:rose:sad-vulnerable",
+          "cast-standardization:rose"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/rose/rose__sad-vulnerable-auburn-headband-pink-cardigan__left-three-quarter__fullbody__v002.png",
+          "sha256": "bb865e0502dfaf163f10a1af9996ea1101f88d85efbbce9a23ed3bd697039a41"
         }
       ],
       "status": "identity-locked, visually inspected, runtime-bound house-style sprite"

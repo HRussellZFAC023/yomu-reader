@@ -34,15 +34,15 @@
     "totalSlots": 630
   },
   "summary": {
-    "approved": 82,
+    "approved": 89,
     "reviewCandidates": 13,
-    "missing": 535,
-    "currentPhysicalRasters": 135,
-    "currentOffMatrixRasters": 40,
+    "missing": 528,
+    "currentPhysicalRasters": 140,
+    "currentOffMatrixRasters": 38,
     "historicalUniqueRasters": 469,
     "historicalOccurrences": 2016,
-    "charactersWithApprovedCoverage": 14,
-    "charactersWithAnyCurrentCoverage": 17
+    "charactersWithApprovedCoverage": 15,
+    "charactersWithAnyCurrentCoverage": 18
   },
   "migrations": [
     {
@@ -10041,35 +10041,36 @@
         "slots": 21
       },
       "progress": {
-        "approved": 0,
+        "approved": 7,
         "reviewCandidates": 0,
-        "missing": 21,
-        "deliveredPercent": 0,
-        "approvedPercent": 0
+        "missing": 14,
+        "deliveredPercent": 33.33,
+        "approvedPercent": 33.33
       },
       "currentAssets": [
         {
-          "path": "/academy/art/characters/rose/rose__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
-          "sha256": "7ae4d8bb9fc9990ebaa13b4acf257fe9b9914bbcbf94f92188f7a02a8036c816",
+          "path": "/academy/art/characters/rose/rose__determined-auburn-headband-pink-cardigan__front-near-front__fullbody__v002.png",
+          "sha256": "58e0bb86d432828059423a4e9fb7af7027f2fcbe7af5db5f6fb268e19b378edc",
           "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
-          "status": "review-candidate",
+          "status": "approved",
           "usage": {
             "runtime": [
               "journal:rose-expression-gallery",
+              "story:cast:rose:determined",
               "cast-standardization:rose"
             ],
             "review": [
               "cast-standardization-manifest",
-              "learner-journal-preview"
+              "identity-lock"
             ]
           },
-          "orphan": "review-bound",
+          "orphan": "active-runtime",
           "styleVersion": "current-review-family",
-          "fileVersion": "v001",
-          "pose": "off-contract standardized-encouraging-listening pose",
-          "angle": null,
-          "expression": null,
+          "fileVersion": "v002",
+          "pose": "flower press hugged beneath one elbow while a pressed leaf is displayed between careful fingers; front-near-front",
+          "angle": "front-near-front",
+          "expression": "determined",
           "dimensions": {
             "width": 1536,
             "height": 2048,
@@ -10079,40 +10080,130 @@
           },
           "runtimeUses": [
             "journal:rose-expression-gallery",
+            "story:cast:rose:determined",
             "cast-standardization:rose"
           ],
           "reviewUses": [
             "cast-standardization-manifest",
-            "learner-journal-preview"
+            "identity-lock"
           ],
           "decision": "keep",
-          "migrationStatus": "retained-off-matrix-review-evidence",
-          "coverageStatus": "off-matrix"
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
         },
         {
-          "path": "/academy/art/characters/rose/rose__standardized-neutral__front-near-front__halfbody__v001.png",
-          "sha256": "7ae4d8bb9fc9990ebaa13b4acf257fe9b9914bbcbf94f92188f7a02a8036c816",
+          "path": "/academy/art/characters/rose/rose__encouraging-listening-auburn-headband-pink-cardigan__right-three-quarter__fullbody__v002.png",
+          "sha256": "0640154e3120d9601b5296c188ea925e07efd1f19fcc88171160d75779c9b053",
           "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
-          "status": "review-candidate",
+          "status": "approved",
           "usage": {
             "runtime": [
-              "journal:rose",
-              "class:people-review",
-              "lesson-overview:roster-review",
+              "journal:rose-expression-gallery",
+              "story:cast:rose:encouraging-listening",
               "cast-standardization:rose"
             ],
             "review": [
               "cast-standardization-manifest",
-              "learner-journal-preview"
+              "identity-lock"
             ]
           },
-          "orphan": "review-bound",
+          "orphan": "active-runtime",
           "styleVersion": "current-review-family",
-          "fileVersion": "v001",
-          "pose": "off-contract standardized-neutral pose",
-          "angle": null,
-          "expression": null,
+          "fileVersion": "v002",
+          "pose": "flower press hugged beneath one elbow while a pressed leaf is displayed between careful fingers; right-three-quarter",
+          "angle": "right-three-quarter",
+          "expression": "encouraging-listening",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:rose-expression-gallery",
+            "story:cast:rose:encouraging-listening",
+            "cast-standardization:rose"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/rose/rose__happy-auburn-headband-pink-cardigan__front-near-front__fullbody__v002.png",
+          "sha256": "3bdba692715cf3fc0bf4b474528d54d6648308150db2cfb1c027072e9f52193b",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:rose-expression-gallery",
+              "story:cast:rose:happy",
+              "cast-standardization:rose"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "flower press hugged beneath one elbow while a pressed leaf is displayed between careful fingers; front-near-front",
+          "angle": "front-near-front",
+          "expression": "happy",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:rose-expression-gallery",
+            "story:cast:rose:happy",
+            "cast-standardization:rose"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/rose/rose__neutral-auburn-headband-pink-cardigan__front-near-front__fullbody__v002.png",
+          "sha256": "a609fdbe4f4353dc9b32053d5d591ff8d013dc488109688512530a90979b0125",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:rose",
+              "class:people",
+              "class:week-cast",
+              "lesson-overview:roster",
+              "world:person",
+              "story:cast:rose",
+              "cast-standardization:rose"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "flower press hugged beneath one elbow while a pressed leaf is displayed between careful fingers; front-near-front",
+          "angle": "front-near-front",
+          "expression": "neutral",
           "dimensions": {
             "width": 1536,
             "height": 2048,
@@ -10122,17 +10213,149 @@
           },
           "runtimeUses": [
             "journal:rose",
-            "class:people-review",
-            "lesson-overview:roster-review",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "story:cast:rose",
             "cast-standardization:rose"
           ],
           "reviewUses": [
             "cast-standardization-manifest",
-            "learner-journal-preview"
+            "identity-lock"
           ],
           "decision": "keep",
-          "migrationStatus": "retained-off-matrix-review-evidence",
-          "coverageStatus": "off-matrix"
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/rose/rose__sad-vulnerable-auburn-headband-pink-cardigan__left-three-quarter__fullbody__v002.png",
+          "sha256": "bb865e0502dfaf163f10a1af9996ea1101f88d85efbbce9a23ed3bd697039a41",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:rose-expression-gallery",
+              "story:cast:rose:sad-vulnerable",
+              "cast-standardization:rose"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "flower press hugged beneath one elbow while a pressed leaf is displayed between careful fingers; left-three-quarter",
+          "angle": "left-three-quarter",
+          "expression": "sad-vulnerable",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:rose-expression-gallery",
+            "story:cast:rose:sad-vulnerable",
+            "cast-standardization:rose"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/rose/rose__surprised-shocked-auburn-headband-pink-cardigan__right-three-quarter__fullbody__v002.png",
+          "sha256": "e79e705d04831000538390ad49481e54659ad7574caca7b432e45673996190a4",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:rose-expression-gallery",
+              "story:cast:rose:surprised-shocked",
+              "cast-standardization:rose"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "flower press hugged beneath one elbow while a pressed leaf is displayed between careful fingers; right-three-quarter",
+          "angle": "right-three-quarter",
+          "expression": "surprised-shocked",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:rose-expression-gallery",
+            "story:cast:rose:surprised-shocked",
+            "cast-standardization:rose"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/rose/rose__thoughtful-auburn-headband-pink-cardigan__left-three-quarter__fullbody__v002.png",
+          "sha256": "473642455196a75dfe6f0f0477f1b107d6e37fc9242bc0092db310794b180486",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:rose-expression-gallery",
+              "story:cast:rose:thoughtful",
+              "cast-standardization:rose"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "flower press hugged beneath one elbow while a pressed leaf is displayed between careful fingers; left-three-quarter",
+          "angle": "left-three-quarter",
+          "expression": "thoughtful",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:rose-expression-gallery",
+            "story:cast:rose:thoughtful",
+            "cast-standardization:rose"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
         }
       ],
       "requiredVariants": [
@@ -10160,9 +10383,8 @@
         {
           "angle": "left-three-quarter",
           "expression": "thoughtful",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/rose/rose__thoughtful__left-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/rose/rose__thoughtful-auburn-headband-pink-cardigan__left-three-quarter__fullbody__v002.png"
         },
         {
           "angle": "left-three-quarter",
@@ -10181,16 +10403,14 @@
         {
           "angle": "left-three-quarter",
           "expression": "sad-vulnerable",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/rose/rose__sad-vulnerable__left-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/rose/rose__sad-vulnerable-auburn-headband-pink-cardigan__left-three-quarter__fullbody__v002.png"
         },
         {
           "angle": "front-near-front",
           "expression": "neutral",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/rose/rose__neutral__front-near-front__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/rose/rose__neutral-auburn-headband-pink-cardigan__front-near-front__fullbody__v002.png"
         },
         {
           "angle": "front-near-front",
@@ -10202,9 +10422,8 @@
         {
           "angle": "front-near-front",
           "expression": "happy",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/rose/rose__happy__front-near-front__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/rose/rose__happy-auburn-headband-pink-cardigan__front-near-front__fullbody__v002.png"
         },
         {
           "angle": "front-near-front",
@@ -10216,9 +10435,8 @@
         {
           "angle": "front-near-front",
           "expression": "determined",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/rose/rose__determined__front-near-front__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/rose/rose__determined-auburn-headband-pink-cardigan__front-near-front__fullbody__v002.png"
         },
         {
           "angle": "front-near-front",
@@ -10244,9 +10462,8 @@
         {
           "angle": "right-three-quarter",
           "expression": "encouraging-listening",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/rose/rose__encouraging-listening__right-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/rose/rose__encouraging-listening-auburn-headband-pink-cardigan__right-three-quarter__fullbody__v002.png"
         },
         {
           "angle": "right-three-quarter",
@@ -10272,9 +10489,8 @@
         {
           "angle": "right-three-quarter",
           "expression": "surprised-shocked",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/rose/rose__surprised-shocked__right-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/rose/rose__surprised-shocked-auburn-headband-pink-cardigan__right-three-quarter__fullbody__v002.png"
         },
         {
           "angle": "right-three-quarter",
@@ -10308,13 +10524,6 @@
         },
         {
           "angle": "left-three-quarter",
-          "expression": "thoughtful",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/rose/rose__thoughtful__left-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "left-three-quarter",
           "expression": "determined",
           "status": "missing",
           "path": null,
@@ -10328,20 +10537,6 @@
           "plannedPath": "/academy/art/characters/rose/rose__surprised-shocked__left-three-quarter__halfbody__v001.png"
         },
         {
-          "angle": "left-three-quarter",
-          "expression": "sad-vulnerable",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/rose/rose__sad-vulnerable__left-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "front-near-front",
-          "expression": "neutral",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/rose/rose__neutral__front-near-front__halfbody__v001.png"
-        },
-        {
           "angle": "front-near-front",
           "expression": "encouraging-listening",
           "status": "missing",
@@ -10350,24 +10545,10 @@
         },
         {
           "angle": "front-near-front",
-          "expression": "happy",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/rose/rose__happy__front-near-front__halfbody__v001.png"
-        },
-        {
-          "angle": "front-near-front",
           "expression": "thoughtful",
           "status": "missing",
           "path": null,
           "plannedPath": "/academy/art/characters/rose/rose__thoughtful__front-near-front__halfbody__v001.png"
-        },
-        {
-          "angle": "front-near-front",
-          "expression": "determined",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/rose/rose__determined__front-near-front__halfbody__v001.png"
         },
         {
           "angle": "front-near-front",
@@ -10392,13 +10573,6 @@
         },
         {
           "angle": "right-three-quarter",
-          "expression": "encouraging-listening",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/rose/rose__encouraging-listening__right-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "right-three-quarter",
           "expression": "happy",
           "status": "missing",
           "path": null,
@@ -10417,13 +10591,6 @@
           "status": "missing",
           "path": null,
           "plannedPath": "/academy/art/characters/rose/rose__determined__right-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "right-three-quarter",
-          "expression": "surprised-shocked",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/rose/rose__surprised-shocked__right-three-quarter__halfbody__v001.png"
         },
         {
           "angle": "right-three-quarter",

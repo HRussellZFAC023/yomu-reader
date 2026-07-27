@@ -29,9 +29,9 @@
     "cast": 30,
     "requiredPerformancesPerCast": 7,
     "requiredSlots": 210,
-    "integratedSlots": 79,
-    "missingSlots": 131,
-    "ownerCorrectionQueue": 61,
+    "integratedSlots": 86,
+    "missingSlots": 124,
+    "ownerCorrectionQueue": 54,
     "storyCriticalQueue": 35,
     "rosterCompletionQueue": 35
   },
@@ -1813,65 +1813,97 @@
       "priority": "owner-correction",
       "summary": {
         "required": 7,
-        "integrated": 0,
-        "missing": 7
+        "integrated": 7,
+        "missing": 0
       },
       "performances": [
         {
           "expression": "neutral",
           "preferredAngle": "front-near-front",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.rose.neutral-auburn-headband-pink-cardigan-front-near-front-fullbody-v002",
+          "assetPath": "/academy/art/characters/rose/rose__neutral-auburn-headband-pink-cardigan__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:rose",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "story:cast:rose",
+            "cast-standardization:rose"
+          ]
         },
         {
           "expression": "encouraging-listening",
           "preferredAngle": "right-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.rose.encouraging-listening-auburn-headband-pink-cardigan-right-three-quarter-fullbody-v002",
+          "assetPath": "/academy/art/characters/rose/rose__encouraging-listening-auburn-headband-pink-cardigan__right-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:rose-expression-gallery",
+            "story:cast:rose:encouraging-listening",
+            "cast-standardization:rose"
+          ]
         },
         {
           "expression": "happy",
           "preferredAngle": "front-near-front",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.rose.happy-auburn-headband-pink-cardigan-front-near-front-fullbody-v002",
+          "assetPath": "/academy/art/characters/rose/rose__happy-auburn-headband-pink-cardigan__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:rose-expression-gallery",
+            "story:cast:rose:happy",
+            "cast-standardization:rose"
+          ]
         },
         {
           "expression": "thoughtful",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.rose.thoughtful-auburn-headband-pink-cardigan-left-three-quarter-fullbody-v002",
+          "assetPath": "/academy/art/characters/rose/rose__thoughtful-auburn-headband-pink-cardigan__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:rose-expression-gallery",
+            "story:cast:rose:thoughtful",
+            "cast-standardization:rose"
+          ]
         },
         {
           "expression": "determined",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.rose.determined-auburn-headband-pink-cardigan-front-near-front-fullbody-v002",
+          "assetPath": "/academy/art/characters/rose/rose__determined-auburn-headband-pink-cardigan__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:rose-expression-gallery",
+            "story:cast:rose:determined",
+            "cast-standardization:rose"
+          ]
         },
         {
           "expression": "surprised-shocked",
           "preferredAngle": "right-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.rose.surprised-shocked-auburn-headband-pink-cardigan-right-three-quarter-fullbody-v002",
+          "assetPath": "/academy/art/characters/rose/rose__surprised-shocked-auburn-headband-pink-cardigan__right-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:rose-expression-gallery",
+            "story:cast:rose:surprised-shocked",
+            "cast-standardization:rose"
+          ]
         },
         {
           "expression": "sad-vulnerable",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.rose.sad-vulnerable-auburn-headband-pink-cardigan-left-three-quarter-fullbody-v002",
+          "assetPath": "/academy/art/characters/rose/rose__sad-vulnerable-auburn-headband-pink-cardigan__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:rose-expression-gallery",
+            "story:cast:rose:sad-vulnerable",
+            "cast-standardization:rose"
+          ]
         }
       ]
     },
@@ -4579,211 +4611,6 @@
       "runtimeHomes": [
         "journal:ruparna-expression-gallery",
         "story:cast:ruparna:sad-vulnerable"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "rose:neutral",
-      "castId": "rose",
-      "displayName": "Rose",
-      "identityKey": "rose-auburn-headband-pink-cardigan",
-      "expression": "neutral",
-      "angle": "front-near-front",
-      "priority": "owner-correction",
-      "storyLines": 17,
-      "visualLock": "Woman with warm auburn-brown hair, a simple headband, and the grounded friendly face of the original Rose design.",
-      "wardrobeLock": "Pink cardigan over practical cream and earth-toned layers.",
-      "reject": [
-        "holding a rose as an identity prop",
-        "silver-haired replacement",
-        "Nanako identity",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:rose",
-        "class:people",
-        "lesson-overview:roster",
-        "story:cast:rose"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "rose:encouraging-listening",
-      "castId": "rose",
-      "displayName": "Rose",
-      "identityKey": "rose-auburn-headband-pink-cardigan",
-      "expression": "encouraging-listening",
-      "angle": "right-three-quarter",
-      "priority": "owner-correction",
-      "storyLines": 17,
-      "visualLock": "Woman with warm auburn-brown hair, a simple headband, and the grounded friendly face of the original Rose design.",
-      "wardrobeLock": "Pink cardigan over practical cream and earth-toned layers.",
-      "reject": [
-        "holding a rose as an identity prop",
-        "silver-haired replacement",
-        "Nanako identity",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:rose-expression-gallery",
-        "story:cast:rose:encouraging-listening"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "rose:happy",
-      "castId": "rose",
-      "displayName": "Rose",
-      "identityKey": "rose-auburn-headband-pink-cardigan",
-      "expression": "happy",
-      "angle": "front-near-front",
-      "priority": "owner-correction",
-      "storyLines": 17,
-      "visualLock": "Woman with warm auburn-brown hair, a simple headband, and the grounded friendly face of the original Rose design.",
-      "wardrobeLock": "Pink cardigan over practical cream and earth-toned layers.",
-      "reject": [
-        "holding a rose as an identity prop",
-        "silver-haired replacement",
-        "Nanako identity",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:rose-expression-gallery",
-        "story:cast:rose:happy"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "rose:thoughtful",
-      "castId": "rose",
-      "displayName": "Rose",
-      "identityKey": "rose-auburn-headband-pink-cardigan",
-      "expression": "thoughtful",
-      "angle": "left-three-quarter",
-      "priority": "owner-correction",
-      "storyLines": 17,
-      "visualLock": "Woman with warm auburn-brown hair, a simple headband, and the grounded friendly face of the original Rose design.",
-      "wardrobeLock": "Pink cardigan over practical cream and earth-toned layers.",
-      "reject": [
-        "holding a rose as an identity prop",
-        "silver-haired replacement",
-        "Nanako identity",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:rose-expression-gallery",
-        "story:cast:rose:thoughtful"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "rose:determined",
-      "castId": "rose",
-      "displayName": "Rose",
-      "identityKey": "rose-auburn-headband-pink-cardigan",
-      "expression": "determined",
-      "angle": "left-three-quarter",
-      "priority": "owner-correction",
-      "storyLines": 17,
-      "visualLock": "Woman with warm auburn-brown hair, a simple headband, and the grounded friendly face of the original Rose design.",
-      "wardrobeLock": "Pink cardigan over practical cream and earth-toned layers.",
-      "reject": [
-        "holding a rose as an identity prop",
-        "silver-haired replacement",
-        "Nanako identity",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:rose-expression-gallery",
-        "story:cast:rose:determined"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "rose:surprised-shocked",
-      "castId": "rose",
-      "displayName": "Rose",
-      "identityKey": "rose-auburn-headband-pink-cardigan",
-      "expression": "surprised-shocked",
-      "angle": "right-three-quarter",
-      "priority": "owner-correction",
-      "storyLines": 17,
-      "visualLock": "Woman with warm auburn-brown hair, a simple headband, and the grounded friendly face of the original Rose design.",
-      "wardrobeLock": "Pink cardigan over practical cream and earth-toned layers.",
-      "reject": [
-        "holding a rose as an identity prop",
-        "silver-haired replacement",
-        "Nanako identity",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:rose-expression-gallery",
-        "story:cast:rose:surprised-shocked"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "rose:sad-vulnerable",
-      "castId": "rose",
-      "displayName": "Rose",
-      "identityKey": "rose-auburn-headband-pink-cardigan",
-      "expression": "sad-vulnerable",
-      "angle": "left-three-quarter",
-      "priority": "owner-correction",
-      "storyLines": 17,
-      "visualLock": "Woman with warm auburn-brown hair, a simple headband, and the grounded friendly face of the original Rose design.",
-      "wardrobeLock": "Pink cardigan over practical cream and earth-toned layers.",
-      "reject": [
-        "holding a rose as an identity prop",
-        "silver-haired replacement",
-        "Nanako identity",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:rose-expression-gallery",
-        "story:cast:rose:sad-vulnerable"
       ],
       "status": "queued"
     },
