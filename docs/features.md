@@ -81,7 +81,7 @@ At the top, keyword pills compare the primary Jiten or JPDB keyword with RTK, im
 Kanji origin sources are modular and license-aware. You can turn off optional public sources independently.
 
 <figure class="yomu-feature-shot">
-  <img :src="'/screenshots/real-kanji-drilldown.png'" alt="A よむ kanji drilldown panel showing Jiten, JPDB, and RTK facts with a rendered KanjiVG stroke diagram.">
+  <img :src="'/screenshots/real-kanji-drilldown.png'" alt="A よむ kanji drilldown panel showing Jiten, JPDB, Bunpro and RTK facts above the stroke practice pad.">
   <figcaption>Kanji drilldown with live KanjiVG stroke data.</figcaption>
 </figure>
 
