@@ -1,96 +1,29 @@
 const fs = require('node:fs');
 const path = require('node:path');
-const crypto = require('node:crypto');
 const { execFileSync } = require('node:child_process');
+// The source set and the digest formula live in the shared module so that
+// scripts/check-committed-artifacts.mjs can recompute this exact number from
+// the bytes at HEAD. Two copies of a hash definition is one copy that rots.
+const {
+    REVISION_TOKEN: revisionToken,
+    TEMPLATES: templates,
+    academyRevision,
+    academyRevisionSourcePaths,
+    academyRuntimeSources,
+} = require('./lib/academy-revision.cjs');
 
 const root = path.resolve(__dirname, '..');
 const destination = path.join(root, 'docs', 'public', 'academy');
 const trackedFilesBySource = new Map();
-const revisionToken = '__ACADEMY_REVISION__';
-const templates = [
-    ['public/academy/index.html', 'index.html'],
-    ['public/academy/sw.js', 'sw.js'],
-];
-const learningVoiceCatalogSource = 'public/academy/audio/learning-voice-playback.json';
-const learningVoiceCatalog = JSON.parse(fs.readFileSync(path.join(root, learningVoiceCatalogSource), 'utf8'));
-if (!Array.isArray(learningVoiceCatalog.entries)) throw new Error('Invalid Academy learning voice catalog.');
-const learningVoiceAssetSources = [...new Set(learningVoiceCatalog.entries.map(entry => entry.url))]
-    .map(url => {
-        if (typeof url !== 'string'
-            || !/^\/academy\/audio\/learning-lines\/[a-z0-9][a-z0-9._/-]*\.opus$/u.test(url)
-            || url.split('/').includes('..')) {
-            throw new Error(`Invalid Academy learning voice asset URL: ${url}`);
-        }
-        return [`public${url}`, url.slice('/academy/'.length)];
-    });
-const storyVoiceCatalogSource = 'public/academy/audio/story-voice-playback.json';
-const storyVoiceCatalog = JSON.parse(fs.readFileSync(path.join(root, storyVoiceCatalogSource), 'utf8'));
-if (storyVoiceCatalog.schema !== 'yomu-academy.story-voice-playback.v1'
-    || !Array.isArray(storyVoiceCatalog.entries)) {
-    throw new Error('Invalid Academy story voice catalog.');
-}
-const storyVoiceAssetSources = [...new Set(storyVoiceCatalog.entries.map(entry => entry.url))]
-    .map(url => {
-        if (typeof url !== 'string'
-            || !/^\/academy\/audio\/story-(?:pilot|lines)\/[a-z0-9][a-z0-9._-]*\.opus$/u.test(url)
-            || url.split('/').includes('..')) {
-            throw new Error(`Invalid Academy story voice asset URL: ${url}`);
-        }
-        return [`public${url}`, url.slice('/academy/'.length)];
-    });
-const runtimeSources = [
-    ['public/academy/manifest.webmanifest', 'manifest.webmanifest'],
-    ['public/academy/art/ACADEMY-ASSET-REGISTRY.json', 'art/ACADEMY-ASSET-REGISTRY.json'],
-    ['public/academy/art/ASSET-USAGE.json', 'art/ASSET-USAGE.json'],
-    ['public/academy/art/CLASSMATE-SPRITE-INVENTORY.json', 'art/CLASSMATE-SPRITE-INVENTORY.json'],
-    ['public/academy/art/SPRITE-BATCH-MANIFEST.json', 'art/SPRITE-BATCH-MANIFEST.json'],
-    ['public/academy/art/characters', 'art/characters'],
-    ['public/academy/art/protagonists', 'art/protagonists'],
-    ['public/academy/art/locations', 'art/locations'],
-    ['public/academy/art/events', 'art/events'],
-    ['public/academy/art/items', 'art/items'],
-    ['public/academy/art/lesson-zero', 'art/lesson-zero'],
-    ['public/academy/art/vocabulary-pictographs', 'art/vocabulary-pictographs'],
-    ['public/academy/content/vertical-slice', 'content/vertical-slice'],
-    ['public/academy/content/lessons', 'content/lessons'],
-    ['public/academy/content/curriculum', 'content/curriculum'],
-    ['public/academy/content/vocabulary-pictographs.v1.json', 'content/vocabulary-pictographs.v1.json'],
-    ['public/academy/content/RESOURCE-LEDGER.json', 'content/RESOURCE-LEDGER.json'],
-    ['public/academy/content/audio', 'content/audio'],
-    ['public/academy/content/listening', 'content/listening'],
-    ['public/academy/content/n1-opening-sequence', 'content/n1-opening-sequence'],
-    ['public/academy/content/n1-sound-discrimination', 'content/n1-sound-discrimination'],
-    ['public/academy/content/n2-extensive-reading', 'content/n2-extensive-reading'],
-    ['public/academy/content/n2-moving-priority-listening', 'content/n2-moving-priority-listening'],
-    ['public/academy/content/source-pipeline', 'content/source-pipeline'],
-    ['public/academy/audio/lesson-zero', 'audio/lesson-zero'],
-    ['public/academy/audio/story-pilot', 'audio/story-pilot'],
-    [storyVoiceCatalogSource, 'audio/story-voice-playback.json'],
-    ...storyVoiceAssetSources,
-    [learningVoiceCatalogSource, 'audio/learning-voice-playback.json'],
-    ...learningVoiceAssetSources,
-    ['public/academy/vendor', 'vendor'],
-    ['dist/academy/app.js', 'app.js'],
-    ['dist/academy/style.css', 'style.css'],
-];
-const hostedDependencies = [
-    'docs/public/yomu.user.js',
-    'docs/public/yomu.css',
-    'docs/public/greasyfork/yomu-ui-copy.user.js',
-    'docs/public/greasyfork/yomu-settings-surface.user.js',
-    'docs/public/greasyfork/yomu-kanji-study.user.js',
-    'docs/public/greasyfork/yomu-anki.user.js',
-];
-
-const sourcePaths = [...templates, ...runtimeSources].map(([source]) => source).concat(hostedDependencies);
+const readJson = source => JSON.parse(fs.readFileSync(path.join(root, source), 'utf8'));
+const runtimeSources = academyRuntimeSources(readJson);
+const sourcePaths = academyRevisionSourcePaths(readJson);
 for (const source of sourcePaths) {
     if (!fs.existsSync(path.join(root, source))) throw new Error(`Missing Academy runtime file: ${source}`);
 }
 assertNoPrivatePaths(trackedFiles('public/academy').map(file => path.join(root, file)));
 
-const hash = crypto.createHash('sha256');
-for (const source of sourcePaths.sort()) hashSource(source, hash);
-const revision = `s1-${hash.digest('hex').slice(0, 12)}`;
+const revision = academyRevision(sourcePaths, workingTreeEntries);
 if (process.env.YOMU_SYNC_ACADEMY_REVISION_ONLY === '1') {
     console.log(revision);
     process.exit(0);
@@ -131,18 +64,25 @@ fs.mkdirSync(path.dirname(revisionMarker), { recursive: true });
 fs.writeFileSync(revisionMarker, revision);
 console.log(`Synced ${runtimeSources.length + templates.length} allowlisted Academy runtime entries at ${revision}.`);
 
-function hashPath(label, absolutePath, digest) {
-    const stat = fs.statSync(absolutePath);
-    if (stat.isDirectory()) {
+// `[label, bytes]` for one source, read out of the working tree. Tracked
+// public/ directories come from the git index so untracked scratch files can
+// never reach the published site or move the revision.
+function* workingTreeEntries(source) {
+    if (isTrackedPublicDirectory(source)) {
+        for (const file of trackedFiles(source)) yield [file, fs.readFileSync(path.join(root, file))];
+        return;
+    }
+    yield* walk(source, path.join(root, source));
+}
+
+function* walk(label, absolutePath) {
+    if (fs.statSync(absolutePath).isDirectory()) {
         for (const child of fs.readdirSync(absolutePath).sort()) {
-            hashPath(`${label}/${child}`, path.join(absolutePath, child), digest);
+            yield* walk(`${label}/${child}`, path.join(absolutePath, child));
         }
         return;
     }
-    digest.update(label);
-    digest.update('\0');
-    digest.update(fs.readFileSync(absolutePath));
-    digest.update('\0');
+    yield [label, fs.readFileSync(absolutePath)];
 }
 
 function trackedFiles(source) {
@@ -158,14 +98,6 @@ function trackedFiles(source) {
 
 function isTrackedPublicDirectory(source) {
     return source.startsWith('public/') && fs.statSync(path.join(root, source)).isDirectory();
-}
-
-function hashSource(source, digest) {
-    if (!isTrackedPublicDirectory(source)) {
-        hashPath(source, path.join(root, source), digest);
-        return;
-    }
-    for (const file of trackedFiles(source)) hashPath(file, path.join(root, file), digest);
 }
 
 function copyTrackedDirectory(source, target) {

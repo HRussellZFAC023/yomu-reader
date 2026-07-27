@@ -28,9 +28,24 @@ import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import academyRevisionModule from './lib/academy-revision.cjs';
+
+const {
+    HOSTED_COUNTERPARTS,
+    REVISION_PATTERN,
+    TEMPLATES: ACADEMY_TEMPLATES,
+    academyRevision,
+    academyRevisionSourcePaths,
+} = academyRevisionModule;
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const failures = [];
+
+// One `git cat-file --batch` per batch instead of one `git show` per file: the
+// Academy runtime is 684 committed files and 400MB, which costs 16s in
+// subprocess spawns and 2.5s this way. Batched rather than streamed so the
+// reader stays synchronous, and sized so only one batch is resident at a time.
+const COMMITTED_BLOB_BATCH = 32;
 
 if (!hasCommit()) {
     console.log('check:artifacts skipped (no commit to read).');
@@ -41,15 +56,16 @@ const packageVersion = JSON.parse(readCommitted('package.json')).version;
 
 checkStudyVersionStamp();
 checkStudyCacheBusting();
+checkAcademyShellRevision();
 checkPublishedApiVersionStamp();
 checkHostedUserscript();
 checkPinnedCompanionsAreCommitted();
 
 if (failures.length > 0) {
-    console.error(`\nHEAD ships build output that is out of date with package.json ${packageVersion}:\n`);
+    console.error(`\nHEAD ships build output that does not match its own sources (package.json ${packageVersion}):\n`);
     for (const failure of failures) console.error(`  - ${failure}`);
     console.error('\nRegenerate and commit the published artifacts:');
-    console.error('  npm run build && node scripts/sync-docs-userscript.cjs && npm run docs:build');
+    console.error('  npm run build && node scripts/sync-docs-userscript.cjs && npm run build:academy && npm run docs:build');
     console.error(`  git add -f -- $(node scripts/lib/generated-artifacts.mjs | tr '\\n' ' ')\n`);
     process.exit(1);
 }
@@ -111,6 +127,105 @@ function checkStudyCacheBusting() {
     }
     if (!serviceWorker.includes(appHash)) {
         failures.push('docs/public/study/sw.js does not know the committed app.js hash, so it will serve a cached build.');
+    }
+}
+
+// THE ACADEMY SHELL'S CACHE-BUSTING REVISION
+//
+// The hosted shell stamps a revision into index.html and sw.js; returning
+// students keep the cached build until it changes. scripts/sync-academy.cjs
+// computes it as a hash over the bytes it is about to publish, so the number
+// only ever comes off somebody's workstation -- no CI job rebuilds the Academy,
+// and until now nothing checked it, which made the stamp a claim nobody could
+// audit. Recomputed from a local rebuild it looks unreproducible, because a
+// rebuild on a different dependency tree writes a different dist/academy/app.js.
+//
+// It is perfectly reproducible from the COMMITTED bytes: the only inputs that
+// live outside git are dist/academy/{app.js,style.css}, and the sync copies
+// those verbatim to docs/public/academy/, so the committed hosted file is the
+// exact byte string that was hashed (see HOSTED_COUNTERPARTS). This recomputes
+// it with that substitution and needs no build, no node_modules and no network
+// -- the same properties as every other assertion here.
+function checkAcademyShellRevision() {
+    let expected;
+    try {
+        const sourcePaths = academyRevisionSourcePaths(readCommittedJson);
+        expected = academyRevision(sourcePaths, committedAcademyEntries(sourcePaths));
+    } catch (error) {
+        failures.push(`the committed Academy runtime cannot be hashed, so its shell revision proves nothing: ${error.message}`);
+        return;
+    }
+    for (const [, target] of ACADEMY_TEMPLATES) {
+        const hostedPath = `docs/public/academy/${target}`;
+        const rendered = readCommitted(hostedPath);
+        if (rendered === null) {
+            failures.push(`${hostedPath} is not committed.`);
+            continue;
+        }
+        const stamped = [...new Set(rendered.match(new RegExp(REVISION_PATTERN.source, 'g')) ?? [])];
+        if (stamped.length === 0) {
+            failures.push(`${hostedPath} carries no Academy revision, so it cannot bust a stale cache.`);
+            continue;
+        }
+        for (const revision of stamped) {
+            if (revision === expected) continue;
+            failures.push(`${hostedPath} busts its cache with ${revision}, but the committed Academy runtime hashes to ${expected}, so returning students keep the old build.`);
+        }
+    }
+}
+
+/**
+ * Reader for `academyRevision`: yields the `[label, bytes]` pairs
+ * sync-academy.cjs hashes for one source, out of the commit instead of the
+ * working tree. Labels stay the SOURCE path even where the bytes come from the
+ * committed counterpart, because the source path is what the producer hashed.
+ *
+ * One `git ls-tree` for all 121 sources up front, not one per source: the same
+ * subprocess-per-item cost that made the naive reader slower than the sync it
+ * verifies.
+ */
+function committedAcademyEntries(sourcePaths) {
+    const tree = listCommitted(sourcePaths.map(source => HOSTED_COUNTERPARTS.get(source) ?? source)).sort();
+    const files = new Set(tree);
+    return function* entries(source) {
+        const committedPath = HOSTED_COUNTERPARTS.get(source) ?? source;
+        if (files.has(committedPath)) {
+            for (const [, bytes] of readCommittedFiles([committedPath])) yield [source, bytes];
+            return;
+        }
+        const under = tree.filter(path => path.startsWith(`${committedPath}/`));
+        if (under.length === 0) throw new Error(`HEAD does not carry ${committedPath}`);
+        if (!source.startsWith('public/')) {
+            // Only public/ directories are hashed file by file under their own
+            // git paths; anything else would need a relabelling rule that does
+            // not exist yet. Fail loudly rather than hash a directory the wrong
+            // way and report a mismatch that is really this reader's fault.
+            throw new Error(`${source} is a directory outside public/, which the committed-bytes reader cannot label`);
+        }
+        yield* readCommittedFiles(under);
+    };
+}
+
+function readCommittedJson(path) {
+    const raw = readCommitted(path);
+    if (raw === null) throw new Error(`HEAD does not carry ${path}`);
+    return JSON.parse(raw);
+}
+
+function* readCommittedFiles(paths) {
+    for (let index = 0; index < paths.length; index += COMMITTED_BLOB_BATCH) {
+        const batch = paths.slice(index, index + COMMITTED_BLOB_BATCH);
+        // `<oid> <type> <size>\n<contents>\n` per request, in request order.
+        const blobs = git(['cat-file', '--batch'], { input: `${batch.map(path => `HEAD:${path}`).join('\n')}\n` });
+        let offset = 0;
+        for (const path of batch) {
+            const headerEnd = blobs.indexOf(0x0a, offset);
+            const [, type, size] = blobs.toString('utf8', offset, headerEnd).split(' ');
+            if (type !== 'blob') throw new Error(`HEAD:${path} is ${type ?? 'missing'}, not a file`);
+            const start = headerEnd + 1;
+            yield [path, blobs.subarray(start, start + Number(size))];
+            offset = start + Number(size) + 1;
+        }
     }
 }
 
@@ -199,12 +314,15 @@ function readCommitted(path, { binary = false } = {}) {
     }
 }
 
-function listCommitted(path) {
-    return git(['ls-tree', '-r', '--name-only', 'HEAD', '--', path]).toString('utf8').split('\n').filter(Boolean);
+// `-z`: without it git C-quotes any path with an unusual byte in it, and the
+// quoted name would then be read as a literal path that does not exist.
+function listCommitted(paths) {
+    const pathspecs = Array.isArray(paths) ? paths : [paths];
+    return git(['ls-tree', '-r', '--name-only', '-z', 'HEAD', '--', ...pathspecs]).toString('utf8').split('\0').filter(Boolean);
 }
 
-function git(args) {
-    return execFileSync('git', args, { cwd: ROOT, maxBuffer: 512 * 1024 * 1024 });
+function git(args, options = {}) {
+    return execFileSync('git', args, { cwd: ROOT, maxBuffer: 512 * 1024 * 1024, ...options });
 }
 
 function shortHash(contents) {
