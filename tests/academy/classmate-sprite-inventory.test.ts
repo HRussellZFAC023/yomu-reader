@@ -153,7 +153,11 @@ describe('Academy cast-wide sprite migration inventory', () => {
         const steve = inventory.characters.find(character => character.id === 'steve')!;
         const onke = inventory.characters.find(character => character.id === 'angel')!;
 
-        expect(rie.progress).toMatchObject({ approved: 5, reviewCandidates: 1, missing: 15 });
+        expect(rie.progress).toMatchObject({
+            approved: SPRITE_EXPRESSIONS.length,
+            reviewCandidates: 0,
+            missing: inventory.target.slotsPerCharacter - SPRITE_EXPRESSIONS.length,
+        });
         expect(tom2.progress).toMatchObject({ approved: 0, reviewCandidates: 3, missing: 18 });
         expect(tom2.currentAssets.every(asset => asset.privacy.length > 0)).toBe(true);
         expect(steve.progress).toMatchObject({ approved: 3, reviewCandidates: 0, missing: 18 });

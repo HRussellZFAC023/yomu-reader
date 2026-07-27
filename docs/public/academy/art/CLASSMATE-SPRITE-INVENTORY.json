@@ -34,10 +34,10 @@
     "totalSlots": 630
   },
   "summary": {
-    "approved": 30,
-    "reviewCandidates": 17,
-    "missing": 583,
-    "currentPhysicalRasters": 98,
+    "approved": 32,
+    "reviewCandidates": 16,
+    "missing": 582,
+    "currentPhysicalRasters": 99,
     "currentOffMatrixRasters": 51,
     "historicalUniqueRasters": 469,
     "historicalOccurrences": 2016,
@@ -151,11 +151,11 @@
         "slots": 21
       },
       "progress": {
-        "approved": 5,
-        "reviewCandidates": 1,
-        "missing": 15,
-        "deliveredPercent": 28.57,
-        "approvedPercent": 23.81
+        "approved": 7,
+        "reviewCandidates": 0,
+        "missing": 14,
+        "deliveredPercent": 33.33,
+        "approvedPercent": 33.33
       },
       "currentAssets": [
         {
@@ -391,26 +391,73 @@
           "coverageStatus": "approved"
         },
         {
-          "path": "/academy/art/characters/rie/rie__thinking__halfbody__v001.png",
-          "sha256": "f73eb1e59d604ef728e0a0c6fda33932e5abc098b0860dbd04e0a1ce09d43d6d",
+          "path": "/academy/art/characters/rie/rie__surprised-shocked-glasses__right-three-quarter__halfbody__v002.png",
+          "sha256": "c29ef34f89d4e4943b0874779e23b053fd43a7a7fe504c2e8e265d9c0ffe49be",
           "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
-          "status": "review-candidate",
+          "status": "approved",
           "usage": {
             "runtime": [
+              "dialogue:rie-surprised",
               "journal:rie-expression-gallery",
+              "story:cast:rie:surprised-shocked",
               "cast-standardization:rie"
             ],
             "review": [
               "cast-standardization-manifest",
-              "learner-journal-preview"
+              "identity-lock"
             ]
           },
-          "orphan": "review-bound",
+          "orphan": "active-runtime",
           "styleVersion": "hand-painted-production-family",
-          "fileVersion": "v001",
-          "pose": "balanced teacher stance with an open lesson book held low and one shoulder turned toward the learner; front-near-front",
-          "angle": "front-near-front",
+          "fileVersion": "v002",
+          "pose": "balanced teacher stance with an open lesson book held low and one shoulder turned toward the learner; right-three-quarter",
+          "angle": "right-three-quarter",
+          "expression": "surprised-shocked",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "dialogue:rie-surprised",
+            "journal:rie-expression-gallery",
+            "story:cast:rie:surprised-shocked",
+            "cast-standardization:rie"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/rie/rie__thoughtful-glasses__left-three-quarter__halfbody__v002.png",
+          "sha256": "ba9df46621afb9265549074ff7f2c8e6573c905a76612b0ad3964b3e31540d61",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "dialogue:rie-reflection",
+              "journal:rie-expression-gallery",
+              "story:cast:rie:thoughtful",
+              "cast-standardization:rie"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "hand-painted-production-family",
+          "fileVersion": "v002",
+          "pose": "balanced teacher stance with an open lesson book held low and one shoulder turned toward the learner; left-three-quarter",
+          "angle": "left-three-quarter",
           "expression": "thoughtful",
           "dimensions": {
             "width": 1536,
@@ -420,16 +467,18 @@
             "transparency": "alpha-channel"
           },
           "runtimeUses": [
+            "dialogue:rie-reflection",
             "journal:rie-expression-gallery",
+            "story:cast:rie:thoughtful",
             "cast-standardization:rie"
           ],
           "reviewUses": [
             "cast-standardization-manifest",
-            "learner-journal-preview"
+            "identity-lock"
           ],
           "decision": "keep",
-          "migrationStatus": "retained-review-candidate-not-approved",
-          "coverageStatus": "review-candidate"
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
         }
       ],
       "requiredVariants": [
@@ -457,9 +506,8 @@
         {
           "angle": "left-three-quarter",
           "expression": "thoughtful",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/rie/rie__thoughtful__left-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/rie/rie__thoughtful-glasses__left-three-quarter__halfbody__v002.png"
         },
         {
           "angle": "left-three-quarter",
@@ -502,8 +550,9 @@
         {
           "angle": "front-near-front",
           "expression": "thoughtful",
-          "status": "review-candidate",
-          "path": "/academy/art/characters/rie/rie__thinking__halfbody__v001.png"
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/rie/rie__thoughtful__front-near-front__halfbody__v001.png"
         },
         {
           "angle": "front-near-front",
@@ -563,9 +612,8 @@
         {
           "angle": "right-three-quarter",
           "expression": "surprised-shocked",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/rie/rie__surprised-shocked__right-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/rie/rie__surprised-shocked-glasses__right-three-quarter__halfbody__v002.png"
         },
         {
           "angle": "right-three-quarter",
@@ -599,13 +647,6 @@
         },
         {
           "angle": "left-three-quarter",
-          "expression": "thoughtful",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/rie/rie__thoughtful__left-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "left-three-quarter",
           "expression": "surprised-shocked",
           "status": "missing",
           "path": null,
@@ -617,6 +658,13 @@
           "status": "missing",
           "path": null,
           "plannedPath": "/academy/art/characters/rie/rie__encouraging-listening__front-near-front__halfbody__v001.png"
+        },
+        {
+          "angle": "front-near-front",
+          "expression": "thoughtful",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/rie/rie__thoughtful__front-near-front__halfbody__v001.png"
         },
         {
           "angle": "front-near-front",
@@ -666,13 +714,6 @@
           "status": "missing",
           "path": null,
           "plannedPath": "/academy/art/characters/rie/rie__determined__right-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "right-three-quarter",
-          "expression": "surprised-shocked",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/rie/rie__surprised-shocked__right-three-quarter__halfbody__v001.png"
         },
         {
           "angle": "right-three-quarter",

@@ -70,6 +70,17 @@ describe('Academy cast production inventory', () => {
             .toBe(inventory.summary.requiredSlots);
     });
 
+    it('allows the retained house-style anchor to gain newly produced performances', () => {
+        const rie = inventory.cast.find(member => member.castId === 'rie');
+        expect(rie).toBeDefined();
+        expect(rie!.summary).toEqual({
+            required: REQUIRED_CAST_PERFORMANCES.length,
+            integrated: REQUIRED_CAST_PERFORMANCES.length,
+            missing: 0,
+        });
+        expect(rie!.performances.every(performance => performance.status === 'integrated')).toBe(true);
+    });
+
     it('gives every missing slot one unique runtime-bound generation request', () => {
         expect(inventory.generationQueue).toHaveLength(inventory.summary.missingSlots);
         expect(new Set(inventory.generationQueue.map(item => item.key)).size)

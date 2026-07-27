@@ -18,8 +18,8 @@
     ]
   },
   "counts": {
-    "runtimeAssetHomes": 150,
-    "runtimeFiles": 184,
+    "runtimeAssetHomes": 151,
+    "runtimeFiles": 185,
     "nonRuntimeReviewFiles": 1734,
     "approvedReferenceOnly": 4,
     "explicitlyRejectedFamilies": 4,
@@ -1938,38 +1938,6 @@
         }
       ],
       "status": "retained approved cast runtime sprite"
-    },
-    {
-      "id": "character-rie-thinking-halfbody-v001",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "f73eb1e59d604ef728e0a0c6fda33932e5abc098b0860dbd04e0a1ce09d43d6d",
-      "provenance": "newly-integrated-review",
-      "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": [
-        "journal:rie-expression-gallery",
-        "cast-standardization:rie"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "learner-journal-preview"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:rie-expression-gallery",
-          "cast-standardization:rie"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/rie/rie__thinking__halfbody__v001.png",
-          "sha256": "f73eb1e59d604ef728e0a0c6fda33932e5abc098b0860dbd04e0a1ce09d43d6d"
-        }
-      ],
-      "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
     },
     {
       "id": "character-robert-standardized-encouraging-listening-front-near-front-halfbody-v001",
@@ -11513,6 +11481,78 @@
         {
           "path": "/academy/art/characters/jenny/jenny__sad-vulnerable-round-face-brown-hair__left-three-quarter__fullbody__v002.png",
           "sha256": "97bc48f39b4c60f3035de6a432ff7319604a6e7025bb19b4a098d827a7309129"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-rie-thoughtful-glasses-left",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "ba9df46621afb9265549074ff7f2c8e6573c905a76612b0ad3964b3e31540d61",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "dialogue:rie-reflection",
+        "journal:rie-expression-gallery",
+        "story:cast:rie:thoughtful",
+        "cast-standardization:rie"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "dialogue:rie-reflection",
+          "journal:rie-expression-gallery",
+          "story:cast:rie:thoughtful",
+          "cast-standardization:rie"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/rie/rie__thoughtful-glasses__left-three-quarter__halfbody__v002.png",
+          "sha256": "ba9df46621afb9265549074ff7f2c8e6573c905a76612b0ad3964b3e31540d61"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-rie-surprised-shocked-glasses-right",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "c29ef34f89d4e4943b0874779e23b053fd43a7a7fe504c2e8e265d9c0ffe49be",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "dialogue:rie-surprised",
+        "journal:rie-expression-gallery",
+        "story:cast:rie:surprised-shocked",
+        "cast-standardization:rie"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "dialogue:rie-surprised",
+          "journal:rie-expression-gallery",
+          "story:cast:rie:surprised-shocked",
+          "cast-standardization:rie"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/rie/rie__surprised-shocked-glasses__right-three-quarter__halfbody__v002.png",
+          "sha256": "c29ef34f89d4e4943b0874779e23b053fd43a7a7fe504c2e8e265d9c0ffe49be"
         }
       ],
       "status": "identity-locked, visually inspected, runtime-bound house-style sprite"

@@ -19,20 +19,20 @@
     "deletion": "This audit never deletes, moves, or mutates Academy raster files."
   },
   "counts": {
-    "currentRasterFiles": 230,
-    "currentRasterFilesAccountedFor": 230,
-    "active": 177,
+    "currentRasterFiles": 236,
+    "currentRasterFilesAccountedFor": 236,
+    "active": 183,
     "orphaned": 53,
     "deprecated": 10,
     "deprecatedPresent": 0,
-    "missingExpressionVariants": 583,
+    "missingExpressionVariants": 582,
     "expressionMatrixSlots": 630,
-    "approvedExpressionVariants": 30,
-    "reviewCandidateExpressionVariants": 17,
-    "deliveredMatrixExpressionVariants": 47,
+    "approvedExpressionVariants": 32,
+    "reviewCandidateExpressionVariants": 16,
+    "deliveredMatrixExpressionVariants": 48,
     "offMatrixDeliveredSprites": 51,
     "activeByKind": {
-      "character-sprite": 91,
+      "character-sprite": 97,
       "protagonist-portrait": 4,
       "scene-background": 66,
       "scene-event": 8,
@@ -666,6 +666,164 @@
         "ledgerStatus": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
       },
       {
+        "id": "character-jenny-determined-round-face-brown-hair-left-three-quarter-fullbody-v002",
+        "path": "/academy/art/characters/jenny/jenny__determined-round-face-brown-hair__left-three-quarter__fullbody__v002.png",
+        "sha256": "bed46c5ee83d327ccacfd3ce717410e0b8a9b218d539b6d426cee0864eb07465",
+        "ledgerSha256": "bed46c5ee83d327ccacfd3ce717410e0b8a9b218d539b6d426cee0864eb07465",
+        "kind": "character-sprite",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "journal:jenny-expression-gallery",
+          "story:cast:jenny:determined",
+          "cast-standardization:jenny"
+        ],
+        "reviewHomes": [
+          "cast-standardization-manifest",
+          "identity-lock"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
+      },
+      {
+        "id": "character-jenny-encouraging-listening-round-face-brown-hair-right-three-quarter-fullbody-v002",
+        "path": "/academy/art/characters/jenny/jenny__encouraging-listening-round-face-brown-hair__right-three-quarter__fullbody__v002.png",
+        "sha256": "80a533f034ec80a9751f038255fce2f9f12fe57763e9279bf4b147d6ffb422f9",
+        "ledgerSha256": "80a533f034ec80a9751f038255fce2f9f12fe57763e9279bf4b147d6ffb422f9",
+        "kind": "character-sprite",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "journal:jenny-expression-gallery",
+          "story:cast:jenny:encouraging-listening",
+          "cast-standardization:jenny"
+        ],
+        "reviewHomes": [
+          "cast-standardization-manifest",
+          "identity-lock"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
+      },
+      {
+        "id": "character-jenny-happy-round-face-brown-hair-front-near-front-fullbody-v002",
+        "path": "/academy/art/characters/jenny/jenny__happy-round-face-brown-hair__front-near-front__fullbody__v002.png",
+        "sha256": "1cb002e514db41e9f6b3454fba66e3566065701800631e579aa15b396e0bbb60",
+        "ledgerSha256": "1cb002e514db41e9f6b3454fba66e3566065701800631e579aa15b396e0bbb60",
+        "kind": "character-sprite",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "journal:jenny-expression-gallery",
+          "story:cast:jenny:happy",
+          "cast-standardization:jenny"
+        ],
+        "reviewHomes": [
+          "cast-standardization-manifest",
+          "identity-lock"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
+      },
+      {
+        "id": "character-jenny-neutral-round-face-brown-hair-front-near-front-fullbody-v002",
+        "path": "/academy/art/characters/jenny/jenny__neutral-round-face-brown-hair__front-near-front__fullbody__v002.png",
+        "sha256": "db3ca8c551440e0c060ea471d51616ff604896ba510fad00f66d7a26a0bb4c63",
+        "ledgerSha256": "db3ca8c551440e0c060ea471d51616ff604896ba510fad00f66d7a26a0bb4c63",
+        "kind": "character-sprite",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "journal:jenny",
+          "class:people",
+          "class:week-cast",
+          "lesson-overview:roster",
+          "world:person",
+          "story:cast:jenny",
+          "cast-standardization:jenny"
+        ],
+        "reviewHomes": [
+          "cast-standardization-manifest",
+          "identity-lock"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
+      },
+      {
+        "id": "character-jenny-sad-vulnerable-round-face-brown-hair-left-three-quarter-fullbody-v002",
+        "path": "/academy/art/characters/jenny/jenny__sad-vulnerable-round-face-brown-hair__left-three-quarter__fullbody__v002.png",
+        "sha256": "97bc48f39b4c60f3035de6a432ff7319604a6e7025bb19b4a098d827a7309129",
+        "ledgerSha256": "97bc48f39b4c60f3035de6a432ff7319604a6e7025bb19b4a098d827a7309129",
+        "kind": "character-sprite",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "journal:jenny-expression-gallery",
+          "story:cast:jenny:sad-vulnerable",
+          "cast-standardization:jenny"
+        ],
+        "reviewHomes": [
+          "cast-standardization-manifest",
+          "identity-lock"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
+      },
+      {
+        "id": "character-jenny-surprised-shocked-round-face-brown-hair-right-three-quarter-fullbody-v002",
+        "path": "/academy/art/characters/jenny/jenny__surprised-shocked-round-face-brown-hair__right-three-quarter__fullbody__v002.png",
+        "sha256": "477291bd511bf68d93400d8bf85518ba8be05d662bb73ac69530ace9c757c56d",
+        "ledgerSha256": "477291bd511bf68d93400d8bf85518ba8be05d662bb73ac69530ace9c757c56d",
+        "kind": "character-sprite",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "journal:jenny-expression-gallery",
+          "story:cast:jenny:surprised-shocked",
+          "cast-standardization:jenny"
+        ],
+        "reviewHomes": [
+          "cast-standardization-manifest",
+          "identity-lock"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
+      },
+      {
+        "id": "character-jenny-thoughtful-round-face-brown-hair-left-three-quarter-fullbody-v002",
+        "path": "/academy/art/characters/jenny/jenny__thoughtful-round-face-brown-hair__left-three-quarter__fullbody__v002.png",
+        "sha256": "5b800dda230fc43ede817310e37f15c68c728c954899af7f27b86a62e473338f",
+        "ledgerSha256": "5b800dda230fc43ede817310e37f15c68c728c954899af7f27b86a62e473338f",
+        "kind": "character-sprite",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "journal:jenny-expression-gallery",
+          "story:cast:jenny:thoughtful",
+          "cast-standardization:jenny"
+        ],
+        "reviewHomes": [
+          "cast-standardization-manifest",
+          "identity-lock"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
+      },
+      {
         "id": "character-jodi-standardized-encouraging-listening-front-near-front-halfbody-v001",
         "path": "/academy/art/characters/jodi/jodi__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
         "sha256": "0002290f455bfb033e85e921e267d97f015117fdddc381a0b089bf04768eceaa",
@@ -1114,27 +1272,6 @@
         "sourceLedger": "public/academy/art/ASSET-USAGE.json",
         "ledgerVerdict": "approved-runtime",
         "ledgerStatus": "retained approved cast runtime sprite"
-      },
-      {
-        "id": "character-rie-thinking-halfbody-v001",
-        "path": "/academy/art/characters/rie/rie__thinking__halfbody__v001.png",
-        "sha256": "f73eb1e59d604ef728e0a0c6fda33932e5abc098b0860dbd04e0a1ce09d43d6d",
-        "ledgerSha256": "f73eb1e59d604ef728e0a0c6fda33932e5abc098b0860dbd04e0a1ce09d43d6d",
-        "kind": "character-sprite",
-        "state": "active",
-        "present": true,
-        "runtimeAuthorized": true,
-        "runtimeHomes": [
-          "journal:rie-expression-gallery",
-          "cast-standardization:rie"
-        ],
-        "reviewHomes": [
-          "cast-standardization-manifest",
-          "learner-journal-preview"
-        ],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "review-candidate/runtime-preview",
-        "ledgerStatus": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
       },
       {
         "id": "character-robert-standardized-encouraging-listening-front-near-front-halfbody-v001",
@@ -7643,6 +7780,15 @@
       },
       {
         "character": "rie",
+        "angle": "front-near-front",
+        "expression": "thoughtful",
+        "plannedPath": "/academy/art/characters/rie/rie__thoughtful__front-near-front__halfbody__v001.png",
+        "state": "missing-expression-variant",
+        "present": false,
+        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
+      },
+      {
+        "character": "rie",
         "angle": "left-three-quarter",
         "expression": "encouraging-listening",
         "plannedPath": "/academy/art/characters/rie/rie__encouraging-listening__left-three-quarter__halfbody__v001.png",
@@ -7679,15 +7825,6 @@
       },
       {
         "character": "rie",
-        "angle": "left-three-quarter",
-        "expression": "thoughtful",
-        "plannedPath": "/academy/art/characters/rie/rie__thoughtful__left-three-quarter__halfbody__v001.png",
-        "state": "missing-expression-variant",
-        "present": false,
-        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
-      },
-      {
-        "character": "rie",
         "angle": "right-three-quarter",
         "expression": "determined",
         "plannedPath": "/academy/art/characters/rie/rie__determined__right-three-quarter__halfbody__v001.png",
@@ -7718,15 +7855,6 @@
         "angle": "right-three-quarter",
         "expression": "sad-vulnerable",
         "plannedPath": "/academy/art/characters/rie/rie__sad-vulnerable__right-three-quarter__halfbody__v001.png",
-        "state": "missing-expression-variant",
-        "present": false,
-        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
-      },
-      {
-        "character": "rie",
-        "angle": "right-three-quarter",
-        "expression": "surprised-shocked",
-        "plannedPath": "/academy/art/characters/rie/rie__surprised-shocked__right-three-quarter__halfbody__v001.png",
         "state": "missing-expression-variant",
         "present": false,
         "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"

@@ -1,0 +1,39 @@
+{
+  "promotions": [
+    {
+      "castId": "rie",
+      "archiveLabel": "identity-and-style-superseded-20260727",
+      "replaceExpressions": [
+        "thoughtful",
+        "surprised-shocked"
+      ],
+      "canonicalNeutralAssetId": "character.rie.neutral-glasses",
+      "slots": [
+        {
+          "assetId": "character.rie.thoughtful-glasses-left",
+          "expression": "thoughtful",
+          "angle": "left-three-quarter",
+          "assetPath": "/academy/art/characters/rie/rie__thoughtful-glasses__left-three-quarter__halfbody__v002.png",
+          "runtimeHomes": [
+            "dialogue:rie-reflection",
+            "journal:rie-expression-gallery",
+            "story:cast:rie:thoughtful",
+            "cast-standardization:rie"
+          ]
+        },
+        {
+          "assetId": "character.rie.surprised-shocked-glasses-right",
+          "expression": "surprised-shocked",
+          "angle": "right-three-quarter",
+          "assetPath": "/academy/art/characters/rie/rie__surprised-shocked-glasses__right-three-quarter__halfbody__v002.png",
+          "runtimeHomes": [
+            "dialogue:rie-surprised",
+            "journal:rie-expression-gallery",
+            "story:cast:rie:surprised-shocked",
+            "cast-standardization:rie"
+          ]
+        }
+      ]
+    }
+  ]
+}

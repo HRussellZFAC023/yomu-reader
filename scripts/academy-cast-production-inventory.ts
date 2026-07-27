@@ -64,7 +64,7 @@ const cast = Object.entries(ACADEMY_CAST_IDENTITY_LOCKS).map(([castId, lock]) =>
             slot.expression === expression
             && slot.status === 'approved'
             && (lock.disposition === 'retain-anchor'
-                ? slot.sourceKind === 'retained-good'
+                ? ['retained-good', 'regenerated-house-style'].includes(slot.sourceKind)
                 : slot.sourceKind === 'regenerated-house-style'),
         );
         return {

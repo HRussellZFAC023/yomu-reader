@@ -76,7 +76,7 @@ describe('Academy character directory presentation', () => {
         expect(screen.querySelector('.academy-character-page')?.hasAttribute('hidden')).toBe(false);
     });
 
-    it('shows Rie’s complete retained expression gallery with distinct performances', () => {
+    it('shows Rie’s complete production expression gallery with distinct performances', () => {
         const screen = renderDirectory();
         screen.querySelector<HTMLButtonElement>('[data-character="rie"] button')?.click();
         const sprites = [...screen.querySelectorAll<HTMLImageElement>(
@@ -90,9 +90,10 @@ describe('Academy character directory presentation', () => {
             ['happy', 'front-near-front'],
             ['neutral', 'front-near-front'],
             ['sad-vulnerable', 'left-three-quarter'],
-            ['thoughtful', 'front-near-front'],
+            ['thoughtful', 'left-three-quarter'],
+            ['surprised-shocked', 'right-three-quarter'],
         ]);
-        expect(new Set(sprites.map(sprite => sprite.src)).size).toBe(7);
+        expect(new Set(sprites.map(sprite => sprite.src)).size).toBe(sprites.length);
     });
 
     it('wires Tom 2 review art and Steve approved art into unlocked character pages', async () => {

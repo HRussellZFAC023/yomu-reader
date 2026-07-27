@@ -29,10 +29,10 @@
     "cast": 30,
     "requiredPerformancesPerCast": 7,
     "requiredSlots": 210,
-    "integratedSlots": 23,
-    "missingSlots": 187,
+    "integratedSlots": 25,
+    "missingSlots": 185,
     "ownerCorrectionQueue": 87,
-    "storyCriticalQueue": 65,
+    "storyCriticalQueue": 63,
     "rosterCompletionQueue": 35
   },
   "cast": [
@@ -55,8 +55,8 @@
       "priority": "story-critical",
       "summary": {
         "required": 7,
-        "integrated": 5,
-        "missing": 2
+        "integrated": 7,
+        "missing": 0
       },
       "performances": [
         {
@@ -104,10 +104,15 @@
         {
           "expression": "thoughtful",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.rie.thoughtful-glasses-left",
+          "assetPath": "/academy/art/characters/rie/rie__thoughtful-glasses__left-three-quarter__halfbody__v002.png",
+          "runtimeHomes": [
+            "dialogue:rie-reflection",
+            "journal:rie-expression-gallery",
+            "story:cast:rie:thoughtful",
+            "cast-standardization:rie"
+          ]
         },
         {
           "expression": "determined",
@@ -123,10 +128,15 @@
         {
           "expression": "surprised-shocked",
           "preferredAngle": "right-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.rie.surprised-shocked-glasses-right",
+          "assetPath": "/academy/art/characters/rie/rie__surprised-shocked-glasses__right-three-quarter__halfbody__v002.png",
+          "runtimeHomes": [
+            "dialogue:rie-surprised",
+            "journal:rie-expression-gallery",
+            "story:cast:rie:surprised-shocked",
+            "cast-standardization:rie"
+          ]
         },
         {
           "expression": "sad-vulnerable",
@@ -2568,64 +2578,6 @@
     }
   ],
   "generationQueue": [
-    {
-      "key": "rie:thoughtful",
-      "castId": "rie",
-      "displayName": "Rie",
-      "identityKey": "rie-sensei-navy-cream",
-      "expression": "thoughtful",
-      "angle": "left-three-quarter",
-      "priority": "story-critical",
-      "storyLines": 36,
-      "visualLock": "Japanese woman with a soft dark bun, warm tired-bright eyes, fine glasses, and a composed teacher presence.",
-      "wardrobeLock": "Navy blouse and trousers, cream long cardigan, blue lanyard, small jewellery, and a practical notebook.",
-      "reject": [
-        "loose long hair",
-        "school uniform",
-        "photographic face",
-        "different glasses",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:rie-expression-gallery",
-        "story:cast:rie:thoughtful"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "rie:surprised-shocked",
-      "castId": "rie",
-      "displayName": "Rie",
-      "identityKey": "rie-sensei-navy-cream",
-      "expression": "surprised-shocked",
-      "angle": "right-three-quarter",
-      "priority": "story-critical",
-      "storyLines": 36,
-      "visualLock": "Japanese woman with a soft dark bun, warm tired-bright eyes, fine glasses, and a composed teacher presence.",
-      "wardrobeLock": "Navy blouse and trousers, cream long cardigan, blue lanyard, small jewellery, and a practical notebook.",
-      "reject": [
-        "loose long hair",
-        "school uniform",
-        "photographic face",
-        "different glasses",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:rie-expression-gallery",
-        "story:cast:rie:surprised-shocked"
-      ],
-      "status": "queued"
-    },
     {
       "key": "henry:neutral",
       "castId": "henry",
