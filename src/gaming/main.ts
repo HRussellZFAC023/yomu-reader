@@ -1,4 +1,4 @@
-import { app, BrowserWindow, desktopCapturer, dialog, globalShortcut, ipcMain, nativeImage, screen, shell, systemPreferences, type BrowserWindowConstructorOptions } from 'electron';
+import { app, BrowserWindow, desktopCapturer, dialog, globalShortcut, ipcMain, Menu, nativeImage, screen, shell, systemPreferences, Tray, type BrowserWindowConstructorOptions } from 'electron';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -9,6 +9,15 @@ import {
     type GamingDisplayGeometry,
 } from './display';
 import { requestGamingOcr } from './ocr';
+import { captureShortcutLabel, DEFAULT_CAPTURE_SHORTCUT, normalizeCaptureShortcut } from './capture-shortcut';
+import {
+    createGamingTray,
+    windowCloseIntent,
+    type GamingTrayController,
+    type GamingTrayHost,
+    type GamingTrayItem,
+    type GamingTrayStatus,
+} from './lifecycle';
 import {
     YOMU_GAMING_CHANNELS,
     type YomuGamingCaptureMode,
@@ -20,7 +29,6 @@ import {
     type YomuGamingSettingsSyncMetadata,
 } from './ipc';
 
-const DEFAULT_HOTKEY = 'CommandOrControl+Shift+Y';
 const APP_NAME = 'Yomu Gaming';
 // macOS hands back an EMPTY screen thumbnail on the first desktopCapturer call after
 // launch — ScreenCaptureKit has not warmed up yet. Measured on 5/5 cold starts, and
@@ -34,36 +42,6 @@ const SCREEN_PERMISSION_MESSAGE = process.platform === 'darwin'
 const ALLOWED_EXTERNAL_HOSTS = new Set(['yomureader.com', 'jpdb.io', 'jiten.moe']);
 const SETTINGS_SYNC_FILE_NAME = 'settings-sync-v1.json';
 const CAPTURE_SHORTCUT_FILE_NAME = 'capture-shortcut-v1.json';
-const MODIFIER_KEYS = new Set(['CommandOrControl', 'Control', 'Ctrl', 'Command', 'Cmd', 'Alt', 'Option', 'Shift', 'Super', 'Meta']);
-const SHORTCUT_PART_ALIASES = new Map<string, string>([
-    ['control', 'Control'],
-    ['ctrl', 'Control'],
-    ['commandorcontrol', 'CommandOrControl'],
-    ['cmdorctrl', 'CommandOrControl'],
-    ['command', 'Command'],
-    ['cmd', 'Command'],
-    ['meta', process.platform === 'darwin' ? 'Command' : 'Super'],
-    ['win', 'Super'],
-    ['windows', 'Super'],
-    ['super', 'Super'],
-    ['alt', 'Alt'],
-    ['option', 'Alt'],
-    ['shift', 'Shift'],
-    ['escape', 'Escape'],
-    ['esc', 'Escape'],
-    ['space', 'Space'],
-    ['spacebar', 'Space'],
-    [' ', 'Space'],
-    ['arrowup', 'Up'],
-    ['up', 'Up'],
-    ['arrowdown', 'Down'],
-    ['down', 'Down'],
-    ['arrowleft', 'Left'],
-    ['left', 'Left'],
-    ['arrowright', 'Right'],
-    ['right', 'Right'],
-    ['plus', 'Plus'],
-]);
 
 installBrokenPipeGuard();
 
@@ -71,11 +49,19 @@ if (process.env.YOMU_GAMING_USER_DATA_DIR) {
     app.setPath('userData', path.resolve(process.env.YOMU_GAMING_USER_DATA_DIR));
 }
 configureNativeAppMetadata();
+// Exactly one copy owns the tray item and the capture shortcut. Claimed after the userData
+// path is settled, because that is what the lock is scoped to.
+const hasSingleInstanceLock = app.requestSingleInstanceLock();
+if (!hasSingleInstanceLock) app.quit();
 
 let mainWindow: BrowserWindow | null = null;
 let overlayWindow: BrowserWindow | null = null;
+let tray: GamingTrayController | null = null;
+// Set the moment a real quit starts, so the close handler stops parking windows and lets
+// them go. Without it, hiding on close would silently cancel Cmd+Q and the tray's Quit.
+let quitting = false;
 let hotkeyRegistered = false;
-let hotkey = DEFAULT_HOTKEY;
+let hotkey = DEFAULT_CAPTURE_SHORTCUT;
 let hotkeyError = '';
 let registeredHotkey: string | null = null;
 // Freeze-frame: the screen is grabbed once while none of our windows are visible,
@@ -125,6 +111,19 @@ async function createMainWindow(): Promise<void> {
     hardenWebContents(window);
     window.once('ready-to-show', () => {
         if (!window.isDestroyed()) window.show();
+    });
+    window.on('close', event => {
+        const intent = windowCloseIntent(lifecycleState());
+        // Park the window instead of destroying it: the capture shortcut and the tray keep
+        // working, and reopening Settings is instant.
+        if (intent === 'hide') {
+            event.preventDefault();
+            window.hide();
+            return;
+        }
+        // No tray to come back from, so let this window go and end the session with it —
+        // never leave a hidden overlay holding the process open.
+        if (intent === 'quit') quitApp();
     });
     window.on('closed', () => {
         mainWindow = null;
@@ -346,8 +345,64 @@ function waitForCompositorFrame(): Promise<void> {
 
 async function showApp(): Promise<void> {
     if (!mainWindow || mainWindow.isDestroyed()) await createMainWindow();
+    if (mainWindow?.isMinimized()) mainWindow.restore();
     mainWindow?.show();
     mainWindow?.focus();
+}
+
+function lifecycleState() {
+    return { quitting, hasTray: Boolean(tray), platform: process.platform };
+}
+
+// The tray is the app's home while every window is away: it keeps Yomu reachable, and it
+// owns the only Quit. Built after the shortcut is registered so the labels are accurate.
+function createTray(): void {
+    if (tray) return;
+    tray = createGamingTray(electronTrayHost(), {
+        readScreen: () => void showOverlay('instant').catch(reportOverlayFailure),
+        openSettings: () => void showApp(),
+        quit: () => quitApp(),
+    }, trayStatus());
+}
+
+function electronTrayHost(): GamingTrayHost {
+    return {
+        platform: process.platform,
+        iconPath: appIconPath(),
+        createImage: iconPath => nativeImage.createFromPath(iconPath),
+        createTray: image => wrapTray(new Tray(image as Electron.NativeImage)),
+        buildMenu: template => Menu.buildFromTemplate(template as Electron.MenuItemConstructorOptions[]),
+        reportError: error => {
+            console.warn(`[yomu-gaming] tray unavailable: ${error instanceof Error ? error.message : error}`);
+        },
+    };
+}
+
+function wrapTray(instance: Tray): GamingTrayItem {
+    return {
+        setToolTip: tooltip => instance.setToolTip(tooltip),
+        setContextMenu: menu => instance.setContextMenu(menu as Electron.Menu),
+        on: (event, listener) => {
+            instance.on(event as 'click', () => listener());
+        },
+        destroy: () => instance.destroy(),
+    };
+}
+
+function trayStatus(): GamingTrayStatus {
+    return {
+        shortcutLabel: captureShortcutLabel(hotkey, process.platform),
+        shortcutRegistered: hotkeyRegistered,
+    };
+}
+
+function refreshTray(): void {
+    tray?.refresh(trayStatus());
+}
+
+function quitApp(): void {
+    quitting = true;
+    app.quit();
 }
 
 function registerIpcHandlers(): void {
@@ -381,6 +436,7 @@ function environmentStatus(): YomuGamingEnvironment {
         hotkey,
         hotkeyRegistered,
         hotkeyError: hotkeyError || undefined,
+        trayActive: Boolean(tray),
         screenAccess: screenAccessStatus(),
     };
 }
@@ -597,13 +653,13 @@ async function loadCaptureShortcut(): Promise<void> {
     const parsed = JSON.parse(raw) as unknown;
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return;
     const shortcut = (parsed as Record<string, unknown>).shortcut;
-    const normalized = normalizeCaptureShortcut(shortcut);
+    const normalized = normalizeCaptureShortcut(shortcut, process.platform);
     if (normalized.ok) hotkey = normalized.shortcut;
 }
 
 async function updateCaptureShortcut(value: string): Promise<YomuGamingEnvironment> {
     const previousHotkey = hotkey;
-    const normalized = normalizeCaptureShortcut(value);
+    const normalized = normalizeCaptureShortcut(value, process.platform);
     if (!normalized.ok) {
         hotkeyError = normalized.error;
         return environmentStatus();
@@ -656,36 +712,6 @@ function isNodeErrorCode(error: unknown, code: string): boolean {
     return error instanceof Error && 'code' in error && (error as NodeJS.ErrnoException).code === code;
 }
 
-function normalizeCaptureShortcut(value: unknown): { ok: true; shortcut: string } | { ok: false; error: string } {
-    if (typeof value !== 'string') return { ok: false, error: 'Capture shortcut must be text.' };
-    const parts = value.split('+').map(part => normalizeShortcutPart(part)).filter(Boolean);
-    const deduped = parts.filter((part, index) => parts.indexOf(part) === index);
-    const key = [...deduped].reverse().find(part => !MODIFIER_KEYS.has(part)) ?? '';
-    const hasModifier = deduped.some(part => MODIFIER_KEYS.has(part));
-    if (!key) return { ok: false, error: 'Press a shortcut with a letter, number, function key, or named key.' };
-    if (!hasModifier) return { ok: false, error: 'Use at least one modifier, such as Ctrl, Alt, Shift, or Command.' };
-    return { ok: true, shortcut: orderShortcutParts(deduped).join('+') };
-}
-
-function normalizeShortcutPart(part: string): string {
-    const value = part.trim();
-    if (!value) return '';
-    const lower = value.toLowerCase().replace(/\s+/g, '');
-    const alias = SHORTCUT_PART_ALIASES.get(lower);
-    if (alias) return alias;
-    if (/^f([1-9]|1\d|2[0-4])$/i.test(value)) return value.toUpperCase();
-    if (/^[a-z0-9]$/i.test(value)) return value.toUpperCase();
-    if (/^[a-z][a-z0-9]*$/i.test(value)) return value[0].toUpperCase() + value.slice(1);
-    return '';
-}
-
-function orderShortcutParts(parts: string[]): string[] {
-    const key = [...parts].reverse().find(part => !MODIFIER_KEYS.has(part)) ?? '';
-    return ['CommandOrControl', 'Control', 'Command', 'Alt', 'Shift', 'Super']
-        .filter(part => parts.includes(part))
-        .concat(key ? [key] : []);
-}
-
 function registerGlobalShortcuts(): void {
     if (registeredHotkey) {
         globalShortcut.unregister(registeredHotkey);
@@ -696,29 +722,41 @@ function registerGlobalShortcuts(): void {
         else void showOverlay('instant').catch(reportOverlayFailure);
     });
     if (hotkeyRegistered) registeredHotkey = hotkey;
+    // Single place the shortcut changes, so it is the single place the tray relabels.
+    refreshTray();
 }
 
 app.whenReady().then(async () => {
+    if (!hasSingleInstanceLock) return;
     registerIpcHandlers();
     await loadCaptureShortcut();
     registerGlobalShortcuts();
+    createTray();
     await createMainWindow();
+});
+
+app.on('second-instance', () => {
+    // Closing the window now parks Yomu in the tray, so relaunching is the obvious way
+    // back in. Show the running copy instead of starting a rival tray icon and hotkey.
+    void showApp();
 });
 
 app.on('activate', () => {
     // The window is hidden, not closed, whenever the overlay is up — so clicking the
     // dock icon has to bring it back, otherwise a hidden window looks like a dead app.
-    if (!mainWindow || mainWindow.isDestroyed()) void createMainWindow();
-    else {
-        mainWindow.show();
-        mainWindow.focus();
-    }
+    void showApp();
 });
 
 app.on('before-quit', () => {
+    quitting = true;
     globalShortcut.unregisterAll();
+    registeredHotkey = null;
+    tray?.destroy();
+    tray = null;
 });
 
 app.on('window-all-closed', () => {
-    if (process.platform !== 'darwin') app.quit();
+    // With a tray item Yomu Gaming stays live on purpose — that is what keeps the capture
+    // shortcut working after the settings window is closed.
+    if (!tray && process.platform !== 'darwin') quitApp();
 });

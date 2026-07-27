@@ -33,6 +33,8 @@ import {
     type GamingOcrResult,
 } from '../shared';
 import type { OcrOverlayFrame } from '../../reader/ocr/ocr-overlay-geometry';
+import { captureShortcutLabel } from '../capture-shortcut';
+import { gamingWindowParkingHint } from '../lifecycle';
 import { activateWordWithPointer, GamepadOverlayController } from './gamepad-overlay';
 import { layoutOverlayOcrLines, overlayOcrFrame, overlayOcrLayerHtml } from './ocr-lines';
 import type { YomuGamingBridge, YomuGamingCaptureMode, YomuGamingCaptureSource, YomuGamingEnvironment, YomuGamingOcrProvider, YomuGamingSelectionRect } from '../ipc';
@@ -262,6 +264,7 @@ function installGamingCaptureShortcutSection(form: HTMLFormElement): void {
             <input data-capture-shortcut-input value="${escapeHtml(hotkeyLabel())}" aria-label="Capture shortcut" autocomplete="off" inputmode="none" spellcheck="false">
         </label>
         <div class="jpdb-reader-help" data-capture-shortcut-help>${escapeHtml(captureShortcutHelpText())}</div>
+        <div class="jpdb-reader-help" data-gaming-window-parking hidden></div>
     `;
     const grid = panel.querySelector<HTMLElement>('.grid');
     panel.insertBefore(section, grid ?? panel.firstChild);
@@ -698,6 +701,11 @@ function updateHotkeyCopy(): void {
     appRoot.querySelectorAll<HTMLElement>('[data-capture-shortcut-help]').forEach(element => {
         element.textContent = captureShortcutHelpText();
     });
+    const parkingHint = windowParkingHintText();
+    appRoot.querySelectorAll<HTMLElement>('[data-gaming-window-parking]').forEach(element => {
+        element.textContent = parkingHint;
+        element.hidden = !parkingHint;
+    });
     appRoot.querySelectorAll<HTMLInputElement>('[data-ocr-endpoint-input]').forEach(element => {
         if (element.value !== shellState.settings.ocrEndpointUrl) element.value = shellState.settings.ocrEndpointUrl;
     });
@@ -717,13 +725,9 @@ function updateCaptureOnboardingStatus(): void {
 }
 
 function hotkeyLabel(): string {
-    const hotkey = shellState.environment?.hotkey || 'Ctrl+Shift+Y';
-    return hotkey
-        .replace('CommandOrControl', shellState.environment?.platform === 'darwin' ? 'Cmd' : 'Ctrl')
-        .replace(/\bControl\b/g, 'Ctrl')
-        .replace(/\bCommand\b/g, 'Cmd')
-        .replace(/\bOption\b/g, shellState.environment?.platform === 'darwin' ? 'Option' : 'Alt')
-        .replace(/\bSuper\b/g, 'Meta');
+    // Same helper the tray uses, so the menu-bar item and the settings screen never
+    // disagree about what the capture shortcut is called.
+    return captureShortcutLabel(shellState.environment?.hotkey ?? '', shellState.environment?.platform ?? '');
 }
 
 function gamingOnboardingStatusText(): string {
@@ -732,6 +736,13 @@ function gamingOnboardingStatusText(): string {
     return shellState.environment?.hotkeyRegistered
         ? `${label}: read screen.`
         : `${label} is unavailable here; Try now still works.`;
+}
+
+function windowParkingHintText(): string {
+    return gamingWindowParkingHint({
+        hasTray: Boolean(shellState.environment?.trayActive),
+        platform: shellState.environment?.platform ?? '',
+    });
 }
 
 function captureShortcutHelpText(): string {
@@ -1330,6 +1341,7 @@ function browserFallbackBridge(): YomuGamingBridge {
             displayCount: 1,
             hotkey: 'Ctrl+Shift+Y',
             hotkeyRegistered: false,
+            trayActive: false,
             screenAccess: 'unsupported',
         }),
         getFrozenCapture: async () => {
@@ -1356,6 +1368,7 @@ function browserFallbackBridge(): YomuGamingBridge {
             displayCount: 1,
             hotkey: shortcut,
             hotkeyRegistered: false,
+            trayActive: false,
             hotkeyError: 'Desktop shortcuts are only available in the Electron app.',
             screenAccess: 'unsupported',
         }),
