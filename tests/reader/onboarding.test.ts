@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { OnboardingController } from '../../src/reader/app/onboarding';
-import { DEFAULT_SETTINGS, SETTINGS_STORAGE_KEY } from '../../src/reader/settings/index';
+import {
+    DEFAULT_SETTINGS,
+    PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
+    SETTINGS_STORAGE_KEY,
+} from '../../src/reader/settings/index';
 import type { ReaderSettings } from '../../src/reader/app/types';
 
 const PAGE_SCAN_LEGEND = 'Japanese text on webpages';
@@ -105,6 +109,9 @@ describe('OnboardingController', () => {
             theme: 'dark',
             accentColor: '#336699',
         });
+        expect(JSON.parse(
+            localStorage.getItem(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY) ?? 'null',
+        )).toBe(false);
     });
 
     it('offers a default-on offline dictionary download and starts it on completion', async () => {

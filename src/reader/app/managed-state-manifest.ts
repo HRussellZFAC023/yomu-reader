@@ -19,6 +19,7 @@ const MANAGED_STATE_MANIFEST: readonly ManagedStateEntry[] = [
     { owner: 'settings (legacy)', kind: 'gm', key: 'jpdb-reader-settings' },
     { owner: 'settings (legacy)', kind: 'gm', key: 'yomu-reader-settings' },
     { owner: 'settings (legacy)', kind: 'gm', key: 'yomu-settings' },
+    { owner: 'settings', kind: 'gm', key: 'yomu:prefer-japanese-site-language:v1' },
 
     // Cloud settings sync handoff written before an OAuth redirect.
     { owner: 'settings/dialog-controller', kind: 'gm', key: '__yomu_cloud_settings_sync_pending_action' },

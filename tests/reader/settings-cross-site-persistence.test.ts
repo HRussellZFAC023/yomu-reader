@@ -1,5 +1,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { loadSettings, promoteStrandedHostedSettingsToGmStorage, saveSettings } from '../../src/reader/settings/index';
+import {
+    DEFAULT_SETTINGS,
+    PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
+    SETTINGS_STORAGE_KEY,
+    loadSettings,
+    normalizeReaderSettings,
+    promoteStrandedHostedSettingsToGmStorage,
+    saveSettings,
+    subscribeToSettingsStorageChanges,
+} from '../../src/reader/settings/index';
 
 // Simulate a message-based userscript manager (Greasemonkey 4 / Safari
 // Userscripts / FireMonkey): every GM.getValue call structured-clones both the
@@ -50,6 +59,104 @@ describe('settings persist across sites (message-based GM store)', () => {
         expect(fresh.onboardingSeen).toBe(false);
         expect(JSON.stringify(fresh)).not.toContain('__yomuStorageValueMissing');
         expect(await loadSettings()).toBeTruthy();
+    });
+
+    it('does not let a stale whole-settings save resurrect an explicit Japanese-sites opt-out', async () => {
+        const store = new Map<string, unknown>();
+        installSharedMessageBasedGm(store);
+
+        const staleSettings = await loadSettings();
+        await saveSettings(
+            { ...staleSettings, preferJapaneseSiteLanguage: false },
+            { persistPreferredJapaneseSiteLanguage: true },
+        );
+
+        // A second context still holds the pre-opt-out settings object and
+        // saves an unrelated field. Its stale true remains in the blob, but
+        // must never overwrite the explicit scalar user intent.
+        await saveSettings({ ...staleSettings, theme: 'dark' });
+
+        expect(store.get(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY)).toBe(false);
+        expect(store.get(SETTINGS_STORAGE_KEY)).toMatchObject({
+            preferJapaneseSiteLanguage: true,
+            theme: 'dark',
+        });
+        expect((await loadSettings()).preferJapaneseSiteLanguage).toBe(false);
+    });
+
+    it('normalizes malformed Japanese-sites preferences without truthy coercion', async () => {
+        const store = new Map<string, unknown>([
+            [SETTINGS_STORAGE_KEY, { preferJapaneseSiteLanguage: 'true' }],
+            [PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY, 'true'],
+        ]);
+        installSharedMessageBasedGm(store);
+
+        const normalized = normalizeReaderSettings({
+            preferJapaneseSiteLanguage: 'false' as unknown as boolean,
+        });
+        expect(normalized.preferJapaneseSiteLanguage).toBe(false);
+        expect(typeof normalized.preferJapaneseSiteLanguage).toBe('boolean');
+        expect(normalizeReaderSettings({}).preferJapaneseSiteLanguage).toBe(
+            DEFAULT_SETTINGS.preferJapaneseSiteLanguage,
+        );
+
+        const loaded = await loadSettings();
+        expect(loaded.preferJapaneseSiteLanguage).toBe(false);
+        expect(typeof loaded.preferJapaneseSiteLanguage).toBe('boolean');
+        expect(store.get(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY)).toBe(false);
+    });
+
+    it('reloads authoritative settings when either the blob or scalar changes', async () => {
+        const store = new Map<string, unknown>([
+            [SETTINGS_STORAGE_KEY, { preferJapaneseSiteLanguage: true, theme: 'light' }],
+            [PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY, false],
+        ]);
+        installSharedMessageBasedGm(store);
+        type StoredValueListener = (
+            key: string,
+            oldValue: unknown,
+            newValue: unknown,
+            remote: boolean,
+        ) => void;
+        const listeners = new Map<string, StoredValueListener>();
+        vi.stubGlobal('GM_addValueChangeListener', vi.fn((
+            key: string,
+            listener: StoredValueListener,
+        ) => {
+            listeners.set(key, listener);
+            return listeners.size;
+        }));
+        const removeListener = vi.fn();
+        vi.stubGlobal('GM_removeValueChangeListener', removeListener);
+        const onSettings = vi.fn();
+        const unsubscribe = subscribeToSettingsStorageChanges(onSettings);
+
+        const updatedBlob = { preferJapaneseSiteLanguage: true, theme: 'dark' };
+        store.set(SETTINGS_STORAGE_KEY, updatedBlob);
+        listeners.get(SETTINGS_STORAGE_KEY)?.(
+            SETTINGS_STORAGE_KEY,
+            null,
+            updatedBlob,
+            true,
+        );
+        await vi.waitFor(() => expect(onSettings).toHaveBeenCalledTimes(1));
+        expect(onSettings.mock.calls[0]?.[0]).toMatchObject({
+            preferJapaneseSiteLanguage: false,
+            theme: 'dark',
+        });
+
+        store.set(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY, true);
+        listeners.get(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY)?.(
+            PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
+            false,
+            true,
+            true,
+        );
+        await vi.waitFor(() => expect(onSettings).toHaveBeenCalledTimes(2));
+        expect(onSettings.mock.calls[1]?.[0].preferJapaneseSiteLanguage).toBe(true);
+
+        unsubscribe();
+        expect(removeListener).toHaveBeenCalledTimes(2);
     });
 });
 

@@ -1,5 +1,9 @@
-import { DEFAULT_SETTINGS, SETTINGS_STORAGE_KEYS } from '../settings/index';
-import { gmStorageGet, gmStorageGetSync } from './storage';
+import {
+    DEFAULT_SETTINGS,
+    PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
+    SETTINGS_STORAGE_KEYS,
+} from '../settings/index';
+import { gmStorageGet, gmStorageGetSharedSync } from './storage';
 import { pageCompartmentDescriptorOrNull, pageCompartmentValue } from '../platform/window-events';
 import type { ReaderSettings } from './types';
 
@@ -31,36 +35,77 @@ type StoredSettings = Partial<Pick<ReaderSettings, 'preferJapaneseSiteLanguage'>
 type QueryRoot = Pick<ParentNode, 'querySelectorAll'> & Partial<Pick<Document, 'readyState'>>;
 
 let alternateRedirectCleanup: (() => void) | undefined;
+let preferenceRevision = 0;
+let currentPreferenceEnabled = false;
+let pendingStartupOptOutCleanup = false;
+let deferredCookieResponseReload = false;
 
 export function installPreferredJapaneseSiteLanguageFromStoredSettings(): void {
+    const cachedPreference = readCachedPreferenceEnabled();
+    const revision = ++preferenceRevision;
+    pendingStartupOptOutCleanup ||= cachedPreference === true;
     const syncPreference = readStoredPreferenceEnabledSync();
     if (typeof syncPreference === 'boolean') {
-        applyPreferredJapaneseSiteLanguage(syncPreference);
+        applyPreferredJapaneseSiteLanguageAtRevision(syncPreference, false, revision);
         return;
     }
     // The shared setting is behind async-only storage here. This origin's cache
     // only records what the last visit to THIS site resolved to, and a toggle on
-    // any other site cannot reach it, so it is a hint and never the answer:
-    // install the cheap reversible page hints it implies to avoid a flash of the
-    // wrong locale, but never write it back and never navigate on it.
-    if (readCachedPreferenceEnabled() === true) applyPageContextJapanesePreferences(true);
-    void readStoredPreferenceEnabledAsync().then(applyPreferredJapaneseSiteLanguage);
+    // any other site cannot reach it. Do not expose a cached "on" through
+    // navigator/Intl while storage resolves: sites snapshot those values during
+    // startup and cannot be repaired after the authoritative opt-out arrives.
+    void readStoredPreferenceEnabledAsync().then(enabled => {
+        if (revision !== preferenceRevision) return;
+        applyPreferredJapaneseSiteLanguageAtRevision(enabled, false, revision);
+    });
 }
 
-export function applyPreferredJapaneseSiteLanguage(enabled: boolean, revertOnDisable = false): void {
+export function applyPreferredJapaneseSiteLanguage(
+    enabled: boolean,
+    revertOnDisable = false,
+    deferCookieResponseReloadUntilPersisted = false,
+): void {
+    applyPreferredJapaneseSiteLanguageAtRevision(
+        enabled,
+        revertOnDisable,
+        ++preferenceRevision,
+        deferCookieResponseReloadUntilPersisted,
+    );
+}
+
+function applyPreferredJapaneseSiteLanguageAtRevision(
+    enabled: boolean,
+    revertOnDisable: boolean,
+    revision: number,
+    deferCookieResponseReloadUntilPersisted = false,
+): void {
     if (typeof window === 'undefined') return;
+    if (revision !== preferenceRevision) return;
+    const shouldRevert = !enabled && (revertOnDisable || pendingStartupOptOutCleanup);
+    pendingStartupOptOutCleanup = false;
+    currentPreferenceEnabled = enabled;
     writeCachedPreferenceEnabled(enabled);
-    applyPageContextJapanesePreferences(enabled);
+    applyPageContextJapanesePreferences(enabled, revision);
     if (enabled) {
+        deferredCookieResponseReload = false;
         applySitePreferenceCookies();
-        schedulePreferredJapaneseSiteRedirect();
+        schedulePreferredJapaneseSiteRedirect(revision);
         return;
     }
-    clearSitePreferenceCookies();
+    const clearedSiteCookie = clearSitePreferenceCookies();
+    const shouldReloadCookieShapedResponse = clearedSiteCookie || deferredCookieResponseReload;
+    deferredCookieResponseReload = deferCookieResponseReloadUntilPersisted
+        ? shouldReloadCookieShapedResponse
+        : false;
     cancelPreferredJapaneseSiteRedirectWatcher();
     // A deliberate opt-out also has to undo the navigation the preference caused;
     // leaving the site on its Japanese URL reads as the toggle having done nothing.
-    if (revertOnDisable) attemptPreferredDefaultSiteRedirect();
+    if (shouldRevert && !attemptPreferredDefaultSiteRedirect() && shouldReloadCookieShapedResponse) {
+        // The Japanese preference cookie shaped the response before a document-
+        // start script could remove it. Reload once after clearing it; the cache
+        // is already false, so the next load cannot repeat this branch.
+        reloadCurrentLocation();
+    }
 }
 
 export function preferredJapaneseSiteUrl(sourceHref: string, root?: QueryRoot): string | null {
@@ -92,8 +137,13 @@ function preferredDefaultSiteUrl(sourceHref: string, root?: QueryRoot): string |
 // turning it off elsewhere could not reach them, and each load rewrote the cache
 // from itself, so the toggle had to be pressed again on every site, forever.
 function readStoredPreferenceEnabledSync(): boolean | undefined {
+    const preferredLanguage = gmStorageGetSharedSync<unknown>(
+        PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
+        undefined,
+    );
+    if (typeof preferredLanguage === 'boolean') return preferredLanguage;
     for (const key of SETTINGS_STORAGE_KEYS) {
-        const stored = gmStorageGetSync<StoredSettings | undefined>(key, undefined);
+        const stored = gmStorageGetSharedSync<StoredSettings | undefined>(key, undefined);
         if (stored && typeof stored === 'object' && typeof stored.preferJapaneseSiteLanguage === 'boolean') {
             return stored.preferJapaneseSiteLanguage;
         }
@@ -102,6 +152,11 @@ function readStoredPreferenceEnabledSync(): boolean | undefined {
 }
 
 async function readStoredPreferenceEnabledAsync(): Promise<boolean> {
+    const preferredLanguage = await gmStorageGet<unknown>(
+        PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
+        undefined,
+    );
+    if (typeof preferredLanguage === 'boolean') return preferredLanguage;
     for (const key of SETTINGS_STORAGE_KEYS) {
         const stored = await gmStorageGet<StoredSettings | undefined>(key, undefined);
         if (stored && typeof stored === 'object' && typeof stored.preferJapaneseSiteLanguage === 'boolean') {
@@ -133,7 +188,7 @@ function writeCachedPreferenceEnabled(enabled: boolean): void {
     }
 }
 
-function applyPageContextJapanesePreferences(enabled: boolean): void {
+function applyPageContextJapanesePreferences(enabled: boolean, revision: number): void {
     const pageWindow = sameRealmUnsafeWindow();
     if (pageWindow) {
         try {
@@ -149,7 +204,7 @@ function applyPageContextJapanesePreferences(enabled: boolean): void {
     // "Refused to execute inline script" error); the cookie + redirect paths in
     // applyPreferredJapaneseSiteLanguage remain the working mechanism there.
     if (hasExtensionRuntime()) return;
-    injectPagePreferenceScript(enabled);
+    injectPagePreferenceScript(enabled, revision);
 }
 
 function sameRealmUnsafeWindow(): Window | undefined {
@@ -166,10 +221,13 @@ function hasExtensionRuntime(): boolean {
     return Boolean(root.browser?.runtime?.id || root.chrome?.runtime?.id);
 }
 
-function injectPagePreferenceScript(enabled: boolean, attempt = 0): void {
+function injectPagePreferenceScript(enabled: boolean, revision: number, attempt = 0): void {
+    if (!preferenceIsCurrent(enabled, revision)) return;
     const parent = document.head || document.documentElement;
     if (!parent) {
-        if (attempt < INJECTION_RETRY_LIMIT) window.setTimeout(() => injectPagePreferenceScript(enabled, attempt + 1), 0);
+        if (attempt < INJECTION_RETRY_LIMIT) {
+            window.setTimeout(() => injectPagePreferenceScript(enabled, revision, attempt + 1), 0);
+        }
         return;
     }
     try {
@@ -190,8 +248,14 @@ function injectPagePreferenceScript(enabled: boolean, attempt = 0): void {
         parent.append(script);
         script.remove();
     } catch {
-        if (attempt < INJECTION_RETRY_LIMIT) window.setTimeout(() => injectPagePreferenceScript(enabled, attempt + 1), 0);
+        if (attempt < INJECTION_RETRY_LIMIT) {
+            window.setTimeout(() => injectPagePreferenceScript(enabled, revision, attempt + 1), 0);
+        }
     }
+}
+
+function preferenceIsCurrent(enabled: boolean, revision: number): boolean {
+    return revision === preferenceRevision && currentPreferenceEnabled === enabled;
 }
 
 function createTrustedScript(code: string): any {
@@ -263,10 +327,12 @@ function applySitePreferenceCookies(): void {
     }
 }
 
-function clearSitePreferenceCookies(): void {
+function clearSitePreferenceCookies(): boolean {
     const hostname = currentLocationHostname();
-    if (/(^|\.)youtube\.com$/.test(hostname)) clearCookieValues('PREF', ['hl', 'gl', 'tz'], '.youtube.com');
-    if (/(^|\.)google\./.test(hostname)) clearCookieValues('PREF', ['hl', 'gl']);
+    let changed = false;
+    if (/(^|\.)youtube\.com$/.test(hostname)) changed = clearCookieValues('PREF', ['hl', 'gl', 'tz'], '.youtube.com') || changed;
+    if (/(^|\.)google\./.test(hostname)) changed = clearCookieValues('PREF', ['hl', 'gl']) || changed;
+    return changed;
 }
 
 function currentLocationHostname(): string {
@@ -287,7 +353,8 @@ function isTopLevelFrame(): boolean {
     }
 }
 
-function schedulePreferredJapaneseSiteRedirect(): void {
+function schedulePreferredJapaneseSiteRedirect(revision: number): void {
+    if (!preferenceIsCurrent(true, revision)) return;
     if (!isTopLevelFrame()) return;
     // Redirect at most ONCE per host per tab session. SPA sites (notably
     // m.youtube.com) rewrite their URL on every in-app navigation without keeping
@@ -297,11 +364,12 @@ function schedulePreferredJapaneseSiteRedirect(): void {
     // set on the first redirect keeps the site Japanese afterward, so any further
     // URL redirect is both redundant and the source of the loop.
     if (hostAlreadyRedirectedThisSession()) return;
-    if (attemptPreferredJapaneseSiteRedirect()) return;
-    installAlternateRedirectWatcher();
+    if (attemptPreferredJapaneseSiteRedirect(revision)) return;
+    installAlternateRedirectWatcher(revision);
 }
 
-function attemptPreferredJapaneseSiteRedirect(): boolean {
+function attemptPreferredJapaneseSiteRedirect(revision: number): boolean {
+    if (!preferenceIsCurrent(true, revision)) return false;
     const href = currentLocationHref();
     const target = href ? preferredJapaneseSiteUrl(href, document) : null;
     if (!target || hostAlreadyRedirectedThisSession() || recentlyAttemptedRedirect(href, target)) return false;
@@ -377,11 +445,14 @@ function currentLocationHref(): string {
     return typeof location.href === 'string' ? location.href : '';
 }
 
-function installAlternateRedirectWatcher(attempt = 0): void {
+function installAlternateRedirectWatcher(revision: number, attempt = 0): void {
+    if (!preferenceIsCurrent(true, revision)) return;
     if (alternateRedirectCleanup) return;
     const root = document.documentElement || document.head;
     if (!root) {
-        if (attempt < INJECTION_RETRY_LIMIT) window.setTimeout(() => installAlternateRedirectWatcher(attempt + 1), 0);
+        if (attempt < INJECTION_RETRY_LIMIT) {
+            window.setTimeout(() => installAlternateRedirectWatcher(revision, attempt + 1), 0);
+        }
         return;
     }
 
@@ -391,8 +462,12 @@ function installAlternateRedirectWatcher(attempt = 0): void {
         alternateRedirectCleanup = undefined;
     };
     const check = () => {
+        if (!preferenceIsCurrent(true, revision)) {
+            stop();
+            return;
+        }
         checks += 1;
-        if (attemptPreferredJapaneseSiteRedirect() || checks >= ALTERNATE_REDIRECT_RETRY_LIMIT) stop();
+        if (attemptPreferredJapaneseSiteRedirect(revision) || checks >= ALTERNATE_REDIRECT_RETRY_LIMIT) stop();
     };
     const observer = new MutationObserver(check);
     const timer = window.setInterval(check, ALTERNATE_REDIRECT_RETRY_MS);
@@ -427,6 +502,19 @@ function replaceLocation(href: string): void {
         location.href = href;
     } catch {
         // If a browser blocks the navigation, keep the locale/cookie shims active.
+    }
+}
+
+function reloadCurrentLocation(): void {
+    const href = currentLocationHref();
+    if (href) {
+        replaceLocation(href);
+        return;
+    }
+    try {
+        location.reload();
+    } catch {
+        // The cookie and cached setting are already corrected for the next load.
     }
 }
 
@@ -679,17 +767,20 @@ function mergeCookie(name: string, values: Record<string, string>, domain?: stri
     }
 }
 
-function clearCookieValues(name: string, keys: string[], domain?: string): void {
+function clearCookieValues(name: string, keys: string[], domain?: string): boolean {
     try {
         const currentValue = cookieValue(name);
-        if (!currentValue) return;
+        if (!currentValue) return false;
         const params = new URLSearchParams(currentValue);
         for (const key of keys) params.delete(key);
         const nextValue = params.toString();
+        if (nextValue === currentValue) return false;
         if (nextValue) writeCookie(name, nextValue, domain, 31536000);
         else writeCookie(name, '', domain, 0);
+        return true;
     } catch {
         // Cookie cleanup should never block settings changes.
+        return false;
     }
 }
 

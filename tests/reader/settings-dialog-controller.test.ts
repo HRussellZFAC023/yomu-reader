@@ -3,7 +3,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createAudioPreviewCard } from '../../src/reader/cards/utils';
 import { SETTINGS_CHANGE_EVENT } from '../../src/reader/app/constants';
 import { recommendedDictionariesForLearnerLanguage } from '../../src/reader/dictionaries/recommended';
-import { normalizeReaderSettings } from '../../src/reader/settings';
+import {
+    PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
+    normalizeReaderSettings,
+} from '../../src/reader/settings';
 import { testEnSettings } from './helpers/settings-fixture';
 import type { SettingsDialogController as SettingsDialogControllerInstance } from '../../src/reader/settings/dialog-controller';
 
@@ -812,6 +815,25 @@ describe('settings dialog keyboard dismissal', () => {
         expect(dependencies.toast).toHaveBeenCalledWith('Settings saved.');
 
         refresh.resolve();
+    });
+
+    it('persists a Japanese-sites opt-out before reporting the settings saved', async () => {
+        const onSettingsPersisted = vi.fn();
+        const { dismiss, form } = createSettingsDialog({ onSettingsPersisted });
+        const preferJapaneseSites = form.querySelector<HTMLInputElement>(
+            'input[name="preferJapaneseSiteLanguage"]',
+        )!;
+        preferJapaneseSites.checked = false;
+
+        form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+        await waitForCondition(() => dismiss.mock.calls.length === 1);
+
+        expect(JSON.parse(
+            localStorage.getItem(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY) ?? 'null',
+        )).toBe(false);
+        expect(onSettingsPersisted).toHaveBeenCalledWith(expect.objectContaining({
+            preferJapaneseSiteLanguage: false,
+        }));
     });
 
     it('keeps changed account details unsaved when Firefox consent is denied', async () => {

@@ -102,6 +102,8 @@ interface SettingsDialogDependencies {
     // values (dependency calls read getSettings) but skip side-effectful
     // transitions such as the annotations-off instant clear.
     setSettings: (settings: ReaderSettings, options?: { transient?: boolean }) => void;
+    onSettingsPersisted?: (settings: ReaderSettings) => void;
+    onSettingsPersistenceFailed?: (previousSettings: ReaderSettings) => void;
     jpdb: JpdbClient;
     dictionaries: YomitanDictionaryStore;
     anki: AnkiConnectClient;
@@ -708,6 +710,20 @@ export class SettingsDialogController {
         this.dependencies.setSettings(previous, { transient: true });
     }
 
+    private async saveCurrentSettings(previousSettings: ReaderSettings): Promise<void> {
+        const settings = this.settings;
+        try {
+            await saveSettings(settings, {
+                persistPreferredJapaneseSiteLanguage:
+                    previousSettings.preferJapaneseSiteLanguage !== settings.preferJapaneseSiteLanguage,
+            });
+            this.dependencies.onSettingsPersisted?.(settings);
+        } catch (error) {
+            this.dependencies.onSettingsPersistenceFailed?.(previousSettings);
+            throw error;
+        }
+    }
+
     private createSettingsForm(panel?: string): HTMLFormElement {
         const form = document.createElement('form');
         form.className = 'jpdb-reader-settings';
@@ -729,13 +745,14 @@ export class SettingsDialogController {
                 this.showDictionarySaveBlocked(form);
                 return;
             }
-            const previousInitialOpen = this.settings.dictionarySourcesInitiallyExpanded;
-            const nextSettings = readFormSettings(new FormData(form), this.settings);
+            const previousSettings = this.settings;
+            const previousInitialOpen = previousSettings.dictionarySourcesInitiallyExpanded;
+            const nextSettings = readFormSettings(new FormData(form), previousSettings);
             const saveRequestId = ++this.saveRequestId;
             // Invoke the native Firefox request synchronously from Submit. The
             // returned promise may settle later, but the user gesture must not
             // be separated from permissions.request() by an earlier await.
-            const credentialPermission = requestFirefoxAuthenticationInfoForChangedSettings(this.settings, nextSettings);
+            const credentialPermission = requestFirefoxAuthenticationInfoForChangedSettings(previousSettings, nextSettings);
             void credentialPermission.then(consent => {
                 if (!this.acceptFirefoxAuthenticationInfoConsent(consent, this.settings.interfaceLanguage)) return;
                 this.settings = nextSettings;
@@ -743,7 +760,9 @@ export class SettingsDialogController {
                 if (this.settings.dictionarySourcesInitiallyExpanded !== previousInitialOpen) {
                     this.dependencies.clearDictionarySourceOpenOverrides();
                 }
-                return saveSettings(this.settings).then(() => this.afterSettingsSaved(form, saveRequestId));
+                return this.saveCurrentSettings(previousSettings).then(() => {
+                    this.afterSettingsSaved(form, saveRequestId);
+                });
             })
                 .catch(error => {
                     log.error('Settings save failed', error);
@@ -2033,12 +2052,14 @@ export class SettingsDialogController {
         const button = settingsActionButton(control);
         button?.setAttribute('disabled', 'true');
         await this.rememberPendingCloudSettingsAction(action);
+        const previousSettings = this.settings;
         try {
             if (action === 'sync-cloud-settings') this.settings = readFormSettings(new FormData(form), this.settings);
-            await this.performCloudSettingsAction(action, language, setStatus);
+            await this.performCloudSettingsAction(action, language, setStatus, previousSettings);
             await this.clearPendingCloudSettingsAction();
             return true;
         } catch (error) {
+            this.dependencies.onSettingsPersistenceFailed?.(previousSettings);
             await this.clearPendingCloudSettingsAction();
             throw error;
         } finally {
@@ -2046,9 +2067,14 @@ export class SettingsDialogController {
         }
     }
 
-    private async performCloudSettingsAction(action: CloudSettingsAction, language: InterfaceLanguage, setStatus?: SettingsStatusSetter): Promise<void> {
+    private async performCloudSettingsAction(
+        action: CloudSettingsAction,
+        language: InterfaceLanguage,
+        setStatus?: SettingsStatusSetter,
+        previousSettings = this.settings,
+    ): Promise<void> {
         if (action === 'sync-cloud-settings') {
-            await saveSettings(this.settings);
+            await this.saveCurrentSettings(previousSettings);
             const metadata = await uploadCloudSettingsToCloud(this.settings);
             const message = cloudSettingsSyncedStatus(metadata.syncedAt, language);
             setStatus?.(message);
@@ -2062,13 +2088,14 @@ export class SettingsDialogController {
             setStatus?.(cloudSettingsNotFoundStatus(language));
             return;
         }
+        const settingsBeforeRestore = this.settings;
         this.settings = normalizeReaderSettings({
             ...this.settings,
             ...snapshot.settings,
             shortcuts: { ...this.settings.shortcuts, ...snapshot.settings.shortcuts },
         });
         await importStoredValues(snapshot.storage);
-        await saveSettings(this.settings);
+        await this.saveCurrentSettings(settingsBeforeRestore);
         const message = cloudSettingsRestoredStatus(snapshot.syncedAt, language);
         setStatus?.(message);
         this.dependencies.toast(message);
@@ -2663,16 +2690,22 @@ export class SettingsDialogController {
     private async importReaderSettingsFromFile(form: HTMLFormElement, setStatus: SettingsStatusSetter): Promise<void> {
         const file = await pickFile(form, 'settings');
         if (!file) return;
+        const previousSettings = this.settings;
         const json = JSON.parse(await file.text()) as unknown;
-        const readerSettings = getReaderSettingsExport(json);
-        this.settings = readerSettings
-            ? normalizeReaderSettings({ ...this.settings, ...readerSettings, shortcuts: { ...this.settings.shortcuts, ...readerSettings.shortcuts } })
-            : importedYomitanSettings(json, this.settings);
-        const restoredValues = await importStoredValues(getReaderStorageExport(json));
-        const dictionarySummary = await this.importReaderDictionaryBackup(json, setStatus);
-        await this.mergeImportedDictionaryPreferences();
-        await saveSettings(this.settings);
-        setStatus(importSettingsStatus(restoredValues, dictionarySummary, this.settings.interfaceLanguage));
+        try {
+            const readerSettings = getReaderSettingsExport(json);
+            this.settings = readerSettings
+                ? normalizeReaderSettings({ ...this.settings, ...readerSettings, shortcuts: { ...this.settings.shortcuts, ...readerSettings.shortcuts } })
+                : importedYomitanSettings(json, this.settings);
+            const restoredValues = await importStoredValues(getReaderStorageExport(json));
+            const dictionarySummary = await this.importReaderDictionaryBackup(json, setStatus);
+            await this.mergeImportedDictionaryPreferences();
+            await this.saveCurrentSettings(previousSettings);
+            setStatus(importSettingsStatus(restoredValues, dictionarySummary, this.settings.interfaceLanguage));
+        } catch (error) {
+            this.dependencies.onSettingsPersistenceFailed?.(previousSettings);
+            throw error;
+        }
         this.dependencies.applyTheme();
         void this.dependencies.refreshDictionaryStyles();
         this.dependencies.scheduleDictionaryRescan();

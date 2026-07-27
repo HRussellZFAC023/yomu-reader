@@ -48,6 +48,7 @@ interface OnboardingOptions {
     // Lets the owning runtime refresh its surface only after the completed
     // preferences have been durably stored.
     onComplete?: (settings: ReaderSettings) => Promise<void> | void;
+    onPersistenceFailed?: (previousSettings: ReaderSettings) => void;
 }
 
 function selectedOnboardingLanguage(value: string | undefined, fallback: InterfaceLanguage): InterfaceLanguage {
@@ -427,16 +428,21 @@ export class OnboardingController {
     private async complete(openSettings: boolean | 'dictionaries'): Promise<void> {
         const done = log.time('Onboarding complete', { openSettings });
         const installOfflineDictionaries = this.offlineDictionariesInput?.checked === true;
+        const previousSettings = this.options.getSettings();
         const settings = this.completedOnboardingSettings(openSettings, installOfflineDictionaries);
         try {
             this.options.setSettings(settings);
-            await saveSettings(settings);
+            await saveSettings(settings, {
+                persistPreferredJapaneseSiteLanguage:
+                    previousSettings.preferJapaneseSiteLanguage !== settings.preferJapaneseSiteLanguage,
+            });
             this.close();
             await this.options.onComplete?.(settings);
             if (installOfflineDictionaries) this.options.installOfflineDictionaries?.();
             this.openPostOnboardingSettings(openSettings);
             log.info('Onboarding completed', { openSettings, installOfflineDictionaries, language: settings.interfaceLanguage });
         } catch (error) {
+            this.options.onPersistenceFailed?.(previousSettings);
             log.warn('Onboarding completion failed', { openSettings, error });
             throw error;
         } finally {

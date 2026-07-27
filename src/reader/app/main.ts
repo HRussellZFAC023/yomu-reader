@@ -1105,6 +1105,7 @@ export class ReaderApp {
     private settingsPreviewOriginalAccent?: string;
     private settingsPreviewOriginalLanguage?: InterfaceLanguage;
     private settingsPreviewOriginalTheme?: ReaderSettings['theme'];
+    private pendingPreferredJapaneseSiteLanguage?: boolean;
     private lastAutoAudioKey = '';
     private lastAutoAudioAt = 0;
     private lastAutoAudioHoverGeneration?: number;
@@ -1189,15 +1190,17 @@ export class ReaderApp {
         return new Controller({
             getSettings: () => this.settings,
             setSettings: settings => {
-                const japaneseSiteOptOut = japaneseSiteLanguageDisabled(this.settings, settings);
+                const previous = this.settings;
                 this.settings = settings;
                 this.applyTheme();
-                this.applyPreferredJapaneseSiteLanguage(settings, japaneseSiteOptOut);
+                this.stagePreferredJapaneseSiteLanguage(previous, settings);
             },
             showSettings: panel => this.showSettings(panel),
             parseJapanese: panel => void this.parseOnboardingJapanese(panel),
             lookupText: (text, sentence, anchor) => this.lookupText(text, sentence || text, { anchor, stackOverSettings: true }),
             installOfflineDictionaries: () => void this.installOfflineParsingDictionaries(),
+            onComplete: settings => this.completePreferredJapaneseSiteLanguageSave(settings),
+            onPersistenceFailed: settings => this.failPreferredJapaneseSiteLanguageSave(settings),
         });
     }
 
@@ -1498,6 +1501,7 @@ export class ReaderApp {
         // off here, so this tab leaves its Japanese URL as well instead of staying
         // Japanese until its next reload.
         const japaneseSiteOptOut = japaneseSiteLanguageDisabled(this.settings, settings);
+        this.pendingPreferredJapaneseSiteLanguage = undefined;
         this.settings = settings;
         configureLogger({ forceEnabled: settings.enableLogging });
         this.applyPreferredJapaneseSiteLanguage(settings, japaneseSiteOptOut);
@@ -1657,9 +1661,22 @@ export class ReaderApp {
     }
 
     private async setPreferredJapaneseSiteLanguage(enabled: boolean): Promise<void> {
+        const previous = this.settings.preferJapaneseSiteLanguage;
+        if (previous === enabled) return;
         this.settings.preferJapaneseSiteLanguage = enabled;
-        await saveSettings(this.settings);
-        this.applyPreferredJapaneseSiteLanguage(this.settings, true);
+        const save = saveSettings(this.settings, { persistPreferredJapaneseSiteLanguage: true });
+        // Cancel an already-armed redirect synchronously. The navigation back
+        // to the site's default waits for the canonical preference write, so a
+        // slow userscript manager cannot unload the page before saving "off".
+        if (!enabled) this.applyPreferredJapaneseSiteLanguage(this.settings, false, true);
+        try {
+            await save;
+        } catch (error) {
+            this.settings.preferJapaneseSiteLanguage = previous;
+            this.applyPreferredJapaneseSiteLanguage(this.settings, false);
+            throw error;
+        }
+        this.applyPreferredJapaneseSiteLanguage(this.settings, !enabled);
         log.info('Preferred Japanese site language toggled', { enabled });
     }
 
@@ -1861,8 +1878,45 @@ export class ReaderApp {
     private applyPreferredJapaneseSiteLanguage(
         settings = this.settings,
         options?: Parameters<typeof applyJapaneseSiteLanguagePreference>[1],
+        deferCookieResponseReloadUntilPersisted?: Parameters<typeof applyJapaneseSiteLanguagePreference>[2],
     ): void {
-        applyJapaneseSiteLanguagePreference(settings.preferJapaneseSiteLanguage, options);
+        applyJapaneseSiteLanguagePreference(
+            settings.preferJapaneseSiteLanguage,
+            options,
+            deferCookieResponseReloadUntilPersisted,
+        );
+    }
+
+    private stagePreferredJapaneseSiteLanguage(previous: ReaderSettings, next: ReaderSettings): void {
+        if (previous.preferJapaneseSiteLanguage === next.preferJapaneseSiteLanguage) {
+            if (this.pendingPreferredJapaneseSiteLanguage === undefined) {
+                this.applyPreferredJapaneseSiteLanguage(next, false);
+            }
+            return;
+        }
+        this.pendingPreferredJapaneseSiteLanguage = next.preferJapaneseSiteLanguage;
+        // "Off" must stop pending locale injection and redirects immediately.
+        // URL/cookie rollback is held until the dedicated canonical key commits.
+        if (!next.preferJapaneseSiteLanguage) {
+            this.applyPreferredJapaneseSiteLanguage(next, false, true);
+        }
+    }
+
+    private completePreferredJapaneseSiteLanguageSave(settings: ReaderSettings): void {
+        if (this.pendingPreferredJapaneseSiteLanguage !== settings.preferJapaneseSiteLanguage) return;
+        const enabled = settings.preferJapaneseSiteLanguage;
+        this.pendingPreferredJapaneseSiteLanguage = undefined;
+        this.applyPreferredJapaneseSiteLanguage(settings, !enabled);
+    }
+
+    private failPreferredJapaneseSiteLanguageSave(previousSettings: ReaderSettings): void {
+        if (this.pendingPreferredJapaneseSiteLanguage === undefined) return;
+        this.pendingPreferredJapaneseSiteLanguage = undefined;
+        this.settings = {
+            ...this.settings,
+            preferJapaneseSiteLanguage: previousSettings.preferJapaneseSiteLanguage,
+        };
+        this.applyPreferredJapaneseSiteLanguage(this.settings, false);
     }
 
     private publishThemeSettingsChange(): void {
@@ -10066,13 +10120,15 @@ export class ReaderApp {
                 // the puck's 日, so it has to leave the site's Japanese URL too;
                 // only the transition reverts, or saving any unrelated setting
                 // would navigate away from a Japanese page the user chose.
-                const japaneseSiteOptOut = japaneseSiteLanguageDisabled(this.settings, settings);
+                const previous = this.settings;
                 this.settings = settings;
                 if (options?.transient) return;
-                this.applyPreferredJapaneseSiteLanguage(settings, japaneseSiteOptOut);
+                this.stagePreferredJapaneseSiteLanguage(previous, settings);
                 if (!settings.ankiEnabled) this.clearRenderedAnkiWordStates();
                 if (pauseChanged) this.applyAnnotationsPausedState();
             },
+            onSettingsPersisted: settings => this.completePreferredJapaneseSiteLanguageSave(settings),
+            onSettingsPersistenceFailed: settings => this.failPreferredJapaneseSiteLanguageSave(settings),
             jpdb: this.jpdb,
             dictionaries: this.dictionaries,
             anki: this.anki,

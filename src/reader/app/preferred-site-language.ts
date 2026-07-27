@@ -8,8 +8,16 @@ export function installPreferredJapaneseSiteLanguageFromStoredSettings(): void {
     yomuVideoCompanionSlot()?.installPreferredJapaneseSiteLanguageFromStoredSettings?.();
 }
 
-export function applyPreferredJapaneseSiteLanguage(enabled: boolean, revertOnDisable = false): void {
-    yomuVideoCompanionSlot()?.applyPreferredJapaneseSiteLanguage?.(enabled, revertOnDisable);
+export function applyPreferredJapaneseSiteLanguage(
+    enabled: boolean,
+    revertOnDisable = false,
+    deferCookieResponseReloadUntilPersisted = false,
+): void {
+    yomuVideoCompanionSlot()?.applyPreferredJapaneseSiteLanguage?.(
+        enabled,
+        revertOnDisable,
+        deferCookieResponseReloadUntilPersisted,
+    );
 }
 
 export function preferredJapaneseSiteUrl(sourceHref: string, root?: Parameters<typeof import('./preferred-site-language-impl').preferredJapaneseSiteUrl>[1]): string | null {

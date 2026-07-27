@@ -4,7 +4,10 @@ import {
     installPreferredJapaneseSiteLanguageFromStoredSettings,
     preferredJapaneseSiteUrl,
 } from '../../src/reader/app/preferred-site-language-impl';
-import { SETTINGS_STORAGE_KEY } from '../../src/reader/settings/index';
+import {
+    PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
+    SETTINGS_STORAGE_KEY,
+} from '../../src/reader/settings/index';
 
 describe('preferred Japanese site language', () => {
     const originalFetch = globalThis.fetch;
@@ -21,6 +24,7 @@ describe('preferred Japanese site language', () => {
         vi.unstubAllGlobals();
         if (originalFetch) vi.stubGlobal('fetch', originalFetch);
         vi.restoreAllMocks();
+        vi.useRealTimers();
     });
 
     it('applies the default-on Japanese locale hints from empty storage', async () => {
@@ -258,6 +262,22 @@ describe('preferred Japanese site language', () => {
         expect(localStorage.getItem('yomu:prefer-japanese-site-language')).toBe('false');
     });
 
+    it('lets the dedicated opt-out outrank a stale whole-settings save at document-start', () => {
+        const language = navigator.language;
+        localStorage.setItem('yomu:prefer-japanese-site-language', 'true');
+        vi.stubGlobal('GM_getValue', (key: string, fallback: unknown) => {
+            if (key === PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY) return false;
+            if (key === SETTINGS_STORAGE_KEY) return { preferJapaneseSiteLanguage: true };
+            return fallback;
+        });
+        vi.stubGlobal('unsafeWindow', window);
+
+        installPreferredJapaneseSiteLanguageFromStoredSettings();
+
+        expect(navigator.language).toBe(language);
+        expect(localStorage.getItem('yomu:prefer-japanese-site-language')).toBe('false');
+    });
+
     it('reconciles a stale enabled cache with async-only storage without redirecting on the cache', async () => {
         const language = navigator.language;
         const replace = vi.fn();
@@ -277,12 +297,74 @@ describe('preferred Japanese site language', () => {
         });
 
         installPreferredJapaneseSiteLanguageFromStoredSettings();
-        // The cache may hint the page-realm locale while storage answers, but it
-        // must never navigate: the tab would land on a URL the user opted out of.
+        // A site can snapshot navigator/Intl during its own startup, so even a
+        // reversible stale locale hint is already observable damage.
+        expect(navigator.language).toBe(language);
         expect(replace).not.toHaveBeenCalled();
         await settleAsyncHandlers();
 
         expect(navigator.language).toBe(language);
+        expect(replace).not.toHaveBeenCalled();
+    });
+
+    it('does not let a stale per-origin settings record bypass an async shared opt-out', async () => {
+        const language = navigator.language;
+        const replace = vi.fn();
+        localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({ preferJapaneseSiteLanguage: true }));
+        vi.stubGlobal('GM_getValue', undefined);
+        vi.stubGlobal('GM', {
+            getValue: vi.fn(async (key: string, fallback: unknown) => (
+                key === SETTINGS_STORAGE_KEY ? { preferJapaneseSiteLanguage: false } : fallback
+            )),
+        });
+        vi.stubGlobal('unsafeWindow', window);
+        vi.stubGlobal('location', {
+            href: 'https://www.reddit.com/r/newsokur/',
+            hostname: 'www.reddit.com',
+            protocol: 'https:',
+            replace,
+        });
+
+        installPreferredJapaneseSiteLanguageFromStoredSettings();
+
+        expect(navigator.language).toBe(language);
+        expect(replace).not.toHaveBeenCalled();
+        await settleAsyncHandlers();
+
+        expect(navigator.language).toBe(language);
+        expect(replace).not.toHaveBeenCalled();
+        expect(localStorage.getItem('yomu:prefer-japanese-site-language')).toBe('false');
+    });
+
+    it('ignores an obsolete async enabled read after a newer opt-out', async () => {
+        const language = navigator.language;
+        const replace = vi.fn();
+        let resolveStoredPreference!: (value: unknown) => void;
+        const storedPreference = new Promise<unknown>(resolve => {
+            resolveStoredPreference = resolve;
+        });
+        vi.stubGlobal('GM_getValue', undefined);
+        vi.stubGlobal('GM', {
+            getValue: vi.fn((key: string, fallback: unknown) => (
+                key === SETTINGS_STORAGE_KEY ? storedPreference : Promise.resolve(fallback)
+            )),
+        });
+        vi.stubGlobal('unsafeWindow', window);
+        vi.stubGlobal('location', {
+            href: 'https://www.reddit.com/r/newsokur/',
+            hostname: 'www.reddit.com',
+            protocol: 'https:',
+            replace,
+        });
+
+        installPreferredJapaneseSiteLanguageFromStoredSettings();
+        applyPreferredJapaneseSiteLanguage(false, true);
+        resolveStoredPreference({ preferJapaneseSiteLanguage: true });
+        await storedPreference;
+        await settleAsyncHandlers();
+
+        expect(navigator.language).toBe(language);
+        expect(localStorage.getItem('yomu:prefer-japanese-site-language')).toBe('false');
         expect(replace).not.toHaveBeenCalled();
     });
 
@@ -312,6 +394,54 @@ describe('preferred Japanese site language', () => {
         applyPreferredJapaneseSiteLanguage(false, true);
 
         expect(replace).toHaveBeenCalledWith('https://www.reddit.com/r/LearnJapanese/?after=t3_1');
+    });
+
+    it('uses a stale enabled cache as provenance to clean a Japanese URL at startup', () => {
+        const replace = vi.fn();
+        localStorage.setItem('yomu:prefer-japanese-site-language', 'true');
+        vi.stubGlobal('GM_getValue', (key: string, fallback: unknown) => (
+            key === SETTINGS_STORAGE_KEY ? { preferJapaneseSiteLanguage: false } : fallback
+        ));
+        vi.stubGlobal('unsafeWindow', window);
+        vi.stubGlobal('location', {
+            href: 'https://www.reddit.com/r/LearnJapanese/?locale=ja-JP&after=t3_1',
+            hostname: 'www.reddit.com',
+            protocol: 'https:',
+            replace,
+        });
+
+        installPreferredJapaneseSiteLanguageFromStoredSettings();
+
+        expect(replace).toHaveBeenCalledWith('https://www.reddit.com/r/LearnJapanese/?after=t3_1');
+        expect(localStorage.getItem('yomu:prefer-japanese-site-language')).toBe('false');
+    });
+
+    it('reloads once when a cleared Japanese preference cookie already shaped the response', () => {
+        const replace = vi.fn();
+        let cookie = 'PREF=hl=ja&gl=JP&keep=1';
+        vi.spyOn(document, 'cookie', 'get').mockImplementation(() => cookie);
+        vi.spyOn(document, 'cookie', 'set').mockImplementation(value => {
+            const [pair] = value.split(';');
+            if (pair?.startsWith('PREF=')) cookie = pair;
+        });
+        vi.stubGlobal('unsafeWindow', window);
+        vi.stubGlobal('location', {
+            href: 'https://www.google.com/search?q=nihongo',
+            hostname: 'www.google.com',
+            protocol: 'https:',
+            replace,
+        });
+
+        // The UI first cancels locale work synchronously, then only navigates
+        // after the dedicated opt-out key has been durably stored.
+        applyPreferredJapaneseSiteLanguage(false, false, true);
+        expect(replace).not.toHaveBeenCalled();
+        applyPreferredJapaneseSiteLanguage(false, true);
+
+        expect(document.cookie).toContain('keep=1');
+        expect(document.cookie).not.toContain('hl=ja');
+        expect(document.cookie).not.toContain('gl=JP');
+        expect(replace).toHaveBeenCalledWith('https://www.google.com/search?q=nihongo');
     });
 
     it('drops a Japanese path locale segment rather than guessing an English one', () => {
@@ -453,6 +583,42 @@ describe('preferred Japanese site language', () => {
         expect(document.cookie).not.toContain('hl=ja');
         expect(document.cookie).not.toContain('gl=JP');
         expect(localStorage.getItem('yomu:prefer-japanese-site-language')).toBe('false');
+    });
+
+    it('does not run a delayed enabled page injection after the preference is disabled', async () => {
+        vi.useFakeTimers();
+        vi.stubGlobal('unsafeWindow', { document: {} });
+        vi.stubGlobal('location', {
+            href: 'https://example.com/',
+            hostname: 'example.com',
+            protocol: 'https:',
+            replace: vi.fn(),
+        });
+        const head = document.head;
+        const documentElement = document.documentElement;
+        const headGetter = vi.spyOn(document, 'head', 'get')
+            .mockReturnValue(null as unknown as HTMLHeadElement);
+        const documentElementGetter = vi.spyOn(document, 'documentElement', 'get')
+            .mockReturnValue(null as unknown as HTMLElement);
+
+        applyPreferredJapaneseSiteLanguage(true);
+        applyPreferredJapaneseSiteLanguage(false);
+
+        headGetter.mockRestore();
+        documentElementGetter.mockRestore();
+        const appendedScripts: string[] = [];
+        const appendSpy = vi.spyOn(head, 'append').mockImplementation((...nodes: Array<Node | string>) => {
+            for (const node of nodes) {
+                if (node instanceof HTMLScriptElement) appendedScripts.push(node.textContent ?? '');
+            }
+        });
+        expect(document.documentElement).toBe(documentElement);
+
+        await vi.runAllTimersAsync();
+
+        expect(appendedScripts.join('\n')).not.toContain('applyJapanesePreferencesInPage(globalThis, true)');
+        expect(appendedScripts.join('\n')).toContain('applyJapanesePreferencesInPage(globalThis, false)');
+        appendSpy.mockRestore();
     });
 
     it('injects page-realm shims instead of patching a separate unsafeWindow directly', () => {

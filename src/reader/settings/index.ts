@@ -6,7 +6,7 @@ import { normalizeAnkiFieldMappings } from './anki-field-mappings';
 import { hasBunproFrontendCredential, hasJitenApiCredential, hasJpdbApiCredential, isBunproFrontendCredentialExpired, isJitenApiCredential } from './api-credential';
 import { DEFAULT_DICTIONARY_LOOKUP_LINKS, normalizeDictionaryLookupLinkSettings, normalizeDictionaryPreferences } from './dictionary';
 import { hasOwn, stringValue, trimmedText } from './values';
-import { cacheManagedValueForHostedStartup, gmStorageDelete, gmStorageGet, gmStorageSet, hasAsyncGmStorageBackend, isHostedYomuOrigin, localFallbackStoredValue, storedValueExists, subscribeToStoredValueChanges } from '../app/storage';
+import { cacheManagedValueForHostedStartup, gmStorageDelete, gmStorageGet, gmStorageSet, hasAsyncGmStorageBackend, isHostedYomuOrigin, localFallbackStoredValue, storedValueExists, subscribeToStoredValueChanges, withGmStorageLease } from '../app/storage';
 import { HOSTED_DEMO_SETTINGS_KEYS } from '../app/hosted-demo-settings';
 import { beginManagedStateReset, endManagedStateReset } from '../app/managed-state-registry';
 import { sharedContrastRatio, sharedMixHex } from '../core/color-math';
@@ -24,6 +24,7 @@ export { formatShortcutEvent, matchesShortcut, shortcutIsPressed } from './short
 export { COPY_LOOKUP_LINK, MAX_DICTIONARY_LOOKUP_LINKS, defaultDictionaryLookupLinks, mergeDictionaryPreferences, normalizeDictionaryLookupLinks, normalizeDictionaryPreferences, retireStaleDictionaryPreferences } from './dictionary';
 
 export const SETTINGS_STORAGE_KEY = 'jpdb-popup-reader-settings';
+export const PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY = 'yomu:prefer-japanese-site-language:v1';
 const LEGACY_SETTINGS_STORAGE_KEYS = [
     'jpdb-reader-settings',
     'yomu-reader-settings',
@@ -33,6 +34,7 @@ export const SETTINGS_STORAGE_KEYS = [
     SETTINGS_STORAGE_KEY,
     ...LEGACY_SETTINGS_STORAGE_KEYS,
 ] as const;
+const PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE = 'prefer-japanese-site-language-setting';
 
 const log = Logger.scope('Settings');
 let settingsResetInProgress = false;
@@ -635,8 +637,18 @@ function mergeSettings(value: LegacyReaderSettings | null): ReaderSettings {
         ...normalizeRemovedDictionarySettings(settingsValue),
         dictionaryLookupLinks: normalizeDictionaryLookupLinkSettings(settingsValue),
         ...languageProfileSettings,
+        preferJapaneseSiteLanguage: normalizePreferredJapaneseSiteLanguage(settingsValue),
         shortcuts: normalizeShortcutSettings(settingsValue),
     };
+}
+
+function normalizePreferredJapaneseSiteLanguage(value: LegacyReaderSettings | null): boolean {
+    if (!value || !hasOwn(value, 'preferJapaneseSiteLanguage')) {
+        return DEFAULT_SETTINGS.preferJapaneseSiteLanguage;
+    }
+    return typeof value.preferJapaneseSiteLanguage === 'boolean'
+        ? value.preferJapaneseSiteLanguage
+        : false;
 }
 
 // New installs parse with local dictionaries by default. Saved payloads that
@@ -1795,6 +1807,14 @@ function normalizedOcrEngineInput(value: unknown): string {
 export async function loadSettings(): Promise<ReaderSettings> {
     if (settingsResetInProgress) return mergeSettings(null);
     try {
+        // This scalar is the durable user-intent boundary for a preference that
+        // changes page startup behavior at document-start. Read it before the
+        // larger settings blob so a stale whole-object writer can never become
+        // authoritative merely because it finishes later.
+        const storedPreferredJapaneseSiteLanguage = await gmStorageGet<unknown>(
+            PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
+            undefined,
+        );
         const cacheStandaloneBaseline = isHostedYomuOrigin()
             && !hasAsyncGmStorageBackend()
             && localFallbackStoredValue<Partial<ReaderSettings> | null>(SETTINGS_STORAGE_KEY, null) === null;
@@ -1818,6 +1838,14 @@ export async function loadSettings(): Promise<ReaderSettings> {
             recoveredLegacySettings = recoveredLegacySettings || recovery.changed;
         }
 
+        settings = {
+            ...settings,
+            preferJapaneseSiteLanguage: await authoritativePreferredJapaneseSiteLanguage(
+                storedPreferredJapaneseSiteLanguage,
+                settings.preferJapaneseSiteLanguage,
+            ),
+        };
+
         if (recoveredLegacySettings) await persistSettings(settings);
         else if (isHostedYomuOrigin() && (hasAsyncGmStorageBackend() || cacheStandaloneBaseline)) {
             cacheManagedValueForHostedStartup(SETTINGS_STORAGE_KEY, stripUnsupportedSettings(settings) ?? settings);
@@ -1827,6 +1855,30 @@ export async function loadSettings(): Promise<ReaderSettings> {
         log.warn('Settings load failed', { error });
         return mergeSettings(null);
     }
+}
+
+async function authoritativePreferredJapaneseSiteLanguage(
+    storedValue: unknown,
+    migrationFallback: boolean,
+): Promise<boolean> {
+    if (typeof storedValue === 'boolean') return storedValue;
+    return withGmStorageLease(PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE, async () => {
+        // Re-read inside the lease so an explicit change that raced this
+        // one-time migration always wins.
+        const currentValue = await gmStorageGet<unknown>(
+            PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
+            undefined,
+        );
+        if (typeof currentValue === 'boolean') return currentValue;
+        await gmStorageSet(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY, migrationFallback);
+        return migrationFallback;
+    });
+}
+
+async function persistPreferredJapaneseSiteLanguage(value: boolean): Promise<void> {
+    await withGmStorageLease(PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE, async () => {
+        await gmStorageSet(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY, value);
+    });
 }
 
 // Hosted pages (yomureader.com and friends) historically had no GM backend, so
@@ -1917,16 +1969,47 @@ function settingsValueEquals(left: unknown, right: unknown): boolean {
 }
 
 export function subscribeToSettingsStorageChanges(onSettings: (settings: ReaderSettings) => void): () => void {
-    return subscribeToStoredValueChanges(SETTINGS_STORAGE_KEY, value => onSettings(mergeSettings(value as LegacyReaderSettings | null)));
+    let active = true;
+    let refreshRevision = 0;
+    const refresh = (): void => {
+        const revision = ++refreshRevision;
+        void loadSettings().then(settings => {
+            if (active && revision === refreshRevision) onSettings(settings);
+        });
+    };
+    const unsubscribers = [
+        subscribeToStoredValueChanges(SETTINGS_STORAGE_KEY, refresh),
+        subscribeToStoredValueChanges(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY, refresh),
+    ];
+    return () => {
+        active = false;
+        refreshRevision += 1;
+        for (const unsubscribe of unsubscribers) unsubscribe();
+    };
 }
 
-export async function saveSettings(settings: ReaderSettings): Promise<void> {
+export interface SaveSettingsOptions {
+    /**
+     * Set only for a user action that explicitly changed this preference.
+     * Background and stale whole-settings saves must leave the scalar alone.
+     */
+    readonly persistPreferredJapaneseSiteLanguage?: boolean;
+}
+
+export async function saveSettings(
+    settings: ReaderSettings,
+    options: SaveSettingsOptions = {},
+): Promise<void> {
     if (settingsResetInProgress) {
         log.warn('Skipped save during reset');
         return;
     }
     try {
-        await persistSettings(settings);
+        const normalizedSettings = mergeSettings(settings as LegacyReaderSettings);
+        if (options.persistPreferredJapaneseSiteLanguage) {
+            await persistPreferredJapaneseSiteLanguage(normalizedSettings.preferJapaneseSiteLanguage);
+        }
+        await persistSettings(normalizedSettings);
     } catch (error) {
         log.warn('Settings save failed', { error });
         throw error;
@@ -1963,11 +2046,12 @@ export function endSettingsResetGuard(): void {
 
 export async function deleteSettingsStorage(): Promise<void> {
     for (const key of SETTINGS_STORAGE_KEYS) await gmStorageDelete(key);
+    await gmStorageDelete(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY);
 }
 
 export async function settingsStorageKeysStillPresent(): Promise<string[]> {
     const keys: string[] = [];
-    for (const key of SETTINGS_STORAGE_KEYS) {
+    for (const key of [...SETTINGS_STORAGE_KEYS, PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY]) {
         if (await storedValueExists(key)) keys.push(key);
     }
     return keys;

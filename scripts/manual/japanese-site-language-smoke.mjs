@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 // Live-site smoke: inject the built userscript into real multilingual sites and
 // assert the Japanese site-language preference redirects to the Japanese URL.
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { chromium } from 'playwright';
 import {
     addGmStorageBridgeInitScript,
@@ -12,8 +14,15 @@ import {
 } from '../lib/smoke-harness.mjs';
 import { addScriptTagWithCspFallback } from '../lib/smoke-test-helpers.mjs';
 
-const { scriptPath: SCRIPT_PATH, root: ROOT } = createSmokePaths(import.meta.dirname);
-assertBuiltArtifacts([SCRIPT_PATH], ROOT);
+const {
+    scriptPath: SCRIPT_PATH,
+    root: ROOT,
+    dist: DIST,
+} = createSmokePaths(import.meta.dirname);
+const VIDEO_COMPANION_PATH = join(DIST, 'greasyfork/yomu-video.user.js');
+const PREFERENCE_CACHE_KEY = 'yomu:prefer-japanese-site-language';
+const OPT_OUT_FIXTURE_URL = 'https://japanese-site-language-smoke.test/en-US/docs?locale=en-US&region=GB';
+assertBuiltArtifacts([VIDEO_COMPANION_PATH, SCRIPT_PATH], ROOT);
 
 const SITES = [
     {
@@ -77,6 +86,12 @@ const settings = {
 const browser = await launchSmokeBrowser(chromium, 'chromium', { headless: true });
 const failures = [];
 
+try {
+    await runBuiltArtifactOptOutRegression(browser);
+} catch (error) {
+    failures.push(`built-artifact-opt-out: ${String(error).slice(0, 400)}`);
+}
+
 for (const site of SITES) {
     const context = await browser.newContext({ bypassCSP: true, locale: 'en-GB' });
     const page = await context.newPage();
@@ -89,7 +104,7 @@ for (const site of SITES) {
         await addConsentCookies(context, site.url);
         await addGmStorageBridgeInitScript(page, { key: YOMU_SETTINGS_KEY, value: settings });
         await page.goto(site.url, { waitUntil: 'domcontentloaded', timeout: 45_000 });
-        await addScriptTagWithCspFallback(page, SCRIPT_PATH);
+        await injectBuiltJapaneseSiteLanguageRuntime(page);
         const finalUrl = await waitForExpectedUrl(page, site.expects, site.settleMs);
         const problems = errors.length ? [`console errors: ${errors.slice(0, 3).join(' | ')}`] : [];
         console.log(JSON.stringify({ site: site.name, startUrl: site.url, finalUrl, problems }, null, 2));
@@ -109,6 +124,91 @@ if (failures.length) {
 }
 
 console.log('japanese-site-language smoke passed');
+
+async function runBuiltArtifactOptOutRegression(browserInstance) {
+    const context = await browserInstance.newContext({ bypassCSP: true, locale: 'en-GB' });
+    const page = await context.newPage();
+    const topLevelNavigations = [];
+    page.on('framenavigated', frame => {
+        if (frame === page.mainFrame() && frame.url() !== 'about:blank') topLevelNavigations.push(frame.url());
+    });
+
+    try {
+        await page.route('https://japanese-site-language-smoke.test/**', route => route.fulfill({
+            status: 200,
+            contentType: 'text/html',
+            body: '<!doctype html><html lang="en"><head><title>Yomu opt-out smoke</title></head><body>English fixture</body></html>',
+        }));
+        await page.addInitScript(cacheKey => {
+            localStorage.setItem(cacheKey, 'true');
+        }, PREFERENCE_CACHE_KEY);
+        await addGmStorageBridgeInitScript(page, {
+            key: YOMU_SETTINGS_KEY,
+            value: { ...settings, preferJapaneseSiteLanguage: false },
+        });
+        await page.goto(OPT_OUT_FIXTURE_URL, { waitUntil: 'domcontentloaded', timeout: 15_000 });
+
+        const staleCache = await page.evaluate(cacheKey => localStorage.getItem(cacheKey), PREFERENCE_CACHE_KEY);
+        assert(staleCache === 'true', 'opt-out fixture did not start with the stale per-origin enabled cache', { staleCache });
+
+        await injectBuiltJapaneseSiteLanguageRuntime(page);
+        await page.waitForTimeout(750);
+
+        const finalState = await page.evaluate(cacheKey => ({
+            cache: localStorage.getItem(cacheKey),
+            language: navigator.language,
+            languages: [...navigator.languages],
+        }), PREFERENCE_CACHE_KEY);
+        const finalUrl = page.url();
+        const unexpectedNavigations = topLevelNavigations.filter(url => url !== OPT_OUT_FIXTURE_URL);
+        assert(finalUrl === OPT_OUT_FIXTURE_URL, 'stored opt-out did not retain the non-Japanese fixture URL', {
+            finalUrl,
+            topLevelNavigations,
+        });
+        assert(unexpectedNavigations.length === 0, 'stored opt-out transiently redirected to another URL', {
+            unexpectedNavigations,
+            topLevelNavigations,
+        });
+        assert(finalState.cache === 'false', 'stored opt-out did not reconcile the stale per-origin cache', finalState);
+        assert(!/^ja(?:-|$)/i.test(finalState.language), 'stored opt-out retained Japanese navigator locale hints', finalState);
+        console.log(JSON.stringify({
+            site: 'built-artifact-opt-out',
+            startUrl: OPT_OUT_FIXTURE_URL,
+            finalUrl,
+            topLevelNavigations,
+            finalState,
+            problems: [],
+        }, null, 2));
+    } finally {
+        await context.close();
+    }
+}
+
+async function injectBuiltJapaneseSiteLanguageRuntime(page) {
+    // The preference implementation lives in the Video companion. Inject that
+    // exact build output first, mirroring userscript @require ordering, then run
+    // the core without auto-loading a second set of companion artifacts.
+    await addScriptTagWithCspFallback(page, VIDEO_COMPANION_PATH);
+    await addCoreScriptTagWithCspFallback(page);
+}
+
+async function addCoreScriptTagWithCspFallback(page) {
+    try {
+        await page.addScriptTag({ path: SCRIPT_PATH });
+    } catch {
+        const client = await page.context().newCDPSession(page);
+        try {
+            await client.send('Runtime.evaluate', {
+                expression: readFileSync(SCRIPT_PATH, 'utf8'),
+                awaitPromise: false,
+                allowUnsafeEvalBlockedByCSP: true,
+                replMode: true,
+            });
+        } finally {
+            await client.detach().catch(() => undefined);
+        }
+    }
+}
 
 async function waitForExpectedUrl(page, expects, settleMs = 0) {
     const deadline = Date.now() + 12_000;

@@ -252,6 +252,23 @@ export function gmStorageGetSync<T>(key: string, fallback: T): T {
     return localStorageGet(key, fallback);
 }
 
+// Read only when the shared userscript backend can answer synchronously.
+// Unlike gmStorageGetSync, this deliberately never falls back to this origin's
+// localStorage copy: callers use it when a stale per-origin value must not
+// outrank an async shared setting.
+export function gmStorageGetSharedSync<T>(key: string, fallback: T): T {
+    const getValue = typeof GM_getValue === 'function' ? GM_getValue as GmGetValue : null;
+    if (!getValue) return fallback;
+    try {
+        const value = getValue<T | typeof MISSING>(key, MISSING);
+        if (isPromiseLike(value) || isMissingSentinel(value)) return fallback;
+        return value as T;
+    } catch (error) {
+        debugStorageError('Shared GM storage sync read failed', key, error);
+        return fallback;
+    }
+}
+
 function gmStorageSyncRead<T>(key: string, getValue: GmGetValue): SyncStorageRead<T> {
     try {
         const value = getValue<T | typeof MISSING>(key, MISSING);
