@@ -58,6 +58,6 @@ A standalone kanji dictionary makes you stop reading, switch apps, and search. �
 
 <div class="yomu-cta-grid">
   <a class="yomu-cta-button primary" href="https://yomureader.com/yomu.user.js">Install よむ (free)</a>
-  <a class="yomu-cta-button" href="/features#kanji-drilldown">Kanji details</a>
+  <a class="yomu-cta-button" href="/features#slow-down-on-a-kanji">Kanji details</a>
   <a class="yomu-cta-button" href="/tools/">All tools</a>
 </div>

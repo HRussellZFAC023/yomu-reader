@@ -1,12 +1,12 @@
 ---
 layout: home
-title: よむ - Japanese reader for web, manga, games, PDFs, and subtitles
+title: よむ - turn anything you read into a Japanese lesson
 titleTemplate: false
-description: Yomu helps you read real Japanese in the browser. Look up words on web pages, manga, game text, PDFs, and subtitles, save useful sentences, connect your SRS, prefer Japanese site versions, and filter YouTube for Japanese content.
+description: Yomu turns any page, video, manga or game screen into a Japanese lesson — lookups, readings, and cards you keep. Free, runs in your browser, no account needed.
 hero:
   name: よむ
-  text: Read Japanese without leaving the page
-  tagline: Look up words on web pages, manga, game text, PDFs, and subtitles, then save useful sentences for study. Connect your SRS to practice your words, find new words by visiting the Japanese versions of the websites you use daily, and filter YouTube for Japanese content.<br>Yomu brings the perfect immersion environment, no matter your level.
+  text: Turn anything you read into a Japanese lesson
+  tagline: Yomu turns any page, video, manga or game screen into a Japanese lesson — lookups, readings, and cards you keep.<br>Free, runs in your browser, and ready in about two minutes.
   image:
     src: /yomu-icon.svg
     alt: よむ app icon
@@ -39,13 +39,13 @@ hero:
 
 <div class="yomu-install-panel">
   <div class="yomu-install-copy">
-    <strong>Ready in a few steps</strong>
-    <p>Choose a manager, add the userscript, or install the Yomu site as one offline-friendly shell for docs and tools.</p>
+    <strong>Three steps, about two minutes</strong>
+    <p>Add a userscript manager, install Yomu, then open a Japanese page and press a word.</p>
   </div>
   <div class="yomu-install-steps" role="list" aria-label="Install steps">
-    <div class="yomu-install-step" role="listitem"><a class="yomu-install-step-link" href="/getting-started#step-1-install-a-userscript-manager" aria-label="Choose a userscript manager"><span class="yomu-install-step-number" aria-hidden="true">1</span> <span class="yomu-install-step-label">Manager</span></a></div>
+    <div class="yomu-install-step" role="listitem"><a class="yomu-install-step-link" href="/getting-started#step-1-add-a-userscript-manager" aria-label="Choose a userscript manager"><span class="yomu-install-step-number" aria-hidden="true">1</span> <span class="yomu-install-step-label">Manager</span></a></div>
     <div class="yomu-install-step" role="listitem"><a class="yomu-install-step-link" href="https://yomureader.com/yomu.user.js" aria-label="Install the よむ userscript"><span class="yomu-install-step-number" aria-hidden="true">2</span> <span class="yomu-install-step-label">Install</span></a></div>
-    <div class="yomu-install-step" role="listitem"><a class="yomu-install-step-link" href="/getting-started#step-3-your-first-lookup" aria-label="Open a Japanese page"><span class="yomu-install-step-number" aria-hidden="true">3</span> <span class="yomu-install-step-label">Read</span></a></div>
+    <div class="yomu-install-step" role="listitem"><a class="yomu-install-step-link" href="/getting-started#step-3-look-up-your-first-word" aria-label="Open a Japanese page"><span class="yomu-install-step-number" aria-hidden="true">3</span> <span class="yomu-install-step-label">Read</span></a></div>
   </div>
   <!-- Install works by the manager INTERCEPTING navigation to the .user.js URL.
        Managers differ on whether they do: ScriptCat downloads the file instead,
@@ -64,8 +64,8 @@ hero:
 <section class="yomu-demo yomu-reveal" aria-labelledby="yomu-demo-title">
   <div class="yomu-demo-copy">
     <p class="yomu-showcase-kicker">Text</p>
-    <h2 id="yomu-demo-title">Look up a word, keep your place</h2>
-    <p>Readings, meanings, pitch, audio, examples, kanji, and save actions open in a popover when you press a word.</p>
+    <h2 id="yomu-demo-title">Press a word, keep your place</h2>
+    <p>The reading, the meaning, how it sounds, and a button to save it. You never leave the page you were reading.</p>
     <div class="yomu-try-me-text" data-yomu-furigana-mode="all" data-yomu-runtime-surface>
       <p class="yomu-try-me-label">Try me</p>
       <p class="yomu-try-me-sample" lang="ja" aria-label="今日は静かな喫茶店で新しい本を読みました。音声や色も見えます。" data-yomu-localize="off" data-jpdb-reader-surface-ignore="true">
@@ -87,8 +87,8 @@ hero:
 <section class="yomu-manga-ocr yomu-reveal" aria-labelledby="yomu-manga-title">
   <div class="yomu-manga-ocr-copy">
     <p class="yomu-showcase-kicker">Image</p>
-    <h2 id="yomu-manga-title">See how image text becomes readable</h2>
-    <p>When reading manga or images that contain Japanese, tap them to trigger OCR. You can then click any word within the panel.</p>
+    <h2 id="yomu-manga-title">Read manga you cannot select</h2>
+    <p>Tap a manga panel or a screenshot and Yomu reads the Japanese in it. Every word in the picture becomes a word you can look up.</p>
   </div>
   <div class="yomu-manga-figure" data-yomu-runtime-surface>
     <img class="yomu-manga-image" src="/media/manga-ocr-sample.png" alt="Japanese manga page with text detected by よむ OCR" loading="eager" fetchpriority="high" decoding="sync" />
@@ -98,8 +98,8 @@ hero:
 <section class="yomu-video-showcase yomu-reveal" aria-labelledby="yomu-video-title">
   <div class="yomu-video-copy">
     <p class="yomu-showcase-kicker">Video</p>
-    <h2 id="yomu-video-title">Read captions in any player</h2>
-    <p>Follow along with your favourite shows, looking up any words you dont understand. If there is some text on the screen, you can pause and read it with OCR</p>
+    <h2 id="yomu-video-title">Read the subtitles as you watch</h2>
+    <p>Follow your favourite shows and press any word in the subtitle line. Pause on a sign or a title card and Yomu reads that too.</p>
   </div>
   <div class="yomu-video-card" data-yomu-video-frame data-yomu-runtime-surface data-yomu-demo-player aria-label="Captioned Peppa Pig Japanese sample video">
     <video class="yomu-sample-player" controls playsinline preload="metadata" poster="/media/yomu-peppa-shopping-poster.jpg" aria-label="Captioned Peppa Pig Japanese shopping sample video">
@@ -114,31 +114,31 @@ hero:
 
 <div class="yomu-link-grid yomu-next-grid">
   <a class="yomu-link-card" href="/getting-started">
-    <strong>Install</strong>
-    <span>Choose desktop, iPhone, or iPad and get the userscript running.</span>
+    <strong>Install Yomu</strong>
+    <span>Two minutes on a computer, iPhone, or iPad. Start here.</span>
   </a>
   <a class="yomu-link-card" href="/study/" target="_self">
-    <strong>Study</strong>
-    <span>Review saved words, stats, and Anki-backed queues.</span>
+    <strong>Study your words</strong>
+    <span>Review the words you saved. Works offline once it has loaded.</span>
   </a>
   <a class="yomu-link-card" href="/academy/" target="_self">
-    <strong>Academy</strong>
-    <span>Learn through the guided course with the same vocabulary collection and review history.</span>
+    <strong>Take the course</strong>
+    <span>A guided path through Japanese, using the words you already collected.</span>
   </a>
   <a class="yomu-link-card" href="/video-player/index.html" target="_self">
-    <strong>Watch</strong>
-    <span>Open local videos and Japanese subtitles in よむ.</span>
+    <strong>Watch your own videos</strong>
+    <span>Drop in a video and a subtitle file, then read along.</span>
   </a>
   <a class="yomu-link-card" href="/pdf-reader/index.html">
-    <strong>Read</strong>
-    <span>Read PDFs with the same popup reader.</span>
+    <strong>Read a PDF</strong>
+    <span>Open a Japanese textbook or article and press words in it.</span>
   </a>
   <a class="yomu-link-card" href="/tools/japanese-ocr">
-    <strong>Manga OCR</strong>
-    <span>Look up words inside manga panels and screenshots.</span>
+    <strong>Read manga</strong>
+    <span>Look up words inside panels and screenshots.</span>
   </a>
   <a class="yomu-link-card" href="/tools/yomu-gaming">
-    <strong>Games</strong>
-    <span>Use the first-party desktop app for PC game capture and lookup.</span>
+    <strong>Play in Japanese</strong>
+    <span>Read the text in PC games with the Yomu Gaming app.</span>
   </a>
 </div>

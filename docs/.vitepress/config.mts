@@ -1,5 +1,10 @@
 import { createRequire } from 'node:module';
 import { defineConfig, type HeadConfig } from 'vitepress';
+import {
+    internalDocsExcludeGlobs,
+    navigationRoutes,
+    sitemapItemsForRoutes,
+} from '../../config/docs/published-pages';
 import { jpdbAudioDevProxyPlugin } from '../../config/vite/jpdb-audio-proxy';
 import pkg from '../../package.json' with { type: 'json' };
 
@@ -203,16 +208,101 @@ function jsonLdFor(pageData: PageDataLike, pageUrl: string): HeadConfig[] {
     ]);
 }
 
+const siteNav = [
+    { text: 'Install', link: '/getting-started' },
+    { text: 'Tools', link: '/tools/' },
+    { text: 'Learn', link: '/guides/' },
+    { text: 'Study', link: newTabLink, target: '_self' },
+    { text: 'Academy', link: '/academy/', target: '_self' },
+    { text: 'Support', link: '/support' },
+    {
+        text: 'More',
+        items: [
+            { text: 'Video Player', link: videoPlayerLink, target: '_self' },
+            { text: 'PDF Reader', link: pdfReaderLink, target: '_self' },
+            { text: 'Stats', link: statsLink, target: '_self' },
+            { text: 'API', link: '/api/', target: '_self' },
+            { text: 'Local Audio', link: '/local-audio' },
+            { text: 'Changelog', link: '/changelog' },
+            { text: 'Privacy', link: '/privacy' },
+            { text: 'Support', link: '/support' },
+        ],
+    },
+];
+
+const siteSidebar = [
+    {
+        text: 'Use よむ',
+        items: [
+            { text: 'Overview', link: '/' },
+            { text: 'Install', link: '/getting-started' },
+            { text: 'What it does', link: '/features' },
+        ],
+    },
+    {
+        text: 'Tools',
+        items: [
+            { text: 'All tools', link: '/tools/' },
+            { text: 'OCR & manga', link: '/tools/japanese-ocr' },
+            { text: 'Subtitles & video', link: '/tools/japanese-subtitle-reader' },
+            { text: 'Video Player', link: videoPlayerLink, target: '_self' },
+            { text: 'PDF Reader', link: pdfReaderLink, target: '_self' },
+            { text: 'Yomu Gaming', link: '/tools/yomu-gaming' },
+            { text: 'Furigana reader', link: '/tools/furigana-reader' },
+            { text: 'Kanji stroke order', link: '/tools/kanji-stroke-order' },
+            { text: 'Study page', link: '/tools/study-page' },
+            { text: 'YouTube for Japanese', link: '/tools/youtube-japanese' },
+        ],
+    },
+    {
+        text: 'Learn',
+        items: [
+            { text: 'All guides', link: '/guides/' },
+            { text: 'Read manga in Japanese', link: '/guides/read-manga-in-japanese' },
+            { text: 'Comprehensible-input YouTube', link: '/guides/comprehensible-input-youtube' },
+            { text: 'Mine sentences to Anki', link: '/guides/mine-sentences-to-anki' },
+            { text: 'Study setup', link: '/guides/study-setup' },
+        ],
+    },
+    {
+        text: 'Project',
+        items: [
+            { text: 'Support', link: '/support' },
+            { text: 'API', link: '/api/', target: '_self' },
+            { text: 'Local Audio', link: '/local-audio' },
+            { text: 'Changelog', link: '/changelog' },
+        ],
+    },
+];
+
+// Every page the site itself links to. Derived from the nav and sidebar above
+// so a new public page reaches search engines as soon as it is linked, and a
+// file that lands in docs/ without a navigation entry never does.
+const linkedRoutes = navigationRoutes([...siteNav, ...siteSidebar]);
+
 export default defineConfig({
     title: 'よむ',
     description: siteDescription,
     base,
-    // Internal working notes; raw angle-bracket text in them must never break the site build.
-    srcExclude: ['academy/**/*.md'],
+    // Internal engineering notes: kept in the repo, never routed as pages. See
+    // config/docs/published-pages.ts for why each pattern is here.
+    srcExclude: internalDocsExcludeGlobs,
     cleanUrls: true,
     lastUpdated: true,
     sitemap: {
         hostname: siteUrl,
+        // Second gate behind srcExclude. scripts/submit-indexnow.mjs pushes
+        // every sitemap URL to search engines, so the sitemap is what actually
+        // gets pages indexed: keep it to pages the site navigates to.
+        transformItems(items) {
+            const published = sitemapItemsForRoutes(items, linkedRoutes);
+            const omitted = items.filter(item => !published.includes(item));
+            if (omitted.length) {
+                const routes = omitted.map(item => `${base}${item.url}`).join(', ');
+                console.warn(`[sitemap] omitted ${omitted.length} page(s) with no navigation entry: ${routes}`);
+            }
+            return published;
+        },
     },
     vite: {
         plugins: [jpdbAudioDevProxyPlugin()],
@@ -288,71 +378,8 @@ export default defineConfig({
     themeConfig: {
         logo: { src: '/yomu-icon.svg', alt: 'よむ app icon' },
         siteTitle: 'yomu',
-        nav: [
-            { text: 'Install', link: '/getting-started' },
-            { text: 'Tools', link: '/tools/' },
-            { text: 'Learn', link: '/guides/' },
-            { text: 'Study', link: newTabLink, target: '_self' },
-            { text: 'Academy', link: '/academy/', target: '_self' },
-            { text: 'Support', link: '/support' },
-            {
-                text: 'More',
-                items: [
-                    { text: 'Video Player', link: videoPlayerLink, target: '_self' },
-                    { text: 'PDF Reader', link: pdfReaderLink, target: '_self' },
-                    { text: 'Stats', link: statsLink, target: '_self' },
-                    { text: 'API', link: '/api/', target: '_self' },
-                    { text: 'Local Audio', link: '/local-audio' },
-                    { text: 'Changelog', link: '/changelog' },
-                    { text: 'Privacy', link: '/privacy' },
-                    { text: 'Support', link: '/support' },
-                ],
-            },
-        ],
-        sidebar: [
-            {
-                text: 'Use よむ',
-                items: [
-                    { text: 'Overview', link: '/' },
-                    { text: 'Install', link: '/getting-started' },
-                    { text: 'What it does', link: '/features' },
-                ],
-            },
-            {
-                text: 'Tools',
-                items: [
-                    { text: 'All tools', link: '/tools/' },
-                    { text: 'OCR & manga', link: '/tools/japanese-ocr' },
-                    { text: 'Subtitles & video', link: '/tools/japanese-subtitle-reader' },
-                    { text: 'Video Player', link: videoPlayerLink, target: '_self' },
-                    { text: 'PDF Reader', link: pdfReaderLink, target: '_self' },
-                    { text: 'Yomu Gaming', link: '/tools/yomu-gaming' },
-                    { text: 'Furigana reader', link: '/tools/furigana-reader' },
-                    { text: 'Kanji stroke order', link: '/tools/kanji-stroke-order' },
-                    { text: 'Study page', link: '/tools/study-page' },
-                    { text: 'YouTube for Japanese', link: '/tools/youtube-japanese' },
-                ],
-            },
-            {
-                text: 'Learn',
-                items: [
-                    { text: 'All guides', link: '/guides/' },
-                    { text: 'Read manga in Japanese', link: '/guides/read-manga-in-japanese' },
-                    { text: 'Comprehensible-input YouTube', link: '/guides/comprehensible-input-youtube' },
-                    { text: 'Mine sentences to Anki', link: '/guides/mine-sentences-to-anki' },
-                    { text: 'Study setup', link: '/guides/study-setup' },
-                ],
-            },
-            {
-                text: 'Project',
-                items: [
-                    { text: 'Support', link: '/support' },
-                    { text: 'API', link: '/api/', target: '_self' },
-                    { text: 'Local Audio', link: '/local-audio' },
-                    { text: 'Changelog', link: '/changelog' },
-                ],
-            },
-        ],
+        nav: siteNav,
+        sidebar: siteSidebar,
         search: {
             provider: 'local',
         },

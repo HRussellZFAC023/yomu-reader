@@ -168,17 +168,57 @@ describe('interface language resolution', () => {
         }
     });
 
-    it('keeps the getting-started page covered by Japanese docs copy', async () => {
-        // Split every line into the text-node segments the theme's
-        // translateTextNodes sees after rendering (inline code, bold, links,
-        // and HTML tags each become separate elements), so copy rewrites
-        // cannot drift from the hosted ja map again (the 2026-07 rewrite
-        // shipped with ~110 untranslated segments).
-        const themeSource = readFileSync('docs/.vitepress/theme/index.ts', 'utf8');
-        const pageSource = readFileSync('docs/getting-started.md', 'utf8');
-        const copy = markdownPageTextCopy(pageSource);
+    // Split every line into the text-node segments the theme's
+    // translateTextNodes sees after rendering (inline code, bold, links, and
+    // HTML tags each become separate elements), so copy rewrites cannot drift
+    // from the hosted ja map again. The 2026-07 rewrite shipped ~110
+    // untranslated segments on getting-started, and then a second pass took
+    // features.md from 88 covered segments to 9 and guides/index.md from 17 to
+    // 6 while every other gate stayed green — hasHostedDocsTranslation returns
+    // false for an absent key and leaves the English text node in place, so an
+    // uncovered segment is a visible English hole on the ja site. Every page
+    // rendered in Japanese belongs in this list.
+    const JAPANESE_DOCS_PAGES = [
+        'docs/index.md',
+        'docs/getting-started.md',
+        'docs/features.md',
+        'docs/support.md',
+        'docs/tools/index.md',
+        'docs/guides/index.md',
+    ];
 
+    it.each(JAPANESE_DOCS_PAGES)('keeps %s covered by Japanese docs copy', page => {
+        const themeSource = readFileSync('docs/.vitepress/theme/index.ts', 'utf8');
+        const copy = markdownPageTextCopy(readFileSync(page, 'utf8'));
+
+        expect(copy.length).toBeGreaterThan(20);
         expect(copy.filter(value => !hasHostedDocsJaCopy(themeSource, value))).toEqual([]);
+    });
+
+    it('keeps every hosted docs Japanese value written in Japanese', () => {
+        // hasHostedDocsJaCopy only proves a key exists, so an English-for-English
+        // entry ('Offline cache': 'Offline cache') satisfies every page guard
+        // above while showing English to a Japanese reader. Values are required
+        // to carry kana or kanji unless the key is a proper noun, a URL, a
+        // verbatim UI label, or an English function word the Japanese sentence
+        // folds into a neighbouring segment.
+        const themeSource = readFileSync('docs/.vitepress/theme/index.ts', 'utf8');
+        const { entries, unparsed } = hostedDocsJaCopyEntries(themeSource);
+
+        expect(unparsed).toEqual([]);
+        expect(entries.length).toBeGreaterThan(3000);
+
+        const untranslated = entries
+            .filter(([english]) => !HOSTED_DOCS_JA_COPY_VERBATIM.has(english))
+            .filter(([, japanese]) => !JAPANESE_CHARACTER.test(japanese))
+            .map(([english]) => english);
+
+        expect(untranslated).toEqual([]);
+
+        // Keep the exemption list honest: a stale entry would silently cover a
+        // future English value re-added under the same key.
+        const keys = new Set(entries.map(([english]) => english));
+        expect([...HOSTED_DOCS_JA_COPY_VERBATIM].filter(key => !keys.has(key))).toEqual([]);
     });
 
     it('keeps latest changelog entries covered by Japanese docs copy', () => {
@@ -194,6 +234,112 @@ describe('interface language resolution', () => {
     });
 });
 
+// Kana, kanji, halfwidth katakana, and the CJK/fullwidth punctuation blocks.
+// A value made only of Japanese punctuation is a real translation of an
+// English fragment: the ja rendering of ', ' between two brand links is a
+// single ideographic comma. Fullwidth Latin letters and digits are outside the
+// ranges so they cannot pass as translated copy.
+const JAPANESE_CHARACTER = /[\u3000-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uff01-\uff20\uff3b-\uff40\uff5b-\uff9f]/u;
+
+// Keys whose Japanese value is deliberately not Japanese text: brand and
+// product names, hosts and URLs, literal menu paths and button labels the
+// Japanese interface also shows verbatim, and a few English function words
+// ('A', 'Open ') that the Japanese sentence carries in a neighbouring segment.
+const HOSTED_DOCS_JA_COPY_VERBATIM = new Set([
+    'https://yomureader.com/yomu.user.js',
+    'yomureader.com',
+    'tampermonkey.net',
+    'tadoku.org',
+    'nyaa.si/view/1957972',
+    'localhost:',
+    'Utilities → Install from URL',
+    '+ → Install from URL',
+    'Script list → Create → Install from URL',
+    'Reader -> Show Yomu lookup popup',
+    'Hard / Good',
+    'Again / Hard / Good / Easy',
+    'Fail / Pass',
+    'Kanji 1',
+    'wideScreen',
+    'AA',
+    '/',
+    'OCR',
+    'OCR:',
+    'PDF',
+    'PDFs',
+    'API',
+    'Anki',
+    'Anki / AnkiConnect:',
+    'AnkiConnect',
+    'AnkiMobile',
+    'AnkiDroid',
+    'Bunpro',
+    'Jiten',
+    'Jiten:',
+    'Jiten/JPDB',
+    'JPDB',
+    'JPDB:',
+    'Kotu',
+    'Tailscale',
+    'oEmbed',
+    'MangaOCR',
+    'PaddleOCR',
+    'Apple Vision',
+    'Ultimate Yomitan Audio',
+    'Ultimate Yomitan Audio Source',
+    'Yomu Gaming',
+    'Gaming Text Bridge',
+    'Chrome',
+    'Firefox',
+    'Safari',
+    'Windows',
+    'Linux',
+    'Intel Mac',
+    'Apple Silicon Mac',
+    'Tampermonkey',
+    'Userscripts',
+    'YouTube',
+    'NHK News Web Easy',
+    'Satori Reader',
+    'Watanoc',
+    'MATCHA Easy Japanese',
+    'Ttsu Reader',
+    'Learn Natively',
+    'A',
+    'Open ',
+    '— install',
+    '— with',
+    '— open the',
+]);
+
+function hostedDocsJaCopyEntries(themeSource: string): {
+    entries: [string, string][];
+    unparsed: string[];
+} {
+    const opening = 'const HOSTED_DOCS_JA_COPY: Record<string, string> = {';
+    const start = themeSource.indexOf(opening);
+    expect(start).toBeGreaterThanOrEqual(0);
+    const end = themeSource.indexOf('\n};', start);
+    expect(end).toBeGreaterThan(start);
+
+    const entries: [string, string][] = [];
+    const unparsed: string[] = [];
+    for (const line of themeSource.slice(start + opening.length, end).split('\n')) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('//')) continue;
+        const entry = trimmed.match(/^(['"])((?:\\.|(?!\1)[^\\])*)\1\s*:\s*(['"])((?:\\.|(?!\3)[^\\])*)\3,$/);
+        if (!entry) { unparsed.push(trimmed.slice(0, 80)); continue; }
+        entries.push([unescapeCopyLiteral(entry[2]), unescapeCopyLiteral(entry[4])]);
+    }
+    return { entries, unparsed };
+}
+
+function unescapeCopyLiteral(literal: string): string {
+    return literal
+        .replace(/\\u([0-9a-fA-F]{4})/g, (_, hex: string) => String.fromCharCode(parseInt(hex, 16)))
+        .replace(/\\(['"\\nt])/g, (_, char: string) => ({ n: '\n', t: '\t' }[char] ?? char));
+}
+
 function markdownPageTextCopy(pageSource: string): string[] {
     const copy = new Set<string>();
     const add = (value: string | null | undefined) => {
@@ -204,9 +350,13 @@ function markdownPageTextCopy(pageSource: string): string[] {
     for (const match of (frontmatter?.[1] ?? '').matchAll(/^(?:title|description):\s*(.+)$/gm)) add(match[1]);
 
     let inCodeFence = false;
+    let inHtmlComment = false;
     for (const line of pageSource.slice(frontmatter ? frontmatter[0].length : 0).split('\n')) {
         if (/^\s*```/.test(line)) { inCodeFence = !inCodeFence; continue; }
         if (inCodeFence) continue;
+        // Authoring notes are not rendered, so they are not copy.
+        if (inHtmlComment) { inHtmlComment = !line.includes('-->'); continue; }
+        if (line.includes('<!--') && !line.includes('-->')) { inHtmlComment = true; continue; }
         const heading = line.match(/^#{1,6}\s+(.+)$/);
         if (heading) {
             const title = decodeMarkdownLinks(heading[1].replace(/\*\*/g, '')).trim();
@@ -230,14 +380,25 @@ function markdownPageTextCopy(pageSource: string): string[] {
 function markdownPageSegments(value: string): string[] {
     return value
         .split(/(`[^`]*`|\*\*[^*]+\*\*|\[[^\]]+\]\([^)]+\)|<[^>]+>)/g)
-        .map(segment => {
+        .flatMap(segment => {
             if (!segment || /^`[^`]*`$/.test(segment) || /^<[^>]+>$/.test(segment)) return '';
             const strong = segment.match(/^\*\*(.*?)\*\*$/);
-            if (strong) return decodeMarkdownLinks(strong[1] ?? '').trim();
+            if (strong) return emphasisSegments(decodeMarkdownLinks(strong[1] ?? ''));
             const link = segment.match(/^\[([^\]]+)\]\([^)]+\)$/);
             if (link) return decodeMarkdownHtml(link[1]?.trim() ?? '');
             return decodeMarkdownHtml(decodeMarkdownLinks(segment));
         })
+        .filter(Boolean);
+}
+
+// `**Connected as _your name_**` renders as <strong>Connected as <em>your
+// name</em></strong>: two text nodes, so the runtime looks up two keys. Model
+// the nested emphasis rather than the markdown, or the guard passes on a key
+// the page can never ask for.
+function emphasisSegments(value: string): string[] {
+    return value
+        .split(/(_[^_]+_|\*[^*]+\*)/g)
+        .map(part => part.replace(/^[_*]|[_*]$/g, '').trim())
         .filter(Boolean);
 }
 

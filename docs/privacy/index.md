@@ -1,13 +1,13 @@
 ---
 title: Privacy
-description: How Yomu stores settings and dictionaries, which optional services receive data, and what browser permissions the extension uses.
+description: What Yomu keeps on your device, which services it talks to and when, and what the browser extension asks for.
 ---
 
 # Yomu privacy policy
 
-Last updated: 21 July 2026
+Last updated: 27 July 2026
 
-Yomu does not sell personal data and does not operate advertising or analytics trackers. Its settings, imported dictionaries, local review data, and cached lookups stay in your browser unless you deliberately export them or enable a feature that uses an external service.
+**The short version.** Your settings, dictionaries, saved words, and review history stay on your device. Yomu talks to an outside service only when you use a feature that needs one — a lookup service you connected, an audio source, a translation — and the page below says exactly which, and when. There is no advertising and no analytics tracking, and your data is not sold.
 
 ## Browser permissions
 
@@ -44,6 +44,8 @@ AnkiConnect normally runs on your own computer. Bunpro's imported frontend token
 Google Drive settings sync is shown only in a browser-extension build that has an approved Google OAuth client configured. When enabled and invoked, it stores a settings snapshot in the private application-data area of your own Google Drive; Yomu does not receive that file. The use of information received from Google APIs will adhere to the Chrome Web Store User Data Policy, including the Limited Use requirements.
 
 ## Optional Yomu account and encrypted Reader sync
+
+**In plain terms.** If you create an account, your cards are encrypted on your device before they are sent, and the key stays with your devices. What the server holds is ciphertext plus timing information — it cannot read your words, meanings, or review schedule. You can list your devices, revoke one, export everything, or delete it all from **Profile & sync**. The precise detail follows.
 
 The website can create a free Reader account through Google sign-in. Yomu stores an HMAC of Google's stable account subject plus the Yomu display name, discriminator, profile preferences, access projection, device ids, and creation/last-seen/revocation times. It discards Google's name, email, photo, access token, and refresh token instead of storing them in D1. A free Reader account does not provide Academy curriculum access; an Academy grant or active eligible entitlement is checked separately.
 

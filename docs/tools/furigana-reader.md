@@ -56,6 +56,6 @@ The same furigana settings apply across every [reading surface](/tools/): web pa
 
 <div class="yomu-cta-grid">
   <a class="yomu-cta-button primary" href="https://yomureader.com/yomu.user.js">Install よむ (free)</a>
-  <a class="yomu-cta-button" href="/features#popup-lookup-and-mining">Reading controls</a>
+  <a class="yomu-cta-button" href="/features#readings-above-the-kanji-as-much-or-as-little-as-you-want">Reading controls</a>
   <a class="yomu-cta-button" href="/tools/">All tools</a>
 </div>
