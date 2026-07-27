@@ -37,6 +37,13 @@ export interface LearningTargetSpec {
     audio?: Partial<LearningTargetAudio>;
     ocr?: Partial<LearningTargetOcr>;
     subtitles?: Partial<LearningTargetSubtitles>;
+    /**
+     * Defaults to true — a target's segments are its words, so a dictionary
+     * lookup starts where one starts. Declare false only for a target whose
+     * boundaries are inferred rather than written, which makes the dictionary
+     * engine sweep every position instead.
+     */
+    lookupStartsAtSegmentBoundary?: boolean;
     /** Detection: a script pattern, or a full predicate for richer rules. */
     detectsText?: RegExp | ((text: string) => boolean);
     normalizeText?: (text: string) => string;
@@ -103,6 +110,8 @@ export function createLearningTargetModule(spec: LearningTargetSpec): LearningTa
             languageTag: spec.subtitles?.languageTag ?? base,
             languageAliases: Object.freeze([...(spec.subtitles?.languageAliases ?? [])]),
         }),
+
+        lookupStartsAtSegmentBoundary: spec.lookupStartsAtSegmentBoundary ?? true,
 
         normalizeText,
         isLookupableText(text: string): boolean {

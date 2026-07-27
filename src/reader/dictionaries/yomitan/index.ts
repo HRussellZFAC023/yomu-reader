@@ -1,6 +1,7 @@
-import { deinflectJapaneseTerm } from '../../lookup/deinflect';
+import { activeLearningTarget } from '../../languages/active';
+import type { LanguageTextSegment, LearningTargetModule } from '../../languages/types';
 import {
-    isSearchableJapaneseSurface,
+    isSearchableTargetSurface,
     rankedDictionaryEntries,
     readIndexRequestValues,
     requestTermMatchIndex,
@@ -124,6 +125,9 @@ const TERM_MATCH_WINDOW_CHARS = 240;
 // bounded. Well above real content: a whole expanded video description or a
 // long comment fits in one call.
 const TERM_MATCH_SOURCE_LIMIT = 4_000;
+// Longest surface the swept path will try at one position. A target with
+// written word boundaries never reaches this: its segments are its words.
+const TERM_MATCH_MAX_SURFACE_CHARS = 18;
 const TERM_KANJI_INDEX_BATCH_SIZE = 5000;
 const TERM_KANJI_INDEX_FALLBACK_MAX_ROWS = 12000;
 const TERM_KANJI_INDEX_FALLBACK_MAX_MS = 140;
@@ -211,6 +215,12 @@ export class YomitanDictionaryStore {
     private termKanjiIndexReady = false;
     private termIndexGeneration = 0;
     private hotLookupCache = new Map<string, HotLookupCacheEntry<unknown>>();
+    // Memo for one findTermMatches call: every window asks the active target
+    // to segment the same source, and for an ICU-backed target that is a full
+    // pass over the text each time.
+    private segmentedSourceText = '';
+    private segmentedSourceTarget = '';
+    private segmentedSourceSegments: readonly LanguageTextSegment[] = [];
 
     constructor(
         private readonly getCorsProxyUrl: () => string = () => '',
@@ -483,30 +493,78 @@ export class YomitanDictionaryStore {
         return candidates.size ? await this.lookupTermMatchCandidates(candidates, preferences) : [];
     }
 
-    // Only start positions are confined to the window; surfaces still run past
-    // its end, so a term straddling a window boundary is found exactly as it
-    // would be in a single sweep of the whole text.
+    /**
+     * Surfaces worth a dictionary lookup in this window, and where each sits.
+     *
+     * Both halves used to be Japanese: the sweep only started on a kana/kanji
+     * character, and every surface it produced was expanded by the Japanese
+     * deinflector. That made the whole engine — a format that serves dozens of
+     * languages — unable to find a single word in any of them, whatever the
+     * reader had installed. Detection, boundaries and morphology now all come
+     * from the active target, so the engine holds entries and ranks them and
+     * asserts nothing about the language they are written in.
+     *
+     * Only start positions are confined to the window; surfaces still run past
+     * its end, so a term straddling a window boundary is found exactly as it
+     * would be in a single sweep of the whole text.
+     */
     private collectTermMatchCandidates(source: string, from: number, to: number): TermMatchCandidates {
+        const target = activeLearningTarget();
         const candidates: TermMatchCandidates = new Map();
-        const maxLength = Math.min(18, source.length);
+        if (target.lookupStartsAtSegmentBoundary) {
+            // The target writes its own word boundaries, so its segments are
+            // the words. Looking up anything else would offer `ella` as a match
+            // inside `paella`.
+            for (const segment of this.segmentedSource(source, target)) {
+                if (segment.start < from || segment.start >= to) continue;
+                this.addTargetTermCandidates(target, segment.text, segment.start, candidates);
+            }
+            return candidates;
+        }
+        const maxLength = Math.min(TERM_MATCH_MAX_SURFACE_CHARS, source.length);
         for (let start = from; start < to; start++) {
-            if (!JAPANESE_RE.test(source[start])) continue;
-            this.collectTermMatchCandidatesAt(source, start, maxLength, candidates);
+            if (!target.isLookupableText(source[start])) continue;
+            this.collectSweptTermMatchCandidatesAt(target, source, start, maxLength, candidates);
         }
         return candidates;
     }
 
-    private collectTermMatchCandidatesAt(source: string, start: number, maxLength: number, candidates: TermMatchCandidates): void {
+    /**
+     * One segmentation per `findTermMatches` call rather than one per window:
+     * every window asks for the same answer over the same source, and a target
+     * whose segmenter is ICU pays a full pass for each question.
+     */
+    private segmentedSource(source: string, target: LearningTargetModule): readonly LanguageTextSegment[] {
+        if (this.segmentedSourceText !== source || this.segmentedSourceTarget !== target.id) {
+            this.segmentedSourceSegments = target.segment(source);
+            this.segmentedSourceText = source;
+            this.segmentedSourceTarget = target.id;
+        }
+        return this.segmentedSourceSegments;
+    }
+
+    private collectSweptTermMatchCandidatesAt(
+        target: LearningTargetModule,
+        source: string,
+        start: number,
+        maxLength: number,
+        candidates: TermMatchCandidates,
+    ): void {
         for (let length = Math.min(maxLength, source.length - start); length > 0; length--) {
             const surface = source.slice(start, start + length);
-            if (!isSearchableJapaneseSurface(surface)) continue;
-            this.addDeinflectedTermCandidates(surface, start, candidates);
+            if (!isSearchableTargetSurface(surface, target)) continue;
+            this.addTargetTermCandidates(target, surface, start, candidates);
         }
     }
 
-    private addDeinflectedTermCandidates(surface: string, start: number, candidates: TermMatchCandidates): void {
-        for (const deinflected of deinflectJapaneseTerm(surface)) {
-            if (!JAPANESE_RE.test(deinflected.term)) continue;
+    private addTargetTermCandidates(
+        target: LearningTargetModule,
+        surface: string,
+        start: number,
+        candidates: TermMatchCandidates,
+    ): void {
+        for (const deinflected of target.lookupCandidates(surface)) {
+            if (!target.isLookupableText(deinflected.term)) continue;
             const positions = candidates.get(deinflected.term) ?? [];
             positions.push({ start, end: start + surface.length, surface, deinflected });
             candidates.set(deinflected.term, positions);
