@@ -43,6 +43,9 @@ tests/reader/.vitest-settings-shards/
 tests/reader/.vitest-subtitles-controller-shards/
 docs/.vitepress/cache/
 docs/.vitepress/dist/
+# VitePress build scratch, like cache/ and dist/ above. It was the one gate
+# byproduct git still reported, which is enough to look like a local edit.
+docs/.vitepress/.temp/
 .DS_Store
 .module-sizes-baseline.json
 .module-sizes.json

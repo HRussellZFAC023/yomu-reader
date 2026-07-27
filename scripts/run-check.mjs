@@ -24,12 +24,27 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { vitestOutputIndicatesFailure } from './lib/check-log-guard.mjs';
+import { artifactDrift, describeArtifactDrift, hasUncommittedSourceEdits } from './lib/artifact-drift.mjs';
+import { offLockfilePackages } from './lib/dependency-tree-drift.mjs';
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const LOG_DIR = join(ROOT, 'artifacts', 'check-logs');
 mkdirSync(LOG_DIR, { recursive: true });
 const startedAt = Date.now();
 const timings = [];
+let artifactDriftAdvisory = false;
+
+// Captured before any stage can rebuild anything: were there local edits that
+// would legitimately explain regenerated output? Read now, because the gate's
+// own stages dirty the tree as they run.
+const startedWithSourceEdits = hasUncommittedSourceEdits(ROOT);
+// Announced up front, not only in the verdict 4 minutes later. A dirty tree
+// disarms the stale-artifact check for the whole run, and an operator who is
+// told that at the start can clean the tree instead of reading the PASS at the
+// end as proof of something it never tested.
+if (startedWithSourceEdits) {
+    console.log('[check] tree has uncommitted edits — the stale-artifact check will REPORT drift, not fail on it. Re-run on a clean tree to prove HEAD ships current artifacts.');
+}
 
 function stage(name, command, options = {}) {
     return { name, command, ...options };
@@ -87,8 +102,12 @@ async function lane(...stages) {
     for (const s of stages) await runStage(s);
 }
 
+// Both of these read the repository as it is, so they run before the build lane
+// can regenerate anything. check:artifacts reads committed bytes out of git and
+// so is immune to stage order; running it first just fails fast.
 try {
     await runStage(stage('repository-hygiene', 'npm run -s check:repository'));
+    await runStage(stage('committed-artifacts', 'npm run -s check:artifacts'));
 } catch {
     printSummary(false);
     process.exit(1);
@@ -132,7 +151,31 @@ try {
     printSummary(false);
     process.exit(1);
 }
+
+if (!reportArtifactDrift()) {
+    printSummary(false);
+    process.exit(1);
+}
 printSummary(true);
+
+// See scripts/lib/artifact-drift.mjs: `verify` compares bytes this pipeline has
+// just written, so it can never see a stale COMMITTED artifact. This can -- the
+// gate rewriting tracked build output on a commit with nothing to explain it
+// means the committed copy was out of date.
+function reportArtifactDrift() {
+    const drifted = artifactDrift(ROOT);
+    const { ok, lines, advisory = false } = describeArtifactDrift({
+        drifted,
+        sourceEdits: startedWithSourceEdits,
+        // Only asked when there is drift to explain: walking the lockfile stats
+        // ~750 package.json files, which is wasted work on the common path
+        // where the gate rewrote nothing.
+        offLockfile: drifted.length > 0 ? offLockfilePackages(ROOT) : [],
+    });
+    artifactDriftAdvisory = advisory;
+    for (const line of lines) (ok ? console.log : console.error)(line);
+    return ok;
+}
 
 function printSummary(passed) {
     const total = (Date.now() - startedAt) / 1000;
@@ -140,5 +183,9 @@ function printSummary(passed) {
     for (const t of timings.sort((a, b) => b.seconds - a.seconds)) {
         console.log(`  ${t.seconds.toFixed(1).padStart(7)}s  ${t.name}`);
     }
-    console.log(`[check] ${passed ? 'PASS' : 'FAIL'} in ${total.toFixed(1)}s (wall clock)`);
+    // The last line of a gate run is the one people quote. It has to carry the
+    // caveat, or "PASS" gets reported as a clean bill of health for a check
+    // that was downgraded to a note.
+    const caveat = passed && artifactDriftAdvisory ? ' — artifact-drift advisory only, NOT enforced' : '';
+    console.log(`[check] ${passed ? 'PASS' : 'FAIL'} in ${total.toFixed(1)}s (wall clock)${caveat}`);
 }

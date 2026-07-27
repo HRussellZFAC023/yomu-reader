@@ -127,6 +127,14 @@ function syncNewTabCompatibilityAlias() {
 // artifacts that were not stale. appHash and buildId already identify the
 // build, and they are the only fields the update check and the cache-busting
 // reload actually read.
+//
+// This is what lets the committed-artifact guard mean anything: re-syncing an
+// unchanged build now produces unchanged bytes, so a difference the guard finds
+// is real drift rather than the gate run dirtying its own tree. Deriving the
+// stamp from the previously hosted copy would have kept the tree clean too, but
+// only after the first build of a given appHash — two machines building the
+// same commit would still disagree. Having no stamp at all is the stronger
+// guarantee, and nothing reads it.
 function writeStudyVersion(appHash, buildId) {
   const version = `${JSON.stringify({ appHash, buildId }, null, 2)}\n`;
   writeFileSync(join(STUDY_BUILD_DIRECTORY, 'version.json'), version);

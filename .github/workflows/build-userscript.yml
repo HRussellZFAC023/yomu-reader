@@ -36,7 +36,12 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -f dist/yomu.user.js dist/yomu.css docs/public/yomu.user.js docs/public/yomu.css docs/public/newtab docs/public/greasyfork
+          # Staged from scripts/lib/generated-artifacts.mjs, not a list kept by
+          # hand here: the hand-kept one still named the old docs/public/newtab
+          # route long after Study moved to docs/public/study, so the hosted
+          # Study app and the published API specs stopped being committed and
+          # went a whole release out of date.
+          node scripts/lib/generated-artifacts.mjs | xargs git add -f --
           if git diff --cached --quiet; then
             echo "bundled userscript and docs assets are already current."
           else

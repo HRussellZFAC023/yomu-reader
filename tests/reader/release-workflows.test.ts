@@ -2,6 +2,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { USER_SCRIPT_COMPILER_COMMIT } from '../../scripts/build-amo-source-package.mjs';
+// @ts-expect-error plain .mjs script module without type declarations
+import { GENERATED_ARTIFACT_PATHS } from '../../scripts/lib/generated-artifacts.mjs';
 
 const buildUserscriptWorkflow = readFileSync(join(process.cwd(), '.github/workflows/build-userscript.yml'), 'utf8');
 const ciWorkflow = readFileSync(join(process.cwd(), '.github/workflows/ci.yml'), 'utf8');
@@ -14,6 +16,28 @@ describe('release workflow safety', () => {
 
         expect(commitCommand).toBeDefined();
         expect(commitCommand).not.toMatch(/\[(?:skip ci|ci skip|no ci|skip actions|actions skip)\]/i);
+    });
+
+    it('stages generated assets from the shared manifest instead of a hand-kept list', () => {
+        // The hand-kept list went stale: it still named docs/public/newtab long
+        // after Study moved to docs/public/study, so the hosted Study app and
+        // the published API specs stopped being committed and shipped a whole
+        // release behind. Deriving the list is what stops that recurring.
+        const stageCommand = buildUserscriptWorkflow.split('\n').find((line) => line.includes('git add'));
+
+        expect(stageCommand).toBeDefined();
+        expect(stageCommand).toContain('scripts/lib/generated-artifacts.mjs');
+        expect(stageCommand).not.toMatch(/git add\s+(-f\s+)?(?:--\s+)?docs\//);
+    });
+
+    it('covers every published route in the generated-artifact manifest', () => {
+        // scripts/run-check.mjs fails when a gate run rewrites anything listed
+        // here, so a route missing from the list is a route whose drift nobody
+        // sees.
+        expect(GENERATED_ARTIFACT_PATHS).toContain('docs/public/study');
+        expect(GENERATED_ARTIFACT_PATHS).toContain('docs/public/api');
+        expect(GENERATED_ARTIFACT_PATHS).toContain('docs/public/greasyfork');
+        expect(GENERATED_ARTIFACT_PATHS).toContain('docs/public/yomu.user.js');
     });
 
     it('keeps the manual Deploy Docs fallback so a skipped push can always be recovered', () => {
