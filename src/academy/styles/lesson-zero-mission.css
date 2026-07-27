@@ -253,6 +253,19 @@
     overflow-wrap: anywhere;
 }
 
+.academy-mission-name-bridge {
+    display: inline-grid;
+    gap: 1px;
+    align-items: end;
+}
+
+.academy-mission-name-reading {
+    color: color-mix(in srgb, var(--academy-paper-ink) 62%, transparent);
+    font-size: 0.63em;
+    font-weight: 650;
+    line-height: 1;
+}
+
 .academy-mission-particle-slot {
     min-width: 48px;
     min-height: 44px;

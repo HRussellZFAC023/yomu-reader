@@ -18,8 +18,8 @@
     ]
   },
   "counts": {
-    "runtimeAssetHomes": 171,
-    "runtimeFiles": 215,
+    "runtimeAssetHomes": 173,
+    "runtimeFiles": 219,
     "nonRuntimeReviewFiles": 1734,
     "approvedReferenceOnly": 4,
     "explicitlyRejectedFamilies": 4,
@@ -2734,58 +2734,32 @@
       "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
     },
     {
-      "id": "character-ruparna-standardized-encouraging-listening-front-near-front-halfbody-v001",
+      "id": "character-ruparna-neutral-front-near-front-halfbody-v002",
       "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "c3a505ddfa609dd7787e349e37b85ddcdb75abf25f6946cf185399c670c794ba",
-      "provenance": "regenerated-standardized",
-      "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": [
-        "journal:ruparna-expression-gallery",
-        "cast-standardization:ruparna"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "learner-journal-preview"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:ruparna-expression-gallery",
-          "cast-standardization:ruparna"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/ruparna/ruparna__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
-          "sha256": "c3a505ddfa609dd7787e349e37b85ddcdb75abf25f6946cf185399c670c794ba"
-        }
-      ],
-      "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-    },
-    {
-      "id": "character-ruparna-standardized-neutral-front-near-front-halfbody-v001",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "c3a505ddfa609dd7787e349e37b85ddcdb75abf25f6946cf185399c670c794ba",
-      "provenance": "regenerated-standardized",
-      "verdict": "review-candidate/runtime-preview",
+      "sourceSha256": "909e5af42bb12f15a8cba9558ae2e29c5f763efad70a596f7751eb2d28613c1d",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
       "runtimeHome": [
         "journal:ruparna",
-        "class:people-review",
-        "lesson-overview:roster-review",
+        "class:people",
+        "class:week-cast",
+        "lesson-overview:roster",
+        "world:person",
+        "story:cast:ruparna",
         "cast-standardization:ruparna"
       ],
       "reviewHome": [
         "cast-standardization-manifest",
-        "learner-journal-preview"
+        "identity-lock"
       ],
       "usage": {
         "runtime": [
           "journal:ruparna",
-          "class:people-review",
-          "lesson-overview:roster-review",
+          "class:people",
+          "class:week-cast",
+          "lesson-overview:roster",
+          "world:person",
+          "story:cast:ruparna",
           "cast-standardization:ruparna"
         ],
         "review": [
@@ -2795,11 +2769,45 @@
       "orphan": "active-runtime",
       "deliveries": [
         {
-          "path": "/academy/art/characters/ruparna/ruparna__standardized-neutral__front-near-front__halfbody__v001.png",
-          "sha256": "c3a505ddfa609dd7787e349e37b85ddcdb75abf25f6946cf185399c670c794ba"
+          "path": "/academy/art/characters/ruparna/ruparna__neutral__front-near-front__halfbody__v002.png",
+          "sha256": "909e5af42bb12f15a8cba9558ae2e29c5f763efad70a596f7751eb2d28613c1d"
         }
       ],
-      "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-ruparna-note-route-right-three-quarter-halfbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "f221ee5008c9d2746eb2f1d6cae831556eaed83f3abac52a001aba5a46e82089",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:ruparna-expression-gallery",
+        "story:cast:ruparna:note-route",
+        "cast-standardization:ruparna"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:ruparna-expression-gallery",
+          "story:cast:ruparna:note-route",
+          "cast-standardization:ruparna"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/ruparna/ruparna__note-route__right-three-quarter__halfbody__v002.png",
+          "sha256": "f221ee5008c9d2746eb2f1d6cae831556eaed83f3abac52a001aba5a46e82089"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
     },
     {
       "id": "character-sam-standardized-encouraging-listening-front-near-front-halfbody-v001",
@@ -4235,6 +4243,78 @@
         {
           "path": "/academy/art/events/blank-atlas-mission-sound__two-blank-name-tabs__mobile__v001.webp",
           "sha256": "352c34721b2f30b5af09a4cf764a8bda352baf3219646733a684087dc7d24cab"
+        }
+      ],
+      "status": "node-bound, art-directed responsive story event"
+    },
+    {
+      "id": "event-story-blank-atlas-mission-text-one-gap-repair",
+      "source": "manifest:docs/academy/art/STORY-ART-PROMOTIONS.json",
+      "sourceSha256": "3e84389aa5bb3df9bb70eb08041e483163cde36389aaf0f2cbaa6a01bf3767ae",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "node:blank-atlas:text-input-repair",
+        "scene:blank-atlas:mission-text"
+      ],
+      "reviewHome": [
+        "story-art-promotions",
+        "cue:text-route-evidence-lines"
+      ],
+      "usage": {
+        "runtime": [
+          "node:blank-atlas:text-input-repair",
+          "scene:blank-atlas:mission-text"
+        ],
+        "review": [
+          "story-art-promotions"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/events/blank-atlas-mission-text__one-gap-repair__wide__v001.webp",
+          "sha256": "0ebcaed1381b3c7abf95ede281c4106a46911755fd70c3f7779ee0833773e750"
+        },
+        {
+          "path": "/academy/art/events/blank-atlas-mission-text__one-gap-repair__mobile__v001.webp",
+          "sha256": "d808f3eb7dc13fcd54f25d794bae89e8e085744d271a4885c60830ba1f0ab583"
+        }
+      ],
+      "status": "node-bound, art-directed responsive story event"
+    },
+    {
+      "id": "event-story-blank-atlas-mission-text-two-gaps",
+      "source": "manifest:docs/academy/art/STORY-ART-PROMOTIONS.json",
+      "sourceSha256": "d4394257b98101d6a75f6482f18411d147034c88f7e0f7736223e85067d16cc0",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "node:blank-atlas:text-note",
+        "scene:blank-atlas:mission-text"
+      ],
+      "reviewHome": [
+        "story-art-promotions",
+        "cue:text-route-note-nameplates"
+      ],
+      "usage": {
+        "runtime": [
+          "node:blank-atlas:text-note",
+          "scene:blank-atlas:mission-text"
+        ],
+        "review": [
+          "story-art-promotions"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/events/blank-atlas-mission-text__two-gaps__wide__v001.webp",
+          "sha256": "6fddf2798a4a44c0d38a657c12c865655fef4d0b702273a029325a053ed0e91a"
+        },
+        {
+          "path": "/academy/art/events/blank-atlas-mission-text__two-gaps__mobile__v001.webp",
+          "sha256": "0bc2750b1e36d9d4fe019cdfc66cf9d90c361a819ebed8a2d9e403a43942fd67"
         }
       ],
       "status": "node-bound, art-directed responsive story event"

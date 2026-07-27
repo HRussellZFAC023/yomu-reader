@@ -60,6 +60,13 @@ def parse_args() -> argparse.Namespace:
         default="/Users/heru/.cache/whisper-cpp/ggml-small.bin",
     )
     parser.add_argument("--overwrite", action="store_true")
+    parser.add_argument(
+        "--line-id",
+        action="append",
+        dest="line_ids",
+        default=[],
+        help="Render only this authored line ID. Repeat for more than one line.",
+    )
     return parser.parse_args()
 
 
@@ -153,11 +160,17 @@ def settings_for(line_id: str, speaker: str, band: str) -> dict[str, float]:
     }
 
 
-def spoken_form(text: str) -> tuple[str, str | None]:
+def spoken_form(text: str, line_id: str) -> tuple[str, str | None]:
     normalized = text.replace("Rie", "りえ")
+    notes: list[str] = []
+    if normalized != text:
+        notes.append("The display name Rie is pronounced as りえ.")
+    if line_id == "line:blank-atlas:rie-hiragana-route":
+        normalized = normalized.replace("ひらがな", "平仮名")
+        notes.append("The spoken form uses the standard kanji spelling 平仮名 to stabilize the same reading.")
     if normalized == text:
         return text, None
-    return normalized, "The display name Rie is pronounced as りえ; no other source text changes."
+    return normalized, " ".join(notes)
 
 
 def find_installed_voice(
@@ -297,15 +310,28 @@ def main() -> None:
     source = json.loads(SOURCE_PATH.read_text(encoding="utf-8"))
     if source.get("id") != CHAPTER_ID:
         raise RuntimeError(f"Unexpected Chapter 1 source id: {source.get('id')}")
+    all_line_nodes = [
+        node
+        for scene in source["scenes"]
+        for node in scene["nodes"]
+        if node.get("kind") == "line"
+    ]
+    requested_line_ids = set(args.line_ids)
+    known_line_ids = {node["id"] for node in all_line_nodes}
+    unknown_line_ids = requested_line_ids.difference(known_line_ids)
+    if unknown_line_ids:
+        raise RuntimeError(f"Unknown Chapter 1 line IDs: {sorted(unknown_line_ids)}")
+    selected_line_nodes = [
+        node
+        for node in all_line_nodes
+        if not requested_line_ids or node["id"] in requested_line_ids
+    ]
     cast = {entry["speaker"]: entry for entry in json.loads(CAST_PATH.read_text(encoding="utf-8"))}
     engine_version = request_json(args.engine, "/version")
     models = request_json(args.engine, "/aivm_models")
 
     required_speakers = {
-        node["speakerId"]
-        for scene in source["scenes"]
-        for node in scene["nodes"]
-        if node.get("kind") == "line"
+        node["speakerId"] for node in selected_line_nodes
     }
     missing_cast = required_speakers.difference(cast)
     if missing_cast:
@@ -345,6 +371,8 @@ def main() -> None:
             for node in scene["nodes"]:
                 if node.get("kind") != "line":
                     continue
+                if requested_line_ids and node["id"] not in requested_line_ids:
+                    continue
                 speaker_id = node["speakerId"]
                 voice = installed[speaker_id]
                 style_id = int(voice["style"]["id"])
@@ -355,7 +383,7 @@ def main() -> None:
                     output_path = OUTPUT_ROOT / filename
                     runtime_url = f"/academy/audio/story-lines/{filename}"
                     source_sha = source_hash(source, scene, node, band)
-                    text, normalization = spoken_form(variant["japanese"])
+                    text, normalization = spoken_form(variant["japanese"], node["id"])
                     settings = settings_for(node["id"], speaker_id, band)
 
                     encoded = urllib.parse.urlencode({"text": text, "speaker": style_id})
@@ -447,9 +475,35 @@ def main() -> None:
                     }
                     print(f"pass {key} ({speaker_id}, {media['durationSeconds']}s, ASR {asr_similarity:.3f})")
 
-    expected_count = 38
+    expected_count = sum(len(node.get("variants", {})) for node in selected_line_nodes)
     if len(results) != expected_count:
-        raise RuntimeError(f"Expected {expected_count} Chapter 1 voice variants, rendered {len(results)}")
+        raise RuntimeError(f"Expected {expected_count} selected voice variants, rendered {len(results)}")
+
+    existing_manifest = (
+        json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+        if requested_line_ids and MANIFEST_PATH.is_file()
+        else {}
+    )
+    entries_by_key = {
+        entry["key"]: entry
+        for entry in existing_manifest.get("entries", [])
+        if entry.get("lineId") not in requested_line_ids
+    }
+    entries_by_key.update({entry["key"]: entry for entry in results})
+    expected_keys = [
+        f"{node['id']}::{band}"
+        for node in all_line_nodes
+        for band in node.get("variants", {})
+    ]
+    manifest_entries = [
+        entries_by_key[key]
+        for key in expected_keys
+        if key in entries_by_key
+    ]
+    manifest_speakers = {
+        **existing_manifest.get("speakers", {}),
+        **{speaker: installed[speaker]["evidence"] for speaker in sorted(installed)},
+    }
 
     manifest = {
         "schema": "yomu-academy.blank-atlas-voice-qa.v1",
@@ -470,9 +524,12 @@ def main() -> None:
             "modelSha256": sha256_file(whisper_model),
             "language": "ja",
         },
-        "speakers": {speaker: installed[speaker]["evidence"] for speaker in sorted(installed)},
-        "complete": all(entry["verdict"] == "pass" for entry in results),
-        "entries": results,
+        "speakers": manifest_speakers,
+        "complete": (
+            len(manifest_entries) == len(expected_keys)
+            and all(entry["verdict"] == "pass" for entry in manifest_entries)
+        ),
+        "entries": manifest_entries,
     }
     MANIFEST_PATH.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     LOCKS_PATH.write_text(json.dumps(locks, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
@@ -480,15 +537,18 @@ def main() -> None:
 
     playback = json.loads(PLAYBACK_PATH.read_text(encoding="utf-8"))
     chapter_playback = [entry for entry in playback["entries"] if entry["lineId"].startswith("line:blank-atlas:")]
-    if len(chapter_playback) != expected_count:
+    chapter_expected_count = len(expected_keys)
+    if len(chapter_playback) != chapter_expected_count:
         raise RuntimeError(
-            f"Playback catalog contains {len(chapter_playback)} of {expected_count} Chapter 1 variants"
+            f"Playback catalog contains {len(chapter_playback)} of "
+            f"{chapter_expected_count} Chapter 1 variants"
         )
     print(json.dumps({
         "manifest": MANIFEST_RELATIVE.as_posix(),
-        "entries": len(results),
+        "renderedEntries": len(results),
+        "manifestEntries": len(manifest_entries),
         "playbackEntries": len(chapter_playback),
-        "speakers": sorted(required_speakers),
+        "renderedSpeakers": sorted(required_speakers),
         "complete": manifest["complete"],
     }, ensure_ascii=False))
 

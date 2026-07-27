@@ -510,7 +510,7 @@
         "responseMode": "reconstruct",
         "assessed": true,
         "production": false,
-        "prompt": { "en": "Sophie left two gaps in the note. Complete both sentences.", "ja": "ソフィーのメモにある二つの空欄を埋めてください。" },
+        "prompt": { "en": "Fill the two gaps in Sophie’s note.", "ja": "ソフィーのメモにある二つの空欄を埋めてください。" },
         "conceptIds": ["concept:introduction-reading", "concept:noun-link-no", "concept:parallel-mo"],
         "sourceQuestionIds": [],
         "inputScriptId": "input:lesson-zero-text-hosts",

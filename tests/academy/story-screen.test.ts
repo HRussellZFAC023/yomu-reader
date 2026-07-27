@@ -119,6 +119,30 @@ describe('Academy Story screen', () => {
         );
     });
 
+    it('changes the Text mission plate from two gaps to one focused repair', () => {
+        const opening = render(cursor(
+            'scene:blank-atlas:mission-text',
+            'node:blank-atlas:text-note',
+        )).screen;
+        expect(opening.querySelector<HTMLElement>('.academy-vn-stage')?.dataset.storyArt)
+            .toBe('event.story.blank-atlas-mission-text.two-gaps');
+        expect(opening.querySelector<HTMLImageElement>('.academy-vn-plate img')?.src)
+            .toContain('blank-atlas-mission-text__two-gaps__wide__v001.webp');
+        expect(opening.querySelector<HTMLSourceElement>('.academy-vn-plate source')?.srcset)
+            .toContain('blank-atlas-mission-text__two-gaps__mobile__v001.webp');
+
+        const repair = render(cursor(
+            'scene:blank-atlas:mission-text',
+            'node:blank-atlas:text-input-repair',
+        )).screen;
+        expect(repair.querySelector<HTMLElement>('.academy-vn-stage')?.dataset.storyArt)
+            .toBe('event.story.blank-atlas-mission-text.one-gap-repair');
+        expect(repair.querySelector<HTMLImageElement>('.academy-vn-plate img')?.src)
+            .toContain('blank-atlas-mission-text__one-gap-repair__wide__v001.webp');
+        expect(repair.querySelector<HTMLSourceElement>('.academy-vn-plate source')?.srcset)
+            .toContain('blank-atlas-mission-text__one-gap-repair__mobile__v001.webp');
+    });
+
     it('uses the shared VN Back control and keeps one readings control for the opening arc', () => {
         const onBack = vi.fn();
         const { screen } = render('s1e01-the-blank-atlas', { onBack });
@@ -207,6 +231,21 @@ describe('Academy Story screen', () => {
         );
     });
 
+    it('uses Ruparna’s note-route performance when the Text mission resolves', () => {
+        const { screen } = render(cursor(
+            'scene:blank-atlas:mission-text',
+            'line:blank-atlas:ruparna-note-route',
+        ));
+
+        const ruparna = screen.querySelector<HTMLElement>('[data-character="ruparna"]')!;
+        const picture = ruparna.querySelector<HTMLPictureElement>('picture')!;
+        expect(screen.querySelector('.academy-vn-speaker')?.textContent).toBe('Ruparna-san');
+        expect(picture.dataset.expression).toBe('encouraging');
+        expect(picture.querySelector('img')?.getAttribute('src')).toContain(
+            'ruparna__note-route__right-three-quarter__halfbody__v002.png',
+        );
+    });
+
     it('selects only approved Rie performance cutouts for authored VN intents', () => {
         const beats = [
             ['scene:blank-atlas:sound-script-map', 'line:blank-atlas:rie-listen-first', 'determined', 'rie__determined-glasses__left-three-quarter'],
@@ -282,7 +321,9 @@ describe('Academy Story screen', () => {
         const note = noteScreen.querySelector<HTMLElement>('.academy-text-mission-prop')!;
         note.querySelector<HTMLButtonElement>('.academy-note-inspect')?.click();
         expect(note.dataset.inspected).toBe('true');
-        expect(note.textContent).toContain('Names and a book');
+        expect(note.textContent).toContain('Got it');
+        expect(note.querySelector<HTMLButtonElement>('.academy-note-inspect')?.disabled).toBe(true);
+        expect(note.querySelectorAll('.academy-note-context')).toHaveLength(4);
 
         const doorScreen = render(cursor('scene:blank-atlas:mission-speaking', 'node:blank-atlas:speaking-door'), { audio }).screen;
         const door = doorScreen.querySelector<HTMLElement>('.academy-speaking-door-prop')!;

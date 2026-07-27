@@ -1,11 +1,20 @@
 import assert from 'node:assert/strict';
-import { mkdir } from 'node:fs/promises';
+import { mkdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import AxeBuilder from '@axe-core/playwright';
 import { chromium } from 'playwright';
 
 const baseUrl = process.env.ACADEMY_BASE_URL ?? 'http://127.0.0.1:5278';
 const artifactDir = path.resolve(process.env.BLANK_ATLAS_SCREENSHOTS ?? 'qa-artifacts/blank-atlas');
+const storySource = JSON.parse(await readFile(
+    new URL('../../src/academy/content/story-sources/s1e01-the-blank-atlas.v2.json', import.meta.url),
+    'utf8',
+));
+const expectedVoiceLines = storySource.scenes
+    .flatMap(scene => scene.nodes)
+    .filter(node => node.kind === 'line');
+const expectedVoiceVariantCount = expectedVoiceLines
+    .reduce((count, line) => count + Object.keys(line.variants).length, 0);
 const chapterId = 's1e01-the-blank-atlas';
 const arcId = `arc:${chapterId}`;
 const firstActivityId = 'activity:lesson-zero-greet-rie';
@@ -125,6 +134,23 @@ async function verifyJourney(browser, viewport) {
         if (viewport.name === 'phone' || ['U001', 'U007', 'U009', 'U011'].includes(signature)) {
             await page.screenshot({ path: path.join(artifactDir, `${viewport.name}-${signature}.png`), fullPage: true });
         }
+        if (sceneId === 'scene:blank-atlas:mission-text') {
+            await page.evaluate(() => (
+                window.__blankAtlasProof.openLine('line:blank-atlas:ruparna-note-route', 'foundation')
+            ));
+            const performance = page.locator('[data-character="ruparna"] img');
+            await performance.waitFor();
+            assert.match(
+                await performance.getAttribute('src') ?? '',
+                /ruparna__note-route__right-three-quarter__halfbody__v002\.png$/u,
+                `${viewport.name} Text mission must show Ruparna's canonical note-route performance`,
+            );
+            await assertSurface(page, viewport, 'U007 Ruparna resolution');
+            await page.screenshot({
+                path: path.join(artifactDir, `${viewport.name}-U007-ruparna.png`),
+                fullPage: true,
+            });
+        }
     }
 
     const afterScenes = await readProof(page);
@@ -153,9 +179,15 @@ async function verifyChapterVoiceMatrix(page) {
     assert.equal(catalogResponse.ok(), true, 'Chapter 1 voice catalog must be reachable in the browser proof');
     const catalog = await catalogResponse.json();
     const entries = catalog.entries.filter(entry => entry.lineId.startsWith('line:blank-atlas:'));
-    assert.equal(entries.length, 38, 'Chapter 1 must publish all 19 lines at foundation and N5');
-    assert.equal(new Set(entries.map(entry => `${entry.lineId}::${entry.band}`)).size, 38,
+    assert.equal(entries.length, expectedVoiceVariantCount,
+        'Chapter 1 must publish every authored line variant');
+    assert.equal(new Set(entries.map(entry => `${entry.lineId}::${entry.band}`)).size, expectedVoiceVariantCount,
         'Chapter 1 voice identities must be unique');
+    assert.deepEqual(
+        [...new Set(entries.map(entry => entry.lineId))].sort(),
+        expectedVoiceLines.map(line => line.id).sort(),
+        'Chapter 1 voice catalog must cover every authored line',
+    );
 
     for (const entry of entries) {
         const mediaResponse = await page.request.get(`${baseUrl}${entry.url}`);

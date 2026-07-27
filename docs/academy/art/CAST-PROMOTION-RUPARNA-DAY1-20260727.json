@@ -1,0 +1,41 @@
+{
+  "promotions": [
+    {
+      "castId": "ruparna",
+      "archiveLabel": "stale-v1-identity-superseded-20260727",
+      "replaceExpressions": [
+        "neutral",
+        "encouraging-listening"
+      ],
+      "canonicalNeutralAssetId": "character.ruparna.neutral-front-near-front-halfbody-v002",
+      "slots": [
+        {
+          "assetId": "character.ruparna.neutral-front-near-front-halfbody-v002",
+          "expression": "neutral",
+          "angle": "front-near-front",
+          "assetPath": "/academy/art/characters/ruparna/ruparna__neutral__front-near-front__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:ruparna",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "story:cast:ruparna",
+            "cast-standardization:ruparna"
+          ]
+        },
+        {
+          "assetId": "character.ruparna.note-route-right-three-quarter-halfbody-v002",
+          "expression": "encouraging-listening",
+          "angle": "right-three-quarter",
+          "assetPath": "/academy/art/characters/ruparna/ruparna__note-route__right-three-quarter__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:ruparna-expression-gallery",
+            "story:cast:ruparna:note-route",
+            "cast-standardization:ruparna"
+          ]
+        }
+      ]
+    }
+  ]
+}

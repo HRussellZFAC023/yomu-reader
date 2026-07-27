@@ -1,4 +1,4 @@
-const VERSION = 'yomu-academy-shell-s1-0f1b6c76f0d6';
+const VERSION = 'yomu-academy-shell-s1-551768f5e550';
 const AUDIO_CACHE = 'yomu-academy-audio-v1-2c25b06f971c';
 const STORY_VOICE_CATALOG = '/academy/audio/story-voice-playback.json';
 const STORY_VOICE_ASSET = /^\/academy\/audio\/story-(?:pilot|lines)\/[a-z0-9][a-z0-9._-]*\.opus$/;
@@ -110,8 +110,8 @@ const RUNTIME_ART_PRECACHE = [
     '/academy/art/characters/robert/robert__standardized-neutral__front-near-front__halfbody__v001.png',
     '/academy/art/characters/rose/rose__standardized-encouraging-listening__front-near-front__halfbody__v001.png',
     '/academy/art/characters/rose/rose__standardized-neutral__front-near-front__halfbody__v001.png',
-    '/academy/art/characters/ruparna/ruparna__standardized-encouraging-listening__front-near-front__halfbody__v001.png',
-    '/academy/art/characters/ruparna/ruparna__standardized-neutral__front-near-front__halfbody__v001.png',
+    '/academy/art/characters/ruparna/ruparna__neutral__front-near-front__halfbody__v002.png',
+    '/academy/art/characters/ruparna/ruparna__note-route__right-three-quarter__halfbody__v002.png',
     '/academy/art/characters/sam/sam__standardized-encouraging-listening__front-near-front__halfbody__v001.png',
     '/academy/art/characters/sam/sam__standardized-neutral__front-near-front__halfbody__v001.png',
     '/academy/art/characters/shaun/shaun__neutral__halfbody__v001.png',
@@ -158,6 +158,10 @@ const RUNTIME_ART_PRECACHE = [
     '/academy/art/events/blank-atlas-mission-sound__replay-one-voice__wide__v001.webp',
     '/academy/art/events/blank-atlas-mission-sound__two-blank-name-tabs__mobile__v001.webp',
     '/academy/art/events/blank-atlas-mission-sound__two-blank-name-tabs__wide__v001.webp',
+    '/academy/art/events/blank-atlas-mission-text__one-gap-repair__mobile__v001.webp',
+    '/academy/art/events/blank-atlas-mission-text__one-gap-repair__wide__v001.webp',
+    '/academy/art/events/blank-atlas-mission-text__two-gaps__mobile__v001.webp',
+    '/academy/art/events/blank-atlas-mission-text__two-gaps__wide__v001.webp',
     '/academy/art/events/blank-atlas-sentence-frames__classroom-label-fixed__mobile__v001.webp',
     '/academy/art/events/blank-atlas-sentence-frames__classroom-label-fixed__wide__v001.webp',
     '/academy/art/events/blank-atlas-sentence-frames__two-room-labels__mobile__v001.webp',
@@ -265,8 +269,8 @@ const CORE = [
     '/yomu-icon.svg',
     '/academy/',
     '/academy/index.html',
-    '/academy/app.js?v=s1-0f1b6c76f0d6',
-    '/academy/style.css?v=s1-0f1b6c76f0d6',
+    '/academy/app.js?v=s1-551768f5e550',
+    '/academy/style.css?v=s1-551768f5e550',
     '/academy/manifest.webmanifest',
     ...RUNTIME_ART_PRECACHE,
     '/academy/content/vertical-slice/source-library.v1.json',

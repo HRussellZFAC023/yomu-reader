@@ -744,24 +744,34 @@ function approvedStorySpeakerCastMember(
     const still = approved[speakerId];
     if (!still) return undefined;
     const displayName = displayAcademyCastName(speakerId, language);
-    const listeningPerformance = intent?.toLowerCase().includes('listen')
-        ? approvedListeningPerformance(speakerId)
-        : undefined;
+    const contextualPerformance = approvedStoryPerformance(speakerId, intent);
     return {
         characterId: speakerId,
         displayName,
         alt: language === 'ja' ? `${displayName}が話しています` : `${displayName} speaking`,
         position,
-        expression: listeningPerformance ? 'encouraging' : 'neutral',
-        expressions: listeningPerformance
-            ? { neutral: { still }, encouraging: { still: listeningPerformance } }
+        expression: contextualPerformance ? 'encouraging' : 'neutral',
+        expressions: contextualPerformance
+            ? { neutral: { still }, encouraging: { still: contextualPerformance } }
             : { neutral: { still } },
     };
 }
 
-function approvedListeningPerformance(speakerId: string): string | undefined {
-    if (speakerId === 'xingyu') return ACADEMY_ASSETS.xingyuListening;
-    if (speakerId === 'mika') return ACADEMY_ASSETS.mikaSound;
+function approvedStoryPerformance(
+    speakerId: string,
+    intent: string | undefined,
+): string | undefined {
+    const normalizedIntent = intent?.toLowerCase() ?? '';
+    if (normalizedIntent.includes('listen')) {
+        if (speakerId === 'xingyu') return ACADEMY_ASSETS.xingyuListening;
+        if (speakerId === 'mika') return ACADEMY_ASSETS.mikaSound;
+    }
+    if (
+        speakerId === 'ruparna' &&
+        (normalizedIntent.includes('repaired note') || normalizedIntent.includes('paper edge'))
+    ) {
+        return ACADEMY_ASSETS.characters.approvedPerformances.ruparna.encouraging;
+    }
     return undefined;
 }
 

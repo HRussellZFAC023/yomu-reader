@@ -57,7 +57,8 @@ const REAL_CLASS_MEMBERS = REAL_CLASS_NAMES.map(([id, firstName]) => {
         id === 'aakash' ||
         id === 'xingyu' ||
         id === 'mika' ||
-        id === 'jenny';
+        id === 'jenny' ||
+        id === 'ruparna';
     return {
         id,
         firstName,

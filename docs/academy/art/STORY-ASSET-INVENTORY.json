@@ -46,10 +46,10 @@
     ],
     "castCount": 24,
     "backgroundGaps": 25,
-    "openingImageGaps": 99,
-    "exitImageGaps": 99,
+    "openingImageGaps": 98,
+    "exitImageGaps": 98,
     "propOrOverlayGaps": 81,
-    "generationQueue": 304
+    "generationQueue": 302
   },
   "chapters": [
     {
@@ -473,17 +473,23 @@
           },
           "openingImage": {
             "cueId": "cue:text-route-note-nameplates",
-            "description": "Sophie and Ruparna's note has two gaps.",
-            "status": "missing",
+            "description": "A folded note. Two gaps.",
+            "status": "bound",
             "runtimeHome": "scene:blank-atlas:mission-text",
-            "candidatePaths": []
+            "candidatePaths": [
+              "/academy/art/events/blank-atlas-mission-text__two-gaps__wide__v001.webp",
+              "/academy/art/events/blank-atlas-mission-text__two-gaps__mobile__v001.webp"
+            ]
           },
           "exitImage": {
             "cueId": "cue:text-route-evidence-lines",
-            "description": "The useful words stay visible. Try the missed gap again.",
-            "status": "missing",
+            "description": "One gap remains. Read either side.",
+            "status": "bound",
             "runtimeHome": "scene:blank-atlas:mission-text",
-            "candidatePaths": []
+            "candidatePaths": [
+              "/academy/art/events/blank-atlas-mission-text__one-gap-repair__wide__v001.webp",
+              "/academy/art/events/blank-atlas-mission-text__one-gap-repair__mobile__v001.webp"
+            ]
           },
           "propCues": []
         },
@@ -7691,40 +7697,6 @@
         "rie"
       ],
       "runtimeHome": "scene:blank-atlas:sentence-frames",
-      "status": "queued"
-    },
-    {
-      "priority": "scene-critical",
-      "chapter": 1,
-      "chapterId": "s1e01-the-blank-atlas",
-      "sceneId": "scene:blank-atlas:mission-text",
-      "cueId": "cue:text-route-note-nameplates",
-      "kind": "opening-image",
-      "brief": "Sophie and Ruparna's note has two gaps.",
-      "locationId": "location:library",
-      "timeState": "evening",
-      "castIds": [
-        "sophie",
-        "ruparna"
-      ],
-      "runtimeHome": "scene:blank-atlas:mission-text",
-      "status": "queued"
-    },
-    {
-      "priority": "payoff-critical",
-      "chapter": 1,
-      "chapterId": "s1e01-the-blank-atlas",
-      "sceneId": "scene:blank-atlas:mission-text",
-      "cueId": "cue:text-route-evidence-lines",
-      "kind": "exit-image",
-      "brief": "The useful words stay visible. Try the missed gap again.",
-      "locationId": "location:library",
-      "timeState": "evening",
-      "castIds": [
-        "sophie",
-        "ruparna"
-      ],
-      "runtimeHome": "scene:blank-atlas:mission-text",
       "status": "queued"
     },
     {

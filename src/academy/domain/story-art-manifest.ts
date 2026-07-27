@@ -107,6 +107,22 @@ export const ACADEMY_STORY_ART_BY_NODE = {
         "cueId": "cue:sound-route-replay-one-speaker",
         "wide": "/academy/art/events/blank-atlas-mission-sound__replay-one-voice__wide__v001.webp",
         "mobile": "/academy/art/events/blank-atlas-mission-sound__replay-one-voice__mobile__v001.webp"
+    },
+    "node:blank-atlas:text-note": {
+        "assetId": "event.story.blank-atlas-mission-text.two-gaps",
+        "sceneId": "scene:blank-atlas:mission-text",
+        "nodeId": "node:blank-atlas:text-note",
+        "cueId": "cue:text-route-note-nameplates",
+        "wide": "/academy/art/events/blank-atlas-mission-text__two-gaps__wide__v001.webp",
+        "mobile": "/academy/art/events/blank-atlas-mission-text__two-gaps__mobile__v001.webp"
+    },
+    "node:blank-atlas:text-input-repair": {
+        "assetId": "event.story.blank-atlas-mission-text.one-gap-repair",
+        "sceneId": "scene:blank-atlas:mission-text",
+        "nodeId": "node:blank-atlas:text-input-repair",
+        "cueId": "cue:text-route-evidence-lines",
+        "wide": "/academy/art/events/blank-atlas-mission-text__one-gap-repair__wide__v001.webp",
+        "mobile": "/academy/art/events/blank-atlas-mission-text__one-gap-repair__mobile__v001.webp"
     }
 } as const satisfies Readonly<Record<string, AcademyStoryArtBinding>>;
 
@@ -266,6 +282,32 @@ export const ACADEMY_STORY_ART_RUNTIME_ASSETS = {
             "wide": "/academy/art/events/blank-atlas-mission-sound__replay-one-voice__wide__v001.webp",
             "mobile": "/academy/art/events/blank-atlas-mission-sound__replay-one-voice__mobile__v001.webp"
         }
+    },
+    "event.story.blank-atlas-mission-text.two-gaps": {
+        "kind": "event-art",
+        "status": "approved",
+        "runtimeHomes": [
+            "node:blank-atlas:text-note",
+            "scene:blank-atlas:mission-text"
+        ],
+        "provenance": "regenerated-house-style",
+        "files": {
+            "wide": "/academy/art/events/blank-atlas-mission-text__two-gaps__wide__v001.webp",
+            "mobile": "/academy/art/events/blank-atlas-mission-text__two-gaps__mobile__v001.webp"
+        }
+    },
+    "event.story.blank-atlas-mission-text.one-gap-repair": {
+        "kind": "event-art",
+        "status": "approved",
+        "runtimeHomes": [
+            "node:blank-atlas:text-input-repair",
+            "scene:blank-atlas:mission-text"
+        ],
+        "provenance": "regenerated-house-style",
+        "files": {
+            "wide": "/academy/art/events/blank-atlas-mission-text__one-gap-repair__wide__v001.webp",
+            "mobile": "/academy/art/events/blank-atlas-mission-text__one-gap-repair__mobile__v001.webp"
+        }
     }
 } as const;
 
@@ -317,5 +359,13 @@ export const ACADEMY_STORY_ART_COVERAGE = {
     "event.story.blank-atlas-mission-sound.replay-one-voice": {
         "purpose": "story-event",
         "primaryUse": "node:blank-atlas:sound-input-repair"
+    },
+    "event.story.blank-atlas-mission-text.two-gaps": {
+        "purpose": "story-event",
+        "primaryUse": "node:blank-atlas:text-note"
+    },
+    "event.story.blank-atlas-mission-text.one-gap-repair": {
+        "purpose": "story-event",
+        "primaryUse": "node:blank-atlas:text-input-repair"
     }
 } as const;

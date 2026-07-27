@@ -200,7 +200,7 @@ async function completeMission(page, activityId) {
         case 'activity:lesson-zero-text-input':
             await screen.getByRole('button', { name: 'の', exact: true }).click();
             await screen.getByRole('button', { name: 'も', exact: true }).click();
-            await screen.getByRole('button', { name: 'Check the note' }).click();
+            await screen.getByRole('button', { name: 'Check' }).click();
             break;
         case 'activity:lesson-zero-speaking-input':
         case 'activity:lesson-zero-sound-transfer':

@@ -18,7 +18,7 @@
     "src/academy/domain/classroom-instruction-session.ts": "7b7a0de23568e9ba352a70cb07467ff884a99a1b999edf52deb8145632e758d5",
     "src/academy/domain/lesson-zero-desk-language-session.ts": "e05c468e94652522d9a4bb68a8fa17f3ccfa38c3ae38c0825258177220e0c4e9",
     "src/academy/domain/world-locations.ts": "8dff402868198871a95498d004bc318dfe0b48f1995429ae9c0f6d33490739e5",
-    "src/academy/routing/lesson-flow.ts": "565a3a11e026ac62f69aca1408ba4c4a2e12dda9c7a028ceb10c0a3b667aece1",
+    "src/academy/routing/lesson-flow.ts": "64d8e6c90ced15fcd320e161b6c0970e74546a0b45bcfa0324169cacf5e1189d",
     "src/academy/ui/classroom-instruction-screen.ts": "49d7c165cf259fc699aa4e6fa17f1f5c41630e0e53659642d7ba806de1b8b54e",
     "src/academy/ui/lesson-zero-desk-language-screen.ts": "124049a58af13c4de77ae69fb4ddcec1cf37efe43e5f1a5c307b96163a924c44",
     "src/academy/ui/lesson-zero-greeting-screen.ts": "965932e71c795b3b8f238c55288dd0784d2e26a50812f9794915357e2ca74480",
@@ -59,7 +59,7 @@
     },
     "localExpected": {
       "path": "docs/academy/audio/learning-voice-local-expected.json",
-      "sha256": "3c2351d9b0d5b1f18aa355d0c9d3209ba58204d858278d142f9c6a9d4a2a2d1f"
+      "sha256": "77b26fe2f811872c1e7874f9b3bd27bd05f6e8ef2f4a7b99454a7038dbf662e9"
     },
     "productionProof": {
       "path": "docs/academy/audio/learning-voice-production-proof.json",

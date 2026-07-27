@@ -75,6 +75,18 @@ const blankAtlasQa = JSON.parse(readFileSync(resolve(root, 'docs/academy/audio/b
         whisper: { passed: boolean };
     }>;
 };
+const blankAtlasSource = JSON.parse(readFileSync(
+    resolve(root, 'src/academy/content/story-sources/s1e01-the-blank-atlas.v2.json'),
+    'utf8',
+)) as {
+    scenes: Array<{
+        nodes: Array<{ kind: string; variants?: Record<string, unknown> }>;
+    }>;
+};
+const expectedBlankAtlasVoiceVariants = blankAtlasSource.scenes
+    .flatMap(scene => scene.nodes)
+    .filter(node => node.kind === 'line')
+    .reduce((count, node) => count + Object.keys(node.variants ?? {}).length, 0);
 
 describe('Academy voice production manifest', () => {
     it('keeps every production key unique and reports reviewed source-lock drift honestly', () => {
@@ -177,7 +189,7 @@ describe('Academy voice production manifest', () => {
     it('keeps Chapter 1 voice QA complete and bound to every published line variant', () => {
         expect(blankAtlasQa.schema).toBe('yomu-academy.blank-atlas-voice-qa.v1');
         expect(blankAtlasQa.complete).toBe(true);
-        expect(blankAtlasQa.entries).toHaveLength(38);
+        expect(blankAtlasQa.entries).toHaveLength(expectedBlankAtlasVoiceVariants);
         for (const result of blankAtlasQa.entries) {
             expect(result.verdict, result.key).toBe('pass');
             expect(result.whisper.passed, result.key).toBe(true);

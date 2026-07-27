@@ -37,7 +37,7 @@ export interface LessonZeroMissionScreen {
 }
 
 const TITLES: Readonly<Record<LessonZeroMissionDefinition['activity']['id'], Localized>> = {
-    'activity:lesson-zero-text-input': { en: 'Two missing words', ja: '二つの空欄' },
+    'activity:lesson-zero-text-input': { en: 'Fill the two gaps', ja: '二つの空欄' },
     'activity:lesson-zero-speaking-input': { en: 'Your turn in the room', ja: '教室で自分の番' },
     'activity:lesson-zero-read-name-cards': { en: 'Find it on the card', ja: '名札から見つける' },
     'activity:lesson-zero-write-name-card': { en: 'Your class card', ja: 'クラスの名札' },
@@ -186,7 +186,7 @@ export function createLessonZeroMissionScreen(
     const renderParticleTask = (signal: AbortSignal): HTMLElement => {
         const root = element('section', 'academy-mission-particle-task');
         root.append(copyNode('p', 'academy-mission-help', {
-            en: 'Look at the words on each side. Choose one small word for each gap.',
+            en: 'Read each side. Pick one word for each gap.',
             ja: '前後のことばを見て、空欄に一つずつ入れましょう。',
         }));
         if (attempted && options.definition.audioUrl) {
@@ -196,12 +196,15 @@ export function createLessonZeroMissionScreen(
             ));
         }
         const lines = [
-            ['これは Sophie', '名札です。'],
-            ['Ruparnaです。わたし', '日本語を勉強しています。'],
+            { before: 'これは', name: ['ソフィー', 'Sophie'], afterName: '', after: '名札です。' },
+            { before: '', name: ['ルパルナ', 'Ruparna'], afterName: 'です。わたし', after: '日本語を勉強しています。' },
         ] as const;
-        lines.forEach((parts, slot) => {
+        lines.forEach((line, slot) => {
             const row = element('div', 'academy-mission-particle-row');
-            row.append(japanese(parts[0]), particleSlot(slot), japanese(parts[1]));
+            if (line.before) row.append(japanese(line.before));
+            row.append(nameBridge(line.name[0], line.name[1]));
+            if (line.afterName) row.append(japanese(line.afterName));
+            row.append(particleSlot(slot), japanese(line.after));
             root.append(row);
         });
         const bank = element('div', 'academy-mission-particle-bank');
@@ -223,7 +226,7 @@ export function createLessonZeroMissionScreen(
             feedback = null;
             render();
         });
-        const check = actionButton({ en: 'Check the note', ja: 'メモを確認する' }, 'primary', signal, () => submit({
+        const check = actionButton({ en: 'Check', ja: '確認する' }, 'primary', signal, () => submit({
             kind: 'particle-links',
             values: particleValues,
         }));
@@ -740,6 +743,12 @@ export function createLessonZeroMissionScreen(
         node.dataset.yomuRuntimeSurface = 'lesson-zero-mission-japanese';
         node.dataset.yomuFuriganaMode = 'all';
         node.textContent = value;
+        return node;
+    }
+
+    function nameBridge(katakana: string, latin: string): HTMLElement {
+        const node = element('span', 'academy-mission-name-bridge');
+        node.append(japanese(katakana), textNode(latin, 'academy-mission-name-reading'));
         return node;
     }
 

@@ -641,7 +641,7 @@
   },
   "line:blank-atlas:sophie-two-gaps::foundation": {
     "status": "locked",
-    "sourceSha256": "6577c3d59c07d14ef99fd5554f5adda0d3381e4a9f72cac784185d5530b2f2de",
+    "sourceSha256": "73b70ebc2e097c1fb67aaa6680e5927c38ca3e9fd49cc8c3690897434fad9b9c",
     "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__sophie-two-gaps__sophie__foundation.opus",
     "pitch": {
       "status": "rendered",
@@ -660,7 +660,7 @@
   },
   "line:blank-atlas:sophie-two-gaps::n5": {
     "status": "locked",
-    "sourceSha256": "227ffeba1bd7e99125cd04bde3a58da3c849650b511e19c7a6f87836c482b3a9",
+    "sourceSha256": "6f2fd8a89841a41a84a9e8f527d730fc2b9818e01a766262096965b5d40b1c87",
     "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__sophie-two-gaps__sophie__n5.opus",
     "pitch": {
       "status": "rendered",
@@ -679,7 +679,7 @@
   },
   "line:blank-atlas:ruparna-note-route::foundation": {
     "status": "locked",
-    "sourceSha256": "6693f0272c866d09617c15e0b79fe25dfcf472888bc0b891a102a90ce2fbb20c",
+    "sourceSha256": "60439e46a31ffa26074be5c15a269d29e553b31f577da7c90c81f5cacd019102",
     "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__ruparna-note-route__ruparna__foundation.opus",
     "pitch": {
       "status": "rendered",
@@ -698,7 +698,7 @@
   },
   "line:blank-atlas:ruparna-note-route::n5": {
     "status": "locked",
-    "sourceSha256": "c2e60759dbb388c4c08035d3f96537e71f925438f558eb1961a0c3e5c508156a",
+    "sourceSha256": "5f95a10b17bcc125f68aa363dc61de497031545b8df5f4d0a451116e537151dc",
     "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__ruparna-note-route__ruparna__n5.opus",
     "pitch": {
       "status": "rendered",
@@ -940,6 +940,44 @@
         "prePhonemeLength": 0.12,
         "postPhonemeLength": 0.18,
         "pauseLengthScale": 1.05
+      }
+    }
+  },
+  "line:blank-atlas:rie-hiragana-route::foundation": {
+    "status": "locked",
+    "sourceSha256": "3b34062a20cc3c380e4a3cc18b78e79589b8efd2d91802662f8ee9156ce4046d",
+    "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__rie-hiragana-route__rie__foundation.opus",
+    "pitch": {
+      "status": "rendered",
+      "manualReview": "codex-objective-qa",
+      "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+      "queryOverrides": {
+        "speedScale": 0.94,
+        "pitchScale": -0.01,
+        "intonationScale": 1.04,
+        "volumeScale": 0.86,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.18,
+        "pauseLengthScale": 1.02
+      }
+    }
+  },
+  "line:blank-atlas:rie-hiragana-route::n5": {
+    "status": "locked",
+    "sourceSha256": "9805d9e43ba120d87a864d4cda75ca62f884e2d74405e8befee9a9712f499e64",
+    "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__rie-hiragana-route__rie__n5.opus",
+    "pitch": {
+      "status": "rendered",
+      "manualReview": "codex-objective-qa",
+      "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+      "queryOverrides": {
+        "speedScale": 0.98,
+        "pitchScale": -0.01,
+        "intonationScale": 1.04,
+        "volumeScale": 0.86,
+        "prePhonemeLength": 0.12,
+        "postPhonemeLength": 0.18,
+        "pauseLengthScale": 0.98
       }
     }
   }

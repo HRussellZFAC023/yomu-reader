@@ -34,7 +34,7 @@ describe('Lesson Zero story mission screen', () => {
         expect(screen.element.textContent).not.toContain('Use の to join');
         click(screen.element, 'は');
         click(screen.element, 'を');
-        click(screen.element, 'Check the note');
+        click(screen.element, 'Check');
         await vi.waitFor(() => expect(onEvaluation).toHaveBeenCalledOnce());
         await vi.waitFor(() => expect(screen.element.textContent).toContain('Use の to join'));
 
@@ -42,7 +42,7 @@ describe('Lesson Zero story mission screen', () => {
         click(screen.element, 'Clear');
         click(screen.element, 'の');
         click(screen.element, 'も');
-        click(screen.element, 'Check the note');
+        click(screen.element, 'Check');
         await vi.waitFor(() => expect(onEvaluation).toHaveBeenCalledTimes(2));
         await vi.waitFor(() => expect(screen.element.textContent).toContain('Back to the story'));
         screen.dispose();

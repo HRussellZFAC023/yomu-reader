@@ -45273,21 +45273,29 @@ details.academy-code-section > summary {
 }
 
 .academy-note-line {
-    margin: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.35em;
     border-bottom: 2px solid rgba(64, 74, 65, 0.28);
     font-size: clamp(0.86rem, 2.4vw, 1.2rem);
     font-weight: 720;
 }
 
-.academy-note-margin {
-    min-height: 1.3em;
-    margin: 0;
-    color: #655f51;
-    font-size: 0.72rem;
+.academy-note-context {
+    padding-block: 2px;
+    transition: background-color 180ms ease, box-shadow 180ms ease;
 }
 
-.academy-text-mission-prop[data-inspected="true"] .academy-note-margin::before {
-    content: 'name / book';
+.academy-note-gap {
+    min-width: 2.4em;
+    color: var(--prop-accent);
+    text-align: center;
+}
+
+.academy-text-mission-prop[data-inspected="true"] .academy-note-context {
+    background: color-mix(in srgb, var(--prop-accent) 18%, transparent);
+    box-shadow: inset 0 -3px 0 color-mix(in srgb, var(--prop-accent) 72%, #302d27);
 }
 
 .academy-classroom-door {
@@ -56713,6 +56721,19 @@ button.academy-class-week-entry:is(:hover, :focus-visible) {
 .academy-mission-japanese {
     min-width: 0;
     overflow-wrap: anywhere;
+}
+
+.academy-mission-name-bridge {
+    display: inline-grid;
+    gap: 1px;
+    align-items: end;
+}
+
+.academy-mission-name-reading {
+    color: color-mix(in srgb, var(--academy-paper-ink) 62%, transparent);
+    font-size: 0.63em;
+    font-weight: 650;
+    line-height: 1;
 }
 
 .academy-mission-particle-slot {

@@ -270,6 +270,8 @@ export const ACADEMY_APPROVED_CHARACTER_SPRITES = {
     sophie: assetFile('character.sophie.neutral-right', 'default'),
     sophieEncouraging: assetFile('character.sophie.encouraging-front', 'default'),
     sophieDetermined: assetFile('character.sophie.determined-left', 'default'),
+    ruparnaNeutral: ACADEMY_CAST_STANDARDIZATION_GALLERIES.ruparna['neutral:front-near-front'],
+    ruparnaNoteRoute: ACADEMY_CAST_STANDARDIZATION_GALLERIES.ruparna['encouraging-listening:right-three-quarter'],
     steve: assetFile('character.steve.neutral-front', 'default'),
     steveHappy: assetFile('character.steve.happy-right', 'default'),
     steveDetermined: assetFile('character.steve.determined-left', 'default'),
@@ -286,6 +288,7 @@ const ACADEMY_APPROVED_CAST_SPRITES = {
     mika: ACADEMY_APPROVED_CHARACTER_SPRITES.mikaSound,
     rie: ACADEMY_APPROVED_CHARACTER_SPRITES.rie,
     sophie: ACADEMY_APPROVED_CHARACTER_SPRITES.sophie,
+    ruparna: ACADEMY_APPROVED_CHARACTER_SPRITES.ruparnaNeutral,
     steve: ACADEMY_APPROVED_CHARACTER_SPRITES.steve,
 } as const;
 
@@ -318,6 +321,10 @@ const ACADEMY_APPROVED_CAST_PERFORMANCES = {
         neutral: ACADEMY_APPROVED_CHARACTER_SPRITES.sophie,
         encouraging: ACADEMY_APPROVED_CHARACTER_SPRITES.sophieEncouraging,
         determined: ACADEMY_APPROVED_CHARACTER_SPRITES.sophieDetermined,
+    },
+    ruparna: {
+        neutral: ACADEMY_APPROVED_CHARACTER_SPRITES.ruparnaNeutral,
+        encouraging: ACADEMY_APPROVED_CHARACTER_SPRITES.ruparnaNoteRoute,
     },
     steve: {
         neutral: ACADEMY_APPROVED_CHARACTER_SPRITES.steve,

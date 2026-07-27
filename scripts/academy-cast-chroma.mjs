@@ -88,6 +88,30 @@ for (let pixelIndex = 0; pixelIndex < visited.length; pixelIndex += 1) {
     data[offset + 3] = Math.round(alpha * coverage);
 }
 
+for (let pixelIndex = 0; pixelIndex < visited.length; pixelIndex += 1) {
+    const offset = pixelIndex * channels;
+    const alpha = data[offset + 3];
+    if (alpha === 0) continue;
+
+    const red = data[offset];
+    const green = data[offset + 1];
+    const blue = data[offset + 2];
+    const strongestOther = Math.max(red, blue);
+    const spill = green - strongestOther;
+
+    if (spill <= 5) continue;
+
+    const edgeWeight = 1 - alpha / 255;
+    const correction = Math.max(
+        0,
+        Math.min(spill, spill * (0.72 + edgeWeight * 0.28)),
+    );
+    data[offset + 1] = Math.max(
+        Math.round((red + blue) / 2),
+        Math.round(green - correction),
+    );
+}
+
 const keyed = await sharp(data, { raw: { width, height, channels } })
     .trim({ background: { r: 0, g: 0, b: 0, alpha: 0 } })
     .resize({

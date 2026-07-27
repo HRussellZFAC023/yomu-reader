@@ -176,23 +176,35 @@ function soundMissionProp(nodeId: string): HTMLElement {
 function textMissionProp(language: AcademyLanguage, onSfx?: (cue: AcademySemanticSfxCue) => void): HTMLElement {
     const prop = section('academy-text-mission-prop');
     prop.dataset.inspected = 'false';
+    prop.setAttribute('aria-label', 'A folded note has two gaps.');
     const note = section('academy-folded-note');
     note.append(
         text('p', 'academy-prop-label', 'Sophie / Ruparna'),
-        text('p', 'academy-note-line', 'ソフィー ___ 学生です。'),
-        text('p', 'academy-note-line', 'これは ___ 本です。'),
-        text('p', 'academy-note-margin', ''),
+        noteGapLine('これは ソフィー', '名札です。'),
+        noteGapLine('ルパルナです。わたし', '日本語を勉強しています。'),
     );
-    const inspect = button(language === 'ja' ? '端を見る' : 'Inspect the margin', 'academy-note-inspect');
+    const inspect = button(language === 'ja' ? 'よく見る' : 'Look closer', 'academy-note-inspect');
     inspect.setAttribute('aria-pressed', 'false');
     inspect.addEventListener('click', () => {
         onSfx?.('vn.choice.confirm');
         prop.dataset.inspected = 'true';
+        prop.setAttribute('aria-label', 'The words beside each gap are highlighted.');
         inspect.setAttribute('aria-pressed', 'true');
-        inspect.textContent = language === 'ja' ? '名前と本' : 'Names and a book';
+        inspect.textContent = language === 'ja' ? 'わかった' : 'Got it';
+        inspect.disabled = true;
     });
     prop.append(note, inspect);
     return prop;
+}
+
+function noteGapLine(before: string, after: string): HTMLElement {
+    const line = section('academy-note-line');
+    line.append(
+        text('span', 'academy-note-context academy-note-context-before', before),
+        text('span', 'academy-note-gap', '＿'),
+        text('span', 'academy-note-context academy-note-context-after', after),
+    );
+    return line;
 }
 
 function speakingDoorProp(language: AcademyLanguage, onSfx?: (cue: AcademySemanticSfxCue) => void): HTMLElement {

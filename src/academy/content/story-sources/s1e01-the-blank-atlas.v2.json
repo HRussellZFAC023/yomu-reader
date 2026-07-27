@@ -1190,7 +1190,7 @@
           "id": "node:blank-atlas:text-note",
           "beatId": "beat:blank-atlas:text-mission-image",
           "cueId": "cue:text-route-note-nameplates",
-          "description": "Sophie and Ruparna's note has two gaps."
+          "description": "A folded note. Two gaps."
         },
         {
           "kind": "line",
@@ -1201,14 +1201,14 @@
           "attentionTarget": "the two pale spaces",
           "variants": {
             "foundation": {
-              "japanese": "空いているところは二つ。まず、前と後だけを見ます。",
-              "reading": "あいているところはふたつ。まず、まえとあとだけをみます。",
-              "english": "There are two gaps. First, look only before and after them."
+              "japanese": "空いているところは二つ。前と後を見てください。",
+              "reading": "あいているところはふたつ。まえとあとをみてください。",
+              "english": "Two gaps. Read the words before and after each one."
             },
             "n5": {
-              "japanese": "空欄は二つ。名前はまだ手掛かりにしません。前後の意味を比べましょう。",
-              "reading": "くうらんはふたつ。なまえはまだてがかりにしません。ぜんごのいみをくらべましょう。",
-              "english": "Two blanks. The names are not evidence yet. Let's compare the surrounding meaning."
+              "japanese": "空欄は二つ。前後のことばを読んでみましょう。",
+              "reading": "くうらんはふたつ。ぜんごのことばをよんでみましょう。",
+              "english": "Two gaps. Read the words on each side."
             }
           },
           "support": {
@@ -1246,7 +1246,7 @@
           "id": "node:blank-atlas:text-input-repair",
           "beatId": "beat:blank-atlas:text-mission-repair",
           "cueId": "cue:text-route-evidence-lines",
-          "description": "The useful words stay visible. Try the missed gap again."
+          "description": "One gap remains. Read either side."
         },
         {
           "kind": "checkpoint",
@@ -1263,14 +1263,14 @@
           "attentionTarget": "the paper edge aligning with the atlas",
           "variants": {
             "foundation": {
-              "japanese": "文がつながりました。紙のはしが、道みたいです。",
-              "reading": "ぶんがつながりました。かみのはしが、みちみたいです。",
-              "english": "The sentence connects. The edge of the paper looks like a road."
+              "japanese": "つながりました。ほら、紙のはしが次の道です。",
+              "reading": "つながりました。ほら、かみのはしがつぎのみちです。",
+              "english": "It works. Look—the edge of the note is our next route."
             },
             "n5": {
-              "japanese": "文字が戻ると、紙の端が次の道みたいにつながります。",
-              "reading": "もじがもどると、かみのはしがつぎのみちみたいにつながります。",
-              "english": "When the letters return, the paper's edge connects like the next road."
+              "japanese": "つながりました。ほら、紙の端が次の道になります。",
+              "reading": "つながりました。ほら、かみのはしがつぎのみちになります。",
+              "english": "It works. Look—the edge of the note becomes our next route."
             }
           },
           "support": {

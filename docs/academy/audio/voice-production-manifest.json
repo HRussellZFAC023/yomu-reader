@@ -7,7 +7,7 @@
     },
     "locks": {
       "path": "docs/academy/audio/learning-voice-locks.json",
-      "sha256": "4390808dfeb7b4d09fe1b554929aa411ce009694d63719c184e895990a6ddb49"
+      "sha256": "d2aea8aa8fca40204e10afe07aaa1fbd9d6ad719f4c8bff45de87cdd645fefdd"
     },
     "acceptance": {
       "path": "docs/academy/audio/learning-voice-acceptance.json",
@@ -15,8 +15,8 @@
     }
   },
   "counts": {
-    "entries": 1826,
-    "storyVariants": 1472,
+    "entries": 1828,
+    "storyVariants": 1474,
     "uiLines": 323,
     "learningVoiceLines": 31,
     "learningBindings": 33,
@@ -24,10 +24,10 @@
     "acceptedLearningLines": 31,
     "codexAcceptedLearningLines": 31,
     "humanReviewedLearningLines": 0,
-    "locked": 51,
-    "productionReady": 82,
+    "locked": 53,
+    "productionReady": 84,
     "pilotRendered": 5,
-    "storyRendered": 52,
+    "storyRendered": 54,
     "staleLocks": 1,
     "missingModels": 162
   },
@@ -640,6 +640,82 @@
         }
       },
       "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__rie-listen-first__rie__n5.opus"
+    },
+    {
+      "key": "line:blank-atlas:rie-hiragana-route::foundation",
+      "surface": "story",
+      "sourceFile": "s1e01-the-blank-atlas.v2.json",
+      "chapterId": "s1e01-the-blank-atlas",
+      "chapter": 1,
+      "season": 1,
+      "sceneId": "scene:blank-atlas:sound-script-map",
+      "lineId": "line:blank-atlas:rie-hiragana-route",
+      "speakerId": "rie",
+      "intent": "Turn the five vowel sounds into a compact system for all basic hiragana.",
+      "band": "foundation",
+      "japanese": "あ、い、う、え、お。つぎは、ひらがなです。",
+      "reading": "あ、い、う、え、お。つぎは、ひらがなです。",
+      "english": "A, i, u, e, o. Next: hiragana.",
+      "sourceSha256": "3b34062a20cc3c380e4a3cc18b78e79589b8efd2d91802662f8ee9156ce4046d",
+      "status": "locked",
+      "voiceModel": {
+        "speaker": "rie",
+        "model": "morioki",
+        "uuid": "baaae3c0-7b22-4605-8ba5-80c959b41a48"
+      },
+      "pitch": {
+        "status": "rendered",
+        "manualReview": "codex-objective-qa",
+        "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+        "queryOverrides": {
+          "speedScale": 0.94,
+          "pitchScale": -0.01,
+          "intonationScale": 1.04,
+          "volumeScale": 0.86,
+          "prePhonemeLength": 0.12,
+          "postPhonemeLength": 0.18,
+          "pauseLengthScale": 1.02
+        }
+      },
+      "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__rie-hiragana-route__rie__foundation.opus"
+    },
+    {
+      "key": "line:blank-atlas:rie-hiragana-route::n5",
+      "surface": "story",
+      "sourceFile": "s1e01-the-blank-atlas.v2.json",
+      "chapterId": "s1e01-the-blank-atlas",
+      "chapter": 1,
+      "season": 1,
+      "sceneId": "scene:blank-atlas:sound-script-map",
+      "lineId": "line:blank-atlas:rie-hiragana-route",
+      "speakerId": "rie",
+      "intent": "Turn the five vowel sounds into a compact system for all basic hiragana.",
+      "band": "n5",
+      "japanese": "五つの母音を使って、基本のひらがなを一気に読みましょう。",
+      "reading": "いつつのぼいんをつかって、きほんのひらがなをいっきによみましょう。",
+      "english": "Using those five vowels, let's read the basic hiragana in one run.",
+      "sourceSha256": "9805d9e43ba120d87a864d4cda75ca62f884e2d74405e8befee9a9712f499e64",
+      "status": "locked",
+      "voiceModel": {
+        "speaker": "rie",
+        "model": "morioki",
+        "uuid": "baaae3c0-7b22-4605-8ba5-80c959b41a48"
+      },
+      "pitch": {
+        "status": "rendered",
+        "manualReview": "codex-objective-qa",
+        "evidence": "docs/academy/audio/blank-atlas-voice-manifest.json",
+        "queryOverrides": {
+          "speedScale": 0.98,
+          "pitchScale": -0.01,
+          "intonationScale": 1.04,
+          "volumeScale": 0.86,
+          "prePhonemeLength": 0.12,
+          "postPhonemeLength": 0.18,
+          "pauseLengthScale": 0.98
+        }
+      },
+      "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__rie-hiragana-route__rie__n5.opus"
     },
     {
       "key": "line:blank-atlas:rie-look::foundation",
@@ -1261,10 +1337,10 @@
       "speakerId": "sophie",
       "intent": "Define the evidence problem precisely without giving the particles away.",
       "band": "foundation",
-      "japanese": "空いているところは二つ。まず、前と後だけを見ます。",
-      "reading": "あいているところはふたつ。まず、まえとあとだけをみます。",
-      "english": "There are two gaps. First, look only before and after them.",
-      "sourceSha256": "6577c3d59c07d14ef99fd5554f5adda0d3381e4a9f72cac784185d5530b2f2de",
+      "japanese": "空いているところは二つ。前と後を見てください。",
+      "reading": "あいているところはふたつ。まえとあとをみてください。",
+      "english": "Two gaps. Read the words before and after each one.",
+      "sourceSha256": "73b70ebc2e097c1fb67aaa6680e5927c38ca3e9fd49cc8c3690897434fad9b9c",
       "status": "locked",
       "voiceModel": {
         "speaker": "sophie",
@@ -1299,10 +1375,10 @@
       "speakerId": "sophie",
       "intent": "Define the evidence problem precisely without giving the particles away.",
       "band": "n5",
-      "japanese": "空欄は二つ。名前はまだ手掛かりにしません。前後の意味を比べましょう。",
-      "reading": "くうらんはふたつ。なまえはまだてがかりにしません。ぜんごのいみをくらべましょう。",
-      "english": "Two blanks. The names are not evidence yet. Let's compare the surrounding meaning.",
-      "sourceSha256": "227ffeba1bd7e99125cd04bde3a58da3c849650b511e19c7a6f87836c482b3a9",
+      "japanese": "空欄は二つ。前後のことばを読んでみましょう。",
+      "reading": "くうらんはふたつ。ぜんごのことばをよんでみましょう。",
+      "english": "Two gaps. Read the words on each side.",
+      "sourceSha256": "6f2fd8a89841a41a84a9e8f527d730fc2b9818e01a766262096965b5d40b1c87",
       "status": "locked",
       "voiceModel": {
         "speaker": "sophie",
@@ -1337,10 +1413,10 @@
       "speakerId": "ruparna",
       "intent": "Turn the repaired note into a visible route rather than an answer display.",
       "band": "foundation",
-      "japanese": "文がつながりました。紙のはしが、道みたいです。",
-      "reading": "ぶんがつながりました。かみのはしが、みちみたいです。",
-      "english": "The sentence connects. The edge of the paper looks like a road.",
-      "sourceSha256": "6693f0272c866d09617c15e0b79fe25dfcf472888bc0b891a102a90ce2fbb20c",
+      "japanese": "つながりました。ほら、紙のはしが次の道です。",
+      "reading": "つながりました。ほら、かみのはしがつぎのみちです。",
+      "english": "It works. Look—the edge of the note is our next route.",
+      "sourceSha256": "60439e46a31ffa26074be5c15a269d29e553b31f577da7c90c81f5cacd019102",
       "status": "locked",
       "voiceModel": {
         "speaker": "ruparna",
@@ -1375,10 +1451,10 @@
       "speakerId": "ruparna",
       "intent": "Turn the repaired note into a visible route rather than an answer display.",
       "band": "n5",
-      "japanese": "文字が戻ると、紙の端が次の道みたいにつながります。",
-      "reading": "もじがもどると、かみのはしがつぎのみちみたいにつながります。",
-      "english": "When the letters return, the paper's edge connects like the next road.",
-      "sourceSha256": "c2e60759dbb388c4c08035d3f96537e71f925438f558eb1961a0c3e5c508156a",
+      "japanese": "つながりました。ほら、紙の端が次の道になります。",
+      "reading": "つながりました。ほら、かみのはしがつぎのみちになります。",
+      "english": "It works. Look—the edge of the note becomes our next route.",
+      "sourceSha256": "5f95a10b17bcc125f68aa363dc61de497031545b8df5f4d0a451116e537151dc",
       "status": "locked",
       "voiceModel": {
         "speaker": "ruparna",

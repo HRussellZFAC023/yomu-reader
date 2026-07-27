@@ -263,6 +263,50 @@
           "Both viewports keep the retry warm and specific rather than turning it into a punitive error screen."
         ]
       }
+    },
+    {
+      "assetId": "event.story.blank-atlas-mission-text.two-gaps",
+      "chapterId": "s1e01-the-blank-atlas",
+      "sceneId": "scene:blank-atlas:mission-text",
+      "nodeId": "node:blank-atlas:text-note",
+      "cueId": "cue:text-route-note-nameplates",
+      "wide": "/academy/art/events/blank-atlas-mission-text__two-gaps__wide__v001.webp",
+      "mobile": "/academy/art/events/blank-atlas-mission-text__two-gaps__mobile__v001.webp",
+      "generationSources": [
+        "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/call_OvJEvG7QfmgDTxI66Sxb5ylY.png",
+        "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/call_dlha29nihDYkkoWGY9UipmFr.png"
+      ],
+      "qa": {
+        "verdict": "pass",
+        "inspected": true,
+        "notes": [
+          "Two small gaps and nearby guide lines establish the context task without revealing either answer.",
+          "The folded note, Atlas route edge, pencil, and paperclip read as one continuous physical object.",
+          "No person, name, answer, or readable prose is baked into the art; runtime dialogue and props own the lesson content."
+        ]
+      }
+    },
+    {
+      "assetId": "event.story.blank-atlas-mission-text.one-gap-repair",
+      "chapterId": "s1e01-the-blank-atlas",
+      "sceneId": "scene:blank-atlas:mission-text",
+      "nodeId": "node:blank-atlas:text-input-repair",
+      "cueId": "cue:text-route-evidence-lines",
+      "wide": "/academy/art/events/blank-atlas-mission-text__one-gap-repair__wide__v001.webp",
+      "mobile": "/academy/art/events/blank-atlas-mission-text__one-gap-repair__mobile__v001.webp",
+      "generationSources": [
+        "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/call_A4iNstroDvvFn3xMV9xaiC0L.png",
+        "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/call_WF6AVsxSpLdGfGlsvj4BrO6s.png"
+      ],
+      "qa": {
+        "verdict": "pass",
+        "inspected": true,
+        "notes": [
+          "The unfolded route note and map carry the repair state without revealing either answer.",
+          "The rainy library stays calm and specific, with no red failure treatment or punitive visual language.",
+          "Wide and mobile plates contain no people, leaving clear staging zones for the canonical runtime cast performances."
+        ]
+      }
     }
   ]
 }
