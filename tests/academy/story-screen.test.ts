@@ -89,6 +89,36 @@ describe('Academy Story screen', () => {
         expect(screen.textContent).not.toContain('日本語のクラスですか。');
     });
 
+    it('keeps responsive opening art until the authored atlas reveal changes the room', () => {
+        const opening = render('s1e01-the-blank-atlas').screen;
+        const openingStage = opening.querySelector<HTMLElement>('.academy-vn-stage')!;
+        const openingImage = opening.querySelector<HTMLImageElement>('.academy-vn-plate img')!;
+        const openingMobile = opening.querySelector<HTMLSourceElement>('.academy-vn-plate source')!;
+
+        expect(openingStage.dataset.storyArt).toBe('event.story.blank-atlas-arrival.covered-atlas');
+        expect(openingImage.getAttribute('src')).toContain(
+            'blank-atlas-arrival__covered-atlas-open-chair__wide__v001.webp',
+        );
+        expect(openingMobile.getAttribute('srcset')).toContain(
+            'blank-atlas-arrival__covered-atlas-open-chair__mobile__v001.webp',
+        );
+        advance(opening);
+        expect(openingStage.dataset.storyArt).toBe('event.story.blank-atlas-arrival.covered-atlas');
+
+        const revealed = render(cursor(
+            'scene:blank-atlas:arrival-greetings',
+            'node:blank-atlas:first-uncover',
+        )).screen;
+        const revealedStage = revealed.querySelector<HTMLElement>('.academy-vn-stage')!;
+        expect(revealedStage.dataset.storyArt).toBe('event.story.blank-atlas-arrival.atlas-uncovered');
+        expect(revealed.querySelector<HTMLImageElement>('.academy-vn-plate img')?.getAttribute('src')).toContain(
+            'blank-atlas-arrival__atlas-uncovered-unlit__wide__v001.webp',
+        );
+        expect(revealed.querySelector<HTMLSourceElement>('.academy-vn-plate source')?.getAttribute('srcset')).toContain(
+            'blank-atlas-arrival__atlas-uncovered-unlit__mobile__v001.webp',
+        );
+    });
+
     it('uses the shared VN Back control and keeps one readings control for the opening arc', () => {
         const onBack = vi.fn();
         const { screen } = render('s1e01-the-blank-atlas', { onBack });
@@ -156,7 +186,9 @@ describe('Academy Story screen', () => {
         expect(mika.dataset.position).toBe('left');
         expect(mika.dataset.performancePresence).toBe('active');
         expect(mika.dataset.performanceColor).toBe('full');
-        expect(mika.querySelector('img')?.getAttribute('src')).toContain('mika__sound-listening__halfbody__v001.png');
+        expect(mika.querySelector('img')?.getAttribute('src')).toContain(
+            'mika__encouraging-listening-headphones__right-three-quarter__fullbody__v002.png',
+        );
         expect(learner.dataset.position).toBe('right');
         expect(learner.dataset.performancePresence).toBe('inactive');
     });

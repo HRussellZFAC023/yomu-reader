@@ -4,6 +4,10 @@ import {
     ACADEMY_CAST_STANDARDIZATION_JOURNAL_REVIEW,
     ACADEMY_CAST_STANDARDIZATION_RUNTIME_ASSETS,
 } from './domain/cast-standardization-manifest';
+import {
+    ACADEMY_STORY_ART_COVERAGE,
+    ACADEMY_STORY_ART_RUNTIME_ASSETS,
+} from './domain/story-art-manifest';
 
 export type AcademyRuntimeAssetKind = 'background' | 'character-sprite' | 'event-art' | 'item-art' | 'protagonist-portrait';
 export type AcademyRuntimeAssetStatus = 'approved' | 'review-preview';
@@ -21,7 +25,7 @@ export interface AcademyRuntimeAssetRecord {
     readonly kind: AcademyRuntimeAssetKind;
     readonly status: AcademyRuntimeAssetStatus;
     readonly runtimeHomes: readonly [string, ...string[]];
-    readonly provenance: 'current-production' | 'recovered-academy-tree';
+    readonly provenance: 'current-production' | 'recovered-academy-tree' | 'regenerated-house-style';
     readonly files: Readonly<Record<string, `/academy/art/${string}`>>;
     readonly responsivePresentation?: AcademyResponsivePresentation;
 }
@@ -36,6 +40,7 @@ function runtimeAsset<const T extends AcademyRuntimeAssetRecord>(record: T): T {
  */
 export const ACADEMY_RUNTIME_ASSET_REGISTRY = {
     ...ACADEMY_CAST_STANDARDIZATION_RUNTIME_ASSETS,
+    ...ACADEMY_STORY_ART_RUNTIME_ASSETS,
     'portrait.quality-2': runtimeAsset({ kind: 'protagonist-portrait', status: 'approved', runtimeHomes: ['onboarding:portrait-choice-2', 'journal:player'], provenance: 'current-production', files: { default: '/academy/art/protagonists/quality-2__picker__v001.png' } }),
     'portrait.quality-3': runtimeAsset({ kind: 'protagonist-portrait', status: 'approved', runtimeHomes: ['onboarding:portrait-choice-3', 'journal:player'], provenance: 'current-production', files: { default: '/academy/art/protagonists/quality-3__picker__v001.png' } }),
     'portrait.quality-4': runtimeAsset({ kind: 'protagonist-portrait', status: 'approved', runtimeHomes: ['onboarding:portrait-choice-4', 'journal:player'], provenance: 'current-production', files: { default: '/academy/art/protagonists/quality-4__picker__v001.png' } }),
@@ -180,6 +185,7 @@ interface AcademyItemPresentationCoverageEntry {
 
 /** Exhaustive typed purpose coverage for non-character art with a runtime job. */
 export const ACADEMY_PURPOSEFUL_ASSET_COVERAGE = {
+    ...ACADEMY_STORY_ART_COVERAGE,
     'location.home': { purpose: 'world-scene', primaryUse: 'location:home' },
     'location.campus-ensemble': { purpose: 'world-scene', primaryUse: 'access:campus-ensemble' },
     'location.entrance': { purpose: 'world-scene', primaryUse: 'access:entrance' },
@@ -253,7 +259,7 @@ function assetFile(id: AcademyRuntimeAssetId, variant: string): `/academy/art/${
 export const ACADEMY_APPROVED_CHARACTER_SPRITES = {
     aakash: assetFile('character.aakash.neutral', 'default'),
     xingyuListening: assetFile('character.xingyu.listening', 'default'),
-    mikaSound: assetFile('character.mika.sound-listening', 'default'),
+    mikaSound: ACADEMY_CAST_STANDARDIZATION_GALLERIES.mika['encouraging-listening:right-three-quarter'],
     rie: assetFile('character.rie.neutral-glasses', 'default'),
     rieHappy: assetFile('character.rie.happy-glasses-front', 'default'),
     rieDetermined: assetFile('character.rie.determined-glasses-left', 'default'),
@@ -337,7 +343,7 @@ export const ACADEMY_CAST_SPRITE_COVERAGE = ACADEMY_CAST_STANDARDIZATION_COVERAG
 export const ACADEMY_ASSETS = {
     rie: ACADEMY_APPROVED_CHARACTER_SPRITES.rie,
     xingyuListening: assetFile('character.xingyu.listening', 'default'),
-    mikaSound: assetFile('character.mika.sound-listening', 'default'),
+    mikaSound: ACADEMY_APPROVED_CHARACTER_SPRITES.mikaSound,
     characters: {
         approved: ACADEMY_APPROVED_CAST_SPRITES,
         approvedPerformances: ACADEMY_APPROVED_CAST_PERFORMANCES,

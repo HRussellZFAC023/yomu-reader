@@ -18,8 +18,8 @@
     ]
   },
   "counts": {
-    "runtimeAssetHomes": 138,
-    "runtimeFiles": 170,
+    "runtimeAssetHomes": 140,
+    "runtimeFiles": 174,
     "nonRuntimeReviewFiles": 1734,
     "approvedReferenceOnly": 4,
     "explicitlyRejectedFamilies": 4,
@@ -1448,53 +1448,24 @@
       "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
     },
     {
-      "id": "character-mika-sound-listening",
+      "id": "character-mika-encouraging-listening-headphones-right-three-quarter-fullbody-v002",
       "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "56838e297a6577e5ec99d5122dd14054d58722b2648f198dbeb7b8faac46d8a8",
-      "provenance": "retained-good",
+      "sourceSha256": "6595c33d7846f1656b4345a726a35b724fb47abd8b8405f323f7b905f5c42f05",
+      "provenance": "regenerated-house-style",
       "verdict": "approved-runtime",
       "runtimeHome": [
-        "lesson-zero:sound-speaker-match",
-        "story:s1e01:mission-sound"
-      ],
-      "reviewHome": [],
-      "usage": {
-        "runtime": [
-          "lesson-zero:sound-speaker-match",
-          "story:s1e01:mission-sound"
-        ],
-        "review": []
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/mika/mika__sound-listening__halfbody__v001.png",
-          "sha256": "56838e297a6577e5ec99d5122dd14054d58722b2648f198dbeb7b8faac46d8a8"
-        }
-      ],
-      "status": "retained approved cast runtime sprite"
-    },
-    {
-      "id": "character-mika-standardized-neutral-front-near-front-halfbody-v001",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "126a2fc704652e2a2515def882a51ff066d2cb29af14558b91276667f27ed2f5",
-      "provenance": "regenerated-standardized",
-      "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": [
-        "journal:mika",
-        "class:people-review",
-        "lesson-overview:roster-review",
+        "journal:mika-expression-gallery",
+        "story:mika-listening",
         "cast-standardization:mika"
       ],
       "reviewHome": [
         "cast-standardization-manifest",
-        "learner-journal-preview"
+        "identity-lock"
       ],
       "usage": {
         "runtime": [
-          "journal:mika",
-          "class:people-review",
-          "lesson-overview:roster-review",
+          "journal:mika-expression-gallery",
+          "story:mika-listening",
           "cast-standardization:mika"
         ],
         "review": [
@@ -1504,11 +1475,51 @@
       "orphan": "active-runtime",
       "deliveries": [
         {
-          "path": "/academy/art/characters/mika/mika__standardized-neutral__front-near-front__halfbody__v001.png",
-          "sha256": "126a2fc704652e2a2515def882a51ff066d2cb29af14558b91276667f27ed2f5"
+          "path": "/academy/art/characters/mika/mika__encouraging-listening-headphones__right-three-quarter__fullbody__v002.png",
+          "sha256": "6595c33d7846f1656b4345a726a35b724fb47abd8b8405f323f7b905f5c42f05"
         }
       ],
-      "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-mika-neutral-headphones-front-near-front-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "d1a10ddf54c40c9ebb0a607d7109b641fee8b1e7a353883969b5745ffddbecfa",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:mika",
+        "class:people",
+        "class:week-cast",
+        "lesson-overview:roster",
+        "world:person",
+        "cast-standardization:mika"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:mika",
+          "class:people",
+          "class:week-cast",
+          "lesson-overview:roster",
+          "world:person",
+          "cast-standardization:mika"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/mika/mika__neutral-headphones__front-near-front__fullbody__v002.png",
+          "sha256": "d1a10ddf54c40c9ebb0a607d7109b641fee8b1e7a353883969b5745ffddbecfa"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
     },
     {
       "id": "character-miller-standardized-encouraging-listening-front-near-front-halfbody-v001",
@@ -1579,22 +1590,24 @@
       "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
     },
     {
-      "id": "character-mira-standardized-encouraging-listening-front-near-front-halfbody-v001",
+      "id": "character-mira-encouraging-listening-umbrella-right-three-quarter-fullbody-v002",
       "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "7eca3ea68eeab8f8bc39bb0828d1772a70fb495d5021a550962708e0ff1d78f4",
-      "provenance": "regenerated-standardized",
-      "verdict": "review-candidate/runtime-preview",
+      "sourceSha256": "837eede8fe230839c96a4e7183ffe6592246c64f9863960f6b9373093d879118",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
       "runtimeHome": [
         "journal:mira-expression-gallery",
+        "story:mira-listening",
         "cast-standardization:mira"
       ],
       "reviewHome": [
         "cast-standardization-manifest",
-        "learner-journal-preview"
+        "identity-lock"
       ],
       "usage": {
         "runtime": [
           "journal:mira-expression-gallery",
+          "story:mira-listening",
           "cast-standardization:mira"
         ],
         "review": [
@@ -1604,33 +1617,37 @@
       "orphan": "active-runtime",
       "deliveries": [
         {
-          "path": "/academy/art/characters/mira/mira__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
-          "sha256": "7eca3ea68eeab8f8bc39bb0828d1772a70fb495d5021a550962708e0ff1d78f4"
+          "path": "/academy/art/characters/mira/mira__encouraging-listening-umbrella__right-three-quarter__fullbody__v002.png",
+          "sha256": "837eede8fe230839c96a4e7183ffe6592246c64f9863960f6b9373093d879118"
         }
       ],
-      "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
     },
     {
-      "id": "character-mira-standardized-neutral-front-near-front-halfbody-v001",
+      "id": "character-mira-neutral-umbrella-front-near-front-fullbody-v002",
       "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "c4eebe6494909e3b265b9ad477f7bed42b0d8cb12c22fc8070c237ebc831e1f8",
-      "provenance": "regenerated-standardized",
-      "verdict": "review-candidate/runtime-preview",
+      "sourceSha256": "4eb19554554cddcf671103a8c7c64103775ea72cf7072c0f6929ad0ff085cae4",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
       "runtimeHome": [
         "journal:mira",
-        "class:people-review",
-        "lesson-overview:roster-review",
+        "class:people",
+        "class:week-cast",
+        "lesson-overview:roster",
+        "world:person",
         "cast-standardization:mira"
       ],
       "reviewHome": [
         "cast-standardization-manifest",
-        "learner-journal-preview"
+        "identity-lock"
       ],
       "usage": {
         "runtime": [
           "journal:mira",
-          "class:people-review",
-          "lesson-overview:roster-review",
+          "class:people",
+          "class:week-cast",
+          "lesson-overview:roster",
+          "world:person",
           "cast-standardization:mira"
         ],
         "review": [
@@ -1640,11 +1657,11 @@
       "orphan": "active-runtime",
       "deliveries": [
         {
-          "path": "/academy/art/characters/mira/mira__standardized-neutral__front-near-front__halfbody__v001.png",
-          "sha256": "c4eebe6494909e3b265b9ad477f7bed42b0d8cb12c22fc8070c237ebc831e1f8"
+          "path": "/academy/art/characters/mira/mira__neutral-umbrella__front-near-front__fullbody__v002.png",
+          "sha256": "4eb19554554cddcf671103a8c7c64103775ea72cf7072c0f6929ad0ff085cae4"
         }
       ],
-      "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
     },
     {
       "id": "character-nanako-standardized-encouraging-listening-front-near-front-halfbody-v001",
@@ -3260,6 +3277,78 @@
         }
       ],
       "status": "generated-from-verified-season-three-gap; prop-led; no-visible-people; runtime-bound"
+    },
+    {
+      "id": "event-story-blank-atlas-arrival-atlas-uncovered",
+      "source": "manifest:docs/academy/art/STORY-ART-PROMOTIONS.json",
+      "sourceSha256": "280ad4f8c154fdb694326402509726fc82d0e81bdb659e0803b7ee7ec9205cc0",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "node:blank-atlas:first-uncover",
+        "scene:blank-atlas:arrival-greetings"
+      ],
+      "reviewHome": [
+        "story-art-promotions",
+        "cue:atlas-uncovered-unlit"
+      ],
+      "usage": {
+        "runtime": [
+          "node:blank-atlas:first-uncover",
+          "scene:blank-atlas:arrival-greetings"
+        ],
+        "review": [
+          "story-art-promotions"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/events/blank-atlas-arrival__atlas-uncovered-unlit__wide__v001.webp",
+          "sha256": "2b29dd536777c85e35b5f12067d9cf35992cdc4efd1c9cc576bab8d0193c0d85"
+        },
+        {
+          "path": "/academy/art/events/blank-atlas-arrival__atlas-uncovered-unlit__mobile__v001.webp",
+          "sha256": "e8635eb61ba629b5cd348e72b19a48c432467bb73f2299fd4429259659f704c1"
+        }
+      ],
+      "status": "node-bound, art-directed responsive story event"
+    },
+    {
+      "id": "event-story-blank-atlas-arrival-covered-atlas",
+      "source": "manifest:docs/academy/art/STORY-ART-PROMOTIONS.json",
+      "sourceSha256": "b5298374eeae56ac854022b39241b6d35b65e324d62da208939921d9933f1151",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "node:blank-atlas:covered-table",
+        "scene:blank-atlas:arrival-greetings"
+      ],
+      "reviewHome": [
+        "story-art-promotions",
+        "cue:covered-atlas-open-chair"
+      ],
+      "usage": {
+        "runtime": [
+          "node:blank-atlas:covered-table",
+          "scene:blank-atlas:arrival-greetings"
+        ],
+        "review": [
+          "story-art-promotions"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/events/blank-atlas-arrival__covered-atlas-open-chair__wide__v001.webp",
+          "sha256": "535a589bcd8fdbdbb95673a4af90e7d719e29ae696714925c148ce50b16a21fb"
+        },
+        {
+          "path": "/academy/art/events/blank-atlas-arrival__covered-atlas-open-chair__mobile__v001.webp",
+          "sha256": "572f2c83e20095b52bbc5f0fc5cc76cb1b2a98c8b73629764f694ea1a726327a"
+        }
+      ],
+      "status": "node-bound, art-directed responsive story event"
     },
     {
       "id": "festival-night-stalls",

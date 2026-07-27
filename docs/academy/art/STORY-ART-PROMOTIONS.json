@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "houseStyle": "Warm hand-painted 2D visual-novel background: grounded London Academy spaces, readable props, cinematic light, no text baked into art, no photorealism.",
+  "promotions": [
+    {
+      "assetId": "event.story.blank-atlas-arrival.covered-atlas",
+      "chapterId": "s1e01-the-blank-atlas",
+      "sceneId": "scene:blank-atlas:arrival-greetings",
+      "nodeId": "node:blank-atlas:covered-table",
+      "cueId": "cue:covered-atlas-open-chair",
+      "wide": "/academy/art/events/blank-atlas-arrival__covered-atlas-open-chair__wide__v001.webp",
+      "mobile": "/academy/art/events/blank-atlas-arrival__covered-atlas-open-chair__mobile__v001.webp",
+      "generationSources": [
+        "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/call_9UGZYm1HzKAemG8ICqzY1aWh.png",
+        "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/call_wyP8KQGV8wlUhR4V553TFTvg.png"
+      ],
+      "qa": {
+        "verdict": "pass",
+        "inspected": true,
+        "notes": [
+          "The covered atlas and empty chair read immediately at both viewports.",
+          "The upper composition leaves room for persistent game UI and dialogue."
+        ]
+      }
+    },
+    {
+      "assetId": "event.story.blank-atlas-arrival.atlas-uncovered",
+      "chapterId": "s1e01-the-blank-atlas",
+      "sceneId": "scene:blank-atlas:arrival-greetings",
+      "nodeId": "node:blank-atlas:first-uncover",
+      "cueId": "cue:atlas-uncovered-unlit",
+      "wide": "/academy/art/events/blank-atlas-arrival__atlas-uncovered-unlit__wide__v001.webp",
+      "mobile": "/academy/art/events/blank-atlas-arrival__atlas-uncovered-unlit__mobile__v001.webp",
+      "generationSources": [
+        "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/call_ap1pPsb0ygZzyKBetLoCu0O5.png",
+        "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/call_HmPaZkgHxAGkHE3Nf2Eog75c.png"
+      ],
+      "qa": {
+        "verdict": "pass",
+        "inspected": true,
+        "notes": [
+          "The same room and camera language carry through the state change.",
+          "The open blank atlas is the dominant readable action at both viewports."
+        ]
+      }
+    }
+  ]
+}

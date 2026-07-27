@@ -1,5 +1,6 @@
 import { academyText, type AcademyLanguage } from '../../reader/app/academy-copy';
 import { ACADEMY_ASSETS } from '../assets';
+import { getAcademyCastIdentityLock } from '../domain/cast-identity-locks';
 import { ACADEMY_CAST, canRenderAcademyCastPortrait, displayAcademyCastName, type AcademyCastMember } from '../domain/cast-registry';
 import {
     displayWorldPersonName,
@@ -1443,6 +1444,7 @@ function characterDirectoryEntry(
     entry.dataset.journalBookItem = '';
     entry.dataset.character = member.id;
     entry.dataset.unlocked = String(character.unlocked);
+    entry.dataset.identityKey = getAcademyCastIdentityLock(member.id).identityKey;
     entry.style.setProperty('--academy-character-order', String(Math.min(12, order)));
     const displayName = displayAcademyCastName(member.id, language);
 
@@ -1508,6 +1510,7 @@ function characterPage(
         page.classList.add(`academy-journal-${definition.characterId}`);
     }
     page.dataset.character = definition.characterId;
+    page.dataset.identityKey = getAcademyCastIdentityLock(definition.characterId).identityKey;
     const back = backButton(language);
     back.classList.add('academy-character-page-back');
     back.addEventListener('click', onBack);

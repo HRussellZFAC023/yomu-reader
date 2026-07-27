@@ -1,79 +1,84 @@
-w# Character and Reference Dossier
+# Character Art Dossier
 
-This is the casting source of truth for writing and art production. It contains first names and creative traits only. It excludes phone numbers, contact screenshots, employers, addresses, and unverified identities.
+This document explains how cast art enters Yomu Academy. The executable identity
+authority is `src/academy/domain/cast-identity-locks.ts`; the sprite ownership
+authority is `src/academy/domain/cast-standardization-manifest.ts`.
 
-## Reference sets
+## House style
 
-The preserved class-photo references are in:
+Rie-sensei is the ensemble anchor. Every cast member uses the same warm,
+hand-drawn animated-adventure rendering:
 
-`/Users/heru/Documents/Projects/yomu/release-worktrees/yomu-academy-initial-20260711/public/academy/art/characters/claude-production/refs/`
+- clean tapered ink lines and readable silhouettes;
+- simplified painted colour planes rather than photographic skin detail;
+- adult, expressive faces with restrained proportions;
+- deep navy, moss, coral, paper cream, teal, and small gold accents;
+- transparent full- or three-quarter-body cutouts with visible hands;
+- one purposeful action per pose, grounded in a real story beat.
 
-Use these files as the contact sheet for real-class likeness:
+Reject photorealism, uncanny skin, 3D lighting, fashion-catalogue poses, baked
+checkerboards, clipped limbs, text, signatures, and decorative identity props
+that replace the person.
 
-- `class-group-01.webp` through `class-group-06.webp`
-- `konbini-aakash-tom.png`
-- `style-aakash.png`, `style-alex.png`, `style-rie.webp`
-- `quality-2.webp` through `quality-5.webp` are the four approved protagonist choices
-- `quality-1.jpg` is excluded; `quality-6.jpg` remains a rendering reference only
-- `anime-ref-campus-ensemble.webp`, `anime-ref-rie.webp`, `style-campus.webp` for world consistency
+## Identity locks
 
-The rejected v2 sprite source map remains useful as a written identity index:
+The following corrections are fixed and may not be inferred from filenames:
 
-`/Users/heru/Documents/Projects/yomu/release-worktrees/yomu-academy-initial-20260711/public/academy/art/codex-production-v2/sprites/source-map.json`
+| Runtime ID | Learner-facing identity | Non-negotiable lock |
+| --- | --- | --- |
+| `rie` | Rie-sensei | dark bun, fine glasses, navy and cream teacher outfit, notebook |
+| `aakash` | Aakash | short black hair, neat beard, burgundy hoodie and indigo jacket; less realistic than the old portrait |
+| `tom` | Tom | blond, fuller friendly face, clean-shaven |
+| `sam` | Sam | very close-cropped chestnut crew cut with minimal crown and side volume |
+| `francis` | Francis | soft sand-brown hair, gentle face, no glasses; never Tom |
+| `christian` | Christian | Black man with tied-back hair and an athletic presence |
+| `jenny` | Jenny | brown hair and a visibly round, warm face |
+| `robert` | Robert | side-parted brown hair and square glasses |
+| `mika` | Mika | blond man with black headphones, dark overshirt, moss knit |
+| `xingyu` | Xingyu | East Asian woman with short hair or undercut, round glasses, singing energy |
+| `angel` | Onke | learner-facing name is always Onke; long straight dark hair and organised presence |
+| `stasi` | Stasi | auburn wavy hair, round glasses, expressive illustrated face |
+| `ruparna` | Ruparna | South Asian woman with long dark hair; never the stale v1 caricature |
+| `rose` | Rose | restore the original auburn headband and pink-cardigan identity; never use a held rose as her identity |
+| `tom2` | the second Tom | tall, dark-brown hair, reserved, black notebook; clearly distinct from blond Tom |
+| `nanako` | Nanako | distinct from Rose and Mira |
+| `mira` | Mira | warm-blond hair, black cap, oversized blue hoodie, cream trousers, clear umbrella |
+| `miller` | Miller | original textbook-legend office worker; never Mira |
 
-Its generated sprite files are not approved.
+All remaining locks, including Henry, Alex, Shin, Jodi, Sophie, Peter, Felix,
+Shaun, Steve, Tawapon, Mary, and Takeshi, live in the executable identity table.
+The old carry-over names and old worktree paths are not casting authority.
 
-## Real-class ensemble
+## Required performance set
 
-| Character | Visual lock | Interests and voice | Story and learning home | Reference confidence |
-| --- | --- | --- | --- | --- |
-| Rie | Japanese woman, soft dark bun, warm tired-bright eyes, cream cardigan/navy blouse | tea, natto, cup noodles; practical warmth; many-job running joke | guide, register, repair language, feedback | strong: dedicated Rie refs and approved OpenAI sprite |
-| Henry | messy short brown hair, slightly sleepless, casual indigo layers | AI, too many laptops, avoiding homework by building tools | learner proxy, independent study, explaining technology | strong in group photos |
-| Aakash | South Asian man, neat black hair, hat-free default; keep beard only if the selected photo supports it | classic cars, city pop, Hello Kitty, anime fashion | directions, city talk, listening during conflict | strong: `konbini-aakash-tom.png`, `style-aakash.png`, several group photos |
-| Alex | White man, short brown hair, ordinary understated clothes | Fuji, accumulated travel experience | experience, sequencing, fictional Japan opportunity | strong: `style-alex.png` plus group photos |
-| Tom | White man, clearly blond, fuller friendly face, clean-shaven | Nintendo, Pokemon, Chestnut | katakana, counters, kanji battle | strong: `konbini-aakash-tom.png` and group photos; reject dark-haired/bearded outputs |
-| Sam | relaxed athletic White man, short chestnut hair | okonomiyaki, Saturday tennis | invitations, routines, noticing quiet classmates | medium; verify exact group-photo match before generation |
-| Francis | gentle White man, soft sand-brown hair, no glasses | tea, Frieren, manga, Miku | opinion, feeling, media discussion | medium; no-glasses lock is confirmed |
-| Shin | East Asian man, short black hair, round glasses | ramen, Totoro, Nintendo Museum, kanji | radicals, menus, nuance | strong in meal/group photos |
-| Jodi | older White woman, silver-streaked bob | lived in Japan, memory and change | past narration, comparison | medium; age must remain visible and kind |
-| Christian | Black man with tied-back ponytail, athletic presence | gym, volunteering, desk fan, recorder | routines, instructions, physical comedy | medium; identity lock confirmed |
-| Jenny | woman with long hair and a warm, composed presence | knitting, notices the room | offers, description, fictional high-stakes departure/return | medium; do not import real job details |
-| Robert | White man, side-parted brown hair, square glasses | restaurants, fine dining, pub plans | ordering, invitations, hosting/listening | medium |
-| Mika | blond White/European man, thin glasses, shy expression | many languages | clarification, pronunciation, speaking confidence | medium; male and blond are fixed |
-| Sophie | Chinese/Hong Kong woman, long dark hair, no glasses | rigorous, prepared, very smart | grammar, evidence, productive uncertainty | medium; avoid earlier face drift |
-| Xingyu | East Asian woman, short hair/undercut, round glasses, joyful energy | Miku and singing | rhythm, listening, vulnerable performance | strong personality lock; verify exact likeness |
-| Angel | East/Southeast Asian woman, long straight dark hair | organised, generous, technology/planning | writing, project coordination, learning to trust others | medium |
-| Stasi | woman with red/auburn wavy hair and round glasses | art, style, independent recommendations | expressive Japanese and visual interpretation | strong visual lock |
-| Ruparna | South Asian woman, long dark hair, thoughtful presence | film, subtitles, interpretation | inference and ambiguity | medium |
-| Rose | woman with brown hair | farm work and previously living in Japan | nature, practical language, memory; paper/ink clue | identity not tied to an unknown number; generate only after reference match |
-| Peter | quieter peripheral classmate | observation | review and the decisive simple question | low; needs reference confirmation before likeness art |
+Every person receives the same baseline performance coverage before their art is
+called complete:
 
-## Named extended ensemble
+1. neutral;
+2. encouraging/listening;
+3. happy;
+4. thoughtful;
+5. determined;
+6. surprised/shocked;
+7. sad/vulnerable.
 
-| Character | Visual lock | Interests and voice | Story and learning home | Reference confidence |
-| --- | --- | --- | --- | --- |
-| Nanako | private contextual group-photo candidate; do not publish the source or expand expressions before owner confirmation | concise bilingual warmth, natural social Japanese, considerate timing, gentle corrections and humour | pragmatic messages, social repair, invitations, returning-friend scenes | candidate likeness pair recorded by hash in the ignored private ledger; owner confirmation required |
-| Mira | fair-skinned adult woman; shoulder-length warm-blond hair, black cap, oversized blue hoodie, cream wide-leg trousers, clear umbrella | friendly, direct and playful; language meetups, game-based learning, a modest daily study habit, practical plans | beginner conversation, habit design, game-vocabulary limits, personal-corpus review, return-after-absence scenes | owner-confirmed private reference (`SHA-256 69cdbe8bf0ff2ab74e87b83e5495cd658a82b70b391245256f8538bfc875febe`); neutral sample not generated; release-blocked pending likeness and equal-stage cast approval |
+Story-specific poses are then added from
+`docs/academy/art/STORY-ASSET-INVENTORY.json`. That inventory is generated from
+all 48 chapter packages and records the exact scene, intent, prop, setting, and
+runtime home. A generated image without a runtime home is unfinished work.
 
-## Unresolved people
+## Production sequence
 
-Nanako and Mira are named independently and do not resolve either unknown contact. Two phone-number-only contacts may correspond to Rose and another Chinese classmate. They remain outside the named cast and art queue until a photo and name match is established. No placeholder identity is invented.
+1. Lock the neutral identity against the executable brief and approved anchor.
+2. Render the neutral beside Rie-sensei at the same scale and lighting.
+3. Reject identity or style drift before making variants.
+4. Generate variants from the accepted neutral, never from another character.
+5. Record each file under that character's folder and manifest ownership.
+6. Bind the file to People, lesson, story, bond, or replay surfaces.
+7. Mirror the production asset, hash it, and run the identity/orphan gates.
+8. Verify ensemble staging on mobile and desktop before release.
 
-## Textbook legends
-
-Miller, Tawapon, Mary, Takeshi, and selected Genki/Minna characters are original Yomu interpretations informed by the local books. Their journal label is `A legend from the textbook`. They may recur as comic continuity, tutors, rivals, or examples, but their art is newly generated rather than copied from textbook illustrations.
-
-## Protagonist choices
-
-The opening offers four visual identities from `quality-2` through `quality-5`. The player chooses a portrait, enters a name and reason for learning Japanese, and may change the portrait later from their journal. The story does not infer gender, personality, or romance preference from the image. All four receive the same warm pixel-painted rendering pass and a compact expression set so the protagonist can appear in journal moments and selected event scenes.
-
-## Art acceptance per character
-
-1. Assemble all matching reference crops from the six group photos and any dedicated image.
-2. Generate one neutral half-body sprite with OpenAI image generation.
-3. Compare face shape, hair, age, body proportions, and ordinary wardrobe against references.
-4. Reject identity drift before producing expressions.
-5. Produce expressions from the accepted neutral reference: happy, laughing, thinking, surprised, concerned, determined, embarrassed, speaking, listening.
-6. Add only story-backed costumes and poses. Aakash is not always in a hat; Tom is never given dark hair or a beard.
-7. Record prompt, source images, output path, review decision, and planned scenes in the art manifest.
-8. Review the full cast and all four protagonists together on one neutral stage before approving production. Individual quality does not excuse cross-character style drift.
+The manifest tests fail when a path is under the wrong character folder, an
+asset ID names a different person, identical bytes are assigned to two people,
+the learner-facing name Angel appears, or a production sprite lacks a mirrored,
+hash-matched runtime file.

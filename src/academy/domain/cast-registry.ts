@@ -130,8 +130,8 @@ export const ACADEMY_CAST = [
         id: 'mira',
         firstName: 'Mira',
         category: 'extended-member',
-        visualEvidence: 'reference-confirmed-neutral-pending',
-        eligibility: ELIGIBLE_WITH_PENDING_LIKENESS,
+        visualEvidence: 'approved',
+        eligibility: { story: true, lessons: true, likenessRuntime: true },
     },
     {
         id: 'miller',

@@ -1,0 +1,76 @@
+{
+  "promotions": [
+    {
+      "castId": "mira",
+      "archiveLabel": "style-superseded-20260727",
+      "replaceExpressions": [
+        "neutral",
+        "encouraging-listening"
+      ],
+      "canonicalNeutralAssetId": "character.mira.neutral-umbrella-front-near-front-fullbody-v002",
+      "slots": [
+        {
+          "assetId": "character.mira.neutral-umbrella-front-near-front-fullbody-v002",
+          "expression": "neutral",
+          "angle": "front-near-front",
+          "assetPath": "/academy/art/characters/mira/mira__neutral-umbrella__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:mira",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "cast-standardization:mira"
+          ]
+        },
+        {
+          "assetId": "character.mira.encouraging-listening-umbrella-right-three-quarter-fullbody-v002",
+          "expression": "encouraging-listening",
+          "angle": "right-three-quarter",
+          "assetPath": "/academy/art/characters/mira/mira__encouraging-listening-umbrella__right-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:mira-expression-gallery",
+            "story:mira-listening",
+            "cast-standardization:mira"
+          ]
+        }
+      ]
+    },
+    {
+      "castId": "mika",
+      "archiveLabel": "style-superseded-20260727",
+      "replaceExpressions": [
+        "neutral",
+        "encouraging-listening"
+      ],
+      "canonicalNeutralAssetId": "character.mika.neutral-headphones-front-near-front-fullbody-v002",
+      "slots": [
+        {
+          "assetId": "character.mika.neutral-headphones-front-near-front-fullbody-v002",
+          "expression": "neutral",
+          "angle": "front-near-front",
+          "assetPath": "/academy/art/characters/mika/mika__neutral-headphones__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:mika",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "cast-standardization:mika"
+          ]
+        },
+        {
+          "assetId": "character.mika.encouraging-listening-headphones-right-three-quarter-fullbody-v002",
+          "expression": "encouraging-listening",
+          "angle": "right-three-quarter",
+          "assetPath": "/academy/art/characters/mika/mika__encouraging-listening-headphones__right-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:mika-expression-gallery",
+            "story:mika-listening",
+            "cast-standardization:mika"
+          ]
+        }
+      ]
+    }
+  ]
+}

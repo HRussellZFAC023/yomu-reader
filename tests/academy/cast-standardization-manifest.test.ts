@@ -6,7 +6,8 @@ import {
     ACADEMY_CAST_SPRITE_COVERAGE,
     ACADEMY_RUNTIME_ASSET_REGISTRY,
 } from '../../src/academy/assets';
-import { ACADEMY_CAST } from '../../src/academy/domain/cast-registry';
+import { ACADEMY_CAST_IDENTITY_LOCKS, REQUIRED_CAST_PERFORMANCES } from '../../src/academy/domain/cast-identity-locks';
+import { ACADEMY_CAST, displayAcademyCastName } from '../../src/academy/domain/cast-registry';
 import {
     ACADEMY_CAST_STANDARDIZATION_GALLERIES,
     ACADEMY_CAST_STANDARDIZATION_JOURNAL_REVIEW,
@@ -56,6 +57,42 @@ describe('Academy cast standardization manifest', () => {
             expect(slots.some(slot => slot.expression === 'encouraging-listening'), `${member.id} lacks listening`).toBe(true);
             expect(ACADEMY_CAST_STANDARDIZATION_JOURNAL_REVIEW).toHaveProperty(member.id);
             expect(ACADEMY_CAST_STANDARDIZATION_GALLERIES).toHaveProperty(member.id);
+        }
+    });
+
+    it('locks each learner-facing identity to one unique asset owner', () => {
+        expect(Object.keys(ACADEMY_CAST_IDENTITY_LOCKS)).toHaveLength(ACADEMY_CAST.length);
+        expect(new Set(Object.values(ACADEMY_CAST_IDENTITY_LOCKS).map(lock => lock.identityKey)).size)
+            .toBe(ACADEMY_CAST.length);
+
+        for (const member of ACADEMY_CAST) {
+            const lock = ACADEMY_CAST_IDENTITY_LOCKS[member.id];
+            expect(lock.assetFolder).toBe(member.id);
+            expect(lock.requiredPerformances).toEqual(REQUIRED_CAST_PERFORMANCES);
+            expect(displayAcademyCastName(member.id, 'en')).toBe(
+                member.id === 'rie' ? 'Rie-sensei' : `${lock.displayName}-san`,
+            );
+
+            const canonical = ACADEMY_CAST_STANDARDIZATION_JOURNAL_REVIEW[member.id];
+            expect(canonical).toMatch(new RegExp(`^/academy/art/characters/${member.id}/`));
+        }
+
+        expect(ACADEMY_CAST_IDENTITY_LOCKS.angel.displayName).toBe('Onke');
+        expect(displayAcademyCastName('angel', 'en')).toBe('Onke-san');
+    });
+
+    it('rejects cross-character file reuse and mislabeled manifest ownership', () => {
+        const ownersByHash = new Map<string, Set<string>>();
+        for (const slot of ACADEMY_CAST_STANDARDIZATION_MANIFEST) {
+            expect(slot.assetId).toMatch(new RegExp(`^character\\.${slot.castId}\\.`));
+            expect(slot.assetPath).toMatch(new RegExp(`^/academy/art/characters/${slot.castId}/`));
+            const owners = ownersByHash.get(slot.sha256) ?? new Set<string>();
+            owners.add(slot.castId);
+            ownersByHash.set(slot.sha256, owners);
+        }
+
+        for (const [digest, owners] of ownersByHash) {
+            expect([...owners], `same sprite bytes assigned to multiple cast members: ${digest}`).toHaveLength(1);
         }
     });
 

@@ -29,7 +29,7 @@ describe('lesson overview screen', () => {
         expect(screen.querySelectorAll('.academy-lesson-overview-paper')).toHaveLength(1);
         expect(screen.querySelectorAll('.academy-lesson-overview-scene')).toHaveLength(1);
         expect(screen.querySelectorAll('.academy-lesson-overview-section')).toHaveLength(9);
-        expect(screen.querySelectorAll('.academy-lesson-overview-goal')).toHaveLength(5);
+        expect(screen.querySelectorAll('.academy-lesson-overview-goal')).toHaveLength(6);
         expect(screen.textContent).toContain('Classroom language handout');
         expect(screen.textContent).toContain('Name card');
         expect(screen.textContent).toContain('Class introductions');
@@ -63,7 +63,7 @@ describe('lesson overview screen', () => {
         expect(screen.querySelector<HTMLImageElement>('[data-cast-id="xingyu"] img')?.src)
             .toContain('/academy/art/characters/xingyu/xingyu__listening-halfbody-v2__v001.png');
         expect(screen.querySelector<HTMLImageElement>('[data-cast-id="mika"] img')?.src)
-            .toContain('/academy/art/characters/mika/mika__sound-listening__halfbody__v001.png');
+            .toContain('/academy/art/characters/mika/mika__encouraging-listening-headphones__right-three-quarter__fullbody__v002.png');
         expect(screen.querySelector('[data-cast-id="sophie"] img')).not.toBeNull();
         expect(screen.querySelector('[data-cast-id="aakash"]')?.getAttribute('data-portrait-status')).toBe('approved');
         expect(screen.querySelector<HTMLImageElement>('[data-cast-id="aakash"] img')?.src)

@@ -32,6 +32,7 @@ import { ACADEMY_ASSETS } from '../assets';
 import { resolveDirectorSfxCue, type AcademySemanticSfxCue } from '../audio/sfx-catalog';
 import type { StoryVoicePlayback } from '../audio/voice-lines';
 import { canRenderAcademyCastPortrait, displayAcademyCastName } from '../domain/cast-registry';
+import { ACADEMY_STORY_ART_BY_NODE, type AcademyStoryArtBinding } from '../domain/story-art-manifest';
 import { backButton, element } from './dom';
 import {
     createAcademyVnStage,
@@ -262,6 +263,7 @@ function renderPlayableArc(
     }
 
     let renderedSceneId = '';
+    let renderedDirectionKey = '';
     let disposed = false;
     const persist = (): void => { void options.onCheckpoint?.(runner.cursor); };
     const encounter = (scene: StoryArcScene): void => {
@@ -297,8 +299,14 @@ function renderPlayableArc(
         if (sceneChanged) {
             renderedSceneId = moment.scene.id;
             options.onSceneChange?.(moment.scene, previousScene);
-            stage.setDirection(directionForScene(moment.scene));
         }
+        const direction = directionForMoment(moment);
+        if (direction.plate.id !== renderedDirectionKey) {
+            renderedDirectionKey = direction.plate.id;
+            stage.setDirection(direction);
+        }
+        main.dataset.storyArt = direction.plate.id;
+        stage.element.dataset.storyArt = direction.plate.id;
         stage.setCast(playableStoryCast(options.language, moment, runner.cursor.choices, options.learner));
         stage.setObject(blankAtlasSceneProp({
             language: options.language,
@@ -822,8 +830,10 @@ function storyActivityLabel(language: AcademyLanguage, componentType: string): s
     return labels[componentType]?.[language] ?? (language === 'ja' ? 'やってみる' : 'Try this step');
 }
 
-function directionForScene(scene: StoryArcScene) {
-    const eventArt = STORY_EVENT_ART_BY_SCENE[scene.id];
+function directionForMoment(moment: StoryMoment) {
+    const nodeArt = latestStoryNodeArt(moment);
+    const eventArt = nodeArt ?? STORY_EVENT_ART_BY_SCENE[moment.scene.id];
+    const scene = moment.scene;
     const plate = eventArt ?? (scene.locationId.includes('entrance')
         ? ACADEMY_ASSETS.locations.entrance
         : scene.locationId.includes('language-lab')
@@ -833,13 +843,27 @@ function directionForScene(scene: StoryArcScene) {
                 : ACADEMY_ASSETS.locations.classroom);
     return {
         plate: {
-            id: scene.locationId,
+            id: nodeArt?.assetId ?? (eventArt ? `event.scene.${scene.id}` : scene.locationId),
             wide: plate.wide,
             mobile: plate.mobile,
             label: scene.goal,
         },
         transition: 'dissolve' as const,
     };
+}
+
+function latestStoryNodeArt(moment: StoryMoment): AcademyStoryArtBinding | undefined {
+    const currentNodeId = moment.kind === 'complete'
+        ? moment.scene.nodes.at(-1)?.id
+        : moment.node.id;
+    if (!currentNodeId) return undefined;
+    const currentIndex = moment.scene.nodes.findIndex(node => node.id === currentNodeId);
+    if (currentIndex < 0) return undefined;
+    for (let index = currentIndex; index >= 0; index -= 1) {
+        const binding = ACADEMY_STORY_ART_BY_NODE[moment.scene.nodes[index].id as keyof typeof ACADEMY_STORY_ART_BY_NODE];
+        if (binding) return binding;
+    }
+    return undefined;
 }
 
 /** Keep authored story beats inside the same spatial vocabulary as the world screen. */
