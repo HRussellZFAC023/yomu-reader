@@ -22,7 +22,7 @@
 // @require https://yomureader.com/greasyfork/yomu-jpdb.9b9f9210b91a.user.js#sha256=m5+SELkaWw6/08p5fXclLIoVnp19JOjdJWRyugMHzaw=
 // @require https://yomureader.com/greasyfork/yomu-jiten.eb55e358c388.user.js#sha256=61XjWMOIhfNgRBqYcqqpWJJvSh6MzYDON7rDVVMaQzI=
 // @require https://yomureader.com/greasyfork/yomu-wanikani.5cad49b05a48.user.js#sha256=XK1JsFpIF1l7krzTfuLsxxGg91bPIFjSTBRyUOC70ts=
-// @require https://yomureader.com/greasyfork/yomu-video.9266fd51d2be.user.js#sha256=kmb9UdK+JI/WByS0eR9FHGmZNy1/kO/vHEWMzHGRBj8=
+// @require https://yomureader.com/greasyfork/yomu-video.2a59d341eec3.user.js#sha256=KlnTQe7DPdHsSvJ3zVbW+5AEW/DlXFBG9PUzaAcwBZ4=
 // @resource yomuCss  https://yomureader.com/yomu.edbe1dbd1762.css#sha256=7b4dvRdiI6B29BxB73+fT5kP+IAbrgJpdh4fHwCUjiY=
 // @connect api.jiten.moe
 // @connect jpdb.io

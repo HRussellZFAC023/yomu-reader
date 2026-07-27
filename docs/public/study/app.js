@@ -86629,7 +86629,10 @@ ${reading}`);
       this.setNativeTrackModes();
     }
     hasVisibleSubtitleLines() {
-      return Boolean(this.cues.length || this.currentCue?.text);
+      const settings = this.options.getSettings();
+      return Boolean(
+        this.cues.length || this.currentCue?.text || settings.subtitleSecondaryVisible && this.secondaryCue?.text
+      );
     }
     syncStatus() {
       const status = this.root?.querySelector(".jpdb-subtitle-status");
