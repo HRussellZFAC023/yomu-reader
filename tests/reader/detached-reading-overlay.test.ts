@@ -1471,15 +1471,49 @@ describe('projected reading refresh under a Firefox userscript sandbox', () => {
         });
     });
 
-    // Keep this test last: its stub returns a frame id without ever running
-    // the callback, so the overlay's coalescing guard stays armed and every
-    // later scheduleProjectionRefresh in this file silently does nothing.
+    it('re-arms when the scheduler that owed a frame is replaced', () => {
+        // The failure this pins: a frame armed against a scheduler that then goes
+        // away can never run, so a latch keyed on "is a frame pending" stays set
+        // and every later refresh is silently dropped for the life of the page.
+        const view = document.defaultView!;
+        const original = view.requestAnimationFrame;
+        const install = (fn: (cb: FrameRequestCallback) => number): void => {
+            Object.defineProperty(view, 'requestAnimationFrame', {
+                configurable: true, writable: true, value: fn,
+            });
+        };
+        const abandoned: FrameRequestCallback[] = [];
+        const successor: FrameRequestCallback[] = [];
+        try {
+            // A scheduler that hands back a frame id and then never calls back.
+            install(cb => { abandoned.push(cb); return 1; });
+            const first = readingOwner('日本語');
+            mockElementsFromPoint([first.source]);
+            syncProjectedReadings(first.owner, [{
+                source: first.source, anchor: first.anchor, rect: rect(), measure: () => rect(),
+            }]);
+            expect(abandoned.length).toBeGreaterThan(0);
+
+            // The host swaps the scheduler out. The old frame is never coming.
+            install(cb => { successor.push(cb); return 2; });
+            const second = readingOwner('文字');
+            mockElementsFromPoint([second.source]);
+            syncProjectedReadings(second.owner, [{
+                source: second.source, anchor: second.anchor, rect: rect(), measure: () => rect(),
+            }]);
+            expect(successor.length).toBeGreaterThan(0);
+
+            clearProjectedReadings(first.owner);
+            clearProjectedReadings(second.owner);
+            first.anchor.remove();
+            second.anchor.remove();
+        } finally {
+            install(original);
+        }
+    });
+
     it('calls requestAnimationFrame with its window as receiver', async () => {
         const view = document.defaultView!;
-        // Let any frame scheduled by an earlier test settle, otherwise the
-        // schedule guard short-circuits and this test exercises nothing.
-        await new Promise<void>(resolve => view.requestAnimationFrame(() => resolve()));
-        await new Promise<void>(resolve => setTimeout(resolve, 0));
         const original = view.requestAnimationFrame;
         const receivers: unknown[] = [];
         const geckoLike = function (this: unknown, cb: FrameRequestCallback): number {

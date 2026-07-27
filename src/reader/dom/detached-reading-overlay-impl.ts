@@ -51,6 +51,8 @@ type PlacedProjectionPaint = ProjectionPaint & { rect: DOMRect };
 
 type ProjectionEnvironmentObserver = ParkableObserver<Node, MutationObserverInit>;
 
+type FrameScheduler = (callback: FrameRequestCallback) => number;
+
 interface DocumentOverlay {
     layer: HTMLElement;
     documentLayer: HTMLElement;
@@ -64,7 +66,13 @@ interface DocumentOverlay {
     anchorContainers: Map<Element, number>;
     intersectingAnchors: Set<HTMLElement>;
     intersectionObserver: IntersectionObserver | null;
-    refreshFrame: number;
+    // The scheduler that owes this overlay a refresh callback — identity, not a
+    // flag. A request routed through a DIFFERENT scheduler arms its own frame
+    // rather than being swallowed by a latch the old scheduler can never clear.
+    refreshScheduler: FrameScheduler | null;
+    // The frameless path latches separately: it is a microtask, not a frame, and
+    // no scheduler identity distinguishes one from the next.
+    framelessRefreshPending: boolean;
     observer: ProjectionEnvironmentObserver | null;
     shadowRootReferences: Map<ShadowRoot, number>;
     scheduleRefresh: () => void;
@@ -110,7 +118,6 @@ const PROJECTION_GRACE_MAX_AGE_MS = 250;
 const PROJECTED_READING_MIN_SCALE_X = 0.55;
 // Stands in for an animation-frame handle while a pass waits on a microtask, so
 // further events coalesce into it exactly as they would into a frame.
-const FRAMELESS_REFRESH_PENDING = -1;
 
 /**
  * Paint detached readings in a reader-owned viewport layer. The source
@@ -252,7 +259,8 @@ function documentOverlay(document: Document): DocumentOverlay {
         anchorContainers: new Map(),
         intersectingAnchors: new Set(),
         intersectionObserver: null,
-        refreshFrame: 0,
+        refreshScheduler: null,
+        framelessRefreshPending: false,
         observer: null,
         shadowRootReferences: new Map(),
         occlusionEpoch: 0,
@@ -696,24 +704,39 @@ function elementScrollsIndependently(element: Element, style: CSSStyleDeclaratio
 }
 
 function scheduleProjectionRefresh(document: Document, overlay: DocumentOverlay): void {
-    if (!overlay.records.size || overlay.refreshFrame) return;
+    if (!overlay.records.size || overlay.framelessRefreshPending) return;
     // Call rAF as a METHOD on its window. Detaching it into a local and invoking it
     // as a free function reaches Gecko's WebIDL binding with no Window receiver, which
     // throws "'requestAnimationFrame' called on an object that does not implement
     // interface Window" inside a Firefox userscript-manager sandbox (it only works in
-    // the page world, where the free call still finds a Window global). The throw
-    // escapes before refreshFrame is assigned, so the guard above stays 0 and every
-    // scroll/pointer/focus event re-enters and re-throws — which silently freezes
-    // projected-reading repositioning for the whole page.
+    // the page world, where the free call still finds a Window global).
     const view = document.defaultView;
-    if (typeof view?.requestAnimationFrame !== 'function') {
+    const request = view?.requestAnimationFrame as FrameScheduler | undefined;
+    if (typeof request !== 'function') {
         scheduleFramelessProjectionRefresh(view, overlay);
         return;
     }
-    overlay.refreshFrame = view.requestAnimationFrame(() => {
-        overlay.refreshFrame = 0;
-        refreshProjectedReadingPositions(overlay);
-    });
+    // Coalesce only against the scheduler that actually owes us a callback. A frame
+    // armed against a scheduler that then goes away — a realm the host swapped out, a
+    // manager handing the page from its sandbox to the page world, an SPA shim
+    // replacing requestAnimationFrame — can never run, and a boolean latch would stay
+    // set for the rest of the page's life, silently freezing projected-reading
+    // repositioning. Keyed on identity, that request simply arms its own frame.
+    if (overlay.refreshScheduler === request) return;
+    const previous = overlay.refreshScheduler;
+    // Armed before the call so a scheduler that runs its callback synchronously still
+    // finds the latch set and clears it.
+    overlay.refreshScheduler = request;
+    try {
+        request.call(view, () => {
+            overlay.refreshScheduler = null;
+            refreshProjectedReadingPositions(overlay);
+        });
+    } catch (error) {
+        // Nothing was armed, so nothing would ever clear this latch.
+        if (overlay.refreshScheduler === request) overlay.refreshScheduler = previous;
+        throw error;
+    }
 }
 
 /**
@@ -731,9 +754,9 @@ function scheduleFramelessProjectionRefresh(view: Window | null | undefined, ove
     }
     const microtask = view?.queueMicrotask;
     if (typeof microtask !== 'function') return;
-    overlay.refreshFrame = FRAMELESS_REFRESH_PENDING;
+    overlay.framelessRefreshPending = true;
     microtask.call(view, () => {
-        overlay.refreshFrame = 0;
+        overlay.framelessRefreshPending = false;
         refreshProjectedReadingPositions(overlay);
     });
 }
