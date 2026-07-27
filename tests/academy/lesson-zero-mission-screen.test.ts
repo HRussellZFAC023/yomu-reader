@@ -104,12 +104,15 @@ describe('Lesson Zero story mission screen', () => {
             onComplete: vi.fn(),
         });
 
-        click(screen.element, 'Speak without recording');
+        expect(screen.element.textContent).toContain('Listen. Then answer with your name + です.');
+        expect(screen.element.textContent?.match(/Listen\. Then answer with your name \+ です\./gu)).toHaveLength(1);
+        click(screen.element, 'Speak now');
+        expect(screen.element.querySelectorAll('input[type="checkbox"]')).toHaveLength(2);
         for (const input of screen.element.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')) {
             input.checked = true;
             input.dispatchEvent(new Event('change', { bubbles: true }));
         }
-        click(screen.element, 'Keep this turn');
+        click(screen.element, 'Finish');
 
         await vi.waitFor(() => expect(onEvaluation).toHaveBeenCalledWith(
             expect.objectContaining({ attempt: expect.objectContaining({ outcome: 'pass' }) }),

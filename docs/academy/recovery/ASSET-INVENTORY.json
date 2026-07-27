@@ -19,9 +19,9 @@
     "deletion": "This audit never deletes, moves, or mutates Academy raster files."
   },
   "counts": {
-    "currentRasterFiles": 272,
-    "currentRasterFilesAccountedFor": 272,
-    "active": 219,
+    "currentRasterFiles": 290,
+    "currentRasterFilesAccountedFor": 290,
+    "active": 237,
     "orphaned": 53,
     "deprecated": 10,
     "deprecatedPresent": 0,
@@ -34,8 +34,8 @@
     "activeByKind": {
       "character-sprite": 109,
       "protagonist-portrait": 4,
-      "scene-background": 66,
-      "scene-event": 32,
+      "scene-background": 68,
+      "scene-event": 48,
       "scene-item": 8
     },
     "orphanedByKind": {
@@ -1686,15 +1686,16 @@
         "runtimeAuthorized": true,
         "runtimeHomes": [
           "journal:sam-expression-gallery",
+          "story:cast:sam:recording-boundary",
           "cast-standardization:sam"
         ],
         "reviewHomes": [
           "cast-standardization-manifest",
-          "learner-journal-preview"
+          "identity-lock"
         ],
         "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "review-candidate/runtime-preview",
-        "ledgerStatus": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
       },
       {
         "id": "character-sam-standardized-neutral-front-near-front-halfbody-v001",
@@ -1707,17 +1708,20 @@
         "runtimeAuthorized": true,
         "runtimeHomes": [
           "journal:sam",
-          "class:people-review",
-          "lesson-overview:roster-review",
+          "class:people",
+          "class:week-cast",
+          "lesson-overview:roster",
+          "world:person",
+          "story:cast:sam",
           "cast-standardization:sam"
         ],
         "reviewHomes": [
           "cast-standardization-manifest",
-          "learner-journal-preview"
+          "identity-lock"
         ],
         "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "review-candidate/runtime-preview",
-        "ledgerStatus": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
       },
       {
         "id": "character-shaun-neutral",
@@ -2564,6 +2568,90 @@
         "ledgerStatus": "node-bound, art-directed responsive story event"
       },
       {
+        "id": "event-story-blank-atlas-close-finish-break-context",
+        "path": "/academy/art/events/blank-atlas-close__finish-break-context__mobile__v001.webp",
+        "sha256": "87ab578fc614f3c480f373bc70949873af88d3b0449654507ddd293b6811fef5",
+        "ledgerSha256": "87ab578fc614f3c480f373bc70949873af88d3b0449654507ddd293b6811fef5",
+        "kind": "scene-event",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "node:blank-atlas:close-room-repair",
+          "scene:blank-atlas:close"
+        ],
+        "reviewHomes": [
+          "story-art-promotions",
+          "cue:finish-break-context"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "node-bound, art-directed responsive story event"
+      },
+      {
+        "id": "event-story-blank-atlas-close-finish-break-context",
+        "path": "/academy/art/events/blank-atlas-close__finish-break-context__wide__v001.webp",
+        "sha256": "9af3e89de2bccda30e11789ec99122693d0556c2c1acaa7685bfbc147a3968da",
+        "ledgerSha256": "9af3e89de2bccda30e11789ec99122693d0556c2c1acaa7685bfbc147a3968da",
+        "kind": "scene-event",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "node:blank-atlas:close-room-repair",
+          "scene:blank-atlas:close"
+        ],
+        "reviewHomes": [
+          "story-art-promotions",
+          "cue:finish-break-context"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "node-bound, art-directed responsive story event"
+      },
+      {
+        "id": "event-story-blank-atlas-close-one-light-room",
+        "path": "/academy/art/events/blank-atlas-close__one-light-room__mobile__v001.webp",
+        "sha256": "0ff1db3b754c3f64790be7be66d41d150a011674fac36782b835cd9aeb424024",
+        "ledgerSha256": "0ff1db3b754c3f64790be7be66d41d150a011674fac36782b835cd9aeb424024",
+        "kind": "scene-event",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "node:blank-atlas:one-light-room",
+          "scene:blank-atlas:close"
+        ],
+        "reviewHomes": [
+          "story-art-promotions",
+          "cue:one-lantern-reflected-on-desks"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "node-bound, art-directed responsive story event"
+      },
+      {
+        "id": "event-story-blank-atlas-close-one-light-room",
+        "path": "/academy/art/events/blank-atlas-close__one-light-room__wide__v001.webp",
+        "sha256": "3c0f8e037e4a6f707a74af57f192b1f2b45a44de9f35130f959d42a82dace232",
+        "ledgerSha256": "3c0f8e037e4a6f707a74af57f192b1f2b45a44de9f35130f959d42a82dace232",
+        "kind": "scene-event",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "node:blank-atlas:one-light-room",
+          "scene:blank-atlas:close"
+        ],
+        "reviewHomes": [
+          "story-art-promotions",
+          "cue:one-lantern-reflected-on-desks"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "node-bound, art-directed responsive story event"
+      },
+      {
         "id": "event-story-blank-atlas-mission-sound-replay-one-voice",
         "path": "/academy/art/events/blank-atlas-mission-sound__replay-one-voice__mobile__v001.webp",
         "sha256": "487b026f28f6795f3dc71d94dc58404c281ba6acef02fc0cda6dd32177e3824b",
@@ -2648,6 +2736,90 @@
         "ledgerStatus": "node-bound, art-directed responsive story event"
       },
       {
+        "id": "event-story-blank-atlas-mission-speaking-door-open-repair",
+        "path": "/academy/art/events/blank-atlas-mission-speaking__door-open-repair__mobile__v001.webp",
+        "sha256": "6c026510489645a98f0ad59276a0c56ce2abea32add93acfc283ab8f39027b43",
+        "ledgerSha256": "6c026510489645a98f0ad59276a0c56ce2abea32add93acfc283ab8f39027b43",
+        "kind": "scene-event",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "node:blank-atlas:speaking-input-repair",
+          "scene:blank-atlas:mission-speaking"
+        ],
+        "reviewHomes": [
+          "story-art-promotions",
+          "cue:speaking-route-one-turn"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "node-bound, art-directed responsive story event"
+      },
+      {
+        "id": "event-story-blank-atlas-mission-speaking-door-open-repair",
+        "path": "/academy/art/events/blank-atlas-mission-speaking__door-open-repair__wide__v001.webp",
+        "sha256": "604db864eb049c15516a262581bb4604187ba6e0dbc857e8df7ee330f77b64fa",
+        "ledgerSha256": "604db864eb049c15516a262581bb4604187ba6e0dbc857e8df7ee330f77b64fa",
+        "kind": "scene-event",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "node:blank-atlas:speaking-input-repair",
+          "scene:blank-atlas:mission-speaking"
+        ],
+        "reviewHomes": [
+          "story-art-promotions",
+          "cue:speaking-route-one-turn"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "node-bound, art-directed responsive story event"
+      },
+      {
+        "id": "event-story-blank-atlas-mission-speaking-door-waiting",
+        "path": "/academy/art/events/blank-atlas-mission-speaking__door-waiting__mobile__v001.webp",
+        "sha256": "627b2aeba6941082f05e7d8b194f530a4ff750053ce397cfe99ca575d8a08000",
+        "ledgerSha256": "627b2aeba6941082f05e7d8b194f530a4ff750053ce397cfe99ca575d8a08000",
+        "kind": "scene-event",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "node:blank-atlas:speaking-door",
+          "scene:blank-atlas:mission-speaking"
+        ],
+        "reviewHomes": [
+          "story-art-promotions",
+          "cue:speaking-route-open-door-nameplates"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "node-bound, art-directed responsive story event"
+      },
+      {
+        "id": "event-story-blank-atlas-mission-speaking-door-waiting",
+        "path": "/academy/art/events/blank-atlas-mission-speaking__door-waiting__wide__v001.webp",
+        "sha256": "4460747b30c9a2fdf80012a0bb89018aa396be6898757638a891ab3dd626877b",
+        "ledgerSha256": "4460747b30c9a2fdf80012a0bb89018aa396be6898757638a891ab3dd626877b",
+        "kind": "scene-event",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "node:blank-atlas:speaking-door",
+          "scene:blank-atlas:mission-speaking"
+        ],
+        "reviewHomes": [
+          "story-art-promotions",
+          "cue:speaking-route-open-door-nameplates"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "node-bound, art-directed responsive story event"
+      },
+      {
         "id": "event-story-blank-atlas-mission-text-one-gap-repair",
         "path": "/academy/art/events/blank-atlas-mission-text__one-gap-repair__mobile__v001.webp",
         "sha256": "d808f3eb7dc13fcd54f25d794bae89e8e085744d271a4885c60830ba1f0ab583",
@@ -2726,6 +2898,90 @@
         "reviewHomes": [
           "story-art-promotions",
           "cue:text-route-note-nameplates"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "node-bound, art-directed responsive story event"
+      },
+      {
+        "id": "event-story-blank-atlas-reading-writing-cards-return",
+        "path": "/academy/art/events/blank-atlas-reading-writing__cards-return__mobile__v001.webp",
+        "sha256": "5be63e59d794785a38d6b8850ab74a2ae6dc182c7b12f050b21addb0497b8c86",
+        "ledgerSha256": "5be63e59d794785a38d6b8850ab74a2ae6dc182c7b12f050b21addb0497b8c86",
+        "kind": "scene-event",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "node:blank-atlas:cards-return",
+          "scene:blank-atlas:reading-writing"
+        ],
+        "reviewHomes": [
+          "story-art-promotions",
+          "cue:route-cards-around-atlas"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "node-bound, art-directed responsive story event"
+      },
+      {
+        "id": "event-story-blank-atlas-reading-writing-cards-return",
+        "path": "/academy/art/events/blank-atlas-reading-writing__cards-return__wide__v001.webp",
+        "sha256": "8f13c4a8c6f242354e149fe3e80cf770c04bb38ecbb4ca88b7c80aedc25256c8",
+        "ledgerSha256": "8f13c4a8c6f242354e149fe3e80cf770c04bb38ecbb4ca88b7c80aedc25256c8",
+        "kind": "scene-event",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "node:blank-atlas:cards-return",
+          "scene:blank-atlas:reading-writing"
+        ],
+        "reviewHomes": [
+          "story-art-promotions",
+          "cue:route-cards-around-atlas"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "node-bound, art-directed responsive story event"
+      },
+      {
+        "id": "event-story-blank-atlas-reading-writing-learner-card-route-label",
+        "path": "/academy/art/events/blank-atlas-reading-writing__learner-card-route-label__mobile__v001.webp",
+        "sha256": "123cefb381864bda83d8ae5e4da1bcdbc28c051df3eb2ca860c6898ebb2f88f4",
+        "ledgerSha256": "123cefb381864bda83d8ae5e4da1bcdbc28c051df3eb2ca860c6898ebb2f88f4",
+        "kind": "scene-event",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "node:blank-atlas:card-turns-over",
+          "scene:blank-atlas:reading-writing"
+        ],
+        "reviewHomes": [
+          "story-art-promotions",
+          "cue:learner-card-route-label"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "node-bound, art-directed responsive story event"
+      },
+      {
+        "id": "event-story-blank-atlas-reading-writing-learner-card-route-label",
+        "path": "/academy/art/events/blank-atlas-reading-writing__learner-card-route-label__wide__v001.webp",
+        "sha256": "d1d9ee107fce2e367cbe454c6aa872c071a54a6c0fe20bd17d438cf228fcf85c",
+        "ledgerSha256": "d1d9ee107fce2e367cbe454c6aa872c071a54a6c0fe20bd17d438cf228fcf85c",
+        "kind": "scene-event",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "node:blank-atlas:card-turns-over",
+          "scene:blank-atlas:reading-writing"
+        ],
+        "reviewHomes": [
+          "story-art-promotions",
+          "cue:learner-card-route-label"
         ],
         "sourceLedger": "public/academy/art/ASSET-USAGE.json",
         "ledgerVerdict": "approved-runtime",
@@ -2894,6 +3150,90 @@
         "reviewHomes": [
           "story-art-promotions",
           "cue:five-empty-atlas-slots"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "node-bound, art-directed responsive story event"
+      },
+      {
+        "id": "event-story-blank-atlas-transfer-first-lantern",
+        "path": "/academy/art/events/blank-atlas-transfer__first-lantern__mobile__v001.webp",
+        "sha256": "329497c4365bf70554079e4d9cb2353a94bbf0c21e45dbd158ba1f18f9df86bc",
+        "ledgerSha256": "329497c4365bf70554079e4d9cb2353a94bbf0c21e45dbd158ba1f18f9df86bc",
+        "kind": "scene-event",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "node:blank-atlas:first-lantern",
+          "scene:blank-atlas:transfer"
+        ],
+        "reviewHomes": [
+          "story-art-promotions",
+          "cue:first-atlas-lantern-lit"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "node-bound, art-directed responsive story event"
+      },
+      {
+        "id": "event-story-blank-atlas-transfer-first-lantern",
+        "path": "/academy/art/events/blank-atlas-transfer__first-lantern__wide__v001.webp",
+        "sha256": "a5d41dc7d3aff6f87bd64ebb4d17cc3faa36136c0ee051ca8c44720adcc0bba7",
+        "ledgerSha256": "a5d41dc7d3aff6f87bd64ebb4d17cc3faa36136c0ee051ca8c44720adcc0bba7",
+        "kind": "scene-event",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "node:blank-atlas:first-lantern",
+          "scene:blank-atlas:transfer"
+        ],
+        "reviewHomes": [
+          "story-art-promotions",
+          "cue:first-atlas-lantern-lit"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "node-bound, art-directed responsive story event"
+      },
+      {
+        "id": "event-story-blank-atlas-transfer-support-clears",
+        "path": "/academy/art/events/blank-atlas-transfer__support-clears__mobile__v001.webp",
+        "sha256": "f00420d77975782250c2e66d969d326a5a16e2591177c01ee64411d3c42a0190",
+        "ledgerSha256": "f00420d77975782250c2e66d969d326a5a16e2591177c01ee64411d3c42a0190",
+        "kind": "scene-event",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "node:blank-atlas:source-clears",
+          "scene:blank-atlas:transfer"
+        ],
+        "reviewHomes": [
+          "story-art-promotions",
+          "cue:teaching-surfaces-clear"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "node-bound, art-directed responsive story event"
+      },
+      {
+        "id": "event-story-blank-atlas-transfer-support-clears",
+        "path": "/academy/art/events/blank-atlas-transfer__support-clears__wide__v001.webp",
+        "sha256": "677c27c9361fbed33e70f8256f263b1d6f36a174a6a0629ee00e86994cb1e0b7",
+        "ledgerSha256": "677c27c9361fbed33e70f8256f263b1d6f36a174a6a0629ee00e86994cb1e0b7",
+        "kind": "scene-event",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "node:blank-atlas:source-clears",
+          "scene:blank-atlas:transfer"
+        ],
+        "reviewHomes": [
+          "story-art-promotions",
+          "cue:teaching-surfaces-clear"
         ],
         "sourceLedger": "public/academy/art/ASSET-USAGE.json",
         "ledgerVerdict": "approved-runtime",
@@ -3325,6 +3665,28 @@
         "sourceLedger": "public/academy/art/ASSET-USAGE.json",
         "ledgerVerdict": "approved-runtime",
         "ledgerStatus": "bound-and-responsive-reviewed"
+      },
+      {
+        "id": "classroom-entrance-rain-evening-threshold",
+        "path": "/academy/art/locations/mobile/classroom-entrance__rain-evening-threshold--mobile.webp",
+        "sha256": "627b2aeba6941082f05e7d8b194f530a4ff750053ce397cfe99ca575d8a08000",
+        "ledgerSha256": "627b2aeba6941082f05e7d8b194f530a4ff750053ce397cfe99ca575d8a08000",
+        "kind": "scene-background",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "location:classroom-entrance",
+          "scene:blank-atlas:mission-speaking",
+          "activity:lesson-zero-speaking-input"
+        ],
+        "reviewHomes": [
+          "story-art-promotions",
+          "cue:speaking-route-open-door-nameplates"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "node-art-reused-as-dedicated-responsive-classroom-threshold"
       },
       {
         "id": "clinic-evening-waiting",
@@ -3918,6 +4280,28 @@
         "sourceLedger": "public/academy/art/ASSET-USAGE.json",
         "ledgerVerdict": "approved-runtime",
         "ledgerStatus": "bound-and-responsive-reviewed"
+      },
+      {
+        "id": "classroom-entrance-rain-evening-threshold",
+        "path": "/academy/art/locations/wide/classroom-entrance__rain-evening-threshold--wide.webp",
+        "sha256": "4460747b30c9a2fdf80012a0bb89018aa396be6898757638a891ab3dd626877b",
+        "ledgerSha256": "4460747b30c9a2fdf80012a0bb89018aa396be6898757638a891ab3dd626877b",
+        "kind": "scene-background",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "location:classroom-entrance",
+          "scene:blank-atlas:mission-speaking",
+          "activity:lesson-zero-speaking-input"
+        ],
+        "reviewHomes": [
+          "story-art-promotions",
+          "cue:speaking-route-open-door-nameplates"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "node-art-reused-as-dedicated-responsive-classroom-threshold"
       },
       {
         "id": "clinic-evening-waiting",

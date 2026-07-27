@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 1,
+  "authority": "Runtime living-paper story props. A covered stage cue is an implemented interaction state, not a missing bitmap.",
+  "scenes": [
+    {
+      "sceneId": "scene:blank-atlas:arrival-greetings",
+      "rendererId": "blank-atlas-covered-map",
+      "stageCoverage": "all"
+    },
+    {
+      "sceneId": "scene:blank-atlas:sound-script-map",
+      "rendererId": "blank-atlas-vowel-route",
+      "stageCoverage": "all"
+    },
+    {
+      "sceneId": "scene:blank-atlas:classroom-survival",
+      "rendererId": "blank-atlas-class-handout",
+      "stageCoverage": "all"
+    },
+    {
+      "sceneId": "scene:blank-atlas:sentence-frames",
+      "rendererId": "blank-atlas-room-labels",
+      "stageCoverage": "all"
+    },
+    {
+      "sceneId": "scene:blank-atlas:useful-vocabulary",
+      "rendererId": "blank-atlas-name-card",
+      "stageCoverage": "all"
+    },
+    {
+      "sceneId": "scene:blank-atlas:mission-sound",
+      "rendererId": "blank-atlas-voice-nameplates",
+      "stageCoverage": "all"
+    },
+    {
+      "sceneId": "scene:blank-atlas:mission-text",
+      "rendererId": "blank-atlas-folded-note",
+      "stageCoverage": "all"
+    },
+    {
+      "sceneId": "scene:blank-atlas:mission-speaking",
+      "rendererId": "blank-atlas-door-knocker",
+      "stageCoverage": [
+        "node:blank-atlas:speaking-door"
+      ]
+    },
+    {
+      "sceneId": "scene:blank-atlas:reading-writing",
+      "rendererId": "blank-atlas-public-name-card",
+      "stageCoverage": "all"
+    },
+    {
+      "sceneId": "scene:blank-atlas:transfer",
+      "rendererId": "blank-atlas-lantern-route",
+      "stageCoverage": "all"
+    },
+    {
+      "sceneId": "scene:blank-atlas:close",
+      "rendererId": "blank-atlas-route-arrow",
+      "stageCoverage": "all"
+    }
+  ]
+}

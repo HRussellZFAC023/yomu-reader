@@ -523,11 +523,11 @@
         "responseMode": "voice",
         "assessed": true,
         "production": true,
-        "prompt": { "en": "Aakash is about to ask your name. Answer when you hear the question.", "ja": "アーカッシュが名前をたずねます。質問を聞いたら答えてください。" },
-        "conceptIds": ["concept:introduction-turn-taking", "concept:copula-question", "concept:copula-negative"],
+        "prompt": { "en": "Listen. Then answer with your name + です.", "ja": "聞いてから、「名前＋です」で答えてください。" },
+        "conceptIds": ["concept:introduction-turn-taking", "concept:copula-question"],
         "sourceQuestionIds": ["source-question:classroom-phrase-08", "source-question:classroom-phrase-09"],
         "inputScriptId": "input:lesson-zero-speaking-hosts",
-        "expectedEvidence": { "kind": "spoken-turn", "rubricIds": ["responds-to-question", "repairs-if-needed", "intelligible-name"] },
+        "expectedEvidence": { "kind": "spoken-turn", "rubricIds": ["responds-to-question", "intelligible-name"] },
         "support": { "reading": "learner-controlled", "pitch": "learner-controlled", "englishMeaning": "after-commit", "transcript": "after-commit", "modelAnswer": "after-first-attempt" }
       },
       {
@@ -656,9 +656,9 @@
         "audioAssetId": "audio:lesson-zero-speaking-hosts",
         "transcriptReveal": "after-commit",
         "lines": [
-          { "id": "line:lesson-zero-speaking-aakash-introduction", "speakerId": "aakash", "audioAssetId": "audio:lesson-zero-speaking-aakash-introduction", "japanese": "はじめまして。Aakashです。日本語を勉強しています。Samさん、これは教科書ですか。", "reading": "はじめまして。Aakashです。にほんごをべんきょうしています。Samさん、これはきょうかしょですか。", "english": "Nice to meet you. I'm Aakash. I'm studying Japanese. Sam, is this the textbook?" },
-          { "id": "line:lesson-zero-speaking-sam", "speakerId": "sam", "audioAssetId": "audio:lesson-zero-speaking-sam", "japanese": "いいえ、教科書じゃありません。プリントです。Samです。日本語を勉強しています。よろしくお願いします。", "reading": "いいえ、きょうかしょじゃありません。プリントです。Samです。にほんごをべんきょうしています。よろしくおねがいします。", "english": "No, it isn't a textbook. It's a handout. I'm Sam. I'm studying Japanese. Nice to meet you." },
-          { "id": "line:lesson-zero-speaking-aakash-cue", "speakerId": "aakash", "audioAssetId": "audio:lesson-zero-speaking-aakash-cue", "japanese": "では、あなたの番です。お名前は何ですか。", "reading": "では、あなたのばんです。おなまえはなんですか。", "english": "Your turn. What's your name?" }
+          { "id": "line:lesson-zero-speaking-aakash-introduction", "speakerId": "aakash", "audioAssetId": "audio:lesson-zero-speaking-aakash-introduction", "japanese": "はじめまして。アーカッシュです。", "reading": "はじめまして。アーカッシュです。", "english": "Nice to meet you. I'm Aakash." },
+          { "id": "line:lesson-zero-speaking-sam", "speakerId": "sam", "audioAssetId": "audio:lesson-zero-speaking-sam", "japanese": "サムです。よろしくお願いします。", "reading": "サムです。よろしくおねがいします。", "english": "I'm Sam. Nice to meet you." },
+          { "id": "line:lesson-zero-speaking-aakash-cue", "speakerId": "aakash", "audioAssetId": "audio:lesson-zero-speaking-aakash-cue", "japanese": "お名前は何ですか。", "reading": "おなまえはなんですか。", "english": "What's your name?" }
         ],
         "learnerTurns": [
           {

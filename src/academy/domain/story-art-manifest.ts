@@ -123,6 +123,70 @@ export const ACADEMY_STORY_ART_BY_NODE = {
         "cueId": "cue:text-route-evidence-lines",
         "wide": "/academy/art/events/blank-atlas-mission-text__one-gap-repair__wide__v001.webp",
         "mobile": "/academy/art/events/blank-atlas-mission-text__one-gap-repair__mobile__v001.webp"
+    },
+    "node:blank-atlas:speaking-door": {
+        "assetId": "event.story.blank-atlas-mission-speaking.door-waiting",
+        "sceneId": "scene:blank-atlas:mission-speaking",
+        "nodeId": "node:blank-atlas:speaking-door",
+        "cueId": "cue:speaking-route-open-door-nameplates",
+        "wide": "/academy/art/events/blank-atlas-mission-speaking__door-waiting__wide__v001.webp",
+        "mobile": "/academy/art/events/blank-atlas-mission-speaking__door-waiting__mobile__v001.webp"
+    },
+    "node:blank-atlas:speaking-input-repair": {
+        "assetId": "event.story.blank-atlas-mission-speaking.door-open-repair",
+        "sceneId": "scene:blank-atlas:mission-speaking",
+        "nodeId": "node:blank-atlas:speaking-input-repair",
+        "cueId": "cue:speaking-route-one-turn",
+        "wide": "/academy/art/events/blank-atlas-mission-speaking__door-open-repair__wide__v001.webp",
+        "mobile": "/academy/art/events/blank-atlas-mission-speaking__door-open-repair__mobile__v001.webp"
+    },
+    "node:blank-atlas:cards-return": {
+        "assetId": "event.story.blank-atlas-reading-writing.cards-return",
+        "sceneId": "scene:blank-atlas:reading-writing",
+        "nodeId": "node:blank-atlas:cards-return",
+        "cueId": "cue:route-cards-around-atlas",
+        "wide": "/academy/art/events/blank-atlas-reading-writing__cards-return__wide__v001.webp",
+        "mobile": "/academy/art/events/blank-atlas-reading-writing__cards-return__mobile__v001.webp"
+    },
+    "node:blank-atlas:card-turns-over": {
+        "assetId": "event.story.blank-atlas-reading-writing.learner-card-route-label",
+        "sceneId": "scene:blank-atlas:reading-writing",
+        "nodeId": "node:blank-atlas:card-turns-over",
+        "cueId": "cue:learner-card-route-label",
+        "wide": "/academy/art/events/blank-atlas-reading-writing__learner-card-route-label__wide__v001.webp",
+        "mobile": "/academy/art/events/blank-atlas-reading-writing__learner-card-route-label__mobile__v001.webp"
+    },
+    "node:blank-atlas:source-clears": {
+        "assetId": "event.story.blank-atlas-transfer.support-clears",
+        "sceneId": "scene:blank-atlas:transfer",
+        "nodeId": "node:blank-atlas:source-clears",
+        "cueId": "cue:teaching-surfaces-clear",
+        "wide": "/academy/art/events/blank-atlas-transfer__support-clears__wide__v001.webp",
+        "mobile": "/academy/art/events/blank-atlas-transfer__support-clears__mobile__v001.webp"
+    },
+    "node:blank-atlas:first-lantern": {
+        "assetId": "event.story.blank-atlas-transfer.first-lantern",
+        "sceneId": "scene:blank-atlas:transfer",
+        "nodeId": "node:blank-atlas:first-lantern",
+        "cueId": "cue:first-atlas-lantern-lit",
+        "wide": "/academy/art/events/blank-atlas-transfer__first-lantern__wide__v001.webp",
+        "mobile": "/academy/art/events/blank-atlas-transfer__first-lantern__mobile__v001.webp"
+    },
+    "node:blank-atlas:one-light-room": {
+        "assetId": "event.story.blank-atlas-close.one-light-room",
+        "sceneId": "scene:blank-atlas:close",
+        "nodeId": "node:blank-atlas:one-light-room",
+        "cueId": "cue:one-lantern-reflected-on-desks",
+        "wide": "/academy/art/events/blank-atlas-close__one-light-room__wide__v001.webp",
+        "mobile": "/academy/art/events/blank-atlas-close__one-light-room__mobile__v001.webp"
+    },
+    "node:blank-atlas:close-room-repair": {
+        "assetId": "event.story.blank-atlas-close.finish-break-context",
+        "sceneId": "scene:blank-atlas:close",
+        "nodeId": "node:blank-atlas:close-room-repair",
+        "cueId": "cue:finish-break-context",
+        "wide": "/academy/art/events/blank-atlas-close__finish-break-context__wide__v001.webp",
+        "mobile": "/academy/art/events/blank-atlas-close__finish-break-context__mobile__v001.webp"
     }
 } as const satisfies Readonly<Record<string, AcademyStoryArtBinding>>;
 
@@ -308,6 +372,110 @@ export const ACADEMY_STORY_ART_RUNTIME_ASSETS = {
             "wide": "/academy/art/events/blank-atlas-mission-text__one-gap-repair__wide__v001.webp",
             "mobile": "/academy/art/events/blank-atlas-mission-text__one-gap-repair__mobile__v001.webp"
         }
+    },
+    "event.story.blank-atlas-mission-speaking.door-waiting": {
+        "kind": "event-art",
+        "status": "approved",
+        "runtimeHomes": [
+            "node:blank-atlas:speaking-door",
+            "scene:blank-atlas:mission-speaking"
+        ],
+        "provenance": "regenerated-house-style",
+        "files": {
+            "wide": "/academy/art/events/blank-atlas-mission-speaking__door-waiting__wide__v001.webp",
+            "mobile": "/academy/art/events/blank-atlas-mission-speaking__door-waiting__mobile__v001.webp"
+        }
+    },
+    "event.story.blank-atlas-mission-speaking.door-open-repair": {
+        "kind": "event-art",
+        "status": "approved",
+        "runtimeHomes": [
+            "node:blank-atlas:speaking-input-repair",
+            "scene:blank-atlas:mission-speaking"
+        ],
+        "provenance": "regenerated-house-style",
+        "files": {
+            "wide": "/academy/art/events/blank-atlas-mission-speaking__door-open-repair__wide__v001.webp",
+            "mobile": "/academy/art/events/blank-atlas-mission-speaking__door-open-repair__mobile__v001.webp"
+        }
+    },
+    "event.story.blank-atlas-reading-writing.cards-return": {
+        "kind": "event-art",
+        "status": "approved",
+        "runtimeHomes": [
+            "node:blank-atlas:cards-return",
+            "scene:blank-atlas:reading-writing"
+        ],
+        "provenance": "regenerated-house-style",
+        "files": {
+            "wide": "/academy/art/events/blank-atlas-reading-writing__cards-return__wide__v001.webp",
+            "mobile": "/academy/art/events/blank-atlas-reading-writing__cards-return__mobile__v001.webp"
+        }
+    },
+    "event.story.blank-atlas-reading-writing.learner-card-route-label": {
+        "kind": "event-art",
+        "status": "approved",
+        "runtimeHomes": [
+            "node:blank-atlas:card-turns-over",
+            "scene:blank-atlas:reading-writing"
+        ],
+        "provenance": "regenerated-house-style",
+        "files": {
+            "wide": "/academy/art/events/blank-atlas-reading-writing__learner-card-route-label__wide__v001.webp",
+            "mobile": "/academy/art/events/blank-atlas-reading-writing__learner-card-route-label__mobile__v001.webp"
+        }
+    },
+    "event.story.blank-atlas-transfer.support-clears": {
+        "kind": "event-art",
+        "status": "approved",
+        "runtimeHomes": [
+            "node:blank-atlas:source-clears",
+            "scene:blank-atlas:transfer"
+        ],
+        "provenance": "regenerated-house-style",
+        "files": {
+            "wide": "/academy/art/events/blank-atlas-transfer__support-clears__wide__v001.webp",
+            "mobile": "/academy/art/events/blank-atlas-transfer__support-clears__mobile__v001.webp"
+        }
+    },
+    "event.story.blank-atlas-transfer.first-lantern": {
+        "kind": "event-art",
+        "status": "approved",
+        "runtimeHomes": [
+            "node:blank-atlas:first-lantern",
+            "scene:blank-atlas:transfer"
+        ],
+        "provenance": "regenerated-house-style",
+        "files": {
+            "wide": "/academy/art/events/blank-atlas-transfer__first-lantern__wide__v001.webp",
+            "mobile": "/academy/art/events/blank-atlas-transfer__first-lantern__mobile__v001.webp"
+        }
+    },
+    "event.story.blank-atlas-close.one-light-room": {
+        "kind": "event-art",
+        "status": "approved",
+        "runtimeHomes": [
+            "node:blank-atlas:one-light-room",
+            "scene:blank-atlas:close"
+        ],
+        "provenance": "regenerated-house-style",
+        "files": {
+            "wide": "/academy/art/events/blank-atlas-close__one-light-room__wide__v001.webp",
+            "mobile": "/academy/art/events/blank-atlas-close__one-light-room__mobile__v001.webp"
+        }
+    },
+    "event.story.blank-atlas-close.finish-break-context": {
+        "kind": "event-art",
+        "status": "approved",
+        "runtimeHomes": [
+            "node:blank-atlas:close-room-repair",
+            "scene:blank-atlas:close"
+        ],
+        "provenance": "regenerated-house-style",
+        "files": {
+            "wide": "/academy/art/events/blank-atlas-close__finish-break-context__wide__v001.webp",
+            "mobile": "/academy/art/events/blank-atlas-close__finish-break-context__mobile__v001.webp"
+        }
     }
 } as const;
 
@@ -367,5 +535,37 @@ export const ACADEMY_STORY_ART_COVERAGE = {
     "event.story.blank-atlas-mission-text.one-gap-repair": {
         "purpose": "story-event",
         "primaryUse": "node:blank-atlas:text-input-repair"
+    },
+    "event.story.blank-atlas-mission-speaking.door-waiting": {
+        "purpose": "story-event",
+        "primaryUse": "node:blank-atlas:speaking-door"
+    },
+    "event.story.blank-atlas-mission-speaking.door-open-repair": {
+        "purpose": "story-event",
+        "primaryUse": "node:blank-atlas:speaking-input-repair"
+    },
+    "event.story.blank-atlas-reading-writing.cards-return": {
+        "purpose": "story-event",
+        "primaryUse": "node:blank-atlas:cards-return"
+    },
+    "event.story.blank-atlas-reading-writing.learner-card-route-label": {
+        "purpose": "story-event",
+        "primaryUse": "node:blank-atlas:card-turns-over"
+    },
+    "event.story.blank-atlas-transfer.support-clears": {
+        "purpose": "story-event",
+        "primaryUse": "node:blank-atlas:source-clears"
+    },
+    "event.story.blank-atlas-transfer.first-lantern": {
+        "purpose": "story-event",
+        "primaryUse": "node:blank-atlas:first-lantern"
+    },
+    "event.story.blank-atlas-close.one-light-room": {
+        "purpose": "story-event",
+        "primaryUse": "node:blank-atlas:one-light-room"
+    },
+    "event.story.blank-atlas-close.finish-break-context": {
+        "purpose": "story-event",
+        "primaryUse": "node:blank-atlas:close-room-repair"
     }
 } as const;

@@ -76,6 +76,7 @@ export const ACADEMY_RUNTIME_ASSET_REGISTRY = {
         },
     }),
     'location.entrance': runtimeAsset({ kind: 'background', status: 'approved', runtimeHomes: ['access:entrance', 'campus:evening'], provenance: 'current-production', files: { wide: '/academy/art/locations/wide/campus-entrance__blue-hour-arrival--wide.webp', mobile: '/academy/art/locations/mobile/campus-entrance__blue-hour-arrival--mobile.webp' } }),
+    'location.classroom-entrance': runtimeAsset({ kind: 'background', status: 'approved', runtimeHomes: ['location:classroom-entrance', 'scene:blank-atlas:mission-speaking', 'activity:lesson-zero-speaking-input'], provenance: 'regenerated-house-style', files: { wide: '/academy/art/locations/wide/classroom-entrance__rain-evening-threshold--wide.webp', mobile: '/academy/art/locations/mobile/classroom-entrance__rain-evening-threshold--mobile.webp' } }),
     'location.street': runtimeAsset({ kind: 'background', status: 'approved', runtimeHomes: ['location:street', 'activity:rainy-directions'], provenance: 'recovered-academy-tree', files: { wide: '/academy/art/locations/wide/bloomsbury-street__day-route--wide.webp', mobile: '/academy/art/locations/mobile/bloomsbury-street__day-route--mobile.webp' } }),
     'location.station': runtimeAsset({ kind: 'background', status: 'approved', runtimeHomes: ['location:station', 'activity:station-announcements', 'lesson:l2-l02', 'lesson:l2-l05', 'lesson:l2-l10', 'lesson:l2-l11'], provenance: 'recovered-academy-tree', files: { wide: '/academy/art/locations/wide/railway-station__day-commute--wide.webp', mobile: '/academy/art/locations/mobile/railway-station__day-commute--mobile.webp' } }),
     'location.station-platform': runtimeAsset({ kind: 'background', status: 'approved', runtimeHomes: ['location:station-platform', 'activity:station-platform-transfer'], provenance: 'recovered-academy-tree', files: { wide: '/academy/art/locations/wide/tube-platform__blue-hour-rain--wide.webp', mobile: '/academy/art/locations/mobile/tube-platform__blue-hour-rain--mobile.webp' } }),
@@ -189,6 +190,7 @@ export const ACADEMY_PURPOSEFUL_ASSET_COVERAGE = {
     'location.home': { purpose: 'world-scene', primaryUse: 'location:home' },
     'location.campus-ensemble': { purpose: 'world-scene', primaryUse: 'access:campus-ensemble' },
     'location.entrance': { purpose: 'world-scene', primaryUse: 'access:entrance' },
+    'location.classroom-entrance': { purpose: 'world-scene', primaryUse: 'scene:blank-atlas:mission-speaking' },
     'location.street': { purpose: 'world-scene', primaryUse: 'activity:rainy-directions' },
     'location.station': { purpose: 'world-scene', primaryUse: 'activity:station-announcements' },
     'location.station-platform': { purpose: 'world-scene', primaryUse: 'activity:station-platform-transfer' },
@@ -272,6 +274,8 @@ export const ACADEMY_APPROVED_CHARACTER_SPRITES = {
     sophieDetermined: assetFile('character.sophie.determined-left', 'default'),
     ruparnaNeutral: ACADEMY_CAST_STANDARDIZATION_GALLERIES.ruparna['neutral:front-near-front'],
     ruparnaNoteRoute: ACADEMY_CAST_STANDARDIZATION_GALLERIES.ruparna['encouraging-listening:right-three-quarter'],
+    samNeutral: ACADEMY_CAST_STANDARDIZATION_GALLERIES.sam['neutral:front-near-front'],
+    samListening: ACADEMY_CAST_STANDARDIZATION_GALLERIES.sam['encouraging-listening:front-near-front'],
     steve: assetFile('character.steve.neutral-front', 'default'),
     steveHappy: assetFile('character.steve.happy-right', 'default'),
     steveDetermined: assetFile('character.steve.determined-left', 'default'),
@@ -289,6 +293,7 @@ const ACADEMY_APPROVED_CAST_SPRITES = {
     rie: ACADEMY_APPROVED_CHARACTER_SPRITES.rie,
     sophie: ACADEMY_APPROVED_CHARACTER_SPRITES.sophie,
     ruparna: ACADEMY_APPROVED_CHARACTER_SPRITES.ruparnaNeutral,
+    sam: ACADEMY_APPROVED_CHARACTER_SPRITES.samNeutral,
     steve: ACADEMY_APPROVED_CHARACTER_SPRITES.steve,
 } as const;
 
@@ -325,6 +330,10 @@ const ACADEMY_APPROVED_CAST_PERFORMANCES = {
     ruparna: {
         neutral: ACADEMY_APPROVED_CHARACTER_SPRITES.ruparnaNeutral,
         encouraging: ACADEMY_APPROVED_CHARACTER_SPRITES.ruparnaNoteRoute,
+    },
+    sam: {
+        neutral: ACADEMY_APPROVED_CHARACTER_SPRITES.samNeutral,
+        encouraging: ACADEMY_APPROVED_CHARACTER_SPRITES.samListening,
     },
     steve: {
         neutral: ACADEMY_APPROVED_CHARACTER_SPRITES.steve,
@@ -374,6 +383,7 @@ export const ACADEMY_ASSETS = {
         home: assetFileSet('location.home'),
         campusEnsemble: assetFileSet('location.campus-ensemble'),
         entrance: assetFileSet('location.entrance'),
+        classroomEntrance: assetFileSet('location.classroom-entrance'),
         street: assetFileSet('location.street'),
         station: assetFileSet('location.station'),
         stationPlatform: assetFileSet('location.station-platform'),

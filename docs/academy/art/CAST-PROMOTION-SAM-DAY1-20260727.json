@@ -1,0 +1,41 @@
+{
+  "promotions": [
+    {
+      "castId": "sam",
+      "archiveLabel": "superseded-before-day1-speaking-route-20260727",
+      "replaceExpressions": [
+        "neutral",
+        "encouraging-listening"
+      ],
+      "canonicalNeutralAssetId": "character.sam.standardized-neutral-front-near-front-halfbody-v001",
+      "slots": [
+        {
+          "assetId": "character.sam.standardized-neutral-front-near-front-halfbody-v001",
+          "expression": "neutral",
+          "angle": "front-near-front",
+          "assetPath": "/academy/art/characters/sam/sam__standardized-neutral__front-near-front__halfbody__v001.png",
+          "runtimeHomes": [
+            "journal:sam",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "story:cast:sam",
+            "cast-standardization:sam"
+          ]
+        },
+        {
+          "assetId": "character.sam.standardized-encouraging-listening-front-near-front-halfbody-v001",
+          "expression": "encouraging-listening",
+          "angle": "front-near-front",
+          "assetPath": "/academy/art/characters/sam/sam__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
+          "runtimeHomes": [
+            "journal:sam-expression-gallery",
+            "story:cast:sam:recording-boundary",
+            "cast-standardization:sam"
+          ]
+        }
+      ]
+    }
+  ]
+}

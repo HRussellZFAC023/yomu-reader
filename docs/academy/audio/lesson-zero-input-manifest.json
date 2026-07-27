@@ -3,7 +3,7 @@
   "qualityBoundary": "Codex objective QA: exact authored line and speaker binding, pinned Aivis model and style, accent/mora trace, Opus shape, duration, loudness, hash, and independent Japanese Whisper phonetic comparison. No human-audition claim.",
   "source": {
     "path": "public/academy/content/lessons/lesson-zero.v1.json",
-    "sha256": "93a7ca8acb02cef615d18072de9f555db2abdadaa67fe90993867d2aed648b85"
+    "sha256": "504534364d2b92229af1a465a8f46267c2bd2f3c3cf89736c3b032d76435bb86"
   },
   "engine": {
     "name": "AivisSpeech Engine",
@@ -20,10 +20,10 @@
       "speakerId": "xingyu",
       "authoredJapanese": "あ・い・う・え・お",
       "spokenJapanese": "あ・い・う・え・お",
-      "sourceSha256": "92306ffd7fd057ce610ac8606cc7bf76efdd452294c41cfb62ae17d1bdb63f1c",
+      "sourceSha256": "445db91b178f5e8d4238911ccd640cec4d0ba92c3de4d4bb8a275ac5f671db4a",
       "runtimeUrl": "/academy/audio/lesson-zero/vowel-row.opus",
-      "assetSha256": "a1405fc9b737f8e501ab6f30cf16fec38e1b8c893382caa18966ffd626fe4f0c",
-      "bytes": 21048,
+      "assetSha256": "e405e70d2445464c49bd47d93cfaadc7346fd0512a1e88174bc96be12287a0fa",
+      "bytes": 21694,
       "model": {
         "modelUuid": "d7255c2c-ddd0-425a-808c-662cd94c7f41",
         "modelName": "M1",
@@ -149,17 +149,17 @@
         "codec": "opus",
         "sampleRate": 48000,
         "channels": 1,
-        "durationSeconds": 2.558,
-        "bitRate": 65828,
-        "meanVolumeDb": -20.5,
-        "maxVolumeDb": -1.4
+        "durationSeconds": 2.72,
+        "bitRate": 63795,
+        "meanVolumeDb": -21.3,
+        "maxVolumeDb": -1.7
       },
       "whisper": {
         "model": "ggml-small.bin",
-        "transcript": "は、い、うえ、え、お",
+        "transcript": "あ、い、う、え、お、",
         "targetPhoneticReading": "あいうえお",
-        "transcriptPhoneticReading": "わいうええお",
-        "phoneticSimilarity": 0.667,
+        "transcriptPhoneticReading": "あいうえお",
+        "phoneticSimilarity": 1.0,
         "minimumSimilarity": 0.64,
         "passed": true
       },
@@ -171,10 +171,10 @@
       "authoredJapanese": "はじめまして。Sophieです。日本語を勉強しています。",
       "spokenJapanese": "はじめまして。ソフィーです。日本語を勉強しています。",
       "spokenFormNormalization": "Display-name pronunciation only: Sophie=ソフィー",
-      "sourceSha256": "86e9184da730aaa3df9c22e0c635369a1d0798f3134519d4be8f633551d8a0e1",
+      "sourceSha256": "4a4fe1ea1d521fd648debcb907e50655287763ec423241af76455430f55e16e9",
       "runtimeUrl": "/academy/audio/lesson-zero/text-sophie.opus",
-      "assetSha256": "86d85fb245fbaff0f4cd3857e8427717edb116ab34c10f353b0fe2ef61d70967",
-      "bytes": 41637,
+      "assetSha256": "d4df660a46ea2226a88eb87df6b83451a1b5f66aa91ddcd3ef69762bf9aeda23",
+      "bytes": 40666,
       "model": {
         "modelUuid": "a59cb814-0083-4369-8542-f51a29e72af7",
         "modelName": "まお",
@@ -509,17 +509,17 @@
         "codec": "opus",
         "sampleRate": 48000,
         "channels": 1,
-        "durationSeconds": 4.88,
-        "bitRate": 68257,
-        "meanVolumeDb": -17.8,
-        "maxVolumeDb": -1.1
+        "durationSeconds": 4.876,
+        "bitRate": 66714,
+        "meanVolumeDb": -18.7,
+        "maxVolumeDb": -1.2
       },
       "whisper": {
         "model": "ggml-small.bin",
-        "transcript": "はじめまして、ソセイです。日本語を勉強しています。",
+        "transcript": "はじめまして、ソフィです。日本語を勉強しています。",
         "targetPhoneticReading": "はじめましてそふぃいですにほんごおべんきょおしています",
-        "transcriptPhoneticReading": "はじめましてそせいですにほんごおべんきょおしています",
-        "phoneticSimilarity": 0.926,
+        "transcriptPhoneticReading": "はじめましてそふぃですにほんごおべんきょおしています",
+        "phoneticSimilarity": 0.963,
         "minimumSimilarity": 0.64,
         "passed": true
       },
@@ -531,10 +531,10 @@
       "authoredJapanese": "Ruparnaです。わたしも日本語を勉強しています。",
       "spokenJapanese": "ルパルナです。わたしも日本語を勉強しています。",
       "spokenFormNormalization": "Display-name pronunciation only: Ruparna=ルパルナ",
-      "sourceSha256": "bacc8af9a95d64c89424cd26ca1f67b2fc42e3799dbd057a507ac523a91a6e9d",
+      "sourceSha256": "a8419b4c451045c98a7faa201412581258b79f296fb40bbce8e299d0d5817a56",
       "runtimeUrl": "/academy/audio/lesson-zero/text-ruparna.opus",
-      "assetSha256": "601a306216cf268270a0c3d415c37ccb525a1fd0281a2efad301bb9c30c82be8",
-      "bytes": 35268,
+      "assetSha256": "fc7a87dee431861d5476944c02c97bda078a088575d273c5609bdb66714afaeb",
+      "bytes": 35966,
       "model": {
         "modelUuid": "e9339137-2ae3-4d41-9394-fb757a7e61e6",
         "modelName": "まい",
@@ -847,17 +847,17 @@
         "codec": "opus",
         "sampleRate": 48000,
         "channels": 1,
-        "durationSeconds": 4.224,
-        "bitRate": 66798,
-        "meanVolumeDb": -16.4,
-        "maxVolumeDb": -2.1
+        "durationSeconds": 4.161,
+        "bitRate": 69145,
+        "meanVolumeDb": -16.3,
+        "maxVolumeDb": -2.2
       },
       "whisper": {
         "model": "ggml-small.bin",
-        "transcript": "ルパルナです私も日本語を勉強しています",
+        "transcript": "ぬっぱるなです。私も日本語を勉強しています。",
         "targetPhoneticReading": "るぱるなですわたしもにほんごおべんきょおしています",
-        "transcriptPhoneticReading": "るぱるなですわたしもにほんごおべんきょおしています",
-        "phoneticSimilarity": 1.0,
+        "transcriptPhoneticReading": "ぬっぱるなですわたしもにほんごおべんきょおしています",
+        "phoneticSimilarity": 0.923,
         "minimumSimilarity": 0.64,
         "passed": true
       },
@@ -866,13 +866,12 @@
     {
       "lineId": "line:lesson-zero-speaking-aakash-introduction",
       "speakerId": "aakash",
-      "authoredJapanese": "はじめまして。Aakashです。日本語を勉強しています。Samさん、これは教科書ですか。",
-      "spokenJapanese": "はじめまして。アーカッシュです。日本語を勉強しています。サムさん、これは教科書ですか。",
-      "spokenFormNormalization": "Display-name pronunciation only: Aakash=アーカッシュ, Sam=サム",
-      "sourceSha256": "3d1c7e96e235767e5070a5c8d03d3a790ea37d85782dd42636773a001c877a50",
+      "authoredJapanese": "はじめまして。アーカッシュです。",
+      "spokenJapanese": "はじめまして。アーカッシュです。",
+      "sourceSha256": "cab97d573d35a3796836e028a442f0e563a8a390f01c687b004f88ad1527fa6d",
       "runtimeUrl": "/academy/audio/lesson-zero/speaking-aakash-introduction.opus",
-      "assetSha256": "17aca61e04695c1f2a8d102409582a596d917d940ab81883cbf9e9caf3c59f9d",
-      "bytes": 56826,
+      "assetSha256": "17726b15f4e6e95fc23630fb06a7c983622df984548b431948270a47c7ce3aed",
+      "bytes": 19596,
       "model": {
         "modelUuid": "e40d5b99-8cde-4442-a45b-0ebec9167506",
         "modelName": "kokuren_voice",
@@ -892,7 +891,7 @@
         "postPhonemeLength": 0.18,
         "pauseLengthScale": 1.02
       },
-      "querySha256": "09bedcd25ecf4c8431ff197647b23563de633ac9ced089c780a5a1544d04d786",
+      "querySha256": "95f5790361685c10408386cea848ebe05e46a0f9591197621479ebe3f38899ce",
       "pitchTrace": [
         {
           "accentPhrase": 0,
@@ -1058,364 +1057,23 @@
           "vowel": "pau",
           "vowelLength": 0.0,
           "pitch": 0.0
-        },
-        {
-          "accentPhrase": 2,
-          "accent": 5,
-          "mora": 0,
-          "text": "ニ",
-          "consonant": "n",
-          "consonantLength": 0.0,
-          "vowel": "i",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 2,
-          "accent": 5,
-          "mora": 1,
-          "text": "ホ",
-          "consonant": "h",
-          "consonantLength": 0.0,
-          "vowel": "o",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 2,
-          "accent": 5,
-          "mora": 2,
-          "text": "ン",
-          "consonant": null,
-          "consonantLength": null,
-          "vowel": "N",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 2,
-          "accent": 5,
-          "mora": 3,
-          "text": "ゴ",
-          "consonant": "g",
-          "consonantLength": 0.0,
-          "vowel": "o",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 2,
-          "accent": 5,
-          "mora": 4,
-          "text": "オ",
-          "consonant": null,
-          "consonantLength": null,
-          "vowel": "o",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 3,
-          "accent": 8,
-          "mora": 0,
-          "text": "ベ",
-          "consonant": "b",
-          "consonantLength": 0.0,
-          "vowel": "e",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 3,
-          "accent": 8,
-          "mora": 1,
-          "text": "ン",
-          "consonant": null,
-          "consonantLength": null,
-          "vowel": "N",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 3,
-          "accent": 8,
-          "mora": 2,
-          "text": "キョ",
-          "consonant": "ky",
-          "consonantLength": 0.0,
-          "vowel": "o",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 3,
-          "accent": 8,
-          "mora": 3,
-          "text": "オ",
-          "consonant": null,
-          "consonantLength": null,
-          "vowel": "o",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 3,
-          "accent": 8,
-          "mora": 4,
-          "text": "シ",
-          "consonant": "sh",
-          "consonantLength": 0.0,
-          "vowel": "i",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 3,
-          "accent": 8,
-          "mora": 5,
-          "text": "テ",
-          "consonant": "t",
-          "consonantLength": 0.0,
-          "vowel": "e",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 3,
-          "accent": 8,
-          "mora": 6,
-          "text": "イ",
-          "consonant": null,
-          "consonantLength": null,
-          "vowel": "i",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 3,
-          "accent": 8,
-          "mora": 7,
-          "text": "マ",
-          "consonant": "m",
-          "consonantLength": 0.0,
-          "vowel": "a",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 3,
-          "accent": 8,
-          "mora": 8,
-          "text": "ス",
-          "consonant": "s",
-          "consonantLength": 0.0,
-          "vowel": "u",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 3,
-          "accent": 8,
-          "mora": 9,
-          "text": ".",
-          "consonant": null,
-          "consonantLength": null,
-          "vowel": "pau",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 4,
-          "accent": 1,
-          "mora": 0,
-          "text": "サ",
-          "consonant": "s",
-          "consonantLength": 0.0,
-          "vowel": "a",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 4,
-          "accent": 1,
-          "mora": 1,
-          "text": "ム",
-          "consonant": "m",
-          "consonantLength": 0.0,
-          "vowel": "u",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 4,
-          "accent": 1,
-          "mora": 2,
-          "text": "サ",
-          "consonant": "s",
-          "consonantLength": 0.0,
-          "vowel": "a",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 4,
-          "accent": 1,
-          "mora": 3,
-          "text": "ン",
-          "consonant": null,
-          "consonantLength": null,
-          "vowel": "N",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 4,
-          "accent": 1,
-          "mora": 4,
-          "text": ",",
-          "consonant": null,
-          "consonantLength": null,
-          "vowel": "pau",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 5,
-          "accent": 3,
-          "mora": 0,
-          "text": "コ",
-          "consonant": "k",
-          "consonantLength": 0.0,
-          "vowel": "o",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 5,
-          "accent": 3,
-          "mora": 1,
-          "text": "レ",
-          "consonant": "r",
-          "consonantLength": 0.0,
-          "vowel": "e",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 5,
-          "accent": 3,
-          "mora": 2,
-          "text": "ワ",
-          "consonant": "w",
-          "consonantLength": 0.0,
-          "vowel": "a",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 6,
-          "accent": 3,
-          "mora": 0,
-          "text": "キョ",
-          "consonant": "ky",
-          "consonantLength": 0.0,
-          "vowel": "o",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 6,
-          "accent": 3,
-          "mora": 1,
-          "text": "オ",
-          "consonant": null,
-          "consonantLength": null,
-          "vowel": "o",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 6,
-          "accent": 3,
-          "mora": 2,
-          "text": "カ",
-          "consonant": "k",
-          "consonantLength": 0.0,
-          "vowel": "a",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 6,
-          "accent": 3,
-          "mora": 3,
-          "text": "ショ",
-          "consonant": "sh",
-          "consonantLength": 0.0,
-          "vowel": "o",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 6,
-          "accent": 3,
-          "mora": 4,
-          "text": "デ",
-          "consonant": "d",
-          "consonantLength": 0.0,
-          "vowel": "e",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 6,
-          "accent": 3,
-          "mora": 5,
-          "text": "ス",
-          "consonant": "s",
-          "consonantLength": 0.0,
-          "vowel": "u",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 6,
-          "accent": 3,
-          "mora": 6,
-          "text": "カ",
-          "consonant": "k",
-          "consonantLength": 0.0,
-          "vowel": "a",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 6,
-          "accent": 3,
-          "mora": 7,
-          "text": ".",
-          "consonant": null,
-          "consonantLength": null,
-          "vowel": "pau",
-          "vowelLength": 0.0,
-          "pitch": 0.0
         }
       ],
       "media": {
         "codec": "opus",
         "sampleRate": 48000,
         "channels": 1,
-        "durationSeconds": 6.727,
-        "bitRate": 67578,
-        "meanVolumeDb": -20.6,
+        "durationSeconds": 2.501,
+        "bitRate": 62672,
+        "meanVolumeDb": -21.1,
         "maxVolumeDb": -1.4
       },
       "whisper": {
         "model": "ggml-small.bin",
-        "transcript": "はじめましてアーカッシュです日本語を勉強していますサノさんこれは教科書ですか",
-        "targetPhoneticReading": "はじめましてああかっしゅですにほんごおべんきょおしていますさむさんこれわきょおかしょですか",
-        "transcriptPhoneticReading": "はじめましてああかっしゅですにほんごおべんきょおしていますさのさんこれわきょおかしょですか",
-        "phoneticSimilarity": 0.978,
+        "transcript": "はじめましてアーカッシュです",
+        "targetPhoneticReading": "はじめましてああかっしゅです",
+        "transcriptPhoneticReading": "はじめましてああかっしゅです",
+        "phoneticSimilarity": 1.0,
         "minimumSimilarity": 0.64,
         "passed": true
       },
@@ -1424,13 +1082,12 @@
     {
       "lineId": "line:lesson-zero-speaking-sam",
       "speakerId": "sam",
-      "authoredJapanese": "いいえ、教科書じゃありません。プリントです。Samです。日本語を勉強しています。よろしくお願いします。",
-      "spokenJapanese": "いいえ、教科書じゃありません。プリントです。サムです。日本語を勉強しています。よろしくお願いします。",
-      "spokenFormNormalization": "Display-name pronunciation only: Sam=サム",
-      "sourceSha256": "18e26920c3a25f923d48b202058bf96a1b505c2e17d4b4bbc1e65f8f49809687",
+      "authoredJapanese": "サムです。よろしくお願いします。",
+      "spokenJapanese": "サムです。よろしくお願いします。",
+      "sourceSha256": "f0fc36fe232475feba898c6b40841ad5090fdf4518c704eb2094df7e3cc0608b",
       "runtimeUrl": "/academy/audio/lesson-zero/speaking-sam.opus",
-      "assetSha256": "35816e51c79af891f41dfde02a2d9c19fe48a1a3c97569e19480f9c74779f760",
-      "bytes": 67230,
+      "assetSha256": "4acb4c881e67e0cac0312a3adc9c0f33fd5983423cb1ee3a4125b91b0161099b",
+      "bytes": 22677,
       "model": {
         "modelUuid": "6d11c6c2-f4a4-4435-887e-23dd60f8b8dd",
         "modelName": "にせ",
@@ -1450,252 +1107,10 @@
         "postPhonemeLength": 0.18,
         "pauseLengthScale": 1.02
       },
-      "querySha256": "89bf0c52c1ef841c30b7f212ef5b339013288167127e74fed76b69ea1e9fcd21",
+      "querySha256": "5292ef7655007ef59343e383f49cb486a9cc89193bc2dde60ebd96cbae616a1f",
       "pitchTrace": [
         {
           "accentPhrase": 0,
-          "accent": 3,
-          "mora": 0,
-          "text": "イ",
-          "consonant": null,
-          "consonantLength": null,
-          "vowel": "i",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 0,
-          "accent": 3,
-          "mora": 1,
-          "text": "イ",
-          "consonant": null,
-          "consonantLength": null,
-          "vowel": "i",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 0,
-          "accent": 3,
-          "mora": 2,
-          "text": "エ",
-          "consonant": null,
-          "consonantLength": null,
-          "vowel": "e",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 0,
-          "accent": 3,
-          "mora": 3,
-          "text": ",",
-          "consonant": null,
-          "consonantLength": null,
-          "vowel": "pau",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 1,
-          "accent": 3,
-          "mora": 0,
-          "text": "キョ",
-          "consonant": "ky",
-          "consonantLength": 0.0,
-          "vowel": "o",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 1,
-          "accent": 3,
-          "mora": 1,
-          "text": "オ",
-          "consonant": null,
-          "consonantLength": null,
-          "vowel": "o",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 1,
-          "accent": 3,
-          "mora": 2,
-          "text": "カ",
-          "consonant": "k",
-          "consonantLength": 0.0,
-          "vowel": "a",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 1,
-          "accent": 3,
-          "mora": 3,
-          "text": "ショ",
-          "consonant": "sh",
-          "consonantLength": 0.0,
-          "vowel": "o",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 1,
-          "accent": 3,
-          "mora": 4,
-          "text": "ジャ",
-          "consonant": "j",
-          "consonantLength": 0.0,
-          "vowel": "a",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 1,
-          "accent": 3,
-          "mora": 5,
-          "text": "ア",
-          "consonant": null,
-          "consonantLength": null,
-          "vowel": "a",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 1,
-          "accent": 3,
-          "mora": 6,
-          "text": "リ",
-          "consonant": "r",
-          "consonantLength": 0.0,
-          "vowel": "i",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 1,
-          "accent": 3,
-          "mora": 7,
-          "text": "マ",
-          "consonant": "m",
-          "consonantLength": 0.0,
-          "vowel": "a",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 1,
-          "accent": 3,
-          "mora": 8,
-          "text": "セ",
-          "consonant": "s",
-          "consonantLength": 0.0,
-          "vowel": "e",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 1,
-          "accent": 3,
-          "mora": 9,
-          "text": "ン",
-          "consonant": null,
-          "consonantLength": null,
-          "vowel": "N",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 1,
-          "accent": 3,
-          "mora": 10,
-          "text": ".",
-          "consonant": null,
-          "consonantLength": null,
-          "vowel": "pau",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 2,
-          "accent": 5,
-          "mora": 0,
-          "text": "プ",
-          "consonant": "p",
-          "consonantLength": 0.0,
-          "vowel": "u",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 2,
-          "accent": 5,
-          "mora": 1,
-          "text": "リ",
-          "consonant": "r",
-          "consonantLength": 0.0,
-          "vowel": "i",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 2,
-          "accent": 5,
-          "mora": 2,
-          "text": "ン",
-          "consonant": null,
-          "consonantLength": null,
-          "vowel": "N",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 2,
-          "accent": 5,
-          "mora": 3,
-          "text": "ト",
-          "consonant": "t",
-          "consonantLength": 0.0,
-          "vowel": "o",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 2,
-          "accent": 5,
-          "mora": 4,
-          "text": "デ",
-          "consonant": "d",
-          "consonantLength": 0.0,
-          "vowel": "e",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 2,
-          "accent": 5,
-          "mora": 5,
-          "text": "ス",
-          "consonant": "s",
-          "consonantLength": 0.0,
-          "vowel": "u",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 2,
-          "accent": 5,
-          "mora": 6,
-          "text": ".",
-          "consonant": null,
-          "consonantLength": null,
-          "vowel": "pau",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 3,
           "accent": 1,
           "mora": 0,
           "text": "サ",
@@ -1706,7 +1121,7 @@
           "pitch": 0.0
         },
         {
-          "accentPhrase": 3,
+          "accentPhrase": 0,
           "accent": 1,
           "mora": 1,
           "text": "ム",
@@ -1717,7 +1132,7 @@
           "pitch": 0.0
         },
         {
-          "accentPhrase": 3,
+          "accentPhrase": 0,
           "accent": 1,
           "mora": 2,
           "text": "デ",
@@ -1728,7 +1143,7 @@
           "pitch": 0.0
         },
         {
-          "accentPhrase": 3,
+          "accentPhrase": 0,
           "accent": 1,
           "mora": 3,
           "text": "ス",
@@ -1739,7 +1154,7 @@
           "pitch": 0.0
         },
         {
-          "accentPhrase": 3,
+          "accentPhrase": 0,
           "accent": 1,
           "mora": 4,
           "text": ".",
@@ -1750,172 +1165,7 @@
           "pitch": 0.0
         },
         {
-          "accentPhrase": 4,
-          "accent": 5,
-          "mora": 0,
-          "text": "ニ",
-          "consonant": "n",
-          "consonantLength": 0.0,
-          "vowel": "i",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 4,
-          "accent": 5,
-          "mora": 1,
-          "text": "ホ",
-          "consonant": "h",
-          "consonantLength": 0.0,
-          "vowel": "o",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 4,
-          "accent": 5,
-          "mora": 2,
-          "text": "ン",
-          "consonant": null,
-          "consonantLength": null,
-          "vowel": "N",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 4,
-          "accent": 5,
-          "mora": 3,
-          "text": "ゴ",
-          "consonant": "g",
-          "consonantLength": 0.0,
-          "vowel": "o",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 4,
-          "accent": 5,
-          "mora": 4,
-          "text": "オ",
-          "consonant": null,
-          "consonantLength": null,
-          "vowel": "o",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 5,
-          "accent": 8,
-          "mora": 0,
-          "text": "ベ",
-          "consonant": "b",
-          "consonantLength": 0.0,
-          "vowel": "e",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 5,
-          "accent": 8,
-          "mora": 1,
-          "text": "ン",
-          "consonant": null,
-          "consonantLength": null,
-          "vowel": "N",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 5,
-          "accent": 8,
-          "mora": 2,
-          "text": "キョ",
-          "consonant": "ky",
-          "consonantLength": 0.0,
-          "vowel": "o",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 5,
-          "accent": 8,
-          "mora": 3,
-          "text": "オ",
-          "consonant": null,
-          "consonantLength": null,
-          "vowel": "o",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 5,
-          "accent": 8,
-          "mora": 4,
-          "text": "シ",
-          "consonant": "sh",
-          "consonantLength": 0.0,
-          "vowel": "i",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 5,
-          "accent": 8,
-          "mora": 5,
-          "text": "テ",
-          "consonant": "t",
-          "consonantLength": 0.0,
-          "vowel": "e",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 5,
-          "accent": 8,
-          "mora": 6,
-          "text": "イ",
-          "consonant": null,
-          "consonantLength": null,
-          "vowel": "i",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 5,
-          "accent": 8,
-          "mora": 7,
-          "text": "マ",
-          "consonant": "m",
-          "consonantLength": 0.0,
-          "vowel": "a",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 5,
-          "accent": 8,
-          "mora": 8,
-          "text": "ス",
-          "consonant": "s",
-          "consonantLength": 0.0,
-          "vowel": "u",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 5,
-          "accent": 8,
-          "mora": 9,
-          "text": ".",
-          "consonant": null,
-          "consonantLength": null,
-          "vowel": "pau",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 6,
+          "accentPhrase": 1,
           "accent": 10,
           "mora": 0,
           "text": "ヨ",
@@ -1926,7 +1176,7 @@
           "pitch": 0.0
         },
         {
-          "accentPhrase": 6,
+          "accentPhrase": 1,
           "accent": 10,
           "mora": 1,
           "text": "ロ",
@@ -1937,7 +1187,7 @@
           "pitch": 0.0
         },
         {
-          "accentPhrase": 6,
+          "accentPhrase": 1,
           "accent": 10,
           "mora": 2,
           "text": "シ",
@@ -1948,7 +1198,7 @@
           "pitch": 0.0
         },
         {
-          "accentPhrase": 6,
+          "accentPhrase": 1,
           "accent": 10,
           "mora": 3,
           "text": "ク",
@@ -1959,7 +1209,7 @@
           "pitch": 0.0
         },
         {
-          "accentPhrase": 6,
+          "accentPhrase": 1,
           "accent": 10,
           "mora": 4,
           "text": "オ",
@@ -1970,7 +1220,7 @@
           "pitch": 0.0
         },
         {
-          "accentPhrase": 6,
+          "accentPhrase": 1,
           "accent": 10,
           "mora": 5,
           "text": "ネ",
@@ -1981,7 +1231,7 @@
           "pitch": 0.0
         },
         {
-          "accentPhrase": 6,
+          "accentPhrase": 1,
           "accent": 10,
           "mora": 6,
           "text": "ガ",
@@ -1992,7 +1242,7 @@
           "pitch": 0.0
         },
         {
-          "accentPhrase": 6,
+          "accentPhrase": 1,
           "accent": 10,
           "mora": 7,
           "text": "イ",
@@ -2003,7 +1253,7 @@
           "pitch": 0.0
         },
         {
-          "accentPhrase": 6,
+          "accentPhrase": 1,
           "accent": 10,
           "mora": 8,
           "text": "シ",
@@ -2014,7 +1264,7 @@
           "pitch": 0.0
         },
         {
-          "accentPhrase": 6,
+          "accentPhrase": 1,
           "accent": 10,
           "mora": 9,
           "text": "マ",
@@ -2025,7 +1275,7 @@
           "pitch": 0.0
         },
         {
-          "accentPhrase": 6,
+          "accentPhrase": 1,
           "accent": 10,
           "mora": 10,
           "text": "ス",
@@ -2036,7 +1286,7 @@
           "pitch": 0.0
         },
         {
-          "accentPhrase": 6,
+          "accentPhrase": 1,
           "accent": 10,
           "mora": 11,
           "text": ".",
@@ -2051,16 +1301,16 @@
         "codec": "opus",
         "sampleRate": 48000,
         "channels": 1,
-        "durationSeconds": 8.661,
-        "bitRate": 62096,
-        "meanVolumeDb": -21.1,
-        "maxVolumeDb": -1.5
+        "durationSeconds": 3.046,
+        "bitRate": 59564,
+        "meanVolumeDb": -19.5,
+        "maxVolumeDb": -1.2
       },
       "whisper": {
         "model": "ggml-small.bin",
-        "transcript": "いいえ教科書じゃありませんプリントですサムです日本語を勉強していますよろしくお願いします",
-        "targetPhoneticReading": "いいえきょおかしょじゃありませんぷりんとですさむですにほんごおべんきょおしていますよろしくおねがいします",
-        "transcriptPhoneticReading": "いいえきょおかしょじゃありませんぷりんとですさむですにほんごおべんきょおしていますよろしくおねがいします",
+        "transcript": "サムです。よろしくお願いします。",
+        "targetPhoneticReading": "さむですよろしくおねがいします",
+        "transcriptPhoneticReading": "さむですよろしくおねがいします",
         "phoneticSimilarity": 1.0,
         "minimumSimilarity": 0.64,
         "passed": true
@@ -2070,12 +1320,12 @@
     {
       "lineId": "line:lesson-zero-speaking-aakash-cue",
       "speakerId": "aakash",
-      "authoredJapanese": "では、あなたの番です。お名前は何ですか。",
-      "spokenJapanese": "では、あなたの番です。お名前は何ですか。",
-      "sourceSha256": "45079b3839dd72a5e0305432b841ed16d9c1bc6f0dcf5a6e73924d31bafb2c6f",
+      "authoredJapanese": "お名前は何ですか。",
+      "spokenJapanese": "お名前は何ですか。",
+      "sourceSha256": "2e8978999273499dc966a3177222625ebb2f28413ea900573b8c757dfa60e2b2",
       "runtimeUrl": "/academy/audio/lesson-zero/speaking-aakash-cue.opus",
-      "assetSha256": "5a7d1a427c8fed2cd71d0510826101d4c6d43d59198cde151a46d42b0e2c7f2f",
-      "bytes": 31377,
+      "assetSha256": "451d8f9147ce920b660bcab3076e93ffafe719afebcc0d074894525791c09843",
+      "bytes": 14924,
       "model": {
         "modelUuid": "e40d5b99-8cde-4442-a45b-0ebec9167506",
         "modelName": "kokuren_voice",
@@ -2095,142 +1345,10 @@
         "postPhonemeLength": 0.18,
         "pauseLengthScale": 1.02
       },
-      "querySha256": "3f98c1f4166c2d00d4357903509bcb45e7d7b3f6a1c429117db65cd5598a76e7",
+      "querySha256": "d253a9987122d5ae80109e28d500b39a626013dc25cc095bc6af65a3a0b4a718",
       "pitchTrace": [
         {
           "accentPhrase": 0,
-          "accent": 1,
-          "mora": 0,
-          "text": "デ",
-          "consonant": "d",
-          "consonantLength": 0.0,
-          "vowel": "e",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 0,
-          "accent": 1,
-          "mora": 1,
-          "text": "ワ",
-          "consonant": "w",
-          "consonantLength": 0.0,
-          "vowel": "a",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 0,
-          "accent": 1,
-          "mora": 2,
-          "text": ",",
-          "consonant": null,
-          "consonantLength": null,
-          "vowel": "pau",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 1,
-          "accent": 2,
-          "mora": 0,
-          "text": "ア",
-          "consonant": null,
-          "consonantLength": null,
-          "vowel": "a",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 1,
-          "accent": 2,
-          "mora": 1,
-          "text": "ナ",
-          "consonant": "n",
-          "consonantLength": 0.0,
-          "vowel": "a",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 1,
-          "accent": 2,
-          "mora": 2,
-          "text": "タ",
-          "consonant": "t",
-          "consonantLength": 0.0,
-          "vowel": "a",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 1,
-          "accent": 2,
-          "mora": 3,
-          "text": "ノ",
-          "consonant": "n",
-          "consonantLength": 0.0,
-          "vowel": "o",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 2,
-          "accent": 1,
-          "mora": 0,
-          "text": "バ",
-          "consonant": "b",
-          "consonantLength": 0.0,
-          "vowel": "a",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 2,
-          "accent": 1,
-          "mora": 1,
-          "text": "ン",
-          "consonant": null,
-          "consonantLength": null,
-          "vowel": "N",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 2,
-          "accent": 1,
-          "mora": 2,
-          "text": "デ",
-          "consonant": "d",
-          "consonantLength": 0.0,
-          "vowel": "e",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 2,
-          "accent": 1,
-          "mora": 3,
-          "text": "ス",
-          "consonant": "s",
-          "consonantLength": 0.0,
-          "vowel": "u",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 2,
-          "accent": 1,
-          "mora": 4,
-          "text": ".",
-          "consonant": null,
-          "consonantLength": null,
-          "vowel": "pau",
-          "vowelLength": 0.0,
-          "pitch": 0.0
-        },
-        {
-          "accentPhrase": 3,
           "accent": 6,
           "mora": 0,
           "text": "オ",
@@ -2241,7 +1359,7 @@
           "pitch": 0.0
         },
         {
-          "accentPhrase": 3,
+          "accentPhrase": 0,
           "accent": 6,
           "mora": 1,
           "text": "ナ",
@@ -2252,7 +1370,7 @@
           "pitch": 0.0
         },
         {
-          "accentPhrase": 3,
+          "accentPhrase": 0,
           "accent": 6,
           "mora": 2,
           "text": "マ",
@@ -2263,7 +1381,7 @@
           "pitch": 0.0
         },
         {
-          "accentPhrase": 3,
+          "accentPhrase": 0,
           "accent": 6,
           "mora": 3,
           "text": "エ",
@@ -2274,7 +1392,7 @@
           "pitch": 0.0
         },
         {
-          "accentPhrase": 3,
+          "accentPhrase": 0,
           "accent": 6,
           "mora": 4,
           "text": "ワ",
@@ -2285,7 +1403,7 @@
           "pitch": 0.0
         },
         {
-          "accentPhrase": 3,
+          "accentPhrase": 0,
           "accent": 6,
           "mora": 5,
           "text": "ナ",
@@ -2296,7 +1414,7 @@
           "pitch": 0.0
         },
         {
-          "accentPhrase": 3,
+          "accentPhrase": 0,
           "accent": 6,
           "mora": 6,
           "text": "ン",
@@ -2307,7 +1425,7 @@
           "pitch": 0.0
         },
         {
-          "accentPhrase": 3,
+          "accentPhrase": 0,
           "accent": 6,
           "mora": 7,
           "text": "デ",
@@ -2318,7 +1436,7 @@
           "pitch": 0.0
         },
         {
-          "accentPhrase": 3,
+          "accentPhrase": 0,
           "accent": 6,
           "mora": 8,
           "text": "ス",
@@ -2329,7 +1447,7 @@
           "pitch": 0.0
         },
         {
-          "accentPhrase": 3,
+          "accentPhrase": 0,
           "accent": 6,
           "mora": 9,
           "text": "カ",
@@ -2340,7 +1458,7 @@
           "pitch": 0.0
         },
         {
-          "accentPhrase": 3,
+          "accentPhrase": 0,
           "accent": 6,
           "mora": 10,
           "text": ".",
@@ -2355,16 +1473,16 @@
         "codec": "opus",
         "sampleRate": 48000,
         "channels": 1,
-        "durationSeconds": 3.791,
-        "bitRate": 66205,
-        "meanVolumeDb": -22.0,
-        "maxVolumeDb": -1.2
+        "durationSeconds": 1.946,
+        "bitRate": 61357,
+        "meanVolumeDb": -19.4,
+        "maxVolumeDb": -1.6
       },
       "whisper": {
         "model": "ggml-small.bin",
-        "transcript": "ではあなたの番です。お名前は何ですか?",
-        "targetPhoneticReading": "でわあなたのばんですおなまえわなんですか",
-        "transcriptPhoneticReading": "でわあなたのばんですおなまえわなんですか",
+        "transcript": "お名前は何ですか",
+        "targetPhoneticReading": "おなまえわなんですか",
+        "transcriptPhoneticReading": "おなまえわなんですか",
         "phoneticSimilarity": 1.0,
         "minimumSimilarity": 0.64,
         "passed": true
@@ -2381,16 +1499,16 @@
         "line:lesson-zero-text-ruparna"
       ],
       "pauseMs": 580,
-      "assetSha256": "0124492b92450e2c4b28ea4d38b78775e338adb1e935c7c5af13731a0452faef",
-      "bytes": 77511,
+      "assetSha256": "ccaddd1fd008b5c462354133a891471d437c157bbe8afb65fe1a17d6cd2bd4a6",
+      "bytes": 76869,
       "media": {
         "codec": "opus",
         "sampleRate": 48000,
         "channels": 1,
-        "durationSeconds": 9.677,
-        "bitRate": 64076,
-        "meanVolumeDb": -17.4,
-        "maxVolumeDb": -1.1
+        "durationSeconds": 9.611,
+        "bitRate": 63983,
+        "meanVolumeDb": -17.7,
+        "maxVolumeDb": -1.2
       },
       "verdict": "pass"
     },
@@ -2403,15 +1521,15 @@
         "line:lesson-zero-speaking-aakash-cue"
       ],
       "pauseMs": 580,
-      "assetSha256": "e03eff39b1748289feb2c88eab6c8c754b56014b3b4a9c0bedd09aca2df18868",
-      "bytes": 156069,
+      "assetSha256": "45e9aa274798b0be6b67c4d9b38a65949e517d9eb234cc77e0196a7c52d38764",
+      "bytes": 57780,
       "media": {
         "codec": "opus",
         "sampleRate": 48000,
         "channels": 1,
-        "durationSeconds": 20.327,
-        "bitRate": 61423,
-        "meanVolumeDb": -21.4,
+        "durationSeconds": 8.64,
+        "bitRate": 53500,
+        "meanVolumeDb": -20.6,
         "maxVolumeDb": -1.4
       },
       "verdict": "pass"

@@ -16,7 +16,7 @@ import {
 import type { LessonZeroPackageData } from './lesson-zero-schema';
 
 export const LESSON_ZERO_CONTENT_SHA256 =
-    '1450638da527c575297f665e3039a7c2c06ea79c153bd2e5407224da6efabaa5';
+    '504534364d2b92229af1a465a8f46267c2bd2f3c3cf89736c3b032d76435bb86';
 export const LESSON_ZERO_CLASSROOM_EXPRESSIONS_SHA256 =
     'a809477602243d8b4833a5534e1315fafb8c5fc4f9ebc770569e413e509f90ff';
 

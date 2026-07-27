@@ -6,11 +6,14 @@ const outputFile = path.resolve('docs/academy/art/STORY-ASSET-INVENTORY.json');
 const lowerMapFile = path.resolve('docs/academy/story/ASSET-INTEGRATION-MAP.json');
 const upperMapFile = path.resolve('docs/academy/art/ASSET-GAPS-CH25-48.json');
 const promotionsFile = path.resolve('docs/academy/art/STORY-ART-PROMOTIONS.json');
+const propManifestFile = path.resolve('src/academy/content/story-prop-manifest.v1.json');
 
 const lowerMap = readJson(lowerMapFile);
 const upperMap = readJson(upperMapFile);
 const promotions = readJson(promotionsFile);
+const propManifest = readJson(propManifestFile);
 const promotedByNode = new Map(promotions.promotions.map(promotion => [promotion.nodeId, promotion]));
+const runtimePropByScene = new Map(propManifest.scenes.map(definition => [definition.sceneId, definition]));
 const sourceFiles = fs.readdirSync(sourceRoot)
     .filter(file => /^s(?:1|3|4)e\d{2}-.+\.v2\.json$/u.test(file))
     .sort(chapterFileOrder);
@@ -57,7 +60,7 @@ const generationQueue = chapters.flatMap(chapter => chapter.scenes.flatMap(scene
             scene.exitImage.cueId,
         ));
     }
-    for (const prop of scene.propCues.filter(cue => cue.status !== 'bound')) {
+    for (const prop of scene.propCues.filter(cue => !isResolved(cue))) {
         items.push(queueItem(chapter, scene, 'prop-or-overlay', prop.description, prop.cueId));
     }
     return items;
@@ -74,6 +77,7 @@ const inventory = {
         openingPackage: 'src/academy/content/story-sources/s1e01-the-blank-atlas.v2.json',
         retainedLowerChapterBindings: path.relative(process.cwd(), lowerMapFile),
         retainedUpperChapterCandidates: path.relative(process.cwd(), upperMapFile),
+        runtimeStoryProps: path.relative(process.cwd(), propManifestFile),
     },
     rules: [
         'Every scene owns one opening image and may own one changed exit image.',
@@ -81,6 +85,7 @@ const inventory = {
         'Every generated file must declare a sceneId runtime home before production.',
         'Cast sprites resolve through the canonical cast identity lock; filenames never infer identity.',
         'Props and overlays are reusable only when their manifest lists every runtime home.',
+        'A stage cue covered by the runtime story-prop manifest is complete living-paper interaction, not queued bitmap art.',
     ],
     summary: {
         chapters: chapters.length,
@@ -90,7 +95,7 @@ const inventory = {
         backgroundGaps: chapters.flatMap(chapter => chapter.scenes).filter(scene => scene.background.status === 'missing').length,
         openingImageGaps: chapters.flatMap(chapter => chapter.scenes).filter(scene => scene.openingImage.status !== 'bound').length,
         exitImageGaps: chapters.flatMap(chapter => chapter.scenes).filter(scene => scene.exitImage?.status !== 'bound').length,
-        propOrOverlayGaps: chapters.flatMap(chapter => chapter.scenes.flatMap(scene => scene.propCues)).filter(cue => cue.status !== 'bound').length,
+        propOrOverlayGaps: chapters.flatMap(chapter => chapter.scenes.flatMap(scene => scene.propCues)).filter(cue => !isResolved(cue)).length,
         generationQueue: generationQueue.length,
     },
     chapters,
@@ -163,14 +168,28 @@ function sceneInventory(scene) {
             runtimeHome: scene.id,
             candidatePaths: promotedExit ? [promotedExit.wide, promotedExit.mobile] : [],
         } : null,
-        propCues: middleStageNodes.map(node => ({
-            cueId: node.cueId ?? node.id,
-            description: node.description,
-            status: 'missing',
-            runtimeHome: scene.id,
-            candidatePaths: [],
-        })),
+        propCues: middleStageNodes.map(node => propInventory(scene.id, node)),
     };
+}
+
+function propInventory(sceneId, node) {
+    const runtimeProp = runtimePropByScene.get(sceneId);
+    const coverage = runtimeProp?.stageCoverage;
+    const covered = coverage === 'all'
+        || (Array.isArray(coverage) && coverage.includes(node.id));
+    return {
+        cueId: node.cueId ?? node.id,
+        nodeId: node.id,
+        description: node.description,
+        status: covered ? 'runtime-prop' : 'missing',
+        runtimeHome: sceneId,
+        runtimeRenderer: covered ? runtimeProp.rendererId : null,
+        candidatePaths: [],
+    };
+}
+
+function isResolved(item) {
+    return item.status === 'bound' || item.status === 'runtime-prop';
 }
 
 function lowerBackground(scene) {

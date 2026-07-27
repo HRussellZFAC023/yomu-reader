@@ -717,7 +717,7 @@
   },
   "line:blank-atlas:sam-recording-boundary::foundation": {
     "status": "locked",
-    "sourceSha256": "795b28e1438796164e11679adfdb7c6dc2104e4cbe0cd2058bd65afd04702ea3",
+    "sourceSha256": "40f0a3204dd2c1604e12bfbbf9ee24af572756f67565b97c1586ac902b8e7fe2",
     "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__sam-recording-boundary__sam__foundation.opus",
     "pitch": {
       "status": "rendered",
@@ -736,7 +736,7 @@
   },
   "line:blank-atlas:sam-recording-boundary::n5": {
     "status": "locked",
-    "sourceSha256": "759ebb61d0b042dbbc9967871dfedecffeafc372905371aeb6baf236cdee2a6d",
+    "sourceSha256": "f3f4c2a23a5f6118f355ce2017ab48b69d9f9b38eb22c5acdb4d73af8cbd9a3e",
     "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__sam-recording-boundary__sam__n5.opus",
     "pitch": {
       "status": "rendered",
@@ -755,7 +755,7 @@
   },
   "line:blank-atlas:aakash-place-held::foundation": {
     "status": "locked",
-    "sourceSha256": "25cc8f0fcbe1f619d56def6df5f09310710a6a9202246bf17f9d51dc6f0b4cfd",
+    "sourceSha256": "deb203cfdaa335402bedde4119ca7772aedff83e76958a4f5021b37ec9202981",
     "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__aakash-place-held__aakash__foundation.opus",
     "pitch": {
       "status": "rendered",
@@ -774,7 +774,7 @@
   },
   "line:blank-atlas:aakash-place-held::n5": {
     "status": "locked",
-    "sourceSha256": "4c80ff66603970347111962f16f731c3b71280d7e811ec4e6348ad36abc8b1ca",
+    "sourceSha256": "d3714774989bfb9254e3e9a6fe293ed349e26bac0e7db233ee0dfe50d47ceefd",
     "output": "/academy/audio/story-lines/s1e01-the-blank-atlas__aakash-place-held__aakash__n5.opus",
     "pitch": {
       "status": "rendered",

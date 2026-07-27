@@ -1,5 +1,6 @@
 import type { AcademyLanguage } from '../../reader/app/academy-copy';
 import { createKatakanaNameDraft } from '../content/learner-name';
+import storyPropManifest from '../content/story-prop-manifest.v1.json';
 import type { StoryCursor, StoryMoment } from '../content/story-runner';
 import type { LearnerProfileSnapshot } from '../domain/learner-record';
 import type { AcademySemanticSfxCue } from '../audio/sfx-catalog';
@@ -14,15 +15,20 @@ interface BlankAtlasScenePropOptions {
 }
 
 const VOWELS = ['あ', 'い', 'う', 'え', 'お'] as const;
+const BLANK_ATLAS_PROP_BY_SCENE = new Map(
+    storyPropManifest.scenes.map(definition => [definition.sceneId, definition]),
+);
 
 /** Living-paper props for the eleven Chapter 1 scenes. */
 export function blankAtlasSceneProp(options: BlankAtlasScenePropOptions): AcademyVnSlotContent | null {
-    if (!options.moment.scene.id.startsWith('scene:blank-atlas:')) return null;
+    const propDefinition = BLANK_ATLAS_PROP_BY_SCENE.get(options.moment.scene.id);
+    if (!propDefinition) return null;
     const nodeId = options.moment.kind === 'complete' ? 'complete' : options.moment.node.id;
     const sceneId = options.moment.scene.id;
     const root = section('academy-blank-atlas-prop');
     root.dataset.sceneSignature = sceneSignature(sceneId);
     root.dataset.sceneId = sceneId;
+    root.dataset.propRenderer = propDefinition.rendererId;
 
     switch (sceneId) {
         case 'scene:blank-atlas:arrival-greetings':
@@ -51,6 +57,7 @@ export function blankAtlasSceneProp(options: BlankAtlasScenePropOptions): Academ
             root.append(textMissionProp(options.language, options.onSfx));
             break;
         case 'scene:blank-atlas:mission-speaking':
+            if (nodeId !== 'node:blank-atlas:speaking-door') return null;
             root.append(speakingDoorProp(options.language, options.onSfx));
             break;
         case 'scene:blank-atlas:reading-writing':
@@ -210,21 +217,22 @@ function noteGapLine(before: string, after: string): HTMLElement {
 function speakingDoorProp(language: AcademyLanguage, onSfx?: (cue: AcademySemanticSfxCue) => void): HTMLElement {
     const prop = section('academy-speaking-door-prop');
     prop.dataset.open = 'false';
-    const door = section('academy-classroom-door');
-    door.append(text('span', 'academy-door-window', ''));
     const names = section('academy-door-nameplates');
     names.hidden = true;
     names.append(text('span', '', 'Aakash'), text('span', '', 'Sam'));
-    const open = button(language === 'ja' ? 'ドアを開ける' : 'Open the door', 'academy-door-open');
-    open.setAttribute('aria-expanded', 'false');
-    open.addEventListener('click', () => {
+    const invitation = text('p', 'academy-door-invitation', language === 'ja' ? 'どうぞ' : 'Come in');
+    invitation.hidden = true;
+    const knock = button(language === 'ja' ? 'ノックする' : 'Knock', 'academy-door-knocker');
+    knock.setAttribute('aria-expanded', 'false');
+    knock.addEventListener('click', () => {
         onSfx?.('vn.choice.confirm');
         prop.dataset.open = 'true';
         names.hidden = false;
-        open.setAttribute('aria-expanded', 'true');
-        open.textContent = language === 'ja' ? 'どうぞ' : 'Come in';
+        invitation.hidden = false;
+        knock.setAttribute('aria-expanded', 'true');
+        knock.remove();
     });
-    prop.append(door, names, open);
+    prop.append(knock, names, invitation);
     return prop;
 }
 

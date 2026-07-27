@@ -98,6 +98,8 @@ interface PlayableArcRenderOptions extends StoryPlaybackOptions {
     readonly onReturnToEpisodes?: () => void;
 }
 
+const HAS_JAPANESE_TEXT = /[\u3040-\u30ff\u3400-\u9fff]/u;
+
 export function renderStoryScreen(options: StoryScreenOptions): HTMLElement {
     const screen = element('section', 'academy-story-screen');
     screen.dataset.academyScreen = 'story';
@@ -337,16 +339,20 @@ function renderPlayableArc(
                 stage.setAction(storyNextAction(options.language, () => transition(() => runner.advance())));
                 return;
             case 'stage':
-            case 'narration':
+            case 'narration': {
+                const text = moment.node.description ?? moment.node.text?.[options.language] ?? '';
                 stage.setLine({
                     id: moment.node.id,
-                    japanese: moment.node.description ?? moment.node.text?.[options.language] ?? '',
-                    language: options.language,
+                    speakerId: moment.node.speakerId,
+                    speakerName: storySpeakerName(moment.node.speakerId, options.language, options.learner),
+                    japanese: text,
+                    language: HAS_JAPANESE_TEXT.test(text) ? 'ja' : options.language,
                     reading: { ...storyReadingControl(options.language), available: false },
                     ...(sceneEntrySfx ? { sfx: [sceneEntrySfx] } : {}),
                 });
                 stage.setAction(storyNextAction(options.language, () => transition(() => runner.advance())));
                 return;
+            }
             case 'choice':
                 stage.setLine({
                     id: moment.node.id,
@@ -699,7 +705,9 @@ function playableStoryCast(
     if (moment.kind === 'complete') return [];
     const hasRie = storySceneAttendeeIds(moment.scene, choices).includes('rie');
     const cast: AcademyVnCastMember[] = [];
-    const speakerId = moment.kind === 'line' ? moment.node.speakerId : undefined;
+    const speakerId = moment.kind === 'line' || moment.kind === 'stage' || moment.kind === 'narration'
+        ? moment.node.speakerId
+        : undefined;
     const expression = moment.kind === 'line' && moment.node.speakerId === 'rie'
         ? playableStoryExpression(moment)
         : 'neutral';
@@ -771,6 +779,9 @@ function approvedStoryPerformance(
         (normalizedIntent.includes('repaired note') || normalizedIntent.includes('paper edge'))
     ) {
         return ACADEMY_ASSETS.characters.approvedPerformances.ruparna.encouraging;
+    }
+    if (speakerId === 'sam' && normalizedIntent.includes('recording')) {
+        return ACADEMY_ASSETS.characters.approvedPerformances.sam.encouraging;
     }
     return undefined;
 }
@@ -862,7 +873,7 @@ function directionForMoment(moment: StoryMoment) {
     const eventArt = nodeArt ?? STORY_EVENT_ART_BY_SCENE[moment.scene.id];
     const scene = moment.scene;
     const plate = eventArt ?? (scene.locationId.includes('entrance')
-        ? ACADEMY_ASSETS.locations.entrance
+        ? ACADEMY_ASSETS.locations.classroomEntrance
         : scene.locationId.includes('language-lab')
             ? ACADEMY_ASSETS.locations.languageLab
             : scene.locationId.includes('library')

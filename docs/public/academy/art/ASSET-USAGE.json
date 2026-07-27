@@ -18,8 +18,8 @@
     ]
   },
   "counts": {
-    "runtimeAssetHomes": 173,
-    "runtimeFiles": 219,
+    "runtimeAssetHomes": 182,
+    "runtimeFiles": 237,
     "nonRuntimeReviewFiles": 1734,
     "approvedReferenceOnly": 4,
     "explicitlyRejectedFamilies": 4,
@@ -271,6 +271,44 @@
         }
       ],
       "status": "bound-and-responsive-reviewed"
+    },
+    {
+      "id": "classroom-entrance-rain-evening-threshold",
+      "source": "manifest:docs/academy/art/STORY-ART-PROMOTIONS.json#event.story.blank-atlas-mission-speaking.door-waiting",
+      "sourceSha256": "239cd1acba512d8d904facf84c4b0f8b63c4502c3baa308d33eb8055e758437c",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "location:classroom-entrance",
+        "scene:blank-atlas:mission-speaking",
+        "activity:lesson-zero-speaking-input"
+      ],
+      "reviewHome": [
+        "story-art-promotions",
+        "cue:speaking-route-open-door-nameplates"
+      ],
+      "usage": {
+        "runtime": [
+          "location:classroom-entrance",
+          "scene:blank-atlas:mission-speaking",
+          "activity:lesson-zero-speaking-input"
+        ],
+        "review": [
+          "story-art-promotions"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/locations/wide/classroom-entrance__rain-evening-threshold--wide.webp",
+          "sha256": "4460747b30c9a2fdf80012a0bb89018aa396be6898757638a891ab3dd626877b"
+        },
+        {
+          "path": "/academy/art/locations/mobile/classroom-entrance__rain-evening-threshold--mobile.webp",
+          "sha256": "627b2aeba6941082f05e7d8b194f530a4ff750053ce397cfe99ca575d8a08000"
+        }
+      ],
+      "status": "node-art-reused-as-dedicated-responsive-classroom-threshold"
     },
     {
       "id": "campus-home-ensemble-spring",
@@ -2813,19 +2851,21 @@
       "id": "character-sam-standardized-encouraging-listening-front-near-front-halfbody-v001",
       "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
       "sourceSha256": "a14668bdf003c966e6000e3c7e2d7d08c8e8ba42acc5e1188786302bb34a681e",
-      "provenance": "regenerated-standardized",
-      "verdict": "review-candidate/runtime-preview",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
       "runtimeHome": [
         "journal:sam-expression-gallery",
+        "story:cast:sam:recording-boundary",
         "cast-standardization:sam"
       ],
       "reviewHome": [
         "cast-standardization-manifest",
-        "learner-journal-preview"
+        "identity-lock"
       ],
       "usage": {
         "runtime": [
           "journal:sam-expression-gallery",
+          "story:cast:sam:recording-boundary",
           "cast-standardization:sam"
         ],
         "review": [
@@ -2839,29 +2879,35 @@
           "sha256": "a14668bdf003c966e6000e3c7e2d7d08c8e8ba42acc5e1188786302bb34a681e"
         }
       ],
-      "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
     },
     {
       "id": "character-sam-standardized-neutral-front-near-front-halfbody-v001",
       "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
       "sourceSha256": "1df805d1f39c0f0c019af8ec308998995e15c532f177025601ab837a21987597",
-      "provenance": "regenerated-standardized",
-      "verdict": "review-candidate/runtime-preview",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
       "runtimeHome": [
         "journal:sam",
-        "class:people-review",
-        "lesson-overview:roster-review",
+        "class:people",
+        "class:week-cast",
+        "lesson-overview:roster",
+        "world:person",
+        "story:cast:sam",
         "cast-standardization:sam"
       ],
       "reviewHome": [
         "cast-standardization-manifest",
-        "learner-journal-preview"
+        "identity-lock"
       ],
       "usage": {
         "runtime": [
           "journal:sam",
-          "class:people-review",
-          "lesson-overview:roster-review",
+          "class:people",
+          "class:week-cast",
+          "lesson-overview:roster",
+          "world:person",
+          "story:cast:sam",
           "cast-standardization:sam"
         ],
         "review": [
@@ -2875,7 +2921,7 @@
           "sha256": "1df805d1f39c0f0c019af8ec308998995e15c532f177025601ab837a21987597"
         }
       ],
-      "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
     },
     {
       "id": "character-shaun-neutral",
@@ -4176,6 +4222,78 @@
       "status": "node-bound, art-directed responsive story event"
     },
     {
+      "id": "event-story-blank-atlas-close-finish-break-context",
+      "source": "manifest:docs/academy/art/STORY-ART-PROMOTIONS.json",
+      "sourceSha256": "6d029631353636c5a7ec2185e69858b564a42311692446d6172073d90b692093",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "node:blank-atlas:close-room-repair",
+        "scene:blank-atlas:close"
+      ],
+      "reviewHome": [
+        "story-art-promotions",
+        "cue:finish-break-context"
+      ],
+      "usage": {
+        "runtime": [
+          "node:blank-atlas:close-room-repair",
+          "scene:blank-atlas:close"
+        ],
+        "review": [
+          "story-art-promotions"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/events/blank-atlas-close__finish-break-context__wide__v001.webp",
+          "sha256": "9af3e89de2bccda30e11789ec99122693d0556c2c1acaa7685bfbc147a3968da"
+        },
+        {
+          "path": "/academy/art/events/blank-atlas-close__finish-break-context__mobile__v001.webp",
+          "sha256": "87ab578fc614f3c480f373bc70949873af88d3b0449654507ddd293b6811fef5"
+        }
+      ],
+      "status": "node-bound, art-directed responsive story event"
+    },
+    {
+      "id": "event-story-blank-atlas-close-one-light-room",
+      "source": "manifest:docs/academy/art/STORY-ART-PROMOTIONS.json",
+      "sourceSha256": "7da2f9923641da3dff448add8f7de2e7e37324cc220a99eb8a33c91cb2a8ab0b",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "node:blank-atlas:one-light-room",
+        "scene:blank-atlas:close"
+      ],
+      "reviewHome": [
+        "story-art-promotions",
+        "cue:one-lantern-reflected-on-desks"
+      ],
+      "usage": {
+        "runtime": [
+          "node:blank-atlas:one-light-room",
+          "scene:blank-atlas:close"
+        ],
+        "review": [
+          "story-art-promotions"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/events/blank-atlas-close__one-light-room__wide__v001.webp",
+          "sha256": "3c0f8e037e4a6f707a74af57f192b1f2b45a44de9f35130f959d42a82dace232"
+        },
+        {
+          "path": "/academy/art/events/blank-atlas-close__one-light-room__mobile__v001.webp",
+          "sha256": "0ff1db3b754c3f64790be7be66d41d150a011674fac36782b835cd9aeb424024"
+        }
+      ],
+      "status": "node-bound, art-directed responsive story event"
+    },
+    {
       "id": "event-story-blank-atlas-mission-sound-replay-one-voice",
       "source": "manifest:docs/academy/art/STORY-ART-PROMOTIONS.json",
       "sourceSha256": "476760b7ccb758bc585e5d3166e05015511cc9370d7218650f6da8b6f11f53b8",
@@ -4248,6 +4366,78 @@
       "status": "node-bound, art-directed responsive story event"
     },
     {
+      "id": "event-story-blank-atlas-mission-speaking-door-open-repair",
+      "source": "manifest:docs/academy/art/STORY-ART-PROMOTIONS.json",
+      "sourceSha256": "3fed57f694cb50e35e85e4826c1c3a46d8a0d6eb174880ddde8694c9512ba73d",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "node:blank-atlas:speaking-input-repair",
+        "scene:blank-atlas:mission-speaking"
+      ],
+      "reviewHome": [
+        "story-art-promotions",
+        "cue:speaking-route-one-turn"
+      ],
+      "usage": {
+        "runtime": [
+          "node:blank-atlas:speaking-input-repair",
+          "scene:blank-atlas:mission-speaking"
+        ],
+        "review": [
+          "story-art-promotions"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/events/blank-atlas-mission-speaking__door-open-repair__wide__v001.webp",
+          "sha256": "604db864eb049c15516a262581bb4604187ba6e0dbc857e8df7ee330f77b64fa"
+        },
+        {
+          "path": "/academy/art/events/blank-atlas-mission-speaking__door-open-repair__mobile__v001.webp",
+          "sha256": "6c026510489645a98f0ad59276a0c56ce2abea32add93acfc283ab8f39027b43"
+        }
+      ],
+      "status": "node-bound, art-directed responsive story event"
+    },
+    {
+      "id": "event-story-blank-atlas-mission-speaking-door-waiting",
+      "source": "manifest:docs/academy/art/STORY-ART-PROMOTIONS.json",
+      "sourceSha256": "239cd1acba512d8d904facf84c4b0f8b63c4502c3baa308d33eb8055e758437c",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "node:blank-atlas:speaking-door",
+        "scene:blank-atlas:mission-speaking"
+      ],
+      "reviewHome": [
+        "story-art-promotions",
+        "cue:speaking-route-open-door-nameplates"
+      ],
+      "usage": {
+        "runtime": [
+          "node:blank-atlas:speaking-door",
+          "scene:blank-atlas:mission-speaking"
+        ],
+        "review": [
+          "story-art-promotions"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/events/blank-atlas-mission-speaking__door-waiting__wide__v001.webp",
+          "sha256": "4460747b30c9a2fdf80012a0bb89018aa396be6898757638a891ab3dd626877b"
+        },
+        {
+          "path": "/academy/art/events/blank-atlas-mission-speaking__door-waiting__mobile__v001.webp",
+          "sha256": "627b2aeba6941082f05e7d8b194f530a4ff750053ce397cfe99ca575d8a08000"
+        }
+      ],
+      "status": "node-bound, art-directed responsive story event"
+    },
+    {
       "id": "event-story-blank-atlas-mission-text-one-gap-repair",
       "source": "manifest:docs/academy/art/STORY-ART-PROMOTIONS.json",
       "sourceSha256": "3e84389aa5bb3df9bb70eb08041e483163cde36389aaf0f2cbaa6a01bf3767ae",
@@ -4315,6 +4505,78 @@
         {
           "path": "/academy/art/events/blank-atlas-mission-text__two-gaps__mobile__v001.webp",
           "sha256": "0bc2750b1e36d9d4fe019cdfc66cf9d90c361a819ebed8a2d9e403a43942fd67"
+        }
+      ],
+      "status": "node-bound, art-directed responsive story event"
+    },
+    {
+      "id": "event-story-blank-atlas-reading-writing-cards-return",
+      "source": "manifest:docs/academy/art/STORY-ART-PROMOTIONS.json",
+      "sourceSha256": "4df39cdadfc19ca89b974113c36a3f60f6b61e79c231200fa29ec7df7f4db89a",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "node:blank-atlas:cards-return",
+        "scene:blank-atlas:reading-writing"
+      ],
+      "reviewHome": [
+        "story-art-promotions",
+        "cue:route-cards-around-atlas"
+      ],
+      "usage": {
+        "runtime": [
+          "node:blank-atlas:cards-return",
+          "scene:blank-atlas:reading-writing"
+        ],
+        "review": [
+          "story-art-promotions"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/events/blank-atlas-reading-writing__cards-return__wide__v001.webp",
+          "sha256": "8f13c4a8c6f242354e149fe3e80cf770c04bb38ecbb4ca88b7c80aedc25256c8"
+        },
+        {
+          "path": "/academy/art/events/blank-atlas-reading-writing__cards-return__mobile__v001.webp",
+          "sha256": "5be63e59d794785a38d6b8850ab74a2ae6dc182c7b12f050b21addb0497b8c86"
+        }
+      ],
+      "status": "node-bound, art-directed responsive story event"
+    },
+    {
+      "id": "event-story-blank-atlas-reading-writing-learner-card-route-label",
+      "source": "manifest:docs/academy/art/STORY-ART-PROMOTIONS.json",
+      "sourceSha256": "e9e89c7a107952f57848ce9b099f4db1a07fa72f17c4c56f469b03dffa64c4f6",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "node:blank-atlas:card-turns-over",
+        "scene:blank-atlas:reading-writing"
+      ],
+      "reviewHome": [
+        "story-art-promotions",
+        "cue:learner-card-route-label"
+      ],
+      "usage": {
+        "runtime": [
+          "node:blank-atlas:card-turns-over",
+          "scene:blank-atlas:reading-writing"
+        ],
+        "review": [
+          "story-art-promotions"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/events/blank-atlas-reading-writing__learner-card-route-label__wide__v001.webp",
+          "sha256": "d1d9ee107fce2e367cbe454c6aa872c071a54a6c0fe20bd17d438cf228fcf85c"
+        },
+        {
+          "path": "/academy/art/events/blank-atlas-reading-writing__learner-card-route-label__mobile__v001.webp",
+          "sha256": "123cefb381864bda83d8ae5e4da1bcdbc28c051df3eb2ca860c6898ebb2f88f4"
         }
       ],
       "status": "node-bound, art-directed responsive story event"
@@ -4459,6 +4721,78 @@
         {
           "path": "/academy/art/events/blank-atlas-sound-script-map__five-empty-slots__mobile__v001.webp",
           "sha256": "1513b3b88bcd2bd2ee55bc2ac0b476acb0cc2053e678b6e9aa62892888375e4b"
+        }
+      ],
+      "status": "node-bound, art-directed responsive story event"
+    },
+    {
+      "id": "event-story-blank-atlas-transfer-first-lantern",
+      "source": "manifest:docs/academy/art/STORY-ART-PROMOTIONS.json",
+      "sourceSha256": "ab4e4974089fa1b6d7c980baf97e966ccb5f3a6d38a576e793df33fea167deb9",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "node:blank-atlas:first-lantern",
+        "scene:blank-atlas:transfer"
+      ],
+      "reviewHome": [
+        "story-art-promotions",
+        "cue:first-atlas-lantern-lit"
+      ],
+      "usage": {
+        "runtime": [
+          "node:blank-atlas:first-lantern",
+          "scene:blank-atlas:transfer"
+        ],
+        "review": [
+          "story-art-promotions"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/events/blank-atlas-transfer__first-lantern__wide__v001.webp",
+          "sha256": "a5d41dc7d3aff6f87bd64ebb4d17cc3faa36136c0ee051ca8c44720adcc0bba7"
+        },
+        {
+          "path": "/academy/art/events/blank-atlas-transfer__first-lantern__mobile__v001.webp",
+          "sha256": "329497c4365bf70554079e4d9cb2353a94bbf0c21e45dbd158ba1f18f9df86bc"
+        }
+      ],
+      "status": "node-bound, art-directed responsive story event"
+    },
+    {
+      "id": "event-story-blank-atlas-transfer-support-clears",
+      "source": "manifest:docs/academy/art/STORY-ART-PROMOTIONS.json",
+      "sourceSha256": "c48ec0c213cc6e0f646c0b5f630aeca3e45aaf4ac6dc4745719c9fe929f81b41",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "node:blank-atlas:source-clears",
+        "scene:blank-atlas:transfer"
+      ],
+      "reviewHome": [
+        "story-art-promotions",
+        "cue:teaching-surfaces-clear"
+      ],
+      "usage": {
+        "runtime": [
+          "node:blank-atlas:source-clears",
+          "scene:blank-atlas:transfer"
+        ],
+        "review": [
+          "story-art-promotions"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/events/blank-atlas-transfer__support-clears__wide__v001.webp",
+          "sha256": "677c27c9361fbed33e70f8256f263b1d6f36a174a6a0629ee00e86994cb1e0b7"
+        },
+        {
+          "path": "/academy/art/events/blank-atlas-transfer__support-clears__mobile__v001.webp",
+          "sha256": "f00420d77975782250c2e66d969d326a5a16e2591177c01ee64411d3c42a0190"
         }
       ],
       "status": "node-bound, art-directed responsive story event"

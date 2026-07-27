@@ -1319,7 +1319,7 @@
           "id": "node:blank-atlas:speaking-door",
           "beatId": "beat:blank-atlas:speaking-mission-image",
           "cueId": "cue:speaking-route-open-door-nameplates",
-          "description": "Aakash and Sam are at the classroom door."
+          "description": "The classroom door is slightly open. Two blank name cards wait inside."
         },
         {
           "kind": "line",
@@ -1330,14 +1330,14 @@
           "attentionTarget": "the learner's unsaved practice control",
           "variants": {
             "foundation": {
-              "japanese": "これは練習です。今、録音しなくてもいいです。",
-              "reading": "これはれんしゅうです。いま、ろくおんしなくてもいいです。",
-              "english": "This is practice. You do not have to record now."
+              "japanese": "録音しても、しなくても大丈夫です。",
+              "reading": "ろくおんしても、しなくてもだいじょうぶです。",
+              "english": "You can record it or just say it."
             },
             "n5": {
-              "japanese": "録音はこの練習だけです。今しないなら、ここで止められます。",
-              "reading": "ろくおんはこのれんしゅうだけです。いましないなら、ここでとめられます。",
-              "english": "The recording is only for this practice. If you do not want to do it now, you can stop here."
+              "japanese": "録音しても、しなくても大丈夫です。今は声だけでもいいですよ。",
+              "reading": "ろくおんしても、しなくてもだいじょうぶです。いまはこえだけでもいいですよ。",
+              "english": "You can record it or just say it. Your voice is enough for now."
             }
           },
           "support": {
@@ -1350,14 +1350,14 @@
           "kind": "choice",
           "id": "choice:blank-atlas:speaking-recording",
           "beatId": "beat:blank-atlas:speaking-mission-consent",
-          "question": "Record this speaking turn now?",
+          "question": "Ready to try it?",
           "options": [
             {
               "id": "option:blank-atlas:speaking-record-now",
-              "action": "Record now.",
+              "action": "Try it now.",
               "japaneseByBand": {
-                "foundation": "今、練習します。",
-                "n5": "今、録音して練習します。"
+                "foundation": "今、やってみます。",
+                "n5": "今、やってみます。"
               },
               "records": [
                 "boundary-heard",
@@ -1367,10 +1367,10 @@
             },
             {
               "id": "option:blank-atlas:speaking-defer-recording",
-              "action": "Pause and return later.",
+              "action": "Come back later.",
               "japaneseByBand": {
-                "foundation": "今はしません。",
-                "n5": "今は録音しません。あとで戻ります。"
+                "foundation": "あとで戻ります。",
+                "n5": "あとで戻ります。"
               },
               "records": [
                 "boundary-heard",
@@ -1415,8 +1415,9 @@
           "kind": "stage",
           "id": "node:blank-atlas:speaking-input-repair",
           "beatId": "beat:blank-atlas:speaking-mission-repair",
+          "speakerId": "aakash",
           "cueId": "cue:speaking-route-one-turn",
-          "description": "Aakash repeats the question and waits for your answer."
+          "description": "お名前は何ですか。"
         },
         {
           "kind": "checkpoint",
@@ -1433,14 +1434,14 @@
           "attentionTarget": "the now-filled arrival card",
           "variants": {
             "foundation": {
-              "japanese": "入りました。会話も、カードも。",
-              "reading": "はいりました。かいわも、カードも。",
-              "english": "It came in. The conversation and the card."
+              "japanese": "届きました。名前も、声も。",
+              "reading": "とどきました。なまえも、こえも。",
+              "english": "Got it. Your name and your voice."
             },
             "n5": {
-              "japanese": "聞き直したから、会話もカードも部屋に入りました。",
-              "reading": "ききなおしたから、かいわもカードもへやにはいりました。",
-              "english": "Because you asked again, both the conversation and the card made it into the room."
+              "japanese": "聞き直しても大丈夫。名前も声も、ちゃんと届きました。",
+              "reading": "ききなおしてもだいじょうぶ。なまえもこえも、ちゃんととどきました。",
+              "english": "It’s fine to ask again. Your name and your voice came through."
             }
           },
           "support": {

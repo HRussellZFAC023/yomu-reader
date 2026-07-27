@@ -6,14 +6,16 @@
     "authoredStoryPackages": 48,
     "openingPackage": "src/academy/content/story-sources/s1e01-the-blank-atlas.v2.json",
     "retainedLowerChapterBindings": "docs/academy/story/ASSET-INTEGRATION-MAP.json",
-    "retainedUpperChapterCandidates": "docs/academy/art/ASSET-GAPS-CH25-48.json"
+    "retainedUpperChapterCandidates": "docs/academy/art/ASSET-GAPS-CH25-48.json",
+    "runtimeStoryProps": "src/academy/content/story-prop-manifest.v1.json"
   },
   "rules": [
     "Every scene owns one opening image and may own one changed exit image.",
     "A near-match is a reference candidate, not a completed scene asset.",
     "Every generated file must declare a sceneId runtime home before production.",
     "Cast sprites resolve through the canonical cast identity lock; filenames never infer identity.",
-    "Props and overlays are reusable only when their manifest lists every runtime home."
+    "Props and overlays are reusable only when their manifest lists every runtime home.",
+    "A stage cue covered by the runtime story-prop manifest is complete living-paper interaction, not queued bitmap art."
   ],
   "summary": {
     "chapters": 48,
@@ -45,11 +47,11 @@
       "xingyu"
     ],
     "castCount": 24,
-    "backgroundGaps": 25,
-    "openingImageGaps": 98,
-    "exitImageGaps": 98,
-    "propOrOverlayGaps": 81,
-    "generationQueue": 302
+    "backgroundGaps": 24,
+    "openingImageGaps": 94,
+    "exitImageGaps": 94,
+    "propOrOverlayGaps": 69,
+    "generationQueue": 281
   },
   "chapters": [
     {
@@ -113,9 +115,11 @@
           "propCues": [
             {
               "cueId": "cue:rie-greeting-one-step",
+              "nodeId": "node:blank-atlas:greeting-repair",
               "description": "Rie repeats the one part you need.",
-              "status": "missing",
+              "status": "runtime-prop",
               "runtimeHome": "scene:blank-atlas:arrival-greetings",
+              "runtimeRenderer": "blank-atlas-covered-map",
               "candidatePaths": []
             }
           ]
@@ -172,23 +176,29 @@
           "propCues": [
             {
               "cueId": "cue:vowels-replay-one-gap",
+              "nodeId": "node:blank-atlas:vowel-listen-repair",
               "description": "Only the sound you missed plays again.",
-              "status": "missing",
+              "status": "runtime-prop",
               "runtimeHome": "scene:blank-atlas:sound-script-map",
+              "runtimeRenderer": "blank-atlas-vowel-route",
               "candidatePaths": []
             },
             {
               "cueId": "cue:hiragana-missed-shelf-return",
+              "nodeId": "node:blank-atlas:hiragana-repair",
               "description": "A missed kana returns at the end. The rest stay done.",
-              "status": "missing",
+              "status": "runtime-prop",
               "runtimeHome": "scene:blank-atlas:sound-script-map",
+              "runtimeRenderer": "blank-atlas-vowel-route",
               "candidatePaths": []
             },
             {
               "cueId": "cue:kana-trace-one-stroke",
+              "nodeId": "node:blank-atlas:vowel-doodle-repair",
               "description": "Keep the strokes that worked. Try the missed stroke again.",
-              "status": "missing",
+              "status": "runtime-prop",
               "runtimeHome": "scene:blank-atlas:sound-script-map",
+              "runtimeRenderer": "blank-atlas-vowel-route",
               "candidatePaths": []
             }
           ]
@@ -246,23 +256,29 @@
           "propCues": [
             {
               "cueId": "cue:instruction-one-object",
+              "nodeId": "node:blank-atlas:follow-instructions-repair",
               "description": "Rie resets one step and says it again.",
-              "status": "missing",
+              "status": "runtime-prop",
               "runtimeHome": "scene:blank-atlas:classroom-survival",
+              "runtimeRenderer": "blank-atlas-class-handout",
               "candidatePaths": []
             },
             {
               "cueId": "cue:repair-phrase-one-gap",
+              "nodeId": "node:blank-atlas:repair-smaller-step",
               "description": "One part is missing. Build the request again.",
-              "status": "missing",
+              "status": "runtime-prop",
               "runtimeHome": "scene:blank-atlas:classroom-survival",
+              "runtimeRenderer": "blank-atlas-class-handout",
               "candidatePaths": []
             },
             {
               "cueId": "cue:desk-object-context",
+              "nodeId": "node:blank-atlas:desk-language-repair",
               "description": "The example stays here. The homework goes home.",
-              "status": "missing",
+              "status": "runtime-prop",
               "runtimeHome": "scene:blank-atlas:classroom-survival",
+              "runtimeRenderer": "blank-atlas-class-handout",
               "candidatePaths": []
             }
           ]
@@ -316,9 +332,11 @@
           "propCues": [
             {
               "cueId": "cue:sentence-frame-meaning-contrast",
+              "nodeId": "node:blank-atlas:sentence-frame-repair",
               "description": "Keep the parts that fit. Try the missing part again.",
-              "status": "missing",
+              "status": "runtime-prop",
               "runtimeHome": "scene:blank-atlas:sentence-frames",
+              "runtimeRenderer": "blank-atlas-room-labels",
               "candidatePaths": []
             }
           ]
@@ -527,23 +545,29 @@
             }
           ],
           "background": {
-            "description": "campus-entrance-blue-hour-arrival(near-miss:exterior)",
-            "status": "missing",
+            "description": "classroom-entrance-rain-evening-threshold",
+            "status": "bound",
             "candidatePaths": []
           },
           "openingImage": {
             "cueId": "cue:speaking-route-open-door-nameplates",
-            "description": "Aakash and Sam are at the classroom door.",
-            "status": "missing",
+            "description": "The classroom door is slightly open. Two blank name cards wait inside.",
+            "status": "bound",
             "runtimeHome": "scene:blank-atlas:mission-speaking",
-            "candidatePaths": []
+            "candidatePaths": [
+              "/academy/art/events/blank-atlas-mission-speaking__door-waiting__wide__v001.webp",
+              "/academy/art/events/blank-atlas-mission-speaking__door-waiting__mobile__v001.webp"
+            ]
           },
           "exitImage": {
             "cueId": "cue:speaking-route-one-turn",
-            "description": "Aakash repeats the question and waits for your answer.",
-            "status": "missing",
+            "description": "お名前は何ですか。",
+            "status": "bound",
             "runtimeHome": "scene:blank-atlas:mission-speaking",
-            "candidatePaths": []
+            "candidatePaths": [
+              "/academy/art/events/blank-atlas-mission-speaking__door-open-repair__wide__v001.webp",
+              "/academy/art/events/blank-atlas-mission-speaking__door-open-repair__mobile__v001.webp"
+            ]
           },
           "propCues": []
         },
@@ -576,30 +600,40 @@
           "openingImage": {
             "cueId": "cue:route-cards-around-atlas",
             "description": "Three class cards return. Yours is still face down.",
-            "status": "missing",
+            "status": "bound",
             "runtimeHome": "scene:blank-atlas:reading-writing",
-            "candidatePaths": []
+            "candidatePaths": [
+              "/academy/art/events/blank-atlas-reading-writing__cards-return__wide__v001.webp",
+              "/academy/art/events/blank-atlas-reading-writing__cards-return__mobile__v001.webp"
+            ]
           },
           "exitImage": {
             "cueId": "cue:learner-card-route-label",
             "description": "Rie turns the finished card upright beside the others.",
-            "status": "missing",
+            "status": "bound",
             "runtimeHome": "scene:blank-atlas:reading-writing",
-            "candidatePaths": []
+            "candidatePaths": [
+              "/academy/art/events/blank-atlas-reading-writing__learner-card-route-label__wide__v001.webp",
+              "/academy/art/events/blank-atlas-reading-writing__learner-card-route-label__mobile__v001.webp"
+            ]
           },
           "propCues": [
             {
               "cueId": "cue:name-card-evidence-line",
+              "nodeId": "node:blank-atlas:read-name-cards-repair",
               "description": "The class line stays visible. Check the name again.",
-              "status": "missing",
+              "status": "runtime-prop",
               "runtimeHome": "scene:blank-atlas:reading-writing",
+              "runtimeRenderer": "blank-atlas-public-name-card",
               "candidatePaths": []
             },
             {
               "cueId": "cue:name-card-function-rubric",
+              "nodeId": "node:blank-atlas:write-name-card-repair",
               "description": "Rie says the name again and points from the usual spelling to the katakana.",
-              "status": "missing",
+              "status": "runtime-prop",
               "runtimeHome": "scene:blank-atlas:reading-writing",
+              "runtimeRenderer": "blank-atlas-public-name-card",
               "candidatePaths": []
             }
           ]
@@ -633,30 +667,40 @@
           "openingImage": {
             "cueId": "cue:teaching-surfaces-clear",
             "description": "The support sheets close. A new route card waits.",
-            "status": "missing",
+            "status": "bound",
             "runtimeHome": "scene:blank-atlas:transfer",
-            "candidatePaths": []
+            "candidatePaths": [
+              "/academy/art/events/blank-atlas-transfer__support-clears__wide__v001.webp",
+              "/academy/art/events/blank-atlas-transfer__support-clears__mobile__v001.webp"
+            ]
           },
           "exitImage": {
             "cueId": "cue:first-atlas-lantern-lit",
             "description": "Your route reaches the card. The first lantern lights.",
-            "status": "missing",
+            "status": "bound",
             "runtimeHome": "scene:blank-atlas:transfer",
-            "candidatePaths": []
+            "candidatePaths": [
+              "/academy/art/events/blank-atlas-transfer__first-lantern__wide__v001.webp",
+              "/academy/art/events/blank-atlas-transfer__first-lantern__mobile__v001.webp"
+            ]
           },
           "propCues": [
             {
               "cueId": "cue:transfer-one-function",
+              "nodeId": "node:blank-atlas:route-transfer-repair",
               "description": "The new situation stays in view. Retry only the missed step.",
-              "status": "missing",
+              "status": "runtime-prop",
               "runtimeHome": "scene:blank-atlas:transfer",
+              "runtimeRenderer": "blank-atlas-lantern-route",
               "candidatePaths": []
             },
             {
               "cueId": "cue:written-transfer-one-function",
+              "nodeId": "node:blank-atlas:written-transfer-repair",
               "description": "Keep what worked. Fix only the missing part.",
-              "status": "missing",
+              "status": "runtime-prop",
               "runtimeHome": "scene:blank-atlas:transfer",
+              "runtimeRenderer": "blank-atlas-lantern-route",
               "candidatePaths": []
             }
           ]
@@ -692,16 +736,22 @@
           "openingImage": {
             "cueId": "cue:one-lantern-reflected-on-desks",
             "description": "The entrance arrow now points back to your route.",
-            "status": "missing",
+            "status": "bound",
             "runtimeHome": "scene:blank-atlas:close",
-            "candidatePaths": []
+            "candidatePaths": [
+              "/academy/art/events/blank-atlas-close__one-light-room__wide__v001.webp",
+              "/academy/art/events/blank-atlas-close__one-light-room__mobile__v001.webp"
+            ]
           },
           "exitImage": {
             "cueId": "cue:finish-break-context",
             "description": "Choose finish or break once more.",
-            "status": "missing",
+            "status": "bound",
             "runtimeHome": "scene:blank-atlas:close",
-            "candidatePaths": []
+            "candidatePaths": [
+              "/academy/art/events/blank-atlas-close__finish-break-context__wide__v001.webp",
+              "/academy/art/events/blank-atlas-close__finish-break-context__mobile__v001.webp"
+            ]
           },
           "propCues": []
         }
@@ -777,9 +827,11 @@
           "propCues": [
             {
               "cueId": "cue:plain-label-and-reason-return",
+              "nodeId": "node:margin-map:relabel-repair",
               "description": "Only the plain-kana label and its reason clause return for another try. Henry's dense marks around the point stay exactly where they were — editing the point never rubs out his system.",
               "status": "missing",
               "runtimeHome": "scene:margin-map:the-private-cipher",
+              "runtimeRenderer": null,
               "candidatePaths": []
             }
           ]
@@ -918,23 +970,29 @@
           "propCues": [
             {
               "cueId": "cue:place-labels-dissolve-in-rain",
+              "nodeId": "node:route-zero:labels-vanish",
               "description": "Every automatic place-name label peels off the map at once and dissolves into the rain. The route is still there — the crossing, the corner, the shop — but nothing is named. Aakash's pointing finger stops in mid-air over a blank tag.",
               "status": "missing",
               "runtimeHome": "scene:route-zero:the-confident-route",
+              "runtimeRenderer": null,
               "candidatePaths": []
             },
             {
               "cueId": "cue:doko-marker-runs-dry",
+              "nodeId": "node:route-zero:dead-doko-marker",
               "description": "Rie uncaps a marker to write どこ on the blank tag; it runs dry precisely on the last stroke of こ. She holds up the dead marker, unbothered, and nods the learner toward the corner instead — the question will have to be spoken, not written.",
               "status": "missing",
               "runtimeHome": "scene:route-zero:the-confident-route",
+              "runtimeRenderer": null,
               "candidatePaths": []
             },
             {
               "cueId": "cue:place-question-frame-returns",
+              "nodeId": "node:route-zero:ask-repair",
               "description": "The person-question fades out. Only the place-question frame stays lit — the blank corner tag and one particle slot — for another try. No English answer appears before the learner commits.",
               "status": "missing",
               "runtimeHome": "scene:route-zero:the-confident-route",
+              "runtimeRenderer": null,
               "candidatePaths": []
             }
           ]
@@ -1068,16 +1126,20 @@
           "propCues": [
             {
               "cueId": "cue:gate-stays-shut-on-shout",
+              "nodeId": "node:welcome-frequency:volume-fails",
               "description": "The class leans in and calls out louder, all at once, trying to force the point open. The gate does not move. The chime keeps its interval as if the shouting were not there.",
               "status": "missing",
               "runtimeHome": "scene:welcome-frequency:the-loud-room",
+              "runtimeRenderer": null,
               "candidatePaths": []
             },
             {
               "cueId": "cue:chime-replays-one-interval",
+              "nodeId": "node:welcome-frequency:enter-repair",
               "description": "Only the single interval that was missed replays, slowed, with a count marked over the pause. The rest of the passage stays where the learner left it; no English answer appears first.",
               "status": "missing",
               "runtimeHome": "scene:welcome-frequency:the-loud-room",
+              "runtimeRenderer": null,
               "candidatePaths": []
             }
           ]
@@ -1210,9 +1272,11 @@
           "propCues": [
             {
               "cueId": "cue:one-card-turned-face-up",
+              "nodeId": "node:final-boss-kana:read-repair",
               "description": "Only the card that was misread turns back face up on its own; the cards already read correctly stay where the learner placed them. No English gloss appears — just the katakana, a little larger, waiting to be read again.",
               "status": "missing",
               "runtimeHome": "scene:final-boss-kana:the-boss-table",
+              "runtimeRenderer": null,
               "candidatePaths": []
             }
           ]
@@ -1348,9 +1412,11 @@
           "propCues": [
             {
               "cueId": "cue:invitation-branches-multiplying",
+              "nodeId": "node:invitation-chain:option-sprawl",
               "description": "The notepad fills with branching options — days, dishes, drinks, tennis-first-or-after — arrows crossing arrows. The poured drinks sit untouched, going flat. Nobody at the table answers.",
               "status": "missing",
               "runtimeHome": "scene:invitation-chain:too-many-options",
+              "runtimeRenderer": null,
               "candidatePaths": []
             }
           ]
@@ -1489,16 +1555,20 @@
           "propCues": [
             {
               "cueId": "cue:untouched-cold-cup-by-counter",
+              "nodeId": "node:no-spoilers:cold-cup",
               "description": "By the counter, a cup of tea sits where Rie set it down an hour ago, a thin skin cooling on its surface. She is three tables away, restacking chairs and steering two latecomers to seats, and has not come back to it. Francis, mid-sentence, notices the cup before anyone else does.",
               "status": "missing",
               "runtimeHome": "scene:no-spoilers:the-curtain",
+              "runtimeRenderer": null,
               "candidatePaths": []
             },
             {
               "cueId": "cue:opinion-then-question-two-slots",
+              "nodeId": "node:no-spoilers:floor-question-repair",
               "description": "Two slots are set out side by side: a past-tense impression slot and a floor-opening question slot. Only the slot that leaked toward the reveal returns for another try; the safe half the learner already landed stays put.",
               "status": "missing",
               "runtimeHome": "scene:no-spoilers:the-curtain",
+              "runtimeRenderer": null,
               "candidatePaths": []
             }
           ]
@@ -1636,9 +1706,11 @@
           "propCues": [
             {
               "cueId": "cue:one-dish-name-split-into-parts",
+              "nodeId": "node:menu-without-pictures:decode-repair",
               "description": "One dish name lifts off the wall and splits into its left and right parts, side by side. Only the piece that went unread returns for another try; the parts already decoded stay in place, and the counter phrase waits underneath.",
               "status": "missing",
               "runtimeHome": "scene:menu-without-pictures:the-wall-menu",
+              "runtimeRenderer": null,
               "candidatePaths": []
             }
           ]
@@ -1772,9 +1844,11 @@
           "propCues": [
             {
               "cueId": "cue:two-caption-slips-side-by-side",
+              "nodeId": "node:two-tenses:caption-repair",
               "description": "The past slip and the present slip are set side by side beneath the photo. Only the tense or the reason that went missing returns for another try; the caption already written stays in place, uncrossed.",
               "status": "missing",
               "runtimeHome": "scene:two-tenses:the-two-captions",
+              "runtimeRenderer": null,
               "candidatePaths": []
             }
           ]
@@ -1907,16 +1981,20 @@
           "propCues": [
             {
               "cueId": "cue:cards-blown-out-of-order",
+              "nodeId": "node:instructions-for-a-cloud:cards-scatter",
               "description": "A gust crosses the courtyard and lifts the clip. The cards spin down shuffled, their numbers no longer in a row. On the lantern, every part of the cloud lights at once — a flat white glare instead of a sequence.",
               "status": "missing",
               "runtimeHome": "scene:instructions-for-a-cloud:the-ordered-cards",
+              "runtimeRenderer": null,
               "candidatePaths": []
             },
             {
               "cueId": "cue:cards-side-by-side-one-returns",
+              "nodeId": "node:instructions-for-a-cloud:resequence-repair",
               "description": "The re-laid cards stay where the learner placed them. Only the one card that landed out of sequence lifts back out for another try, its reason line shown blank beside it.",
               "status": "missing",
               "runtimeHome": "scene:instructions-for-a-cloud:the-ordered-cards",
+              "runtimeRenderer": null,
               "candidatePaths": []
             }
           ]
@@ -2036,9 +2114,11 @@
           "propCues": [
             {
               "cueId": "cue:route-one-step-returns",
+              "nodeId": "node:storm-route-variant:reroute-repair",
               "description": "The steps already placed stay pinned along the street. Only the one connector that slipped out of order returns for another attempt.",
               "status": "missing",
               "runtimeHome": "scene:storm-route-variant:signs-gone",
+              "runtimeRenderer": null,
               "candidatePaths": []
             }
           ]
@@ -2172,16 +2252,20 @@
           "propCues": [
             {
               "cueId": "cue:serving-cards-gone-blank",
+              "nodeId": "node:vanishing-course:cues-vanish",
               "description": "One by one the serving cards go blank — every label, every count, every order-arrow wiped away. Jenny, a half-finished scarf still looped over one wrist, coaxes one tangled serving-string back into place, then looks up at the covered dishes waiting without a single label.",
               "status": "missing",
               "runtimeHome": "scene:vanishing-course:lost-cues",
+              "runtimeRenderer": null,
               "candidatePaths": []
             },
             {
               "cueId": "cue:one-dish-one-count-returns",
+              "nodeId": "node:vanishing-course:rebuild-repair",
               "description": "One covered dish is set forward on its own beside an empty count-slot. Only the single item that went uncounted returns for another try; the parts already described and counted stay in place.",
               "status": "missing",
               "runtimeHome": "scene:vanishing-course:lost-cues",
+              "runtimeRenderer": null,
               "candidatePaths": []
             }
           ]
@@ -2297,16 +2381,20 @@
           "propCues": [
             {
               "cueId": "cue:one-card-arrow-broken",
+              "nodeId": "node:dinner-by-if:the-missing-crate",
               "description": "A delivery crate is short one box. The card that says 'salad' no longer has anything behind its arrow. The chain now points at nothing.",
               "status": "missing",
               "runtimeHome": "scene:dinner-by-if:the-sequence",
+              "runtimeRenderer": null,
               "candidatePaths": []
             },
             {
               "cueId": "cue:two-cards-side-by-side",
+              "nodeId": "node:dinner-by-if:compare-repair",
               "description": "The two remaining cards are set side by side. Only the comparison phrase that went missing returns for another try; the earlier decision stays.",
               "status": "missing",
               "runtimeHome": "scene:dinner-by-if:the-sequence",
+              "runtimeRenderer": null,
               "candidatePaths": []
             }
           ]
@@ -2423,9 +2511,11 @@
           "propCues": [
             {
               "cueId": "cue:two-contexts-side-by-side",
+              "nodeId": "node:two-answers:trial-repair",
               "description": "The two contexts are set out side by side: a per-hour rhythm card and a single-observed-hour card. Only the context that went unmatched returns for another try; the matched one stays put.",
               "status": "missing",
               "runtimeHome": "scene:two-answers:contested-particle",
+              "runtimeRenderer": null,
               "candidatePaths": []
             }
           ]
@@ -2569,16 +2659,20 @@
           "propCues": [
             {
               "cueId": "cue:room-hums-the-gap",
+              "nodeId": "node:chorus-with-a-hole:catchy-flaw",
               "description": "Half the room is already humming it back — and everyone hums the gap too, landing on the same little silence where the beat should be. The flaw is the part that stuck.",
               "status": "missing",
               "runtimeHome": "scene:chorus-with-a-hole:the-catchy-hole",
+              "runtimeRenderer": null,
               "candidatePaths": []
             },
             {
               "cueId": "cue:blank-card-reopened",
+              "nodeId": "node:chorus-with-a-hole:repair",
               "description": "The third card is held up with its blank still open, and Xingyu sings only the short word again, slower. Just the one dropped sound waits for another try; the rest of the chant stays as it was.",
               "status": "missing",
               "runtimeHome": "scene:chorus-with-a-hole:the-catchy-hole",
+              "runtimeRenderer": null,
               "candidatePaths": []
             }
           ]
@@ -2717,9 +2811,11 @@
           "propCues": [
             {
               "cueId": "cue:projection-drains-to-black",
+              "nodeId": "node:night-map-dark:goes-dark",
               "description": "The reset runs exactly as written. The flicker stops — and so does everything else. The route, every label, drains off the wall. The paper underneath stays blank. The room's only copy of the map was the light.",
               "status": "missing",
               "runtimeHome": "scene:night-map-dark:the-literal-instruction",
+              "runtimeRenderer": null,
               "candidatePaths": []
             }
           ]
@@ -2796,9 +2892,11 @@
           "propCues": [
             {
               "cueId": "cue:one-segment-returns-for-retry",
+              "nodeId": "node:night-map-dark:teach-back-repair",
               "description": "The segments already taught back stay on the paper. Only the one cause-and-segment that did not land clearly returns for another try; the joins Rie is watching hold.",
               "status": "missing",
               "runtimeHome": "scene:night-map-dark:teach-it-back",
+              "runtimeRenderer": null,
               "candidatePaths": []
             }
           ]
@@ -2871,16 +2969,20 @@
           "propCues": [
             {
               "cueId": "cue:printed-numbers-out-of-order",
+              "nodeId": "node:catwalk-clue:labels-dont-match",
               "description": "Someone turns the cards to read the stamped numbers aloud: two, then five, then one. The printed order contradicts itself, and no card can be trusted by its own label. The class stalls over which card really comes first.",
               "status": "missing",
               "runtimeHome": "scene:catwalk-clue:the-moved-marker",
+              "runtimeRenderer": null,
               "candidatePaths": []
             },
             {
               "cueId": "cue:cat-card-lifted-out",
+              "nodeId": "node:catwalk-clue:identify-repair",
               "description": "The marked card is lifted a little clear of the row so only it and the cat are in view. Just the relative-clause phrasing that slipped returns for another attempt; the count of cards stays as it was.",
               "status": "missing",
               "runtimeHome": "scene:catwalk-clue:the-moved-marker",
+              "runtimeRenderer": null,
               "candidatePaths": []
             }
           ]
@@ -3008,9 +3110,11 @@
           "propCues": [
             {
               "cueId": "cue:projector-木-vs-未-and-part-button",
+              "nodeId": "node:memory-card-museum:two-strokes",
               "description": "On the projector the two shapes sit side by side, 木 and 未, with the extra top stroke of 未 circled. Below them the empty program shell now shows a single labelled control: a part button marked ぶひん, waiting for what it should reveal.",
               "status": "missing",
               "runtimeHome": "scene:memory-card-museum:the-funniest-card",
+              "runtimeRenderer": null,
               "candidatePaths": []
             }
           ]
@@ -3152,16 +3256,20 @@
           "propCues": [
             {
               "cueId": "cue:caption-line-garbles-then-blank",
+              "nodeId": "node:seventy-percent-door:subtitles-fail",
               "description": "The clip starts. The subtitle line stutters into broken glyphs, then goes blank and stays blank. The picture and the voices keep running with nothing written under them. Two people near the front shift in their seats.",
               "status": "missing",
               "runtimeHome": "scene:seventy-percent-door:subtitles-drop",
+              "runtimeRenderer": null,
               "candidatePaths": []
             },
             {
               "cueId": "cue:one-ambiguous-moment-replayed",
+              "nodeId": "node:seventy-percent-door:infer-repair",
               "description": "Only the one moment that stayed unclear is scrubbed back and played again, a little slower. The heard-and-inferred columns already filled in stay on the whiteboard; just the ambiguous line waits for another read.",
               "status": "missing",
               "runtimeHome": "scene:seventy-percent-door:subtitles-drop",
+              "runtimeRenderer": null,
               "candidatePaths": []
             }
           ]
@@ -3301,16 +3409,20 @@
           "propCues": [
             {
               "cueId": "cue:three-routes-eraser-hovering",
+              "nodeId": "node:map-from-memory:three-cards-diverge",
               "description": "Three cards now sit along the backing, each tracing the same stretch a different way. A pencil eraser hovers over two of them, ready to make the map agree with itself.",
               "status": "missing",
               "runtimeHome": "scene:map-from-memory:three-rememberings",
+              "runtimeRenderer": null,
               "candidatePaths": []
             },
             {
               "cueId": "cue:two-cards-aligned-again",
+              "nodeId": "node:map-from-memory:compare-repair",
               "description": "The two diverging cards are set square against Alex's sequence. Only the comparison phrase that slipped comes back for another pass; the accounts already counted stay where they are.",
               "status": "missing",
               "runtimeHome": "scene:map-from-memory:three-rememberings",
+              "runtimeRenderer": null,
               "candidatePaths": []
             }
           ]
@@ -3456,16 +3568,20 @@
           "propCues": [
             {
               "cueId": "cue:single-reciter-runs-dry",
+              "nodeId": "node:questions-in-the-dark:reciter-runs-dry",
               "description": "Someone takes the single chair and tries to recite the whole district from memory, shop by shop. Three shops in, the list runs dry. The blank cards stay blank. The room keeps its eyes on the chair, waiting for a better memory to arrive.",
               "status": "missing",
               "runtimeHome": "scene:questions-in-the-dark:one-question-each",
+              "runtimeRenderer": null,
               "candidatePaths": []
             },
             {
               "cueId": "cue:question-reformed-slowly",
+              "nodeId": "node:questions-in-the-dark:build-repair",
               "description": "Only the question comes back for another pass — the classmate and their one remembered detail stay in place. The half-formed question is set down and picked up again, one word at a time.",
               "status": "missing",
               "runtimeHome": "scene:questions-in-the-dark:one-question-each",
+              "runtimeRenderer": null,
               "candidatePaths": []
             }
           ]
@@ -3603,16 +3719,20 @@
           "propCues": [
             {
               "cueId": "cue:buzzer-on-the-long-polite-line",
+              "nodeId": "node:blank-space:timer-jams",
               "description": "A player reaches the keigo card and runs out of sentence before the timer runs out; the buzzer cuts in. As it does the door opens and Shaun slips in late, setting a flattened paper bag on the side table. The blank card is still blank.",
               "status": "missing",
               "runtimeHome": "scene:blank-space:reads-too-formal",
+              "runtimeRenderer": null,
               "candidatePaths": []
             },
             {
               "cueId": "cue:one-card-split-two-registers",
+              "nodeId": "node:blank-space:shift-repair",
               "description": "The single blank card is split down the middle: the casual opening on one side, the polite reply on the other. Only the register that slipped is offered again; the choice of which line goes where stays.",
               "status": "missing",
               "runtimeHome": "scene:blank-space:reads-too-formal",
+              "runtimeRenderer": null,
               "candidatePaths": []
             }
           ]
@@ -3743,16 +3863,20 @@
           "propCues": [
             {
               "cueId": "cue:kitchen-still-busy-clock-short",
+              "nodeId": "node:farewell-rehearsal:timeline-collapses",
               "description": "The counter is not free yet, and the clock leaves less time than the three steps need. On the board the 作る arrow still points at an empty stove. The order that was meant to end in thanks now cannot even start.",
               "status": "missing",
               "runtimeHome": "scene:farewell-rehearsal:the-reordered-plan",
+              "runtimeRenderer": null,
               "candidatePaths": []
             },
             {
               "cueId": "cue:board-arrow-redrawn",
+              "nodeId": "node:farewell-rehearsal:plan-repair",
               "description": "The board is wiped to just two boxes, お礼 and 作る. Only the before/after word between them returns for another try; the decision to put thanks first stays.",
               "status": "missing",
               "runtimeHome": "scene:farewell-rehearsal:the-reordered-plan",
+              "runtimeRenderer": null,
               "candidatePaths": []
             }
           ]
@@ -3817,16 +3941,20 @@
           "propCues": [
             {
               "cueId": "cue:counter-light-dims",
+              "nodeId": "node:farewell-rehearsal:counter-signal",
               "description": "At the counter a hand turns down the lamp over the table. The borrowed evening is nearly up. More than half the name cards are still face down when the room goes quiet, waiting on what the learner will do with the rest.",
               "status": "missing",
               "runtimeHome": "scene:farewell-rehearsal:the-unfinished-thanks",
+              "runtimeRenderer": null,
               "candidatePaths": []
             },
             {
               "cueId": "cue:coat-and-doorway",
+              "nodeId": "node:farewell-rehearsal:at-the-door",
               "description": "Nanako gathers her coat and stands by the door. The board still reads お礼 first, the stove still cold, the cards still half turned. Nothing has been cleared away.",
               "status": "missing",
               "runtimeHome": "scene:farewell-rehearsal:the-unfinished-thanks",
+              "runtimeRenderer": null,
               "candidatePaths": []
             }
           ]
@@ -3902,9 +4030,11 @@
           "propCues": [
             {
               "cueId": "cue:cable-swapped-route-still-black",
+              "nodeId": "node:lanterns-return:route-stays-dark",
               "description": "The cable is swapped. A second projector hums on. The brightness dial goes up. The final route stays exactly as black as before. Behind the fence, the first guests begin to line up.",
               "status": "missing",
               "runtimeHome": "scene:lanterns-return:the-unlit-route",
+              "runtimeRenderer": null,
               "candidatePaths": []
             }
           ]
@@ -3966,16 +4096,20 @@
           "propCues": [
             {
               "cueId": "cue:pause-points-marked-along-the-route",
+              "nodeId": "node:lanterns-return:ruparna-marks-timing",
               "description": "Ruparna walks the route once, tracing it with a fingertip and setting a small chalk tick at each corner where a voice must breathe so the next one does not collide with it. The order is agreed; only the timing between voices is still loose.",
               "status": "missing",
               "runtimeHome": "scene:lanterns-return:coordinated-voices",
+              "runtimeRenderer": null,
               "candidatePaths": []
             },
             {
               "cueId": "cue:one-handoff-tried-again",
+              "nodeId": "node:lanterns-return:timing-repair",
               "description": "The route holds up to the corner where two voices overlapped. Only that single hand-off is taken again on the same agreed order; the segments already lit stay lit while the learner re-times the pass.",
               "status": "missing",
               "runtimeHome": "scene:lanterns-return:coordinated-voices",
+              "runtimeRenderer": null,
               "candidatePaths": []
             }
           ]
@@ -4057,9 +4191,11 @@
           "propCues": [
             {
               "cueId": "cue:three-reading-cards-one-returns",
+              "nodeId": "node:after-applause:readings-repair",
               "description": "Three blank reading-cards are set out — 褒め / ためらい / お断り. Only the reading that went untagged returns for another pass, its evidence line still empty; the readings already backed by the words, the pause, or the tone stay where they are.",
               "status": "missing",
               "runtimeHome": "scene:after-applause:one-phrase-three-readings",
+              "runtimeRenderer": null,
               "candidatePaths": []
             }
           ]
@@ -4206,9 +4342,11 @@
           "propCues": [
             {
               "cueId": "cue:two-descriptions-named-vs-sourceless",
+              "nodeId": "node:caption-without-owner:describe-repair",
               "description": "Two description cards are set out side by side: one that assigns a maker — 『◯◯によって書かれた』 with the name space still empty — and one that nominalizes the content and states plainly that the author is unknown. Only the card that reached past the evidence into naming returns for another try; the honest description stays where it is.",
               "status": "missing",
               "runtimeHome": "scene:caption-without-owner:under-the-backing",
+              "runtimeRenderer": null,
               "candidatePaths": []
             }
           ]
@@ -4276,9 +4414,11 @@
           "propCues": [
             {
               "cueId": "cue:source-line-filled-with-absence",
+              "nodeId": "node:caption-without-owner:source-line-filled",
               "description": "Henry writes on the source line: the caption, and beside it 'source — unknown; passed through several hands, no name.' The what-line is full; the source line now carries a described absence rather than a guess. Nothing is entered where the author would be.",
               "status": "missing",
               "runtimeHome": "scene:caption-without-owner:what-the-record-holds",
+              "runtimeRenderer": null,
               "candidatePaths": []
             }
           ]
@@ -4363,9 +4503,11 @@
           "propCues": [
             {
               "cueId": "cue:error-column-and-voice-column",
+              "nodeId": "node:helpful-rewrite:rewrite-repair",
               "description": "The change is split into two columns: an ERROR column holding only 「がつけている → がついている」, and a VOICE column holding the words and the question that must stay untouched — 「だれのためだろう」. Whichever the last attempt over-changed comes back for another try; what was kept correctly stays put.",
               "status": "missing",
               "runtimeHome": "scene:helpful-rewrite:two-versions",
+              "runtimeRenderer": null,
               "candidatePaths": []
             }
           ]
@@ -4508,9 +4650,11 @@
           "propCues": [
             {
               "cueId": "cue:request-missing-scope-or-exit",
+              "nodeId": "node:terms:request-repair",
               "description": "The draft request is laid out with its two parts underlined: the scope line and the decline line. Only the part that was missing returns for another try — a request without a stated range, or one with no easy way to say no — while the part that already worked stays in place.",
               "status": "missing",
               "runtimeHome": "scene:terms:venue-asks-early",
+              "runtimeRenderer": null,
               "candidatePaths": []
             }
           ]
@@ -4653,9 +4797,11 @@
           "propCues": [
             {
               "cueId": "cue:two-responses-side-by-side",
+              "nodeId": "node:chair:redesign-repair",
               "description": "Two drafted responses sit side by side on the board: one that trims the front role to coax Jenny back, one that leaves the front seat open and builds a full role from the back. Only the persuade-shaped response returns for another pass; the redesign-shaped one stays where it is.",
               "status": "missing",
               "runtimeHome": "scene:chair-not-reserved:offer-and-limit",
+              "runtimeRenderer": null,
               "candidatePaths": []
             }
           ]
@@ -4800,9 +4946,11 @@
           "propCues": [
             {
               "cueId": "cue:one-claim-returns-untagged",
+              "nodeId": "node:two-schedules:sort-repair",
               "description": "The three columns — confirmed, heard, and sequence — stand where they were filled. Only the one claim that was tagged to the wrong column slides back out for another read; the correctly sorted rows stay put, and the stated assumption remains written at the top.",
               "status": "missing",
               "runtimeHome": "scene:two-schedules:tabled-plans",
+              "runtimeRenderer": null,
               "candidatePaths": []
             }
           ]
@@ -4947,16 +5095,20 @@
           "propCues": [
             {
               "cueId": "cue:audio-hedge-against-flat-caption",
+              "nodeId": "node:under-the-subtitle:play-the-hedge",
               "description": "Ruparna plays the line. In the audio the woman says, haltingly, 「たぶん、そうだったと思うんですけど…正直、はっきりとは覚えていなくて」. Under it the OFFICIAL track reads, in confident type: 「はい、その通りです」. The hesitation in the voice and the certainty in the caption sit on screen at the same time.",
               "status": "missing",
               "runtimeHome": "scene:under-the-subtitle:the-cleaner-cut",
+              "runtimeRenderer": null,
               "candidatePaths": []
             },
             {
               "cueId": "cue:one-clause-upgraded-flagged",
+              "nodeId": "node:under-the-subtitle:resubtitle-repair",
               "description": "Only the one clause where the new caption crept back toward certainty is highlighted — a 「〜んです」 that reads a shade firmer than the voice earned. The rest of the rewrite stays on screen; just that clause waits, with the audio queued to replay once more so the hedge can be matched exactly.",
               "status": "missing",
               "runtimeHome": "scene:under-the-subtitle:the-cleaner-cut",
+              "runtimeRenderer": null,
               "candidatePaths": []
             }
           ]
@@ -5100,16 +5252,20 @@
           "propCues": [
             {
               "cueId": "cue:chat-ping-just-swap-the-file",
+              "nodeId": "node:wrong-draft:chat-ping",
               "description": "A group-chat notification slides in from Mira, following along from the chat: can't we just swap the file back and keep the rehearsal going, we're on the clock. It is the fast-fix instinct arriving as pressure — not as permission — while the timer keeps counting.",
               "status": "missing",
               "runtimeHome": "scene:wrong-draft:screen-loads-old-draft",
+              "runtimeRenderer": null,
               "candidatePaths": []
             },
             {
               "cueId": "cue:two-versions-side-by-side-unshown",
+              "nodeId": "node:wrong-draft:repair-retry",
               "description": "Two versions sit side by side, neither one displayed: the prepared, standing live version and the superseded internal draft. Only the step that went wrong returns — matching the evidential marker to the correct version, or covering the withdrawn passage — while the parts already handled stay as they are.",
               "status": "missing",
               "runtimeHome": "scene:wrong-draft:screen-loads-old-draft",
+              "runtimeRenderer": null,
               "candidatePaths": []
             }
           ]
@@ -5252,9 +5408,11 @@
           "propCues": [
             {
               "cueId": "cue:evidence-tags-side-by-side",
+              "nodeId": "node:what-we-can-say:calibrate-repair",
               "description": "The draft is laid out with three evidence tags beside it — saw / heard / inferred — and a confidence mark. Only the claims still written as flat fact return for another pass; the ones already source-marked and permission-scoped stay as they are.",
               "status": "missing",
               "runtimeHome": "scene:what-we-can-say:three-things",
+              "runtimeRenderer": null,
               "candidatePaths": []
             }
           ]
@@ -5409,9 +5567,11 @@
           "propCues": [
             {
               "cueId": "cue:one-role-returned-others-assigned",
+              "nodeId": "node:empty-microphone:negotiate-repair",
               "description": "Only the one job whose offer landed wrong comes back for another pass — re-phrased so the exit is unmistakable this time. The roles already agreed, each with its stated way out, stay assigned on the run sheet; no one who said 'not yet' is asked again.",
               "status": "missing",
               "runtimeHome": "scene:empty-microphone:host-drops-out",
+              "runtimeRenderer": null,
               "candidatePaths": []
             }
           ]
@@ -5552,9 +5712,11 @@
           "propCues": [
             {
               "cueId": "cue:one-trace-returns-for-a-second-read",
+              "nodeId": "node:names-in-the-margin:compare-repair",
               "description": "The layers the learner already ordered stay lined up in sequence. Only the one trace whose claim outran its evidence returns — an over-confident line quietly re-set beside the paper and ink it was supposed to rest on, waiting to be stated again at the strength the record actually supports.",
               "status": "missing",
               "runtimeHome": "scene:names-in-the-margin:reading-the-layers",
+              "runtimeRenderer": null,
               "candidatePaths": []
             }
           ]
@@ -5697,9 +5859,11 @@
           "propCues": [
             {
               "cueId": "cue:permitted-and-withheld-side-by-side",
+              "nodeId": "node:permission-page:sort-repair",
               "description": "The passages are set out in two groups: a permitted column carrying who / which event / until when, and the withheld slip holding the rest, unlabelled by any invented owner. Only the passage that was sorted into the wrong group returns for another pass; the correctly sorted ones stay where they are.",
               "status": "missing",
               "runtimeHome": "scene:permission-page:who-may-share",
+              "runtimeRenderer": null,
               "candidatePaths": []
             }
           ]
@@ -5981,9 +6145,11 @@
           "propCues": [
             {
               "cueId": "cue:one-cell-lifted-back-out",
+              "nodeId": "node:map-of-claims:map-repair",
               "description": "Only the one cell whose confidence tag outran its source is lifted back out. Its coloured tab is set to the side while the source line under it is read again, slower. The cells already placed stay exactly where they are.",
               "status": "missing",
               "runtimeHome": "scene:map-of-claims:table-of-sources",
+              "runtimeRenderer": null,
               "candidatePaths": []
             }
           ]
@@ -6128,9 +6294,11 @@
           "propCues": [
             {
               "cueId": "cue:three-moves-side-by-side",
+              "nodeId": "node:polite-no:refusal-repair",
               "description": "The three moves are laid out as cards along the table edge: a concession, a refusal, and one alternative with an open line beneath it. Only the move the learner left out returns for another pass; the cards already placed stay where they are.",
               "status": "missing",
               "runtimeHome": "scene:polite-no:cleaner-ending",
+              "runtimeRenderer": null,
               "candidatePaths": []
             }
           ]
@@ -6337,9 +6505,11 @@
           "propCues": [
             {
               "cueId": "cue:one-voice-flattened-restored",
+              "nodeId": "node:three-versions:synthesis-repair",
               "description": "One option folds an account into the other two by dropping its vantage note. Compare that clause again; the blank middle span stays blank.",
               "status": "missing",
               "runtimeHome": "scene:three-versions:one-synthesis",
+              "runtimeRenderer": null,
               "candidatePaths": []
             }
           ]
@@ -6420,9 +6590,11 @@
           "propCues": [
             {
               "cueId": "cue:full-and-trimmed-lines-side-by-side",
+              "nodeId": "node:left-unsaid:trim-repair",
               "description": "Two versions sit side by side: one publishes the inferred reason, while the other stops at 「あえて空けてあります」. Compare what each version puts on stage.",
               "status": "missing",
               "runtimeHome": "scene:left-unsaid:the-line-that-says-too-much",
+              "runtimeRenderer": null,
               "candidatePaths": []
             }
           ]
@@ -6569,9 +6741,11 @@
           "propCues": [
             {
               "cueId": "cue:premise-bracketed-on-board",
+              "nodeId": "node:open-question:premise-repair",
               "description": "The crossed-out names stay on the board. On the projector, a bracket now begins before 「このアトラスを作ったのは」 and ends after the blank. No name is circled; the sentence itself waits for another pass.",
               "status": "missing",
               "runtimeHome": "scene:open-question:one-name",
+              "runtimeRenderer": null,
               "candidatePaths": []
             }
           ]
@@ -6795,9 +6969,11 @@
           "propCues": [
             {
               "cueId": "cue:three-futures-laid-level",
+              "nodeId": "node:journey:futures-repair",
               "description": "The three futures sit on cards at the same height: leaving, staying, undecided. The learner checks each written update against the thread: a decided time for Alex, an uncertainty marker for Aakash, and both staying and restarting language for Mira.",
               "status": "missing",
               "runtimeHome": "scene:journey:non-comparative-futures",
+              "runtimeRenderer": null,
               "candidatePaths": []
             }
           ]
@@ -6952,9 +7128,11 @@
           "propCues": [
             {
               "cueId": "cue:middle-clause-taken-down-once",
+              "nodeId": "node:last-revision:clause-recut",
               "description": "Compare the middle clauses again. The candidate 「この道は、今夜も静かに灯る。」 keeps the visible image without putting the withdrawn claim back on the wall.",
               "status": "missing",
               "runtimeHome": "scene:last-revision:vivid-but-restores-nothing",
+              "runtimeRenderer": null,
               "candidatePaths": []
             }
           ]
@@ -7035,9 +7213,11 @@
           "propCues": [
             {
               "cueId": "cue:runsheet-step-and-branch-side-by-side",
+              "nodeId": "node:rehearsal-for-leaving:runsheet-repair",
               "description": "The run-sheet is laid open to two lines: a pre-set step and the branch that follows when the light stays dark. Only the line that another person could not yet follow comes back for a second pass; the parts that already read clearly stay put.",
               "status": "missing",
               "runtimeHome": "scene:rehearsal-for-leaving:tested-setup",
+              "runtimeRenderer": null,
               "candidatePaths": []
             }
           ]
@@ -7181,16 +7361,20 @@
           "propCues": [
             {
               "cueId": "cue:asker-tilts-head-xingyu-holds-a-note",
+              "nodeId": "node:public-evening:the-mismatch",
               "description": "In the third row the person who asked tilts their head a fraction; that isn't quite what they said. Off to one side Xingyu lets a single low note hang under her breath, the way she marks a beat. Mika, who has not spoken all evening, lifts one finger — wait — and counts the pause before the panel commits.",
               "status": "missing",
               "runtimeHome": "scene:public-evening:the-question",
+              "runtimeRenderer": null,
               "candidatePaths": []
             },
             {
               "cueId": "cue:one-phrase-repeated-slower",
+              "nodeId": "node:public-evening:re-ask-slower",
               "description": "Only the one phrase comes again, slower: the asker repeats it, and this time the room hears the difference between 作った and 守ってきた. Nobody hurries to fill the gap while it lands.",
               "status": "missing",
               "runtimeHome": "scene:public-evening:the-question",
+              "runtimeRenderer": null,
               "candidatePaths": []
             }
           ]
@@ -7351,9 +7535,11 @@
           "propCues": [
             {
               "cueId": "cue:supported-and-unsupported-columns",
+              "nodeId": "node:atlas-closes:synthesis-repair",
               "description": "The synthesis is split into two columns on the record: what the evidence supports and what it does not reach. Only the part that overran the evidence — a claim written a step past what the record holds — returns for another pass; the attributions that already sat inside the evidence stay written.",
               "status": "missing",
               "runtimeHome": "scene:atlas-closes:what-the-template-was",
+              "runtimeRenderer": null,
               "candidatePaths": []
             }
           ]
@@ -7560,9 +7746,11 @@
           "propCues": [
             {
               "cueId": "cue:keep-one-line-drop-the-rest",
+              "nodeId": "node:next-page:one-line-again",
               "description": "Only the part that ran long comes back. The learner sets down everything but the one thing they meant — keeping a single stitch and letting the rest drop. What's already on the page stays where it is.",
               "status": "missing",
               "runtimeHome": "scene:next-page:the-one-thing-left",
+              "runtimeRenderer": null,
               "candidatePaths": []
             }
           ]
@@ -7571,345 +7759,6 @@
     }
   ],
   "generationQueue": [
-    {
-      "priority": "supporting",
-      "chapter": 1,
-      "chapterId": "s1e01-the-blank-atlas",
-      "sceneId": "scene:blank-atlas:arrival-greetings",
-      "cueId": "cue:rie-greeting-one-step",
-      "kind": "prop-or-overlay",
-      "brief": "Rie repeats the one part you need.",
-      "locationId": "location:classroom",
-      "timeState": "evening",
-      "castIds": [
-        "rie"
-      ],
-      "runtimeHome": "scene:blank-atlas:arrival-greetings",
-      "status": "queued"
-    },
-    {
-      "priority": "supporting",
-      "chapter": 1,
-      "chapterId": "s1e01-the-blank-atlas",
-      "sceneId": "scene:blank-atlas:sound-script-map",
-      "cueId": "cue:vowels-replay-one-gap",
-      "kind": "prop-or-overlay",
-      "brief": "Only the sound you missed plays again.",
-      "locationId": "location:classroom",
-      "timeState": "evening",
-      "castIds": [
-        "rie"
-      ],
-      "runtimeHome": "scene:blank-atlas:sound-script-map",
-      "status": "queued"
-    },
-    {
-      "priority": "supporting",
-      "chapter": 1,
-      "chapterId": "s1e01-the-blank-atlas",
-      "sceneId": "scene:blank-atlas:sound-script-map",
-      "cueId": "cue:hiragana-missed-shelf-return",
-      "kind": "prop-or-overlay",
-      "brief": "A missed kana returns at the end. The rest stay done.",
-      "locationId": "location:classroom",
-      "timeState": "evening",
-      "castIds": [
-        "rie"
-      ],
-      "runtimeHome": "scene:blank-atlas:sound-script-map",
-      "status": "queued"
-    },
-    {
-      "priority": "supporting",
-      "chapter": 1,
-      "chapterId": "s1e01-the-blank-atlas",
-      "sceneId": "scene:blank-atlas:sound-script-map",
-      "cueId": "cue:kana-trace-one-stroke",
-      "kind": "prop-or-overlay",
-      "brief": "Keep the strokes that worked. Try the missed stroke again.",
-      "locationId": "location:classroom",
-      "timeState": "evening",
-      "castIds": [
-        "rie"
-      ],
-      "runtimeHome": "scene:blank-atlas:sound-script-map",
-      "status": "queued"
-    },
-    {
-      "priority": "supporting",
-      "chapter": 1,
-      "chapterId": "s1e01-the-blank-atlas",
-      "sceneId": "scene:blank-atlas:classroom-survival",
-      "cueId": "cue:instruction-one-object",
-      "kind": "prop-or-overlay",
-      "brief": "Rie resets one step and says it again.",
-      "locationId": "location:classroom",
-      "timeState": "evening",
-      "castIds": [
-        "rie"
-      ],
-      "runtimeHome": "scene:blank-atlas:classroom-survival",
-      "status": "queued"
-    },
-    {
-      "priority": "supporting",
-      "chapter": 1,
-      "chapterId": "s1e01-the-blank-atlas",
-      "sceneId": "scene:blank-atlas:classroom-survival",
-      "cueId": "cue:repair-phrase-one-gap",
-      "kind": "prop-or-overlay",
-      "brief": "One part is missing. Build the request again.",
-      "locationId": "location:classroom",
-      "timeState": "evening",
-      "castIds": [
-        "rie"
-      ],
-      "runtimeHome": "scene:blank-atlas:classroom-survival",
-      "status": "queued"
-    },
-    {
-      "priority": "supporting",
-      "chapter": 1,
-      "chapterId": "s1e01-the-blank-atlas",
-      "sceneId": "scene:blank-atlas:classroom-survival",
-      "cueId": "cue:desk-object-context",
-      "kind": "prop-or-overlay",
-      "brief": "The example stays here. The homework goes home.",
-      "locationId": "location:classroom",
-      "timeState": "evening",
-      "castIds": [
-        "rie"
-      ],
-      "runtimeHome": "scene:blank-atlas:classroom-survival",
-      "status": "queued"
-    },
-    {
-      "priority": "supporting",
-      "chapter": 1,
-      "chapterId": "s1e01-the-blank-atlas",
-      "sceneId": "scene:blank-atlas:sentence-frames",
-      "cueId": "cue:sentence-frame-meaning-contrast",
-      "kind": "prop-or-overlay",
-      "brief": "Keep the parts that fit. Try the missing part again.",
-      "locationId": "location:classroom",
-      "timeState": "evening",
-      "castIds": [
-        "rie"
-      ],
-      "runtimeHome": "scene:blank-atlas:sentence-frames",
-      "status": "queued"
-    },
-    {
-      "priority": "supporting",
-      "chapter": 1,
-      "chapterId": "s1e01-the-blank-atlas",
-      "sceneId": "scene:blank-atlas:mission-speaking",
-      "cueId": null,
-      "kind": "background",
-      "brief": "campus-entrance-blue-hour-arrival(near-miss:exterior)",
-      "locationId": "location:classroom-entrance",
-      "timeState": "evening",
-      "castIds": [
-        "sam",
-        "aakash"
-      ],
-      "runtimeHome": "scene:blank-atlas:mission-speaking",
-      "status": "queued"
-    },
-    {
-      "priority": "scene-critical",
-      "chapter": 1,
-      "chapterId": "s1e01-the-blank-atlas",
-      "sceneId": "scene:blank-atlas:mission-speaking",
-      "cueId": "cue:speaking-route-open-door-nameplates",
-      "kind": "opening-image",
-      "brief": "Aakash and Sam are at the classroom door.",
-      "locationId": "location:classroom-entrance",
-      "timeState": "evening",
-      "castIds": [
-        "sam",
-        "aakash"
-      ],
-      "runtimeHome": "scene:blank-atlas:mission-speaking",
-      "status": "queued"
-    },
-    {
-      "priority": "payoff-critical",
-      "chapter": 1,
-      "chapterId": "s1e01-the-blank-atlas",
-      "sceneId": "scene:blank-atlas:mission-speaking",
-      "cueId": "cue:speaking-route-one-turn",
-      "kind": "exit-image",
-      "brief": "Aakash repeats the question and waits for your answer.",
-      "locationId": "location:classroom-entrance",
-      "timeState": "evening",
-      "castIds": [
-        "sam",
-        "aakash"
-      ],
-      "runtimeHome": "scene:blank-atlas:mission-speaking",
-      "status": "queued"
-    },
-    {
-      "priority": "scene-critical",
-      "chapter": 1,
-      "chapterId": "s1e01-the-blank-atlas",
-      "sceneId": "scene:blank-atlas:reading-writing",
-      "cueId": "cue:route-cards-around-atlas",
-      "kind": "opening-image",
-      "brief": "Three class cards return. Yours is still face down.",
-      "locationId": "location:classroom",
-      "timeState": "evening-late",
-      "castIds": [
-        "rie"
-      ],
-      "runtimeHome": "scene:blank-atlas:reading-writing",
-      "status": "queued"
-    },
-    {
-      "priority": "payoff-critical",
-      "chapter": 1,
-      "chapterId": "s1e01-the-blank-atlas",
-      "sceneId": "scene:blank-atlas:reading-writing",
-      "cueId": "cue:learner-card-route-label",
-      "kind": "exit-image",
-      "brief": "Rie turns the finished card upright beside the others.",
-      "locationId": "location:classroom",
-      "timeState": "evening-late",
-      "castIds": [
-        "rie"
-      ],
-      "runtimeHome": "scene:blank-atlas:reading-writing",
-      "status": "queued"
-    },
-    {
-      "priority": "supporting",
-      "chapter": 1,
-      "chapterId": "s1e01-the-blank-atlas",
-      "sceneId": "scene:blank-atlas:reading-writing",
-      "cueId": "cue:name-card-evidence-line",
-      "kind": "prop-or-overlay",
-      "brief": "The class line stays visible. Check the name again.",
-      "locationId": "location:classroom",
-      "timeState": "evening-late",
-      "castIds": [
-        "rie"
-      ],
-      "runtimeHome": "scene:blank-atlas:reading-writing",
-      "status": "queued"
-    },
-    {
-      "priority": "supporting",
-      "chapter": 1,
-      "chapterId": "s1e01-the-blank-atlas",
-      "sceneId": "scene:blank-atlas:reading-writing",
-      "cueId": "cue:name-card-function-rubric",
-      "kind": "prop-or-overlay",
-      "brief": "Rie says the name again and points from the usual spelling to the katakana.",
-      "locationId": "location:classroom",
-      "timeState": "evening-late",
-      "castIds": [
-        "rie"
-      ],
-      "runtimeHome": "scene:blank-atlas:reading-writing",
-      "status": "queued"
-    },
-    {
-      "priority": "scene-critical",
-      "chapter": 1,
-      "chapterId": "s1e01-the-blank-atlas",
-      "sceneId": "scene:blank-atlas:transfer",
-      "cueId": "cue:teaching-surfaces-clear",
-      "kind": "opening-image",
-      "brief": "The support sheets close. A new route card waits.",
-      "locationId": "location:classroom",
-      "timeState": "evening-late",
-      "castIds": [
-        "rie"
-      ],
-      "runtimeHome": "scene:blank-atlas:transfer",
-      "status": "queued"
-    },
-    {
-      "priority": "payoff-critical",
-      "chapter": 1,
-      "chapterId": "s1e01-the-blank-atlas",
-      "sceneId": "scene:blank-atlas:transfer",
-      "cueId": "cue:first-atlas-lantern-lit",
-      "kind": "exit-image",
-      "brief": "Your route reaches the card. The first lantern lights.",
-      "locationId": "location:classroom",
-      "timeState": "evening-late",
-      "castIds": [
-        "rie"
-      ],
-      "runtimeHome": "scene:blank-atlas:transfer",
-      "status": "queued"
-    },
-    {
-      "priority": "supporting",
-      "chapter": 1,
-      "chapterId": "s1e01-the-blank-atlas",
-      "sceneId": "scene:blank-atlas:transfer",
-      "cueId": "cue:transfer-one-function",
-      "kind": "prop-or-overlay",
-      "brief": "The new situation stays in view. Retry only the missed step.",
-      "locationId": "location:classroom",
-      "timeState": "evening-late",
-      "castIds": [
-        "rie"
-      ],
-      "runtimeHome": "scene:blank-atlas:transfer",
-      "status": "queued"
-    },
-    {
-      "priority": "supporting",
-      "chapter": 1,
-      "chapterId": "s1e01-the-blank-atlas",
-      "sceneId": "scene:blank-atlas:transfer",
-      "cueId": "cue:written-transfer-one-function",
-      "kind": "prop-or-overlay",
-      "brief": "Keep what worked. Fix only the missing part.",
-      "locationId": "location:classroom",
-      "timeState": "evening-late",
-      "castIds": [
-        "rie"
-      ],
-      "runtimeHome": "scene:blank-atlas:transfer",
-      "status": "queued"
-    },
-    {
-      "priority": "scene-critical",
-      "chapter": 1,
-      "chapterId": "s1e01-the-blank-atlas",
-      "sceneId": "scene:blank-atlas:close",
-      "cueId": "cue:one-lantern-reflected-on-desks",
-      "kind": "opening-image",
-      "brief": "The entrance arrow now points back to your route.",
-      "locationId": "location:classroom",
-      "timeState": "evening-close",
-      "castIds": [
-        "rie"
-      ],
-      "runtimeHome": "scene:blank-atlas:close",
-      "status": "queued"
-    },
-    {
-      "priority": "payoff-critical",
-      "chapter": 1,
-      "chapterId": "s1e01-the-blank-atlas",
-      "sceneId": "scene:blank-atlas:close",
-      "cueId": "cue:finish-break-context",
-      "kind": "exit-image",
-      "brief": "Choose finish or break once more.",
-      "locationId": "location:classroom",
-      "timeState": "evening-close",
-      "castIds": [
-        "rie"
-      ],
-      "runtimeHome": "scene:blank-atlas:close",
-      "status": "queued"
-    },
     {
       "priority": "scene-critical",
       "chapter": 2,

@@ -143,6 +143,36 @@ describe('Academy Story screen', () => {
             .toContain('blank-atlas-mission-text__one-gap-repair__mobile__v001.webp');
     });
 
+    it('opens the speaking route at the corridor threshold and keeps its repair in the same room', () => {
+        const opening = render(cursor(
+            'scene:blank-atlas:mission-speaking',
+            'node:blank-atlas:speaking-door',
+        )).screen;
+        expect(opening.querySelector<HTMLElement>('.academy-vn-stage')?.dataset.storyArt)
+            .toBe('event.story.blank-atlas-mission-speaking.door-waiting');
+        expect(opening.querySelector<HTMLImageElement>('.academy-vn-plate img')?.src)
+            .toContain('blank-atlas-mission-speaking__door-waiting__wide__v001.webp');
+        expect(opening.querySelector<HTMLSourceElement>('.academy-vn-plate source')?.srcset)
+            .toContain('blank-atlas-mission-speaking__door-waiting__mobile__v001.webp');
+
+        const repair = render(cursor(
+            'scene:blank-atlas:mission-speaking',
+            'node:blank-atlas:speaking-input-repair',
+        )).screen;
+        expect(repair.querySelector<HTMLElement>('.academy-vn-stage')?.dataset.storyArt)
+            .toBe('event.story.blank-atlas-mission-speaking.door-open-repair');
+        expect(repair.querySelector<HTMLImageElement>('.academy-vn-plate img')?.src)
+            .toContain('blank-atlas-mission-speaking__door-open-repair__wide__v001.webp');
+        expect(repair.querySelector<HTMLSourceElement>('.academy-vn-plate source')?.srcset)
+            .toContain('blank-atlas-mission-speaking__door-open-repair__mobile__v001.webp');
+        expect(repair.querySelector<HTMLElement>('.academy-vn-speaker')?.textContent).toBe('Aakash-san');
+        expect(repair.querySelector<HTMLElement>('.academy-vn-japanese')
+            ?.getAttribute('data-yomu-academy-reading-source'))
+            .toBe('お名前は何ですか。');
+        expect(repair.querySelector<HTMLElement>('.academy-vn-japanese')?.lang).toBe('ja');
+        expect(repair.querySelector<HTMLElement>('[data-character="aakash"]')).not.toBeNull();
+    });
+
     it('uses the shared VN Back control and keeps one readings control for the opening arc', () => {
         const onBack = vi.fn();
         const { screen } = render('s1e01-the-blank-atlas', { onBack });
@@ -246,6 +276,21 @@ describe('Academy Story screen', () => {
         );
     });
 
+    it('uses Sam’s identity-locked listening performance for the recording choice', () => {
+        const { screen } = render(cursor(
+            'scene:blank-atlas:mission-speaking',
+            'line:blank-atlas:sam-recording-boundary',
+        ));
+
+        const sam = screen.querySelector<HTMLElement>('[data-character="sam"]')!;
+        const picture = sam.querySelector<HTMLPictureElement>('picture')!;
+        expect(screen.querySelector('.academy-vn-speaker')?.textContent).toBe('Sam-san');
+        expect(picture.dataset.expression).toBe('encouraging');
+        expect(picture.querySelector('img')?.getAttribute('src')).toContain(
+            'sam__standardized-encouraging-listening__front-near-front__halfbody__v001.png',
+        );
+    });
+
     it('selects only approved Rie performance cutouts for authored VN intents', () => {
         const beats = [
             ['scene:blank-atlas:sound-script-map', 'line:blank-atlas:rie-listen-first', 'determined', 'rie__determined-glasses__left-three-quarter'],
@@ -327,10 +372,18 @@ describe('Academy Story screen', () => {
 
         const doorScreen = render(cursor('scene:blank-atlas:mission-speaking', 'node:blank-atlas:speaking-door'), { audio }).screen;
         const door = doorScreen.querySelector<HTMLElement>('.academy-speaking-door-prop')!;
-        door.querySelector<HTMLButtonElement>('.academy-door-open')?.click();
+        door.querySelector<HTMLButtonElement>('.academy-door-knocker')?.click();
         expect(door.dataset.open).toBe('true');
         expect(door.querySelector<HTMLElement>('.academy-door-nameplates')?.hidden).toBe(false);
         expect(door.textContent).toContain('Aakash');
+        expect(door.textContent).toContain('Come in');
+        expect(door.querySelector('.academy-door-knocker')).toBeNull();
+
+        const samScreen = render(cursor(
+            'scene:blank-atlas:mission-speaking',
+            'line:blank-atlas:sam-recording-boundary',
+        )).screen;
+        expect(samScreen.querySelector('.academy-speaking-door-prop')).toBeNull();
 
         const faceDownScreen = render(cursor('scene:blank-atlas:reading-writing', 'node:blank-atlas:cards-return')).screen;
         expect(faceDownScreen.querySelector('.academy-card-flip')).toBeNull();

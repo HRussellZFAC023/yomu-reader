@@ -92,8 +92,8 @@ export function renderSourceActivityScreen(
     const missionRoute = {
         sound: { locationId: 'location:language-lab', plate: 'languageLab' },
         text: { locationId: 'location:library', plate: 'library' },
-        speaking: { locationId: 'location:classroom-entrance', plate: 'entrance' },
-    } as const satisfies Record<LessonFork, { locationId: string; plate: 'languageLab' | 'library' | 'entrance' }>;
+        speaking: { locationId: 'location:classroom-entrance', plate: 'classroomEntrance' },
+    } as const satisfies Record<LessonFork, { locationId: string; plate: 'languageLab' | 'library' | 'classroomEntrance' }>;
     const { screen, panel, content } = screenFrame({
         language,
         className: 'academy-source-screen',

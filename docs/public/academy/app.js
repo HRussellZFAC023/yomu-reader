@@ -10290,7 +10290,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     root.dataset.groundedContentRevision = contentRevision;
     root.dataset.groundedCommitState = "pre-commit";
   }
-  const LESSON_ZERO_CONTENT_SHA256 = "1450638da527c575297f665e3039a7c2c06ea79c153bd2e5407224da6efabaa5";
+  const LESSON_ZERO_CONTENT_SHA256 = "504534364d2b92229af1a465a8f46267c2bd2f3c3cf89736c3b032d76435bb86";
   const LESSON_ZERO_CLASSROOM_EXPRESSIONS_SHA256 = "a809477602243d8b4833a5534e1315fafb8c5fc4f9ebc770569e413e509f90ff";
   const LESSON_CONTENT_ID = "content:lesson-zero-v1";
   const CLASSROOM_CONTENT_ID = "content:lesson-zero-classroom-expressions-v1";
@@ -12377,7 +12377,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     ["peter", "Peter"]
   ];
   const REAL_CLASS_MEMBERS = REAL_CLASS_NAMES.map(([id2, firstName]) => {
-    const likenessApproved = id2 === "sophie" || id2 === "aakash" || id2 === "xingyu" || id2 === "mika" || id2 === "jenny" || id2 === "ruparna";
+    const likenessApproved = id2 === "sophie" || id2 === "aakash" || id2 === "xingyu" || id2 === "mika" || id2 === "jenny" || id2 === "sam" || id2 === "ruparna";
     return {
       id: id2,
       firstName,
@@ -12632,6 +12632,100 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     "ime",
     "doodle"
   ];
+  const EMAIL_LIKE_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/u;
+  const KATAKANA_NAME_RE = /^[\p{Script=Katakana}ー・\s]+$/u;
+  const HIRAGANA_NAME_RE = /^[\p{Script=Hiragana}ー・\s]+$/u;
+  const ROMAJI_NAME_RE = /^[a-z][a-z' -]*$/iu;
+  const KNOWN_KATAKANA_NAMES = Object.freeze({
+    aakash: "アーカッシュ",
+    alex: "アレックス",
+    andrew: "アンドリュー",
+    anna: "アンナ",
+    brian: "ブライアン",
+    christian: "クリスチャン",
+    daniel: "ダニエル",
+    david: "デイビッド",
+    edward: "エドワード",
+    emily: "エミリー",
+    felix: "フェリックス",
+    francis: "フランシス",
+    george: "ジョージ",
+    henry: "ヘンリー",
+    james: "ジェームズ",
+    jenny: "ジェニー",
+    john: "ジョン",
+    joseph: "ジョセフ",
+    karen: "カレン",
+    kevin: "ケビン",
+    maria: "マリア",
+    mary: "メアリー",
+    michael: "マイケル",
+    mika: "ミカ",
+    mina: "ミナ",
+    mira: "ミラ",
+    nicholas: "ニコラス",
+    paul: "ポール",
+    peter: "ピーター",
+    richard: "リチャード",
+    rie: "リエ",
+    riku: "リク",
+    robert: "ロバート",
+    rose: "ローズ",
+    sam: "サム",
+    shaun: "ショーン",
+    sophie: "ソフィー",
+    steve: "スティーブ",
+    steven: "スティーブン",
+    susan: "スーザン",
+    takeshi: "タケシ",
+    thomas: "トーマス",
+    tom: "トム",
+    william: "ウィリアム",
+    xingyu: "シンユ"
+  });
+  function profileNameForEditing(value) {
+    const name = normalizeName(value ?? "");
+    if (!name || EMAIL_LIKE_RE.test(name) || /^(?:learner|student|you)$/iu.test(name)) return "";
+    return name;
+  }
+  function createKatakanaNameDraft(value) {
+    const usualName = normalizeName(value);
+    if (!usualName) return Object.freeze({ usualName: "", katakana: null, source: "unavailable" });
+    if (KATAKANA_NAME_RE.test(usualName)) {
+      return Object.freeze({ usualName, katakana: usualName, source: "already-katakana" });
+    }
+    if (HIRAGANA_NAME_RE.test(usualName)) {
+      return Object.freeze({
+        usualName,
+        katakana: convertHiraganaToKatakana(usualName),
+        source: "hiragana"
+      });
+    }
+    if (!ROMAJI_NAME_RE.test(usualName)) {
+      return Object.freeze({ usualName, katakana: null, source: "unavailable" });
+    }
+    const words = usualName.toLowerCase().split(/[\s-]+/u).filter(Boolean);
+    const known = words.map((word) => KNOWN_KATAKANA_NAMES[word]);
+    if (known.every(Boolean)) {
+      return Object.freeze({
+        usualName,
+        katakana: known.join("・"),
+        source: "known-name"
+      });
+    }
+    const converted = words.map((word) => convertHiraganaToKatakana(convertRomajiToKana(word)));
+    if (converted.every((word) => word && !/[a-z]/iu.test(word))) {
+      return Object.freeze({
+        usualName,
+        katakana: converted.join("・"),
+        source: "romaji"
+      });
+    }
+    return Object.freeze({ usualName, katakana: null, source: "unavailable" });
+  }
+  function normalizeName(value) {
+    return value.normalize("NFKC").replace(/\s+/gu, " ").trim();
+  }
   const REQUIRED_SECTION_IDS = [
     "arrival-greetings",
     "sound-script-map",
@@ -12844,16 +12938,15 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     for (const speakerId of speakers) {
       const member = getAcademyCastMember(speakerId);
       const speakerLines = script.lines.filter((line2) => line2.speakerId === speakerId);
-      const acceptedNames = canonicalScriptNames(member.id, member.firstName);
+      const acceptedNames = canonicalScriptNames(member.firstName);
       if (!speakerLines.some((line2) => acceptedNames.some((name) => line2.japanese.includes(`${name}です`) && line2.reading.includes(`${name}です`)))) {
         fail$2(`Script ${script.id} does not use the canonical first name ${member.firstName} for ${member.id}.`);
       }
     }
   }
-  function canonicalScriptNames(memberId, firstName) {
-    if (memberId === "xingyu") return [firstName, "シンユ"];
-    if (memberId === "mika") return [firstName, "ミカ"];
-    return [firstName];
+  function canonicalScriptNames(firstName) {
+    const katakana = createKatakanaNameDraft(firstName).katakana;
+    return katakana && katakana !== firstName ? [firstName, katakana] : [firstName];
   }
   function validateScriptLearnerTurns(script, lineIds, activities) {
     const learnerTurns = script.learnerTurns ?? [];
@@ -13778,100 +13871,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         return { expression: "おわりましょう。", reading: "おわりましょう", meaning: "Let's finish.", conceptIndex: 0 };
     }
   }
-  const EMAIL_LIKE_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/u;
-  const KATAKANA_NAME_RE = /^[\p{Script=Katakana}ー・\s]+$/u;
-  const HIRAGANA_NAME_RE = /^[\p{Script=Hiragana}ー・\s]+$/u;
-  const ROMAJI_NAME_RE = /^[a-z][a-z' -]*$/iu;
-  const KNOWN_KATAKANA_NAMES = Object.freeze({
-    aakash: "アーカッシュ",
-    alex: "アレックス",
-    andrew: "アンドリュー",
-    anna: "アンナ",
-    brian: "ブライアン",
-    christian: "クリスチャン",
-    daniel: "ダニエル",
-    david: "デイビッド",
-    edward: "エドワード",
-    emily: "エミリー",
-    felix: "フェリックス",
-    francis: "フランシス",
-    george: "ジョージ",
-    henry: "ヘンリー",
-    james: "ジェームズ",
-    jenny: "ジェニー",
-    john: "ジョン",
-    joseph: "ジョセフ",
-    karen: "カレン",
-    kevin: "ケビン",
-    maria: "マリア",
-    mary: "メアリー",
-    michael: "マイケル",
-    mika: "ミカ",
-    mina: "ミナ",
-    mira: "ミラ",
-    nicholas: "ニコラス",
-    paul: "ポール",
-    peter: "ピーター",
-    richard: "リチャード",
-    rie: "リエ",
-    riku: "リク",
-    robert: "ロバート",
-    rose: "ローズ",
-    sam: "サム",
-    shaun: "ショーン",
-    sophie: "ソフィー",
-    steve: "スティーブ",
-    steven: "スティーブン",
-    susan: "スーザン",
-    takeshi: "タケシ",
-    thomas: "トーマス",
-    tom: "トム",
-    william: "ウィリアム",
-    xingyu: "シンユ"
-  });
-  function profileNameForEditing(value) {
-    const name = normalizeName(value ?? "");
-    if (!name || EMAIL_LIKE_RE.test(name) || /^(?:learner|student|you)$/iu.test(name)) return "";
-    return name;
-  }
-  function createKatakanaNameDraft(value) {
-    const usualName = normalizeName(value);
-    if (!usualName) return Object.freeze({ usualName: "", katakana: null, source: "unavailable" });
-    if (KATAKANA_NAME_RE.test(usualName)) {
-      return Object.freeze({ usualName, katakana: usualName, source: "already-katakana" });
-    }
-    if (HIRAGANA_NAME_RE.test(usualName)) {
-      return Object.freeze({
-        usualName,
-        katakana: convertHiraganaToKatakana(usualName),
-        source: "hiragana"
-      });
-    }
-    if (!ROMAJI_NAME_RE.test(usualName)) {
-      return Object.freeze({ usualName, katakana: null, source: "unavailable" });
-    }
-    const words = usualName.toLowerCase().split(/[\s-]+/u).filter(Boolean);
-    const known = words.map((word) => KNOWN_KATAKANA_NAMES[word]);
-    if (known.every(Boolean)) {
-      return Object.freeze({
-        usualName,
-        katakana: known.join("・"),
-        source: "known-name"
-      });
-    }
-    const converted = words.map((word) => convertHiraganaToKatakana(convertRomajiToKana(word)));
-    if (converted.every((word) => word && !/[a-z]/iu.test(word))) {
-      return Object.freeze({
-        usualName,
-        katakana: converted.join("・"),
-        source: "romaji"
-      });
-    }
-    return Object.freeze({ usualName, katakana: null, source: "unavailable" });
-  }
-  function normalizeName(value) {
-    return value.normalize("NFKC").replace(/\s+/gu, " ").trim();
-  }
   const LESSON_ZERO_NAME_CARD_TOKEN_IDS = Object.freeze([
     "learner-name",
     "desu"
@@ -14706,9 +14705,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function sameList$3(actual, expected) {
     return actual.length === expected.length && actual.every((value, index) => value === expected[index]);
   }
-  const ACADEMY_CAST_STANDARDIZATION_RUNTIME_ASSETS = { "character.rie.comedic-glasses-right": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["dialogue:rie-light-recovery", "journal:rie-expression-gallery"], "provenance": "current-production", "files": { "default": "/academy/art/characters/rie/rie__comedic-glasses__right-three-quarter__halfbody__v001.png" } }, "character.rie.determined-glasses-left": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["dialogue:rie-decisive-guidance", "journal:rie-expression-gallery"], "provenance": "current-production", "files": { "default": "/academy/art/characters/rie/rie__determined-glasses__left-three-quarter__halfbody__v001.png" } }, "character.rie.encouraging-glasses-right": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["lesson-feedback:attempt", "dialogue:rie-listening", "journal:rie-expression-gallery"], "provenance": "current-production", "files": { "default": "/academy/art/characters/rie/rie__encouraging-glasses__right-three-quarter__halfbody__v001.png" } }, "character.rie.happy-glasses-front": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["lesson-feedback:correct-retry", "dialogue:rie-positive", "journal:rie-expression-gallery"], "provenance": "current-production", "files": { "default": "/academy/art/characters/rie/rie__happy-glasses__front-near-front__halfbody__v001.png" } }, "character.rie.neutral-glasses": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["onboarding:profile", "unlock:rie", "journal:rie", "scene:arrival-bridge", "class:people", "class:week-cast", "lesson-overview:roster", "world:person", "lesson:l1-l01:host"], "provenance": "current-production", "files": { "default": "/academy/art/characters/rie/rie__neutral-glasses__front-near-front__halfbody__v001.png" } }, "character.rie.sad-vulnerable-glasses-left": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["lesson-feedback:repair", "dialogue:rie-precise-hint", "dialogue:rie-vulnerable-reflection", "journal:rie-expression-gallery"], "provenance": "current-production", "files": { "default": "/academy/art/characters/rie/rie__sad-vulnerable-glasses__left-three-quarter__halfbody__v001.png" } }, "character.henry.standardized-determined-left-three-quarter-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:henry-expression-gallery", "cast-standardization:henry"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/henry/henry__standardized-determined__left-three-quarter__halfbody__v001.png" } }, "character.henry.standardized-encouraging-listening-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:henry-expression-gallery", "cast-standardization:henry"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/henry/henry__standardized-encouraging-listening__front-near-front__halfbody__v001.png" } }, "character.henry.standardized-neutral-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:henry", "class:people-review", "lesson-overview:roster-review", "cast-standardization:henry"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/henry/henry__standardized-neutral__front-near-front__halfbody__v001.png" } }, "character.aakash.neutral": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["journal:aakash", "class:people", "class:week-cast", "lesson-overview:roster", "world:person", "lesson:l1-l01:cast"], "provenance": "current-production", "files": { "default": "/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v009.png" } }, "character.aakash.sprite-concerned-left-three-quarter-halfbody-v005": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:aakash-expression-gallery", "cast-standardization:aakash"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/aakash/aakash__sprite__concerned__left-three-quarter__halfbody__v005.png" } }, "character.aakash.sprite-determined-left-three-quarter-v005": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:aakash-expression-gallery", "cast-standardization:aakash"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/aakash/aakash__sprite__determined__left-three-quarter__v005.png" } }, "character.aakash.sprite-embarrassed-front-near-front-halfbody-v005": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:aakash-expression-gallery", "cast-standardization:aakash"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/aakash/aakash__sprite__embarrassed__front-near-front__halfbody__v005.png" } }, "character.aakash.sprite-happy-right-three-quarter-v005": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:aakash-expression-gallery", "cast-standardization:aakash"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/aakash/aakash__sprite__happy__right-three-quarter__v005.png" } }, "character.aakash.sprite-laughing-left-three-quarter-halfbody-v005": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:aakash-expression-gallery", "cast-standardization:aakash"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/aakash/aakash__sprite__laughing__left-three-quarter__halfbody__v005.png" } }, "character.aakash.sprite-listening-right-three-quarter-v005": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:aakash-expression-gallery", "cast-standardization:aakash"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/aakash/aakash__sprite__listening__right-three-quarter__v005.png" } }, "character.aakash.sprite-surprised-right-three-quarter-halfbody-v005": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:aakash-expression-gallery", "cast-standardization:aakash"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/aakash/aakash__sprite__surprised__right-three-quarter__halfbody__v005.png" } }, "character.aakash.sprite-thoughtful-front-near-front-v005": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:aakash-expression-gallery", "cast-standardization:aakash"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/aakash/aakash__sprite__thoughtful__front-near-front__v005.png" } }, "character.aakash.standardized-determined-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:aakash-expression-gallery", "cast-standardization:aakash"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/aakash/aakash__standardized-determined__front-near-front__halfbody__v001.png" } }, "character.aakash.standardized-encouraging-listening-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:aakash-expression-gallery", "cast-standardization:aakash"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/aakash/aakash__standardized-encouraging-listening__front-near-front__halfbody__v001.png" } }, "character.aakash.standardized-happy-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:aakash-expression-gallery", "cast-standardization:aakash"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/aakash/aakash__standardized-happy__front-near-front__halfbody__v001.png" } }, "character.alex.standardized-determined-left-three-quarter-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:alex-expression-gallery", "cast-standardization:alex"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/alex/alex__standardized-determined__left-three-quarter__halfbody__v001.png" } }, "character.alex.standardized-encouraging-listening-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:alex-expression-gallery", "cast-standardization:alex"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/alex/alex__standardized-encouraging-listening__front-near-front__halfbody__v001.png" } }, "character.alex.standardized-neutral-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:alex", "class:people-review", "lesson-overview:roster-review", "cast-standardization:alex"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/alex/alex__standardized-neutral__front-near-front__halfbody__v001.png" } }, "character.tom.standardized-encouraging-listening-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:tom-expression-gallery", "cast-standardization:tom"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/tom/tom__standardized-encouraging-listening__front-near-front__halfbody__v001.png" } }, "character.tom.standardized-neutral-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:tom", "class:people-review", "lesson-overview:roster-review", "cast-standardization:tom"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/tom/tom__standardized-neutral__front-near-front__halfbody__v001.png" } }, "character.sam.standardized-encouraging-listening-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:sam-expression-gallery", "cast-standardization:sam"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/sam/sam__standardized-encouraging-listening__front-near-front__halfbody__v001.png" } }, "character.sam.standardized-neutral-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:sam", "class:people-review", "lesson-overview:roster-review", "cast-standardization:sam"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/sam/sam__standardized-neutral__front-near-front__halfbody__v001.png" } }, "character.francis.standardized-encouraging-listening-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:francis-expression-gallery", "cast-standardization:francis"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/francis/francis__standardized-encouraging-listening__front-near-front__halfbody__v001.png" } }, "character.francis.standardized-neutral-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:francis", "class:people-review", "lesson-overview:roster-review", "cast-standardization:francis"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/francis/francis__standardized-neutral__front-near-front__halfbody__v001.png" } }, "character.shin.standardized-determined-left-three-quarter-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:shin-expression-gallery", "cast-standardization:shin"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/shin/shin__standardized-determined__left-three-quarter__halfbody__v001.png" } }, "character.shin.standardized-encouraging-listening-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:shin-expression-gallery", "cast-standardization:shin"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/shin/shin__standardized-encouraging-listening__front-near-front__halfbody__v001.png" } }, "character.shin.standardized-neutral-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:shin", "class:people-review", "lesson-overview:roster-review", "cast-standardization:shin"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/shin/shin__standardized-neutral__front-near-front__halfbody__v001.png" } }, "character.jodi.standardized-encouraging-listening-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:jodi-expression-gallery", "cast-standardization:jodi"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/jodi/jodi__standardized-encouraging-listening__front-near-front__halfbody__v001.png" } }, "character.jodi.standardized-neutral-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:jodi", "class:people-review", "lesson-overview:roster-review", "cast-standardization:jodi"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/jodi/jodi__standardized-neutral__front-near-front__halfbody__v001.png" } }, "character.christian.standardized-encouraging-listening-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:christian-expression-gallery", "cast-standardization:christian"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/christian/christian__standardized-encouraging-listening__front-near-front__halfbody__v001.png" } }, "character.christian.standardized-happy-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:christian-expression-gallery", "cast-standardization:christian"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/christian/christian__standardized-happy__front-near-front__halfbody__v001.png" } }, "character.christian.standardized-neutral-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:christian", "class:people-review", "lesson-overview:roster-review", "cast-standardization:christian"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/christian/christian__standardized-neutral__front-near-front__halfbody__v001.png" } }, "character.robert.standardized-encouraging-listening-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:robert-expression-gallery", "cast-standardization:robert"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/robert/robert__standardized-encouraging-listening__front-near-front__halfbody__v001.png" } }, "character.robert.standardized-neutral-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:robert", "class:people-review", "lesson-overview:roster-review", "cast-standardization:robert"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/robert/robert__standardized-neutral__front-near-front__halfbody__v001.png" } }, "character.sophie.determined-left": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["dialogue:sophie-research", "journal:sophie-expression-gallery"], "provenance": "current-production", "files": { "default": "/academy/art/characters/sophie/sophie__determined__left-three-quarter__halfbody__v003.png" } }, "character.sophie.encouraging-front": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["dialogue:sophie-support", "journal:sophie-expression-gallery"], "provenance": "current-production", "files": { "default": "/academy/art/characters/sophie/sophie__encouraging-listening__front-near-front__halfbody__v003.png" } }, "character.sophie.neutral-right": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["world:bookshop:sophie", "journal:sophie", "class:people", "class:week-cast", "lesson-overview:roster", "world:person"], "provenance": "current-production", "files": { "default": "/academy/art/characters/sophie/sophie__bookshop-neutral__halfbody__v003.png" } }, "character.angel.standardized-encouraging-listening-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:angel-expression-gallery", "cast-standardization:angel"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/angel/angel__standardized-encouraging-listening__front-near-front__halfbody__v001.png" } }, "character.angel.standardized-neutral-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:angel", "class:people-review", "lesson-overview:roster-review", "cast-standardization:angel"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/angel/angel__standardized-neutral__front-near-front__halfbody__v001.png" } }, "character.stasi.standardized-encouraging-listening-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:stasi-expression-gallery", "cast-standardization:stasi"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/stasi/stasi__standardized-encouraging-listening__front-near-front__halfbody__v001.png" } }, "character.stasi.standardized-neutral-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:stasi", "class:people-review", "lesson-overview:roster-review", "cast-standardization:stasi"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/stasi/stasi__standardized-neutral__front-near-front__halfbody__v001.png" } }, "character.rose.standardized-encouraging-listening-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:rose-expression-gallery", "cast-standardization:rose"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/rose/rose__standardized-encouraging-listening__front-near-front__halfbody__v001.png" } }, "character.rose.standardized-neutral-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:rose", "class:people-review", "lesson-overview:roster-review", "cast-standardization:rose"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/rose/rose__standardized-neutral__front-near-front__halfbody__v001.png" } }, "character.peter.encouraging-right": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:peter-expression-gallery"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/peter/peter__encouraging__right-three-quarter__halfbody__v001.png" } }, "character.peter.neutral": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:peter", "journal:peter-expression-gallery"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/peter/peter__neutral__halfbody__v002.png" } }, "character.peter.thoughtful-left": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:peter-expression-gallery"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/peter/peter__thoughtful__left-three-quarter__halfbody__v001.png" } }, "character.felix.happy-left": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:felix-expression-gallery"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/felix/felix__happy__left-three-quarter__halfbody__v001.png" } }, "character.felix.neutral": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:felix-after-meeting", "journal:felix-expression-gallery"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/felix/felix__neutral__halfbody__v001.png" } }, "character.felix.standardized-encouraging-listening-left-three-quarter-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:felix-expression-gallery", "cast-standardization:felix"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/felix/felix__standardized-encouraging-listening__left-three-quarter__halfbody__v001.png" } }, "character.felix.surprised-right": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:felix-expression-gallery"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/felix/felix__surprised__right-three-quarter__halfbody__v001.png" } }, "character.shaun.neutral": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:shaun"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/shaun/shaun__neutral__halfbody__v001.png" } }, "character.shaun.standardized-encouraging-listening-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:shaun-expression-gallery", "cast-standardization:shaun"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/shaun/shaun__standardized-encouraging-listening__front-near-front__halfbody__v001.png" } }, "character.shaun.standardized-happy-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:shaun-expression-gallery", "cast-standardization:shaun"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/shaun/shaun__standardized-happy__front-near-front__halfbody__v001.png" } }, "character.tom2.encouraging-front": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:tom2-expression-gallery"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/tom2/tom2__encouraging-listening__front-near-front__halfbody__v001.png" } }, "character.tom2.neutral-right": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:tom2", "journal:tom2-expression-gallery"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/tom2/tom2__neutral__right-three-quarter__halfbody__v001.png" } }, "character.tom2.surprised-left": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:tom2-expression-gallery"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/tom2/tom2__surprised-shocked__left-three-quarter__halfbody__v001.png" } }, "character.steve.determined-left": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["journal:steve-expression-gallery"], "provenance": "current-production", "files": { "default": "/academy/art/characters/steve/steve__determined__left-three-quarter__halfbody__v001.png" } }, "character.steve.happy-right": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["journal:steve-expression-gallery"], "provenance": "current-production", "files": { "default": "/academy/art/characters/steve/steve__happy__right-three-quarter__halfbody__v001.png" } }, "character.steve.neutral-front": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["journal:steve", "scene:steve-introduction"], "provenance": "current-production", "files": { "default": "/academy/art/characters/steve/steve__neutral__front-near-front__halfbody__v001.png" } }, "character.steve.standardized-encouraging-listening-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:steve-expression-gallery", "cast-standardization:steve"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/steve/steve__standardized-encouraging-listening__front-near-front__halfbody__v001.png" } }, "character.steve.standardized-happy-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:steve-expression-gallery", "cast-standardization:steve"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/steve/steve__standardized-happy__front-near-front__halfbody__v001.png" } }, "character.nanako.standardized-encouraging-listening-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:nanako-expression-gallery", "cast-standardization:nanako"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/nanako/nanako__standardized-encouraging-listening__front-near-front__halfbody__v001.png" } }, "character.nanako.standardized-neutral-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:nanako", "class:people-review", "lesson-overview:roster-review", "cast-standardization:nanako"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/nanako/nanako__standardized-neutral__front-near-front__halfbody__v001.png" } }, "character.miller.standardized-encouraging-listening-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:miller-expression-gallery", "cast-standardization:miller"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/miller/miller__standardized-encouraging-listening__front-near-front__halfbody__v001.png" } }, "character.miller.standardized-neutral-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:miller", "class:people-review", "lesson-overview:roster-review", "cast-standardization:miller"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/miller/miller__standardized-neutral__front-near-front__halfbody__v001.png" } }, "character.tawapon.standardized-encouraging-listening-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:tawapon-expression-gallery", "cast-standardization:tawapon"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/tawapon/tawapon__standardized-encouraging-listening__front-near-front__halfbody__v001.png" } }, "character.tawapon.standardized-neutral-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:tawapon", "class:people-review", "lesson-overview:roster-review", "cast-standardization:tawapon"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/tawapon/tawapon__standardized-neutral__front-near-front__halfbody__v001.png" } }, "character.mary.standardized-encouraging-listening-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:mary-expression-gallery", "cast-standardization:mary"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/mary/mary__standardized-encouraging-listening__front-near-front__halfbody__v001.png" } }, "character.mary.standardized-neutral-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:mary", "class:people-review", "lesson-overview:roster-review", "cast-standardization:mary"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/mary/mary__standardized-neutral__front-near-front__halfbody__v001.png" } }, "character.takeshi.standardized-encouraging-listening-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:takeshi-expression-gallery", "cast-standardization:takeshi"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/takeshi/takeshi__standardized-encouraging-listening__front-near-front__halfbody__v001.png" } }, "character.takeshi.standardized-neutral-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:takeshi", "class:people-review", "lesson-overview:roster-review", "cast-standardization:takeshi"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/takeshi/takeshi__standardized-neutral__front-near-front__halfbody__v001.png" } }, "character.mira.neutral-umbrella-front-near-front-fullbody-v002": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["journal:mira", "class:people", "class:week-cast", "lesson-overview:roster", "world:person", "cast-standardization:mira"], "provenance": "regenerated-house-style", "files": { "default": "/academy/art/characters/mira/mira__neutral-umbrella__front-near-front__fullbody__v002.png" } }, "character.mira.encouraging-listening-umbrella-right-three-quarter-fullbody-v002": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["journal:mira-expression-gallery", "story:mira-listening", "cast-standardization:mira"], "provenance": "regenerated-house-style", "files": { "default": "/academy/art/characters/mira/mira__encouraging-listening-umbrella__right-three-quarter__fullbody__v002.png" } }, "character.mika.neutral-headphones-front-near-front-fullbody-v002": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["journal:mika", "class:people", "class:week-cast", "lesson-overview:roster", "world:person", "cast-standardization:mika"], "provenance": "regenerated-house-style", "files": { "default": "/academy/art/characters/mika/mika__neutral-headphones__front-near-front__fullbody__v002.png" } }, "character.mika.encouraging-listening-headphones-right-three-quarter-fullbody-v002": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["journal:mika-expression-gallery", "story:mika-listening", "cast-standardization:mika"], "provenance": "regenerated-house-style", "files": { "default": "/academy/art/characters/mika/mika__encouraging-listening-headphones__right-three-quarter__fullbody__v002.png" } }, "character.xingyu.neutral-short-hair-round-glasses-front-near-front-fullbody-v002": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["journal:xingyu", "class:people", "class:week-cast", "lesson-overview:roster", "world:person", "story:cast:xingyu", "cast-standardization:xingyu"], "provenance": "regenerated-house-style", "files": { "default": "/academy/art/characters/xingyu/xingyu__neutral-short-hair-round-glasses__front-near-front__fullbody__v002.png" } }, "character.xingyu.listening": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["lesson-zero:vowel-listening", "game:lesson-zero-vowel-listening-bingo", "journal:xingyu-expression-gallery", "story:cast:xingyu:encouraging-listening", "cast-standardization:xingyu"], "provenance": "regenerated-house-style", "files": { "default": "/academy/art/characters/xingyu/xingyu__encouraging-listening-short-hair-round-glasses__right-three-quarter__fullbody__v002.png" } }, "character.xingyu.happy-short-hair-round-glasses-front-near-front-fullbody-v002": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["journal:xingyu-expression-gallery", "story:cast:xingyu:happy", "cast-standardization:xingyu"], "provenance": "regenerated-house-style", "files": { "default": "/academy/art/characters/xingyu/xingyu__happy-short-hair-round-glasses__front-near-front__fullbody__v002.png" } }, "character.xingyu.thoughtful-short-hair-round-glasses-left-three-quarter-fullbody-v002": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["journal:xingyu-expression-gallery", "story:cast:xingyu:thoughtful", "cast-standardization:xingyu"], "provenance": "regenerated-house-style", "files": { "default": "/academy/art/characters/xingyu/xingyu__thoughtful-short-hair-round-glasses__left-three-quarter__fullbody__v002.png" } }, "character.xingyu.determined-short-hair-round-glasses-left-three-quarter-fullbody-v002": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["journal:xingyu-expression-gallery", "story:cast:xingyu:determined", "cast-standardization:xingyu"], "provenance": "regenerated-house-style", "files": { "default": "/academy/art/characters/xingyu/xingyu__determined-short-hair-round-glasses__left-three-quarter__fullbody__v002.png" } }, "character.xingyu.surprised-shocked-short-hair-round-glasses-right-three-quarter-fullbody-v002": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["journal:xingyu-expression-gallery", "story:cast:xingyu:surprised-shocked", "cast-standardization:xingyu"], "provenance": "regenerated-house-style", "files": { "default": "/academy/art/characters/xingyu/xingyu__surprised-shocked-short-hair-round-glasses__right-three-quarter__fullbody__v002.png" } }, "character.xingyu.sad-vulnerable-short-hair-round-glasses-left-three-quarter-fullbody-v002": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["journal:xingyu-expression-gallery", "story:cast:xingyu:sad-vulnerable", "cast-standardization:xingyu"], "provenance": "regenerated-house-style", "files": { "default": "/academy/art/characters/xingyu/xingyu__sad-vulnerable-short-hair-round-glasses__left-three-quarter__fullbody__v002.png" } }, "character.jenny.neutral-round-face-brown-hair-front-near-front-fullbody-v002": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["journal:jenny", "class:people", "class:week-cast", "lesson-overview:roster", "world:person", "story:cast:jenny", "cast-standardization:jenny"], "provenance": "regenerated-house-style", "files": { "default": "/academy/art/characters/jenny/jenny__neutral-round-face-brown-hair__front-near-front__fullbody__v002.png" } }, "character.jenny.encouraging-listening-round-face-brown-hair-right-three-quarter-fullbody-v002": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["journal:jenny-expression-gallery", "story:cast:jenny:encouraging-listening", "cast-standardization:jenny"], "provenance": "regenerated-house-style", "files": { "default": "/academy/art/characters/jenny/jenny__encouraging-listening-round-face-brown-hair__right-three-quarter__fullbody__v002.png" } }, "character.jenny.happy-round-face-brown-hair-front-near-front-fullbody-v002": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["journal:jenny-expression-gallery", "story:cast:jenny:happy", "cast-standardization:jenny"], "provenance": "regenerated-house-style", "files": { "default": "/academy/art/characters/jenny/jenny__happy-round-face-brown-hair__front-near-front__fullbody__v002.png" } }, "character.jenny.thoughtful-round-face-brown-hair-left-three-quarter-fullbody-v002": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["journal:jenny-expression-gallery", "story:cast:jenny:thoughtful", "cast-standardization:jenny"], "provenance": "regenerated-house-style", "files": { "default": "/academy/art/characters/jenny/jenny__thoughtful-round-face-brown-hair__left-three-quarter__fullbody__v002.png" } }, "character.jenny.determined-round-face-brown-hair-left-three-quarter-fullbody-v002": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["journal:jenny-expression-gallery", "story:cast:jenny:determined", "cast-standardization:jenny"], "provenance": "regenerated-house-style", "files": { "default": "/academy/art/characters/jenny/jenny__determined-round-face-brown-hair__left-three-quarter__fullbody__v002.png" } }, "character.jenny.surprised-shocked-round-face-brown-hair-right-three-quarter-fullbody-v002": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["journal:jenny-expression-gallery", "story:cast:jenny:surprised-shocked", "cast-standardization:jenny"], "provenance": "regenerated-house-style", "files": { "default": "/academy/art/characters/jenny/jenny__surprised-shocked-round-face-brown-hair__right-three-quarter__fullbody__v002.png" } }, "character.jenny.sad-vulnerable-round-face-brown-hair-left-three-quarter-fullbody-v002": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["journal:jenny-expression-gallery", "story:cast:jenny:sad-vulnerable", "cast-standardization:jenny"], "provenance": "regenerated-house-style", "files": { "default": "/academy/art/characters/jenny/jenny__sad-vulnerable-round-face-brown-hair__left-three-quarter__fullbody__v002.png" } }, "character.rie.thoughtful-glasses-left": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["dialogue:rie-reflection", "journal:rie-expression-gallery", "story:cast:rie:thoughtful", "cast-standardization:rie"], "provenance": "regenerated-house-style", "files": { "default": "/academy/art/characters/rie/rie__thoughtful-glasses__left-three-quarter__halfbody__v002.png" } }, "character.rie.surprised-shocked-glasses-right": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["dialogue:rie-surprised", "journal:rie-expression-gallery", "story:cast:rie:surprised-shocked", "cast-standardization:rie"], "provenance": "regenerated-house-style", "files": { "default": "/academy/art/characters/rie/rie__surprised-shocked-glasses__right-three-quarter__halfbody__v002.png" } }, "character.mira.happy-umbrella-front-near-front-fullbody-v002": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["journal:mira-expression-gallery", "story:cast:mira:happy", "cast-standardization:mira"], "provenance": "regenerated-house-style", "files": { "default": "/academy/art/characters/mira/mira__happy-umbrella__front-near-front__fullbody__v002.png" } }, "character.mira.thoughtful-umbrella-left-three-quarter-fullbody-v002": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["journal:mira-expression-gallery", "story:cast:mira:thoughtful", "cast-standardization:mira"], "provenance": "regenerated-house-style", "files": { "default": "/academy/art/characters/mira/mira__thoughtful-umbrella__left-three-quarter__fullbody__v002.png" } }, "character.mira.determined-umbrella-left-three-quarter-fullbody-v002": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["journal:mira-expression-gallery", "story:cast:mira:determined", "cast-standardization:mira"], "provenance": "regenerated-house-style", "files": { "default": "/academy/art/characters/mira/mira__determined-umbrella__left-three-quarter__fullbody__v002.png" } }, "character.mira.surprised-shocked-umbrella-right-three-quarter-fullbody-v002": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["journal:mira-expression-gallery", "story:cast:mira:surprised-shocked", "cast-standardization:mira"], "provenance": "regenerated-house-style", "files": { "default": "/academy/art/characters/mira/mira__surprised-shocked-umbrella__right-three-quarter__fullbody__v002.png" } }, "character.mira.sad-vulnerable-umbrella-left-three-quarter-fullbody-v002": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["journal:mira-expression-gallery", "story:cast:mira:sad-vulnerable", "cast-standardization:mira"], "provenance": "regenerated-house-style", "files": { "default": "/academy/art/characters/mira/mira__sad-vulnerable-umbrella__left-three-quarter__fullbody__v002.png" } }, "character.mika.happy-headphones-front-near-front-fullbody-v002": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["journal:mika-expression-gallery", "story:cast:mika:happy", "cast-standardization:mika"], "provenance": "regenerated-house-style", "files": { "default": "/academy/art/characters/mika/mika__happy-headphones__front-near-front__fullbody__v002.png" } }, "character.mika.thoughtful-headphones-left-three-quarter-fullbody-v002": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["journal:mika-expression-gallery", "story:cast:mika:thoughtful", "cast-standardization:mika"], "provenance": "regenerated-house-style", "files": { "default": "/academy/art/characters/mika/mika__thoughtful-headphones__left-three-quarter__fullbody__v002.png" } }, "character.mika.determined-headphones-left-three-quarter-fullbody-v002": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["journal:mika-expression-gallery", "story:cast:mika:determined", "cast-standardization:mika"], "provenance": "regenerated-house-style", "files": { "default": "/academy/art/characters/mika/mika__determined-headphones__left-three-quarter__fullbody__v002.png" } }, "character.mika.surprised-shocked-headphones-right-three-quarter-fullbody-v002": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["journal:mika-expression-gallery", "story:cast:mika:surprised-shocked", "cast-standardization:mika"], "provenance": "regenerated-house-style", "files": { "default": "/academy/art/characters/mika/mika__surprised-shocked-headphones__right-three-quarter__fullbody__v002.png" } }, "character.mika.sad-vulnerable-headphones-left-three-quarter-fullbody-v002": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["journal:mika-expression-gallery", "story:cast:mika:sad-vulnerable", "cast-standardization:mika"], "provenance": "regenerated-house-style", "files": { "default": "/academy/art/characters/mika/mika__sad-vulnerable-headphones__left-three-quarter__fullbody__v002.png" } }, "character.ruparna.neutral-front-near-front-halfbody-v002": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["journal:ruparna", "class:people", "class:week-cast", "lesson-overview:roster", "world:person", "story:cast:ruparna", "cast-standardization:ruparna"], "provenance": "regenerated-house-style", "files": { "default": "/academy/art/characters/ruparna/ruparna__neutral__front-near-front__halfbody__v002.png" } }, "character.ruparna.note-route-right-three-quarter-halfbody-v002": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["journal:ruparna-expression-gallery", "story:cast:ruparna:note-route", "cast-standardization:ruparna"], "provenance": "regenerated-house-style", "files": { "default": "/academy/art/characters/ruparna/ruparna__note-route__right-three-quarter__halfbody__v002.png" } } };
+  const ACADEMY_CAST_STANDARDIZATION_RUNTIME_ASSETS = { "character.rie.comedic-glasses-right": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["dialogue:rie-light-recovery", "journal:rie-expression-gallery"], "provenance": "current-production", "files": { "default": "/academy/art/characters/rie/rie__comedic-glasses__right-three-quarter__halfbody__v001.png" } }, "character.rie.determined-glasses-left": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["dialogue:rie-decisive-guidance", "journal:rie-expression-gallery"], "provenance": "current-production", "files": { "default": "/academy/art/characters/rie/rie__determined-glasses__left-three-quarter__halfbody__v001.png" } }, "character.rie.encouraging-glasses-right": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["lesson-feedback:attempt", "dialogue:rie-listening", "journal:rie-expression-gallery"], "provenance": "current-production", "files": { "default": "/academy/art/characters/rie/rie__encouraging-glasses__right-three-quarter__halfbody__v001.png" } }, "character.rie.happy-glasses-front": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["lesson-feedback:correct-retry", "dialogue:rie-positive", "journal:rie-expression-gallery"], "provenance": "current-production", "files": { "default": "/academy/art/characters/rie/rie__happy-glasses__front-near-front__halfbody__v001.png" } }, "character.rie.neutral-glasses": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["onboarding:profile", "unlock:rie", "journal:rie", "scene:arrival-bridge", "class:people", "class:week-cast", "lesson-overview:roster", "world:person", "lesson:l1-l01:host"], "provenance": "current-production", "files": { "default": "/academy/art/characters/rie/rie__neutral-glasses__front-near-front__halfbody__v001.png" } }, "character.rie.sad-vulnerable-glasses-left": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["lesson-feedback:repair", "dialogue:rie-precise-hint", "dialogue:rie-vulnerable-reflection", "journal:rie-expression-gallery"], "provenance": "current-production", "files": { "default": "/academy/art/characters/rie/rie__sad-vulnerable-glasses__left-three-quarter__halfbody__v001.png" } }, "character.henry.standardized-determined-left-three-quarter-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:henry-expression-gallery", "cast-standardization:henry"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/henry/henry__standardized-determined__left-three-quarter__halfbody__v001.png" } }, "character.henry.standardized-encouraging-listening-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:henry-expression-gallery", "cast-standardization:henry"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/henry/henry__standardized-encouraging-listening__front-near-front__halfbody__v001.png" } }, "character.henry.standardized-neutral-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:henry", "class:people-review", "lesson-overview:roster-review", "cast-standardization:henry"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/henry/henry__standardized-neutral__front-near-front__halfbody__v001.png" } }, "character.aakash.neutral": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["journal:aakash", "class:people", "class:week-cast", "lesson-overview:roster", "world:person", "lesson:l1-l01:cast"], "provenance": "current-production", "files": { "default": "/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v009.png" } }, "character.aakash.sprite-concerned-left-three-quarter-halfbody-v005": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:aakash-expression-gallery", "cast-standardization:aakash"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/aakash/aakash__sprite__concerned__left-three-quarter__halfbody__v005.png" } }, "character.aakash.sprite-determined-left-three-quarter-v005": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:aakash-expression-gallery", "cast-standardization:aakash"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/aakash/aakash__sprite__determined__left-three-quarter__v005.png" } }, "character.aakash.sprite-embarrassed-front-near-front-halfbody-v005": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:aakash-expression-gallery", "cast-standardization:aakash"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/aakash/aakash__sprite__embarrassed__front-near-front__halfbody__v005.png" } }, "character.aakash.sprite-happy-right-three-quarter-v005": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:aakash-expression-gallery", "cast-standardization:aakash"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/aakash/aakash__sprite__happy__right-three-quarter__v005.png" } }, "character.aakash.sprite-laughing-left-three-quarter-halfbody-v005": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:aakash-expression-gallery", "cast-standardization:aakash"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/aakash/aakash__sprite__laughing__left-three-quarter__halfbody__v005.png" } }, "character.aakash.sprite-listening-right-three-quarter-v005": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:aakash-expression-gallery", "cast-standardization:aakash"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/aakash/aakash__sprite__listening__right-three-quarter__v005.png" } }, "character.aakash.sprite-surprised-right-three-quarter-halfbody-v005": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:aakash-expression-gallery", "cast-standardization:aakash"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/aakash/aakash__sprite__surprised__right-three-quarter__halfbody__v005.png" } }, "character.aakash.sprite-thoughtful-front-near-front-v005": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:aakash-expression-gallery", "cast-standardization:aakash"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/aakash/aakash__sprite__thoughtful__front-near-front__v005.png" } }, "character.aakash.standardized-determined-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:aakash-expression-gallery", "cast-standardization:aakash"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/aakash/aakash__standardized-determined__front-near-front__halfbody__v001.png" } }, "character.aakash.standardized-encouraging-listening-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:aakash-expression-gallery", "cast-standardization:aakash"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/aakash/aakash__standardized-encouraging-listening__front-near-front__halfbody__v001.png" } }, "character.aakash.standardized-happy-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:aakash-expression-gallery", "cast-standardization:aakash"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/aakash/aakash__standardized-happy__front-near-front__halfbody__v001.png" } }, "character.alex.standardized-determined-left-three-quarter-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:alex-expression-gallery", "cast-standardization:alex"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/alex/alex__standardized-determined__left-three-quarter__halfbody__v001.png" } }, "character.alex.standardized-encouraging-listening-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:alex-expression-gallery", "cast-standardization:alex"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/alex/alex__standardized-encouraging-listening__front-near-front__halfbody__v001.png" } }, "character.alex.standardized-neutral-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:alex", "class:people-review", "lesson-overview:roster-review", "cast-standardization:alex"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/alex/alex__standardized-neutral__front-near-front__halfbody__v001.png" } }, "character.tom.standardized-encouraging-listening-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:tom-expression-gallery", "cast-standardization:tom"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/tom/tom__standardized-encouraging-listening__front-near-front__halfbody__v001.png" } }, "character.tom.standardized-neutral-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:tom", "class:people-review", "lesson-overview:roster-review", "cast-standardization:tom"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/tom/tom__standardized-neutral__front-near-front__halfbody__v001.png" } }, "character.francis.standardized-encouraging-listening-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:francis-expression-gallery", "cast-standardization:francis"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/francis/francis__standardized-encouraging-listening__front-near-front__halfbody__v001.png" } }, "character.francis.standardized-neutral-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:francis", "class:people-review", "lesson-overview:roster-review", "cast-standardization:francis"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/francis/francis__standardized-neutral__front-near-front__halfbody__v001.png" } }, "character.shin.standardized-determined-left-three-quarter-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:shin-expression-gallery", "cast-standardization:shin"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/shin/shin__standardized-determined__left-three-quarter__halfbody__v001.png" } }, "character.shin.standardized-encouraging-listening-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:shin-expression-gallery", "cast-standardization:shin"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/shin/shin__standardized-encouraging-listening__front-near-front__halfbody__v001.png" } }, "character.shin.standardized-neutral-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:shin", "class:people-review", "lesson-overview:roster-review", "cast-standardization:shin"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/shin/shin__standardized-neutral__front-near-front__halfbody__v001.png" } }, "character.jodi.standardized-encouraging-listening-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:jodi-expression-gallery", "cast-standardization:jodi"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/jodi/jodi__standardized-encouraging-listening__front-near-front__halfbody__v001.png" } }, "character.jodi.standardized-neutral-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:jodi", "class:people-review", "lesson-overview:roster-review", "cast-standardization:jodi"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/jodi/jodi__standardized-neutral__front-near-front__halfbody__v001.png" } }, "character.christian.standardized-encouraging-listening-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:christian-expression-gallery", "cast-standardization:christian"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/christian/christian__standardized-encouraging-listening__front-near-front__halfbody__v001.png" } }, "character.christian.standardized-happy-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:christian-expression-gallery", "cast-standardization:christian"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/christian/christian__standardized-happy__front-near-front__halfbody__v001.png" } }, "character.christian.standardized-neutral-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:christian", "class:people-review", "lesson-overview:roster-review", "cast-standardization:christian"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/christian/christian__standardized-neutral__front-near-front__halfbody__v001.png" } }, "character.robert.standardized-encouraging-listening-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:robert-expression-gallery", "cast-standardization:robert"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/robert/robert__standardized-encouraging-listening__front-near-front__halfbody__v001.png" } }, "character.robert.standardized-neutral-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:robert", "class:people-review", "lesson-overview:roster-review", "cast-standardization:robert"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/robert/robert__standardized-neutral__front-near-front__halfbody__v001.png" } }, "character.sophie.determined-left": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["dialogue:sophie-research", "journal:sophie-expression-gallery"], "provenance": "current-production", "files": { "default": "/academy/art/characters/sophie/sophie__determined__left-three-quarter__halfbody__v003.png" } }, "character.sophie.encouraging-front": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["dialogue:sophie-support", "journal:sophie-expression-gallery"], "provenance": "current-production", "files": { "default": "/academy/art/characters/sophie/sophie__encouraging-listening__front-near-front__halfbody__v003.png" } }, "character.sophie.neutral-right": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["world:bookshop:sophie", "journal:sophie", "class:people", "class:week-cast", "lesson-overview:roster", "world:person"], "provenance": "current-production", "files": { "default": "/academy/art/characters/sophie/sophie__bookshop-neutral__halfbody__v003.png" } }, "character.angel.standardized-encouraging-listening-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:angel-expression-gallery", "cast-standardization:angel"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/angel/angel__standardized-encouraging-listening__front-near-front__halfbody__v001.png" } }, "character.angel.standardized-neutral-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:angel", "class:people-review", "lesson-overview:roster-review", "cast-standardization:angel"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/angel/angel__standardized-neutral__front-near-front__halfbody__v001.png" } }, "character.stasi.standardized-encouraging-listening-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:stasi-expression-gallery", "cast-standardization:stasi"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/stasi/stasi__standardized-encouraging-listening__front-near-front__halfbody__v001.png" } }, "character.stasi.standardized-neutral-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:stasi", "class:people-review", "lesson-overview:roster-review", "cast-standardization:stasi"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/stasi/stasi__standardized-neutral__front-near-front__halfbody__v001.png" } }, "character.rose.standardized-encouraging-listening-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:rose-expression-gallery", "cast-standardization:rose"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/rose/rose__standardized-encouraging-listening__front-near-front__halfbody__v001.png" } }, "character.rose.standardized-neutral-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:rose", "class:people-review", "lesson-overview:roster-review", "cast-standardization:rose"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/rose/rose__standardized-neutral__front-near-front__halfbody__v001.png" } }, "character.peter.encouraging-right": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:peter-expression-gallery"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/peter/peter__encouraging__right-three-quarter__halfbody__v001.png" } }, "character.peter.neutral": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:peter", "journal:peter-expression-gallery"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/peter/peter__neutral__halfbody__v002.png" } }, "character.peter.thoughtful-left": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:peter-expression-gallery"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/peter/peter__thoughtful__left-three-quarter__halfbody__v001.png" } }, "character.felix.happy-left": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:felix-expression-gallery"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/felix/felix__happy__left-three-quarter__halfbody__v001.png" } }, "character.felix.neutral": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:felix-after-meeting", "journal:felix-expression-gallery"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/felix/felix__neutral__halfbody__v001.png" } }, "character.felix.standardized-encouraging-listening-left-three-quarter-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:felix-expression-gallery", "cast-standardization:felix"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/felix/felix__standardized-encouraging-listening__left-three-quarter__halfbody__v001.png" } }, "character.felix.surprised-right": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:felix-expression-gallery"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/felix/felix__surprised__right-three-quarter__halfbody__v001.png" } }, "character.shaun.neutral": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:shaun"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/shaun/shaun__neutral__halfbody__v001.png" } }, "character.shaun.standardized-encouraging-listening-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:shaun-expression-gallery", "cast-standardization:shaun"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/shaun/shaun__standardized-encouraging-listening__front-near-front__halfbody__v001.png" } }, "character.shaun.standardized-happy-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:shaun-expression-gallery", "cast-standardization:shaun"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/shaun/shaun__standardized-happy__front-near-front__halfbody__v001.png" } }, "character.tom2.encouraging-front": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:tom2-expression-gallery"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/tom2/tom2__encouraging-listening__front-near-front__halfbody__v001.png" } }, "character.tom2.neutral-right": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:tom2", "journal:tom2-expression-gallery"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/tom2/tom2__neutral__right-three-quarter__halfbody__v001.png" } }, "character.tom2.surprised-left": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:tom2-expression-gallery"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/tom2/tom2__surprised-shocked__left-three-quarter__halfbody__v001.png" } }, "character.steve.determined-left": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["journal:steve-expression-gallery"], "provenance": "current-production", "files": { "default": "/academy/art/characters/steve/steve__determined__left-three-quarter__halfbody__v001.png" } }, "character.steve.happy-right": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["journal:steve-expression-gallery"], "provenance": "current-production", "files": { "default": "/academy/art/characters/steve/steve__happy__right-three-quarter__halfbody__v001.png" } }, "character.steve.neutral-front": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["journal:steve", "scene:steve-introduction"], "provenance": "current-production", "files": { "default": "/academy/art/characters/steve/steve__neutral__front-near-front__halfbody__v001.png" } }, "character.steve.standardized-encouraging-listening-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:steve-expression-gallery", "cast-standardization:steve"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/steve/steve__standardized-encouraging-listening__front-near-front__halfbody__v001.png" } }, "character.steve.standardized-happy-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:steve-expression-gallery", "cast-standardization:steve"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/steve/steve__standardized-happy__front-near-front__halfbody__v001.png" } }, "character.nanako.standardized-encouraging-listening-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:nanako-expression-gallery", "cast-standardization:nanako"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/nanako/nanako__standardized-encouraging-listening__front-near-front__halfbody__v001.png" } }, "character.nanako.standardized-neutral-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:nanako", "class:people-review", "lesson-overview:roster-review", "cast-standardization:nanako"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/nanako/nanako__standardized-neutral__front-near-front__halfbody__v001.png" } }, "character.miller.standardized-encouraging-listening-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:miller-expression-gallery", "cast-standardization:miller"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/miller/miller__standardized-encouraging-listening__front-near-front__halfbody__v001.png" } }, "character.miller.standardized-neutral-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:miller", "class:people-review", "lesson-overview:roster-review", "cast-standardization:miller"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/miller/miller__standardized-neutral__front-near-front__halfbody__v001.png" } }, "character.tawapon.standardized-encouraging-listening-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:tawapon-expression-gallery", "cast-standardization:tawapon"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/tawapon/tawapon__standardized-encouraging-listening__front-near-front__halfbody__v001.png" } }, "character.tawapon.standardized-neutral-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:tawapon", "class:people-review", "lesson-overview:roster-review", "cast-standardization:tawapon"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/tawapon/tawapon__standardized-neutral__front-near-front__halfbody__v001.png" } }, "character.mary.standardized-encouraging-listening-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:mary-expression-gallery", "cast-standardization:mary"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/mary/mary__standardized-encouraging-listening__front-near-front__halfbody__v001.png" } }, "character.mary.standardized-neutral-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:mary", "class:people-review", "lesson-overview:roster-review", "cast-standardization:mary"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/mary/mary__standardized-neutral__front-near-front__halfbody__v001.png" } }, "character.takeshi.standardized-encouraging-listening-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:takeshi-expression-gallery", "cast-standardization:takeshi"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/takeshi/takeshi__standardized-encouraging-listening__front-near-front__halfbody__v001.png" } }, "character.takeshi.standardized-neutral-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "review-preview", "runtimeHomes": ["journal:takeshi", "class:people-review", "lesson-overview:roster-review", "cast-standardization:takeshi"], "provenance": "recovered-academy-tree", "files": { "default": "/academy/art/characters/takeshi/takeshi__standardized-neutral__front-near-front__halfbody__v001.png" } }, "character.mira.neutral-umbrella-front-near-front-fullbody-v002": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["journal:mira", "class:people", "class:week-cast", "lesson-overview:roster", "world:person", "cast-standardization:mira"], "provenance": "regenerated-house-style", "files": { "default": "/academy/art/characters/mira/mira__neutral-umbrella__front-near-front__fullbody__v002.png" } }, "character.mira.encouraging-listening-umbrella-right-three-quarter-fullbody-v002": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["journal:mira-expression-gallery", "story:mira-listening", "cast-standardization:mira"], "provenance": "regenerated-house-style", "files": { "default": "/academy/art/characters/mira/mira__encouraging-listening-umbrella__right-three-quarter__fullbody__v002.png" } }, "character.mika.neutral-headphones-front-near-front-fullbody-v002": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["journal:mika", "class:people", "class:week-cast", "lesson-overview:roster", "world:person", "cast-standardization:mika"], "provenance": "regenerated-house-style", "files": { "default": "/academy/art/characters/mika/mika__neutral-headphones__front-near-front__fullbody__v002.png" } }, "character.mika.encouraging-listening-headphones-right-three-quarter-fullbody-v002": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["journal:mika-expression-gallery", "story:mika-listening", "cast-standardization:mika"], "provenance": "regenerated-house-style", "files": { "default": "/academy/art/characters/mika/mika__encouraging-listening-headphones__right-three-quarter__fullbody__v002.png" } }, "character.xingyu.neutral-short-hair-round-glasses-front-near-front-fullbody-v002": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["journal:xingyu", "class:people", "class:week-cast", "lesson-overview:roster", "world:person", "story:cast:xingyu", "cast-standardization:xingyu"], "provenance": "regenerated-house-style", "files": { "default": "/academy/art/characters/xingyu/xingyu__neutral-short-hair-round-glasses__front-near-front__fullbody__v002.png" } }, "character.xingyu.listening": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["lesson-zero:vowel-listening", "game:lesson-zero-vowel-listening-bingo", "journal:xingyu-expression-gallery", "story:cast:xingyu:encouraging-listening", "cast-standardization:xingyu"], "provenance": "regenerated-house-style", "files": { "default": "/academy/art/characters/xingyu/xingyu__encouraging-listening-short-hair-round-glasses__right-three-quarter__fullbody__v002.png" } }, "character.xingyu.happy-short-hair-round-glasses-front-near-front-fullbody-v002": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["journal:xingyu-expression-gallery", "story:cast:xingyu:happy", "cast-standardization:xingyu"], "provenance": "regenerated-house-style", "files": { "default": "/academy/art/characters/xingyu/xingyu__happy-short-hair-round-glasses__front-near-front__fullbody__v002.png" } }, "character.xingyu.thoughtful-short-hair-round-glasses-left-three-quarter-fullbody-v002": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["journal:xingyu-expression-gallery", "story:cast:xingyu:thoughtful", "cast-standardization:xingyu"], "provenance": "regenerated-house-style", "files": { "default": "/academy/art/characters/xingyu/xingyu__thoughtful-short-hair-round-glasses__left-three-quarter__fullbody__v002.png" } }, "character.xingyu.determined-short-hair-round-glasses-left-three-quarter-fullbody-v002": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["journal:xingyu-expression-gallery", "story:cast:xingyu:determined", "cast-standardization:xingyu"], "provenance": "regenerated-house-style", "files": { "default": "/academy/art/characters/xingyu/xingyu__determined-short-hair-round-glasses__left-three-quarter__fullbody__v002.png" } }, "character.xingyu.surprised-shocked-short-hair-round-glasses-right-three-quarter-fullbody-v002": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["journal:xingyu-expression-gallery", "story:cast:xingyu:surprised-shocked", "cast-standardization:xingyu"], "provenance": "regenerated-house-style", "files": { "default": "/academy/art/characters/xingyu/xingyu__surprised-shocked-short-hair-round-glasses__right-three-quarter__fullbody__v002.png" } }, "character.xingyu.sad-vulnerable-short-hair-round-glasses-left-three-quarter-fullbody-v002": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["journal:xingyu-expression-gallery", "story:cast:xingyu:sad-vulnerable", "cast-standardization:xingyu"], "provenance": "regenerated-house-style", "files": { "default": "/academy/art/characters/xingyu/xingyu__sad-vulnerable-short-hair-round-glasses__left-three-quarter__fullbody__v002.png" } }, "character.jenny.neutral-round-face-brown-hair-front-near-front-fullbody-v002": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["journal:jenny", "class:people", "class:week-cast", "lesson-overview:roster", "world:person", "story:cast:jenny", "cast-standardization:jenny"], "provenance": "regenerated-house-style", "files": { "default": "/academy/art/characters/jenny/jenny__neutral-round-face-brown-hair__front-near-front__fullbody__v002.png" } }, "character.jenny.encouraging-listening-round-face-brown-hair-right-three-quarter-fullbody-v002": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["journal:jenny-expression-gallery", "story:cast:jenny:encouraging-listening", "cast-standardization:jenny"], "provenance": "regenerated-house-style", "files": { "default": "/academy/art/characters/jenny/jenny__encouraging-listening-round-face-brown-hair__right-three-quarter__fullbody__v002.png" } }, "character.jenny.happy-round-face-brown-hair-front-near-front-fullbody-v002": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["journal:jenny-expression-gallery", "story:cast:jenny:happy", "cast-standardization:jenny"], "provenance": "regenerated-house-style", "files": { "default": "/academy/art/characters/jenny/jenny__happy-round-face-brown-hair__front-near-front__fullbody__v002.png" } }, "character.jenny.thoughtful-round-face-brown-hair-left-three-quarter-fullbody-v002": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["journal:jenny-expression-gallery", "story:cast:jenny:thoughtful", "cast-standardization:jenny"], "provenance": "regenerated-house-style", "files": { "default": "/academy/art/characters/jenny/jenny__thoughtful-round-face-brown-hair__left-three-quarter__fullbody__v002.png" } }, "character.jenny.determined-round-face-brown-hair-left-three-quarter-fullbody-v002": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["journal:jenny-expression-gallery", "story:cast:jenny:determined", "cast-standardization:jenny"], "provenance": "regenerated-house-style", "files": { "default": "/academy/art/characters/jenny/jenny__determined-round-face-brown-hair__left-three-quarter__fullbody__v002.png" } }, "character.jenny.surprised-shocked-round-face-brown-hair-right-three-quarter-fullbody-v002": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["journal:jenny-expression-gallery", "story:cast:jenny:surprised-shocked", "cast-standardization:jenny"], "provenance": "regenerated-house-style", "files": { "default": "/academy/art/characters/jenny/jenny__surprised-shocked-round-face-brown-hair__right-three-quarter__fullbody__v002.png" } }, "character.jenny.sad-vulnerable-round-face-brown-hair-left-three-quarter-fullbody-v002": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["journal:jenny-expression-gallery", "story:cast:jenny:sad-vulnerable", "cast-standardization:jenny"], "provenance": "regenerated-house-style", "files": { "default": "/academy/art/characters/jenny/jenny__sad-vulnerable-round-face-brown-hair__left-three-quarter__fullbody__v002.png" } }, "character.rie.thoughtful-glasses-left": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["dialogue:rie-reflection", "journal:rie-expression-gallery", "story:cast:rie:thoughtful", "cast-standardization:rie"], "provenance": "regenerated-house-style", "files": { "default": "/academy/art/characters/rie/rie__thoughtful-glasses__left-three-quarter__halfbody__v002.png" } }, "character.rie.surprised-shocked-glasses-right": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["dialogue:rie-surprised", "journal:rie-expression-gallery", "story:cast:rie:surprised-shocked", "cast-standardization:rie"], "provenance": "regenerated-house-style", "files": { "default": "/academy/art/characters/rie/rie__surprised-shocked-glasses__right-three-quarter__halfbody__v002.png" } }, "character.mira.happy-umbrella-front-near-front-fullbody-v002": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["journal:mira-expression-gallery", "story:cast:mira:happy", "cast-standardization:mira"], "provenance": "regenerated-house-style", "files": { "default": "/academy/art/characters/mira/mira__happy-umbrella__front-near-front__fullbody__v002.png" } }, "character.mira.thoughtful-umbrella-left-three-quarter-fullbody-v002": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["journal:mira-expression-gallery", "story:cast:mira:thoughtful", "cast-standardization:mira"], "provenance": "regenerated-house-style", "files": { "default": "/academy/art/characters/mira/mira__thoughtful-umbrella__left-three-quarter__fullbody__v002.png" } }, "character.mira.determined-umbrella-left-three-quarter-fullbody-v002": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["journal:mira-expression-gallery", "story:cast:mira:determined", "cast-standardization:mira"], "provenance": "regenerated-house-style", "files": { "default": "/academy/art/characters/mira/mira__determined-umbrella__left-three-quarter__fullbody__v002.png" } }, "character.mira.surprised-shocked-umbrella-right-three-quarter-fullbody-v002": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["journal:mira-expression-gallery", "story:cast:mira:surprised-shocked", "cast-standardization:mira"], "provenance": "regenerated-house-style", "files": { "default": "/academy/art/characters/mira/mira__surprised-shocked-umbrella__right-three-quarter__fullbody__v002.png" } }, "character.mira.sad-vulnerable-umbrella-left-three-quarter-fullbody-v002": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["journal:mira-expression-gallery", "story:cast:mira:sad-vulnerable", "cast-standardization:mira"], "provenance": "regenerated-house-style", "files": { "default": "/academy/art/characters/mira/mira__sad-vulnerable-umbrella__left-three-quarter__fullbody__v002.png" } }, "character.mika.happy-headphones-front-near-front-fullbody-v002": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["journal:mika-expression-gallery", "story:cast:mika:happy", "cast-standardization:mika"], "provenance": "regenerated-house-style", "files": { "default": "/academy/art/characters/mika/mika__happy-headphones__front-near-front__fullbody__v002.png" } }, "character.mika.thoughtful-headphones-left-three-quarter-fullbody-v002": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["journal:mika-expression-gallery", "story:cast:mika:thoughtful", "cast-standardization:mika"], "provenance": "regenerated-house-style", "files": { "default": "/academy/art/characters/mika/mika__thoughtful-headphones__left-three-quarter__fullbody__v002.png" } }, "character.mika.determined-headphones-left-three-quarter-fullbody-v002": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["journal:mika-expression-gallery", "story:cast:mika:determined", "cast-standardization:mika"], "provenance": "regenerated-house-style", "files": { "default": "/academy/art/characters/mika/mika__determined-headphones__left-three-quarter__fullbody__v002.png" } }, "character.mika.surprised-shocked-headphones-right-three-quarter-fullbody-v002": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["journal:mika-expression-gallery", "story:cast:mika:surprised-shocked", "cast-standardization:mika"], "provenance": "regenerated-house-style", "files": { "default": "/academy/art/characters/mika/mika__surprised-shocked-headphones__right-three-quarter__fullbody__v002.png" } }, "character.mika.sad-vulnerable-headphones-left-three-quarter-fullbody-v002": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["journal:mika-expression-gallery", "story:cast:mika:sad-vulnerable", "cast-standardization:mika"], "provenance": "regenerated-house-style", "files": { "default": "/academy/art/characters/mika/mika__sad-vulnerable-headphones__left-three-quarter__fullbody__v002.png" } }, "character.ruparna.neutral-front-near-front-halfbody-v002": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["journal:ruparna", "class:people", "class:week-cast", "lesson-overview:roster", "world:person", "story:cast:ruparna", "cast-standardization:ruparna"], "provenance": "regenerated-house-style", "files": { "default": "/academy/art/characters/ruparna/ruparna__neutral__front-near-front__halfbody__v002.png" } }, "character.ruparna.note-route-right-three-quarter-halfbody-v002": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["journal:ruparna-expression-gallery", "story:cast:ruparna:note-route", "cast-standardization:ruparna"], "provenance": "regenerated-house-style", "files": { "default": "/academy/art/characters/ruparna/ruparna__note-route__right-three-quarter__halfbody__v002.png" } }, "character.sam.standardized-neutral-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["journal:sam", "class:people", "class:week-cast", "lesson-overview:roster", "world:person", "story:cast:sam", "cast-standardization:sam"], "provenance": "regenerated-house-style", "files": { "default": "/academy/art/characters/sam/sam__standardized-neutral__front-near-front__halfbody__v001.png" } }, "character.sam.standardized-encouraging-listening-front-near-front-halfbody-v001": { "kind": "character-sprite", "status": "approved", "runtimeHomes": ["journal:sam-expression-gallery", "story:cast:sam:recording-boundary", "cast-standardization:sam"], "provenance": "regenerated-house-style", "files": { "default": "/academy/art/characters/sam/sam__standardized-encouraging-listening__front-near-front__halfbody__v001.png" } } };
   const ACADEMY_CAST_STANDARDIZATION_JOURNAL_REVIEW = { "rie": "/academy/art/characters/rie/rie__neutral-glasses__front-near-front__halfbody__v001.png", "henry": "/academy/art/characters/henry/henry__standardized-neutral__front-near-front__halfbody__v001.png", "aakash": "/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v009.png", "alex": "/academy/art/characters/alex/alex__standardized-neutral__front-near-front__halfbody__v001.png", "tom": "/academy/art/characters/tom/tom__standardized-neutral__front-near-front__halfbody__v001.png", "sam": "/academy/art/characters/sam/sam__standardized-neutral__front-near-front__halfbody__v001.png", "francis": "/academy/art/characters/francis/francis__standardized-neutral__front-near-front__halfbody__v001.png", "shin": "/academy/art/characters/shin/shin__standardized-neutral__front-near-front__halfbody__v001.png", "jodi": "/academy/art/characters/jodi/jodi__standardized-neutral__front-near-front__halfbody__v001.png", "christian": "/academy/art/characters/christian/christian__standardized-neutral__front-near-front__halfbody__v001.png", "jenny": "/academy/art/characters/jenny/jenny__neutral-round-face-brown-hair__front-near-front__fullbody__v002.png", "robert": "/academy/art/characters/robert/robert__standardized-neutral__front-near-front__halfbody__v001.png", "mika": "/academy/art/characters/mika/mika__neutral-headphones__front-near-front__fullbody__v002.png", "sophie": "/academy/art/characters/sophie/sophie__bookshop-neutral__halfbody__v003.png", "xingyu": "/academy/art/characters/xingyu/xingyu__neutral-short-hair-round-glasses__front-near-front__fullbody__v002.png", "angel": "/academy/art/characters/angel/angel__standardized-neutral__front-near-front__halfbody__v001.png", "stasi": "/academy/art/characters/stasi/stasi__standardized-neutral__front-near-front__halfbody__v001.png", "ruparna": "/academy/art/characters/ruparna/ruparna__neutral__front-near-front__halfbody__v002.png", "rose": "/academy/art/characters/rose/rose__standardized-neutral__front-near-front__halfbody__v001.png", "peter": "/academy/art/characters/peter/peter__neutral__halfbody__v002.png", "felix": "/academy/art/characters/felix/felix__neutral__halfbody__v001.png", "shaun": "/academy/art/characters/shaun/shaun__neutral__halfbody__v001.png", "tom2": "/academy/art/characters/tom2/tom2__neutral__right-three-quarter__halfbody__v001.png", "steve": "/academy/art/characters/steve/steve__neutral__front-near-front__halfbody__v001.png", "nanako": "/academy/art/characters/nanako/nanako__standardized-neutral__front-near-front__halfbody__v001.png", "mira": "/academy/art/characters/mira/mira__neutral-umbrella__front-near-front__fullbody__v002.png", "miller": "/academy/art/characters/miller/miller__standardized-neutral__front-near-front__halfbody__v001.png", "tawapon": "/academy/art/characters/tawapon/tawapon__standardized-neutral__front-near-front__halfbody__v001.png", "mary": "/academy/art/characters/mary/mary__standardized-neutral__front-near-front__halfbody__v001.png", "takeshi": "/academy/art/characters/takeshi/takeshi__standardized-neutral__front-near-front__halfbody__v001.png" };
-  const ACADEMY_CAST_STANDARDIZATION_GALLERIES = { "rie": { "comedic:right-three-quarter": "/academy/art/characters/rie/rie__comedic-glasses__right-three-quarter__halfbody__v001.png", "determined:left-three-quarter": "/academy/art/characters/rie/rie__determined-glasses__left-three-quarter__halfbody__v001.png", "encouraging-listening:right-three-quarter": "/academy/art/characters/rie/rie__encouraging-glasses__right-three-quarter__halfbody__v001.png", "happy:front-near-front": "/academy/art/characters/rie/rie__happy-glasses__front-near-front__halfbody__v001.png", "neutral:front-near-front": "/academy/art/characters/rie/rie__neutral-glasses__front-near-front__halfbody__v001.png", "sad-vulnerable:left-three-quarter": "/academy/art/characters/rie/rie__sad-vulnerable-glasses__left-three-quarter__halfbody__v001.png", "thoughtful:left-three-quarter": "/academy/art/characters/rie/rie__thoughtful-glasses__left-three-quarter__halfbody__v002.png", "surprised-shocked:right-three-quarter": "/academy/art/characters/rie/rie__surprised-shocked-glasses__right-three-quarter__halfbody__v002.png" }, "henry": { "determined:left-three-quarter": "/academy/art/characters/henry/henry__standardized-determined__left-three-quarter__halfbody__v001.png", "encouraging-listening:front-near-front": "/academy/art/characters/henry/henry__standardized-encouraging-listening__front-near-front__halfbody__v001.png", "neutral:front-near-front": "/academy/art/characters/henry/henry__standardized-neutral__front-near-front__halfbody__v001.png" }, "aakash": { "neutral:front-near-front": "/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v009.png", "sad-vulnerable:left-three-quarter": "/academy/art/characters/aakash/aakash__sprite__concerned__left-three-quarter__halfbody__v005.png", "determined:left-three-quarter": "/academy/art/characters/aakash/aakash__sprite__determined__left-three-quarter__v005.png", "embarrassed:front-near-front": "/academy/art/characters/aakash/aakash__sprite__embarrassed__front-near-front__halfbody__v005.png", "happy:right-three-quarter": "/academy/art/characters/aakash/aakash__sprite__happy__right-three-quarter__v005.png", "happy:left-three-quarter": "/academy/art/characters/aakash/aakash__sprite__laughing__left-three-quarter__halfbody__v005.png", "encouraging-listening:right-three-quarter": "/academy/art/characters/aakash/aakash__sprite__listening__right-three-quarter__v005.png", "surprised-shocked:right-three-quarter": "/academy/art/characters/aakash/aakash__sprite__surprised__right-three-quarter__halfbody__v005.png", "thoughtful:front-near-front": "/academy/art/characters/aakash/aakash__sprite__thoughtful__front-near-front__v005.png", "determined:front-near-front": "/academy/art/characters/aakash/aakash__standardized-determined__front-near-front__halfbody__v001.png", "encouraging-listening:front-near-front": "/academy/art/characters/aakash/aakash__standardized-encouraging-listening__front-near-front__halfbody__v001.png", "happy:front-near-front": "/academy/art/characters/aakash/aakash__standardized-happy__front-near-front__halfbody__v001.png" }, "alex": { "determined:left-three-quarter": "/academy/art/characters/alex/alex__standardized-determined__left-three-quarter__halfbody__v001.png", "encouraging-listening:front-near-front": "/academy/art/characters/alex/alex__standardized-encouraging-listening__front-near-front__halfbody__v001.png", "neutral:front-near-front": "/academy/art/characters/alex/alex__standardized-neutral__front-near-front__halfbody__v001.png" }, "tom": { "encouraging-listening:front-near-front": "/academy/art/characters/tom/tom__standardized-encouraging-listening__front-near-front__halfbody__v001.png", "neutral:front-near-front": "/academy/art/characters/tom/tom__standardized-neutral__front-near-front__halfbody__v001.png" }, "sam": { "encouraging-listening:front-near-front": "/academy/art/characters/sam/sam__standardized-encouraging-listening__front-near-front__halfbody__v001.png", "neutral:front-near-front": "/academy/art/characters/sam/sam__standardized-neutral__front-near-front__halfbody__v001.png" }, "francis": { "encouraging-listening:front-near-front": "/academy/art/characters/francis/francis__standardized-encouraging-listening__front-near-front__halfbody__v001.png", "neutral:front-near-front": "/academy/art/characters/francis/francis__standardized-neutral__front-near-front__halfbody__v001.png" }, "shin": { "determined:left-three-quarter": "/academy/art/characters/shin/shin__standardized-determined__left-three-quarter__halfbody__v001.png", "encouraging-listening:front-near-front": "/academy/art/characters/shin/shin__standardized-encouraging-listening__front-near-front__halfbody__v001.png", "neutral:front-near-front": "/academy/art/characters/shin/shin__standardized-neutral__front-near-front__halfbody__v001.png" }, "jodi": { "encouraging-listening:front-near-front": "/academy/art/characters/jodi/jodi__standardized-encouraging-listening__front-near-front__halfbody__v001.png", "neutral:front-near-front": "/academy/art/characters/jodi/jodi__standardized-neutral__front-near-front__halfbody__v001.png" }, "christian": { "encouraging-listening:front-near-front": "/academy/art/characters/christian/christian__standardized-encouraging-listening__front-near-front__halfbody__v001.png", "happy:front-near-front": "/academy/art/characters/christian/christian__standardized-happy__front-near-front__halfbody__v001.png", "neutral:front-near-front": "/academy/art/characters/christian/christian__standardized-neutral__front-near-front__halfbody__v001.png" }, "jenny": { "neutral:front-near-front": "/academy/art/characters/jenny/jenny__neutral-round-face-brown-hair__front-near-front__fullbody__v002.png", "encouraging-listening:right-three-quarter": "/academy/art/characters/jenny/jenny__encouraging-listening-round-face-brown-hair__right-three-quarter__fullbody__v002.png", "happy:front-near-front": "/academy/art/characters/jenny/jenny__happy-round-face-brown-hair__front-near-front__fullbody__v002.png", "thoughtful:left-three-quarter": "/academy/art/characters/jenny/jenny__thoughtful-round-face-brown-hair__left-three-quarter__fullbody__v002.png", "determined:left-three-quarter": "/academy/art/characters/jenny/jenny__determined-round-face-brown-hair__left-three-quarter__fullbody__v002.png", "surprised-shocked:right-three-quarter": "/academy/art/characters/jenny/jenny__surprised-shocked-round-face-brown-hair__right-three-quarter__fullbody__v002.png", "sad-vulnerable:left-three-quarter": "/academy/art/characters/jenny/jenny__sad-vulnerable-round-face-brown-hair__left-three-quarter__fullbody__v002.png" }, "robert": { "encouraging-listening:front-near-front": "/academy/art/characters/robert/robert__standardized-encouraging-listening__front-near-front__halfbody__v001.png", "neutral:front-near-front": "/academy/art/characters/robert/robert__standardized-neutral__front-near-front__halfbody__v001.png" }, "mika": { "neutral:front-near-front": "/academy/art/characters/mika/mika__neutral-headphones__front-near-front__fullbody__v002.png", "encouraging-listening:right-three-quarter": "/academy/art/characters/mika/mika__encouraging-listening-headphones__right-three-quarter__fullbody__v002.png", "happy:front-near-front": "/academy/art/characters/mika/mika__happy-headphones__front-near-front__fullbody__v002.png", "thoughtful:left-three-quarter": "/academy/art/characters/mika/mika__thoughtful-headphones__left-three-quarter__fullbody__v002.png", "determined:left-three-quarter": "/academy/art/characters/mika/mika__determined-headphones__left-three-quarter__fullbody__v002.png", "surprised-shocked:right-three-quarter": "/academy/art/characters/mika/mika__surprised-shocked-headphones__right-three-quarter__fullbody__v002.png", "sad-vulnerable:left-three-quarter": "/academy/art/characters/mika/mika__sad-vulnerable-headphones__left-three-quarter__fullbody__v002.png" }, "sophie": { "determined:left-three-quarter": "/academy/art/characters/sophie/sophie__determined__left-three-quarter__halfbody__v003.png", "encouraging-listening:front-near-front": "/academy/art/characters/sophie/sophie__encouraging-listening__front-near-front__halfbody__v003.png", "neutral:front-near-front": "/academy/art/characters/sophie/sophie__bookshop-neutral__halfbody__v003.png" }, "xingyu": { "neutral:front-near-front": "/academy/art/characters/xingyu/xingyu__neutral-short-hair-round-glasses__front-near-front__fullbody__v002.png", "encouraging-listening:right-three-quarter": "/academy/art/characters/xingyu/xingyu__encouraging-listening-short-hair-round-glasses__right-three-quarter__fullbody__v002.png", "happy:front-near-front": "/academy/art/characters/xingyu/xingyu__happy-short-hair-round-glasses__front-near-front__fullbody__v002.png", "thoughtful:left-three-quarter": "/academy/art/characters/xingyu/xingyu__thoughtful-short-hair-round-glasses__left-three-quarter__fullbody__v002.png", "determined:left-three-quarter": "/academy/art/characters/xingyu/xingyu__determined-short-hair-round-glasses__left-three-quarter__fullbody__v002.png", "surprised-shocked:right-three-quarter": "/academy/art/characters/xingyu/xingyu__surprised-shocked-short-hair-round-glasses__right-three-quarter__fullbody__v002.png", "sad-vulnerable:left-three-quarter": "/academy/art/characters/xingyu/xingyu__sad-vulnerable-short-hair-round-glasses__left-three-quarter__fullbody__v002.png" }, "angel": { "encouraging-listening:front-near-front": "/academy/art/characters/angel/angel__standardized-encouraging-listening__front-near-front__halfbody__v001.png", "neutral:front-near-front": "/academy/art/characters/angel/angel__standardized-neutral__front-near-front__halfbody__v001.png" }, "stasi": { "encouraging-listening:front-near-front": "/academy/art/characters/stasi/stasi__standardized-encouraging-listening__front-near-front__halfbody__v001.png", "neutral:front-near-front": "/academy/art/characters/stasi/stasi__standardized-neutral__front-near-front__halfbody__v001.png" }, "ruparna": { "neutral:front-near-front": "/academy/art/characters/ruparna/ruparna__neutral__front-near-front__halfbody__v002.png", "encouraging-listening:right-three-quarter": "/academy/art/characters/ruparna/ruparna__note-route__right-three-quarter__halfbody__v002.png" }, "rose": { "encouraging-listening:front-near-front": "/academy/art/characters/rose/rose__standardized-encouraging-listening__front-near-front__halfbody__v001.png", "neutral:front-near-front": "/academy/art/characters/rose/rose__standardized-neutral__front-near-front__halfbody__v001.png" }, "peter": { "encouraging-listening:right-three-quarter": "/academy/art/characters/peter/peter__encouraging__right-three-quarter__halfbody__v001.png", "neutral:front-near-front": "/academy/art/characters/peter/peter__neutral__halfbody__v002.png", "thoughtful:left-three-quarter": "/academy/art/characters/peter/peter__thoughtful__left-three-quarter__halfbody__v001.png" }, "felix": { "happy:left-three-quarter": "/academy/art/characters/felix/felix__happy__left-three-quarter__halfbody__v001.png", "neutral:front-near-front": "/academy/art/characters/felix/felix__neutral__halfbody__v001.png", "encouraging-listening:left-three-quarter": "/academy/art/characters/felix/felix__standardized-encouraging-listening__left-three-quarter__halfbody__v001.png", "surprised-shocked:right-three-quarter": "/academy/art/characters/felix/felix__surprised__right-three-quarter__halfbody__v001.png" }, "shaun": { "neutral:front-near-front": "/academy/art/characters/shaun/shaun__neutral__halfbody__v001.png", "encouraging-listening:front-near-front": "/academy/art/characters/shaun/shaun__standardized-encouraging-listening__front-near-front__halfbody__v001.png", "happy:front-near-front": "/academy/art/characters/shaun/shaun__standardized-happy__front-near-front__halfbody__v001.png" }, "tom2": { "encouraging-listening:front-near-front": "/academy/art/characters/tom2/tom2__encouraging-listening__front-near-front__halfbody__v001.png", "neutral:right-three-quarter": "/academy/art/characters/tom2/tom2__neutral__right-three-quarter__halfbody__v001.png", "surprised-shocked:left-three-quarter": "/academy/art/characters/tom2/tom2__surprised-shocked__left-three-quarter__halfbody__v001.png" }, "steve": { "determined:left-three-quarter": "/academy/art/characters/steve/steve__determined__left-three-quarter__halfbody__v001.png", "happy:right-three-quarter": "/academy/art/characters/steve/steve__happy__right-three-quarter__halfbody__v001.png", "neutral:front-near-front": "/academy/art/characters/steve/steve__neutral__front-near-front__halfbody__v001.png", "encouraging-listening:front-near-front": "/academy/art/characters/steve/steve__standardized-encouraging-listening__front-near-front__halfbody__v001.png", "happy:front-near-front": "/academy/art/characters/steve/steve__standardized-happy__front-near-front__halfbody__v001.png" }, "nanako": { "encouraging-listening:front-near-front": "/academy/art/characters/nanako/nanako__standardized-encouraging-listening__front-near-front__halfbody__v001.png", "neutral:front-near-front": "/academy/art/characters/nanako/nanako__standardized-neutral__front-near-front__halfbody__v001.png" }, "mira": { "neutral:front-near-front": "/academy/art/characters/mira/mira__neutral-umbrella__front-near-front__fullbody__v002.png", "encouraging-listening:right-three-quarter": "/academy/art/characters/mira/mira__encouraging-listening-umbrella__right-three-quarter__fullbody__v002.png", "happy:front-near-front": "/academy/art/characters/mira/mira__happy-umbrella__front-near-front__fullbody__v002.png", "thoughtful:left-three-quarter": "/academy/art/characters/mira/mira__thoughtful-umbrella__left-three-quarter__fullbody__v002.png", "determined:left-three-quarter": "/academy/art/characters/mira/mira__determined-umbrella__left-three-quarter__fullbody__v002.png", "surprised-shocked:right-three-quarter": "/academy/art/characters/mira/mira__surprised-shocked-umbrella__right-three-quarter__fullbody__v002.png", "sad-vulnerable:left-three-quarter": "/academy/art/characters/mira/mira__sad-vulnerable-umbrella__left-three-quarter__fullbody__v002.png" }, "miller": { "encouraging-listening:front-near-front": "/academy/art/characters/miller/miller__standardized-encouraging-listening__front-near-front__halfbody__v001.png", "neutral:front-near-front": "/academy/art/characters/miller/miller__standardized-neutral__front-near-front__halfbody__v001.png" }, "tawapon": { "encouraging-listening:front-near-front": "/academy/art/characters/tawapon/tawapon__standardized-encouraging-listening__front-near-front__halfbody__v001.png", "neutral:front-near-front": "/academy/art/characters/tawapon/tawapon__standardized-neutral__front-near-front__halfbody__v001.png" }, "mary": { "encouraging-listening:front-near-front": "/academy/art/characters/mary/mary__standardized-encouraging-listening__front-near-front__halfbody__v001.png", "neutral:front-near-front": "/academy/art/characters/mary/mary__standardized-neutral__front-near-front__halfbody__v001.png" }, "takeshi": { "encouraging-listening:front-near-front": "/academy/art/characters/takeshi/takeshi__standardized-encouraging-listening__front-near-front__halfbody__v001.png", "neutral:front-near-front": "/academy/art/characters/takeshi/takeshi__standardized-neutral__front-near-front__halfbody__v001.png" } };
+  const ACADEMY_CAST_STANDARDIZATION_GALLERIES = { "rie": { "comedic:right-three-quarter": "/academy/art/characters/rie/rie__comedic-glasses__right-three-quarter__halfbody__v001.png", "determined:left-three-quarter": "/academy/art/characters/rie/rie__determined-glasses__left-three-quarter__halfbody__v001.png", "encouraging-listening:right-three-quarter": "/academy/art/characters/rie/rie__encouraging-glasses__right-three-quarter__halfbody__v001.png", "happy:front-near-front": "/academy/art/characters/rie/rie__happy-glasses__front-near-front__halfbody__v001.png", "neutral:front-near-front": "/academy/art/characters/rie/rie__neutral-glasses__front-near-front__halfbody__v001.png", "sad-vulnerable:left-three-quarter": "/academy/art/characters/rie/rie__sad-vulnerable-glasses__left-three-quarter__halfbody__v001.png", "thoughtful:left-three-quarter": "/academy/art/characters/rie/rie__thoughtful-glasses__left-three-quarter__halfbody__v002.png", "surprised-shocked:right-three-quarter": "/academy/art/characters/rie/rie__surprised-shocked-glasses__right-three-quarter__halfbody__v002.png" }, "henry": { "determined:left-three-quarter": "/academy/art/characters/henry/henry__standardized-determined__left-three-quarter__halfbody__v001.png", "encouraging-listening:front-near-front": "/academy/art/characters/henry/henry__standardized-encouraging-listening__front-near-front__halfbody__v001.png", "neutral:front-near-front": "/academy/art/characters/henry/henry__standardized-neutral__front-near-front__halfbody__v001.png" }, "aakash": { "neutral:front-near-front": "/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v009.png", "sad-vulnerable:left-three-quarter": "/academy/art/characters/aakash/aakash__sprite__concerned__left-three-quarter__halfbody__v005.png", "determined:left-three-quarter": "/academy/art/characters/aakash/aakash__sprite__determined__left-three-quarter__v005.png", "embarrassed:front-near-front": "/academy/art/characters/aakash/aakash__sprite__embarrassed__front-near-front__halfbody__v005.png", "happy:right-three-quarter": "/academy/art/characters/aakash/aakash__sprite__happy__right-three-quarter__v005.png", "happy:left-three-quarter": "/academy/art/characters/aakash/aakash__sprite__laughing__left-three-quarter__halfbody__v005.png", "encouraging-listening:right-three-quarter": "/academy/art/characters/aakash/aakash__sprite__listening__right-three-quarter__v005.png", "surprised-shocked:right-three-quarter": "/academy/art/characters/aakash/aakash__sprite__surprised__right-three-quarter__halfbody__v005.png", "thoughtful:front-near-front": "/academy/art/characters/aakash/aakash__sprite__thoughtful__front-near-front__v005.png", "determined:front-near-front": "/academy/art/characters/aakash/aakash__standardized-determined__front-near-front__halfbody__v001.png", "encouraging-listening:front-near-front": "/academy/art/characters/aakash/aakash__standardized-encouraging-listening__front-near-front__halfbody__v001.png", "happy:front-near-front": "/academy/art/characters/aakash/aakash__standardized-happy__front-near-front__halfbody__v001.png" }, "alex": { "determined:left-three-quarter": "/academy/art/characters/alex/alex__standardized-determined__left-three-quarter__halfbody__v001.png", "encouraging-listening:front-near-front": "/academy/art/characters/alex/alex__standardized-encouraging-listening__front-near-front__halfbody__v001.png", "neutral:front-near-front": "/academy/art/characters/alex/alex__standardized-neutral__front-near-front__halfbody__v001.png" }, "tom": { "encouraging-listening:front-near-front": "/academy/art/characters/tom/tom__standardized-encouraging-listening__front-near-front__halfbody__v001.png", "neutral:front-near-front": "/academy/art/characters/tom/tom__standardized-neutral__front-near-front__halfbody__v001.png" }, "sam": { "neutral:front-near-front": "/academy/art/characters/sam/sam__standardized-neutral__front-near-front__halfbody__v001.png", "encouraging-listening:front-near-front": "/academy/art/characters/sam/sam__standardized-encouraging-listening__front-near-front__halfbody__v001.png" }, "francis": { "encouraging-listening:front-near-front": "/academy/art/characters/francis/francis__standardized-encouraging-listening__front-near-front__halfbody__v001.png", "neutral:front-near-front": "/academy/art/characters/francis/francis__standardized-neutral__front-near-front__halfbody__v001.png" }, "shin": { "determined:left-three-quarter": "/academy/art/characters/shin/shin__standardized-determined__left-three-quarter__halfbody__v001.png", "encouraging-listening:front-near-front": "/academy/art/characters/shin/shin__standardized-encouraging-listening__front-near-front__halfbody__v001.png", "neutral:front-near-front": "/academy/art/characters/shin/shin__standardized-neutral__front-near-front__halfbody__v001.png" }, "jodi": { "encouraging-listening:front-near-front": "/academy/art/characters/jodi/jodi__standardized-encouraging-listening__front-near-front__halfbody__v001.png", "neutral:front-near-front": "/academy/art/characters/jodi/jodi__standardized-neutral__front-near-front__halfbody__v001.png" }, "christian": { "encouraging-listening:front-near-front": "/academy/art/characters/christian/christian__standardized-encouraging-listening__front-near-front__halfbody__v001.png", "happy:front-near-front": "/academy/art/characters/christian/christian__standardized-happy__front-near-front__halfbody__v001.png", "neutral:front-near-front": "/academy/art/characters/christian/christian__standardized-neutral__front-near-front__halfbody__v001.png" }, "jenny": { "neutral:front-near-front": "/academy/art/characters/jenny/jenny__neutral-round-face-brown-hair__front-near-front__fullbody__v002.png", "encouraging-listening:right-three-quarter": "/academy/art/characters/jenny/jenny__encouraging-listening-round-face-brown-hair__right-three-quarter__fullbody__v002.png", "happy:front-near-front": "/academy/art/characters/jenny/jenny__happy-round-face-brown-hair__front-near-front__fullbody__v002.png", "thoughtful:left-three-quarter": "/academy/art/characters/jenny/jenny__thoughtful-round-face-brown-hair__left-three-quarter__fullbody__v002.png", "determined:left-three-quarter": "/academy/art/characters/jenny/jenny__determined-round-face-brown-hair__left-three-quarter__fullbody__v002.png", "surprised-shocked:right-three-quarter": "/academy/art/characters/jenny/jenny__surprised-shocked-round-face-brown-hair__right-three-quarter__fullbody__v002.png", "sad-vulnerable:left-three-quarter": "/academy/art/characters/jenny/jenny__sad-vulnerable-round-face-brown-hair__left-three-quarter__fullbody__v002.png" }, "robert": { "encouraging-listening:front-near-front": "/academy/art/characters/robert/robert__standardized-encouraging-listening__front-near-front__halfbody__v001.png", "neutral:front-near-front": "/academy/art/characters/robert/robert__standardized-neutral__front-near-front__halfbody__v001.png" }, "mika": { "neutral:front-near-front": "/academy/art/characters/mika/mika__neutral-headphones__front-near-front__fullbody__v002.png", "encouraging-listening:right-three-quarter": "/academy/art/characters/mika/mika__encouraging-listening-headphones__right-three-quarter__fullbody__v002.png", "happy:front-near-front": "/academy/art/characters/mika/mika__happy-headphones__front-near-front__fullbody__v002.png", "thoughtful:left-three-quarter": "/academy/art/characters/mika/mika__thoughtful-headphones__left-three-quarter__fullbody__v002.png", "determined:left-three-quarter": "/academy/art/characters/mika/mika__determined-headphones__left-three-quarter__fullbody__v002.png", "surprised-shocked:right-three-quarter": "/academy/art/characters/mika/mika__surprised-shocked-headphones__right-three-quarter__fullbody__v002.png", "sad-vulnerable:left-three-quarter": "/academy/art/characters/mika/mika__sad-vulnerable-headphones__left-three-quarter__fullbody__v002.png" }, "sophie": { "determined:left-three-quarter": "/academy/art/characters/sophie/sophie__determined__left-three-quarter__halfbody__v003.png", "encouraging-listening:front-near-front": "/academy/art/characters/sophie/sophie__encouraging-listening__front-near-front__halfbody__v003.png", "neutral:front-near-front": "/academy/art/characters/sophie/sophie__bookshop-neutral__halfbody__v003.png" }, "xingyu": { "neutral:front-near-front": "/academy/art/characters/xingyu/xingyu__neutral-short-hair-round-glasses__front-near-front__fullbody__v002.png", "encouraging-listening:right-three-quarter": "/academy/art/characters/xingyu/xingyu__encouraging-listening-short-hair-round-glasses__right-three-quarter__fullbody__v002.png", "happy:front-near-front": "/academy/art/characters/xingyu/xingyu__happy-short-hair-round-glasses__front-near-front__fullbody__v002.png", "thoughtful:left-three-quarter": "/academy/art/characters/xingyu/xingyu__thoughtful-short-hair-round-glasses__left-three-quarter__fullbody__v002.png", "determined:left-three-quarter": "/academy/art/characters/xingyu/xingyu__determined-short-hair-round-glasses__left-three-quarter__fullbody__v002.png", "surprised-shocked:right-three-quarter": "/academy/art/characters/xingyu/xingyu__surprised-shocked-short-hair-round-glasses__right-three-quarter__fullbody__v002.png", "sad-vulnerable:left-three-quarter": "/academy/art/characters/xingyu/xingyu__sad-vulnerable-short-hair-round-glasses__left-three-quarter__fullbody__v002.png" }, "angel": { "encouraging-listening:front-near-front": "/academy/art/characters/angel/angel__standardized-encouraging-listening__front-near-front__halfbody__v001.png", "neutral:front-near-front": "/academy/art/characters/angel/angel__standardized-neutral__front-near-front__halfbody__v001.png" }, "stasi": { "encouraging-listening:front-near-front": "/academy/art/characters/stasi/stasi__standardized-encouraging-listening__front-near-front__halfbody__v001.png", "neutral:front-near-front": "/academy/art/characters/stasi/stasi__standardized-neutral__front-near-front__halfbody__v001.png" }, "ruparna": { "neutral:front-near-front": "/academy/art/characters/ruparna/ruparna__neutral__front-near-front__halfbody__v002.png", "encouraging-listening:right-three-quarter": "/academy/art/characters/ruparna/ruparna__note-route__right-three-quarter__halfbody__v002.png" }, "rose": { "encouraging-listening:front-near-front": "/academy/art/characters/rose/rose__standardized-encouraging-listening__front-near-front__halfbody__v001.png", "neutral:front-near-front": "/academy/art/characters/rose/rose__standardized-neutral__front-near-front__halfbody__v001.png" }, "peter": { "encouraging-listening:right-three-quarter": "/academy/art/characters/peter/peter__encouraging__right-three-quarter__halfbody__v001.png", "neutral:front-near-front": "/academy/art/characters/peter/peter__neutral__halfbody__v002.png", "thoughtful:left-three-quarter": "/academy/art/characters/peter/peter__thoughtful__left-three-quarter__halfbody__v001.png" }, "felix": { "happy:left-three-quarter": "/academy/art/characters/felix/felix__happy__left-three-quarter__halfbody__v001.png", "neutral:front-near-front": "/academy/art/characters/felix/felix__neutral__halfbody__v001.png", "encouraging-listening:left-three-quarter": "/academy/art/characters/felix/felix__standardized-encouraging-listening__left-three-quarter__halfbody__v001.png", "surprised-shocked:right-three-quarter": "/academy/art/characters/felix/felix__surprised__right-three-quarter__halfbody__v001.png" }, "shaun": { "neutral:front-near-front": "/academy/art/characters/shaun/shaun__neutral__halfbody__v001.png", "encouraging-listening:front-near-front": "/academy/art/characters/shaun/shaun__standardized-encouraging-listening__front-near-front__halfbody__v001.png", "happy:front-near-front": "/academy/art/characters/shaun/shaun__standardized-happy__front-near-front__halfbody__v001.png" }, "tom2": { "encouraging-listening:front-near-front": "/academy/art/characters/tom2/tom2__encouraging-listening__front-near-front__halfbody__v001.png", "neutral:right-three-quarter": "/academy/art/characters/tom2/tom2__neutral__right-three-quarter__halfbody__v001.png", "surprised-shocked:left-three-quarter": "/academy/art/characters/tom2/tom2__surprised-shocked__left-three-quarter__halfbody__v001.png" }, "steve": { "determined:left-three-quarter": "/academy/art/characters/steve/steve__determined__left-three-quarter__halfbody__v001.png", "happy:right-three-quarter": "/academy/art/characters/steve/steve__happy__right-three-quarter__halfbody__v001.png", "neutral:front-near-front": "/academy/art/characters/steve/steve__neutral__front-near-front__halfbody__v001.png", "encouraging-listening:front-near-front": "/academy/art/characters/steve/steve__standardized-encouraging-listening__front-near-front__halfbody__v001.png", "happy:front-near-front": "/academy/art/characters/steve/steve__standardized-happy__front-near-front__halfbody__v001.png" }, "nanako": { "encouraging-listening:front-near-front": "/academy/art/characters/nanako/nanako__standardized-encouraging-listening__front-near-front__halfbody__v001.png", "neutral:front-near-front": "/academy/art/characters/nanako/nanako__standardized-neutral__front-near-front__halfbody__v001.png" }, "mira": { "neutral:front-near-front": "/academy/art/characters/mira/mira__neutral-umbrella__front-near-front__fullbody__v002.png", "encouraging-listening:right-three-quarter": "/academy/art/characters/mira/mira__encouraging-listening-umbrella__right-three-quarter__fullbody__v002.png", "happy:front-near-front": "/academy/art/characters/mira/mira__happy-umbrella__front-near-front__fullbody__v002.png", "thoughtful:left-three-quarter": "/academy/art/characters/mira/mira__thoughtful-umbrella__left-three-quarter__fullbody__v002.png", "determined:left-three-quarter": "/academy/art/characters/mira/mira__determined-umbrella__left-three-quarter__fullbody__v002.png", "surprised-shocked:right-three-quarter": "/academy/art/characters/mira/mira__surprised-shocked-umbrella__right-three-quarter__fullbody__v002.png", "sad-vulnerable:left-three-quarter": "/academy/art/characters/mira/mira__sad-vulnerable-umbrella__left-three-quarter__fullbody__v002.png" }, "miller": { "encouraging-listening:front-near-front": "/academy/art/characters/miller/miller__standardized-encouraging-listening__front-near-front__halfbody__v001.png", "neutral:front-near-front": "/academy/art/characters/miller/miller__standardized-neutral__front-near-front__halfbody__v001.png" }, "tawapon": { "encouraging-listening:front-near-front": "/academy/art/characters/tawapon/tawapon__standardized-encouraging-listening__front-near-front__halfbody__v001.png", "neutral:front-near-front": "/academy/art/characters/tawapon/tawapon__standardized-neutral__front-near-front__halfbody__v001.png" }, "mary": { "encouraging-listening:front-near-front": "/academy/art/characters/mary/mary__standardized-encouraging-listening__front-near-front__halfbody__v001.png", "neutral:front-near-front": "/academy/art/characters/mary/mary__standardized-neutral__front-near-front__halfbody__v001.png" }, "takeshi": { "encouraging-listening:front-near-front": "/academy/art/characters/takeshi/takeshi__standardized-encouraging-listening__front-near-front__halfbody__v001.png", "neutral:front-near-front": "/academy/art/characters/takeshi/takeshi__standardized-neutral__front-near-front__halfbody__v001.png" } };
   const ACADEMY_STORY_ART_BY_NODE = {
     "node:blank-atlas:covered-table": {
       "assetId": "event.story.blank-atlas-arrival.covered-atlas",
@@ -14821,6 +14820,70 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       "cueId": "cue:text-route-evidence-lines",
       "wide": "/academy/art/events/blank-atlas-mission-text__one-gap-repair__wide__v001.webp",
       "mobile": "/academy/art/events/blank-atlas-mission-text__one-gap-repair__mobile__v001.webp"
+    },
+    "node:blank-atlas:speaking-door": {
+      "assetId": "event.story.blank-atlas-mission-speaking.door-waiting",
+      "sceneId": "scene:blank-atlas:mission-speaking",
+      "nodeId": "node:blank-atlas:speaking-door",
+      "cueId": "cue:speaking-route-open-door-nameplates",
+      "wide": "/academy/art/events/blank-atlas-mission-speaking__door-waiting__wide__v001.webp",
+      "mobile": "/academy/art/events/blank-atlas-mission-speaking__door-waiting__mobile__v001.webp"
+    },
+    "node:blank-atlas:speaking-input-repair": {
+      "assetId": "event.story.blank-atlas-mission-speaking.door-open-repair",
+      "sceneId": "scene:blank-atlas:mission-speaking",
+      "nodeId": "node:blank-atlas:speaking-input-repair",
+      "cueId": "cue:speaking-route-one-turn",
+      "wide": "/academy/art/events/blank-atlas-mission-speaking__door-open-repair__wide__v001.webp",
+      "mobile": "/academy/art/events/blank-atlas-mission-speaking__door-open-repair__mobile__v001.webp"
+    },
+    "node:blank-atlas:cards-return": {
+      "assetId": "event.story.blank-atlas-reading-writing.cards-return",
+      "sceneId": "scene:blank-atlas:reading-writing",
+      "nodeId": "node:blank-atlas:cards-return",
+      "cueId": "cue:route-cards-around-atlas",
+      "wide": "/academy/art/events/blank-atlas-reading-writing__cards-return__wide__v001.webp",
+      "mobile": "/academy/art/events/blank-atlas-reading-writing__cards-return__mobile__v001.webp"
+    },
+    "node:blank-atlas:card-turns-over": {
+      "assetId": "event.story.blank-atlas-reading-writing.learner-card-route-label",
+      "sceneId": "scene:blank-atlas:reading-writing",
+      "nodeId": "node:blank-atlas:card-turns-over",
+      "cueId": "cue:learner-card-route-label",
+      "wide": "/academy/art/events/blank-atlas-reading-writing__learner-card-route-label__wide__v001.webp",
+      "mobile": "/academy/art/events/blank-atlas-reading-writing__learner-card-route-label__mobile__v001.webp"
+    },
+    "node:blank-atlas:source-clears": {
+      "assetId": "event.story.blank-atlas-transfer.support-clears",
+      "sceneId": "scene:blank-atlas:transfer",
+      "nodeId": "node:blank-atlas:source-clears",
+      "cueId": "cue:teaching-surfaces-clear",
+      "wide": "/academy/art/events/blank-atlas-transfer__support-clears__wide__v001.webp",
+      "mobile": "/academy/art/events/blank-atlas-transfer__support-clears__mobile__v001.webp"
+    },
+    "node:blank-atlas:first-lantern": {
+      "assetId": "event.story.blank-atlas-transfer.first-lantern",
+      "sceneId": "scene:blank-atlas:transfer",
+      "nodeId": "node:blank-atlas:first-lantern",
+      "cueId": "cue:first-atlas-lantern-lit",
+      "wide": "/academy/art/events/blank-atlas-transfer__first-lantern__wide__v001.webp",
+      "mobile": "/academy/art/events/blank-atlas-transfer__first-lantern__mobile__v001.webp"
+    },
+    "node:blank-atlas:one-light-room": {
+      "assetId": "event.story.blank-atlas-close.one-light-room",
+      "sceneId": "scene:blank-atlas:close",
+      "nodeId": "node:blank-atlas:one-light-room",
+      "cueId": "cue:one-lantern-reflected-on-desks",
+      "wide": "/academy/art/events/blank-atlas-close__one-light-room__wide__v001.webp",
+      "mobile": "/academy/art/events/blank-atlas-close__one-light-room__mobile__v001.webp"
+    },
+    "node:blank-atlas:close-room-repair": {
+      "assetId": "event.story.blank-atlas-close.finish-break-context",
+      "sceneId": "scene:blank-atlas:close",
+      "nodeId": "node:blank-atlas:close-room-repair",
+      "cueId": "cue:finish-break-context",
+      "wide": "/academy/art/events/blank-atlas-close__finish-break-context__wide__v001.webp",
+      "mobile": "/academy/art/events/blank-atlas-close__finish-break-context__mobile__v001.webp"
     }
   };
   const ACADEMY_STORY_ART_RUNTIME_ASSETS = {
@@ -15005,6 +15068,110 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         "wide": "/academy/art/events/blank-atlas-mission-text__one-gap-repair__wide__v001.webp",
         "mobile": "/academy/art/events/blank-atlas-mission-text__one-gap-repair__mobile__v001.webp"
       }
+    },
+    "event.story.blank-atlas-mission-speaking.door-waiting": {
+      "kind": "event-art",
+      "status": "approved",
+      "runtimeHomes": [
+        "node:blank-atlas:speaking-door",
+        "scene:blank-atlas:mission-speaking"
+      ],
+      "provenance": "regenerated-house-style",
+      "files": {
+        "wide": "/academy/art/events/blank-atlas-mission-speaking__door-waiting__wide__v001.webp",
+        "mobile": "/academy/art/events/blank-atlas-mission-speaking__door-waiting__mobile__v001.webp"
+      }
+    },
+    "event.story.blank-atlas-mission-speaking.door-open-repair": {
+      "kind": "event-art",
+      "status": "approved",
+      "runtimeHomes": [
+        "node:blank-atlas:speaking-input-repair",
+        "scene:blank-atlas:mission-speaking"
+      ],
+      "provenance": "regenerated-house-style",
+      "files": {
+        "wide": "/academy/art/events/blank-atlas-mission-speaking__door-open-repair__wide__v001.webp",
+        "mobile": "/academy/art/events/blank-atlas-mission-speaking__door-open-repair__mobile__v001.webp"
+      }
+    },
+    "event.story.blank-atlas-reading-writing.cards-return": {
+      "kind": "event-art",
+      "status": "approved",
+      "runtimeHomes": [
+        "node:blank-atlas:cards-return",
+        "scene:blank-atlas:reading-writing"
+      ],
+      "provenance": "regenerated-house-style",
+      "files": {
+        "wide": "/academy/art/events/blank-atlas-reading-writing__cards-return__wide__v001.webp",
+        "mobile": "/academy/art/events/blank-atlas-reading-writing__cards-return__mobile__v001.webp"
+      }
+    },
+    "event.story.blank-atlas-reading-writing.learner-card-route-label": {
+      "kind": "event-art",
+      "status": "approved",
+      "runtimeHomes": [
+        "node:blank-atlas:card-turns-over",
+        "scene:blank-atlas:reading-writing"
+      ],
+      "provenance": "regenerated-house-style",
+      "files": {
+        "wide": "/academy/art/events/blank-atlas-reading-writing__learner-card-route-label__wide__v001.webp",
+        "mobile": "/academy/art/events/blank-atlas-reading-writing__learner-card-route-label__mobile__v001.webp"
+      }
+    },
+    "event.story.blank-atlas-transfer.support-clears": {
+      "kind": "event-art",
+      "status": "approved",
+      "runtimeHomes": [
+        "node:blank-atlas:source-clears",
+        "scene:blank-atlas:transfer"
+      ],
+      "provenance": "regenerated-house-style",
+      "files": {
+        "wide": "/academy/art/events/blank-atlas-transfer__support-clears__wide__v001.webp",
+        "mobile": "/academy/art/events/blank-atlas-transfer__support-clears__mobile__v001.webp"
+      }
+    },
+    "event.story.blank-atlas-transfer.first-lantern": {
+      "kind": "event-art",
+      "status": "approved",
+      "runtimeHomes": [
+        "node:blank-atlas:first-lantern",
+        "scene:blank-atlas:transfer"
+      ],
+      "provenance": "regenerated-house-style",
+      "files": {
+        "wide": "/academy/art/events/blank-atlas-transfer__first-lantern__wide__v001.webp",
+        "mobile": "/academy/art/events/blank-atlas-transfer__first-lantern__mobile__v001.webp"
+      }
+    },
+    "event.story.blank-atlas-close.one-light-room": {
+      "kind": "event-art",
+      "status": "approved",
+      "runtimeHomes": [
+        "node:blank-atlas:one-light-room",
+        "scene:blank-atlas:close"
+      ],
+      "provenance": "regenerated-house-style",
+      "files": {
+        "wide": "/academy/art/events/blank-atlas-close__one-light-room__wide__v001.webp",
+        "mobile": "/academy/art/events/blank-atlas-close__one-light-room__mobile__v001.webp"
+      }
+    },
+    "event.story.blank-atlas-close.finish-break-context": {
+      "kind": "event-art",
+      "status": "approved",
+      "runtimeHomes": [
+        "node:blank-atlas:close-room-repair",
+        "scene:blank-atlas:close"
+      ],
+      "provenance": "regenerated-house-style",
+      "files": {
+        "wide": "/academy/art/events/blank-atlas-close__finish-break-context__wide__v001.webp",
+        "mobile": "/academy/art/events/blank-atlas-close__finish-break-context__mobile__v001.webp"
+      }
     }
   };
   function runtimeAsset(record2) {
@@ -15048,6 +15215,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       }
     }),
     "location.entrance": runtimeAsset({ kind: "background", status: "approved", runtimeHomes: ["access:entrance", "campus:evening"], provenance: "current-production", files: { wide: "/academy/art/locations/wide/campus-entrance__blue-hour-arrival--wide.webp", mobile: "/academy/art/locations/mobile/campus-entrance__blue-hour-arrival--mobile.webp" } }),
+    "location.classroom-entrance": runtimeAsset({ kind: "background", status: "approved", runtimeHomes: ["location:classroom-entrance", "scene:blank-atlas:mission-speaking", "activity:lesson-zero-speaking-input"], provenance: "regenerated-house-style", files: { wide: "/academy/art/locations/wide/classroom-entrance__rain-evening-threshold--wide.webp", mobile: "/academy/art/locations/mobile/classroom-entrance__rain-evening-threshold--mobile.webp" } }),
     "location.street": runtimeAsset({ kind: "background", status: "approved", runtimeHomes: ["location:street", "activity:rainy-directions"], provenance: "recovered-academy-tree", files: { wide: "/academy/art/locations/wide/bloomsbury-street__day-route--wide.webp", mobile: "/academy/art/locations/mobile/bloomsbury-street__day-route--mobile.webp" } }),
     "location.station": runtimeAsset({ kind: "background", status: "approved", runtimeHomes: ["location:station", "activity:station-announcements", "lesson:l2-l02", "lesson:l2-l05", "lesson:l2-l10", "lesson:l2-l11"], provenance: "recovered-academy-tree", files: { wide: "/academy/art/locations/wide/railway-station__day-commute--wide.webp", mobile: "/academy/art/locations/mobile/railway-station__day-commute--mobile.webp" } }),
     "location.station-platform": runtimeAsset({ kind: "background", status: "approved", runtimeHomes: ["location:station-platform", "activity:station-platform-transfer"], provenance: "recovered-academy-tree", files: { wide: "/academy/art/locations/wide/tube-platform__blue-hour-rain--wide.webp", mobile: "/academy/art/locations/mobile/tube-platform__blue-hour-rain--mobile.webp" } }),
@@ -15114,6 +15282,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     sophieDetermined: assetFile("character.sophie.determined-left", "default"),
     ruparnaNeutral: ACADEMY_CAST_STANDARDIZATION_GALLERIES.ruparna["neutral:front-near-front"],
     ruparnaNoteRoute: ACADEMY_CAST_STANDARDIZATION_GALLERIES.ruparna["encouraging-listening:right-three-quarter"],
+    samNeutral: ACADEMY_CAST_STANDARDIZATION_GALLERIES.sam["neutral:front-near-front"],
+    samListening: ACADEMY_CAST_STANDARDIZATION_GALLERIES.sam["encouraging-listening:front-near-front"],
     steve: assetFile("character.steve.neutral-front", "default"),
     steveHappy: assetFile("character.steve.happy-right", "default"),
     steveDetermined: assetFile("character.steve.determined-left", "default")
@@ -15125,6 +15295,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     rie: ACADEMY_APPROVED_CHARACTER_SPRITES.rie,
     sophie: ACADEMY_APPROVED_CHARACTER_SPRITES.sophie,
     ruparna: ACADEMY_APPROVED_CHARACTER_SPRITES.ruparnaNeutral,
+    sam: ACADEMY_APPROVED_CHARACTER_SPRITES.samNeutral,
     steve: ACADEMY_APPROVED_CHARACTER_SPRITES.steve
   };
   const ACADEMY_APPROVED_CAST_PERFORMANCES = {
@@ -15145,6 +15316,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     },
     ruparna: {
       encouraging: ACADEMY_APPROVED_CHARACTER_SPRITES.ruparnaNoteRoute
+    },
+    sam: {
+      encouraging: ACADEMY_APPROVED_CHARACTER_SPRITES.samListening
     }
   };
   const ACADEMY_JOURNAL_REVIEW_CAST_SPRITES = ACADEMY_CAST_STANDARDIZATION_JOURNAL_REVIEW;
@@ -15168,6 +15342,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       home: assetFileSet("location.home"),
       campusEnsemble: assetFileSet("location.campus-ensemble"),
       entrance: assetFileSet("location.entrance"),
+      classroomEntrance: assetFileSet("location.classroom-entrance"),
       street: assetFileSet("location.street"),
       station: assetFileSet("location.station"),
       stationPlatform: assetFileSet("location.station-platform"),
@@ -54216,7 +54391,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       missingEvidenceRoute: "play-bridge"
     }
   };
-  const scenes$M = [
+  const scenes$N = [
     {
       id: "scene:opening-arrival:gate",
       locationId: "location:campus-entrance",
@@ -54645,7 +54820,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     sourceSafety: sourceSafety$M,
     cast: cast$M,
     entry: entry$O,
-    scenes: scenes$M,
+    scenes: scenes$N,
     callbacks: callbacks$M,
     outcomes: outcomes$M,
     replay: replay$M
@@ -54897,7 +55072,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       }
     ]
   };
-  const scenes$L = [
+  const scenes$M = [
     {
       id: "scene:blank-atlas:arrival-greetings",
       locationId: "location:classroom",
@@ -55970,7 +56145,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "node:blank-atlas:speaking-door",
           beatId: "beat:blank-atlas:speaking-mission-image",
           cueId: "cue:speaking-route-open-door-nameplates",
-          description: "Aakash and Sam are at the classroom door."
+          description: "The classroom door is slightly open. Two blank name cards wait inside."
         },
         {
           kind: "line",
@@ -55981,14 +56156,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
           attentionTarget: "the learner's unsaved practice control",
           variants: {
             foundation: {
-              japanese: "これは練習です。今、録音しなくてもいいです。",
-              reading: "これはれんしゅうです。いま、ろくおんしなくてもいいです。",
-              english: "This is practice. You do not have to record now."
+              japanese: "録音しても、しなくても大丈夫です。",
+              reading: "ろくおんしても、しなくてもだいじょうぶです。",
+              english: "You can record it or just say it."
             },
             n5: {
-              japanese: "録音はこの練習だけです。今しないなら、ここで止められます。",
-              reading: "ろくおんはこのれんしゅうだけです。いましないなら、ここでとめられます。",
-              english: "The recording is only for this practice. If you do not want to do it now, you can stop here."
+              japanese: "録音しても、しなくても大丈夫です。今は声だけでもいいですよ。",
+              reading: "ろくおんしても、しなくてもだいじょうぶです。いまはこえだけでもいいですよ。",
+              english: "You can record it or just say it. Your voice is enough for now."
             }
           },
           support: {
@@ -56001,14 +56176,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
           kind: "choice",
           id: "choice:blank-atlas:speaking-recording",
           beatId: "beat:blank-atlas:speaking-mission-consent",
-          question: "Record this speaking turn now?",
+          question: "Ready to try it?",
           options: [
             {
               id: "option:blank-atlas:speaking-record-now",
-              action: "Record now.",
+              action: "Try it now.",
               japaneseByBand: {
-                foundation: "今、練習します。",
-                n5: "今、録音して練習します。"
+                foundation: "今、やってみます。",
+                n5: "今、やってみます。"
               },
               records: [
                 "boundary-heard",
@@ -56018,10 +56193,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
             },
             {
               id: "option:blank-atlas:speaking-defer-recording",
-              action: "Pause and return later.",
+              action: "Come back later.",
               japaneseByBand: {
-                foundation: "今はしません。",
-                n5: "今は録音しません。あとで戻ります。"
+                foundation: "あとで戻ります。",
+                n5: "あとで戻ります。"
               },
               records: [
                 "boundary-heard",
@@ -56066,8 +56241,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
           kind: "stage",
           id: "node:blank-atlas:speaking-input-repair",
           beatId: "beat:blank-atlas:speaking-mission-repair",
+          speakerId: "aakash",
           cueId: "cue:speaking-route-one-turn",
-          description: "Aakash repeats the question and waits for your answer."
+          description: "お名前は何ですか。"
         },
         {
           kind: "checkpoint",
@@ -56084,14 +56260,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
           attentionTarget: "the now-filled arrival card",
           variants: {
             foundation: {
-              japanese: "入りました。会話も、カードも。",
-              reading: "はいりました。かいわも、カードも。",
-              english: "It came in. The conversation and the card."
+              japanese: "届きました。名前も、声も。",
+              reading: "とどきました。なまえも、こえも。",
+              english: "Got it. Your name and your voice."
             },
             n5: {
-              japanese: "聞き直したから、会話もカードも部屋に入りました。",
-              reading: "ききなおしたから、かいわもカードもへやにはいりました。",
-              english: "Because you asked again, both the conversation and the card made it into the room."
+              japanese: "聞き直しても大丈夫。名前も声も、ちゃんと届きました。",
+              reading: "ききなおしてもだいじょうぶ。なまえもこえも、ちゃんととどきました。",
+              english: "It’s fine to ask again. Your name and your voice came through."
             }
           },
           support: {
@@ -56726,7 +56902,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     cast: cast$L,
     entry: entry$N,
     curriculumBinding,
-    scenes: scenes$L,
+    scenes: scenes$M,
     callbacks: callbacks$L,
     outcomes: outcomes$L,
     replay: replay$L
@@ -57507,7 +57683,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       fallbackVariant: "variant:chapter-two-first-meeting-henry"
     }
   };
-  const scenes$K = [
+  const scenes$L = [
     {
       id: "scene:margin-map:the-private-cipher",
       mode: "live",
@@ -58093,7 +58269,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     sourceSafety: sourceSafety$K,
     cast: cast$K,
     entry: entry$M,
-    scenes: scenes$K,
+    scenes: scenes$L,
     callbacks: callbacks$K,
     outcomes: outcomes$K,
     replay: replay$K
@@ -58173,7 +58349,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       fallbackVariant: "variant:chapter-three-first-meeting-aakash"
     }
   };
-  const scenes$J = [
+  const scenes$K = [
     {
       id: "scene:route-zero:the-confident-route",
       mode: "live",
@@ -58770,7 +58946,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     sourceSafety: sourceSafety$J,
     cast: cast$J,
     entry: entry$L,
-    scenes: scenes$J,
+    scenes: scenes$K,
     callbacks: callbacks$J,
     outcomes: outcomes$J,
     replay: replay$J
@@ -58853,7 +59029,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       fallbackVariant: "variant:chapter-four-first-meeting-mika"
     }
   };
-  const scenes$I = [
+  const scenes$J = [
     {
       id: "scene:welcome-frequency:the-loud-room",
       mode: "live",
@@ -59403,7 +59579,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     sourceSafety: sourceSafety$I,
     cast: cast$I,
     entry: entry$K,
-    scenes: scenes$I,
+    scenes: scenes$J,
     callbacks: callbacks$I,
     outcomes: outcomes$I,
     replay: replay$I
@@ -59483,7 +59659,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       fallbackVariant: "variant:chapter-five-first-meeting-tom"
     }
   };
-  const scenes$H = [
+  const scenes$I = [
     {
       id: "scene:final-boss-kana:the-boss-table",
       mode: "live",
@@ -60072,7 +60248,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     sourceSafety: sourceSafety$H,
     cast: cast$H,
     entry: entry$J,
-    scenes: scenes$H,
+    scenes: scenes$I,
     callbacks: callbacks$H,
     outcomes: outcomes$H,
     replay: replay$H
@@ -60152,7 +60328,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       fallbackVariant: "variant:chapter-six-first-meeting-sam"
     }
   };
-  const scenes$G = [
+  const scenes$H = [
     {
       id: "scene:invitation-chain:too-many-options",
       mode: "live",
@@ -60741,7 +60917,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     sourceSafety: sourceSafety$G,
     cast: cast$G,
     entry: entry$I,
-    scenes: scenes$G,
+    scenes: scenes$H,
     callbacks: callbacks$G,
     outcomes: outcomes$G,
     replay: replay$G
@@ -60821,7 +60997,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       fallbackVariant: "variant:chapter-seven-first-meeting-francis"
     }
   };
-  const scenes$F = [
+  const scenes$G = [
     {
       id: "scene:no-spoilers:the-curtain",
       mode: "live",
@@ -61478,7 +61654,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     sourceSafety: sourceSafety$F,
     cast: cast$F,
     entry: entry$H,
-    scenes: scenes$F,
+    scenes: scenes$G,
     callbacks: callbacks$F,
     outcomes: outcomes$F,
     replay: replay$F
@@ -61558,7 +61734,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       fallbackVariant: "variant:chapter-eight-first-meeting-shin"
     }
   };
-  const scenes$E = [
+  const scenes$F = [
     {
       id: "scene:menu-without-pictures:the-wall-menu",
       mode: "live",
@@ -62133,7 +62309,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     sourceSafety: sourceSafety$E,
     cast: cast$E,
     entry: entry$G,
-    scenes: scenes$E,
+    scenes: scenes$F,
     callbacks: callbacks$E,
     outcomes: outcomes$E,
     replay: replay$E
@@ -62214,7 +62390,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       fallbackVariant: "variant:chapter-nine-first-meeting-jodi"
     }
   };
-  const scenes$D = [
+  const scenes$E = [
     {
       id: "scene:two-tenses:the-two-captions",
       mode: "live",
@@ -62744,7 +62920,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     sourceSafety: sourceSafety$D,
     cast: cast$D,
     entry: entry$F,
-    scenes: scenes$D,
+    scenes: scenes$E,
     callbacks: callbacks$D,
     outcomes: outcomes$D,
     replay: replay$D
@@ -62826,7 +63002,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       fallbackVariant: "variant:chapter-ten-first-meeting-christian"
     }
   };
-  const scenes$C = [
+  const scenes$D = [
     {
       id: "scene:instructions-for-a-cloud:the-ordered-cards",
       mode: "live",
@@ -63330,7 +63506,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     sourceSafety: sourceSafety$C,
     cast: cast$C,
     entry: entry$E,
-    scenes: scenes$C,
+    scenes: scenes$D,
     callbacks: callbacks$C,
     outcomes: outcomes$C,
     replay: replay$C
@@ -63409,7 +63585,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       fallbackVariant: "variant:chapter-eleven-first-meeting-alex"
     }
   };
-  const scenes$B = [
+  const scenes$C = [
     {
       id: "scene:storm-route-variant:signs-gone",
       mode: "live",
@@ -64020,7 +64196,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     sourceSafety: sourceSafety$B,
     cast: cast$B,
     entry: entry$D,
-    scenes: scenes$B,
+    scenes: scenes$C,
     callbacks: callbacks$B,
     outcomes: outcomes$B,
     replay: replay$B
@@ -64100,7 +64276,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       fallbackVariant: "variant:chapter-twelve-first-meeting-jenny"
     }
   };
-  const scenes$A = [
+  const scenes$B = [
     {
       id: "scene:vanishing-course:lost-cues",
       mode: "live",
@@ -64527,7 +64703,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     sourceSafety: sourceSafety$A,
     cast: cast$A,
     entry: entry$C,
-    scenes: scenes$A,
+    scenes: scenes$B,
     callbacks: callbacks$A,
     outcomes: outcomes$A,
     replay: replay$A
@@ -64606,7 +64782,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       fallbackVariant: "variant:chapter-thirteen-first-meeting-robert"
     }
   };
-  const scenes$z = [
+  const scenes$A = [
     {
       id: "scene:dinner-by-if:the-sequence",
       mode: "live",
@@ -65010,7 +65186,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     sourceSafety: sourceSafety$z,
     cast: cast$z,
     entry: entry$B,
-    scenes: scenes$z,
+    scenes: scenes$A,
     callbacks: callbacks$z,
     outcomes: outcomes$z,
     replay: replay$z
@@ -65088,7 +65264,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       fallbackVariant: "variant:chapter-fourteen-first-meeting-sophie"
     }
   };
-  const scenes$y = [
+  const scenes$z = [
     {
       id: "scene:two-answers:contested-particle",
       mode: "live",
@@ -65634,7 +65810,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     sourceSafety: sourceSafety$y,
     cast: cast$y,
     entry: entry$A,
-    scenes: scenes$y,
+    scenes: scenes$z,
     callbacks: callbacks$y,
     outcomes: outcomes$y,
     replay: replay$y
@@ -65730,7 +65906,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       fallbackVariant: "variant:chapter-fifteen-first-meeting-xingyu"
     }
   };
-  const scenes$x = [
+  const scenes$y = [
     {
       id: "scene:chorus-with-a-hole:the-catchy-hole",
       mode: "live",
@@ -66255,7 +66431,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     sourceSafety: sourceSafety$x,
     cast: cast$x,
     entry: entry$z,
-    scenes: scenes$x,
+    scenes: scenes$y,
     callbacks: callbacks$x,
     outcomes: outcomes$x,
     replay: replay$x
@@ -66349,7 +66525,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       fallbackVariant: "variant:chapter-sixteen-first-meeting-angel"
     }
   };
-  const scenes$w = [
+  const scenes$x = [
     {
       id: "scene:night-map-dark:the-literal-instruction",
       mode: "live",
@@ -66922,7 +67098,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     sourceSafety: sourceSafety$w,
     cast: cast$w,
     entry: entry$y,
-    scenes: scenes$w,
+    scenes: scenes$x,
     callbacks: callbacks$w,
     outcomes: outcomes$w,
     replay: replay$w
@@ -67004,7 +67180,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       fallbackVariant: "variant:chapter-seventeen-first-meeting-felix"
     }
   };
-  const scenes$v = [
+  const scenes$w = [
     {
       id: "scene:catwalk-clue:the-moved-marker",
       mode: "live",
@@ -67402,7 +67578,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     sourceSafety: sourceSafety$v,
     cast: cast$v,
     entry: entry$x,
-    scenes: scenes$v,
+    scenes: scenes$w,
     callbacks: callbacks$v,
     outcomes: outcomes$v,
     replay: replay$v
@@ -67498,7 +67674,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       fallbackVariant: "variant:chapter-eighteen-first-meeting-stasi"
     }
   };
-  const scenes$u = [
+  const scenes$v = [
     {
       id: "scene:memory-card-museum:the-funniest-card",
       mode: "live",
@@ -68046,7 +68222,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     sourceSafety: sourceSafety$u,
     cast: cast$u,
     entry: entry$w,
-    scenes: scenes$u,
+    scenes: scenes$v,
     callbacks: callbacks$u,
     outcomes: outcomes$u,
     replay: replay$u
@@ -68128,7 +68304,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       fallbackVariant: "variant:chapter-nineteen-first-meeting-ruparna"
     }
   };
-  const scenes$t = [
+  const scenes$u = [
     {
       id: "scene:seventy-percent-door:subtitles-drop",
       mode: "live",
@@ -68560,7 +68736,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     sourceSafety: sourceSafety$t,
     cast: cast$t,
     entry: entry$v,
-    scenes: scenes$t,
+    scenes: scenes$u,
     callbacks: callbacks$t,
     outcomes: outcomes$t,
     replay: replay$t
@@ -68654,7 +68830,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       fallbackVariant: "variant:chapter-twenty-first-meeting-rose"
     }
   };
-  const scenes$s = [
+  const scenes$t = [
     {
       id: "scene:map-from-memory:three-rememberings",
       mode: "live",
@@ -69228,7 +69404,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     sourceSafety: sourceSafety$s,
     cast: cast$s,
     entry: entry$u,
-    scenes: scenes$s,
+    scenes: scenes$t,
     callbacks: callbacks$s,
     outcomes: outcomes$s,
     replay: replay$s
@@ -69311,7 +69487,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       fallbackVariant: "variant:chapter-twenty-one-first-meeting-peter"
     }
   };
-  const scenes$r = [
+  const scenes$s = [
     {
       id: "scene:questions-in-the-dark:one-question-each",
       mode: "live",
@@ -69876,7 +70052,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     sourceSafety: sourceSafety$r,
     cast: cast$r,
     entry: entry$t,
-    scenes: scenes$r,
+    scenes: scenes$s,
     callbacks: callbacks$r,
     outcomes: outcomes$r,
     replay: replay$r
@@ -69957,7 +70133,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       fallbackVariant: "variant:chapter-twentytwo-first-meeting-shaun"
     }
   };
-  const scenes$q = [
+  const scenes$r = [
     {
       id: "scene:blank-space:reads-too-formal",
       mode: "live",
@@ -70496,7 +70672,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     sourceSafety: sourceSafety$q,
     cast: cast$q,
     entry: entry$s,
-    scenes: scenes$q,
+    scenes: scenes$r,
     callbacks: callbacks$q,
     outcomes: outcomes$q,
     replay: replay$q
@@ -70582,7 +70758,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       fallbackVariant: "variant:chapter-twenty-three-first-meeting-nanako"
     }
   };
-  const scenes$p = [
+  const scenes$q = [
     {
       id: "scene:farewell-rehearsal:the-reordered-plan",
       mode: "live",
@@ -71143,7 +71319,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     sourceSafety: sourceSafety$p,
     cast: cast$p,
     entry: entry$r,
-    scenes: scenes$p,
+    scenes: scenes$q,
     callbacks: callbacks$p,
     outcomes: outcomes$p,
     replay: replay$p
@@ -71238,7 +71414,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       fallbackVariant: "variant:chapter-twenty-four-first-meeting-mira"
     }
   };
-  const scenes$o = [
+  const scenes$p = [
     {
       id: "scene:lanterns-return:the-unlit-route",
       mode: "live",
@@ -71785,7 +71961,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     sourceSafety: sourceSafety$o,
     cast: cast$o,
     entry: entry$q,
-    scenes: scenes$o,
+    scenes: scenes$p,
     callbacks: callbacks$o,
     outcomes: outcomes$o,
     replay: replay$o
@@ -71889,7 +72065,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       fallbackVariant: "variant:chapter-twenty-five-after-the-applause"
     }
   };
-  const scenes$n = [
+  const scenes$o = [
     {
       id: "scene:after-applause:one-phrase-three-readings",
       mode: "live",
@@ -72368,7 +72544,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     sourceSafety: sourceSafety$n,
     cast: cast$n,
     entry: entry$p,
-    scenes: scenes$n,
+    scenes: scenes$o,
     callbacks: callbacks$n,
     outcomes: outcomes$n,
     replay: replay$n
@@ -72461,7 +72637,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       fallbackVariant: "variant:chapter-twenty-six-rose-reveals-caption"
     }
   };
-  const scenes$m = [
+  const scenes$n = [
     {
       id: "scene:caption-without-owner:under-the-backing",
       mode: "live",
@@ -72899,7 +73075,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     sourceSafety: sourceSafety$m,
     cast: cast$m,
     entry: entry$o,
-    scenes: scenes$m,
+    scenes: scenes$n,
     callbacks: callbacks$m,
     outcomes: outcomes$m,
     replay: replay$m
@@ -72978,7 +73154,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       fallbackVariant: "variant:chapter-twenty-seven-sophie-limit"
     }
   };
-  const scenes$l = [
+  const scenes$m = [
     {
       id: "scene:helpful-rewrite:two-versions",
       mode: "live",
@@ -73422,7 +73598,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     sourceSafety: sourceSafety$l,
     cast: cast$l,
     entry: entry$n,
-    scenes: scenes$l,
+    scenes: scenes$m,
     callbacks: callbacks$l,
     outcomes: outcomes$l,
     replay: replay$l
@@ -73503,7 +73679,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       fallbackVariant: "variant:chapter-twenty-eight-terms-sam"
     }
   };
-  const scenes$k = [
+  const scenes$l = [
     {
       id: "scene:terms:venue-asks-early",
       mode: "live",
@@ -73956,7 +74132,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     sourceSafety: sourceSafety$k,
     cast: cast$k,
     entry: entry$m,
-    scenes: scenes$k,
+    scenes: scenes$l,
     callbacks: callbacks$k,
     outcomes: outcomes$k,
     replay: replay$k
@@ -74035,7 +74211,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       fallbackVariant: "variant:chapter-twenty-nine-jenny-back-of-house"
     }
   };
-  const scenes$j = [
+  const scenes$k = [
     {
       id: "scene:chair-not-reserved:offer-and-limit",
       mode: "live",
@@ -74496,7 +74672,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     sourceSafety: sourceSafety$j,
     cast: cast$j,
     entry: entry$l,
-    scenes: scenes$j,
+    scenes: scenes$k,
     callbacks: callbacks$j,
     outcomes: outcomes$j,
     replay: replay$j
@@ -74575,7 +74751,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       fallbackVariant: "variant:chapter-thirty-two-schedules-limit"
     }
   };
-  const scenes$i = [
+  const scenes$j = [
     {
       id: "scene:two-schedules:tabled-plans",
       mode: "live",
@@ -75046,7 +75222,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     sourceSafety: sourceSafety$i,
     cast: cast$i,
     entry: entry$k,
-    scenes: scenes$i,
+    scenes: scenes$j,
     callbacks: callbacks$i,
     outcomes: outcomes$i,
     replay: replay$i
@@ -75123,7 +75299,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       fallbackVariant: "variant:chapter-thirtyone-limit-ruparna"
     }
   };
-  const scenes$h = [
+  const scenes$i = [
     {
       id: "scene:under-the-subtitle:the-cleaner-cut",
       mode: "live",
@@ -75565,7 +75741,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     sourceSafety: sourceSafety$h,
     cast: cast$h,
     entry: entry$j,
-    scenes: scenes$h,
+    scenes: scenes$i,
     callbacks: callbacks$h,
     outcomes: outcomes$h,
     replay: replay$h
@@ -75670,7 +75846,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       fallbackVariant: "variant:chapter-thirty-two-first-meeting-onke"
     }
   };
-  const scenes$g = [
+  const scenes$h = [
     {
       id: "scene:wrong-draft:screen-loads-old-draft",
       mode: "live",
@@ -76125,7 +76301,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     sourceSafety: sourceSafety$g,
     cast: cast$g,
     entry: entry$i,
-    scenes: scenes$g,
+    scenes: scenes$h,
     callbacks: callbacks$g,
     outcomes: outcomes$g,
     replay: replay$g
@@ -76240,7 +76416,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       fallbackVariant: "variant:chapter-thirtythree-first-meeting-jodi"
     }
   };
-  const scenes$f = [
+  const scenes$g = [
     {
       id: "scene:what-we-can-say:three-things",
       mode: "live",
@@ -76735,7 +76911,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     sourceSafety: sourceSafety$f,
     cast: cast$f,
     entry: entry$h,
-    scenes: scenes$f,
+    scenes: scenes$g,
     callbacks: callbacks$f,
     outcomes: outcomes$f,
     replay: replay$f
@@ -76813,7 +76989,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       fallbackVariant: "variant:chapter-thirty-four-return-mika"
     }
   };
-  const scenes$e = [
+  const scenes$f = [
     {
       id: "scene:empty-microphone:host-drops-out",
       mode: "live",
@@ -77301,7 +77477,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     sourceSafety: sourceSafety$e,
     cast: cast$e,
     entry: entry$g,
-    scenes: scenes$e,
+    scenes: scenes$f,
     callbacks: callbacks$e,
     outcomes: outcomes$e,
     replay: replay$e
@@ -77396,7 +77572,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       fallbackVariant: "variant:chapter-thirty-five-return-rose"
     }
   };
-  const scenes$d = [
+  const scenes$e = [
     {
       id: "scene:names-in-the-margin:reading-the-layers",
       mode: "live",
@@ -77817,7 +77993,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     sourceSafety: sourceSafety$d,
     cast: cast$d,
     entry: entry$f,
-    scenes: scenes$d,
+    scenes: scenes$e,
     callbacks: callbacks$d,
     outcomes: outcomes$d,
     replay: replay$d
@@ -77907,7 +78083,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       fallbackVariant: "variant:chapter-thirty-six-permission-page-neutral-cast"
     }
   };
-  const scenes$c = [
+  const scenes$d = [
     {
       id: "scene:permission-page:who-may-share",
       mode: "live",
@@ -78326,7 +78502,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     sourceSafety: sourceSafety$c,
     cast: cast$c,
     entry: entry$e,
-    scenes: scenes$c,
+    scenes: scenes$d,
     callbacks: callbacks$c,
     outcomes: outcomes$c,
     replay: replay$c
@@ -78406,7 +78582,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       fallbackVariant: "variant:chapter-thirtyseven-first-meeting-peter"
     }
   };
-  const scenes$b = [
+  const scenes$c = [
     {
       id: "scene:return-address:reading-the-reply",
       mode: "live",
@@ -78835,7 +79011,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     sourceSafety: sourceSafety$b,
     cast: cast$b,
     entry: entry$d,
-    scenes: scenes$b,
+    scenes: scenes$c,
     callbacks: callbacks$b,
     outcomes: outcomes$b,
     replay: replay$b
@@ -78915,7 +79091,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       fallbackVariant: "variant:chapter-thirty-eight-return-sophie"
     }
   };
-  const scenes$a = [
+  const scenes$b = [
     {
       id: "scene:map-of-claims:table-of-sources",
       mode: "live",
@@ -79336,7 +79512,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     sourceSafety: sourceSafety$a,
     cast: cast$a,
     entry: entry$c,
-    scenes: scenes$a,
+    scenes: scenes$b,
     callbacks: callbacks$a,
     outcomes: outcomes$a,
     replay: replay$a
@@ -79414,7 +79590,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       fallbackVariant: "variant:chapter-thirty-nine-first-meeting-robert"
     }
   };
-  const scenes$9 = [
+  const scenes$a = [
     {
       id: "scene:polite-no:cleaner-ending",
       mode: "live",
@@ -79877,7 +80053,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     sourceSafety: sourceSafety$9,
     cast: cast$9,
     entry: entry$b,
-    scenes: scenes$9,
+    scenes: scenes$a,
     callbacks: callbacks$9,
     outcomes: outcomes$9,
     replay: replay$9
@@ -79955,7 +80131,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       fallbackVariant: "variant:chapter-forty-return-jodi"
     }
   };
-  const scenes$8 = [
+  const scenes$9 = [
     {
       id: "scene:three-versions:three-beginnings",
       mode: "live",
@@ -80416,7 +80592,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     sourceSafety: sourceSafety$8,
     cast: cast$8,
     entry: entry$a,
-    scenes: scenes$8,
+    scenes: scenes$9,
     callbacks: callbacks$8,
     outcomes: outcomes$8,
     replay: replay$8
@@ -80496,7 +80672,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       fallbackVariant: "variant:chapter-forty-one-nanako-visits-the-rehearsal"
     }
   };
-  const scenes$7 = [
+  const scenes$8 = [
     {
       id: "scene:left-unsaid:the-line-that-says-too-much",
       mode: "live",
@@ -80932,7 +81108,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     sourceSafety: sourceSafety$7,
     cast: cast$7,
     entry: entry$9,
-    scenes: scenes$7,
+    scenes: scenes$8,
     callbacks: callbacks$7,
     outcomes: outcomes$7,
     replay: replay$7
@@ -81010,7 +81186,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       fallbackVariant: "variant:chapter-forty-two-peter-return"
     }
   };
-  const scenes$6 = [
+  const scenes$7 = [
     {
       id: "scene:open-question:one-name",
       mode: "live",
@@ -81457,7 +81633,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     sourceSafety: sourceSafety$6,
     cast: cast$6,
     entry: entry$8,
-    scenes: scenes$6,
+    scenes: scenes$7,
     callbacks: callbacks$6,
     outcomes: outcomes$6,
     replay: replay$6
@@ -81551,7 +81727,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       fallbackVariant: "variant:chapter-forty-three-first-meeting-alex"
     }
   };
-  const scenes$5 = [
+  const scenes$6 = [
     {
       id: "scene:journey:the-flattest-news",
       mode: "live",
@@ -82058,7 +82234,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     sourceSafety: sourceSafety$5,
     cast: cast$5,
     entry: entry$7,
-    scenes: scenes$5,
+    scenes: scenes$6,
     callbacks: callbacks$5,
     outcomes: outcomes$5,
     replay: replay$5
@@ -82189,7 +82365,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       fallbackVariant: "variant:chapter-forty-four-editing-under-constraint"
     }
   };
-  const scenes$4 = [
+  const scenes$5 = [
     {
       id: "scene:last-revision:what-stays-out-of-frame",
       mode: "live",
@@ -82636,7 +82812,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     sourceSafety: sourceSafety$4,
     cast: cast$4,
     entry: entry$6,
-    scenes: scenes$4,
+    scenes: scenes$5,
     callbacks: callbacks$4,
     outcomes: outcomes$4,
     replay: replay$4
@@ -82726,7 +82902,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       fallbackVariant: "variant:chapter-forty-five-handoff-henry"
     }
   };
-  const scenes$3 = [
+  const scenes$4 = [
     {
       id: "scene:rehearsal-for-leaving:tested-setup",
       mode: "live",
@@ -83208,7 +83384,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     sourceSafety: sourceSafety$3,
     cast: cast$3,
     entry: entry$5,
-    scenes: scenes$3,
+    scenes: scenes$4,
     callbacks: callbacks$3,
     outcomes: outcomes$3,
     replay: replay$3
@@ -83306,7 +83482,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       fallbackVariant: "variant:chapter-forty-six-public-evening"
     }
   };
-  const scenes$2 = [
+  const scenes$3 = [
     {
       id: "scene:public-evening:the-question",
       mode: "live",
@@ -83832,7 +84008,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     sourceSafety: sourceSafety$2,
     cast: cast$2,
     entry: entry$4,
-    scenes: scenes$2,
+    scenes: scenes$3,
     callbacks: callbacks$2,
     outcomes: outcomes$2,
     replay: replay$2
@@ -83937,7 +84113,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       fallbackVariant: "variant:chapter-forty-seven-provenance-recap"
     }
   };
-  const scenes$1 = [
+  const scenes$2 = [
     {
       id: "scene:atlas-closes:what-the-template-was",
       mode: "live",
@@ -84415,7 +84591,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     sourceSafety: sourceSafety$1,
     cast: cast$1,
     entry: entry$3,
-    scenes: scenes$1,
+    scenes: scenes$2,
     callbacks: callbacks$1,
     outcomes: outcomes$1,
     replay: replay$1
@@ -84515,7 +84691,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       fallbackVariant: "variant:chapter-forty-eight-graduation-open-page"
     }
   };
-  const scenes = [
+  const scenes$1 = [
     {
       id: "scene:next-page:the-terms-of-the-page",
       mode: "live",
@@ -85083,7 +85259,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     sourceSafety,
     cast,
     entry: entry$2,
-    scenes,
+    scenes: scenes$1,
     callbacks,
     outcomes,
     replay
@@ -90777,14 +90953,81 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function interpolate(language2, key2, values) {
     return Object.entries(values).reduce((copy2, [name, value]) => copy2.replace(`{${name}}`, value), academyText(language2, key2));
   }
+  const scenes = [
+    {
+      sceneId: "scene:blank-atlas:arrival-greetings",
+      rendererId: "blank-atlas-covered-map",
+      stageCoverage: "all"
+    },
+    {
+      sceneId: "scene:blank-atlas:sound-script-map",
+      rendererId: "blank-atlas-vowel-route",
+      stageCoverage: "all"
+    },
+    {
+      sceneId: "scene:blank-atlas:classroom-survival",
+      rendererId: "blank-atlas-class-handout",
+      stageCoverage: "all"
+    },
+    {
+      sceneId: "scene:blank-atlas:sentence-frames",
+      rendererId: "blank-atlas-room-labels",
+      stageCoverage: "all"
+    },
+    {
+      sceneId: "scene:blank-atlas:useful-vocabulary",
+      rendererId: "blank-atlas-name-card",
+      stageCoverage: "all"
+    },
+    {
+      sceneId: "scene:blank-atlas:mission-sound",
+      rendererId: "blank-atlas-voice-nameplates",
+      stageCoverage: "all"
+    },
+    {
+      sceneId: "scene:blank-atlas:mission-text",
+      rendererId: "blank-atlas-folded-note",
+      stageCoverage: "all"
+    },
+    {
+      sceneId: "scene:blank-atlas:mission-speaking",
+      rendererId: "blank-atlas-door-knocker",
+      stageCoverage: [
+        "node:blank-atlas:speaking-door"
+      ]
+    },
+    {
+      sceneId: "scene:blank-atlas:reading-writing",
+      rendererId: "blank-atlas-public-name-card",
+      stageCoverage: "all"
+    },
+    {
+      sceneId: "scene:blank-atlas:transfer",
+      rendererId: "blank-atlas-lantern-route",
+      stageCoverage: "all"
+    },
+    {
+      sceneId: "scene:blank-atlas:close",
+      rendererId: "blank-atlas-route-arrow",
+      stageCoverage: "all"
+    }
+  ];
+  const storyPropManifest = {
+    scenes
+  };
   const VOWELS = ["あ", "い", "う", "え", "お"];
+  const BLANK_ATLAS_PROP_BY_SCENE = new Map(
+    storyPropManifest.scenes.map((definition2) => [definition2.sceneId, definition2])
+  );
   function blankAtlasSceneProp(options) {
-    if (!options.moment.scene.id.startsWith("scene:blank-atlas:")) return null;
+    const propDefinition = BLANK_ATLAS_PROP_BY_SCENE.get(options.moment.scene.id);
+    if (!propDefinition) return null;
     const nodeId = options.moment.kind === "complete" ? "complete" : options.moment.node.id;
     const sceneId = options.moment.scene.id;
     const root = section("academy-blank-atlas-prop");
     root.dataset.sceneSignature = sceneSignature(sceneId);
     root.dataset.sceneId = sceneId;
+    root.dataset.propRenderer = propDefinition.rendererId;
     switch (sceneId) {
       case "scene:blank-atlas:arrival-greetings":
         root.append(atlasProp(nodeId === "node:blank-atlas:first-uncover"));
@@ -90812,6 +91055,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         root.append(textMissionProp(options.language, options.onSfx));
         break;
       case "scene:blank-atlas:mission-speaking":
+        if (nodeId !== "node:blank-atlas:speaking-door") return null;
         root.append(speakingDoorProp(options.language, options.onSfx));
         break;
       case "scene:blank-atlas:reading-writing":
@@ -90957,21 +91201,22 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function speakingDoorProp(language2, onSfx) {
     const prop = section("academy-speaking-door-prop");
     prop.dataset.open = "false";
-    const door = section("academy-classroom-door");
-    door.append(text$g("span", "academy-door-window", ""));
     const names = section("academy-door-nameplates");
     names.hidden = true;
     names.append(text$g("span", "", "Aakash"), text$g("span", "", "Sam"));
-    const open = button$3(language2 === "ja" ? "ドアを開ける" : "Open the door", "academy-door-open");
-    open.setAttribute("aria-expanded", "false");
-    open.addEventListener("click", () => {
+    const invitation = text$g("p", "academy-door-invitation", language2 === "ja" ? "どうぞ" : "Come in");
+    invitation.hidden = true;
+    const knock = button$3(language2 === "ja" ? "ノックする" : "Knock", "academy-door-knocker");
+    knock.setAttribute("aria-expanded", "false");
+    knock.addEventListener("click", () => {
       onSfx?.("vn.choice.confirm");
       prop.dataset.open = "true";
       names.hidden = false;
-      open.setAttribute("aria-expanded", "true");
-      open.textContent = language2 === "ja" ? "どうぞ" : "Come in";
+      invitation.hidden = false;
+      knock.setAttribute("aria-expanded", "true");
+      knock.remove();
     });
-    prop.append(door, names, open);
+    prop.append(knock, names, invitation);
     return prop;
   }
   function publicCardProp(language2, nodeId, displayName2, onSfx) {
@@ -91076,6 +91321,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     control2.textContent = label;
     return control2;
   }
+  const HAS_JAPANESE_TEXT = /[\u3040-\u30ff\u3400-\u9fff]/u;
   function renderStoryScreen(options) {
     const screen = element("section", "academy-story-screen");
     screen.dataset.academyScreen = "story";
@@ -91282,16 +91528,20 @@ recommendedJiten	Jiten由来の頻度バッジです。
           stage2.setAction(storyNextAction(options.language, () => transition(() => runner.advance())));
           return;
         case "stage":
-        case "narration":
+        case "narration": {
+          const text2 = moment.node.description ?? moment.node.text?.[options.language] ?? "";
           stage2.setLine({
             id: moment.node.id,
-            japanese: moment.node.description ?? moment.node.text?.[options.language] ?? "",
-            language: options.language,
+            speakerId: moment.node.speakerId,
+            speakerName: storySpeakerName(moment.node.speakerId, options.language, options.learner),
+            japanese: text2,
+            language: HAS_JAPANESE_TEXT.test(text2) ? "ja" : options.language,
             reading: { ...storyReadingControl(options.language), available: false },
             ...sceneEntrySfx ? { sfx: [sceneEntrySfx] } : {}
           });
           stage2.setAction(storyNextAction(options.language, () => transition(() => runner.advance())));
           return;
+        }
         case "choice":
           stage2.setLine({
             id: moment.node.id,
@@ -91588,7 +91838,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (moment.kind === "complete") return [];
     const hasRie = storySceneAttendeeIds(moment.scene, choices2).includes("rie");
     const cast2 = [];
-    const speakerId = moment.kind === "line" ? moment.node.speakerId : void 0;
+    const speakerId = moment.kind === "line" || moment.kind === "stage" || moment.kind === "narration" ? moment.node.speakerId : void 0;
     const expression = moment.kind === "line" && moment.node.speakerId === "rie" ? playableStoryExpression(moment) : "neutral";
     if (hasRie && canRenderAcademyCastPortrait("rie")) {
       const performances2 = ACADEMY_ASSETS.characters.approvedPerformances.rie;
@@ -91643,6 +91893,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     if (speakerId === "ruparna" && (normalizedIntent.includes("repaired note") || normalizedIntent.includes("paper edge"))) {
       return ACADEMY_ASSETS.characters.approvedPerformances.ruparna.encouraging;
+    }
+    if (speakerId === "sam" && normalizedIntent.includes("recording")) {
+      return ACADEMY_ASSETS.characters.approvedPerformances.sam.encouraging;
     }
     return void 0;
   }
@@ -91710,7 +91963,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const nodeArt = latestStoryNodeArt(moment);
     const eventArt = nodeArt ?? STORY_EVENT_ART_BY_SCENE[moment.scene.id];
     const scene2 = moment.scene;
-    const plate = eventArt ?? (scene2.locationId.includes("entrance") ? ACADEMY_ASSETS.locations.entrance : scene2.locationId.includes("language-lab") ? ACADEMY_ASSETS.locations.languageLab : scene2.locationId.includes("library") ? ACADEMY_ASSETS.locations.library : ACADEMY_ASSETS.locations.classroom);
+    const plate = eventArt ?? (scene2.locationId.includes("entrance") ? ACADEMY_ASSETS.locations.classroomEntrance : scene2.locationId.includes("language-lab") ? ACADEMY_ASSETS.locations.languageLab : scene2.locationId.includes("library") ? ACADEMY_ASSETS.locations.library : ACADEMY_ASSETS.locations.classroom);
     return {
       plate: {
         id: nodeArt?.assetId ?? (eventArt ? `event.scene.${scene2.id}` : scene2.locationId),
@@ -242063,7 +242316,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const missionRoute = {
       sound: { locationId: "location:language-lab", plate: "languageLab" },
       text: { locationId: "location:library", plate: "library" },
-      speaking: { locationId: "location:classroom-entrance", plate: "entrance" }
+      speaking: { locationId: "location:classroom-entrance", plate: "classroomEntrance" }
     };
     const { screen, panel, content } = screenFrame({
       language: language2,
@@ -267004,7 +267257,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   const TITLES = {
     "activity:lesson-zero-text-input": { en: "Fill the two gaps", ja: "二つの空欄" },
-    "activity:lesson-zero-speaking-input": { en: "Your turn in the room", ja: "教室で自分の番" },
+    "activity:lesson-zero-speaking-input": { en: "Say your name", ja: "名前を言う" },
     "activity:lesson-zero-read-name-cards": { en: "Find it on the card", ja: "名札から見つける" },
     "activity:lesson-zero-write-name-card": { en: "Your class card", ja: "クラスの名札" },
     "activity:lesson-zero-sound-transfer": { en: "Catch it, then ask again", ja: "聞いて、もう一度たずねる" },
@@ -267025,9 +267278,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
     "activity:lesson-zero-close-room": { en: "Rie · End of class", ja: "りえ先生・授業のおわり" }
   };
   const CHECK_LABELS = {
-    "responds-to-question": { en: "I answered Aakash’s question.", ja: "アーカッシュの質問に答えました。" },
-    "repairs-if-needed": { en: "I used もう一度お願いします if I needed another listen.", ja: "必要なら「もう一度お願いします」を使いました。" },
-    "intelligible-name": { en: "My name came clearly before です.", ja: "「です」の前に名前をはっきり言いました。" },
+    "responds-to-question": { en: "I answered the question.", ja: "質問に答えました。" },
+    "intelligible-name": { en: "I said my name before です.", ja: "「です」の前に名前を言いました。" },
     "mora-timing": { en: "I kept each beat of the model line.", ja: "見本の一拍ずつを保ちました。" },
     "repair-language": { en: "I said もう一度お願いします.", ja: "「もう一度お願いします」と言いました。" },
     "listen-back-reflection": { en: "I listened back, or checked the line once after speaking.", ja: "録音を聞くか、話したあとに一度確認しました。" },
@@ -267420,10 +267672,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
     };
     const renderSpeakingTask = (signal) => {
       const root = element("section", "academy-mission-speaking");
-      root.append(copyNode("p", "academy-mission-help", speakingSetup(options.definition.activity.id)));
+      if (options.definition.activity.id !== "activity:lesson-zero-speaking-input") {
+        root.append(copyNode("p", "academy-mission-help", speakingSetup(options.definition.activity.id)));
+      }
       if (options.definition.audioUrl) {
         root.append(authoredAudioButton(
-          { en: "Hear the exchange", ja: "会話を聞く" },
+          { en: "Hear the question", ja: "質問を聞く" },
           signal
         ));
       } else {
@@ -267433,15 +267687,15 @@ recommendedJiten	Jiten由来の頻度バッジです。
       if (!performed && !capture && !recording) {
         const modes = element("div", "academy-mission-speaking-modes");
         if (recorder.supported) {
-          modes.append(actionButton2({ en: "Record privately", ja: "端末だけで録音する" }, "record", signal, startRecording));
+          modes.append(actionButton2({ en: "Record", ja: "録音する" }, "record", signal, startRecording));
         }
-        modes.append(actionButton2({ en: "Speak without recording", ja: "録音せずに話す" }, "primary", signal, () => {
+        modes.append(actionButton2({ en: "Speak now", ja: "今、話す" }, "primary", signal, () => {
           performed = true;
           render2();
         }));
         root.append(modes, copyNode("p", "academy-mission-privacy", {
-          en: "Private takes stay in memory and disappear when you leave this screen.",
-          ja: "録音はこの画面のメモリだけに残り、画面を出ると消えます。"
+          en: "Recordings stay on this device and clear when you leave.",
+          ja: "録音はこの端末だけに残り、画面を出ると消えます。"
         }));
       } else if (capture) {
         root.append(
@@ -267477,7 +267731,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         label.append(input2, copyNode("span", "", CHECK_LABELS[id2] ?? { en: id2, ja: id2 }));
         fieldset.append(label);
       }
-      fieldset.append(actionButton2({ en: "Keep this turn", ja: "この番を残す" }, "primary", signal, () => submit2({
+      fieldset.append(actionButton2({ en: "Finish", ja: "できた" }, "primary", signal, () => submit2({
         kind: "spoken",
         performed: performed || Boolean(recording),
         checkIds: [...selectedChecks],
@@ -267747,8 +268001,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
       };
     }
     return {
-      en: "Listen first. When Aakash asks your name, say your name followed by “desu”.",
-      ja: "アーカッシュとサムを聞いて、質問のあとに「名前＋です」で答えましょう。"
+      en: "Listen. Then answer with your name + です.",
+      ja: "聞いてから、「名前＋です」で答えましょう。"
     };
   }
   const DEFAULT_MANIFEST_URL = "/academy/content/vocabulary-pictographs.v1.json";

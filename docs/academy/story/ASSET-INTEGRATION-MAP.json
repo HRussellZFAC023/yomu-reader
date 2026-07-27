@@ -23,7 +23,7 @@
     "location:ramen": "ramen-evening-steam",
     "location:language-lab": "language-lab-evening-listening",
     "location:courtyard": null,
-    "location:classroom-entrance": "campus-entrance-blue-hour-arrival(near-miss:exterior)"
+    "location:classroom-entrance": "classroom-entrance-rain-evening-threshold"
   },
   "chapters": [
     {
@@ -297,8 +297,8 @@
           "locationId": "location:classroom-entrance",
           "timeState": "evening",
           "background": {
-            "assetId": "campus-entrance-blue-hour-arrival(near-miss:exterior)",
-            "status": "gap-partial"
+            "assetId": "classroom-entrance-rain-evening-threshold",
+            "status": "exists"
           },
           "cast": [
             {

@@ -47,7 +47,10 @@ for (const promotion of spec.promotions) {
     const insertionIndex = replaced.length > 0
         ? Math.min(...replaced.map(slot => manifest.indexOf(slot)))
         : Math.max(...castIndexes) + 1;
-    for (const slot of replaced) archiveSlot(slot, promotion.archiveLabel);
+    const promotedPaths = new Set(promotion.slots.map(slot => slot.assetPath));
+    for (const slot of replaced) {
+        if (!promotedPaths.has(slot.assetPath)) archiveSlot(slot, promotion.archiveLabel);
+    }
 
     const replacedIds = new Set(replaced.map(slot => slot.assetId));
     const replacedPaths = new Set(replaced.map(slot => slot.assetPath));

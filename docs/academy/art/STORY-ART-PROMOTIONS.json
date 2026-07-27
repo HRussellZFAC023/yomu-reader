@@ -307,6 +307,182 @@
           "Wide and mobile plates contain no people, leaving clear staging zones for the canonical runtime cast performances."
         ]
       }
+    },
+    {
+      "assetId": "event.story.blank-atlas-mission-speaking.door-waiting",
+      "chapterId": "s1e01-the-blank-atlas",
+      "sceneId": "scene:blank-atlas:mission-speaking",
+      "nodeId": "node:blank-atlas:speaking-door",
+      "cueId": "cue:speaking-route-open-door-nameplates",
+      "wide": "/academy/art/events/blank-atlas-mission-speaking__door-waiting__wide__v001.webp",
+      "mobile": "/academy/art/events/blank-atlas-mission-speaking__door-waiting__mobile__v001.webp",
+      "generationSources": [
+        "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/call_vBg8FJ6aPp93ycNzweUiGOs5.png",
+        "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/call_Vxs8UC6YXHziXjsFJOKUnfC0.png"
+      ],
+      "qa": {
+        "verdict": "pass",
+        "inspected": true,
+        "notes": [
+          "The rainy corridor, slightly open classroom door, and two blank name cards establish the speaking threshold without baking cast identities into the plate.",
+          "The real door image replaces the former CSS door while leaving a calm foreground area for the one-time knock interaction.",
+          "Wide and mobile compositions preserve the same architecture, warm invitation, and clear cast staging zones."
+        ]
+      }
+    },
+    {
+      "assetId": "event.story.blank-atlas-mission-speaking.door-open-repair",
+      "chapterId": "s1e01-the-blank-atlas",
+      "sceneId": "scene:blank-atlas:mission-speaking",
+      "nodeId": "node:blank-atlas:speaking-input-repair",
+      "cueId": "cue:speaking-route-one-turn",
+      "wide": "/academy/art/events/blank-atlas-mission-speaking__door-open-repair__wide__v001.webp",
+      "mobile": "/academy/art/events/blank-atlas-mission-speaking__door-open-repair__mobile__v001.webp",
+      "generationSources": [
+        "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/call_mc33i5Z5ujKa5s3A335NkInf.png",
+        "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/call_aI4Og4i6QWlg8RWDq5SR0Xuo.png"
+      ],
+      "qa": {
+        "verdict": "pass",
+        "inspected": true,
+        "notes": [
+          "The same corridor now opens into the classroom, with an empty chair, open notebook, and blank name card holding the learner's conversational place.",
+          "No person, readable answer, or punitive failure treatment is baked into the repair state.",
+          "The responsive pair preserves continuity from the closed-door state and leaves room for canonical Aakash and Sam performances."
+        ]
+      }
+    },
+    {
+      "assetId": "event.story.blank-atlas-reading-writing.cards-return",
+      "chapterId": "s1e01-the-blank-atlas",
+      "sceneId": "scene:blank-atlas:reading-writing",
+      "nodeId": "node:blank-atlas:cards-return",
+      "cueId": "cue:route-cards-around-atlas",
+      "wide": "/academy/art/events/blank-atlas-reading-writing__cards-return__wide__v001.webp",
+      "mobile": "/academy/art/events/blank-atlas-reading-writing__cards-return__mobile__v001.webp",
+      "generationSources": [
+        "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/call_5MN1nmCIFm6ySAwzKMvnpwqz.png",
+        "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/call_GIFjyBBdEqxgcNt9fZmuNQYD.png"
+      ],
+      "qa": {
+        "verdict": "pass",
+        "inspected": true,
+        "notes": [
+          "Three returned class cards and one face-down learner card make the reading-writing state legible without prose.",
+          "The Atlas, rain, lamps, cards, and desk objects remain continuous across both viewports.",
+          "No person, learner name, answer, or interface is baked into the art."
+        ]
+      }
+    },
+    {
+      "assetId": "event.story.blank-atlas-reading-writing.learner-card-route-label",
+      "chapterId": "s1e01-the-blank-atlas",
+      "sceneId": "scene:blank-atlas:reading-writing",
+      "nodeId": "node:blank-atlas:card-turns-over",
+      "cueId": "cue:learner-card-route-label",
+      "wide": "/academy/art/events/blank-atlas-reading-writing__learner-card-route-label__wide__v001.webp",
+      "mobile": "/academy/art/events/blank-atlas-reading-writing__learner-card-route-label__mobile__v001.webp",
+      "generationSources": [
+        "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/call_ZJGmopEkAOOIIlD4GWPdzdL1.png",
+        "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/call_LYcJT0NORGsMkRG9C6bC05oY.png"
+      ],
+      "qa": {
+        "verdict": "pass",
+        "inspected": true,
+        "notes": [
+          "All four route cards now stand together, making the learner's completed contribution visible.",
+          "Non-text route motifs avoid baked-in names while preserving the intended payoff.",
+          "Wide and mobile views keep the complete four-card set and Atlas in frame."
+        ]
+      }
+    },
+    {
+      "assetId": "event.story.blank-atlas-transfer.support-clears",
+      "chapterId": "s1e01-the-blank-atlas",
+      "sceneId": "scene:blank-atlas:transfer",
+      "nodeId": "node:blank-atlas:source-clears",
+      "cueId": "cue:teaching-surfaces-clear",
+      "wide": "/academy/art/events/blank-atlas-transfer__support-clears__wide__v001.webp",
+      "mobile": "/academy/art/events/blank-atlas-transfer__support-clears__mobile__v001.webp",
+      "generationSources": [
+        "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/call_8AyGEObRARpgktIUDkNUNgdE.png",
+        "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/call_eymKzYQnUjUouTLJQg1sBBCZ.png"
+      ],
+      "qa": {
+        "verdict": "pass",
+        "inspected": true,
+        "notes": [
+          "Closed source sheets and one waiting route card clearly stage independent transfer.",
+          "The state is quieter and later while retaining exact classroom and Atlas continuity.",
+          "No answer, direction, person, or UI is baked into either viewport."
+        ]
+      }
+    },
+    {
+      "assetId": "event.story.blank-atlas-transfer.first-lantern",
+      "chapterId": "s1e01-the-blank-atlas",
+      "sceneId": "scene:blank-atlas:transfer",
+      "nodeId": "node:blank-atlas:first-lantern",
+      "cueId": "cue:first-atlas-lantern-lit",
+      "wide": "/academy/art/events/blank-atlas-transfer__first-lantern__wide__v001.webp",
+      "mobile": "/academy/art/events/blank-atlas-transfer__first-lantern__mobile__v001.webp",
+      "generationSources": [
+        "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/call_P8B8UKNt0cAYqyw8Lsqfa6Su.png",
+        "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/call_F3kgTjywvr3DRHtOupbKPYsp.png"
+      ],
+      "qa": {
+        "verdict": "pass",
+        "inspected": true,
+        "notes": [
+          "Exactly one Atlas lantern lights, keeping the first reward intimate rather than spectacular.",
+          "The route card, closed support stack, and reflected glow preserve the transfer cause and payoff.",
+          "Both compositions leave clean staging space for Rie and accessible dialogue."
+        ]
+      }
+    },
+    {
+      "assetId": "event.story.blank-atlas-close.one-light-room",
+      "chapterId": "s1e01-the-blank-atlas",
+      "sceneId": "scene:blank-atlas:close",
+      "nodeId": "node:blank-atlas:one-light-room",
+      "cueId": "cue:one-lantern-reflected-on-desks",
+      "wide": "/academy/art/events/blank-atlas-close__one-light-room__wide__v001.webp",
+      "mobile": "/academy/art/events/blank-atlas-close__one-light-room__mobile__v001.webp",
+      "generationSources": [
+        "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/call_Vweu9KBormeQwQoeljZkDbKh.png",
+        "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/call_unU4CeIkYOsUzdCjGY62AYhg.png"
+      ],
+      "qa": {
+        "verdict": "pass",
+        "inspected": true,
+        "notes": [
+          "The single lit Atlas point reflects through the wider classroom without implying the route is complete.",
+          "A physical brass-and-green arrow points back toward the saved route without becoming UI.",
+          "The responsive pair preserves the Atlas, doorway, and arrow as one quiet closing image."
+        ]
+      }
+    },
+    {
+      "assetId": "event.story.blank-atlas-close.finish-break-context",
+      "chapterId": "s1e01-the-blank-atlas",
+      "sceneId": "scene:blank-atlas:close",
+      "nodeId": "node:blank-atlas:close-room-repair",
+      "cueId": "cue:finish-break-context",
+      "wide": "/academy/art/events/blank-atlas-close__finish-break-context__wide__v001.webp",
+      "mobile": "/academy/art/events/blank-atlas-close__finish-break-context__mobile__v001.webp",
+      "generationSources": [
+        "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/call_M7Ui2H5yFNA8Q3TaSfKQyLeY.png",
+        "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/call_gsLSBpqCAtOip8wVUgvh1pTH.png"
+      ],
+      "qa": {
+        "verdict": "pass",
+        "inspected": true,
+        "notes": [
+          "The loop and crescent route tokens distinguish continue-later and finish without words or pressure.",
+          "The lit Atlas and physical route arrow retain the learner's saved progress in view.",
+          "Both viewports reserve enough quiet space for the actual choice controls and Rie performance."
+        ]
+      }
     }
   ]
 }

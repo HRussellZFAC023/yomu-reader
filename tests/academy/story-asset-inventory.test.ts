@@ -16,9 +16,16 @@ interface StoryAssetInventory {
             sceneId: string;
             locationId: string;
             cast: readonly Readonly<{ id: string }>[];
-            openingImage: Readonly<{ runtimeHome: string }>;
-            exitImage: Readonly<{ runtimeHome: string }> | null;
-            propCues: readonly Readonly<{ runtimeHome: string }>[];
+            background: Readonly<{ status: string }>;
+            openingImage: Readonly<{ status: string; runtimeHome: string }>;
+            exitImage: Readonly<{ status: string; runtimeHome: string }> | null;
+            propCues: readonly Readonly<{
+                cueId: string;
+                nodeId: string;
+                status: string;
+                runtimeHome: string;
+                runtimeRenderer: string | null;
+            }>[];
         }>[];
     }>[];
     readonly generationQueue: readonly Readonly<{
@@ -85,5 +92,32 @@ describe('Academy story art inventory', () => {
             [item.chapterId, item.sceneId, item.kind, item.cueId ?? 'scene'].join('|'),
         );
         expect(new Set(keys).size).toBe(keys.length);
+    });
+
+    it('treats implemented Day 1 living-paper states as runtime props, not missing art', () => {
+        const dayOne = inventory.chapters.find(chapter => chapter.id === 's1e01-the-blank-atlas');
+        expect(dayOne).toBeDefined();
+
+        const propCues = dayOne?.scenes.flatMap(scene => scene.propCues) ?? [];
+        expect(propCues).not.toHaveLength(0);
+        expect(propCues.every(cue => cue.status === 'runtime-prop')).toBe(true);
+        expect(propCues.every(cue => Boolean(cue.runtimeRenderer))).toBe(true);
+
+        const queuedPropNodes = new Set(
+            inventory.generationQueue
+                .filter(item => item.chapterId === 's1e01-the-blank-atlas' && item.kind === 'prop-or-overlay')
+                .map(item => item.cueId),
+        );
+        propCues.forEach(cue => expect(queuedPropNodes.has(cue.cueId)).toBe(false));
+    });
+
+    it('keeps every Day 1 scene image bound and out of the generation queue', () => {
+        const dayOne = inventory.chapters.find(chapter => chapter.id === 's1e01-the-blank-atlas');
+        expect(dayOne).toBeDefined();
+        expect(dayOne?.scenes).toHaveLength(11);
+        expect(dayOne?.scenes.every(scene => scene.background.status === 'bound')).toBe(true);
+        expect(dayOne?.scenes.every(scene => scene.openingImage.status === 'bound')).toBe(true);
+        expect(dayOne?.scenes.every(scene => scene.exitImage?.status === 'bound')).toBe(true);
+        expect(inventory.generationQueue.some(item => item.chapterId === 's1e01-the-blank-atlas')).toBe(false);
     });
 });

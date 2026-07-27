@@ -93,6 +93,11 @@ describe('Academy canonical cast registry', () => {
             eligibility: { story: true, lessons: true, likenessRuntime: true },
         });
         expect(canRenderAcademyCastPortrait('ruparna', 'story-runtime')).toBe(true);
+        expect(getAcademyCastMember('sam')).toMatchObject({
+            visualEvidence: 'approved',
+            eligibility: { story: true, lessons: true, likenessRuntime: true },
+        });
+        expect(canRenderAcademyCastPortrait('sam', 'story-runtime')).toBe(true);
         expect(getAcademyCastMember('shaun')).toMatchObject({
             firstName: 'Shaun',
             category: 'classmate',

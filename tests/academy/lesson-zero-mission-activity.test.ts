@@ -27,7 +27,7 @@ const passingResponses: Readonly<Record<LessonZeroMissionActivityId, LessonZeroM
     'activity:lesson-zero-speaking-input': {
         kind: 'spoken',
         performed: true,
-        checkIds: ['responds-to-question', 'repairs-if-needed', 'intelligible-name'],
+        checkIds: ['responds-to-question', 'intelligible-name'],
         recorded: false,
     },
     'activity:lesson-zero-read-name-cards': {
@@ -89,7 +89,7 @@ describe('Lesson Zero story mission evidence', () => {
         }],
         ['activity:lesson-zero-write-name-card', { kind: 'written', text: 'です。' }],
         ['activity:lesson-zero-speaking-input', {
-            kind: 'spoken', performed: true, checkIds: ['responds-to-question'], recorded: false,
+            kind: 'spoken', performed: true, checkIds: [], recorded: false,
         }],
         ['activity:lesson-zero-close-room', { kind: 'room-action', actionId: 'unknown' }],
     ] as [LessonZeroMissionActivityId, LessonZeroMissionResponse][])(

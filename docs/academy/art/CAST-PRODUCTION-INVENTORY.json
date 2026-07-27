@@ -29,9 +29,9 @@
     "cast": 30,
     "requiredPerformancesPerCast": 7,
     "requiredSlots": 210,
-    "integratedSlots": 35,
-    "missingSlots": 175,
-    "ownerCorrectionQueue": 77,
+    "integratedSlots": 39,
+    "missingSlots": 171,
+    "ownerCorrectionQueue": 73,
     "storyCriticalQueue": 63,
     "rosterCompletionQueue": 35
   },
@@ -495,25 +495,37 @@
       "priority": "owner-correction",
       "summary": {
         "required": 7,
-        "integrated": 0,
-        "missing": 7
+        "integrated": 2,
+        "missing": 5
       },
       "performances": [
         {
           "expression": "neutral",
           "preferredAngle": "front-near-front",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.sam.standardized-neutral-front-near-front-halfbody-v001",
+          "assetPath": "/academy/art/characters/sam/sam__standardized-neutral__front-near-front__halfbody__v001.png",
+          "runtimeHomes": [
+            "journal:sam",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "story:cast:sam",
+            "cast-standardization:sam"
+          ]
         },
         {
           "expression": "encouraging-listening",
           "preferredAngle": "right-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.sam.standardized-encouraging-listening-front-near-front-halfbody-v001",
+          "assetPath": "/academy/art/characters/sam/sam__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
+          "runtimeHomes": [
+            "journal:sam-expression-gallery",
+            "story:cast:sam:recording-boundary",
+            "cast-standardization:sam"
+          ]
         },
         {
           "expression": "happy",
@@ -1559,25 +1571,37 @@
       "priority": "owner-correction",
       "summary": {
         "required": 7,
-        "integrated": 0,
-        "missing": 7
+        "integrated": 2,
+        "missing": 5
       },
       "performances": [
         {
           "expression": "neutral",
           "preferredAngle": "front-near-front",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.ruparna.neutral-front-near-front-halfbody-v002",
+          "assetPath": "/academy/art/characters/ruparna/ruparna__neutral__front-near-front__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:ruparna",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "story:cast:ruparna",
+            "cast-standardization:ruparna"
+          ]
         },
         {
           "expression": "encouraging-listening",
           "preferredAngle": "right-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.ruparna.note-route-right-three-quarter-halfbody-v002",
+          "assetPath": "/academy/art/characters/ruparna/ruparna__note-route__right-three-quarter__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:ruparna-expression-gallery",
+            "story:cast:ruparna:note-route",
+            "cast-standardization:ruparna"
+          ]
         },
         {
           "expression": "happy",
@@ -3432,66 +3456,6 @@
       "status": "queued"
     },
     {
-      "key": "sam:neutral",
-      "castId": "sam",
-      "displayName": "Sam",
-      "identityKey": "sam-close-cropped-chestnut-athletic",
-      "expression": "neutral",
-      "angle": "front-near-front",
-      "priority": "owner-correction",
-      "storyLines": 28,
-      "visualLock": "Relaxed athletic White man with a very close-cropped chestnut crew cut and minimal crown or side volume.",
-      "wardrobeLock": "Clean casual sportswear or a simple overshirt in moss, navy, and cream.",
-      "reject": [
-        "long or swept hair",
-        "high-volume crown",
-        "beard",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:sam",
-        "class:people",
-        "lesson-overview:roster",
-        "story:cast:sam"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "sam:encouraging-listening",
-      "castId": "sam",
-      "displayName": "Sam",
-      "identityKey": "sam-close-cropped-chestnut-athletic",
-      "expression": "encouraging-listening",
-      "angle": "right-three-quarter",
-      "priority": "owner-correction",
-      "storyLines": 28,
-      "visualLock": "Relaxed athletic White man with a very close-cropped chestnut crew cut and minimal crown or side volume.",
-      "wardrobeLock": "Clean casual sportswear or a simple overshirt in moss, navy, and cream.",
-      "reject": [
-        "long or swept hair",
-        "high-volume crown",
-        "beard",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:sam-expression-gallery",
-        "story:cast:sam:encouraging-listening"
-      ],
-      "status": "queued"
-    },
-    {
       "key": "sam:happy",
       "castId": "sam",
       "displayName": "Sam",
@@ -5245,64 +5209,6 @@
       "runtimeHomes": [
         "journal:stasi-expression-gallery",
         "story:cast:stasi:sad-vulnerable"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "ruparna:neutral",
-      "castId": "ruparna",
-      "displayName": "Ruparna",
-      "identityKey": "ruparna-long-dark-hair-thoughtful",
-      "expression": "neutral",
-      "angle": "front-near-front",
-      "priority": "owner-correction",
-      "storyLines": 10,
-      "visualLock": "South Asian woman with long dark hair and a thoughtful, perceptive presence.",
-      "wardrobeLock": "Elegant practical layers in plum, ink, and warm cream.",
-      "reject": [
-        "stale v1 caricature",
-        "short blond hair",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:ruparna",
-        "class:people",
-        "lesson-overview:roster",
-        "story:cast:ruparna"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "ruparna:encouraging-listening",
-      "castId": "ruparna",
-      "displayName": "Ruparna",
-      "identityKey": "ruparna-long-dark-hair-thoughtful",
-      "expression": "encouraging-listening",
-      "angle": "right-three-quarter",
-      "priority": "owner-correction",
-      "storyLines": 10,
-      "visualLock": "South Asian woman with long dark hair and a thoughtful, perceptive presence.",
-      "wardrobeLock": "Elegant practical layers in plum, ink, and warm cream.",
-      "reject": [
-        "stale v1 caricature",
-        "short blond hair",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:ruparna-expression-gallery",
-        "story:cast:ruparna:encouraging-listening"
       ],
       "status": "queued"
     },

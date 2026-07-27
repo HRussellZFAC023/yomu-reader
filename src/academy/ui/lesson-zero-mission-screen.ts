@@ -38,7 +38,7 @@ export interface LessonZeroMissionScreen {
 
 const TITLES: Readonly<Record<LessonZeroMissionDefinition['activity']['id'], Localized>> = {
     'activity:lesson-zero-text-input': { en: 'Fill the two gaps', ja: '二つの空欄' },
-    'activity:lesson-zero-speaking-input': { en: 'Your turn in the room', ja: '教室で自分の番' },
+    'activity:lesson-zero-speaking-input': { en: 'Say your name', ja: '名前を言う' },
     'activity:lesson-zero-read-name-cards': { en: 'Find it on the card', ja: '名札から見つける' },
     'activity:lesson-zero-write-name-card': { en: 'Your class card', ja: 'クラスの名札' },
     'activity:lesson-zero-sound-transfer': { en: 'Catch it, then ask again', ja: '聞いて、もう一度たずねる' },
@@ -61,9 +61,8 @@ const EYEBROWS: Readonly<Record<LessonZeroMissionDefinition['activity']['id'], L
 };
 
 const CHECK_LABELS: Readonly<Record<string, Localized>> = {
-    'responds-to-question': { en: 'I answered Aakash’s question.', ja: 'アーカッシュの質問に答えました。' },
-    'repairs-if-needed': { en: 'I used もう一度お願いします if I needed another listen.', ja: '必要なら「もう一度お願いします」を使いました。' },
-    'intelligible-name': { en: 'My name came clearly before です.', ja: '「です」の前に名前をはっきり言いました。' },
+    'responds-to-question': { en: 'I answered the question.', ja: '質問に答えました。' },
+    'intelligible-name': { en: 'I said my name before です.', ja: '「です」の前に名前を言いました。' },
     'mora-timing': { en: 'I kept each beat of the model line.', ja: '見本の一拍ずつを保ちました。' },
     'repair-language': { en: 'I said もう一度お願いします.', ja: '「もう一度お願いします」と言いました。' },
     'listen-back-reflection': { en: 'I listened back, or checked the line once after speaking.', ja: '録音を聞くか、話したあとに一度確認しました。' },
@@ -491,10 +490,12 @@ export function createLessonZeroMissionScreen(
 
     const renderSpeakingTask = (signal: AbortSignal): HTMLElement => {
         const root = element('section', 'academy-mission-speaking');
-        root.append(copyNode('p', 'academy-mission-help', speakingSetup(options.definition.activity.id)));
+        if (options.definition.activity.id !== 'activity:lesson-zero-speaking-input') {
+            root.append(copyNode('p', 'academy-mission-help', speakingSetup(options.definition.activity.id)));
+        }
         if (options.definition.audioUrl) {
             root.append(authoredAudioButton(
-                { en: 'Hear the exchange', ja: '会話を聞く' },
+                { en: 'Hear the question', ja: '質問を聞く' },
                 signal,
             ));
         } else {
@@ -504,15 +505,15 @@ export function createLessonZeroMissionScreen(
         if (!performed && !capture && !recording) {
             const modes = element('div', 'academy-mission-speaking-modes');
             if (recorder.supported) {
-                modes.append(actionButton({ en: 'Record privately', ja: '端末だけで録音する' }, 'record', signal, startRecording));
+                modes.append(actionButton({ en: 'Record', ja: '録音する' }, 'record', signal, startRecording));
             }
-            modes.append(actionButton({ en: 'Speak without recording', ja: '録音せずに話す' }, 'primary', signal, () => {
+            modes.append(actionButton({ en: 'Speak now', ja: '今、話す' }, 'primary', signal, () => {
                 performed = true;
                 render();
             }));
             root.append(modes, copyNode('p', 'academy-mission-privacy', {
-                en: 'Private takes stay in memory and disappear when you leave this screen.',
-                ja: '録音はこの画面のメモリだけに残り、画面を出ると消えます。',
+                en: 'Recordings stay on this device and clear when you leave.',
+                ja: '録音はこの端末だけに残り、画面を出ると消えます。',
             }));
         } else if (capture) {
             root.append(
@@ -549,7 +550,7 @@ export function createLessonZeroMissionScreen(
             label.append(input, copyNode('span', '', CHECK_LABELS[id] ?? { en: id, ja: id }));
             fieldset.append(label);
         }
-        fieldset.append(actionButton({ en: 'Keep this turn', ja: 'この番を残す' }, 'primary', signal, () => submit({
+        fieldset.append(actionButton({ en: 'Finish', ja: 'できた' }, 'primary', signal, () => submit({
             kind: 'spoken',
             performed: performed || Boolean(recording),
             checkIds: [...selectedChecks],
@@ -860,7 +861,7 @@ function speakingSetup(id: LessonZeroMissionDefinition['activity']['id']): Local
         };
     }
     return {
-        en: 'Listen first. When Aakash asks your name, say your name followed by “desu”.',
-        ja: 'アーカッシュとサムを聞いて、質問のあとに「名前＋です」で答えましょう。',
+        en: 'Listen. Then answer with your name + です.',
+        ja: '聞いてから、「名前＋です」で答えましょう。',
     };
 }

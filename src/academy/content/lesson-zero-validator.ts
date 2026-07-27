@@ -15,6 +15,7 @@ import {
     type LessonZeroResponseMode,
     type VersionedSourceLibraryData,
 } from './lesson-zero-schema';
+import { createKatakanaNameDraft } from './learner-name';
 
 const REQUIRED_SECTION_IDS = [
     'arrival-greetings', 'sound-script-map', 'classroom-survival',
@@ -277,7 +278,7 @@ function validateDialogueSpeakers(script: LessonZeroInputScript): void {
     for (const speakerId of speakers) {
         const member = getAcademyCastMember(speakerId);
         const speakerLines = script.lines.filter(line => line.speakerId === speakerId);
-        const acceptedNames = canonicalScriptNames(member.id, member.firstName);
+        const acceptedNames = canonicalScriptNames(member.firstName);
         if (!speakerLines.some(line =>
             acceptedNames.some(name => line.japanese.includes(`${name}です`)
                 && line.reading.includes(`${name}です`)))) {
@@ -286,10 +287,9 @@ function validateDialogueSpeakers(script: LessonZeroInputScript): void {
     }
 }
 
-function canonicalScriptNames(memberId: string, firstName: string): readonly string[] {
-    if (memberId === 'xingyu') return [firstName, 'シンユ'];
-    if (memberId === 'mika') return [firstName, 'ミカ'];
-    return [firstName];
+function canonicalScriptNames(firstName: string): readonly string[] {
+    const katakana = createKatakanaNameDraft(firstName).katakana;
+    return katakana && katakana !== firstName ? [firstName, katakana] : [firstName];
 }
 
 function validateScriptLearnerTurns(

@@ -203,16 +203,25 @@ async function completeMission(page, activityId) {
             await screen.getByRole('button', { name: 'Check' }).click();
             break;
         case 'activity:lesson-zero-speaking-input':
-        case 'activity:lesson-zero-sound-transfer':
-        case 'activity:lesson-zero-speaking-transfer':
-            await screen.getByRole('button', { name: 'Hear the exchange' }).click();
+            await screen.getByRole('button', { name: 'Hear the question' }).click();
             await page.waitForFunction(() => {
                 const status = document.querySelector('.academy-mission-live')?.textContent;
                 return status === 'Listen for the turn.' || status === 'Now take your turn.';
             });
-            await screen.getByRole('button', { name: 'Speak without recording' }).click();
+            await screen.getByRole('button', { name: 'Speak now' }).click();
             for (const checkbox of await screen.locator('input[type="checkbox"]').all()) await checkbox.check();
-            await screen.getByRole('button', { name: 'Keep this turn' }).click();
+            await screen.getByRole('button', { name: 'Finish' }).click();
+            break;
+        case 'activity:lesson-zero-sound-transfer':
+        case 'activity:lesson-zero-speaking-transfer':
+            await screen.getByRole('button', { name: 'Hear the question' }).click();
+            await page.waitForFunction(() => {
+                const status = document.querySelector('.academy-mission-live')?.textContent;
+                return status === 'Listen for the turn.' || status === 'Now take your turn.';
+            });
+            await screen.getByRole('button', { name: 'Speak now' }).click();
+            for (const checkbox of await screen.locator('input[type="checkbox"]').all()) await checkbox.check();
+            await screen.getByRole('button', { name: 'Finish' }).click();
             break;
         case 'activity:lesson-zero-read-name-cards':
             await screen.locator('.academy-mission-name-card').filter({ hasText: 'Ruparna' }).click();

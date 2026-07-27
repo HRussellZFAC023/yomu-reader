@@ -569,25 +569,30 @@
     box-shadow: inset 0 -3px 0 color-mix(in srgb, var(--prop-accent) 72%, #302d27);
 }
 
-.academy-classroom-door {
-    position: relative;
-    width: min(42%, 180px);
-    aspect-ratio: 0.72;
-    border: 7px double #a98355;
-    background: #253832;
-    transform-origin: left;
-    transition: transform 420ms ease;
+.academy-door-knocker {
+    display: grid;
+    width: 96px;
+    min-height: 96px;
+    place-items: end center;
+    padding: 12px 8px;
+    border: 0;
+    border-radius: 50%;
+    color: #fffdf5;
+    background:
+        radial-gradient(circle at 50% 38%, transparent 0 19px, color-mix(in srgb, var(--prop-accent) 82%, #d8b978) 20px 25px, transparent 26px),
+        radial-gradient(circle at 50% 47%, color-mix(in srgb, var(--prop-accent) 55%, #4b3927) 0 34px, rgba(24, 29, 27, 0.94) 35px);
+    box-shadow: 0 10px 28px rgba(7, 11, 10, 0.34);
+    font: inherit;
+    font-size: 0.75rem;
+    font-weight: 780;
+    letter-spacing: 0;
+    cursor: pointer;
+    transition: translate 160ms ease, filter 160ms ease;
 }
 
-.academy-speaking-door-prop[data-open="true"] .academy-classroom-door {
-    transform: perspective(460px) rotateY(-48deg);
-}
-
-.academy-door-window {
-    position: absolute;
-    inset: 12% 18% 48%;
-    border: 3px solid #a98355;
-    background: rgba(121, 164, 170, 0.28);
+.academy-door-knocker:is(:hover, :focus-visible) {
+    filter: brightness(1.12);
+    translate: 0 -3px;
 }
 
 .academy-door-nameplates {
@@ -600,6 +605,12 @@
     border-bottom: 3px solid var(--prop-accent);
     color: #fffdf5;
     background: rgba(35, 43, 39, 0.88);
+    font-weight: 760;
+}
+
+.academy-door-invitation {
+    margin: 0;
+    color: #fffdf5;
     font-weight: 760;
 }
 

@@ -151,6 +151,89 @@ async function verifyJourney(browser, viewport) {
                 fullPage: true,
             });
         }
+        if (sceneId === 'scene:blank-atlas:mission-speaking') {
+            const stage = page.locator('.academy-vn-stage');
+            assert.equal(
+                await stage.getAttribute('data-story-art'),
+                'event.story.blank-atlas-mission-speaking.door-waiting',
+                `${viewport.name} Speaking mission must open outside the classroom`,
+            );
+            await assertResponsivePicture(
+                page,
+                'blank-atlas-mission-speaking__door-waiting__wide__v001.webp',
+                'blank-atlas-mission-speaking__door-waiting__mobile__v001.webp',
+                `${viewport.name} Speaking mission opening`,
+            );
+
+            await page.evaluate(() => (
+                window.__blankAtlasProof.openLine('line:blank-atlas:sam-recording-boundary', 'foundation')
+            ));
+            const sam = page.locator('[data-character="sam"] img');
+            await sam.waitFor();
+            assert.match(
+                await sam.getAttribute('src') ?? '',
+                /sam__standardized-encouraging-listening__front-near-front__halfbody__v001\.png$/u,
+                `${viewport.name} Speaking mission must show Sam's canonical listening performance`,
+            );
+            assert.equal(
+                await page.locator('[data-line="line:blank-atlas:sam-recording-boundary"] .academy-vn-japanese').innerText(),
+                '録音しても、しなくても大丈夫です。',
+                `${viewport.name} Sam must explain the recording choice naturally`,
+            );
+            await assertSurface(page, viewport, 'U008 Sam boundary');
+            await page.screenshot({
+                path: path.join(artifactDir, `${viewport.name}-U008-sam.png`),
+                fullPage: true,
+            });
+
+            await page.evaluate(() => window.__blankAtlasProof.openNode(
+                'scene:blank-atlas:mission-speaking',
+                'node:blank-atlas:speaking-input-repair',
+                'option:blank-atlas:mission-speaking',
+            ));
+            assert.equal(
+                await stage.getAttribute('data-story-art'),
+                'event.story.blank-atlas-mission-speaking.door-open-repair',
+                `${viewport.name} Speaking repair must stay inside the opened classroom`,
+            );
+            await assertResponsivePicture(
+                page,
+                'blank-atlas-mission-speaking__door-open-repair__wide__v001.webp',
+                'blank-atlas-mission-speaking__door-open-repair__mobile__v001.webp',
+                `${viewport.name} Speaking mission repair`,
+            );
+            assert.equal(
+                await page.locator('[data-line="node:blank-atlas:speaking-input-repair"] .academy-vn-japanese').innerText(),
+                'お名前は何ですか。',
+                `${viewport.name} Speaking repair must be dialogue, not third-person narration`,
+            );
+            await assertSurface(page, viewport, 'U008 repair');
+            await page.screenshot({
+                path: path.join(artifactDir, `${viewport.name}-U008-repair.png`),
+                fullPage: true,
+            });
+
+            await page.evaluate(() => (
+                window.__blankAtlasProof.openLine('line:blank-atlas:aakash-place-held', 'foundation')
+            ));
+            const aakash = page.locator('[data-character="aakash"] img');
+            await aakash.waitFor();
+            assert.match(
+                await aakash.getAttribute('src') ?? '',
+                /aakash__sprite__neutral__front-near-front__v009\.png$/u,
+                `${viewport.name} Speaking resolution must show Aakash's canonical sprite`,
+            );
+            assert.equal(
+                await page.locator('[data-line="line:blank-atlas:aakash-place-held"] .academy-vn-japanese').innerText(),
+                '届きました。名前も、声も。',
+                `${viewport.name} Aakash must close the repaired turn naturally`,
+            );
+            await assertSurface(page, viewport, 'U008 Aakash resolution');
+            await page.screenshot({
+                path: path.join(artifactDir, `${viewport.name}-U008-aakash.png`),
+                fullPage: true,
+            });
+        }
     }
 
     const afterScenes = await readProof(page);
@@ -200,9 +283,22 @@ async function verifyChapterVoiceMatrix(page) {
         await page.evaluate(({ lineId, band }) => window.__blankAtlasProof.openLine(lineId, band), entry);
         const stage = page.locator(`.academy-story-vn-stage [data-line="${entry.lineId}"]`);
         await stage.waitFor();
-        await page.waitForFunction(() => (
-            document.querySelector('.academy-story-vn-stage')?.getAttribute('data-voice-available') === 'true'
-        ));
+        try {
+            await page.waitForFunction(() => (
+                document.querySelector('.academy-story-vn-stage')?.getAttribute('data-voice-available') === 'true'
+            ));
+        } catch (error) {
+            const voiceState = await page.locator('.academy-story-vn-stage').evaluate(element => ({
+                lineId: element.querySelector('[data-line]')?.getAttribute('data-line'),
+                available: element.getAttribute('data-voice-available'),
+                status: element.getAttribute('data-voice-status'),
+                japanese: element.querySelector('.academy-vn-japanese')?.textContent,
+            }));
+            throw new Error(
+                `${entry.lineId} ${entry.band} did not bind its published voice: ${JSON.stringify(voiceState)}`,
+                { cause: error },
+            );
+        }
         assert.equal(await page.locator('.academy-vn-japanese').textContent(), entry.japanese,
             `${entry.lineId} ${entry.band} must bind the catalog's exact Japanese`);
         await page.locator('.academy-vn-voice-replay').click();
@@ -453,6 +549,29 @@ async function mountProof(page, databaseName, resetDatabase) {
                 await persistence.checkpoint.save(checkpoint);
                 await render();
             },
+            async openNode(sceneId, nodeId, optionId) {
+                const scene = arc.scene(sceneId);
+                const node = scene?.nodes.find(candidate => candidate.id === nodeId);
+                if (!scene || !node) throw new Error(`Missing Blank Atlas node ${nodeId}.`);
+                checkpoint = {
+                    ...checkpoint,
+                    route: 'story',
+                    sectionId: serializeStoryCursor({
+                        version: 1,
+                        arcId: arc.id,
+                        sceneId,
+                        nodeId,
+                        choices: optionId ? { 'choice:blank-atlas:mission': optionId } : {},
+                    }),
+                    lessonId: 'lesson:foundation-00',
+                    activityId: undefined,
+                    presentationMode: 'story',
+                    selectedBand: undefined,
+                    updatedAt: Date.now(),
+                };
+                await persistence.checkpoint.save(checkpoint);
+                await render();
+            },
         };
         await render();
     }, { databaseName, resetDatabase, chapterId });
@@ -497,7 +616,7 @@ async function exerciseProp(page, sceneId, input) {
     const interaction = sceneId === 'scene:blank-atlas:mission-text'
         ? ['.academy-note-inspect', '.academy-text-mission-prop', 'inspected']
         : sceneId === 'scene:blank-atlas:mission-speaking'
-            ? ['.academy-door-open', '.academy-speaking-door-prop', 'open']
+            ? ['.academy-door-knocker', '.academy-speaking-door-prop', 'open']
             : sceneId === 'scene:blank-atlas:reading-writing'
                 ? ['.academy-card-flip', '.academy-public-card-prop', 'face']
                 : undefined;
@@ -508,6 +627,15 @@ async function exerciseProp(page, sceneId, input) {
     await activate(control, input);
     const value = await page.locator(rootSelector).getAttribute(`data-${attribute}`);
     assert.ok(value === 'true' || value === 'public', `${sceneId} interaction must visibly change its prop`);
+}
+
+async function assertResponsivePicture(page, wideFilename, mobileFilename, label) {
+    const image = page.locator('.academy-vn-plate img');
+    const source = page.locator('.academy-vn-plate source');
+    assert.match(await image.getAttribute('src') ?? '', new RegExp(`${wideFilename.replaceAll('.', '\\.')}$`, 'u'),
+        `${label} must bind the canonical wide image`);
+    assert.match(await source.getAttribute('srcset') ?? '', new RegExp(`${mobileFilename.replaceAll('.', '\\.')}$`, 'u'),
+        `${label} must bind the canonical mobile image`);
 }
 
 async function assertSurface(page, viewport, phase) {
