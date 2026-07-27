@@ -25,6 +25,15 @@ const PARTICLE_PREFIX_REMAINDER_RE = new RegExp(`^[${KANJI_LIKE_WITH_COUNTERS}${
 const INFLECTION_CONTINUATION_SEGMENT_RE = /^(?:っ?た|っ?て|だ|で|ん|んで|ま|ない|なか|なかっ|なかった|ながら|ます|まし|ました|ませ|ません|ましょう|たい|たく|しま|した|し|する|でき|出来|できる|できます|できた|できて|できない|できなかった|いる|い|いた|いて|れる|られ|せる|させる)$/u;
 const HIRAGANA_SEGMENT_RE = new RegExp(`^[${HIRAGANA_WITH_PROLONGED}]+$`, 'u');
 const KATAKANA_SEGMENT_RE = new RegExp(`^[${KATAKANA}${HALFWIDTH_KATAKANA}${PROLONGED_SOUND_MARK}]+$`, 'u');
+// Punctuation an author writes to separate words. The katakana middle dot ・ and
+// its halfwidth ･ are the Japanese forms, ゠ separates the parts of a
+// transliterated name, and ·/• stand in for ・ in Latin-typeset copy. Written
+// out here rather than composed from japanese-script.ts because these are
+// exactly the code points that block is wrong about: ・ and ゠ live INSIDE the
+// katakana range, so every katakana class silently swallows them.
+const SEGMENT_SEPARATORS = '・･゠·•';
+const SEGMENT_SEPARATOR_RE = new RegExp(`[${SEGMENT_SEPARATORS}]`, 'u');
+const SEGMENT_SEPARATOR_RUN_RE = new RegExp(`[${SEGMENT_SEPARATORS}]+`, 'gu');
 const SINGLE_KANJI_SEGMENT_RE = new RegExp(`^[${KANJI}]$`, 'u');
 const SINGLE_KANJI_HIRAGANA_STEM_RE = new RegExp(`^[${KANJI}][${HIRAGANA_WITH_PROLONGED}]*$`, 'u');
 const KANJI_KANA_KANJI_SPAN_RE = new RegExp(`[${KANJI_LIKE_WITH_COUNTERS}][${HIRAGANA_WITH_PROLONGED}]+[${KANJI_LIKE_WITH_COUNTERS}]`, 'u');
@@ -126,8 +135,9 @@ function segmentJapaneseRun(text: string, offset: number, segmenter: IntlSegment
 }
 
 function finalizeJapaneseRunSegments(segments: JapaneseTextSegment[], sourceText: string): JapaneseTextSegment[] {
+    const separatedSegments = splitNumericCounterPrefixSegments(splitSeparatorSegments(segments), sourceText);
     const normalizedSegments = splitTrailingPoliteParticleSegments(
-        mergeContiguousKanaSegments(mergeContiguousKatakanaSegments(mergeSegmenterCompoundOverrides(splitNumericCounterPrefixSegments(segments, sourceText)))),
+        mergeContiguousKanaSegments(mergeContiguousKatakanaSegments(mergeSegmenterCompoundOverrides(separatedSegments))),
     );
     return mergeInflectedFallbackSegments(
         splitLeadingParticleSegments(normalizedSegments),
@@ -147,6 +157,60 @@ function splitTrailingPoliteParticleSegments(segments: JapaneseTextSegment[]): J
             { surface: 'ね', start: particleStart, end: segment.end },
         ];
     });
+}
+
+// A separator is a word boundary the author wrote down, so it has to break the
+// token it sits in and must never survive as a lookup-able token of its own.
+// The owner's Discord blurb parsed as a SINGLE word —
+// ボイス・ビデオ・テキストコミュニケーションサービス — which no dictionary
+// carries, so the popover reported "Exact pitch unavailable" for the whole run.
+//
+// Only ・ (and ゠) were broken, because they are the separators that live inside
+// the katakana block: KATAKANA is U+30A0-U+30FF, so KATAKANA_SEGMENT_RE matched
+// the dot and `mergeContiguousKatakanaSegments` walked straight through it as if
+// it were one more katakana letter. ·/•/･ sit outside every Japanese class and
+// already broke runs — this is what makes ・ and ゠ behave like them.
+//
+// The separator is DROPPED, not kept as its own segment, and that is what makes
+// the boundary hard for the whole pipeline instead of for one pass: every later
+// merge requires `segment.start === previous.end`, so the hole left behind stops
+// all of them at once. Dropping is also what stops 株式会社・A emitting a bare
+// punctuation token nobody can look up.
+//
+// Written as a split rather than as a guard inside the katakana merge because
+// only a split is engine-proof: ICU4C (Chromium) isolates the dot and splits the
+// tail, ICU4X (Firefox) returns ボイス|・|ビデオ|・|テキストコミュニケーション
+// サービス, and both reduce to identical tokens here. A merge-side guard would
+// do nothing on any engine that hands back a dotted run as one segment.
+//
+// This runs inside finalize, never in `segmentJapaneseRun`: dropping a trailing
+// separator ahead of that function's `end === offset + text.length` coverage
+// guard would make ボイス・ miss coverage and fall back to the whole run as one
+// token — the exact misparse being fixed here.
+function splitSeparatorSegments(segments: JapaneseTextSegment[]): JapaneseTextSegment[] {
+    if (!segments.some(segment => SEGMENT_SEPARATOR_RE.test(segment.surface))) return segments;
+    return segments.flatMap(splitSeparatorSegment);
+}
+
+function splitSeparatorSegment(segment: JapaneseTextSegment): JapaneseTextSegment[] {
+    if (!SEGMENT_SEPARATOR_RE.test(segment.surface)) return [segment];
+    const pieces: JapaneseTextSegment[] = [];
+    let cursor = 0;
+    for (const match of segment.surface.matchAll(SEGMENT_SEPARATOR_RUN_RE)) {
+        const index = match.index ?? 0;
+        if (index > cursor) pieces.push(separatorFreeSegmentSlice(segment, cursor, index));
+        cursor = index + match[0].length;
+    }
+    if (cursor < segment.surface.length) pieces.push(separatorFreeSegmentSlice(segment, cursor, segment.surface.length));
+    return pieces;
+}
+
+function separatorFreeSegmentSlice(segment: JapaneseTextSegment, from: number, to: number): JapaneseTextSegment {
+    return {
+        surface: segment.surface.slice(from, to),
+        start: segment.start + from,
+        end: segment.start + to,
+    };
 }
 
 // ICU's `Intl.Segmenter('ja',{granularity:'word'})` has no kana dictionary, so

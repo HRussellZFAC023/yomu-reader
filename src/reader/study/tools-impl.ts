@@ -378,15 +378,60 @@ async function renderGrammarHintItem(group: GroupedGrammarHint, known: boolean, 
                         </div>
                     </div>
                     <div class="jpdb-reader-study-short jpdb-reader-parseable">${escapeHtml(details.short)}</div>
-                    <details class="jpdb-reader-grammar-more">
-                        <summary>${escapeHtml(uiText(language, 'grammarDetails'))}</summary>
-                        <div class="jpdb-reader-study-detail jpdb-reader-parseable">${escapeHtml(details.detail)}</div>
-                        <div class="jpdb-reader-study-match"><span>${escapeHtml(uiText(language, 'grammarFoundIn'))}</span><span class="jpdb-reader-study-match-text jpdb-reader-parseable">${escapeHtml(hint.match)}</span></div>
-                        ${renderGrammarHintExamples(details.examples, language, audioEnabled)}
-                        ${renderGrammarHintGuide(details.url ?? '', language)}
-                    </details>
+                    ${renderGrammarHintDisclosure(hint, details, displayName, language, audioEnabled)}
                 </div>
             </li>`;
+}
+
+// Reported from an owner screenshot as "the Details button does nothing".
+//
+// The control was never dead: <details>/<summary> toggles correctly, and it is
+// measurably reachable — it is not a nested-parse root, so no annotated word
+// ever sits inside it to steal the click the way the document click path steals
+// clicks on annotated chrome. What it lacked was anything of its own to show.
+//
+// The bundled grammar registry (grammar-registry.ts) ships NO prose: a rule
+// carries only id/level/name/pattern/url and an empty example list. Every word
+// of explanation lives in the remote en-grammar-rule-copy.json. When that
+// request does not land, `grammarHintFallbackData` fills `short` AND `detail`
+// with the same rule name — so the row read `と`, and opening Details revealed
+// `と` again, one line below the `と` already on screen. From the outside that
+// is indistinguishable from a broken button.
+//
+// So the disclosure is now earned rather than assumed: it is rendered only when
+// there is an explanation or an example behind it. With nothing to reveal, the
+// match line and the guide link render inline instead, which also promotes the
+// guide from "hidden behind a toggle that opens onto a single link" into a
+// control the user can see and click directly.
+function renderGrammarHintDisclosure(
+    hint: GrammarHint,
+    details: GrammarRuleData,
+    displayName: string,
+    language: InterfaceLanguage,
+    audioEnabled: boolean,
+): string {
+    const detail = renderGrammarHintDetail(details, displayName);
+    const examples = renderGrammarHintExamples(details.examples, language, audioEnabled);
+    const match = renderGrammarHintMatch(hint, language);
+    const guide = renderGrammarHintGuide(details.url ?? '', language);
+    if (!detail && !examples) return `${match}${guide}`;
+    return `<details class="jpdb-reader-grammar-more">
+                        <summary>${escapeHtml(uiText(language, 'grammarDetails'))}</summary>
+                        ${detail}${match}${examples}${guide}
+                    </details>`;
+}
+
+// A repeat is not a detail. Both fallbacks collapse onto the rule name, and the
+// short line carrying that same name is already rendered directly above, so
+// compare against both rather than only against `short`.
+function renderGrammarHintDetail(details: GrammarRuleData, displayName: string): string {
+    const detail = details.detail.trim();
+    if (!detail || detail === details.short.trim() || detail === displayName.trim()) return '';
+    return `<div class="jpdb-reader-study-detail jpdb-reader-parseable">${escapeHtml(detail)}</div>`;
+}
+
+function renderGrammarHintMatch(hint: GrammarHint, language: InterfaceLanguage): string {
+    return `<div class="jpdb-reader-study-match"><span>${escapeHtml(uiText(language, 'grammarFoundIn'))}</span><span class="jpdb-reader-study-match-text jpdb-reader-parseable">${escapeHtml(hint.match)}</span></div>`;
 }
 
 function renderGrammarRepeatCount(count: number): string {
