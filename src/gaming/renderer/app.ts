@@ -196,21 +196,22 @@ function updateSessionGuidance(): void {
 function sessionGuidanceText(environment: YomuGamingEnvironment | null): { text: string; tone: 'info' | 'warning' } | null {
     if (!environment) return null;
     const wayland = /wayland/i.test(environment.displayServer);
+    const parts: string[] = [];
+    let tone: 'info' | 'warning' = 'info';
     if (environment.isSteamDeckSession) {
-        return {
-            text: wayland
-                ? 'Steam Deck detected (Wayland/gamescope). Map the capture shortcut to a Deck button in Steam Input, then use the D-pad to move between words, A to look up, B to close. If capture is blank, allow screen sharing when the portal asks.'
-                : 'Steam Deck detected. Map the capture shortcut to a Deck button in Steam Input; navigate the overlay with the D-pad (A looks up, B closes).',
-            tone: wayland ? 'warning' : 'info',
-        };
+        parts.push(wayland
+            ? 'Steam Deck detected (Wayland/gamescope). Map the capture shortcut to a Deck button in Steam Input, then use the D-pad to move between words, A to look up, B to close. If capture is blank, allow screen sharing when the portal asks.'
+            : 'Steam Deck detected. Map the capture shortcut to a Deck button in Steam Input; navigate the overlay with the D-pad (A looks up, B closes).');
+        if (wayland) tone = 'warning';
+    } else if (environment.platform === 'linux' && wayland) {
+        parts.push('Running under Wayland. Global screen capture uses the desktop portal — allow screen sharing when prompted. A controller can also drive the overlay (D-pad + A/B).');
     }
-    if (environment.platform === 'linux' && wayland) {
-        return {
-            text: 'Running under Wayland. Global screen capture uses the desktop portal — allow screen sharing when prompted. A controller can also drive the overlay (D-pad + A/B).',
-            tone: 'info',
-        };
+    // Multi-monitor players need to know which screen answers the shortcut. Say it once,
+    // and only when there is more than one.
+    if (environment.displayCount > 1) {
+        parts.push(`${environment.displayCount} displays detected. Yomu reads the screen your pointer is on.`);
     }
-    return null;
+    return parts.length ? { text: parts.join(' '), tone } : null;
 }
 
 function installGamingOnboarding(form: HTMLFormElement): void {
@@ -1325,6 +1326,7 @@ function browserFallbackBridge(): YomuGamingBridge {
             desktop: 'browser',
             isSteamDeckSession: false,
             isPackaged: false,
+            displayCount: 1,
             hotkey: 'Ctrl+Shift+Y',
             hotkeyRegistered: false,
             screenAccess: 'unsupported',
@@ -1350,6 +1352,7 @@ function browserFallbackBridge(): YomuGamingBridge {
             desktop: 'browser',
             isSteamDeckSession: false,
             isPackaged: false,
+            displayCount: 1,
             hotkey: shortcut,
             hotkeyRegistered: false,
             hotkeyError: 'Desktop shortcuts are only available in the Electron app.',

@@ -22,6 +22,7 @@ export interface YomuGamingEnvironment {
     desktop: string;
     isSteamDeckSession: boolean;
     isPackaged: boolean;
+    displayCount: number;
     hotkey: string;
     hotkeyRegistered: boolean;
     hotkeyError?: string;
