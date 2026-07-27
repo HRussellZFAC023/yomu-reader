@@ -46,10 +46,10 @@
     ],
     "castCount": 24,
     "backgroundGaps": 25,
-    "openingImageGaps": 104,
-    "exitImageGaps": 104,
+    "openingImageGaps": 103,
+    "exitImageGaps": 103,
     "propOrOverlayGaps": 81,
-    "generationQueue": 314
+    "generationQueue": 312
   },
   "chapters": [
     {
@@ -152,16 +152,22 @@
           "openingImage": {
             "cueId": "cue:five-empty-atlas-slots",
             "description": "Five places wait for five sounds.",
-            "status": "missing",
+            "status": "bound",
             "runtimeHome": "scene:blank-atlas:sound-script-map",
-            "candidatePaths": []
+            "candidatePaths": [
+              "/academy/art/events/blank-atlas-sound-script-map__five-empty-slots__wide__v001.webp",
+              "/academy/art/events/blank-atlas-sound-script-map__five-empty-slots__mobile__v001.webp"
+            ]
           },
           "exitImage": {
             "cueId": "cue:first-route-line-visible",
             "description": "The five marks join into the first route.",
-            "status": "missing",
+            "status": "bound",
             "runtimeHome": "scene:blank-atlas:sound-script-map",
-            "candidatePaths": []
+            "candidatePaths": [
+              "/academy/art/events/blank-atlas-sound-script-map__first-route-line__wide__v001.webp",
+              "/academy/art/events/blank-atlas-sound-script-map__first-route-line__mobile__v001.webp"
+            ]
           },
           "propCues": [
             {
@@ -7549,38 +7555,6 @@
         "rie"
       ],
       "runtimeHome": "scene:blank-atlas:arrival-greetings",
-      "status": "queued"
-    },
-    {
-      "priority": "scene-critical",
-      "chapter": 1,
-      "chapterId": "s1e01-the-blank-atlas",
-      "sceneId": "scene:blank-atlas:sound-script-map",
-      "cueId": "cue:five-empty-atlas-slots",
-      "kind": "opening-image",
-      "brief": "Five places wait for five sounds.",
-      "locationId": "location:classroom",
-      "timeState": "evening",
-      "castIds": [
-        "rie"
-      ],
-      "runtimeHome": "scene:blank-atlas:sound-script-map",
-      "status": "queued"
-    },
-    {
-      "priority": "payoff-critical",
-      "chapter": 1,
-      "chapterId": "s1e01-the-blank-atlas",
-      "sceneId": "scene:blank-atlas:sound-script-map",
-      "cueId": "cue:first-route-line-visible",
-      "kind": "exit-image",
-      "brief": "The five marks join into the first route.",
-      "locationId": "location:classroom",
-      "timeState": "evening",
-      "castIds": [
-        "rie"
-      ],
-      "runtimeHome": "scene:blank-atlas:sound-script-map",
       "status": "queued"
     },
     {

@@ -18,8 +18,8 @@
     ]
   },
   "counts": {
-    "runtimeAssetHomes": 161,
-    "runtimeFiles": 195,
+    "runtimeAssetHomes": 163,
+    "runtimeFiles": 199,
     "nonRuntimeReviewFiles": 1734,
     "approvedReferenceOnly": 4,
     "explicitlyRejectedFamilies": 4,
@@ -1244,6 +1244,252 @@
       "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
     },
     {
+      "id": "character-jenny-determined-round-face-brown-hair-left-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "bed46c5ee83d327ccacfd3ce717410e0b8a9b218d539b6d426cee0864eb07465",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:jenny-expression-gallery",
+        "story:cast:jenny:determined",
+        "cast-standardization:jenny"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:jenny-expression-gallery",
+          "story:cast:jenny:determined",
+          "cast-standardization:jenny"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/jenny/jenny__determined-round-face-brown-hair__left-three-quarter__fullbody__v002.png",
+          "sha256": "bed46c5ee83d327ccacfd3ce717410e0b8a9b218d539b6d426cee0864eb07465"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-jenny-encouraging-listening-round-face-brown-hair-right-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "80a533f034ec80a9751f038255fce2f9f12fe57763e9279bf4b147d6ffb422f9",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:jenny-expression-gallery",
+        "story:cast:jenny:encouraging-listening",
+        "cast-standardization:jenny"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:jenny-expression-gallery",
+          "story:cast:jenny:encouraging-listening",
+          "cast-standardization:jenny"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/jenny/jenny__encouraging-listening-round-face-brown-hair__right-three-quarter__fullbody__v002.png",
+          "sha256": "80a533f034ec80a9751f038255fce2f9f12fe57763e9279bf4b147d6ffb422f9"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-jenny-happy-round-face-brown-hair-front-near-front-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "1cb002e514db41e9f6b3454fba66e3566065701800631e579aa15b396e0bbb60",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:jenny-expression-gallery",
+        "story:cast:jenny:happy",
+        "cast-standardization:jenny"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:jenny-expression-gallery",
+          "story:cast:jenny:happy",
+          "cast-standardization:jenny"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/jenny/jenny__happy-round-face-brown-hair__front-near-front__fullbody__v002.png",
+          "sha256": "1cb002e514db41e9f6b3454fba66e3566065701800631e579aa15b396e0bbb60"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-jenny-neutral-round-face-brown-hair-front-near-front-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "db3ca8c551440e0c060ea471d51616ff604896ba510fad00f66d7a26a0bb4c63",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:jenny",
+        "class:people",
+        "class:week-cast",
+        "lesson-overview:roster",
+        "world:person",
+        "story:cast:jenny",
+        "cast-standardization:jenny"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:jenny",
+          "class:people",
+          "class:week-cast",
+          "lesson-overview:roster",
+          "world:person",
+          "story:cast:jenny",
+          "cast-standardization:jenny"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/jenny/jenny__neutral-round-face-brown-hair__front-near-front__fullbody__v002.png",
+          "sha256": "db3ca8c551440e0c060ea471d51616ff604896ba510fad00f66d7a26a0bb4c63"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-jenny-sad-vulnerable-round-face-brown-hair-left-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "97bc48f39b4c60f3035de6a432ff7319604a6e7025bb19b4a098d827a7309129",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:jenny-expression-gallery",
+        "story:cast:jenny:sad-vulnerable",
+        "cast-standardization:jenny"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:jenny-expression-gallery",
+          "story:cast:jenny:sad-vulnerable",
+          "cast-standardization:jenny"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/jenny/jenny__sad-vulnerable-round-face-brown-hair__left-three-quarter__fullbody__v002.png",
+          "sha256": "97bc48f39b4c60f3035de6a432ff7319604a6e7025bb19b4a098d827a7309129"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-jenny-surprised-shocked-round-face-brown-hair-right-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "477291bd511bf68d93400d8bf85518ba8be05d662bb73ac69530ace9c757c56d",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:jenny-expression-gallery",
+        "story:cast:jenny:surprised-shocked",
+        "cast-standardization:jenny"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:jenny-expression-gallery",
+          "story:cast:jenny:surprised-shocked",
+          "cast-standardization:jenny"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/jenny/jenny__surprised-shocked-round-face-brown-hair__right-three-quarter__fullbody__v002.png",
+          "sha256": "477291bd511bf68d93400d8bf85518ba8be05d662bb73ac69530ace9c757c56d"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-jenny-thoughtful-round-face-brown-hair-left-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "5b800dda230fc43ede817310e37f15c68c728c954899af7f27b86a62e473338f",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:jenny-expression-gallery",
+        "story:cast:jenny:thoughtful",
+        "cast-standardization:jenny"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:jenny-expression-gallery",
+          "story:cast:jenny:thoughtful",
+          "cast-standardization:jenny"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/jenny/jenny__thoughtful-round-face-brown-hair__left-three-quarter__fullbody__v002.png",
+          "sha256": "5b800dda230fc43ede817310e37f15c68c728c954899af7f27b86a62e473338f"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
       "id": "character-jodi-standardized-encouraging-listening-front-near-front-halfbody-v001",
       "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
       "sourceSha256": "0002290f455bfb033e85e921e267d97f015117fdddc381a0b089bf04768eceaa",
@@ -1380,6 +1626,40 @@
       "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
     },
     {
+      "id": "character-mika-determined-headphones-left-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "d46e4b87f5b5c0b7fbd6df3716b0e245e4660a5caff003e36a354639b3fba59f",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:mika-expression-gallery",
+        "story:cast:mika:determined",
+        "cast-standardization:mika"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:mika-expression-gallery",
+          "story:cast:mika:determined",
+          "cast-standardization:mika"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/mika/mika__determined-headphones__left-three-quarter__fullbody__v002.png",
+          "sha256": "d46e4b87f5b5c0b7fbd6df3716b0e245e4660a5caff003e36a354639b3fba59f"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
       "id": "character-mika-encouraging-listening-headphones-right-three-quarter-fullbody-v002",
       "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
       "sourceSha256": "6595c33d7846f1656b4345a726a35b724fb47abd8b8405f323f7b905f5c42f05",
@@ -1409,6 +1689,40 @@
         {
           "path": "/academy/art/characters/mika/mika__encouraging-listening-headphones__right-three-quarter__fullbody__v002.png",
           "sha256": "6595c33d7846f1656b4345a726a35b724fb47abd8b8405f323f7b905f5c42f05"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-mika-happy-headphones-front-near-front-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "5271edf8adf804c48f5734d23a696d3495281041beae7609f8aab3ec1efdfb26",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:mika-expression-gallery",
+        "story:cast:mika:happy",
+        "cast-standardization:mika"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:mika-expression-gallery",
+          "story:cast:mika:happy",
+          "cast-standardization:mika"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/mika/mika__happy-headphones__front-near-front__fullbody__v002.png",
+          "sha256": "5271edf8adf804c48f5734d23a696d3495281041beae7609f8aab3ec1efdfb26"
         }
       ],
       "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
@@ -1449,6 +1763,108 @@
         {
           "path": "/academy/art/characters/mika/mika__neutral-headphones__front-near-front__fullbody__v002.png",
           "sha256": "d1a10ddf54c40c9ebb0a607d7109b641fee8b1e7a353883969b5745ffddbecfa"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-mika-sad-vulnerable-headphones-left-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "276c0db9b340c4187866e4c80be586b4e78140732a6bba4a2b31fe13003b2b0d",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:mika-expression-gallery",
+        "story:cast:mika:sad-vulnerable",
+        "cast-standardization:mika"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:mika-expression-gallery",
+          "story:cast:mika:sad-vulnerable",
+          "cast-standardization:mika"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/mika/mika__sad-vulnerable-headphones__left-three-quarter__fullbody__v002.png",
+          "sha256": "276c0db9b340c4187866e4c80be586b4e78140732a6bba4a2b31fe13003b2b0d"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-mika-surprised-shocked-headphones-right-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "a7d38bb13c8db6c05ed528ace3007e1ff85d5523a37f9fea1476d70297f5719c",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:mika-expression-gallery",
+        "story:cast:mika:surprised-shocked",
+        "cast-standardization:mika"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:mika-expression-gallery",
+          "story:cast:mika:surprised-shocked",
+          "cast-standardization:mika"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/mika/mika__surprised-shocked-headphones__right-three-quarter__fullbody__v002.png",
+          "sha256": "a7d38bb13c8db6c05ed528ace3007e1ff85d5523a37f9fea1476d70297f5719c"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-mika-thoughtful-headphones-left-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "95426c16ef1b34d19ca1ef36029cef50d5461d2211e22585486f65dfb35cf7ab",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:mika-expression-gallery",
+        "story:cast:mika:thoughtful",
+        "cast-standardization:mika"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:mika-expression-gallery",
+          "story:cast:mika:thoughtful",
+          "cast-standardization:mika"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/mika/mika__thoughtful-headphones__left-three-quarter__fullbody__v002.png",
+          "sha256": "95426c16ef1b34d19ca1ef36029cef50d5461d2211e22585486f65dfb35cf7ab"
         }
       ],
       "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
@@ -1522,6 +1938,40 @@
       "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
     },
     {
+      "id": "character-mira-determined-umbrella-left-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "f15fbfedcdd4fff07d6851499c55c05ab93d4f0c0706dffce1c1ffd343fa400e",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:mira-expression-gallery",
+        "story:cast:mira:determined",
+        "cast-standardization:mira"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:mira-expression-gallery",
+          "story:cast:mira:determined",
+          "cast-standardization:mira"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/mira/mira__determined-umbrella__left-three-quarter__fullbody__v002.png",
+          "sha256": "f15fbfedcdd4fff07d6851499c55c05ab93d4f0c0706dffce1c1ffd343fa400e"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
       "id": "character-mira-encouraging-listening-umbrella-right-three-quarter-fullbody-v002",
       "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
       "sourceSha256": "837eede8fe230839c96a4e7183ffe6592246c64f9863960f6b9373093d879118",
@@ -1551,6 +2001,40 @@
         {
           "path": "/academy/art/characters/mira/mira__encouraging-listening-umbrella__right-three-quarter__fullbody__v002.png",
           "sha256": "837eede8fe230839c96a4e7183ffe6592246c64f9863960f6b9373093d879118"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-mira-happy-umbrella-front-near-front-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "43907bb2227235eccc96fee84e16018978c480744f6fa85720e8b4a7b90d6ef8",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:mira-expression-gallery",
+        "story:cast:mira:happy",
+        "cast-standardization:mira"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:mira-expression-gallery",
+          "story:cast:mira:happy",
+          "cast-standardization:mira"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/mira/mira__happy-umbrella__front-near-front__fullbody__v002.png",
+          "sha256": "43907bb2227235eccc96fee84e16018978c480744f6fa85720e8b4a7b90d6ef8"
         }
       ],
       "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
@@ -1591,6 +2075,108 @@
         {
           "path": "/academy/art/characters/mira/mira__neutral-umbrella__front-near-front__fullbody__v002.png",
           "sha256": "4eb19554554cddcf671103a8c7c64103775ea72cf7072c0f6929ad0ff085cae4"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-mira-sad-vulnerable-umbrella-left-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "87c2d98bdda50e332a8ffd6ec0be979d90b51159f1545080b2fc83ab9f8291a4",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:mira-expression-gallery",
+        "story:cast:mira:sad-vulnerable",
+        "cast-standardization:mira"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:mira-expression-gallery",
+          "story:cast:mira:sad-vulnerable",
+          "cast-standardization:mira"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/mira/mira__sad-vulnerable-umbrella__left-three-quarter__fullbody__v002.png",
+          "sha256": "87c2d98bdda50e332a8ffd6ec0be979d90b51159f1545080b2fc83ab9f8291a4"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-mira-surprised-shocked-umbrella-right-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "27b844d843f7bb56f78d9495810e04f664e074162e28cd2acc30145a51da07e0",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:mira-expression-gallery",
+        "story:cast:mira:surprised-shocked",
+        "cast-standardization:mira"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:mira-expression-gallery",
+          "story:cast:mira:surprised-shocked",
+          "cast-standardization:mira"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/mira/mira__surprised-shocked-umbrella__right-three-quarter__fullbody__v002.png",
+          "sha256": "27b844d843f7bb56f78d9495810e04f664e074162e28cd2acc30145a51da07e0"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-mira-thoughtful-umbrella-left-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "0beee7fb0785bcbe2b234c9ab3613f42b39cb5c79e7a9694b94bac11f8ff8220",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:mira-expression-gallery",
+        "story:cast:mira:thoughtful",
+        "cast-standardization:mira"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:mira-expression-gallery",
+          "story:cast:mira:thoughtful",
+          "cast-standardization:mira"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/mira/mira__thoughtful-umbrella__left-three-quarter__fullbody__v002.png",
+          "sha256": "0beee7fb0785bcbe2b234c9ab3613f42b39cb5c79e7a9694b94bac11f8ff8220"
         }
       ],
       "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
@@ -1938,6 +2524,78 @@
         }
       ],
       "status": "retained approved cast runtime sprite"
+    },
+    {
+      "id": "character-rie-surprised-shocked-glasses-right",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "c29ef34f89d4e4943b0874779e23b053fd43a7a7fe504c2e8e265d9c0ffe49be",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "dialogue:rie-surprised",
+        "journal:rie-expression-gallery",
+        "story:cast:rie:surprised-shocked",
+        "cast-standardization:rie"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "dialogue:rie-surprised",
+          "journal:rie-expression-gallery",
+          "story:cast:rie:surprised-shocked",
+          "cast-standardization:rie"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/rie/rie__surprised-shocked-glasses__right-three-quarter__halfbody__v002.png",
+          "sha256": "c29ef34f89d4e4943b0874779e23b053fd43a7a7fe504c2e8e265d9c0ffe49be"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-rie-thoughtful-glasses-left",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "ba9df46621afb9265549074ff7f2c8e6573c905a76612b0ad3964b3e31540d61",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "dialogue:rie-reflection",
+        "journal:rie-expression-gallery",
+        "story:cast:rie:thoughtful",
+        "cast-standardization:rie"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "dialogue:rie-reflection",
+          "journal:rie-expression-gallery",
+          "story:cast:rie:thoughtful",
+          "cast-standardization:rie"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/rie/rie__thoughtful-glasses__left-three-quarter__halfbody__v002.png",
+          "sha256": "ba9df46621afb9265549074ff7f2c8e6573c905a76612b0ad3964b3e31540d61"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
     },
     {
       "id": "character-robert-standardized-encouraging-listening-front-near-front-halfbody-v001",
@@ -3000,6 +3658,256 @@
       "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
     },
     {
+      "id": "character-xingyu-determined-short-hair-round-glasses-left-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "387f255fe210a4bc1e98dddc076c31f3e0259e11e40c35bf1fdd9bbf86765fe5",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:xingyu-expression-gallery",
+        "story:cast:xingyu:determined",
+        "cast-standardization:xingyu"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:xingyu-expression-gallery",
+          "story:cast:xingyu:determined",
+          "cast-standardization:xingyu"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/xingyu/xingyu__determined-short-hair-round-glasses__left-three-quarter__fullbody__v002.png",
+          "sha256": "387f255fe210a4bc1e98dddc076c31f3e0259e11e40c35bf1fdd9bbf86765fe5"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-xingyu-happy-short-hair-round-glasses-front-near-front-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "d8f8c4952a4bd14ea510da0098e0e55ea3c4d994c6c4e7b5dfb5a3893f7da3f8",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:xingyu-expression-gallery",
+        "story:cast:xingyu:happy",
+        "cast-standardization:xingyu"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:xingyu-expression-gallery",
+          "story:cast:xingyu:happy",
+          "cast-standardization:xingyu"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/xingyu/xingyu__happy-short-hair-round-glasses__front-near-front__fullbody__v002.png",
+          "sha256": "d8f8c4952a4bd14ea510da0098e0e55ea3c4d994c6c4e7b5dfb5a3893f7da3f8"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-xingyu-listening",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "c4b25e44aa9b8fb326ed6198d28b85b58068c4e4267727f44a0c2eef2e016b0a",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "lesson-zero:vowel-listening",
+        "game:lesson-zero-vowel-listening-bingo",
+        "journal:xingyu-expression-gallery",
+        "story:cast:xingyu:encouraging-listening",
+        "cast-standardization:xingyu"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "lesson-zero:vowel-listening",
+          "game:lesson-zero-vowel-listening-bingo",
+          "journal:xingyu-expression-gallery",
+          "story:cast:xingyu:encouraging-listening",
+          "cast-standardization:xingyu"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/xingyu/xingyu__encouraging-listening-short-hair-round-glasses__right-three-quarter__fullbody__v002.png",
+          "sha256": "c4b25e44aa9b8fb326ed6198d28b85b58068c4e4267727f44a0c2eef2e016b0a"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-xingyu-neutral-short-hair-round-glasses-front-near-front-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "769e6521d5fda73aa8ada1449b8c145d90d9d259d850576fbd8daeb5b3053c06",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:xingyu",
+        "class:people",
+        "class:week-cast",
+        "lesson-overview:roster",
+        "world:person",
+        "story:cast:xingyu",
+        "cast-standardization:xingyu"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:xingyu",
+          "class:people",
+          "class:week-cast",
+          "lesson-overview:roster",
+          "world:person",
+          "story:cast:xingyu",
+          "cast-standardization:xingyu"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/xingyu/xingyu__neutral-short-hair-round-glasses__front-near-front__fullbody__v002.png",
+          "sha256": "769e6521d5fda73aa8ada1449b8c145d90d9d259d850576fbd8daeb5b3053c06"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-xingyu-sad-vulnerable-short-hair-round-glasses-left-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "954e7f56442751a0ba499379b36bb2fd489c0937da0de1e4faad872b38b36ed6",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:xingyu-expression-gallery",
+        "story:cast:xingyu:sad-vulnerable",
+        "cast-standardization:xingyu"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:xingyu-expression-gallery",
+          "story:cast:xingyu:sad-vulnerable",
+          "cast-standardization:xingyu"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/xingyu/xingyu__sad-vulnerable-short-hair-round-glasses__left-three-quarter__fullbody__v002.png",
+          "sha256": "954e7f56442751a0ba499379b36bb2fd489c0937da0de1e4faad872b38b36ed6"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-xingyu-surprised-shocked-short-hair-round-glasses-right-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "ea25fcc0eb62350c86c2bb34aef2a2666afe05b8e03c01ae7f9fd142b95a36bf",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:xingyu-expression-gallery",
+        "story:cast:xingyu:surprised-shocked",
+        "cast-standardization:xingyu"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:xingyu-expression-gallery",
+          "story:cast:xingyu:surprised-shocked",
+          "cast-standardization:xingyu"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/xingyu/xingyu__surprised-shocked-short-hair-round-glasses__right-three-quarter__fullbody__v002.png",
+          "sha256": "ea25fcc0eb62350c86c2bb34aef2a2666afe05b8e03c01ae7f9fd142b95a36bf"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-xingyu-thoughtful-short-hair-round-glasses-left-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "24a85cd44336d251e162110c274c8095f3bec54433efda827b8e3817caa7c441",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:xingyu-expression-gallery",
+        "story:cast:xingyu:thoughtful",
+        "cast-standardization:xingyu"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:xingyu-expression-gallery",
+          "story:cast:xingyu:thoughtful",
+          "cast-standardization:xingyu"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/xingyu/xingyu__thoughtful-short-hair-round-glasses__left-three-quarter__fullbody__v002.png",
+          "sha256": "24a85cd44336d251e162110c274c8095f3bec54433efda827b8e3817caa7c441"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
       "id": "classmate-sprite-inventory-v1",
       "source": "generated:scripts/academy-sprite-migration-ledger.mjs",
       "provenance": "repo-authored-generated-conformance-metadata",
@@ -3183,6 +4091,78 @@
         {
           "path": "/academy/art/events/blank-atlas-arrival__covered-atlas-open-chair__mobile__v001.webp",
           "sha256": "572f2c83e20095b52bbc5f0fc5cc76cb1b2a98c8b73629764f694ea1a726327a"
+        }
+      ],
+      "status": "node-bound, art-directed responsive story event"
+    },
+    {
+      "id": "event-story-blank-atlas-sound-script-map-first-route-line",
+      "source": "manifest:docs/academy/art/STORY-ART-PROMOTIONS.json",
+      "sourceSha256": "7fdd7dd704edcfcd4d555c6432a03ba041e94e6305bcf3796e442240b48dd1d6",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "node:blank-atlas:first-line",
+        "scene:blank-atlas:sound-script-map"
+      ],
+      "reviewHome": [
+        "story-art-promotions",
+        "cue:first-route-line-visible"
+      ],
+      "usage": {
+        "runtime": [
+          "node:blank-atlas:first-line",
+          "scene:blank-atlas:sound-script-map"
+        ],
+        "review": [
+          "story-art-promotions"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/events/blank-atlas-sound-script-map__first-route-line__wide__v001.webp",
+          "sha256": "7a6d6a6d9df68b27e3ef74592835d3f8c88bdeba3a96ef1517a755c32bfa76d0"
+        },
+        {
+          "path": "/academy/art/events/blank-atlas-sound-script-map__first-route-line__mobile__v001.webp",
+          "sha256": "4b75cfdb3cc9bf31be14fa369d28bdc14ba6d8d8bb5bbd92dba6e7bcd963ef8d"
+        }
+      ],
+      "status": "node-bound, art-directed responsive story event"
+    },
+    {
+      "id": "event-story-blank-atlas-sound-script-map-five-empty-slots",
+      "source": "manifest:docs/academy/art/STORY-ART-PROMOTIONS.json",
+      "sourceSha256": "1626a400a60df88850b47be6cd8fe722809e0eba2d133899b617b0391184651c",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "node:blank-atlas:vowel-slots",
+        "scene:blank-atlas:sound-script-map"
+      ],
+      "reviewHome": [
+        "story-art-promotions",
+        "cue:five-empty-atlas-slots"
+      ],
+      "usage": {
+        "runtime": [
+          "node:blank-atlas:vowel-slots",
+          "scene:blank-atlas:sound-script-map"
+        ],
+        "review": [
+          "story-art-promotions"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/events/blank-atlas-sound-script-map__five-empty-slots__wide__v001.webp",
+          "sha256": "a0c64a2f9919f86925630c934daff520193b0ef87e0f8450f02f0f8c86f4a4b6"
+        },
+        {
+          "path": "/academy/art/events/blank-atlas-sound-script-map__five-empty-slots__mobile__v001.webp",
+          "sha256": "1513b3b88bcd2bd2ee55bc2ac0b476acb0cc2053e678b6e9aa62892888375e4b"
         }
       ],
       "status": "node-bound, art-directed responsive story event"
@@ -10988,914 +11968,6 @@
         }
       ],
       "status": "owner-rejected-2026-07-14; must-not-bind-or-use-as-generation-reference"
-    },
-    {
-      "id": "character-xingyu-neutral-short-hair-round-glasses-front-near-front-fullbody-v002",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "769e6521d5fda73aa8ada1449b8c145d90d9d259d850576fbd8daeb5b3053c06",
-      "provenance": "regenerated-house-style",
-      "verdict": "approved-runtime",
-      "runtimeHome": [
-        "journal:xingyu",
-        "class:people",
-        "class:week-cast",
-        "lesson-overview:roster",
-        "world:person",
-        "story:cast:xingyu",
-        "cast-standardization:xingyu"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "identity-lock"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:xingyu",
-          "class:people",
-          "class:week-cast",
-          "lesson-overview:roster",
-          "world:person",
-          "story:cast:xingyu",
-          "cast-standardization:xingyu"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/xingyu/xingyu__neutral-short-hair-round-glasses__front-near-front__fullbody__v002.png",
-          "sha256": "769e6521d5fda73aa8ada1449b8c145d90d9d259d850576fbd8daeb5b3053c06"
-        }
-      ],
-      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
-    },
-    {
-      "id": "character-xingyu-listening",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "c4b25e44aa9b8fb326ed6198d28b85b58068c4e4267727f44a0c2eef2e016b0a",
-      "provenance": "regenerated-house-style",
-      "verdict": "approved-runtime",
-      "runtimeHome": [
-        "lesson-zero:vowel-listening",
-        "game:lesson-zero-vowel-listening-bingo",
-        "journal:xingyu-expression-gallery",
-        "story:cast:xingyu:encouraging-listening",
-        "cast-standardization:xingyu"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "identity-lock"
-      ],
-      "usage": {
-        "runtime": [
-          "lesson-zero:vowel-listening",
-          "game:lesson-zero-vowel-listening-bingo",
-          "journal:xingyu-expression-gallery",
-          "story:cast:xingyu:encouraging-listening",
-          "cast-standardization:xingyu"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/xingyu/xingyu__encouraging-listening-short-hair-round-glasses__right-three-quarter__fullbody__v002.png",
-          "sha256": "c4b25e44aa9b8fb326ed6198d28b85b58068c4e4267727f44a0c2eef2e016b0a"
-        }
-      ],
-      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
-    },
-    {
-      "id": "character-xingyu-happy-short-hair-round-glasses-front-near-front-fullbody-v002",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "d8f8c4952a4bd14ea510da0098e0e55ea3c4d994c6c4e7b5dfb5a3893f7da3f8",
-      "provenance": "regenerated-house-style",
-      "verdict": "approved-runtime",
-      "runtimeHome": [
-        "journal:xingyu-expression-gallery",
-        "story:cast:xingyu:happy",
-        "cast-standardization:xingyu"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "identity-lock"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:xingyu-expression-gallery",
-          "story:cast:xingyu:happy",
-          "cast-standardization:xingyu"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/xingyu/xingyu__happy-short-hair-round-glasses__front-near-front__fullbody__v002.png",
-          "sha256": "d8f8c4952a4bd14ea510da0098e0e55ea3c4d994c6c4e7b5dfb5a3893f7da3f8"
-        }
-      ],
-      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
-    },
-    {
-      "id": "character-xingyu-thoughtful-short-hair-round-glasses-left-three-quarter-fullbody-v002",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "24a85cd44336d251e162110c274c8095f3bec54433efda827b8e3817caa7c441",
-      "provenance": "regenerated-house-style",
-      "verdict": "approved-runtime",
-      "runtimeHome": [
-        "journal:xingyu-expression-gallery",
-        "story:cast:xingyu:thoughtful",
-        "cast-standardization:xingyu"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "identity-lock"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:xingyu-expression-gallery",
-          "story:cast:xingyu:thoughtful",
-          "cast-standardization:xingyu"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/xingyu/xingyu__thoughtful-short-hair-round-glasses__left-three-quarter__fullbody__v002.png",
-          "sha256": "24a85cd44336d251e162110c274c8095f3bec54433efda827b8e3817caa7c441"
-        }
-      ],
-      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
-    },
-    {
-      "id": "character-xingyu-determined-short-hair-round-glasses-left-three-quarter-fullbody-v002",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "387f255fe210a4bc1e98dddc076c31f3e0259e11e40c35bf1fdd9bbf86765fe5",
-      "provenance": "regenerated-house-style",
-      "verdict": "approved-runtime",
-      "runtimeHome": [
-        "journal:xingyu-expression-gallery",
-        "story:cast:xingyu:determined",
-        "cast-standardization:xingyu"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "identity-lock"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:xingyu-expression-gallery",
-          "story:cast:xingyu:determined",
-          "cast-standardization:xingyu"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/xingyu/xingyu__determined-short-hair-round-glasses__left-three-quarter__fullbody__v002.png",
-          "sha256": "387f255fe210a4bc1e98dddc076c31f3e0259e11e40c35bf1fdd9bbf86765fe5"
-        }
-      ],
-      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
-    },
-    {
-      "id": "character-xingyu-surprised-shocked-short-hair-round-glasses-right-three-quarter-fullbody-v002",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "ea25fcc0eb62350c86c2bb34aef2a2666afe05b8e03c01ae7f9fd142b95a36bf",
-      "provenance": "regenerated-house-style",
-      "verdict": "approved-runtime",
-      "runtimeHome": [
-        "journal:xingyu-expression-gallery",
-        "story:cast:xingyu:surprised-shocked",
-        "cast-standardization:xingyu"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "identity-lock"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:xingyu-expression-gallery",
-          "story:cast:xingyu:surprised-shocked",
-          "cast-standardization:xingyu"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/xingyu/xingyu__surprised-shocked-short-hair-round-glasses__right-three-quarter__fullbody__v002.png",
-          "sha256": "ea25fcc0eb62350c86c2bb34aef2a2666afe05b8e03c01ae7f9fd142b95a36bf"
-        }
-      ],
-      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
-    },
-    {
-      "id": "character-xingyu-sad-vulnerable-short-hair-round-glasses-left-three-quarter-fullbody-v002",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "954e7f56442751a0ba499379b36bb2fd489c0937da0de1e4faad872b38b36ed6",
-      "provenance": "regenerated-house-style",
-      "verdict": "approved-runtime",
-      "runtimeHome": [
-        "journal:xingyu-expression-gallery",
-        "story:cast:xingyu:sad-vulnerable",
-        "cast-standardization:xingyu"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "identity-lock"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:xingyu-expression-gallery",
-          "story:cast:xingyu:sad-vulnerable",
-          "cast-standardization:xingyu"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/xingyu/xingyu__sad-vulnerable-short-hair-round-glasses__left-three-quarter__fullbody__v002.png",
-          "sha256": "954e7f56442751a0ba499379b36bb2fd489c0937da0de1e4faad872b38b36ed6"
-        }
-      ],
-      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
-    },
-    {
-      "id": "character-jenny-neutral-round-face-brown-hair-front-near-front-fullbody-v002",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "db3ca8c551440e0c060ea471d51616ff604896ba510fad00f66d7a26a0bb4c63",
-      "provenance": "regenerated-house-style",
-      "verdict": "approved-runtime",
-      "runtimeHome": [
-        "journal:jenny",
-        "class:people",
-        "class:week-cast",
-        "lesson-overview:roster",
-        "world:person",
-        "story:cast:jenny",
-        "cast-standardization:jenny"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "identity-lock"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:jenny",
-          "class:people",
-          "class:week-cast",
-          "lesson-overview:roster",
-          "world:person",
-          "story:cast:jenny",
-          "cast-standardization:jenny"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/jenny/jenny__neutral-round-face-brown-hair__front-near-front__fullbody__v002.png",
-          "sha256": "db3ca8c551440e0c060ea471d51616ff604896ba510fad00f66d7a26a0bb4c63"
-        }
-      ],
-      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
-    },
-    {
-      "id": "character-jenny-encouraging-listening-round-face-brown-hair-right-three-quarter-fullbody-v002",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "80a533f034ec80a9751f038255fce2f9f12fe57763e9279bf4b147d6ffb422f9",
-      "provenance": "regenerated-house-style",
-      "verdict": "approved-runtime",
-      "runtimeHome": [
-        "journal:jenny-expression-gallery",
-        "story:cast:jenny:encouraging-listening",
-        "cast-standardization:jenny"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "identity-lock"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:jenny-expression-gallery",
-          "story:cast:jenny:encouraging-listening",
-          "cast-standardization:jenny"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/jenny/jenny__encouraging-listening-round-face-brown-hair__right-three-quarter__fullbody__v002.png",
-          "sha256": "80a533f034ec80a9751f038255fce2f9f12fe57763e9279bf4b147d6ffb422f9"
-        }
-      ],
-      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
-    },
-    {
-      "id": "character-jenny-happy-round-face-brown-hair-front-near-front-fullbody-v002",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "1cb002e514db41e9f6b3454fba66e3566065701800631e579aa15b396e0bbb60",
-      "provenance": "regenerated-house-style",
-      "verdict": "approved-runtime",
-      "runtimeHome": [
-        "journal:jenny-expression-gallery",
-        "story:cast:jenny:happy",
-        "cast-standardization:jenny"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "identity-lock"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:jenny-expression-gallery",
-          "story:cast:jenny:happy",
-          "cast-standardization:jenny"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/jenny/jenny__happy-round-face-brown-hair__front-near-front__fullbody__v002.png",
-          "sha256": "1cb002e514db41e9f6b3454fba66e3566065701800631e579aa15b396e0bbb60"
-        }
-      ],
-      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
-    },
-    {
-      "id": "character-jenny-thoughtful-round-face-brown-hair-left-three-quarter-fullbody-v002",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "5b800dda230fc43ede817310e37f15c68c728c954899af7f27b86a62e473338f",
-      "provenance": "regenerated-house-style",
-      "verdict": "approved-runtime",
-      "runtimeHome": [
-        "journal:jenny-expression-gallery",
-        "story:cast:jenny:thoughtful",
-        "cast-standardization:jenny"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "identity-lock"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:jenny-expression-gallery",
-          "story:cast:jenny:thoughtful",
-          "cast-standardization:jenny"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/jenny/jenny__thoughtful-round-face-brown-hair__left-three-quarter__fullbody__v002.png",
-          "sha256": "5b800dda230fc43ede817310e37f15c68c728c954899af7f27b86a62e473338f"
-        }
-      ],
-      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
-    },
-    {
-      "id": "character-jenny-determined-round-face-brown-hair-left-three-quarter-fullbody-v002",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "bed46c5ee83d327ccacfd3ce717410e0b8a9b218d539b6d426cee0864eb07465",
-      "provenance": "regenerated-house-style",
-      "verdict": "approved-runtime",
-      "runtimeHome": [
-        "journal:jenny-expression-gallery",
-        "story:cast:jenny:determined",
-        "cast-standardization:jenny"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "identity-lock"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:jenny-expression-gallery",
-          "story:cast:jenny:determined",
-          "cast-standardization:jenny"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/jenny/jenny__determined-round-face-brown-hair__left-three-quarter__fullbody__v002.png",
-          "sha256": "bed46c5ee83d327ccacfd3ce717410e0b8a9b218d539b6d426cee0864eb07465"
-        }
-      ],
-      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
-    },
-    {
-      "id": "character-jenny-surprised-shocked-round-face-brown-hair-right-three-quarter-fullbody-v002",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "477291bd511bf68d93400d8bf85518ba8be05d662bb73ac69530ace9c757c56d",
-      "provenance": "regenerated-house-style",
-      "verdict": "approved-runtime",
-      "runtimeHome": [
-        "journal:jenny-expression-gallery",
-        "story:cast:jenny:surprised-shocked",
-        "cast-standardization:jenny"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "identity-lock"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:jenny-expression-gallery",
-          "story:cast:jenny:surprised-shocked",
-          "cast-standardization:jenny"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/jenny/jenny__surprised-shocked-round-face-brown-hair__right-three-quarter__fullbody__v002.png",
-          "sha256": "477291bd511bf68d93400d8bf85518ba8be05d662bb73ac69530ace9c757c56d"
-        }
-      ],
-      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
-    },
-    {
-      "id": "character-jenny-sad-vulnerable-round-face-brown-hair-left-three-quarter-fullbody-v002",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "97bc48f39b4c60f3035de6a432ff7319604a6e7025bb19b4a098d827a7309129",
-      "provenance": "regenerated-house-style",
-      "verdict": "approved-runtime",
-      "runtimeHome": [
-        "journal:jenny-expression-gallery",
-        "story:cast:jenny:sad-vulnerable",
-        "cast-standardization:jenny"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "identity-lock"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:jenny-expression-gallery",
-          "story:cast:jenny:sad-vulnerable",
-          "cast-standardization:jenny"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/jenny/jenny__sad-vulnerable-round-face-brown-hair__left-three-quarter__fullbody__v002.png",
-          "sha256": "97bc48f39b4c60f3035de6a432ff7319604a6e7025bb19b4a098d827a7309129"
-        }
-      ],
-      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
-    },
-    {
-      "id": "character-rie-thoughtful-glasses-left",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "ba9df46621afb9265549074ff7f2c8e6573c905a76612b0ad3964b3e31540d61",
-      "provenance": "regenerated-house-style",
-      "verdict": "approved-runtime",
-      "runtimeHome": [
-        "dialogue:rie-reflection",
-        "journal:rie-expression-gallery",
-        "story:cast:rie:thoughtful",
-        "cast-standardization:rie"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "identity-lock"
-      ],
-      "usage": {
-        "runtime": [
-          "dialogue:rie-reflection",
-          "journal:rie-expression-gallery",
-          "story:cast:rie:thoughtful",
-          "cast-standardization:rie"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/rie/rie__thoughtful-glasses__left-three-quarter__halfbody__v002.png",
-          "sha256": "ba9df46621afb9265549074ff7f2c8e6573c905a76612b0ad3964b3e31540d61"
-        }
-      ],
-      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
-    },
-    {
-      "id": "character-rie-surprised-shocked-glasses-right",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "c29ef34f89d4e4943b0874779e23b053fd43a7a7fe504c2e8e265d9c0ffe49be",
-      "provenance": "regenerated-house-style",
-      "verdict": "approved-runtime",
-      "runtimeHome": [
-        "dialogue:rie-surprised",
-        "journal:rie-expression-gallery",
-        "story:cast:rie:surprised-shocked",
-        "cast-standardization:rie"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "identity-lock"
-      ],
-      "usage": {
-        "runtime": [
-          "dialogue:rie-surprised",
-          "journal:rie-expression-gallery",
-          "story:cast:rie:surprised-shocked",
-          "cast-standardization:rie"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/rie/rie__surprised-shocked-glasses__right-three-quarter__halfbody__v002.png",
-          "sha256": "c29ef34f89d4e4943b0874779e23b053fd43a7a7fe504c2e8e265d9c0ffe49be"
-        }
-      ],
-      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
-    },
-    {
-      "id": "character-mira-happy-umbrella-front-near-front-fullbody-v002",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "43907bb2227235eccc96fee84e16018978c480744f6fa85720e8b4a7b90d6ef8",
-      "provenance": "regenerated-house-style",
-      "verdict": "approved-runtime",
-      "runtimeHome": [
-        "journal:mira-expression-gallery",
-        "story:cast:mira:happy",
-        "cast-standardization:mira"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "identity-lock"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:mira-expression-gallery",
-          "story:cast:mira:happy",
-          "cast-standardization:mira"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/mira/mira__happy-umbrella__front-near-front__fullbody__v002.png",
-          "sha256": "43907bb2227235eccc96fee84e16018978c480744f6fa85720e8b4a7b90d6ef8"
-        }
-      ],
-      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
-    },
-    {
-      "id": "character-mira-thoughtful-umbrella-left-three-quarter-fullbody-v002",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "0beee7fb0785bcbe2b234c9ab3613f42b39cb5c79e7a9694b94bac11f8ff8220",
-      "provenance": "regenerated-house-style",
-      "verdict": "approved-runtime",
-      "runtimeHome": [
-        "journal:mira-expression-gallery",
-        "story:cast:mira:thoughtful",
-        "cast-standardization:mira"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "identity-lock"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:mira-expression-gallery",
-          "story:cast:mira:thoughtful",
-          "cast-standardization:mira"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/mira/mira__thoughtful-umbrella__left-three-quarter__fullbody__v002.png",
-          "sha256": "0beee7fb0785bcbe2b234c9ab3613f42b39cb5c79e7a9694b94bac11f8ff8220"
-        }
-      ],
-      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
-    },
-    {
-      "id": "character-mira-determined-umbrella-left-three-quarter-fullbody-v002",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "f15fbfedcdd4fff07d6851499c55c05ab93d4f0c0706dffce1c1ffd343fa400e",
-      "provenance": "regenerated-house-style",
-      "verdict": "approved-runtime",
-      "runtimeHome": [
-        "journal:mira-expression-gallery",
-        "story:cast:mira:determined",
-        "cast-standardization:mira"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "identity-lock"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:mira-expression-gallery",
-          "story:cast:mira:determined",
-          "cast-standardization:mira"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/mira/mira__determined-umbrella__left-three-quarter__fullbody__v002.png",
-          "sha256": "f15fbfedcdd4fff07d6851499c55c05ab93d4f0c0706dffce1c1ffd343fa400e"
-        }
-      ],
-      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
-    },
-    {
-      "id": "character-mira-surprised-shocked-umbrella-right-three-quarter-fullbody-v002",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "27b844d843f7bb56f78d9495810e04f664e074162e28cd2acc30145a51da07e0",
-      "provenance": "regenerated-house-style",
-      "verdict": "approved-runtime",
-      "runtimeHome": [
-        "journal:mira-expression-gallery",
-        "story:cast:mira:surprised-shocked",
-        "cast-standardization:mira"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "identity-lock"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:mira-expression-gallery",
-          "story:cast:mira:surprised-shocked",
-          "cast-standardization:mira"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/mira/mira__surprised-shocked-umbrella__right-three-quarter__fullbody__v002.png",
-          "sha256": "27b844d843f7bb56f78d9495810e04f664e074162e28cd2acc30145a51da07e0"
-        }
-      ],
-      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
-    },
-    {
-      "id": "character-mira-sad-vulnerable-umbrella-left-three-quarter-fullbody-v002",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "87c2d98bdda50e332a8ffd6ec0be979d90b51159f1545080b2fc83ab9f8291a4",
-      "provenance": "regenerated-house-style",
-      "verdict": "approved-runtime",
-      "runtimeHome": [
-        "journal:mira-expression-gallery",
-        "story:cast:mira:sad-vulnerable",
-        "cast-standardization:mira"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "identity-lock"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:mira-expression-gallery",
-          "story:cast:mira:sad-vulnerable",
-          "cast-standardization:mira"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/mira/mira__sad-vulnerable-umbrella__left-three-quarter__fullbody__v002.png",
-          "sha256": "87c2d98bdda50e332a8ffd6ec0be979d90b51159f1545080b2fc83ab9f8291a4"
-        }
-      ],
-      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
-    },
-    {
-      "id": "character-mika-happy-headphones-front-near-front-fullbody-v002",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "5271edf8adf804c48f5734d23a696d3495281041beae7609f8aab3ec1efdfb26",
-      "provenance": "regenerated-house-style",
-      "verdict": "approved-runtime",
-      "runtimeHome": [
-        "journal:mika-expression-gallery",
-        "story:cast:mika:happy",
-        "cast-standardization:mika"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "identity-lock"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:mika-expression-gallery",
-          "story:cast:mika:happy",
-          "cast-standardization:mika"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/mika/mika__happy-headphones__front-near-front__fullbody__v002.png",
-          "sha256": "5271edf8adf804c48f5734d23a696d3495281041beae7609f8aab3ec1efdfb26"
-        }
-      ],
-      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
-    },
-    {
-      "id": "character-mika-thoughtful-headphones-left-three-quarter-fullbody-v002",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "95426c16ef1b34d19ca1ef36029cef50d5461d2211e22585486f65dfb35cf7ab",
-      "provenance": "regenerated-house-style",
-      "verdict": "approved-runtime",
-      "runtimeHome": [
-        "journal:mika-expression-gallery",
-        "story:cast:mika:thoughtful",
-        "cast-standardization:mika"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "identity-lock"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:mika-expression-gallery",
-          "story:cast:mika:thoughtful",
-          "cast-standardization:mika"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/mika/mika__thoughtful-headphones__left-three-quarter__fullbody__v002.png",
-          "sha256": "95426c16ef1b34d19ca1ef36029cef50d5461d2211e22585486f65dfb35cf7ab"
-        }
-      ],
-      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
-    },
-    {
-      "id": "character-mika-determined-headphones-left-three-quarter-fullbody-v002",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "d46e4b87f5b5c0b7fbd6df3716b0e245e4660a5caff003e36a354639b3fba59f",
-      "provenance": "regenerated-house-style",
-      "verdict": "approved-runtime",
-      "runtimeHome": [
-        "journal:mika-expression-gallery",
-        "story:cast:mika:determined",
-        "cast-standardization:mika"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "identity-lock"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:mika-expression-gallery",
-          "story:cast:mika:determined",
-          "cast-standardization:mika"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/mika/mika__determined-headphones__left-three-quarter__fullbody__v002.png",
-          "sha256": "d46e4b87f5b5c0b7fbd6df3716b0e245e4660a5caff003e36a354639b3fba59f"
-        }
-      ],
-      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
-    },
-    {
-      "id": "character-mika-surprised-shocked-headphones-right-three-quarter-fullbody-v002",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "a7d38bb13c8db6c05ed528ace3007e1ff85d5523a37f9fea1476d70297f5719c",
-      "provenance": "regenerated-house-style",
-      "verdict": "approved-runtime",
-      "runtimeHome": [
-        "journal:mika-expression-gallery",
-        "story:cast:mika:surprised-shocked",
-        "cast-standardization:mika"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "identity-lock"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:mika-expression-gallery",
-          "story:cast:mika:surprised-shocked",
-          "cast-standardization:mika"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/mika/mika__surprised-shocked-headphones__right-three-quarter__fullbody__v002.png",
-          "sha256": "a7d38bb13c8db6c05ed528ace3007e1ff85d5523a37f9fea1476d70297f5719c"
-        }
-      ],
-      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
-    },
-    {
-      "id": "character-mika-sad-vulnerable-headphones-left-three-quarter-fullbody-v002",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "276c0db9b340c4187866e4c80be586b4e78140732a6bba4a2b31fe13003b2b0d",
-      "provenance": "regenerated-house-style",
-      "verdict": "approved-runtime",
-      "runtimeHome": [
-        "journal:mika-expression-gallery",
-        "story:cast:mika:sad-vulnerable",
-        "cast-standardization:mika"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "identity-lock"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:mika-expression-gallery",
-          "story:cast:mika:sad-vulnerable",
-          "cast-standardization:mika"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/mika/mika__sad-vulnerable-headphones__left-three-quarter__fullbody__v002.png",
-          "sha256": "276c0db9b340c4187866e4c80be586b4e78140732a6bba4a2b31fe13003b2b0d"
-        }
-      ],
-      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
     }
   ]
 }

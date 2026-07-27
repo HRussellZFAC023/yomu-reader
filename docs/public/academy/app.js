@@ -14725,6 +14725,22 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       "cueId": "cue:atlas-uncovered-unlit",
       "wide": "/academy/art/events/blank-atlas-arrival__atlas-uncovered-unlit__wide__v001.webp",
       "mobile": "/academy/art/events/blank-atlas-arrival__atlas-uncovered-unlit__mobile__v001.webp"
+    },
+    "node:blank-atlas:vowel-slots": {
+      "assetId": "event.story.blank-atlas-sound-script-map.five-empty-slots",
+      "sceneId": "scene:blank-atlas:sound-script-map",
+      "nodeId": "node:blank-atlas:vowel-slots",
+      "cueId": "cue:five-empty-atlas-slots",
+      "wide": "/academy/art/events/blank-atlas-sound-script-map__five-empty-slots__wide__v001.webp",
+      "mobile": "/academy/art/events/blank-atlas-sound-script-map__five-empty-slots__mobile__v001.webp"
+    },
+    "node:blank-atlas:first-line": {
+      "assetId": "event.story.blank-atlas-sound-script-map.first-route-line",
+      "sceneId": "scene:blank-atlas:sound-script-map",
+      "nodeId": "node:blank-atlas:first-line",
+      "cueId": "cue:first-route-line-visible",
+      "wide": "/academy/art/events/blank-atlas-sound-script-map__first-route-line__wide__v001.webp",
+      "mobile": "/academy/art/events/blank-atlas-sound-script-map__first-route-line__mobile__v001.webp"
     }
   };
   const ACADEMY_STORY_ART_RUNTIME_ASSETS = {
@@ -14752,6 +14768,32 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       "files": {
         "wide": "/academy/art/events/blank-atlas-arrival__atlas-uncovered-unlit__wide__v001.webp",
         "mobile": "/academy/art/events/blank-atlas-arrival__atlas-uncovered-unlit__mobile__v001.webp"
+      }
+    },
+    "event.story.blank-atlas-sound-script-map.five-empty-slots": {
+      "kind": "event-art",
+      "status": "approved",
+      "runtimeHomes": [
+        "node:blank-atlas:vowel-slots",
+        "scene:blank-atlas:sound-script-map"
+      ],
+      "provenance": "regenerated-house-style",
+      "files": {
+        "wide": "/academy/art/events/blank-atlas-sound-script-map__five-empty-slots__wide__v001.webp",
+        "mobile": "/academy/art/events/blank-atlas-sound-script-map__five-empty-slots__mobile__v001.webp"
+      }
+    },
+    "event.story.blank-atlas-sound-script-map.first-route-line": {
+      "kind": "event-art",
+      "status": "approved",
+      "runtimeHomes": [
+        "node:blank-atlas:first-line",
+        "scene:blank-atlas:sound-script-map"
+      ],
+      "provenance": "regenerated-house-style",
+      "files": {
+        "wide": "/academy/art/events/blank-atlas-sound-script-map__first-route-line__wide__v001.webp",
+        "mobile": "/academy/art/events/blank-atlas-sound-script-map__first-route-line__mobile__v001.webp"
       }
     }
   };

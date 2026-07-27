@@ -19,9 +19,9 @@
     "deletion": "This audit never deletes, moves, or mutates Academy raster files."
   },
   "counts": {
-    "currentRasterFiles": 238,
-    "currentRasterFilesAccountedFor": 238,
-    "active": 185,
+    "currentRasterFiles": 248,
+    "currentRasterFilesAccountedFor": 248,
+    "active": 195,
     "orphaned": 53,
     "deprecated": 10,
     "deprecatedPresent": 0,
@@ -32,7 +32,7 @@
     "deliveredMatrixExpressionVariants": 58,
     "offMatrixDeliveredSprites": 51,
     "activeByKind": {
-      "character-sprite": 99,
+      "character-sprite": 109,
       "protagonist-portrait": 4,
       "scene-background": 66,
       "scene-event": 8,
@@ -912,6 +912,28 @@
         "ledgerStatus": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
       },
       {
+        "id": "character-mika-determined-headphones-left-three-quarter-fullbody-v002",
+        "path": "/academy/art/characters/mika/mika__determined-headphones__left-three-quarter__fullbody__v002.png",
+        "sha256": "d46e4b87f5b5c0b7fbd6df3716b0e245e4660a5caff003e36a354639b3fba59f",
+        "ledgerSha256": "d46e4b87f5b5c0b7fbd6df3716b0e245e4660a5caff003e36a354639b3fba59f",
+        "kind": "character-sprite",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "journal:mika-expression-gallery",
+          "story:cast:mika:determined",
+          "cast-standardization:mika"
+        ],
+        "reviewHomes": [
+          "cast-standardization-manifest",
+          "identity-lock"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
+      },
+      {
         "id": "character-mika-encouraging-listening-headphones-right-three-quarter-fullbody-v002",
         "path": "/academy/art/characters/mika/mika__encouraging-listening-headphones__right-three-quarter__fullbody__v002.png",
         "sha256": "6595c33d7846f1656b4345a726a35b724fb47abd8b8405f323f7b905f5c42f05",
@@ -923,6 +945,28 @@
         "runtimeHomes": [
           "journal:mika-expression-gallery",
           "story:mika-listening",
+          "cast-standardization:mika"
+        ],
+        "reviewHomes": [
+          "cast-standardization-manifest",
+          "identity-lock"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
+      },
+      {
+        "id": "character-mika-happy-headphones-front-near-front-fullbody-v002",
+        "path": "/academy/art/characters/mika/mika__happy-headphones__front-near-front__fullbody__v002.png",
+        "sha256": "5271edf8adf804c48f5734d23a696d3495281041beae7609f8aab3ec1efdfb26",
+        "ledgerSha256": "5271edf8adf804c48f5734d23a696d3495281041beae7609f8aab3ec1efdfb26",
+        "kind": "character-sprite",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "journal:mika-expression-gallery",
+          "story:cast:mika:happy",
           "cast-standardization:mika"
         ],
         "reviewHomes": [
@@ -948,6 +992,72 @@
           "class:week-cast",
           "lesson-overview:roster",
           "world:person",
+          "cast-standardization:mika"
+        ],
+        "reviewHomes": [
+          "cast-standardization-manifest",
+          "identity-lock"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
+      },
+      {
+        "id": "character-mika-sad-vulnerable-headphones-left-three-quarter-fullbody-v002",
+        "path": "/academy/art/characters/mika/mika__sad-vulnerable-headphones__left-three-quarter__fullbody__v002.png",
+        "sha256": "276c0db9b340c4187866e4c80be586b4e78140732a6bba4a2b31fe13003b2b0d",
+        "ledgerSha256": "276c0db9b340c4187866e4c80be586b4e78140732a6bba4a2b31fe13003b2b0d",
+        "kind": "character-sprite",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "journal:mika-expression-gallery",
+          "story:cast:mika:sad-vulnerable",
+          "cast-standardization:mika"
+        ],
+        "reviewHomes": [
+          "cast-standardization-manifest",
+          "identity-lock"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
+      },
+      {
+        "id": "character-mika-surprised-shocked-headphones-right-three-quarter-fullbody-v002",
+        "path": "/academy/art/characters/mika/mika__surprised-shocked-headphones__right-three-quarter__fullbody__v002.png",
+        "sha256": "a7d38bb13c8db6c05ed528ace3007e1ff85d5523a37f9fea1476d70297f5719c",
+        "ledgerSha256": "a7d38bb13c8db6c05ed528ace3007e1ff85d5523a37f9fea1476d70297f5719c",
+        "kind": "character-sprite",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "journal:mika-expression-gallery",
+          "story:cast:mika:surprised-shocked",
+          "cast-standardization:mika"
+        ],
+        "reviewHomes": [
+          "cast-standardization-manifest",
+          "identity-lock"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
+      },
+      {
+        "id": "character-mika-thoughtful-headphones-left-three-quarter-fullbody-v002",
+        "path": "/academy/art/characters/mika/mika__thoughtful-headphones__left-three-quarter__fullbody__v002.png",
+        "sha256": "95426c16ef1b34d19ca1ef36029cef50d5461d2211e22585486f65dfb35cf7ab",
+        "ledgerSha256": "95426c16ef1b34d19ca1ef36029cef50d5461d2211e22585486f65dfb35cf7ab",
+        "kind": "character-sprite",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "journal:mika-expression-gallery",
+          "story:cast:mika:thoughtful",
           "cast-standardization:mika"
         ],
         "reviewHomes": [
@@ -1003,6 +1113,28 @@
         "ledgerStatus": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
       },
       {
+        "id": "character-mira-determined-umbrella-left-three-quarter-fullbody-v002",
+        "path": "/academy/art/characters/mira/mira__determined-umbrella__left-three-quarter__fullbody__v002.png",
+        "sha256": "f15fbfedcdd4fff07d6851499c55c05ab93d4f0c0706dffce1c1ffd343fa400e",
+        "ledgerSha256": "f15fbfedcdd4fff07d6851499c55c05ab93d4f0c0706dffce1c1ffd343fa400e",
+        "kind": "character-sprite",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "journal:mira-expression-gallery",
+          "story:cast:mira:determined",
+          "cast-standardization:mira"
+        ],
+        "reviewHomes": [
+          "cast-standardization-manifest",
+          "identity-lock"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
+      },
+      {
         "id": "character-mira-encouraging-listening-umbrella-right-three-quarter-fullbody-v002",
         "path": "/academy/art/characters/mira/mira__encouraging-listening-umbrella__right-three-quarter__fullbody__v002.png",
         "sha256": "837eede8fe230839c96a4e7183ffe6592246c64f9863960f6b9373093d879118",
@@ -1014,6 +1146,28 @@
         "runtimeHomes": [
           "journal:mira-expression-gallery",
           "story:mira-listening",
+          "cast-standardization:mira"
+        ],
+        "reviewHomes": [
+          "cast-standardization-manifest",
+          "identity-lock"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
+      },
+      {
+        "id": "character-mira-happy-umbrella-front-near-front-fullbody-v002",
+        "path": "/academy/art/characters/mira/mira__happy-umbrella__front-near-front__fullbody__v002.png",
+        "sha256": "43907bb2227235eccc96fee84e16018978c480744f6fa85720e8b4a7b90d6ef8",
+        "ledgerSha256": "43907bb2227235eccc96fee84e16018978c480744f6fa85720e8b4a7b90d6ef8",
+        "kind": "character-sprite",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "journal:mira-expression-gallery",
+          "story:cast:mira:happy",
           "cast-standardization:mira"
         ],
         "reviewHomes": [
@@ -1039,6 +1193,72 @@
           "class:week-cast",
           "lesson-overview:roster",
           "world:person",
+          "cast-standardization:mira"
+        ],
+        "reviewHomes": [
+          "cast-standardization-manifest",
+          "identity-lock"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
+      },
+      {
+        "id": "character-mira-sad-vulnerable-umbrella-left-three-quarter-fullbody-v002",
+        "path": "/academy/art/characters/mira/mira__sad-vulnerable-umbrella__left-three-quarter__fullbody__v002.png",
+        "sha256": "87c2d98bdda50e332a8ffd6ec0be979d90b51159f1545080b2fc83ab9f8291a4",
+        "ledgerSha256": "87c2d98bdda50e332a8ffd6ec0be979d90b51159f1545080b2fc83ab9f8291a4",
+        "kind": "character-sprite",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "journal:mira-expression-gallery",
+          "story:cast:mira:sad-vulnerable",
+          "cast-standardization:mira"
+        ],
+        "reviewHomes": [
+          "cast-standardization-manifest",
+          "identity-lock"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
+      },
+      {
+        "id": "character-mira-surprised-shocked-umbrella-right-three-quarter-fullbody-v002",
+        "path": "/academy/art/characters/mira/mira__surprised-shocked-umbrella__right-three-quarter__fullbody__v002.png",
+        "sha256": "27b844d843f7bb56f78d9495810e04f664e074162e28cd2acc30145a51da07e0",
+        "ledgerSha256": "27b844d843f7bb56f78d9495810e04f664e074162e28cd2acc30145a51da07e0",
+        "kind": "character-sprite",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "journal:mira-expression-gallery",
+          "story:cast:mira:surprised-shocked",
+          "cast-standardization:mira"
+        ],
+        "reviewHomes": [
+          "cast-standardization-manifest",
+          "identity-lock"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
+      },
+      {
+        "id": "character-mira-thoughtful-umbrella-left-three-quarter-fullbody-v002",
+        "path": "/academy/art/characters/mira/mira__thoughtful-umbrella__left-three-quarter__fullbody__v002.png",
+        "sha256": "0beee7fb0785bcbe2b234c9ab3613f42b39cb5c79e7a9694b94bac11f8ff8220",
+        "ledgerSha256": "0beee7fb0785bcbe2b234c9ab3613f42b39cb5c79e7a9694b94bac11f8ff8220",
+        "kind": "character-sprite",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "journal:mira-expression-gallery",
+          "story:cast:mira:thoughtful",
           "cast-standardization:mira"
         ],
         "reviewHomes": [

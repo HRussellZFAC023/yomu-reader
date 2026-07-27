@@ -43,6 +43,50 @@
           "The open blank atlas is the dominant readable action at both viewports."
         ]
       }
+    },
+    {
+      "assetId": "event.story.blank-atlas-sound-script-map.five-empty-slots",
+      "chapterId": "s1e01-the-blank-atlas",
+      "sceneId": "scene:blank-atlas:sound-script-map",
+      "nodeId": "node:blank-atlas:vowel-slots",
+      "cueId": "cue:five-empty-atlas-slots",
+      "wide": "/academy/art/events/blank-atlas-sound-script-map__five-empty-slots__wide__v001.webp",
+      "mobile": "/academy/art/events/blank-atlas-sound-script-map__five-empty-slots__mobile__v001.webp",
+      "generationSources": [
+        "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/call_NVz3U7R2oEMnkLddClxCzYpa.png",
+        "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/call_CtpFZOv74RoO1d5nF6zm8lhq.png"
+      ],
+      "qa": {
+        "verdict": "pass",
+        "inspected": true,
+        "notes": [
+          "The Atlas room and camera remain continuous with the arrival scene.",
+          "Five empty sound places read clearly while the mobile composition preserves UI space.",
+          "The art contains no baked text or people."
+        ]
+      }
+    },
+    {
+      "assetId": "event.story.blank-atlas-sound-script-map.first-route-line",
+      "chapterId": "s1e01-the-blank-atlas",
+      "sceneId": "scene:blank-atlas:sound-script-map",
+      "nodeId": "node:blank-atlas:first-line",
+      "cueId": "cue:first-route-line-visible",
+      "wide": "/academy/art/events/blank-atlas-sound-script-map__first-route-line__wide__v001.webp",
+      "mobile": "/academy/art/events/blank-atlas-sound-script-map__first-route-line__mobile__v001.webp",
+      "generationSources": [
+        "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/call_fdy74tEnUaAedYnmEqHY5QhX.png",
+        "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/call_yiHlJ6ziZd44kL8dYTFnEMiB.png"
+      ],
+      "qa": {
+        "verdict": "pass",
+        "inspected": true,
+        "notes": [
+          "The same scene progresses visibly from five empty places to five connected sound marks.",
+          "The route line and distinct marks remain readable at wide and mobile viewports.",
+          "The art contains no baked text or character identity."
+        ]
+      }
     }
   ]
 }
