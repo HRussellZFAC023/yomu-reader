@@ -4,7 +4,7 @@ import { CARD_STATE_LABEL_KEYS, audioSourceLabel, formatUiText, resolveUiLanguag
 import { CURRENT_YOMU_VERSION } from '../app/version';
 import { detectYomuUpdateFlow, updateFlowNoteKey } from '../app/userscript-update';
 import { externalLinkIcon } from '../ui/icons';
-import { AUDIO_GUIDE_URL, DEFAULT_OVERLAY_BACKGROUND_COLOR, DEFAULT_OVERLAY_OUTLINE_COLOR, DEFAULT_OVERLAY_TEXT_COLOR, accentToRgba, effectiveFuriganaMode, formatShortcutEvent, sanitizeAccentColor } from './index';
+import { AUDIO_GUIDE_URL, DEFAULT_OVERLAY_BACKGROUND_COLOR, DEFAULT_OVERLAY_OUTLINE_COLOR, DEFAULT_OVERLAY_TEXT_COLOR, accentToRgba, effectiveFuriganaMode, formatShortcutEvent, isPopupLookupEnabled, sanitizeAccentColor } from './index';
 import { SETTINGS_LABEL_TEXT_CLASS, checkbox, input, radioGroup, select, settingsTabButton, shortcutInput } from './form-controls';
 import { audioUrlPlaceholderKey, isAudioSourceTypeValue, renderAudioSourceEditor, renderDictionaryLookupLinkEditor } from './form-editors';
 import { combinedApiCredentialLabel, effectiveJitenApiKey, effectiveJpdbApiKey, hasJpdbApiCredential, mergeApiCredentialValues } from './api-credential';
@@ -980,11 +980,6 @@ function usesNadeshikoExamples(source: ImmersionExampleSource): boolean {
     return source === 'nadeshiko' || source === 'combined';
 }
 
-function popupLookupEnabledSetting(settings: ReaderSettings): boolean {
-    return settings.popupActivationMode !== 'off'
-        && (settings.lookupOnClick || settings.lookupOnHover || settings.lookupOnMiddleMouse);
-}
-
 function renderReaderSettingsPanel(settings: ReaderSettings): string {
     const language = settings.interfaceLanguage;
     const text = settingsText(language);
@@ -995,7 +990,7 @@ function renderReaderSettingsPanel(settings: ReaderSettings): string {
                 <div class="jpdb-reader-settings-subsection">
                     <div class="jpdb-reader-local-title" data-popup-lookup-title>${escapedUiText(language, 'popupLookup')}</div>
                     <div class="grid">
-                        ${checkbox('popupLookupEnabled', text('popupLookupEnabled'), popupLookupEnabledSetting(settings))}
+                        ${checkbox('popupLookupEnabled', text('popupLookupEnabled'), isPopupLookupEnabled(settings))}
                     </div>
                     <div class="jpdb-reader-help" data-help-key="popupLookupHelp">${escapedUiText(language, 'popupLookupHelp')}</div>
                 </div>

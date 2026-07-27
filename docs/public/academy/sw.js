@@ -1,4 +1,4 @@
-const VERSION = 'yomu-academy-shell-s1-fafef35e659b';
+const VERSION = 'yomu-academy-shell-s1-1463699a2fd1';
 const AUDIO_CACHE = 'yomu-academy-audio-v1-2c25b06f971c';
 const STORY_VOICE_CATALOG = '/academy/audio/story-voice-playback.json';
 const STORY_VOICE_ASSET = /^\/academy\/audio\/story-(?:pilot|lines)\/[a-z0-9][a-z0-9._-]*\.opus$/;
@@ -138,8 +138,8 @@ const CORE = [
     '/yomu-icon.svg',
     '/academy/',
     '/academy/index.html',
-    '/academy/app.js?v=s1-fafef35e659b',
-    '/academy/style.css?v=s1-fafef35e659b',
+    '/academy/app.js?v=s1-1463699a2fd1',
+    '/academy/style.css?v=s1-1463699a2fd1',
     '/academy/manifest.webmanifest',
     ...CAST_SPRITE_PRECACHE,
     '/academy/art/protagonists/quality-2__picker__v001.png',

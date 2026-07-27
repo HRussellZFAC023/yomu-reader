@@ -1436,6 +1436,27 @@ async function readHostedFullscreenPausedOcrTapState(page) {
         const line = document.querySelector('.jpdb-ocr-layer .jpdb-ocr-line');
         const word = document.querySelector('.jpdb-ocr-layer .jpdb-reader-word');
         const lineStyle = line ? getComputedStyle(line) : null;
+        const visualGlyphs = line
+            ? [...line.querySelectorAll('[data-yomu-ocr-visual-text]')]
+            : [];
+        const visualGlyphState = visualGlyphs.map(glyph => {
+            const style = getComputedStyle(glyph);
+            return {
+                text: glyph.getAttribute('data-yomu-ocr-visual-text') ?? '',
+                ariaHidden: glyph.getAttribute('aria-hidden'),
+                display: style.display,
+                visibility: style.visibility,
+                opacity: style.opacity,
+                rect: rect(glyph),
+            };
+        });
+        const underlyingTextNodes = (() => {
+            if (!line) return -1;
+            const walker = document.createTreeWalker(line, NodeFilter.SHOW_TEXT);
+            let count = 0;
+            while (walker.nextNode()) count += 1;
+            return count;
+        })();
         return {
             stageInline: stage?.getAttribute('data-yomu-inline-fullscreen') ?? null,
             stageActive: stage?.hasAttribute('data-fullscreen-active') ?? false,
@@ -1449,12 +1470,16 @@ async function readHostedFullscreenPausedOcrTapState(page) {
             frameHosted: frame?.getAttribute('data-yomu-ocr-fullscreen-hosted') ?? null,
             overlayHosted: overlay?.getAttribute('data-yomu-ocr-fullscreen-hosted') ?? null,
             ocrWords: document.querySelectorAll('.jpdb-ocr-layer .jpdb-reader-word').length,
-            lineText: (() => {
-                if (!line) return '';
-                const clone = line.cloneNode(true);
-                clone.querySelectorAll('rt,rp').forEach(node => node.remove());
-                return clone.textContent ?? '';
-            })(),
+            scannerIsolated: line?.querySelector('.jpdb-ocr-line-text')
+                ?.classList.contains('jpdb-ocr-page-scanner-isolated') ?? false,
+            visualGlyphText: visualGlyphState.map(glyph => glyph.text).join(''),
+            visualGlyphState,
+            underlyingTextNodes,
+            lineAriaLabel: line?.getAttribute('aria-label') ?? '',
+            lineOcrText: line?.getAttribute('data-ocr-text') ?? '',
+            lineSentence: line?.getAttribute('data-sentence') ?? '',
+            wordSurfaces: [...document.querySelectorAll('.jpdb-ocr-layer .jpdb-reader-word')]
+                .map(element => element.getAttribute('data-surface') ?? ''),
             linePointerEvents: lineStyle?.pointerEvents ?? '',
             lineActive: line?.classList.contains('jpdb-ocr-line-active') ?? false,
             linePinned: line?.getAttribute('data-pinned') ?? '',
@@ -1480,7 +1505,21 @@ function hostedFullscreenPausedOcrReady(state) {
         && state.frameHosted === 'true'
         && state.overlayHosted === 'true'
         && state.ocrWords > 0
-        && includesText(state.lineText, '日本語')
+        && state.scannerIsolated === true
+        && state.visualGlyphText === '日本語'
+        && state.visualGlyphState.length > 0
+        && state.visualGlyphState.every(glyph => glyph.text.length > 0
+            && glyph.ariaHidden === 'true'
+            && glyph.display !== 'none'
+            && glyph.visibility !== 'hidden'
+            && Number(glyph.opacity) > 0
+            && (glyph.rect?.width ?? 0) > 0
+            && (glyph.rect?.height ?? 0) > 0)
+        && state.underlyingTextNodes === 0
+        && state.lineAriaLabel === '日本語'
+        && state.lineOcrText === '日本語'
+        && state.lineSentence === '日本語'
+        && state.wordSurfaces.join('') === '日本語'
         && state.linePointerEvents !== 'none'
         && (state.lineRect?.width ?? 0) > 0
         && (state.wordRect?.width ?? 0) > 0;

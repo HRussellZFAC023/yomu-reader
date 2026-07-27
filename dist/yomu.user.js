@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.8.18
+// @version 1.8.20
 // @author Henry Russell
 // @description Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and a study page.
 // @license MIT
@@ -15,15 +15,15 @@
 // @require https://yomureader.com/greasyfork/yomu-anki.26ed098f5355.user.js#sha256=Ju0Jj1NV9LXpvoXC0t77I/dKhqoDKE/YNX4YGmWzqKI=
 // @require https://yomureader.com/greasyfork/yomu-audio.8dd0a6c5a711.user.js#sha256=jdCmxacRXqDQlRyCN7ojZOzOBBumzLFdeKfME3ZWeKI=
 // @require https://yomureader.com/greasyfork/yomu-kanji-study.8bb23be372c0.user.js#sha256=i7I743LAYUhtJxwUDcv3nHafBgXUJbhboofFJjaeckw=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.534238480287.user.js#sha256=U0I4SAKHaWrRtv7xL/c28PjEORn1fCOF9PE+o09cThs=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.ba57222df38d.user.js#sha256=ulciLfONuzKayD54sO7NnM/UaCXeBgoz46iC+BH1WoY=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.4a28175bf045.user.js#sha256=SigXW/BFi4724aLylfUOsJu6kSPrJLpVJbsbno/xd5Y=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.842a4fe2ced9.user.js#sha256=hCpP4s7ZjBjx3ynoSKhpMFcDmbN5fHtEmviuz6TgIC8=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.8f5fdb509f56.user.js#sha256=j1/bUJ9Wda30V8OQ7UlsuSIF7IkNuSPECjUzmUeiIiI=
 // @require https://yomureader.com/greasyfork/yomu-bunpro.e66bdca61b81.user.js#sha256=5mvcphuBoPFIg1VPJKlJay87jqeacgl/3gMD1UpGEHw=
 // @require https://yomureader.com/greasyfork/yomu-jpdb.4215c55298d2.user.js#sha256=QhXFUpjSxoQogowHHxQCfY35t5OZBL3yZ14YtWICS7g=
 // @require https://yomureader.com/greasyfork/yomu-jiten.1d0c113a86bd.user.js#sha256=HQwROoa9rcvSG5WQ76s9yyk2immb4TDYNUoRZQK9LqM=
 // @require https://yomureader.com/greasyfork/yomu-wanikani.a1acbc502f9b.user.js#sha256=oay8UC+bzq/ZMfU+Bhl8oZocWk9GoxEP0eFJbwavnvA=
 // @require https://yomureader.com/greasyfork/yomu-video.d7492ea0a372.user.js#sha256=10kuoKNycAhzDKRIuRDQTSzvbD/9DBllVGsIeer8eLQ=
-// @resource yomuCss  https://yomureader.com/yomu.b2dc52e7c223.css#sha256=stxS58Ijy/5CdY4YuuZmcHO99j6++y9PPTWqawtG4so=
+// @resource yomuCss  https://yomureader.com/yomu.edbe1dbd1762.css#sha256=7b4dvRdiI6B29BxB73+fT5kP+IAbrgJpdh4fHwCUjiY=
 // @connect api.jiten.moe
 // @connect jpdb.io
 // @connect api.wanikani.com
@@ -6548,6 +6548,9 @@ const DEFAULT_POPUP_FONT_FAMILY = '"Nunito Sans", "Extra Sans JP", "Noto Sans Sy
 const DEFAULT_SUBTITLE_FONT_FAMILY = DEFAULT_READER_FONT_FAMILY;
 const DEFAULT_WORD_COLORS = DEFAULT_WORD_COLOR_TOKENS;
 const DEFAULT_PITCH_COLORS = DEFAULT_PITCH_COLOR_TOKENS;
+function isPopupLookupEnabled(settings) {
+  return settings.popupActivationMode !== "off" && (settings.lookupOnClick || settings.lookupOnHover || settings.lookupOnMiddleMouse);
+}
 const AUDIO_SOURCE_TYPE_VALUES = [
   "jpod101",
   "language-pod-101",
@@ -26540,7 +26543,7 @@ function applyPublicVocabularyFurigana(word, card, settings) {
   const surface = readerWordSurfaceText(word).trim() || word.dataset.expression || card.spelling;
   const renderSettings = publicVocabularyFuriganaSettings(word, settings);
   if (shouldHideFuriganaForCardState(renderSettings, primaryCardState(card.cardState))) {
-  clearPublicVocabularyFurigana(word, surface, ocrLine);
+  clearPublicVocabularyFurigana(word, surface, ocrLine, isPopupLookupEnabled(settings));
   return;
   }
   const rubies = inferredInflectedSurfaceRubies(surface, card.spelling, card.reading);
@@ -26555,14 +26558,14 @@ function applyPublicVocabularyFurigana(word, card, settings) {
   };
   if (!shouldApplyPublicVocabularyFurigana(card, surface, token, renderSettings, rubies)) return;
   if (!replaceRenderedWordFurigana(word, surface, token)) return;
-  if (ocrLine) yomuNormalizeOcrRenderedText()?.(word);
+  if (ocrLine) yomuNormalizeOcrRenderedText()?.(word, isPopupLookupEnabled(settings));
   if (ocrLine) ocrLine.dataset.hasFuri = "true";
 }
-function clearPublicVocabularyFurigana(word, surface, ocrLine) {
+function clearPublicVocabularyFurigana(word, surface, ocrLine, isolatePageScanners) {
   if (!word.classList.contains("jpdb-reader-has-furi") && !word.querySelector(".jpdb-reader-furi, rt")) return;
   clearRenderedWordFurigana(word, surface);
   if (!ocrLine) return;
-  yomuNormalizeOcrRenderedText()?.(word);
+  yomuNormalizeOcrRenderedText()?.(word, isolatePageScanners);
   if (!ocrLine.querySelector(".jpdb-reader-word.jpdb-reader-has-furi")) delete ocrLine.dataset.hasFuri;
 }
 function publicVocabularyFuriganaSettings(word, settings) {
@@ -26987,6 +26990,7 @@ function isRenderedWordElement(node) {
 }
 function renderedWordSurfaceText(word) {
   if (!word) return "";
+  if (word.dataset.surface) return word.dataset.surface;
   if (!word.querySelector("rt, rp")) return word.textContent ?? "";
   const clone = word.cloneNode(true);
   clone.querySelectorAll("rt, rp").forEach((node) => node.remove());
@@ -30608,8 +30612,8 @@ function collapseWhitespace(value) {
   return value.replace(/\/\*[\s\S]*?\*\//gu, " ").replace(/\s+/gu, " ").trim();
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.18"}`;
-const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.18"}`;
+const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.20"}`;
+const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.20"}`;
 const READER_CSS_CACHE_KEY = "yomu:reader-css-cache:v3";
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
@@ -30752,7 +30756,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.8.18"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.8.20"}`;
   } catch {
   return null;
   }

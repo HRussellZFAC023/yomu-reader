@@ -162,6 +162,14 @@ function fallbackToken(sentence: string, spelling: string, start: number, end: n
     };
 }
 
+function ocrRenderedText(element: Element | null | undefined): string {
+    if (!element) return '';
+    const generated = [...element.querySelectorAll<HTMLElement>('.jpdb-ocr-visual-text')]
+        .map(node => node.dataset.yomuOcrVisualText ?? '')
+        .join('');
+    return generated || element.textContent || '';
+}
+
 function installCanvasEncodingMock(): () => void {
     const getContextDescriptor = Object.getOwnPropertyDescriptor(HTMLCanvasElement.prototype, 'getContext');
     const toBlobDescriptor = Object.getOwnPropertyDescriptor(HTMLCanvasElement.prototype, 'toBlob');
@@ -474,7 +482,7 @@ describe('OCR sentence focus', () => {
 
             expect(line.classList.contains('jpdb-ocr-line-active')).toBe(true);
             expect(line.dataset.pinned).toBe('true');
-            expect(word.querySelector('.jpdb-ocr-furi')?.textContent).toBe('にほんご');
+            expect(ocrRenderedText(word.querySelector('.jpdb-ocr-furi'))).toBe('にほんご');
             expect(word.classList.contains('jpdb-pitch-heiban')).toBe(true);
 
             word.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 120, clientY: 120 }));
@@ -533,18 +541,18 @@ describe('OCR sentence focus', () => {
             dispatchPointerEvent(lines[0]!, 'pointerdown', { pointerType: 'touch', pointerId: 11, clientX: 120, clientY: 120 });
             lines[0]!.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 120, clientY: 120 }));
             expect(lines[0]!.classList.contains('jpdb-ocr-line-active')).toBe(true);
-            expect(lines[0]!.querySelector('.jpdb-ocr-furi')?.textContent).toBe('にほんご');
+            expect(ocrRenderedText(lines[0]!.querySelector('.jpdb-ocr-furi'))).toBe('にほんご');
             expect(lines[0]!.querySelector('.jpdb-pitch-heiban')).not.toBeNull();
-            expect(lines[1]!.querySelector('.jpdb-ocr-furi')?.textContent).toBe('にほんご');
+            expect(ocrRenderedText(lines[1]!.querySelector('.jpdb-ocr-furi'))).toBe('にほんご');
             expect(lines[1]!.querySelector('.jpdb-pitch-heiban')).not.toBeNull();
 
             dispatchPointerEvent(lines[1]!, 'pointerdown', { pointerType: 'touch', pointerId: 12, clientX: 120, clientY: 220 });
             lines[1]!.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 120, clientY: 220 }));
             expect(lines[0]!.classList.contains('jpdb-ocr-line-active')).toBe(false);
-            expect(lines[0]!.querySelector('.jpdb-ocr-furi')?.textContent).toBe('にほんご');
+            expect(ocrRenderedText(lines[0]!.querySelector('.jpdb-ocr-furi'))).toBe('にほんご');
             expect(lines[0]!.querySelector('.jpdb-pitch-heiban')).not.toBeNull();
             expect(lines[1]!.classList.contains('jpdb-ocr-line-active')).toBe(true);
-            expect(lines[1]!.querySelector('.jpdb-ocr-furi')?.textContent).toBe('にほんご');
+            expect(ocrRenderedText(lines[1]!.querySelector('.jpdb-ocr-furi'))).toBe('にほんご');
 
             document.body.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
             expect(document.querySelector('.jpdb-ocr-line-active')).toBeNull();
@@ -724,12 +732,12 @@ describe('OCR sentence focus', () => {
             const enriched = document.querySelector<HTMLElement>('.jpdb-ocr-line .jpdb-reader-word[data-expression="日本語"]')!;
             expect(enriched.classList.contains('jpdb-known')).toBe(true);
             expect(enriched.classList.contains('jpdb-pitch-heiban')).toBe(true);
-            expect(enriched.querySelector<HTMLElement>('.jpdb-ocr-furi')?.textContent).toBe('にほんご');
+            expect(ocrRenderedText(enriched.querySelector('.jpdb-ocr-furi'))).toBe('にほんご');
 
             enriched.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 120, clientY: 120 }));
 
             expect(enriched.classList.contains('jpdb-pitch-heiban')).toBe(true);
-            expect(enriched.querySelector<HTMLElement>('.jpdb-ocr-furi')?.textContent).toBe('にほんご');
+            expect(ocrRenderedText(enriched.querySelector('.jpdb-ocr-furi'))).toBe('にほんご');
         } finally {
             controller.destroy();
             vi.unstubAllGlobals();
@@ -761,7 +769,7 @@ describe('OCR sentence focus', () => {
                 expect(seeded?.dataset.reading).toBe('つかえる');
                 expect(seeded?.classList.contains('jpdb-pitch-heiban')).toBe(true);
                 expect(seeded?.classList.contains('jpdb-reader-has-furi')).toBe(true);
-                expect(seeded?.querySelector<HTMLElement>('.jpdb-ocr-furi')?.textContent).toBe('つか');
+                expect(ocrRenderedText(seeded?.querySelector('.jpdb-ocr-furi'))).toBe('つか');
             });
         } finally {
             controller.destroy();
@@ -862,7 +870,7 @@ describe('OCR sentence focus', () => {
                 expect(seeded?.dataset.reading).toBe('つかえる');
                 expect(seeded?.classList.contains('jpdb-pitch-heiban')).toBe(true);
                 expect(seeded?.classList.contains('jpdb-reader-has-furi')).toBe(true);
-                expect(seeded?.querySelector<HTMLElement>('.jpdb-ocr-furi')?.textContent).toBe('つか');
+                expect(ocrRenderedText(seeded?.querySelector('.jpdb-ocr-furi'))).toBe('つか');
             });
         } finally {
             controller.destroy();
@@ -948,6 +956,133 @@ describe('OCR sentence focus', () => {
         expect(normalizedCss).toContain('.jpdb-ocr-ruby-base-text { display: inline-flex; align-items: flex-end; line-height: 1; }');
         expect(normalizedCss).toContain('.jpdb-ocr-furi { position: absolute; top: -1.18em; left: 50%; color: currentColor; font-size: 0.42em; line-height: 1; opacity: 0;');
         expect(normalizedCss).toContain('.jpdb-ocr-line:is(:hover, :focus-visible, .jpdb-ocr-line-active) .jpdb-ocr-furi');
+    });
+
+    it('isolates owned OCR glyphs from page caret scanners and can restore them for popup-off coexistence', () => {
+        const word = document.createElement('span');
+        word.className = 'jpdb-reader-word jpdb-reader-has-furi';
+        word.dataset.surface = '秘密';
+        word.innerHTML = '<ruby>秘密<rt class="jpdb-reader-furi">ひみつ</rt></ruby>';
+
+        normalizeOcrRenderedText(word, true);
+
+        expect(word.textContent).toBe('');
+        expect([...word.querySelectorAll<HTMLElement>('.jpdb-ocr-visual-text')]
+            .map(element => element.dataset.yomuOcrVisualText)
+            .join('')).toBe('ひみつ秘密');
+        expect([...word.querySelectorAll('.jpdb-ocr-visual-text')]
+            .every(element => element.getAttribute('aria-hidden') === 'true')).toBe(true);
+        expect(word.classList.contains('jpdb-ocr-page-scanner-isolated')).toBe(true);
+
+        normalizeOcrRenderedText(word, false);
+
+        expect(word.textContent).toBe('ひみつ秘密');
+        expect(word.querySelector('.jpdb-ocr-visual-text')).toBeNull();
+        expect(word.classList.contains('jpdb-ocr-page-scanner-isolated')).toBe(false);
+    });
+
+    it('keeps the MangaFire compound clickable while hiding Yomu-owned OCR text nodes from page scanners', async () => {
+        stubInstantIntersectionObserver();
+        const sentence = 'ずっと秘密にしていた';
+        const { controller } = createOcrImageControllerFixture({
+            sentence,
+            parseJapanese: vi.fn(async () => [
+                fallbackToken(sentence, 'ずっと', 0, 3),
+                fallbackToken(sentence, '秘密', 3, 5),
+                fallbackToken(sentence, 'に', 5, 6),
+                fallbackToken(sentence, 'していた', 6, 10),
+            ]),
+        });
+
+        try {
+            controller.init();
+
+            await waitForExpect(() => {
+                expect(document.querySelector('.jpdb-ocr-line .jpdb-reader-word[data-expression="秘密"]')).not.toBeNull();
+            });
+
+            const line = document.querySelector<HTMLElement>('.jpdb-ocr-line')!;
+            const word = line.querySelector<HTMLElement>('.jpdb-reader-word[data-expression="秘密"]')!;
+            const textWalker = document.createTreeWalker(line, NodeFilter.SHOW_TEXT);
+
+            expect(textWalker.nextNode()).toBeNull();
+            expect(line.getAttribute('aria-label')).toBe(sentence);
+            expect(line.dataset.ocrText).toBe(sentence);
+            expect(word.dataset.surface).toBe('秘密');
+            expect([...line.querySelectorAll<HTMLElement>('.jpdb-ocr-visual-text')]
+                .map(element => element.dataset.yomuOcrVisualText)
+                .join('')).toBe(sentence);
+        } finally {
+            controller.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
+    it('leaves OCR text caret-scannable when popup activation is explicitly off', async () => {
+        stubInstantIntersectionObserver();
+        const sentence = 'ずっと秘密にしていた';
+        const { controller } = createOcrImageControllerFixture({
+            sentence,
+            settings: { popupActivationMode: 'off' },
+            parseJapanese: vi.fn(async () => [fallbackToken(sentence, '秘密', 3, 5)]),
+        });
+
+        try {
+            controller.init();
+
+            await waitForExpect(() => {
+                expect(document.querySelector('.jpdb-ocr-line .jpdb-reader-word[data-expression="秘密"]')).not.toBeNull();
+            });
+
+            const line = document.querySelector<HTMLElement>('.jpdb-ocr-line')!;
+            expect(line.textContent).toBe(sentence);
+            expect(line.querySelector('.jpdb-ocr-visual-text')).toBeNull();
+        } finally {
+            controller.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
+    it('updates existing OCR text isolation immediately when popup lookup triggers change', async () => {
+        stubInstantIntersectionObserver();
+        const sentence = 'ずっと秘密にしていた';
+        const settings: Partial<ReaderSettings> = {
+            popupActivationMode: 'click',
+            lookupOnClick: false,
+            lookupOnHover: false,
+            lookupOnMiddleMouse: false,
+        };
+        const { controller } = createOcrImageControllerFixture({
+            sentence,
+            settings,
+            parseJapanese: vi.fn(async () => [fallbackToken(sentence, '秘密', 3, 5)]),
+        });
+
+        try {
+            controller.init();
+
+            await waitForExpect(() => {
+                expect(document.querySelector('.jpdb-ocr-line')?.textContent).toBe(sentence);
+            });
+
+            settings.lookupOnClick = true;
+            controller.refresh();
+
+            const line = document.querySelector<HTMLElement>('.jpdb-ocr-line')!;
+            expect(document.createTreeWalker(line, NodeFilter.SHOW_TEXT).nextNode()).toBeNull();
+            expect([...line.querySelectorAll<HTMLElement>('.jpdb-ocr-visual-text')]
+                .map(element => element.dataset.yomuOcrVisualText)
+                .join('')).toBe(sentence);
+
+            settings.popupActivationMode = 'off';
+            controller.refresh();
+
+            expect(line.textContent).toBe(sentence);
+            expect(line.querySelector('.jpdb-ocr-visual-text')).toBeNull();
+        } finally {
+            controller.destroy();
+            document.body.replaceChildren();
+        }
     });
 
     it('anchors OCR furigana to the specific normalized base span', () => {

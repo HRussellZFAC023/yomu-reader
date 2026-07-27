@@ -1646,7 +1646,7 @@ describe('reader helpers', () => {
         const app = new ReaderApp();
         document.body.innerHTML = `
             <div class="jpdb-ocr-line">
-                <span class="jpdb-reader-word" data-vid="501" data-sid="501" data-sentence="日本語">日本語</span>
+                <span class="jpdb-reader-word" data-vid="501" data-sid="501" data-expression="秘密" data-surface="秘密" data-sentence="ずっと秘密にしていた">秘密</span>
             </div>
         `;
         const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
@@ -1677,6 +1677,7 @@ describe('reader helpers', () => {
             expect(showWord).toHaveBeenCalledWith(word, expect.objectContaining({
                 trigger: 'click',
                 userGesture: true,
+                fastInitialRender: false,
             }));
 
             const click = new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 24, clientY: 24 });

@@ -1,6 +1,15 @@
-export function normalizeOcrRenderedText(root: HTMLElement): void {
+export function normalizeOcrRenderedText(root: HTMLElement, isolatePageScanners = false): void {
+    root.classList.toggle('jpdb-ocr-page-scanner-isolated', isolatePageScanners);
+    if (!isolatePageScanners) restoreOcrVisualText(root);
     normalizeOcrRuby(root);
     normalizeOcrPlainText(root);
+    if (isolatePageScanners) isolateOcrVisualText(root);
+}
+
+function restoreOcrVisualText(root: HTMLElement): void {
+    root.querySelectorAll<HTMLElement>('.jpdb-ocr-visual-text[data-yomu-ocr-visual-text]').forEach(element => {
+        element.replaceWith(document.createTextNode(element.dataset.yomuOcrVisualText ?? ''));
+    });
 }
 
 function normalizeOcrRuby(root: HTMLElement): void {
@@ -53,6 +62,28 @@ function normalizeOcrPlainText(root: HTMLElement): void {
         const replacement = document.createElement('span');
         replacement.className = 'jpdb-ocr-plain';
         replacement.textContent = textNode.textContent ?? '';
+        textNode.replaceWith(replacement);
+    }
+}
+
+// External popup readers such as Yomitan resolve text through
+// caretPositionFromPoint/caretRangeFromPoint before Yomu's document-capture
+// handler receives a touch. Yomu-generated OCR is an owned lookup surface, so
+// expose its glyphs as CSS generated content while Yomu lookup is enabled.
+// The sentence and word identity remain available through the line's
+// aria-label/data attributes and each reader word's data-surface metadata.
+function isolateOcrVisualText(root: HTMLElement): void {
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    const textNodes: Text[] = [];
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        if (node instanceof Text && node.data) textNodes.push(node);
+    }
+
+    for (const textNode of textNodes) {
+        const replacement = document.createElement('span');
+        replacement.className = 'jpdb-ocr-visual-text';
+        replacement.dataset.yomuOcrVisualText = textNode.data;
+        replacement.setAttribute('aria-hidden', 'true');
         textNode.replaceWith(replacement);
     }
 }

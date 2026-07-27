@@ -12015,6 +12015,9 @@ ${spelling}`);
   const DEFAULT_WORD_COLORS = DEFAULT_WORD_COLOR_TOKENS;
   const DEFAULT_PITCH_COLORS = DEFAULT_PITCH_COLOR_TOKENS;
   const AUDIO_GUIDE_URL = "https://yomitan.wiki/advanced/#audio";
+  function isPopupLookupEnabled(settings) {
+    return settings.popupActivationMode !== "off" && (settings.lookupOnClick || settings.lookupOnHover || settings.lookupOnMiddleMouse);
+  }
   const AUDIO_SOURCE_TYPE_VALUES = [
     "jpod101",
     "language-pod-101",
@@ -48105,9 +48108,17 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       canvas.toBlob((result) => result ? resolve(result) : reject(new Error("Image encoding failed.")), type, quality);
     });
   }
-  function normalizeOcrRenderedText(root) {
+  function normalizeOcrRenderedText(root, isolatePageScanners = false) {
+    root.classList.toggle("jpdb-ocr-page-scanner-isolated", isolatePageScanners);
+    if (!isolatePageScanners) restoreOcrVisualText(root);
     normalizeOcrRuby(root);
     normalizeOcrPlainText(root);
+    if (isolatePageScanners) isolateOcrVisualText(root);
+  }
+  function restoreOcrVisualText(root) {
+    root.querySelectorAll(".jpdb-ocr-visual-text[data-yomu-ocr-visual-text]").forEach((element2) => {
+      element2.replaceWith(document.createTextNode(element2.dataset.yomuOcrVisualText ?? ""));
+    });
   }
   function normalizeOcrRuby(root) {
     root.querySelectorAll("ruby").forEach((ruby) => {
@@ -48151,6 +48162,20 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       const replacement = document.createElement("span");
       replacement.className = "jpdb-ocr-plain";
       replacement.textContent = textNode.textContent ?? "";
+      textNode.replaceWith(replacement);
+    }
+  }
+  function isolateOcrVisualText(root) {
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    const textNodes = [];
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      if (node instanceof Text && node.data) textNodes.push(node);
+    }
+    for (const textNode of textNodes) {
+      const replacement = document.createElement("span");
+      replacement.className = "jpdb-ocr-visual-text";
+      replacement.dataset.yomuOcrVisualText = textNode.data;
+      replacement.setAttribute("aria-hidden", "true");
       textNode.replaceWith(replacement);
     }
   }
@@ -49370,6 +49395,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     positionFrame = 0;
     refreshTimer = 0;
     destroyed = false;
+    pageScannerIsolationEnabled;
     lastPointerMoveImage;
     lastPointerMoveReaderSurface;
     lastPointerMoveReaderSurfaceKey;
@@ -49564,6 +49590,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     refresh(options = {}) {
       if (this.destroyed) return;
       const settings = this.options.getSettings();
+      this.syncPageScannerIsolation(settings);
       if (!ocrRuntimeActive(settings)) {
         this.releaseAllVideoFrames();
         this.clear();
@@ -49613,6 +49640,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     refreshForModeChange() {
       if (this.destroyed) return;
       const settings = this.options.getSettings();
+      this.syncPageScannerIsolation(settings);
       if (!ocrRuntimeActive(settings)) {
         this.releaseAllVideoFrames();
         this.clear();
@@ -51772,6 +51800,14 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         this.releaseImageState(image, state2);
       }
     }
+    syncPageScannerIsolation(settings) {
+      const enabled = isPopupLookupEnabled(settings);
+      if (this.pageScannerIsolationEnabled === enabled) return;
+      this.pageScannerIsolationEnabled = enabled;
+      for (const state2 of this.states.values()) {
+        state2.overlay.querySelectorAll(".jpdb-ocr-line-text").forEach((lineText) => normalizeOcrRenderedText(lineText, enabled));
+      }
+    }
     rememberOcrWordRenderStates(line, tokens) {
       const tokensByKey = new Map(tokens.map((token) => [ocrTokenRenderKey(token), token]));
       line.querySelectorAll(".jpdb-reader-word[data-vid][data-sid]").forEach((word) => {
@@ -51791,16 +51827,17 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       const wasActivated = line.dataset.ocrMarkupActivated === "true";
       let hasFurigana = false;
       const settings = this.options.getSettings();
+      const isolatePageScanners = isPopupLookupEnabled(settings);
       line.querySelectorAll(".jpdb-reader-word[data-vid][data-sid]").forEach((word) => {
         const state2 = this.ocrWordRenderStates.get(word);
         if (!state2) return;
         this.applyOcrPitchClass(word, state2.token);
         if (!shouldRenderRuby(state2.surface, state2.token, settings)) {
-          this.setOcrWordPlainText(word, state2.surface);
+          this.setOcrWordPlainText(word, state2.surface, isolatePageScanners);
           return;
         }
         setInnerHtml(word, renderRuby(state2.surface, state2.token));
-        normalizeOcrRenderedText(word);
+        normalizeOcrRenderedText(word, isolatePageScanners);
         word.classList.add("jpdb-reader-has-furi");
         hasFurigana = true;
       });
@@ -51820,10 +51857,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       });
       word.dataset.pitchClass = "";
     }
-    setOcrWordPlainText(word, surface) {
+    setOcrWordPlainText(word, surface, isolatePageScanners) {
       word.classList.remove("jpdb-reader-has-furi");
       setInnerHtml(word, escapeHtml$2(surface));
-      normalizeOcrRenderedText(word);
+      normalizeOcrRenderedText(word, isolatePageScanners);
     }
     // Drop every paused-frame and image overlay when YouTube navigates so no
     // stale OCR artifact (rail resume button, overlay over the player) carries
@@ -52125,7 +52162,7 @@ ${spelling}`);
     const textElement = document.createElement("span");
     textElement.className = "jpdb-ocr-line-text";
     setInnerHtml(textElement, tokens.length ? renderTokensToHtml(line.text, tokens, settings) : escapeHtml$2(line.text));
-    normalizeOcrRenderedText(textElement);
+    normalizeOcrRenderedText(textElement, isPopupLookupEnabled(settings));
     return textElement;
   }
   function ocrTokenRenderKey(token) {
@@ -53072,7 +53109,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.8.18".trim() ? "1.8.18".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.8.20".trim() ? "1.8.20".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record2 = value;
@@ -68808,9 +68845,6 @@ ${spelling}`);
   function usesNadeshikoExamples(source) {
     return source === "nadeshiko" || source === "combined";
   }
-  function popupLookupEnabledSetting(settings) {
-    return settings.popupActivationMode !== "off" && (settings.lookupOnClick || settings.lookupOnHover || settings.lookupOnMiddleMouse);
-  }
   function renderReaderSettingsPanel(settings) {
     const language2 = settings.interfaceLanguage;
     const text2 = settingsText(language2);
@@ -68821,7 +68855,7 @@ ${spelling}`);
                 <div class="jpdb-reader-settings-subsection">
                     <div class="jpdb-reader-local-title" data-popup-lookup-title>${escapedUiText(language2, "popupLookup")}</div>
                     <div class="grid">
-                        ${checkbox("popupLookupEnabled", text2("popupLookupEnabled"), popupLookupEnabledSetting(settings))}
+                        ${checkbox("popupLookupEnabled", text2("popupLookupEnabled"), isPopupLookupEnabled(settings))}
                     </div>
                     <div class="jpdb-reader-help" data-help-key="popupLookupHelp">${escapedUiText(language2, "popupLookupHelp")}</div>
                 </div>
@@ -97155,7 +97189,7 @@ ${component.reading}`;
     const surface = readerWordSurfaceText$1(word).trim() || word.dataset.expression || card.spelling;
     const renderSettings = publicVocabularyFuriganaSettings(word, settings);
     if (shouldHideFuriganaForCardState(renderSettings, primaryCardState(card.cardState))) {
-      clearPublicVocabularyFurigana(word, surface, ocrLine);
+      clearPublicVocabularyFurigana(word, surface, ocrLine, isPopupLookupEnabled(settings));
       return;
     }
     const rubies = inferredInflectedSurfaceRubies(surface, card.spelling, card.reading);
@@ -97170,14 +97204,14 @@ ${component.reading}`;
     };
     if (!shouldApplyPublicVocabularyFurigana(card, surface, token, renderSettings, rubies)) return;
     if (!replaceRenderedWordFurigana(word, surface, token)) return;
-    if (ocrLine) yomuNormalizeOcrRenderedText()?.(word);
+    if (ocrLine) yomuNormalizeOcrRenderedText()?.(word, isPopupLookupEnabled(settings));
     if (ocrLine) ocrLine.dataset.hasFuri = "true";
   }
-  function clearPublicVocabularyFurigana(word, surface, ocrLine) {
+  function clearPublicVocabularyFurigana(word, surface, ocrLine, isolatePageScanners) {
     if (!word.classList.contains("jpdb-reader-has-furi") && !word.querySelector(".jpdb-reader-furi, rt")) return;
     clearRenderedWordFurigana(word, surface);
     if (!ocrLine) return;
-    yomuNormalizeOcrRenderedText()?.(word);
+    yomuNormalizeOcrRenderedText()?.(word, isolatePageScanners);
     if (!ocrLine.querySelector(".jpdb-reader-word.jpdb-reader-has-furi")) delete ocrLine.dataset.hasFuri;
   }
   function publicVocabularyFuriganaSettings(word, settings) {

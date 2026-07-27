@@ -64,6 +64,15 @@ function mockBox(element: HTMLElement, width: number, height: number): void {
     });
 }
 
+function renderedTextNodes(root: HTMLElement): Text[] {
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    const nodes: Text[] = [];
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        if (node instanceof Text && node.data.trim()) nodes.push(node);
+    }
+    return nodes;
+}
+
 describe('public vocabulary repaint', () => {
     it('adds a late compact reading through the preserved detached channel', () => {
         document.body.innerHTML = '<button id="word" style="height:24px;overflow:hidden;white-space:nowrap">賛成票</button>';
@@ -248,6 +257,55 @@ describe('public vocabulary repaint', () => {
         expect(word.querySelector('rt')?.textContent).toBe('よ');
     });
 
+    it('keeps OCR glyphs isolated while late vocabulary furigana is applied and cleared', () => {
+        document.body.innerHTML = `
+            <div class="jpdb-ocr-line">
+                <span class="jpdb-ocr-line-text">
+                    <span class="jpdb-reader-word jpdb-not-in-deck" data-vid="11" data-sid="22" data-expression="読む" data-surface="読む">
+                        <span class="jpdb-ocr-plain"><span class="jpdb-ocr-visual-text" data-yomu-ocr-visual-text="読む" aria-hidden="true"></span></span>
+                    </span>
+                </span>
+            </div>
+        `;
+        const line = document.querySelector<HTMLElement>('.jpdb-ocr-line')!;
+        const word = line.querySelector<HTMLElement>('.jpdb-reader-word')!;
+        const popupSettings = {
+            ...DEFAULT_SETTINGS,
+            popupActivationMode: 'click' as const,
+            showFurigana: true,
+            furiganaMode: 'all' as const,
+        };
+
+        expect(renderedTextNodes(word)).toEqual([]);
+        applyPublicVocabularyFurigana(word, card({
+            spelling: '読む',
+            reading: 'よむ',
+            cardState: ['not-in-deck'],
+        }), popupSettings);
+
+        expect(word.classList.contains('jpdb-reader-has-furi')).toBe(true);
+        expect(line.dataset.hasFuri).toBe('true');
+        expect(renderedTextNodes(word)).toEqual([]);
+        expect(word.querySelectorAll('.jpdb-ocr-visual-text').length).toBeGreaterThan(0);
+
+        applyPublicVocabularyFurigana(word, card({
+            spelling: '読む',
+            reading: 'よむ',
+            cardState: ['known'],
+        }), {
+            ...popupSettings,
+            furiganaMode: 'known-status',
+            furiganaHiddenStateGroups: ['known'],
+        });
+
+        expect(word.classList.contains('jpdb-reader-has-furi')).toBe(false);
+        expect(line.dataset.hasFuri).toBeUndefined();
+        expect(renderedTextNodes(word)).toEqual([]);
+        expect([...word.querySelectorAll<HTMLElement>('.jpdb-ocr-visual-text')]
+            .map(element => element.dataset.yomuOcrVisualText)
+            .join('')).toBe('読む');
+    });
+
     it('normalizes OCR words and clears the line furigana flag only after the last ruby is removed', () => {
         document.body.innerHTML = `
             <div class="jpdb-ocr-line" data-has-furi="true">
@@ -273,7 +331,8 @@ describe('public vocabulary repaint', () => {
 
         expect(first!.classList.contains('jpdb-reader-has-furi')).toBe(false);
         expect(first!.querySelector('.jpdb-ocr-furi')).toBeNull();
-        expect(first!.querySelector('.jpdb-ocr-plain')?.textContent).toBe('読む');
+        expect(renderedTextNodes(first!)).toEqual([]);
+        expect(first!.querySelector<HTMLElement>('.jpdb-ocr-visual-text')?.dataset.yomuOcrVisualText).toBe('読む');
         expect(line.dataset.hasFuri).toBe('true');
 
         applyPublicVocabularyFurigana(second!, card({
@@ -286,7 +345,8 @@ describe('public vocabulary repaint', () => {
 
         expect(second!.classList.contains('jpdb-reader-has-furi')).toBe(false);
         expect(second!.querySelector('.jpdb-ocr-furi')).toBeNull();
-        expect(second!.querySelector('.jpdb-ocr-plain')?.textContent).toBe('書く');
+        expect(renderedTextNodes(second!)).toEqual([]);
+        expect(second!.querySelector<HTMLElement>('.jpdb-ocr-visual-text')?.dataset.yomuOcrVisualText).toBe('書く');
         expect(line.dataset.hasFuri).toBeUndefined();
     });
 });

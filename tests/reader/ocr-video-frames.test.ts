@@ -523,9 +523,13 @@ describe('paused-video OCR frames', () => {
         });
         const line = document.querySelector<HTMLElement>('.jpdb-ocr-line')!;
         const word = line.querySelector<HTMLElement>('.jpdb-reader-word')!;
+        const renderedFurigana = () => [...word.querySelectorAll<HTMLElement>('.jpdb-ocr-furi .jpdb-ocr-visual-text')]
+            .map(element => element.dataset.yomuOcrVisualText ?? '')
+            .join('');
         expect(word.classList.contains('jpdb-reader-has-furi')).toBe(true);
         expect(word.classList.contains('jpdb-pitch-heiban')).toBe(true);
-        expect(word.querySelector('.jpdb-ocr-furi')?.textContent).toBe('にほんご');
+        expect(renderedFurigana()).toBe('にほんご');
+        expect(word.textContent).toBe('');
         expect(line.classList.contains('jpdb-ocr-line-active')).toBe(false);
 
         line.dispatchEvent(createPointerEvent('pointerdown', { pointerType: 'touch', pointerId: 9, button: 0, clientX: 120, clientY: 120 }));
@@ -534,7 +538,8 @@ describe('paused-video OCR frames', () => {
         expect(line.classList.contains('jpdb-ocr-line-active')).toBe(true);
         expect(word.classList.contains('jpdb-reader-has-furi')).toBe(true);
         expect(word.classList.contains('jpdb-pitch-heiban')).toBe(true);
-        expect(word.querySelector('.jpdb-ocr-furi')?.textContent).toBe('にほんご');
+        expect(renderedFurigana()).toBe('にほんご');
+        expect(word.textContent).toBe('');
         expect(word.querySelector('.jpdb-ocr-furi')?.getAttribute('data-jpdb-reader-surface-ignore')).toBe('true');
         document.body.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
         expect(line.classList.contains('jpdb-ocr-line-active')).toBe(false);

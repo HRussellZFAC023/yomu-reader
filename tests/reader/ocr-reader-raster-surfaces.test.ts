@@ -1318,7 +1318,13 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
 
             await waitForExpect(() => {
                 expect(recognizeImage).toHaveBeenCalledTimes(1);
-                expect(document.body.textContent).toContain('古い結果');
+                const staleLine = document.querySelector<HTMLElement>('.jpdb-ocr-line');
+                expect(staleLine?.dataset.ocrText).toBe('古い結果');
+                expect(staleLine?.getAttribute('aria-label')).toBe('古い結果');
+                expect([...staleLine!.querySelectorAll<HTMLElement>('[data-yomu-ocr-visual-text]')]
+                    .map(element => element.dataset.yomuOcrVisualText ?? '')
+                    .join('')).toBe('古い結果');
+                expect(staleLine?.textContent).toBe('');
                 const status = document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status');
                 expect(status?.dataset.status).toBe('ready');
                 expect(status?.dataset.yomuOcrRetry).toBe('true');
@@ -1343,8 +1349,15 @@ describe('reader raster OCR surfaces', { timeout: 20_000 }, () => {
 
             await waitForExpect(() => {
                 expect(recognizeImage).toHaveBeenCalledTimes(2);
-                expect(document.body.textContent).not.toContain('古い結果');
-                expect(document.body.textContent).toContain('新しい結果');
+                const renderedLines = [...document.querySelectorAll<HTMLElement>('.jpdb-ocr-line')];
+                expect(renderedLines).toHaveLength(1);
+                expect(renderedLines.some(line => line.dataset.ocrText === '古い結果')).toBe(false);
+                expect(renderedLines[0]?.dataset.ocrText).toBe('新しい結果');
+                expect(renderedLines[0]?.getAttribute('aria-label')).toBe('新しい結果');
+                expect([...renderedLines[0]!.querySelectorAll<HTMLElement>('[data-yomu-ocr-visual-text]')]
+                    .map(element => element.dataset.yomuOcrVisualText ?? '')
+                    .join('')).toBe('新しい結果');
+                expect(renderedLines[0]?.textContent).toBe('');
             });
         } finally {
             controller.destroy();

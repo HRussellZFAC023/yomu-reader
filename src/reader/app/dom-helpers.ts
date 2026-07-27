@@ -14,6 +14,7 @@ import { normalizedLookupText } from '../lookup/text-helpers';
 import { isNativePageLookupBlocked } from './native-page-lookup-targets';
 export { delay as wait } from '../core/async-utils';
 import { yomuNormalizeOcrRenderedText } from '../companions/registry';
+import { isPopupLookupEnabled } from '../settings/index';
 import { isKanjiCharacter, renderPitch } from '../popup/render';
 import { cardPronunciationReading } from '../popup/pitch';
 import { getPitchClass } from '../jpdb/jpdb-parser-pitch';
@@ -156,7 +157,7 @@ export function applyPublicVocabularyFurigana(word: HTMLElement, card: JPDBCard,
     const surface = readerWordSurfaceText(word).trim() || word.dataset.expression || card.spelling;
     const renderSettings = publicVocabularyFuriganaSettings(word, settings);
     if (shouldHideFuriganaForCardState(renderSettings, primaryCardState(card.cardState))) {
-        clearPublicVocabularyFurigana(word, surface, ocrLine);
+        clearPublicVocabularyFurigana(word, surface, ocrLine, isPopupLookupEnabled(settings));
         return;
     }
     const rubies = inferredInflectedSurfaceRubies(surface, card.spelling, card.reading);
@@ -171,15 +172,20 @@ export function applyPublicVocabularyFurigana(word: HTMLElement, card: JPDBCard,
     };
     if (!shouldApplyPublicVocabularyFurigana(card, surface, token, renderSettings, rubies)) return;
     if (!replaceRenderedWordFurigana(word, surface, token)) return;
-    if (ocrLine) yomuNormalizeOcrRenderedText()?.(word);
+    if (ocrLine) yomuNormalizeOcrRenderedText()?.(word, isPopupLookupEnabled(settings));
     if (ocrLine) ocrLine.dataset.hasFuri = 'true';
 }
 
-function clearPublicVocabularyFurigana(word: HTMLElement, surface: string, ocrLine: HTMLElement | null): void {
+function clearPublicVocabularyFurigana(
+    word: HTMLElement,
+    surface: string,
+    ocrLine: HTMLElement | null,
+    isolatePageScanners: boolean,
+): void {
     if (!word.classList.contains('jpdb-reader-has-furi') && !word.querySelector('.jpdb-reader-furi, rt')) return;
     clearRenderedWordFurigana(word, surface);
     if (!ocrLine) return;
-    yomuNormalizeOcrRenderedText()?.(word);
+    yomuNormalizeOcrRenderedText()?.(word, isolatePageScanners);
     if (!ocrLine.querySelector('.jpdb-reader-word.jpdb-reader-has-furi')) delete ocrLine.dataset.hasFuri;
 }
 

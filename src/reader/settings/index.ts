@@ -62,6 +62,14 @@ const DEFAULT_PITCH_COLORS = DEFAULT_PITCH_COLOR_TOKENS;
 
 export const AUDIO_GUIDE_URL = 'https://yomitan.wiki/advanced/#audio';
 
+export function isPopupLookupEnabled(settings: Pick<
+    ReaderSettings,
+    'popupActivationMode' | 'lookupOnClick' | 'lookupOnHover' | 'lookupOnMiddleMouse'
+>): boolean {
+    return settings.popupActivationMode !== 'off'
+        && (settings.lookupOnClick || settings.lookupOnHover || settings.lookupOnMiddleMouse);
+}
+
 const AUDIO_SOURCE_TYPE_VALUES: AudioSourceType[] = [
     'jpod101',
     'language-pod-101',

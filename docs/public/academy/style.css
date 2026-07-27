@@ -8656,6 +8656,15 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   overflow-wrap: normal;
 }
 
+.jpdb-ocr-line-text.jpdb-ocr-page-scanner-isolated {
+  user-select: none;
+  cursor: pointer;
+}
+
+.jpdb-ocr-visual-text::before {
+  content: attr(data-yomu-ocr-visual-text);
+}
+
 .jpdb-ocr-line[data-vertical="true"] {
   align-items: center;
   justify-content: center;

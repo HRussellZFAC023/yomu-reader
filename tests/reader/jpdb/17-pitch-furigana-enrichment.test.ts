@@ -59,6 +59,7 @@ describe('reader helpers', () => {
         line.className = 'jpdb-ocr-line jpdb-ocr-line-active';
         line.dataset.ocrText = '読む';
         const word = appendRenderedReaderWord(fallbackCard, { parent: line });
+        word.dataset.surface = '読む';
         document.body.append(line);
 
         const search = vi.fn(async () => [publicCard]);
@@ -86,9 +87,10 @@ describe('reader helpers', () => {
             expect(word.classList.contains('jpdb-reader-has-furi')).toBe(true);
             expect(line.dataset.hasFuri).toBe('true');
             expect(word.querySelector('ruby')).toBeNull();
-            expect(word.querySelector('.jpdb-ocr-furi')?.textContent).toBe('よ');
-            expect(word.querySelector('.jpdb-ocr-ruby-base-text')?.textContent).toBe('読');
-            expect(word.querySelector('.jpdb-ocr-plain')?.textContent).toBe('む');
+            expect([...word.querySelectorAll<HTMLElement>('.jpdb-ocr-visual-text')]
+                .map(element => element.dataset.yomuOcrVisualText)).toEqual(['よ', '読', 'む']);
+            expect(document.createTreeWalker(word, NodeFilter.SHOW_TEXT).nextNode()).toBeNull();
+            expect(word.textContent).toBe('');
             expect(readerWordSurfaceText(word)).toBe('読む');
         } finally {
             line.remove();
@@ -113,6 +115,7 @@ describe('reader helpers', () => {
         line.className = 'jpdb-ocr-line';
         line.dataset.ocrText = '読む';
         const word = appendRenderedReaderWord(fallbackCard, { parent: line });
+        word.dataset.surface = '読む';
         document.body.append(line);
 
         const search = vi.fn(async () => [publicCard]);
@@ -132,7 +135,10 @@ describe('reader helpers', () => {
             expect(word.classList.contains('jpdb-pitch-atamadaka')).toBe(true);
             expect(word.classList.contains('jpdb-reader-has-furi')).toBe(true);
             expect(line.dataset.hasFuri).toBe('true');
-            expect(word.querySelector('.jpdb-ocr-furi')?.textContent).toBe('よ');
+            expect([...word.querySelectorAll<HTMLElement>('.jpdb-ocr-visual-text')]
+                .map(element => element.dataset.yomuOcrVisualText)).toEqual(['よ', '読', 'む']);
+            expect(document.createTreeWalker(word, NodeFilter.SHOW_TEXT).nextNode()).toBeNull();
+            expect(word.textContent).toBe('');
             expect(readerWordSurfaceText(word)).toBe('読む');
         } finally {
             line.remove();

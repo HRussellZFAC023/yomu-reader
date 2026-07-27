@@ -304,6 +304,19 @@ describe('kana-run rendered-word identity (P0 parity)', () => {
         expect(kanaRunRenderedWordsForSurface(go!, 'ほんご')).toEqual([hon, go]);
     });
 
+    it('finds isolated OCR kana runs from their rendered surface metadata', () => {
+        const [ni, hon, go] = renderRun(['に', 'ほん', 'ご']);
+        [ni, hon, go].forEach(word => {
+            word.dataset.surface = word.textContent ?? '';
+            word.replaceChildren();
+        });
+
+        expect(ni.textContent).toBe('');
+        expect(hon.textContent).toBe('');
+        expect(go.textContent).toBe('');
+        expect(kanaRunRenderedWordsForSurface(hon!, 'にほんご')).toEqual([ni, hon, go]);
+    });
+
     it('fails closed when the surface does not match or excludes the anchor', () => {
         const [ni, , go] = renderRun(['に', 'ほん', 'ご']);
         expect(kanaRunRenderedWordsForSurface(ni!, 'ほんご')).toEqual([]);

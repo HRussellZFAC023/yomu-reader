@@ -38,8 +38,8 @@ window.__draw = async () => { const img = new Image(); img.src = ${JSON.stringif
 </script></body></html>`;
 }
 const SETTINGS = { onboardingSeen: true, interfaceLanguage: 'en', apiKey: '', ankiEnabled: false, audioEnabled: false, enableLogging: false, ocrEnabled: true, ocrAutoScanImages: false, ocrShowTextOverlay: true, ocrProvider: 'local-service', ocrEndpointUrl: 'http://127.0.0.1:7331/ocr', lookupOnClick: true, popupActivationMode: 'click' };
-const MOCK_OCR = { width: 800, height: 1130, lines: [{ text: '大変な事', box: { x: 40, y: 160, w: 420, h: 90 }, vertical: false }] };
-const POPOVER_SEL = '[data-jpdb-reader-root] .jpdb-token-list, .jpdb-card-popover, [data-jpdb-popover], .jpdb-reader-popup, [class*="popover"]';
+const MOCK_OCR = { width: 800, height: 1130, lines: [{ text: 'ずっと秘密にしていた', box: { x: 40, y: 160, w: 420, h: 90 }, vertical: false }] };
+const POPOVER_SEL = '.jpdb-reader-popover[data-jpdb-reader-root="true"]';
 const failures = [];
 const rows = [];
 mkdirSync(ARTIFACT_DIR, { recursive: true });
@@ -76,18 +76,41 @@ async function runCase(engineName) {
     const restart = Date.now();
     while (Date.now() - restart < 6000) { if (await page.evaluate(() => document.querySelectorAll('.jpdb-ocr-line .jpdb-reader-word').length) >= 1) break; await page.waitForTimeout(100); }
     await page.evaluate(() => { window.__turns = 0; });
-    const w = await page.evaluate(() => { const el = document.querySelector('.jpdb-ocr-line .jpdb-reader-word'); if (!el) return null; const r = el.getBoundingClientRect(); return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) }; });
+    const w = await page.evaluate(() => { const el = document.querySelector('.jpdb-ocr-line .jpdb-reader-word[data-expression="秘密"]'); if (!el) return null; const r = el.getBoundingClientRect(); return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) }; });
+    const scannerIsolated = await page.evaluate(() => {
+        const line = document.querySelector('.jpdb-ocr-line');
+        if (!line) return false;
+        const walker = document.createTreeWalker(line, NodeFilter.SHOW_TEXT);
+        const visualText = [...line.querySelectorAll('[data-yomu-ocr-visual-text]')]
+            .map(element => element.getAttribute('data-yomu-ocr-visual-text') || '')
+            .join('');
+        return walker.nextNode() === null && visualText === 'ずっと秘密にしていた';
+    });
     // 2) Tap the WORD: must NOT turn, must open the lookup, must keep the overlay.
-    for (let i = 0; i < 3 && w; i++) { await page.touchscreen.tap(w.x, w.y); await page.waitForTimeout(450); }
+    if (w) await page.touchscreen.tap(w.x, w.y);
+    let popover = false;
+    try {
+        await page.waitForFunction(s => {
+            const root = document.querySelector(s);
+            return Boolean(
+                root
+                && root.getAttribute('role') === 'dialog'
+                && root.querySelector('.jpdb-reader-popover-body')
+                && root.querySelector('.jpdb-reader-spelling')?.textContent?.includes('秘密')
+            );
+        }, POPOVER_SEL, { timeout: 6000 });
+        popover = true;
+    } catch {
+        popover = false;
+    }
     const wordTurns = await page.evaluate(() => window.__turns);
-    const popover = await page.evaluate(s => !!document.querySelector(s), POPOVER_SEL);
     const overlayKept = await page.evaluate(() => document.querySelectorAll('.jpdb-ocr-line .jpdb-reader-word').length) >= 1;
     const screenshot = path.join(ARTIFACT_DIR, `${engineName}.png`);
     await page.screenshot({ path: screenshot, fullPage: false }).catch(() => undefined);
 
-    const ok = rendered && w && wordTurns === 0 && popover && overlayKept && marginTurns > 0;
-    console.log(`${ok ? 'PASS' : 'FAIL'}: ${engineName} — wordTurns=${wordTurns}(want 0) lookup=${popover} overlayKept=${overlayKept} marginTurns=${marginTurns}(want >0)${rendered ? '' : ' [overlay never rendered]'}`);
-    rows.push({ engineName, ok, rendered, wordTurns, popover, overlayKept, marginTurns, screenshot });
+    const ok = rendered && w && scannerIsolated && wordTurns === 0 && popover && overlayKept && marginTurns > 0;
+    console.log(`${ok ? 'PASS' : 'FAIL'}: ${engineName} — wordTurns=${wordTurns}(want 0) lookup=${popover} scannerIsolated=${scannerIsolated} overlayKept=${overlayKept} marginTurns=${marginTurns}(want >0)${rendered ? '' : ' [overlay never rendered]'}`);
+    rows.push({ engineName, ok, rendered, wordTurns, popover, scannerIsolated, overlayKept, marginTurns, screenshot });
     if (!ok) failures.push(engineName);
     await ctx.close();
     await browser.close();

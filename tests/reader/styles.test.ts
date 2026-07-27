@@ -382,6 +382,16 @@ describe('reader stylesheet loading', () => {
         expect(css).not.toMatch(/jpdb-ocr-line[^{}]*:focus(?!-visible)/u);
     });
 
+    it('paints owned OCR glyphs without exposing caret-scannable page text', () => {
+        const css = readFileSync('src/reader/styles/reader-words-ocr.css', 'utf8');
+        const visualTextRule = css.match(/\.jpdb-ocr-visual-text::before\s*\{[^}]*\}/u)?.[0] ?? '';
+        const isolatedTextRule = css.match(/\.jpdb-ocr-line-text\.jpdb-ocr-page-scanner-isolated\s*\{[^}]*\}/u)?.[0] ?? '';
+
+        expect(visualTextRule).toContain('content: attr(data-yomu-ocr-visual-text)');
+        expect(isolatedTextRule).toContain('user-select: none');
+        expect(isolatedTextRule).toContain('cursor: pointer');
+    });
+
     it('allows whole and component popup headwords to show pitch underlines without decorating furigana', () => {
         const wordCss = readFileSync('src/reader/styles/reader-words-ocr.css', 'utf8');
         const popoverCss = readFileSync('src/reader/styles/popover-core.css', 'utf8');

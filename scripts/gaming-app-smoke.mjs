@@ -515,7 +515,10 @@ async function assertInlineOcrResult(overlay, label) {
     const horizontalText = horizontalLine.locator('.jpdb-ocr-line-text');
     const fullText = await horizontalText.evaluate(node => {
         const surface = node.cloneNode(true);
-        surface.querySelectorAll('rt, rp, .jpdb-reader-detached-furi').forEach(reading => reading.remove());
+        surface.querySelectorAll('rt, rp, .jpdb-reader-detached-furi, .jpdb-ocr-furi').forEach(reading => reading.remove());
+        surface.querySelectorAll('[data-yomu-ocr-visual-text]').forEach(glyphs => {
+            glyphs.replaceWith(glyphs.getAttribute('data-yomu-ocr-visual-text') || '');
+        });
         return surface.textContent || '';
     });
     if (!fullText.includes('港へ行くよ')) {
@@ -526,14 +529,30 @@ async function assertInlineOcrResult(overlay, label) {
     if (await overlay.locator('.overlay-inline-terms').count()) {
         throw new Error(`Yomu Gaming ${label} reintroduced the detached term breakdown.`);
     }
-    // The real reader wraps the OCR'd line into words; clicking one opens the real Yomu popover.
-    const annotatedTerm = overlay.locator('[data-ocr-line] .jpdb-reader-word', { hasText: '冒険' }).first();
+    // The real reader wraps the OCR'd line into scanner-isolated words. Their
+    // identity and visible glyphs live in data attributes rather than Text
+    // nodes, so external caret scanners cannot claim the same tap.
+    const annotatedTerm = overlay.locator(
+        '[data-ocr-line] .jpdb-reader-word[data-expression="冒険"][data-surface="冒険"]',
+    ).first();
     await annotatedTerm.waitFor({ state: 'attached', timeout: 15_000 });
     const termPaint = await annotatedTerm.evaluate(node => {
         const style = getComputedStyle(node);
         const rect = node.getBoundingClientRect();
+        const visualText = [...node.querySelectorAll('[data-yomu-ocr-visual-text]')]
+            .map(element => element.getAttribute('data-yomu-ocr-visual-text') || '')
+            .join('');
+        const textWalker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
+        let textNodeCount = 0;
+        while (textWalker.nextNode()) textNodeCount += 1;
+        const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
         return {
-            text: node.textContent || '',
+            expression: node.getAttribute('data-expression') || '',
+            surface: node.getAttribute('data-surface') || '',
+            visualText,
+            textNodeCount,
+            scannerIsolated: node.classList.contains('jpdb-ocr-page-scanner-isolated'),
+            hitTargetsWord: Boolean(hit && (hit === node || node.contains(hit))),
             color: style.color,
             textFill: style.getPropertyValue('-webkit-text-fill-color'),
             background: style.backgroundColor,
@@ -542,11 +561,24 @@ async function assertInlineOcrResult(overlay, label) {
             height: rect.height,
         };
     });
+    if (
+        termPaint.expression !== '冒険'
+        || termPaint.surface !== '冒険'
+        || !termPaint.visualText.includes(termPaint.surface)
+    ) {
+        throw new Error(`Yomu Gaming ${label} lost scanner-isolated OCR word identity: ${JSON.stringify(termPaint)}`);
+    }
+    if (!termPaint.scannerIsolated || termPaint.textNodeCount !== 0) {
+        throw new Error(`Yomu Gaming ${label} exposed OCR Text nodes to page scanners: ${JSON.stringify(termPaint)}`);
+    }
     if (isTransparentPaint(termPaint.color) || isTransparentPaint(termPaint.textFill) || Number(termPaint.opacity) <= 0.05) {
         throw new Error(`Yomu Gaming ${label} rendered inline OCR words invisibly: ${JSON.stringify(termPaint)}`);
     }
     if (termPaint.width < 8 || termPaint.height < 8) {
         throw new Error(`Yomu Gaming ${label} inline OCR word paint box is too small: ${JSON.stringify(termPaint)}`);
+    }
+    if (!termPaint.hitTargetsWord) {
+        throw new Error(`Yomu Gaming ${label} inline OCR word is not tappable at its painted center: ${JSON.stringify(termPaint)}`);
     }
     await annotatedTerm.click({ force: true });
     let popoverOpened = false;

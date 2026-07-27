@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.8.20] - 2026-07-27
+
+### Fixed
+
+- Tapping text that Yomu recognized on image-based manga readers such as MangaFire now opens Yomu's own lookup sheet instead of a dark card from another dictionary extension. Yomitan listens for touch at the window before a userscript's document handler and treated Yomu's generated OCR characters as ordinary page text, so it could claim a recognized compound such as 秘密 before Yomu received the tap. When Yomu popup lookup has at least one enabled trigger, the OCR glyphs are now painted without adding caret-scannable text to the page while retaining the exact word targets, furigana, pitch, keyboard label and image geometry. Turning Yomu popup lookup off — including disabling every trigger — still leaves OCR text available to another reader by design.
+
 ## [1.8.18] - 2026-07-27
 
 ### Added

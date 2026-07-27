@@ -78,7 +78,7 @@ import {
     type OcrRect,
     type OcrResult,
 } from './response';
-import { accentToRgba, accessibleOcrBackgroundColor, accessibleOcrBackgroundOpacity } from '../settings/index';
+import { accentToRgba, accessibleOcrBackgroundColor, accessibleOcrBackgroundOpacity, isPopupLookupEnabled } from '../settings/index';
 import { fallbackJapaneseSegments } from '../lookup/parser';
 import type { ReaderParserParseOptions } from '../lookup/parser';
 import { stableHashBase36, stablePositiveHashId } from '../core/stable-hash';
@@ -364,6 +364,7 @@ export class ImageOcrController {
     private positionFrame = 0;
     private refreshTimer = 0;
     private destroyed = false;
+    private pageScannerIsolationEnabled?: boolean;
     private lastPointerMoveImage?: HTMLImageElement;
     private lastPointerMoveReaderSurface?: Element;
     private lastPointerMoveReaderSurfaceKey?: string;
@@ -580,6 +581,7 @@ export class ImageOcrController {
     refresh(options: { userRequested?: boolean } = {}): void {
         if (this.destroyed) return;
         const settings = this.options.getSettings();
+        this.syncPageScannerIsolation(settings);
         if (!ocrRuntimeActive(settings)) {
             this.releaseAllVideoFrames();
             this.clear();
@@ -635,6 +637,7 @@ export class ImageOcrController {
     refreshForModeChange(): void {
         if (this.destroyed) return;
         const settings = this.options.getSettings();
+        this.syncPageScannerIsolation(settings);
         if (!ocrRuntimeActive(settings)) {
             this.releaseAllVideoFrames();
             this.clear();
@@ -3363,6 +3366,16 @@ export class ImageOcrController {
         }
     }
 
+    private syncPageScannerIsolation(settings: ReaderSettings): void {
+        const enabled = isPopupLookupEnabled(settings);
+        if (this.pageScannerIsolationEnabled === enabled) return;
+        this.pageScannerIsolationEnabled = enabled;
+        for (const state of this.states.values()) {
+            state.overlay.querySelectorAll<HTMLElement>('.jpdb-ocr-line-text')
+                .forEach(lineText => normalizeOcrRenderedText(lineText, enabled));
+        }
+    }
+
     private rememberOcrWordRenderStates(line: HTMLElement, tokens: JPDBToken[]): void {
         const tokensByKey = new Map(tokens.map(token => [ocrTokenRenderKey(token), token]));
         line.querySelectorAll<HTMLElement>('.jpdb-reader-word[data-vid][data-sid]').forEach(word => {
@@ -3384,16 +3397,17 @@ export class ImageOcrController {
         const wasActivated = line.dataset.ocrMarkupActivated === 'true';
         let hasFurigana = false;
         const settings = this.options.getSettings();
+        const isolatePageScanners = isPopupLookupEnabled(settings);
         line.querySelectorAll<HTMLElement>('.jpdb-reader-word[data-vid][data-sid]').forEach(word => {
             const state = this.ocrWordRenderStates.get(word);
             if (!state) return;
             this.applyOcrPitchClass(word, state.token);
             if (!shouldRenderRuby(state.surface, state.token, settings)) {
-                this.setOcrWordPlainText(word, state.surface);
+                this.setOcrWordPlainText(word, state.surface, isolatePageScanners);
                 return;
             }
             setInnerHtml(word, renderRuby(state.surface, state.token));
-            normalizeOcrRenderedText(word);
+            normalizeOcrRenderedText(word, isolatePageScanners);
             word.classList.add('jpdb-reader-has-furi');
             hasFurigana = true;
         });
@@ -3416,10 +3430,10 @@ export class ImageOcrController {
         word.dataset.pitchClass = '';
     }
 
-    private setOcrWordPlainText(word: HTMLElement, surface: string): void {
+    private setOcrWordPlainText(word: HTMLElement, surface: string, isolatePageScanners: boolean): void {
         word.classList.remove('jpdb-reader-has-furi');
         setInnerHtml(word, escapeHtml(surface));
-        normalizeOcrRenderedText(word);
+        normalizeOcrRenderedText(word, isolatePageScanners);
     }
 
     // Drop every paused-frame and image overlay when YouTube navigates so no
@@ -3795,7 +3809,7 @@ function createOcrLineText(line: OcrLine, tokens: JPDBToken[], settings: ReaderS
     const textElement = document.createElement('span');
     textElement.className = 'jpdb-ocr-line-text';
     setInnerHtml(textElement, tokens.length ? renderTokensToHtml(line.text, tokens, settings) : escapeHtml(line.text));
-    normalizeOcrRenderedText(textElement);
+    normalizeOcrRenderedText(textElement, isPopupLookupEnabled(settings));
     return textElement;
 }
 

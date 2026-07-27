@@ -36990,6 +36990,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const DEFAULT_WORD_COLORS = DEFAULT_WORD_COLOR_TOKENS;
   const DEFAULT_PITCH_COLORS = DEFAULT_PITCH_COLOR_TOKENS;
   const AUDIO_GUIDE_URL = "https://yomitan.wiki/advanced/#audio";
+  function isPopupLookupEnabled(settings) {
+    return settings.popupActivationMode !== "off" && (settings.lookupOnClick || settings.lookupOnHover || settings.lookupOnMiddleMouse);
+  }
   const AUDIO_SOURCE_TYPE_VALUES = [
     "jpod101",
     "language-pod-101",
@@ -295627,7 +295630,7 @@ ${component.reading}`;
     const surface = readerWordSurfaceText$1(word).trim() || word.dataset.expression || card.spelling;
     const renderSettings = publicVocabularyFuriganaSettings(word, settings);
     if (shouldHideFuriganaForCardState(renderSettings, primaryCardState(card.cardState))) {
-      clearPublicVocabularyFurigana(word, surface, ocrLine);
+      clearPublicVocabularyFurigana(word, surface, ocrLine, isPopupLookupEnabled(settings));
       return;
     }
     const rubies = inferredInflectedSurfaceRubies(surface, card.spelling, card.reading);
@@ -295642,14 +295645,14 @@ ${component.reading}`;
     };
     if (!shouldApplyPublicVocabularyFurigana(card, surface, token, renderSettings, rubies)) return;
     if (!replaceRenderedWordFurigana(word, surface, token)) return;
-    if (ocrLine) yomuNormalizeOcrRenderedText()?.(word);
+    if (ocrLine) yomuNormalizeOcrRenderedText()?.(word, isPopupLookupEnabled(settings));
     if (ocrLine) ocrLine.dataset.hasFuri = "true";
   }
-  function clearPublicVocabularyFurigana(word, surface, ocrLine) {
+  function clearPublicVocabularyFurigana(word, surface, ocrLine, isolatePageScanners) {
     if (!word.classList.contains("jpdb-reader-has-furi") && !word.querySelector(".jpdb-reader-furi, rt")) return;
     clearRenderedWordFurigana(word, surface);
     if (!ocrLine) return;
-    yomuNormalizeOcrRenderedText()?.(word);
+    yomuNormalizeOcrRenderedText()?.(word, isolatePageScanners);
     if (!ocrLine.querySelector(".jpdb-reader-word.jpdb-reader-has-furi")) delete ocrLine.dataset.hasFuri;
   }
   function publicVocabularyFuriganaSettings(word, settings) {
@@ -334976,9 +334979,6 @@ ${entry2.url}`),
   function usesNadeshikoExamples(source2) {
     return source2 === "nadeshiko" || source2 === "combined";
   }
-  function popupLookupEnabledSetting(settings) {
-    return settings.popupActivationMode !== "off" && (settings.lookupOnClick || settings.lookupOnHover || settings.lookupOnMiddleMouse);
-  }
   function renderReaderSettingsPanel(settings) {
     const language2 = settings.interfaceLanguage;
     const text2 = settingsText(language2);
@@ -334989,7 +334989,7 @@ ${entry2.url}`),
                 <div class="jpdb-reader-settings-subsection">
                     <div class="jpdb-reader-local-title" data-popup-lookup-title>${escapedUiText(language2, "popupLookup")}</div>
                     <div class="grid">
-                        ${checkbox("popupLookupEnabled", text2("popupLookupEnabled"), popupLookupEnabledSetting(settings))}
+                        ${checkbox("popupLookupEnabled", text2("popupLookupEnabled"), isPopupLookupEnabled(settings))}
                     </div>
                     <div class="jpdb-reader-help" data-help-key="popupLookupHelp">${escapedUiText(language2, "popupLookupHelp")}</div>
                 </div>

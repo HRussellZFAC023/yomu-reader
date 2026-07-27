@@ -221,6 +221,10 @@ function isRenderedWordElement(node: Element | null): node is HTMLElement {
 
 function renderedWordSurfaceText(word: HTMLElement | undefined): string {
     if (!word) return '';
+    // Owned OCR glyphs are painted through CSS generated content while Yomu
+    // lookup is enabled so page-level caret scanners cannot claim them first.
+    // Their exact rendered slice remains authoritative in data-surface.
+    if (word.dataset.surface) return word.dataset.surface;
     // Ruby annotations would pollute textContent; kana fragments rarely have
     // them, but strip rt/rp defensively so a mismatch fails closed.
     if (!word.querySelector('rt, rp')) return word.textContent ?? '';
