@@ -31,6 +31,7 @@ export interface LessonZeroMissionDefinition {
     readonly script?: LessonZeroInputScript;
     readonly audioUrl?: string;
     readonly learnerName: string;
+    readonly lockedClassName?: string;
 }
 
 export function isLessonZeroMissionActivity(
@@ -44,6 +45,7 @@ export function createLessonZeroMissionDefinition(
     content: LessonZeroContent,
     activityId: LessonZeroMissionActivityId,
     learnerName: string,
+    lockedClassName?: string,
 ): LessonZeroMissionDefinition {
     const activity = content.lesson.activities.find(candidate => candidate.id === activityId);
     if (!activity || !isLessonZeroMissionActivity(activity.id)) {
@@ -63,6 +65,9 @@ export function createLessonZeroMissionDefinition(
         ...(script ? { script } : {}),
         ...(audio?.state === 'ready' && audio.runtimeUrl ? { audioUrl: audio.runtimeUrl } : {}),
         learnerName: learnerName.normalize('NFKC').trim() || 'Learner',
+        ...(lockedClassName?.normalize('NFKC').trim()
+            ? { lockedClassName: lockedClassName.normalize('NFKC').trim() }
+            : {}),
     });
 }
 

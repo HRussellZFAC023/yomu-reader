@@ -48,26 +48,33 @@ describe('Lesson Zero story mission screen', () => {
         screen.dispose();
     });
 
-    it('reuses the chosen name and turns the katakana bridge into one guided decision', async () => {
+    it('reuses the chosen class name without asking the learner to choose it again', async () => {
         const onEvaluation = vi.fn(async () => undefined);
         const screen = createLessonZeroMissionScreen({
             language: 'en',
-            definition: createLessonZeroMissionDefinition(content, 'activity:lesson-zero-write-name-card', 'Henry'),
+            definition: createLessonZeroMissionDefinition(
+                content,
+                'activity:lesson-zero-write-name-card',
+                'Henry',
+                'ヘンリー',
+            ),
             pronunciation,
             onEvaluation,
             onBack: vi.fn(),
             onComplete: vi.fn(),
         });
-        const input = screen.element.querySelector<HTMLInputElement>('.academy-mission-writing-input')!;
 
-        expect(input.value).toBe('ヘンリー');
-        expect(screen.element.textContent).toContain('Henry');
+        expect(screen.element.querySelector('.academy-mission-writing-input')).toBeNull();
+        expect(screen.element.querySelector('.academy-mission-name-choices')).toBeNull();
+        expect(screen.element.textContent).not.toContain('Henry');
         expect(screen.element.textContent).toContain('ヘンリー');
         expect(screen.element.textContent).not.toMatch(/email|one true role|both lines are true|language you study/iu);
         expect(screen.element.textContent).toContain('ヘンリーです。');
         click(screen.element, 'Hear ヘンリー');
         await vi.waitFor(() => expect(pronunciation.play).toHaveBeenCalledWith('ヘンリー', 'ヘンリー'));
-        screen.element.querySelector('form')?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+        screen.element.querySelector('form')?.dispatchEvent(
+            new Event('submit', { bubbles: true, cancelable: true }),
+        );
 
         await vi.waitFor(() => expect(onEvaluation).toHaveBeenCalledWith(
             expect.objectContaining({

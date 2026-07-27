@@ -1,7 +1,10 @@
 import type { AcademyLanguage } from '../../reader/app/academy-copy';
 import { ACADEMY_ASSETS } from '../assets';
 import {
+    lessonZeroNameCardDisplayName,
     lessonZeroNameCardLine,
+    lessonZeroNameCardToken,
+    lessonZeroNameCardTransferLine,
     startLessonZeroNameCardSession,
     transitionLessonZeroNameCardSession,
     type LessonZeroNameCardDefinition,
@@ -11,6 +14,7 @@ import {
     type LessonZeroNameCardToken,
 } from '../domain/lesson-zero-name-card-session';
 import type { Disposable, PronunciationService } from '../integration/yomu-bridge';
+import { playLearningVoiceBinding } from '../audio/learning-voice';
 import { academyBackgroundPicture, backButton, element } from './dom';
 
 type LocalizedCopy = Readonly<{ en: string; ja: string }>;
@@ -35,26 +39,45 @@ export interface LessonZeroNameCardScreen {
 }
 
 const COPY = {
-    eyebrow: { en: 'First introduction', ja: 'はじめての自己紹介' },
+    eyebrow: { en: 'Class name', ja: 'クラスの名前' },
     title: { en: 'Put your name on the desk', ja: '名前を机に置こう' },
-    progress: { en: 'One short sentence', ja: '短い文を一つ' },
+    progressBuild: { en: '1 / 2 · Your card', ja: '1 / 2・自分の名札' },
+    progressTransfer: { en: '2 / 2 · Rie’s card', ja: '2 / 2・りえ先生の名札' },
+    progressComplete: { en: 'Ready for class', ja: 'クラスの準備完了' },
     instruction: {
-        en: 'I wrote the name you chose. Put it before です.',
-        ja: '選んだ名前を書きました。「です」の前に置きましょう。',
+        en: 'Choose the name for your card. Put it before です.',
+        ja: '名札の名前を選んで、「です」の前に置きましょう。',
     },
-    modelLabel: { en: "Rie's example", ja: 'りえ先生の例' },
-    hearModel: { en: "Hear Rie's example", ja: 'りえ先生の例を聞く' },
+    oneNameInstruction: {
+        en: 'Use the name you chose. Put it before です.',
+        ja: '選んだ名前を「です」の前に置きましょう。',
+    },
+    nameChoiceLabel: { en: 'Name on the card', ja: '名札の名前' },
+    katakanaChoice: { en: 'Japanese spelling', ja: 'カタカナ' },
+    usualChoice: { en: 'Usual spelling', ja: 'いつものつづり' },
+    modelLabel: { en: 'Listen for りえです', ja: '「りえです」を聞こう' },
+    modelMeaning: { en: "I'm Rie.", ja: 'りえです。' },
+    hearModel: { en: 'Hear Rie', ja: 'りえ先生を聞く' },
     playing: { en: 'Playing…', ja: '再生中…' },
     sentenceMeaning: { en: '___ です = I am ___.', ja: '「___です」で名前を伝えます。' },
     sentenceLabel: { en: 'Build the sentence', ja: '文を作る' },
     piecesLabel: { en: 'Choose the two pieces in order', ja: '二つを順番に選ぶ' },
-    emptySlot: { en: 'Choose a piece', ja: 'ことばを選ぶ' },
+    emptySlot: { en: 'Pick', ja: '選ぶ' },
     clear: { en: 'Clear', ja: 'やり直す' },
     check: { en: 'Check', ja: '確認する' },
-    repairTitle: { en: 'Try the order again', ja: '順番をもう一度' },
+    repairTitle: { en: 'Put the name first', ja: '名前を先に' },
     repair: { en: 'Your name comes first.', ja: '名前が先です。' },
+    transferTitle: { en: 'Which card is Rie’s?', ja: 'りえ先生の名札はどれ？' },
+    transferInstruction: {
+        en: 'The cards moved. Choose the line that says “I’m Rie.”',
+        ja: '名札が動きました。「りえです」を選びましょう。',
+    },
+    transferRepairTitle: { en: 'Find Rie’s name', ja: 'りえ先生の名前を探そう' },
+    transferRepair: { en: 'Look for りえ before です.', ja: '「です」の前の「りえ」を探しましょう。' },
+    transferCheck: { en: 'Check the card', ja: '名札を確認' },
     showHelp: { en: 'Show the pattern', ja: '形を見る' },
     pattern: { en: '1. your name   2. です', ja: '1. あなたの名前　2. です' },
+    transferPattern: { en: '1. りえ   2. です', ja: '1. りえ　2. です' },
     retry: { en: 'Try again', ja: 'もう一度' },
     completeTitle: { en: 'Your card is ready', ja: '名札ができました' },
     sayIt: { en: 'Say the line once aloud.', ja: '文を一度、声に出して言いましょう。' },
@@ -92,7 +115,7 @@ export function createLessonZeroNameCardScreen(
         localized('p', 'academy-name-card-eyebrow', COPY.eyebrow, options.language),
         localized('h1', 'academy-name-card-title', COPY.title, options.language),
     );
-    const progress = localized('p', 'academy-name-card-progress', COPY.progress, options.language);
+    const progress = localized('p', 'academy-name-card-progress', COPY.progressBuild, options.language);
     progress.setAttribute('role', 'status');
     header.append(back, heading, progress);
     const body = element('main', 'academy-name-card-body');
@@ -110,8 +133,18 @@ export function createLessonZeroNameCardScreen(
         screen.dataset.sessionStatus = state.status;
         screen.dataset.sessionStage = state.stage;
         screen.dataset.attemptCount = String(state.attempts.length);
+        progress.textContent = localizedText(
+            state.status === 'complete'
+                ? COPY.progressComplete
+                : state.stage.startsWith('transfer')
+                    ? COPY.progressTransfer
+                    : COPY.progressBuild,
+            options.language,
+        );
         if (state.status === 'complete') renderComplete(renderLifecycle.signal);
-        else if (state.stage === 'result') renderRepair(renderLifecycle.signal);
+        else if (state.stage === 'build-result' || state.stage === 'transfer-result') {
+            renderRepair(renderLifecycle.signal);
+        } else if (state.stage === 'transfer') renderTransfer(renderLifecycle.signal);
         else renderBuild(renderLifecycle.signal);
     };
 
@@ -120,8 +153,14 @@ export function createLessonZeroNameCardScreen(
         const paper = livingPaper();
         paper.append(
             speakerName(),
-            localized('p', 'academy-name-card-dialogue', COPY.instruction, options.language),
+            localized(
+                'p',
+                'academy-name-card-dialogue',
+                options.definition.katakanaName ? COPY.instruction : COPY.oneNameInstruction,
+                options.language,
+            ),
             modelStrip(signal),
+            nameVariantPicker(signal),
             nameCardBuilder(signal),
         );
         if (state.modelRevealed) {
@@ -139,16 +178,32 @@ export function createLessonZeroNameCardScreen(
     };
 
     const renderRepair = (signal: AbortSignal): void => {
+        const transferRepair = state.stage === 'transfer-result';
         const scene = sceneRoot();
         const paper = livingPaper();
         paper.dataset.outcome = 'lapse';
         paper.append(
             speakerName(),
-            localized('h2', 'academy-name-card-section-title', COPY.repairTitle, options.language),
-            localized('p', 'academy-name-card-dialogue', COPY.repair, options.language),
+            localized(
+                'h2',
+                'academy-name-card-section-title',
+                transferRepair ? COPY.transferRepairTitle : COPY.repairTitle,
+                options.language,
+            ),
+            localized(
+                'p',
+                'academy-name-card-dialogue',
+                transferRepair ? COPY.transferRepair : COPY.repair,
+                options.language,
+            ),
         );
         if (state.modelRevealed) {
-            paper.append(localized('p', 'academy-name-card-pattern', COPY.pattern, options.language));
+            paper.append(localized(
+                'p',
+                'academy-name-card-pattern',
+                transferRepair ? COPY.transferPattern : COPY.pattern,
+                options.language,
+            ));
         }
         const actions = element('div', 'academy-name-card-actions');
         if (!state.modelRevealed) {
@@ -160,16 +215,51 @@ export function createLessonZeroNameCardScreen(
         body.append(scene);
     };
 
+    const renderTransfer = (signal: AbortSignal): void => {
+        const scene = sceneRoot();
+        const paper = livingPaper();
+        paper.append(
+            speakerName(),
+            localized('h2', 'academy-name-card-section-title', COPY.transferTitle, options.language),
+            localized('p', 'academy-name-card-dialogue', COPY.transferInstruction, options.language),
+        );
+        const choices = element('div', 'academy-name-card-transfer-choices');
+        choices.setAttribute('role', 'group');
+        choices.setAttribute('aria-label', COPY.transferTitle[options.language]);
+        (['learner', 'reversed', 'rie'] as const).forEach(transferId => {
+            const button = element('button', 'academy-name-card-transfer-choice');
+            button.type = 'button';
+            button.dataset.transferId = transferId;
+            button.setAttribute('aria-pressed', String(state.selectedTransferId === transferId));
+            button.append(japanese(
+                lessonZeroNameCardTransferLine(options.definition, state, transferId),
+                'academy-name-card-transfer-line',
+            ));
+            button.addEventListener('click', () => void apply({ kind: 'select-transfer', transferId }), { signal });
+            choices.append(button);
+        });
+        const actions = element('div', 'academy-name-card-actions');
+        const check = actionButton(COPY.transferCheck, 'primary', signal, () => apply({ kind: 'check' }));
+        check.disabled = !state.selectedTransferId;
+        actions.append(check);
+        paper.append(choices, actions);
+        scene.append(portrait(), paper);
+        body.append(scene);
+    };
+
     const renderComplete = (signal: AbortSignal): void => {
         const scene = sceneRoot();
         const paper = livingPaper();
         const card = element('section', 'academy-name-card-finished');
         card.append(
             localized('p', 'academy-name-card-card-label', COPY.completeTitle, options.language),
-            japanese(lessonZeroNameCardLine(options.definition), 'academy-name-card-final-line'),
+            japanese(
+                lessonZeroNameCardLine(options.definition, state.nameVariant),
+                'academy-name-card-final-line',
+            ),
             localized('p', 'academy-name-card-final-meaning', {
-                en: `I'm ${options.definition.learnerName}.`,
-                ja: `${options.definition.learnerName}です。`,
+                en: `I'm ${lessonZeroNameCardDisplayName(options.definition, state.nameVariant)}.`,
+                ja: lessonZeroNameCardLine(options.definition, state.nameVariant),
             }, options.language),
         );
         const response = element('section', 'academy-name-card-response');
@@ -178,7 +268,12 @@ export function createLessonZeroNameCardScreen(
             japanese(options.definition.response.japanese, 'academy-name-card-response-japanese'),
             localized('p', 'academy-name-card-response-meaning', options.definition.response.meaning, options.language),
             localized('p', 'academy-name-card-say-it', COPY.sayIt, options.language),
-            audioButton(COPY.hearRie, options.definition.response.japanese, options.definition.response.reading, signal),
+            audioButton(
+                COPY.hearRie,
+                options.definition.response.japanese,
+                options.definition.response.bindingId,
+                signal,
+            ),
         );
         const actions = element('div', 'academy-name-card-actions');
         actions.append(
@@ -196,11 +291,49 @@ export function createLessonZeroNameCardScreen(
         const copy = element('div', 'academy-name-card-model-copy');
         copy.append(
             localized('span', 'academy-name-card-model-label', COPY.modelLabel, options.language),
-            japanese(options.definition.model.japanese, 'academy-name-card-model-line'),
-            localized('span', 'academy-name-card-model-meaning', options.definition.model.meaning, options.language),
+            japanese(options.definition.model.focusJapanese, 'academy-name-card-model-line'),
+            localized('span', 'academy-name-card-model-meaning', COPY.modelMeaning, options.language),
         );
-        model.append(copy, audioButton(COPY.hearModel, options.definition.model.japanese, options.definition.model.reading, signal));
+        model.append(copy, audioButton(
+            COPY.hearModel,
+            options.definition.model.japanese,
+            options.definition.model.bindingId,
+            signal,
+        ));
         return model;
+    };
+
+    const nameVariantPicker = (signal: AbortSignal): HTMLElement => {
+        const picker = element('fieldset', 'academy-name-card-name-picker');
+        picker.append(localized('legend', 'academy-name-card-name-picker-label', COPY.nameChoiceLabel, options.language));
+        const variants = options.definition.katakanaName
+            ? (['katakana', 'usual'] as const)
+            : (['usual'] as const);
+        variants.forEach(variant => {
+            const button = element('button', 'academy-name-card-name-choice');
+            button.type = 'button';
+            button.dataset.nameVariant = variant;
+            button.setAttribute('aria-pressed', String(state.nameVariant === variant));
+            const name = lessonZeroNameCardDisplayName(options.definition, variant);
+            button.append(
+                variant === 'katakana'
+                    ? japanese(name, 'academy-name-card-name-choice-value')
+                    : textNode(name, 'academy-name-card-name-choice-value'),
+                localized(
+                    'span',
+                    'academy-name-card-name-choice-note',
+                    variant === 'katakana' ? COPY.katakanaChoice : COPY.usualChoice,
+                    options.language,
+                ),
+            );
+            button.addEventListener(
+                'click',
+                () => void apply({ kind: 'choose-name-variant', variant }),
+                { signal },
+            );
+            picker.append(button);
+        });
+        return picker;
     };
 
     const nameCardBuilder = (signal: AbortSignal): HTMLElement => {
@@ -230,7 +363,12 @@ export function createLessonZeroNameCardScreen(
         bank.setAttribute('aria-label', COPY.piecesLabel[options.language]);
         options.definition.tokens.forEach(token => {
             if (state.selectedTokenIds.includes(token.id)) return;
-            bank.append(tokenButton(token, 'available', signal, () => apply({ kind: 'select-token', tokenId: token.id })));
+            bank.append(tokenButton(
+                tokenFor(token.id),
+                'available',
+                signal,
+                () => apply({ kind: 'select-token', tokenId: token.id }),
+            ));
         });
         builder.append(rail, bank, localized('p', 'academy-name-card-frame-meaning', COPY.sentenceMeaning, options.language));
         return builder;
@@ -295,7 +433,7 @@ export function createLessonZeroNameCardScreen(
     const audioButton = (
         copy: LocalizedCopy,
         japaneseText: string,
-        reading: string,
+        bindingId: string,
         signal: AbortSignal,
     ): HTMLButtonElement => {
         const button = actionButton(copy, 'listen', signal, async () => {
@@ -306,7 +444,13 @@ export function createLessonZeroNameCardScreen(
             const label = button.textContent;
             button.textContent = COPY.playing[options.language];
             try {
-                const active = await options.pronunciation.play(japaneseText, reading);
+                const active = await playLearningVoiceBinding(
+                    options.pronunciation,
+                    bindingId,
+                    japaneseText,
+                    signal,
+                );
+                if (!active) return;
                 if (disposed) active.dispose();
                 else playback = active;
             } catch {
@@ -337,9 +481,7 @@ export function createLessonZeroNameCardScreen(
     };
 
     function tokenFor(id: LessonZeroNameCardToken['id']): LessonZeroNameCardToken {
-        const token = options.definition.tokens.find(candidate => candidate.id === id);
-        if (!token) throw new TypeError(`Unknown name-card piece: ${id}`);
-        return token;
+        return lessonZeroNameCardToken(options.definition, state.nameVariant, id);
     }
 
     function sceneRoot(): HTMLElement {
@@ -414,4 +556,8 @@ function localized<K extends keyof HTMLElementTagNameMap>(
         node.dataset.jpdbReaderSurfaceIgnore = '';
     }
     return node;
+}
+
+function localizedText(copy: LocalizedCopy, language: AcademyLanguage): string {
+    return copy[language];
 }

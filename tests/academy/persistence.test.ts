@@ -429,11 +429,13 @@ describe('Academy IndexedDB persistence', () => {
     it('persists name-card token progress without copying the player name', async () => {
         const persistence = await openAcademyPersistence(fakeIndexedDB, `academy-test-${crypto.randomUUID()}`);
         const lessonZeroNameCardProgress = {
-            schemaVersion: 1 as const,
+            schemaVersion: 2 as const,
             sessionId: 'session:lesson-zero-name-card-draft' as const,
             status: 'paused' as const,
             stage: 'build' as const,
+            nameVariant: 'katakana' as const,
             selectedTokenIds: ['learner-name'] as const,
+            selectedTransferId: null,
             attempts: [],
             modelRevealed: false,
         };

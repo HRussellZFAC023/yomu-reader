@@ -441,6 +441,15 @@ textarea.academy-mission-writing-input {
     margin-top: 0;
 }
 
+.academy-mission-name-saved {
+    display: block;
+    padding: 16px 18px;
+    border-block: 2px solid color-mix(in srgb, var(--academy-paper-ink) 22%, transparent);
+    background: color-mix(in srgb, var(--academy-accent) 8%, transparent);
+    font-size: clamp(1.5rem, 4vw, 2.25rem);
+    font-weight: 900;
+}
+
 .academy-mission-name-comparison {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);

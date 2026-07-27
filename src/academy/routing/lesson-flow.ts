@@ -112,6 +112,7 @@ import {
     transitionLessonZeroHiraganaSession,
 } from '../domain/lesson-zero-hiragana-session';
 import {
+    lessonZeroNameCardDisplayName,
     startLessonZeroNameCardSession,
     transitionLessonZeroNameCardSession,
 } from '../domain/lesson-zero-name-card-session';
@@ -569,10 +570,24 @@ class LessonFlow implements AcademyRouteFlow {
         context: AcademyRouteContext,
     ): Promise<void> {
         const content = await loadLessonZeroContent();
+        const learnerName = context.projection.profile?.displayName ?? '';
+        const savedNameCard = context.checkpoint.lessonZeroNameCardProgress;
+        const nameCardActivity = content.lesson.activities.find(candidate =>
+            candidate.id === LESSON_ZERO_NAME_CARD_ACTIVITY_ID);
+        const lockedClassName =
+            activityId === 'activity:lesson-zero-write-name-card'
+            && savedNameCard?.status === 'complete'
+            && nameCardActivity
+                ? lessonZeroNameCardDisplayName(
+                    createLessonZeroNameCardDefinition(nameCardActivity, learnerName),
+                    savedNameCard.nameVariant,
+                )
+                : undefined;
         const definition = createLessonZeroMissionDefinition(
             content,
             activityId,
-            context.projection.profile?.displayName ?? '',
+            learnerName,
+            lockedClassName,
         );
         const returning = context.projection.completedScenes.includes(AAKASH_RAINY_DIRECTIONS_SCENE_ID);
         const screen = createLessonZeroMissionScreen({
@@ -586,6 +601,7 @@ class LessonFlow implements AcademyRouteFlow {
                     evaluation.result.outcome === 'pass'
                     && activityId === 'activity:lesson-zero-write-name-card'
                     && response.kind === 'written'
+                    && !definition.lockedClassName
                 ) {
                     await this.saveLessonZeroClassName(response, context);
                 }
@@ -608,6 +624,13 @@ class LessonFlow implements AcademyRouteFlow {
             ?.replace(/[。.!！?？]/gu, '')
             .trim();
         if (!displayName) return;
+        await this.saveLessonZeroClassNameValue(displayName, context);
+    }
+
+    private async saveLessonZeroClassNameValue(
+        displayName: string,
+        context: AcademyRouteContext,
+    ): Promise<void> {
         const current = context.projection.profile;
         await this.options.evidence.saveProfile({
             displayName,
@@ -1093,7 +1116,7 @@ class LessonFlow implements AcademyRouteFlow {
                     await this.options.evidence.recordActivity(
                         transition.evaluation,
                         LESSON_ZERO_ID,
-                        transition.evaluation.result.outcome === 'pass'
+                        transition.state.status === 'complete'
                             ? {
                                 id: 'lesson-zero-first-name-card',
                                 sceneId: 'scene:lesson-zero-first-name-card',
@@ -1116,6 +1139,12 @@ class LessonFlow implements AcademyRouteFlow {
                         support.supportKind,
                         support.choiceId,
                         { eventId: support.eventId, at: support.at },
+                    );
+                }
+                if (transition.state.status === 'complete' && _before.status !== 'complete') {
+                    await this.saveLessonZeroClassNameValue(
+                        lessonZeroNameCardDisplayName(definition, transition.state.nameVariant),
+                        context,
                     );
                 }
                 await context.save?.({ lessonZeroNameCardProgress: transition.state });

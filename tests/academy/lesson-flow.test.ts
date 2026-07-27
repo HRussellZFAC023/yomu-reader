@@ -467,6 +467,51 @@ describe('Academy lesson flow', () => {
         );
     });
 
+    it('reuses the completed naming moment in the later class-card mission', async () => {
+        const route = context('lesson:foundation-00', {
+            route: 'source-activity',
+            activityId: 'activity:lesson-zero-write-name-card',
+            lessonZeroNameCardProgress: {
+                schemaVersion: 2,
+                sessionId: 'session:lesson-zero-name-card-draft',
+                status: 'complete',
+                stage: 'complete',
+                nameVariant: 'katakana',
+                selectedTokenIds: ['learner-name', 'desu'],
+                selectedTransferId: 'rie',
+                attempts: [
+                    { phase: 'build', order: ['learner-name', 'desu'], outcome: 'pass', score: 1, at: 2 },
+                    { phase: 'transfer', selectedId: 'rie', outcome: 'pass', score: 1, at: 3 },
+                ],
+                modelRevealed: false,
+            },
+        }, {
+            ...projectLearnerRecord([]),
+            profile: { displayName: 'Henry', learningReason: 'Read manga', portraitId: 'quality-3' },
+        });
+        const recordActivity = vi.fn(async () => undefined);
+        const saveProfile = vi.fn(async () => ({ firstIntroduction: false }));
+        const flow = createLessonFlow({
+            evidence: { recordActivity, saveProfile, recordSupportUse: vi.fn() } as never,
+            pronunciation: { play: vi.fn(async () => ({ dispose() {} })) } as never,
+            kanjiWriting: {} as never,
+        });
+
+        await flow.render('source-activity', route.value);
+        expect(route.shell.current?.querySelector('.academy-mission-name-choices')).toBeNull();
+        expect(route.shell.current?.querySelector('.academy-mission-writing-input')).toBeNull();
+        expect(route.shell.current?.textContent).toContain('ヘンリーです。');
+        route.shell.current?.querySelector('form')?.dispatchEvent(
+            new Event('submit', { bubbles: true, cancelable: true }),
+        );
+
+        await vi.waitFor(() => expect(recordActivity).toHaveBeenCalledWith(
+            expect.objectContaining({ attempt: expect.objectContaining({ outcome: 'pass' }) }),
+            'lesson:foundation-00',
+        ));
+        expect(saveProfile).not.toHaveBeenCalled();
+    });
+
     it('routes the first greeting through named, resumable learning evidence', async () => {
         const projection = projectLearnerRecord([{
             schemaVersion: 1,
@@ -674,8 +719,13 @@ describe('Academy lesson flow', () => {
             activityId: 'activity:lesson-zero-name-card-draft',
         }, projection);
         const recordActivity = vi.fn(async () => undefined);
+        const saveProfile = vi.fn(async () => ({ firstIntroduction: false }));
         const flow = createLessonFlow({
-            evidence: { recordActivity, recordSupportUse: vi.fn(async () => undefined) } as never,
+            evidence: {
+                recordActivity,
+                saveProfile,
+                recordSupportUse: vi.fn(async () => undefined),
+            } as never,
             pronunciation: { play: vi.fn(async () => ({ dispose() {} })) } as never,
             kanjiWriting: {} as never,
         });
@@ -699,6 +749,25 @@ describe('Academy lesson flow', () => {
                     outcome: 'pass',
                     responseKind: 'tapped-name-card-frame',
                 }),
+                reviewSeeds: [],
+            }),
+            'lesson:foundation-00',
+            undefined,
+            expect.objectContaining({ skill: 'grammar', action: 'produce', independent: true }),
+        ));
+        await vi.waitFor(() => expect(route.shell.current?.dataset.sessionStage).toBe('transfer'));
+        route.shell.current?.querySelector<HTMLButtonElement>('[data-transfer-id="rie"]')?.click();
+        await vi.waitFor(() => expect(
+            route.shell.current?.querySelector('[data-transfer-id="rie"]')?.getAttribute('aria-pressed'),
+        ).toBe('true'));
+        clickButton(route.shell.current!, 'Check the card');
+        await vi.waitFor(() => expect(recordActivity).toHaveBeenCalledWith(
+            expect.objectContaining({
+                attempt: expect.objectContaining({
+                    activityId: 'activity:lesson-zero-name-card-draft',
+                    outcome: 'pass',
+                    responseKind: 'selected-changed-person-name-card',
+                }),
                 reviewSeeds: [
                     expect.objectContaining({ id: 'review:lesson-zero:name-card:desu' }),
                 ],
@@ -708,9 +777,14 @@ describe('Academy lesson flow', () => {
                 id: 'lesson-zero-first-name-card',
                 journalLine: expect.objectContaining({ lineId: 'journal:lesson-zero:first-name-card' }),
             }),
-            expect.objectContaining({ skill: 'grammar', action: 'produce', independent: true }),
+            expect.objectContaining({ skill: 'grammar', action: 'transfer', independent: true }),
         ));
         expect(JSON.stringify(route.save.mock.calls)).not.toContain('Henry');
+        await vi.waitFor(() => expect(saveProfile).toHaveBeenCalledWith({
+            displayName: 'ヘンリー',
+            learningReason: 'Speak with people',
+            portraitId: 'quality-2',
+        }));
         await vi.waitFor(() => expect(route.save).toHaveBeenCalledWith(expect.objectContaining({
             lessonZeroNameCardProgress: expect.objectContaining({ status: 'complete' }),
         })));

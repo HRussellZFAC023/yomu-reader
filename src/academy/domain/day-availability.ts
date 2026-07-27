@@ -164,9 +164,9 @@ const DAY_ONE_LESSON_ACTIVITY_IDS = [
     'activity:lesson-zero-vowel-doodle',
     'activity:lesson-zero-follow-instructions',
     'activity:lesson-zero-reconstruct-repair',
+    'activity:lesson-zero-name-card-draft',
     'activity:lesson-zero-desk-language',
     'activity:lesson-zero-build-sentence-frames',
-    'activity:lesson-zero-name-card-draft',
     'activity:lesson-zero-sound-input',
     'activity:lesson-zero-text-input',
     'activity:lesson-zero-speaking-input',
@@ -229,6 +229,7 @@ const DAY_ONE_VERIFIED_ACTIVITY_IDS = new Set<typeof DAY_ONE_LESSON_ACTIVITY_IDS
     'activity:lesson-zero-vowel-doodle',
     'activity:lesson-zero-follow-instructions',
     'activity:lesson-zero-reconstruct-repair',
+    'activity:lesson-zero-name-card-draft',
     'activity:lesson-zero-desk-language',
     'activity:lesson-zero-build-sentence-frames',
     'activity:lesson-zero-sound-input',
@@ -343,7 +344,6 @@ const DAY_ONE_LESSON: readonly DayActivityAvailability[] = DAY_ONE_LESSON_ACTIVI
             : activityId === 'activity:lesson-zero-vowel-doodle'
                 || activityId === 'activity:lesson-zero-follow-instructions'
                 || activityId === 'activity:lesson-zero-reconstruct-repair'
-                || activityId === 'activity:lesson-zero-name-card-draft'
             ? VERIFIED_STANDALONE_ACTIVITY_DELIVERY
             : UNVERIFIED_DELIVERY,
     ));

@@ -40,7 +40,7 @@ const TITLES: Readonly<Record<LessonZeroMissionDefinition['activity']['id'], Loc
     'activity:lesson-zero-text-input': { en: 'Two missing words', ja: '二つの空欄' },
     'activity:lesson-zero-speaking-input': { en: 'Your turn in the room', ja: '教室で自分の番' },
     'activity:lesson-zero-read-name-cards': { en: 'Find it on the card', ja: '名札から見つける' },
-    'activity:lesson-zero-write-name-card': { en: 'Your name in katakana', ja: '名前をカタカナで' },
+    'activity:lesson-zero-write-name-card': { en: 'Your class card', ja: 'クラスの名札' },
     'activity:lesson-zero-sound-transfer': { en: 'Catch it, then ask again', ja: '聞いて、もう一度たずねる' },
     'activity:lesson-zero-text-transfer': { en: 'Leave one clear line', ja: '短い一文を残す' },
     'activity:lesson-zero-speaking-transfer': { en: 'Welcome the next person', ja: '次の人を迎える' },
@@ -102,11 +102,11 @@ export function createLessonZeroMissionScreen(
     let particleValues: [string, string] = ['', ''];
     const selectedChecks = new Set<string>();
     const nameDraft = createKatakanaNameDraft(options.definition.learnerName);
-    let selectedCardName = nameDraft.katakana ?? nameDraft.usualName;
+    const lockedClassName = options.definition.lockedClassName?.trim() || null;
+    let selectedCardName = lockedClassName ?? nameDraft.katakana ?? nameDraft.usualName;
     let editedKatakana = nameDraft.katakana ?? '';
-    let nameEntryMode: 'ime' | 'katakana-choice' | 'usual-spelling' = nameDraft.katakana
-        ? 'katakana-choice'
-        : 'usual-spelling';
+    let nameEntryMode: 'ime' | 'katakana-choice' | 'usual-spelling' =
+        selectedCardName === nameDraft.katakana ? 'katakana-choice' : 'usual-spelling';
 
     const screen = element('section', 'academy-screen academy-mission-screen');
     screen.dataset.academyScreen = 'lesson-zero-mission';
@@ -320,6 +320,42 @@ export function createLessonZeroMissionScreen(
 
     const renderNameCardWriting = (signal: AbortSignal): HTMLElement => {
         const root = element('form', 'academy-mission-writing academy-mission-name-writing');
+        if (lockedClassName) {
+            root.append(
+                copyNode('p', 'academy-mission-help academy-mission-name-help', {
+                    en: 'Rie kept the name from your first card.',
+                    ja: 'りえ先生が最初の名札の名前を残してくれました。',
+                }),
+                japaneseOrText(lockedClassName, 'academy-mission-name-saved'),
+            );
+            if (nameDraft.katakana === lockedClassName) {
+                root.append(actionButton(
+                    { en: `Hear ${lockedClassName}`, ja: `${lockedClassName}を聞く` },
+                    'listen',
+                    signal,
+                    () => playPhrase(lockedClassName, lockedClassName),
+                ));
+            }
+            const preview = element('p', 'academy-mission-writing-preview');
+            syncNamePreview(preview);
+            const send = actionButton(
+                { en: 'Put the card on the desk', ja: '名札を机に置く' },
+                'primary',
+                signal,
+                () => undefined,
+            );
+            send.type = 'submit';
+            root.append(preview, send);
+            root.addEventListener('submit', event => {
+                event.preventDefault();
+                void submit({
+                    kind: 'written',
+                    text: `${selectedCardName}です。`,
+                    entryMode: nameEntryMode,
+                });
+            }, { signal });
+            return root;
+        }
         root.append(copyNode('p', 'academy-mission-help academy-mission-name-help', nameDraft.katakana
             ? {
                 en: 'You do not need to read katakana yet. Start by listening.',
@@ -707,12 +743,18 @@ export function createLessonZeroMissionScreen(
         return node;
     }
 
-    function plainJapanese(value: string): HTMLElement {
-        const node = element('span', 'academy-mission-japanese');
+    function plainJapanese(value: string, className = 'academy-mission-japanese'): HTMLElement {
+        const node = element('span', className);
         node.lang = 'ja';
         node.dataset.jpdbReaderSurfaceIgnore = '';
         node.textContent = value;
         return node;
+    }
+
+    function japaneseOrText(value: string, className: string): HTMLElement {
+        return /[\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}]/u.test(value)
+            ? plainJapanese(value, className)
+            : textNode(value, className);
     }
 
     function textNode(value: string, className = ''): HTMLElement {

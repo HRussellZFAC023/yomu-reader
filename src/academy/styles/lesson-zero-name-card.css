@@ -10,6 +10,12 @@
     display: none;
 }
 
+.academy-root:has(.academy-name-card-screen) .academy-screen-host {
+    /* Keep the host programmatically scrollable so shell.replace() can clear
+       horizontal offsets retained by the preceding story route. */
+    overflow-x: hidden;
+}
+
 .academy-name-card-screen > .academy-background,
 .academy-name-card-screen > .academy-background img {
     position: fixed;
@@ -231,13 +237,69 @@
 }
 
 .academy-name-card-model-line {
+    grid-column: 1;
     font-size: clamp(1.35rem, 3vw, 1.8rem);
     font-weight: 850;
 }
 
 .academy-name-card-model-meaning {
+    grid-column: 2;
     color: color-mix(in srgb, var(--academy-paper-ink) 72%, transparent);
     font-size: 0.9rem;
+}
+
+.academy-name-card-name-picker {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    min-width: 0;
+    margin: 22px 0 0;
+    padding: 0;
+    border: 0;
+}
+
+.academy-name-card-name-picker-label {
+    grid-column: 1 / -1;
+    padding: 0;
+    color: color-mix(in srgb, var(--academy-paper-ink) 72%, transparent);
+    font-size: 0.78rem;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.academy-name-card-name-choice {
+    display: grid;
+    min-width: 0;
+    min-height: 64px;
+    align-content: center;
+    gap: 2px;
+    padding: 9px 34px 9px 13px;
+    border: 2px solid color-mix(in srgb, var(--academy-paper-ink) 48%, transparent);
+    border-radius: 0;
+    color: var(--academy-paper-ink);
+    background: color-mix(in srgb, var(--academy-paper) 76%, var(--academy-accent));
+    clip-path: polygon(0 0, 94% 0, 100% 50%, 94% 100%, 0 100%);
+    text-align: left;
+}
+
+.academy-name-card-name-choice[aria-pressed='true'] {
+    border-color: var(--academy-paper-ink);
+    color: var(--academy-paper);
+    background: var(--academy-paper-ink);
+    box-shadow: inset 5px 0 0 var(--academy-accent);
+}
+
+.academy-name-card-name-choice-value {
+    overflow-wrap: anywhere;
+    font-size: clamp(1.05rem, 2.4vw, 1.35rem);
+    font-weight: 850;
+    line-height: 1.15;
+}
+
+.academy-name-card-name-choice-note {
+    color: color-mix(in srgb, currentColor 72%, transparent);
+    font-size: 0.72rem;
+    font-weight: 700;
 }
 
 .academy-name-card-builder {
@@ -332,6 +394,36 @@
     padding: 10px 12px;
     border-left: 4px solid var(--academy-accent);
     background: color-mix(in srgb, var(--academy-accent) 16%, transparent);
+}
+
+.academy-name-card-transfer-choices {
+    display: grid;
+    gap: 10px;
+    margin-top: 22px;
+}
+
+.academy-name-card-transfer-choice {
+    min-height: 58px;
+    padding: 10px 42px 10px 16px;
+    border: 2px solid color-mix(in srgb, var(--academy-paper-ink) 46%, transparent);
+    border-radius: 0;
+    color: var(--academy-paper-ink);
+    background: color-mix(in srgb, var(--academy-paper) 86%, var(--academy-accent));
+    clip-path: polygon(0 0, 96% 0, 100% 50%, 96% 100%, 0 100%);
+    text-align: left;
+}
+
+.academy-name-card-transfer-choice[aria-pressed='true'] {
+    border-color: var(--academy-paper-ink);
+    color: var(--academy-paper);
+    background: var(--academy-paper-ink);
+    box-shadow: inset 6px 0 0 var(--academy-accent);
+}
+
+.academy-name-card-transfer-line {
+    overflow-wrap: anywhere;
+    font-size: clamp(1.2rem, 3vw, 1.6rem);
+    font-weight: 850;
 }
 
 .academy-name-card-actions {
@@ -467,7 +559,7 @@
 
     .academy-name-card-portrait {
         position: absolute;
-        right: -24px;
+        right: 0;
         bottom: 0;
         width: min(46vw, 210px);
         max-height: 48dvh;
@@ -491,7 +583,15 @@
     }
 
     .academy-name-card-model-copy {
-        grid-template-columns: minmax(0, 1fr) auto;
+        grid-template-columns: 1fr;
+    }
+
+    .academy-name-card-model-meaning {
+        grid-column: 1;
+    }
+
+    .academy-name-card-name-picker {
+        grid-template-columns: 1fr;
     }
 
     .academy-name-card-action-listen {

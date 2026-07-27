@@ -22,7 +22,7 @@ function definition(): LessonZeroNameCardDefinition {
 }
 
 describe('Lesson Zero name-card session', () => {
-    it('transfers the saved player name into one familiar です frame', () => {
+    it('makes the saved name a katakana-first naming moment without copying it into progress', () => {
         const content = definition();
         expect(content.activityId).toBe('activity:lesson-zero-name-card-draft');
         expect(getCompleteLessonRegistration('lesson:foundation-00').trustedActivityIds)
@@ -32,11 +32,17 @@ describe('Lesson Zero name-card session', () => {
             'concept:copula-affirmative',
         ]);
         expect(content.correctOrder).toEqual(['learner-name', 'desu']);
-        expect(lessonZeroNameCardLine(content)).toBe('Henryです。');
-        expect(JSON.stringify(startLessonZeroNameCardSession(content))).not.toContain('Henry');
+        expect(content).toMatchObject({
+            usualName: 'Henry',
+            katakanaName: 'ヘンリー',
+            defaultNameVariant: 'katakana',
+        });
+        expect(lessonZeroNameCardLine(content)).toBe('ヘンリーです。');
+        expect(lessonZeroNameCardLine(content, 'usual')).toBe('Henryです。');
+        expect(JSON.stringify(startLessonZeroNameCardSession(content))).not.toMatch(/Henry|ヘンリー/);
     });
 
-    it('keeps the model locked until a committed lapse, then records an assisted repair', () => {
+    it('repairs the name order and changed-person transfer before seeding SRS', () => {
         const content = definition();
         let state = startLessonZeroNameCardSession(content);
         const earlyHelp = transitionLessonZeroNameCardSession(content, state, { kind: 'reveal-model' }, 2);
@@ -45,8 +51,9 @@ describe('Lesson Zero name-card session', () => {
 
         state = transitionLessonZeroNameCardSession(content, state, { kind: 'select-token', tokenId: 'desu' }, 3).state;
         state = transitionLessonZeroNameCardSession(content, state, { kind: 'select-token', tokenId: 'learner-name' }, 4).state;
-        const lapse = transitionLessonZeroNameCardSession(content, state, { kind: 'check' }, 5);
-        expect(lapse.evaluation).toMatchObject({
+        const buildLapse = transitionLessonZeroNameCardSession(content, state, { kind: 'check' }, 5);
+        expect(buildLapse.state.stage).toBe('build-result');
+        expect(buildLapse.evaluation).toMatchObject({
             attempt: {
                 outcome: 'lapse',
                 responseKind: 'tapped-name-card-frame',
@@ -55,40 +62,98 @@ describe('Lesson Zero name-card session', () => {
             reviewSeeds: [],
         });
 
-        const support = transitionLessonZeroNameCardSession(content, lapse.state, { kind: 'reveal-model' }, 6);
-        expect(support.state.modelRevealed).toBe(true);
-        expect(support.supportEvents.map(event => event.supportKind)).toEqual([
+        const buildSupport = transitionLessonZeroNameCardSession(content, buildLapse.state, { kind: 'reveal-model' }, 6);
+        expect(buildSupport.state.modelRevealed).toBe(true);
+        expect(buildSupport.supportEvents.map(event => event.supportKind)).toEqual([
             'transcript', 'translation', 'model-answer',
         ]);
-        state = transitionLessonZeroNameCardSession(content, support.state, { kind: 'retry' }, 7).state;
+        state = transitionLessonZeroNameCardSession(content, buildSupport.state, { kind: 'retry' }, 7).state;
         state = transitionLessonZeroNameCardSession(content, state, { kind: 'select-token', tokenId: 'learner-name' }, 8).state;
         state = transitionLessonZeroNameCardSession(content, state, { kind: 'select-token', tokenId: 'desu' }, 9).state;
-        const repaired = transitionLessonZeroNameCardSession(content, state, { kind: 'check' }, 10);
+        const buildPass = transitionLessonZeroNameCardSession(content, state, { kind: 'check' }, 10);
+        expect(buildPass.state).toMatchObject({ status: 'active', stage: 'transfer' });
+        expect(buildPass.evaluation?.reviewSeeds).toEqual([]);
 
-        expect(repaired.state.status).toBe('complete');
+        state = transitionLessonZeroNameCardSession(
+            content,
+            buildPass.state,
+            { kind: 'select-transfer', transferId: 'learner' },
+            11,
+        ).state;
+        const transferLapse = transitionLessonZeroNameCardSession(content, state, { kind: 'check' }, 12);
+        expect(transferLapse.state.stage).toBe('transfer-result');
+        expect(transferLapse.evaluation).toMatchObject({
+            attempt: {
+                outcome: 'lapse',
+                responseKind: 'selected-changed-person-name-card',
+                errorTags: ['name-card:changed-person'],
+            },
+            reviewSeeds: [],
+        });
+
+        const transferSupport = transitionLessonZeroNameCardSession(
+            content,
+            transferLapse.state,
+            { kind: 'reveal-model' },
+            13,
+        );
+        state = transitionLessonZeroNameCardSession(content, transferSupport.state, { kind: 'retry' }, 14).state;
+        state = transitionLessonZeroNameCardSession(
+            content,
+            state,
+            { kind: 'select-transfer', transferId: 'rie' },
+            15,
+        ).state;
+        const repaired = transitionLessonZeroNameCardSession(content, state, { kind: 'check' }, 16);
+
+        expect(repaired.state).toMatchObject({ status: 'complete', stage: 'complete' });
         expect(repaired.evaluation?.reviewSeeds).toEqual([
             expect.objectContaining({ id: 'review:lesson-zero:name-card:desu', reason: 'repair' }),
         ]);
         expect(repaired.adaptive).toMatchObject({ skill: 'grammar', action: 'repair', independent: false });
     });
 
-    it('records an independent pass without requiring kana input', () => {
+    it('records independent production and transfer as separate evidence', () => {
         const content = definition();
         let state = startLessonZeroNameCardSession(content);
         state = transitionLessonZeroNameCardSession(content, state, { kind: 'select-token', tokenId: 'learner-name' }, 2).state;
         state = transitionLessonZeroNameCardSession(content, state, { kind: 'select-token', tokenId: 'desu' }, 3).state;
-        const result = transitionLessonZeroNameCardSession(content, state, { kind: 'check' }, 4);
+        const build = transitionLessonZeroNameCardSession(content, state, { kind: 'check' }, 4);
+        expect(build.evaluation?.attempt).toMatchObject({ outcome: 'pass', score: 1 });
+        expect(build.evaluation?.reviewSeeds).toEqual([]);
+        expect(build.adaptive).toMatchObject({ action: 'produce', independent: true });
 
-        expect(result.evaluation?.attempt).toMatchObject({ outcome: 'pass', score: 1 });
-        expect(result.adaptive).toMatchObject({ skill: 'grammar', action: 'produce', independent: true });
+        state = transitionLessonZeroNameCardSession(
+            content,
+            build.state,
+            { kind: 'select-transfer', transferId: 'rie' },
+            5,
+        ).state;
+        const transfer = transitionLessonZeroNameCardSession(content, state, { kind: 'check' }, 6);
+        expect(transfer.evaluation?.attempt).toMatchObject({
+            outcome: 'pass',
+            responseKind: 'selected-changed-person-name-card',
+        });
+        expect(transfer.evaluation?.reviewSeeds).toEqual([
+            expect.objectContaining({ reason: 'new-learning' }),
+        ]);
+        expect(transfer.adaptive).toMatchObject({ action: 'transfer', independent: true });
     });
 
-    it('round-trips a paused token order and rejects altered or impossible snapshots', () => {
+    it('round-trips a paused choice without storing names and rejects impossible snapshots', () => {
         const content = definition();
         let state = startLessonZeroNameCardSession(content);
-        state = transitionLessonZeroNameCardSession(content, state, { kind: 'select-token', tokenId: 'learner-name' }, 2).state;
-        const paused = transitionLessonZeroNameCardSession(content, state, { kind: 'pause' }, 3).state;
+        state = transitionLessonZeroNameCardSession(
+            content,
+            state,
+            { kind: 'choose-name-variant', variant: 'usual' },
+            2,
+        ).state;
+        state = transitionLessonZeroNameCardSession(content, state, { kind: 'select-token', tokenId: 'learner-name' }, 3).state;
+        const paused = transitionLessonZeroNameCardSession(content, state, { kind: 'pause' }, 4).state;
         expect(startLessonZeroNameCardSession(content, paused)).toEqual(paused);
+        expect(JSON.stringify(paused)).not.toMatch(/Henry|ヘンリー/);
+        expect(paused.nameVariant).toBe('usual');
         expect(lessonZeroNameCardSessionSnapshotShapeIsValid({
             ...paused,
             status: 'complete',

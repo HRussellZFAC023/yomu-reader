@@ -13599,7 +13599,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function isLessonZeroMissionActivity(activityId) {
     return Boolean(activityId) && LESSON_ZERO_MISSION_ACTIVITY_IDS.includes(activityId);
   }
-  function createLessonZeroMissionDefinition(content, activityId, learnerName) {
+  function createLessonZeroMissionDefinition(content, activityId, learnerName, lockedClassName) {
     const activity2 = content.lesson.activities.find((candidate2) => candidate2.id === activityId);
     if (!activity2 || !isLessonZeroMissionActivity(activity2.id)) {
       throw new TypeError(`Lesson Zero is missing mission activity ${activityId}.`);
@@ -13613,7 +13613,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       activity: Object.freeze({ ...activity2, id: activity2.id }),
       ...script ? { script } : {},
       ...audio2?.state === "ready" && audio2.runtimeUrl ? { audioUrl: audio2.runtimeUrl } : {},
-      learnerName: learnerName.normalize("NFKC").trim() || "Learner"
+      learnerName: learnerName.normalize("NFKC").trim() || "Learner",
+      ...lockedClassName?.normalize("NFKC").trim() ? { lockedClassName: lockedClassName.normalize("NFKC").trim() } : {}
     });
   }
   function evaluateLessonZeroMission(definition2, response, at = Date.now()) {
@@ -13770,9 +13771,112 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         return { expression: "おわりましょう。", reading: "おわりましょう", meaning: "Let's finish.", conceptIndex: 0 };
     }
   }
+  const EMAIL_LIKE_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/u;
+  const KATAKANA_NAME_RE = /^[\p{Script=Katakana}ー・\s]+$/u;
+  const HIRAGANA_NAME_RE = /^[\p{Script=Hiragana}ー・\s]+$/u;
+  const ROMAJI_NAME_RE = /^[a-z][a-z' -]*$/iu;
+  const KNOWN_KATAKANA_NAMES = Object.freeze({
+    aakash: "アーカッシュ",
+    alex: "アレックス",
+    andrew: "アンドリュー",
+    anna: "アンナ",
+    brian: "ブライアン",
+    christian: "クリスチャン",
+    daniel: "ダニエル",
+    david: "デイビッド",
+    edward: "エドワード",
+    emily: "エミリー",
+    felix: "フェリックス",
+    francis: "フランシス",
+    george: "ジョージ",
+    henry: "ヘンリー",
+    james: "ジェームズ",
+    jenny: "ジェニー",
+    john: "ジョン",
+    joseph: "ジョセフ",
+    karen: "カレン",
+    kevin: "ケビン",
+    maria: "マリア",
+    mary: "メアリー",
+    michael: "マイケル",
+    mika: "ミカ",
+    mina: "ミナ",
+    mira: "ミラ",
+    nicholas: "ニコラス",
+    paul: "ポール",
+    peter: "ピーター",
+    richard: "リチャード",
+    rie: "リエ",
+    riku: "リク",
+    robert: "ロバート",
+    rose: "ローズ",
+    sam: "サム",
+    shaun: "ショーン",
+    sophie: "ソフィー",
+    steve: "スティーブ",
+    steven: "スティーブン",
+    susan: "スーザン",
+    takeshi: "タケシ",
+    thomas: "トーマス",
+    tom: "トム",
+    william: "ウィリアム",
+    xingyu: "シンユ"
+  });
+  function profileNameForEditing(value) {
+    const name = normalizeName(value ?? "");
+    if (!name || EMAIL_LIKE_RE.test(name) || /^(?:learner|student|you)$/iu.test(name)) return "";
+    return name;
+  }
+  function createKatakanaNameDraft(value) {
+    const usualName = normalizeName(value);
+    if (!usualName) return Object.freeze({ usualName: "", katakana: null, source: "unavailable" });
+    if (KATAKANA_NAME_RE.test(usualName)) {
+      return Object.freeze({ usualName, katakana: usualName, source: "already-katakana" });
+    }
+    if (HIRAGANA_NAME_RE.test(usualName)) {
+      return Object.freeze({
+        usualName,
+        katakana: convertHiraganaToKatakana(usualName),
+        source: "hiragana"
+      });
+    }
+    if (!ROMAJI_NAME_RE.test(usualName)) {
+      return Object.freeze({ usualName, katakana: null, source: "unavailable" });
+    }
+    const words = usualName.toLowerCase().split(/[\s-]+/u).filter(Boolean);
+    const known = words.map((word) => KNOWN_KATAKANA_NAMES[word]);
+    if (known.every(Boolean)) {
+      return Object.freeze({
+        usualName,
+        katakana: known.join("・"),
+        source: "known-name"
+      });
+    }
+    const converted = words.map((word) => convertHiraganaToKatakana(convertRomajiToKana(word)));
+    if (converted.every((word) => word && !/[a-z]/iu.test(word))) {
+      return Object.freeze({
+        usualName,
+        katakana: converted.join("・"),
+        source: "romaji"
+      });
+    }
+    return Object.freeze({ usualName, katakana: null, source: "unavailable" });
+  }
+  function normalizeName(value) {
+    return value.normalize("NFKC").replace(/\s+/gu, " ").trim();
+  }
   const LESSON_ZERO_NAME_CARD_TOKEN_IDS = Object.freeze([
     "learner-name",
     "desu"
+  ]);
+  const LESSON_ZERO_NAME_CARD_VARIANTS = Object.freeze([
+    "katakana",
+    "usual"
+  ]);
+  const LESSON_ZERO_NAME_CARD_TRANSFER_IDS = Object.freeze([
+    "rie",
+    "learner",
+    "reversed"
   ]);
   function startLessonZeroNameCardSession(definition2, snapshot) {
     validateDefinition$9(definition2);
@@ -13784,11 +13888,13 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       return structuredClone(snapshot);
     }
     return {
-      schemaVersion: 1,
+      schemaVersion: 2,
       sessionId: definition2.id,
       status: "active",
       stage: "build",
+      nameVariant: definition2.defaultNameVariant,
       selectedTokenIds: [],
+      selectedTransferId: null,
       attempts: [],
       modelRevealed: false
     };
@@ -13805,6 +13911,14 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       return unchanged$7({ ...state, status: "active" });
     }
     if (state.status !== "active" || state.stage === "complete") return unchanged$7(state);
+    if (action2.kind === "choose-name-variant") {
+      if (state.stage !== "build" || action2.variant === state.nameVariant || action2.variant === "katakana" && !definition2.katakanaName) return unchanged$7(state);
+      return unchanged$7({
+        ...state,
+        nameVariant: action2.variant,
+        selectedTokenIds: []
+      });
+    }
     if (action2.kind === "select-token") {
       if (state.stage !== "build" || state.selectedTokenIds.includes(action2.tokenId) || !definition2.correctOrder.includes(action2.tokenId)) return unchanged$7(state);
       return unchanged$7({ ...state, selectedTokenIds: [...state.selectedTokenIds, action2.tokenId] });
@@ -13820,12 +13934,18 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       if (state.stage !== "build" || state.selectedTokenIds.length === 0) return unchanged$7(state);
       return unchanged$7({ ...state, selectedTokenIds: [] });
     }
-    if (action2.kind === "retry") {
-      if (state.stage !== "result" || state.attempts.at(-1)?.outcome !== "lapse") return unchanged$7(state);
-      return unchanged$7({ ...state, stage: "build", selectedTokenIds: [] });
+    if (action2.kind === "select-transfer") {
+      if (state.stage !== "transfer" || !LESSON_ZERO_NAME_CARD_TRANSFER_IDS.includes(action2.transferId)) {
+        return unchanged$7(state);
+      }
+      return unchanged$7({ ...state, selectedTransferId: action2.transferId });
     }
+    if (action2.kind === "retry") return retry(state);
     if (action2.kind === "reveal-model") return revealModel$3(definition2, state, at);
-    if (action2.kind === "check") return check$2(definition2, state, at);
+    if (action2.kind === "check") {
+      if (state.stage === "build") return checkBuild(definition2, state, at);
+      if (state.stage === "transfer") return checkTransfer(definition2, state, at);
+    }
     return unchanged$7(state);
   }
   function lessonZeroNameCardSessionSnapshotShapeIsValid(value) {
@@ -13833,58 +13953,118 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const candidate2 = value;
     const selected2 = candidate2.selectedTokenIds;
     const attempts = candidate2.attempts;
-    if (candidate2.schemaVersion !== 1 || candidate2.sessionId !== "session:lesson-zero-name-card-draft" || !["active", "paused", "complete"].includes(candidate2.status ?? "") || !["build", "result", "complete"].includes(candidate2.stage ?? "") || !tokenSetIsValid(selected2) || typeof candidate2.modelRevealed !== "boolean" || !Array.isArray(attempts) || !attempts.every(attemptShapeIsValid$7)) return false;
+    if (candidate2.schemaVersion !== 2 || candidate2.sessionId !== "session:lesson-zero-name-card-draft" || !["active", "paused", "complete"].includes(candidate2.status ?? "") || !["build", "build-result", "transfer", "transfer-result", "complete"].includes(candidate2.stage ?? "") || !LESSON_ZERO_NAME_CARD_VARIANTS.includes(candidate2.nameVariant) || !tokenSetIsValid(selected2) || candidate2.selectedTransferId !== null && !LESSON_ZERO_NAME_CARD_TRANSFER_IDS.includes(candidate2.selectedTransferId) || typeof candidate2.modelRevealed !== "boolean" || !Array.isArray(attempts) || !attempts.every(attemptShapeIsValid$7)) return false;
     if (candidate2.status === "complete") {
-      return candidate2.stage === "complete" && attempts.at(-1)?.outcome === "pass";
+      return candidate2.stage === "complete" && attempts.at(-1)?.phase === "transfer" && attempts.at(-1)?.outcome === "pass";
     }
     if (candidate2.stage === "complete") return false;
-    if (candidate2.stage === "result") return attempts.at(-1)?.outcome === "lapse";
+    if (candidate2.stage === "build-result") {
+      return attempts.at(-1)?.phase === "build" && attempts.at(-1)?.outcome === "lapse";
+    }
+    if (candidate2.stage === "transfer") {
+      return attempts.some((attempt) => attempt.phase === "build" && attempt.outcome === "pass");
+    }
+    if (candidate2.stage === "transfer-result") {
+      return attempts.at(-1)?.phase === "transfer" && attempts.at(-1)?.outcome === "lapse";
+    }
     return true;
   }
-  function lessonZeroNameCardLine(definition2) {
-    return `${definition2.learnerName}です。`;
+  function lessonZeroNameCardDisplayName(definition2, variant2 = definition2.defaultNameVariant) {
+    return variant2 === "katakana" && definition2.katakanaName ? definition2.katakanaName : definition2.usualName;
   }
-  function check$2(definition2, state, at) {
-    if (state.stage !== "build" || state.selectedTokenIds.length !== definition2.correctOrder.length) {
-      return unchanged$7(state);
-    }
-    const correctPositions = state.selectedTokenIds.filter((id2, index) => definition2.correctOrder[index] === id2).length;
-    const score = correctPositions / definition2.correctOrder.length;
-    const outcome = score === 1 ? "pass" : "lapse";
+  function lessonZeroNameCardLine(definition2, variant2 = definition2.defaultNameVariant) {
+    return `${lessonZeroNameCardDisplayName(definition2, variant2)}です。`;
+  }
+  function lessonZeroNameCardToken(definition2, variant2, tokenId) {
+    const token = definition2.tokens.find((candidate2) => candidate2.id === tokenId);
+    if (!token) throw new TypeError(`Unknown name-card piece: ${tokenId}.`);
+    if (tokenId !== "learner-name") return token;
+    const text2 = lessonZeroNameCardDisplayName(definition2, variant2);
+    return { ...token, text: text2, reading: text2 };
+  }
+  function lessonZeroNameCardTransferLine(definition2, state, transferId) {
+    if (transferId === "rie") return "りえです。";
+    if (transferId === "learner") return lessonZeroNameCardLine(definition2, state.nameVariant);
+    return "です。りえ";
+  }
+  function checkBuild(definition2, state, at) {
+    if (state.selectedTokenIds.length !== definition2.correctOrder.length) return unchanged$7(state);
+    const correctPositions = state.selectedTokenIds.filter(
+      (id2, index) => definition2.correctOrder[index] === id2
+    ).length;
     const attempt = {
+      phase: "build",
       order: [...state.selectedTokenIds],
-      outcome,
-      score,
+      outcome: correctPositions === definition2.correctOrder.length ? "pass" : "lapse",
+      score: correctPositions / definition2.correctOrder.length,
       at
     };
-    const repairing = outcome === "lapse" || state.attempts.some((candidate2) => candidate2.outcome === "lapse");
-    const eventId = `${definition2.id}:attempt:${state.attempts.length + 1}:${at}`;
+    const eventId = `${definition2.id}:build:${state.attempts.length + 1}:${at}`;
+    const repairing = attempt.outcome === "lapse" || state.attempts.some((candidate2) => candidate2.outcome === "lapse");
     const nextState = {
       ...state,
-      status: outcome === "pass" ? "complete" : "active",
-      stage: outcome === "pass" ? "complete" : "result",
-      attempts: [...state.attempts, attempt]
+      stage: attempt.outcome === "pass" ? "transfer" : "build-result",
+      selectedTokenIds: [],
+      selectedTransferId: null,
+      attempts: [...state.attempts, attempt],
+      modelRevealed: false
     };
     return {
       state: nextState,
       evaluation: evaluationFor$6(definition2, attempt, repairing, eventId),
-      adaptive: {
-        eventId: `${eventId}:learning`,
-        at,
-        modeId: "lesson-zero-name-card",
-        skill: "grammar",
-        action: repairing ? "repair" : "produce",
-        sourceId: definition2.activityId,
-        independent: !repairing
-      },
+      adaptive: adaptiveFor$1(definition2, attempt, repairing, eventId),
       supportEvents: []
     };
   }
-  function revealModel$3(definition2, state, at) {
-    if (state.stage !== "result" || state.attempts.at(-1)?.outcome !== "lapse" || state.modelRevealed) {
-      return unchanged$7(state);
+  function checkTransfer(definition2, state, at) {
+    if (!state.selectedTransferId) return unchanged$7(state);
+    const attempt = {
+      phase: "transfer",
+      selectedId: state.selectedTransferId,
+      outcome: state.selectedTransferId === "rie" ? "pass" : "lapse",
+      score: state.selectedTransferId === "rie" ? 1 : 0,
+      at
+    };
+    const eventId = `${definition2.id}:transfer:${state.attempts.length + 1}:${at}`;
+    const repairing = attempt.outcome === "lapse" || state.attempts.some((candidate2) => candidate2.outcome === "lapse");
+    const nextState = {
+      ...state,
+      status: attempt.outcome === "pass" ? "complete" : "active",
+      stage: attempt.outcome === "pass" ? "complete" : "transfer-result",
+      selectedTransferId: null,
+      attempts: [...state.attempts, attempt],
+      modelRevealed: false
+    };
+    return {
+      state: nextState,
+      evaluation: evaluationFor$6(definition2, attempt, repairing, eventId),
+      adaptive: adaptiveFor$1(definition2, attempt, repairing, eventId),
+      supportEvents: []
+    };
+  }
+  function retry(state) {
+    if (state.stage === "build-result" && state.attempts.at(-1)?.outcome === "lapse") {
+      return unchanged$7({
+        ...state,
+        stage: "build",
+        selectedTokenIds: [],
+        modelRevealed: false
+      });
     }
-    const stem = `${definition2.id}:support:${at}`;
+    if (state.stage === "transfer-result" && state.attempts.at(-1)?.outcome === "lapse") {
+      return unchanged$7({
+        ...state,
+        stage: "transfer",
+        selectedTransferId: null,
+        modelRevealed: false
+      });
+    }
+    return unchanged$7(state);
+  }
+  function revealModel$3(definition2, state, at) {
+    if (!["build-result", "transfer-result"].includes(state.stage) || state.attempts.at(-1)?.outcome !== "lapse" || state.modelRevealed) return unchanged$7(state);
+    const phase = state.stage === "build-result" ? "build" : "transfer";
+    const stem = `${definition2.id}:${phase}:support:${at}`;
     return {
       state: { ...state, modelRevealed: true },
       supportEvents: [
@@ -13895,8 +14075,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     };
   }
   function evaluationFor$6(definition2, attempt, repairing, eventId) {
-    const errorTags = attempt.outcome === "pass" ? [] : ["name-card:word-order"];
-    const reviewSeeds2 = attempt.outcome === "pass" ? [{
+    const errorTags = attempt.outcome === "pass" ? [] : [attempt.phase === "build" ? "name-card:word-order" : "name-card:changed-person"];
+    const reviewSeeds2 = attempt.phase === "transfer" && attempt.outcome === "pass" ? [{
       id: "review:lesson-zero:name-card:desu",
       conceptId: "concept:copula-affirmative",
       reason: repairing ? "repair" : "new-learning",
@@ -13914,7 +14094,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         at: attempt.at,
         activityId: definition2.activityId,
         conceptIds: definition2.conceptIds,
-        responseKind: "tapped-name-card-frame",
+        responseKind: attempt.phase === "build" ? "tapped-name-card-frame" : "selected-changed-person-name-card",
         outcome: attempt.outcome,
         score: attempt.score,
         ...errorTags.length ? { errorTags } : {}
@@ -13925,32 +14105,43 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         errorTags,
         feedback: attempt.outcome === "pass" ? {
           explanation: {
-            en: "Your name comes first. です finishes the introduction.",
-            ja: "名前が先です。「です」で自己紹介を終えます。"
+            en: attempt.phase === "build" ? "Your name comes first. です finishes the introduction." : "That is Rie’s card.",
+            ja: attempt.phase === "build" ? "名前が先です。「です」で自己紹介を終えます。" : "りえ先生の名札です。"
           }
         } : {
           explanation: {
-            en: "Keep your name first, just as Rie did in her example.",
-            ja: "りえ先生の例と同じように、名前を先に置きましょう。"
+            en: attempt.phase === "build" ? "Keep your name first, just as Rie did." : "Look for Rie’s name before です.",
+            ja: attempt.phase === "build" ? "りえ先生と同じように、名前を先に置きましょう。" : "「です」の前に、りえ先生の名前を探しましょう。"
           },
           repairPrompt: {
-            en: "Try the two pieces again.",
-            ja: "二つをもう一度並べましょう。"
+            en: "Try once more.",
+            ja: "もう一度やってみましょう。"
           }
         }
       },
       reviewSeeds: reviewSeeds2
     };
   }
+  function adaptiveFor$1(definition2, attempt, repairing, eventId) {
+    return {
+      eventId: `${eventId}:learning`,
+      at: attempt.at,
+      modeId: "lesson-zero-name-card",
+      skill: "grammar",
+      action: repairing ? "repair" : attempt.phase === "transfer" ? "transfer" : "produce",
+      sourceId: definition2.activityId,
+      independent: !repairing
+    };
+  }
   function validateDefinition$9(definition2) {
-    if (definition2.schemaVersion !== 1 || definition2.id !== "session:lesson-zero-name-card-draft" || definition2.activityId !== "activity:lesson-zero-name-card-draft" || !definition2.learnerName.trim() || definition2.conceptIds.length !== 2 || !sameList$5(definition2.correctOrder, LESSON_ZERO_NAME_CARD_TOKEN_IDS) || !sameList$5(definition2.tokens.map((token) => token.id), LESSON_ZERO_NAME_CARD_TOKEN_IDS) || definition2.tokens.some((token) => !token.text.trim() || !token.reading.trim())) {
+    if (definition2.schemaVersion !== 2 || definition2.id !== "session:lesson-zero-name-card-draft" || definition2.activityId !== "activity:lesson-zero-name-card-draft" || !definition2.usualName.trim() || definition2.katakanaName !== null && !definition2.katakanaName.trim() || definition2.defaultNameVariant === "katakana" && !definition2.katakanaName || definition2.conceptIds.length !== 2 || !sameList$5(definition2.correctOrder, LESSON_ZERO_NAME_CARD_TOKEN_IDS) || !sameList$5(definition2.tokens.map((token) => token.id), LESSON_ZERO_NAME_CARD_TOKEN_IDS) || definition2.tokens.some((token) => !token.text.trim() || !token.reading.trim())) {
       throw new TypeError("Invalid Lesson Zero name-card definition.");
     }
   }
   function validateSnapshotAgainstDefinition$7(definition2, snapshot) {
     const validIds = new Set(definition2.correctOrder);
-    if (snapshot.selectedTokenIds.some((id2) => !validIds.has(id2)) || snapshot.attempts.some((attempt) => attempt.order.some((id2) => !validIds.has(id2)))) {
-      throw new TypeError("Lesson Zero name-card snapshot contains an unknown piece.");
+    if (snapshot.nameVariant === "katakana" && !definition2.katakanaName || snapshot.selectedTokenIds.some((id2) => !validIds.has(id2)) || snapshot.attempts.some((attempt) => attempt.phase === "build" && attempt.order.some((id2) => !validIds.has(id2)))) {
+      throw new TypeError("Invalid Lesson Zero name-card snapshot for this learner.");
     }
   }
   function tokenSetIsValid(value) {
@@ -13959,7 +14150,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function attemptShapeIsValid$7(value) {
     if (!value || typeof value !== "object") return false;
     const attempt = value;
-    return tokenSetIsValid(attempt.order) && attempt.order.length === LESSON_ZERO_NAME_CARD_TOKEN_IDS.length && (attempt.outcome === "pass" || attempt.outcome === "lapse") && typeof attempt.score === "number" && Number.isFinite(attempt.score) && attempt.score >= 0 && attempt.score <= 1 && typeof attempt.at === "number" && Number.isFinite(attempt.at);
+    if (attempt.outcome !== "pass" && attempt.outcome !== "lapse" || typeof attempt.score !== "number" || !Number.isFinite(attempt.score) || attempt.score < 0 || attempt.score > 1 || typeof attempt.at !== "number" || !Number.isFinite(attempt.at)) return false;
+    if (attempt.phase === "build") {
+      return tokenSetIsValid(attempt.order) && attempt.order.length === LESSON_ZERO_NAME_CARD_TOKEN_IDS.length;
+    }
+    return attempt.phase === "transfer" && LESSON_ZERO_NAME_CARD_TRANSFER_IDS.includes(attempt.selectedId);
   }
   function supportEvent$4(activityId, supportKind, eventId, at) {
     return { kind: "support-used", eventId, at, activityId, supportKind };
@@ -13981,17 +14176,20 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (!learnerName || learnerName.length > 48 || /[\p{Cc}\p{Cs}]/u.test(learnerName)) {
       throw new TypeError("The name-card lesson needs the learner name chosen during arrival.");
     }
+    const nameDraft = createKatakanaNameDraft(learnerName);
     return Object.freeze({
-      schemaVersion: 1,
+      schemaVersion: 2,
       id: "session:lesson-zero-name-card-draft",
       activityId: LESSON_ZERO_NAME_CARD_ACTIVITY_ID,
-      learnerName,
+      usualName: nameDraft.usualName,
+      katakanaName: nameDraft.katakana,
+      defaultNameVariant: nameDraft.katakana ? "katakana" : "usual",
       conceptIds: Object.freeze([...activity2.conceptIds]),
       tokens: Object.freeze([
         Object.freeze({
           id: "learner-name",
-          text: learnerName,
-          reading: learnerName,
+          text: nameDraft.katakana ?? nameDraft.usualName,
+          reading: nameDraft.katakana ?? nameDraft.usualName,
           cue: Object.freeze({ en: "your name", ja: "あなたの名前" })
         }),
         Object.freeze({
@@ -14003,18 +14201,21 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       ]),
       correctOrder: LESSON_ZERO_NAME_CARD_TOKEN_IDS,
       model: Object.freeze({
-        japanese: "りえです。",
-        reading: "りえです",
-        meaning: Object.freeze({ en: "I'm Rie.", ja: "りえです。" })
+        japanese: "こんばんは。はじめまして。りえです。よろしくお願いします。",
+        reading: "こんばんは。はじめまして。りえです。よろしくおねがいします",
+        focusJapanese: "りえです。",
+        meaning: Object.freeze({ en: "Good evening. Nice to meet you. I'm Rie.", ja: "こんばんは。はじめまして。りえです。よろしくお願いします。" }),
+        bindingId: "lesson-zero:greeting-rie-model"
       }),
       response: Object.freeze({
         speakerId: "rie",
-        japanese: "はい、できました。机に置きましょう。",
-        reading: "はい、できました。つくえにおきましょう",
+        japanese: "はい。今日から、あなたのクラスです。",
+        reading: "はい。きょうから、あなたのクラスです",
         meaning: Object.freeze({
-          en: "Done. Put it on the desk.",
-          ja: "はい、できました。机に置きましょう。"
-        })
+          en: "Yes. From today, this is your class.",
+          ja: "はい。今日から、あなたのクラスです。"
+        }),
+        bindingId: "lesson-zero:sentence-frame:noun-link:response"
       })
     });
   }
@@ -20484,24 +20685,24 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function sameObject$7(left, right) {
     return JSON.stringify(left) === JSON.stringify(right);
   }
-  function localizedText(ja, en) {
+  function localizedText$1(ja, en) {
     return Object.freeze({ ja, en });
   }
   function choiceOption(id2, ja, en) {
-    return Object.freeze({ id: id2, label: localizedText(ja, en) });
+    return Object.freeze({ id: id2, label: localizedText$1(ja, en) });
   }
   function orderingAction(id2, ja, en) {
-    return Object.freeze({ id: id2, label: localizedText(ja, en) });
+    return Object.freeze({ id: id2, label: localizedText$1(ja, en) });
   }
   function choiceQuestion(id2, ja, en, options, correctOptionId, errorTag2) {
-    return Object.freeze({ kind: "choice", id: id2, prompt: localizedText(ja, en), options: Object.freeze(options), correctOptionId, errorTag: errorTag2 });
+    return Object.freeze({ kind: "choice", id: id2, prompt: localizedText$1(ja, en), options: Object.freeze(options), correctOptionId, errorTag: errorTag2 });
   }
   function typedQuestion(id2, ja, en, fieldJa, fieldEn, acceptedAnswers2, errorTag2) {
     return Object.freeze({
       kind: "typed",
       id: id2,
-      prompt: localizedText(ja, en),
-      fieldLabel: localizedText(fieldJa, fieldEn),
+      prompt: localizedText$1(ja, en),
+      fieldLabel: localizedText$1(fieldJa, fieldEn),
       acceptedAnswers: Object.freeze([...acceptedAnswers2]),
       errorTag: errorTag2
     });
@@ -20510,7 +20711,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return Object.freeze({
       kind: "ordering",
       id: id2,
-      prompt: localizedText(ja, en),
+      prompt: localizedText$1(ja, en),
       actions: Object.freeze(actions),
       presentationOrder: Object.freeze([...presentationOrder]),
       correctOrder: Object.freeze([...correctOrder]),
@@ -20563,14 +20764,14 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       introduces: concept,
       recycles: ["vocabulary:n3-home-and-distance"],
       prerequisite: n2OpeningPrerequisite("vocabulary:n3-home-and-distance", "家、方角、距離の基本語を使ったことがある。", "Has used basic home, direction, and distance vocabulary."),
-      prompt: localizedText("住まいと引っ越しの条件を読み、行動に結び付けましょう。", "Read home and moving conditions and connect them to actions."),
-      instructionTitle: localizedText("物件と引っ越しの二つの語彙棚", "Two vocabulary shelves: property and moving"),
+      prompt: localizedText$1("住まいと引っ越しの条件を読み、行動に結び付けましょう。", "Read home and moving conditions and connect them to actions."),
+      instructionTitle: localizedText$1("物件と引っ越しの二つの語彙棚", "Two vocabulary shelves: property and moving"),
       instructionEntries: [
         n2OpeningInstruction("家賃・敷金・礼金", "Separate monthly rent, refundable deposit, and non-refundable key money."),
         n2OpeningInstruction("徒歩・築年数・南向き", "Read walking time, building age, and orientation as separate conditions."),
         n2OpeningInstruction("荷造り・段ボール・粗大ごみ", "Connect packing, boxes, and bulky waste to moving actions.")
       ],
-      contentTitle: localizedText("美咲さんのアパート探しと引っ越しメモ", "Misaki’s apartment search and moving note"),
+      contentTitle: localizedText$1("美咲さんのアパート探しと引っ越しメモ", "Misaki’s apartment search and moving note"),
       paragraphs: N2_APARTMENT_MOVING_PARAGRAPHS,
       questions: [
         choiceQuestion("housing-fit", "美咲さんの希望をすべて満たす物件はどれですか。", "Which property meets all of Misaki’s conditions?", [
@@ -20689,14 +20890,14 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       introduces: concept,
       recycles: ["vocabulary:n2-home-and-moving", "grammar:n2-ppoi-evaluation", "reading:n2-practical-constraints"],
       prerequisite: n2OpeningPrerequisite("reading:n2-practical-constraints", "短い実用文の条件と例外を行動順にできる。", "Can turn practical constraints and exceptions into action order.", "n2-home-life-opening-03-coupon"),
-      prompt: localizedText("既知の語を支えに、止まらず短い物語の転換まで読みましょう。", "Use familiar words to keep moving through a short story and its turn."),
-      instructionTitle: localizedText("レベル4の読み方を一段だけ足す", "Add one level-4 reading move"),
+      prompt: localizedText$1("既知の語を支えに、止まらず短い物語の転換まで読みましょう。", "Use familiar words to keep moving through a short story and its turn."),
+      instructionTitle: localizedText$1("レベル4の読み方を一段だけ足す", "Add one level-4 reading move"),
       instructionEntries: [
         n2OpeningInstruction("知らない語で毎回止まらない", "Mark an unknown word and continue if the event sequence remains clear."),
         n2OpeningInstruction("しかしの前後を比べる", "Treat shikashi as a change in expectation."),
         n2OpeningInstruction("最後に決め手を一文で言う", "Summarize the deciding factor after tracking the whole text.")
       ],
-      contentTitle: localizedText("オリジナル・ミニリーダー「新しい部屋」", "Original mini-reader: “The new room”"),
+      contentTitle: localizedText$1("オリジナル・ミニリーダー「新しい部屋」", "Original mini-reader: “The new room”"),
       paragraphs: N2_HOME_LIFE_READER_PARAGRAPHS,
       questions: [
         choiceQuestion("reader-gist", "美咲さんが青葉ハイツを選んだ理由として最もよいものはどれですか。", "Which best explains why Misaki chose Aoba Heights?", [
@@ -20804,14 +21005,14 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       introduces: concept,
       recycles: ["vocabulary:n2-home-and-moving", "grammar:n2-ppoi-evaluation"],
       prerequisite: n2OpeningPrerequisite("grammar:n2-ppoi-evaluation", "事実と見た印象を分けられる。", "Can separate a fact from an impression.", "n2-home-life-opening-02-ppoi"),
-      prompt: localizedText("割引券の期限、対象、例外、使う順番を取り出しましょう。", "Retrieve the coupon deadline, eligibility, exceptions, and use order."),
-      instructionTitle: localizedText("身の回りの文書は条件語から読む", "Read everyday documents through constraint words"),
+      prompt: localizedText$1("割引券の期限、対象、例外、使う順番を取り出しましょう。", "Retrieve the coupon deadline, eligibility, exceptions, and use order."),
+      instructionTitle: localizedText$1("身の回りの文書は条件語から読む", "Read everyday documents through constraint words"),
       instructionEntries: [
         n2OpeningInstruction("有効期限・〜まで", "Locate the last valid date before reading every detail."),
         n2OpeningInstruction("対象・〜には使えません", "Keep eligible items separate from exclusions."),
         n2OpeningInstruction("会計の前・一人一回・併用不可", "Track timing, frequency, and combination rules independently.")
       ],
-      contentTitle: localizedText("引っ越し用品20%割引券", "20% off moving supplies"),
+      contentTitle: localizedText$1("引っ越し用品20%割引券", "20% off moving supplies"),
       paragraphs: N2_MOVING_COUPON_PARAGRAPHS,
       questions: [
         choiceQuestion("notice-eligible", "この券で割引になる組み合わせはどれですか。", "Which pair is eligible for the discount?", [
@@ -20977,20 +21178,20 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       introduces: concept,
       recycles: ["vocabulary:n2-home-and-moving", "grammar:n2-ppoi-evaluation", "reading:n2-practical-constraints", "reading:n2-narrative-turn"],
       prerequisite: n2OpeningPrerequisite("reading:n2-narrative-turn", "短い物語で予定や判断の変化を追える。", "Can track a change of plan or judgment in a short story.", "n2-home-life-opening-04-reader"),
-      prompt: localizedText("引っ越し会話を聞き、更新された「まずすること」を一度で決めましょう。", "Listen to the moving conversation and commit to the updated first task."),
-      instructionTitle: localizedText("音より先に、予定の更新を追う", "Track plan updates, not isolated task words"),
+      prompt: localizedText$1("引っ越し会話を聞き、更新された「まずすること」を一度で決めましょう。", "Listen to the moving conversation and commit to the updated first task."),
+      instructionTitle: localizedText$1("音より先に、予定の更新を追う", "Track plan updates, not isolated task words"),
       instructionEntries: [
         n2OpeningInstruction("済んだ：もう箱に詰めた", "Remove tasks explicitly described as already complete."),
         n2OpeningInstruction("不要になった：もう用意してある", "Remove a planned task when someone says it is already handled."),
         n2OpeningInstruction("まず・その後：最後の順番を取る", "Use explicit sequencing after all updates have been heard.")
       ],
-      contentTitle: localizedText("聞く前の一行メモ", "One-line pre-listening note"),
+      contentTitle: localizedText$1("聞く前の一行メモ", "One-line pre-listening note"),
       paragraphs: N2_MOVING_PRIORITY_STRATEGY,
       media: Object.freeze({
         kind: "exact-soya-listening",
         audioUrl: source2.sourceAudio.packageUrl,
         imageUrl: source2.sourceImage.packageUrl,
-        imageAlt: localizedText("引っ越しの箱を前に話す夫婦", "A couple talking beside moving boxes"),
+        imageAlt: localizedText$1("引っ越しの箱を前に話す夫婦", "A couple talking beside moving boxes"),
         transcriptVisibility: "after-attempt",
         answerVisibility: "after-attempt",
         transcript: N2_MOVING_PRIORITY_TRANSCRIPT,
@@ -21083,14 +21284,14 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       introduces: concept,
       recycles: ["vocabulary:n2-home-and-moving"],
       prerequisite: n2OpeningPrerequisite("vocabulary:n2-home-and-moving", "物件と引っ越しの基本条件を読み分けられる。", "Can distinguish basic property and moving conditions.", "n2-home-life-opening-01-apartment-moving"),
-      prompt: localizedText("既知の住まい語彙に「〜っぽい」を一つだけ足しましょう。", "Add just one new form, -ppoi, to familiar housing vocabulary."),
-      instructionTitle: localizedText("見た印象を「〜っぽい」で表す", "Express an impression with -ppoi"),
+      prompt: localizedText$1("既知の住まい語彙に「〜っぽい」を一つだけ足しましょう。", "Add just one new form, -ppoi, to familiar housing vocabulary."),
+      instructionTitle: localizedText$1("見た印象を「〜っぽい」で表す", "Express an impression with -ppoi"),
       instructionEntries: [
         n2OpeningInstruction("名詞 + っぽい：子供っぽい", "The noun seems characteristic of, or resembles, the named thing."),
         n2OpeningInstruction("語幹 + っぽい：安っぽい・忘れっぽい", "The stem describes a noticeable impression or recurring tendency."),
         n2OpeningInstruction("客観的な数字には使わない", "Use it for an impression, not an objective rent or walking-time figure.")
       ],
-      contentTitle: localizedText("見学で受けた印象", "An impression during the viewing"),
+      contentTitle: localizedText$1("見学で受けた印象", "An impression during the viewing"),
       paragraphs: N2_PPOI_IMPRESSION_PARAGRAPHS,
       questions: [
         typedQuestion("ppoi-form", "「値段が低そうな印象だ」という意味になる形を一語で書いてください。", "Write the form meaning “it gives a cheap-looking impression.”", "〜っぽいの形", "-ppoi form", ["安っぽい", "やすっぽい"], "ppoi-form"),
@@ -45259,9 +45460,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
     "activity:lesson-zero-vowel-doodle",
     "activity:lesson-zero-follow-instructions",
     "activity:lesson-zero-reconstruct-repair",
+    "activity:lesson-zero-name-card-draft",
     "activity:lesson-zero-desk-language",
     "activity:lesson-zero-build-sentence-frames",
-    "activity:lesson-zero-name-card-draft",
     "activity:lesson-zero-sound-input",
     "activity:lesson-zero-text-input",
     "activity:lesson-zero-speaking-input",
@@ -45321,6 +45522,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     "activity:lesson-zero-vowel-doodle",
     "activity:lesson-zero-follow-instructions",
     "activity:lesson-zero-reconstruct-repair",
+    "activity:lesson-zero-name-card-draft",
     "activity:lesson-zero-desk-language",
     "activity:lesson-zero-build-sentence-frames",
     "activity:lesson-zero-sound-input",
@@ -45498,7 +45700,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     `Attempt, support, and completion evidence persist for ${activityId}.`,
     `The story handoff, direct resume, repair, and return path are proved for ${activityId}.`,
     [],
-    DAY_ONE_VERIFIED_ACTIVITY_IDS.has(activityId) ? VERIFIED_DELIVERY : activityId === "activity:lesson-zero-greet-rie" ? VERIFIED_DELIVERY : activityId === "activity:lesson-zero-vowel-doodle" || activityId === "activity:lesson-zero-follow-instructions" || activityId === "activity:lesson-zero-reconstruct-repair" || activityId === "activity:lesson-zero-name-card-draft" ? VERIFIED_STANDALONE_ACTIVITY_DELIVERY : UNVERIFIED_DELIVERY
+    DAY_ONE_VERIFIED_ACTIVITY_IDS.has(activityId) ? VERIFIED_DELIVERY : activityId === "activity:lesson-zero-greet-rie" ? VERIFIED_DELIVERY : activityId === "activity:lesson-zero-vowel-doodle" || activityId === "activity:lesson-zero-follow-instructions" || activityId === "activity:lesson-zero-reconstruct-repair" ? VERIFIED_STANDALONE_ACTIVITY_DELIVERY : UNVERIFIED_DELIVERY
   ));
   [
     entry$P(
@@ -89378,100 +89580,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     row2.append(meter, copy2);
     return row2;
-  }
-  const EMAIL_LIKE_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/u;
-  const KATAKANA_NAME_RE = /^[\p{Script=Katakana}ー・\s]+$/u;
-  const HIRAGANA_NAME_RE = /^[\p{Script=Hiragana}ー・\s]+$/u;
-  const ROMAJI_NAME_RE = /^[a-z][a-z' -]*$/iu;
-  const KNOWN_KATAKANA_NAMES = Object.freeze({
-    aakash: "アーカッシュ",
-    alex: "アレックス",
-    andrew: "アンドリュー",
-    anna: "アンナ",
-    brian: "ブライアン",
-    christian: "クリスチャン",
-    daniel: "ダニエル",
-    david: "デイビッド",
-    edward: "エドワード",
-    emily: "エミリー",
-    felix: "フェリックス",
-    francis: "フランシス",
-    george: "ジョージ",
-    henry: "ヘンリー",
-    james: "ジェームズ",
-    jenny: "ジェニー",
-    john: "ジョン",
-    joseph: "ジョセフ",
-    karen: "カレン",
-    kevin: "ケビン",
-    maria: "マリア",
-    mary: "メアリー",
-    michael: "マイケル",
-    mika: "ミカ",
-    mina: "ミナ",
-    mira: "ミラ",
-    nicholas: "ニコラス",
-    paul: "ポール",
-    peter: "ピーター",
-    richard: "リチャード",
-    rie: "リエ",
-    riku: "リク",
-    robert: "ロバート",
-    rose: "ローズ",
-    sam: "サム",
-    shaun: "ショーン",
-    sophie: "ソフィー",
-    steve: "スティーブ",
-    steven: "スティーブン",
-    susan: "スーザン",
-    takeshi: "タケシ",
-    thomas: "トーマス",
-    tom: "トム",
-    william: "ウィリアム",
-    xingyu: "シンユ"
-  });
-  function profileNameForEditing(value) {
-    const name = normalizeName(value ?? "");
-    if (!name || EMAIL_LIKE_RE.test(name) || /^(?:learner|student|you)$/iu.test(name)) return "";
-    return name;
-  }
-  function createKatakanaNameDraft(value) {
-    const usualName = normalizeName(value);
-    if (!usualName) return Object.freeze({ usualName: "", katakana: null, source: "unavailable" });
-    if (KATAKANA_NAME_RE.test(usualName)) {
-      return Object.freeze({ usualName, katakana: usualName, source: "already-katakana" });
-    }
-    if (HIRAGANA_NAME_RE.test(usualName)) {
-      return Object.freeze({
-        usualName,
-        katakana: convertHiraganaToKatakana(usualName),
-        source: "hiragana"
-      });
-    }
-    if (!ROMAJI_NAME_RE.test(usualName)) {
-      return Object.freeze({ usualName, katakana: null, source: "unavailable" });
-    }
-    const words = usualName.toLowerCase().split(/[\s-]+/u).filter(Boolean);
-    const known = words.map((word) => KNOWN_KATAKANA_NAMES[word]);
-    if (known.every(Boolean)) {
-      return Object.freeze({
-        usualName,
-        katakana: known.join("・"),
-        source: "known-name"
-      });
-    }
-    const converted = words.map((word) => convertHiraganaToKatakana(convertRomajiToKana(word)));
-    if (converted.every((word) => word && !/[a-z]/iu.test(word))) {
-      return Object.freeze({
-        usualName,
-        katakana: converted.join("・"),
-        source: "romaji"
-      });
-    }
-    return Object.freeze({ usualName, katakana: null, source: "unavailable" });
-  }
-  function normalizeName(value) {
-    return value.normalize("NFKC").replace(/\s+/gu, " ").trim();
   }
   const PORTRAITS = [
     ["quality-2", "portraitCamera"],
@@ -244226,16 +244334,16 @@ recommendedJiten	Jiten由来の頻度バッジです。
             root.dataset.outcome = evaluation.result.outcome;
             showEvaluation$1(status2, evaluation, host2);
             if (evaluation.result.outcome === "lapse") {
-              const retry = button$2(host2.language === "ja" ? "もう一度" : "Try again");
-              retry.addEventListener("click", () => {
+              const retry2 = button$2(host2.language === "ja" ? "もう一度" : "Try again");
+              retry2.addEventListener("click", () => {
                 session = createClassActivitySession(model2);
                 delete root.dataset.outcome;
                 status2.replaceChildren();
                 setPending$1(root, false);
                 draw();
               }, { signal: lifecycle.signal, once: true });
-              status2.append(retry);
-              retry.focus();
+              status2.append(retry2);
+              retry2.focus();
             }
           }).catch((error) => {
             setPending$1(root, false);
@@ -248080,14 +248188,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
         status2.textContent = "";
         const message = document.createElement("p");
         message.textContent = error instanceof Error ? error.message : String(error);
-        const retry = document.createElement("button");
-        retry.type = "button";
-        retry.className = "academy-button academy-button-primary academy-kana-sound-map-retry";
-        retry.textContent = localized$g(host2, "Try submitting again", "もう一度送信する");
-        retry.addEventListener("click", submitCompleted, { signal: lifecycle.signal });
-        feedback2.replaceChildren(message, retry);
+        const retry2 = document.createElement("button");
+        retry2.type = "button";
+        retry2.className = "academy-button academy-button-primary academy-kana-sound-map-retry";
+        retry2.textContent = localized$g(host2, "Try submitting again", "もう一度送信する");
+        retry2.addEventListener("click", submitCompleted, { signal: lifecycle.signal });
+        feedback2.replaceChildren(message, retry2);
         host2.announce(message.textContent);
-        retry.focus();
+        retry2.focus();
       });
     };
     const choose = (kanaId) => {
@@ -255743,14 +255851,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
       root.append(localizedParagraph$2(evaluation.result.feedback.nearbyExample));
     }
   }
-  function showSubmissionError(root, host2, error, retry, signal) {
+  function showSubmissionError(root, host2, error, retry2, signal) {
     const message = error instanceof Error ? error.message : String(error);
     const paragraph = textParagraph(message);
     const button2 = document.createElement("button");
     button2.type = "button";
     button2.className = "academy-phrase-karuta-retry";
     button2.textContent = copy(host2, "Try submitting again", "もう一度送信する");
-    button2.addEventListener("click", () => void retry(), { signal });
+    button2.addEventListener("click", () => void retry2(), { signal });
     root.replaceChildren(paragraph, button2);
     host2.announce(message);
   }
@@ -261035,22 +261143,22 @@ recommendedJiten	Jiten由来の頻度バッジです。
                 },
                 "academy-field-error"
               ));
-              const retry = element("button", "academy-button academy-authored-week-retry-save");
-              retry.type = "button";
-              retry.textContent = options.language === "ja" ? "もう一度保存" : "Try saving again";
-              retry.addEventListener("click", () => {
-                retry.disabled = true;
+              const retry2 = element("button", "academy-button academy-authored-week-retry-save");
+              retry2.type = "button";
+              retry2.textContent = options.language === "ja" ? "もう一度保存" : "Try saving again";
+              retry2.addEventListener("click", () => {
+                retry2.disabled = true;
                 void savePosition(nextPosition).then(() => {
                   retryState.remove();
                   resolve();
                 }).catch(() => {
-                  retry.disabled = false;
-                  retry.focus();
+                  retry2.disabled = false;
+                  retry2.focus();
                 });
               }, { signal: lifecycle.signal });
-              retryState.append(retry);
+              retryState.append(retry2);
               questionHost.append(retryState);
-              retry.focus();
+              retry2.focus();
               lifecycle.signal.addEventListener("abort", () => {
                 retryState.remove();
                 resolve();
@@ -263643,13 +263751,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
         repairCopy(attempt?.errorTag, slipped.id),
         options.language
       );
-      const retry = actionButton$5(COPY$8.retry[options.language], "academy-button-primary");
-      retry.dataset.repeatAction = "retry";
-      retry.addEventListener("click", () => void beginRetry(), { signal });
-      dialogue2.append(title22, prefix, focus, explanation2, retry);
+      const retry2 = actionButton$5(COPY$8.retry[options.language], "academy-button-primary");
+      retry2.dataset.repeatAction = "retry";
+      retry2.addEventListener("click", () => void beginRetry(), { signal });
+      dialogue2.append(title22, prefix, focus, explanation2, retry2);
       root.append(portrait2, dialogue2);
       body.append(root, leaveControl(signal));
-      queueMicrotask(() => retry.focus({ preventScroll: true }));
+      queueMicrotask(() => retry2.focus({ preventScroll: true }));
     };
     const renderTransferReady = (signal) => {
       const root = element("section", "academy-repeat-request-transfer-ready");
@@ -264190,13 +264298,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
         ),
         replayButton(word, signal)
       );
-      const retry = actionButton$4(COPY$7.retry[options.language], "academy-button-primary");
-      retry.dataset.deskAction = "retry";
-      retry.addEventListener("click", () => void beginRetry(), { signal });
-      paper2.append(retry);
+      const retry2 = actionButton$4(COPY$7.retry[options.language], "academy-button-primary");
+      retry2.dataset.deskAction = "retry";
+      retry2.addEventListener("click", () => void beginRetry(), { signal });
+      paper2.append(retry2);
       root.append(portrait2, paper2);
       body.append(root, leaveControl(signal));
-      queueMicrotask(() => retry.focus({ preventScroll: true }));
+      queueMicrotask(() => retry2.focus({ preventScroll: true }));
     };
     const renderTransferReady = (signal) => {
       const root = element("section", "academy-desk-language-transfer-ready");
@@ -265804,26 +265912,45 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return support2;
   }
   const COPY$4 = {
-    eyebrow: { en: "First introduction", ja: "はじめての自己紹介" },
+    eyebrow: { en: "Class name", ja: "クラスの名前" },
     title: { en: "Put your name on the desk", ja: "名前を机に置こう" },
-    progress: { en: "One short sentence", ja: "短い文を一つ" },
+    progressBuild: { en: "1 / 2 · Your card", ja: "1 / 2・自分の名札" },
+    progressTransfer: { en: "2 / 2 · Rie’s card", ja: "2 / 2・りえ先生の名札" },
+    progressComplete: { en: "Ready for class", ja: "クラスの準備完了" },
     instruction: {
-      en: "I wrote the name you chose. Put it before です.",
-      ja: "選んだ名前を書きました。「です」の前に置きましょう。"
+      en: "Choose the name for your card. Put it before です.",
+      ja: "名札の名前を選んで、「です」の前に置きましょう。"
     },
-    modelLabel: { en: "Rie's example", ja: "りえ先生の例" },
-    hearModel: { en: "Hear Rie's example", ja: "りえ先生の例を聞く" },
+    oneNameInstruction: {
+      en: "Use the name you chose. Put it before です.",
+      ja: "選んだ名前を「です」の前に置きましょう。"
+    },
+    nameChoiceLabel: { en: "Name on the card", ja: "名札の名前" },
+    katakanaChoice: { en: "Japanese spelling", ja: "カタカナ" },
+    usualChoice: { en: "Usual spelling", ja: "いつものつづり" },
+    modelLabel: { en: "Listen for りえです", ja: "「りえです」を聞こう" },
+    modelMeaning: { en: "I'm Rie.", ja: "りえです。" },
+    hearModel: { en: "Hear Rie", ja: "りえ先生を聞く" },
     playing: { en: "Playing…", ja: "再生中…" },
     sentenceMeaning: { en: "___ です = I am ___.", ja: "「___です」で名前を伝えます。" },
     sentenceLabel: { en: "Build the sentence", ja: "文を作る" },
     piecesLabel: { en: "Choose the two pieces in order", ja: "二つを順番に選ぶ" },
-    emptySlot: { en: "Choose a piece", ja: "ことばを選ぶ" },
+    emptySlot: { en: "Pick", ja: "選ぶ" },
     clear: { en: "Clear", ja: "やり直す" },
     check: { en: "Check", ja: "確認する" },
-    repairTitle: { en: "Try the order again", ja: "順番をもう一度" },
+    repairTitle: { en: "Put the name first", ja: "名前を先に" },
     repair: { en: "Your name comes first.", ja: "名前が先です。" },
+    transferTitle: { en: "Which card is Rie’s?", ja: "りえ先生の名札はどれ？" },
+    transferInstruction: {
+      en: "The cards moved. Choose the line that says “I’m Rie.”",
+      ja: "名札が動きました。「りえです」を選びましょう。"
+    },
+    transferRepairTitle: { en: "Find Rie’s name", ja: "りえ先生の名前を探そう" },
+    transferRepair: { en: "Look for りえ before です.", ja: "「です」の前の「りえ」を探しましょう。" },
+    transferCheck: { en: "Check the card", ja: "名札を確認" },
     showHelp: { en: "Show the pattern", ja: "形を見る" },
     pattern: { en: "1. your name   2. です", ja: "1. あなたの名前　2. です" },
+    transferPattern: { en: "1. りえ   2. です", ja: "1. りえ　2. です" },
     retry: { en: "Try again", ja: "もう一度" },
     completeTitle: { en: "Your card is ready", ja: "名札ができました" },
     sayIt: { en: "Say the line once aloud.", ja: "文を一度、声に出して言いましょう。" },
@@ -265856,7 +265983,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       localized$3("p", "academy-name-card-eyebrow", COPY$4.eyebrow, options.language),
       localized$3("h1", "academy-name-card-title", COPY$4.title, options.language)
     );
-    const progress2 = localized$3("p", "academy-name-card-progress", COPY$4.progress, options.language);
+    const progress2 = localized$3("p", "academy-name-card-progress", COPY$4.progressBuild, options.language);
     progress2.setAttribute("role", "status");
     header.append(back, heading, progress2);
     const body = element("main", "academy-name-card-body");
@@ -265873,8 +266000,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
       screen.dataset.sessionStatus = state.status;
       screen.dataset.sessionStage = state.stage;
       screen.dataset.attemptCount = String(state.attempts.length);
+      progress2.textContent = localizedText(
+        state.status === "complete" ? COPY$4.progressComplete : state.stage.startsWith("transfer") ? COPY$4.progressTransfer : COPY$4.progressBuild,
+        options.language
+      );
       if (state.status === "complete") renderComplete(renderLifecycle.signal);
-      else if (state.stage === "result") renderRepair(renderLifecycle.signal);
+      else if (state.stage === "build-result" || state.stage === "transfer-result") {
+        renderRepair(renderLifecycle.signal);
+      } else if (state.stage === "transfer") renderTransfer2(renderLifecycle.signal);
       else renderBuild(renderLifecycle.signal);
     };
     const renderBuild = (signal) => {
@@ -265882,8 +266015,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
       const paper2 = livingPaper2();
       paper2.append(
         speakerName2(),
-        localized$3("p", "academy-name-card-dialogue", COPY$4.instruction, options.language),
+        localized$3(
+          "p",
+          "academy-name-card-dialogue",
+          options.definition.katakanaName ? COPY$4.instruction : COPY$4.oneNameInstruction,
+          options.language
+        ),
         modelStrip(signal),
+        nameVariantPicker(signal),
         nameCardBuilder(signal)
       );
       if (state.modelRevealed) {
@@ -265900,16 +266039,32 @@ recommendedJiten	Jiten由来の頻度バッジです。
       body.append(scene2);
     };
     const renderRepair = (signal) => {
+      const transferRepair = state.stage === "transfer-result";
       const scene2 = sceneRoot();
       const paper2 = livingPaper2();
       paper2.dataset.outcome = "lapse";
       paper2.append(
         speakerName2(),
-        localized$3("h2", "academy-name-card-section-title", COPY$4.repairTitle, options.language),
-        localized$3("p", "academy-name-card-dialogue", COPY$4.repair, options.language)
+        localized$3(
+          "h2",
+          "academy-name-card-section-title",
+          transferRepair ? COPY$4.transferRepairTitle : COPY$4.repairTitle,
+          options.language
+        ),
+        localized$3(
+          "p",
+          "academy-name-card-dialogue",
+          transferRepair ? COPY$4.transferRepair : COPY$4.repair,
+          options.language
+        )
       );
       if (state.modelRevealed) {
-        paper2.append(localized$3("p", "academy-name-card-pattern", COPY$4.pattern, options.language));
+        paper2.append(localized$3(
+          "p",
+          "academy-name-card-pattern",
+          transferRepair ? COPY$4.transferPattern : COPY$4.pattern,
+          options.language
+        ));
       }
       const actions = element("div", "academy-name-card-actions");
       if (!state.modelRevealed) {
@@ -265920,16 +266075,50 @@ recommendedJiten	Jiten由来の頻度バッジです。
       scene2.append(portrait2(), paper2);
       body.append(scene2);
     };
+    const renderTransfer2 = (signal) => {
+      const scene2 = sceneRoot();
+      const paper2 = livingPaper2();
+      paper2.append(
+        speakerName2(),
+        localized$3("h2", "academy-name-card-section-title", COPY$4.transferTitle, options.language),
+        localized$3("p", "academy-name-card-dialogue", COPY$4.transferInstruction, options.language)
+      );
+      const choices2 = element("div", "academy-name-card-transfer-choices");
+      choices2.setAttribute("role", "group");
+      choices2.setAttribute("aria-label", COPY$4.transferTitle[options.language]);
+      ["learner", "reversed", "rie"].forEach((transferId) => {
+        const button2 = element("button", "academy-name-card-transfer-choice");
+        button2.type = "button";
+        button2.dataset.transferId = transferId;
+        button2.setAttribute("aria-pressed", String(state.selectedTransferId === transferId));
+        button2.append(japanese(
+          lessonZeroNameCardTransferLine(options.definition, state, transferId),
+          "academy-name-card-transfer-line"
+        ));
+        button2.addEventListener("click", () => void apply({ kind: "select-transfer", transferId }), { signal });
+        choices2.append(button2);
+      });
+      const actions = element("div", "academy-name-card-actions");
+      const check2 = actionButton2(COPY$4.transferCheck, "primary", signal, () => apply({ kind: "check" }));
+      check2.disabled = !state.selectedTransferId;
+      actions.append(check2);
+      paper2.append(choices2, actions);
+      scene2.append(portrait2(), paper2);
+      body.append(scene2);
+    };
     const renderComplete = (signal) => {
       const scene2 = sceneRoot();
       const paper2 = livingPaper2();
       const card = element("section", "academy-name-card-finished");
       card.append(
         localized$3("p", "academy-name-card-card-label", COPY$4.completeTitle, options.language),
-        japanese(lessonZeroNameCardLine(options.definition), "academy-name-card-final-line"),
+        japanese(
+          lessonZeroNameCardLine(options.definition, state.nameVariant),
+          "academy-name-card-final-line"
+        ),
         localized$3("p", "academy-name-card-final-meaning", {
-          en: `I'm ${options.definition.learnerName}.`,
-          ja: `${options.definition.learnerName}です。`
+          en: `I'm ${lessonZeroNameCardDisplayName(options.definition, state.nameVariant)}.`,
+          ja: lessonZeroNameCardLine(options.definition, state.nameVariant)
         }, options.language)
       );
       const response = element("section", "academy-name-card-response");
@@ -265938,7 +266127,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
         japanese(options.definition.response.japanese, "academy-name-card-response-japanese"),
         localized$3("p", "academy-name-card-response-meaning", options.definition.response.meaning, options.language),
         localized$3("p", "academy-name-card-say-it", COPY$4.sayIt, options.language),
-        audioButton(COPY$4.hearRie, options.definition.response.japanese, options.definition.response.reading, signal)
+        audioButton(
+          COPY$4.hearRie,
+          options.definition.response.japanese,
+          options.definition.response.bindingId,
+          signal
+        )
       );
       const actions = element("div", "academy-name-card-actions");
       actions.append(
@@ -265955,11 +266149,44 @@ recommendedJiten	Jiten由来の頻度バッジです。
       const copy2 = element("div", "academy-name-card-model-copy");
       copy2.append(
         localized$3("span", "academy-name-card-model-label", COPY$4.modelLabel, options.language),
-        japanese(options.definition.model.japanese, "academy-name-card-model-line"),
-        localized$3("span", "academy-name-card-model-meaning", options.definition.model.meaning, options.language)
+        japanese(options.definition.model.focusJapanese, "academy-name-card-model-line"),
+        localized$3("span", "academy-name-card-model-meaning", COPY$4.modelMeaning, options.language)
       );
-      model2.append(copy2, audioButton(COPY$4.hearModel, options.definition.model.japanese, options.definition.model.reading, signal));
+      model2.append(copy2, audioButton(
+        COPY$4.hearModel,
+        options.definition.model.japanese,
+        options.definition.model.bindingId,
+        signal
+      ));
       return model2;
+    };
+    const nameVariantPicker = (signal) => {
+      const picker = element("fieldset", "academy-name-card-name-picker");
+      picker.append(localized$3("legend", "academy-name-card-name-picker-label", COPY$4.nameChoiceLabel, options.language));
+      const variants = options.definition.katakanaName ? ["katakana", "usual"] : ["usual"];
+      variants.forEach((variant2) => {
+        const button2 = element("button", "academy-name-card-name-choice");
+        button2.type = "button";
+        button2.dataset.nameVariant = variant2;
+        button2.setAttribute("aria-pressed", String(state.nameVariant === variant2));
+        const name = lessonZeroNameCardDisplayName(options.definition, variant2);
+        button2.append(
+          variant2 === "katakana" ? japanese(name, "academy-name-card-name-choice-value") : textNode$1(name, "academy-name-card-name-choice-value"),
+          localized$3(
+            "span",
+            "academy-name-card-name-choice-note",
+            variant2 === "katakana" ? COPY$4.katakanaChoice : COPY$4.usualChoice,
+            options.language
+          )
+        );
+        button2.addEventListener(
+          "click",
+          () => void apply({ kind: "choose-name-variant", variant: variant2 }),
+          { signal }
+        );
+        picker.append(button2);
+      });
+      return picker;
     };
     const nameCardBuilder = (signal) => {
       const builder = element("section", "academy-name-card-builder");
@@ -265988,7 +266215,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
       bank.setAttribute("aria-label", COPY$4.piecesLabel[options.language]);
       options.definition.tokens.forEach((token) => {
         if (state.selectedTokenIds.includes(token.id)) return;
-        bank.append(tokenButton2(token, "available", signal, () => apply({ kind: "select-token", tokenId: token.id })));
+        bank.append(tokenButton2(
+          tokenFor(token.id),
+          "available",
+          signal,
+          () => apply({ kind: "select-token", tokenId: token.id })
+        ));
       });
       builder.append(rail, bank, localized$3("p", "academy-name-card-frame-meaning", COPY$4.sentenceMeaning, options.language));
       return builder;
@@ -266038,7 +266270,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       state = fresh;
       render2();
     };
-    const audioButton = (copy2, japaneseText, reading, signal) => {
+    const audioButton = (copy2, japaneseText, bindingId, signal) => {
       const button2 = actionButton2(copy2, "listen", signal, async () => {
         if (busy || disposed) return;
         playback?.dispose();
@@ -266047,7 +266279,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
         const label = button2.textContent;
         button2.textContent = COPY$4.playing[options.language];
         try {
-          const active = await options.pronunciation.play(japaneseText, reading);
+          const active = await playLearningVoiceBinding(
+            options.pronunciation,
+            bindingId,
+            japaneseText,
+            signal
+          );
+          if (!active) return;
           if (disposed) active.dispose();
           else playback = active;
         } catch {
@@ -266076,9 +266314,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       }
     };
     function tokenFor(id2) {
-      const token = options.definition.tokens.find((candidate2) => candidate2.id === id2);
-      if (!token) throw new TypeError(`Unknown name-card piece: ${id2}`);
-      return token;
+      return lessonZeroNameCardToken(options.definition, state.nameVariant, id2);
     }
     function sceneRoot() {
       return element("section", "academy-name-card-scene");
@@ -266136,11 +266372,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     return node2;
   }
+  function localizedText(copy2, language2) {
+    return copy2[language2];
+  }
   const TITLES = {
     "activity:lesson-zero-text-input": { en: "Two missing words", ja: "二つの空欄" },
     "activity:lesson-zero-speaking-input": { en: "Your turn in the room", ja: "教室で自分の番" },
     "activity:lesson-zero-read-name-cards": { en: "Find it on the card", ja: "名札から見つける" },
-    "activity:lesson-zero-write-name-card": { en: "Your name in katakana", ja: "名前をカタカナで" },
+    "activity:lesson-zero-write-name-card": { en: "Your class card", ja: "クラスの名札" },
     "activity:lesson-zero-sound-transfer": { en: "Catch it, then ask again", ja: "聞いて、もう一度たずねる" },
     "activity:lesson-zero-text-transfer": { en: "Leave one clear line", ja: "短い一文を残す" },
     "activity:lesson-zero-speaking-transfer": { en: "Welcome the next person", ja: "次の人を迎える" },
@@ -266196,9 +266435,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
     let particleValues = ["", ""];
     const selectedChecks = /* @__PURE__ */ new Set();
     const nameDraft = createKatakanaNameDraft(options.definition.learnerName);
-    let selectedCardName = nameDraft.katakana ?? nameDraft.usualName;
+    const lockedClassName = options.definition.lockedClassName?.trim() || null;
+    let selectedCardName = lockedClassName ?? nameDraft.katakana ?? nameDraft.usualName;
     let editedKatakana = nameDraft.katakana ?? "";
-    let nameEntryMode = nameDraft.katakana ? "katakana-choice" : "usual-spelling";
+    let nameEntryMode = selectedCardName === nameDraft.katakana ? "katakana-choice" : "usual-spelling";
     const screen = element("section", "academy-screen academy-mission-screen");
     screen.dataset.academyScreen = "lesson-zero-mission";
     screen.dataset.activityId = options.definition.activity.id;
@@ -266398,6 +266638,42 @@ recommendedJiten	Jiten由来の頻度バッジです。
     };
     const renderNameCardWriting = (signal) => {
       const root = element("form", "academy-mission-writing academy-mission-name-writing");
+      if (lockedClassName) {
+        root.append(
+          copyNode("p", "academy-mission-help academy-mission-name-help", {
+            en: "Rie kept the name from your first card.",
+            ja: "りえ先生が最初の名札の名前を残してくれました。"
+          }),
+          japaneseOrText(lockedClassName, "academy-mission-name-saved")
+        );
+        if (nameDraft.katakana === lockedClassName) {
+          root.append(actionButton2(
+            { en: `Hear ${lockedClassName}`, ja: `${lockedClassName}を聞く` },
+            "listen",
+            signal,
+            () => playPhrase(lockedClassName, lockedClassName)
+          ));
+        }
+        const preview2 = element("p", "academy-mission-writing-preview");
+        syncNamePreview(preview2);
+        const send2 = actionButton2(
+          { en: "Put the card on the desk", ja: "名札を机に置く" },
+          "primary",
+          signal,
+          () => void 0
+        );
+        send2.type = "submit";
+        root.append(preview2, send2);
+        root.addEventListener("submit", (event) => {
+          event.preventDefault();
+          void submit2({
+            kind: "written",
+            text: `${selectedCardName}です。`,
+            entryMode: nameEntryMode
+          });
+        }, { signal });
+        return root;
+      }
       root.append(copyNode("p", "academy-mission-help academy-mission-name-help", nameDraft.katakana ? {
         en: "You do not need to read katakana yet. Start by listening.",
         ja: "まだカタカナを読めなくても大丈夫です。まず聞いてみましょう。"
@@ -266744,12 +267020,15 @@ recommendedJiten	Jiten由来の頻度バッジです。
       node2.textContent = value;
       return node2;
     }
-    function plainJapanese(value) {
-      const node2 = element("span", "academy-mission-japanese");
+    function plainJapanese(value, className = "academy-mission-japanese") {
+      const node2 = element("span", className);
       node2.lang = "ja";
       node2.dataset.jpdbReaderSurfaceIgnore = "";
       node2.textContent = value;
       return node2;
+    }
+    function japaneseOrText(value, className) {
+      return /[\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}]/u.test(value) ? plainJapanese(value, className) : textNode2(value, className);
     }
     function textNode2(value, className = "") {
       const node2 = element("span", className);
@@ -268097,9 +268376,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
         for (const lineId of missed) transcript.append(transcriptLine(lineId));
         paper2.append(transcript);
       }
-      const retry = actionButton2(COPY$2.retry, "primary", signal, () => apply({ kind: "retry" }));
-      retry.disabled = missed.some((lineId) => !state.repairedLineIds.includes(lineId));
-      paper2.append(retry);
+      const retry2 = actionButton2(COPY$2.retry, "primary", signal, () => apply({ kind: "retry" }));
+      retry2.disabled = missed.some((lineId) => !state.repairedLineIds.includes(lineId));
+      paper2.append(retry2);
       stage2.append(paper2, speakerStage());
     };
     const renderComplete = (signal) => {
@@ -269913,10 +270192,18 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     async renderLessonZeroMission(activityId, context2) {
       const content = await loadLessonZeroContent();
+      const learnerName = context2.projection.profile?.displayName ?? "";
+      const savedNameCard = context2.checkpoint.lessonZeroNameCardProgress;
+      const nameCardActivity = content.lesson.activities.find((candidate2) => candidate2.id === LESSON_ZERO_NAME_CARD_ACTIVITY_ID);
+      const lockedClassName = activityId === "activity:lesson-zero-write-name-card" && savedNameCard?.status === "complete" && nameCardActivity ? lessonZeroNameCardDisplayName(
+        createLessonZeroNameCardDefinition(nameCardActivity, learnerName),
+        savedNameCard.nameVariant
+      ) : void 0;
       const definition2 = createLessonZeroMissionDefinition(
         content,
         activityId,
-        context2.projection.profile?.displayName ?? ""
+        learnerName,
+        lockedClassName
       );
       const returning = context2.projection.completedScenes.includes(AAKASH_RAINY_DIRECTIONS_SCENE_ID);
       const screen = createLessonZeroMissionScreen({
@@ -269926,7 +270213,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         onEvaluation: async (evaluation, response) => {
           this.playFeedbackSfx(evaluation.result.outcome);
           await this.options.evidence.recordActivity(evaluation, LESSON_ZERO_ID);
-          if (evaluation.result.outcome === "pass" && activityId === "activity:lesson-zero-write-name-card" && response.kind === "written") {
+          if (evaluation.result.outcome === "pass" && activityId === "activity:lesson-zero-write-name-card" && response.kind === "written" && !definition2.lockedClassName) {
             await this.saveLessonZeroClassName(response, context2);
           }
         },
@@ -269940,6 +270227,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
     async saveLessonZeroClassName(response, context2) {
       const displayName2 = response.text.normalize("NFKC").split("です")[0]?.replace(/[。.!！?？]/gu, "").trim();
       if (!displayName2) return;
+      await this.saveLessonZeroClassNameValue(displayName2, context2);
+    }
+    async saveLessonZeroClassNameValue(displayName2, context2) {
       const current = context2.projection.profile;
       await this.options.evidence.saveProfile({
         displayName: displayName2,
@@ -270410,7 +270700,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
             await this.options.evidence.recordActivity(
               transition.evaluation,
               LESSON_ZERO_ID,
-              transition.evaluation.result.outcome === "pass" ? {
+              transition.state.status === "complete" ? {
                 id: "lesson-zero-first-name-card",
                 sceneId: "scene:lesson-zero-first-name-card",
                 journalLine: {
@@ -270431,6 +270721,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
               support2.supportKind,
               support2.choiceId,
               { eventId: support2.eventId, at: support2.at }
+            );
+          }
+          if (transition.state.status === "complete" && _before.status !== "complete") {
+            await this.saveLessonZeroClassNameValue(
+              lessonZeroNameCardDisplayName(definition2, transition.state.nameVariant),
+              context2
             );
           }
           await context2.save?.({ lessonZeroNameCardProgress: transition.state });
@@ -273002,7 +273298,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     image.title = label;
     return image;
   }
-  function boardError(error, language2, retry) {
+  function boardError(error, language2, retry2) {
     const box = element("div", "academy-class-board-error");
     box.setAttribute("role", "alert");
     const message = element("p");
@@ -273010,7 +273306,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const button2 = element("button", "academy-button academy-button-secondary");
     button2.type = "button";
     button2.textContent = localize$1(language2, "Try again", "もう一度試す");
-    button2.addEventListener("click", retry);
+    button2.addEventListener("click", retry2);
     box.append(message, button2);
     return box;
   }
@@ -279349,7 +279645,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         playbackLifecycle
       );
       if (result2.state === "miss" && result2.skippedAvoidedIdentity) {
-        const retry = await this.playFromSourcesAttempt(
+        const retry2 = await this.playFromSourcesAttempt(
           sources,
           card,
           settings,
@@ -279361,7 +279657,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           void 0,
           playbackLifecycle
         );
-        return { state: retry.state, errors };
+        return { state: retry2.state, errors };
       }
       return { state: result2.state, errors };
     }
