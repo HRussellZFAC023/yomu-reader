@@ -70,6 +70,7 @@ import {
     type DetachedReadingProjection,
 } from './detached-reading-overlay';
 export { clearProjectedReadingsWithin } from './detached-reading-overlay';
+import { createPostPaintPass, viewForNode } from './post-paint-pass';
 import { ensureReaderStylesForHost } from './shadow-styles';
 import { forEachScannedShadowRoot, watchPotentialOpenShadowRootHost } from './shadow-scan-registry';
 import { readerWordSurfaceText, sentenceAroundRange, sentenceAroundSurface, unwrapReaderWords } from './reader-word';
@@ -3538,23 +3539,23 @@ function releaseTextMirrorReadingLane(
 
 // Coalesce freshly-mounted mirrors into one post-paint projection pass. A hidden
 // mount is picked up by the next settle once its source rects become measurable.
-let pendingAdditiveMirrorProjectionFrame = 0;
+//
+// Every same-text re-render on a live surface routes its re-stamp through here
+// (the watch-info cycle, a scroll recycler rehydrating a tile), so a pass that
+// stops being scheduled leaves the status tint and the pitch/status underline
+// pinned to where the glyphs USED to be until something else forces a re-scan.
+// createPostPaintPass is what keeps a frame that can never arrive — a dead
+// realm's, or one a Gecko sandbox refused to arm — from latching that off for
+// the rest of the page's life.
 const pendingAdditiveMirrorProjectionRoots = new Set<ParentNode>();
+const additiveMirrorProjectionPass = createPostPaintPass(() => {
+    const roots = [...pendingAdditiveMirrorProjectionRoots];
+    pendingAdditiveMirrorProjectionRoots.clear();
+    for (const pendingRoot of roots) projectAdditiveTextMirrors(pendingRoot);
+});
 function scheduleAdditiveMirrorProjection(root: ParentNode = document): void {
     pendingAdditiveMirrorProjectionRoots.add(root);
-    if (typeof requestAnimationFrame !== 'function') {
-        const roots = [...pendingAdditiveMirrorProjectionRoots];
-        pendingAdditiveMirrorProjectionRoots.clear();
-        for (const pendingRoot of roots) projectAdditiveTextMirrors(pendingRoot);
-        return;
-    }
-    if (pendingAdditiveMirrorProjectionFrame) return;
-    pendingAdditiveMirrorProjectionFrame = requestAnimationFrame(() => {
-        pendingAdditiveMirrorProjectionFrame = 0;
-        const roots = [...pendingAdditiveMirrorProjectionRoots];
-        pendingAdditiveMirrorProjectionRoots.clear();
-        for (const pendingRoot of roots) projectAdditiveTextMirrors(pendingRoot);
-    });
+    additiveMirrorProjectionPass.schedule(viewForNode(root));
 }
 
 /** Live page geometry of the text one mirror host owns, measured once per resolve. */
