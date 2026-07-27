@@ -6,8 +6,8 @@
   "license": "MIT",
   "scripts": {
     "studio": "remotion studio src/index.ts",
-    "render": "remotion render src/index.ts GamingLoop ../artifacts/video/yomu-gaming-loop.mp4 --codec=h264 --crf=17 --log=info",
-    "render:still": "remotion still src/index.ts GamingLoop ../artifacts/video/yomu-gaming-loop-poster.png --frame=0",
+    "render": "remotion render src/index.ts GamingLoop ../artifacts/video/yomu-gaming-loop.mp4 --codec=h264 --crf=17 --pixel-format=yuv420p --enforce-audio-track --log=info",
+    "render:still": "remotion still src/index.ts GamingLoop ../artifacts/video/yomu-gaming-loop-poster.png --frame=400",
     "fonts": "node scripts/fetch-fonts.mjs",
     "frames": "node scripts/prepare-frames.mjs",
     "typecheck": "tsc --noEmit"

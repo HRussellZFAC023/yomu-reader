@@ -18,15 +18,20 @@ npm run frames       # stage the demo footage (see "Footage" below)
 npm run render       # -> ../artifacts/video/yomu-gaming-loop.mp4
 ```
 
-`npm run render` writes an H.264 MP4 at 1920x1080, 30fps. `artifacts/` is
-gitignored, so the render is a build output rather than a tracked binary.
+`npm run render` writes an H.264 MP4 at 1920x1080, 30fps, 990 frames — 33.0
+seconds, about 14 MB, roughly 100 seconds to render on an M-series Mac. It
+carries a silent audio track (`--enforce-audio-track`) because some social
+uploaders reject a file with no audio stream at all.
+
+`artifacts/` is gitignored, so the render is a build output rather than a
+tracked binary.
 
 Other commands:
 
 | Command | What it does |
 | --- | --- |
 | `npm run studio` | Remotion Studio — scrub the timeline, edit, hot reload |
-| `npm run render:still` | One PNG poster frame |
+| `npm run render:still` | Poster frame (frame 400 — the card, open) |
 | `npm run frames` | Stage the demo footage into `public/frames/` |
 | `npm run fonts` | Re-vendor the Japanese webfont subset |
 | `npm run typecheck` | `tsc --noEmit` |
@@ -78,6 +83,12 @@ src/
   components/       plate, card, chrome, saved note, end card, primitives
   scenes/           ActOne (the loop), ActTwo (it generalises)
 ```
+
+`GamingLoop` runs in three acts (`acts` in `theme.ts`): the loop end to end over
+one game frame, the same loop compressed over a different scene so it does not
+read as a set-piece, and the end card. Cuts between acts are hard; the one
+transition in the clip is spent on the moment it stops demonstrating and starts
+telling you where to get it.
 
 Two conventions worth keeping:
 

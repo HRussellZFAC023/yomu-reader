@@ -112,10 +112,14 @@ export const OverlayDim: React.FC<{
     );
 };
 
-/** One-frame-ish white flash for the moment of capture. */
+/**
+ * The moment of capture. Bright enough to punctuate, short enough and rare
+ * enough (once per act) to stay well clear of anything a viewer would call a
+ * strobe.
+ */
 export const CaptureFlash: React.FC<{ at: number }> = ({ at }) => {
     const frame = useCurrentFrame();
-    const opacity = interpolate(frame, [at - 1, at, at + 3, at + 11], [0, 0.92, 0.34, 0], {
+    const opacity = interpolate(frame, [at - 1, at, at + 3, at + 9], [0, 0.72, 0.24, 0], {
         extrapolateLeft: 'clamp',
         extrapolateRight: 'clamp',
     });

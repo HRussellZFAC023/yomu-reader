@@ -83,20 +83,27 @@ export const YomuMark: React.FC<{ from: number }> = ({ from }) => {
     const frame = useCurrentFrame();
     const { fps } = useVideoConfig();
     const enter = spring({ frame: frame - from, fps, config: { damping: 20, mass: 1.4 } });
-    // Contour vertices are the app icon's own (public/yomu-icon.svg, 64u box).
-    const contour = [
-        [42.1, 16.7],
-        [47.2, 16.7],
-        [50.6, 21.3],
-        [56.4, 21.3],
-    ] as const;
-    const unit = 9.6;
+
+    // The app icon's pitch contour (public/yomu-icon.svg) normalised to its own
+    // origin and blown up, so it can be placed over the glyph's shoulder in
+    // pixels instead of being scaled out of a 64-unit icon box.
+    const scale = 26;
+    const pad = 16;
+    const contour = ([
+        [0, 0],
+        [5.1, 0],
+        [8.5, 4.6],
+        [14.3, 4.6],
+    ] as const).map(([x, y]) => [pad + x * scale, pad + y * scale] as const);
+    const contourWidth = pad * 2 + 14.3 * scale;
+    const contourHeight = pad * 2 + 4.6 * scale;
+
     return (
         <div
             style={{
                 position: 'absolute',
-                left: -104,
-                bottom: -158,
+                left: -230,
+                bottom: 0,
                 width: 700,
                 height: 700,
                 display: 'flex',
@@ -110,7 +117,7 @@ export const YomuMark: React.FC<{ from: number }> = ({ from }) => {
                 style={{
                     fontFamily: font.jp,
                     fontWeight: 900,
-                    fontSize: 640,
+                    fontSize: 620,
                     lineHeight: 1,
                     color: palette.paper,
                     WebkitTextStroke: `16px ${palette.ink}`,
@@ -121,16 +128,16 @@ export const YomuMark: React.FC<{ from: number }> = ({ from }) => {
                 よ
             </span>
             <svg
-                width={64 * unit}
-                height={40 * unit}
-                viewBox="0 0 64 40"
-                style={{ position: 'absolute', left: 300, top: 46, overflow: 'visible' }}
+                width={contourWidth}
+                height={contourHeight}
+                viewBox={`0 0 ${contourWidth} ${contourHeight}`}
+                style={{ position: 'absolute', left: 590, top: 120, overflow: 'visible' }}
             >
                 <polyline
                     points={contour.map(point => point.join(',')).join(' ')}
                     fill="none"
                     stroke={palette.ink}
-                    strokeWidth={5.4}
+                    strokeWidth={17}
                     strokeLinecap="round"
                     strokeLinejoin="round"
                 />
@@ -138,7 +145,7 @@ export const YomuMark: React.FC<{ from: number }> = ({ from }) => {
                     points={contour.map(point => point.join(',')).join(' ')}
                     fill="none"
                     stroke={palette.pitchAtamadaka}
-                    strokeWidth={2.6}
+                    strokeWidth={8}
                     strokeLinecap="round"
                     strokeLinejoin="round"
                 />
@@ -147,10 +154,10 @@ export const YomuMark: React.FC<{ from: number }> = ({ from }) => {
                         key={index}
                         cx={x}
                         cy={y}
-                        r={2}
+                        r={9}
                         fill={palette.pitchAtamadaka}
                         stroke={palette.ink}
-                        strokeWidth={1.1}
+                        strokeWidth={4}
                     />
                 ))}
             </svg>
@@ -196,9 +203,9 @@ const Claim: React.FC<{ text: string; index: number; from: number }> = ({ text, 
 export const EndCard: React.FC = () => {
     const frame = useCurrentFrame();
     const { fps } = useVideoConfig();
-    const wordmark = spring({ frame: frame - 14, fps, config: { damping: 13, mass: 0.6, stiffness: 180 } });
-    const url = spring({ frame: frame - 78, fps, config: { damping: 11, mass: 0.5 } });
-    const kicker = spring({ frame: frame - 6, fps, config: { damping: 14, mass: 0.5 } });
+    const wordmark = spring({ frame: frame - 4, fps, config: { damping: 13, mass: 0.6, stiffness: 180 } });
+    const url = spring({ frame: frame - 52, fps, config: { damping: 11, mass: 0.5 } });
+    const kicker = spring({ frame: frame - 0, fps, config: { damping: 14, mass: 0.5 } });
 
     return (
         <AbsoluteFill style={{ background: '#08090b', overflow: 'hidden' }}>
@@ -288,7 +295,7 @@ export const EndCard: React.FC = () => {
 
                 <div style={{ marginTop: 52 }}>
                     {END_CARD.claims.map((claim, index) => (
-                        <Claim key={claim} text={claim} index={index} from={44} />
+                        <Claim key={claim} text={claim} index={index} from={22} />
                     ))}
                 </div>
 
@@ -324,7 +331,7 @@ export const EndCard: React.FC = () => {
                         display: 'flex',
                         alignItems: 'center',
                         gap: 22,
-                        opacity: interpolate(frame, [96, 112], [0, 1], {
+                        opacity: interpolate(frame, [70, 86], [0, 1], {
                             extrapolateLeft: 'clamp',
                             extrapolateRight: 'clamp',
                         }),
@@ -364,7 +371,7 @@ export const EndCard: React.FC = () => {
                     display: 'flex',
                     alignItems: 'center',
                     gap: 14,
-                    opacity: interpolate(frame, [110, 126], [0, 1], {
+                    opacity: interpolate(frame, [84, 100], [0, 1], {
                         extrapolateLeft: 'clamp',
                         extrapolateRight: 'clamp',
                     }),
