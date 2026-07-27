@@ -1121,7 +1121,7 @@ function overlayResultFromOcr(result: GamingOcrResult | null, viewportSelection:
         : [];
     return terms.length
         ? { text, terms, lines: lines.length ? lines : undefined }
-        : { text, terms: [], error: text ? 'Nothing to look up in that text.' : 'Aim at some text and capture again.' };
+        : { text, terms: [], error: text ? 'Try another part of the screen.' : 'Aim at some text and capture again.' };
 }
 
 function hasOcrGeometry(result: GamingOcrResult | null): result is GamingOcrResult {
