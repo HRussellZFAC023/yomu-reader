@@ -177,7 +177,10 @@
     "docs/public/yomu.*.css",
     "docs/public/yomu.user.js",
     "tests/reader/.vitest-*/**",
-    "public/academy/**"
+    "public/academy/**",
+    // Private standalone Remotion package with its own lockfile, tsconfig, and
+    // validation commands. It is intentionally outside the reader release gate.
+    "video/**"
   ],
   "ignoreUnresolvedImports": [
     "./app.js",
