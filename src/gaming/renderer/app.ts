@@ -40,7 +40,14 @@ import type { OcrOverlayFrame } from '../../reader/ocr/ocr-overlay-geometry';
 import { captureShortcutLabel } from '../capture-shortcut';
 import { gamingWindowParkingHint } from '../lifecycle';
 import { activateWordWithPointer, GamepadOverlayController } from './gamepad-overlay';
-import { layoutOverlayOcrLines, overlayOcrFrame, overlayOcrLayerHtml } from './ocr-lines';
+import {
+    captureSelectionFromViewport,
+    layoutOverlayOcrLines,
+    normalizeCaptureOcrBox,
+    overlayNormalizedOcrLayerHtml,
+    overlayOcrFrame,
+    type NormalizedGamingOcrLine,
+} from './ocr-lines';
 import type { YomuGamingBridge, YomuGamingCaptureMode, YomuGamingCaptureSource, YomuGamingEnvironment, YomuGamingSelectionRect } from '../ipc';
 
 declare global {
@@ -73,11 +80,8 @@ interface OverlayResult {
     errorAction?: 'screen-settings';
 }
 
-interface OverlayLineResult {
-    text: string;
+interface OverlayLineResult extends NormalizedGamingOcrLine {
     terms: string[];
-    box: YomuGamingSelectionRect;
-    vertical: boolean;
 }
 
 const GAMING_SETTINGS_STORAGE_KEY = 'yomu-gaming-reader-settings-v1';
@@ -911,10 +915,6 @@ class OverlaySelectionController {
     render(): void {
         const mode = this.overlayMode();
         const idleArea = this.captureMode === 'area' && !this.busy && !this.result && !this.selection;
-        // Measured before the markup is replaced (off the backdrop already on screen,
-        // which is the same capture at the same size) and again after, so the boxes are
-        // stored and read back in one space.
-        const frame = this.ocrFrame();
         this.root.innerHTML = `
             <main class="overlay-shell" data-yomu-gaming-ready="true" data-yomu-gaming-overlay-ready="true" data-overlay-mode="${mode}" data-capture-mode="${this.captureMode}" data-overlay-busy="${this.busy}">
                 ${overlayBackdropHtml(this.capture)}
@@ -922,7 +922,7 @@ class OverlaySelectionController {
                 ${this.busy ? overlayStatusHtml(this.overlayInstruction()) : ''}
                 ${idleArea ? overlayHintHtml() : ''}
                 ${this.selection && !this.result ? overlaySelectionHtml(this.selection) : ''}
-                ${this.result ? overlayResultHtml(this.result, this.selection, frame) : ''}
+                ${this.result ? overlayResultHtml(this.result, this.selection) : ''}
             </main>
         `;
         this.bind();
@@ -1084,20 +1084,25 @@ class OverlaySelectionController {
                 return;
             }
         }
+        const capture = this.capture;
+        // Resolve the drag against the frame the player selected, before either
+        // rendering or awaiting can move the native window.
+        const captureFrame = this.ocrFrame();
+        const captureSelection = selection
+            ? captureSelectionFromViewport(selection, capture.size, captureFrame)
+            : null;
         this.busy = true;
         this.result = null;
         this.render();
         try {
-            const capture = this.capture;
-            const frameRect = frameRectForCapture(this.ocrFrame());
-            const crop = await cropSelection(capture, selection ? scaleViewportSelection(selection, capture.size, frameRect) : null);
+            const crop = await cropSelection(capture, captureSelection);
             const response = await this.gamingBridge.requestOcr(gamingOcrRequest(this.settings, crop));
             if (!response.ok) {
                 this.result = captureErrorResult(new Error(response.error ?? 'OCR failed. Check the OCR provider in Settings.'));
                 return;
             }
             const result = normalizeGamingOcrResponse(response.body, crop.width, crop.height);
-            this.result = overlayResultFromOcr(result, selection ?? frameRect);
+            this.result = overlayResultFromOcr(result, crop.sourceRect, crop.sourceSize);
         } catch (error) {
             this.result = captureErrorResult(error);
         } finally {
@@ -1175,15 +1180,18 @@ function gamingOcrSetupError(settings: ReaderSettings): string {
     return '';
 }
 
-function overlayResultFromOcr(result: GamingOcrResult | null, viewportSelection: YomuGamingSelectionRect | null): OverlayResult {
+function overlayResultFromOcr(
+    result: GamingOcrResult | null,
+    captureRegion: YomuGamingSelectionRect,
+    captureSize: { width: number; height: number },
+): OverlayResult {
     const text = result?.lines.map(line => line.text).join('\n') ?? '';
     const terms = gamingLookupCandidates(text);
-    const target = viewportSelection ?? { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight };
     const lines = hasOcrGeometry(result)
         ? result.lines.filter(line => line.hasGeometry).map(line => ({
             text: line.text,
             terms: gamingLookupCandidates(line.text),
-            box: ocrBoxToViewport(line.box, result, target),
+            box: normalizeCaptureOcrBox(line.box, result, captureRegion, captureSize),
             vertical: line.vertical,
         })).filter(line => line.terms.length > 0)
         : [];
@@ -1197,34 +1205,33 @@ function hasOcrGeometry(result: GamingOcrResult | null): result is GamingOcrResu
     return result.lines.some(line => line.hasGeometry);
 }
 
-// The OCR box travels to the overlay exactly as the provider measured it. Padding a
-// small box out to a minimum size here was the wrong place for it: the font size is
-// derived from the box, so an inflated box typeset the line at a size the game never
-// used. The minimum hit target and the on-screen clamp both belong to the line's frame,
-// which layoutOverlayOcrLines() derives after the text is measured.
-function ocrBoxToViewport(box: YomuGamingSelectionRect, result: GamingOcrResult, target: YomuGamingSelectionRect): YomuGamingSelectionRect {
-    const scaleX = target.width / Math.max(1, result.width);
-    const scaleY = target.height / Math.max(1, result.height);
-    return {
-        left: target.left + box.left * scaleX,
-        top: target.top + box.top * scaleY,
-        width: Math.max(1, box.width * scaleX),
-        height: Math.max(1, box.height * scaleY),
-    };
+interface GamingCaptureCrop {
+    dataUrl: string;
+    width: number;
+    height: number;
+    sourceRect: YomuGamingSelectionRect;
+    sourceSize: { width: number; height: number };
 }
 
-async function cropSelection(capture: YomuGamingCaptureSource, selection: YomuGamingSelectionRect | null): Promise<{ dataUrl: string; width: number; height: number }> {
+async function cropSelection(capture: YomuGamingCaptureSource, selection: YomuGamingSelectionRect | null): Promise<GamingCaptureCrop> {
     const image = await loadImage(capture.thumbnailDataUrl);
-    const sourceRect = selection && selection.width > 2 && selection.height > 2
-        ? selection
-        : { left: 0, top: 0, width: image.naturalWidth, height: image.naturalHeight };
+    if (selection && (selection.width <= 2 || selection.height <= 2)) {
+        throw new Error('Drag over the captured picture.');
+    }
+    const sourceRect = selection ?? { left: 0, top: 0, width: image.naturalWidth, height: image.naturalHeight };
     const canvas = document.createElement('canvas');
     canvas.width = Math.max(1, Math.round(sourceRect.width));
     canvas.height = Math.max(1, Math.round(sourceRect.height));
     const context = canvas.getContext('2d');
     if (!context) throw new Error('Canvas unavailable');
     context.drawImage(image, sourceRect.left, sourceRect.top, sourceRect.width, sourceRect.height, 0, 0, canvas.width, canvas.height);
-    return { dataUrl: canvas.toDataURL('image/png'), width: canvas.width, height: canvas.height };
+    return {
+        dataUrl: canvas.toDataURL('image/png'),
+        width: canvas.width,
+        height: canvas.height,
+        sourceRect,
+        sourceSize: { width: image.naturalWidth, height: image.naturalHeight },
+    };
 }
 
 function overlayBackdropHtml(capture: YomuGamingCaptureSource | null): string {
@@ -1259,8 +1266,8 @@ function overlayStatusHtml(label: string): string {
     return `<div class="overlay-status" role="status" aria-live="polite"><strong>よむ</strong><span>${escapeHtml(label)}</span></div>`;
 }
 
-function overlayResultHtml(result: OverlayResult, selection: YomuGamingSelectionRect | null, frame: OcrOverlayFrame): string {
-    if (result.lines?.length) return overlayInlineResultHtml(result, frame);
+function overlayResultHtml(result: OverlayResult, selection: YomuGamingSelectionRect | null): string {
+    if (result.lines?.length) return overlayInlineResultHtml(result);
     const style = overlayResultStyle(selection);
     if (result.error) {
         return `<section class="overlay-result" style="${style}" role="alert">
@@ -1282,8 +1289,8 @@ function overlayResultHtml(result: OverlayResult, selection: YomuGamingSelection
     </section>`;
 }
 
-function overlayInlineResultHtml(result: OverlayResult, frame: OcrOverlayFrame): string {
-    return overlayOcrLayerHtml(result.lines ?? [], frame);
+function overlayInlineResultHtml(result: OverlayResult): string {
+    return overlayNormalizedOcrLayerHtml(result.lines ?? []);
 }
 
 function overlayResultStyle(selection: YomuGamingSelectionRect | null): string {
@@ -1303,34 +1310,6 @@ function normalizedViewportSelection(start: { x: number; y: number }, end: { x: 
         top,
         width: Math.abs(end.x - start.x),
         height: Math.abs(end.y - start.y),
-    };
-}
-
-// The frozen frame is shown aspect-preserved (object-fit: contain), so it occupies a
-// centered, possibly-letterboxed rect inside the overlay. OCR boxes and area selections
-// map through this rect — never the raw viewport — so nothing is stretched or offset.
-// It is the same rect the OCR lines are laid out in, derived once in ocr-lines.ts.
-function frameRectForCapture(frame: OcrOverlayFrame): YomuGamingSelectionRect {
-    return {
-        left: frame.imageLeft,
-        top: frame.imageTop,
-        width: frame.imageWidth,
-        height: frame.imageHeight,
-    };
-}
-
-function scaleViewportSelection(selection: YomuGamingSelectionRect, size: { width: number; height: number }, frameRect: YomuGamingSelectionRect): YomuGamingSelectionRect {
-    const scaleX = size.width / Math.max(1, frameRect.width);
-    const scaleY = size.height / Math.max(1, frameRect.height);
-    const left = (selection.left - frameRect.left) * scaleX;
-    const top = (selection.top - frameRect.top) * scaleY;
-    const clampedLeft = Math.max(0, Math.min(size.width, left));
-    const clampedTop = Math.max(0, Math.min(size.height, top));
-    return {
-        left: clampedLeft,
-        top: clampedTop,
-        width: Math.max(0, Math.min(size.width - clampedLeft, selection.width * scaleX)),
-        height: Math.max(0, Math.min(size.height - clampedTop, selection.height * scaleY)),
     };
 }
 

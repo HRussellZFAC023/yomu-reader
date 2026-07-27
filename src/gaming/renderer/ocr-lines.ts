@@ -16,6 +16,16 @@ export interface GamingOcrLine {
     vertical: boolean;
 }
 
+// Stored OCR results use capture-relative fractions, not viewport pixels. The
+// native overlay can change height while an OCR request is in flight (Windows
+// moves it from the work area to the full display), so absolute viewport boxes
+// become stale before the response is painted.
+export interface NormalizedGamingOcrLine {
+    text: string;
+    box: YomuGamingSelectionRect;
+    vertical: boolean;
+}
+
 // The overlay paints the frozen frame with these (styles.css .overlay-backdrop). The
 // painted element is measured first; this is the contract to fall back on when there is
 // nothing painted to measure yet.
@@ -35,8 +45,18 @@ const MIN_WIDE_GLYPH_SHARE = 0.8;
 // see overlayOcrFrame(). Every box is stored relative to that, so the lines follow the
 // picture rather than the window.
 export function overlayOcrLayerHtml(lines: GamingOcrLine[], frame: OcrOverlayFrame): string {
+    return overlayNormalizedOcrLayerHtml(lines.map(line => ({
+        ...line,
+        box: normalizeOverlayOcrBox(line.box, frame),
+    })));
+}
+
+// Result lines already normalized against the frame used for their capture can
+// be painted directly. Keeping those fractions in the markup lets every later
+// layout pass project them through the frame that is on screen at that moment.
+export function overlayNormalizedOcrLayerHtml(lines: NormalizedGamingOcrLine[]): string {
     return `<section class="jpdb-ocr-layer overlay-inline-layer" data-ocr-overlay-theme="dark" data-overlay-inline role="group" aria-label="Recognized text">`
-        + lines.map(line => overlayOcrLineHtml(line, frame)).join('')
+        + lines.map(overlayOcrLineHtml).join('')
         + `</section>`;
 }
 
@@ -64,8 +84,8 @@ export function overlayOcrLayerHtml(lines: GamingOcrLine[], frame: OcrOverlayFra
 // Size, padding and placement are all left to layoutOverlayOcrLines(); the box travels
 // here as data, stored as a fraction of the frame exactly as the reader stores it, so
 // the shared layout pass reads both surfaces the same way.
-function overlayOcrLineHtml(line: GamingOcrLine, frame: OcrOverlayFrame): string {
-    const box = normalizedLineBox(line.box, frame);
+function overlayOcrLineHtml(line: NormalizedGamingOcrLine): string {
+    const box = line.box;
     return `<div class="jpdb-ocr-line jpdb-ocr-line-visible" data-ocr-line data-vertical="${line.vertical}"`
         + ` data-ocr-text="${escapeHtml(line.text)}"`
         + ` data-box-left="${box.left}" data-box-top="${box.top}"`
@@ -306,7 +326,7 @@ function viewportSize(): YomuGamingImageSize {
     return { width: Math.max(1, window.innerWidth), height: Math.max(1, window.innerHeight) };
 }
 
-function normalizedLineBox(box: YomuGamingSelectionRect, frame: OcrOverlayFrame): { left: string; top: string; width: string; height: string } {
+function normalizeOverlayOcrBox(box: YomuGamingSelectionRect, frame: OcrOverlayFrame): YomuGamingSelectionRect {
     return {
         left: fraction(box.left - frame.imageLeft, frame.imageWidth),
         top: fraction(box.top - frame.imageTop, frame.imageHeight),
@@ -315,9 +335,59 @@ function normalizedLineBox(box: YomuGamingSelectionRect, frame: OcrOverlayFrame)
     };
 }
 
+// Map a provider box from the submitted OCR image back into fractions of the
+// complete frozen capture. `captureRegion` is the exact, clipped source rect
+// drawn into that image—not the raw viewport drag, which may cross a letterbox
+// bar. The result survives any native-window movement while OCR is in flight.
+export function normalizeCaptureOcrBox(
+    box: YomuGamingSelectionRect,
+    ocrImage: YomuGamingImageSize,
+    captureRegion: YomuGamingSelectionRect,
+    capture: YomuGamingImageSize,
+): YomuGamingSelectionRect {
+    const scaleX = captureRegion.width / Math.max(1, ocrImage.width);
+    const scaleY = captureRegion.height / Math.max(1, ocrImage.height);
+    return {
+        left: fraction(captureRegion.left + box.left * scaleX, capture.width),
+        top: fraction(captureRegion.top + box.top * scaleY, capture.height),
+        width: fraction(box.width * scaleX, capture.width),
+        height: fraction(box.height * scaleY, capture.height),
+    };
+}
+
+// Convert a viewport drag into the exact source pixels it intersects. Clamp
+// both endpoints: clamping only the origin while retaining the raw width turns
+// a drag across a letterbox bar into an unrelated strip at the capture edge.
+export function captureSelectionFromViewport(
+    selection: YomuGamingSelectionRect,
+    capture: YomuGamingImageSize,
+    frame: OcrOverlayFrame,
+): YomuGamingSelectionRect {
+    const scaleX = capture.width / Math.max(1, frame.imageWidth);
+    const scaleY = capture.height / Math.max(1, frame.imageHeight);
+    const rawLeft = (selection.left - frame.imageLeft) * scaleX;
+    const rawTop = (selection.top - frame.imageTop) * scaleY;
+    const rawRight = (selection.left + selection.width - frame.imageLeft) * scaleX;
+    const rawBottom = (selection.top + selection.height - frame.imageTop) * scaleY;
+    const left = clampNumber(Math.min(rawLeft, rawRight), 0, capture.width);
+    const top = clampNumber(Math.min(rawTop, rawBottom), 0, capture.height);
+    const right = clampNumber(Math.max(rawLeft, rawRight), 0, capture.width);
+    const bottom = clampNumber(Math.max(rawTop, rawBottom), 0, capture.height);
+    return {
+        left,
+        top,
+        width: Math.max(0, right - left),
+        height: Math.max(0, bottom - top),
+    };
+}
+
 // Full precision, exactly as the reader stores it. Rounding here would put the gaming
 // overlay a fraction of a pixel off the reader for the same box — the kind of drift
 // this convergence exists to remove.
-function fraction(value: number, extent: number): string {
-    return String(value / Math.max(1, extent));
+function fraction(value: number, extent: number): number {
+    return value / Math.max(1, extent);
+}
+
+function clampNumber(value: number, min: number, max: number): number {
+    return Math.min(max, Math.max(min, value));
 }

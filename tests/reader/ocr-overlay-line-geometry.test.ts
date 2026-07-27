@@ -1,6 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { layoutOverlayOcrLines, overlayOcrFrame, overlayOcrLayerHtml } from '../../src/gaming/renderer/ocr-lines';
+import {
+    captureSelectionFromViewport,
+    layoutOverlayOcrLines,
+    normalizeCaptureOcrBox,
+    overlayNormalizedOcrLayerHtml,
+    overlayOcrFrame,
+    overlayOcrLayerHtml,
+} from '../../src/gaming/renderer/ocr-lines';
 import {
     layoutOcrOverlayLines,
     ocrLineFrame,
@@ -445,6 +452,75 @@ function expectSamePlacement(actual: Record<string, string>, expected: Record<st
 }
 
 describe('Yomu Gaming anchors OCR lines to the capture, not to the window', () => {
+    it('keeps a result on its source when the native frame origin changes during OCR', () => {
+        const capture = { width: 960, height: 540 };
+        const providerBox = { left: 142, top: 390, width: 396, height: 20 };
+        const requestFrame: OcrOverlayFrame = { imageLeft: 0, imageTop: 72, imageWidth: 1024, imageHeight: 576 };
+        const resultFrame: OcrOverlayFrame = { ...requestFrame, imageTop: 96 };
+        const normalizedBox = normalizeCaptureOcrBox(
+            providerBox,
+            capture,
+            { left: 0, top: 0, ...capture },
+            capture,
+        );
+        const host = document.createElement('div');
+        host.innerHTML = overlayNormalizedOcrLayerHtml([{
+            text: SOURCE_TEXT,
+            box: normalizedBox,
+            vertical: false,
+        }]);
+
+        layoutOverlayOcrLines(host, resultFrame);
+
+        const line = host.querySelector<HTMLElement>('.jpdb-ocr-line')!;
+        const placed = placedGeometry(host);
+        const anchoredBottom = Number.parseFloat(placed.top)
+            + Number.parseFloat(placed.height)
+            - Number.parseFloat(placed.padBottom);
+        const sourceBottom = resultFrame.imageTop
+            + (providerBox.top + providerBox.height) / capture.height * resultFrame.imageHeight;
+        expect(Number(line.dataset.boxTop)).toBeCloseTo(providerBox.top / capture.height, 8);
+        expect(anchoredBottom).toBeCloseTo(sourceBottom, 3);
+
+        // The failed Windows build projected the provider box through the 72px
+        // origin, then normalized it against the later 96px origin: 0.680555
+        // instead of the capture-relative 0.722222 used above.
+        const staleTop = (
+            requestFrame.imageTop + providerBox.top / capture.height * requestFrame.imageHeight
+            - resultFrame.imageTop
+        ) / resultFrame.imageHeight;
+        expect(staleTop).toBeCloseTo(0.680555, 5);
+        expect(Number(line.dataset.boxTop)).not.toBeCloseTo(staleTop, 3);
+    });
+
+    it('clips an area drag to the painted capture on both edges', () => {
+        const capture = { width: 960, height: 540 };
+        const frame: OcrOverlayFrame = { imageLeft: 100, imageTop: 50, imageWidth: 800, imageHeight: 450 };
+        const clipped = captureSelectionFromViewport(
+            { left: 80, top: 40, width: 100, height: 100 },
+            capture,
+            frame,
+        );
+
+        // The drag begins in the left/top letterbox bars. Only its intersection
+        // with the picture is submitted, not a same-sized strip from source 0,0.
+        expect(clipped).toEqual({ left: 0, top: 0, width: 96, height: 108 });
+        expect(normalizeCaptureOcrBox(
+            { left: 0, top: 0, width: 96, height: 108 },
+            { width: 96, height: 108 },
+            clipped,
+            capture,
+        )).toEqual({ left: 0, top: 0, width: 0.1, height: 0.2 });
+
+        // A drag wholly inside the bars has no source pixels. The renderer
+        // rejects this zero-sized region instead of silently OCRing the screen.
+        expect(captureSelectionFromViewport(
+            { left: 10, top: 10, width: 50, height: 20 },
+            capture,
+            frame,
+        )).toEqual({ left: 0, top: 0, width: 0, height: 0 });
+    });
+
     it('frames the lines with the letterboxed picture rather than the overlay window', () => {
         const frame = overlayOcrFrame(overlayHost(TALL_WINDOW), CAPTURE);
 
