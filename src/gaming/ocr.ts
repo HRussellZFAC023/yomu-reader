@@ -1,5 +1,5 @@
 import { adoptLearningTargetLanguage } from '../reader/languages/active';
-import { targetOcrLanguageHint } from '../reader/languages/resolve';
+import { targetOcrLanguageHint, targetOcrLanguageTag } from '../reader/languages/resolve';
 import { createGoogleLensRequest, googleLensAcceptLanguage } from '../reader/ocr/google-lens-request';
 import {
     normalizeOcrResult,
@@ -91,9 +91,11 @@ async function requestLocalOcr(request: YomuGamingOcrRequest): Promise<YomuGamin
             headers: { 'content-type': 'application/json' },
             body: JSON.stringify({
                 id: `yomu-gaming-${Date.now()}`,
-                language_code: request.language,
+                // The same two resolvers the reader's local-service recognizer
+                // uses, against the target main has just adopted.
+                language_code: targetOcrLanguageTag(request.language),
                 language: {
-                    bcp47_tag: request.language,
+                    bcp47_tag: targetOcrLanguageTag(request.language),
                     two_letter_code: targetOcrLanguageHint(request.language),
                 },
                 base64_image: image.base64,
