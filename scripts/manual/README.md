@@ -34,6 +34,7 @@ with `npm run <name>` when investigating the area it covers.
 | `manual:popover-actions` | Depends on live enrichment to render the action pills. |
 | `manual:reader-sites` | Injects into real Ttsu/Yatsu/YouTube pages. |
 | `manual:screenshots-real` | Captures real manga/reader pages in a persistent signed-in Chrome profile. |
+| `manual:screenshots-settings` | Recaptures the docs settings shots from the built userscript on a loopback server; needs no operator. |
 | `manual:settings-layout` | Mobile settings-layout guard, currently red; kept for manual triage. |
 | `manual:subtitle-live-compat` | Compat variant of the live subtitle site sweep. |
 | `manual:subtitle-live-sites` | Live subtitle/player discovery across real video sites. |

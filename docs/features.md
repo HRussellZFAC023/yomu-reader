@@ -23,7 +23,7 @@ Press or select any Japanese word and a small panel opens over the page. It show
 You never leave the page. Close the panel and you are exactly where you were.
 
 <figure class="yomu-feature-shot">
-  <img :src="'/screenshots/real-popup-lookup.png'" alt="A Yomu word panel open on a Japanese Wikipedia article, showing the reading, meaning, sound, and a save button.">
+  <img :src="'/screenshots/real-popup-lookup.png'" alt="A Yomu word panel open on a Japanese Wikipedia article, showing 日本 with its reading and pitch, a speaker to hear it, the meaning, other words that use it, and a row of buttons to say how well you knew it.">
   <figcaption>The word panel, open on a real article.</figcaption>
 </figure>
 
@@ -87,7 +87,7 @@ Press any kanji inside the word panel and it opens on its own. You get the strok
 [More about kanji →](/tools/kanji-stroke-order)
 
 <figure class="yomu-feature-shot">
-  <img :src="'/screenshots/real-kanji-drilldown.png'" alt="A Yomu kanji panel showing stroke order and readings for a single character.">
+  <img :src="'/screenshots/real-kanji-drilldown.png'" alt="A Yomu kanji panel open on 日, showing what it means and a pad with its four strokes traced in order.">
   <figcaption>One kanji, taken apart.</figcaption>
 </figure>
 

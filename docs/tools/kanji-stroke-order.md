@@ -36,7 +36,7 @@ Click a kanji inside the popup headword and the drilldown opens. Depending on yo
 Kanji sources are modular and independently reorderable. Uchisen can be enabled without a WaniKani account; WaniKani is opt-in and queries the official API directly with the token stored in your browser.
 
 <figure class="yomu-feature-shot">
-  <img :src="'/screenshots/real-kanji-drilldown.png'" alt="A よむ kanji drilldown panel showing Jiten, JPDB, and RTK facts with a rendered KanjiVG stroke diagram.">
+  <img :src="'/screenshots/real-kanji-drilldown.png'" alt="A よむ kanji drilldown panel showing Jiten, JPDB, Bunpro and RTK facts above the stroke practice pad.">
   <figcaption>Kanji drilldown with live KanjiVG stroke data.</figcaption>
 </figure>
 

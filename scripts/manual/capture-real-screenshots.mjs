@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { existsSync } from 'node:fs';
 import { access, mkdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
@@ -6,7 +7,11 @@ import { createInterface } from 'node:readline/promises';
 import { chromium } from 'playwright';
 import { loadLocalEnv } from '../lib/qa-env.mjs';
 
-const ROOT = path.resolve(import.meta.dirname, '..');
+// This file lives in scripts/manual/, so the repository root is two levels up.
+// It was one level up until the manual harnesses were relocated, which pointed
+// every default at scripts/ - the userscript was looked up at scripts/dist and
+// captures would have landed in scripts/docs/public/screenshots.
+const ROOT = path.resolve(import.meta.dirname, '..', '..');
 loadLocalEnv(ROOT);
 
 const DEFAULT_USERSCRIPT = path.join(ROOT, 'dist/yomu.user.js');
@@ -258,7 +263,7 @@ const scenarios = [
 ];
 
 function usage() {
-    return `Usage: node scripts/capture-real-screenshots.mjs [options]
+    return `Usage: node scripts/manual/capture-real-screenshots.mjs [options]
 
 Strict, operator-run Playwright capture for real Yomu docs/store screenshots.
 
@@ -627,16 +632,19 @@ async function prepareLookupScenario(page, validators) {
     await openRequestedLookupDetails(page, validators);
     await maybeOpenKanjiLookup(page, validators);
     await page.waitForTimeout(12_000);
-    await maybeScrollLookupStudyDetails(page, validators);
+    await scrollLookupBodyToHeadword(page, validators);
 }
 
 async function clickLookupTarget(page) {
-    const target = await page.evaluate(() => {
-        return lookupTargetCenter();
+    await waitForAnnotationToSettle(page);
+    const marked = await page.evaluate(() => {
+        return markLookupTarget();
 
-        function lookupTargetCenter() {
+        function markLookupTarget() {
             const preferred = preferredLookupWord();
-            return preferred ? elementCenter(preferred) : null;
+            if (!preferred) return false;
+            preferred.setAttribute('data-yomu-capture-target', '');
+            return true;
         }
 
         function preferredLookupWord() {
@@ -649,7 +657,17 @@ async function clickLookupTarget(page) {
         }
 
         function isVisibleJapaneseLookupWord(element) {
-            return hasJapaneseText(element) && isLookupRectVisible(element) && isElementStyleVisible(element);
+            return hasJapaneseText(element)
+                && isLookupRectVisible(element)
+                && isElementStyleVisible(element)
+                && !isNavigatingLookupWord(element);
+        }
+
+        // Annotated words inside links, buttons and nav land on the host page's own
+        // handler, so the click navigates away instead of opening a lookup. Reading
+        // sites put the same word in body text and in navigation; pick the body one.
+        function isNavigatingLookupWord(element) {
+            return Boolean(element.closest('a, button, [role="link"], [role="button"], nav, aside, header, footer'));
         }
 
         function hasJapaneseText(element) {
@@ -675,13 +693,21 @@ async function clickLookupTarget(page) {
             const text = element.textContent || '';
             return /日本語|日本|言語/.test(text) || ['本', '語'].every(fragment => text.includes(fragment));
         }
-
-        function elementCenter(element) {
-            const rect = element.getBoundingClientRect();
-            return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
-        }
     });
-    if (target) await page.mouse.click(target.x, target.y);
+    if (!marked) return;
+    // Click the element, not a remembered coordinate. Annotation keeps adding ruby while
+    // the page settles, so a point measured a moment ago can belong to a link by the time
+    // the click lands - which navigates away from the page being captured.
+    await page.locator('[data-yomu-capture-target]').first().click({ timeout: 10_000 }).catch(() => undefined);
+}
+
+async function waitForAnnotationToSettle(page) {
+    await page.waitForFunction(() => {
+        const count = document.querySelectorAll('.jpdb-reader-word').length;
+        const settled = count > 0 && count === window.__yomuCaptureWordCount;
+        window.__yomuCaptureWordCount = count;
+        return settled;
+    }, null, { timeout: 30_000, polling: 1500 }).catch(() => undefined);
 }
 
 async function openRequestedLookupDetails(page, validators) {
@@ -707,17 +733,40 @@ async function maybeOpenKanjiLookup(page, validators) {
         const details = document.querySelector('.jpdb-reader-popover details.jpdb-reader-kanjivg');
         if (details instanceof HTMLDetailsElement && !details.open) details.querySelector('summary')?.click();
     });
+    await revealKanjiStrokeTrace(page);
 }
 
-async function maybeScrollLookupStudyDetails(page, validators) {
+// The drilldown opens its practice pad with the trace off, so you draw from memory first.
+// A screenshot of that state is an empty grid, which is the one thing a stroke-order page
+// must not illustrate. Press the product's own Show trace control so the KanjiVG glyph the
+// panel loaded is actually on screen.
+async function revealKanjiStrokeTrace(page) {
+    await page.locator('.jpdb-reader-popover [data-doodle-trace]').first().click({ timeout: 8000 }).catch(() => undefined);
+    await page.waitForFunction(() => {
+        const ghost = document.querySelector('.jpdb-reader-popover .jpdb-reader-doodle-ghost');
+        const stage = ghost?.closest('.jpdb-reader-doodle-stage');
+        return Boolean(ghost?.querySelector('svg')) && !ghost.hasAttribute('hidden') && !stage?.classList.contains('trace-hidden');
+    }, null, { timeout: 10_000 }).catch(() => undefined);
+    await page.waitForTimeout(400);
+}
+
+// The study sections are opened so the validators can prove the popup finished loading,
+// but the popup body is one scroller with a non-sticky header: ~450px of viewport against
+// ~2700px of content, so scrolling far enough to frame the translation always pushes the
+// word being looked up off the top. This shot is the home page's schema.org
+// SoftwareApplication "screenshot" and the lead image on three docs pages, so it leads with
+// the headword, its reading, the pitch graph and the Jiten/JPDB/Bunpro pills, and lets the
+// study sections run off the bottom.
+async function scrollLookupBodyToHeadword(page, validators) {
     if (!validators.some(validator => ['translation', 'grammar'].includes(validator))) return;
-    await page.evaluate(() => {
+    const framed = await page.evaluate(() => {
         const body = document.querySelector('.jpdb-reader-popover-body');
-        const target = document.querySelector('details[data-study-translation], details[data-study-grammar]');
-        if (body instanceof HTMLElement && target instanceof HTMLElement) {
-            body.scrollTop = Math.max(0, target.offsetTop - body.clientHeight * 0.16);
-        }
+        const header = document.querySelector('.jpdb-reader-popover-body .jpdb-reader-header');
+        if (!(body instanceof HTMLElement) || !(header instanceof HTMLElement)) return false;
+        body.scrollTop = 0;
+        return header.offsetTop + header.offsetHeight <= body.clientHeight;
     });
+    if (!framed) throw new Error('Popup headword is not in frame; this capture is the site product screenshot.');
     await page.waitForTimeout(300);
 }
 
@@ -990,6 +1039,10 @@ function captureSeedSettings(theme) {
         ...(CAPTURE_API_KEY ? { apiKey: CAPTURE_API_KEY } : {}),
         onboardingSeen: true,
         theme,
+        // Capture the page the scenario names. The Japanese-site preference is on by
+        // default and will follow a page's hreflang="ja" alternate, which on
+        // ja.wikipedia.org walks off to ja.wikibooks.org before the shot is taken.
+        preferJapaneseSiteLanguage: false,
         jpdbMiningEnabled: true,
         localDictionariesEnabled: true,
         subtitlePlayerEnabled: true,
@@ -1080,18 +1133,48 @@ async function waitForStablePage(page) {
 
 async function injectUserscript(page, userscriptPath) {
     const resolved = path.resolve(userscriptPath);
+    // Yomu ships most of its UI in @require companions. A userscript manager fetches
+    // those before the main script; injecting the main script alone leaves every
+    // companion-backed surface degraded - the popup renders raw copy keys such as
+    // "copyWord" where the UI copy companion would have put "Copy". Load the local
+    // companion builds first, in the order the header requires them.
+    for (const companion of await companionScriptPaths(resolved)) {
+        await evaluateScriptFile(page, companion);
+    }
+    await evaluateScriptFile(page, resolved);
+    await page.waitForTimeout(750);
+}
+
+async function companionScriptPaths(userscriptPath) {
+    const header = await readFile(userscriptPath, 'utf8');
+    const companionDir = path.join(path.dirname(userscriptPath), 'greasyfork');
+    return [...header.matchAll(/^\/\/\s*@require\s+(\S+)/gmu)]
+        .map(match => companionFileName(match[1]))
+        .filter(Boolean)
+        .map(name => path.join(companionDir, name))
+        .filter(existsSync);
+}
+
+function companionFileName(requireUrl) {
+    // Required companions are content-addressed: yomu-ui-copy.<hash>.user.js. The local
+    // build writes them without the hash segment.
+    const basename = requireUrl.split('#')[0].split('/').pop() ?? '';
+    const match = basename.match(/^(yomu-[a-z0-9-]+)\.[0-9a-f]+\.user\.js$/u);
+    return match ? `${match[1]}.user.js` : '';
+}
+
+async function evaluateScriptFile(page, filePath) {
     try {
-        await page.addScriptTag({ path: resolved });
+        await page.addScriptTag({ path: filePath });
     } catch {
         const client = await page.context().newCDPSession(page);
         await client.send('Runtime.evaluate', {
-            expression: await readFile(resolved, 'utf8'),
+            expression: await readFile(filePath, 'utf8'),
             awaitPromise: false,
             allowUnsafeEvalBlockedByCSP: true,
             replMode: true,
         });
     }
-    await page.waitForTimeout(750);
 }
 
 async function installYouTubeConsentCookies(context) {
@@ -1333,6 +1416,7 @@ async function evaluateScenarioChecks(page, scenario, theme, expectedUrl) {
                 const state = kanjiState();
                 add('kanji drilldown visible', state.displayVisible, 'Expected a kanji drilldown popup');
                 add('kanji stroke section open', state.strokeOpen, 'Expected open stroke/KanjiVG section with SVG');
+                add('kanji stroke trace drawn', state.traceVisible, 'Expected the KanjiVG trace on the practice pad, not an empty grid');
                 add('kanji facts loaded', state.factsLoaded, 'Expected loaded kanji facts/readings');
             },
             settingsDictionaries() {
@@ -1425,10 +1509,16 @@ async function evaluateScenarioChecks(page, scenario, theme, expectedUrl) {
             const display = root?.querySelector('.jpdb-reader-kanji-display');
             const stroke = root ? allIn(root, 'details.jpdb-reader-kanjivg').find(openVisibleDetails) : null;
             const facts = root?.querySelector('[data-kanji-jpdb-mount] .jpdb-reader-kanji-facts, .jpdb-reader-kanji-facts, .jpdb-reader-kanji-readings');
+            const ghost = stroke?.querySelector('.jpdb-reader-doodle-ghost');
+            const stage = ghost?.closest('.jpdb-reader-doodle-stage');
             const text = visibleText(root);
             return {
                 displayVisible: Boolean(display && visible(display)),
                 strokeOpen: Boolean(stroke?.querySelector('.jpdb-reader-kanjivg-svg')),
+                traceVisible: Boolean(ghost?.querySelector('svg'))
+                    && !ghost.hasAttribute('hidden')
+                    && !stage?.classList.contains('trace-hidden')
+                    && visible(ghost),
                 factsLoaded: Boolean(facts && !/loading|unavailable/i.test(text)),
             };
         }
