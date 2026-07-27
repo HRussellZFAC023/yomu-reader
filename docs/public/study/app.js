@@ -3143,7 +3143,7 @@
       exampleMeaning: "to read",
       scanAnkiFirst: "Connect Anki first",
       notMapped: "Not mapped",
-      noScannedFields: "",
+      noScannedFields: "Check AnkiConnect to load this note type's fields.",
       mappingForNoteType: "Mapping for {model}",
       currentNoteType: "current note type",
       ankiFieldMappingSelect: "{role} field",
@@ -3154,11 +3154,16 @@
       ankiRoleAudio: "Audio",
       ankiRoleImage: "Image",
       testAnki: "Check AnkiConnect",
-      prepareAnki: "Create Yomu note type",
+      prepareAnki: "Set up Yomu note type",
+      updateAnkiModel: "Update note type",
+      ankiModelUpdateAvailable: 'New fields are ready for "{model}": {fields}.',
+      ankiModelUpdating: "Adding note type fields...",
+      ankiModelUpdated: "Note type updated. Added {fields}.",
+      ankiModelUpToDate: "Note type is up to date.",
       ankiCheckingConnection: "Checking AnkiConnect at {url}.",
       ankiMiningDisabledStatus: "Anki mining disabled.",
       ankiTesting: "Checking AnkiConnect...",
-      ankiPreparing: "Creating Yomu deck/note type...",
+      ankiPreparing: "Setting up Yomu deck and note type...",
       ankiScanning: "Reading decks, note types, fields...",
       ankiScanSummary: "Decks {decks}, types {models}. Best: {model}. {fields}",
       ankiScanNoModels: "Found {decks} decks. Note types unavailable.",
@@ -4810,7 +4815,12 @@ ankiRoleSentence	文
 ankiRoleAudio	音声
 ankiRoleImage	画像
 testAnki	AnkiConnectを確認
-prepareAnki	よむノートタイプを作成
+prepareAnki	よむノートタイプを準備
+updateAnkiModel	ノートタイプを更新
+ankiModelUpdateAvailable	「{model}」に追加できる新しいフィールドがあります: {fields}
+ankiModelUpdating	ノートタイプにフィールドを追加中...
+ankiModelUpdated	ノートタイプを更新しました。{fields} を追加しました。
+ankiModelUpToDate	ノートタイプは最新です。
 ankiCheckingConnection	{url} のAnkiConnectを確認中。
 ankiMiningDisabledStatus	Ankiマイニングは無効です。
 ankiTesting	AnkiConnectを確認中...
@@ -7058,6 +7068,27 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const fieldSet = new Set(fieldNames);
     return ["Expression", "Meaning", "Sentence", "DictionaryDefinitions"].every((field) => fieldSet.has(field));
   }
+  const YOMU_MODEL_FIELDS = [
+    "Expression",
+    "Reading",
+    "Meaning",
+    "Sentence",
+    "Url",
+    "Frequency",
+    "PartOfSpeech",
+    "Image",
+    "Audio",
+    "JPDB",
+    "Status",
+    "Pitch",
+    "DictionaryDefinitions",
+    "Kanji",
+    "Source"
+  ];
+  function missingYomuModelFields(fieldNames) {
+    const present = new Set(fieldNames);
+    return YOMU_MODEL_FIELDS.filter((fieldName) => !present.has(fieldName));
+  }
   const ANKI_PRONUNCIATION_AUDIO_FIELD_NAMES = ["Pronunciation"];
   function imageFromDataUrl(dataUrl, card) {
     const parsed = parseAnkiImageDataUrl(dataUrl);
@@ -8012,6 +8043,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
       return canonical.split("-")[0]?.toLowerCase() ?? null;
     }
   }
+  function languageDisplayName(language2, locale = "en") {
+    try {
+      return new Intl.DisplayNames([locale], { type: "language" }).of(language2) ?? language2;
+    } catch {
+      return language2;
+    }
+  }
   function localeDirection(value) {
     const canonical = canonicalLanguageTag(value);
     if (!canonical) return "ltr";
@@ -8023,6 +8061,30 @@ recommendedJiten	Jiten由来の頻度バッジです。
     } catch {
       return RTL_LANGUAGES.has(canonical.split("-")[0]?.toLowerCase() ?? "") ? "rtl" : "ltr";
     }
+  }
+  function localeFallbackChain(value) {
+    const canonical = canonicalLanguageTag(value);
+    if (!canonical) return [];
+    try {
+      const locale = new Intl.Locale(canonical);
+      const chain = [locale.baseName];
+      if (locale.script) chain.push(`${locale.language}-${locale.script}`);
+      chain.push(locale.language);
+      return uniqueCanonicalTags(chain);
+    } catch {
+      return [canonical];
+    }
+  }
+  function uniqueCanonicalTags(values) {
+    const seen = /* @__PURE__ */ new Set();
+    const tags = [];
+    for (const value of values) {
+      const canonical = canonicalLanguageTag(value);
+      if (!canonical || seen.has(canonical)) continue;
+      seen.add(canonical);
+      tags.push(canonical);
+    }
+    return tags;
   }
   const JAPANESE_TEXT_RE$2 = /[\u3040-\u30ff\u3400-\u9fff々〆]/u;
   function cardHighlightTargets(card) {
@@ -8424,6 +8486,9 @@ ${candidate.depth}`;
   const INFLECTION_CONTINUATION_SEGMENT_RE = /^(?:っ?た|っ?て|だ|で|ん|んで|ま|ない|なか|なかっ|なかった|ながら|ます|まし|ました|ませ|ません|ましょう|たい|たく|しま|した|し|する|でき|出来|できる|できます|できた|できて|できない|できなかった|いる|い|いた|いて|れる|られ|せる|させる)$/u;
   const HIRAGANA_SEGMENT_RE = new RegExp(`^[${HIRAGANA_WITH_PROLONGED}]+$`, "u");
   const KATAKANA_SEGMENT_RE = new RegExp(`^[${KATAKANA}${HALFWIDTH_KATAKANA}${PROLONGED_SOUND_MARK}]+$`, "u");
+  const SEGMENT_SEPARATORS = "・･゠·•";
+  const SEGMENT_SEPARATOR_RE = new RegExp(`[${SEGMENT_SEPARATORS}]`, "u");
+  const SEGMENT_SEPARATOR_RUN_RE = new RegExp(`[${SEGMENT_SEPARATORS}]+`, "gu");
   const SINGLE_KANJI_SEGMENT_RE = new RegExp(`^[${KANJI}]$`, "u");
   const SINGLE_KANJI_HIRAGANA_STEM_RE = new RegExp(`^[${KANJI}][${HIRAGANA_WITH_PROLONGED}]*$`, "u");
   const KANJI_KANA_KANJI_SPAN_RE = new RegExp(`[${KANJI_LIKE_WITH_COUNTERS}][${HIRAGANA_WITH_PROLONGED}]+[${KANJI_LIKE_WITH_COUNTERS}]`, "u");
@@ -8498,8 +8563,9 @@ ${spelling}`);
     return finalizeJapaneseRunSegments(segments, sourceText);
   }
   function finalizeJapaneseRunSegments(segments, sourceText) {
+    const separatedSegments = splitNumericCounterPrefixSegments(splitSeparatorSegments(segments), sourceText);
     const normalizedSegments = splitTrailingPoliteParticleSegments(
-      mergeContiguousKanaSegments(mergeContiguousKatakanaSegments(mergeSegmenterCompoundOverrides(splitNumericCounterPrefixSegments(segments, sourceText))))
+      mergeContiguousKanaSegments(mergeContiguousKatakanaSegments(mergeSegmenterCompoundOverrides(separatedSegments)))
     );
     return mergeInflectedFallbackSegments(
       splitLeadingParticleSegments(normalizedSegments),
@@ -8518,6 +8584,29 @@ ${spelling}`);
         { surface: "ね", start: particleStart, end: segment.end }
       ];
     });
+  }
+  function splitSeparatorSegments(segments) {
+    if (!segments.some((segment) => SEGMENT_SEPARATOR_RE.test(segment.surface))) return segments;
+    return segments.flatMap(splitSeparatorSegment);
+  }
+  function splitSeparatorSegment(segment) {
+    if (!SEGMENT_SEPARATOR_RE.test(segment.surface)) return [segment];
+    const pieces = [];
+    let cursor = 0;
+    for (const match of segment.surface.matchAll(SEGMENT_SEPARATOR_RUN_RE)) {
+      const index = match.index ?? 0;
+      if (index > cursor) pieces.push(separatorFreeSegmentSlice(segment, cursor, index));
+      cursor = index + match[0].length;
+    }
+    if (cursor < segment.surface.length) pieces.push(separatorFreeSegmentSlice(segment, cursor, segment.surface.length));
+    return pieces;
+  }
+  function separatorFreeSegmentSlice(segment, from, to) {
+    return {
+      surface: segment.surface.slice(from, to),
+      start: segment.start + from,
+      end: segment.start + to
+    };
   }
   function mergeContiguousKanaSegments(segments) {
     if (segments.some((segment) => NON_HIRAGANA_SCRIPT_RE.test(segment.surface))) return segments;
@@ -8788,9 +8877,10 @@ ${spelling}`);
   function isUsefulFallbackLookupCandidate(candidate) {
     return candidate.depth > 0 && JAPANESE_CHARACTER_RE.test(candidate.term) && candidate.term.length > 1;
   }
-  function compareFallbackLookupCandidates(a, b) {
+  function compareJapaneseLookupCandidates(a, b) {
     return a.depth - b.depth || fallbackRulePriority(a) - fallbackRulePriority(b) || b.term.length - a.term.length || a.term.localeCompare(b.term);
   }
+  const compareFallbackLookupCandidates = compareJapaneseLookupCandidates;
   function fallbackRulePriority(candidate) {
     if (candidate.rules.some((rule) => rule === "vs" || rule === "vs-s" || rule === "suru" || rule === "vk" || rule === "kuru")) return 0;
     if (candidate.rules.some((rule) => rule === "v1")) return 1;
@@ -8810,8 +8900,8 @@ ${spelling}`);
     return !BOGUS_SMALL_TSU_FINAL_RE.test(term) && fallbackLookupTermsForText(term).length <= 1;
   }
   const LANGUAGE_PROFILE_SCHEMA_VERSION = 1;
-  const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 3;
-  const SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS = [3];
+  const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 4;
+  const SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS = [4];
   function isSupportedLearningTargetModuleInterfaceVersion(value) {
     return SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS.includes(value);
   }
@@ -8886,6 +8976,7 @@ ${spelling}`);
       },
       segment: spec.segment ?? defaultSegment,
       lookupCandidates: spec.lookupCandidates ?? ((text2) => defaultLookupCandidates(normalizeText(text2))),
+      compareLookupCandidates: spec.compareLookupCandidates ?? defaultCompareLookupCandidates,
       matchesLookupCandidateRules: spec.matchesLookupCandidateRules ?? defaultMatchesLookupCandidateRules,
       normalizeReading: spec.normalizeReading ?? defaultNormalizeReading
     });
@@ -8920,6 +9011,9 @@ ${spelling}`);
   }
   function defaultLookupCandidates(term) {
     return term ? [{ term, rules: [], reasons: [], depth: 0 }] : [];
+  }
+  function defaultCompareLookupCandidates(a, b) {
+    return a.depth - b.depth || b.term.length - a.term.length || a.term.localeCompare(b.term);
   }
   function defaultMatchesLookupCandidateRules(entryRules, candidateRules) {
     if (!candidateRules.length) return true;
@@ -8991,6 +9085,10 @@ ${spelling}`);
     // candidates to line up with those substrings character for character.
     // Anything that wants normalized input calls normalizeText first.
     lookupCandidates: deinflectJapaneseTerm,
+    // The ranking JMdict tags imply: a suru/kuru reading beats ichidan/godan
+    // beats i-adjective. Shared verbatim with the Japanese fallback path so
+    // both doors into the deinflector return the same order.
+    compareLookupCandidates: compareJapaneseLookupCandidates,
     matchesLookupCandidateRules: termRulesMatch,
     normalizeReading(spelling, reading) {
       return normalizedJapaneseCardReading(spelling, reading);
@@ -9046,6 +9144,9 @@ ${spelling}`);
   }
   function normalizeLearningTargetLanguage(value) {
     return learningTargetModuleFor(value)?.language ?? defaultLearningTargetModule().language;
+  }
+  function registeredLearningTargetModules() {
+    return Object.freeze([...MODULES_BY_LANGUAGE.values()]);
   }
   function defaultLearningTargetModule() {
     return MODULES_BY_LANGUAGE.get(DEFAULT_LEARNING_TARGET_LANGUAGE) ?? JAPANESE_LEARNING_TARGET;
@@ -9917,6 +10018,36 @@ ${spelling}`);
   }
   function pruneProjectedReadings(document2) {
     yomuAnnotationsCompanion()?.pruneProjectedReadings(document2);
+  }
+  function createPostPaintPass(run) {
+    let pendingScheduler = null;
+    const flush = () => {
+      pendingScheduler = null;
+      run();
+    };
+    return {
+      schedule(view) {
+        const request = view?.requestAnimationFrame;
+        if (typeof request !== "function") {
+          flush();
+          return;
+        }
+        if (pendingScheduler === request) return;
+        const previous = pendingScheduler;
+        pendingScheduler = request;
+        try {
+          request.call(view, flush);
+        } catch (error) {
+          if (pendingScheduler === request) pendingScheduler = previous;
+          throw error;
+        }
+      }
+    };
+  }
+  function viewForNode(node) {
+    if (!node) return null;
+    const document2 = node.nodeType === Node.DOCUMENT_NODE ? node : node.ownerDocument;
+    return document2?.defaultView ?? null;
   }
   const SHADOW_STYLE_MARKER = "data-yomu-shadow-reader-style";
   let shadowReaderCssText = "";
@@ -10890,6 +11021,11 @@ ${spelling}`);
   function targetOcrLanguageHint(configured) {
     const target = activeLearningTarget().ocr;
     return (configured?.trim() || target.languageHint).slice(0, 2);
+  }
+  function isTargetDefaultOcrLanguageTag(value) {
+    const tag = value?.trim().toLowerCase();
+    if (!tag) return false;
+    return registeredLearningTargetModules().some((module) => module.ocr.defaultLanguage.toLowerCase() === tag);
   }
   function targetSpeechSynthesisLocale() {
     return activeLearningTarget().audio.speechSynthesisLocale;
@@ -12181,7 +12317,11 @@ ${spelling}`);
     ocrEndpointUrl: "",
     ocrEngine: "auto",
     ocrCloudVisionApiKey: "",
-    ocrLanguage: "ja-JP",
+    // Empty means "follow the language being studied": every OCR provider
+    // resolves this through `targetOcrLanguageTag`, which falls back to the
+    // active learning target's own default. A literal here would pin a fresh
+    // install to one language no matter which target it selected.
+    ocrLanguage: "",
     ocrMaxImagePixels: 12e5,
     ocrMinImageArea: 45e3,
     ocrMaxImagesPerPage: 3,
@@ -12332,7 +12472,9 @@ ${spelling}`);
     ["ankiTags", DEFAULT_SETTINGS.ankiTags]
   ];
   function mergeSettings(value) {
-    const settingsValue = migrateHiddenFilterNotice(migrateLegacyDefaultMobileSettings(value));
+    const settingsValue = migratePinnedOcrLanguage(
+      migrateHiddenFilterNotice(migrateLegacyDefaultMobileSettings(value))
+    );
     const audio = normalizeAudioSettings(settingsValue);
     const supportedSettings = stripUnsupportedSettings(settingsValue);
     const apiCredentials = normalizeApiCredentialSettings(settingsValue);
@@ -12466,6 +12608,10 @@ ${spelling}`);
     const migrated = { ...value, youtubeFilterNoticeRestored20260711: true };
     if (migrated.youtubeShowFilterNotice === false) migrated.youtubeShowFilterNotice = true;
     return migrated;
+  }
+  function migratePinnedOcrLanguage(value) {
+    if (!value || !isTargetDefaultOcrLanguageTag(stringValue$4(value.ocrLanguage))) return value;
+    return { ...value, ocrLanguage: "" };
   }
   function migrateLegacyDefaultMobileSettings(value) {
     if (!value) return value;
@@ -14286,9 +14432,10 @@ ${spelling}`);
     const pruned = nonOverlappingTokens(remapped, hostText);
     const prunedSet = new Set(pruned);
     dropped.push(...remapped.filter((token) => !prunedSet.has(token)));
+    const rendered = withHostRemapGapFallbackTokens(pruned, dropped, indexed, nodeOffsets, hostText);
     return {
       text: hostText,
-      tokens: withHostRemapGapFallbackTokens(pruned, dropped, indexed, nodeOffsets, hostText),
+      tokens: withRetainedNeighbourTokens(host, hostText, targetHostRanges(fragments, nodeOffsets), rendered),
       whitespaceJoints,
       hostText
     };
@@ -14366,6 +14513,33 @@ ${spelling}`);
         sentence: hostText
       });
     }
+  }
+  function targetHostRanges(fragments, nodeOffsets) {
+    const ranges = [];
+    for (const fragment2 of fragments) {
+      const base = nodeOffsets.get(fragment2.node);
+      if (base === void 0) return null;
+      const start = base + Math.max(0, fragment2.start);
+      const end = base + Math.min(fragment2.node.data.length, fragment2.end);
+      if (end > start) ranges.push({ start, end });
+    }
+    return ranges;
+  }
+  function hostRangesOverlap(first2, second) {
+    return first2.start < second.end && second.start < first2.end;
+  }
+  function withRetainedNeighbourTokens(host, hostText, ownRanges, tokens) {
+    if (!ownRanges?.length) return tokens;
+    const mirror = currentTextMirror(host);
+    if (!mirror || !textMirrorRenderIsIntact(mirror) || mirror.dataset.sourceText !== hostText) return tokens;
+    const entry = nonDestructiveRenderCache.get(host);
+    if (!entry || entry.epoch !== nonDestructiveRenderCacheEpoch || entry.planText !== hostText) return tokens;
+    const retained = entry.tokens.filter((token) => token.start >= 0 && token.end > token.start && token.end <= hostText.length && !ownRanges.some((range) => hostRangesOverlap(token, range)));
+    if (!retained.length) return tokens;
+    return nonOverlappingTokens(
+      [...tokens, ...retained].sort((first2, second) => first2.start - second.start || second.end - second.start - (first2.end - first2.start)),
+      hostText
+    );
   }
   const MIRROR_PLAN_TEXT_SKIP_SELECTOR = `${READER_OWNED_TEXT_SELECTOR},script,style,noscript,template,[hidden],rt,rp`;
   function hostOriginalTextWithNodeOffsets(host) {
@@ -15137,23 +15311,15 @@ ${spelling}`);
     }
     mirror.style.removeProperty("line-height");
   }
-  let pendingAdditiveMirrorProjectionFrame = 0;
   const pendingAdditiveMirrorProjectionRoots = /* @__PURE__ */ new Set();
+  const additiveMirrorProjectionPass = createPostPaintPass(() => {
+    const roots = [...pendingAdditiveMirrorProjectionRoots];
+    pendingAdditiveMirrorProjectionRoots.clear();
+    for (const pendingRoot of roots) projectAdditiveTextMirrors(pendingRoot);
+  });
   function scheduleAdditiveMirrorProjection(root = document) {
     pendingAdditiveMirrorProjectionRoots.add(root);
-    if (typeof requestAnimationFrame !== "function") {
-      const roots = [...pendingAdditiveMirrorProjectionRoots];
-      pendingAdditiveMirrorProjectionRoots.clear();
-      for (const pendingRoot of roots) projectAdditiveTextMirrors(pendingRoot);
-      return;
-    }
-    if (pendingAdditiveMirrorProjectionFrame) return;
-    pendingAdditiveMirrorProjectionFrame = requestAnimationFrame(() => {
-      pendingAdditiveMirrorProjectionFrame = 0;
-      const roots = [...pendingAdditiveMirrorProjectionRoots];
-      pendingAdditiveMirrorProjectionRoots.clear();
-      for (const pendingRoot of roots) projectAdditiveTextMirrors(pendingRoot);
-    });
+    additiveMirrorProjectionPass.schedule(viewForNode(root));
   }
   function sourceRangeBoundary(nodeOffsets, sourceOffset, side) {
     let boundary = null;
@@ -22702,23 +22868,6 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     pass: 3,
     easy: 4
   };
-  const YOMU_MODEL_FIELDS = [
-    "Expression",
-    "Reading",
-    "Meaning",
-    "Sentence",
-    "Url",
-    "Frequency",
-    "PartOfSpeech",
-    "Image",
-    "Audio",
-    "JPDB",
-    "Status",
-    "Pitch",
-    "DictionaryDefinitions",
-    "Kanji",
-    "Source"
-  ];
   function ankiLookupWithUnavailableDetails$1(lookup) {
     const mark = (note) => ankiNoteHasRenderableDetails$1(note) ? note : { ...note, detailsUnavailable: true };
     const notes = lookup.notes.map(mark);
@@ -24059,6 +24208,44 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     async ensureDeck(deckName) {
       await this.invokeOrDefault("createDeck", { deck: deckName }, null);
     }
+    // A note type made by an earlier Yomu keeps working, but has no field for
+    // what newer releases mine (audio and pitch are the ones users notice).
+    // Report what it would gain so settings can offer the update, and null
+    // once it already matches — the offer clears itself.
+    // Used by the settings Anki panel through the Anki dependency.
+    // fallow-ignore-next-line unused-class-member
+    async yomuModelUpdatePlan() {
+      const settings = this.getSettings();
+      if (!settings.ankiEnabled) return null;
+      const modelName = resolvedAnkiModelName(settings);
+      const modelNames = await this.modelNames().catch(() => []);
+      if (!modelNames.includes(modelName)) return null;
+      const fieldNames = await this.invokeOrDefault("modelFieldNames", { modelName }, []);
+      if (!fieldNames.length) return null;
+      if (!shouldTreatExistingModelAsYomuManaged(modelName, settings, fieldNames)) return null;
+      const missingFields = missingYomuModelFields(fieldNames);
+      return missingFields.length ? { modelName, missingFields } : null;
+    }
+    // Accepting the settings offer lands here. It writes only what the plan
+    // above says, re-read now: every reason that plan has for staying quiet —
+    // a third-party note type, a field read that failed — is a reason to write
+    // nothing, and fifteen fields is a collection-wide schema change Anki has
+    // no cheap undo for. An offer made against another note type is declined
+    // rather than retargeted, so a stale prompt is a no-op.
+    // Fields only: templates and styling stay as the user left them.
+    // Used by the settings Anki panel through the Anki dependency.
+    // fallow-ignore-next-line unused-class-member
+    async addMissingYomuModelFields(expectedModelName) {
+      const plan = await this.yomuModelUpdatePlan();
+      if (!plan) return [];
+      if (plan.modelName !== expectedModelName) {
+        log$E.info("Anki note type update declined", { offered: expectedModelName, configured: plan.modelName });
+        return [];
+      }
+      await this.addModelFields(plan.modelName, plan.missingFields);
+      this.fieldTargetPlanCache = void 0;
+      return plan.missingFields;
+    }
     async updateExistingModel(modelName, settings) {
       await this.ensureModelFields(modelName);
       await this.invoke("updateModelTemplates", { model: { name: modelName, templates: yomuCardTemplates(settings) } });
@@ -24076,14 +24263,20 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       });
       log$E.info("Anki model created", { modelName });
     }
+    // Adding nothing is the steady state once the note type matches this
+    // release. A field list that would not read is a failed request, not a
+    // note type with no fields — Anki has no such thing — so it waits for a
+    // read it can trust rather than widening a note type it cannot see.
     async ensureModelFields(modelName) {
-      const fieldNames = await this.invokeOrDefault("modelFieldNames", { modelName }, []);
-      const existing = new Set(fieldNames);
-      for (const fieldName of YOMU_MODEL_FIELDS) {
-        if (!existing.has(fieldName)) {
-          await this.invoke("modelFieldAdd", { modelName, fieldName });
-        }
+      const fieldNames = await this.invoke("modelFieldNames", { modelName }).catch(() => null);
+      if (!fieldNames?.length) return;
+      await this.addModelFields(modelName, missingYomuModelFields(fieldNames));
+    }
+    async addModelFields(modelName, fieldNames) {
+      for (const fieldName of fieldNames) {
+        await this.invoke("modelFieldAdd", { modelName, fieldName });
       }
+      if (fieldNames.length) log$E.info("Anki model fields added", { modelName, fields: fieldNames });
     }
     async invoke(action, params = {}) {
       return this.invokeWithTimeout(action, params, ANKI_CONNECT_REQUEST_TIMEOUT_MS);
@@ -26578,6 +26771,8 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     modelNames = ankiEmptyStrings;
     noteFieldTargetPlan = ankiNull;
     scanLibrary = ankiEmptyLibrary;
+    yomuModelUpdatePlan = ankiNull;
+    addMissingYomuModelFields = ankiEmptyStrings;
     warmStatusIndex = ankiNull;
     findExistingCards = ankiUntrustedLookup;
     findCachedStatusBatch = ankiUntrustedLookupBatch;
@@ -44111,15 +44306,28 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
                         </div>
                     </div>
                     <div class="jpdb-reader-study-short jpdb-reader-parseable">${escapeHtml$2(details.short)}</div>
-                    <details class="jpdb-reader-grammar-more">
-                        <summary>${escapeHtml$2(uiText(language2, "grammarDetails"))}</summary>
-                        <div class="jpdb-reader-study-detail jpdb-reader-parseable">${escapeHtml$2(details.detail)}</div>
-                        <div class="jpdb-reader-study-match"><span>${escapeHtml$2(uiText(language2, "grammarFoundIn"))}</span><span class="jpdb-reader-study-match-text jpdb-reader-parseable">${escapeHtml$2(hint.match)}</span></div>
-                        ${renderGrammarHintExamples(details.examples, language2, audioEnabled)}
-                        ${renderGrammarHintGuide(details.url ?? "", language2)}
-                    </details>
+                    ${renderGrammarHintDisclosure(hint, details, displayName, language2, audioEnabled)}
                 </div>
             </li>`;
+  }
+  function renderGrammarHintDisclosure(hint, details, displayName, language2, audioEnabled) {
+    const detail = renderGrammarHintDetail(details, displayName);
+    const examples = renderGrammarHintExamples(details.examples, language2, audioEnabled);
+    const match = renderGrammarHintMatch(hint, language2);
+    const guide = renderGrammarHintGuide(details.url ?? "", language2);
+    if (!detail && !examples) return `${match}${guide}`;
+    return `<details class="jpdb-reader-grammar-more">
+                        <summary>${escapeHtml$2(uiText(language2, "grammarDetails"))}</summary>
+                        ${detail}${match}${examples}${guide}
+                    </details>`;
+  }
+  function renderGrammarHintDetail(details, displayName) {
+    const detail = details.detail.trim();
+    if (!detail || detail === details.short.trim() || detail === displayName.trim()) return "";
+    return `<div class="jpdb-reader-study-detail jpdb-reader-parseable">${escapeHtml$2(detail)}</div>`;
+  }
+  function renderGrammarHintMatch(hint, language2) {
+    return `<div class="jpdb-reader-study-match"><span>${escapeHtml$2(uiText(language2, "grammarFoundIn"))}</span><span class="jpdb-reader-study-match-text jpdb-reader-parseable">${escapeHtml$2(hint.match)}</span></div>`;
   }
   function renderGrammarRepeatCount(count) {
     return count > 1 ? `<span class="jpdb-reader-grammar-repeat">x${count}</span>` : "";
@@ -46303,6 +46511,169 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       image.src = url;
     });
   }
+  const OCR_BOX_INK_RATIO = 0.92;
+  const MIN_OCR_FONT_PX = 11;
+  function ocrFontPx(text2, boxWidth, boxHeight, vertical, scale, measured) {
+    const safeScale = Math.max(0.7, Math.min(1.8, scale));
+    const boxThickness = vertical ? boxWidth : boxHeight;
+    const boxLength = vertical ? boxHeight : boxWidth;
+    const byBoxThickness = boxThickness / OCR_BOX_INK_RATIO;
+    const byBoxLength = measuredFontPx(boxLength, measured) ?? estimatedFontPx(text2, boxLength, vertical);
+    return Math.max(MIN_OCR_FONT_PX, Math.min(byBoxThickness, byBoxLength) * safeScale);
+  }
+  function measuredFontPx(boxLength, measured) {
+    if (!measured || !(measured.length > 0) || !(measured.fontSize > 0)) return null;
+    return boxLength / measured.length * measured.fontSize;
+  }
+  function estimatedFontPx(text2, boxLength, vertical) {
+    return boxLength / Math.max(1, visualTextLength(text2)) * (vertical ? 1.12 : 1.08);
+  }
+  function visualTextLength(text2) {
+    return [...text2.trim()].reduce((total, char) => {
+      if (/\s/.test(char)) return total + 0.35;
+      if ((char.codePointAt(0) ?? 0) <= 255) return total + 0.62;
+      return total + 1;
+    }, 0);
+  }
+  function shouldCenterOcrText(text2) {
+    return visualTextLength(text2) <= 1.5;
+  }
+  const OCR_WORD_UNDERLINE_OFFSET_EM = 0.12;
+  const OCR_WORD_UNDERLINE_THICKNESS_EM = 0.12;
+  const OCR_WORD_UNDERLINE_CLEARANCE_PX = 1;
+  function ocrWordUnderlineBleedPx(fontSize) {
+    return Math.ceil(fontSize * (OCR_WORD_UNDERLINE_OFFSET_EM + OCR_WORD_UNDERLINE_THICKNESS_EM)) + OCR_WORD_UNDERLINE_CLEARANCE_PX;
+  }
+  function ocrLinePadding(fontSize, vertical, hasFurigana) {
+    const underlineBleed = ocrWordUnderlineBleedPx(fontSize);
+    return {
+      padX: Math.max(4, Math.round(fontSize * 0.16)),
+      padTop: hasFurigana ? Math.max(3, Math.round(fontSize * 0.1)) : Math.max(2, Math.round(fontSize * 0.08)),
+      padBottom: vertical ? Math.max(3, Math.round(fontSize * 0.1)) : Math.max(3, underlineBleed)
+    };
+  }
+  function ocrLineFrame(input2) {
+    const { box, frame, vertical, fontSize } = input2;
+    const padding = ocrLinePadding(fontSize, vertical, input2.hasFurigana);
+    const contentWidth = Math.max(1, input2.contentWidth);
+    const contentHeight = Math.max(1, input2.contentHeight);
+    const underlineBleed = ocrWordUnderlineBleedPx(fontSize);
+    const minHitSize = Math.max(24, Math.round(fontSize * 1.25));
+    const furiGutter = vertical && input2.hasFurigana ? Math.round(fontSize * 0.55) : 0;
+    const underlineGutter = vertical ? underlineBleed : 0;
+    const width = Math.min(frame.imageWidth, Math.max(box.width, minHitSize, contentWidth + padding.padX * 2 + underlineGutter * 2));
+    const height = Math.min(frame.imageHeight, Math.max(box.height, minHitSize, contentHeight + padding.padTop + padding.padBottom));
+    const minLeft = frame.imageLeft;
+    const minTop = frame.imageTop;
+    const maxLeft = Math.max(minLeft, frame.imageLeft + frame.imageWidth - width - furiGutter);
+    const maxTop = Math.max(minTop, frame.imageTop + frame.imageHeight - (frame.safeBottomInset ?? 0) - height);
+    const left = clampNumber$1(box.left + box.width / 2 - width / 2, minLeft, maxLeft);
+    const centeredTop = box.top + box.height / 2 - height / 2;
+    const baselineAlignedTop = box.top + box.height - height + padding.padBottom;
+    const targetTop = vertical ? box.top : shouldCenterOcrText(input2.text) ? centeredTop : baselineAlignedTop;
+    return {
+      ...padding,
+      left,
+      top: clampNumber$1(targetTop, minTop, maxTop),
+      width,
+      height
+    };
+  }
+  function layoutOcrLineElement(element2, input2) {
+    const { box, frame, vertical } = input2;
+    if (!Number.isFinite(box.width) || !Number.isFinite(box.height) || box.width <= 0 || box.height <= 0) return null;
+    const textElement = element2.querySelector(".jpdb-ocr-line-text");
+    if (!textElement) return null;
+    const hasFurigana = Boolean(textElement.querySelector(".jpdb-reader-has-furi"));
+    element2.style.width = "";
+    element2.style.height = "";
+    const fontSize = ocrFontPx(
+      input2.text,
+      box.width,
+      box.height,
+      vertical,
+      input2.fontScale,
+      measureOcrLineExtent(element2, textElement, vertical, input2.typeface ?? ocrLayerTypeface(element2))
+    );
+    element2.style.fontSize = `${fontSize}px`;
+    element2.dataset.hasFuri = String(hasFurigana);
+    const padding = ocrLinePadding(fontSize, vertical, hasFurigana);
+    applyOcrLinePadding(element2, padding);
+    const contentRect = textElement.getBoundingClientRect();
+    const placed = ocrLineFrame({
+      text: input2.text,
+      box,
+      frame,
+      vertical,
+      hasFurigana,
+      fontSize,
+      contentWidth: contentRect.width,
+      contentHeight: contentRect.height
+    });
+    element2.style.left = `${placed.left}px`;
+    element2.style.top = `${placed.top}px`;
+    element2.style.width = `${placed.width}px`;
+    element2.style.height = `${placed.height}px`;
+    return placed;
+  }
+  function layoutOcrOverlayLines(layer, frame, fontScale) {
+    const lines = layer.querySelectorAll(".jpdb-ocr-line");
+    const typeface = lines.length > 0 ? ocrLayerTypeface(lines[0]) : "";
+    lines.forEach((element2) => {
+      layoutOcrLineElement(element2, {
+        text: element2.dataset.ocrText ?? "",
+        box: {
+          left: frame.imageLeft + Number(element2.dataset.boxLeft) * frame.imageWidth,
+          top: frame.imageTop + Number(element2.dataset.boxTop) * frame.imageHeight,
+          width: Number(element2.dataset.boxWidth) * frame.imageWidth,
+          height: Number(element2.dataset.boxHeight) * frame.imageHeight
+        },
+        frame,
+        vertical: element2.dataset.vertical === "true",
+        fontScale,
+        typeface
+      });
+    });
+  }
+  function ocrLayerTypeface(line) {
+    const view = line.ownerDocument.defaultView;
+    return view ? view.getComputedStyle(line).fontFamily : "";
+  }
+  const OCR_FIT_MEASURE_PX = 32;
+  const rememberedLineExtents = /* @__PURE__ */ new WeakMap();
+  function measureOcrLineExtent(line, textElement, vertical, typeface) {
+    const signature = `${vertical ? "vertical" : "horizontal"}|${typeface}|${textElement.innerHTML}`;
+    const remembered = rememberedLineExtents.get(line);
+    if (remembered?.signature === signature) return remembered.measurement;
+    line.style.fontSize = `${OCR_FIT_MEASURE_PX}px`;
+    const length = axisLength(textElement.getBoundingClientRect(), vertical);
+    if (!(length > 0)) return void 0;
+    const measurement = { fontSize: OCR_FIT_MEASURE_PX, length };
+    rememberedLineExtents.set(line, { signature, measurement });
+    return measurement;
+  }
+  function axisLength(rect, vertical) {
+    return vertical ? rect.height : rect.width;
+  }
+  function applyOcrLinePadding(element2, padding) {
+    element2.style.setProperty("--jpdb-ocr-pad-x", `${padding.padX}px`);
+    element2.style.setProperty("--jpdb-ocr-pad-top", `${padding.padTop}px`);
+    element2.style.setProperty("--jpdb-ocr-pad-bottom", `${padding.padBottom}px`);
+  }
+  function clampNumber$1(value, min, max2) {
+    return Math.min(max2, Math.max(min, value));
+  }
+  function paintedImageFrame(input2) {
+    const content = imageContentBox(input2.image, input2.rect, input2.style);
+    const object2 = fittedObjectSize(input2.objectFit, input2.sourceWidth, input2.sourceHeight, content.width, content.height);
+    const offset = objectPositionOffset(input2.objectPosition, content.width - object2.width, content.height - object2.height);
+    return {
+      imageLeft: content.left + offset.x,
+      imageTop: content.top + offset.y,
+      imageWidth: Math.max(1, object2.width),
+      imageHeight: Math.max(1, object2.height)
+    };
+  }
   function imageContentBox(image, rect, style) {
     const scaleX = rectScale(rect.width, image.offsetWidth);
     const scaleY = rectScale(rect.height, image.offsetHeight);
@@ -47030,7 +47401,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return Boolean(record2.is_vertical ?? record2.box?.isVertical ?? inheritedVertical);
   }
   function normalizeStructuredOcrFallback(record2, textLines, width, height, vertical) {
-    const text2 = textLines.map((item) => stringFrom(item?.content)).filter(Boolean).join("");
+    const text2 = cleanOcrText(textLines.map((item) => stringFrom(item?.content)).filter(Boolean).join(" "));
     const box = normalizeBox(record2.box, width, height);
     return text2 && box ? [{ text: text2, box, vertical }] : [];
   }
@@ -47244,7 +47615,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return normalized ? value * scale : value;
   }
   function stringFrom(value) {
-    return typeof value === "string" ? value.replace(/\s+/g, "").trim() : "";
+    return typeof value === "string" ? cleanOcrText(value) : "";
   }
   function asRecord$1(value) {
     return value && typeof value === "object" ? value : null;
@@ -47252,6 +47623,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   const LENS_PLATFORM_WEB = 3;
   const LENS_SURFACE_CHROMIUM = 4;
   const LENS_AUTO_FILTER = 7;
+  function googleLensAcceptLanguage(configured) {
+    return `${targetOcrLanguageHint(configured)},en-US;q=0.9,en;q=0.8`;
+  }
   function createGoogleLensRequest(imageBytes, width, height, locale) {
     const [language2 = "", region = "US"] = (locale || targetOcrLanguageTag()).split(/[-_]/);
     const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
@@ -47437,7 +47811,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   async function recognizeViaGoogleLensProtobuf(blob, canvas, settings, timeout) {
     const bytes = new Uint8Array(await blob.arrayBuffer());
     const body = createGoogleLensRequest(bytes, canvas.width, canvas.height, settings.ocrLanguage);
-    const response = await requestArrayBuffer(GOOGLE_LENS_ENDPOINT, body, timeout);
+    const response = await requestArrayBuffer(GOOGLE_LENS_ENDPOINT, body, timeout, googleLensAcceptLanguage(settings.ocrLanguage));
     return parseGoogleLensResponse(new Uint8Array(response), canvas.width, canvas.height);
   }
   function ocrRecognizer(settings) {
@@ -47517,13 +47891,13 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       throw error;
     }).finally(() => window.clearTimeout(timeoutId));
   }
-  function requestArrayBuffer(url, data, timeout) {
+  function requestArrayBuffer(url, data, timeout, acceptLanguage) {
     const body = new Uint8Array(data);
     const headers = {
       "content-type": "application/x-protobuf",
       "x-goog-api-key": GOOGLE_LENS_API_KEY,
       accept: "*/*",
-      "accept-language": "ja,en-US;q=0.9,en;q=0.8"
+      "accept-language": acceptLanguage
     };
     const userscriptRequest = requestViaUserscript$1({
       method: "POST",
@@ -48775,9 +49149,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   const bookwalkerAssetResolver = new BookwalkerAssetResolver();
   const log$j = Logger.scope("OCR");
   const STALE_OCR_STATE = Symbol("stale-ocr-state");
-  const OCR_WORD_UNDERLINE_OFFSET_EM = 0.12;
-  const OCR_WORD_UNDERLINE_THICKNESS_EM = 0.12;
-  const OCR_WORD_UNDERLINE_CLEARANCE_PX = 1;
   const ocrVocabularyCache = /* @__PURE__ */ new WeakMap();
   let ocrLayerCounter = 0;
   const OCR_PROVIDER_LABELS = {
@@ -51232,7 +51603,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       setOcrArtifactPosition(state2.overlay, rect.left, rect.top);
       state2.overlay.style.width = `${rect.width}px`;
       state2.overlay.style.height = `${rect.height}px`;
-      this.fitLineFonts(state2, this.renderedOcrImageFrameForState(image, rect, state2.result));
+      layoutOcrOverlayLines(
+        state2.overlay,
+        this.renderedOcrImageFrameForState(image, rect, state2.result),
+        this.options.getSettings().ocrFontScale
+      );
     }
     readerRasterSourceRect(image) {
       const canvas = this.canvasFrameSources.get(image);
@@ -51257,54 +51632,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       }
       if (!reserve) return frame;
       return { ...frame, safeBottomInset: Math.max(0, Math.min(reserve, frame.imageHeight - 1)) };
-    }
-    fitLineFonts(state2, frame) {
-      const scale = this.options.getSettings().ocrFontScale;
-      state2.overlay.querySelectorAll(".jpdb-ocr-line").forEach((element2) => {
-        const boxLeft = frame.imageLeft + Number(element2.dataset.boxLeft) * frame.imageWidth;
-        const boxTop = frame.imageTop + Number(element2.dataset.boxTop) * frame.imageHeight;
-        const boxWidth = Number(element2.dataset.boxWidth) * frame.imageWidth;
-        const boxHeight = Number(element2.dataset.boxHeight) * frame.imageHeight;
-        if (!Number.isFinite(boxWidth) || !Number.isFinite(boxHeight) || boxWidth <= 0 || boxHeight <= 0) return;
-        const text2 = element2.dataset.ocrText ?? "";
-        const vertical = element2.dataset.vertical === "true";
-        element2.style.fontSize = `${ocrFontPx(text2, boxWidth, boxHeight, vertical, scale)}px`;
-        this.fitLineFrame(element2, boxLeft, boxTop, boxWidth, boxHeight, frame, vertical);
-      });
-    }
-    fitLineFrame(element2, boxLeft, boxTop, boxWidth, boxHeight, frame, vertical) {
-      const textElement = element2.querySelector(".jpdb-ocr-line-text");
-      if (!textElement) return;
-      const hasFurigana = element2.dataset.hasFuri === "true";
-      const fontSize = Number.parseFloat(element2.style.fontSize) || 16;
-      const underlineBleed = ocrWordUnderlineBleedPx(fontSize);
-      const padX = Math.max(4, Math.round(fontSize * 0.16));
-      const padTop = hasFurigana ? Math.max(3, Math.round(fontSize * 0.1)) : Math.max(2, Math.round(fontSize * 0.08));
-      const padBottom = vertical ? Math.max(3, Math.round(fontSize * 0.1)) : Math.max(3, underlineBleed);
-      element2.style.setProperty("--jpdb-ocr-pad-x", `${padX}px`);
-      element2.style.setProperty("--jpdb-ocr-pad-top", `${padTop}px`);
-      element2.style.setProperty("--jpdb-ocr-pad-bottom", `${padBottom}px`);
-      const contentRect = textElement.getBoundingClientRect();
-      const contentWidth = Math.max(1, contentRect.width);
-      const contentHeight = Math.max(1, contentRect.height);
-      const minHitSize = Math.max(24, Math.round(fontSize * 1.25));
-      const furiGutter = vertical && hasFurigana ? Math.round(fontSize * 0.55) : 0;
-      const underlineGutter = vertical ? underlineBleed : 0;
-      const frameWidth = Math.min(frame.imageWidth, Math.max(boxWidth, minHitSize, contentWidth + padX * 2 + underlineGutter * 2));
-      const frameHeight = Math.min(frame.imageHeight, Math.max(boxHeight, minHitSize, contentHeight + padTop + padBottom));
-      const minLeft = frame.imageLeft;
-      const minTop = frame.imageTop;
-      const maxLeft = Math.max(minLeft, frame.imageLeft + frame.imageWidth - frameWidth - furiGutter);
-      const maxTop = Math.max(minTop, frame.imageTop + frame.imageHeight - (frame.safeBottomInset ?? 0) - frameHeight);
-      const left = clampNumber$1(boxLeft + boxWidth / 2 - frameWidth / 2, minLeft, maxLeft);
-      const centeredTop = boxTop + boxHeight / 2 - frameHeight / 2;
-      const baselineAlignedTop = boxTop + boxHeight - frameHeight + padBottom;
-      const targetTop = vertical ? boxTop : shouldCenterOcrText(element2.dataset.ocrText ?? "") ? centeredTop : baselineAlignedTop;
-      const top = clampNumber$1(targetTop, minTop, maxTop);
-      element2.style.left = `${left}px`;
-      element2.style.top = `${top}px`;
-      element2.style.width = `${frameWidth}px`;
-      element2.style.height = `${frameHeight}px`;
     }
     clear() {
       this.observer?.disconnect();
@@ -51734,14 +52061,15 @@ ${spelling}`);
     const style = getComputedStyle(image);
     const content = imageContentBox(image, rect, style);
     const { sourceWidth, sourceHeight } = ocrSourceDimensions(image, rect, content, result);
-    const object2 = fittedObjectSize(style.objectFit, sourceWidth, sourceHeight, content.width, content.height);
-    const offset = objectPositionOffset(style.objectPosition, content.width - object2.width, content.height - object2.height);
-    return {
-      imageLeft: content.left + offset.x,
-      imageTop: content.top + offset.y,
-      imageWidth: Math.max(1, object2.width),
-      imageHeight: Math.max(1, object2.height)
-    };
+    return paintedImageFrame({
+      image,
+      rect,
+      style,
+      objectFit: style.objectFit,
+      objectPosition: style.objectPosition,
+      sourceWidth,
+      sourceHeight
+    });
   }
   function renderedPausedVideoFrame(image, rect) {
     if (image.dataset.yomuVideoFrame !== "true") return null;
@@ -51798,30 +52126,6 @@ ${spelling}`);
     } catch {
       return null;
     }
-  }
-  function ocrFontPx(text2, boxWidth, boxHeight, vertical, scale) {
-    const safeScale = Math.max(0.7, Math.min(1.8, scale));
-    const length = Math.max(1, visualTextLength(text2));
-    const byBoxThickness = vertical ? boxWidth * 0.72 : boxHeight * 0.58;
-    const byBoxLength = vertical ? boxHeight / length * 1.12 : boxWidth / length * 1.08;
-    const fitted = Math.min(byBoxThickness, byBoxLength) * safeScale;
-    return Math.max(11, Math.min(38, fitted));
-  }
-  function ocrWordUnderlineBleedPx(fontSize) {
-    return Math.ceil(fontSize * (OCR_WORD_UNDERLINE_OFFSET_EM + OCR_WORD_UNDERLINE_THICKNESS_EM)) + OCR_WORD_UNDERLINE_CLEARANCE_PX;
-  }
-  function visualTextLength(text2) {
-    return [...text2.trim()].reduce((total, char) => {
-      if (/\s/.test(char)) return total + 0.35;
-      if (/[\u0000-\u00ff]/.test(char)) return total + 0.62;
-      return total + 1;
-    }, 0);
-  }
-  function shouldCenterOcrText(text2) {
-    return visualTextLength(text2) <= 1.5;
-  }
-  function clampNumber$1(value, min, max2) {
-    return Math.min(max2, Math.max(min, value));
   }
   function isCandidateImage(image, settings) {
     if (isIgnoredOcrImage(image)) return false;
@@ -52679,7 +52983,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.8.15".trim() ? "1.8.15".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.8.16".trim() ? "1.8.16".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record2 = value;
@@ -63051,7 +63355,7 @@ ${spelling}`);
     return HEADWORD_LANGUAGE_ENDONYMS[language2] ?? language2;
   }
   function headwordLanguageName(language2, locale = "en") {
-    const display = displayLanguageName$1(language2, locale);
+    const display = languageDisplayName(language2, locale);
     return display === language2 ? headwordLanguageEndonym(language2) : display;
   }
   function formatDictionaryBytes(bytes, locale = "en") {
@@ -63154,7 +63458,7 @@ ${spelling}`);
     return describeMirroredDictionary(dictionary.definitionLanguage, dictionary.bytes, locale);
   }
   function describeMirroredDictionary(definitionLanguage, bytes, locale = "en") {
-    const language2 = definitionLanguage ? displayLanguageName$1(definitionLanguage, locale) : "";
+    const language2 = definitionLanguage ? languageDisplayName(definitionLanguage, locale) : "";
     const size = bytes === void 0 ? "" : formatDictionaryBytes(bytes, locale);
     return [language2, size].filter(Boolean).join(" · ");
   }
@@ -63172,13 +63476,6 @@ ${spelling}`);
     if (language2 === targetLanguage2) return 2;
     if (language2 === "en") return 1;
     return 0;
-  }
-  function displayLanguageName$1(language2, locale = "en") {
-    try {
-      return new Intl.DisplayNames([locale], { type: "language" }).of(language2) ?? language2;
-    } catch {
-      return language2;
-    }
   }
   const FROZEN_CATALOG_BROWSE_SHELVES = buildCatalogBrowseShelves(FROZEN_DICTIONARY_CATALOG);
   const FROZEN_CATALOG_BROWSE_DICTIONARIES = Object.freeze(
@@ -63813,18 +64110,11 @@ ${spelling}`);
   function catalogRecommendationDescription(learnerLanguage2, recommendation) {
     const learner = learnerLanguageById(learnerLanguage2);
     const messages = LOCALE_CATALOGS[learnerLanguage2].messages;
-    const definitionLanguage = displayLanguageName(recommendation.definitionLanguage, learner.runtimeLocale);
+    const definitionLanguage = languageDisplayName(recommendation.definitionLanguage, learner.runtimeLocale);
     const original = messages.originalDefinitionLabel.replace("{language}", definitionLanguage);
     if (recommendation.translationMode === "off") return original;
     const translation = messages.automaticTranslationLabel.replace("{language}", learner.nativeName);
     return `${original} · ${translation}`;
-  }
-  function displayLanguageName(language2, locale) {
-    try {
-      return new Intl.DisplayNames([locale], { type: "language" }).of(language2) ?? language2;
-    } catch {
-      return language2;
-    }
   }
   function createSettingsFormReader(data, colorSource) {
     const get = (key) => String(data.get(key) ?? "");
@@ -64372,7 +64662,12 @@ ${spelling}`);
       ocrEndpointUrl: get("ocrEndpointUrl").trim(),
       ocrEngine: get("ocrEngine").trim() || "auto",
       ocrCloudVisionApiKey: get("ocrCloudVisionApiKey").trim(),
-      ocrLanguage: targetOcrLanguageTag(get("ocrLanguage")),
+      // Blank means "follow the language being studied" and has to SURVIVE
+      // the round trip. Resolving it to a literal here turned the sentinel
+      // into whichever target happened to be active the first time anything
+      // in the dialog was saved, and the field is hidden, so nothing could
+      // ever unpin it again. Read it back exactly as rendered.
+      ocrLanguage: get("ocrLanguage").trim(),
       ocrMaxImagePixels: clamped("ocrMaxImagePixels", 16e4, 28e5, current.ocrMaxImagePixels),
       ocrMinImageArea: clamped("ocrMinImageArea", 1e4, 8e5, current.ocrMinImageArea),
       ocrMaxImagesPerPage: clamped("ocrMaxImagesPerPage", 1, 30, current.ocrMaxImagesPerPage),
@@ -65964,6 +66259,12 @@ ${spelling}`);
                                 <button class="jpdb-reader-btn" type="button" data-action="test-anki">${escapedUiText$2(settings.interfaceLanguage, "testAnki")}</button>
                                 <button class="jpdb-reader-btn secondary" type="button" data-action="prepare-anki">${escapedUiText$2(settings.interfaceLanguage, "prepareAnki")}</button>
                             </div>
+                            <div class="jpdb-reader-anki-model-update" data-anki-model-update hidden>
+                                <div class="jpdb-reader-help" data-anki-model-update-message></div>
+                                <div class="jpdb-reader-settings-actions">
+                                    <button class="jpdb-reader-btn" type="button" data-action="update-anki-model">${escapedUiText$2(settings.interfaceLanguage, "updateAnkiModel")}</button>
+                                </div>
+                            </div>
                         </div>
                         <div class="jpdb-reader-settings-subsection jpdb-reader-anki-library-choice">
                             <div class="jpdb-reader-local-title" data-anki-library-choices-title>${escapedUiText$2(settings.interfaceLanguage, "ankiLibraryChoices")}</div>
@@ -65998,6 +66299,24 @@ ${spelling}`);
                 </div>
             </fieldset>
     `;
+  }
+  function applyAnkiModelUpdatePrompt(form, plan, language2) {
+    const prompt = form.querySelector("[data-anki-model-update]");
+    if (!prompt) return;
+    prompt.hidden = !plan;
+    if (plan) prompt.dataset.ankiModelUpdateTarget = plan.modelName;
+    else delete prompt.dataset.ankiModelUpdateTarget;
+    const message = prompt.querySelector("[data-anki-model-update-message]");
+    if (!message) return;
+    message.textContent = plan ? formatUiText(language2, "ankiModelUpdateAvailable", {
+      model: plan.modelName,
+      fields: plan.missingFields.join(", ")
+    }) : "";
+  }
+  function ankiModelUpdatePromptTarget(form) {
+    const prompt = form.querySelector("[data-anki-model-update]");
+    if (!prompt || prompt.hidden) return null;
+    return prompt.dataset.ankiModelUpdateTarget || null;
   }
   function renderAnkiLibraryOptions(options, value, language2 = "en") {
     const values = uniqueStrings([value, ...options].filter(Boolean));
@@ -68022,6 +68341,7 @@ ${spelling}`);
   const SETTINGS_ACTION_TEXT_KEYS = [
     ['[data-action="test-anki"]', "testAnki"],
     ['[data-action="prepare-anki"]', "prepareAnki"],
+    ['[data-action="update-anki-model"]', "updateAnkiModel"],
     ['[data-action="copy-newtab-url"]', "copyAddress"],
     ["[data-newtab-url-link]", "openNewTabPage"],
     ['[data-action="import-yomitan-settings"]', "importSettings"],
@@ -71076,10 +71396,12 @@ ${spelling}`);
     control.dispatchEvent(new Event("input", { bubbles: true }));
   }
   function ankiConnectionAction(action) {
-    return action === "test-anki" || action === "prepare-anki" ? action : null;
+    return action === "test-anki" || action === "prepare-anki" || action === "update-anki-model" ? action : null;
   }
   function ankiConnectionPendingKey(action) {
-    return action === "prepare-anki" ? "ankiPreparing" : "ankiTesting";
+    if (action === "prepare-anki") return "ankiPreparing";
+    if (action === "update-anki-model") return "ankiModelUpdating";
+    return "ankiTesting";
   }
   function ankiStatusSetter(status) {
     return (message, tone, action) => {
@@ -71283,6 +71605,7 @@ ${spelling}`);
     jpdbConnectionProbeId = 0;
     wanikaniConnectionProbeId = 0;
     ankiLibraryScanId = 0;
+    ankiModelUpdatePromptId = 0;
     yomuUpdateCheckId = 0;
     academyAccountSync;
     settingsJapaneseParseRefreshFrame;
@@ -71737,6 +72060,10 @@ ${spelling}`);
       form.querySelector('input[name="ankiEnabled"]')?.addEventListener("change", () => void this.refreshAnkiConnectionStatus(form));
       form.querySelector('input[name="ankiMobileHandoff"]')?.addEventListener("change", () => void this.refreshAnkiConnectionStatus(form));
       form.querySelector('input[name="ankiConnectUrl"]')?.addEventListener("change", () => void this.refreshAnkiConnectionStatus(form));
+      form.querySelector('select[name="ankiModel"]')?.addEventListener("change", () => {
+        this.retireAnkiModelUpdatePrompt(form);
+        void this.refreshAnkiModelUpdatePrompt(form);
+      });
       form.addEventListener("change", (event) => this.handleSettingsFormChange(form, event));
       installShortcutCapture(form);
       installSourceRowDrag(form);
@@ -72027,6 +72354,7 @@ ${spelling}`);
       const requestId = ++this.ankiConnectionProbeId;
       this.ankiLibraryScanId++;
       this.setAnkiStatus(form, initialLine.message, initialLine.tone, initialLine.action);
+      this.retireAnkiModelUpdatePrompt(form);
       if (!formSettings.ankiEnabled) return;
       const previous = this.swapSettingsTransiently(formSettings);
       try {
@@ -72054,10 +72382,47 @@ ${spelling}`);
     queueAutomaticAnkiLibraryScan(form, language2) {
       const requestId = ++this.ankiLibraryScanId;
       window.setTimeout(() => {
-        void this.refreshAnkiLibraryScan(form, requestId, language2).finally(() => {
+        void this.refreshAnkiLibraryScan(form, requestId, language2).then(() => this.refreshAnkiModelUpdatePrompt(form)).finally(() => {
           void this.warmAnkiStatusIndexForConnection(form, requestId);
         });
       }, 0);
+    }
+    // Anki is reachable, so ask whether the note type the form now shows still
+    // carries every field this release writes. A plan means the panel offers
+    // the update; null hides the offer, which is what ends it for good once
+    // the user accepts.
+    //
+    // The offer names one note type, so it gets its own request id: picking a
+    // different note type retires the offer on screen and starts this again
+    // without disturbing the library scan already running.
+    async refreshAnkiModelUpdatePrompt(form) {
+      const requestId = ++this.ankiModelUpdatePromptId;
+      const plan = await this.ankiModelUpdatePlan(form, requestId);
+      if (!this.shouldApplyAnkiModelUpdatePrompt(form, requestId)) return;
+      applyAnkiModelUpdatePrompt(form, plan, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
+    }
+    // The picker moved, so the offer is about a note type the user has left.
+    // It goes at once and re-earns itself against the new selection.
+    retireAnkiModelUpdatePrompt(form) {
+      this.ankiModelUpdatePromptId++;
+      applyAnkiModelUpdatePrompt(form, null, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
+    }
+    shouldApplyAnkiModelUpdatePrompt(form, requestId) {
+      return this.currentForm === form && form.isConnected && requestId === this.ankiModelUpdatePromptId;
+    }
+    async ankiModelUpdatePlan(form, requestId) {
+      const yomuModelUpdatePlan = this.dependencies.anki.yomuModelUpdatePlan;
+      if (typeof yomuModelUpdatePlan !== "function") return null;
+      if (!this.shouldApplyAnkiModelUpdatePrompt(form, requestId)) return null;
+      const previous = this.swapSettingsTransiently(readFormSettings(new FormData(form), this.settings));
+      try {
+        return await yomuModelUpdatePlan.call(this.dependencies.anki);
+      } catch (error) {
+        log$f.warn("Anki note type update check failed", error);
+        return null;
+      } finally {
+        this.restoreTransientSettings(previous);
+      }
     }
     async refreshAnkiLibraryScan(form, requestId, language2) {
       if (!this.shouldApplyAnkiLibraryScan(form, requestId)) return;
@@ -72618,6 +72983,10 @@ ${spelling}`);
           this.finishAnkiConnectionTest(form, setAnkiStatus, language2);
           return true;
         }
+        if (connectionAction === "update-anki-model") {
+          await this.updateAnkiModelAction(form, setAnkiStatus, language2);
+          return true;
+        }
         await this.prepareAnkiConnectionAction(form, setAnkiStatus, language2);
       } catch (error) {
         this.handleAnkiConnectionActionError(error, setAnkiStatus, language2);
@@ -72647,6 +73016,27 @@ ${spelling}`);
       setAnkiStatus(this.ankiReadyMessage(language2), "success");
       this.queueAutomaticAnkiLibraryScan(form, language2);
       log$f.info("Anki settings prepare succeeded", { deck: this.settings.ankiDeck, model: this.settings.ankiModel });
+    }
+    // Runs from the user pressing Update, never from the scan that spots the
+    // gap: the offer is a question, not a migration. The re-scan it queues
+    // clears the offer, because the note type now matches.
+    //
+    // The write is aimed by the offer on screen, not by the picker, and the
+    // client declines anything else — so an offer the user has moved past adds
+    // nothing rather than widening whichever note type is selected now.
+    async updateAnkiModelAction(form, setAnkiStatus, language2) {
+      const addMissingYomuModelFields = this.dependencies.anki.addMissingYomuModelFields;
+      if (typeof addMissingYomuModelFields !== "function") return;
+      const offeredModel = ankiModelUpdatePromptTarget(form);
+      if (!offeredModel) {
+        setAnkiStatus(uiText(language2, "ankiConnectionReady"), "success");
+        this.queueAutomaticAnkiLibraryScan(form, language2);
+        return;
+      }
+      const added = await addMissingYomuModelFields.call(this.dependencies.anki, offeredModel);
+      setAnkiStatus(added.length ? formatUiText(language2, "ankiModelUpdated", { fields: added.join(", ") }) : uiText(language2, "ankiModelUpToDate"), "success");
+      this.queueAutomaticAnkiLibraryScan(form, language2);
+      log$f.info("Anki note type updated", { model: offeredModel, fields: added });
     }
     handleAnkiConnectionActionError(error, setAnkiStatus, language2) {
       if (isAnkiConnectAvailabilityError(error) || isAnkiConnectSetupError(error)) {
@@ -75405,6 +75795,67 @@ ${reading}`);
   function withBreaks(value) {
     return value.replace(/\n/g, "<br>");
   }
+  const UI_LOCALE_IDS = [...LEARNER_LANGUAGE_IDS, "ja"];
+  Object.freeze(UI_LOCALE_IDS);
+  ["auto", ...UI_LOCALE_IDS];
+  const BASE_UI_LOCALE = "en";
+  const UI_LOCALE_SET = new Set(UI_LOCALE_IDS);
+  const UI_LOCALE_ALIASES = Object.freeze({
+    fil: "tl",
+    sr: "sh",
+    hr: "sh",
+    bs: "sh",
+    cmn: "zh"
+  });
+  function isUiLocale(value) {
+    return typeof value === "string" && UI_LOCALE_SET.has(value);
+  }
+  function matchUiLocale(value) {
+    if (isUiLocale(value)) return value;
+    for (const tag of localeFallbackChain(value)) {
+      const matched = uiLocaleForTag(tag);
+      if (matched) return matched;
+    }
+    return null;
+  }
+  function uiLocaleChain(language2) {
+    const chain = [];
+    for (const requested of requestedLocales(language2)) {
+      const matched = matchUiLocale(requested);
+      if (matched && !chain.includes(matched)) chain.push(matched);
+    }
+    if (!chain.includes(BASE_UI_LOCALE)) chain.push(BASE_UI_LOCALE);
+    return chain;
+  }
+  function localizedMessage(language2, key, overlays2, fallback) {
+    for (const locale of uiLocaleChain(language2)) {
+      for (const table of overlays2[locale] ?? []) {
+        const translated = table[key];
+        if (translated) return translated;
+      }
+    }
+    return fallback;
+  }
+  function uiLocaleForTag(tag) {
+    const lower = tag.toLowerCase();
+    if (UI_LOCALE_SET.has(lower)) return lower;
+    const alias = UI_LOCALE_ALIASES[lower];
+    if (alias) return alias;
+    const base = lower.split("-")[0] ?? "";
+    if (UI_LOCALE_SET.has(base)) return base;
+    return UI_LOCALE_ALIASES[base] ?? null;
+  }
+  function requestedLocales(language2) {
+    if (typeof language2 !== "string" || !language2 || language2 === "auto") return browserUiLocales();
+    return [language2];
+  }
+  function browserUiLocales() {
+    if (typeof navigator === "undefined") return [];
+    const preferences = Array.isArray(navigator.languages) ? navigator.languages : [];
+    return [...preferences, navigator.language].filter(
+      (value) => typeof value === "string" && value.length > 0
+    );
+  }
   const SUBTITLE_COPY = {
     en: {
       selectAll: "Select all",
@@ -75491,8 +75942,11 @@ ${reading}`);
       shadowCurrentLine: "現在行"
     }
   };
+  const SUBTITLE_COPY_OVERLAYS = {
+    ja: [SUBTITLE_COPY.ja]
+  };
   function subtitleText(language2, key) {
-    return SUBTITLE_COPY[resolveUiLanguage(language2)][key] ?? SUBTITLE_COPY.en[key];
+    return localizedMessage(language2, key, SUBTITLE_COPY_OVERLAYS, SUBTITLE_COPY.en[key]);
   }
   function formatSubtitleText(language2, key, values) {
     return subtitleText(language2, key).replace(/\{([a-zA-Z0-9_]+)\}/g, (_, name) => String(values[name] ?? ""));
@@ -78657,20 +79111,33 @@ ${reading}`);
     if (input2.parsedHtml) return { text: input2.text, html: input2.parsedHtml };
     return karaokeActive ? { text: input2.text, html: "" } : void 0;
   }
+  const SUBTITLE_SECONDARY_CLASS = "jpdb-subtitle-secondary";
   const SUBTITLE_SECONDARY_BLURRED_CLASS = "jpdb-subtitle-secondary-blurred";
   const SUBTITLE_SECONDARY_CLEAR_CLASS = "jpdb-subtitle-secondary-clear";
+  const TOGGLE_NATIVE_BLUR_ACTION = "toggle-native-blur";
   function syncSubtitleSecondaryBlurState(button2, nativeBlurred, language2 = "en") {
     button2.classList.toggle(SUBTITLE_SECONDARY_BLURRED_CLASS, nativeBlurred);
     button2.classList.toggle(SUBTITLE_SECONDARY_CLEAR_CLASS, !nativeBlurred);
+    setAttributeIfChanged(button2, "aria-pressed", String(nativeBlurred));
     const label = uiText(language2, "toggleNativeSubtitleBlur");
-    button2.setAttribute("title", label);
-    button2.setAttribute("aria-label", label);
-    button2.setAttribute("aria-pressed", String(nativeBlurred));
+    setAttributeIfChanged(button2, "title", label);
+    setAttributeIfChanged(button2, "aria-label", label);
   }
-  function renderSubtitleSecondary(text2, nativeBlurred, language2 = "en") {
-    const blurClass = nativeBlurred ? SUBTITLE_SECONDARY_BLURRED_CLASS : SUBTITLE_SECONDARY_CLEAR_CLASS;
-    const label = uiText(language2, "toggleNativeSubtitleBlur");
-    return `<button class="jpdb-subtitle-secondary ${blurClass}" type="button" data-action="toggle-native-blur" title="${label}" aria-label="${label}" aria-pressed="${nativeBlurred}">${escapeWithBreaks(text2)}</button>`;
+  function setAttributeIfChanged(element2, name, value) {
+    if (element2.getAttribute(name) === value) return;
+    element2.setAttribute(name, value);
+  }
+  function createSubtitleSecondaryLine() {
+    const button2 = document.createElement("button");
+    button2.className = SUBTITLE_SECONDARY_CLASS;
+    button2.type = "button";
+    button2.dataset.action = TOGGLE_NATIVE_BLUR_ACTION;
+    return button2;
+  }
+  function syncSubtitleSecondaryText(button2, text2) {
+    if (button2.dataset.subtitleSecondaryText === text2) return;
+    button2.dataset.subtitleSecondaryText = text2;
+    setInnerHtml(button2, escapeWithBreaks(text2));
   }
   function renderSubtitleKaraokeCue(cue, time) {
     if (!cue?.text.trim()) return "";
@@ -81018,9 +81485,10 @@ ${reading}`);
   const YOUTUBE_MOBILE_BOTTOM_SHEET_OPEN_CLASS = "jpdb-subtitle-yt-sheet-open";
   const NATIVE_FULLSCREEN_CUE_TRACK_LABEL = "Yomu";
   const SUBTITLE_NATIVE_CONTROL_SAFE_ZONE_ATTRIBUTE = "data-jpdb-subtitle-native-control-safe-zone";
+  const SUBTITLE_HIT_TESTED_OVERLAY_SELECTOR = `.jpdb-subtitle-primary .jpdb-reader-word,.${SUBTITLE_SECONDARY_CLASS},.${SUBTITLE_SECONDARY_CLASS} .jpdb-reader-word`;
   const NATIVE_PLAYER_CONTROL_SELECTOR = 'button,[role="button"],a[href],[tabindex]:not([tabindex="-1"])';
-  const NATIVE_SUBTITLE_BLUR_CONTROL_SELECTOR = '[data-action="toggle-native-blur"]';
-  const NATIVE_SUBTITLE_BLUR_PRESSED_PATTERN = /(data-action="toggle-native-blur"[^>]*aria-pressed=")(?:true|false)(")/g;
+  const NATIVE_SUBTITLE_BLUR_CONTROL_SELECTOR = `[data-action="${TOGGLE_NATIVE_BLUR_ACTION}"]`;
+  const PANEL_PRESS_RENDER_HOLD_MAX_MS = 700;
   function isYouTubeTheaterMode() {
     return isYouTubePage() && Boolean(document.querySelector("ytd-watch-flexy[theater], ytd-watch-flexy[fullscreen]"));
   }
@@ -81284,8 +81752,14 @@ ${reading}`);
     button2.classList.add("jpdb-subtitle-copy-flash");
     window.setTimeout(() => button2.classList.remove("jpdb-subtitle-copy-flash"), 1200);
   }
-  function subtitlePrimaryRowHtml(primaryHtml) {
-    return `<div class="jpdb-subtitle-primary-row"><div class="jpdb-subtitle-primary">${primaryHtml}</div></div>`;
+  function createSubtitlePrimaryRow(primaryHtml) {
+    const row = document.createElement("div");
+    row.className = "jpdb-subtitle-primary-row";
+    const primary = document.createElement("div");
+    primary.className = "jpdb-subtitle-primary";
+    setInnerHtml(primary, primaryHtml);
+    row.append(primary);
+    return row;
   }
   function fittedSubtitleFontSize(element2, fitted, minimum, apply) {
     for (let attempt = 0; attempt < 10; attempt++) {
@@ -81579,7 +82053,7 @@ ${reading}`);
     lastRenderedPrimaryText = "";
     lastRenderedPrimaryHtml = "";
     lastRenderedPrimaryKey = "";
-    lastAppliedSubtitleHtml = "";
+    lastAppliedPrimaryRowHtml = "";
     parseWarmupSerial = 0;
     lastParseWarmupAnchor = -1;
     transcriptHydrationCursor = 0;
@@ -81625,6 +82099,12 @@ ${reading}`);
     nativeFullscreenCueVideo;
     nativeFullscreenHostTracksRestored = false;
     transcriptResizeActive = false;
+    // A drawer render replaces the whole panel, so it rebuilds every control in
+    // it. While a finger is on one of those controls the render waits here and
+    // is replayed once the tap has been delivered.
+    panelPressHeld = false;
+    panelPressHoldTimer;
+    heldPanelRender;
     asbMoveHandlesActive = false;
     asbSubtitleDragHandles = /* @__PURE__ */ new WeakSet();
     asbSubtitleBaseTransforms = /* @__PURE__ */ new WeakMap();
@@ -81833,6 +82313,7 @@ ${reading}`);
       this.transcriptVirtualRenderFrame = clearWindowAnimationFrame(this.transcriptVirtualRenderFrame);
       this.tracksVirtualRenderFrame = clearWindowAnimationFrame(this.tracksVirtualRenderFrame);
       this.clearDeferredTranscriptPanelRender();
+      this.resetPanelPressHold();
       this.transcriptInsetRealignFrame = clearWindowAnimationFrame(this.transcriptInsetRealignFrame);
       this.transcriptViewportStabilizeTimer = clearWindowTimeout(this.transcriptViewportStabilizeTimer);
       this.transcriptResizeBackgroundResumeTimer = clearWindowTimeout(this.transcriptResizeBackgroundResumeTimer);
@@ -81957,6 +82438,9 @@ ${reading}`);
       this.transcriptPanel = root.querySelector(".jpdb-subtitle-list");
       this.transcriptPanel.dataset.jpdbReaderRoot = "true";
       this.transcriptPanel.addEventListener("click", (event) => this.transcriptPanelSurface.handlePanelClick(event), this.eventOptions());
+      this.transcriptPanel.addEventListener("pointerdown", (event) => this.beginPanelPress(event), this.eventOptions({ passive: true }));
+      this.transcriptPanel.addEventListener("pointercancel", () => this.endPanelPress(), this.eventOptions({ passive: true }));
+      this.transcriptPanel.addEventListener("click", () => this.endPanelPress(), this.eventOptions());
       this.transcriptPanel.addEventListener("keydown", (event) => this.transcriptPanelSurface.handlePanelKeydown(event), this.eventOptions());
       for (const eventName of TRANSCRIPT_PANEL_OWNED_POINTER_EVENTS) {
         this.transcriptPanel.addEventListener(eventName, (event) => this.transcriptPanelSurface.stopPanelPropagation(event), this.eventOptions());
@@ -82093,7 +82577,7 @@ ${reading}`);
       this.lastAutoCopiedCueSignature = "";
       this.lastRenderedPrimaryText = "";
       this.lastRenderedPrimaryHtml = "";
-      this.lastAppliedSubtitleHtml = "";
+      this.lastAppliedPrimaryRowHtml = "";
       this.renderSerial += 1;
       this.parseWarmupSerial += 1;
       this.lastParseWarmupAnchor = -1;
@@ -82933,26 +83417,65 @@ ${reading}`);
     }
     renderEmptySubtitle(settings) {
       if (!this.subtitleEl) return;
-      this.applySubtitleHtml(this.renderSecondarySubtitle(settings));
+      this.applyPrimaryRow(null);
+      this.applySecondaryLine(settings);
     }
     renderActiveSubtitle(text2, settings) {
       if (!this.subtitleEl) return;
       const primary = this.renderPrimarySubtitle(text2, settings);
-      const changed = this.applySubtitleHtml(`${subtitlePrimaryRowHtml(primary.html)}${this.renderSecondarySubtitle(settings)}`);
+      const changed = this.applyPrimaryRow(primary.html);
+      this.applySecondaryLine(settings);
       this.applyRenderedPrimarySubtitle(primary, text2);
       if (changed) this.notifyParsedTokensForRenderedPrimary(text2, settings, primary.html);
     }
-    // render() runs on every cue/time/settings tick; rebuilding identical DOM
-    // each tick wiped the async-applied word-state coloring and caused a
-    // visible rerender flicker plus constant layout work (user-reported).
-    applySubtitleHtml(html) {
-      if (!this.subtitleEl) return false;
-      const hasContent = this.subtitleEl.firstChild !== null;
-      const unchanged = this.lastAppliedSubtitleHtml === html && (html === "" ? !hasContent : hasContent);
-      if (unchanged) return false;
-      setInnerHtml(this.subtitleEl, html);
-      this.lastAppliedSubtitleHtml = html;
+    // The subtitle body holds two independent rows: the annotated primary line
+    // and the native caption line, which is a real control (tap to hide or
+    // reveal the translation). Writing both as one innerHTML blob meant every
+    // primary change — a new cue, a karaoke tick, a parse landing — also tore
+    // down and rebuilt that button. A browser only delivers click when the
+    // pressed node is still in the document at release, so any tap spanning a
+    // caption change was dropped and had to be repeated (owner-reported on
+    // phones). Each row now reconciles on its own, so a primary render can
+    // never take the native line out from under a finger.
+    //
+    // render() also runs on every cue/time/settings tick; rebuilding identical
+    // DOM each tick wiped the async-applied word-state coloring and caused a
+    // visible rerender flicker plus constant layout work (user-reported), so
+    // both rows keep their applied-state guard.
+    applyPrimaryRow(html) {
+      const host = this.subtitleEl;
+      if (!host) return false;
+      const row = host.querySelector(".jpdb-subtitle-primary-row");
+      if (html === null) {
+        this.lastAppliedPrimaryRowHtml = "";
+        if (!row) return false;
+        row.remove();
+        return true;
+      }
+      const inner = row?.querySelector(".jpdb-subtitle-primary");
+      if (inner && this.lastAppliedPrimaryRowHtml === html) return false;
+      this.lastAppliedPrimaryRowHtml = html;
+      if (inner) {
+        setInnerHtml(inner, html);
+        return true;
+      }
+      row?.remove();
+      host.prepend(createSubtitlePrimaryRow(html));
       return true;
+    }
+    applySecondaryLine(settings) {
+      const host = this.subtitleEl;
+      if (!host) return;
+      const existing = host.querySelector(`.${SUBTITLE_SECONDARY_CLASS}`);
+      const text2 = settings.subtitleSecondaryVisible ? this.secondaryCue?.text ?? "" : "";
+      if (!text2) {
+        existing?.remove();
+        return;
+      }
+      const line = existing ?? createSubtitleSecondaryLine();
+      syncSubtitleSecondaryText(line, text2);
+      syncSubtitleSecondaryBlurState(line, settings.subtitleNativeBlurred, settings.interfaceLanguage);
+      if (!existing) host.append(line);
     }
     // A cache-hit render (e.g. stepping back to a previous line) inserts fresh
     // DOM, so JPDB/Anki state colors must be re-applied to the new nodes even
@@ -83000,9 +83523,6 @@ ${reading}`);
       }
       return void 0;
     }
-    renderSecondarySubtitle(settings) {
-      return settings.subtitleSecondaryVisible && this.secondaryCue?.text ? renderSubtitleSecondary(this.secondaryCue.text, settings.subtitleNativeBlurred, settings.interfaceLanguage) : "";
-    }
     applyRenderedPrimarySubtitle(primary, text2) {
       this.applyRenderedPrimaryKaraoke(primary);
       this.fitSubtitleTextToVideo();
@@ -83047,7 +83567,7 @@ ${reading}`);
         const shouldRenderPlainKaraoke = shouldSyncKaraoke && !parsedSubtitleHtmlHasReaderWords(html);
         const replacement = this.primaryReplacementHtml(html, currentCue, shouldRenderPlainKaraoke);
         setInnerHtml(primary, replacement);
-        this.lastAppliedSubtitleHtml = `${subtitlePrimaryRowHtml(replacement)}${this.renderSecondarySubtitle(this.options.getSettings())}`;
+        this.lastAppliedPrimaryRowHtml = replacement;
         this.syncKaraokePrimary(currentCue, shouldSyncKaraoke);
         this.fitSubtitleTextToVideo();
         this.syncNativePlayerControlHitProtection();
@@ -83625,7 +84145,7 @@ ${reading}`);
         this.lastAutoCopiedCueSignature = "";
         this.lastRenderedPrimaryText = "";
         this.lastRenderedPrimaryHtml = "";
-        this.lastAppliedSubtitleHtml = "";
+        this.lastAppliedPrimaryRowHtml = "";
         this.renderSerial += 1;
         this.parseWarmupSerial += 1;
         this.lastParseWarmupAnchor = -1;
@@ -84298,22 +84818,23 @@ ${reading}`);
       return Boolean(this.video && isYouTubePage() && isYouTubeShortsLikePlayer(this.video, this.videoLayoutRect()));
     }
     // Native player controls must win when a moved/long subtitle crosses them.
-    // The overlay frame is already click-through, but individual lookup words
-    // opt back into pointer events. Mark only words whose painted box overlaps
-    // a small, visible native control; CSS then returns that word's hit testing
-    // to the player while every other subtitle word remains lookupable.
+    // The overlay frame is already click-through, but everything in it that a
+    // finger can act on opts back into pointer events: lookup words, and the
+    // native caption line, which is a toggle with a finger-sized box on touch.
+    // Sweep all of them — a control left out of this sweep is an invisible strip
+    // of the overlay stealing taps meant for the seek bar. Mark only boxes that
+    // overlap a small, visible native control; CSS then returns just those to
+    // the player while the rest of the subtitle stays interactive.
     syncNativePlayerControlHitProtection() {
-      const words = Array.from(this.root?.querySelectorAll(
-        ".jpdb-subtitle-primary .jpdb-reader-word,.jpdb-subtitle-secondary .jpdb-reader-word"
-      ) ?? []);
-      words.forEach((word) => word.removeAttribute(SUBTITLE_NATIVE_CONTROL_SAFE_ZONE_ATTRIBUTE));
+      const targets = Array.from(this.root?.querySelectorAll(SUBTITLE_HIT_TESTED_OVERLAY_SELECTOR) ?? []);
+      targets.forEach((target) => target.removeAttribute(SUBTITLE_NATIVE_CONTROL_SAFE_ZONE_ATTRIBUTE));
       const safeZones = this.nativePlayerControlSafeZones();
       if (!safeZones.length) return;
-      for (const word of words) {
-        const rect = word.getBoundingClientRect();
+      for (const target of targets) {
+        const rect = target.getBoundingClientRect();
         if (rect.width <= 0 || rect.height <= 0) continue;
         if (safeZones.some((zone) => rectsOverlap(rect, zone))) {
-          word.setAttribute(SUBTITLE_NATIVE_CONTROL_SAFE_ZONE_ATTRIBUTE, "true");
+          target.setAttribute(SUBTITLE_NATIVE_CONTROL_SAFE_ZONE_ATTRIBUTE, "true");
         }
       }
     }
@@ -85465,10 +85986,9 @@ ${reading}`);
       log$9.info("Native subtitle blur toggled", { blurred: settings.subtitleNativeBlurred });
     }
     applyNativeSubtitleBlurState(nativeBlurred, language2, target) {
-      const targets = target ? [target] : Array.from(this.subtitleEl?.querySelectorAll('.jpdb-subtitle-secondary[data-action="toggle-native-blur"]') ?? []);
+      const targets = target ? [target] : Array.from(this.subtitleEl?.querySelectorAll(NATIVE_SUBTITLE_BLUR_CONTROL_SELECTOR) ?? []);
       if (!targets.length) return false;
       for (const button2 of targets) syncSubtitleSecondaryBlurState(button2, nativeBlurred, language2);
-      this.lastAppliedSubtitleHtml = this.lastAppliedSubtitleHtml.split(nativeBlurred ? SUBTITLE_SECONDARY_CLEAR_CLASS : SUBTITLE_SECONDARY_BLURRED_CLASS).join(nativeBlurred ? SUBTITLE_SECONDARY_BLURRED_CLASS : SUBTITLE_SECONDARY_CLEAR_CLASS).replace(NATIVE_SUBTITLE_BLUR_PRESSED_PATTERN, `$1${nativeBlurred}$2`);
       return true;
     }
     togglePausePanelMode() {
@@ -85634,9 +86154,49 @@ ${reading}`);
       this.showControlsTemporarily();
       this.syncControls();
     }
+    // Every drawer render re-emits the panel as markup, so a cue advance
+    // destroys and recreates each control in it — including whichever one a
+    // finger is currently on. Measured in Chromium: when the pressed node is
+    // removed before release, a mouse click is dropped outright, and a touch
+    // click is re-hit-tested at release, landing on whatever control the
+    // rebuild moved into that spot (tap "hide the translation", get a seek).
+    // Node identity is not enough to save it: re-attaching the very same
+    // element in the same task still loses the mouse click. So the render waits
+    // for the finger instead.
+    //
+    // The release is the click, not pointerup: a touch click is dispatched
+    // after pointerup — and after a task boundary — so flushing any earlier
+    // still eats the tap. pointercancel (a scroll taking the pointer) and a
+    // safety cap cover taps that never become a click.
+    holdPanelRenderDuringPress(render) {
+      if (!this.panelPressHeld) return false;
+      this.heldPanelRender = render;
+      return true;
+    }
+    beginPanelPress(event) {
+      const target = event.target;
+      if (!target?.closest?.("button,[data-action]")) return;
+      this.panelPressHeld = true;
+      this.panelPressHoldTimer = clearWindowTimeout(this.panelPressHoldTimer);
+      this.panelPressHoldTimer = window.setTimeout(() => this.endPanelPress(), PANEL_PRESS_RENDER_HOLD_MAX_MS);
+    }
+    endPanelPress() {
+      this.panelPressHoldTimer = clearWindowTimeout(this.panelPressHoldTimer);
+      if (!this.panelPressHeld) return;
+      this.panelPressHeld = false;
+      const held = this.heldPanelRender;
+      this.heldPanelRender = void 0;
+      if (held && !this.destroyed) held();
+    }
+    resetPanelPressHold() {
+      this.panelPressHoldTimer = clearWindowTimeout(this.panelPressHoldTimer);
+      this.panelPressHeld = false;
+      this.heldPanelRender = void 0;
+    }
     renderTranscriptPanel(force = false) {
       const panel = this.renderableTranscriptPanel();
       if (!panel) return;
+      if (this.holdPanelRenderDuringPress(() => this.renderTranscriptPanel(force))) return;
       this.clearDeferredTranscriptPanelRender();
       this.transcriptPreviewPlayerResizeDeferred = false;
       const state2 = this.transcriptPanelRenderState();
@@ -85662,6 +86222,7 @@ ${reading}`);
     renderShadowPanel(force = false) {
       const panel = this.renderableShadowPanel();
       if (!panel) return;
+      if (this.holdPanelRenderDuringPress(() => this.renderShadowPanel(force))) return;
       const state2 = this.shadowPanelRenderState();
       if (!force && state2.signature === this.lastShadowSignature) return;
       this.lastShadowSignature = state2.signature;
@@ -85839,6 +86400,7 @@ ${reading}`);
     }
     renderBatchMiningPanel() {
       if (!this.transcriptPanel || this.transcriptPanel.hidden || this.transcriptPanelClosing || this.panelMode !== "mine") return;
+      if (this.holdPanelRenderDuringPress(() => this.renderBatchMiningPanel())) return;
       this.clearDeferredTranscriptPanelRender();
       this.transcriptTextTargetsByParseKey.clear();
       setInnerHtml(this.transcriptPanel, renderSubtitleBatchMiningPanel(this.batchMiningPanelRenderState()));
@@ -86898,6 +87460,7 @@ ${reading}`);
     }
     renderTrackPanel() {
       if (!this.transcriptPanel || this.transcriptPanel.hidden || this.transcriptPanelClosing || this.panelMode !== "tracks") return;
+      if (this.holdPanelRenderDuringPress(() => this.renderTrackPanel())) return;
       this.transcriptTextTargetsByParseKey.clear();
       const state2 = subtitleTrackPanelState(this.tracks);
       const settings = this.options.getSettings();
@@ -87021,7 +87584,7 @@ ${reading}`);
       this.lastAutoCopiedCueSignature = "";
       this.lastRenderedPrimaryText = "";
       this.lastRenderedPrimaryHtml = "";
-      this.lastAppliedSubtitleHtml = "";
+      this.lastAppliedPrimaryRowHtml = "";
       this.renderSerial += 1;
       this.parseWarmupSerial += 1;
       this.lastParseWarmupAnchor = -1;

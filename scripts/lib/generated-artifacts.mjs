@@ -16,6 +16,12 @@
 // as well as modified ones, which is what keeps a fresh content-addressed
 // companion from being left behind while the userscript header already pins its
 // URL -- a missing companion is a hard 404 on every @require at install time.
+//
+// The immutable stylesheet needs the same treatment without a directory to sit
+// in: it is written as docs/public/yomu.<hash>.css beside the mutable copy, so
+// every release renames it and no entry above ever matched the new name. Both
+// consumers take these as git pathspecs, where the wildcard is matched by git
+// itself, so `git add` and `git status --porcelain` see the same set.
 import { pathToFileURL } from 'node:url';
 
 export const GENERATED_ARTIFACT_PATHS = [
@@ -23,6 +29,7 @@ export const GENERATED_ARTIFACT_PATHS = [
     'dist/yomu.css',
     'docs/public/yomu.user.js',
     'docs/public/yomu.css',
+    'docs/public/yomu.*.css',
     'docs/public/greasyfork',
     'docs/public/study',
     'docs/public/newtab',

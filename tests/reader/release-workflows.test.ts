@@ -10,6 +10,14 @@ const ciWorkflow = readFileSync(join(process.cwd(), '.github/workflows/ci.yml'),
 const releaseWorkflow = readFileSync(join(process.cwd(), '.github/workflows/release.yml'), 'utf8');
 const releaseGamingWorkflow = readFileSync(join(process.cwd(), '.github/workflows/release-gaming.yml'), 'utf8');
 
+/** Whether a manifest pathspec stages a given path: exact, inside a directory, or matched by git's wildcard. */
+function covers(entry: string, path: string): boolean {
+    if (entry === path || path.startsWith(`${entry}/`)) return true;
+    if (!entry.includes('*')) return false;
+    const pattern = entry.split('*').map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('[^/]*');
+    return new RegExp(`^${pattern}$`).test(path);
+}
+
 describe('release workflow safety', () => {
     it('does not suppress Actions from the generated-assets commit', () => {
         const commitCommand = buildUserscriptWorkflow.split('\n').find((line) => line.includes('git commit -m'));
@@ -38,6 +46,35 @@ describe('release workflow safety', () => {
         expect(GENERATED_ARTIFACT_PATHS).toContain('docs/public/api');
         expect(GENERATED_ARTIFACT_PATHS).toContain('docs/public/greasyfork');
         expect(GENERATED_ARTIFACT_PATHS).toContain('docs/public/yomu.user.js');
+    });
+
+    it('covers every hosted file the userscript header pins by URL', () => {
+        // A pinned URL is served straight out of docs/public, so an artifact the
+        // manifest does not stage is a 404 plus an SRI failure for everyone
+        // installing. docs/public/yomu.<hash>.css was exactly that: the
+        // stylesheet is pinned as @resource under a name that changes with its
+        // bytes, and no entry in the manifest could ever match the new one.
+        //
+        // Built from the same name builders the header is written with rather
+        // than read out of dist/: the check pipeline rebuilds dist in a lane
+        // that runs beside the tests, and a header read mid-build carries the
+        // mutable URLs it has not been annotated over yet.
+        const { GREASY_FORK_LIBRARIES, greasyForkLibraryDir, immutableLibraryFileName, immutableReaderCssFileName } =
+            require('../../scripts/lib/greasyfork-libraries.cjs') as {
+                GREASY_FORK_LIBRARIES: Array<{ fileName: string }>;
+                greasyForkLibraryDir: string;
+                immutableLibraryFileName: (fileName: string, content: string) => string;
+                immutableReaderCssFileName: (content: string) => string;
+            };
+        const pinned = [
+            `docs/public/${immutableReaderCssFileName('reader stylesheet bytes')}`,
+            ...GREASY_FORK_LIBRARIES.map(
+                (library) => `docs/public/${greasyForkLibraryDir}/${immutableLibraryFileName(library.fileName, 'companion bytes')}`,
+            ),
+        ];
+
+        expect(pinned.length).toBeGreaterThan(1);
+        expect(pinned.filter((path) => !GENERATED_ARTIFACT_PATHS.some((entry: string) => covers(entry, path)))).toEqual([]);
     });
 
     it('keeps the manual Deploy Docs fallback so a skipped push can always be recovered', () => {

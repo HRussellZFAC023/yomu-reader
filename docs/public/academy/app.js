@@ -29383,6 +29383,13 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       return canonical.split("-")[0]?.toLowerCase() ?? null;
     }
   }
+  function languageDisplayName(language2, locale = "en") {
+    try {
+      return new Intl.DisplayNames([locale], { type: "language" }).of(language2) ?? language2;
+    } catch {
+      return language2;
+    }
+  }
   function localeDirection(value) {
     const canonical = canonicalLanguageTag(value);
     if (!canonical) return "ltr";
@@ -29773,6 +29780,9 @@ ${candidate2.depth}`;
   const INFLECTION_CONTINUATION_SEGMENT_RE = /^(?:っ?た|っ?て|だ|で|ん|んで|ま|ない|なか|なかっ|なかった|ながら|ます|まし|ました|ませ|ません|ましょう|たい|たく|しま|した|し|する|でき|出来|できる|できます|できた|できて|できない|できなかった|いる|い|いた|いて|れる|られ|せる|させる)$/u;
   const HIRAGANA_SEGMENT_RE = new RegExp(`^[${HIRAGANA_WITH_PROLONGED}]+$`, "u");
   const KATAKANA_SEGMENT_RE = new RegExp(`^[${KATAKANA}${HALFWIDTH_KATAKANA}${PROLONGED_SOUND_MARK}]+$`, "u");
+  const SEGMENT_SEPARATORS = "・･゠·•";
+  const SEGMENT_SEPARATOR_RE = new RegExp(`[${SEGMENT_SEPARATORS}]`, "u");
+  const SEGMENT_SEPARATOR_RUN_RE = new RegExp(`[${SEGMENT_SEPARATORS}]+`, "gu");
   const SINGLE_KANJI_SEGMENT_RE = new RegExp(`^[${KANJI}]$`, "u");
   const SINGLE_KANJI_HIRAGANA_STEM_RE = new RegExp(`^[${KANJI}][${HIRAGANA_WITH_PROLONGED}]*$`, "u");
   const KANJI_KANA_KANJI_SPAN_RE = new RegExp(`[${KANJI_LIKE_WITH_COUNTERS}][${HIRAGANA_WITH_PROLONGED}]+[${KANJI_LIKE_WITH_COUNTERS}]`, "u");
@@ -29844,8 +29854,9 @@ ${spelling}`);
     return finalizeJapaneseRunSegments(segments, sourceText);
   }
   function finalizeJapaneseRunSegments(segments, sourceText) {
+    const separatedSegments = splitNumericCounterPrefixSegments(splitSeparatorSegments(segments), sourceText);
     const normalizedSegments = splitTrailingPoliteParticleSegments(
-      mergeContiguousKanaSegments(mergeContiguousKatakanaSegments(mergeSegmenterCompoundOverrides(splitNumericCounterPrefixSegments(segments, sourceText))))
+      mergeContiguousKanaSegments(mergeContiguousKatakanaSegments(mergeSegmenterCompoundOverrides(separatedSegments)))
     );
     return mergeInflectedFallbackSegments(
       splitLeadingParticleSegments(normalizedSegments),
@@ -29864,6 +29875,29 @@ ${spelling}`);
         { surface: "ね", start: particleStart, end: segment2.end }
       ];
     });
+  }
+  function splitSeparatorSegments(segments) {
+    if (!segments.some((segment2) => SEGMENT_SEPARATOR_RE.test(segment2.surface))) return segments;
+    return segments.flatMap(splitSeparatorSegment);
+  }
+  function splitSeparatorSegment(segment2) {
+    if (!SEGMENT_SEPARATOR_RE.test(segment2.surface)) return [segment2];
+    const pieces = [];
+    let cursor = 0;
+    for (const match of segment2.surface.matchAll(SEGMENT_SEPARATOR_RUN_RE)) {
+      const index = match.index ?? 0;
+      if (index > cursor) pieces.push(separatorFreeSegmentSlice(segment2, cursor, index));
+      cursor = index + match[0].length;
+    }
+    if (cursor < segment2.surface.length) pieces.push(separatorFreeSegmentSlice(segment2, cursor, segment2.surface.length));
+    return pieces;
+  }
+  function separatorFreeSegmentSlice(segment2, from, to) {
+    return {
+      surface: segment2.surface.slice(from, to),
+      start: segment2.start + from,
+      end: segment2.start + to
+    };
   }
   function mergeContiguousKanaSegments(segments) {
     if (segments.some((segment2) => NON_HIRAGANA_SCRIPT_RE.test(segment2.surface))) return segments;
@@ -30134,9 +30168,10 @@ ${spelling}`);
   function isUsefulFallbackLookupCandidate(candidate2) {
     return candidate2.depth > 0 && JAPANESE_CHARACTER_RE.test(candidate2.term) && candidate2.term.length > 1;
   }
-  function compareFallbackLookupCandidates(a, b) {
+  function compareJapaneseLookupCandidates(a, b) {
     return a.depth - b.depth || fallbackRulePriority(a) - fallbackRulePriority(b) || b.term.length - a.term.length || a.term.localeCompare(b.term);
   }
+  const compareFallbackLookupCandidates = compareJapaneseLookupCandidates;
   function fallbackRulePriority(candidate2) {
     if (candidate2.rules.some((rule) => rule === "vs" || rule === "vs-s" || rule === "suru" || rule === "vk" || rule === "kuru")) return 0;
     if (candidate2.rules.some((rule) => rule === "v1")) return 1;
@@ -30156,8 +30191,8 @@ ${spelling}`);
     return !BOGUS_SMALL_TSU_FINAL_RE.test(term) && fallbackLookupTermsForText(term).length <= 1;
   }
   const LANGUAGE_PROFILE_SCHEMA_VERSION = 1;
-  const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 3;
-  const SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS = [3];
+  const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 4;
+  const SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS = [4];
   function isSupportedLearningTargetModuleInterfaceVersion(value) {
     return SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS.includes(value);
   }
@@ -30232,6 +30267,7 @@ ${spelling}`);
       },
       segment: spec.segment ?? defaultSegment,
       lookupCandidates: spec.lookupCandidates ?? ((text2) => defaultLookupCandidates(normalizeText(text2))),
+      compareLookupCandidates: spec.compareLookupCandidates ?? defaultCompareLookupCandidates,
       matchesLookupCandidateRules: spec.matchesLookupCandidateRules ?? defaultMatchesLookupCandidateRules,
       normalizeReading: spec.normalizeReading ?? defaultNormalizeReading
     });
@@ -30266,6 +30302,9 @@ ${spelling}`);
   }
   function defaultLookupCandidates(term) {
     return term ? [{ term, rules: [], reasons: [], depth: 0 }] : [];
+  }
+  function defaultCompareLookupCandidates(a, b) {
+    return a.depth - b.depth || b.term.length - a.term.length || a.term.localeCompare(b.term);
   }
   function defaultMatchesLookupCandidateRules(entryRules, candidateRules) {
     if (!candidateRules.length) return true;
@@ -30337,6 +30376,10 @@ ${spelling}`);
     // candidates to line up with those substrings character for character.
     // Anything that wants normalized input calls normalizeText first.
     lookupCandidates: deinflectJapaneseTerm,
+    // The ranking JMdict tags imply: a suru/kuru reading beats ichidan/godan
+    // beats i-adjective. Shared verbatim with the Japanese fallback path so
+    // both doors into the deinflector return the same order.
+    compareLookupCandidates: compareJapaneseLookupCandidates,
     matchesLookupCandidateRules: termRulesMatch,
     normalizeReading(spelling, reading) {
       return normalizedJapaneseCardReading(spelling, reading);
@@ -30392,6 +30435,9 @@ ${spelling}`);
   }
   function normalizeLearningTargetLanguage(value) {
     return learningTargetModuleFor(value)?.language ?? defaultLearningTargetModule().language;
+  }
+  function registeredLearningTargetModules() {
+    return Object.freeze([...MODULES_BY_LANGUAGE.values()]);
   }
   function defaultLearningTargetModule() {
     return MODULES_BY_LANGUAGE.get(DEFAULT_LEARNING_TARGET_LANGUAGE) ?? JAPANESE_LEARNING_TARGET;
@@ -31355,6 +31401,36 @@ ${spelling}`);
   }
   function pruneProjectedReadings(document2) {
     yomuAnnotationsCompanion()?.pruneProjectedReadings(document2);
+  }
+  function createPostPaintPass(run) {
+    let pendingScheduler = null;
+    const flush = () => {
+      pendingScheduler = null;
+      run();
+    };
+    return {
+      schedule(view) {
+        const request2 = view?.requestAnimationFrame;
+        if (typeof request2 !== "function") {
+          flush();
+          return;
+        }
+        if (pendingScheduler === request2) return;
+        const previous = pendingScheduler;
+        pendingScheduler = request2;
+        try {
+          request2.call(view, flush);
+        } catch (error) {
+          if (pendingScheduler === request2) pendingScheduler = previous;
+          throw error;
+        }
+      }
+    };
+  }
+  function viewForNode(node2) {
+    if (!node2) return null;
+    const document2 = node2.nodeType === Node.DOCUMENT_NODE ? node2 : node2.ownerDocument;
+    return document2?.defaultView ?? null;
   }
   const SHADOW_STYLE_MARKER = "data-yomu-shadow-reader-style";
   let shadowReaderCssText = "";
@@ -32580,8 +32656,10 @@ ${spelling}`);
   function isRecord$7(value) {
     return Boolean(value) && typeof value === "object" && !Array.isArray(value);
   }
-  function targetOcrLanguageTag(configured) {
-    return configured?.trim() || activeLearningTarget().ocr.defaultLanguage;
+  function isTargetDefaultOcrLanguageTag(value) {
+    const tag = value?.trim().toLowerCase();
+    if (!tag) return false;
+    return registeredLearningTargetModules().some((module) => module.ocr.defaultLanguage.toLowerCase() === tag);
   }
   function targetSpeechSynthesisLocale() {
     return activeLearningTarget().audio.speechSynthesisLocale;
@@ -34055,7 +34133,7 @@ ${spelling}`);
       exampleMeaning: "to read",
       scanAnkiFirst: "Connect Anki first",
       notMapped: "Not mapped",
-      noScannedFields: "",
+      noScannedFields: "Check AnkiConnect to load this note type's fields.",
       mappingForNoteType: "Mapping for {model}",
       currentNoteType: "current note type",
       ankiFieldMappingSelect: "{role} field",
@@ -34066,11 +34144,16 @@ ${spelling}`);
       ankiRoleAudio: "Audio",
       ankiRoleImage: "Image",
       testAnki: "Check AnkiConnect",
-      prepareAnki: "Create Yomu note type",
+      prepareAnki: "Set up Yomu note type",
+      updateAnkiModel: "Update note type",
+      ankiModelUpdateAvailable: 'New fields are ready for "{model}": {fields}.',
+      ankiModelUpdating: "Adding note type fields...",
+      ankiModelUpdated: "Note type updated. Added {fields}.",
+      ankiModelUpToDate: "Note type is up to date.",
       ankiCheckingConnection: "Checking AnkiConnect at {url}.",
       ankiMiningDisabledStatus: "Anki mining disabled.",
       ankiTesting: "Checking AnkiConnect...",
-      ankiPreparing: "Creating Yomu deck/note type...",
+      ankiPreparing: "Setting up Yomu deck and note type...",
       ankiScanning: "Reading decks, note types, fields...",
       ankiScanSummary: "Decks {decks}, types {models}. Best: {model}. {fields}",
       ankiScanNoModels: "Found {decks} decks. Note types unavailable.",
@@ -35722,7 +35805,12 @@ ankiRoleSentence	文
 ankiRoleAudio	音声
 ankiRoleImage	画像
 testAnki	AnkiConnectを確認
-prepareAnki	よむノートタイプを作成
+prepareAnki	よむノートタイプを準備
+updateAnkiModel	ノートタイプを更新
+ankiModelUpdateAvailable	「{model}」に追加できる新しいフィールドがあります: {fields}
+ankiModelUpdating	ノートタイプにフィールドを追加中...
+ankiModelUpdated	ノートタイプを更新しました。{fields} を追加しました。
+ankiModelUpToDate	ノートタイプは最新です。
 ankiCheckingConnection	{url} のAnkiConnectを確認中。
 ankiMiningDisabledStatus	Ankiマイニングは無効です。
 ankiTesting	AnkiConnectを確認中...
@@ -37210,7 +37298,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
     ocrEndpointUrl: "",
     ocrEngine: "auto",
     ocrCloudVisionApiKey: "",
-    ocrLanguage: "ja-JP",
+    // Empty means "follow the language being studied": every OCR provider
+    // resolves this through `targetOcrLanguageTag`, which falls back to the
+    // active learning target's own default. A literal here would pin a fresh
+    // install to one language no matter which target it selected.
+    ocrLanguage: "",
     ocrMaxImagePixels: 12e5,
     ocrMinImageArea: 45e3,
     ocrMaxImagesPerPage: 3,
@@ -37361,7 +37453,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
     ["ankiTags", DEFAULT_SETTINGS.ankiTags]
   ];
   function mergeSettings(value) {
-    const settingsValue = migrateHiddenFilterNotice(migrateLegacyDefaultMobileSettings(value));
+    const settingsValue = migratePinnedOcrLanguage(
+      migrateHiddenFilterNotice(migrateLegacyDefaultMobileSettings(value))
+    );
     const audio2 = normalizeAudioSettings(settingsValue);
     const supportedSettings = stripUnsupportedSettings(settingsValue);
     const apiCredentials = normalizeApiCredentialSettings(settingsValue);
@@ -37495,6 +37589,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const migrated = { ...value, youtubeFilterNoticeRestored20260711: true };
     if (migrated.youtubeShowFilterNotice === false) migrated.youtubeShowFilterNotice = true;
     return migrated;
+  }
+  function migratePinnedOcrLanguage(value) {
+    if (!value || !isTargetDefaultOcrLanguageTag(stringValue$2(value.ocrLanguage))) return value;
+    return { ...value, ocrLanguage: "" };
   }
   function migrateLegacyDefaultMobileSettings(value) {
     if (!value) return value;
@@ -39315,9 +39413,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const pruned = nonOverlappingTokens(remapped, hostText);
     const prunedSet = new Set(pruned);
     dropped.push(...remapped.filter((token) => !prunedSet.has(token)));
+    const rendered = withHostRemapGapFallbackTokens(pruned, dropped, indexed, nodeOffsets, hostText);
     return {
       text: hostText,
-      tokens: withHostRemapGapFallbackTokens(pruned, dropped, indexed, nodeOffsets, hostText),
+      tokens: withRetainedNeighbourTokens(host2, hostText, targetHostRanges(fragments, nodeOffsets), rendered),
       whitespaceJoints,
       hostText
     };
@@ -39395,6 +39494,33 @@ recommendedJiten	Jiten由来の頻度バッジです。
         sentence: hostText
       });
     }
+  }
+  function targetHostRanges(fragments, nodeOffsets) {
+    const ranges = [];
+    for (const fragment2 of fragments) {
+      const base = nodeOffsets.get(fragment2.node);
+      if (base === void 0) return null;
+      const start = base + Math.max(0, fragment2.start);
+      const end = base + Math.min(fragment2.node.data.length, fragment2.end);
+      if (end > start) ranges.push({ start, end });
+    }
+    return ranges;
+  }
+  function hostRangesOverlap(first2, second) {
+    return first2.start < second.end && second.start < first2.end;
+  }
+  function withRetainedNeighbourTokens(host2, hostText, ownRanges, tokens) {
+    if (!ownRanges?.length) return tokens;
+    const mirror = currentTextMirror(host2);
+    if (!mirror || !textMirrorRenderIsIntact(mirror) || mirror.dataset.sourceText !== hostText) return tokens;
+    const entry2 = nonDestructiveRenderCache.get(host2);
+    if (!entry2 || entry2.epoch !== nonDestructiveRenderCacheEpoch || entry2.planText !== hostText) return tokens;
+    const retained = entry2.tokens.filter((token) => token.start >= 0 && token.end > token.start && token.end <= hostText.length && !ownRanges.some((range2) => hostRangesOverlap(token, range2)));
+    if (!retained.length) return tokens;
+    return nonOverlappingTokens(
+      [...tokens, ...retained].sort((first2, second) => first2.start - second.start || second.end - second.start - (first2.end - first2.start)),
+      hostText
+    );
   }
   const MIRROR_PLAN_TEXT_SKIP_SELECTOR = `${READER_OWNED_TEXT_SELECTOR},script,style,noscript,template,[hidden],rt,rp`;
   function hostOriginalTextWithNodeOffsets(host2) {
@@ -40166,23 +40292,15 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     mirror.style.removeProperty("line-height");
   }
-  let pendingAdditiveMirrorProjectionFrame = 0;
   const pendingAdditiveMirrorProjectionRoots = /* @__PURE__ */ new Set();
+  const additiveMirrorProjectionPass = createPostPaintPass(() => {
+    const roots = [...pendingAdditiveMirrorProjectionRoots];
+    pendingAdditiveMirrorProjectionRoots.clear();
+    for (const pendingRoot of roots) projectAdditiveTextMirrors(pendingRoot);
+  });
   function scheduleAdditiveMirrorProjection(root = document) {
     pendingAdditiveMirrorProjectionRoots.add(root);
-    if (typeof requestAnimationFrame !== "function") {
-      const roots = [...pendingAdditiveMirrorProjectionRoots];
-      pendingAdditiveMirrorProjectionRoots.clear();
-      for (const pendingRoot of roots) projectAdditiveTextMirrors(pendingRoot);
-      return;
-    }
-    if (pendingAdditiveMirrorProjectionFrame) return;
-    pendingAdditiveMirrorProjectionFrame = requestAnimationFrame(() => {
-      pendingAdditiveMirrorProjectionFrame = 0;
-      const roots = [...pendingAdditiveMirrorProjectionRoots];
-      pendingAdditiveMirrorProjectionRoots.clear();
-      for (const pendingRoot of roots) projectAdditiveTextMirrors(pendingRoot);
-    });
+    additiveMirrorProjectionPass.schedule(viewForNode(root));
   }
   function sourceRangeBoundary(nodeOffsets, sourceOffset, side) {
     let boundary = null;
@@ -280651,6 +280769,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
     modelNames = ankiEmptyStrings;
     noteFieldTargetPlan = ankiNull;
     scanLibrary = ankiEmptyLibrary;
+    yomuModelUpdatePlan = ankiNull;
+    addMissingYomuModelFields = ankiEmptyStrings;
     warmStatusIndex = ankiNull;
     findExistingCards = ankiUntrustedLookup;
     findCachedStatusBatch = ankiUntrustedLookupBatch;
@@ -329866,7 +329986,7 @@ ${entry2.url}`),
     return HEADWORD_LANGUAGE_ENDONYMS[language2] ?? language2;
   }
   function headwordLanguageName(language2, locale = "en") {
-    const display = displayLanguageName$1(language2, locale);
+    const display = languageDisplayName(language2, locale);
     return display === language2 ? headwordLanguageEndonym(language2) : display;
   }
   function formatDictionaryBytes(bytes, locale = "en") {
@@ -329969,7 +330089,7 @@ ${entry2.url}`),
     return describeMirroredDictionary(dictionary.definitionLanguage, dictionary.bytes, locale);
   }
   function describeMirroredDictionary(definitionLanguage, bytes, locale = "en") {
-    const language2 = definitionLanguage ? displayLanguageName$1(definitionLanguage, locale) : "";
+    const language2 = definitionLanguage ? languageDisplayName(definitionLanguage, locale) : "";
     const size = bytes === void 0 ? "" : formatDictionaryBytes(bytes, locale);
     return [language2, size].filter(Boolean).join(" · ");
   }
@@ -329987,13 +330107,6 @@ ${entry2.url}`),
     if (language2 === targetLanguage2) return 2;
     if (language2 === "en") return 1;
     return 0;
-  }
-  function displayLanguageName$1(language2, locale = "en") {
-    try {
-      return new Intl.DisplayNames([locale], { type: "language" }).of(language2) ?? language2;
-    } catch {
-      return language2;
-    }
   }
   const FROZEN_CATALOG_BROWSE_SHELVES = buildCatalogBrowseShelves(FROZEN_DICTIONARY_CATALOG);
   const FROZEN_CATALOG_BROWSE_DICTIONARIES = Object.freeze(
@@ -330625,18 +330738,11 @@ ${entry2.url}`),
   function catalogRecommendationDescription(learnerLanguage2, recommendation) {
     const learner = learnerLanguageById(learnerLanguage2);
     const messages = LOCALE_CATALOGS[learnerLanguage2].messages;
-    const definitionLanguage = displayLanguageName(recommendation.definitionLanguage, learner.runtimeLocale);
+    const definitionLanguage = languageDisplayName(recommendation.definitionLanguage, learner.runtimeLocale);
     const original = messages.originalDefinitionLabel.replace("{language}", definitionLanguage);
     if (recommendation.translationMode === "off") return original;
     const translation2 = messages.automaticTranslationLabel.replace("{language}", learner.nativeName);
     return `${original} · ${translation2}`;
-  }
-  function displayLanguageName(language2, locale) {
-    try {
-      return new Intl.DisplayNames([locale], { type: "language" }).of(language2) ?? language2;
-    } catch {
-      return language2;
-    }
   }
   function createSettingsFormReader(data, colorSource) {
     const get = (key2) => String(data.get(key2) ?? "");
@@ -331188,7 +331294,12 @@ ${entry2.url}`),
       ocrEndpointUrl: get("ocrEndpointUrl").trim(),
       ocrEngine: get("ocrEngine").trim() || "auto",
       ocrCloudVisionApiKey: get("ocrCloudVisionApiKey").trim(),
-      ocrLanguage: targetOcrLanguageTag(get("ocrLanguage")),
+      // Blank means "follow the language being studied" and has to SURVIVE
+      // the round trip. Resolving it to a literal here turned the sentinel
+      // into whichever target happened to be active the first time anything
+      // in the dialog was saved, and the field is hidden, so nothing could
+      // ever unpin it again. Read it back exactly as rendered.
+      ocrLanguage: get("ocrLanguage").trim(),
       ocrMaxImagePixels: clamped("ocrMaxImagePixels", 16e4, 28e5, current.ocrMaxImagePixels),
       ocrMinImageArea: clamped("ocrMinImageArea", 1e4, 8e5, current.ocrMinImageArea),
       ocrMaxImagesPerPage: clamped("ocrMaxImagesPerPage", 1, 30, current.ocrMaxImagesPerPage),
@@ -332279,6 +332390,12 @@ ${entry2.url}`),
                                 <button class="jpdb-reader-btn" type="button" data-action="test-anki">${escapedUiText$2(settings.interfaceLanguage, "testAnki")}</button>
                                 <button class="jpdb-reader-btn secondary" type="button" data-action="prepare-anki">${escapedUiText$2(settings.interfaceLanguage, "prepareAnki")}</button>
                             </div>
+                            <div class="jpdb-reader-anki-model-update" data-anki-model-update hidden>
+                                <div class="jpdb-reader-help" data-anki-model-update-message></div>
+                                <div class="jpdb-reader-settings-actions">
+                                    <button class="jpdb-reader-btn" type="button" data-action="update-anki-model">${escapedUiText$2(settings.interfaceLanguage, "updateAnkiModel")}</button>
+                                </div>
+                            </div>
                         </div>
                         <div class="jpdb-reader-settings-subsection jpdb-reader-anki-library-choice">
                             <div class="jpdb-reader-local-title" data-anki-library-choices-title>${escapedUiText$2(settings.interfaceLanguage, "ankiLibraryChoices")}</div>
@@ -332313,6 +332430,24 @@ ${entry2.url}`),
                 </div>
             </fieldset>
     `;
+  }
+  function applyAnkiModelUpdatePrompt(form2, plan, language2) {
+    const prompt2 = form2.querySelector("[data-anki-model-update]");
+    if (!prompt2) return;
+    prompt2.hidden = !plan;
+    if (plan) prompt2.dataset.ankiModelUpdateTarget = plan.modelName;
+    else delete prompt2.dataset.ankiModelUpdateTarget;
+    const message = prompt2.querySelector("[data-anki-model-update-message]");
+    if (!message) return;
+    message.textContent = plan ? formatUiText(language2, "ankiModelUpdateAvailable", {
+      model: plan.modelName,
+      fields: plan.missingFields.join(", ")
+    }) : "";
+  }
+  function ankiModelUpdatePromptTarget(form2) {
+    const prompt2 = form2.querySelector("[data-anki-model-update]");
+    if (!prompt2 || prompt2.hidden) return null;
+    return prompt2.dataset.ankiModelUpdateTarget || null;
   }
   function renderAnkiLibraryOptions(options, value, language2 = "en") {
     const values = uniqueStrings([value, ...options].filter(Boolean));
@@ -334374,6 +334509,7 @@ ${entry2.url}`),
   const SETTINGS_ACTION_TEXT_KEYS = [
     ['[data-action="test-anki"]', "testAnki"],
     ['[data-action="prepare-anki"]', "prepareAnki"],
+    ['[data-action="update-anki-model"]', "updateAnkiModel"],
     ['[data-action="copy-newtab-url"]', "copyAddress"],
     ["[data-newtab-url-link]", "openNewTabPage"],
     ['[data-action="import-yomitan-settings"]', "importSettings"],
@@ -336657,10 +336793,12 @@ ${entry2.url}`),
     control2.dispatchEvent(new Event("input", { bubbles: true }));
   }
   function ankiConnectionAction(action2) {
-    return action2 === "test-anki" || action2 === "prepare-anki" ? action2 : null;
+    return action2 === "test-anki" || action2 === "prepare-anki" || action2 === "update-anki-model" ? action2 : null;
   }
   function ankiConnectionPendingKey(action2) {
-    return action2 === "prepare-anki" ? "ankiPreparing" : "ankiTesting";
+    if (action2 === "prepare-anki") return "ankiPreparing";
+    if (action2 === "update-anki-model") return "ankiModelUpdating";
+    return "ankiTesting";
   }
   function ankiStatusSetter(status2) {
     return (message, tone, action2) => {
@@ -336864,6 +337002,7 @@ ${entry2.url}`),
     jpdbConnectionProbeId = 0;
     wanikaniConnectionProbeId = 0;
     ankiLibraryScanId = 0;
+    ankiModelUpdatePromptId = 0;
     yomuUpdateCheckId = 0;
     academyAccountSync;
     settingsJapaneseParseRefreshFrame;
@@ -337300,6 +337439,10 @@ ${entry2.url}`),
       form2.querySelector('input[name="ankiEnabled"]')?.addEventListener("change", () => void this.refreshAnkiConnectionStatus(form2));
       form2.querySelector('input[name="ankiMobileHandoff"]')?.addEventListener("change", () => void this.refreshAnkiConnectionStatus(form2));
       form2.querySelector('input[name="ankiConnectUrl"]')?.addEventListener("change", () => void this.refreshAnkiConnectionStatus(form2));
+      form2.querySelector('select[name="ankiModel"]')?.addEventListener("change", () => {
+        this.retireAnkiModelUpdatePrompt(form2);
+        void this.refreshAnkiModelUpdatePrompt(form2);
+      });
       form2.addEventListener("change", (event) => this.handleSettingsFormChange(form2, event));
       installShortcutCapture(form2);
       installSourceRowDrag(form2);
@@ -337590,6 +337733,7 @@ ${entry2.url}`),
       const requestId = ++this.ankiConnectionProbeId;
       this.ankiLibraryScanId++;
       this.setAnkiStatus(form2, initialLine.message, initialLine.tone, initialLine.action);
+      this.retireAnkiModelUpdatePrompt(form2);
       if (!formSettings.ankiEnabled) return;
       const previous = this.swapSettingsTransiently(formSettings);
       try {
@@ -337617,10 +337761,47 @@ ${entry2.url}`),
     queueAutomaticAnkiLibraryScan(form2, language2) {
       const requestId = ++this.ankiLibraryScanId;
       window.setTimeout(() => {
-        void this.refreshAnkiLibraryScan(form2, requestId, language2).finally(() => {
+        void this.refreshAnkiLibraryScan(form2, requestId, language2).then(() => this.refreshAnkiModelUpdatePrompt(form2)).finally(() => {
           void this.warmAnkiStatusIndexForConnection(form2, requestId);
         });
       }, 0);
+    }
+    // Anki is reachable, so ask whether the note type the form now shows still
+    // carries every field this release writes. A plan means the panel offers
+    // the update; null hides the offer, which is what ends it for good once
+    // the user accepts.
+    //
+    // The offer names one note type, so it gets its own request id: picking a
+    // different note type retires the offer on screen and starts this again
+    // without disturbing the library scan already running.
+    async refreshAnkiModelUpdatePrompt(form2) {
+      const requestId = ++this.ankiModelUpdatePromptId;
+      const plan = await this.ankiModelUpdatePlan(form2, requestId);
+      if (!this.shouldApplyAnkiModelUpdatePrompt(form2, requestId)) return;
+      applyAnkiModelUpdatePrompt(form2, plan, getFormInterfaceLanguage(form2, this.settings.interfaceLanguage));
+    }
+    // The picker moved, so the offer is about a note type the user has left.
+    // It goes at once and re-earns itself against the new selection.
+    retireAnkiModelUpdatePrompt(form2) {
+      this.ankiModelUpdatePromptId++;
+      applyAnkiModelUpdatePrompt(form2, null, getFormInterfaceLanguage(form2, this.settings.interfaceLanguage));
+    }
+    shouldApplyAnkiModelUpdatePrompt(form2, requestId) {
+      return this.currentForm === form2 && form2.isConnected && requestId === this.ankiModelUpdatePromptId;
+    }
+    async ankiModelUpdatePlan(form2, requestId) {
+      const yomuModelUpdatePlan = this.dependencies.anki.yomuModelUpdatePlan;
+      if (typeof yomuModelUpdatePlan !== "function") return null;
+      if (!this.shouldApplyAnkiModelUpdatePrompt(form2, requestId)) return null;
+      const previous = this.swapSettingsTransiently(readFormSettings(new FormData(form2), this.settings));
+      try {
+        return await yomuModelUpdatePlan.call(this.dependencies.anki);
+      } catch (error) {
+        log$2.warn("Anki note type update check failed", error);
+        return null;
+      } finally {
+        this.restoreTransientSettings(previous);
+      }
     }
     async refreshAnkiLibraryScan(form2, requestId, language2) {
       if (!this.shouldApplyAnkiLibraryScan(form2, requestId)) return;
@@ -338181,6 +338362,10 @@ ${entry2.url}`),
           this.finishAnkiConnectionTest(form2, setAnkiStatus, language2);
           return true;
         }
+        if (connectionAction === "update-anki-model") {
+          await this.updateAnkiModelAction(form2, setAnkiStatus, language2);
+          return true;
+        }
         await this.prepareAnkiConnectionAction(form2, setAnkiStatus, language2);
       } catch (error) {
         this.handleAnkiConnectionActionError(error, setAnkiStatus, language2);
@@ -338210,6 +338395,27 @@ ${entry2.url}`),
       setAnkiStatus(this.ankiReadyMessage(language2), "success");
       this.queueAutomaticAnkiLibraryScan(form2, language2);
       log$2.info("Anki settings prepare succeeded", { deck: this.settings.ankiDeck, model: this.settings.ankiModel });
+    }
+    // Runs from the user pressing Update, never from the scan that spots the
+    // gap: the offer is a question, not a migration. The re-scan it queues
+    // clears the offer, because the note type now matches.
+    //
+    // The write is aimed by the offer on screen, not by the picker, and the
+    // client declines anything else — so an offer the user has moved past adds
+    // nothing rather than widening whichever note type is selected now.
+    async updateAnkiModelAction(form2, setAnkiStatus, language2) {
+      const addMissingYomuModelFields = this.dependencies.anki.addMissingYomuModelFields;
+      if (typeof addMissingYomuModelFields !== "function") return;
+      const offeredModel = ankiModelUpdatePromptTarget(form2);
+      if (!offeredModel) {
+        setAnkiStatus(uiText(language2, "ankiConnectionReady"), "success");
+        this.queueAutomaticAnkiLibraryScan(form2, language2);
+        return;
+      }
+      const added = await addMissingYomuModelFields.call(this.dependencies.anki, offeredModel);
+      setAnkiStatus(added.length ? formatUiText(language2, "ankiModelUpdated", { fields: added.join(", ") }) : uiText(language2, "ankiModelUpToDate"), "success");
+      this.queueAutomaticAnkiLibraryScan(form2, language2);
+      log$2.info("Anki note type updated", { model: offeredModel, fields: added });
     }
     handleAnkiConnectionActionError(error, setAnkiStatus, language2) {
       if (isAnkiConnectAvailabilityError(error) || isAnkiConnectSetupError(error)) {

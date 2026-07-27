@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.8.15
+// @version 1.8.16
 // @author Henry Russell
 // @description Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and a study page.
 // @license MIT
@@ -12,18 +12,18 @@
 // @match *://*/*
 // @match file:///*
 // @require https://yomureader.com/greasyfork/yomu-annotations.3427649b4084.user.js#sha256=NCdkm0CEEk2jWcMGYLJsOwkU5UBirJ/ucHgkKgbD9u8=
-// @require https://yomureader.com/greasyfork/yomu-anki.bba5ca533489.user.js#sha256=u6XKUzSJS+NXS3d68IZicrivcQNDgjJc21I4i16LeZ0=
-// @require https://yomureader.com/greasyfork/yomu-audio.a5ef44346f8e.user.js#sha256=pe9ENG+Odv9c+9WTK9VVzi8YXsZ4r9KhSwG1ZaJcpBA=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.adf7fb812927.user.js#sha256=rff7gSknpSL79aHFwzBneNKIEtlMnIp21lcI+kcB7Lk=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.6f0db2f10e3d.user.js#sha256=bw2y8Q49VLVzahZxmoo7RRt6g+rz9QMxsKQQ7EmizDc=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.eb2b28696842.user.js#sha256=6ysoaWhCMQcplIS7/1cBDUQkbu8hoAqGzU/OKjUqUKQ=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.8067ec5124f0.user.js#sha256=gGfsUSTwBS62F+qRpkQxtfvaKZONmcaPAt2JfHw1idc=
-// @require https://yomureader.com/greasyfork/yomu-bunpro.1b3cb52e19d1.user.js#sha256=Gzy1LhnRFZdHnawzycpInecDBEtkQ49IQ8r9bLzVqIs=
-// @require https://yomureader.com/greasyfork/yomu-jpdb.7a79b49a3a2e.user.js#sha256=enm0mjourtmpSGscnBknbVM0ZZVC2gXDmFKyHWNvxF8=
-// @require https://yomureader.com/greasyfork/yomu-jiten.507f826074bc.user.js#sha256=UH+CYHS8jrP2uni+8TawdBSeumOD4E/Z4HFcI7JO2Rg=
-// @require https://yomureader.com/greasyfork/yomu-wanikani.109802965c3f.user.js#sha256=EJgCllw/bZvWpAg/kGX8ujjhu3duSqS1dYRrhIkgdkA=
-// @require https://yomureader.com/greasyfork/yomu-video.605dbf0d6be0.user.js#sha256=YF2/DWvg2KqhwZt2Ia7p9/CXDUAMc7y2nBVSv/VeGzk=
-// @resource yomuCss  https://yomureader.com/yomu.7cea02aaadb1.css#sha256=fOoCqq2x8wrbyLq2fCIquhgDaoolcwCF4AxI+6BBbhs=
+// @require https://yomureader.com/greasyfork/yomu-anki.2bc68c0c6df5.user.js#sha256=K8aMDG31gaV8HeO9+29EZZPALME2rCfFe9+WhvWSW+Y=
+// @require https://yomureader.com/greasyfork/yomu-audio.fbd6c695c396.user.js#sha256=+9bGlcOWA5TVme5nF4kd5WnK9MV5Pv6z7XAWA5LIbJg=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.dea692466fc6.user.js#sha256=3qaSRm/Gm3pwmV37jKIHY5SnwUpfBNvDENvTGt4vjJU=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.b834d0ce9f82.user.js#sha256=uDTQzp+CSQlbyoQvsFd8MHVl45eUxMkrbYIr706to9A=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.4a28175bf045.user.js#sha256=SigXW/BFi4724aLylfUOsJu6kSPrJLpVJbsbno/xd5Y=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.c61049331bef.user.js#sha256=xhBJMxvvaKxaJbdTl8YJ2kLKofG70MrREsfA+kUSSuU=
+// @require https://yomureader.com/greasyfork/yomu-bunpro.102ec2e5da3f.user.js#sha256=EC7C5do/j6wJdA7dPUnGdRp5dP7YuPOuHfsMy2nxDgE=
+// @require https://yomureader.com/greasyfork/yomu-jpdb.71229e472fe2.user.js#sha256=cSKeRy/iLLmZKyEDIeCdLeujZGDgEZjXYB5I9ZYAcd4=
+// @require https://yomureader.com/greasyfork/yomu-jiten.a579b5e547b4.user.js#sha256=pXm15Ue0vMfpnnECkPAuowckcZqCySA9rVvetU+aqM0=
+// @require https://yomureader.com/greasyfork/yomu-wanikani.999800abd386.user.js#sha256=mZgAq9OGbm7aRSC9b9ndIDlDBhtuMVjp2bPwVaIfVd4=
+// @require https://yomureader.com/greasyfork/yomu-video.838aa1d417da.user.js#sha256=g4qh1BfaE7q+YBzVPyB1nEWUgRq8F0A/e6gW/nyc3CI=
+// @resource yomuCss  https://yomureader.com/yomu.b3dd0e138559.css#sha256=s90OE4VZGcLqWK/m+pcZdAZ4O6YrEi7vZA4n2fnk5rc=
 // @connect api.jiten.moe
 // @connect jpdb.io
 // @connect api.wanikani.com
@@ -1118,6 +1118,9 @@ const PARTICLE_PREFIX_REMAINDER_RE = new RegExp(`^[${KANJI_LIKE_WITH_COUNTERS}${
 const INFLECTION_CONTINUATION_SEGMENT_RE = /^(?:っ?た|っ?て|だ|で|ん|んで|ま|ない|なか|なかっ|なかった|ながら|ます|まし|ました|ませ|ません|ましょう|たい|たく|しま|した|し|する|でき|出来|できる|できます|できた|できて|できない|できなかった|いる|い|いた|いて|れる|られ|せる|させる)$/u;
 const HIRAGANA_SEGMENT_RE = new RegExp(`^[${HIRAGANA_WITH_PROLONGED}]+$`, "u");
 const KATAKANA_SEGMENT_RE = new RegExp(`^[${KATAKANA}${HALFWIDTH_KATAKANA}${PROLONGED_SOUND_MARK}]+$`, "u");
+const SEGMENT_SEPARATORS = "・･゠·•";
+const SEGMENT_SEPARATOR_RE = new RegExp(`[${SEGMENT_SEPARATORS}]`, "u");
+const SEGMENT_SEPARATOR_RUN_RE = new RegExp(`[${SEGMENT_SEPARATORS}]+`, "gu");
 const SINGLE_KANJI_SEGMENT_RE = new RegExp(`^[${KANJI}]$`, "u");
 const SINGLE_KANJI_HIRAGANA_STEM_RE = new RegExp(`^[${KANJI}][${HIRAGANA_WITH_PROLONGED}]*$`, "u");
 const KANJI_KANA_KANJI_SPAN_RE = new RegExp(`[${KANJI_LIKE_WITH_COUNTERS}][${HIRAGANA_WITH_PROLONGED}]+[${KANJI_LIKE_WITH_COUNTERS}]`, "u");
@@ -1187,8 +1190,9 @@ function segmentJapaneseRun(text, offset, segmenter, sourceText) {
   return finalizeJapaneseRunSegments(segments, sourceText);
 }
 function finalizeJapaneseRunSegments(segments, sourceText) {
+  const separatedSegments = splitNumericCounterPrefixSegments(splitSeparatorSegments(segments), sourceText);
   const normalizedSegments = splitTrailingPoliteParticleSegments(
-  mergeContiguousKanaSegments(mergeContiguousKatakanaSegments(mergeSegmenterCompoundOverrides(splitNumericCounterPrefixSegments(segments, sourceText))))
+  mergeContiguousKanaSegments(mergeContiguousKatakanaSegments(mergeSegmenterCompoundOverrides(separatedSegments)))
   );
   return mergeInflectedFallbackSegments(
   splitLeadingParticleSegments(normalizedSegments),
@@ -1207,6 +1211,29 @@ function splitTrailingPoliteParticleSegments(segments) {
     { surface: "ね", start: particleStart, end: segment.end }
   ];
   });
+}
+function splitSeparatorSegments(segments) {
+  if (!segments.some((segment) => SEGMENT_SEPARATOR_RE.test(segment.surface))) return segments;
+  return segments.flatMap(splitSeparatorSegment);
+}
+function splitSeparatorSegment(segment) {
+  if (!SEGMENT_SEPARATOR_RE.test(segment.surface)) return [segment];
+  const pieces = [];
+  let cursor = 0;
+  for (const match of segment.surface.matchAll(SEGMENT_SEPARATOR_RUN_RE)) {
+  const index = match.index ?? 0;
+  if (index > cursor) pieces.push(separatorFreeSegmentSlice(segment, cursor, index));
+  cursor = index + match[0].length;
+  }
+  if (cursor < segment.surface.length) pieces.push(separatorFreeSegmentSlice(segment, cursor, segment.surface.length));
+  return pieces;
+}
+function separatorFreeSegmentSlice(segment, from, to) {
+  return {
+  surface: segment.surface.slice(from, to),
+  start: segment.start + from,
+  end: segment.start + to
+  };
 }
 function mergeContiguousKanaSegments(segments) {
   if (segments.some((segment) => NON_HIRAGANA_SCRIPT_RE.test(segment.surface))) return segments;
@@ -1481,9 +1508,10 @@ function fallbackLookupTermsForCard(card) {
 function isUsefulFallbackLookupCandidate(candidate) {
   return candidate.depth > 0 && JAPANESE_CHARACTER_RE.test(candidate.term) && candidate.term.length > 1;
 }
-function compareFallbackLookupCandidates(a, b) {
+function compareJapaneseLookupCandidates(a, b) {
   return a.depth - b.depth || fallbackRulePriority(a) - fallbackRulePriority(b) || b.term.length - a.term.length || a.term.localeCompare(b.term);
 }
+const compareFallbackLookupCandidates = compareJapaneseLookupCandidates;
 function fallbackRulePriority(candidate) {
   if (candidate.rules.some((rule) => rule === "vs" || rule === "vs-s" || rule === "suru" || rule === "vk" || rule === "kuru")) return 0;
   if (candidate.rules.some((rule) => rule === "v1")) return 1;
@@ -1503,8 +1531,8 @@ function isTerminalDictionaryFallbackTerm(term) {
   return !BOGUS_SMALL_TSU_FINAL_RE.test(term) && fallbackLookupTermsForText(term).length <= 1;
 }
 const LANGUAGE_PROFILE_SCHEMA_VERSION = 1;
-const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 3;
-const SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS = [3];
+const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 4;
+const SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS = [4];
 function isSupportedLearningTargetModuleInterfaceVersion(value) {
   return SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS.includes(value);
 }
@@ -1579,6 +1607,7 @@ function createLearningTargetModule(spec) {
   },
   segment: spec.segment ?? defaultSegment,
   lookupCandidates: spec.lookupCandidates ?? ((text) => defaultLookupCandidates(normalizeText(text))),
+  compareLookupCandidates: spec.compareLookupCandidates ?? defaultCompareLookupCandidates,
   matchesLookupCandidateRules: spec.matchesLookupCandidateRules ?? defaultMatchesLookupCandidateRules,
   normalizeReading: spec.normalizeReading ?? defaultNormalizeReading
   });
@@ -1613,6 +1642,9 @@ function defaultSegment(text) {
 }
 function defaultLookupCandidates(term) {
   return term ? [{ term, rules: [], reasons: [], depth: 0 }] : [];
+}
+function defaultCompareLookupCandidates(a, b) {
+  return a.depth - b.depth || b.term.length - a.term.length || a.term.localeCompare(b.term);
 }
 function defaultMatchesLookupCandidateRules(entryRules, candidateRules) {
   if (!candidateRules.length) return true;
@@ -1680,6 +1712,7 @@ const JAPANESE_LEARNING_TARGET = createLearningTargetModule({
   }));
   },
   lookupCandidates: deinflectJapaneseTerm,
+  compareLookupCandidates: compareJapaneseLookupCandidates,
   matchesLookupCandidateRules: termRulesMatch,
   normalizeReading(spelling, reading) {
   return normalizedJapaneseCardReading(spelling, reading);
@@ -1736,6 +1769,9 @@ function learningTargetModuleFor(language) {
 function normalizeLearningTargetLanguage(value) {
   return learningTargetModuleFor(value)?.language ?? defaultLearningTargetModule().language;
 }
+function registeredLearningTargetModules() {
+  return Object.freeze([...MODULES_BY_LANGUAGE.values()]);
+}
 function defaultLearningTargetModule() {
   return MODULES_BY_LANGUAGE.get(DEFAULT_LEARNING_TARGET_LANGUAGE) ?? JAPANESE_LEARNING_TARGET;
 }
@@ -1760,6 +1796,12 @@ function setActiveLearningTargetLanguage(value) {
   if (!module) return null;
   requestedTargetLanguage = module.language;
   return module;
+}
+function adoptLearningTargetLanguage(value) {
+  const requested = setActiveLearningTargetLanguage(value);
+  if (requested) return requested;
+  const fallback = defaultLearningTargetModule();
+  return setActiveLearningTargetLanguage(fallback.language) ?? fallback;
 }
 function isTargetLanguageText(text) {
   return activeLearningTarget().isLookupableText(text);
@@ -3005,6 +3047,36 @@ function clearProjectedReadingsWithin(root) {
 }
 function pruneProjectedReadings(document2) {
   yomuAnnotationsCompanion()?.pruneProjectedReadings(document2);
+}
+function createPostPaintPass(run) {
+  let pendingScheduler = null;
+  const flush = () => {
+  pendingScheduler = null;
+  run();
+  };
+  return {
+  schedule(view) {
+    const request = view?.requestAnimationFrame;
+    if (typeof request !== "function") {
+      flush();
+      return;
+    }
+    if (pendingScheduler === request) return;
+    const previous = pendingScheduler;
+    pendingScheduler = request;
+    try {
+      request.call(view, flush);
+    } catch (error) {
+      if (pendingScheduler === request) pendingScheduler = previous;
+      throw error;
+    }
+  }
+  };
+}
+function viewForNode(node) {
+  if (!node) return null;
+  const document2 = node.nodeType === Node.DOCUMENT_NODE ? node : node.ownerDocument;
+  return document2?.defaultView ?? null;
 }
 const SHADOW_STYLE_MARKER = "data-yomu-shadow-reader-style";
 let shadowReaderCssText = "";
@@ -5842,11 +5914,10 @@ function isRecord$1(value) {
 function adoptLearningTargetFromSettings(value) {
   return adoptLearningTargetLanguage(resolveLanguageProfile(value).targetLanguage);
 }
-function adoptLearningTargetLanguage(value) {
-  const requested = setActiveLearningTargetLanguage(value);
-  if (requested) return requested;
-  const fallback = defaultLearningTargetModule();
-  return setActiveLearningTargetLanguage(fallback.language) ?? fallback;
+function isTargetDefaultOcrLanguageTag(value) {
+  const tag = value?.trim().toLowerCase();
+  if (!tag) return false;
+  return registeredLearningTargetModules().some((module) => module.ocr.defaultLanguage.toLowerCase() === tag);
 }
 function targetLookupCandidates(text) {
   return activeLearningTarget().lookupCandidates(text);
@@ -6792,7 +6863,7 @@ const DEFAULT_SETTINGS = {
   ocrEndpointUrl: "",
   ocrEngine: "auto",
   ocrCloudVisionApiKey: "",
-  ocrLanguage: "ja-JP",
+  ocrLanguage: "",
   ocrMaxImagePixels: 12e5,
   ocrMinImageArea: 45e3,
   ocrMaxImagesPerPage: 3,
@@ -6938,7 +7009,9 @@ const LEGACY_DEFAULT_ANKI_STRING_SETTINGS = [
   ["ankiTags", DEFAULT_SETTINGS.ankiTags]
 ];
 function mergeSettings(value) {
-  const settingsValue = migrateHiddenFilterNotice(migrateLegacyDefaultMobileSettings(value));
+  const settingsValue = migratePinnedOcrLanguage(
+  migrateHiddenFilterNotice(migrateLegacyDefaultMobileSettings(value))
+  );
   const audio = normalizeAudioSettings(settingsValue);
   const supportedSettings = stripUnsupportedSettings(settingsValue);
   const apiCredentials = normalizeApiCredentialSettings(settingsValue);
@@ -7066,6 +7139,10 @@ function migrateHiddenFilterNotice(value) {
   const migrated = { ...value, youtubeFilterNoticeRestored20260711: true };
   if (migrated.youtubeShowFilterNotice === false) migrated.youtubeShowFilterNotice = true;
   return migrated;
+}
+function migratePinnedOcrLanguage(value) {
+  if (!value || !isTargetDefaultOcrLanguageTag(stringValue(value.ocrLanguage))) return value;
+  return { ...value, ocrLanguage: "" };
 }
 function migrateLegacyDefaultMobileSettings(value) {
   if (!value) return value;
@@ -9215,9 +9292,10 @@ function nonDestructiveHostRenderPlan(host, target, tokens) {
   const pruned = nonOverlappingTokens(remapped, hostText);
   const prunedSet = new Set(pruned);
   dropped.push(...remapped.filter((token) => !prunedSet.has(token)));
+  const rendered = withHostRemapGapFallbackTokens(pruned, dropped, indexed, nodeOffsets, hostText);
   return {
   text: hostText,
-  tokens: withHostRemapGapFallbackTokens(pruned, dropped, indexed, nodeOffsets, hostText),
+  tokens: withRetainedNeighbourTokens(host, hostText, targetHostRanges(fragments, nodeOffsets), rendered),
   whitespaceJoints,
   hostText
   };
@@ -9295,6 +9373,33 @@ function appendSegmentedHostFallbackTokens(hostText, gapStart, gapEnd, additions
     sentence: hostText
   });
   }
+}
+function targetHostRanges(fragments, nodeOffsets) {
+  const ranges = [];
+  for (const fragment of fragments) {
+  const base = nodeOffsets.get(fragment.node);
+  if (base === void 0) return null;
+  const start = base + Math.max(0, fragment.start);
+  const end = base + Math.min(fragment.node.data.length, fragment.end);
+  if (end > start) ranges.push({ start, end });
+  }
+  return ranges;
+}
+function hostRangesOverlap(first, second) {
+  return first.start < second.end && second.start < first.end;
+}
+function withRetainedNeighbourTokens(host, hostText, ownRanges, tokens) {
+  if (!ownRanges?.length) return tokens;
+  const mirror = currentTextMirror(host);
+  if (!mirror || !textMirrorRenderIsIntact(mirror) || mirror.dataset.sourceText !== hostText) return tokens;
+  const entry = nonDestructiveRenderCache.get(host);
+  if (!entry || entry.epoch !== nonDestructiveRenderCacheEpoch || entry.planText !== hostText) return tokens;
+  const retained = entry.tokens.filter((token) => token.start >= 0 && token.end > token.start && token.end <= hostText.length && !ownRanges.some((range) => hostRangesOverlap(token, range)));
+  if (!retained.length) return tokens;
+  return nonOverlappingTokens(
+  [...tokens, ...retained].sort((first, second) => first.start - second.start || second.end - second.start - (first.end - first.start)),
+  hostText
+  );
 }
 const MIRROR_PLAN_TEXT_SKIP_SELECTOR = `${READER_OWNED_TEXT_SELECTOR},script,style,noscript,template,[hidden],rt,rp`;
 function hostOriginalTextWithNodeOffsets(host) {
@@ -10027,23 +10132,15 @@ function releaseTextMirrorReadingLane(host, state, mirror) {
   }
   mirror.style.removeProperty("line-height");
 }
-let pendingAdditiveMirrorProjectionFrame = 0;
 const pendingAdditiveMirrorProjectionRoots = new Set();
+const additiveMirrorProjectionPass = createPostPaintPass(() => {
+  const roots = [...pendingAdditiveMirrorProjectionRoots];
+  pendingAdditiveMirrorProjectionRoots.clear();
+  for (const pendingRoot of roots) projectAdditiveTextMirrors(pendingRoot);
+});
 function scheduleAdditiveMirrorProjection(root = document) {
   pendingAdditiveMirrorProjectionRoots.add(root);
-  if (typeof requestAnimationFrame !== "function") {
-  const roots = [...pendingAdditiveMirrorProjectionRoots];
-  pendingAdditiveMirrorProjectionRoots.clear();
-  for (const pendingRoot of roots) projectAdditiveTextMirrors(pendingRoot);
-  return;
-  }
-  if (pendingAdditiveMirrorProjectionFrame) return;
-  pendingAdditiveMirrorProjectionFrame = requestAnimationFrame(() => {
-  pendingAdditiveMirrorProjectionFrame = 0;
-  const roots = [...pendingAdditiveMirrorProjectionRoots];
-  pendingAdditiveMirrorProjectionRoots.clear();
-  for (const pendingRoot of roots) projectAdditiveTextMirrors(pendingRoot);
-  });
+  additiveMirrorProjectionPass.schedule(viewForNode(root));
 }
 function mirrorHostSourceGeometry(host, cache) {
   const cached = cache.get(host);
@@ -10354,6 +10451,39 @@ function textMirrorAlreadyRenders(host, text) {
   syncTextMirrorVisibilityToPage(host, mirror);
   }
   return renders;
+}
+function mirrorAnnotatedSourceRanges(mirror) {
+  const ranges = [];
+  for (const word of mirror.querySelectorAll(READER_WORD_SELECTOR$1)) {
+  const start = Number.parseInt(word.dataset.yomuSourceStart ?? "", 10);
+  const end = Number.parseInt(word.dataset.yomuSourceEnd ?? "", 10);
+  if (Number.isNaN(start) || Number.isNaN(end) || end <= start) continue;
+  ranges.push({ start, end });
+  }
+  return ranges;
+}
+function scanTargetAlreadyAnnotated(target) {
+  if (!(target.parent instanceof HTMLElement)) return false;
+  if (textMirrorAlreadyRenders(target.parent, target.text)) return true;
+  const host = nonDestructiveScanHost(target);
+  const mirror = currentTextMirror(host);
+  if (!mirror || !textMirrorRenderIsIntact(mirror)) return false;
+  const fragments = nonDestructiveTargetFragments(target);
+  if (!fragments.length) return false;
+  const { hostText, nodeOffsets } = hostOriginalTextWithNodeOffsets(host);
+  if (!hostText || mirrorSourceHostText(mirror) !== hostText) return false;
+  const ranges = targetHostRanges(fragments, nodeOffsets);
+  if (!ranges?.length) return false;
+  const words = mirrorAnnotatedSourceRanges(mirror);
+  let annotated = false;
+  for (const range of ranges) {
+  if (!HAS_JAPANESE_LETTER.test(hostText.slice(range.start, range.end))) continue;
+  if (!words.some((word) => hostRangesOverlap(word, range))) return false;
+  annotated = true;
+  }
+  if (!annotated) return false;
+  if (mirror.style.getPropertyValue("visibility") === "hidden") syncTextMirrorVisibilityToPage(host, mirror);
+  return true;
 }
 function textMirrorRenderIsIntact(mirror) {
   return Boolean(mirror.querySelector(READER_WORD_SELECTOR$1));
@@ -13194,6 +13324,8 @@ class DisabledAnkiConnectClient {
   modelNames = ankiEmptyStrings;
   noteFieldTargetPlan = ankiNull;
   scanLibrary = ankiEmptyLibrary;
+  yomuModelUpdatePlan = ankiNull;
+  addMissingYomuModelFields = ankiEmptyStrings;
   warmStatusIndex = ankiNull;
   findExistingCards = ankiUntrustedLookup;
   findCachedStatusBatch = ankiUntrustedLookupBatch;
@@ -23928,7 +24060,7 @@ function collectRootScanTargets(profile, root, context, excludeSelector = siteSc
   allowShortCenteredHeadings: profile.allowShortCenteredHeadings
   });
   for (const target of collected) {
-  if (context.skipMirroredHosts && profile.nonDestructive && target.parent instanceof HTMLElement && textMirrorAlreadyRenders(target.parent, target.text)) continue;
+  if (context.skipMirroredHosts && profile.nonDestructive && scanTargetAlreadyAnnotated(target)) continue;
   if (!addUniqueSiteScanTarget(profile, target, context)) continue;
   if (!siteScanHasRoom(context)) break;
   }
@@ -24248,7 +24380,7 @@ function collectResidualVisibleJapaneseTargets(limit, existingTargets, profiles,
   minLength: 1
   }));
   for (const target of collected) {
-  if (options.skipMirroredHosts && target.parent instanceof HTMLElement && textMirrorAlreadyRenders(target.parent, target.text)) continue;
+  if (options.skipMirroredHosts && scanTargetAlreadyAnnotated(target)) continue;
   appendResidualVisibleTarget(collection.targets, collection.seen, {
     ...target,
     parserId: RESIDUAL_VISIBLE_JAPANESE_PARSER_ID
@@ -24398,7 +24530,7 @@ function collectFragmentTargetsFromRoot(root, collection, exclude, options, pass
   const remaining = genericProseRemaining(collection);
   const collected = collectFragmentTextTargetsIn(root, collection.skipMirroredHosts ? remaining + (collection.candidateHeadroom ?? 0) + 24 : remaining, true, exclude, options);
   for (const target of collected) {
-  if (collection.skipMirroredHosts && textMirrorAlreadyRenders(target.parent, target.text)) continue;
+  if (collection.skipMirroredHosts && scanTargetAlreadyAnnotated(target)) continue;
   appendGenericProseTarget(collection.targets, collection.seen, passiveParserId ? {
     ...target,
     parserId: passiveParserId,
@@ -30437,8 +30569,8 @@ function collapseWhitespace(value) {
   return value.replace(/\/\*[\s\S]*?\*\//gu, " ").replace(/\s+/gu, " ").trim();
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.15"}`;
-const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.15"}`;
+const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.16"}`;
+const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.16"}`;
 const READER_CSS_CACHE_KEY = "yomu:reader-css-cache:v3";
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
@@ -30581,7 +30713,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.8.15"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.8.16"}`;
   } catch {
   return null;
   }
