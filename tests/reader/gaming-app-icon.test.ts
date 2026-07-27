@@ -1,7 +1,7 @@
-import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { gamingIconSourceRevision } from '../../scripts/lib/gaming-icon-revision.mjs';
 
 // The Yomu Gaming desktop icons are rendered from the canonical vector and committed,
 // because Linux and Windows cannot produce an .icns. That makes them silently
@@ -17,7 +17,7 @@ const ICNS_NAME = 'yomu-gaming.icns';
 const REQUIRED_ICNS_TYPES = ['ic04', 'ic05', 'ic07', 'ic08', 'ic09', 'ic10', 'ic11', 'ic12', 'ic13', 'ic14'];
 
 function sourceRevision(): string {
-    return createHash('sha256').update(readFileSync(path.join(appRoot, 'public', 'yomu-icon.svg'))).digest('hex');
+    return gamingIconSourceRevision(readFileSync(path.join(appRoot, 'public', 'yomu-icon.svg'), 'utf8'));
 }
 
 function icnsTypes(file: Buffer): string[] {
@@ -38,6 +38,12 @@ describe('Yomu Gaming app icon assets', () => {
         expect(stamp.source).toBe('public/yomu-icon.svg');
         expect(stamp.renderedFrom[PNG_NAME]).toBe(sourceRevision());
         expect(stamp.renderedFrom[ICNS_NAME]).toBe(sourceRevision());
+    });
+
+    it('treats Windows CRLF and repository LF checkouts as the same source revision', () => {
+        const lf = readFileSync(path.join(appRoot, 'public', 'yomu-icon.svg'), 'utf8').replace(/\r\n?/g, '\n');
+        const crlf = lf.replace(/\n/g, '\r\n');
+        expect(gamingIconSourceRevision(crlf)).toBe(gamingIconSourceRevision(lf));
     });
 
     it('ships a 512 PNG the main process can hand to the Dock', () => {

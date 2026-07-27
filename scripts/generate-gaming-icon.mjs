@@ -13,17 +13,17 @@
 // is named in the log instead of shipping quietly out of date.
 // Run directly with: node scripts/generate-gaming-icon.mjs
 import { execFileSync } from 'node:child_process';
-import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { gamingIconSourceRevision } from './lib/gaming-icon-revision.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const outDir = join(root, 'public', 'app-icons');
 const stampPath = join(outDir, 'generated-from.json');
 const svg = readFileSync(join(root, 'public/yomu-icon.svg'), 'utf8');
-const sourceRevision = createHash('sha256').update(svg).digest('hex');
+const sourceRevision = gamingIconSourceRevision(svg);
 
 const PNG_NAME = 'yomu-gaming-512.png';
 const ICNS_NAME = 'yomu-gaming.icns';

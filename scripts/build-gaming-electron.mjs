@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 
 import { build } from 'esbuild';
-import { createHash } from 'node:crypto';
 import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { gamingIconSourceRevision } from './lib/gaming-icon-revision.mjs';
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const appRoot = path.resolve(scriptDir, '..');
@@ -15,7 +15,7 @@ const sourceIconPng = path.join(iconDir, 'yomu-gaming-512.png');
 const sourceIconIcns = path.join(iconDir, 'yomu-gaming.icns');
 const generatedIconPng = path.join(appRoot, 'dist-gaming', 'yomu-icon-512.png');
 const generatedIconIcns = path.join(appRoot, 'dist-gaming', 'yomu-icon.icns');
-const sourceRevision = createHash('sha256').update(readFileSync(path.join(appRoot, 'public', 'yomu-icon.svg'))).digest('hex');
+const sourceRevision = gamingIconSourceRevision(readFileSync(path.join(appRoot, 'public', 'yomu-icon.svg'), 'utf8'));
 const renderedFrom = readRenderedFrom();
 
 // Checked before anything is written: a build that bails after wiping dist-gaming
