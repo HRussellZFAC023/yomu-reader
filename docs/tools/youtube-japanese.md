@@ -49,7 +49,7 @@ The filter pairs with よむ's [subtitle tools](/tools/japanese-subtitle-reader)
 
 ## Questions
 
-**Does it keep English-titled learner channels?** Yes — comprehensible-input channels like Comprehensible Japanese stay visible even with English titles, because the filter checks the original title via oEmbed.
+**Does it keep English-titled learner channels?** Yes. Channels like Comprehensible Japanese stay visible even when their titles are in English.
 
 **Does it break YouTube?** No — playback and subtitles keep working; toggle the filter with the YouTube filter shortcut in Settings → Shortcuts.
 

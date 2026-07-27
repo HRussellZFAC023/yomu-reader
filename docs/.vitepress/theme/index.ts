@@ -210,6 +210,33 @@ const HOSTED_MANGA_OCR_VOCABULARY = [
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     // Docs rewrite 2026-07-27: home page and install page copy. Keys are the
     // exact rendered English text node; see tests/reader/i18n.test.ts.
+    'Get help with Yomu — ask on Discord, report a bug, or open the tools. Yomu turns any page, video, manga or game screen into a Japanese lesson.': 'よむのサポート — Discordで質問する、不具合を報告する、ツールを開く。よむは、ページも動画もマンガもゲーム画面も、日本語のレッスンに変えます。',
+    'Get help': '助けを求める',
+    'Open the tools': 'ツールを開く',
+    'Chip in': '支援する',
+    'Review the words you saved.': '保存した語を復習します。',
+    'Open your own video and subtitle files, then read along.': '手持ちの動画と字幕ファイルを開いて、読みながら観られます。',
+    'Open a Japanese PDF and press the words in it.': '日本語のPDFを開いて、その中の語を押せます。',
+    'Ask on Discord': 'Discordで質問する',
+    'Take any one of them': 'どれか一つから始める',
+    'Pick what you want to read. It works the same way everywhere: press a word, get the answer, keep it if it is worth keeping.': '読みたいものを選んでください。どこでも同じです。単語を押して答えを見て、覚える価値があれば残します。',
+    'You do not have to set all of this up. Install Yomu, start reading web pages, and add the rest when you meet something Yomu cannot read yet.': 'すべてを設定する必要はありません。よむを入れてWebページから読み始め、よむがまだ読めないものに出会ったら、そのとき足していけば十分です。',
+    'Kanji works everywhere: press a character inside any lookup to see its stroke order and readings.': '漢字はどこでも同じです。検索結果の中の文字を押せば、書き順と読みが見られます。',
+    'That is the whole requirement. Jiten, JPDB, Anki, and your own Yomitan dictionaries all connect if you want them, and none of them are needed to start.': '必要なのはこれだけです。Jiten、JPDB、Anki、手持ちのYomitan辞書は、望めばつなげられますが、始めるのにどれも必要ありません。',
+    'New here? Follow the install guide.': '初めての方は、インストール手順に沿って進めてください。',
+    'Web pages': 'Webページ',
+    'Press any word for its reading, meaning, and sound.': 'どの語を押しても、読み・意味・発音が出ます。',
+    'Manga and images': 'マンガと画像',
+    'Read the Japanese inside panels and screenshots.': 'コマやスクリーンショットの中の日本語を読めます。',
+    'Press words in the subtitles, on YouTube or your own files.': 'YouTubeでも手持ちのファイルでも、字幕の語を押せます。',
+    'Read the Japanese on screen with the Yomu Gaming app.': 'Yomu Gamingアプリで、画面上の日本語を読めます。',
+    'Open a Japanese textbook or article and press the words in it.': '日本語の教科書や記事を開いて、その中の語を押せます。',
+    'Review': '復習',
+    'Study the words you saved, one card at a time.': '保存した語を、1枚ずつ復習します。',
+    'Install Yomu (free)': 'よむをインストール（無料）',
+    'Install guide': 'インストール手順',
+    // Docs rewrite 2026-07-27: home page and install page copy. Keys are the
+    // exact rendered English text node; see tests/reader/i18n.test.ts.
     'Install Yomu': 'よむをインストール',
     'Two minutes on a computer, iPhone, or iPad. Start here.': 'パソコンでもiPhone/iPadでも2分。ここから始めましょう。',
     'Study your words': '覚えた語を復習する',

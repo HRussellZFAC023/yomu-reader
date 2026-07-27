@@ -21,7 +21,7 @@ Video is some of the best Japanese input you can get — if you can actually rea
 
 ## A subtitle overlay built for reading
 
-よむ adds an ASB-style subtitle overlay to video pages:
+Yomu lays its own subtitle line over the video:
 
 - **Lookup-ready Japanese lines** — every subtitle word can open the popup dictionary.
 - **A second language track** — show a native-language subtitle line underneath for support.
@@ -48,7 +48,7 @@ From a subtitle line you can:
 - **Mine to Jiten or JPDB** — add the word, mark it, or send a review grade.
 - **Batch mine the transcript** — scan the whole loaded subtitle track, review deduplicated i+1 candidates, and add the selected words in one pass.
 
-It gives you the sentence-mining flow people like in asbplayer, but in the same popup as your dictionary, kanji, and audio.
+You get the whole saving flow without leaving the video, in the same panel as your dictionary, kanji, and audio.
 
 ## Set it up
 
@@ -58,7 +58,7 @@ It gives you the sentence-mining flow people like in asbplayer, but in the same 
 
 ## Questions
 
-**Does it need a desktop helper like asbplayer?** No — after よむ is installed, the overlay runs on YouTube, and the in-browser [video player](/video-player/index.html) handles your own files without a desktop bridge.
+**Do I need a separate desktop app?** No. Once Yomu is installed the subtitle line runs on YouTube, and the [video player](/video-player/index.html) handles your own files in the browser.
 
 **Can I batch mine a whole video transcript?** Yes — open Batch Mine in the subtitle panel, scan the loaded transcript, review the i+1 candidates, and add, grade, or copy the selected words.
 
