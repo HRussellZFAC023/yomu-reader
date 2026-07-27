@@ -1113,9 +1113,15 @@ describe('reader helpers', () => {
                 const line = document.querySelector<HTMLElement>('.jpdb-ocr-line');
                 expect(line).not.toBeNull();
                 expect(Number.parseFloat(line?.style.left || '')).toBeCloseTo(expectedLeft, 1);
-                expect(Number.parseFloat(line?.style.top || '')).toBeCloseTo(expectedTop, 1);
                 expect(Number.parseFloat(line?.style.width || '')).toBeCloseTo(expectedWidth, 1);
-                expect(Number.parseFloat(line?.style.height || '')).toBeCloseTo(expectedHeight, 1);
+                // The highlight grows around the type that ends up inside it — a single
+                // glyph in an 84px-thick box is typeset near 84px and needs more than 84px
+                // of frame to hold it with its padding — so what the object-fit mapping
+                // pins vertically is where the box's CENTRE lands, not the frame's height.
+                const top = Number.parseFloat(line?.style.top || '');
+                const height = Number.parseFloat(line?.style.height || '');
+                expect(top + height / 2).toBeCloseTo(expectedTop + expectedHeight / 2, 1);
+                expect(height).toBeGreaterThanOrEqual(expectedHeight);
             });
         } finally {
             controller.destroy();

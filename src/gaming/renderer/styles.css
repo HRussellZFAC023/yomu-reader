@@ -870,74 +870,14 @@ textarea {
     background: color-mix(in srgb, var(--jpdb-reader-black) 50%, transparent);
 }
 
+/* The recognized lines ARE the reader's OCR overlay: .jpdb-ocr-layer wrapping
+   .jpdb-ocr-line > .jpdb-ocr-line-text, dressed by reader-words-ocr.css. How a line is
+   sized, padded, framed and placed over its source text lives in the reader, so both
+   surfaces stay in register with the text underneath them. All that belongs here is
+   where the layer sits in the overlay's own stacking order. */
 .overlay-inline-layer {
-    position: fixed;
     inset: 0;
     z-index: 6;
-    pointer-events: none;
-}
-
-/* Each recognized line is anchored over its source box but stays INVISIBLE: the game
-   art shows through untouched. The line only catches the pointer so the bundled Yomu
-   reader can show its real popover on hover/click. A faint tint appears on hover so the
-   reader can see which words are live. */
-.overlay-inline-line {
-    position: fixed;
-    z-index: 6;
-    display: flex;
-    align-items: flex-start;
-    max-width: calc(100vw - 16px);
-    padding: 1px 2px;
-    border-radius: 5px;
-    pointer-events: auto;
-    transition: background 90ms ease;
-}
-
-.overlay-inline-line:hover,
-.overlay-inline-line:focus-within {
-    background: color-mix(in srgb, var(--jpdb-reader-accent) 16%, transparent);
-    cursor: pointer;
-}
-
-.overlay-inline-line[data-vertical="true"] {
-    max-height: calc(100vh - 16px);
-}
-
-.overlay-inline-text {
-    margin: 0;
-    min-height: 1em;
-    max-width: calc(100vw - 24px);
-    font-size: 15px;
-    line-height: 1.25;
-    white-space: nowrap;
-    /* Hide the raw OCR text; the reader-injected word spans below are the visible layer. */
-    color: transparent;
-    -webkit-text-fill-color: transparent;
-    cursor: help;
-}
-
-.overlay-inline-line[data-vertical="true"] .overlay-inline-text {
-    writing-mode: vertical-rl;
-    text-orientation: upright;
-    max-width: none;
-    max-height: calc(100vh - 24px);
-}
-
-/* Keep geometry-backed OCR readable in place instead of forcing users into a detached
-   panel. The dark chip is intentionally subtle so it works over games, manga, and video. */
-.overlay-inline-text :is(.jpdb-reader-word, ruby, rt, rp) {
-    color: var(--jpdb-reader-white) !important;
-    -webkit-text-fill-color: var(--jpdb-reader-white) !important;
-    text-shadow:
-        0 1px 2px color-mix(in srgb, var(--jpdb-reader-black) 90%, transparent),
-        0 0 5px color-mix(in srgb, var(--jpdb-reader-black) 78%, transparent) !important;
-}
-
-.overlay-inline-text .jpdb-reader-word {
-    border-radius: 0.22em;
-    background: color-mix(in srgb, var(--jpdb-reader-black) 34%, transparent) !important;
-    border-color: color-mix(in srgb, var(--jpdb-reader-white) 14%, transparent) !important;
-    box-shadow: 0 1px 3px color-mix(in srgb, var(--jpdb-reader-black) 42%, transparent) !important;
 }
 
 /* Controller focus ring: on a Steam Deck (no mouse) the gamepad driver moves this
@@ -955,8 +895,11 @@ textarea {
 /* Text-only OCR (no per-line geometry) has nothing behind it, so show it as a readable
    caption instead. */
 .overlay-result-text {
+    margin: 0;
+    max-width: calc(100vw - 24px);
     color: var(--jpdb-reader-white);
     -webkit-text-fill-color: var(--jpdb-reader-white);
+    line-height: 1.25;
     white-space: normal;
     text-shadow: 0 1px 2px color-mix(in srgb, var(--jpdb-reader-black) 82%, transparent);
 }
@@ -1043,8 +986,7 @@ textarea {
         white-space: normal;
     }
 
-    .overlay-inline-text {
+    .overlay-result-text {
         max-width: min(100%, calc(100vw - 24px));
-        font-size: 13px;
     }
 }

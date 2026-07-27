@@ -12,7 +12,7 @@ import {
     offsetOcrResult,
     splitImageIntoPageColumns,
 } from './image-preprocess';
-import { fittedObjectSize, imageContentBox, objectPositionOffset } from './ocr-overlay-geometry';
+import { fittedObjectSize, imageContentBox, layoutOcrOverlayLines, objectPositionOffset, paintedImageFrame, type OcrOverlayFrame } from './ocr-overlay-geometry';
 import { isOcrProviderConfigured, ocrRecognizer, requestBlob, type OcrRecognizer } from './ocr-providers';
 import { imageCacheKey, isOcrRequestTimeout, localOcrEndpointUrl, ocrAttemptTimeoutMs } from './ocr-shared';
 import { normalizeOcrRenderedText } from './rendered-text';
@@ -103,13 +103,7 @@ interface ImageState {
     loadListener?: () => void;
 }
 
-interface OcrRenderedImageFrame {
-    imageLeft: number;
-    imageTop: number;
-    imageWidth: number;
-    imageHeight: number;
-    safeBottomInset?: number;
-}
+type OcrRenderedImageFrame = OcrOverlayFrame;
 
 interface OcrRenderableMediaMutationSummary {
     touched: boolean;
@@ -196,9 +190,6 @@ const BOOKWALKER_SPREAD_MIN_ASPECT = 1.15;
 const bookwalkerAssetResolver = new BookwalkerAssetResolver();
 const log = Logger.scope('OCR');
 const STALE_OCR_STATE = Symbol('stale-ocr-state');
-const OCR_WORD_UNDERLINE_OFFSET_EM = 0.12;
-const OCR_WORD_UNDERLINE_THICKNESS_EM = 0.12;
-const OCR_WORD_UNDERLINE_CLEARANCE_PX = 1;
 const ocrVocabularyCache = new WeakMap<HTMLImageElement, Map<string, JPDBCard> | null>();
 let ocrLayerCounter = 0;
 const OCR_PROVIDER_LABELS: Partial<Record<ReaderSettings['ocrProvider'], (settings: ReaderSettings) => string | null>> = {
@@ -3284,7 +3275,11 @@ export class ImageOcrController {
         setOcrArtifactPosition(state.overlay, rect.left, rect.top);
         state.overlay.style.width = `${rect.width}px`;
         state.overlay.style.height = `${rect.height}px`;
-        this.fitLineFonts(state, this.renderedOcrImageFrameForState(image, rect, state.result));
+        layoutOcrOverlayLines(
+            state.overlay,
+            this.renderedOcrImageFrameForState(image, rect, state.result),
+            this.options.getSettings().ocrFontScale,
+        );
     }
 
     private readerRasterSourceRect(image: HTMLImageElement): DOMRect | undefined {
@@ -3313,89 +3308,6 @@ export class ImageOcrController {
         }
         if (!reserve) return frame;
         return { ...frame, safeBottomInset: Math.max(0, Math.min(reserve, frame.imageHeight - 1)) };
-    }
-
-    private fitLineFonts(state: ImageState, frame: OcrRenderedImageFrame): void {
-        const scale = this.options.getSettings().ocrFontScale;
-        state.overlay.querySelectorAll<HTMLElement>('.jpdb-ocr-line').forEach(element => {
-            const boxLeft = frame.imageLeft + Number(element.dataset.boxLeft) * frame.imageWidth;
-            const boxTop = frame.imageTop + Number(element.dataset.boxTop) * frame.imageHeight;
-            const boxWidth = Number(element.dataset.boxWidth) * frame.imageWidth;
-            const boxHeight = Number(element.dataset.boxHeight) * frame.imageHeight;
-            if (!Number.isFinite(boxWidth) || !Number.isFinite(boxHeight) || boxWidth <= 0 || boxHeight <= 0) return;
-            const text = element.dataset.ocrText ?? '';
-            const vertical = element.dataset.vertical === 'true';
-            element.style.fontSize = `${ocrFontPx(text, boxWidth, boxHeight, vertical, scale)}px`;
-            this.fitLineFrame(element, boxLeft, boxTop, boxWidth, boxHeight, frame, vertical);
-        });
-    }
-
-    private fitLineFrame(
-        element: HTMLElement,
-        boxLeft: number,
-        boxTop: number,
-        boxWidth: number,
-        boxHeight: number,
-        frame: OcrRenderedImageFrame,
-        vertical: boolean,
-    ): void {
-        const textElement = element.querySelector<HTMLElement>('.jpdb-ocr-line-text');
-        if (!textElement) return;
-        const hasFurigana = element.dataset.hasFuri === 'true';
-        const fontSize = Number.parseFloat(element.style.fontSize) || 16;
-        const underlineBleed = ocrWordUnderlineBleedPx(fontSize);
-        const padX = Math.max(4, Math.round(fontSize * 0.16));
-        const padTop = hasFurigana ? Math.max(3, Math.round(fontSize * 0.1)) : Math.max(2, Math.round(fontSize * 0.08));
-        const padBottom = vertical
-            ? Math.max(3, Math.round(fontSize * 0.1))
-            : Math.max(3, underlineBleed);
-        element.style.setProperty('--jpdb-ocr-pad-x', `${padX}px`);
-        element.style.setProperty('--jpdb-ocr-pad-top', `${padTop}px`);
-        element.style.setProperty('--jpdb-ocr-pad-bottom', `${padBottom}px`);
-
-        const contentRect = textElement.getBoundingClientRect();
-        const contentWidth = Math.max(1, contentRect.width);
-        const contentHeight = Math.max(1, contentRect.height);
-        const minHitSize = Math.max(24, Math.round(fontSize * 1.25));
-        // A vertical furigana reading sits in a strip to the RIGHT of its column
-        // (real vertical ruby). The .jpdb-ocr-line is overflow:visible, so the
-        // reading can spill past the highlight box harmlessly; reserving a
-        // symmetric gutter to wrap it only made furigana columns look wider than
-        // the OCR text (user feedback). Keep the frame the same width as a plain
-        // column and instead reserve the reading's width in the horizontal
-        // position clamp, so only the rightmost column (the first one read, whose
-        // reading would otherwise run past the image edge into
-        // .jpdb-ocr-layer{overflow:hidden}) is nudged inward.
-        const furiGutter = vertical && hasFurigana ? Math.round(fontSize * 0.55) : 0;
-        const underlineGutter = vertical ? underlineBleed : 0;
-        const frameWidth = Math.min(frame.imageWidth, Math.max(boxWidth, minHitSize, contentWidth + padX * 2 + underlineGutter * 2));
-        // Vertical columns must also grow to the rendered text height: the OCR
-        // box is often shorter than the re-typeset column, and a frame clamped
-        // to the box height leaves the overflowing glyphs to be clipped at the
-        // layer edge instead of wrapped by the highlight.
-        const frameHeight = Math.min(frame.imageHeight, Math.max(boxHeight, minHitSize, contentHeight + padTop + padBottom));
-        const minLeft = frame.imageLeft;
-        const minTop = frame.imageTop;
-        const maxLeft = Math.max(minLeft, frame.imageLeft + frame.imageWidth - frameWidth - furiGutter);
-        const maxTop = Math.max(minTop, frame.imageTop + frame.imageHeight - (frame.safeBottomInset ?? 0) - frameHeight);
-        const left = clampNumber(boxLeft + boxWidth / 2 - frameWidth / 2, minLeft, maxLeft);
-        const centeredTop = boxTop + boxHeight / 2 - frameHeight / 2;
-        const baselineAlignedTop = boxTop + boxHeight - frameHeight + padBottom;
-        // Expanded vertical columns must stay anchored to the OCR provider's box
-        // top. Centering a tall re-typeset column around a short source box shifts
-        // it upward (often all the way to the layer edge), while X remains correct.
-        // The max clamp still moves a near-bottom column only as far as necessary.
-        const targetTop = vertical
-            ? boxTop
-            : shouldCenterOcrText(element.dataset.ocrText ?? '')
-                ? centeredTop
-                : baselineAlignedTop;
-        const top = clampNumber(targetTop, minTop, maxTop);
-
-        element.style.left = `${left}px`;
-        element.style.top = `${top}px`;
-        element.style.width = `${frameWidth}px`;
-        element.style.height = `${frameHeight}px`;
     }
 
     private clear(): void {
@@ -3913,14 +3825,15 @@ function renderedOcrImageFrame(image: HTMLImageElement, rect: DOMRect, result: O
     const style = getComputedStyle(image);
     const content = imageContentBox(image, rect, style);
     const { sourceWidth, sourceHeight } = ocrSourceDimensions(image, rect, content, result);
-    const object = fittedObjectSize(style.objectFit, sourceWidth, sourceHeight, content.width, content.height);
-    const offset = objectPositionOffset(style.objectPosition, content.width - object.width, content.height - object.height);
-    return {
-        imageLeft: content.left + offset.x,
-        imageTop: content.top + offset.y,
-        imageWidth: Math.max(1, object.width),
-        imageHeight: Math.max(1, object.height),
-    };
+    return paintedImageFrame({
+        image,
+        rect,
+        style,
+        objectFit: style.objectFit,
+        objectPosition: style.objectPosition,
+        sourceWidth,
+        sourceHeight,
+    });
 }
 
 function renderedPausedVideoFrame(image: HTMLImageElement, rect: DOMRect): OcrRenderedImageFrame | null {
@@ -3991,35 +3904,6 @@ function parseFallbackOcrLines(data: string | undefined, width: number, height: 
     }
 }
 
-function ocrFontPx(text: string, boxWidth: number, boxHeight: number, vertical: boolean, scale: number): number {
-    const safeScale = Math.max(0.7, Math.min(1.8, scale));
-    const length = Math.max(1, visualTextLength(text));
-    const byBoxThickness = vertical ? boxWidth * 0.72 : boxHeight * 0.58;
-    const byBoxLength = vertical ? (boxHeight / length) * 1.12 : (boxWidth / length) * 1.08;
-    const fitted = Math.min(byBoxThickness, byBoxLength) * safeScale;
-    return Math.max(11, Math.min(38, fitted));
-}
-
-function ocrWordUnderlineBleedPx(fontSize: number): number {
-    return Math.ceil(fontSize * (OCR_WORD_UNDERLINE_OFFSET_EM + OCR_WORD_UNDERLINE_THICKNESS_EM))
-        + OCR_WORD_UNDERLINE_CLEARANCE_PX;
-}
-
-function visualTextLength(text: string): number {
-    return [...text.trim()].reduce((total, char) => {
-        if (/\s/.test(char)) return total + 0.35;
-        if (/[\u0000-\u00ff]/.test(char)) return total + 0.62;
-        return total + 1;
-    }, 0);
-}
-
-function shouldCenterOcrText(text: string): boolean {
-    return visualTextLength(text) <= 1.5;
-}
-
-function clampNumber(value: number, min: number, max: number): number {
-    return Math.min(max, Math.max(min, value));
-}
 
 function isCandidateImage(image: HTMLImageElement, settings: ReaderSettings): boolean {
     if (isIgnoredOcrImage(image)) return false;

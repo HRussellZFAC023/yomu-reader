@@ -1,4 +1,4 @@
-import { app, BrowserWindow, desktopCapturer, globalShortcut, ipcMain, nativeImage, screen, shell, systemPreferences, type BrowserWindowConstructorOptions } from 'electron';
+import { app, BrowserWindow, desktopCapturer, dialog, globalShortcut, ipcMain, nativeImage, screen, shell, systemPreferences, type BrowserWindowConstructorOptions } from 'electron';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -20,6 +20,12 @@ const APP_NAME = 'Yomu Gaming';
 // (logical size x scaleFactor) instead of a 1080p thumbnail. Retina/4K text is lost
 // otherwise. Cap the long edge so a 5K/8K panel can't blow up the OCR payload.
 const MAX_CAPTURE_EDGE = 3840;
+// macOS hands back an EMPTY screen thumbnail on the first desktopCapturer call after
+// launch — ScreenCaptureKit has not warmed up yet. Measured on 5/5 cold starts, and
+// twice in a row on one of them. Without a retry the first hotkey press of every
+// session fails, so retry until a screen actually arrives.
+const CAPTURE_ATTEMPTS = 6;
+const CAPTURE_RETRY_DELAY_MS = 120;
 const SCREEN_PERMISSION_MESSAGE = process.platform === 'darwin'
     ? 'Yomu Gaming needs Screen Recording permission. Open System Settings › Privacy & Security › Screen Recording, enable Yomu Gaming, then quit and reopen the app.'
     : 'Yomu Gaming could not read the screen. Check this device’s screen-capture permissions and try again.';
@@ -135,9 +141,11 @@ function mainWindowOptions(): Pick<BrowserWindowConstructorOptions, 'x' | 'y' | 
 async function ensureOverlayWindow(mode: YomuGamingCaptureMode): Promise<BrowserWindow> {
     const hash = overlayHash(mode);
     if (overlayWindow && !overlayWindow.isDestroyed()) {
-        if (new URL(overlayWindow.webContents.getURL()).hash !== `#${hash}`) {
-            await overlayWindow.loadURL(rendererUrl(hash));
-        }
+        // Always reload, even when the mode is unchanged. The renderer reads the frozen
+        // frame exactly once per document (its controller is guarded by a `started`
+        // flag), so reusing the document replayed the FIRST capture on every later
+        // press — the scene had moved on but the overlay still showed the old one.
+        await overlayWindow.loadURL(rendererUrl(hash));
         return overlayWindow;
     }
     const display = screen.getPrimaryDisplay();
@@ -231,16 +239,33 @@ function installBrokenPipeGuard(): void {
 async function showOverlay(mode: YomuGamingCaptureMode = 'instant'): Promise<void> {
     // Grab the frame while neither of our windows is on screen, so the overlay's
     // own selection box / dim / toolbar can never be composited into the OCR image.
-    if (mainWindow && !mainWindow.isDestroyed() && mainWindow.isVisible()) {
-        mainWindow.hide();
+    const hidMainWindow = Boolean(mainWindow && !mainWindow.isDestroyed() && mainWindow.isVisible());
+    if (hidMainWindow) {
+        mainWindow?.hide();
         await waitForCompositorFrame();
     }
-    frozenCapture = await captureFrozenFrame();
-    const window = await ensureOverlayWindow(mode);
-    const display = screen.getPrimaryDisplay();
-    window.setBounds(display.bounds);
-    window.show();
-    window.focus();
+    try {
+        frozenCapture = await captureFrozenFrame();
+        const window = await ensureOverlayWindow(mode);
+        const display = screen.getPrimaryDisplay();
+        window.setBounds(display.bounds);
+        window.show();
+        window.focus();
+    } catch (error) {
+        // We hid the app to take a clean frame. If anything after that fails we must
+        // put it back, or the shortcut just makes Yomu disappear with nothing to show.
+        frozenCapture = null;
+        if (hidMainWindow && mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.show();
+            mainWindow.focus();
+        }
+        reportOverlayFailure(error);
+    }
+}
+
+function reportOverlayFailure(error: unknown): void {
+    const message = error instanceof Error ? error.message : 'Yomu could not read the screen.';
+    dialog.showErrorBox(APP_NAME, message);
 }
 
 function hideOverlay(): void {
@@ -314,8 +339,11 @@ async function captureSources(width: number, height: number): Promise<YomuGaming
     const simulated = simulatedCaptureSource();
     if (simulated) return [simulated];
     assertScreenAccess();
+    // Only ever the screen: we grab the whole display and crop from the frozen frame.
+    // Asking for window thumbnails too made every capture render 14 extra native-size
+    // images for nothing (measured 550ms vs 351ms).
     const sources = await desktopCapturer.getSources({
-        types: ['screen', 'window'],
+        types: ['screen'],
         thumbnailSize: { width, height },
         fetchWindowIcons: false,
     }).catch(error => {
@@ -337,12 +365,20 @@ async function capturePrimaryScreen(): Promise<YomuGamingCaptureSource> {
     const primaryDisplay = screen.getPrimaryDisplay();
     const primaryDisplayId = String(primaryDisplay.id);
     const { width, height } = nativeCaptureSize(primaryDisplay);
-    const sources = await captureSources(width, height);
-    const source = sources.find(candidate => candidate.kind === 'screen' && candidate.displayId === primaryDisplayId)
-        ?? sources.find(candidate => candidate.kind === 'screen')
-        ?? sources[0];
-    if (!source) throw new Error('No capture source is available.');
-    return source;
+    for (let attempt = 0; attempt < CAPTURE_ATTEMPTS; attempt += 1) {
+        if (attempt > 0) await wait(CAPTURE_RETRY_DELAY_MS);
+        // An empty thumbnail is dropped by captureSources, so a cold screen simply
+        // yields no sources — that is the case worth retrying.
+        const sources = await captureSources(width, height);
+        const source = sources.find(candidate => candidate.kind === 'screen' && candidate.displayId === primaryDisplayId)
+            ?? sources.find(candidate => candidate.kind === 'screen');
+        if (source) return source;
+    }
+    throw new Error('No capture source is available.');
+}
+
+function wait(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 async function getFrozenCapture(): Promise<YomuGamingCaptureSource> {
@@ -594,7 +630,7 @@ function registerGlobalShortcuts(): void {
     }
     hotkeyRegistered = process.env.YOMU_GAMING_TEST_MODE === '1' || globalShortcut.register(hotkey, () => {
         if (overlayWindow?.isVisible()) hideOverlay();
-        else void showOverlay('instant');
+        else void showOverlay('instant').catch(reportOverlayFailure);
     });
     if (hotkeyRegistered) registeredHotkey = hotkey;
 }
@@ -607,7 +643,13 @@ app.whenReady().then(async () => {
 });
 
 app.on('activate', () => {
-    if (!mainWindow) void createMainWindow();
+    // The window is hidden, not closed, whenever the overlay is up — so clicking the
+    // dock icon has to bring it back, otherwise a hidden window looks like a dead app.
+    if (!mainWindow || mainWindow.isDestroyed()) void createMainWindow();
+    else {
+        mainWindow.show();
+        mainWindow.focus();
+    }
 });
 
 app.on('before-quit', () => {
