@@ -195,6 +195,17 @@ describe('interface language resolution', () => {
         expect(copy.filter(value => !hasHostedDocsJaCopy(themeSource, value))).toEqual([]);
     });
 
+    it('keeps hosted docs Japanese copy keys unique', () => {
+        const themeSource = readFileSync('docs/.vitepress/theme/index.ts', 'utf8');
+        const { entries, unparsed } = hostedDocsJaCopyEntries(themeSource);
+
+        expect(unparsed).toEqual([]);
+        const keys = entries.map(([english]) => english);
+        const duplicateKeys = [...new Set(keys.filter((key, index) => keys.indexOf(key) !== index))];
+
+        expect(duplicateKeys).toEqual([]);
+    });
+
     it('keeps every hosted docs Japanese value written in Japanese', () => {
         // hasHostedDocsJaCopy only proves a key exists, so an English-for-English
         // entry ('Offline cache': 'Offline cache') satisfies every page guard
