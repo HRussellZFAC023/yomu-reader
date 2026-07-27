@@ -32,8 +32,8 @@ Pitch stays attached to the vocabulary it actually describes. A word with an exa
 The popup also has optional study helpers for the current sentence. The translation tool generates a plain sentence translation when you open that section, and the grammar tool highlights likely grammar patterns with short explanations and guide links.
 
 <figure class="yomu-feature-shot">
-  <img :src="'/screenshots/real-popup-lookup.png'" alt="A よむ popup on a Japanese Wikipedia article, showing Jiten/JPDB state, pitch, definitions, translation, grammar, and mining controls.">
-  <figcaption>Popup lookup with live study data and mining controls.</figcaption>
+  <img :src="'/screenshots/real-popup-lookup.png'" alt="A よむ popup on a Japanese Wikipedia article, showing the headword 日本 with its reading and pitch graph, live Jiten and JPDB rank pills, the Jiten definition, related vocabulary, and the grading row.">
+  <figcaption>Popup lookup: the word, its reading and pitch, live Jiten and JPDB ranks, and one row to grade it.</figcaption>
 </figure>
 
 ## Yomitan Dictionaries
@@ -45,8 +45,8 @@ The frozen Slice 1 catalogue contains 186 entries backed by 167 unique, SHA-256-
 Parsing itself is local-first: with term dictionaries imported, よむ segments and annotates Japanese against your local dictionaries — deinflection, furigana, and pitch included — without contacting Jiten or JPDB. New installs get this by default, and **Settings → Sources → Parsing** switches between **Local dictionaries (offline)** and the Jiten/JPDB APIs. Installs from before this option keep API-first parsing until you switch. Dictionary downloads contact `dictionaries.yomureader.com`; subsequent lookups use the imported local copy. Opt-in automatic definition translation separately sends only selected definition or gloss text from the enabled source to Google Translate.
 
 <figure class="yomu-feature-shot">
-  <img :src="'/screenshots/real-dictionaries.png'" alt="The よむ Dictionaries settings panel showing imported dictionary controls and definition source ordering.">
-  <figcaption>Dictionary import and source ordering controls.</figcaption>
+  <img :src="'/screenshots/real-dictionaries.png'" alt="The よむ Sources settings panel showing the recommended Japanese dictionary set — JMdict, JMnedict, KANJIDIC, 新明解国語辞典, a grammar dictionary, JPDB frequency and NHK pitch — each row with an Install button.">
+  <figcaption>The recommended Japanese set in Settings → Sources: eight dictionaries, one Install each.</figcaption>
 </figure>
 
 ## Audio And Examples
@@ -198,6 +198,6 @@ On iPhone, iPad, and Android, the installed app opens as a standalone client and
 The Help tab includes quick links to the hosted tools and docs, GitHub issues, Discord, donation support, and a Factory Reset action that clears よむ settings, API keys, cached data, and imported dictionaries back to defaults.
 
 <figure class="yomu-feature-shot">
-  <img :src="'/screenshots/real-help-settings.png'" alt="The よむ Help settings tab with donation, issue reporting, GitHub, Discord, docs, video player, and Study links.">
+  <img :src="'/screenshots/real-help-settings.png'" alt="The よむ Help settings tab showing the version and update line, then buttons for Video Player, PDF Reader, Study, Docs, Factory Reset, Donate, Issues and Discord.">
   <figcaption>Support links live inside settings.</figcaption>
 </figure>

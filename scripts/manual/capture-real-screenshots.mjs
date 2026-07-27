@@ -632,7 +632,7 @@ async function prepareLookupScenario(page, validators) {
     await openRequestedLookupDetails(page, validators);
     await maybeOpenKanjiLookup(page, validators);
     await page.waitForTimeout(12_000);
-    await maybeScrollLookupStudyDetails(page, validators);
+    await scrollLookupBodyToHeadword(page, validators);
 }
 
 async function clickLookupTarget(page) {
@@ -733,20 +733,40 @@ async function maybeOpenKanjiLookup(page, validators) {
         const details = document.querySelector('.jpdb-reader-popover details.jpdb-reader-kanjivg');
         if (details instanceof HTMLDetailsElement && !details.open) details.querySelector('summary')?.click();
     });
+    await revealKanjiStrokeTrace(page);
 }
 
-async function maybeScrollLookupStudyDetails(page, validators) {
+// The drilldown opens its practice pad with the trace off, so you draw from memory first.
+// A screenshot of that state is an empty grid, which is the one thing a stroke-order page
+// must not illustrate. Press the product's own Show trace control so the KanjiVG glyph the
+// panel loaded is actually on screen.
+async function revealKanjiStrokeTrace(page) {
+    await page.locator('.jpdb-reader-popover [data-doodle-trace]').first().click({ timeout: 8000 }).catch(() => undefined);
+    await page.waitForFunction(() => {
+        const ghost = document.querySelector('.jpdb-reader-popover .jpdb-reader-doodle-ghost');
+        const stage = ghost?.closest('.jpdb-reader-doodle-stage');
+        return Boolean(ghost?.querySelector('svg')) && !ghost.hasAttribute('hidden') && !stage?.classList.contains('trace-hidden');
+    }, null, { timeout: 10_000 }).catch(() => undefined);
+    await page.waitForTimeout(400);
+}
+
+// The study sections are opened so the validators can prove the popup finished loading,
+// but the popup body is one scroller with a non-sticky header: ~450px of viewport against
+// ~2700px of content, so scrolling far enough to frame the translation always pushes the
+// word being looked up off the top. This shot is the home page's schema.org
+// SoftwareApplication "screenshot" and the lead image on three docs pages, so it leads with
+// the headword, its reading, the pitch graph and the Jiten/JPDB/Bunpro pills, and lets the
+// study sections run off the bottom.
+async function scrollLookupBodyToHeadword(page, validators) {
     if (!validators.some(validator => ['translation', 'grammar'].includes(validator))) return;
-    await page.evaluate(() => {
+    const framed = await page.evaluate(() => {
         const body = document.querySelector('.jpdb-reader-popover-body');
-        const target = document.querySelector('details[data-study-translation], details[data-study-grammar]');
-        if (body instanceof HTMLElement && target instanceof HTMLElement) {
-            // Keep the headword, reading and source pills in frame. Scrolling the
-            // translation to the top of the popup body cropped the word being looked
-            // up out of the shot, which is the one thing these screenshots are for.
-            body.scrollTop = Math.max(0, target.offsetTop - body.clientHeight * 0.55);
-        }
+        const header = document.querySelector('.jpdb-reader-popover-body .jpdb-reader-header');
+        if (!(body instanceof HTMLElement) || !(header instanceof HTMLElement)) return false;
+        body.scrollTop = 0;
+        return header.offsetTop + header.offsetHeight <= body.clientHeight;
     });
+    if (!framed) throw new Error('Popup headword is not in frame; this capture is the site product screenshot.');
     await page.waitForTimeout(300);
 }
 
@@ -1396,6 +1416,7 @@ async function evaluateScenarioChecks(page, scenario, theme, expectedUrl) {
                 const state = kanjiState();
                 add('kanji drilldown visible', state.displayVisible, 'Expected a kanji drilldown popup');
                 add('kanji stroke section open', state.strokeOpen, 'Expected open stroke/KanjiVG section with SVG');
+                add('kanji stroke trace drawn', state.traceVisible, 'Expected the KanjiVG trace on the practice pad, not an empty grid');
                 add('kanji facts loaded', state.factsLoaded, 'Expected loaded kanji facts/readings');
             },
             settingsDictionaries() {
@@ -1488,10 +1509,16 @@ async function evaluateScenarioChecks(page, scenario, theme, expectedUrl) {
             const display = root?.querySelector('.jpdb-reader-kanji-display');
             const stroke = root ? allIn(root, 'details.jpdb-reader-kanjivg').find(openVisibleDetails) : null;
             const facts = root?.querySelector('[data-kanji-jpdb-mount] .jpdb-reader-kanji-facts, .jpdb-reader-kanji-facts, .jpdb-reader-kanji-readings');
+            const ghost = stroke?.querySelector('.jpdb-reader-doodle-ghost');
+            const stage = ghost?.closest('.jpdb-reader-doodle-stage');
             const text = visibleText(root);
             return {
                 displayVisible: Boolean(display && visible(display)),
                 strokeOpen: Boolean(stroke?.querySelector('.jpdb-reader-kanjivg-svg')),
+                traceVisible: Boolean(ghost?.querySelector('svg'))
+                    && !ghost.hasAttribute('hidden')
+                    && !stage?.classList.contains('trace-hidden')
+                    && visible(ghost),
                 factsLoaded: Boolean(facts && !/loading|unavailable/i.test(text)),
             };
         }

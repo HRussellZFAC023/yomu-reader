@@ -9,6 +9,12 @@
 // the dialog. Same harness as scripts/manual/settings-layout-smoke.mjs, same fixture
 // server, same jpdb/jiten mocks - it just writes docs/public/screenshots instead of
 // qa-artifacts, and it asserts the panel actually rendered before it writes a file.
+//
+// What is real and what is seeded, so nobody has to reverse-engineer it from a screenshot:
+// the dialog, its layout, its copy and the dictionary catalogue are the built 1.8.16
+// userscript rendering for real. Seeded are the userscript-manager surface (GM_info) and
+// the hosted version.json answer, both below with their reasons; jpdb.io and api.jiten.moe
+// are mocked so no capture depends on a live API key.
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
@@ -86,9 +92,17 @@ const SCENARIOS = [
         clip: '.jpdb-reader-settings',
         viewport: { width: 1120, height: 940 },
         // The Sources tab is only worth publishing once the real dictionary catalogue has
-        // rendered; an empty shell would ship a screenshot of a loading state.
-        requireRows: '[data-settings-panel="dictionaries"]:not([hidden]) [data-dictionary-id]',
-        minimumRows: 3,
+        // rendered. [data-dictionary-id] was the wrong probe: it also matches the built-in
+        // definition sources (Jiten/JPDB/Bunpro), which are present before the catalogue
+        // loads, so the guard passed on the empty shell it existed to reject. Catalogue
+        // entries carry data-catalog-recommendation; the frozen Japanese shelf has 8.
+        requireRows: '[data-settings-panel="dictionaries"]:not([hidden]) [data-catalog-recommendation]',
+        minimumRows: 8,
+        // The panel opens on the parsing and definition-source controls, which is the
+        // narrower half of this tab. Frame the catalogue instead: this section is what the
+        // docs page beside it describes - a one-click Japanese starter set on top of the
+        // full mirrored collection.
+        scrollTo: '.jpdb-reader-catalog-seed',
     },
     {
         id: 'ocr',
@@ -179,6 +193,7 @@ async function capture(browserInstance, baseUrl, scenario) {
         await openSettingsFromNewTabMenu(page);
         await selectSettingsPanel(page, scenario.panel);
         if (scenario.requireRows) await waitForPanelRows(page, scenario.requireRows, scenario.minimumRows ?? 1);
+        if (scenario.scrollTo) await scrollPanelSectionIntoFrame(page, scenario.scrollTo);
         await page.waitForTimeout(600);
         const target = page.locator(scenario.clip).first();
         await target.waitFor({ state: 'visible', timeout: 10_000 });
@@ -207,6 +222,21 @@ async function selectSettingsPanel(page, panel) {
         document.querySelector(tabSelector)?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
     }, selector);
     await page.waitForSelector(`.jpdb-reader-settings [data-settings-panel="${panel}"]:not([hidden])`, { timeout: 10_000 });
+}
+
+// The dialog scrolls inside .jpdb-reader-settings-scroll, so the clip of the dialog shows
+// whatever that scroller is on. Put the named section at the top of it, and refuse to
+// publish if the section did not actually end up in frame.
+async function scrollPanelSectionIntoFrame(page, selector) {
+    const framed = await page.evaluate(target => {
+        const section = document.querySelector(target);
+        const scroller = section?.closest('.jpdb-reader-settings-scroll');
+        if (!(section instanceof HTMLElement) || !(scroller instanceof HTMLElement)) return false;
+        scroller.scrollTop = section.offsetTop - scroller.offsetTop;
+        const offset = section.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
+        return offset >= -2 && offset < scroller.clientHeight / 2;
+    }, selector);
+    assert(framed, `Could not bring ${selector} into the captured frame`);
 }
 
 async function waitForPanelRows(page, selector, minimumRows) {

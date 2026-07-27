@@ -127,6 +127,7 @@
     "release:gaming:linux": "npm run prepare:electron && npm run build:gaming && node scripts/package-gaming-electron.mjs --platform=linux --arch=x64 --target=AppImage",
     "seo:indexnow": "node scripts/submit-indexnow.mjs",
     "manual:screenshots-real": "node scripts/manual/capture-real-screenshots.mjs",
+    "manual:screenshots-settings": "node scripts/manual/capture-docs-settings-screenshots.mjs",
     "size:bundle": "node scripts/bundle-size-report.mjs",
     "size:greasyfork-plan": "npm run build && npm run size:modules && node scripts/greasyfork-size-plan.mjs",
     "size:modules": "vite build --config config/vite/size.config.ts",

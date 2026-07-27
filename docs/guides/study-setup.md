@@ -71,8 +71,8 @@ This table is about *fit*, not "better" — each is excellent at the job it was 
 You do not choose a workflow up front — you read, and the popup gives every option at the moment a word matters.
 
 <figure class="yomu-feature-shot">
-  <img :src="'/screenshots/real-dictionaries.png'" alt="The よむ dictionary popup showing imported Yomitan dictionary entries alongside Jiten and JPDB state.">
-  <figcaption>One popup, showing imported dictionary entries plus Jiten and JPDB state together.</figcaption>
+  <img :src="'/screenshots/real-popup-lookup.png'" alt="The よむ lookup popup on 日本, with Yomu, Jiten, JPDB and Bunpro pills across the top, a dictionary definition below, and a grading row at the bottom.">
+  <figcaption>One popup: the definition, the Jiten and JPDB ranks, and a grade you can send — all on the same word.</figcaption>
 </figure>
 
 From a single lookup popup, よむ lets you:
