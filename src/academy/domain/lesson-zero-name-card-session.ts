@@ -7,12 +7,12 @@ export const LESSON_ZERO_NAME_CARD_TOKEN_IDS = Object.freeze([
     'desu',
 ] as const);
 
-export const LESSON_ZERO_NAME_CARD_VARIANTS = Object.freeze([
+const LESSON_ZERO_NAME_CARD_VARIANTS = Object.freeze([
     'katakana',
     'usual',
 ] as const);
 
-export const LESSON_ZERO_NAME_CARD_TRANSFER_IDS = Object.freeze([
+const LESSON_ZERO_NAME_CARD_TRANSFER_IDS = Object.freeze([
     'rie',
     'learner',
     'reversed',
