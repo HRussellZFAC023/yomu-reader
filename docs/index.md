@@ -25,8 +25,20 @@ description: Press a word on any Japanese page, video, manga panel or PDF for it
         <p class="yomu-try-me-sample" lang="ja" aria-label="今日は静かな喫茶店で新しい本を読みました。" data-yomu-localize="off"><span class="jpdb-reader-word jpdb-known jpdb-pitch-atamadaka jpdb-reader-has-furi" data-expression="今日" data-reading="きょう"><ruby><span class="jpdb-reader-ruby-base">今日</span><rt>きょう</rt></ruby></span>は<span class="jpdb-reader-word jpdb-not-in-deck jpdb-pitch-atamadaka jpdb-reader-has-furi" data-expression="静か" data-reading="しずか"><ruby><span class="jpdb-reader-ruby-base">静</span><rt>しず</rt></ruby>かな</span><span class="jpdb-reader-word jpdb-due jpdb-pitch-heiban jpdb-reader-has-furi" data-expression="喫茶店" data-reading="きっさてん"><ruby><span class="jpdb-reader-ruby-base">喫茶店</span><rt>きっさてん</rt></ruby></span>で<span class="jpdb-reader-word jpdb-not-in-deck jpdb-pitch-nakadaka jpdb-reader-has-furi" data-expression="新しい" data-reading="あたらしい"><ruby><span class="jpdb-reader-ruby-base">新</span><rt>あたら</rt></ruby>しい</span><span class="jpdb-reader-word jpdb-known jpdb-pitch-atamadaka jpdb-reader-has-furi" data-expression="本" data-reading="ほん"><ruby><span class="jpdb-reader-ruby-base">本</span><rt>ほん</rt></ruby></span>を<span class="jpdb-reader-word jpdb-known jpdb-pitch-atamadaka jpdb-reader-has-furi" data-expression="読む" data-reading="よみました"><ruby><span class="jpdb-reader-ruby-base">読</span><rt>よ</rt></ruby>みました</span>。</p>
       </div>
     </div>
-    <a class="yomu-fold-cta" href="https://yomureader.com/yomu.user.js">Add よむ to your browser</a>
-    <p class="yomu-fold-micro">Free. Chrome, Firefox, Safari and iPad.</p>
+    <!-- Every route is a real link here at every moment. The one the visitor's
+         browser can actually install is promoted to the button by CSS keyed to
+         data-yomu-install on <html>; the rest stay as the quiet line beneath.
+         With no JS nothing is stamped and the userscript is promoted, which is
+         the build that runs on every browser — so a visitor whose detection
+         never ran, or guessed wrong, still sees all three and can press the one
+         they want. See scripts/lib/hosted-install-route.cjs. -->
+    <div class="yomu-install-routes">
+      <a class="yomu-install-route" data-yomu-route="chrome" href="https://chromewebstore.google.com/detail/%E3%82%88%E3%82%80/bbaickgfdgnecdnkcplaoiopnfghlkna">Add よむ to Chrome</a>
+      <a class="yomu-install-route" data-yomu-route="firefox" href="https://addons.mozilla.org/en-US/firefox/addon/yomu-reader/">Add よむ to Firefox</a>
+      <a class="yomu-install-route" data-yomu-route="userscript" href="https://yomureader.com/yomu.user.js">Install the よむ userscript</a>
+      <p class="yomu-fold-micro">Free. Chrome, Firefox, Safari and iPad.</p>
+      <p class="yomu-install-routes-note">Also available:</p>
+    </div>
   </div>
   <figure class="yomu-fold-card">
     <img src="/home/popover.webp" width="840" height="864" fetchpriority="high" decoding="async" alt="The よむ lookup popover for 季語, showing pitch accent, audio, a dictionary definition and example sentences." />
@@ -104,22 +116,26 @@ description: Press a word on any Japanese page, video, manga panel or PDF for it
 <section class="yomu-install" id="install" aria-labelledby="yomu-install-title">
   <div class="yomu-install-inner">
     <h2 id="yomu-install-title">Ready in about a minute.</h2>
-    <p class="yomu-band-lead">Pick a manager, add よむ, open a Japanese page.</p>
+    <p class="yomu-band-lead">Add よむ, open a Japanese page, press a word.</p>
     <div class="yomu-install-steps" role="list" aria-label="Install steps">
-      <div class="yomu-install-step" role="listitem"><a class="yomu-install-step-link" href="/getting-started#step-1-install-a-userscript-manager" aria-label="Choose a userscript manager"><span class="yomu-install-step-number" aria-hidden="true">1</span> <span class="yomu-install-step-label">Manager</span></a></div>
-      <div class="yomu-install-step" role="listitem"><a class="yomu-install-step-link" href="https://yomureader.com/yomu.user.js" aria-label="Install the よむ userscript"><span class="yomu-install-step-number" aria-hidden="true">2</span> <span class="yomu-install-step-label">Install</span></a></div>
-      <div class="yomu-install-step" role="listitem"><a class="yomu-install-step-link" href="/getting-started#step-3-your-first-lookup" aria-label="Open a Japanese page"><span class="yomu-install-step-number" aria-hidden="true">3</span> <span class="yomu-install-step-label">Read</span></a></div>
+      <div class="yomu-install-step" role="listitem"><a class="yomu-install-step-link" href="/getting-started#step-1-add-yomu-to-your-browser" aria-label="Add よむ to your browser"><span class="yomu-install-step-number" aria-hidden="true">1</span> <span class="yomu-install-step-label">Install</span></a></div>
+      <div class="yomu-install-step" role="listitem"><a class="yomu-install-step-link" href="/getting-started#step-2-look-up-your-first-word" aria-label="Open a Japanese page"><span class="yomu-install-step-number" aria-hidden="true">2</span> <span class="yomu-install-step-label">Read</span></a></div>
     </div>
-    <a class="yomu-fold-cta" href="https://yomureader.com/yomu.user.js">Add よむ to your browser</a>
-    <p class="yomu-fold-micro">Free. Chrome, Firefox, Safari and iPad.</p>
-    <!-- Install works by the manager INTERCEPTING navigation to the .user.js URL.
+    <div class="yomu-install-routes">
+      <a class="yomu-install-route" data-yomu-route="chrome" href="https://chromewebstore.google.com/detail/%E3%82%88%E3%82%80/bbaickgfdgnecdnkcplaoiopnfghlkna">Add よむ to Chrome</a>
+      <a class="yomu-install-route" data-yomu-route="firefox" href="https://addons.mozilla.org/en-US/firefox/addon/yomu-reader/">Add よむ to Firefox</a>
+      <a class="yomu-install-route" data-yomu-route="userscript" href="https://yomureader.com/yomu.user.js">Install the よむ userscript</a>
+      <p class="yomu-fold-micro">Free. Chrome, Firefox, Safari and iPad.</p>
+      <p class="yomu-install-routes-note">Also available:</p>
+    </div>
+    <!-- The userscript installs by the manager INTERCEPTING navigation to the .user.js URL.
          Managers differ on whether they do: ScriptCat downloads the file instead,
          and some Chrome setups refuse the navigation outright — leaving the user
          with a stray .js in Downloads and no way forward. Both reported cases were
          recovered by pasting the URL into the manager's own "install from URL",
          so that path is stated up front rather than left as support folklore. -->
     <details class="yomu-install-fallback">
-      <summary>Downloaded a file instead of installing?</summary>
+      <summary>Userscript downloaded a file instead of installing?</summary>
       <p>Some managers don't intercept the link. Copy this URL and use your manager's <strong>install from URL</strong>:</p>
       <p><code data-yomu-localize="off">https://yomureader.com/yomu.user.js</code></p>
       <p>Tampermonkey: <em>Utilities → Install from URL</em>. Violentmonkey: <em>+ → Install from URL</em>. ScriptCat: <em>Script list → Create → Install from URL</em>, or drag the downloaded file onto the ScriptCat tab.</p>

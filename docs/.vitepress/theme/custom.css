@@ -1529,7 +1529,7 @@ body:has(.yomu-home) .jpdb-reader-fab {
   background: var(--fold-bg);
 }
 
-.yomu-home :is(h1, h2, .yomu-wordmark, .yomu-band-numeral, .yomu-fold-cta) {
+.yomu-home :is(h1, h2, .yomu-wordmark, .yomu-band-numeral, .yomu-install-route) {
   text-wrap: balance;
 }
 
@@ -1672,16 +1672,73 @@ body:has(.yomu-home) .jpdb-reader-fab {
   line-height: 2;
 }
 
-.yomu-fold-cta,
-.yomu-install .yomu-fold-cta {
+/* --- Install routes ---
+   Three real links, one promoted to the fold's single button. Which one is
+   promoted is decided by [data-yomu-install] on <html>, stamped pre-paint by
+   the head snippet in scripts/lib/hosted-install-route.cjs. Wrapping rows keep
+   the button on its own line, then the micro line, then the quiet "Also
+   available" line — so the promoted route is the only thing that reads as a
+   button whichever route wins. */
+.yomu-install-routes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  margin: clamp(26px, 4vh, 44px) 0 0;
+  column-gap: 16px;
+  row-gap: 8px;
+}
+
+/* Resting state for a route the visitor's browser cannot use: a quiet text
+   link on the last row, never competing with the button above it. */
+.yomu-install-route {
+  order: 4;
+  color: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  opacity: 0.68;
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+}
+
+.yomu-install-route:hover,
+.yomu-install-route:focus-visible {
+  opacity: 1;
+}
+
+.yomu-install-routes .yomu-fold-micro {
+  order: 2;
+  flex: 0 0 100%;
+}
+
+.yomu-install-routes-note {
+  order: 3;
+  margin: 4px 0 0;
+  color: color-mix(in srgb, var(--slab-ink) 62%, transparent);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+/* The promoted route. The no-JS branch comes first and promotes the userscript:
+   it is the only build that runs on every browser, so a page whose detection
+   never executed still offers something that works. */
+.yomu-install-route:is(
+    :root:not([data-yomu-install]) [data-yomu-route='userscript'],
+    :root[data-yomu-install='userscript'] [data-yomu-route='userscript'],
+    :root[data-yomu-install='chrome'] [data-yomu-route='chrome'],
+    :root[data-yomu-install='firefox'] [data-yomu-route='firefox']
+  ) {
   display: inline-flex;
+  order: 1;
+  flex: 0 0 auto;
   align-items: center;
   justify-content: center;
   min-height: 58px;
-  margin: clamp(26px, 4vh, 44px) 0 0;
+  margin: 0;
   padding: 0 26px;
   border: var(--keyline-w) solid var(--keyline);
   border-radius: 2px;
+  opacity: 1;
   background: var(--vp-button-brand-bg);
   box-shadow: 8px 8px 0 var(--shadow-ink);
   color: var(--vp-button-brand-text);
@@ -1691,8 +1748,12 @@ body:has(.yomu-home) .jpdb-reader-fab {
   transform: none;
 }
 
-.yomu-fold-cta:hover,
-.yomu-fold-cta:focus-visible {
+.yomu-install-route:is(
+    :root:not([data-yomu-install]) [data-yomu-route='userscript'],
+    :root[data-yomu-install='userscript'] [data-yomu-route='userscript'],
+    :root[data-yomu-install='chrome'] [data-yomu-route='chrome'],
+    :root[data-yomu-install='firefox'] [data-yomu-route='firefox']
+  ):is(:hover, :focus-visible) {
   background: var(--vp-button-brand-hover-bg);
   box-shadow: 4px 4px 0 var(--shadow-ink);
   translate: 4px 4px;
@@ -2174,12 +2235,19 @@ body:has(.yomu-home) .jpdb-reader-fab {
   color: var(--paper);
 }
 
-.yomu-install .yomu-fold-cta {
+.yomu-install .yomu-install-route:is(
+    :root:not([data-yomu-install]) [data-yomu-route='userscript'],
+    :root[data-yomu-install='userscript'] [data-yomu-route='userscript'],
+    :root[data-yomu-install='chrome'] [data-yomu-route='chrome'],
+    :root[data-yomu-install='firefox'] [data-yomu-route='firefox']
+  ) {
   border-color: var(--paper);
   box-shadow: 8px 8px 0 rgba(0, 0, 0, 0.7);
+  color: var(--vp-button-brand-text);
 }
 
-.yomu-install .yomu-fold-micro {
+.yomu-install .yomu-fold-micro,
+.yomu-install .yomu-install-routes-note {
   color: color-mix(in srgb, var(--paper) 70%, transparent);
 }
 
@@ -2362,8 +2430,13 @@ body:has(.yomu-home) .jpdb-reader-fab {
     line-height: 1.95;
   }
 
-  .yomu-fold-cta {
-    width: 100%;
+  .yomu-install-route:is(
+      :root:not([data-yomu-install]) [data-yomu-route='userscript'],
+      :root[data-yomu-install='userscript'] [data-yomu-route='userscript'],
+      :root[data-yomu-install='chrome'] [data-yomu-route='chrome'],
+      :root[data-yomu-install='firefox'] [data-yomu-route='firefox']
+    ) {
+    flex: 0 0 100%;
     box-shadow: 6px 6px 0 var(--shadow-ink);
   }
 

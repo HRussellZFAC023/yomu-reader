@@ -11,6 +11,9 @@ import pkg from '../../package.json' with { type: 'json' };
 const { hostedAppearanceBootSnippet } = createRequire(import.meta.url)('../../scripts/lib/hosted-appearance-boot.cjs') as {
     hostedAppearanceBootSnippet(mode: 'docs' | 'surface'): string;
 };
+const { hostedInstallRouteSnippet } = createRequire(import.meta.url)('../../scripts/lib/hosted-install-route.cjs') as {
+    hostedInstallRouteSnippet(): string;
+};
 
 const repositoryName = 'yomu-reader';
 const base = '/';
@@ -335,6 +338,12 @@ export default defineConfig({
         // hydrated bundle re-applies the chosen accent. Placed after the
         // theme-color meta so the snippet can repoint it too.
         ['script', {}, hostedAppearanceBootSnippet('docs')],
+        // Stamps the install route on <html> while the head is still parsing, so
+        // the fold's one button is already the right store for this browser when
+        // it first paints. Without it the page still works: the markup carries
+        // every route, and the CSS default promotes the userscript, which is the
+        // build that runs everywhere.
+        ['script', {}, hostedInstallRouteSnippet()],
         ['meta', { property: 'og:type', content: 'website' }],
         ['meta', { property: 'og:site_name', content: 'よむ' }],
         ['meta', { property: 'og:locale', content: 'en_US' }],

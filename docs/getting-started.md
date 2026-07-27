@@ -1,65 +1,55 @@
 ---
 title: Install Yomu
-description: Install Yomu in three steps and look up your first Japanese word. Free, about two minutes, and no account needed. Works on Chrome, Edge, Firefox, iPhone, and iPad.
+description: Add Yomu to Chrome or Firefox in one click, then look up your first Japanese word. Free, no account needed, and it works on Safari, iPhone, and iPad too.
 ---
 
 # Install Yomu
 
 Yomu turns any page, video, manga or game screen into a Japanese lesson — lookups, readings, and cards you keep.
 
-Getting it takes about two minutes and three steps: add a small browser add-on, install Yomu into it, then open a Japanese page and press a word. It is free and you do not need an account.
+On Chrome and Firefox it is one click from the store. On Safari, iPhone and iPad it takes a couple of minutes. It is free either way, and you do not need an account.
 
-## Step 1: Add a userscript manager
+## Step 1: Add Yomu to your browser
 
-Yomu runs inside a free add-on called a userscript manager. You install that once and forget it.
+### Chrome, Edge, Brave, or Opera
 
-### Chrome, Edge, or Firefox
+[Add よむ to Chrome](https://chromewebstore.google.com/detail/%E3%82%88%E3%82%80/bbaickgfdgnecdnkcplaoiopnfghlkna), then choose **Add extension**. That is the whole install.
 
-1. Open [tampermonkey.net](https://www.tampermonkey.net/) and install Tampermonkey for your browser.
-2. Pin the Tampermonkey icon so you can see it.
-3. On Chrome and Edge you may be asked to **allow user scripts**. Say yes — Yomu needs it to run.
+### Firefox
 
-### iPhone or iPad
+[Add よむ to Firefox](https://addons.mozilla.org/en-US/firefox/addon/yomu-reader/), then choose **Add**. That is the whole install, and it is the same on Firefox for Android.
 
-Use **Userscripts**, a free app.
+<figure class="yomu-feature-shot">
+  <img :src="'/screenshots/extension-popup.png'" alt="The Yomu browser-extension menu, with buttons to open Study, the video player, settings, and the documentation." style="max-width:320px">
+  <figcaption>The Yomu toolbar icon opens this menu.</figcaption>
+</figure>
+
+### Safari, iPhone, and iPad
+
+Safari has no store version yet, so Yomu arrives here as a **userscript** — one small file that runs inside a free app called a userscript manager.
 
 1. Install [Userscripts from the App Store](https://apps.apple.com/app/userscripts/id1463298887) and open it once. A mostly empty screen is normal.
 2. Open **Settings → Apps → Safari → Extensions → Userscripts**. On older iOS this is **Settings → Safari → Extensions → Userscripts**.
 3. Turn Userscripts **On**, then set it to **Allow** on **All Websites**.
+4. In Safari, open [the Yomu userscript](https://yomureader.com/yomu.user.js). You will see Yomu's source code — leave that tab open, because Userscripts reads it.
+5. Open Safari's page menu from the address bar. On iPhone choose **AA**; on iPad choose the puzzle-piece icon. Then choose **Userscripts**.
+6. Userscripts says **"Userscript Detected."** Choose it, then choose **Install**.
 
 <div class="yomu-callout">
-  <strong>Don't skip step 3.</strong> Until Userscripts is turned on and allowed, it will not appear in Safari and the next step has nothing to work with. This is the most common reason an install seems to do nothing.
-</div>
-
-## Step 2: Install Yomu
-
-[Install Yomu](https://yomureader.com/yomu.user.js)
-
-### On a computer
-
-Press the link. Tampermonkey opens an install screen. Choose **Install**, and you are done. The same link updates Yomu later.
-
-<div class="yomu-callout">
-  <strong>Got a downloaded <code>.js</code> file instead of an install screen?</strong> Some managers do not catch the link. Open your manager's dashboard and use its <strong>Install from URL</strong> option with <code data-yomu-localize="off">https://yomureader.com/yomu.user.js</code>. In Tampermonkey that is <em>Utilities → Install from URL</em>; in Violentmonkey, <em>+ → Install from URL</em>; in ScriptCat, <em>Script list → Create → Install from URL</em>. You can delete the downloaded file.
+  <strong>Don't skip step 3.</strong> Until Userscripts is turned on and allowed, it will not appear in Safari and step 5 has nothing to work with. This is the most common reason an install seems to do nothing.
 </div>
 
 <div class="yomu-callout">
-  <strong>Chrome or Edge says user scripts cannot be added from this website?</strong> That message is from the browser, and a different download link will not get around it. Open <code>chrome://extensions</code> or <code>edge://extensions</code>, open Tampermonkey's details, and turn on <strong>Allow User Scripts</strong>. On older browsers, turn on <strong>Developer mode</strong> at the top of the extensions page instead. Then open the install link again.
+  <strong>"Userscripts" isn't in that menu?</strong> It isn't turned on yet. Go back to step 3, turn Userscripts on, and allow it on All Websites. Then reload the page and open the menu again.
 </div>
 
-### On iPhone or iPad
+### Any other browser
 
-1. Open the install link in Safari. You will see Yomu's source code. Leave that tab open — Userscripts reads it.
-2. Open Safari's page menu from the address bar. On iPhone choose **AA**; on iPad choose the puzzle-piece icon. Then choose **Userscripts**.
-3. Userscripts says **"Userscript Detected."** Choose it, then choose **Install**.
-
-<div class="yomu-callout">
-  <strong>"Userscripts" isn't in that menu?</strong> It isn't turned on yet. Go back to Step 1, turn Userscripts on, and allow it on All Websites. Then reload the page and open the menu again.
-</div>
+Every other browser takes the userscript. See [Prefer the userscript?](#prefer-the-userscript) below.
 
 **You'll know it worked** when a small floating Yomu button appears in the corner of Japanese pages, and Yomu greets you the first time.
 
-## Step 3: Look up your first word
+## Step 2: Look up your first word
 
 The first time Yomu runs it asks a few quick questions: what language you want definitions in, and a colour theme. Everything else is already set sensibly — scroll past it.
 
@@ -151,33 +141,25 @@ If you already review Japanese in [Jiten](https://jiten.moe/), [Bunpro](https://
 
 Your key stays on your device and talks straight to that service. Treat the Bunpro and WaniKani tokens like passwords — they can change your reviews.
 
-## Prefer a browser extension?
+## Prefer the userscript?
 
-On a computer you can skip the userscript manager and install Yomu as a normal browser extension. It is the same Yomu with a toolbar menu, and it leaves your new-tab page alone.
+The userscript is the same Yomu, installed through a userscript manager instead of a store. It runs in any browser that has a manager, and it updates itself from one link.
 
-Get the packages from the [GitHub releases page](https://github.com/HRussellZFAC023/yomu-reader/releases/latest).
-
-<figure class="yomu-feature-shot">
-  <img :src="'/screenshots/extension-popup.png'" alt="The Yomu browser-extension menu, with buttons to open Study, the video player, settings, and the documentation." style="max-width:320px">
-  <figcaption>The Yomu toolbar icon opens this menu.</figcaption>
-</figure>
-
-### Chrome or Edge
-
-1. Download `yomureader.com-chrome.zip` from the latest release and unzip it.
-2. Open `chrome://extensions` (or `edge://extensions`) and turn on **Developer mode**.
-3. Choose **Load unpacked** and pick the folder you unzipped.
-4. Open a Japanese page — the floating Yomu button appears.
-
-### Firefox
-
-1. Download `yomureader.com-firefox.xpi` from the latest release.
-2. Open `about:debugging#/runtime/this-firefox`.
-3. Choose **Load Temporary Add-on** and pick the `.xpi` file.
-4. Open a Japanese page to start reading.
+1. Open [tampermonkey.net](https://www.tampermonkey.net/) and install Tampermonkey for your browser.
+2. Pin the Tampermonkey icon so you can see it.
+3. On Chrome and Edge you may be asked to **allow user scripts**. Say yes — Yomu needs it to run.
+4. In your browser, open [the Yomu userscript](https://yomureader.com/yomu.user.js). Tampermonkey opens an install screen. Choose **Install**, and you are done. The same link updates Yomu later.
 
 <div class="yomu-callout">
-  <strong>Which should I pick?</strong> The userscript is the easy path and updates itself from one link, so it is the default recommendation. Pick the extension if you would rather not run a userscript manager, or you want Study on your browser toolbar. On iPhone and iPad the userscript is the only option.
+  <strong>Got a downloaded <code>.js</code> file instead of an install screen?</strong> Some managers do not catch the link. Open your manager's dashboard and use its <strong>Install from URL</strong> option with <code data-yomu-localize="off">https://yomureader.com/yomu.user.js</code>. In Tampermonkey that is <em>Utilities → Install from URL</em>; in Violentmonkey, <em>+ → Install from URL</em>; in ScriptCat, <em>Script list → Create → Install from URL</em>. You can delete the downloaded file.
+</div>
+
+<div class="yomu-callout">
+  <strong>Chrome or Edge says user scripts cannot be added from this website?</strong> That message is from the browser, and a different download link will not get around it. Open <code>chrome://extensions</code> or <code>edge://extensions</code>, open Tampermonkey's details, and turn on <strong>Allow User Scripts</strong>. On older browsers, turn on <strong>Developer mode</strong> at the top of the extensions page instead. Then open the install link again.
+</div>
+
+<div class="yomu-callout">
+  <strong>Which should I pick?</strong> On Chrome and Firefox the store version is the shortest path and keeps itself updated, so it is the default recommendation. The store listings are published at each feature release, so the userscript link is the one that carries every patch as it ships. On Safari, iPhone and iPad the userscript is the only option.
 </div>
 
 ## Sync your words between devices (optional)
@@ -223,7 +205,7 @@ Open **Settings → Dictionaries → Export settings JSON**. That saves a small 
 
 ## If something does not work
 
-- **Nothing appears on a page** — check that your userscript manager is enabled for that site, then refresh.
+- **Nothing appears on a page** — check that Yomu is allowed on that site in your browser's extensions menu, or in your userscript manager, then refresh.
 - **Settings changes don't take effect** — refresh the page after saving.
 - **A study service isn't showing up** — check the API key was pasted with no extra spaces.
 - **AnkiConnect is unreachable from a phone** — keep Anki open on the computer, keep Tailscale connected on both devices, and use your computer's Tailscale address. On a phone, `localhost` means the phone itself.
