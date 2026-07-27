@@ -1219,7 +1219,7 @@ Its generated sprite files are not approved.
 | Aakash | South Asian man, neat black hair, hat-free default; keep beard only if the selected photo supports it | classic cars, city pop, Hello Kitty, anime fashion | directions, city talk, listening during conflict | strong: `konbini-aakash-tom.png`, `style-aakash.png`, several group photos |
 | Alex | White man, short brown hair, ordinary understated clothes | Fuji, accumulated travel experience | experience, sequencing, fictional Japan opportunity | strong: `style-alex.png` plus group photos |
 | Tom | White man, clearly blond, fuller friendly face, clean-shaven | Nintendo, Pokemon, Chestnut | katakana, counters, kanji battle | strong: `konbini-aakash-tom.png` and group photos; reject dark-haired/bearded outputs |
-| Sam | relaxed athletic White man, short chestnut hair | okonomiyaki, Saturday tennis | invitations, routines, noticing quiet classmates | medium; verify exact group-photo match before generation |
+| Sam | relaxed athletic White man, very close-cropped chestnut crew cut with minimal crown and side volume | okonomiyaki, Saturday tennis | invitations, routines, noticing quiet classmates | medium; close crop is fixed from the supplied photo references |
 | Francis | gentle White man, soft sand-brown hair, no glasses | tea, Frieren, manga, Miku | opinion, feeling, media discussion | medium; no-glasses lock is confirmed |
 | Shin | East Asian man, short black hair, round glasses | ramen, Totoro, Nintendo Museum, kanji | radicals, menus, nuance | strong in meal/group photos |
 | Jodi | older White woman, silver-streaked bob | lived in Japan, memory and change | past narration, comparison | medium; age must remain visible and kind |

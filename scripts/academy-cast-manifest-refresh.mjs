@@ -173,6 +173,9 @@ function rejectionReason(rejectedPath) {
     if (rejectedPath.includes('/style-superseded-20260727/tom/')) {
         return 'Archived superseded Tom sprite before the stronger hand-drawn house-style correction.';
     }
+    if (rejectedPath.includes('/style-superseded-20260727/sam/')) {
+        return 'Archived superseded Sam sprite whose haircut retained too much crown and side volume.';
+    }
     if (rejectedPath.includes('/style-superseded-20260726/')) {
         return 'Archived superseded neutral portrait before cast house-style correction.';
     }

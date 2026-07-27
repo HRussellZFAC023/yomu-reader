@@ -57,6 +57,9 @@ const REAL_CLASS_MEMBERS = REAL_CLASS_NAMES.map(([id, firstName]) => {
         id,
         firstName,
         ...(id === 'angel' ? { preferredName: 'Onke' } : {}),
+        ...(id === 'sam' ? {
+            visualBrief: 'Relaxed athletic White man with a very close-cropped chestnut crew cut and minimal crown or side volume.',
+        } : {}),
         category: 'classmate' as const,
         visualEvidence: likenessApproved ? 'approved' as const : 'candidate-needs-owner' as const,
         eligibility: likenessApproved

@@ -12382,6 +12382,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       id: id2,
       firstName,
       ...id2 === "angel" ? { preferredName: "Onke" } : {},
+      ...id2 === "sam" ? {
+        visualBrief: "Relaxed athletic White man with a very close-cropped chestnut crew cut and minimal crown or side volume."
+      } : {},
       category: "classmate",
       visualEvidence: likenessApproved ? "approved" : "candidate-needs-owner",
       eligibility: likenessApproved ? { story: true, lessons: true, likenessRuntime: true } : ELIGIBLE_WITH_PENDING_LIKENESS
