@@ -1,5 +1,5 @@
-import { resolveUiLanguage } from '../app/i18n';
 import type { InterfaceLanguage } from '../app/types';
+import { localizedMessage, type LocaleOverlays } from '../app/ui-locale';
 
 const SUBTITLE_COPY = {
     en: {
@@ -90,8 +90,14 @@ const SUBTITLE_COPY = {
 
 export type SubtitleCopyKey = keyof typeof SUBTITLE_COPY.en;
 
+// Japanese is the one translated table; every other locale falls through to the
+// English one, which is the only table guaranteed to hold every key.
+const SUBTITLE_COPY_OVERLAYS: LocaleOverlays<SubtitleCopyKey> = {
+    ja: [SUBTITLE_COPY.ja],
+};
+
 export function subtitleText(language: InterfaceLanguage, key: SubtitleCopyKey): string {
-    return SUBTITLE_COPY[resolveUiLanguage(language)][key] ?? SUBTITLE_COPY.en[key];
+    return localizedMessage(language, key, SUBTITLE_COPY_OVERLAYS, SUBTITLE_COPY.en[key]);
 }
 
 export function formatSubtitleText(language: InterfaceLanguage, key: SubtitleCopyKey, values: Record<string, string | number>): string {
