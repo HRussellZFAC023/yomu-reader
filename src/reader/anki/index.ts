@@ -9,6 +9,7 @@ import type {
     AnkiLibraryScanResult,
     AnkiLookupResult,
     AnkiMergeYomuResult,
+    AnkiModelUpdatePlan,
     AnkiStatusIndex,
 } from './types';
 
@@ -19,27 +20,12 @@ export type {
     AnkiLibraryScanResult,
     AnkiLookupResult,
     AnkiMergeYomuResult,
+    AnkiModelUpdatePlan,
     AnkiRenderedCard,
 } from './types';
 export type { AnkiNoteFieldTargetPlan } from './field-render';
 
-export const YOMU_MODEL_FIELDS = [
-    'Expression',
-    'Reading',
-    'Meaning',
-    'Sentence',
-    'Url',
-    'Frequency',
-    'PartOfSpeech',
-    'Image',
-    'Audio',
-    'JPDB',
-    'Status',
-    'Pitch',
-    'DictionaryDefinitions',
-    'Kanji',
-    'Source',
-];
+export { missingYomuModelFields, YOMU_MODEL_FIELDS } from './model-schema';
 
 export const ANKI_NEVER_FORGET_TAG = 'yomu-never-forget';
 
@@ -51,6 +37,10 @@ export interface AnkiConnectClient {
     modelNames(): Promise<string[]>;
     noteFieldTargetPlan(): Promise<import('./field-render').AnkiNoteFieldTargetPlan | null>;
     scanLibrary(): Promise<AnkiLibraryScanResult>;
+    yomuModelUpdatePlan(): Promise<AnkiModelUpdatePlan | null>;
+    // The caller names the note type it is offering to widen, and the client
+    // declines anything else: a write this size must not follow a stale offer.
+    addMissingYomuModelFields(expectedModelName: string): Promise<string[]>;
     warmStatusIndex(): Promise<AnkiStatusIndex | null>;
     findExistingCards(card: JPDBCard): Promise<AnkiLookupResult>;
     findCachedStatusBatch(cards: JPDBCard[]): Promise<AnkiLookupResult[]>;
@@ -85,6 +75,8 @@ class DisabledAnkiConnectClient implements AnkiConnectClient {
     modelNames = ankiEmptyStrings;
     noteFieldTargetPlan = ankiNull as AnkiConnectClient['noteFieldTargetPlan'];
     scanLibrary = ankiEmptyLibrary;
+    yomuModelUpdatePlan = ankiNull as AnkiConnectClient['yomuModelUpdatePlan'];
+    addMissingYomuModelFields = ankiEmptyStrings;
     warmStatusIndex = ankiNull as AnkiConnectClient['warmStatusIndex'];
     findExistingCards = ankiUntrustedLookup;
     findCachedStatusBatch = ankiUntrustedLookupBatch;

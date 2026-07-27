@@ -14,6 +14,7 @@ import {
     type AnkiLookupResult,
     type AnkiMergeYomuResult,
     type AnkiModelScanResult,
+    type AnkiModelUpdatePlan,
     type AnkiMultiAction,
     type AnkiNote,
     type AnkiNoteInfo,
@@ -35,6 +36,7 @@ import {
     noteLooksLikeYomuModel,
     shouldTreatExistingModelAsYomuManaged,
 } from './model-fields';
+import { missingYomuModelFields, YOMU_MODEL_FIELDS } from './model-schema';
 import {
     ankiFieldMappingForModel,
     ankiFieldMappingsSettingsKey,
@@ -141,23 +143,6 @@ const ANKI_EASE_BY_GRADE: Record<JPDBGrade, number> = {
     pass: 3,
     easy: 4,
 };
-const YOMU_MODEL_FIELDS = [
-    'Expression',
-    'Reading',
-    'Meaning',
-    'Sentence',
-    'Url',
-    'Frequency',
-    'PartOfSpeech',
-    'Image',
-    'Audio',
-    'JPDB',
-    'Status',
-    'Pitch',
-    'DictionaryDefinitions',
-    'Kanji',
-    'Source',
-];
 
 export function ankiLookupWithUnavailableDetails(lookup: AnkiLookupResult): AnkiLookupResult {
     const mark = (note: AnkiExistingNote): AnkiExistingNote => ankiNoteHasRenderableDetails(note)
@@ -1920,6 +1905,48 @@ export class AnkiConnectClient {
         await this.invokeOrDefault<null>('createDeck', { deck: deckName }, null);
     }
 
+    // A note type made by an earlier Yomu keeps working, but has no field for
+    // what newer releases mine (audio and pitch are the ones users notice).
+    // Report what it would gain so settings can offer the update, and null
+    // once it already matches — the offer clears itself.
+    // Used by the settings Anki panel through the Anki dependency.
+    // fallow-ignore-next-line unused-class-member
+    async yomuModelUpdatePlan(): Promise<AnkiModelUpdatePlan | null> {
+        const settings = this.getSettings();
+        if (!settings.ankiEnabled) return null;
+        const modelName = resolvedAnkiModelName(settings);
+        const modelNames = await this.modelNames().catch((): string[] => []);
+        if (!modelNames.includes(modelName)) return null;
+        const fieldNames = await this.invokeOrDefault<string[]>('modelFieldNames', { modelName }, []);
+        // An empty read is a failed request, not an empty note type: staying
+        // quiet beats offering to "add" all fifteen fields.
+        if (!fieldNames.length) return null;
+        if (!shouldTreatExistingModelAsYomuManaged(modelName, settings, fieldNames)) return null;
+        const missingFields = missingYomuModelFields(fieldNames);
+        return missingFields.length ? { modelName, missingFields } : null;
+    }
+
+    // Accepting the settings offer lands here. It writes only what the plan
+    // above says, re-read now: every reason that plan has for staying quiet —
+    // a third-party note type, a field read that failed — is a reason to write
+    // nothing, and fifteen fields is a collection-wide schema change Anki has
+    // no cheap undo for. An offer made against another note type is declined
+    // rather than retargeted, so a stale prompt is a no-op.
+    // Fields only: templates and styling stay as the user left them.
+    // Used by the settings Anki panel through the Anki dependency.
+    // fallow-ignore-next-line unused-class-member
+    async addMissingYomuModelFields(expectedModelName: string): Promise<string[]> {
+        const plan = await this.yomuModelUpdatePlan();
+        if (!plan) return [];
+        if (plan.modelName !== expectedModelName) {
+            log.info('Anki note type update declined', { offered: expectedModelName, configured: plan.modelName });
+            return [];
+        }
+        await this.addModelFields(plan.modelName, plan.missingFields);
+        this.fieldTargetPlanCache = undefined;
+        return plan.missingFields;
+    }
+
     private async updateExistingModel(modelName: string, settings: ReaderSettings): Promise<void> {
         await this.ensureModelFields(modelName);
         await this.invoke<null>('updateModelTemplates', { model: { name: modelName, templates: yomuCardTemplates(settings) } });
@@ -1942,14 +1969,21 @@ export class AnkiConnectClient {
         log.info('Anki model created', { modelName });
     }
 
+    // Adding nothing is the steady state once the note type matches this
+    // release. A field list that would not read is a failed request, not a
+    // note type with no fields — Anki has no such thing — so it waits for a
+    // read it can trust rather than widening a note type it cannot see.
     private async ensureModelFields(modelName: string): Promise<void> {
-        const fieldNames = await this.invokeOrDefault<string[]>('modelFieldNames', { modelName }, []);
-        const existing = new Set(fieldNames);
-        for (const fieldName of YOMU_MODEL_FIELDS) {
-            if (!existing.has(fieldName)) {
-                await this.invoke<null>('modelFieldAdd', { modelName, fieldName });
-            }
+        const fieldNames = await this.invoke<string[]>('modelFieldNames', { modelName }).catch((): null => null);
+        if (!fieldNames?.length) return;
+        await this.addModelFields(modelName, missingYomuModelFields(fieldNames));
+    }
+
+    private async addModelFields(modelName: string, fieldNames: string[]): Promise<void> {
+        for (const fieldName of fieldNames) {
+            await this.invoke<null>('modelFieldAdd', { modelName, fieldName });
         }
+        if (fieldNames.length) log.info('Anki model fields added', { modelName, fields: fieldNames });
     }
 
     async invoke<T>(action: string, params: Record<string, unknown> = {}): Promise<T> {

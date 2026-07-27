@@ -1,8 +1,9 @@
 import { escapeHtml } from '../dom/index';
-import { uiText } from '../app/i18n';
+import { formatUiText, uiText } from '../app/i18n';
 import { uniqueStrings } from '../core/string-utils';
 import { checkbox, input, select } from './form-controls';
 import { renderAnkiTagsEditor } from './form-tags';
+import type { AnkiModelUpdatePlan } from '../anki/types';
 import type { AnkiFieldMappingRole, InterfaceLanguage, JPDBDeck, ReaderSettings } from '../app/types';
 
 const ANKI_FIELD_MAPPING_ROLES: AnkiFieldMappingRole[] = ['expression', 'reading', 'meaning', 'sentence', 'audio', 'image'];
@@ -45,6 +46,12 @@ export function renderAnkiMiningSettingsPanel(settings: ReaderSettings, ankiStat
                                 <button class="jpdb-reader-btn" type="button" data-action="test-anki">${escapedUiText(settings.interfaceLanguage, 'testAnki')}</button>
                                 <button class="jpdb-reader-btn secondary" type="button" data-action="prepare-anki">${escapedUiText(settings.interfaceLanguage, 'prepareAnki')}</button>
                             </div>
+                            <div class="jpdb-reader-anki-model-update" data-anki-model-update hidden>
+                                <div class="jpdb-reader-help" data-anki-model-update-message></div>
+                                <div class="jpdb-reader-settings-actions">
+                                    <button class="jpdb-reader-btn" type="button" data-action="update-anki-model">${escapedUiText(settings.interfaceLanguage, 'updateAnkiModel')}</button>
+                                </div>
+                            </div>
                         </div>
                         <div class="jpdb-reader-settings-subsection jpdb-reader-anki-library-choice">
                             <div class="jpdb-reader-local-title" data-anki-library-choices-title>${escapedUiText(settings.interfaceLanguage, 'ankiLibraryChoices')}</div>
@@ -79,6 +86,42 @@ export function renderAnkiMiningSettingsPanel(settings: ReaderSettings, ankiStat
                 </div>
             </fieldset>
     `;
+}
+
+// Shown only while a Yomu note type is a release behind, and cleared the
+// moment it matches (plan === null), so accepting the offer ends it. Nothing
+// here writes to Anki: the button beside it does, on a click.
+//
+// The offer carries the note type it names, so accepting it can only ever
+// widen that one — an offer left over from a different note type is declined,
+// not retargeted.
+export function applyAnkiModelUpdatePrompt(
+    form: HTMLFormElement,
+    plan: AnkiModelUpdatePlan | null,
+    language: InterfaceLanguage,
+): void {
+    const prompt = form.querySelector<HTMLElement>('[data-anki-model-update]');
+    if (!prompt) return;
+    prompt.hidden = !plan;
+    if (plan) prompt.dataset.ankiModelUpdateTarget = plan.modelName;
+    else delete prompt.dataset.ankiModelUpdateTarget;
+    const message = prompt.querySelector<HTMLElement>('[data-anki-model-update-message]');
+    if (!message) return;
+    message.textContent = plan
+        ? formatUiText(language, 'ankiModelUpdateAvailable', {
+            model: plan.modelName,
+            fields: plan.missingFields.join(', '),
+        })
+        : '';
+}
+
+// The note type the offer on screen names, or null when there is no live
+// offer. Accepting reads this, never the picker, so a prompt the user has
+// moved past cannot aim the write at whatever is selected now.
+export function ankiModelUpdatePromptTarget(form: HTMLFormElement): string | null {
+    const prompt = form.querySelector<HTMLElement>('[data-anki-model-update]');
+    if (!prompt || prompt.hidden) return null;
+    return prompt.dataset.ankiModelUpdateTarget || null;
 }
 
 export function renderAnkiLibraryOptions(options: string[], value: string, language: InterfaceLanguage = 'en'): string {

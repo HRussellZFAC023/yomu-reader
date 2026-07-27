@@ -41,6 +41,10 @@ const ANKI_URL = DEFAULT_ANKI_CONNECT_URL;
 const JPDB_API_ORIGIN = 'https://jpdb.io';
 const JPDB_API_PREFIX = '/api/v1/';
 
+// Mirrors src/reader/anki/model-schema.ts, which is where the field list is
+// decided. The smoke run drives the built companion in a browser and cannot
+// import it, so tests/reader/anki-note-type-update.test.ts pins this copy to
+// that one.
 const YOMU_MODEL_FIELDS = [
     'Expression',
     'Reading',

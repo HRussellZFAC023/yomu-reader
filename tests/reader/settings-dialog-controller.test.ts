@@ -1192,6 +1192,130 @@ describe('settings dialog keyboard dismissal', () => {
         expect(form.querySelector<HTMLElement>('[data-jiten-status]')).toBeNull();
     });
 
+    it('offers to bring an older Yomu note type up to date', async () => {
+        const yomuModelUpdatePlan = vi.fn().mockResolvedValue({
+            modelName: 'よむ Japanese',
+            missingFields: ['Audio', 'Pitch'],
+        });
+        const { form } = createSettingsDialog({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: true }),
+            anki: {
+                isConnected: vi.fn().mockResolvedValue(true),
+                yomuModelUpdatePlan,
+            },
+        });
+
+        const prompt = settingsElement<HTMLElement>(form, '[data-anki-model-update]');
+        await waitForCondition(() => prompt.hidden === false);
+
+        expect(yomuModelUpdatePlan).toHaveBeenCalled();
+        expect(prompt.textContent).toContain('New fields are ready for "よむ Japanese": Audio, Pitch.');
+        expect(prompt.querySelector<HTMLButtonElement>('[data-action="update-anki-model"]')?.textContent).toBe('Update note type');
+    });
+
+    it('keeps the note type offer hidden once every field is present', async () => {
+        const yomuModelUpdatePlan = vi.fn().mockResolvedValue(null);
+        const scanLibrary = vi.fn().mockResolvedValue(singleModelAnkiScan(
+            'よむ',
+            'よむ Japanese',
+            ['Expression', 'Reading', 'Meaning'],
+            [['expression', 'Expression', 'high']],
+        ));
+        const { form } = createSettingsDialog({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: true }),
+            anki: {
+                isConnected: vi.fn().mockResolvedValue(true),
+                scanLibrary,
+                yomuModelUpdatePlan,
+            },
+        });
+
+        await waitForCondition(() => yomuModelUpdatePlan.mock.calls.length === 1);
+        await flushPromises();
+
+        expect(settingsElement<HTMLElement>(form, '[data-anki-model-update]').hidden).toBe(true);
+    });
+
+    it('adds the missing note type fields only when the offer is accepted, then drops the offer', async () => {
+        let missingFields = ['Audio', 'Pitch'];
+        const addMissingYomuModelFields = vi.fn(async () => {
+            const added = missingFields;
+            missingFields = [];
+            return added;
+        });
+        const yomuModelUpdatePlan = vi.fn(async () => (
+            missingFields.length ? { modelName: 'よむ Japanese', missingFields } : null
+        ));
+        const { form } = createSettingsDialog({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: true }),
+            anki: {
+                isConnected: vi.fn().mockResolvedValue(true),
+                yomuModelUpdatePlan,
+                addMissingYomuModelFields,
+            },
+        });
+
+        const prompt = settingsElement<HTMLElement>(form, '[data-anki-model-update]');
+        await waitForCondition(() => prompt.hidden === false);
+        expect(addMissingYomuModelFields).not.toHaveBeenCalled();
+
+        prompt.querySelector<HTMLButtonElement>('[data-action="update-anki-model"]')?.click();
+        await waitForCondition(() => addMissingYomuModelFields.mock.calls.length === 1);
+        await waitForCondition(() => prompt.hidden);
+
+        // The write is aimed by the offer, so it can only ever reach the note
+        // type the user was reading about.
+        expect(addMissingYomuModelFields).toHaveBeenCalledWith('よむ Japanese');
+        // Re-checked against the widened note type, so the offer is gone for
+        // good rather than merely cleared until the next probe.
+        expect(yomuModelUpdatePlan.mock.calls.length).toBeGreaterThan(1);
+        expect(await yomuModelUpdatePlan()).toBeNull();
+        expect(ankiStatusText(form)).toContain('Note type updated. Added Audio, Pitch.');
+    });
+
+    // Picking a different note type below the offer used to leave the offer on
+    // screen naming the old one, while the accept followed the picker: the
+    // prompt said "よむ Japanese" and the fields landed on Basic.
+    it('drops the note type offer when the picker moves, and never aims the update at the new note type', async () => {
+        let configuredModel = 'よむ Japanese';
+        const yomuModelUpdatePlan = vi.fn(async () => (
+            configuredModel === 'よむ Japanese' ? { modelName: 'よむ Japanese', missingFields: ['Audio', 'Pitch'] } : null
+        ));
+        const addMissingYomuModelFields = vi.fn(async () => ['Audio', 'Pitch']);
+        const { form } = createSettingsDialog({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: true }),
+            anki: {
+                isConnected: vi.fn().mockResolvedValue(true),
+                yomuModelUpdatePlan,
+                addMissingYomuModelFields,
+            },
+        });
+
+        const prompt = settingsElement<HTMLElement>(form, '[data-anki-model-update]');
+        await waitForCondition(() => prompt.hidden === false);
+        expect(prompt.textContent).toContain('よむ Japanese');
+
+        const modelSelect = settingsElement<HTMLSelectElement>(form, 'select[name="ankiModel"]');
+        const basic = document.createElement('option');
+        basic.value = 'Basic';
+        basic.textContent = 'Basic';
+        modelSelect.append(basic);
+        configuredModel = 'Basic';
+        modelSelect.value = 'Basic';
+        modelSelect.dispatchEvent(new Event('change', { bubbles: true }));
+
+        expect(prompt.hidden).toBe(true);
+        await waitForCondition(() => yomuModelUpdatePlan.mock.calls.length > 1);
+        expect(prompt.hidden).toBe(true);
+
+        prompt.querySelector<HTMLButtonElement>('[data-action="update-anki-model"]')?.click();
+        await flushPromises();
+        await new Promise(resolve => window.setTimeout(resolve, 0));
+        await flushPromises();
+
+        expect(addMissingYomuModelFields).not.toHaveBeenCalled();
+    });
+
     it('prepares the Yomu Anki deck and note type only from the explicit prepare action', async () => {
         let settings: ReaderSettings = { ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: false };
         const isConnected = vi.fn().mockResolvedValue(true);

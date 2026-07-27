@@ -84,6 +84,7 @@ const UNSUPPORTED_SETTINGS_ACTIONS = new Set([
     'export-yomitan-dictionary',
     'download-recommended-dictionary',
     'prepare-anki',
+    'update-anki-model',
     'test-anki',
     'preview-audio',
 ]);

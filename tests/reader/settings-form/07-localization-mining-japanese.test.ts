@@ -238,7 +238,8 @@ describe('settings form localization', () => {
         expect(mobileHandoffLabel?.parentElement?.classList.contains('jpdb-reader-settings-wide')).toBe(false);
         expect(optionText(form, 'ankiDeck', 'Default')).toBe('Default');
         expect(form.querySelector<HTMLButtonElement>('[data-action="test-anki"]')?.textContent).toBe('Check AnkiConnect');
-        expect(form.querySelector<HTMLButtonElement>('[data-action="prepare-anki"]')?.textContent).toBe('Create Yomu note type');
+        expect(form.querySelector<HTMLButtonElement>('[data-action="prepare-anki"]')?.textContent).toBe('Set up Yomu note type');
+        expect(form.querySelector<HTMLButtonElement>('[data-action="update-anki-model"]')?.textContent).toBe('Update note type');
         expect(form.querySelector<HTMLButtonElement>('[data-action="scan-anki"]')).toBeNull();
         const help = form.querySelector<HTMLElement>('[data-anki-setup-help]')!;
         const docsLink = help.querySelector<HTMLAnchorElement>('a[href$="getting-started#use-desktop-anki-from-a-phone-ipad-or-android"]');
@@ -398,7 +399,8 @@ describe('settings form localization', () => {
         expect(settingsText(form, '.jpdb-reader-template-preview-title')).toBe('単語を先に表示するプリセット');
         expect(settingsText(form, '.jpdb-reader-template-meaning')).toBe('読む');
         expect(settingsText(form, '[data-action="test-anki"]')).toBe('AnkiConnectを確認');
-        expect(settingsText(form, '[data-action="prepare-anki"]')).toBe('よむノートタイプを作成');
+        expect(settingsText(form, '[data-action="prepare-anki"]')).toBe('よむノートタイプを準備');
+        expect(settingsText(form, '[data-action="update-anki-model"]')).toBe('ノートタイプを更新');
         expect(form.querySelector<HTMLButtonElement>('[data-action="scan-anki"]')).toBeNull();
         expect(settingsText(form, '[data-anki-status]')).toContain('AnkiConnectを確認中');
         expect(settingsText(form, '[data-anki-status]')).not.toContain('モバイルAnki受け渡し');
