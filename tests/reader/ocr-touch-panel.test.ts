@@ -770,6 +770,57 @@ describe('OCR sentence focus', () => {
         }
     });
 
+    // The four frame-geometry cases that used to live here (pitch-underline paint room,
+    // the reserved-chrome clamp, and the two vertical-width regressions) moved into
+    // tests/reader/ocr-overlay-line-geometry.test.ts when the geometry became a shared
+    // primitive, and they call it directly rather than through controller internals. What
+    // could not move is this: the fit reads furigana off the RENDERED LINE, so it needs a
+    // real controller putting real readings into a real overlay to be covered at all.
+    it('reads OCR furigana off the rendered line rather than a flag left from the last fit', async () => {
+        stubInstantIntersectionObserver();
+        const { image, controller } = createOcrImageControllerFixture({
+            sentence: '使えなくて',
+            // A large box, so the furigana gutter and the plain one round to different pixels.
+            box: { left: 0.1, top: 0.2, width: 0.6, height: 0.3 },
+            settings: {
+                apiKey: '',
+                localDictionariesEnabled: false,
+                furiganaMode: 'all',
+            },
+            parseJapanese: vi.fn(async () => []),
+        });
+        image.dataset.ocrVocabulary = JSON.stringify([
+            { surface: '使え', spelling: '使える', reading: 'つかえる', pitchPosition: 0 },
+        ]);
+
+        try {
+            controller.init();
+
+            await waitForExpect(() => {
+                expect(document.querySelector('.jpdb-ocr-line .jpdb-reader-has-furi')).not.toBeNull();
+            });
+            const line = document.querySelector<HTMLElement>('.jpdb-ocr-line')!;
+            expect(line.dataset.hasFuri).toBe('true');
+            const annotatedGutter = Number.parseFloat(line.style.getPropertyValue('--jpdb-ocr-pad-top'));
+
+            // Take the readings back out — what the reader itself does when furigana is
+            // turned off mid-page — and leave the flag from the last fit in place. The next
+            // fit has to notice, because the readings are the thing that needs the room.
+            line.querySelectorAll('.jpdb-reader-has-furi').forEach(word => word.classList.remove('jpdb-reader-has-furi'));
+            line.dataset.hasFuri = 'true';
+            window.dispatchEvent(new Event('resize'));
+
+            await waitForExpect(() => {
+                expect(line.dataset.hasFuri).toBe('false');
+            });
+            expect(Number.parseFloat(line.style.getPropertyValue('--jpdb-ocr-pad-top'))).toBeLessThan(annotatedGutter);
+        } finally {
+            controller.destroy();
+            vi.unstubAllGlobals();
+            document.body.replaceChildren();
+        }
+    });
+
     it('upgrades parsed OCR tokens from page-seeded vocabulary', async () => {
         stubInstantIntersectionObserver();
         const sentence = '使えなくて';

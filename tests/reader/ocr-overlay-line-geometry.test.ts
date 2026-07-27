@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { layoutOverlayOcrLines, overlayOcrFrame, overlayOcrLayerHtml } from '../../src/gaming/renderer/ocr-lines';
 import {
@@ -10,9 +10,60 @@ import {
 const FRAME: OcrOverlayFrame = { imageLeft: 0, imageTop: 0, imageWidth: 1280, imageHeight: 720 };
 const LINE_TEXT = '港へ行くよ';
 const LINE_BOX = { left: 240, top: 512, width: 320, height: 44 };
-// jsdom does not lay text out, so both surfaces are handed the SAME measured text box.
-// That is the point of the comparison: given identical type, they must place it identically.
-const MEASURED_TEXT = { width: 268, height: 30 };
+// A line of dialogue as a game draws it, and the box a provider hands back for it: the
+// ink box, one glyph per em wide and a shade under an em tall.
+const SOURCE_TEXT = '町の明かりが見えてきたから、そろそろ港へ行くよ。';
+const SOURCE_FONT_PX = 46;
+const SOURCE_INK_RATIO = 0.92;
+const SOURCE_BOX = {
+    left: 80,
+    top: 600,
+    width: [...SOURCE_TEXT].length * SOURCE_FONT_PX,
+    height: SOURCE_FONT_PX * SOURCE_INK_RATIO,
+};
+// Room for a line of type too large for the old ceiling to reach.
+const WIDE_FRAME: OcrOverlayFrame = { imageLeft: 0, imageTop: 0, imageWidth: 2600, imageHeight: 1400 };
+
+// jsdom does not lay text out, and the sizing this file is about is a MEASUREMENT — so the
+// suite supplies a typesetter rather than a constant. Japanese glyphs advance a full em,
+// which is the whole reason a measured fit can put recognized text back at the size of the
+// text it was read from, so a line of N glyphs at F px is N*F long and F thick. That is
+// enough of a layout engine to make the arithmetic real; scripts/ocr-line-register-smoke.mjs
+// is the same assertion against a real engine painting real type.
+function installFakeTypesetting(): () => void {
+    const descriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'getBoundingClientRect');
+    Object.defineProperty(HTMLElement.prototype, 'getBoundingClientRect', {
+        configurable: true,
+        // Individual elements still get to answer for themselves — the overlay backdrop is
+        // stubbed per element to stand for a window of a given shape.
+        writable: true,
+        value(this: HTMLElement): DOMRect {
+            const fontSize = inheritedFontPx(this);
+            const length = [...(this.textContent ?? '')].length * fontSize;
+            return this.closest<HTMLElement>('.jpdb-ocr-line')?.dataset.vertical === 'true'
+                ? new DOMRect(0, 0, fontSize, length)
+                : new DOMRect(0, 0, length, fontSize);
+        },
+    });
+    return () => {
+        if (descriptor) Object.defineProperty(HTMLElement.prototype, 'getBoundingClientRect', descriptor);
+        else delete (HTMLElement.prototype as Partial<HTMLElement>).getBoundingClientRect;
+    };
+}
+
+function inheritedFontPx(element: HTMLElement | null): number {
+    for (let node = element; node; node = node.parentElement) {
+        const declared = Number.parseFloat(node.style.fontSize);
+        if (Number.isFinite(declared) && declared > 0) return declared;
+    }
+    return 16;
+}
+
+let restoreTypesetting: () => void;
+beforeEach(() => {
+    restoreTypesetting = installFakeTypesetting();
+});
+afterEach(() => restoreTypesetting());
 
 // The reader's image overlay, as ImageOcrController builds and fits it: a .jpdb-ocr-layer
 // of .jpdb-ocr-line elements carrying their source box as a fraction of the rendered
@@ -43,10 +94,17 @@ function gamingOcrLayer(): HTMLElement {
     return host;
 }
 
-function stubMeasuredText(root: ParentNode): void {
-    root.querySelectorAll<HTMLElement>('.jpdb-ocr-line-text').forEach(text => {
-        text.getBoundingClientRect = () => new DOMRect(0, 0, MEASURED_TEXT.width, MEASURED_TEXT.height);
-    });
+// A game's line of dialogue with the ink box a provider drew around it.
+function sourceLineLayer(): HTMLElement {
+    const host = document.createElement('div');
+    host.innerHTML = overlayOcrLayerHtml([{ text: SOURCE_TEXT, box: SOURCE_BOX, vertical: false }], FRAME);
+    return host;
+}
+
+function renderedTextRect(root: ParentNode): DOMRect {
+    const text = root.querySelector<HTMLElement>('.jpdb-ocr-line-text');
+    if (!text) throw new Error('no OCR line text rendered');
+    return text.getBoundingClientRect();
 }
 
 function placedGeometry(root: ParentNode): Record<string, string> {
@@ -68,8 +126,6 @@ describe('Yomu Gaming renders OCR lines with the reader’s overlay geometry', (
     it('places a gaming line exactly where the reader would place the same box and text', () => {
         const reader = readerOcrLayer();
         const gaming = gamingOcrLayer();
-        stubMeasuredText(reader);
-        stubMeasuredText(gaming);
 
         layoutOcrOverlayLines(reader, FRAME, 1);
         layoutOverlayOcrLines(gaming, FRAME);
@@ -77,21 +133,79 @@ describe('Yomu Gaming renders OCR lines with the reader’s overlay geometry', (
         expect(placedGeometry(gaming)).toEqual(placedGeometry(reader));
     });
 
-    it('sizes the line to the text it sits over instead of a stylesheet default', () => {
-        const gaming = gamingOcrLayer();
-        stubMeasuredText(gaming);
+    it('typesets a recognized line at the size of the text it was read from', () => {
+        const gaming = sourceLineLayer();
+        layoutOverlayOcrLines(gaming, FRAME);
+        const placed = placedGeometry(gaming);
+        const rendered = renderedTextRect(gaming);
+
+        // THE BAR. The old rule took type from `boxHeight * 0.58` under a 38px ceiling, so
+        // this box — the ink box of a 46px line — was typeset at 24.5px, 0.533x the size of
+        // the text underneath it, and being centred it covered only the middle half of the
+        // sentence. Size and span are asserted, not existence.
+        expect(Number.parseFloat(placed.fontSize) / SOURCE_FONT_PX).toBeCloseTo(1, 1);
+        expect(rendered.width / SOURCE_BOX.width).toBeCloseTo(1, 2);
+        // The rendered box is a full em tall while the source box is only as tall as the
+        // source's ink, so the honest comparison there is against the em the ink came from.
+        expect(rendered.height / (SOURCE_BOX.height / SOURCE_INK_RATIO)).toBeCloseTo(1, 1);
+    });
+
+    it('covers the source line end to end instead of floating in the middle of it', () => {
+        const gaming = sourceLineLayer();
+        layoutOverlayOcrLines(gaming, FRAME);
+        const placed = placedGeometry(gaming);
+
+        // The highlight is the line plus its padding, so the TYPE starts one pad in. The
+        // reported defect put that start 215px inside the source line's left edge.
+        const padX = Number.parseFloat(placed.padX);
+        const textLeft = Number.parseFloat(placed.left) + padX;
+        const textRight = Number.parseFloat(placed.left) + Number.parseFloat(placed.width) - padX;
+        expect(textLeft).toBeCloseTo(SOURCE_BOX.left, 0);
+        expect(textRight).toBeCloseTo(SOURCE_BOX.left + SOURCE_BOX.width, 0);
+    });
+
+    it('matches game type too large for the old 38px ceiling', () => {
+        const large = 96;
+        const box = {
+            left: 120,
+            top: 500,
+            width: [...SOURCE_TEXT].length * large,
+            height: large * SOURCE_INK_RATIO,
+        };
+        const host = document.createElement('div');
+        host.innerHTML = overlayOcrLayerHtml([{ text: SOURCE_TEXT, box, vertical: false }], WIDE_FRAME);
+        layoutOverlayOcrLines(host, WIDE_FRAME);
+
+        // At the ceiling this was 38px whatever the setting did — 0.4x the source, and
+        // unreachable even at the maximum "Image text scale" of 1.8.
+        expect(Number.parseFloat(placedGeometry(host).fontSize) / large).toBeCloseTo(1, 1);
+    });
+
+    it('does not shrink a line when the reader adds readings to it', () => {
+        const gaming = sourceLineLayer();
+        layoutOverlayOcrLines(gaming, FRAME);
+        const bare = placedGeometry(gaming).fontSize;
+
+        // Readings are laid out on top of the line, so an annotated line measures taller and
+        // (word by word) differently wide than the sentence it came from. The fit measures
+        // the SOURCE string for exactly this reason: sizing type to its own furigana would
+        // shrink every line the moment the reader got to it.
+        const text = gaming.querySelector('.jpdb-ocr-line-text');
+        text?.insertAdjacentHTML('beforeend', '<span class="jpdb-reader-word jpdb-reader-has-furi"><ruby>港<rt>みなと</rt></ruby></span>');
         layoutOverlayOcrLines(gaming, FRAME);
 
-        // A 320x44 box of dialogue is typeset near the height of the source text, not at
-        // the 15px the overlay's own stylesheet used to force on every line.
-        const fontSize = Number.parseFloat(placedGeometry(gaming).fontSize);
-        expect(fontSize).toBeGreaterThan(20);
-        expect(fontSize).toBeLessThanOrEqual(44 * 0.58);
+        expect(placedGeometry(gaming).fontSize).toBe(bare);
+    });
+
+    it('moves the whole line with the reader’s image text size setting', () => {
+        const gaming = sourceLineLayer();
+        layoutOverlayOcrLines(gaming, FRAME, 1.8);
+
+        expect(Number.parseFloat(placedGeometry(gaming).fontSize) / SOURCE_FONT_PX).toBeCloseTo(1.8, 1);
     });
 
     it('derives the line padding from the font size, so the box breathes with the type', () => {
         const gaming = gamingOcrLayer();
-        stubMeasuredText(gaming);
         layoutOverlayOcrLines(gaming, FRAME);
         const placed = placedGeometry(gaming);
 
@@ -106,7 +220,6 @@ describe('Yomu Gaming renders OCR lines with the reader’s overlay geometry', (
             [{ text: LINE_TEXT, box: { left: 1180, top: 700, width: 300, height: 40 }, vertical: false }],
             FRAME,
         );
-        stubMeasuredText(host);
         layoutOverlayOcrLines(host, FRAME);
         const placed = placedGeometry(host);
 
@@ -116,7 +229,6 @@ describe('Yomu Gaming renders OCR lines with the reader’s overlay geometry', (
 
     it('gives a line the furigana top gutter once the reader adds readings to it', () => {
         const gaming = gamingOcrLayer();
-        stubMeasuredText(gaming);
         layoutOverlayOcrLines(gaming, FRAME);
         const bare = placedGeometry(gaming);
 
@@ -182,7 +294,6 @@ function boxOnCapture(box: typeof CAPTURE_BOX, frame: OcrOverlayFrame): typeof C
 
 function renderLine(host: HTMLElement, box: typeof CAPTURE_BOX, frame: OcrOverlayFrame): void {
     host.insertAdjacentHTML('beforeend', overlayOcrLayerHtml([{ text: LINE_TEXT, box, vertical: false }], frame));
-    stubMeasuredText(host);
     layoutOverlayOcrLines(host, frame);
 }
 
@@ -220,9 +331,14 @@ describe('Yomu Gaming anchors OCR lines to the capture, not to the window', () =
         renderLine(fresh, boxOnCapture(CAPTURE_BOX, tall), tall);
 
         expectSamePlacement(placedGeometry(host), placedGeometry(fresh));
-        // The box sits at capture y=900, which is overlay y=550 once the picture
-        // re-letterboxes to 800x450 at top 175 — the window-sized frame left it at 647.
-        expect(Number.parseFloat(placedGeometry(host).top)).toBeCloseTo(543, 3);
+        // Stated as the thing the player sees rather than as a magic pixel: the line rests
+        // on the bottom of its source box. The box's bottom is capture y=960, which is
+        // overlay y=575 once the picture re-letterboxes to 800x450 at top 175 — a
+        // window-sized frame would have left it 97px lower, off the dialogue entirely.
+        const placed = placedGeometry(host);
+        const lineBottom = Number.parseFloat(placed.top) + Number.parseFloat(placed.height)
+            - Number.parseFloat(placed.padBottom);
+        expect(lineBottom).toBeCloseTo(175 + 960 * (450 / CAPTURE.height), 3);
     });
 
     it('clamps an edge line onto the picture instead of the letterbox bar', () => {
