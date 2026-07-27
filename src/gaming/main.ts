@@ -2,13 +2,12 @@ import { app, BrowserWindow, desktopCapturer, dialog, globalShortcut, ipcMain, n
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { requestGamingOcr } from './ocr';
+import { normalizeOcrRequest, requestGamingOcr } from './ocr';
 import {
     YOMU_GAMING_CHANNELS,
     type YomuGamingCaptureMode,
     type YomuGamingCaptureSource,
     type YomuGamingEnvironment,
-    type YomuGamingOcrRequest,
     type YomuGamingScreenAccess,
     type YomuGamingSettingsSnapshot,
     type YomuGamingSettingsSyncMetadata,
@@ -390,35 +389,6 @@ async function getFrozenCapture(): Promise<YomuGamingCaptureSource> {
 async function recaptureFrozenFrame(): Promise<YomuGamingCaptureSource> {
     frozenCapture = await captureFrozenFrame();
     return frozenCapture;
-}
-
-function normalizeOcrRequest(request: unknown): YomuGamingOcrRequest {
-    if (!request || typeof request !== 'object') {
-        throw new Error('OCR request must be an object.');
-    }
-    const record = request as Record<string, unknown>;
-    const imageDataUrl = typeof record.imageDataUrl === 'string' ? record.imageDataUrl : '';
-    if (!imageDataUrl.startsWith('data:image/')) {
-        throw new Error('OCR request is missing a base64 image data URL.');
-    }
-    return {
-        provider: typeof record.provider === 'string' ? record.provider as YomuGamingOcrRequest['provider'] : undefined,
-        endpointUrl: typeof record.endpointUrl === 'string' ? record.endpointUrl : '',
-        cloudVisionApiKey: typeof record.cloudVisionApiKey === 'string' ? record.cloudVisionApiKey : undefined,
-        imageDataUrl,
-        width: positiveInt(record.width, 0),
-        height: positiveInt(record.height, 0),
-        engine: typeof record.engine === 'string' ? record.engine : 'auto',
-        // Pass-through, never a default: only the renderer knows which language
-        // is being studied, so a literal here would quietly override its choice.
-        // An absent language means "let the provider detect it".
-        language: typeof record.language === 'string' ? record.language.trim() : '',
-    };
-}
-
-function positiveInt(value: unknown, fallback: number): number {
-    const parsed = Math.round(Number(value));
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
 // Native framebuffer size (logical x scaleFactor), long-edge-capped, so OCR sees

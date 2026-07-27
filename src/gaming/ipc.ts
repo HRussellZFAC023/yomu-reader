@@ -60,7 +60,20 @@ export interface YomuGamingOcrRequest {
     width: number;
     height: number;
     engine: string;
+    /** BCP-47 tag the OCR provider is asked to read in. */
     language: string;
+    /**
+     * The learning target the player is studying, as its bare language tag.
+     *
+     * Electron's main process parses every provider response before the
+     * renderer sees it, and that parse keeps only lines in the language being
+     * studied. Main has no settings of its own and no DOM to read them from, so
+     * the target rides along with the request that needs it: the renderer reads
+     * the live target when it builds the request, and main adopts it before
+     * parsing. Sending it per request is also what makes a target change reach
+     * main — the next capture simply carries the new one.
+     */
+    targetLanguage: string;
 }
 
 export interface YomuGamingOcrResponse {

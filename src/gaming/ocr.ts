@@ -1,4 +1,5 @@
 import { randomBytes as nodeRandomBytes } from 'node:crypto';
+import { adoptLearningTargetLanguage } from '../reader/languages/active';
 import {
     normalizeOcrResult,
     parseGoogleLensResponse,
@@ -21,7 +22,55 @@ interface ImagePayload {
     mimeType: string;
 }
 
+/**
+ * The renderer's request as it arrives over IPC, checked back into its own type.
+ *
+ * It lives here rather than in `main.ts` because everything it decides is
+ * decided again three lines later by `requestGamingOcr`, and because `main.ts`
+ * imports Electron and so cannot be exercised by a test. The fields that carry
+ * a language are the ones worth reading twice: both are pass-through, never a
+ * default, since only the renderer loads settings and knows the answer.
+ */
+export function normalizeOcrRequest(request: unknown): YomuGamingOcrRequest {
+    if (!request || typeof request !== 'object') {
+        throw new Error('OCR request must be an object.');
+    }
+    const record = request as Record<string, unknown>;
+    const imageDataUrl = typeof record.imageDataUrl === 'string' ? record.imageDataUrl : '';
+    if (!imageDataUrl.startsWith('data:image/')) {
+        throw new Error('OCR request is missing a base64 image data URL.');
+    }
+    return {
+        provider: typeof record.provider === 'string' ? record.provider as YomuGamingOcrRequest['provider'] : undefined,
+        endpointUrl: typeof record.endpointUrl === 'string' ? record.endpointUrl : '',
+        cloudVisionApiKey: typeof record.cloudVisionApiKey === 'string' ? record.cloudVisionApiKey : undefined,
+        imageDataUrl,
+        width: positiveInt(record.width, 0),
+        height: positiveInt(record.height, 0),
+        engine: typeof record.engine === 'string' ? record.engine : 'auto',
+        // An absent language means "let the provider detect it": a literal here
+        // would quietly override the language the player chose to read in.
+        language: typeof record.language === 'string' ? record.language.trim() : '',
+        // An absent target means "whatever this build studies by default",
+        // which is the state main would be in anyway had nothing been sent.
+        targetLanguage: typeof record.targetLanguage === 'string' ? record.targetLanguage.trim() : '',
+    };
+}
+
+function positiveInt(value: unknown, fallback: number): number {
+    const parsed = Math.round(Number(value));
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
 export async function requestGamingOcr(request: YomuGamingOcrRequest): Promise<YomuGamingOcrResponse> {
+    // Before anything parses a provider answer. `normalizeOcrResult` and
+    // `parseGoogleLensResponse` below keep only lines in the language being
+    // studied, and they ask the active learning target which lines those are.
+    // This process has its own module state and never loads settings, so
+    // without this it would answer for the default target and drop every line
+    // of the language the player actually chose — the renderer's own adoption
+    // happens on the other side of the IPC boundary and cannot be seen here.
+    adoptLearningTargetLanguage(request.targetLanguage);
     const provider = normalizeProvider(request.provider, request.endpointUrl);
     if (provider === 'off') return { ok: false, status: 0, body: null, error: 'Image OCR is off.' };
     if (provider === 'local-service') return requestLocalOcr(request);

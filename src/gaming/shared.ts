@@ -1,3 +1,4 @@
+import { activeLearningTargetLanguage } from '../reader/languages/active';
 import { targetOcrLanguageTag } from '../reader/languages/resolve';
 import {
     isTargetLanguageText,
@@ -52,10 +53,11 @@ interface RawOcrResult {
 }
 
 /**
- * The OCR request for one capture. The renderer is the only process that knows
- * which language is being studied, so it resolves the request language here —
- * the configured tag when the player set one, otherwise the active learning
- * target's own OCR language — and the Electron side just forwards it.
+ * The OCR request for one capture. The renderer is the only process that loads
+ * settings, so it resolves both languages here: the tag the provider is asked
+ * to read in — the configured one when the player set one, otherwise the active
+ * learning target's own OCR language — and the target itself, which the Electron
+ * side adopts before it parses the provider's answer.
  */
 export function gamingOcrRequest(settings: GamingCaptureSettings, image: GamingCaptureImage): YomuGamingOcrRequest {
     return {
@@ -67,6 +69,7 @@ export function gamingOcrRequest(settings: GamingCaptureSettings, image: GamingC
         height: image.height,
         engine: settings.ocrEngine,
         language: targetOcrLanguageTag(settings.ocrLanguage),
+        targetLanguage: activeLearningTargetLanguage(),
     };
 }
 
