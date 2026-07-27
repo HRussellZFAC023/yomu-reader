@@ -119,7 +119,12 @@ describe('Academy canonical cast registry', () => {
         });
         expect(canRenderAcademyCastPortrait('shaun', 'journal-review-preview')).toBe(true);
         expect(canRenderAcademyCastPortrait('shaun', 'story-runtime')).toBe(false);
-        expect(canRenderAcademyCastPortrait('peter', 'story-runtime')).toBe(false);
+        expect(canRenderAcademyCastPortrait('peter', 'story-runtime')).toBe(true);
+        expect(getAcademyCastMember('peter')).toMatchObject({
+            firstName: 'Peter',
+            visualEvidence: 'approved',
+            eligibility: { story: true, lessons: true, likenessRuntime: true },
+        });
         expect(getAcademyCastMember('steve')).toMatchObject({
             firstName: 'Steve',
             category: 'classmate',

@@ -126,13 +126,15 @@ describe('Academy runtime asset registry', () => {
             'character.ruparna.note-route-right-three-quarter-halfbody-v002',
             'character.sam.neutral-close-cropped-chestnut-front-near-front-fullbody-v002',
             'character.sam.encouraging-listening-close-cropped-chestnut-right-three-quarter-fullbody-v002',
+            'character.peter.neutral-quiet-observer-front-near-front-fullbody-v003',
+            'character.peter.encouraging-listening-quiet-observer-right-three-quarter-fullbody-v003',
             'character.steve.neutral-front',
             'character.steve.happy-right',
             'character.steve.determined-left',
         ] as const) {
             expect(ACADEMY_RUNTIME_ASSET_REGISTRY[id].status).toBe('approved');
         }
-        expect(ACADEMY_RUNTIME_ASSET_REGISTRY['character.peter.neutral'].status).toBe('review-preview');
+        expect('character.peter.neutral' in ACADEMY_RUNTIME_ASSET_REGISTRY).toBe(false);
         expect(ACADEMY_RUNTIME_ASSET_REGISTRY['character.felix.neutral'].status).toBe('review-preview');
         expect(ACADEMY_RUNTIME_ASSET_REGISTRY['character.tom2.neutral-right'].status).toBe('review-preview');
     });

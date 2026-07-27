@@ -18,8 +18,8 @@
     ]
   },
   "counts": {
-    "runtimeAssetHomes": 204,
-    "runtimeFiles": 259,
+    "runtimeAssetHomes": 208,
+    "runtimeFiles": 263,
     "nonRuntimeReviewFiles": 1734,
     "approvedReferenceOnly": 4,
     "explicitlyRejectedFamilies": 4,
@@ -1837,98 +1837,6 @@
         {
           "path": "/academy/art/characters/nanako/nanako__standardized-neutral__front-near-front__halfbody__v001.png",
           "sha256": "0d2a673aa9e33a218544da302461c10ad7b235016aaeab92919f19d58fb66d44"
-        }
-      ],
-      "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-    },
-    {
-      "id": "character-peter-encouraging-right",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "a96f5726b20b616756149cc02e5482ac4947c81a2f0d0b85834db60f2ae0078e",
-      "provenance": "retained-current-review",
-      "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": [
-        "journal:peter-expression-gallery"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "learner-journal-preview"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:peter-expression-gallery"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/peter/peter__encouraging__right-three-quarter__halfbody__v001.png",
-          "sha256": "a96f5726b20b616756149cc02e5482ac4947c81a2f0d0b85834db60f2ae0078e"
-        }
-      ],
-      "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-    },
-    {
-      "id": "character-peter-neutral",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "ecace10545e5c9d0c6e07edea6d77b20836d583ca5ffc45447f814a266fd5480",
-      "provenance": "retained-current-review",
-      "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": [
-        "journal:peter",
-        "journal:peter-expression-gallery"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "learner-journal-preview"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:peter",
-          "journal:peter-expression-gallery"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/peter/peter__neutral__halfbody__v002.png",
-          "sha256": "ecace10545e5c9d0c6e07edea6d77b20836d583ca5ffc45447f814a266fd5480"
-        }
-      ],
-      "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-    },
-    {
-      "id": "character-peter-thoughtful-left",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "d883770c0afa95668b92f179c6e6b11d565d3fe0dfed37fa243b1a01961a8d3a",
-      "provenance": "retained-current-review",
-      "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": [
-        "journal:peter-expression-gallery"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "learner-journal-preview"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:peter-expression-gallery"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/peter/peter__thoughtful__left-three-quarter__halfbody__v001.png",
-          "sha256": "d883770c0afa95668b92f179c6e6b11d565d3fe0dfed37fa243b1a01961a8d3a"
         }
       ],
       "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
@@ -13464,6 +13372,252 @@
         {
           "path": "/academy/art/characters/alex/alex__sad-vulnerable-short-brown-understated__left-three-quarter__fullbody__v002.png",
           "sha256": "cf7a36e25e2ee31d110d0b02c1f066889d8299fa870cb254e1731c8f4ef07457"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-peter-neutral-quiet-observer-front-near-front-fullbody-v003",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "8ef8471dbc18e6a14a1db5d499d6952995a6a70441fd178500137c1b93a70211",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:peter",
+        "class:people",
+        "class:week-cast",
+        "lesson-overview:roster",
+        "world:person",
+        "story:cast:peter",
+        "cast-standardization:peter"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:peter",
+          "class:people",
+          "class:week-cast",
+          "lesson-overview:roster",
+          "world:person",
+          "story:cast:peter",
+          "cast-standardization:peter"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/peter/peter__neutral-quiet-observer__front-near-front__fullbody__v003.png",
+          "sha256": "8ef8471dbc18e6a14a1db5d499d6952995a6a70441fd178500137c1b93a70211"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-peter-encouraging-listening-quiet-observer-right-three-quarter-fullbody-v003",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "20f9472b45ce6c96a5173579c38b374900d51734019d7b5368920c9d34ad141f",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:peter-expression-gallery",
+        "story:cast:peter:encouraging-listening",
+        "cast-standardization:peter"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:peter-expression-gallery",
+          "story:cast:peter:encouraging-listening",
+          "cast-standardization:peter"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/peter/peter__encouraging-listening-quiet-observer__right-three-quarter__fullbody__v003.png",
+          "sha256": "20f9472b45ce6c96a5173579c38b374900d51734019d7b5368920c9d34ad141f"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-peter-happy-quiet-observer-front-near-front-fullbody-v003",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "b524935a6b69d16b124cc733b853eabd8bcf9c05d79dd8b36db930a3029e5224",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:peter-expression-gallery",
+        "story:cast:peter:happy",
+        "cast-standardization:peter"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:peter-expression-gallery",
+          "story:cast:peter:happy",
+          "cast-standardization:peter"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/peter/peter__happy-quiet-observer__front-near-front__fullbody__v003.png",
+          "sha256": "b524935a6b69d16b124cc733b853eabd8bcf9c05d79dd8b36db930a3029e5224"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-peter-thoughtful-quiet-observer-left-three-quarter-fullbody-v003",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "8bc693148a03b1514144022b39d14f214c37c2ea363c4cfc83fa86c0f37c38d1",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:peter-expression-gallery",
+        "story:cast:peter:thoughtful",
+        "cast-standardization:peter"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:peter-expression-gallery",
+          "story:cast:peter:thoughtful",
+          "cast-standardization:peter"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/peter/peter__thoughtful-quiet-observer__left-three-quarter__fullbody__v003.png",
+          "sha256": "8bc693148a03b1514144022b39d14f214c37c2ea363c4cfc83fa86c0f37c38d1"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-peter-determined-quiet-observer-front-near-front-fullbody-v003",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "c9b0683c766868a75a90fa1eebc90106361cb9aaf3e6d7ce9765167d6ba669cc",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:peter-expression-gallery",
+        "story:cast:peter:determined",
+        "cast-standardization:peter"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:peter-expression-gallery",
+          "story:cast:peter:determined",
+          "cast-standardization:peter"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/peter/peter__determined-quiet-observer__front-near-front__fullbody__v003.png",
+          "sha256": "c9b0683c766868a75a90fa1eebc90106361cb9aaf3e6d7ce9765167d6ba669cc"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-peter-surprised-shocked-quiet-observer-right-three-quarter-fullbody-v003",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "bfd01dc5d0de26226048865edbf8d57ad8d61ee4216029c58324733bef2079e4",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:peter-expression-gallery",
+        "story:cast:peter:surprised-shocked",
+        "cast-standardization:peter"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:peter-expression-gallery",
+          "story:cast:peter:surprised-shocked",
+          "cast-standardization:peter"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/peter/peter__surprised-shocked-quiet-observer__right-three-quarter__fullbody__v003.png",
+          "sha256": "bfd01dc5d0de26226048865edbf8d57ad8d61ee4216029c58324733bef2079e4"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-peter-sad-vulnerable-quiet-observer-left-three-quarter-fullbody-v003",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "e64e0f3fe81208332ed0a351c07f186941bf1d4ae7f1ff5f18b87e833a049611",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:peter-expression-gallery",
+        "story:cast:peter:sad-vulnerable",
+        "cast-standardization:peter"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:peter-expression-gallery",
+          "story:cast:peter:sad-vulnerable",
+          "cast-standardization:peter"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/peter/peter__sad-vulnerable-quiet-observer__left-three-quarter__fullbody__v003.png",
+          "sha256": "e64e0f3fe81208332ed0a351c07f186941bf1d4ae7f1ff5f18b87e833a049611"
         }
       ],
       "status": "identity-locked, visually inspected, runtime-bound house-style sprite"

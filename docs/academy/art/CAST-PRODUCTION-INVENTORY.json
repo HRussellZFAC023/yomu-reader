@@ -29,10 +29,10 @@
     "cast": 30,
     "requiredPerformancesPerCast": 7,
     "requiredSlots": 210,
-    "integratedSlots": 72,
-    "missingSlots": 138,
+    "integratedSlots": 79,
+    "missingSlots": 131,
     "ownerCorrectionQueue": 61,
-    "storyCriticalQueue": 42,
+    "storyCriticalQueue": 35,
     "rosterCompletionQueue": 35
   },
   "cast": [
@@ -1893,65 +1893,97 @@
       "priority": "story-critical",
       "summary": {
         "required": 7,
-        "integrated": 0,
-        "missing": 7
+        "integrated": 7,
+        "missing": 0
       },
       "performances": [
         {
           "expression": "neutral",
           "preferredAngle": "front-near-front",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.peter.neutral-quiet-observer-front-near-front-fullbody-v003",
+          "assetPath": "/academy/art/characters/peter/peter__neutral-quiet-observer__front-near-front__fullbody__v003.png",
+          "runtimeHomes": [
+            "journal:peter",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "story:cast:peter",
+            "cast-standardization:peter"
+          ]
         },
         {
           "expression": "encouraging-listening",
           "preferredAngle": "right-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.peter.encouraging-listening-quiet-observer-right-three-quarter-fullbody-v003",
+          "assetPath": "/academy/art/characters/peter/peter__encouraging-listening-quiet-observer__right-three-quarter__fullbody__v003.png",
+          "runtimeHomes": [
+            "journal:peter-expression-gallery",
+            "story:cast:peter:encouraging-listening",
+            "cast-standardization:peter"
+          ]
         },
         {
           "expression": "happy",
           "preferredAngle": "front-near-front",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.peter.happy-quiet-observer-front-near-front-fullbody-v003",
+          "assetPath": "/academy/art/characters/peter/peter__happy-quiet-observer__front-near-front__fullbody__v003.png",
+          "runtimeHomes": [
+            "journal:peter-expression-gallery",
+            "story:cast:peter:happy",
+            "cast-standardization:peter"
+          ]
         },
         {
           "expression": "thoughtful",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.peter.thoughtful-quiet-observer-left-three-quarter-fullbody-v003",
+          "assetPath": "/academy/art/characters/peter/peter__thoughtful-quiet-observer__left-three-quarter__fullbody__v003.png",
+          "runtimeHomes": [
+            "journal:peter-expression-gallery",
+            "story:cast:peter:thoughtful",
+            "cast-standardization:peter"
+          ]
         },
         {
           "expression": "determined",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.peter.determined-quiet-observer-front-near-front-fullbody-v003",
+          "assetPath": "/academy/art/characters/peter/peter__determined-quiet-observer__front-near-front__fullbody__v003.png",
+          "runtimeHomes": [
+            "journal:peter-expression-gallery",
+            "story:cast:peter:determined",
+            "cast-standardization:peter"
+          ]
         },
         {
           "expression": "surprised-shocked",
           "preferredAngle": "right-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.peter.surprised-shocked-quiet-observer-right-three-quarter-fullbody-v003",
+          "assetPath": "/academy/art/characters/peter/peter__surprised-shocked-quiet-observer__right-three-quarter__fullbody__v003.png",
+          "runtimeHomes": [
+            "journal:peter-expression-gallery",
+            "story:cast:peter:surprised-shocked",
+            "cast-standardization:peter"
+          ]
         },
         {
           "expression": "sad-vulnerable",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.peter.sad-vulnerable-quiet-observer-left-three-quarter-fullbody-v003",
+          "assetPath": "/academy/art/characters/peter/peter__sad-vulnerable-quiet-observer__left-three-quarter__fullbody__v003.png",
+          "runtimeHomes": [
+            "journal:peter-expression-gallery",
+            "story:cast:peter:sad-vulnerable",
+            "cast-standardization:peter"
+          ]
         }
       ]
     },
@@ -4752,204 +4784,6 @@
       "runtimeHomes": [
         "journal:rose-expression-gallery",
         "story:cast:rose:sad-vulnerable"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "peter:neutral",
-      "castId": "peter",
-      "displayName": "Peter",
-      "identityKey": "peter-quiet-observer",
-      "expression": "neutral",
-      "angle": "front-near-front",
-      "priority": "story-critical",
-      "storyLines": 20,
-      "visualLock": "Quiet adult male classmate with an observant, understated face and an unshowy silhouette.",
-      "wardrobeLock": "Simple well-kept layers in charcoal, moss, and blue.",
-      "reject": [
-        "hero pose",
-        "photographic face",
-        "exaggerated emotion",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:peter",
-        "class:people",
-        "lesson-overview:roster",
-        "story:cast:peter"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "peter:encouraging-listening",
-      "castId": "peter",
-      "displayName": "Peter",
-      "identityKey": "peter-quiet-observer",
-      "expression": "encouraging-listening",
-      "angle": "right-three-quarter",
-      "priority": "story-critical",
-      "storyLines": 20,
-      "visualLock": "Quiet adult male classmate with an observant, understated face and an unshowy silhouette.",
-      "wardrobeLock": "Simple well-kept layers in charcoal, moss, and blue.",
-      "reject": [
-        "hero pose",
-        "photographic face",
-        "exaggerated emotion",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:peter-expression-gallery",
-        "story:cast:peter:encouraging-listening"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "peter:happy",
-      "castId": "peter",
-      "displayName": "Peter",
-      "identityKey": "peter-quiet-observer",
-      "expression": "happy",
-      "angle": "front-near-front",
-      "priority": "story-critical",
-      "storyLines": 20,
-      "visualLock": "Quiet adult male classmate with an observant, understated face and an unshowy silhouette.",
-      "wardrobeLock": "Simple well-kept layers in charcoal, moss, and blue.",
-      "reject": [
-        "hero pose",
-        "photographic face",
-        "exaggerated emotion",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:peter-expression-gallery",
-        "story:cast:peter:happy"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "peter:thoughtful",
-      "castId": "peter",
-      "displayName": "Peter",
-      "identityKey": "peter-quiet-observer",
-      "expression": "thoughtful",
-      "angle": "left-three-quarter",
-      "priority": "story-critical",
-      "storyLines": 20,
-      "visualLock": "Quiet adult male classmate with an observant, understated face and an unshowy silhouette.",
-      "wardrobeLock": "Simple well-kept layers in charcoal, moss, and blue.",
-      "reject": [
-        "hero pose",
-        "photographic face",
-        "exaggerated emotion",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:peter-expression-gallery",
-        "story:cast:peter:thoughtful"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "peter:determined",
-      "castId": "peter",
-      "displayName": "Peter",
-      "identityKey": "peter-quiet-observer",
-      "expression": "determined",
-      "angle": "left-three-quarter",
-      "priority": "story-critical",
-      "storyLines": 20,
-      "visualLock": "Quiet adult male classmate with an observant, understated face and an unshowy silhouette.",
-      "wardrobeLock": "Simple well-kept layers in charcoal, moss, and blue.",
-      "reject": [
-        "hero pose",
-        "photographic face",
-        "exaggerated emotion",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:peter-expression-gallery",
-        "story:cast:peter:determined"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "peter:surprised-shocked",
-      "castId": "peter",
-      "displayName": "Peter",
-      "identityKey": "peter-quiet-observer",
-      "expression": "surprised-shocked",
-      "angle": "right-three-quarter",
-      "priority": "story-critical",
-      "storyLines": 20,
-      "visualLock": "Quiet adult male classmate with an observant, understated face and an unshowy silhouette.",
-      "wardrobeLock": "Simple well-kept layers in charcoal, moss, and blue.",
-      "reject": [
-        "hero pose",
-        "photographic face",
-        "exaggerated emotion",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:peter-expression-gallery",
-        "story:cast:peter:surprised-shocked"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "peter:sad-vulnerable",
-      "castId": "peter",
-      "displayName": "Peter",
-      "identityKey": "peter-quiet-observer",
-      "expression": "sad-vulnerable",
-      "angle": "left-three-quarter",
-      "priority": "story-critical",
-      "storyLines": 20,
-      "visualLock": "Quiet adult male classmate with an observant, understated face and an unshowy silhouette.",
-      "wardrobeLock": "Simple well-kept layers in charcoal, moss, and blue.",
-      "reject": [
-        "hero pose",
-        "photographic face",
-        "exaggerated emotion",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:peter-expression-gallery",
-        "story:cast:peter:sad-vulnerable"
       ],
       "status": "queued"
     },

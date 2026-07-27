@@ -1,0 +1,101 @@
+{
+  "promotions": [
+    {
+      "castId": "peter",
+      "archiveLabel": "identity-and-style-superseded-20260727",
+      "replaceExpressions": [
+        "neutral",
+        "encouraging-listening",
+        "happy",
+        "thoughtful",
+        "determined",
+        "surprised-shocked",
+        "sad-vulnerable"
+      ],
+      "canonicalNeutralAssetId": "character.peter.neutral-quiet-observer-front-near-front-fullbody-v003",
+      "slots": [
+        {
+          "assetId": "character.peter.neutral-quiet-observer-front-near-front-fullbody-v003",
+          "expression": "neutral",
+          "angle": "front-near-front",
+          "assetPath": "/academy/art/characters/peter/peter__neutral-quiet-observer__front-near-front__fullbody__v003.png",
+          "runtimeHomes": [
+            "journal:peter",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "story:cast:peter",
+            "cast-standardization:peter"
+          ]
+        },
+        {
+          "assetId": "character.peter.encouraging-listening-quiet-observer-right-three-quarter-fullbody-v003",
+          "expression": "encouraging-listening",
+          "angle": "right-three-quarter",
+          "assetPath": "/academy/art/characters/peter/peter__encouraging-listening-quiet-observer__right-three-quarter__fullbody__v003.png",
+          "runtimeHomes": [
+            "journal:peter-expression-gallery",
+            "story:cast:peter:encouraging-listening",
+            "cast-standardization:peter"
+          ]
+        },
+        {
+          "assetId": "character.peter.happy-quiet-observer-front-near-front-fullbody-v003",
+          "expression": "happy",
+          "angle": "front-near-front",
+          "assetPath": "/academy/art/characters/peter/peter__happy-quiet-observer__front-near-front__fullbody__v003.png",
+          "runtimeHomes": [
+            "journal:peter-expression-gallery",
+            "story:cast:peter:happy",
+            "cast-standardization:peter"
+          ]
+        },
+        {
+          "assetId": "character.peter.thoughtful-quiet-observer-left-three-quarter-fullbody-v003",
+          "expression": "thoughtful",
+          "angle": "left-three-quarter",
+          "assetPath": "/academy/art/characters/peter/peter__thoughtful-quiet-observer__left-three-quarter__fullbody__v003.png",
+          "runtimeHomes": [
+            "journal:peter-expression-gallery",
+            "story:cast:peter:thoughtful",
+            "cast-standardization:peter"
+          ]
+        },
+        {
+          "assetId": "character.peter.determined-quiet-observer-front-near-front-fullbody-v003",
+          "expression": "determined",
+          "angle": "front-near-front",
+          "assetPath": "/academy/art/characters/peter/peter__determined-quiet-observer__front-near-front__fullbody__v003.png",
+          "runtimeHomes": [
+            "journal:peter-expression-gallery",
+            "story:cast:peter:determined",
+            "cast-standardization:peter"
+          ]
+        },
+        {
+          "assetId": "character.peter.surprised-shocked-quiet-observer-right-three-quarter-fullbody-v003",
+          "expression": "surprised-shocked",
+          "angle": "right-three-quarter",
+          "assetPath": "/academy/art/characters/peter/peter__surprised-shocked-quiet-observer__right-three-quarter__fullbody__v003.png",
+          "runtimeHomes": [
+            "journal:peter-expression-gallery",
+            "story:cast:peter:surprised-shocked",
+            "cast-standardization:peter"
+          ]
+        },
+        {
+          "assetId": "character.peter.sad-vulnerable-quiet-observer-left-three-quarter-fullbody-v003",
+          "expression": "sad-vulnerable",
+          "angle": "left-three-quarter",
+          "assetPath": "/academy/art/characters/peter/peter__sad-vulnerable-quiet-observer__left-three-quarter__fullbody__v003.png",
+          "runtimeHomes": [
+            "journal:peter-expression-gallery",
+            "story:cast:peter:sad-vulnerable",
+            "cast-standardization:peter"
+          ]
+        }
+      ]
+    }
+  ]
+}

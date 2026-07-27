@@ -37,7 +37,8 @@ describe('Academy VN sprite performance contract', () => {
         expect(status('rie', 'happy')).toBe('approved');
         expect(status('rie', 'encouraging-listening')).toBe('missing');
         expect(status('aakash', 'neutral')).toBe('approved');
-        for (const castId of ['peter', 'felix', 'shaun'] as const) {
+        expect(status('peter', 'neutral')).toBe('approved');
+        for (const castId of ['felix', 'shaun'] as const) {
             expect(status(castId, 'neutral')).toBe('review-candidate');
         }
         expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.xingyu.poses[2].expressions['encouraging-listening'].status)
@@ -83,6 +84,12 @@ describe('Academy VN sprite performance contract', () => {
         expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.alex.poses[1].expressions.neutral.status).toBe('approved');
         expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.alex.poses[2].expressions['encouraging-listening'].status)
             .toBe('approved');
+        expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.peter.coverage)
+            .toEqual({ approved: 7, reviewCandidates: 0, missing: 14 });
+        expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.peter.poses[0].expressions.thoughtful.status).toBe('approved');
+        expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.peter.poses[1].expressions.neutral.status).toBe('approved');
+        expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.peter.poses[2].expressions['encouraging-listening'].status)
+            .toBe('approved');
         expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.tom2.coverage)
             .toEqual({ approved: 0, reviewCandidates: 3, missing: 18 });
         expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.steve.coverage)
@@ -102,12 +109,10 @@ describe('Academy VN sprite performance contract', () => {
         }
     });
 
-    it('makes the Peter and Felix approval gap explicit', () => {
-        expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.peter.coverage)
-            .toEqual({ approved: 0, reviewCandidates: 3, missing: 18 });
+    it('makes the remaining Felix approval gap explicit', () => {
         expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.felix.coverage)
             .toEqual({ approved: 0, reviewCandidates: 4, missing: 17 });
-        for (const castId of ['peter', 'felix'] as const) {
+        for (const castId of ['felix'] as const) {
             const candidates = ACADEMY_SPRITE_PERFORMANCE_CONTRACT[castId].poses
                 .flatMap(pose => Object.values(pose.expressions))
                 .filter(cell => cell.status === 'review-candidate');

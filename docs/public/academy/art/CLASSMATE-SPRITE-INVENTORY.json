@@ -34,14 +34,14 @@
     "totalSlots": 630
   },
   "summary": {
-    "approved": 75,
-    "reviewCandidates": 16,
-    "missing": 539,
-    "currentPhysicalRasters": 131,
+    "approved": 82,
+    "reviewCandidates": 13,
+    "missing": 535,
+    "currentPhysicalRasters": 135,
     "currentOffMatrixRasters": 40,
     "historicalUniqueRasters": 469,
     "historicalOccurrences": 2016,
-    "charactersWithApprovedCoverage": 13,
+    "charactersWithApprovedCoverage": 14,
     "charactersWithAnyCurrentCoverage": 17
   },
   "migrations": [
@@ -10469,131 +10469,321 @@
         "slots": 21
       },
       "progress": {
-        "approved": 0,
-        "reviewCandidates": 3,
-        "missing": 18,
-        "deliveredPercent": 14.29,
-        "approvedPercent": 0
+        "approved": 7,
+        "reviewCandidates": 0,
+        "missing": 14,
+        "deliveredPercent": 33.33,
+        "approvedPercent": 33.33
       },
       "currentAssets": [
         {
-          "path": "/academy/art/characters/peter/peter__encouraging__right-three-quarter__halfbody__v001.png",
-          "sha256": "a96f5726b20b616756149cc02e5482ac4947c81a2f0d0b85834db60f2ae0078e",
+          "path": "/academy/art/characters/peter/peter__determined-quiet-observer__front-near-front__fullbody__v003.png",
+          "sha256": "c9b0683c766868a75a90fa1eebc90106361cb9aaf3e6d7ce9765167d6ba669cc",
           "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
-          "status": "review-candidate",
+          "status": "approved",
           "usage": {
             "runtime": [
-              "journal:peter-expression-gallery"
+              "journal:peter-expression-gallery",
+              "story:cast:peter:determined",
+              "cast-standardization:peter"
             ],
             "review": [
               "cast-standardization-manifest",
-              "learner-journal-preview"
+              "identity-lock"
             ]
           },
-          "orphan": "review-bound",
+          "orphan": "active-runtime",
           "styleVersion": "current-review-family",
-          "fileVersion": "v001",
-          "pose": "thoughtful lean with question cards fanned low, a light-haired head turn, and one card raised; right-three-quarter",
-          "angle": "right-three-quarter",
-          "expression": "encouraging-listening",
+          "fileVersion": "v003",
+          "pose": "thoughtful lean with question cards fanned low, a light-haired head turn, and one card raised; front-near-front",
+          "angle": "front-near-front",
+          "expression": "determined",
           "dimensions": {
-            "width": 1023,
-            "height": 1537,
+            "width": 1536,
+            "height": 2048,
             "bitDepth": 8,
             "colorType": 6,
             "transparency": "alpha-channel"
           },
           "runtimeUses": [
-            "journal:peter-expression-gallery"
+            "journal:peter-expression-gallery",
+            "story:cast:peter:determined",
+            "cast-standardization:peter"
           ],
           "reviewUses": [
             "cast-standardization-manifest",
-            "learner-journal-preview"
+            "identity-lock"
           ],
           "decision": "keep",
-          "migrationStatus": "retained-review-candidate-not-approved",
-          "coverageStatus": "review-candidate"
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
         },
         {
-          "path": "/academy/art/characters/peter/peter__neutral__halfbody__v002.png",
-          "sha256": "ecace10545e5c9d0c6e07edea6d77b20836d583ca5ffc45447f814a266fd5480",
+          "path": "/academy/art/characters/peter/peter__encouraging-listening-quiet-observer__right-three-quarter__fullbody__v003.png",
+          "sha256": "20f9472b45ce6c96a5173579c38b374900d51734019d7b5368920c9d34ad141f",
           "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
-          "status": "review-candidate",
+          "status": "approved",
           "usage": {
             "runtime": [
-              "journal:peter",
-              "journal:peter-expression-gallery"
+              "journal:peter-expression-gallery",
+              "story:cast:peter:encouraging-listening",
+              "cast-standardization:peter"
             ],
             "review": [
               "cast-standardization-manifest",
-              "learner-journal-preview"
+              "identity-lock"
             ]
           },
-          "orphan": "review-bound",
+          "orphan": "active-runtime",
           "styleVersion": "current-review-family",
-          "fileVersion": "v002",
+          "fileVersion": "v003",
+          "pose": "thoughtful lean with question cards fanned low, a light-haired head turn, and one card raised; right-three-quarter",
+          "angle": "right-three-quarter",
+          "expression": "encouraging-listening",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:peter-expression-gallery",
+            "story:cast:peter:encouraging-listening",
+            "cast-standardization:peter"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/peter/peter__happy-quiet-observer__front-near-front__fullbody__v003.png",
+          "sha256": "b524935a6b69d16b124cc733b853eabd8bcf9c05d79dd8b36db930a3029e5224",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:peter-expression-gallery",
+              "story:cast:peter:happy",
+              "cast-standardization:peter"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v003",
+          "pose": "thoughtful lean with question cards fanned low, a light-haired head turn, and one card raised; front-near-front",
+          "angle": "front-near-front",
+          "expression": "happy",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:peter-expression-gallery",
+            "story:cast:peter:happy",
+            "cast-standardization:peter"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/peter/peter__neutral-quiet-observer__front-near-front__fullbody__v003.png",
+          "sha256": "8ef8471dbc18e6a14a1db5d499d6952995a6a70441fd178500137c1b93a70211",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:peter",
+              "class:people",
+              "class:week-cast",
+              "lesson-overview:roster",
+              "world:person",
+              "story:cast:peter",
+              "cast-standardization:peter"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v003",
           "pose": "thoughtful lean with question cards fanned low, a light-haired head turn, and one card raised; front-near-front",
           "angle": "front-near-front",
           "expression": "neutral",
           "dimensions": {
-            "width": 1023,
-            "height": 1537,
+            "width": 1536,
+            "height": 2048,
             "bitDepth": 8,
             "colorType": 6,
             "transparency": "alpha-channel"
           },
           "runtimeUses": [
             "journal:peter",
-            "journal:peter-expression-gallery"
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "story:cast:peter",
+            "cast-standardization:peter"
           ],
           "reviewUses": [
             "cast-standardization-manifest",
-            "learner-journal-preview"
+            "identity-lock"
           ],
           "decision": "keep",
-          "migrationStatus": "retained-review-candidate-not-approved",
-          "coverageStatus": "review-candidate"
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
         },
         {
-          "path": "/academy/art/characters/peter/peter__thoughtful__left-three-quarter__halfbody__v001.png",
-          "sha256": "d883770c0afa95668b92f179c6e6b11d565d3fe0dfed37fa243b1a01961a8d3a",
+          "path": "/academy/art/characters/peter/peter__sad-vulnerable-quiet-observer__left-three-quarter__fullbody__v003.png",
+          "sha256": "e64e0f3fe81208332ed0a351c07f186941bf1d4ae7f1ff5f18b87e833a049611",
           "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
-          "status": "review-candidate",
+          "status": "approved",
           "usage": {
             "runtime": [
-              "journal:peter-expression-gallery"
+              "journal:peter-expression-gallery",
+              "story:cast:peter:sad-vulnerable",
+              "cast-standardization:peter"
             ],
             "review": [
               "cast-standardization-manifest",
-              "learner-journal-preview"
+              "identity-lock"
             ]
           },
-          "orphan": "review-bound",
+          "orphan": "active-runtime",
           "styleVersion": "current-review-family",
-          "fileVersion": "v001",
+          "fileVersion": "v003",
           "pose": "thoughtful lean with question cards fanned low, a light-haired head turn, and one card raised; left-three-quarter",
           "angle": "left-three-quarter",
-          "expression": "thoughtful",
+          "expression": "sad-vulnerable",
           "dimensions": {
-            "width": 1023,
-            "height": 1537,
+            "width": 1536,
+            "height": 2048,
             "bitDepth": 8,
             "colorType": 6,
             "transparency": "alpha-channel"
           },
           "runtimeUses": [
-            "journal:peter-expression-gallery"
+            "journal:peter-expression-gallery",
+            "story:cast:peter:sad-vulnerable",
+            "cast-standardization:peter"
           ],
           "reviewUses": [
             "cast-standardization-manifest",
-            "learner-journal-preview"
+            "identity-lock"
           ],
           "decision": "keep",
-          "migrationStatus": "retained-review-candidate-not-approved",
-          "coverageStatus": "review-candidate"
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/peter/peter__surprised-shocked-quiet-observer__right-three-quarter__fullbody__v003.png",
+          "sha256": "bfd01dc5d0de26226048865edbf8d57ad8d61ee4216029c58324733bef2079e4",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:peter-expression-gallery",
+              "story:cast:peter:surprised-shocked",
+              "cast-standardization:peter"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v003",
+          "pose": "thoughtful lean with question cards fanned low, a light-haired head turn, and one card raised; right-three-quarter",
+          "angle": "right-three-quarter",
+          "expression": "surprised-shocked",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:peter-expression-gallery",
+            "story:cast:peter:surprised-shocked",
+            "cast-standardization:peter"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/peter/peter__thoughtful-quiet-observer__left-three-quarter__fullbody__v003.png",
+          "sha256": "8bc693148a03b1514144022b39d14f214c37c2ea363c4cfc83fa86c0f37c38d1",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:peter-expression-gallery",
+              "story:cast:peter:thoughtful",
+              "cast-standardization:peter"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v003",
+          "pose": "thoughtful lean with question cards fanned low, a light-haired head turn, and one card raised; left-three-quarter",
+          "angle": "left-three-quarter",
+          "expression": "thoughtful",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:peter-expression-gallery",
+            "story:cast:peter:thoughtful",
+            "cast-standardization:peter"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
         }
       ],
       "requiredVariants": [
@@ -10621,8 +10811,8 @@
         {
           "angle": "left-three-quarter",
           "expression": "thoughtful",
-          "status": "review-candidate",
-          "path": "/academy/art/characters/peter/peter__thoughtful__left-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/peter/peter__thoughtful-quiet-observer__left-three-quarter__fullbody__v003.png"
         },
         {
           "angle": "left-three-quarter",
@@ -10641,15 +10831,14 @@
         {
           "angle": "left-three-quarter",
           "expression": "sad-vulnerable",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/peter/peter__sad-vulnerable__left-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/peter/peter__sad-vulnerable-quiet-observer__left-three-quarter__fullbody__v003.png"
         },
         {
           "angle": "front-near-front",
           "expression": "neutral",
-          "status": "review-candidate",
-          "path": "/academy/art/characters/peter/peter__neutral__halfbody__v002.png"
+          "status": "approved",
+          "path": "/academy/art/characters/peter/peter__neutral-quiet-observer__front-near-front__fullbody__v003.png"
         },
         {
           "angle": "front-near-front",
@@ -10661,9 +10850,8 @@
         {
           "angle": "front-near-front",
           "expression": "happy",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/peter/peter__happy__front-near-front__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/peter/peter__happy-quiet-observer__front-near-front__fullbody__v003.png"
         },
         {
           "angle": "front-near-front",
@@ -10675,9 +10863,8 @@
         {
           "angle": "front-near-front",
           "expression": "determined",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/peter/peter__determined__front-near-front__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/peter/peter__determined-quiet-observer__front-near-front__fullbody__v003.png"
         },
         {
           "angle": "front-near-front",
@@ -10703,8 +10890,8 @@
         {
           "angle": "right-three-quarter",
           "expression": "encouraging-listening",
-          "status": "review-candidate",
-          "path": "/academy/art/characters/peter/peter__encouraging__right-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/peter/peter__encouraging-listening-quiet-observer__right-three-quarter__fullbody__v003.png"
         },
         {
           "angle": "right-three-quarter",
@@ -10730,9 +10917,8 @@
         {
           "angle": "right-three-quarter",
           "expression": "surprised-shocked",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/peter/peter__surprised-shocked__right-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/peter/peter__surprised-shocked-quiet-observer__right-three-quarter__fullbody__v003.png"
         },
         {
           "angle": "right-three-quarter",
@@ -10779,13 +10965,6 @@
           "plannedPath": "/academy/art/characters/peter/peter__surprised-shocked__left-three-quarter__halfbody__v001.png"
         },
         {
-          "angle": "left-three-quarter",
-          "expression": "sad-vulnerable",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/peter/peter__sad-vulnerable__left-three-quarter__halfbody__v001.png"
-        },
-        {
           "angle": "front-near-front",
           "expression": "encouraging-listening",
           "status": "missing",
@@ -10794,24 +10973,10 @@
         },
         {
           "angle": "front-near-front",
-          "expression": "happy",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/peter/peter__happy__front-near-front__halfbody__v001.png"
-        },
-        {
-          "angle": "front-near-front",
           "expression": "thoughtful",
           "status": "missing",
           "path": null,
           "plannedPath": "/academy/art/characters/peter/peter__thoughtful__front-near-front__halfbody__v001.png"
-        },
-        {
-          "angle": "front-near-front",
-          "expression": "determined",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/peter/peter__determined__front-near-front__halfbody__v001.png"
         },
         {
           "angle": "front-near-front",
@@ -10854,13 +11019,6 @@
           "status": "missing",
           "path": null,
           "plannedPath": "/academy/art/characters/peter/peter__determined__right-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "right-three-quarter",
-          "expression": "surprised-shocked",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/peter/peter__surprised-shocked__right-three-quarter__halfbody__v001.png"
         },
         {
           "angle": "right-three-quarter",
