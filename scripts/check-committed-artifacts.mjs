@@ -296,9 +296,13 @@ function checkPinnedCompanionsAreCommitted() {
     if (checked === 0) failures.push('dist/yomu.user.js pins no companion URLs; the header is not the shipped build.');
 }
 
+// `stderr: 'ignore'`: an absent path is an ANSWER here, not an error, and both
+// of these turn it into one. Left alone, git's `fatal: path ... does not exist
+// in 'HEAD'` lands in the middle of the report as noise that reads like the
+// failure rather than the tidy sentence underneath it.
 function hasCommit() {
     try {
-        git(['rev-parse', '--verify', 'HEAD']);
+        git(['rev-parse', '--verify', 'HEAD'], { stdio: ['pipe', 'pipe', 'ignore'] });
         return true;
     } catch {
         return false;
@@ -307,7 +311,7 @@ function hasCommit() {
 
 function readCommitted(path, { binary = false } = {}) {
     try {
-        const contents = git(['show', `HEAD:${path}`]);
+        const contents = git(['show', `HEAD:${path}`], { stdio: ['pipe', 'pipe', 'ignore'] });
         return binary ? contents : contents.toString('utf8');
     } catch {
         return null;
