@@ -34,15 +34,15 @@
     "totalSlots": 630
   },
   "summary": {
-    "approved": 54,
+    "approved": 61,
     "reviewCandidates": 16,
-    "missing": 560,
-    "currentPhysicalRasters": 117,
-    "currentOffMatrixRasters": 47,
+    "missing": 553,
+    "currentPhysicalRasters": 122,
+    "currentOffMatrixRasters": 45,
     "historicalUniqueRasters": 469,
     "historicalOccurrences": 2016,
-    "charactersWithApprovedCoverage": 10,
-    "charactersWithAnyCurrentCoverage": 14
+    "charactersWithApprovedCoverage": 11,
+    "charactersWithAnyCurrentCoverage": 15
   },
   "migrations": [
     {
@@ -2673,35 +2673,36 @@
         "slots": 21
       },
       "progress": {
-        "approved": 0,
+        "approved": 7,
         "reviewCandidates": 0,
-        "missing": 21,
-        "deliveredPercent": 0,
-        "approvedPercent": 0
+        "missing": 14,
+        "deliveredPercent": 33.33,
+        "approvedPercent": 33.33
       },
       "currentAssets": [
         {
-          "path": "/academy/art/characters/tom/tom__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
-          "sha256": "07acb705682bba28f19195627e6f8cabcad6265745029ea4e08520ee9256bdab",
+          "path": "/academy/art/characters/tom/tom__determined-blond-clean-shaven__left-three-quarter__fullbody__v002.png",
+          "sha256": "e7484e1f46b9881913a534c809516ae89fa5337a27c3695b4f153ab1473cd85e",
           "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
-          "status": "review-candidate",
+          "status": "approved",
           "usage": {
             "runtime": [
               "journal:tom-expression-gallery",
+              "story:cast:tom:determined",
               "cast-standardization:tom"
             ],
             "review": [
               "cast-standardization-manifest",
-              "learner-journal-preview"
+              "identity-lock"
             ]
           },
-          "orphan": "review-bound",
+          "orphan": "active-runtime",
           "styleVersion": "current-review-family",
-          "fileVersion": "v001",
-          "pose": "off-contract standardized-encouraging-listening pose",
-          "angle": null,
-          "expression": null,
+          "fileVersion": "v002",
+          "pose": "elbows tucked around a steaming mug held at chest height in a compact friendly silhouette; left-three-quarter",
+          "angle": "left-three-quarter",
+          "expression": "determined",
           "dimensions": {
             "width": 1536,
             "height": 2048,
@@ -2711,40 +2712,130 @@
           },
           "runtimeUses": [
             "journal:tom-expression-gallery",
+            "story:cast:tom:determined",
             "cast-standardization:tom"
           ],
           "reviewUses": [
             "cast-standardization-manifest",
-            "learner-journal-preview"
+            "identity-lock"
           ],
           "decision": "keep",
-          "migrationStatus": "retained-off-matrix-review-evidence",
-          "coverageStatus": "off-matrix"
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
         },
         {
-          "path": "/academy/art/characters/tom/tom__standardized-neutral__front-near-front__halfbody__v001.png",
-          "sha256": "4c07477b95ec6901e8b0714781d9e71636fa4f6527d0959172a5372c7f84b22b",
+          "path": "/academy/art/characters/tom/tom__encouraging-listening-blond-clean-shaven__right-three-quarter__fullbody__v002.png",
+          "sha256": "822143e9245217c28292d2696958266059d810c5ae68c672418cc7752e1a8980",
           "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
-          "status": "review-candidate",
+          "status": "approved",
           "usage": {
             "runtime": [
-              "journal:tom",
-              "class:people-review",
-              "lesson-overview:roster-review",
+              "journal:tom-expression-gallery",
+              "story:cast:tom:encouraging-listening",
               "cast-standardization:tom"
             ],
             "review": [
               "cast-standardization-manifest",
-              "learner-journal-preview"
+              "identity-lock"
             ]
           },
-          "orphan": "review-bound",
+          "orphan": "active-runtime",
           "styleVersion": "current-review-family",
-          "fileVersion": "v001",
-          "pose": "off-contract standardized-neutral pose",
-          "angle": null,
-          "expression": null,
+          "fileVersion": "v002",
+          "pose": "elbows tucked around a steaming mug held at chest height in a compact friendly silhouette; right-three-quarter",
+          "angle": "right-three-quarter",
+          "expression": "encouraging-listening",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:tom-expression-gallery",
+            "story:cast:tom:encouraging-listening",
+            "cast-standardization:tom"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/tom/tom__happy-blond-clean-shaven__front-near-front__fullbody__v002.png",
+          "sha256": "cc5b6a544ddabf4aef43dfda46e9fc5fb75ac475e46d9fc679e5488dcc99020a",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:tom-expression-gallery",
+              "story:cast:tom:happy",
+              "cast-standardization:tom"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "elbows tucked around a steaming mug held at chest height in a compact friendly silhouette; front-near-front",
+          "angle": "front-near-front",
+          "expression": "happy",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:tom-expression-gallery",
+            "story:cast:tom:happy",
+            "cast-standardization:tom"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/tom/tom__neutral-blond-clean-shaven__front-near-front__fullbody__v002.png",
+          "sha256": "fc04acbf86b58373d89ed2a7117f736151856fac46cd9604a96a91ffc2fd755b",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:tom",
+              "class:people",
+              "class:week-cast",
+              "lesson-overview:roster",
+              "world:person",
+              "story:cast:tom",
+              "cast-standardization:tom"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "elbows tucked around a steaming mug held at chest height in a compact friendly silhouette; front-near-front",
+          "angle": "front-near-front",
+          "expression": "neutral",
           "dimensions": {
             "width": 1536,
             "height": 2048,
@@ -2754,17 +2845,149 @@
           },
           "runtimeUses": [
             "journal:tom",
-            "class:people-review",
-            "lesson-overview:roster-review",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "story:cast:tom",
             "cast-standardization:tom"
           ],
           "reviewUses": [
             "cast-standardization-manifest",
-            "learner-journal-preview"
+            "identity-lock"
           ],
           "decision": "keep",
-          "migrationStatus": "retained-off-matrix-review-evidence",
-          "coverageStatus": "off-matrix"
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/tom/tom__sad-vulnerable-blond-clean-shaven__left-three-quarter__fullbody__v002.png",
+          "sha256": "12821158601f06b7666eb1b84a272cb908724b2626508403ae8df68650c57ca1",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:tom-expression-gallery",
+              "story:cast:tom:sad-vulnerable",
+              "cast-standardization:tom"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "elbows tucked around a steaming mug held at chest height in a compact friendly silhouette; left-three-quarter",
+          "angle": "left-three-quarter",
+          "expression": "sad-vulnerable",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:tom-expression-gallery",
+            "story:cast:tom:sad-vulnerable",
+            "cast-standardization:tom"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/tom/tom__surprised-shocked-blond-clean-shaven__right-three-quarter__fullbody__v002.png",
+          "sha256": "bbec6ebbf69c6003a55a26a2c7514f5a716ca59255d24a45c881338aeb2b0893",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:tom-expression-gallery",
+              "story:cast:tom:surprised-shocked",
+              "cast-standardization:tom"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "elbows tucked around a steaming mug held at chest height in a compact friendly silhouette; right-three-quarter",
+          "angle": "right-three-quarter",
+          "expression": "surprised-shocked",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:tom-expression-gallery",
+            "story:cast:tom:surprised-shocked",
+            "cast-standardization:tom"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/tom/tom__thoughtful-blond-clean-shaven__left-three-quarter__fullbody__v002.png",
+          "sha256": "405b3608d7166280eb2b69ef8124873c16beda687bb89f12f746efae34a8b216",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:tom-expression-gallery",
+              "story:cast:tom:thoughtful",
+              "cast-standardization:tom"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "elbows tucked around a steaming mug held at chest height in a compact friendly silhouette; left-three-quarter",
+          "angle": "left-three-quarter",
+          "expression": "thoughtful",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:tom-expression-gallery",
+            "story:cast:tom:thoughtful",
+            "cast-standardization:tom"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
         }
       ],
       "requiredVariants": [
@@ -2792,16 +3015,14 @@
         {
           "angle": "left-three-quarter",
           "expression": "thoughtful",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/tom/tom__thoughtful__left-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/tom/tom__thoughtful-blond-clean-shaven__left-three-quarter__fullbody__v002.png"
         },
         {
           "angle": "left-three-quarter",
           "expression": "determined",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/tom/tom__determined__left-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/tom/tom__determined-blond-clean-shaven__left-three-quarter__fullbody__v002.png"
         },
         {
           "angle": "left-three-quarter",
@@ -2813,16 +3034,14 @@
         {
           "angle": "left-three-quarter",
           "expression": "sad-vulnerable",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/tom/tom__sad-vulnerable__left-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/tom/tom__sad-vulnerable-blond-clean-shaven__left-three-quarter__fullbody__v002.png"
         },
         {
           "angle": "front-near-front",
           "expression": "neutral",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/tom/tom__neutral__front-near-front__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/tom/tom__neutral-blond-clean-shaven__front-near-front__fullbody__v002.png"
         },
         {
           "angle": "front-near-front",
@@ -2834,9 +3053,8 @@
         {
           "angle": "front-near-front",
           "expression": "happy",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/tom/tom__happy__front-near-front__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/tom/tom__happy-blond-clean-shaven__front-near-front__fullbody__v002.png"
         },
         {
           "angle": "front-near-front",
@@ -2876,9 +3094,8 @@
         {
           "angle": "right-three-quarter",
           "expression": "encouraging-listening",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/tom/tom__encouraging-listening__right-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/tom/tom__encouraging-listening-blond-clean-shaven__right-three-quarter__fullbody__v002.png"
         },
         {
           "angle": "right-three-quarter",
@@ -2904,9 +3121,8 @@
         {
           "angle": "right-three-quarter",
           "expression": "surprised-shocked",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/tom/tom__surprised-shocked__right-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/tom/tom__surprised-shocked-blond-clean-shaven__right-three-quarter__fullbody__v002.png"
         },
         {
           "angle": "right-three-quarter",
@@ -2940,38 +3156,10 @@
         },
         {
           "angle": "left-three-quarter",
-          "expression": "thoughtful",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/tom/tom__thoughtful__left-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "left-three-quarter",
-          "expression": "determined",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/tom/tom__determined__left-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "left-three-quarter",
           "expression": "surprised-shocked",
           "status": "missing",
           "path": null,
           "plannedPath": "/academy/art/characters/tom/tom__surprised-shocked__left-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "left-three-quarter",
-          "expression": "sad-vulnerable",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/tom/tom__sad-vulnerable__left-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "front-near-front",
-          "expression": "neutral",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/tom/tom__neutral__front-near-front__halfbody__v001.png"
         },
         {
           "angle": "front-near-front",
@@ -2979,13 +3167,6 @@
           "status": "missing",
           "path": null,
           "plannedPath": "/academy/art/characters/tom/tom__encouraging-listening__front-near-front__halfbody__v001.png"
-        },
-        {
-          "angle": "front-near-front",
-          "expression": "happy",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/tom/tom__happy__front-near-front__halfbody__v001.png"
         },
         {
           "angle": "front-near-front",
@@ -3024,13 +3205,6 @@
         },
         {
           "angle": "right-three-quarter",
-          "expression": "encouraging-listening",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/tom/tom__encouraging-listening__right-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "right-three-quarter",
           "expression": "happy",
           "status": "missing",
           "path": null,
@@ -3049,13 +3223,6 @@
           "status": "missing",
           "path": null,
           "plannedPath": "/academy/art/characters/tom/tom__determined__right-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "right-three-quarter",
-          "expression": "surprised-shocked",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/tom/tom__surprised-shocked__right-three-quarter__halfbody__v001.png"
         },
         {
           "angle": "right-three-quarter",

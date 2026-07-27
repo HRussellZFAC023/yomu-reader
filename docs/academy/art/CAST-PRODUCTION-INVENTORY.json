@@ -29,10 +29,10 @@
     "cast": 30,
     "requiredPerformancesPerCast": 7,
     "requiredSlots": 210,
-    "integratedSlots": 53,
-    "missingSlots": 157,
+    "integratedSlots": 60,
+    "missingSlots": 150,
     "ownerCorrectionQueue": 66,
-    "storyCriticalQueue": 56,
+    "storyCriticalQueue": 49,
     "rosterCompletionQueue": 35
   },
   "cast": [
@@ -446,65 +446,97 @@
       "priority": "story-critical",
       "summary": {
         "required": 7,
-        "integrated": 0,
-        "missing": 7
+        "integrated": 7,
+        "missing": 0
       },
       "performances": [
         {
           "expression": "neutral",
           "preferredAngle": "front-near-front",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.tom.neutral-blond-clean-shaven-front-near-front-fullbody-v002",
+          "assetPath": "/academy/art/characters/tom/tom__neutral-blond-clean-shaven__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:tom",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "story:cast:tom",
+            "cast-standardization:tom"
+          ]
         },
         {
           "expression": "encouraging-listening",
           "preferredAngle": "right-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.tom.encouraging-listening-blond-clean-shaven-right-three-quarter-fullbody-v002",
+          "assetPath": "/academy/art/characters/tom/tom__encouraging-listening-blond-clean-shaven__right-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:tom-expression-gallery",
+            "story:cast:tom:encouraging-listening",
+            "cast-standardization:tom"
+          ]
         },
         {
           "expression": "happy",
           "preferredAngle": "front-near-front",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.tom.happy-blond-clean-shaven-front-near-front-fullbody-v002",
+          "assetPath": "/academy/art/characters/tom/tom__happy-blond-clean-shaven__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:tom-expression-gallery",
+            "story:cast:tom:happy",
+            "cast-standardization:tom"
+          ]
         },
         {
           "expression": "thoughtful",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.tom.thoughtful-blond-clean-shaven-left-three-quarter-fullbody-v002",
+          "assetPath": "/academy/art/characters/tom/tom__thoughtful-blond-clean-shaven__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:tom-expression-gallery",
+            "story:cast:tom:thoughtful",
+            "cast-standardization:tom"
+          ]
         },
         {
           "expression": "determined",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.tom.determined-blond-clean-shaven-left-three-quarter-fullbody-v002",
+          "assetPath": "/academy/art/characters/tom/tom__determined-blond-clean-shaven__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:tom-expression-gallery",
+            "story:cast:tom:determined",
+            "cast-standardization:tom"
+          ]
         },
         {
           "expression": "surprised-shocked",
           "preferredAngle": "right-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.tom.surprised-shocked-blond-clean-shaven-right-three-quarter-fullbody-v002",
+          "assetPath": "/academy/art/characters/tom/tom__surprised-shocked-blond-clean-shaven__right-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:tom-expression-gallery",
+            "story:cast:tom:surprised-shocked",
+            "cast-standardization:tom"
+          ]
         },
         {
           "expression": "sad-vulnerable",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.tom.sad-vulnerable-blond-clean-shaven-left-three-quarter-fullbody-v002",
+          "assetPath": "/academy/art/characters/tom/tom__sad-vulnerable-blond-clean-shaven__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:tom-expression-gallery",
+            "story:cast:tom:sad-vulnerable",
+            "cast-standardization:tom"
+          ]
         }
       ]
     },
@@ -3107,211 +3139,6 @@
       "runtimeHomes": [
         "journal:alex-expression-gallery",
         "story:cast:alex:sad-vulnerable"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "tom:neutral",
-      "castId": "tom",
-      "displayName": "Tom",
-      "identityKey": "tom-blond-fuller-clean-shaven",
-      "expression": "neutral",
-      "angle": "front-near-front",
-      "priority": "story-critical",
-      "storyLines": 16,
-      "visualLock": "White man with clearly blond hair, a fuller friendly face, and no beard.",
-      "wardrobeLock": "Relaxed casual layers with subtle game-fan detail only when story-backed.",
-      "reject": [
-        "dark hair",
-        "beard",
-        "photographic face",
-        "narrow angular face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:tom",
-        "class:people",
-        "lesson-overview:roster",
-        "story:cast:tom"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "tom:encouraging-listening",
-      "castId": "tom",
-      "displayName": "Tom",
-      "identityKey": "tom-blond-fuller-clean-shaven",
-      "expression": "encouraging-listening",
-      "angle": "right-three-quarter",
-      "priority": "story-critical",
-      "storyLines": 16,
-      "visualLock": "White man with clearly blond hair, a fuller friendly face, and no beard.",
-      "wardrobeLock": "Relaxed casual layers with subtle game-fan detail only when story-backed.",
-      "reject": [
-        "dark hair",
-        "beard",
-        "photographic face",
-        "narrow angular face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:tom-expression-gallery",
-        "story:cast:tom:encouraging-listening"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "tom:happy",
-      "castId": "tom",
-      "displayName": "Tom",
-      "identityKey": "tom-blond-fuller-clean-shaven",
-      "expression": "happy",
-      "angle": "front-near-front",
-      "priority": "story-critical",
-      "storyLines": 16,
-      "visualLock": "White man with clearly blond hair, a fuller friendly face, and no beard.",
-      "wardrobeLock": "Relaxed casual layers with subtle game-fan detail only when story-backed.",
-      "reject": [
-        "dark hair",
-        "beard",
-        "photographic face",
-        "narrow angular face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:tom-expression-gallery",
-        "story:cast:tom:happy"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "tom:thoughtful",
-      "castId": "tom",
-      "displayName": "Tom",
-      "identityKey": "tom-blond-fuller-clean-shaven",
-      "expression": "thoughtful",
-      "angle": "left-three-quarter",
-      "priority": "story-critical",
-      "storyLines": 16,
-      "visualLock": "White man with clearly blond hair, a fuller friendly face, and no beard.",
-      "wardrobeLock": "Relaxed casual layers with subtle game-fan detail only when story-backed.",
-      "reject": [
-        "dark hair",
-        "beard",
-        "photographic face",
-        "narrow angular face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:tom-expression-gallery",
-        "story:cast:tom:thoughtful"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "tom:determined",
-      "castId": "tom",
-      "displayName": "Tom",
-      "identityKey": "tom-blond-fuller-clean-shaven",
-      "expression": "determined",
-      "angle": "left-three-quarter",
-      "priority": "story-critical",
-      "storyLines": 16,
-      "visualLock": "White man with clearly blond hair, a fuller friendly face, and no beard.",
-      "wardrobeLock": "Relaxed casual layers with subtle game-fan detail only when story-backed.",
-      "reject": [
-        "dark hair",
-        "beard",
-        "photographic face",
-        "narrow angular face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:tom-expression-gallery",
-        "story:cast:tom:determined"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "tom:surprised-shocked",
-      "castId": "tom",
-      "displayName": "Tom",
-      "identityKey": "tom-blond-fuller-clean-shaven",
-      "expression": "surprised-shocked",
-      "angle": "right-three-quarter",
-      "priority": "story-critical",
-      "storyLines": 16,
-      "visualLock": "White man with clearly blond hair, a fuller friendly face, and no beard.",
-      "wardrobeLock": "Relaxed casual layers with subtle game-fan detail only when story-backed.",
-      "reject": [
-        "dark hair",
-        "beard",
-        "photographic face",
-        "narrow angular face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:tom-expression-gallery",
-        "story:cast:tom:surprised-shocked"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "tom:sad-vulnerable",
-      "castId": "tom",
-      "displayName": "Tom",
-      "identityKey": "tom-blond-fuller-clean-shaven",
-      "expression": "sad-vulnerable",
-      "angle": "left-three-quarter",
-      "priority": "story-critical",
-      "storyLines": 16,
-      "visualLock": "White man with clearly blond hair, a fuller friendly face, and no beard.",
-      "wardrobeLock": "Relaxed casual layers with subtle game-fan detail only when story-backed.",
-      "reject": [
-        "dark hair",
-        "beard",
-        "photographic face",
-        "narrow angular face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:tom-expression-gallery",
-        "story:cast:tom:sad-vulnerable"
       ],
       "status": "queued"
     },

@@ -134,11 +134,12 @@ describe('Academy cast-wide sprite migration inventory', () => {
         }
     });
 
-    it('registers the canonical Sophie, Henry, and Jenny performance families', () => {
+    it('registers the canonical Sophie, Henry, Jenny, and Tom performance families', () => {
         for (const [castId, version] of [
             ['sophie', 'v004'],
             ['henry', 'v002'],
             ['jenny', 'v003'],
+            ['tom', 'v002'],
         ] as const) {
             const character = inventory.characters.find(candidate => candidate.id === castId)!;
 

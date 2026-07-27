@@ -1,0 +1,101 @@
+{
+  "promotions": [
+    {
+      "castId": "tom",
+      "archiveLabel": "identity-and-style-superseded-20260727",
+      "replaceExpressions": [
+        "neutral",
+        "encouraging-listening",
+        "happy",
+        "thoughtful",
+        "determined",
+        "surprised-shocked",
+        "sad-vulnerable"
+      ],
+      "canonicalNeutralAssetId": "character.tom.neutral-blond-clean-shaven-front-near-front-fullbody-v002",
+      "slots": [
+        {
+          "assetId": "character.tom.neutral-blond-clean-shaven-front-near-front-fullbody-v002",
+          "expression": "neutral",
+          "angle": "front-near-front",
+          "assetPath": "/academy/art/characters/tom/tom__neutral-blond-clean-shaven__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:tom",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "story:cast:tom",
+            "cast-standardization:tom"
+          ]
+        },
+        {
+          "assetId": "character.tom.encouraging-listening-blond-clean-shaven-right-three-quarter-fullbody-v002",
+          "expression": "encouraging-listening",
+          "angle": "right-three-quarter",
+          "assetPath": "/academy/art/characters/tom/tom__encouraging-listening-blond-clean-shaven__right-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:tom-expression-gallery",
+            "story:cast:tom:encouraging-listening",
+            "cast-standardization:tom"
+          ]
+        },
+        {
+          "assetId": "character.tom.happy-blond-clean-shaven-front-near-front-fullbody-v002",
+          "expression": "happy",
+          "angle": "front-near-front",
+          "assetPath": "/academy/art/characters/tom/tom__happy-blond-clean-shaven__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:tom-expression-gallery",
+            "story:cast:tom:happy",
+            "cast-standardization:tom"
+          ]
+        },
+        {
+          "assetId": "character.tom.thoughtful-blond-clean-shaven-left-three-quarter-fullbody-v002",
+          "expression": "thoughtful",
+          "angle": "left-three-quarter",
+          "assetPath": "/academy/art/characters/tom/tom__thoughtful-blond-clean-shaven__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:tom-expression-gallery",
+            "story:cast:tom:thoughtful",
+            "cast-standardization:tom"
+          ]
+        },
+        {
+          "assetId": "character.tom.determined-blond-clean-shaven-left-three-quarter-fullbody-v002",
+          "expression": "determined",
+          "angle": "left-three-quarter",
+          "assetPath": "/academy/art/characters/tom/tom__determined-blond-clean-shaven__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:tom-expression-gallery",
+            "story:cast:tom:determined",
+            "cast-standardization:tom"
+          ]
+        },
+        {
+          "assetId": "character.tom.surprised-shocked-blond-clean-shaven-right-three-quarter-fullbody-v002",
+          "expression": "surprised-shocked",
+          "angle": "right-three-quarter",
+          "assetPath": "/academy/art/characters/tom/tom__surprised-shocked-blond-clean-shaven__right-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:tom-expression-gallery",
+            "story:cast:tom:surprised-shocked",
+            "cast-standardization:tom"
+          ]
+        },
+        {
+          "assetId": "character.tom.sad-vulnerable-blond-clean-shaven-left-three-quarter-fullbody-v002",
+          "expression": "sad-vulnerable",
+          "angle": "left-three-quarter",
+          "assetPath": "/academy/art/characters/tom/tom__sad-vulnerable-blond-clean-shaven__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:tom-expression-gallery",
+            "story:cast:tom:sad-vulnerable",
+            "cast-standardization:tom"
+          ]
+        }
+      ]
+    }
+  ]
+}

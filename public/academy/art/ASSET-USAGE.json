@@ -18,8 +18,8 @@
     ]
   },
   "counts": {
-    "runtimeAssetHomes": 190,
-    "runtimeFiles": 245,
+    "runtimeAssetHomes": 195,
+    "runtimeFiles": 250,
     "nonRuntimeReviewFiles": 1734,
     "approvedReferenceOnly": 4,
     "explicitlyRejectedFamilies": 4,
@@ -3112,74 +3112,6 @@
         {
           "path": "/academy/art/characters/tawapon/tawapon__standardized-neutral__front-near-front__halfbody__v001.png",
           "sha256": "7ccf2d30ca96bf35be6f83228349db668fa84635aa2fba581ff64c5f6d26d166"
-        }
-      ],
-      "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-    },
-    {
-      "id": "character-tom-standardized-encouraging-listening-front-near-front-halfbody-v001",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "07acb705682bba28f19195627e6f8cabcad6265745029ea4e08520ee9256bdab",
-      "provenance": "regenerated-standardized",
-      "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": [
-        "journal:tom-expression-gallery",
-        "cast-standardization:tom"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "learner-journal-preview"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:tom-expression-gallery",
-          "cast-standardization:tom"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/tom/tom__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
-          "sha256": "07acb705682bba28f19195627e6f8cabcad6265745029ea4e08520ee9256bdab"
-        }
-      ],
-      "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-    },
-    {
-      "id": "character-tom-standardized-neutral-front-near-front-halfbody-v001",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "4c07477b95ec6901e8b0714781d9e71636fa4f6527d0959172a5372c7f84b22b",
-      "provenance": "regenerated-standardized",
-      "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": [
-        "journal:tom",
-        "class:people-review",
-        "lesson-overview:roster-review",
-        "cast-standardization:tom"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "learner-journal-preview"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:tom",
-          "class:people-review",
-          "lesson-overview:roster-review",
-          "cast-standardization:tom"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/tom/tom__standardized-neutral__front-near-front__halfbody__v001.png",
-          "sha256": "4c07477b95ec6901e8b0714781d9e71636fa4f6527d0959172a5372c7f84b22b"
         }
       ],
       "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
@@ -12970,6 +12902,252 @@
         {
           "path": "/academy/art/characters/jenny/jenny__sad-vulnerable-round-face-brown-hair__left-three-quarter__fullbody__v003.png",
           "sha256": "f855311cd1ce97fe70b65fd3044be87f738b2b2a7ffa0ef4a63e80e7bda4c226"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-tom-neutral-blond-clean-shaven-front-near-front-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "fc04acbf86b58373d89ed2a7117f736151856fac46cd9604a96a91ffc2fd755b",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:tom",
+        "class:people",
+        "class:week-cast",
+        "lesson-overview:roster",
+        "world:person",
+        "story:cast:tom",
+        "cast-standardization:tom"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:tom",
+          "class:people",
+          "class:week-cast",
+          "lesson-overview:roster",
+          "world:person",
+          "story:cast:tom",
+          "cast-standardization:tom"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/tom/tom__neutral-blond-clean-shaven__front-near-front__fullbody__v002.png",
+          "sha256": "fc04acbf86b58373d89ed2a7117f736151856fac46cd9604a96a91ffc2fd755b"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-tom-encouraging-listening-blond-clean-shaven-right-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "822143e9245217c28292d2696958266059d810c5ae68c672418cc7752e1a8980",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:tom-expression-gallery",
+        "story:cast:tom:encouraging-listening",
+        "cast-standardization:tom"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:tom-expression-gallery",
+          "story:cast:tom:encouraging-listening",
+          "cast-standardization:tom"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/tom/tom__encouraging-listening-blond-clean-shaven__right-three-quarter__fullbody__v002.png",
+          "sha256": "822143e9245217c28292d2696958266059d810c5ae68c672418cc7752e1a8980"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-tom-happy-blond-clean-shaven-front-near-front-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "cc5b6a544ddabf4aef43dfda46e9fc5fb75ac475e46d9fc679e5488dcc99020a",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:tom-expression-gallery",
+        "story:cast:tom:happy",
+        "cast-standardization:tom"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:tom-expression-gallery",
+          "story:cast:tom:happy",
+          "cast-standardization:tom"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/tom/tom__happy-blond-clean-shaven__front-near-front__fullbody__v002.png",
+          "sha256": "cc5b6a544ddabf4aef43dfda46e9fc5fb75ac475e46d9fc679e5488dcc99020a"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-tom-thoughtful-blond-clean-shaven-left-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "405b3608d7166280eb2b69ef8124873c16beda687bb89f12f746efae34a8b216",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:tom-expression-gallery",
+        "story:cast:tom:thoughtful",
+        "cast-standardization:tom"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:tom-expression-gallery",
+          "story:cast:tom:thoughtful",
+          "cast-standardization:tom"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/tom/tom__thoughtful-blond-clean-shaven__left-three-quarter__fullbody__v002.png",
+          "sha256": "405b3608d7166280eb2b69ef8124873c16beda687bb89f12f746efae34a8b216"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-tom-determined-blond-clean-shaven-left-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "e7484e1f46b9881913a534c809516ae89fa5337a27c3695b4f153ab1473cd85e",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:tom-expression-gallery",
+        "story:cast:tom:determined",
+        "cast-standardization:tom"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:tom-expression-gallery",
+          "story:cast:tom:determined",
+          "cast-standardization:tom"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/tom/tom__determined-blond-clean-shaven__left-three-quarter__fullbody__v002.png",
+          "sha256": "e7484e1f46b9881913a534c809516ae89fa5337a27c3695b4f153ab1473cd85e"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-tom-surprised-shocked-blond-clean-shaven-right-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "bbec6ebbf69c6003a55a26a2c7514f5a716ca59255d24a45c881338aeb2b0893",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:tom-expression-gallery",
+        "story:cast:tom:surprised-shocked",
+        "cast-standardization:tom"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:tom-expression-gallery",
+          "story:cast:tom:surprised-shocked",
+          "cast-standardization:tom"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/tom/tom__surprised-shocked-blond-clean-shaven__right-three-quarter__fullbody__v002.png",
+          "sha256": "bbec6ebbf69c6003a55a26a2c7514f5a716ca59255d24a45c881338aeb2b0893"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-tom-sad-vulnerable-blond-clean-shaven-left-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "12821158601f06b7666eb1b84a272cb908724b2626508403ae8df68650c57ca1",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:tom-expression-gallery",
+        "story:cast:tom:sad-vulnerable",
+        "cast-standardization:tom"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:tom-expression-gallery",
+          "story:cast:tom:sad-vulnerable",
+          "cast-standardization:tom"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/tom/tom__sad-vulnerable-blond-clean-shaven__left-three-quarter__fullbody__v002.png",
+          "sha256": "12821158601f06b7666eb1b84a272cb908724b2626508403ae8df68650c57ca1"
         }
       ],
       "status": "identity-locked, visually inspected, runtime-bound house-style sprite"

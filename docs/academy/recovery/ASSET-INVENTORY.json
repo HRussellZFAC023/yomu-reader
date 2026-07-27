@@ -19,9 +19,9 @@
     "deletion": "This audit never deletes, moves, or mutates Academy raster files."
   },
   "counts": {
-    "currentRasterFiles": 298,
-    "currentRasterFilesAccountedFor": 298,
-    "active": 245,
+    "currentRasterFiles": 303,
+    "currentRasterFilesAccountedFor": 303,
+    "active": 250,
     "orphaned": 53,
     "deprecated": 10,
     "deprecatedPresent": 0,
@@ -32,7 +32,7 @@
     "deliveredMatrixExpressionVariants": 70,
     "offMatrixDeliveredSprites": 47,
     "activeByKind": {
-      "character-sprite": 117,
+      "character-sprite": 122,
       "protagonist-portrait": 4,
       "scene-background": 68,
       "scene-event": 48,
@@ -2328,48 +2328,162 @@
         "ledgerStatus": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
       },
       {
-        "id": "character-tom-standardized-encouraging-listening-front-near-front-halfbody-v001",
-        "path": "/academy/art/characters/tom/tom__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
-        "sha256": "07acb705682bba28f19195627e6f8cabcad6265745029ea4e08520ee9256bdab",
-        "ledgerSha256": "07acb705682bba28f19195627e6f8cabcad6265745029ea4e08520ee9256bdab",
+        "id": "character-tom-determined-blond-clean-shaven-left-three-quarter-fullbody-v002",
+        "path": "/academy/art/characters/tom/tom__determined-blond-clean-shaven__left-three-quarter__fullbody__v002.png",
+        "sha256": "e7484e1f46b9881913a534c809516ae89fa5337a27c3695b4f153ab1473cd85e",
+        "ledgerSha256": "e7484e1f46b9881913a534c809516ae89fa5337a27c3695b4f153ab1473cd85e",
         "kind": "character-sprite",
         "state": "active",
         "present": true,
         "runtimeAuthorized": true,
         "runtimeHomes": [
           "journal:tom-expression-gallery",
+          "story:cast:tom:determined",
           "cast-standardization:tom"
         ],
         "reviewHomes": [
           "cast-standardization-manifest",
-          "learner-journal-preview"
+          "identity-lock"
         ],
         "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "review-candidate/runtime-preview",
-        "ledgerStatus": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
       },
       {
-        "id": "character-tom-standardized-neutral-front-near-front-halfbody-v001",
-        "path": "/academy/art/characters/tom/tom__standardized-neutral__front-near-front__halfbody__v001.png",
-        "sha256": "4c07477b95ec6901e8b0714781d9e71636fa4f6527d0959172a5372c7f84b22b",
-        "ledgerSha256": "4c07477b95ec6901e8b0714781d9e71636fa4f6527d0959172a5372c7f84b22b",
+        "id": "character-tom-encouraging-listening-blond-clean-shaven-right-three-quarter-fullbody-v002",
+        "path": "/academy/art/characters/tom/tom__encouraging-listening-blond-clean-shaven__right-three-quarter__fullbody__v002.png",
+        "sha256": "822143e9245217c28292d2696958266059d810c5ae68c672418cc7752e1a8980",
+        "ledgerSha256": "822143e9245217c28292d2696958266059d810c5ae68c672418cc7752e1a8980",
+        "kind": "character-sprite",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "journal:tom-expression-gallery",
+          "story:cast:tom:encouraging-listening",
+          "cast-standardization:tom"
+        ],
+        "reviewHomes": [
+          "cast-standardization-manifest",
+          "identity-lock"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
+      },
+      {
+        "id": "character-tom-happy-blond-clean-shaven-front-near-front-fullbody-v002",
+        "path": "/academy/art/characters/tom/tom__happy-blond-clean-shaven__front-near-front__fullbody__v002.png",
+        "sha256": "cc5b6a544ddabf4aef43dfda46e9fc5fb75ac475e46d9fc679e5488dcc99020a",
+        "ledgerSha256": "cc5b6a544ddabf4aef43dfda46e9fc5fb75ac475e46d9fc679e5488dcc99020a",
+        "kind": "character-sprite",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "journal:tom-expression-gallery",
+          "story:cast:tom:happy",
+          "cast-standardization:tom"
+        ],
+        "reviewHomes": [
+          "cast-standardization-manifest",
+          "identity-lock"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
+      },
+      {
+        "id": "character-tom-neutral-blond-clean-shaven-front-near-front-fullbody-v002",
+        "path": "/academy/art/characters/tom/tom__neutral-blond-clean-shaven__front-near-front__fullbody__v002.png",
+        "sha256": "fc04acbf86b58373d89ed2a7117f736151856fac46cd9604a96a91ffc2fd755b",
+        "ledgerSha256": "fc04acbf86b58373d89ed2a7117f736151856fac46cd9604a96a91ffc2fd755b",
         "kind": "character-sprite",
         "state": "active",
         "present": true,
         "runtimeAuthorized": true,
         "runtimeHomes": [
           "journal:tom",
-          "class:people-review",
-          "lesson-overview:roster-review",
+          "class:people",
+          "class:week-cast",
+          "lesson-overview:roster",
+          "world:person",
+          "story:cast:tom",
           "cast-standardization:tom"
         ],
         "reviewHomes": [
           "cast-standardization-manifest",
-          "learner-journal-preview"
+          "identity-lock"
         ],
         "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "review-candidate/runtime-preview",
-        "ledgerStatus": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
+      },
+      {
+        "id": "character-tom-sad-vulnerable-blond-clean-shaven-left-three-quarter-fullbody-v002",
+        "path": "/academy/art/characters/tom/tom__sad-vulnerable-blond-clean-shaven__left-three-quarter__fullbody__v002.png",
+        "sha256": "12821158601f06b7666eb1b84a272cb908724b2626508403ae8df68650c57ca1",
+        "ledgerSha256": "12821158601f06b7666eb1b84a272cb908724b2626508403ae8df68650c57ca1",
+        "kind": "character-sprite",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "journal:tom-expression-gallery",
+          "story:cast:tom:sad-vulnerable",
+          "cast-standardization:tom"
+        ],
+        "reviewHomes": [
+          "cast-standardization-manifest",
+          "identity-lock"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
+      },
+      {
+        "id": "character-tom-surprised-shocked-blond-clean-shaven-right-three-quarter-fullbody-v002",
+        "path": "/academy/art/characters/tom/tom__surprised-shocked-blond-clean-shaven__right-three-quarter__fullbody__v002.png",
+        "sha256": "bbec6ebbf69c6003a55a26a2c7514f5a716ca59255d24a45c881338aeb2b0893",
+        "ledgerSha256": "bbec6ebbf69c6003a55a26a2c7514f5a716ca59255d24a45c881338aeb2b0893",
+        "kind": "character-sprite",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "journal:tom-expression-gallery",
+          "story:cast:tom:surprised-shocked",
+          "cast-standardization:tom"
+        ],
+        "reviewHomes": [
+          "cast-standardization-manifest",
+          "identity-lock"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
+      },
+      {
+        "id": "character-tom-thoughtful-blond-clean-shaven-left-three-quarter-fullbody-v002",
+        "path": "/academy/art/characters/tom/tom__thoughtful-blond-clean-shaven__left-three-quarter__fullbody__v002.png",
+        "sha256": "405b3608d7166280eb2b69ef8124873c16beda687bb89f12f746efae34a8b216",
+        "ledgerSha256": "405b3608d7166280eb2b69ef8124873c16beda687bb89f12f746efae34a8b216",
+        "kind": "character-sprite",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "journal:tom-expression-gallery",
+          "story:cast:tom:thoughtful",
+          "cast-standardization:tom"
+        ],
+        "reviewHomes": [
+          "cast-standardization-manifest",
+          "identity-lock"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
       },
       {
         "id": "character-tom2-encouraging-front",
@@ -6422,7 +6536,7 @@
         "character": "tom",
         "path": "/academy/art/characters/tom/tom__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
         "sha256": "07acb705682bba28f19195627e6f8cabcad6265745029ea4e08520ee9256bdab",
-        "currentState": "active",
+        "currentState": "unaccounted",
         "coverageStatus": "off-matrix",
         "migrationStatus": "retained-off-matrix-review-evidence",
         "countsTowardExpressionMatrix": false
@@ -6431,7 +6545,7 @@
         "character": "tom",
         "path": "/academy/art/characters/tom/tom__standardized-neutral__front-near-front__halfbody__v001.png",
         "sha256": "4c07477b95ec6901e8b0714781d9e71636fa4f6527d0959172a5372c7f84b22b",
-        "currentState": "active",
+        "currentState": "unaccounted",
         "coverageStatus": "off-matrix",
         "migrationStatus": "retained-off-matrix-review-evidence",
         "countsTowardExpressionMatrix": false
