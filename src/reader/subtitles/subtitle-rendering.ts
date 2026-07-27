@@ -6,6 +6,7 @@ import {
     type SubtitleCue,
 } from './subtitle-cues';
 import { uiText } from '../app/i18n';
+import { setInnerHtml } from '../dom/html';
 import type { InterfaceLanguage } from '../app/types';
 
 export interface SubtitlePrimaryRenderInput {
@@ -82,26 +83,53 @@ function nextRenderedPrimaryCache(input: SubtitlePrimaryRenderInput, karaokeActi
     return karaokeActive ? { text: input.text, html: '' } : undefined;
 }
 
+export const SUBTITLE_SECONDARY_CLASS = 'jpdb-subtitle-secondary';
 export const SUBTITLE_SECONDARY_BLURRED_CLASS = 'jpdb-subtitle-secondary-blurred';
 export const SUBTITLE_SECONDARY_CLEAR_CLASS = 'jpdb-subtitle-secondary-clear';
+export const TOGGLE_NATIVE_BLUR_ACTION = 'toggle-native-blur';
 
 // The line looks like plain caption text, so learners keep asking how to hide
 // the translation. aria-pressed is the cheap, non-intrusive half of the answer:
 // it makes the line announce as a toggle button that is currently on or off,
 // instead of as an unexplained label, and it costs no new UI copy.
+//
+// The live caption row re-syncs this control on every render tick, and that row
+// is an aria-live region, so rewriting identical attributes there is churn a
+// screen reader can read as fresh news. Every write is skipped when it would
+// not change anything.
 export function syncSubtitleSecondaryBlurState(button: HTMLElement, nativeBlurred: boolean, language: InterfaceLanguage = 'en'): void {
     button.classList.toggle(SUBTITLE_SECONDARY_BLURRED_CLASS, nativeBlurred);
     button.classList.toggle(SUBTITLE_SECONDARY_CLEAR_CLASS, !nativeBlurred);
+    setAttributeIfChanged(button, 'aria-pressed', String(nativeBlurred));
     const label = uiText(language, 'toggleNativeSubtitleBlur');
-    button.setAttribute('title', label);
-    button.setAttribute('aria-label', label);
-    button.setAttribute('aria-pressed', String(nativeBlurred));
+    setAttributeIfChanged(button, 'title', label);
+    setAttributeIfChanged(button, 'aria-label', label);
 }
 
-export function renderSubtitleSecondary(text: string, nativeBlurred: boolean, language: InterfaceLanguage = 'en'): string {
-    const blurClass = nativeBlurred ? SUBTITLE_SECONDARY_BLURRED_CLASS : SUBTITLE_SECONDARY_CLEAR_CLASS;
-    const label = uiText(language, 'toggleNativeSubtitleBlur');
-    return `<button class="jpdb-subtitle-secondary ${blurClass}" type="button" data-action="toggle-native-blur" title="${label}" aria-label="${label}" aria-pressed="${nativeBlurred}">${escapeWithBreaks(text)}</button>`;
+function setAttributeIfChanged(element: HTMLElement, name: string, value: string): void {
+    if (element.getAttribute(name) === value) return;
+    element.setAttribute(name, value);
+}
+
+// The native line is a control a finger presses, so it is built once and then
+// mutated, never re-emitted as markup. A browser only delivers click when the
+// pressed node is still in the document at release; re-creating this button
+// mid-tap silently drops the tap.
+export function createSubtitleSecondaryLine(): HTMLButtonElement {
+    const button = document.createElement('button');
+    button.className = SUBTITLE_SECONDARY_CLASS;
+    button.type = 'button';
+    button.dataset.action = TOGGLE_NATIVE_BLUR_ACTION;
+    return button;
+}
+
+// Caption text carries newlines, so the children are markup rather than a
+// textContent write. Replacing the button's children leaves the button itself
+// under the finger, which is the node hit testing resolves the tap against.
+export function syncSubtitleSecondaryText(button: HTMLElement, text: string): void {
+    if (button.dataset.subtitleSecondaryText === text) return;
+    button.dataset.subtitleSecondaryText = text;
+    setInnerHtml(button, escapeWithBreaks(text));
 }
 
 export function renderSubtitleKaraokeCue(cue: SubtitleCue | undefined, time: number): string {
