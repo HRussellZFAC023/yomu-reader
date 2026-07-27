@@ -198,20 +198,20 @@ export function layoutOcrLineElement(element: HTMLElement, input: OcrLineLayoutI
     if (!Number.isFinite(box.width) || !Number.isFinite(box.height) || box.width <= 0 || box.height <= 0) return null;
     const textElement = element.querySelector<HTMLElement>('.jpdb-ocr-line-text');
     if (!textElement) return null;
+    // Read the readings off the line rather than trusting a flag set when it was built:
+    // furigana can arrive after the first paint (the gaming overlay lets the reader
+    // annotate its lines in place), and a line that grew readings needs the taller top
+    // gutter on the very next fit.
+    const hasFurigana = Boolean(textElement.querySelector('.jpdb-reader-has-furi'));
     const fontSize = ocrFontPx(
         input.text,
         box.width,
         box.height,
         vertical,
         input.fontScale,
-        measureOcrLineExtent(element, input.text, vertical),
+        measureOcrLineExtent(element, textElement, input.text, vertical, hasFurigana),
     );
     element.style.fontSize = `${fontSize}px`;
-    // Read the readings off the line rather than trusting a flag set when it was built:
-    // furigana can arrive after the first paint (the gaming overlay lets the reader
-    // annotate its lines in place), and a line that grew readings needs the taller top
-    // gutter on the very next fit.
-    const hasFurigana = Boolean(textElement.querySelector('.jpdb-reader-has-furi'));
     element.dataset.hasFuri = String(hasFurigana);
     const padding = ocrLinePadding(fontSize, vertical, hasFurigana);
     // The padding has to be on the element before the text is measured: it drives the
@@ -260,19 +260,41 @@ export function layoutOcrOverlayLines(layer: ParentNode, frame: OcrOverlayFrame,
 // with the font, so the source box divided by the measured length gives the size directly.
 const OCR_FIT_MEASURE_PX = 32;
 
-// How long this line of text is in the line's own type. Measured on a throwaway copy of the
-// SOURCE string rather than on the rendered line, because the reader annotates these lines
-// in place: word boxes and readings change what the line measures, and sizing type to its
-// own furigana would shrink a line the moment it was annotated. The copy is laid out inside
-// the line so it inherits the font and the writing mode, is marked as something the reader
-// must not scan, and is unwrapped so a vertical column reports its full length rather than
-// the wrap its previous frame imposed. It never survives the call.
+// How long this line is, along the direction it runs, in the line's own type.
+//
+// The line as the player sees it is the thing to fit, so it is what gets measured: the
+// reader lays a sentence out as inline word boxes, which comes out a few percent wider than
+// the same characters as one plain run, and it is those word boxes that have to cover the
+// source line. It is measured at a fixed reference size with the frame from the previous
+// pass cleared, so the answer never depends on the size or the box the line last had.
+//
+// A VERTICAL column with readings is the exception. Its readings sit in the inline
+// direction and lengthen the column itself, so fitting an annotated column to its own box
+// would shrink it the moment the reader got to it. Those measure a throwaway copy of the
+// source string instead — laid out inside the line so it inherits the font and the writing
+// mode, marked as something the reader must not scan, and never surviving the call.
 //
 // Nothing rendered (a detached layer, a test environment that does not lay text out)
 // measures 0, and ocrFontPx falls back to its em-count estimate.
-function measureOcrLineExtent(line: HTMLElement, text: string, vertical: boolean): OcrTextMeasurement | undefined {
+function measureOcrLineExtent(
+    line: HTMLElement,
+    textElement: HTMLElement,
+    text: string,
+    vertical: boolean,
+    hasFurigana: boolean,
+): OcrTextMeasurement | undefined {
+    line.style.fontSize = `${OCR_FIT_MEASURE_PX}px`;
+    line.style.width = '';
+    line.style.height = '';
+    const measured = vertical && hasFurigana
+        ? measureSourceCopyExtent(line, text, vertical)
+        : axisLength(textElement.getBoundingClientRect(), vertical);
+    return measured > 0 ? { fontSize: OCR_FIT_MEASURE_PX, length: measured } : undefined;
+}
+
+function measureSourceCopyExtent(line: HTMLElement, text: string, vertical: boolean): number {
     const trimmed = text.trim();
-    if (!trimmed) return undefined;
+    if (!trimmed) return 0;
     const probe = line.ownerDocument.createElement('span');
     probe.className = 'jpdb-ocr-line-text';
     probe.textContent = trimmed;
@@ -281,10 +303,13 @@ function measureOcrLineExtent(line: HTMLElement, text: string, vertical: boolean
     probe.style.cssText = 'position:absolute;left:0;top:0;visibility:hidden;pointer-events:none;'
         + `white-space:nowrap;flex-wrap:nowrap;max-width:none;max-height:none;font-size:${OCR_FIT_MEASURE_PX}px`;
     line.append(probe);
-    const rect = probe.getBoundingClientRect();
+    const length = axisLength(probe.getBoundingClientRect(), vertical);
     probe.remove();
-    const length = vertical ? rect.height : rect.width;
-    return length > 0 ? { fontSize: OCR_FIT_MEASURE_PX, length } : undefined;
+    return length;
+}
+
+function axisLength(rect: DOMRect, vertical: boolean): number {
+    return vertical ? rect.height : rect.width;
 }
 
 function applyOcrLinePadding(element: HTMLElement, padding: OcrLinePadding): void {

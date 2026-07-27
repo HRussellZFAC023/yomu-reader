@@ -27,9 +27,15 @@ const WIDE_FRAME: OcrOverlayFrame = { imageLeft: 0, imageTop: 0, imageWidth: 260
 // jsdom does not lay text out, and the sizing this file is about is a MEASUREMENT — so the
 // suite supplies a typesetter rather than a constant. Japanese glyphs advance a full em,
 // which is the whole reason a measured fit can put recognized text back at the size of the
-// text it was read from, so a line of N glyphs at F px is N*F long and F thick. That is
-// enough of a layout engine to make the arithmetic real; scripts/ocr-line-register-smoke.mjs
-// is the same assertion against a real engine painting real type.
+// text it was read from, so a line of N glyphs at F px is N*F long and F thick.
+//
+// Two things about readings are modelled, because the fit turns on both (reader-words-ocr.css):
+//   * a reading is `.jpdb-ocr-furi { position: absolute }`, so it costs the line no length;
+//   * its wrapper is `.jpdb-ocr-ruby { padding-top: 0.5em }`, which in a vertical-rl column
+//     is padding along the INLINE axis and does lengthen the column.
+// That is enough of a layout engine to make the arithmetic real;
+// scripts/ocr-line-register-smoke.mjs is the same assertion against a real engine painting
+// real type, and scripts/gaming-app-smoke.mjs asserts it in the shipped app.
 function installFakeTypesetting(): () => void {
     const descriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'getBoundingClientRect');
     Object.defineProperty(HTMLElement.prototype, 'getBoundingClientRect', {
@@ -39,16 +45,30 @@ function installFakeTypesetting(): () => void {
         writable: true,
         value(this: HTMLElement): DOMRect {
             const fontSize = inheritedFontPx(this);
-            const length = [...(this.textContent ?? '')].length * fontSize;
-            return this.closest<HTMLElement>('.jpdb-ocr-line')?.dataset.vertical === 'true'
-                ? new DOMRect(0, 0, fontSize, length)
-                : new DOMRect(0, 0, length, fontSize);
+            const vertical = this.closest<HTMLElement>('.jpdb-ocr-line')?.dataset.vertical === 'true';
+            const laidOut = this.cloneNode(true) as HTMLElement;
+            laidOut.querySelectorAll('rt, .jpdb-ocr-furi, .jpdb-reader-detached-furi').forEach(node => node.remove());
+            const rubyGutter = vertical ? laidOut.querySelectorAll('.jpdb-ocr-ruby').length * 0.5 : 0;
+            const length = ([...(laidOut.textContent ?? '')].length + rubyGutter) * fontSize;
+            return vertical ? new DOMRect(0, 0, fontSize, length) : new DOMRect(0, 0, length, fontSize);
         },
     });
     return () => {
         if (descriptor) Object.defineProperty(HTMLElement.prototype, 'getBoundingClientRect', descriptor);
         else delete (HTMLElement.prototype as Partial<HTMLElement>).getBoundingClientRect;
     };
+}
+
+// The line as the reader leaves it: the same characters, wrapped word by word, with a
+// reading on the first one. Appending a word instead would be testing a longer sentence.
+function annotateOcrLine(root: ParentNode, text: string): void {
+    const textElement = root.querySelector<HTMLElement>('.jpdb-ocr-line-text');
+    if (!textElement) throw new Error('no OCR line text rendered');
+    const [head = '', ...rest] = [...text];
+    textElement.innerHTML = '<span class="jpdb-reader-word jpdb-reader-has-furi">'
+        + `<span class="jpdb-ocr-ruby"><span class="jpdb-ocr-ruby-base">${head}</span>`
+        + '<span class="jpdb-ocr-furi">みなと</span></span></span>'
+        + `<span class="jpdb-reader-word">${rest.join('')}</span>`;
 }
 
 function inheritedFontPx(element: HTMLElement | null): number {
@@ -181,20 +201,35 @@ describe('Yomu Gaming renders OCR lines with the reader’s overlay geometry', (
         expect(Number.parseFloat(placedGeometry(host).fontSize) / large).toBeCloseTo(1, 1);
     });
 
-    it('does not shrink a line when the reader adds readings to it', () => {
+    it('does not resize a line when the reader annotates it', () => {
         const gaming = sourceLineLayer();
         layoutOverlayOcrLines(gaming, FRAME);
         const bare = placedGeometry(gaming).fontSize;
 
-        // Readings are laid out on top of the line, so an annotated line measures taller and
-        // (word by word) differently wide than the sentence it came from. The fit measures
-        // the SOURCE string for exactly this reason: sizing type to its own furigana would
-        // shrink every line the moment the reader got to it.
-        const text = gaming.querySelector('.jpdb-ocr-line-text');
-        text?.insertAdjacentHTML('beforeend', '<span class="jpdb-reader-word jpdb-reader-has-furi"><ruby>港<rt>みなと</rt></ruby></span>');
+        // A reading is out of flow, so an annotated horizontal line is the same length as
+        // the sentence it came from and must be typeset at the same size. What the fit
+        // follows is the line as the player sees it — the reader's word boxes, not a plain
+        // run of the same characters — because it is those boxes that cover the source line.
+        annotateOcrLine(gaming, SOURCE_TEXT);
         layoutOverlayOcrLines(gaming, FRAME);
 
         expect(placedGeometry(gaming).fontSize).toBe(bare);
+    });
+
+    it('does not shrink a vertical column when the reader adds readings to it', () => {
+        const host = document.createElement('div');
+        const box = { left: 900, top: 40, width: SOURCE_FONT_PX * SOURCE_INK_RATIO, height: [...LINE_TEXT].length * SOURCE_FONT_PX };
+        host.innerHTML = overlayOcrLayerHtml([{ text: LINE_TEXT, box, vertical: true }], FRAME);
+        layoutOverlayOcrLines(host, FRAME);
+        const bare = placedGeometry(host).fontSize;
+
+        // A vertical reading sits in the column's own inline direction and lengthens it, so
+        // an annotated column measured against its own box would be squeezed smaller and
+        // smaller. Vertical columns with readings are fitted to a clean copy of the source.
+        annotateOcrLine(host, LINE_TEXT);
+        layoutOverlayOcrLines(host, FRAME);
+
+        expect(placedGeometry(host).fontSize).toBe(bare);
     });
 
     it('moves the whole line with the reader’s image text size setting', () => {
@@ -234,8 +269,7 @@ describe('Yomu Gaming renders OCR lines with the reader’s overlay geometry', (
 
         // The reader annotates the overlay's lines in place, so the readings land after
         // the first paint — the next fit has to notice them.
-        const text = gaming.querySelector('.jpdb-ocr-line-text');
-        text?.insertAdjacentHTML('beforeend', '<span class="jpdb-reader-word jpdb-reader-has-furi"><ruby>港<rt>みなと</rt></ruby></span>');
+        annotateOcrLine(gaming, LINE_TEXT);
         layoutOverlayOcrLines(gaming, FRAME);
         const annotated = placedGeometry(gaming);
 

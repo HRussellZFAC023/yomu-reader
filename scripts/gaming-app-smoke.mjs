@@ -22,6 +22,34 @@ const captureShortcutPath = path.join(userDataDir, 'capture-shortcut-v1.json');
 const ambiguousScanCopyPattern = new RegExp(['Manual scan', 'only'].join(' '), 'i');
 const SMOKE_TIMEOUT_MS = Number(process.env.YOMU_GAMING_SMOKE_TIMEOUT_MS || 90_000);
 
+// The simulated screen: a dark scene with a dialogue box, and a line of "text" painted in
+// it. The line is drawn as one ink block per character on an em pitch, NOT as a stripe.
+// That matters, because the fixture OCR endpoint hands the overlay this line's own ink box
+// and the screenshot is then read as evidence that recognized text lands on the text it
+// came from. A 20-character sentence under a 31:1 stripe could not be in register with
+// anything, and an earlier version of this file went further still: it put the OCR box at
+// capture y 184..314 — over the SKY, 76px above the dialogue box — so the screenshot showed
+// the recognized sentence floating above the scene while the painted lines sat untouched
+// below it, and the only assertion was that the line was wider than 40px.
+const FIXTURE_CAPTURE = { width: 960, height: 540 };
+const FIXTURE_LINE_TEXT = '冒険を始めよう。夜明けまでに港へ行くよ。';
+const FIXTURE_GLYPH_PITCH = 20;
+const FIXTURE_GLYPH_INK = { width: 16, height: 20 };
+const FIXTURE_LINE_ORIGIN = { left: 142, top: 390 };
+const FIXTURE_SECOND_LINE_TOP = 423;
+const FIXTURE_LINE_GLYPHS = [...FIXTURE_LINE_TEXT].length;
+// The ink box of that line, as a provider would draw it, in fixture pixels.
+const FIXTURE_TEXT_BAR = {
+    left: FIXTURE_LINE_ORIGIN.left,
+    top: FIXTURE_LINE_ORIGIN.top,
+    width: (FIXTURE_LINE_GLYPHS - 1) * FIXTURE_GLYPH_PITCH + FIXTURE_GLYPH_INK.width,
+    height: FIXTURE_GLYPH_INK.height,
+};
+// Which part of the capture an OCR request's image covers, as fractions of the capture.
+// Instant capture sends the whole screen; the area drag sends the dialogue box.
+const FULL_CAPTURE_REGION = { left: 0, top: 0, right: 1, bottom: 1 };
+const AREA_CAPTURE_REGION = { left: 0.1, top: 0.55, right: 0.92, bottom: 0.9 };
+
 if (!existsSync(mainPath)) {
     throw new Error('Missing dist-gaming/electron/main.cjs. Run npm run build:gaming first.');
 }
@@ -30,7 +58,7 @@ mkdirSync(path.dirname(screenshotPath), { recursive: true });
 rmSync(userDataDir, { recursive: true, force: true });
 let app;
 let smokePassed = false;
-let fixtureOcr = { requests: [], url: '', close: async () => undefined };
+let fixtureOcr = { requests: [], url: '', setCaptureRegion: () => undefined, close: async () => undefined };
 const watchdog = setTimeout(() => {
     console.error(`[gaming-smoke] Timed out after ${SMOKE_TIMEOUT_MS}ms.`);
     try {
@@ -98,6 +126,7 @@ try {
     }
     await page.screenshot({ path: screenshotPath });
     step('run instant full-screen capture');
+    fixtureOcr.setCaptureRegion(FULL_CAPTURE_REGION);
     await page.locator('.yomu-gaming-controlbar [data-action="instant-capture"]').click();
     const overlay = await waitForOverlayWindow(app, 'instant');
     await overlay.waitForSelector('[data-yomu-gaming-overlay-ready="true"][data-capture-mode="instant"][data-overlay-mode="result"]', { timeout: 10_000 });
@@ -132,14 +161,22 @@ try {
         throw new Error(`Yomu Gaming overlay did not render as an idle minimal overlay: ${JSON.stringify(overlayState)}`);
     }
     await areaOverlay.screenshot({ path: overlayScreenshotPath });
-    step('drag OCR crop over simulated Japanese screen');
-    await dragFixtureDialogueSelection(areaOverlay);
+    step('drag OCR crop over the simulated screen’s dialogue box');
+    fixtureOcr.setCaptureRegion(AREA_CAPTURE_REGION);
+    await dragFixtureDialogueSelection(areaOverlay, AREA_CAPTURE_REGION);
     await areaOverlay.waitForSelector('[data-yomu-gaming-overlay-ready="true"][data-capture-mode="area"][data-overlay-mode="result"]', { timeout: 10_000 });
     await assertInlineOcrResult(areaOverlay, 'area capture');
     const areaRequest = fixtureOcr.requests.at(-1);
     if (!areaRequest) throw new Error('Fixture OCR endpoint did not receive an overlay crop.');
-    if (areaRequest.png.width < 200 || areaRequest.png.height < 80 || areaRequest.png.width >= fullScreenRequest.png.width) {
-        throw new Error(`Area capture crop dimensions were unexpected: ${JSON.stringify(areaRequest.png)}`);
+    // The crop has to be the region that was dragged, or the box the fixture hands back for
+    // it is anchored to ink that is not in the picture and the register check below is
+    // measuring a coincidence.
+    const expectedCrop = {
+        width: Math.round((AREA_CAPTURE_REGION.right - AREA_CAPTURE_REGION.left) * fullScreenRequest.png.width),
+        height: Math.round((AREA_CAPTURE_REGION.bottom - AREA_CAPTURE_REGION.top) * fullScreenRequest.png.height),
+    };
+    if (Math.abs(areaRequest.png.width - expectedCrop.width) > 6 || Math.abs(areaRequest.png.height - expectedCrop.height) > 6) {
+        throw new Error(`Area capture cropped ${JSON.stringify(areaRequest.png)} of the capture, not the dragged ${JSON.stringify(expectedCrop)}.`);
     }
     await areaOverlay.screenshot({ path: areaResultScreenshotPath });
     console.log(`Yomu Gaming smoke screenshots: ${path.relative(appRoot, screenshotPath)}, ${path.relative(appRoot, instantResultScreenshotPath)}, ${path.relative(appRoot, overlayScreenshotPath)}, ${path.relative(appRoot, areaResultScreenshotPath)}`);
@@ -198,8 +235,8 @@ async function renderBrowserFixture() {
 }
 
 function writeGeneratedGameFixturePng(filePath) {
-    const width = 960;
-    const height = 540;
+    const width = FIXTURE_CAPTURE.width;
+    const height = FIXTURE_CAPTURE.height;
     const data = Buffer.alloc((width * 4 + 1) * height);
     for (let y = 0; y < height; y++) {
         const row = y * (width * 4 + 1);
@@ -223,7 +260,7 @@ function writeGeneratedGameFixturePng(filePath) {
                 data[index + 1] = 224;
                 data[index + 2] = 214;
             }
-            if (x > 142 && x < 770 && ((y > 390 && y < 410) || (y > 423 && y < 443))) {
+            if (isFixtureGlyphInk(x, y)) {
                 data[index] = 245;
                 data[index + 1] = 250;
                 data[index + 2] = 255;
@@ -440,6 +477,62 @@ async function assertInlineOcrResult(overlay, label) {
     if (!lineBox || lineBox.width < 40 || lineBox.height < 12) {
         throw new Error(`Yomu Gaming ${label} inline OCR geometry was not visible: ${JSON.stringify(lineBox)}`);
     }
+    await assertOcrLineRegister(overlay, label);
+}
+
+// The point of the whole exercise: the recognized line has to sit ON the text it was read
+// from, at that text's size. The fixture paints its dialogue line at a known place, the
+// fixture endpoint hands back that line's own ink box, and this compares the two on screen.
+// Existence checks passed all the way through a build that typeset the line at 0.53x and
+// left it 22% of the line's width inside its left edge.
+async function assertOcrLineRegister(overlay, label) {
+    const measured = await overlay.evaluate(bar => {
+        const backdrop = document.querySelector('img.overlay-backdrop');
+        const rect = backdrop.getBoundingClientRect();
+        const scale = Math.min(rect.width / backdrop.naturalWidth, rect.height / backdrop.naturalHeight);
+        const width = backdrop.naturalWidth * scale;
+        const height = backdrop.naturalHeight * scale;
+        const pictureLeft = rect.left + (rect.width - width) / 2;
+        const pictureTop = rect.top + (rect.height - height) / 2;
+        const line = document.querySelector('[data-ocr-line]:not([data-vertical="true"])');
+        const text = line.querySelector('.jpdb-ocr-line-text');
+        const rendered = text.getBoundingClientRect();
+        return {
+            source: {
+                left: pictureLeft + bar.left * width,
+                bottom: pictureTop + (bar.top + bar.height) * height,
+                width: bar.width * width,
+                height: bar.height * height,
+            },
+            rendered: { left: rendered.left, bottom: rendered.bottom, width: rendered.width, height: rendered.height },
+            line: {
+                fontPx: Number.parseFloat(getComputedStyle(line).fontSize),
+                boxLeft: Number(line.dataset.boxLeft),
+                boxTop: Number(line.dataset.boxTop),
+                boxWidth: Number(line.dataset.boxWidth),
+                boxHeight: Number(line.dataset.boxHeight),
+                picture: { left: pictureLeft, top: pictureTop, width, height },
+            },
+        };
+    }, {
+        left: FIXTURE_TEXT_BAR.left / FIXTURE_CAPTURE.width,
+        top: FIXTURE_TEXT_BAR.top / FIXTURE_CAPTURE.height,
+        width: FIXTURE_TEXT_BAR.width / FIXTURE_CAPTURE.width,
+        height: FIXTURE_TEXT_BAR.height / FIXTURE_CAPTURE.height,
+    });
+    const { source, rendered } = measured;
+    const report = JSON.stringify(measured);
+    if (Math.abs(rendered.width - source.width) > source.width * 0.08) {
+        throw new Error(`Yomu Gaming ${label} rendered the recognized line at ${(rendered.width / source.width).toFixed(3)}x the width of the text it was read from: ${report}`);
+    }
+    if (Math.abs(rendered.left - source.left) > source.width * 0.05) {
+        throw new Error(`Yomu Gaming ${label} started the recognized line ${Math.round(rendered.left - source.left)}px away from the text it was read from: ${report}`);
+    }
+    // The line rests on its source's baseline; the rendered box is a full em tall against an
+    // ink box, so it may hang a little below.
+    if (rendered.bottom - source.bottom > source.height * 0.5 || source.bottom - rendered.bottom > source.height * 0.25) {
+        throw new Error(`Yomu Gaming ${label} left the recognized line off the baseline of the text it was read from: ${report}`);
+    }
 }
 
 function withTimeout(promise, timeoutMs, label) {
@@ -476,10 +569,34 @@ async function closeElectronApp(app) {
     }
 }
 
-async function dragFixtureDialogueSelection(overlay) {
-    const viewport = await overlay.evaluate(() => ({ width: window.innerWidth, height: window.innerHeight }));
-    const start = { x: Math.round(viewport.width * 0.1), y: Math.round(viewport.height * 0.55) };
-    const end = { x: Math.round(viewport.width * 0.9), y: Math.round(viewport.height * 0.9) };
+// Drag out the given region OF THE CAPTURE, not of the window. The overlay letterboxes the
+// frozen capture inside the overlay window (object-fit: contain) and maps the selection
+// back through that same painted rect, so on any window whose shape differs from the
+// capture's — which is the normal case, and is what this run gets — window fractions and
+// capture fractions are different regions. Dragging window fractions is how the crop ended
+// up covering a part of the screen nobody had chosen.
+async function dragFixtureDialogueSelection(overlay, region) {
+    const picture = await overlay.evaluate(() => {
+        const backdrop = document.querySelector('img.overlay-backdrop');
+        const rect = backdrop.getBoundingClientRect();
+        const scale = Math.min(rect.width / backdrop.naturalWidth, rect.height / backdrop.naturalHeight);
+        const width = backdrop.naturalWidth * scale;
+        const height = backdrop.naturalHeight * scale;
+        return {
+            left: rect.left + (rect.width - width) / 2,
+            top: rect.top + (rect.height - height) / 2,
+            width,
+            height,
+        };
+    });
+    const start = {
+        x: Math.round(picture.left + region.left * picture.width),
+        y: Math.round(picture.top + region.top * picture.height),
+    };
+    const end = {
+        x: Math.round(picture.left + region.right * picture.width),
+        y: Math.round(picture.top + region.bottom * picture.height),
+    };
     await overlay.mouse.move(start.x, start.y);
     await overlay.mouse.down();
     await overlay.mouse.move(end.x, end.y, { steps: 8 });
@@ -496,6 +613,10 @@ function writeHardwareGapNote() {
 
 function startFixtureOcrServer() {
     const requests = [];
+    // A real provider knows where the ink is because it can see it. This one is told:
+    // the smoke declares which part of the capture the next request's image covers, so
+    // the box it hands back is the painted line's own ink box in that image's pixels.
+    let captureRegion = FULL_CAPTURE_REGION;
     const server = createServer(async (request, response) => {
         if (request.method !== 'POST' || request.url !== '/ocr') {
             response.writeHead(404).end();
@@ -513,8 +634,8 @@ function startFixtureOcrServer() {
                 height: png.height,
                 lines: [
                     {
-                        text: '冒険を始めよう。夜明けまでに港へ行くよ。',
-                        box: fixtureOcrLineBox(png),
+                        text: FIXTURE_LINE_TEXT,
+                        box: fixtureOcrLineBox(png, captureRegion),
                     },
                     {
                         // Tall, narrow box -> vertical writing (the manga/VN/JRPG common case the
@@ -541,6 +662,7 @@ function startFixtureOcrServer() {
             }
             resolve({
                 requests,
+                setCaptureRegion: region => { captureRegion = region; },
                 url: `http://127.0.0.1:${address.port}/ocr`,
                 close: () => new Promise((closeResolve, closeReject) => {
                     server.close(error => error ? closeReject(error) : closeResolve());
@@ -550,28 +672,57 @@ function startFixtureOcrServer() {
     });
 }
 
+// A narrow column at the far right of whatever was sent. This one is honestly synthetic:
+// the fixture image paints no vertical text, and a bitmap generator has no business
+// pretending to. It exercises the vertical-rl rendering path, and it is kept clear of the
+// dialogue box in both the full screen and the area crop so it never sits on the
+// horizontal line the register check below measures.
 function fixtureVerticalLineBox(png) {
-    const width = Math.max(24, Math.round(png.width * 0.05));
-    const height = Math.max(96, Math.round(png.height * 0.5));
+    const width = Math.max(24, Math.round(png.width * 0.045));
+    const left = Math.min(Math.max(8, Math.round(png.width * 0.93)), Math.max(8, png.width - width - 4));
+    const top = Math.max(8, Math.round(png.height * 0.05));
     return {
-        left: Math.max(8, Math.round(png.width * 0.86)),
-        top: Math.max(8, Math.round(png.height * 0.08)),
+        left,
+        top,
         width,
-        height: Math.min(height, Math.max(96, png.height - 16)),
+        height: Math.max(48, Math.min(Math.round(png.height * 0.4), png.height - top - 4)),
     };
 }
 
-function fixtureOcrLineBox(png) {
-    const left = Math.max(8, Math.round(png.width * 0.12));
-    const top = Math.max(8, Math.round(png.height * 0.34));
-    const width = Math.max(80, Math.round(png.width * 0.68));
-    const height = Math.max(30, Math.round(png.height * 0.24));
+// The painted line's own ink box, expressed in the pixels of the image that was actually
+// sent — the whole screen for an instant capture, the dragged crop for an area capture.
+function fixtureOcrLineBox(png, region) {
+    return mapFixtureRect(FIXTURE_TEXT_BAR, region, png);
+}
+
+function mapFixtureRect(rect, region, png) {
+    const spanX = Math.max(1e-6, region.right - region.left);
+    const spanY = Math.max(1e-6, region.bottom - region.top);
+    const left = ((rect.left / FIXTURE_CAPTURE.width) - region.left) / spanX * png.width;
+    const top = ((rect.top / FIXTURE_CAPTURE.height) - region.top) / spanY * png.height;
+    const width = (rect.width / FIXTURE_CAPTURE.width) / spanX * png.width;
+    const height = (rect.height / FIXTURE_CAPTURE.height) / spanY * png.height;
     return {
-        left,
-        top: Math.min(top, Math.max(4, png.height - height - 4)),
-        width: Math.min(width, Math.max(40, png.width - left - 8)),
-        height: Math.min(height, Math.max(24, png.height - top - 4)),
+        left: Math.round(Math.max(0, Math.min(left, png.width - 1))),
+        top: Math.round(Math.max(0, Math.min(top, png.height - 1))),
+        width: Math.round(Math.max(1, Math.min(width, png.width - Math.max(0, left)))),
+        height: Math.round(Math.max(1, Math.min(height, png.height - Math.max(0, top)))),
     };
+}
+
+// One ink block per character, on an em pitch, plus a shorter second row so the dialogue
+// box reads as a dialogue box rather than as one floating line.
+function isFixtureGlyphInk(x, y) {
+    const rows = [
+        { top: FIXTURE_LINE_ORIGIN.top, glyphs: FIXTURE_LINE_GLYPHS },
+        { top: FIXTURE_SECOND_LINE_TOP, glyphs: Math.round(FIXTURE_LINE_GLYPHS * 0.6) },
+    ];
+    return rows.some(row => {
+        if (y < row.top || y >= row.top + FIXTURE_GLYPH_INK.height) return false;
+        const offset = x - FIXTURE_LINE_ORIGIN.left;
+        if (offset < 0 || offset >= row.glyphs * FIXTURE_GLYPH_PITCH) return false;
+        return offset % FIXTURE_GLYPH_PITCH < FIXTURE_GLYPH_INK.width;
+    });
 }
 
 function readRequestBody(request) {
