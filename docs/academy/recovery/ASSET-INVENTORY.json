@@ -19,9 +19,9 @@
     "deletion": "This audit never deletes, moves, or mutates Academy raster files."
   },
   "counts": {
-    "currentRasterFiles": 252,
-    "currentRasterFilesAccountedFor": 252,
-    "active": 199,
+    "currentRasterFiles": 256,
+    "currentRasterFilesAccountedFor": 256,
+    "active": 203,
     "orphaned": 53,
     "deprecated": 10,
     "deprecatedPresent": 0,
@@ -35,7 +35,7 @@
       "character-sprite": 109,
       "protagonist-portrait": 4,
       "scene-background": 66,
-      "scene-event": 12,
+      "scene-event": 16,
       "scene-item": 8
     },
     "orphanedByKind": {
@@ -2470,6 +2470,90 @@
         "reviewHomes": [
           "story-art-promotions",
           "cue:covered-atlas-open-chair"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "node-bound, art-directed responsive story event"
+      },
+      {
+        "id": "event-story-blank-atlas-classroom-survival-handout-arrives",
+        "path": "/academy/art/events/blank-atlas-classroom-survival__handout-arrives__mobile__v001.webp",
+        "sha256": "4ac9578070c953892fe06dd8fbf980c59b00695df2ccd30d9bbcd3bcdcc41abc",
+        "ledgerSha256": "4ac9578070c953892fe06dd8fbf980c59b00695df2ccd30d9bbcd3bcdcc41abc",
+        "kind": "scene-event",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "node:blank-atlas:handout-arrives",
+          "scene:blank-atlas:classroom-survival"
+        ],
+        "reviewHomes": [
+          "story-art-promotions",
+          "cue:classroom-handout-on-desk"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "node-bound, art-directed responsive story event"
+      },
+      {
+        "id": "event-story-blank-atlas-classroom-survival-handout-arrives",
+        "path": "/academy/art/events/blank-atlas-classroom-survival__handout-arrives__wide__v001.webp",
+        "sha256": "1d97d01eec14b189106c1598f6eb7845bf998d52c8ee7520cf2363f83c33f0cd",
+        "ledgerSha256": "1d97d01eec14b189106c1598f6eb7845bf998d52c8ee7520cf2363f83c33f0cd",
+        "kind": "scene-event",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "node:blank-atlas:handout-arrives",
+          "scene:blank-atlas:classroom-survival"
+        ],
+        "reviewHomes": [
+          "story-art-promotions",
+          "cue:classroom-handout-on-desk"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "node-bound, art-directed responsive story event"
+      },
+      {
+        "id": "event-story-blank-atlas-classroom-survival-rie-flower-mark",
+        "path": "/academy/art/events/blank-atlas-classroom-survival__rie-flower-mark__mobile__v001.webp",
+        "sha256": "dcc7ffa13c1e3c90bbe979c6679c685fb40b4ae45c9be36357e9f33102251fee",
+        "ledgerSha256": "dcc7ffa13c1e3c90bbe979c6679c685fb40b4ae45c9be36357e9f33102251fee",
+        "kind": "scene-event",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "node:blank-atlas:handout-flower",
+          "scene:blank-atlas:classroom-survival"
+        ],
+        "reviewHomes": [
+          "story-art-promotions",
+          "cue:rie-flower-mark"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "node-bound, art-directed responsive story event"
+      },
+      {
+        "id": "event-story-blank-atlas-classroom-survival-rie-flower-mark",
+        "path": "/academy/art/events/blank-atlas-classroom-survival__rie-flower-mark__wide__v001.webp",
+        "sha256": "cea566c7453ca67a2b7ecacf7e0f4a36dc5d2744103a3ae56aa937f18a624c21",
+        "ledgerSha256": "cea566c7453ca67a2b7ecacf7e0f4a36dc5d2744103a3ae56aa937f18a624c21",
+        "kind": "scene-event",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "node:blank-atlas:handout-flower",
+          "scene:blank-atlas:classroom-survival"
+        ],
+        "reviewHomes": [
+          "story-art-promotions",
+          "cue:rie-flower-mark"
         ],
         "sourceLedger": "public/academy/art/ASSET-USAGE.json",
         "ledgerVerdict": "approved-runtime",

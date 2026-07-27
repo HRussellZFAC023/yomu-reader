@@ -59,6 +59,22 @@ export const ACADEMY_STORY_ART_BY_NODE = {
         "cueId": "cue:rie-flower-mark",
         "wide": "/academy/art/events/blank-atlas-classroom-survival__rie-flower-mark__wide__v001.webp",
         "mobile": "/academy/art/events/blank-atlas-classroom-survival__rie-flower-mark__mobile__v001.webp"
+    },
+    "node:blank-atlas:false-label": {
+        "assetId": "event.story.blank-atlas-sentence-frames.two-room-labels",
+        "sceneId": "scene:blank-atlas:sentence-frames",
+        "nodeId": "node:blank-atlas:false-label",
+        "cueId": "cue:atlas-classroom-library-labels",
+        "wide": "/academy/art/events/blank-atlas-sentence-frames__two-room-labels__wide__v001.webp",
+        "mobile": "/academy/art/events/blank-atlas-sentence-frames__two-room-labels__mobile__v001.webp"
+    },
+    "node:blank-atlas:label-fixed": {
+        "assetId": "event.story.blank-atlas-sentence-frames.classroom-label-fixed",
+        "sceneId": "scene:blank-atlas:sentence-frames",
+        "nodeId": "node:blank-atlas:label-fixed",
+        "cueId": "cue:atlas-classroom-label-fixed",
+        "wide": "/academy/art/events/blank-atlas-sentence-frames__classroom-label-fixed__wide__v001.webp",
+        "mobile": "/academy/art/events/blank-atlas-sentence-frames__classroom-label-fixed__mobile__v001.webp"
     }
 } as const satisfies Readonly<Record<string, AcademyStoryArtBinding>>;
 
@@ -140,6 +156,32 @@ export const ACADEMY_STORY_ART_RUNTIME_ASSETS = {
             "wide": "/academy/art/events/blank-atlas-classroom-survival__rie-flower-mark__wide__v001.webp",
             "mobile": "/academy/art/events/blank-atlas-classroom-survival__rie-flower-mark__mobile__v001.webp"
         }
+    },
+    "event.story.blank-atlas-sentence-frames.two-room-labels": {
+        "kind": "event-art",
+        "status": "approved",
+        "runtimeHomes": [
+            "node:blank-atlas:false-label",
+            "scene:blank-atlas:sentence-frames"
+        ],
+        "provenance": "regenerated-house-style",
+        "files": {
+            "wide": "/academy/art/events/blank-atlas-sentence-frames__two-room-labels__wide__v001.webp",
+            "mobile": "/academy/art/events/blank-atlas-sentence-frames__two-room-labels__mobile__v001.webp"
+        }
+    },
+    "event.story.blank-atlas-sentence-frames.classroom-label-fixed": {
+        "kind": "event-art",
+        "status": "approved",
+        "runtimeHomes": [
+            "node:blank-atlas:label-fixed",
+            "scene:blank-atlas:sentence-frames"
+        ],
+        "provenance": "regenerated-house-style",
+        "files": {
+            "wide": "/academy/art/events/blank-atlas-sentence-frames__classroom-label-fixed__wide__v001.webp",
+            "mobile": "/academy/art/events/blank-atlas-sentence-frames__classroom-label-fixed__mobile__v001.webp"
+        }
     }
 } as const;
 
@@ -167,5 +209,13 @@ export const ACADEMY_STORY_ART_COVERAGE = {
     "event.story.blank-atlas-classroom-survival.rie-flower-mark": {
         "purpose": "story-event",
         "primaryUse": "node:blank-atlas:handout-flower"
+    },
+    "event.story.blank-atlas-sentence-frames.two-room-labels": {
+        "purpose": "story-event",
+        "primaryUse": "node:blank-atlas:false-label"
+    },
+    "event.story.blank-atlas-sentence-frames.classroom-label-fixed": {
+        "purpose": "story-event",
+        "primaryUse": "node:blank-atlas:label-fixed"
     }
 } as const;

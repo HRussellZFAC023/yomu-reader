@@ -46,10 +46,10 @@
     ],
     "castCount": 24,
     "backgroundGaps": 25,
-    "openingImageGaps": 102,
-    "exitImageGaps": 102,
+    "openingImageGaps": 101,
+    "exitImageGaps": 101,
     "propOrOverlayGaps": 81,
-    "generationQueue": 310
+    "generationQueue": 308
   },
   "chapters": [
     {
@@ -296,16 +296,22 @@
           "openingImage": {
             "cueId": "cue:atlas-classroom-library-labels",
             "description": "Two room labels appear. Only one fits.",
-            "status": "missing",
+            "status": "bound",
             "runtimeHome": "scene:blank-atlas:sentence-frames",
-            "candidatePaths": []
+            "candidatePaths": [
+              "/academy/art/events/blank-atlas-sentence-frames__two-room-labels__wide__v001.webp",
+              "/academy/art/events/blank-atlas-sentence-frames__two-room-labels__mobile__v001.webp"
+            ]
           },
           "exitImage": {
             "cueId": "cue:atlas-classroom-label-fixed",
             "description": "A clear door frame settles around the classroom label.",
-            "status": "missing",
+            "status": "bound",
             "runtimeHome": "scene:blank-atlas:sentence-frames",
-            "candidatePaths": []
+            "candidatePaths": [
+              "/academy/art/events/blank-atlas-sentence-frames__classroom-label-fixed__wide__v001.webp",
+              "/academy/art/events/blank-atlas-sentence-frames__classroom-label-fixed__mobile__v001.webp"
+            ]
           },
           "propCues": [
             {
@@ -7657,38 +7663,6 @@
         "rie"
       ],
       "runtimeHome": "scene:blank-atlas:classroom-survival",
-      "status": "queued"
-    },
-    {
-      "priority": "scene-critical",
-      "chapter": 1,
-      "chapterId": "s1e01-the-blank-atlas",
-      "sceneId": "scene:blank-atlas:sentence-frames",
-      "cueId": "cue:atlas-classroom-library-labels",
-      "kind": "opening-image",
-      "brief": "Two room labels appear. Only one fits.",
-      "locationId": "location:classroom",
-      "timeState": "evening",
-      "castIds": [
-        "rie"
-      ],
-      "runtimeHome": "scene:blank-atlas:sentence-frames",
-      "status": "queued"
-    },
-    {
-      "priority": "payoff-critical",
-      "chapter": 1,
-      "chapterId": "s1e01-the-blank-atlas",
-      "sceneId": "scene:blank-atlas:sentence-frames",
-      "cueId": "cue:atlas-classroom-label-fixed",
-      "kind": "exit-image",
-      "brief": "A clear door frame settles around the classroom label.",
-      "locationId": "location:classroom",
-      "timeState": "evening",
-      "castIds": [
-        "rie"
-      ],
-      "runtimeHome": "scene:blank-atlas:sentence-frames",
       "status": "queued"
     },
     {

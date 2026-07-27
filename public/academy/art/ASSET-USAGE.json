@@ -18,8 +18,8 @@
     ]
   },
   "counts": {
-    "runtimeAssetHomes": 165,
-    "runtimeFiles": 203,
+    "runtimeAssetHomes": 167,
+    "runtimeFiles": 207,
     "nonRuntimeReviewFiles": 1734,
     "approvedReferenceOnly": 4,
     "explicitlyRejectedFamilies": 4,
@@ -4163,6 +4163,78 @@
         {
           "path": "/academy/art/events/blank-atlas-classroom-survival__rie-flower-mark__mobile__v001.webp",
           "sha256": "dcc7ffa13c1e3c90bbe979c6679c685fb40b4ae45c9be36357e9f33102251fee"
+        }
+      ],
+      "status": "node-bound, art-directed responsive story event"
+    },
+    {
+      "id": "event-story-blank-atlas-sentence-frames-classroom-label-fixed",
+      "source": "manifest:docs/academy/art/STORY-ART-PROMOTIONS.json",
+      "sourceSha256": "9a052fc90f6186fdffd4d899f0f849e710ec7217c8c7b1575b23209df26f39ba",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "node:blank-atlas:label-fixed",
+        "scene:blank-atlas:sentence-frames"
+      ],
+      "reviewHome": [
+        "story-art-promotions",
+        "cue:atlas-classroom-label-fixed"
+      ],
+      "usage": {
+        "runtime": [
+          "node:blank-atlas:label-fixed",
+          "scene:blank-atlas:sentence-frames"
+        ],
+        "review": [
+          "story-art-promotions"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/events/blank-atlas-sentence-frames__classroom-label-fixed__wide__v001.webp",
+          "sha256": "fcbc5ac37d5e2c63cb4e632c83b12b9de3b2d2d9643837f5732f4328c6b3e89d"
+        },
+        {
+          "path": "/academy/art/events/blank-atlas-sentence-frames__classroom-label-fixed__mobile__v001.webp",
+          "sha256": "bd73fdfa0271fd4da9e2d98bcd3e74fd2ac351260fe7e702b6b0ba633784cce8"
+        }
+      ],
+      "status": "node-bound, art-directed responsive story event"
+    },
+    {
+      "id": "event-story-blank-atlas-sentence-frames-two-room-labels",
+      "source": "manifest:docs/academy/art/STORY-ART-PROMOTIONS.json",
+      "sourceSha256": "f160fd3a1b76da1f834f75041992067e171b69b4eeba537df5bce2c25ce594df",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "node:blank-atlas:false-label",
+        "scene:blank-atlas:sentence-frames"
+      ],
+      "reviewHome": [
+        "story-art-promotions",
+        "cue:atlas-classroom-library-labels"
+      ],
+      "usage": {
+        "runtime": [
+          "node:blank-atlas:false-label",
+          "scene:blank-atlas:sentence-frames"
+        ],
+        "review": [
+          "story-art-promotions"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/events/blank-atlas-sentence-frames__two-room-labels__wide__v001.webp",
+          "sha256": "e49cebf119ad747ff5acda0c5bb1180b11fdc9e6ee51352a56902f683c79e54f"
+        },
+        {
+          "path": "/academy/art/events/blank-atlas-sentence-frames__two-room-labels__mobile__v001.webp",
+          "sha256": "06ed7b3fb22d87523535fbfa23b55574fa41b0110cdd9dd49ebbf0ee7ea55929"
         }
       ],
       "status": "node-bound, art-directed responsive story event"

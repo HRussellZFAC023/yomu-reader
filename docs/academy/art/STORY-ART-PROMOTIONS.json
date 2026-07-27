@@ -131,6 +131,50 @@
           "The warm light change is restrained and coherent across wide and mobile art."
         ]
       }
+    },
+    {
+      "assetId": "event.story.blank-atlas-sentence-frames.two-room-labels",
+      "chapterId": "s1e01-the-blank-atlas",
+      "sceneId": "scene:blank-atlas:sentence-frames",
+      "nodeId": "node:blank-atlas:false-label",
+      "cueId": "cue:atlas-classroom-library-labels",
+      "wide": "/academy/art/events/blank-atlas-sentence-frames__two-room-labels__wide__v001.webp",
+      "mobile": "/academy/art/events/blank-atlas-sentence-frames__two-room-labels__mobile__v001.webp",
+      "generationSources": [
+        "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/call_1PtmOnweDGK34yzvydKZUFHu.png",
+        "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/call_x6DvZNh9dd1CxAVKyDVMHKXZ.png"
+      ],
+      "qa": {
+        "verdict": "pass",
+        "inspected": true,
+        "notes": [
+          "The classroom and library pictograms are distinct without baking Japanese or English text into the artwork.",
+          "Both choices remain upright and equally plausible before the learner answers.",
+          "The mobile composition reserves calm upper and lower regions for persistent game UI."
+        ]
+      }
+    },
+    {
+      "assetId": "event.story.blank-atlas-sentence-frames.classroom-label-fixed",
+      "chapterId": "s1e01-the-blank-atlas",
+      "sceneId": "scene:blank-atlas:sentence-frames",
+      "nodeId": "node:blank-atlas:label-fixed",
+      "cueId": "cue:atlas-classroom-label-fixed",
+      "wide": "/academy/art/events/blank-atlas-sentence-frames__classroom-label-fixed__wide__v001.webp",
+      "mobile": "/academy/art/events/blank-atlas-sentence-frames__classroom-label-fixed__mobile__v001.webp",
+      "generationSources": [
+        "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/call_nG726gS47Fy8EhULTOBKI0tU.png",
+        "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/call_EApEkd7LrM0YGB1QpeUR3cGB.png"
+      ],
+      "qa": {
+        "verdict": "pass",
+        "inspected": true,
+        "notes": [
+          "The correct classroom tab stays upright inside a restrained physical paper doorframe.",
+          "The library tab folds back into the Atlas so the resolution is visible without explanatory prose.",
+          "Wide and mobile art preserve the same room, props, lighting, and tactile state change."
+        ]
+      }
     }
   ]
 }
