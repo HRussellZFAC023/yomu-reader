@@ -1,0 +1,28 @@
+{
+  "name": "yomu-video",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Remotion project for Yomu feature clips. Separate from the product package so the userscript bundle never sees these dependencies.",
+  "license": "MIT",
+  "scripts": {
+    "studio": "remotion studio src/index.ts",
+    "render": "remotion render src/index.ts GamingLoop ../artifacts/video/yomu-gaming-loop.mp4 --codec=h264 --crf=17 --log=info",
+    "render:still": "remotion still src/index.ts GamingLoop ../artifacts/video/yomu-gaming-loop-poster.png --frame=0",
+    "fonts": "node scripts/fetch-fonts.mjs",
+    "frames": "node scripts/prepare-frames.mjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.499",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "remotion": "4.0.499"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.2",
+    "typescript": "5.9.3"
+  },
+  "allowScripts": {
+    "esbuild@0.28.1": true
+  }
+}
