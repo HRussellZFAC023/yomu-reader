@@ -85945,19 +85945,27 @@ ${reading}`);
     }
     nativePlayerControlSafeZones() {
       if (!this.video || !isYouTubePage()) return [];
-      const surface = this.youtubeNativeControlSurface();
-      if (!surface) return [];
+      const surfaces = this.youtubeNativeControlSurfaces();
+      if (!surfaces.length) return [];
       const videoRect = this.videoLayoutRect();
       const maxWidth = Math.min(240, Math.max(72, videoRect.width * 0.42));
       const maxHeight = Math.min(180, Math.max(56, videoRect.height * 0.28));
-      return Array.from(surface.querySelectorAll(NATIVE_PLAYER_CONTROL_SELECTOR)).filter((control) => !control.closest('[data-jpdb-reader-root="true"]')).filter((control) => nativePlayerControlIsInteractive(control)).map((control) => control.getBoundingClientRect()).filter((rect) => rect.width > 0 && rect.height > 0 && rect.width <= maxWidth && rect.height <= maxHeight && rectsOverlap(rect, videoRect));
+      const controls = new Set(surfaces.flatMap((surface) => Array.from(surface.querySelectorAll(NATIVE_PLAYER_CONTROL_SELECTOR))));
+      return Array.from(controls).filter((control) => !control.closest('[data-jpdb-reader-root="true"]')).filter((control) => nativePlayerControlIsInteractive(control)).map((control) => control.getBoundingClientRect()).filter((rect) => rect.width > 0 && rect.height > 0 && rect.width <= maxWidth && rect.height <= maxHeight && rectsOverlap(rect, videoRect));
     }
-    youtubeNativeControlSurface() {
-      if (!this.video) return null;
+    youtubeNativeControlSurfaces() {
+      if (!this.video) return [];
+      const surfaces = /* @__PURE__ */ new Set();
+      const mobileOverlay = this.mobileYouTubeControlOverlay();
+      if (mobileOverlay) surfaces.add(mobileOverlay);
       if (this.isYouTubeShortsControlSurface()) {
-        return this.video.closest("ytd-reel-video-renderer,shorts-video,shorts-page,ytd-shorts") ?? this.video.closest("#movie_player,.html5-video-player");
+        const shortsSurface = this.video.closest("ytd-reel-video-renderer,shorts-video,shorts-page,ytd-shorts") ?? this.video.closest("#movie_player,.html5-video-player");
+        if (shortsSurface) surfaces.add(shortsSurface);
+        return Array.from(surfaces);
       }
-      return this.video.closest("#movie_player,.html5-video-player,ytm-player,ytd-player,#player");
+      const playerSurface = this.video.closest("#movie_player,.html5-video-player,ytm-player,ytd-player,#player");
+      if (playerSurface) surfaces.add(playerSurface);
+      return Array.from(surfaces);
     }
     pointInOpenTranscriptPanel(x2, y) {
       return Boolean(this.transcriptPanel && !this.transcriptPanel.hidden && !this.transcriptPanelClosing && this.pointInElement(this.transcriptPanel, x2, y));
