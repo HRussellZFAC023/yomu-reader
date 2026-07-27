@@ -659,6 +659,50 @@ describe('SubtitlePlayerController — idle controls, overlay drag & rail visibi
         }
     });
 
+    it('keeps the drag handle available when only the native subtitle line is visible', () => {
+        const nativeCue = { start: 0, end: 2, text: 'I will read today.', transcriptEligible: true };
+        const onSettingsChange = vi.fn();
+        const { controller, settings } = createInstalledSubtitleController(
+            {
+                subtitleOverlayVisible: true,
+                subtitleSecondaryVisible: true,
+                subtitleBottomOffset: 16,
+            },
+            { onSettingsChange },
+        );
+        try {
+            attachVideo(controller, { rect: new DOMRect(0, 0, 640, 360) });
+            const internals = controllerInternals<{
+                currentCue: undefined;
+                secondaryCue: typeof nativeCue;
+                render(): void;
+                syncControls(): void;
+            }>(controller);
+            internals.currentCue = undefined;
+            internals.secondaryCue = nativeCue;
+            internals.render();
+            internals.syncControls();
+
+            const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
+            const subtitleFrame = document.querySelector<HTMLElement>('.jpdb-subtitle-text')!;
+            const handle = document.querySelector<HTMLButtonElement>('[data-subtitle-drag-handle]')!;
+            mockElementRect(subtitleFrame, new DOMRect(16, 220, 608, 48));
+
+            expect(root.querySelector('.jpdb-subtitle-primary')).toBeNull();
+            expect(root.querySelector('.jpdb-subtitle-secondary')?.textContent).toContain(nativeCue.text);
+            expect(root.classList.contains('jpdb-subtitle-has-lines')).toBe(true);
+
+            handle.dispatchEvent(pointerEvent('pointerdown', { clientY: 300, pointerId: 17 }));
+            window.dispatchEvent(pointerEvent('pointermove', { clientY: 260, pointerId: 17 }));
+            window.dispatchEvent(pointerEvent('pointerup', { clientY: 260, pointerId: 17 }));
+
+            expect(settings.subtitleBottomOffset).toBe(27);
+            expect(onSettingsChange).toHaveBeenCalledTimes(1);
+        } finally {
+            controller.destroy();
+        }
+    });
+
     it('lets a drag use visible space below a short video without leaving the viewport', () => {
         const cue = { start: 0, end: 2, text: '今日は読む。', transcriptEligible: true };
         const { controller, settings } = createInstalledSubtitleController({ subtitleOverlayVisible: true, subtitleBottomOffset: 16 });
