@@ -38,8 +38,7 @@ Each one walks a real task end to end, with free software and no account. Pick t
 
 ## How to use these
 
-Every guide assumes the same loop: **find Japanese you mostly understand, look up only what
-blocks you, and keep the words worth keeping.** Read them in any order.
+Every guide assumes the same loop: **find Japanese you mostly understand, look up only what blocks you, and keep the words worth keeping.** Read them in any order.
 
 They all start from an installed Yomu:
 
