@@ -1,0 +1,101 @@
+{
+  "promotions": [
+    {
+      "castId": "jenny",
+      "archiveLabel": "identity-confused-style-superseded-20260727",
+      "replaceExpressions": [
+        "neutral",
+        "encouraging-listening",
+        "happy",
+        "thoughtful",
+        "determined",
+        "surprised-shocked",
+        "sad-vulnerable"
+      ],
+      "canonicalNeutralAssetId": "character.jenny.neutral-round-face-brown-hair-front-near-front-fullbody-v002",
+      "slots": [
+        {
+          "assetId": "character.jenny.neutral-round-face-brown-hair-front-near-front-fullbody-v002",
+          "expression": "neutral",
+          "angle": "front-near-front",
+          "assetPath": "/academy/art/characters/jenny/jenny__neutral-round-face-brown-hair__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:jenny",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "story:cast:jenny",
+            "cast-standardization:jenny"
+          ]
+        },
+        {
+          "assetId": "character.jenny.encouraging-listening-round-face-brown-hair-right-three-quarter-fullbody-v002",
+          "expression": "encouraging-listening",
+          "angle": "right-three-quarter",
+          "assetPath": "/academy/art/characters/jenny/jenny__encouraging-listening-round-face-brown-hair__right-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:jenny-expression-gallery",
+            "story:cast:jenny:encouraging-listening",
+            "cast-standardization:jenny"
+          ]
+        },
+        {
+          "assetId": "character.jenny.happy-round-face-brown-hair-front-near-front-fullbody-v002",
+          "expression": "happy",
+          "angle": "front-near-front",
+          "assetPath": "/academy/art/characters/jenny/jenny__happy-round-face-brown-hair__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:jenny-expression-gallery",
+            "story:cast:jenny:happy",
+            "cast-standardization:jenny"
+          ]
+        },
+        {
+          "assetId": "character.jenny.thoughtful-round-face-brown-hair-left-three-quarter-fullbody-v002",
+          "expression": "thoughtful",
+          "angle": "left-three-quarter",
+          "assetPath": "/academy/art/characters/jenny/jenny__thoughtful-round-face-brown-hair__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:jenny-expression-gallery",
+            "story:cast:jenny:thoughtful",
+            "cast-standardization:jenny"
+          ]
+        },
+        {
+          "assetId": "character.jenny.determined-round-face-brown-hair-left-three-quarter-fullbody-v002",
+          "expression": "determined",
+          "angle": "left-three-quarter",
+          "assetPath": "/academy/art/characters/jenny/jenny__determined-round-face-brown-hair__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:jenny-expression-gallery",
+            "story:cast:jenny:determined",
+            "cast-standardization:jenny"
+          ]
+        },
+        {
+          "assetId": "character.jenny.surprised-shocked-round-face-brown-hair-right-three-quarter-fullbody-v002",
+          "expression": "surprised-shocked",
+          "angle": "right-three-quarter",
+          "assetPath": "/academy/art/characters/jenny/jenny__surprised-shocked-round-face-brown-hair__right-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:jenny-expression-gallery",
+            "story:cast:jenny:surprised-shocked",
+            "cast-standardization:jenny"
+          ]
+        },
+        {
+          "assetId": "character.jenny.sad-vulnerable-round-face-brown-hair-left-three-quarter-fullbody-v002",
+          "expression": "sad-vulnerable",
+          "angle": "left-three-quarter",
+          "assetPath": "/academy/art/characters/jenny/jenny__sad-vulnerable-round-face-brown-hair__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:jenny-expression-gallery",
+            "story:cast:jenny:sad-vulnerable",
+            "cast-standardization:jenny"
+          ]
+        }
+      ]
+    }
+  ]
+}

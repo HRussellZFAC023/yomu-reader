@@ -29,9 +29,9 @@
     "cast": 30,
     "requiredPerformancesPerCast": 7,
     "requiredSlots": 210,
-    "integratedSlots": 16,
-    "missingSlots": 194,
-    "ownerCorrectionQueue": 94,
+    "integratedSlots": 23,
+    "missingSlots": 187,
+    "ownerCorrectionQueue": 87,
     "storyCriticalQueue": 65,
     "rosterCompletionQueue": 35
   },
@@ -888,65 +888,97 @@
       "priority": "owner-correction",
       "summary": {
         "required": 7,
-        "integrated": 0,
-        "missing": 7
+        "integrated": 7,
+        "missing": 0
       },
       "performances": [
         {
           "expression": "neutral",
           "preferredAngle": "front-near-front",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.jenny.neutral-round-face-brown-hair-front-near-front-fullbody-v002",
+          "assetPath": "/academy/art/characters/jenny/jenny__neutral-round-face-brown-hair__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:jenny",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "story:cast:jenny",
+            "cast-standardization:jenny"
+          ]
         },
         {
           "expression": "encouraging-listening",
           "preferredAngle": "right-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.jenny.encouraging-listening-round-face-brown-hair-right-three-quarter-fullbody-v002",
+          "assetPath": "/academy/art/characters/jenny/jenny__encouraging-listening-round-face-brown-hair__right-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:jenny-expression-gallery",
+            "story:cast:jenny:encouraging-listening",
+            "cast-standardization:jenny"
+          ]
         },
         {
           "expression": "happy",
           "preferredAngle": "front-near-front",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.jenny.happy-round-face-brown-hair-front-near-front-fullbody-v002",
+          "assetPath": "/academy/art/characters/jenny/jenny__happy-round-face-brown-hair__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:jenny-expression-gallery",
+            "story:cast:jenny:happy",
+            "cast-standardization:jenny"
+          ]
         },
         {
           "expression": "thoughtful",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.jenny.thoughtful-round-face-brown-hair-left-three-quarter-fullbody-v002",
+          "assetPath": "/academy/art/characters/jenny/jenny__thoughtful-round-face-brown-hair__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:jenny-expression-gallery",
+            "story:cast:jenny:thoughtful",
+            "cast-standardization:jenny"
+          ]
         },
         {
           "expression": "determined",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.jenny.determined-round-face-brown-hair-left-three-quarter-fullbody-v002",
+          "assetPath": "/academy/art/characters/jenny/jenny__determined-round-face-brown-hair__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:jenny-expression-gallery",
+            "story:cast:jenny:determined",
+            "cast-standardization:jenny"
+          ]
         },
         {
           "expression": "surprised-shocked",
           "preferredAngle": "right-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.jenny.surprised-shocked-round-face-brown-hair-right-three-quarter-fullbody-v002",
+          "assetPath": "/academy/art/characters/jenny/jenny__surprised-shocked-round-face-brown-hair__right-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:jenny-expression-gallery",
+            "story:cast:jenny:surprised-shocked",
+            "cast-standardization:jenny"
+          ]
         },
         {
           "expression": "sad-vulnerable",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.jenny.sad-vulnerable-round-face-brown-hair-left-three-quarter-fullbody-v002",
+          "assetPath": "/academy/art/characters/jenny/jenny__sad-vulnerable-round-face-brown-hair__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:jenny-expression-gallery",
+            "story:cast:jenny:sad-vulnerable",
+            "cast-standardization:jenny"
+          ]
         }
       ]
     },
@@ -4415,211 +4447,6 @@
       "runtimeHomes": [
         "journal:christian-expression-gallery",
         "story:cast:christian:sad-vulnerable"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "jenny:neutral",
-      "castId": "jenny",
-      "displayName": "Jenny",
-      "identityKey": "jenny-round-face-brown-hair",
-      "expression": "neutral",
-      "angle": "front-near-front",
-      "priority": "owner-correction",
-      "storyLines": 8,
-      "visualLock": "Woman with brown hair, a noticeably round warm face, and a composed observant presence.",
-      "wardrobeLock": "Soft textured layers in indigo, berry, and cream; knitting only when the scene uses it.",
-      "reject": [
-        "narrow pointed face",
-        "blond or black hair",
-        "photographic face",
-        "shoujo-child proportions",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:jenny",
-        "class:people",
-        "lesson-overview:roster",
-        "story:cast:jenny"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "jenny:encouraging-listening",
-      "castId": "jenny",
-      "displayName": "Jenny",
-      "identityKey": "jenny-round-face-brown-hair",
-      "expression": "encouraging-listening",
-      "angle": "right-three-quarter",
-      "priority": "owner-correction",
-      "storyLines": 8,
-      "visualLock": "Woman with brown hair, a noticeably round warm face, and a composed observant presence.",
-      "wardrobeLock": "Soft textured layers in indigo, berry, and cream; knitting only when the scene uses it.",
-      "reject": [
-        "narrow pointed face",
-        "blond or black hair",
-        "photographic face",
-        "shoujo-child proportions",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:jenny-expression-gallery",
-        "story:cast:jenny:encouraging-listening"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "jenny:happy",
-      "castId": "jenny",
-      "displayName": "Jenny",
-      "identityKey": "jenny-round-face-brown-hair",
-      "expression": "happy",
-      "angle": "front-near-front",
-      "priority": "owner-correction",
-      "storyLines": 8,
-      "visualLock": "Woman with brown hair, a noticeably round warm face, and a composed observant presence.",
-      "wardrobeLock": "Soft textured layers in indigo, berry, and cream; knitting only when the scene uses it.",
-      "reject": [
-        "narrow pointed face",
-        "blond or black hair",
-        "photographic face",
-        "shoujo-child proportions",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:jenny-expression-gallery",
-        "story:cast:jenny:happy"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "jenny:thoughtful",
-      "castId": "jenny",
-      "displayName": "Jenny",
-      "identityKey": "jenny-round-face-brown-hair",
-      "expression": "thoughtful",
-      "angle": "left-three-quarter",
-      "priority": "owner-correction",
-      "storyLines": 8,
-      "visualLock": "Woman with brown hair, a noticeably round warm face, and a composed observant presence.",
-      "wardrobeLock": "Soft textured layers in indigo, berry, and cream; knitting only when the scene uses it.",
-      "reject": [
-        "narrow pointed face",
-        "blond or black hair",
-        "photographic face",
-        "shoujo-child proportions",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:jenny-expression-gallery",
-        "story:cast:jenny:thoughtful"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "jenny:determined",
-      "castId": "jenny",
-      "displayName": "Jenny",
-      "identityKey": "jenny-round-face-brown-hair",
-      "expression": "determined",
-      "angle": "left-three-quarter",
-      "priority": "owner-correction",
-      "storyLines": 8,
-      "visualLock": "Woman with brown hair, a noticeably round warm face, and a composed observant presence.",
-      "wardrobeLock": "Soft textured layers in indigo, berry, and cream; knitting only when the scene uses it.",
-      "reject": [
-        "narrow pointed face",
-        "blond or black hair",
-        "photographic face",
-        "shoujo-child proportions",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:jenny-expression-gallery",
-        "story:cast:jenny:determined"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "jenny:surprised-shocked",
-      "castId": "jenny",
-      "displayName": "Jenny",
-      "identityKey": "jenny-round-face-brown-hair",
-      "expression": "surprised-shocked",
-      "angle": "right-three-quarter",
-      "priority": "owner-correction",
-      "storyLines": 8,
-      "visualLock": "Woman with brown hair, a noticeably round warm face, and a composed observant presence.",
-      "wardrobeLock": "Soft textured layers in indigo, berry, and cream; knitting only when the scene uses it.",
-      "reject": [
-        "narrow pointed face",
-        "blond or black hair",
-        "photographic face",
-        "shoujo-child proportions",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:jenny-expression-gallery",
-        "story:cast:jenny:surprised-shocked"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "jenny:sad-vulnerable",
-      "castId": "jenny",
-      "displayName": "Jenny",
-      "identityKey": "jenny-round-face-brown-hair",
-      "expression": "sad-vulnerable",
-      "angle": "left-three-quarter",
-      "priority": "owner-correction",
-      "storyLines": 8,
-      "visualLock": "Woman with brown hair, a noticeably round warm face, and a composed observant presence.",
-      "wardrobeLock": "Soft textured layers in indigo, berry, and cream; knitting only when the scene uses it.",
-      "reject": [
-        "narrow pointed face",
-        "blond or black hair",
-        "photographic face",
-        "shoujo-child proportions",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:jenny-expression-gallery",
-        "story:cast:jenny:sad-vulnerable"
       ],
       "status": "queued"
     },

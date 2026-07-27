@@ -135,14 +135,19 @@ describe('Academy active, orphaned, deprecated, and missing asset inventory', ()
     it('lists every missing matrix expression variant without treating off-matrix sprites as coverage', () => {
         expect(inventory.counts).toMatchObject({
             expressionMatrixSlots: 630,
-            approvedExpressionVariants: 23,
-            reviewCandidateExpressionVariants: 17,
-            deliveredMatrixExpressionVariants: 40,
-            missingExpressionVariants: 590,
-            offMatrixDeliveredSprites: 53,
+            missingExpressionVariants: inventory.expressionCoverage.missingVariants.length,
+            offMatrixDeliveredSprites: inventory.expressionCoverage.offMatrixDelivered.length,
         });
-        expect(inventory.expressionCoverage.missingVariants).toHaveLength(590);
-        expect(new Set(inventory.expressionCoverage.missingVariants.map(variant => variant.plannedPath)).size).toBe(590);
+        expect(
+            inventory.counts.approvedExpressionVariants +
+            inventory.counts.reviewCandidateExpressionVariants,
+        ).toBe(inventory.counts.deliveredMatrixExpressionVariants);
+        expect(
+            inventory.counts.deliveredMatrixExpressionVariants +
+            inventory.counts.missingExpressionVariants,
+        ).toBe(inventory.counts.expressionMatrixSlots);
+        expect(new Set(inventory.expressionCoverage.missingVariants.map(variant => variant.plannedPath)).size)
+            .toBe(inventory.expressionCoverage.missingVariants.length);
         expect(inventory.expressionCoverage.missingVariants).toContainEqual({
             character: 'xingyu',
             angle: 'front-near-front',

@@ -19,20 +19,20 @@
     "deletion": "This audit never deletes, moves, or mutates Academy raster files."
   },
   "counts": {
-    "currentRasterFiles": 232,
-    "currentRasterFilesAccountedFor": 232,
-    "active": 179,
+    "currentRasterFiles": 230,
+    "currentRasterFilesAccountedFor": 230,
+    "active": 177,
     "orphaned": 53,
     "deprecated": 10,
     "deprecatedPresent": 0,
-    "missingExpressionVariants": 590,
+    "missingExpressionVariants": 583,
     "expressionMatrixSlots": 630,
-    "approvedExpressionVariants": 23,
+    "approvedExpressionVariants": 30,
     "reviewCandidateExpressionVariants": 17,
-    "deliveredMatrixExpressionVariants": 40,
-    "offMatrixDeliveredSprites": 53,
+    "deliveredMatrixExpressionVariants": 47,
+    "offMatrixDeliveredSprites": 51,
     "activeByKind": {
-      "character-sprite": 93,
+      "character-sprite": 91,
       "protagonist-portrait": 4,
       "scene-background": 66,
       "scene-event": 8,
@@ -656,50 +656,6 @@
           "class:people-review",
           "lesson-overview:roster-review",
           "cast-standardization:henry"
-        ],
-        "reviewHomes": [
-          "cast-standardization-manifest",
-          "learner-journal-preview"
-        ],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "review-candidate/runtime-preview",
-        "ledgerStatus": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-      },
-      {
-        "id": "character-jenny-standardized-encouraging-listening-front-near-front-halfbody-v001",
-        "path": "/academy/art/characters/jenny/jenny__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
-        "sha256": "43cc650546548045e25e2f2d3d1c3af4982c47d255a94324023efffd6719f467",
-        "ledgerSha256": "43cc650546548045e25e2f2d3d1c3af4982c47d255a94324023efffd6719f467",
-        "kind": "character-sprite",
-        "state": "active",
-        "present": true,
-        "runtimeAuthorized": true,
-        "runtimeHomes": [
-          "journal:jenny-expression-gallery",
-          "cast-standardization:jenny"
-        ],
-        "reviewHomes": [
-          "cast-standardization-manifest",
-          "learner-journal-preview"
-        ],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "review-candidate/runtime-preview",
-        "ledgerStatus": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-      },
-      {
-        "id": "character-jenny-standardized-neutral-front-near-front-halfbody-v001",
-        "path": "/academy/art/characters/jenny/jenny__standardized-neutral__front-near-front__halfbody__v001.png",
-        "sha256": "18cd1f6de975e3e63af19e66658ad09fa38b6cc38e954fcf89cd0ad613d52ab2",
-        "ledgerSha256": "18cd1f6de975e3e63af19e66658ad09fa38b6cc38e954fcf89cd0ad613d52ab2",
-        "kind": "character-sprite",
-        "state": "active",
-        "present": true,
-        "runtimeAuthorized": true,
-        "runtimeHomes": [
-          "journal:jenny",
-          "class:people-review",
-          "lesson-overview:roster-review",
-          "cast-standardization:jenny"
         ],
         "reviewHomes": [
           "cast-standardization-manifest",
@@ -4741,24 +4697,6 @@
         "countsTowardExpressionMatrix": false
       },
       {
-        "character": "jenny",
-        "path": "/academy/art/characters/jenny/jenny__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
-        "sha256": "43cc650546548045e25e2f2d3d1c3af4982c47d255a94324023efffd6719f467",
-        "currentState": "active",
-        "coverageStatus": "off-matrix",
-        "migrationStatus": "retained-off-matrix-review-evidence",
-        "countsTowardExpressionMatrix": false
-      },
-      {
-        "character": "jenny",
-        "path": "/academy/art/characters/jenny/jenny__standardized-neutral__front-near-front__halfbody__v001.png",
-        "sha256": "18cd1f6de975e3e63af19e66658ad09fa38b6cc38e954fcf89cd0ad613d52ab2",
-        "currentState": "active",
-        "coverageStatus": "off-matrix",
-        "migrationStatus": "retained-off-matrix-review-evidence",
-        "countsTowardExpressionMatrix": false
-      },
-      {
         "character": "jodi",
         "path": "/academy/art/characters/jodi/jodi__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
         "sha256": "0002290f455bfb033e85e921e267d97f015117fdddc381a0b089bf04768eceaa",
@@ -6302,24 +6240,6 @@
       {
         "character": "jenny",
         "angle": "front-near-front",
-        "expression": "happy",
-        "plannedPath": "/academy/art/characters/jenny/jenny__happy__front-near-front__halfbody__v001.png",
-        "state": "missing-expression-variant",
-        "present": false,
-        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
-      },
-      {
-        "character": "jenny",
-        "angle": "front-near-front",
-        "expression": "neutral",
-        "plannedPath": "/academy/art/characters/jenny/jenny__neutral__front-near-front__halfbody__v001.png",
-        "state": "missing-expression-variant",
-        "present": false,
-        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
-      },
-      {
-        "character": "jenny",
-        "angle": "front-near-front",
         "expression": "sad-vulnerable",
         "plannedPath": "/academy/art/characters/jenny/jenny__sad-vulnerable__front-near-front__halfbody__v001.png",
         "state": "missing-expression-variant",
@@ -6340,15 +6260,6 @@
         "angle": "front-near-front",
         "expression": "thoughtful",
         "plannedPath": "/academy/art/characters/jenny/jenny__thoughtful__front-near-front__halfbody__v001.png",
-        "state": "missing-expression-variant",
-        "present": false,
-        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
-      },
-      {
-        "character": "jenny",
-        "angle": "left-three-quarter",
-        "expression": "determined",
-        "plannedPath": "/academy/art/characters/jenny/jenny__determined__left-three-quarter__halfbody__v001.png",
         "state": "missing-expression-variant",
         "present": false,
         "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
@@ -6383,26 +6294,8 @@
       {
         "character": "jenny",
         "angle": "left-three-quarter",
-        "expression": "sad-vulnerable",
-        "plannedPath": "/academy/art/characters/jenny/jenny__sad-vulnerable__left-three-quarter__halfbody__v001.png",
-        "state": "missing-expression-variant",
-        "present": false,
-        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
-      },
-      {
-        "character": "jenny",
-        "angle": "left-three-quarter",
         "expression": "surprised-shocked",
         "plannedPath": "/academy/art/characters/jenny/jenny__surprised-shocked__left-three-quarter__halfbody__v001.png",
-        "state": "missing-expression-variant",
-        "present": false,
-        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
-      },
-      {
-        "character": "jenny",
-        "angle": "left-three-quarter",
-        "expression": "thoughtful",
-        "plannedPath": "/academy/art/characters/jenny/jenny__thoughtful__left-three-quarter__halfbody__v001.png",
         "state": "missing-expression-variant",
         "present": false,
         "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
@@ -6412,15 +6305,6 @@
         "angle": "right-three-quarter",
         "expression": "determined",
         "plannedPath": "/academy/art/characters/jenny/jenny__determined__right-three-quarter__halfbody__v001.png",
-        "state": "missing-expression-variant",
-        "present": false,
-        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
-      },
-      {
-        "character": "jenny",
-        "angle": "right-three-quarter",
-        "expression": "encouraging-listening",
-        "plannedPath": "/academy/art/characters/jenny/jenny__encouraging-listening__right-three-quarter__halfbody__v001.png",
         "state": "missing-expression-variant",
         "present": false,
         "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
@@ -6448,15 +6332,6 @@
         "angle": "right-three-quarter",
         "expression": "sad-vulnerable",
         "plannedPath": "/academy/art/characters/jenny/jenny__sad-vulnerable__right-three-quarter__halfbody__v001.png",
-        "state": "missing-expression-variant",
-        "present": false,
-        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
-      },
-      {
-        "character": "jenny",
-        "angle": "right-three-quarter",
-        "expression": "surprised-shocked",
-        "plannedPath": "/academy/art/characters/jenny/jenny__surprised-shocked__right-three-quarter__halfbody__v001.png",
         "state": "missing-expression-variant",
         "present": false,
         "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"

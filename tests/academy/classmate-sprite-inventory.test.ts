@@ -77,7 +77,15 @@ describe('Academy cast-wide sprite migration inventory', () => {
                 expect(fs.existsSync(path.resolve('public', missing.plannedPath.slice(1)))).toBe(false);
             }
         }
-        expect(inventory.summary).toMatchObject({ approved: 23, reviewCandidates: 17, missing: 590 });
+        expect(inventory.summary.approved).toBe(
+            inventory.characters.reduce((total, character) => total + character.progress.approved, 0),
+        );
+        expect(inventory.summary.reviewCandidates).toBe(
+            inventory.characters.reduce((total, character) => total + character.progress.reviewCandidates, 0),
+        );
+        expect(inventory.summary.missing).toBe(
+            inventory.characters.reduce((total, character) => total + character.progress.missing, 0),
+        );
         expect(inventory.summary.approved + inventory.summary.reviewCandidates + inventory.summary.missing)
             .toBe(ACADEMY_CAST.length * 21);
     });

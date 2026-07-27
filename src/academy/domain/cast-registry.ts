@@ -52,7 +52,12 @@ const REAL_CLASS_NAMES = [
 ] as const;
 
 const REAL_CLASS_MEMBERS = REAL_CLASS_NAMES.map(([id, firstName]) => {
-    const likenessApproved = id === 'sophie' || id === 'aakash' || id === 'xingyu' || id === 'mika';
+    const likenessApproved =
+        id === 'sophie' ||
+        id === 'aakash' ||
+        id === 'xingyu' ||
+        id === 'mika' ||
+        id === 'jenny';
     return {
         id,
         firstName,
