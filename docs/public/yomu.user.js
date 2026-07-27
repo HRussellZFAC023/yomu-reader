@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.8.17
+// @version 1.8.18
 // @author Henry Russell
 // @description Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and a study page.
 // @license MIT
@@ -11,18 +11,18 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-annotations.3427649b4084.user.js#sha256=NCdkm0CEEk2jWcMGYLJsOwkU5UBirJ/ucHgkKgbD9u8=
-// @require https://yomureader.com/greasyfork/yomu-anki.06c38319d27f.user.js#sha256=BsODGdJ/pLtDlnmRZg8BQFYDgD1z4l8ELdLPcd4zzY0=
-// @require https://yomureader.com/greasyfork/yomu-audio.fbd6c695c396.user.js#sha256=+9bGlcOWA5TVme5nF4kd5WnK9MV5Pv6z7XAWA5LIbJg=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.dea692466fc6.user.js#sha256=3qaSRm/Gm3pwmV37jKIHY5SnwUpfBNvDENvTGt4vjJU=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.b834d0ce9f82.user.js#sha256=uDTQzp+CSQlbyoQvsFd8MHVl45eUxMkrbYIr706to9A=
+// @require https://yomureader.com/greasyfork/yomu-annotations.f86d865dfe5f.user.js#sha256=+G2GXf5f1AbXQ+5fLFyFi+mGtZeKCThOx3MA9wTeHJA=
+// @require https://yomureader.com/greasyfork/yomu-anki.26ed098f5355.user.js#sha256=Ju0Jj1NV9LXpvoXC0t77I/dKhqoDKE/YNX4YGmWzqKI=
+// @require https://yomureader.com/greasyfork/yomu-audio.8dd0a6c5a711.user.js#sha256=jdCmxacRXqDQlRyCN7ojZOzOBBumzLFdeKfME3ZWeKI=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.8bb23be372c0.user.js#sha256=i7I743LAYUhtJxwUDcv3nHafBgXUJbhboofFJjaeckw=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.534238480287.user.js#sha256=U0I4SAKHaWrRtv7xL/c28PjEORn1fCOF9PE+o09cThs=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.4a28175bf045.user.js#sha256=SigXW/BFi4724aLylfUOsJu6kSPrJLpVJbsbno/xd5Y=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.6519af7e42b8.user.js#sha256=ZRmvfkK4ZBAboxOGAno3xSKDr4f/ijkD/ePV+GWTRmk=
-// @require https://yomureader.com/greasyfork/yomu-bunpro.102ec2e5da3f.user.js#sha256=EC7C5do/j6wJdA7dPUnGdRp5dP7YuPOuHfsMy2nxDgE=
-// @require https://yomureader.com/greasyfork/yomu-jpdb.71229e472fe2.user.js#sha256=cSKeRy/iLLmZKyEDIeCdLeujZGDgEZjXYB5I9ZYAcd4=
-// @require https://yomureader.com/greasyfork/yomu-jiten.a579b5e547b4.user.js#sha256=pXm15Ue0vMfpnnECkPAuowckcZqCySA9rVvetU+aqM0=
-// @require https://yomureader.com/greasyfork/yomu-wanikani.999800abd386.user.js#sha256=mZgAq9OGbm7aRSC9b9ndIDlDBhtuMVjp2bPwVaIfVd4=
-// @require https://yomureader.com/greasyfork/yomu-video.d39a8547f015.user.js#sha256=05qFR/AVlHFK43b+aiyh1nkDc2z/iSZmO2suOdZ+ziQ=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.842a4fe2ced9.user.js#sha256=hCpP4s7ZjBjx3ynoSKhpMFcDmbN5fHtEmviuz6TgIC8=
+// @require https://yomureader.com/greasyfork/yomu-bunpro.e66bdca61b81.user.js#sha256=5mvcphuBoPFIg1VPJKlJay87jqeacgl/3gMD1UpGEHw=
+// @require https://yomureader.com/greasyfork/yomu-jpdb.4215c55298d2.user.js#sha256=QhXFUpjSxoQogowHHxQCfY35t5OZBL3yZ14YtWICS7g=
+// @require https://yomureader.com/greasyfork/yomu-jiten.1d0c113a86bd.user.js#sha256=HQwROoa9rcvSG5WQ76s9yyk2immb4TDYNUoRZQK9LqM=
+// @require https://yomureader.com/greasyfork/yomu-wanikani.a1acbc502f9b.user.js#sha256=oay8UC+bzq/ZMfU+Bhl8oZocWk9GoxEP0eFJbwavnvA=
+// @require https://yomureader.com/greasyfork/yomu-video.d7492ea0a372.user.js#sha256=10kuoKNycAhzDKRIuRDQTSzvbD/9DBllVGsIeer8eLQ=
 // @resource yomuCss  https://yomureader.com/yomu.b2dc52e7c223.css#sha256=stxS58Ijy/5CdY4YuuZmcHO99j6++y9PPTWqawtG4so=
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -1530,6 +1530,35 @@ function hasAmbiguousContinuativeStemCandidate(source) {
 function isTerminalDictionaryFallbackTerm(term) {
   return !BOGUS_SMALL_TSU_FINAL_RE.test(term) && fallbackLookupTermsForText(term).length <= 1;
 }
+const SEGMENTER_BY_LOCALE = new Map();
+function wordSegmenter(locale) {
+  const cached = SEGMENTER_BY_LOCALE.get(locale);
+  if (cached !== void 0) return cached;
+  let segmenter = null;
+  try {
+  if (typeof Intl !== "undefined" && typeof Intl.Segmenter === "function") {
+    segmenter = new Intl.Segmenter(locale, { granularity: "word" });
+  }
+  } catch {
+  segmenter = null;
+  }
+  SEGMENTER_BY_LOCALE.set(locale, segmenter);
+  return segmenter;
+}
+function icuWordSegments(text, locale) {
+  const segmenter = wordSegmenter(locale);
+  if (!segmenter) return null;
+  const segments = [];
+  for (const segment of segmenter.segment(text)) {
+  if (!segment.isWordLike) continue;
+  segments.push({
+    text: segment.segment,
+    start: segment.index,
+    end: segment.index + segment.segment.length
+  });
+  }
+  return segments;
+}
 const LANGUAGE_PROFILE_SCHEMA_VERSION = 1;
 const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 4;
 const SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS = [4];
@@ -1601,11 +1630,12 @@ function createLearningTargetModule(spec) {
     languageTag: spec.subtitles?.languageTag ?? base,
     languageAliases: Object.freeze([...spec.subtitles?.languageAliases ?? []])
   }),
+  lookupStartsAtSegmentBoundary: spec.lookupStartsAtSegmentBoundary ?? true,
   normalizeText,
   isLookupableText(text) {
     return Boolean(text) && detects(text);
   },
-  segment: spec.segment ?? defaultSegment,
+  segment: spec.segment ?? ((text) => defaultSegment(text, language)),
   lookupCandidates: spec.lookupCandidates ?? ((text) => defaultLookupCandidates(normalizeText(text))),
   compareLookupCandidates: spec.compareLookupCandidates ?? defaultCompareLookupCandidates,
   matchesLookupCandidateRules: spec.matchesLookupCandidateRules ?? defaultMatchesLookupCandidateRules,
@@ -1630,7 +1660,10 @@ function detectorFor(value) {
 function defaultNormalizeText(text) {
   return text.normalize("NFKC").replace(/\s+/gu, " ").trim();
 }
-function defaultSegment(text) {
+function defaultSegment(text, language) {
+  return icuWordSegments(text, language) ?? whitespaceSegments(text);
+}
+function whitespaceSegments(text) {
   const segments = [];
   const pattern = /\S+/gu;
   let match = pattern.exec(text);
@@ -1704,6 +1737,7 @@ const JAPANESE_LEARNING_TARGET = createLearningTargetModule({
   },
   detectsText: HAS_JAPANESE,
   normalizeText: normalizeJapaneseTargetText,
+  lookupStartsAtSegmentBoundary: false,
   segment(text) {
   return segmentJapaneseText(text).map((segment) => ({
     text: segment.surface,
@@ -30574,8 +30608,8 @@ function collapseWhitespace(value) {
   return value.replace(/\/\*[\s\S]*?\*\//gu, " ").replace(/\s+/gu, " ").trim();
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.17"}`;
-const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.17"}`;
+const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.18"}`;
+const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.18"}`;
 const READER_CSS_CACHE_KEY = "yomu:reader-css-cache:v3";
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
@@ -30718,7 +30752,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.8.17"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.8.18"}`;
   } catch {
   return null;
   }

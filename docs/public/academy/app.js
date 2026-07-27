@@ -30193,6 +30193,35 @@ ${spelling}`);
   function isTerminalDictionaryFallbackTerm(term) {
     return !BOGUS_SMALL_TSU_FINAL_RE.test(term) && fallbackLookupTermsForText(term).length <= 1;
   }
+  const SEGMENTER_BY_LOCALE = /* @__PURE__ */ new Map();
+  function wordSegmenter(locale) {
+    const cached = SEGMENTER_BY_LOCALE.get(locale);
+    if (cached !== void 0) return cached;
+    let segmenter = null;
+    try {
+      if (typeof Intl !== "undefined" && typeof Intl.Segmenter === "function") {
+        segmenter = new Intl.Segmenter(locale, { granularity: "word" });
+      }
+    } catch {
+      segmenter = null;
+    }
+    SEGMENTER_BY_LOCALE.set(locale, segmenter);
+    return segmenter;
+  }
+  function icuWordSegments(text2, locale) {
+    const segmenter = wordSegmenter(locale);
+    if (!segmenter) return null;
+    const segments = [];
+    for (const segment2 of segmenter.segment(text2)) {
+      if (!segment2.isWordLike) continue;
+      segments.push({
+        text: segment2.segment,
+        start: segment2.index,
+        end: segment2.index + segment2.segment.length
+      });
+    }
+    return segments;
+  }
   const LANGUAGE_PROFILE_SCHEMA_VERSION = 1;
   const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 4;
   const SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS = [4];
@@ -30264,11 +30293,12 @@ ${spelling}`);
         languageTag: spec.subtitles?.languageTag ?? base,
         languageAliases: Object.freeze([...spec.subtitles?.languageAliases ?? []])
       }),
+      lookupStartsAtSegmentBoundary: spec.lookupStartsAtSegmentBoundary ?? true,
       normalizeText,
       isLookupableText(text2) {
         return Boolean(text2) && detects(text2);
       },
-      segment: spec.segment ?? defaultSegment,
+      segment: spec.segment ?? ((text2) => defaultSegment(text2, language2)),
       lookupCandidates: spec.lookupCandidates ?? ((text2) => defaultLookupCandidates(normalizeText(text2))),
       compareLookupCandidates: spec.compareLookupCandidates ?? defaultCompareLookupCandidates,
       matchesLookupCandidateRules: spec.matchesLookupCandidateRules ?? defaultMatchesLookupCandidateRules,
@@ -30293,7 +30323,10 @@ ${spelling}`);
   function defaultNormalizeText(text2) {
     return text2.normalize("NFKC").replace(/\s+/gu, " ").trim();
   }
-  function defaultSegment(text2) {
+  function defaultSegment(text2, language2) {
+    return icuWordSegments(text2, language2) ?? whitespaceSegments(text2);
+  }
+  function whitespaceSegments(text2) {
     const segments = [];
     const pattern = /\S+/gu;
     let match = pattern.exec(text2);
@@ -30367,6 +30400,11 @@ ${spelling}`);
     },
     detectsText: HAS_JAPANESE$1,
     normalizeText: normalizeJapaneseTargetText,
+    // Japanese writes no word boundaries, so its segmenter infers them. That is
+    // good enough to decide where a reading is drawn and not good enough to
+    // decide where a dictionary term may begin, which is why the term engine
+    // sweeps every position for this target and lets the dictionary arbitrate.
+    lookupStartsAtSegmentBoundary: false,
     segment(text2) {
       return segmentJapaneseText(text2).map((segment2) => ({
         text: segment2.surface,
@@ -32673,7 +32711,10 @@ ${spelling}`);
   function targetLookupCandidates(text2) {
     return activeLearningTarget().lookupCandidates(text2);
   }
-  const JAPANESE_RE$2 = /[\u3040-\u30ff\u3400-\u9fff]/u;
+  function targetLookupCandidateRulesMatch(entryRules, candidateRules) {
+    return activeLearningTarget().matchesLookupCandidateRules(entryRules, candidateRules);
+  }
+  const JAPANESE_RE$1 = /[\u3040-\u30ff\u3400-\u9fff]/u;
   function splitTags(value) {
     if (Array.isArray(value)) return value.map(String).filter(Boolean);
     return typeof value === "string" ? value.split(/\s+/).filter(Boolean) : [];
@@ -284448,7 +284489,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const record2 = value;
     return record2.frequency ?? record2.value ?? record2.displayValue;
   }
-  const JAPANESE_RE$1 = /[\u3040-\u30ff\u3400-\u9fff]/u;
+  const WHITESPACE_RE = /\s/u;
   function readIndexRequestValues(index, query, limit, resolve, reject) {
     if (typeof index.getAll === "function") {
       const request22 = index.getAll(query, limit);
@@ -284471,8 +284512,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
     };
     request2.onerror = () => reject(request2.error);
   }
-  function isSearchableJapaneseSurface(surface) {
-    return JAPANESE_RE$1.test(surface) && !/\s/.test(surface);
+  function isSearchableTargetSurface(surface, target2) {
+    return target2.isLookupableText(surface) && !WHITESPACE_RE.test(surface);
   }
   function sortedTermMatchExpressions(candidates) {
     return Array.from(candidates.keys()).sort((a, b) => b.length - a.length || a.localeCompare(b));
@@ -284511,7 +284552,7 @@ ${item2.sequence ?? ""}`;
     return limit === void 0 ? ranked : ranked.slice(0, limit);
   }
   function termMatchForPosition(position, entries2) {
-    const entry2 = entries2.find((item2) => termRulesMatch(item2.rules, position.deinflected.rules));
+    const entry2 = entries2.find((item2) => targetLookupCandidateRulesMatch(item2.rules, position.deinflected.rules));
     return entry2 ? {
       entry: entry2,
       ...position,
@@ -286425,7 +286466,7 @@ ${scopedInner}
   }
   function isRandomListTerm(entry2, rank2) {
     if (!entry2.expression) return false;
-    if (!JAPANESE_RE$2.test(entry2.expression)) return false;
+    if (!JAPANESE_RE$1.test(entry2.expression)) return false;
     if (entry2.expression.length > 6) return false;
     return dictionaryEnabled(entry2.dictionary, rank2);
   }
@@ -286478,7 +286519,7 @@ ${entry2.reading}`;
     return isCommonDictionaryTermCandidate(entry2, rank2) && (hasCommonDictionaryTags(entry2) || hasCommonDictionaryScore(entry2));
   }
   function isCommonDictionaryTermCandidate(entry2, rank2) {
-    return Boolean(entry2.expression && JAPANESE_RE$2.test(entry2.expression) && entry2.expression.length <= 8 && dictionaryEnabled(entry2.dictionary, rank2));
+    return Boolean(entry2.expression && JAPANESE_RE$1.test(entry2.expression) && entry2.expression.length <= 8 && dictionaryEnabled(entry2.dictionary, rank2));
   }
   function hasCommonDictionaryTags(entry2) {
     return /\b(common|ichi1|news1|spec1|gai1|freq|popular)\b/.test(dictionaryTermTags(entry2));
@@ -286772,6 +286813,7 @@ ${entry2.reading}`;
   const RANDOM_TOP_TERM_LIST_MAX_MS = 320;
   const TERM_MATCH_WINDOW_CHARS = 240;
   const TERM_MATCH_SOURCE_LIMIT = 4e3;
+  const TERM_MATCH_MAX_SURFACE_CHARS = 18;
   const TERM_KANJI_INDEX_BATCH_SIZE = 5e3;
   const TERM_KANJI_INDEX_FALLBACK_MAX_ROWS = 12e3;
   const TERM_KANJI_INDEX_FALLBACK_MAX_MS = 140;
@@ -286803,6 +286845,12 @@ ${entry2.reading}`;
     termKanjiIndexReady = false;
     termIndexGeneration = 0;
     hotLookupCache = /* @__PURE__ */ new Map();
+    // Memo for one findTermMatches call: every window asks the active target
+    // to segment the same source, and for an ICU-backed target that is a full
+    // pass over the text each time.
+    segmentedSourceText = "";
+    segmentedSourceTarget = "";
+    segmentedSourceSegments = [];
     text(key2) {
       return uiText(this.getInterfaceLanguage(), key2);
     }
@@ -287019,28 +287067,61 @@ ${entry2.reading}`;
       const candidates = this.collectTermMatchCandidates(source2, start, Math.min(start + TERM_MATCH_WINDOW_CHARS, source2.length));
       return candidates.size ? await this.lookupTermMatchCandidates(candidates, preferences) : [];
     }
-    // Only start positions are confined to the window; surfaces still run past
-    // its end, so a term straddling a window boundary is found exactly as it
-    // would be in a single sweep of the whole text.
+    /**
+     * Surfaces worth a dictionary lookup in this window, and where each sits.
+     *
+     * Both halves used to be Japanese: the sweep only started on a kana/kanji
+     * character, and every surface it produced was expanded by the Japanese
+     * deinflector. That made the whole engine — a format that serves dozens of
+     * languages — unable to find a single word in any of them, whatever the
+     * reader had installed. Detection, boundaries and morphology now all come
+     * from the active target, so the engine holds entries and ranks them and
+     * asserts nothing about the language they are written in.
+     *
+     * Only start positions are confined to the window; surfaces still run past
+     * its end, so a term straddling a window boundary is found exactly as it
+     * would be in a single sweep of the whole text.
+     */
     collectTermMatchCandidates(source2, from, to) {
+      const target2 = activeLearningTarget();
       const candidates = /* @__PURE__ */ new Map();
-      const maxLength = Math.min(18, source2.length);
+      if (target2.lookupStartsAtSegmentBoundary) {
+        for (const segment2 of this.segmentedSource(source2, target2)) {
+          if (segment2.start < from || segment2.start >= to) continue;
+          this.addTargetTermCandidates(target2, segment2.text, segment2.start, candidates);
+        }
+        return candidates;
+      }
+      const maxLength = Math.min(TERM_MATCH_MAX_SURFACE_CHARS, source2.length);
       for (let start = from; start < to; start++) {
-        if (!JAPANESE_RE$2.test(source2[start])) continue;
-        this.collectTermMatchCandidatesAt(source2, start, maxLength, candidates);
+        if (!target2.isLookupableText(source2[start])) continue;
+        this.collectSweptTermMatchCandidatesAt(target2, source2, start, maxLength, candidates);
       }
       return candidates;
     }
-    collectTermMatchCandidatesAt(source2, start, maxLength, candidates) {
+    /**
+     * One segmentation per `findTermMatches` call rather than one per window:
+     * every window asks for the same answer over the same source, and a target
+     * whose segmenter is ICU pays a full pass for each question.
+     */
+    segmentedSource(source2, target2) {
+      if (this.segmentedSourceText !== source2 || this.segmentedSourceTarget !== target2.id) {
+        this.segmentedSourceSegments = target2.segment(source2);
+        this.segmentedSourceText = source2;
+        this.segmentedSourceTarget = target2.id;
+      }
+      return this.segmentedSourceSegments;
+    }
+    collectSweptTermMatchCandidatesAt(target2, source2, start, maxLength, candidates) {
       for (let length = Math.min(maxLength, source2.length - start); length > 0; length--) {
         const surface = source2.slice(start, start + length);
-        if (!isSearchableJapaneseSurface(surface)) continue;
-        this.addDeinflectedTermCandidates(surface, start, candidates);
+        if (!isSearchableTargetSurface(surface, target2)) continue;
+        this.addTargetTermCandidates(target2, surface, start, candidates);
       }
     }
-    addDeinflectedTermCandidates(surface, start, candidates) {
-      for (const deinflected of deinflectJapaneseTerm(surface)) {
-        if (!JAPANESE_RE$2.test(deinflected.term)) continue;
+    addTargetTermCandidates(target2, surface, start, candidates) {
+      for (const deinflected of target2.lookupCandidates(surface)) {
+        if (!target2.isLookupableText(deinflected.term)) continue;
         const positions = candidates.get(deinflected.term) ?? [];
         positions.push({ start, end: start + surface.length, surface, deinflected });
         candidates.set(deinflected.term, positions);
@@ -288383,7 +288464,7 @@ ${glossaryKey}`;
     return value.replace(/\s+/g, " ").trim().slice(0, 80);
   }
   function shouldSearchTermGlossaries(query) {
-    return !JAPANESE_RE$2.test(query);
+    return !JAPANESE_RE$1.test(query);
   }
   function termSearchIndexToken(query) {
     return glossaryWords(normalizeGlossarySearchText(query)).find((word) => word.length >= TERM_SEARCH_INDEX_MIN_TOKEN_LENGTH) ?? "";
@@ -319655,6 +319736,25 @@ ${entry2.url}`),
     if (!match) return null;
     return [Number(match[1]), Number(match[2]), Number(match[3])];
   }
+  function dictionaryEntryDownload(entry2, objectsBaseUrl2) {
+    const distribution = entry2.distribution;
+    if (distribution.state === "published") {
+      return {
+        url: new URL(distribution.object.key, objectsBaseUrl2).href,
+        sha256: distribution.object.sha256,
+        bytes: distribution.object.bytes,
+        mirrored: true
+      };
+    }
+    if (distribution.state === "upstream") {
+      return {
+        url: distribution.archive.url,
+        ...distribution.archive.bytes === void 0 ? {} : { bytes: distribution.archive.bytes },
+        mirrored: false
+      };
+    }
+    return void 0;
+  }
   const schemaVersion$x = 1;
   const revision = "2026-07-23.574961e8";
   const generatedAt = "2026-07-23T00:00:00.000Z";
@@ -326918,6 +327018,894 @@ ${entry2.url}`),
       distribution: {
         state: "source-only"
       }
+    },
+    {
+      id: "wty-es-en",
+      title: "[ES-EN] Wiktionary (wty)",
+      installedTitle: "wty-es-en",
+      format: "yomitan",
+      version: "2026.07.15",
+      categories: [
+        "terms"
+      ],
+      headwordLanguages: [
+        "es"
+      ],
+      definitionLanguages: [
+        "en"
+      ],
+      source: {
+        acquisitionId: "wty-es-en",
+        url: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/es/en/wty-es-en.zip",
+        projectUrl: "https://github.com/yomidevs/wiktionary-to-yomitan",
+        catalogueSection: "wiktionary-multilingual"
+      },
+      license: {
+        spdx: "CC-BY-SA-4.0",
+        attribution: "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+        sourceUrl: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/es/en/wty-es-en.zip",
+        licenseUrl: "https://creativecommons.org/licenses/by-sa/4.0/",
+        redistribution: "pending",
+        reviewNote: "Served by the wty project itself; Yomu links to the upstream archive rather than mirroring it."
+      },
+      distribution: {
+        state: "upstream",
+        archive: {
+          url: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/es/en/wty-es-en.zip",
+          bytes: 21074465
+        }
+      }
+    },
+    {
+      id: "wty-es-en-ipa",
+      title: "[ES-EN IPA] Wiktionary (wty)",
+      installedTitle: "wty-es-en-ipa",
+      format: "yomitan",
+      version: "2026.07.15",
+      categories: [
+        "pronunciation"
+      ],
+      headwordLanguages: [
+        "es"
+      ],
+      definitionLanguages: [
+        "en"
+      ],
+      source: {
+        acquisitionId: "wty-es-en-ipa",
+        url: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/es/en/wty-es-en-ipa.zip",
+        projectUrl: "https://github.com/yomidevs/wiktionary-to-yomitan",
+        catalogueSection: "wiktionary-multilingual"
+      },
+      license: {
+        spdx: "CC-BY-SA-4.0",
+        attribution: "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+        sourceUrl: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/es/en/wty-es-en-ipa.zip",
+        licenseUrl: "https://creativecommons.org/licenses/by-sa/4.0/",
+        redistribution: "pending",
+        reviewNote: "Served by the wty project itself; Yomu links to the upstream archive rather than mirroring it."
+      },
+      distribution: {
+        state: "upstream",
+        archive: {
+          url: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/es/en/wty-es-en-ipa.zip",
+          bytes: 3374420
+        }
+      }
+    },
+    {
+      id: "wty-es-es",
+      title: "[ES-ES] Wiktionary (wty)",
+      installedTitle: "wty-es-es",
+      format: "yomitan",
+      version: "2026.07.15",
+      categories: [
+        "terms"
+      ],
+      headwordLanguages: [
+        "es"
+      ],
+      definitionLanguages: [
+        "es"
+      ],
+      source: {
+        acquisitionId: "wty-es-es",
+        url: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/es/es/wty-es-es.zip",
+        projectUrl: "https://github.com/yomidevs/wiktionary-to-yomitan",
+        catalogueSection: "wiktionary-multilingual"
+      },
+      license: {
+        spdx: "CC-BY-SA-4.0",
+        attribution: "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+        sourceUrl: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/es/es/wty-es-es.zip",
+        licenseUrl: "https://creativecommons.org/licenses/by-sa/4.0/",
+        redistribution: "pending",
+        reviewNote: "Served by the wty project itself; Yomu links to the upstream archive rather than mirroring it."
+      },
+      distribution: {
+        state: "upstream",
+        archive: {
+          url: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/es/es/wty-es-es.zip",
+          bytes: 21853169
+        }
+      }
+    },
+    {
+      id: "wty-es-es-ipa",
+      title: "[ES-ES IPA] Wiktionary (wty)",
+      installedTitle: "wty-es-es-ipa",
+      format: "yomitan",
+      version: "2026.07.15",
+      categories: [
+        "pronunciation"
+      ],
+      headwordLanguages: [
+        "es"
+      ],
+      definitionLanguages: [
+        "es"
+      ],
+      source: {
+        acquisitionId: "wty-es-es-ipa",
+        url: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/es/es/wty-es-es-ipa.zip",
+        projectUrl: "https://github.com/yomidevs/wiktionary-to-yomitan",
+        catalogueSection: "wiktionary-multilingual"
+      },
+      license: {
+        spdx: "CC-BY-SA-4.0",
+        attribution: "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+        sourceUrl: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/es/es/wty-es-es-ipa.zip",
+        licenseUrl: "https://creativecommons.org/licenses/by-sa/4.0/",
+        redistribution: "pending",
+        reviewNote: "Served by the wty project itself; Yomu links to the upstream archive rather than mirroring it."
+      },
+      distribution: {
+        state: "upstream",
+        archive: {
+          url: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/es/es/wty-es-es-ipa.zip",
+          bytes: 10112702
+        }
+      }
+    },
+    {
+      id: "wty-fr-en",
+      title: "[FR-EN] Wiktionary (wty)",
+      installedTitle: "wty-fr-en",
+      format: "yomitan",
+      version: "2026.07.15",
+      categories: [
+        "terms"
+      ],
+      headwordLanguages: [
+        "fr"
+      ],
+      definitionLanguages: [
+        "en"
+      ],
+      source: {
+        acquisitionId: "wty-fr-en",
+        url: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/fr/en/wty-fr-en.zip",
+        projectUrl: "https://github.com/yomidevs/wiktionary-to-yomitan",
+        catalogueSection: "wiktionary-multilingual"
+      },
+      license: {
+        spdx: "CC-BY-SA-4.0",
+        attribution: "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+        sourceUrl: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/fr/en/wty-fr-en.zip",
+        licenseUrl: "https://creativecommons.org/licenses/by-sa/4.0/",
+        redistribution: "pending",
+        reviewNote: "Served by the wty project itself; Yomu links to the upstream archive rather than mirroring it."
+      },
+      distribution: {
+        state: "upstream",
+        archive: {
+          url: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/fr/en/wty-fr-en.zip",
+          bytes: 10871156
+        }
+      }
+    },
+    {
+      id: "wty-fr-en-ipa",
+      title: "[FR-EN IPA] Wiktionary (wty)",
+      installedTitle: "wty-fr-en-ipa",
+      format: "yomitan",
+      version: "2026.07.15",
+      categories: [
+        "pronunciation"
+      ],
+      headwordLanguages: [
+        "fr"
+      ],
+      definitionLanguages: [
+        "en"
+      ],
+      source: {
+        acquisitionId: "wty-fr-en-ipa",
+        url: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/fr/en/wty-fr-en-ipa.zip",
+        projectUrl: "https://github.com/yomidevs/wiktionary-to-yomitan",
+        catalogueSection: "wiktionary-multilingual"
+      },
+      license: {
+        spdx: "CC-BY-SA-4.0",
+        attribution: "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+        sourceUrl: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/fr/en/wty-fr-en-ipa.zip",
+        licenseUrl: "https://creativecommons.org/licenses/by-sa/4.0/",
+        redistribution: "pending",
+        reviewNote: "Served by the wty project itself; Yomu links to the upstream archive rather than mirroring it."
+      },
+      distribution: {
+        state: "upstream",
+        archive: {
+          url: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/fr/en/wty-fr-en-ipa.zip",
+          bytes: 1861551
+        }
+      }
+    },
+    {
+      id: "wty-fr-fr",
+      title: "[FR-FR] Wiktionary (wty)",
+      installedTitle: "wty-fr-fr",
+      format: "yomitan",
+      version: "2026.07.15",
+      categories: [
+        "terms"
+      ],
+      headwordLanguages: [
+        "fr"
+      ],
+      definitionLanguages: [
+        "fr"
+      ],
+      source: {
+        acquisitionId: "wty-fr-fr",
+        url: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/fr/fr/wty-fr-fr.zip",
+        projectUrl: "https://github.com/yomidevs/wiktionary-to-yomitan",
+        catalogueSection: "wiktionary-multilingual"
+      },
+      license: {
+        spdx: "CC-BY-SA-4.0",
+        attribution: "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+        sourceUrl: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/fr/fr/wty-fr-fr.zip",
+        licenseUrl: "https://creativecommons.org/licenses/by-sa/4.0/",
+        redistribution: "pending",
+        reviewNote: "Served by the wty project itself; Yomu links to the upstream archive rather than mirroring it."
+      },
+      distribution: {
+        state: "upstream",
+        archive: {
+          url: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/fr/fr/wty-fr-fr.zip",
+          bytes: 75810942
+        }
+      }
+    },
+    {
+      id: "wty-fr-fr-ipa",
+      title: "[FR-FR IPA] Wiktionary (wty)",
+      installedTitle: "wty-fr-fr-ipa",
+      format: "yomitan",
+      version: "2026.07.15",
+      categories: [
+        "pronunciation"
+      ],
+      headwordLanguages: [
+        "fr"
+      ],
+      definitionLanguages: [
+        "fr"
+      ],
+      source: {
+        acquisitionId: "wty-fr-fr-ipa",
+        url: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/fr/fr/wty-fr-fr-ipa.zip",
+        projectUrl: "https://github.com/yomidevs/wiktionary-to-yomitan",
+        catalogueSection: "wiktionary-multilingual"
+      },
+      license: {
+        spdx: "CC-BY-SA-4.0",
+        attribution: "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+        sourceUrl: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/fr/fr/wty-fr-fr-ipa.zip",
+        licenseUrl: "https://creativecommons.org/licenses/by-sa/4.0/",
+        redistribution: "pending",
+        reviewNote: "Served by the wty project itself; Yomu links to the upstream archive rather than mirroring it."
+      },
+      distribution: {
+        state: "upstream",
+        archive: {
+          url: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/fr/fr/wty-fr-fr-ipa.zip",
+          bytes: 19087822
+        }
+      }
+    },
+    {
+      id: "wty-de-en",
+      title: "[DE-EN] Wiktionary (wty)",
+      installedTitle: "wty-de-en",
+      format: "yomitan",
+      version: "2026.07.15",
+      categories: [
+        "terms"
+      ],
+      headwordLanguages: [
+        "de"
+      ],
+      definitionLanguages: [
+        "en"
+      ],
+      source: {
+        acquisitionId: "wty-de-en",
+        url: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/de/en/wty-de-en.zip",
+        projectUrl: "https://github.com/yomidevs/wiktionary-to-yomitan",
+        catalogueSection: "wiktionary-multilingual"
+      },
+      license: {
+        spdx: "CC-BY-SA-4.0",
+        attribution: "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+        sourceUrl: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/de/en/wty-de-en.zip",
+        licenseUrl: "https://creativecommons.org/licenses/by-sa/4.0/",
+        redistribution: "pending",
+        reviewNote: "Served by the wty project itself; Yomu links to the upstream archive rather than mirroring it."
+      },
+      distribution: {
+        state: "upstream",
+        archive: {
+          url: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/de/en/wty-de-en.zip",
+          bytes: 16936546
+        }
+      }
+    },
+    {
+      id: "wty-de-en-ipa",
+      title: "[DE-EN IPA] Wiktionary (wty)",
+      installedTitle: "wty-de-en-ipa",
+      format: "yomitan",
+      version: "2026.07.15",
+      categories: [
+        "pronunciation"
+      ],
+      headwordLanguages: [
+        "de"
+      ],
+      definitionLanguages: [
+        "en"
+      ],
+      source: {
+        acquisitionId: "wty-de-en-ipa",
+        url: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/de/en/wty-de-en-ipa.zip",
+        projectUrl: "https://github.com/yomidevs/wiktionary-to-yomitan",
+        catalogueSection: "wiktionary-multilingual"
+      },
+      license: {
+        spdx: "CC-BY-SA-4.0",
+        attribution: "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+        sourceUrl: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/de/en/wty-de-en-ipa.zip",
+        licenseUrl: "https://creativecommons.org/licenses/by-sa/4.0/",
+        redistribution: "pending",
+        reviewNote: "Served by the wty project itself; Yomu links to the upstream archive rather than mirroring it."
+      },
+      distribution: {
+        state: "upstream",
+        archive: {
+          url: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/de/en/wty-de-en-ipa.zip",
+          bytes: 1534929
+        }
+      }
+    },
+    {
+      id: "wty-de-de",
+      title: "[DE-DE] Wiktionary (wty)",
+      installedTitle: "wty-de-de",
+      format: "yomitan",
+      version: "2026.07.15",
+      categories: [
+        "terms"
+      ],
+      headwordLanguages: [
+        "de"
+      ],
+      definitionLanguages: [
+        "de"
+      ],
+      source: {
+        acquisitionId: "wty-de-de",
+        url: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/de/de/wty-de-de.zip",
+        projectUrl: "https://github.com/yomidevs/wiktionary-to-yomitan",
+        catalogueSection: "wiktionary-multilingual"
+      },
+      license: {
+        spdx: "CC-BY-SA-4.0",
+        attribution: "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+        sourceUrl: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/de/de/wty-de-de.zip",
+        licenseUrl: "https://creativecommons.org/licenses/by-sa/4.0/",
+        redistribution: "pending",
+        reviewNote: "Served by the wty project itself; Yomu links to the upstream archive rather than mirroring it."
+      },
+      distribution: {
+        state: "upstream",
+        archive: {
+          url: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/de/de/wty-de-de.zip",
+          bytes: 53210298
+        }
+      }
+    },
+    {
+      id: "wty-de-de-ipa",
+      title: "[DE-DE IPA] Wiktionary (wty)",
+      installedTitle: "wty-de-de-ipa",
+      format: "yomitan",
+      version: "2026.07.15",
+      categories: [
+        "pronunciation"
+      ],
+      headwordLanguages: [
+        "de"
+      ],
+      definitionLanguages: [
+        "de"
+      ],
+      source: {
+        acquisitionId: "wty-de-de-ipa",
+        url: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/de/de/wty-de-de-ipa.zip",
+        projectUrl: "https://github.com/yomidevs/wiktionary-to-yomitan",
+        catalogueSection: "wiktionary-multilingual"
+      },
+      license: {
+        spdx: "CC-BY-SA-4.0",
+        attribution: "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+        sourceUrl: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/de/de/wty-de-de-ipa.zip",
+        licenseUrl: "https://creativecommons.org/licenses/by-sa/4.0/",
+        redistribution: "pending",
+        reviewNote: "Served by the wty project itself; Yomu links to the upstream archive rather than mirroring it."
+      },
+      distribution: {
+        state: "upstream",
+        archive: {
+          url: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/de/de/wty-de-de-ipa.zip",
+          bytes: 12619620
+        }
+      }
+    },
+    {
+      id: "wty-ru-en",
+      title: "[RU-EN] Wiktionary (wty)",
+      installedTitle: "wty-ru-en",
+      format: "yomitan",
+      version: "2026.07.15",
+      categories: [
+        "terms"
+      ],
+      headwordLanguages: [
+        "ru"
+      ],
+      definitionLanguages: [
+        "en"
+      ],
+      source: {
+        acquisitionId: "wty-ru-en",
+        url: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/ru/en/wty-ru-en.zip",
+        projectUrl: "https://github.com/yomidevs/wiktionary-to-yomitan",
+        catalogueSection: "wiktionary-multilingual"
+      },
+      license: {
+        spdx: "CC-BY-SA-4.0",
+        attribution: "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+        sourceUrl: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/ru/en/wty-ru-en.zip",
+        licenseUrl: "https://creativecommons.org/licenses/by-sa/4.0/",
+        redistribution: "pending",
+        reviewNote: "Served by the wty project itself; Yomu links to the upstream archive rather than mirroring it."
+      },
+      distribution: {
+        state: "upstream",
+        archive: {
+          url: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/ru/en/wty-ru-en.zip",
+          bytes: 26007867
+        }
+      }
+    },
+    {
+      id: "wty-ru-en-ipa",
+      title: "[RU-EN IPA] Wiktionary (wty)",
+      installedTitle: "wty-ru-en-ipa",
+      format: "yomitan",
+      version: "2026.07.15",
+      categories: [
+        "pronunciation"
+      ],
+      headwordLanguages: [
+        "ru"
+      ],
+      definitionLanguages: [
+        "en"
+      ],
+      source: {
+        acquisitionId: "wty-ru-en-ipa",
+        url: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/ru/en/wty-ru-en-ipa.zip",
+        projectUrl: "https://github.com/yomidevs/wiktionary-to-yomitan",
+        catalogueSection: "wiktionary-multilingual"
+      },
+      license: {
+        spdx: "CC-BY-SA-4.0",
+        attribution: "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+        sourceUrl: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/ru/en/wty-ru-en-ipa.zip",
+        licenseUrl: "https://creativecommons.org/licenses/by-sa/4.0/",
+        redistribution: "pending",
+        reviewNote: "Served by the wty project itself; Yomu links to the upstream archive rather than mirroring it."
+      },
+      distribution: {
+        state: "upstream",
+        archive: {
+          url: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/ru/en/wty-ru-en-ipa.zip",
+          bytes: 6121159
+        }
+      }
+    },
+    {
+      id: "wty-ru-ru",
+      title: "[RU-RU] Wiktionary (wty)",
+      installedTitle: "wty-ru-ru",
+      format: "yomitan",
+      version: "2026.07.15",
+      categories: [
+        "terms"
+      ],
+      headwordLanguages: [
+        "ru"
+      ],
+      definitionLanguages: [
+        "ru"
+      ],
+      source: {
+        acquisitionId: "wty-ru-ru",
+        url: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/ru/ru/wty-ru-ru.zip",
+        projectUrl: "https://github.com/yomidevs/wiktionary-to-yomitan",
+        catalogueSection: "wiktionary-multilingual"
+      },
+      license: {
+        spdx: "CC-BY-SA-4.0",
+        attribution: "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+        sourceUrl: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/ru/ru/wty-ru-ru.zip",
+        licenseUrl: "https://creativecommons.org/licenses/by-sa/4.0/",
+        redistribution: "pending",
+        reviewNote: "Served by the wty project itself; Yomu links to the upstream archive rather than mirroring it."
+      },
+      distribution: {
+        state: "upstream",
+        archive: {
+          url: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/ru/ru/wty-ru-ru.zip",
+          bytes: 82672811
+        }
+      }
+    },
+    {
+      id: "wty-ru-ru-ipa",
+      title: "[RU-RU IPA] Wiktionary (wty)",
+      installedTitle: "wty-ru-ru-ipa",
+      format: "yomitan",
+      version: "2026.07.15",
+      categories: [
+        "pronunciation"
+      ],
+      headwordLanguages: [
+        "ru"
+      ],
+      definitionLanguages: [
+        "ru"
+      ],
+      source: {
+        acquisitionId: "wty-ru-ru-ipa",
+        url: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/ru/ru/wty-ru-ru-ipa.zip",
+        projectUrl: "https://github.com/yomidevs/wiktionary-to-yomitan",
+        catalogueSection: "wiktionary-multilingual"
+      },
+      license: {
+        spdx: "CC-BY-SA-4.0",
+        attribution: "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+        sourceUrl: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/ru/ru/wty-ru-ru-ipa.zip",
+        licenseUrl: "https://creativecommons.org/licenses/by-sa/4.0/",
+        redistribution: "pending",
+        reviewNote: "Served by the wty project itself; Yomu links to the upstream archive rather than mirroring it."
+      },
+      distribution: {
+        state: "upstream",
+        archive: {
+          url: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/ru/ru/wty-ru-ru-ipa.zip",
+          bytes: 6498278
+        }
+      }
+    },
+    {
+      id: "wty-ko-en",
+      title: "[KO-EN] Wiktionary (wty)",
+      installedTitle: "wty-ko-en",
+      format: "yomitan",
+      version: "2026.07.15",
+      categories: [
+        "terms"
+      ],
+      headwordLanguages: [
+        "ko"
+      ],
+      definitionLanguages: [
+        "en"
+      ],
+      source: {
+        acquisitionId: "wty-ko-en",
+        url: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/ko/en/wty-ko-en.zip",
+        projectUrl: "https://github.com/yomidevs/wiktionary-to-yomitan",
+        catalogueSection: "wiktionary-multilingual"
+      },
+      license: {
+        spdx: "CC-BY-SA-4.0",
+        attribution: "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+        sourceUrl: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/ko/en/wty-ko-en.zip",
+        licenseUrl: "https://creativecommons.org/licenses/by-sa/4.0/",
+        redistribution: "pending",
+        reviewNote: "Served by the wty project itself; Yomu links to the upstream archive rather than mirroring it."
+      },
+      distribution: {
+        state: "upstream",
+        archive: {
+          url: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/ko/en/wty-ko-en.zip",
+          bytes: 7178977
+        }
+      }
+    },
+    {
+      id: "wty-ko-en-ipa",
+      title: "[KO-EN IPA] Wiktionary (wty)",
+      installedTitle: "wty-ko-en-ipa",
+      format: "yomitan",
+      version: "2026.07.15",
+      categories: [
+        "pronunciation"
+      ],
+      headwordLanguages: [
+        "ko"
+      ],
+      definitionLanguages: [
+        "en"
+      ],
+      source: {
+        acquisitionId: "wty-ko-en-ipa",
+        url: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/ko/en/wty-ko-en-ipa.zip",
+        projectUrl: "https://github.com/yomidevs/wiktionary-to-yomitan",
+        catalogueSection: "wiktionary-multilingual"
+      },
+      license: {
+        spdx: "CC-BY-SA-4.0",
+        attribution: "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+        sourceUrl: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/ko/en/wty-ko-en-ipa.zip",
+        licenseUrl: "https://creativecommons.org/licenses/by-sa/4.0/",
+        redistribution: "pending",
+        reviewNote: "Served by the wty project itself; Yomu links to the upstream archive rather than mirroring it."
+      },
+      distribution: {
+        state: "upstream",
+        archive: {
+          url: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/ko/en/wty-ko-en-ipa.zip",
+          bytes: 636398
+        }
+      }
+    },
+    {
+      id: "wty-ko-ko",
+      title: "[KO-KO] Wiktionary (wty)",
+      installedTitle: "wty-ko-ko",
+      format: "yomitan",
+      version: "2026.07.15",
+      categories: [
+        "terms"
+      ],
+      headwordLanguages: [
+        "ko"
+      ],
+      definitionLanguages: [
+        "ko"
+      ],
+      source: {
+        acquisitionId: "wty-ko-ko",
+        url: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/ko/ko/wty-ko-ko.zip",
+        projectUrl: "https://github.com/yomidevs/wiktionary-to-yomitan",
+        catalogueSection: "wiktionary-multilingual"
+      },
+      license: {
+        spdx: "CC-BY-SA-4.0",
+        attribution: "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+        sourceUrl: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/ko/ko/wty-ko-ko.zip",
+        licenseUrl: "https://creativecommons.org/licenses/by-sa/4.0/",
+        redistribution: "pending",
+        reviewNote: "Served by the wty project itself; Yomu links to the upstream archive rather than mirroring it."
+      },
+      distribution: {
+        state: "upstream",
+        archive: {
+          url: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/ko/ko/wty-ko-ko.zip",
+          bytes: 4129423
+        }
+      }
+    },
+    {
+      id: "wty-ko-ko-ipa",
+      title: "[KO-KO IPA] Wiktionary (wty)",
+      installedTitle: "wty-ko-ko-ipa",
+      format: "yomitan",
+      version: "2026.07.15",
+      categories: [
+        "pronunciation"
+      ],
+      headwordLanguages: [
+        "ko"
+      ],
+      definitionLanguages: [
+        "ko"
+      ],
+      source: {
+        acquisitionId: "wty-ko-ko-ipa",
+        url: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/ko/ko/wty-ko-ko-ipa.zip",
+        projectUrl: "https://github.com/yomidevs/wiktionary-to-yomitan",
+        catalogueSection: "wiktionary-multilingual"
+      },
+      license: {
+        spdx: "CC-BY-SA-4.0",
+        attribution: "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+        sourceUrl: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/ko/ko/wty-ko-ko-ipa.zip",
+        licenseUrl: "https://creativecommons.org/licenses/by-sa/4.0/",
+        redistribution: "pending",
+        reviewNote: "Served by the wty project itself; Yomu links to the upstream archive rather than mirroring it."
+      },
+      distribution: {
+        state: "upstream",
+        archive: {
+          url: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/ko/ko/wty-ko-ko-ipa.zip",
+          bytes: 1049472
+        }
+      }
+    },
+    {
+      id: "wty-vi-en",
+      title: "[VI-EN] Wiktionary (wty)",
+      installedTitle: "wty-vi-en",
+      format: "yomitan",
+      version: "2026.07.15",
+      categories: [
+        "terms"
+      ],
+      headwordLanguages: [
+        "vi"
+      ],
+      definitionLanguages: [
+        "en"
+      ],
+      source: {
+        acquisitionId: "wty-vi-en",
+        url: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/vi/en/wty-vi-en.zip",
+        projectUrl: "https://github.com/yomidevs/wiktionary-to-yomitan",
+        catalogueSection: "wiktionary-multilingual"
+      },
+      license: {
+        spdx: "CC-BY-SA-4.0",
+        attribution: "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+        sourceUrl: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/vi/en/wty-vi-en.zip",
+        licenseUrl: "https://creativecommons.org/licenses/by-sa/4.0/",
+        redistribution: "pending",
+        reviewNote: "Served by the wty project itself; Yomu links to the upstream archive rather than mirroring it."
+      },
+      distribution: {
+        state: "upstream",
+        archive: {
+          url: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/vi/en/wty-vi-en.zip",
+          bytes: 4244664
+        }
+      }
+    },
+    {
+      id: "wty-vi-en-ipa",
+      title: "[VI-EN IPA] Wiktionary (wty)",
+      installedTitle: "wty-vi-en-ipa",
+      format: "yomitan",
+      version: "2026.07.15",
+      categories: [
+        "pronunciation"
+      ],
+      headwordLanguages: [
+        "vi"
+      ],
+      definitionLanguages: [
+        "en"
+      ],
+      source: {
+        acquisitionId: "wty-vi-en-ipa",
+        url: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/vi/en/wty-vi-en-ipa.zip",
+        projectUrl: "https://github.com/yomidevs/wiktionary-to-yomitan",
+        catalogueSection: "wiktionary-multilingual"
+      },
+      license: {
+        spdx: "CC-BY-SA-4.0",
+        attribution: "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+        sourceUrl: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/vi/en/wty-vi-en-ipa.zip",
+        licenseUrl: "https://creativecommons.org/licenses/by-sa/4.0/",
+        redistribution: "pending",
+        reviewNote: "Served by the wty project itself; Yomu links to the upstream archive rather than mirroring it."
+      },
+      distribution: {
+        state: "upstream",
+        archive: {
+          url: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/vi/en/wty-vi-en-ipa.zip",
+          bytes: 931347
+        }
+      }
+    },
+    {
+      id: "wty-vi-vi",
+      title: "[VI-VI] Wiktionary (wty)",
+      installedTitle: "wty-vi-vi",
+      format: "yomitan",
+      version: "2026.07.15",
+      categories: [
+        "terms"
+      ],
+      headwordLanguages: [
+        "vi"
+      ],
+      definitionLanguages: [
+        "vi"
+      ],
+      source: {
+        acquisitionId: "wty-vi-vi",
+        url: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/vi/vi/wty-vi-vi.zip",
+        projectUrl: "https://github.com/yomidevs/wiktionary-to-yomitan",
+        catalogueSection: "wiktionary-multilingual"
+      },
+      license: {
+        spdx: "CC-BY-SA-4.0",
+        attribution: "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+        sourceUrl: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/vi/vi/wty-vi-vi.zip",
+        licenseUrl: "https://creativecommons.org/licenses/by-sa/4.0/",
+        redistribution: "pending",
+        reviewNote: "Served by the wty project itself; Yomu links to the upstream archive rather than mirroring it."
+      },
+      distribution: {
+        state: "upstream",
+        archive: {
+          url: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/vi/vi/wty-vi-vi.zip",
+          bytes: 3730344
+        }
+      }
+    },
+    {
+      id: "wty-vi-vi-ipa",
+      title: "[VI-VI IPA] Wiktionary (wty)",
+      installedTitle: "wty-vi-vi-ipa",
+      format: "yomitan",
+      version: "2026.07.15",
+      categories: [
+        "pronunciation"
+      ],
+      headwordLanguages: [
+        "vi"
+      ],
+      definitionLanguages: [
+        "vi"
+      ],
+      source: {
+        acquisitionId: "wty-vi-vi-ipa",
+        url: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/vi/vi/wty-vi-vi-ipa.zip",
+        projectUrl: "https://github.com/yomidevs/wiktionary-to-yomitan",
+        catalogueSection: "wiktionary-multilingual"
+      },
+      license: {
+        spdx: "CC-BY-SA-4.0",
+        attribution: "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+        sourceUrl: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/vi/vi/wty-vi-vi-ipa.zip",
+        licenseUrl: "https://creativecommons.org/licenses/by-sa/4.0/",
+        redistribution: "pending",
+        reviewNote: "Served by the wty project itself; Yomu links to the upstream archive rather than mirroring it."
+      },
+      distribution: {
+        state: "upstream",
+        archive: {
+          url: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/vi/vi/wty-vi-vi-ipa.zip",
+          bytes: 1560638
+        }
+      }
     }
   ];
   const dictionaryCatalog = {
@@ -329737,9 +330725,11 @@ ${entry2.url}`),
     const license = record(entry2.license, `${path}.license`);
     const redistribution = oneOf(license.redistribution, ["allowed", "pending", "blocked"], `${path}.license.redistribution`);
     const distribution = parseDistribution(entry2.distribution, `${path}.distribution`, redistribution);
+    const installedTitle = optionalText(entry2.installedTitle, `${path}.installedTitle`);
     return {
       id: id2,
       title: text(entry2.title, `${path}.title`),
+      ...installedTitle ? { installedTitle } : {},
       format: "yomitan",
       version: text(entry2.version, `${path}.version`),
       categories,
@@ -329764,9 +330754,20 @@ ${entry2.url}`),
   }
   function parseDistribution(input2, path, redistribution) {
     const distribution = record(input2, path);
-    const state = oneOf(distribution.state, ["source-only", "blocked", "published"], `${path}.state`);
+    const state = oneOf(distribution.state, ["source-only", "blocked", "upstream", "published"], `${path}.state`);
     if (state === "source-only") return { state };
     if (state === "blocked") return { state, reason: text(distribution.reason, `${path}.reason`) };
+    if (state === "upstream") {
+      const archive = record(distribution.archive, `${path}.archive`);
+      const bytes = archive.bytes === void 0 ? void 0 : positiveInteger(archive.bytes, `${path}.archive.bytes`);
+      return {
+        state,
+        archive: {
+          url: httpsUrl(archive.url, `${path}.archive.url`),
+          ...bytes === void 0 ? {} : { bytes }
+        }
+      };
+    }
     if (redistribution !== "allowed") fail(path, "cannot publish until redistribution review is allowed");
     const object2 = record(distribution.object, `${path}.object`);
     const sha2562 = text(object2.sha256, `${path}.object.sha256`);
@@ -330068,18 +331069,18 @@ ${entry2.url}`),
   }
   function browseCard(catalog2, headwordLanguage, entry2) {
     const primaryCategory = primaryCatalogCategory(entry2);
-    const object2 = entry2.distribution.state === "published" ? entry2.distribution.object : void 0;
+    const download = dictionaryEntryDownload(entry2, catalog2.objectsBaseUrl);
     return {
       id: catalogBrowseCardId(headwordLanguage, entry2.id),
       headwordLanguage,
       category: UI_CATEGORY_BY_CATALOG_CATEGORY[primaryCategory],
       catalogCategory: primaryCategory,
       name: entry2.title,
-      description: describeMirroredDictionary(entry2.definitionLanguages[0], object2?.bytes),
-      ...object2 ? {
-        downloadUrl: new URL(object2.key, catalog2.objectsBaseUrl).href,
-        sha256: object2.sha256,
-        bytes: object2.bytes
+      description: describeMirroredDictionary(entry2.definitionLanguages[0], download?.bytes),
+      ...download ? {
+        downloadUrl: download.url,
+        ...download.sha256 === void 0 ? {} : { sha256: download.sha256 },
+        ...download.bytes === void 0 ? {} : { bytes: download.bytes }
       } : {},
       ...entry2.source.projectUrl ? { helpUrl: entry2.source.projectUrl } : {},
       origin: "catalog",
@@ -330087,7 +331088,7 @@ ${entry2.url}`),
       selectedByDefault: false,
       definitionLanguage: entry2.definitionLanguages[0],
       translationMode: "off",
-      installedDictionaryIdentity: yomitanDictionaryIdentity(entry2.title)
+      installedDictionaryIdentity: yomitanDictionaryIdentity(entry2.installedTitle ?? entry2.title)
     };
   }
   function primaryCatalogCategory(entry2) {
@@ -330675,6 +331676,7 @@ ${entry2.url}`),
   }
   function recommendedDictionaryImportOptions(dictionary) {
     if (dictionary.origin !== "catalog") return void 0;
+    if (!isMirrorServedDownload(dictionary.downloadUrl)) return void 0;
     if (!dictionary.sha256 || !dictionary.bytes) {
       throw new Error(`Catalogue dictionary "${dictionary.id}" is missing integrity metadata.`);
     }
@@ -330685,22 +331687,25 @@ ${entry2.url}`),
       }
     };
   }
+  function isMirrorServedDownload(downloadUrl) {
+    return Boolean(downloadUrl?.startsWith(FROZEN_DICTIONARY_CATALOG.objectsBaseUrl));
+  }
   function recommendedDictionariesFromCatalog(catalog2, manifest) {
     assertRecommendationReferencesCatalog(manifest, catalog2);
     const entryById = new Map(catalog2.entries.map((entry2) => [entry2.id, entry2]));
     return manifest.dictionaries.map((recommendation) => {
       const entry2 = entryById.get(recommendation.dictionaryId);
       if (!entry2) throw new Error(`Recommended dictionary "${recommendation.dictionaryId}" is missing from the catalogue.`);
-      const object2 = entry2.distribution.state === "published" ? entry2.distribution.object : void 0;
+      const download = dictionaryEntryDownload(entry2, catalog2.objectsBaseUrl);
       return {
         id: catalogRecommendedDictionaryId(manifest.learnerLanguage, entry2.id),
         category: recommendedDictionaryCategory(recommendation),
         name: entry2.title,
         description: catalogRecommendationDescription(manifest.learnerLanguage, recommendation),
-        ...object2 ? {
-          downloadUrl: new URL(object2.key, catalog2.objectsBaseUrl).href,
-          sha256: object2.sha256,
-          bytes: object2.bytes
+        ...download ? {
+          downloadUrl: download.url,
+          ...download.sha256 === void 0 ? {} : { sha256: download.sha256 },
+          ...download.bytes === void 0 ? {} : { bytes: download.bytes }
         } : {},
         ...entry2.source.projectUrl ? { helpUrl: entry2.source.projectUrl } : {},
         origin: "catalog",
@@ -330711,7 +331716,7 @@ ${entry2.url}`),
         selectedByDefault: recommendation.selectedByDefault,
         definitionLanguage: recommendation.definitionLanguage,
         translationMode: recommendation.translationMode,
-        installedDictionaryIdentity: CATALOG_INSTALLED_DICTIONARY_IDENTITIES[entry2.id] ?? yomitanDictionaryIdentity(entry2.title)
+        installedDictionaryIdentity: CATALOG_INSTALLED_DICTIONARY_IDENTITIES[entry2.id] ?? yomitanDictionaryIdentity(entry2.installedTitle ?? entry2.title)
       };
     });
   }
