@@ -189,7 +189,7 @@ export const ACADEMY_LESSON_CONTENT_REGISTRY: readonly LessonContentRegistration
         filename: 'lesson-zero.v1.json',
         lessonId: 'lesson:foundation-00',
         classWeekId: 'orientation',
-        expectedContentRevision: '2026-07-26.lesson-zero.v3-hiragana-route',
+        expectedContentRevision: '2026-07-27.lesson-zero.v4-name-listening',
         expectedSha256: LESSON_ZERO_CONTENT_SHA256,
         audit: validateLessonZeroGrounding,
     },

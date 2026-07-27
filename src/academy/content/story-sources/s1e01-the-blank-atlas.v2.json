@@ -139,8 +139,8 @@
   },
   "curriculumBinding": {
     "lessonId": "lesson:foundation-00",
-    "contentVersion": "2026-07-26.lesson-zero.v3-hiragana-route",
-    "contentSha256": "07b14df944f8397154ffa5f9f22288b754b22c771786d550afe529d63dd69656",
+    "contentVersion": "2026-07-27.lesson-zero.v4-name-listening",
+    "contentSha256": "4608a1ebd2d9f8427fb528c7ade109026c6f5f8235cece0d266da17702c9507e",
     "provenancePath": "public/academy/content/lessons/lesson-zero/provenance.v1.json",
     "provenanceSha256": "3bf92fad4ec4996e0d055a0fdd76b4a585f703c544bc532be3fb22b6c189319e",
     "sectionSequence": [

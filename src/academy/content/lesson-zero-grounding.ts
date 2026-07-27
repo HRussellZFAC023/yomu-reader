@@ -138,7 +138,7 @@ function activityContract(
                 authoredInputIds: ['input:lesson-zero-sound-hosts'],
                 revision,
                 authorId: 'author:yomu-academy',
-                rationale: 'Two short, cast-specific introductions isolate the audible name-before-です landmark.',
+                rationale: 'Two cast introductions teach the names before a reversed-order, changed-speaker check.',
                 languageReview: {
                     reviewerId: 'reviewer:lesson-zero-ja-content',
                     revision,
@@ -243,7 +243,7 @@ function activityContract(
             ? ready({
                 method: 'deterministic',
                 grader: pedagogy.registry.ref(
-                    'grader:lesson-zero:audio-speaker-match',
+                    'grader:lesson-zero:audio-name-match',
                     'deterministic-grader',
                 ),
                 answerSets: [pedagogy.registry.ref(
@@ -263,8 +263,8 @@ function activityContract(
         repair: soundInput
             ? ready({
                 errorTagIds: [
-                    'error:listening:speaker:xingyu',
-                    'error:listening:speaker:mika',
+                    'error:listening:name:xingyu',
+                    'error:listening:name:mika',
                 ],
                 feedbackIds: [
                     'feedback:lesson-zero:sound-xingyu',
@@ -288,16 +288,16 @@ function activityContract(
                 reviewRepository: 'canonical-yomu',
                 reviewItems: [
                     {
-                        seedId: 'review:lesson-zero:sound:hajimemashite',
+                        seedId: 'review:lesson-zero:name:xingyu',
                         conceptId: 'concept:introduction-listening-gist',
-                        expressionKey: 'はじめまして',
-                        readingKey: 'はじめまして',
+                        expressionKey: 'シンユ',
+                        readingKey: 'シンユ',
                     },
                     {
-                        seedId: 'review:lesson-zero:sound:yoroshiku',
+                        seedId: 'review:lesson-zero:name:mika',
                         conceptId: 'concept:introduction-listening-detail',
-                        expressionKey: 'よろしくお願いします',
-                        readingKey: 'よろしくおねがいします',
+                        expressionKey: 'ミカ',
+                        readingKey: 'ミカ',
                     },
                 ],
             })

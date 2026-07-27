@@ -100,7 +100,7 @@ describe('Lesson 0 grounding audit', () => {
                 state: 'ready',
                 provenance: 'authored',
                 assetIds: ['audio:lesson-zero-sound-hosts'],
-                revision: '2026-07-26.lesson-zero.v3-hiragana-route',
+                revision: '2026-07-27.lesson-zero.v4-name-listening',
                 transcript: 'ready',
             },
         });

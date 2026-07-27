@@ -35,35 +35,45 @@ export interface LessonZeroSoundScreen {
 }
 
 const COPY = {
-    eyebrow: { en: 'Sound room', ja: '音の教室' },
-    title: { en: 'Whose name did you hear?', ja: 'だれの名前が聞こえた？' },
-    direction: {
-        en: 'Play each voice to the end. Listen for the name immediately before です.',
-        ja: '一人ずつ最後まで聞いて、「です」のすぐ前にある名前を探しましょう。',
+    eyebrow: { en: 'Introductions', ja: '自己紹介' },
+    title: { en: 'Meet Xingyu and Mika', ja: 'シンユとミカ' },
+    meetDirection: {
+        en: 'Listen once. These are the two names you will need.',
+        ja: '一度ずつ聞きましょう。この二人の名前を使います。',
     },
-    noReading: { en: 'No reading needed yet.', ja: 'まだ文字は読まなくて大丈夫です。' },
-    voice: { en: 'Voice', ja: '声' },
+    meetCheck: { en: 'Now listen for their names', ja: '次は名前を聞き取る' },
+    direction: {
+        en: 'They will introduce each other. Play each line and choose the name you hear.',
+        ja: '今度は二人がお互いを紹介します。一つずつ聞いて、聞こえた名前を選びましょう。',
+    },
+    noReading: { en: 'You only need the name.', ja: '名前だけ聞けば大丈夫です。' },
+    voice: { en: 'Line', ja: '会話' },
     listen: { en: 'Listen', ja: '聞く' },
     replay: { en: 'Replay', ja: 'もう一度' },
     playing: { en: 'Playing…', ja: '再生中…' },
-    choose: { en: 'Who did you hear?', ja: 'だれの声？' },
+    choose: { en: 'Which name?', ja: 'どの名前？' },
     heard: { en: 'Heard', ja: '聞きました' },
-    check: { en: 'Check both voices', ja: '二人を確かめる' },
+    check: { en: 'Check the names', ja: '名前を確かめる' },
     repairEyebrow: { en: 'One more listen', ja: 'もう一度だけ' },
-    repairTitle: { en: 'Replay the voice you missed', ja: '間違えた声を聞き直そう' },
+    repairTitle: { en: 'Listen to that name once more', ja: 'その名前をもう一度' },
     repairBody: {
-        en: 'You only need the name before です. Replay the marked voice, then try both again.',
-        ja: '必要なのは「です」の前の名前だけです。印のついた声を聞いてから、二人をもう一度合わせましょう。',
+        en: 'Replay the missed line, then choose that name again.',
+        ja: '間違えた会話だけ聞いて、その名前をもう一度選びましょう。',
     },
     showLine: { en: 'Show the line', ja: '文を見る' },
     hideLine: { en: 'The line is now visible below.', ja: '下に文を表示しました。' },
     repaired: { en: 'Ready to try again', ja: 'もう一度できます' },
-    retry: { en: 'Match both again', ja: '二人をもう一度合わせる' },
+    retry: { en: 'Try that name again', ja: 'その名前をもう一度' },
     completeEyebrow: { en: 'Both names found', ja: '二人の名前を発見' },
-    completeTitle: { en: 'You caught the useful part', ja: '必要なところを聞き取れました' },
+    completeTitle: { en: 'You know their names', ja: '二人の名前が分かりました' },
     completeBody: {
-        en: 'You did not need every word. You found each name by listening for です.',
-        ja: '全部のことばが分からなくても、「です」を目印に二人の名前を見つけられました。',
+        en: 'You recognized Xingyu and Mika in a new exchange.',
+        ja: '別の会話でも、シンユとミカの名前を聞き取れました。',
+    },
+    assistedTitle: { en: 'We will hear them again', ja: 'あとでもう一度' },
+    assistedBody: {
+        en: 'Xingyu and Mika are in your review queue. You can keep moving.',
+        ja: 'シンユとミカは復習に入りました。このまま先へ進めます。',
     },
     transcript: { en: 'What they said', ja: '二人が言ったこと' },
     continue: { en: 'Keep going', ja: '次へ' },
@@ -86,6 +96,7 @@ export function createLessonZeroSoundScreen(
     let message = '';
     let busy = false;
     let disposed = false;
+    let lookupSettleTimer: number | undefined;
 
     const screen = element('section', 'academy-screen academy-sound-screen');
     screen.dataset.academyScreen = 'lesson-zero-sound';
@@ -122,7 +133,43 @@ export function createLessonZeroSoundScreen(
         live.textContent = message;
         if (state.stage === 'complete') renderComplete(renderLifecycle.signal);
         else if (state.stage === 'repair') renderRepair(renderLifecycle.signal);
+        else if (state.stage === 'meet') renderMeet(renderLifecycle.signal);
         else renderAttempt(renderLifecycle.signal);
+    };
+
+    const renderMeet = (signal: AbortSignal): void => {
+        const paper = livingPaper('academy-sound-meet');
+        paper.append(localized('p', 'academy-sound-direction', COPY.meetDirection, options.language));
+        const roster = element('div', 'academy-sound-meet-roster');
+        introductionLines().forEach((line, index) => {
+            const speaker = speakerFor(line.targetSpeakerId);
+            const row = element('section', 'academy-sound-meet-turn');
+            row.dataset.lineId = line.id;
+            const identity = element('div', 'academy-sound-meet-name');
+            identity.append(
+                textElement('strong', '', speaker.displayName),
+                textElement('span', '', speaker.katakanaName),
+            );
+            row.append(
+                textElement('span', 'academy-sound-turn-number', String(index + 1).padStart(2, '0')),
+                identity,
+                listenButton(line, index, signal),
+            );
+            if (state.heardLineIds.includes(line.id)) {
+                const heard = element('div', 'academy-sound-meet-heard');
+                heard.append(
+                    japanesePhraseLine('academy-sound-transcript-ja', line.japanese),
+                    textElement('p', 'academy-sound-transcript-en', line.meaning.en),
+                );
+                row.append(heard);
+            }
+            roster.append(row);
+        });
+        paper.append(roster);
+        const begin = actionButton(COPY.meetCheck, 'primary', signal, () => apply({ kind: 'begin-check' }));
+        begin.disabled = introductionLines().some(line => !state.heardLineIds.includes(line.id));
+        paper.append(begin);
+        stage.append(paper, speakerStage());
     };
 
     const renderAttempt = (signal: AbortSignal): void => {
@@ -135,7 +182,7 @@ export function createLessonZeroSoundScreen(
         );
         paper.append(intro);
         const voices = element('div', 'academy-sound-voices');
-        options.definition.lines.forEach((line, index) => voices.append(voiceTurn(line, index, signal)));
+        activeAttemptLines().forEach((line, index) => voices.append(voiceTurn(line, index, signal)));
         paper.append(voices);
         const check = actionButton(COPY.check, 'primary', signal, () => apply({ kind: 'check' }));
         check.disabled = busy || !attemptReady();
@@ -150,13 +197,7 @@ export function createLessonZeroSoundScreen(
         const number = textElement('span', 'academy-sound-turn-number', String(index + 1).padStart(2, '0'));
         const label = localized('h2', 'academy-sound-turn-title', COPY.voice, options.language);
         label.append(` ${index + 1}`);
-        const listen = element('button', 'academy-sound-listen');
-        listen.type = 'button';
-        const isPlaying = playingLineId === line.id;
-        listen.dataset.playing = String(isPlaying);
-        listen.setAttribute('aria-label', `${COPY.listen[options.language]}: ${COPY.voice[options.language]} ${index + 1}`);
-        listen.innerHTML = `<span aria-hidden="true">${isPlaying ? '■' : '▶'}</span><span>${isPlaying ? COPY.playing[options.language] : state.heardLineIds.includes(line.id) ? COPY.replay[options.language] : COPY.listen[options.language]}</span>`;
-        listen.addEventListener('click', () => void playLine(line, false), { signal });
+        const listen = listenButton(line, index, signal);
         rail.append(number, label, listen);
 
         const choices = element('fieldset', 'academy-sound-choices');
@@ -180,9 +221,20 @@ export function createLessonZeroSoundScreen(
         button.dataset.speakerId = speaker.id;
         button.dataset.selected = String(selected);
         button.setAttribute('aria-pressed', String(selected));
-        const name = textElement('strong', 'academy-sound-choice-name', speaker.displayName);
-        const kana = textElement('span', 'academy-sound-choice-kana', speaker.katakanaName);
-        button.append(name, kana);
+        if (speaker.portraitUrl) {
+            const portrait = document.createElement('img');
+            portrait.className = 'academy-sound-choice-portrait';
+            portrait.src = speaker.portraitUrl;
+            portrait.alt = '';
+            portrait.decoding = 'async';
+            button.append(portrait);
+        }
+        const label = element('span', 'academy-sound-choice-label');
+        label.append(
+            textElement('strong', 'academy-sound-choice-name', speaker.displayName),
+            textElement('span', 'academy-sound-choice-kana', speaker.katakanaName),
+        );
+        button.append(label);
         button.addEventListener('click', () => void apply({
             kind: 'select-speaker',
             lineId: line.id,
@@ -225,10 +277,21 @@ export function createLessonZeroSoundScreen(
 
     const renderComplete = (signal: AbortSignal): void => {
         const paper = livingPaper('academy-sound-complete');
+        const assisted = state.attempts.at(-1)?.outcome === 'lapse';
         paper.append(
             localized('p', 'academy-sound-paper-eyebrow', COPY.completeEyebrow, options.language),
-            localized('h2', 'academy-sound-paper-title', COPY.completeTitle, options.language),
-            localized('p', 'academy-sound-paper-copy', COPY.completeBody, options.language),
+            localized(
+                'h2',
+                'academy-sound-paper-title',
+                assisted ? COPY.assistedTitle : COPY.completeTitle,
+                options.language,
+            ),
+            localized(
+                'p',
+                'academy-sound-paper-copy',
+                assisted ? COPY.assistedBody : COPY.completeBody,
+                options.language,
+            ),
             localized('h3', 'academy-sound-transcript-title', COPY.transcript, options.language),
         );
         const transcript = element('div', 'academy-sound-transcript');
@@ -245,11 +308,11 @@ export function createLessonZeroSoundScreen(
 
     const transcriptLine = (lineId: LessonZeroSoundLine['id']): HTMLElement => {
         const line = options.definition.lines.find(candidate => candidate.id === lineId)!;
-        const speaker = options.definition.speakers.find(candidate => candidate.id === line.speakerId)!;
+        const speaker = speakerFor(line.speakerId);
         const row = element('article', 'academy-sound-transcript-line');
         row.append(
             textElement('strong', 'academy-sound-transcript-speaker', speaker.displayName),
-            textElement('p', 'academy-sound-transcript-ja', line.japanese),
+            japanesePhraseLine('academy-sound-transcript-ja', line.japanese),
             textElement('p', 'academy-sound-transcript-en', line.meaning.en),
         );
         return row;
@@ -261,6 +324,9 @@ export function createLessonZeroSoundScreen(
         options.definition.speakers.forEach(speaker => {
             const figure = element('figure', 'academy-sound-speaker');
             figure.dataset.speakerId = speaker.id;
+            figure.dataset.active = String(
+                options.definition.lines.find(line => line.id === playingLineId)?.speakerId === speaker.id,
+            );
             if (speaker.portraitUrl) {
                 const image = document.createElement('img');
                 image.src = speaker.portraitUrl;
@@ -316,6 +382,7 @@ export function createLessonZeroSoundScreen(
             await options.onTransition(before, transition);
         } finally {
             busy = false;
+            suppressLookupWhileLayoutSettles();
             render();
         }
     };
@@ -325,6 +392,7 @@ export function createLessonZeroSoundScreen(
         state = startLessonZeroSoundSession(options.definition);
         message = '';
         await options.onRestart(state);
+        suppressLookupWhileLayoutSettles();
         render();
     };
 
@@ -334,12 +402,55 @@ export function createLessonZeroSoundScreen(
         await options.onBack();
     };
 
-    const attemptReady = (): boolean => options.definition.lines.every(line =>
+    const attemptReady = (): boolean => activeAttemptLines().every(line =>
         state.heardLineIds.includes(line.id)
         && state.selections.some(selection => selection.lineId === line.id));
 
     const selectedSpeaker = (lineId: LessonZeroSoundLine['id']): LessonZeroSoundSelection['speakerId'] | undefined =>
         state.selections.find(selection => selection.lineId === lineId)?.speakerId;
+
+    const introductionLines = (): readonly LessonZeroSoundLine[] =>
+        options.definition.lines.filter(line => line.phase === 'introduction');
+
+    const checkLines = (): readonly LessonZeroSoundLine[] =>
+        options.definition.lines.filter(line => line.phase === 'check');
+
+    const activeAttemptLines = (): readonly LessonZeroSoundLine[] => {
+        const missed = state.attempts.at(-1)?.outcome === 'lapse' && state.repairedLineIds.length > 0
+            ? new Set(state.repairedLineIds)
+            : null;
+        return missed ? checkLines().filter(line => missed.has(line.id)) : checkLines();
+    };
+
+    const speakerFor = (speakerId: LessonZeroSoundSpeaker['id']): LessonZeroSoundSpeaker => {
+        const speaker = options.definition.speakers.find(candidate => candidate.id === speakerId);
+        if (!speaker) throw new TypeError(`Missing sound speaker ${speakerId}.`);
+        return speaker;
+    };
+
+    const listenButton = (
+        line: LessonZeroSoundLine,
+        index: number,
+        signal: AbortSignal,
+    ): HTMLButtonElement => {
+        const listen = element('button', 'academy-sound-listen');
+        listen.type = 'button';
+        const isPlaying = playingLineId === line.id;
+        listen.dataset.playing = String(isPlaying);
+        listen.setAttribute(
+            'aria-label',
+            `${COPY.listen[options.language]}: ${COPY.voice[options.language]} ${index + 1}`,
+        );
+        listen.innerHTML = `<span aria-hidden="true">${isPlaying ? '■' : '▶'}</span><span>${
+            isPlaying
+                ? COPY.playing[options.language]
+                : state.heardLineIds.includes(line.id)
+                    ? COPY.replay[options.language]
+                    : COPY.listen[options.language]
+        }</span>`;
+        listen.addEventListener('click', () => void playLine(line, false), { signal });
+        return listen;
+    };
 
     const stopPlayback = (): void => {
         if (!playback) return;
@@ -352,9 +463,19 @@ export function createLessonZeroSoundScreen(
     const dispose = (): void => {
         if (disposed) return;
         disposed = true;
+        if (lookupSettleTimer !== undefined) window.clearTimeout(lookupSettleTimer);
         stopPlayback();
         renderLifecycle.abort();
         lifecycle.abort();
+    };
+
+    const suppressLookupWhileLayoutSettles = (): void => {
+        screen.dataset.jpdbReaderInteractionIgnore = 'true';
+        if (lookupSettleTimer !== undefined) window.clearTimeout(lookupSettleTimer);
+        lookupSettleTimer = window.setTimeout(() => {
+            delete screen.dataset.jpdbReaderInteractionIgnore;
+            lookupSettleTimer = undefined;
+        }, 750);
     };
 
     render();
@@ -386,6 +507,13 @@ function localized<K extends keyof HTMLElementTagNameMap>(
 ): HTMLElementTagNameMap[K] {
     const node = textElement(tag, className, copy[language]);
     node.lang = language;
+    return node;
+}
+
+function japanesePhraseLine(className: string, text: string): HTMLParagraphElement {
+    const node = element('p', className);
+    const phrases = text.match(/[^。！？]+[。！？]+|[^。！？]+$/gu) ?? [text];
+    for (const phrase of phrases) node.append(textElement('span', 'academy-sound-ja-phrase', phrase));
     return node;
 }
 

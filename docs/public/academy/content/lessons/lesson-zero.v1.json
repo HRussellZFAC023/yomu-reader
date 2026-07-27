@@ -181,7 +181,7 @@
   },
   "lesson": {
     "id": "lesson:foundation-00",
-    "contentVersion": "2026-07-26.lesson-zero.v3-hiragana-route",
+    "contentVersion": "2026-07-27.lesson-zero.v4-name-listening",
     "levelBand": "foundation",
     "estimatedMinutes": { "minimum": 60, "maximum": 90 },
     "overview": {
@@ -497,11 +497,11 @@
         "responseMode": "listen",
         "assessed": true,
         "production": false,
-        "prompt": { "en": "Listen to each short introduction. Match the name you hear immediately before です.", "ja": "短い自己紹介を一人ずつ聞いて、「です」のすぐ前に聞こえる名前を合わせてください。" },
+        "prompt": { "en": "Meet Xingyu and Mika, then recognize their names when they introduce each other.", "ja": "シンユとミカに会ってから、二人がお互いを紹介する会話で名前を聞き取ってください。" },
         "conceptIds": ["concept:introduction-listening-gist", "concept:introduction-listening-detail"],
         "sourceQuestionIds": [],
         "inputScriptId": "input:lesson-zero-sound-hosts",
-        "expectedEvidence": { "kind": "audio-speaker-match", "values": ["xingyu", "mika"] },
+        "expectedEvidence": { "kind": "audio-name-match", "values": ["xingyu", "mika"] },
         "support": { "reading": "learner-controlled", "pitch": "learner-controlled", "englishMeaning": "after-commit", "transcript": "after-commit", "modelAnswer": "after-first-attempt" }
       },
       {
@@ -635,7 +635,9 @@
         "transcriptReveal": "after-commit",
         "lines": [
           { "id": "line:lesson-zero-sound-xingyu", "speakerId": "xingyu", "audioAssetId": "audio:lesson-zero-sound-xingyu", "japanese": "はじめまして。シンユです。", "reading": "はじめまして。シンユです。", "english": "Nice to meet you. I'm Xingyu." },
-          { "id": "line:lesson-zero-sound-mika", "speakerId": "mika", "audioAssetId": "audio:lesson-zero-sound-mika", "japanese": "ミカです。よろしくお願いします。", "reading": "ミカです。よろしくおねがいします。", "english": "I'm Mika. It's nice to meet you." }
+          { "id": "line:lesson-zero-sound-mika", "speakerId": "mika", "audioAssetId": "audio:lesson-zero-sound-mika", "japanese": "ミカです。よろしくお願いします。", "reading": "ミカです。よろしくおねがいします。", "english": "I'm Mika. It's nice to meet you." },
+          { "id": "line:lesson-zero-sound-mika-names-xingyu", "speakerId": "mika", "audioAssetId": "audio:lesson-zero-sound-mika-names-xingyu", "japanese": "こちらはシンユさんです。", "reading": "こちらはシンユさんです。", "english": "This is Xingyu." },
+          { "id": "line:lesson-zero-sound-xingyu-names-mika", "speakerId": "xingyu", "audioAssetId": "audio:lesson-zero-sound-xingyu-names-mika", "japanese": "こちらはミカさんです。", "reading": "こちらはミカさんです。", "english": "This is Mika." }
         ]
       },
       {
@@ -681,7 +683,7 @@
       {
         "id": "audio:lesson-zero-sound-hosts",
         "state": "ready",
-        "purpose": "Paired Sound-mission introductions rendered from the two verified line bindings.",
+        "purpose": "Two introductions followed by a changed-speaker name check, rendered from four verified line bindings.",
         "runtimeUrl": "/academy/audio/lesson-zero/sound-hosts.opus",
         "verifiedPairing": true,
         "browserTtsAllowed": false,
@@ -701,6 +703,24 @@
         "state": "ready",
         "purpose": "Mika's short first-meeting introduction for the second audio-speaker match.",
         "runtimeUrl": "/academy/audio/lesson-zero/sound-mika.opus",
+        "verifiedPairing": true,
+        "browserTtsAllowed": false,
+        "learnerVisiblePlaceholder": false
+      },
+      {
+        "id": "audio:lesson-zero-sound-mika-names-xingyu",
+        "state": "ready",
+        "purpose": "Mika introduces Xingyu during the changed-speaker name check.",
+        "runtimeUrl": "/academy/audio/lesson-zero/sound-mika-names-xingyu.opus",
+        "verifiedPairing": true,
+        "browserTtsAllowed": false,
+        "learnerVisiblePlaceholder": false
+      },
+      {
+        "id": "audio:lesson-zero-sound-xingyu-names-mika",
+        "state": "ready",
+        "purpose": "Xingyu introduces Mika during the changed-speaker name check.",
+        "runtimeUrl": "/academy/audio/lesson-zero/sound-xingyu-names-mika.opus",
         "verifiedPairing": true,
         "browserTtsAllowed": false,
         "learnerVisiblePlaceholder": false

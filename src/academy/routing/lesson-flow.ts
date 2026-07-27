@@ -966,15 +966,15 @@ class LessonFlow implements AcademyRouteFlow {
                     await this.options.evidence.recordActivity(
                         transition.evaluation,
                         LESSON_ZERO_ID,
-                        transition.evaluation.result.outcome === 'pass' ? {
+                        transition.state.status === 'complete' ? {
                             id: 'lesson-zero-first-voices',
                             sceneId: 'scene:lesson-zero-first-voices',
                             journalLine: {
                                 lineId: 'journal:lesson-zero:first-voices',
                                 characterId: 'xingyu',
                                 text: {
-                                    ja: 'シンユさんとミカさんの声から、「です」の前にある名前を聞き取った。',
-                                    en: "I found Xingyu and Mika's names by listening just before です.",
+                                    ja: 'シンユさんとミカさんに会って、二人がお互いを紹介する会話で名前を聞き取った。',
+                                    en: 'I met Xingyu and Mika, then recognized their names when they introduced each other.',
                                 },
                             },
                         } : undefined,

@@ -167,6 +167,8 @@ describe('complete Lesson 0 content package', () => {
         expect(sound?.lines.map(line => line.japanese)).toEqual([
             'はじめまして。シンユです。',
             'ミカです。よろしくお願いします。',
+            'こちらはシンユさんです。',
+            'こちらはミカさんです。',
         ]);
         const speaking = lesson.inputScripts.find(script => script.id === 'input:lesson-zero-speaking-hosts');
         expect(speaking?.lines.find(line => line.speakerId === 'aakash')?.japanese).toContain('これは教科書ですか');
@@ -239,14 +241,16 @@ describe('complete Lesson 0 content package', () => {
     it('exposes every aggregate and split line only after verified pairing', async () => {
         const { lesson } = await loadLessonZeroContent(lessonFetcher());
 
-        expect(lesson.audioAssets).toHaveLength(11);
+        expect(lesson.audioAssets).toHaveLength(13);
         const readyAssets = lesson.audioAssets.filter(asset => asset.state === 'ready');
-        expect(readyAssets).toHaveLength(11);
+        expect(readyAssets).toHaveLength(13);
         expect(readyAssets.map(asset => asset.id)).toEqual(expect.arrayContaining([
             'audio:lesson-zero-vowel-row',
             'audio:lesson-zero-sound-hosts',
             'audio:lesson-zero-sound-xingyu',
             'audio:lesson-zero-sound-mika',
+            'audio:lesson-zero-sound-mika-names-xingyu',
+            'audio:lesson-zero-sound-xingyu-names-mika',
             'audio:lesson-zero-text-hosts',
             'audio:lesson-zero-text-sophie',
             'audio:lesson-zero-text-ruparna',

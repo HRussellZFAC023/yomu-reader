@@ -245,6 +245,8 @@ const CORE = [
     '/academy/audio/lesson-zero/sound-hosts.opus',
     '/academy/audio/lesson-zero/sound-xingyu.opus',
     '/academy/audio/lesson-zero/sound-mika.opus',
+    '/academy/audio/lesson-zero/sound-mika-names-xingyu.opus',
+    '/academy/audio/lesson-zero/sound-xingyu-names-mika.opus',
     STORY_VOICE_CATALOG,
     '/academy/content/lessons/002-l1-l01.json',
     '/academy/content/lessons/003-l1-l02.json',

@@ -7,7 +7,8 @@ import { chromium } from 'playwright';
 const baseUrl = process.env.ACADEMY_BASE_URL ?? 'http://127.0.0.1:5278';
 const artifactDir = path.resolve(process.env.SOUND_SCREENSHOTS ?? 'qa-artifacts/lesson-zero-sound');
 const cases = [
-    { name: 'phone', width: 390, height: 844, proveResume: true },
+    { name: 'compact-phone', width: 320, height: 720, proveResume: true },
+    { name: 'phone', width: 390, height: 844, proveResume: false },
     { name: 'portrait-tablet', width: 1024, height: 1366, proveResume: false },
     { name: 'desktop', width: 1440, height: 900, proveResume: false },
 ];
@@ -19,7 +20,7 @@ const browser = await chromium.launch({
 });
 try {
     for (const testCase of cases) await verifySoundMission(testCase);
-    console.log('Lesson Zero sound mission passed on phone, portrait tablet, and desktop.');
+    console.log('Lesson Zero sound mission passed at 320px, 390px, portrait tablet, and desktop.');
 } finally {
     await browser.close();
 }
@@ -38,6 +39,7 @@ async function verifySoundMission(testCase) {
     const page = await context.newPage();
     const errors = [];
     const unauthorizedResponses = [];
+    const lessonZeroAudioResponses = [];
     page.on('pageerror', error => errors.push(`pageerror: ${error.message}`));
     page.on('console', message => {
         if (message.type() === 'error') {
@@ -47,13 +49,49 @@ async function verifySoundMission(testCase) {
     });
     page.on('response', response => {
         if (response.status() === 401) unauthorizedResponses.push(response.url());
+        if (response.url().includes('/academy/audio/lesson-zero/')) {
+            lessonZeroAudioResponses.push({ url: response.url(), status: response.status() });
+        }
     });
 
     const storyCursor = await reachSoundMission(page, `sound-${testCase.name}-${Date.now()}`);
     const screen = page.locator('[data-academy-screen="lesson-zero-sound"]');
     await screen.waitFor();
+    assert.equal(await screen.getAttribute('data-session-stage'), 'meet');
+    assert.equal(await screen.getByText('Xingyu', { exact: true }).count() > 0, true);
+    assert.equal(await screen.getByText('シンユ', { exact: true }).count() > 0, true);
     assert.equal(await screen.getByText('はじめまして。シンユです。', { exact: true }).count(), 0,
-        `${testCase.name} must delay transcript text until commitment`);
+        `${testCase.name} must teach Xingyu's name by audio before revealing the line`);
+    await assertGeometry(page, testCase, 'meet');
+    await assertAccessible(page);
+    await page.screenshot({ path: path.join(artifactDir, `${testCase.name}-meet.png`), fullPage: true });
+
+    await hearIntroduction(page, 0);
+    assert.equal(await screen.getByText('はじめまして。シンユです。', { exact: true }).count(), 1);
+    if (testCase.proveResume) {
+        await page.locator('.academy-sound-back').click();
+        await screen.waitFor({ state: 'detached' });
+        assert.equal(await storyHandoff(page).getAttribute('data-activity-gate'), 'missing',
+            'phone resume must return to the unfinished story handoff');
+        await page.reload({ waitUntil: 'domcontentloaded' });
+        await storyHandoff(page).waitFor();
+        assert.equal(await openSoundFromStoryHandoff(page), storyCursor,
+            'phone resume must reopen from the same story cursor');
+        await screen.waitFor();
+        assert.equal(await screen.getAttribute('data-session-stage'), 'meet');
+        assert.equal(await screen.getByText('はじめまして。シンユです。', { exact: true }).count(), 1,
+            'compact-phone reload must preserve the first introduction');
+        assert.equal(await introduction(page, 0).locator('.academy-sound-listen').textContent(), '▶Replay');
+        assert.equal(await screen.getByText('ミカです。よろしくお願いします。', { exact: true }).count(), 0,
+            'compact-phone reload must preserve the exact introduction cursor');
+    }
+
+    await hearIntroduction(page, 1);
+    assert.equal(await screen.getByText('ミカです。よろしくお願いします。', { exact: true }).count(), 1);
+    await screen.getByRole('button', { name: 'Now listen for their names' }).click();
+    await waitForStage(page, 'attempt');
+    assert.equal(await screen.getByText('こちらはシンユさんです。', { exact: true }).count(), 0,
+        `${testCase.name} must conceal the changed-speaker transcript before commitment`);
     assert.equal(await lineChoices(page, 0).getAttribute('disabled'), '',
         `${testCase.name} must lock the first answer until audio ends`);
     await assertGeometry(page, testCase, 'attempt');
@@ -62,51 +100,43 @@ async function verifySoundMission(testCase) {
 
     await hearLine(page, 0);
     await choose(page, 0, 'Xingyu');
-    if (testCase.proveResume) {
-        await page.locator('.academy-sound-back').click();
-        await screen.waitFor({ state: 'detached' });
-        assert.equal(await storyHandoff(page).getAttribute('data-activity-gate'), 'missing',
-            'phone resume must return to the unfinished story handoff');
-        assert.equal(await openSoundFromStoryHandoff(page), storyCursor,
-            'phone resume must reopen from the same story cursor');
-        await screen.waitFor();
-        assert.equal(await lineChoices(page, 0).getAttribute('disabled'), null,
-            'phone resume must preserve the completed first listen');
-        assert.equal(await choice(page, 0, 'Xingyu').getAttribute('aria-pressed'), 'true',
-            'phone resume must preserve the first match');
-    }
-
     await hearLine(page, 1);
     await choose(page, 1, 'Xingyu');
-    await screen.getByRole('button', { name: 'Check both voices' }).click();
+    await screen.getByRole('button', { name: 'Check the names' }).click();
     await waitForStage(page, 'repair');
     assert.equal(await screen.locator('.academy-sound-action--listen').count(), 1,
-        `${testCase.name} must offer only the missed voice`);
+        `${testCase.name} must offer only the missed name`);
     assert.equal(await screen.locator('.academy-sound-action--listen').getAttribute('data-line-id'),
-        'line:lesson-zero-sound-mika');
-    assert.equal(await screen.getByRole('button', { name: 'Match both again' }).isDisabled(), true);
+        'line:lesson-zero-sound-xingyu-names-mika');
+    assert.equal(await screen.getByRole('button', { name: 'Try that name again' }).isDisabled(), true);
     await assertGeometry(page, testCase, 'repair');
     await assertAccessible(page);
     await page.screenshot({ path: path.join(artifactDir, `${testCase.name}-repair.png`), fullPage: true });
 
     await screen.getByRole('button', { name: 'Show the line' }).click();
-    await screen.getByText('ミカです。よろしくお願いします。', { exact: true }).waitFor();
+    await screen.getByText('こちらはミカさんです。', { exact: true }).waitFor();
     await screen.locator('.academy-sound-action--listen').click();
-    await screen.getByRole('button', { name: 'Match both again' }).waitFor({ state: 'visible' });
-    await assertEventuallyEnabled(screen.getByRole('button', { name: 'Match both again' }));
-    await screen.getByRole('button', { name: 'Match both again' }).click();
+    await screen.getByRole('button', { name: 'Try that name again' }).waitFor({ state: 'visible' });
+    await assertEventuallyEnabled(screen.getByRole('button', { name: 'Try that name again' }));
+    await screen.getByRole('button', { name: 'Try that name again' }).click();
     await waitForStage(page, 'attempt');
 
+    assert.equal(await screen.locator('.academy-sound-turn').count(), 1,
+        `${testCase.name} retry must contain only the missed name`);
+    assert.equal(await screen.locator('.academy-sound-turn').getAttribute('data-line-id'),
+        'line:lesson-zero-sound-xingyu-names-mika');
     await hearLine(page, 0);
-    await choose(page, 0, 'Xingyu');
-    await hearLine(page, 1);
-    await choose(page, 1, 'Mika');
-    await screen.getByRole('button', { name: 'Check both voices' }).click();
+    await choose(page, 0, 'Mika');
+    await screen.getByRole('button', { name: 'Check the names' }).click();
     await waitForStage(page, 'complete');
     assert.equal(await screen.getByText('はじめまして。シンユです。', { exact: true }).count(), 1);
     assert.equal(await screen.getByText('ミカです。よろしくお願いします。', { exact: true }).count(), 1);
+    assert.equal(await screen.getByText('こちらはシンユさんです。', { exact: true }).count(), 1);
+    assert.equal(await screen.getByText('こちらはミカさんです。', { exact: true }).count(), 1);
+    await assertNoLookupOverlay(page, testCase);
     await assertGeometry(page, testCase, 'complete');
     await assertAccessible(page);
+    await assertNoLookupOverlay(page, testCase);
     await page.screenshot({ path: path.join(artifactDir, `${testCase.name}-complete.png`), fullPage: true });
     await screen.getByRole('button', { name: 'Keep going' }).click();
     await screen.waitFor({ state: 'detached' });
@@ -123,6 +153,16 @@ async function verifySoundMission(testCase) {
     for (const asset of ['persona/royal-days.flac', 'shinday/result-not-clear.wav', 'shinday/result-clear.wav']) {
         assert.ok(protectedMediaRequests.some(url => url.endsWith(asset)),
             `${testCase.name} must request its ${asset} audio cue`);
+    }
+    for (const asset of [
+        'sound-xingyu.opus',
+        'sound-mika.opus',
+        'sound-mika-names-xingyu.opus',
+        'sound-xingyu-names-mika.opus',
+    ]) {
+        assert.ok(lessonZeroAudioResponses.some(response =>
+            response.url.endsWith(asset) && [200, 206].includes(response.status)),
+        `${testCase.name} must play ${asset} successfully`);
     }
     assert.deepEqual({ errors, unauthorizedResponses }, { errors: [], unauthorizedResponses: [] },
         `${testCase.name} browser console and request surface must stay clean`);
@@ -141,12 +181,43 @@ async function reachSoundMission(page, runId) {
     await page.locator('textarea[name="learningReason"]').fill('To understand Japanese as people use it');
     await page.getByRole('button', { name: 'Continue' }).click();
     await page.locator('input[name="portrait"]').first().check();
-    await page.getByRole('button', { name: 'Tell Rie' }).click();
-    await page.getByRole('button', { name: 'Choose where to begin' }).click();
-    await page.getByRole('button', { name: /Begin with Lesson 0/ }).click();
+    await page.getByRole('button', { name: 'That’s me' }).click();
+    const introduction = page.locator('[data-academy-screen="rie-introduction"]');
+    await introduction.waitFor();
+    const action = introduction.locator('.academy-rie-introduction-primary');
+    await action.waitFor();
+    if ((await action.textContent())?.trim() !== 'Come in') {
+        await action.click();
+        await page.waitForFunction(() => {
+            const button = document.querySelector('.academy-rie-introduction-primary');
+            return button?.textContent?.trim() === 'Come in' && !button.disabled;
+        });
+    }
+    await action.evaluate(button => button.click());
+    const start = page.locator('.academy-start-screen[data-academy-route="start"]');
+    await start.waitFor();
+    await start.locator('[data-start-route="lesson-zero"]').click();
+    await page.locator('[data-story-arc-id="arc:bridge:opening-arrival"]').waitFor();
+    await advanceOpeningArrival(page);
+    await page.locator('.academy-story-next').click();
     await page.getByRole('button', { name: /Read the board and enter class/ }).waitFor();
     await seedStorySoundHandoff(page);
     return openSoundFromStoryHandoff(page);
+}
+
+async function advanceOpeningArrival(page) {
+    for (let index = 0; index < 40; index += 1) {
+        const moment = await page.locator('[data-story-arc-id="arc:bridge:opening-arrival"]')
+            .getAttribute('data-story-moment');
+        if (moment === 'complete') return;
+        const choice = page.locator('[data-story-option-id]').first();
+        const action = page.locator('.academy-vn-action-slot .academy-vn-primary-action').first();
+        if (await choice.count()) await choice.click();
+        else if (await action.count()) await action.click();
+        else throw new Error(`Opening arrival stalled at ${moment ?? 'unknown'}.`);
+        await page.waitForTimeout(40);
+    }
+    throw new Error('Opening arrival did not complete within 40 actions.');
 }
 
 async function seedStorySoundHandoff(page) {
@@ -185,6 +256,16 @@ async function openSoundFromStoryHandoff(page) {
 
 function storyHandoff(page) {
     return page.locator('[data-activity-id="activity:lesson-zero-sound-input"]');
+}
+
+async function hearIntroduction(page, index) {
+    const turn = introduction(page, index);
+    await turn.locator('.academy-sound-listen').click();
+    await turn.locator('.academy-sound-meet-heard').waitFor();
+}
+
+function introduction(page, index) {
+    return page.locator('[data-academy-screen="lesson-zero-sound"] .academy-sound-meet-turn').nth(index);
 }
 
 async function hearLine(page, index) {
@@ -273,6 +354,14 @@ async function assertAccessible(page) {
         id: violation.id,
         nodes: violation.nodes.map(node => ({ target: node.target, summary: node.failureSummary })),
     })), [], 'Sound mission must have no serious or critical Axe violations');
+}
+
+async function assertNoLookupOverlay(page, testCase) {
+    await page.mouse.move(1, 1);
+    await page.waitForFunction(() => !document.querySelector('.jpdb-reader-popover'));
+    await page.waitForTimeout(900);
+    assert.equal(await page.locator('.jpdb-reader-popover').count(), 0,
+        `${testCase.name} completion must not click through into a lookup`);
 }
 
 async function assertStorySpeaker(page, testCase, characterId) {

@@ -40,28 +40,42 @@ function audioHarness() {
 }
 
 describe('Lesson Zero sound screen', () => {
-    it('binds and passes a real pre-commit answer-concealment audit', () => {
+    it('teaches the names before binding a real pre-commit answer-concealment surface', async () => {
         const content = definition();
+        const audio = audioHarness();
         const screen = createLessonZeroSoundScreen({
             language: 'en',
             definition: content,
             initialState: startLessonZeroSoundSession(content),
-            audioFactory: audioHarness().factory,
+            audioFactory: audio.factory,
             onTransition: vi.fn(),
             onRestart: vi.fn(),
             onBack: vi.fn(),
             onComplete: vi.fn(),
         });
+        document.body.append(screen.element);
+
+        expect(screen.element.dataset.sessionStage).toBe('meet');
+        expect(screen.element.textContent).toContain('Xingyu');
+        expect(screen.element.textContent).toContain('シンユ');
+        expect(screen.element.textContent).not.toContain('こちらはシンユさんです。');
+        for (const line of content.lines.filter(candidate => candidate.phase === 'introduction')) {
+            await hear(screen.element, audio, line.id);
+        }
+        click(screen.element, 'Now listen for their names');
+        await vi.waitFor(() => expect(screen.element.dataset.sessionStage).toBe('attempt'));
+
         const surface = screen.element.querySelector<HTMLElement>('.academy-sound-mission');
         if (!surface) throw new TypeError('Missing sound-mission pre-commit surface.');
-        const mappings = content.lines.map(line => `${line.id}=>${line.speakerId}`);
+        const checkLines = content.lines.filter(line => line.phase === 'check');
+        const mappings = checkLines.map(line => `${line.id}=>${line.targetSpeakerId}`);
         const audit = auditGroundedAnswerConcealmentSurface(surface, {
             lessonId: 'lesson:foundation-00',
             subjectId: content.activityId,
             binding: lessonZeroSoundAuditBinding(content.contentRevision),
             forbiddenValues: {
-                translations: content.lines.map(line => line.meaning.en),
-                transcripts: [...new Set(content.lines.flatMap(line => [line.japanese, line.reading]))],
+                translations: checkLines.map(line => line.meaning.en),
+                transcripts: [...new Set(checkLines.flatMap(line => [line.japanese, line.reading]))],
                 modelAnswers: mappings,
                 acceptedAnswers: mappings,
             },
@@ -73,7 +87,7 @@ describe('Lesson Zero sound screen', () => {
         screen.dispose();
     });
 
-    it('delays text and choices, repairs only the missed voice, then completes', async () => {
+    it('uses changed-speaker audio, repairs only the missed name, and then completes', async () => {
         const content = definition();
         const audio = audioHarness();
         const transitions: Array<{ supportEvents: readonly unknown[]; evaluation?: { result: { outcome: string } } }> = [];
@@ -90,42 +104,44 @@ describe('Lesson Zero sound screen', () => {
         });
         document.body.append(screen.element);
 
-        expect(screen.element.textContent).toContain('Listen for the name immediately before です.');
-        expect(screen.element.textContent).not.toContain('はじめまして。シンユです。');
-        expect(turn(screen.element, content.lines[0]!.id).querySelector('fieldset')?.hasAttribute('disabled')).toBe(true);
-
-        await hear(screen.element, audio, content.lines[0]!.id);
-        expect(turn(screen.element, content.lines[0]!.id).querySelector('fieldset')?.hasAttribute('disabled')).toBe(false);
-        await choose(screen.element, content.lines[0]!.id, 'xingyu');
-        await hear(screen.element, audio, content.lines[1]!.id);
-        await choose(screen.element, content.lines[1]!.id, 'xingyu');
-        click(screen.element, 'Check both voices');
-
-        await vi.waitFor(() => expect(screen.element.dataset.sessionStage).toBe('repair'));
-        expect(screen.element.textContent).not.toContain('はじめまして。シンユです。');
-        const repairs = [...screen.element.querySelectorAll<HTMLButtonElement>('.academy-sound-action--listen')];
-        expect(repairs).toHaveLength(1);
-        expect(repairs[0]?.dataset.lineId).toBe(content.lines[1]!.id);
-        expect(button(screen.element, 'Match both again').disabled).toBe(true);
-
-        click(screen.element, 'Show the line');
-        await vi.waitFor(() => expect(screen.element.textContent).toContain('ミカです。よろしくお願いします。'));
-        expect(transitions.some(transition => transition.supportEvents.length === 3)).toBe(true);
-        screen.element.querySelector<HTMLButtonElement>('.academy-sound-action--listen')!.click();
-        await vi.waitFor(() => expect(audio.created).toHaveLength(3));
-        audio.finishLatest();
-        await vi.waitFor(() => expect(button(screen.element, 'Match both again').disabled).toBe(false));
-        click(screen.element, 'Match both again');
+        for (const line of content.lines.filter(candidate => candidate.phase === 'introduction')) {
+            await hear(screen.element, audio, line.id);
+            expect(screen.element.textContent).toContain(line.japanese);
+        }
+        click(screen.element, 'Now listen for their names');
         await vi.waitFor(() => expect(screen.element.dataset.sessionStage).toBe('attempt'));
 
-        await hear(screen.element, audio, content.lines[0]!.id);
-        await choose(screen.element, content.lines[0]!.id, 'xingyu');
-        await hear(screen.element, audio, content.lines[1]!.id);
-        await choose(screen.element, content.lines[1]!.id, 'mika');
-        click(screen.element, 'Check both voices');
+        const [xingyuCheck, mikaCheck] = content.lines.filter(line => line.phase === 'check');
+        expect(screen.element.textContent).not.toContain(xingyuCheck!.japanese);
+        expect(turn(screen.element, xingyuCheck!.id).querySelector('fieldset')?.hasAttribute('disabled')).toBe(true);
+        await hear(screen.element, audio, xingyuCheck!.id);
+        await choose(screen.element, xingyuCheck!.id, 'xingyu');
+        await hear(screen.element, audio, mikaCheck!.id);
+        await choose(screen.element, mikaCheck!.id, 'xingyu');
+        click(screen.element, 'Check the names');
+
+        await vi.waitFor(() => expect(screen.element.dataset.sessionStage).toBe('repair'));
+        expect(screen.element.textContent).not.toContain(mikaCheck!.japanese);
+        const repairs = [...screen.element.querySelectorAll<HTMLButtonElement>('.academy-sound-action--listen')];
+        expect(repairs).toHaveLength(1);
+        expect(repairs[0]?.dataset.lineId).toBe(mikaCheck!.id);
+        expect(button(screen.element, 'Try that name again').disabled).toBe(true);
+
+        click(screen.element, 'Show the line');
+        await vi.waitFor(() => expect(screen.element.textContent).toContain(mikaCheck!.japanese));
+        expect(transitions.some(transition => transition.supportEvents.length === 3)).toBe(true);
+        await hear(screen.element, audio, mikaCheck!.id);
+        await vi.waitFor(() => expect(button(screen.element, 'Try that name again').disabled).toBe(false));
+        click(screen.element, 'Try that name again');
+        await vi.waitFor(() => expect(screen.element.dataset.sessionStage).toBe('attempt'));
+
+        expect(screen.element.querySelectorAll('.academy-sound-turn')).toHaveLength(1);
+        await hear(screen.element, audio, mikaCheck!.id);
+        await choose(screen.element, mikaCheck!.id, 'mika');
+        click(screen.element, 'Check the names');
 
         await vi.waitFor(() => expect(screen.element.dataset.sessionStatus).toBe('complete'));
-        expect(screen.element.textContent).toContain('はじめまして。シンユです。');
+        expect(screen.element.textContent).toContain('こちらはシンユさんです。');
         expect(transitions.filter(transition => transition.evaluation).map(transition => transition.evaluation?.result.outcome))
             .toEqual(['lapse', 'pass']);
         click(screen.element, 'Keep going');
@@ -133,7 +149,7 @@ describe('Lesson Zero sound screen', () => {
         screen.dispose();
     });
 
-    it('pauses active audio and persists the session before leaving', async () => {
+    it('pauses active audio and persists the exact meet cursor before leaving', async () => {
         const content = definition();
         const audio = audioHarness();
         const onBack = vi.fn();
@@ -161,9 +177,7 @@ async function hear(root: HTMLElement, audio: ReturnType<typeof audioHarness>, l
     listen(root, lineId).click();
     await vi.waitFor(() => expect(audio.created).toHaveLength(previousCount + 1));
     audio.finishLatest();
-    await vi.waitFor(() => expect(
-        turn(root, lineId).querySelector('fieldset')?.hasAttribute('disabled'),
-    ).toBe(false));
+    await vi.waitFor(() => expect(listen(root, lineId).textContent).toContain('Replay'));
 }
 
 function turn(root: HTMLElement, lineId: string): HTMLElement {
@@ -173,7 +187,10 @@ function turn(root: HTMLElement, lineId: string): HTMLElement {
 }
 
 function listen(root: HTMLElement, lineId: string): HTMLButtonElement {
-    const value = turn(root, lineId).querySelector<HTMLButtonElement>('.academy-sound-listen');
+    const line = root.querySelector<HTMLElement>(`[data-line-id="${lineId}"]`);
+    const value = line instanceof HTMLButtonElement && line.classList.contains('academy-sound-action--listen')
+        ? line
+        : line?.querySelector<HTMLButtonElement>('.academy-sound-listen');
     if (!value) throw new TypeError(`Missing listen button ${lineId}.`);
     return value;
 }

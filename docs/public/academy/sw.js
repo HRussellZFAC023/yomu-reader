@@ -1,4 +1,4 @@
-const VERSION = 'yomu-academy-shell-s1-421ce989e27d';
+const VERSION = 'yomu-academy-shell-s1-a7decc8c64b5';
 const AUDIO_CACHE = 'yomu-academy-audio-v1-2c25b06f971c';
 const STORY_VOICE_CATALOG = '/academy/audio/story-voice-playback.json';
 const STORY_VOICE_ASSET = /^\/academy\/audio\/story-(?:pilot|lines)\/[a-z0-9][a-z0-9._-]*\.opus$/;
@@ -138,8 +138,8 @@ const CORE = [
     '/yomu-icon.svg',
     '/academy/',
     '/academy/index.html',
-    '/academy/app.js?v=s1-421ce989e27d',
-    '/academy/style.css?v=s1-421ce989e27d',
+    '/academy/app.js?v=s1-a7decc8c64b5',
+    '/academy/style.css?v=s1-a7decc8c64b5',
     '/academy/manifest.webmanifest',
     ...CAST_SPRITE_PRECACHE,
     '/academy/art/protagonists/quality-2__picker__v001.png',
@@ -245,6 +245,8 @@ const CORE = [
     '/academy/audio/lesson-zero/sound-hosts.opus',
     '/academy/audio/lesson-zero/sound-xingyu.opus',
     '/academy/audio/lesson-zero/sound-mika.opus',
+    '/academy/audio/lesson-zero/sound-mika-names-xingyu.opus',
+    '/academy/audio/lesson-zero/sound-xingyu-names-mika.opus',
     STORY_VOICE_CATALOG,
     '/academy/content/lessons/002-l1-l01.json',
     '/academy/content/lessons/003-l1-l02.json',

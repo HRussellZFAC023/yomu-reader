@@ -33,8 +33,8 @@ export function createLessonZeroSoundDefinition(
         throw new TypeError('Lesson Zero is missing its sound-first introduction activity.');
     }
     const script = content.lesson.inputScripts.find(candidate => candidate.id === activity.inputScriptId);
-    if (!script || script.kind !== 'dialogue' || script.lines.length !== 2) {
-        throw new TypeError('Lesson Zero sound input needs exactly two authored voices.');
+    if (!script || script.kind !== 'dialogue' || script.lines.length !== 4) {
+        throw new TypeError('Lesson Zero sound input needs two introductions and two changed-speaker checks.');
     }
     const assetById = new Map(content.lesson.audioAssets.map(asset => [asset.id, asset]));
     const lines = script.lines.map(line => {
@@ -47,14 +47,18 @@ export function createLessonZeroSoundDefinition(
         }
         return {
             id: line.id,
+            phase: soundLinePhase(line.id),
             speakerId: line.speakerId,
+            targetSpeakerId: soundLineTarget(line.id),
             japanese: line.japanese,
             reading: line.reading,
             meaning: { en: line.english, ja: line.japanese },
             audioUrl: audio.runtimeUrl,
         };
     });
-    const speakerIds = lines.map(line => line.speakerId);
+    const speakerIds = lines
+        .filter(line => line.phase === 'introduction')
+        .map(line => line.speakerId);
     if (new Set(speakerIds).size !== 2) {
         throw new TypeError('Lesson Zero sound input must use two different voices.');
     }
@@ -70,9 +74,22 @@ export function createLessonZeroSoundDefinition(
 }
 
 function isSoundLineId(value: string): value is LessonZeroSoundLineId {
-    return value === 'line:lesson-zero-sound-xingyu' || value === 'line:lesson-zero-sound-mika';
+    return value === 'line:lesson-zero-sound-xingyu'
+        || value === 'line:lesson-zero-sound-mika'
+        || value === 'line:lesson-zero-sound-mika-names-xingyu'
+        || value === 'line:lesson-zero-sound-xingyu-names-mika';
 }
 
 function isSoundSpeakerId(value: string): value is LessonZeroSoundSpeakerId {
     return value === 'xingyu' || value === 'mika';
+}
+
+function soundLinePhase(lineId: LessonZeroSoundLineId): 'introduction' | 'check' {
+    return lineId.includes('-names-') ? 'check' : 'introduction';
+}
+
+function soundLineTarget(lineId: LessonZeroSoundLineId): LessonZeroSoundSpeakerId {
+    if (lineId === 'line:lesson-zero-sound-xingyu'
+        || lineId === 'line:lesson-zero-sound-mika-names-xingyu') return 'xingyu';
+    return 'mika';
 }

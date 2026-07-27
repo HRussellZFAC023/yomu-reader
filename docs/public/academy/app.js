@@ -486,7 +486,7 @@
           this.error = "This account already has encrypted history. Pair with a device that can decrypt it.";
           return this.status;
         }
-        const candidate2 = reusableState ?? freshState(profile2);
+        const candidate2 = reusableState ?? freshState$1(profile2);
         this.state = this.account ? { ...candidate2, account: this.account } : candidate2;
         if (!this.persistOrReflect()) return this.status;
         try {
@@ -780,7 +780,7 @@
         return;
       }
       this.awaitingPairProfile = null;
-      this.state = reuse ? { ...reuse, profile: profile2 } : freshState(profile2);
+      this.state = reuse ? { ...reuse, profile: profile2 } : freshState$1(profile2);
       if (!this.persistOrReflect()) return;
       try {
         await this.pinProfileKey(this.requireState());
@@ -1187,7 +1187,7 @@
       return null;
     }
   }
-  function freshState(profile2) {
+  function freshState$1(profile2) {
     return { profile: profile2, key: toBase64Url(randomBytes(32)), cursor: 0, envelopes: {}, eventSyncIds: {}, lastSyncAt: null };
   }
   function loadState(storage) {
@@ -10262,8 +10262,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     throw new TypeError(message);
   }
   const LESSON_ZERO_SOUND_SURFACE_ID = "surface:lesson-zero-sound-input";
-  const LESSON_ZERO_SOUND_RENDERER_REVISION = "lesson-zero-sound-screen.v1";
-  const LESSON_ZERO_SOUND_RENDERER_SHA256 = "3fdf52cede21a60d19df8f6d2f6b9cdecbea40b62aae81f81f475b5b1f6e4aa7";
+  const LESSON_ZERO_SOUND_RENDERER_REVISION = "lesson-zero-sound-screen.v2";
+  const LESSON_ZERO_SOUND_RENDERER_SHA256 = "dd92ac837910da8c06ab6bd93903d31d804e954b604f994b91045f910c8cc294";
   function lessonZeroSoundRendererRef() {
     return {
       id: "surface-renderer:lesson-zero-sound-input",
@@ -10290,7 +10290,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     root.dataset.groundedContentRevision = contentRevision;
     root.dataset.groundedCommitState = "pre-commit";
   }
-  const LESSON_ZERO_CONTENT_SHA256 = "07b14df944f8397154ffa5f9f22288b754b22c771786d550afe529d63dd69656";
+  const LESSON_ZERO_CONTENT_SHA256 = "4608a1ebd2d9f8427fb528c7ade109026c6f5f8235cece0d266da17702c9507e";
   const LESSON_ZERO_CLASSROOM_EXPRESSIONS_SHA256 = "a809477602243d8b4833a5534e1315fafb8c5fc4f9ebc770569e413e509f90ff";
   const LESSON_CONTENT_ID = "content:lesson-zero-v1";
   const CLASSROOM_CONTENT_ID = "content:lesson-zero-classroom-expressions-v1";
@@ -10491,14 +10491,16 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function soundRuntimeRecords(data) {
     const activity2 = data.lesson.activities.find((candidate2) => candidate2.id === "activity:lesson-zero-sound-input");
     const script = data.lesson.inputScripts.find((candidate2) => candidate2.id === "input:lesson-zero-sound-hosts");
-    if (!activity2 || !script || script.kind !== "dialogue" || script.lines.length !== 2) {
-      throw new TypeError("Lesson Zero sound grounding needs its two-line canonical input.");
+    if (!activity2 || !script || script.kind !== "dialogue" || script.lines.length !== 4) {
+      throw new TypeError("Lesson Zero sound grounding needs two introductions and two check lines.");
     }
     const revision2 = data.lesson.contentVersion;
-    const acceptedAnswers2 = script.lines.map((line2) => `${line2.id}=>${line2.speakerId}`);
+    const checkLines2 = script.lines.filter((line2) => line2.id.includes("-names-"));
+    const targetFor = (lineId) => lineId.endsWith("-xingyu") ? "xingyu" : "mika";
+    const acceptedAnswers2 = checkLines2.map((line2) => `${line2.id}=>${targetFor(line2.id)}`);
     const answerBearing = {
-      translations: script.lines.map((line2) => line2.english),
-      transcripts: unique$k(script.lines.flatMap((line2) => [line2.japanese, line2.reading])),
+      translations: checkLines2.map((line2) => line2.english),
+      transcripts: unique$k(checkLines2.flatMap((line2) => [line2.japanese, line2.reading])),
       modelAnswers: acceptedAnswers2,
       acceptedAnswers: acceptedAnswers2
     };
@@ -10530,7 +10532,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         "lesson.activities[id=activity:lesson-zero-sound-input].prompt",
         {
           conceptId: "concept:introduction-listening-gist",
-          instruction: "Play each voice once. You only need to catch the name, not every word."
+          instruction: "Meet both people first. Then listen for those same names in a new exchange."
         },
         revision2,
         LESSON_ZERO_CONTENT_SHA256
@@ -10556,7 +10558,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         "lesson.activities[id=activity:lesson-zero-sound-input].prompt",
         {
           conceptId: "concept:introduction-listening-detail",
-          instruction: "Use です as the sound landmark. The name comes immediately before it."
+          instruction: "Follow the name you already heard; the surrounding words can pass for now."
         },
         revision2,
         LESSON_ZERO_CONTENT_SHA256
@@ -10576,14 +10578,16 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         LESSON_ZERO_CONTENT_SHA256
       ),
       record$16(
-        "grader:lesson-zero:audio-speaker-match",
+        "grader:lesson-zero:audio-name-match",
         "deterministic-grader",
         LESSON_CONTENT_ID,
         "lesson.activities[id=activity:lesson-zero-sound-input].expectedEvidence",
         {
-          responseKind: "audio-speaker-match",
+          responseKind: "audio-name-match",
           heardBeforeSelection: true,
           completionRequiresEveryLine: true,
+          introducedBeforeAssessment: true,
+          performerDiffersFromNamedPerson: true,
           acceptedAnswers: acceptedAnswers2
         },
         revision2,
@@ -10626,15 +10630,15 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         value: { surfaceId: LESSON_ZERO_SOUND_SURFACE_ID }
       }
     ];
-    for (const line2 of script.lines) {
-      const suffix = line2.speakerId;
+    for (const line2 of checkLines2) {
+      const suffix = targetFor(line2.id);
       records2.push(
         record$16(
-          `error:listening:speaker:${suffix}`,
+          `error:listening:name:${suffix}`,
           "error-tag",
           LESSON_CONTENT_ID,
-          `lesson.inputScripts[id=${script.id}].lines[id=${line2.id}].speakerId`,
-          `listening:speaker:${suffix}`,
+          `lesson.inputScripts[id=${script.id}].lines[id=${line2.id}]`,
+          `listening:name:${suffix}`,
           revision2,
           LESSON_ZERO_CONTENT_SHA256
         ),
@@ -10644,8 +10648,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
           LESSON_CONTENT_ID,
           `lesson.inputScripts[id=${script.id}].lines[id=${line2.id}]`,
           {
-            explanation: "Listen again for the name immediately before です.",
-            retryPrompt: "Replay only this voice, then match both voices again."
+            explanation: "Replay only the name you missed.",
+            retryPrompt: "Listen once, then choose that name again."
           },
           revision2,
           LESSON_ZERO_CONTENT_SHA256
@@ -10666,27 +10670,27 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     records2.push(
       record$16(
-        "review:lesson-zero:sound:hajimemashite",
+        "review:lesson-zero:name:xingyu",
         "review-seed",
         LESSON_CONTENT_ID,
-        "lesson.inputScripts[id=input:lesson-zero-sound-hosts].lines[id=line:lesson-zero-sound-xingyu]",
+        "lesson.inputScripts[id=input:lesson-zero-sound-hosts].lines[id=line:lesson-zero-sound-mika-names-xingyu]",
         {
           conceptId: "concept:introduction-listening-gist",
-          expressionKey: "はじめまして",
-          readingKey: "はじめまして"
+          expressionKey: "シンユ",
+          readingKey: "シンユ"
         },
         revision2,
         LESSON_ZERO_CONTENT_SHA256
       ),
       record$16(
-        "review:lesson-zero:sound:yoroshiku",
+        "review:lesson-zero:name:mika",
         "review-seed",
         LESSON_CONTENT_ID,
-        "lesson.inputScripts[id=input:lesson-zero-sound-hosts].lines[id=line:lesson-zero-sound-mika]",
+        "lesson.inputScripts[id=input:lesson-zero-sound-hosts].lines[id=line:lesson-zero-sound-xingyu-names-mika]",
         {
           conceptId: "concept:introduction-listening-detail",
-          expressionKey: "よろしくお願いします",
-          readingKey: "よろしくおねがいします"
+          expressionKey: "ミカ",
+          readingKey: "ミカ"
         },
         revision2,
         LESSON_ZERO_CONTENT_SHA256
@@ -10696,7 +10700,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function soundPreCommitSnapshot(contentRevision) {
     const renderer = lessonZeroSoundRendererRef();
-    return `<section class="academy-sound-paper academy-sound-mission" data-grounded-lesson-id="lesson:foundation-00" data-grounded-subject-id="activity:lesson-zero-sound-input" data-grounded-surface-id="${LESSON_ZERO_SOUND_SURFACE_ID}" data-grounded-renderer-id="${renderer.id}" data-grounded-renderer-revision="${renderer.revision}" data-grounded-renderer-sha256="${renderer.sha256}" data-grounded-content-revision="${contentRevision}" data-grounded-commit-state="pre-commit"><p>Play each voice to the end. Listen for the name immediately before です.</p><p>No reading needed yet.</p><button aria-label="Listen: Voice 1">Listen</button><button type="button">Xingyu シンユ</button><button type="button">Mika ミカ</button><button aria-label="Listen: Voice 2">Listen</button><button type="button">Xingyu シンユ</button><button type="button">Mika ミカ</button><button disabled>Check both voices</button></section>`;
+    return `<section class="academy-sound-paper academy-sound-mission" data-grounded-lesson-id="lesson:foundation-00" data-grounded-subject-id="activity:lesson-zero-sound-input" data-grounded-surface-id="${LESSON_ZERO_SOUND_SURFACE_ID}" data-grounded-renderer-id="${renderer.id}" data-grounded-renderer-revision="${renderer.revision}" data-grounded-renderer-sha256="${renderer.sha256}" data-grounded-content-revision="${contentRevision}" data-grounded-commit-state="pre-commit"><p>They will introduce each other. Play each line and choose the name you hear.</p><p>You only need the name.</p><button aria-label="Listen: Line 1">Listen</button><button type="button">Xingyu シンユ</button><button type="button">Mika ミカ</button><button aria-label="Listen: Line 2">Listen</button><button type="button">Xingyu シンユ</button><button type="button">Mika ミカ</button><button disabled>Check the names</button></section>`;
   }
   function record$16(id2, kind, contentId, locator, value, revision2, sha2562) {
     return { ref: { id: id2, registry: "academy-content", revision: revision2, sha256: sha2562 }, kind, source: { contentId, locator }, value };
@@ -13167,7 +13171,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         authoredInputIds: ["input:lesson-zero-sound-hosts"],
         revision: revision2,
         authorId: "author:yomu-academy",
-        rationale: "Two short, cast-specific introductions isolate the audible name-before-です landmark.",
+        rationale: "Two cast introductions teach the names before a reversed-order, changed-speaker check.",
         languageReview: {
           reviewerId: "reviewer:lesson-zero-ja-content",
           revision: revision2,
@@ -13250,7 +13254,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       assessment: soundInput ? ready({
         method: "deterministic",
         grader: pedagogy2.registry.ref(
-          "grader:lesson-zero:audio-speaker-match",
+          "grader:lesson-zero:audio-name-match",
           "deterministic-grader"
         ),
         answerSets: [pedagogy2.registry.ref(
@@ -13264,8 +13268,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       }) : classroomBinding ? blocked(BLOCKERS.sceneActionAssessment) : blocked(BLOCKERS.assessment),
       repair: soundInput ? ready({
         errorTagIds: [
-          "error:listening:speaker:xingyu",
-          "error:listening:speaker:mika"
+          "error:listening:name:xingyu",
+          "error:listening:name:mika"
         ],
         feedbackIds: [
           "feedback:lesson-zero:sound-xingyu",
@@ -13285,16 +13289,16 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         reviewRepository: "canonical-yomu",
         reviewItems: [
           {
-            seedId: "review:lesson-zero:sound:hajimemashite",
+            seedId: "review:lesson-zero:name:xingyu",
             conceptId: "concept:introduction-listening-gist",
-            expressionKey: "はじめまして",
-            readingKey: "はじめまして"
+            expressionKey: "シンユ",
+            readingKey: "シンユ"
           },
           {
-            seedId: "review:lesson-zero:sound:yoroshiku",
+            seedId: "review:lesson-zero:name:mika",
             conceptId: "concept:introduction-listening-detail",
-            expressionKey: "よろしくお願いします",
-            readingKey: "よろしくおねがいします"
+            expressionKey: "ミカ",
+            readingKey: "ミカ"
           }
         ]
       }) : classroomReviewItems ? ready({
@@ -14925,8 +14929,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       throw new TypeError("Lesson Zero is missing its sound-first introduction activity.");
     }
     const script = content.lesson.inputScripts.find((candidate2) => candidate2.id === activity2.inputScriptId);
-    if (!script || script.kind !== "dialogue" || script.lines.length !== 2) {
-      throw new TypeError("Lesson Zero sound input needs exactly two authored voices.");
+    if (!script || script.kind !== "dialogue" || script.lines.length !== 4) {
+      throw new TypeError("Lesson Zero sound input needs two introductions and two changed-speaker checks.");
     }
     const assetById = new Map(content.lesson.audioAssets.map((asset) => [asset.id, asset]));
     const lines = script.lines.map((line2) => {
@@ -14939,14 +14943,16 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       }
       return {
         id: line2.id,
+        phase: soundLinePhase(line2.id),
         speakerId: line2.speakerId,
+        targetSpeakerId: soundLineTarget(line2.id),
         japanese: line2.japanese,
         reading: line2.reading,
         meaning: { en: line2.english, ja: line2.japanese },
         audioUrl: audio2.runtimeUrl
       };
     });
-    const speakerIds = lines.map((line2) => line2.speakerId);
+    const speakerIds = lines.filter((line2) => line2.phase === "introduction").map((line2) => line2.speakerId);
     if (new Set(speakerIds).size !== 2) {
       throw new TypeError("Lesson Zero sound input must use two different voices.");
     }
@@ -14961,10 +14967,17 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     };
   }
   function isSoundLineId(value) {
-    return value === "line:lesson-zero-sound-xingyu" || value === "line:lesson-zero-sound-mika";
+    return value === "line:lesson-zero-sound-xingyu" || value === "line:lesson-zero-sound-mika" || value === "line:lesson-zero-sound-mika-names-xingyu" || value === "line:lesson-zero-sound-xingyu-names-mika";
   }
   function isSoundSpeakerId(value) {
     return value === "xingyu" || value === "mika";
+  }
+  function soundLinePhase(lineId) {
+    return lineId.includes("-names-") ? "check" : "introduction";
+  }
+  function soundLineTarget(lineId) {
+    if (lineId === "line:lesson-zero-sound-xingyu" || lineId === "line:lesson-zero-sound-mika-names-xingyu") return "xingyu";
+    return "mika";
   }
   const LESSON_ZERO_VOWEL_SESSION_ID = "session:lesson-zero-vowel-listen";
   const LESSON_ZERO_VOWEL_BINGO_ID = "game:lesson-zero-vowel-listening-bingo";
@@ -16121,7 +16134,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       filename: "lesson-zero.v1.json",
       lessonId: "lesson:foundation-00",
       classWeekId: "orientation",
-      expectedContentRevision: "2026-07-26.lesson-zero.v3-hiragana-route",
+      expectedContentRevision: "2026-07-27.lesson-zero.v4-name-listening",
       expectedSha256: LESSON_ZERO_CONTENT_SHA256,
       audit: validateLessonZeroGrounding
     },
@@ -44745,9 +44758,17 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function unchanged$1(state) {
     return { state, supportEvents: [] };
   }
-  const LESSON_ZERO_SOUND_LINE_IDS = Object.freeze([
+  const LESSON_ZERO_SOUND_INTRODUCTION_LINE_IDS = Object.freeze([
     "line:lesson-zero-sound-xingyu",
     "line:lesson-zero-sound-mika"
+  ]);
+  const LESSON_ZERO_SOUND_CHECK_LINE_IDS = Object.freeze([
+    "line:lesson-zero-sound-mika-names-xingyu",
+    "line:lesson-zero-sound-xingyu-names-mika"
+  ]);
+  const LESSON_ZERO_SOUND_LINE_IDS = Object.freeze([
+    ...LESSON_ZERO_SOUND_INTRODUCTION_LINE_IDS,
+    ...LESSON_ZERO_SOUND_CHECK_LINE_IDS
   ]);
   const LESSON_ZERO_SOUND_SPEAKER_IDS = Object.freeze(["xingyu", "mika"]);
   function startLessonZeroSoundSession(definition2, snapshot) {
@@ -44757,22 +44778,18 @@ recommendedJiten	Jiten由来の頻度バッジです。
         throw new TypeError("Invalid Lesson Zero sound-mission snapshot.");
       }
       validateSnapshotAgainstDefinition$1(definition2, snapshot);
+      if (snapshot.status === "complete") {
+        return { ...structuredClone(snapshot), introduced: true };
+      }
+      if (snapshot.introduced === void 0) {
+        return freshState(definition2, snapshot.status === "paused" ? "paused" : "active");
+      }
       return structuredClone(snapshot);
     }
-    return {
-      schemaVersion: 1,
-      sessionId: definition2.id,
-      status: "active",
-      stage: "attempt",
-      heardLineIds: [],
-      selections: [],
-      repairedLineIds: [],
-      attempts: [],
-      modelRevealed: false
-    };
+    return freshState(definition2, "active");
   }
   function transitionLessonZeroSoundSession(definition2, state, action2, at) {
-    startLessonZeroSoundSession(definition2, state);
+    state = startLessonZeroSoundSession(definition2, state);
     if (!Number.isFinite(at)) throw new TypeError("Sound-mission transitions need a finite timestamp.");
     if (action2.kind === "pause") {
       if (state.status !== "active") return unchanged(state);
@@ -44784,8 +44801,22 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     if (state.status !== "active" || state.stage === "complete") return unchanged(state);
     if (action2.kind === "mark-heard") {
-      if (state.stage !== "attempt" || !lineExists(definition2, action2.lineId)) return unchanged(state);
+      const expectedPhase = state.stage === "meet" ? "introduction" : state.stage === "attempt" ? "check" : null;
+      const line2 = definition2.lines.find((candidate2) => candidate2.id === action2.lineId);
+      if (!expectedPhase || line2?.phase !== expectedPhase) return unchanged(state);
       return unchanged({ ...state, heardLineIds: unique$a([...state.heardLineIds, action2.lineId]) });
+    }
+    if (action2.kind === "begin-check") {
+      if (state.stage !== "meet" || introductionLines(definition2).some((line2) => !state.heardLineIds.includes(line2.id))) {
+        return unchanged(state);
+      }
+      return unchanged({
+        ...state,
+        stage: "attempt",
+        introduced: true,
+        heardLineIds: [],
+        selections: []
+      });
     }
     if (action2.kind === "select-speaker") {
       if (state.stage !== "attempt" || !state.heardLineIds.includes(action2.lineId) || !lineExists(definition2, action2.lineId) || !speakerExists(definition2, action2.speakerId)) return unchanged(state);
@@ -44813,8 +44844,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         ...state,
         stage: "attempt",
         heardLineIds: [],
-        selections: [],
-        repairedLineIds: []
+        selections: []
       });
     }
     return unchanged(state);
@@ -44822,39 +44852,50 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function lessonZeroSoundSessionSnapshotShapeIsValid(value) {
     if (!value || typeof value !== "object") return false;
     const candidate2 = value;
-    if (candidate2.schemaVersion !== 1 || candidate2.sessionId !== "session:lesson-zero-sound-input" || !["active", "paused", "complete"].includes(candidate2.status ?? "") || !["attempt", "repair", "complete"].includes(candidate2.stage ?? "") || !lineIdSetIsValid(candidate2.heardLineIds) || !selectionListIsValid(candidate2.selections) || !lineIdSetIsValid(candidate2.repairedLineIds) || !Array.isArray(candidate2.attempts) || !candidate2.attempts.every(attemptShapeIsValid) || typeof candidate2.modelRevealed !== "boolean") return false;
+    if (candidate2.schemaVersion !== 1 || candidate2.sessionId !== "session:lesson-zero-sound-input" || !["active", "paused", "complete"].includes(candidate2.status ?? "") || !["meet", "attempt", "repair", "complete"].includes(candidate2.stage ?? "") || !lineIdSetIsValid(candidate2.heardLineIds) || !selectionListIsValid(candidate2.selections) || !lineIdSetIsValid(candidate2.repairedLineIds) || !Array.isArray(candidate2.attempts) || !candidate2.attempts.every(attemptShapeIsValid) || typeof candidate2.modelRevealed !== "boolean" || candidate2.introduced !== void 0 && typeof candidate2.introduced !== "boolean") return false;
     if (candidate2.status === "complete") {
-      return candidate2.stage === "complete" && candidate2.attempts.at(-1)?.outcome === "pass";
+      const legacyComplete = candidate2.introduced === void 0;
+      const last = candidate2.attempts.at(-1);
+      return candidate2.stage === "complete" && Boolean(last) && (last?.outcome === "pass" || !legacyComplete && candidate2.modelRevealed && candidate2.attempts.length === 2);
     }
     if (candidate2.stage === "complete") return false;
     if (candidate2.stage === "repair") return candidate2.attempts.at(-1)?.outcome === "lapse";
+    if (candidate2.stage === "meet") {
+      return candidate2.introduced !== true && candidate2.selections.length === 0 && candidate2.attempts.length === 0;
+    }
+    if (candidate2.introduced === false) return false;
     return true;
   }
   function check(definition2, state, at) {
-    if (state.stage !== "attempt" || definition2.lines.some((line2) => !state.heardLineIds.includes(line2.id)) || definition2.lines.some((line2) => !state.selections.some((selection) => selection.lineId === line2.id))) {
+    const lines = attemptLines(definition2, state);
+    if (state.stage !== "attempt" || lines.some((line2) => !state.heardLineIds.includes(line2.id)) || lines.some((line2) => !state.selections.some((selection) => selection.lineId === line2.id))) {
       return unchanged(state);
     }
-    const missedLineIds = definition2.lines.filter((line2) => state.selections.find((selection) => selection.lineId === line2.id)?.speakerId !== line2.speakerId).map((line2) => line2.id);
-    const score = (definition2.lines.length - missedLineIds.length) / definition2.lines.length;
+    const missedLineIds = lines.filter((line2) => state.selections.find((selection) => selection.lineId === line2.id)?.speakerId !== line2.targetSpeakerId).map((line2) => line2.id);
+    const score = (lines.length - missedLineIds.length) / lines.length;
     const outcome = missedLineIds.length === 0 ? "pass" : "lapse";
     const attempt = {
-      selections: definition2.lines.map((line2) => state.selections.find((selection) => selection.lineId === line2.id)),
+      selections: lines.map((line2) => state.selections.find((selection) => selection.lineId === line2.id)),
       outcome,
       score,
       missedLineIds,
       at
     };
-    const repairing = outcome === "lapse" || state.attempts.some((candidate2) => candidate2.outcome === "lapse");
+    const hadLapse = state.attempts.some((candidate2) => candidate2.outcome === "lapse");
+    const repairing = outcome === "lapse" || hadLapse;
+    const assistedComplete = outcome === "lapse" && hadLapse;
+    const complete = outcome === "pass" || assistedComplete;
     const eventId = `${definition2.id}:attempt:${state.attempts.length + 1}:${at}`;
     return {
       state: {
         ...state,
-        status: outcome === "pass" ? "complete" : "active",
-        stage: outcome === "pass" ? "complete" : "repair",
+        status: complete ? "complete" : "active",
+        stage: complete ? "complete" : "repair",
         attempts: [...state.attempts, attempt],
-        repairedLineIds: []
+        repairedLineIds: [],
+        modelRevealed: state.modelRevealed || assistedComplete
       },
-      evaluation: evaluationFor(definition2, attempt, repairing, eventId),
+      evaluation: evaluationFor(definition2, attempt, repairing, complete, eventId),
       adaptive: {
         eventId: `${eventId}:learning`,
         at,
@@ -44864,7 +44905,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
         sourceId: definition2.activityId,
         independent: !repairing
       },
-      supportEvents: []
+      supportEvents: assistedComplete ? [
+        supportEvent(definition2.activityId, "transcript", `${eventId}:assisted:transcript`, at),
+        supportEvent(definition2.activityId, "translation", `${eventId}:assisted:translation`, at),
+        supportEvent(definition2.activityId, "model-answer", `${eventId}:assisted:model`, at)
+      ] : []
     };
   }
   function revealModel(definition2, state, at) {
@@ -44879,29 +44924,32 @@ recommendedJiten	Jiten由来の頻度バッジです。
       ]
     };
   }
-  function evaluationFor(definition2, attempt, repairing, eventId) {
-    const errorTags = attempt.missedLineIds.map((lineId) => `listening:speaker:${lineId.split("-").at(-1)}`);
-    const reviewSeeds2 = attempt.outcome === "pass" ? [
+  function evaluationFor(definition2, attempt, repairing, complete, eventId) {
+    const errorTags = attempt.missedLineIds.map((lineId) => {
+      const line2 = definition2.lines.find((candidate2) => candidate2.id === lineId);
+      return `listening:name:${line2?.targetSpeakerId ?? "unknown"}`;
+    });
+    const reviewSeeds2 = complete ? [
       {
-        id: "review:lesson-zero:sound:hajimemashite",
+        id: "review:lesson-zero:name:xingyu",
         conceptId: "concept:introduction-listening-gist",
         reason: repairing ? "repair" : "new-learning",
         content: {
-          expression: "はじめまして",
-          reading: "はじめまして",
-          meanings: ["nice to meet you"],
-          sentence: "はじめまして。シンユです。"
+          expression: "シンユ",
+          reading: "シンユ",
+          meanings: ["Xingyu's name"],
+          sentence: "こちらはシンユさんです。"
         }
       },
       {
-        id: "review:lesson-zero:sound:yoroshiku",
+        id: "review:lesson-zero:name:mika",
         conceptId: "concept:introduction-listening-detail",
         reason: repairing ? "repair" : "new-learning",
         content: {
-          expression: "よろしくお願いします",
-          reading: "よろしくおねがいします",
-          meanings: ["a polite close to a first introduction"],
-          sentence: "ミカです。よろしくお願いします。"
+          expression: "ミカ",
+          reading: "ミカ",
+          meanings: ["Mika's name"],
+          sentence: "こちらはミカさんです。"
         }
       }
     ] : [];
@@ -44912,7 +44960,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         at: attempt.at,
         activityId: definition2.activityId,
         conceptIds: definition2.conceptIds,
-        responseKind: "audio-speaker-match",
+        responseKind: "audio-name-match",
         outcome: attempt.outcome,
         score: attempt.score,
         ...errorTags.length ? { errorTags } : {}
@@ -44921,19 +44969,19 @@ recommendedJiten	Jiten由来の頻度バッジです。
         outcome: attempt.outcome,
         score: attempt.score,
         errorTags,
-        feedback: attempt.outcome === "pass" ? {
+        feedback: complete ? {
           explanation: {
-            en: "You caught both names immediately before です.",
-            ja: "「です」のすぐ前にある二人の名前を聞き取れました。"
+            en: attempt.outcome === "pass" ? "You recognized both names in a new exchange." : "Those two names are saved for another short review.",
+            ja: attempt.outcome === "pass" ? "別の会話でも、二人の名前を聞き取れました。" : "二人の名前は、あとでもう一度短く復習します。"
           }
         } : {
           explanation: {
-            en: "Listen for the name immediately before です. You do not need every word.",
-            ja: "「です」のすぐ前の名前を聞きましょう。全部分からなくても大丈夫です。"
+            en: "Replay only the name you missed.",
+            ja: "間違えた名前だけを、もう一度聞きましょう。"
           },
           repairPrompt: {
-            en: "Replay only the voice you missed, then match both again.",
-            ja: "間違えた声だけをもう一度聞いてから、二人をもう一度合わせましょう。"
+            en: "Listen once, then choose that name again.",
+            ja: "一度聞いてから、その名前をもう一度選びましょう。"
           }
         }
       },
@@ -44941,7 +44989,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     };
   }
   function validateDefinition$2(definition2) {
-    if (definition2.schemaVersion !== 1 || definition2.id !== "session:lesson-zero-sound-input" || definition2.activityId !== "activity:lesson-zero-sound-input" || !definition2.contentRevision.trim() || definition2.conceptIds.length !== 2 || !sameList(definition2.lines.map((line2) => line2.id), LESSON_ZERO_SOUND_LINE_IDS) || !sameList(definition2.speakers.map((speaker2) => speaker2.id), LESSON_ZERO_SOUND_SPEAKER_IDS) || definition2.lines.some((line2) => !line2.japanese.trim() || !line2.reading.trim() || !line2.audioUrl.startsWith("/academy/audio/")) || definition2.speakers.some((speaker2) => !speaker2.displayName.trim() || !speaker2.katakanaName.trim())) {
+    if (definition2.schemaVersion !== 1 || definition2.id !== "session:lesson-zero-sound-input" || definition2.activityId !== "activity:lesson-zero-sound-input" || !definition2.contentRevision.trim() || definition2.conceptIds.length !== 2 || !sameList(definition2.lines.map((line2) => line2.id), LESSON_ZERO_SOUND_LINE_IDS) || !sameList(definition2.speakers.map((speaker2) => speaker2.id), LESSON_ZERO_SOUND_SPEAKER_IDS) || !sameList(introductionLines(definition2).map((line2) => line2.id), LESSON_ZERO_SOUND_INTRODUCTION_LINE_IDS) || !sameList(checkLines(definition2).map((line2) => line2.id), LESSON_ZERO_SOUND_CHECK_LINE_IDS) || definition2.lines.some((line2) => !line2.japanese.trim() || !line2.reading.trim() || !line2.audioUrl.startsWith("/academy/audio/") || !speakerExists(definition2, line2.speakerId) || !speakerExists(definition2, line2.targetSpeakerId)) || checkLines(definition2).some((line2) => line2.speakerId === line2.targetSpeakerId) || definition2.speakers.some((speaker2) => !speaker2.displayName.trim() || !speaker2.katakanaName.trim())) {
       throw new TypeError("Invalid Lesson Zero sound-mission definition.");
     }
   }
@@ -44969,7 +45017,32 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function attemptShapeIsValid(value) {
     if (!value || typeof value !== "object") return false;
     const attempt = value;
-    return selectionListIsValid(attempt.selections) && attempt.selections.length === LESSON_ZERO_SOUND_LINE_IDS.length && (attempt.outcome === "pass" || attempt.outcome === "lapse") && typeof attempt.score === "number" && Number.isFinite(attempt.score) && attempt.score >= 0 && attempt.score <= 1 && lineIdSetIsValid(attempt.missedLineIds) && typeof attempt.at === "number" && Number.isFinite(attempt.at);
+    return selectionListIsValid(attempt.selections) && attempt.selections.length >= 1 && attempt.selections.length <= LESSON_ZERO_SOUND_CHECK_LINE_IDS.length && (attempt.outcome === "pass" || attempt.outcome === "lapse") && typeof attempt.score === "number" && Number.isFinite(attempt.score) && attempt.score >= 0 && attempt.score <= 1 && lineIdSetIsValid(attempt.missedLineIds) && typeof attempt.at === "number" && Number.isFinite(attempt.at);
+  }
+  function freshState(definition2, status2) {
+    return {
+      schemaVersion: 1,
+      sessionId: definition2.id,
+      status: status2,
+      stage: "meet",
+      introduced: false,
+      heardLineIds: [],
+      selections: [],
+      repairedLineIds: [],
+      attempts: [],
+      modelRevealed: false
+    };
+  }
+  function introductionLines(definition2) {
+    return definition2.lines.filter((line2) => line2.phase === "introduction");
+  }
+  function checkLines(definition2) {
+    return definition2.lines.filter((line2) => line2.phase === "check");
+  }
+  function attemptLines(definition2, state) {
+    const retryIds = state.attempts.at(-1)?.outcome === "lapse" && state.repairedLineIds.length > 0 ? new Set(state.repairedLineIds) : null;
+    const lines = checkLines(definition2);
+    return retryIds ? lines.filter((line2) => retryIds.has(line2.id)) : lines;
   }
   function supportEvent(activityId, supportKind, eventId, at) {
     return { kind: "support-used", eventId, at, activityId, supportKind };
@@ -54238,8 +54311,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
   };
   const curriculumBinding = {
     lessonId: "lesson:foundation-00",
-    contentVersion: "2026-07-26.lesson-zero.v3-hiragana-route",
-    contentSha256: "07b14df944f8397154ffa5f9f22288b754b22c771786d550afe529d63dd69656",
+    contentVersion: "2026-07-27.lesson-zero.v4-name-listening",
+    contentSha256: "4608a1ebd2d9f8427fb528c7ade109026c6f5f8235cece0d266da17702c9507e",
     provenancePath: "public/academy/content/lessons/lesson-zero/provenance.v1.json",
     provenanceSha256: "3bf92fad4ec4996e0d055a0fdd76b4a585f703c544bc532be3fb22b6c189319e",
     sectionSequence: [
@@ -268213,33 +268286,43 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return node2;
   }
   const COPY$2 = {
-    eyebrow: { en: "Sound room", ja: "音の教室" },
-    title: { en: "Whose name did you hear?", ja: "だれの名前が聞こえた？" },
-    direction: {
-      en: "Play each voice to the end. Listen for the name immediately before です.",
-      ja: "一人ずつ最後まで聞いて、「です」のすぐ前にある名前を探しましょう。"
+    eyebrow: { en: "Introductions", ja: "自己紹介" },
+    title: { en: "Meet Xingyu and Mika", ja: "シンユとミカ" },
+    meetDirection: {
+      en: "Listen once. These are the two names you will need.",
+      ja: "一度ずつ聞きましょう。この二人の名前を使います。"
     },
-    noReading: { en: "No reading needed yet.", ja: "まだ文字は読まなくて大丈夫です。" },
-    voice: { en: "Voice", ja: "声" },
+    meetCheck: { en: "Now listen for their names", ja: "次は名前を聞き取る" },
+    direction: {
+      en: "They will introduce each other. Play each line and choose the name you hear.",
+      ja: "今度は二人がお互いを紹介します。一つずつ聞いて、聞こえた名前を選びましょう。"
+    },
+    noReading: { en: "You only need the name.", ja: "名前だけ聞けば大丈夫です。" },
+    voice: { en: "Line", ja: "会話" },
     listen: { en: "Listen", ja: "聞く" },
     replay: { en: "Replay", ja: "もう一度" },
     playing: { en: "Playing…", ja: "再生中…" },
-    choose: { en: "Who did you hear?", ja: "だれの声？" },
-    check: { en: "Check both voices", ja: "二人を確かめる" },
+    choose: { en: "Which name?", ja: "どの名前？" },
+    check: { en: "Check the names", ja: "名前を確かめる" },
     repairEyebrow: { en: "One more listen", ja: "もう一度だけ" },
-    repairTitle: { en: "Replay the voice you missed", ja: "間違えた声を聞き直そう" },
+    repairTitle: { en: "Listen to that name once more", ja: "その名前をもう一度" },
     repairBody: {
-      en: "You only need the name before です. Replay the marked voice, then try both again.",
-      ja: "必要なのは「です」の前の名前だけです。印のついた声を聞いてから、二人をもう一度合わせましょう。"
+      en: "Replay the missed line, then choose that name again.",
+      ja: "間違えた会話だけ聞いて、その名前をもう一度選びましょう。"
     },
     showLine: { en: "Show the line", ja: "文を見る" },
     hideLine: { en: "The line is now visible below.", ja: "下に文を表示しました。" },
-    retry: { en: "Match both again", ja: "二人をもう一度合わせる" },
+    retry: { en: "Try that name again", ja: "その名前をもう一度" },
     completeEyebrow: { en: "Both names found", ja: "二人の名前を発見" },
-    completeTitle: { en: "You caught the useful part", ja: "必要なところを聞き取れました" },
+    completeTitle: { en: "You know their names", ja: "二人の名前が分かりました" },
     completeBody: {
-      en: "You did not need every word. You found each name by listening for です.",
-      ja: "全部のことばが分からなくても、「です」を目印に二人の名前を見つけられました。"
+      en: "You recognized Xingyu and Mika in a new exchange.",
+      ja: "別の会話でも、シンユとミカの名前を聞き取れました。"
+    },
+    assistedTitle: { en: "We will hear them again", ja: "あとでもう一度" },
+    assistedBody: {
+      en: "Xingyu and Mika are in your review queue. You can keep moving.",
+      ja: "シンユとミカは復習に入りました。このまま先へ進めます。"
     },
     transcript: { en: "What they said", ja: "二人が言ったこと" },
     continue: { en: "Keep going", ja: "次へ" },
@@ -268258,6 +268341,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     let message = "";
     let busy = false;
     let disposed = false;
+    let lookupSettleTimer;
     const screen = element("section", "academy-screen academy-sound-screen");
     screen.dataset.academyScreen = "lesson-zero-sound";
     screen.dataset.activityId = options.definition.activityId;
@@ -268290,7 +268374,42 @@ recommendedJiten	Jiten由来の頻度バッジです。
       live.textContent = message;
       if (state.stage === "complete") renderComplete(renderLifecycle.signal);
       else if (state.stage === "repair") renderRepair(renderLifecycle.signal);
+      else if (state.stage === "meet") renderMeet(renderLifecycle.signal);
       else renderAttempt(renderLifecycle.signal);
+    };
+    const renderMeet = (signal) => {
+      const paper2 = livingPaper2("academy-sound-meet");
+      paper2.append(localized$1("p", "academy-sound-direction", COPY$2.meetDirection, options.language));
+      const roster = element("div", "academy-sound-meet-roster");
+      introductionLines2().forEach((line2, index) => {
+        const speaker2 = speakerFor(line2.targetSpeakerId);
+        const row2 = element("section", "academy-sound-meet-turn");
+        row2.dataset.lineId = line2.id;
+        const identity2 = element("div", "academy-sound-meet-name");
+        identity2.append(
+          textElement("strong", "", speaker2.displayName),
+          textElement("span", "", speaker2.katakanaName)
+        );
+        row2.append(
+          textElement("span", "academy-sound-turn-number", String(index + 1).padStart(2, "0")),
+          identity2,
+          listenButton(line2, index, signal)
+        );
+        if (state.heardLineIds.includes(line2.id)) {
+          const heard = element("div", "academy-sound-meet-heard");
+          heard.append(
+            japanesePhraseLine("academy-sound-transcript-ja", line2.japanese),
+            textElement("p", "academy-sound-transcript-en", line2.meaning.en)
+          );
+          row2.append(heard);
+        }
+        roster.append(row2);
+      });
+      paper2.append(roster);
+      const begin = actionButton2(COPY$2.meetCheck, "primary", signal, () => apply({ kind: "begin-check" }));
+      begin.disabled = introductionLines2().some((line2) => !state.heardLineIds.includes(line2.id));
+      paper2.append(begin);
+      stage2.append(paper2, speakerStage());
     };
     const renderAttempt = (signal) => {
       const paper2 = livingPaper2("academy-sound-mission");
@@ -268302,7 +268421,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       );
       paper2.append(intro);
       const voices = element("div", "academy-sound-voices");
-      options.definition.lines.forEach((line2, index) => voices.append(voiceTurn(line2, index, signal)));
+      activeAttemptLines().forEach((line2, index) => voices.append(voiceTurn(line2, index, signal)));
       paper2.append(voices);
       const check2 = actionButton2(COPY$2.check, "primary", signal, () => apply({ kind: "check" }));
       check2.disabled = busy || !attemptReady();
@@ -268316,13 +268435,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       const number = textElement("span", "academy-sound-turn-number", String(index + 1).padStart(2, "0"));
       const label = localized$1("h2", "academy-sound-turn-title", COPY$2.voice, options.language);
       label.append(` ${index + 1}`);
-      const listen = element("button", "academy-sound-listen");
-      listen.type = "button";
-      const isPlaying = playingLineId === line2.id;
-      listen.dataset.playing = String(isPlaying);
-      listen.setAttribute("aria-label", `${COPY$2.listen[options.language]}: ${COPY$2.voice[options.language]} ${index + 1}`);
-      listen.innerHTML = `<span aria-hidden="true">${isPlaying ? "■" : "▶"}</span><span>${isPlaying ? COPY$2.playing[options.language] : state.heardLineIds.includes(line2.id) ? COPY$2.replay[options.language] : COPY$2.listen[options.language]}</span>`;
-      listen.addEventListener("click", () => void playLine(line2, false), { signal });
+      const listen = listenButton(line2, index, signal);
       rail.append(number, label, listen);
       const choices2 = element("fieldset", "academy-sound-choices");
       choices2.disabled = busy || !state.heardLineIds.includes(line2.id);
@@ -268340,9 +268453,20 @@ recommendedJiten	Jiten由来の頻度バッジです。
       button2.dataset.speakerId = speaker2.id;
       button2.dataset.selected = String(selected2);
       button2.setAttribute("aria-pressed", String(selected2));
-      const name = textElement("strong", "academy-sound-choice-name", speaker2.displayName);
-      const kana = textElement("span", "academy-sound-choice-kana", speaker2.katakanaName);
-      button2.append(name, kana);
+      if (speaker2.portraitUrl) {
+        const portrait2 = document.createElement("img");
+        portrait2.className = "academy-sound-choice-portrait";
+        portrait2.src = speaker2.portraitUrl;
+        portrait2.alt = "";
+        portrait2.decoding = "async";
+        button2.append(portrait2);
+      }
+      const label = element("span", "academy-sound-choice-label");
+      label.append(
+        textElement("strong", "academy-sound-choice-name", speaker2.displayName),
+        textElement("span", "academy-sound-choice-kana", speaker2.katakanaName)
+      );
+      button2.append(label);
       button2.addEventListener("click", () => void apply({
         kind: "select-speaker",
         lineId: line2.id,
@@ -268383,10 +268507,21 @@ recommendedJiten	Jiten由来の頻度バッジです。
     };
     const renderComplete = (signal) => {
       const paper2 = livingPaper2("academy-sound-complete");
+      const assisted = state.attempts.at(-1)?.outcome === "lapse";
       paper2.append(
         localized$1("p", "academy-sound-paper-eyebrow", COPY$2.completeEyebrow, options.language),
-        localized$1("h2", "academy-sound-paper-title", COPY$2.completeTitle, options.language),
-        localized$1("p", "academy-sound-paper-copy", COPY$2.completeBody, options.language),
+        localized$1(
+          "h2",
+          "academy-sound-paper-title",
+          assisted ? COPY$2.assistedTitle : COPY$2.completeTitle,
+          options.language
+        ),
+        localized$1(
+          "p",
+          "academy-sound-paper-copy",
+          assisted ? COPY$2.assistedBody : COPY$2.completeBody,
+          options.language
+        ),
         localized$1("h3", "academy-sound-transcript-title", COPY$2.transcript, options.language)
       );
       const transcript = element("div", "academy-sound-transcript");
@@ -268402,11 +268537,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
     };
     const transcriptLine = (lineId) => {
       const line2 = options.definition.lines.find((candidate2) => candidate2.id === lineId);
-      const speaker2 = options.definition.speakers.find((candidate2) => candidate2.id === line2.speakerId);
+      const speaker2 = speakerFor(line2.speakerId);
       const row2 = element("article", "academy-sound-transcript-line");
       row2.append(
         textElement("strong", "academy-sound-transcript-speaker", speaker2.displayName),
-        textElement("p", "academy-sound-transcript-ja", line2.japanese),
+        japanesePhraseLine("academy-sound-transcript-ja", line2.japanese),
         textElement("p", "academy-sound-transcript-en", line2.meaning.en)
       );
       return row2;
@@ -268417,6 +268552,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
       options.definition.speakers.forEach((speaker2) => {
         const figure = element("figure", "academy-sound-speaker");
         figure.dataset.speakerId = speaker2.id;
+        figure.dataset.active = String(
+          options.definition.lines.find((line2) => line2.id === playingLineId)?.speakerId === speaker2.id
+        );
         if (speaker2.portraitUrl) {
           const image = document.createElement("img");
           image.src = speaker2.portraitUrl;
@@ -268468,6 +268606,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         await options.onTransition(before, transition);
       } finally {
         busy = false;
+        suppressLookupWhileLayoutSettles();
         render2();
       }
     };
@@ -268476,6 +268615,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       state = startLessonZeroSoundSession(options.definition);
       message = "";
       await options.onRestart(state);
+      suppressLookupWhileLayoutSettles();
       render2();
     };
     const pauseAndLeave = async () => {
@@ -268483,8 +268623,32 @@ recommendedJiten	Jiten由来の頻度バッジです。
       if (state.status === "active") await apply({ kind: "pause" });
       await options.onBack();
     };
-    const attemptReady = () => options.definition.lines.every((line2) => state.heardLineIds.includes(line2.id) && state.selections.some((selection) => selection.lineId === line2.id));
+    const attemptReady = () => activeAttemptLines().every((line2) => state.heardLineIds.includes(line2.id) && state.selections.some((selection) => selection.lineId === line2.id));
     const selectedSpeaker = (lineId) => state.selections.find((selection) => selection.lineId === lineId)?.speakerId;
+    const introductionLines2 = () => options.definition.lines.filter((line2) => line2.phase === "introduction");
+    const checkLines2 = () => options.definition.lines.filter((line2) => line2.phase === "check");
+    const activeAttemptLines = () => {
+      const missed = state.attempts.at(-1)?.outcome === "lapse" && state.repairedLineIds.length > 0 ? new Set(state.repairedLineIds) : null;
+      return missed ? checkLines2().filter((line2) => missed.has(line2.id)) : checkLines2();
+    };
+    const speakerFor = (speakerId) => {
+      const speaker2 = options.definition.speakers.find((candidate2) => candidate2.id === speakerId);
+      if (!speaker2) throw new TypeError(`Missing sound speaker ${speakerId}.`);
+      return speaker2;
+    };
+    const listenButton = (line2, index, signal) => {
+      const listen = element("button", "academy-sound-listen");
+      listen.type = "button";
+      const isPlaying = playingLineId === line2.id;
+      listen.dataset.playing = String(isPlaying);
+      listen.setAttribute(
+        "aria-label",
+        `${COPY$2.listen[options.language]}: ${COPY$2.voice[options.language]} ${index + 1}`
+      );
+      listen.innerHTML = `<span aria-hidden="true">${isPlaying ? "■" : "▶"}</span><span>${isPlaying ? COPY$2.playing[options.language] : state.heardLineIds.includes(line2.id) ? COPY$2.replay[options.language] : COPY$2.listen[options.language]}</span>`;
+      listen.addEventListener("click", () => void playLine(line2, false), { signal });
+      return listen;
+    };
     const stopPlayback = () => {
       if (!playback) return;
       playback.pause();
@@ -268495,9 +268659,18 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const dispose = () => {
       if (disposed) return;
       disposed = true;
+      if (lookupSettleTimer !== void 0) window.clearTimeout(lookupSettleTimer);
       stopPlayback();
       renderLifecycle.abort();
       lifecycle.abort();
+    };
+    const suppressLookupWhileLayoutSettles = () => {
+      screen.dataset.jpdbReaderInteractionIgnore = "true";
+      if (lookupSettleTimer !== void 0) window.clearTimeout(lookupSettleTimer);
+      lookupSettleTimer = window.setTimeout(() => {
+        delete screen.dataset.jpdbReaderInteractionIgnore;
+        lookupSettleTimer = void 0;
+      }, 750);
     };
     render2();
     return { element: screen, dispose };
@@ -268515,6 +268688,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function localized$1(tag, className, copy2, language2) {
     const node2 = textElement(tag, className, copy2[language2]);
     node2.lang = language2;
+    return node2;
+  }
+  function japanesePhraseLine(className, text2) {
+    const node2 = element("p", className);
+    const phrases = text2.match(/[^。！？]+[。！？]+|[^。！？]+$/gu) ?? [text2];
+    for (const phrase of phrases) node2.append(textElement("span", "academy-sound-ja-phrase", phrase));
     return node2;
   }
   function textElement(tag, className, text2) {
@@ -270554,15 +270733,15 @@ recommendedJiten	Jiten由来の頻度バッジです。
             await this.options.evidence.recordActivity(
               transition.evaluation,
               LESSON_ZERO_ID,
-              transition.evaluation.result.outcome === "pass" ? {
+              transition.state.status === "complete" ? {
                 id: "lesson-zero-first-voices",
                 sceneId: "scene:lesson-zero-first-voices",
                 journalLine: {
                   lineId: "journal:lesson-zero:first-voices",
                   characterId: "xingyu",
                   text: {
-                    ja: "シンユさんとミカさんの声から、「です」の前にある名前を聞き取った。",
-                    en: "I found Xingyu and Mika's names by listening just before です."
+                    ja: "シンユさんとミカさんに会って、二人がお互いを紹介する会話で名前を聞き取った。",
+                    en: "I met Xingyu and Mika, then recognized their names when they introduced each other."
                   }
                 }
               } : void 0,

@@ -16,7 +16,7 @@ import {
 import type { LessonZeroPackageData } from './lesson-zero-schema';
 
 export const LESSON_ZERO_CONTENT_SHA256 =
-    '07b14df944f8397154ffa5f9f22288b754b22c771786d550afe529d63dd69656';
+    '4608a1ebd2d9f8427fb528c7ade109026c6f5f8235cece0d266da17702c9507e';
 export const LESSON_ZERO_CLASSROOM_EXPRESSIONS_SHA256 =
     'a809477602243d8b4833a5534e1315fafb8c5fc4f9ebc770569e413e509f90ff';
 
@@ -208,14 +208,17 @@ function soundRuntimeRecords(data: LessonZeroPackageData): GroundedDefinitionRec
         candidate.id === 'activity:lesson-zero-sound-input');
     const script = data.lesson.inputScripts.find(candidate =>
         candidate.id === 'input:lesson-zero-sound-hosts');
-    if (!activity || !script || script.kind !== 'dialogue' || script.lines.length !== 2) {
-        throw new TypeError('Lesson Zero sound grounding needs its two-line canonical input.');
+    if (!activity || !script || script.kind !== 'dialogue' || script.lines.length !== 4) {
+        throw new TypeError('Lesson Zero sound grounding needs two introductions and two check lines.');
     }
     const revision = data.lesson.contentVersion;
-    const acceptedAnswers = script.lines.map(line => `${line.id}=>${line.speakerId}`);
+    const checkLines = script.lines.filter(line => line.id.includes('-names-'));
+    const targetFor = (lineId: string): 'xingyu' | 'mika' =>
+        lineId.endsWith('-xingyu') ? 'xingyu' : 'mika';
+    const acceptedAnswers = checkLines.map(line => `${line.id}=>${targetFor(line.id)}`);
     const answerBearing = {
-        translations: script.lines.map(line => line.english),
-        transcripts: unique(script.lines.flatMap(line => [line.japanese, line.reading])),
+        translations: checkLines.map(line => line.english),
+        transcripts: unique(checkLines.flatMap(line => [line.japanese, line.reading])),
         modelAnswers: acceptedAnswers,
         acceptedAnswers,
     };
@@ -245,7 +248,7 @@ function soundRuntimeRecords(data: LessonZeroPackageData): GroundedDefinitionRec
             'lesson.activities[id=activity:lesson-zero-sound-input].prompt',
             {
                 conceptId: 'concept:introduction-listening-gist',
-                instruction: 'Play each voice once. You only need to catch the name, not every word.',
+                instruction: 'Meet both people first. Then listen for those same names in a new exchange.',
             }, revision, LESSON_ZERO_CONTENT_SHA256,
         ),
         record(
@@ -263,7 +266,7 @@ function soundRuntimeRecords(data: LessonZeroPackageData): GroundedDefinitionRec
             'lesson.activities[id=activity:lesson-zero-sound-input].prompt',
             {
                 conceptId: 'concept:introduction-listening-detail',
-                instruction: 'Use です as the sound landmark. The name comes immediately before it.',
+                instruction: 'Follow the name you already heard; the surrounding words can pass for now.',
             }, revision, LESSON_ZERO_CONTENT_SHA256,
         ),
         record(
@@ -277,12 +280,14 @@ function soundRuntimeRecords(data: LessonZeroPackageData): GroundedDefinitionRec
             }, revision, LESSON_ZERO_CONTENT_SHA256,
         ),
         record(
-            'grader:lesson-zero:audio-speaker-match', 'deterministic-grader', LESSON_CONTENT_ID,
+            'grader:lesson-zero:audio-name-match', 'deterministic-grader', LESSON_CONTENT_ID,
             'lesson.activities[id=activity:lesson-zero-sound-input].expectedEvidence',
             {
-                responseKind: 'audio-speaker-match',
+                responseKind: 'audio-name-match',
                 heardBeforeSelection: true,
                 completionRequiresEveryLine: true,
+                introducedBeforeAssessment: true,
+                performerDiffersFromNamedPerson: true,
                 acceptedAnswers,
             }, revision, LESSON_ZERO_CONTENT_SHA256,
         ),
@@ -310,16 +315,16 @@ function soundRuntimeRecords(data: LessonZeroPackageData): GroundedDefinitionRec
             value: { surfaceId: LESSON_ZERO_SOUND_SURFACE_ID },
         },
     ];
-    for (const line of script.lines) {
-        const suffix = line.speakerId;
+    for (const line of checkLines) {
+        const suffix = targetFor(line.id);
         records.push(
-            record(`error:listening:speaker:${suffix}`, 'error-tag', LESSON_CONTENT_ID,
-                `lesson.inputScripts[id=${script.id}].lines[id=${line.id}].speakerId`,
-                `listening:speaker:${suffix}`, revision, LESSON_ZERO_CONTENT_SHA256),
+            record(`error:listening:name:${suffix}`, 'error-tag', LESSON_CONTENT_ID,
+                `lesson.inputScripts[id=${script.id}].lines[id=${line.id}]`,
+                `listening:name:${suffix}`, revision, LESSON_ZERO_CONTENT_SHA256),
             record(`feedback:lesson-zero:sound-${suffix}`, 'feedback', LESSON_CONTENT_ID,
                 `lesson.inputScripts[id=${script.id}].lines[id=${line.id}]`, {
-                    explanation: 'Listen again for the name immediately before です.',
-                    retryPrompt: 'Replay only this voice, then match both voices again.',
+                    explanation: 'Replay only the name you missed.',
+                    retryPrompt: 'Listen once, then choose that name again.',
                 }, revision, LESSON_ZERO_CONTENT_SHA256),
             record(`nearby-example:lesson-zero:sound-${suffix}`, 'nearby-example', LESSON_CONTENT_ID,
                 'lesson.activities[id=activity:lesson-zero-name-card-draft]', {
@@ -329,17 +334,17 @@ function soundRuntimeRecords(data: LessonZeroPackageData): GroundedDefinitionRec
         );
     }
     records.push(
-        record('review:lesson-zero:sound:hajimemashite', 'review-seed', LESSON_CONTENT_ID,
-            'lesson.inputScripts[id=input:lesson-zero-sound-hosts].lines[id=line:lesson-zero-sound-xingyu]', {
+        record('review:lesson-zero:name:xingyu', 'review-seed', LESSON_CONTENT_ID,
+            'lesson.inputScripts[id=input:lesson-zero-sound-hosts].lines[id=line:lesson-zero-sound-mika-names-xingyu]', {
                 conceptId: 'concept:introduction-listening-gist',
-                expressionKey: 'はじめまして',
-                readingKey: 'はじめまして',
+                expressionKey: 'シンユ',
+                readingKey: 'シンユ',
             }, revision, LESSON_ZERO_CONTENT_SHA256),
-        record('review:lesson-zero:sound:yoroshiku', 'review-seed', LESSON_CONTENT_ID,
-            'lesson.inputScripts[id=input:lesson-zero-sound-hosts].lines[id=line:lesson-zero-sound-mika]', {
+        record('review:lesson-zero:name:mika', 'review-seed', LESSON_CONTENT_ID,
+            'lesson.inputScripts[id=input:lesson-zero-sound-hosts].lines[id=line:lesson-zero-sound-xingyu-names-mika]', {
                 conceptId: 'concept:introduction-listening-detail',
-                expressionKey: 'よろしくお願いします',
-                readingKey: 'よろしくおねがいします',
+                expressionKey: 'ミカ',
+                readingKey: 'ミカ',
             }, revision, LESSON_ZERO_CONTENT_SHA256),
     );
     return records;
@@ -347,7 +352,7 @@ function soundRuntimeRecords(data: LessonZeroPackageData): GroundedDefinitionRec
 
 function soundPreCommitSnapshot(contentRevision: string): string {
     const renderer = lessonZeroSoundRendererRef();
-    return `<section class="academy-sound-paper academy-sound-mission" data-grounded-lesson-id="lesson:foundation-00" data-grounded-subject-id="activity:lesson-zero-sound-input" data-grounded-surface-id="${LESSON_ZERO_SOUND_SURFACE_ID}" data-grounded-renderer-id="${renderer.id}" data-grounded-renderer-revision="${renderer.revision}" data-grounded-renderer-sha256="${renderer.sha256}" data-grounded-content-revision="${contentRevision}" data-grounded-commit-state="pre-commit"><p>Play each voice to the end. Listen for the name immediately before です.</p><p>No reading needed yet.</p><button aria-label="Listen: Voice 1">Listen</button><button type="button">Xingyu シンユ</button><button type="button">Mika ミカ</button><button aria-label="Listen: Voice 2">Listen</button><button type="button">Xingyu シンユ</button><button type="button">Mika ミカ</button><button disabled>Check both voices</button></section>`;
+    return `<section class="academy-sound-paper academy-sound-mission" data-grounded-lesson-id="lesson:foundation-00" data-grounded-subject-id="activity:lesson-zero-sound-input" data-grounded-surface-id="${LESSON_ZERO_SOUND_SURFACE_ID}" data-grounded-renderer-id="${renderer.id}" data-grounded-renderer-revision="${renderer.revision}" data-grounded-renderer-sha256="${renderer.sha256}" data-grounded-content-revision="${contentRevision}" data-grounded-commit-state="pre-commit"><p>They will introduce each other. Play each line and choose the name you hear.</p><p>You only need the name.</p><button aria-label="Listen: Line 1">Listen</button><button type="button">Xingyu シンユ</button><button type="button">Mika ミカ</button><button aria-label="Listen: Line 2">Listen</button><button type="button">Xingyu シンユ</button><button type="button">Mika ミカ</button><button disabled>Check the names</button></section>`;
 }
 
 function record(

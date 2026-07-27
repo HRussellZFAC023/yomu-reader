@@ -118,9 +118,9 @@
         }
       ],
       "runtimeUrl": "/academy/audio/lesson-zero/sound-xingyu.opus",
-      "fileSha256": "c2fccc49e10915b24583aec9322ba8df32b17b6d53a16e7ba03461870d2b89ac",
-      "bytes": 18665,
-      "durationSeconds": 2.341
+      "fileSha256": "4a78a83c0d90c507d42b71cceff9cdb877053d88a93679a50058196a8b9352dd",
+      "bytes": 18193,
+      "durationSeconds": 2.268
     },
     {
       "lineId": "line:lesson-zero-sound-mika",
@@ -262,17 +262,228 @@
         }
       ],
       "runtimeUrl": "/academy/audio/lesson-zero/sound-mika.opus",
-      "fileSha256": "bdfd04464f90e144f240ba0cae2dad5ab07831c693ba6882dd6c9672fb49f994",
-      "bytes": 20628,
-      "durationSeconds": 2.841
+      "fileSha256": "4ee01cfc915c63d29cb3e5aa1db32617c7c7de32939fb80eba7cf817013aec92",
+      "bytes": 18799,
+      "durationSeconds": 2.583
+    },
+    {
+      "lineId": "line:lesson-zero-sound-mika-names-xingyu",
+      "assetId": "audio:lesson-zero-sound-mika-names-xingyu",
+      "text": "こちらはシンユさんです。",
+      "modelUuid": "47e53151-a378-46f3-abee-ce13aa07feb1",
+      "speakerUuid": "561e4e59-3bc9-4726-9028-44a3c12a6f1d",
+      "speakerName": "阿井田 茂",
+      "styleId": 1310138977,
+      "styleName": "Calm",
+      "queryOverrides": {
+        "speedScale": 0.94,
+        "pitchScale": -0.02,
+        "intonationScale": 0.95,
+        "volumeScale": 0.82,
+        "prePhonemeLength": 0.14,
+        "postPhonemeLength": 0.2
+      },
+      "querySha256": "ee7c8f3b65f76bb14c5df3a5336484ae9928ff4cc0ae5bc72d1226b5f9dd0a44",
+      "pitchTrace": [
+        {
+          "phrase": 0,
+          "text": "コ",
+          "consonant": "k",
+          "vowel": "o",
+          "pitch": 0.0
+        },
+        {
+          "phrase": 0,
+          "text": "チ",
+          "consonant": "ch",
+          "vowel": "i",
+          "pitch": 0.0
+        },
+        {
+          "phrase": 0,
+          "text": "ラ",
+          "consonant": "r",
+          "vowel": "a",
+          "pitch": 0.0
+        },
+        {
+          "phrase": 0,
+          "text": "ワ",
+          "consonant": "w",
+          "vowel": "a",
+          "pitch": 0.0
+        },
+        {
+          "phrase": 1,
+          "text": "シ",
+          "consonant": "sh",
+          "vowel": "i",
+          "pitch": 0.0
+        },
+        {
+          "phrase": 1,
+          "text": "ン",
+          "consonant": null,
+          "vowel": "N",
+          "pitch": 0.0
+        },
+        {
+          "phrase": 1,
+          "text": "ユ",
+          "consonant": "y",
+          "vowel": "u",
+          "pitch": 0.0
+        },
+        {
+          "phrase": 1,
+          "text": "サ",
+          "consonant": "s",
+          "vowel": "a",
+          "pitch": 0.0
+        },
+        {
+          "phrase": 1,
+          "text": "ン",
+          "consonant": null,
+          "vowel": "N",
+          "pitch": 0.0
+        },
+        {
+          "phrase": 1,
+          "text": "デ",
+          "consonant": "d",
+          "vowel": "e",
+          "pitch": 0.0
+        },
+        {
+          "phrase": 1,
+          "text": "ス",
+          "consonant": "s",
+          "vowel": "u",
+          "pitch": 0.0
+        },
+        {
+          "phrase": 1,
+          "text": ".",
+          "consonant": null,
+          "vowel": "pau",
+          "pitch": 0.0
+        }
+      ],
+      "runtimeUrl": "/academy/audio/lesson-zero/sound-mika-names-xingyu.opus",
+      "fileSha256": "94a07bc9ef4fac4ee367ae804da910adb6ed6ab8597c5dcbbdc4c6dedc282484",
+      "bytes": 13909,
+      "durationSeconds": 2.012
+    },
+    {
+      "lineId": "line:lesson-zero-sound-xingyu-names-mika",
+      "assetId": "audio:lesson-zero-sound-xingyu-names-mika",
+      "text": "こちらはミカさんです。",
+      "modelUuid": "e9339137-2ae3-4d41-9394-fb757a7e61e6",
+      "speakerUuid": "41b7785f-35cc-4089-a360-dd8a63da5e75",
+      "speakerName": "まい",
+      "styleId": 1431611904,
+      "styleName": "ノーマル",
+      "queryOverrides": {
+        "speedScale": 1.02,
+        "pitchScale": 0.01,
+        "intonationScale": 1.08,
+        "volumeScale": 0.85,
+        "prePhonemeLength": 0.1,
+        "postPhonemeLength": 0.16
+      },
+      "querySha256": "8c083780c1b76539f4c63adcb190ab650a2002b84f5746eb0ce1bdc66d558cf2",
+      "pitchTrace": [
+        {
+          "phrase": 0,
+          "text": "コ",
+          "consonant": "k",
+          "vowel": "o",
+          "pitch": 0.0
+        },
+        {
+          "phrase": 0,
+          "text": "チ",
+          "consonant": "ch",
+          "vowel": "i",
+          "pitch": 0.0
+        },
+        {
+          "phrase": 0,
+          "text": "ラ",
+          "consonant": "r",
+          "vowel": "a",
+          "pitch": 0.0
+        },
+        {
+          "phrase": 0,
+          "text": "ワ",
+          "consonant": "w",
+          "vowel": "a",
+          "pitch": 0.0
+        },
+        {
+          "phrase": 0,
+          "text": "ミ",
+          "consonant": "m",
+          "vowel": "i",
+          "pitch": 0.0
+        },
+        {
+          "phrase": 0,
+          "text": "カ",
+          "consonant": "k",
+          "vowel": "a",
+          "pitch": 0.0
+        },
+        {
+          "phrase": 0,
+          "text": "サ",
+          "consonant": "s",
+          "vowel": "a",
+          "pitch": 0.0
+        },
+        {
+          "phrase": 0,
+          "text": "ン",
+          "consonant": null,
+          "vowel": "N",
+          "pitch": 0.0
+        },
+        {
+          "phrase": 0,
+          "text": "デ",
+          "consonant": "d",
+          "vowel": "e",
+          "pitch": 0.0
+        },
+        {
+          "phrase": 0,
+          "text": "ス",
+          "consonant": "s",
+          "vowel": "u",
+          "pitch": 0.0
+        },
+        {
+          "phrase": 0,
+          "text": ".",
+          "consonant": null,
+          "vowel": "pau",
+          "pitch": 0.0
+        }
+      ],
+      "runtimeUrl": "/academy/audio/lesson-zero/sound-xingyu-names-mika.opus",
+      "fileSha256": "8fc2c87205c420ec667b92cce3400762d87efbe865b9e5ab0edb848a3df329ab",
+      "bytes": 13966,
+      "durationSeconds": 1.632
     }
   ],
   "combined": {
     "assetId": "audio:lesson-zero-sound-hosts",
     "runtimeUrl": "/academy/audio/lesson-zero/sound-hosts.opus",
     "pauseMs": 650,
-    "fileSha256": "76036613f3e5661c628531710419895a7488afb14202d4086b0535012370495b",
-    "bytes": 45336,
-    "durationSeconds": 5.825
+    "fileSha256": "077056ba946b898145ab4e1ef4069652ab8f0d28dd61debcc77333e933693677",
+    "bytes": 69987,
+    "durationSeconds": 9.218
   }
 }

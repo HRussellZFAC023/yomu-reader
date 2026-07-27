@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Render the two Lesson Zero sound-mission lines through local AivisSpeech."""
+"""Render the Lesson Zero introductions and changed-speaker name check through AivisSpeech."""
 
 from __future__ import annotations
 
@@ -55,6 +55,44 @@ LINES = (
             "volumeScale": 0.82,
             "prePhonemeLength": 0.14,
             "postPhonemeLength": 0.20,
+        },
+    },
+    {
+        "id": "line:lesson-zero-sound-mika-names-xingyu",
+        "assetId": "audio:lesson-zero-sound-mika-names-xingyu",
+        "filename": "sound-mika-names-xingyu.opus",
+        "text": "こちらはシンユさんです。",
+        "modelUuid": "47e53151-a378-46f3-abee-ce13aa07feb1",
+        "speakerUuid": "561e4e59-3bc9-4726-9028-44a3c12a6f1d",
+        "speakerName": "阿井田 茂",
+        "styleId": 1310138977,
+        "styleName": "Calm",
+        "queryOverrides": {
+            "speedScale": 0.94,
+            "pitchScale": -0.02,
+            "intonationScale": 0.95,
+            "volumeScale": 0.82,
+            "prePhonemeLength": 0.14,
+            "postPhonemeLength": 0.20,
+        },
+    },
+    {
+        "id": "line:lesson-zero-sound-xingyu-names-mika",
+        "assetId": "audio:lesson-zero-sound-xingyu-names-mika",
+        "filename": "sound-xingyu-names-mika.opus",
+        "text": "こちらはミカさんです。",
+        "modelUuid": "e9339137-2ae3-4d41-9394-fb757a7e61e6",
+        "speakerUuid": "41b7785f-35cc-4089-a360-dd8a63da5e75",
+        "speakerName": "まい",
+        "styleId": 1431611904,
+        "styleName": "ノーマル",
+        "queryOverrides": {
+            "speedScale": 1.02,
+            "pitchScale": 0.01,
+            "intonationScale": 1.08,
+            "volumeScale": 0.85,
+            "prePhonemeLength": 0.10,
+            "postPhonemeLength": 0.16,
         },
     },
 )
@@ -144,18 +182,29 @@ def duration_seconds(path: Path) -> float:
 
 def combine_audio(inputs: list[Path], output: Path, pause_ms: int = 650) -> None:
     pause_seconds = pause_ms / 1000
-    subprocess.run([
-        "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
-        "-i", str(inputs[0]), "-i", str(inputs[1]),
-        "-filter_complex",
-        (
-            "[0:a]aresample=48000,aformat=sample_fmts=fltp:channel_layouts=mono[first];"
-            f"anullsrc=r=48000:cl=mono,atrim=duration={pause_seconds}[pause];"
-            "[1:a]aresample=48000,aformat=sample_fmts=fltp:channel_layouts=mono[second];"
-            "[first][pause][second]concat=n=3:v=0:a=1[out]"
-        ),
+    command = ["ffmpeg", "-y", "-hide_banner", "-loglevel", "error"]
+    for input_path in inputs:
+        command.extend(["-i", str(input_path)])
+    filters: list[str] = []
+    concat_inputs: list[str] = []
+    for index in range(len(inputs)):
+        filters.append(
+            f"[{index}:a]aresample=48000,aformat=sample_fmts=fltp:channel_layouts=mono[line{index}]"
+        )
+        concat_inputs.append(f"[line{index}]")
+        if index < len(inputs) - 1:
+            filters.append(
+                f"anullsrc=r=48000:cl=mono,atrim=duration={pause_seconds}[pause{index}]"
+            )
+            concat_inputs.append(f"[pause{index}]")
+    filters.append(
+        f"{''.join(concat_inputs)}concat=n={len(concat_inputs)}:v=0:a=1[out]"
+    )
+    command.extend([
+        "-filter_complex", ";".join(filters),
         "-map", "[out]", "-c:a", "libopus", "-b:a", "64k", "-vbr", "on", str(output),
-    ], check=True)
+    ])
+    subprocess.run(command, check=True)
 
 
 def main() -> None:
