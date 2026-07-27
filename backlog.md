@@ -1,0 +1,2824 @@
+# Yomu Backlog
+
+**Reconciled 2026-07-27 against `origin/main` @ `19088398f` (1.8.18).**
+
+Everything below the "ARCHIVE" divider is the pre-reconciliation document, preserved verbatim.
+Everything above it is the honest state of the work.
+
+**Evidence rule for this pass:** nothing is marked SHIPPED without a commit hash or a file path in the
+current tree. Where a previous triage recorded something as shipped and the tree says otherwise, it is
+marked **STALE** and corrected — several were, and two of those cost real time. Where I did not verify,
+it says so.
+
+**Method warning that produced most of the stale entries:** earlier passes greped `apps/yomu-reader`
+(a shared tree pinned ~200 versions behind) or a worktree whose `node_modules` was empty. Any triage
+run outside a fresh `origin/main` worktree is worthless. This pass ran in one.
+
+---
+
+# PART 1 — REMAINING WORK
+
+Ordered by the owner's own stated priority: *"for now — fixing existing bugs and refreshing the
+website and extensions is more important"* (E2). Academy is last and stays postponed.
+
+## T0 — People paid and got nothing  [the only thing above bug-fixing]
+
+- [ ] **U52 / U47 / U55 — sign-up and donation do not deliver an Academy code.** Signing up delivers
+      nothing at all; some donors received no key. Probable root cause is recorded and unverified:
+      entitlement binds to the **Google** identity (`linkGoogleSubject`,
+      `workers/yomu-academy/src/oauth.ts`) while money arrives through Patreon/Ko-fi/Stripe carrying
+      whatever email *that* platform holds. **Cheapest first move: take one donor known to have
+      received nothing and compare the donation email to their Google email.** One case confirms or
+      kills it. Then: issue the code through the payment platform's own channel at the moment of
+      payment; redeem rather than match; owner-grantable codes; a detector so a completed payment with
+      no issued code raises an alert instead of failing silently. **Still in scope despite the Academy
+      postponement — the owner said so explicitly.**
+- [ ] **U48 — sign-in, in the leg nobody has tested.** The 2026-07-26 investigation proved only that
+      everything *up to* Google consent is healthy (36/36 tests, worker live, OAuth start returns a
+      valid Google redirect); it could not test anything after consent because completing consent
+      creates an account. The owner experiences it as broken, so the fault is in the untested leg:
+      `handleGoogleCallback` → `linkGoogleSubject` → entitlement → `?account=linked|failed`. **Fastest
+      diagnosis is still the owner signing in once with DevTools Network open.** Do not treat passing
+      tests as evidence against the owner's direct experience; the tests do not cover this path.
+
+## T1 — Bugs users are hitting now
+
+Reproduce before closing. None of these has a commit.
+
+- [ ] **U4 — iOS Safari OOM every ~5 minutes**, plus copy/paste interference and the startup overlay
+      appearing on every site. This is also the **gate on U95** (leading with mobile) — you cannot
+      lead with a differentiator that crashes.
+- [ ] **U1 / U2 / D9 — settings are per-site, not global; settings are lost on update.** Trust bugs,
+      and the reason woozlez's dark-mode palette work is fragile.
+- [ ] **U3 — "Prefer Japanese site and language" still defaults ON.** Verified this pass:
+      `src/reader/settings/index.ts:500` → `preferJapaneseSiteLanguage: true`. The owner already
+      agreed it should default OFF. Turning it off also leaves `?locale=ja-JP` in the URL.
+      *A default most users must change is a bug.*
+- [ ] **U5 / U6 — Yomu needs a hard refresh to activate on YouTube; BookWalker needs a reload on
+      every page.** Both surface as silent failure, which is what turns them into Discord threads
+      (see U100).
+- [ ] **U7 — Discord broken by Yomu** ("eating words", growing spaces, broken usernames). Recurred
+      after a fix; longest-running host-site complaint in the log.
+- [ ] **U8 — subtitle upload fails, `.ass` suspected.** *There is a free fix sitting in Discord:*
+      vvvvtk root-caused it — an ASS file has **two `Format:` lines** and the parser reads the
+      `[V4+ Styles]` one instead of `[Events]`. Check that first (D16).
+- [ ] **U9 / U10 / U11 —** jpdb card add returns 400 on a new empty deck; annotations do not resume
+      after toggling off/on; the immersion-kit panel does not update when switching cards.
+- [ ] **U13 / U35 — batch mining is slow on long videos, and its buttons give no feedback.** sagamsil
+      could not tell what "add selected" vs "Nothing/Hard/Okay" did until he was told.
+- [ ] **U58 — clamped-host mirror truncation. Diagnosed and measured, not fixed.** The additive text
+      mirror is a child of the clamped host and its content is two lines tall, so `scrollHeight`
+      16→32 inside `-webkit-line-clamp:1` and the engine truncates the host's own text
+      (`登録チャン…`). Width is fine; **height doubles**. Note `position:absolute` alone may not
+      suffice — absolutely-positioned children still count toward an ancestor's scrollHeight when
+      that ancestor is their containing block. Needs a real-browser smoke; jsdom cannot see it.
+- [ ] **U60 — iPad sticky `:hover` can leave the native caption un-blurred** after the first tap
+      (`subtitles-youtube.css:227`).
+- [ ] **D14 (half) — detect scanned PDFs and prefer Yomu's own OCR** over the publisher's garbage text
+      layer. 1.8.17 shipped the *containment* half (`f70189516` — pending text layers stay hidden
+      until classified); choosing our OCR over a bad embedded layer is still open. Drop-zone centring
+      also still open.
+- [ ] **U53 — Browser Back does not work on the Academy profile/sync view.** Verified: no `popstate`
+      or `pushState` anywhere in `src/academy/app.ts`. The SPA reads `?view=` on load and routes
+      internally without participating in history. Check the Study SPA for the same defect.
+- [ ] **U50 / U51 / U54 — the account screen.** Seven actions on one screen, two destructive, wrapped
+      in E2EE jargon, reached by *reader* users and not only Academy ones. Verified still present:
+      `src/reader/app/academy-copy.ts:252,285` renders **"Class journal"** — a fictional Academy
+      world-location name (`world-locations.ts:2105`) — as the heading of an **account settings**
+      screen. U54 was deliberately not attempted last session because it is a multi-file en/ja copy
+      change and `tests/reader/settings-form/07-localization-mining-japanese.test.ts` fails on any
+      English leaking into the ja rendering; it needs a session with room to run the localization
+      gate after each edit.
+
+## T2 — Website and extensions  [the owner's second stated priority]
+
+- [ ] **1.9.0 store release — what actually gates it.** Stated plainly:
+      1. **Tags stop at `v1.8.15`.** 1.8.16, 1.8.17 and 1.8.18 are on `origin/main` untagged. Store
+         submission needs a **MINOR** tag, so nothing can be submitted until a tag exists.
+      2. The multilingual rewrite is the declared content of 1.9.0 and is **not done** — see T4;
+         24 of the 32 roster languages still have zero dictionary supply.
+      3. The listings themselves are not written (B4/U40) and the name problem is unsolved (below).
+      Until 1 and 3 are done, "1.9.0" is a version number with no release behind it.
+- [ ] **U14 / U45 / U88 — the name.** The Chrome listing is literally **よむ**
+      (`chromewebstore.google.com/detail/よむ/bbaickgfdgnecdnkcplaoiopnfghlkna`), so Latin-script
+      search returns nothing and *"search for yomu"* is broken advice. Worse than a listing bug:
+      **five shipping products already use the name in this exact category** — Yomu JP (yomujp.com),
+      Yomu Yomu (iOS), Yomu – Japanese Reader (iOS), Yomu Reader (Android), and **yomureader.app**,
+      one character from our own domain. Needs a permanent disambiguating tagline used with the name
+      everywhere, canonical SEO ownership of yomureader.com, and Latin-script titles plus real
+      keywords on Chrome / AMO / Greasy Fork. **Then verify by searching each store, not by assuming.**
+- [ ] **B4 / U40 — rewrite the store listings**, text and images, for addons.mozilla.org, the Chrome
+      Web Store and the Greasy Fork description. Firefox Classic (not Developer Edition) is the
+      profile signed into AMO. Lead with what users say Yomu is good at: reduced friction, one tool
+      instead of five, BookWalker/manga OCR, instant Nadeshiko examples, edge-hosted audio, the
+      YouTube feed filter, and **mobile** (U95).
+- [ ] **U87 — a 30-second clip is the primary artefact, not a screenshot.** Now cheap: the Remotion
+      project shipped in 1.8.18 (`d5107a29c`, `cdbcf57fc`, `video/`), so this is a second composition
+      rather than new infrastructure. One clip — hover → popup → mine → card with video and image
+      attached — reused verbatim on both stores, Greasy Fork, the homepage hero and every community
+      post.
+- [ ] **U68 — install is unreliable across managers. Mitigated, not fixed.** 1.8.15 (`0616b8b84`)
+      added install-from-URL fallback copy to the homepage and Getting started (verified:
+      `docs/index.md:54-60`, `docs/getting-started.md:43`). The underlying defect — managers not
+      intercepting the link, so the `.user.js` lands in Downloads — is untouched. Fix the served
+      content-type/headers and **test each manager** (Tampermonkey, Violentmonkey, ScriptCat,
+      Userscripts).
+- [ ] **U69 — a "previous versions" page.** Owner promised it publicly. Directly mitigates U68 and the
+      daily-userscript-channel risk. Not present in `docs/`.
+- [ ] **U82 / B6 — navigation: 14 destinations → ~5, and one primary CTA.** Support appears **three
+      times** in the nav (which is B6 from another angle) and the hero has five equal-weight buttons,
+      so nothing is the obvious next action. This is noteliana's *"my biggest feedback would be easier
+      navigation"* with a number on it. **Not addressed by the 1.8.18 docs rewrite**, which fixed page
+      *content*, not site IA.
+- [ ] **B5 — mark Academy "coming soon" wherever it is presented.** Verified: only `docs/support.md`
+      carries it today.
+- [ ] **D42 — do the query research before any SEO work.** The brand term is the wrong target. The
+      reachable audience searches the problem — "yomitan for manga", "read japanese on ipad", "mine
+      anki from netflix", "furigana chrome extension", "yomitan mobile", "yomitan alternative iphone"
+      — and several are questions Yomu already answers better than anything else. Derive the list from
+      the community research already in this file; those recurring "how do I…" questions are search
+      queries in disguise. That also answers B2's "what do we really need on the homepage".
+- [ ] **U94 / U76 — publish through the community's own channels:** r/LearnJapanese's weekly
+      *Material Recs and Self-Promo Wednesdays* thread, the JP Lazy Guide, Awesome-Japanese (checked —
+      Yomu is absent), the Yomitan resource page, the TMW wikis. **The owner posts these himself.
+      Prepare the artefacts and hand them over; do not post on his behalf.**
+- [ ] **B7 — Patreon posts.** An initial post as Henry, and a thank-you to existing subscribers.
+      **Drafts only.** Keep woozlez in the loop on any homepage rewrite — he made the homepage video.
+- [ ] **U109 — trust signals on distribution.** A malware clone of yomininja.com outranked the real
+      project in search and drew a 375-point warning thread. Signed releases with published checksums,
+      one canonical install origin, an explicit statement of what the userscript can access, and a
+      **visible release channel** so "which build am I on" is answerable from the UI (A6/R6).
+
+## T3 — Setup friction: "it should just work out of the box"  [B1]
+
+The measured picture, all re-verified this pass:
+
+| | measured | file |
+|---|---|---|
+| Settings opens on | `appearance` — 22 colour fields | `settings/form.ts:226,231` |
+| `form.ts` size | **3,129 lines** | `settings/form.ts` |
+| Advanced rows hidden by default | **0%** | — |
+| First-run questions | 12 | `OnboardingController` |
+| Nav destinations | 14, Support 3× | — |
+
+- [ ] **Try-first onboarding — the owner's decision, and it overrides the judge panel.** The first
+      thing a new user sees is Yomu working on real text, zero configuration, no account. Setup is
+      offered only after value is demonstrated and is skippable forever. Consequences to hold: this
+      subsumes U86 (the demo is the first run, not a marketing page); U80 becomes "ask ZERO up front"
+      with ≤3 as the ceiling for what may be asked later, in context; the 22-colour appearance tab must
+      not be anywhere near first run; the demo text is **per target language**, not Japanese; existing
+      users must not be re-onboarded on upgrade.
+- [ ] **U77 — one global "Advanced" switch.** Yomitan gates 51 of 125 rows behind one checkbox that
+      sets `data-advanced` on `:root`; uBlock Origin converged independently on the same design. Two
+      of the most-used power extensions in the world settled on one switch. Target ≤60% of rows visible
+      by default, and keep advanced rows **visually marked** even when revealed.
+- [ ] **U78 — a one-sentence description on every setting**, always visible (better than noteliana's
+      `(?)` icon ask), with dependent options as **children** of their parent control rather than
+      siblings in a flat list.
+- [ ] **U103 — named presets as the primary surface, "Custom" as the escape hatch.** Candidates: the
+      video/subtitle overlay panel, the 22-field colour matrix, the mining field-source matrix.
+- [ ] **U83 / U70 — settings live where their effect lives.** The popover, subtitle overlay, OCR
+      overlay and study screen each get a gear that deep-links to their own panel and returns. Move
+      Sources somewhere findable — the owner already said he would.
+- [ ] **U84 — dense lists get ≤4 controls above the fold**, filters in a popover, applied live, no
+      Apply button. Apply to the 221-entry dictionary catalogue, the mining queue, the study queue and
+      the word browser.
+- [ ] **U85 — "≤5 minutes" must be a measured number in CI.** Clean profile, cold install → first
+      furigana rendered on a real page, no account, no API key, no dictionary picker. Regressions fail
+      the build. Under try-first this should become a much smaller number.
+- [ ] **U108 — convention conformance. Four findings re-verified against the tree this pass:**
+      - `shortcuts.hoverLookup` defaults to `''` = **plain hover** (`settings/index.ts:552`). Yomitan
+        and Migaku both default to a modifier. This is canna98's *"I just turned it off bc it was
+        annoying"*.
+      - **`A` is still bound twice** — `playAudio: 'A'` and `previousSubtitle: 'A'`
+        (`settings/index.ts:554,559`).
+      - **`kifuku` is still missing from the pitch palette** — `grep -rn kifuku src` → 0 matches. The
+        other four pitch colours already match the kotu lineage; the fifth is simply absent and a grey
+        `unknown` sits in its slot.
+      - **`new: '#ffffff'`** (`theme/color-tokens.ts:46`). White is a *colour*: invisible on white
+        pages, glaring on dark ones — which is why woozlez had to set his highlights near-black for
+        ttsu dark mode. Transparent at rest is what U23 and canna98 actually asked for.
+      Plus: hotkeys into the `Alt+` namespace, `Ctrl+Z` as an undo alias in Study, key `1` always the
+      failing grade whatever scale the destination uses, frequency rendered as `#18447`, and the
+      vocabulary rules (**never** use "collection" for a mining list — in Anki that word means the
+      entire database).
+- [ ] **U101 — one-click diagnostic bundle.** Logs, version, channel, host, settings snapshot, recent
+      errors, a description box, returning an ID to paste into Discord. U4, U6 and U12 each consumed
+      weeks that one artefact would have collapsed. **A support tool, not telemetry** — user-initiated,
+      contents visible before sending.
+- [ ] **U100 — site-outage detection with differentiated messaging.** Distinguish "broken right now,
+      we know" from "fixed, please update". Yomu's YouTube and BookWalker breakages currently surface
+      as silent failure.
+
+## T4 — Multilingual: what actually remains for 1.9.0
+
+**Measured this pass**, not estimated:
+
+- The published catalogue (`config/dictionaries/published/v1/catalog.json`) holds **221 entries**
+  across **10 headword languages**: `ja:145 zh:38 yue:10 lzh:4 es:4 fr:4 de:4 ru:4 ko:4 vi:4`.
+- The learner roster (`src/reader/locales/types.ts`) is **32 languages**.
+- Of those 32, **8 have dictionary supply** (zh, yue, es, fr, de, ru, ko, vi).
+  **24 roster languages have zero dictionaries.** Six of the thirty landed in 1.8.18 (`108584f25`);
+  the earlier "~27 non-CJK targets with no supply" figure is now **24**.
+
+- [ ] **Dictionary supply for the remaining 24 targets.** The binding constraint is **data and
+      licensing, not code** — this has been true since the goal was set and 1.8.18 changed only the
+      count. WTY covers all of them except **lo (Lao)**, which needs its own source.
+- [ ] **U61 — language-seam residuals.** Re-counted this pass:
+      - **31** direct `HAS_JAPANESE` sites remain outside `languages/` (was 33). Heaviest now:
+        `reader/dom/index.ts` (5), `academy/ui/vn-stage.ts` (5, own regex),
+        `sources/definition-render.ts` (3), `newtab/runtime.ts` (3),
+        `dictionaries/learner-glossary.ts` (3).
+      - **`src/gaming/shared.ts` is now clean — 0 matches** (was 6 with its own local regex). Fixed by
+        the gaming multilingual work (`a5f44c5e0`, `db5e0d5bc`). **The backlog entry saying gaming is
+        un-migrated is STALE.**
+      - **`deinflectJapaneseTerm` is no longer imported by `dictionaries/yomitan/index.ts`** — fixed by
+        `59e690658`. **That entry is STALE too.**
+      - **Still no UI to pick a target language.** `settings/form.ts:146` renders a hardcoded
+        `<span class="jpdb-reader-language-target" lang="ja">日本語 — Japanese</span>`. Two small edits
+        and the seam becomes user-reachable.
+- [ ] **U44 / U97 — the card model has no language field, and word identity is not a stable key.**
+      **This is the most time-critical item in the entire multilanguage effort and it has not moved.**
+      `StoredYomuSrsCard` (`src/reader/srs/local-yomu-deck.ts`) is `expression` + `reading` +
+      `meanings`; `reading` is a Japanese concept, and across 32 targets identical Latin strings
+      (es/fr/de) collide in one undifferentiated deck. The stronger primitive is identity =
+      **(dictionary form, secondary reading, part of speech, language)** with **knownStatus**,
+      **hasCard** and **tracked** as three *independent* fields — which also makes "collect without
+      scheduling" (U18/U89) expressible instead of a special case. Yomu's `CardState` union
+      (`src/reader/app/types.ts:5-22`) conflates all three into 21 mutually-exclusive values.
+      **Land it before decks are populated:** retrofitting onto already-synced E2EE events means a
+      migration that cannot be run server-side.
+- [ ] **U105 — three-tier language model: target ≠ output ≠ interface.** sagamsil does not need Yomu
+      translated into Korean; he needs **definitions rendered** in Korean (U15). Conflating the tiers
+      makes the 32-language goal look 3× larger than it is. Record the real per-target cost too: not a
+      dictionary but **morphology plus a named-entity gazetteer**.
+- [ ] **D43 — full UI localisation for every target language** (owner's explicit decision, overriding
+      U105's scoping — **both** are in scope, do not quietly drop one). Today `interfaceLanguage` is a
+      two-way en/ja switch. Plan before starting: `app/i18n.ts` is a hand-maintained flat map already
+      gated by a CI test; the docs site has a **second, separate** ja map in
+      `docs/.vitepress/theme/index.ts` — unify or explicitly decide not to before adding 30 locales;
+      MT is the only realistic first pass but will not honour the copy-voice rules; **RTL** (Arabic,
+      Farsi are on the roster) has never been tested against the overlay and popover geometry — scope
+      it explicitly or exclude it deliberately, do not discover it late.
+- [ ] **U79 — gate by language in CSS.** `data-language` on the root plus per-family classes, copied
+      from Yomitan rather than invented. Test: switch to a target with no reading annotation → the
+      furigana controls, `furiganaMode`, pitch colouring, the pitch legend and the provider pills are
+      **absent from the DOM**, not greyed out.
+- [ ] **U46 — example-sentence + media sources for the other 31 targets.** ImmersionKit is
+      Japanese-only and it powers the thing users love most. Deliverable: a table of target → source →
+      has audio? → has image? → API shape, plus an explicit list of targets with **no** usable source
+      so the affordance can degrade visibly.
+- [ ] **U62 — dictionary mirror residuals.** 13 published entries have dead Drive source URLs (served
+      fine, but `acquire.mjs` can no longer re-fetch them); `languages.json` claims all 32 are
+      `readiness:"ready", blockers:[]` — **that is false, do not trust it**; Kanjium pitch and WTY
+      JA-JA are offered as curated cards pointing off-mirror; 135 zips across 6 Drive folders
+      unmirrored; 7 Proton folders unenumerable; 7 GitHub collection repos not cloned.
+- [ ] **A1 — one parser, best of both, locally.** JPDB deconjugates to dictionary form and blacklists
+      katakana/conjunctions well; jiten and the offline JMdict parser group idioms and compounds
+      better. Both example sets are testable fixtures today: `ことがなかった。` → JPDB yields
+      ことがない, jiten parses なか and pops "inside"; `油を売る` → one entry in jiten, three in JPDB;
+      `いつまでも殻に閉じこもっていない` → offline **and** jiten group 殻に閉じこもる, JPDB splits it.
+      This is the multilingual segmentation problem restated: per-target morphology plus per-target
+      compound grouping.
+
+## T5 — Study, SRS and mining
+
+- [ ] **U18 / U89 — collect now, schedule later. Name it and default it.** Nobody in the market has
+      productised this, review debt is the community's second-largest recurring topic, and the live
+      evidence is bdlance's due count going 200/day → **1600** because Yomu inserted reviews into
+      jiten. Separate "collect words" from "study new words". The owner: *"I actually like this idea a
+      lot."* This is the most defensible single product idea in the research.
+- [ ] **U64 — the grading control adapts to the destination.** Owner, correcting an earlier note:
+      *"don't explain — actually fix. Always match whatever the source is."* Grading into jiten shows
+      jiten's 4 buttons with jiten's labels; into jpdb, jpdb's 5; into Anki, Again/Hard/Good/Easy; into
+      Yomu SRS, Yomu's own. No lossy translation, no user-facing explanation. Scale, labels, keyboard
+      shortcuts and colours all come from the destination adapter, not from Yomu's constants.
+      *(Unconfirmed and worth checking cheaply: whether jiten's grading is genuinely 4-button. It is
+      asserted by one user and carried through the whole chain unverified.)*
+- [ ] **A2 / D44 — reconciliation across N simultaneous SRS backends, and its edge cases.** The
+      architectural centre of the next phase, and strictly harder than what the competitor does (they
+      solved it by exclusion — own the SRS, Anki is a paid export). **Decide each of these before Study
+      sync ships:** same word graded in two places offline; scale mismatch on merge; card exists in one
+      backend only (silent creation is a known harm); deletion vs never-existed (needs tombstones);
+      Anki simply not running; Anki edited by hand; duplicate detection across backends (needs U97's
+      4-tuple); suspended/buried/leech with no common vocabulary; clock skew; partial sync failure
+      mid-batch. **Non-negotiable UX rule:** an unresolvable conflict shows both sides with last
+      updated / words known / reviews due, and states plainly what each choice destroys.
+- [ ] **U107 — canonical local store with tombstones.** Every synced row carries
+      `mod / serverMod / del / serverVersion / isPendingEnqueue / isPendingApply`. Copy the storage
+      schema; **reject the exclusion** — reconciliation is the differentiator.
+- [ ] **U39 / A7 / U111 — Study is denser and slower than jiten, and the owner tells people not to use
+      it.** Every complaint is about **density and speed**, not missing features. But the bigger prize
+      is not jiten-switchers: it is **people who bounce off Anki and are actively shamed for it** — a
+      "recommend me something that is NOT Anki" thread drew 77 comments of near-uniform hostility at 0
+      points. **Consequence: Study must not look like Anki.** "Done" is not feature parity with a
+      review app; it is the thing someone reaches for instead of quitting.
+- [ ] **U90 — ship the tuned scheduler, not the knobs.** Yomu already ships FSRS on, presets optimised,
+      leech auto-suspend enabled — and does not expose those on the main path. The community's own
+      diagnosis of review overload is that most people's Anki is *misconfigured*.
+- [ ] **U28 / D20 / U96 — the mining list, and i+1 that tunes itself.** Show every word you might mine
+      before or after an episode, each with **mine / don't mine / already know** (a three-way choice,
+      richer than "mine or skip"). Today's filter is
+      `sentenceCardCount >= 3 && unknownCardCount === 1`
+      (`src/reader/subtitles/subtitle-batch-mining.ts:99`) — minimum 3 tokens, **no upper bound and no
+      frequency gate at all**. Adopt the *shape* — a length window, exactly one unknown, a frequency
+      threshold that widens automatically with known-word count, filtering off entirely above a high
+      known count — and **choose our own constants from our own data**.
+- [ ] **U104 — seed known words in two minutes.** Offer the **import** route first where it exists
+      (Anki collection, jpdb, jiten, Yomitan) and fall back to an adaptive "select the words you know"
+      quiz over rising frequency bands. Yomu is useless until it knows what you already know, and today
+      it asks the user to arrive with that state.
+- [ ] **U91 — mine-worthiness guidance at the point of decision.** Band words in the popup and the
+      mining list the way the community already does: **<30k learn · 30–60k if it matters to you ·
+      60–100k marginal · >100k probably a parse error, not a word.** The >100k band doubles as a free
+      parser-quality signal feeding A1.
+- [ ] **U99 — comprehension score per page, video and book.** Yomu owns the parse, the known-state and
+      the frequency data and surfaces a known-percentage only inside deck stats
+      (`newtab/stats-view.ts:254`). A number and a plain word, computed from data we already have.
+- [ ] **U19 / U31 / U33 / U70 — the small ones:** bulk **resume** (bulk suspend exists); turn off the
+      jpdb/bunpro surfaces that are on by default and unwanted; kanji cards default off (the capability
+      exists — the *default* is wrong); make Sources findable.
+- [ ] **U56 / U57 / U71 — proper account features, with jiten as the reference.** Enumerate every
+      account-level capability jiten exposes and mark Yomu has/partial/missing. Known from the research
+      alone: vocabulary management with **import from Anki and from JPDB**, deck management, inspectable
+      review history with undo/regrade, bulk suspend **and resume**, new-first sessions. Plus
+      **usernames** to replace the generated `Learner#406049`, stored on the account, not the device.
+      Yomu should own **migration between backends** (U71) — it is the natural companion to A2.
+- [ ] **U106 — a quality gate that teaches its own bypass.** Warn once when a mined card would land
+      blank on the back, and **inside the warning** say how to skip the check permanently.
+- [ ] **U93 — low-intervention reading mode, and a stated limit to "automatic and seamless".** A
+      legible "just read" mode: minimal decoration, no chips, lookups on demand, nothing that
+      interrupts a line. Two independent users asked for this (amine 30/05 for video; the community
+      counter-current), so it is no longer a single data point. **This challenges the governing
+      principle** — automatic is right about friction and, on the evidence, wrong about volume.
+      **Proposed amendment for the owner to accept or reject:** *automatic where it removes friction,
+      silent where it would interrupt reading.*
+
+## T6 — Platform
+
+- [ ] **E1 — iOS.** Nothing built. Capture the target now: App Store listing so users skip userscripts
+      (blocked only on the £100 Apple fee, which the owner said he would pay); a **share-sheet /
+      Shortcuts screen translator** modelled on Tap Translate, to read any app and not just Safari;
+      React Native so web/Android/iOS share one build; offline SRS on a train. **Gated on U4** — the
+      Safari OOM, the copy/paste interference, the startup overlay on every site, and per-site settings.
+- [ ] **D37 — extend the existing PWA to Study.** Rescoped, and cheaper than the backlog implies:
+      `docs/public/video-player/` already ships `manifest.webmanifest` **and** `sw.js`, so the video
+      player is installable today. What is missing is a PWA for the Study/newtab surface — which is
+      what was actually wanted (offline reviews on a train) and is the cheap front half of offline SRS.
+- [ ] **U41 / U92 — gaming: the target is capture-anything, not a game client.** Much of the mechanical
+      work landed in 1.8.16/1.8.17 (see the ledger) and the app is materially better, but the two
+      structural asks are open: route inline lookup through the reader's own `boot` +
+      `collectScanTargets` instead of a parallel overlay implementation (Cycle 11), and widen the
+      target from games to **any image** — a phone photo of a paper page, a capture-card feed, a console
+      screenshot. "How do I mine from physical manga / console games" is asked roughly monthly with
+      **no accepted answer**, and Yomu already owns the hard half. vvvvtk has the Steam Deck, has done
+      the research, and volunteered to test **and** to write the Steam Deck guide (D3). Take him up on it.
+- [ ] **A6 / R6 — make the release channel visible in the UI now**, before it becomes a
+      conflict-detection feature. Userscript = daily/experimental, extensions = ~weekly/stable. Users
+      need to know which channel they are on and what that means.
+
+## T7 — Engineering and release residuals
+
+- [ ] **Pre-existing shadow-DOM test-ordering coupling —
+      `tests/reader/detached-reading-overlay.test.ts`.** Carried forward, unfixed. The file's
+      `afterEach` (lines 52-57) restores mocks, deletes `document.elementsFromPoint`, clears the
+      `yomu-furi-hover` class and empties `document.body`, but nothing clears the **module-scoped
+      observed-root registry** inside `src/reader/dom/detached-reading-overlay-impl.ts`. Shadow hosts
+      attached in one test stay registered after their DOM is discarded, and only some tests call
+      `clearProjectedReadings` themselves — so verdicts in the shadow-DOM cases depend on run order.
+      Fix by exposing a reset the test can call in `afterEach`, not by reordering tests.
+- [ ] **Tag 1.8.16 / 1.8.17 / 1.8.18.** Verified: `git tag` stops at `v1.8.15` while `origin/main` is
+      at 1.8.18. Store submission needs a MINOR tag; this blocks T2.
+- [ ] **U63 — carried forward, NOT re-verified this pass** (this worktree has no `node_modules`, so
+      nothing was run): `npm run fallow:dead-code` exits non-zero on 4 pre-existing rows;
+      **voiceworks-toolkit** has the duplicate-translation fix on main (`3fdba5c`) but the userscript
+      still advertises `@version 170`, so **nobody auto-updates onto it** — it needs a bump and a
+      release; `prepare-release.mjs` has one residual shelf-durability conditional gap. The gate's
+      `test:ci`-before-`docs:build` ordering hazard is at least partly addressed by `7ba0b9bc4`
+      (the Study route and API docs are now checked **as committed** rather than regenerated first) —
+      confirm before re-filing it.
+- [ ] **Cycle 10 (part) — an early bundle-size budget**, not just the late verify gate. Core sits
+      permanently ~1-2% under the hard 2 MB Greasy Fork cap, so every feature triggers a size firefight
+      → another companion split → more `@require`/SRI publish fragility.
+- [ ] **Cycles 4, 6, 7, 8 — the structural fixes are still unwritten**, even though a lot of their
+      symptoms were fixed in 1.8.10–1.8.18. Named honestly: YouTube hooks are still structure-pinned
+      (**U102** proposes a better shape than "a resilient observer" — a typed message bridge to the
+      site's own API with rect proxies, and *without* the competitor's obfuscated-filename evasion);
+      the subtitle drawer still has no layout contract across its six hosts; ruby alignment is still
+      hand-tuned per surface (**U98** proposes a column-layout token primitive that would structurally
+      eliminate the class — **measure its ~5-nodes-per-word cost against Cycle 7's actual cost before
+      committing**); decoration still puts colour channels on the root, which is the documented cause
+      of the SPA class-clobbering.
+- [ ] **U43 — reframed by the owner, and ranked DOWN.** The correct framing is *"avoid the proxy by
+      default, use it only where an origin genuinely requires it"*, not "close the coverage gaps".
+      The one genuinely user-visible casualty to check under that framing is jiten
+      `random-example-sentences`, which powers the feature noteliana calls Yomu's best.
+
+## T8 — Academy  [POSTPONED by the owner; carried forward, do not start ahead of T0–T2]
+
+- [ ] **E2 — a full Academy vision recovery, before any more building.** **Not an as-is/to-be
+      exercise.** Reconstruct the vision IN FULL from history — all past and current **Codex** sessions
+      and past **Claude** sessions where it was brainstormed — then judge the existing work against it.
+      Required output: what was built and **where it strayed**; **the owner's disappointments, named**
+      (likely "AI slop" in the lessons — audit lesson content the way U54 audits product copy);
+      **critical failures and downfalls**, not a feature list, including where it used its **sources**
+      badly; **use of space** — stop making learners scroll inside small scraps of paper (a UI failure,
+      not a content one); story must adapt per language; **3D Tartarus-class experiences, plural**, with
+      genuinely good graphics and a consistent world — explicitly NOT what is currently in the works;
+      **memoryOS principles were never integrated** and the owner considers this a miss, not a
+      nice-to-have; **review the architecture**, not just the content. Sequencing is explicit: run it
+      alongside, not ahead of, the bug and store work.
+- [ ] **E3 — Academy source material, generalised to 32 languages.** Japanese Academy is based on the
+      learning pack plus sensei's Moodle courses. Every other target needs an equivalently
+      high-quality reference set and those do not exist — a research task per language. **Disk, not
+      licensing, was the stated constraint**, and an external SSD is plugged in.
+- [ ] **The Academy infrastructure defects, which are NOT postponed** (they are reached by reader
+      users): the media **403** on
+      `…/academy/media/audio/v1/persona/no-more-what-ifs-instrumental.flac`; CSP blocking an inline
+      script (`script-src-elem`, nonce mismatch); repeated `Not allowed to define cross-origin object
+      as property` from the content script injecting into the Academy page; a wasted preload of
+      `yomu.user.js`.
+- [ ] **U42 — there is no account control on `/academy/` or `/study/` at all.** Both are standalone
+      SPAs; the hosted account control only mounts into VitePress pages. **You cannot sign in from the
+      two surfaces where SRS actually lives.** Redesign sign-up, entitlement and account UI as **one**
+      piece of work, not three tickets.
+- [ ] **U65 / U66 / U67 / U110 — the teaching design, worth keeping.** "Razor speak" (explain grammar
+      in deliberately simple, blunt language — canna98's *"textbooks make sure that u will not
+      understand it"*, and she offered to write explanations once she has learned more); real examples
+      beat invented ones; graded answers immediately; the 50% rule, whose design consequence is that
+      Academy should actively push learners **back into immersion** rather than maximising
+      time-in-Academy. **Correction to the earlier note:** the community's ranked grammar default has
+      moved — **Yokubi (yoku.bi) is now first**, then Misa, then Cure Dolly, then **Tae Kim fourth**.
+      Tae Kim's *style* argument remains exactly right and is the valuable half; citing him as the
+      community default is now wrong. The linked setup references are the **JP Lazy Guide** and
+      **donkuri**, not animecards, and the note type to name is **Lapis**, not JPMN.
+      **Take no side in the grammar wars** — it is the community's most divided topic.
+- [ ] **U66 — teach people how to learn Japanese, unbiased.** Not "how to use Yomu". Recommend the best
+      tool for each job even when it is not Yomu; credibility is the whole asset. This is also what
+      earns the links in U94.
+- [ ] **S0 — the Persona 5 Royal frames are the concrete answer to E2's "use of space" complaint**:
+      confident full-bleed composition where UI sits **on** the scene rather than in a scrolling box;
+      angled, energetic framing; an oversized portrait breaking its own frame; a tiny corner-anchored
+      control legend that is dense without clutter; a saturated, limited palette applied with total
+      conviction; and diegetic learnable text placed **in the world**, not only in lesson panels.
+
+## Standing decisions that bind everything above
+
+- **Governing principle** — *"everything should always be automatic and seamless"*, applied as a test:
+  for any screen, setting or step ask **"why is the user doing this at all?"** If the software could
+  have done it, chosen a sensible default, or waited until it mattered — remove the step.
+  **Corollary for defaults:** a default most users must change is a bug.
+  **Corollary for failure:** when something cannot be automatic it must be **visible** — degrade
+  honestly, never silently do nothing. U93 proposes the one amendment.
+- **Fix bug classes in core machinery, never per-site patches.**
+- **The reject list stands** (R1–R13 in the archive): no injecting the whole app into every page, no
+  bundling all language resources, no mandatory always-open window, no bare single-letter hotkeys, no
+  requiring login before any value (*the one sentence a paid competitor structurally cannot copy* —
+  do not give it away), no obfuscated filenames, no second SQLite engine, no settings that force a
+  reload, no Anki-as-paid-export, and **do not build a fifth SRS**.
+- **Positioning, with the honest caveat:** *Yomu turns any page, video, manga or game screen into a
+  Japanese lesson — lookups, readings, pitch and mining — and keeps your Anki, jpdb and jiten in step,
+  on desktop and on your phone. Free, no account, nothing to configure.* A redditor would accept every
+  clause **except "nothing to configure"**. **Ship the sentence without the last three words until
+  T3 earns it.**
+- **Unresolved, owner's call — which words are marked at rest.** The competitor marks unknown loudly
+  and makes known/ignored transparent so the page visibly cleans up as you learn; Yomu's own users
+  asked for the opposite emphasis. Proposed resolution: keep new/unknown undecorated at rest, and
+  spend the loud treatment on **recommended (i+1) words only**. Must be reconciled with the standing
+  "all chrome annotated at rest" rule.
+
+---
+
+# PART 2 — RECONCILIATION LEDGER
+
+Every prior claim, checked. `SHIPPED` carries a commit or a file path. `STALE` means a previous triage
+recorded something that the tree contradicts.
+
+## 2a. Shipped in 1.8.16 (`1282f1c95`) and 1.8.18 (`81a7b4d49`)
+
+**Yomu Gaming**
+
+| Item | Verdict | Evidence |
+|---|---|---|
+| Capture shortcut works on the **first** press of a session | SHIPPED 1.8.16 | `621bd29e5` — macOS returned an empty thumbnail on the first request after launch; failed on 5 cold starts out of 5 |
+| Re-reads the screen on **every** press, not replaying the first capture | SHIPPED 1.8.16 | `8635424ec` |
+| Recognized text typeset at the size of the text it was read from, in register | SHIPPED 1.8.16 | `df5517582`, `fa670c9ce`, `88bdc27ab` (survives window resize); tests `44e90b3a5`, `0392023b6`, `b3058f4fe` |
+| Overlay stops re-typesetting every line on every frame (157 layout passes / 158 frames) | SHIPPED 1.8.16 | `68b47c965` |
+| Reads the screen the player is actually on (multi-monitor) | SHIPPED 1.8.16 | `c99789da7`, `9240ec20e` |
+| Follows the **study target language**, including a switch while running; language survives a save | SHIPPED 1.8.16 | `a5f44c5e0`, `db5e0d5bc`, `f23e7909a`, `0a9345645` |
+| Tray: waits in the menu bar instead of disappearing | SHIPPED 1.8.16 | `d9dd121f8` |
+| Dock icon; desktop icons rebuilt from the app's vector in the build | SHIPPED 1.8.16 | `ed18e1881` |
+| First run: one screen, Settings is somewhere you go, names a key only when the keyboard has it | SHIPPED 1.8.16 | `baf3ce233`, `959c502a7` |
+| Escape dismisses the word card without also closing the overlay | SHIPPED 1.8.17 | 1.8.17 entry |
+| CJK-font-less Linux line alignment | SHIPPED 1.8.17 | 1.8.17 entry |
+
+**Reader**
+
+| Item | Verdict | Evidence |
+|---|---|---|
+| Recycled video rows stay annotated (a row is judged by the exact text it covered) | SHIPPED 1.8.16 | `4f90cf918`, `cc7b3031a` |
+| Katakana middle dot splits words; Details appears only when there is something behind it | SHIPPED 1.8.16 | `dda4ccf75` |
+| One tap hides the translation on a phone; drawer controls survive a rebuild mid-tap | SHIPPED 1.8.16 | `d9368f6d0`, `1ebfdebca` |
+| Anki note-type update touches only the note type it offered | SHIPPED 1.8.16 | `38b03d908`, `142920ed7`, `ceb9b89b8` |
+| Blank English copy in the Anki field-mapping panel | SHIPPED 1.8.16 | `685b7b676` |
+| Japanese subtitle labels restored after the locale-overlay move | SHIPPED 1.8.16 | `a38fbbcb4` |
+| **rAF latch fix 1 of 2** — additive mirror re-stamp survives a frame that never arrives | SHIPPED 1.8.16 | `b49091476` |
+| **rAF latch fix 2 of 2** — projected readings survive a swapped-out scheduler | SHIPPED 1.8.18 | `2cd9aab81`, merged `fdd5ae285` |
+| Subtitle font-size slider is literal (60px stays 60px through every transition) | SHIPPED 1.8.17 | `e9b39a5a6` |
+| Floating button appears without waiting on local-dictionary storage startup | SHIPPED 1.8.17 | `e9b39a5a6` |
+| PDF text layers hidden until classified | SHIPPED 1.8.18 | `f70189516` |
+
+**Infrastructure**
+
+| Item | Verdict | Evidence |
+|---|---|---|
+| Build reproducibility — a rebuild stops rewriting 11 committed artifacts (fflate + wall-clock stamp) | SHIPPED 1.8.16 | `d024224a4`, `73780a9db`, `fc28f6c4b` |
+| Committed-artifact guard — names mismatched packages, checks the Study route, API docs, Academy revision, and that every pinned companion is committed with the hash it pins | SHIPPED 1.8.16 | `1af0f5b99`, `9a650f3b0`, `086418f86`, `6d76e8883`, `a4d161ce6` |
+| The staging list now covers the reader stylesheet (it could never match the new hashed name) | SHIPPED 1.8.16 | 1.8.16 entry |
+| Release-gate flake | SHIPPED 1.8.16 | `d3f2026a3`, `0d686db10` |
+| Study page reports the version actually installed | SHIPPED 1.8.16 | `7ba0b9bc4`, `8acf1c209` |
+
+**Content**
+
+| Item | Verdict | Evidence |
+|---|---|---|
+| Docs rewritten around what a reader gets; every page says what Yomu is on line one | SHIPPED 1.8.18 | `6105bd1e8`, `33565c679`, `432562cb7` |
+| 17 of 38 published pages were internal notes — now excluded, sitemap kept to reachable routes, a stray page fails the build | SHIPPED 1.8.18 | `4e7e6263f`, `9d790f812` (source files intentionally stay in the repo) |
+| Japanese restored across the rewritten pages, guarded against English-shaped "translations" | SHIPPED 1.8.18 | `427488fa4` |
+| Every screenshot shows what its caption says; the capture harness now fails rather than saves | SHIPPED 1.8.18 | `bfe94b0b3`, `4c79a6ff6`, `dc27dbaf7`, `f90685bfe`, `b11a27e50` |
+| Six new dictionary languages (es, fr, de, ru, ko, vi — 24 Wiktionary-derived dictionaries) | SHIPPED 1.8.18 | `108584f25`, merged `a46c50751` |
+| ICU segmentation for languages that do not write spaces (th, lo, km, my) | SHIPPED 1.8.18 | `83bcb815c` |
+| Lookups use the language being read — detection, boundaries and morphology all follow the study target | SHIPPED 1.8.18 | `59e690658` |
+| Remotion project + the gaming clip | SHIPPED 1.8.18 | `d5107a29c`, `cdbcf57fc`, merged `06e1cb5e9`; lives in `video/`, outside the release gate |
+
+## 2b. STALE — recorded as open, actually shipped
+
+These cost time. Each was verified in the tree this pass.
+
+- **Cycle 1's P0 canvas-page-identity primitive — SHIPPED, and long ago.**
+  `src/reader/ocr/canvas-page-identity.ts` exists, is consumed by `src/reader/ocr/controller.ts:53`
+  and by `canvas-page-signature.ts`, and landed in **v1.6.35** (`85fee5122`), later consolidated by
+  `9633e0d4e`. The archive's "Residual engineering: agent was paused by the owner mid-implementation;
+  re-launch when wanted" is **wrong**.
+- **Cycle 2's legacy `NewTabMode` substrate — DELETED.** `grep -rn NewTabMode src` → **0 matches**.
+  The archive's "internal NewTabMode dual-substrate (deferred mechanical refactor)" is done.
+- **Cycle 3's managed-state registry and reset invariant — SHIPPED.**
+  `src/reader/app/managed-state-registry.ts` and `managed-state-manifest.ts` exist, and
+  `tests/reader/factory-reset-invariant.test.ts` (plus `factory-reset-coordinator` and
+  `factory-reset-storage`) enforce it.
+- **Cycle 9's `ApiSrsProviderId` enum — ALREADY EXTENDED.** It is
+  `'jpdb' | 'jiten' | 'bunpro' | 'wanikani' | 'yomu-local'` (`src/reader/cards/srs-providers.ts:12`),
+  not `jpdb|jiten`.
+- **Cycle 9's trust bug — GONE.** `grep -rn submitJpdbApiGrade src` → **0 matches**.
+  `src/reader/newtab/grade-queue.ts` takes an injected `submit`, so grades no longer fall through to
+  the jpdb path. *(The wider provider-adapter consolidation was not audited beyond this.)*
+- **U61: `deinflectJapaneseTerm` imported by the language-agnostic dictionary engine — FIXED** by
+  `59e690658`. No longer present in `src/reader/dictionaries/yomitan/index.ts`.
+- **U61: `src/gaming/shared.ts` carries 6 direct `HAS_JAPANESE` calls with its own regex — FIXED.**
+  Now **0 matches**, via the 1.8.16 gaming multilingual work.
+- **D37: "Nothing matching a webmanifest found in `src/`" — WRONG.**
+  `docs/public/video-player/` ships `manifest.webmanifest` **and** `sw.js`. The archive already
+  self-corrected this; it is restated here because the rescope matters (extend to Study, don't build).
+- **D8 (furigana on the study card) — SHIPPED and verified twice.** `newtab/controller.ts:6944`
+  forces ruby on the answer side and keeps the prompt bare. The original PARTIAL was a bad grep.
+- **A8 ("sign-in is NOT broken") — SUPERSEDED by U48.** The investigation only proved the pre-consent
+  leg healthy. It is recorded here as the cautionary case: **passing tests were treated as evidence
+  against the owner's direct experience, and they were not.**
+- **The whole first D-list pass — WORTHLESS BY CONSTRUCTION.** It was greped against
+  `apps/yomu-reader`, a shared tree pinned at v1.6.228, ~200 versions behind. Anything marked from it
+  and not re-checked on `origin/main` should be treated as unknown, not as triaged.
+
+## 2c. STILL OPEN — re-verified against the tree this pass
+
+| Item | Verified how |
+|---|---|
+| **U3** prefer-Japanese defaults ON | `settings/index.ts:500` → `preferJapaneseSiteLanguage: true` |
+| **D13** Help does not show the latest version | `latestVersion` absent from `settings/dialog-controller.ts` on origin/main (the earlier SHIPPED? mark came from the stale tree) |
+| **U61** no target-language picker | `settings/form.ts:146` hardcodes `<span … lang="ja">日本語 — Japanese</span>` |
+| **U61** 31 direct `HAS_JAPANESE` sites outside `languages/` | counted this pass (was 33) |
+| **U53** Academy Back button | no `popstate`/`pushState` in `src/academy/app.ts` |
+| **U54** "Class journal" heading on an account screen | `app/academy-copy.ts:252,285` |
+| **U108** plain-hover default | `settings/index.ts:552` → `hoverLookup: ''` |
+| **U108** `A` bound twice | `settings/index.ts:554,559` → `playAudio: 'A'`, `previousSubtitle: 'A'` |
+| **U108** `kifuku` missing | `grep -rn kifuku src` → 0 |
+| **U108 / U23** new-word colour | `theme/color-tokens.ts:46` → `new: '#ffffff'` |
+| **U77 / U103** settings open on 22 colour fields | `settings/form.ts:226` → `DEFAULT_SETTINGS_PANEL = 'appearance'`; file is 3,129 lines |
+| **B5** Academy "coming soon" | only `docs/support.md:17` |
+| **U69** previous-versions page | absent from `docs/` |
+| **Multilingual supply** | 221 catalogue entries, 10 headword languages, 24 of 32 roster targets with none |
+| **1.9.0 tagging** | `git tag` stops at `v1.8.15`; main is 1.8.18 |
+| **U68** install fallback is copy only | `docs/index.md:54-60`, `docs/getting-started.md:43` — no content-type fix |
+
+## 2d. Not re-verified this pass — treat as unknown, not as triaged
+
+This worktree has no `node_modules`, so nothing was executed. Everything below is a documentation
+claim carried forward: **U63** (fallow dead-code rows, voiceworks-toolkit `@version 170`,
+`prepare-release.mjs` shelf gap), **Cycle 5**'s R2 bulk-upload owner action, **Stripe live-key**
+status (the sandbox guard is in `workers/yomu-support/src/index.ts:820` and returns 503, so a
+test-mode key still blocks donations), **U62**'s mirror counts, the **U43** proxy gaps under the
+owner's re-framing, and every `[OPEN]` in the archive's D-list that the 2026-07-26 note already said
+had not been re-checked. **Do that before working any of it.**
+
+---
+
+# ARCHIVE — the pre-reconciliation document, preserved verbatim
+
+Nothing below this line was edited. Where it conflicts with Part 1 or Part 2, Part 1 and Part 2 win.
+
+# Yomu Backlog — Quality-Squad Working Document
+
+Last updated: 2026-07-03 (rewritten in place as the quality-squad working doc)
+Truth source for shipped state: `git show origin/main:CHANGELOG.md` — authoritative through **1.6.14** (this worktree's `CHANGELOG.md` lags at 1.6.6; always check origin/main before owning a "not shipped" claim).
+Evidence keys: `[thread <id>]` = Codex session id; `[wl:<id>]` = wishlist item id; `[v<X.Y.Z>]` = shipped release; user quotes are verbatim.
+
+---
+
+## Goal
+
+The quality squad's mission is to turn Yomu from an impressive-but-fragile pile of features into a **real, releasable product** — something a first-time user (Canna on an iPad, tk on a commute, Arka wanting pitch training) installs, understands, and keeps using without hitting a wall. We ship **continuously in small, individually-verified slices**: each user-facing fix bumps a version, is proven in the actual browser/app target (not just unit tests, because our hardest surfaces — BookWalker canvas, YouTube SPA, Netflix captions — are exactly the ones CI can only fake), pushes to `main`, and has its release asset checked. Net-negative releases (delete more than we add) are welcome; the enemy is the recurring-regression treadmill where the same bug is re-fixed across a dozen throwaway worktrees. Concretely: **kill the top bug cycles by adding the missing invariant/identity primitive each one lacks, converge the duplicated-but-diverged implementations that cause "works for henry, not for the user," finish the half-built features (Study 2.0 merge, Bunpro parity, hosted audio data, offline SRS), and make the first-run experience — install, onboarding, study, docs — obviously good.** Success = a user can be handed Yomu cold and reach immersion reading + SRS without asking a single "how do I…?" question.
+
+---
+
+## Recurring bug cycles (concentrate here)
+
+These are ranked by *effort sunk × recurrence*, not raw session count. Each is a place where fixes keep reopening because a structural primitive is missing or two implementations have diverged. **Breaking these cycles is the highest-leverage work in this doc.** Evidence: `codex-cycles.json` cycle-mining pass over 2,265 Yomu-era sessions.
+
+### Cycle 1 — BookWalker / manga-canvas OCR (P0)
+- [ ] **P0 — Add a single canvas-page-identity primitive keyed on per-canvas leaf content hash; replace every ad-hoc identity proxy.** 20 sessions / 7 distinct days, but BY FAR the most effort (one session `019f066b` is 4.26 GB / 56,807 lines / ~73M tokens over 6 days; releases 1.5.0→1.5.17 were almost entirely BookWalker). Root cause: **there is no stable, content-derived page identity for canvas viewers.** Identity has been proxied by (a) scroll offset, (b) a *global* mirror-epoch/turn-token, (c) canvas node reference — each wrong for a different mode (scroll is often 0 in cty=2 vertical; the epoch "flashes"; nodes are reused across pages). Every fix re-derives identity ad hoc, so the next mode (vertical vs paged vs Firefox-fetch vs homepage) reopens it. Break-the-cycle: **one `canvas-page-identity` module** keyed on a per-canvas leaf content hash (never the global epoch), consumed by the OCR controller. Evidence: `[thread 019f066b]`, `[wl:bookwalker-ocr]` (Canna's #1 ask, 12 asks over 2 weeks), MEMORY `yomu-bookwalker-vertical-ocr-fix` ("epoch flashing = the bug").
+- [ ] **P0 — Add a cross-mode OCR invariant test matrix: `same content → exactly one scan; changed content → exactly one rescan` across {paged, cty=2 vertical, Firefox-fetch, homepage}.** Secondary root cause: the controller mixes cache / negative-cache / hold-window / timeout heuristics (6s cap too low for live Lens; empty results deliberately not cached → infinite rescans) with no invariant pinning scan-count-per-content. This is why "rescans the same already-scanned image on every scroll" `[thread 019f066b:41045]` keeps returning. Evidence: MEMORY `yomu-bookwalker-cty2-scroll-churn` (scroll offset was page IDENTITY).
+- [ ] **P1 — De-overfit the reader-vs-storefront classifier (`isBookWalkerReaderUrl` returns true on any lone canvas).** This misfire is why enabling Yomu on the BookWalker homepage breaks the carousel/product-grid/sidebar. Replace the "any canvas = reader" heuristic. Evidence: `[wl:bookwalker-ocr]` note, shipped-index `bookwalker_storefront_carousel_containment` (patched 6× across 1.4.150→1.5.7 — a patched-not-fixed smell).
+
+### Cycle 2 — Study / new-tab flow (P0, user's top priority)
+- [x] **P0 — Collapse to ONE study surface with a single `activeStudyStepIndex`; delete the legacy `NewTabMode` word|recall|kanji|listen state and mode tabs.** 106 sessions / 31 days. Root cause: **two diverging implementations.** A new step model (`study-session.ts`) was layered ON TOP of the legacy mode system (`state.ts NewTabMode` + `listenSubMode`) in `controller.ts` and never unified — the controller still renders one legacy mode at a time and maps steps back to old modes, so the "merged flow" is metadata only. Confirmed still layered at checkpoints `[thread 019f14cd]` lines 3949, 10833, 10933, 12172, 17115. Break-the-cycle: actually delete the legacy path; `controller.ts` is a mega-file (route parse + modes + queues + render + keyboard + URL sync + reset) which is why every study change ripples — split it as part of the collapse. Evidence: `codex-cycles.json` rank 2, `[thread 019f14cd]` GAP 1.
+- [x] **P0 — Add a single "final-reveal boundary" invariant: no reading / pitch / furigana / correctness renders before the last step. Remove the test that locked in the pre-reveal pitch class.** Root cause: reveal state is split across ≥3 flags (`state.revealAnswer`, `listenRevealed`, per-parse pitch classes) with no single boundary, so answer-leak-before-reveal regresses at a new call site every time it is patched — flagged by 5+ separate subagents at different line numbers, and a test even *locked in* the leak `[thread 019f14cd]` GAP 2. Users feel it: tk "its tuff to study when I already know the answer" `[wl:study-furigana-front-toggle]`. Break-the-cycle: one reveal-boundary invariant test. **[2026-07-03 gap triage: VERIFIED FIXED on main — see scratchpad/gap-triage; final-reveal leaks, multi-kanji testing, per-step disable, trust-bug grade fall-through, hosted-audio-first, reveal depth, local-SRS UI, importer z-index/SPA-nav, BookWalker retry/zoom/hover ALL confirmed closed by the 1.6.x wave. Remaining: internal NewTabMode dual-substrate (deferred mechanical refactor), video-shadowing pitch feedback (optional), Firefox HttpOnly cookie hardening (unconfirmed defect).]**
+
+### Cycle 3 — Settings / storage / factory-reset (P1)
+- [ ] **P1 — Introduce a central managed-state registry every store must register with (key + clearer + flush-suppression); add a reset invariant test that fails when any `yomu-*` / `jpdb-reader-*` key survives `resetAllData`.** 103 sessions / 28 days. Root cause: **no single source of truth for "what is managed state."** Factory reset enumerates managed keys ≥4 different ways (`GM_listValues`, prefix scan, `KNOWN_MANAGED_STORAGE_KEYS` exact list, `MANAGED_INDEXED_DB_NAMES`) and every new store (pitch-srs debounced writes, cloud-sync pending action, bunpro token) is added without registering in all of them → each new feature silently escapes reset. Debounced stores also re-write their keys during the reset-triggered reload. User-visible: tk "colors got defaulted as I updated" `[wl:settings-reset-on-update]`; henry's own P0 ask "factory reset is not fully resetting ALL my settings (my pill selections had been maintained)" `[thread 019f14cd]`. Two `settings-storage-recovery-*` worktrees are dirty and unmerged (see Dedup). Evidence: `codex-cycles.json` rank 3.
+
+### Cycle 4 — YouTube layout / subtitles / fullscreen / filtering (P1)
+- [ ] **P1 — Replace structure-pinned YouTube hooks with a resilient observer that re-anchors on YT mutation; promote `scripts/yt-live-harness.mjs` into the release gate for title-collapse / fullscreen / iPad-player / Shorts.** 97 sessions / 26 days / **18 regression-titled threads** — "Investigate YouTube subtitle regress" is literally the SAME thread title on 05-17 AND 05-19, then re-audited 05-30/05-31. Root cause: **overfitted site-specific monkeypatching against a hostile, frequently-changing SPA with no faithful test.** YT owns its DOM and re-renders aggressively; our hooks are pinned to YT's current structure and break on every reflow or layout variant (iPad single-column full-bleed, real-fullscreen top-layer, Shorts portrait). Smokes only FAKE CSS-fullscreen / mock `play()`, so the exact failures (top-layer rect collapse, autoplay-gesture blocks) are structurally invisible to CI — every regression must be caught by a user, then re-patched. User-visible: Canna "due to yomu I can't play any video… Froze" `[wl:youtube-performance-freeze]`. Evidence: `codex-cycles.json` rank 4, MEMORY `yomu-youtube-fullscreen-top-layer`, `yomu-yt-live-harness`.
+
+### Cycle 5 — Hosted audio source ordering + data gap (P1)
+- [ ] **P1 — Define an explicit ordered source priority with a test asserting hosted-audio-first for BOTH clean AND migrated installs; finish the R2 bulk upload.** 95 sessions / 27 days. Root cause: **source resolution has no ordering invariant + a real data gap.** The resolver appends required defaults AFTER configured sources and dedupes by type, so "hosted first" is not guaranteed for upgraded users (dedupe-by-type lets an existing custom-json source block hosted) — every migration patch fixes one path and misses another. Compounded by the R2 bucket being nearly empty (~11 words) until the 2026-07-02 export (298,767 terms / 431,993 files) which is **still not uploaded** — so "audio works" depended on data that was never there; live words (e.g. 保有) still fall back to JapanesePod101. Evidence: `codex-cycles.json` rank 5, `[thread 019f2149]` (BLOCKED on bulk upload), MEMORY `yomu-hosted-audio-fallback`.
+
+### Cycle 6 — Subtitle drawer / panel across surfaces (P1)
+- [ ] **P1 — Define one drawer layout contract + per-host adapter; add a control-overflow snapshot test across the host matrix {YouTube overlay, hosted video, Netflix DOM, uploaded file, fullscreen top-layer, mobile}.** 93 sessions / 30 days. Root cause: **the drawer serves too many surfaces through shared CSS/DOM whose specificity and layout assumptions collide with each host.** Each host fix (Netflix caption populate, iPad MIME, fullscreen reparent, mobile wrap) is added without a shared contract, so control clipping/wrapping and duplicate-button issues recur; drawer CSS also fights a `reader-root :where(button)` reset needing ≥(0,1,1) specificity. Evidence: `codex-cycles.json` rank 6, MEMORY `yomu-subtitle-panel-options`.
+
+### Cycle 7 — Furigana / ruby alignment (P2)
+- [ ] **P2 — Extract one ruby rendering helper; add a per-surface visual-alignment snapshot suite treating "furigana stays aligned under wrap / overflow / vertical" as an explicit invariant.** 76 sessions / 26 days. Root cause: **no shared ruby-layout primitive** — alignment is hand-tuned per surface (dictionary, card, hero, settings popover, OCR overlay, vertical text) and each surface's CSS drifts independently. Because ruby interacts with `white-space` / `overflow-wrap` / container width / vertical writing mode, a fix for one surface breaks another (hero furigana vs `pre-wrap` — MEMORY `yomu-hero-furigana-prewrap`). Evidence: `codex-cycles.json` rank 7, swept once as `[v1.4.111]`.
+
+### Cycle 8 — Pitch / decoration (underline / colour / passive words) (P2)
+- [ ] **P2 — Scope decoration to a guarded container, keep the class re-assert observer, and enforce `smoke:passive-decoration` + a pitch-count test in the gate.** 98 sessions / 29 days (count inflated by shared colour/branding threads; genuine core = partial-underline + passive-word decoration + pitch fallback). Root cause: decoration is expressed via root-level colour-channel classes that hostile SPAs (Discord/ChatGPT) clobber, plus per-word CSS a single blanket rule can strip across all words (the 1.5.4 blanket-strip → hover-flicker regression, fixed 1.6.1). Dual pitch-enrichment paths (local uncapped vs YouTube paced) drop items differently (12-cap drop, fixed 1.4.32). Both invariant smokes already exist — just enforce them. Evidence: `codex-cycles.json` rank 8, MEMORY `yomu-passive-decoration-split`, `yomu-spa-root-class-clobber`, `yomu-pitch-enrichment-paths`.
+
+### Cycle 9 — Parse / dictionary / provider resolution (P1)
+- [ ] **P1 — Finish the provider-adapter consolidation: move popup/card actions off the `ApiSrsProviderId = jpdb|jiten` enum onto the provider-neutral adapter (jpdb / jiten / bunpro / anki / local / dictionary).** 229 sessions / 32 days (highest raw count but largely feature-building; the recurring-bug sub-core is provider-resolution order + popover hover flicker). Root cause: **providers are hard-coded in ~8 places** (`srs-providers.ts`, `review-targets.ts`, `grade-queue.ts`, `popover-renderer.ts`, stats, settings) rather than behind one adapter, so altering a provider (esp. Bunpro) leaks across layers and reopens resolution/grading bugs. The study rework started "provider-neutral SRS adapter interfaces" but left popup/card actions on the old enum. Evidence: `codex-cycles.json` rank 9 + systemic finding 4, MEMORY `yomu-bunpro-grading-parity`. **Note:** two symptoms of this cycle were converged in `[v1.6.14]` (jiten-fallback lookup module unified; Bunpro-only "Never forget/Blacklist" buttons gated) — the adapter itself is still half-done.
+
+### Cycle 10 — Release / CI / bundle-size / Greasy Fork (P1)
+- [ ] **P1 — Enforce a build-time size budget that fails fast well under the 2 MB GF cap (not just the late verify gate).** 190 sessions / 36 days / 22 GF-specific. Root cause 1 (bundle size): core sits permanently ~1-2% under the hard 2 MB cap, so every feature triggers a size firefight → another companion split → more `@require`/SRI publish fragility. There is no early budget, only a late gate, so work repeatedly overshoots then gets shed. Evidence: `codex-cycles.json` rank 10, MEMORY `yomu-bundle-size-companions`.
+- [ ] **P1 — Fix the New Tab generated-test check so the core `Release` workflow is green and publishes automatically; stop manual publishing.** Root cause 2 (publish pipeline): the `Release` workflow has been RED at a New Tab generated-test check (elementFromPoint / BroadcastChannel flake) for many releases (v1.5.5, v1.5.20, others published MANUALLY). **A permanently-red release gate hides real release breakage and normalizes manual publishing.** Evidence: `codex-cycles.json` unfinishedThreads, MEMORY `yomu-codex-thread-sweep-1411` (Release workflow flakes gate the release page). The SRI-annotate-after-trim ordering fix already landed `[v1.6.5]` / `[thread 019f251b]` — keep it under test.
+
+### Cycle 11 — Yomu Gaming / Electron (P2, at-risk-of-becoming-a-cycle)
+- [ ] **P2 — Route gaming's inline lookup through the existing reader `boot` + `collectScanTargets` instead of a parallel overlay implementation.** 17 sessions / 4-day BUILD burst (not yet a long cycle, but re-audited repeatedly within the burst: Audit onboarding → Fix onboarding → Audit app → Polish → Audit release blockers → Fix startup UI). Root cause: **the Electron surface reimplements reader/overlay concerns instead of reusing them**, so it re-hits problems the web reader already solved (inline lookup, vertical text, chrome exclusion, 1920 cap). Build mocks OCR so real behaviour is unverified in CI. Evidence: `codex-cycles.json` rank 11, MEMORY `yomu-gaming-electron` ("inline reader feasible via reader/app/boot + collectScanTargets").
+
+---
+
+## Wishlist triage
+
+Every user-raised item from `wishlist-items.json`, triaged against the shipped index. **Done** = fully covered by a shipped release (struck through, version noted). **Done but needs UX polish** = the capability shipped but a user does not actually get a good experience — the gap is specified. **Not yet actioned** = genuinely open. `askCount` = how many times users raised it.
+
+### Done
+
+- [ ] ~~Local/offline parsing (don't require jiten to parse)~~ — **[v1.6.0]** `parserProvider 'local'` default for new installs, short-circuits before jiten/jpdb when term dicts confirmed. `[wl:local-parsing]` (Iov + tk, askCount 3), MEMORY `yomu-local-parsing`.
+- [ ] ~~Single-word lookup vs full-sentence translation, both as independent toggles~~ — resolved via install-dictionary + disable-sentence-translation; **[v1.6.13]** further hides the translation section when nothing is meaningfully Japanese. `[wl:single-word-vs-sentence-translation]` (Canna).
+- [ ] ~~Real (non-AI) audio sources by default, fast, on hover~~ — **[v1.5.0 / v1.5.18 / v1.5.19]** hosted audio worker + R2 manifest + jpod101 fallback as default source. `[wl:real-audio-sources]` (henry hosting audio.yomureader.com). **Caveat:** the R2 data is not fully uploaded — see Cycle 5 and "Incomplete features."
+- [ ] ~~Frequency dictionary pill on word popups by default~~ — **[v1.4.215 / v1.4.37 / v1.4.147]** frequency merged into lookup pills, shown by default. `[wl:frequency-on-by-default]` (tk "im having to click on jiten to see").
+- [ ] ~~Frequency rendered as a pill, not a naked `#18447` heading~~ — **[v1.4.147 / v1.4.215]**. `[thread 019f14cd]` original ask.
+- [ ] ~~Version number shown in Help~~ — **[v1.4.137 / v1.4.199-206]** Help shows version / latest / duplicate-script / update link. `[wl:version-in-help]`.
+- [ ] ~~Generic annotation containment breaking Discord display names (e.g. Canna波蘭)~~ — **[v1.4.127]** (+OKLab dark-surface [v1.4.158]), no hardcoded Discord logic. `[wl:discord-name-broken]`, MEMORY `yomu-spa-root-class-clobber`.
+- [ ] ~~Premature TTS fallback replaced by real audio on next gesture~~ — **[v1.4.130]**. `[wl:real-audio-sources]` sub-item.
+- [ ] ~~Apple Pencil / stylus taps activate popup links/buttons like finger/mouse~~ — **[v1.4.133 / v1.4.142 / v1.4.39]**. `[wl]` pencil activation.
+- [ ] ~~Batch mining (auto-mine unknown words from an episode, list at the end) — the Migaku killer feature~~ — **[v1.4.242 / v1.4.245 / v1.5.20]** Batch Mine tab compares against known vocab, compiles cards, per-row or batch grade. `[wl:batch-mining]` (Arka, strategic vs Migaku).
+- [ ] ~~Grading for accountless users (local queued SRS)~~ — **[v1.5.0]** local queued grading + local SRS mining provider. `[wl:grading-without-account]`. **Caveat:** no visible import/mine UI into `yomu:srs-local` — see "Done but needs UX polish."
+- [ ] ~~Offline / queued SRS reviews that sync on reconnect~~ — **[v1.4.220 / v1.4.135 / v1.4.137]** warm cards up front, queue grades, sync on reconnect, status UI. `[wl:offline-queued-reviews]` (tk walks 20 min for data), MEMORY confirms eventually-consistent model.
+- [ ] ~~SRS sync/queue status indicator ("a small ball is enough")~~ — shipped as part of offline status UI **[v1.4.220]**. `[wl:srs-status-indicator]` (tk).
+- [ ] ~~Pass/Fail two-point grading in Study settings~~ — **[v1.4.137 / v1.4.145]**. `[wl:pass-fail-2point-grading]` (tk + Arka).
+- [ ] ~~Study page shows reading/furigana for the word~~ — **[v1.4.137 / v1.4.220 / v1.4.145]** answer backs surface furigana/pitch/frequency/audio. `[wl:study-page-furigana-reading]` (tk + Canna). **Caveat:** front-vs-back placement — see "Done but needs UX polish."
+- [ ] ~~Dedicated listening-heavy study audio mode + pitch-accent flashcard mode~~ — **[v1.4.233 / v1.4.235]** Listen mode Perceive/Recall/Shadow over local SRS deck. `[wl:pitch-training-mode]` (Arka), `[wl]` listening mode. **Caveat:** pitch prompts flagged pointless — see polish.
+- [ ] ~~Shadowing / listening practice workflow~~ — **[v1.4.225 / v1.4.228 / v1.4.233 / v1.5.5]** Shadow tab + mic recording + line-aware controls + loop/reveal. `[wl:shadowing-tool]` (Arka + Canna). **Caveat:** record-and-playback only, not the requested automatic pronunciation scoring — see "Incomplete features."
+- [ ] ~~Appearance/color settings resetting on update~~ — **[v1.4.239]** settings recovery restores theme/accent under prior storage keys. `[wl:settings-reset-on-update]` (tk). **Caveat:** factory-reset completeness is a separate open cycle (Cycle 3).
+- [ ] ~~Mining words into a jiten deck (not only jpdb decks in the picker)~~ — jiten mining path shipped; Canna found it after updating. `[wl:mine-to-jiten-deck]` (tk + Canna). **Verify** the picker actually lists jiten decks with no jpdb account.
+- [ ] ~~YouTube hidden-video notice two useful buttons only (no truncated "よむ s…" label)~~ — **[v1.4.128]** + auto-dismiss 10s **[v1.5.22]**. `[wl]` youtube notice.
+- [ ] ~~Mokuro "no space above text" swap/blink glitch~~ — **[v1.3.21 / v1.3.27 / v1.4.135]** offscreen cleanup + tight-panel handling. `[wl:glitch-no-space-above-text]` (Canna, early mokuro.moe).
+- [ ] ~~BookWalker two-page/double-spread OCR~~ — **[v1.3.11 / v1.5.1]** OCRs both pages. `[wl:bookwalker-other-view-mode]` (henry "I can fix double"). **Caveat:** cty=2 vertical/continuous still has open bugs — see Cycle 1 and Deep verification.
+- [ ] ~~Improve yomuyomu support (yomu was breaking it)~~ — **[v1.4.140 / v1.4.218]** YomuYomu reader parser native-first + passive lookup. `[wl:yomuyomu-tadoku-graded-readers]` (henry "yomu breaks yomuyomu").
+- [ ] ~~Steam Deck / PC gaming guide + first-party gaming app~~ — **[v1.4.144 / v1.4.178]** replaced third-party guide; Electron app with in-place OCR. `[wl:steamdeck-gaming-overlay]`, `[wl:yomininja-docs]` (tk + henry). **Caveat:** usability + Steam Deck game-mode not proven — see Deep verification.
+- [ ] ~~AnkiConnect setup help panel (CORS/mobile/Brave guidance)~~ — **[v1.4.137 / v1.4.199-206]**. `[wl:anki-import-words]` (Canna). **Caveat:** actual import is still high-friction — see polish.
+- [ ] ~~Homepage hero "Install" + Watch + Read CTAs~~ — **[v1.4.137 / v1.5.2]**. `[wl]` homepage hero.
+
+### Done but needs UX polish (what shipped vs what a user actually experiences)
+
+- [ ] **P0 — Study front-vs-back furigana.** Shipped: readings on the card **[v1.4.137/145/220]**. Experienced: furigana now appears on the **front**, spoiling recall — tk "now we have furigana on the front… didnt find how to disable it… tuff to study when I already know the answer." Polish: furigana/reading must be on the **back/reveal side only** (Canna: "I want the furigana to appear on the other side"), with a toggle; this is the same defect as the reveal-boundary invariant (Cycle 2). `[wl:study-furigana-front-toggle]` (askCount 2).
+- [ ] **P1 — Auto-read/auto-audio on hover default.** Shipped: hover audio works and is toggleable. Experienced: it fires on **every** hover and Canna "had to turn off the automatic reading every time I hover smt… I just turned it off bc it was annoying." Polish: make the off-state discoverable (welcome splash + puck quick-toggle), consider default-off or a modifier-gated quiet mode. `[wl:autoread-on-hover-annoying]` (askCount 2).
+- [ ] **P1 — Accountless / local SRS has no visible entry point.** Shipped: local queued grading + `yomu:srs-local` store **[v1.5.0]**. Experienced: there is **no visible UI action** to import or mine into the local deck, and "auto" source only loads JPDB+Anki, not yomu-local. Polish: add a visible mine/import button; make "auto" actually local-first; sync-on-account-creation and hide connect hints once synced. `[thread 019f14cd]` GAP 5, line 2904.
+- [ ] **P1 — Shadowing is playback-only, not scoring.** Shipped: Shadow tab + mic record/playback **[v1.5.5]**. Experienced: no feedback on whether your pronunciation/pitch was right (Arka wanted kotu.io-style scoring; henry "I want to make the first one"). Polish: real pronunciation/pitch-contour scoring (references: `references/PitchDetect`, `references/onsei`, `references/pitchfinder`, `references/kotu.kez.io`) OR hide "scoring" affordances until it exists. `[wl:shadowing-tool]`, `[thread 019f14cd]` GAP 3 (line 13694 P0).
+- [ ] **P1 — Listen/pitch mode prompts are noise.** Shipped: Listen mode **[v1.4.233/235]**. Experienced: henry himself flagged "'2 pitch due' — this is pointless", "'Recall the pitch accent' — the users do not need this", "again and got it can be removed". Polish: strip the pointless stats/prompts. `[thread 019f14cd]` original ask.
+- [ ] **P1 — Anki import still needs a PC + Tailscale.** Shipped: AnkiConnect help panel **[v1.4.137]** + jiten vocabulary import path. Experienced: Canna "can connect my progress anki with this?" → the path needs a running PC and Tailscale for mobile, and AnkiConnect sync is slow. Polish: a lower-friction known-words import (file upload / bulk paste). Ties to `import-known-words-bulk`. `[wl:anki-import-words]`.
+- [ ] **P1 — Final study reveal is too thin.** Shipped: reveal shows first meaning + composed-of. Experienced: henry wants **all dictionary entries like the Search tab**, a JPDB `#frequency` pill, and jiten frequency shown only in pills (currently doubled). Polish per `[thread 019f14cd]` GAP 8.
+- [ ] **P2 — Dark mode contrast bugs.** Shipped: dark surfaces largely handled **[v1.4.127/158]**. Experienced: Canna "the white is unreadable" on the dark menu; only fixable by switching to light. Polish: audit dark-menu text contrast (settings/menus specifically). `[wl:dark-mode-unreadable-text]`.
+- [ ] **P2 — Default new-word color.** Shipped: per-user color settings. Experienced: Canna "better to have white as new word… less disturbing than blue." Polish: change the default (she notes users can override). `[wl:default-new-word-color]`.
+- [ ] **P2 — "Japanese page" mode is invisible.** Shipped: prefer-Japanese-site redirect **[v1.4.46+]**. Experienced: Canna "forgot I had the Japanese page option on and was confused with Japanese on ur site." Polish: a visible indicator that the mode is active. `[wl:japanese-page-mode-obvious]`.
+- [ ] **P2 — Install downloads a raw `.js` instead of launching the manager.** Shipped: GF install endpoint. Experienced: tk "it downloads a .js file instead of launching scriptcat" (dragging in worked); Canna hit a non-Tampermonkey popup blocking the PC update. Polish: fix the install/update content-type and the new-domain popup. `[wl:scriptcat-install-js-download]`, `[wl:pc-update-blocked-popup]`.
+- [ ] **P2 — BookWalker OCR overlay always visible + no per-page retry (spans ALL sites).** Shipped: OCR overlay + hover reveal **[v1.5.7/13]**. Experienced (post-1.5.16, unverified): overlay shows even when NOT hovering on all sites; no manual "retry OCR for this page" control; misaligned when the user zooms. Polish detailed in Deep verification (BookWalker). `[thread 019f066b]` remaining work.
+
+### Not yet actioned
+
+- [ ] **P1 — Keyboard word-to-word navigation** through selected text (step word-to-word via shortcuts, no mouse hover). henry agreed ("I can set that up"). Not shipped. `[wl:keyboard-word-navigation]` (アミン).
+- [ ] **P1 — Compound-word component lookup** (跳梁跋扈 → 跳梁 + 跋扈): a "composed of" section OR Yomitan-style secondary-match popup, since once the longest match is chosen there's no way to look up components. henry "I'll get this implemented." Not shipped. `[wl:compound-word-components]` (Iov, long thoughtful ask).
+- [ ] **P1 — Configurable popup font (JPDB-like default)** — the bold popup font is hard to read for complex kanji; アミン wants jpdb's font. Not shipped. `[wl:popup-font-config]` (askCount 2).
+- [ ] **P1 — Popup position flips to top when the word is near the bottom** (translation currently covers the bottom of a manga page). Not shipped. `[wl:popup-position-over-content]` (Canna).
+- [ ] **P1 — YouTube "disable subtitles" quick toggle** — JP auto-subs invade English videos and aren't easy to turn off. henry agreed. Partial: a subtitle rail eye toggle shipped **[v1.6.7]**; verify it satisfies tk's "quick toggle." `[wl:youtube-disable-subs-toggle]` (tk).
+- [ ] **P1 — Auto-hide subtitle panel; show line info only on pause** (optionally AI grammar/context). This is アミン's original video-player request and the root of tk's "subtitles disappear after hiding sidebar" bug. Partial: auto-hide-when-scrolled + open-on-pause toggle **[v1.4.143/1.6.4/1.6.7]**; the "paused-info side tab explains the line" experience is not delivered. `[wl:videoplayer-autohide-onpause-ai]`, `[wl:videoplayer-subs-disappear]`.
+- [ ] **P1 — Netflix support** (subtitle parsing + fix furigana glitch on JP soft-subs; Alice in Borderland has JP subs to test). Partial: Netflix-shaped reactive caption hardening **[v1.4.135/1.5.3]**; real-Netflix furigana-overlap reverify open. `[wl:netflix-support]` (Canna, askCount 3).
+- [ ] **P1 — Yomu-video subtitle upload actually works (.ass especially)** — Canna "nothing can be uploaded… maybe it has smt to do with .ass." Partial: mobile/iPad MIME + multifile **[v1.5.3]**, `.ass` parser hardened **[v1.4.135]**; the `[Events]` `Format:`-line fix and real upload path need reverify. `[wl:subs-upload-ass-fail]`, `[wl:videoplayer-ass-parser]` (tk root-caused: two `Format:` lines, code grabbed the styles one; needs per-line guard).
+- [ ] **P1 — Reuse installed Yomitan dictionaries** (avoid 2× storage) — tk "any way it can read these… I get 2x more storage." Not shipped (only "export from Yomitan" docs implied). `[wl:reuse-yomitan-dictionaries]`. Ties to "Incomplete: dictionary storage migration."
+- [ ] **P2 — OCR misses some kanji** (e.g. 事 not detected on mokuro). Not individually confirmed fixed. `[wl:ocr-missing-kanji]` (Canna).
+- [ ] **P2 — Prescan/auto-OCR next pages** so it updates automatically (no manual re-trigger); Canna "I wish it updated automatically on iPad." henry "ill see if we can prescan the next pages." Canvas prefetch exists **[v1.1.0 OCR prefetch]** (MEMORY) — verify it covers BookWalker vertical. `[wl:ocr-prescan-next-pages]`.
+- [ ] **P2 — Generalize OCR to other manga apps/sites** once BookWalker is solid. Blocked on Cycle 1. `[wl:ocr-double-spread-general]`.
+- [ ] **P2 — 4-point grade mapping for jiten** (jiten does 4, jpdb 5). Partial: provider toggle + settings select **[v1.4.4/1.6.3]**; explicit native 4-point scale mapping not confirmed. `[wl:pass-fail-2point-grading]` (Arka's sub-ask).
+- [ ] **P2 — Import/mark known words in bulk** (instead of grading each). Not shipped. `[wl:import-known-words-bulk]` (henry "I can do that in future").
+- [ ] **P2 — Grading on the immersion-kit reading test without a jiten account.** Not confirmed. `[wl:grading-without-account]` sub-case.
+- [ ] **P2 — Yomu-video subtitle options: pause-on-hover, lower opacity, font, position.** Partial via compact controls **[v1.4.121/124/134]**; confirm pause-on-**hover** (not click) exists. `[wl:videoplayer-subtitle-options]` (tk).
+- [ ] **P2 — Yomu-video subtitles on fullscreen video.** Partial: fullscreen subs shipped for hosted/YT **[v1.4.122/134]**; confirm on the local player fullscreen. `[wl:videoplayer-fullscreen-subs]` (tk).
+- [ ] **P2 — Crunchyroll support** — forces the app / won't play in a website window. Low priority per henry (app-forced blocker). `[wl:crunchyroll-support]` (Canna).
+- [ ] **P2 — Officially support one anime site with auto-added JP subs** (reanime.to candidate; wotaku list). Partial: broadened player detection **[v1.4.135/146]**; no named site individually confirmed. `[wl:anime-site-autosubs]` (henry).
+- [ ] **P2 — Hoshi Reader support** — best novel reader on Android/iOS but a native app; ties into whole-device shortcut plan. Blocked (native app). `[wl:hoshi-reader-support]` (tk "life changing").
+- [ ] **P2 — Live transcription (ASMR/audio-only)** — henry has a prior 1000+ user tool to fold in; needs GPU/Apple M or cloud server. Not shipped (long-term). `[wl:live-transcription-asmr]`.
+- [ ] **P2 — PWA on Firefox Android** — tk "no pwa"; henry "that is easy." PWA shells shipped for study/video/pdf **[v1.4.135/140]**; confirm Firefox-Android installability. `[wl:pwa]`.
+- [ ] **P2 — Get listed on wotaku.wiki / themoeway lists.** Growth/distribution, owner-driven. `[wl:recommend-on-wiki]`.
+
+### Blocked on owner credentials / external (captured, not active)
+
+- [ ] **P2 — Ship as a proper app (App Store / easier install)** — the single biggest adoption blocker across ALL users (Canna "make it a proper app," henry "I know its really hard to install rn so people dont wanna try," askCount 6). Needs store accounts, packaging, review. `[wl:native-app-store]`.
+- [ ] **P2 — Whole-device parsing via Apple Shortcuts (screenshot → app, on-screen button, à la TapTranslate)** — tk & Canna; needs App Store presence first. `[wl:whole-phone-parsing-shortcut]`.
+
+---
+
+## Deep verification targets
+
+These are empirical walks/audits the squad must actually perform (browser / device / computer-use evidence, not unit tests). Flagged by the user as where confidence is lowest.
+
+### DV-1 — Study tab, all-modes UX walk (P0, USER'S TOP PRIORITY)
+- [ ] **P0 — Walk every study mode end-to-end as a real learner and record what actually happens vs the spec.** Modes: word / recall / kanji / listen / perceive / shadow / speak → the intended single merged card graded once at the end. This is the top priority. Evidence: `[thread 019f14cd]` (101 MB study rework) — the merge was *never truly delivered* (Cycle 2). Specific nuance gaps to verify/close from that thread:
+  - [ ] **P0** — modes are actually merged into ONE flow (default order Kanji→Word→Recall→Listen→Speak→Reveal), not layered mode-tabs; learner never sees legacy mode switching (GAP 1).
+  - [ ] **P0** — single final reveal: no reading/pitch/furigana/correctness leaks before the last step (GAP 2).
+  - [ ] **P0** — a multi-kanji word tests **every** kanji (図鑑 → 図 then 鑑); kana-only words skip the kanji step (line 16941 acceptance; GAP 6).
+  - [ ] **P0** — every study step is genuinely toggleable/off-able (subagent found "word" cannot actually be disabled; `study-session` force-re-adds it) (line 12173; GAP 6).
+  - [ ] **P1** — make learning as **visual** as possible; staged reveal; show kanji mnemonics/Uchisen/Heisig AFTER a kanji step but NOT word-list/dictionary entries that give the reading away ("keep it clean and minimal, I am super torn," line 1291; lines 1218/1259).
+  - [ ] **P1** — Speak is Rosetta-Stone-style automatic pronunciation/pitch-contour grading, and applies to YouTube/video shadowing too (line 13694 P0; GAP 3) — or is hidden until real scoring exists.
+  - [ ] **P1** — hosted audio is default-ON as first source for everyone in study, all other audio sources default-off (line 14973; GAP 7).
+  - [ ] **P1** — no-account users can do full SRS in local storage; on account creation it syncs and connect-hints disappear (line 2904; GAP 5).
+  - [ ] **P1** — final reveal shows full dictionary entries (Search-tab style), JPDB `#frequency` pill, jiten frequency only in pills (dedupe the doubled jiten frequency) (GAP 8).
+  - [ ] **P1** — replace the giant Replay button with the speaker icon; keyboard hints match the user's own settings and show on PC only (original ask, largely shipped [v1.5.5] — confirm).
+
+### DV-2 — Yomu Gaming usability + Steam Deck compatibility (P1)
+- [ ] **P1 — Run the Yomu Gaming Electron app against real games and the Steam Deck game-mode flow; compare against `references/`.** References available locally: `references/YomiNinja` (game OCR + experimental browser/PWA overlay), Tango Lens (Decky integration, tk's liked selection layout — may go paid), Decky-Translator, GameSentenceMiner, translumo. Verify/close the known blockers `[thread WS6]` / MEMORY `yomu-gaming-electron`:
+  - [ ] **P1** — macOS screen-recording permission gate does not make the app DOA on first launch.
+  - [ ] **P1** — area capture does not composite Yomu's own chrome into the OCR frame.
+  - [ ] **P1** — vertical text is not truncated; the 1920 capture cap does not clip larger displays.
+  - [ ] **P1** — lookup opens an **inline** reader (not a deep-link OUT to a browser) — the web reader never deep-links, gaming should match; route via `reader/app/boot` + `collectScanTargets` (Cycle 11).
+  - [ ] **P1** — Steam Deck game-mode: works on the overlay without manual alt-tab/shortcut (tk "turbo opening browser kills me… on the overlay would be perfect"; `[wl:gaming-no-shortcut-overlay]`); Decky path documented.
+  - [ ] **P2** — onboarding is stable (it was audited-then-fixed-then-re-audited repeatedly in 2 days — confirm it's actually settled).
+
+### DV-3 — Docs + screenshots + onboarding refresh (P1)
+- [ ] **P1 — Refresh docs, screenshots, and onboarding so a cold user reaches immersion + SRS without asking anything.** henry's own admission: docs "are a bit eh rn… super unhelpful." `[wl:docs-overhaul]`, `[wl:yomininja-docs]`, `[wl:install-instructions]`.
+  - [ ] **P1** — replace `/guides/read-games-on-steam-deck` (reads like advertising competitors where Yomu doesn't work) with a Yomu-app implementation guide backed by the working gaming path (competitor refs → research notes only).
+  - [ ] **P1** — capture **current** screenshots (many docs screenshots predate the 1.4.x–1.6.x UI); verify the newtab HTML is edited at the source template `public/newtab/index.html` (docs copy is generated — MEMORY `yomu-newtab-html-generated`).
+  - [ ] **P1** — simplify the whole onboarding/settings flow — repeated meta-feedback "i am so confused" / henry "Jeeez I made it too hard"; mining setup, API keys, word colors, furigana toggles all confused Canna. `[wl:settings-too-confusing]` (askCount 2).
+  - [ ] **P1** — guided jiten setup (what an API key is, where to click in jiten, paste, test connection, choose/create deck) — Canna didn't know what an API key is. Partial [v1.6.0/1.6.3]; full step-by-step not shipped.
+  - [ ] **P2** — natural-language donation copy (no jargon like "CORS fallback / edge cache"); monthly goal from real costs, £10/month floor, Stripe not PayPal, dismissible + reappear ~weekly (`[thread 019f14cd]` line 15351). See "Incomplete: Stripe."
+  - [ ] **P2** — every latest-CHANGELOG bullet needs verbatim ja copy in `docs/.vitepress/theme/index.ts` (i18n test gates it — MEMORY `yomu-changelog-ja-docs-test`).
+
+### DV-4 — Rendering / performance empirical sweep across sites (P1)
+- [ ] **P1 — Empirically sweep rendering + perf on real sites and record where it lags or breaks.** The whole point of the recurring-cycle work is caught here, live. Sites/surfaces with standing evidence: YouTube (freeze/lag until reload — Canna "froze," `[wl:youtube-performance-freeze]`); Discord/ChatGPT (framework-owned DOM, root-class clobber); BookWalker vertical (severe scroll lag); Netflix; Polymarket/compact controls; Wikibooks; Reddit; Google Search.
+  - [ ] **P1** — YouTube with subtitle panel open stays responsive (virtualization landed [v1.4.229/237/1.6.8] — reconfirm live, signed-in, via `scripts/yt-live-harness.mjs`).
+  - [ ] **P1** — no DOM-thrash re-scan loops (YouTube channel/title "writes whitespace into itself"; BookWalker rescan-every-scroll — Cycle 1).
+  - [ ] **P2** — first-render highlights match hover-corrected paint (no blown-out white flash); grey/no-pitch hero settles without interaction.
+  - [ ] **P2** — use the `web-perf` skill (Chrome DevTools MCP: LCP/INP/CLS) on the hosted reader/newtab/pdf/video apps.
+
+### DV-5 — BookWalker leftover bugs (P0, from `[thread 019f066b]`)
+- [ ] **P0 — Close the EXACT bugs the user listed after saying "release!" — the 1.5.17 fix was pushed but NEVER live-verified (session aborted mid-verification).** From `[thread 019f066b]` remaining work (user verdict arc 39955→52376):
+  - [ ] **P0** — [ALL sites, not just BookWalker] OCR text overlay is always visible even when NOT hovering; it should show only on hover (`41045`).
+  - [ ] **P0** — Y-coordinate of the OCR hitbox is wrong while X is correct, especially vertical ("the x coordinate is fine the y is wrong," `52376`; pinned root cause = vertical hitbox height expansion; 1.5.17 fix unverified).
+  - [ ] **P0** — BookWalker rescans previously-scanned images on every scroll (should not re-OCR the same image) — same as Cycle 1 invariant.
+  - [ ] **P0** — flashes between "Scanning" and "Could not read text" before (sometimes) resolving (`41045`, `52332` "actually a lot worse than earlier versions").
+  - [ ] **P1** — some pages still don't fully OCR (unknown root cause) and there is **no manual "retry OCR for this page" control** — user explicitly asked for one (`40075`).
+  - [ ] **P1** — OCR overlay is not aligned when the user **zooms** the page — alignment must survive zoom (`40075`; recapture-after-zoom shipped [v1.5.14/16/17] — reverify).
+  - [ ] **P1** — verify homepage layout containment on the BookWalker homepage AND reader modes specifically (`storefront_carousel_containment`).
+  - [ ] **P1** — confirm whether 1.5.17's fixes are actually live on GF today (unconfirmed by the aborted session); reconcile the dirty `bookwalker-firefox-live-fix` worktree (25 changes, unmerged — see Dedup).
+
+---
+
+## Dedup / convergence
+
+Duplicated-but-diverged implementations that cause "works for henry, not for the user" and re-open bugs. Unifying these is the durable fix.
+
+- [ ] **P0 — Study step model vs legacy mode system.** `study-session.ts` (new stepper) layered on `state.ts NewTabMode` (legacy word|recall|kanji|listen) in `controller.ts`; controller renders one legacy mode and maps steps back. Converge to one surface + one `activeStudyStepIndex`. This is Cycle 2. Evidence: `[thread 019f14cd]` GAP 1.
+- [ ] **P1 — Provider handling scattered across ~8 files** (`srs-providers.ts`, `review-targets.ts`, `grade-queue.ts`, `popover-renderer.ts`, stats, settings) vs the started provider-neutral adapter. Trust bug: queued **bunpro/yomu-local** grades FALL THROUGH to `submitJpdbApiGrade`. Converge onto one adapter; extend `ApiSrsProviderId` beyond `jpdb|jiten`. This is Cycle 9. Evidence: `codex-cycles.json` systemic finding 4, `[thread 019f14cd]` GAP 4. Partial convergence landed [v1.6.14] (lookup module unified).
+- [ ] **P1 — Factory-reset key enumeration exists ≥4 ways** (`GM_listValues`, prefix scan, `KNOWN_MANAGED_STORAGE_KEYS`, `MANAGED_INDEXED_DB_NAMES`). Converge to one registry. This is Cycle 3.
+- [ ] **P1 — Canvas page-identity re-derived ad hoc in the OCR controller** (scroll offset / global epoch / node ref). Converge to one content-hash identity module. This is Cycle 1.
+- [ ] **P1 — Yomu-video player has its own settings store that desyncs from the yomu-script settings and fights it** — this is the root of the dark-mode-toggle freeze/memory-leak (tk "legit memory leaks") and dark-mode-not-persisting. Converge yomu-video settings onto the shared settings. `[wl:videoplayer-darkmode-freeze]`, `[wl:videoplayer-darkmode-persist]`, MEMORY `yomu-video-player-layout`.
+- [ ] **P1 — Docs/homepage subtitle demo panel is a stale fork of the runtime panel** (missing target button, left-aligned demo especially broken). Unify demo and runtime panel/control-rail components. Backlog "Docs homepage demo regression."
+- [ ] **P1 — Keyless public-lookup fallback WAS duplicated between reader and new tab (drifting).** ✅ Converged [v1.6.14] into one lookup module (task #8, `cec546e7d`). Kept here as the pattern to watch — audit for the next drift. Evidence: shipped-index `keyless_public_lookup_module_converged`.
+- [ ] **P2 — Subtitle drawer shares CSS/DOM across 6 hosts without a contract** (Cycle 6). Converge to one layout contract + per-host adapters.
+- [ ] **P2 — Ruby alignment hand-tuned per surface** (Cycle 7). Converge to one ruby helper.
+- [ ] **P2 — Gaming Electron overlay reimplements reader concerns** (Cycle 11). Converge onto `reader/app/boot` + `collectScanTargets`.
+- [ ] **P1 — Dirty unmerged worktrees / the un-landed v1.5 study+audio+bunpro batch.** ~33 worktrees; local main is ahead 1 / **behind 92** with unique commit `3ff00d4d` "integration: consolidate reader fixes"; **19 of 62 branches unmerged.** The recurring "took a vertical slice in a clean throwaway worktree" pattern ships fixes AROUND this batch, never landing it — a root of duplicated effort and accreting test hacks. Decide fate of: `bookwalker-firefox-live-fix` (dirty 25), `yomu-reader-listen-main` (dirty 22, the audio/listen batch every session reports as "unrelated dirty… still untouched"), `yomu-reader-nhk-release` (+v168) (dirty 17 each), `settings-storage-recovery-20260629` (+v236) (dirty 13/14), and branches `codex/ws2-bookwalker-homepage-containment-20260627`, `codex/discord-oklab-release`, `codex/ocr-overlay-a11y-release-1.4.229`, `codex/yomuyomu-native-overlay-20260628`, `backup/local-main-batch-mining-3ff00d4d`. Evidence: `codex-cycles.json` unfinishedThreads + systemic finding 2.
+
+---
+
+## Incomplete features (with completion criteria)
+
+Features that are wired but not done. Each has explicit done-criteria.
+
+- [ ] **P0 — Study 2.0 merged flow.** *Done when:* one Study surface, single `activeStudyStepIndex`, legacy mode buttons/state deleted, session stepper fixed before the card starts, default order Kanji→Word→Recall→Listen→Speak→Reveal, disabled steps omitted, one final-reveal boundary (invariant-tested), multi-kanji tests every kanji. (= Cycle 2 + DV-1.) Evidence: `[thread 019f14cd]` line 16941 acceptance.
+- [ ] **P1 — Yomu SRS state (provider-neutral).** Currently: `ApiSrsProviderId` stayed `jpdb|jiten`; Bunpro & yomu-local are missing from My Cards / browse pool (jpdb|jiten|anki only); queued bunpro/yomu-local reviews fall through to `submitJpdbApiGrade` (trust bug); "auto" source claims local-first but loads JPDB+Anki only; no visible mine/import UI into `yomu:srs-local`. *Done when:* one SRS adapter serves popup add/review/batch-mining/dictionary-enrichment/settings-validation for {jpdb, jiten, bunpro, anki, yomu-local}; each provider's grades route to that provider (no fall-through); browse pool + filters include all; local no-account SRS has a visible mine/import action and syncs on account creation. Evidence: `[thread 019f14cd]` GAP 4/5, `codex-cycles.json` systemic finding 4.
+- [ ] **P1 — Bunpro as a full SRS provider.** "Full support is required for version 1.5" (line 523) but shipped only new-tab queue/review/stats plumbing + lookup pill + token settings [v1.5.0/1.6.3]. Currently gated behind the default-OFF mining toggle, so a pasted token still doesn't enable Bunpro. *Done when:* popup add/review/batch mining + dictionary enrichment + settings 401/expiry validation all support Bunpro; Bunpro un-gated when a token is present; 4-vs-5 grade mapping correct. Evidence: `[thread 019f14cd]` GAP 4, MEMORY `yomu-bunpro-grading-parity`. Partial: mining-button gating landed [v1.6.14].
+- [ ] **P1 — Bunpro auto-token importer** (copy-cookie helper on bunpro.jp/settings/api, since users don't know how to get `frontend_api_token`). Currently mounts but is (a) hidden behind the settings-modal z-index, (b) only installs once at boot so SPA-nav to /settings/api never retries, (c) may always see "no token" on Firefox/HttpOnly (no `GM_cookie`). *Done when:* mounts into the settings dialog above the modal, retries on SPA nav, and handles Firefox/HttpOnly (GM_cookie or a documented manual path). Evidence: `[thread 019f14cd]` GAP 9, lines 1001/16150.
+- [ ] **P1 — Real speaking/shadowing assessment.** Currently record-and-playback + Continue only; no pronunciation/pitch scoring; no YouTube/video shadowing feedback. *Done when:* automatic pitch-contour/pronunciation scoring in Study + video shadowing (references: `references/PitchDetect`, `references/onsei`, `references/pitchfinder`, `references/kotu.kez.io`), OR the "scoring" affordance is hidden until it exists. Evidence: `[thread 019f14cd]` GAP 3 (line 13694 P0).
+- [ ] **P1 — Hosted audio R2 data upload (data gap behind Cycle 5).** Worker deployed and exporter generated the full index (298,767 terms / 431,993 files / 65 MB index). *Done when:* the user creates a bucket-scoped `yomu-audio` R2 R&W token, the ~6.1 GB / ~436k-PUT bulk S3 upload runs, the token is revoked, and a live word that has a local clip (e.g. 保有) is served from R2 not jpod101. *Owner action required* (Wrangler OAuth can't create the token). Evidence: `[thread 019f2149]`.
+- [ ] **P1 — Stripe donations in production.** `codex/fix-stripe-sandbox-donations` deployed a worker that refuses test-mode secrets and returns 503 (so /donate is currently **blocking all donations**). *Done when:* the branch is merged to main AND the owner replaces `STRIPE_SECRET_KEY` with a LIVE key (`npx wrangler secret put STRIPE_SECRET_KEY --config workers/yomu-support/wrangler.jsonc`); /donate then completes a real checkout. *Owner action required.* Evidence: `[thread 019f2561]`, sandbox-guard shipped [v1.6.8].
+- [ ] **P1 — Green, automatic core `Release` workflow.** Currently RED at the New Tab generated-test check → recent releases published MANUALLY. *Done when:* the New Tab generated-test (elementFromPoint/BroadcastChannel flake) is fixed and the `Release` workflow publishes GH release + GF sync without manual intervention. (= Cycle 10.) Evidence: `codex-cycles.json` unfinishedThreads, MEMORY `yomu-release-gate-stabilization`.
+- [ ] **P2 — Dictionary storage migration / read installed Yomitan dicts.** No shared-source or import-from-Yomitan shipped. *Done when:* users can either point Yomu at existing Yomitan dictionaries (no 2× storage) or follow a one-click export→import path; extension-coexistence overlap is detected and explained. Evidence: `[wl:reuse-yomitan-dictionaries]` (tk), backlog "Extension coexistence."
+- [ ] **P2 — User dictionaries as SRS sources.** Not shipped. *Done when:* users can add their own dictionaries/sources to study flows (like jiten), or the dictionary-only path is documented if SRS-source is out of scope.
+- [ ] **P2 — Queued 'YouTube iPad video player controls' thread.** Left QUEUED (never started) by the heartbeat automation; an open YouTube-layout item feeding Cycle 4. *Done when:* iPad YouTube player controls verified against the single-column full-bleed player (MEMORY `yomu-youtube-single-column-fullbleed-player`). Evidence: `[thread 019f2142]`.
+
+---
+
+## Appendix — preserved release/QA history (do not re-open; kept for provenance)
+
+These shipped and were verified; retained so the squad doesn't re-litigate them. Full verdicts in `shipped-index.json`.
+
+- Yomu Video subtitle layout + virtualization sweep: `[v1.4.118–1.4.143, 1.4.152, 1.4.174, 1.4.195, 1.4.206, 1.4.224, 1.4.229, 1.4.237, 1.6.4, 1.6.7, 1.6.8]` — side-panel placement (L/R/bottom no longer distorts player), fullscreen-while-playing geometry, subtitles-hide-in-comments, stable caption typography, half-width-controls snap, transcript auto-scroll + jump-back + cue-boundary flicker, reset-to-defaults, slider-drag popover stability, iPhone/iPad fullscreen subs + tappable paused OCR. All STALE-DONE (were listed as open P0/P1 dated 2026-06-27; resolved by the 1.4.13x–1.4.24x sweep).
+- BookWalker/OCR/PDF: `[v1.3.7–1.5.17]` — cross-origin tainted-canvas OCR, Firefox/iPad realm, stale-OCR-after-page-turn, both movement directions, continuous-scroll iPad, cty=2 vertical rescan/settle, normal-mode decay, interactivity/selectable, dark-mode readability, reader-metadata after DOM guard, storefront carousel containment, OCR overlay hidden-until-hover, recapture-after-zoom; PDF text-vs-scanned split, multipage nav, empty-drop-area responsive. (Residual live bugs → DV-5.)
+- Study/SRS: `[v1.4.137, 1.4.145, 1.4.199-206, 1.4.207, 1.4.220, 1.4.222, 1.4.224, 1.4.233, 1.4.235, 1.4.239–246, 1.5.0–1.5.6]` — reverse-answer minimal card, readings/furigana recovery, proxied audio, PWA/overflow-menu parity, pass/fail mobile, offline queue, Listen/Shadow/Recall modes, settings recovery, Help/version/duplicate-script. (Residual → Cycle 2, DV-1.)
+- Reader/web styling: `[v1.4.127, 1.4.147, 1.4.158, 1.4.175, 1.4.190, 1.4.211–219, 1.4.231]` — compact-label containment, OKLab dark surfaces, framework-owned DOM mirror, ChatGPT/Wikibooks/Claude containment, YouTube chrome/whitespace/title-metadata, frequency pills, first-render contrast.
+- Newer bug-fix work: `[v1.6.11]` local dictionary engine → Settings-Surface companion; `[v1.6.12]` restore hosted OCR companions + fallow CI guard; `[v1.6.13]` OCR Latin-spacing + translation-garbage gating (task #16); `[v1.6.14]` deck-state button gating + jiten-fallback convergence (task #8).
+
+
+## Added 2026-07-03 (owner asks, session 5d668c75)
+
+- [ ] **P0 — Donations: dynamic goal from real operating forecast (£10/month floor), shown in the user's local currency; add PayPal / Ko-fi / Buy Me a Coffee / Patreon alongside Stripe; homepage status bar aggregates ALL providers.** Account setup via computer use with the owner present for credentials. Evidence: owner ask 2026-07-03; thread 019f14cd donation-copy asks.
+- [ ] **P0 — Study flow: word meaning always in the draw-kanji prompt (＿み物 is ambiguous), progressive hints when unclear, and clean reintegration of the pitch-accent selection + shadow steps** (existed in older versions per codex logs, badly integrated). kotu.io-style pitch test remains the wishlist-adjacent north star.
+- [ ] **P1 — UserScript-Compiler generic UX/DX audit** (github.com/HRussellZFAC023/UserScript-Compiler): stays generic for any userscript; simple, intuitive, customizable; new-user walkthrough of README/CLI/config/templates.
+
+
+## Session close-out 2026-07-03 (quality-squad, session 5d668c75)
+
+Shipped 1.6.7-resurrection through 1.6.24 (twenty releases, each gated + verified). Cycles broken: Cycle 2 study merge (1.6.17/1.6.20), Cycle 3 factory-reset registry + invariant test (1.6.22). Extension made real + gated (1.6.17, smoke:extension-boot). Docs refreshed to shipped product (1.6.23). Mobile 44px floor (1.6.24).
+
+**Residuals owned by the owner (runbooks committed):**
+- [ ] Donations account setup — workers/yomu-support/PROVIDER-SETUP.md (Ko-fi/Patreon webhooks + secrets, BMAC/PayPal links, KV namespace, deploy). ~30 min supervised.
+- [ ] Steam Deck hardware checklist — src/gaming/MANUAL-DECK-TEST.md (gamescope capture, Steam Input, AppImage launch, overlay top-layer). ~20 min on-device.
+- [ ] Real-iPhone spot checks — safe-area insets on bottom bars, Userscripts-app @require/SRI loading, doodle draw gesture (chromium emulation blind spots, from the 2026-07-03 mobile matrix).
+
+**Residual engineering (chips filed / parked):**
+- [ ] Cycle 1 canvas-page-identity primitive — agent was paused by the owner mid-implementation; re-launch when wanted (design + invariant matrix spec in this file).
+- [ ] Onboarding welcome-panel word parsing (chip task_99ff9e13 — pre-existing red smoke on main).
+- [ ] Profiler yomitan DB_VERSION seed (chip task_54e84541).
+- [ ] BookWalker tap-smoke browser flake (chip started by owner earlier — verify landed).
+- [ ] Live-YouTube screenshot of the subtitle panel-options popover for docs; extension-store copy revision when a store submission lands.
+
+---
+
+# 2026-07-26 — OWNER BRIEF: simplify, refresh, and present Yomu properly
+
+Added by Claude at the owner's request ("make sure you are tracking all these tasks in your backlog").
+None started. Threading constraint: the **multilanguage rewrite is in flight (32 target languages)**,
+so no UX, docs or store copy written now may bake in Japanese as the only target.
+
+## B1. Settings overload → plug and play  [owner: recurring user complaint]
+Users want it to **work out of the box**. Minimal setup **≤5 minutes**, simple and intuitive, with the
+advanced settings still available for those who want them later. Progressive disclosure and better
+defaults — NOT feature removal. Ties to the dictionary browse panel (186 entries) already being
+redesigned for the same reason.
+
+## B2. Homepage + docs are stale
+Much is out of date, or longer than it needs to be. Rewrite around what learners actually need.
+Answer explicitly, and let the answers drive the IA:
+  - What do we really need on the homepage?
+  - What should the nav buttons be?
+  - For each doc page: do we really need it?
+  - **What makes Yomu special?**
+
+## B3. UX reference: lean, not Migaku
+Research competitors — **Bunpro named as the reference for clean UX** — plus well-designed sites
+outside language learning. **Explicitly NOT Migaku-style; leaner.** For mining and SRS UX, review
+GitHub projects and capture Migaku screenshots for comparison. **Keep Yomu's existing look and feel** —
+this is simplification, not a redesign.
+
+## B4. Store listings do not convey what Yomu is
+Rewrite text + images for **addons.mozilla.org**, **Chrome Web Store**, and the **Greasyfork**
+description. Note: **Firefox Classic (not Developer Edition) is signed into the addon store**, so that
+profile can update the AMO listing.
+
+## B5. Academy → "coming soon"
+Mark Yomu Academy as coming soon wherever it is presented.
+
+## B6. Support options are overwhelming
+Patreon + Ko-fi + Stripe are all surfaced at once. Replace with **one support entry point** that opens
+a dialog to choose — or move it to the bottom of the page. One affordance, not three.
+
+## B7. Patreon posts (ghostwriting for the owner's own account)
+Draft an initial post as Henry, creator of Yomu, and a "Thank you" reply to existing subscribers.
+**Drafts only — the owner publishes.**
+
+---
+
+# 2026-07-26 — USER RESEARCH FROM DISCORD (verbatim, 26/06–25/07/2026)
+
+Owner: "All their comments and suggestions must be implemented in full no corners cut."
+Users: canna98 (day-one, iPad/BookWalker), noteliana (Patreon subscriber #1, jiten+anki),
+bdlance (iOS/Safari, jpdb→jiten), sagamsil (Korean speaker, first international user),
+coffeentacos (desktop Safari), vvvvtk (Steam Deck/VN), woozlez (ttsu dark mode, made homepage video),
+ivorytwelve, mnbm, babybnuy.
+
+## U-BUGS — reported, reproduce each before closing
+
+- **U1. Settings are PER-SITE not global** [bdlance 06/07] — every new site re-asks setup + API key.
+- **U2. Settings lost on update** [vvvvtk 07/07] — "my colors got defaulted as I updated".
+- **U3. "Prefer Japanese site and language" defaults ON** [coffeentacos 24/07] — must be turned off on
+  every new page. Owner agreed it should default OFF. Turning it off ALSO leaves `/?locale=ja-JP` in
+  the URL (owner diagnosed, unfixed). Desktop Safari.
+- **U4. Safari iOS crashes/OOM the whole page ~every 5 min** [bdlance 08/07]. Also: extension
+  interferes with copy/paste, and the startup overlay shows on every website.
+- **U5. Must hard-refresh (Ctrl+Shift+R) for Yomu to activate on YouTube** [sagamsil 25/07].
+- **U6. Must reload on every page** [canna98 09–10/07, repeatedly] — BookWalker/OCR.
+- **U7. Discord is broken by Yomu** [canna98 07/07, 14/07] — "eating words", spaces growing, usernames
+  broken. Recurred after a fix.
+- **U8. Cannot attach/upload subtitle files** [canna98 30/06] — `.ass` suspected; "nothing can be
+  uploaded". Netflix + anime sites.
+- **U9. Adding a card to jpdb returns 400** [bdlance 06/07] on a new empty deck (non-patron account).
+- **U10. Annotations do not resume** after toggling off/on [bdlance 06/07].
+- **U11. Immersion-kit panel does not update when switching cards** [noteliana 21/07]; after review it
+  hides, then reappears on the next card [22/07].
+- **U12. "Text not detected" on BookWalker** [canna98 09/07].
+- **U13. Batch mining is very slow on longer videos** [owner, 25/07 — confirms user reports].
+- **U14. Chrome Web Store search for "yomu" finds nothing** — only よむ works [owner 25/07].
+
+## U-WISHES — features users explicitly asked for
+
+- **U15. TARGET-LANGUAGE DEFINITIONS** [sagamsil 23/07] — the single biggest ask. Non-native English
+  speakers must trigger DeepL manually on every popup. Wants a target-language setting so EN
+  definitions are auto-translated on render (Korean, Spanish, Chinese…). He judges AI machine
+  translation of English the practical route while no JP→KR dictionary exists.
+  **This is the user-facing face of the multilanguage work.**
+- **U16. "Composed of" in the popup** [ivorytwelve 01/07] — 跳梁跋扈 should also surface 跳梁 and 跋扈.
+  Either a JPDB-style "composed of" section, or Yomitan-style multiple matches rather than only the
+  longest. Owner agreed.
+- **U17. Fully local parsing** [ivorytwelve 01/07] — no jiten/remote unless explicitly asked.
+- **U18. Add to deck WITHOUT scheduling a review** [bdlance 23/07] — 200 reviews/day became 1600 due.
+  Wants: "Nothing" = collect only; anything else = counts as a review. **Separate "collect words"
+  from "study new words".** Owner: "I actually like this idea a lot."
+- **U19. Bulk resume** [bdlance 24/07] — bulk suspend exists, resume does not.
+- **U20. Export/import settings as plain JSON** [bdlance 10/07] — for iOS via the file picker.
+- **U21. Use the Userscripts app storage API** instead of localStorage [bdlance 10/07].
+- **U22. Per-type colour toggles** [woozlez 06/07] — disable highlighting for types you do not need
+  (e.g. known words). Had to set highlights near-black for ttsu dark mode. Owner agreed.
+- **U23. Default "not in deck" to NO colour** [sagamsil 25/07] — jpdb's grey is intrusive and cannot
+  be customised; jiten shows unadded words cleanly white. Also **canna98 26/06: white is better than
+  blue for new words.** Change the DEFAULTS.
+- **U24. Toggle to disable YouTube's own subtitles** [vvvvtk 30/06] — they invade English videos.
+- **U25. Read Yomitan's already-installed dictionaries** [vvvvtk 26/06] — avoid 2× storage.
+- **U26. Furigana on the study card ANSWER side, not the front** [vvvvtk 29/06, canna98 26/06] —
+  "it's tough to study when I already know the answer". Study page shows no furigana at all in places.
+- **U27. Yomu audio inside jiten reviews** [noteliana 25/07] — NHK/daijisen/Forvo instead of jiten's
+  AI voice. Also wants local ankiconnect audio reachable from Yomu on Firefox Mobile.
+- **U28. Pre-episode / post-episode mining list** [noteliana 25/07] — show every word you might mine,
+  each with mine / don't mine / already-known.
+- **U29. Shadowing speed control is too slow to change** [noteliana 22/07] — jpdb's was quicker.
+- **U30. Reposition the video during review** [noteliana 22/07] so reviews stay usable.
+- **U31. Turn off jpdb/bunpro surfaces** [noteliana 22/07] — they are on by default and unwanted.
+- **U32. Grading scale mismatch** [noteliana 25/07] — Yomu uses 5 points, jiten uses 4; unclear how
+  that maps. Needs a decision and an explanation in the UI.
+- **U33. Kanji cards optional** [noteliana 25/07] — she doesn't want them (can already toggle).
+- **U34. Best-of-both parser** [sagamsil 25/07] — JPDB deconjugates to dictionary form and blacklists
+  katakana/conjunctions well; jiten groups idioms and compounds better (油を売る as one entry). Owner's
+  stated goal: best of both, done locally.
+- **U35. Batch-mine buttons have no visual feedback** [sagamsil 25/07] — he could not tell what
+  "add selected" vs "Nothing/Hard/Okay" did until told. Needs to be self-evident.
+- **U36. Mobile app** [noteliana, bdlance, owner] — React Native, same on web/Android/iOS, offline SRS.
+  Owner has the Safari extension ready but has not paid the £100 Apple fee.
+
+## U-UX — the recurring theme is FRICTION
+
+- **U37. "My biggest feedback for yomu would be easier navigation, after that I think it could really
+  be promoted"** [noteliana 25/07 15:57].
+- **U38. Settings need to be understandable** [noteliana 25/07 15:44] — "beginners could be at a loss
+  with what to adjust". Wants a **(?) help icon per setting**. Owner agreed: "I don't want people to
+  spend half an hour trying to figure out how to use this — they should just add it and everything
+  should work out the box."
+- **U39. Yomu Study must be comfier than jiten's** [noteliana 25/07] — "jiten is compact, and the
+  reviews are crazy fast especially on laptop". Owner: "there is too much going on rn?"
+- **U40. Chrome Web Store listing does not highlight the features** [noteliana 25/07 15:40].
+
+## WHAT USERS SAY YOMU IS GOOD AT — use this for the store copy and homepage
+- "Reduced friction makes it so much easier to focus on learning" [coffeentacos] — and noteliana:
+  "it's all about reducing friction". **This is the positioning.**
+- "The amount of things this lets you do that you'd need multiple other things" [coffeentacos].
+- Instant Nadeshiko example sentences on click — "no other one does that" [noteliana].
+- Attaches video AND image to mined Anki cards [noteliana, didn't know it existed → discoverability].
+- "Genuinely unmatched for books" (BookWalker) [noteliana].
+- Kanji data: "so much unique information I didn't even know existed, yet seamlessly integrated…
+  provides exactly what's needed without feeling cluttered" [sagamsil].
+- Yomu-hosted audio on the Cloudflare edge is near-instant vs Yomitan's [owner/noteliana].
+
+## U41. YOMU GAMING IS INCOMPLETE — simplify toward YomiNinja
+[owner 2026-07-26] "yomu game is incomplete or not working how we would expect for such an app —
+compare to something like yomininja in references and get it simplified to be more like that."
+
+AS-IS: `src/gaming/**` + `npm run smoke:gaming` (an Electron build). Users have not reported using it
+successfully. vvvvtk instead uses **Tango Lens** (https://tango.acorntalk.com/) on a Steam Deck via
+**Decky** (https://decky.xyz/) and called it "insane, life changing" — it takes screenshots of the
+game and OCRs them. He also expects it to go paid eventually, which is the opening.
+
+TO-BE: a lean full-screen OCR overlay in the YomiNinja mould — capture the screen region, OCR it,
+annotate in place, look up and mine — rather than a bespoke game client. Owner's word: SIMPLIFIED.
+
+Do the same as-is/to-be/path treatment as the rest, and check the reference implementations
+(YomiNinja, Tango Lens, Decky integration) before designing. vvvvtk is the user to validate with —
+he owns the Steam Deck, has already done the research, and offered to test ("when u will be ready
+lemme know I will gladly test it").
+Related user context: `src/gaming/shared.ts` still carries 6 direct HAS_JAPANESE calls with its own
+local regex, so gaming is also un-migrated for the multilanguage work.
+
+---
+
+# 2026-07-26 — ARCHITECTURE INPUT FROM THE SAME USER RESEARCH (not marketing — engineering)
+
+Owner: "there is actually really thoughtful comments about how the parsing varies depending on the
+different backends… for the current task of multilingual and the offline-first goal as well as
+defining the server backend capabilities all this needs to be included."
+
+## A1. PARSER BEHAVIOUR DIFFERS BY BACKEND — with reproducible cases [sagamsil 25/07]
+This is comparative research, and the cases are testable. Turn them into fixtures.
+
+**JPDB is better at:** deconjugating verb forms back to dictionary base form; auto-blacklisting
+conjunctions and katakana loanwords, which gives cleaner visual separation and readability.
+  - `ことがなかった。` → JPDB correctly yields **ことがない**. Jiten parses **なか** and pops the
+    dictionary entry for "inside" — plainly wrong.
+
+**Jiten (and the offline JMdict parser) are better at:** idioms, proverbs and compound grouping.
+Jiten uses Nazeka-derived deconjugation plus compound grouping.
+  - `油を売る` → grouped as ONE entry by Jiten; JPDB splits it into 油 + を + 売る.
+  - `いつまでも殻に閉じこもっていない` → the **offline parser (JMdict) AND Jiten** both group
+    **殻に閉じこもる** correctly; **JPDB breaks it into separate words.**
+
+**The goal the owner already stated: best of both, computed LOCALLY.** "Eventually I would like to do
+almost everything locally on device so we don't send so much traffic to JPDB and Jiten, or to host a
+better parser on the yomu servers."
+→ So the local parser must acquire JPDB-grade deconjugation AND Jiten-grade compound/idiom grouping.
+Both example sets above become regression fixtures. This is also the multilingual segmentation
+problem restated: per-target morphology plus per-target compound grouping.
+
+**Presentation follows from the parser choice too:** JPDB marks every unadded word grey "not in deck"
+and offers no colour control; Jiten shows unadded words as "New", cleanly white. See U23 — default
+"not in deck" to NO colour.
+
+## A2. USERS MUST NEVER CHOOSE BETWEEN SRS BACKENDS
+Owner: "we also don't want the users to have to pick between anki or yomu srs or jpdb or jiten etc —
+there should be a seamless and simple way to handle all of it."
+
+This is the architectural centre of the next phase. It has to hold from ONBOARDING through to
+STEADY STATE, and it must work with **N simultaneous sources**, not a selected one:
+  - Onboarding must not ask the user to pick a backend before they understand the difference.
+  - Known-state, card state and reviews must reconcile across sources rather than diverge.
+    Live evidence this is unsolved: bdlance's due count went 200/day → **1600** because adding words
+    in Yomu inserted reviews in Jiten (U18); noteliana keeps Anki as "mastered on jiten" and needs
+    both consistent; sagamsil runs Anki + Jiten together and the owner had to ask him whether "having
+    both enabled at the same time" does "crazy things".
+  - **Grading scales differ** — Yomu 5-point vs Jiten 4-point (U32). A shared model needs one
+    canonical scale plus per-backend mapping, and the UI must explain it.
+  - Yomu SRS is to be PRIMARY (see [[yomu-batch-mining-ux-spec]]); the others become sources/sinks.
+
+## A3. OFFLINE-FIRST
+Ties directly to A1 (local parser), U17 (local-only parsing), U21 (Userscripts storage API),
+U20 (export/import settings as JSON), U25 (reuse Yomitan's installed dictionaries), and U36 (offline
+mobile SRS app). Reviews, lookups and annotation should work with no network; the network becomes an
+accelerator and a sync channel, not a dependency.
+Counter-evidence to weigh: users LIKE the hosted audio precisely because it is fast
+("I hosted it on the cloudflare edge network so it's on a server super close to you"). So
+offline-first must not mean self-hosted-only — it means degrade to local, prefer edge when present.
+
+## A4. DEFINE THE SERVER BACKEND CAPABILITIES
+Currently implicit and spread across jiten/jpdb/bunpro/wanikani plus our own workers (dictionaries R2,
+audio, academy). Needs an explicit statement of what the Yomu backend owns:
+account + auth, SRS state and sync, dictionary distribution, audio, parsing (if hosted), and the
+multilingual catalogue. Latency budgets per capability — see A5.
+
+## A5. LATENCY OF BACKEND REQUESTS IS A FIRST-CLASS REQUIREMENT
+Users measure it and say so:
+  - noteliana switched to LOCAL audio because "local audio gives me the audio instantly" — then found
+    Yomu's hosted audio acceptable ("this audio is fast as hell").
+  - The owner's own complaint about Yomitan: "the speed thing annoyed me too".
+  - "Jiten is compact, and the reviews are crazy fast especially on laptop" — the bar for Yomu Study.
+  - Batch mining is slow on long videos (U13); the Anki integration is slow (owner).
+→ Set explicit budgets per interaction (popup lookup, audio start, review grade, batch-mine commit)
+and treat a miss as a bug, not a tuning preference.
+
+## A6. MULTI-PLATFORM REQUIREMENTS (from the same research — capture in full)
+Yomu already ships on more surfaces than any plan has accounted for. Each has different constraints
+and a different update cadence, and the multilingual/SRS/offline work must hold on all of them.
+
+**Shipping today**
+- **Userscript** (Tampermonkey / ScriptCat / Greasyfork / yomureader.com) — the owner's fast channel:
+  "the userscript version I will keep doing daily updates to."
+- **Chrome Web Store extension** — approved 22/07, but lags the userscript. Store search for "yomu"
+  fails; only よむ works (U14).
+- **Firefox AMO extension** — works on **Android** today ("you can use the firefox extension on
+  android already").
+- **iOS Safari via the Userscripts app** — bdlance and babybnuy use it. Crashes/OOM every ~5 min (U4),
+  copy/paste interference, startup overlay on every site. Has its own storage API we should use (U21).
+- **iPad Safari** — canna98's primary device, BookWalker reading. Several bugs are iPad-only.
+- **Desktop Safari** — coffeentacos.
+- **Electron gaming build** — see U41; to be simplified toward YomiNinja.
+
+**Explicitly planned, not shipped**
+- **iOS Safari extension**: "I actually have it ready as a Safari extension, but I have to pay the
+  annual apple charge of £100 to list it." → a cost decision, not an engineering one.
+- **React Native app**: "it will be the same on the website, android and ios" — offline-capable SRS.
+  Driven by "the worst thing about phones is their lack of ability to be used for focused immersion
+  with mining" [noteliana] and "an iPhone app for your SRS that works fully offline and is just nice
+  to use" [owner]. A first prototype exists: "you can really do your reviews for jiten without using
+  jiten".
+- **Steam Deck** — vvvvtk's device; Decky-integrated overlay is the reference (U41).
+
+**Release-channel policy the owner already stated — make it explicit and honour it**
+Userscript = daily/experimental. Browser extensions = ~weekly/stable. noteliana asked directly
+whether the Chrome store build is the most current; the answer was "yes and no". Users need to know
+which channel they are on and what that means.
+
+**Cross-cutting requirement:** settings/state must survive moving between these surfaces — hence
+U20 (export/import JSON), U21 (Userscripts storage API), U1 (settings are per-site not global) and
+U2 (settings lost on update). Multi-platform is exactly why A2 (never make the user choose an SRS
+backend) and A3 (offline-first) matter: the same account, state and decks must behave the same on a
+Steam Deck, an iPad and a laptop.
+
+## A7. WHY PEOPLE DON'T USE YOMU STUDY — the evidence, and the Anki issue
+[owner 2026-07-26: "have you noted exactly what is wrong with the current version of yomu study and
+why people don't use it compared to jiten or anki"]
+
+**They say it plainly. Every complaint is about DENSITY and SPEED, not missing features.**
+- noteliana: *"Jiten is compact, and the reviews are crazy fast especially on laptop."* ← the bar.
+- noteliana: *"I just am already so comfortable with jiten srs though"* — switching cost is the real
+  competitor, not a feature gap. Beating jiten means being obviously faster, not merely equal.
+- Owner, unprompted: *"what would it take to make yomu study more comfy than the jiten one? — I am
+  thinking there is too much going on rn?"* ← he already knows. Trust that instinct.
+- noteliana: *"I don't care about kanji cards even though we can turn it off"* — the DEFAULT is wrong,
+  not the capability.
+- noteliana: *"yomu uses a five point scale when jiten has a 4 so I'm unsure how that will affect
+  things"* — an unexplained difference becomes a reason not to trust it (see A2).
+
+**Two contradictory furigana bugs, which together make Study unusable as a test:**
+- vvvvtk: furigana appear on the FRONT — *"it's tough to study when I already know the answer"*, and
+  *"didn't find how to disable it"*. The card gives away its own answer.
+- vvvvtk AND canna98, days earlier: *"study page has no way to know how to read the word"* /
+  *"on study page there is no furigana"*. So furigana are absent where needed and present where they
+  spoil the test. **Rule: reading hidden on the front, shown on the answer** (U26).
+
+**The owner has been telling users not to use it:** *"Don't use study rn… it's gonna change a lot.
+Study 2.0 coming soon"* (29/06) and *"the study page also needs a bit more work to get it how I would
+like"* (10/07). Study 2.0 is promised and unfinished — that is why nobody uses it.
+
+**Also observed:** jiten decks did not show in Study while showing elsewhere [vvvvtk 07/07].
+
+### The Anki GitHub issue — #31, mirrormc, opened 18/07, CLOSED 21/07
+*"Mining settings don't visually update selected Anki note type."* The saved note type was respected
+when creating cards, but Settings always redisplayed **Kaishi 1.5k** instead of the user's **Lapis** —
+so the UI lied about its own state, and the user could not tell which note type was in force.
+Fixed and released in **v1.6.270**; that release also parallelised Anki-backed Study startup, dropped
+a redundant note-type query, and paged card details.
+**Status: genuinely closed.** Worth keeping because it is the same class as U1/U2 — *settings display
+diverging from settings state* — and because Anki-backed Study startup was slow enough to need
+optimising once already, which corroborates the owner's "the Anki integration is slow" (A5).
+
+## A8. ACCOUNT/SRS INVESTIGATION RESULT — sign-in is NOT broken; three other things are
+[2026-07-26, verified against origin/main]
+
+**Sign-in could NOT be reproduced as broken.** 36/36 account tests pass; the live worker is healthy;
+client↔server route tables agree with no mismatches; full OAuth start verified by curl —
+`POST /auth/google/reader → 201`, `GET /auth/google/start → 302` to Google with a valid client_id and
+redirect_uri, and Google returns 200 with no `redirect_uri_mismatch|invalid_client|access blocked`.
+Signed-out API responses are coherent (401s with correct messages), not failures.
+**Untested leg:** everything after Google CONSENT (callback → linkGoogleSubject → `?account=linked`
+→ Academy handoff), because completing consent creates an account. **The owner signing in once with
+DevTools Network open would localise it in seconds** — that is the fastest next step.
+
+### The likely source of the "it's all broken" impression — U42
+**There is no account control on `/academy/` or `/study/` at all.** Both are standalone SPAs; the
+hosted account control only mounts into VitePress pages (`academy-account.ts:220-236`).
+**You cannot sign in from the two surfaces where SRS actually lives.** Plus the reader sign-in chain
+is ~7 steps (donate → class code → session → Google link → profile key init → pairing code on site →
+paste into reader), each able to fail independently, and reader device state is silently dropped on
+any 401. And Academy is entitlement-gated behind a DONATION (`support.yomureader.com/donate`) with no
+free path — which contradicts the owner's own statement that "anyone in the discord I will give
+access to the academy".
+
+### U43. PROXY ALLOWLIST GAPS — reproduced, 400 `target-not-allowlisted`
+`https://yomureader.com/study/` throws 6 console errors from these:
+- **jiten example sentences dead.** `workers/jpdb-public-proxy/src/index.ts:502-544` admits only
+  `/^\/api\/vocabulary\/\d+\/\d+\/info$/`, but `src/reader/dictionaries/jiten.ts:754` requests
+  `…/random-example-sentences` → **400**. This kills the feature noteliana calls Yomu's best:
+  *"instant nadeshiko examples when you click on a word — no other one does that."*
+- **ImmersionKit MEDIA host never allowlisted.** Only the API hosts are; `immersion/kit.ts:18` fetches
+  media from `us-southeast-1.linodeobjects.com/immersionkit/…` → every mp3/jpg **400s**. Search
+  succeeds, media dies. **This also kills the batch-mining spec's "sentence audio + screenshot per
+  line" on the hosted surface.**
+- **Bunpro reviewables CORS-blocked on hosted Study** (`bunpro.ts:185`) — works in the userscript via
+  GM_xmlhttpRequest, not on the site; only the Bunpro audio CDN is proxied.
+Also noted: `proxy.yomureader.com` does not resolve (harmless today — recognition set, not fallback).
+
+### U44. SRS CARD MODEL HAS NO LANGUAGE FIELD — DO THIS BEFORE DECKS FILL UP
+`StoredYomuSrsCard` (`src/reader/srs/local-yomu-deck.ts:11-32`) is `expression` + `reading` +
+`meanings`. `reading` is a Japanese concept, and across 32 targets identical Latin strings
+(es/fr/de) would collide in one undifferentiated deck.
+The SERVER side is fine — `reader_srs_events` stores opaque ciphertext and is language-agnostic.
+**So the discriminator must be added to the CARD MODEL, and it must land before decks are populated:
+retrofitting it onto already-synced E2EE events means a migration that cannot be run server-side.**
+This is the most time-critical item in the whole multilanguage effort.
+
+## U45. YOMU IS NOT SEARCHABLE — discoverability, and it is cheap to fix
+Owner: users cannot find it. Concretely, from the research: **searching "yomu" on the Chrome Web
+Store returns nothing — only よむ works.** The extension's store NAME is the Japanese よむ, so Latin-
+script search misses it entirely, and every English-speaking user who is told "search for yomu" fails
+at step one.
+Fix across every listing: Chrome Web Store, addons.mozilla.org, Greasy Fork — the name/title must
+contain **"Yomu"** in Latin script (e.g. `Yomu (よむ)`), plus keywords people actually type: japanese,
+furigana, dictionary, popup dictionary, immersion, mining, anki, srs, reader, yomitan.
+Then verify by searching each store, not by assuming. Also relevant: noteliana said the Chrome listing
+"could better highlight the features" (U40), and the owner wanted Yomitan's resource-sharing pages and
+the community wikis to list Yomu — a separate discoverability channel worth pursuing.
+
+## U46. IMMERSIONKIT EQUIVALENTS FOR THE OTHER 31 TARGET LANGUAGES
+ImmersionKit is Japanese-only (anime/drama sentence search returning sentence + audio + screenshot).
+It is central to two things users love — "instant nadeshiko examples when you click on a word — no
+other one does that" — and to the batch-mining spec's "sentence audio + screenshot per line".
+**So a per-target EXAMPLE-SENTENCE + MEDIA source is a required capability of the language contract**,
+alongside dictionaries/audio/grammar (see [[yomu-multilang-all-targets-goal]]).
+
+Research per language and record what actually exists, with URL shapes, coverage and whether media
+(audio/image) accompanies the sentence:
+- **Tatoeba** — multilingual sentence bank, ~400 languages, some audio, CC-licensed, has an API.
+  The obvious baseline for text examples; weak on media.
+- **YouGlish** — real pronunciation from video, many languages; check embeddability.
+- **Playphrase.me** — film/TV clip search, several languages.
+- **Reverso Context / Linguee** — bilingual usage examples, broad coverage; check terms.
+- **Wiktionary/Wikisource usage examples** — already in the WTY dictionaries we plan to mirror.
+- **Common Voice / Lingua Libre / Wikimedia Commons** — per-word audio for many languages (already
+  noted as the audio route in A6).
+- Per-language corpora (e.g. Leipzig collections) that our own `languages.json` already cites.
+Deliverable: a table of target → example source(s) → has audio? → has image? → API shape, and an
+explicit list of targets with NO usable source, so the affordance can degrade visibly per A2/A3.
+
+## U47. ACADEMY ACCESS — keep the donation gate, ADD grantable codes, and FIX the missed donors
+[owner 2026-07-26] "for academy - keep it gated by donation but also have codes I can give them.
+Also for some of our current donators they didn't even get keys despite donating."
+
+Corrects A8's note: the donation gate is INTENTIONAL and stays. Two things are missing.
+
+**a) OWNER-GRANTABLE CODES.** Henry needs to hand access to people directly — he has already promised
+it publicly in Discord ("anyone in the discord I will give access to the academy", and to the first
+Patreon subscriber "it will give you access to the academy once it's ready"). Needs a way to mint
+and issue codes outside the donation flow, and to see who holds what.
+
+**b) BUG — PAYING DONORS RECEIVED NO KEY.** Some people donated and never got access. That is the
+worst class of bug in the product: they paid, and nothing arrived. Investigate the donation →
+entitlement → code-issue path end to end (`support.yomureader.com/donate`, the entitlement gate at
+`/academy/`, migrations `0007_invite_account_requirement` / `0008_all_invites_require_account`), find
+where issuance drops, and **reconcile retroactively** — identify every donor without a key and issue
+one. Then add a check so a completed donation without an issued key is detectable rather than silent.
+Note the related unknown from A8: the leg AFTER Google consent is untested, and that is exactly where
+account linking and entitlement would fail quietly.
+
+Also still true and worth fixing alongside: **there is no account control on `/academy/` or `/study/`
+at all** (U42) — so even a donor with a valid key has nowhere to sign in on the surfaces that need it.
+
+## U48. SIGN-IN IS BROKEN (owner confirms) + ACADEMY SIGN-UP IS TOO HARD — TOP PRIORITY
+[owner 2026-07-26, after the investigation] "sign in is broken and things like that academy sign up
+is too hard"
+
+**Correct the record on A8.** The investigation proved only that everything UP TO Google consent is
+healthy (36/36 tests, worker live, OAuth start returns a valid Google redirect). It explicitly could
+NOT test anything after consent, because completing consent creates an account. **The owner
+experiences it as broken, so the fault is in the untested leg.** Do not treat "tests pass" as
+evidence against the owner's direct experience — the tests do not cover this path.
+
+**Where to look, in order:**
+1. `handleGoogleCallback` → `linkGoogleSubject` (`workers/yomu-academy/src/oauth.ts:154-160`) — the
+   first thing that runs after consent, and untested end to end.
+2. The redirect back: reader sessions → `${origin}/?account=linked`; Academy → `/academy/?account=failed`
+   (oauth.ts:160/165). A silent `failed` here would look exactly like "sign-in is broken".
+3. **The entitlement gate** — U47 says donors were issued no key. If entitlement fails after a
+   successful link, the user signs in and still gets nothing, which reads as sign-in failing.
+4. Reader device state is silently dropped on ANY 401 (`account-sync.ts`), so one bad response
+   discards the pairing with no message.
+5. `__Host-academy_oidc` has `Max-Age=600` — a slow sign-in (reading the consent screen, switching
+   devices to fetch a code) expires the flow. Ten minutes is tight for a 7-step process.
+
+**FASTEST DIAGNOSIS:** owner signs in once with DevTools Network open and captures the requests from
+the consent click onward. That localises it in seconds and needs no guessing.
+
+**ACADEMY SIGN-UP IS TOO HARD — redesign it, do not just fix it.** Current chain is ~7 steps:
+donate → receive class code → create session → link Google → initialise profile key → generate a
+pairing code on the site → paste it into the reader. Each step can fail independently and several
+give no feedback. Against the owner's own ≤5-minute target (B1) this is the worst offender in the
+product. Combine with U42 (no account control on `/academy/` or `/study/` at all) and U47 (grantable
+codes + donors who never received keys): **sign-up, entitlement and account UI should be redesigned
+as one piece of work, not three tickets.**
+TO-BE worth aiming at: sign in with Google, and be done — code redemption optional and inline,
+entitlement resolved server-side, reader pairing automatic or one click, and every failure visible.
+
+## U49. THE USER JOURNEYS AND FLOWS THEMSELVES NEED REDESIGN
+[owner 2026-07-26] "I don't like the user journeys and flows at the moment"
+
+Treat this as a mandate to REDESIGN the flows, not to tune the screens. Every complaint recorded
+tonight is downstream of a flow that was never designed end to end — features were added and each
+grew its own entry point. The journeys to redesign, with the evidence that each is broken:
+
+1. **Install → first annotated page.** Owner's target: ≤5 min (B1). Today: settings overload (U38),
+   "Prefer Japanese site" wrongly defaulting on (U3), a hard refresh needed on YouTube (U5), reload
+   on every page (U6). A user should not meet a settings dialog before they see a reading.
+2. **Sign up / sign in / entitlement.** ~7 steps, broken (U48), no account control on the surfaces
+   that need it (U42), donors with no key (U47). Target: sign in with Google, done.
+3. **Choosing what to study with.** Users must currently pick between Anki / Yomu SRS / jpdb / jiten
+   and live with the consequences (A2). Target: never make them choose; N sources reconcile.
+4. **Mining an episode.** Batch mining is slow (U13), the buttons give no feedback (U35), and the
+   filters that make it work (i+1) are the spec's best idea and not surfaced.
+5. **Mining a text page.** Exists but is weaker than the video path; the competitor LOST this and
+   Yomu should own it.
+6. **Reviewing.** Study is denser and slower than jiten (A7), furigana appear on the wrong side,
+   scales differ (U32), and the owner tells people not to use it.
+7. **Finding and installing dictionaries.** 116 of 186 reachable; the panel needs progressive
+   disclosure (dictionary browse work in flight).
+8. **Getting help / changing a setting.** No per-setting explanation (U38); navigation is the single
+   biggest complaint (U37).
+9. **Supporting the project.** Three payment options at once (B6).
+10. **Moving between devices.** Settings per-site not global (U1), lost on update (U2), no export
+    (U20) — see A6 multi-platform.
+
+METHOD: for each, write AS-IS (with the friction named and counted in steps), TO-BE, and the PATH of
+independently-shippable steps. Do not design them in isolation — several share a root cause (state
+that does not persist, entry points that multiplied, defaults that were never revisited).
+This supersedes "map the journeys" in the simplify workflow: the answer is not documentation of the
+current flows, it is better flows.
+
+## U50. "PROFILE & SYNC" (Class journal) IS WAY TOO COMPLEX — the worked example of U48/U49
+[owner 2026-07-26, screenshot of https://yomureader.com/academy/?view=profile-sync] "this is WAY too
+complex"
+
+A SIGNED-IN user, trying to use Academy, is shown ALL of this on ONE screen:
+- "Pairing required — Use a one-time code from a device that already has your encrypted history."
+- Account: **Learner#406049** ← generic label + random number, not who they are (U51)
+- Academy access: **No paid code**
+- A whole "Activate a paid code" section explaining that paid codes must be linked to Google, can be
+  activated once, and one Google account holds one paid code
+- "Paid Academy code" input + Activate
+- FOUR more buttons: **Start as first device · Sign out · Delete cloud learning data · Delete account**
+- "Pair this device to continue" + "One-time pairing code" input + Connect this device
+- "Reader devices: No connected Reader devices"
+
+**That is seven actions, two of them destructive (delete data, delete account), plus end-to-end
+encryption pairing jargon — presented to someone who just wants to open Academy.** It reads as an
+admin console, not an onboarding step. Nothing tells the user what to do FIRST.
+
+TO-BE: a signed-in user with no devices should see ONE thing — "Start here" — and nothing else.
+Pairing only appears when there IS another device. Code activation only when they have a code.
+Destructive actions move behind an "Advanced" or account-settings disclosure. E2EE is explained in
+one sentence at most, or not at all until it matters. Everything else is progressive disclosure.
+
+Also visible in that same screenshot, to fix alongside:
+- **403 on Academy media**: `GET .../academy/media/audio/v1/persona/no-more-what-ifs-instrumental.flac`
+  → **HTTP 403**, load failed. Academy audio is broken.
+- CSP is blocking an inline script (`script-src-elem`, nonce mismatch) on the Academy page.
+- Repeated `Error: Not allowed to define cross-origin object as property on [Object]` from
+  content-script (x3, twice) — the reader injecting into the Academy page.
+- The preloaded `yomu.user.js?v=1.8.13` was "not used within a few seconds" — a wasted preload.
+
+## U51. IDENTITY SHOWS AS "Learner", NOT THE USER
+Signed in with Google, the account control says **"Signed in as Learner"** and the profile page shows
+**Learner#406049**. `academy-account.ts:42` renders `Signed in as ${displayName}` and displayName is
+falling back to a generic role label rather than the Google account's name or email. After signing in
+with Google, a user should see themselves — this alone makes a working sign-in feel broken.
+
+## U52. USERS WHO SIGNED UP ARE NOT RECEIVING CODES — BLOCKER, fix before anything else
+[owner 2026-07-26] "also users are not getting codes even if they did sign up"
+
+Broader than U47 (which was donors specifically). **Signing up does not deliver a code at all.**
+So the funnel is: user signs up → receives nothing → cannot access Academy → the product looks dead.
+The owner's own screenshot corroborates it: signed in, and `Academy access: No paid code`.
+
+This is the top of the queue, above every UX and multilanguage item. Sequence:
+1. **Trace the issuance path end to end** — sign-up/donation → entitlement → code minted → code
+   DELIVERED (email? on-screen? Patreon message?). Establish which step drops it, and whether a code
+   is even generated. Note nobody has confirmed the delivery CHANNEL exists — when the owner asked
+   the first Patreon subscriber "what happened when you subscribed on patreon, did it give you an
+   email or anything?", the answer was only "Yes I got it… nothing personalized". That is not
+   confirmation a code was sent.
+2. **Reconcile retroactively** — list every account that signed up or donated and has no code, and
+   issue one. These are real people who already paid or joined.
+3. **Add owner-grantable codes** (U47a) so Henry can hand access out directly, as he has already
+   promised publicly in Discord.
+4. **Add a detector** — a completed sign-up or donation with no issued code must raise an alert, not
+   fail silently. This has now gone unnoticed long enough to affect multiple users.
+5. **Make it visible in the UI** — `Academy access: No paid code` tells the user nothing about what
+   to do. It should say how to get one, and whether one is already owed to them.
+
+Related and probably the same root cause: U47 (donors with no keys), U48 (post-consent leg untested —
+`handleGoogleCallback` → `linkGoogleSubject` → entitlement is exactly where issuance would sit).
+
+## U53. BACK BUTTON DOES NOT WORK on the Academy profile/sync view
+[owner 2026-07-26] Browser Back from `https://yomureader.com/academy/?view=profile-sync` does not
+return the user to where they came from. The Academy SPA reads `?view=` on load
+(`src/academy/app.ts:148`) and routes internally (`app.ts:164` `route: 'profile-sync'`), but it does
+not appear to participate in history — so Back either does nothing or leaves the user stranded in the
+same view. A user who opens Profile & sync (already too complex, U50) then cannot get out of it.
+Fix: push/replace real history entries for internal routes and handle `popstate`, so Back and Forward
+behave normally. Check every other `?view=` route in the Academy SPA for the same defect, and the
+Study SPA too — both are standalone SPAs (U42) and likely share the pattern.
+
+## U54. "AI SLOP" COPY — concrete inventory, all on the account/profile surface
+[owner 2026-07-26] "can you fix any 'ai slop' odd things"
+
+Found in `src/academy/ui/profile-sync-screen.ts` and `src/reader/app/academy-copy.ts`:
+
+1. **"Class journal" is the page heading above "Profile & sync"** (`academy-copy.ts:252,285`). It is a
+   fictional Academy world-location name (`world-locations.ts:2105`, `moodle:class-journal`) leaking
+   onto an ACCOUNT settings screen. A user clicking "Profile & sync" lands on "Class journal" and has
+   no idea why. **Rename the account screen to what it is.**
+2. **"Learning events are encrypted on this device before sync."** (:43) — "learning events" is
+   internal vocabulary. Users have reviews, words and progress, not events.
+3. **"Start as first device"** (:174) with the caveat "Continue only if this account has never synced
+   on another device. Otherwise, use a pairing code." (:177) — asks the user to reason about
+   distributed state before they can proceed.
+4. **Two names for one action**: "Turn on encrypted sync" (:154, :187) and "Sync now" (:187) depending
+   on state, alongside "Pair another device" (:209), "Connect this device" (:322), "Recover another
+   account" (:201), "Link Google account" (:206), "Export encrypted data" (:215). Seven device/account
+   verbs on one screen (see U50).
+5. **"No paid code"** as a status line — states a lack, offers no next step.
+6. **"Learner#406049"** as identity (U51).
+
+RULE for the rewrite: name things after what the USER is doing, not after the mechanism. "Encrypted",
+"events", "device pairing", "first device" are implementation. The user is signing in, and getting
+their words onto another device.
+
+NOT ATTEMPTED IN THIS SESSION, deliberately: this is a multi-file copy change across an en/ja
+localized surface, and `tests/reader/settings-form/07-localization-mining-japanese.test.ts` fails on
+any English leaking into the ja rendering. Doing it half-way would leave the tree red. It needs a
+session with room to run the localization gate after each edit.
+
+## U55. DONATION EMAIL ≠ GOOGLE EMAIL — the probable ROOT CAUSE of U47/U52
+[owner 2026-07-26] "also what if they donate with a different email to their gmail"
+
+**This is very likely why donors and sign-ups get no code.** Entitlement is bound to the GOOGLE
+identity (`linkGoogleSubject`, `workers/yomu-academy/src/oauth.ts:154-160`), while the money arrives
+through Patreon / Ko-fi / Stripe carrying **whatever email that platform holds**. Patreon accounts are
+routinely not Gmail; Stripe uses the card's billing email; Ko-fi its own. If issuance matches on
+email, every mismatched donor silently gets nothing — which is exactly the reported symptom, and it
+explains why it affects *some* donors and not others.
+
+Verify first (cheap): take a donor known to have received nothing and compare the donation email
+against their Google account email. One case confirms or kills the theory.
+
+Fix direction — do NOT keep email as the join key:
+1. **Issue the code to the PAYMENT platform's own channel** — the Patreon/Ko-fi/Stripe receipt or DM,
+   at the moment of payment. Then it reaches them regardless of which email they use, and does not
+   depend on a later Google link. This alone fixes the funnel.
+2. **Redeem, don't match.** The user activates the code against whichever Google account they sign in
+   with. Entitlement then belongs to the account that redeemed it, and email never has to agree.
+3. **Fallback for the already-affected:** owner-grantable codes (U47a) plus a way to look up a
+   donation by email OR platform handle and issue a code manually.
+4. Support **multiple emails per account** so a donation email can be attached after the fact.
+Note the same class of problem exists for Patreon-tier → entitlement generally: no linkage exists
+between "supporter on Patreon" and "account in Yomu".
+
+## U56. SUPPORT USERNAMES
+[owner 2026-07-26] "and can you support usernames"
+
+Replaces the generated `Learner#406049` (U51). A user picks a username; it becomes their display name
+everywhere ("Signed in as …", profile, any future social/leaderboard surface), and it decouples
+identity from the Google account's real name and from email entirely — which also helps U55, since a
+username is a stable handle to grant a code against.
+Needs: uniqueness + reservation, a change path, validation (length, charset — allow non-Latin, this
+is a Japanese-learning product), moderation for abusive handles, and a sensible default at sign-up
+(suggest from the Google name rather than `Learner#406049`, but let them edit it before it sticks).
+Store it on the account, not the device, so it survives the multi-device pairing flow.
+
+## U57. PROPER ACCOUNT FEATURES — use JITEN as the reference implementation
+[owner 2026-07-26] "Support proper account features as per the jiten reference"
+
+jiten.moe is the benchmark, and users already prefer it ("I'm already so comfortable with jiten srs",
+"jiten is compact, and the reviews are crazy fast"). Study what its account actually offers and match
+it. Known from this research alone:
+- **Vocabulary management** — `jiten.moe/settings/vocabulary`: manage the whole known-word set,
+  **import from Anki**, **import from JPDB** (the owner used it and called it "a little hidden").
+- **Deck management** and per-deck review control.
+- **Review history** the user can inspect, and **undo/regrade** of a mistaken grade.
+- **Suspend and resume in bulk** — bdlance found bulk suspend and asked for bulk resume (U19).
+- **New-first review sessions** to control how many new words enter per day (bdlance's whole reason
+  for wanting collect-without-review, U18).
+- A settings surface a user can reason about without a manual.
+
+Against that, Yomu today has: no account control on `/study/` or `/academy/` at all (U42), a ~7-step
+pairing flow (U48), a generated `Learner#406049` identity (U51/U56), no bulk resume, and no
+collect-without-review. **Do the comparison properly**: enumerate every account-level capability jiten
+exposes, mark Yomu has / partial / missing, and treat the gaps as the account backlog.
+Two things to carry over deliberately rather than copy blindly: jiten's **4-point grading** vs Yomu's
+5 (U32 — pick one and explain it), and its **compactness**, which is the thing users actually praise.
+Yomu's advantage to preserve while matching features: it is free, and it does not require a server
+round trip for everything (A3 offline-first).
+
+---
+
+# 2026-07-26 — SWEEP: everything diagnosed this session but not yet a backlog item
+
+## U58. CLAMPED-HOST MIRROR TRUNCATION — diagnosed, measured, NOT YET FIXED
+The owner's iPad report (`登録チャン…` in the YouTube sidebar; also the Shorts heart icon, so it is
+generic). **Root-caused by A/B against native at the same profile/width/browser:**
+    native:  登録チャンネル  client:64 scroll:64 overflow:false   (it fits)
+    yomu:    span.title      cw:64 sw:64  ch:16 sh:32  lineClamp:1  inFlowRuby:0 detached:1
+Width is fine. **HEIGHT doubles.** Clipped-row detection works correctly (detached channel, zero
+in-flow ruby). The defect: the ADDITIVE TEXT MIRROR is a child of the clamped host, its content is two
+lines tall (reading + text), so `scrollHeight` 16→32 inside `-webkit-line-clamp:1` and the engine
+truncates the HOST's own text. マイページ shows the same signature.
+FIX: the mirror must not contribute to the host's scroll height inside a clamped/ellipsis host —
+take it out of flow, or keep it entirely in the overlay. NOTE: `position:absolute` alone may not
+suffice, since absolutely-positioned children still count toward an ancestor's scrollHeight when that
+ancestor is their containing block. Verify by measurement, and cover it with a REAL-BROWSER smoke —
+jsdom cannot see this.
+
+## U59. SUBTITLE READING-SHADOW BLEED — owner's aesthetic call still open
+Kanji carrying furigana render measurably darker than the okurigana beside them. Em-relative radii
+landed in 1.8.12 and 32/32 legibility cells now beat pre-fix, but an independent re-measure found the
+reduction OVERSTATED at large cues (51% not 81% at chromium 40px, 53% not 73% at 60px). At and below
+the default it is genuinely gone; at large cues it is roughly halved. Owner should look at real
+footage and decide whether that is enough.
+
+## U60. iPad STICKY :hover MAY LEAVE THE NATIVE CAPTION UN-BLURRED
+`subtitles-youtube.css:227` un-blurs the platform caption on `:hover`; iPad Safari's sticky hover means
+the first tap can leave it stuck un-blurred after the blur toggle (1.8.13) does its job.
+
+## U61. LANGUAGE-SEAM WORK LEFT BEHIND (from the audit + verification)
+- **33** direct `HAS_JAPANESE` sites remain outside `languages/` (was ~90). Heaviest: `gaming/shared.ts`
+  (6, own regex), `academy/ui/vn-stage.ts` (5, own regex), `newtab/runtime.ts`, `dictionaries/learner-glossary.ts`,
+  `sources/definition-render.ts`.
+- **34** lines still carrying raw kana/kanji Unicode ranges (was ~129) — `anki/*`, `subtitles/*`,
+  `audio/candidates.ts`, `dictionaries/yomitan/*`.
+- **`deinflectJapaneseTerm` is STILL imported by `dictionaries/yomitan/index.ts:508`** — the
+  language-agnostic dictionary engine applies Japanese verb morphology to every language. The exact
+  one-line change is written up in that workflow's report.
+- **5 capability domains still have zero consumers**: `lookupCandidates`, `featureSemantics`,
+  `capabilities.*`, `typography.readingAnnotationMode`, `typography.supportsVerticalWriting`.
+- **No UI to pick a target language**: `settings/form.ts:145` renders a hardcoded
+  `<span>日本語 — Japanese</span>` beside a HIDDEN input; `settings/form-read.ts:242` would revert a
+  non-`ja` value on save. Two small edits, and the seam becomes user-reachable.
+- Learning-target `'ja'` literals still unrouted: `audio/player.ts:1283` (TTS voice pick),
+  `newtab/browse-view.ts:128` + popup origin-graph (collation), `app/preferred-site-language-impl.ts`,
+  `study/tools-impl.ts:285`, `settings/index.ts:441` (`ocrLanguage: 'ja-JP'`).
+
+## U62. DICTIONARY MIRROR RESIDUALS
+- **13 published entries have DEAD Drive source URLs** (upstream re-uploaded words.hk, CC-Canto,
+  jitendex, JMnedict, KANJIDIC…). Served objects fine; `acquire.mjs` can no longer re-fetch them.
+- **`languages.json` claims all 32 `readiness:"ready", blockers:[]` — that is FALSE**; its own
+  evidence cites collections we hold nothing for. Do not trust it as a readiness signal.
+- **Kanjium pitch + WTY JA-JA are offered as curated cards pointing OFF-MIRROR** — users see install
+  cards for dictionaries we do not host.
+- **135 zips across 6 linked Drive folders** unmirrored; 7 Proton folders unenumerable (key in URL
+  fragment); 7 GitHub collection repos not cloned.
+- **lo (Lao) is the one roster target WTY does not cover** — needs its own source.
+
+## U63. RELEASE/TOOLING RESIDUALS
+- `npm run fallow:dead-code` still exits non-zero (4 pre-existing rows).
+- **voiceworks-toolkit**: the duplicate-translation fix is on main (`3fdba5c`) but the userscript still
+  advertises `@version 170`, so **nobody auto-updates onto it**. Needs a bump + release.
+- `prepare-release.mjs` shelf durability has one residual conditional gap.
+- The gate runs `test:ci` BEFORE `docs:build`, so a stale stamped `docs/public/study/index.html` fails
+  a test that a later stage would fix. Either stamp earlier or make the test tolerate it.
+
+## U64. GRADING SCALE MUST MATCH THE SOURCE — supersedes U32 and part of A2
+[owner 2026-07-26] "don't explain — actually fix. Always match whatever the source is. For example,
+if jiten has 4 then so should yomu, if jpdb has 5 so should jpdb."
+
+**Correction to what I previously wrote.** Do NOT define a canonical Yomu scale and map other
+backends onto it, and do NOT explain the mismatch in the UI. The grading control **adapts to the
+backend being graded into**:
+- grading into **jiten** → show **jiten's 4 buttons**, with jiten's labels and semantics;
+- grading into **jpdb** → show **jpdb's 5**;
+- grading into **Anki** → Anki's Again/Hard/Good/Easy;
+- grading into **Yomu SRS** → Yomu's own scale.
+No lossy translation, no user-facing explanation, no surprise: what the user presses is exactly what
+the destination records. noteliana's worry ("yomu uses a five point scale when jiten has a 4 so I'm
+unsure how that will affect things") then simply cannot arise.
+
+Implications to design for:
+- The grading component becomes **source-driven** — scale, labels, keyboard shortcuts and colours all
+  come from the destination adapter, not from Yomu's own constants.
+- With N simultaneous sources (A2), a review destined for more than one backend needs a defined rule.
+  Prefer: grade in the destination's own scale and let each adapter translate INTERNALLY where it must,
+  rather than showing the user a compromise control.
+- Yomu SRS's own scale should then be chosen on its merits (FSRS-compatible), not as a lowest common
+  denominator.
+
+---
+
+# GOVERNING PRINCIPLE — "Everything should always be automatic and seamless"
+[owner, 2026-07-26]
+
+This supersedes and explains most of the items above. Apply it as a TEST, not a slogan: for any
+screen, setting or step, ask **"why is the user doing this at all?"** If the answer is that the
+software could have done it, or could have chosen a sensible default, or could have waited until it
+actually mattered — then remove the step.
+
+Everything recorded tonight is a violation of it:
+- **Grading scales** (U64) — don't explain the mismatch; match the source automatically.
+- **Audio sources** (1.8.6) — detection became automatic, the button disappeared. That is the pattern.
+- **Codes and entitlement** (U47/U52/U55) — a donation should grant access automatically, not require
+  a code to be delivered, found, and pasted, with email as a fragile join key.
+- **Sign-up** (U48) — 7 steps. Should be: sign in with Google, done.
+- **Device pairing** (U50) — "Start as first device" asks the user to reason about distributed state.
+  The software knows whether other devices exist.
+- **Settings** (B1/U38) — should work out of the box; advanced options exist but are never required.
+- **Target language / dictionaries** (U15) — pick a language once, get the right dictionaries; don't
+  make people trigger DeepL on every popup.
+- **Known-word seeding** (U28) — import automatically from whatever the user already has.
+- **Multiple SRS backends** (A2) — never make the user choose; reconcile them.
+- **Parser choice** (A1/U17) — best result automatically, not a backend the user must select.
+- **Updates and channels** (A6) — the user should not have to know which build they are on.
+
+Corollary for defaults: a default that most users must change is a bug (U3 "Prefer Japanese site" on,
+U23 not-in-deck colour, U31 jpdb/bunpro surfaces on, U26 furigana on the wrong side of a study card).
+
+Corollary for failure: when something cannot be automatic, it must be VISIBLE — degrade honestly and
+say so, never silently do nothing (U52's silent non-delivery is the worst case of this).
+
+## U65. ACADEMY PEDAGOGY NOTES from the same user research — keep these, they are good
+(Academy stays Japanese-only and "coming soon", but the teaching design is worth capturing now.)
+
+**"Razor speak" — the strongest idea in the whole conversation.**
+canna98 learns grammar from "a smart guy that explains it to me in razor language" — Razor being the
+Genshin Impact character who speaks in short, broken, plain sentences. Her reasoning:
+*"because textbooks make sure that u will not understand it."* Owner: *"For academy I am definitely
+using razor speak — what a brilliant idea."*
+The principle: **explain grammar in deliberately simple, blunt language, not grammatical register.**
+Not "the て-form conjunctive particle indicates sequential action" but something a tired person
+understands on the first read. This is a house style for every Academy explanation, and it doubles as
+a differentiator — noteliana: *"most grammar resources are boring asf."*
+canna98 offered to write grammar explanations in razor language once she has learned more; take her
+up on it. Her handwritten kanji notes were also praised by the owner — hand-drawn material has a
+warmth that generated content lacks, and she is willing to contribute.
+
+**Grammar is the most divided topic in the community** [noteliana] — Tae Kim vs Cure Dolly vs "don't
+study grammar at all". So Academy should not pick a doctrinal side; teach through real examples and
+let people use it alongside whatever they already believe.
+
+**Real examples beat invented ones** [noteliana]: *"the biggest strength of yomu is that it will give
+real examples too from nadeshiko"*, and the jlab grammar deck she liked *"used real examples"* for
+every point (https://www.japanese-like-a-breeze.com/guide-for-beginners/). Academy should pull live
+examples from the same sources the reader uses, not ship canned sentences.
+
+**Graded answers, immediately** [owner]: *"you will be able to get your answers graded as you do it.
+With Genki I would always have to write it out in the book and look it up in the answer sheet after —
+it was hard."* Instant feedback is the feature; the textbook loop is the thing being replaced.
+
+**The 50% rule** [owner, from "A Year to Learn Japanese" + drawabox.com/lesson/0/2/50percent]:
+spend at most half your time on study-for-study's-sake, and the other half on what you actually enjoy
+— reading what you like, using it for real. Owner: *"it's hard to do because my brain likes to lock
+into one thing, but I do believe if you can balance both you will go so far."*
+**Design consequence:** Academy should actively push learners back into immersion rather than
+maximising time-in-Academy — e.g. surface "go read something" as a first-class action, and count
+immersion alongside study rather than treating study as the only progress.
+
+**Bunpro is the quality bar for grammar SRS** [owner]: *"I was trying out bunpro and it's really good…
+We need to make something like that."* Pair with B3 (Bunpro also named as the clean-UX reference).
+
+## U66. TEACH PEOPLE HOW TO LEARN JAPANESE — unbiased, not a Yomu advert
+[owner 2026-07-26] "if yomu was to teach one thing it can be how to learn japanese, like with the
+'A Year to Learn Japanese' guide — that can be something we outline. Use references like animecards
+etc. **Don't bias it all towards yomu** — try and make genuinely useful content based on that."
+
+The single best thing the docs could be. Not "how to use Yomu" — **how to actually learn the
+language**, honestly, citing the community's real resources, including ones Yomu does not touch.
+Why it is also good strategy (say it out loud, then ignore it while writing): honest guides get
+LINKED. The owner already wants Yomu listed in the Yomitan resource-sharing page and the TMW wikis —
+those communities link to useful writing, not to product pages. And noteliana's "when college starts
+in September I'll recommend this to friends taking Japanese courses" is exactly this audience.
+
+**Editorial rules**
+- Recommend the best tool for each job even when it is not Yomu. If Anki+asbplayer is better for
+  something today, say so. Credibility is the whole asset.
+- No feature-pushing inside the guide. Mention Yomu only where it genuinely is the answer, and link
+  out for the rest.
+- Concrete over motivational. The audience has read enough "just immerse" posts.
+- Should stay useful when the reader uses none of our software.
+
+**Source material and references gathered from the community conversation**
+- **A Year to Learn Japanese** — the guide the owner cites; opens with the 50% rule.
+  https://docs.google.com/document/d/10bRzVblKVOsQJjTc2PIi1Gbj_LrsJCkMkh0SutXCZdI/edit
+- **The 50% rule**, originally an art-practice idea: https://drawabox.com/lesson/0/2/50percent
+- **animecards.site** — the mining methodology reference; also where our "ultimate audio source"
+  pulls from: https://animecards.site/yomitan_audio/
+- **Japanese Like a Breeze / jlab beginner guide** (grammar deck built on real examples):
+  https://www.japanese-like-a-breeze.com/guide-for-beginners/
+- **Grammar approaches, presented neutrally** — Tae Kim, Cure Dolly, Bunpro, Genki, or the
+  "don't formally study grammar" camp. noteliana: it is "the most divided topic"; do not take a side.
+- **Tools worth covering honestly**: Yomitan, Anki + AnkiConnect, asbplayer, Jiten, JPDB, Bunpro,
+  WaniKani, ttsu reader, Hoshi reader (books), Language Reactor, Migaku, YAMA, Nadeshiko,
+  ImmersionKit, KanjiVG, nihongokanji.com (Joyo), zimaku.cc (Japanese subtitles),
+  Tango Lens + Decky and YomiNinja (game OCR), Tailscale (Anki on mobile), kanjiday.com.
+- **Devices/contexts real users are in**: iPad + BookWalker (canna98), Steam Deck + VNs (vvvvtk),
+  iOS Safari + Narou (bdlance), college Japanese courses (noteliana), evening classes (owner).
+
+**Shape to consider**: a short spine — how the pieces fit (input, mining, SRS, grammar, output) — with
+one honest page per stage, each ending in "what to actually do this week". Written so a beginner can
+start today and an intermediate can find the one thing they are missing.
+Ties to B2 (docs rewrite) and B4 (store copy): the guide is the homepage's reason to exist, and the
+answer to "what makes Yomu special" should sit inside a genuinely useful site, not replace it.
+
+---
+
+# SCOPE DECISION 2026-07-26: ACADEMY IS POSTPONED
+[owner] "lets postpone the academy tasks for now - but make a note of them for me - everything else
+is in scope."
+
+**POSTPONED (noted, not deleted):** U65 (Academy pedagogy — razor speak, 50% rule, graded answers,
+Bunpro as the bar), the Academy VN build itself, `src/academy/**`, `docs/public/academy/**`, and the
+Academy CONTENT work. Academy also stays marked "coming soon" (B5).
+
+**STILL IN SCOPE even though it touches Academy** — these are account/product, not Academy content:
+- U47 / U52 / U55 — codes not delivered, donors with no key, donation-email ≠ Google email.
+  People have PAID and received nothing; that is not postponable.
+- U48 — sign-in broken + sign-up too hard. U42 — no account control on `/study/` or `/academy/`.
+- U50 / U51 / U53 / U54 — the Profile & sync screen's complexity, `Learner#406049`, the dead back
+  button, and the odd copy. That screen is reached by READER users, not just Academy ones.
+- U56 (usernames), U57 (jiten-grade account features), U64 (grading matches the source).
+- The Academy media 403 and the CSP/content-script errors on that page, since they are infrastructure.
+
+## U67. TAE KIM IS NOT DOWNLOADED — and it is the grammar style learners actually want
+[owner 2026-07-26] "tae kim is not downloaded — but that is more of the style japanese learners
+really like for grammar."
+Tae Kim's Guide to Japanese is a community staple and is NOT in our mirrored material. Two separate
+things follow:
+1. **Acquire it** — check whether a Yomitan-format or otherwise importable build exists (Tae Kim has
+   long been distributed as Anki decks and structured HTML), and mirror it like the rest.
+2. **Adopt the STYLE, which is the more valuable half.** Tae Kim explains grammar the way learners
+   like: plain, direct, example-first, no grammatical-register jargon. That is the same instinct as
+   "razor speak" (U65) from a published source — so even with Academy postponed, **Tae Kim's register
+   is the model for any grammar explanation Yomu ships**, including popover grammar notes and the
+   learning guide (U66). noteliana's warning still applies: grammar is the community's most divided
+   topic, so present it as one excellent approach, not the one true way.
+
+## U68–U76. REMAINING DISCORD ITEMS (final sweep)
+
+**U68. Install is unreliable across managers.**
+- canna98 repeatedly hit *"can't install from this website"* on Chrome — not a Tampermonkey dialog;
+  workaround was Tampermonkey → "install from URL" with `https://yomureader.com/yomu.user.js`.
+- vvvvtk on ScriptCat: *"it downloads a .js file instead of launching scriptcat"*; had to drag the
+  file in manually. Owner suspected the domain/served content type.
+- canna98 also could not update on PC at all at one point.
+Install is the first thing every user does and it fails for several of them. Fix the served
+content-type/headers so each manager (Tampermonkey, Violentmonkey, ScriptCat, Userscripts) intercepts
+properly, and test each.
+
+**U69. A "previous versions" page.** Owner promised it: *"I'll also add a place where you can install
+any previous version on the website — if it happens again you can switch to an older or different
+version."* Directly mitigates U68 and the daily-userscript-channel risk (A6).
+
+**U70. Sources setting is too hard to find.** Turning jpdb/bunpro off lives under Settings → Sources;
+owner: *"you are not the first person to ask that so I will actually move that to somewhere easier to
+find."* Pairs with U31 (they are on by default and unwanted) and B1.
+
+**U71. Migrating decks and review history BETWEEN backends.** bdlance: *"does anyone happen to know a
+way to transfer decks and review history from jpdb to jiten?"* Jiten has it, buried
+(`jiten.moe/settings/vocabulary` → manage vocab → import from JPDB); owner called it *"a little
+hidden"*. Yomu should own this — it is the natural companion to A2 (never make the user choose a
+backend) and to U57.
+
+**U72. YouTube filter is a liked, differentiating feature.** sagamsil: filtering the feed by title
+data is *"great for preventing distractions"*, and with it Yomu *"could replace Language Reactor"*.
+It is currently undocumented and undersold — put it in the store copy and the docs (B2/B4).
+
+**U73. Study 2.0 — combine all study modes into one.** Owner's stated design: *"it's gonna combine
+all the study modes into one… but you can pick and choose what you want."* This is the frame for the
+Study rework (A7) rather than a separate project.
+
+**U74. A lightweight word/kanji-a-day surface.** Owner, on kanjiday.com: *"I just liked the idea that
+you can see a word each time… maybe I can make something more lightweight from it."* The new-tab
+study page already does a version of this (*"if you wanted to set yomu study as your newtab"*), and
+noteliana liked that it is *"very lightweight"*. Worth doing deliberately rather than as a side
+effect of the new tab.
+
+**U75. Improve jiten by swapping in Yomu's audio.** Owner: *"we can improve jiten by swapping the
+audios"* — noteliana wants NHK/daijisen/Forvo instead of jiten's AI voice during jiten reviews (U27).
+Yomu already hosts fast edge audio; this is a concrete, small, high-delight win for an existing user.
+
+**U76. Promotion channels the owner identified.** Yomitan's resource-sharing page and the TMW
+(themoeway) wikis: *"if we can get recommended in some of those wikis it could help."* Also
+noteliana's *"when college starts in September I'll definitely recommend this to friends taking
+japanese courses"*. Ties to U66 — an honest learning guide is what earns those links.
+Credit due: **woozlez made the homepage video** (owner: "woozlez is a vip he made the video on the
+homepage") — keep him in the loop on any homepage rewrite (B2).
+
+---
+
+# 2026-07-26 — UX BENCHMARK: measured against Bunpro, Yomitan, Migaku, uBlock
+
+|  | Bunpro | Yomitan | Migaku | **Yomu today** |
+|---|---|---|---|---|
+| Top-nav destinations | 4 + 2 CTAs | — | 8 | **14** (Support listed **3×**) |
+| Distinct primary CTA | 1, repeated 4× | — | 1 | **0** — five equal-weight hero buttons |
+| First-run decisions | **4 fields** | 12 rows | — | **12 controls in one panel** |
+| Settings rows | — | 125, **41% hidden** | 4 tabs | 9 tabs, 67 checkboxes + 30 selects, `form.ts` is 3,128 lines |
+| Persisted settings keys | — | 105 | — | **286 fields on `ReaderSettings`** |
+
+**Yomu's settings open on `appearance` (`settings/form.ts:231`), which holds 22 colour fields.
+The first thing a new user sees is colour pickers.**
+
+## U77. ONE GLOBAL "ADVANCED" SWITCH — the single highest-leverage settings change
+Yomitan gates 51 of 125 rows behind ONE checkbox that sets `data-advanced` on `:root`; every advanced
+control opts in by CSS class. **uBlock Origin independently converged on the same design** ("I am an
+advanced user"). Two of the most-used power extensions in the world settled on one switch.
+Yomu hides **0%** today. Target: ≤60% of rows visible by default.
+Also from Yomitan and worth copying exactly: advanced rows stay **visually marked** even when revealed
+(a 0.25em accent stripe), so you always know which switches are the dangerous ones.
+
+## U78. EVERY SETTING NEEDS A ONE-SENTENCE DESCRIPTION — no naked toggles
+Yomitan ships 83 descriptions for 125 rows in a fixed skeleton (label + description | control). This
+IS noteliana's request for a (?) icon (U38), but better: always visible, no hover, no click.
+Dependent options become CHILDREN of their parent control (Yomitan: 50 child blocks, 64 "More…"
+toggles), hidden until the parent is on — not siblings in a flat list.
+
+## U79. GATE BY LANGUAGE IN CSS — Yomitan already solved our multilang UI problem
+`data-language` on the root plus `jp-only` / `jpzhyue-only` / `jpzhyueko-only` / `not-jpzhyueko`
+classes. Concretely: "Reading mode" and "Parse sentences using" are `jp-only`; "Term display style" is
+`jpzhyue-only`; "Scan resolution" is `not-jpzhyueko`.
+**This is exactly the "degrade visibly and honestly" contract from our multilang goal, already
+implemented in the codebase whose dictionaries we already import.** Copy the mechanism rather than
+inventing one. Test: switch to a target with no reading annotation → furigana controls, `furiganaMode`,
+pitch colouring, the pitch legend and the provider pills are ABSENT from the DOM, not greyed out.
+
+## U80. FIRST RUN: ASK AT MOST 3 THINGS
+Bunpro's signup is 4 fields and captures the timezone in a HIDDEN field rather than asking. Yomu's
+`OnboardingController` asks 12: interface language, learner language, theme, accent colour (+6
+swatches), YouTube immersion, prefer-Japanese-site, offline dictionaries, page-scan mode (3 radios),
+OCR mode, manual scan shortcut, hover shortcut, and an API-key fork. **Nine of the twelve are
+inferable or deferrable.**
+
+## U81. ONBOARDING ENDS ON REAL CONTENT, NOT A CHANGELOG
+Migaku's dashboard wastes its whole right column on patch notes — but its left column is right:
+"Try Migaku with a video" / "Try Migaku with a website", each with Beginner/Intermediate/Advanced
+picks. **Steal the left column, delete the right.** Yomu has the same smell: a `data-help-update-strip`
+"Version" block inside settings. Last step of onboarding should open annotated content in a new tab.
+
+## U82. NAVIGATION: 14 → ~5, and ONE primary CTA
+Yomu has 14 nav destinations (6 + 8 under "More") with **Support appearing three times** — which is
+B6 from a different angle — and **no distinct primary CTA**: five equal-weight hero buttons, so
+nothing is the obvious next action. Bunpro has 4 destinations and repeats ONE CTA four times.
+This is noteliana's "my biggest feedback would be easier navigation" (U37), now with a number on it.
+
+## U83. SETTINGS LIVE WHERE THEIR EFFECT LIVES
+Bunpro puts Quiz Settings and Styling Options *inside* the review screen, editing the same account
+settings. You never leave the thing you are configuring. Yomu equivalent: the popover, subtitle
+overlay, OCR overlay and study screen each get a gear that deep-links to their own panel and returns.
+
+## U84. DENSE LISTS GET ≤4 CONTROLS ABOVE THE FOLD
+Bunpro's Grammar Library sits above ~800 items behind exactly four: search, Select Items, Add Filters,
+view toggle. Filters open in a popover, all on by default, applied live with **no Apply button**.
+Apply to: the dictionary catalogue (186), the mining queue, the study queue, the word browser.
+
+## U85. "≤5 MINUTES" MUST BE A MEASURED NUMBER
+Script it: clean profile, cold install → first furigana rendered on a real page, with no account, no
+API key and no dictionary picker. That number goes in CI and regressions fail the build.
+
+---
+
+# 2026-07-26 — COMPETITIVE + COMMUNITY RESEARCH: Migaku 1.30.8 teardown + r/LearnJapanese
+
+Two research streams, both complete. **COMPETITIVE RESEARCH ONLY: no Migaku code, asset or copy
+enters Yomu.** The artefact is at `references/migaku/` — `migaku.crx` (the real signed 155 MB
+package, store id `lkhiljgmbeecmljiogckofcalncmfnfo`, v1.30.8.0 built 2026-07-13), `ext/` unpacked
+(1.0 GB), `PROVENANCE.txt`, and `derived/en-ui-strings.txt` — **2,132 English UI strings as a flat
+`key.path = value` map. Grep that file rather than re-deriving anything below.** `ext/core/` (982 MB)
+is deletable; everything cited here is reproducible from `ext/assets/` + `ext/manifest.json` (~26 MB).
+The community stream drove a real browser against old.reddit.com's JSON API — ~30 searches, 22 full
+thread reads, plus the sub wiki, TheMoeWay, the JP Lazy Guide and Awesome-Japanese.
+
+**Read this section for what the community wants, not for where Yomu ranks.** The research question
+was what learners actually recommend, complain about and ask for — the golden path below, the four
+recurring themes, and the tool-by-tool grievances are the payload. (One incidental measurement is
+recorded in U88 because it changes a decision: five shipping products already use the name, so
+"search for Yomu" is broken advice. It is a naming item, not a headline.)
+
+## THE GOLDEN PATH AS THE COMMUNITY STATES IT (2026)
+0 Kana — kana.pro/DJT · 1 Grammar — **Yokubi (yoku.bi)** then Misa, Cure Dolly, Tae Kim ·
+2 Starter deck — Anki + **Kaishi 1.5k** (Core 2k/6k now called outdated) · 3 Lookup — **Yomitan**,
+total dominance · 4 Wire mining — Anki + AnkiConnect + **Lapis** note type, guided by the
+**JP Lazy Guide**; donkuri for methodology; animecards demoted · 5 Consume — asbplayer (video),
+ttsu (books), mokuro + web-manga-ocr (manga), Textractor/YomiNinja (games), **physical manga and
+consoles: no accepted answer** · 6 Difficulty — jpdb, **jiten.moe**, LearnNatively · 7 Survive your
+reviews · 8 Stop optimising.
+
+The whole market in two sentences, from the top-voted answer to "what browser extension do you use":
+Yomitan + asbplayer + Anki is s-tier and takes about three hours to set up — *and if you don't want
+to spend three hours, buy Migaku or use Language Reactor.* **That second sentence is the one Yomu
+should be taking, and cannot take while its install is a `.user.js` download.**
+
+## WHERE YOMU SITS TODAY — honest
+| Stage | Community default | Yomu today | Verdict |
+|---|---|---|---|
+| 3 Lookup | Yomitan | userscript + Chrome + Firefox **incl. Android** + iOS Userscripts + Safari | **Strong — on more surfaces than Yomitan. Nobody knows.** |
+| 4 Mining | Anki+AnkiConnect+Lapis, ~3h | mines to Anki *and* jpdb *and* jiten *and* own SRS, video+image auto-attached | **Best hand, played face-down** (noteliana didn't know video+image existed) |
+| 5b/5c Books & manga | ttsu / mokuro | BookWalker OCR "genuinely unmatched" | **Best-in-class, uniquely differentiated** |
+| 5a Video | asbplayer (zero complaints) | slow batch mining (U13), illegible buttons (U35), `.ass` upload broken (U8) | Serves badly |
+| 5d Games | YomiNinja ("mad clunky"; its top search result is a **malware clone**, 375-pt warning) | Electron build incomplete (U41) | Badly served |
+| 5e Physical/console | **no accepted answer** | not served | **Open goal** |
+| 6 Difficulty | jpdb/jiten coverage % | data owned, `knownPct` only in deck stats (`newtab/stats-view.ts:254`) | Not served despite owning the data |
+| 7 Reviews | Anki / jiten | Study — owner tells people not to use it | Badly served, known |
+| 8 Stop optimising | — | no low-intervention mode | Not served; principle points the wrong way |
+
+Where nobody would say "just use X instead": BookWalker/manga OCR on an iPad · instant
+Nadeshiko/ImmersionKit examples on click · the kanji panel · Yomu-hosted edge audio · the YouTube
+feed filter · **Yomitan-grade annotation + mining on Firefox Android**, which threads beg for and
+whose only current answer is "pay ~$200 for Migaku."
+
+## U86. ZERO-SETUP EVALUATION PATH — see it work before installing anything  [PRODUCT]
+A visitor must see Yomu annotating real Japanese text before installing a userscript manager,
+creating an account, or entering an API key. A live demo page on yomureader.com running the real
+reader over a real passage — hover, popup, furigana, pitch, frequency, mine button — is enough.
+**Evidence:** on a new batch-mining tool the top ask was *"can we get a demo video/gif of it? dont
+want to set up all of that just to check it out"*. Setup friction is the **#1 complaint in every
+tool thread**, ahead of every missing feature; a paid competitor's entire one-line pitch is "costs
+money, zero setup". Ties B1, U68, U85 — but this is NOT "reduce setup", it is removing setup from
+*evaluation* entirely.
+
+## U87. A 30-SECOND DEMO CLIP IS THE PRIMARY ARTEFACT, NOT THE SCREENSHOT  [POSITIONING]
+One clip — hover → popup → mine → card with video+image attached — reused verbatim on the Chrome Web
+Store, AMO, Greasy Fork, the homepage hero and any community post. Every high-scoring tool post of
+the last year led with a GIF (web-manga-ocr 399 pts, SubMiner 488 pts, DokiDokiDict 96–211 pts).
+Yomu already HAS the asset — woozlez made the homepage video — and it is not being used where the
+audience is. Ties B4, U40, U76.
+
+## U88. THE NAME IS ALREADY OCCUPIED — decide the disambiguator  [POSITIONING]
+U14/U45 treat this as a store-search bug; it is worse. Shipping products already called Yomu in this
+exact category: **Yomu JP** (yomujp.com, graded readers — the top r/LearnJapanese hit for "yomu",
+232 pts), **Yomu Yomu** (iOS), **Yomu – Japanese Reader** (iOS), **Yomu Reader** (Android),
+yomuapp.jp, and **yomureader.app** — a manga reader one character from our own domain.
+Needed: a permanent disambiguating tagline always used with the name, canonical SEO ownership of
+yomureader.com over yomureader.app, and a store-search strategy that survives five namesakes.
+"Search for Yomu" is broken advice today, even after the Latin-script listing fix.
+
+## U89. NAME AND DEFAULT THE "COLLECT NOW, SCHEDULE LATER" MODE  [PRODUCT + POSITIONING]
+U18 records bdlance's ask as a toggle. It should be the headline behaviour and it should have a name.
+**Nobody in the market has productised this.** Review debt is the community's second-largest
+recurring topic — "Anki Reviews are killing my Immersion time" (175 pts / **117 comments**),
+"I lost my 1480 day Anki streak and it was the best thing to ever happen to me" (678 pts) — and the
+only remedy on offer is manual restraint. Mining that collects without scheduling, with an explicit
+later "promote to study" step, is the most defensible single product idea in this research, and
+Migaku, jpdb, jiten and Anki all lack it. Live evidence: bdlance's due count went 200/day → 1600
+because Yomu inserted reviews into jiten. Promote U18 accordingly.
+
+## U90. SHIP THE TUNED SCHEDULER, NOT THE KNOBS  [PRODUCT]
+Yomu Study ships FSRS on, presets optimised, leech auto-suspend enabled, a defensible new-cards/day
+default — and does not expose those on the main path. **Evidence:** the community's own diagnosis of
+review overload, repeated across the Anki-fatigue threads, is that most people's Anki is
+*misconfigured* — FSRS off, presets never optimised, leeches never suspended; tuned users report
+~4 s/card against ~20 s/card untuned. Distinct from U64 (grading SCALES match the destination); this
+is the scheduler underneath Yomu's own SRS, and it is the governing principle applied to the one
+place users cannot self-serve.
+
+## U91. MINE-WORTHINESS GUIDANCE AT THE POINT OF DECISION  [PRODUCT]
+Band words in the popup and the batch-mining list the way the community already does:
+**<30k learn · 30–60k if it matters to you · 60–100k marginal · >100k probably a parse error, not a
+word.** "Should I mine this rare word or skip it" is a top-5 recurring question (51-comment thread)
+and the banding above is the community's own accepted answer, currently transmitted by word of mouth.
+Nobody surfaces it at the moment of decision. The >100k band doubles as a free parser-quality signal
+feeding A1.
+
+## U92. ANY-SCREEN CAPTURE: PHYSICAL MANGA AND CONSOLES  [PRODUCT]
+U41 scopes game OCR toward YomiNinja. The larger unmet need is capture from *anything that is not a
+browser*: a phone photo of a paper page, a capture-card feed, a console screenshot. "How do I mine
+from physical manga / console games" is asked roughly monthly — 83- and 51-comment threads in June
+and July 2026 alone — with **no accepted answer**; current advice is capture cards, phone photos into
+Google Lens, and hand-rolled iOS Shortcuts. Yomu already owns the hard half (canvas OCR + annotation
++ mining). The target is not a game client; it is any image. vvvvtk has offered to test.
+
+## U93. LOW-INTERVENTION READING MODE — and a stated limit to "automatic and seamless"  [PRODUCT]
+A legible "just read" mode: minimal decoration, no chips, lookups only on demand, nothing that
+interrupts a line of text. A strong, well-upvoted counter-current argues that constant lookup and
+card-making harms acquisition (top comment 106 pts on the jiten discovery thread; same sentiment in
+the immersion-struggles and endless-flashcard threads). This is the owner's own 50% rule (U65)
+pointed at the reader instead of at Academy.
+**This item CHALLENGES the governing principle.** "Everything should always be automatic and
+seamless" is right about friction and, on the community evidence, wrong about volume — more
+annotation is not automatically more value. **Proposed amendment for the owner to accept or reject:**
+*automatic where it removes friction, silent where it would interrupt reading.*
+
+## U94. PUBLISH THROUGH THE COMMUNITY'S OWN CHANNELS  [POSITIONING]
+U76 names the Yomitan resource page and the TMW wikis. Add the three that actually move:
+r/LearnJapanese's weekly **"Material Recs and Self-Promo Wednesdays"** thread (the sanctioned route,
+and the one every competing tool used), the **JP Lazy Guide**, and **Awesome-Japanese**
+(github.com/EngJpDiscordExchange/Awesome-Japanese — checked, Yomu is absent).
+**The owner must post these himself. Do not post on his behalf.** Prepare the artefacts (U87's clip,
+U86's demo link, a plain-language what-it-does paragraph) and hand them over.
+
+## U95. LEAD WITH MOBILE — the differentiator nobody knows exists  [POSITIONING]
+Yomitan-grade annotation and mining on **Firefox Android** ships today. Threads asking for exactly
+this end in "buy a second Android device" or "pay ~$200 for Migaku"; a direct "do any of these work
+on iPad/iPhone?" went **unanswered**. Highest-leverage, lowest-cost positioning move available: one
+sentence in the store copy, one line in every community post.
+**Precondition: U4 (iOS Safari OOM every ~5 minutes) stops being a bug and becomes a launch
+blocker** — you cannot lead with a differentiator that crashes.
+
+## U96. i+1 MUST AUTO-TUNE — ours is three lines and misses the point  [PRODUCT]
+Yomu today (`src/reader/subtitles/subtitle-batch-mining.ts:99`):
+`sentenceCardCount >= 3 && unknownCardCount === 1` — minimum 3 tokens, **no upper bound, no frequency
+gate at all.** Migaku's shipped constants: sentence length **5–20 tokens**
+(`RECOMMENDED_SENTENCE_LENGTH = {MIN:5, MAX:20}`), exactly one unknown, and that word's frequency
+must pass a threshold that **widens automatically with your known-word count** —
+`RECOMMENDED_THRESHOLD_STEPS = {5★:1_000, 4★:3_000, 3★:5_000, 2★:10_000, 1★:1_000_000}` — with
+filtering **switched off entirely above ~20,000 known words**. Zero configuration; it tunes itself as
+the learner improves. This is the single most transferable idea in the teardown and it is the
+governing principle made literal. **Adopt the shape** — a length window, one unknown, a frequency
+threshold derived from known-word count — **and choose our own constants from our own data**; theirs
+are one product's tuning against one user base and there is no evidence they are correct.
+
+## U97. WORD IDENTITY IS A 4-TUPLE, AND STATUS IS THREE ORTHOGONAL FIELDS  [PRODUCT / ARCH]
+U44 says the card model needs a language field before decks fill up. The stronger primitive:
+identity = **(dictionary form, secondary reading, part of speech, language)** as the primary key,
+with **knownStatus**, **hasCard** and **tracked** as three *independent* fields rather than members
+of one enum. Migaku's DDL: `PRIMARY KEY (dictForm, secondary, partOfSpeech, language)`,
+`knownStatus TEXT, hasCard INTEGER, tracked INTEGER`.
+Two things fall out free: (a) it is language-neutral, which is what the 32-target rewrite needs;
+(b) separating `hasCard` from `knownStatus` is exactly what makes U18/U89 ("collect without
+scheduling") expressible instead of a special case. Yomu's `CardState` union
+(`src/reader/app/types.ts:5-22`) conflates all three into 21 mutually-exclusive values.
+**Land this before decks are populated — same deadline as U44, same reason.**
+
+## U98. TOKEN RENDERING PRIMITIVE: column layout for readings, status in `data-*`  [PRODUCT / ARCH]
+(a) **Reading above surface as a layout, not native ruby positioning.** Migaku's token is
+`display:inline-flex; flex-direction:column; align-items:center`, reading as the first flex child.
+That structurally eliminates the wrap / overflow / vertical-mode / `pre-wrap` alignment class that is
+Cycle 7. Adopt the approach, write our own CSS. **Know the cost first:** ~5 DOM nodes per word,
+`white-space:nowrap` per token, and per-token margins (`.migaku-token{margin:5px 0}`) that reflow the
+host page — measure against Cycle 7's actual cost before committing.
+(b) **Status on the token as `data-*`; only the display MODE in root classes.** Migaku ships
+`data-mgk-known-status` / `data-mgk-tracking` / `data-mgk-freq-stars` on the token, with
+`-mgk-active` / `-mgk-show-known-status` / `-mgk-show-coloring-on-hover` on the root. Yomu puts
+colour channels on the root — the documented root cause of Cycle 8's SPA class clobbering.
+Their underline is also a `::after` with `background-color`, not `text-decoration`, with a
+vertical-writing variant flipping it to a left bar — deliberately, so it does not fight ruby.
+
+## U99. COMPREHENSION SCORE PER PAGE, VIDEO AND BOOK  [PRODUCT]
+Yomu has the parse, the known-state and the frequency data and surfaces a known-percentage only
+inside deck stats (`src/reader/newtab/stats-view.ts:254`). Migaku scores every page and subtitle
+track, labels it on a 7-tier plain-English scale (Ambitious → Challenging → Approachable → Good →
+Great → Excellent → Exceptional), charts known/unknown/ignored unique words, counts recommended
+sentences, and lets the library be **sorted by comprehension**.
+"Is this content right for me?" is a stage of the golden path in its own right (jpdb, jiten,
+LearnNatively and Jo-Mako's spreadsheet all exist to answer it), and beginners repeatedly report
+understanding 0% of "N4-rated" material and concluding reading isn't for them. A number and a plain
+word, computed from data we already have.
+
+## U100. SITE-OUTAGE DETECTION WITH DIFFERENTIATED MESSAGING  [PRODUCT]
+When a host site changes and breaks a surface, say so — and distinguish "broken right now, we know"
+from "fixed, please update your extension". Migaku ships both messages plus a forced-update block for
+versions known to corrupt data. Yomu's YouTube and BookWalker breakages currently surface as **silent
+failure** — U5, U6, U12 — and each became a Discord thread starting from "is it broken for everyone?".
+This converts a bug report into a status message: the "degrade honestly and visibly" corollary of the
+governing principle applied to the one place it currently fails silently.
+
+## U101. ONE-CLICK DIAGNOSTIC BUNDLE  [PRODUCT]
+One button packaging logs, version, channel, host, settings snapshot and recent errors, with a
+free-text description box, returning an ID the user pastes into Discord or a GitHub issue.
+U4, U6 and U12 each consumed weeks of back-and-forth that one artefact would have collapsed.
+Design note: **a support tool, not telemetry** — user-initiated, contents visible before sending.
+
+## U102. PLAYER CONTROL VIA A TYPED MESSAGE BRIDGE, NOT DOM PINNING  [ARCH]
+Cycle 4's stated fix is "a resilient observer that re-anchors on YT mutation". The teardown shows a
+better shape, proven in production against the same hostile sites: a **main-world adapter speaking
+~45 typed messages** (`mgk--GetSubtitles`, `mgk--SeekTo`, `mgk--SendVideoElementProxy`,
+`mgk--SendOverlayRectProxy`, `mgk--GetYoutubePoToken`), talking to YouTube's **innertube API with a
+poToken** rather than to YouTube's DOM, and reserving layout with a **stand-in element plus rect
+proxies** instead of pinning to the site's structure. Take the architecture; take neither their code
+nor their obfuscated-filename evasion (R7).
+
+## U103. NAMED PRESETS OVER CONTROL MATRICES  [PRODUCT]
+U77 (one Advanced switch) and U78 (a description per row) are two of the three containment devices
+that make a dense settings surface survivable. The third: **named presets with plain-English
+descriptions, shipped as the primary surface, "Custom" as the escape hatch.** Migaku collapses ~40
+interacting video controls into 8 named play modes (Default · Primed Listening · Intensive Reading ·
+Intensive Listening · Intensive Hybrid · Show on Pause · 1T Focus · Custom) and its recommendation
+filters into 3 named *strategies* (Guided Learning / Focused Study / Advanced Customization) rather
+than sliders. Yomu's candidates: the video/subtitle overlay panel, the decoration/colour matrix
+(**22 colour fields open first — `settings/form.ts:231`**), and the mining field-source matrix.
+
+## U104. COLD START: SEED KNOWN WORDS IN TWO MINUTES  [PRODUCT]
+Yomu is useless until it knows what you already know, and today it asks the user to arrive with that
+state. Migaku's answer — the best-designed moment in their onboarding — is an adaptive "select the
+words you know" quiz over rising frequency bands that seeds thousands of known words in ~2 minutes,
+with an honest note about why it adds fewer than it estimates.
+Yomu's version should offer the **import route first** where it exists — Anki collection, jpdb,
+jiten, Yomitan — and fall back to the quiz when the user has nothing. Ties U80/U81 (first run),
+U71 (cross-backend migration), and the known-word seeding line under the governing principle.
+
+## U105. THREE-TIER LANGUAGE MODEL: TARGET ≠ OUTPUT ≠ INTERFACE  [ARCH]
+Make explicit what the rewrite leaves implicit, and what U15 actually asked for:
+- **Target languages** — full parsing, morphology, readings. (Migaku ships 11.)
+- **Output languages** — what definitions, translations and generated text COME OUT IN. (Migaku ~33,
+  the DeepL set, split into two independent settings: `languageOutput.translation` and
+  `languageOutput.gpt`.)
+- **Interface languages** — UI chrome only. (Migaku ships exactly **3**: en, ja, es.)
+**sagamsil does not need Yomu translated into Korean; he needs definitions rendered in Korean.**
+Conflating these makes the 32-language goal look 3× larger than it is and makes U15 unimplementable.
+Complements U79 (CSS gating by `data-language`, per-target UI *visibility*); this handles per-target
+*content*.
+**Also record the real per-target cost: not a dictionary — morphology PLUS a named-entity
+gazetteer.** Migaku's Korean parser ships a Sejong-tagset statistical tagger (`observation.model`
+37 MB, `irregular.model`, `transition.model`) plus gazetteers of K-pop artist names, addresses and
+**5.6 MB of Korean Wikipedia titles**. That is what separates "油を売る is one entry" from garbage,
+and it must be budgeted per target. Their five parser families (Chinese, European, Japanese, Korean,
+Vietnamese) + a shared `Deconjugator` cover all 11 targets — that ratio is the useful planning number.
+
+## U106. A QUALITY GATE THAT TEACHES ITS OWN BYPASS  [PRODUCT]
+When a mined card would land with an empty back — no definition, no sentence, no media — warn once,
+and **inside the warning** tell the user how to skip it permanently. Migaku's `lowInfoWarning`:
+*"Is that all…? You're about to create a card that will be blank on the back!"* + *"Hold shift next
+time to skip this check"*, plus a separate command that skips it forever. The pattern generalises:
+good default protection that hands power users the escape hatch inside the interruption itself, so it
+never becomes a permanent tax. Apply anywhere Yomu either nags forever or silently allows a bad
+outcome.
+
+## U107. CANONICAL LOCAL STORE WITH TOMBSTONES, AND A SYNC-CONFLICT UI  [ARCH]
+A2 says users must never choose an SRS backend. The concrete schema that makes that survivable, from
+a shipping implementation: every row in every synced table carries `mod`, `serverMod`, `del`
+(tombstone), `serverVersion`, `isPendingEnqueue`, `isPendingApply` — offline-first by construction,
+delta sync with tombstones and pending queues.
+When it does conflict, show two cards — **Cloud vs This Device — each with last-updated, words known
+and reviews due**, plus an explicit statement of what each choice destroys; plus a separate repair
+path and a migration path with a documented fallback.
+**Note the difference deliberately:** Migaku solved backend consistency by *exclusion* (own the SRS,
+Anki is a paid export). Yomu's stated goal — reconciliation across N simultaneous sources — is harder
+and is the actual differentiator. **Copy the storage schema; reject the exclusion.** See R11.
+
+## U108. CONVENTION CONFORMANCE PASS — small, cheap, high-familiarity  [PRODUCT]
+One sweep so a Yomitan/Anki/Migaku/jiten user's muscle memory works on day one. All verified against
+the current tree:
+- **Scan gate: default to Shift+hover on mouse, plain tap on touch/pen.** Yomitan's default
+  (`include:"shift"`, `exclude:"mouse0"`) and Migaku's hyperlink gesture — two independent products
+  converged. Yomu's `shortcuts.hoverLookup` defaults to `''` = plain hover, which is canna98's
+  *"had to turn off the automatic reading every time I hover — I just turned it off bc it was annoying"*.
+- **Hotkeys into the `Alt+` namespace**, aliasing Yomitan's exact bindings (Alt+E mine, Alt+P audio,
+  Alt+↑/↓ entry, Alt+B/F history, Escape closes — Escape is already correct). Today Yomu binds bare
+  letters and binds **`A` to both `playAudio` and `previousSubtitle`** (`settings/index.ts:549,553`).
+- **Ctrl+Z as an undo alias** in Study alongside bare `U`; **Space-again = the recommended pass**
+  after reveal, as in Anki.
+- **Key 1 is always the failing grade**, whatever scale U64 selects for the destination — so the keys
+  renumber with the scale: 1–4 for Anki/jiten, 1–5 for jpdb.
+- **Add `kifuku` to the pitch palette** as purple (~`#8d4bf6`). Yomu's four pitch colours already
+  match the shared kotu-lineage palette within a few percent (heiban `#359eff` vs `#2880ff`,
+  atamadaka `#fe4b74` vs `#fe4670`, nakadaka `#fba840` vs `#fba335`, odaka `#57ccb7` vs `#38b8a1`);
+  the fifth is simply **missing** — `grep -rn kifuku src` → no matches — and Yomu ships an `unknown`
+  grey in that slot. A kotu/Migaku user who reads purple as 起伏 gets nothing from Yomu.
+- **`new` at rest becomes transparent, not `#ffffff`** (`theme/color-tokens.ts:46`). White is a
+  *colour*: invisible on white pages, glaring on dark ones — which is why woozlez had to set his
+  highlights near-black for ttsu dark mode. This is what U23 and canna98 actually asked for.
+- **Frequency rendered as `#18447`** — jpdb's format, the token people compare across tools.
+- **Study counts strip = new / learning / due**, in Anki's order and colours.
+- **Vocabulary:** keep **mine** (jpdb/jiten use it); adopt **scan** for the trigger and **popup
+  dictionary** for the surface (the phrase people search); adopt **Priority** for source ordering
+  (Yomu already has `…DefinitionsPriority` fields). **Never use "collection"** for a mining list — in
+  Anki that word means the entire database; say **queue** or **mining list**.
+- Adopt these words, already in users' mouths: Known / Learning / Unknown / Ignored / Tracked ·
+  **Recommended sentence** · **Comprehension** · **Card Creator** · **low-info card**.
+**The tension to hold:** conforming to four tools' conventions is not inheriting four tools' surface
+area. Adopt *bindings, colours, words and gestures* — constants, near-zero cost — and refuse the
+*screens* those tools grew around them. Migaku's 2,132 UI strings are what happens when you don't.
+
+## U109. TRUST SIGNALS ON DISTRIBUTION  [POSITIONING]
+"Download this file from a website and paste it into your script manager" now carries an active trust
+penalty here: a **malware clone of yomininja.com outranked the real project in search** and drew a
+375-point warning thread in June 2026. So U68 (install fails across managers) and U69 (previous-
+versions page) are not only ergonomics — they are the credibility surface. Add: signed releases with
+published checksums, one canonical install origin, an explicit statement of what the userscript can
+access and why, and a **visible release channel** (A6) so "which build am I on" is answerable from
+the UI.
+
+## U110. CORRECT THE GRAMMAR-REFERENCE RANKING IN U66/U67  [CONTENT]
+The community's ranked default has moved. **Yokubi (yoku.bi) is now first**, then Misa, then Cure
+Dolly, then **Tae Kim fourth** — and the sub's own starter's guide lists Yokubi and morg.systems'
+Japanese Primer *above* TheMoeWay. U67's **style** argument (plain, direct, example-first, no
+grammatical register) remains exactly right and is the valuable half; but citing Tae Kim as *the
+community default* is now wrong. Update U66's reference list too: the **JP Lazy Guide** and
+**donkuri's mining guide** have largely displaced animecards as the linked setup references, and the
+note type to name is **Lapis**, not JPMN. Add Yokubi, morg.systems, LearnNatively, Jo-Mako's
+spreadsheet, comprehensiblegames.com, cijapanese.com. noteliana's warning stands — present approaches
+neutrally, take no side.
+
+## U111. YOMU STUDY'S MARKET IS ANKI-REFUSERS, NOT JITEN-SWITCHERS  [POSITIONING]
+A7 frames Study against jiten, on jiten's terms, for a user who says she is "already so comfortable
+with jiten srs". The research surfaces a larger and more winnable audience: **people who bounce off
+Anki and are actively shamed for it.** "Can you recommend me an app to learn vocabulary (NOT Anki)"
+drew **77 comments of near-uniform hostility at 0 points**; a long anti-Anki post five days later
+drew 102 more of the same. That population exists, is sizeable, is underserved, and does not come
+back to ask twice.
+**Consequence: Study must not look like Anki.** Both goals — beat jiten on speed, serve people who
+refuse Anki — point the same way (fewer decisions, faster reviews, no scheduler exposed, see U90),
+but the second is the bigger prize and it changes what "done" means: not feature parity with a review
+app, but the thing someone reaches for *instead of quitting*.
+
+## REJECT LIST — the price of Migaku's density (decide once, hold)
+| # | Reject | Why |
+|---|---|---|
+| R1 | **Injecting the app into every page** — 20-module, **9.7 MB** static-import closure at `document_idle` + 1.7 MB CSS: Kotlin core, SQLite, player store, full Vue kit, i18n for 3 locales | Yomu fights a 2 MB Greasy Fork cap. Non-negotiable, and it is the root of their performance reputation. Heavy core in the worker/app; content script stays a thin renderer. |
+| R2 | **Bundling all language resources** — 1.0 GB installed; `core/es.json` alone **349 MB**; a Japanese-only learner carries the Spanish inflection tables | Yomu's companion-split / on-demand model is already better. Ship the parser, download the language. |
+| R3 | **A mandatory always-open app window** — a 1350×820 popup owning the DB and parser; *"The Migaku Extension Window needs to be open at all times"* is a shipped string, with a reopen button on every surface | The exact opposite of "it should just work out of the box"; a permanent taskbar tenant and a whole class of failure state. Use worker / offscreen document / side panel. |
+| R4 | **~61 hotkeys, many bare single letters** (`q e r c b g l x j w n . ,` on every page) | Collides with host sites, hazardous near inputs, needs a five-section help screen. Yomu already has the seed of this: `A` bound twice. Small default set in the Alt namespace (U108); everything else opt-in. |
+| R5 | **Requiring login before any value** — their paid signup is step 4 of 12 | Yomu is free and must be useful before an account exists. **The one sentence a paid competitor structurally cannot copy.** Don't give it away. |
+| R6 | **Two shipping channels + a legacy build**, needing `management.getAll` and a modal telling users to disable one | A6 has Yomu heading here (userscript-daily vs store-weekly). Make the channel visible in the UI *now*, before it becomes a conflict-detection feature. |
+| R7 | **Obfuscated filenames to evade site detection** — a web-accessible resource literally named `OBFUSCATED_NAME`, exposed only to nine video hosts | An arms race Yomu cannot win, should not start, and which makes user bug reports unreadable. Take U102's bridge without it. |
+| R8 | **Two SQLite engines** (`sql-wasm` 613 KB *and* `wa-sqlite` 558 KB) **and a 32 MB ffmpeg core** | Nobody chose that; it accreted. Pick one storage engine. Use MediaRecorder / WebCodecs before shipping a transcoder. |
+| R9 | **Settings that force a page reload** — five distinct apology toasts (`refresh.parsedLangChange`, `refresh.readingsPinyin`, …) | Five apologies is five bugs, same class as U1/U2/U3. Every setting applies live. |
+| R10 | **The 120-string, ~40-control video panel as a primary surface** | Take the presets (U103); leave the matrix behind "Custom". |
+| R11 | **Anki as a second-class, paid-only export** (free trial won't write Anki cards) | Yomu's own users run Anki *and* jiten *and* jpdb simultaneously. Copy their storage implementation (U107); reject the exclusion — it is the differentiator. |
+| R12 | **Per-session media-capture permission** | Right on privacy, wrong ergonomically — they built a toast, a tooltip, an icon state and a shortcut just to manage friction they created. Once-per-site, never once-per-session. |
+| R13 | **Ceremony around slow parsing** — "Parsing {{count}}% complete", "Analysis Complete", a hard "page exceeds the word limit" ceiling, a separate selection-length limit | An approach slow enough to need a progress bar is one to replace, not decorate. Parse latency is a budget (A5); a miss is a bug. |
+
+**From community fashion — decline these too.**
+- **Do not build a fifth SRS.** Ship the one Yomu has, tuned (U90), and reconcile with the others.
+  The market for "another flashcard app" is hostile; the market for "the thing that keeps my four
+  existing tools consistent" is empty.
+- **Do not take a side in the grammar wars.** Most divided topic in the sub; U66's editorial rule
+  already handles it — hold it even when a doctrine is winning.
+- **Do not chase per-site special cases.** The community celebrates single-site tools; Yomu's
+  standing directive (fix bug classes in core machinery) is correct and the sites will keep changing.
+- **Do not add AI because everyone else is.** Migaku ships Whisper subtitle generation, DeepL,
+  ChatGPT explanations, two TTS vendors and user-editable prompts — each a quota, a cost centre and a
+  failure mode. Yomu's edge audio and **real** Nadeshiko examples are better than generated ones and
+  users say so. Add AI only where there is no real source.
+- **Do not maximise annotation.** See U93.
+- **Do not build a native game client.** Even YomiNinja is called "mad clunky". The winning shape is
+  capture-anything (U92), not a client.
+
+## THE ONE-LINE POSITIONING
+> **Yomu turns any page, video, manga or game screen into a Japanese lesson — lookups, readings,
+> pitch and mining — and keeps your Anki, jpdb and jiten in step, on desktop and on your phone.
+> Free, no account, nothing to configure.**
+
+Every clause is defended: *"any page, video, manga or game screen"* ← coffeentacos, *"the amount of
+things this lets you do that you'd need multiple other things"*; *manga* named explicitly ← "genuinely
+unmatched for books" + the 399-pt thread whose author found nothing; *"keeps your Anki, jpdb and jiten
+in step"* ← the anti-walled-garden line (Migaku's real sin in users' eyes is **lock-in, not
+density**); *"on your phone"* ← U95; *"free, no account"* ← R5, structurally uncopyable by a paid
+competitor; *"nothing to configure"* ← the #1 complaint in every tool thread.
+**Where it fails the eye-roll test today:** a redditor would accept every clause **except "nothing to
+configure"** — install is a `.user.js` download that fails on Chrome and ScriptCat (U68), onboarding
+asks 12 questions (U80), settings open on 22 colour pickers. **That clause is a promise the product
+must earn.** U86, U80, U103 and U108 earn it. **Until then, ship the sentence without the last three
+words.** Store short form once earned: *Read Japanese anywhere. One tool instead of five. Free.*
+Deliberately omitted: "AI", "immersion" (exhausted), "Academy" (postponed), and any comparison to
+Migaku — naming a competitor in your own tagline concedes the frame.
+
+## UNRESOLVED — the owner should decide, both sides have evidence
+**Which words are marked AT REST.** Migaku marks *unknown* loudly and makes **known and ignored
+transparent**, so the page visibly cleans up as you learn — motivating, but on a beginner's page it
+is a sea of red. Yomu's own users asked for the opposite emphasis: sagamsil wants unadded words
+undecorated (jpdb's grey "is intrusive"), canna98 says white beats blue for new words.
+**Proposed resolution (not a finding):** keep new/unknown undecorated at rest per Yomu's users, and
+spend the loud treatment on **recommended (i+1) words only** — Migaku's two-level hierarchy
+(underline = status, filled chip with a frequency-star bar = "mine this one") repurposed. Note this
+must be reconciled with the standing rule in [[yomu-chrome-annotated-at-rest]].
+
+## HONEST GAPS IN THIS RESEARCH
+- **No live Migaku run.** Everything is static reading of the shipped 1.30.8 package. The visual
+  side-by-side B3 asks for still needs an install with a paid account.
+- **Migaku's domain blacklist** (the "don't run on banking/Docs/Discord" list, relevant to U7) was
+  not isolated — `isDomainBlacklisted` exists but the literal list is inside the Kotlin-compiled
+  bundle. Needs a live instrumented run. Same for their default for "Full Migaku Power" on an unseen
+  domain.
+- **Yomu's actual install → first-furigana time is still unmeasured** (U85). "≤5 minutes" remains an
+  aspiration and the positioning claim above is unverified until it is measured.
+- **Whether jiten's grading is genuinely 4-button** — asserted by noteliana, carried into U32/U64,
+  not independently confirmed.
+- **Hoshi Reader:** zero r/LearnJapanese mentions; **not community-validated**, but it *is*
+  user-validated (tk: "life changing", on his real device). Keep it on the reference list; do not
+  weight it as a community expectation.
+- **Theme rankings are qualitative** — ordering across ~30 searches and 22 full thread reads, not
+  counts. "Setup friction is #1" is a strong signal, not a statistic.
+- **Yomu was not audited against all 13 rejection items.**
+
+---
+
+# 2026-07-26 — EARLIER DISCORD LOG MINED (27/05 – 25/07/2026)
+
+Owner-supplied, older than the July research already captured as U1–U46, so **much of this has since
+shipped**. Triage below is marked **[SHIPPED?]** (code exists, needs a behaviour check),
+**[PARTIAL]** (exists but the complaint stands), **[OPEN]** (no evidence in tree).
+Spot-checks run against `src/` this session are noted inline; everything unmarked is a documentation
+claim, not a verification.
+
+**Store listings now have concrete targets (B4/U40):**
+Chrome `https://chromewebstore.google.com/detail/よむ/bbaickgfdgnecdnkcplaoiopnfghlkna` ·
+AMO `https://addons.mozilla.org/en-US/firefox/addon/yomu-reader/`. Note the Chrome listing name is
+literally **よむ**, which is exactly why "even searching yomu does not work on the chrome store"
+(henry, 25/07) — this is U14/U45/U88 with the URL attached.
+
+## D1. Fully local parsing — no jiten round-trip  [SHIPPED? → verify quality]
+"Fully local parsing (faster and won't need jiten)" (01/07); ivorytwelve asked for it 01/07.
+`src/reader/lookup/parser.ts` carries an offline path, and sagamsil later compared "the offline
+parser (JMdict)" against jiten and jpdb — so it EXISTS. What is open is A1: it is a third parser with
+its own grouping behaviour, and nobody has said which is authoritative. Fold into A1, not a new item.
+
+## D2. Bunpro usable as the mining backend, not just an enrichment source  [PARTIAL]
+"Bunpro should be able to use instead of jpdb or jiten" (29/06). `bunproDeck`/`bunproMining` exist in
+`settings/form.ts`, but Bunpro is wired as a *source* (freq/pitch/audio, per the standing rule), not
+as a card destination on equal footing with jiten/jpdb/Anki. Belongs to A2 and U64: if Bunpro is a
+destination, its grading scale governs the buttons.
+
+## D3. Docs: YomiNinja / Steam Deck / game reading need real step-by-step  [OPEN]
+26/06. vvvvtk offered to write the Steam Deck section himself ("um you can make steam deck
+section!"), and the owner agreed the existing page could be deleted:
+`yomureader.com/guides/read-games-with-yomininja`. vvvvtk also identified the mechanism — YomiNinja
+and Tango Lens both work through **decky.xyz** on Steam Deck, screenshotting and OCRing the game.
+Ties U41, U92. **vvvvtk volunteered to write this — take him up on it.**
+
+## D4. Yomitan → Yomu dictionary import, or stop double-storing  [OPEN]
+"Avoid duplicate dictionary storage or document Yomitan → Yomu dictionary import clearly" (26/06),
+from vvvvtk: "any way it can read these… instead of reinstalling them on yomu and I get 2x more
+storage used". This is U25 with the storage cost named. Migaku ships "most Yomichan dictionaries are
+also supported" — the import path is the expected convention, not a luxury.
+
+## D5. BookWalker/OCR vertical overlays: furigana completeness + less text covering  [PARTIAL]
+26/06, and canna98 21/06: "it would be good as the translation covers the bottom", with a concrete
+ask — "if u are checking the word on bottom the translation appears on top". A popover flip that
+avoids covering the text being read. Cycle 1 territory.
+
+## D6. Dark-mode word-highlight contrast, and a per-surface theme split  [OPEN — real design ask]
+"Dark mode word highlights need contrast fixes… you can choose to have the light mode for the ocr but
+dark mode for everything else in settings" (26/06). Two distinct things: (a) contrast, which is
+woozlez's "had to set a lot of the highlight colors to near black for ttsu dark mode" and is U108's
+`new: #ffffff` → transparent finding; (b) **an independent theme per surface** (OCR light, chrome
+dark) which is not in the backlog anywhere. canna98 also: "I use dark mode but have to switch it on
+basically every page" — theme not persisting, same class as U1/U2/U3.
+
+## D7. Pass/Fail buttons fill mobile width, centred  [OPEN]
+26/06. Small, concrete, mobile. `twoButtonReviews` exists so the mode is real; the layout ask isn't.
+
+## D8. Study: readings/furigana on the main card AND in example sentences  [SHIPPED — verified 2026-07-26]
+**RESOLVED.** `newtab/controller.ts:6944` renders the headword with
+`furiganaMode: revealAnswer ? 'all' : 'off'`, `showFurigana: revealAnswer` — ruby is FORCED on the
+answer side even for furigana-off users, and the prompt stays bare for recall. That is exactly the
+corrected ask ("i want the furigana to appear on the other side"), and the comment says it is
+codified in a card-front test suite. Immersion examples force `furiganaMode:'all'` the same way
+(`controller.ts:6252`). My earlier PARTIAL was a bad grep (`studyFurigana` is not the symbol name).
+Kept below for the history, because the sequence is instructive: the first fix put furigana on the
+PROMPT and made the card unstudyable, and the second moved it to the answer.
+Original triage follows.
+Reported FOUR times by three people: vvvvtk "study page has no way to know how to read the word"
+(26/06 08:17) and "no info on the reading" (26/06 00:13); canna98 "on study page there is no
+furigana" (26/06 08:20) and again "furigana on study page" (26/06 08:06); owner 26/06 00:15.
+Also 29/06 vvvvtk: "now we have furigana on the front… but its tuff to study when I already know the
+answer" — **so the fix overshot: furigana must be on the ANSWER side, not the prompt.** canna98 said
+it exactly: "so i want the furigana to appear on the other side". No `studyFurigana`/`studyShowReading`
+symbol found in `src/` this session. This is the single most-repeated complaint in the whole log and
+it feeds A7/U111 (why nobody uses Yomu Study).
+
+## D9. Appearance settings must survive an update  [OPEN]
+"Preserve Appearance settings after updating" (26/06) — vvvvtk: "it seems my colors got defaulted as
+I updated… hopefully not everytime". Settings loss on update is a trust bug, and it is why woozlez's
+careful dark-mode palette work is fragile. Related but distinct from bdlance's per-site settings bug.
+
+## D10. Explain word colours in-app + one-click disable/presets  [PARTIAL]
+26/06. canna98, live: "what the blue even means here" / "can i get rid off the blue". Owner's answer
+was to walk her through settings. The ask is a legend at the point of confusion plus presets — this
+is U38 (`(?)` icons), U78 (a description per row) and U103 (named presets) converging. **Note the
+colour-meaning confusion is the same root as U23 and the unresolved at-rest question above.**
+
+## D11. "Mining deck" and "add reviewed words automatically" must be legible per backend  [OPEN]
+26/06. The wording is shared across jiten and jpdb but the behaviour differs. Ties A2.
+
+## D12. Jiten setup needs a beginner flow  [OPEN]
+26/06: what an API key is, where to get it, paste + **test** it, then choose or create a deck.
+canna98, verbatim: "i have no idea whats api" / "i am the best tester bc i am dumb". The owner
+hand-held her through five messages. That transcript IS the onboarding spec. Ties U80, U104.
+
+## D13. Help must show current version, latest version, and how to update  [SHIPPED? → verify]
+26/06. `latestVersion`/`updateAvailable` present in `settings/dialog-controller.ts`. Owner promised
+"im gonna start putting version numbers in the help section just for you" (25/06). Verify it shows
+BOTH numbers and that the update path works on every manager — U68 says install is still unreliable.
+
+## D14. PDF drop area is off-centre; scanned books should use Yomu OCR, not the embedded text layer  [OPEN]
+25/06 23:54. Two things: cosmetic drop-zone centring, and a real one — **detect scanned PDFs and
+prefer our own OCR**, because the publisher's garbage text layer overlays and makes it unreadable.
+Detection is the interesting half.
+
+## D15. Anime site support + automatic anime/subtitle detection  [PARTIAL]
+25/06 23:43, with a site list the owner gathered: kaa.lt, miruro.to, anime.uniquestream.net,
+animeverse.to, reanime.to, anizone.to (plus wotaku.wiki as the index, and jimaku.cc for subs).
+Asks: fuzzy-match the title + page heuristics to identify the show, then fetch subs automatically.
+canna98's grievance is the manual step: "I just don't know how to make subs for other animes".
+**Standing directive applies — this must be generic detection, not six site profiles.**
+
+## D16. Yomu Video player bugs (four, reported with repro steps)  [OPEN — scoped 2026-07-26]
+**Scope note:** `docs/public/video-player/index.html` is only the host page — it delegates the
+subtitle drawer and overlay to the Yomu runtime's subtitle controller (see its own comments at
+lines 470, 591, 612 about drawer inset classes and "defensive reset for drawer transitions").
+So all four bugs live in `src/reader/subtitles/`, not in that file, and the drawer-inset root classes
+are the prime suspect for "subtitles vanish after hiding the sidebar". Needs a repro before a fix.
+Original report follows.
+All 25/06, from vvvvtk, who was using Yomu Video daily:
+- **Dark-mode toggle freezes the tab** — load video → load subs → hide the subtitle panel (progress
+  bar shrinks) → toggle dark mode → browser freezes. He reproduced it twice ("did it again").
+- **Subtitles vanish after hiding the sidebar** — the clean-viewing mode has no subtitles at all.
+  He was unsure they had ever worked: "I am not sure if they ever appeared".
+- **Dark-mode preference does not persist** across navigation/reload.
+- **"OCR video when paused" breaks playback** — the timeline jumps forward, the progress bar
+  misbehaves, and OCR renders above the subtitle overlay and the progress bar.
+He also said the player only worked "1 every 10 tries", and rebuilt his own single-file replacement
+(tk-anime.netlify.app) because of it. That replacement is worth reading — the owner said "maybe lets
+steal it" and vvvvtk agreed ("if u can make it good its 100% yours"). **His .ass parser fix is a real
+diagnosis: ASS files have TWO `Format:` lines and the parser was reading the [V4+ Styles] one instead
+of [Events]** — which is almost certainly U8 ("subtitle upload broken for .ass"). Check that first.
+
+## D17. Subtitle font selector + options as dropdowns near the player  [OPEN]
+25/06 23:31, and amine_75173 30/05 asked for popup font control too: "the bold font is hard to read
+for complex kanji", wanting jpdb's font. Two separate surfaces, same ask.
+
+## D18. Subtitles on FULLSCREEN video  [OPEN]
+25/06 23:27. Fullscreen is where immersion actually happens; this is not cosmetic.
+
+## D19. Drop anime + subs straight into the player  [OPEN]
+25/06 23:25. vvvvtk's own prompt to Claude was literally "I can just drop my anime and subs to watch"
+— he built it because Yomu didn't do it.
+
+## D20. Batch mining as a whole-episode/chapter pass  [PARTIAL → this is the spec]
+25/06 23:22, and noteliana 25/07 independently: "show you all the words you might need to batch mine
+before or after an episode and you can click whether to mine, not mine, or master it". **Note the
+three-way choice — mine / skip / already-know — which is richer than what U28 records.** Batch mining
+now exists but is slow (U13) and its buttons gave sagamsil no feedback (U35).
+
+## D21. edewakaru.com as a grammar-explanation model  [OPEN — content]
+Twice: owner 25/06 23:22 and noteliana 25/06 20:28, who added the caveat: "the only barrier is that
+its all in japanese, so an english based approach similar to it could be good". Add to U110's
+reference set alongside Yokubi. noteliana also named **JLab** (grammar deck using real examples) and
+japanese-like-a-breeze.com.
+
+## D22. Study audio mode  [SHIPPED? → verify]
+25/06 23:18, from noteliana, a listening-first learner. `audioMode`/`listenMode` symbols exist in
+`newtab/controller.ts`. Verify it is reachable and that it is a real mode rather than a toggle.
+
+## D23. Custom Yomitan pitch-accent dictionaries display immediately and completely  [OPEN]
+25/06 23:18. Owner was candid at the time: "I don't know if it will work fully yet though".
+
+## D24. Host and integrate the ultimate audio source  [SHIPPED]
+25/06 23:18; delivered — noteliana 25/07: "Yo this audio is fast as hell". Keep as evidence for
+positioning (edge-hosted real audio beats generated audio), not as work.
+
+## D25. Live transcription (Whisper)  [OPEN]
+25/06 23:18. The owner already built one before Yomu — "somehow it got popular, over 1000 people
+downloaded that and I never shared it" — and notes it needs a GPU or an Apple M chip, or a server.
+**Ties the ASR line in the batch-mining spec; also the one place the "don't add AI" rule (R-list)
+does not apply, because there is no real source when captions don't exist.**
+
+## D26. kotu.io as the reference for pitch-accent testing  [OPEN]
+25/06 23:17, from noteliana and "someone really knowledgable abt pitch" on TheMoeWay. Pairs with
+U108's finding that Yomu's pitch palette is already the kotu lineage.
+
+## D27. Grading for people without an account  [OPEN]
+25/06 23:07. canna98 was reviewing with no jiten account and nothing recorded. This is the free-tier
+path and it is R5 ("useful before an account exists") stated by a user a month earlier.
+
+## D28. Study-page audio broken by CORS after the proxies were removed  [SHIPPED? → verify]
+25/06 23:06. Regression-shaped; confirm the study surface plays audio today.
+
+## D29. Furigana distorts the YouTube layout / whitespace gaps where videos are hidden  [PARTIAL]
+25/06 23:03 ×2. The filter hides non-Japanese videos and leaves holes in the grid; furigana makes
+panes "look strange". Cycle 4 and the recycler work. canna98 also hit a hard freeze on the YT home
+feed ("Lagged / Froze / like I was not able to click anything").
+
+## D30. Black text with no highlight on Discord and on the Crunchyroll cookie consent  [PARTIAL]
+25/06 23:02, explicitly flagged **"(generic way)"** by the owner — matching the standing directive.
+canna98 reported Discord breakage repeatedly over three weeks: "yomu is now eating words on discord",
+"the spaces are getting bigger and bigger", her username rendering broken. Worth confirming closed;
+it was the longest-running host-site complaint in the log.
+
+## D31. Support yomuyomu and other reading apps  [OPEN]
+25/06 23:02. Owner, 25/06 22:17: "**I just realised yomu breaks yomuyomu**" — a name-adjacent
+graded-reader site that Yomu breaks. Also tadoku. Ties U88 (the name is crowded) and the
+"do not break the host" contract.
+
+## D32. Pitch-accent study mode as a flashcard queue  [OPEN]
+25/06 23:01, requested by noteliana who studies pitch seriously and rates Migaku's trainer "not good
+at all". A named gap in a competitor, in a domain where Yomu already has the data and the palette.
+
+## D33. Frequency pill on the popup by default  [SHIPPED? → verify default]
+25/06 23:00. vvvvtk: "im having to click on jiten to see" frequency. `frequencyPill`/`showFrequency`
+exist in `sources/word-pills.ts`; the owner said "Ill make that on by default in the future".
+**Verify the DEFAULT, not the capability.** Ties U91 (frequency banding) and U108 (`#18447` format).
+
+## D34. Pass/Fail (2-point) grading exposed in the Study settings tab  [SHIPPED? → verify placement]
+25/06 23:00 and vvvvtk 25/06 22:43. `twoButtonReviews` exists; the ask was about WHERE it lives —
+U83, settings live where their effect lives.
+
+## D35. Offline Study/SRS with later sync  [OPEN — strongly motivated]
+25/06 22:58. vvvvtk walks 20 extra minutes to a different gym to get signal for his reviews: "idk why
+my gym seems to be in a bunker". Owner proposed the right shape — an eventually-consistent queue.
+This is A3 with a user story attached, and it is also U107's storage schema.
+
+## D36. Native standalone app / whole-device reading  [OPEN — long-term, repeatedly requested]
+25/06 22:58 and throughout. Concrete sub-asks: an **iOS share-sheet/Shortcuts screen translator**
+modelled on Tap Translate (owner: "I know how they did it so can do the same"); **App Store listing**
+so users skip userscripts (blocked on the £100 Apple fee, which the owner said he'd pay); React
+Native for web/Android/iOS parity (25/07). vvvvtk: "if there was a magic way to work on the entire
+phone… it would be life changin". Ties U95, A6.
+
+## D37. PWA  [PARTIAL — verified 2026-07-26: it EXISTS for the video player]
+`docs/public/video-player/` already ships `manifest.webmanifest` AND `sw.js`. So the video player is
+installable; what is missing is a PWA for the Study/newtab surface, which is what vvvvtk actually
+wanted (offline reviews on a train). Rescope: not "add a PWA", but "extend the existing one to Study",
+which makes it the cheap front half of D35 (offline SRS) rather than new work.
+Original triage follows.
+25/06 22:50, vvvvtk; owner agreed it is the cheap version of D36 ("ok that is easy… pwa"). Nothing
+matching a webmanifest found in `src/` this session. **Lowest-cost step toward the mobile
+positioning in U95.**
+
+## D38. BookWalker second view mode  [PARTIAL]
+canna98 25/06 22:52, and the whole 17/06–25/06 arc: OCR worked only in single-page portrait, not
+double spreads; the owner said "Ill get the other mode working". Also from that arc, still worth
+confirming closed: **OCR from the previous page persisting after a page turn** (25/06 23:40, canna98
+also 25/06 21:55), and BookWalker's own reader setting that had to be changed before Yomu worked at
+all — canna98 found it herself and the owner's response was "**u have to mention it in manual**".
+That last one is a documentation bug that cost two full days of debugging.
+
+## D39. Keyboard word-to-word navigation over a text selection  [SHIPPED? → verify]
+amine_75173, 30/05: "select a piece of text and move from word to word using shortcuts instead of
+using the mouse to hover". `previousLookupWord`/`nextLookupWord` are bound (Shift+←/→). Verify it
+works over a selection, which is what was asked.
+
+## D40. Video player: leave subtitles alone, reveal analysis only on pause  [OPEN]
+amine_75173, 30/05: "the subtitles always by side is annoying unless you're deciphering everything" —
+watch normally, and when you pause, the side panel explains the current line. Owner agreed auto-hide
+is simple and was rightly sceptical of the AI-explanation half.
+**This is U93 (low-intervention mode) proposed by a user two months earlier, for video.**
+
+## WHAT THIS LOG CHANGES ABOUT THE EXISTING BACKLOG
+1. **D8 (Study readings) is the most-repeated complaint in the entire history** — four reports, three
+   people, plus a follow-up saying the first fix put furigana on the wrong side. A7/U111 should open
+   with it.
+2. **D16's .ass diagnosis is probably the fix for U8** — two `Format:` lines, wrong one parsed. That
+   is a free bug fix sitting in a user's Discord message.
+3. **vvvvtk volunteered to write the Steam Deck guide (D3) and offered "ANYTHING"**; canna98 called
+   herself the tester. There is unused contributor capacity here — U94 is about reaching strangers,
+   but these three are already inside.
+4. **The 50% rule and the "year to learn Japanese" doc** (25/07 16:23) are already captured as U65 —
+   but note the owner's framing is that it comes from **drawabox**, an art curriculum, not a language
+   one. Keep that provenance in U66; it is a genuinely good story.
+5. **Two independent users asked for low-intervention reading** (D40 amine 30/05, and the community
+   counter-current behind U93). That is no longer a single data point.
+
+---
+
+# 2026-07-26 — OWNER BRIEF (late): iOS, Academy vision, 32-language packs, disk
+
+## E1. iOS — "still to come", but record the target now  [OPEN]
+Not yet built; capture every stated expectation so the spec exists before the work does. From the
+logs: App Store listing so users skip userscripts entirely (blocked only on the £100 Apple fee, which
+the owner said he would pay); a **share-sheet / Shortcuts screen translator** modelled on Tap
+Translate, to read ANY app not just Safari; React Native so web/Android/iOS share one build;
+offline SRS on a train (D35); PWA as the cheap first step (D37 — already half-built for the video
+player). Known iOS defects that gate any launch: U4 Safari OOM ~every 5 min, copy/paste
+interference, the startup overlay appearing on every site, and settings saving per-site not globally.
+
+## E2. ACADEMY — a full vision recovery is required before any more building  [OPEN — large]
+**Not an as-is/to-be exercise.** The owner's ask is to reconstruct the vision IN FULL from history —
+all past and current **Codex sessions** and past **Claude sessions** where it was brainstormed — and
+then judge the existing work against it. Specifically required:
+- What was already built, and **where it strayed** from what was expected.
+- **The owner's disappointments, named.** Likely "AI slop" in the lessons rather than high-quality
+  teaching — audit lesson content for it the same way U54 audits product copy.
+- **Critical failures and downfalls**, not a feature list — including where it used its SOURCES badly.
+- **Use of space:** stop making learners scroll inside small scraps of paper. Persona-like confident
+  layout while keeping the theme. This is a UI failure, not a content one.
+- **Story must adapt per language** once Academy generalises.
+- **3D Tartarus-class experiences** — plural, "we should have more such experiences and a consistent
+  world" — with genuinely good graphics, explicitly NOT what is currently in the works.
+- **memoryOS principles were never integrated.** Research memoryOS properly and port its principles
+  across; the owner considers this a miss, not a nice-to-have.
+- **Review the ARCHITECTURE**, not just the content.
+- Output: the distinct Academy requirements enumerated, and an honest assessment of how far off we are.
+**Sequencing:** the owner also said "for now — fixing existing bugs and refreshing the website and
+extensions is more important." So this is a research/spec task to run alongside, not ahead of, U68/
+U48/U52 and the store-listing work.
+
+## E3. Academy source material, and generalising it to 32 languages  [OPEN]
+Japanese Academy is based on the **learning pack** (nyaa.si/view/1372367) plus **sensei's Moodle
+courses**, already saved to Documents. Every other target language needs an equivalently
+high-quality reference set, and those do not exist yet — finding them is a research task per language
+(the owner asked for researcher threads on this). **An external SSD is plugged in for the packs** —
+disk, not licensing, was the stated constraint. Licensing remains out of scope per the standing note.
+
+## E4. Disk: carefully trim Codex sessions — do NOT blindly delete  [OPEN]
+Most of the machine's disk is `~/.codex/sessions`. The owner's position has CHANGED from "never
+prune": a **careful trim** is now wanted, targeting duplicated sessions, ideally by compression
+rather than deletion, with real work preserved. Explicitly: search GitHub for an existing tool that
+does this rather than hand-rolling. An external HDD is available as an alternative to deleting.
+
+## U43 CORRECTION (owner, 2026-07-26)
+The proxy-coverage gaps are **less severe than recorded** — a proxy is not always needed, and
+**not proxying is better where possible**. Re-rank U43 down and reframe it as "avoid the proxy by
+default, use it only where an origin genuinely requires it" rather than "close the coverage gaps".
+
+## D-LIST AUDIT RESULT (2026-07-26, re-run against origin/main — supersedes the inline marks)
+**Method warning:** the first pass was greped against `apps/yomu-reader`, which is a SHARED tree
+pinned at v1.6.228 and ~200 versions behind. Any triage done there is worthless. Re-run on a clean
+`origin/main` worktree:
+
+- **D22 audio/listen mode — SHIPPED.** `listenMode` is a real mode (`newtab/controller.ts:598,2083`).
+- **D34 Pass/Fail scale — SHIPPED.** A `twoButtonReviews` select labelled "reviewRatingScale"
+  (`settings/form.ts:498`). Only the placement question (U83) is open.
+- **D39 keyboard word-to-word nav — SHIPPED.** Handled at `app/main.ts:3840`.
+- **D8 Study readings — SHIPPED** (`newtab/controller.ts:6944`), verified earlier.
+- **D13 version + latest version in Help — OPEN, NOT shipped.** `latestVersion` does not appear in
+  `settings/dialog-controller.ts` on origin/main; my earlier SHIPPED? mark came from the stale tree.
+  This is the "Help should show current Yomu version, latest version, and how to update" ask, and it
+  is also what U69 (previous-versions page) and U109 (visible release channel) hang off.
+- **D33 frequency pill by default — UNRESOLVED.** No `showFrequency`-style settings key exists, so
+  the pill is likely driven by installed dictionaries rather than a default. Needs a behaviour check,
+  not a grep.
+**Everything still marked [OPEN] in the D-list above has NOT been re-verified against origin/main.**
+Do that before working any of it.
+
+## D41. ACADEMY ACCOUNT SYNC IS MISFILED UNDER "BACKUP & SYNC"  [OPEN — owner 2026-07-26]
+Owner: "the ux is strange here putting it in the export". The screenshot shows ACADEMY ACCOUNT SYNC
+nested inside the **Backup & sync** section, whose own description is "export and import settings as
+plain JSON, back up dictionaries, or sync through Google Drive" — and it sits directly above the
+Import/Export settings JSON and Import/Export dictionaries button grid.
+Signing in to an account is not a backup operation. The word "sync" is doing double duty for two
+unrelated things (file backup vs account pairing) and that collision is what makes the panel read
+as incoherent. **Account/sign-in belongs in its own section**, not inside export tooling.
+Ties U49 (journeys), U82 (nav/IA), U83 (settings live where their effect lives), U103 (presets).
+Also in the same screenshot and already in flight (workflow): the "Manage account & pairing code"
+CTA is ~590x210px with an unconstrained ~80px black link glyph, while its siblings (Connect,
+Import/Export) are correctly sized — an element that opted out of the shared button contract.
+
+## D42. SEO: WE DON'T KNOW WHAT USERS SEARCH FOR — do query research before optimising  [OPEN — owner 2026-07-26]
+Owner: "its maybe not even clear what users are searching for". This reframes U88 and the whole SEO
+effort and should be settled BEFORE any on-page work.
+**The brand term is the wrong target.** Nobody searches "yomu reader" unless they already know it,
+and that query is contested by five namesakes (U88). The reachable audience searches the PROBLEM:
+"yomitan for manga", "read japanese on ipad", "mine anki from netflix", "furigana chrome extension",
+"OCR manga dictionary", "yomitan mobile", "yomitan alternative iphone". Those have no brand
+collision, and r/LearnJapanese shows them asked repeatedly with poor answers — several are questions
+Yomu already answers better than anything else (BookWalker OCR, Firefox Android, YouTube filter).
+**Method:** derive the query list from the community research already in this file (the recurring
+"how do I…" questions in the r/LearnJapanese section are literally search queries in disguise), then
+map each to a page that answers it. That is also the docs rewrite (B2) — "what do we really need on
+the homepage" is answered by "the questions people actually type".
+Ties U88 (naming), U94 (community channels), B2 (stale docs), B4 (store listings).
+Note the store search problem is the same shape: the Chrome listing is named よむ, so it cannot be
+found by any Latin-script query at all.
+
+## ONBOARDING DIRECTION — OWNER DECISION 2026-07-26: TRY-FIRST WINS
+Three onboarding designs were put to a judge panel (workflow wxaeknmvm): zero-question,
+three-question, and **try-first**. **The owner has chosen TRY-FIRST.** This decision OVERRIDES the
+judge panel's verdict — if the panel picked differently, graft its best ideas INTO try-first rather
+than re-litigating the choice.
+
+**Try-first means:** the first thing a new user sees is Yomu working on real Japanese text — hover a
+word, get the reading, meaning, pitch, audio — with **zero configuration and no account**. Setup is
+offered only AFTER value has been demonstrated, and is skippable forever. Everything not needed for
+that first lookup is inferred or deferred to the moment it actually matters.
+
+**Why it fits the evidence:** setup friction is the #1 complaint about every tool in this category,
+ahead of every missing feature; the community's own words on a rival tool were "can we get a demo
+video/gif of it? dont want to set up all of that just to check it out"; and a paid competitor's
+entire one-line pitch is "costs money, zero setup". Yomu is free and needs no account, which is the
+one thing that competitor structurally cannot copy — try-first is how that advantage gets used
+instead of buried behind 12 questions.
+
+**Consequences to hold when implementing:**
+- This subsumes U86 (zero-setup evaluation path) — the demo is not a separate marketing page, it is
+  the first run itself.
+- U80 (ask at most 3 things) becomes "ask ZERO up front"; the ≤3 becomes the ceiling for what may
+  be asked later, in context.
+- U81 (end on real content) is satisfied by construction.
+- The 22-colour appearance tab (`settings/form.ts:231`) must not be anywhere near first run.
+- Must not hardcode Japanese — the demo text is per target language (33 targets in flight).
+- Existing users must NOT be re-onboarded on upgrade.
+- The ≤5-minute claim (U85) should become a much smaller number and be measured in CI: clean
+  profile → first furigana rendered, no account, no API key, no dictionary picker.
+
+## D43. FULL UI LOCALISATION FOR EVERY TARGET LANGUAGE  [OPEN — owner 2026-07-26]
+Owner: "full localisations to every language is needed - currently it just toggles between en and jp".
+Today `interfaceLanguage` is a two-way en/ja switch (`app/i18n.ts` holds one English map and one
+Japanese map). The ask is a real interface locale per supported language, not a toggle.
+
+**Do not confuse this with U105's three tiers — but note the owner has now decided the interface
+tier explicitly.** U105 recorded that Migaku ships only 3 interface languages (en/ja/es) and argued
+Korean users want Korean *definitions*, not a Korean UI. The owner is overriding that scoping: he
+wants full UI localisation as well. Both are now in scope — output-language rendering AND interface
+localisation. Do not quietly drop one for the other.
+
+**What makes this expensive, and must be planned before starting:**
+- `app/i18n.ts` is a hand-maintained flat map. There is already a CI test asserting the Japanese map
+  covers the latest CHANGELOG bullets verbatim, and another asserting hosted docs copy is covered —
+  so every new locale multiplies a maintenance surface that is ALREADY a release-gate tripwire
+  (see [[yomu-changelog-ja-docs-test]]).
+- The docs site has its own separate ja map in `docs/.vitepress/theme/index.ts`. Two parallel
+  translation systems exist; unify or explicitly decide not to before adding 30 more locales.
+- Machine translation is the only realistic first pass at this volume, but the copy-voice rules
+  apply (short, positive framing) and MT will not honour them — needs a review pass per locale.
+- Locale ≠ target language: a learner studying Japanese may want a Korean interface. The two axes
+  must stay independent (this is exactly U105's point, still valid).
+- RTL: Arabic and Farsi are in the 33-language roster. Full localisation implies RTL layout support,
+  which the reader overlay and popover geometry have never been tested against. Scope it explicitly
+  or exclude it deliberately — do not discover it late.
+- Plural rules, date/number formats, and font stacks per script.
+
+**Sequencing:** this is a large piece of the multilanguage rewrite gated on 1.9.0, not a patch item.
+Ties U15 (Korean definitions), U79 (CSS gating by data-language), U105 (three-tier model).
+
+## D44. RECONCILIATION EDGE CASES — the hard part of multi-backend Study  [OPEN — owner 2026-07-26]
+Owner: "think of edge cases like how to handle anki conflicts etc". This is the risk that sinks A2
+(never make the user choose a backend) if it is not designed up front. Migaku avoided it by
+EXCLUSION — own the SRS, treat Anki as a paid export. Yomu's stated goal is reconciliation across N
+simultaneous sources, which is strictly harder and is the actual differentiator. Design it, don't
+discover it.
+
+**Enumerate and decide each of these BEFORE Study sync ships:**
+- **Same word graded in two places.** Reviewed in Anki on the laptop and in Yomu on the phone, both
+  offline, both since last sync. Which wins? Last-write-wins loses real work; "most advanced
+  interval" punishes a legitimate lapse. Needs a stated rule the user can predict.
+- **Scale mismatch on merge.** A card graded 5-point in jpdb and 4-point in jiten — U64 says the
+  scale follows the destination, so a synced review must be TRANSLATED between scales. State the
+  mapping, and note it is lossy in one direction.
+- **Card exists in one backend only.** Mined to Anki but absent from jiten. Do we create it, ignore
+  it, or surface it? bdlance's due count went 200/day -> 1600 because Yomu inserted reviews into
+  jiten — silent creation is a known harm.
+- **Deletion vs never-existed.** Requires tombstones; without them a delete on one device is undone
+  by the next sync from another. (U107: every synced row carries mod/serverMod/del/serverVersion.)
+- **Anki is simply not running.** AnkiConnect is localhost-only and frequently absent. Queue and
+  retry, or fail loudly? Must never block a review.
+- **Anki edited by hand.** Users reorganise decks, suspend, and bulk-edit outside Yomu. Yomu must
+  not clobber that, and must tolerate a card whose note type or fields changed underneath it.
+- **Duplicate detection across backends.** Same word, different note types/readings/POS — this is
+  exactly why U97's 4-tuple identity (dictForm, secondary, POS, language) matters. Without it,
+  reconciliation has no stable key.
+- **Suspended / buried / leech states** have no common vocabulary across Anki, jpdb and jiten.
+  Decide what maps and what is dropped, and say so in the UI.
+- **Clock skew and timezones** across devices; "due today" is timezone-dependent.
+- **Partial sync failure** mid-batch: must be resumable, never half-applied.
+
+**Non-negotiable UX rule:** when a conflict cannot be resolved automatically, show the user the two
+sides with enough information to choose (U107's Cloud vs This Device pattern: last updated, words
+known, reviews due) and state plainly what each choice destroys. Silent resolution of a real
+conflict is how people lose review history and stop trusting the tool.
+Ties A2, A3, U44, U97, U107, U71. Feeds the Study rebuild in release-worktrees/study-cross-platform.
+
+## S0. DOCS REWRITE + YOMU GAMING REMOTION + PERSONA STYLE REFERENCE  [OPEN — owner 2026-07-26]
+
+### Every docs page gets rewritten — precisely and deliberately
+Not edited, rewritten. The triage workflow (wgjgr9h9j) rules KEEP/CUT/MERGE/REWRITE per page; the
+survivors are then written from scratch against one test: **after reading this, does the reader know
+what Yomu is and what to do next?** Users currently finish the docs "still not knowing what yomu is
+or if it should be kept around" — that is the failure being fixed, not staleness.
+Rules that bind every page: short; state what Yomu DOES, never what it never does
+(see [[yomu-copy-voice-rules]]); no Japanese-only assumptions (33 targets in flight); Academy is
+"coming soon"; one primary CTA.
+
+### Yomu Gaming needs a FULL REMOTION VIDEO
+Owner: "For things like yomu gaming - I expect a full remotion". **Remotion** (React-based
+programmatic video, remotion.dev) — a produced demo video, not a static screenshot page. It should
+be built from REAL Japanese game screenshots showing the OCR → lookup → mine loop on game text.
+Why this matters commercially: every high-scoring tool post on r/LearnJapanese in the last year led
+with a GIF or clip (web-manga-ocr 399 pts, SubMiner 488 pts) — see U87, which asks for a 30-second
+clip as the PRIMARY artefact for store listings and community posts. A Remotion pipeline makes that
+repeatable per feature rather than a one-off screen recording.
+Ties U41 (gaming build), U87 (demo clip), B4 (store listings), S-series (docs).
+
+### Persona 5 Royal screenshots — dual-purpose reference
+Owner supplied P5R screenshots (Leblanc attic/booth scene with the party; Kasumi at a summer
+festival stall). Save to `references/style-persona/`. They serve TWO purposes:
+1. **Japanese game screenshots** for the Yomu Gaming docs and the Remotion video — real in-game
+   Japanese text (dialogue boxes, speaker name plates, UI chrome like 早送り / オート / ログ) is
+   exactly the content the gaming OCR path must handle, and exactly what a demo should show.
+2. **THE ACADEMY STYLE REFERENCE.** This is the concrete answer to E2's "Persona-like use of space"
+   complaint. What to actually take from these frames:
+   - **Confident full-bleed composition.** The scene owns the whole screen; UI sits ON it, not in a
+     scrolling box. This is the direct fix for "scrolling inside small scraps of paper".
+   - **Angled, energetic framing** — nothing is axis-aligned; the date/time chip (5/21 SATURDAY 土 /
+     放課後) is a rotated stamp, not a header bar.
+   - **Speaker portrait bleeding off the bottom-left corner**, oversized, breaking its own frame.
+   - **Jagged speech-bubble geometry with a hard black keyline**, name plate in its own tab.
+   - **A tiny, calm, corner-anchored control legend** (OPTIONS 早送り / オート / L3 ログ) — dense
+     information without clutter; the opposite of Yomu's current settings surface.
+   - **Saturated, limited palette** (red/black/white) applied with total conviction.
+   Note the diegetic Japanese in-scene (両替, 乳生クリーム posters) — Academy should place learnable
+   text IN the world, not only in lesson panels.
+Ties E2 (Academy vision recovery), U41, U87.
