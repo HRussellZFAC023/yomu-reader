@@ -1,0 +1,101 @@
+{
+  "promotions": [
+    {
+      "castId": "alex",
+      "archiveLabel": "identity-and-style-superseded-20260727",
+      "replaceExpressions": [
+        "neutral",
+        "encouraging-listening",
+        "happy",
+        "thoughtful",
+        "determined",
+        "surprised-shocked",
+        "sad-vulnerable"
+      ],
+      "canonicalNeutralAssetId": "character.alex.neutral-short-brown-understated-front-near-front-fullbody-v002",
+      "slots": [
+        {
+          "assetId": "character.alex.neutral-short-brown-understated-front-near-front-fullbody-v002",
+          "expression": "neutral",
+          "angle": "front-near-front",
+          "assetPath": "/academy/art/characters/alex/alex__neutral-short-brown-understated__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:alex",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "story:cast:alex",
+            "cast-standardization:alex"
+          ]
+        },
+        {
+          "assetId": "character.alex.encouraging-listening-short-brown-understated-right-three-quarter-fullbody-v002",
+          "expression": "encouraging-listening",
+          "angle": "right-three-quarter",
+          "assetPath": "/academy/art/characters/alex/alex__encouraging-listening-short-brown-understated__right-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:alex-expression-gallery",
+            "story:cast:alex:encouraging-listening",
+            "cast-standardization:alex"
+          ]
+        },
+        {
+          "assetId": "character.alex.happy-short-brown-understated-front-near-front-fullbody-v002",
+          "expression": "happy",
+          "angle": "front-near-front",
+          "assetPath": "/academy/art/characters/alex/alex__happy-short-brown-understated__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:alex-expression-gallery",
+            "story:cast:alex:happy",
+            "cast-standardization:alex"
+          ]
+        },
+        {
+          "assetId": "character.alex.thoughtful-short-brown-understated-left-three-quarter-fullbody-v002",
+          "expression": "thoughtful",
+          "angle": "left-three-quarter",
+          "assetPath": "/academy/art/characters/alex/alex__thoughtful-short-brown-understated__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:alex-expression-gallery",
+            "story:cast:alex:thoughtful",
+            "cast-standardization:alex"
+          ]
+        },
+        {
+          "assetId": "character.alex.determined-short-brown-understated-front-near-front-fullbody-v002",
+          "expression": "determined",
+          "angle": "front-near-front",
+          "assetPath": "/academy/art/characters/alex/alex__determined-short-brown-understated__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:alex-expression-gallery",
+            "story:cast:alex:determined",
+            "cast-standardization:alex"
+          ]
+        },
+        {
+          "assetId": "character.alex.surprised-shocked-short-brown-understated-right-three-quarter-fullbody-v002",
+          "expression": "surprised-shocked",
+          "angle": "right-three-quarter",
+          "assetPath": "/academy/art/characters/alex/alex__surprised-shocked-short-brown-understated__right-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:alex-expression-gallery",
+            "story:cast:alex:surprised-shocked",
+            "cast-standardization:alex"
+          ]
+        },
+        {
+          "assetId": "character.alex.sad-vulnerable-short-brown-understated-left-three-quarter-fullbody-v002",
+          "expression": "sad-vulnerable",
+          "angle": "left-three-quarter",
+          "assetPath": "/academy/art/characters/alex/alex__sad-vulnerable-short-brown-understated__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:alex-expression-gallery",
+            "story:cast:alex:sad-vulnerable",
+            "cast-standardization:alex"
+          ]
+        }
+      ]
+    }
+  ]
+}

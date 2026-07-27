@@ -19,20 +19,20 @@
     "deletion": "This audit never deletes, moves, or mutates Academy raster files."
   },
   "counts": {
-    "currentRasterFiles": 301,
-    "currentRasterFilesAccountedFor": 301,
-    "active": 248,
+    "currentRasterFiles": 305,
+    "currentRasterFilesAccountedFor": 305,
+    "active": 252,
     "orphaned": 53,
     "deprecated": 10,
     "deprecatedPresent": 0,
-    "missingExpressionVariants": 553,
+    "missingExpressionVariants": 546,
     "expressionMatrixSlots": 630,
-    "approvedExpressionVariants": 61,
+    "approvedExpressionVariants": 68,
     "reviewCandidateExpressionVariants": 16,
-    "deliveredMatrixExpressionVariants": 77,
-    "offMatrixDeliveredSprites": 45,
+    "deliveredMatrixExpressionVariants": 84,
+    "offMatrixDeliveredSprites": 43,
     "activeByKind": {
-      "character-sprite": 120,
+      "character-sprite": 124,
       "protagonist-portrait": 4,
       "scene-background": 68,
       "scene-event": 48,
@@ -291,71 +291,6 @@
         "runtimeHomes": [
           "journal:aakash-expression-gallery",
           "cast-standardization:aakash"
-        ],
-        "reviewHomes": [
-          "cast-standardization-manifest",
-          "learner-journal-preview"
-        ],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "review-candidate/runtime-preview",
-        "ledgerStatus": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-      },
-      {
-        "id": "character-alex-standardized-determined-left-three-quarter-halfbody-v001",
-        "path": "/academy/art/characters/alex/alex__standardized-determined__left-three-quarter__halfbody__v001.png",
-        "sha256": "ba2595a6f9f75a5781359ba25b40d6d55a1c31efb9bdf39bc9efb3032105b29a",
-        "ledgerSha256": "ba2595a6f9f75a5781359ba25b40d6d55a1c31efb9bdf39bc9efb3032105b29a",
-        "kind": "character-sprite",
-        "state": "active",
-        "present": true,
-        "runtimeAuthorized": true,
-        "runtimeHomes": [
-          "journal:alex-expression-gallery",
-          "cast-standardization:alex"
-        ],
-        "reviewHomes": [
-          "cast-standardization-manifest",
-          "learner-journal-preview"
-        ],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "review-candidate/runtime-preview",
-        "ledgerStatus": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-      },
-      {
-        "id": "character-alex-standardized-encouraging-listening-front-near-front-halfbody-v001",
-        "path": "/academy/art/characters/alex/alex__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
-        "sha256": "a90c78583f278d8d93f56fb7af24905d006b6f8b7590bae12f250c34909ba3eb",
-        "ledgerSha256": "a90c78583f278d8d93f56fb7af24905d006b6f8b7590bae12f250c34909ba3eb",
-        "kind": "character-sprite",
-        "state": "active",
-        "present": true,
-        "runtimeAuthorized": true,
-        "runtimeHomes": [
-          "journal:alex-expression-gallery",
-          "cast-standardization:alex"
-        ],
-        "reviewHomes": [
-          "cast-standardization-manifest",
-          "learner-journal-preview"
-        ],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "review-candidate/runtime-preview",
-        "ledgerStatus": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-      },
-      {
-        "id": "character-alex-standardized-neutral-front-near-front-halfbody-v001",
-        "path": "/academy/art/characters/alex/alex__standardized-neutral__front-near-front__halfbody__v001.png",
-        "sha256": "9a2c1f3438bf0ec27acce9a73d0227a4de6f89739add10c9f668014873225497",
-        "ledgerSha256": "9a2c1f3438bf0ec27acce9a73d0227a4de6f89739add10c9f668014873225497",
-        "kind": "character-sprite",
-        "state": "active",
-        "present": true,
-        "runtimeAuthorized": true,
-        "runtimeHomes": [
-          "journal:alex",
-          "class:people-review",
-          "lesson-overview:roster-review",
-          "cast-standardization:alex"
         ],
         "reviewHomes": [
           "cast-standardization-manifest",
@@ -1759,6 +1694,164 @@
           "journal:ruparna-expression-gallery",
           "story:cast:ruparna:note-route",
           "cast-standardization:ruparna"
+        ],
+        "reviewHomes": [
+          "cast-standardization-manifest",
+          "identity-lock"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
+      },
+      {
+        "id": "character-sam-determined-close-cropped-chestnut-front-near-front-fullbody-v002",
+        "path": "/academy/art/characters/sam/sam__determined-close-cropped-chestnut__front-near-front__fullbody__v002.png",
+        "sha256": "4a67932bda3f9fbd38ee88f63949b90f7234da531bf0d8a920b5271d829dbbc0",
+        "ledgerSha256": "4a67932bda3f9fbd38ee88f63949b90f7234da531bf0d8a920b5271d829dbbc0",
+        "kind": "character-sprite",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "journal:sam-expression-gallery",
+          "story:cast:sam:determined",
+          "cast-standardization:sam"
+        ],
+        "reviewHomes": [
+          "cast-standardization-manifest",
+          "identity-lock"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
+      },
+      {
+        "id": "character-sam-encouraging-listening-close-cropped-chestnut-right-three-quarter-fullbody-v002",
+        "path": "/academy/art/characters/sam/sam__encouraging-listening-close-cropped-chestnut__right-three-quarter__fullbody__v002.png",
+        "sha256": "da2e0ee7f1105b9136402455f59db0e36b966bd273e559de85d4c6831536b1c1",
+        "ledgerSha256": "da2e0ee7f1105b9136402455f59db0e36b966bd273e559de85d4c6831536b1c1",
+        "kind": "character-sprite",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "journal:sam-expression-gallery",
+          "story:cast:sam:encouraging-listening",
+          "cast-standardization:sam"
+        ],
+        "reviewHomes": [
+          "cast-standardization-manifest",
+          "identity-lock"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
+      },
+      {
+        "id": "character-sam-happy-close-cropped-chestnut-front-near-front-fullbody-v002",
+        "path": "/academy/art/characters/sam/sam__happy-close-cropped-chestnut__front-near-front__fullbody__v002.png",
+        "sha256": "34f43bbcca9ee5b59f80a48c14716399be1e9232ab60b816163b4c767270a478",
+        "ledgerSha256": "34f43bbcca9ee5b59f80a48c14716399be1e9232ab60b816163b4c767270a478",
+        "kind": "character-sprite",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "journal:sam-expression-gallery",
+          "story:cast:sam:happy",
+          "cast-standardization:sam"
+        ],
+        "reviewHomes": [
+          "cast-standardization-manifest",
+          "identity-lock"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
+      },
+      {
+        "id": "character-sam-neutral-close-cropped-chestnut-front-near-front-fullbody-v002",
+        "path": "/academy/art/characters/sam/sam__neutral-close-cropped-chestnut__front-near-front__fullbody__v002.png",
+        "sha256": "96d77c4db082f704a58f7a99c361ab58aae0539159d9d84e675faf3f2280cdf8",
+        "ledgerSha256": "96d77c4db082f704a58f7a99c361ab58aae0539159d9d84e675faf3f2280cdf8",
+        "kind": "character-sprite",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "journal:sam",
+          "class:people",
+          "class:week-cast",
+          "lesson-overview:roster",
+          "world:person",
+          "story:cast:sam",
+          "cast-standardization:sam"
+        ],
+        "reviewHomes": [
+          "cast-standardization-manifest",
+          "identity-lock"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
+      },
+      {
+        "id": "character-sam-sad-vulnerable-close-cropped-chestnut-left-three-quarter-fullbody-v002",
+        "path": "/academy/art/characters/sam/sam__sad-vulnerable-close-cropped-chestnut__left-three-quarter__fullbody__v002.png",
+        "sha256": "17bf60adf9f78c1bc84123c8338736202820fc61d21c3128afa69c737823d8ef",
+        "ledgerSha256": "17bf60adf9f78c1bc84123c8338736202820fc61d21c3128afa69c737823d8ef",
+        "kind": "character-sprite",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "journal:sam-expression-gallery",
+          "story:cast:sam:sad-vulnerable",
+          "cast-standardization:sam"
+        ],
+        "reviewHomes": [
+          "cast-standardization-manifest",
+          "identity-lock"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
+      },
+      {
+        "id": "character-sam-surprised-shocked-close-cropped-chestnut-right-three-quarter-fullbody-v002",
+        "path": "/academy/art/characters/sam/sam__surprised-shocked-close-cropped-chestnut__right-three-quarter__fullbody__v002.png",
+        "sha256": "7d9077aa74eb54c6713d648d0e2cef0256c4930a4349a22de097d201b7e904b9",
+        "ledgerSha256": "7d9077aa74eb54c6713d648d0e2cef0256c4930a4349a22de097d201b7e904b9",
+        "kind": "character-sprite",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "journal:sam-expression-gallery",
+          "story:cast:sam:surprised-shocked",
+          "cast-standardization:sam"
+        ],
+        "reviewHomes": [
+          "cast-standardization-manifest",
+          "identity-lock"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
+      },
+      {
+        "id": "character-sam-thoughtful-close-cropped-chestnut-left-three-quarter-fullbody-v002",
+        "path": "/academy/art/characters/sam/sam__thoughtful-close-cropped-chestnut__left-three-quarter__fullbody__v002.png",
+        "sha256": "1dd51166ba3ca4c051caaf838b2b19f1a289ffdc52b4f50532ae0c4134c93532",
+        "ledgerSha256": "1dd51166ba3ca4c051caaf838b2b19f1a289ffdc52b4f50532ae0c4134c93532",
+        "kind": "character-sprite",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "journal:sam-expression-gallery",
+          "story:cast:sam:thoughtful",
+          "cast-standardization:sam"
         ],
         "reviewHomes": [
           "cast-standardization-manifest",
@@ -6128,7 +6221,7 @@
         "character": "alex",
         "path": "/academy/art/characters/alex/alex__standardized-determined__left-three-quarter__halfbody__v001.png",
         "sha256": "ba2595a6f9f75a5781359ba25b40d6d55a1c31efb9bdf39bc9efb3032105b29a",
-        "currentState": "active",
+        "currentState": "unaccounted",
         "coverageStatus": "off-matrix",
         "migrationStatus": "retained-off-matrix-review-evidence",
         "countsTowardExpressionMatrix": false
@@ -6137,7 +6230,7 @@
         "character": "alex",
         "path": "/academy/art/characters/alex/alex__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
         "sha256": "a90c78583f278d8d93f56fb7af24905d006b6f8b7590bae12f250c34909ba3eb",
-        "currentState": "active",
+        "currentState": "unaccounted",
         "coverageStatus": "off-matrix",
         "migrationStatus": "retained-off-matrix-review-evidence",
         "countsTowardExpressionMatrix": false
@@ -6146,7 +6239,7 @@
         "character": "alex",
         "path": "/academy/art/characters/alex/alex__standardized-neutral__front-near-front__halfbody__v001.png",
         "sha256": "9a2c1f3438bf0ec27acce9a73d0227a4de6f89739add10c9f668014873225497",
-        "currentState": "active",
+        "currentState": "unaccounted",
         "coverageStatus": "off-matrix",
         "migrationStatus": "retained-off-matrix-review-evidence",
         "countsTowardExpressionMatrix": false
@@ -6345,24 +6438,6 @@
         "path": "/academy/art/characters/ruparna/ruparna__note-route__right-three-quarter__halfbody__v002.png",
         "sha256": "f221ee5008c9d2746eb2f1d6cae831556eaed83f3abac52a001aba5a46e82089",
         "currentState": "active",
-        "coverageStatus": "off-matrix",
-        "migrationStatus": "approved-and-registered",
-        "countsTowardExpressionMatrix": false
-      },
-      {
-        "character": "sam",
-        "path": "/academy/art/characters/sam/sam__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
-        "sha256": "a14668bdf003c966e6000e3c7e2d7d08c8e8ba42acc5e1188786302bb34a681e",
-        "currentState": "unaccounted",
-        "coverageStatus": "off-matrix",
-        "migrationStatus": "approved-and-registered",
-        "countsTowardExpressionMatrix": false
-      },
-      {
-        "character": "sam",
-        "path": "/academy/art/characters/sam/sam__standardized-neutral__front-near-front__halfbody__v001.png",
-        "sha256": "1df805d1f39c0f0c019af8ec308998995e15c532f177025601ab837a21987597",
-        "currentState": "unaccounted",
         "coverageStatus": "off-matrix",
         "migrationStatus": "approved-and-registered",
         "countsTowardExpressionMatrix": false
@@ -9639,35 +9714,8 @@
       {
         "character": "sam",
         "angle": "front-near-front",
-        "expression": "determined",
-        "plannedPath": "/academy/art/characters/sam/sam__determined__front-near-front__halfbody__v001.png",
-        "state": "missing-expression-variant",
-        "present": false,
-        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
-      },
-      {
-        "character": "sam",
-        "angle": "front-near-front",
         "expression": "encouraging-listening",
         "plannedPath": "/academy/art/characters/sam/sam__encouraging-listening__front-near-front__halfbody__v001.png",
-        "state": "missing-expression-variant",
-        "present": false,
-        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
-      },
-      {
-        "character": "sam",
-        "angle": "front-near-front",
-        "expression": "happy",
-        "plannedPath": "/academy/art/characters/sam/sam__happy__front-near-front__halfbody__v001.png",
-        "state": "missing-expression-variant",
-        "present": false,
-        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
-      },
-      {
-        "character": "sam",
-        "angle": "front-near-front",
-        "expression": "neutral",
-        "plannedPath": "/academy/art/characters/sam/sam__neutral__front-near-front__halfbody__v001.png",
         "state": "missing-expression-variant",
         "present": false,
         "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
@@ -9738,26 +9786,8 @@
       {
         "character": "sam",
         "angle": "left-three-quarter",
-        "expression": "sad-vulnerable",
-        "plannedPath": "/academy/art/characters/sam/sam__sad-vulnerable__left-three-quarter__halfbody__v001.png",
-        "state": "missing-expression-variant",
-        "present": false,
-        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
-      },
-      {
-        "character": "sam",
-        "angle": "left-three-quarter",
         "expression": "surprised-shocked",
         "plannedPath": "/academy/art/characters/sam/sam__surprised-shocked__left-three-quarter__halfbody__v001.png",
-        "state": "missing-expression-variant",
-        "present": false,
-        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
-      },
-      {
-        "character": "sam",
-        "angle": "left-three-quarter",
-        "expression": "thoughtful",
-        "plannedPath": "/academy/art/characters/sam/sam__thoughtful__left-three-quarter__halfbody__v001.png",
         "state": "missing-expression-variant",
         "present": false,
         "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
@@ -9767,15 +9797,6 @@
         "angle": "right-three-quarter",
         "expression": "determined",
         "plannedPath": "/academy/art/characters/sam/sam__determined__right-three-quarter__halfbody__v001.png",
-        "state": "missing-expression-variant",
-        "present": false,
-        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
-      },
-      {
-        "character": "sam",
-        "angle": "right-three-quarter",
-        "expression": "encouraging-listening",
-        "plannedPath": "/academy/art/characters/sam/sam__encouraging-listening__right-three-quarter__halfbody__v001.png",
         "state": "missing-expression-variant",
         "present": false,
         "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
@@ -9803,15 +9824,6 @@
         "angle": "right-three-quarter",
         "expression": "sad-vulnerable",
         "plannedPath": "/academy/art/characters/sam/sam__sad-vulnerable__right-three-quarter__halfbody__v001.png",
-        "state": "missing-expression-variant",
-        "present": false,
-        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
-      },
-      {
-        "character": "sam",
-        "angle": "right-three-quarter",
-        "expression": "surprised-shocked",
-        "plannedPath": "/academy/art/characters/sam/sam__surprised-shocked__right-three-quarter__halfbody__v001.png",
         "state": "missing-expression-variant",
         "present": false,
         "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"

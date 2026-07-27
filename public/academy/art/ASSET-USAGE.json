@@ -18,8 +18,8 @@
     ]
   },
   "counts": {
-    "runtimeAssetHomes": 200,
-    "runtimeFiles": 255,
+    "runtimeAssetHomes": 204,
+    "runtimeFiles": 259,
     "nonRuntimeReviewFiles": 1734,
     "approvedReferenceOnly": 4,
     "explicitlyRejectedFamilies": 4,
@@ -717,106 +717,6 @@
         {
           "path": "/academy/art/characters/aakash/aakash__standardized-happy__front-near-front__halfbody__v001.png",
           "sha256": "a887c568cf48cb9e31454d40c201c57e8699dde41d8f1eaec187f8ea6d4fb540"
-        }
-      ],
-      "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-    },
-    {
-      "id": "character-alex-standardized-determined-left-three-quarter-halfbody-v001",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "ba2595a6f9f75a5781359ba25b40d6d55a1c31efb9bdf39bc9efb3032105b29a",
-      "provenance": "regenerated-standardized",
-      "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": [
-        "journal:alex-expression-gallery",
-        "cast-standardization:alex"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "learner-journal-preview"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:alex-expression-gallery",
-          "cast-standardization:alex"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/alex/alex__standardized-determined__left-three-quarter__halfbody__v001.png",
-          "sha256": "ba2595a6f9f75a5781359ba25b40d6d55a1c31efb9bdf39bc9efb3032105b29a"
-        }
-      ],
-      "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-    },
-    {
-      "id": "character-alex-standardized-encouraging-listening-front-near-front-halfbody-v001",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "a90c78583f278d8d93f56fb7af24905d006b6f8b7590bae12f250c34909ba3eb",
-      "provenance": "regenerated-standardized",
-      "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": [
-        "journal:alex-expression-gallery",
-        "cast-standardization:alex"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "learner-journal-preview"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:alex-expression-gallery",
-          "cast-standardization:alex"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/alex/alex__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
-          "sha256": "a90c78583f278d8d93f56fb7af24905d006b6f8b7590bae12f250c34909ba3eb"
-        }
-      ],
-      "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-    },
-    {
-      "id": "character-alex-standardized-neutral-front-near-front-halfbody-v001",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "9a2c1f3438bf0ec27acce9a73d0227a4de6f89739add10c9f668014873225497",
-      "provenance": "regenerated-standardized",
-      "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": [
-        "journal:alex",
-        "class:people-review",
-        "lesson-overview:roster-review",
-        "cast-standardization:alex"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "learner-journal-preview"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:alex",
-          "class:people-review",
-          "lesson-overview:roster-review",
-          "cast-standardization:alex"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/alex/alex__standardized-neutral__front-near-front__halfbody__v001.png",
-          "sha256": "9a2c1f3438bf0ec27acce9a73d0227a4de6f89739add10c9f668014873225497"
         }
       ],
       "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
@@ -13318,6 +13218,252 @@
         {
           "path": "/academy/art/characters/sam/sam__sad-vulnerable-close-cropped-chestnut__left-three-quarter__fullbody__v002.png",
           "sha256": "17bf60adf9f78c1bc84123c8338736202820fc61d21c3128afa69c737823d8ef"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-alex-neutral-short-brown-understated-front-near-front-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "ede2b19b17f6115d890b310e637133bd53c4e3e1f967fe9a9699809b752eb573",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:alex",
+        "class:people",
+        "class:week-cast",
+        "lesson-overview:roster",
+        "world:person",
+        "story:cast:alex",
+        "cast-standardization:alex"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:alex",
+          "class:people",
+          "class:week-cast",
+          "lesson-overview:roster",
+          "world:person",
+          "story:cast:alex",
+          "cast-standardization:alex"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/alex/alex__neutral-short-brown-understated__front-near-front__fullbody__v002.png",
+          "sha256": "ede2b19b17f6115d890b310e637133bd53c4e3e1f967fe9a9699809b752eb573"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-alex-encouraging-listening-short-brown-understated-right-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "cb1af22bbea55db0600505bbccd5bc411e8c4512292800dd7805931cff2d8bed",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:alex-expression-gallery",
+        "story:cast:alex:encouraging-listening",
+        "cast-standardization:alex"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:alex-expression-gallery",
+          "story:cast:alex:encouraging-listening",
+          "cast-standardization:alex"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/alex/alex__encouraging-listening-short-brown-understated__right-three-quarter__fullbody__v002.png",
+          "sha256": "cb1af22bbea55db0600505bbccd5bc411e8c4512292800dd7805931cff2d8bed"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-alex-happy-short-brown-understated-front-near-front-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "55a820cab1691b9fe757f7a513db9a2c2c2432822eed78507f1c6f9a060e2085",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:alex-expression-gallery",
+        "story:cast:alex:happy",
+        "cast-standardization:alex"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:alex-expression-gallery",
+          "story:cast:alex:happy",
+          "cast-standardization:alex"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/alex/alex__happy-short-brown-understated__front-near-front__fullbody__v002.png",
+          "sha256": "55a820cab1691b9fe757f7a513db9a2c2c2432822eed78507f1c6f9a060e2085"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-alex-thoughtful-short-brown-understated-left-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "ff2fe615d8fc7259d339ba8ed85adfcba81331013553f9bbbd53e3f6ff5bc0ed",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:alex-expression-gallery",
+        "story:cast:alex:thoughtful",
+        "cast-standardization:alex"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:alex-expression-gallery",
+          "story:cast:alex:thoughtful",
+          "cast-standardization:alex"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/alex/alex__thoughtful-short-brown-understated__left-three-quarter__fullbody__v002.png",
+          "sha256": "ff2fe615d8fc7259d339ba8ed85adfcba81331013553f9bbbd53e3f6ff5bc0ed"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-alex-determined-short-brown-understated-front-near-front-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "d095f5b5ab012bc40fa958a98329832e80c6074a9b6deb0c6b4556d351daa777",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:alex-expression-gallery",
+        "story:cast:alex:determined",
+        "cast-standardization:alex"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:alex-expression-gallery",
+          "story:cast:alex:determined",
+          "cast-standardization:alex"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/alex/alex__determined-short-brown-understated__front-near-front__fullbody__v002.png",
+          "sha256": "d095f5b5ab012bc40fa958a98329832e80c6074a9b6deb0c6b4556d351daa777"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-alex-surprised-shocked-short-brown-understated-right-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "73a1d46c1cf9abcd4bc34ff085a2f2daf1f8888d7c26a82b963b41b690dc09ae",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:alex-expression-gallery",
+        "story:cast:alex:surprised-shocked",
+        "cast-standardization:alex"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:alex-expression-gallery",
+          "story:cast:alex:surprised-shocked",
+          "cast-standardization:alex"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/alex/alex__surprised-shocked-short-brown-understated__right-three-quarter__fullbody__v002.png",
+          "sha256": "73a1d46c1cf9abcd4bc34ff085a2f2daf1f8888d7c26a82b963b41b690dc09ae"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-alex-sad-vulnerable-short-brown-understated-left-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "cf7a36e25e2ee31d110d0b02c1f066889d8299fa870cb254e1731c8f4ef07457",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:alex-expression-gallery",
+        "story:cast:alex:sad-vulnerable",
+        "cast-standardization:alex"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:alex-expression-gallery",
+          "story:cast:alex:sad-vulnerable",
+          "cast-standardization:alex"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/alex/alex__sad-vulnerable-short-brown-understated__left-three-quarter__fullbody__v002.png",
+          "sha256": "cf7a36e25e2ee31d110d0b02c1f066889d8299fa870cb254e1731c8f4ef07457"
         }
       ],
       "status": "identity-locked, visually inspected, runtime-bound house-style sprite"

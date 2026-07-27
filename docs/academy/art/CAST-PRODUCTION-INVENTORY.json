@@ -29,10 +29,10 @@
     "cast": 30,
     "requiredPerformancesPerCast": 7,
     "requiredSlots": 210,
-    "integratedSlots": 65,
-    "missingSlots": 145,
+    "integratedSlots": 72,
+    "missingSlots": 138,
     "ownerCorrectionQueue": 61,
-    "storyCriticalQueue": 49,
+    "storyCriticalQueue": 42,
     "rosterCompletionQueue": 35
   },
   "cast": [
@@ -365,65 +365,97 @@
       "priority": "story-critical",
       "summary": {
         "required": 7,
-        "integrated": 0,
-        "missing": 7
+        "integrated": 7,
+        "missing": 0
       },
       "performances": [
         {
           "expression": "neutral",
           "preferredAngle": "front-near-front",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.alex.neutral-short-brown-understated-front-near-front-fullbody-v002",
+          "assetPath": "/academy/art/characters/alex/alex__neutral-short-brown-understated__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:alex",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "story:cast:alex",
+            "cast-standardization:alex"
+          ]
         },
         {
           "expression": "encouraging-listening",
           "preferredAngle": "right-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.alex.encouraging-listening-short-brown-understated-right-three-quarter-fullbody-v002",
+          "assetPath": "/academy/art/characters/alex/alex__encouraging-listening-short-brown-understated__right-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:alex-expression-gallery",
+            "story:cast:alex:encouraging-listening",
+            "cast-standardization:alex"
+          ]
         },
         {
           "expression": "happy",
           "preferredAngle": "front-near-front",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.alex.happy-short-brown-understated-front-near-front-fullbody-v002",
+          "assetPath": "/academy/art/characters/alex/alex__happy-short-brown-understated__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:alex-expression-gallery",
+            "story:cast:alex:happy",
+            "cast-standardization:alex"
+          ]
         },
         {
           "expression": "thoughtful",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.alex.thoughtful-short-brown-understated-left-three-quarter-fullbody-v002",
+          "assetPath": "/academy/art/characters/alex/alex__thoughtful-short-brown-understated__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:alex-expression-gallery",
+            "story:cast:alex:thoughtful",
+            "cast-standardization:alex"
+          ]
         },
         {
           "expression": "determined",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.alex.determined-short-brown-understated-front-near-front-fullbody-v002",
+          "assetPath": "/academy/art/characters/alex/alex__determined-short-brown-understated__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:alex-expression-gallery",
+            "story:cast:alex:determined",
+            "cast-standardization:alex"
+          ]
         },
         {
           "expression": "surprised-shocked",
           "preferredAngle": "right-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.alex.surprised-shocked-short-brown-understated-right-three-quarter-fullbody-v002",
+          "assetPath": "/academy/art/characters/alex/alex__surprised-shocked-short-brown-understated__right-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:alex-expression-gallery",
+            "story:cast:alex:surprised-shocked",
+            "cast-standardization:alex"
+          ]
         },
         {
           "expression": "sad-vulnerable",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.alex.sad-vulnerable-short-brown-understated-left-three-quarter-fullbody-v002",
+          "assetPath": "/academy/art/characters/alex/alex__sad-vulnerable-short-brown-understated__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:alex-expression-gallery",
+            "story:cast:alex:sad-vulnerable",
+            "cast-standardization:alex"
+          ]
         }
       ]
     },
@@ -2961,204 +2993,6 @@
       "runtimeHomes": [
         "journal:aakash-expression-gallery",
         "story:cast:aakash:sad-vulnerable"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "alex:neutral",
-      "castId": "alex",
-      "displayName": "Alex",
-      "identityKey": "alex-short-brown-understated",
-      "expression": "neutral",
-      "angle": "front-near-front",
-      "priority": "story-critical",
-      "storyLines": 20,
-      "visualLock": "White man with short brown hair, an understated expression, and an ordinary adult build.",
-      "wardrobeLock": "Quiet practical layers in navy, grey, and muted green.",
-      "reject": [
-        "flashy fashion",
-        "beard unless present in the locked neutral",
-        "teenage proportions",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:alex",
-        "class:people",
-        "lesson-overview:roster",
-        "story:cast:alex"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "alex:encouraging-listening",
-      "castId": "alex",
-      "displayName": "Alex",
-      "identityKey": "alex-short-brown-understated",
-      "expression": "encouraging-listening",
-      "angle": "right-three-quarter",
-      "priority": "story-critical",
-      "storyLines": 20,
-      "visualLock": "White man with short brown hair, an understated expression, and an ordinary adult build.",
-      "wardrobeLock": "Quiet practical layers in navy, grey, and muted green.",
-      "reject": [
-        "flashy fashion",
-        "beard unless present in the locked neutral",
-        "teenage proportions",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:alex-expression-gallery",
-        "story:cast:alex:encouraging-listening"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "alex:happy",
-      "castId": "alex",
-      "displayName": "Alex",
-      "identityKey": "alex-short-brown-understated",
-      "expression": "happy",
-      "angle": "front-near-front",
-      "priority": "story-critical",
-      "storyLines": 20,
-      "visualLock": "White man with short brown hair, an understated expression, and an ordinary adult build.",
-      "wardrobeLock": "Quiet practical layers in navy, grey, and muted green.",
-      "reject": [
-        "flashy fashion",
-        "beard unless present in the locked neutral",
-        "teenage proportions",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:alex-expression-gallery",
-        "story:cast:alex:happy"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "alex:thoughtful",
-      "castId": "alex",
-      "displayName": "Alex",
-      "identityKey": "alex-short-brown-understated",
-      "expression": "thoughtful",
-      "angle": "left-three-quarter",
-      "priority": "story-critical",
-      "storyLines": 20,
-      "visualLock": "White man with short brown hair, an understated expression, and an ordinary adult build.",
-      "wardrobeLock": "Quiet practical layers in navy, grey, and muted green.",
-      "reject": [
-        "flashy fashion",
-        "beard unless present in the locked neutral",
-        "teenage proportions",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:alex-expression-gallery",
-        "story:cast:alex:thoughtful"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "alex:determined",
-      "castId": "alex",
-      "displayName": "Alex",
-      "identityKey": "alex-short-brown-understated",
-      "expression": "determined",
-      "angle": "left-three-quarter",
-      "priority": "story-critical",
-      "storyLines": 20,
-      "visualLock": "White man with short brown hair, an understated expression, and an ordinary adult build.",
-      "wardrobeLock": "Quiet practical layers in navy, grey, and muted green.",
-      "reject": [
-        "flashy fashion",
-        "beard unless present in the locked neutral",
-        "teenage proportions",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:alex-expression-gallery",
-        "story:cast:alex:determined"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "alex:surprised-shocked",
-      "castId": "alex",
-      "displayName": "Alex",
-      "identityKey": "alex-short-brown-understated",
-      "expression": "surprised-shocked",
-      "angle": "right-three-quarter",
-      "priority": "story-critical",
-      "storyLines": 20,
-      "visualLock": "White man with short brown hair, an understated expression, and an ordinary adult build.",
-      "wardrobeLock": "Quiet practical layers in navy, grey, and muted green.",
-      "reject": [
-        "flashy fashion",
-        "beard unless present in the locked neutral",
-        "teenage proportions",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:alex-expression-gallery",
-        "story:cast:alex:surprised-shocked"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "alex:sad-vulnerable",
-      "castId": "alex",
-      "displayName": "Alex",
-      "identityKey": "alex-short-brown-understated",
-      "expression": "sad-vulnerable",
-      "angle": "left-three-quarter",
-      "priority": "story-critical",
-      "storyLines": 20,
-      "visualLock": "White man with short brown hair, an understated expression, and an ordinary adult build.",
-      "wardrobeLock": "Quiet practical layers in navy, grey, and muted green.",
-      "reject": [
-        "flashy fashion",
-        "beard unless present in the locked neutral",
-        "teenage proportions",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:alex-expression-gallery",
-        "story:cast:alex:sad-vulnerable"
       ],
       "status": "queued"
     },

@@ -1,4 +1,4 @@
-const VERSION = 'yomu-academy-shell-s1-4b79da36fecc';
+const VERSION = 'yomu-academy-shell-s1-42e12c04ccbe';
 const AUDIO_CACHE = 'yomu-academy-audio-v1-2c25b06f971c';
 const STORY_VOICE_CATALOG = '/academy/audio/story-voice-playback.json';
 const STORY_VOICE_ASSET = /^\/academy\/audio\/story-(?:pilot|lines)\/[a-z0-9][a-z0-9._-]*\.opus$/;
@@ -49,9 +49,13 @@ const RUNTIME_ART_PRECACHE = [
     '/academy/art/characters/aakash/aakash__standardized-determined__front-near-front__halfbody__v001.png',
     '/academy/art/characters/aakash/aakash__standardized-encouraging-listening__front-near-front__halfbody__v001.png',
     '/academy/art/characters/aakash/aakash__standardized-happy__front-near-front__halfbody__v001.png',
-    '/academy/art/characters/alex/alex__standardized-determined__left-three-quarter__halfbody__v001.png',
-    '/academy/art/characters/alex/alex__standardized-encouraging-listening__front-near-front__halfbody__v001.png',
-    '/academy/art/characters/alex/alex__standardized-neutral__front-near-front__halfbody__v001.png',
+    '/academy/art/characters/alex/alex__determined-short-brown-understated__front-near-front__fullbody__v002.png',
+    '/academy/art/characters/alex/alex__encouraging-listening-short-brown-understated__right-three-quarter__fullbody__v002.png',
+    '/academy/art/characters/alex/alex__happy-short-brown-understated__front-near-front__fullbody__v002.png',
+    '/academy/art/characters/alex/alex__neutral-short-brown-understated__front-near-front__fullbody__v002.png',
+    '/academy/art/characters/alex/alex__sad-vulnerable-short-brown-understated__left-three-quarter__fullbody__v002.png',
+    '/academy/art/characters/alex/alex__surprised-shocked-short-brown-understated__right-three-quarter__fullbody__v002.png',
+    '/academy/art/characters/alex/alex__thoughtful-short-brown-understated__left-three-quarter__fullbody__v002.png',
     '/academy/art/characters/angel/angel__standardized-encouraging-listening__front-near-front__halfbody__v001.png',
     '/academy/art/characters/angel/angel__standardized-neutral__front-near-front__halfbody__v001.png',
     '/academy/art/characters/christian/christian__standardized-encouraging-listening__front-near-front__halfbody__v001.png',
@@ -305,8 +309,8 @@ const CORE = [
     '/yomu-icon.svg',
     '/academy/',
     '/academy/index.html',
-    '/academy/app.js?v=s1-4b79da36fecc',
-    '/academy/style.css?v=s1-4b79da36fecc',
+    '/academy/app.js?v=s1-42e12c04ccbe',
+    '/academy/style.css?v=s1-42e12c04ccbe',
     '/academy/manifest.webmanifest',
     ...RUNTIME_ART_PRECACHE,
     '/academy/content/vertical-slice/source-library.v1.json',
