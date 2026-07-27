@@ -35,6 +35,9 @@ const APP_NAME = 'Yomu Gaming';
 // session fails, so retry until a screen actually arrives.
 const CAPTURE_ATTEMPTS = 6;
 const CAPTURE_RETRY_DELAY_MS = 120;
+// Copied next to the bundled main.cjs by scripts/build-gaming-electron.mjs, so the
+// same __dirname lookup works from dist-gaming/electron and from inside app.asar.
+const APP_ICON_FILE = 'yomu-icon-512.png';
 const SCREEN_PERMISSION_MESSAGE = process.platform === 'darwin'
     ? 'Yomu Gaming needs Screen Recording permission. Open System Settings › Privacy & Security › Screen Recording, enable Yomu Gaming, then quit and reopen the app.'
     : 'Yomu Gaming could not read the screen. Check this device’s screen-capture permissions and try again.';
@@ -220,7 +223,23 @@ async function ensureOverlayWindow(mode: YomuGamingCaptureMode, target: GamingCa
 }
 
 function appIconPath(): string {
-    return path.join(__dirname, 'yomu-icon-512.png');
+    return path.join(__dirname, APP_ICON_FILE);
+}
+
+function applyAppIcon(): void {
+    const icon = nativeImage.createFromPath(appIconPath());
+    // nativeImage hands back an *empty* image for a path it cannot read, and every
+    // consumer of the icon — the Dock, the about panel, the Windows and Linux window
+    // icon — then keeps its default without a word. Say it out loud instead.
+    if (icon.isEmpty()) {
+        console.error(`[yomu-gaming] App icon did not load from ${appIconPath()}.`);
+        return;
+    }
+    // BrowserWindow `icon` only reaches Windows and Linux. macOS draws the Dock and
+    // app-switcher entry from the running bundle, so an unpackaged run wears stock
+    // Electron's logo until the Dock is handed our image; a packaged build already
+    // carries the multi-resolution .icns, sharper at small sizes than this PNG.
+    if (process.platform === 'darwin' && !app.isPackaged) app.dock?.setIcon(icon);
 }
 
 function gamingWebPreferences(role: 'main' | 'overlay'): BrowserWindowConstructorOptions['webPreferences'] {
@@ -704,6 +723,7 @@ function registerGlobalShortcuts(): void {
 
 app.whenReady().then(async () => {
     if (!hasSingleInstanceLock) return;
+    applyAppIcon();
     registerIpcHandlers();
     await loadCaptureShortcut();
     registerGlobalShortcuts();
