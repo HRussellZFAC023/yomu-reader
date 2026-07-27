@@ -49,12 +49,7 @@ export function bootReaderApp(): void {
     const runtime = createOwnedRuntime(context);
     if (!runtime) return;
 
-    registerRuntime(
-        context.bootWindow,
-        runtime.app,
-        runtime.kind,
-        isInstalledRuntime(runtime.kind),
-    );
+    registerRuntime(context.bootWindow, runtime, isInstalledRuntime(runtime.kind));
     startRuntime(
         runtime.app,
         runtime.ownerId,
@@ -86,7 +81,7 @@ function createOwnedRuntime(context: BootContext): ActiveRuntime | undefined {
     const runtime: ActiveRuntime = { app, kind: runtimeKind, ownerId };
     activeRuntime = runtime;
     writeBootWindowOwner(bootWindow, runtime);
-    runtime.release = bindClaims(app, ownerId, runtimeKind);
+    runtime.release = bindClaims(runtime);
     return runtime;
 }
 
@@ -152,19 +147,23 @@ function setBootWindowValue<K extends keyof YomuBootWindow>(bootWindow: YomuBoot
     }
 }
 
-function registerRuntime(bootWindow: YomuBootWindow, app: ReaderApp, runtimeKind: YomuRuntimeKind, isRealRuntime: boolean): void {
+function registerRuntime(bootWindow: YomuBootWindow, runtime: ActiveRuntime, isRealRuntime: boolean): void {
+    const { app, kind: runtimeKind } = runtime;
     if (isRealRuntime) {
         setBootWindowValue(bootWindow, '__yomuRealApp', app);
         dispatchWindowEvent(createWindowCustomEvent('yomu-extension-loaded'));
         return;
     }
     if (runtimeKind === 'dev') return;
-    addWindowEventListener('yomu-extension-loaded', () => {
-        if (activeRuntime?.app === app) {
-            app.destroy({ preservePageWords: true });
-            clearActiveRuntime(app, activeRuntime?.ownerId);
-        }
-    });
+    const onExtensionLoaded = (): void => {
+        if (activeRuntime === runtime) releaseActiveRuntime(runtime);
+    };
+    if (!addWindowEventListener('yomu-extension-loaded', onExtensionLoaded)) return;
+    const releaseClaims = runtime.release;
+    runtime.release = () => {
+        removeWindowEventListener('yomu-extension-loaded', onExtensionLoaded);
+        releaseClaims?.();
+    };
 }
 
 function startRuntime(
@@ -349,14 +348,18 @@ function isStaleRuntimeMarker(marker: HTMLElement): boolean {
     return Boolean(bootWindow.__yomuRuntimeOwnerId && marker.dataset.yomuRuntimeOwner === bootWindow.__yomuRuntimeOwnerId);
 }
 
-function bindClaims(app: ReaderApp, ownerId: string, kind: YomuRuntimeKind): () => void {
+function bindClaims(runtime: ActiveRuntime): () => void {
+    const { app, ownerId, kind } = runtime;
     let released = false;
     let markerObserver: MutationObserver | undefined;
     const onRuntimeClaim = (event: Event): void => {
         const detail = (event as CustomEvent).detail as Partial<{ ownerId: string; kind: YomuRuntimeKind; priority: number }> | undefined;
         if (!detail || detail.ownerId === ownerId) return;
         if (priority(detail.kind) < priority(kind)) return;
-        release();
+        // Always enter through the runtime's current top-level release. Other
+        // ownership integrations can extend that release after claims are
+        // bound (for example the page-runtime extension-loaded fallback).
+        releaseActiveRuntime(runtime);
     };
     const release = () => {
         if (released) return;
@@ -368,7 +371,7 @@ function bindClaims(app: ReaderApp, ownerId: string, kind: YomuRuntimeKind): () 
         clearActiveRuntime(app, ownerId);
         clearBootWindowOwner(app, ownerId);
     };
-    markerObserver = observeRuntimeMarker(ownerId, kind, release);
+    markerObserver = observeRuntimeMarker(ownerId, kind, () => releaseActiveRuntime(runtime));
     addWindowEventListener('yomu-reader-runtime-claim', onRuntimeClaim);
     return release;
 }
@@ -381,6 +384,12 @@ function observeRuntimeMarker(ownerId: string, kind: YomuRuntimeKind, release: (
         if (marker.dataset.yomuRuntimeOwner === ownerId) return;
         if (priority(marker.dataset.yomuRuntimeKind) < priority(kind)) return;
         release();
+        // A page can rewrite only the marker attributes. Once our release has
+        // cleared its matching window owner, that displaced marker must not
+        // remain as an ownerless same-priority veto against reinjection. A
+        // conforming replacement has already written the same owner to window
+        // state, so removeOwnerlessDisplacedMarker deliberately preserves it.
+        removeOwnerlessDisplacedMarker(marker);
     });
     observer.observe(marker, RUNTIME_MARKER_OBSERVER_OPTIONS);
     return observer;

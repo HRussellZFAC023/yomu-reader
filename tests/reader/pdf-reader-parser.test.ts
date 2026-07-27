@@ -70,14 +70,34 @@ describe('hosted PDF reader route + parser', () => {
         }
     });
 
+    it('does not scan a populated text layer until the page is classified as text', () => {
+        const restoreRects = mockVisibleElementRects();
+        document.body.innerHTML = pdfPageHtml('pending', '透明なOCR文字は分類前に解析しません。');
+        try {
+            const page = document.querySelector<HTMLElement>('.pdf-page')!;
+            const textLayer = page.querySelector<HTMLElement>('.textLayer')!;
+
+            expect(collectScanTargets(50, HOSTED_PDF_URL)).toEqual([]);
+
+            page.dataset.pdfText = 'text';
+            textLayer.hidden = false;
+            textLayer.setAttribute('aria-hidden', 'false');
+
+            const texts = collectScanTargets(50, HOSTED_PDF_URL).map(target => target.text).join('');
+            expect(texts).toContain('透明なOCR文字');
+        } finally {
+            restoreRects();
+        }
+    });
+
     it('scans Japanese text inside the PDF.js text layer', () => {
         const restoreRects = mockVisibleElementRects();
         // Mirror the PDF.js text layer shape: a .textLayer with positioned spans.
         document.body.innerHTML = `
             <section class="viewer">
-                <div class="pdf-page">
+                <div class="pdf-page text-pdf" data-pdf-text="text" data-yomu-canvas-ocr="off">
                     <canvas></canvas>
-                    <div class="textLayer">
+                    <div class="textLayer" aria-hidden="false">
                         <span>これは日本語のテストです。</span>
                         <span>本を読みましょう。</span>
                     </div>
@@ -96,11 +116,12 @@ describe('hosted PDF reader route + parser', () => {
 
 function pdfPageHtml(mode: 'pending' | 'scanned' | 'text', text: string): string {
     const isScanned = mode === 'scanned';
+    const isPending = mode === 'pending';
     return `
         <section class="viewer">
             <div class="pdf-page${isScanned ? ' scanned' : ''}" data-pdf-text="${mode}" data-yomu-canvas-ocr="${isScanned ? 'on' : 'off'}">
                 <canvas data-pdf-text="${mode}" data-yomu-canvas-ocr="${isScanned ? 'on' : 'off'}"></canvas>
-                <div class="textLayer"${isScanned ? ' hidden aria-hidden="true"' : ''}>
+                <div class="textLayer"${isScanned || isPending ? ' hidden aria-hidden="true"' : ' aria-hidden="false"'}>
                     <span>${text}</span>
                 </div>
             </div>

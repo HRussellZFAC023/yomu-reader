@@ -1269,12 +1269,27 @@ export class ReaderApp {
 
     async init(options?: ReaderAppInitOptions): Promise<void> {
         const done = log.time('init', { href: location.href, devMode: Logger.isDevMode() });
-        this.embeddedFrame = options?.embeddedFrame === true;
-        const shouldShowWelcome = await this.loadInitialSettings(options);
+        try {
+            this.embeddedFrame = options?.embeddedFrame === true;
+            const shouldShowWelcome = await this.loadInitialSettings(options);
+            if (!this.canContinueStartup(shouldShowWelcome)) return;
+            const surfacesReady = await this.initializeReaderSurfaces(shouldShowWelcome);
+            if (!surfacesReady) return;
+            dispatchWindowEvent(createWindowCustomEvent(SETTINGS_CHANGE_EVENT, { settings: this.settings }));
+        } finally {
+            done();
+        }
+    }
+
+    private canContinueStartup(startupResult: boolean | null = false): startupResult is boolean {
+        return startupResult !== null && !this.isDestroyed;
+    }
+
+    private async initializeReaderSurfaces(shouldShowWelcome: boolean): Promise<boolean> {
         await this.installCoreSurfaces();
+        if (!this.canContinueStartup()) return false;
         await this.initReaderPage(shouldShowWelcome);
-        dispatchWindowEvent(createWindowCustomEvent(SETTINGS_CHANGE_EVENT, { settings: this.settings }));
-        done();
+        return this.canContinueStartup();
     }
 
     private async waitForDocumentBody(): Promise<void> {
@@ -1302,9 +1317,13 @@ export class ReaderApp {
         });
     }
 
-    private async loadInitialSettings(options?: ReaderAppInitOptions): Promise<boolean> {
-        this.factoryReset.bind();
+    private async loadInitialSettings(options?: ReaderAppInitOptions): Promise<boolean | null> {
         const startup = await loadReaderStartupSettings(options);
+        // Ownership can move to another runtime while browser storage is still
+        // resolving. Do not bind controllers, restore styles, or publish state
+        // after destroy() has already completed its one cleanup pass.
+        if (this.isDestroyed) return null;
+        this.factoryReset.bind();
         this.settings = startup.settings;
         this.applyPreferredJapaneseSiteLanguage();
         configureLogger({ forceEnabled: this.settings.enableLogging });
@@ -1332,29 +1351,41 @@ export class ReaderApp {
 
     private async initReaderPage(shouldShowWelcome: boolean): Promise<void> {
         await this.waitForDocumentBody();
-        if (this.isDestroyed || !document.body) return;
+        if (!this.canInitializeReaderPage()) return;
         // Settings may finish loading before document-start has produced a
         // body. Re-evaluate here, including bounded open-shadow discovery, so
         // a shadow-only Japanese page receives its initial scan.
         const startupJapaneseProbe = documentJapaneseTextProbe(200000, scanScopeRoots());
         if (!this.pageHasJapaneseText) this.pageHasJapaneseText = startupJapaneseProbe.hasJapanese;
         if (this.embeddedFrame) {
-            this.subtitles.init();
-            // Player iframes need OCR too: the subtitle rail's OCR button and
-            // paused-frame OCR dispatch/listen inside this frame's document.
-            this.ocr.init();
-            // Sign-in widgets and other compact embedded controls often boot
-            // with a Latin placeholder and localise to Japanese later. Every
-            // frame gets the same mutation-driven scanner, but an initial scan
-            // is still scheduled only when Japanese is already present (or for
-            // the existing YouTube chat surface). Without the observer, a
-            // Latin -> Japanese characterData mutation was invisible forever.
-            this.setupAutoScan();
-            if (this.shouldScanEmbeddedFrame() || this.pageHasJapaneseText) {
-                this.scheduleAutoScan(0, { force: true });
-            }
+            this.initEmbeddedReaderPage();
             return;
         }
+        await this.initTopLevelReaderPage(shouldShowWelcome, startupJapaneseProbe.shadowDiscoveryExhausted);
+    }
+
+    private canInitializeReaderPage(): boolean {
+        return !this.isDestroyed && Boolean(document.body);
+    }
+
+    private initEmbeddedReaderPage(): void {
+        this.subtitles.init();
+        // Player iframes need OCR too: the subtitle rail's OCR button and
+        // paused-frame OCR dispatch/listen inside this frame's document.
+        this.ocr.init();
+        // Sign-in widgets and other compact embedded controls often boot
+        // with a Latin placeholder and localise to Japanese later. Every
+        // frame gets the same mutation-driven scanner, but an initial scan
+        // is still scheduled only when Japanese is already present (or for
+        // the existing YouTube chat surface). Without the observer, a
+        // Latin -> Japanese characterData mutation was invisible forever.
+        this.setupAutoScan();
+        if (this.shouldScanEmbeddedFrame() || this.pageHasJapaneseText) {
+            this.scheduleAutoScan(0, { force: true });
+        }
+    }
+
+    private async initTopLevelReaderPage(shouldShowWelcome: boolean, shadowDiscoveryUncertain: boolean): Promise<void> {
         this.installFab();
         void this.installBunproTokenImporter();
         this.subtitles.init();
@@ -1371,7 +1402,12 @@ export class ReaderApp {
         installAcademyReaderSrsSync();
         this.resumePendingCloudSettingsSync();
         if (shouldShowReaderOnboarding(shouldShowWelcome)) await this.onboarding.showIfNeeded();
-        if (this.shouldScanInitialPage(startupJapaneseProbe.shadowDiscoveryExhausted)) {
+        if (this.isDestroyed) return;
+        this.scheduleInitialReaderWork(shadowDiscoveryUncertain);
+    }
+
+    private scheduleInitialReaderWork(shadowDiscoveryUncertain: boolean): void {
+        if (this.shouldScanInitialPage(shadowDiscoveryUncertain)) {
             void this.pageScanner.scanVisiblePage({ silent: true })
                 .finally(() => this.scheduleStatusWarmups());
         } else {

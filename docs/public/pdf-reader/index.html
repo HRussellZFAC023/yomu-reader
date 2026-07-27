@@ -1287,6 +1287,13 @@
         canvas.dataset.yomuCanvasOcr = 'off';
         const textLayerDiv = document.createElement('div');
         textLayerDiv.className = 'textLayer';
+        // Classification can inspect PDF.js text asynchronously after the layer
+        // has been populated. Keep that pending layer out of the reader scan
+        // surface until we know it belongs to a real text PDF; otherwise a
+        // transparent OCR layer over a scanned image can be annotated during
+        // the classification gap.
+        textLayerDiv.hidden = true;
+        textLayerDiv.setAttribute('aria-hidden', 'true');
         container.append(canvas, textLayerDiv);
         // Estimated size keeps the scrollbar stable before render; corrected on render.
         container.style.width = '640px';
@@ -1607,8 +1614,8 @@
       entry.canvas.dataset.pdfText = 'pending';
       entry.canvas.dataset.pdfTextReason = 'pending';
       entry.canvas.dataset.yomuCanvasOcr = 'off';
-      entry.textLayerDiv.hidden = false;
-      entry.textLayerDiv.setAttribute('aria-hidden', 'false');
+      entry.textLayerDiv.hidden = true;
+      entry.textLayerDiv.setAttribute('aria-hidden', 'true');
     }
 
     function maybeShowScannedNotice() {

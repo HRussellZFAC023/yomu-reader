@@ -363,13 +363,27 @@ async function assertFirstRunClarity(page) {
 // The overlay is a second window with its own web preferences, so "Settings" there
 // reaching the app window is a cross-window fact that only the packaged app can prove.
 async function assertOverlaySettingsLandsOnSettings(page, overlay) {
-    // The word popover from the OCR check is still open, and it owns the click layer.
-    // Escape closes the popover and leaves the overlay up, exactly as it does for a player.
+    // The word popover from the OCR check is still open, and it owns the click
+    // layer. The first Escape must close only that popover and leave the overlay
+    // visible; the next Escape is the one that closes the overlay itself.
     if (await overlay.locator('.jpdb-reader-popover').count()) {
         await overlay.keyboard.press('Escape');
         await overlay.locator('.jpdb-reader-popover').first().waitFor({ state: 'detached', timeout: 10_000 });
     }
-    await overlay.locator('[data-action="overlay-settings"]').first().click();
+    await overlay.locator('[data-yomu-gaming-overlay-ready="true"]:visible').waitFor({ timeout: 10_000 });
+    const settingsButton = overlay.locator('.overlay-toolbar [data-action="overlay-settings"]').first();
+    await settingsButton.waitFor({ state: 'visible', timeout: 10_000 });
+    const settingsButtonState = await settingsButton.evaluate(button => {
+        const rect = button.getBoundingClientRect();
+        return {
+            disabled: button instanceof HTMLButtonElement && button.disabled,
+            width: rect.width,
+            height: rect.height,
+            hitTarget: document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2) === button,
+        };
+    });
+    assertOverlaySettingsButtonActionable(settingsButtonState);
+    await settingsButton.click();
     await page.bringToFront();
     await page.waitForFunction(
         () => document.querySelector('.yomu-gaming-shell')?.dataset.shellView === 'settings',
@@ -380,6 +394,13 @@ async function assertOverlaySettingsLandsOnSettings(page, overlay) {
     if (await page.locator('.yomu-gaming-home:visible').count()) {
         throw new Error('Yomu Gaming showed home and settings at once after the overlay asked for settings.');
     }
+}
+
+function assertOverlaySettingsButtonActionable(state) {
+    const report = JSON.stringify(state);
+    if (state.disabled) throw new Error(`Yomu Gaming overlay Settings control was disabled: ${report}`);
+    if (Math.min(state.width, state.height) < 20) throw new Error(`Yomu Gaming overlay Settings control was too small: ${report}`);
+    if (!state.hitTarget) throw new Error(`Yomu Gaming overlay Settings control did not own its hit target: ${report}`);
 }
 
 // Media is the reader's deepest tab (audio sources, text-to-speech, proxy URL). Landing

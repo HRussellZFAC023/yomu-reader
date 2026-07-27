@@ -875,12 +875,7 @@ class OverlaySelectionController {
     });
 
     constructor(private root: HTMLElement, private gamingBridge: YomuGamingBridge, private captureMode: YomuGamingCaptureMode) {
-        window.addEventListener('keydown', event => {
-            if (event.key !== 'Escape') return;
-            // Let the reader close its own word popover first; the next Escape closes the overlay.
-            if (document.querySelector('.jpdb-reader-popover')) return;
-            void this.gamingBridge.hideOverlay();
-        });
+        installOverlayEscapeHandler(() => this.gamingBridge.hideOverlay());
         this.gamepad.start();
         this.watchOcrLineLayout();
         // The overlay window is hidden and reused, not destroyed — without
@@ -1111,6 +1106,20 @@ class OverlaySelectionController {
             if (this.result?.lines?.length || this.result?.text) ensureOverlayReader();
         }
     }
+}
+
+export function installOverlayEscapeHandler(hideOverlay: () => Promise<void>): () => void {
+    const onKeydown = (event: KeyboardEvent): void => {
+        if (event.key !== 'Escape') return;
+        // Decide before the event reaches the reader's document listener. That
+        // listener removes an open popover synchronously; checking later in the
+        // bubble phase would then mistake the same Escape for a second press and
+        // hide both the popover and the overlay.
+        if (document.querySelector('.jpdb-reader-popover')) return;
+        void hideOverlay();
+    };
+    window.addEventListener('keydown', onKeydown, { capture: true });
+    return () => window.removeEventListener('keydown', onKeydown, { capture: true });
 }
 
 let overlayReaderBooted = false;
