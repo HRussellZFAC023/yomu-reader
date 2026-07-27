@@ -29,13 +29,17 @@ const WIDE_FRAME: OcrOverlayFrame = { imageLeft: 0, imageTop: 0, imageWidth: 260
 // which is the whole reason a measured fit can put recognized text back at the size of the
 // text it was read from, so a line of N glyphs at F px is N*F long and F thick.
 //
-// Two things about readings are modelled, because the fit turns on both (reader-words-ocr.css):
-//   * a reading is `.jpdb-ocr-furi { position: absolute }`, so it costs the line no length;
-//   * its wrapper is `.jpdb-ocr-ruby { padding-top: 0.5em }`, which in a vertical-rl column
-//     is padding along the INLINE axis and does lengthen the column.
-// That is enough of a layout engine to make the arithmetic real;
-// scripts/ocr-line-register-smoke.mjs is the same assertion against a real engine painting
-// real type, and scripts/gaming-app-smoke.mjs asserts it in the shipped app.
+// A reading costs the line nothing on either axis, and that is the stylesheet's doing
+// rather than an assumption: `.jpdb-ocr-furi { position: absolute }` in both writing modes,
+// and reader-words-ocr.css zeroes `.jpdb-ocr-ruby`'s padding-top for
+// `.jpdb-ocr-line[data-vertical="true"]`, so it never falls on a vertical column's inline
+// axis. (An earlier version of this file modelled that padding as lengthening annotated
+// columns, and pinned the branch to its own model rather than to the product.)
+//
+// What annotation DOES add is the reader's inline-flex word boxes — a few percent along
+// whichever axis the line runs. No glyph-advance model reproduces that, so it is left to
+// scripts/ocr-line-register-smoke.mjs, which measures a real engine painting real type,
+// and to scripts/gaming-app-smoke.mjs, which measures the shipped app.
 function installFakeTypesetting(): () => void {
     const descriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'getBoundingClientRect');
     Object.defineProperty(HTMLElement.prototype, 'getBoundingClientRect', {
@@ -48,8 +52,7 @@ function installFakeTypesetting(): () => void {
             const vertical = this.closest<HTMLElement>('.jpdb-ocr-line')?.dataset.vertical === 'true';
             const laidOut = this.cloneNode(true) as HTMLElement;
             laidOut.querySelectorAll('rt, .jpdb-ocr-furi, .jpdb-reader-detached-furi').forEach(node => node.remove());
-            const rubyGutter = vertical ? laidOut.querySelectorAll('.jpdb-ocr-ruby').length * 0.5 : 0;
-            const length = ([...(laidOut.textContent ?? '')].length + rubyGutter) * fontSize;
+            const length = [...(laidOut.textContent ?? '')].length * fontSize;
             return vertical ? new DOMRect(0, 0, fontSize, length) : new DOMRect(0, 0, length, fontSize);
         },
     });
@@ -61,14 +64,16 @@ function installFakeTypesetting(): () => void {
 
 // The line as the reader leaves it: the same characters, wrapped word by word, with a
 // reading on the first one. Appending a word instead would be testing a longer sentence.
+// The markup is the one normalizeOcrRenderedText() actually produces, down to the
+// out-of-flow reading nested inside its own base run.
 function annotateOcrLine(root: ParentNode, text: string): void {
-    const textElement = root.querySelector<HTMLElement>('.jpdb-ocr-line-text');
-    if (!textElement) throw new Error('no OCR line text rendered');
+    const textElement = ocrLineText(root);
     const [head = '', ...rest] = [...text];
     textElement.innerHTML = '<span class="jpdb-reader-word jpdb-reader-has-furi">'
-        + `<span class="jpdb-ocr-ruby"><span class="jpdb-ocr-ruby-base">${head}</span>`
-        + '<span class="jpdb-ocr-furi">みなと</span></span></span>'
-        + `<span class="jpdb-reader-word">${rest.join('')}</span>`;
+        + '<span class="jpdb-ocr-ruby"><span class="jpdb-ocr-ruby-base">'
+        + '<span class="jpdb-ocr-furi" data-jpdb-reader-surface-ignore="true" aria-hidden="true">みなと</span>'
+        + `<span class="jpdb-ocr-ruby-base-text">${head}</span></span></span></span>`
+        + `<span class="jpdb-reader-word"><span class="jpdb-ocr-plain">${rest.join('')}</span></span>`;
 }
 
 function inheritedFontPx(element: HTMLElement | null): number {
@@ -121,10 +126,28 @@ function sourceLineLayer(): HTMLElement {
     return host;
 }
 
-function renderedTextRect(root: ParentNode): DOMRect {
+// The same thing turned on its side: a column of manga/VN type and the ink box around it.
+const VERTICAL_SOURCE_BOX = {
+    left: 900,
+    top: 40,
+    width: SOURCE_FONT_PX * SOURCE_INK_RATIO,
+    height: [...LINE_TEXT].length * SOURCE_FONT_PX,
+};
+
+function verticalSourceColumn(): HTMLElement {
+    const host = document.createElement('div');
+    host.innerHTML = overlayOcrLayerHtml([{ text: LINE_TEXT, box: VERTICAL_SOURCE_BOX, vertical: true }], FRAME);
+    return host;
+}
+
+function ocrLineText(root: ParentNode): HTMLElement {
     const text = root.querySelector<HTMLElement>('.jpdb-ocr-line-text');
     if (!text) throw new Error('no OCR line text rendered');
-    return text.getBoundingClientRect();
+    return text;
+}
+
+function renderedTextRect(root: ParentNode): DOMRect {
+    return ocrLineText(root).getBoundingClientRect();
 }
 
 function placedGeometry(root: ParentNode): Record<string, string> {
@@ -216,20 +239,61 @@ describe('Yomu Gaming renders OCR lines with the reader’s overlay geometry', (
         expect(placedGeometry(gaming).fontSize).toBe(bare);
     });
 
-    it('does not shrink a vertical column when the reader adds readings to it', () => {
-        const host = document.createElement('div');
-        const box = { left: 900, top: 40, width: SOURCE_FONT_PX * SOURCE_INK_RATIO, height: [...LINE_TEXT].length * SOURCE_FONT_PX };
-        host.innerHTML = overlayOcrLayerHtml([{ text: LINE_TEXT, box, vertical: true }], FRAME);
-        layoutOverlayOcrLines(host, FRAME);
-        const bare = placedGeometry(host).fontSize;
+    it('typesets an annotated vertical column at the size of the source column', () => {
+        const host = verticalSourceColumn();
 
-        // A vertical reading sits in the column's own inline direction and lengthens it, so
-        // an annotated column measured against its own box would be squeezed smaller and
-        // smaller. Vertical columns with readings are fitted to a clean copy of the source.
+        // A vertical column is fitted to the column the player sees, exactly as a
+        // horizontal line is — the reading is out of flow in both modes, so annotating a
+        // column must leave it on the type it was read from. Pinned against the SOURCE
+        // size rather than against the bare fit, so a fit that measured something other
+        // than the rendered column (a clean copy of the source string, say) cannot pass by
+        // agreeing with itself.
         annotateOcrLine(host, LINE_TEXT);
         layoutOverlayOcrLines(host, FRAME);
+        const placed = placedGeometry(host);
 
-        expect(placedGeometry(host).fontSize).toBe(bare);
+        expect(Number.parseFloat(placed.fontSize) / SOURCE_FONT_PX).toBeCloseTo(1, 1);
+        // And the annotated column runs the length of the source column rather than
+        // overhanging it, which is what fitting a clean copy instead leaves it doing.
+        expect(renderedTextRect(host).height / VERTICAL_SOURCE_BOX.height).toBeCloseTo(1, 2);
+    });
+
+    it('re-measures a line whose text changed instead of reusing the reading it took before', () => {
+        const gaming = sourceLineLayer();
+        layoutOverlayOcrLines(gaming, FRAME);
+        const bare = Number.parseFloat(placedGeometry(gaming).fontSize);
+
+        // A line's length in its own type is remembered between passes — the reader re-fits
+        // every line of an OCR'd image on every scroll frame, and measuring again costs a
+        // second forced reflow per line. What is remembered has to be dropped the moment the
+        // line's markup changes, or a re-typeset line keeps the size of the one it replaced.
+        ocrLineText(gaming).textContent = SOURCE_TEXT + SOURCE_TEXT;
+        layoutOverlayOcrLines(gaming, FRAME);
+
+        expect(Number.parseFloat(placedGeometry(gaming).fontSize)).toBeCloseTo(bare / 2, 1);
+    });
+
+    it('does not schedule another layout pass when it lays out an annotated vertical column', async () => {
+        const host = verticalSourceColumn();
+        annotateOcrLine(host, LINE_TEXT);
+
+        // The gaming overlay re-runs this pass on ANY childList mutation under the overlay
+        // root (OverlaySelectionController.watchOcrLineLayout), so a pass that so much as
+        // appends a throwaway probe node schedules the next one — measured at 157
+        // re-typesets of every line over 158 animation frames on a handheld, forever.
+        // Observed here the way the overlay observes it.
+        let passes = 0;
+        const observer = new MutationObserver(() => {
+            passes += 1;
+            if (passes > 8) return; // don't hang the suite if the loop ever comes back
+            layoutOverlayOcrLines(host, FRAME);
+        });
+        observer.observe(host, { childList: true, subtree: true });
+        layoutOverlayOcrLines(host, FRAME);
+        await new Promise(resolve => setTimeout(resolve, 0));
+        observer.disconnect();
+
+        expect(passes).toBe(0);
     });
 
     it('moves the whole line with the reader’s image text size setting', () => {

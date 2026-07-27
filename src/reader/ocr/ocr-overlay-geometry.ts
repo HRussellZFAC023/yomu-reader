@@ -203,13 +203,18 @@ export function layoutOcrLineElement(element: HTMLElement, input: OcrLineLayoutI
     // annotate its lines in place), and a line that grew readings needs the taller top
     // gutter on the very next fit.
     const hasFurigana = Boolean(textElement.querySelector('.jpdb-reader-has-furi'));
+    // The frame from the previous pass goes first, before anything is measured: a
+    // vertical column wraps inside its own height, so a line measured against the box it
+    // last had would be fitting itself to its own last answer.
+    element.style.width = '';
+    element.style.height = '';
     const fontSize = ocrFontPx(
         input.text,
         box.width,
         box.height,
         vertical,
         input.fontScale,
-        measureOcrLineExtent(element, textElement, input.text, vertical, hasFurigana),
+        measureOcrLineExtent(element, textElement, vertical),
     );
     element.style.fontSize = `${fontSize}px`;
     element.dataset.hasFuri = String(hasFurigana);
@@ -260,52 +265,46 @@ export function layoutOcrOverlayLines(layer: ParentNode, frame: OcrOverlayFrame,
 // with the font, so the source box divided by the measured length gives the size directly.
 const OCR_FIT_MEASURE_PX = 32;
 
+// A line's length in its own type depends only on its own markup, so it outlives the pass
+// that measured it. Remembering it matters: the reader re-fits every line of an OCR'd
+// image on each animation frame while the page scrolls, and taking the reading again means
+// a second forced reflow per line per frame (measured at about twice the cost of the whole
+// pass). The remembered answer is dropped as soon as the line's markup changes, which is
+// exactly what happens when the reader annotates it.
+const rememberedLineExtents = new WeakMap<HTMLElement, { markup: string; measurement: OcrTextMeasurement }>();
+
 // How long this line is, along the direction it runs, in the line's own type.
 //
-// The line as the player sees it is the thing to fit, so it is what gets measured: the
-// reader lays a sentence out as inline word boxes, which comes out a few percent wider than
-// the same characters as one plain run, and it is those word boxes that have to cover the
-// source line. It is measured at a fixed reference size with the frame from the previous
-// pass cleared, so the answer never depends on the size or the box the line last had.
+// The line AS THE PLAYER SEES IT is what has to cover the source line, so it is what gets
+// measured — in both writing modes, by the same rule. Once the reader has been over a line
+// its characters live in inline-flex boxes (.jpdb-reader-word, .jpdb-ocr-plain,
+// .jpdb-ocr-ruby), which comes out a few percent longer than the same characters as one
+// plain run; that overhead is real and it is the thing sitting on the source line. The
+// reading itself costs nothing on either axis: .jpdb-ocr-furi is position:absolute in both
+// modes, and reader-words-ocr.css zeroes .jpdb-ocr-ruby's padding-top for
+// .jpdb-ocr-line[data-vertical="true"], so it never lands on a vertical column's inline
+// axis. Measuring anything other than the rendered line — a clean copy of the source
+// string, say — fits the box to a line nobody sees, and leaves the visible one overhanging
+// it by that same few percent.
 //
-// A VERTICAL column with readings is the exception. Its readings sit in the inline
-// direction and lengthen the column itself, so fitting an annotated column to its own box
-// would shrink it the moment the reader got to it. Those measure a throwaway copy of the
-// source string instead — laid out inside the line so it inherits the font and the writing
-// mode, marked as something the reader must not scan, and never surviving the call.
+// The reading is taken at a fixed reference size, with the line's frame already cleared by
+// the caller, so the answer never depends on the size or the box the line last had. It
+// also may not TOUCH that DOM: the gaming overlay re-runs this pass on any childList
+// mutation under the overlay root, so a probe node appended and removed here would schedule
+// the next pass, forever, at one full re-typeset of every line per frame.
 //
 // Nothing rendered (a detached layer, a test environment that does not lay text out)
 // measures 0, and ocrFontPx falls back to its em-count estimate.
-function measureOcrLineExtent(
-    line: HTMLElement,
-    textElement: HTMLElement,
-    text: string,
-    vertical: boolean,
-    hasFurigana: boolean,
-): OcrTextMeasurement | undefined {
+function measureOcrLineExtent(line: HTMLElement, textElement: HTMLElement, vertical: boolean): OcrTextMeasurement | undefined {
+    const markup = `${vertical ? 'vertical' : 'horizontal'}|${textElement.innerHTML}`;
+    const remembered = rememberedLineExtents.get(line);
+    if (remembered?.markup === markup) return remembered.measurement;
     line.style.fontSize = `${OCR_FIT_MEASURE_PX}px`;
-    line.style.width = '';
-    line.style.height = '';
-    const measured = vertical && hasFurigana
-        ? measureSourceCopyExtent(line, text, vertical)
-        : axisLength(textElement.getBoundingClientRect(), vertical);
-    return measured > 0 ? { fontSize: OCR_FIT_MEASURE_PX, length: measured } : undefined;
-}
-
-function measureSourceCopyExtent(line: HTMLElement, text: string, vertical: boolean): number {
-    const trimmed = text.trim();
-    if (!trimmed) return 0;
-    const probe = line.ownerDocument.createElement('span');
-    probe.className = 'jpdb-ocr-line-text';
-    probe.textContent = trimmed;
-    probe.setAttribute('aria-hidden', 'true');
-    probe.setAttribute('data-jpdb-reader-surface-ignore', '');
-    probe.style.cssText = 'position:absolute;left:0;top:0;visibility:hidden;pointer-events:none;'
-        + `white-space:nowrap;flex-wrap:nowrap;max-width:none;max-height:none;font-size:${OCR_FIT_MEASURE_PX}px`;
-    line.append(probe);
-    const length = axisLength(probe.getBoundingClientRect(), vertical);
-    probe.remove();
-    return length;
+    const length = axisLength(textElement.getBoundingClientRect(), vertical);
+    if (!(length > 0)) return undefined;
+    const measurement = { fontSize: OCR_FIT_MEASURE_PX, length };
+    rememberedLineExtents.set(line, { markup, measurement });
+    return measurement;
 }
 
 function axisLength(rect: DOMRect, vertical: boolean): number {
