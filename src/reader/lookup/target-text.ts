@@ -33,6 +33,11 @@ export function segmentTargetLanguageText(text: string): readonly LanguageTextSe
     return activeLearningTarget().segment(text);
 }
 
+/** The active target's normalized form of a surface. */
+export function normalizeTargetLanguageText(text: string): string {
+    return activeLearningTarget().normalizeText(text);
+}
+
 /**
  * Dictionary forms to try for a surface, most literal first, with the
  * normalized surface itself always leading.
@@ -43,18 +48,25 @@ export function segmentTargetLanguageText(text: string): readonly LanguageTextSe
  * turns it into lookup terms has to come from the active target: for Japanese
  * these are the deinflector's own candidates, and for a target that declares no
  * morphology the list is simply the surface.
+ *
+ * Every step below is a contract member, including the ordering: rule tags are
+ * the target's own vocabulary, so ranking two same-depth analyses is the
+ * target's decision and not this function's. Sorting here on shape alone would
+ * silently rewrite Japanese results — `target-text-parity.test.ts` pins this
+ * list to the Japanese fallback path term for term.
  */
 export function targetLookupTermsForText(text: string): string[] {
     const target = activeLearningTarget();
     const source = target.normalizeText(text);
     if (!source) return [];
     const terms = [...target.lookupCandidates(source)]
-        // A depth-0 candidate is the surface again, and a single character is
-        // never a useful extra term to try.
-        .filter(candidate => candidate.depth > 0 && candidate.term.length > 1)
-        .sort((a, b) => a.depth - b.depth
-            || b.term.length - a.term.length
-            || a.term.localeCompare(b.term))
+        // A depth-0 candidate is the surface again, a single character is never
+        // a useful extra term to try, and a candidate the target does not
+        // recognize as its own language is not worth a lookup.
+        .filter(candidate => candidate.depth > 0
+            && candidate.term.length > 1
+            && target.isLookupableText(candidate.term))
+        .sort((a, b) => target.compareLookupCandidates(a, b))
         .map(candidate => target.normalizeText(candidate.term))
         .filter(Boolean);
     return [...new Set([source, ...terms])].slice(0, TARGET_LOOKUP_TERM_LIMIT);

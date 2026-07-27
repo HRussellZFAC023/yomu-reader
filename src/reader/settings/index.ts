@@ -18,6 +18,7 @@ import {
     normalizeLanguageProfiles,
 } from '../languages/profiles';
 import { SLICE1_TARGET_LANGUAGE } from '../languages/roster';
+import { isTargetDefaultOcrLanguageTag } from '../languages/resolve';
 import type { AnkiTemplateMode, AudioAutoPlayMode, AudioSourceSetting, AudioSourceType, AudioSubSourceSetting, AudioTtsMode, FuriganaMode, ImmersionExampleSource, ImmersionKitCategory, ImmersionKitSort, InterfaceLanguage, NewTabStudyChallengeStep, OcrOverlayTheme, OcrProvider, ReaderColorSource, ReaderSettings } from '../app/types';
 export { formatShortcutEvent, matchesShortcut, shortcutIsPressed } from './shortcuts';
 export { COPY_LOOKUP_LINK, MAX_DICTIONARY_LOOKUP_LINKS, defaultDictionaryLookupLinks, mergeDictionaryPreferences, normalizeDictionaryLookupLinks, normalizeDictionaryPreferences, retireStaleDictionaryPreferences } from './dictionary';
@@ -595,7 +596,9 @@ const LEGACY_DEFAULT_ANKI_STRING_SETTINGS = [
 ] as const satisfies readonly (readonly [keyof ReaderSettings, string])[];
 
 function mergeSettings(value: LegacyReaderSettings | null): ReaderSettings {
-    const settingsValue = migrateHiddenFilterNotice(migrateLegacyDefaultMobileSettings(value));
+    const settingsValue = migratePinnedOcrLanguage(
+        migrateHiddenFilterNotice(migrateLegacyDefaultMobileSettings(value)),
+    );
     const audio = normalizeAudioSettings(settingsValue);
     const supportedSettings = stripUnsupportedSettings(settingsValue);
     const apiCredentials = normalizeApiCredentialSettings(settingsValue);
@@ -798,6 +801,17 @@ function migrateHiddenFilterNotice(value: LegacyReaderSettings | null): LegacyRe
     const migrated = { ...value, youtubeFilterNoticeRestored20260711: true };
     if (migrated.youtubeShowFilterNotice === false) migrated.youtubeShowFilterNotice = true;
     return migrated;
+}
+
+// `ocrLanguage: ''` means "follow the language being studied". Until now the
+// settings form resolved that blank to a concrete tag on every save, so an
+// install that ever opened Settings holds a language it never chose — and the
+// field is hidden, so there was no way to choose otherwise. Clear a stored
+// value that is only ever a target's own default and OCR follows the study
+// target again; a tag no target claims was set deliberately and stays.
+function migratePinnedOcrLanguage(value: LegacyReaderSettings | null): LegacyReaderSettings | null {
+    if (!value || !isTargetDefaultOcrLanguageTag(stringValue(value.ocrLanguage))) return value;
+    return { ...value, ocrLanguage: '' };
 }
 
 function migrateLegacyDefaultMobileSettings(value: LegacyReaderSettings | null): LegacyReaderSettings | null {

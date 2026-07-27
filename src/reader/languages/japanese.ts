@@ -1,6 +1,7 @@
 import { normalizedJapaneseCardReading } from '../cards/highlight-values';
 import { HAS_JAPANESE } from '../dom/constants';
 import {
+    compareJapaneseLookupCandidates,
     normalizeFallbackTerm,
     segmentJapaneseText,
 } from '../lookup/japanese-segments';
@@ -83,6 +84,10 @@ export const JAPANESE_LEARNING_TARGET: LearningTargetModule = createLearningTarg
     // candidates to line up with those substrings character for character.
     // Anything that wants normalized input calls normalizeText first.
     lookupCandidates: deinflectJapaneseTerm,
+    // The ranking JMdict tags imply: a suru/kuru reading beats ichidan/godan
+    // beats i-adjective. Shared verbatim with the Japanese fallback path so
+    // both doors into the deinflector return the same order.
+    compareLookupCandidates: compareJapaneseLookupCandidates,
     matchesLookupCandidateRules: termRulesMatch,
 
     normalizeReading(spelling: string, reading?: string): string {

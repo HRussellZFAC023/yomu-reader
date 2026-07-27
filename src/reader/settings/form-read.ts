@@ -11,7 +11,6 @@ import {
     canonicalTagForSlice1Language,
     slice1LanguageIdForTag,
     SLICE1_TARGET_LANGUAGE,
-    targetOcrLanguageTag,
 } from '../languages';
 import { isLearnerLanguageId, type LearnerLanguageId } from '../locales';
 
@@ -630,7 +629,12 @@ function readOcrFormSettings(reader: SettingsFormReader, current: ReaderSettings
         ocrEndpointUrl: get('ocrEndpointUrl').trim(),
         ocrEngine: get('ocrEngine').trim() || 'auto',
         ocrCloudVisionApiKey: get('ocrCloudVisionApiKey').trim(),
-        ocrLanguage: targetOcrLanguageTag(get('ocrLanguage')),
+        // Blank means "follow the language being studied" and has to SURVIVE
+        // the round trip. Resolving it to a literal here turned the sentinel
+        // into whichever target happened to be active the first time anything
+        // in the dialog was saved, and the field is hidden, so nothing could
+        // ever unpin it again. Read it back exactly as rendered.
+        ocrLanguage: get('ocrLanguage').trim(),
         ocrMaxImagePixels: clamped('ocrMaxImagePixels', 160000, 2800000, current.ocrMaxImagePixels),
         ocrMinImageArea: clamped('ocrMinImageArea', 10000, 800000, current.ocrMinImageArea),
         ocrMaxImagesPerPage: clamped('ocrMaxImagesPerPage', 1, 30, current.ocrMaxImagesPerPage),

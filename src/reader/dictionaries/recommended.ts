@@ -1,4 +1,5 @@
 import type { UiCopyKey } from '../app/i18n';
+import { languageDisplayName } from '../languages/locale';
 import {
     FROZEN_DICTIONARY_CATALOG,
     FROZEN_DICTIONARY_RECOMMENDATIONS,
@@ -318,17 +319,10 @@ function catalogRecommendationDescription(
 ): string {
     const learner = learnerLanguageById(learnerLanguage);
     const messages = LOCALE_CATALOGS[learnerLanguage].messages;
-    const definitionLanguage = displayLanguageName(recommendation.definitionLanguage, learner.runtimeLocale);
+    const definitionLanguage = languageDisplayName(recommendation.definitionLanguage, learner.runtimeLocale);
     const original = messages.originalDefinitionLabel.replace('{language}', definitionLanguage);
     if (recommendation.translationMode === 'off') return original;
     const translation = messages.automaticTranslationLabel.replace('{language}', learner.nativeName);
     return `${original} · ${translation}`;
 }
 
-function displayLanguageName(language: string, locale: string): string {
-    try {
-        return new Intl.DisplayNames([locale], { type: 'language' }).of(language) ?? language;
-    } catch {
-        return language;
-    }
-}

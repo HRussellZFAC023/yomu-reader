@@ -41,6 +41,7 @@ export interface LearningTargetSpec {
     normalizeText?: (text: string) => string;
     segment?: (text: string) => readonly LanguageTextSegment[];
     lookupCandidates?: (text: string) => readonly LanguageLookupCandidate[];
+    compareLookupCandidates?: (a: LanguageLookupCandidate, b: LanguageLookupCandidate) => number;
     matchesLookupCandidateRules?: (entryRules: string | undefined, candidateRules: readonly string[]) => boolean;
     normalizeReading?: (spelling: string, reading?: string) => string;
 }
@@ -109,6 +110,7 @@ export function createLearningTargetModule(spec: LearningTargetSpec): LearningTa
         segment: spec.segment ?? defaultSegment,
         lookupCandidates: spec.lookupCandidates
             ?? ((text: string) => defaultLookupCandidates(normalizeText(text))),
+        compareLookupCandidates: spec.compareLookupCandidates ?? defaultCompareLookupCandidates,
         matchesLookupCandidateRules: spec.matchesLookupCandidateRules ?? defaultMatchesLookupCandidateRules,
         normalizeReading: spec.normalizeReading ?? defaultNormalizeReading,
     });
@@ -158,6 +160,17 @@ function defaultSegment(text: string): readonly LanguageTextSegment[] {
 /** No morphology: the surface form is the only candidate, at depth 0. */
 function defaultLookupCandidates(term: string): readonly LanguageLookupCandidate[] {
     return term ? [{ term, rules: [], reasons: [], depth: 0 }] : [];
+}
+
+/**
+ * Shape-level ordering, the only ranking possible without reading `rules`:
+ * a shallower analysis first, then the longer term, then a stable tie-break.
+ * A target with real morphology overrides this to weigh its own tags.
+ */
+function defaultCompareLookupCandidates(a: LanguageLookupCandidate, b: LanguageLookupCandidate): number {
+    return a.depth - b.depth
+        || b.term.length - a.term.length
+        || a.term.localeCompare(b.term);
 }
 
 /**

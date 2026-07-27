@@ -1,6 +1,7 @@
 import { targetOcrLanguageTag } from '../reader/languages/resolve';
 import {
     isTargetLanguageText,
+    normalizeTargetLanguageText,
     segmentTargetLanguageText,
     targetLookupTermsForText,
 } from '../reader/lookup/target-text';
@@ -89,8 +90,14 @@ export function normalizeGamingOcrResponse(value: unknown, fallbackWidth: number
     return lines.length ? { width, height, lines: uniqueOcrLines(lines) } : null;
 }
 
+/**
+ * Terms to offer for one recognized line. The whole line leads, then each
+ * segment's dictionary forms, then the line's own — the order the overlay
+ * shows them in, so the thing the player actually pointed at comes first.
+ */
 export function gamingLookupCandidates(text: string): string[] {
     const candidates = [
+        normalizeTargetLanguageText(text),
         ...segmentTargetLanguageText(text).flatMap(segment => targetLookupTermsForText(segment.text)),
         ...targetLookupTermsForText(text),
     ];

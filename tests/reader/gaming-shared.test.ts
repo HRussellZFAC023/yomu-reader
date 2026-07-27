@@ -14,7 +14,9 @@ import {
     registerLearningTargetModule,
     unregisterLearningTargetModule,
 } from '../../src/reader/languages/registry';
-import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
+import { DEFAULT_SETTINGS, normalizeReaderSettings } from '../../src/reader/settings/index';
+import { readFormSettings } from '../../src/reader/settings/form-read';
+import type { ReaderSettings } from '../../src/reader/app/types';
 
 const AD_HOC_TARGET_LANGUAGE = 'sv';
 
@@ -136,5 +138,88 @@ describe('Yomu Gaming shared helpers', () => {
             expect.arrayContaining(['Tryck', 'på']),
         );
         expect(gamingLookupCandidates('冒険を始めよう')).toEqual([]);
+    });
+
+    it('leads its candidates with the whole recognized line', () => {
+        expect(gamingLookupCandidates('もう一度、冒険を始めよう。')[0]).toBe('もう一度、冒険を始めよう。');
+    });
+});
+
+/**
+ * The capture path must own NO opinion about which characters are worth
+ * reading. It used to carry its own kana/kanji regex; these pin that the only
+ * thing deciding is the active target's `isLookupableText`.
+ */
+describe('Yomu Gaming line filtering defers to the target predicate', () => {
+    it('follows a target predicate that has nothing to do with any script', () => {
+        const target = registerLearningTargetModule(createLearningTargetModule({
+            id: 'sv-gaming-predicate-target',
+            language: AD_HOC_TARGET_LANGUAGE,
+            capabilities: { segmentation: true, ocr: true },
+            featureSemantics: {
+                characterSystem: 'latin',
+                phoneticScripts: ['latin'],
+                pronunciation: 'none',
+                readingAnnotation: 'none',
+            },
+            // Deliberately arbitrary: no local regex in gaming could ever agree
+            // with this, so a passing expectation means the contract decided.
+            detectsText: /ZZ/u,
+        }));
+        expect(setActiveLearningTargetLanguage(AD_HOC_TARGET_LANGUAGE)).toBe(target);
+
+        const result = normalizeGamingOcrResponse({
+            width: 800,
+            height: 450,
+            lines: [
+                { text: 'ZZ top', box: { left: 10, top: 20, width: 180, height: 28 } },
+                { text: '冒険を始めよう', box: { left: 10, top: 60, width: 180, height: 28 } },
+                { text: 'Tryck på A', box: { left: 10, top: 100, width: 180, height: 28 } },
+            ],
+        }, 640, 360);
+
+        expect(result?.lines.map(line => line.text)).toEqual(['ZZ top']);
+    });
+
+    it('keeps halfwidth katakana the old local regex threw away', () => {
+        const result = normalizeGamingOcrResponse({
+            width: 800,
+            height: 450,
+            lines: [{ text: 'ﾎﾟｰｼｮﾝ', box: { left: 10, top: 20, width: 180, height: 28 } }],
+        }, 640, 360);
+
+        expect(result?.lines.map(line => line.text)).toEqual(['ﾎﾟｰｼｮﾝ']);
+    });
+});
+
+/**
+ * The regression the previous attempt shipped: the OCR language followed the
+ * study target only until the player touched Settings once, because saving the
+ * form resolved the "follow the target" sentinel into a literal that nothing
+ * could clear. Gaming persists on seven handlers including a theme click, so
+ * that was every install. This walks the real path — render, save, reload —
+ * rather than handing `gamingOcrRequest` a settings object directly.
+ */
+describe('Yomu Gaming OCR language across a settings save', () => {
+    it('still follows the study target after the settings form is saved', () => {
+        const savedUnderJapanese = readFormSettings(new FormData(), DEFAULT_SETTINGS);
+        const reloaded = normalizeReaderSettings(
+            JSON.parse(JSON.stringify(savedUnderJapanese)) as ReaderSettings,
+        );
+        expect(gamingOcrRequest(reloaded, CAPTURE_IMAGE).language).toBe('ja-JP');
+
+        activateAdHocTarget();
+
+        const request = gamingOcrRequest(reloaded, CAPTURE_IMAGE);
+        expect(request.language).toBe('sv-SE');
+        expect(request.language.startsWith('ja')).toBe(false);
+    });
+
+    it('unpins an OCR language an older build already wrote', () => {
+        const pinnedByAnOlderBuild = normalizeReaderSettings({ ...DEFAULT_SETTINGS, ocrLanguage: 'ja-JP' });
+
+        activateAdHocTarget();
+
+        expect(gamingOcrRequest(pinnedByAnOlderBuild, CAPTURE_IMAGE).language).toBe('sv-SE');
     });
 });

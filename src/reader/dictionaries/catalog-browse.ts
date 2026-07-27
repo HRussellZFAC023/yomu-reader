@@ -6,6 +6,7 @@ import {
 } from './catalog';
 import type { RecommendedDictionary, RecommendedDictionaryCategory } from './recommended';
 import { yomitanDictionaryIdentity } from './yomitan/zip-normalize';
+import { languageDisplayName } from '../languages/locale';
 
 /**
  * Every archive Yomu mirrors is installable from Settings, not only the small
@@ -153,7 +154,7 @@ export function headwordLanguageEndonym(language: string): string {
 
 /** The shelf heading: the language's name, in the language of the panel. */
 export function headwordLanguageName(language: string, locale = 'en'): string {
-    const display = displayLanguageName(language, locale);
+    const display = languageDisplayName(language, locale);
     return display === language ? headwordLanguageEndonym(language) : display;
 }
 
@@ -315,7 +316,7 @@ export function catalogBrowseDescription(dictionary: RecommendedDictionary, loca
 }
 
 function describeMirroredDictionary(definitionLanguage: string | undefined, bytes: number | undefined, locale = 'en'): string {
-    const language = definitionLanguage ? displayLanguageName(definitionLanguage, locale) : '';
+    const language = definitionLanguage ? languageDisplayName(definitionLanguage, locale) : '';
     const size = bytes === undefined ? '' : formatDictionaryBytes(bytes, locale);
     return [language, size].filter(Boolean).join(' · ');
 }
@@ -346,13 +347,6 @@ function definitionLanguageRank(
     return 0;
 }
 
-function displayLanguageName(language: string, locale = 'en'): string {
-    try {
-        return new Intl.DisplayNames([locale], { type: 'language' }).of(language) ?? language;
-    } catch {
-        return language;
-    }
-}
 
 const FROZEN_CATALOG_BROWSE_SHELVES = buildCatalogBrowseShelves(FROZEN_DICTIONARY_CATALOG);
 

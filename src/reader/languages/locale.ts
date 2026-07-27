@@ -46,6 +46,23 @@ export function languageSubtag(value: unknown): string | null {
     }
 }
 
+/**
+ * A language's name, written in `locale`. The one implementation: the
+ * dictionary shelves and the catalogue browser each carried their own private
+ * copy of this try/catch, and a third caller would have made three.
+ *
+ * `Intl.DisplayNames` throws on an unusable tag and returns undefined for one
+ * it has no name for, so both degrade to the tag itself — a label that is still
+ * readable rather than an empty string in the middle of a sentence.
+ */
+export function languageDisplayName(language: string, locale = 'en'): string {
+    try {
+        return new Intl.DisplayNames([locale], { type: 'language' }).of(language) ?? language;
+    } catch {
+        return language;
+    }
+}
+
 export function localeDirection(value: unknown): TextDirection {
     const canonical = canonicalLanguageTag(value);
     if (!canonical) return 'ltr';

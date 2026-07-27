@@ -25,7 +25,7 @@ import {
     updateDictionaryLookupLinkEditor,
 } from '../../reader/settings/form';
 import { adoptLearningTargetFromSettings } from '../../reader/languages/target-selection';
-import { targetContentLocale } from '../../reader/languages/resolve';
+import { targetContentLocale, targetLanguageName } from '../../reader/languages/resolve';
 import {
     gamingCaptureOcrProvider,
     gamingLookupCandidates,
@@ -165,7 +165,7 @@ function renderGamingControlBar(): string {
                 <img src="${escapeHtml(APP_ICON_URL)}" alt="" aria-hidden="true">
                 <div>
                     <strong>Yomu Gaming</strong>
-                    <span>Read Japanese in games and desktop apps</span>
+                    <span>Read ${escapeHtml(targetLanguageName())} in games and desktop apps</span>
                 </div>
             </div>
             <div class="yomu-gaming-capture-controls">
@@ -223,7 +223,7 @@ function installGamingOnboarding(form: HTMLFormElement): void {
     section.dataset.gamingShellActions = 'true';
     section.innerHTML = `
         <div class="yomu-gaming-first-run-copy">
-            <p class="yomu-gaming-kicker">Japanese anywhere on your PC</p>
+            <p class="yomu-gaming-kicker">${escapeHtml(targetLanguageName())} anywhere on your PC</p>
             <h1>Yomu Gaming is ready.</h1>
             <p>Use Google Lens-style image OCR to place lookup targets directly over game text. Press the shortcut for a quick read, or select a smaller area when the scene is busy.</p>
         </div>

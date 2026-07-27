@@ -1,4 +1,5 @@
 import { deinflectJapaneseTerm, type DeinflectedTerm } from './deinflect';
+import type { LanguageLookupCandidate } from '../languages/types';
 import { uniqueNonEmptyStrings as uniqueStrings } from '../core/string-utils';
 import { stablePositiveHashId } from '../core/stable-hash';
 import type { JPDBCard } from '../app/types';
@@ -550,14 +551,31 @@ function isUsefulFallbackLookupCandidate(candidate: DeinflectedTerm): boolean {
         && candidate.term.length > 1;
 }
 
-function compareFallbackLookupCandidates(a: DeinflectedTerm, b: DeinflectedTerm): number {
+/**
+ * Japanese's own ranking of two analyses of one surface, wired into the
+ * learning-target contract as `compareLookupCandidates` and used verbatim by
+ * the fallback path above.
+ *
+ * It lives here, exported, because both callers must stay identical: this
+ * ordering decides which dictionary form survives the eight-term cap, so if
+ * the contract seam and the fallback path ever ranked differently the same
+ * word would resolve differently depending on which door the caller came
+ * through. 食べられなかった is the standing example — drop the rule priority and
+ * 食べる, the dictionary form, falls off the end of the list entirely.
+ */
+export function compareJapaneseLookupCandidates(
+    a: LanguageLookupCandidate,
+    b: LanguageLookupCandidate,
+): number {
     return a.depth - b.depth
         || fallbackRulePriority(a) - fallbackRulePriority(b)
         || b.term.length - a.term.length
         || a.term.localeCompare(b.term);
 }
 
-function fallbackRulePriority(candidate: DeinflectedTerm): number {
+const compareFallbackLookupCandidates = compareJapaneseLookupCandidates;
+
+function fallbackRulePriority(candidate: LanguageLookupCandidate): number {
     if (candidate.rules.some(rule => rule === 'vs' || rule === 'vs-s' || rule === 'suru' || rule === 'vk' || rule === 'kuru')) return 0;
     if (candidate.rules.some(rule => rule === 'v1')) return 1;
     if (candidate.rules.some(rule => rule.startsWith('v5') || rule === 'v5')) return 1;
