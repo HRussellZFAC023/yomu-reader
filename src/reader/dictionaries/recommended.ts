@@ -5,6 +5,7 @@ import {
     FROZEN_DICTIONARY_RECOMMENDATIONS,
     SLICE1_LEARNER_LANGUAGES,
     assertRecommendationReferencesCatalog,
+    dictionaryEntryDownload,
     type DictionaryCategory,
     type DictionaryCatalogManifest,
     type DictionaryRecommendation,
@@ -199,10 +200,20 @@ export function recommendedDictionaryInstalledIdentity(
         ?? yomitanDictionaryIdentity(dictionary.name);
 }
 
+/**
+ * Integrity terms for a catalogue install, where there are any to state.
+ *
+ * A mirror-served archive is content-addressed, so a missing digest means the
+ * catalogue is wrong and the install must fail loudly rather than fetch
+ * unverified bytes. An archive the publishing project serves itself has no
+ * digest to state — its URL names the project's current build — so it installs
+ * on the same terms as the hand-curated upstream cards above it.
+ */
 export function recommendedDictionaryImportOptions(
     dictionary: RecommendedDictionary,
 ): DictionaryImportOptions | undefined {
     if (dictionary.origin !== 'catalog') return undefined;
+    if (!isMirrorServedDownload(dictionary.downloadUrl)) return undefined;
     if (!dictionary.sha256 || !dictionary.bytes) {
         throw new Error(`Catalogue dictionary "${dictionary.id}" is missing integrity metadata.`);
     }
@@ -214,6 +225,10 @@ export function recommendedDictionaryImportOptions(
     };
 }
 
+function isMirrorServedDownload(downloadUrl: string | undefined): boolean {
+    return Boolean(downloadUrl?.startsWith(FROZEN_DICTIONARY_CATALOG.objectsBaseUrl));
+}
+
 function recommendedDictionariesFromCatalog(
     catalog: DictionaryCatalogManifest,
     manifest: DictionaryRecommendationManifest,
@@ -223,17 +238,17 @@ function recommendedDictionariesFromCatalog(
     return manifest.dictionaries.map(recommendation => {
         const entry = entryById.get(recommendation.dictionaryId);
         if (!entry) throw new Error(`Recommended dictionary "${recommendation.dictionaryId}" is missing from the catalogue.`);
-        const object = entry.distribution.state === 'published' ? entry.distribution.object : undefined;
+        const download = dictionaryEntryDownload(entry, catalog.objectsBaseUrl);
         return {
             id: catalogRecommendedDictionaryId(manifest.learnerLanguage, entry.id),
             category: recommendedDictionaryCategory(recommendation),
             name: entry.title,
             description: catalogRecommendationDescription(manifest.learnerLanguage, recommendation),
-            ...(object
+            ...(download
                 ? {
-                      downloadUrl: new URL(object.key, catalog.objectsBaseUrl).href,
-                      sha256: object.sha256,
-                      bytes: object.bytes,
+                      downloadUrl: download.url,
+                      ...(download.sha256 === undefined ? {} : { sha256: download.sha256 }),
+                      ...(download.bytes === undefined ? {} : { bytes: download.bytes }),
                   }
                 : {}),
             ...(entry.source.projectUrl ? { helpUrl: entry.source.projectUrl } : {}),
@@ -246,7 +261,7 @@ function recommendedDictionariesFromCatalog(
             definitionLanguage: recommendation.definitionLanguage,
             translationMode: recommendation.translationMode,
             installedDictionaryIdentity: CATALOG_INSTALLED_DICTIONARY_IDENTITIES[entry.id]
-                ?? yomitanDictionaryIdentity(entry.title),
+                ?? yomitanDictionaryIdentity(entry.installedTitle ?? entry.title),
         };
     });
 }

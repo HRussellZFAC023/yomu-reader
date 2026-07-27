@@ -7262,6 +7262,894 @@
       "distribution": {
         "state": "source-only"
       }
+    },
+    {
+      "id": "wty-es-en",
+      "title": "[ES-EN] Wiktionary (wty)",
+      "installedTitle": "wty-es-en",
+      "format": "yomitan",
+      "version": "2026.07.15",
+      "categories": [
+        "terms"
+      ],
+      "headwordLanguages": [
+        "es"
+      ],
+      "definitionLanguages": [
+        "en"
+      ],
+      "source": {
+        "acquisitionId": "wty-es-en",
+        "url": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/es/en/wty-es-en.zip",
+        "projectUrl": "https://github.com/yomidevs/wiktionary-to-yomitan",
+        "catalogueSection": "wiktionary-multilingual"
+      },
+      "license": {
+        "spdx": "CC-BY-SA-4.0",
+        "attribution": "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+        "sourceUrl": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/es/en/wty-es-en.zip",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "redistribution": "pending",
+        "reviewNote": "Served by the wty project itself; Yomu links to the upstream archive rather than mirroring it."
+      },
+      "distribution": {
+        "state": "upstream",
+        "archive": {
+          "url": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/es/en/wty-es-en.zip",
+          "bytes": 21074465
+        }
+      }
+    },
+    {
+      "id": "wty-es-en-ipa",
+      "title": "[ES-EN IPA] Wiktionary (wty)",
+      "installedTitle": "wty-es-en-ipa",
+      "format": "yomitan",
+      "version": "2026.07.15",
+      "categories": [
+        "pronunciation"
+      ],
+      "headwordLanguages": [
+        "es"
+      ],
+      "definitionLanguages": [
+        "en"
+      ],
+      "source": {
+        "acquisitionId": "wty-es-en-ipa",
+        "url": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/es/en/wty-es-en-ipa.zip",
+        "projectUrl": "https://github.com/yomidevs/wiktionary-to-yomitan",
+        "catalogueSection": "wiktionary-multilingual"
+      },
+      "license": {
+        "spdx": "CC-BY-SA-4.0",
+        "attribution": "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+        "sourceUrl": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/es/en/wty-es-en-ipa.zip",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "redistribution": "pending",
+        "reviewNote": "Served by the wty project itself; Yomu links to the upstream archive rather than mirroring it."
+      },
+      "distribution": {
+        "state": "upstream",
+        "archive": {
+          "url": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/es/en/wty-es-en-ipa.zip",
+          "bytes": 3374420
+        }
+      }
+    },
+    {
+      "id": "wty-es-es",
+      "title": "[ES-ES] Wiktionary (wty)",
+      "installedTitle": "wty-es-es",
+      "format": "yomitan",
+      "version": "2026.07.15",
+      "categories": [
+        "terms"
+      ],
+      "headwordLanguages": [
+        "es"
+      ],
+      "definitionLanguages": [
+        "es"
+      ],
+      "source": {
+        "acquisitionId": "wty-es-es",
+        "url": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/es/es/wty-es-es.zip",
+        "projectUrl": "https://github.com/yomidevs/wiktionary-to-yomitan",
+        "catalogueSection": "wiktionary-multilingual"
+      },
+      "license": {
+        "spdx": "CC-BY-SA-4.0",
+        "attribution": "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+        "sourceUrl": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/es/es/wty-es-es.zip",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "redistribution": "pending",
+        "reviewNote": "Served by the wty project itself; Yomu links to the upstream archive rather than mirroring it."
+      },
+      "distribution": {
+        "state": "upstream",
+        "archive": {
+          "url": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/es/es/wty-es-es.zip",
+          "bytes": 21853169
+        }
+      }
+    },
+    {
+      "id": "wty-es-es-ipa",
+      "title": "[ES-ES IPA] Wiktionary (wty)",
+      "installedTitle": "wty-es-es-ipa",
+      "format": "yomitan",
+      "version": "2026.07.15",
+      "categories": [
+        "pronunciation"
+      ],
+      "headwordLanguages": [
+        "es"
+      ],
+      "definitionLanguages": [
+        "es"
+      ],
+      "source": {
+        "acquisitionId": "wty-es-es-ipa",
+        "url": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/es/es/wty-es-es-ipa.zip",
+        "projectUrl": "https://github.com/yomidevs/wiktionary-to-yomitan",
+        "catalogueSection": "wiktionary-multilingual"
+      },
+      "license": {
+        "spdx": "CC-BY-SA-4.0",
+        "attribution": "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+        "sourceUrl": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/es/es/wty-es-es-ipa.zip",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "redistribution": "pending",
+        "reviewNote": "Served by the wty project itself; Yomu links to the upstream archive rather than mirroring it."
+      },
+      "distribution": {
+        "state": "upstream",
+        "archive": {
+          "url": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/es/es/wty-es-es-ipa.zip",
+          "bytes": 10112702
+        }
+      }
+    },
+    {
+      "id": "wty-fr-en",
+      "title": "[FR-EN] Wiktionary (wty)",
+      "installedTitle": "wty-fr-en",
+      "format": "yomitan",
+      "version": "2026.07.15",
+      "categories": [
+        "terms"
+      ],
+      "headwordLanguages": [
+        "fr"
+      ],
+      "definitionLanguages": [
+        "en"
+      ],
+      "source": {
+        "acquisitionId": "wty-fr-en",
+        "url": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/fr/en/wty-fr-en.zip",
+        "projectUrl": "https://github.com/yomidevs/wiktionary-to-yomitan",
+        "catalogueSection": "wiktionary-multilingual"
+      },
+      "license": {
+        "spdx": "CC-BY-SA-4.0",
+        "attribution": "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+        "sourceUrl": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/fr/en/wty-fr-en.zip",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "redistribution": "pending",
+        "reviewNote": "Served by the wty project itself; Yomu links to the upstream archive rather than mirroring it."
+      },
+      "distribution": {
+        "state": "upstream",
+        "archive": {
+          "url": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/fr/en/wty-fr-en.zip",
+          "bytes": 10871156
+        }
+      }
+    },
+    {
+      "id": "wty-fr-en-ipa",
+      "title": "[FR-EN IPA] Wiktionary (wty)",
+      "installedTitle": "wty-fr-en-ipa",
+      "format": "yomitan",
+      "version": "2026.07.15",
+      "categories": [
+        "pronunciation"
+      ],
+      "headwordLanguages": [
+        "fr"
+      ],
+      "definitionLanguages": [
+        "en"
+      ],
+      "source": {
+        "acquisitionId": "wty-fr-en-ipa",
+        "url": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/fr/en/wty-fr-en-ipa.zip",
+        "projectUrl": "https://github.com/yomidevs/wiktionary-to-yomitan",
+        "catalogueSection": "wiktionary-multilingual"
+      },
+      "license": {
+        "spdx": "CC-BY-SA-4.0",
+        "attribution": "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+        "sourceUrl": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/fr/en/wty-fr-en-ipa.zip",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "redistribution": "pending",
+        "reviewNote": "Served by the wty project itself; Yomu links to the upstream archive rather than mirroring it."
+      },
+      "distribution": {
+        "state": "upstream",
+        "archive": {
+          "url": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/fr/en/wty-fr-en-ipa.zip",
+          "bytes": 1861551
+        }
+      }
+    },
+    {
+      "id": "wty-fr-fr",
+      "title": "[FR-FR] Wiktionary (wty)",
+      "installedTitle": "wty-fr-fr",
+      "format": "yomitan",
+      "version": "2026.07.15",
+      "categories": [
+        "terms"
+      ],
+      "headwordLanguages": [
+        "fr"
+      ],
+      "definitionLanguages": [
+        "fr"
+      ],
+      "source": {
+        "acquisitionId": "wty-fr-fr",
+        "url": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/fr/fr/wty-fr-fr.zip",
+        "projectUrl": "https://github.com/yomidevs/wiktionary-to-yomitan",
+        "catalogueSection": "wiktionary-multilingual"
+      },
+      "license": {
+        "spdx": "CC-BY-SA-4.0",
+        "attribution": "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+        "sourceUrl": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/fr/fr/wty-fr-fr.zip",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "redistribution": "pending",
+        "reviewNote": "Served by the wty project itself; Yomu links to the upstream archive rather than mirroring it."
+      },
+      "distribution": {
+        "state": "upstream",
+        "archive": {
+          "url": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/fr/fr/wty-fr-fr.zip",
+          "bytes": 75810942
+        }
+      }
+    },
+    {
+      "id": "wty-fr-fr-ipa",
+      "title": "[FR-FR IPA] Wiktionary (wty)",
+      "installedTitle": "wty-fr-fr-ipa",
+      "format": "yomitan",
+      "version": "2026.07.15",
+      "categories": [
+        "pronunciation"
+      ],
+      "headwordLanguages": [
+        "fr"
+      ],
+      "definitionLanguages": [
+        "fr"
+      ],
+      "source": {
+        "acquisitionId": "wty-fr-fr-ipa",
+        "url": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/fr/fr/wty-fr-fr-ipa.zip",
+        "projectUrl": "https://github.com/yomidevs/wiktionary-to-yomitan",
+        "catalogueSection": "wiktionary-multilingual"
+      },
+      "license": {
+        "spdx": "CC-BY-SA-4.0",
+        "attribution": "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+        "sourceUrl": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/fr/fr/wty-fr-fr-ipa.zip",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "redistribution": "pending",
+        "reviewNote": "Served by the wty project itself; Yomu links to the upstream archive rather than mirroring it."
+      },
+      "distribution": {
+        "state": "upstream",
+        "archive": {
+          "url": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/fr/fr/wty-fr-fr-ipa.zip",
+          "bytes": 19087822
+        }
+      }
+    },
+    {
+      "id": "wty-de-en",
+      "title": "[DE-EN] Wiktionary (wty)",
+      "installedTitle": "wty-de-en",
+      "format": "yomitan",
+      "version": "2026.07.15",
+      "categories": [
+        "terms"
+      ],
+      "headwordLanguages": [
+        "de"
+      ],
+      "definitionLanguages": [
+        "en"
+      ],
+      "source": {
+        "acquisitionId": "wty-de-en",
+        "url": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/de/en/wty-de-en.zip",
+        "projectUrl": "https://github.com/yomidevs/wiktionary-to-yomitan",
+        "catalogueSection": "wiktionary-multilingual"
+      },
+      "license": {
+        "spdx": "CC-BY-SA-4.0",
+        "attribution": "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+        "sourceUrl": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/de/en/wty-de-en.zip",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "redistribution": "pending",
+        "reviewNote": "Served by the wty project itself; Yomu links to the upstream archive rather than mirroring it."
+      },
+      "distribution": {
+        "state": "upstream",
+        "archive": {
+          "url": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/de/en/wty-de-en.zip",
+          "bytes": 16936546
+        }
+      }
+    },
+    {
+      "id": "wty-de-en-ipa",
+      "title": "[DE-EN IPA] Wiktionary (wty)",
+      "installedTitle": "wty-de-en-ipa",
+      "format": "yomitan",
+      "version": "2026.07.15",
+      "categories": [
+        "pronunciation"
+      ],
+      "headwordLanguages": [
+        "de"
+      ],
+      "definitionLanguages": [
+        "en"
+      ],
+      "source": {
+        "acquisitionId": "wty-de-en-ipa",
+        "url": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/de/en/wty-de-en-ipa.zip",
+        "projectUrl": "https://github.com/yomidevs/wiktionary-to-yomitan",
+        "catalogueSection": "wiktionary-multilingual"
+      },
+      "license": {
+        "spdx": "CC-BY-SA-4.0",
+        "attribution": "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+        "sourceUrl": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/de/en/wty-de-en-ipa.zip",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "redistribution": "pending",
+        "reviewNote": "Served by the wty project itself; Yomu links to the upstream archive rather than mirroring it."
+      },
+      "distribution": {
+        "state": "upstream",
+        "archive": {
+          "url": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/de/en/wty-de-en-ipa.zip",
+          "bytes": 1534929
+        }
+      }
+    },
+    {
+      "id": "wty-de-de",
+      "title": "[DE-DE] Wiktionary (wty)",
+      "installedTitle": "wty-de-de",
+      "format": "yomitan",
+      "version": "2026.07.15",
+      "categories": [
+        "terms"
+      ],
+      "headwordLanguages": [
+        "de"
+      ],
+      "definitionLanguages": [
+        "de"
+      ],
+      "source": {
+        "acquisitionId": "wty-de-de",
+        "url": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/de/de/wty-de-de.zip",
+        "projectUrl": "https://github.com/yomidevs/wiktionary-to-yomitan",
+        "catalogueSection": "wiktionary-multilingual"
+      },
+      "license": {
+        "spdx": "CC-BY-SA-4.0",
+        "attribution": "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+        "sourceUrl": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/de/de/wty-de-de.zip",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "redistribution": "pending",
+        "reviewNote": "Served by the wty project itself; Yomu links to the upstream archive rather than mirroring it."
+      },
+      "distribution": {
+        "state": "upstream",
+        "archive": {
+          "url": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/de/de/wty-de-de.zip",
+          "bytes": 53210298
+        }
+      }
+    },
+    {
+      "id": "wty-de-de-ipa",
+      "title": "[DE-DE IPA] Wiktionary (wty)",
+      "installedTitle": "wty-de-de-ipa",
+      "format": "yomitan",
+      "version": "2026.07.15",
+      "categories": [
+        "pronunciation"
+      ],
+      "headwordLanguages": [
+        "de"
+      ],
+      "definitionLanguages": [
+        "de"
+      ],
+      "source": {
+        "acquisitionId": "wty-de-de-ipa",
+        "url": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/de/de/wty-de-de-ipa.zip",
+        "projectUrl": "https://github.com/yomidevs/wiktionary-to-yomitan",
+        "catalogueSection": "wiktionary-multilingual"
+      },
+      "license": {
+        "spdx": "CC-BY-SA-4.0",
+        "attribution": "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+        "sourceUrl": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/de/de/wty-de-de-ipa.zip",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "redistribution": "pending",
+        "reviewNote": "Served by the wty project itself; Yomu links to the upstream archive rather than mirroring it."
+      },
+      "distribution": {
+        "state": "upstream",
+        "archive": {
+          "url": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/de/de/wty-de-de-ipa.zip",
+          "bytes": 12619620
+        }
+      }
+    },
+    {
+      "id": "wty-ru-en",
+      "title": "[RU-EN] Wiktionary (wty)",
+      "installedTitle": "wty-ru-en",
+      "format": "yomitan",
+      "version": "2026.07.15",
+      "categories": [
+        "terms"
+      ],
+      "headwordLanguages": [
+        "ru"
+      ],
+      "definitionLanguages": [
+        "en"
+      ],
+      "source": {
+        "acquisitionId": "wty-ru-en",
+        "url": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/ru/en/wty-ru-en.zip",
+        "projectUrl": "https://github.com/yomidevs/wiktionary-to-yomitan",
+        "catalogueSection": "wiktionary-multilingual"
+      },
+      "license": {
+        "spdx": "CC-BY-SA-4.0",
+        "attribution": "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+        "sourceUrl": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/ru/en/wty-ru-en.zip",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "redistribution": "pending",
+        "reviewNote": "Served by the wty project itself; Yomu links to the upstream archive rather than mirroring it."
+      },
+      "distribution": {
+        "state": "upstream",
+        "archive": {
+          "url": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/ru/en/wty-ru-en.zip",
+          "bytes": 26007867
+        }
+      }
+    },
+    {
+      "id": "wty-ru-en-ipa",
+      "title": "[RU-EN IPA] Wiktionary (wty)",
+      "installedTitle": "wty-ru-en-ipa",
+      "format": "yomitan",
+      "version": "2026.07.15",
+      "categories": [
+        "pronunciation"
+      ],
+      "headwordLanguages": [
+        "ru"
+      ],
+      "definitionLanguages": [
+        "en"
+      ],
+      "source": {
+        "acquisitionId": "wty-ru-en-ipa",
+        "url": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/ru/en/wty-ru-en-ipa.zip",
+        "projectUrl": "https://github.com/yomidevs/wiktionary-to-yomitan",
+        "catalogueSection": "wiktionary-multilingual"
+      },
+      "license": {
+        "spdx": "CC-BY-SA-4.0",
+        "attribution": "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+        "sourceUrl": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/ru/en/wty-ru-en-ipa.zip",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "redistribution": "pending",
+        "reviewNote": "Served by the wty project itself; Yomu links to the upstream archive rather than mirroring it."
+      },
+      "distribution": {
+        "state": "upstream",
+        "archive": {
+          "url": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/ru/en/wty-ru-en-ipa.zip",
+          "bytes": 6121159
+        }
+      }
+    },
+    {
+      "id": "wty-ru-ru",
+      "title": "[RU-RU] Wiktionary (wty)",
+      "installedTitle": "wty-ru-ru",
+      "format": "yomitan",
+      "version": "2026.07.15",
+      "categories": [
+        "terms"
+      ],
+      "headwordLanguages": [
+        "ru"
+      ],
+      "definitionLanguages": [
+        "ru"
+      ],
+      "source": {
+        "acquisitionId": "wty-ru-ru",
+        "url": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/ru/ru/wty-ru-ru.zip",
+        "projectUrl": "https://github.com/yomidevs/wiktionary-to-yomitan",
+        "catalogueSection": "wiktionary-multilingual"
+      },
+      "license": {
+        "spdx": "CC-BY-SA-4.0",
+        "attribution": "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+        "sourceUrl": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/ru/ru/wty-ru-ru.zip",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "redistribution": "pending",
+        "reviewNote": "Served by the wty project itself; Yomu links to the upstream archive rather than mirroring it."
+      },
+      "distribution": {
+        "state": "upstream",
+        "archive": {
+          "url": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/ru/ru/wty-ru-ru.zip",
+          "bytes": 82672811
+        }
+      }
+    },
+    {
+      "id": "wty-ru-ru-ipa",
+      "title": "[RU-RU IPA] Wiktionary (wty)",
+      "installedTitle": "wty-ru-ru-ipa",
+      "format": "yomitan",
+      "version": "2026.07.15",
+      "categories": [
+        "pronunciation"
+      ],
+      "headwordLanguages": [
+        "ru"
+      ],
+      "definitionLanguages": [
+        "ru"
+      ],
+      "source": {
+        "acquisitionId": "wty-ru-ru-ipa",
+        "url": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/ru/ru/wty-ru-ru-ipa.zip",
+        "projectUrl": "https://github.com/yomidevs/wiktionary-to-yomitan",
+        "catalogueSection": "wiktionary-multilingual"
+      },
+      "license": {
+        "spdx": "CC-BY-SA-4.0",
+        "attribution": "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+        "sourceUrl": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/ru/ru/wty-ru-ru-ipa.zip",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "redistribution": "pending",
+        "reviewNote": "Served by the wty project itself; Yomu links to the upstream archive rather than mirroring it."
+      },
+      "distribution": {
+        "state": "upstream",
+        "archive": {
+          "url": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/ru/ru/wty-ru-ru-ipa.zip",
+          "bytes": 6498278
+        }
+      }
+    },
+    {
+      "id": "wty-ko-en",
+      "title": "[KO-EN] Wiktionary (wty)",
+      "installedTitle": "wty-ko-en",
+      "format": "yomitan",
+      "version": "2026.07.15",
+      "categories": [
+        "terms"
+      ],
+      "headwordLanguages": [
+        "ko"
+      ],
+      "definitionLanguages": [
+        "en"
+      ],
+      "source": {
+        "acquisitionId": "wty-ko-en",
+        "url": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/ko/en/wty-ko-en.zip",
+        "projectUrl": "https://github.com/yomidevs/wiktionary-to-yomitan",
+        "catalogueSection": "wiktionary-multilingual"
+      },
+      "license": {
+        "spdx": "CC-BY-SA-4.0",
+        "attribution": "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+        "sourceUrl": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/ko/en/wty-ko-en.zip",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "redistribution": "pending",
+        "reviewNote": "Served by the wty project itself; Yomu links to the upstream archive rather than mirroring it."
+      },
+      "distribution": {
+        "state": "upstream",
+        "archive": {
+          "url": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/ko/en/wty-ko-en.zip",
+          "bytes": 7178977
+        }
+      }
+    },
+    {
+      "id": "wty-ko-en-ipa",
+      "title": "[KO-EN IPA] Wiktionary (wty)",
+      "installedTitle": "wty-ko-en-ipa",
+      "format": "yomitan",
+      "version": "2026.07.15",
+      "categories": [
+        "pronunciation"
+      ],
+      "headwordLanguages": [
+        "ko"
+      ],
+      "definitionLanguages": [
+        "en"
+      ],
+      "source": {
+        "acquisitionId": "wty-ko-en-ipa",
+        "url": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/ko/en/wty-ko-en-ipa.zip",
+        "projectUrl": "https://github.com/yomidevs/wiktionary-to-yomitan",
+        "catalogueSection": "wiktionary-multilingual"
+      },
+      "license": {
+        "spdx": "CC-BY-SA-4.0",
+        "attribution": "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+        "sourceUrl": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/ko/en/wty-ko-en-ipa.zip",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "redistribution": "pending",
+        "reviewNote": "Served by the wty project itself; Yomu links to the upstream archive rather than mirroring it."
+      },
+      "distribution": {
+        "state": "upstream",
+        "archive": {
+          "url": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/ko/en/wty-ko-en-ipa.zip",
+          "bytes": 636398
+        }
+      }
+    },
+    {
+      "id": "wty-ko-ko",
+      "title": "[KO-KO] Wiktionary (wty)",
+      "installedTitle": "wty-ko-ko",
+      "format": "yomitan",
+      "version": "2026.07.15",
+      "categories": [
+        "terms"
+      ],
+      "headwordLanguages": [
+        "ko"
+      ],
+      "definitionLanguages": [
+        "ko"
+      ],
+      "source": {
+        "acquisitionId": "wty-ko-ko",
+        "url": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/ko/ko/wty-ko-ko.zip",
+        "projectUrl": "https://github.com/yomidevs/wiktionary-to-yomitan",
+        "catalogueSection": "wiktionary-multilingual"
+      },
+      "license": {
+        "spdx": "CC-BY-SA-4.0",
+        "attribution": "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+        "sourceUrl": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/ko/ko/wty-ko-ko.zip",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "redistribution": "pending",
+        "reviewNote": "Served by the wty project itself; Yomu links to the upstream archive rather than mirroring it."
+      },
+      "distribution": {
+        "state": "upstream",
+        "archive": {
+          "url": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/ko/ko/wty-ko-ko.zip",
+          "bytes": 4129423
+        }
+      }
+    },
+    {
+      "id": "wty-ko-ko-ipa",
+      "title": "[KO-KO IPA] Wiktionary (wty)",
+      "installedTitle": "wty-ko-ko-ipa",
+      "format": "yomitan",
+      "version": "2026.07.15",
+      "categories": [
+        "pronunciation"
+      ],
+      "headwordLanguages": [
+        "ko"
+      ],
+      "definitionLanguages": [
+        "ko"
+      ],
+      "source": {
+        "acquisitionId": "wty-ko-ko-ipa",
+        "url": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/ko/ko/wty-ko-ko-ipa.zip",
+        "projectUrl": "https://github.com/yomidevs/wiktionary-to-yomitan",
+        "catalogueSection": "wiktionary-multilingual"
+      },
+      "license": {
+        "spdx": "CC-BY-SA-4.0",
+        "attribution": "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+        "sourceUrl": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/ko/ko/wty-ko-ko-ipa.zip",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "redistribution": "pending",
+        "reviewNote": "Served by the wty project itself; Yomu links to the upstream archive rather than mirroring it."
+      },
+      "distribution": {
+        "state": "upstream",
+        "archive": {
+          "url": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/ko/ko/wty-ko-ko-ipa.zip",
+          "bytes": 1049472
+        }
+      }
+    },
+    {
+      "id": "wty-vi-en",
+      "title": "[VI-EN] Wiktionary (wty)",
+      "installedTitle": "wty-vi-en",
+      "format": "yomitan",
+      "version": "2026.07.15",
+      "categories": [
+        "terms"
+      ],
+      "headwordLanguages": [
+        "vi"
+      ],
+      "definitionLanguages": [
+        "en"
+      ],
+      "source": {
+        "acquisitionId": "wty-vi-en",
+        "url": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/vi/en/wty-vi-en.zip",
+        "projectUrl": "https://github.com/yomidevs/wiktionary-to-yomitan",
+        "catalogueSection": "wiktionary-multilingual"
+      },
+      "license": {
+        "spdx": "CC-BY-SA-4.0",
+        "attribution": "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+        "sourceUrl": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/vi/en/wty-vi-en.zip",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "redistribution": "pending",
+        "reviewNote": "Served by the wty project itself; Yomu links to the upstream archive rather than mirroring it."
+      },
+      "distribution": {
+        "state": "upstream",
+        "archive": {
+          "url": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/vi/en/wty-vi-en.zip",
+          "bytes": 4244664
+        }
+      }
+    },
+    {
+      "id": "wty-vi-en-ipa",
+      "title": "[VI-EN IPA] Wiktionary (wty)",
+      "installedTitle": "wty-vi-en-ipa",
+      "format": "yomitan",
+      "version": "2026.07.15",
+      "categories": [
+        "pronunciation"
+      ],
+      "headwordLanguages": [
+        "vi"
+      ],
+      "definitionLanguages": [
+        "en"
+      ],
+      "source": {
+        "acquisitionId": "wty-vi-en-ipa",
+        "url": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/vi/en/wty-vi-en-ipa.zip",
+        "projectUrl": "https://github.com/yomidevs/wiktionary-to-yomitan",
+        "catalogueSection": "wiktionary-multilingual"
+      },
+      "license": {
+        "spdx": "CC-BY-SA-4.0",
+        "attribution": "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+        "sourceUrl": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/vi/en/wty-vi-en-ipa.zip",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "redistribution": "pending",
+        "reviewNote": "Served by the wty project itself; Yomu links to the upstream archive rather than mirroring it."
+      },
+      "distribution": {
+        "state": "upstream",
+        "archive": {
+          "url": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/vi/en/wty-vi-en-ipa.zip",
+          "bytes": 931347
+        }
+      }
+    },
+    {
+      "id": "wty-vi-vi",
+      "title": "[VI-VI] Wiktionary (wty)",
+      "installedTitle": "wty-vi-vi",
+      "format": "yomitan",
+      "version": "2026.07.15",
+      "categories": [
+        "terms"
+      ],
+      "headwordLanguages": [
+        "vi"
+      ],
+      "definitionLanguages": [
+        "vi"
+      ],
+      "source": {
+        "acquisitionId": "wty-vi-vi",
+        "url": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/vi/vi/wty-vi-vi.zip",
+        "projectUrl": "https://github.com/yomidevs/wiktionary-to-yomitan",
+        "catalogueSection": "wiktionary-multilingual"
+      },
+      "license": {
+        "spdx": "CC-BY-SA-4.0",
+        "attribution": "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+        "sourceUrl": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/vi/vi/wty-vi-vi.zip",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "redistribution": "pending",
+        "reviewNote": "Served by the wty project itself; Yomu links to the upstream archive rather than mirroring it."
+      },
+      "distribution": {
+        "state": "upstream",
+        "archive": {
+          "url": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/vi/vi/wty-vi-vi.zip",
+          "bytes": 3730344
+        }
+      }
+    },
+    {
+      "id": "wty-vi-vi-ipa",
+      "title": "[VI-VI IPA] Wiktionary (wty)",
+      "installedTitle": "wty-vi-vi-ipa",
+      "format": "yomitan",
+      "version": "2026.07.15",
+      "categories": [
+        "pronunciation"
+      ],
+      "headwordLanguages": [
+        "vi"
+      ],
+      "definitionLanguages": [
+        "vi"
+      ],
+      "source": {
+        "acquisitionId": "wty-vi-vi-ipa",
+        "url": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/vi/vi/wty-vi-vi-ipa.zip",
+        "projectUrl": "https://github.com/yomidevs/wiktionary-to-yomitan",
+        "catalogueSection": "wiktionary-multilingual"
+      },
+      "license": {
+        "spdx": "CC-BY-SA-4.0",
+        "attribution": "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
+        "sourceUrl": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/vi/vi/wty-vi-vi-ipa.zip",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "redistribution": "pending",
+        "reviewNote": "Served by the wty project itself; Yomu links to the upstream archive rather than mirroring it."
+      },
+      "distribution": {
+        "state": "upstream",
+        "archive": {
+          "url": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/vi/vi/wty-vi-vi-ipa.zip",
+          "bytes": 1560638
+        }
+      }
     }
   ]
 }

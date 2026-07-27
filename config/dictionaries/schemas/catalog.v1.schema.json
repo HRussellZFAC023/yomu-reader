@@ -65,6 +65,7 @@
       "properties": {
         "id": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
         "title": { "type": "string", "minLength": 1 },
+        "installedTitle": { "type": "string", "minLength": 1, "description": "The title the archive's own index.json declares, when the catalogue label differs." },
         "format": { "const": "yomitan" },
         "version": { "type": "string", "minLength": 1 },
         "categories": {
@@ -142,6 +143,15 @@
             {
               "type": "object",
               "additionalProperties": false,
+              "required": ["state", "archive"],
+              "properties": {
+                "state": { "const": "upstream" },
+                "archive": { "$ref": "#/$defs/upstreamArchive" }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
               "required": ["state", "object"],
               "properties": {
                 "state": { "const": "published" },
@@ -150,6 +160,16 @@
             }
           ]
         }
+      }
+    },
+    "upstreamArchive": {
+      "type": "object",
+      "description": "An archive the publishing project serves itself. No content address: the URL names the project's current build, so a frozen digest would fail on its next rebuild. bytes is the size observed when the row was written, used only to tell a reader what the download costs.",
+      "additionalProperties": false,
+      "required": ["url"],
+      "properties": {
+        "url": { "type": "string", "format": "uri", "pattern": "^https://" },
+        "bytes": { "type": "integer", "minimum": 1 }
       }
     },
     "dictionaryObject": {

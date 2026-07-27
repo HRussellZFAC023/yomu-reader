@@ -59,6 +59,7 @@ export type RedistributionReview = 'allowed' | 'pending' | 'blocked';
 export type DictionaryDistribution =
     | { state: 'source-only' }
     | { state: 'blocked'; reason: string }
+    | { state: 'upstream'; archive: DictionaryUpstreamArchive }
     | { state: 'published'; object: DictionaryObject };
 
 export interface DictionaryObject {
@@ -66,6 +67,24 @@ export interface DictionaryObject {
     sha256: string;
     bytes: number;
     contentType: 'application/zip';
+}
+
+/**
+ * An archive the publishing project serves itself, installed straight from
+ * there instead of from Yomu's mirror.
+ *
+ * This is how a language gets a shelf before anyone has mirrored a byte for it.
+ * The Wiktionary-derived sets cover every target Yomu supports and are rebuilt
+ * upstream on their own schedule, so their URLs name the project's *current*
+ * build rather than a frozen one — which is exactly why there is no content
+ * address here. A digest pinned to a moving URL fails on the next upstream
+ * rebuild, so integrity is claimed only where it can be honoured: a mirrored
+ * `published` object. `bytes` is the size observed when the row was written and
+ * is only ever used to warn a reader what the download costs.
+ */
+export interface DictionaryUpstreamArchive {
+    url: string;
+    bytes?: number;
 }
 
 export interface DictionaryLicense {
@@ -80,6 +99,13 @@ export interface DictionaryLicense {
 export interface DictionaryCatalogEntry {
     id: string;
     title: string;
+    /**
+     * The title the archive's own `index.json` declares, when it differs from
+     * the catalogue's shelf label. Settings marks a card "installed" by
+     * matching titles, so a row whose shelf label is written for humans has to
+     * say what the import will actually be called.
+     */
+    installedTitle?: string;
     format: 'yomitan';
     version: string;
     categories: DictionaryCategory[];

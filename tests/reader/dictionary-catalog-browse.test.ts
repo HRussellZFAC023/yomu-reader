@@ -75,10 +75,15 @@ describe('mirrored dictionary catalogue browsing', () => {
         browse.forEach(dictionary => {
             expect(dictionary.id).toBe(catalogBrowseCardId(dictionary.headwordLanguage!, dictionary.catalogDictionaryId!));
             expect(findRecommendedDictionary(dictionary.id)).toBe(dictionary);
-            // Entries the mirror has not published carry no object to install;
-            // everything we do serve is fetched from the mirror, by digest.
+            // A row without a content address is served by its own publishing
+            // project, which is how a language gets a shelf before anything has
+            // been mirrored for it. It may still install, but it must never
+            // look like a mirror download and must not claim integrity terms
+            // nobody can keep against a URL that names the project's current
+            // build.
             if (!dictionary.sha256) {
-                expect(dictionary.downloadUrl, dictionary.id).toBeUndefined();
+                expect(dictionary.downloadUrl ?? '', dictionary.id).not.toContain('dictionaries.yomureader.com');
+                expect(recommendedDictionaryImportOptions(dictionary), dictionary.id).toBeUndefined();
                 return;
             }
             expect(dictionary.downloadUrl).toMatch(/^https:\/\/dictionaries\.yomureader\.com\/objects\/sha256\/[a-f0-9]{64}\.zip$/);
@@ -225,10 +230,24 @@ describe('shelving mirrored dictionaries the reader is not studying', () => {
         expect(languages).toContain('zh');
         expect(languages).toContain('yue');
         expect(languages).toContain('lzh');
+        // The Wiktionary-derived shelves: a learner of one of these can install
+        // a dictionary for it without anything having been mirrored.
+        for (const language of ['es', 'fr', 'de', 'ru', 'ko', 'vi']) expect(languages).toContain(language);
         expect(shelves[0]!.hasAttribute('data-catalog-browse-language-target')).toBe(true);
         expect(shelves.slice(1).some(shelf => shelf.hasAttribute('data-catalog-browse-language-target'))).toBe(false);
         expect(shelves.map(shelf => shelf.querySelector('[data-catalog-browse-language-title]')?.textContent))
-            .toEqual(['Japanese', 'Chinese', 'Cantonese', 'Literary Chinese']);
+            .toEqual([
+                'Japanese',
+                'Chinese',
+                'Cantonese',
+                'German',
+                'Spanish',
+                'French',
+                'Korean',
+                'Literary Chinese',
+                'Russian',
+                'Vietnamese',
+            ]);
     });
 
     /**
@@ -339,7 +358,18 @@ describe('shelving mirrored dictionaries the reader is not studying', () => {
         const shelves = [...section.querySelectorAll<HTMLElement>('[data-catalog-browse-language]')];
 
         expect(shelves.map(shelf => shelf.querySelector('[data-catalog-browse-language-title]')?.textContent))
-            .toEqual(['日本語', '中国語', '広東語', '漢文']);
+            .toEqual([
+                '日本語',
+                '中国語',
+                '広東語',
+                'ドイツ語',
+                'スペイン語',
+                'フランス語',
+                '韓国語',
+                '漢文',
+                'ロシア語',
+                'ベトナム語',
+            ]);
         expect(shelves.slice(1).map(shelf => shelf.querySelector('[data-catalog-browse-language-note]')?.textContent))
             .toEqual(shelves.slice(1).map(() => '日本語を読むための辞書ではありません。'));
         expect(shelves[0]!.querySelector('[data-catalog-browse-language-note]')).toBeNull();

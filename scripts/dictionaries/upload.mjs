@@ -93,7 +93,10 @@ export async function buildUploadPlan({
 // gap stayed invisible. What must never ship is the opposite mistake: a row that
 // claims publication with no object behind it, or a catalogue that has stopped
 // publishing anything at all.
-const DISTRIBUTION_STATES = new Set(['published', 'source-only', 'blocked']);
+// `upstream` rows are served by their own publishing project, so an upload run
+// has nothing to do for them — but it must still recognise the state, or a
+// catalogue that offers a language its whole shelf reads as corrupt here.
+const DISTRIBUTION_STATES = new Set(['published', 'source-only', 'blocked', 'upstream']);
 
 async function assertPublishableManifestSet(root, catalog, languages, recommendationFiles) {
   if (languages.count !== 32 || languages.languages?.length !== 32) {
