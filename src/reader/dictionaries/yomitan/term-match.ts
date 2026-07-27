@@ -1,15 +1,16 @@
-import { termRulesMatch, type DeinflectedTerm } from '../../lookup/deinflect';
+import { targetLookupCandidateRulesMatch } from '../../languages/morphology';
 import { dictionaryEnabled, dictionaryPriority } from './ranking';
 import type { DictionaryPreference } from '../../app/types';
+import type { LanguageLookupCandidate, LearningTargetModule } from '../../languages/types';
 import type { YomitanTermEntry, YomitanTermMatch } from './types';
 
-const JAPANESE_RE = /[\u3040-\u30ff\u3400-\u9fff]/u;
+const WHITESPACE_RE = /\s/u;
 
 export interface TermMatchCandidatePosition {
     start: number;
     end: number;
     surface: string;
-    deinflected: DeinflectedTerm;
+    deinflected: LanguageLookupCandidate;
 }
 
 export type TermMatchCandidates = Map<string, TermMatchCandidatePosition[]>;
@@ -48,8 +49,17 @@ export function readIndexRequestValues<T>(
     request.onerror = () => reject(request.error);
 }
 
-export function isSearchableJapaneseSurface(surface: string): boolean {
-    return JAPANESE_RE.test(surface) && !/\s/.test(surface);
+/**
+ * Whether a swept substring is worth asking the dictionary about.
+ *
+ * Two claims, both the target's to make rather than the engine's: the substring
+ * is text in the language being read, and it is one word. The whitespace rule
+ * is why the sweep terminates at all — without it every span of a paragraph
+ * would be a candidate — and it is also this path's honest limit: a term
+ * written with a space in it is not reachable here.
+ */
+export function isSearchableTargetSurface(surface: string, target: LearningTargetModule): boolean {
+    return target.isLookupableText(surface) && !WHITESPACE_RE.test(surface);
 }
 
 export function sortedTermMatchExpressions(candidates: TermMatchCandidates): string[] {
@@ -113,7 +123,10 @@ export function rankedDictionaryEntries<T extends RankedDictionaryEntry>(
 }
 
 function termMatchForPosition(position: TermMatchCandidatePosition, entries: YomitanTermEntry[]): YomitanTermMatch | null {
-    const entry = entries.find(item => termRulesMatch(item.rules, position.deinflected.rules));
+    // Rule tags are the target's own vocabulary — Japanese knows `v5m` is a
+    // kind of `v5`, and nothing else does — so the engine asks the target
+    // whether an entry answers a candidate instead of comparing tags itself.
+    const entry = entries.find(item => targetLookupCandidateRulesMatch(item.rules, position.deinflected.rules));
     return entry
         ? {
             entry,

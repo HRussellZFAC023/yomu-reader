@@ -83,6 +83,7 @@ describe('LearningTargetModule contract revision', () => {
             'isLookupableText',
             'language',
             'lookupCandidates',
+            'lookupStartsAtSegmentBoundary',
             'matchesLookupCandidateRules',
             'normalizeReading',
             'normalizeText',

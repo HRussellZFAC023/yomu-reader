@@ -71,6 +71,12 @@ export const JAPANESE_LEARNING_TARGET: LearningTargetModule = createLearningTarg
     detectsText: HAS_JAPANESE,
     normalizeText: normalizeJapaneseTargetText,
 
+    // Japanese writes no word boundaries, so its segmenter infers them. That is
+    // good enough to decide where a reading is drawn and not good enough to
+    // decide where a dictionary term may begin, which is why the term engine
+    // sweeps every position for this target and lets the dictionary arbitrate.
+    lookupStartsAtSegmentBoundary: false,
+
     segment(text: string) {
         return segmentJapaneseText(text).map(segment => ({
             text: segment.surface,

@@ -186,6 +186,174 @@
       "filename": "JMdict_slovenian.zip",
       "acquisitionReview": "allowed",
       "redistributionReview": "allowed"
+    },
+    {
+      "id": "wty-es-en",
+      "url": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/es/en/wty-es-en.zip",
+      "filename": "wty-es-en.zip",
+      "acquisitionReview": "allowed",
+      "redistributionReview": "pending"
+    },
+    {
+      "id": "wty-es-en-ipa",
+      "url": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/es/en/wty-es-en-ipa.zip",
+      "filename": "wty-es-en-ipa.zip",
+      "acquisitionReview": "allowed",
+      "redistributionReview": "pending"
+    },
+    {
+      "id": "wty-es-es",
+      "url": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/es/es/wty-es-es.zip",
+      "filename": "wty-es-es.zip",
+      "acquisitionReview": "allowed",
+      "redistributionReview": "pending"
+    },
+    {
+      "id": "wty-es-es-ipa",
+      "url": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/es/es/wty-es-es-ipa.zip",
+      "filename": "wty-es-es-ipa.zip",
+      "acquisitionReview": "allowed",
+      "redistributionReview": "pending"
+    },
+    {
+      "id": "wty-fr-en",
+      "url": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/fr/en/wty-fr-en.zip",
+      "filename": "wty-fr-en.zip",
+      "acquisitionReview": "allowed",
+      "redistributionReview": "pending"
+    },
+    {
+      "id": "wty-fr-en-ipa",
+      "url": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/fr/en/wty-fr-en-ipa.zip",
+      "filename": "wty-fr-en-ipa.zip",
+      "acquisitionReview": "allowed",
+      "redistributionReview": "pending"
+    },
+    {
+      "id": "wty-fr-fr",
+      "url": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/fr/fr/wty-fr-fr.zip",
+      "filename": "wty-fr-fr.zip",
+      "acquisitionReview": "allowed",
+      "redistributionReview": "pending"
+    },
+    {
+      "id": "wty-fr-fr-ipa",
+      "url": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/fr/fr/wty-fr-fr-ipa.zip",
+      "filename": "wty-fr-fr-ipa.zip",
+      "acquisitionReview": "allowed",
+      "redistributionReview": "pending"
+    },
+    {
+      "id": "wty-de-en",
+      "url": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/de/en/wty-de-en.zip",
+      "filename": "wty-de-en.zip",
+      "acquisitionReview": "allowed",
+      "redistributionReview": "pending"
+    },
+    {
+      "id": "wty-de-en-ipa",
+      "url": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/de/en/wty-de-en-ipa.zip",
+      "filename": "wty-de-en-ipa.zip",
+      "acquisitionReview": "allowed",
+      "redistributionReview": "pending"
+    },
+    {
+      "id": "wty-de-de",
+      "url": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/de/de/wty-de-de.zip",
+      "filename": "wty-de-de.zip",
+      "acquisitionReview": "allowed",
+      "redistributionReview": "pending"
+    },
+    {
+      "id": "wty-de-de-ipa",
+      "url": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/de/de/wty-de-de-ipa.zip",
+      "filename": "wty-de-de-ipa.zip",
+      "acquisitionReview": "allowed",
+      "redistributionReview": "pending"
+    },
+    {
+      "id": "wty-ru-en",
+      "url": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/ru/en/wty-ru-en.zip",
+      "filename": "wty-ru-en.zip",
+      "acquisitionReview": "allowed",
+      "redistributionReview": "pending"
+    },
+    {
+      "id": "wty-ru-en-ipa",
+      "url": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/ru/en/wty-ru-en-ipa.zip",
+      "filename": "wty-ru-en-ipa.zip",
+      "acquisitionReview": "allowed",
+      "redistributionReview": "pending"
+    },
+    {
+      "id": "wty-ru-ru",
+      "url": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/ru/ru/wty-ru-ru.zip",
+      "filename": "wty-ru-ru.zip",
+      "acquisitionReview": "allowed",
+      "redistributionReview": "pending"
+    },
+    {
+      "id": "wty-ru-ru-ipa",
+      "url": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/ru/ru/wty-ru-ru-ipa.zip",
+      "filename": "wty-ru-ru-ipa.zip",
+      "acquisitionReview": "allowed",
+      "redistributionReview": "pending"
+    },
+    {
+      "id": "wty-ko-en",
+      "url": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/ko/en/wty-ko-en.zip",
+      "filename": "wty-ko-en.zip",
+      "acquisitionReview": "allowed",
+      "redistributionReview": "pending"
+    },
+    {
+      "id": "wty-ko-en-ipa",
+      "url": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/ko/en/wty-ko-en-ipa.zip",
+      "filename": "wty-ko-en-ipa.zip",
+      "acquisitionReview": "allowed",
+      "redistributionReview": "pending"
+    },
+    {
+      "id": "wty-ko-ko",
+      "url": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/ko/ko/wty-ko-ko.zip",
+      "filename": "wty-ko-ko.zip",
+      "acquisitionReview": "allowed",
+      "redistributionReview": "pending"
+    },
+    {
+      "id": "wty-ko-ko-ipa",
+      "url": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/ko/ko/wty-ko-ko-ipa.zip",
+      "filename": "wty-ko-ko-ipa.zip",
+      "acquisitionReview": "allowed",
+      "redistributionReview": "pending"
+    },
+    {
+      "id": "wty-vi-en",
+      "url": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/vi/en/wty-vi-en.zip",
+      "filename": "wty-vi-en.zip",
+      "acquisitionReview": "allowed",
+      "redistributionReview": "pending"
+    },
+    {
+      "id": "wty-vi-en-ipa",
+      "url": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/vi/en/wty-vi-en-ipa.zip",
+      "filename": "wty-vi-en-ipa.zip",
+      "acquisitionReview": "allowed",
+      "redistributionReview": "pending"
+    },
+    {
+      "id": "wty-vi-vi",
+      "url": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/vi/vi/wty-vi-vi.zip",
+      "filename": "wty-vi-vi.zip",
+      "acquisitionReview": "allowed",
+      "redistributionReview": "pending"
+    },
+    {
+      "id": "wty-vi-vi-ipa",
+      "url": "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/vi/vi/wty-vi-vi-ipa.zip",
+      "filename": "wty-vi-vi-ipa.zip",
+      "acquisitionReview": "allowed",
+      "redistributionReview": "pending"
     }
   ]
 }

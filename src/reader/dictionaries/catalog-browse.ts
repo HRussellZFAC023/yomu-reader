@@ -1,5 +1,6 @@
 import {
     FROZEN_DICTIONARY_CATALOG,
+    dictionaryEntryDownload,
     type DictionaryCatalogEntry,
     type DictionaryCatalogManifest,
     type DictionaryCategory,
@@ -21,14 +22,15 @@ export interface CatalogBrowseGroup {
 }
 
 /**
- * One shelf of the browse panel: every mirrored dictionary whose *headwords* are
- * written in `headwordLanguage`, split into the usual category groups.
+ * One shelf of the browse panel: every catalogued dictionary whose *headwords*
+ * are written in `headwordLanguage`, split into the usual category groups.
  *
- * The mirror hosts Mandarin, Cantonese and Literary Chinese archives beside the
- * Japanese ones. Keying panel membership to the catalogue's target language hid
- * those behind a URL nobody has, so they are shelved by their own language
- * instead of dropped — reachable, but never mixed into the shelf the reader is
- * actually studying.
+ * The catalogue carries Mandarin, Cantonese and Literary Chinese archives
+ * beside the Japanese ones, and Wiktionary-derived sets for languages nothing
+ * has been mirrored for at all. Keying panel membership to the catalogue's
+ * target language hid all of those behind a URL nobody has, so they are shelved
+ * by their own language instead of dropped — reachable, but never mixed into
+ * the shelf the reader is actually studying.
  */
 export interface CatalogBrowseLanguageSection {
     headwordLanguage: string;
@@ -134,12 +136,14 @@ export function catalogBrowseTotalBytes(groups: readonly CatalogBrowseGroup[]): 
 }
 
 /**
- * Endonyms for the headword languages the mirror carries.
+ * Endonyms for the headword languages the catalogue carries.
  *
- * ICU knows 'ja', 'zh' and 'yue' in practically every locale but hands back the
- * bare tag for 'lzh' in several, and a heading reading "lzh" is not chrome any
- * reader can use. Falling back to the language's own name keeps the shelf
- * readable without dropping 31 learner languages into English.
+ * ICU knows 'ja', 'zh', 'yue' and every living language in the Wiktionary-
+ * derived shelves in practically every locale, but hands back the bare tag for
+ * 'lzh' in several, and a heading reading "lzh" is not chrome any reader can
+ * use. Falling back to the language's own name keeps the shelf readable without
+ * dropping 31 learner languages into English. Only the tags ICU is weak on need
+ * a row here.
  */
 const HEADWORD_LANGUAGE_ENDONYMS: Readonly<Record<string, string>> = Object.freeze({
     ja: '日本語',
@@ -276,19 +280,19 @@ function browseCard(
     entry: DictionaryCatalogEntry,
 ): RecommendedDictionary {
     const primaryCategory = primaryCatalogCategory(entry);
-    const object = entry.distribution.state === 'published' ? entry.distribution.object : undefined;
+    const download = dictionaryEntryDownload(entry, catalog.objectsBaseUrl);
     return {
         id: catalogBrowseCardId(headwordLanguage, entry.id),
         headwordLanguage,
         category: UI_CATEGORY_BY_CATALOG_CATEGORY[primaryCategory],
         catalogCategory: primaryCategory,
         name: entry.title,
-        description: describeMirroredDictionary(entry.definitionLanguages[0], object?.bytes),
-        ...(object
+        description: describeMirroredDictionary(entry.definitionLanguages[0], download?.bytes),
+        ...(download
             ? {
-                  downloadUrl: new URL(object.key, catalog.objectsBaseUrl).href,
-                  sha256: object.sha256,
-                  bytes: object.bytes,
+                  downloadUrl: download.url,
+                  ...(download.sha256 === undefined ? {} : { sha256: download.sha256 }),
+                  ...(download.bytes === undefined ? {} : { bytes: download.bytes }),
               }
             : {}),
         ...(entry.source.projectUrl ? { helpUrl: entry.source.projectUrl } : {}),
@@ -297,7 +301,7 @@ function browseCard(
         selectedByDefault: false,
         definitionLanguage: entry.definitionLanguages[0],
         translationMode: 'off',
-        installedDictionaryIdentity: yomitanDictionaryIdentity(entry.title),
+        installedDictionaryIdentity: yomitanDictionaryIdentity(entry.installedTitle ?? entry.title),
     };
 }
 

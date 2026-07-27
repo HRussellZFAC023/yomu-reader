@@ -159,9 +159,11 @@ function parseCatalogEntry(input: unknown, path: string): DictionaryCatalogEntry
     const license = record(entry.license, `${path}.license`);
     const redistribution = oneOf(license.redistribution, ['allowed', 'pending', 'blocked'] as const, `${path}.license.redistribution`);
     const distribution = parseDistribution(entry.distribution, `${path}.distribution`, redistribution);
+    const installedTitle = optionalText(entry.installedTitle, `${path}.installedTitle`);
     return {
         id,
         title: text(entry.title, `${path}.title`),
+        ...(installedTitle ? { installedTitle } : {}),
         format: 'yomitan',
         version: text(entry.version, `${path}.version`),
         categories,
@@ -187,9 +189,20 @@ function parseCatalogEntry(input: unknown, path: string): DictionaryCatalogEntry
 
 function parseDistribution(input: unknown, path: string, redistribution: 'allowed' | 'pending' | 'blocked'): DictionaryCatalogEntry['distribution'] {
     const distribution = record(input, path);
-    const state = oneOf(distribution.state, ['source-only', 'blocked', 'published'] as const, `${path}.state`);
+    const state = oneOf(distribution.state, ['source-only', 'blocked', 'upstream', 'published'] as const, `${path}.state`);
     if (state === 'source-only') return { state };
     if (state === 'blocked') return { state, reason: text(distribution.reason, `${path}.reason`) };
+    if (state === 'upstream') {
+        const archive = record(distribution.archive, `${path}.archive`);
+        const bytes = archive.bytes === undefined ? undefined : positiveInteger(archive.bytes, `${path}.archive.bytes`);
+        return {
+            state,
+            archive: {
+                url: httpsUrl(archive.url, `${path}.archive.url`),
+                ...(bytes === undefined ? {} : { bytes }),
+            },
+        };
+    }
     if (redistribution !== 'allowed') fail(path, 'cannot publish until redistribution review is allowed');
     const object = record(distribution.object, `${path}.object`);
     const sha256 = text(object.sha256, `${path}.object.sha256`);

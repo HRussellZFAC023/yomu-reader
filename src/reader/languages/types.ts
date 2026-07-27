@@ -200,6 +200,24 @@ export interface LearningTargetModule {
     readonly ocr: LearningTargetOcr;
     readonly subtitles: LearningTargetSubtitles;
 
+    /**
+     * Whether this target's own segmentation is where a dictionary lookup may
+     * start.
+     *
+     * True for every writing system that marks its word boundaries — the
+     * segments are the words, so the engine looks each one up and nothing
+     * else. That matters for more than speed: sweeping every substring of
+     * `paella` offers `ella`, a real Spanish word, as a match inside another
+     * one.
+     *
+     * False for a target whose boundaries are inferred rather than written.
+     * Japanese is the case that shapes this: its segmenter is good enough to
+     * decide where to draw a reading, and not good enough to decide where a
+     * dictionary term may begin, so the engine sweeps every position instead
+     * and lets the dictionary arbitrate.
+     */
+    readonly lookupStartsAtSegmentBoundary: boolean;
+
     normalizeText(text: string): string;
     isLookupableText(text: string): boolean;
     segment(text: string): readonly LanguageTextSegment[];

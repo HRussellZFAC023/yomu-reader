@@ -1,3 +1,4 @@
+import { icuWordSegments } from './icu-segmentation';
 import { canonicalLanguageTag, languageSubtag, localeDirection } from './locale';
 import {
     LEARNING_TARGET_CAPABILITY_IDS,
@@ -36,6 +37,13 @@ export interface LearningTargetSpec {
     audio?: Partial<LearningTargetAudio>;
     ocr?: Partial<LearningTargetOcr>;
     subtitles?: Partial<LearningTargetSubtitles>;
+    /**
+     * Defaults to true — a target's segments are its words, so a dictionary
+     * lookup starts where one starts. Declare false only for a target whose
+     * boundaries are inferred rather than written, which makes the dictionary
+     * engine sweep every position instead.
+     */
+    lookupStartsAtSegmentBoundary?: boolean;
     /** Detection: a script pattern, or a full predicate for richer rules. */
     detectsText?: RegExp | ((text: string) => boolean);
     normalizeText?: (text: string) => string;
@@ -103,11 +111,13 @@ export function createLearningTargetModule(spec: LearningTargetSpec): LearningTa
             languageAliases: Object.freeze([...(spec.subtitles?.languageAliases ?? [])]),
         }),
 
+        lookupStartsAtSegmentBoundary: spec.lookupStartsAtSegmentBoundary ?? true,
+
         normalizeText,
         isLookupableText(text: string): boolean {
             return Boolean(text) && detects(text);
         },
-        segment: spec.segment ?? defaultSegment,
+        segment: spec.segment ?? ((text: string) => defaultSegment(text, language)),
         lookupCandidates: spec.lookupCandidates
             ?? ((text: string) => defaultLookupCandidates(normalizeText(text))),
         compareLookupCandidates: spec.compareLookupCandidates ?? defaultCompareLookupCandidates,
@@ -142,11 +152,27 @@ function defaultNormalizeText(text: string): string {
 }
 
 /**
- * Whitespace segmentation. Honest for space-delimited targets and honestly
- * wrong for scriptio continua ones, which is exactly why a target that needs
- * better must supply its own.
+ * ICU word segmentation in the target's own language, falling back to
+ * whitespace.
+ *
+ * Whitespace was the old default, and it is honestly wrong for every target
+ * that writes without spaces — Thai, Lao, Khmer and Burmese would each have
+ * come back as a single "word" the length of the sentence. ICU already carries
+ * dictionary boundaries for those, and for space-delimited targets it returns
+ * the same words with the punctuation stripped off, which is what a dictionary
+ * lookup wanted anyway.
+ *
+ * The whitespace path stays for runtimes with no `Intl.Segmenter` at all. What
+ * ICU still cannot do — Korean morphology, Vietnamese compounds, Cantonese
+ * compounds — is documented and pinned in `icu-segmentation.ts`, because a
+ * target that needs better than ICU must supply its own segmenter, exactly as
+ * Japanese does.
  */
-function defaultSegment(text: string): readonly LanguageTextSegment[] {
+function defaultSegment(text: string, language: LanguageTag): readonly LanguageTextSegment[] {
+    return icuWordSegments(text, language) ?? whitespaceSegments(text);
+}
+
+function whitespaceSegments(text: string): readonly LanguageTextSegment[] {
     const segments: LanguageTextSegment[] = [];
     const pattern = /\S+/gu;
     let match = pattern.exec(text);

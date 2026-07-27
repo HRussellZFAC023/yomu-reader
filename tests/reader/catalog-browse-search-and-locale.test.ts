@@ -56,9 +56,14 @@ describe('searching the mirrored dictionary catalogue', () => {
 
         const pitch = applyCatalogBrowseFilter(section, 'pitch dictionaries');
 
+        // One pronunciation group per language shelf now, so the claim is that
+        // nothing OTHER than pronunciation survives the filter — not that a
+        // single group does.
+        const visible = [...section.querySelectorAll<HTMLElement>('[data-catalog-browse-group]')].filter(group => !group.hidden);
+
         expect(pitch).toBeGreaterThan(0);
-        expect([...section.querySelectorAll<HTMLElement>('[data-catalog-browse-group]')].filter(group => !group.hidden)
-            .map(group => group.dataset.catalogBrowseGroup)).toEqual(['pronunciation']);
+        expect(visible.length).toBeGreaterThan(0);
+        expect([...new Set(visible.map(group => group.dataset.catalogBrowseGroup))]).toEqual(['pronunciation']);
 
         localizeSettingsForm(form, 'ja');
 
