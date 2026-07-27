@@ -210,6 +210,13 @@ const HOSTED_MANGA_OCR_VOCABULARY = [
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     // Docs rewrite 2026-07-27: home page and install page copy. Keys are the
     // exact rendered English text node; see tests/reader/i18n.test.ts.
+    'Once you have opened Study, it works offline. Cards you have already loaded stay available, and the ratings you give them are held and sent on when you reconnect. Bunpro is the one exception: it needs a live session, so Bunpro reviews wait until you are back online.': '一度学習ページを開けば、オフラインでも使えます。読み込み済みのカードはそのまま使え、付けた評価は保持され、再接続時に送信されます。例外はBunproだけです。接続中のセッションが必要なため、Bunproの復習はオンラインに戻るまで待ちます。',
+    'Open Settings → Study to pick which source you are reviewing from, and to swap the five rating buttons for a thumb-friendly Fail / Pass pair. Bunpro keeps its own buttons, because that is what Bunpro accepts.': '設定 → 学習で、どこから復習するかを選べます。5つの評価ボタンを、親指で押しやすい「不合格 / 合格」の2つに切り替えることもできます。BunproはBunproが受け付ける形式に合わせ、独自のボタンのままです。',
+    'Yomu userscript': 'よむのユーザースクリプト',
+    'install guide': 'インストール手順',
+    ', or Anki, then bookmark the page or add it to your Home Screen.': '、Ankiをつなぎ、ページをブックマークするかホーム画面に追加します。',
+    // Docs rewrite 2026-07-27: home page and install page copy. Keys are the
+    // exact rendered English text node; see tests/reader/i18n.test.ts.
     'Get help with Yomu — ask on Discord, report a bug, or open the tools. Yomu turns any page, video, manga or game screen into a Japanese lesson.': 'よむのサポート — Discordで質問する、不具合を報告する、ツールを開く。よむは、ページも動画もマンガもゲーム画面も、日本語のレッスンに変えます。',
     'Get help': '助けを求める',
     'Open the tools': 'ツールを開く',

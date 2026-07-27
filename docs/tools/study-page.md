@@ -1,6 +1,6 @@
 ---
 title: Study & Review Page
-description: Review Jiten, Bunpro, JPDB, Anki, or imported-dictionary cards, plus pitch-accent Listen practice, on a focused study page. Open it from Yomu or add it to an iPad Home Screen. Free, in your browser.
+description: The words you saved come back, one card at a time. Review from Jiten, Bunpro, JPDB, Anki, or your own dictionaries, with pitch practice built in. Free, works offline, in your browser.
 head:
   - - meta
     - name: keywords
@@ -13,23 +13,23 @@ head:
 
 # Study & Review Page
 
-Open よむ Study when you have a few minutes and it gives you a Japanese review card straight away — no setup ritual and no account required. The browser extension leaves your new tabs alone; Study opens only when you choose it from the toolbar. You can also bookmark the hosted page or add it to a phone or tablet Home Screen.
+Open Yomu Study when you have a few minutes and it hands you a Japanese review card straight away. No setup ritual, no account. Bookmark it, or add it to your Home Screen on a phone or tablet and it opens like an app. The browser extension leaves your new tabs alone — Study opens only when you ask for it.
 
 <div class="yomu-callout">
-  <strong>In one line:</strong> a focused study screen for Jiten, Bunpro, JPDB, Anki, imported-dictionary, and pitch-accent Listen practice, ready from the Yomu toolbar or an iPad Home Screen.
+  <strong>In one line:</strong> the words you saved come back, one card at a time, wherever you keep them.
 </div>
 
 [Open the Study page →](/study/){target="_self"}
 
-## Studies whatever you have connected
+## It studies whatever you have
 
-The page tries your sources in order, so it stays useful no matter how much you've set up:
+Study takes your words from wherever they already are, in this order:
 
 1. **Anki** words, when AnkiConnect is reachable.
 2. **Jiten, Bunpro, and JPDB** review and status.
 3. **Local dictionary** words, from a Yomitan dictionary or JMdict imported into your browser.
 
-A fresh install starts by sending you to **Settings → Dictionaries** so JMdict or another Yomitan ZIP can be downloaded into local storage — after that the page works even with no API key or Anki account.
+On a fresh install, Study sends you to **Settings → Dictionaries** first so it has a dictionary to draw from. After that it works with no account and no connection.
 
 Whatever's connected, the same pool of words feeds every step of the review below.
 
@@ -40,9 +40,7 @@ Whatever's connected, the same pool of words feeds every step of the review belo
 
 ## One card, a few quick steps
 
-Every card walks through a short sequence and you grade it once at the end. Depending on the word, you might:
-
-A fresh standalone session starts at its first enabled learning step — **Kanji 1** by default — before moving through the rest of the sequence.
+Every card walks through a short sequence and you rate yourself once at the end. Depending on the word, you might:
 
 - **Draw the kanji** from memory on a tracing pad before the answer shows.
 - **Read the word** inside a real example sentence.
@@ -51,43 +49,41 @@ A fresh standalone session starts at its first enabled learning step — **Kanji
 - **Pick the pitch** — よむ plays the word and you choose its shape from labelled contour buttons.
 - **Say it aloud** — record yourself and よむ scores your pitch against the model, on your device.
 
-Steps that don't fit a card are skipped: a kana-only word has nothing to draw, and a word without pitch data skips the listen and speak steps. Grades flow through your usual JPDB, Jiten, Bunpro, or Anki review path once you reach the final step. Jiten and JPDB keep the normal five choices. Bunpro has no five-point scale: regular self-graded reveal cards use **Hard / Good**, and FSRS queue items use **Again / Hard / Good / Easy**.
+Steps that don't fit a card are skipped: a kana-only word has nothing to draw, and a word with no pitch data skips the listen and speak steps. Your rating goes back to whichever service the word came from.
 
-Until you reveal a card, its word, reading, answer, and provider id stay out of the address bar. Reveal creates the deliberate shareable card link; Study embedded inside Academy leaves the Academy URL alone.
-
-On reveal, Immersion Kit uses the same centred, height-bounded 16:9 review frame as jpdb, Jiten, and Bunpro, while dictionary panels keep the full card width. The carousel can retain up to 12 examples, its controls are full-size on phones and tablets, and a blurred translation stays revealed after one tap. **View on Immersion Kit** and **View on Nadeshiko** remain available as public searches without an API key.
+Once a card is revealed, real example clips from Immersion Kit and Nadeshiko appear underneath it, so you can hear the word in a sentence someone actually said.
 
 ## Pitch practice built in
 
-The listen and speak steps come from a lightweight pitch schedule that grows from the words already feeding your study — Anki, Jiten, Bunpro, JPDB, or local dictionary words with a clear pitch accent. It reviews the pitch shapes that are due first, and plays a same-reading, different-accent word back to back when it can find one, so the contrast is easy to hear.
+The listen and speak steps have their own schedule, built from the words you are already studying. It brings up the pitch shapes that are due first, and when it can, plays two words that sound the same but carry different accents back to back — that contrast is the fastest way to start hearing it.
 
-## Best daily-review surface on mobile
+## Good on a phone
 
-On iPhone, iPad, and Android this is often the easiest place to do daily reviews. Add the hosted page as a Home Screen shortcut and study from the habit you already have.
+On iPhone, iPad, and Android this is often the easiest place to do your daily reviews. Add it to your Home Screen and it opens like any other app.
 
-For full Anki status, note updates, deck scanning, and review queues, keep desktop Anki with AnkiConnect reachable over a LAN or [Tailscale](https://tailscale.com/downloads) URL — see the [mobile Anki steps](/getting-started#use-desktop-anki-from-a-phone-ipad-or-android). The hosted page can also bridge local AnkiConnect through the installed userscript on the same computer.
+To review your real Anki decks from a phone, keep Anki open on your computer and connect the two over [Tailscale](https://tailscale.com/downloads) — the [mobile Anki steps](/getting-started#use-desktop-anki-from-a-phone-ipad-or-android) walk through it.
 
 ## Set it up
 
-1. Install the free [よむ userscript](https://yomureader.com/yomu.user.js) (see the [setup guide](/getting-started)).
+1. Install the free [Yomu userscript](https://yomureader.com/yomu.user.js) (see the [install guide](/getting-started)).
 2. Open the [Study page](/study/) and import a dictionary in **Settings → Dictionaries**.
-3. Optionally connect Jiten, [Bunpro](https://bunpro.jp/), [JPDB](https://jpdb.io), or Anki, then bookmark the page or add it as a Home Screen shortcut.
+3. Optionally connect Jiten, [Bunpro](https://bunpro.jp/), [JPDB](https://jpdb.io), or Anki, then bookmark the page or add it to your Home Screen.
 
-When the hosted page has been visited once, the PWA cache keeps the Study shell available offline. Cached cards show an **Offline cache** status, and Jiten, JPDB, Anki, and local-Yomu grades can be saved locally and retried when the provider reconnects. Bunpro grades require a live queue session and are intentionally unavailable offline because its session and ghost-review ids can change.
+Once you have opened Study, it works offline. Cards you have already loaded stay available, and the ratings you give them are held and sent on when you reconnect. Bunpro is the one exception: it needs a live session, so Bunpro reviews wait until you are back online.
 
 ## Review settings
 
-Open **Settings → Study** to choose a review source and switch the general rating scale between the normal five buttons and a thumb-friendly **Fail / Pass** mode. Bunpro ignores that general scale: regular reveal reviews use **Hard / Good**, and FSRS reviews use **Again / Hard / Good / Easy**. On phones, two-button rows use the full available width so the actions stay centered and easy to hit.
+Open **Settings → Study** to pick which source you are reviewing from, and to swap the five rating buttons for a thumb-friendly **Fail / Pass** pair. Bunpro keeps its own buttons, because that is what Bunpro accepts.
 
 ## Questions
 
-**Do I need an account?** No — it works with a local Yomitan dictionary or JMdict. Connect Jiten, Bunpro, JPDB, or Anki for richer review and status.
+**Do I need an account?** No. A dictionary on your device is enough. Connect Jiten, Bunpro, JPDB, or Anki if you want your reviews to go there.
 
-**How does it study Anki on a phone?** Keep desktop AnkiConnect reachable over a LAN or Tailscale URL — see the [mobile Anki steps](/getting-started#use-desktop-anki-from-a-phone-ipad-or-android).
+**How does it study Anki on a phone?** Keep Anki open on your computer and connect the two — see the [mobile Anki steps](/getting-started#use-desktop-anki-from-a-phone-ipad-or-android).
 
 <div class="yomu-cta-grid">
   <a class="yomu-cta-button primary" href="/study/" target="_self">Open Study page</a>
-  <a class="yomu-cta-button" href="https://yomureader.com/yomu.user.js">Install よむ (free)</a>
+  <a class="yomu-cta-button" href="https://yomureader.com/yomu.user.js">Install Yomu (free)</a>
   <a class="yomu-cta-button" href="/tools/">All tools</a>
 </div>
 

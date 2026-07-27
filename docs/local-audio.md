@@ -1,58 +1,40 @@
 ---
 title: Local Audio
-description: Add Japanese word audio to よむ. Use a hosted Yomitan-compatible audio URL for the easiest setup, or run a free local audio server to play pronunciation files stored on your own computer.
+description: Hear Japanese words read aloud in Yomu. Hosted audio is on by default; add your own source or play pronunciation files from your own computer if you want more.
 ---
 
 # Local Audio
 
-よむ can play audio from any Yomitan-compatible audio source. There are two good ways to set it up:
+Yomu already plays audio for you — press the speaker in any lookup and it uses the hosted source that ships turned on. You do not have to read this page.
 
-| What you want | Best choice |
-| --- | --- |
-| The easiest setup | Use the built-in Yomu hosted audio source |
-| Audio files stored on your own computer | Download and run the local audio server |
-
-The hosted option is the least fuss. Use the local server only if you're okay keeping a small helper app running on your computer.
+Read it if you want a different source: a subscription with better coverage, or your own collection of pronunciation files played from your own computer.
 
 ## Yomu Hosted Audio
 
-Yomu includes this Yomitan-compatible source first in the default audio list:
+This is the source Yomu uses first, and it is already in your audio list:
 
 ```text
 https://audio.yomureader.com/?term={term}&reading={reading}
 ```
 
-It is designed for licensed recorded audio and returns an empty result quickly when the public source is paused or still being filled. That keeps the rest of your configured sources working normally.
+When it has no recording for a word, Yomu moves straight on to the next source in your list, so playback stays quick.
 
 ## Optional: Ultimate Yomitan Audio
 
-[Ultimate Yomitan Audio Source](https://animecards.site/yomitan_audio/) gives you a personal audio URL after you subscribe through Patreon and authenticate. That URL works with よむ directly — no audio files to download and nothing to run on your computer.
+[Ultimate Yomitan Audio Source](https://animecards.site/yomitan_audio/) gives you a personal audio URL once you subscribe. It has much wider coverage, and there is nothing to download or run on your computer.
 
-Add it to よむ:
+Add it to Yomu:
 
-1. Open よむ settings with the floating よむ button. The **Open settings** shortcut is configurable in Settings → Shortcuts.
+1. Open Yomu settings from the floating Yomu button.
 2. Go to Audio.
 3. Press Add audio source.
 4. Set Type to Custom URL.
 5. Paste the personal URL you were given.
 6. Save, look up a word, and press the speaker button.
 
-## Cloudflare Hosting Status
-
-よむ has a Cloudflare Worker for `audio.yomureader.com`. It can serve a licensed R2-backed audio manifest, or proxy a private upstream we are allowed to redistribute.
-
-The safe deployment plan is:
-
-1. Confirm the audio source license allows public redistribution or provide a private upstream URL/token.
-2. Export a manifest from the local audio server with `npm run audio:export -- --words ./audio-seed.tsv --out tmp/yomu-audio-export`.
-3. Store only licensed audio in the `yomu-audio` Cloudflare R2 bucket, or proxy only a private, authenticated upstream.
-4. Put the Worker in front of the bucket/upstream. It accepts `term` and `reading`, returns Yomitan-compatible JSON, serves `/audio/...` files with CORS, and falls through cleanly when no match exists.
-
-Cost-wise, the public default remains cautious: when the public source is empty or paused, よむ immediately falls through to the next audio source. Workers Free is limited to 100,000 requests per day and R2's free tier is limited to 10 GB-month storage, 1 million Class A operations, and 10 million Class B operations per month. A public pronunciation source can exceed request limits long before it looks large, and a full audio corpus may exceed free storage. See Cloudflare's current [Workers limits](https://developers.cloudflare.com/workers/platform/limits/) and [R2 pricing](https://developers.cloudflare.com/r2/pricing/) before deploying.
-
 ## Local Audio: What You Need
 
-Local audio means よむ asks a helper app on your computer for the sound file.
+Local audio means Yomu asks a small app on your own computer for the recording instead of fetching it. Use it if you already have a pronunciation collection, or you want audio with no connection at all.
 
 You need:
 
