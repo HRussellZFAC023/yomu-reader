@@ -1,11 +1,11 @@
 import path from 'node:path';
 import { createRequire } from 'node:module';
-import { availableParallelism } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { defineConfig, type Plugin, type PluginOption } from 'vite';
 import monkey, { type MonkeyUserScript } from 'vite-plugin-monkey';
 import pkg from './package.json' with { type: 'json' };
 import { jpdbAudioDevProxyPlugin } from './config/vite/jpdb-audio-proxy';
+import { readerTestConfig } from './config/vite/reader-test';
 
 const require = createRequire(import.meta.url);
 const { greasyForkLibraryUrls } = require('./scripts/lib/greasyfork-libraries.cjs') as {
@@ -228,52 +228,4 @@ function readerBuildConfig(mode: string) {
         minify: false,
         cssMinify: false,
     };
-}
-
-function readerTestConfig() {
-    return {
-        environment: 'jsdom',
-        include: ['tests/reader/**/*.test.ts'],
-        // Guard against a stray generated shard dir left by a removed generator.
-        exclude: ['tests/reader/**/.vitest-*-shards/**'],
-        setupFiles: ['tests/reader/setup.ts'],
-        globals: true,
-        // A handful of timing-sensitive audio/bridge tests pass in isolation but
-        // can flake when scheduling shifts under the full sequential run; retry
-        // absorbs that without masking a genuine, repeatable failure.
-        retry: 2,
-        pool: 'forks',
-        poolOptions: {
-            forks: {
-                // Cap concurrent jsdom forks to the available cores (never above 10).
-                // A hard 10 oversubscribes an 8-core runner and — combined with the
-                // sharded suite launching several Vitest processes at once — is what
-                // thrashes a loaded machine into the suite-child timeout. Honors an
-                // explicit VITEST_MAX_FORKS override for hand-tuned CI runners.
-                maxForks: readMaxForks(),
-                // Direct and targeted Vitest commands stay isolated by default.
-                // run-ci-tests.mjs opts its reusable majority into isolate:false,
-                // then runs the remaining incompatible files in a small isolated
-                // pass. This keeps npm test/check:quick safe when their selection
-                // happens to include one of the quarantined files.
-                isolate: process.env.VITEST_ISOLATE !== '0',
-                // Long-lived reused forks accumulate jsdom heap; cap it so a leak
-                // fails one fork loudly instead of OOM-killing the machine
-                // (historical tinypool exit-137 deaths). Small CI runners can
-                // tighten the cap via YOMU_VITEST_FORK_HEAP_MB.
-                execArgv: [`--max-old-space-size=${forkHeapMb()}`],
-            },
-        },
-    };
-}
-
-function forkHeapMb(): number {
-    const override = Number.parseInt(process.env.YOMU_VITEST_FORK_HEAP_MB ?? '', 10);
-    return Number.isInteger(override) && override >= 256 ? override : 2304;
-}
-
-function readMaxForks(): number {
-    const override = Number.parseInt(process.env.VITEST_MAX_FORKS ?? '', 10);
-    if (Number.isInteger(override) && override >= 1) return override;
-    return Math.max(2, Math.min(10, availableParallelism()));
 }
