@@ -37,11 +37,12 @@ jobs:
       publish_browser_stores: ${{ steps.browser-store-gate.outputs.publish_browser_stores }}
     # Unlike PR CI, this job runs the whole check on one small 4-core runner.
     # The all-in-one reused-fork path can exhaust that runner before Vitest can
-    # report a summary. Use the same isolated shards proven by CI, with one
-    # 1.5 GB regular jsdom worker while the parallel build lanes are running.
+    # report a summary. Use the same eight isolated shards proven by CI, with
+    # one 1.5 GB regular jsdom worker while the parallel build lanes are running.
     env:
       TZ: UTC
       YOMU_CI_SHARDED: 1
+      YOMU_CI_REGULAR_SHARDS: 8
       YOMU_CI_REGULAR_CONCURRENCY: 1
       YOMU_CI_REGULAR_MAX_WORKERS: 1
       YOMU_CI_JPDB_CONCURRENCY: 2
