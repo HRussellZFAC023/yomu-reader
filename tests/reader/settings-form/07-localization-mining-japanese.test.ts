@@ -281,7 +281,9 @@ describe('settings form localization', () => {
         expect(GETTING_STARTED_DOCS).toContain('replace every `100.x.y.z`');
         expect(GETTING_STARTED_DOCS).toContain('allowed-origins list');
         expect(GETTING_STARTED_DOCS).not.toContain('"webCorsOriginList"');
-        expect(FEATURES_DOCS).toContain('[Getting Started](/getting-started#use-desktop-anki-from-a-phone-ipad-or-android)');
+        // Pin the destination, not the link text: the anchor is load-bearing
+        // (shipped builds deep-link to it) while the wording around it is copy.
+        expect(FEATURES_DOCS).toContain('/getting-started#use-desktop-anki-from-a-phone-ipad-or-android');
         expect(FEATURES_DOCS).not.toContain('webCorsOriginList');
     });
 

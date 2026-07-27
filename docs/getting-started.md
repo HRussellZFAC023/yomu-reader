@@ -215,7 +215,7 @@ Below, replace every `100.x.y.z` with your computer's Tailscale address. It usua
 
 Keep AnkiConnect on Tailscale or your home Wi-Fi. It is not built to face the open internet, so do not forward port `8765` on your router.
 
-If you would rather not run desktop Anki at all, Yomu can hand a new card to **AnkiMobile** or **AnkiDroid** instead. That path starts new cards only — reviewing and updating existing cards needs the computer.
+If you would rather not run desktop Anki at all, Yomu can hand a new card to **AnkiMobile** or **AnkiDroid** instead. Mobile Anki handoff is one-way: it starts a new card and stops there. It cannot scan existing decks, tell you what is already in them, update an old card, or give you review queues. Those need Anki on a computer.
 
 ## Back up your settings
 

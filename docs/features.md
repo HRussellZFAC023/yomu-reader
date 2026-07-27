@@ -126,6 +126,8 @@ If you already review Japanese somewhere, Yomu saves words there instead of star
 - **Anki** — a saved word becomes a card carrying the word, its reading, its meaning, the sentence you found it in, and the sound.
 - **Jiten, Bunpro, JPDB, and WaniKani** — Yomu shows what each service already knows about a word and sends your reviews back to it.
 
+Reading on a phone but keeping your Anki decks on a computer? That works: keep Anki open on the computer and connect the two, as described in [Getting Started](/getting-started#use-desktop-anki-from-a-phone-ipad-or-android).
+
 All of it is optional. Yomu works fully on its own.
 
 [Set these up →](/getting-started#connect-a-study-app-optional)
