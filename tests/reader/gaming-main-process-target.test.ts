@@ -119,6 +119,33 @@ describe('Yomu Gaming OCR in the Electron main process', () => {
             .toEqual([JAPANESE_LINE]);
     });
 
+    it('asks Google Lens to read in the language being studied', async () => {
+        // Lens weights its OCR by the caller's accept-language, and main builds
+        // that header from the target it has just adopted — the same shared
+        // builder the reader's own Lens recognizer uses.
+        const main = await freshMainProcessModules();
+        const headers: Array<Record<string, string>> = [];
+        vi.stubGlobal('fetch', vi.fn(async (_url: string, init?: RequestInit) => {
+            headers.push({ ...(init?.headers as Record<string, string> | undefined) });
+            return {
+                ok: true,
+                status: 200,
+                arrayBuffer: async () => new ArrayBuffer(0),
+                text: async () => '',
+            } as unknown as Response;
+        }));
+
+        await main.requestGamingOcr(main.normalizeOcrRequest({
+            provider: 'google-lens',
+            imageDataUrl: TINY_PNG,
+            width: 640,
+            height: 360,
+            targetLanguage: 'ko',
+        }));
+
+        expect(headers[0]?.['accept-language']).toBe('ko,en-US;q=0.9,en;q=0.8');
+    });
+
     it('adopts the target for every provider, before any answer is parsed', async () => {
         // Google Lens is the default provider and returns an already-parsed
         // body from main, so the adoption cannot hang off the Cloud Vision

@@ -17,7 +17,7 @@ import { targetOcrLanguageTag } from '../../../src/reader/languages/resolve';
 import { OnboardingController } from '../../../src/reader/app/onboarding';
 import { AudioPlayer } from '../../../src/reader/audio/player';
 import { renderCardSpellingWithFurigana } from '../../../src/reader/cards/reading-display';
-import { createGoogleLensRequest } from '../../../src/reader/ocr/google-lens-request';
+import { createGoogleLensRequest, googleLensAcceptLanguage } from '../../../src/reader/ocr/google-lens-request';
 import { ocrRecognizer } from '../../../src/reader/ocr/ocr-providers';
 import { readFormSettings } from '../../../src/reader/settings/form-read';
 import { localizeSettingsForm, renderSettingsForm } from '../../../src/reader/settings/form';
@@ -212,6 +212,17 @@ describe('Google Lens OCR request', () => {
 
         expect(lensLocaleContext(createGoogleLensRequest(new Uint8Array([1, 2, 3]), 40, 20, '')))
             .toEqual({ language: 'sv', region: 'SE' });
+    });
+
+    it('weights the OCR with an accept-language that follows the target', () => {
+        // Byte-identical to the literal this replaced, so the Japanese request
+        // Lens has always seen does not move.
+        expect(googleLensAcceptLanguage('')).toBe('ja,en-US;q=0.9,en;q=0.8');
+
+        activateAdHocTarget('sv');
+
+        expect(googleLensAcceptLanguage('')).toBe('sv,en-US;q=0.9,en;q=0.8');
+        expect(googleLensAcceptLanguage('de-DE')).toBe('de,en-US;q=0.9,en;q=0.8');
     });
 });
 

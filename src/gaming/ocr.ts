@@ -1,5 +1,6 @@
-import { randomBytes as nodeRandomBytes } from 'node:crypto';
 import { adoptLearningTargetLanguage } from '../reader/languages/active';
+import { targetOcrLanguageHint } from '../reader/languages/resolve';
+import { createGoogleLensRequest, googleLensAcceptLanguage } from '../reader/ocr/google-lens-request';
 import {
     normalizeOcrResult,
     parseGoogleLensResponse,
@@ -11,9 +12,6 @@ import type { YomuGamingOcrProvider, YomuGamingOcrRequest, YomuGamingOcrResponse
 const OCR_TIMEOUT_MS = 18_000;
 const GOOGLE_LENS_ENDPOINT = 'https://lensfrontend-pa.googleapis.com/v1/crupload';
 const GOOGLE_LENS_API_KEY = 'AIzaSyDr2UxVnv_U85AbhhY8XSHSIavUW0DC-sY';
-const LENS_PLATFORM_WEB = 3;
-const LENS_SURFACE_CHROMIUM = 4;
-const LENS_AUTO_FILTER = 7;
 const PROVIDERS = new Set<YomuGamingOcrProvider>(['google-lens', 'cloud-vision', 'local-service', 'off']);
 
 interface ImagePayload {
@@ -96,7 +94,7 @@ async function requestLocalOcr(request: YomuGamingOcrRequest): Promise<YomuGamin
                 language_code: request.language,
                 language: {
                     bcp47_tag: request.language,
-                    two_letter_code: languageHint(request.language),
+                    two_letter_code: targetOcrLanguageHint(request.language),
                 },
                 base64_image: image.base64,
                 image: image.base64,
@@ -144,7 +142,6 @@ async function requestCloudVisionOcr(request: YomuGamingOcrRequest): Promise<Yom
     if (!apiKey) return { ok: false, status: 0, body: null, error: 'Add a Google Cloud Vision API key in Settings.' };
     try {
         const image = imagePayloadFromDataUrl(request.imageDataUrl);
-        const hint = languageHint(request.language);
         const response = await fetchWithTimeout(`https://vision.googleapis.com/v1/images:annotate?key=${encodeURIComponent(apiKey)}`, {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
@@ -152,10 +149,10 @@ async function requestCloudVisionOcr(request: YomuGamingOcrRequest): Promise<Yom
                 requests: [{
                     image: { content: image.base64 },
                     features: [{ type: 'TEXT_DETECTION', maxResults: 50, model: 'builtin/latest' }],
-                    // Vision detects the script on its own when no hint is given,
-                    // so an unstated language stays unstated rather than becoming
-                    // a wrong one.
-                    ...(hint ? { imageContext: { languageHints: [hint] } } : {}),
+                    // Same hint the reader's Cloud Vision recognizer sends, from
+                    // the same resolver: the configured tag when the player set
+                    // one, else the adopted target's own.
+                    imageContext: { languageHints: [targetOcrLanguageHint(request.language)] },
                 }],
             }),
         }, OCR_TIMEOUT_MS, 'Google Cloud Vision');
@@ -178,7 +175,7 @@ async function requestGoogleLensProtobuf(image: ImagePayload, width: number, hei
             'content-type': 'application/x-protobuf',
             'x-goog-api-key': GOOGLE_LENS_API_KEY,
             accept: '*/*',
-            'accept-language': acceptLanguageHeader(locale),
+            'accept-language': googleLensAcceptLanguage(locale),
         },
         body: arrayBufferFromBytes(body),
     }, OCR_TIMEOUT_MS, 'Google Lens');
@@ -222,20 +219,6 @@ async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: numbe
     }
 }
 
-/** Bare language code for providers that only accept a two-letter hint. */
-function languageHint(locale: string): string {
-    return locale.trim().slice(0, 2).toLowerCase();
-}
-
-/**
- * Lens weights its OCR by the caller's accept-language, so the header follows
- * the language the request asked for instead of naming one.
- */
-function acceptLanguageHeader(locale: string): string {
-    const language = languageHint(locale);
-    return language ? `${language},en-US;q=0.9,en;q=0.8` : 'en-US;q=0.9,en;q=0.8';
-}
-
 function isLoopbackHost(hostname: string): boolean {
     const host = hostname.replace(/^\[|\]$/g, '').toLowerCase();
     return host === 'localhost' || host === '127.0.0.1' || host === '::1' || host.endsWith('.localhost');
@@ -276,88 +259,3 @@ function isAbortError(error: unknown): boolean {
     return error instanceof Error && error.name === 'AbortError';
 }
 
-function createGoogleLensRequest(imageBytes: Uint8Array, width: number, height: number, locale: string): Uint8Array {
-    const [language = '', region = 'US'] = locale.trim().split(/[-_]/);
-    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
-    const requestId = protoMessage(
-        protoVarintField(1, BigInt(Date.now()) * 1_000_000n + BigInt(Math.floor(Math.random() * 1_000_000))),
-        protoVarintField(2, 1),
-        protoVarintField(3, 1),
-        protoBytesField(4, randomBytes(16)),
-    );
-    const localeContext = protoMessage(
-        protoStringField(1, language),
-        protoStringField(2, region || 'US'),
-        protoStringField(3, timeZone),
-    );
-    const clientFilters = protoMessage(protoMessageField(1, protoMessage(protoVarintField(1, LENS_AUTO_FILTER))));
-    const clientContext = protoMessage(
-        protoVarintField(1, LENS_PLATFORM_WEB),
-        protoVarintField(2, LENS_SURFACE_CHROMIUM),
-        protoMessageField(4, localeContext),
-        protoMessageField(17, clientFilters),
-    );
-    const requestContext = protoMessage(
-        protoMessageField(3, requestId),
-        protoMessageField(4, clientContext),
-    );
-    const imageData = protoMessage(
-        protoMessageField(1, protoMessage(protoBytesField(1, imageBytes))),
-        protoMessageField(3, protoMessage(protoVarintField(1, width), protoVarintField(2, height))),
-    );
-    return protoMessage(protoMessageField(1, protoMessage(
-        protoMessageField(1, requestContext),
-        protoMessageField(3, imageData),
-    )));
-}
-
-function protoMessage(...parts: Uint8Array[]): Uint8Array {
-    return concatBytes(parts);
-}
-
-function protoMessageField(field: number, value: Uint8Array): Uint8Array {
-    return concatBytes([protoTag(field, 2), encodeVarint(value.length), value]);
-}
-
-function protoBytesField(field: number, value: Uint8Array): Uint8Array {
-    return protoMessageField(field, value);
-}
-
-function protoStringField(field: number, value: string): Uint8Array {
-    return protoBytesField(field, new TextEncoder().encode(value));
-}
-
-function protoVarintField(field: number, value: number | bigint): Uint8Array {
-    return concatBytes([protoTag(field, 0), encodeVarint(value)]);
-}
-
-function protoTag(field: number, wire: number): Uint8Array {
-    return encodeVarint((field << 3) | wire);
-}
-
-function encodeVarint(value: number | bigint): Uint8Array {
-    let item = BigInt(value);
-    const bytes: number[] = [];
-    do {
-        let byte = Number(item & 0x7fn);
-        item >>= 7n;
-        if (item) byte |= 0x80;
-        bytes.push(byte);
-    } while (item);
-    return new Uint8Array(bytes);
-}
-
-function concatBytes(parts: Uint8Array[]): Uint8Array {
-    const length = parts.reduce((sum, part) => sum + part.length, 0);
-    const result = new Uint8Array(length);
-    let offset = 0;
-    for (const part of parts) {
-        result.set(part, offset);
-        offset += part.length;
-    }
-    return result;
-}
-
-function randomBytes(length: number): Uint8Array {
-    return new Uint8Array(nodeRandomBytes(length));
-}
