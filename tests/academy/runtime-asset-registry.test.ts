@@ -130,6 +130,8 @@ describe('Academy runtime asset registry', () => {
             'character.peter.encouraging-listening-quiet-observer-right-three-quarter-fullbody-v003',
             'character.rose.neutral-auburn-headband-pink-cardigan-front-near-front-fullbody-v002',
             'character.rose.encouraging-listening-auburn-headband-pink-cardigan-right-three-quarter-fullbody-v002',
+            'character.jodi.neutral-silver-streaked-bob-plum-scarf-front-near-front-fullbody-v002',
+            'character.jodi.encouraging-listening-silver-streaked-bob-plum-scarf-right-three-quarter-fullbody-v002',
             'character.steve.neutral-front',
             'character.steve.happy-right',
             'character.steve.determined-left',
@@ -138,6 +140,7 @@ describe('Academy runtime asset registry', () => {
         }
         expect('character.peter.neutral' in ACADEMY_RUNTIME_ASSET_REGISTRY).toBe(false);
         expect('character.rose.neutral' in ACADEMY_RUNTIME_ASSET_REGISTRY).toBe(false);
+        expect('character.jodi.neutral' in ACADEMY_RUNTIME_ASSET_REGISTRY).toBe(false);
         expect(ACADEMY_RUNTIME_ASSET_REGISTRY['character.felix.neutral'].status).toBe('review-preview');
         expect(ACADEMY_RUNTIME_ASSET_REGISTRY['character.tom2.neutral-right'].status).toBe('review-preview');
     });

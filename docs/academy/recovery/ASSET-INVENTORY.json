@@ -19,20 +19,20 @@
     "deletion": "This audit never deletes, moves, or mutates Academy raster files."
   },
   "counts": {
-    "currentRasterFiles": 314,
-    "currentRasterFilesAccountedFor": 314,
-    "active": 261,
+    "currentRasterFiles": 319,
+    "currentRasterFilesAccountedFor": 319,
+    "active": 266,
     "orphaned": 53,
     "deprecated": 10,
     "deprecatedPresent": 0,
-    "missingExpressionVariants": 535,
+    "missingExpressionVariants": 528,
     "expressionMatrixSlots": 630,
-    "approvedExpressionVariants": 82,
+    "approvedExpressionVariants": 89,
     "reviewCandidateExpressionVariants": 13,
-    "deliveredMatrixExpressionVariants": 95,
-    "offMatrixDeliveredSprites": 40,
+    "deliveredMatrixExpressionVariants": 102,
+    "offMatrixDeliveredSprites": 38,
     "activeByKind": {
-      "character-sprite": 133,
+      "character-sprite": 138,
       "protagonist-portrait": 4,
       "scene-background": 68,
       "scene-event": 48,
@@ -1010,50 +1010,6 @@
         "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
       },
       {
-        "id": "character-jodi-standardized-encouraging-listening-front-near-front-halfbody-v001",
-        "path": "/academy/art/characters/jodi/jodi__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
-        "sha256": "0002290f455bfb033e85e921e267d97f015117fdddc381a0b089bf04768eceaa",
-        "ledgerSha256": "0002290f455bfb033e85e921e267d97f015117fdddc381a0b089bf04768eceaa",
-        "kind": "character-sprite",
-        "state": "active",
-        "present": true,
-        "runtimeAuthorized": true,
-        "runtimeHomes": [
-          "journal:jodi-expression-gallery",
-          "cast-standardization:jodi"
-        ],
-        "reviewHomes": [
-          "cast-standardization-manifest",
-          "learner-journal-preview"
-        ],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "review-candidate/runtime-preview",
-        "ledgerStatus": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-      },
-      {
-        "id": "character-jodi-standardized-neutral-front-near-front-halfbody-v001",
-        "path": "/academy/art/characters/jodi/jodi__standardized-neutral__front-near-front__halfbody__v001.png",
-        "sha256": "c155476807db7875b85a0436fec7d78bb565c065e5d25d184b7bfead1ca80d3b",
-        "ledgerSha256": "c155476807db7875b85a0436fec7d78bb565c065e5d25d184b7bfead1ca80d3b",
-        "kind": "character-sprite",
-        "state": "active",
-        "present": true,
-        "runtimeAuthorized": true,
-        "runtimeHomes": [
-          "journal:jodi",
-          "class:people-review",
-          "lesson-overview:roster-review",
-          "cast-standardization:jodi"
-        ],
-        "reviewHomes": [
-          "cast-standardization-manifest",
-          "learner-journal-preview"
-        ],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "review-candidate/runtime-preview",
-        "ledgerStatus": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-      },
-      {
         "id": "character-mary-standardized-encouraging-listening-front-near-front-halfbody-v001",
         "path": "/academy/art/characters/mary/mary__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
         "sha256": "8b346903cffbc37c884a4a7f232f8913cfeb8e82adbfb21f714a4c9bcf81d7b2",
@@ -1865,6 +1821,164 @@
         "sourceLedger": "public/academy/art/ASSET-USAGE.json",
         "ledgerVerdict": "review-candidate/runtime-preview",
         "ledgerStatus": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
+      },
+      {
+        "id": "character-rose-determined-auburn-headband-pink-cardigan-front-near-front-fullbody-v002",
+        "path": "/academy/art/characters/rose/rose__determined-auburn-headband-pink-cardigan__front-near-front__fullbody__v002.png",
+        "sha256": "58e0bb86d432828059423a4e9fb7af7027f2fcbe7af5db5f6fb268e19b378edc",
+        "ledgerSha256": "58e0bb86d432828059423a4e9fb7af7027f2fcbe7af5db5f6fb268e19b378edc",
+        "kind": "character-sprite",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "journal:rose-expression-gallery",
+          "story:cast:rose:determined",
+          "cast-standardization:rose"
+        ],
+        "reviewHomes": [
+          "cast-standardization-manifest",
+          "identity-lock"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
+      },
+      {
+        "id": "character-rose-encouraging-listening-auburn-headband-pink-cardigan-right-three-quarter-fullbody-v002",
+        "path": "/academy/art/characters/rose/rose__encouraging-listening-auburn-headband-pink-cardigan__right-three-quarter__fullbody__v002.png",
+        "sha256": "0640154e3120d9601b5296c188ea925e07efd1f19fcc88171160d75779c9b053",
+        "ledgerSha256": "0640154e3120d9601b5296c188ea925e07efd1f19fcc88171160d75779c9b053",
+        "kind": "character-sprite",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "journal:rose-expression-gallery",
+          "story:cast:rose:encouraging-listening",
+          "cast-standardization:rose"
+        ],
+        "reviewHomes": [
+          "cast-standardization-manifest",
+          "identity-lock"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
+      },
+      {
+        "id": "character-rose-happy-auburn-headband-pink-cardigan-front-near-front-fullbody-v002",
+        "path": "/academy/art/characters/rose/rose__happy-auburn-headband-pink-cardigan__front-near-front__fullbody__v002.png",
+        "sha256": "3bdba692715cf3fc0bf4b474528d54d6648308150db2cfb1c027072e9f52193b",
+        "ledgerSha256": "3bdba692715cf3fc0bf4b474528d54d6648308150db2cfb1c027072e9f52193b",
+        "kind": "character-sprite",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "journal:rose-expression-gallery",
+          "story:cast:rose:happy",
+          "cast-standardization:rose"
+        ],
+        "reviewHomes": [
+          "cast-standardization-manifest",
+          "identity-lock"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
+      },
+      {
+        "id": "character-rose-neutral-auburn-headband-pink-cardigan-front-near-front-fullbody-v002",
+        "path": "/academy/art/characters/rose/rose__neutral-auburn-headband-pink-cardigan__front-near-front__fullbody__v002.png",
+        "sha256": "a609fdbe4f4353dc9b32053d5d591ff8d013dc488109688512530a90979b0125",
+        "ledgerSha256": "a609fdbe4f4353dc9b32053d5d591ff8d013dc488109688512530a90979b0125",
+        "kind": "character-sprite",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "journal:rose",
+          "class:people",
+          "class:week-cast",
+          "lesson-overview:roster",
+          "world:person",
+          "story:cast:rose",
+          "cast-standardization:rose"
+        ],
+        "reviewHomes": [
+          "cast-standardization-manifest",
+          "identity-lock"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
+      },
+      {
+        "id": "character-rose-sad-vulnerable-auburn-headband-pink-cardigan-left-three-quarter-fullbody-v002",
+        "path": "/academy/art/characters/rose/rose__sad-vulnerable-auburn-headband-pink-cardigan__left-three-quarter__fullbody__v002.png",
+        "sha256": "bb865e0502dfaf163f10a1af9996ea1101f88d85efbbce9a23ed3bd697039a41",
+        "ledgerSha256": "bb865e0502dfaf163f10a1af9996ea1101f88d85efbbce9a23ed3bd697039a41",
+        "kind": "character-sprite",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "journal:rose-expression-gallery",
+          "story:cast:rose:sad-vulnerable",
+          "cast-standardization:rose"
+        ],
+        "reviewHomes": [
+          "cast-standardization-manifest",
+          "identity-lock"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
+      },
+      {
+        "id": "character-rose-surprised-shocked-auburn-headband-pink-cardigan-right-three-quarter-fullbody-v002",
+        "path": "/academy/art/characters/rose/rose__surprised-shocked-auburn-headband-pink-cardigan__right-three-quarter__fullbody__v002.png",
+        "sha256": "e79e705d04831000538390ad49481e54659ad7574caca7b432e45673996190a4",
+        "ledgerSha256": "e79e705d04831000538390ad49481e54659ad7574caca7b432e45673996190a4",
+        "kind": "character-sprite",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "journal:rose-expression-gallery",
+          "story:cast:rose:surprised-shocked",
+          "cast-standardization:rose"
+        ],
+        "reviewHomes": [
+          "cast-standardization-manifest",
+          "identity-lock"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
+      },
+      {
+        "id": "character-rose-thoughtful-auburn-headband-pink-cardigan-left-three-quarter-fullbody-v002",
+        "path": "/academy/art/characters/rose/rose__thoughtful-auburn-headband-pink-cardigan__left-three-quarter__fullbody__v002.png",
+        "sha256": "473642455196a75dfe6f0f0477f1b107d6e37fc9242bc0092db310794b180486",
+        "ledgerSha256": "473642455196a75dfe6f0f0477f1b107d6e37fc9242bc0092db310794b180486",
+        "kind": "character-sprite",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "journal:rose-expression-gallery",
+          "story:cast:rose:thoughtful",
+          "cast-standardization:rose"
+        ],
+        "reviewHomes": [
+          "cast-standardization-manifest",
+          "identity-lock"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
       },
       {
         "id": "character-ruparna-neutral-front-near-front-halfbody-v002",
@@ -6504,7 +6618,7 @@
         "character": "jodi",
         "path": "/academy/art/characters/jodi/jodi__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
         "sha256": "0002290f455bfb033e85e921e267d97f015117fdddc381a0b089bf04768eceaa",
-        "currentState": "active",
+        "currentState": "unaccounted",
         "coverageStatus": "off-matrix",
         "migrationStatus": "retained-off-matrix-review-evidence",
         "countsTowardExpressionMatrix": false
@@ -6513,7 +6627,7 @@
         "character": "jodi",
         "path": "/academy/art/characters/jodi/jodi__standardized-neutral__front-near-front__halfbody__v001.png",
         "sha256": "c155476807db7875b85a0436fec7d78bb565c065e5d25d184b7bfead1ca80d3b",
-        "currentState": "active",
+        "currentState": "unaccounted",
         "coverageStatus": "off-matrix",
         "migrationStatus": "retained-off-matrix-review-evidence",
         "countsTowardExpressionMatrix": false
@@ -6595,24 +6709,6 @@
         "path": "/academy/art/characters/robert/robert__standardized-neutral__front-near-front__halfbody__v001.png",
         "sha256": "b50cce4b73fd75b01a623165614fcba1c9298accc596f23c81430d62f48c9382",
         "currentState": "active",
-        "coverageStatus": "off-matrix",
-        "migrationStatus": "retained-off-matrix-review-evidence",
-        "countsTowardExpressionMatrix": false
-      },
-      {
-        "character": "rose",
-        "path": "/academy/art/characters/rose/rose__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
-        "sha256": "7ae4d8bb9fc9990ebaa13b4acf257fe9b9914bbcbf94f92188f7a02a8036c816",
-        "currentState": "unaccounted",
-        "coverageStatus": "off-matrix",
-        "migrationStatus": "retained-off-matrix-review-evidence",
-        "countsTowardExpressionMatrix": false
-      },
-      {
-        "character": "rose",
-        "path": "/academy/art/characters/rose/rose__standardized-neutral__front-near-front__halfbody__v001.png",
-        "sha256": "7ae4d8bb9fc9990ebaa13b4acf257fe9b9914bbcbf94f92188f7a02a8036c816",
-        "currentState": "unaccounted",
         "coverageStatus": "off-matrix",
         "migrationStatus": "retained-off-matrix-review-evidence",
         "countsTowardExpressionMatrix": false
@@ -9430,35 +9526,8 @@
       {
         "character": "rose",
         "angle": "front-near-front",
-        "expression": "determined",
-        "plannedPath": "/academy/art/characters/rose/rose__determined__front-near-front__halfbody__v001.png",
-        "state": "missing-expression-variant",
-        "present": false,
-        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
-      },
-      {
-        "character": "rose",
-        "angle": "front-near-front",
         "expression": "encouraging-listening",
         "plannedPath": "/academy/art/characters/rose/rose__encouraging-listening__front-near-front__halfbody__v001.png",
-        "state": "missing-expression-variant",
-        "present": false,
-        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
-      },
-      {
-        "character": "rose",
-        "angle": "front-near-front",
-        "expression": "happy",
-        "plannedPath": "/academy/art/characters/rose/rose__happy__front-near-front__halfbody__v001.png",
-        "state": "missing-expression-variant",
-        "present": false,
-        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
-      },
-      {
-        "character": "rose",
-        "angle": "front-near-front",
-        "expression": "neutral",
-        "plannedPath": "/academy/art/characters/rose/rose__neutral__front-near-front__halfbody__v001.png",
         "state": "missing-expression-variant",
         "present": false,
         "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
@@ -9529,26 +9598,8 @@
       {
         "character": "rose",
         "angle": "left-three-quarter",
-        "expression": "sad-vulnerable",
-        "plannedPath": "/academy/art/characters/rose/rose__sad-vulnerable__left-three-quarter__halfbody__v001.png",
-        "state": "missing-expression-variant",
-        "present": false,
-        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
-      },
-      {
-        "character": "rose",
-        "angle": "left-three-quarter",
         "expression": "surprised-shocked",
         "plannedPath": "/academy/art/characters/rose/rose__surprised-shocked__left-three-quarter__halfbody__v001.png",
-        "state": "missing-expression-variant",
-        "present": false,
-        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
-      },
-      {
-        "character": "rose",
-        "angle": "left-three-quarter",
-        "expression": "thoughtful",
-        "plannedPath": "/academy/art/characters/rose/rose__thoughtful__left-three-quarter__halfbody__v001.png",
         "state": "missing-expression-variant",
         "present": false,
         "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
@@ -9558,15 +9609,6 @@
         "angle": "right-three-quarter",
         "expression": "determined",
         "plannedPath": "/academy/art/characters/rose/rose__determined__right-three-quarter__halfbody__v001.png",
-        "state": "missing-expression-variant",
-        "present": false,
-        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
-      },
-      {
-        "character": "rose",
-        "angle": "right-three-quarter",
-        "expression": "encouraging-listening",
-        "plannedPath": "/academy/art/characters/rose/rose__encouraging-listening__right-three-quarter__halfbody__v001.png",
         "state": "missing-expression-variant",
         "present": false,
         "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
@@ -9594,15 +9636,6 @@
         "angle": "right-three-quarter",
         "expression": "sad-vulnerable",
         "plannedPath": "/academy/art/characters/rose/rose__sad-vulnerable__right-three-quarter__halfbody__v001.png",
-        "state": "missing-expression-variant",
-        "present": false,
-        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
-      },
-      {
-        "character": "rose",
-        "angle": "right-three-quarter",
-        "expression": "surprised-shocked",
-        "plannedPath": "/academy/art/characters/rose/rose__surprised-shocked__right-three-quarter__halfbody__v001.png",
         "state": "missing-expression-variant",
         "present": false,
         "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"

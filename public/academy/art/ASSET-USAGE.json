@@ -18,8 +18,8 @@
     ]
   },
   "counts": {
-    "runtimeAssetHomes": 213,
-    "runtimeFiles": 268,
+    "runtimeAssetHomes": 218,
+    "runtimeFiles": 273,
     "nonRuntimeReviewFiles": 1734,
     "approvedReferenceOnly": 4,
     "explicitlyRejectedFamilies": 4,
@@ -1077,74 +1077,6 @@
         {
           "path": "/academy/art/characters/francis/francis__standardized-neutral__front-near-front__halfbody__v001.png",
           "sha256": "f4d339165bc50aafbea39ca01049ee3246b3c37453bce58fef5818c66d0f71c7"
-        }
-      ],
-      "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-    },
-    {
-      "id": "character-jodi-standardized-encouraging-listening-front-near-front-halfbody-v001",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "0002290f455bfb033e85e921e267d97f015117fdddc381a0b089bf04768eceaa",
-      "provenance": "regenerated-standardized",
-      "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": [
-        "journal:jodi-expression-gallery",
-        "cast-standardization:jodi"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "learner-journal-preview"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:jodi-expression-gallery",
-          "cast-standardization:jodi"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/jodi/jodi__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
-          "sha256": "0002290f455bfb033e85e921e267d97f015117fdddc381a0b089bf04768eceaa"
-        }
-      ],
-      "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-    },
-    {
-      "id": "character-jodi-standardized-neutral-front-near-front-halfbody-v001",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "c155476807db7875b85a0436fec7d78bb565c065e5d25d184b7bfead1ca80d3b",
-      "provenance": "regenerated-standardized",
-      "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": [
-        "journal:jodi",
-        "class:people-review",
-        "lesson-overview:roster-review",
-        "cast-standardization:jodi"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "learner-journal-preview"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:jodi",
-          "class:people-review",
-          "lesson-overview:roster-review",
-          "cast-standardization:jodi"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/jodi/jodi__standardized-neutral__front-near-front__halfbody__v001.png",
-          "sha256": "c155476807db7875b85a0436fec7d78bb565c065e5d25d184b7bfead1ca80d3b"
         }
       ],
       "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
@@ -13796,6 +13728,252 @@
         {
           "path": "/academy/art/characters/rose/rose__sad-vulnerable-auburn-headband-pink-cardigan__left-three-quarter__fullbody__v002.png",
           "sha256": "bb865e0502dfaf163f10a1af9996ea1101f88d85efbbce9a23ed3bd697039a41"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-jodi-neutral-silver-streaked-bob-plum-scarf-front-near-front-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "91c93591fdf49dec989b52f866ed568ca306ce999d10f436ffbb12a558e89e26",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:jodi",
+        "class:people",
+        "class:week-cast",
+        "lesson-overview:roster",
+        "world:person",
+        "story:cast:jodi",
+        "cast-standardization:jodi"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:jodi",
+          "class:people",
+          "class:week-cast",
+          "lesson-overview:roster",
+          "world:person",
+          "story:cast:jodi",
+          "cast-standardization:jodi"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/jodi/jodi__neutral-silver-streaked-bob-plum-scarf__front-near-front__fullbody__v002.png",
+          "sha256": "91c93591fdf49dec989b52f866ed568ca306ce999d10f436ffbb12a558e89e26"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-jodi-encouraging-listening-silver-streaked-bob-plum-scarf-right-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "3fa675d6f4556b263d4e6d13a9a801e8c24d7e5f93e768130114a03b1a93105e",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:jodi-expression-gallery",
+        "story:cast:jodi:encouraging-listening",
+        "cast-standardization:jodi"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:jodi-expression-gallery",
+          "story:cast:jodi:encouraging-listening",
+          "cast-standardization:jodi"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/jodi/jodi__encouraging-listening-silver-streaked-bob-plum-scarf__right-three-quarter__fullbody__v002.png",
+          "sha256": "3fa675d6f4556b263d4e6d13a9a801e8c24d7e5f93e768130114a03b1a93105e"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-jodi-happy-silver-streaked-bob-plum-scarf-front-near-front-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "d356ce5791b6143b58ed5a2369b88c7a0dff5e628621149c4d428e673746b924",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:jodi-expression-gallery",
+        "story:cast:jodi:happy",
+        "cast-standardization:jodi"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:jodi-expression-gallery",
+          "story:cast:jodi:happy",
+          "cast-standardization:jodi"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/jodi/jodi__happy-silver-streaked-bob-plum-scarf__front-near-front__fullbody__v002.png",
+          "sha256": "d356ce5791b6143b58ed5a2369b88c7a0dff5e628621149c4d428e673746b924"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-jodi-thoughtful-silver-streaked-bob-plum-scarf-left-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "5c83fe01f1cd57c7916f87cd97847015956de1b02b3ecbf5827bac8b84b72bd0",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:jodi-expression-gallery",
+        "story:cast:jodi:thoughtful",
+        "cast-standardization:jodi"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:jodi-expression-gallery",
+          "story:cast:jodi:thoughtful",
+          "cast-standardization:jodi"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/jodi/jodi__thoughtful-silver-streaked-bob-plum-scarf__left-three-quarter__fullbody__v002.png",
+          "sha256": "5c83fe01f1cd57c7916f87cd97847015956de1b02b3ecbf5827bac8b84b72bd0"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-jodi-determined-silver-streaked-bob-plum-scarf-front-near-front-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "4c7f11aa43f4811c0c83e42044fd8cf016cdf4e6b78e55b735454e84ca20c329",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:jodi-expression-gallery",
+        "story:cast:jodi:determined",
+        "cast-standardization:jodi"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:jodi-expression-gallery",
+          "story:cast:jodi:determined",
+          "cast-standardization:jodi"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/jodi/jodi__determined-silver-streaked-bob-plum-scarf__front-near-front__fullbody__v002.png",
+          "sha256": "4c7f11aa43f4811c0c83e42044fd8cf016cdf4e6b78e55b735454e84ca20c329"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-jodi-surprised-shocked-silver-streaked-bob-plum-scarf-right-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "21524a18773cc1a77c61f528283fbf4492af418b201fecec9b33ddd44331bc31",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:jodi-expression-gallery",
+        "story:cast:jodi:surprised-shocked",
+        "cast-standardization:jodi"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:jodi-expression-gallery",
+          "story:cast:jodi:surprised-shocked",
+          "cast-standardization:jodi"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/jodi/jodi__surprised-shocked-silver-streaked-bob-plum-scarf__right-three-quarter__fullbody__v002.png",
+          "sha256": "21524a18773cc1a77c61f528283fbf4492af418b201fecec9b33ddd44331bc31"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-jodi-sad-vulnerable-silver-streaked-bob-plum-scarf-left-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "ca8f282465ca85450d63e63719e302ee6a0b2ba9eccacc206381f272bbdbc661",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:jodi-expression-gallery",
+        "story:cast:jodi:sad-vulnerable",
+        "cast-standardization:jodi"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:jodi-expression-gallery",
+          "story:cast:jodi:sad-vulnerable",
+          "cast-standardization:jodi"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/jodi/jodi__sad-vulnerable-silver-streaked-bob-plum-scarf__left-three-quarter__fullbody__v002.png",
+          "sha256": "ca8f282465ca85450d63e63719e302ee6a0b2ba9eccacc206381f272bbdbc661"
         }
       ],
       "status": "identity-locked, visually inspected, runtime-bound house-style sprite"

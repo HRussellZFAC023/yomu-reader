@@ -1,4 +1,4 @@
-const VERSION = 'yomu-academy-shell-s1-e9cbbe2f0572';
+const VERSION = 'yomu-academy-shell-s1-6cf2d614c013';
 const AUDIO_CACHE = 'yomu-academy-audio-v1-2c25b06f971c';
 const STORY_VOICE_CATALOG = '/academy/audio/story-voice-playback.json';
 const STORY_VOICE_ASSET = /^\/academy\/audio\/story-(?:pilot|lines)\/[a-z0-9][a-z0-9._-]*\.opus$/;
@@ -81,8 +81,13 @@ const RUNTIME_ART_PRECACHE = [
     '/academy/art/characters/jenny/jenny__sad-vulnerable-round-face-brown-hair__left-three-quarter__fullbody__v003.png',
     '/academy/art/characters/jenny/jenny__surprised-shocked-round-face-brown-hair__right-three-quarter__fullbody__v003.png',
     '/academy/art/characters/jenny/jenny__thoughtful-round-face-brown-hair__left-three-quarter__fullbody__v003.png',
-    '/academy/art/characters/jodi/jodi__standardized-encouraging-listening__front-near-front__halfbody__v001.png',
-    '/academy/art/characters/jodi/jodi__standardized-neutral__front-near-front__halfbody__v001.png',
+    '/academy/art/characters/jodi/jodi__determined-silver-streaked-bob-plum-scarf__front-near-front__fullbody__v002.png',
+    '/academy/art/characters/jodi/jodi__encouraging-listening-silver-streaked-bob-plum-scarf__right-three-quarter__fullbody__v002.png',
+    '/academy/art/characters/jodi/jodi__happy-silver-streaked-bob-plum-scarf__front-near-front__fullbody__v002.png',
+    '/academy/art/characters/jodi/jodi__neutral-silver-streaked-bob-plum-scarf__front-near-front__fullbody__v002.png',
+    '/academy/art/characters/jodi/jodi__sad-vulnerable-silver-streaked-bob-plum-scarf__left-three-quarter__fullbody__v002.png',
+    '/academy/art/characters/jodi/jodi__surprised-shocked-silver-streaked-bob-plum-scarf__right-three-quarter__fullbody__v002.png',
+    '/academy/art/characters/jodi/jodi__thoughtful-silver-streaked-bob-plum-scarf__left-three-quarter__fullbody__v002.png',
     '/academy/art/characters/mary/mary__standardized-encouraging-listening__front-near-front__halfbody__v001.png',
     '/academy/art/characters/mary/mary__standardized-neutral__front-near-front__halfbody__v001.png',
     '/academy/art/characters/mika/mika__determined-headphones__left-three-quarter__fullbody__v002.png',
@@ -318,8 +323,8 @@ const CORE = [
     '/yomu-icon.svg',
     '/academy/',
     '/academy/index.html',
-    '/academy/app.js?v=s1-e9cbbe2f0572',
-    '/academy/style.css?v=s1-e9cbbe2f0572',
+    '/academy/app.js?v=s1-6cf2d614c013',
+    '/academy/style.css?v=s1-6cf2d614c013',
     '/academy/manifest.webmanifest',
     ...RUNTIME_ART_PRECACHE,
     '/academy/content/vertical-slice/source-library.v1.json',

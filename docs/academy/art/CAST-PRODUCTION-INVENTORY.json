@@ -29,10 +29,10 @@
     "cast": 30,
     "requiredPerformancesPerCast": 7,
     "requiredSlots": 210,
-    "integratedSlots": 86,
-    "missingSlots": 124,
+    "integratedSlots": 93,
+    "missingSlots": 117,
     "ownerCorrectionQueue": 54,
-    "storyCriticalQueue": 35,
+    "storyCriticalQueue": 28,
     "rosterCompletionQueue": 35
   },
   "cast": [
@@ -864,65 +864,97 @@
       "priority": "story-critical",
       "summary": {
         "required": 7,
-        "integrated": 0,
-        "missing": 7
+        "integrated": 7,
+        "missing": 0
       },
       "performances": [
         {
           "expression": "neutral",
           "preferredAngle": "front-near-front",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.jodi.neutral-silver-streaked-bob-plum-scarf-front-near-front-fullbody-v002",
+          "assetPath": "/academy/art/characters/jodi/jodi__neutral-silver-streaked-bob-plum-scarf__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:jodi",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "story:cast:jodi",
+            "cast-standardization:jodi"
+          ]
         },
         {
           "expression": "encouraging-listening",
           "preferredAngle": "right-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.jodi.encouraging-listening-silver-streaked-bob-plum-scarf-right-three-quarter-fullbody-v002",
+          "assetPath": "/academy/art/characters/jodi/jodi__encouraging-listening-silver-streaked-bob-plum-scarf__right-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:jodi-expression-gallery",
+            "story:cast:jodi:encouraging-listening",
+            "cast-standardization:jodi"
+          ]
         },
         {
           "expression": "happy",
           "preferredAngle": "front-near-front",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.jodi.happy-silver-streaked-bob-plum-scarf-front-near-front-fullbody-v002",
+          "assetPath": "/academy/art/characters/jodi/jodi__happy-silver-streaked-bob-plum-scarf__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:jodi-expression-gallery",
+            "story:cast:jodi:happy",
+            "cast-standardization:jodi"
+          ]
         },
         {
           "expression": "thoughtful",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.jodi.thoughtful-silver-streaked-bob-plum-scarf-left-three-quarter-fullbody-v002",
+          "assetPath": "/academy/art/characters/jodi/jodi__thoughtful-silver-streaked-bob-plum-scarf__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:jodi-expression-gallery",
+            "story:cast:jodi:thoughtful",
+            "cast-standardization:jodi"
+          ]
         },
         {
           "expression": "determined",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.jodi.determined-silver-streaked-bob-plum-scarf-front-near-front-fullbody-v002",
+          "assetPath": "/academy/art/characters/jodi/jodi__determined-silver-streaked-bob-plum-scarf__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:jodi-expression-gallery",
+            "story:cast:jodi:determined",
+            "cast-standardization:jodi"
+          ]
         },
         {
           "expression": "surprised-shocked",
           "preferredAngle": "right-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.jodi.surprised-shocked-silver-streaked-bob-plum-scarf-right-three-quarter-fullbody-v002",
+          "assetPath": "/academy/art/characters/jodi/jodi__surprised-shocked-silver-streaked-bob-plum-scarf__right-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:jodi-expression-gallery",
+            "story:cast:jodi:surprised-shocked",
+            "cast-standardization:jodi"
+          ]
         },
         {
           "expression": "sad-vulnerable",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.jodi.sad-vulnerable-silver-streaked-bob-plum-scarf-left-three-quarter-fullbody-v002",
+          "assetPath": "/academy/art/characters/jodi/jodi__sad-vulnerable-silver-streaked-bob-plum-scarf__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:jodi-expression-gallery",
+            "story:cast:jodi:sad-vulnerable",
+            "cast-standardization:jodi"
+          ]
         }
       ]
     },
@@ -3460,204 +3492,6 @@
       "runtimeHomes": [
         "journal:shin-expression-gallery",
         "story:cast:shin:sad-vulnerable"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "jodi:neutral",
-      "castId": "jodi",
-      "displayName": "Jodi",
-      "identityKey": "jodi-silver-streaked-bob",
-      "expression": "neutral",
-      "angle": "front-near-front",
-      "priority": "story-critical",
-      "storyLines": 16,
-      "visualLock": "Older White woman with a silver-streaked bob, visible age, and a kind observant face.",
-      "wardrobeLock": "Elegant practical cardigan and scarf combinations in ink, plum, and cream.",
-      "reject": [
-        "de-aged face",
-        "teenage proportions",
-        "long dark hair",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:jodi",
-        "class:people",
-        "lesson-overview:roster",
-        "story:cast:jodi"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "jodi:encouraging-listening",
-      "castId": "jodi",
-      "displayName": "Jodi",
-      "identityKey": "jodi-silver-streaked-bob",
-      "expression": "encouraging-listening",
-      "angle": "right-three-quarter",
-      "priority": "story-critical",
-      "storyLines": 16,
-      "visualLock": "Older White woman with a silver-streaked bob, visible age, and a kind observant face.",
-      "wardrobeLock": "Elegant practical cardigan and scarf combinations in ink, plum, and cream.",
-      "reject": [
-        "de-aged face",
-        "teenage proportions",
-        "long dark hair",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:jodi-expression-gallery",
-        "story:cast:jodi:encouraging-listening"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "jodi:happy",
-      "castId": "jodi",
-      "displayName": "Jodi",
-      "identityKey": "jodi-silver-streaked-bob",
-      "expression": "happy",
-      "angle": "front-near-front",
-      "priority": "story-critical",
-      "storyLines": 16,
-      "visualLock": "Older White woman with a silver-streaked bob, visible age, and a kind observant face.",
-      "wardrobeLock": "Elegant practical cardigan and scarf combinations in ink, plum, and cream.",
-      "reject": [
-        "de-aged face",
-        "teenage proportions",
-        "long dark hair",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:jodi-expression-gallery",
-        "story:cast:jodi:happy"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "jodi:thoughtful",
-      "castId": "jodi",
-      "displayName": "Jodi",
-      "identityKey": "jodi-silver-streaked-bob",
-      "expression": "thoughtful",
-      "angle": "left-three-quarter",
-      "priority": "story-critical",
-      "storyLines": 16,
-      "visualLock": "Older White woman with a silver-streaked bob, visible age, and a kind observant face.",
-      "wardrobeLock": "Elegant practical cardigan and scarf combinations in ink, plum, and cream.",
-      "reject": [
-        "de-aged face",
-        "teenage proportions",
-        "long dark hair",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:jodi-expression-gallery",
-        "story:cast:jodi:thoughtful"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "jodi:determined",
-      "castId": "jodi",
-      "displayName": "Jodi",
-      "identityKey": "jodi-silver-streaked-bob",
-      "expression": "determined",
-      "angle": "left-three-quarter",
-      "priority": "story-critical",
-      "storyLines": 16,
-      "visualLock": "Older White woman with a silver-streaked bob, visible age, and a kind observant face.",
-      "wardrobeLock": "Elegant practical cardigan and scarf combinations in ink, plum, and cream.",
-      "reject": [
-        "de-aged face",
-        "teenage proportions",
-        "long dark hair",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:jodi-expression-gallery",
-        "story:cast:jodi:determined"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "jodi:surprised-shocked",
-      "castId": "jodi",
-      "displayName": "Jodi",
-      "identityKey": "jodi-silver-streaked-bob",
-      "expression": "surprised-shocked",
-      "angle": "right-three-quarter",
-      "priority": "story-critical",
-      "storyLines": 16,
-      "visualLock": "Older White woman with a silver-streaked bob, visible age, and a kind observant face.",
-      "wardrobeLock": "Elegant practical cardigan and scarf combinations in ink, plum, and cream.",
-      "reject": [
-        "de-aged face",
-        "teenage proportions",
-        "long dark hair",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:jodi-expression-gallery",
-        "story:cast:jodi:surprised-shocked"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "jodi:sad-vulnerable",
-      "castId": "jodi",
-      "displayName": "Jodi",
-      "identityKey": "jodi-silver-streaked-bob",
-      "expression": "sad-vulnerable",
-      "angle": "left-three-quarter",
-      "priority": "story-critical",
-      "storyLines": 16,
-      "visualLock": "Older White woman with a silver-streaked bob, visible age, and a kind observant face.",
-      "wardrobeLock": "Elegant practical cardigan and scarf combinations in ink, plum, and cream.",
-      "reject": [
-        "de-aged face",
-        "teenage proportions",
-        "long dark hair",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:jodi-expression-gallery",
-        "story:cast:jodi:sad-vulnerable"
       ],
       "status": "queued"
     },

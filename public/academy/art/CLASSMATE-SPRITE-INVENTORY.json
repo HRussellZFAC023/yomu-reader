@@ -34,15 +34,15 @@
     "totalSlots": 630
   },
   "summary": {
-    "approved": 89,
+    "approved": 96,
     "reviewCandidates": 13,
-    "missing": 528,
-    "currentPhysicalRasters": 140,
-    "currentOffMatrixRasters": 38,
+    "missing": 521,
+    "currentPhysicalRasters": 145,
+    "currentOffMatrixRasters": 36,
     "historicalUniqueRasters": 469,
     "historicalOccurrences": 2016,
-    "charactersWithApprovedCoverage": 15,
-    "charactersWithAnyCurrentCoverage": 18
+    "charactersWithApprovedCoverage": 16,
+    "charactersWithAnyCurrentCoverage": 19
   },
   "migrations": [
     {
@@ -4922,35 +4922,36 @@
         "slots": 21
       },
       "progress": {
-        "approved": 0,
+        "approved": 7,
         "reviewCandidates": 0,
-        "missing": 21,
-        "deliveredPercent": 0,
-        "approvedPercent": 0
+        "missing": 14,
+        "deliveredPercent": 33.33,
+        "approvedPercent": 33.33
       },
       "currentAssets": [
         {
-          "path": "/academy/art/characters/jodi/jodi__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
-          "sha256": "0002290f455bfb033e85e921e267d97f015117fdddc381a0b089bf04768eceaa",
+          "path": "/academy/art/characters/jodi/jodi__determined-silver-streaked-bob-plum-scarf__front-near-front__fullbody__v002.png",
+          "sha256": "4c7f11aa43f4811c0c83e42044fd8cf016cdf4e6b78e55b735454e84ca20c329",
           "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
-          "status": "review-candidate",
+          "status": "approved",
           "usage": {
             "runtime": [
               "journal:jodi-expression-gallery",
+              "story:cast:jodi:determined",
               "cast-standardization:jodi"
             ],
             "review": [
               "cast-standardization-manifest",
-              "learner-journal-preview"
+              "identity-lock"
             ]
           },
-          "orphan": "review-bound",
+          "orphan": "active-runtime",
           "styleVersion": "current-review-family",
-          "fileVersion": "v001",
-          "pose": "off-contract standardized-encouraging-listening pose",
-          "angle": null,
-          "expression": null,
+          "fileVersion": "v002",
+          "pose": "camera lowered just after a photograph with weight settled back and the strap forming a clear frame; front-near-front",
+          "angle": "front-near-front",
+          "expression": "determined",
           "dimensions": {
             "width": 1536,
             "height": 2048,
@@ -4960,40 +4961,130 @@
           },
           "runtimeUses": [
             "journal:jodi-expression-gallery",
+            "story:cast:jodi:determined",
             "cast-standardization:jodi"
           ],
           "reviewUses": [
             "cast-standardization-manifest",
-            "learner-journal-preview"
+            "identity-lock"
           ],
           "decision": "keep",
-          "migrationStatus": "retained-off-matrix-review-evidence",
-          "coverageStatus": "off-matrix"
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
         },
         {
-          "path": "/academy/art/characters/jodi/jodi__standardized-neutral__front-near-front__halfbody__v001.png",
-          "sha256": "c155476807db7875b85a0436fec7d78bb565c065e5d25d184b7bfead1ca80d3b",
+          "path": "/academy/art/characters/jodi/jodi__encouraging-listening-silver-streaked-bob-plum-scarf__right-three-quarter__fullbody__v002.png",
+          "sha256": "3fa675d6f4556b263d4e6d13a9a801e8c24d7e5f93e768130114a03b1a93105e",
           "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
-          "status": "review-candidate",
+          "status": "approved",
           "usage": {
             "runtime": [
-              "journal:jodi",
-              "class:people-review",
-              "lesson-overview:roster-review",
+              "journal:jodi-expression-gallery",
+              "story:cast:jodi:encouraging-listening",
               "cast-standardization:jodi"
             ],
             "review": [
               "cast-standardization-manifest",
-              "learner-journal-preview"
+              "identity-lock"
             ]
           },
-          "orphan": "review-bound",
+          "orphan": "active-runtime",
           "styleVersion": "current-review-family",
-          "fileVersion": "v001",
-          "pose": "off-contract standardized-neutral pose",
-          "angle": null,
-          "expression": null,
+          "fileVersion": "v002",
+          "pose": "camera lowered just after a photograph with weight settled back and the strap forming a clear frame; right-three-quarter",
+          "angle": "right-three-quarter",
+          "expression": "encouraging-listening",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:jodi-expression-gallery",
+            "story:cast:jodi:encouraging-listening",
+            "cast-standardization:jodi"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/jodi/jodi__happy-silver-streaked-bob-plum-scarf__front-near-front__fullbody__v002.png",
+          "sha256": "d356ce5791b6143b58ed5a2369b88c7a0dff5e628621149c4d428e673746b924",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:jodi-expression-gallery",
+              "story:cast:jodi:happy",
+              "cast-standardization:jodi"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "camera lowered just after a photograph with weight settled back and the strap forming a clear frame; front-near-front",
+          "angle": "front-near-front",
+          "expression": "happy",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:jodi-expression-gallery",
+            "story:cast:jodi:happy",
+            "cast-standardization:jodi"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/jodi/jodi__neutral-silver-streaked-bob-plum-scarf__front-near-front__fullbody__v002.png",
+          "sha256": "91c93591fdf49dec989b52f866ed568ca306ce999d10f436ffbb12a558e89e26",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:jodi",
+              "class:people",
+              "class:week-cast",
+              "lesson-overview:roster",
+              "world:person",
+              "story:cast:jodi",
+              "cast-standardization:jodi"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "camera lowered just after a photograph with weight settled back and the strap forming a clear frame; front-near-front",
+          "angle": "front-near-front",
+          "expression": "neutral",
           "dimensions": {
             "width": 1536,
             "height": 2048,
@@ -5003,17 +5094,149 @@
           },
           "runtimeUses": [
             "journal:jodi",
-            "class:people-review",
-            "lesson-overview:roster-review",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "story:cast:jodi",
             "cast-standardization:jodi"
           ],
           "reviewUses": [
             "cast-standardization-manifest",
-            "learner-journal-preview"
+            "identity-lock"
           ],
           "decision": "keep",
-          "migrationStatus": "retained-off-matrix-review-evidence",
-          "coverageStatus": "off-matrix"
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/jodi/jodi__sad-vulnerable-silver-streaked-bob-plum-scarf__left-three-quarter__fullbody__v002.png",
+          "sha256": "ca8f282465ca85450d63e63719e302ee6a0b2ba9eccacc206381f272bbdbc661",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:jodi-expression-gallery",
+              "story:cast:jodi:sad-vulnerable",
+              "cast-standardization:jodi"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "camera lowered just after a photograph with weight settled back and the strap forming a clear frame; left-three-quarter",
+          "angle": "left-three-quarter",
+          "expression": "sad-vulnerable",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:jodi-expression-gallery",
+            "story:cast:jodi:sad-vulnerable",
+            "cast-standardization:jodi"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/jodi/jodi__surprised-shocked-silver-streaked-bob-plum-scarf__right-three-quarter__fullbody__v002.png",
+          "sha256": "21524a18773cc1a77c61f528283fbf4492af418b201fecec9b33ddd44331bc31",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:jodi-expression-gallery",
+              "story:cast:jodi:surprised-shocked",
+              "cast-standardization:jodi"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "camera lowered just after a photograph with weight settled back and the strap forming a clear frame; right-three-quarter",
+          "angle": "right-three-quarter",
+          "expression": "surprised-shocked",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:jodi-expression-gallery",
+            "story:cast:jodi:surprised-shocked",
+            "cast-standardization:jodi"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/jodi/jodi__thoughtful-silver-streaked-bob-plum-scarf__left-three-quarter__fullbody__v002.png",
+          "sha256": "5c83fe01f1cd57c7916f87cd97847015956de1b02b3ecbf5827bac8b84b72bd0",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:jodi-expression-gallery",
+              "story:cast:jodi:thoughtful",
+              "cast-standardization:jodi"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "camera lowered just after a photograph with weight settled back and the strap forming a clear frame; left-three-quarter",
+          "angle": "left-three-quarter",
+          "expression": "thoughtful",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:jodi-expression-gallery",
+            "story:cast:jodi:thoughtful",
+            "cast-standardization:jodi"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
         }
       ],
       "requiredVariants": [
@@ -5041,9 +5264,8 @@
         {
           "angle": "left-three-quarter",
           "expression": "thoughtful",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/jodi/jodi__thoughtful__left-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/jodi/jodi__thoughtful-silver-streaked-bob-plum-scarf__left-three-quarter__fullbody__v002.png"
         },
         {
           "angle": "left-three-quarter",
@@ -5062,16 +5284,14 @@
         {
           "angle": "left-three-quarter",
           "expression": "sad-vulnerable",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/jodi/jodi__sad-vulnerable__left-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/jodi/jodi__sad-vulnerable-silver-streaked-bob-plum-scarf__left-three-quarter__fullbody__v002.png"
         },
         {
           "angle": "front-near-front",
           "expression": "neutral",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/jodi/jodi__neutral__front-near-front__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/jodi/jodi__neutral-silver-streaked-bob-plum-scarf__front-near-front__fullbody__v002.png"
         },
         {
           "angle": "front-near-front",
@@ -5083,9 +5303,8 @@
         {
           "angle": "front-near-front",
           "expression": "happy",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/jodi/jodi__happy__front-near-front__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/jodi/jodi__happy-silver-streaked-bob-plum-scarf__front-near-front__fullbody__v002.png"
         },
         {
           "angle": "front-near-front",
@@ -5097,9 +5316,8 @@
         {
           "angle": "front-near-front",
           "expression": "determined",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/jodi/jodi__determined__front-near-front__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/jodi/jodi__determined-silver-streaked-bob-plum-scarf__front-near-front__fullbody__v002.png"
         },
         {
           "angle": "front-near-front",
@@ -5125,9 +5343,8 @@
         {
           "angle": "right-three-quarter",
           "expression": "encouraging-listening",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/jodi/jodi__encouraging-listening__right-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/jodi/jodi__encouraging-listening-silver-streaked-bob-plum-scarf__right-three-quarter__fullbody__v002.png"
         },
         {
           "angle": "right-three-quarter",
@@ -5153,9 +5370,8 @@
         {
           "angle": "right-three-quarter",
           "expression": "surprised-shocked",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/jodi/jodi__surprised-shocked__right-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/jodi/jodi__surprised-shocked-silver-streaked-bob-plum-scarf__right-three-quarter__fullbody__v002.png"
         },
         {
           "angle": "right-three-quarter",
@@ -5189,13 +5405,6 @@
         },
         {
           "angle": "left-three-quarter",
-          "expression": "thoughtful",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/jodi/jodi__thoughtful__left-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "left-three-quarter",
           "expression": "determined",
           "status": "missing",
           "path": null,
@@ -5209,20 +5418,6 @@
           "plannedPath": "/academy/art/characters/jodi/jodi__surprised-shocked__left-three-quarter__halfbody__v001.png"
         },
         {
-          "angle": "left-three-quarter",
-          "expression": "sad-vulnerable",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/jodi/jodi__sad-vulnerable__left-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "front-near-front",
-          "expression": "neutral",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/jodi/jodi__neutral__front-near-front__halfbody__v001.png"
-        },
-        {
           "angle": "front-near-front",
           "expression": "encouraging-listening",
           "status": "missing",
@@ -5231,24 +5426,10 @@
         },
         {
           "angle": "front-near-front",
-          "expression": "happy",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/jodi/jodi__happy__front-near-front__halfbody__v001.png"
-        },
-        {
-          "angle": "front-near-front",
           "expression": "thoughtful",
           "status": "missing",
           "path": null,
           "plannedPath": "/academy/art/characters/jodi/jodi__thoughtful__front-near-front__halfbody__v001.png"
-        },
-        {
-          "angle": "front-near-front",
-          "expression": "determined",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/jodi/jodi__determined__front-near-front__halfbody__v001.png"
         },
         {
           "angle": "front-near-front",
@@ -5273,13 +5454,6 @@
         },
         {
           "angle": "right-three-quarter",
-          "expression": "encouraging-listening",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/jodi/jodi__encouraging-listening__right-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "right-three-quarter",
           "expression": "happy",
           "status": "missing",
           "path": null,
@@ -5298,13 +5472,6 @@
           "status": "missing",
           "path": null,
           "plannedPath": "/academy/art/characters/jodi/jodi__determined__right-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "right-three-quarter",
-          "expression": "surprised-shocked",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/jodi/jodi__surprised-shocked__right-three-quarter__halfbody__v001.png"
         },
         {
           "angle": "right-three-quarter",

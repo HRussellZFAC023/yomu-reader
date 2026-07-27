@@ -1,0 +1,101 @@
+{
+  "promotions": [
+    {
+      "castId": "jodi",
+      "archiveLabel": "identity-and-style-superseded-20260727",
+      "replaceExpressions": [
+        "neutral",
+        "encouraging-listening",
+        "happy",
+        "thoughtful",
+        "determined",
+        "surprised-shocked",
+        "sad-vulnerable"
+      ],
+      "canonicalNeutralAssetId": "character.jodi.neutral-silver-streaked-bob-plum-scarf-front-near-front-fullbody-v002",
+      "slots": [
+        {
+          "assetId": "character.jodi.neutral-silver-streaked-bob-plum-scarf-front-near-front-fullbody-v002",
+          "expression": "neutral",
+          "angle": "front-near-front",
+          "assetPath": "/academy/art/characters/jodi/jodi__neutral-silver-streaked-bob-plum-scarf__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:jodi",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "story:cast:jodi",
+            "cast-standardization:jodi"
+          ]
+        },
+        {
+          "assetId": "character.jodi.encouraging-listening-silver-streaked-bob-plum-scarf-right-three-quarter-fullbody-v002",
+          "expression": "encouraging-listening",
+          "angle": "right-three-quarter",
+          "assetPath": "/academy/art/characters/jodi/jodi__encouraging-listening-silver-streaked-bob-plum-scarf__right-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:jodi-expression-gallery",
+            "story:cast:jodi:encouraging-listening",
+            "cast-standardization:jodi"
+          ]
+        },
+        {
+          "assetId": "character.jodi.happy-silver-streaked-bob-plum-scarf-front-near-front-fullbody-v002",
+          "expression": "happy",
+          "angle": "front-near-front",
+          "assetPath": "/academy/art/characters/jodi/jodi__happy-silver-streaked-bob-plum-scarf__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:jodi-expression-gallery",
+            "story:cast:jodi:happy",
+            "cast-standardization:jodi"
+          ]
+        },
+        {
+          "assetId": "character.jodi.thoughtful-silver-streaked-bob-plum-scarf-left-three-quarter-fullbody-v002",
+          "expression": "thoughtful",
+          "angle": "left-three-quarter",
+          "assetPath": "/academy/art/characters/jodi/jodi__thoughtful-silver-streaked-bob-plum-scarf__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:jodi-expression-gallery",
+            "story:cast:jodi:thoughtful",
+            "cast-standardization:jodi"
+          ]
+        },
+        {
+          "assetId": "character.jodi.determined-silver-streaked-bob-plum-scarf-front-near-front-fullbody-v002",
+          "expression": "determined",
+          "angle": "front-near-front",
+          "assetPath": "/academy/art/characters/jodi/jodi__determined-silver-streaked-bob-plum-scarf__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:jodi-expression-gallery",
+            "story:cast:jodi:determined",
+            "cast-standardization:jodi"
+          ]
+        },
+        {
+          "assetId": "character.jodi.surprised-shocked-silver-streaked-bob-plum-scarf-right-three-quarter-fullbody-v002",
+          "expression": "surprised-shocked",
+          "angle": "right-three-quarter",
+          "assetPath": "/academy/art/characters/jodi/jodi__surprised-shocked-silver-streaked-bob-plum-scarf__right-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:jodi-expression-gallery",
+            "story:cast:jodi:surprised-shocked",
+            "cast-standardization:jodi"
+          ]
+        },
+        {
+          "assetId": "character.jodi.sad-vulnerable-silver-streaked-bob-plum-scarf-left-three-quarter-fullbody-v002",
+          "expression": "sad-vulnerable",
+          "angle": "left-three-quarter",
+          "assetPath": "/academy/art/characters/jodi/jodi__sad-vulnerable-silver-streaked-bob-plum-scarf__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:jodi-expression-gallery",
+            "story:cast:jodi:sad-vulnerable",
+            "cast-standardization:jodi"
+          ]
+        }
+      ]
+    }
+  ]
+}
