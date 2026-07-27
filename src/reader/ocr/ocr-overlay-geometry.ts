@@ -187,6 +187,8 @@ export interface OcrLineLayoutInput {
     frame: OcrOverlayFrame;
     vertical: boolean;
     fontScale: number;
+    /** The face the lines are set in, read once for the whole layer. See ocrLayerTypeface(). */
+    typeface?: string;
 }
 
 // The single place an OCR line element is sized and placed. Both the reader's image
@@ -214,7 +216,7 @@ export function layoutOcrLineElement(element: HTMLElement, input: OcrLineLayoutI
         box.height,
         vertical,
         input.fontScale,
-        measureOcrLineExtent(element, textElement, vertical),
+        measureOcrLineExtent(element, textElement, vertical, input.typeface ?? ocrLayerTypeface(element)),
     );
     element.style.fontSize = `${fontSize}px`;
     element.dataset.hasFuri = String(hasFurigana);
@@ -245,7 +247,9 @@ export function layoutOcrLineElement(element: HTMLElement, input: OcrLineLayoutI
 // against whatever the frame currently measures — a scrolled image in the reader, a
 // resized window in the gaming overlay.
 export function layoutOcrOverlayLines(layer: ParentNode, frame: OcrOverlayFrame, fontScale: number): void {
-    layer.querySelectorAll<HTMLElement>('.jpdb-ocr-line').forEach(element => {
+    const lines = layer.querySelectorAll<HTMLElement>('.jpdb-ocr-line');
+    const typeface = lines.length > 0 ? ocrLayerTypeface(lines[0]) : '';
+    lines.forEach(element => {
         layoutOcrLineElement(element, {
             text: element.dataset.ocrText ?? '',
             box: {
@@ -257,21 +261,37 @@ export function layoutOcrOverlayLines(layer: ParentNode, frame: OcrOverlayFrame,
             frame,
             vertical: element.dataset.vertical === 'true',
             fontScale,
+            typeface,
         });
     });
+}
+
+// The one thing besides its own markup that changes how long a line is: the face it is set
+// in. Every line on a layer inherits the same `--jpdb-reader-font`, and the reader moves
+// that under them when the font setting changes without re-typesetting anything, so it is
+// read once for the whole layer — before the pass has written a single style, when the
+// style tree is still clean — and folded into what each line remembers about its length.
+// Japanese advances a full em in any face, so what this actually protects is a line with
+// latin or punctuation in it. Only real engines have a live computed style (jsdom caches
+// it per element), so this is exercised by scripts/ocr-line-register-smoke.mjs, not by the
+// jsdom suites.
+function ocrLayerTypeface(line: HTMLElement): string {
+    const view = line.ownerDocument.defaultView;
+    return view ? view.getComputedStyle(line).fontFamily : '';
 }
 
 // The size the fit is measured at. One reading is enough: text advances scale linearly
 // with the font, so the source box divided by the measured length gives the size directly.
 const OCR_FIT_MEASURE_PX = 32;
 
-// A line's length in its own type depends only on its own markup, so it outlives the pass
-// that measured it. Remembering it matters: the reader re-fits every line of an OCR'd
-// image on each animation frame while the page scrolls, and taking the reading again means
-// a second forced reflow per line per frame (measured at about twice the cost of the whole
-// pass). The remembered answer is dropped as soon as the line's markup changes, which is
-// exactly what happens when the reader annotates it.
-const rememberedLineExtents = new WeakMap<HTMLElement, { markup: string; measurement: OcrTextMeasurement }>();
+// A line's length in its own type depends only on its markup and the face it is set in, so
+// it outlives the pass that measured it. Remembering it matters: the reader re-fits every
+// line of an OCR'd image on each animation frame while the page scrolls, and taking the
+// reading again means a second forced reflow per line per frame (measured at about twice
+// the cost of the whole pass). The remembered answer is dropped the moment either of those
+// changes — which is what happens when the reader annotates a line, or when the reader's
+// font setting moves under it.
+const rememberedLineExtents = new WeakMap<HTMLElement, { signature: string; measurement: OcrTextMeasurement }>();
 
 // How long this line is, along the direction it runs, in the line's own type.
 //
@@ -295,15 +315,20 @@ const rememberedLineExtents = new WeakMap<HTMLElement, { markup: string; measure
 //
 // Nothing rendered (a detached layer, a test environment that does not lay text out)
 // measures 0, and ocrFontPx falls back to its em-count estimate.
-function measureOcrLineExtent(line: HTMLElement, textElement: HTMLElement, vertical: boolean): OcrTextMeasurement | undefined {
-    const markup = `${vertical ? 'vertical' : 'horizontal'}|${textElement.innerHTML}`;
+function measureOcrLineExtent(
+    line: HTMLElement,
+    textElement: HTMLElement,
+    vertical: boolean,
+    typeface: string,
+): OcrTextMeasurement | undefined {
+    const signature = `${vertical ? 'vertical' : 'horizontal'}|${typeface}|${textElement.innerHTML}`;
     const remembered = rememberedLineExtents.get(line);
-    if (remembered?.markup === markup) return remembered.measurement;
+    if (remembered?.signature === signature) return remembered.measurement;
     line.style.fontSize = `${OCR_FIT_MEASURE_PX}px`;
     const length = axisLength(textElement.getBoundingClientRect(), vertical);
     if (!(length > 0)) return undefined;
     const measurement = { fontSize: OCR_FIT_MEASURE_PX, length };
-    rememberedLineExtents.set(line, { markup, measurement });
+    rememberedLineExtents.set(line, { signature, measurement });
     return measurement;
 }
 

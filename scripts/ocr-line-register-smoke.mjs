@@ -21,6 +21,11 @@
 // Both writing modes are covered. Horizontal type is measured against a canvas ink box;
 // a vertical column is measured against a real vertical-rl span, because canvas has no
 // vertical writing mode and inventing one would be measuring the fixture, not the product.
+//
+// Two cells here are about lines that are already on screen when something changes under
+// them, which is the normal case rather than the exception: the reader annotates every line
+// it recognizes, and the reader's font setting is a custom property it can move at any time.
+// Neither re-typesets the overlay, so both have to be answered on the next layout pass.
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -34,6 +39,22 @@ const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 // centred undersized line covers only the middle of the source.
 const SENTENCE = '町の明かりが見えてきたから、そろそろ港へ行くよ。';
 const VERTICAL_SENTENCE = '読書の時間だ';
+
+// A status line off a game's HUD. Latin is the part of a line whose length depends on the
+// face it is set in — Japanese advances a full em in any of them — so this is the line that
+// can tell whether the overlay noticed the reader's font setting moving under it.
+const HUD_LINE = 'LEVEL 24 / HP 240 / MP 88';
+// What the reader writes when the font setting changes (reader-theme.ts sets exactly this
+// custom property, and nothing re-typesets an OCR overlay when it does).
+const READER_FONT_PROPERTY = '--jpdb-reader-font';
+const READER_FACES = ['"Courier New", monospace', '"Helvetica Neue", Arial, sans-serif'];
+// Two faces that turn out to set this line at the same size would make the check vacuous,
+// so the cell insists they do not.
+const MIN_FACE_SIZE_SPREAD = 0.02;
+// A line already on screen when the font changed must land where a fresh one does. Both go
+// through the same arithmetic on the same box, so this is a tolerance for float noise, not
+// for drift.
+const MAX_FONT_SWITCH_DRIFT = 0.005;
 
 // The size the game drew its text at. 80px is included because the old 38px ceiling made
 // anything above ~65px unreachable at ANY "Image text scale" setting.
@@ -144,6 +165,32 @@ try {
         rows.push({ mode: 'vertical+reading', sourceSize, fontScale: 1, ...measured });
         check(failures, `vertical+reading ${sourceSize}px`, measured, 1);
     }
+
+    // Changing the reader's font moves every advance in every recognized line, and nothing
+    // re-typesets an OCR overlay when it happens. A line already on screen has to be back in
+    // register on the very next pass.
+    const switch_ = await tab.evaluate(measureFontSwitch, {
+        sentence: HUD_LINE,
+        sourceSize: 46,
+        gameFont: GAME_FONT,
+        fontProperty: READER_FONT_PROPERTY,
+        faces: READER_FACES,
+    });
+    console.log(`[ocr-register] reader font ${READER_FACES[0]} -> ${switch_.before.fontPx.toFixed(1)}px over ${switch_.before.width.toFixed(1)}px`
+        + `; switched to ${READER_FACES[1]} -> ${switch_.after.fontPx.toFixed(1)}px over ${switch_.after.width.toFixed(1)}px`
+        + ` (a line built fresh in that face: ${switch_.fresh.fontPx.toFixed(1)}px over ${switch_.fresh.width.toFixed(1)}px)`);
+    const faceSpread = Math.abs(switch_.before.fontPx - switch_.fresh.fontPx) / switch_.fresh.fontPx;
+    if (faceSpread < MIN_FACE_SIZE_SPREAD) {
+        failures.push(`reader font switch: both faces set this line at the same size (${faceSpread.toFixed(4)} apart),`
+            + ' so the cell cannot tell a re-measured line from a remembered one');
+    }
+    for (const [key, drift] of [['size', Math.abs(switch_.after.fontPx - switch_.fresh.fontPx) / switch_.fresh.fontPx],
+        ['span', Math.abs(switch_.after.width - switch_.fresh.width) / switch_.fresh.width],
+        ['left edge', Math.abs(switch_.after.left - switch_.fresh.left) / switch_.sourceWidth]]) {
+        if (drift > MAX_FONT_SWITCH_DRIFT) {
+            failures.push(`reader font switch: a line already on screen ended up ${(drift * 100).toFixed(1)}% off a fresh one in ${key}`);
+        }
+    }
 } finally {
     await browser.close();
 }
@@ -243,6 +290,60 @@ function measureHorizontal({ sentence, sourceSize, fontScale, gameFont }) {
         endDrift: (box.left + box.width - rect.right) / box.width,
         baselineDriftEm: (rect.bottom - (box.top + box.height)) / renderedFontPx,
     };
+}
+
+// One line laid out under one reader font and then under another, with nothing rebuilding
+// it in between — the reader's font setting is a custom property on the document root and
+// that is all it moves. The reference is the same line built from scratch under the second
+// face: a line that was already on screen when the font changed has to end up exactly where
+// a fresh one does.
+function measureFontSwitch({ sentence, sourceSize, gameFont, fontProperty, faces }) {
+    const canvas = document.getElementById('capture');
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#12161d';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.font = `700 ${sourceSize}px ${gameFont}`;
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = '#f5faff';
+    const originX = 240;
+    const baseline = 700;
+    ctx.fillText(sentence, originX, baseline);
+    const source = ctx.measureText(sentence);
+    const box = {
+        left: originX - source.actualBoundingBoxLeft,
+        top: baseline - source.actualBoundingBoxAscent,
+        width: source.actualBoundingBoxLeft + source.actualBoundingBoxRight,
+        height: source.actualBoundingBoxAscent + source.actualBoundingBoxDescent,
+    };
+
+    const frame = { imageLeft: 0, imageTop: 0, imageWidth: canvas.width, imageHeight: canvas.height };
+    const buildLayer = () => {
+        document.body.insertAdjacentHTML('beforeend', window.YomuOcrOverlay.overlayOcrLayerHtml(
+            [{ text: sentence, box, vertical: false }],
+            frame,
+        ));
+        return document.body.lastElementChild;
+    };
+    const placed = layer => {
+        const text = layer.querySelector('.jpdb-ocr-line-text');
+        const rect = text.getBoundingClientRect();
+        return { fontPx: Number.parseFloat(getComputedStyle(text).fontSize), left: rect.left, width: rect.width };
+    };
+
+    document.querySelectorAll('.jpdb-ocr-layer').forEach(layer => layer.remove());
+    const switched = buildLayer();
+    document.documentElement.style.setProperty(fontProperty, faces[0]);
+    window.YomuOcrOverlay.layoutOverlayOcrLines(switched, frame, 1);
+    const before = placed(switched);
+    document.documentElement.style.setProperty(fontProperty, faces[1]);
+    window.YomuOcrOverlay.layoutOverlayOcrLines(switched, frame, 1);
+
+    // The reference: the same line, built from scratch with the new face already in place.
+    const fresh = buildLayer();
+    window.YomuOcrOverlay.layoutOverlayOcrLines(fresh, frame, 1);
+    return { before, after: placed(switched), fresh: placed(fresh), sourceWidth: box.width };
 }
 
 // The vertical equivalent. The source is a real vertical-rl span rather than a canvas,
