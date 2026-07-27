@@ -170,6 +170,9 @@ function rejectionReason(rejectedPath) {
     if (rejectedPath.includes('/identity-mismatch-20260726/tom/')) {
         return 'Archived superseded Tom candidate before identity and house-style correction.';
     }
+    if (rejectedPath.includes('/style-superseded-20260727/tom/')) {
+        return 'Archived superseded Tom sprite before the stronger hand-drawn house-style correction.';
+    }
     if (rejectedPath.includes('/style-superseded-20260726/')) {
         return 'Archived superseded neutral portrait before cast house-style correction.';
     }

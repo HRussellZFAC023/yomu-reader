@@ -2563,7 +2563,7 @@
       "currentAssets": [
         {
           "path": "/academy/art/characters/tom/tom__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
-          "sha256": "5655a416ea855f1edf21865a3fd5cfb26a35c2b7157ac8e7f9e30e59070417a2",
+          "sha256": "07acb705682bba28f19195627e6f8cabcad6265745029ea4e08520ee9256bdab",
           "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
           "status": "review-candidate",
@@ -2604,7 +2604,7 @@
         },
         {
           "path": "/academy/art/characters/tom/tom__standardized-neutral__front-near-front__halfbody__v001.png",
-          "sha256": "e44e9cae5b5bdcd7660c6a273296882eca7efa41bc52677415575a6f3ede89f5",
+          "sha256": "4c07477b95ec6901e8b0714781d9e71636fa4f6527d0959172a5372c7f84b22b",
           "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
           "status": "review-candidate",
