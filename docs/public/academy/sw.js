@@ -1,4 +1,4 @@
-const VERSION = 'yomu-academy-shell-s1-00d10b47a01e';
+const VERSION = 'yomu-academy-shell-s1-4b79da36fecc';
 const AUDIO_CACHE = 'yomu-academy-audio-v1-2c25b06f971c';
 const STORY_VOICE_CATALOG = '/academy/audio/story-voice-playback.json';
 const STORY_VOICE_ASSET = /^\/academy\/audio\/story-(?:pilot|lines)\/[a-z0-9][a-z0-9._-]*\.opus$/;
@@ -116,8 +116,13 @@ const RUNTIME_ART_PRECACHE = [
     '/academy/art/characters/rose/rose__standardized-neutral__front-near-front__halfbody__v001.png',
     '/academy/art/characters/ruparna/ruparna__neutral__front-near-front__halfbody__v002.png',
     '/academy/art/characters/ruparna/ruparna__note-route__right-three-quarter__halfbody__v002.png',
-    '/academy/art/characters/sam/sam__standardized-encouraging-listening__front-near-front__halfbody__v001.png',
-    '/academy/art/characters/sam/sam__standardized-neutral__front-near-front__halfbody__v001.png',
+    '/academy/art/characters/sam/sam__determined-close-cropped-chestnut__front-near-front__fullbody__v002.png',
+    '/academy/art/characters/sam/sam__encouraging-listening-close-cropped-chestnut__right-three-quarter__fullbody__v002.png',
+    '/academy/art/characters/sam/sam__happy-close-cropped-chestnut__front-near-front__fullbody__v002.png',
+    '/academy/art/characters/sam/sam__neutral-close-cropped-chestnut__front-near-front__fullbody__v002.png',
+    '/academy/art/characters/sam/sam__sad-vulnerable-close-cropped-chestnut__left-three-quarter__fullbody__v002.png',
+    '/academy/art/characters/sam/sam__surprised-shocked-close-cropped-chestnut__right-three-quarter__fullbody__v002.png',
+    '/academy/art/characters/sam/sam__thoughtful-close-cropped-chestnut__left-three-quarter__fullbody__v002.png',
     '/academy/art/characters/shaun/shaun__neutral__halfbody__v001.png',
     '/academy/art/characters/shaun/shaun__standardized-encouraging-listening__front-near-front__halfbody__v001.png',
     '/academy/art/characters/shaun/shaun__standardized-happy__front-near-front__halfbody__v001.png',
@@ -300,8 +305,8 @@ const CORE = [
     '/yomu-icon.svg',
     '/academy/',
     '/academy/index.html',
-    '/academy/app.js?v=s1-00d10b47a01e',
-    '/academy/style.css?v=s1-00d10b47a01e',
+    '/academy/app.js?v=s1-4b79da36fecc',
+    '/academy/style.css?v=s1-4b79da36fecc',
     '/academy/manifest.webmanifest',
     ...RUNTIME_ART_PRECACHE,
     '/academy/content/vertical-slice/source-library.v1.json',

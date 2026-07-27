@@ -29,9 +29,9 @@
     "cast": 30,
     "requiredPerformancesPerCast": 7,
     "requiredSlots": 210,
-    "integratedSlots": 60,
-    "missingSlots": 150,
-    "ownerCorrectionQueue": 66,
+    "integratedSlots": 65,
+    "missingSlots": 145,
+    "ownerCorrectionQueue": 61,
     "storyCriticalQueue": 49,
     "rosterCompletionQueue": 35
   },
@@ -559,16 +559,16 @@
       "priority": "owner-correction",
       "summary": {
         "required": 7,
-        "integrated": 2,
-        "missing": 5
+        "integrated": 7,
+        "missing": 0
       },
       "performances": [
         {
           "expression": "neutral",
           "preferredAngle": "front-near-front",
           "status": "integrated",
-          "assetId": "character.sam.standardized-neutral-front-near-front-halfbody-v001",
-          "assetPath": "/academy/art/characters/sam/sam__standardized-neutral__front-near-front__halfbody__v001.png",
+          "assetId": "character.sam.neutral-close-cropped-chestnut-front-near-front-fullbody-v002",
+          "assetPath": "/academy/art/characters/sam/sam__neutral-close-cropped-chestnut__front-near-front__fullbody__v002.png",
           "runtimeHomes": [
             "journal:sam",
             "class:people",
@@ -583,53 +583,73 @@
           "expression": "encouraging-listening",
           "preferredAngle": "right-three-quarter",
           "status": "integrated",
-          "assetId": "character.sam.standardized-encouraging-listening-front-near-front-halfbody-v001",
-          "assetPath": "/academy/art/characters/sam/sam__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
+          "assetId": "character.sam.encouraging-listening-close-cropped-chestnut-right-three-quarter-fullbody-v002",
+          "assetPath": "/academy/art/characters/sam/sam__encouraging-listening-close-cropped-chestnut__right-three-quarter__fullbody__v002.png",
           "runtimeHomes": [
             "journal:sam-expression-gallery",
-            "story:cast:sam:recording-boundary",
+            "story:cast:sam:encouraging-listening",
             "cast-standardization:sam"
           ]
         },
         {
           "expression": "happy",
           "preferredAngle": "front-near-front",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.sam.happy-close-cropped-chestnut-front-near-front-fullbody-v002",
+          "assetPath": "/academy/art/characters/sam/sam__happy-close-cropped-chestnut__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:sam-expression-gallery",
+            "story:cast:sam:happy",
+            "cast-standardization:sam"
+          ]
         },
         {
           "expression": "thoughtful",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.sam.thoughtful-close-cropped-chestnut-left-three-quarter-fullbody-v002",
+          "assetPath": "/academy/art/characters/sam/sam__thoughtful-close-cropped-chestnut__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:sam-expression-gallery",
+            "story:cast:sam:thoughtful",
+            "cast-standardization:sam"
+          ]
         },
         {
           "expression": "determined",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.sam.determined-close-cropped-chestnut-front-near-front-fullbody-v002",
+          "assetPath": "/academy/art/characters/sam/sam__determined-close-cropped-chestnut__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:sam-expression-gallery",
+            "story:cast:sam:determined",
+            "cast-standardization:sam"
+          ]
         },
         {
           "expression": "surprised-shocked",
           "preferredAngle": "right-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.sam.surprised-shocked-close-cropped-chestnut-right-three-quarter-fullbody-v002",
+          "assetPath": "/academy/art/characters/sam/sam__surprised-shocked-close-cropped-chestnut__right-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:sam-expression-gallery",
+            "story:cast:sam:surprised-shocked",
+            "cast-standardization:sam"
+          ]
         },
         {
           "expression": "sad-vulnerable",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.sam.sad-vulnerable-close-cropped-chestnut-left-three-quarter-fullbody-v002",
+          "assetPath": "/academy/art/characters/sam/sam__sad-vulnerable-close-cropped-chestnut__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:sam-expression-gallery",
+            "story:cast:sam:sad-vulnerable",
+            "cast-standardization:sam"
+          ]
         }
       ]
     },
@@ -3139,151 +3159,6 @@
       "runtimeHomes": [
         "journal:alex-expression-gallery",
         "story:cast:alex:sad-vulnerable"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "sam:happy",
-      "castId": "sam",
-      "displayName": "Sam",
-      "identityKey": "sam-close-cropped-chestnut-athletic",
-      "expression": "happy",
-      "angle": "front-near-front",
-      "priority": "owner-correction",
-      "storyLines": 28,
-      "visualLock": "Relaxed athletic White man with a very close-cropped chestnut crew cut and minimal crown or side volume.",
-      "wardrobeLock": "Clean casual sportswear or a simple overshirt in moss, navy, and cream.",
-      "reject": [
-        "long or swept hair",
-        "high-volume crown",
-        "beard",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:sam-expression-gallery",
-        "story:cast:sam:happy"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "sam:thoughtful",
-      "castId": "sam",
-      "displayName": "Sam",
-      "identityKey": "sam-close-cropped-chestnut-athletic",
-      "expression": "thoughtful",
-      "angle": "left-three-quarter",
-      "priority": "owner-correction",
-      "storyLines": 28,
-      "visualLock": "Relaxed athletic White man with a very close-cropped chestnut crew cut and minimal crown or side volume.",
-      "wardrobeLock": "Clean casual sportswear or a simple overshirt in moss, navy, and cream.",
-      "reject": [
-        "long or swept hair",
-        "high-volume crown",
-        "beard",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:sam-expression-gallery",
-        "story:cast:sam:thoughtful"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "sam:determined",
-      "castId": "sam",
-      "displayName": "Sam",
-      "identityKey": "sam-close-cropped-chestnut-athletic",
-      "expression": "determined",
-      "angle": "left-three-quarter",
-      "priority": "owner-correction",
-      "storyLines": 28,
-      "visualLock": "Relaxed athletic White man with a very close-cropped chestnut crew cut and minimal crown or side volume.",
-      "wardrobeLock": "Clean casual sportswear or a simple overshirt in moss, navy, and cream.",
-      "reject": [
-        "long or swept hair",
-        "high-volume crown",
-        "beard",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:sam-expression-gallery",
-        "story:cast:sam:determined"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "sam:surprised-shocked",
-      "castId": "sam",
-      "displayName": "Sam",
-      "identityKey": "sam-close-cropped-chestnut-athletic",
-      "expression": "surprised-shocked",
-      "angle": "right-three-quarter",
-      "priority": "owner-correction",
-      "storyLines": 28,
-      "visualLock": "Relaxed athletic White man with a very close-cropped chestnut crew cut and minimal crown or side volume.",
-      "wardrobeLock": "Clean casual sportswear or a simple overshirt in moss, navy, and cream.",
-      "reject": [
-        "long or swept hair",
-        "high-volume crown",
-        "beard",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:sam-expression-gallery",
-        "story:cast:sam:surprised-shocked"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "sam:sad-vulnerable",
-      "castId": "sam",
-      "displayName": "Sam",
-      "identityKey": "sam-close-cropped-chestnut-athletic",
-      "expression": "sad-vulnerable",
-      "angle": "left-three-quarter",
-      "priority": "owner-correction",
-      "storyLines": 28,
-      "visualLock": "Relaxed athletic White man with a very close-cropped chestnut crew cut and minimal crown or side volume.",
-      "wardrobeLock": "Clean casual sportswear or a simple overshirt in moss, navy, and cream.",
-      "reject": [
-        "long or swept hair",
-        "high-volume crown",
-        "beard",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:sam-expression-gallery",
-        "story:cast:sam:sad-vulnerable"
       ],
       "status": "queued"
     },

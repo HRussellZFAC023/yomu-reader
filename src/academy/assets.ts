@@ -275,7 +275,7 @@ export const ACADEMY_APPROVED_CHARACTER_SPRITES = {
     ruparnaNeutral: ACADEMY_CAST_STANDARDIZATION_GALLERIES.ruparna['neutral:front-near-front'],
     ruparnaNoteRoute: ACADEMY_CAST_STANDARDIZATION_GALLERIES.ruparna['encouraging-listening:right-three-quarter'],
     samNeutral: ACADEMY_CAST_STANDARDIZATION_GALLERIES.sam['neutral:front-near-front'],
-    samListening: ACADEMY_CAST_STANDARDIZATION_GALLERIES.sam['encouraging-listening:front-near-front'],
+    samListening: ACADEMY_CAST_STANDARDIZATION_GALLERIES.sam['encouraging-listening:right-three-quarter'],
     steve: assetFile('character.steve.neutral-front', 'default'),
     steveHappy: assetFile('character.steve.happy-right', 'default'),
     steveDetermined: assetFile('character.steve.determined-left', 'default'),

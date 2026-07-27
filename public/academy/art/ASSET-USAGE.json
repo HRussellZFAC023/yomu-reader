@@ -18,8 +18,8 @@
     ]
   },
   "counts": {
-    "runtimeAssetHomes": 195,
-    "runtimeFiles": 250,
+    "runtimeAssetHomes": 200,
+    "runtimeFiles": 255,
     "nonRuntimeReviewFiles": 1734,
     "approvedReferenceOnly": 4,
     "explicitlyRejectedFamilies": 4,
@@ -2497,82 +2497,6 @@
         {
           "path": "/academy/art/characters/ruparna/ruparna__note-route__right-three-quarter__halfbody__v002.png",
           "sha256": "f221ee5008c9d2746eb2f1d6cae831556eaed83f3abac52a001aba5a46e82089"
-        }
-      ],
-      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
-    },
-    {
-      "id": "character-sam-standardized-encouraging-listening-front-near-front-halfbody-v001",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "a14668bdf003c966e6000e3c7e2d7d08c8e8ba42acc5e1188786302bb34a681e",
-      "provenance": "regenerated-house-style",
-      "verdict": "approved-runtime",
-      "runtimeHome": [
-        "journal:sam-expression-gallery",
-        "story:cast:sam:recording-boundary",
-        "cast-standardization:sam"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "identity-lock"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:sam-expression-gallery",
-          "story:cast:sam:recording-boundary",
-          "cast-standardization:sam"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/sam/sam__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
-          "sha256": "a14668bdf003c966e6000e3c7e2d7d08c8e8ba42acc5e1188786302bb34a681e"
-        }
-      ],
-      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
-    },
-    {
-      "id": "character-sam-standardized-neutral-front-near-front-halfbody-v001",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "1df805d1f39c0f0c019af8ec308998995e15c532f177025601ab837a21987597",
-      "provenance": "regenerated-house-style",
-      "verdict": "approved-runtime",
-      "runtimeHome": [
-        "journal:sam",
-        "class:people",
-        "class:week-cast",
-        "lesson-overview:roster",
-        "world:person",
-        "story:cast:sam",
-        "cast-standardization:sam"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "identity-lock"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:sam",
-          "class:people",
-          "class:week-cast",
-          "lesson-overview:roster",
-          "world:person",
-          "story:cast:sam",
-          "cast-standardization:sam"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/sam/sam__standardized-neutral__front-near-front__halfbody__v001.png",
-          "sha256": "1df805d1f39c0f0c019af8ec308998995e15c532f177025601ab837a21987597"
         }
       ],
       "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
@@ -13148,6 +13072,252 @@
         {
           "path": "/academy/art/characters/tom/tom__sad-vulnerable-blond-clean-shaven__left-three-quarter__fullbody__v002.png",
           "sha256": "12821158601f06b7666eb1b84a272cb908724b2626508403ae8df68650c57ca1"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-sam-neutral-close-cropped-chestnut-front-near-front-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "96d77c4db082f704a58f7a99c361ab58aae0539159d9d84e675faf3f2280cdf8",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:sam",
+        "class:people",
+        "class:week-cast",
+        "lesson-overview:roster",
+        "world:person",
+        "story:cast:sam",
+        "cast-standardization:sam"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:sam",
+          "class:people",
+          "class:week-cast",
+          "lesson-overview:roster",
+          "world:person",
+          "story:cast:sam",
+          "cast-standardization:sam"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/sam/sam__neutral-close-cropped-chestnut__front-near-front__fullbody__v002.png",
+          "sha256": "96d77c4db082f704a58f7a99c361ab58aae0539159d9d84e675faf3f2280cdf8"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-sam-encouraging-listening-close-cropped-chestnut-right-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "da2e0ee7f1105b9136402455f59db0e36b966bd273e559de85d4c6831536b1c1",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:sam-expression-gallery",
+        "story:cast:sam:encouraging-listening",
+        "cast-standardization:sam"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:sam-expression-gallery",
+          "story:cast:sam:encouraging-listening",
+          "cast-standardization:sam"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/sam/sam__encouraging-listening-close-cropped-chestnut__right-three-quarter__fullbody__v002.png",
+          "sha256": "da2e0ee7f1105b9136402455f59db0e36b966bd273e559de85d4c6831536b1c1"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-sam-happy-close-cropped-chestnut-front-near-front-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "34f43bbcca9ee5b59f80a48c14716399be1e9232ab60b816163b4c767270a478",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:sam-expression-gallery",
+        "story:cast:sam:happy",
+        "cast-standardization:sam"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:sam-expression-gallery",
+          "story:cast:sam:happy",
+          "cast-standardization:sam"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/sam/sam__happy-close-cropped-chestnut__front-near-front__fullbody__v002.png",
+          "sha256": "34f43bbcca9ee5b59f80a48c14716399be1e9232ab60b816163b4c767270a478"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-sam-thoughtful-close-cropped-chestnut-left-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "1dd51166ba3ca4c051caaf838b2b19f1a289ffdc52b4f50532ae0c4134c93532",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:sam-expression-gallery",
+        "story:cast:sam:thoughtful",
+        "cast-standardization:sam"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:sam-expression-gallery",
+          "story:cast:sam:thoughtful",
+          "cast-standardization:sam"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/sam/sam__thoughtful-close-cropped-chestnut__left-three-quarter__fullbody__v002.png",
+          "sha256": "1dd51166ba3ca4c051caaf838b2b19f1a289ffdc52b4f50532ae0c4134c93532"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-sam-determined-close-cropped-chestnut-front-near-front-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "4a67932bda3f9fbd38ee88f63949b90f7234da531bf0d8a920b5271d829dbbc0",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:sam-expression-gallery",
+        "story:cast:sam:determined",
+        "cast-standardization:sam"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:sam-expression-gallery",
+          "story:cast:sam:determined",
+          "cast-standardization:sam"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/sam/sam__determined-close-cropped-chestnut__front-near-front__fullbody__v002.png",
+          "sha256": "4a67932bda3f9fbd38ee88f63949b90f7234da531bf0d8a920b5271d829dbbc0"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-sam-surprised-shocked-close-cropped-chestnut-right-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "7d9077aa74eb54c6713d648d0e2cef0256c4930a4349a22de097d201b7e904b9",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:sam-expression-gallery",
+        "story:cast:sam:surprised-shocked",
+        "cast-standardization:sam"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:sam-expression-gallery",
+          "story:cast:sam:surprised-shocked",
+          "cast-standardization:sam"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/sam/sam__surprised-shocked-close-cropped-chestnut__right-three-quarter__fullbody__v002.png",
+          "sha256": "7d9077aa74eb54c6713d648d0e2cef0256c4930a4349a22de097d201b7e904b9"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-sam-sad-vulnerable-close-cropped-chestnut-left-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "17bf60adf9f78c1bc84123c8338736202820fc61d21c3128afa69c737823d8ef",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:sam-expression-gallery",
+        "story:cast:sam:sad-vulnerable",
+        "cast-standardization:sam"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:sam-expression-gallery",
+          "story:cast:sam:sad-vulnerable",
+          "cast-standardization:sam"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/sam/sam__sad-vulnerable-close-cropped-chestnut__left-three-quarter__fullbody__v002.png",
+          "sha256": "17bf60adf9f78c1bc84123c8338736202820fc61d21c3128afa69c737823d8ef"
         }
       ],
       "status": "identity-locked, visually inspected, runtime-bound house-style sprite"

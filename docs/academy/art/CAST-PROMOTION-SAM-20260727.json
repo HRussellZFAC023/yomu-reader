@@ -1,0 +1,101 @@
+{
+  "promotions": [
+    {
+      "castId": "sam",
+      "archiveLabel": "identity-and-style-superseded-20260727",
+      "replaceExpressions": [
+        "neutral",
+        "encouraging-listening",
+        "happy",
+        "thoughtful",
+        "determined",
+        "surprised-shocked",
+        "sad-vulnerable"
+      ],
+      "canonicalNeutralAssetId": "character.sam.neutral-close-cropped-chestnut-front-near-front-fullbody-v002",
+      "slots": [
+        {
+          "assetId": "character.sam.neutral-close-cropped-chestnut-front-near-front-fullbody-v002",
+          "expression": "neutral",
+          "angle": "front-near-front",
+          "assetPath": "/academy/art/characters/sam/sam__neutral-close-cropped-chestnut__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:sam",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "story:cast:sam",
+            "cast-standardization:sam"
+          ]
+        },
+        {
+          "assetId": "character.sam.encouraging-listening-close-cropped-chestnut-right-three-quarter-fullbody-v002",
+          "expression": "encouraging-listening",
+          "angle": "right-three-quarter",
+          "assetPath": "/academy/art/characters/sam/sam__encouraging-listening-close-cropped-chestnut__right-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:sam-expression-gallery",
+            "story:cast:sam:encouraging-listening",
+            "cast-standardization:sam"
+          ]
+        },
+        {
+          "assetId": "character.sam.happy-close-cropped-chestnut-front-near-front-fullbody-v002",
+          "expression": "happy",
+          "angle": "front-near-front",
+          "assetPath": "/academy/art/characters/sam/sam__happy-close-cropped-chestnut__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:sam-expression-gallery",
+            "story:cast:sam:happy",
+            "cast-standardization:sam"
+          ]
+        },
+        {
+          "assetId": "character.sam.thoughtful-close-cropped-chestnut-left-three-quarter-fullbody-v002",
+          "expression": "thoughtful",
+          "angle": "left-three-quarter",
+          "assetPath": "/academy/art/characters/sam/sam__thoughtful-close-cropped-chestnut__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:sam-expression-gallery",
+            "story:cast:sam:thoughtful",
+            "cast-standardization:sam"
+          ]
+        },
+        {
+          "assetId": "character.sam.determined-close-cropped-chestnut-front-near-front-fullbody-v002",
+          "expression": "determined",
+          "angle": "front-near-front",
+          "assetPath": "/academy/art/characters/sam/sam__determined-close-cropped-chestnut__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:sam-expression-gallery",
+            "story:cast:sam:determined",
+            "cast-standardization:sam"
+          ]
+        },
+        {
+          "assetId": "character.sam.surprised-shocked-close-cropped-chestnut-right-three-quarter-fullbody-v002",
+          "expression": "surprised-shocked",
+          "angle": "right-three-quarter",
+          "assetPath": "/academy/art/characters/sam/sam__surprised-shocked-close-cropped-chestnut__right-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:sam-expression-gallery",
+            "story:cast:sam:surprised-shocked",
+            "cast-standardization:sam"
+          ]
+        },
+        {
+          "assetId": "character.sam.sad-vulnerable-close-cropped-chestnut-left-three-quarter-fullbody-v002",
+          "expression": "sad-vulnerable",
+          "angle": "left-three-quarter",
+          "assetPath": "/academy/art/characters/sam/sam__sad-vulnerable-close-cropped-chestnut__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:sam-expression-gallery",
+            "story:cast:sam:sad-vulnerable",
+            "cast-standardization:sam"
+          ]
+        }
+      ]
+    }
+  ]
+}
