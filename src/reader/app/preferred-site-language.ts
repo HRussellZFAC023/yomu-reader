@@ -13,11 +13,12 @@ export function applyPreferredJapaneseSiteLanguage(
     revertOnDisable = false,
     deferCookieResponseReloadUntilPersisted = false,
 ): void {
-    yomuVideoCompanionSlot()?.applyPreferredJapaneseSiteLanguage?.(
-        enabled,
-        revertOnDisable,
-        deferCookieResponseReloadUntilPersisted,
-    );
+    const apply = yomuVideoCompanionSlot()?.applyPreferredJapaneseSiteLanguage;
+    if (deferCookieResponseReloadUntilPersisted) {
+        apply?.(enabled, revertOnDisable, true);
+        return;
+    }
+    apply?.(enabled, revertOnDisable);
 }
 
 export function preferredJapaneseSiteUrl(sourceHref: string, root?: Parameters<typeof import('./preferred-site-language-impl').preferredJapaneseSiteUrl>[1]): string | null {

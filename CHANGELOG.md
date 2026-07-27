@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.8.21] - 2026-07-27
+
+### Fixed
+
+- Turning off Prefer Japanese sites now stays off on every site and takes effect before the page can snapshot a Japanese locale. A per-site startup cache, a late shared-settings read, a delayed redirect or page injection, and an unrelated save of an older settings object could each turn the preference back on after the user had disabled it. Yomu now keeps that opt-out in its own shared authoritative setting, ignores obsolete startup work, and cancels an armed redirect immediately. It also removes the Japanese URL and cookie markers Yomu added and reloads a Google or YouTube response once when its old preference cookie had already made the current page Japanese.
+
 ## [1.8.20] - 2026-07-27
 
 ### Fixed

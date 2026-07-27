@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.8.20
+// @version 1.8.21
 // @author Henry Russell
 // @description Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and a study page.
 // @license MIT
@@ -12,17 +12,17 @@
 // @match *://*/*
 // @match file:///*
 // @require https://yomureader.com/greasyfork/yomu-annotations.f86d865dfe5f.user.js#sha256=+G2GXf5f1AbXQ+5fLFyFi+mGtZeKCThOx3MA9wTeHJA=
-// @require https://yomureader.com/greasyfork/yomu-anki.26ed098f5355.user.js#sha256=Ju0Jj1NV9LXpvoXC0t77I/dKhqoDKE/YNX4YGmWzqKI=
-// @require https://yomureader.com/greasyfork/yomu-audio.8dd0a6c5a711.user.js#sha256=jdCmxacRXqDQlRyCN7ojZOzOBBumzLFdeKfME3ZWeKI=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.8bb23be372c0.user.js#sha256=i7I743LAYUhtJxwUDcv3nHafBgXUJbhboofFJjaeckw=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.ba57222df38d.user.js#sha256=ulciLfONuzKayD54sO7NnM/UaCXeBgoz46iC+BH1WoY=
+// @require https://yomureader.com/greasyfork/yomu-anki.aab07f79705c.user.js#sha256=qrB/eXBcDZ1CAtmMPE1UusesS13dAXRYl5fPeYNTuP4=
+// @require https://yomureader.com/greasyfork/yomu-audio.a521d32d29b0.user.js#sha256=pSHTLSmwFfUnm2TDaGeE3xlbpk3B4L2ctttyh4HIwqE=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.eb361d096dfe.user.js#sha256=6zYdCW3+o8K1t4/Lpu5JVAxD4Urs4LuSTvrim+awjDE=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.b34ce4e36bf0.user.js#sha256=s0zk42vwv2fHHs9QmcSOgoJfGHWzU0zOm48bL5Qvsrk=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.4a28175bf045.user.js#sha256=SigXW/BFi4724aLylfUOsJu6kSPrJLpVJbsbno/xd5Y=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.8f5fdb509f56.user.js#sha256=j1/bUJ9Wda30V8OQ7UlsuSIF7IkNuSPECjUzmUeiIiI=
-// @require https://yomureader.com/greasyfork/yomu-bunpro.e66bdca61b81.user.js#sha256=5mvcphuBoPFIg1VPJKlJay87jqeacgl/3gMD1UpGEHw=
-// @require https://yomureader.com/greasyfork/yomu-jpdb.4215c55298d2.user.js#sha256=QhXFUpjSxoQogowHHxQCfY35t5OZBL3yZ14YtWICS7g=
-// @require https://yomureader.com/greasyfork/yomu-jiten.1d0c113a86bd.user.js#sha256=HQwROoa9rcvSG5WQ76s9yyk2immb4TDYNUoRZQK9LqM=
-// @require https://yomureader.com/greasyfork/yomu-wanikani.a1acbc502f9b.user.js#sha256=oay8UC+bzq/ZMfU+Bhl8oZocWk9GoxEP0eFJbwavnvA=
-// @require https://yomureader.com/greasyfork/yomu-video.d7492ea0a372.user.js#sha256=10kuoKNycAhzDKRIuRDQTSzvbD/9DBllVGsIeer8eLQ=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.2f4471fd2432.user.js#sha256=L0Rx/SQytjKLhUyOFojLZ3LgHUTqzXG9skwGQiKhzHI=
+// @require https://yomureader.com/greasyfork/yomu-bunpro.ed6f0a80fc18.user.js#sha256=7W8KgPwYxsHfeSwDT+nlI6AOum4rF09KnspCasnr2hU=
+// @require https://yomureader.com/greasyfork/yomu-jpdb.9b9f9210b91a.user.js#sha256=m5+SELkaWw6/08p5fXclLIoVnp19JOjdJWRyugMHzaw=
+// @require https://yomureader.com/greasyfork/yomu-jiten.eb55e358c388.user.js#sha256=61XjWMOIhfNgRBqYcqqpWJJvSh6MzYDON7rDVVMaQzI=
+// @require https://yomureader.com/greasyfork/yomu-wanikani.5cad49b05a48.user.js#sha256=XK1JsFpIF1l7krzTfuLsxxGg91bPIFjSTBRyUOC70ts=
+// @require https://yomureader.com/greasyfork/yomu-video.9266fd51d2be.user.js#sha256=kmb9UdK+JI/WByS0eR9FHGmZNy1/kO/vHEWMzHGRBj8=
 // @resource yomuCss  https://yomureader.com/yomu.edbe1dbd1762.css#sha256=7b4dvRdiI6B29BxB73+fT5kP+IAbrgJpdh4fHwCUjiY=
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -4370,6 +4370,7 @@ const MANAGED_STATE_MANIFEST = [
   { owner: "settings (legacy)", kind: "gm", key: "jpdb-reader-settings" },
   { owner: "settings (legacy)", kind: "gm", key: "yomu-reader-settings" },
   { owner: "settings (legacy)", kind: "gm", key: "yomu-settings" },
+  { owner: "settings", kind: "gm", key: "yomu:prefer-japanese-site-language:v1" },
   { owner: "settings/dialog-controller", kind: "gm", key: "__yomu_cloud_settings_sync_pending_action" },
   { owner: "app/storage", kind: "gm", key: "yomu:factory-reset-signal" },
   { owner: "app/card-state-signal", kind: "gm", key: "yomu:card-state-signal" },
@@ -6519,6 +6520,7 @@ function isModifierKey(key) {
   return key === "Alt" || key === "Ctrl" || key === "Meta" || key === "Shift";
 }
 const SETTINGS_STORAGE_KEY = "jpdb-popup-reader-settings";
+const PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY = "yomu:prefer-japanese-site-language:v1";
 const LEGACY_SETTINGS_STORAGE_KEYS = [
   "jpdb-reader-settings",
   "yomu-reader-settings",
@@ -6528,6 +6530,7 @@ const SETTINGS_STORAGE_KEYS = [
   SETTINGS_STORAGE_KEY,
   ...LEGACY_SETTINGS_STORAGE_KEYS
 ];
+const PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE = "prefer-japanese-site-language-setting";
 const log$7 = Logger.scope("Settings");
 let settingsResetInProgress = false;
 const DEFAULT_AUDIO_URL = YOMU_HOSTED_AUDIO_URL;
@@ -7077,8 +7080,15 @@ function mergeSettings(value) {
   ...normalizeRemovedDictionarySettings(settingsValue),
   dictionaryLookupLinks: normalizeDictionaryLookupLinkSettings(settingsValue),
   ...languageProfileSettings,
+  preferJapaneseSiteLanguage: normalizePreferredJapaneseSiteLanguage(settingsValue),
   shortcuts: normalizeShortcutSettings(settingsValue)
   };
+}
+function normalizePreferredJapaneseSiteLanguage(value) {
+  if (!value || !hasOwn(value, "preferJapaneseSiteLanguage")) {
+  return DEFAULT_SETTINGS.preferJapaneseSiteLanguage;
+  }
+  return typeof value.preferJapaneseSiteLanguage === "boolean" ? value.preferJapaneseSiteLanguage : false;
 }
 function normalizeParserProvider(value) {
   const provider = value?.parserProvider;
@@ -7928,6 +7938,10 @@ function normalizedOcrEngineInput(value) {
 async function loadSettings() {
   if (settingsResetInProgress) return mergeSettings(null);
   try {
+  const storedPreferredJapaneseSiteLanguage = await gmStorageGet(
+    PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
+    void 0
+  );
   const cacheStandaloneBaseline = isHostedYomuOrigin() && !hasAsyncGmStorageBackend() && localFallbackStoredValue(SETTINGS_STORAGE_KEY, null) === null;
   const currentRecord = settingsRecord(await gmStorageGet(SETTINGS_STORAGE_KEY, null));
   let settings = mergeSettings(currentRecord);
@@ -7945,6 +7959,13 @@ async function loadSettings() {
     settings = recovery.settings;
     recoveredLegacySettings = recoveredLegacySettings || recovery.changed;
   }
+  settings = {
+    ...settings,
+    preferJapaneseSiteLanguage: await authoritativePreferredJapaneseSiteLanguage(
+      storedPreferredJapaneseSiteLanguage,
+      settings.preferJapaneseSiteLanguage
+    )
+  };
   if (recoveredLegacySettings) await persistSettings(settings);
   else if (isHostedYomuOrigin() && (hasAsyncGmStorageBackend() || cacheStandaloneBaseline)) {
     cacheManagedValueForHostedStartup(SETTINGS_STORAGE_KEY, stripUnsupportedSettings(settings) ?? settings);
@@ -7954,6 +7975,23 @@ async function loadSettings() {
   log$7.warn("Settings load failed", { error });
   return mergeSettings(null);
   }
+}
+async function authoritativePreferredJapaneseSiteLanguage(storedValue, migrationFallback) {
+  if (typeof storedValue === "boolean") return storedValue;
+  return withGmStorageLease(PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE, async () => {
+  const currentValue = await gmStorageGet(
+    PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
+    void 0
+  );
+  if (typeof currentValue === "boolean") return currentValue;
+  await gmStorageSet(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY, migrationFallback);
+  return migrationFallback;
+  });
+}
+async function persistPreferredJapaneseSiteLanguage(value) {
+  await withGmStorageLease(PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE, async () => {
+  await gmStorageSet(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY, value);
+  });
 }
 function strandedHostedLocalSettingsRecord() {
   if (!isHostedYomuOrigin() || !hasAsyncGmStorageBackend()) return null;
@@ -8003,15 +8041,35 @@ function settingsValueEquals(left, right) {
   return left === right || JSON.stringify(left) === JSON.stringify(right);
 }
 function subscribeToSettingsStorageChanges(onSettings) {
-  return subscribeToStoredValueChanges(SETTINGS_STORAGE_KEY, (value) => onSettings(mergeSettings(value)));
+  let active = true;
+  let refreshRevision = 0;
+  const refresh = () => {
+  const revision = ++refreshRevision;
+  void loadSettings().then((settings) => {
+    if (active && revision === refreshRevision) onSettings(settings);
+  });
+  };
+  const unsubscribers = [
+  subscribeToStoredValueChanges(SETTINGS_STORAGE_KEY, refresh),
+  subscribeToStoredValueChanges(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY, refresh)
+  ];
+  return () => {
+  active = false;
+  refreshRevision += 1;
+  for (const unsubscribe of unsubscribers) unsubscribe();
+  };
 }
-async function saveSettings(settings) {
+async function saveSettings(settings, options = {}) {
   if (settingsResetInProgress) {
   log$7.warn("Skipped save during reset");
   return;
   }
   try {
-  await persistSettings(settings);
+  const normalizedSettings = mergeSettings(settings);
+  if (options.persistPreferredJapaneseSiteLanguage) {
+    await persistPreferredJapaneseSiteLanguage(normalizedSettings.preferJapaneseSiteLanguage);
+  }
+  await persistSettings(normalizedSettings);
   } catch (error) {
   log$7.warn("Settings save failed", { error });
   throw error;
@@ -8037,10 +8095,11 @@ function endSettingsResetGuard() {
 }
 async function deleteSettingsStorage() {
   for (const key of SETTINGS_STORAGE_KEYS) await gmStorageDelete(key);
+  await gmStorageDelete(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY);
 }
 async function settingsStorageKeysStillPresent() {
   const keys = [];
-  for (const key of SETTINGS_STORAGE_KEYS) {
+  for (const key of [...SETTINGS_STORAGE_KEYS, PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY]) {
   if (await storedValueExists(key)) keys.push(key);
   }
   return keys;
@@ -29089,8 +29148,13 @@ async function translateJapaneseSentence(sentence, language = "en") {
 function installPreferredJapaneseSiteLanguageFromStoredSettings() {
   yomuVideoCompanionSlot()?.installPreferredJapaneseSiteLanguageFromStoredSettings?.();
 }
-function applyPreferredJapaneseSiteLanguage(enabled, revertOnDisable = false) {
-  yomuVideoCompanionSlot()?.applyPreferredJapaneseSiteLanguage?.(enabled, revertOnDisable);
+function applyPreferredJapaneseSiteLanguage(enabled, revertOnDisable = false, deferCookieResponseReloadUntilPersisted = false) {
+  const apply = yomuVideoCompanionSlot()?.applyPreferredJapaneseSiteLanguage;
+  if (deferCookieResponseReloadUntilPersisted) {
+  apply?.(enabled, revertOnDisable, true);
+  return;
+  }
+  apply?.(enabled, revertOnDisable);
 }
 function ocrInteractionModeFromSettings(settings) {
   if (!settings.ocrEnabled) return "off";
@@ -30612,8 +30676,8 @@ function collapseWhitespace(value) {
   return value.replace(/\/\*[\s\S]*?\*\//gu, " ").replace(/\s+/gu, " ").trim();
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.20"}`;
-const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.20"}`;
+const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.21"}`;
+const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.21"}`;
 const READER_CSS_CACHE_KEY = "yomu:reader-css-cache:v3";
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
@@ -30756,7 +30820,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.8.20"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.8.21"}`;
   } catch {
   return null;
   }
@@ -32249,6 +32313,7 @@ class ReaderApp {
   settingsPreviewOriginalAccent;
   settingsPreviewOriginalLanguage;
   settingsPreviewOriginalTheme;
+  pendingPreferredJapaneseSiteLanguage;
   lastAutoAudioKey = "";
   lastAutoAudioAt = 0;
   lastAutoAudioHoverGeneration;
@@ -32319,15 +32384,17 @@ class ReaderApp {
   return new Controller({
     getSettings: () => this.settings,
     setSettings: (settings) => {
-      const japaneseSiteOptOut = japaneseSiteLanguageDisabled(this.settings, settings);
+      const previous = this.settings;
       this.settings = settings;
       this.applyTheme();
-      this.applyPreferredJapaneseSiteLanguage(settings, japaneseSiteOptOut);
+      this.stagePreferredJapaneseSiteLanguage(previous, settings);
     },
     showSettings: (panel) => this.showSettings(panel),
     parseJapanese: (panel) => void this.parseOnboardingJapanese(panel),
     lookupText: (text, sentence, anchor) => this.lookupText(text, sentence || text, { anchor, stackOverSettings: true }),
-    installOfflineDictionaries: () => void this.installOfflineParsingDictionaries()
+    installOfflineDictionaries: () => void this.installOfflineParsingDictionaries(),
+    onComplete: (settings) => this.completePreferredJapaneseSiteLanguageSave(settings),
+    onPersistenceFailed: (settings) => this.failPreferredJapaneseSiteLanguageSave(settings)
   });
   }
   createSubtitlePlayer() {
@@ -32567,6 +32634,7 @@ class ReaderApp {
   async applyRemoteSettings(settings) {
   const pauseChanged = settings.annotationsPaused !== this.settings.annotationsPaused;
   const japaneseSiteOptOut = japaneseSiteLanguageDisabled(this.settings, settings);
+  this.pendingPreferredJapaneseSiteLanguage = void 0;
   this.settings = settings;
   configureLogger({ forceEnabled: settings.enableLogging });
   this.applyPreferredJapaneseSiteLanguage(settings, japaneseSiteOptOut);
@@ -32697,9 +32765,19 @@ class ReaderApp {
   await this.setPreferredJapaneseSiteLanguage(!this.settings.preferJapaneseSiteLanguage);
   }
   async setPreferredJapaneseSiteLanguage(enabled) {
+  const previous = this.settings.preferJapaneseSiteLanguage;
+  if (previous === enabled) return;
   this.settings.preferJapaneseSiteLanguage = enabled;
-  await saveSettings(this.settings);
-  this.applyPreferredJapaneseSiteLanguage(this.settings, true);
+  const save = saveSettings(this.settings, { persistPreferredJapaneseSiteLanguage: true });
+  if (!enabled) this.applyPreferredJapaneseSiteLanguage(this.settings, false, true);
+  try {
+    await save;
+  } catch (error) {
+    this.settings.preferJapaneseSiteLanguage = previous;
+    this.applyPreferredJapaneseSiteLanguage(this.settings, false);
+    throw error;
+  }
+  this.applyPreferredJapaneseSiteLanguage(this.settings, !enabled);
   log.info("Preferred Japanese site language toggled", { enabled });
   }
   async setYoutubeChannelRecommendationsVisible(visible) {
@@ -32866,8 +32944,39 @@ class ReaderApp {
   refreshReaderWordContrast(document);
   this.publishThemeSettingsChange();
   }
-  applyPreferredJapaneseSiteLanguage(settings = this.settings, options) {
-  applyPreferredJapaneseSiteLanguage(settings.preferJapaneseSiteLanguage, options);
+  applyPreferredJapaneseSiteLanguage(settings = this.settings, options, deferCookieResponseReloadUntilPersisted) {
+  applyPreferredJapaneseSiteLanguage(
+    settings.preferJapaneseSiteLanguage,
+    options,
+    deferCookieResponseReloadUntilPersisted
+  );
+  }
+  stagePreferredJapaneseSiteLanguage(previous, next) {
+  if (previous.preferJapaneseSiteLanguage === next.preferJapaneseSiteLanguage) {
+    if (this.pendingPreferredJapaneseSiteLanguage === void 0) {
+      this.applyPreferredJapaneseSiteLanguage(next, false);
+    }
+    return;
+  }
+  this.pendingPreferredJapaneseSiteLanguage = next.preferJapaneseSiteLanguage;
+  if (!next.preferJapaneseSiteLanguage) {
+    this.applyPreferredJapaneseSiteLanguage(next, false, true);
+  }
+  }
+  completePreferredJapaneseSiteLanguageSave(settings) {
+  if (this.pendingPreferredJapaneseSiteLanguage !== settings.preferJapaneseSiteLanguage) return;
+  const enabled = settings.preferJapaneseSiteLanguage;
+  this.pendingPreferredJapaneseSiteLanguage = void 0;
+  this.applyPreferredJapaneseSiteLanguage(settings, !enabled);
+  }
+  failPreferredJapaneseSiteLanguageSave(previousSettings) {
+  if (this.pendingPreferredJapaneseSiteLanguage === void 0) return;
+  this.pendingPreferredJapaneseSiteLanguage = void 0;
+  this.settings = {
+    ...this.settings,
+    preferJapaneseSiteLanguage: previousSettings.preferJapaneseSiteLanguage
+  };
+  this.applyPreferredJapaneseSiteLanguage(this.settings, false);
   }
   publishThemeSettingsChange() {
   this.publishSettingsChange({ theme: this.settings.theme });
@@ -39053,13 +39162,15 @@ class ReaderApp {
     getSettings: () => this.settings,
     setSettings: (settings, options) => {
       const pauseChanged = settings.annotationsPaused !== this.settings.annotationsPaused;
-      const japaneseSiteOptOut = japaneseSiteLanguageDisabled(this.settings, settings);
+      const previous = this.settings;
       this.settings = settings;
       if (options?.transient) return;
-      this.applyPreferredJapaneseSiteLanguage(settings, japaneseSiteOptOut);
+      this.stagePreferredJapaneseSiteLanguage(previous, settings);
       if (!settings.ankiEnabled) this.clearRenderedAnkiWordStates();
       if (pauseChanged) this.applyAnnotationsPausedState();
     },
+    onSettingsPersisted: (settings) => this.completePreferredJapaneseSiteLanguageSave(settings),
+    onSettingsPersistenceFailed: (settings) => this.failPreferredJapaneseSiteLanguageSave(settings),
     jpdb: this.jpdb,
     dictionaries: this.dictionaries,
     anki: this.anki,

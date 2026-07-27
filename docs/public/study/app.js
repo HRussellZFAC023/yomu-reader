@@ -5344,6 +5344,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     { owner: "settings (legacy)", kind: "gm", key: "jpdb-reader-settings" },
     { owner: "settings (legacy)", kind: "gm", key: "yomu-reader-settings" },
     { owner: "settings (legacy)", kind: "gm", key: "yomu-settings" },
+    { owner: "settings", kind: "gm", key: "yomu:prefer-japanese-site-language:v1" },
     // Cloud settings sync handoff written before an OAuth redirect.
     { owner: "settings/dialog-controller", kind: "gm", key: "__yomu_cloud_settings_sync_pending_action" },
     // App-level signals / flags / caches.
@@ -5568,6 +5569,18 @@ recommendedJiten	Jiten由来の頻度バッジです。
       if (read.kind === "found") return read.value;
     }
     return localStorageGet(key, fallback);
+  }
+  function gmStorageGetSharedSync(key, fallback) {
+    const getValue = typeof GM_getValue === "function" ? GM_getValue : null;
+    if (!getValue) return fallback;
+    try {
+      const value = getValue(key, MISSING);
+      if (isPromiseLike$1(value) || isMissingSentinel(value)) return fallback;
+      return value;
+    } catch (error) {
+      debugStorageError("Shared GM storage sync read failed", key, error);
+      return fallback;
+    }
   }
   function gmStorageSyncRead(key, getValue) {
     try {
@@ -11985,6 +11998,7 @@ ${spelling}`);
     return parts.filter((part, index) => parts.indexOf(part) === index);
   }
   const SETTINGS_STORAGE_KEY = "jpdb-popup-reader-settings";
+  const PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY = "yomu:prefer-japanese-site-language:v1";
   const LEGACY_SETTINGS_STORAGE_KEYS = [
     "jpdb-reader-settings",
     "yomu-reader-settings",
@@ -11994,6 +12008,7 @@ ${spelling}`);
     SETTINGS_STORAGE_KEY,
     ...LEGACY_SETTINGS_STORAGE_KEYS
   ];
+  const PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE = "prefer-japanese-site-language-setting";
   const log$K = Logger.scope("Settings");
   let settingsResetInProgress = false;
   const DEFAULT_AUDIO_URL = YOMU_HOSTED_AUDIO_URL;
@@ -12556,8 +12571,15 @@ ${spelling}`);
       ...normalizeRemovedDictionarySettings(settingsValue),
       dictionaryLookupLinks: normalizeDictionaryLookupLinkSettings(settingsValue),
       ...languageProfileSettings,
+      preferJapaneseSiteLanguage: normalizePreferredJapaneseSiteLanguage(settingsValue),
       shortcuts: normalizeShortcutSettings(settingsValue)
     };
+  }
+  function normalizePreferredJapaneseSiteLanguage(value) {
+    if (!value || !hasOwn(value, "preferJapaneseSiteLanguage")) {
+      return DEFAULT_SETTINGS.preferJapaneseSiteLanguage;
+    }
+    return typeof value.preferJapaneseSiteLanguage === "boolean" ? value.preferJapaneseSiteLanguage : false;
   }
   function normalizeParserProvider(value) {
     const provider = value?.parserProvider;
@@ -13377,6 +13399,10 @@ ${spelling}`);
   async function loadSettings() {
     if (settingsResetInProgress) return mergeSettings(null);
     try {
+      const storedPreferredJapaneseSiteLanguage = await gmStorageGet(
+        PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
+        void 0
+      );
       const cacheStandaloneBaseline = isHostedYomuOrigin() && !hasAsyncGmStorageBackend() && localFallbackStoredValue(SETTINGS_STORAGE_KEY, null) === null;
       const currentRecord = settingsRecord(await gmStorageGet(SETTINGS_STORAGE_KEY, null));
       let settings = mergeSettings(currentRecord);
@@ -13394,6 +13420,13 @@ ${spelling}`);
         settings = recovery.settings;
         recoveredLegacySettings = recoveredLegacySettings || recovery.changed;
       }
+      settings = {
+        ...settings,
+        preferJapaneseSiteLanguage: await authoritativePreferredJapaneseSiteLanguage(
+          storedPreferredJapaneseSiteLanguage,
+          settings.preferJapaneseSiteLanguage
+        )
+      };
       if (recoveredLegacySettings) await persistSettings(settings);
       else if (isHostedYomuOrigin() && (hasAsyncGmStorageBackend() || cacheStandaloneBaseline)) {
         cacheManagedValueForHostedStartup(SETTINGS_STORAGE_KEY, stripUnsupportedSettings(settings) ?? settings);
@@ -13403,6 +13436,23 @@ ${spelling}`);
       log$K.warn("Settings load failed", { error });
       return mergeSettings(null);
     }
+  }
+  async function authoritativePreferredJapaneseSiteLanguage(storedValue, migrationFallback) {
+    if (typeof storedValue === "boolean") return storedValue;
+    return withGmStorageLease(PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE, async () => {
+      const currentValue = await gmStorageGet(
+        PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
+        void 0
+      );
+      if (typeof currentValue === "boolean") return currentValue;
+      await gmStorageSet(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY, migrationFallback);
+      return migrationFallback;
+    });
+  }
+  async function persistPreferredJapaneseSiteLanguage(value) {
+    await withGmStorageLease(PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE, async () => {
+      await gmStorageSet(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY, value);
+    });
   }
   function strandedHostedLocalSettingsRecord() {
     if (!isHostedYomuOrigin() || !hasAsyncGmStorageBackend()) return null;
@@ -13438,15 +13488,35 @@ ${spelling}`);
     return left === right || JSON.stringify(left) === JSON.stringify(right);
   }
   function subscribeToSettingsStorageChanges(onSettings) {
-    return subscribeToStoredValueChanges(SETTINGS_STORAGE_KEY, (value) => onSettings(mergeSettings(value)));
+    let active = true;
+    let refreshRevision = 0;
+    const refresh = () => {
+      const revision2 = ++refreshRevision;
+      void loadSettings().then((settings) => {
+        if (active && revision2 === refreshRevision) onSettings(settings);
+      });
+    };
+    const unsubscribers = [
+      subscribeToStoredValueChanges(SETTINGS_STORAGE_KEY, refresh),
+      subscribeToStoredValueChanges(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY, refresh)
+    ];
+    return () => {
+      active = false;
+      refreshRevision += 1;
+      for (const unsubscribe of unsubscribers) unsubscribe();
+    };
   }
-  async function saveSettings(settings) {
+  async function saveSettings(settings, options = {}) {
     if (settingsResetInProgress) {
       log$K.warn("Skipped save during reset");
       return;
     }
     try {
-      await persistSettings(settings);
+      const normalizedSettings = mergeSettings(settings);
+      if (options.persistPreferredJapaneseSiteLanguage) {
+        await persistPreferredJapaneseSiteLanguage(normalizedSettings.preferJapaneseSiteLanguage);
+      }
+      await persistSettings(normalizedSettings);
     } catch (error) {
       log$K.warn("Settings save failed", { error });
       throw error;
@@ -13474,10 +13544,11 @@ ${spelling}`);
   }
   async function deleteSettingsStorage() {
     for (const key of SETTINGS_STORAGE_KEYS) await gmStorageDelete(key);
+    await gmStorageDelete(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY);
   }
   async function settingsStorageKeysStillPresent() {
     const keys = [];
-    for (const key of SETTINGS_STORAGE_KEYS) {
+    for (const key of [...SETTINGS_STORAGE_KEYS, PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY]) {
       if (await storedValueExists(key)) keys.push(key);
     }
     return keys;
@@ -53109,7 +53180,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.8.20".trim() ? "1.8.20".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.8.21".trim() ? "1.8.21".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record2 = value;
@@ -72739,6 +72810,18 @@ ${spelling}`);
     restoreTransientSettings(previous) {
       this.dependencies.setSettings(previous, { transient: true });
     }
+    async saveCurrentSettings(previousSettings) {
+      const settings = this.settings;
+      try {
+        await saveSettings(settings, {
+          persistPreferredJapaneseSiteLanguage: previousSettings.preferJapaneseSiteLanguage !== settings.preferJapaneseSiteLanguage
+        });
+        this.dependencies.onSettingsPersisted?.(settings);
+      } catch (error) {
+        this.dependencies.onSettingsPersistenceFailed?.(previousSettings);
+        throw error;
+      }
+    }
     createSettingsForm(panel) {
       const form = document.createElement("form");
       form.className = "jpdb-reader-settings";
@@ -72759,10 +72842,11 @@ ${spelling}`);
           this.showDictionarySaveBlocked(form);
           return;
         }
-        const previousInitialOpen = this.settings.dictionarySourcesInitiallyExpanded;
-        const nextSettings = readFormSettings(new FormData(form), this.settings);
+        const previousSettings = this.settings;
+        const previousInitialOpen = previousSettings.dictionarySourcesInitiallyExpanded;
+        const nextSettings = readFormSettings(new FormData(form), previousSettings);
         const saveRequestId = ++this.saveRequestId;
-        const credentialPermission = requestFirefoxAuthenticationInfoForChangedSettings(this.settings, nextSettings);
+        const credentialPermission = requestFirefoxAuthenticationInfoForChangedSettings(previousSettings, nextSettings);
         void credentialPermission.then((consent) => {
           if (!this.acceptFirefoxAuthenticationInfoConsent(consent, this.settings.interfaceLanguage)) return;
           this.settings = nextSettings;
@@ -72770,7 +72854,9 @@ ${spelling}`);
           if (this.settings.dictionarySourcesInitiallyExpanded !== previousInitialOpen) {
             this.dependencies.clearDictionarySourceOpenOverrides();
           }
-          return saveSettings(this.settings).then(() => this.afterSettingsSaved(form, saveRequestId));
+          return this.saveCurrentSettings(previousSettings).then(() => {
+            this.afterSettingsSaved(form, saveRequestId);
+          });
         }).catch((error) => {
           log$f.error("Settings save failed", error);
           this.dependencies.toast(errorMessage(error, uiText(this.settings.interfaceLanguage, "settingsSaveFailed")));
@@ -73917,21 +74003,23 @@ ${spelling}`);
       const button2 = settingsActionButton(control);
       button2?.setAttribute("disabled", "true");
       await this.rememberPendingCloudSettingsAction(action);
+      const previousSettings = this.settings;
       try {
         if (action === "sync-cloud-settings") this.settings = readFormSettings(new FormData(form), this.settings);
-        await this.performCloudSettingsAction(action, language2, setStatus);
+        await this.performCloudSettingsAction(action, language2, setStatus, previousSettings);
         await this.clearPendingCloudSettingsAction();
         return true;
       } catch (error) {
+        this.dependencies.onSettingsPersistenceFailed?.(previousSettings);
         await this.clearPendingCloudSettingsAction();
         throw error;
       } finally {
         button2?.removeAttribute("disabled");
       }
     }
-    async performCloudSettingsAction(action, language2, setStatus) {
+    async performCloudSettingsAction(action, language2, setStatus, previousSettings = this.settings) {
       if (action === "sync-cloud-settings") {
-        await saveSettings(this.settings);
+        await this.saveCurrentSettings(previousSettings);
         const metadata = await uploadCloudSettingsToCloud(this.settings);
         const message2 = cloudSettingsSyncedStatus(metadata.syncedAt, language2);
         setStatus?.(message2);
@@ -73944,13 +74032,14 @@ ${spelling}`);
         setStatus?.(cloudSettingsNotFoundStatus(language2));
         return;
       }
+      const settingsBeforeRestore = this.settings;
       this.settings = normalizeReaderSettings({
         ...this.settings,
         ...snapshot.settings,
         shortcuts: { ...this.settings.shortcuts, ...snapshot.settings.shortcuts }
       });
       await importStoredValues(snapshot.storage);
-      await saveSettings(this.settings);
+      await this.saveCurrentSettings(settingsBeforeRestore);
       const message = cloudSettingsRestoredStatus(snapshot.syncedAt, language2);
       setStatus?.(message);
       this.dependencies.toast(message);
@@ -74458,14 +74547,20 @@ ${spelling}`);
     async importReaderSettingsFromFile(form, setStatus) {
       const file = await pickFile(form, "settings");
       if (!file) return;
+      const previousSettings = this.settings;
       const json = JSON.parse(await file.text());
-      const readerSettings = getReaderSettingsExport(json);
-      this.settings = readerSettings ? normalizeReaderSettings({ ...this.settings, ...readerSettings, shortcuts: { ...this.settings.shortcuts, ...readerSettings.shortcuts } }) : importedYomitanSettings(json, this.settings);
-      const restoredValues = await importStoredValues(getReaderStorageExport(json));
-      const dictionarySummary = await this.importReaderDictionaryBackup(json, setStatus);
-      await this.mergeImportedDictionaryPreferences();
-      await saveSettings(this.settings);
-      setStatus(importSettingsStatus(restoredValues, dictionarySummary, this.settings.interfaceLanguage));
+      try {
+        const readerSettings = getReaderSettingsExport(json);
+        this.settings = readerSettings ? normalizeReaderSettings({ ...this.settings, ...readerSettings, shortcuts: { ...this.settings.shortcuts, ...readerSettings.shortcuts } }) : importedYomitanSettings(json, this.settings);
+        const restoredValues = await importStoredValues(getReaderStorageExport(json));
+        const dictionarySummary = await this.importReaderDictionaryBackup(json, setStatus);
+        await this.mergeImportedDictionaryPreferences();
+        await this.saveCurrentSettings(previousSettings);
+        setStatus(importSettingsStatus(restoredValues, dictionarySummary, this.settings.interfaceLanguage));
+      } catch (error) {
+        this.dependencies.onSettingsPersistenceFailed?.(previousSettings);
+        throw error;
+      }
       this.dependencies.applyTheme();
       void this.dependencies.refreshDictionaryStyles();
       this.dependencies.scheduleDictionaryRescan();
@@ -74955,16 +75050,20 @@ ${spelling}`);
     async complete(openSettings) {
       const done = log$e.time("Onboarding complete", { openSettings });
       const installOfflineDictionaries = this.offlineDictionariesInput?.checked === true;
+      const previousSettings = this.options.getSettings();
       const settings = this.completedOnboardingSettings(openSettings, installOfflineDictionaries);
       try {
         this.options.setSettings(settings);
-        await saveSettings(settings);
+        await saveSettings(settings, {
+          persistPreferredJapaneseSiteLanguage: previousSettings.preferJapaneseSiteLanguage !== settings.preferJapaneseSiteLanguage
+        });
         this.close();
         await this.options.onComplete?.(settings);
         if (installOfflineDictionaries) this.options.installOfflineDictionaries?.();
         this.openPostOnboardingSettings(openSettings);
         log$e.info("Onboarding completed", { openSettings, installOfflineDictionaries, language: settings.interfaceLanguage });
       } catch (error) {
+        this.options.onPersistenceFailed?.(previousSettings);
         log$e.warn("Onboarding completion failed", { openSettings, error });
         throw error;
       } finally {
@@ -91526,27 +91625,53 @@ ${reading}`);
   const JA_MARKER_VALUE_RE = /^(?:ja(?:[-_]jp)?|jp(?::ja)?)$/i;
   const JA_PATH_SEGMENT_RE = /^ja(?:[-_]jp)?$/i;
   let alternateRedirectCleanup;
+  let preferenceRevision = 0;
+  let currentPreferenceEnabled = false;
+  let pendingStartupOptOutCleanup = false;
+  let deferredCookieResponseReload = false;
   function installPreferredJapaneseSiteLanguageFromStoredSettings() {
+    const cachedPreference = readCachedPreferenceEnabled();
+    const revision2 = ++preferenceRevision;
+    pendingStartupOptOutCleanup ||= cachedPreference === true;
     const syncPreference = readStoredPreferenceEnabledSync();
     if (typeof syncPreference === "boolean") {
-      applyPreferredJapaneseSiteLanguage(syncPreference);
+      applyPreferredJapaneseSiteLanguageAtRevision(syncPreference, false, revision2);
       return;
     }
-    if (readCachedPreferenceEnabled() === true) applyPageContextJapanesePreferences(true);
-    void readStoredPreferenceEnabledAsync().then(applyPreferredJapaneseSiteLanguage);
+    void readStoredPreferenceEnabledAsync().then((enabled) => {
+      if (revision2 !== preferenceRevision) return;
+      applyPreferredJapaneseSiteLanguageAtRevision(enabled, false, revision2);
+    });
   }
-  function applyPreferredJapaneseSiteLanguage(enabled, revertOnDisable = false) {
+  function applyPreferredJapaneseSiteLanguage(enabled, revertOnDisable = false, deferCookieResponseReloadUntilPersisted = false) {
+    applyPreferredJapaneseSiteLanguageAtRevision(
+      enabled,
+      revertOnDisable,
+      ++preferenceRevision,
+      deferCookieResponseReloadUntilPersisted
+    );
+  }
+  function applyPreferredJapaneseSiteLanguageAtRevision(enabled, revertOnDisable, revision2, deferCookieResponseReloadUntilPersisted = false) {
     if (typeof window === "undefined") return;
+    if (revision2 !== preferenceRevision) return;
+    const shouldRevert = !enabled && (revertOnDisable || pendingStartupOptOutCleanup);
+    pendingStartupOptOutCleanup = false;
+    currentPreferenceEnabled = enabled;
     writeCachedPreferenceEnabled(enabled);
-    applyPageContextJapanesePreferences(enabled);
+    applyPageContextJapanesePreferences(enabled, revision2);
     if (enabled) {
+      deferredCookieResponseReload = false;
       applySitePreferenceCookies();
-      schedulePreferredJapaneseSiteRedirect();
+      schedulePreferredJapaneseSiteRedirect(revision2);
       return;
     }
-    clearSitePreferenceCookies();
+    const clearedSiteCookie = clearSitePreferenceCookies();
+    const shouldReloadCookieShapedResponse = clearedSiteCookie || deferredCookieResponseReload;
+    deferredCookieResponseReload = deferCookieResponseReloadUntilPersisted ? shouldReloadCookieShapedResponse : false;
     cancelPreferredJapaneseSiteRedirectWatcher();
-    if (revertOnDisable) attemptPreferredDefaultSiteRedirect();
+    if (shouldRevert && !attemptPreferredDefaultSiteRedirect() && shouldReloadCookieShapedResponse) {
+      reloadCurrentLocation();
+    }
   }
   function preferredJapaneseSiteUrl(sourceHref, root) {
     const current = parseHttpUrl(sourceHref);
@@ -91565,8 +91690,13 @@ ${reading}`);
     return target.href;
   }
   function readStoredPreferenceEnabledSync() {
+    const preferredLanguage = gmStorageGetSharedSync(
+      PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
+      void 0
+    );
+    if (typeof preferredLanguage === "boolean") return preferredLanguage;
     for (const key of SETTINGS_STORAGE_KEYS) {
-      const stored = gmStorageGetSync(key, void 0);
+      const stored = gmStorageGetSharedSync(key, void 0);
       if (stored && typeof stored === "object" && typeof stored.preferJapaneseSiteLanguage === "boolean") {
         return stored.preferJapaneseSiteLanguage;
       }
@@ -91574,6 +91704,11 @@ ${reading}`);
     return void 0;
   }
   async function readStoredPreferenceEnabledAsync() {
+    const preferredLanguage = await gmStorageGet(
+      PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
+      void 0
+    );
+    if (typeof preferredLanguage === "boolean") return preferredLanguage;
     for (const key of SETTINGS_STORAGE_KEYS) {
       const stored = await gmStorageGet(key, void 0);
       if (stored && typeof stored === "object" && typeof stored.preferJapaneseSiteLanguage === "boolean") {
@@ -91599,7 +91734,7 @@ ${reading}`);
     } catch {
     }
   }
-  function applyPageContextJapanesePreferences(enabled) {
+  function applyPageContextJapanesePreferences(enabled, revision2) {
     const pageWindow2 = sameRealmUnsafeWindow();
     if (pageWindow2) {
       try {
@@ -91609,7 +91744,7 @@ ${reading}`);
       }
     }
     if (hasExtensionRuntime()) return;
-    injectPagePreferenceScript(enabled);
+    injectPagePreferenceScript(enabled, revision2);
   }
   function sameRealmUnsafeWindow() {
     if (hasExtensionRuntime()) return void 0;
@@ -91620,10 +91755,13 @@ ${reading}`);
     const root = globalThis;
     return Boolean(root.browser?.runtime?.id || root.chrome?.runtime?.id);
   }
-  function injectPagePreferenceScript(enabled, attempt = 0) {
+  function injectPagePreferenceScript(enabled, revision2, attempt = 0) {
+    if (!preferenceIsCurrent(enabled, revision2)) return;
     const parent = document.head || document.documentElement;
     if (!parent) {
-      if (attempt < INJECTION_RETRY_LIMIT) window.setTimeout(() => injectPagePreferenceScript(enabled, attempt + 1), 0);
+      if (attempt < INJECTION_RETRY_LIMIT) {
+        window.setTimeout(() => injectPagePreferenceScript(enabled, revision2, attempt + 1), 0);
+      }
       return;
     }
     try {
@@ -91642,8 +91780,13 @@ ${reading}`);
       parent.append(script);
       script.remove();
     } catch {
-      if (attempt < INJECTION_RETRY_LIMIT) window.setTimeout(() => injectPagePreferenceScript(enabled, attempt + 1), 0);
+      if (attempt < INJECTION_RETRY_LIMIT) {
+        window.setTimeout(() => injectPagePreferenceScript(enabled, revision2, attempt + 1), 0);
+      }
     }
+  }
+  function preferenceIsCurrent(enabled, revision2) {
+    return revision2 === preferenceRevision && currentPreferenceEnabled === enabled;
   }
   function createTrustedScript(code) {
     try {
@@ -91705,8 +91848,10 @@ ${reading}`);
   }
   function clearSitePreferenceCookies() {
     const hostname = currentLocationHostname();
-    if (/(^|\.)youtube\.com$/.test(hostname)) clearCookieValues("PREF", ["hl", "gl", "tz"], ".youtube.com");
-    if (/(^|\.)google\./.test(hostname)) clearCookieValues("PREF", ["hl", "gl"]);
+    let changed = false;
+    if (/(^|\.)youtube\.com$/.test(hostname)) changed = clearCookieValues("PREF", ["hl", "gl", "tz"], ".youtube.com") || changed;
+    if (/(^|\.)google\./.test(hostname)) changed = clearCookieValues("PREF", ["hl", "gl"]) || changed;
+    return changed;
   }
   function currentLocationHostname() {
     return typeof location.hostname === "string" ? location.hostname.toLowerCase() : "";
@@ -91718,13 +91863,15 @@ ${reading}`);
       return false;
     }
   }
-  function schedulePreferredJapaneseSiteRedirect() {
+  function schedulePreferredJapaneseSiteRedirect(revision2) {
+    if (!preferenceIsCurrent(true, revision2)) return;
     if (!isTopLevelFrame()) return;
     if (hostAlreadyRedirectedThisSession()) return;
-    if (attemptPreferredJapaneseSiteRedirect()) return;
-    installAlternateRedirectWatcher();
+    if (attemptPreferredJapaneseSiteRedirect(revision2)) return;
+    installAlternateRedirectWatcher(revision2);
   }
-  function attemptPreferredJapaneseSiteRedirect() {
+  function attemptPreferredJapaneseSiteRedirect(revision2) {
+    if (!preferenceIsCurrent(true, revision2)) return false;
     const href = currentLocationHref();
     const target = href ? preferredJapaneseSiteUrl(href, document) : null;
     if (!target || hostAlreadyRedirectedThisSession() || recentlyAttemptedRedirect(href, target)) return false;
@@ -91787,11 +91934,14 @@ ${reading}`);
   function currentLocationHref() {
     return typeof location.href === "string" ? location.href : "";
   }
-  function installAlternateRedirectWatcher(attempt = 0) {
+  function installAlternateRedirectWatcher(revision2, attempt = 0) {
+    if (!preferenceIsCurrent(true, revision2)) return;
     if (alternateRedirectCleanup) return;
     const root = document.documentElement || document.head;
     if (!root) {
-      if (attempt < INJECTION_RETRY_LIMIT) window.setTimeout(() => installAlternateRedirectWatcher(attempt + 1), 0);
+      if (attempt < INJECTION_RETRY_LIMIT) {
+        window.setTimeout(() => installAlternateRedirectWatcher(revision2, attempt + 1), 0);
+      }
       return;
     }
     let checks = 0;
@@ -91800,8 +91950,12 @@ ${reading}`);
       alternateRedirectCleanup = void 0;
     };
     const check = () => {
+      if (!preferenceIsCurrent(true, revision2)) {
+        stop();
+        return;
+      }
       checks += 1;
-      if (attemptPreferredJapaneseSiteRedirect() || checks >= ALTERNATE_REDIRECT_RETRY_LIMIT) stop();
+      if (attemptPreferredJapaneseSiteRedirect(revision2) || checks >= ALTERNATE_REDIRECT_RETRY_LIMIT) stop();
     };
     const observer = new MutationObserver(check);
     const timer = window.setInterval(check, ALTERNATE_REDIRECT_RETRY_MS);
@@ -91831,6 +91985,17 @@ ${reading}`);
     }
     try {
       location.href = href;
+    } catch {
+    }
+  }
+  function reloadCurrentLocation() {
+    const href = currentLocationHref();
+    if (href) {
+      replaceLocation(href);
+      return;
+    }
+    try {
+      location.reload();
     } catch {
     }
   }
@@ -92037,13 +92202,16 @@ ${reading}`);
   function clearCookieValues(name, keys, domain) {
     try {
       const currentValue = cookieValue(name);
-      if (!currentValue) return;
+      if (!currentValue) return false;
       const params = new URLSearchParams(currentValue);
       for (const key of keys) params.delete(key);
       const nextValue = params.toString();
+      if (nextValue === currentValue) return false;
       if (nextValue) writeCookie(name, nextValue, domain, 31536e3);
       else writeCookie(name, "", domain, 0);
+      return true;
     } catch {
+      return false;
     }
   }
   function writeCookie(name, value, domain, maxAge) {

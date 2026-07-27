@@ -26975,6 +26975,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     { owner: "settings (legacy)", kind: "gm", key: "jpdb-reader-settings" },
     { owner: "settings (legacy)", kind: "gm", key: "yomu-reader-settings" },
     { owner: "settings (legacy)", kind: "gm", key: "yomu-settings" },
+    { owner: "settings", kind: "gm", key: "yomu:prefer-japanese-site-language:v1" },
     // Cloud settings sync handoff written before an OAuth redirect.
     { owner: "settings/dialog-controller", kind: "gm", key: "__yomu_cloud_settings_sync_pending_action" },
     // App-level signals / flags / caches.
@@ -37449,6 +37450,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return parts.filter((part, index) => parts.indexOf(part) === index);
   }
   const SETTINGS_STORAGE_KEY = "jpdb-popup-reader-settings";
+  const PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY = "yomu:prefer-japanese-site-language:v1";
   const LEGACY_SETTINGS_STORAGE_KEYS = [
     "jpdb-reader-settings",
     "yomu-reader-settings",
@@ -37458,6 +37460,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     SETTINGS_STORAGE_KEY,
     ...LEGACY_SETTINGS_STORAGE_KEYS
   ];
+  const PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE = "prefer-japanese-site-language-setting";
   const log$u = Logger.scope("Settings");
   let settingsResetInProgress = false;
   const DEFAULT_AUDIO_URL = YOMU_HOSTED_AUDIO_URL;
@@ -38020,8 +38023,15 @@ recommendedJiten	Jiten由来の頻度バッジです。
       ...normalizeRemovedDictionarySettings(settingsValue),
       dictionaryLookupLinks: normalizeDictionaryLookupLinkSettings(settingsValue),
       ...languageProfileSettings,
+      preferJapaneseSiteLanguage: normalizePreferredJapaneseSiteLanguage(settingsValue),
       shortcuts: normalizeShortcutSettings(settingsValue)
     };
+  }
+  function normalizePreferredJapaneseSiteLanguage(value) {
+    if (!value || !hasOwn(value, "preferJapaneseSiteLanguage")) {
+      return DEFAULT_SETTINGS.preferJapaneseSiteLanguage;
+    }
+    return typeof value.preferJapaneseSiteLanguage === "boolean" ? value.preferJapaneseSiteLanguage : false;
   }
   function normalizeParserProvider(value) {
     const provider = value?.parserProvider;
@@ -38841,6 +38851,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
   async function loadSettings() {
     if (settingsResetInProgress) return mergeSettings(null);
     try {
+      const storedPreferredJapaneseSiteLanguage = await gmStorageGet(
+        PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
+        void 0
+      );
       const cacheStandaloneBaseline = isHostedYomuOrigin() && !hasAsyncGmStorageBackend() && localFallbackStoredValue(SETTINGS_STORAGE_KEY, null) === null;
       const currentRecord = settingsRecord(await gmStorageGet(SETTINGS_STORAGE_KEY, null));
       let settings = mergeSettings(currentRecord);
@@ -38858,6 +38872,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
         settings = recovery.settings;
         recoveredLegacySettings = recoveredLegacySettings || recovery.changed;
       }
+      settings = {
+        ...settings,
+        preferJapaneseSiteLanguage: await authoritativePreferredJapaneseSiteLanguage(
+          storedPreferredJapaneseSiteLanguage,
+          settings.preferJapaneseSiteLanguage
+        )
+      };
       if (recoveredLegacySettings) await persistSettings(settings);
       else if (isHostedYomuOrigin() && (hasAsyncGmStorageBackend() || cacheStandaloneBaseline)) {
         cacheManagedValueForHostedStartup(SETTINGS_STORAGE_KEY, stripUnsupportedSettings(settings) ?? settings);
@@ -38867,6 +38888,23 @@ recommendedJiten	Jiten由来の頻度バッジです。
       log$u.warn("Settings load failed", { error });
       return mergeSettings(null);
     }
+  }
+  async function authoritativePreferredJapaneseSiteLanguage(storedValue, migrationFallback) {
+    if (typeof storedValue === "boolean") return storedValue;
+    return withGmStorageLease(PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE, async () => {
+      const currentValue = await gmStorageGet(
+        PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
+        void 0
+      );
+      if (typeof currentValue === "boolean") return currentValue;
+      await gmStorageSet(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY, migrationFallback);
+      return migrationFallback;
+    });
+  }
+  async function persistPreferredJapaneseSiteLanguage(value) {
+    await withGmStorageLease(PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE, async () => {
+      await gmStorageSet(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY, value);
+    });
   }
   function strandedHostedLocalSettingsRecord() {
     if (!isHostedYomuOrigin() || !hasAsyncGmStorageBackend()) return null;
@@ -38902,15 +38940,35 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return left === right || JSON.stringify(left) === JSON.stringify(right);
   }
   function subscribeToSettingsStorageChanges(onSettings) {
-    return subscribeToStoredValueChanges(SETTINGS_STORAGE_KEY, (value) => onSettings(mergeSettings(value)));
+    let active = true;
+    let refreshRevision = 0;
+    const refresh2 = () => {
+      const revision2 = ++refreshRevision;
+      void loadSettings().then((settings) => {
+        if (active && revision2 === refreshRevision) onSettings(settings);
+      });
+    };
+    const unsubscribers = [
+      subscribeToStoredValueChanges(SETTINGS_STORAGE_KEY, refresh2),
+      subscribeToStoredValueChanges(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY, refresh2)
+    ];
+    return () => {
+      active = false;
+      refreshRevision += 1;
+      for (const unsubscribe of unsubscribers) unsubscribe();
+    };
   }
-  async function saveSettings(settings) {
+  async function saveSettings(settings, options = {}) {
     if (settingsResetInProgress) {
       log$u.warn("Skipped save during reset");
       return;
     }
     try {
-      await persistSettings(settings);
+      const normalizedSettings = mergeSettings(settings);
+      if (options.persistPreferredJapaneseSiteLanguage) {
+        await persistPreferredJapaneseSiteLanguage(normalizedSettings.preferJapaneseSiteLanguage);
+      }
+      await persistSettings(normalizedSettings);
     } catch (error) {
       log$u.warn("Settings save failed", { error });
       throw error;
@@ -38938,10 +38996,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   async function deleteSettingsStorage() {
     for (const key2 of SETTINGS_STORAGE_KEYS) await gmStorageDelete(key2);
+    await gmStorageDelete(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY);
   }
   async function settingsStorageKeysStillPresent() {
     const keys = [];
-    for (const key2 of SETTINGS_STORAGE_KEYS) {
+    for (const key2 of [...SETTINGS_STORAGE_KEYS, PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY]) {
       if (await storedValueExists(key2)) keys.push(key2);
     }
     return keys;
@@ -339083,6 +339142,18 @@ ${entry2.url}`),
     restoreTransientSettings(previous) {
       this.dependencies.setSettings(previous, { transient: true });
     }
+    async saveCurrentSettings(previousSettings) {
+      const settings = this.settings;
+      try {
+        await saveSettings(settings, {
+          persistPreferredJapaneseSiteLanguage: previousSettings.preferJapaneseSiteLanguage !== settings.preferJapaneseSiteLanguage
+        });
+        this.dependencies.onSettingsPersisted?.(settings);
+      } catch (error) {
+        this.dependencies.onSettingsPersistenceFailed?.(previousSettings);
+        throw error;
+      }
+    }
     createSettingsForm(panel) {
       const form2 = document.createElement("form");
       form2.className = "jpdb-reader-settings";
@@ -339103,10 +339174,11 @@ ${entry2.url}`),
           this.showDictionarySaveBlocked(form2);
           return;
         }
-        const previousInitialOpen = this.settings.dictionarySourcesInitiallyExpanded;
-        const nextSettings = readFormSettings(new FormData(form2), this.settings);
+        const previousSettings = this.settings;
+        const previousInitialOpen = previousSettings.dictionarySourcesInitiallyExpanded;
+        const nextSettings = readFormSettings(new FormData(form2), previousSettings);
         const saveRequestId = ++this.saveRequestId;
-        const credentialPermission = requestFirefoxAuthenticationInfoForChangedSettings(this.settings, nextSettings);
+        const credentialPermission = requestFirefoxAuthenticationInfoForChangedSettings(previousSettings, nextSettings);
         void credentialPermission.then((consent) => {
           if (!this.acceptFirefoxAuthenticationInfoConsent(consent, this.settings.interfaceLanguage)) return;
           this.settings = nextSettings;
@@ -339114,7 +339186,9 @@ ${entry2.url}`),
           if (this.settings.dictionarySourcesInitiallyExpanded !== previousInitialOpen) {
             this.dependencies.clearDictionarySourceOpenOverrides();
           }
-          return saveSettings(this.settings).then(() => this.afterSettingsSaved(form2, saveRequestId));
+          return this.saveCurrentSettings(previousSettings).then(() => {
+            this.afterSettingsSaved(form2, saveRequestId);
+          });
         }).catch((error) => {
           log$2.error("Settings save failed", error);
           this.dependencies.toast(errorMessage(error, uiText(this.settings.interfaceLanguage, "settingsSaveFailed")));
@@ -340261,21 +340335,23 @@ ${entry2.url}`),
       const button2 = settingsActionButton(control2);
       button2?.setAttribute("disabled", "true");
       await this.rememberPendingCloudSettingsAction(action2);
+      const previousSettings = this.settings;
       try {
         if (action2 === "sync-cloud-settings") this.settings = readFormSettings(new FormData(form2), this.settings);
-        await this.performCloudSettingsAction(action2, language2, setStatus);
+        await this.performCloudSettingsAction(action2, language2, setStatus, previousSettings);
         await this.clearPendingCloudSettingsAction();
         return true;
       } catch (error) {
+        this.dependencies.onSettingsPersistenceFailed?.(previousSettings);
         await this.clearPendingCloudSettingsAction();
         throw error;
       } finally {
         button2?.removeAttribute("disabled");
       }
     }
-    async performCloudSettingsAction(action2, language2, setStatus) {
+    async performCloudSettingsAction(action2, language2, setStatus, previousSettings = this.settings) {
       if (action2 === "sync-cloud-settings") {
-        await saveSettings(this.settings);
+        await this.saveCurrentSettings(previousSettings);
         const metadata2 = await uploadCloudSettingsToCloud(this.settings);
         const message2 = cloudSettingsSyncedStatus(metadata2.syncedAt, language2);
         setStatus?.(message2);
@@ -340288,13 +340364,14 @@ ${entry2.url}`),
         setStatus?.(cloudSettingsNotFoundStatus(language2));
         return;
       }
+      const settingsBeforeRestore = this.settings;
       this.settings = normalizeReaderSettings({
         ...this.settings,
         ...snapshot.settings,
         shortcuts: { ...this.settings.shortcuts, ...snapshot.settings.shortcuts }
       });
       await importStoredValues(snapshot.storage);
-      await saveSettings(this.settings);
+      await this.saveCurrentSettings(settingsBeforeRestore);
       const message = cloudSettingsRestoredStatus(snapshot.syncedAt, language2);
       setStatus?.(message);
       this.dependencies.toast(message);
@@ -340802,14 +340879,20 @@ ${entry2.url}`),
     async importReaderSettingsFromFile(form2, setStatus) {
       const file = await pickFile(form2, "settings");
       if (!file) return;
+      const previousSettings = this.settings;
       const json = JSON.parse(await file.text());
-      const readerSettings = getReaderSettingsExport(json);
-      this.settings = readerSettings ? normalizeReaderSettings({ ...this.settings, ...readerSettings, shortcuts: { ...this.settings.shortcuts, ...readerSettings.shortcuts } }) : importedYomitanSettings(json, this.settings);
-      const restoredValues = await importStoredValues(getReaderStorageExport(json));
-      const dictionarySummary = await this.importReaderDictionaryBackup(json, setStatus);
-      await this.mergeImportedDictionaryPreferences();
-      await saveSettings(this.settings);
-      setStatus(importSettingsStatus(restoredValues, dictionarySummary, this.settings.interfaceLanguage));
+      try {
+        const readerSettings = getReaderSettingsExport(json);
+        this.settings = readerSettings ? normalizeReaderSettings({ ...this.settings, ...readerSettings, shortcuts: { ...this.settings.shortcuts, ...readerSettings.shortcuts } }) : importedYomitanSettings(json, this.settings);
+        const restoredValues = await importStoredValues(getReaderStorageExport(json));
+        const dictionarySummary = await this.importReaderDictionaryBackup(json, setStatus);
+        await this.mergeImportedDictionaryPreferences();
+        await this.saveCurrentSettings(previousSettings);
+        setStatus(importSettingsStatus(restoredValues, dictionarySummary, this.settings.interfaceLanguage));
+      } catch (error) {
+        this.dependencies.onSettingsPersistenceFailed?.(previousSettings);
+        throw error;
+      }
       this.dependencies.applyTheme();
       void this.dependencies.refreshDictionaryStyles();
       this.dependencies.scheduleDictionaryRescan();
