@@ -701,9 +701,9 @@ function normalizeLanguageProfileSettings(
 
 // Independence means "differs from the profile Yomu would create", so every
 // clause compares against that profile's own defaults. The target clause is
-// unreachable while normalizeLanguageProfile stamps SLICE1_TARGET_LANGUAGE on
-// every profile it returns; comparing against the same constant is what keeps
-// it correct rather than merely equal on the day it becomes reachable.
+// live: normalizeLanguageProfile preserves any target a registered module can
+// serve, so a stored profile that says Korean reaches here and is judged
+// independent, exactly as a changed parser or an installed dictionary is.
 function languageProfileHasIndependentState(
     profile: ReaderSettings['languageProfiles'][number],
 ): boolean {
