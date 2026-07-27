@@ -24213,7 +24213,6 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     // Report what it would gain so settings can offer the update, and null
     // once it already matches — the offer clears itself.
     // Used by the settings Anki panel through the Anki dependency.
-    // fallow-ignore-next-line unused-class-member
     async yomuModelUpdatePlan() {
       const settings = this.getSettings();
       if (!settings.ankiEnabled) return null;
@@ -52983,7 +52982,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.8.16".trim() ? "1.8.16".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.8.17".trim() ? "1.8.17".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record2 = value;
@@ -75796,8 +75795,6 @@ ${reading}`);
     return value.replace(/\n/g, "<br>");
   }
   const UI_LOCALE_IDS = [...LEARNER_LANGUAGE_IDS, "ja"];
-  Object.freeze(UI_LOCALE_IDS);
-  ["auto", ...UI_LOCALE_IDS];
   const BASE_UI_LOCALE = "en";
   const UI_LOCALE_SET = new Set(UI_LOCALE_IDS);
   const UI_LOCALE_ALIASES = Object.freeze({
@@ -81508,20 +81505,8 @@ ${reading}`);
     const fullscreenVideo = video;
     return Boolean(fullscreenVideo.webkitDisplayingFullscreen || fullscreenVideo.webkitPresentationMode && fullscreenVideo.webkitPresentationMode !== "inline");
   }
-  function subtitleMinimumFontSize(root) {
-    const rootRect = root.getBoundingClientRect();
-    return rootRect.width < 700 || rootRect.height < 360 ? 16 : 14;
-  }
-  function subtitleFrameTargetFontSize(root, settings) {
-    const rootRect = root.getBoundingClientRect();
-    const width = Math.max(1, rootRect.width);
-    const height = Math.max(1, rootRect.height);
-    const baseline = Math.max(16, Math.min(64, settings.subtitleFontSize));
-    const portrait = height > width;
-    const frameScale = portrait ? Math.sqrt(width / 720) : Math.sqrt(Math.min(width / 1280, height / 720));
-    const minScale = portrait || width < 700 ? 0.82 : 0.74;
-    const scaled = Math.round(baseline * Math.max(minScale, Math.min(1, frameScale)));
-    return Math.max(subtitleMinimumFontSize(root), Math.min(baseline, scaled));
+  function subtitleTargetFontSize(settings) {
+    return Math.max(16, Math.min(64, settings.subtitleFontSize));
   }
   const DEFAULT_SUBTITLE_BOTTOM_OFFSET = DEFAULT_SETTINGS.subtitleBottomOffset;
   function setDocumentStylePropertyIfChanged(element2, property, value) {
@@ -81535,16 +81520,8 @@ ${reading}`);
     const ratio = visibleHeight / Math.max(1, rect.height);
     return visibleHeight >= Math.min(220, rect.height * 0.45) && ratio >= 0.45;
   }
-  function subtitleElementOverflows(element2) {
-    return element2.scrollHeight > element2.clientHeight + 1 || element2.scrollWidth > element2.clientWidth + 1;
-  }
   function subtitleSecondaryFontSize(target) {
     return Math.max(13, Math.min(22, Math.round(target * 0.62)));
-  }
-  function nextSubtitleFontSize(element2, fitted, minimum) {
-    const heightScale = element2.clientHeight / Math.max(1, element2.scrollHeight);
-    const widthScale = element2.clientWidth / Math.max(1, element2.scrollWidth);
-    return Math.max(minimum, Math.floor(fitted * Math.min(0.92, heightScale, widthScale)));
   }
   function pointInRect(x2, y, rect) {
     return x2 >= rect.left && x2 <= rect.right && y >= rect.top && y <= rect.bottom;
@@ -81760,16 +81737,6 @@ ${reading}`);
     setInnerHtml(primary, primaryHtml);
     row.append(primary);
     return row;
-  }
-  function fittedSubtitleFontSize(element2, fitted, minimum, apply) {
-    for (let attempt = 0; attempt < 10; attempt++) {
-      if (!subtitleElementOverflows(element2)) return fitted;
-      const next = nextSubtitleFontSize(element2, fitted, minimum);
-      if (next >= fitted) break;
-      fitted = next;
-      apply(fitted);
-    }
-    return fitted;
   }
   function subtitleFilesFromHostEvent(event) {
     const rawDetail = event instanceof CustomEvent ? detailValue(event) : void 0;
@@ -82377,8 +82344,7 @@ ${reading}`);
     }
     syncRootStyleSettings(settings) {
       if (!this.root) return;
-      setStylePropertyIfChanged(this.root, "--subtitle-font-size-target", `${settings.subtitleFontSize}px`);
-      setStylePropertyIfChanged(this.root, "--subtitle-font-size", `${settings.subtitleFontSize}px`);
+      this.syncRootFontSize(settings);
       this.applyEffectiveSubtitleBottom();
       this.syncSubtitleDragOffsetStyle();
       this.root.style.setProperty("--subtitle-color", settings.subtitleTextColor);
@@ -82386,6 +82352,13 @@ ${reading}`);
       this.root.style.setProperty("--subtitle-background-rgba", accentToRgba(settings.subtitleBackgroundColor, settings.subtitleBackgroundOpacity));
       this.root.style.setProperty("--subtitle-family", settings.subtitleFontFamily);
       this.root.style.setProperty("--subtitle-weight", String(settings.subtitleFontWeight));
+    }
+    syncRootFontSize(settings) {
+      if (!this.root) return;
+      const target = subtitleTargetFontSize(settings);
+      setStylePropertyIfChanged(this.root, "--subtitle-font-size-target", `${target}px`);
+      setStylePropertyIfChanged(this.root, "--subtitle-font-size", `${target}px`);
+      setStylePropertyIfChanged(this.root, "--subtitle-secondary-font-size", `${subtitleSecondaryFontSize(target)}px`);
     }
     openTranscriptPanelFromSettings(settings) {
       if (this.transcriptDefaultOpenApplied) return;
@@ -83190,12 +83163,12 @@ ${reading}`);
           height: this.transcriptViewportHeight()
         });
         this.positionTranscriptPanel();
-        this.fitSubtitleTextToVideo();
+        this.syncSubtitleTextSize();
         return;
       }
       applyElementLayout(this.root, layout);
       this.positionTranscriptPanel({ realignAfterInset: true });
-      this.fitSubtitleTextToVideo();
+      this.syncSubtitleTextSize();
       this.syncNativePlayerControlHitProtection();
       this.subtitleControlRail?.syncPosition();
     }
@@ -83525,7 +83498,7 @@ ${reading}`);
     }
     applyRenderedPrimarySubtitle(primary, text2) {
       this.applyRenderedPrimaryKaraoke(primary);
-      this.fitSubtitleTextToVideo();
+      this.syncSubtitleTextSize();
       this.syncNativePlayerControlHitProtection();
       this.cacheRenderedPrimarySubtitle(primary);
       this.requestParsedPrimaryIfNeeded(primary, text2);
@@ -83569,7 +83542,7 @@ ${reading}`);
         setInnerHtml(primary, replacement);
         this.lastAppliedPrimaryRowHtml = replacement;
         this.syncKaraokePrimary(currentCue, shouldSyncKaraoke);
-        this.fitSubtitleTextToVideo();
+        this.syncSubtitleTextSize();
         this.syncNativePlayerControlHitProtection();
         return primary;
       }
@@ -84046,25 +84019,10 @@ ${reading}`);
         subtitleHeight: root.querySelector(".jpdb-subtitle-text")?.getBoundingClientRect().height ?? 0
       });
     }
-    fitSubtitleTextToVideo() {
-      if (!this.root || !this.subtitleEl) return;
+    syncSubtitleTextSize() {
+      if (!this.root) return;
       this.applyEffectiveSubtitleBottom();
-      const settings = this.options.getSettings();
-      const target = subtitleFrameTargetFontSize(this.root, settings);
-      let fitted = target;
-      this.root.style.setProperty("--subtitle-font-size-target", `${target}px`);
-      this.root.style.setProperty("--subtitle-secondary-font-size", `${subtitleSecondaryFontSize(target)}px`);
-      this.root.style.setProperty("--subtitle-font-size", `${fitted}px`);
-      const primary = this.subtitleEl.querySelector(".jpdb-subtitle-primary");
-      if (!primary) return;
-      fitted = this.fitPrimarySubtitleFontSize(fitted, subtitleMinimumFontSize(this.root));
-      this.root.style.setProperty("--subtitle-font-size", `${fitted}px`);
-    }
-    fitPrimarySubtitleFontSize(fitted, minimum) {
-      if (!this.root || !this.subtitleEl) return fitted;
-      return fittedSubtitleFontSize(this.subtitleEl, fitted, minimum, (value) => {
-        this.root?.style.setProperty("--subtitle-font-size", `${value}px`);
-      });
+      this.syncRootFontSize(this.options.getSettings());
     }
     applyKaraokeStateToPrimary(cue, time) {
       this.karaokeSampler.applyKaraokeStateToPrimary(cue, time);
@@ -96480,19 +96438,24 @@ ${component.reading}`;
       this.options = options;
     }
     styleElement;
+    refreshGeneration = 0;
     async refresh() {
-      this.apply(await this.loadCss());
+      const generation = ++this.refreshGeneration;
+      const result = await this.loadCss();
+      if (generation !== this.refreshGeneration) return;
+      if ("error" in result) this.options.onUnavailable?.(result.error);
+      this.apply(result.css);
     }
     remove() {
+      this.refreshGeneration += 1;
       this.styleElement?.remove();
       this.styleElement = void 0;
     }
     async loadCss() {
       try {
-        return await this.options.loadCss();
+        return { css: await this.options.loadCss() };
       } catch (error) {
-        this.options.onUnavailable?.(error);
-        return "";
+        return { css: "", error };
       }
     }
     apply(css) {

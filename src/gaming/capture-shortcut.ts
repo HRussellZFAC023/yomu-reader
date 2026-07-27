@@ -4,7 +4,7 @@
 
 export const DEFAULT_CAPTURE_SHORTCUT = 'CommandOrControl+Shift+Y';
 
-export const CAPTURE_SHORTCUT_MODIFIERS = new Set([
+const CAPTURE_SHORTCUT_MODIFIERS = new Set([
     'CommandOrControl',
     'Control',
     'Ctrl',

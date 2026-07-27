@@ -25,7 +25,7 @@ export type {
 } from './types';
 export type { AnkiNoteFieldTargetPlan } from './field-render';
 
-export { missingYomuModelFields, YOMU_MODEL_FIELDS } from './model-schema';
+export { YOMU_MODEL_FIELDS } from './model-schema';
 
 export const ANKI_NEVER_FORGET_TAG = 'yomu-never-forget';
 

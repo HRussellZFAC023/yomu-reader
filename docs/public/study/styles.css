@@ -17773,6 +17773,8 @@ html.jpdb-reader-doodle-active * {
 }
 .jpdb-subtitle-text {
   position: absolute;
+  display: flex;
+  flex-direction: column;
   z-index: 1;
   left: 14px;
   right: 14px;
@@ -17788,8 +17790,9 @@ html.jpdb-reader-doodle-active * {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   word-break: keep-all;
-  /* The cap must not be em-based: the fit loop shrinks the font to fit under
-     it, and an em cap shrank in lockstep so the loop never converged. */
+  /* The flex column constrains the grid below to this cap. Its end-aligned
+     tracks then overflow upward, keeping the native secondary row anchored
+     above the player's controls without changing the selected font size. */
   max-height: min(45%, calc(100% - 24px), 320px);
   overflow: visible;
   pointer-events: none;
@@ -18005,8 +18008,8 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
 }
 /* A caption line is ~24px tall — under half a fingertip. On touch, grow the
    control's OWN box: padding takes it to 42px and the matching negative margin
-   hands the space straight back, so the line, its wrapping and the font-fit
-   loop stay exactly where they are (min-height carries the padding, and the
+   hands the space straight back, so the line and its wrapping stay exactly
+   where they are (min-height carries the padding, and the
    24px content box is unmoved). The growth is 4px up — inside the existing 8px
    gap, so it can never cover the annotated line and swallow a word lookup —
    and 14px down into empty subtitle space. Deliberately the element's own box
@@ -19998,11 +20001,10 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   .jpdb-reader-onboarding-features { grid-template-columns: 1fr; }
   .jpdb-reader-onboarding-actions { display: grid; grid-template-columns: 1fr; }
   .jpdb-ocr-line { min-width: 0; min-height: 0; border-radius: 8px; }
-  /* Cap relative to viewport width so a long line cannot overflow a phone, but
-     at 12vw (was 8vw, which capped ~31px on a 390px phone and undercut a large
-     user font setting). The JS frame-scale already keeps the default readable;
-     this only bounds extreme settings. */
-  .jpdb-subtitle-text { left: 8px; right: 8px; font-size: min(var(--subtitle-font-size), 12vw); }
+  /* Preserve the selected pixel size on touch layouts too. Long lines wrap and
+     residual height extends upward; viewport changes must never rewrite or cap
+     the user's subtitle-size setting. */
+  .jpdb-subtitle-text { left: 8px; right: 8px; }
   .jpdb-subtitle-drag-handle {
     left: 50%;
     right: auto;

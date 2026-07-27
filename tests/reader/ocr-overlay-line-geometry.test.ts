@@ -40,6 +40,8 @@ const WIDE_FRAME: OcrOverlayFrame = { imageLeft: 0, imageTop: 0, imageWidth: 260
 // whichever axis the line runs. No glyph-advance model reproduces that, so it is left to
 // scripts/ocr-line-register-smoke.mjs, which measures a real engine painting real type,
 // and to scripts/gaming-app-smoke.mjs, which measures the shipped app.
+let fakeGlyphAdvanceEm = 1;
+
 function installFakeTypesetting(): () => void {
     const descriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'getBoundingClientRect');
     Object.defineProperty(HTMLElement.prototype, 'getBoundingClientRect', {
@@ -52,7 +54,9 @@ function installFakeTypesetting(): () => void {
             const vertical = this.closest<HTMLElement>('.jpdb-ocr-line')?.dataset.vertical === 'true';
             const laidOut = this.cloneNode(true) as HTMLElement;
             laidOut.querySelectorAll('rt, .jpdb-ocr-furi, .jpdb-reader-detached-furi').forEach(node => node.remove());
-            const length = [...(laidOut.textContent ?? '')].length * fontSize;
+            const glyphs = [...(laidOut.textContent ?? '')].length;
+            const tracking = inheritedLetterSpacingPx(this);
+            const length = glyphs * fontSize * fakeGlyphAdvanceEm + Math.max(0, glyphs - 1) * tracking;
             return vertical ? new DOMRect(0, 0, fontSize, length) : new DOMRect(0, 0, length, fontSize);
         },
     });
@@ -84,8 +88,17 @@ function inheritedFontPx(element: HTMLElement | null): number {
     return 16;
 }
 
+function inheritedLetterSpacingPx(element: HTMLElement | null): number {
+    for (let node = element; node; node = node.parentElement) {
+        const declared = Number.parseFloat(node.style.letterSpacing);
+        if (Number.isFinite(declared)) return declared;
+    }
+    return 0;
+}
+
 let restoreTypesetting: () => void;
 beforeEach(() => {
+    fakeGlyphAdvanceEm = 1;
     restoreTypesetting = installFakeTypesetting();
 });
 afterEach(() => restoreTypesetting());
@@ -191,6 +204,32 @@ describe('Yomu Gaming renders OCR lines with the reader’s overlay geometry', (
         // The rendered box is a full em tall while the source box is only as tall as the
         // source's ink, so the honest comparison there is against the em the ink came from.
         expect(rendered.height / (SOURCE_BOX.height / SOURCE_INK_RATIO)).toBeCloseTo(1, 1);
+    });
+
+    it('tracks a narrow Japanese fallback across the source line without inflating its height', () => {
+        // Ubuntu's bare Electron runner has no CJK face. Its fallback advances the
+        // Japanese glyph boxes at about 0.6em, while macOS and a normal Japanese
+        // Linux install advance them at roughly one em. Font height still comes
+        // from the same OCR ink box; only the missing inline extent is distributed.
+        fakeGlyphAdvanceEm = 0.6;
+        const gaming = sourceLineLayer();
+
+        layoutOverlayOcrLines(gaming, FRAME);
+        const firstFontSize = Number.parseFloat(placedGeometry(gaming).fontSize);
+        const firstWidth = renderedTextRect(gaming).width;
+
+        expect(firstFontSize / SOURCE_FONT_PX).toBeCloseTo(1, 1);
+        expect(firstWidth / SOURCE_BOX.width).toBeCloseTo(1, 2);
+        expect(Number.parseFloat(ocrLineText(gaming).style.letterSpacing)).toBeGreaterThan(0);
+
+        // Annotation/resize scheduling can call the pass repeatedly. Tracking is
+        // recomputed from the natural face instead of compounding each time, while
+        // the out-of-flow reading keeps its own natural spacing.
+        annotateOcrLine(gaming, SOURCE_TEXT);
+        layoutOverlayOcrLines(gaming, FRAME);
+        expect(Number.parseFloat(placedGeometry(gaming).fontSize)).toBeCloseTo(firstFontSize, 4);
+        expect(renderedTextRect(gaming).width).toBeCloseTo(firstWidth, 4);
+        expect(Number.parseFloat(gaming.querySelector<HTMLElement>('.jpdb-ocr-furi')?.style.letterSpacing ?? 'NaN')).toBe(0);
     });
 
     it('covers the source line end to end instead of floating in the middle of it', () => {

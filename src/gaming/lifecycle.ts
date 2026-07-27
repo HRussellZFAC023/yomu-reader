@@ -47,8 +47,8 @@ export interface GamingTrayController {
 }
 
 // Menu-bar scale: 16pt on macOS/Windows, 22px for the larger Linux status area.
-export const TRAY_ICON_SIZE_PX = 16;
-export const TRAY_ICON_SIZE_LINUX_PX = 22;
+const TRAY_ICON_SIZE_PX = 16;
+const TRAY_ICON_SIZE_LINUX_PX = 22;
 
 export type GamingWindowCloseIntent = 'close' | 'hide' | 'quit';
 
@@ -80,7 +80,7 @@ export function gamingWindowParkingHint(state: Pick<GamingLifecycleState, 'hasTr
         : 'Close this window and Yomu waits in the system tray.';
 }
 
-export function gamingTrayCaptureLabel(status: GamingTrayStatus): string {
+function gamingTrayCaptureLabel(status: GamingTrayStatus): string {
     return status.shortcutRegistered && status.shortcutLabel
         ? `Read screen (${status.shortcutLabel})`
         : 'Read screen';

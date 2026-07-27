@@ -1,5 +1,4 @@
-import { localeDirection, localeFallbackChain } from '../languages/locale';
-import type { TextDirection } from '../languages/types';
+import { localeFallbackChain } from '../languages/locale';
 import { LEARNER_LANGUAGE_IDS } from '../locales/types';
 
 // Every locale the interface can render in: the learner-language roster plus
@@ -9,17 +8,9 @@ const UI_LOCALE_IDS = [...LEARNER_LANGUAGE_IDS, 'ja'] as const;
 
 export type UiLocale = (typeof UI_LOCALE_IDS)[number];
 
-export const UI_LOCALES: readonly UiLocale[] = Object.freeze(UI_LOCALE_IDS);
-
-// The stored `interfaceLanguage` setting: any UI locale, or 'auto' to follow the
-// browser's own language preferences.
-const INTERFACE_LANGUAGE_IDS = ['auto', ...UI_LOCALE_IDS] as const;
-
-export const INTERFACE_LANGUAGES: readonly ('auto' | UiLocale)[] = Object.freeze(INTERFACE_LANGUAGE_IDS);
-
 // English is the only copy table guaranteed to hold every key, so it terminates
 // every lookup chain and nothing else may be assumed complete.
-export const BASE_UI_LOCALE: UiLocale = 'en';
+const BASE_UI_LOCALE: UiLocale = 'en';
 
 const UI_LOCALE_SET: ReadonlySet<string> = new Set<string>(UI_LOCALE_IDS);
 
@@ -34,12 +25,8 @@ const UI_LOCALE_ALIASES: Readonly<Record<string, UiLocale>> = Object.freeze({
     cmn: 'zh',
 });
 
-export function isUiLocale(value: unknown): value is UiLocale {
+function isUiLocale(value: unknown): value is UiLocale {
     return typeof value === 'string' && UI_LOCALE_SET.has(value);
-}
-
-export function isInterfaceLanguage(value: unknown): value is 'auto' | UiLocale {
-    return value === 'auto' || isUiLocale(value);
 }
 
 /**
@@ -48,7 +35,7 @@ export function isInterfaceLanguage(value: unknown): value is 'auto' | UiLocale 
  * dropped (`pt-BR` -> `pt`), so persisted or browser-supplied tags resolve
  * instead of silently reverting to English.
  */
-export function matchUiLocale(value: unknown): UiLocale | null {
+function matchUiLocale(value: unknown): UiLocale | null {
     if (isUiLocale(value)) return value;
     for (const tag of localeFallbackChain(value)) {
         const matched = uiLocaleForTag(tag);
@@ -63,7 +50,7 @@ export function matchUiLocale(value: unknown): UiLocale | null {
  * that has been only partly translated falls through key by key rather than
  * rendering an empty string or a raw message key.
  */
-export function uiLocaleChain(language: unknown): readonly UiLocale[] {
+function uiLocaleChain(language: unknown): readonly UiLocale[] {
     const chain: UiLocale[] = [];
     for (const requested of requestedLocales(language)) {
         const matched = matchUiLocale(requested);
@@ -100,16 +87,6 @@ export function localizedMessage<Key extends string>(
         }
     }
     return fallback;
-}
-
-/** The locale the interface actually renders in, for `lang`/`Intl` consumers. */
-export function resolveUiLocale(language: unknown): UiLocale {
-    return uiLocaleChain(language)[0] ?? BASE_UI_LOCALE;
-}
-
-/** Writing direction of the resolved interface locale (Arabic and Persian are RTL). */
-export function uiLocaleDirection(language: unknown): TextDirection {
-    return localeDirection(resolveUiLocale(language));
 }
 
 function uiLocaleForTag(tag: string): UiLocale | null {

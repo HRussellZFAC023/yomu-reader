@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.8.16
+// @version 1.8.17
 // @author Henry Russell
 // @description Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and a study page.
 // @license MIT
@@ -12,18 +12,18 @@
 // @match *://*/*
 // @match file:///*
 // @require https://yomureader.com/greasyfork/yomu-annotations.3427649b4084.user.js#sha256=NCdkm0CEEk2jWcMGYLJsOwkU5UBirJ/ucHgkKgbD9u8=
-// @require https://yomureader.com/greasyfork/yomu-anki.2bc68c0c6df5.user.js#sha256=K8aMDG31gaV8HeO9+29EZZPALME2rCfFe9+WhvWSW+Y=
+// @require https://yomureader.com/greasyfork/yomu-anki.06c38319d27f.user.js#sha256=BsODGdJ/pLtDlnmRZg8BQFYDgD1z4l8ELdLPcd4zzY0=
 // @require https://yomureader.com/greasyfork/yomu-audio.fbd6c695c396.user.js#sha256=+9bGlcOWA5TVme5nF4kd5WnK9MV5Pv6z7XAWA5LIbJg=
 // @require https://yomureader.com/greasyfork/yomu-kanji-study.dea692466fc6.user.js#sha256=3qaSRm/Gm3pwmV37jKIHY5SnwUpfBNvDENvTGt4vjJU=
 // @require https://yomureader.com/greasyfork/yomu-ocr-manga.b834d0ce9f82.user.js#sha256=uDTQzp+CSQlbyoQvsFd8MHVl45eUxMkrbYIr706to9A=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.4a28175bf045.user.js#sha256=SigXW/BFi4724aLylfUOsJu6kSPrJLpVJbsbno/xd5Y=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.c61049331bef.user.js#sha256=xhBJMxvvaKxaJbdTl8YJ2kLKofG70MrREsfA+kUSSuU=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.6519af7e42b8.user.js#sha256=ZRmvfkK4ZBAboxOGAno3xSKDr4f/ijkD/ePV+GWTRmk=
 // @require https://yomureader.com/greasyfork/yomu-bunpro.102ec2e5da3f.user.js#sha256=EC7C5do/j6wJdA7dPUnGdRp5dP7YuPOuHfsMy2nxDgE=
 // @require https://yomureader.com/greasyfork/yomu-jpdb.71229e472fe2.user.js#sha256=cSKeRy/iLLmZKyEDIeCdLeujZGDgEZjXYB5I9ZYAcd4=
 // @require https://yomureader.com/greasyfork/yomu-jiten.a579b5e547b4.user.js#sha256=pXm15Ue0vMfpnnECkPAuowckcZqCySA9rVvetU+aqM0=
 // @require https://yomureader.com/greasyfork/yomu-wanikani.999800abd386.user.js#sha256=mZgAq9OGbm7aRSC9b9ndIDlDBhtuMVjp2bPwVaIfVd4=
-// @require https://yomureader.com/greasyfork/yomu-video.838aa1d417da.user.js#sha256=g4qh1BfaE7q+YBzVPyB1nEWUgRq8F0A/e6gW/nyc3CI=
-// @resource yomuCss  https://yomureader.com/yomu.b3dd0e138559.css#sha256=s90OE4VZGcLqWK/m+pcZdAZ4O6YrEi7vZA4n2fnk5rc=
+// @require https://yomureader.com/greasyfork/yomu-video.d39a8547f015.user.js#sha256=05qFR/AVlHFK43b+aiyh1nkDc2z/iSZmO2suOdZ+ziQ=
+// @resource yomuCss  https://yomureader.com/yomu.b2dc52e7c223.css#sha256=stxS58Ijy/5CdY4YuuZmcHO99j6++y9PPTWqawtG4so=
 // @connect api.jiten.moe
 // @connect jpdb.io
 // @connect api.wanikani.com
@@ -22137,19 +22137,24 @@ class DictionaryStyleController {
   this.options = options;
   }
   styleElement;
+  refreshGeneration = 0;
   async refresh() {
-  this.apply(await this.loadCss());
+  const generation = ++this.refreshGeneration;
+  const result = await this.loadCss();
+  if (generation !== this.refreshGeneration) return;
+  if ("error" in result) this.options.onUnavailable?.(result.error);
+  this.apply(result.css);
   }
   remove() {
+  this.refreshGeneration += 1;
   this.styleElement?.remove();
   this.styleElement = void 0;
   }
   async loadCss() {
   try {
-    return await this.options.loadCss();
+    return { css: await this.options.loadCss() };
   } catch (error) {
-    this.options.onUnavailable?.(error);
-    return "";
+    return { css: "", error };
   }
   }
   apply(css) {
@@ -30569,8 +30574,8 @@ function collapseWhitespace(value) {
   return value.replace(/\/\*[\s\S]*?\*\//gu, " ").replace(/\s+/gu, " ").trim();
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.16"}`;
-const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.16"}`;
+const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.17"}`;
+const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.17"}`;
 const READER_CSS_CACHE_KEY = "yomu:reader-css-cache:v3";
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
@@ -30713,7 +30718,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.8.16"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.8.17"}`;
   } catch {
   return null;
   }
@@ -32394,7 +32399,7 @@ class ReaderApp {
   async installCoreSurfaces() {
   this.installStyles();
   this.applyTheme();
-  await this.refreshDictionaryStyles();
+  void this.refreshDictionaryStyles();
   this.installSettingsStorageSubscription();
   if (this.embeddedFrame) return;
   this.registerMenuCommands();
@@ -39536,53 +39541,84 @@ const YOUTUBE_PLAYBACK_PATH_RE = /^\/(?:embed|watch|shorts|live_chat(?:_replay)?
 let activeRuntime;
 function bootReaderApp() {
   reconcileActiveRuntimeMarker();
+  const context = resolveBootContext();
+  if (!context) return;
+  const runtime = createOwnedRuntime(context);
+  if (!runtime) return;
+  registerRuntime(
+  context.bootWindow,
+  runtime.app,
+  runtime.kind,
+  isInstalledRuntime(runtime.kind)
+  );
+  startRuntime(
+  runtime.app,
+  runtime.ownerId,
+  runtime.kind,
+  context.embeddedFrame,
+  () => releaseActiveRuntime(runtime)
+  );
+}
+function resolveBootContext() {
   const embeddedFrame = isEmbeddedFrameWindow();
   if (embeddedFrame && !shouldBootEmbeddedFrame()) {
   watchEmbeddedFrameForEligibleContent();
-  return;
+  return void 0;
   }
   const bootWindow = window;
   const runtimeKind = detectRuntimeKind();
-  const ownerId = claimRuntime(runtimeKind);
-  if (!ownerId) return;
-  const isRealRuntime = runtimeKind === "userscript" || runtimeKind === "extension";
-  discardPageRuntimeForRealBoot(isRealRuntime);
-  if (!canReplaceExistingRuntime(bootWindow, runtimeKind)) return;
+  if (!canReplaceExistingRuntime(bootWindow, runtimeKind)) return void 0;
+  return { bootWindow, embeddedFrame, runtimeKind };
+}
+function createOwnedRuntime(context) {
+  const { bootWindow, runtimeKind } = context;
   destroyExistingApps(bootWindow);
+  const ownerId = claimRuntime(runtimeKind);
+  if (!ownerId) return void 0;
   const app = new ReaderApp();
-  activeRuntime = { app, isRealRuntime, kind: runtimeKind, ownerId };
-  writeBootWindowOwner(bootWindow, activeRuntime);
-  bindClaims(app, ownerId, runtimeKind);
-  registerRuntime(bootWindow, app, runtimeKind, isRealRuntime);
-  startRuntime(app, ownerId, runtimeKind, embeddedFrame);
+  const runtime = { app, kind: runtimeKind, ownerId };
+  activeRuntime = runtime;
+  writeBootWindowOwner(bootWindow, runtime);
+  runtime.release = bindClaims(app, ownerId, runtimeKind);
+  return runtime;
+}
+function isInstalledRuntime(runtimeKind) {
+  return runtimeKind === "userscript" || runtimeKind === "extension";
 }
 function reconcileActiveRuntimeMarker() {
-  if (!activeRuntime) return;
-  const marker = document.getElementById(RUNTIME_MARKER_ID);
-  if (marker?.dataset.yomuRuntimeOwner === activeRuntime.ownerId) return;
-  activeRuntime = void 0;
-}
-function discardPageRuntimeForRealBoot(isRealRuntime) {
-  if (activeRuntime && !activeRuntime.isRealRuntime && isRealRuntime) {
   const runtime = activeRuntime;
-  runtime.app.destroy({ preservePageWords: true });
-  clearBootWindowOwner(runtime.app, runtime.ownerId);
-  return;
-  }
+  if (!runtime) return;
+  const marker = document.getElementById(RUNTIME_MARKER_ID);
+  if (marker?.dataset.yomuRuntimeOwner === runtime.ownerId) return;
+  releaseActiveRuntime(runtime);
+  removeOwnerlessDisplacedMarker(marker);
+}
+function removeOwnerlessDisplacedMarker(marker) {
+  if (!marker?.isConnected) return;
+  const bootWindow = window;
+  if (bootWindow.__yomuRuntimeOwnerId === marker.dataset.yomuRuntimeOwner) return;
+  marker.remove();
 }
 function canReplaceExistingRuntime(bootWindow, runtimeKind) {
-  if (activeRuntime) return priority(activeRuntime.kind) < priority(runtimeKind);
+  if (activeRuntime) return canClaimOverExistingRuntime(activeRuntime.kind, runtimeKind);
   if (!bootWindow.__yomuReaderAppInitialized) return true;
-  const existingPriority = priority(bootWindow.__yomuRuntimeKind ?? "page");
-  return existingPriority < priority(runtimeKind);
+  return canClaimOverExistingRuntime(bootWindow.__yomuRuntimeKind ?? "page", runtimeKind);
 }
 function destroyExistingApps(bootWindow) {
   if (activeRuntime) {
-  activeRuntime.app.destroy({ preservePageWords: true });
-  activeRuntime = void 0;
+  releaseActiveRuntime(activeRuntime);
   }
   if (!bootWindow.__yomuReaderAppInitialized) return;
   bootWindow.__yomuRealApp?.destroy({ preservePageWords: true });
+}
+function releaseActiveRuntime(runtime) {
+  if (runtime.release) {
+  runtime.release();
+  return;
+  }
+  runtime.app.destroy({ preservePageWords: true });
+  releaseRuntime(runtime.ownerId);
+  clearBootWindowOwner(runtime.app, runtime.ownerId);
 }
 function writeBootWindowOwner(bootWindow, runtime) {
   setBootWindowValue(bootWindow, "__yomuReaderAppInitialized", true);
@@ -39609,15 +39645,15 @@ function registerRuntime(bootWindow, app, runtimeKind, isRealRuntime) {
   }
   });
 }
-function startRuntime(app, ownerId, runtimeKind, embeddedFrame) {
+function startRuntime(app, ownerId, runtimeKind, embeddedFrame, releaseClaims) {
   void app.init({
   embeddedFrame,
   showWelcome: runtimeKind === "userscript" || runtimeKind === "extension"
   }).then(() => {
   publishReaderRuntimeHealth(ownerId);
   }).catch((error) => {
-  releaseRuntime(ownerId);
-  throw error;
+  releaseClaims();
+  console.error("[Yomu Reader] Failed to initialize", error);
   });
 }
 function isEmbeddedFrameWindow() {
@@ -39725,22 +39761,26 @@ function isStaleRuntimeMarker(marker) {
 }
 function bindClaims(app, ownerId, kind) {
   let released = false;
+  let markerObserver;
+  const onRuntimeClaim = (event) => {
+  const detail = event.detail;
+  if (!detail || detail.ownerId === ownerId) return;
+  if (priority(detail.kind) < priority(kind)) return;
+  release();
+  };
   const release = () => {
   if (released) return;
   released = true;
   markerObserver?.disconnect();
+  removeWindowEventListener("yomu-reader-runtime-claim", onRuntimeClaim);
   app.destroy({ preservePageWords: true });
   releaseRuntime(ownerId);
   clearActiveRuntime(app, ownerId);
   clearBootWindowOwner(app, ownerId);
   };
-  const markerObserver = observeRuntimeMarker(ownerId, kind, release);
-  addWindowEventListener("yomu-reader-runtime-claim", (event) => {
-  const detail = event.detail;
-  if (!detail || detail.ownerId === ownerId) return;
-  if (priority(detail.kind) < priority(kind)) return;
-  release();
-  });
+  markerObserver = observeRuntimeMarker(ownerId, kind, release);
+  addWindowEventListener("yomu-reader-runtime-claim", onRuntimeClaim);
+  return release;
 }
 function observeRuntimeMarker(ownerId, kind, release) {
   if (typeof MutationObserver === "undefined") return void 0;

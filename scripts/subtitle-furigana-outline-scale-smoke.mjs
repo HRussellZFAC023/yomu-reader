@@ -92,8 +92,8 @@ try {
     rmSync(workspace, { recursive: true, force: true });
 }
 
-// The product default is --subtitle-font-size-target: 28px; the fit loop and the
-// user's size control move it either way, so the whole working range is checked.
+// The product default is --subtitle-font-size-target: 28px; the user's size
+// control moves it either way, so the whole working range is checked.
 const SIZES = [20, 28, 40, 60];
 
 // One annotated kanji plus plain okurigana each, spanning the range of reading

@@ -31,6 +31,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { buildSync } from 'esbuild';
 import { chromium } from 'playwright';
 
 const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
@@ -94,15 +95,16 @@ try {
     const out = path.join(workspace, 'bundle.js');
     writeFileSync(entry, "export { overlayOcrLayerHtml, layoutOverlayOcrLines } from '"
         + path.join(ROOT, 'src', 'gaming', 'renderer', 'ocr-lines').replaceAll('\\', '/') + "';\n");
-    execFileSync(process.execPath, [
-        path.join(ROOT, 'node_modules', 'esbuild', 'bin', 'esbuild'),
-        entry,
-        '--bundle',
-        '--format=iife',
-        '--global-name=YomuOcrOverlay',
-        '--platform=browser',
-        `--outfile=${out}`,
-    ], { cwd: ROOT, stdio: 'pipe' });
+    buildSync({
+        absWorkingDir: ROOT,
+        entryPoints: [entry],
+        bundle: true,
+        format: 'iife',
+        globalName: 'YomuOcrOverlay',
+        platform: 'browser',
+        outfile: out,
+        logLevel: 'silent',
+    });
     bundle = readFileSync(out, 'utf8');
 } finally {
     rmSync(workspace, { recursive: true, force: true });

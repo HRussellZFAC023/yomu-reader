@@ -1316,7 +1316,12 @@ export class ReaderApp {
     private async installCoreSurfaces(): Promise<void> {
         this.installStyles();
         this.applyTheme();
-        await this.refreshDictionaryStyles();
+        // Local dictionary CSS is an enhancement, not a prerequisite for the
+        // reader controls. Opening the dictionary IndexedDB can be delayed by
+        // browser storage startup (notably in userscript page contexts), and
+        // awaiting it here used to hold back the FAB and subtitle rail with no
+        // visible sign that Yomu had loaded.
+        void this.refreshDictionaryStyles();
         this.installSettingsStorageSubscription();
         if (this.embeddedFrame) return;
         this.registerMenuCommands();

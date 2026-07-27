@@ -16,6 +16,10 @@ const youtubeUrl = process.env.YOMU_E2E_YOUTUBE_URL ?? 'https://www.youtube.com/
 const fixtureVideoUrl = process.env.YOMU_E2E_VIDEO_URL ?? '';
 const useYouTubeFixture = process.env.YOMU_E2E_YOUTUBE_FIXTURE === '1';
 const headed = process.env.YOMU_E2E_HEADED === '1';
+const siteFilters = (process.env.YOMU_E2E_SITE_FILTER ?? '')
+    .split(',')
+    .map(value => value.trim())
+    .filter(Boolean);
 const settingsStorageKey = 'jpdb-popup-reader-settings';
 const transcriptPlacements = ['right', 'left', 'bottom'];
 const baseE2ESettings = {
@@ -30,10 +34,18 @@ const baseE2ESettings = {
 };
 const defaultSubtitleBottomOffset = 16;
 
+function shouldRunSite(name) {
+    return siteFilters.length === 0 || siteFilters.some(filter => name.includes(filter));
+}
+
+const shortPrimaryCue = 'この小人は立っています。';
+const longPrimaryCue = 'これはとても長い日本語字幕の行で、狭い横幅の文字起こしパネルでもはみ出さずに折り返される必要があります。';
+const longPrimaryCueFirstSegment = 'これはとても長い日本語字幕の行で、狭い横幅の文字起こしパネルでも';
+const longPrimaryCueSecondSegment = 'はみ出さずに折り返される必要があります。';
 const primaryVtt = `WEBVTT
 
 00:00:00.000 --> 00:00:04.000
-この小人は立っています。
+${shortPrimaryCue}
 
 00:00:04.000 --> 00:00:08.000
 それからカメラを持っています。
@@ -42,7 +54,7 @@ const primaryVtt = `WEBVTT
 でも多分、ガイドブックか地図ですかね。
 
 00:00:12.000 --> 00:00:18.000
-これはとても長い日本語字幕の行で、狭い横幅の文字起こしパネルでもはみ出さずに折り返される必要があります。
+${longPrimaryCue}
 `;
 
 const nativeSrt = `1
@@ -52,6 +64,10 @@ This little person is standing.
 2
 00:00:04,000 --> 00:00:08,000
 Then they are holding a camera.
+
+3
+00:00:12,000 --> 00:00:18,000
+A long native subtitle stays in its reserved bottom row.
 `;
 
 const youtubeTimedTextFixture = youtubeTimedText([
@@ -515,19 +531,38 @@ async function installYouTubeConsentCookies(page) {
 }
 
 async function waitForSubtitleSurface(page, site) {
-    await page.waitForFunction(subtitleSurfaceReady, null, { timeout: site.readyTimeout ?? 25000 });
-    if (site.expectClosedRailTappable) {
-        await revealSubtitleControls(page, site);
-        await assertClosedRailPanelButton(page, site);
-    }
+    const timeout = subtitleReadyTimeout(site);
+    await page.waitForFunction(subtitleSurfaceReady, null, { timeout });
+    await assertClosedRailWhenRequested(page, site);
 
+    // Auto-mode rails can already be idle by the time track discovery finishes.
+    // Wake the real control surface before asking Playwright to click it.
+    await revealSubtitleControls(page, site);
     await openTracksPanel(page);
     await maybeSelectFirstJapaneseTrack(page);
-    await page.waitForFunction(site.expectRows === false ? subtitleLinesReady : subtitleCueRowsReady, null, { timeout: site.readyTimeout ?? 25000 });
+    await waitForSubtitleContent(page, site, timeout);
     await openLinesOrTracksPanel(page);
-    if (site.expectRows !== false) {
-        await page.waitForFunction(() => document.querySelectorAll('.jpdb-subtitle-list-row').length > 0, null, { timeout: site.readyTimeout ?? 25000 });
-    }
+    await waitForTranscriptRowsWhenExpected(page, site, timeout);
+}
+
+function subtitleReadyTimeout(site) {
+    return site.readyTimeout ?? 25000;
+}
+
+async function assertClosedRailWhenRequested(page, site) {
+    if (!site.expectClosedRailTappable) return;
+    await revealSubtitleControls(page, site);
+    await assertClosedRailPanelButton(page, site);
+}
+
+async function waitForSubtitleContent(page, site, timeout) {
+    const ready = site.expectRows === false ? subtitleLinesReady : subtitleCueRowsReady;
+    await page.waitForFunction(ready, null, { timeout });
+}
+
+async function waitForTranscriptRowsWhenExpected(page, site, timeout) {
+    if (site.expectRows === false) return;
+    await page.waitForFunction(() => document.querySelectorAll('.jpdb-subtitle-list-row').length > 0, null, { timeout });
 }
 
 async function assertClosedRailPanelButton(page, site) {
@@ -1097,26 +1132,242 @@ function drawerLayoutResult(phase, effectivePlacement, resized, screenshot, stat
 }
 
 async function runSite(browser, site) {
-    const page = await browser.newPage({ viewport: site.viewport, locale: 'en-GB' });
+    const context = await browser.newContext({ viewport: site.viewport, locale: 'en-GB' });
+    const page = await context.newPage();
     try {
-        console.error(`[subtitle-e2e] ${site.name}`);
-        const telemetry = await openAndReady(page, site);
-        if (site.exerciseSubtitleDrag) await assertSubtitleMoveHandle(page, site);
-        if (site.exerciseDockingControls) await assertDrawerDockingControls(page, site);
-        const layouts = await exerciseDrawerLayout(page, site);
-        return {
-            site: site.name,
-            url: site.url,
-            layouts,
-            yomuLogCount: telemetry.yomuLogs.length,
-            pageErrors: telemetry.errors.slice(0, 5),
-        };
+        return await collectSiteResult(page, site);
     } catch (error) {
-        console.error(`[subtitle-e2e] ${site.name} failed: ${error instanceof Error ? error.message : String(error)}`);
+        console.error(`[subtitle-e2e] ${site.name} failed: ${errorMessage(error)}`);
         throw error;
     } finally {
-        await page.close();
+        await context.close();
     }
+}
+
+async function collectSiteResult(page, site) {
+    console.error(`[subtitle-e2e] ${site.name}`);
+    const telemetry = await openAndReady(page, site);
+    const optionalEvidence = await exerciseOptionalSiteFlows(page, site);
+    const layouts = await exerciseDrawerLayout(page, site);
+    return {
+        site: site.name,
+        url: site.url,
+        layouts,
+        ...optionalEvidence,
+        yomuLogCount: telemetry.yomuLogs.length,
+        pageErrors: telemetry.errors.slice(0, 5),
+    };
+}
+
+async function exerciseOptionalSiteFlows(page, site) {
+    const evidence = {};
+    if (site.exerciseFontPersistence) evidence.fontPersistence = await assertSubtitleFontPersistence(page, site);
+    if (site.exerciseSubtitleDrag) await assertSubtitleMoveHandle(page, site);
+    if (site.exerciseDockingControls) await assertDrawerDockingControls(page, site);
+    return evidence;
+}
+
+function errorMessage(error) {
+    return error instanceof Error ? error.message : String(error);
+}
+
+function readSubtitleFontState({ key, label }) {
+    const root = document.querySelector('.jpdb-subtitle-player');
+    const text = document.querySelector('.jpdb-subtitle-text');
+    const lines = document.querySelector('.jpdb-subtitle-lines');
+    const primary = document.querySelector('.jpdb-subtitle-primary');
+    const secondary = document.querySelector('.jpdb-subtitle-secondary');
+    return {
+        label,
+        saved: savedSubtitleFontSize(key),
+        target: styleProperty(root, '--subtitle-font-size-target'),
+        effective: styleProperty(root, '--subtitle-font-size'),
+        computedText: computedFontSize(text),
+        computedPrimary: computedFontSize(primary),
+        cue: normalizedText(primary),
+        surfaceCue: surfaceText(primary),
+        viewport: { width: innerWidth, height: innerHeight },
+        visibility: document.visibilityState,
+        geometry: subtitleGeometry({ root, text, lines, primary, secondary }),
+    };
+
+    function savedSubtitleFontSize(storageKey) {
+        const settings = JSON.parse(localStorage.getItem(storageKey) || '{}') || {};
+        return settings.subtitleFontSize;
+    }
+
+    function styleProperty(element, property) {
+        if (!(element instanceof HTMLElement)) return '';
+        return element.style.getPropertyValue(property);
+    }
+
+    function computedFontSize(element) {
+        if (!(element instanceof Element)) return '';
+        return getComputedStyle(element).fontSize;
+    }
+
+    function normalizedText(element) {
+        if (!(element instanceof Element)) return '';
+        return element.textContent?.replace(/\s+/g, ' ').trim() ?? '';
+    }
+
+    function surfaceText(element) {
+        if (!(element instanceof Element)) return '';
+        const clone = element.cloneNode(true);
+        clone.querySelectorAll('rt, rp').forEach(node => node.remove());
+        return normalizedText(clone);
+    }
+
+    function subtitleGeometry(elements) {
+        return Object.fromEntries(Object.entries(elements).map(([name, element]) => [name, elementRect(element)]));
+    }
+
+    function elementRect(element) {
+        if (!(element instanceof Element)) return undefined;
+        const value = element.getBoundingClientRect();
+        return {
+            top: value.top,
+            right: value.right,
+            bottom: value.bottom,
+            left: value.left,
+            width: value.width,
+            height: value.height,
+        };
+    }
+}
+
+async function captureSubtitleFontState(page, site, checkpoints, label, options = {}) {
+    const state = await page.evaluate(readSubtitleFontState, { key: settingsStorageKey, label });
+    assertSubtitleFontSize(site, label, state);
+    assertExpectedSurfaceCue(site, label, state, options.expectedSurface);
+    assertSubtitleFontGeometry(site, label, state, options.expectUpwardOverflow);
+    checkpoints.push(state);
+    return state;
+}
+
+function assertSubtitleFontSize(site, label, state) {
+    assert(state.saved === 60, `${site.name}: saved subtitle size changed during ${label}`, state);
+    assert(state.target === '60px', `${site.name}: target subtitle size changed during ${label}`, state);
+    assert(state.effective === '60px', `${site.name}: effective subtitle size changed during ${label}`, state);
+    assert(state.computedText === '60px' && state.computedPrimary === '60px', `${site.name}: rendered subtitle size changed during ${label}`, state);
+}
+
+function assertExpectedSurfaceCue(site, label, state, expectedSurface) {
+    if (!expectedSurface) return;
+    assert(state.surfaceCue === expectedSurface, `${site.name}: rendered cue was truncated during ${label}`, state);
+}
+
+function assertSubtitleFontGeometry(site, label, state, expectUpwardOverflow) {
+    const { root, text, lines, primary, secondary } = state.geometry;
+    assert([root, text, lines, primary, secondary].every(Boolean), `${site.name}: subtitle geometry is incomplete during ${label}`, state);
+    assert(lines.bottom <= text.bottom + 1.5, `${site.name}: subtitle rows escaped downward during ${label}`, state);
+    assert(secondary.bottom <= root.bottom + 1.5, `${site.name}: native subtitle escaped the video during ${label}`, state);
+    assert(primary.bottom <= secondary.top + 1.5, `${site.name}: primary subtitle consumed the native row during ${label}`, state);
+    assertExpectedUpwardOverflow(site, label, state, expectUpwardOverflow);
+}
+
+function assertExpectedUpwardOverflow(site, label, state, expectUpwardOverflow) {
+    if (!expectUpwardOverflow) return;
+    const { primary, text } = state.geometry;
+    assert(primary.top < text.top - 1.5, `${site.name}: an overlong cue did not extend upward during ${label}`, state);
+}
+
+async function showFontPersistenceCue(page, site, time, pattern) {
+    await page.evaluate(value => {
+        const video = document.querySelector('video');
+        video.currentTime = value;
+        video.dispatchEvent(new Event('seeking'));
+        video.dispatchEvent(new Event('timeupdate'));
+    }, time);
+    await page.waitForFunction(source => new RegExp(source, 'u').test(
+        document.querySelector('.jpdb-subtitle-primary')?.textContent ?? '',
+    ), pattern.source, { timeout: subtitleReadyTimeout(site) });
+    // Let deferred parsed/furigana HTML replace the plain cue before
+    // measuring; that replacement used to run the shrinker a second time.
+    await page.waitForTimeout(250);
+}
+
+async function assertSubtitleFontPersistence(page, site) {
+    await closePanelIfOpen(page);
+    const checkpoints = [];
+    await showFontPersistenceCue(page, site, 1, /小人/u);
+    await captureSubtitleFontState(page, site, checkpoints, 'short cue', { expectedSurface: shortPrimaryCue });
+    await showFontPersistenceCue(page, site, 13, /とても長い/u);
+    const firstLongSegment = await captureSubtitleFontState(page, site, checkpoints, 'long cue', {
+        expectedSurface: longPrimaryCueFirstSegment,
+        expectUpwardOverflow: true,
+    });
+    await showFontPersistenceCue(page, site, 16, /はみ出さず/u);
+    const secondLongSegment = await captureSubtitleFontState(page, site, checkpoints, 'normalized cue continuation', {
+        expectedSurface: longPrimaryCueSecondSegment,
+    });
+    assert(
+        `${firstLongSegment.surfaceCue}${secondLongSegment.surfaceCue}` === longPrimaryCue,
+        `${site.name}: normalized cue segments did not preserve the complete source cue`,
+        { firstLongSegment, secondLongSegment, longPrimaryCue },
+    );
+
+    const originalViewport = page.viewportSize();
+    await page.setViewportSize({ width: 844, height: 390 });
+    await showFontPersistenceCue(page, site, 13, /とても長い/u);
+    await page.waitForTimeout(250);
+    await captureSubtitleFontState(page, site, checkpoints, 'landscape resize', {
+        expectedSurface: longPrimaryCueFirstSegment,
+        expectUpwardOverflow: true,
+    });
+
+    await page.evaluate(() => {
+        window.__yomuSubtitleE2EVisibilityHistory = [document.visibilityState];
+        window.__yomuSubtitleE2EVisibilityDescriptors = {
+            hidden: Object.getOwnPropertyDescriptor(document, 'hidden'),
+            visibilityState: Object.getOwnPropertyDescriptor(document, 'visibilityState'),
+        };
+        document.addEventListener('visibilitychange', () => {
+            window.__yomuSubtitleE2EVisibilityHistory.push(document.visibilityState);
+        });
+        Object.defineProperty(document, 'hidden', { configurable: true, get: () => true });
+        Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' });
+        document.dispatchEvent(new Event('visibilitychange'));
+        window.dispatchEvent(new Event('blur'));
+    });
+    await page.waitForTimeout(150);
+    await page.evaluate(() => {
+        Object.defineProperty(document, 'hidden', { configurable: true, get: () => false });
+        Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'visible' });
+        document.dispatchEvent(new Event('visibilitychange'));
+        window.dispatchEvent(new Event('focus'));
+    });
+    await page.waitForTimeout(250);
+    const visibilityHistory = await page.evaluate(() => window.__yomuSubtitleE2EVisibilityHistory);
+    assert(
+        visibilityHistory.includes('hidden') && visibilityHistory.at(-1) === 'visible',
+        `${site.name}: visibility lifecycle did not hide and restore the video page`,
+        { visibilityHistory },
+    );
+    await captureSubtitleFontState(page, site, checkpoints, 'tab return', {
+        expectedSurface: longPrimaryCueFirstSegment,
+        expectUpwardOverflow: true,
+    });
+    await page.evaluate(() => {
+        const descriptors = window.__yomuSubtitleE2EVisibilityDescriptors;
+        for (const property of ['hidden', 'visibilityState']) {
+            const descriptor = descriptors?.[property];
+            if (descriptor) Object.defineProperty(document, property, descriptor);
+            else delete document[property];
+        }
+        delete window.__yomuSubtitleE2EVisibilityDescriptors;
+        delete window.__yomuSubtitleE2EVisibilityHistory;
+    });
+
+    if (originalViewport) {
+        await page.setViewportSize(originalViewport);
+        await page.waitForTimeout(250);
+        await captureSubtitleFontState(page, site, checkpoints, 'portrait restore', {
+            expectedSurface: longPrimaryCueFirstSegment,
+            expectUpwardOverflow: true,
+        });
+    }
+    return checkpoints;
 }
 
 async function assertSubtitleMoveHandle(page, site) {
@@ -1415,7 +1666,8 @@ try {
             expectPlacement: 'bottom',
             expectEdgeToEdgePanel: true,
             expectNativeCaptions: true,
-            settings: { subtitleTranscriptPlacement: 'right' },
+            exerciseFontPersistence: true,
+            settings: { subtitleTranscriptPlacement: 'right', subtitleFontSize: 60 },
             anchorSelector: '.player',
         },
         {
@@ -1452,8 +1704,9 @@ try {
         },
     ];
     const results = [];
-    for (const site of sites) results.push(await runSite(browser, site));
-    results.push(...await runYouTubeWithFallback(browser));
+    for (const site of sites.filter(site => shouldRunSite(site.name))) results.push(await runSite(browser, site));
+    if (shouldRunSite('youtube')) results.push(...await runYouTubeWithFallback(browser));
+    assert(results.length > 0, 'No subtitle E2E sites matched YOMU_E2E_SITE_FILTER', { siteFilters });
     console.log(JSON.stringify({ artifactsDir, results }, null, 2));
 } finally {
     await browser.close();

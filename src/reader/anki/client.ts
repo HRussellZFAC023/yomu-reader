@@ -1910,7 +1910,6 @@ export class AnkiConnectClient {
     // Report what it would gain so settings can offer the update, and null
     // once it already matches — the offer clears itself.
     // Used by the settings Anki panel through the Anki dependency.
-    // fallow-ignore-next-line unused-class-member
     async yomuModelUpdatePlan(): Promise<AnkiModelUpdatePlan | null> {
         const settings = this.getSettings();
         if (!settings.ankiEnabled) return null;

@@ -335,32 +335,8 @@ function videoIsInNativeFullscreen(video: HTMLVideoElement | undefined): boolean
         || (fullscreenVideo.webkitPresentationMode && fullscreenVideo.webkitPresentationMode !== 'inline'));
 }
 
-function subtitleMinimumFontSize(root: HTMLElement): number {
-    const rootRect = root.getBoundingClientRect();
-    // Narrow/portrait frames (phones, Shorts) keep a higher absolute floor so a
-    // long line never shrinks into illegibly small text against the chrome;
-    // desktop stays at 14.
-    return rootRect.width < 700 || rootRect.height < 360 ? 16 : 14;
-}
-
-function subtitleFrameTargetFontSize(root: HTMLElement, settings: ReaderSettings): number {
-    const rootRect = root.getBoundingClientRect();
-    const width = Math.max(1, rootRect.width);
-    const height = Math.max(1, rootRect.height);
-    const baseline = Math.max(16, Math.min(64, settings.subtitleFontSize));
-    // Desktop landscape references 1280x720. A portrait/Shorts frame has ample
-    // vertical room, so scale off width against a 720 reference instead of being
-    // penalized by the tall-but-narrow box (which previously slammed the scale
-    // into the 0.62 floor and rendered ~17px on a phone). Narrow or portrait
-    // frames also get a higher scale floor so the default stays readable; the
-    // user's explicit setting still wins upward via the baseline.
-    const portrait = height > width;
-    const frameScale = portrait
-        ? Math.sqrt(width / 720)
-        : Math.sqrt(Math.min(width / 1280, height / 720));
-    const minScale = portrait || width < 700 ? 0.82 : 0.74;
-    const scaled = Math.round(baseline * Math.max(minScale, Math.min(1, frameScale)));
-    return Math.max(subtitleMinimumFontSize(root), Math.min(baseline, scaled));
+function subtitleTargetFontSize(settings: ReaderSettings): number {
+    return Math.max(16, Math.min(64, settings.subtitleFontSize));
 }
 
 const DEFAULT_SUBTITLE_BOTTOM_OFFSET = DEFAULT_SETTINGS.subtitleBottomOffset;
@@ -378,19 +354,8 @@ function youtubeWatchPlayerMeaningfullyVisible(rect: DOMRect): boolean {
     return visibleHeight >= Math.min(220, rect.height * 0.45) && ratio >= 0.45;
 }
 
-function subtitleElementOverflows(element: HTMLElement): boolean {
-    return element.scrollHeight > element.clientHeight + 1
-        || element.scrollWidth > element.clientWidth + 1;
-}
-
 function subtitleSecondaryFontSize(target: number): number {
     return Math.max(13, Math.min(22, Math.round(target * 0.62)));
-}
-
-function nextSubtitleFontSize(element: HTMLElement, fitted: number, minimum: number): number {
-    const heightScale = element.clientHeight / Math.max(1, element.scrollHeight);
-    const widthScale = element.clientWidth / Math.max(1, element.scrollWidth);
-    return Math.max(minimum, Math.floor(fitted * Math.min(.92, heightScale, widthScale)));
 }
 
 function pointInRect(x: number, y: number, rect: DOMRect): boolean {
@@ -750,17 +715,6 @@ function createSubtitlePrimaryRow(primaryHtml: string): HTMLElement {
     setInnerHtml(primary, primaryHtml);
     row.append(primary);
     return row;
-}
-
-function fittedSubtitleFontSize(element: HTMLElement, fitted: number, minimum: number, apply: (value: number) => void): number {
-    for (let attempt = 0; attempt < 10; attempt++) {
-        if (!subtitleElementOverflows(element)) return fitted;
-        const next = nextSubtitleFontSize(element, fitted, minimum);
-        if (next >= fitted) break;
-        fitted = next;
-        apply(fitted);
-    }
-    return fitted;
 }
 
 function subtitleFilesFromHostEvent(event: Event): HostedSubtitleFileLoadRequest {
@@ -1429,8 +1383,7 @@ export class SubtitlePlayerController {
 
     private syncRootStyleSettings(settings: ReaderSettings): void {
         if (!this.root) return;
-        setStylePropertyIfChanged(this.root, '--subtitle-font-size-target', `${settings.subtitleFontSize}px`);
-        setStylePropertyIfChanged(this.root, '--subtitle-font-size', `${settings.subtitleFontSize}px`);
+        this.syncRootFontSize(settings);
         this.applyEffectiveSubtitleBottom();
         this.syncSubtitleDragOffsetStyle();
         this.root.style.setProperty('--subtitle-color', settings.subtitleTextColor);
@@ -1438,6 +1391,14 @@ export class SubtitlePlayerController {
         this.root.style.setProperty('--subtitle-background-rgba', accentToRgba(settings.subtitleBackgroundColor, settings.subtitleBackgroundOpacity));
         this.root.style.setProperty('--subtitle-family', settings.subtitleFontFamily);
         this.root.style.setProperty('--subtitle-weight', String(settings.subtitleFontWeight));
+    }
+
+    private syncRootFontSize(settings: ReaderSettings): void {
+        if (!this.root) return;
+        const target = subtitleTargetFontSize(settings);
+        setStylePropertyIfChanged(this.root, '--subtitle-font-size-target', `${target}px`);
+        setStylePropertyIfChanged(this.root, '--subtitle-font-size', `${target}px`);
+        setStylePropertyIfChanged(this.root, '--subtitle-secondary-font-size', `${subtitleSecondaryFontSize(target)}px`);
     }
 
     private openTranscriptPanelFromSettings(settings: ReaderSettings): void {
@@ -2415,12 +2376,12 @@ export class SubtitlePlayerController {
                 height: this.transcriptViewportHeight(),
             });
             this.positionTranscriptPanel();
-            this.fitSubtitleTextToVideo();
+            this.syncSubtitleTextSize();
             return;
         }
         applyElementLayout(this.root, layout);
         this.positionTranscriptPanel({ realignAfterInset: true });
-        this.fitSubtitleTextToVideo();
+        this.syncSubtitleTextSize();
         this.syncNativePlayerControlHitProtection();
         this.subtitleControlRail?.syncPosition();
     }
@@ -2814,7 +2775,7 @@ export class SubtitlePlayerController {
 
     private applyRenderedPrimarySubtitle(primary: ReturnType<typeof renderSubtitlePrimary>, text: string): void {
         this.applyRenderedPrimaryKaraoke(primary);
-        this.fitSubtitleTextToVideo();
+        this.syncSubtitleTextSize();
         this.syncNativePlayerControlHitProtection();
         this.cacheRenderedPrimarySubtitle(primary);
         this.requestParsedPrimaryIfNeeded(primary, text);
@@ -2868,7 +2829,7 @@ export class SubtitlePlayerController {
             // colors survive instead of being rebuilt away.
             this.lastAppliedPrimaryRowHtml = replacement;
             this.syncKaraokePrimary(currentCue, shouldSyncKaraoke);
-            this.fitSubtitleTextToVideo();
+            this.syncSubtitleTextSize();
             this.syncNativePlayerControlHitProtection();
             return primary as HTMLElement;
         }
@@ -3457,35 +3418,17 @@ export class SubtitlePlayerController {
         });
     }
 
-    private fitSubtitleTextToVideo(): void {
-        if (!this.root || !this.subtitleEl) return;
+    private syncSubtitleTextSize(): void {
+        if (!this.root) return;
         // The frame just changed size/orientation (reel swipe, rotate, inset):
         // recompute the default bottom clearance for portrait/Shorts here too.
         this.applyEffectiveSubtitleBottom();
-        const settings = this.options.getSettings();
-        const target = subtitleFrameTargetFontSize(this.root, settings);
-        let fitted = target;
-        this.root.style.setProperty('--subtitle-font-size-target', `${target}px`);
-        this.root.style.setProperty('--subtitle-secondary-font-size', `${subtitleSecondaryFontSize(target)}px`);
-        this.root.style.setProperty('--subtitle-font-size', `${fitted}px`);
-        const primary = this.subtitleEl.querySelector<HTMLElement>('.jpdb-subtitle-primary');
-        if (!primary) return;
-        // The floor is the legibility minimum, NOT a fraction of the target:
-        // a 90% floor left tall wrapped cues overflowing the height cap, and
-        // the old em-based cap shrank with the font so the loop could never
-        // converge — the residue was clipped off the native secondary line.
-        fitted = this.fitPrimarySubtitleFontSize(fitted, subtitleMinimumFontSize(this.root));
-        this.root.style.setProperty('--subtitle-font-size', `${fitted}px`);
-    }
-
-    private fitPrimarySubtitleFontSize(fitted: number, minimum: number): number {
-        if (!this.root || !this.subtitleEl) return fitted;
-        // Measure WITH the native secondary line: it shares the height budget,
-        // and fitting without it let the primary grow into the secondary's
-        // space (the fullscreen "native subtitle cut off" bug).
-        return fittedSubtitleFontSize(this.subtitleEl, fitted, minimum, value => {
-            this.root?.style.setProperty('--subtitle-font-size', `${value}px`);
-        });
+        // The labelled pixel setting is authoritative. Cue changes, late
+        // furigana hydration, fullscreen/zoom transitions and background tabs
+        // may all report different (or temporarily zero) layout measurements;
+        // none of them may silently rewrite the user's saved size. The subtitle
+        // grid wraps and lets residual height extend upward instead.
+        this.syncRootFontSize(this.options.getSettings());
     }
 
     private applyKaraokeStateToPrimary(cue: SubtitleCue, time: number): void {

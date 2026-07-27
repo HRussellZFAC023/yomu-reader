@@ -19,6 +19,36 @@ import {
     SubtitlePlayerController,
 } from './fixtures';
 
+interface ExactSubtitleSizeHarness {
+    controller: SubtitlePlayerController;
+    root: HTMLElement;
+    lines: HTMLElement;
+    syncSelectedSize: () => void;
+}
+
+function withExactSubtitleSizeHarness(run: (harness: ExactSubtitleSizeHarness) => void): void {
+    const { controller } = createInstalledSubtitleController({
+        subtitleOverlayVisible: true,
+        subtitleFontSize: 60,
+    });
+    try {
+        const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
+        const lines = root.querySelector<HTMLElement>('.jpdb-subtitle-lines')!;
+        const syncSelectedSize = () => {
+            controllerInternals<{ syncSubtitleTextSize: () => void }>(controller).syncSubtitleTextSize();
+        };
+        run({ controller, root, lines, syncSelectedSize });
+    } finally {
+        controller.destroy();
+    }
+}
+
+function expectExactSubtitleSize(root: HTMLElement, { secondary = false } = {}): void {
+    expect(root.style.getPropertyValue('--subtitle-font-size-target')).toBe('60px');
+    expect(root.style.getPropertyValue('--subtitle-font-size')).toBe('60px');
+    if (secondary) expect(root.style.getPropertyValue('--subtitle-secondary-font-size')).toBe('22px');
+}
+
 describe('SubtitlePlayerController — styling & transcript panel', () => {
     registerSubtitleControllerCleanup();
 
@@ -64,6 +94,8 @@ describe('SubtitlePlayerController — styling & transcript panel', () => {
             expect(settings.subtitleBackgroundOpacity).toBe(0.35);
             expect(settings.subtitleHoverPause).toBe(false);
             expect(root.style.getPropertyValue('--subtitle-font-size-target')).toBe('36px');
+            expect(root.style.getPropertyValue('--subtitle-font-size')).toBe('36px');
+            expect(root.style.getPropertyValue('--subtitle-secondary-font-size')).toBe('22px');
             expect(root.style.getPropertyValue('--subtitle-weight')).toBe('620');
             expect(root.style.getPropertyValue('--subtitle-bottom')).toBe('16%');
             expect(root.style.getPropertyValue('--subtitle-background-rgba')).toContain(',0.35)');
@@ -81,6 +113,7 @@ describe('SubtitlePlayerController — styling & transcript panel', () => {
             expect(settings.subtitleFontFamily).toBe(BASE_DEFAULT_SETTINGS.subtitleFontFamily);
             expect(settings.subtitleHoverPause).toBe(BASE_DEFAULT_SETTINGS.subtitleHoverPause);
             expect(root.style.getPropertyValue('--subtitle-font-size-target')).toBe(`${BASE_DEFAULT_SETTINGS.subtitleFontSize}px`);
+            expect(root.style.getPropertyValue('--subtitle-font-size')).toBe(`${BASE_DEFAULT_SETTINGS.subtitleFontSize}px`);
             expect(root.style.getPropertyValue('--subtitle-weight')).toBe(String(BASE_DEFAULT_SETTINGS.subtitleFontWeight));
             expect(root.style.getPropertyValue('--subtitle-bottom')).toBe(`${BASE_DEFAULT_SETTINGS.subtitleBottomOffset}%`);
             expect(popover.querySelector<HTMLOutputElement>('[data-subtitle-style-output="subtitleBackgroundOpacity"]')?.textContent).toBe('0%');
@@ -136,109 +169,84 @@ describe('SubtitlePlayerController — styling & transcript panel', () => {
         }
     });
 
-    it('keeps short subtitle text at the user-selected size on large players', () => {
-        const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true, subtitleFontSize: 28 });
-        try {
-            const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
-            const lines = root.querySelector<HTMLElement>('.jpdb-subtitle-lines')!;
+    it('keeps subtitle text at the exact user-selected pixel size', () => {
+        withExactSubtitleSizeHarness(({ root, lines, syncSelectedSize }) => {
             mockElementRect(root, new DOMRect(0, 0, 1920, 1080));
             lines.innerHTML = '<div class="jpdb-subtitle-primary">短い。</div>';
-            controllerInternals<{ fitSubtitleTextToVideo: () => void }>(controller).fitSubtitleTextToVideo();
+            syncSelectedSize();
 
-            expect(root.style.getPropertyValue('--subtitle-font-size-target')).toBe('28px');
-            expect(root.style.getPropertyValue('--subtitle-font-size')).toBe('28px');
-        } finally {
-            controller.destroy();
-        }
+            expectExactSubtitleSize(root, { secondary: true });
+        });
     });
 
-    it('includes the native secondary line in the fit measurement instead of hiding it', () => {
-        const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true, subtitleFontSize: 28 });
-        try {
-            const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
-            const lines = root.querySelector<HTMLElement>('.jpdb-subtitle-lines')!;
+    it('does not measure or shrink overflowing primary and secondary subtitle lines', () => {
+        withExactSubtitleSizeHarness(({ root, lines, syncSelectedSize }) => {
             mockElementRect(root, new DOMRect(0, 0, 1280, 720));
             lines.innerHTML = '<div class="jpdb-subtitle-primary-row"><div class="jpdb-subtitle-primary">今日は読む。</div></div><button class="jpdb-subtitle-secondary">A very long native subtitle block.</button>';
-            const secondary = lines.querySelector<HTMLElement>('.jpdb-subtitle-secondary')!;
-            const secondaryDisplaysDuringMeasurement: string[] = [];
             Object.defineProperties(lines, {
-                clientHeight: { configurable: true, value: 100 },
-                clientWidth: { configurable: true, value: 800 },
-                scrollHeight: {
-                    configurable: true,
-                    get: () => {
-                        secondaryDisplaysDuringMeasurement.push(secondary.style.display);
-                        // Fits with the secondary hidden, overflows with it shown:
-                        // the fit MUST see the overflow (M1 — the primary used to
-                        // be measured alone and grew into the native line).
-                        return secondary.style.display === 'none' ? 90 : 280;
-                    },
-                },
-                scrollWidth: { configurable: true, value: 800 },
+                clientHeight: { configurable: true, get: () => { throw new Error('subtitle height must not be measured'); } },
+                clientWidth: { configurable: true, get: () => { throw new Error('subtitle width must not be measured'); } },
+                scrollHeight: { configurable: true, get: () => { throw new Error('subtitle overflow must not be measured'); } },
+                scrollWidth: { configurable: true, get: () => { throw new Error('subtitle overflow must not be measured'); } },
             });
 
-            controllerInternals<{ fitSubtitleTextToVideo: () => void }>(controller).fitSubtitleTextToVideo();
+            syncSelectedSize();
 
-            expect(secondaryDisplaysDuringMeasurement.length).toBeGreaterThan(0);
-            expect(secondaryDisplaysDuringMeasurement).not.toContain('none');
-            expect(root.style.getPropertyValue('--subtitle-font-size')).toBe('14px');
-            expect(root.style.getPropertyValue('--subtitle-secondary-font-size')).toBe('17px');
-        } finally {
-            controller.destroy();
-        }
+            expectExactSubtitleSize(root, { secondary: true });
+        });
     });
 
-    it('shrinks overflowing subtitles down to the legibility floor instead of stopping at 90% of target', () => {
-        const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true, subtitleFontSize: 28 });
-        try {
-            const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
-            const lines = root.querySelector<HTMLElement>('.jpdb-subtitle-lines')!;
-            mockElementRect(root, new DOMRect(0, 0, 1280, 720));
-            lines.innerHTML = '<div class="jpdb-subtitle-primary-row"><div class="jpdb-subtitle-primary">とても長い字幕が何行にも渡って表示される場面です。</div></div>';
-            Object.defineProperties(lines, {
-                clientHeight: { configurable: true, value: 100 },
-                clientWidth: { configurable: true, value: 800 },
-                scrollHeight: { configurable: true, value: 1000 },
-                scrollWidth: { configurable: true, value: 800 },
-            });
+    it('reasserts the selected size through cue and deferred parsed-html replacements', () => {
+        withExactSubtitleSizeHarness(({ controller, root }) => {
+            const internals = controllerInternals<{
+                render: () => void;
+                replacePrimaryHtml: (html: string, serial: number) => HTMLElement | null;
+                renderSerial: number;
+                cues: Array<{ start: number; end: number; text: string; transcriptEligible: boolean }>;
+                currentCue: { start: number; end: number; text: string; transcriptEligible: boolean };
+            }>(controller);
+            const first = { start: 0, end: 2, text: '最初の字幕です。', transcriptEligible: true };
+            internals.cues = [first];
+            internals.currentCue = first;
+            internals.render();
+            expectExactSubtitleSize(root);
 
-            controllerInternals<{ fitSubtitleTextToVideo: () => void }>(controller).fitSubtitleTextToVideo();
+            root.style.setProperty('--subtitle-font-size', '14px');
+            expect(internals.replacePrimaryHtml('<span class="jpdb-reader-word">最初</span>の字幕です。', internals.renderSerial)).not.toBeNull();
+            expectExactSubtitleSize(root);
 
-            // The old floor was max(14, round(target*0.9)) = 25px, which could
-            // never fit tall wrapped cues under the cap — the residue was
-            // clipped off the bottom (eating the native line first).
-            expect(root.style.getPropertyValue('--subtitle-font-size')).toBe('14px');
-        } finally {
-            controller.destroy();
-        }
+            const second = { start: 2, end: 4, text: '次の長い字幕も同じ大きさです。', transcriptEligible: true };
+            internals.cues = [first, second];
+            internals.currentCue = second;
+            root.style.setProperty('--subtitle-font-size', '14px');
+            internals.render();
+            expectExactSubtitleSize(root);
+        });
     });
 
-    it('converges shrinking when the height cap no longer tracks the font size', () => {
-        const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true, subtitleFontSize: 28 });
-        try {
-            const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
-            const lines = root.querySelector<HTMLElement>('.jpdb-subtitle-lines')!;
-            mockElementRect(root, new DOMRect(0, 0, 1280, 720));
+    it('restores the selected size after a hidden-tab or zoom layout reports zero geometry', () => {
+        withExactSubtitleSizeHarness(({ root, lines, syncSelectedSize }) => {
+            mockElementRect(root, new DOMRect(0, 0, 0, 0));
             lines.innerHTML = '<div class="jpdb-subtitle-primary-row"><div class="jpdb-subtitle-primary">長い字幕。</div></div>';
-            // Content height tracks the applied font size (px cap fixed at 100):
-            // shrinking the font must actually reduce overflow until it fits.
-            const contentHeight = () => Math.round(Number.parseInt(root.style.getPropertyValue('--subtitle-font-size') || '28', 10) * 5);
             Object.defineProperties(lines, {
-                clientHeight: { configurable: true, value: 100 },
-                clientWidth: { configurable: true, value: 800 },
-                scrollHeight: { configurable: true, get: () => Math.max(100, contentHeight()) },
-                scrollWidth: { configurable: true, value: 800 },
+                clientHeight: { configurable: true, value: 0 },
+                clientWidth: { configurable: true, value: 0 },
+                scrollHeight: { configurable: true, value: 1000 },
+                scrollWidth: { configurable: true, value: 1000 },
             });
+            root.style.setProperty('--subtitle-font-size', '14px');
 
-            controllerInternals<{ fitSubtitleTextToVideo: () => void }>(controller).fitSubtitleTextToVideo();
+            syncSelectedSize();
 
-            const fitted = Number.parseInt(root.style.getPropertyValue('--subtitle-font-size'), 10);
-            expect(fitted).toBeLessThan(28);
-            expect(fitted * 5).toBeLessThanOrEqual(100 + 1);
-            expect(fitted).toBeGreaterThanOrEqual(14);
-        } finally {
-            controller.destroy();
-        }
+            expectExactSubtitleSize(root);
+        });
+    });
+
+    it('does not cap the selected pixel size in touch layouts', () => {
+        const normalizedCss = SUBTITLES_YOUTUBE_CSS.replace(/\s+/g, ' ');
+        expect(normalizedCss).not.toContain('font-size: min(var(--subtitle-font-size)');
+        expect(normalizedCss).toMatch(/\.jpdb-subtitle-text \{[^}]*display: flex;[^}]*flex-direction: column;/);
+        expect(normalizedCss).toMatch(/\.jpdb-subtitle-lines \{[^}]*align-content: end;/);
     });
 
     it('renders the primary cue in its own row so the native secondary keeps a reserved bottom slot', () => {

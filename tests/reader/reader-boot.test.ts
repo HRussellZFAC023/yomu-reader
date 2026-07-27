@@ -25,6 +25,23 @@ type BootWindow = Window & {
 
 const bootWindow = window as BootWindow;
 
+function reinjectAfterRuntimeMarkerMutation(
+    mutateMarker: (marker: HTMLElement) => void,
+): HTMLElement {
+    bootReaderApp();
+    const marker = document.getElementById('jpdb-reader-runtime-owner')!;
+    mutateMarker(marker);
+    appMocks.destroy.mockClear();
+
+    bootReaderApp();
+
+    const replacement = document.getElementById('jpdb-reader-runtime-owner');
+    expect(appMocks.destroy).toHaveBeenCalledOnce();
+    expect(appMocks.init).toHaveBeenCalledTimes(2);
+    expect(replacement).not.toBeNull();
+    return replacement!;
+}
+
 describe('reader boot', () => {
     beforeEach(() => {
         appMocks.destroy.mockReset();
@@ -48,6 +65,54 @@ describe('reader boot', () => {
 
         expect(appMocks.init).toHaveBeenCalledWith({ embeddedFrame: false, showWelcome: true });
         expect(document.getElementById('jpdb-reader-runtime-owner')?.dataset.yomuRuntimeKind).toBe('userscript');
+    });
+
+    it('releases a failed runtime so the same userscript can initialize on retry', async () => {
+        const failure = new Error('transient startup failure');
+        const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+        appMocks.init.mockRejectedValueOnce(failure).mockResolvedValueOnce(undefined);
+
+        bootReaderApp();
+
+        await vi.waitFor(() => {
+            expect(appMocks.destroy).toHaveBeenCalledWith({ preservePageWords: true });
+        });
+        expect(document.getElementById('jpdb-reader-runtime-owner')).toBeNull();
+        expect(bootWindow.__yomuReaderAppInitialized).toBe(false);
+        expect(bootWindow.__yomuRealApp).toBeUndefined();
+        expect(consoleError).toHaveBeenCalledWith('[Yomu Reader] Failed to initialize', failure);
+
+        bootReaderApp();
+
+        expect(appMocks.init).toHaveBeenCalledTimes(2);
+        expect(document.getElementById('jpdb-reader-runtime-owner')?.dataset.yomuRuntimeKind).toBe('userscript');
+    });
+
+    it('releases a runtime whose marker was removed before reinjection', () => {
+        let firstOwner: string | undefined;
+        const replacement = reinjectAfterRuntimeMarkerMutation(marker => {
+            firstOwner = marker.dataset.yomuRuntimeOwner;
+            marker.remove();
+        });
+
+        expect(replacement.dataset.yomuRuntimeOwner).toBeTruthy();
+        expect(replacement.dataset.yomuRuntimeOwner).not.toBe(firstOwner);
+        expect(bootWindow.__yomuRuntimeOwnerId).toBe(replacement.dataset.yomuRuntimeOwner);
+        expect(bootWindow.__yomuReaderAppInitialized).toBe(true);
+
+        bootReaderApp();
+
+        expect(appMocks.init).toHaveBeenCalledTimes(2);
+        expect(document.getElementById('jpdb-reader-runtime-owner')).toBe(replacement);
+    });
+
+    it('reclaims a marker rewritten without a matching runtime owner', () => {
+        const replacement = reinjectAfterRuntimeMarkerMutation(marker => {
+            marker.dataset.yomuRuntimeOwner = 'page-rewritten-owner';
+        });
+
+        expect(replacement.dataset.yomuRuntimeOwner).not.toBe('page-rewritten-owner');
+        expect(bootWindow.__yomuRuntimeOwnerId).toBe(replacement.dataset.yomuRuntimeOwner);
     });
 
     it('prefers native extension detection before compiled GM shims', () => {

@@ -9,26 +9,35 @@ interface DictionaryStyleControllerOptions {
     onRefreshed?: (bytes: number) => void;
 }
 
+type DictionaryStyleLoadResult =
+    | { css: string; error?: never }
+    | { css: ''; error: unknown };
+
 export class DictionaryStyleController {
     private styleElement?: HTMLStyleElement;
+    private refreshGeneration = 0;
 
     constructor(private readonly options: DictionaryStyleControllerOptions) {}
 
     async refresh(): Promise<void> {
-        this.apply(await this.loadCss());
+        const generation = ++this.refreshGeneration;
+        const result = await this.loadCss();
+        if (generation !== this.refreshGeneration) return;
+        if ('error' in result) this.options.onUnavailable?.(result.error);
+        this.apply(result.css);
     }
 
     remove(): void {
+        this.refreshGeneration += 1;
         this.styleElement?.remove();
         this.styleElement = undefined;
     }
 
-    private async loadCss(): Promise<string> {
+    private async loadCss(): Promise<DictionaryStyleLoadResult> {
         try {
-            return await this.options.loadCss();
+            return { css: await this.options.loadCss() };
         } catch (error) {
-            this.options.onUnavailable?.(error);
-            return '';
+            return { css: '', error };
         }
     }
 

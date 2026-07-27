@@ -296519,19 +296519,24 @@ ${component.reading}`;
       this.options = options;
     }
     styleElement;
+    refreshGeneration = 0;
     async refresh() {
-      this.apply(await this.loadCss());
+      const generation2 = ++this.refreshGeneration;
+      const result2 = await this.loadCss();
+      if (generation2 !== this.refreshGeneration) return;
+      if ("error" in result2) this.options.onUnavailable?.(result2.error);
+      this.apply(result2.css);
     }
     remove() {
+      this.refreshGeneration += 1;
       this.styleElement?.remove();
       this.styleElement = void 0;
     }
     async loadCss() {
       try {
-        return await this.options.loadCss();
+        return { css: await this.options.loadCss() };
       } catch (error) {
-        this.options.onUnavailable?.(error);
-        return "";
+        return { css: "", error };
       }
     }
     apply(css) {

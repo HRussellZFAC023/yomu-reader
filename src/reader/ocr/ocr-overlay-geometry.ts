@@ -1,7 +1,7 @@
 import type { OcrRect } from './response';
 
 /** How long a line of the source text is in our own type, and the size it was measured at. */
-export interface OcrTextMeasurement {
+interface OcrTextMeasurement {
     fontSize: number;
     /** Extent along the direction the text runs: width when horizontal, height when vertical. */
     length: number;
@@ -30,7 +30,7 @@ const MIN_OCR_FONT_PX = 11;
 // There is deliberately no upper clamp any more. The box IS the bound: a line cannot be
 // thicker than the box drawn around it, and a fixed 38px ceiling only meant that large
 // game and manga type could never be matched at any "Image text scale" setting.
-export function ocrFontPx(
+function ocrFontPx(
     text: string,
     boxWidth: number,
     boxHeight: number,
@@ -57,7 +57,7 @@ function estimatedFontPx(text: string, boxLength: number, vertical: boolean): nu
 
 // Kana and kanji occupy a full em; latin and whitespace do not. Counting characters
 // instead would oversize any line with punctuation or romaji in it.
-export function visualTextLength(text: string): number {
+function visualTextLength(text: string): number {
     return [...text.trim()].reduce((total, char) => {
         if (/\s/.test(char)) return total + 0.35;
         if ((char.codePointAt(0) ?? 0) <= 0xff) return total + 0.62;
@@ -65,7 +65,7 @@ export function visualTextLength(text: string): number {
     }, 0);
 }
 
-export function shouldCenterOcrText(text: string): boolean {
+function shouldCenterOcrText(text: string): boolean {
     return visualTextLength(text) <= 1.5;
 }
 
@@ -73,7 +73,7 @@ const OCR_WORD_UNDERLINE_OFFSET_EM = 0.12;
 const OCR_WORD_UNDERLINE_THICKNESS_EM = 0.12;
 const OCR_WORD_UNDERLINE_CLEARANCE_PX = 1;
 
-export function ocrWordUnderlineBleedPx(fontSize: number): number {
+function ocrWordUnderlineBleedPx(fontSize: number): number {
     return Math.ceil(fontSize * (OCR_WORD_UNDERLINE_OFFSET_EM + OCR_WORD_UNDERLINE_THICKNESS_EM))
         + OCR_WORD_UNDERLINE_CLEARANCE_PX;
 }
@@ -108,7 +108,7 @@ export type OcrLineFrame = OcrLineBox & OcrLinePadding;
 // more room around the glyphs than an 11px caption, and a furigana line needs a top
 // gutter for the reading. Hard-coded padding is what made the gaming overlay's boxes
 // sit tight and low against text the reader would have framed generously.
-export function ocrLinePadding(fontSize: number, vertical: boolean, hasFurigana: boolean): OcrLinePadding {
+function ocrLinePadding(fontSize: number, vertical: boolean, hasFurigana: boolean): OcrLinePadding {
     const underlineBleed = ocrWordUnderlineBleedPx(fontSize);
     return {
         padX: Math.max(4, Math.round(fontSize * 0.16)),
@@ -181,7 +181,7 @@ export function ocrLineFrame(input: OcrLineFrameInput): OcrLineFrame {
     };
 }
 
-export interface OcrLineLayoutInput {
+interface OcrLineLayoutInput {
     text: string;
     box: OcrLineBox;
     frame: OcrOverlayFrame;
@@ -195,7 +195,7 @@ export interface OcrLineLayoutInput {
 // overlay and the gaming overlay call this against the same markup
 // (.jpdb-ocr-line > .jpdb-ocr-line-text), so a line lands at the size and position of
 // the text underneath it on every surface.
-export function layoutOcrLineElement(element: HTMLElement, input: OcrLineLayoutInput): OcrLineFrame | null {
+function layoutOcrLineElement(element: HTMLElement, input: OcrLineLayoutInput): OcrLineFrame | null {
     const { box, frame, vertical } = input;
     if (!Number.isFinite(box.width) || !Number.isFinite(box.height) || box.width <= 0 || box.height <= 0) return null;
     const textElement = element.querySelector<HTMLElement>('.jpdb-ocr-line-text');

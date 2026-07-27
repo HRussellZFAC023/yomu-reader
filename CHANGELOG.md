@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.8.17] - 2026-07-27
+
+### Fixed
+
+- The subtitle font-size slider is now literal: choosing 60px keeps every cue at 60px through long lines, furigana arriving, player zoom and crop changes, fullscreen, narrow portrait video, and leaving and returning to the tab. The saved setting was already still 60px, but a second content-fitting pass silently rewrote the rendered line as low as 14px on each of those transitions, while touch layouts imposed another viewport-width cap. Long lines now wrap and grow upward at the chosen size instead of becoming tiny.
+- The floating reader button and subtitle controls now appear without waiting for optional local-dictionary styling to finish opening its browser database. A delayed storage startup could previously leave no visible sign that Yomu had run until minutes later. If initialization does fail, the abandoned runtime now releases all of its ownership state so a userscript reinjection can retry in the same tab instead of being mistaken for a duplicate.
+- Yomu Gaming now keeps recognized Japanese text aligned across the full source line on Linux systems without a full-width CJK font. The fallback glyphs could advance at about 60% of their expected width, leaving an otherwise correctly sized line floating over only the middle of the dialogue. The gaming overlay now distributes that missing inline width without increasing the source-derived font height, and leaves normal Japanese fonts unchanged.
+
 ## [1.8.16] - 2026-07-27
 
 ### Added

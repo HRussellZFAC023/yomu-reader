@@ -194,6 +194,13 @@
       "file": "src/reader/cards/utils.ts",
       "exports": ["*"]
     },
+    // Consumed through CommonJS object destructuring by the Academy sync,
+    // committed-artifact verifier, and revision contract tests. Fallow reaches
+    // the module but cannot associate those property reads with named exports.
+    {
+      "file": "scripts/lib/academy-revision.cjs",
+      "exports": ["HOSTED_COUNTERPARTS", "HOSTED_DEPENDENCIES", "REVISION_PATTERN"]
+    },
     {
       "file": "src/reader/newtab/index.ts",
       "exports": ["*"]

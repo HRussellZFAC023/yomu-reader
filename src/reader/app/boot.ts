@@ -1,7 +1,7 @@
 import { appendToDocumentHead } from '../dom/index';
 import { isTargetLanguageText } from '../lookup/target-text';
 import { ReaderApp } from './main';
-import { addWindowEventListener, createWindowCustomEvent, dispatchWindowEvent } from '../platform/window-events';
+import { addWindowEventListener, createWindowCustomEvent, dispatchWindowEvent, removeWindowEventListener } from '../platform/window-events';
 import {
     clearReaderRuntimeHealth,
     publishReaderRuntimeHealth,
@@ -20,9 +20,15 @@ type YomuBootWindow = typeof window & {
 
 interface ActiveRuntime {
     app: ReaderApp;
-    isRealRuntime: boolean;
     kind: YomuRuntimeKind;
     ownerId: string;
+    release?: () => void;
+}
+
+interface BootContext {
+    bootWindow: YomuBootWindow;
+    embeddedFrame: boolean;
+    runtimeKind: YomuRuntimeKind;
 }
 
 const RUNTIME_MARKER_ID = READER_RUNTIME_MARKER_ID;
@@ -38,59 +44,97 @@ let activeRuntime: ActiveRuntime | undefined;
 
 export function bootReaderApp(): void {
     reconcileActiveRuntimeMarker();
+    const context = resolveBootContext();
+    if (!context) return;
+    const runtime = createOwnedRuntime(context);
+    if (!runtime) return;
+
+    registerRuntime(
+        context.bootWindow,
+        runtime.app,
+        runtime.kind,
+        isInstalledRuntime(runtime.kind),
+    );
+    startRuntime(
+        runtime.app,
+        runtime.ownerId,
+        runtime.kind,
+        context.embeddedFrame,
+        () => releaseActiveRuntime(runtime),
+    );
+}
+
+function resolveBootContext(): BootContext | undefined {
     const embeddedFrame = isEmbeddedFrameWindow();
     if (embeddedFrame && !shouldBootEmbeddedFrame()) {
         watchEmbeddedFrameForEligibleContent();
-        return;
+        return undefined;
     }
     const bootWindow = window as YomuBootWindow;
     const runtimeKind = detectRuntimeKind();
-    const ownerId = claimRuntime(runtimeKind);
-    if (!ownerId) return;
-    const isRealRuntime = runtimeKind === 'userscript' || runtimeKind === 'extension';
+    if (!canReplaceExistingRuntime(bootWindow, runtimeKind)) return undefined;
+    return { bootWindow, embeddedFrame, runtimeKind };
+}
 
-    discardPageRuntimeForRealBoot(isRealRuntime);
-    if (!canReplaceExistingRuntime(bootWindow, runtimeKind)) return;
+function createOwnedRuntime(context: BootContext): ActiveRuntime | undefined {
+    const { bootWindow, runtimeKind } = context;
     destroyExistingApps(bootWindow);
+    const ownerId = claimRuntime(runtimeKind);
+    if (!ownerId) return undefined;
 
     const app = new ReaderApp();
-    activeRuntime = { app, isRealRuntime, kind: runtimeKind, ownerId };
-    writeBootWindowOwner(bootWindow, activeRuntime);
-    bindClaims(app, ownerId, runtimeKind);
-    registerRuntime(bootWindow, app, runtimeKind, isRealRuntime);
-    startRuntime(app, ownerId, runtimeKind, embeddedFrame);
+    const runtime: ActiveRuntime = { app, kind: runtimeKind, ownerId };
+    activeRuntime = runtime;
+    writeBootWindowOwner(bootWindow, runtime);
+    runtime.release = bindClaims(app, ownerId, runtimeKind);
+    return runtime;
+}
+
+function isInstalledRuntime(runtimeKind: YomuRuntimeKind): boolean {
+    return runtimeKind === 'userscript' || runtimeKind === 'extension';
 }
 
 function reconcileActiveRuntimeMarker(): void {
-    if (!activeRuntime) return;
+    const runtime = activeRuntime;
+    if (!runtime) return;
     const marker = document.getElementById(RUNTIME_MARKER_ID) as HTMLElement | null;
-    if (marker?.dataset.yomuRuntimeOwner === activeRuntime.ownerId) return;
-    activeRuntime = undefined;
+    if (marker?.dataset.yomuRuntimeOwner === runtime.ownerId) return;
+    releaseActiveRuntime(runtime);
+    removeOwnerlessDisplacedMarker(marker);
 }
 
-function discardPageRuntimeForRealBoot(isRealRuntime: boolean): void {
-    if (activeRuntime && !activeRuntime.isRealRuntime && isRealRuntime) {
-        const runtime = activeRuntime;
-        runtime.app.destroy({ preservePageWords: true });
-        clearBootWindowOwner(runtime.app, runtime.ownerId);
-        return;
-    }
+function removeOwnerlessDisplacedMarker(marker: HTMLElement | null): void {
+    if (!marker?.isConnected) return;
+    const bootWindow = window as YomuBootWindow;
+    // A live conforming replacement writes both its marker and window owner.
+    // If only the marker changed, it was detached or rewritten by the page and
+    // must not become an ownerless veto for the retry below.
+    if (bootWindow.__yomuRuntimeOwnerId === marker.dataset.yomuRuntimeOwner) return;
+    marker.remove();
 }
 
 function canReplaceExistingRuntime(bootWindow: YomuBootWindow, runtimeKind: YomuRuntimeKind): boolean {
-    if (activeRuntime) return priority(activeRuntime.kind) < priority(runtimeKind);
+    if (activeRuntime) return canClaimOverExistingRuntime(activeRuntime.kind, runtimeKind);
     if (!bootWindow.__yomuReaderAppInitialized) return true;
-    const existingPriority = priority(bootWindow.__yomuRuntimeKind ?? 'page');
-    return existingPriority < priority(runtimeKind);
+    return canClaimOverExistingRuntime(bootWindow.__yomuRuntimeKind ?? 'page', runtimeKind);
 }
 
 function destroyExistingApps(bootWindow: YomuBootWindow): void {
     if (activeRuntime) {
-        activeRuntime.app.destroy({ preservePageWords: true });
-        activeRuntime = undefined;
+        releaseActiveRuntime(activeRuntime);
     }
     if (!bootWindow.__yomuReaderAppInitialized) return;
     bootWindow.__yomuRealApp?.destroy({ preservePageWords: true });
+}
+
+function releaseActiveRuntime(runtime: ActiveRuntime): void {
+    if (runtime.release) {
+        runtime.release();
+        return;
+    }
+    runtime.app.destroy({ preservePageWords: true });
+    releaseRuntime(runtime.ownerId);
+    clearBootWindowOwner(runtime.app, runtime.ownerId);
 }
 
 function writeBootWindowOwner(bootWindow: YomuBootWindow, runtime: ActiveRuntime): void {
@@ -123,7 +167,13 @@ function registerRuntime(bootWindow: YomuBootWindow, app: ReaderApp, runtimeKind
     });
 }
 
-function startRuntime(app: ReaderApp, ownerId: string, runtimeKind: YomuRuntimeKind, embeddedFrame: boolean): void {
+function startRuntime(
+    app: ReaderApp,
+    ownerId: string,
+    runtimeKind: YomuRuntimeKind,
+    embeddedFrame: boolean,
+    releaseClaims: () => void,
+): void {
     void app.init({
         embeddedFrame,
         // Both real installs (userscript manager and browser extension) get the
@@ -135,8 +185,13 @@ function startRuntime(app: ReaderApp, ownerId: string, runtimeKind: YomuRuntimeK
         // not mistake a claimed shell for a usable Reader.
         publishReaderRuntimeHealth(ownerId);
     }).catch(error => {
-        releaseRuntime(ownerId);
-        throw error;
+        // A failed initialization must relinquish every ownership signal, not
+        // only the DOM marker. Otherwise the initialized window flag and
+        // module-local runtime make a same-priority reinjection look redundant,
+        // so a transient startup error leaves Yomu absent until the whole tab
+        // is recreated.
+        releaseClaims();
+        console.error('[Yomu Reader] Failed to initialize', error);
     });
 }
 
@@ -294,24 +349,28 @@ function isStaleRuntimeMarker(marker: HTMLElement): boolean {
     return Boolean(bootWindow.__yomuRuntimeOwnerId && marker.dataset.yomuRuntimeOwner === bootWindow.__yomuRuntimeOwnerId);
 }
 
-function bindClaims(app: ReaderApp, ownerId: string, kind: YomuRuntimeKind): void {
+function bindClaims(app: ReaderApp, ownerId: string, kind: YomuRuntimeKind): () => void {
     let released = false;
+    let markerObserver: MutationObserver | undefined;
+    const onRuntimeClaim = (event: Event): void => {
+        const detail = (event as CustomEvent).detail as Partial<{ ownerId: string; kind: YomuRuntimeKind; priority: number }> | undefined;
+        if (!detail || detail.ownerId === ownerId) return;
+        if (priority(detail.kind) < priority(kind)) return;
+        release();
+    };
     const release = () => {
         if (released) return;
         released = true;
         markerObserver?.disconnect();
+        removeWindowEventListener('yomu-reader-runtime-claim', onRuntimeClaim);
         app.destroy({ preservePageWords: true });
         releaseRuntime(ownerId);
         clearActiveRuntime(app, ownerId);
         clearBootWindowOwner(app, ownerId);
     };
-    const markerObserver = observeRuntimeMarker(ownerId, kind, release);
-    addWindowEventListener('yomu-reader-runtime-claim', event => {
-        const detail = (event as CustomEvent).detail as Partial<{ ownerId: string; kind: YomuRuntimeKind; priority: number }> | undefined;
-        if (!detail || detail.ownerId === ownerId) return;
-        if (priority(detail.kind) < priority(kind)) return;
-        release();
-    });
+    markerObserver = observeRuntimeMarker(ownerId, kind, release);
+    addWindowEventListener('yomu-reader-runtime-claim', onRuntimeClaim);
+    return release;
 }
 
 function observeRuntimeMarker(ownerId: string, kind: YomuRuntimeKind, release: () => void): MutationObserver | undefined {
