@@ -13,6 +13,12 @@
 // (version stamps, cache-busting hashes, pinned companions). This half needs no
 // such knowledge -- it catches drift in ANY generated artifact, including ones
 // nobody thought to write an assertion for.
+//
+// The cost of reasoning by elimination is that every alternative explanation
+// has to be eliminated out loud. Two are: uncommitted edits of your own (below)
+// and a dependency tree that is not the one the lockfile pins
+// (./dependency-tree-drift.mjs). Until both are ruled out the drift is a fact
+// about this run, not a verdict on the commit.
 import { execFileSync } from 'node:child_process';
 import { GENERATED_ARTIFACT_PATHS } from './generated-artifacts.mjs';
 
@@ -68,20 +74,48 @@ export function hasUncommittedSourceEdits(cwd) {
  * own sources -- which is how yomureader.com/study/ served a 1.8.14 build under
  * the 1.8.15 release. With local edits present the rewrite is expected, so the
  * run reports the paths to stage instead of failing.
+ *
+ * `offLockfile` (see ./dependency-tree-drift.mjs) is the competing explanation.
+ * The stale-HEAD verdict is reached by elimination, so it may only be stated
+ * once the machine is running the dependency versions the lockfile pins. When
+ * it is not, the same drift is reported against the environment instead -- and
+ * the advice to COMMIT those bytes is withheld, because bytes built off the
+ * pinned toolchain are the last thing a release should carry.
  */
-export function describeArtifactDrift({ drifted, sourceEdits }) {
+export function describeArtifactDrift({ drifted, sourceEdits, offLockfile = [] }) {
     if (drifted.length === 0) return { ok: true, lines: [] };
     const paths = drifted.map(path => `  ${path}`);
     if (sourceEdits) {
         return {
             ok: true,
+            advisory: true,
             lines: [
                 '',
-                '[check] this run regenerated tracked build output:',
+                // Named as loudly as a failure would be. This run cannot show
+                // that HEAD's artifacts are current -- the local edits that make
+                // the rewrite innocent are exactly what makes it uninformative
+                // -- and a PASS that quietly means "not checked" is how the
+                // stale 1.8.14 Study build survived a green gate in the first
+                // place.
+                '[check] artifact-drift NOT ENFORCED — this run regenerated tracked build output, and uncommitted edits in your tree explain it:',
                 ...paths,
                 // Directory paths, not the individual files: `git add -u` stages
                 // modifications only and would leave a new companion behind.
                 `[check] stage it with your change: git add -f -- ${GENERATED_ARTIFACT_PATHS.join(' ')}`,
+                ...offLockfileLines(offLockfile, 'and check them before you do: they were not built from the pinned toolchain'),
+                '[check] only a clean-tree run can show that HEAD ships current artifacts. This was not one.',
+            ],
+        };
+    }
+    if (offLockfile.length > 0) {
+        return {
+            ok: false,
+            lines: [
+                '',
+                '[check] FAIL artifact-drift — this run rewrote tracked build output:',
+                ...paths,
+                ...offLockfileLines(offLockfile, 'do NOT commit those bytes: this machine is not running the toolchain package-lock.json pins'),
+                '[check] Run `npm ci`, then re-run. If the drift survives a matching dependency tree, HEAD really does ship stale build output.',
             ],
         };
     }
@@ -94,6 +128,19 @@ export function describeArtifactDrift({ drifted, sourceEdits }) {
             '[check] Commit the regenerated files above.',
         ],
     };
+}
+
+// Enough of the mismatch to act on without burying the drift it explains.
+const OFF_LOCKFILE_SHOWN = 8;
+
+function offLockfileLines(offLockfile, lead) {
+    if (offLockfile.length === 0) return [];
+    const shown = offLockfile.slice(0, OFF_LOCKFILE_SHOWN);
+    return [
+        `[check] ${lead} —`,
+        ...shown.map(({ path, pinned, installed }) => `  ${path}: package-lock.json pins ${pinned}, installed is ${installed}`),
+        ...(offLockfile.length > shown.length ? [`  ...and ${offLockfile.length - shown.length} more`] : []),
+    ];
 }
 
 // `git status --porcelain` v1: two status columns, a space, then the path.
