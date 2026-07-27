@@ -2229,7 +2229,7 @@
     {
       "id": "character-sam-standardized-encouraging-listening-front-near-front-halfbody-v001",
       "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "a1745f7ec0c0ca58fdd5af1d2e1973c9726480df5ebd057a5c386e7c223dc399",
+      "sourceSha256": "2f78a0045e1c273eb52ae4e3c7c03f8a79db3cd894bb78e05223f8018f0071e4",
       "provenance": "regenerated-standardized",
       "verdict": "review-candidate/runtime-preview",
       "runtimeHome": [
@@ -2253,7 +2253,7 @@
       "deliveries": [
         {
           "path": "/academy/art/characters/sam/sam__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
-          "sha256": "a1745f7ec0c0ca58fdd5af1d2e1973c9726480df5ebd057a5c386e7c223dc399"
+          "sha256": "2f78a0045e1c273eb52ae4e3c7c03f8a79db3cd894bb78e05223f8018f0071e4"
         }
       ],
       "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
@@ -2261,7 +2261,7 @@
     {
       "id": "character-sam-standardized-neutral-front-near-front-halfbody-v001",
       "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "0d68325becb71d9cb23c84e3a14defd5a82e387792440ae91c49b471a6ce05f0",
+      "sourceSha256": "8c978cbf5b1358a1cabc9e3ce9e5d26ed49d48a7030f0a9c63c578fabd4240b4",
       "provenance": "regenerated-standardized",
       "verdict": "review-candidate/runtime-preview",
       "runtimeHome": [
@@ -2289,7 +2289,7 @@
       "deliveries": [
         {
           "path": "/academy/art/characters/sam/sam__standardized-neutral__front-near-front__halfbody__v001.png",
-          "sha256": "0d68325becb71d9cb23c84e3a14defd5a82e387792440ae91c49b471a6ce05f0"
+          "sha256": "8c978cbf5b1358a1cabc9e3ce9e5d26ed49d48a7030f0a9c63c578fabd4240b4"
         }
       ],
       "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
