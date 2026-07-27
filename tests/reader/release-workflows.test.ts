@@ -138,7 +138,8 @@ describe('release workflow safety', () => {
         expect(releaseWorkflow).toContain('YOMU_CI_REGULAR_CONCURRENCY: 1');
         expect(releaseWorkflow).toContain('YOMU_CI_REGULAR_MAX_WORKERS: 1');
         expect(releaseWorkflow).toContain('YOMU_CI_JPDB_CONCURRENCY: 2');
-        expect(releaseWorkflow).toContain('YOMU_VITEST_FORK_HEAP_MB: 1536');
+        expect(releaseWorkflow).toContain('VITEST_MAX_FORKS: 1');
+        expect(releaseWorkflow).toContain('YOMU_VITEST_FORK_HEAP_MB: 2304');
         expect(releaseWorkflow).not.toContain('YOMU_CI_MAX_WORKERS: 3');
     });
 
