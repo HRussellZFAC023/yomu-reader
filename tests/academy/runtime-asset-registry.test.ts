@@ -79,7 +79,8 @@ describe('Academy runtime asset registry', () => {
     it('wires only likeness-cleared cast performances into the approved sprite map', () => {
         expect(ACADEMY_APPROVED_CHARACTER_SPRITES).toEqual({
             aakash: '/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v009.png',
-            xingyuListening: '/academy/art/characters/xingyu/xingyu__listening-halfbody-v2__v001.png',
+            xingyuNeutral: '/academy/art/characters/xingyu/xingyu__neutral-short-hair-round-glasses__front-near-front__fullbody__v002.png',
+            xingyuListening: '/academy/art/characters/xingyu/xingyu__encouraging-listening-short-hair-round-glasses__right-three-quarter__fullbody__v002.png',
             mikaSound: '/academy/art/characters/mika/mika__encouraging-listening-headphones__right-three-quarter__fullbody__v002.png',
             rie: '/academy/art/characters/rie/rie__neutral-glasses__front-near-front__halfbody__v001.png',
             rieHappy: '/academy/art/characters/rie/rie__happy-glasses__front-near-front__halfbody__v001.png',
@@ -96,7 +97,7 @@ describe('Academy runtime asset registry', () => {
         });
         expect(ACADEMY_ASSETS.characters.approved).toEqual({
             aakash: ACADEMY_APPROVED_CHARACTER_SPRITES.aakash,
-            xingyu: ACADEMY_APPROVED_CHARACTER_SPRITES.xingyuListening,
+            xingyu: ACADEMY_APPROVED_CHARACTER_SPRITES.xingyuNeutral,
             mika: ACADEMY_APPROVED_CHARACTER_SPRITES.mikaSound,
             rie: ACADEMY_APPROVED_CHARACTER_SPRITES.rie,
             sophie: ACADEMY_APPROVED_CHARACTER_SPRITES.sophie,

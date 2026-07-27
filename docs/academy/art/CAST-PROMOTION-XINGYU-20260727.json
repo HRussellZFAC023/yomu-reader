@@ -1,0 +1,103 @@
+{
+  "promotions": [
+    {
+      "castId": "xingyu",
+      "archiveLabel": "identity-confused-style-superseded-20260727",
+      "replaceExpressions": [
+        "neutral",
+        "encouraging-listening",
+        "happy",
+        "thoughtful",
+        "determined",
+        "surprised-shocked",
+        "sad-vulnerable"
+      ],
+      "canonicalNeutralAssetId": "character.xingyu.neutral-short-hair-round-glasses-front-near-front-fullbody-v002",
+      "slots": [
+        {
+          "assetId": "character.xingyu.neutral-short-hair-round-glasses-front-near-front-fullbody-v002",
+          "expression": "neutral",
+          "angle": "front-near-front",
+          "assetPath": "/academy/art/characters/xingyu/xingyu__neutral-short-hair-round-glasses__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:xingyu",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "story:cast:xingyu",
+            "cast-standardization:xingyu"
+          ]
+        },
+        {
+          "assetId": "character.xingyu.listening",
+          "expression": "encouraging-listening",
+          "angle": "right-three-quarter",
+          "assetPath": "/academy/art/characters/xingyu/xingyu__encouraging-listening-short-hair-round-glasses__right-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "lesson-zero:vowel-listening",
+            "game:lesson-zero-vowel-listening-bingo",
+            "journal:xingyu-expression-gallery",
+            "story:cast:xingyu:encouraging-listening",
+            "cast-standardization:xingyu"
+          ]
+        },
+        {
+          "assetId": "character.xingyu.happy-short-hair-round-glasses-front-near-front-fullbody-v002",
+          "expression": "happy",
+          "angle": "front-near-front",
+          "assetPath": "/academy/art/characters/xingyu/xingyu__happy-short-hair-round-glasses__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:xingyu-expression-gallery",
+            "story:cast:xingyu:happy",
+            "cast-standardization:xingyu"
+          ]
+        },
+        {
+          "assetId": "character.xingyu.thoughtful-short-hair-round-glasses-left-three-quarter-fullbody-v002",
+          "expression": "thoughtful",
+          "angle": "left-three-quarter",
+          "assetPath": "/academy/art/characters/xingyu/xingyu__thoughtful-short-hair-round-glasses__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:xingyu-expression-gallery",
+            "story:cast:xingyu:thoughtful",
+            "cast-standardization:xingyu"
+          ]
+        },
+        {
+          "assetId": "character.xingyu.determined-short-hair-round-glasses-left-three-quarter-fullbody-v002",
+          "expression": "determined",
+          "angle": "left-three-quarter",
+          "assetPath": "/academy/art/characters/xingyu/xingyu__determined-short-hair-round-glasses__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:xingyu-expression-gallery",
+            "story:cast:xingyu:determined",
+            "cast-standardization:xingyu"
+          ]
+        },
+        {
+          "assetId": "character.xingyu.surprised-shocked-short-hair-round-glasses-right-three-quarter-fullbody-v002",
+          "expression": "surprised-shocked",
+          "angle": "right-three-quarter",
+          "assetPath": "/academy/art/characters/xingyu/xingyu__surprised-shocked-short-hair-round-glasses__right-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:xingyu-expression-gallery",
+            "story:cast:xingyu:surprised-shocked",
+            "cast-standardization:xingyu"
+          ]
+        },
+        {
+          "assetId": "character.xingyu.sad-vulnerable-short-hair-round-glasses-left-three-quarter-fullbody-v002",
+          "expression": "sad-vulnerable",
+          "angle": "left-three-quarter",
+          "assetPath": "/academy/art/characters/xingyu/xingyu__sad-vulnerable-short-hair-round-glasses__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:xingyu-expression-gallery",
+            "story:cast:xingyu:sad-vulnerable",
+            "cast-standardization:xingyu"
+          ]
+        }
+      ]
+    }
+  ]
+}

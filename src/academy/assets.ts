@@ -258,6 +258,7 @@ function assetFile(id: AcademyRuntimeAssetId, variant: string): `/academy/art/${
 
 export const ACADEMY_APPROVED_CHARACTER_SPRITES = {
     aakash: assetFile('character.aakash.neutral', 'default'),
+    xingyuNeutral: ACADEMY_CAST_STANDARDIZATION_GALLERIES.xingyu['neutral:front-near-front'],
     xingyuListening: assetFile('character.xingyu.listening', 'default'),
     mikaSound: ACADEMY_CAST_STANDARDIZATION_GALLERIES.mika['encouraging-listening:right-three-quarter'],
     rie: assetFile('character.rie.neutral-glasses', 'default'),
@@ -281,7 +282,7 @@ export const ACADEMY_APPROVED_CHARACTER_SPRITES = {
  */
 const ACADEMY_APPROVED_CAST_SPRITES = {
     aakash: ACADEMY_APPROVED_CHARACTER_SPRITES.aakash,
-    xingyu: ACADEMY_APPROVED_CHARACTER_SPRITES.xingyuListening,
+    xingyu: ACADEMY_APPROVED_CHARACTER_SPRITES.xingyuNeutral,
     mika: ACADEMY_APPROVED_CHARACTER_SPRITES.mikaSound,
     rie: ACADEMY_APPROVED_CHARACTER_SPRITES.rie,
     sophie: ACADEMY_APPROVED_CHARACTER_SPRITES.sophie,
@@ -294,7 +295,13 @@ const ACADEMY_APPROVED_CAST_PERFORMANCES = {
         neutral: ACADEMY_APPROVED_CHARACTER_SPRITES.aakash,
     },
     xingyu: {
+        neutral: ACADEMY_CAST_STANDARDIZATION_GALLERIES.xingyu['neutral:front-near-front'],
         encouraging: ACADEMY_APPROVED_CHARACTER_SPRITES.xingyuListening,
+        happy: ACADEMY_CAST_STANDARDIZATION_GALLERIES.xingyu['happy:front-near-front'],
+        thoughtful: ACADEMY_CAST_STANDARDIZATION_GALLERIES.xingyu['thoughtful:left-three-quarter'],
+        determined: ACADEMY_CAST_STANDARDIZATION_GALLERIES.xingyu['determined:left-three-quarter'],
+        surprised: ACADEMY_CAST_STANDARDIZATION_GALLERIES.xingyu['surprised-shocked:right-three-quarter'],
+        'sad-vulnerable': ACADEMY_CAST_STANDARDIZATION_GALLERIES.xingyu['sad-vulnerable:left-three-quarter'],
     },
     mika: {
         listening: ACADEMY_APPROVED_CHARACTER_SPRITES.mikaSound,

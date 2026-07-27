@@ -1,6 +1,8 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import { refreshAcademyRuntimeArtPrecache } from './lib/academy-cast-offline-precache.mjs';
+import { reconcileAcademyLessonCastBindings } from './lib/academy-cast-usage-bindings.mjs';
 
 const manifestFile = path.resolve('src/academy/domain/cast-standardization-manifest.ts');
 const rejectedRoot = path.resolve('artifacts/yomu-academy/cast-standardization/rejected');
@@ -25,6 +27,11 @@ const existingRejected = readJsonConstant(
 const summary = readJsonConstant(
     source,
     'ACADEMY_CAST_STANDARDIZATION_SUMMARY',
+    ' as const;',
+);
+const runtimeAssets = readJsonConstant(
+    source,
+    'ACADEMY_CAST_STANDARDIZATION_RUNTIME_ASSETS',
     ' as const;',
 );
 
@@ -102,11 +109,13 @@ source = replaceJsonConstant(
 );
 
 fs.writeFileSync(manifestFile, source);
+reconcileAcademyLessonCastBindings(usage, manifest);
 const serializedUsage = `${JSON.stringify(usage, null, 2)}\n`;
 for (const usageFile of usageFiles) {
     fs.mkdirSync(path.dirname(usageFile), { recursive: true });
     fs.writeFileSync(usageFile, serializedUsage);
 }
+await refreshAcademyRuntimeArtPrecache(process.cwd());
 console.log(`Refreshed ${manifest.length} production cast slots and ${rejected.length} archived candidates.`);
 
 function readJsonConstant(fileSource, name, suffix) {

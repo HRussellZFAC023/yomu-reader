@@ -13,12 +13,12 @@ const RECOVERY = JSON.parse(fs.readFileSync(path.resolve(ROOT, 'docs/academy/rec
 const ANGLES = ['left-three-quarter', 'front-near-front', 'right-three-quarter'];
 const EXPRESSIONS = [
     'neutral',
-    'happy',
     'encouraging-listening',
+    'happy',
+    'thoughtful',
+    'determined',
     'surprised-shocked',
     'sad-vulnerable',
-    'determined',
-    'comedic',
 ];
 
 const APPROVED_PATHS = new Set(ASSET_USAGE.assets
@@ -28,14 +28,13 @@ const APPROVED_PATHS = new Set(ASSET_USAGE.assets
     .filter(deliveryPath => deliveryPath.startsWith('/academy/art/characters/')));
 
 const CURRENT_SLOT_OVERRIDES = new Map([
-    ['/academy/art/characters/peter/peter__thoughtful__left-three-quarter__halfbody__v001.png', ['left-three-quarter', 'neutral']],
+    ['/academy/art/characters/peter/peter__thoughtful__left-three-quarter__halfbody__v001.png', ['left-three-quarter', 'thoughtful']],
     ['/academy/art/characters/sophie/sophie__bookshop-neutral__halfbody__v003.png', ['right-three-quarter', 'neutral']],
+    ['/academy/art/characters/rie/rie__thinking__halfbody__v001.png', ['front-near-front', 'thoughtful']],
     ['/academy/art/characters/rie/rie__neutral-glasses__front-near-front__halfbody__v001.png', ['front-near-front', 'neutral']],
     ['/academy/art/characters/rie/rie__determined-glasses__left-three-quarter__halfbody__v001.png', ['left-three-quarter', 'determined']],
     ['/academy/art/characters/rie/rie__encouraging-glasses__right-three-quarter__halfbody__v001.png', ['right-three-quarter', 'encouraging-listening']],
     ['/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v009.png', ['front-near-front', 'neutral']],
-    ['/academy/art/characters/xingyu/xingyu__listening-halfbody-v2__v001.png', ['front-near-front', 'encouraging-listening']],
-    ['/academy/art/characters/mika/mika__sound-listening__halfbody__v001.png', ['front-near-front', 'encouraging-listening']],
 ]);
 
 const SUPERSEDED_PATHS = new Set([
@@ -69,9 +68,13 @@ function normalizeCurrentSlot(publicPath) {
     if (override) return { angle: override[0], expression: override[1] };
     const name = path.basename(publicPath, '.png');
     const angle = ANGLES.find(value => name.includes(`__${value}__`)) ?? 'front-near-front';
-    let expression = name.split('__')[1] ?? '';
-    expression = expression.replace(/-glasses$/u, '');
-    if (expression === 'encouraging') expression = 'encouraging-listening';
+    const segments = name.split('__');
+    let expression = segments[1] === 'sprite' ? segments[2] ?? '' : segments[1] ?? '';
+    expression = EXPRESSIONS.find(value =>
+        expression === value || expression.startsWith(`${value}-`),
+    ) ?? expression;
+    if (expression === 'concerned') expression = 'sad-vulnerable';
+    if (expression === 'listening' || expression === 'encouraging') expression = 'encouraging-listening';
     if (expression === 'surprised') expression = 'surprised-shocked';
     return EXPRESSIONS.includes(expression) ? { angle, expression } : null;
 }

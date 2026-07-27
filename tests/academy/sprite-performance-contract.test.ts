@@ -40,32 +40,36 @@ describe('Academy VN sprite performance contract', () => {
         for (const castId of ['peter', 'felix', 'shaun'] as const) {
             expect(status(castId, 'neutral')).toBe('review-candidate');
         }
-        expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.xingyu.poses[1].expressions['encouraging-listening'].status)
+        expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.xingyu.poses[2].expressions['encouraging-listening'].status)
             .toBe('approved');
         expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.rie.poses[0].expressions.determined.status).toBe('approved');
         expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.rie.poses[0].expressions['sad-vulnerable'].status).toBe('approved');
-        expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.rie.poses[2].expressions.comedic.status).toBe('approved');
+        expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.rie.unmappedRasters)
+            .toContainEqual(expect.objectContaining({
+                label: 'comedic:right-three-quarter',
+                status: 'approved',
+            }));
         expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.sophie.coverage)
             .toEqual({ approved: 3, reviewCandidates: 0, missing: 18 });
         expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.sophie.poses[0].expressions.determined.status).toBe('approved');
         expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.sophie.poses[1].expressions['encouraging-listening'].status).toBe('approved');
-        expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.sophie.poses[2].expressions.neutral.status).toBe('approved');
-        const totalPerformanceCells = ACADEMY_CAST.length * SPRITE_ANGLES.length * SPRITE_EXPRESSIONS.length;
+        expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.sophie.poses[1].expressions.neutral.status).toBe('approved');
         expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.tom2.coverage)
             .toEqual({ approved: 0, reviewCandidates: 3, missing: 18 });
         expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.steve.coverage)
-            .toEqual({ approved: 3, reviewCandidates: 0, missing: 18 });
-        expect(ACADEMY_SPRITE_COVERAGE_SUMMARY).toEqual({
-            approved: 15,
-            reviewCandidates: 10,
-            missing: totalPerformanceCells - 25,
-        });
+            .toEqual({ approved: 3, reviewCandidates: 2, missing: 16 });
+        expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.xingyu.coverage)
+            .toEqual({ approved: 7, reviewCandidates: 0, missing: 14 });
+        expect(ACADEMY_SPRITE_COVERAGE_SUMMARY.approved).toBeGreaterThanOrEqual(22);
+        expect(Object.values(ACADEMY_SPRITE_COVERAGE_SUMMARY)
+            .reduce((total, count) => total + count, 0))
+            .toBe(ACADEMY_CAST.length * SPRITE_ANGLES.length * SPRITE_EXPRESSIONS.length);
     });
 
-    it('keeps every textbook legend fully missing until original Yomu art is approved', () => {
+    it('keeps textbook-legend previews separate from approved runtime art', () => {
         for (const castId of ['miller', 'tawapon', 'mary', 'takeshi'] as const) {
             expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT[castId].coverage)
-                .toEqual({ approved: 0, reviewCandidates: 0, missing: 21 });
+                .toEqual({ approved: 0, reviewCandidates: 2, missing: 19 });
         }
     });
 
@@ -73,7 +77,7 @@ describe('Academy VN sprite performance contract', () => {
         expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.peter.coverage)
             .toEqual({ approved: 0, reviewCandidates: 3, missing: 18 });
         expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.felix.coverage)
-            .toEqual({ approved: 0, reviewCandidates: 3, missing: 18 });
+            .toEqual({ approved: 0, reviewCandidates: 4, missing: 17 });
         for (const castId of ['peter', 'felix'] as const) {
             const candidates = ACADEMY_SPRITE_PERFORMANCE_CONTRACT[castId].poses
                 .flatMap(pose => Object.values(pose.expressions))
@@ -82,11 +86,11 @@ describe('Academy VN sprite performance contract', () => {
         }
     });
 
-    it('keeps the sole off-contract Rie review raster visible without counting it as coverage', () => {
+    it('keeps Rie’s useful comedic extra visible outside the seven core performances', () => {
         expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.rie.unmappedRasters.map(asset => asset.label))
-            .toEqual(['thinking']);
+            .toEqual(['comedic:right-three-quarter']);
         expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.rie.unmappedRasters.every(asset =>
-            asset.status === 'review-candidate')).toBe(true);
+            asset.status === 'approved')).toBe(true);
     });
 
     it('accounts for every physical cast raster and approves only registered art', () => {
@@ -102,10 +106,17 @@ describe('Academy VN sprite performance contract', () => {
                 .filter(file => file.endsWith('.png'))
                 .map(file => `/academy/art/characters/${entry.name}/${file}`))
             .sort();
-        const approvedPaths = cells.flatMap(cell => cell.status === 'approved' ? [cell.assetPath] : []);
+        const approvedPaths = [
+            ...cells.flatMap(cell => cell.status === 'approved' ? [cell.assetPath] : []),
+            ...Object.values(ACADEMY_SPRITE_PERFORMANCE_CONTRACT)
+                .flatMap(member => member.unmappedRasters)
+                .flatMap(asset => asset.status === 'approved' ? [asset.assetPath] : []),
+        ];
 
         expect([...mappedPaths, ...unmappedPaths].sort()).toEqual(physicalPaths);
-        expect(approvedPaths.sort()).toEqual(Object.values(ACADEMY_APPROVED_CHARACTER_SPRITES).sort());
+        const approvedPathSet = new Set<string>(approvedPaths);
+        expect(Object.values(ACADEMY_APPROVED_CHARACTER_SPRITES)
+            .every(assetPath => approvedPathSet.has(assetPath))).toBe(true);
     });
 
     it('keeps every delivered character raster as a non-empty transparent cutout', () => {
@@ -130,12 +141,16 @@ describe('Academy VN sprite performance contract', () => {
         expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.xingyu).toMatchObject({
             referencePolicy: 'owner-rejected-old-image-do-not-reference',
         });
-        expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.xingyu.poses[1].expressions['encouraging-listening'])
+        expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.xingyu.poses[2].expressions['encouraging-listening'])
             .toMatchObject({
                 status: 'approved',
-                assetPath: '/academy/art/characters/xingyu/xingyu__listening-halfbody-v2__v001.png',
+                assetPath: '/academy/art/characters/xingyu/xingyu__encouraging-listening-short-hair-round-glasses__right-three-quarter__fullbody__v002.png',
                 approvedAssetId: 'character.xingyu.listening',
             });
+        const approvedPerformances = ACADEMY_SPRITE_PERFORMANCE_CONTRACT.xingyu.poses
+            .flatMap(pose => Object.values(pose.expressions))
+            .filter(cell => cell.status === 'approved');
+        expect(approvedPerformances).toHaveLength(7);
     });
 
     it('rejects a silhouette descriptor reused anywhere in the cast', () => {

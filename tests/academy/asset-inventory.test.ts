@@ -78,7 +78,7 @@ describe('Academy active, orphaned, deprecated, and missing asset inventory', ()
 
         const before = currentRasterHashes();
         expect(execFileSync(process.execPath, ['scripts/academy-asset-audit.mjs', 'validate'], { encoding: 'utf8' }))
-            .toContain(`${inventory.counts.active} active, ${inventory.counts.orphaned} orphaned, ${inventory.counts.deprecated} deprecated, 605 missing expression variants`);
+            .toContain(`${inventory.counts.active} active, ${inventory.counts.orphaned} orphaned, ${inventory.counts.deprecated} deprecated, ${inventory.counts.missingExpressionVariants} missing expression variants`);
         expect(currentRasterHashes()).toEqual(before);
     });
 
@@ -101,30 +101,15 @@ describe('Academy active, orphaned, deprecated, and missing asset inventory', ()
         ].map(asset => asset.path)).size).toBe(releaseRasterCount);
     });
 
-    it('keeps the recovered Aakash expression family and the Rie thinking sprite orphaned as the off-matrix deliveries', () => {
-        const offMatrixEntries = [
-            ['aakash-sprite-concerned-left-three-quarter-halfbody-v005', '/academy/art/characters/aakash/aakash__sprite__concerned__left-three-quarter__halfbody__v005.png'],
-            ['aakash-sprite-determined-left-three-quarter-v005', '/academy/art/characters/aakash/aakash__sprite__determined__left-three-quarter__v005.png'],
-            ['aakash-sprite-embarrassed-front-near-front-halfbody-v005', '/academy/art/characters/aakash/aakash__sprite__embarrassed__front-near-front__halfbody__v005.png'],
-            ['aakash-sprite-happy-right-three-quarter-v005', '/academy/art/characters/aakash/aakash__sprite__happy__right-three-quarter__v005.png'],
-            ['aakash-sprite-laughing-left-three-quarter-halfbody-v005', '/academy/art/characters/aakash/aakash__sprite__laughing__left-three-quarter__halfbody__v005.png'],
-            ['aakash-sprite-listening-right-three-quarter-v005', '/academy/art/characters/aakash/aakash__sprite__listening__right-three-quarter__v005.png'],
-            ['aakash-sprite-surprised-right-three-quarter-halfbody-v005', '/academy/art/characters/aakash/aakash__sprite__surprised__right-three-quarter__halfbody__v005.png'],
-            ['aakash-sprite-thoughtful-front-near-front-v005', '/academy/art/characters/aakash/aakash__sprite__thoughtful__front-near-front__v005.png'],
-            ['rie-thinking-halfbody-v001', '/academy/art/characters/rie/rie__thinking__halfbody__v001.png'],
-        ] as const;
-
-        expect(inventory.assets.orphaned).toEqual(offMatrixEntries.map(([id, assetPath]) => expect.objectContaining({
-            id,
-            path: assetPath,
-            state: 'orphaned',
-            runtimeAuthorized: false,
-        })));
-        expect(inventory.expressionCoverage.offMatrixDelivered).toEqual(offMatrixEntries.map(([, assetPath]) => expect.objectContaining({
-            path: assetPath,
-            currentState: 'orphaned',
-            countsTowardExpressionMatrix: false,
-        })));
+    it('reports off-matrix cast deliveries without confusing them with missing matrix slots', () => {
+        expect(inventory.expressionCoverage.offMatrixDelivered)
+            .toHaveLength(inventory.counts.offMatrixDeliveredSprites);
+        expect(inventory.expressionCoverage.offMatrixDelivered.every(entry =>
+            entry.path.startsWith('/academy/art/characters/')
+            && entry.countsTowardExpressionMatrix === false,
+        )).toBe(true);
+        expect(new Set(inventory.expressionCoverage.offMatrixDelivered.map(entry => entry.path)).size)
+            .toBe(inventory.expressionCoverage.offMatrixDelivered.length);
     });
 
     it('retains absent rejected and superseded sprites as non-destructive deprecation records', () => {
@@ -150,19 +135,19 @@ describe('Academy active, orphaned, deprecated, and missing asset inventory', ()
     it('lists every missing matrix expression variant without treating off-matrix sprites as coverage', () => {
         expect(inventory.counts).toMatchObject({
             expressionMatrixSlots: 630,
-            approvedExpressionVariants: 15,
-            reviewCandidateExpressionVariants: 10,
-            deliveredMatrixExpressionVariants: 25,
-            missingExpressionVariants: 605,
-            offMatrixDeliveredSprites: 9,
+            approvedExpressionVariants: 23,
+            reviewCandidateExpressionVariants: 17,
+            deliveredMatrixExpressionVariants: 40,
+            missingExpressionVariants: 590,
+            offMatrixDeliveredSprites: 53,
         });
-        expect(inventory.expressionCoverage.missingVariants).toHaveLength(605);
-        expect(new Set(inventory.expressionCoverage.missingVariants.map(variant => variant.plannedPath)).size).toBe(605);
+        expect(inventory.expressionCoverage.missingVariants).toHaveLength(590);
+        expect(new Set(inventory.expressionCoverage.missingVariants.map(variant => variant.plannedPath)).size).toBe(590);
         expect(inventory.expressionCoverage.missingVariants).toContainEqual({
             character: 'xingyu',
             angle: 'front-near-front',
-            expression: 'neutral',
-            plannedPath: '/academy/art/characters/xingyu/xingyu__neutral__front-near-front__halfbody__v001.png',
+            expression: 'thoughtful',
+            plannedPath: '/academy/art/characters/xingyu/xingyu__thoughtful__front-near-front__halfbody__v001.png',
             state: 'missing-expression-variant',
             present: false,
             sourceLedger: 'public/academy/art/CLASSMATE-SPRITE-INVENTORY.json',

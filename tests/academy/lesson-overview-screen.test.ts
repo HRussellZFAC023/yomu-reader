@@ -61,7 +61,7 @@ describe('lesson overview screen', () => {
         expect(screen.querySelector('[data-cast-id="rie"]')?.getAttribute('data-portrait-status')).toBe('approved');
         expect(screen.querySelectorAll('[data-portrait-status="unavailable"]')).toHaveLength(2);
         expect(screen.querySelector<HTMLImageElement>('[data-cast-id="xingyu"] img')?.src)
-            .toContain('/academy/art/characters/xingyu/xingyu__listening-halfbody-v2__v001.png');
+            .toContain('/academy/art/characters/xingyu/xingyu__neutral-short-hair-round-glasses__front-near-front__fullbody__v002.png');
         expect(screen.querySelector<HTMLImageElement>('[data-cast-id="mika"] img')?.src)
             .toContain('/academy/art/characters/mika/mika__encouraging-listening-headphones__right-three-quarter__fullbody__v002.png');
         expect(screen.querySelector('[data-cast-id="sophie"] img')).not.toBeNull();

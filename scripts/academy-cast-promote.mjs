@@ -3,6 +3,8 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import { refreshAcademyRuntimeArtPrecache } from './lib/academy-cast-offline-precache.mjs';
+import { reconcileAcademyLessonCastBindings } from './lib/academy-cast-usage-bindings.mjs';
 
 const repoRoot = path.resolve(import.meta.dirname, '..');
 const manifestFile = path.join(repoRoot, 'src/academy/domain/cast-standardization-manifest.ts');
@@ -124,12 +126,14 @@ source = replaceJsonConstant(source, 'ACADEMY_CAST_STANDARDIZATION_GALLERIES', g
 source = replaceJsonConstant(source, 'ACADEMY_CAST_STANDARDIZATION_SUMMARY', nextSummary);
 fs.writeFileSync(manifestFile, source);
 
+reconcileAcademyLessonCastBindings(usage, manifest);
 recountUsage(usage);
 const serializedUsage = `${JSON.stringify(usage, null, 2)}\n`;
 for (const usageFile of usageFiles) {
     fs.mkdirSync(path.dirname(usageFile), { recursive: true });
     fs.writeFileSync(usageFile, serializedUsage);
 }
+await refreshAcademyRuntimeArtPrecache(repoRoot);
 
 console.log(
     `Promoted ${spec.promotions.length} cast families; ${manifest.length} runtime sprites remain fully mapped.`,

@@ -169,7 +169,7 @@ function precacheUrls(source: string): string[] {
         return [...body.matchAll(/^\s*'([^']+)',?$/gmu)].map(match => match[1]);
     };
 
-    return [...readArray('CAST_SPRITE_PRECACHE'), ...readArray('CORE')];
+    return [...readArray('RUNTIME_ART_PRECACHE'), ...readArray('CORE')];
 }
 
 function hostedPathFor(rawUrl: string): string {

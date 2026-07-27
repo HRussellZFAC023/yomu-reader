@@ -18,8 +18,8 @@
     ]
   },
   "counts": {
-    "runtimeAssetHomes": 140,
-    "runtimeFiles": 174,
+    "runtimeAssetHomes": 145,
+    "runtimeFiles": 179,
     "nonRuntimeReviewFiles": 1734,
     "approvedReferenceOnly": 4,
     "explicitlyRejectedFamilies": 4,
@@ -32,8 +32,8 @@
       "sourceSceneReference": "academy/art/scenes/classroom-first-evening-wide.webp",
       "sceneAssetId": "classroom-evening-lamplit",
       "approvedCastAssetIds": {
-        "rie": "rie-neutral-glasses-front-near-front-halfbody-v001",
-        "aakash": "aakash-neutral-front-near-front-v009"
+        "rie": "character-rie-neutral-glasses",
+        "aakash": "character-aakash-neutral"
       },
       "reviewOnlyCastCandidates": {},
       "itemAssetIds": [
@@ -3095,69 +3095,6 @@
         {
           "path": "/academy/art/characters/tom2/tom2__surprised-shocked__left-three-quarter__halfbody__v001.png",
           "sha256": "f0253f17a7a73bbe4b84c41630cfd1418fb244cc2397fe46af84ae19c6293eee"
-        }
-      ],
-      "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-    },
-    {
-      "id": "character-xingyu-listening",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "e79ef1bdd9bf21c90db50260c3114c0d5694ecf0c75a2ff62d6fc131a8f76c1a",
-      "provenance": "retained-good",
-      "verdict": "approved-runtime",
-      "runtimeHome": [
-        "lesson-zero:vowel-listening",
-        "game:lesson-zero-vowel-listening-bingo"
-      ],
-      "reviewHome": [],
-      "usage": {
-        "runtime": [
-          "lesson-zero:vowel-listening",
-          "game:lesson-zero-vowel-listening-bingo"
-        ],
-        "review": []
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/xingyu/xingyu__listening-halfbody-v2__v001.png",
-          "sha256": "e79ef1bdd9bf21c90db50260c3114c0d5694ecf0c75a2ff62d6fc131a8f76c1a"
-        }
-      ],
-      "status": "retained approved cast runtime sprite"
-    },
-    {
-      "id": "character-xingyu-standardized-neutral-front-near-front-halfbody-v001",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "e96fe03e0d00e8a926e3aad69ea1731a8833ff7f3475f0b1ab0a77ebfb094e5b",
-      "provenance": "regenerated-standardized",
-      "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": [
-        "journal:xingyu",
-        "class:people-review",
-        "lesson-overview:roster-review",
-        "cast-standardization:xingyu"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "learner-journal-preview"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:xingyu",
-          "class:people-review",
-          "lesson-overview:roster-review",
-          "cast-standardization:xingyu"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/xingyu/xingyu__standardized-neutral__front-near-front__halfbody__v001.png",
-          "sha256": "e96fe03e0d00e8a926e3aad69ea1731a8833ff7f3475f0b1ab0a77ebfb094e5b"
         }
       ],
       "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
@@ -11151,6 +11088,256 @@
         }
       ],
       "status": "owner-rejected-2026-07-14; must-not-bind-or-use-as-generation-reference"
+    },
+    {
+      "id": "character-xingyu-neutral-short-hair-round-glasses-front-near-front-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "769e6521d5fda73aa8ada1449b8c145d90d9d259d850576fbd8daeb5b3053c06",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:xingyu",
+        "class:people",
+        "class:week-cast",
+        "lesson-overview:roster",
+        "world:person",
+        "story:cast:xingyu",
+        "cast-standardization:xingyu"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:xingyu",
+          "class:people",
+          "class:week-cast",
+          "lesson-overview:roster",
+          "world:person",
+          "story:cast:xingyu",
+          "cast-standardization:xingyu"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/xingyu/xingyu__neutral-short-hair-round-glasses__front-near-front__fullbody__v002.png",
+          "sha256": "769e6521d5fda73aa8ada1449b8c145d90d9d259d850576fbd8daeb5b3053c06"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-xingyu-listening",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "c4b25e44aa9b8fb326ed6198d28b85b58068c4e4267727f44a0c2eef2e016b0a",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "lesson-zero:vowel-listening",
+        "game:lesson-zero-vowel-listening-bingo",
+        "journal:xingyu-expression-gallery",
+        "story:cast:xingyu:encouraging-listening",
+        "cast-standardization:xingyu"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "lesson-zero:vowel-listening",
+          "game:lesson-zero-vowel-listening-bingo",
+          "journal:xingyu-expression-gallery",
+          "story:cast:xingyu:encouraging-listening",
+          "cast-standardization:xingyu"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/xingyu/xingyu__encouraging-listening-short-hair-round-glasses__right-three-quarter__fullbody__v002.png",
+          "sha256": "c4b25e44aa9b8fb326ed6198d28b85b58068c4e4267727f44a0c2eef2e016b0a"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-xingyu-happy-short-hair-round-glasses-front-near-front-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "d8f8c4952a4bd14ea510da0098e0e55ea3c4d994c6c4e7b5dfb5a3893f7da3f8",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:xingyu-expression-gallery",
+        "story:cast:xingyu:happy",
+        "cast-standardization:xingyu"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:xingyu-expression-gallery",
+          "story:cast:xingyu:happy",
+          "cast-standardization:xingyu"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/xingyu/xingyu__happy-short-hair-round-glasses__front-near-front__fullbody__v002.png",
+          "sha256": "d8f8c4952a4bd14ea510da0098e0e55ea3c4d994c6c4e7b5dfb5a3893f7da3f8"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-xingyu-thoughtful-short-hair-round-glasses-left-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "24a85cd44336d251e162110c274c8095f3bec54433efda827b8e3817caa7c441",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:xingyu-expression-gallery",
+        "story:cast:xingyu:thoughtful",
+        "cast-standardization:xingyu"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:xingyu-expression-gallery",
+          "story:cast:xingyu:thoughtful",
+          "cast-standardization:xingyu"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/xingyu/xingyu__thoughtful-short-hair-round-glasses__left-three-quarter__fullbody__v002.png",
+          "sha256": "24a85cd44336d251e162110c274c8095f3bec54433efda827b8e3817caa7c441"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-xingyu-determined-short-hair-round-glasses-left-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "387f255fe210a4bc1e98dddc076c31f3e0259e11e40c35bf1fdd9bbf86765fe5",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:xingyu-expression-gallery",
+        "story:cast:xingyu:determined",
+        "cast-standardization:xingyu"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:xingyu-expression-gallery",
+          "story:cast:xingyu:determined",
+          "cast-standardization:xingyu"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/xingyu/xingyu__determined-short-hair-round-glasses__left-three-quarter__fullbody__v002.png",
+          "sha256": "387f255fe210a4bc1e98dddc076c31f3e0259e11e40c35bf1fdd9bbf86765fe5"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-xingyu-surprised-shocked-short-hair-round-glasses-right-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "ea25fcc0eb62350c86c2bb34aef2a2666afe05b8e03c01ae7f9fd142b95a36bf",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:xingyu-expression-gallery",
+        "story:cast:xingyu:surprised-shocked",
+        "cast-standardization:xingyu"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:xingyu-expression-gallery",
+          "story:cast:xingyu:surprised-shocked",
+          "cast-standardization:xingyu"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/xingyu/xingyu__surprised-shocked-short-hair-round-glasses__right-three-quarter__fullbody__v002.png",
+          "sha256": "ea25fcc0eb62350c86c2bb34aef2a2666afe05b8e03c01ae7f9fd142b95a36bf"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-xingyu-sad-vulnerable-short-hair-round-glasses-left-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "954e7f56442751a0ba499379b36bb2fd489c0937da0de1e4faad872b38b36ed6",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:xingyu-expression-gallery",
+        "story:cast:xingyu:sad-vulnerable",
+        "cast-standardization:xingyu"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:xingyu-expression-gallery",
+          "story:cast:xingyu:sad-vulnerable",
+          "cast-standardization:xingyu"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/xingyu/xingyu__sad-vulnerable-short-hair-round-glasses__left-three-quarter__fullbody__v002.png",
+          "sha256": "954e7f56442751a0ba499379b36bb2fd489c0937da0de1e4faad872b38b36ed6"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
     }
   ]
 }

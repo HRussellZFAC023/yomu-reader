@@ -4,20 +4,13 @@ import {
     type AcademyRuntimeAssetRecord,
 } from '../assets';
 import { ACADEMY_CAST, type AcademyCastMemberId } from './cast-registry';
+import { REQUIRED_CAST_PERFORMANCES } from './cast-identity-locks';
 import { ACADEMY_CAST_STANDARDIZATION_MANIFEST } from './cast-standardization-manifest';
 
 export const SPRITE_ANGLES = ['left-three-quarter', 'front-near-front', 'right-three-quarter'] as const;
 export type SpriteAngle = typeof SPRITE_ANGLES[number];
 
-export const SPRITE_EXPRESSIONS = [
-    'neutral',
-    'happy',
-    'encouraging-listening',
-    'surprised-shocked',
-    'sad-vulnerable',
-    'determined',
-    'comedic',
-] as const;
+export const SPRITE_EXPRESSIONS = REQUIRED_CAST_PERFORMANCES;
 export type SpriteExpression = typeof SPRITE_EXPRESSIONS[number];
 export type SpriteRasterPath = `/academy/art/characters/${string}`;
 
@@ -45,8 +38,9 @@ export interface SpritePoseContract {
 
 export interface UnmappedSpriteRaster {
     readonly label: string;
-    readonly status: 'review-candidate';
+    readonly status: 'approved' | 'review-candidate';
     readonly assetPath: SpriteRasterPath;
+    readonly approvedAssetId?: AcademyRuntimeAssetId;
     readonly note: string;
 }
 
@@ -117,13 +111,39 @@ type RasterCoverageMap = Partial<Record<
 >>;
 
 const RASTER_COVERAGE: RasterCoverageMap = {};
+const UNMAPPED_RASTERS: Partial<Record<AcademySpriteCastMemberId, UnmappedSpriteRaster[]>> = {};
 
 for (const slot of ACADEMY_CAST_STANDARDIZATION_MANIFEST) {
-    if (slot.coverageStatus === 'off-matrix') continue;
-    const expression = slot.expression as SpriteExpression;
-    const angle = slot.angle as SpriteAngle;
+    if (!isSpriteExpression(slot.expression) || !isSpriteAngle(slot.angle)) {
+        const extras = UNMAPPED_RASTERS[slot.castId] ??= [];
+        extras.push({
+            label: `${slot.expression}:${slot.angle}`,
+            status: slot.status === 'approved' ? 'approved' : 'review-candidate',
+            assetPath: slot.assetPath as SpriteRasterPath,
+            ...(slot.status === 'approved'
+                ? { approvedAssetId: slot.assetId as AcademyRuntimeAssetId }
+                : {}),
+            note: 'Useful expression outside the seven core production performances.',
+        });
+        continue;
+    }
+    const expression = slot.expression;
+    const angle = slot.angle;
     const castCoverage = RASTER_COVERAGE[slot.castId] ??= {};
     const angleCoverage = castCoverage[angle] ??= {};
+    if (angleCoverage[expression]) {
+        const extras = UNMAPPED_RASTERS[slot.castId] ??= [];
+        extras.push({
+            label: `${slot.expression}:${slot.angle}:alternate`,
+            status: slot.status === 'approved' ? 'approved' : 'review-candidate',
+            assetPath: slot.assetPath as SpriteRasterPath,
+            ...(slot.status === 'approved'
+                ? { approvedAssetId: slot.assetId as AcademyRuntimeAssetId }
+                : {}),
+            note: 'Alternate raster retained outside the one-image-per-performance matrix.',
+        });
+        continue;
+    }
     angleCoverage[expression] = slot.status === 'approved'
         ? {
             status: 'approved',
@@ -136,7 +156,13 @@ for (const slot of ACADEMY_CAST_STANDARDIZATION_MANIFEST) {
         };
 }
 
-const UNMAPPED_RASTERS: Partial<Record<AcademySpriteCastMemberId, readonly UnmappedSpriteRaster[]>> = {};
+function isSpriteExpression(value: string): value is SpriteExpression {
+    return (SPRITE_EXPRESSIONS as readonly string[]).includes(value);
+}
+
+function isSpriteAngle(value: string): value is SpriteAngle {
+    return (SPRITE_ANGLES as readonly string[]).includes(value);
+}
 
 function expressionCoverage(
     castId: AcademySpriteCastMemberId,
@@ -262,6 +288,19 @@ export function validateSpritePerformanceContract(
         const actualCoverage = summarizeCoverage(member.poses);
         if (JSON.stringify(actualCoverage) !== JSON.stringify(member.coverage)) {
             issues.push({ code: 'coverage-summary', message: `${castId} coverage counts do not match its expression cells.` });
+        }
+        for (const raster of member.unmappedRasters) {
+            if (raster.status !== 'approved') continue;
+            const registration = raster.approvedAssetId
+                ? ACADEMY_RUNTIME_ASSET_REGISTRY[raster.approvedAssetId]
+                : undefined;
+            if (!registration || registration.status !== 'approved'
+                || !registrationHasPath(registration, raster.assetPath)) {
+                issues.push({
+                    code: 'asset-evidence',
+                    message: `${castId}/${raster.label} extra raster is not backed by its approved runtime registration.`,
+                });
+            }
         }
     }
     return issues;

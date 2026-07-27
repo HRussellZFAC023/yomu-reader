@@ -76,7 +76,7 @@ describe('Academy character directory presentation', () => {
         expect(screen.querySelector('.academy-character-page')?.hasAttribute('hidden')).toBe(false);
     });
 
-    it('shows the approved glasses-first Rie trio as distinct journal expressions and angles', () => {
+    it('shows Rie’s complete retained expression gallery with distinct performances', () => {
         const screen = renderDirectory();
         screen.querySelector<HTMLButtonElement>('[data-character="rie"] button')?.click();
         const sprites = [...screen.querySelectorAll<HTMLImageElement>(
@@ -84,11 +84,15 @@ describe('Academy character directory presentation', () => {
         )];
 
         expect(sprites.map(sprite => [sprite.dataset.expression, sprite.dataset.angle])).toEqual([
-            ['neutral', 'front-near-front'],
+            ['comedic', 'right-three-quarter'],
             ['determined', 'left-three-quarter'],
             ['encouraging-listening', 'right-three-quarter'],
+            ['happy', 'front-near-front'],
+            ['neutral', 'front-near-front'],
+            ['sad-vulnerable', 'left-three-quarter'],
+            ['thoughtful', 'front-near-front'],
         ]);
-        expect(new Set(sprites.map(sprite => sprite.src)).size).toBe(3);
+        expect(new Set(sprites.map(sprite => sprite.src)).size).toBe(7);
     });
 
     it('wires Tom 2 review art and Steve approved art into unlocked character pages', async () => {
@@ -107,10 +111,10 @@ describe('Academy character directory presentation', () => {
             { onReplayRie: vi.fn(), onReplayAakash: vi.fn() },
         );
 
-        for (const characterId of ['tom2', 'steve']) {
+        for (const [characterId, expectedCount] of [['tom2', 3], ['steve', 5]] as const) {
             screen.querySelector<HTMLButtonElement>(`[data-character="${characterId}"] button`)?.click();
             const gallery = screen.querySelector<HTMLElement>(`.academy-character-sprite-gallery[data-character="${characterId}"]`)!;
-            expect(gallery.querySelectorAll('img')).toHaveLength(3);
+            expect(gallery.querySelectorAll('img')).toHaveLength(expectedCount);
             expect([...gallery.querySelectorAll<HTMLImageElement>('img')]
                 .every(image => image.src.includes(`/academy/art/characters/${characterId}/`))).toBe(true);
             screen.querySelector<HTMLButtonElement>('.academy-character-page-back')?.click();
@@ -155,21 +159,21 @@ describe('Academy character directory presentation', () => {
                 { kind: 'story-episode', targetId: 's1e04-welcome-frequency' },
             ],
         });
-        expect(xingyu.portrait).toContain('/characters/xingyu/xingyu__listening-halfbody-v2__v001.png');
+        expect(xingyu.portrait).toContain('/characters/xingyu/xingyu__neutral-short-hair-round-glasses__front-near-front__fullbody__v002.png');
         expect(peter.portrait).toContain('/characters/peter/peter__neutral__halfbody__v002.png');
         expect(felix.portrait).toContain('/characters/felix/felix__neutral__halfbody__v001.png');
 
         const entry = screen.querySelector<HTMLElement>('[data-character="xingyu"]')!;
         expect(entry.dataset.unlocked).toBe('true');
         expect(entry.querySelector<HTMLImageElement>('img')?.src)
-            .toContain('/characters/xingyu/xingyu__listening-halfbody-v2__v001.png');
+            .toContain('/characters/xingyu/xingyu__neutral-short-hair-round-glasses__front-near-front__fullbody__v002.png');
         expect(entry.querySelector('.academy-character-name')?.textContent).toBe('Xingyu-san');
         entry.querySelector<HTMLButtonElement>('button')?.click();
 
         const page = screen.querySelector<HTMLElement>('.academy-character-dossier[data-character="xingyu"]')!;
         expect(page.querySelector('h2')?.textContent).toBe('Xingyu-san');
         expect(page.querySelector<HTMLImageElement>('img')?.src)
-            .toContain('/characters/xingyu/xingyu__listening-halfbody-v2__v001.png');
+            .toContain('/characters/xingyu/xingyu__neutral-short-hair-round-glasses__front-near-front__fullbody__v002.png');
         const revisits = [...page.querySelectorAll<HTMLButtonElement>('.academy-character-revisit')];
         expect(revisits.map(button => [button.dataset.revisitKind, button.dataset.encounterId])).toEqual([
             ['class-week', 'class-week:l1-l03'],
@@ -182,22 +186,24 @@ describe('Academy character directory presentation', () => {
         screen.querySelector<HTMLButtonElement>('[data-character="peter"] button')?.click();
         const peterGallery = screen.querySelector<HTMLElement>('.academy-character-sprite-gallery[data-character="peter"]')!;
         const peterSprites = [...peterGallery.querySelectorAll<HTMLImageElement>('img')];
-        expect(peterSprites.map(sprite => sprite.dataset.angle)).toEqual([
+        expect(peterSprites).toHaveLength(3);
+        expect(new Set(peterSprites.map(sprite => sprite.dataset.angle))).toEqual(new Set([
             'left-three-quarter',
             'front-near-front',
             'right-three-quarter',
-        ]);
+        ]));
         expect(peterSprites.every(sprite => sprite.src.includes('/academy/art/characters/peter/'))).toBe(true);
 
         screen.querySelector<HTMLButtonElement>('.academy-character-page-back')?.click();
         screen.querySelector<HTMLButtonElement>('[data-character="felix"] button')?.click();
         const felixGallery = screen.querySelector<HTMLElement>('.academy-character-sprite-gallery[data-character="felix"]')!;
         const felixSprites = [...felixGallery.querySelectorAll<HTMLImageElement>('img')];
-        expect(felixSprites.map(sprite => sprite.dataset.angle)).toEqual([
+        expect(felixSprites).toHaveLength(4);
+        expect(new Set(felixSprites.map(sprite => sprite.dataset.angle))).toEqual(new Set([
             'left-three-quarter',
             'front-near-front',
             'right-three-quarter',
-        ]);
+        ]));
         expect(felixSprites.every(sprite => sprite.src.includes('/academy/art/characters/felix/'))).toBe(true);
         expect(screen.querySelector('.academy-character-dossier-gallery > .academy-journal-portrait')).toBeNull();
     });

@@ -4,6 +4,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import sharp from 'sharp';
+import { refreshAcademyRuntimeArtPrecache } from './lib/academy-cast-offline-precache.mjs';
 
 const repoRoot = path.resolve(import.meta.dirname, '..');
 const specFile = process.argv[2]
@@ -116,6 +117,7 @@ usage.assets.sort((left, right) => left.id.localeCompare(right.id));
 recountUsage(usage);
 const serializedUsage = `${JSON.stringify(usage, null, 2)}\n`;
 for (const usageFile of usageFiles) fs.writeFileSync(usageFile, serializedUsage);
+await refreshAcademyRuntimeArtPrecache(repoRoot);
 
 console.log(`Promoted ${spec.promotions.length} node-bound story art states.`);
 
