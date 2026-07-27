@@ -34,10 +34,10 @@
     "totalSlots": 630
   },
   "summary": {
-    "approved": 32,
+    "approved": 42,
     "reviewCandidates": 16,
-    "missing": 582,
-    "currentPhysicalRasters": 99,
+    "missing": 572,
+    "currentPhysicalRasters": 109,
     "currentOffMatrixRasters": 51,
     "historicalUniqueRasters": 469,
     "historicalOccurrences": 2016,
@@ -6315,13 +6315,56 @@
         "slots": 21
       },
       "progress": {
-        "approved": 2,
+        "approved": 7,
         "reviewCandidates": 0,
-        "missing": 19,
-        "deliveredPercent": 9.52,
-        "approvedPercent": 9.52
+        "missing": 14,
+        "deliveredPercent": 33.33,
+        "approvedPercent": 33.33
       },
       "currentAssets": [
+        {
+          "path": "/academy/art/characters/mika/mika__determined-headphones__left-three-quarter__fullbody__v002.png",
+          "sha256": "d46e4b87f5b5c0b7fbd6df3716b0e245e4660a5caff003e36a354639b3fba59f",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:mika-expression-gallery",
+              "story:cast:mika:determined",
+              "cast-standardization:mika"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "soft crouch beside a misplaced clue with hands loosely linked and head tilted to listen; left-three-quarter",
+          "angle": "left-three-quarter",
+          "expression": "determined",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:mika-expression-gallery",
+            "story:cast:mika:determined",
+            "cast-standardization:mika"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
         {
           "path": "/academy/art/characters/mika/mika__encouraging-listening-headphones__right-three-quarter__fullbody__v002.png",
           "sha256": "6595c33d7846f1656b4345a726a35b724fb47abd8b8405f323f7b905f5c42f05",
@@ -6355,6 +6398,49 @@
           "runtimeUses": [
             "journal:mika-expression-gallery",
             "story:mika-listening",
+            "cast-standardization:mika"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/mika/mika__happy-headphones__front-near-front__fullbody__v002.png",
+          "sha256": "5271edf8adf804c48f5734d23a696d3495281041beae7609f8aab3ec1efdfb26",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:mika-expression-gallery",
+              "story:cast:mika:happy",
+              "cast-standardization:mika"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "soft crouch beside a misplaced clue with hands loosely linked and head tilted to listen; front-near-front",
+          "angle": "front-near-front",
+          "expression": "happy",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:mika-expression-gallery",
+            "story:cast:mika:happy",
             "cast-standardization:mika"
           ],
           "reviewUses": [
@@ -6413,6 +6499,135 @@
           "decision": "keep",
           "migrationStatus": "approved-and-registered",
           "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/mika/mika__sad-vulnerable-headphones__left-three-quarter__fullbody__v002.png",
+          "sha256": "276c0db9b340c4187866e4c80be586b4e78140732a6bba4a2b31fe13003b2b0d",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:mika-expression-gallery",
+              "story:cast:mika:sad-vulnerable",
+              "cast-standardization:mika"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "soft crouch beside a misplaced clue with hands loosely linked and head tilted to listen; left-three-quarter",
+          "angle": "left-three-quarter",
+          "expression": "sad-vulnerable",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:mika-expression-gallery",
+            "story:cast:mika:sad-vulnerable",
+            "cast-standardization:mika"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/mika/mika__surprised-shocked-headphones__right-three-quarter__fullbody__v002.png",
+          "sha256": "a7d38bb13c8db6c05ed528ace3007e1ff85d5523a37f9fea1476d70297f5719c",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:mika-expression-gallery",
+              "story:cast:mika:surprised-shocked",
+              "cast-standardization:mika"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "soft crouch beside a misplaced clue with hands loosely linked and head tilted to listen; right-three-quarter",
+          "angle": "right-three-quarter",
+          "expression": "surprised-shocked",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:mika-expression-gallery",
+            "story:cast:mika:surprised-shocked",
+            "cast-standardization:mika"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/mika/mika__thoughtful-headphones__left-three-quarter__fullbody__v002.png",
+          "sha256": "95426c16ef1b34d19ca1ef36029cef50d5461d2211e22585486f65dfb35cf7ab",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:mika-expression-gallery",
+              "story:cast:mika:thoughtful",
+              "cast-standardization:mika"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "soft crouch beside a misplaced clue with hands loosely linked and head tilted to listen; left-three-quarter",
+          "angle": "left-three-quarter",
+          "expression": "thoughtful",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:mika-expression-gallery",
+            "story:cast:mika:thoughtful",
+            "cast-standardization:mika"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
         }
       ],
       "requiredVariants": [
@@ -6440,16 +6655,14 @@
         {
           "angle": "left-three-quarter",
           "expression": "thoughtful",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/mika/mika__thoughtful__left-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/mika/mika__thoughtful-headphones__left-three-quarter__fullbody__v002.png"
         },
         {
           "angle": "left-three-quarter",
           "expression": "determined",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/mika/mika__determined__left-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/mika/mika__determined-headphones__left-three-quarter__fullbody__v002.png"
         },
         {
           "angle": "left-three-quarter",
@@ -6461,9 +6674,8 @@
         {
           "angle": "left-three-quarter",
           "expression": "sad-vulnerable",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/mika/mika__sad-vulnerable__left-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/mika/mika__sad-vulnerable-headphones__left-three-quarter__fullbody__v002.png"
         },
         {
           "angle": "front-near-front",
@@ -6481,9 +6693,8 @@
         {
           "angle": "front-near-front",
           "expression": "happy",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/mika/mika__happy__front-near-front__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/mika/mika__happy-headphones__front-near-front__fullbody__v002.png"
         },
         {
           "angle": "front-near-front",
@@ -6550,9 +6761,8 @@
         {
           "angle": "right-three-quarter",
           "expression": "surprised-shocked",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/mika/mika__surprised-shocked__right-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/mika/mika__surprised-shocked-headphones__right-three-quarter__fullbody__v002.png"
         },
         {
           "angle": "right-three-quarter",
@@ -6586,31 +6796,10 @@
         },
         {
           "angle": "left-three-quarter",
-          "expression": "thoughtful",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/mika/mika__thoughtful__left-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "left-three-quarter",
-          "expression": "determined",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/mika/mika__determined__left-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "left-three-quarter",
           "expression": "surprised-shocked",
           "status": "missing",
           "path": null,
           "plannedPath": "/academy/art/characters/mika/mika__surprised-shocked__left-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "left-three-quarter",
-          "expression": "sad-vulnerable",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/mika/mika__sad-vulnerable__left-three-quarter__halfbody__v001.png"
         },
         {
           "angle": "front-near-front",
@@ -6618,13 +6807,6 @@
           "status": "missing",
           "path": null,
           "plannedPath": "/academy/art/characters/mika/mika__encouraging-listening__front-near-front__halfbody__v001.png"
-        },
-        {
-          "angle": "front-near-front",
-          "expression": "happy",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/mika/mika__happy__front-near-front__halfbody__v001.png"
         },
         {
           "angle": "front-near-front",
@@ -6681,13 +6863,6 @@
           "status": "missing",
           "path": null,
           "plannedPath": "/academy/art/characters/mika/mika__determined__right-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "right-three-quarter",
-          "expression": "surprised-shocked",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/mika/mika__surprised-shocked__right-three-quarter__halfbody__v001.png"
         },
         {
           "angle": "right-three-quarter",
@@ -12224,13 +12399,56 @@
         "slots": 21
       },
       "progress": {
-        "approved": 2,
+        "approved": 7,
         "reviewCandidates": 0,
-        "missing": 19,
-        "deliveredPercent": 9.52,
-        "approvedPercent": 9.52
+        "missing": 14,
+        "deliveredPercent": 33.33,
+        "approvedPercent": 33.33
       },
       "currentAssets": [
+        {
+          "path": "/academy/art/characters/mira/mira__determined-umbrella__left-three-quarter__fullbody__v002.png",
+          "sha256": "f15fbfedcdd4fff07d6851499c55c05ab93d4f0c0706dffce1c1ffd343fa400e",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:mira-expression-gallery",
+              "story:cast:mira:determined",
+              "cast-standardization:mira"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "library book nested against one curved forearm while a clear umbrella rests closed at her side; left-three-quarter",
+          "angle": "left-three-quarter",
+          "expression": "determined",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:mira-expression-gallery",
+            "story:cast:mira:determined",
+            "cast-standardization:mira"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
         {
           "path": "/academy/art/characters/mira/mira__encouraging-listening-umbrella__right-three-quarter__fullbody__v002.png",
           "sha256": "837eede8fe230839c96a4e7183ffe6592246c64f9863960f6b9373093d879118",
@@ -12264,6 +12482,49 @@
           "runtimeUses": [
             "journal:mira-expression-gallery",
             "story:mira-listening",
+            "cast-standardization:mira"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/mira/mira__happy-umbrella__front-near-front__fullbody__v002.png",
+          "sha256": "43907bb2227235eccc96fee84e16018978c480744f6fa85720e8b4a7b90d6ef8",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:mira-expression-gallery",
+              "story:cast:mira:happy",
+              "cast-standardization:mira"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "library book nested against one curved forearm while a clear umbrella rests closed at her side; front-near-front",
+          "angle": "front-near-front",
+          "expression": "happy",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:mira-expression-gallery",
+            "story:cast:mira:happy",
             "cast-standardization:mira"
           ],
           "reviewUses": [
@@ -12322,6 +12583,135 @@
           "decision": "keep",
           "migrationStatus": "approved-and-registered",
           "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/mira/mira__sad-vulnerable-umbrella__left-three-quarter__fullbody__v002.png",
+          "sha256": "87c2d98bdda50e332a8ffd6ec0be979d90b51159f1545080b2fc83ab9f8291a4",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:mira-expression-gallery",
+              "story:cast:mira:sad-vulnerable",
+              "cast-standardization:mira"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "library book nested against one curved forearm while a clear umbrella rests closed at her side; left-three-quarter",
+          "angle": "left-three-quarter",
+          "expression": "sad-vulnerable",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:mira-expression-gallery",
+            "story:cast:mira:sad-vulnerable",
+            "cast-standardization:mira"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/mira/mira__surprised-shocked-umbrella__right-three-quarter__fullbody__v002.png",
+          "sha256": "27b844d843f7bb56f78d9495810e04f664e074162e28cd2acc30145a51da07e0",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:mira-expression-gallery",
+              "story:cast:mira:surprised-shocked",
+              "cast-standardization:mira"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "library book nested against one curved forearm while a clear umbrella rests closed at her side; right-three-quarter",
+          "angle": "right-three-quarter",
+          "expression": "surprised-shocked",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:mira-expression-gallery",
+            "story:cast:mira:surprised-shocked",
+            "cast-standardization:mira"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/mira/mira__thoughtful-umbrella__left-three-quarter__fullbody__v002.png",
+          "sha256": "0beee7fb0785bcbe2b234c9ab3613f42b39cb5c79e7a9694b94bac11f8ff8220",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:mira-expression-gallery",
+              "story:cast:mira:thoughtful",
+              "cast-standardization:mira"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "library book nested against one curved forearm while a clear umbrella rests closed at her side; left-three-quarter",
+          "angle": "left-three-quarter",
+          "expression": "thoughtful",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:mira-expression-gallery",
+            "story:cast:mira:thoughtful",
+            "cast-standardization:mira"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
         }
       ],
       "requiredVariants": [
@@ -12349,16 +12739,14 @@
         {
           "angle": "left-three-quarter",
           "expression": "thoughtful",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/mira/mira__thoughtful__left-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/mira/mira__thoughtful-umbrella__left-three-quarter__fullbody__v002.png"
         },
         {
           "angle": "left-three-quarter",
           "expression": "determined",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/mira/mira__determined__left-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/mira/mira__determined-umbrella__left-three-quarter__fullbody__v002.png"
         },
         {
           "angle": "left-three-quarter",
@@ -12370,9 +12758,8 @@
         {
           "angle": "left-three-quarter",
           "expression": "sad-vulnerable",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/mira/mira__sad-vulnerable__left-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/mira/mira__sad-vulnerable-umbrella__left-three-quarter__fullbody__v002.png"
         },
         {
           "angle": "front-near-front",
@@ -12390,9 +12777,8 @@
         {
           "angle": "front-near-front",
           "expression": "happy",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/mira/mira__happy__front-near-front__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/mira/mira__happy-umbrella__front-near-front__fullbody__v002.png"
         },
         {
           "angle": "front-near-front",
@@ -12459,9 +12845,8 @@
         {
           "angle": "right-three-quarter",
           "expression": "surprised-shocked",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/mira/mira__surprised-shocked__right-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/mira/mira__surprised-shocked-umbrella__right-three-quarter__fullbody__v002.png"
         },
         {
           "angle": "right-three-quarter",
@@ -12495,31 +12880,10 @@
         },
         {
           "angle": "left-three-quarter",
-          "expression": "thoughtful",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/mira/mira__thoughtful__left-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "left-three-quarter",
-          "expression": "determined",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/mira/mira__determined__left-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "left-three-quarter",
           "expression": "surprised-shocked",
           "status": "missing",
           "path": null,
           "plannedPath": "/academy/art/characters/mira/mira__surprised-shocked__left-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "left-three-quarter",
-          "expression": "sad-vulnerable",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/mira/mira__sad-vulnerable__left-three-quarter__halfbody__v001.png"
         },
         {
           "angle": "front-near-front",
@@ -12527,13 +12891,6 @@
           "status": "missing",
           "path": null,
           "plannedPath": "/academy/art/characters/mira/mira__encouraging-listening__front-near-front__halfbody__v001.png"
-        },
-        {
-          "angle": "front-near-front",
-          "expression": "happy",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/mira/mira__happy__front-near-front__halfbody__v001.png"
         },
         {
           "angle": "front-near-front",
@@ -12590,13 +12947,6 @@
           "status": "missing",
           "path": null,
           "plannedPath": "/academy/art/characters/mira/mira__determined__right-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "right-three-quarter",
-          "expression": "surprised-shocked",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/mira/mira__surprised-shocked__right-three-quarter__halfbody__v001.png"
         },
         {
           "angle": "right-three-quarter",

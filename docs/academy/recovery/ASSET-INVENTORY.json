@@ -19,20 +19,20 @@
     "deletion": "This audit never deletes, moves, or mutates Academy raster files."
   },
   "counts": {
-    "currentRasterFiles": 236,
-    "currentRasterFilesAccountedFor": 236,
-    "active": 183,
+    "currentRasterFiles": 238,
+    "currentRasterFilesAccountedFor": 238,
+    "active": 185,
     "orphaned": 53,
     "deprecated": 10,
     "deprecatedPresent": 0,
-    "missingExpressionVariants": 582,
+    "missingExpressionVariants": 572,
     "expressionMatrixSlots": 630,
-    "approvedExpressionVariants": 32,
+    "approvedExpressionVariants": 42,
     "reviewCandidateExpressionVariants": 16,
-    "deliveredMatrixExpressionVariants": 48,
+    "deliveredMatrixExpressionVariants": 58,
     "offMatrixDeliveredSprites": 51,
     "activeByKind": {
-      "character-sprite": 97,
+      "character-sprite": 99,
       "protagonist-portrait": 4,
       "scene-background": 66,
       "scene-event": 8,
@@ -1272,6 +1272,52 @@
         "sourceLedger": "public/academy/art/ASSET-USAGE.json",
         "ledgerVerdict": "approved-runtime",
         "ledgerStatus": "retained approved cast runtime sprite"
+      },
+      {
+        "id": "character-rie-surprised-shocked-glasses-right",
+        "path": "/academy/art/characters/rie/rie__surprised-shocked-glasses__right-three-quarter__halfbody__v002.png",
+        "sha256": "c29ef34f89d4e4943b0874779e23b053fd43a7a7fe504c2e8e265d9c0ffe49be",
+        "ledgerSha256": "c29ef34f89d4e4943b0874779e23b053fd43a7a7fe504c2e8e265d9c0ffe49be",
+        "kind": "character-sprite",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "dialogue:rie-surprised",
+          "journal:rie-expression-gallery",
+          "story:cast:rie:surprised-shocked",
+          "cast-standardization:rie"
+        ],
+        "reviewHomes": [
+          "cast-standardization-manifest",
+          "identity-lock"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
+      },
+      {
+        "id": "character-rie-thoughtful-glasses-left",
+        "path": "/academy/art/characters/rie/rie__thoughtful-glasses__left-three-quarter__halfbody__v002.png",
+        "sha256": "ba9df46621afb9265549074ff7f2c8e6573c905a76612b0ad3964b3e31540d61",
+        "ledgerSha256": "ba9df46621afb9265549074ff7f2c8e6573c905a76612b0ad3964b3e31540d61",
+        "kind": "character-sprite",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "dialogue:rie-reflection",
+          "journal:rie-expression-gallery",
+          "story:cast:rie:thoughtful",
+          "cast-standardization:rie"
+        ],
+        "reviewHomes": [
+          "cast-standardization-manifest",
+          "identity-lock"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
       },
       {
         "id": "character-robert-standardized-encouraging-listening-front-near-front-halfbody-v001",
@@ -6881,15 +6927,6 @@
       {
         "character": "mika",
         "angle": "front-near-front",
-        "expression": "happy",
-        "plannedPath": "/academy/art/characters/mika/mika__happy__front-near-front__halfbody__v001.png",
-        "state": "missing-expression-variant",
-        "present": false,
-        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
-      },
-      {
-        "character": "mika",
-        "angle": "front-near-front",
         "expression": "sad-vulnerable",
         "plannedPath": "/academy/art/characters/mika/mika__sad-vulnerable__front-near-front__halfbody__v001.png",
         "state": "missing-expression-variant",
@@ -6910,15 +6947,6 @@
         "angle": "front-near-front",
         "expression": "thoughtful",
         "plannedPath": "/academy/art/characters/mika/mika__thoughtful__front-near-front__halfbody__v001.png",
-        "state": "missing-expression-variant",
-        "present": false,
-        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
-      },
-      {
-        "character": "mika",
-        "angle": "left-three-quarter",
-        "expression": "determined",
-        "plannedPath": "/academy/art/characters/mika/mika__determined__left-three-quarter__halfbody__v001.png",
         "state": "missing-expression-variant",
         "present": false,
         "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
@@ -6953,26 +6981,8 @@
       {
         "character": "mika",
         "angle": "left-three-quarter",
-        "expression": "sad-vulnerable",
-        "plannedPath": "/academy/art/characters/mika/mika__sad-vulnerable__left-three-quarter__halfbody__v001.png",
-        "state": "missing-expression-variant",
-        "present": false,
-        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
-      },
-      {
-        "character": "mika",
-        "angle": "left-three-quarter",
         "expression": "surprised-shocked",
         "plannedPath": "/academy/art/characters/mika/mika__surprised-shocked__left-three-quarter__halfbody__v001.png",
-        "state": "missing-expression-variant",
-        "present": false,
-        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
-      },
-      {
-        "character": "mika",
-        "angle": "left-three-quarter",
-        "expression": "thoughtful",
-        "plannedPath": "/academy/art/characters/mika/mika__thoughtful__left-three-quarter__halfbody__v001.png",
         "state": "missing-expression-variant",
         "present": false,
         "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
@@ -7009,15 +7019,6 @@
         "angle": "right-three-quarter",
         "expression": "sad-vulnerable",
         "plannedPath": "/academy/art/characters/mika/mika__sad-vulnerable__right-three-quarter__halfbody__v001.png",
-        "state": "missing-expression-variant",
-        "present": false,
-        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
-      },
-      {
-        "character": "mika",
-        "angle": "right-three-quarter",
-        "expression": "surprised-shocked",
-        "plannedPath": "/academy/art/characters/mika/mika__surprised-shocked__right-three-quarter__halfbody__v001.png",
         "state": "missing-expression-variant",
         "present": false,
         "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
@@ -7241,15 +7242,6 @@
       {
         "character": "mira",
         "angle": "front-near-front",
-        "expression": "happy",
-        "plannedPath": "/academy/art/characters/mira/mira__happy__front-near-front__halfbody__v001.png",
-        "state": "missing-expression-variant",
-        "present": false,
-        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
-      },
-      {
-        "character": "mira",
-        "angle": "front-near-front",
         "expression": "sad-vulnerable",
         "plannedPath": "/academy/art/characters/mira/mira__sad-vulnerable__front-near-front__halfbody__v001.png",
         "state": "missing-expression-variant",
@@ -7270,15 +7262,6 @@
         "angle": "front-near-front",
         "expression": "thoughtful",
         "plannedPath": "/academy/art/characters/mira/mira__thoughtful__front-near-front__halfbody__v001.png",
-        "state": "missing-expression-variant",
-        "present": false,
-        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
-      },
-      {
-        "character": "mira",
-        "angle": "left-three-quarter",
-        "expression": "determined",
-        "plannedPath": "/academy/art/characters/mira/mira__determined__left-three-quarter__halfbody__v001.png",
         "state": "missing-expression-variant",
         "present": false,
         "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
@@ -7313,26 +7296,8 @@
       {
         "character": "mira",
         "angle": "left-three-quarter",
-        "expression": "sad-vulnerable",
-        "plannedPath": "/academy/art/characters/mira/mira__sad-vulnerable__left-three-quarter__halfbody__v001.png",
-        "state": "missing-expression-variant",
-        "present": false,
-        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
-      },
-      {
-        "character": "mira",
-        "angle": "left-three-quarter",
         "expression": "surprised-shocked",
         "plannedPath": "/academy/art/characters/mira/mira__surprised-shocked__left-three-quarter__halfbody__v001.png",
-        "state": "missing-expression-variant",
-        "present": false,
-        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
-      },
-      {
-        "character": "mira",
-        "angle": "left-three-quarter",
-        "expression": "thoughtful",
-        "plannedPath": "/academy/art/characters/mira/mira__thoughtful__left-three-quarter__halfbody__v001.png",
         "state": "missing-expression-variant",
         "present": false,
         "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
@@ -7369,15 +7334,6 @@
         "angle": "right-three-quarter",
         "expression": "sad-vulnerable",
         "plannedPath": "/academy/art/characters/mira/mira__sad-vulnerable__right-three-quarter__halfbody__v001.png",
-        "state": "missing-expression-variant",
-        "present": false,
-        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
-      },
-      {
-        "character": "mira",
-        "angle": "right-three-quarter",
-        "expression": "surprised-shocked",
-        "plannedPath": "/academy/art/characters/mira/mira__surprised-shocked__right-three-quarter__halfbody__v001.png",
         "state": "missing-expression-variant",
         "present": false,
         "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"

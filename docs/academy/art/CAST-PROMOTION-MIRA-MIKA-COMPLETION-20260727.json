@@ -1,0 +1,142 @@
+{
+  "promotions": [
+    {
+      "castId": "mira",
+      "archiveLabel": "identity-confused-style-superseded-20260727",
+      "replaceExpressions": [
+        "happy",
+        "thoughtful",
+        "determined",
+        "surprised-shocked",
+        "sad-vulnerable"
+      ],
+      "canonicalNeutralAssetId": "character.mira.neutral-umbrella-front-near-front-fullbody-v002",
+      "slots": [
+        {
+          "assetId": "character.mira.happy-umbrella-front-near-front-fullbody-v002",
+          "expression": "happy",
+          "angle": "front-near-front",
+          "assetPath": "/academy/art/characters/mira/mira__happy-umbrella__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:mira-expression-gallery",
+            "story:cast:mira:happy",
+            "cast-standardization:mira"
+          ]
+        },
+        {
+          "assetId": "character.mira.thoughtful-umbrella-left-three-quarter-fullbody-v002",
+          "expression": "thoughtful",
+          "angle": "left-three-quarter",
+          "assetPath": "/academy/art/characters/mira/mira__thoughtful-umbrella__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:mira-expression-gallery",
+            "story:cast:mira:thoughtful",
+            "cast-standardization:mira"
+          ]
+        },
+        {
+          "assetId": "character.mira.determined-umbrella-left-three-quarter-fullbody-v002",
+          "expression": "determined",
+          "angle": "left-three-quarter",
+          "assetPath": "/academy/art/characters/mira/mira__determined-umbrella__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:mira-expression-gallery",
+            "story:cast:mira:determined",
+            "cast-standardization:mira"
+          ]
+        },
+        {
+          "assetId": "character.mira.surprised-shocked-umbrella-right-three-quarter-fullbody-v002",
+          "expression": "surprised-shocked",
+          "angle": "right-three-quarter",
+          "assetPath": "/academy/art/characters/mira/mira__surprised-shocked-umbrella__right-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:mira-expression-gallery",
+            "story:cast:mira:surprised-shocked",
+            "cast-standardization:mira"
+          ]
+        },
+        {
+          "assetId": "character.mira.sad-vulnerable-umbrella-left-three-quarter-fullbody-v002",
+          "expression": "sad-vulnerable",
+          "angle": "left-three-quarter",
+          "assetPath": "/academy/art/characters/mira/mira__sad-vulnerable-umbrella__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:mira-expression-gallery",
+            "story:cast:mira:sad-vulnerable",
+            "cast-standardization:mira"
+          ]
+        }
+      ]
+    },
+    {
+      "castId": "mika",
+      "archiveLabel": "identity-confused-style-superseded-20260727",
+      "replaceExpressions": [
+        "happy",
+        "thoughtful",
+        "determined",
+        "surprised-shocked",
+        "sad-vulnerable"
+      ],
+      "canonicalNeutralAssetId": "character.mika.neutral-headphones-front-near-front-fullbody-v002",
+      "slots": [
+        {
+          "assetId": "character.mika.happy-headphones-front-near-front-fullbody-v002",
+          "expression": "happy",
+          "angle": "front-near-front",
+          "assetPath": "/academy/art/characters/mika/mika__happy-headphones__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:mika-expression-gallery",
+            "story:cast:mika:happy",
+            "cast-standardization:mika"
+          ]
+        },
+        {
+          "assetId": "character.mika.thoughtful-headphones-left-three-quarter-fullbody-v002",
+          "expression": "thoughtful",
+          "angle": "left-three-quarter",
+          "assetPath": "/academy/art/characters/mika/mika__thoughtful-headphones__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:mika-expression-gallery",
+            "story:cast:mika:thoughtful",
+            "cast-standardization:mika"
+          ]
+        },
+        {
+          "assetId": "character.mika.determined-headphones-left-three-quarter-fullbody-v002",
+          "expression": "determined",
+          "angle": "left-three-quarter",
+          "assetPath": "/academy/art/characters/mika/mika__determined-headphones__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:mika-expression-gallery",
+            "story:cast:mika:determined",
+            "cast-standardization:mika"
+          ]
+        },
+        {
+          "assetId": "character.mika.surprised-shocked-headphones-right-three-quarter-fullbody-v002",
+          "expression": "surprised-shocked",
+          "angle": "right-three-quarter",
+          "assetPath": "/academy/art/characters/mika/mika__surprised-shocked-headphones__right-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:mika-expression-gallery",
+            "story:cast:mika:surprised-shocked",
+            "cast-standardization:mika"
+          ]
+        },
+        {
+          "assetId": "character.mika.sad-vulnerable-headphones-left-three-quarter-fullbody-v002",
+          "expression": "sad-vulnerable",
+          "angle": "left-three-quarter",
+          "assetPath": "/academy/art/characters/mika/mika__sad-vulnerable-headphones__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:mika-expression-gallery",
+            "story:cast:mika:sad-vulnerable",
+            "cast-standardization:mika"
+          ]
+        }
+      ]
+    }
+  ]
+}

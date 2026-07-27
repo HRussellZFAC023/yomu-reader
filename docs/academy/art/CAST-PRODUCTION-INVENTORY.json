@@ -29,9 +29,9 @@
     "cast": 30,
     "requiredPerformancesPerCast": 7,
     "requiredSlots": 210,
-    "integratedSlots": 25,
-    "missingSlots": 185,
-    "ownerCorrectionQueue": 87,
+    "integratedSlots": 35,
+    "missingSlots": 175,
+    "ownerCorrectionQueue": 77,
     "storyCriticalQueue": 63,
     "rosterCompletionQueue": 35
   },
@@ -1092,8 +1092,8 @@
       "priority": "owner-correction",
       "summary": {
         "required": 7,
-        "integrated": 2,
-        "missing": 5
+        "integrated": 7,
+        "missing": 0
       },
       "performances": [
         {
@@ -1126,42 +1126,62 @@
         {
           "expression": "happy",
           "preferredAngle": "front-near-front",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.mika.happy-headphones-front-near-front-fullbody-v002",
+          "assetPath": "/academy/art/characters/mika/mika__happy-headphones__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:mika-expression-gallery",
+            "story:cast:mika:happy",
+            "cast-standardization:mika"
+          ]
         },
         {
           "expression": "thoughtful",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.mika.thoughtful-headphones-left-three-quarter-fullbody-v002",
+          "assetPath": "/academy/art/characters/mika/mika__thoughtful-headphones__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:mika-expression-gallery",
+            "story:cast:mika:thoughtful",
+            "cast-standardization:mika"
+          ]
         },
         {
           "expression": "determined",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.mika.determined-headphones-left-three-quarter-fullbody-v002",
+          "assetPath": "/academy/art/characters/mika/mika__determined-headphones__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:mika-expression-gallery",
+            "story:cast:mika:determined",
+            "cast-standardization:mika"
+          ]
         },
         {
           "expression": "surprised-shocked",
           "preferredAngle": "right-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.mika.surprised-shocked-headphones-right-three-quarter-fullbody-v002",
+          "assetPath": "/academy/art/characters/mika/mika__surprised-shocked-headphones__right-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:mika-expression-gallery",
+            "story:cast:mika:surprised-shocked",
+            "cast-standardization:mika"
+          ]
         },
         {
           "expression": "sad-vulnerable",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.mika.sad-vulnerable-headphones-left-three-quarter-fullbody-v002",
+          "assetPath": "/academy/art/characters/mika/mika__sad-vulnerable-headphones__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:mika-expression-gallery",
+            "story:cast:mika:sad-vulnerable",
+            "cast-standardization:mika"
+          ]
         }
       ]
     },
@@ -2183,8 +2203,8 @@
       "priority": "owner-correction",
       "summary": {
         "required": 7,
-        "integrated": 2,
-        "missing": 5
+        "integrated": 7,
+        "missing": 0
       },
       "performances": [
         {
@@ -2217,42 +2237,62 @@
         {
           "expression": "happy",
           "preferredAngle": "front-near-front",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.mira.happy-umbrella-front-near-front-fullbody-v002",
+          "assetPath": "/academy/art/characters/mira/mira__happy-umbrella__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:mira-expression-gallery",
+            "story:cast:mira:happy",
+            "cast-standardization:mira"
+          ]
         },
         {
           "expression": "thoughtful",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.mira.thoughtful-umbrella-left-three-quarter-fullbody-v002",
+          "assetPath": "/academy/art/characters/mira/mira__thoughtful-umbrella__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:mira-expression-gallery",
+            "story:cast:mira:thoughtful",
+            "cast-standardization:mira"
+          ]
         },
         {
           "expression": "determined",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.mira.determined-umbrella-left-three-quarter-fullbody-v002",
+          "assetPath": "/academy/art/characters/mira/mira__determined-umbrella__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:mira-expression-gallery",
+            "story:cast:mira:determined",
+            "cast-standardization:mira"
+          ]
         },
         {
           "expression": "surprised-shocked",
           "preferredAngle": "right-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.mira.surprised-shocked-umbrella-right-three-quarter-fullbody-v002",
+          "assetPath": "/academy/art/characters/mira/mira__surprised-shocked-umbrella__right-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:mira-expression-gallery",
+            "story:cast:mira:surprised-shocked",
+            "cast-standardization:mira"
+          ]
         },
         {
           "expression": "sad-vulnerable",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.mira.sad-vulnerable-umbrella-left-three-quarter-fullbody-v002",
+          "assetPath": "/academy/art/characters/mira/mira__sad-vulnerable-umbrella__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:mira-expression-gallery",
+            "story:cast:mira:sad-vulnerable",
+            "cast-standardization:mira"
+          ]
         }
       ]
     },
@@ -4608,151 +4648,6 @@
       "status": "queued"
     },
     {
-      "key": "mika:happy",
-      "castId": "mika",
-      "displayName": "Mika",
-      "identityKey": "mika-blond-male-headphones",
-      "expression": "happy",
-      "angle": "front-near-front",
-      "priority": "owner-correction",
-      "storyLines": 17,
-      "visualLock": "Blond White/European man with a shy thoughtful expression; unmistakably male.",
-      "wardrobeLock": "Dark overshirt over a moss knit, black over-ear headphones around his neck.",
-      "reject": [
-        "female presentation",
-        "dark hair",
-        "Mira umbrella outfit",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:mika-expression-gallery",
-        "story:cast:mika:happy"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "mika:thoughtful",
-      "castId": "mika",
-      "displayName": "Mika",
-      "identityKey": "mika-blond-male-headphones",
-      "expression": "thoughtful",
-      "angle": "left-three-quarter",
-      "priority": "owner-correction",
-      "storyLines": 17,
-      "visualLock": "Blond White/European man with a shy thoughtful expression; unmistakably male.",
-      "wardrobeLock": "Dark overshirt over a moss knit, black over-ear headphones around his neck.",
-      "reject": [
-        "female presentation",
-        "dark hair",
-        "Mira umbrella outfit",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:mika-expression-gallery",
-        "story:cast:mika:thoughtful"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "mika:determined",
-      "castId": "mika",
-      "displayName": "Mika",
-      "identityKey": "mika-blond-male-headphones",
-      "expression": "determined",
-      "angle": "left-three-quarter",
-      "priority": "owner-correction",
-      "storyLines": 17,
-      "visualLock": "Blond White/European man with a shy thoughtful expression; unmistakably male.",
-      "wardrobeLock": "Dark overshirt over a moss knit, black over-ear headphones around his neck.",
-      "reject": [
-        "female presentation",
-        "dark hair",
-        "Mira umbrella outfit",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:mika-expression-gallery",
-        "story:cast:mika:determined"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "mika:surprised-shocked",
-      "castId": "mika",
-      "displayName": "Mika",
-      "identityKey": "mika-blond-male-headphones",
-      "expression": "surprised-shocked",
-      "angle": "right-three-quarter",
-      "priority": "owner-correction",
-      "storyLines": 17,
-      "visualLock": "Blond White/European man with a shy thoughtful expression; unmistakably male.",
-      "wardrobeLock": "Dark overshirt over a moss knit, black over-ear headphones around his neck.",
-      "reject": [
-        "female presentation",
-        "dark hair",
-        "Mira umbrella outfit",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:mika-expression-gallery",
-        "story:cast:mika:surprised-shocked"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "mika:sad-vulnerable",
-      "castId": "mika",
-      "displayName": "Mika",
-      "identityKey": "mika-blond-male-headphones",
-      "expression": "sad-vulnerable",
-      "angle": "left-three-quarter",
-      "priority": "owner-correction",
-      "storyLines": 17,
-      "visualLock": "Blond White/European man with a shy thoughtful expression; unmistakably male.",
-      "wardrobeLock": "Dark overshirt over a moss knit, black over-ear headphones around his neck.",
-      "reject": [
-        "female presentation",
-        "dark hair",
-        "Mira umbrella outfit",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:mika-expression-gallery",
-        "story:cast:mika:sad-vulnerable"
-      ],
-      "status": "queued"
-    },
-    {
       "key": "sophie:neutral",
       "castId": "sophie",
       "displayName": "Sophie",
@@ -6955,151 +6850,6 @@
       "runtimeHomes": [
         "journal:nanako-expression-gallery",
         "story:cast:nanako:sad-vulnerable"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "mira:happy",
-      "castId": "mira",
-      "displayName": "Mira",
-      "identityKey": "mira-blond-cap-blue-hoodie-umbrella",
-      "expression": "happy",
-      "angle": "front-near-front",
-      "priority": "owner-correction",
-      "storyLines": 7,
-      "visualLock": "Fair-skinned adult woman with shoulder-length warm-blond hair, a black cap, and a direct playful expression.",
-      "wardrobeLock": "Oversized blue hoodie, cream wide-leg trousers, pale trainers, and a clear folded umbrella.",
-      "reject": [
-        "Miller identity",
-        "Mika male headphones identity",
-        "Rose identity",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:mira-expression-gallery",
-        "story:cast:mira:happy"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "mira:thoughtful",
-      "castId": "mira",
-      "displayName": "Mira",
-      "identityKey": "mira-blond-cap-blue-hoodie-umbrella",
-      "expression": "thoughtful",
-      "angle": "left-three-quarter",
-      "priority": "owner-correction",
-      "storyLines": 7,
-      "visualLock": "Fair-skinned adult woman with shoulder-length warm-blond hair, a black cap, and a direct playful expression.",
-      "wardrobeLock": "Oversized blue hoodie, cream wide-leg trousers, pale trainers, and a clear folded umbrella.",
-      "reject": [
-        "Miller identity",
-        "Mika male headphones identity",
-        "Rose identity",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:mira-expression-gallery",
-        "story:cast:mira:thoughtful"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "mira:determined",
-      "castId": "mira",
-      "displayName": "Mira",
-      "identityKey": "mira-blond-cap-blue-hoodie-umbrella",
-      "expression": "determined",
-      "angle": "left-three-quarter",
-      "priority": "owner-correction",
-      "storyLines": 7,
-      "visualLock": "Fair-skinned adult woman with shoulder-length warm-blond hair, a black cap, and a direct playful expression.",
-      "wardrobeLock": "Oversized blue hoodie, cream wide-leg trousers, pale trainers, and a clear folded umbrella.",
-      "reject": [
-        "Miller identity",
-        "Mika male headphones identity",
-        "Rose identity",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:mira-expression-gallery",
-        "story:cast:mira:determined"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "mira:surprised-shocked",
-      "castId": "mira",
-      "displayName": "Mira",
-      "identityKey": "mira-blond-cap-blue-hoodie-umbrella",
-      "expression": "surprised-shocked",
-      "angle": "right-three-quarter",
-      "priority": "owner-correction",
-      "storyLines": 7,
-      "visualLock": "Fair-skinned adult woman with shoulder-length warm-blond hair, a black cap, and a direct playful expression.",
-      "wardrobeLock": "Oversized blue hoodie, cream wide-leg trousers, pale trainers, and a clear folded umbrella.",
-      "reject": [
-        "Miller identity",
-        "Mika male headphones identity",
-        "Rose identity",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:mira-expression-gallery",
-        "story:cast:mira:surprised-shocked"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "mira:sad-vulnerable",
-      "castId": "mira",
-      "displayName": "Mira",
-      "identityKey": "mira-blond-cap-blue-hoodie-umbrella",
-      "expression": "sad-vulnerable",
-      "angle": "left-three-quarter",
-      "priority": "owner-correction",
-      "storyLines": 7,
-      "visualLock": "Fair-skinned adult woman with shoulder-length warm-blond hair, a black cap, and a direct playful expression.",
-      "wardrobeLock": "Oversized blue hoodie, cream wide-leg trousers, pale trainers, and a clear folded umbrella.",
-      "reject": [
-        "Miller identity",
-        "Mika male headphones identity",
-        "Rose identity",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:mira-expression-gallery",
-        "story:cast:mira:sad-vulnerable"
       ],
       "status": "queued"
     },

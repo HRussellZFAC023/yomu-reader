@@ -18,8 +18,8 @@
     ]
   },
   "counts": {
-    "runtimeAssetHomes": 151,
-    "runtimeFiles": 185,
+    "runtimeAssetHomes": 161,
+    "runtimeFiles": 195,
     "nonRuntimeReviewFiles": 1734,
     "approvedReferenceOnly": 4,
     "explicitlyRejectedFamilies": 4,
@@ -11553,6 +11553,346 @@
         {
           "path": "/academy/art/characters/rie/rie__surprised-shocked-glasses__right-three-quarter__halfbody__v002.png",
           "sha256": "c29ef34f89d4e4943b0874779e23b053fd43a7a7fe504c2e8e265d9c0ffe49be"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-mira-happy-umbrella-front-near-front-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "43907bb2227235eccc96fee84e16018978c480744f6fa85720e8b4a7b90d6ef8",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:mira-expression-gallery",
+        "story:cast:mira:happy",
+        "cast-standardization:mira"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:mira-expression-gallery",
+          "story:cast:mira:happy",
+          "cast-standardization:mira"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/mira/mira__happy-umbrella__front-near-front__fullbody__v002.png",
+          "sha256": "43907bb2227235eccc96fee84e16018978c480744f6fa85720e8b4a7b90d6ef8"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-mira-thoughtful-umbrella-left-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "0beee7fb0785bcbe2b234c9ab3613f42b39cb5c79e7a9694b94bac11f8ff8220",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:mira-expression-gallery",
+        "story:cast:mira:thoughtful",
+        "cast-standardization:mira"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:mira-expression-gallery",
+          "story:cast:mira:thoughtful",
+          "cast-standardization:mira"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/mira/mira__thoughtful-umbrella__left-three-quarter__fullbody__v002.png",
+          "sha256": "0beee7fb0785bcbe2b234c9ab3613f42b39cb5c79e7a9694b94bac11f8ff8220"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-mira-determined-umbrella-left-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "f15fbfedcdd4fff07d6851499c55c05ab93d4f0c0706dffce1c1ffd343fa400e",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:mira-expression-gallery",
+        "story:cast:mira:determined",
+        "cast-standardization:mira"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:mira-expression-gallery",
+          "story:cast:mira:determined",
+          "cast-standardization:mira"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/mira/mira__determined-umbrella__left-three-quarter__fullbody__v002.png",
+          "sha256": "f15fbfedcdd4fff07d6851499c55c05ab93d4f0c0706dffce1c1ffd343fa400e"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-mira-surprised-shocked-umbrella-right-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "27b844d843f7bb56f78d9495810e04f664e074162e28cd2acc30145a51da07e0",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:mira-expression-gallery",
+        "story:cast:mira:surprised-shocked",
+        "cast-standardization:mira"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:mira-expression-gallery",
+          "story:cast:mira:surprised-shocked",
+          "cast-standardization:mira"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/mira/mira__surprised-shocked-umbrella__right-three-quarter__fullbody__v002.png",
+          "sha256": "27b844d843f7bb56f78d9495810e04f664e074162e28cd2acc30145a51da07e0"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-mira-sad-vulnerable-umbrella-left-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "87c2d98bdda50e332a8ffd6ec0be979d90b51159f1545080b2fc83ab9f8291a4",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:mira-expression-gallery",
+        "story:cast:mira:sad-vulnerable",
+        "cast-standardization:mira"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:mira-expression-gallery",
+          "story:cast:mira:sad-vulnerable",
+          "cast-standardization:mira"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/mira/mira__sad-vulnerable-umbrella__left-three-quarter__fullbody__v002.png",
+          "sha256": "87c2d98bdda50e332a8ffd6ec0be979d90b51159f1545080b2fc83ab9f8291a4"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-mika-happy-headphones-front-near-front-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "5271edf8adf804c48f5734d23a696d3495281041beae7609f8aab3ec1efdfb26",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:mika-expression-gallery",
+        "story:cast:mika:happy",
+        "cast-standardization:mika"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:mika-expression-gallery",
+          "story:cast:mika:happy",
+          "cast-standardization:mika"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/mika/mika__happy-headphones__front-near-front__fullbody__v002.png",
+          "sha256": "5271edf8adf804c48f5734d23a696d3495281041beae7609f8aab3ec1efdfb26"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-mika-thoughtful-headphones-left-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "95426c16ef1b34d19ca1ef36029cef50d5461d2211e22585486f65dfb35cf7ab",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:mika-expression-gallery",
+        "story:cast:mika:thoughtful",
+        "cast-standardization:mika"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:mika-expression-gallery",
+          "story:cast:mika:thoughtful",
+          "cast-standardization:mika"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/mika/mika__thoughtful-headphones__left-three-quarter__fullbody__v002.png",
+          "sha256": "95426c16ef1b34d19ca1ef36029cef50d5461d2211e22585486f65dfb35cf7ab"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-mika-determined-headphones-left-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "d46e4b87f5b5c0b7fbd6df3716b0e245e4660a5caff003e36a354639b3fba59f",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:mika-expression-gallery",
+        "story:cast:mika:determined",
+        "cast-standardization:mika"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:mika-expression-gallery",
+          "story:cast:mika:determined",
+          "cast-standardization:mika"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/mika/mika__determined-headphones__left-three-quarter__fullbody__v002.png",
+          "sha256": "d46e4b87f5b5c0b7fbd6df3716b0e245e4660a5caff003e36a354639b3fba59f"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-mika-surprised-shocked-headphones-right-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "a7d38bb13c8db6c05ed528ace3007e1ff85d5523a37f9fea1476d70297f5719c",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:mika-expression-gallery",
+        "story:cast:mika:surprised-shocked",
+        "cast-standardization:mika"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:mika-expression-gallery",
+          "story:cast:mika:surprised-shocked",
+          "cast-standardization:mika"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/mika/mika__surprised-shocked-headphones__right-three-quarter__fullbody__v002.png",
+          "sha256": "a7d38bb13c8db6c05ed528ace3007e1ff85d5523a37f9fea1476d70297f5719c"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-mika-sad-vulnerable-headphones-left-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "276c0db9b340c4187866e4c80be586b4e78140732a6bba4a2b31fe13003b2b0d",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:mika-expression-gallery",
+        "story:cast:mika:sad-vulnerable",
+        "cast-standardization:mika"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:mika-expression-gallery",
+          "story:cast:mika:sad-vulnerable",
+          "cast-standardization:mika"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/mika/mika__sad-vulnerable-headphones__left-three-quarter__fullbody__v002.png",
+          "sha256": "276c0db9b340c4187866e4c80be586b4e78140732a6bba4a2b31fe13003b2b0d"
         }
       ],
       "status": "identity-locked, visually inspected, runtime-bound house-style sprite"

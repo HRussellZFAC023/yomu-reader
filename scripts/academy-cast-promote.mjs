@@ -38,11 +38,15 @@ for (const promotion of spec.promotions) {
     const replaced = manifest.filter(
         slot => slot.castId === promotion.castId && expressions.has(slot.expression),
     );
-    if (replaced.length === 0) {
-        throw new Error(`${promotion.castId} has no matching slots to replace.`);
+    const castIndexes = manifest
+        .map((slot, index) => (slot.castId === promotion.castId ? index : -1))
+        .filter(index => index >= 0);
+    if (castIndexes.length === 0) {
+        throw new Error(`${promotion.castId} is not present in the cast manifest.`);
     }
-
-    const insertionIndex = Math.min(...replaced.map(slot => manifest.indexOf(slot)));
+    const insertionIndex = replaced.length > 0
+        ? Math.min(...replaced.map(slot => manifest.indexOf(slot)))
+        : Math.max(...castIndexes) + 1;
     for (const slot of replaced) archiveSlot(slot, promotion.archiveLabel);
 
     const replacedIds = new Set(replaced.map(slot => slot.assetId));
@@ -148,6 +152,24 @@ function validatePromotion(promotion) {
     }
     if (!Array.isArray(promotion.slots) || promotion.slots.length === 0) {
         throw new Error(`${promotion.castId} requires slots.`);
+    }
+    assertUnique(promotion.replaceExpressions, `${promotion.castId} replacement expression`);
+    assertUnique(
+        promotion.slots.map(slot => slot.expression),
+        `${promotion.castId} promoted expression`,
+    );
+    const replacements = new Set(promotion.replaceExpressions);
+    const promoted = new Set(promotion.slots.map(slot => slot.expression));
+    const missing = promotion.replaceExpressions.filter(expression => !promoted.has(expression));
+    const unexpected = promotion.slots
+        .map(slot => slot.expression)
+        .filter(expression => !replacements.has(expression));
+    if (missing.length > 0 || unexpected.length > 0) {
+        throw new Error(
+            `${promotion.castId} promotion expressions do not match replacements`
+            + ` (missing: ${missing.join(', ') || 'none'};`
+            + ` unexpected: ${unexpected.join(', ') || 'none'}).`,
+        );
     }
 }
 
