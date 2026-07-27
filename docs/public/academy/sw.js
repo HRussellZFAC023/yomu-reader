@@ -1,4 +1,4 @@
-const VERSION = 'yomu-academy-shell-s1-13c85d810ce4';
+const VERSION = 'yomu-academy-shell-s1-10e7b5ee2186';
 const AUDIO_CACHE = 'yomu-academy-audio-v1-2c25b06f971c';
 const STORY_VOICE_CATALOG = '/academy/audio/story-voice-playback.json';
 const STORY_VOICE_ASSET = /^\/academy\/audio\/story-(?:pilot|lines)\/[a-z0-9][a-z0-9._-]*\.opus$/;
@@ -162,6 +162,10 @@ const RUNTIME_ART_PRECACHE = [
     '/academy/art/events/blank-atlas-sound-script-map__first-route-line__wide__v001.webp',
     '/academy/art/events/blank-atlas-sound-script-map__five-empty-slots__mobile__v001.webp',
     '/academy/art/events/blank-atlas-sound-script-map__five-empty-slots__wide__v001.webp',
+    '/academy/art/events/blank-atlas-useful-vocabulary__name-card-repair__mobile__v001.webp',
+    '/academy/art/events/blank-atlas-useful-vocabulary__name-card-repair__wide__v001.webp',
+    '/academy/art/events/blank-atlas-useful-vocabulary__name-line__mobile__v001.webp',
+    '/academy/art/events/blank-atlas-useful-vocabulary__name-line__wide__v001.webp',
     '/academy/art/events/event__atlas-finale-next-page__v001.png',
     '/academy/art/events/event__empty-microphone-rehearsal__v001.png',
     '/academy/art/events/event__withheld-panel-handoff__v001.png',
@@ -257,8 +261,8 @@ const CORE = [
     '/yomu-icon.svg',
     '/academy/',
     '/academy/index.html',
-    '/academy/app.js?v=s1-13c85d810ce4',
-    '/academy/style.css?v=s1-13c85d810ce4',
+    '/academy/app.js?v=s1-10e7b5ee2186',
+    '/academy/style.css?v=s1-10e7b5ee2186',
     '/academy/manifest.webmanifest',
     ...RUNTIME_ART_PRECACHE,
     '/academy/content/vertical-slice/source-library.v1.json',

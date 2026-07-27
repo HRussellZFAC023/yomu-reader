@@ -14773,6 +14773,22 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       "cueId": "cue:atlas-classroom-label-fixed",
       "wide": "/academy/art/events/blank-atlas-sentence-frames__classroom-label-fixed__wide__v001.webp",
       "mobile": "/academy/art/events/blank-atlas-sentence-frames__classroom-label-fixed__mobile__v001.webp"
+    },
+    "node:blank-atlas:name-line": {
+      "assetId": "event.story.blank-atlas-useful-vocabulary.name-line",
+      "sceneId": "scene:blank-atlas:useful-vocabulary",
+      "nodeId": "node:blank-atlas:name-line",
+      "cueId": "cue:blank-name-card-and-atlas-line",
+      "wide": "/academy/art/events/blank-atlas-useful-vocabulary__name-line__wide__v001.webp",
+      "mobile": "/academy/art/events/blank-atlas-useful-vocabulary__name-line__mobile__v001.webp"
+    },
+    "node:blank-atlas:name-card-repair": {
+      "assetId": "event.story.blank-atlas-useful-vocabulary.name-card-repair",
+      "sceneId": "scene:blank-atlas:useful-vocabulary",
+      "nodeId": "node:blank-atlas:name-card-repair",
+      "cueId": "cue:name-card-one-rubric",
+      "wide": "/academy/art/events/blank-atlas-useful-vocabulary__name-card-repair__wide__v001.webp",
+      "mobile": "/academy/art/events/blank-atlas-useful-vocabulary__name-card-repair__mobile__v001.webp"
     }
   };
   const ACADEMY_STORY_ART_RUNTIME_ASSETS = {
@@ -14878,6 +14894,32 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       "files": {
         "wide": "/academy/art/events/blank-atlas-sentence-frames__classroom-label-fixed__wide__v001.webp",
         "mobile": "/academy/art/events/blank-atlas-sentence-frames__classroom-label-fixed__mobile__v001.webp"
+      }
+    },
+    "event.story.blank-atlas-useful-vocabulary.name-line": {
+      "kind": "event-art",
+      "status": "approved",
+      "runtimeHomes": [
+        "node:blank-atlas:name-line",
+        "scene:blank-atlas:useful-vocabulary"
+      ],
+      "provenance": "regenerated-house-style",
+      "files": {
+        "wide": "/academy/art/events/blank-atlas-useful-vocabulary__name-line__wide__v001.webp",
+        "mobile": "/academy/art/events/blank-atlas-useful-vocabulary__name-line__mobile__v001.webp"
+      }
+    },
+    "event.story.blank-atlas-useful-vocabulary.name-card-repair": {
+      "kind": "event-art",
+      "status": "approved",
+      "runtimeHomes": [
+        "node:blank-atlas:name-card-repair",
+        "scene:blank-atlas:useful-vocabulary"
+      ],
+      "provenance": "regenerated-house-style",
+      "files": {
+        "wide": "/academy/art/events/blank-atlas-useful-vocabulary__name-card-repair__wide__v001.webp",
+        "mobile": "/academy/art/events/blank-atlas-useful-vocabulary__name-card-repair__mobile__v001.webp"
       }
     }
   };
@@ -90667,7 +90709,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
         root.append(sentenceDoorProp(nodeId === "node:blank-atlas:label-fixed"));
         break;
       case "scene:blank-atlas:useful-vocabulary":
-        root.append(nameCardProp(options.learner?.displayName ?? (options.language === "ja" ? "あなた" : "Your name")));
+        root.append(nameCardProp(
+          options.language,
+          options.learner?.displayName ?? (options.language === "ja" ? "あなた" : "Your name"),
+          nodeId
+        ));
         break;
       case "scene:blank-atlas:mission-sound":
         root.append(soundMissionProp(nodeId));
@@ -90740,14 +90786,37 @@ recommendedJiten	Jiten由来の頻度バッジです。
     );
     return prop;
   }
-  function nameCardProp(displayName2) {
+  const INCOMPLETE_NAME_CARD_NODES = /* @__PURE__ */ new Set([
+    "node:blank-atlas:name-line",
+    "line:blank-atlas:rie-share-boundary",
+    "checkpoint:blank-atlas:before-name-card-draft",
+    "activity-node:blank-atlas:name-card-draft"
+  ]);
+  function nameCardProp(language2, displayName2, nodeId) {
+    const name = createKatakanaNameDraft(displayName2);
+    const cardName = name.katakana ?? name.usualName;
+    const endingPlaced = !INCOMPLETE_NAME_CARD_NODES.has(nodeId);
     const prop = section("academy-name-card-prop");
-    prop.setAttribute("aria-label", `Class name card for ${displayName2}.`);
+    prop.dataset.endingPlaced = String(endingPlaced);
+    prop.setAttribute(
+      "aria-label",
+      endingPlaced ? `Class name card for ${displayName2}: ${cardName} です.` : `Class name card for ${displayName2}. The ending space is empty.`
+    );
+    const identity2 = section("academy-name-card-identity");
+    const japaneseName = text$g("strong", "academy-name-card-name", cardName);
+    japaneseName.lang = "ja";
+    identity2.append(japaneseName);
+    if (cardName !== name.usualName) {
+      identity2.append(text$g("span", "academy-name-card-usual", name.usualName));
+    }
+    const ending = text$g("span", "academy-name-card-desu", endingPlaced ? "です。" : "");
+    ending.lang = "ja";
+    ending.dataset.placed = String(endingPlaced);
     prop.append(
       text$g("span", "academy-name-card-pin", ""),
-      text$g("p", "academy-prop-label", "CLASS NAME"),
-      text$g("strong", "academy-name-card-name", displayName2),
-      text$g("span", "academy-name-card-desu", "です。")
+      text$g("p", "academy-prop-label", language2 === "ja" ? "クラスの名札" : "YOUR NAME CARD"),
+      identity2,
+      ending
     );
     return prop;
   }

@@ -175,6 +175,50 @@
           "Wide and mobile art preserve the same room, props, lighting, and tactile state change."
         ]
       }
+    },
+    {
+      "assetId": "event.story.blank-atlas-useful-vocabulary.name-line",
+      "chapterId": "s1e01-the-blank-atlas",
+      "sceneId": "scene:blank-atlas:useful-vocabulary",
+      "nodeId": "node:blank-atlas:name-line",
+      "cueId": "cue:blank-name-card-and-atlas-line",
+      "wide": "/academy/art/events/blank-atlas-useful-vocabulary__name-line__wide__v001.webp",
+      "mobile": "/academy/art/events/blank-atlas-useful-vocabulary__name-line__mobile__v001.webp",
+      "generationSources": [
+        "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/call_qWPYlczw12HKPnMaIMR4IM2w.png",
+        "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/call_zNq4lIAbbIxhcsl2mGBISzY0.png"
+      ],
+      "qa": {
+        "verdict": "pass",
+        "inspected": true,
+        "notes": [
+          "The clipped name card has one long dynamic-name field and one visibly empty ending slot.",
+          "No learner name or Japanese text is baked into the art; the living prop supplies both at runtime.",
+          "The Atlas, classroom, rain, desk objects, and lighting remain continuous across wide and mobile."
+        ]
+      }
+    },
+    {
+      "assetId": "event.story.blank-atlas-useful-vocabulary.name-card-repair",
+      "chapterId": "s1e01-the-blank-atlas",
+      "sceneId": "scene:blank-atlas:useful-vocabulary",
+      "nodeId": "node:blank-atlas:name-card-repair",
+      "cueId": "cue:name-card-one-rubric",
+      "wide": "/academy/art/events/blank-atlas-useful-vocabulary__name-card-repair__wide__v001.webp",
+      "mobile": "/academy/art/events/blank-atlas-useful-vocabulary__name-card-repair__mobile__v001.webp",
+      "generationSources": [
+        "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/call_6tq7Dok5GFOilRhmqTxOr1uJ.png",
+        "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/call_UB16ivviIogiWhBE6dvNTIy5.png"
+      ],
+      "qa": {
+        "verdict": "pass",
+        "inspected": true,
+        "notes": [
+          "The fountain-pen placement and unbroken teal baseline quietly reinforce name first, ending second.",
+          "The inserted ending token is physical and readable without arrows, prose, or magical effects.",
+          "The composition leaves the actual learner name and です to the accessible runtime layer."
+        ]
+      }
     }
   ]
 }

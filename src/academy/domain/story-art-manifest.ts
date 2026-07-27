@@ -75,6 +75,22 @@ export const ACADEMY_STORY_ART_BY_NODE = {
         "cueId": "cue:atlas-classroom-label-fixed",
         "wide": "/academy/art/events/blank-atlas-sentence-frames__classroom-label-fixed__wide__v001.webp",
         "mobile": "/academy/art/events/blank-atlas-sentence-frames__classroom-label-fixed__mobile__v001.webp"
+    },
+    "node:blank-atlas:name-line": {
+        "assetId": "event.story.blank-atlas-useful-vocabulary.name-line",
+        "sceneId": "scene:blank-atlas:useful-vocabulary",
+        "nodeId": "node:blank-atlas:name-line",
+        "cueId": "cue:blank-name-card-and-atlas-line",
+        "wide": "/academy/art/events/blank-atlas-useful-vocabulary__name-line__wide__v001.webp",
+        "mobile": "/academy/art/events/blank-atlas-useful-vocabulary__name-line__mobile__v001.webp"
+    },
+    "node:blank-atlas:name-card-repair": {
+        "assetId": "event.story.blank-atlas-useful-vocabulary.name-card-repair",
+        "sceneId": "scene:blank-atlas:useful-vocabulary",
+        "nodeId": "node:blank-atlas:name-card-repair",
+        "cueId": "cue:name-card-one-rubric",
+        "wide": "/academy/art/events/blank-atlas-useful-vocabulary__name-card-repair__wide__v001.webp",
+        "mobile": "/academy/art/events/blank-atlas-useful-vocabulary__name-card-repair__mobile__v001.webp"
     }
 } as const satisfies Readonly<Record<string, AcademyStoryArtBinding>>;
 
@@ -182,6 +198,32 @@ export const ACADEMY_STORY_ART_RUNTIME_ASSETS = {
             "wide": "/academy/art/events/blank-atlas-sentence-frames__classroom-label-fixed__wide__v001.webp",
             "mobile": "/academy/art/events/blank-atlas-sentence-frames__classroom-label-fixed__mobile__v001.webp"
         }
+    },
+    "event.story.blank-atlas-useful-vocabulary.name-line": {
+        "kind": "event-art",
+        "status": "approved",
+        "runtimeHomes": [
+            "node:blank-atlas:name-line",
+            "scene:blank-atlas:useful-vocabulary"
+        ],
+        "provenance": "regenerated-house-style",
+        "files": {
+            "wide": "/academy/art/events/blank-atlas-useful-vocabulary__name-line__wide__v001.webp",
+            "mobile": "/academy/art/events/blank-atlas-useful-vocabulary__name-line__mobile__v001.webp"
+        }
+    },
+    "event.story.blank-atlas-useful-vocabulary.name-card-repair": {
+        "kind": "event-art",
+        "status": "approved",
+        "runtimeHomes": [
+            "node:blank-atlas:name-card-repair",
+            "scene:blank-atlas:useful-vocabulary"
+        ],
+        "provenance": "regenerated-house-style",
+        "files": {
+            "wide": "/academy/art/events/blank-atlas-useful-vocabulary__name-card-repair__wide__v001.webp",
+            "mobile": "/academy/art/events/blank-atlas-useful-vocabulary__name-card-repair__mobile__v001.webp"
+        }
     }
 } as const;
 
@@ -217,5 +259,13 @@ export const ACADEMY_STORY_ART_COVERAGE = {
     "event.story.blank-atlas-sentence-frames.classroom-label-fixed": {
         "purpose": "story-event",
         "primaryUse": "node:blank-atlas:label-fixed"
+    },
+    "event.story.blank-atlas-useful-vocabulary.name-line": {
+        "purpose": "story-event",
+        "primaryUse": "node:blank-atlas:name-line"
+    },
+    "event.story.blank-atlas-useful-vocabulary.name-card-repair": {
+        "purpose": "story-event",
+        "primaryUse": "node:blank-atlas:name-card-repair"
     }
 } as const;

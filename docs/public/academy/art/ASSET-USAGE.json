@@ -18,8 +18,8 @@
     ]
   },
   "counts": {
-    "runtimeAssetHomes": 167,
-    "runtimeFiles": 207,
+    "runtimeAssetHomes": 169,
+    "runtimeFiles": 211,
     "nonRuntimeReviewFiles": 1734,
     "approvedReferenceOnly": 4,
     "explicitlyRejectedFamilies": 4,
@@ -4307,6 +4307,78 @@
         {
           "path": "/academy/art/events/blank-atlas-sound-script-map__five-empty-slots__mobile__v001.webp",
           "sha256": "1513b3b88bcd2bd2ee55bc2ac0b476acb0cc2053e678b6e9aa62892888375e4b"
+        }
+      ],
+      "status": "node-bound, art-directed responsive story event"
+    },
+    {
+      "id": "event-story-blank-atlas-useful-vocabulary-name-card-repair",
+      "source": "manifest:docs/academy/art/STORY-ART-PROMOTIONS.json",
+      "sourceSha256": "2c632c92815da05661aa67bdb71e576b398701e57679c8595f55c47f98e454b1",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "node:blank-atlas:name-card-repair",
+        "scene:blank-atlas:useful-vocabulary"
+      ],
+      "reviewHome": [
+        "story-art-promotions",
+        "cue:name-card-one-rubric"
+      ],
+      "usage": {
+        "runtime": [
+          "node:blank-atlas:name-card-repair",
+          "scene:blank-atlas:useful-vocabulary"
+        ],
+        "review": [
+          "story-art-promotions"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/events/blank-atlas-useful-vocabulary__name-card-repair__wide__v001.webp",
+          "sha256": "50e2507ac5d582aa2a81701b559469feec11e2c4825d9b819c92c043b1fa94ab"
+        },
+        {
+          "path": "/academy/art/events/blank-atlas-useful-vocabulary__name-card-repair__mobile__v001.webp",
+          "sha256": "1cd5d5d3e3e4286844f9761954b87364021276caa69ee43653a94a3589b048c0"
+        }
+      ],
+      "status": "node-bound, art-directed responsive story event"
+    },
+    {
+      "id": "event-story-blank-atlas-useful-vocabulary-name-line",
+      "source": "manifest:docs/academy/art/STORY-ART-PROMOTIONS.json",
+      "sourceSha256": "4213ff074aea82b768bcd501f3e0a9219d59f9543d936543b1abaf273a239f2b",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "node:blank-atlas:name-line",
+        "scene:blank-atlas:useful-vocabulary"
+      ],
+      "reviewHome": [
+        "story-art-promotions",
+        "cue:blank-name-card-and-atlas-line"
+      ],
+      "usage": {
+        "runtime": [
+          "node:blank-atlas:name-line",
+          "scene:blank-atlas:useful-vocabulary"
+        ],
+        "review": [
+          "story-art-promotions"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/events/blank-atlas-useful-vocabulary__name-line__wide__v001.webp",
+          "sha256": "b3f0aac21c57f8241f526602be1333dab63323cd66f89ae784c119bc5ed4c19c"
+        },
+        {
+          "path": "/academy/art/events/blank-atlas-useful-vocabulary__name-line__mobile__v001.webp",
+          "sha256": "adcd862a226f39d574c2cea396a24d3c6d6b589798174bfa8a03b6aaff842699"
         }
       ],
       "status": "node-bound, art-directed responsive story event"

@@ -46,10 +46,10 @@
     ],
     "castCount": 24,
     "backgroundGaps": 25,
-    "openingImageGaps": 101,
-    "exitImageGaps": 101,
+    "openingImageGaps": 100,
+    "exitImageGaps": 100,
     "propOrOverlayGaps": 81,
-    "generationQueue": 308
+    "generationQueue": 306
   },
   "chapters": [
     {
@@ -354,16 +354,22 @@
           "openingImage": {
             "cueId": "cue:blank-name-card-and-atlas-line",
             "description": "Your name is on the card. One short space remains.",
-            "status": "missing",
+            "status": "bound",
             "runtimeHome": "scene:blank-atlas:useful-vocabulary",
-            "candidatePaths": []
+            "candidatePaths": [
+              "/academy/art/events/blank-atlas-useful-vocabulary__name-line__wide__v001.webp",
+              "/academy/art/events/blank-atlas-useful-vocabulary__name-line__mobile__v001.webp"
+            ]
           },
           "exitImage": {
             "cueId": "cue:name-card-one-rubric",
             "description": "Rie taps your name, then です.",
-            "status": "missing",
+            "status": "bound",
             "runtimeHome": "scene:blank-atlas:useful-vocabulary",
-            "candidatePaths": []
+            "candidatePaths": [
+              "/academy/art/events/blank-atlas-useful-vocabulary__name-card-repair__wide__v001.webp",
+              "/academy/art/events/blank-atlas-useful-vocabulary__name-card-repair__mobile__v001.webp"
+            ]
           },
           "propCues": []
         },
@@ -7679,38 +7685,6 @@
         "rie"
       ],
       "runtimeHome": "scene:blank-atlas:sentence-frames",
-      "status": "queued"
-    },
-    {
-      "priority": "scene-critical",
-      "chapter": 1,
-      "chapterId": "s1e01-the-blank-atlas",
-      "sceneId": "scene:blank-atlas:useful-vocabulary",
-      "cueId": "cue:blank-name-card-and-atlas-line",
-      "kind": "opening-image",
-      "brief": "Your name is on the card. One short space remains.",
-      "locationId": "location:classroom",
-      "timeState": "evening",
-      "castIds": [
-        "rie"
-      ],
-      "runtimeHome": "scene:blank-atlas:useful-vocabulary",
-      "status": "queued"
-    },
-    {
-      "priority": "payoff-critical",
-      "chapter": 1,
-      "chapterId": "s1e01-the-blank-atlas",
-      "sceneId": "scene:blank-atlas:useful-vocabulary",
-      "cueId": "cue:name-card-one-rubric",
-      "kind": "exit-image",
-      "brief": "Rie taps your name, then です.",
-      "locationId": "location:classroom",
-      "timeState": "evening",
-      "castIds": [
-        "rie"
-      ],
-      "runtimeHome": "scene:blank-atlas:useful-vocabulary",
       "status": "queued"
     },
     {

@@ -295,6 +295,25 @@ describe('Academy Story screen', () => {
         expect(playSfx).toHaveBeenNthCalledWith(3, 'menu.confirm');
     });
 
+    it('keeps the learner name card unfinished until they place です', () => {
+        const learner = { displayName: 'Henry', portraitId: 'quality-4' as const };
+        const opening = render(
+            cursor('scene:blank-atlas:useful-vocabulary', 'node:blank-atlas:name-line'),
+            { learner },
+        ).screen.querySelector<HTMLElement>('.academy-name-card-prop')!;
+        expect(opening.dataset.endingPlaced).toBe('false');
+        expect(opening.querySelector('.academy-name-card-name')?.textContent).toBe('ヘンリー');
+        expect(opening.querySelector('.academy-name-card-usual')?.textContent).toBe('Henry');
+        expect(opening.querySelector('.academy-name-card-desu')?.textContent).toBe('');
+
+        const repair = render(
+            cursor('scene:blank-atlas:useful-vocabulary', 'node:blank-atlas:name-card-repair'),
+            { learner },
+        ).screen.querySelector<HTMLElement>('.academy-name-card-prop')!;
+        expect(repair.dataset.endingPlaced).toBe('true');
+        expect(repair.querySelector('.academy-name-card-desu')?.textContent).toBe('です。');
+    });
+
     it('keeps the selected mission consequential and opens its exact activity', () => {
         const playSfx = vi.fn();
         const { screen } = render(cursor(

@@ -1,4 +1,5 @@
 import type { AcademyLanguage } from '../../reader/app/academy-copy';
+import { createKatakanaNameDraft } from '../content/learner-name';
 import type { StoryCursor, StoryMoment } from '../content/story-runner';
 import type { LearnerProfileSnapshot } from '../domain/learner-record';
 import type { AcademySemanticSfxCue } from '../audio/sfx-catalog';
@@ -37,7 +38,11 @@ export function blankAtlasSceneProp(options: BlankAtlasScenePropOptions): Academ
             root.append(sentenceDoorProp(nodeId === 'node:blank-atlas:label-fixed'));
             break;
         case 'scene:blank-atlas:useful-vocabulary':
-            root.append(nameCardProp(options.learner?.displayName ?? (options.language === 'ja' ? 'あなた' : 'Your name')));
+            root.append(nameCardProp(
+                options.language,
+                options.learner?.displayName ?? (options.language === 'ja' ? 'あなた' : 'Your name'),
+                nodeId,
+            ));
             break;
         case 'scene:blank-atlas:mission-sound':
             root.append(soundMissionProp(nodeId));
@@ -115,14 +120,40 @@ function sentenceDoorProp(resolved: boolean): HTMLElement {
     return prop;
 }
 
-function nameCardProp(displayName: string): HTMLElement {
+const INCOMPLETE_NAME_CARD_NODES = new Set([
+    'node:blank-atlas:name-line',
+    'line:blank-atlas:rie-share-boundary',
+    'checkpoint:blank-atlas:before-name-card-draft',
+    'activity-node:blank-atlas:name-card-draft',
+]);
+
+function nameCardProp(language: AcademyLanguage, displayName: string, nodeId: string): HTMLElement {
+    const name = createKatakanaNameDraft(displayName);
+    const cardName = name.katakana ?? name.usualName;
+    const endingPlaced = !INCOMPLETE_NAME_CARD_NODES.has(nodeId);
     const prop = section('academy-name-card-prop');
-    prop.setAttribute('aria-label', `Class name card for ${displayName}.`);
+    prop.dataset.endingPlaced = String(endingPlaced);
+    prop.setAttribute(
+        'aria-label',
+        endingPlaced
+            ? `Class name card for ${displayName}: ${cardName} です.`
+            : `Class name card for ${displayName}. The ending space is empty.`,
+    );
+    const identity = section('academy-name-card-identity');
+    const japaneseName = text('strong', 'academy-name-card-name', cardName);
+    japaneseName.lang = 'ja';
+    identity.append(japaneseName);
+    if (cardName !== name.usualName) {
+        identity.append(text('span', 'academy-name-card-usual', name.usualName));
+    }
+    const ending = text('span', 'academy-name-card-desu', endingPlaced ? 'です。' : '');
+    ending.lang = 'ja';
+    ending.dataset.placed = String(endingPlaced);
     prop.append(
         text('span', 'academy-name-card-pin', ''),
-        text('p', 'academy-prop-label', 'CLASS NAME'),
-        text('strong', 'academy-name-card-name', displayName),
-        text('span', 'academy-name-card-desu', 'です。'),
+        text('p', 'academy-prop-label', language === 'ja' ? 'クラスの名札' : 'YOUR NAME CARD'),
+        identity,
+        ending,
     );
     return prop;
 }

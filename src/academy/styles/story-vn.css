@@ -451,11 +451,37 @@
     grid-column: 1 / -1;
 }
 
-.academy-name-card-name,
+.academy-name-card-identity,
 .academy-name-card-desu {
     align-self: end;
     border-bottom: 3px solid var(--prop-accent);
+}
+
+.academy-name-card-identity {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+}
+
+.academy-name-card-name {
+    overflow-wrap: anywhere;
+    font-size: clamp(1.08rem, 3vw, 1.5rem);
+}
+
+.academy-name-card-usual {
+    color: #655f51;
+    font-size: 0.72rem;
+}
+
+.academy-name-card-desu {
+    min-width: 3.5em;
+    min-height: 1.8em;
     font-size: clamp(1rem, 3vw, 1.45rem);
+}
+
+.academy-name-card-desu[data-placed="false"] {
+    border-bottom-style: dashed;
+    opacity: 0.58;
 }
 
 .academy-name-card-pin {
