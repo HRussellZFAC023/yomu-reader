@@ -29,10 +29,10 @@
     "cast": 30,
     "requiredPerformancesPerCast": 7,
     "requiredSlots": 210,
-    "integratedSlots": 39,
-    "missingSlots": 171,
+    "integratedSlots": 46,
+    "missingSlots": 164,
     "ownerCorrectionQueue": 73,
-    "storyCriticalQueue": 63,
+    "storyCriticalQueue": 56,
     "rosterCompletionQueue": 35
   },
   "cast": [
@@ -1215,65 +1215,97 @@
       "priority": "story-critical",
       "summary": {
         "required": 7,
-        "integrated": 0,
-        "missing": 7
+        "integrated": 7,
+        "missing": 0
       },
       "performances": [
         {
           "expression": "neutral",
           "preferredAngle": "front-near-front",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.sophie.neutral-front-near-front-halfbody-v004",
+          "assetPath": "/academy/art/characters/sophie/sophie__neutral__front-near-front__halfbody__v004.png",
+          "runtimeHomes": [
+            "journal:sophie",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "story:cast:sophie",
+            "cast-standardization:sophie"
+          ]
         },
         {
           "expression": "encouraging-listening",
           "preferredAngle": "right-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.sophie.encouraging-listening-right-three-quarter-halfbody-v004",
+          "assetPath": "/academy/art/characters/sophie/sophie__encouraging-listening__right-three-quarter__halfbody__v004.png",
+          "runtimeHomes": [
+            "journal:sophie-expression-gallery",
+            "story:cast:sophie:encouraging-listening",
+            "cast-standardization:sophie"
+          ]
         },
         {
           "expression": "happy",
           "preferredAngle": "front-near-front",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.sophie.happy-front-near-front-halfbody-v004",
+          "assetPath": "/academy/art/characters/sophie/sophie__happy__front-near-front__halfbody__v004.png",
+          "runtimeHomes": [
+            "journal:sophie-expression-gallery",
+            "story:cast:sophie:happy",
+            "cast-standardization:sophie"
+          ]
         },
         {
           "expression": "thoughtful",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.sophie.thoughtful-left-three-quarter-halfbody-v004",
+          "assetPath": "/academy/art/characters/sophie/sophie__thoughtful__left-three-quarter__halfbody__v004.png",
+          "runtimeHomes": [
+            "journal:sophie-expression-gallery",
+            "story:cast:sophie:thoughtful",
+            "cast-standardization:sophie"
+          ]
         },
         {
           "expression": "determined",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.sophie.determined-left-three-quarter-halfbody-v004",
+          "assetPath": "/academy/art/characters/sophie/sophie__determined__left-three-quarter__halfbody__v004.png",
+          "runtimeHomes": [
+            "journal:sophie-expression-gallery",
+            "story:cast:sophie:determined",
+            "cast-standardization:sophie"
+          ]
         },
         {
           "expression": "surprised-shocked",
           "preferredAngle": "right-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.sophie.surprised-shocked-right-three-quarter-halfbody-v004",
+          "assetPath": "/academy/art/characters/sophie/sophie__surprised-shocked__right-three-quarter__halfbody__v004.png",
+          "runtimeHomes": [
+            "journal:sophie-expression-gallery",
+            "story:cast:sophie:surprised-shocked",
+            "cast-standardization:sophie"
+          ]
         },
         {
           "expression": "sad-vulnerable",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.sophie.sad-vulnerable-left-three-quarter-halfbody-v004",
+          "assetPath": "/academy/art/characters/sophie/sophie__sad-vulnerable__left-three-quarter__halfbody__v004.png",
+          "runtimeHomes": [
+            "journal:sophie-expression-gallery",
+            "story:cast:sophie:sad-vulnerable",
+            "cast-standardization:sophie"
+          ]
         }
       ]
     },
@@ -4608,204 +4640,6 @@
       "runtimeHomes": [
         "journal:robert-expression-gallery",
         "story:cast:robert:sad-vulnerable"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "sophie:neutral",
-      "castId": "sophie",
-      "displayName": "Sophie",
-      "identityKey": "sophie-long-dark-hair-no-glasses",
-      "expression": "neutral",
-      "angle": "front-near-front",
-      "priority": "story-critical",
-      "storyLines": 27,
-      "visualLock": "Chinese/Hong Kong woman with long dark hair, no glasses, and an intelligent self-possessed expression.",
-      "wardrobeLock": "Crisp layered outfit in ink blue, cream, and a restrained coral accent; book or notes only when needed.",
-      "reject": [
-        "glasses",
-        "short blond hair",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:sophie",
-        "class:people",
-        "lesson-overview:roster",
-        "story:cast:sophie"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "sophie:encouraging-listening",
-      "castId": "sophie",
-      "displayName": "Sophie",
-      "identityKey": "sophie-long-dark-hair-no-glasses",
-      "expression": "encouraging-listening",
-      "angle": "right-three-quarter",
-      "priority": "story-critical",
-      "storyLines": 27,
-      "visualLock": "Chinese/Hong Kong woman with long dark hair, no glasses, and an intelligent self-possessed expression.",
-      "wardrobeLock": "Crisp layered outfit in ink blue, cream, and a restrained coral accent; book or notes only when needed.",
-      "reject": [
-        "glasses",
-        "short blond hair",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:sophie-expression-gallery",
-        "story:cast:sophie:encouraging-listening"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "sophie:happy",
-      "castId": "sophie",
-      "displayName": "Sophie",
-      "identityKey": "sophie-long-dark-hair-no-glasses",
-      "expression": "happy",
-      "angle": "front-near-front",
-      "priority": "story-critical",
-      "storyLines": 27,
-      "visualLock": "Chinese/Hong Kong woman with long dark hair, no glasses, and an intelligent self-possessed expression.",
-      "wardrobeLock": "Crisp layered outfit in ink blue, cream, and a restrained coral accent; book or notes only when needed.",
-      "reject": [
-        "glasses",
-        "short blond hair",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:sophie-expression-gallery",
-        "story:cast:sophie:happy"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "sophie:thoughtful",
-      "castId": "sophie",
-      "displayName": "Sophie",
-      "identityKey": "sophie-long-dark-hair-no-glasses",
-      "expression": "thoughtful",
-      "angle": "left-three-quarter",
-      "priority": "story-critical",
-      "storyLines": 27,
-      "visualLock": "Chinese/Hong Kong woman with long dark hair, no glasses, and an intelligent self-possessed expression.",
-      "wardrobeLock": "Crisp layered outfit in ink blue, cream, and a restrained coral accent; book or notes only when needed.",
-      "reject": [
-        "glasses",
-        "short blond hair",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:sophie-expression-gallery",
-        "story:cast:sophie:thoughtful"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "sophie:determined",
-      "castId": "sophie",
-      "displayName": "Sophie",
-      "identityKey": "sophie-long-dark-hair-no-glasses",
-      "expression": "determined",
-      "angle": "left-three-quarter",
-      "priority": "story-critical",
-      "storyLines": 27,
-      "visualLock": "Chinese/Hong Kong woman with long dark hair, no glasses, and an intelligent self-possessed expression.",
-      "wardrobeLock": "Crisp layered outfit in ink blue, cream, and a restrained coral accent; book or notes only when needed.",
-      "reject": [
-        "glasses",
-        "short blond hair",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:sophie-expression-gallery",
-        "story:cast:sophie:determined"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "sophie:surprised-shocked",
-      "castId": "sophie",
-      "displayName": "Sophie",
-      "identityKey": "sophie-long-dark-hair-no-glasses",
-      "expression": "surprised-shocked",
-      "angle": "right-three-quarter",
-      "priority": "story-critical",
-      "storyLines": 27,
-      "visualLock": "Chinese/Hong Kong woman with long dark hair, no glasses, and an intelligent self-possessed expression.",
-      "wardrobeLock": "Crisp layered outfit in ink blue, cream, and a restrained coral accent; book or notes only when needed.",
-      "reject": [
-        "glasses",
-        "short blond hair",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:sophie-expression-gallery",
-        "story:cast:sophie:surprised-shocked"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "sophie:sad-vulnerable",
-      "castId": "sophie",
-      "displayName": "Sophie",
-      "identityKey": "sophie-long-dark-hair-no-glasses",
-      "expression": "sad-vulnerable",
-      "angle": "left-three-quarter",
-      "priority": "story-critical",
-      "storyLines": 27,
-      "visualLock": "Chinese/Hong Kong woman with long dark hair, no glasses, and an intelligent self-possessed expression.",
-      "wardrobeLock": "Crisp layered outfit in ink blue, cream, and a restrained coral accent; book or notes only when needed.",
-      "reject": [
-        "glasses",
-        "short blond hair",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:sophie-expression-gallery",
-        "story:cast:sophie:sad-vulnerable"
       ],
       "status": "queued"
     },

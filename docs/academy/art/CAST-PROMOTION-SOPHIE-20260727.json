@@ -1,0 +1,101 @@
+{
+  "promotions": [
+    {
+      "castId": "sophie",
+      "archiveLabel": "style-superseded-20260727",
+      "replaceExpressions": [
+        "neutral",
+        "encouraging-listening",
+        "happy",
+        "thoughtful",
+        "determined",
+        "surprised-shocked",
+        "sad-vulnerable"
+      ],
+      "canonicalNeutralAssetId": "character.sophie.neutral-front-near-front-halfbody-v004",
+      "slots": [
+        {
+          "assetId": "character.sophie.neutral-front-near-front-halfbody-v004",
+          "expression": "neutral",
+          "angle": "front-near-front",
+          "assetPath": "/academy/art/characters/sophie/sophie__neutral__front-near-front__halfbody__v004.png",
+          "runtimeHomes": [
+            "journal:sophie",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "story:cast:sophie",
+            "cast-standardization:sophie"
+          ]
+        },
+        {
+          "assetId": "character.sophie.encouraging-listening-right-three-quarter-halfbody-v004",
+          "expression": "encouraging-listening",
+          "angle": "right-three-quarter",
+          "assetPath": "/academy/art/characters/sophie/sophie__encouraging-listening__right-three-quarter__halfbody__v004.png",
+          "runtimeHomes": [
+            "journal:sophie-expression-gallery",
+            "story:cast:sophie:encouraging-listening",
+            "cast-standardization:sophie"
+          ]
+        },
+        {
+          "assetId": "character.sophie.happy-front-near-front-halfbody-v004",
+          "expression": "happy",
+          "angle": "front-near-front",
+          "assetPath": "/academy/art/characters/sophie/sophie__happy__front-near-front__halfbody__v004.png",
+          "runtimeHomes": [
+            "journal:sophie-expression-gallery",
+            "story:cast:sophie:happy",
+            "cast-standardization:sophie"
+          ]
+        },
+        {
+          "assetId": "character.sophie.thoughtful-left-three-quarter-halfbody-v004",
+          "expression": "thoughtful",
+          "angle": "left-three-quarter",
+          "assetPath": "/academy/art/characters/sophie/sophie__thoughtful__left-three-quarter__halfbody__v004.png",
+          "runtimeHomes": [
+            "journal:sophie-expression-gallery",
+            "story:cast:sophie:thoughtful",
+            "cast-standardization:sophie"
+          ]
+        },
+        {
+          "assetId": "character.sophie.determined-left-three-quarter-halfbody-v004",
+          "expression": "determined",
+          "angle": "left-three-quarter",
+          "assetPath": "/academy/art/characters/sophie/sophie__determined__left-three-quarter__halfbody__v004.png",
+          "runtimeHomes": [
+            "journal:sophie-expression-gallery",
+            "story:cast:sophie:determined",
+            "cast-standardization:sophie"
+          ]
+        },
+        {
+          "assetId": "character.sophie.surprised-shocked-right-three-quarter-halfbody-v004",
+          "expression": "surprised-shocked",
+          "angle": "right-three-quarter",
+          "assetPath": "/academy/art/characters/sophie/sophie__surprised-shocked__right-three-quarter__halfbody__v004.png",
+          "runtimeHomes": [
+            "journal:sophie-expression-gallery",
+            "story:cast:sophie:surprised-shocked",
+            "cast-standardization:sophie"
+          ]
+        },
+        {
+          "assetId": "character.sophie.sad-vulnerable-left-three-quarter-halfbody-v004",
+          "expression": "sad-vulnerable",
+          "angle": "left-three-quarter",
+          "assetPath": "/academy/art/characters/sophie/sophie__sad-vulnerable__left-three-quarter__halfbody__v004.png",
+          "runtimeHomes": [
+            "journal:sophie-expression-gallery",
+            "story:cast:sophie:sad-vulnerable",
+            "cast-standardization:sophie"
+          ]
+        }
+      ]
+    }
+  ]
+}

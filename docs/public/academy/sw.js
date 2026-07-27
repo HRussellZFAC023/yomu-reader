@@ -1,4 +1,4 @@
-const VERSION = 'yomu-academy-shell-s1-28cb76b7a28f';
+const VERSION = 'yomu-academy-shell-s1-3842a6e06940';
 const AUDIO_CACHE = 'yomu-academy-audio-v1-2c25b06f971c';
 const STORY_VOICE_CATALOG = '/academy/audio/story-voice-playback.json';
 const STORY_VOICE_ASSET = /^\/academy\/audio\/story-(?:pilot|lines)\/[a-z0-9][a-z0-9._-]*\.opus$/;
@@ -120,9 +120,13 @@ const RUNTIME_ART_PRECACHE = [
     '/academy/art/characters/shin/shin__standardized-determined__left-three-quarter__halfbody__v001.png',
     '/academy/art/characters/shin/shin__standardized-encouraging-listening__front-near-front__halfbody__v001.png',
     '/academy/art/characters/shin/shin__standardized-neutral__front-near-front__halfbody__v001.png',
-    '/academy/art/characters/sophie/sophie__bookshop-neutral__halfbody__v003.png',
-    '/academy/art/characters/sophie/sophie__determined__left-three-quarter__halfbody__v003.png',
-    '/academy/art/characters/sophie/sophie__encouraging-listening__front-near-front__halfbody__v003.png',
+    '/academy/art/characters/sophie/sophie__determined__left-three-quarter__halfbody__v004.png',
+    '/academy/art/characters/sophie/sophie__encouraging-listening__right-three-quarter__halfbody__v004.png',
+    '/academy/art/characters/sophie/sophie__happy__front-near-front__halfbody__v004.png',
+    '/academy/art/characters/sophie/sophie__neutral__front-near-front__halfbody__v004.png',
+    '/academy/art/characters/sophie/sophie__sad-vulnerable__left-three-quarter__halfbody__v004.png',
+    '/academy/art/characters/sophie/sophie__surprised-shocked__right-three-quarter__halfbody__v004.png',
+    '/academy/art/characters/sophie/sophie__thoughtful__left-three-quarter__halfbody__v004.png',
     '/academy/art/characters/stasi/stasi__standardized-encouraging-listening__front-near-front__halfbody__v001.png',
     '/academy/art/characters/stasi/stasi__standardized-neutral__front-near-front__halfbody__v001.png',
     '/academy/art/characters/steve/steve__determined__left-three-quarter__halfbody__v001.png',
@@ -287,8 +291,8 @@ const CORE = [
     '/yomu-icon.svg',
     '/academy/',
     '/academy/index.html',
-    '/academy/app.js?v=s1-28cb76b7a28f',
-    '/academy/style.css?v=s1-28cb76b7a28f',
+    '/academy/app.js?v=s1-3842a6e06940',
+    '/academy/style.css?v=s1-3842a6e06940',
     '/academy/manifest.webmanifest',
     ...RUNTIME_ART_PRECACHE,
     '/academy/content/vertical-slice/source-library.v1.json',

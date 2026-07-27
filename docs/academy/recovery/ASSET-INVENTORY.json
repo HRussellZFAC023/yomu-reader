@@ -19,9 +19,9 @@
     "deletion": "This audit never deletes, moves, or mutates Academy raster files."
   },
   "counts": {
-    "currentRasterFiles": 290,
-    "currentRasterFilesAccountedFor": 290,
-    "active": 237,
+    "currentRasterFiles": 294,
+    "currentRasterFilesAccountedFor": 294,
+    "active": 241,
     "orphaned": 53,
     "deprecated": 10,
     "deprecatedPresent": 0,
@@ -32,7 +32,7 @@
     "deliveredMatrixExpressionVariants": 58,
     "offMatrixDeliveredSprites": 51,
     "activeByKind": {
-      "character-sprite": 109,
+      "character-sprite": 113,
       "protagonist-portrait": 4,
       "scene-background": 68,
       "scene-event": 48,
@@ -1851,62 +1851,162 @@
         "ledgerStatus": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
       },
       {
-        "id": "character-sophie-neutral-right",
-        "path": "/academy/art/characters/sophie/sophie__bookshop-neutral__halfbody__v003.png",
-        "sha256": "83425d5bdec15a8cf54c5322df3e8b011d9dce383b181e861ca72897d1d79eb7",
-        "ledgerSha256": "83425d5bdec15a8cf54c5322df3e8b011d9dce383b181e861ca72897d1d79eb7",
+        "id": "character-sophie-determined-left-three-quarter-halfbody-v004",
+        "path": "/academy/art/characters/sophie/sophie__determined__left-three-quarter__halfbody__v004.png",
+        "sha256": "8da0f804382a2d1f25ccda6aaff4520fd6243bfc25abb51c7e4e7ba24c4f6e27",
+        "ledgerSha256": "8da0f804382a2d1f25ccda6aaff4520fd6243bfc25abb51c7e4e7ba24c4f6e27",
         "kind": "character-sprite",
         "state": "active",
         "present": true,
         "runtimeAuthorized": true,
         "runtimeHomes": [
-          "world:bookshop:sophie",
+          "journal:sophie-expression-gallery",
+          "story:cast:sophie:determined",
+          "cast-standardization:sophie"
+        ],
+        "reviewHomes": [
+          "cast-standardization-manifest",
+          "identity-lock"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
+      },
+      {
+        "id": "character-sophie-encouraging-listening-right-three-quarter-halfbody-v004",
+        "path": "/academy/art/characters/sophie/sophie__encouraging-listening__right-three-quarter__halfbody__v004.png",
+        "sha256": "58f1fd05b8b56ee60ae95d9dcc13fee9d7ba108a6ba4d0f84cedb4b17e7b22f7",
+        "ledgerSha256": "58f1fd05b8b56ee60ae95d9dcc13fee9d7ba108a6ba4d0f84cedb4b17e7b22f7",
+        "kind": "character-sprite",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "journal:sophie-expression-gallery",
+          "story:cast:sophie:encouraging-listening",
+          "cast-standardization:sophie"
+        ],
+        "reviewHomes": [
+          "cast-standardization-manifest",
+          "identity-lock"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
+      },
+      {
+        "id": "character-sophie-happy-front-near-front-halfbody-v004",
+        "path": "/academy/art/characters/sophie/sophie__happy__front-near-front__halfbody__v004.png",
+        "sha256": "22d3cffcdb7fd80e9274cd9d9618695dc95803787926ce4689950214f3da5640",
+        "ledgerSha256": "22d3cffcdb7fd80e9274cd9d9618695dc95803787926ce4689950214f3da5640",
+        "kind": "character-sprite",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "journal:sophie-expression-gallery",
+          "story:cast:sophie:happy",
+          "cast-standardization:sophie"
+        ],
+        "reviewHomes": [
+          "cast-standardization-manifest",
+          "identity-lock"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
+      },
+      {
+        "id": "character-sophie-neutral-front-near-front-halfbody-v004",
+        "path": "/academy/art/characters/sophie/sophie__neutral__front-near-front__halfbody__v004.png",
+        "sha256": "b2eece61e2cb0d6902d80a2a83d9fa2aa9716e528c15a7d9950037d102e47101",
+        "ledgerSha256": "b2eece61e2cb0d6902d80a2a83d9fa2aa9716e528c15a7d9950037d102e47101",
+        "kind": "character-sprite",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
           "journal:sophie",
           "class:people",
           "class:week-cast",
           "lesson-overview:roster",
-          "world:person"
+          "world:person",
+          "story:cast:sophie",
+          "cast-standardization:sophie"
         ],
-        "reviewHomes": [],
+        "reviewHomes": [
+          "cast-standardization-manifest",
+          "identity-lock"
+        ],
         "sourceLedger": "public/academy/art/ASSET-USAGE.json",
         "ledgerVerdict": "approved-runtime",
-        "ledgerStatus": "retained approved cast runtime sprite"
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
       },
       {
-        "id": "character-sophie-determined-left",
-        "path": "/academy/art/characters/sophie/sophie__determined__left-three-quarter__halfbody__v003.png",
-        "sha256": "9499887d31a75713a1ea551ca9ef6124aeee6591949206dda10d8670e8d9e711",
-        "ledgerSha256": "9499887d31a75713a1ea551ca9ef6124aeee6591949206dda10d8670e8d9e711",
+        "id": "character-sophie-sad-vulnerable-left-three-quarter-halfbody-v004",
+        "path": "/academy/art/characters/sophie/sophie__sad-vulnerable__left-three-quarter__halfbody__v004.png",
+        "sha256": "bc0579e1225f977a0ef1df3ab4136e545751d85466f3c0bd9570997a33225b8f",
+        "ledgerSha256": "bc0579e1225f977a0ef1df3ab4136e545751d85466f3c0bd9570997a33225b8f",
         "kind": "character-sprite",
         "state": "active",
         "present": true,
         "runtimeAuthorized": true,
         "runtimeHomes": [
-          "dialogue:sophie-research",
-          "journal:sophie-expression-gallery"
+          "journal:sophie-expression-gallery",
+          "story:cast:sophie:sad-vulnerable",
+          "cast-standardization:sophie"
         ],
-        "reviewHomes": [],
+        "reviewHomes": [
+          "cast-standardization-manifest",
+          "identity-lock"
+        ],
         "sourceLedger": "public/academy/art/ASSET-USAGE.json",
         "ledgerVerdict": "approved-runtime",
-        "ledgerStatus": "retained approved cast runtime sprite"
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
       },
       {
-        "id": "character-sophie-encouraging-front",
-        "path": "/academy/art/characters/sophie/sophie__encouraging-listening__front-near-front__halfbody__v003.png",
-        "sha256": "8b2ecd95a030f87dd210615ebf3cc0704c6b707896b4e991035ab9b52d9ef8d4",
-        "ledgerSha256": "8b2ecd95a030f87dd210615ebf3cc0704c6b707896b4e991035ab9b52d9ef8d4",
+        "id": "character-sophie-surprised-shocked-right-three-quarter-halfbody-v004",
+        "path": "/academy/art/characters/sophie/sophie__surprised-shocked__right-three-quarter__halfbody__v004.png",
+        "sha256": "52019036d725a2918e9ff73ccca416b6a62b0fd81c1e9505a836588a7c2b302d",
+        "ledgerSha256": "52019036d725a2918e9ff73ccca416b6a62b0fd81c1e9505a836588a7c2b302d",
         "kind": "character-sprite",
         "state": "active",
         "present": true,
         "runtimeAuthorized": true,
         "runtimeHomes": [
-          "dialogue:sophie-support",
-          "journal:sophie-expression-gallery"
+          "journal:sophie-expression-gallery",
+          "story:cast:sophie:surprised-shocked",
+          "cast-standardization:sophie"
         ],
-        "reviewHomes": [],
+        "reviewHomes": [
+          "cast-standardization-manifest",
+          "identity-lock"
+        ],
         "sourceLedger": "public/academy/art/ASSET-USAGE.json",
         "ledgerVerdict": "approved-runtime",
-        "ledgerStatus": "retained approved cast runtime sprite"
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
+      },
+      {
+        "id": "character-sophie-thoughtful-left-three-quarter-halfbody-v004",
+        "path": "/academy/art/characters/sophie/sophie__thoughtful__left-three-quarter__halfbody__v004.png",
+        "sha256": "fa781867336aaa6b94eb410b63f288ecd094110b2503800cb26ca9aee530e14f",
+        "ledgerSha256": "fa781867336aaa6b94eb410b63f288ecd094110b2503800cb26ca9aee530e14f",
+        "kind": "character-sprite",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "journal:sophie-expression-gallery",
+          "story:cast:sophie:thoughtful",
+          "cast-standardization:sophie"
+        ],
+        "reviewHomes": [
+          "cast-standardization-manifest",
+          "identity-lock"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
       },
       {
         "id": "character-stasi-standardized-encouraging-listening-front-near-front-halfbody-v001",
