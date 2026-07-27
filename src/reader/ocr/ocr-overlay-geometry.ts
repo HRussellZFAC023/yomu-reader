@@ -1,15 +1,58 @@
 import type { OcrRect } from './response';
 
-// Every OCR surface anchors recognized text over a source box, so every one of them
-// needs the same answer to "how big is this line?". Sizing it per surface is what let
-// the gaming overlay drift out of register with the text underneath it.
-export function ocrFontPx(text: string, boxWidth: number, boxHeight: number, vertical: boolean, scale: number): number {
+/** How long a line of the source text is in our own type, and the size it was measured at. */
+export interface OcrTextMeasurement {
+    fontSize: number;
+    /** Extent along the direction the text runs: width when horizontal, height when vertical. */
+    length: number;
+}
+
+// A tight OCR box is drawn around the ink, and Japanese glyphs fill roughly 0.92 em of
+// their line box, so type of size F leaves a box about 0.92F thick. Inverting that gives
+// the largest type a box of a given thickness can have come from. Boxes that carry
+// leading are looser than this, and for those the length fit decides — which is why the
+// old `boxHeight * 0.58` was wrong in the common case: against a provider's tight ink box
+// it typeset the line at barely half the size of the text it was sitting on.
+const OCR_BOX_INK_RATIO = 0.92;
+const MIN_OCR_FONT_PX = 11;
+
+// Every OCR surface anchors recognized text over a source box, so every one of them needs
+// the same answer to "how big is this line?". Sizing it per surface is what let the gaming
+// overlay drift out of register with the text underneath it.
+//
+// The honest answer needs a measurement: how long IS this string in the reader's own type?
+// Text advances scale linearly with the font size, so one measurement at a known size is
+// enough to land the line on exactly the extent the source occupied — a 20-glyph sentence
+// in a 920px-wide box comes back at 46px, the size the game drew it at, whatever font
+// either side happens to use. `measured` is that reading; without it (nothing rendered to
+// measure) the em-count estimate below stands in.
+//
+// There is deliberately no upper clamp any more. The box IS the bound: a line cannot be
+// thicker than the box drawn around it, and a fixed 38px ceiling only meant that large
+// game and manga type could never be matched at any "Image text scale" setting.
+export function ocrFontPx(
+    text: string,
+    boxWidth: number,
+    boxHeight: number,
+    vertical: boolean,
+    scale: number,
+    measured?: OcrTextMeasurement,
+): number {
     const safeScale = Math.max(0.7, Math.min(1.8, scale));
-    const length = Math.max(1, visualTextLength(text));
-    const byBoxThickness = vertical ? boxWidth * 0.72 : boxHeight * 0.58;
-    const byBoxLength = vertical ? (boxHeight / length) * 1.12 : (boxWidth / length) * 1.08;
-    const fitted = Math.min(byBoxThickness, byBoxLength) * safeScale;
-    return Math.max(11, Math.min(38, fitted));
+    const boxThickness = vertical ? boxWidth : boxHeight;
+    const boxLength = vertical ? boxHeight : boxWidth;
+    const byBoxThickness = boxThickness / OCR_BOX_INK_RATIO;
+    const byBoxLength = measuredFontPx(boxLength, measured) ?? estimatedFontPx(text, boxLength, vertical);
+    return Math.max(MIN_OCR_FONT_PX, Math.min(byBoxThickness, byBoxLength) * safeScale);
+}
+
+function measuredFontPx(boxLength: number, measured: OcrTextMeasurement | undefined): number | null {
+    if (!measured || !(measured.length > 0) || !(measured.fontSize > 0)) return null;
+    return (boxLength / measured.length) * measured.fontSize;
+}
+
+function estimatedFontPx(text: string, boxLength: number, vertical: boolean): number {
+    return (boxLength / Math.max(1, visualTextLength(text))) * (vertical ? 1.12 : 1.08);
 }
 
 // Kana and kanji occupy a full em; latin and whitespace do not. Counting characters
@@ -153,10 +196,17 @@ export interface OcrLineLayoutInput {
 export function layoutOcrLineElement(element: HTMLElement, input: OcrLineLayoutInput): OcrLineFrame | null {
     const { box, frame, vertical } = input;
     if (!Number.isFinite(box.width) || !Number.isFinite(box.height) || box.width <= 0 || box.height <= 0) return null;
-    const fontSize = ocrFontPx(input.text, box.width, box.height, vertical, input.fontScale);
-    element.style.fontSize = `${fontSize}px`;
     const textElement = element.querySelector<HTMLElement>('.jpdb-ocr-line-text');
     if (!textElement) return null;
+    const fontSize = ocrFontPx(
+        input.text,
+        box.width,
+        box.height,
+        vertical,
+        input.fontScale,
+        measureOcrLineExtent(element, input.text, vertical),
+    );
+    element.style.fontSize = `${fontSize}px`;
     // Read the readings off the line rather than trusting a flag set when it was built:
     // furigana can arrive after the first paint (the gaming overlay lets the reader
     // annotate its lines in place), and a line that grew readings needs the taller top
@@ -204,6 +254,37 @@ export function layoutOcrOverlayLines(layer: ParentNode, frame: OcrOverlayFrame,
             fontScale,
         });
     });
+}
+
+// The size the fit is measured at. One reading is enough: text advances scale linearly
+// with the font, so the source box divided by the measured length gives the size directly.
+const OCR_FIT_MEASURE_PX = 32;
+
+// How long this line of text is in the line's own type. Measured on a throwaway copy of the
+// SOURCE string rather than on the rendered line, because the reader annotates these lines
+// in place: word boxes and readings change what the line measures, and sizing type to its
+// own furigana would shrink a line the moment it was annotated. The copy is laid out inside
+// the line so it inherits the font and the writing mode, is marked as something the reader
+// must not scan, and is unwrapped so a vertical column reports its full length rather than
+// the wrap its previous frame imposed. It never survives the call.
+//
+// Nothing rendered (a detached layer, a test environment that does not lay text out)
+// measures 0, and ocrFontPx falls back to its em-count estimate.
+function measureOcrLineExtent(line: HTMLElement, text: string, vertical: boolean): OcrTextMeasurement | undefined {
+    const trimmed = text.trim();
+    if (!trimmed) return undefined;
+    const probe = line.ownerDocument.createElement('span');
+    probe.className = 'jpdb-ocr-line-text';
+    probe.textContent = trimmed;
+    probe.setAttribute('aria-hidden', 'true');
+    probe.setAttribute('data-jpdb-reader-surface-ignore', '');
+    probe.style.cssText = 'position:absolute;left:0;top:0;visibility:hidden;pointer-events:none;'
+        + `white-space:nowrap;flex-wrap:nowrap;max-width:none;max-height:none;font-size:${OCR_FIT_MEASURE_PX}px`;
+    line.append(probe);
+    const rect = probe.getBoundingClientRect();
+    probe.remove();
+    const length = vertical ? rect.height : rect.width;
+    return length > 0 ? { fontSize: OCR_FIT_MEASURE_PX, length } : undefined;
 }
 
 function applyOcrLinePadding(element: HTMLElement, padding: OcrLinePadding): void {
