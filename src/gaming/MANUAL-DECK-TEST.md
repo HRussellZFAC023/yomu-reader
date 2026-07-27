@@ -21,10 +21,11 @@ add it to Steam as a non-Steam game so it can launch from Game Mode.
 
 | # | Step | Expected |
 |---|------|----------|
-| A1 | In Desktop Mode, `chmod +x` the AppImage and double-click it. | Yomu Gaming settings window opens, titled "Yomu Gaming", filling the 1280×800 screen. |
-| A2 | Check the control-bar session note. | A note reads **"Steam Deck detected…"**. If SteamOS reports Wayland it warns about the capture portal. (Driven by `isSteamDeckSession` / `displayServer` in `environmentStatus()`.) |
+| A1 | In Desktop Mode, `chmod +x` the AppImage and double-click it. | The Yomu Gaming home screen opens, titled "Yomu Gaming", filling the 1280×800 screen. |
+| A2 | Check the session note under the hero. | A note reads **"Steam Deck detected…"**. If SteamOS reports Wayland it warns about the capture portal. (Driven by `isSteamDeckSession` / `displayServer` in `environmentStatus()`.) |
 | A3 | Add the AppImage to Steam → switch to **Game Mode** → launch it from the library. | App launches full-screen in Game Mode without a desktop-session error. |
-| A4 | Note the first-run onboarding card. | "Yomu Gaming is ready", capture-shortcut field, "Try now" / "Choose area" / "Done". Height fits without vertical scroll at 800px. |
+| A4 | Read the home screen. | One hero: "Read Japanese anywhere on your screen", one primary "Read my screen", the capture shortcut shown once, then "Read part of the screen" and "Settings". Fits without vertical scroll at 800px. |
+| A5 | Read the line under **Read my screen**. | If gamescope kept the chord (`globalShortcut.register` returned false), that line reads **"Pick a shortcut in Settings to read from any app."** instead of naming a key — the home screen never tells you to press something the session did not hand over. Setting a shortcut that the session also keeps answers "… is taken here. Try another key." and stays on that line, never a green "saved". |
 
 ## B. Capture shortcut via Steam Input (controller-only)
 
@@ -50,7 +51,7 @@ Do this with **no keyboard/mouse attached** — just the Deck's built-in control
 | C3 | With the popover open, press **B** (east button). | The popover closes; the overlay stays open. |
 | C4 | With no popover open, press **B**. | The whole overlay closes. |
 | C5 | Press **Y** (north). | The screen is re-captured (frozen frame refreshes). |
-| C6 | Press **Start** (or **L2**). | The Yomu Gaming settings window comes forward and the overlay hides. |
+| C6 | Press **Start** (or **L2**). | The Yomu Gaming window comes forward on Settings and the overlay hides. |
 | C7 | Hold a D-pad direction. | Focus auto-repeats (~360ms to first repeat, then ~140ms) — it should feel like key-repeat, not one-step-per-press. |
 
 > Deck built-in buttons report through the standard Gamepad mapping, so C1–C7 should
@@ -62,9 +63,9 @@ Do this with **no keyboard/mouse attached** — just the Deck's built-in control
 
 | # | Step | Expected |
 |---|------|----------|
-| D1 | Instant capture (mapped button or "Read screen") over a dialogue box. | Recognized lines render **in place** over the game text with furigana; no ellipsis truncation. |
+| D1 | Instant capture (mapped button or "Read my screen") over a dialogue box. | Recognized lines render **in place** over the game text with furigana; no ellipsis truncation. |
 | D2 | Vertical text (VN/manga column). | Renders as an upright **vertical-rl** column, not a clipped horizontal pill. |
-| D3 | "Select area" then drag a box (touchscreen or trackpad) around a smaller region. | Only that region is OCR'd; the crop rectangle disappears once results render. |
+| D3 | "Read part of the screen" then drag a box (touchscreen or trackpad) around a smaller region. | Only that region is OCR'd; the crop rectangle disappears once results render. |
 | D4 | Confirm the frozen frame does **not** contain Yomu's own toolbar/selection box. | Capture is the game only — the overlay chrome is excluded (frame is grabbed while our windows are hidden). |
 | D5 | Open a word popover and grade it (Nothing…Easy) if signed into jpdb/jiten. | Grade submits through the bundled reader; no browser tab opens. |
 

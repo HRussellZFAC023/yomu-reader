@@ -51,11 +51,18 @@ declare global {
 
 const APP_ICON_URL = './yomu-icon-512.png';
 
+// The window shows exactly one surface at a time. Home says what the app is and what to
+// press; Settings is a place you go. Stacking them was how the same message ended up on
+// screen twice with six buttons for three actions.
+type ShellView = 'home' | 'settings';
+
 interface SettingsShellState {
     environment: YomuGamingEnvironment | null;
     settings: ReaderSettings;
     status: string;
     statusTone: 'idle' | 'busy' | 'success' | 'warning' | 'error';
+    view: ShellView;
+    settingsPanel: string;
 }
 
 interface OverlayResult {
@@ -76,10 +83,16 @@ interface OverlayLineResult {
 const GAMING_SETTINGS_STORAGE_KEY = 'yomu-gaming-reader-settings-v1';
 const READER_SETTINGS_STORAGE_KEY = 'jpdb-popup-reader-settings';
 const GAMING_SETTINGS_SNAPSHOT_STORAGE_KEY = 'yomu-gaming-settings-snapshot-v1';
-const GAMING_FIRST_RUN_SEEN_STORAGE_KEY = 'yomu-gaming-first-run-seen-v1';
+const GAMING_PENDING_VIEW_STORAGE_KEY = 'yomu-gaming-pending-view-v1';
+const GAMING_PENDING_VIEW_MAX_AGE_MS = 15_000;
 const PREVIOUS_OCR_ENDPOINT_STORAGE_KEY = 'yomu-gaming-ocr-endpoint';
 const PREVIOUS_OCR_ENGINE_STORAGE_KEY = 'yomu-gaming-ocr-engine';
-const DEFAULT_SETTINGS_PANEL = 'media';
+// Capture is what this app does, so its own shortcut is the first thing Settings shows.
+// Media (audio sources, text-to-speech, proxy URL) is the deepest reader tab there is.
+const DEFAULT_SETTINGS_PANEL = 'shortcuts';
+// What the hero says instead of naming a key that the system has not handed over.
+const CAPTURE_SHORTCUT_SETUP_LINE = 'Pick a shortcut in Settings to read from any app.';
+const CAPTURE_SHORTCUT_HELP = 'Focus the field and press the keys to read the screen.';
 const DEFAULT_GAMING_OCR_PROVIDER: ReaderSettings['ocrProvider'] = 'google-lens';
 const DEFAULT_GAMING_OCR_ENDPOINT = '';
 const UNSUPPORTED_SETTINGS_ACTIONS = new Set([
@@ -115,8 +128,10 @@ let captureShortcutPersistToken = 0;
 const shellState: SettingsShellState = {
     environment: null,
     settings: loadGamingSettings(),
-    status: 'Ready to read game text.',
+    status: '',
     statusTone: 'idle',
+    view: 'home',
+    settingsPanel: DEFAULT_SETTINGS_PANEL,
 };
 
 queueMicrotask(() => void boot());
@@ -130,18 +145,20 @@ async function boot(): Promise<void> {
         return;
     }
     applyDocumentTheme(shellState.settings);
-    renderSettingsShell();
+    renderShell();
+    watchForRequestedView();
     shellState.environment = await bridge.getEnvironment();
-    updateHotkeyCopy();
+    // The hero itself now carries whether the keyboard is in play, so a fresh launch
+    // reports nothing extra: one screen, one message.
+    updateCaptureShortcutCopy();
     updateSessionGuidance();
-    updateCaptureOnboardingStatus();
 }
 
-function renderSettingsShell(): void {
+function renderShell(): void {
     applyDocumentTheme(shellState.settings);
     appRoot.innerHTML = `
-        <main class="yomu-gaming-shell" data-yomu-gaming-ready="true">
-            ${renderGamingControlBar()}
+        <main class="yomu-gaming-shell" data-yomu-gaming-ready="true" data-shell-view="${shellState.view}">
+            ${renderGamingHome()}
             <form class="jpdb-reader-settings yomu-gaming-settings" data-jpdb-reader-root data-yomu-gaming-settings lang="${escapeHtml(languageAttribute(shellState.settings.interfaceLanguage))}">
                 ${renderSettingsForm(shellState.settings, 'https://jpdb.io/settings', 'https://jiten.moe/settings')}
             </form>
@@ -151,40 +168,130 @@ function renderSettingsShell(): void {
     if (!form) return;
     localizeSettingsForm(form, shellState.settings.interfaceLanguage);
     applyGamingSettingsCopy(form);
-    installGamingOnboarding(form);
+    installGamingSettingsHeader(form);
     installGamingCaptureShortcutSection(form);
     installNativeSettingsSyncSection(form);
-    activateSettingsPanel(form, DEFAULT_SETTINGS_PANEL);
+    activateSettingsPanel(form, shellState.settingsPanel);
     scrollToInitialSettingsSection(form);
     installShortcutCapture(form);
-    removeGamingFooterDuplicates(form);
+    clearSettingsSaveStatus(form);
     syncOcrProviderFields(form);
     hideUnsupportedSettingsActions(form);
     bindCaptureShortcutInputs(appRoot);
-    bindGamingShellActions(form);
+    bindGamingHomeActions(form);
     bindSettingsForm(form);
+    applyShellView();
     setShellStatus(shellState.status, shellState.statusTone);
 }
 
-function renderGamingControlBar(): string {
+// One hero: the name, the one sentence that says what this is, the one button that does
+// it, and the shortcut for the same action shown once. Everything else is a quiet
+// secondary row.
+function renderGamingHome(): string {
     return `
-        <section class="yomu-gaming-controlbar" aria-label="Yomu Gaming controls" data-gaming-shell-actions>
-            <div class="yomu-gaming-app-title">
-                <img src="${escapeHtml(APP_ICON_URL)}" alt="" aria-hidden="true">
-                <div>
-                    <strong>Yomu Gaming</strong>
-                    <span>Read ${escapeHtml(targetLanguageName())} in games and desktop apps</span>
+        <section class="yomu-gaming-home" aria-label="Yomu Gaming" data-gaming-home>
+            <div class="yomu-gaming-home-card">
+                <img class="yomu-gaming-home-icon" src="${escapeHtml(APP_ICON_URL)}" alt="" aria-hidden="true">
+                <p class="yomu-gaming-home-mark">Yomu Gaming</p>
+                <h1>Read ${escapeHtml(targetLanguageName())} anywhere on your screen</h1>
+                <p class="yomu-gaming-home-lede">Point at any word to see its reading and meaning.</p>
+                <button class="jpdb-reader-btn add yomu-gaming-home-primary" type="button" data-action="instant-capture">Read my screen</button>
+                <p class="yomu-gaming-home-shortcut" data-gaming-shortcut-line data-shortcut-ready="${captureShortcutReady()}">${captureShortcutLineHtml()}</p>
+                <div class="yomu-gaming-shell-status" data-gaming-shell-status data-status-tone="${shellState.statusTone}" role="status" aria-live="polite" hidden></div>
+                <div class="yomu-gaming-session-note" data-gaming-session-note hidden></div>
+                <div class="yomu-gaming-home-secondary">
+                    <button class="jpdb-reader-btn" type="button" data-action="area-capture">Read part of the screen</button>
+                    <button class="jpdb-reader-btn" type="button" data-action="open-settings">Settings</button>
                 </div>
             </div>
-            <div class="yomu-gaming-capture-controls">
-                <button class="jpdb-reader-btn add" type="button" data-action="instant-capture">Read screen</button>
-                <button class="jpdb-reader-btn" type="button" data-action="area-capture">Select area</button>
-                <kbd data-hotkey>${escapeHtml(hotkeyLabel())}</kbd>
-            </div>
-            <div class="yomu-gaming-shell-status" data-gaming-shell-status data-status-tone="${shellState.statusTone}">${escapeHtml(shellState.status)}</div>
-            <div class="yomu-gaming-session-note" data-gaming-session-note hidden></div>
         </section>
     `;
+}
+
+// One state, one sentence. The hero used to name a key unconditionally and let a second
+// line quietly say the same key was unavailable, so the screen told you to press
+// something that did nothing. Everything the keyboard has to say is decided here, from
+// `hotkeyRegistered`, and rendered in one place.
+function captureShortcutReady(): boolean {
+    return shellState.environment ? shellState.environment.hotkeyRegistered : true;
+}
+
+function captureShortcutLineHtml(): string {
+    if (!captureShortcutReady()) return escapeHtml(CAPTURE_SHORTCUT_SETUP_LINE);
+    return `Or press <kbd data-hotkey>${escapeHtml(hotkeyLabel())}</kbd> any time, in any app.`;
+}
+
+// Success is a fact about the keyboard, so it is read off the environment the main
+// process just handed back rather than assumed from "the call returned".
+function captureShortcutSaveStatus(environment: YomuGamingEnvironment): { text: string; tone: SettingsShellState['statusTone'] } {
+    if (environment.hotkeyError) return { text: environment.hotkeyError, tone: 'warning' };
+    if (environment.hotkeyRegistered) return { text: `Capture shortcut saved: ${hotkeyLabel()}.`, tone: 'success' };
+    return { text: 'Try another key to use the keyboard.', tone: 'warning' };
+}
+
+function applyShellView(): void {
+    const shell = appRoot.querySelector<HTMLElement>('.yomu-gaming-shell');
+    if (shell) shell.dataset.shellView = shellState.view;
+    appRoot.querySelectorAll<HTMLElement>('[data-gaming-home]').forEach(element => {
+        element.hidden = shellState.view !== 'home';
+    });
+    appRoot.querySelectorAll<HTMLElement>('[data-yomu-gaming-settings]').forEach(element => {
+        element.hidden = shellState.view !== 'settings';
+    });
+}
+
+function showView(view: ShellView): void {
+    shellState.view = view;
+    applyShellView();
+    const focusSelector = view === 'settings' ? '[data-action="close-settings"]' : '[data-action="instant-capture"]';
+    appRoot.querySelector<HTMLElement>(focusSelector)?.focus();
+}
+
+// The overlay lives in its own window, so its Settings button leaves the view it wants in
+// shared storage rather than adding a push channel to the hardened preload. If the main
+// window never wakes to read it, the request simply expires and Home stays put.
+function requestView(view: ShellView): void {
+    try {
+        localStorage.setItem(GAMING_PENDING_VIEW_STORAGE_KEY, JSON.stringify({ view, at: Date.now() }));
+    } catch {
+        // A locked storage context just means the app opens on Home.
+    }
+}
+
+function watchForRequestedView(): void {
+    const consume = () => {
+        const requested = consumeRequestedView();
+        if (requested && requested !== shellState.view) showView(requested);
+    };
+    // `storage` reaches this window the moment the overlay writes, without waiting on the
+    // compositor to hand focus over; focus and visibility stay as the catch-up path for
+    // an embedder that keeps storage events to itself.
+    window.addEventListener('storage', event => {
+        if (event.key === null || event.key === GAMING_PENDING_VIEW_STORAGE_KEY) consume();
+    });
+    window.addEventListener('focus', consume);
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) consume();
+    });
+    consume();
+}
+
+function consumeRequestedView(): ShellView | null {
+    let raw: string | null = null;
+    try {
+        raw = localStorage.getItem(GAMING_PENDING_VIEW_STORAGE_KEY);
+        if (raw) localStorage.removeItem(GAMING_PENDING_VIEW_STORAGE_KEY);
+    } catch {
+        return null;
+    }
+    if (!raw) return null;
+    try {
+        const parsed = JSON.parse(raw) as { view?: unknown; at?: unknown };
+        const fresh = typeof parsed.at === 'number' && Date.now() - parsed.at < GAMING_PENDING_VIEW_MAX_AGE_MS;
+        return fresh && (parsed.view === 'home' || parsed.view === 'settings') ? parsed.view : null;
+    } catch {
+        return null;
+    }
 }
 
 // The main process detects the platform, display server, and whether this looks
@@ -221,38 +328,25 @@ function sessionGuidanceText(environment: YomuGamingEnvironment | null): { text:
     return parts.length ? { text: parts.join(' '), tone } : null;
 }
 
-function installGamingOnboarding(form: HTMLFormElement): void {
-    if (hasSeenGamingFirstRun() || appRoot.querySelector('[data-gaming-onboarding]')) return;
-    const shell = appRoot.querySelector<HTMLElement>('.yomu-gaming-shell');
-    if (!shell) return;
-    const section = document.createElement('section');
-    section.className = 'yomu-gaming-onboarding';
-    section.dataset.gamingOnboarding = 'true';
-    section.dataset.yomuGamingFirstRun = 'true';
-    section.dataset.gamingShellActions = 'true';
-    section.innerHTML = `
-        <div class="yomu-gaming-first-run-copy">
-            <p class="yomu-gaming-kicker">${escapeHtml(targetLanguageName())} anywhere on your PC</p>
-            <h1>Yomu Gaming is ready.</h1>
-            <p>Use Google Lens-style image OCR to place lookup targets directly over game text. Press the shortcut for a quick read, or select a smaller area when the scene is busy.</p>
-        </div>
-        <div class="yomu-gaming-first-run-controls">
-            <label>
-                <span>Capture shortcut</span>
-                <input data-capture-shortcut-input value="${escapeHtml(hotkeyLabel())}" aria-label="Capture shortcut" autocomplete="off" inputmode="none" spellcheck="false">
-            </label>
-        </div>
-        <div class="yomu-gaming-onboarding-summary">
-            <div><strong>Shortcut</strong><span data-gaming-onboarding-status>${escapeHtml(gamingOnboardingStatusText())}</span></div>
-            <div><strong>Image OCR</strong><span data-gaming-ocr-mode>${escapeHtml(gamingOcrModeText())}</span></div>
-        </div>
-        <div class="yomu-gaming-first-run-actions">
-            <button class="jpdb-reader-btn add" type="button" data-action="test-capture-overlay">Try now</button>
-            <button class="jpdb-reader-btn" type="button" data-action="start-overlay">Choose area</button>
-            <button class="jpdb-reader-btn" type="button" data-action="dismiss-gaming-first-run">Done</button>
-        </div>
-    `;
-    shell.insertBefore(section, form);
+// Settings is a place you go, so it gets its own way back and its own status line —
+// otherwise a save or a snapshot restore reported itself onto a surface you are not on.
+function installGamingSettingsHeader(form: HTMLFormElement): void {
+    const head = form.querySelector<HTMLElement>('.jpdb-reader-settings-head');
+    if (!head || head.querySelector('[data-action="close-settings"]')) return;
+    const back = document.createElement('button');
+    back.className = 'jpdb-reader-btn yomu-gaming-settings-back';
+    back.type = 'button';
+    back.dataset.action = 'close-settings';
+    back.textContent = 'Back';
+    head.insertBefore(back, head.querySelector('h2'));
+    const status = document.createElement('div');
+    status.className = 'yomu-gaming-shell-status';
+    status.dataset.gamingShellStatus = 'true';
+    status.dataset.statusTone = shellState.statusTone;
+    status.setAttribute('role', 'status');
+    status.setAttribute('aria-live', 'polite');
+    status.hidden = true;
+    head.appendChild(status);
 }
 
 function installGamingCaptureShortcutSection(form: HTMLFormElement): void {
@@ -262,20 +356,19 @@ function installGamingCaptureShortcutSection(form: HTMLFormElement): void {
     section.className = 'jpdb-reader-settings-subsection yomu-gaming-native-shortcut';
     section.dataset.nativeCaptureShortcut = 'true';
     section.innerHTML = `
-        <div class="jpdb-reader-local-title">Game capture</div>
+        <div class="jpdb-reader-local-title">Screen capture</div>
         <label>
             <span class="jpdb-reader-settings-label-text">Capture shortcut</span>
             <input data-capture-shortcut-input value="${escapeHtml(hotkeyLabel())}" aria-label="Capture shortcut" autocomplete="off" inputmode="none" spellcheck="false">
         </label>
-        <div class="jpdb-reader-help" data-capture-shortcut-help>${escapeHtml(captureShortcutHelpText())}</div>
+        <div class="jpdb-reader-help" data-capture-shortcut-help>${escapeHtml(CAPTURE_SHORTCUT_HELP)}</div>
         <div class="jpdb-reader-help" data-gaming-window-parking hidden></div>
     `;
     const grid = panel.querySelector<HTMLElement>('.grid');
     panel.insertBefore(section, grid ?? panel.firstChild);
 }
 
-function removeGamingFooterDuplicates(form: HTMLFormElement): void {
-    form.querySelectorAll('.yomu-gaming-capture-button').forEach(element => element.remove());
+function clearSettingsSaveStatus(form: HTMLFormElement): void {
     form.querySelectorAll<HTMLElement>('[data-settings-save-status]').forEach(element => {
         element.textContent = '';
         element.hidden = true;
@@ -310,7 +403,7 @@ function bindSettingsForm(form: HTMLFormElement): void {
     form.addEventListener('submit', event => {
         event.preventDefault();
         persistSettingsFromForm(form);
-        setShellStatus('Settings saved. The overlay will use these values on the next capture.', 'success');
+        setShellStatus('Settings saved.', 'success');
     });
     form.querySelector<HTMLInputElement>('[data-settings-search]')?.addEventListener('input', event => {
         applySettingsSearch(form, (event.target as HTMLInputElement).value);
@@ -324,7 +417,7 @@ function bindSettingsForm(form: HTMLFormElement): void {
         event.preventDefault();
         const nextTab = tabs[nextIndex];
         nextTab?.focus();
-        activateSettingsPanel(form, nextTab?.dataset.panel ?? DEFAULT_SETTINGS_PANEL);
+        showSettingsPanel(form, nextTab?.dataset.panel ?? DEFAULT_SETTINGS_PANEL);
     });
     form.addEventListener('click', event => {
         const anchor = (event.target as HTMLElement).closest<HTMLAnchorElement>('a[href]');
@@ -347,12 +440,12 @@ function bindSettingsForm(form: HTMLFormElement): void {
         if (!action) return;
         if (action === 'settings-panel') {
             event.preventDefault();
-            activateSettingsPanel(form, button.dataset.panel ?? DEFAULT_SETTINGS_PANEL);
+            showSettingsPanel(form, button.dataset.panel ?? DEFAULT_SETTINGS_PANEL);
             return;
         }
-        if (action === 'cancel') {
+        if (action === 'cancel' || action === 'close-settings') {
             event.preventDefault();
-            void bridge.hideApp();
+            showView('home');
             return;
         }
         if (action === 'copy-newtab-url') {
@@ -362,24 +455,6 @@ function bindSettingsForm(form: HTMLFormElement): void {
             }).catch(() => {
                 setShellStatus('Could not copy from this shell.', 'warning');
             });
-            return;
-        }
-        if (action === 'instant-capture' || action === 'test-capture-overlay') {
-            event.preventDefault();
-            event.stopPropagation();
-            startCaptureOverlay(form, 'instant');
-            return;
-        }
-        if (action === 'area-capture' || action === 'start-overlay') {
-            event.preventDefault();
-            event.stopPropagation();
-            startCaptureOverlay(form, 'area');
-            return;
-        }
-        if (action === 'dismiss-gaming-first-run') {
-            event.preventDefault();
-            markGamingFirstRunSeen();
-            setShellStatus('Ready. Press the shortcut for a quick read, or use Select area.', 'success');
             return;
         }
         if (action === 'sync-cloud-settings' || action === 'restore-cloud-settings') {
@@ -410,37 +485,24 @@ function bindSettingsForm(form: HTMLFormElement): void {
         const target = event.target as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
         if (target.matches('[data-settings-search]')) return;
         if (target.matches('[data-capture-shortcut-input]')) return;
-        if (target.matches('[data-ocr-endpoint-input]')) {
-            syncFirstRunOcrEndpoint(form, target.value);
-            return;
-        }
         scheduleSettingsPersist(form);
     });
 }
 
-function bindGamingShellActions(form: HTMLFormElement): void {
-    appRoot.querySelectorAll<HTMLElement>('[data-gaming-shell-actions]').forEach(scope => {
-        scope.addEventListener('click', event => {
-            const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-action]');
-            const action = button?.dataset.action;
-            if (!action) return;
-            if (action === 'instant-capture' || action === 'test-capture-overlay') {
-                event.preventDefault();
-                startCaptureOverlay(form, 'instant');
-                return;
-            }
-            if (action === 'area-capture' || action === 'start-overlay') {
-                event.preventDefault();
-                startCaptureOverlay(form, 'area');
-                return;
-            }
-            if (action === 'dismiss-gaming-first-run') {
-                event.preventDefault();
-                markGamingFirstRunSeen();
-                setShellStatus('Ready. Press the shortcut for a quick read, or use Select area.', 'success');
-            }
-        });
+function bindGamingHomeActions(form: HTMLFormElement): void {
+    appRoot.querySelector<HTMLElement>('[data-gaming-home]')?.addEventListener('click', event => {
+        const action = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-action]')?.dataset.action;
+        if (!action) return;
+        event.preventDefault();
+        if (action === 'instant-capture') startCaptureOverlay(form, 'instant');
+        else if (action === 'area-capture') startCaptureOverlay(form, 'area');
+        else if (action === 'open-settings') showView('settings');
     });
+}
+
+function showSettingsPanel(form: HTMLFormElement, panel: string): void {
+    shellState.settingsPanel = panel;
+    activateSettingsPanel(form, panel);
 }
 
 function bindCaptureShortcutInputs(root: HTMLElement): void {
@@ -485,9 +547,9 @@ async function persistCaptureShortcutFromInput(root: HTMLElement, shortcut: stri
         if (token !== captureShortcutPersistToken) return;
         shellState.environment = environment;
         syncCaptureShortcutInputValues(root, hotkeyLabel());
-        updateHotkeyCopy();
-        updateCaptureOnboardingStatus();
-        setShellStatus(`Capture shortcut saved: ${hotkeyLabel()}.`, 'success');
+        updateCaptureShortcutCopy();
+        const saved = captureShortcutSaveStatus(environment);
+        setShellStatus(saved.text, saved.tone);
     } catch (error) {
         if (token !== captureShortcutPersistToken) return;
         syncCaptureShortcutInputValues(root, hotkeyLabel());
@@ -515,7 +577,7 @@ function isModifierOnlyShortcut(shortcut: string): boolean {
 
 function startCaptureOverlay(form: HTMLFormElement, mode: YomuGamingCaptureMode): void {
     persistSettingsFromForm(form);
-    setShellStatus(mode === 'instant' ? 'Capturing screen.' : 'Opening area capture.', 'busy');
+    setShellStatus(mode === 'instant' ? 'Reading your screen.' : 'Choose an area to read.', 'busy');
     void bridge.hideApp().then(() => bridge.showOverlay(mode));
 }
 
@@ -545,27 +607,7 @@ function persistSettingsFromForm(form: HTMLFormElement): void {
     persistGamingSettings(shellState.settings);
     applyDocumentTheme(shellState.settings);
     syncDisabledSettingsControlDescriptions(form, shellState.settings.interfaceLanguage);
-    updateHotkeyCopy();
-}
-
-function syncFirstRunOcrEndpoint(form: HTMLFormElement, value: string): void {
-    const endpointInput = form.querySelector<HTMLInputElement>('input[name="ocrEndpointUrl"]');
-    if (endpointInput) endpointInput.value = value;
-    shellState.settings = {
-        ...shellState.settings,
-        ocrEndpointUrl: value,
-    };
-    persistGamingSettings(shellState.settings);
-    scheduleSettingsPersist(form);
-}
-
-function markGamingFirstRunSeen(): void {
-    localStorage.setItem(GAMING_FIRST_RUN_SEEN_STORAGE_KEY, 'true');
-    appRoot.querySelector<HTMLElement>('[data-yomu-gaming-first-run]')?.remove();
-}
-
-function hasSeenGamingFirstRun(): boolean {
-    return localStorage.getItem(GAMING_FIRST_RUN_SEEN_STORAGE_KEY) === 'true';
+    updateCaptureShortcutCopy();
 }
 
 async function handleNativeSettingsSyncAction(form: HTMLFormElement, action: 'sync-cloud-settings' | 'restore-cloud-settings', button: HTMLButtonElement | null): Promise<void> {
@@ -588,7 +630,7 @@ async function handleNativeSettingsSyncAction(form: HTMLFormElement, action: 'sy
         });
         persistGamingSettings(shellState.settings);
         setShellStatus(`Settings snapshot restored (${formatSnapshotTime(snapshot.syncedAt)}).`, 'success');
-        renderSettingsShell();
+        renderShell();
     } catch (error) {
         setShellStatus(error instanceof Error ? error.message : 'Settings snapshot failed.', 'error');
     } finally {
@@ -685,47 +727,30 @@ function setShellStatus(status: string, tone: SettingsShellState['statusTone'] =
     appRoot.querySelectorAll<HTMLElement>('[data-gaming-shell-status]').forEach(element => {
         element.textContent = status;
         element.dataset.statusTone = tone;
-        element.hidden = false;
+        // Nothing to report is its own good news: the hero stays a single clean message.
+        element.hidden = !status;
     });
 }
 
-function updateHotkeyCopy(): void {
-    appRoot.querySelectorAll<HTMLElement>('[data-hotkey]').forEach(element => {
-        element.textContent = hotkeyLabel();
-    });
-    appRoot.querySelectorAll<HTMLElement>('[data-gaming-onboarding-status]').forEach(element => {
-        element.textContent = gamingOnboardingStatusText();
-    });
-    appRoot.querySelectorAll<HTMLElement>('[data-gaming-ocr-mode]').forEach(element => {
-        element.textContent = gamingOcrModeText();
+// Re-renders every surface that speaks about the shortcut from the current environment,
+// so the hero and the settings field can never drift into telling different stories.
+function updateCaptureShortcutCopy(): void {
+    const ready = captureShortcutReady();
+    appRoot.querySelectorAll<HTMLElement>('[data-gaming-shortcut-line]').forEach(element => {
+        element.dataset.shortcutReady = String(ready);
+        element.innerHTML = captureShortcutLineHtml();
     });
     appRoot.querySelectorAll<HTMLInputElement>('[data-capture-shortcut-input]').forEach(element => {
         element.value = hotkeyLabel();
     });
     appRoot.querySelectorAll<HTMLElement>('[data-capture-shortcut-help]').forEach(element => {
-        element.textContent = captureShortcutHelpText();
+        element.textContent = CAPTURE_SHORTCUT_HELP;
     });
     const parkingHint = windowParkingHintText();
     appRoot.querySelectorAll<HTMLElement>('[data-gaming-window-parking]').forEach(element => {
         element.textContent = parkingHint;
         element.hidden = !parkingHint;
     });
-    appRoot.querySelectorAll<HTMLInputElement>('[data-ocr-endpoint-input]').forEach(element => {
-        if (element.value !== shellState.settings.ocrEndpointUrl) element.value = shellState.settings.ocrEndpointUrl;
-    });
-}
-
-function updateCaptureOnboardingStatus(): void {
-    const label = hotkeyLabel();
-    if (shellState.environment?.hotkeyError) {
-        setShellStatus(shellState.environment.hotkeyError, 'error');
-        return;
-    }
-    if (shellState.environment?.hotkeyRegistered) {
-        setShellStatus(`Ready. Press ${label} to read the screen, or use Select area.`, 'idle');
-        return;
-    }
-    setShellStatus(`Select area is ready. ${label} was not registered in this session.`, 'warning');
 }
 
 function hotkeyLabel(): string {
@@ -734,14 +759,8 @@ function hotkeyLabel(): string {
     return captureShortcutLabel(shellState.environment?.hotkey ?? '', shellState.environment?.platform ?? '');
 }
 
-function gamingOnboardingStatusText(): string {
-    const label = hotkeyLabel();
-    if (shellState.environment?.hotkeyError) return shellState.environment.hotkeyError;
-    return shellState.environment?.hotkeyRegistered
-        ? `${label}: read screen.`
-        : `${label} is unavailable here; Try now still works.`;
-}
-
+// Where the app goes when its window closes. Written by the same module the tray is
+// built from, so the menu-bar item and this line can never disagree.
 function windowParkingHintText(): string {
     return gamingWindowParkingHint({
         hasTray: Boolean(shellState.environment?.trayActive),
@@ -749,21 +768,6 @@ function windowParkingHintText(): string {
     });
 }
 
-function captureShortcutHelpText(): string {
-    return shellState.environment?.hotkeyError
-        ? shellState.environment.hotkeyError
-        : 'Focus the field and press the keys to read the screen.';
-}
-
-function gamingOcrModeText(): string {
-    if (!shellState.settings.ocrEnabled) return 'Image OCR off. Capture on demand.';
-    if (shellState.settings.ocrProvider === 'google-lens') return 'Google Lens OCR default.';
-    if (shellState.settings.ocrProvider === 'local-service') return 'Advanced in-place OCR.';
-    if (shellState.settings.ocrProvider === 'cloud-vision') return 'Cloud Vision.';
-    return shellState.settings.ocrAutoScanImages
-        ? 'Auto for images. Capture on demand.'
-        : 'Tap or hover. Capture on demand.';
-}
 
 function currentOverlayCaptureMode(): YomuGamingCaptureMode {
     if (new URLSearchParams(location.search).get('captureMode') === 'area') return 'area';
@@ -772,7 +776,9 @@ function currentOverlayCaptureMode(): YomuGamingCaptureMode {
 
 function scrollToInitialSettingsSection(form: HTMLFormElement): void {
     window.requestAnimationFrame(() => {
-        form.querySelector<HTMLElement>('.jpdb-reader-settings-scroll')?.scrollTo({ top: 0 });
+        const scroller = form.querySelector<HTMLElement>('.jpdb-reader-settings-scroll');
+        // Element.scrollTo is absent in some embedders; the reset is cosmetic either way.
+        if (typeof scroller?.scrollTo === 'function') scroller.scrollTo({ top: 0 });
     });
 }
 
@@ -865,7 +871,7 @@ class OverlaySelectionController {
         activate: word => activateWordWithPointer(word),
         back: () => this.handleGamepadBack(),
         recapture: () => void this.recapture(),
-        settings: () => void this.gamingBridge.showApp().then(() => this.gamingBridge.hideOverlay()),
+        settings: () => this.openSettings(),
     });
 
     constructor(private root: HTMLElement, private gamingBridge: YomuGamingBridge, private captureMode: YomuGamingCaptureMode) {
@@ -899,6 +905,12 @@ class OverlaySelectionController {
             return;
         }
         void this.gamingBridge.hideOverlay();
+    }
+
+    // "Settings" here must land on Settings, not on the app's home screen.
+    private openSettings(): void {
+        requestView('settings');
+        void this.gamingBridge.showApp().then(() => this.gamingBridge.hideOverlay());
     }
 
     render(): void {
@@ -994,7 +1006,7 @@ class OverlaySelectionController {
             void this.recapture();
         });
         this.root.querySelector<HTMLButtonElement>('[data-action="overlay-settings"]')?.addEventListener('click', () => {
-            void this.gamingBridge.showApp().then(() => this.gamingBridge.hideOverlay());
+            this.openSettings();
         });
         this.root.querySelector<HTMLButtonElement>('[data-action="overlay-open-screen-settings"]')?.addEventListener('click', () => {
             void this.gamingBridge.openScreenSettings();
@@ -1367,7 +1379,7 @@ function browserFallbackBridge(): YomuGamingBridge {
             hotkey: shortcut,
             hotkeyRegistered: false,
             trayActive: false,
-            hotkeyError: 'Desktop shortcuts are only available in the Electron app.',
+            hotkeyError: 'Shortcuts work in the Yomu Gaming app.',
             screenAccess: 'unsupported',
         }),
         syncSettingsSnapshot: async (settings: unknown) => {

@@ -77,14 +77,14 @@ try {
     fixtureOcr = await startFixtureOcrServer();
     step('launch Electron app');
     let page = await launchGamingApp();
-    step('wait for Yomu settings shell');
+    step('wait for Yomu home screen');
     await assertGamingWindowIdentity(page);
     await page.waitForSelector('.yomu-gaming-shell[data-yomu-gaming-ready="true"]', { timeout: 45_000 });
-    await page.waitForSelector('.yomu-gaming-controlbar', { timeout: 45_000 });
-    await page.waitForSelector('.jpdb-reader-settings[data-yomu-gaming-settings]', { timeout: 45_000 });
+    await page.waitForSelector('.yomu-gaming-home', { timeout: 45_000 });
+    await page.waitForSelector('.jpdb-reader-settings[data-yomu-gaming-settings]', { state: 'attached', timeout: 45_000 });
     await assertNativeWindowSize(page);
-    step('verify capture onboarding');
-    await notePendingCaptureOnboarding(page);
+    step('verify the first run says what this is and what to press');
+    await assertFirstRunClarity(page);
     await assertDefaultOcrPath(page);
     step('configure and persist capture shortcut');
     await configureCaptureShortcut(page, 'Ctrl+Shift+U');
@@ -92,42 +92,39 @@ try {
     if (savedShortcut.shortcut !== 'Control+Shift+U') {
         throw new Error(`Capture shortcut was not persisted: ${JSON.stringify(savedShortcut)}`);
     }
-    step('dismiss first-run and verify clean relaunch');
-    await page.locator('[data-yomu-gaming-first-run] [data-action="dismiss-gaming-first-run"]').click();
-    await page.locator('[data-yomu-gaming-first-run]').waitFor({ state: 'detached', timeout: 10_000 });
+    step('relaunch and verify the app still lands on home');
     await closeElectronApp(app);
     app = undefined;
     page = await launchGamingApp();
     await page.waitForSelector('.yomu-gaming-shell[data-yomu-gaming-ready="true"]', { timeout: 45_000 });
-    await page.waitForSelector('.yomu-gaming-controlbar', { timeout: 45_000 });
-    if (await page.locator('[data-yomu-gaming-first-run]').count()) {
-        throw new Error('Yomu Gaming first-run onboarding returned after dismissal.');
-    }
+    await assertFirstRunClarity(page);
+    await openSettingsPanel(page, 'shortcuts');
     const restoredShortcut = await page.locator('[data-native-capture-shortcut] [data-capture-shortcut-input]').first().inputValue();
     if (restoredShortcut !== 'Ctrl+Shift+U') {
         throw new Error(`Capture shortcut did not restore after relaunch: ${restoredShortcut}`);
     }
     step('configure local OCR endpoint');
+    await openSettingsPanel(page, 'media');
     await page.locator('text=Image text (OCR)').first().waitFor({ timeout: 10_000 });
     await page.locator('select[name="ocrProvider"]').selectOption('local-service');
     await page.locator('input[name="ocrEndpointUrl"]').fill(fixtureOcr.url);
-    await settingsCaptureButton(page).waitFor({ timeout: 10_000 });
     step('save and restore native settings snapshot');
-    await page.locator('[data-action="settings-panel"][data-panel="backup"]').click();
+    await openSettingsPanel(page, 'backup');
     await page.locator('[data-native-settings-sync]').waitFor({ timeout: 10_000 });
     await page.locator('[data-native-settings-sync] [data-action="sync-cloud-settings"]').click();
-    await page.locator('[data-gaming-shell-status]').filter({ hasText: 'Settings snapshot saved' }).waitFor({ timeout: 10_000 });
+    await page.locator('[data-gaming-shell-status]:visible').filter({ hasText: 'Settings snapshot saved' }).first().waitFor({ timeout: 10_000 });
     await page.locator('[data-native-settings-sync] [data-action="restore-cloud-settings"]').click();
-    await page.locator('[data-gaming-shell-status]').filter({ hasText: 'Settings snapshot restored' }).waitFor({ timeout: 10_000 });
-    await page.locator('input[name="ocrEndpointUrl"]').waitFor({ timeout: 10_000 });
+    await page.locator('[data-gaming-shell-status]:visible').filter({ hasText: 'Settings snapshot restored' }).first().waitFor({ timeout: 10_000 });
+    await openSettingsPanel(page, 'media');
     const restoredEndpoint = await page.locator('input[name="ocrEndpointUrl"]').inputValue();
     if (restoredEndpoint !== fixtureOcr.url) {
         throw new Error(`Native settings snapshot did not restore the OCR endpoint: ${restoredEndpoint}`);
     }
+    await returnToHome(page);
     await page.screenshot({ path: screenshotPath });
     step('run instant full-screen capture');
     fixtureOcr.setCaptureRegion(FULL_CAPTURE_REGION);
-    await page.locator('.yomu-gaming-controlbar [data-action="instant-capture"]').click();
+    await page.locator('.yomu-gaming-home [data-action="instant-capture"]').click();
     const overlay = await waitForOverlayWindow(app, 'instant');
     await overlay.waitForSelector('[data-yomu-gaming-overlay-ready="true"][data-capture-mode="instant"][data-overlay-mode="result"]', { timeout: 10_000 });
     await assertInlineOcrResult(overlay, 'instant capture');
@@ -137,15 +134,12 @@ try {
         throw new Error(`Instant capture did not send the full simulated screen: ${JSON.stringify(fullScreenRequest.png)}`);
     }
     await overlay.screenshot({ path: instantResultScreenshotPath });
-    await overlay.evaluate(async () => {
-        await window.yomuGaming?.showApp();
-        await window.yomuGaming?.hideOverlay();
-    });
-    await page.bringToFront();
-    await page.waitForSelector('[data-yomu-gaming-ready="true"]', { timeout: 10_000 });
+    step('open settings from the overlay');
+    await assertOverlaySettingsLandsOnSettings(page, overlay);
+    await returnToHome(page);
     step('open area capture overlay');
-    await settingsCaptureButton(page).scrollIntoViewIfNeeded();
-    await settingsCaptureButton(page).click();
+    await homeCaptureButton(page).scrollIntoViewIfNeeded();
+    await homeCaptureButton(page).click();
     const areaOverlay = await waitForOverlayWindow(app, 'area');
     await areaOverlay.waitForSelector('[data-yomu-gaming-overlay-ready="true"][data-capture-mode="area"][data-overlay-mode="idle"]', { state: 'attached', timeout: 10_000 });
     const overlayState = await areaOverlay.evaluate(() => {
@@ -222,8 +216,26 @@ function electronLaunchEnv() {
     };
 }
 
-function settingsCaptureButton(page) {
-    return page.locator('.yomu-gaming-controlbar [data-action="area-capture"]').first();
+function homeCaptureButton(page) {
+    return page.locator('.yomu-gaming-home [data-action="area-capture"]').first();
+}
+
+async function openSettingsPanel(page, panel) {
+    if (!await page.locator('.jpdb-reader-settings[data-yomu-gaming-settings]:visible').count()) {
+        await page.locator('.yomu-gaming-home [data-action="open-settings"]').click();
+    }
+    await page.locator('[data-action="settings-panel"][data-panel="' + panel + '"]').click();
+    await page.waitForFunction(expected => {
+        const tab = document.querySelector('[data-action="settings-panel"][aria-selected="true"]');
+        return tab instanceof HTMLElement && tab.dataset.panel === expected;
+    }, panel, { timeout: 10_000 });
+}
+
+async function returnToHome(page) {
+    if (await page.locator('[data-action="close-settings"]:visible').count()) {
+        await page.locator('[data-action="close-settings"]').first().click();
+    }
+    await page.locator('.yomu-gaming-home').waitFor({ timeout: 10_000 });
 }
 
 async function renderBrowserFixture() {
@@ -308,29 +320,78 @@ function crc32(buffer) {
     return (crc ^ 0xffffffff) >>> 0;
 }
 
-async function notePendingCaptureOnboarding(page) {
-    const onboarding = page.locator('[data-yomu-gaming-first-run]');
-    await onboarding.first().waitFor({ timeout: 10_000 });
-    const onboardingBox = await onboarding.first().boundingBox();
-    if (!onboardingBox || onboardingBox.height > 330) {
-        throw new Error(`Yomu Gaming first-run is too large for a clean native setup surface: ${JSON.stringify(onboardingBox)}`);
+// The first thing on screen must answer two questions and no more: what this is, and what
+// to press. One hero, one primary action, the shortcut once, and Settings behind a click.
+async function assertFirstRunClarity(page) {
+    const home = page.locator('.yomu-gaming-home');
+    await home.waitFor({ timeout: 10_000 });
+    if (await page.locator('.jpdb-reader-settings[data-yomu-gaming-settings]:visible').count()) {
+        throw new Error('Yomu Gaming opened on the settings form instead of its home screen.');
     }
-    const shortcutInput = onboarding.first().locator('[data-capture-shortcut-input]');
-    await shortcutInput.waitFor({ timeout: 10_000 });
-    if (await shortcutInput.getAttribute('readonly') !== null) {
-        throw new Error('Yomu Gaming capture shortcut input is still readonly.');
+    const shape = await page.evaluate(() => {
+        const surface = document.querySelector('.yomu-gaming-home');
+        const actions = Array.from(surface?.querySelectorAll('button[data-action]') ?? []);
+        return {
+            headings: document.querySelectorAll('.yomu-gaming-shell h1:not([hidden])').length,
+            actions: actions.map(button => `${button.dataset.action}:${(button.textContent || '').trim()}`),
+            primaries: actions.filter(button => button.classList.contains('add')).length,
+            shortcuts: surface?.querySelectorAll('kbd[data-hotkey]').length ?? 0,
+        };
+    });
+    if (shape.headings !== 1) {
+        throw new Error(`Yomu Gaming first run shows ${shape.headings} heroes; it must show exactly one.`);
     }
-    await onboarding.first().locator('[data-action="test-capture-overlay"]').filter({ hasText: 'Try now' }).waitFor({ timeout: 10_000 });
-    await onboarding.first().locator('[data-action="start-overlay"]').filter({ hasText: 'Choose area' }).waitFor({ timeout: 10_000 });
-    const copy = await onboarding.first().innerText();
-    for (const expected of ['Yomu Gaming is ready', 'Capture shortcut', 'Image OCR', 'Google Lens OCR default', 'Shortcut', 'Try now', 'Choose area', 'Done']) {
-        if (!copy.includes(expected)) throw new Error(`Yomu Gaming onboarding is missing "${expected}": ${copy}`);
+    if (shape.actions.length !== 3 || shape.primaries !== 1) {
+        throw new Error(`Yomu Gaming first run must offer three actions with one primary: ${JSON.stringify(shape.actions)}`);
     }
-    for (const forbidden of ['Page scanning', 'Manual scan shortcut', 'Scan modifier key', 'Page text', 'Read game text with Yomu', 'Text', 'Images', 'Video', 'Control', 'Study', 'Game', 'Install the Yomu app to use in games or anywhere on the PC', 'Capture area', 'Test capture']) {
-        if (copy.includes(forbidden)) throw new Error(`Yomu Gaming onboarding still exposes "${forbidden}": ${copy}`);
+    if (shape.shortcuts !== 1) {
+        throw new Error(`Yomu Gaming first run shows the capture shortcut ${shape.shortcuts} times; it must show it once.`);
     }
-    if (/Local OCR|endpoint|127\.0\.0\.1/i.test(copy)) throw new Error(`Yomu Gaming first-run still exposes advanced OCR setup: ${copy}`);
-    if (ambiguousScanCopyPattern.test(copy)) throw new Error(`Yomu Gaming onboarding still uses ambiguous scan copy: ${copy}`);
+    const copy = await home.innerText();
+    // The wordmark is styled uppercase, so match it the way it reads, not the way it is cased.
+    if (!/yomu gaming/i.test(copy)) throw new Error(`Yomu Gaming first run does not name the app: ${copy}`);
+    for (const expected of ['Read Japanese anywhere on your screen', 'Read my screen', 'Read part of the screen', 'Settings']) {
+        if (!copy.includes(expected)) throw new Error(`Yomu Gaming first run is missing "${expected}": ${copy}`);
+    }
+    for (const forbidden of ['Google Lens', 'OCR', 'proxy', 'Try now', 'Choose area', 'Done', 'Japanese anywhere on your PC', 'Page scanning', 'Manual scan shortcut', 'Scan modifier key']) {
+        if (copy.includes(forbidden)) throw new Error(`Yomu Gaming first run still exposes "${forbidden}": ${copy}`);
+    }
+    if (/endpoint|127\.0\.0\.1/i.test(copy)) throw new Error(`Yomu Gaming first run still exposes advanced OCR setup: ${copy}`);
+    if (ambiguousScanCopyPattern.test(copy)) throw new Error(`Yomu Gaming first run still uses ambiguous scan copy: ${copy}`);
+}
+
+// The overlay is a second window with its own web preferences, so "Settings" there
+// reaching the app window is a cross-window fact that only the packaged app can prove.
+async function assertOverlaySettingsLandsOnSettings(page, overlay) {
+    // The word popover from the OCR check is still open, and it owns the click layer.
+    // Escape closes the popover and leaves the overlay up, exactly as it does for a player.
+    if (await overlay.locator('.jpdb-reader-popover').count()) {
+        await overlay.keyboard.press('Escape');
+        await overlay.locator('.jpdb-reader-popover').first().waitFor({ state: 'detached', timeout: 10_000 });
+    }
+    await overlay.locator('[data-action="overlay-settings"]').first().click();
+    await page.bringToFront();
+    await page.waitForFunction(
+        () => document.querySelector('.yomu-gaming-shell')?.dataset.shellView === 'settings',
+        undefined,
+        { timeout: 10_000 },
+    );
+    await page.locator('.jpdb-reader-settings[data-yomu-gaming-settings]:visible').waitFor({ timeout: 10_000 });
+    if (await page.locator('.yomu-gaming-home:visible').count()) {
+        throw new Error('Yomu Gaming showed home and settings at once after the overlay asked for settings.');
+    }
+}
+
+// Media is the reader's deepest tab (audio sources, text-to-speech, proxy URL). Landing
+// there was the old bug, so the default panel is asserted, not assumed.
+async function assertSettingsOpenOnCapture(page) {
+    await page.locator('.yomu-gaming-home [data-action="open-settings"]').click();
+    await page.locator('.jpdb-reader-settings[data-yomu-gaming-settings]').waitFor({ timeout: 10_000 });
+    const panel = await page.evaluate(() => document.querySelector('[data-action="settings-panel"][aria-selected="true"]')?.dataset.panel ?? '');
+    if (panel === 'media' || panel !== 'shortcuts') {
+        throw new Error(`Yomu Gaming settings opened on the "${panel}" tab instead of the capture shortcut.`);
+    }
+    await page.locator('[data-native-capture-shortcut]').waitFor({ timeout: 10_000 });
 }
 
 async function assertGamingWindowIdentity(page) {
@@ -370,18 +431,23 @@ async function assertDefaultOcrPath(page) {
 }
 
 async function configureCaptureShortcut(page, shortcut) {
-    const shortcutInput = page.locator('[data-yomu-gaming-first-run] [data-capture-shortcut-input]').first();
+    await assertSettingsOpenOnCapture(page);
+    const shortcutInput = page.locator('[data-native-capture-shortcut] [data-capture-shortcut-input]').first();
+    if (await shortcutInput.getAttribute('readonly') !== null) {
+        throw new Error('Yomu Gaming capture shortcut input is still readonly.');
+    }
     await shortcutInput.fill(shortcut);
     await shortcutInput.blur();
-    await page.locator('[data-gaming-shell-status]').filter({ hasText: `Capture shortcut saved: ${shortcut}` }).waitFor({ timeout: 10_000 });
-    await page.locator('[data-action="settings-panel"][data-panel="shortcuts"]').click();
-    await page.waitForFunction(expected => {
-        const input = document.querySelector('[data-native-capture-shortcut] [data-capture-shortcut-input]');
-        return input instanceof HTMLInputElement && input.value === expected;
-    }, shortcut);
-    const settingsShortcut = await page.locator('[data-native-capture-shortcut] [data-capture-shortcut-input]').inputValue();
+    await page.locator('[data-gaming-shell-status]:visible').filter({ hasText: `Capture shortcut saved: ${shortcut}` }).first().waitFor({ timeout: 10_000 });
+    const settingsShortcut = await shortcutInput.inputValue();
     if (settingsShortcut !== shortcut) {
         throw new Error(`Capture shortcut settings input did not sync: ${settingsShortcut}`);
+    }
+    // The home hero must show the shortcut the user just chose.
+    await returnToHome(page);
+    const heroShortcut = (await page.locator('.yomu-gaming-home kbd[data-hotkey]').innerText()).trim();
+    if (heroShortcut !== shortcut) {
+        throw new Error(`Yomu Gaming home still shows "${heroShortcut}" after the shortcut changed to ${shortcut}.`);
     }
 }
 
