@@ -201,6 +201,28 @@ const DAY_ONE_LESSON_ACTIVITY_TITLES = {
     'activity:lesson-zero-close-room': 'Close the first classroom session',
 } as const satisfies Readonly<Record<typeof DAY_ONE_LESSON_ACTIVITY_IDS[number], string>>;
 
+const DAY_ONE_LESSON_ENTRY_IDS = {
+    'activity:lesson-zero-greet-rie': 'day:1:lesson-zero:01',
+    'activity:lesson-zero-vowel-listen': 'day:1:lesson-zero:02',
+    'activity:lesson-zero-hiragana-bootcamp': 'day:1:lesson-zero:hiragana-bootcamp',
+    'activity:lesson-zero-vowel-doodle': 'day:1:lesson-zero:03',
+    'activity:lesson-zero-follow-instructions': 'day:1:lesson-zero:04',
+    'activity:lesson-zero-reconstruct-repair': 'day:1:lesson-zero:05',
+    'activity:lesson-zero-desk-language': 'day:1:lesson-zero:06',
+    'activity:lesson-zero-build-sentence-frames': 'day:1:lesson-zero:07',
+    'activity:lesson-zero-name-card-draft': 'day:1:lesson-zero:08',
+    'activity:lesson-zero-sound-input': 'day:1:lesson-zero:09',
+    'activity:lesson-zero-text-input': 'day:1:lesson-zero:10',
+    'activity:lesson-zero-speaking-input': 'day:1:lesson-zero:11',
+    'activity:lesson-zero-read-name-cards': 'day:1:lesson-zero:12',
+    'activity:lesson-zero-write-name-card': 'day:1:lesson-zero:13',
+    'activity:lesson-zero-sound-transfer': 'day:1:lesson-zero:14',
+    'activity:lesson-zero-text-transfer': 'day:1:lesson-zero:15',
+    'activity:lesson-zero-speaking-transfer': 'day:1:lesson-zero:16',
+    'activity:lesson-zero-written-transfer': 'day:1:lesson-zero:17',
+    'activity:lesson-zero-close-room': 'day:1:lesson-zero:18',
+} as const satisfies Readonly<Record<typeof DAY_ONE_LESSON_ACTIVITY_IDS[number], string>>;
+
 const DAY_ONE_VERIFIED_ACTIVITY_IDS = new Set<typeof DAY_ONE_LESSON_ACTIVITY_IDS[number]>([
     'activity:lesson-zero-vowel-listen',
     'activity:lesson-zero-hiragana-bootcamp',
@@ -302,9 +324,9 @@ const DAY_ONE_STORY: readonly DayActivityAvailability[] = [
         [], VERIFIED_DELIVERY),
 ];
 
-const DAY_ONE_LESSON: readonly DayActivityAvailability[] = DAY_ONE_LESSON_ACTIVITY_IDS.map((activityId, index) =>
+const DAY_ONE_LESSON: readonly DayActivityAvailability[] = DAY_ONE_LESSON_ACTIVITY_IDS.map(activityId =>
     entry(
-        `day:1:lesson-zero:${String(index + 1).padStart(2, '0')}`,
+        DAY_ONE_LESSON_ENTRY_IDS[activityId],
         DAY_ONE_LESSON_ACTIVITY_TITLES[activityId],
         'lesson',
         ['required', 'revisitable'],

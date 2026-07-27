@@ -7,7 +7,7 @@
   "build": {
     "distApp": "dist/academy/app.js",
     "hostedApp": "docs/public/academy/app.js",
-    "appSha256": "a757a25d534c2f7c6a64aacbdc5fbb2788d406948ee3ab6345141101841483c9",
+    "appSha256": "11ca5443e365ef351fd175f1bac591e9e21d621a6d1cc5f33ac3f7017e8344ba",
     "byteParityRequired": true
   },
   "runtimeSources": {
@@ -24,17 +24,17 @@
     "src/academy/domain/lesson-zero-desk-language-session.ts": "e05c468e94652522d9a4bb68a8fa17f3ccfa38c3ae38c0825258177220e0c4e9",
     "src/academy/domain/lesson-zero-sentence-frame-session.ts": "b0145a79a69835e57a1ccc64a4a41ee55135dd9e3699d44b0cde9cbff4b5bb62",
     "src/academy/domain/world-locations.ts": "8dff402868198871a95498d004bc318dfe0b48f1995429ae9c0f6d33490739e5",
-    "src/academy/routing/lesson-flow.ts": "a38732b9deb15e84ff4cf947f4aa85862803581524651b742617671e21d36663",
-    "src/academy/routing/world-flow.ts": "8b0ceb7463347d6e006ac595114222a9211d1d05a5fd326980764e151db43ec7",
+    "src/academy/routing/lesson-flow.ts": "565a3a11e026ac62f69aca1408ba4c4a2e12dda9c7a028ceb10c0a3b667aece1",
+    "src/academy/routing/world-flow.ts": "9a44ad88b17c7361979ec2bb268c9d7193ba0cc1946619e6d8889dd76cadcde3",
     "src/academy/ui/cafe-world.ts": "8f0ea99a7744127eee42ad05a14a2baa08407436d58a966c9aead1eb6fde9ec2",
     "src/academy/ui/classroom-instruction-screen.ts": "49d7c165cf259fc699aa4e6fa17f1f5c41630e0e53659642d7ba806de1b8b54e",
     "src/academy/ui/lesson-zero-desk-language-screen.ts": "124049a58af13c4de77ae69fb4ddcec1cf37efe43e5f1a5c307b96163a924c44",
     "src/academy/ui/lesson-zero-greeting-screen.ts": "965932e71c795b3b8f238c55288dd0784d2e26a50812f9794915357e2ca74480",
-    "src/academy/ui/lesson-zero-sentence-frame-screen.ts": "9e486226bcc008f8bd96b952d1c17b21ee37036851d38131d2d2ef14438153c6",
-    "src/academy/ui/lesson-zero-vowel-screen.ts": "7e23373c5666cb64b8cb02a4fbf648792e0ce5ffd5206d5f0160bc7fc650aae4",
+    "src/academy/ui/lesson-zero-sentence-frame-screen.ts": "88c07abf1fa30e1444d92a56802b95c035d36df1a74474419a599f9b70e888f8",
+    "src/academy/ui/lesson-zero-vowel-screen.ts": "5c9340028945737df1b0b505115130e0671ff8322a715af182dda3eca7e122e6",
     "src/academy/ui/lesson-zero-vowel-writing-screen.ts": "8e25b6bbd6295817a5a964776d937b64f8ddc08342e7790f29f1a27aa87cd787",
     "src/academy/ui/lesson-screen.ts": "d279e813fc647715d83425984bca44f4151b161de638a0bca01eedc9f5562972",
-    "src/academy/ui/world-screen.ts": "1a157bf0d5f9f50beaeda86a81c52070614a4a937ac930f431e814688d3f54e5"
+    "src/academy/ui/world-screen.ts": "0e712a88f0ad3b5f2a5ba02c0e20497a9df6cc443a1454b1b5fdd90a22a3842f"
   },
   "assets": {
     "/academy/audio/learning-lines/textbook-miller/miller-cafe-price__28b3358c342c6ef9.opus": {

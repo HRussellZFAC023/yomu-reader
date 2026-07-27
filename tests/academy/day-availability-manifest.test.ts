@@ -85,6 +85,25 @@ describe('unbounded Academy day availability', () => {
             .toEqual(DAY_ONE_CLASSROOM_EXPRESSION_IDS);
     });
 
+    it('keeps canonical Lesson 0 delivery ids stable when new activities are inserted', () => {
+        const rowIdByActivityId = Object.fromEntries(DAY_ONE_AVAILABILITY_MANIFEST.entries
+            .filter(entry => entry.category === 'lesson' && entry.contentIds.length === 1)
+            .map(entry => [entry.contentIds[0], entry.id]));
+
+        expect(rowIdByActivityId).toMatchObject({
+            'activity:lesson-zero-greet-rie': 'day:1:lesson-zero:01',
+            'activity:lesson-zero-vowel-listen': 'day:1:lesson-zero:02',
+            'activity:lesson-zero-hiragana-bootcamp': 'day:1:lesson-zero:hiragana-bootcamp',
+            'activity:lesson-zero-vowel-doodle': 'day:1:lesson-zero:03',
+            'activity:lesson-zero-follow-instructions': 'day:1:lesson-zero:04',
+            'activity:lesson-zero-reconstruct-repair': 'day:1:lesson-zero:05',
+            'activity:lesson-zero-desk-language': 'day:1:lesson-zero:06',
+            'activity:lesson-zero-build-sentence-frames': 'day:1:lesson-zero:07',
+            'activity:lesson-zero-name-card-draft': 'day:1:lesson-zero:08',
+            'activity:lesson-zero-close-room': 'day:1:lesson-zero:18',
+        });
+    });
+
     it('cannot call the day complete while any available activity lacks proof', () => {
         const gaps = dayDeliveryGaps(DAY_ONE_AVAILABILITY_MANIFEST);
         const deliveryStates = DAY_ONE_AVAILABILITY_MANIFEST.entries

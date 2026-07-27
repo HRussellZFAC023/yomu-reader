@@ -61,6 +61,17 @@ async function verifyRoute({ viewport, name }) {
         locale: 'en-GB',
         reducedMotion: 'reduce',
     });
+    const protectedMediaRequests = [];
+    const playableSilence = silentWave();
+    await context.route('**/academy/media/audio/**', async route => {
+        protectedMediaRequests.push(route.request().url());
+        await route.fulfill({
+            status: 200,
+            contentType: 'audio/wav',
+            headers: { 'cache-control': 'no-store' },
+            body: playableSilence,
+        });
+    });
     const page = await context.newPage();
     const pageErrors = [];
     const consoleErrors = [];
@@ -244,6 +255,15 @@ async function verifyRoute({ viewport, name }) {
         `${name}: the real route must play its examples, replies, and earned model`,
     );
     assert.deepEqual(fallbackRequests, [], `${name}: accepted audio must not fall through to generated TTS`);
+    assert.ok(
+        protectedMediaRequests.some(url => url.endsWith('/persona/royal-days.flac')),
+        `${name}: the scene must request its protected Persona soundtrack`,
+    );
+    assert.equal(
+        protectedMediaRequests.some(url => url.includes('/media/audio/media/audio/')),
+        false,
+        `${name}: protected soundtrack paths must not duplicate the storage prefix`,
+    );
 
     await clickButton(page, 'Continue your day');
     await expectRoute(page, 'aakash-meet');
@@ -264,6 +284,26 @@ async function verifyRoute({ viewport, name }) {
     assert.deepEqual(failedResponses, []);
     assert.deepEqual(unexpectedConsoleErrors(consoleErrors), []);
     await context.close();
+}
+
+function silentWave() {
+    const sampleRate = 8_000;
+    const samples = 800;
+    const dataBytes = samples * 2;
+    const buffer = Buffer.alloc(44 + dataBytes);
+    buffer.write('RIFF', 0);
+    buffer.writeUInt32LE(36 + dataBytes, 4);
+    buffer.write('WAVEfmt ', 8);
+    buffer.writeUInt32LE(16, 16);
+    buffer.writeUInt16LE(1, 20);
+    buffer.writeUInt16LE(1, 22);
+    buffer.writeUInt32LE(sampleRate, 24);
+    buffer.writeUInt32LE(sampleRate * 2, 28);
+    buffer.writeUInt16LE(2, 32);
+    buffer.writeUInt16LE(16, 34);
+    buffer.write('data', 36);
+    buffer.writeUInt32LE(dataBytes, 40);
+    return buffer;
 }
 
 async function reachActivity(page, runId) {

@@ -45294,6 +45294,27 @@ recommendedJiten	Jiten由来の頻度バッジです。
     "activity:lesson-zero-written-transfer": "Use the written repair in a new scene",
     "activity:lesson-zero-close-room": "Close the first classroom session"
   };
+  const DAY_ONE_LESSON_ENTRY_IDS = {
+    "activity:lesson-zero-greet-rie": "day:1:lesson-zero:01",
+    "activity:lesson-zero-vowel-listen": "day:1:lesson-zero:02",
+    "activity:lesson-zero-hiragana-bootcamp": "day:1:lesson-zero:hiragana-bootcamp",
+    "activity:lesson-zero-vowel-doodle": "day:1:lesson-zero:03",
+    "activity:lesson-zero-follow-instructions": "day:1:lesson-zero:04",
+    "activity:lesson-zero-reconstruct-repair": "day:1:lesson-zero:05",
+    "activity:lesson-zero-desk-language": "day:1:lesson-zero:06",
+    "activity:lesson-zero-build-sentence-frames": "day:1:lesson-zero:07",
+    "activity:lesson-zero-name-card-draft": "day:1:lesson-zero:08",
+    "activity:lesson-zero-sound-input": "day:1:lesson-zero:09",
+    "activity:lesson-zero-text-input": "day:1:lesson-zero:10",
+    "activity:lesson-zero-speaking-input": "day:1:lesson-zero:11",
+    "activity:lesson-zero-read-name-cards": "day:1:lesson-zero:12",
+    "activity:lesson-zero-write-name-card": "day:1:lesson-zero:13",
+    "activity:lesson-zero-sound-transfer": "day:1:lesson-zero:14",
+    "activity:lesson-zero-text-transfer": "day:1:lesson-zero:15",
+    "activity:lesson-zero-speaking-transfer": "day:1:lesson-zero:16",
+    "activity:lesson-zero-written-transfer": "day:1:lesson-zero:17",
+    "activity:lesson-zero-close-room": "day:1:lesson-zero:18"
+  };
   const DAY_ONE_VERIFIED_ACTIVITY_IDS = /* @__PURE__ */ new Set([
     "activity:lesson-zero-vowel-listen",
     "activity:lesson-zero-hiragana-bootcamp",
@@ -45466,8 +45487,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
       VERIFIED_DELIVERY
     )
   ];
-  DAY_ONE_LESSON_ACTIVITY_IDS.map((activityId, index) => entry$P(
-    `day:1:lesson-zero:${String(index + 1).padStart(2, "0")}`,
+  DAY_ONE_LESSON_ACTIVITY_IDS.map((activityId) => entry$P(
+    DAY_ONE_LESSON_ENTRY_IDS[activityId],
     DAY_ONE_LESSON_ACTIVITY_TITLES[activityId],
     "lesson",
     ["required", "revisitable"],
