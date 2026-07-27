@@ -6,7 +6,11 @@ import { createInterface } from 'node:readline/promises';
 import { chromium } from 'playwright';
 import { loadLocalEnv } from '../lib/qa-env.mjs';
 
-const ROOT = path.resolve(import.meta.dirname, '..');
+// This file lives in scripts/manual/, so the repository root is two levels up.
+// It was one level up until the manual harnesses were relocated, which pointed
+// every default at scripts/ - the userscript was looked up at scripts/dist and
+// captures would have landed in scripts/docs/public/screenshots.
+const ROOT = path.resolve(import.meta.dirname, '..', '..');
 loadLocalEnv(ROOT);
 
 const DEFAULT_USERSCRIPT = path.join(ROOT, 'dist/yomu.user.js');
@@ -258,7 +262,7 @@ const scenarios = [
 ];
 
 function usage() {
-    return `Usage: node scripts/capture-real-screenshots.mjs [options]
+    return `Usage: node scripts/manual/capture-real-screenshots.mjs [options]
 
 Strict, operator-run Playwright capture for real Yomu docs/store screenshots.
 
