@@ -2189,9 +2189,10 @@ function nonDestructiveHostRenderPlan(
     const pruned = nonOverlappingTokens(remapped, hostText);
     const prunedSet = new Set(pruned);
     dropped.push(...remapped.filter(token => !prunedSet.has(token)));
+    const rendered = withHostRemapGapFallbackTokens(pruned, dropped, indexed, nodeOffsets, hostText);
     return {
         text: hostText,
-        tokens: withHostRemapGapFallbackTokens(pruned, dropped, indexed, nodeOffsets, hostText),
+        tokens: withRetainedNeighbourTokens(host, hostText, targetHostRanges(fragments, nodeOffsets), rendered),
         whitespaceJoints,
         hostText,
     };
@@ -2328,6 +2329,67 @@ function appendSegmentedHostFallbackTokens(
             sentence: hostText,
         });
     }
+}
+
+interface HostTextRange {
+    start: number;
+    end: number;
+}
+
+// Where a target's own text sits in its host's projected text. Null when any
+// fragment is not part of that projection (a hidden or reader-owned node the
+// plan walk rejected) — callers then have no trustworthy claim to any range.
+function targetHostRanges(fragments: TextFragment[], nodeOffsets: Map<Text, number>): HostTextRange[] | null {
+    const ranges: HostTextRange[] = [];
+    for (const fragment of fragments) {
+        const base = nodeOffsets.get(fragment.node);
+        if (base === undefined) return null;
+        const start = base + Math.max(0, fragment.start);
+        const end = base + Math.min(fragment.node.data.length, fragment.end);
+        if (end > start) ranges.push({ start, end });
+    }
+    return ranges;
+}
+
+function hostRangesOverlap(first: HostTextRange, second: HostTextRange): boolean {
+    return first.start < second.end && second.start < first.end;
+}
+
+// A mirror is HOST-scoped — it reproduces the host's whole text — but one apply
+// renders exactly ONE target. Two independently collected lines under the same
+// framework-owned host therefore used to take turns: mounting the second line's
+// mirror tore the first line's words down with the mirror they lived in, so the
+// row could never be more than half annotated, and a settle scan that correctly
+// re-offered the bare half made the two halves alternate on every scroll.
+//
+// Carry the standing render's tokens for the ranges this target does NOT own
+// into the new render, so a neighbour's paint augments the host instead of
+// erasing it. Everything inside this target's own ranges is re-derived from the
+// incoming tokens, so a re-parse can still drop, move or restate its own words.
+function withRetainedNeighbourTokens(
+    host: HTMLElement,
+    hostText: string,
+    ownRanges: HostTextRange[] | null,
+    tokens: JPDBToken[],
+): JPDBToken[] {
+    if (!ownRanges?.length) return tokens;
+    const mirror = currentTextMirror(host);
+    if (!mirror || !textMirrorRenderIsIntact(mirror) || mirror.dataset.sourceText !== hostText) return tokens;
+    // The cache holds the exact token set the standing mirror was mounted from,
+    // and the render is a pure function of (text, tokens, settings) — so for
+    // the same host, epoch and text those tokens ARE the words on screen.
+    const entry = nonDestructiveRenderCache.get(host);
+    if (!entry || entry.epoch !== nonDestructiveRenderCacheEpoch || entry.planText !== hostText) return tokens;
+    const retained = entry.tokens.filter(token => token.start >= 0
+        && token.end > token.start
+        && token.end <= hostText.length
+        && !ownRanges.some(range => hostRangesOverlap(token, range)));
+    if (!retained.length) return tokens;
+    return nonOverlappingTokens(
+        [...tokens, ...retained].sort((first, second) => first.start - second.start
+            || (second.end - second.start) - (first.end - first.start)),
+        hostText,
+    );
 }
 
 // Text the host never paints must not reach the mirror either — the mirror
@@ -4047,6 +4109,78 @@ export function textMirrorAlreadyRenders(host: HTMLElement, text: string): boole
         syncTextMirrorVisibilityToPage(host, mirror);
     }
     return renders;
+}
+
+// The source ranges the standing mirror actually put a word over. Every word
+// carries its range in the coordinates of mirrorSourceHostText(), which is the
+// host text the render was derived from — the same space targetHostRanges()
+// works in.
+function mirrorAnnotatedSourceRanges(mirror: HTMLElement): HostTextRange[] {
+    const ranges: HostTextRange[] = [];
+    for (const word of mirror.querySelectorAll<HTMLElement>(READER_WORD_SELECTOR)) {
+        const start = Number.parseInt(word.dataset.yomuSourceStart ?? '', 10);
+        const end = Number.parseInt(word.dataset.yomuSourceEnd ?? '', 10);
+        if (Number.isNaN(start) || Number.isNaN(end) || end <= start) continue;
+        ranges.push({ start, end });
+    }
+    return ranges;
+}
+
+// What a silent settle scan actually needs to know: was THIS target annotated?
+//
+// Neither host-level question can answer it. "Does the mirror's source text
+// EQUAL the target text" (the historic test) can only ever match a target that
+// spans its host alone, so every multi-node row — most of a mobile video list —
+// reported "not rendered" forever: each settle re-collected and re-parsed rows
+// it had already decorated, each capped continuation re-walked that same head
+// instead of advancing, and on a phone's small parse budget the freshly
+// recycled rows queued behind that waste and stayed bare. Loosening it to "does
+// the host text CONTAIN the target text" is worse: a target is then declared
+// done because a NEIGHBOUR on the same host was rendered, and nothing can ever
+// heal it — a permanently half-bare row.
+//
+// So ask the mirror the question it can answer honestly: does a word actually
+// stand over each of this target's own source ranges? Nothing is recorded and
+// nothing is trusted — the verdict is re-derived from the live host text and
+// the words currently on screen every time, so it decays the safe way by
+// construction. A recycler that rewrites the host makes the mirror's source
+// text stale; a re-render that replaced the mirror took its words with it; a
+// render that only covered part of the line leaves the rest of it uncovered.
+// Each of those re-offers the target, which costs one re-parse — never a
+// permanently bare row.
+export function scanTargetAlreadyAnnotated(target: ScanTextTarget): boolean {
+    if (!(target.parent instanceof HTMLElement)) return false;
+    // A target that spans its host alone is fully answered by the host's own
+    // mirror, including renders replayed from cache onto fresh text nodes.
+    if (textMirrorAlreadyRenders(target.parent, target.text)) return true;
+    const host = nonDestructiveScanHost(target);
+    const mirror = currentTextMirror(host);
+    // Only hosts that already carry an intact render pay for the text walk
+    // below, and for those it is the cost this skip exists to avoid many times
+    // over — collecting them means re-deriving that same plan plus a parse.
+    if (!mirror || !textMirrorRenderIsIntact(mirror)) return false;
+    const fragments = nonDestructiveTargetFragments(target);
+    if (!fragments.length) return false;
+    const { hostText, nodeOffsets } = hostOriginalTextWithNodeOffsets(host);
+    if (!hostText || mirrorSourceHostText(mirror) !== hostText) return false;
+    const ranges = targetHostRanges(fragments, nodeOffsets);
+    if (!ranges?.length) return false;
+    const words = mirrorAnnotatedSourceRanges(mirror);
+    let annotated = false;
+    for (const range of ranges) {
+        // A range with no target-language letter can never carry a word (the
+        // render boundary discards such tokens), so requiring one would make
+        // the verdict permanently unsatisfiable for every mixed-script line.
+        if (!HAS_JAPANESE_LETTER.test(hostText.slice(range.start, range.end))) continue;
+        if (!words.some(word => hostRangesOverlap(word, range))) return false;
+        annotated = true;
+    }
+    if (!annotated) return false;
+    // Same transient-hide heal as the whole-host path above: skipping a
+    // force-hidden mirror with no host mutation left to re-sync it would park
+    // the row under a concealing layer.
+    if (mirror.style.getPropertyValue('visibility') === 'hidden') syncTextMirrorVisibilityToPage(host, mirror);
+    return true;
 }
 
 // Every mounted text mirror is created from at least one safe token and must
