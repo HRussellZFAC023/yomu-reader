@@ -127,11 +127,22 @@ try {
     }
 
     for (const sourceSize of SOURCE_SIZES) {
-        const measured = await tab.evaluate(measureVertical, { sentence: VERTICAL_SENTENCE, sourceSize });
+        const measured = await tab.evaluate(measureVertical, { sentence: VERTICAL_SENTENCE, sourceSize, annotated: false });
         rows.push({ mode: 'vertical', sourceSize, fontScale: 1, ...measured });
         // A vertical column is checked on size and on the length it spans; the "edges" of a
         // vertical line are its top and bottom, which the same edge drift covers.
         check(failures, `vertical ${sourceSize}px`, measured, 1);
+    }
+
+    // The same column once the reader has been over it — the state a manga or VN page is in
+    // for all but the first frame, and the one jsdom structurally cannot judge, because the
+    // question is what the engine does with the reader's inline-flex word boxes and an
+    // out-of-flow reading. Held to exactly the same bar as a bare column, which is the
+    // claim: annotating a column must not move the type off the text it was read from.
+    for (const sourceSize of SOURCE_SIZES) {
+        const measured = await tab.evaluate(measureVertical, { sentence: VERTICAL_SENTENCE, sourceSize, annotated: true });
+        rows.push({ mode: 'vertical+reading', sourceSize, fontScale: 1, ...measured });
+        check(failures, `vertical+reading ${sourceSize}px`, measured, 1);
     }
 } finally {
     await browser.close();
@@ -237,7 +248,11 @@ function measureHorizontal({ sentence, sourceSize, fontScale, gameFont }) {
 // The vertical equivalent. The source is a real vertical-rl span rather than a canvas,
 // so the "ink box" here is the span's own line box with line-height 1 — the tightest
 // honest box a provider could draw around an upright column.
-function measureVertical({ sentence, sourceSize }) {
+//
+// With `annotated`, the reader's own markup is put on the column between two layout passes,
+// exactly as it happens in the app: the overlay paints the recognized line, the reader
+// re-typesets it into word boxes with a reading, and the overlay fits it again.
+function measureVertical({ sentence, sourceSize, annotated }) {
     const source = document.getElementById('vertical-source');
     source.textContent = sentence;
     source.style.fontSize = `${sourceSize}px`;
@@ -256,6 +271,17 @@ function measureVertical({ sentence, sourceSize }) {
     window.YomuOcrOverlay.layoutOverlayOcrLines(layer, frame, 1);
 
     const text = layer.querySelector('.jpdb-ocr-line-text');
+    if (annotated) {
+        // What normalizeOcrRenderedText() leaves behind: inline-flex word boxes, and an
+        // out-of-flow reading on the first word.
+        const [head, tail] = [sentence.slice(0, 2), sentence.slice(2)];
+        text.innerHTML = '<span class="jpdb-reader-word jpdb-reader-has-furi" data-vid="1" data-sid="1">'
+            + '<span class="jpdb-ocr-ruby"><span class="jpdb-ocr-ruby-base">'
+            + '<span class="jpdb-ocr-furi" data-jpdb-reader-surface-ignore="true" aria-hidden="true">どくしょ</span>'
+            + `<span class="jpdb-ocr-ruby-base-text">${head}</span></span></span></span>`
+            + `<span class="jpdb-reader-word"><span class="jpdb-ocr-plain">${tail}</span></span>`;
+        window.YomuOcrOverlay.layoutOverlayOcrLines(layer, frame, 1);
+    }
     const rect = text.getBoundingClientRect();
     const renderedFontPx = Number.parseFloat(getComputedStyle(text).fontSize);
     return {
