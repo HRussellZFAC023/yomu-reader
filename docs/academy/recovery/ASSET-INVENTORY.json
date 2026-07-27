@@ -19,20 +19,20 @@
     "deletion": "This audit never deletes, moves, or mutates Academy raster files."
   },
   "counts": {
-    "currentRasterFiles": 291,
-    "currentRasterFilesAccountedFor": 291,
-    "active": 238,
+    "currentRasterFiles": 298,
+    "currentRasterFilesAccountedFor": 298,
+    "active": 245,
     "orphaned": 53,
     "deprecated": 10,
     "deprecatedPresent": 0,
-    "missingExpressionVariants": 572,
+    "missingExpressionVariants": 560,
     "expressionMatrixSlots": 630,
-    "approvedExpressionVariants": 42,
+    "approvedExpressionVariants": 54,
     "reviewCandidateExpressionVariants": 16,
-    "deliveredMatrixExpressionVariants": 58,
-    "offMatrixDeliveredSprites": 51,
+    "deliveredMatrixExpressionVariants": 70,
+    "offMatrixDeliveredSprites": 47,
     "activeByKind": {
-      "character-sprite": 110,
+      "character-sprite": 117,
       "protagonist-portrait": 4,
       "scene-background": 68,
       "scene-event": 48,
@@ -601,10 +601,168 @@
         "ledgerStatus": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
       },
       {
-        "id": "character-jenny-determined-round-face-brown-hair-left-three-quarter-fullbody-v002",
-        "path": "/academy/art/characters/jenny/jenny__determined-round-face-brown-hair__left-three-quarter__fullbody__v002.png",
-        "sha256": "bed46c5ee83d327ccacfd3ce717410e0b8a9b218d539b6d426cee0864eb07465",
-        "ledgerSha256": "bed46c5ee83d327ccacfd3ce717410e0b8a9b218d539b6d426cee0864eb07465",
+        "id": "character-henry-determined-left-three-quarter-halfbody-v002",
+        "path": "/academy/art/characters/henry/henry__determined__left-three-quarter__halfbody__v002.png",
+        "sha256": "2aad05a6b41b14c85601dced378dd342f43404632fee9b2fc1f328eaf5f4aa45",
+        "ledgerSha256": "2aad05a6b41b14c85601dced378dd342f43404632fee9b2fc1f328eaf5f4aa45",
+        "kind": "character-sprite",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "journal:henry-expression-gallery",
+          "story:cast:henry:determined",
+          "cast-standardization:henry"
+        ],
+        "reviewHomes": [
+          "cast-standardization-manifest",
+          "identity-lock"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
+      },
+      {
+        "id": "character-henry-encouraging-listening-right-three-quarter-halfbody-v002",
+        "path": "/academy/art/characters/henry/henry__encouraging-listening__right-three-quarter__halfbody__v002.png",
+        "sha256": "dde4f217e41cee9d0d2534b98414c95d3c9b4ee949dd03314734bc7cf6265347",
+        "ledgerSha256": "dde4f217e41cee9d0d2534b98414c95d3c9b4ee949dd03314734bc7cf6265347",
+        "kind": "character-sprite",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "journal:henry-expression-gallery",
+          "story:cast:henry:encouraging-listening",
+          "cast-standardization:henry"
+        ],
+        "reviewHomes": [
+          "cast-standardization-manifest",
+          "identity-lock"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
+      },
+      {
+        "id": "character-henry-happy-front-near-front-halfbody-v002",
+        "path": "/academy/art/characters/henry/henry__happy__front-near-front__halfbody__v002.png",
+        "sha256": "153a709fd4bcd378e74a96cb0b2a98c1dd1f449ea3663557e50e5ee0ca72ce6e",
+        "ledgerSha256": "153a709fd4bcd378e74a96cb0b2a98c1dd1f449ea3663557e50e5ee0ca72ce6e",
+        "kind": "character-sprite",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "journal:henry-expression-gallery",
+          "story:cast:henry:happy",
+          "cast-standardization:henry"
+        ],
+        "reviewHomes": [
+          "cast-standardization-manifest",
+          "identity-lock"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
+      },
+      {
+        "id": "character-henry-neutral-front-near-front-halfbody-v002",
+        "path": "/academy/art/characters/henry/henry__neutral__front-near-front__halfbody__v002.png",
+        "sha256": "8d11ae15e5e00d1bcd98ca02088154d44287b2f1ed71507d72791935558450ea",
+        "ledgerSha256": "8d11ae15e5e00d1bcd98ca02088154d44287b2f1ed71507d72791935558450ea",
+        "kind": "character-sprite",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "journal:henry",
+          "class:people",
+          "class:week-cast",
+          "lesson-overview:roster",
+          "world:person",
+          "story:cast:henry",
+          "cast-standardization:henry"
+        ],
+        "reviewHomes": [
+          "cast-standardization-manifest",
+          "identity-lock"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
+      },
+      {
+        "id": "character-henry-sad-vulnerable-left-three-quarter-halfbody-v002",
+        "path": "/academy/art/characters/henry/henry__sad-vulnerable__left-three-quarter__halfbody__v002.png",
+        "sha256": "f4bddcf8af3024757d82db0afa6fdecee0011c5e3b4be65585a14333e539a81d",
+        "ledgerSha256": "f4bddcf8af3024757d82db0afa6fdecee0011c5e3b4be65585a14333e539a81d",
+        "kind": "character-sprite",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "journal:henry-expression-gallery",
+          "story:cast:henry:sad-vulnerable",
+          "cast-standardization:henry"
+        ],
+        "reviewHomes": [
+          "cast-standardization-manifest",
+          "identity-lock"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
+      },
+      {
+        "id": "character-henry-surprised-shocked-right-three-quarter-halfbody-v002",
+        "path": "/academy/art/characters/henry/henry__surprised-shocked__right-three-quarter__halfbody__v002.png",
+        "sha256": "9cd584f5f96d6dc44d211ca1f30c2e4bdf709af28e8292c339d0853c25d0777b",
+        "ledgerSha256": "9cd584f5f96d6dc44d211ca1f30c2e4bdf709af28e8292c339d0853c25d0777b",
+        "kind": "character-sprite",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "journal:henry-expression-gallery",
+          "story:cast:henry:surprised-shocked",
+          "cast-standardization:henry"
+        ],
+        "reviewHomes": [
+          "cast-standardization-manifest",
+          "identity-lock"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
+      },
+      {
+        "id": "character-henry-thoughtful-left-three-quarter-halfbody-v002",
+        "path": "/academy/art/characters/henry/henry__thoughtful__left-three-quarter__halfbody__v002.png",
+        "sha256": "508d8e4435f2ee4afb5d106f825554c5cc20fc1a5b8649b49ff73c9c9161f831",
+        "ledgerSha256": "508d8e4435f2ee4afb5d106f825554c5cc20fc1a5b8649b49ff73c9c9161f831",
+        "kind": "character-sprite",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "journal:henry-expression-gallery",
+          "story:cast:henry:thoughtful",
+          "cast-standardization:henry"
+        ],
+        "reviewHomes": [
+          "cast-standardization-manifest",
+          "identity-lock"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
+      },
+      {
+        "id": "character-jenny-determined-round-face-brown-hair-left-three-quarter-fullbody-v003",
+        "path": "/academy/art/characters/jenny/jenny__determined-round-face-brown-hair__left-three-quarter__fullbody__v003.png",
+        "sha256": "86e8bc0041c998ae50d47ddae2d00a492ac348a6b61a724440ac54f4fd1066e1",
+        "ledgerSha256": "86e8bc0041c998ae50d47ddae2d00a492ac348a6b61a724440ac54f4fd1066e1",
         "kind": "character-sprite",
         "state": "active",
         "present": true,
@@ -623,10 +781,10 @@
         "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
       },
       {
-        "id": "character-jenny-encouraging-listening-round-face-brown-hair-right-three-quarter-fullbody-v002",
-        "path": "/academy/art/characters/jenny/jenny__encouraging-listening-round-face-brown-hair__right-three-quarter__fullbody__v002.png",
-        "sha256": "80a533f034ec80a9751f038255fce2f9f12fe57763e9279bf4b147d6ffb422f9",
-        "ledgerSha256": "80a533f034ec80a9751f038255fce2f9f12fe57763e9279bf4b147d6ffb422f9",
+        "id": "character-jenny-encouraging-listening-round-face-brown-hair-right-three-quarter-fullbody-v003",
+        "path": "/academy/art/characters/jenny/jenny__encouraging-listening-round-face-brown-hair__right-three-quarter__fullbody__v003.png",
+        "sha256": "f9fb9aaf78e9c9de5959d21bb0fbc4cf4c3c484a34528012f0af87973a2445a6",
+        "ledgerSha256": "f9fb9aaf78e9c9de5959d21bb0fbc4cf4c3c484a34528012f0af87973a2445a6",
         "kind": "character-sprite",
         "state": "active",
         "present": true,
@@ -645,10 +803,10 @@
         "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
       },
       {
-        "id": "character-jenny-happy-round-face-brown-hair-front-near-front-fullbody-v002",
-        "path": "/academy/art/characters/jenny/jenny__happy-round-face-brown-hair__front-near-front__fullbody__v002.png",
-        "sha256": "1cb002e514db41e9f6b3454fba66e3566065701800631e579aa15b396e0bbb60",
-        "ledgerSha256": "1cb002e514db41e9f6b3454fba66e3566065701800631e579aa15b396e0bbb60",
+        "id": "character-jenny-happy-round-face-brown-hair-front-near-front-fullbody-v003",
+        "path": "/academy/art/characters/jenny/jenny__happy-round-face-brown-hair__front-near-front__fullbody__v003.png",
+        "sha256": "02283527d4ee68f56e5fbaf4bc26ae57967179d35bf97fc7d5bd089d2897b2fa",
+        "ledgerSha256": "02283527d4ee68f56e5fbaf4bc26ae57967179d35bf97fc7d5bd089d2897b2fa",
         "kind": "character-sprite",
         "state": "active",
         "present": true,
@@ -667,10 +825,10 @@
         "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
       },
       {
-        "id": "character-jenny-neutral-round-face-brown-hair-front-near-front-fullbody-v002",
-        "path": "/academy/art/characters/jenny/jenny__neutral-round-face-brown-hair__front-near-front__fullbody__v002.png",
-        "sha256": "db3ca8c551440e0c060ea471d51616ff604896ba510fad00f66d7a26a0bb4c63",
-        "ledgerSha256": "db3ca8c551440e0c060ea471d51616ff604896ba510fad00f66d7a26a0bb4c63",
+        "id": "character-jenny-neutral-round-face-brown-hair-front-near-front-fullbody-v003",
+        "path": "/academy/art/characters/jenny/jenny__neutral-round-face-brown-hair__front-near-front__fullbody__v003.png",
+        "sha256": "f9dc7d48a61b1b64ea0b6f962b70a2f7ec278794130d54f6cf5d433797631e24",
+        "ledgerSha256": "f9dc7d48a61b1b64ea0b6f962b70a2f7ec278794130d54f6cf5d433797631e24",
         "kind": "character-sprite",
         "state": "active",
         "present": true,
@@ -693,10 +851,10 @@
         "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
       },
       {
-        "id": "character-jenny-sad-vulnerable-round-face-brown-hair-left-three-quarter-fullbody-v002",
-        "path": "/academy/art/characters/jenny/jenny__sad-vulnerable-round-face-brown-hair__left-three-quarter__fullbody__v002.png",
-        "sha256": "97bc48f39b4c60f3035de6a432ff7319604a6e7025bb19b4a098d827a7309129",
-        "ledgerSha256": "97bc48f39b4c60f3035de6a432ff7319604a6e7025bb19b4a098d827a7309129",
+        "id": "character-jenny-sad-vulnerable-round-face-brown-hair-left-three-quarter-fullbody-v003",
+        "path": "/academy/art/characters/jenny/jenny__sad-vulnerable-round-face-brown-hair__left-three-quarter__fullbody__v003.png",
+        "sha256": "f855311cd1ce97fe70b65fd3044be87f738b2b2a7ffa0ef4a63e80e7bda4c226",
+        "ledgerSha256": "f855311cd1ce97fe70b65fd3044be87f738b2b2a7ffa0ef4a63e80e7bda4c226",
         "kind": "character-sprite",
         "state": "active",
         "present": true,
@@ -715,10 +873,10 @@
         "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
       },
       {
-        "id": "character-jenny-surprised-shocked-round-face-brown-hair-right-three-quarter-fullbody-v002",
-        "path": "/academy/art/characters/jenny/jenny__surprised-shocked-round-face-brown-hair__right-three-quarter__fullbody__v002.png",
-        "sha256": "477291bd511bf68d93400d8bf85518ba8be05d662bb73ac69530ace9c757c56d",
-        "ledgerSha256": "477291bd511bf68d93400d8bf85518ba8be05d662bb73ac69530ace9c757c56d",
+        "id": "character-jenny-surprised-shocked-round-face-brown-hair-right-three-quarter-fullbody-v003",
+        "path": "/academy/art/characters/jenny/jenny__surprised-shocked-round-face-brown-hair__right-three-quarter__fullbody__v003.png",
+        "sha256": "74771d9a2467d6ac05f2dec062a28380613f11e37c5084396fc71ffb2e00fe2a",
+        "ledgerSha256": "74771d9a2467d6ac05f2dec062a28380613f11e37c5084396fc71ffb2e00fe2a",
         "kind": "character-sprite",
         "state": "active",
         "present": true,
@@ -737,10 +895,10 @@
         "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
       },
       {
-        "id": "character-jenny-thoughtful-round-face-brown-hair-left-three-quarter-fullbody-v002",
-        "path": "/academy/art/characters/jenny/jenny__thoughtful-round-face-brown-hair__left-three-quarter__fullbody__v002.png",
-        "sha256": "5b800dda230fc43ede817310e37f15c68c728c954899af7f27b86a62e473338f",
-        "ledgerSha256": "5b800dda230fc43ede817310e37f15c68c728c954899af7f27b86a62e473338f",
+        "id": "character-jenny-thoughtful-round-face-brown-hair-left-three-quarter-fullbody-v003",
+        "path": "/academy/art/characters/jenny/jenny__thoughtful-round-face-brown-hair__left-three-quarter__fullbody__v003.png",
+        "sha256": "30565120482f93400f7fd65324e888e9603d2a2aca989f622e4fcde67d3a506a",
+        "ledgerSha256": "30565120482f93400f7fd65324e888e9603d2a2aca989f622e4fcde67d3a506a",
         "kind": "character-sprite",
         "state": "active",
         "present": true,
@@ -6000,33 +6158,6 @@
         "countsTowardExpressionMatrix": false
       },
       {
-        "character": "henry",
-        "path": "/academy/art/characters/henry/henry__standardized-determined__left-three-quarter__halfbody__v001.png",
-        "sha256": "f45129620d42f4dcea53587b96b38dc1bf6e296b160e6fcf7555471bf6e8bf29",
-        "currentState": "unaccounted",
-        "coverageStatus": "off-matrix",
-        "migrationStatus": "retained-off-matrix-review-evidence",
-        "countsTowardExpressionMatrix": false
-      },
-      {
-        "character": "henry",
-        "path": "/academy/art/characters/henry/henry__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
-        "sha256": "f104e663a0c1c00bc0d5a46f53a238b7fb57473b8454a6c8b05ba1fcdfcd083d",
-        "currentState": "unaccounted",
-        "coverageStatus": "off-matrix",
-        "migrationStatus": "retained-off-matrix-review-evidence",
-        "countsTowardExpressionMatrix": false
-      },
-      {
-        "character": "henry",
-        "path": "/academy/art/characters/henry/henry__standardized-neutral__front-near-front__halfbody__v001.png",
-        "sha256": "e7e660565d01c8106378901a9255b2d83f06eb38916b451aa3e394596c3311ee",
-        "currentState": "unaccounted",
-        "coverageStatus": "off-matrix",
-        "migrationStatus": "retained-off-matrix-review-evidence",
-        "countsTowardExpressionMatrix": false
-      },
-      {
         "character": "jodi",
         "path": "/academy/art/characters/jodi/jodi__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
         "sha256": "0002290f455bfb033e85e921e267d97f015117fdddc381a0b089bf04768eceaa",
@@ -6145,20 +6276,11 @@
       },
       {
         "character": "ruparna",
-        "path": "/academy/art/characters/ruparna/ruparna__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
-        "sha256": "c3a505ddfa609dd7787e349e37b85ddcdb75abf25f6946cf185399c670c794ba",
-        "currentState": "unaccounted",
+        "path": "/academy/art/characters/ruparna/ruparna__note-route__right-three-quarter__halfbody__v002.png",
+        "sha256": "f221ee5008c9d2746eb2f1d6cae831556eaed83f3abac52a001aba5a46e82089",
+        "currentState": "active",
         "coverageStatus": "off-matrix",
-        "migrationStatus": "retained-off-matrix-review-evidence",
-        "countsTowardExpressionMatrix": false
-      },
-      {
-        "character": "ruparna",
-        "path": "/academy/art/characters/ruparna/ruparna__standardized-neutral__front-near-front__halfbody__v001.png",
-        "sha256": "c3a505ddfa609dd7787e349e37b85ddcdb75abf25f6946cf185399c670c794ba",
-        "currentState": "unaccounted",
-        "coverageStatus": "off-matrix",
-        "migrationStatus": "retained-off-matrix-review-evidence",
+        "migrationStatus": "approved-and-registered",
         "countsTowardExpressionMatrix": false
       },
       {
@@ -6167,7 +6289,7 @@
         "sha256": "a14668bdf003c966e6000e3c7e2d7d08c8e8ba42acc5e1188786302bb34a681e",
         "currentState": "active",
         "coverageStatus": "off-matrix",
-        "migrationStatus": "retained-off-matrix-review-evidence",
+        "migrationStatus": "approved-and-registered",
         "countsTowardExpressionMatrix": false
       },
       {
@@ -6176,7 +6298,7 @@
         "sha256": "1df805d1f39c0f0c019af8ec308998995e15c532f177025601ab837a21987597",
         "currentState": "active",
         "coverageStatus": "off-matrix",
-        "migrationStatus": "retained-off-matrix-review-evidence",
+        "migrationStatus": "approved-and-registered",
         "countsTowardExpressionMatrix": false
       },
       {
@@ -7381,24 +7503,6 @@
       {
         "character": "henry",
         "angle": "front-near-front",
-        "expression": "happy",
-        "plannedPath": "/academy/art/characters/henry/henry__happy__front-near-front__halfbody__v001.png",
-        "state": "missing-expression-variant",
-        "present": false,
-        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
-      },
-      {
-        "character": "henry",
-        "angle": "front-near-front",
-        "expression": "neutral",
-        "plannedPath": "/academy/art/characters/henry/henry__neutral__front-near-front__halfbody__v001.png",
-        "state": "missing-expression-variant",
-        "present": false,
-        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
-      },
-      {
-        "character": "henry",
-        "angle": "front-near-front",
         "expression": "sad-vulnerable",
         "plannedPath": "/academy/art/characters/henry/henry__sad-vulnerable__front-near-front__halfbody__v001.png",
         "state": "missing-expression-variant",
@@ -7419,15 +7523,6 @@
         "angle": "front-near-front",
         "expression": "thoughtful",
         "plannedPath": "/academy/art/characters/henry/henry__thoughtful__front-near-front__halfbody__v001.png",
-        "state": "missing-expression-variant",
-        "present": false,
-        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
-      },
-      {
-        "character": "henry",
-        "angle": "left-three-quarter",
-        "expression": "determined",
-        "plannedPath": "/academy/art/characters/henry/henry__determined__left-three-quarter__halfbody__v001.png",
         "state": "missing-expression-variant",
         "present": false,
         "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
@@ -7462,26 +7557,8 @@
       {
         "character": "henry",
         "angle": "left-three-quarter",
-        "expression": "sad-vulnerable",
-        "plannedPath": "/academy/art/characters/henry/henry__sad-vulnerable__left-three-quarter__halfbody__v001.png",
-        "state": "missing-expression-variant",
-        "present": false,
-        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
-      },
-      {
-        "character": "henry",
-        "angle": "left-three-quarter",
         "expression": "surprised-shocked",
         "plannedPath": "/academy/art/characters/henry/henry__surprised-shocked__left-three-quarter__halfbody__v001.png",
-        "state": "missing-expression-variant",
-        "present": false,
-        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
-      },
-      {
-        "character": "henry",
-        "angle": "left-three-quarter",
-        "expression": "thoughtful",
-        "plannedPath": "/academy/art/characters/henry/henry__thoughtful__left-three-quarter__halfbody__v001.png",
         "state": "missing-expression-variant",
         "present": false,
         "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
@@ -7491,15 +7568,6 @@
         "angle": "right-three-quarter",
         "expression": "determined",
         "plannedPath": "/academy/art/characters/henry/henry__determined__right-three-quarter__halfbody__v001.png",
-        "state": "missing-expression-variant",
-        "present": false,
-        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
-      },
-      {
-        "character": "henry",
-        "angle": "right-three-quarter",
-        "expression": "encouraging-listening",
-        "plannedPath": "/academy/art/characters/henry/henry__encouraging-listening__right-three-quarter__halfbody__v001.png",
         "state": "missing-expression-variant",
         "present": false,
         "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
@@ -7527,15 +7595,6 @@
         "angle": "right-three-quarter",
         "expression": "sad-vulnerable",
         "plannedPath": "/academy/art/characters/henry/henry__sad-vulnerable__right-three-quarter__halfbody__v001.png",
-        "state": "missing-expression-variant",
-        "present": false,
-        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
-      },
-      {
-        "character": "henry",
-        "angle": "right-three-quarter",
-        "expression": "surprised-shocked",
-        "plannedPath": "/academy/art/characters/henry/henry__surprised-shocked__right-three-quarter__halfbody__v001.png",
         "state": "missing-expression-variant",
         "present": false,
         "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
@@ -9379,15 +9438,6 @@
       {
         "character": "ruparna",
         "angle": "front-near-front",
-        "expression": "neutral",
-        "plannedPath": "/academy/art/characters/ruparna/ruparna__neutral__front-near-front__halfbody__v001.png",
-        "state": "missing-expression-variant",
-        "present": false,
-        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
-      },
-      {
-        "character": "ruparna",
-        "angle": "front-near-front",
         "expression": "sad-vulnerable",
         "plannedPath": "/academy/art/characters/ruparna/ruparna__sad-vulnerable__front-near-front__halfbody__v001.png",
         "state": "missing-expression-variant",
@@ -10108,17 +10158,8 @@
       {
         "character": "sophie",
         "angle": "front-near-front",
-        "expression": "happy",
-        "plannedPath": "/academy/art/characters/sophie/sophie__happy__front-near-front__halfbody__v001.png",
-        "state": "missing-expression-variant",
-        "present": false,
-        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
-      },
-      {
-        "character": "sophie",
-        "angle": "front-near-front",
-        "expression": "neutral",
-        "plannedPath": "/academy/art/characters/sophie/sophie__neutral__front-near-front__halfbody__v001.png",
+        "expression": "encouraging-listening",
+        "plannedPath": "/academy/art/characters/sophie/sophie__encouraging-listening__front-near-front__halfbody__v001.png",
         "state": "missing-expression-variant",
         "present": false,
         "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
@@ -10180,26 +10221,8 @@
       {
         "character": "sophie",
         "angle": "left-three-quarter",
-        "expression": "sad-vulnerable",
-        "plannedPath": "/academy/art/characters/sophie/sophie__sad-vulnerable__left-three-quarter__halfbody__v001.png",
-        "state": "missing-expression-variant",
-        "present": false,
-        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
-      },
-      {
-        "character": "sophie",
-        "angle": "left-three-quarter",
         "expression": "surprised-shocked",
         "plannedPath": "/academy/art/characters/sophie/sophie__surprised-shocked__left-three-quarter__halfbody__v001.png",
-        "state": "missing-expression-variant",
-        "present": false,
-        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
-      },
-      {
-        "character": "sophie",
-        "angle": "left-three-quarter",
-        "expression": "thoughtful",
-        "plannedPath": "/academy/art/characters/sophie/sophie__thoughtful__left-three-quarter__halfbody__v001.png",
         "state": "missing-expression-variant",
         "present": false,
         "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
@@ -10216,15 +10239,6 @@
       {
         "character": "sophie",
         "angle": "right-three-quarter",
-        "expression": "encouraging-listening",
-        "plannedPath": "/academy/art/characters/sophie/sophie__encouraging-listening__right-three-quarter__halfbody__v001.png",
-        "state": "missing-expression-variant",
-        "present": false,
-        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
-      },
-      {
-        "character": "sophie",
-        "angle": "right-three-quarter",
         "expression": "happy",
         "plannedPath": "/academy/art/characters/sophie/sophie__happy__right-three-quarter__halfbody__v001.png",
         "state": "missing-expression-variant",
@@ -10234,8 +10248,8 @@
       {
         "character": "sophie",
         "angle": "right-three-quarter",
-        "expression": "sad-vulnerable",
-        "plannedPath": "/academy/art/characters/sophie/sophie__sad-vulnerable__right-three-quarter__halfbody__v001.png",
+        "expression": "neutral",
+        "plannedPath": "/academy/art/characters/sophie/sophie__neutral__right-three-quarter__halfbody__v001.png",
         "state": "missing-expression-variant",
         "present": false,
         "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
@@ -10243,8 +10257,8 @@
       {
         "character": "sophie",
         "angle": "right-three-quarter",
-        "expression": "surprised-shocked",
-        "plannedPath": "/academy/art/characters/sophie/sophie__surprised-shocked__right-three-quarter__halfbody__v001.png",
+        "expression": "sad-vulnerable",
+        "plannedPath": "/academy/art/characters/sophie/sophie__sad-vulnerable__right-three-quarter__halfbody__v001.png",
         "state": "missing-expression-variant",
         "present": false,
         "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"

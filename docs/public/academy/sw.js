@@ -1,4 +1,4 @@
-const VERSION = 'yomu-academy-shell-s1-298ffd6f8819';
+const VERSION = 'yomu-academy-shell-s1-07945ad24731';
 const AUDIO_CACHE = 'yomu-academy-audio-v1-2c25b06f971c';
 const STORY_VOICE_CATALOG = '/academy/audio/story-voice-playback.json';
 const STORY_VOICE_ASSET = /^\/academy\/audio\/story-(?:pilot|lines)\/[a-z0-9][a-z0-9._-]*\.opus$/;
@@ -70,13 +70,13 @@ const RUNTIME_ART_PRECACHE = [
     '/academy/art/characters/henry/henry__sad-vulnerable__left-three-quarter__halfbody__v002.png',
     '/academy/art/characters/henry/henry__surprised-shocked__right-three-quarter__halfbody__v002.png',
     '/academy/art/characters/henry/henry__thoughtful__left-three-quarter__halfbody__v002.png',
-    '/academy/art/characters/jenny/jenny__determined-round-face-brown-hair__left-three-quarter__fullbody__v002.png',
-    '/academy/art/characters/jenny/jenny__encouraging-listening-round-face-brown-hair__right-three-quarter__fullbody__v002.png',
-    '/academy/art/characters/jenny/jenny__happy-round-face-brown-hair__front-near-front__fullbody__v002.png',
-    '/academy/art/characters/jenny/jenny__neutral-round-face-brown-hair__front-near-front__fullbody__v002.png',
-    '/academy/art/characters/jenny/jenny__sad-vulnerable-round-face-brown-hair__left-three-quarter__fullbody__v002.png',
-    '/academy/art/characters/jenny/jenny__surprised-shocked-round-face-brown-hair__right-three-quarter__fullbody__v002.png',
-    '/academy/art/characters/jenny/jenny__thoughtful-round-face-brown-hair__left-three-quarter__fullbody__v002.png',
+    '/academy/art/characters/jenny/jenny__determined-round-face-brown-hair__left-three-quarter__fullbody__v003.png',
+    '/academy/art/characters/jenny/jenny__encouraging-listening-round-face-brown-hair__right-three-quarter__fullbody__v003.png',
+    '/academy/art/characters/jenny/jenny__happy-round-face-brown-hair__front-near-front__fullbody__v003.png',
+    '/academy/art/characters/jenny/jenny__neutral-round-face-brown-hair__front-near-front__fullbody__v003.png',
+    '/academy/art/characters/jenny/jenny__sad-vulnerable-round-face-brown-hair__left-three-quarter__fullbody__v003.png',
+    '/academy/art/characters/jenny/jenny__surprised-shocked-round-face-brown-hair__right-three-quarter__fullbody__v003.png',
+    '/academy/art/characters/jenny/jenny__thoughtful-round-face-brown-hair__left-three-quarter__fullbody__v003.png',
     '/academy/art/characters/jodi/jodi__standardized-encouraging-listening__front-near-front__halfbody__v001.png',
     '/academy/art/characters/jodi/jodi__standardized-neutral__front-near-front__halfbody__v001.png',
     '/academy/art/characters/mary/mary__standardized-encouraging-listening__front-near-front__halfbody__v001.png',
@@ -295,8 +295,8 @@ const CORE = [
     '/yomu-icon.svg',
     '/academy/',
     '/academy/index.html',
-    '/academy/app.js?v=s1-298ffd6f8819',
-    '/academy/style.css?v=s1-298ffd6f8819',
+    '/academy/app.js?v=s1-07945ad24731',
+    '/academy/style.css?v=s1-07945ad24731',
     '/academy/manifest.webmanifest',
     ...RUNTIME_ART_PRECACHE,
     '/academy/content/vertical-slice/source-library.v1.json',

@@ -2,7 +2,7 @@
   "promotions": [
     {
       "castId": "jenny",
-      "archiveLabel": "identity-confused-style-superseded-20260727",
+      "archiveLabel": "style-superseded-20260727",
       "replaceExpressions": [
         "neutral",
         "encouraging-listening",
@@ -12,13 +12,13 @@
         "surprised-shocked",
         "sad-vulnerable"
       ],
-      "canonicalNeutralAssetId": "character.jenny.neutral-round-face-brown-hair-front-near-front-fullbody-v002",
+      "canonicalNeutralAssetId": "character.jenny.neutral-round-face-brown-hair-front-near-front-fullbody-v003",
       "slots": [
         {
-          "assetId": "character.jenny.neutral-round-face-brown-hair-front-near-front-fullbody-v002",
+          "assetId": "character.jenny.neutral-round-face-brown-hair-front-near-front-fullbody-v003",
           "expression": "neutral",
           "angle": "front-near-front",
-          "assetPath": "/academy/art/characters/jenny/jenny__neutral-round-face-brown-hair__front-near-front__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/jenny/jenny__neutral-round-face-brown-hair__front-near-front__fullbody__v003.png",
           "runtimeHomes": [
             "journal:jenny",
             "class:people",
@@ -30,10 +30,10 @@
           ]
         },
         {
-          "assetId": "character.jenny.encouraging-listening-round-face-brown-hair-right-three-quarter-fullbody-v002",
+          "assetId": "character.jenny.encouraging-listening-round-face-brown-hair-right-three-quarter-fullbody-v003",
           "expression": "encouraging-listening",
           "angle": "right-three-quarter",
-          "assetPath": "/academy/art/characters/jenny/jenny__encouraging-listening-round-face-brown-hair__right-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/jenny/jenny__encouraging-listening-round-face-brown-hair__right-three-quarter__fullbody__v003.png",
           "runtimeHomes": [
             "journal:jenny-expression-gallery",
             "story:cast:jenny:encouraging-listening",
@@ -41,10 +41,10 @@
           ]
         },
         {
-          "assetId": "character.jenny.happy-round-face-brown-hair-front-near-front-fullbody-v002",
+          "assetId": "character.jenny.happy-round-face-brown-hair-front-near-front-fullbody-v003",
           "expression": "happy",
           "angle": "front-near-front",
-          "assetPath": "/academy/art/characters/jenny/jenny__happy-round-face-brown-hair__front-near-front__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/jenny/jenny__happy-round-face-brown-hair__front-near-front__fullbody__v003.png",
           "runtimeHomes": [
             "journal:jenny-expression-gallery",
             "story:cast:jenny:happy",
@@ -52,10 +52,10 @@
           ]
         },
         {
-          "assetId": "character.jenny.thoughtful-round-face-brown-hair-left-three-quarter-fullbody-v002",
+          "assetId": "character.jenny.thoughtful-round-face-brown-hair-left-three-quarter-fullbody-v003",
           "expression": "thoughtful",
           "angle": "left-three-quarter",
-          "assetPath": "/academy/art/characters/jenny/jenny__thoughtful-round-face-brown-hair__left-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/jenny/jenny__thoughtful-round-face-brown-hair__left-three-quarter__fullbody__v003.png",
           "runtimeHomes": [
             "journal:jenny-expression-gallery",
             "story:cast:jenny:thoughtful",
@@ -63,10 +63,10 @@
           ]
         },
         {
-          "assetId": "character.jenny.determined-round-face-brown-hair-left-three-quarter-fullbody-v002",
+          "assetId": "character.jenny.determined-round-face-brown-hair-left-three-quarter-fullbody-v003",
           "expression": "determined",
           "angle": "left-three-quarter",
-          "assetPath": "/academy/art/characters/jenny/jenny__determined-round-face-brown-hair__left-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/jenny/jenny__determined-round-face-brown-hair__left-three-quarter__fullbody__v003.png",
           "runtimeHomes": [
             "journal:jenny-expression-gallery",
             "story:cast:jenny:determined",
@@ -74,10 +74,10 @@
           ]
         },
         {
-          "assetId": "character.jenny.surprised-shocked-round-face-brown-hair-right-three-quarter-fullbody-v002",
+          "assetId": "character.jenny.surprised-shocked-round-face-brown-hair-right-three-quarter-fullbody-v003",
           "expression": "surprised-shocked",
           "angle": "right-three-quarter",
-          "assetPath": "/academy/art/characters/jenny/jenny__surprised-shocked-round-face-brown-hair__right-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/jenny/jenny__surprised-shocked-round-face-brown-hair__right-three-quarter__fullbody__v003.png",
           "runtimeHomes": [
             "journal:jenny-expression-gallery",
             "story:cast:jenny:surprised-shocked",
@@ -85,10 +85,10 @@
           ]
         },
         {
-          "assetId": "character.jenny.sad-vulnerable-round-face-brown-hair-left-three-quarter-fullbody-v002",
+          "assetId": "character.jenny.sad-vulnerable-round-face-brown-hair-left-three-quarter-fullbody-v003",
           "expression": "sad-vulnerable",
           "angle": "left-three-quarter",
-          "assetPath": "/academy/art/characters/jenny/jenny__sad-vulnerable-round-face-brown-hair__left-three-quarter__fullbody__v002.png",
+          "assetPath": "/academy/art/characters/jenny/jenny__sad-vulnerable-round-face-brown-hair__left-three-quarter__fullbody__v003.png",
           "runtimeHomes": [
             "journal:jenny-expression-gallery",
             "story:cast:jenny:sad-vulnerable",

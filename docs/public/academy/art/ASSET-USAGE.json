@@ -1182,252 +1182,6 @@
       "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
     },
     {
-      "id": "character-jenny-determined-round-face-brown-hair-left-three-quarter-fullbody-v002",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "bed46c5ee83d327ccacfd3ce717410e0b8a9b218d539b6d426cee0864eb07465",
-      "provenance": "regenerated-house-style",
-      "verdict": "approved-runtime",
-      "runtimeHome": [
-        "journal:jenny-expression-gallery",
-        "story:cast:jenny:determined",
-        "cast-standardization:jenny"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "identity-lock"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:jenny-expression-gallery",
-          "story:cast:jenny:determined",
-          "cast-standardization:jenny"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/jenny/jenny__determined-round-face-brown-hair__left-three-quarter__fullbody__v002.png",
-          "sha256": "bed46c5ee83d327ccacfd3ce717410e0b8a9b218d539b6d426cee0864eb07465"
-        }
-      ],
-      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
-    },
-    {
-      "id": "character-jenny-encouraging-listening-round-face-brown-hair-right-three-quarter-fullbody-v002",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "80a533f034ec80a9751f038255fce2f9f12fe57763e9279bf4b147d6ffb422f9",
-      "provenance": "regenerated-house-style",
-      "verdict": "approved-runtime",
-      "runtimeHome": [
-        "journal:jenny-expression-gallery",
-        "story:cast:jenny:encouraging-listening",
-        "cast-standardization:jenny"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "identity-lock"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:jenny-expression-gallery",
-          "story:cast:jenny:encouraging-listening",
-          "cast-standardization:jenny"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/jenny/jenny__encouraging-listening-round-face-brown-hair__right-three-quarter__fullbody__v002.png",
-          "sha256": "80a533f034ec80a9751f038255fce2f9f12fe57763e9279bf4b147d6ffb422f9"
-        }
-      ],
-      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
-    },
-    {
-      "id": "character-jenny-happy-round-face-brown-hair-front-near-front-fullbody-v002",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "1cb002e514db41e9f6b3454fba66e3566065701800631e579aa15b396e0bbb60",
-      "provenance": "regenerated-house-style",
-      "verdict": "approved-runtime",
-      "runtimeHome": [
-        "journal:jenny-expression-gallery",
-        "story:cast:jenny:happy",
-        "cast-standardization:jenny"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "identity-lock"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:jenny-expression-gallery",
-          "story:cast:jenny:happy",
-          "cast-standardization:jenny"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/jenny/jenny__happy-round-face-brown-hair__front-near-front__fullbody__v002.png",
-          "sha256": "1cb002e514db41e9f6b3454fba66e3566065701800631e579aa15b396e0bbb60"
-        }
-      ],
-      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
-    },
-    {
-      "id": "character-jenny-neutral-round-face-brown-hair-front-near-front-fullbody-v002",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "db3ca8c551440e0c060ea471d51616ff604896ba510fad00f66d7a26a0bb4c63",
-      "provenance": "regenerated-house-style",
-      "verdict": "approved-runtime",
-      "runtimeHome": [
-        "journal:jenny",
-        "class:people",
-        "class:week-cast",
-        "lesson-overview:roster",
-        "world:person",
-        "story:cast:jenny",
-        "cast-standardization:jenny"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "identity-lock"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:jenny",
-          "class:people",
-          "class:week-cast",
-          "lesson-overview:roster",
-          "world:person",
-          "story:cast:jenny",
-          "cast-standardization:jenny"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/jenny/jenny__neutral-round-face-brown-hair__front-near-front__fullbody__v002.png",
-          "sha256": "db3ca8c551440e0c060ea471d51616ff604896ba510fad00f66d7a26a0bb4c63"
-        }
-      ],
-      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
-    },
-    {
-      "id": "character-jenny-sad-vulnerable-round-face-brown-hair-left-three-quarter-fullbody-v002",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "97bc48f39b4c60f3035de6a432ff7319604a6e7025bb19b4a098d827a7309129",
-      "provenance": "regenerated-house-style",
-      "verdict": "approved-runtime",
-      "runtimeHome": [
-        "journal:jenny-expression-gallery",
-        "story:cast:jenny:sad-vulnerable",
-        "cast-standardization:jenny"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "identity-lock"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:jenny-expression-gallery",
-          "story:cast:jenny:sad-vulnerable",
-          "cast-standardization:jenny"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/jenny/jenny__sad-vulnerable-round-face-brown-hair__left-three-quarter__fullbody__v002.png",
-          "sha256": "97bc48f39b4c60f3035de6a432ff7319604a6e7025bb19b4a098d827a7309129"
-        }
-      ],
-      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
-    },
-    {
-      "id": "character-jenny-surprised-shocked-round-face-brown-hair-right-three-quarter-fullbody-v002",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "477291bd511bf68d93400d8bf85518ba8be05d662bb73ac69530ace9c757c56d",
-      "provenance": "regenerated-house-style",
-      "verdict": "approved-runtime",
-      "runtimeHome": [
-        "journal:jenny-expression-gallery",
-        "story:cast:jenny:surprised-shocked",
-        "cast-standardization:jenny"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "identity-lock"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:jenny-expression-gallery",
-          "story:cast:jenny:surprised-shocked",
-          "cast-standardization:jenny"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/jenny/jenny__surprised-shocked-round-face-brown-hair__right-three-quarter__fullbody__v002.png",
-          "sha256": "477291bd511bf68d93400d8bf85518ba8be05d662bb73ac69530ace9c757c56d"
-        }
-      ],
-      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
-    },
-    {
-      "id": "character-jenny-thoughtful-round-face-brown-hair-left-three-quarter-fullbody-v002",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "5b800dda230fc43ede817310e37f15c68c728c954899af7f27b86a62e473338f",
-      "provenance": "regenerated-house-style",
-      "verdict": "approved-runtime",
-      "runtimeHome": [
-        "journal:jenny-expression-gallery",
-        "story:cast:jenny:thoughtful",
-        "cast-standardization:jenny"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "identity-lock"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:jenny-expression-gallery",
-          "story:cast:jenny:thoughtful",
-          "cast-standardization:jenny"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/jenny/jenny__thoughtful-round-face-brown-hair__left-three-quarter__fullbody__v002.png",
-          "sha256": "5b800dda230fc43ede817310e37f15c68c728c954899af7f27b86a62e473338f"
-        }
-      ],
-      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
-    },
-    {
       "id": "character-jodi-standardized-encouraging-listening-front-near-front-halfbody-v001",
       "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
       "sourceSha256": "0002290f455bfb033e85e921e267d97f015117fdddc381a0b089bf04768eceaa",
@@ -12970,6 +12724,252 @@
         {
           "path": "/academy/art/characters/henry/henry__sad-vulnerable__left-three-quarter__halfbody__v002.png",
           "sha256": "f4bddcf8af3024757d82db0afa6fdecee0011c5e3b4be65585a14333e539a81d"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-jenny-neutral-round-face-brown-hair-front-near-front-fullbody-v003",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "f9dc7d48a61b1b64ea0b6f962b70a2f7ec278794130d54f6cf5d433797631e24",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:jenny",
+        "class:people",
+        "class:week-cast",
+        "lesson-overview:roster",
+        "world:person",
+        "story:cast:jenny",
+        "cast-standardization:jenny"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:jenny",
+          "class:people",
+          "class:week-cast",
+          "lesson-overview:roster",
+          "world:person",
+          "story:cast:jenny",
+          "cast-standardization:jenny"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/jenny/jenny__neutral-round-face-brown-hair__front-near-front__fullbody__v003.png",
+          "sha256": "f9dc7d48a61b1b64ea0b6f962b70a2f7ec278794130d54f6cf5d433797631e24"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-jenny-encouraging-listening-round-face-brown-hair-right-three-quarter-fullbody-v003",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "f9fb9aaf78e9c9de5959d21bb0fbc4cf4c3c484a34528012f0af87973a2445a6",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:jenny-expression-gallery",
+        "story:cast:jenny:encouraging-listening",
+        "cast-standardization:jenny"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:jenny-expression-gallery",
+          "story:cast:jenny:encouraging-listening",
+          "cast-standardization:jenny"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/jenny/jenny__encouraging-listening-round-face-brown-hair__right-three-quarter__fullbody__v003.png",
+          "sha256": "f9fb9aaf78e9c9de5959d21bb0fbc4cf4c3c484a34528012f0af87973a2445a6"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-jenny-happy-round-face-brown-hair-front-near-front-fullbody-v003",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "02283527d4ee68f56e5fbaf4bc26ae57967179d35bf97fc7d5bd089d2897b2fa",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:jenny-expression-gallery",
+        "story:cast:jenny:happy",
+        "cast-standardization:jenny"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:jenny-expression-gallery",
+          "story:cast:jenny:happy",
+          "cast-standardization:jenny"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/jenny/jenny__happy-round-face-brown-hair__front-near-front__fullbody__v003.png",
+          "sha256": "02283527d4ee68f56e5fbaf4bc26ae57967179d35bf97fc7d5bd089d2897b2fa"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-jenny-thoughtful-round-face-brown-hair-left-three-quarter-fullbody-v003",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "30565120482f93400f7fd65324e888e9603d2a2aca989f622e4fcde67d3a506a",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:jenny-expression-gallery",
+        "story:cast:jenny:thoughtful",
+        "cast-standardization:jenny"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:jenny-expression-gallery",
+          "story:cast:jenny:thoughtful",
+          "cast-standardization:jenny"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/jenny/jenny__thoughtful-round-face-brown-hair__left-three-quarter__fullbody__v003.png",
+          "sha256": "30565120482f93400f7fd65324e888e9603d2a2aca989f622e4fcde67d3a506a"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-jenny-determined-round-face-brown-hair-left-three-quarter-fullbody-v003",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "86e8bc0041c998ae50d47ddae2d00a492ac348a6b61a724440ac54f4fd1066e1",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:jenny-expression-gallery",
+        "story:cast:jenny:determined",
+        "cast-standardization:jenny"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:jenny-expression-gallery",
+          "story:cast:jenny:determined",
+          "cast-standardization:jenny"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/jenny/jenny__determined-round-face-brown-hair__left-three-quarter__fullbody__v003.png",
+          "sha256": "86e8bc0041c998ae50d47ddae2d00a492ac348a6b61a724440ac54f4fd1066e1"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-jenny-surprised-shocked-round-face-brown-hair-right-three-quarter-fullbody-v003",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "74771d9a2467d6ac05f2dec062a28380613f11e37c5084396fc71ffb2e00fe2a",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:jenny-expression-gallery",
+        "story:cast:jenny:surprised-shocked",
+        "cast-standardization:jenny"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:jenny-expression-gallery",
+          "story:cast:jenny:surprised-shocked",
+          "cast-standardization:jenny"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/jenny/jenny__surprised-shocked-round-face-brown-hair__right-three-quarter__fullbody__v003.png",
+          "sha256": "74771d9a2467d6ac05f2dec062a28380613f11e37c5084396fc71ffb2e00fe2a"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-jenny-sad-vulnerable-round-face-brown-hair-left-three-quarter-fullbody-v003",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "f855311cd1ce97fe70b65fd3044be87f738b2b2a7ffa0ef4a63e80e7bda4c226",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:jenny-expression-gallery",
+        "story:cast:jenny:sad-vulnerable",
+        "cast-standardization:jenny"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:jenny-expression-gallery",
+          "story:cast:jenny:sad-vulnerable",
+          "cast-standardization:jenny"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/jenny/jenny__sad-vulnerable-round-face-brown-hair__left-three-quarter__fullbody__v003.png",
+          "sha256": "f855311cd1ce97fe70b65fd3044be87f738b2b2a7ffa0ef4a63e80e7bda4c226"
         }
       ],
       "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
