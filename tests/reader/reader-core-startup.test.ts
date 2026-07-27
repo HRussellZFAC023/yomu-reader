@@ -8,6 +8,8 @@ interface StartupInternals {
         remove: () => void;
     };
     installStyles: () => void;
+    installCoreSurfaces: () => Promise<void>;
+    loadInitialSettings: () => Promise<boolean>;
 }
 
 describe('ReaderApp core startup', () => {
@@ -43,5 +45,28 @@ describe('ReaderApp core startup', () => {
 
         releaseDictionaryStyles?.();
         await dictionaryStylesFinished;
+    });
+
+    it('does not resume startup after ownership destroys it while settings are loading', async () => {
+        app = new ReaderApp();
+        const internals = app as unknown as StartupInternals;
+        let releaseSettings: ((showWelcome: boolean) => void) | undefined;
+        const settingsFinished = new Promise<boolean>(resolve => {
+            releaseSettings = resolve;
+        });
+        internals.loadInitialSettings = vi.fn(() => settingsFinished);
+        internals.installCoreSurfaces = vi.fn(async () => undefined);
+
+        const initializing = app.init({ showWelcome: false });
+        await vi.waitFor(() => {
+            expect(internals.loadInitialSettings).toHaveBeenCalledOnce();
+        });
+        app.destroy();
+        releaseSettings?.(false);
+        await initializing;
+
+        expect(internals.installCoreSurfaces).not.toHaveBeenCalled();
+        expect(document.querySelector('.jpdb-reader-fab')).toBeNull();
+        expect(document.querySelector('.jpdb-subtitle-player')).toBeNull();
     });
 });

@@ -115,6 +115,28 @@ describe('reader boot', () => {
         expect(bootWindow.__yomuRuntimeOwnerId).toBe(replacement.dataset.yomuRuntimeOwner);
     });
 
+    it('reclaims an ownerless rewritten marker after its observer has released the runtime', async () => {
+        bootReaderApp();
+        const marker = document.getElementById('jpdb-reader-runtime-owner')!;
+        marker.dataset.yomuRuntimeOwner = 'page-rewritten-owner';
+
+        await vi.waitFor(() => {
+            expect(appMocks.destroy).toHaveBeenCalledWith({ preservePageWords: true });
+        });
+        expect(marker.isConnected).toBe(false);
+        expect(bootWindow.__yomuReaderAppInitialized).toBe(false);
+        appMocks.destroy.mockClear();
+
+        bootReaderApp();
+
+        const replacement = document.getElementById('jpdb-reader-runtime-owner');
+        expect(appMocks.destroy).not.toHaveBeenCalled();
+        expect(appMocks.init).toHaveBeenCalledTimes(2);
+        expect(replacement?.dataset.yomuRuntimeOwner).toBeTruthy();
+        expect(replacement?.dataset.yomuRuntimeOwner).not.toBe('page-rewritten-owner');
+        expect(bootWindow.__yomuRuntimeOwnerId).toBe(replacement?.dataset.yomuRuntimeOwner);
+    });
+
     it('prefers native extension detection before compiled GM shims', () => {
         vi.stubGlobal('chrome', { runtime: { id: 'compiled-yomu-extension' } });
 
@@ -256,6 +278,29 @@ describe('reader boot', () => {
         expect(appMocks.destroy).toHaveBeenCalledWith({ preservePageWords: true });
     });
 
+    it('removes the page extension fallback when a runtime claim replaces it', () => {
+        vi.stubGlobal('GM_getValue', undefined);
+        const addListener = vi.spyOn(window, 'addEventListener');
+        const removeListener = vi.spyOn(window, 'removeEventListener');
+        bootReaderApp();
+        const fallbackListener = addListener.mock.calls.find(([type]) => type === 'yomu-extension-loaded')?.[1];
+        expect(fallbackListener).toBeTruthy();
+        appMocks.destroy.mockClear();
+
+        window.dispatchEvent(new CustomEvent('yomu-reader-runtime-claim', {
+            detail: { ownerId: 'external-extension', kind: 'extension', priority: 3 },
+        }));
+
+        expect(appMocks.destroy).toHaveBeenCalledTimes(1);
+        expect(document.getElementById('jpdb-reader-runtime-owner')).toBeNull();
+        expect(bootWindow.__yomuReaderAppInitialized).toBe(false);
+        expect(removeListener.mock.calls).toContainEqual(['yomu-extension-loaded', fallbackListener, undefined]);
+
+        appMocks.destroy.mockClear();
+        window.dispatchEvent(new CustomEvent('yomu-extension-loaded'));
+        expect(appMocks.destroy).not.toHaveBeenCalled();
+    });
+
     it('preserves parsed page words when a real runtime boots after the page runtime', () => {
         vi.stubGlobal('GM_getValue', undefined);
 
@@ -329,6 +374,17 @@ describe('reader boot', () => {
         window.dispatchEvent(new CustomEvent('yomu-extension-loaded'));
 
         expect(appMocks.destroy).toHaveBeenCalledWith({ preservePageWords: true });
+        expect(document.getElementById('jpdb-reader-runtime-owner')).toBeNull();
+        expect(bootWindow.__yomuReaderAppInitialized).toBe(false);
+        expect(bootWindow.__yomuRuntimeOwnerId).toBeUndefined();
+
+        appMocks.destroy.mockClear();
+        window.dispatchEvent(new CustomEvent('yomu-extension-loaded'));
+        expect(appMocks.destroy).not.toHaveBeenCalled();
+
+        bootReaderApp();
+        expect(appMocks.init).toHaveBeenCalledTimes(2);
+        expect(document.getElementById('jpdb-reader-runtime-owner')?.dataset.yomuRuntimeKind).toBe('page');
     });
 
     it('keeps the local hosted docs runtime active when an extension-loaded signal fires', () => {

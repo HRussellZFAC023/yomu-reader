@@ -16,6 +16,7 @@ const SNAPSHOT_KEY = 'yomu-gaming-settings-snapshot-v1';
 
 let appRoot: HTMLElement;
 let currentEnvironment: YomuGamingEnvironment = registeredEnvironment('CommandOrControl+Shift+Y');
+let installOverlayEscapeHandler: typeof import('../../src/gaming/renderer/app').installOverlayEscapeHandler;
 // When set, the next shortcut save answers with this environment instead of registering.
 let nextSaveEnvironment: YomuGamingEnvironment | null = null;
 
@@ -71,7 +72,7 @@ beforeAll(async () => {
     localStorage.clear();
     document.body.innerHTML = '<div id="app"></div>';
     window.yomuGaming = testBridge();
-    await import('../../src/gaming/renderer/app');
+    ({ installOverlayEscapeHandler } = await import('../../src/gaming/renderer/app'));
     await vi.waitFor(() => {
         expect(document.querySelector('[data-gaming-home] h1')).not.toBeNull();
         expect(document.querySelector('[data-gaming-shortcut-line] kbd')).not.toBeNull();
@@ -175,6 +176,31 @@ describe('Yomu Gaming first run', () => {
         expect(shellView()).toBe('home');
         expect(home().hidden).toBe(false);
         expect(settingsForm().hidden).toBe(true);
+    });
+
+    it('uses one Escape for the reader popover and the next for the overlay', () => {
+        const hideOverlay = vi.fn(async () => undefined);
+        const dispose = installOverlayEscapeHandler(hideOverlay);
+        const popover = document.createElement('div');
+        popover.className = 'jpdb-reader-popover';
+        document.body.append(popover);
+        const dismissReaderPopover = (event: KeyboardEvent): void => {
+            if (event.key === 'Escape') popover.remove();
+        };
+        document.addEventListener('keydown', dismissReaderPopover);
+
+        try {
+            document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+            expect(popover.isConnected).toBe(false);
+            expect(hideOverlay).not.toHaveBeenCalled();
+
+            document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+            expect(hideOverlay).toHaveBeenCalledTimes(1);
+        } finally {
+            document.removeEventListener('keydown', dismissReaderPopover);
+            popover.remove();
+            dispose();
+        }
     });
 
     it('keeps the settings tab you were on when a snapshot restore re-renders', async () => {

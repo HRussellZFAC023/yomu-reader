@@ -32355,12 +32355,25 @@ class ReaderApp {
   }
   async init(options) {
   const done = log.time("init", { href: location.href, devMode: Logger.isDevMode() });
-  this.embeddedFrame = options?.embeddedFrame === true;
-  const shouldShowWelcome = await this.loadInitialSettings(options);
+  try {
+    this.embeddedFrame = options?.embeddedFrame === true;
+    const shouldShowWelcome = await this.loadInitialSettings(options);
+    if (!this.canContinueStartup(shouldShowWelcome)) return;
+    const surfacesReady = await this.initializeReaderSurfaces(shouldShowWelcome);
+    if (!surfacesReady) return;
+    dispatchWindowEvent(createWindowCustomEvent(SETTINGS_CHANGE_EVENT, { settings: this.settings }));
+  } finally {
+    done();
+  }
+  }
+  canContinueStartup(startupResult = false) {
+  return startupResult !== null && !this.isDestroyed;
+  }
+  async initializeReaderSurfaces(shouldShowWelcome) {
   await this.installCoreSurfaces();
+  if (!this.canContinueStartup()) return false;
   await this.initReaderPage(shouldShowWelcome);
-  dispatchWindowEvent(createWindowCustomEvent(SETTINGS_CHANGE_EVENT, { settings: this.settings }));
-  done();
+  return this.canContinueStartup();
   }
   async waitForDocumentBody() {
   if (document.body || this.isDestroyed) return;
@@ -32387,8 +32400,9 @@ class ReaderApp {
   });
   }
   async loadInitialSettings(options) {
-  this.factoryReset.bind();
   const startup = await loadReaderStartupSettings(options);
+  if (this.isDestroyed) return null;
+  this.factoryReset.bind();
   this.settings = startup.settings;
   this.applyPreferredJapaneseSiteLanguage();
   configureLogger({ forceEnabled: this.settings.enableLogging });
@@ -32409,18 +32423,27 @@ class ReaderApp {
   }
   async initReaderPage(shouldShowWelcome) {
   await this.waitForDocumentBody();
-  if (this.isDestroyed || !document.body) return;
+  if (!this.canInitializeReaderPage()) return;
   const startupJapaneseProbe = documentJapaneseTextProbe(2e5, scanScopeRoots());
   if (!this.pageHasJapaneseText) this.pageHasJapaneseText = startupJapaneseProbe.hasJapanese;
   if (this.embeddedFrame) {
-    this.subtitles.init();
-    this.ocr.init();
-    this.setupAutoScan();
-    if (this.shouldScanEmbeddedFrame() || this.pageHasJapaneseText) {
-      this.scheduleAutoScan(0, { force: true });
-    }
+    this.initEmbeddedReaderPage();
     return;
   }
+  await this.initTopLevelReaderPage(shouldShowWelcome, startupJapaneseProbe.shadowDiscoveryExhausted);
+  }
+  canInitializeReaderPage() {
+  return !this.isDestroyed && Boolean(document.body);
+  }
+  initEmbeddedReaderPage() {
+  this.subtitles.init();
+  this.ocr.init();
+  this.setupAutoScan();
+  if (this.shouldScanEmbeddedFrame() || this.pageHasJapaneseText) {
+    this.scheduleAutoScan(0, { force: true });
+  }
+  }
+  async initTopLevelReaderPage(shouldShowWelcome, shadowDiscoveryUncertain) {
   this.installFab();
   void this.installBunproTokenImporter();
   this.subtitles.init();
@@ -32434,7 +32457,11 @@ class ReaderApp {
   installAcademyReaderSrsSync();
   this.resumePendingCloudSettingsSync();
   if (shouldShowReaderOnboarding(shouldShowWelcome)) await this.onboarding.showIfNeeded();
-  if (this.shouldScanInitialPage(startupJapaneseProbe.shadowDiscoveryExhausted)) {
+  if (this.isDestroyed) return;
+  this.scheduleInitialReaderWork(shadowDiscoveryUncertain);
+  }
+  scheduleInitialReaderWork(shadowDiscoveryUncertain) {
+  if (this.shouldScanInitialPage(shadowDiscoveryUncertain)) {
     void this.pageScanner.scanVisiblePage({ silent: true }).finally(() => this.scheduleStatusWarmups());
   } else {
     this.scheduleStatusWarmups();
@@ -39545,12 +39572,7 @@ function bootReaderApp() {
   if (!context) return;
   const runtime = createOwnedRuntime(context);
   if (!runtime) return;
-  registerRuntime(
-  context.bootWindow,
-  runtime.app,
-  runtime.kind,
-  isInstalledRuntime(runtime.kind)
-  );
+  registerRuntime(context.bootWindow, runtime, isInstalledRuntime(runtime.kind));
   startRuntime(
   runtime.app,
   runtime.ownerId,
@@ -39579,7 +39601,7 @@ function createOwnedRuntime(context) {
   const runtime = { app, kind: runtimeKind, ownerId };
   activeRuntime = runtime;
   writeBootWindowOwner(bootWindow, runtime);
-  runtime.release = bindClaims(app, ownerId, runtimeKind);
+  runtime.release = bindClaims(runtime);
   return runtime;
 }
 function isInstalledRuntime(runtimeKind) {
@@ -39631,19 +39653,23 @@ function setBootWindowValue(bootWindow, key, value) {
   } catch {
   }
 }
-function registerRuntime(bootWindow, app, runtimeKind, isRealRuntime) {
+function registerRuntime(bootWindow, runtime, isRealRuntime) {
+  const { app, kind: runtimeKind } = runtime;
   if (isRealRuntime) {
   setBootWindowValue(bootWindow, "__yomuRealApp", app);
   dispatchWindowEvent(createWindowCustomEvent("yomu-extension-loaded"));
   return;
   }
   if (runtimeKind === "dev") return;
-  addWindowEventListener("yomu-extension-loaded", () => {
-  if (activeRuntime?.app === app) {
-    app.destroy({ preservePageWords: true });
-    clearActiveRuntime(app, activeRuntime?.ownerId);
-  }
-  });
+  const onExtensionLoaded = () => {
+  if (activeRuntime === runtime) releaseActiveRuntime(runtime);
+  };
+  if (!addWindowEventListener("yomu-extension-loaded", onExtensionLoaded)) return;
+  const releaseClaims = runtime.release;
+  runtime.release = () => {
+  removeWindowEventListener("yomu-extension-loaded", onExtensionLoaded);
+  releaseClaims?.();
+  };
 }
 function startRuntime(app, ownerId, runtimeKind, embeddedFrame, releaseClaims) {
   void app.init({
@@ -39759,14 +39785,15 @@ function isStaleRuntimeMarker(marker) {
   if (marker.dataset.yomuRuntimeKind === "dev") return true;
   return Boolean(bootWindow.__yomuRuntimeOwnerId && marker.dataset.yomuRuntimeOwner === bootWindow.__yomuRuntimeOwnerId);
 }
-function bindClaims(app, ownerId, kind) {
+function bindClaims(runtime) {
+  const { app, ownerId, kind } = runtime;
   let released = false;
   let markerObserver;
   const onRuntimeClaim = (event) => {
   const detail = event.detail;
   if (!detail || detail.ownerId === ownerId) return;
   if (priority(detail.kind) < priority(kind)) return;
-  release();
+  releaseActiveRuntime(runtime);
   };
   const release = () => {
   if (released) return;
@@ -39778,7 +39805,7 @@ function bindClaims(app, ownerId, kind) {
   clearActiveRuntime(app, ownerId);
   clearBootWindowOwner(app, ownerId);
   };
-  markerObserver = observeRuntimeMarker(ownerId, kind, release);
+  markerObserver = observeRuntimeMarker(ownerId, kind, () => releaseActiveRuntime(runtime));
   addWindowEventListener("yomu-reader-runtime-claim", onRuntimeClaim);
   return release;
 }
@@ -39790,6 +39817,7 @@ function observeRuntimeMarker(ownerId, kind, release) {
   if (marker.dataset.yomuRuntimeOwner === ownerId) return;
   if (priority(marker.dataset.yomuRuntimeKind) < priority(kind)) return;
   release();
+  removeOwnerlessDisplacedMarker(marker);
   });
   observer.observe(marker, RUNTIME_MARKER_OBSERVER_OPTIONS);
   return observer;

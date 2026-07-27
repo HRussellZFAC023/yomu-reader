@@ -49,9 +49,11 @@ const HUD_LINE = 'LEVEL 24 / HP 240 / MP 88';
 // custom property, and nothing re-typesets an OCR overlay when it does).
 const READER_FONT_PROPERTY = '--jpdb-reader-font';
 const READER_FACES = ['"Courier New", monospace', '"Helvetica Neue", Arial, sans-serif'];
-// Two faces that turn out to set this line at the same size would make the check vacuous,
-// so the cell insists they do not.
-const MIN_FACE_SIZE_SPREAD = 0.02;
+// The two faces must produce observably different fitted geometry or the switch cell would
+// be vacuous. Depending on the platform, the source box's height can be the active fitting
+// bound for both faces, leaving their font sizes equal even though their advances (and
+// therefore rendered spans) differ substantially.
+const MIN_FACE_GEOMETRY_SPREAD = 0.02;
 // A line already on screen when the font changed must land where a fresh one does. Both go
 // through the same arithmetic on the same box, so this is a tolerance for float noise, not
 // for drift.
@@ -76,6 +78,12 @@ const MAX_INK_HEIGHT_DRIFT = 0.1;
 // How far either end of the rendered line may sit inside (or outside) the source line,
 // as a fraction of the source line's own width. The reported defect measured 0.234 here.
 const MAX_EDGE_DRIFT = 0.04;
+// A DOM line box around vertical CJK does not expose its ink origin. That origin differs
+// between platform fallback faces (notably on Linux runners without the macOS CJK stack),
+// so the annotated column is compared with the bare column painted in the same engine.
+// This is a stricter bound on the behavior under test: adding reader markup may move
+// either edge by at most this fraction of the source column.
+const MAX_ANNOTATION_EDGE_SHIFT = 0.02;
 // The recognized line must sit on the source's baseline, not float above or below it.
 const MAX_BASELINE_DRIFT_EM = 0.12;
 
@@ -149,8 +157,10 @@ try {
         }
     }
 
+    const bareVerticalBySize = new Map();
     for (const sourceSize of SOURCE_SIZES) {
         const measured = await tab.evaluate(measureVertical, { sentence: VERTICAL_SENTENCE, sourceSize, annotated: false });
+        bareVerticalBySize.set(sourceSize, measured);
         rows.push({ mode: 'vertical', sourceSize, fontScale: 1, ...measured });
         // A vertical column is checked on size and on the length it spans; the "edges" of a
         // vertical line are its top and bottom, which the same edge drift covers.
@@ -160,12 +170,13 @@ try {
     // The same column once the reader has been over it — the state a manga or VN page is in
     // for all but the first frame, and the one jsdom structurally cannot judge, because the
     // question is what the engine does with the reader's inline-flex word boxes and an
-    // out-of-flow reading. Held to exactly the same bar as a bare column, which is the
-    // claim: annotating a column must not move the type off the text it was read from.
+    // out-of-flow reading. Its size and span are held to the bare column's bar; its edge
+    // position is held to the bare column itself, which isolates the claim: annotating a
+    // column must not move the type off the text it was read from.
     for (const sourceSize of SOURCE_SIZES) {
         const measured = await tab.evaluate(measureVertical, { sentence: VERTICAL_SENTENCE, sourceSize, annotated: true });
         rows.push({ mode: 'vertical+reading', sourceSize, fontScale: 1, ...measured });
-        check(failures, `vertical+reading ${sourceSize}px`, measured, 1);
+        check(failures, `vertical+reading ${sourceSize}px`, measured, 1, bareVerticalBySize.get(sourceSize));
     }
 
     // Changing the reader's font moves every advance in every recognized line, and nothing
@@ -181,9 +192,12 @@ try {
     console.log(`[ocr-register] reader font ${READER_FACES[0]} -> ${switch_.before.fontPx.toFixed(1)}px over ${switch_.before.width.toFixed(1)}px`
         + `; switched to ${READER_FACES[1]} -> ${switch_.after.fontPx.toFixed(1)}px over ${switch_.after.width.toFixed(1)}px`
         + ` (a line built fresh in that face: ${switch_.fresh.fontPx.toFixed(1)}px over ${switch_.fresh.width.toFixed(1)}px)`);
-    const faceSpread = Math.abs(switch_.before.fontPx - switch_.fresh.fontPx) / switch_.fresh.fontPx;
-    if (faceSpread < MIN_FACE_SIZE_SPREAD) {
-        failures.push(`reader font switch: both faces set this line at the same size (${faceSpread.toFixed(4)} apart),`
+    const faceSizeSpread = Math.abs(switch_.before.fontPx - switch_.fresh.fontPx) / switch_.fresh.fontPx;
+    const faceSpanSpread = Math.abs(switch_.before.width - switch_.fresh.width) / switch_.fresh.width;
+    const faceGeometrySpread = Math.max(faceSizeSpread, faceSpanSpread);
+    if (faceGeometrySpread < MIN_FACE_GEOMETRY_SPREAD) {
+        failures.push(`reader font switch: both faces produced the same fitted geometry`
+            + ` (size ${faceSizeSpread.toFixed(4)}, span ${faceSpanSpread.toFixed(4)} apart),`
             + ' so the cell cannot tell a re-measured line from a remembered one');
     }
     for (const [key, drift] of [['size', Math.abs(switch_.after.fontPx - switch_.fresh.fontPx) / switch_.fresh.fontPx],
@@ -212,27 +226,68 @@ if (failures.length) {
 }
 console.log(`[ocr-register] OK — ${rows.length} cells in register with the text they were read from.`);
 
-function check(sink, label, m, fontScale) {
+function check(sink, label, m, fontScale, edgeReference = null) {
     const expectedFontPx = m.sourceSize * fontScale;
-    const drift = (value, target) => Math.abs(value - target) / target;
-    if (drift(m.renderedFontPx, expectedFontPx) > MAX_SIZE_DRIFT) {
-        sink.push(`${label}: rendered ${m.renderedFontPx.toFixed(1)}px against ${expectedFontPx.toFixed(1)}px of source type`
-            + ` (${(m.renderedFontPx / expectedFontPx).toFixed(3)}x)`);
+    collectFailures(sink, [
+        {
+            drift: Math.abs(m.renderedFontPx - expectedFontPx) / expectedFontPx,
+            max: MAX_SIZE_DRIFT,
+            message: `${label}: rendered ${m.renderedFontPx.toFixed(1)}px against ${expectedFontPx.toFixed(1)}px of source type`
+                + ` (${(m.renderedFontPx / expectedFontPx).toFixed(3)}x)`,
+        },
+        {
+            drift: Math.abs(m.widthRatio - fontScale) / fontScale,
+            max: MAX_WIDTH_DRIFT,
+            message: `${label}: rendered line spans ${m.widthRatio.toFixed(3)}x the source line, expected ${fontScale}x`,
+        },
+        {
+            drift: Math.abs(m.inkHeightRatio - fontScale) / fontScale,
+            max: MAX_INK_HEIGHT_DRIFT,
+            message: `${label}: rendered ink is ${m.inkHeightRatio.toFixed(3)}x as thick as the source ink, expected ${fontScale}x`,
+        },
+        {
+            drift: Math.abs(m.baselineDriftEm),
+            max: MAX_BASELINE_DRIFT_EM,
+            message: `${label}: line sits ${m.baselineDriftEm.toFixed(3)}em off the source baseline`,
+        },
+    ]);
+    checkLineEdges(sink, label, m, fontScale, edgeReference);
+}
+
+function collectFailures(sink, assertions) {
+    for (const assertion of assertions) {
+        if (assertion.drift > assertion.max) sink.push(assertion.message);
     }
-    if (Math.abs(m.widthRatio - fontScale) / fontScale > MAX_WIDTH_DRIFT) {
-        sink.push(`${label}: rendered line spans ${m.widthRatio.toFixed(3)}x the source line, expected ${fontScale}x`);
-    }
-    if (Math.abs(m.inkHeightRatio - fontScale) / fontScale > MAX_INK_HEIGHT_DRIFT) {
-        sink.push(`${label}: rendered ink is ${m.inkHeightRatio.toFixed(3)}x as thick as the source ink, expected ${fontScale}x`);
-    }
+}
+
+function checkLineEdges(sink, label, m, fontScale, edgeReference) {
     // At scale 1 the line should cover the source line end to end. Away from 1 the user
     // asked for bigger or smaller type, so only the CENTRE is expected to agree.
-    if (fontScale === 1) {
-        if (Math.abs(m.startDrift) > MAX_EDGE_DRIFT) sink.push(`${label}: line starts ${(m.startDrift * 100).toFixed(1)}% of the source width in`);
-        if (Math.abs(m.endDrift) > MAX_EDGE_DRIFT) sink.push(`${label}: line ends ${(m.endDrift * 100).toFixed(1)}% of the source width short`);
+    if (fontScale !== 1) return;
+    if (edgeReference) {
+        checkAnnotationEdges(sink, label, m, edgeReference);
+        return;
     }
-    if (Math.abs(m.baselineDriftEm) > MAX_BASELINE_DRIFT_EM) {
-        sink.push(`${label}: line sits ${m.baselineDriftEm.toFixed(3)}em off the source baseline`);
+    checkAbsoluteEdges(sink, label, m);
+}
+
+function checkAbsoluteEdges(sink, label, m) {
+    if (Math.abs(m.startDrift) > MAX_EDGE_DRIFT) {
+        sink.push(`${label}: line starts ${(m.startDrift * 100).toFixed(1)}% of the source width in`);
+    }
+    if (Math.abs(m.endDrift) > MAX_EDGE_DRIFT) {
+        sink.push(`${label}: line ends ${(m.endDrift * 100).toFixed(1)}% of the source width short`);
+    }
+}
+
+function checkAnnotationEdges(sink, label, m, reference) {
+    const startShift = m.startDrift - reference.startDrift;
+    const endShift = m.endDrift - reference.endDrift;
+    if (Math.abs(startShift) > MAX_ANNOTATION_EDGE_SHIFT) {
+        sink.push(`${label}: annotation moved the line start ${(startShift * 100).toFixed(1)}% of the source width`);
+    }
+    if (Math.abs(endShift) > MAX_ANNOTATION_EDGE_SHIFT) {
+        sink.push(`${label}: annotation moved the line end ${(endShift * 100).toFixed(1)}% of the source width`);
     }
 }
 
