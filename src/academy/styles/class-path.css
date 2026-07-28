@@ -619,6 +619,16 @@ button.academy-class-week-entry:is(:hover, :focus-visible) {
     object-position: center bottom;
 }
 
+.academy-class-person-portrait {
+    overflow: hidden;
+}
+
+.academy-class-person-portrait img {
+    scale: var(--academy-sprite-focus-scale, 1);
+    translate: 0 var(--academy-sprite-focus-y, 0%);
+    transform-origin: center top;
+}
+
 .academy-class-person-caption {
     position: relative;
     z-index: 2;

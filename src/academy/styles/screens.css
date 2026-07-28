@@ -1235,6 +1235,16 @@
     transition: transform 180ms ease, filter 180ms ease;
 }
 
+.academy-journal-screen .academy-character-portrait {
+    overflow: hidden;
+}
+
+.academy-journal-screen .academy-character-portrait img {
+    scale: var(--academy-sprite-focus-scale, 1);
+    translate: 0 var(--academy-sprite-focus-y, 0%);
+    transform-origin: center top;
+}
+
 .academy-journal-learning-lines {
     display: grid;
     gap: 10px;

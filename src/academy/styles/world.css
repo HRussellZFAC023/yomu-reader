@@ -1829,11 +1829,27 @@
     display: block;
     width: 100%;
     min-width: 0;
-    height: clamp(230px, 34vw, 330px);
-    max-height: 42dvh;
+    height: 100%;
+    max-height: none;
     object-fit: contain;
     object-position: center bottom;
     filter: drop-shadow(0 10px 10px rgba(16, 18, 16, 0.2));
+}
+
+.academy-character-sprite-gallery-frame {
+    display: grid;
+    width: 100%;
+    min-width: 0;
+    height: clamp(230px, 34vw, 330px);
+    max-height: 42dvh;
+    overflow: hidden;
+    place-items: end center;
+}
+
+.academy-character-sprite-gallery-frame .academy-character-sprite-gallery-image {
+    scale: var(--academy-sprite-focus-scale, 1);
+    translate: 0 var(--academy-sprite-focus-y, 0%);
+    transform-origin: center top;
 }
 
 .academy-character-dossier-gallery {
@@ -2161,7 +2177,7 @@
         grid-template-columns: minmax(0, 1fr);
     }
 
-    .academy-character-dossier-gallery .academy-character-sprite-gallery-image {
+    .academy-character-dossier-gallery .academy-character-sprite-gallery-frame {
         height: clamp(190px, 42vw, 260px);
         max-height: 34dvh;
     }
@@ -2672,7 +2688,7 @@
         gap: 4px;
     }
 
-    .academy-character-dossier-gallery .academy-character-sprite-gallery-image {
+    .academy-character-dossier-gallery .academy-character-sprite-gallery-frame {
         height: clamp(150px, 48vw, 190px);
         max-height: none;
     }
@@ -2950,7 +2966,7 @@
     min-height: 0;
 }
 
-.academy-journal-screen .academy-character-dossier .academy-character-sprite-gallery-image {
+.academy-journal-screen .academy-character-dossier .academy-character-sprite-gallery-frame {
     height: min(31dvh, 300px);
 }
 
@@ -3043,8 +3059,9 @@
         padding: 8px;
     }
 
-    .academy-journal-screen .academy-character-dossier-gallery .academy-character-sprite-gallery-image {
+    .academy-journal-screen .academy-character-dossier-gallery .academy-character-sprite-gallery-frame {
         height: clamp(112px, 34vw, 142px);
+        max-height: none;
     }
 
     .academy-journal-screen .academy-character-dossier .academy-journal-copy h2 {

@@ -4,6 +4,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { refreshAcademyRuntimeArtPrecache } from './lib/academy-cast-offline-precache.mjs';
+import { refreshAcademyCastPortraitFocus } from './lib/academy-cast-portrait-focus.mjs';
 import { reconcileAcademyLessonCastBindings } from './lib/academy-cast-usage-bindings.mjs';
 
 const repoRoot = path.resolve(import.meta.dirname, '..');
@@ -166,6 +167,7 @@ for (const batchManifestFile of batchManifestFiles) {
     fs.writeFileSync(batchManifestFile, serializedBatchManifest);
 }
 await refreshAcademyRuntimeArtPrecache(repoRoot);
+await refreshAcademyCastPortraitFocus(repoRoot, manifest);
 
 console.log(
     `Promoted ${spec.promotions.length} cast families; ${manifest.length} runtime sprites remain fully mapped.`,

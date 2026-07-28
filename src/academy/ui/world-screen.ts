@@ -28,7 +28,7 @@ import { renderKonbiniRegister } from './konbini-world';
 import { renderHomeFirstVisitDialogue, renderHomeRoutineNotebook } from './home-world';
 import { renderParkWeatherSketchbook } from './park-world';
 import { renderRamenOrderGrid, renderRamenOrderTicket, renderRamenServiceScene } from './ramen-world';
-import { createAcademySprite } from './sprite';
+import { academySpritePortraitFocus, academySpriteSourceFraming, createAcademySprite } from './sprite';
 import { populateStationAnnouncement } from './station-world';
 import { populateTubePlatform } from './tube-platform-world';
 
@@ -1552,6 +1552,14 @@ function characterPage(
         gallery.dataset.character = definition.characterId;
         Object.entries(definition.spriteGallery!).forEach(([variant, source]) => {
             const [expression, angle] = variant.includes(':') ? variant.split(':', 2) : [undefined, variant];
+            const frame = element('div', 'academy-character-sprite-gallery-frame');
+            frame.dataset.sourceFraming = academySpriteSourceFraming(source);
+            const focus = academySpritePortraitFocus(source);
+            frame.dataset.portraitFocus = focus.scale > 1.025 || Math.abs(focus.translateYPercent) > 0.25
+                ? 'cropped'
+                : 'native';
+            frame.style.setProperty('--academy-sprite-focus-scale', String(focus.scale));
+            frame.style.setProperty('--academy-sprite-focus-y', `${focus.translateYPercent}%`);
             const sprite = element('img', 'academy-character-sprite-gallery-image');
             sprite.src = source;
             sprite.alt = '';
@@ -1560,7 +1568,8 @@ function characterPage(
             sprite.setAttribute('aria-hidden', 'true');
             sprite.dataset.angle = angle;
             if (expression) sprite.dataset.expression = expression;
-            gallery.append(sprite);
+            frame.append(sprite);
+            gallery.append(frame);
         });
         page.append(gallery);
     }

@@ -24,9 +24,10 @@ describe('Academy living-paper character upgrade', () => {
     it('keeps all three angles visible with contained responsive framing', () => {
         const css = fs.readFileSync(path.resolve('src/academy/styles/world.css'), 'utf8');
         expect(css).toMatch(/\.academy-character-sprite-gallery\s*\{[^}]*grid-template-columns:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\)/s);
-        expect(css).toMatch(/\.academy-character-sprite-gallery-image\s*\{[^}]*height:\s*clamp\(230px,\s*34vw,\s*330px\)[^}]*max-height:\s*42dvh[^}]*object-fit:\s*contain[^}]*object-position:\s*center bottom/s);
-        expect(css).toMatch(/\.academy-character-dossier-gallery \.academy-character-sprite-gallery-image\s*\{[^}]*height:\s*clamp\(190px,\s*42vw,\s*260px\)[^}]*max-height:\s*34dvh/s);
-        expect(css).toMatch(/\.academy-character-dossier-gallery \.academy-character-sprite-gallery-image\s*\{[^}]*height:\s*clamp\(150px,\s*48vw,\s*190px\)/s);
+        expect(css).toMatch(/\.academy-character-sprite-gallery-image\s*\{[^}]*height:\s*100%[^}]*max-height:\s*none[^}]*object-fit:\s*contain[^}]*object-position:\s*center bottom/s);
+        expect(css).toMatch(/\.academy-character-sprite-gallery-frame\s*\{[^}]*height:\s*clamp\(230px,\s*34vw,\s*330px\)[^}]*max-height:\s*42dvh[^}]*overflow:\s*hidden/s);
+        expect(css).toMatch(/\.academy-character-dossier-gallery \.academy-character-sprite-gallery-frame\s*\{[^}]*height:\s*clamp\(190px,\s*42vw,\s*260px\)[^}]*max-height:\s*34dvh/s);
+        expect(css).toMatch(/\.academy-character-dossier-gallery \.academy-character-sprite-gallery-frame\s*\{[^}]*height:\s*clamp\(150px,\s*48vw,\s*190px\)/s);
     });
 
     it('uses distinct left, front, and right character-book slots', () => {

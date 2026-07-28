@@ -24503,6 +24503,16 @@ a.academy-chrome-button {
     transition: transform 180ms ease, filter 180ms ease;
 }
 
+.academy-journal-screen .academy-character-portrait {
+    overflow: hidden;
+}
+
+.academy-journal-screen .academy-character-portrait img {
+    scale: var(--academy-sprite-focus-scale, 1);
+    translate: 0 var(--academy-sprite-focus-y, 0%);
+    transform-origin: center top;
+}
+
 .academy-journal-learning-lines {
     display: grid;
     gap: 10px;
@@ -28747,11 +28757,27 @@ html.jpdb-reader-doodle-active * {
     display: block;
     width: 100%;
     min-width: 0;
-    height: clamp(230px, 34vw, 330px);
-    max-height: 42dvh;
+    height: 100%;
+    max-height: none;
     object-fit: contain;
     object-position: center bottom;
     filter: drop-shadow(0 10px 10px rgba(16, 18, 16, 0.2));
+}
+
+.academy-character-sprite-gallery-frame {
+    display: grid;
+    width: 100%;
+    min-width: 0;
+    height: clamp(230px, 34vw, 330px);
+    max-height: 42dvh;
+    overflow: hidden;
+    place-items: end center;
+}
+
+.academy-character-sprite-gallery-frame .academy-character-sprite-gallery-image {
+    scale: var(--academy-sprite-focus-scale, 1);
+    translate: 0 var(--academy-sprite-focus-y, 0%);
+    transform-origin: center top;
 }
 
 .academy-character-dossier-gallery {
@@ -29079,7 +29105,7 @@ html.jpdb-reader-doodle-active * {
         grid-template-columns: minmax(0, 1fr);
     }
 
-    .academy-character-dossier-gallery .academy-character-sprite-gallery-image {
+    .academy-character-dossier-gallery .academy-character-sprite-gallery-frame {
         height: clamp(190px, 42vw, 260px);
         max-height: 34dvh;
     }
@@ -29590,7 +29616,7 @@ html.jpdb-reader-doodle-active * {
         gap: 4px;
     }
 
-    .academy-character-dossier-gallery .academy-character-sprite-gallery-image {
+    .academy-character-dossier-gallery .academy-character-sprite-gallery-frame {
         height: clamp(150px, 48vw, 190px);
         max-height: none;
     }
@@ -29868,7 +29894,7 @@ html.jpdb-reader-doodle-active * {
     min-height: 0;
 }
 
-.academy-journal-screen .academy-character-dossier .academy-character-sprite-gallery-image {
+.academy-journal-screen .academy-character-dossier .academy-character-sprite-gallery-frame {
     height: min(31dvh, 300px);
 }
 
@@ -29961,8 +29987,9 @@ html.jpdb-reader-doodle-active * {
         padding: 8px;
     }
 
-    .academy-journal-screen .academy-character-dossier-gallery .academy-character-sprite-gallery-image {
+    .academy-journal-screen .academy-character-dossier-gallery .academy-character-sprite-gallery-frame {
         height: clamp(112px, 34vw, 142px);
+        max-height: none;
     }
 
     .academy-journal-screen .academy-character-dossier .academy-journal-copy h2 {
@@ -43737,10 +43764,20 @@ details.academy-code-section > summary {
     z-index: 1;
 }
 
+.academy-vn-sprite {
+    overflow: hidden;
+}
+
 .academy-vn-sprite img,
 .academy-vn-portrait-outgoing img {
     object-fit: contain;
     object-position: bottom center;
+}
+
+.academy-vn-sprite img {
+    scale: var(--academy-sprite-focus-scale, 1);
+    translate: 0 var(--academy-sprite-focus-y, 0%);
+    transform-origin: center top;
 }
 
 .academy-vn-portrait-outgoing {
@@ -47455,6 +47492,16 @@ button.academy-class-week-entry:is(:hover, :focus-visible) {
     height: 100%;
     object-fit: contain;
     object-position: center bottom;
+}
+
+.academy-class-person-portrait {
+    overflow: hidden;
+}
+
+.academy-class-person-portrait img {
+    scale: var(--academy-sprite-focus-scale, 1);
+    translate: 0 var(--academy-sprite-focus-y, 0%);
+    transform-origin: center top;
 }
 
 .academy-class-person-caption {

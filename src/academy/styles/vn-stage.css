@@ -151,10 +151,20 @@
     z-index: 1;
 }
 
+.academy-vn-sprite {
+    overflow: hidden;
+}
+
 .academy-vn-sprite img,
 .academy-vn-portrait-outgoing img {
     object-fit: contain;
     object-position: bottom center;
+}
+
+.academy-vn-sprite img {
+    scale: var(--academy-sprite-focus-scale, 1);
+    translate: 0 var(--academy-sprite-focus-y, 0%);
+    transform-origin: center top;
 }
 
 .academy-vn-portrait-outgoing {

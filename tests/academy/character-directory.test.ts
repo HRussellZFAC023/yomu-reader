@@ -344,6 +344,7 @@ describe('Academy character directory presentation', () => {
         expect(styles).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*\.academy-journal-screen \.academy-character-entry,[\s\S]*\.academy-journal-screen \.academy-character-open,[\s\S]*\.academy-journal-screen \.academy-character-portrait\s*\{[^}]*animation:\s*none/s);
         expect(worldStyles).toMatch(/\.academy-character-dossier-gallery\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\);[^}]*overflow:\s*visible/s);
         expect(worldStyles).toMatch(/\.academy-character-sprite-gallery\s*\{[^}]*grid-template-columns:\s*repeat\(3, minmax\(0, 1fr\)\);[^}]*min-width:\s*0/s);
-        expect(worldStyles).toMatch(/@media \(max-width: 520px\)[\s\S]*\.academy-character-dossier-gallery \.academy-character-sprite-gallery-image\s*\{[^}]*max-height:\s*none/s);
+        expect(worldStyles).toMatch(/\.academy-character-sprite-gallery-frame \.academy-character-sprite-gallery-image[\s\S]*scale:\s*var\(--academy-sprite-focus-scale, 1\)[\s\S]*translate:\s*0 var\(--academy-sprite-focus-y, 0%\)/s);
+        expect(worldStyles).toMatch(/@media \(max-width: 520px\)[\s\S]*\.academy-character-dossier-gallery \.academy-character-sprite-gallery-frame\s*\{[^}]*max-height:\s*none/s);
     });
 });

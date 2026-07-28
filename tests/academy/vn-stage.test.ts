@@ -279,6 +279,41 @@ describe('Academy VN stage', () => {
         expect(slot.querySelector<HTMLImageElement>('.academy-vn-portrait-outgoing img')?.src).toContain('/rie-happy.png');
     });
 
+    it('tracks source framing and applies the generated conversational focus across pose changes', () => {
+        const stage = createAcademyVnStage();
+        const fullbodyExpressions = {
+            neutral: { still: '/academy/art/characters/aakash/aakash__neutral-route-map-burgundy-hoodie__front-near-front__fullbody__v010.png' },
+            happy: { still: '/academy/art/characters/rie/rie__neutral-glasses__front-near-front__halfbody__v001.png' },
+        } as const;
+        stage.setCast([{
+            characterId: 'test',
+            displayName: 'Test',
+            alt: 'Test character',
+            position: 'center',
+            expression: 'neutral',
+            expressions: fullbodyExpressions,
+        }]);
+
+        const picture = stage.element.querySelector<HTMLPictureElement>('.academy-vn-sprite')!;
+        expect(picture.dataset.sourceFraming).toBe('fullbody');
+        expect(picture.dataset.portraitFocus).toBe('cropped');
+        expect(Number(picture.style.getPropertyValue('--academy-sprite-focus-scale'))).toBeGreaterThan(1.5);
+        expect(picture.querySelector('img')?.dataset.sourceFraming).toBe('fullbody');
+
+        stage.setCast([{
+            characterId: 'test',
+            displayName: 'Test',
+            alt: 'Test character',
+            position: 'center',
+            expression: 'happy',
+            expressions: fullbodyExpressions,
+        }]);
+        expect(picture.dataset.sourceFraming).toBe('halfbody');
+        expect(picture.dataset.portraitFocus).toBe('cropped');
+        expect(picture.style.getPropertyValue('--academy-sprite-focus-scale')).toBe('1.2');
+        expect(picture.querySelector('img')?.dataset.sourceFraming).toBe('halfbody');
+    });
+
     it('selects a new angle without creating a portrait overlay and keeps the dialogue tail aligned', () => {
         const stage = createAcademyVnStage();
         stage.setCast([rie()]);

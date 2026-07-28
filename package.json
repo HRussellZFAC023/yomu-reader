@@ -97,6 +97,7 @@
     "academy:library:validate": "node scripts/academy-library-pipeline.mjs validate",
     "academy:lessons:validate": "vitest run --config config/vite/academy.config.ts tests/academy/all-lessons-grounded.test.ts tests/academy/lesson-pedagogy-conformance.test.ts tests/academy/resource-ledger-honesty.test.ts tests/academy/l1-l01-release-integrity.test.ts tests/academy/jlpt-cumulative-depth-release.test.ts",
     "academy:cast:chroma": "node scripts/academy-cast-chroma.mjs",
+    "academy:cast:portrait-focus": "node scripts/academy-cast-portrait-focus.mjs",
     "academy:cast:promote": "node scripts/academy-cast-promote.mjs",
     "academy:cast:manifest:refresh": "node scripts/academy-cast-manifest-refresh.mjs",
     "academy:cast:production-inventory": "vite-node scripts/academy-cast-production-inventory.ts",

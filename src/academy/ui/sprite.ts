@@ -22,6 +22,25 @@ export interface AcademySpriteOptions {
     readonly initialExpression?: AcademySpriteExpression;
 }
 
+export type AcademySpriteSourceFraming = 'fullbody' | 'halfbody' | 'unclassified';
+
+export function academySpriteSourceFraming(source: string): AcademySpriteSourceFraming {
+    if (source.includes('__fullbody__')) return 'fullbody';
+    if (source.includes('__halfbody__')) return 'halfbody';
+    return 'unclassified';
+}
+
+const DEFAULT_PORTRAIT_FOCUS: AcademyCastPortraitFocus = {
+    scale: 1,
+    translateYPercent: 0,
+};
+
+export function academySpritePortraitFocus(source: string): AcademyCastPortraitFocus {
+    return ACADEMY_CAST_PORTRAIT_FOCUS_BY_PATH[
+        source as keyof typeof ACADEMY_CAST_PORTRAIT_FOCUS_BY_PATH
+    ] ?? DEFAULT_PORTRAIT_FOCUS;
+}
+
 /**
  * A restrained sprite surface: animated WebP/GIF is selected only when the
  * learner allows motion, and the still image remains the canonical fallback.
@@ -68,6 +87,15 @@ export function setAcademySpriteExpression(
     delete picture.dataset.expressionTransition;
     void picture.offsetWidth;
     picture.dataset.expressionTransition = 'true';
+    const framing = academySpriteSourceFraming(source.still);
+    const focus = academySpritePortraitFocus(source.still);
+    picture.dataset.sourceFraming = framing;
+    picture.dataset.portraitFocus = focus.scale > 1.025 || Math.abs(focus.translateYPercent) > 0.25
+        ? 'cropped'
+        : 'native';
+    image.dataset.sourceFraming = framing;
+    picture.style.setProperty('--academy-sprite-focus-scale', String(focus.scale));
+    picture.style.setProperty('--academy-sprite-focus-y', `${focus.translateYPercent}%`);
     image.src = source.still;
     if (source.animated) animated.srcset = source.animated;
     else animated.removeAttribute('srcset');
@@ -85,3 +113,7 @@ function spriteSourcesEqual(
     return [...keys].every(key => left?.[key as AcademySpriteExpression]?.still === right[key as AcademySpriteExpression]?.still
         && left?.[key as AcademySpriteExpression]?.animated === right[key as AcademySpriteExpression]?.animated);
 }
+import {
+    ACADEMY_CAST_PORTRAIT_FOCUS_BY_PATH,
+    type AcademyCastPortraitFocus,
+} from '../domain/cast-portrait-focus.generated';
