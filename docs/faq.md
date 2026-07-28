@@ -1,0 +1,138 @@
+---
+title: FAQ
+description: What Yomu is, what it costs, how reviews work, which languages and tools it plays with, and where your data lives — in plain answers.
+---
+
+# Frequently asked questions
+
+Plain answers, grouped by what you came here to find out. If yours is missing, [ask on Discord](https://discord.gg/jD6NPURewD) — real questions are how this page grows.
+
+## What is Yomu?
+
+A reader that turns what you already read into Japanese study.
+
+- **Press a word, anywhere.** Any Japanese page, YouTube subtitles, manga pictures, PDFs — one press gives the reading, the meaning, the pitch accent and the sound.
+- **Keep the words you meet.** One more press saves the word with its sentence, audio and picture, ready to review. Reviews are built in.
+- **It runs on your phone.** Android installs from the Firefox store; iPhone and iPad run it in Safari. Most tools like this are desktop-only.
+- **It joins your tools instead of replacing them.** Anki, jpdb, Bunpro, WaniKani and jiten all connect: Yomu shows their word statuses on every page and sends your grades back.
+- **Hundreds of dictionaries.** Install what you want from the built-in catalogue; installed dictionaries answer on your device.
+- **Free, no account.** Everything above works without signing up for anything.
+
+## Getting started
+
+### Do I need an account?
+
+No. Install Yomu, open a Japanese page, press a word — that is the whole setup. Connecting Anki, jpdb, Bunpro or WaniKani is optional and only for people who already use them.
+
+### Is Yomu free?
+
+Yes — free and [open source](https://github.com/HRussellZFAC023/yomu-reader). There is no paid tier and nothing is locked.
+
+### I'm not technical. What's the easiest way to install it?
+
+On Chrome, Edge or Brave: press **Add よむ to Chrome** on the [homepage](/) — one click. On Firefox, including Firefox on Android: one click from the Firefox store. On iPhone, iPad and Safari it takes a couple of minutes once, with a free helper app — the [getting started page](/getting-started) walks through it step by step.
+
+### Does it work on my phone?
+
+Yes. On Android, install Firefox and add Yomu from its store. On iPhone and iPad, Yomu runs inside Safari — furigana, the popover, reviews, and manga reading all work by touch.
+
+### Do I need to know kana or grammar first?
+
+No. Every word Yomu annotates carries furigana, so you can start pressing words from day one. Reading real pages is the study.
+
+### I'm a complete beginner. Can Yomu teach me Japanese from zero?
+
+That is where Yomu is heading. Today Yomu makes real pages readable from day one — furigana on everything, meanings on press — and **Academy**, a structured course that teaches Japanese from zero in order, is in development. Until it opens, the [guides](/guides/) walk you through learning with real content.
+
+### I installed it and nothing happens on a page.
+
+Check that Yomu is allowed on that site — in your browser's extensions menu, or in your userscript manager — then refresh the page. That covers almost every report we get.
+
+## Reading
+
+### Which sites does it work on?
+
+Any page with Japanese text on it. On top of that, YouTube gets its own subtitle reader with the video, image-based manga readers work through picture reading, and there is a [PDF reader](/pdf-reader/index.html) and a [video player](/video-player/index.html) for your own files.
+
+### How does it read manga and pictures?
+
+Press a picture — or use the Scan images command — and Yomu recognises the Japanese in it, so every word in the picture becomes a word you can press. Recognition uses Google Lens by default, with no key or account; you can switch to your own Google Cloud Vision key, or to a fully local service, in Settings.
+
+### Can it read my PC games?
+
+Yes — [Yomu Gaming](/tools/yomu-gaming) is a small desktop app that reads the text on your screen, so the same press-a-word lookup works in any game.
+
+### What do the colours and lines under words mean?
+
+Underline colours are pitch accent patterns. When a review system is connected, words are also tinted by how well you know them, so a page shows you at a glance what is new and what is due. All of it can be turned off in Settings.
+
+## Keeping and reviewing words
+
+### How do reviews work?
+
+You grade yourself on the same five-point scale jpdb users know:
+
+| | Grade | Meaning |
+|---|---|---|
+| ✘ | Nothing | You didn't know it at all. |
+| ✘ | Something | You knew something, but couldn't recall it. |
+| ✔ | Hard | You knew it, with a struggle. |
+| ✔ | Okay | You knew it. |
+| ✔ | Easy | You knew it instantly. |
+
+Failed words come back in ten minutes. Known words come back on a growing schedule.
+
+### What spaced-repetition algorithm does Yomu use?
+
+A proven ease-based scheduler from the SM-2 family — the same lineage as Anki. First intervals are one, two or four days depending on your grade; each card keeps its own ease that grows when a word is easy for you and shrinks when it is not. There is no daily cap: review as few or as many as you like, and a pile of overdue cards is fine — do what you can and the schedule adapts.
+
+### What do the card states mean?
+
+| State | Meaning |
+|---|---|
+| New | Saved, never reviewed. |
+| Learning | Reviewed, on short intervals. |
+| Known | Reviewed enough that its interval is three weeks or longer. |
+| Due | Its interval has lapsed — ready to review. |
+
+### Do I need Anki?
+
+No — Yomu's reviews are built in and need no setup. If you want Anki, Yomu sends complete cards to it — word, sentence, audio and picture each to the field you choose — through AnkiConnect.
+
+### I already review on jpdb, Bunpro or WaniKani.
+
+Keep doing that. Connect the account in Settings and Yomu becomes their front end: your existing word statuses colour every page you read, and grading a word in Yomu records the review on your system, not beside it.
+
+### Can I review on two devices?
+
+Today your Yomu deck lives on each device, and reviews you send to Anki, jpdb, Bunpro or WaniKani follow you wherever those do. Account sync for the built-in deck is in development, so one deck can follow you from desktop to phone.
+
+## Languages
+
+### Is it only for Japanese?
+
+Japanese is the deepest today — pitch accent, kanji, furigana, the works. The dictionary catalogue already carries Chinese, Cantonese, Korean, Spanish, French, German, Russian and Vietnamese, and the goal is every roster language as a full study target. The interface itself speaks English and 日本語, with more coming.
+
+## Your data
+
+### Where do my words and progress live?
+
+In your browser, on your device. Connecting Anki, jpdb, Bunpro or WaniKani sends your grades to that service and nowhere else.
+
+### What gets sent when I look things up?
+
+The word you pressed goes to the dictionary sources you have enabled — and any dictionary you install from the catalogue answers on your device. Pictures are read only when you ask: pressing a picture or running Scan images sends that picture to the recognition service you chose, and nothing is read just because it is on the page.
+
+## The project
+
+### Something is broken. Where do I ask?
+
+[Discord](https://discord.gg/jD6NPURewD) for questions, [GitHub issues](https://github.com/HRussellZFAC023/yomu-reader/issues) for bugs. Both are read by the person who builds Yomu.
+
+### Can I use the dictionary mirror or the code in my own project?
+
+The code is open source on [GitHub](https://github.com/HRussellZFAC023/yomu-reader). The mirrored dictionaries keep their original licences and attributions — each entry shows its source and licence in Settings, so check the one you want to reuse.
+
+### Will Yomu stay free?
+
+Yes. It is a tool its maker uses every day, and the core will stay free and open source. If it helps you, the best support is telling another learner about it.

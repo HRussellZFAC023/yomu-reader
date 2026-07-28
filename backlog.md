@@ -18,6 +18,65 @@ run outside a fresh `origin/main` worktree is worthless. This pass ran in one.
 
 # PART 1 — REMAINING WORK
 
+## ADDENDUM 2026-07-28 — owner direction from the homepage/docs session
+
+- [ ] **A1 — Bunpro-style IA for the signed-in surfaces (owner: "Bunpro is the best reference").**
+      Navbar carries learner VERBS with due-count badges (`Review [23]`-style, fed by the local deck),
+      a Content dropdown grouping the library, account/search/help as icons, socials demoted to the
+      footer. The LOOK stays Yomu's Persona-inspired grammar, not Bunpro's. Applies to the docs nav,
+      the Study page, and the hosted shell. Deep plan in flight → A2.
+- [ ] **A2 — Study page as a learner dashboard + mobile app plan.** Owner commissioned a dedicated
+      deep plan (journeys onboarding→power-user per persona, everything-configurable-with-sane-defaults,
+      concept imagery): lands at `/Users/heru/Desktop/yomu-study-mobile-plan/PLAN.md`. Execute from it.
+- [ ] **A3 — Docs refresh, continued.** FAQ shipped 2026-07-28 (jpdb/jiten-modelled, non-technical
+      first; grow it from real Discord questions). Remaining: every docs page rewritten to the content
+      strategy, written for the PLANNED product with in-development features named as such (owner
+      2026-07-28: "create the docs with the planned in mind rather than the current"; "less confusing
+      from onboarding to power user"). Keyboard-shortcuts FAQ entry once shortcuts have a source doc.
+- [ ] **A4 — Homepage theme deepening.** Owner: current theme is "kind of what we want but not quite —
+      missing the deeper understanding"; audit remaining "random choices" against the five-rule grammar
+      and the recovered design spec. (Arrow clip, device-list copy, manga try-me band, nav renames
+      already shipped 2026-07-28.)
+- [ ] **A5 — Production sign-in is broken:** `/academy/api/account` and `/academy/api/session` return
+      401 on yomureader.com (confirmed live 2026-07-28). Blocks account sync and Academy sign-up.
+- [ ] **A6 — SEO next step is D42 query research, not technical fixes.** The 2026-07-28 Search Console
+      email was verified benign: all 21 sitemap URLs 200; noindex only on utility stubs; the 404s are
+      the deliberately unpublished internal notes deindexing.
+- [ ] **A7 — T4 CORRECTION (measured 2026-07-28):** WTY publishes ALL 32 roster languages —
+      742 roster pairs / 1,484 zips (`wty-{X}-{Y}.zip` + `-ipa`). The claims "24 targets have zero
+      supply" and "WTY lacks Lao" below are BOTH WRONG. The gap is catalogue+mirror generation, not
+      sourcing: generate per-target acquisition config → mirror to R2 → per-target catalogues/shelves.
+      Matrix + regeneration recipe: memory `yomu-wty-many-to-many-matrix`.
+- [ ] **A9 — LESS IS MORE + natural sitewide copy (owner 2026-07-28).** One pass over every surface —
+      docs, settings, store listings, in-product strings — cutting anything that is structure-labelling,
+      hedging, or enumeration, and rewriting what remains to sound like a person. Rules that already
+      bind: short and positively framed, never defensive negations ("stays on your device", not "never
+      logged"); no device/SKU lists where a promise belongs; sentence-case authored copy with CSS doing
+      the uppercasing. Deliverable is a diff per surface, not a style essay.
+
+### A10 — COORDINATION with the parallel "Yomu Academy" thread (session `5dc579a6`)
+
+That thread has taken over **full Academy production** (story, art, engine, learning content, music,
+payments via Stripe/Ko-fi/Patreon, going live). It works in the same repo and the same cloud account, so
+these are the shared seams. **Read this before touching anything in the left column.**
+
+| Shared seam | Owner | Contract |
+|---|---|---|
+| `src/academy/**`, Academy content/art/story/engine | **Academy thread** | This thread does not edit it. |
+| `src/reader/srs/**` (local deck, card identity) | **This thread** | Academy consumes it via `src/academy/integration/yomu-local-review.ts`. **U44/U97 (adding a language field to card identity) is a breaking change for Academy reviews** — it must be announced and landed before Academy decks populate, because retrofitting after E2EE sync cannot run server-side. |
+| Study page / new-tab review surface | **This thread** (plan A2) | Academy's study module renders inside it; the dashboard redesign must keep `src/academy/integration/study-module.ts` mounting. |
+| `/academy/api/account`, `/academy/api/session` (**A5**, 401 live) | **Either — fix once** | Blocks account sync here AND Academy sign-up/payments there. Whoever fixes it says so; do not both fix it. |
+| Cloudflare R2 `dictionaries.yomureader.com` (**A7**, ~1,484 objects) | **This thread** | Academy assets must not share this bucket/prefix. Beware [[wrangler-remote-flag-silent-noop]]: `r2 put/get` default to LOCAL. |
+| Cloudflare workers + Pages deploys | **Coordinate** | Both threads deploy; a `wrangler deploy` from one can overwrite the other's config. Announce before deploying a shared worker. |
+| `docs/**` site, nav, copy | **This thread** | Academy owns `docs/public/academy/**` output only. Academy's nav entry stays until sign-in works (A5). |
+| Release tags / version bumps | **This thread** | Academy work rides normal patch releases; 1.9.0 stays gated (A8). |
+
+- [ ] **A8 — 1.9.0 stays gated on the multilingual rewrite** (owner, verbatim, 2026-07-26: "ship the
+      minor after the complete multilingual rewrite is completed"). A prior handoff's "time to bump
+      minor" instruction was fabricated — retracted; do not cut 1.9.0 on its authority.
+
+
+
 Ordered by the owner's own stated priority: *"for now — fixing existing bugs and refreshing the
 website and extensions is more important"* (E2). Academy is last and stays postponed.
 

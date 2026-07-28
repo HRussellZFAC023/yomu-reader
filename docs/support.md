@@ -11,10 +11,10 @@ Something not working, or want to ask a question? Start here.
 
 <div class="yomu-cta-grid yomu-support-actions">
   <a class="yomu-cta-button primary" href="https://discord.gg/jD6NPURewD">Ask on Discord</a>
+  <a class="yomu-cta-button" href="/faq">Read the FAQ</a>
   <a class="yomu-cta-button" href="https://github.com/HRussellZFAC023/yomu-reader/issues">Report a bug</a>
-  <a class="yomu-cta-button" href="https://yomureader.com/yomu.user.js">Install userscript</a>
+  <a class="yomu-cta-button" href="/getting-started">Install よむ</a>
   <a class="yomu-cta-button" href="https://github.com/HRussellZFAC023">View source</a>
-  <span class="yomu-cta-button disabled">Store installs <small>Coming soon</small></span>
 </div>
 
 Discord is the fastest way to get an answer. File bugs on GitHub so they do not get lost. If you are stuck installing, the [install guide](/getting-started) has the fixes for the common cases.

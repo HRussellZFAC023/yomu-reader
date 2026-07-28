@@ -185,5 +185,5 @@ description: Press a word on any Japanese page, video, manga panel or PDF for it
     <a class="yomu-link-card" href="/video-player/index.html" target="_self"><strong>Watch</strong><span>Open a video with Japanese subtitles.</span></a>
     <a class="yomu-link-card" href="/pdf-reader/index.html"><strong>Read</strong><span>Read PDFs with the same popup reader.</span></a>
   </div>
-  <p class="yomu-next-row"><a href="/academy/" target="_self">Academy</a><a href="/tools/japanese-ocr">Manga OCR</a><a href="/tools/yomu-gaming">Games</a><a href="/getting-started">Docs</a><a href="/support">Support</a></p>
+  <p class="yomu-next-row"><a href="/faq">FAQ</a><a href="/academy/" target="_self">Academy</a><a href="/tools/japanese-ocr">Manga OCR</a><a href="/tools/yomu-gaming">Games</a><a href="/getting-started">Docs</a><a href="/support">Support</a></p>
 </section>

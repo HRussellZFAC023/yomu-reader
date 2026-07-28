@@ -183,6 +183,7 @@ describe('interface language resolution', () => {
         'docs/getting-started.md',
         'docs/features.md',
         'docs/support.md',
+        'docs/faq.md',
         'docs/tools/index.md',
         'docs/guides/index.md',
     ];
@@ -274,6 +275,11 @@ const JAPANESE_CHARACTER = /[\u3000-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uff01-\uff2
 // Japanese interface also shows verbatim, and a few English function words
 // ('A', 'Open ') that the Japanese sentence carries in a neighbouring segment.
 const HOSTED_DOCS_JA_COPY_VERBATIM = new Set([
+    // FAQ: brand names, and the 'Okay' grade whose Japanese button label is
+    // literally 'OK' in the product (gradeOkayLabel in src/reader/app/i18n.ts).
+    'Discord',
+    'GitHub',
+    'Okay',
     'https://yomureader.com/yomu.user.js',
     'yomureader.com',
     'tampermonkey.net',
@@ -391,6 +397,15 @@ function markdownPageTextCopy(pageSource: string): string[] {
             const title = decodeMarkdownLinks(heading[1].replace(/\*\*/g, '')).trim();
             add(title);
             add(`Permalink to "${title}"`);
+            continue;
+        }
+        // A markdown table renders as one <td> leaf per CELL, so the runtime
+        // looks up each cell's text, never the whole `| a | b |` row — demand
+        // ja copy for what the localizer can actually ask for.
+        const tableRow = line.match(/^\s*\|(.+)\|\s*$/);
+        if (tableRow) {
+            if (/^[\s|:\-]+$/.test(line)) continue; // alignment separator row
+            for (const cell of tableRow[1].split('|')) add(decodeMarkdownHtml(decodeMarkdownLinks(cell.replace(/\*\*/g, '').trim())));
             continue;
         }
         for (const match of line.matchAll(/\b(?:aria-label|alt|title|placeholder)="([^"]+)"/g)) add(decodeMarkdownHtml(match[1]));
