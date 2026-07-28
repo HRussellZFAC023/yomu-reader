@@ -241,6 +241,7 @@
     "test:academy": "vitest run --config config/vite/academy.config.ts && VITEST_ISOLATE=1 vitest run --config config/vite/academy.config.ts tests/academy/entrypoint-lifecycle.test.ts tests/academy/library-srs-early-batch-conformance.test.ts",
     "test:academy:n3-source-fidelity": "ACADEMY_REQUIRE_N3_SOURCE_FIDELITY=1 vitest run --config config/vite/academy.config.ts tests/academy/n3-source-opening.test.ts",
     "test:ci": "node scripts/run-ci-suite.mjs",
+    "test:workers": "vitest run --config config/dictionaries/vitest.config.ts tests/workers/",
     "typecheck": "tsc --noEmit",
     "verify": "node scripts/verify-userscript.cjs",
     "start:gaming": "npm run build:gaming && electron dist-gaming/electron/main.cjs",

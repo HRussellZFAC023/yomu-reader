@@ -123,7 +123,13 @@ try {
 const releaseCheck = process.env.YOMU_CHECK_RELEASE === '1';
 
 const lanes = [
-    lane(stage('typecheck', 'npm run -s typecheck')),
+    // tests/workers/** needs the node environment, so it lives behind its own
+    // config and the default `vitest run` include never reached it: both dictionary
+    // Worker suites had never run in CI. Fast enough to ride the typecheck lane.
+    lane(
+        stage('typecheck', 'npm run -s typecheck'),
+        testStage('test:workers', 'npm run -s test:workers'),
+    ),
     lane(testStage('test:ci', 'npm run -s test:ci')),
     lane(
         stage('build', 'npm run -s build'),

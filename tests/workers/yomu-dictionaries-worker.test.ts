@@ -20,8 +20,18 @@ interface DictionaryObjectStore {
     ): Promise<DictionaryStoredObjectBody | null>;
 }
 
+interface DictionaryEdgeCache {
+    match(request: Request): Promise<Response | undefined>;
+    put(request: Request, response: Response): Promise<void>;
+}
+
 interface DictionaryWorkerModule {
-    handleDictionaryRequest(request: Request, store: DictionaryObjectStore): Promise<Response>;
+    handleDictionaryRequest(
+        request: Request,
+        store: DictionaryObjectStore,
+        edge?: DictionaryEdgeCache | null,
+        waitUntil?: (promise: Promise<unknown>) => void,
+    ): Promise<Response>;
     objectKeyForRequestPath(path: string): string | null;
     parseSingleByteRange(value: string, size: number): { offset: number; length: number } | null;
 }
@@ -79,7 +89,124 @@ function dictionaryStore(objects: Record<string, string>) {
     return { store: { head, get } satisfies DictionaryObjectStore, head, get };
 }
 
+function edgeCache() {
+    const entries = new Map<string, Response>();
+    const put = vi.fn(async (request: Request, response: Response) => {
+        if (response.status !== 200) throw new Error(`refusing to store status ${response.status}`);
+        entries.set(request.url, response);
+    });
+    const match = vi.fn(async (request: Request) => {
+        const stored = entries.get(request.url);
+        return stored ? stored.clone() : undefined;
+    });
+    return { cache: { match, put } satisfies DictionaryEdgeCache, match, put, entries };
+}
+
 describe('Yomu dictionary distribution Worker', () => {
+    it('serves a repeat object read from the edge cache without a second R2 operation', async () => {
+        const digest = 'c'.repeat(64);
+        const key = `objects/sha256/${digest}.zip`;
+        const harness = dictionaryStore({ [key]: 'dictionary-bytes' });
+        const edge = edgeCache();
+        const url = `https://dictionaries.yomureader.com/${key}`;
+
+        const first = await handleDictionaryRequest(new Request(url), harness.store, edge.cache);
+        const firstBody = await first.text();
+        const second = await handleDictionaryRequest(new Request(url), harness.store, edge.cache);
+
+        expect(first.headers.get('x-yomu-edge-cache')).toBe('miss');
+        expect(second.headers.get('x-yomu-edge-cache')).toBe('hit');
+        expect(firstBody).toBe('dictionary-bytes');
+        await expect(second.text()).resolves.toBe('dictionary-bytes');
+        expect(second.headers.get('cache-control')).toBe('public, max-age=31536000, immutable');
+        expect(second.headers.get('etag')).toBe(`"etag-${key}"`);
+        // The whole point: the bucket is read once for two requests.
+        expect(harness.get).toHaveBeenCalledTimes(1);
+        expect(edge.put).toHaveBeenCalledTimes(1);
+    });
+
+    it('answers a conditional request from the cached ETag with a 304 and no R2 operation', async () => {
+        const harness = dictionaryStore({ 'v1/catalog.json': '{"schemaVersion":1}' });
+        const edge = edgeCache();
+        const url = 'https://dictionaries.yomureader.com/v1/catalog.json';
+
+        const primed = await handleDictionaryRequest(new Request(url), harness.store, edge.cache);
+        await primed.text();
+        harness.get.mockClear();
+        harness.head.mockClear();
+        const revalidated = await handleDictionaryRequest(
+            new Request(url, { headers: { 'if-none-match': '"etag-v1/catalog.json"' } }),
+            harness.store,
+            edge.cache,
+        );
+
+        expect(revalidated.status).toBe(304);
+        expect(revalidated.headers.get('x-yomu-edge-cache')).toBe('hit');
+        expect(revalidated.headers.get('cache-control')).toBe('public, max-age=300, must-revalidate');
+        await expect(revalidated.text()).resolves.toBe('');
+        expect(harness.get).not.toHaveBeenCalled();
+        expect(harness.head).not.toHaveBeenCalled();
+    });
+
+    it('never stores a range, a HEAD, or a 404 in the edge cache', async () => {
+        const digest = 'd'.repeat(64);
+        const key = `objects/sha256/${digest}.zip`;
+        const harness = dictionaryStore({ [key]: '0123456789' });
+        const edge = edgeCache();
+        const url = `https://dictionaries.yomureader.com/${key}`;
+
+        const ranged = await handleDictionaryRequest(
+            new Request(url, { headers: { range: 'bytes=2-5' } }),
+            harness.store,
+            edge.cache,
+        );
+        const head = await handleDictionaryRequest(new Request(url, { method: 'HEAD' }), harness.store, edge.cache);
+        const missing = await handleDictionaryRequest(
+            new Request(`https://dictionaries.yomureader.com/objects/sha256/${'e'.repeat(64)}.zip`),
+            harness.store,
+            edge.cache,
+        );
+
+        expect(ranged.status).toBe(206);
+        expect(head.status).toBe(200);
+        expect(missing.status).toBe(404);
+        expect(edge.put).not.toHaveBeenCalled();
+        expect(edge.entries.size).toBe(0);
+        // A partial response must not be marked as a cacheable miss either.
+        expect(ranged.headers.get('x-yomu-edge-cache')).toBeNull();
+        expect(head.headers.get('x-yomu-edge-cache')).toBeNull();
+    });
+
+    it('hands the cache write to waitUntil when the runtime provides one', async () => {
+        const harness = dictionaryStore({ 'v1/languages.json': '{}' });
+        const edge = edgeCache();
+        const pending: Promise<unknown>[] = [];
+
+        const response = await handleDictionaryRequest(
+            new Request('https://dictionaries.yomureader.com/v1/languages.json'),
+            harness.store,
+            edge.cache,
+            promise => pending.push(promise),
+        );
+        await response.text();
+        await Promise.all(pending);
+
+        expect(pending).toHaveLength(1);
+        expect(edge.entries.size).toBe(1);
+    });
+
+    it('falls back to R2 when no edge cache is bound', async () => {
+        const harness = dictionaryStore({ 'v1/languages.json': '{}' });
+        const response = await handleDictionaryRequest(
+            new Request('https://dictionaries.yomureader.com/v1/languages.json'),
+            harness.store,
+        );
+
+        expect(response.status).toBe(200);
+        expect(response.headers.get('x-yomu-edge-cache')).toBe('miss');
+        expect(harness.get).toHaveBeenCalledTimes(1);
+    });
+
     it('reports the fixed Japanese target and 32 learner languages without touching R2', async () => {
         const harness = dictionaryStore({});
         const response = await handleDictionaryRequest(

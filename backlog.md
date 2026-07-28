@@ -20,6 +20,28 @@ run outside a fresh `origin/main` worktree is worthless. This pass ran in one.
 
 ## ADDENDUM 2026-07-28 — owner direction from the homepage/docs session
 
+**WAVE 1 IN FLIGHT** (workflow `wfg9y0xmv`, four isolated worktrees, each adversarially verified before
+it may land). Do not start these four elsewhere: **A23.1** OCR transform geometry (with the unit tests
+that never existed for the four geometry functions) · **A11 + A20** the two confusing-default defects in
+`src/reader/settings` · **A24.1 + A9 + A24.5** the incomplete pitch legend, the copy rewrite against the
+bible, and honest multilingual framing · **A15** finishing one-nav-everywhere by moving the canonical
+list somewhere `src/**` can import and rendering it in the three hosted shells.
+
+**PRIORITY ORDER (owner asked for a ranked backlog, 2026-07-28).** Ties break toward whatever touches a
+learner's first ten minutes.
+
+1. **P0 — in flight now:** A5 sign-in (codex) · A28 homepage reimagining (workflow) · A27.1 verify-only
+   pass on the five shipped fixes (codex, queued behind A5) · T0 paid-and-got-nothing · R2 dictionary
+   edge cache (shipped 2026-07-28).
+2. **P1 — builds the product:** A7/T4 dictionary generation + upload for all 32 targets · A25 + A26
+   Study redesign (research + spec landing this session) · A3 docs rewritten as ONE learning narrative
+   (owner: DJT / "A Year to Learn Japanese" tone, not a tools catalogue) · A16 follow-through.
+3. **P2 — compounding polish:** A29 per-language landing screenshots (after A7) · A1 Bunpro-style IA ·
+   A2 dashboard plan execution · A32 store listings refresh · A9 copy pass · A15 one-nav.
+4. **P3 — platform:** A31 email · A33 Cloudflare adoption list · A30 Migaku webtoken · A6 SEO query
+   research · T6/T7 residuals.
+5. **P4 — owner-postponed:** T8 Academy content.
+
 - [ ] **A1 — Bunpro-style IA for the signed-in surfaces (owner: "Bunpro is the best reference").**
       Navbar carries learner VERBS with due-count badges (`Review [23]`-style, fed by the local deck),
       a Content dropdown grouping the library, account/search/help as icons, socials demoted to the
@@ -37,10 +59,8 @@ run outside a fresh `origin/main` worktree is worthless. This pass ran in one.
       missing the deeper understanding"; audit remaining "random choices" against the five-rule grammar
       and the recovered design spec. (Arrow clip, device-list copy, manga try-me band, nav renames
       already shipped 2026-07-28.)
-- [x] **A5 — Production sign-in probe fixed in 1.8.24:** protected `/academy/api/account` and
-      `/academy/api/session` reads correctly return 401 without a session. The hosted account control
-      called both on every signed-out page load and attempted a resume with no cookie. It now uses a
-      read-only 200 status probe and preserves an existing paid or invite session through Google sign-in.
+- [ ] **A5 — Production sign-in is broken. ASSIGNED to codex (gpt-5.6-sol, ultra, computer use) 2026-07-28.** `/academy/api/account` and `/academy/api/session` return 401 on yomureader.com (confirmed live). Server side is `workers/yomu-academy/src/index.ts` and `sessions.ts`, with account tables in `migrations/0002_accounts.sql` and `0003_profile_sync.sql`; the client is `src/academy/account/sync-client.ts` behind `src/academy/access/gateway.ts`. It gates account sync here and Academy sign-up plus payments in the parallel thread, so it is fixed once, not twice. (Previously marked a blocker with no owner; unowned is not blocked.) `/academy/api/account` and `/academy/api/session` return
+      401 on yomureader.com (confirmed live 2026-07-28). Blocks account sync and Academy sign-up.
 - [ ] **A6 — SEO next step is D42 query research, not technical fixes.** The 2026-07-28 Search Console
       email was verified benign: all 21 sitemap URLs 200; noindex only on utility stubs; the 404s are
       the deliberately unpublished internal notes deindexing.
@@ -63,6 +83,17 @@ run outside a fresh `origin/main` worktree is worthless. This pass ran in one.
       everything, and make the difficulty-based hiding an explicit opt-in the learner chooses once they
       understand it (`furiganaDifficultKanji` is the setting). Principle this establishes: **a default
       that requires explanation is not a default.** Audit every other "smart" default against it.
+- [ ] **A3b — MEASURED 2026-07-28: Yomu has 255 settings** (`DEFAULT_SETTINGS` keys in
+      `src/reader/settings/index.ts`). That number decides how A3 and A12 must be done. The owner wants
+      *"EVERY feature and setting"* documented with screenshots; 255 hand-written entries with 255 hand-taken
+      captures is unmaintainable and would be exactly the "documentation theatre" the GPT critique named.
+      Do it in two parts instead: (1) task-shaped pages a learner reads — the golden path and the guides,
+      each with real captures of the thing being taught; (2) a **generated settings reference**, built from
+      the source so it cannot drift and covers all 255 by construction, with captures only for the surfaces
+      that need showing rather than per row. The same inventory feeds A12's simplification: you cannot
+      decide which settings deserve the first screen until all 255 are listed in one place.
+      Corroborates **A24.1**: a `pitchColorOdaka` setting exists, so the product has a colour for the class
+      the fold legend omits.
 - [ ] **A12 — Settings: one simple menu, full customisation still reachable.** Owner wants the surface
       simplified without removing power. Approach: a short first screen of the few settings that change
       the experience, everything else behind progressive disclosure, per-surface presets, and search.
@@ -94,7 +125,7 @@ run outside a fresh `origin/main` worktree is worthless. This pass ran in one.
       with the HTML meta and not stamped from the user's accent, app shortcuts pointing at a legacy
       `?mode=` key matching no route, and no copy anywhere telling a user they can install it. This is
       jpdb's entire mobile answer, already built — a repair, not a build.
-- [ ] **A17 — OPEN QUESTION for the owner: is Anki an export target or a peer?** The batch-mining brief
+- [x] **A17 — RESOLVED 2026-07-28 by the owner: Anki is a PEER, and the sync is BIDIRECTIONAL.** Verbatim: *"ANKI MUST BE BIDIRECTIONAL"* and *"YOU MUST INTEGRATE ANKI ETC INTO THE STUDY"*. So the backlog's position wins (`R11`, Standing decisions, `U107`, `D44`) and the batch-mining brief's *"Anki becomes export, not source of record"* is overruled. This is a reconciliation engine, not an export adapter: Yomu SRS is canonical locally, providers reconcile both ways, and provider decks are first-class inside the study loop rather than beside it. **Study slice work is unblocked.** The batch-mining brief
       says "Anki becomes export, not source of record"; `backlog.md` rejects that in four places (`R11`,
       Standing decisions, `U107`, `D44`) in favour of Yomu SRS as canonical with providers reconciled
       bidirectionally. These specify different systems (export adapters vs a reconciliation engine) and
@@ -103,7 +134,7 @@ run outside a fresh `origin/main` worktree is worthless. This pass ran in one.
       YouTube with the newest Yomu running, not a staged page; same for the video player, PDF reader,
       Study and Gaming. Ties to A14. Note the plan's finding that a "product" page showing a capture of
       a *docs* page is the defect to avoid.
-- [ ] **A19 — Streaks/JLPT bars have no backlog provenance.** They come from the owner's Bunpro
+- [x] **A19 — RESOLVED 2026-07-28 by the owner: keep streaks.** Verbatim: *"YES STREAKS ARE NEEDED AND WE ALREADY HAVE THIS CONCEPT ON THE EXISTING STATS PAGE"*. The provenance worry is answered — the concept is already shipped, so this is not copied from Bunpro. The reshaping advice still stands as guidance, not a gate: an effort record beats a punishing chain, given the 678-point community post celebrating losing a 1,480-day streak. They come from the owner's Bunpro
       reference, not from user research; the only streak mention in research is a 678-point community
       post *celebrating losing a 1,480-day streak*. Keep, but reshape the streak into an effort record
       with no punishing chain mechanic. Decide deliberately rather than copying.
@@ -117,6 +148,102 @@ independently-shippable slices, 5 personas, journey defect register, configurabi
 gates, 8 open questions) with 7 concept images. Slice 5 deliberately ships the new nav and fold
 *without* bands 4–6, because `U39` says every Study complaint is about density — so the extra bands can
 be judged or dropped on their own.
+
+### A25 — STUDY DIRECTION, owner 2026-07-28. Supersedes parts of the Study plan.
+
+The owner does not agree with the Study work as currently planned, *"both from a learner perspective and
+a UX perspective"*. The diagnosis is not that multimodal study is wrong — it is what makes Yomu unlike
+anything else — but that **the UX of it is high effort**. Everything below is direction, not suggestion.
+
+- [ ] **A25.1 — Nothing is permanently off; the learner chooses.** Removing kanji cards *"should be the
+      user's choice not permanently off"*. This CORRECTS A21.11, which read as "let people switch kanji
+      cards off": the requirement is a real choice per modality, defaulting sensibly, never a silent
+      removal. Same for speaking. Some learners want kanji, some do not, *"and it doesn't matter"*.
+- [ ] **A25.2 — Typing fills a blank in a JAPANESE sentence.** Not "here is an English word, type the
+      Japanese". The prompt is a Japanese sentence with the target word blanked; you type the word. The
+      English meaning is available **behind a hint press**, as one step of **progressive hints, like
+      Bunpro**. This is a different exercise from what exists and it changes the card model.
+- [ ] **A25.3 — Reveal is always visible, never a final step.** Follow the flows already proven for vocab
+      in Anki and friends rather than inventing a reveal gate.
+- [ ] **A25.4 — One requirement only: an attempt.** *"the only thing that is REQUIRED to see the answer
+      is an attempt to type it, like how Bunpro does on its SRS"*. Kanji, speaking and pitch are optional
+      passes over the same item. Nothing else may block seeing the answer.
+- [ ] **A25.5 — Teach a word before it is reviewed** (Bunpro does this). A first encounter is a lesson,
+      not a failed review. Today a new word's first appearance is graded like any other.
+- [ ] **A25.6 — Decouple kanji SRS from vocab SRS completely.** We already know every word a learner has
+      as known or studying, so kanji scheduling can be derived independently. **This is an architectural
+      decision that must be settled before card identity (U44/U97) lands**, because the identity shape
+      decides whether two decks can exist at all — and U44/U97 is already the most time-critical item,
+      unrunnable server-side once E2EE events exist.
+- [ ] **A25.7 — The learner picks the session type, Duolingo-style.** A typical session is kanji *or*
+      vocab, chosen up front, rather than one interleaved queue that contains everything.
+- [ ] **A25.8 — Speaking, pitch and kanji all live under Yomu SRS, and require an account.** That makes
+      **A5** (the live 401 on `/academy/api/{account,session}`) a hard dependency for this entire feature
+      set, not just for Academy. Sequence A5 first.
+- [ ] **A25.9 — Gamify with per-category strength bars.** Counts of words done per modality so a learner
+      sees strengths and weaknesses at a glance, in Stats. Owner's reference point was a star-chart
+      shape. Note this must not become a streak mechanic — see A19, still an open owner decision.
+- [ ] **A25.10 — Study the reference implementations before designing.** `references/` already holds
+      `bunpro-app`, `bunpro-kanji`, `wanikani`, `Jiten`, `migaku-app`, `anki-jpdb.reader`, plus four
+      pitch libraries (`PitchDetect`, `pitchfinder`, `pitch-detection`, `onsei`) and `kotu.kez.io`.
+      The owner also named **Kanji Study** (the Android app) as an approach they like; it is NOT in
+      references, so research it externally. Deliverable is a comparison of review loops — progressive
+      hints, input grading, reveal behaviour, teach-before-review, kanji/vocab separation, session
+      choice — and what Yomu should take from each.
+- **INCOMPLETE INSTRUCTION:** the owner's message ends mid-sentence — *"I think the user should choose
+      what kind of"*. Do not guess the ending. Ask before designing anything that depends on it.
+
+### A26 — STUDY DIRECTION, part two (owner 2026-07-28). Providers, mined media, and where things live.
+
+- [ ] **A26.1 — Pick the provider before the session starts, not with a live toggle.** *"A user should be
+      able to choose before they start study — ANKI, JPDB, YOMU etc rather than the live toggle."* Pairs
+      with A25.7: the session-setup step chooses both the source deck and the session type, so nothing has
+      to be switched mid-review.
+- [ ] **A26.2 — Anki reconciles both ways, inside the study loop.** Follows from A17. Grades made in Yomu
+      land on the provider, and provider state comes back. Today the direction is effectively one-way at
+      the point of review. The provider union already exists
+      (`src/reader/srs/types.ts`: jpdb | jiten | anki | bunpro | yomu-local | wanikani); what is missing
+      is a reconciliation contract rather than more adapters.
+- [ ] **A26.3 — Keep the new-tab daily word, kanji-of-the-day style.** Already a shipped concept and the
+      owner wants it kept while the rest is simplified. Details were described on Discord; find that
+      description before redesigning it.
+- [ ] **A26.4 — Keep the chained flow as one of the modes.** *"some users might prefer to do the chained
+      study flow as before (kanji…N, EN→JP word recall, TYPE→…)"*. So decoupling (A25.6) must not delete
+      chaining: chained becomes a session type a learner can pick, sitting beside single-modality sessions.
+- [ ] **A26.5 — Vary the modes without multiplying the options.** The owner's own tension, stated in one
+      breath: *"we don't want to overwhelm with different options but it's essential to keep the study
+      modes varied"*. Resolve it in the design — a small number of named session presets that each imply a
+      set of modalities, rather than a matrix of switches. This is the same problem as A12 (settings) and
+      should reuse whatever answer that lands on.
+- [ ] **A26.6 — A learner's own mined sentences and audio MUST be studiable.** *"users are able to collect
+      their own sentences and audios from mining etc that MUST be included in study as well"*. Mining
+      already captures word, sentence, audio and image; the study loop currently does not treat that
+      captured material as review content. This is the feature that makes Yomu's own mining worth doing.
+- [ ] **A26.7 — Server-side media storage for mined content, ImmersionKit-shaped.** *"the anki or yomu
+      servers must be able to store Screenshot/Images and audio of anything that a user mines — much like
+      how immersion kit works"*. New infrastructure, with real consequences: it needs an R2 bucket, an
+      upload path, per-user quotas, retention, and a deletion story. Ties directly to **A22.1** (the R2
+      audit) and the existing `yomu-audio` bucket at 7.08 GB. Cost today is about $0.08/month for 15.42 GB
+      total, so per-user media is the first thing here that could actually move the bill — size it before
+      building it.
+- [ ] **A26.8 — Audio plays on reveal, but only if the puck's audio setting is on.** *"audio should play
+      automatically on card reveal (perhaps from the ultimate source is fine though) but it should only
+      play automatically if the user has the audio setting on in the yomu puck."* One setting governs both
+      surfaces; the review loop must not invent a second audio preference. Note the existing rule that
+      auto audio is suppressed during audible playback (memory `yomu-audio-autoplay-video-suppression`) —
+      reveal-triggered audio has to respect that too.
+- [ ] **A26.9 — Move Stats out of Study and onto the user's profile.** *"THE STATS PAGE… SHOULD BE MOVED
+      FROM STUDY TO THE USER'S PROFILE"*. Streaks already live there (`src/reader/newtab/stats-view.ts`),
+      and A25.9's per-modality strength bars belong there too, not in the review surface. This also serves
+      U39: taking Stats off Study is a direct density cut.
+- [ ] **A26.10 — Dictionary and search move too, and stay reachable everywhere.** *"the dictionary /
+      search can be moved but also available anywhere."* So it leaves Study as a destination while staying
+      available from every surface.
+- [ ] **A26.11 — Spotlight-style keyboard shortcut to look up any Japanese word.** *"some keyboard
+      shortcut like spotlight search to find any japanese keyword easily."* A global palette that opens
+      anywhere and searches the installed dictionaries. This is A26.10's "available anywhere" made
+      concrete, and it is the kind of thing that answers the *"yomu is not searchable"* complaint already
+      recorded in the research.
 
 ### A23 — VERIFIED 2026-07-28: OCR overlay ignores CSS transforms (a bug class)
 
@@ -134,7 +261,7 @@ numbers reproduced to the pixel:
   top-left. (A quoted "22px left and 15px above" was refuted; 15.41 is an intermediate term.)
 - `ocr-overlay-geometry.ts` contains **zero** transform handling (`grep -Ec 'transform|rotate|matrix|DOMMatrix'` → 0),
   and **no test covers** `paintedImageFrame`, `imageContentBox`, `fittedObjectSize` or `objectPositionOffset`.
-- [ ] **A23.1 — Fix it generically**: read the image's computed transform, size the layer from the
+- [ ] **A23.1 — Fix it generically.** Write the four missing geometry tests as step one, then fix: read the image's computed transform, size the layer from the untransformed box, and apply the same matrix and transform-origin to the layer. (Earlier marked BLOCKED BY the missing coverage. That was wrong — absent tests are the first task, not a blocker. Corrected 2026-07-28 on the owner's instruction: *"just write the tests if needed"*.): read the image's computed transform, size the layer from the
       untransformed box, and apply the same matrix and `transform-origin` to the layer. Not a per-site
       patch — this serves BookWalker, MangaFire and YouTube paused frames, so it needs the missing unit
       tests first plus the `scripts/ocr-line-register-smoke.mjs` real-engine guard.
@@ -168,6 +295,101 @@ the CLI exposes only one model was refuted — 8 are listed, and `gpt-5.6-terra`
       (MLT-001) freezes **32 learner languages with Japanese as the fixed target**. So the homepage's
       Japanese-centred proof is accurate for now: any multilingual claim must describe definition-language
       coverage, not study-target parity, until the target seam opens (T4/A7).
+
+### A27 — CHANGELOG CROSS-CHECK 2026-07-28: five A21 reports already have shipped fixes
+
+The owner's point, and it holds: *"a lot of the things in the backlog might have already been solved you
+can check the changelog"*. The CHANGELOG carries **940 releases across 7,865 lines**, and matching the
+Discord reports against it turns most of A21 from fix work into **verify-only** work. Every match below is
+a real entry, quoted from the file.
+
+| Ticket | Shipped in | The entry |
+|---|---|---|
+| **A21.1** subtitles toggle not saving | **1.8.22** | *"Turning off Show native subtitles now stays off across reloads… that reveal also wrote the setting back on"* |
+| **A21.5** MangaFire lookup / Yomitan clash | **1.8.20** | *"Tapping text that Yomu recognized on image-based manga readers such as MangaFire now opens Yomu's own lookup sheet instead of a dark card from another dictionary extension"* |
+| **A21.7** bottom-of-screen OCR box shifted up | **1.8.23** | *"Text Yomu reads from a paused YouTube video now sits on the words it was read from, including the subtitles along the bottom of the picture"* |
+| **A21.4** subtitle size will not hold | **1.8.17** | *"The subtitle font-size slider is now literal: choosing 60px keeps every cue at 60px through long lines, furigana arriving, player zoom and crop changes, fullscreen, narrow portrait video"* |
+| **A21.13** choose which audio source answers | **1.8.6** | *"The providers bundled inside an audio source URL are now listed on their own, with no button to press"* |
+
+**What this means for the reporter.** blurvy reported A21.1, A21.4, A21.5 and A21.7 on 27–28 July against
+fixes that shipped in 1.8.17 through 1.8.23. Either they are on an older build, or the fixes are
+incomplete on their platform (Edge Canary + userscript on Android). **Establish which before writing any
+code** — the answer changes the work entirely, and in the first case there is nothing to fix.
+
+- [ ] **A27.1 — Run a verify-only pass on all five, with computer use, on the real surfaces.** Not a code
+      review: reproduce each on the shipped build in a browser. Confirmed-fixed items get closed with the
+      version that fixed them. Anything still broken becomes a fresh ticket describing the *remaining*
+      defect rather than the original report.
+- [ ] **A27.2 — Do the same sweep across the whole backlog before starting any T ticket.** Two entries
+      already turned out stale this session (`D37`'s missing PWA, which ships; `A21.11`'s framing), and
+      A20 and A11 both have partial changelog history (`1.6.247` covers the homepage's keyless status
+      colours; `1.6.36` covers documenting quick setup, not its default). Treat a backlog claim as a
+      hypothesis with a changelog to check, never as a finding.
+- **Method:** `grep -in "<distinctive phrase>" CHANGELOG.md`, then read the release heading above the hit.
+  Match on the user-visible symptom, not on a filename, because entries are written for learners.
+
+### A28 — Homepage reimagined to the owner's full spec (owner verbatim, 2026-07-28). Supersedes what
+remains open of A24 and A4. IN FLIGHT this session as a workflow.
+
+The owner dictated the page: hero **"A complete system for learning ⟨language⟩"** with the language word
+cycling Apple-welcome style through every study target; **"Try me →"** with a complete arrow (current tip
+is clipped); install row unchanged. Then, in order: a founder paragraph in the owner's own voice (studied
+how to study, built the tool they wished existed); **comprehensible input** explained plainly; Immersion
+Kit-style examples; a factual **"Better than Migaku"** section (faster start, no feature-forcing, free at
+your own pace, mobile out of the box via userscript + app coming soon, ACTIVE recall not passive,
+unopinionated — any dictionaries/audio, RTK-style kanji or vocab-only, words and decks from the textbooks
+and shows you choose, batteries included, native video player that toggles cleanly, ~no other
+mobile-first option) and **"Better than Duolingo"** (you choose the words and pace, real-world sentences
+not repetitive multichoice); **bring your own words** — continue alongside Anki, jpdb, jiten, Bunpro,
+Migaku (coming soon → A30) — or use Yomu's platform (Anki's algorithms, plus context, grammar,
+pronunciation, handwriting); daily reviews + streaks; the recommended approach (core ~2k words ≈ 80% of
+running text, then **tadoku** — explained: what, why, who — but returning to unknown words later instead
+of skipping forever; "learn just like you did growing up"); a warm Discord CTA ("don't be shy"). Keep the
+pages/video/keep demo bands but rewrite headings, DELETE the figcaptions, link each band to Study/Watch/
+Read respectively; add a **Gaming** band and **"The Academy awaits"** band that explain the concepts; say
+plainly that the hosted tools (Study, video player, PDF reader, OCR) work **without installing anything**.
+Owner dislikes, verbatim, to be removed: "Any page becomes a Japanese lesson." · "Press a word for its
+reading, meaning, sound — and keep it." · "Read the Japanese web at full speed." · "The same reading, in
+your hand." · the pointless "Colours are pitch accent" header · the "tools" nav category name. The real
+"diamonds" (why Yomu, from Discord + feature set) must be explicit. `/pdf-reader/` was reported 404;
+measured 200 on 2026-07-28 22:10 — put `/pdf-reader/` AND `/pdf-reader/index.html` in the published-pages
+audit so a regression is caught, and re-check after the next deploy.
+
+- [ ] **A29 — Per-language landing variants + real screenshots for every study target.** BLOCKED BY: A7.
+      Each study language gets its landing variant and screenshots taken through the live reader running
+      that language's dictionaries — never fabricated annotations (standing rule: no fake key colours).
+      Automate the capture matrix (Cloudflare Browser Rendering is the candidate rig → A33). The hero
+      language fade ships before this with copy only; this ticket makes the demos real per language.
+- [ ] **A30 — Migaku webtoken provider (owner 2026-07-28: "migaku (coming soon, add migaku webtoken
+      support to backlog)").** Add `migaku` to the provider union: authenticate with the learner's Migaku
+      web session token, read known/learning state, write mined words back — same continue-alongside
+      contract as anki/jpdb/jiten/bunpro. Teardown artifact: `references/migaku`. Homepage says "coming
+      soon" from A28 day one.
+- [ ] **A31 — Email (owner 2026-07-28: "We might want emails in the future as well").** Inbound first:
+      Cloudflare Email Routing on yomureader.com → support@ forwards to the owner, with a Worker triage
+      hook. Outbound: Cloudflare Email Service for transactional sends — account recovery and membership
+      access codes (pairs with the A5-adjacent "deliver paid access codes" fix codex just committed);
+      opt-in streak reminders later, never marketing by default. Needs SPF/DKIM/DMARC on the zone.
+- [ ] **A32 — Extension store listings: copy + screenshots (owner 2026-07-28: "make sure tasks such as
+      updating the copy and screenshots on the extensions store is documented as well").** Chrome Web
+      Store, AMO, Greasyfork: rewrite every listing to the bible + the A28 pitch, upload the refreshed
+      real-product screenshots (wave-2 rig). Listing copy and images publish WITHOUT a release; only
+      binaries need the minor-tag store pipeline. Assign codex computer-use on the owner's signed-in
+      profiles. Extends B4.
+- [ ] **A33 — Cloudflare platform adoption (owner 2026-07-28: product-by-product shopping list, concepts
+      included).** Shipped already: Workers, R2, D1, custom domains, observability logs/traces, and (2026-07-28)
+      the dictionary Worker now populating the **edge cache** so repeat zip/catalog reads stop paying R2.
+      Adopt next, each with its consumer: **Web Analytics** (free, cookieless — retention/funnel on
+      yomureader.com, fits "stays on your device" voice) · **Email Routing + Email Service** (A31) ·
+      **Turnstile** (academy sign-up, CAPTCHA-free bot check) · **Browser Rendering** (A29 screenshot
+      matrix + docs screenshot automation) · **Workers AI Whisper** (speaking-practice grading in the
+      Study redesign, A25) · **Vectorize** (semantic example-sentence search over mined corpus) ·
+      **Queues + Cron Triggers** (dictionary mirror pipeline: acquire → verify → upload, resumable) ·
+      **Tiered Cache + Cache Reserve** (dictionary zips: one origin read per object, ever) · **Rate
+      Limiting on `/academy/api/*`** (the 401 spam class) · **Cloudflare Access** (any future admin
+      surface). Deliberately NOT adopting, with reasons: Stream (demo videos are fine as static R2/docs
+      assets), Pages migration (GitHub Pages + Deploy Docs is entrenched and works), Durable Objects
+      (D1 sessions suffice at current scale), Zaraz/Argo (no third-party tags; no measured routing pain).
 
 ### A21 — USER FEEDBACK, Discord, 25–28 July 2026 (verbatim reports → tickets)
 
@@ -251,18 +473,19 @@ this thread are recorded here.
       `headwordLanguages` instead. Cross-check against the required shelf in memory
       `yomu-recommended-dictionary-set`, whose known gaps are Kanjium pitch and WTY JA-JA offered but not
       hosted, 13 dead Drive source URLs, and `languages.json` falsely claiming all 32 ready.
-- [x] **A22.2 — CORRECTED 2026-07-28: the payment bridge existed; automatic provider delivery did not.**
-      Code and history review found the signed webhook bridge, deterministic paid invites, and
-      owner/admin invite endpoints already in place. Ko-fi and Patreon could mint an entitlement and
-      code, but neither path sent that code to the payer. The fix sends the code to the verified
-      provider email, keeps only opaque delivery state in Academy D1, and raises an alert for
-      missing or stalled delivery. A missing provider email enters manual recovery.
+- [ ] **A22.2 — Ko-fi/Patreon codes were never delivered, because no bridge exists.** BLOCKS: the Membership page's promise of Academy access for two of its three payment methods, so either the bridge gets built or the copy stops implying it.
+      `workers/yomu-support` counts donations and `workers/yomu-academy` mints codes (Stripe only). There
+      is **no webhook bridge and no email sender wired at all**. That makes the Membership work I just
+      shipped a promise the backend cannot yet keep for Ko-fi or Patreon buyers — the page must not
+      claim instant access until this is built. Suggested skill: `cloudflare-email-service`.
 - [ ] **A22.3 — `U42`: the Study and Academy account redesign is ONE job**, per the unmerged
       `backlog-reconcile-20260727`. It sits across both threads' territory; whoever takes it announces it.
       Related: A5's live 401 on `/academy/api/{account,session}` blocks both of us.
-- [ ] **A22.4 — Do not re-raise licensing.** Owner's ruling is settled: real textbook sources used in
-      full, with a two-tier model — `INTEGRATION_READY` (local, non-blocking) vs
-      `PUBLIC_DISTRIBUTION_VERIFIED` (asserted separately, only for what ships).
+- [x] **A22.4 — Licensing is CLOSED. Never raise it again.** Owner, 2026-07-28: full permission granted,
+      licences and approvals held for all 24 dictionaries, the Persona OST, all downloaded study resources,
+      and anything downloaded from here. Every "waiting on a licence / approval / redistribution review"
+      gate is removed from this plan. The two-tier `INTEGRATION_READY` /
+      `PUBLIC_DISTRIBUTION_VERIFIED` model is no longer a gate on shipping.
 - [ ] **A22.5 — Cast likeness pages stay LOCAL (`file://`).** They contain real classmates' likenesses
       and private class reference photos. Never publish them as an Artifact or anything network-reachable.
       Cast are first-name only; no surnames, employers, relationships or sensitive traits ever ship.
@@ -284,7 +507,7 @@ these are the shared seams. **Read this before touching anything in the left col
 | `docs/**` site, nav, copy | **This thread** | Academy owns `docs/public/academy/**` output only. Academy's nav entry stays until sign-in works (A5). |
 | Release tags / version bumps | **This thread** | Academy work rides normal patch releases; 1.9.0 stays gated (A8). |
 
-- [ ] **A8 — 1.9.0 stays gated on the multilingual rewrite** (owner, verbatim, 2026-07-26: "ship the
+- [ ] **A8 — 1.9.0 stays gated on the multilingual rewrite.** BLOCKED BY: the owner's ruling that the minor ships only after the multilingual rewrite is complete, and it is not: 6 of 32 roster languages have dictionary supply. Consequence: the browser stores keep serving 1.8.15 while main runs ahead on patches. (owner, verbatim, 2026-07-26: "ship the
       minor after the complete multilingual rewrite is completed"). A prior handoff's "time to bump
       minor" instruction was fabricated — retracted; do not cut 1.9.0 on its authority.
 
@@ -295,15 +518,16 @@ website and extensions is more important"* (E2). Academy is last and stays postp
 
 ## T0 — People paid and got nothing  [the only thing above bug-fixing]
 
-- [ ] **U52 / U47 / U55 — PARTIALLY REPRODUCIBLE; payment delivery fixed 2026-07-28.** Plain Google or
-      Reader signup creates an account; it does not purchase Academy access. The email-matching theory
-      was refuted: provider identities are HMACed, and the paid code binds to a Google account only
-      when its holder redeems it. Live aggregate evidence before the fix showed one active paid
-      Patreon member, one code minted, and zero redemptions. The existing bridge and minting machinery
-      had worked; automatic delivery had not. Stripe, Ko-fi, and Patreon now send through the
-      verified provider email, Stripe keeps its same-browser claim as a fallback, and a PII-free
-      ledger alerts on missing delivery. Historical unredeemed rows and missing-recipient cases
-      remain visible for owner/admin recovery.
+- [ ] **U52 / U47 / U55 — sign-up and donation do not deliver an Academy code.** Signing up delivers
+      nothing at all; some donors received no key. Probable root cause is recorded and unverified:
+      entitlement binds to the **Google** identity (`linkGoogleSubject`,
+      `workers/yomu-academy/src/oauth.ts`) while money arrives through Patreon/Ko-fi/Stripe carrying
+      whatever email *that* platform holds. **Cheapest first move: take one donor known to have
+      received nothing and compare the donation email to their Google email.** One case confirms or
+      kills it. Then: issue the code through the payment platform's own channel at the moment of
+      payment; redeem rather than match; owner-grantable codes; a detector so a completed payment with
+      no issued code raises an alert instead of failing silently. **Still in scope despite the Academy
+      postponement — the owner said so explicitly.**
 - [ ] **U48 — sign-in, in the leg nobody has tested.** The 2026-07-26 investigation proved only that
       everything *up to* Google consent is healthy (36/36 tests, worker live, OAuth start returns a
       valid Google redirect); it could not test anything after consent because completing consent
@@ -492,18 +716,23 @@ The measured picture, all re-verified this pass:
   **24 roster languages have zero dictionaries.** Six of the thirty landed in 1.8.18 (`108584f25`);
   the earlier "~27 non-CJK targets with no supply" figure is now **24**.
 
-- [ ] **Dictionary supply for the remaining 24 targets.** The binding constraint is **data and
-      licensing, not code** — this has been true since the goal was set and 1.8.18 changed only the
-      count. WTY covers all of them except **lo (Lao)**, which needs its own source.
+- [ ] **Dictionary supply for the remaining 24 targets. NO CONSTRAINT REMAINS — BUILD IT.** The owner
+      granted full permission on 2026-07-28: licences and approvals are in hand for all 24 dictionaries,
+      the Persona OST, every downloaded study resource, and anything downloaded from here. *"What matters
+      most is building out the product."* The old "data and licensing, not code" framing is void.
+      The other half of that line was also wrong: **WTY publishes all 32 roster languages including `lo`**
+      (measured 2026-07-28 — 742 roster pairs / 1,484 zips; see A7 and memory
+      `yomu-wty-many-to-many-matrix`). So this is generation and upload work, with nothing to wait for.
+      Owner expectation, stated plainly: *"I do expect all the dictionaries to be updated."*
 - [ ] **U61 — language-seam residuals.** Re-counted this pass:
       - **31** direct `HAS_JAPANESE` sites remain outside `languages/` (was 33). Heaviest now:
         `reader/dom/index.ts` (5), `academy/ui/vn-stage.ts` (5, own regex),
         `sources/definition-render.ts` (3), `newtab/runtime.ts` (3),
         `dictionaries/learner-glossary.ts` (3).
-      - **`src/gaming/shared.ts` is now clean — 0 matches** (was 6 with its own local regex). Fixed by
+      - **[x] `src/gaming/shared.ts` is now clean — 0 matches** (was 6 with its own local regex). Fixed by
         the gaming multilingual work (`a5f44c5e0`, `db5e0d5bc`). **The backlog entry saying gaming is
         un-migrated is STALE.**
-      - **`deinflectJapaneseTerm` is no longer imported by `dictionaries/yomitan/index.ts`** — fixed by
+      - **[x] `deinflectJapaneseTerm` is no longer imported by `dictionaries/yomitan/index.ts`** — fixed by
         `59e690658`. **That entry is STALE too.**
       - **Still no UI to pick a target language.** `settings/form.ts:146` renders a hardcoded
         `<span class="jpdb-reader-language-target" lang="ja">日本語 — Japanese</span>`. Two small edits
@@ -632,10 +861,11 @@ The measured picture, all re-verified this pass:
       Shortcuts screen translator** modelled on Tap Translate, to read any app and not just Safari;
       React Native so web/Android/iOS share one build; offline SRS on a train. **Gated on U4** — the
       Safari OOM, the copy/paste interference, the startup overlay on every site, and per-site settings.
-- [ ] **D37 — extend the existing PWA to Study.** Rescoped, and cheaper than the backlog implies:
-      `docs/public/video-player/` already ships `manifest.webmanifest` **and** `sw.js`, so the video
-      player is installable today. What is missing is a PWA for the Study/newtab surface — which is
-      what was actually wanted (offline reviews on a train) and is the cheap front half of offline SRS.
+- [x] **D37 — CORRECTED 2026-07-28. The Study PWA is not missing; it ships.** This entry said "what is
+      missing is a PWA for the Study/newtab surface". Wrong: `public/newtab/manifest.webmanifest` and
+      `sw.js` both ship and deploy to `docs/public/study/`, so Study is installable today alongside the
+      video player. The real work is a repair of five defects that suppress installability and discovery,
+      tracked as **A16**. Superseded, not open.
 - [ ] **U41 / U92 — gaming: the target is capture-anything, not a game client.** Much of the mechanical
       work landed in 1.8.16/1.8.17 (see the ledger) and the app is materially better, but the two
       structural asks are open: route inline lookup through the reader's own `boot` +
@@ -702,7 +932,7 @@ The measured picture, all re-verified this pass:
 - [ ] **E3 — Academy source material, generalised to 32 languages.** Japanese Academy is based on the
       learning pack plus sensei's Moodle courses. Every other target needs an equivalently
       high-quality reference set and those do not exist — a research task per language. **Disk, not
-      licensing, was the stated constraint**, and an external SSD is plugged in.
+      disk space, was the stated constraint**, and an external SSD is plugged in. (Licensing is closed — A22.4.)
 - [ ] **The Academy infrastructure defects, which are NOT postponed** (they are reached by reader
       users): the media **403** on
       `…/academy/media/audio/v1/persona/no-more-what-ifs-instrumental.flac`; CSP blocking an inline
@@ -1554,26 +1784,21 @@ explicit list of targets with NO usable source, so the affordance can degrade vi
 [owner 2026-07-26] "for academy - keep it gated by donation but also have codes I can give them.
 Also for some of our current donators they didn't even get keys despite donating."
 
-Corrects A8's note: the donation gate is INTENTIONAL and stays. Verification on 2026-07-28 found
-that both supporting mechanisms already existed, while automatic Ko-fi/Patreon delivery did not.
+Corrects A8's note: the donation gate is INTENTIONAL and stays. Two things are missing.
 
 **a) OWNER-GRANTABLE CODES.** Henry needs to hand access to people directly — he has already promised
 it publicly in Discord ("anyone in the discord I will give access to the academy", and to the first
-Patreon subscriber "it will give you access to the academy once it's ready"). **Already present:**
-the admin invite endpoint mints owner-issued codes, and the admin payment-code endpoint recovers the
-deterministic code for a verified provider reference. Provider references stay admin-only.
+Patreon subscriber "it will give you access to the academy once it's ready"). Needs a way to mint
+and issue codes outside the donation flow, and to see who holds what.
 
-**b) BUG — PAYING DONORS RECEIVED NO KEY.** **PARTIALLY REPRODUCIBLE; delivery fixed 2026-07-28.**
-The live aggregate showed one active Patreon entitlement with one code minted and zero redemptions.
-The canonical payment bridge had succeeded. Ko-fi and Patreon had no automatic delivery step, while
-Stripe required the paying browser to keep its claim cookie and return through `/claim`.
-
-The provider webhook now sends the code to the verified payment email. Academy D1 keeps the opaque
-delivery id, state, and attempts; it does not keep the recipient or redeemable code.
-Missing recipients enter a manual-required state and the scheduled audit reports count-only alerts.
-Historical unredeemed purchases enter the same recovery queue. Codes retain the existing 30-day
-redemption window; the redeemed entitlement is permanent. Owner/admin recovery remains available
-when a provider cannot supply an address.
+**b) BUG — PAYING DONORS RECEIVED NO KEY.** Some people donated and never got access. That is the
+worst class of bug in the product: they paid, and nothing arrived. Investigate the donation →
+entitlement → code-issue path end to end (`support.yomureader.com/donate`, the entitlement gate at
+`/academy/`, migrations `0007_invite_account_requirement` / `0008_all_invites_require_account`), find
+where issuance drops, and **reconcile retroactively** — identify every donor without a key and issue
+one. Then add a check so a completed donation without an issued key is detectable rather than silent.
+Note the related unknown from A8: the leg AFTER Google consent is untested, and that is exactly where
+account linking and entitlement would fail quietly.
 
 Also still true and worth fixing alongside: **there is no account control on `/academy/` or `/study/`
 at all** (U42) — so even a donor with a valid key has nowhere to sign in on the surfaces that need it.
@@ -1685,24 +1910,31 @@ Signed in with Google, the account control says **"Signed in as Learner"** and t
 falling back to a generic role label rather than the Google account's name or email. After signing in
 with Google, a user should see themselves — this alone makes a working sign-in feel broken.
 
-## U52. USERS WHO SIGNED UP ARE NOT RECEIVING CODES — PARTIALLY REPRODUCIBLE; PAYMENT DELIVERY FIXED
+## U52. USERS WHO SIGNED UP ARE NOT RECEIVING CODES — BLOCKER, fix before anything else
 [owner 2026-07-26] "also users are not getting codes even if they did sign up"
 
-**Verification 2026-07-28:** the ticket mixed two flows. Plain Google or Reader signup creates an
-account. A verified payment or owner-issued invite creates Academy access. Seeing `No paid code`
-after signup alone does not prove that payment issuance failed.
+Broader than U47 (which was donors specifically). **Signing up does not deliver a code at all.**
+So the funnel is: user signs up → receives nothing → cannot access Academy → the product looks dead.
+The owner's own screenshot corroborates it: signed in, and `Academy access: No paid code`.
 
-The paid case did reproduce at the delivery boundary. Live D1 aggregates showed one active paid
-Patreon member, one code minted, and zero redemptions. Current code and history contradicted the
-recorded cause: a signed webhook bridge, permanent provider entitlement, deterministic code, and
-owner/admin grant path already existed. No code path joins a payment email to a Google email.
+This is the top of the queue, above every UX and multilanguage item. Sequence:
+1. **Trace the issuance path end to end** — sign-up/donation → entitlement → code minted → code
+   DELIVERED (email? on-screen? Patreon message?). Establish which step drops it, and whether a code
+   is even generated. Note nobody has confirmed the delivery CHANNEL exists — when the owner asked
+   the first Patreon subscriber "what happened when you subscribed on patreon, did it give you an
+   email or anything?", the answer was only "Yes I got it… nothing personalized". That is not
+   confirmation a code was sent.
+2. **Reconcile retroactively** — list every account that signed up or donated and has no code, and
+   issue one. These are real people who already paid or joined.
+3. **Add owner-grantable codes** (U47a) so Henry can hand access out directly, as he has already
+   promised publicly in Discord.
+4. **Add a detector** — a completed sign-up or donation with no issued code must raise an alert, not
+   fail silently. This has now gone unnoticed long enough to affect multiple users.
+5. **Make it visible in the UI** — `Academy access: No paid code` tells the user nothing about what
+   to do. It should say how to get one, and whether one is already owed to them.
 
-The fix keeps those identities separate. Academy HMACs the provider subject, creates one redeemable
-code, and binds it to the Google account that later redeems it. Stripe, Ko-fi, and Patreon use the
-verified provider email as a delivery address only. Stripe keeps the same-browser `/claim` flow as a
-fallback. A leased, PII-free delivery ledger prevents concurrent sends and a scheduled audit reports
-pending, retry, stale, or manual-required rows. The historical unredeemed row remains recoverable
-through the owner/admin path until delivery and redemption are observed.
+Related and probably the same root cause: U47 (donors with no keys), U48 (post-consent leg untested —
+`handleGoogleCallback` → `linkGoogleSubject` → entitlement is exactly where issuance would sit).
 
 ## U53. BACK BUTTON DOES NOT WORK on the Academy profile/sync view
 [owner 2026-07-26] Browser Back from `https://yomureader.com/academy/?view=profile-sync` does not
@@ -1744,19 +1976,30 @@ localized surface, and `tests/reader/settings-form/07-localization-mining-japane
 any English leaking into the ja rendering. Doing it half-way would leave the tree red. It needs a
 session with room to run the localization gate after each edit.
 
-## U55. DONATION EMAIL ≠ GOOGLE EMAIL — ROOT-CAUSE THEORY REFUTED
+## U55. DONATION EMAIL ≠ GOOGLE EMAIL — the probable ROOT CAUSE of U47/U52
 [owner 2026-07-26] "also what if they donate with a different email to their gmail"
 
-The concern was reasonable, but the implementation does not match accounts by email. Provider
-subjects and transactions cross the private bridge, then Academy stores HMACed identifiers. The
-deterministic code becomes account access only when its holder redeems it after Google sign-in.
-A different Google email therefore cannot block entitlement creation or redemption.
+**This is very likely why donors and sign-ups get no code.** Entitlement is bound to the GOOGLE
+identity (`linkGoogleSubject`, `workers/yomu-academy/src/oauth.ts:154-160`), while the money arrives
+through Patreon / Ko-fi / Stripe carrying **whatever email that platform holds**. Patreon accounts are
+routinely not Gmail; Stripe uses the card's billing email; Ko-fi its own. If issuance matches on
+email, every mismatched donor silently gets nothing — which is exactly the reported symptom, and it
+explains why it affects *some* donors and not others.
 
-The provider email now serves one purpose: the support Worker sends the code there after a signed
-webhook is accepted. The address and code stay out of the delivery ledger. If the provider omits or
-supplies an invalid address, the row enters manual recovery and raises a PII-free alert. Henry can
-recover the deterministic payment code by admin-only provider reference or issue a separate owner
-code. Multiple-email account matching is not part of this fix because no email join is needed.
+Verify first (cheap): take a donor known to have received nothing and compare the donation email
+against their Google account email. One case confirms or kills the theory.
+
+Fix direction — do NOT keep email as the join key:
+1. **Issue the code to the PAYMENT platform's own channel** — the Patreon/Ko-fi/Stripe receipt or DM,
+   at the moment of payment. Then it reaches them regardless of which email they use, and does not
+   depend on a later Google link. This alone fixes the funnel.
+2. **Redeem, don't match.** The user activates the code against whichever Google account they sign in
+   with. Entitlement then belongs to the account that redeemed it, and email never has to agree.
+3. **Fallback for the already-affected:** owner-grantable codes (U47a) plus a way to look up a
+   donation by email OR platform handle and issue a code manually.
+4. Support **multiple emails per account** so a donation email can be attached after the fact.
+Note the same class of problem exists for Patreon-tier → entitlement generally: no linkage exists
+between "supporter on Patreon" and "account in Yomu".
 
 ## U56. SUPPORT USERNAMES
 [owner 2026-07-26] "and can you support usernames"
@@ -2879,7 +3122,7 @@ Japanese Academy is based on the **learning pack** (nyaa.si/view/1372367) plus *
 courses**, already saved to Documents. Every other target language needs an equivalently
 high-quality reference set, and those do not exist yet — finding them is a research task per language
 (the owner asked for researcher threads on this). **An external SSD is plugged in for the packs** —
-disk, not licensing, was the stated constraint. Licensing remains out of scope per the standing note.
+disk, not licensing, was the stated constraint. Licensing is closed entirely — see A22.4.
 
 ## E4. Disk: carefully trim Codex sessions — do NOT blindly delete  [OPEN]
 Most of the machine's disk is `~/.codex/sessions`. The owner's position has CHANGED from "never

@@ -3,6 +3,7 @@ import { SLICE1_LEARNER_LANGUAGES } from '../../../src/reader/dictionaries/catal
 const READ_METHODS = new Set(['GET', 'HEAD']);
 const IMMUTABLE_CACHE_CONTROL = 'public, max-age=31536000, immutable';
 const MANIFEST_CACHE_CONTROL = 'public, max-age=300, must-revalidate';
+const EDGE_CACHE_HEADER = 'x-yomu-edge-cache';
 const ALLOWED_RECOMMENDATION_LANGUAGES = new Set<string>(SLICE1_LEARNER_LANGUAGES);
 const CONTENT_OBJECT_PATTERN = /^objects\/sha256\/([a-f0-9]{64})\.zip$/;
 const RECOMMENDATION_PATTERN = /^v1\/recommendations\/([a-z]{2,3})-ja\.json$/;
@@ -37,18 +38,36 @@ interface DictionaryWorkerEnv {
   DICTIONARY_BUCKET: DictionaryObjectStore;
 }
 
+// A Worker on a route runs in front of the zone cache, so reads through the R2
+// binding never populate it on their own: without this, every request pays a
+// Class B operation and a bucket round trip no matter how long the
+// Cache-Control we send lives in the browser.
+export interface DictionaryEdgeCache {
+  match(request: Request): Promise<Response | undefined>;
+  put(request: Request, response: Response): Promise<void>;
+}
+
+interface DictionaryExecutionContext {
+  waitUntil?(promise: Promise<unknown>): void;
+}
+
 interface RequestedRange {
   offset: number;
   length: number;
 }
 
 export default {
-  async fetch(request: Request, env: DictionaryWorkerEnv): Promise<Response> {
+  async fetch(request: Request, env: DictionaryWorkerEnv, ctx?: DictionaryExecutionContext): Promise<Response> {
     try {
-      return await handleDictionaryRequest(request, {
-        head: key => env.DICTIONARY_BUCKET.head(key),
-        get: (key, options) => env.DICTIONARY_BUCKET.get(key, options),
-      });
+      return await handleDictionaryRequest(
+        request,
+        {
+          head: key => env.DICTIONARY_BUCKET.head(key),
+          get: (key, options) => env.DICTIONARY_BUCKET.get(key, options),
+        },
+        edgeCache(),
+        promise => ctx?.waitUntil?.(promise),
+      );
     } catch (error) {
       console.error(JSON.stringify({
         event: 'yomu_dictionary_worker_error',
@@ -62,10 +81,15 @@ export default {
     }
   },
 } satisfies {
-  fetch(request: Request, env: DictionaryWorkerEnv): Promise<Response>;
+  fetch(request: Request, env: DictionaryWorkerEnv, ctx?: DictionaryExecutionContext): Promise<Response>;
 };
 
-export async function handleDictionaryRequest(request: Request, store: DictionaryObjectStore): Promise<Response> {
+export async function handleDictionaryRequest(
+  request: Request,
+  store: DictionaryObjectStore,
+  edge?: DictionaryEdgeCache | null,
+  waitUntil?: (promise: Promise<unknown>) => void,
+): Promise<Response> {
   if (request.method === 'OPTIONS') return corsPreflight();
   const method = request.method.toUpperCase();
   if (!READ_METHODS.has(method)) {
@@ -87,7 +111,50 @@ export async function handleDictionaryRequest(request: Request, store: Dictionar
       headers: { 'cache-control': 'no-store' },
     });
   }
-  return await serveDictionaryObject(request, store, key);
+
+  const cacheKey = edgeCacheKey(request);
+  if (edge && cacheKey) {
+    const hit = await edge.match(cacheKey).catch(() => undefined);
+    if (hit) return edgeCacheHit(request, key, hit);
+  }
+
+  const response = await serveDictionaryObject(request, store, key);
+  if (!cacheKey) return response;
+  if (edge && response.status === 200) {
+    // Store the copy before the miss marker goes on, so a later hit does not
+    // serve a response that calls itself a miss.
+    const write = edge.put(cacheKey, response.clone()).catch(() => undefined);
+    if (waitUntil) waitUntil(write);
+    else await write;
+  }
+  response.headers.set(EDGE_CACHE_HEADER, 'miss');
+  return response;
+}
+
+function edgeCache(): DictionaryEdgeCache | null {
+  if (typeof caches === 'undefined') return null;
+  return (caches as unknown as { default?: DictionaryEdgeCache }).default ?? null;
+}
+
+// One entry per object, keyed by URL alone. Range and conditional headers are
+// dropped so every variant shares the stored full response; the Cache API
+// rejects a 206 anyway.
+function edgeCacheKey(request: Request): Request | null {
+  if (request.method.toUpperCase() !== 'GET') return null;
+  if (request.headers.has('range')) return null;
+  return new Request(new URL(request.url).toString(), { method: 'GET' });
+}
+
+function edgeCacheHit(request: Request, key: string, hit: Response): Response {
+  const etag = hit.headers.get('etag');
+  if (etag && etagMatches(request.headers.get('if-none-match'), etag)) {
+    const revalidated = notModified(request, key, etag);
+    revalidated.headers.set(EDGE_CACHE_HEADER, 'hit');
+    return revalidated;
+  }
+  const headers = new Headers(hit.headers);
+  headers.set(EDGE_CACHE_HEADER, 'hit');
+  return new Response(hit.body, { status: hit.status, statusText: hit.statusText, headers });
 }
 
 export function objectKeyForRequestPath(path: string): string | null {
@@ -251,7 +318,7 @@ function corsPreflight(): Response {
 function responseWithCors(request: Request, body: BodyInit | null, init: ResponseInit): Response {
   const headers = new Headers(init.headers);
   headers.set('access-control-allow-origin', '*');
-  headers.set('access-control-expose-headers', 'ETag, Content-Length, Content-Range, Accept-Ranges, X-Content-SHA256');
+  headers.set('access-control-expose-headers', 'ETag, Content-Length, Content-Range, Accept-Ranges, X-Content-SHA256, X-Yomu-Edge-Cache');
   headers.set('x-content-type-options', 'nosniff');
   if (!headers.has('content-type') && body !== null) headers.set('content-type', 'text/plain; charset=utf-8');
   return new Response(request.method === 'HEAD' ? null : body, { ...init, headers });

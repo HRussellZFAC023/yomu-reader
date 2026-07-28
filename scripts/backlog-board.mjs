@@ -23,7 +23,20 @@ const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const outArg = process.argv.indexOf('--out');
 const outPath = outArg > -1 ? process.argv[outArg + 1] : resolve(root, 'backlog-board.html');
 
-const STATUS_LABEL = { open: 'Open', done: 'Done', part: 'Part done', stale: 'Stale', blocked: 'Blocked' };
+// Blocked status is DECLARED, never guessed. Write `BLOCKED BY: <reason>` in a
+// ticket to mark it held, or `BLOCKS: <what>` to mark it the thing others wait on.
+//
+// Inference was tried and abandoned. Prose about a codebase says "blocks" for
+// reasons that have nothing to do with project dependencies: "the ruby markup
+// blocks the lookup path" is a mechanism, "non-blocking" is the opposite of a
+// block, and "blocked cross-origin uploads" is a browser behaviour. All three were
+// read as held work. A wrong blocker list is worse than no blocker list, because
+// it hides the real ones — the 401 that two threads are waiting on was buried
+// among four false positives.
+const BLOCKED_BY_RE = /BLOCKED BY:\s*([\s\S]+)$/;
+const BLOCKS_RE = /BLOCKS:\s*([\s\S]+)$/;
+
+const STATUS_LABEL = { open: 'Open', done: 'Done', part: 'Part done', stale: 'Stale', blocked: 'Blocked', blocker: 'Blocking others' };
 
 const source = readFileSync(resolve(root, 'backlog.md'), 'utf8');
 const { epics, meta } = parseBacklog(source);
@@ -32,7 +45,7 @@ const counts = tally(epics);
 process.stdout.write(
     `backlog board -> ${outPath}\n`
     + `  epics ${epics.length} · tickets ${counts.total}`
-    + `  (open ${counts.open}, shipped ${counts.shipped}, stale ${counts.stale}, blocked ${counts.blocked})\n`,
+    + `  (open ${counts.open}, done/part ${counts.shipped}, blocked ${counts.blocked}, blocking ${counts.blocker}, stale ${counts.stale})\n`,
 );
 
 function parseBacklog(text) {
@@ -87,6 +100,7 @@ function parseBacklog(text) {
     for (const entry of epics) {
         for (const item of entry.tickets) {
             item.status = statusOf(item);
+            item.blockReason = item.status === 'blocked' || item.status === 'blocker' ? blockReasonOf(item) : '';
             item.severity = severityOf(entry, item);
             item.title = titleOf(item);
             item.detail = detailOf(item);
@@ -103,19 +117,52 @@ function parseBacklog(text) {
     };
 }
 
+/**
+ * Status, in the order that a wrong answer costs the most.
+ *
+ * The distinction the first version of this missed: a ticket that BLOCKS other
+ * work is not itself blocked. `A5` ("the 401 blocks both threads") is the thing
+ * everyone is waiting on and should be near the top of the list; treating it as
+ * "blocked" buried it. The two now read as `blocker` and `blocked`.
+ *
+ * It also matched the word inside `non-blocking`, which is how a ruling that
+ * licensing is settled came out as blocked work.
+ */
 function statusOf(item) {
     if (item.done) return 'done';
     const text = item.text;
-    if (/\bSTALE\b/.test(text)) return 'stale';
-    if (/\bBLOCK(?:S|ED|ING)?\b/i.test(text) && /\bblock(?:s|ed|ing)\b/i.test(text)) return 'blocked';
-    if (/\b(?:DONE|SHIPPED)\b/.test(text) && /\bNOT DONE\b/.test(text)) return 'part';
+    // "is STALE" / "STALE:" marks THIS ticket. A ticket that merely says another
+    // entry is stale (A16 reporting on D37) is not itself stale — that mislabelled
+    // two live tickets as dead ones.
+    if (/^STALE\b/.test(text) || /\bTHIS IS STALE\b/i.test(text)) return 'stale';
+    if (/\bNOT DONE\b/.test(text) || /\bhalf done\b/i.test(text)) return 'part';
+    if (BLOCKED_BY_RE.test(text)) return 'blocked';
+    if (BLOCKS_RE.test(text)) return 'blocker';
     if (/\b(?:DONE|SHIPPED)\b/.test(text)) return 'part';
     return 'open';
+}
+
+/**
+ * Why a ticket cannot move. Prefers the explicit marker; otherwise lifts the
+ * clause that carries the blocking language, so the card says something true
+ * rather than "blocked" with no reason a reader can act on.
+ */
+function blockReasonOf(item) {
+    const held = item.text.match(BLOCKED_BY_RE);
+    if (held) return tidy(held[1]);
+    const holds = item.text.match(BLOCKS_RE);
+    return holds ? tidy(holds[1]) : '';
+}
+
+function tidy(value) {
+    const core = value.replace(/\s+/g, ' ').trim();
+    return core.length > 300 ? `${core.slice(0, 297)}…` : core;
 }
 
 // Severity is about consequence, not effort: things that are wrong for a real
 // user outrank things that are merely unfinished.
 function severityOf(epic, item) {
+    if (item.status === 'blocker') return 'critical';
     const text = `${epic.title} ${item.text}`;
     if (/most time-critical|cannot be run server-side|blocks every release|blocks both|privacy|401/i.test(text)) return 'critical';
     if (/\bbug\b|does not|do not look up|not saving|does not close|silently|broken|regress/i.test(text)) return 'high';
@@ -159,6 +206,7 @@ function tally(epics) {
         part: all.filter(item => item.status === 'part').length,
         stale: all.filter(item => item.status === 'stale').length,
         blocked: all.filter(item => item.status === 'blocked').length,
+        blocker: all.filter(item => item.status === 'blocker').length,
         shipped: all.filter(item => item.status === 'done' || item.status === 'part').length,
         critical: all.filter(item => item.severity === 'critical').length,
     };
@@ -266,6 +314,12 @@ function renderBoard(epics, meta) {
   .chip { margin-left: auto; border: 1.5px solid var(--rule); border-radius: 2px 7px 2px 7px; padding: 2px 8px; color: var(--pencil); font-size: 0.68rem; letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap; }
   .chip.st-done, .chip.st-part { border-color: var(--accent); color: var(--accent); }
   .chip.st-stale, .chip.st-blocked { border-color: var(--crit); color: var(--crit); }
+  /* The reason a ticket cannot move is the most actionable line on the card, so
+     it sits above the description rather than buried in it. */
+  .why { margin: 0 0 8px; border-left: 3px solid var(--crit); padding: 6px 0 6px 10px; color: var(--paper-ink); font-size: 0.83rem; line-height: 1.45; }
+  .why span { display: block; color: var(--crit); font-size: 0.66rem; font-weight: 800; letter-spacing: 0.09em; text-transform: uppercase; }
+  .chip.st-blocker { border-color: var(--crit); color: var(--crit); }
+  .total.is-block { border-color: var(--crit); }
   .ticket h3 { margin: 0 0 7px; font-size: 0.99rem; line-height: 1.35; text-wrap: balance; }
   .ticket p { margin: 0; color: var(--pencil); font-size: 0.855rem; }
   .ticket p.clamped { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
@@ -284,6 +338,7 @@ function renderBoard(epics, meta) {
     <p class="total"><b>${counts.total}</b><span>Tickets</span></p>
     <p class="total"><b>${counts.open}</b><span>Open</span></p>
     <p class="total"><b>${counts.shipped}</b><span>Done / part</span></p>
+    <p class="total is-block"><b>${counts.blocked + counts.blocker}</b><span>Blocked</span></p>
     <p class="total is-crit"><b>${counts.critical}</b><span>Critical</span></p>
   </div>
 </header>
@@ -291,7 +346,9 @@ function renderBoard(epics, meta) {
 <div class="controls">
   <input id="q" type="search" placeholder="Filter by id, word, or epic" aria-label="Filter tickets">
   <button type="button" data-filter="all" aria-pressed="true">All</button>
-  <button type="button" data-filter="open" aria-pressed="false">Open only</button>
+  <button type="button" data-filter="open" aria-pressed="false">Open</button>
+  <button type="button" data-filter="blocked" aria-pressed="false">Blocked \u0026 blocking</button>
+  <button type="button" data-filter="done" aria-pressed="false">Done</button>
   <button type="button" data-filter="critical" aria-pressed="false">Critical</button>
   <button type="button" data-filter="bug" aria-pressed="false">Defects</button>
 </div>
@@ -319,6 +376,8 @@ ${epic.tickets.map(ticket => renderTicket(ticket, epic)).join('\n')}
       const matchesText = !needle || ticket.dataset.search.includes(needle);
       const matchesMode = mode === 'all'
         || (mode === 'open' && ticket.dataset.status === 'open')
+        || (mode === 'blocked' && (ticket.dataset.status === 'blocked' || ticket.dataset.status === 'blocker'))
+        || (mode === 'done' && (ticket.dataset.status === 'done' || ticket.dataset.status === 'part'))
         || (mode === 'critical' && ticket.dataset.severity === 'critical')
         || (mode === 'bug' && ticket.dataset.severity !== 'normal');
       const show = matchesText && matchesMode;
@@ -359,5 +418,6 @@ function renderTicket(ticket, epic) {
           <span class="chip st-${ticket.status}">${STATUS_LABEL[ticket.status]}</span>
         </header>
         <h3>${esc(ticket.title)}</h3>
+${ticket.blockReason ? `        <p class="why"><span>${ticket.status === 'blocker' ? 'Blocks' : 'Blocked by'}</span>${esc(ticket.blockReason)}</p>\n` : ''}
 ${ticket.detail ? `        <p class="${long ? 'clamped' : ''}">${esc(ticket.detail)}</p>\n${long ? '        <button class="more" type="button">More</button>\n' : ''}` : ''}      </article>`;
 }
