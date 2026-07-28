@@ -199,6 +199,8 @@ const MINING_BOOLEAN_SETTING_KEYS = [
     'dictionarySourcesInitiallyExpanded',
 ] as const;
 const SUBTITLE_BOOLEAN_SETTING_KEYS = [
+    'subtitleOverlayVisibleChosen',
+    'subtitleSecondaryVisibleChosen',
     'subtitleNativeBlurred',
     'subtitleKaraokeMode',
     'subtitlePausePanel',
@@ -479,6 +481,8 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     subtitleAutoDetect: true,
     subtitleOverlayVisible: false,
     subtitleSecondaryVisible: false,
+    subtitleOverlayVisibleChosen: false,
+    subtitleSecondaryVisibleChosen: false,
     subtitleNativeBlurred: true,
     subtitleKaraokeMode: true,
     subtitleTranscriptVisible: false,

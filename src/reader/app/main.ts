@@ -3997,6 +3997,7 @@ export class ReaderApp {
     private toggleSubtitleOverlayFromShortcut(event: KeyboardEvent): void {
         event.preventDefault();
         this.settings.subtitleOverlayVisible = !this.settings.subtitleOverlayVisible;
+        this.settings.subtitleOverlayVisibleChosen = true;
         void saveSettings(this.settings);
         this.subtitles.refresh();
         log.info('Shortcut toggled subtitle overlay', { visible: this.settings.subtitleOverlayVisible });

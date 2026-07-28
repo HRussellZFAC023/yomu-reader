@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.8.21
+// @version 1.8.22
 // @author Henry Russell
 // @description Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and a study page.
 // @license MIT
@@ -17,12 +17,12 @@
 // @require https://yomureader.com/greasyfork/yomu-kanji-study.eb361d096dfe.user.js#sha256=6zYdCW3+o8K1t4/Lpu5JVAxD4Urs4LuSTvrim+awjDE=
 // @require https://yomureader.com/greasyfork/yomu-ocr-manga.b34ce4e36bf0.user.js#sha256=s0zk42vwv2fHHs9QmcSOgoJfGHWzU0zOm48bL5Qvsrk=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.4a28175bf045.user.js#sha256=SigXW/BFi4724aLylfUOsJu6kSPrJLpVJbsbno/xd5Y=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.2f4471fd2432.user.js#sha256=L0Rx/SQytjKLhUyOFojLZ3LgHUTqzXG9skwGQiKhzHI=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.374ec0ff6aec.user.js#sha256=N07A/2rsoSCUZYmYXmvrnO3ecsND1HckJEjlZ6OZHQs=
 // @require https://yomureader.com/greasyfork/yomu-bunpro.ed6f0a80fc18.user.js#sha256=7W8KgPwYxsHfeSwDT+nlI6AOum4rF09KnspCasnr2hU=
 // @require https://yomureader.com/greasyfork/yomu-jpdb.9b9f9210b91a.user.js#sha256=m5+SELkaWw6/08p5fXclLIoVnp19JOjdJWRyugMHzaw=
 // @require https://yomureader.com/greasyfork/yomu-jiten.eb55e358c388.user.js#sha256=61XjWMOIhfNgRBqYcqqpWJJvSh6MzYDON7rDVVMaQzI=
 // @require https://yomureader.com/greasyfork/yomu-wanikani.5cad49b05a48.user.js#sha256=XK1JsFpIF1l7krzTfuLsxxGg91bPIFjSTBRyUOC70ts=
-// @require https://yomureader.com/greasyfork/yomu-video.0887d4f76836.user.js#sha256=CIfU92g2bVC2sVl9wLv2YUxAZL0a7CbG6T8At6iCGXA=
+// @require https://yomureader.com/greasyfork/yomu-video.82a41cfd0e4f.user.js#sha256=gqQc/Q5P+y0hwHaohQYhw2lwY/0boqa0l+471KiBlb4=
 // @resource yomuCss  https://yomureader.com/yomu.edbe1dbd1762.css#sha256=7b4dvRdiI6B29BxB73+fT5kP+IAbrgJpdh4fHwCUjiY=
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -6662,6 +6662,8 @@ const MINING_BOOLEAN_SETTING_KEYS = [
   "dictionarySourcesInitiallyExpanded"
 ];
 const SUBTITLE_BOOLEAN_SETTING_KEYS = [
+  "subtitleOverlayVisibleChosen",
+  "subtitleSecondaryVisibleChosen",
   "subtitleNativeBlurred",
   "subtitleKaraokeMode",
   "subtitlePausePanel",
@@ -6929,6 +6931,8 @@ const DEFAULT_SETTINGS = {
   subtitleAutoDetect: true,
   subtitleOverlayVisible: false,
   subtitleSecondaryVisible: false,
+  subtitleOverlayVisibleChosen: false,
+  subtitleSecondaryVisibleChosen: false,
   subtitleNativeBlurred: true,
   subtitleKaraokeMode: true,
   subtitleTranscriptVisible: false,
@@ -30676,8 +30680,8 @@ function collapseWhitespace(value) {
   return value.replace(/\/\*[\s\S]*?\*\//gu, " ").replace(/\s+/gu, " ").trim();
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.21"}`;
-const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.21"}`;
+const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.22"}`;
+const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.22"}`;
 const READER_CSS_CACHE_KEY = "yomu:reader-css-cache:v3";
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
@@ -30820,7 +30824,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.8.21"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.8.22"}`;
   } catch {
   return null;
   }
@@ -34488,6 +34492,7 @@ class ReaderApp {
   toggleSubtitleOverlayFromShortcut(event) {
   event.preventDefault();
   this.settings.subtitleOverlayVisible = !this.settings.subtitleOverlayVisible;
+  this.settings.subtitleOverlayVisibleChosen = true;
   void saveSettings(this.settings);
   this.subtitles.refresh();
   log.info("Shortcut toggled subtitle overlay", { visible: this.settings.subtitleOverlayVisible });
