@@ -32,13 +32,18 @@ Yomu lays its own subtitle line over the video:
 - **Shortcuts** — previous subtitle, next subtitle, copy subtitle, and mine. The panel can be set to open only while the video is paused, and becomes a bottom sheet on phones so the video stays usable.
 
 <figure class="yomu-feature-shot">
-  <img :src="'/screenshots/store-02-youtube-subtitles.png'" alt="The よむ subtitle overlay and transcript panel open on a live Comprehensible Japanese YouTube video.">
-  <figcaption>Subtitle overlay and transcript on a live Comprehensible Japanese video.</figcaption>
+  <img :src="'/screenshots/real-youtube-subtitles.webp'" alt="The よむ subtitle line annotated over a real YouTube video, with the transcript rail open beside it.">
+  <figcaption>The subtitle line and the transcript, on a real YouTube page.</figcaption>
 </figure>
 
 ## Your own video files, no desktop bridge
 
 For local files, open the free [よむ video player](/video-player/index.html), choose a browser-supported video, and use the **Subtitles** button to add Japanese or native subtitle files. The page creates normal browser video and text tracks, so the same overlay and transcript tools work **without a desktop bridge**.
+
+<figure class="yomu-feature-shot">
+  <img :src="'/screenshots/real-video-player.webp'" alt="The よむ video player with a local video open, the Japanese subtitle line annotated on the picture and the transcript rail listing every line.">
+  <figcaption>The video player, running a local file and its subtitle track.</figcaption>
+</figure>
 
 ## Sentence mining to Jiten, JPDB, or Anki
 

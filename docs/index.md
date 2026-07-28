@@ -111,7 +111,7 @@ description: Press a word on any Japanese page, video, manga panel or PDF for it
   <figure class="yomu-band-frame yomu-band-pair" data-yomu-ocr="ignore">
     <img class="yomu-pair-a" src="/home/keep-press.webp" width="1034" height="562" loading="lazy" decoding="async" alt="Example sentences with audio inside the よむ popover, above the grading buttons that keep the word." />
     <svg class="yomu-pair-arrow" viewBox="0 0 120 60" aria-hidden="true" focusable="false"><path d="M4 12 L 84 12 L 84 46" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="square"/><path d="M74 36 L 84 50 L 94 36" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="square" stroke-linejoin="miter"/></svg>
-    <img class="yomu-pair-b" src="/home/study.webp" width="1300" height="813" loading="lazy" decoding="async" alt="The よむ Study page reviewing a saved word in a sentence." />
+    <img class="yomu-pair-b" src="/home/study.webp" width="1300" height="813" loading="lazy" decoding="async" alt="The よむ Study page on the Type step, with the answer typed in and marked correct." />
     <figcaption>One press in the popover, and the word is waiting on your new tab.</figcaption>
   </figure>
 </section>

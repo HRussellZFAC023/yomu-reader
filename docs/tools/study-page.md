@@ -34,8 +34,8 @@ On a fresh install, Study sends you to **Settings → Dictionaries** first so it
 Whatever's connected, the same pool of words feeds every step of the review below.
 
 <figure class="yomu-feature-shot">
-  <img :src="'/screenshots/real-newtab.png'" alt="The よむ study page on the Recall step, with an example sentence and the target word blanked out for you to type back in.">
-  <figcaption>One card, one short run of steps — here, filling the blank in a real sentence.</figcaption>
+  <img :src="'/screenshots/real-study-review.webp'" alt="The よむ Study page on the Type step, with the answer typed in and marked correct.">
+  <figcaption>One card, one short run of steps — here, checking a typed answer.</figcaption>
 </figure>
 
 ## One card, a few quick steps
