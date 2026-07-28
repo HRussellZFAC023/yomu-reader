@@ -1,4 +1,11 @@
 #!/usr/bin/env node
+// Cast sprite repair: strip a transparency CHECKERBOARD that a generator baked into
+// RGB, then resize to the canonical 1536x2048 master (docs/academy/art-review/
+// HOUSE-STYLE.md). Reach for academy:cast:chroma instead when the background is a
+// flat colour rather than a baked checker — that one keys off the corner mean, which
+// a two-tone checker defeats.
+//
+//   npm run academy:cast:remove-baked-matte -- <input.png> <output.png>
 
 import { mkdir } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
