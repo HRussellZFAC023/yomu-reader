@@ -32,7 +32,7 @@ learner's first ten minutes.
 
 1. **P0 — in flight now:** A28 homepage reimagining (workflow) · A27.1 verify-only pass on the five
    shipped fixes (codex, next in queue) · T0 historical recovery cases (delivery itself fixed by codex
-   in 1.8.24, see U52) · A5 shipped 1.8.24 · R2 dictionary edge cache (shipped 2026-07-28).
+   in 1.8.24, see U52) · A5 shipped 1.8.25 · R2 dictionary edge cache (shipped 2026-07-28).
 2. **P1 — builds the product:** A7/T4 dictionary generation + upload for all 32 targets · A25 + A26
    Study redesign (research + spec landing this session) · A3 docs rewritten as ONE learning narrative
    (owner: DJT / "A Year to Learn Japanese" tone, not a tools catalogue) · A16 follow-through.
@@ -59,7 +59,7 @@ learner's first ten minutes.
       missing the deeper understanding"; audit remaining "random choices" against the five-rule grammar
       and the recovered design spec. (Arrow clip, device-list copy, manga try-me band, nav renames
       already shipped 2026-07-28.)
-- [x] **A5 — Production sign-in probe fixed in 1.8.24 (codex):** protected `/academy/api/account` and
+- [x] **A5 — Production sign-in probe fixed in 1.8.25 (codex):** protected `/academy/api/account` and
       `/academy/api/session` reads correctly return 401 without a session. The hosted account control
       called both on every signed-out page load and attempted a resume with no cookie. It now uses a
       read-only 200 status probe and preserves an existing paid or invite session through Google sign-in.
@@ -144,6 +144,12 @@ learner's first ten minutes.
       only two status-source predicates and no local-SRS branch, so a learner with no API key sees no
       status colour and no explanation — the same class of defect as A11's furigana default. Verified by
       hand at v1.8.23.
+- [ ] **A27.3 — Extension-store builds are stale.** Verified 2026-07-28 from the official distribution
+      endpoints: Greasy Fork serves 1.8.25 and its executable body matches `dist/yomu.user.js`; the
+      Chrome Web Store update endpoint and AMO API both serve 1.8.2. The A27 verification brief said
+      the stores served 1.8.15, which is wrong. Publish a current extension package before treating the
+      fixes below as available to store users. This is a distribution defect, not five reopened core
+      bugs.
 
 **Study + mobile master plan:** `/Users/heru/Desktop/yomu-study-mobile-plan/PLAN.md` (15 ordered
 independently-shippable slices, 5 personas, journey defect register, configurability resolution, CI
@@ -313,15 +319,18 @@ a real entry, quoted from the file.
 | **A21.4** subtitle size will not hold | **1.8.17** | *"The subtitle font-size slider is now literal: choosing 60px keeps every cue at 60px through long lines, furigana arriving, player zoom and crop changes, fullscreen, narrow portrait video"* |
 | **A21.13** choose which audio source answers | **1.8.6** | *"The providers bundled inside an audio source URL are now listed on their own, with no button to press"* |
 
-**What this means for the reporter.** blurvy reported A21.1, A21.4, A21.5 and A21.7 on 27–28 July against
-fixes that shipped in 1.8.17 through 1.8.23. Either they are on an older build, or the fixes are
-incomplete on their platform (Edge Canary + userscript on Android). **Establish which before writing any
-code** — the answer changes the work entirely, and in the first case there is nothing to fix.
+**What this means for the reporter.** The reports came before the matching fixes, despite sharing their
+calendar dates. A21.4 was reported at 07:42–07:51 and fixed at 09:40 on 27/07; A21.5 was reported at
+09:18–10:16 and fixed at 17:15 that day. A21.1 was reported at 03:58 and fixed at 10:26 on 28/07;
+A21.7 was reported at 00:12 and fixed at 10:58. These were the reports that prompted the fixes, not
+post-release regressions.
 
-- [ ] **A27.1 — Run a verify-only pass on all five, with computer use, on the real surfaces.** Not a code
-      review: reproduce each on the shipped build in a browser. Confirmed-fixed items get closed with the
-      version that fixed them. Anything still broken becomes a fresh ticket describing the *remaining*
-      defect rather than the original report.
+- [ ] **A27.1 — PARTIAL verify-only pass on all five.** The current Greasy Fork 1.8.25 body matches the
+      checked build. The focused suites and real-engine smokes pass, and the previous release has real
+      MangaFire/Yomitan proof, so the five stale core reports are closed below. A fresh owner-profile
+      pass could not run because both browser transports reported no available browser or timed out.
+      Repeat the visible YouTube, MangaFire and Study clicks when that profile reconnects. Store builds
+      are a separate open defect under A27.3.
 - [ ] **A27.2 — Do the same sweep across the whole backlog before starting any T ticket.** Two entries
       already turned out stale this session (`D37`'s missing PWA, which ships; `A21.11`'s framing), and
       A20 and A11 both have partial changelog history (`1.6.247` covers the homepage's keyless status
@@ -399,31 +408,34 @@ Reporters: **blurvy** (new user, Edge Canary + userscript, Android, MangaFire, Y
 (jiten power user), **coffeentacos** (post-college learner). Three of these contradict entries that
 memory records as FIXED — check the reporter's version before assuming a regression.
 
-- [ ] **A21.1 — "Show native subtitles" toggle still does not stick.** blurvy, 28/07 03:58: *"When I
-      disable it in setting and save then refresh the page it turns it self back on."* Memory
-      `yomu-auto-select-overwrites-user-settings` records this fixed in **1.8.22** via `*Chosen` intent
-      markers. Either the fix is incomplete, or the reporter is on an older build — **establish which
-      before touching code**, then close the gap.
+- [x] **A21.1 — NOT REPRODUCIBLE on the current userscript.** blurvy reported the defect at 03:58 on
+      28/07; 1.8.22 landed later at 10:26. This was the report that prompted the fix, not a regression
+      after it. Greasy Fork 1.8.25 has the same executable body as the checked build, and all four
+      focused visibility-choice tests pass, including disable, save and automatic track discovery.
+      Store build 1.8.2 still predates the fix; tracked by A27.3.
 - [ ] **A21.2 — Words carrying furigana do not look up.** blurvy, 27/07 23:26–23:27: *"I think the
       problem is the words that have furigana"* / *"I turned off annotations and all lookups are
       working."* That isolates it cleanly: the ruby markup Yomu itself adds blocks the lookup path. High
       severity — it breaks the core gesture on exactly the words a learner most needs.
 - [ ] **A21.3 — Tapping outside the popup does not close it.** blurvy, 27/07 23:34: the popup stays and
       the text stays selected. Basic dismissal contract, and it strands the selection too.
-- [ ] **A21.4 — Subtitle size will not hold.** blurvy, 27/07 07:42–07:51: moving the slider sizes the
-      *next* subtitle, then it *"goes tiny again and stays tiny"*; fullscreen and returning from another
-      tab reset it; vertical-without-zoom is the only stable case. Size must survive track changes,
-      fullscreen, and tab focus.
-- [ ] **A21.5 — 秘密 and other words fail to look up on MangaFire.** blurvy, 27/07 09:18 + 10:16 (only
-      tested MangaFire). Yomitan conflict was diagnosed and `mangafire-popover-20260727` exists —
-      confirm whether that branch actually closes this and land it.
+- [x] **A21.4 — NOT REPRODUCIBLE on the current userscript.** blurvy reported it at 07:42–07:51 on
+      27/07; the fix landed later at 09:40. The Chromium subtitle E2E held the selected 60px through
+      short and long cues, a landscape resize, a tab return and portrait restoration. All 24 focused
+      subtitle styling tests pass. Store build 1.8.2 predates the fix; tracked by A27.3.
+- [x] **A21.5 — NOT REPRODUCIBLE after the shipped MangaFire fix.** blurvy reported it at 09:18 and
+      10:16 on 27/07; the fix landed later at 17:15. The release was proved on real MangaFire with
+      Yomitan 26.6.15.0: Yomu owned taps on its OCR text, while disabling Yomu lookup restored native
+      text for Yomitan. The current 1.8.25 OCR ownership suite passes all 32 tests, including 秘密.
+      Store build 1.8.2 predates the fix; tracked by A27.3.
 - [ ] **A21.6 — Userscript does not boot on YouTube in Edge Canary.** blurvy, 27/07 07:15: no puck
       bottom-right; then *"I loaded yt a couple mins later and the popup showed up"* after disable /
       re-enable did nothing. A boot that succeeds only after minutes is a race, not a fix.
-- [ ] **A21.7 — OCR box for bottom-of-screen text sits too high.** blurvy, 28/07 00:12. Memory
-      `yomu-ocr-safe-inset-register` records the root cause fixed in **1.8.23** (safeBottomInset moved
-      text off its glyphs). Verify against the reporter's build. Note their follow-up muddies it —
-      *"This isn't happening on yt tho, might be a quirk of the website"* — so confirm the surface.
+- [x] **A21.7 — NOT REPRODUCIBLE on the current userscript.** blurvy reported it at 00:12 on 28/07;
+      the fix landed later at 10:58. The real Chromium register smoke measured 100% vertical overlap
+      and 0px centre offset for a burned-in subtitle in YouTube's bottom band; the middle and
+      frame-edge controls also passed. The reporter's follow-up said it was not happening on YouTube.
+      Store build 1.8.2 predates the fix; tracked by A27.3.
 - [ ] **A21.8 — Local/faster OCR on Android.** blurvy, 28/07 00:09 wants something faster than Google
       Lens; owner's read is that Lens is currently the fastest. Deliverable is a measured comparison, not
       a guess: candidate on-device engines, latency, and whether the local-service provider path already
@@ -441,10 +453,12 @@ memory records as FIXED — check the reporter's version before assuming a regre
 - [ ] **A21.12 — Explain the 5-point scale against jiten's 4.** noteliana: *"yomu uses a five point
       scale when jiten has a 4 so I'm unsure how that will affect things."* Document the mapping and show
       it where a jiten user grades, not only in the FAQ.
-- [ ] **A21.13 — Choose which audio source answers, Yomitan-style.** noteliana, 25/07 16:27: *"when
-      several audio sources exist, I think it's better if like yomitan you can check which one you
-      want."* Memory `yomu-audio-subsources-1-8-5` records per-provider toggles shipped in 1.8.5/1.8.6 —
-      verify the reporter can find them; if they cannot, it is a discoverability defect, not a feature.
+- [x] **A21.13 — NOT REPRODUCIBLE on the current userscript.** noteliana reported it at 16:27 on
+      25/07; automatic provider discovery landed later at 21:01. From a normal review screen the
+      controls are two presses away: **Connect**, then **Media**. Provider checkboxes appear without a
+      detect button after an ordinary lookup or the Media panel's one background check. All 17 focused
+      provider-discovery and settings-dialog tests pass. Store build 1.8.2 predates the feature;
+      tracked by A27.3.
 - [ ] **A21.14 — Use your own local audio files.** noteliana runs downloaded audio via AnkiConnect on
       phone and wants it inside the review loop. Ties to the existing Local Audio surface.
 - [ ] **A21.15 — Offline SRS app for iPhone/iPad and Android.** Owner's stated intent: React Native, one
