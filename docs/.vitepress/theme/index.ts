@@ -5098,11 +5098,21 @@ function watchHostedFoldRuntime(): void {
     const timer = window.setInterval(() => {
         elapsed += HOSTED_FOLD_WATCHDOG_TICK_MS;
         if (isHostedFoldSampleLive()) {
-            prompt.removeAttribute('data-yomu-runtime-missing');
+            // Only ever un-stamp before the fallback has been offered. Once a
+            // visitor has been shown "see it working below", swapping it back to
+            // the shorter live label moves the target out from under their
+            // pointer mid-press: the two states are 180px and 113px wide at the
+            // same origin, so the press lands on the label instead of the link
+            // and appears to do nothing. A late-booting runtime is not worth
+            // that; the link still goes somewhere true.
+            if (!prompt.dataset.yomuFoldFallbackShown) prompt.removeAttribute('data-yomu-runtime-missing');
             window.clearInterval(timer);
             return;
         }
-        if (elapsed >= HOSTED_FOLD_WATCHDOG_MS) prompt.setAttribute('data-yomu-runtime-missing', '');
+        if (elapsed >= HOSTED_FOLD_WATCHDOG_MS) {
+            prompt.setAttribute('data-yomu-runtime-missing', '');
+            prompt.dataset.yomuFoldFallbackShown = 'true';
+        }
         if (elapsed >= HOSTED_FOLD_WATCHDOG_GIVE_UP_MS) window.clearInterval(timer);
     }, HOSTED_FOLD_WATCHDOG_TICK_MS);
 }

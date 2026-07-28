@@ -116,6 +116,57 @@ gates, 8 open questions) with 7 concept images. Slice 5 deliberately ships the n
 *without* bands 4–6, because `U39` says every Study complaint is about density — so the extra bands can
 be judged or dropped on their own.
 
+### A23 — VERIFIED 2026-07-28: OCR overlay ignores CSS transforms (a bug class)
+
+Measured on the live site by two independent agents, second one adversarially. **CONFIRMED**, with the
+numbers reproduced to the pixel:
+
+- The OCR layer is a single `position: fixed` element mounted on `BODY` with `transform: "none"`, sized
+  from `getBoundingClientRect()`. For an image under `transform: rotate(-3deg)` that rect is the
+  **axis-aligned bounding box**: measured `rect 444.25×609.66` against `offsetWidth/Height 414×589`.
+- Lines are then placed linearly inside that inflated box, so a line's painted centre and the reader's
+  placement diverge: **~20px displacement on a 30.58px-wide column** for line 1.
+- The scale error is **anisotropic — 1.0731 in x against 1.0351 in y** (an earlier report calling it a
+  uniform scale was refuted; the aspect ratio itself shifts 0.703 → 0.729).
+- The AABB origin offset for `-3deg` on 414×589 is **0px horizontally and 21.67px above** the image's own
+  top-left. (A quoted "22px left and 15px above" was refuted; 15.41 is an intermediate term.)
+- `ocr-overlay-geometry.ts` contains **zero** transform handling (`grep -Ec 'transform|rotate|matrix|DOMMatrix'` → 0),
+  and **no test covers** `paintedImageFrame`, `imageContentBox`, `fittedObjectSize` or `objectPositionOffset`.
+- [ ] **A23.1 — Fix it generically**: read the image's computed transform, size the layer from the
+      untransformed box, and apply the same matrix and `transform-origin` to the layer. Not a per-site
+      patch — this serves BookWalker, MangaFire and YouTube paused frames, so it needs the missing unit
+      tests first plus the `scripts/ocr-line-register-smoke.mjs` real-engine guard.
+- [ ] **A23.2 — Check consumers of `.jpdb-ocr-line` rects.** Flagged UNVERIFIED: anything positioning UI
+      from a line's `getBoundingClientRect()` would start receiving AABBs once the layer is rotated. The
+      popup module was not located; settle it before landing A23.1.
+- **Correction to carry:** the screenshot that prompted this is **not** evidence.
+  `.jpdb-ocr-line { color: transparent }` (`reader-words-ocr.css:1604`), so the overlay is invisible at
+  rest; the glyphs visible in that image are baked into `docs/public/media/manga-ocr-sample.png`. The
+  misalignment is real and measured, but that picture does not show it.
+
+### A24 — Homepage critique from GPT-5.6-Sol at `ultra` reasoning (verified it really ran)
+
+Provenance checked: `gpt-5.6-sol`, `model_reasoning_effort=ultra`, 23,419-byte critique. (A claim that
+the CLI exposes only one model was refuted — 8 are listed, and `gpt-5.6-terra` also supports `ultra`.)
+
+- [ ] **A24.1 — The pitch legend is not just useless standing alone, it is incomplete.** The fold lists
+      three patterns (`docs/index.md:48-52`) but the reader ships **four** pitch classes
+      (`src/reader/lookup/pitch-accent.ts:6` — atamadaka/odaka/heiban/nakadaka, validated again at
+      `controller.ts:3823`) and **five visible pitch states**. Either explain the colours through the
+      feature that uses them, or delete the standalone legend. Do not ship a key that omits a colour the
+      page can paint.
+- [ ] **A24.2 — "1 Install / 2 Read" adds no information.** GPT's phrase for the install band's numbered
+      chips; they label a sequence that the button already implies.
+- [ ] **A24.3 — "Documentation theatre".** GPT's charge against docs that describe rather than teach —
+      the same defect the owner reports as word salad. Feeds A3.
+- [ ] **A24.4 — Funding framing.** GPT proposed "Fund the work, not access" and an amber navbar button.
+      Weigh against the owner's ruling that membership DOES include Academy access; the honest line is
+      about what it pays for, not what it withholds.
+- [ ] **A24.5 — Multilingual framing is architecturally constrained today.** `docs/multilingual/Decisions.md:7`
+      (MLT-001) freezes **32 learner languages with Japanese as the fixed target**. So the homepage's
+      Japanese-centred proof is accurate for now: any multilingual claim must describe definition-language
+      coverage, not study-target parity, until the target seam opens (T4/A7).
+
 ### A21 — USER FEEDBACK, Discord, 25–28 July 2026 (verbatim reports → tickets)
 
 Reporters: **blurvy** (new user, Edge Canary + userscript, Android, MangaFire, YouTube), **noteliana**

@@ -104,6 +104,7 @@ function openMembershipDialog(trigger: HTMLElement): void {
     if (!dialog.isConnected) document.body.append(dialog);
     dialog.hidden = false;
     document.documentElement.dataset.yomuMembershipOpen = 'true';
+    setBackgroundInert(true);
     if (!keydownBound) {
         document.addEventListener('keydown', handleKeydown, true);
         keydownBound = true;
@@ -115,8 +116,39 @@ function closeMembershipDialog(): void {
     if (!dialog || dialog.hidden) return;
     dialog.hidden = true;
     delete document.documentElement.dataset.yomuMembershipOpen;
+    setBackgroundInert(false);
     lastTrigger?.focus();
     lastTrigger = undefined;
+}
+
+/**
+ * Really make the background inert, rather than only trapping Tab.
+ *
+ * The W3C pattern this follows asks for an inert background, and a scripted Tab
+ * trap is not that: it leaves the page behind reachable by screen-reader
+ * virtual cursor, by find-in-page, and by any pointer that lands outside the
+ * panel. `inert` removes the subtree from the accessibility tree and from hit
+ * testing in one attribute, so the promise and the behaviour match.
+ *
+ * Applied to `document.body`'s element children except the dialog itself, since
+ * the dialog is mounted on body: marking body inert would include its own
+ * descendant and disable the panel too.
+ */
+function setBackgroundInert(active: boolean): void {
+    for (const node of document.body.children) {
+        if (!(node instanceof HTMLElement) || node === dialog) continue;
+        if (active) {
+            // Remember only what we changed, so a page that already marked
+            // something inert keeps it inert after the dialog closes.
+            if (!node.inert) node.dataset.yomuMembershipInerted = 'true';
+            node.inert = true;
+            continue;
+        }
+        if (node.dataset.yomuMembershipInerted) {
+            node.inert = false;
+            delete node.dataset.yomuMembershipInerted;
+        }
+    }
 }
 
 function handleKeydown(event: KeyboardEvent): void {
