@@ -319,6 +319,14 @@ const output = {
         status: 'Stasi identity-locked full-body v002 family bound to runtime; partial v001 sprites archived outside runtime.',
         runtimeReferencesAfterMigration: [],
     }, {
+        id: 'felix-partial-v001-to-illustrated-v002-family',
+        character: 'felix',
+        from: '/academy/art/characters/felix/felix__neutral__halfbody__v001.png',
+        to: '/academy/art/characters/felix/felix__neutral-curly-dark-blond-glasses-paper-cat__front-near-front__fullbody__v002.png',
+        decision: 'delete',
+        status: 'Felix identity-locked full-body v002 family bound to runtime; mixed-angle partial v001 sprites archived outside runtime.',
+        runtimeReferencesAfterMigration: [],
+    }, {
         id: 'rie-neutral-to-glasses-primary',
         character: 'rie',
         from: '/academy/art/characters/rie/rie__neutral__halfbody__v001.png',

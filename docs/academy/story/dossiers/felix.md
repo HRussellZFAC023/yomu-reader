@@ -5,7 +5,7 @@
 **Lead chapter:** `s1e17-catwalk-clue` (Ch 17)
 **Continuity beats:** 17 (Arrival + lead) · 21 (Contribution) · 29 (Limit) · 35 (Return) · 48 (Future)
 **Callback home:** `callback:paper-cat` (co-owned with Tom and Stasi)
-**Likeness:** blocked (`name-only` presentation; owner-named, brief-backed)
+**Likeness:** owner-approved for learner-facing runtime; identity lock `felix-curly-dark-blond-glasses` is binding.
 
 > **Canon guardrail that overrides the general "real details encouraged" license for this character.** The registry entry for Felix reads: *"may use only recorded traits, not invented biography."* His voice anchor is *"observant delight focused on cats; all other biography remains unassigned,"* and his consent note is *"cats are one attention home, never his whole personality."* So this dossier deliberately does **not** hand him a job, a backstory, a home life, or a cat of his own. Everything below is built from four recorded traits only: observant delight, cats as one attention home, question-passing, and the paper-cat marker. Where richness is added, it is added as *fictional Academy behaviour* (attention, timing, tactic), never as biography.
 
@@ -21,7 +21,7 @@ His running joke is the **paper-cat marker**: a tiny folded paper cat that start
 
 **Reconciling with the voice anchor.** The anchor gives four fields to protect: attention lands on the out-of-place living detail; sentence movement runs *observation → count → handed-off question*; social tactic is playful redirection of attention (he moves the room's eyes without moving himself to the centre); contradiction is that his lightness is doing serious work he doesn't yet claim credit for. Nothing in this dossier adds biography on top of that — it only gives the four fields concrete scenes to live in.
 
-**Production note (meta, not diegetic).** Felix's approved-quality sprites are the style anchor the rest of the cast's art is measured against. That is a pipeline fact about asset quality, not a story fact — it never surfaces in dialogue, and it grants no likeness clearance (his runtime portrait stays blocked; presentation is `name-only`).
+**Production note (meta, not diegetic).** Felix's identity-locked v002 family is approved for learner-facing runtime. The art decision never surfaces in dialogue; story scenes still use only the recorded traits and fictional Academy behaviour described here.
 
 ---
 
@@ -103,6 +103,6 @@ The route mirrors the plot arc in miniature: notice → pass → over-reach → 
 - **Do not** have him solve the Ch 29 boundary by cheerfully filling Jenny's gap. That beat exists to *limit* his instinct; the lesson is restraint. Reversing it breaks both his arc and the `open-chair` callback.
 - **Do not** claim the paper-cat's final payoff for Felix. Ch 44 is **Stasi's**; Felix seeds and transforms, then passes it — consistent with his hand-off character.
 - **Do not** over-claim evidence in Ch 35. He describes placement and hedges (*〜かもしれない*); he does not "solve" provenance. The mystery resolves to *stewardship*, not a single author (STORY-BIBLE causal spine).
-- **Do not** ship a runtime portrait or imply approved likeness. Presentation is `name-only`; his sprites' quality is a pipeline benchmark, not a diegetic or clearance fact.
+- **Do not** substitute another classmate's image or an older mixed-angle sprite. Runtime presentation uses the identity-locked v002 family.
 - **Do not** author an elective bond route as live content until a `bond-authored` manifest entry passes review. Section 4 is a proposal only.
 - **Do not** give him a catchphrase in place of real voice work; the counting tic is a light rhythm, not an identity.

@@ -47,9 +47,8 @@ describe('Academy VN sprite performance contract', () => {
         expect(status('rose', 'neutral')).toBe('approved');
         expect(status('jodi', 'neutral')).toBe('approved');
         expect(status('nanako', 'neutral')).toBe('approved');
-        for (const castId of ['felix', 'shaun'] as const) {
-            expect(status(castId, 'neutral')).toBe('review-candidate');
-        }
+        expect(status('felix', 'neutral')).toBe('approved');
+        expect(status('shaun', 'neutral')).toBe('review-candidate');
         expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.xingyu.poses[2].expressions['encouraging-listening'].status)
             .toBe('approved');
         expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.rie.poses[0].expressions.determined.status).toBe('approved');
@@ -136,15 +135,14 @@ describe('Academy VN sprite performance contract', () => {
         }
     });
 
-    it('makes the remaining Felix approval gap explicit', () => {
+    it('locks Felix to his complete approved performance family', () => {
         expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.felix.coverage)
-            .toEqual({ approved: 0, reviewCandidates: 4, missing: 17 });
-        for (const castId of ['felix'] as const) {
-            const candidates = ACADEMY_SPRITE_PERFORMANCE_CONTRACT[castId].poses
-                .flatMap(pose => Object.values(pose.expressions))
-                .filter(cell => cell.status === 'review-candidate');
-            expect(candidates.every(candidate => !('approvedAssetId' in candidate))).toBe(true);
-        }
+            .toEqual({ approved: 7, reviewCandidates: 0, missing: 14 });
+        const approved = ACADEMY_SPRITE_PERFORMANCE_CONTRACT.felix.poses
+            .flatMap(pose => Object.values(pose.expressions))
+            .filter(cell => cell.status === 'approved');
+        expect(approved).toHaveLength(7);
+        expect(approved.every(candidate => 'approvedAssetId' in candidate)).toBe(true);
     });
 
     it('keeps Rie’s useful comedic extra visible outside the seven core performances', () => {

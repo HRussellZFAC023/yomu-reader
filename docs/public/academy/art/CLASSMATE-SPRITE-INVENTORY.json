@@ -34,14 +34,14 @@
     "totalSlots": 630
   },
   "summary": {
-    "approved": 150,
-    "reviewCandidates": 7,
-    "missing": 473,
-    "currentPhysicalRasters": 174,
-    "currentOffMatrixRasters": 17,
+    "approved": 157,
+    "reviewCandidates": 4,
+    "missing": 469,
+    "currentPhysicalRasters": 177,
+    "currentOffMatrixRasters": 16,
     "historicalUniqueRasters": 469,
     "historicalOccurrences": 2016,
-    "charactersWithApprovedCoverage": 22,
+    "charactersWithApprovedCoverage": 23,
     "charactersWithAnyCurrentCoverage": 25
   },
   "migrations": [
@@ -115,6 +115,15 @@
       "to": "/academy/art/characters/stasi/stasi__neutral-auburn-waves-round-glasses__front-near-front__fullbody__v002.png",
       "decision": "delete",
       "status": "Stasi identity-locked full-body v002 family bound to runtime; partial v001 sprites archived outside runtime.",
+      "runtimeReferencesAfterMigration": []
+    },
+    {
+      "id": "felix-partial-v001-to-illustrated-v002-family",
+      "character": "felix",
+      "from": "/academy/art/characters/felix/felix__neutral__halfbody__v001.png",
+      "to": "/academy/art/characters/felix/felix__neutral-curly-dark-blond-glasses-paper-cat__front-near-front__fullbody__v002.png",
+      "decision": "delete",
+      "status": "Felix identity-locked full-body v002 family bound to runtime; mixed-angle partial v001 sprites archived outside runtime.",
       "runtimeReferencesAfterMigration": []
     },
     {
@@ -12223,115 +12232,36 @@
         "slots": 21
       },
       "progress": {
-        "approved": 0,
-        "reviewCandidates": 3,
-        "missing": 18,
-        "deliveredPercent": 14.29,
-        "approvedPercent": 0
+        "approved": 7,
+        "reviewCandidates": 0,
+        "missing": 14,
+        "deliveredPercent": 33.33,
+        "approvedPercent": 33.33
       },
       "currentAssets": [
         {
-          "path": "/academy/art/characters/felix/felix__happy__left-three-quarter__halfbody__v001.png",
-          "sha256": "78aa07feed685ee45ca1c10fad8c16ea5c288b00732bfffca4b42ca1be83e582",
+          "path": "/academy/art/characters/felix/felix__determined-curly-dark-blond-glasses-paper-cat__left-three-quarter__fullbody__v002.png",
+          "sha256": "92e9a11ffa04809bf9833348154c89d3008ed0ccf5491c6a67ff3c8fedb699b4",
           "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
-          "status": "review-candidate",
-          "usage": {
-            "runtime": [
-              "journal:felix-expression-gallery"
-            ],
-            "review": [
-              "cast-standardization-manifest",
-              "learner-journal-preview"
-            ]
-          },
-          "orphan": "review-bound",
-          "styleVersion": "current-review-family",
-          "fileVersion": "v001",
-          "pose": "long-curled crouch following a trail of paper cats while one hand adjusts his glasses; left-three-quarter",
-          "angle": "left-three-quarter",
-          "expression": "happy",
-          "dimensions": {
-            "width": 1023,
-            "height": 1537,
-            "bitDepth": 8,
-            "colorType": 6,
-            "transparency": "alpha-channel"
-          },
-          "runtimeUses": [
-            "journal:felix-expression-gallery"
-          ],
-          "reviewUses": [
-            "cast-standardization-manifest",
-            "learner-journal-preview"
-          ],
-          "decision": "keep",
-          "migrationStatus": "retained-review-candidate-not-approved",
-          "coverageStatus": "review-candidate"
-        },
-        {
-          "path": "/academy/art/characters/felix/felix__neutral__halfbody__v001.png",
-          "sha256": "d341faf65113447457968c03db02d1e25844e93688718ec368bf6c9b6c4825a4",
-          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-          "privacy": "no-private-source-recorded",
-          "status": "review-candidate",
-          "usage": {
-            "runtime": [
-              "journal:felix-after-meeting",
-              "journal:felix-expression-gallery"
-            ],
-            "review": [
-              "cast-standardization-manifest",
-              "learner-journal-preview"
-            ]
-          },
-          "orphan": "review-bound",
-          "styleVersion": "current-review-family",
-          "fileVersion": "v001",
-          "pose": "long-curled crouch following a trail of paper cats while one hand adjusts his glasses; front-near-front",
-          "angle": "front-near-front",
-          "expression": "neutral",
-          "dimensions": {
-            "width": 1024,
-            "height": 1536,
-            "bitDepth": 8,
-            "colorType": 6,
-            "transparency": "alpha-channel"
-          },
-          "runtimeUses": [
-            "journal:felix-after-meeting",
-            "journal:felix-expression-gallery"
-          ],
-          "reviewUses": [
-            "cast-standardization-manifest",
-            "learner-journal-preview"
-          ],
-          "decision": "keep",
-          "migrationStatus": "retained-review-candidate-not-approved",
-          "coverageStatus": "review-candidate"
-        },
-        {
-          "path": "/academy/art/characters/felix/felix__standardized-encouraging-listening__left-three-quarter__halfbody__v001.png",
-          "sha256": "106d827068e7d805375156293748b79c9c90998659885104813075965ffb58a8",
-          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-          "privacy": "no-private-source-recorded",
-          "status": "review-candidate",
+          "status": "approved",
           "usage": {
             "runtime": [
               "journal:felix-expression-gallery",
+              "story:cast:felix:determined",
               "cast-standardization:felix"
             ],
             "review": [
               "cast-standardization-manifest",
-              "learner-journal-preview"
+              "identity-lock"
             ]
           },
-          "orphan": "review-bound",
+          "orphan": "active-runtime",
           "styleVersion": "current-review-family",
-          "fileVersion": "v001",
-          "pose": "off-contract standardized-encouraging-listening pose",
-          "angle": null,
-          "expression": null,
+          "fileVersion": "v002",
+          "pose": "long-curled crouch following a trail of paper cats while one hand adjusts his glasses; left-three-quarter",
+          "angle": "left-three-quarter",
+          "expression": "determined",
           "dimensions": {
             "width": 1536,
             "height": 2048,
@@ -12341,54 +12271,282 @@
           },
           "runtimeUses": [
             "journal:felix-expression-gallery",
+            "story:cast:felix:determined",
             "cast-standardization:felix"
           ],
           "reviewUses": [
             "cast-standardization-manifest",
-            "learner-journal-preview"
+            "identity-lock"
           ],
           "decision": "keep",
-          "migrationStatus": "retained-off-matrix-review-evidence",
-          "coverageStatus": "off-matrix"
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
         },
         {
-          "path": "/academy/art/characters/felix/felix__surprised__right-three-quarter__halfbody__v001.png",
-          "sha256": "39ad04b91509cc3a1876b8144ca5583af14c738c8e9068be698e3ed99eedef2e",
+          "path": "/academy/art/characters/felix/felix__encouraging-listening-curly-dark-blond-glasses-paper-cat__right-three-quarter__fullbody__v002.png",
+          "sha256": "0b770a3d29a6ddfc1ea4558cb0e3d7c5995d1c49d31d4932e46dfe45f67c47bd",
           "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
-          "status": "review-candidate",
+          "status": "approved",
           "usage": {
             "runtime": [
-              "journal:felix-expression-gallery"
+              "journal:felix-expression-gallery",
+              "story:cast:felix:encouraging-listening",
+              "cast-standardization:felix"
             ],
             "review": [
               "cast-standardization-manifest",
-              "learner-journal-preview"
+              "identity-lock"
             ]
           },
-          "orphan": "review-bound",
+          "orphan": "active-runtime",
           "styleVersion": "current-review-family",
-          "fileVersion": "v001",
+          "fileVersion": "v002",
           "pose": "long-curled crouch following a trail of paper cats while one hand adjusts his glasses; right-three-quarter",
           "angle": "right-three-quarter",
-          "expression": "surprised-shocked",
+          "expression": "encouraging-listening",
           "dimensions": {
-            "width": 1023,
-            "height": 1537,
+            "width": 1536,
+            "height": 2048,
             "bitDepth": 8,
             "colorType": 6,
             "transparency": "alpha-channel"
           },
           "runtimeUses": [
-            "journal:felix-expression-gallery"
+            "journal:felix-expression-gallery",
+            "story:cast:felix:encouraging-listening",
+            "cast-standardization:felix"
           ],
           "reviewUses": [
             "cast-standardization-manifest",
-            "learner-journal-preview"
+            "identity-lock"
           ],
           "decision": "keep",
-          "migrationStatus": "retained-review-candidate-not-approved",
-          "coverageStatus": "review-candidate"
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/felix/felix__happy-curly-dark-blond-glasses-paper-cat__front-near-front__fullbody__v002.png",
+          "sha256": "e59d455ff9b9fe326aa8052dd634463bc0c3029a287dbfe0e842fbec1d36b4c8",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:felix-expression-gallery",
+              "story:cast:felix:happy",
+              "cast-standardization:felix"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "long-curled crouch following a trail of paper cats while one hand adjusts his glasses; front-near-front",
+          "angle": "front-near-front",
+          "expression": "happy",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:felix-expression-gallery",
+            "story:cast:felix:happy",
+            "cast-standardization:felix"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/felix/felix__neutral-curly-dark-blond-glasses-paper-cat__front-near-front__fullbody__v002.png",
+          "sha256": "8c924efbed132dbbc4ed1507426d6efdce6b4c99c1c6c106b180ff85d1874754",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:felix",
+              "class:people",
+              "class:week-cast",
+              "lesson-overview:roster",
+              "world:person",
+              "story:cast:felix",
+              "cast-standardization:felix"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "long-curled crouch following a trail of paper cats while one hand adjusts his glasses; front-near-front",
+          "angle": "front-near-front",
+          "expression": "neutral",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:felix",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "story:cast:felix",
+            "cast-standardization:felix"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/felix/felix__sad-vulnerable-curly-dark-blond-glasses-paper-cat__left-three-quarter__fullbody__v002.png",
+          "sha256": "b88c7c92af03604c9a041c9af729cfb3c7d10ee0f7e1e951675a8929b06c4888",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:felix-expression-gallery",
+              "story:cast:felix:sad-vulnerable",
+              "cast-standardization:felix"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "long-curled crouch following a trail of paper cats while one hand adjusts his glasses; left-three-quarter",
+          "angle": "left-three-quarter",
+          "expression": "sad-vulnerable",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:felix-expression-gallery",
+            "story:cast:felix:sad-vulnerable",
+            "cast-standardization:felix"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/felix/felix__surprised-shocked-curly-dark-blond-glasses-paper-cat__right-three-quarter__fullbody__v002.png",
+          "sha256": "2689a4de83aec134c1c1356e6f11ebacf6fba5a5a188c569c628f8f74b025976",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:felix-expression-gallery",
+              "story:cast:felix:surprised-shocked",
+              "cast-standardization:felix"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "long-curled crouch following a trail of paper cats while one hand adjusts his glasses; right-three-quarter",
+          "angle": "right-three-quarter",
+          "expression": "surprised-shocked",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:felix-expression-gallery",
+            "story:cast:felix:surprised-shocked",
+            "cast-standardization:felix"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/felix/felix__thoughtful-curly-dark-blond-glasses-paper-cat__left-three-quarter__fullbody__v002.png",
+          "sha256": "68e370099bcd545ed1fadc8afd200891647b34c75732052f27671889e975379b",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:felix-expression-gallery",
+              "story:cast:felix:thoughtful",
+              "cast-standardization:felix"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "long-curled crouch following a trail of paper cats while one hand adjusts his glasses; left-three-quarter",
+          "angle": "left-three-quarter",
+          "expression": "thoughtful",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:felix-expression-gallery",
+            "story:cast:felix:thoughtful",
+            "cast-standardization:felix"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
         }
       ],
       "requiredVariants": [
@@ -12409,22 +12567,21 @@
         {
           "angle": "left-three-quarter",
           "expression": "happy",
-          "status": "review-candidate",
-          "path": "/academy/art/characters/felix/felix__happy__left-three-quarter__halfbody__v001.png"
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/felix/felix__happy__left-three-quarter__halfbody__v001.png"
         },
         {
           "angle": "left-three-quarter",
           "expression": "thoughtful",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/felix/felix__thoughtful__left-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/felix/felix__thoughtful-curly-dark-blond-glasses-paper-cat__left-three-quarter__fullbody__v002.png"
         },
         {
           "angle": "left-three-quarter",
           "expression": "determined",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/felix/felix__determined__left-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/felix/felix__determined-curly-dark-blond-glasses-paper-cat__left-three-quarter__fullbody__v002.png"
         },
         {
           "angle": "left-three-quarter",
@@ -12436,15 +12593,14 @@
         {
           "angle": "left-three-quarter",
           "expression": "sad-vulnerable",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/felix/felix__sad-vulnerable__left-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/felix/felix__sad-vulnerable-curly-dark-blond-glasses-paper-cat__left-three-quarter__fullbody__v002.png"
         },
         {
           "angle": "front-near-front",
           "expression": "neutral",
-          "status": "review-candidate",
-          "path": "/academy/art/characters/felix/felix__neutral__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/felix/felix__neutral-curly-dark-blond-glasses-paper-cat__front-near-front__fullbody__v002.png"
         },
         {
           "angle": "front-near-front",
@@ -12456,9 +12612,8 @@
         {
           "angle": "front-near-front",
           "expression": "happy",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/felix/felix__happy__front-near-front__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/felix/felix__happy-curly-dark-blond-glasses-paper-cat__front-near-front__fullbody__v002.png"
         },
         {
           "angle": "front-near-front",
@@ -12498,9 +12653,8 @@
         {
           "angle": "right-three-quarter",
           "expression": "encouraging-listening",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/felix/felix__encouraging-listening__right-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/felix/felix__encouraging-listening-curly-dark-blond-glasses-paper-cat__right-three-quarter__fullbody__v002.png"
         },
         {
           "angle": "right-three-quarter",
@@ -12526,8 +12680,8 @@
         {
           "angle": "right-three-quarter",
           "expression": "surprised-shocked",
-          "status": "review-candidate",
-          "path": "/academy/art/characters/felix/felix__surprised__right-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/felix/felix__surprised-shocked-curly-dark-blond-glasses-paper-cat__right-three-quarter__fullbody__v002.png"
         },
         {
           "angle": "right-three-quarter",
@@ -12554,17 +12708,10 @@
         },
         {
           "angle": "left-three-quarter",
-          "expression": "thoughtful",
+          "expression": "happy",
           "status": "missing",
           "path": null,
-          "plannedPath": "/academy/art/characters/felix/felix__thoughtful__left-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "left-three-quarter",
-          "expression": "determined",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/felix/felix__determined__left-three-quarter__halfbody__v001.png"
+          "plannedPath": "/academy/art/characters/felix/felix__happy__left-three-quarter__halfbody__v001.png"
         },
         {
           "angle": "left-three-quarter",
@@ -12574,25 +12721,11 @@
           "plannedPath": "/academy/art/characters/felix/felix__surprised-shocked__left-three-quarter__halfbody__v001.png"
         },
         {
-          "angle": "left-three-quarter",
-          "expression": "sad-vulnerable",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/felix/felix__sad-vulnerable__left-three-quarter__halfbody__v001.png"
-        },
-        {
           "angle": "front-near-front",
           "expression": "encouraging-listening",
           "status": "missing",
           "path": null,
           "plannedPath": "/academy/art/characters/felix/felix__encouraging-listening__front-near-front__halfbody__v001.png"
-        },
-        {
-          "angle": "front-near-front",
-          "expression": "happy",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/felix/felix__happy__front-near-front__halfbody__v001.png"
         },
         {
           "angle": "front-near-front",
@@ -12628,13 +12761,6 @@
           "status": "missing",
           "path": null,
           "plannedPath": "/academy/art/characters/felix/felix__neutral__right-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "right-three-quarter",
-          "expression": "encouraging-listening",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/felix/felix__encouraging-listening__right-three-quarter__halfbody__v001.png"
         },
         {
           "angle": "right-three-quarter",

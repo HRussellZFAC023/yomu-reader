@@ -1,0 +1,102 @@
+{
+  "promotions": [
+    {
+      "castId": "felix",
+      "archiveLabel": "identity-and-style-superseded-20260728",
+      "archiveAllCurrent": true,
+      "replaceExpressions": [
+        "neutral",
+        "encouraging-listening",
+        "happy",
+        "thoughtful",
+        "determined",
+        "surprised-shocked",
+        "sad-vulnerable"
+      ],
+      "canonicalNeutralAssetId": "character.felix.neutral-curly-dark-blond-glasses-paper-cat-front-near-front-fullbody-v002",
+      "slots": [
+        {
+          "assetId": "character.felix.neutral-curly-dark-blond-glasses-paper-cat-front-near-front-fullbody-v002",
+          "expression": "neutral",
+          "angle": "front-near-front",
+          "assetPath": "/academy/art/characters/felix/felix__neutral-curly-dark-blond-glasses-paper-cat__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:felix",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "story:cast:felix",
+            "cast-standardization:felix"
+          ]
+        },
+        {
+          "assetId": "character.felix.encouraging-listening-curly-dark-blond-glasses-paper-cat-right-three-quarter-fullbody-v002",
+          "expression": "encouraging-listening",
+          "angle": "right-three-quarter",
+          "assetPath": "/academy/art/characters/felix/felix__encouraging-listening-curly-dark-blond-glasses-paper-cat__right-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:felix-expression-gallery",
+            "story:cast:felix:encouraging-listening",
+            "cast-standardization:felix"
+          ]
+        },
+        {
+          "assetId": "character.felix.happy-curly-dark-blond-glasses-paper-cat-front-near-front-fullbody-v002",
+          "expression": "happy",
+          "angle": "front-near-front",
+          "assetPath": "/academy/art/characters/felix/felix__happy-curly-dark-blond-glasses-paper-cat__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:felix-expression-gallery",
+            "story:cast:felix:happy",
+            "cast-standardization:felix"
+          ]
+        },
+        {
+          "assetId": "character.felix.thoughtful-curly-dark-blond-glasses-paper-cat-left-three-quarter-fullbody-v002",
+          "expression": "thoughtful",
+          "angle": "left-three-quarter",
+          "assetPath": "/academy/art/characters/felix/felix__thoughtful-curly-dark-blond-glasses-paper-cat__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:felix-expression-gallery",
+            "story:cast:felix:thoughtful",
+            "cast-standardization:felix"
+          ]
+        },
+        {
+          "assetId": "character.felix.determined-curly-dark-blond-glasses-paper-cat-left-three-quarter-fullbody-v002",
+          "expression": "determined",
+          "angle": "left-three-quarter",
+          "assetPath": "/academy/art/characters/felix/felix__determined-curly-dark-blond-glasses-paper-cat__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:felix-expression-gallery",
+            "story:cast:felix:determined",
+            "cast-standardization:felix"
+          ]
+        },
+        {
+          "assetId": "character.felix.surprised-shocked-curly-dark-blond-glasses-paper-cat-right-three-quarter-fullbody-v002",
+          "expression": "surprised-shocked",
+          "angle": "right-three-quarter",
+          "assetPath": "/academy/art/characters/felix/felix__surprised-shocked-curly-dark-blond-glasses-paper-cat__right-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:felix-expression-gallery",
+            "story:cast:felix:surprised-shocked",
+            "cast-standardization:felix"
+          ]
+        },
+        {
+          "assetId": "character.felix.sad-vulnerable-curly-dark-blond-glasses-paper-cat-left-three-quarter-fullbody-v002",
+          "expression": "sad-vulnerable",
+          "angle": "left-three-quarter",
+          "assetPath": "/academy/art/characters/felix/felix__sad-vulnerable-curly-dark-blond-glasses-paper-cat__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:felix-expression-gallery",
+            "story:cast:felix:sad-vulnerable",
+            "cast-standardization:felix"
+          ]
+        }
+      ]
+    }
+  ]
+}

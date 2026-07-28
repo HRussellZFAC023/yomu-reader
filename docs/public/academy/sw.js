@@ -1,4 +1,4 @@
-const VERSION = 'yomu-academy-shell-s1-b21c9b5b69c3';
+const VERSION = 'yomu-academy-shell-s1-56c2feba0e52';
 const AUDIO_CACHE = 'yomu-academy-audio-v1-2c25b06f971c';
 const STORY_VOICE_CATALOG = '/academy/audio/story-voice-playback.json';
 const STORY_VOICE_ASSET = /^\/academy\/audio\/story-(?:pilot|lines)\/[a-z0-9][a-z0-9._-]*\.opus$/;
@@ -61,10 +61,13 @@ const RUNTIME_ART_PRECACHE = [
     '/academy/art/characters/christian/christian__standardized-encouraging-listening__front-near-front__halfbody__v001.png',
     '/academy/art/characters/christian/christian__standardized-happy__front-near-front__halfbody__v001.png',
     '/academy/art/characters/christian/christian__standardized-neutral__front-near-front__halfbody__v001.png',
-    '/academy/art/characters/felix/felix__happy__left-three-quarter__halfbody__v001.png',
-    '/academy/art/characters/felix/felix__neutral__halfbody__v001.png',
-    '/academy/art/characters/felix/felix__standardized-encouraging-listening__left-three-quarter__halfbody__v001.png',
-    '/academy/art/characters/felix/felix__surprised__right-three-quarter__halfbody__v001.png',
+    '/academy/art/characters/felix/felix__determined-curly-dark-blond-glasses-paper-cat__left-three-quarter__fullbody__v002.png',
+    '/academy/art/characters/felix/felix__encouraging-listening-curly-dark-blond-glasses-paper-cat__right-three-quarter__fullbody__v002.png',
+    '/academy/art/characters/felix/felix__happy-curly-dark-blond-glasses-paper-cat__front-near-front__fullbody__v002.png',
+    '/academy/art/characters/felix/felix__neutral-curly-dark-blond-glasses-paper-cat__front-near-front__fullbody__v002.png',
+    '/academy/art/characters/felix/felix__sad-vulnerable-curly-dark-blond-glasses-paper-cat__left-three-quarter__fullbody__v002.png',
+    '/academy/art/characters/felix/felix__surprised-shocked-curly-dark-blond-glasses-paper-cat__right-three-quarter__fullbody__v002.png',
+    '/academy/art/characters/felix/felix__thoughtful-curly-dark-blond-glasses-paper-cat__left-three-quarter__fullbody__v002.png',
     '/academy/art/characters/francis/francis__determined-soft-sand-hair-manga-volume__front-near-front__fullbody__v002.png',
     '/academy/art/characters/francis/francis__encouraging-listening-soft-sand-hair-manga-volume__right-three-quarter__fullbody__v002.png',
     '/academy/art/characters/francis/francis__happy-soft-sand-hair-manga-volume__front-near-front__fullbody__v002.png',
@@ -405,8 +408,8 @@ const CORE = [
     '/yomu-icon.svg',
     '/academy/',
     '/academy/index.html',
-    '/academy/app.js?v=s1-b21c9b5b69c3',
-    '/academy/style.css?v=s1-b21c9b5b69c3',
+    '/academy/app.js?v=s1-56c2feba0e52',
+    '/academy/style.css?v=s1-56c2feba0e52',
     '/academy/manifest.webmanifest',
     ...RUNTIME_ART_PRECACHE,
     '/academy/content/vertical-slice/source-library.v1.json',

@@ -1545,13 +1545,17 @@
         }
       ],
       "currentAsset": {
-        "status": "unapproved-performance-candidates",
+        "status": "approved-performance-family",
         "paths": [
-          "/academy/art/characters/felix/felix__neutral__halfbody__v001.png",
-          "/academy/art/characters/felix/felix__happy__left-three-quarter__halfbody__v001.png",
-          "/academy/art/characters/felix/felix__surprised__right-three-quarter__halfbody__v001.png"
+          "/academy/art/characters/felix/felix__neutral-curly-dark-blond-glasses-paper-cat__front-near-front__fullbody__v002.png",
+          "/academy/art/characters/felix/felix__encouraging-listening-curly-dark-blond-glasses-paper-cat__right-three-quarter__fullbody__v002.png",
+          "/academy/art/characters/felix/felix__happy-curly-dark-blond-glasses-paper-cat__front-near-front__fullbody__v002.png",
+          "/academy/art/characters/felix/felix__thoughtful-curly-dark-blond-glasses-paper-cat__left-three-quarter__fullbody__v002.png",
+          "/academy/art/characters/felix/felix__determined-curly-dark-blond-glasses-paper-cat__left-three-quarter__fullbody__v002.png",
+          "/academy/art/characters/felix/felix__surprised-shocked-curly-dark-blond-glasses-paper-cat__right-three-quarter__fullbody__v002.png",
+          "/academy/art/characters/felix/felix__sad-vulnerable-curly-dark-blond-glasses-paper-cat__left-three-quarter__fullbody__v002.png"
         ],
-        "note": "Neutral plus two angle review candidates exist. They remain hidden until the character meeting and are not approved for story runtime."
+        "note": "Identity-locked, visually inspected house-style family; all seven canonical expressions are runtime-bound."
       },
       "generationPriority": {
         "tier": 1,

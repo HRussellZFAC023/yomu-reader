@@ -18,8 +18,8 @@
     ]
   },
   "counts": {
-    "runtimeAssetHomes": 249,
-    "runtimeFiles": 355,
+    "runtimeAssetHomes": 252,
+    "runtimeFiles": 358,
     "nonRuntimeReviewFiles": 1734,
     "approvedReferenceOnly": 4,
     "explicitlyRejectedFamilies": 4,
@@ -430,130 +430,6 @@
         {
           "path": "/academy/art/characters/christian/christian__standardized-neutral__front-near-front__halfbody__v001.png",
           "sha256": "c3610651c1c5b79cef75582482f2b18efa91a3c6f153cb0c3a1d4507c9dc1e3c"
-        }
-      ],
-      "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-    },
-    {
-      "id": "character-felix-happy-left",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "78aa07feed685ee45ca1c10fad8c16ea5c288b00732bfffca4b42ca1be83e582",
-      "provenance": "retained-current-review",
-      "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": [
-        "journal:felix-expression-gallery"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "learner-journal-preview"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:felix-expression-gallery"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/felix/felix__happy__left-three-quarter__halfbody__v001.png",
-          "sha256": "78aa07feed685ee45ca1c10fad8c16ea5c288b00732bfffca4b42ca1be83e582"
-        }
-      ],
-      "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-    },
-    {
-      "id": "character-felix-neutral",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "d341faf65113447457968c03db02d1e25844e93688718ec368bf6c9b6c4825a4",
-      "provenance": "retained-current-review",
-      "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": [
-        "journal:felix-after-meeting",
-        "journal:felix-expression-gallery"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "learner-journal-preview"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:felix-after-meeting",
-          "journal:felix-expression-gallery"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/felix/felix__neutral__halfbody__v001.png",
-          "sha256": "d341faf65113447457968c03db02d1e25844e93688718ec368bf6c9b6c4825a4"
-        }
-      ],
-      "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-    },
-    {
-      "id": "character-felix-standardized-encouraging-listening-left-three-quarter-halfbody-v001",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "106d827068e7d805375156293748b79c9c90998659885104813075965ffb58a8",
-      "provenance": "regenerated-standardized",
-      "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": [
-        "journal:felix-expression-gallery",
-        "cast-standardization:felix"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "learner-journal-preview"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:felix-expression-gallery",
-          "cast-standardization:felix"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/felix/felix__standardized-encouraging-listening__left-three-quarter__halfbody__v001.png",
-          "sha256": "106d827068e7d805375156293748b79c9c90998659885104813075965ffb58a8"
-        }
-      ],
-      "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-    },
-    {
-      "id": "character-felix-surprised-right",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "39ad04b91509cc3a1876b8144ca5583af14c738c8e9068be698e3ed99eedef2e",
-      "provenance": "retained-current-review",
-      "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": [
-        "journal:felix-expression-gallery"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "learner-journal-preview"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:felix-expression-gallery"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/felix/felix__surprised__right-three-quarter__halfbody__v001.png",
-          "sha256": "39ad04b91509cc3a1876b8144ca5583af14c738c8e9068be698e3ed99eedef2e"
         }
       ],
       "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
@@ -10663,7 +10539,7 @@
       "deliveries": [
         {
           "path": "/academy/art/SPRITE-BATCH-MANIFEST.json",
-          "sha256": "33ea59fdc02e052e317b3a50808af8af4413d63f8e898b3494989aafde4ec9be"
+          "sha256": "a91adc937b4ac5d0e6618db70890df18d078feed35849c6143b41fbe49b27460"
         }
       ],
       "status": "bound-and-schema-validated"
@@ -15305,6 +15181,252 @@
         {
           "path": "/academy/art/characters/stasi/stasi__sad-vulnerable-auburn-waves-round-glasses__left-three-quarter__fullbody__v002.png",
           "sha256": "6d6f8da8b257798ec1153c9b3233644b6bb7f62002f6ef0ecc3c958ed250740d"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-felix-neutral-curly-dark-blond-glasses-paper-cat-front-near-front-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "8c924efbed132dbbc4ed1507426d6efdce6b4c99c1c6c106b180ff85d1874754",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:felix",
+        "class:people",
+        "class:week-cast",
+        "lesson-overview:roster",
+        "world:person",
+        "story:cast:felix",
+        "cast-standardization:felix"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:felix",
+          "class:people",
+          "class:week-cast",
+          "lesson-overview:roster",
+          "world:person",
+          "story:cast:felix",
+          "cast-standardization:felix"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/felix/felix__neutral-curly-dark-blond-glasses-paper-cat__front-near-front__fullbody__v002.png",
+          "sha256": "8c924efbed132dbbc4ed1507426d6efdce6b4c99c1c6c106b180ff85d1874754"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-felix-encouraging-listening-curly-dark-blond-glasses-paper-cat-right-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "0b770a3d29a6ddfc1ea4558cb0e3d7c5995d1c49d31d4932e46dfe45f67c47bd",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:felix-expression-gallery",
+        "story:cast:felix:encouraging-listening",
+        "cast-standardization:felix"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:felix-expression-gallery",
+          "story:cast:felix:encouraging-listening",
+          "cast-standardization:felix"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/felix/felix__encouraging-listening-curly-dark-blond-glasses-paper-cat__right-three-quarter__fullbody__v002.png",
+          "sha256": "0b770a3d29a6ddfc1ea4558cb0e3d7c5995d1c49d31d4932e46dfe45f67c47bd"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-felix-happy-curly-dark-blond-glasses-paper-cat-front-near-front-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "e59d455ff9b9fe326aa8052dd634463bc0c3029a287dbfe0e842fbec1d36b4c8",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:felix-expression-gallery",
+        "story:cast:felix:happy",
+        "cast-standardization:felix"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:felix-expression-gallery",
+          "story:cast:felix:happy",
+          "cast-standardization:felix"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/felix/felix__happy-curly-dark-blond-glasses-paper-cat__front-near-front__fullbody__v002.png",
+          "sha256": "e59d455ff9b9fe326aa8052dd634463bc0c3029a287dbfe0e842fbec1d36b4c8"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-felix-thoughtful-curly-dark-blond-glasses-paper-cat-left-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "68e370099bcd545ed1fadc8afd200891647b34c75732052f27671889e975379b",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:felix-expression-gallery",
+        "story:cast:felix:thoughtful",
+        "cast-standardization:felix"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:felix-expression-gallery",
+          "story:cast:felix:thoughtful",
+          "cast-standardization:felix"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/felix/felix__thoughtful-curly-dark-blond-glasses-paper-cat__left-three-quarter__fullbody__v002.png",
+          "sha256": "68e370099bcd545ed1fadc8afd200891647b34c75732052f27671889e975379b"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-felix-determined-curly-dark-blond-glasses-paper-cat-left-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "92e9a11ffa04809bf9833348154c89d3008ed0ccf5491c6a67ff3c8fedb699b4",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:felix-expression-gallery",
+        "story:cast:felix:determined",
+        "cast-standardization:felix"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:felix-expression-gallery",
+          "story:cast:felix:determined",
+          "cast-standardization:felix"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/felix/felix__determined-curly-dark-blond-glasses-paper-cat__left-three-quarter__fullbody__v002.png",
+          "sha256": "92e9a11ffa04809bf9833348154c89d3008ed0ccf5491c6a67ff3c8fedb699b4"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-felix-surprised-shocked-curly-dark-blond-glasses-paper-cat-right-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "2689a4de83aec134c1c1356e6f11ebacf6fba5a5a188c569c628f8f74b025976",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:felix-expression-gallery",
+        "story:cast:felix:surprised-shocked",
+        "cast-standardization:felix"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:felix-expression-gallery",
+          "story:cast:felix:surprised-shocked",
+          "cast-standardization:felix"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/felix/felix__surprised-shocked-curly-dark-blond-glasses-paper-cat__right-three-quarter__fullbody__v002.png",
+          "sha256": "2689a4de83aec134c1c1356e6f11ebacf6fba5a5a188c569c628f8f74b025976"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-felix-sad-vulnerable-curly-dark-blond-glasses-paper-cat-left-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "b88c7c92af03604c9a041c9af729cfb3c7d10ee0f7e1e951675a8929b06c4888",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:felix-expression-gallery",
+        "story:cast:felix:sad-vulnerable",
+        "cast-standardization:felix"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:felix-expression-gallery",
+          "story:cast:felix:sad-vulnerable",
+          "cast-standardization:felix"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/felix/felix__sad-vulnerable-curly-dark-blond-glasses-paper-cat__left-three-quarter__fullbody__v002.png",
+          "sha256": "b88c7c92af03604c9a041c9af729cfb3c7d10ee0f7e1e951675a8929b06c4888"
         }
       ],
       "status": "identity-locked, visually inspected, runtime-bound house-style sprite"

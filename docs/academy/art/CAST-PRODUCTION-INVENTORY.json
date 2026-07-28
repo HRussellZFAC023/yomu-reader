@@ -29,10 +29,10 @@
     "cast": 30,
     "requiredPerformancesPerCast": 7,
     "requiredSlots": 210,
-    "integratedSlots": 147,
-    "missingSlots": 63,
+    "integratedSlots": 154,
+    "missingSlots": 56,
     "ownerCorrectionQueue": 14,
-    "storyCriticalQueue": 14,
+    "storyCriticalQueue": 7,
     "rosterCompletionQueue": 35
   },
   "cast": [
@@ -2282,65 +2282,97 @@
       "priority": "story-critical",
       "summary": {
         "required": 7,
-        "integrated": 0,
-        "missing": 7
+        "integrated": 7,
+        "missing": 0
       },
       "performances": [
         {
           "expression": "neutral",
           "preferredAngle": "front-near-front",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.felix.neutral-curly-dark-blond-glasses-paper-cat-front-near-front-fullbody-v002",
+          "assetPath": "/academy/art/characters/felix/felix__neutral-curly-dark-blond-glasses-paper-cat__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:felix",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "story:cast:felix",
+            "cast-standardization:felix"
+          ]
         },
         {
           "expression": "encouraging-listening",
           "preferredAngle": "right-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.felix.encouraging-listening-curly-dark-blond-glasses-paper-cat-right-three-quarter-fullbody-v002",
+          "assetPath": "/academy/art/characters/felix/felix__encouraging-listening-curly-dark-blond-glasses-paper-cat__right-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:felix-expression-gallery",
+            "story:cast:felix:encouraging-listening",
+            "cast-standardization:felix"
+          ]
         },
         {
           "expression": "happy",
           "preferredAngle": "front-near-front",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.felix.happy-curly-dark-blond-glasses-paper-cat-front-near-front-fullbody-v002",
+          "assetPath": "/academy/art/characters/felix/felix__happy-curly-dark-blond-glasses-paper-cat__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:felix-expression-gallery",
+            "story:cast:felix:happy",
+            "cast-standardization:felix"
+          ]
         },
         {
           "expression": "thoughtful",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.felix.thoughtful-curly-dark-blond-glasses-paper-cat-left-three-quarter-fullbody-v002",
+          "assetPath": "/academy/art/characters/felix/felix__thoughtful-curly-dark-blond-glasses-paper-cat__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:felix-expression-gallery",
+            "story:cast:felix:thoughtful",
+            "cast-standardization:felix"
+          ]
         },
         {
           "expression": "determined",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.felix.determined-curly-dark-blond-glasses-paper-cat-left-three-quarter-fullbody-v002",
+          "assetPath": "/academy/art/characters/felix/felix__determined-curly-dark-blond-glasses-paper-cat__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:felix-expression-gallery",
+            "story:cast:felix:determined",
+            "cast-standardization:felix"
+          ]
         },
         {
           "expression": "surprised-shocked",
           "preferredAngle": "right-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.felix.surprised-shocked-curly-dark-blond-glasses-paper-cat-right-three-quarter-fullbody-v002",
+          "assetPath": "/academy/art/characters/felix/felix__surprised-shocked-curly-dark-blond-glasses-paper-cat__right-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:felix-expression-gallery",
+            "story:cast:felix:surprised-shocked",
+            "cast-standardization:felix"
+          ]
         },
         {
           "expression": "sad-vulnerable",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.felix.sad-vulnerable-curly-dark-blond-glasses-paper-cat-left-three-quarter-fullbody-v002",
+          "assetPath": "/academy/art/characters/felix/felix__sad-vulnerable-curly-dark-blond-glasses-paper-cat__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:felix-expression-gallery",
+            "story:cast:felix:sad-vulnerable",
+            "cast-standardization:felix"
+          ]
         }
       ]
     },
@@ -3334,204 +3366,6 @@
       "runtimeHomes": [
         "journal:christian-expression-gallery",
         "story:cast:christian:sad-vulnerable"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "felix:neutral",
-      "castId": "felix",
-      "displayName": "Felix",
-      "identityKey": "felix-curly-dark-blond-glasses",
-      "expression": "neutral",
-      "angle": "front-near-front",
-      "priority": "story-critical",
-      "storyLines": 9,
-      "visualLock": "White man with glasses and longer curly dark-blond to light-brown hair.",
-      "wardrobeLock": "Relaxed layered outfit with a small cat detail only when appropriate.",
-      "reject": [
-        "short straight black hair",
-        "no glasses",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:felix",
-        "class:people",
-        "lesson-overview:roster",
-        "story:cast:felix"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "felix:encouraging-listening",
-      "castId": "felix",
-      "displayName": "Felix",
-      "identityKey": "felix-curly-dark-blond-glasses",
-      "expression": "encouraging-listening",
-      "angle": "right-three-quarter",
-      "priority": "story-critical",
-      "storyLines": 9,
-      "visualLock": "White man with glasses and longer curly dark-blond to light-brown hair.",
-      "wardrobeLock": "Relaxed layered outfit with a small cat detail only when appropriate.",
-      "reject": [
-        "short straight black hair",
-        "no glasses",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:felix-expression-gallery",
-        "story:cast:felix:encouraging-listening"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "felix:happy",
-      "castId": "felix",
-      "displayName": "Felix",
-      "identityKey": "felix-curly-dark-blond-glasses",
-      "expression": "happy",
-      "angle": "front-near-front",
-      "priority": "story-critical",
-      "storyLines": 9,
-      "visualLock": "White man with glasses and longer curly dark-blond to light-brown hair.",
-      "wardrobeLock": "Relaxed layered outfit with a small cat detail only when appropriate.",
-      "reject": [
-        "short straight black hair",
-        "no glasses",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:felix-expression-gallery",
-        "story:cast:felix:happy"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "felix:thoughtful",
-      "castId": "felix",
-      "displayName": "Felix",
-      "identityKey": "felix-curly-dark-blond-glasses",
-      "expression": "thoughtful",
-      "angle": "left-three-quarter",
-      "priority": "story-critical",
-      "storyLines": 9,
-      "visualLock": "White man with glasses and longer curly dark-blond to light-brown hair.",
-      "wardrobeLock": "Relaxed layered outfit with a small cat detail only when appropriate.",
-      "reject": [
-        "short straight black hair",
-        "no glasses",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:felix-expression-gallery",
-        "story:cast:felix:thoughtful"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "felix:determined",
-      "castId": "felix",
-      "displayName": "Felix",
-      "identityKey": "felix-curly-dark-blond-glasses",
-      "expression": "determined",
-      "angle": "left-three-quarter",
-      "priority": "story-critical",
-      "storyLines": 9,
-      "visualLock": "White man with glasses and longer curly dark-blond to light-brown hair.",
-      "wardrobeLock": "Relaxed layered outfit with a small cat detail only when appropriate.",
-      "reject": [
-        "short straight black hair",
-        "no glasses",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:felix-expression-gallery",
-        "story:cast:felix:determined"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "felix:surprised-shocked",
-      "castId": "felix",
-      "displayName": "Felix",
-      "identityKey": "felix-curly-dark-blond-glasses",
-      "expression": "surprised-shocked",
-      "angle": "right-three-quarter",
-      "priority": "story-critical",
-      "storyLines": 9,
-      "visualLock": "White man with glasses and longer curly dark-blond to light-brown hair.",
-      "wardrobeLock": "Relaxed layered outfit with a small cat detail only when appropriate.",
-      "reject": [
-        "short straight black hair",
-        "no glasses",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:felix-expression-gallery",
-        "story:cast:felix:surprised-shocked"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "felix:sad-vulnerable",
-      "castId": "felix",
-      "displayName": "Felix",
-      "identityKey": "felix-curly-dark-blond-glasses",
-      "expression": "sad-vulnerable",
-      "angle": "left-three-quarter",
-      "priority": "story-critical",
-      "storyLines": 9,
-      "visualLock": "White man with glasses and longer curly dark-blond to light-brown hair.",
-      "wardrobeLock": "Relaxed layered outfit with a small cat detail only when appropriate.",
-      "reject": [
-        "short straight black hair",
-        "no glasses",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:felix-expression-gallery",
-        "story:cast:felix:sad-vulnerable"
       ],
       "status": "queued"
     },
