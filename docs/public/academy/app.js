@@ -33166,7 +33166,64 @@ ${spelling}`);
     window.__YOMU_LOGGER__ = Logger;
     window.YomuLogger = Logger;
   }
-  const ANKI_FIELD_MAPPING_ROLES$2 = ["expression", "reading", "meaning", "sentence", "audio", "image"];
+  function unique$f(items) {
+    return [...new Set(items)];
+  }
+  const ankiFieldNames = (names) => names.split("|");
+  const ANKI_HEADWORD_FIELD_NAME_PREFIX = ankiFieldNames(
+    "Vocabulary-Kanji|Vocabulary Kanji|Vocab Kanji|Jlab-Kanji|Japanese_Word|Word|Word Kanji|Japanese Word|Headword|Headword Kanji|Term Kanji|Term Text|Expression Text|Base Form|Dictionary Form"
+  );
+  const ANKI_HEADWORD_FIELD_NAME_TAIL = ankiFieldNames(
+    "Learnable|Lemma|Primary|Search Term|Target Word|Term|Vocab|Vocabulary|Vocabulary Expression|Word Expression"
+  );
+  ankiFieldNames("Expression|Front|Japanese|Kanji|Katakana");
+  [
+    ...ANKI_HEADWORD_FIELD_NAME_PREFIX,
+    "Expression Reading",
+    "Japanese Expression",
+    ...ANKI_HEADWORD_FIELD_NAME_TAIL
+  ];
+  const ANKI_EXPRESSION_FIELD_NAMES = [
+    ...ANKI_HEADWORD_FIELD_NAME_PREFIX,
+    ...ankiFieldNames("Expression|Expression Reading|Front|Japanese|Japanese Expression|Kanji|Katakana"),
+    ...ANKI_HEADWORD_FIELD_NAME_TAIL
+  ];
+  const ANKI_READING_FIELD_NAMES = ankiFieldNames(
+    "Vocabulary-Kana|Vocabulary Kana|Vocabulary-Furigana|Vocabulary Furigana|Vocab Kana|Vocab Furigana|Jlab-Hiragana|Readings|Expression Reading|Furigana|Furigana Reading|Hiragana|Japanese Reading|Kana|Kana Reading|On|On Reading|Onyomi|Kun|Kun Reading|Kunyomi|Pronunciation|Reading|Ruby|Term Kana|Term Reading|Vocab Reading|Vocabulary Reading|Word Kana|Word Reading|Yomi"
+  );
+  const ANKI_MEANING_FIELD_NAMES = ankiFieldNames(
+    "Vocabulary-English|Vocabulary English|Vocabulary-Meaning|Vocabulary Meaning|Translation_1|Jlab-Translation|RemarksBack|Jlab-Remarks|Other-Back|Jlab-DictionaryLookup|Meaning|Def|Defs|Definition|Definition 1|Definition English|Definitions|English|English Definition|English Meaning|Gloss|Glosses|Glossary|Keyword|MainDefinition|Meanings|Mnemonic|Back|DictionaryDefinitions|Sense|Term Meaning|Translation|Translation 1|Vocab Def|Vocab Definition|Word Meaning"
+  );
+  const ANKI_SENTENCE_FIELD_NAMES = ankiFieldNames(
+    "Sentence|Example|Example Sentence|Example Sentence Text|Context|Context Sentence|Context Text|ExpressionSentence|Japanese Sentence|Mining Sentence|SentKanji|Sentence Furigana|Sentence Kanji|Sentence-Kanji|Sentence Text|Source Sentence|Source Text"
+  );
+  ankiFieldNames(
+    "Audio|Expression Audio|Term Audio|Vocab Audio|Vocabulary Audio|Word Audio|PronunciationAudio|Sound|Voice"
+  );
+  const ANKI_SENTENCE_AUDIO_FIELD_NAMES = ankiFieldNames(
+    "SentenceAudio|Sentence Audio|SentAudio|Sentence Sound|Context Audio|Example Audio"
+  );
+  ankiFieldNames(
+    "Context Image|Example Image|Frame|Image|Image File|Photo|Picture|Snapshot|Screenshot|Sentence Image|Sentence Screenshot|SentencePicture|Still|Source Image|Term Image|Vocab Image|Vocabulary Image|Word Image"
+  );
+  function flattenNoteFields(fields) {
+    const out = {};
+    Object.entries(fields ?? {}).forEach(([name, value]) => {
+      out[name] = stripHtml$1(String(value?.value ?? ""));
+    });
+    return out;
+  }
+  function normalizeAnkiFieldName(value) {
+    return value.replace(/[_\s-]+/g, "").toLowerCase();
+  }
+  function stripHtml$1(value) {
+    return value.replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").trim();
+  }
+  const NORMALIZED_SENTENCE_AUDIO_FIELD_NAMES = new Set(ANKI_SENTENCE_AUDIO_FIELD_NAMES.map(normalizeAnkiFieldName));
+  function isSentenceAudioFieldName(fieldName2) {
+    return NORMALIZED_SENTENCE_AUDIO_FIELD_NAMES.has(normalizeAnkiFieldName(fieldName2));
+  }
+  const ANKI_FIELD_MAPPING_ROLES$2 = ["expression", "reading", "meaning", "sentence", "audio", "sentenceAudio", "image"];
   function normalizeAnkiFieldMappings(value) {
     if (!value || typeof value !== "object" || Array.isArray(value)) return {};
     const out = {};
@@ -33183,6 +33240,21 @@ ${spelling}`);
       if (Object.keys(normalizedMapping).length) out[normalizedModelName] = normalizedMapping;
     });
     return out;
+  }
+  function migrateAnkiSentenceAudioMappings(mappings) {
+    const out = {};
+    const movedModels = [];
+    for (const [modelName, mapping2] of Object.entries(mappings)) {
+      const audioField = mapping2.audio?.trim() ?? "";
+      if (!audioField || mapping2.sentenceAudio?.trim() || !isSentenceAudioFieldName(audioField)) {
+        out[modelName] = mapping2;
+        continue;
+      }
+      const { audio: _audio, ...rest } = mapping2;
+      out[modelName] = { ...rest, sentenceAudio: audioField };
+      movedModels.push(modelName);
+    }
+    return { mappings: out, movedModels };
   }
   function hasOwn(value, key2) {
     return Boolean(value) && Object.prototype.hasOwnProperty.call(value, key2);
@@ -35327,7 +35399,8 @@ ${spelling}`);
       ankiRoleReading: "Reading",
       ankiRoleMeaning: "Meaning",
       ankiRoleSentence: "Sentence",
-      ankiRoleAudio: "Audio",
+      ankiRoleAudio: "Word audio",
+      ankiRoleSentenceAudio: "Sentence audio",
       ankiRoleImage: "Image",
       testAnki: "Check AnkiConnect",
       prepareAnki: "Set up Yomu note type",
@@ -36988,7 +37061,8 @@ ankiRoleExpression	表記
 ankiRoleReading	読み
 ankiRoleMeaning	意味
 ankiRoleSentence	文
-ankiRoleAudio	音声
+ankiRoleAudio	単語音声
+ankiRoleSentenceAudio	文音声
 ankiRoleImage	画像
 testAnki	AnkiConnectを確認
 prepareAnki	よむノートタイプを準備
@@ -38574,6 +38648,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
     ankiMineWithJpdb: false,
     ankiCaptureScreenshot: true,
     ankiFieldMappings: {},
+    // Default TRUE: only stored records that PREDATE this key had a single
+    // audio role and can hold a sentence-audio field in the word-audio slot.
+    ankiSentenceAudioMappingMigrated: true,
     theme: "light",
     popupMode: "auto",
     hoverPopupMode: "popover",
@@ -38648,8 +38725,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
     ["ankiTags", DEFAULT_SETTINGS.ankiTags]
   ];
   function mergeSettings(value) {
-    const settingsValue = migratePinnedOcrLanguage(
-      migrateHiddenFilterNotice(migrateLegacyDefaultMobileSettings(value))
+    const settingsValue = migrateSentenceAudioFieldMappings(
+      migratePinnedOcrLanguage(
+        migrateHiddenFilterNotice(migrateLegacyDefaultMobileSettings(value))
+      )
     );
     const audio2 = normalizeAudioSettings(settingsValue);
     const supportedSettings = stripUnsupportedSettings(settingsValue);
@@ -38795,6 +38874,16 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function migratePinnedOcrLanguage(value) {
     if (!value || !isTargetDefaultOcrLanguageTag(stringValue$2(value.ocrLanguage))) return value;
     return { ...value, ocrLanguage: "" };
+  }
+  function migrateSentenceAudioFieldMappings(value) {
+    if (!value) return value;
+    if (value.ankiSentenceAudioMappingMigrated) return value;
+    const migrated = { ...value, ankiSentenceAudioMappingMigrated: true };
+    if (!value.ankiFieldMappings) return migrated;
+    const { mappings, movedModels } = migrateAnkiSentenceAudioMappings(value.ankiFieldMappings);
+    if (!movedModels.length) return migrated;
+    log$u.info("Moved Anki sentence-audio field mappings off the word-audio role", { models: movedModels });
+    return { ...migrated, ankiFieldMappings: mappings };
   }
   function migrateLegacyDefaultMobileSettings(value) {
     if (!value) return value;
@@ -44200,7 +44289,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return {
       ...state,
       cursor: cursorFor(expression, probe),
-      visitedExpressionIds: unique$f([...state.visitedExpressionIds, expression.id])
+      visitedExpressionIds: unique$e([...state.visitedExpressionIds, expression.id])
     };
   }
   function validateClassroomExpressionSessionState(definition2, snapshot) {
@@ -44212,11 +44301,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const probeById = new Map(ordered.map((item2) => [item2.probe.id, item2]));
     const expressionIds = new Set(definition2.expressions.map((expression) => expression.id));
     for (const values of [state.passedProbeIds, state.revealedModelProbeIds]) {
-      if (!Array.isArray(values) || values.some((id2) => !probeById.has(id2)) || unique$f(values).length !== values.length) {
+      if (!Array.isArray(values) || values.some((id2) => !probeById.has(id2)) || unique$e(values).length !== values.length) {
         throw new TypeError("Classroom-expression snapshot references unknown probes.");
       }
     }
-    if (!Array.isArray(state.visitedExpressionIds) || state.visitedExpressionIds.some((id2) => !expressionIds.has(id2)) || unique$f(state.visitedExpressionIds).length !== state.visitedExpressionIds.length || !state.visitedExpressionIds.includes(current.expression.id)) {
+    if (!Array.isArray(state.visitedExpressionIds) || state.visitedExpressionIds.some((id2) => !expressionIds.has(id2)) || unique$e(state.visitedExpressionIds).length !== state.visitedExpressionIds.length || !state.visitedExpressionIds.includes(current.expression.id)) {
       throw new TypeError("Classroom-expression snapshot references unknown expressions.");
     }
     if (!Array.isArray(state.attempts) || state.attempts.some((attempt) => {
@@ -44248,7 +44337,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if ([state.passedProbeIds, state.revealedModelProbeIds, state.visitedExpressionIds].some((values) => values.some((value) => typeof value !== "string" || !value))) return false;
     return state.attempts.every((attempt) => Boolean(attempt) && typeof attempt.probeId === "string" && typeof attempt.sourceQuestionId === "string" && (attempt.outcome === "pass" || attempt.outcome === "lapse") && typeof attempt.independent === "boolean" && Number.isSafeInteger(attempt.at) && attempt.at >= 0);
   }
-  function unique$f(values) {
+  function unique$e(values) {
     return [...new Set(values)];
   }
   function startClassroomExpressionSession(definition2, snapshot) {
@@ -44324,7 +44413,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const outcome = probe.acceptedAnswers.some((answer2) => normalized(answer2) === normalized(response)) ? "pass" : "lapse";
     const independent = !state.revealedModelProbeIds.includes(probe.id);
     const hadLapse = state.attempts.some((attempt2) => attempt2.probeId === probe.id && attempt2.outcome === "lapse");
-    const passedProbeIds = outcome === "pass" ? unique$f([...state.passedProbeIds, probe.id]) : state.passedProbeIds;
+    const passedProbeIds = outcome === "pass" ? unique$e([...state.passedProbeIds, probe.id]) : state.passedProbeIds;
     const attempt = { probeId: probe.id, sourceQuestionId: expression.sourceQuestionId, outcome, independent, at };
     let nextState = {
       ...state,
@@ -44355,7 +44444,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const alreadyRevealed = state.revealedModelProbeIds.includes(probe.id);
     const nextState = {
       ...state,
-      revealedModelProbeIds: unique$f([...state.revealedModelProbeIds, probe.id])
+      revealedModelProbeIds: unique$e([...state.revealedModelProbeIds, probe.id])
     };
     const evidence2 = alreadyRevealed ? [] : [{
       kind: "support-used",
@@ -44490,7 +44579,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       return unchanged$6({
         ...current,
         stage: "practice",
-        introducedCueIds: unique$e([...current.introducedCueIds ?? [], cue2.id])
+        introducedCueIds: unique$d([...current.introducedCueIds ?? [], cue2.id])
       });
     }
     if (action2.kind === "begin-retry") {
@@ -44515,8 +44604,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
       at,
       round: round2
     };
-    const passedCueIds = round2 === "practice" && outcome === "pass" ? unique$e([...current.passedCueIds, cue.id]) : current.passedCueIds;
-    const recalledCueIds = round2 === "recall" && outcome === "pass" ? unique$e([...current.recalledCueIds ?? [], cue.id]) : current.recalledCueIds ?? [];
+    const passedCueIds = round2 === "practice" && outcome === "pass" ? unique$d([...current.passedCueIds, cue.id]) : current.passedCueIds;
+    const recalledCueIds = round2 === "recall" && outcome === "pass" ? unique$d([...current.recalledCueIds ?? [], cue.id]) : current.recalledCueIds ?? [];
     const practiceComplete = passedCueIds.length === definition2.cues.length;
     const recallComplete = recalledCueIds.length === definition2.cues.length;
     const nextStage = outcome === "lapse" ? round2 === "practice" ? "practice-repair" : "recall-repair" : round2 === "practice" ? practiceComplete ? "recall" : "teach" : recallComplete ? "complete" : "recall";
@@ -44634,7 +44723,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return definition2.cues[state.passedCueIds.length];
   }
   function normalizeSnapshot(definition2, snapshot) {
-    const passedCueIds = unique$e([...snapshot.passedCueIds]);
+    const passedCueIds = unique$d([...snapshot.passedCueIds]);
     const legacy = snapshot.stage === void 0;
     if (legacy && snapshot.status === "complete") {
       return {
@@ -44660,8 +44749,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     return {
       ...structuredClone(snapshot),
-      introducedCueIds: unique$e([...snapshot.introducedCueIds ?? []]),
-      recalledCueIds: unique$e([...snapshot.recalledCueIds ?? []]),
+      introducedCueIds: unique$d([...snapshot.introducedCueIds ?? []]),
+      recalledCueIds: unique$d([...snapshot.recalledCueIds ?? []]),
       attempts: snapshot.attempts.map((attempt) => ({ ...attempt, round: attempt.round ?? "practice" }))
     };
   }
@@ -44685,7 +44774,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       throw new TypeError("Classroom-instruction completion needs mixed recall of all seven cues.");
     }
   }
-  function unique$e(values) {
+  function unique$d(values) {
     return [...new Set(values)];
   }
   function stringArray$3(value) {
@@ -45039,8 +45128,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
         }]
       };
     }
-    const practicePassedWordIds = round2 === "practice" ? unique$d([...current.practicePassedWordIds, wordId]) : current.practicePassedWordIds;
-    const transferPassedWordIds = round2 === "transfer" ? unique$d([...current.transferPassedWordIds, wordId]) : current.transferPassedWordIds;
+    const practicePassedWordIds = round2 === "practice" ? unique$c([...current.practicePassedWordIds, wordId]) : current.practicePassedWordIds;
+    const transferPassedWordIds = round2 === "transfer" ? unique$c([...current.transferPassedWordIds, wordId]) : current.transferPassedWordIds;
     const nextIndex = index + 1;
     const roundFinished = nextIndex >= order2.length;
     const complete = round2 === "transfer" && roundFinished;
@@ -45179,7 +45268,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const attempt = value;
     return (attempt.round === "practice" || attempt.round === "transfer") && (attempt.wordId === "homework" || attempt.wordId === "example") && (attempt.chosenPropId === "take-home-sheet" || attempt.chosenPropId === "worked-example") && (attempt.outcome === "pass" || attempt.outcome === "lapse") && Number.isFinite(attempt.at);
   }
-  function unique$d(values) {
+  function unique$c(values) {
     return [...new Set(values)];
   }
   function sameWordIds(left, right) {
@@ -45548,11 +45637,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const normalized2 = normalizeRomaji(response);
     const outcome = item2.acceptedRomaji.some((answer2) => normalizeRomaji(answer2) === normalized2) ? "pass" : "lapse";
     const repairedBefore = state.repairedItemIds.includes(item2.id);
-    const repairedItemIds = outcome === "lapse" ? unique$c([...state.repairedItemIds, item2.id]) : state.repairedItemIds;
+    const repairedItemIds = outcome === "lapse" ? unique$b([...state.repairedItemIds, item2.id]) : state.repairedItemIds;
     const queue = state.queue.slice(1);
     if (outcome === "lapse") queue.push(item2.id);
-    const guidedPassedItemIds = phase === "row" && outcome === "pass" ? unique$c([...state.guidedPassedItemIds, item2.id]) : state.guidedPassedItemIds;
-    const masteryPassedItemIds = phase === "mastery" && outcome === "pass" ? unique$c([...state.masteryPassedItemIds, item2.id]) : state.masteryPassedItemIds;
+    const guidedPassedItemIds = phase === "row" && outcome === "pass" ? unique$b([...state.guidedPassedItemIds, item2.id]) : state.guidedPassedItemIds;
+    const masteryPassedItemIds = phase === "mastery" && outcome === "pass" ? unique$b([...state.masteryPassedItemIds, item2.id]) : state.masteryPassedItemIds;
     const attempt = {
       itemId: item2.id,
       phase,
@@ -45706,7 +45795,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return item2;
   }
   function deterministicUniqueOrder(values, seed) {
-    const uniqueValues = unique$c(values);
+    const uniqueValues = unique$b(values);
     let value = hash$1(seed);
     for (let index = uniqueValues.length - 1; index > 0; index -= 1) {
       value = Math.imul(value, 1664525) + 1013904223 >>> 0;
@@ -45726,7 +45815,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function normalizeRomaji(value) {
     return value.normalize("NFKC").trim().toLocaleLowerCase("en").replace(/[\s._-]+/gu, "");
   }
-  function unique$c(values) {
+  function unique$b(values) {
     return [...new Set(values)];
   }
   function uniqueStringArray(value) {
@@ -45926,8 +46015,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
       at
     };
     const repairing = outcome === "lapse" || state.attempts.some((candidate2) => candidate2.frameId === frame2.id && phaseOf(candidate2) === phase && candidate2.outcome === "lapse");
-    const passedFrameIds = phase === "practice" && outcome === "pass" ? unique$b([...state.passedFrameIds, frame2.id]) : state.passedFrameIds;
-    const transferPasses = phase === "transfer" && outcome === "pass" ? unique$b([...passedTransferFrameIds(state.attempts), frame2.id]) : passedTransferFrameIds(state.attempts);
+    const passedFrameIds = phase === "practice" && outcome === "pass" ? unique$a([...state.passedFrameIds, frame2.id]) : state.passedFrameIds;
+    const transferPasses = phase === "transfer" && outcome === "pass" ? unique$a([...passedTransferFrameIds(state.attempts), frame2.id]) : passedTransferFrameIds(state.attempts);
     const finalPass = phase === "transfer" && outcome === "pass" && transferPasses.length === definition2.frames.length;
     const attemptNumber = state.attempts.filter((candidate2) => candidate2.frameId === frame2.id && phaseOf(candidate2) === phase).length + 1;
     const eventStem = `${definition2.id}:${frame2.id}:${phase}:attempt:${attemptNumber}:${at}`;
@@ -46107,7 +46196,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function sameSet(actual, expected) {
     return actual.length === expected.length && actual.every((value) => expected.includes(value));
   }
-  function unique$b(values) {
+  function unique$a(values) {
     return [...new Set(values)];
   }
   function phaseOf(attempt) {
@@ -46173,7 +46262,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       const expectedPhase = state.stage === "meet" ? "introduction" : state.stage === "attempt" ? "check" : null;
       const line2 = definition2.lines.find((candidate2) => candidate2.id === action2.lineId);
       if (!expectedPhase || line2?.phase !== expectedPhase) return unchanged(state);
-      return unchanged({ ...state, heardLineIds: unique$a([...state.heardLineIds, action2.lineId]) });
+      return unchanged({ ...state, heardLineIds: unique$9([...state.heardLineIds, action2.lineId]) });
     }
     if (action2.kind === "begin-check") {
       if (state.stage !== "meet" || introductionLines(definition2).some((line2) => !state.heardLineIds.includes(line2.id))) {
@@ -46201,7 +46290,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (action2.kind === "mark-repair-heard") {
       const missed = state.attempts.at(-1)?.missedLineIds ?? [];
       if (state.stage !== "repair" || !missed.includes(action2.lineId)) return unchanged(state);
-      return unchanged({ ...state, repairedLineIds: unique$a([...state.repairedLineIds, action2.lineId]) });
+      return unchanged({ ...state, repairedLineIds: unique$9([...state.repairedLineIds, action2.lineId]) });
     }
     if (action2.kind === "reveal-model") return revealModel(definition2, state, at);
     if (action2.kind === "retry") {
@@ -46416,7 +46505,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function supportEvent(activityId, supportKind, eventId, at) {
     return { kind: "support-used", eventId, at, activityId, supportKind };
   }
-  function unique$a(values) {
+  function unique$9(values) {
     return [...new Set(values)];
   }
   function sameList(actual, expected) {
@@ -46518,7 +46607,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           state: {
             ...state,
             stage: "repair",
-            guideItemIds: unique$9([...state.guideItemIds, item2.id]),
+            guideItemIds: unique$8([...state.guideItemIds, item2.id]),
             attempts
           },
           evaluation: action2.evaluation,
@@ -46664,7 +46753,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function stringArray$2(value) {
     return Array.isArray(value) && value.every((item2) => typeof item2 === "string" && item2.length > 0);
   }
-  function unique$9(values) {
+  function unique$8(values) {
     return [...new Set(values)];
   }
   function validateTime(at) {
@@ -50423,7 +50512,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       throw new TypeError("successfulRetrievals must be a non-negative integer.");
     }
     if (!outcome.conceptIds.length) throw new TypeError("A retrieval hook needs at least one concept id.");
-    const conceptIds = unique$8(outcome.conceptIds);
+    const conceptIds = unique$7(outcome.conceptIds);
     const advances = outcome.outcome === "pass" && outcome.independent;
     const intervalDays = advances ? RETRIEVAL_INTERVALS[Math.min(outcome.successfulRetrievals, RETRIEVAL_INTERVALS.length - 1)] : RETRIEVAL_INTERVALS[0];
     const reason = outcome.outcome === "lapse" ? "lapse-reset" : outcome.independent ? "retrieval-success" : "supported-reinforcement";
@@ -50446,7 +50535,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       throw new TypeError(`Candidate ${candidate2.id} challengeLevel must be from 1 to 5.`);
     }
     if (!candidate2.conceptIds.length) throw new TypeError(`Candidate ${candidate2.id} needs concept ids.`);
-    unique$8(candidate2.conceptIds);
+    unique$7(candidate2.conceptIds);
     if (candidate2.purpose === "retrieval" && candidate2.dueAt === void 0) {
       throw new TypeError(`Retrieval candidate ${candidate2.id} needs dueAt.`);
     }
@@ -50467,7 +50556,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (!value) throw new Error(`Missing learner evidence projection for ${skill}.`);
     return value;
   }
-  function unique$8(values) {
+  function unique$7(values) {
     return [...new Set(values.map((value) => requireText(value, "conceptId")))].sort();
   }
   function requireText(value, label) {
@@ -250336,10 +250425,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
       const columnIds = new Set(columns?.map((column) => column.id) ?? []);
       for (const [index, round2] of rounds.entries()) {
         const path = `payload.rounds.${index}`;
-        unique$7(round2.id, `${path}.id`, ids2, issues2);
-        unique$7(round2.kana, `${path}.kana`, kana, issues2);
-        unique$7(round2.conceptId, `${path}.conceptId`, concepts, issues2);
-        unique$7(round2.reviewSeedId, `${path}.reviewSeedId`, reviews, issues2);
+        unique$6(round2.id, `${path}.id`, ids2, issues2);
+        unique$6(round2.kana, `${path}.kana`, kana, issues2);
+        unique$6(round2.conceptId, `${path}.conceptId`, concepts, issues2);
+        unique$6(round2.reviewSeedId, `${path}.reviewSeedId`, reviews, issues2);
         if (!text$a(round2.sourceCellId)) issues2.push({ path: `${path}.sourceCellId`, message: "An exact Moodle worksheet cell is required." });
         if (!text$a(round2.errorTag)) issues2.push({ path: `${path}.errorTag`, message: "A deterministic error tag is required." });
         if (!columnIds.has(round2.vowelColumnId)) issues2.push({ path: `${path}.vowelColumnId`, message: "Every tile must target a source vowel column." });
@@ -250386,7 +250475,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     return placements;
   }
-  function unique$7(value, path, seen, issues2) {
+  function unique$6(value, path, seen, issues2) {
     const normalized2 = text$a(value);
     if (!normalized2) issues2.push({ path, message: "A stable unique value is required." });
     else if (seen.has(normalized2)) issues2.push({ path, message: "Values must be unique." });
@@ -250636,12 +250725,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
       const validSlots = new Set(slots.map((slot) => slot.id));
       for (const [index, round2] of rounds.entries()) {
         const itemPath = `payload.rounds.${index}`;
-        unique$6(round2.id, `${itemPath}.id`, ids2, issues2);
-        unique$6(round2.kana, `${itemPath}.kana`, kana, issues2);
-        unique$6(round2.conceptId, `${itemPath}.conceptId`, concepts, issues2);
-        unique$6(round2.reviewSeedId, `${itemPath}.reviewSeedId`, reviews, issues2);
-        unique$6(round2.sourceCellId, `${itemPath}.sourceCellId`, sourceCells, issues2);
-        unique$6(round2.slotId, `${itemPath}.slotId`, roundSlots, issues2);
+        unique$5(round2.id, `${itemPath}.id`, ids2, issues2);
+        unique$5(round2.kana, `${itemPath}.kana`, kana, issues2);
+        unique$5(round2.conceptId, `${itemPath}.conceptId`, concepts, issues2);
+        unique$5(round2.reviewSeedId, `${itemPath}.reviewSeedId`, reviews, issues2);
+        unique$5(round2.sourceCellId, `${itemPath}.sourceCellId`, sourceCells, issues2);
+        unique$5(round2.slotId, `${itemPath}.slotId`, roundSlots, issues2);
         if (!validSlots.has(round2.slotId)) issues2.push({ path: `${itemPath}.slotId`, message: "Every signal must point to a delivered source-chart slot." });
         if (!text$9(round2.errorTag)) issues2.push({ path: `${itemPath}.errorTag`, message: "A deterministic error tag is required." });
         if (!model2.conceptIds.includes(round2.conceptId)) issues2.push({ path: `${itemPath}.conceptId`, message: "Every shelf concept must belong to the activity." });
@@ -250689,7 +250778,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     return answers;
   }
-  function unique$6(value, path, seen, issues2) {
+  function unique$5(value, path, seen, issues2) {
     const normalized2 = text$9(value);
     if (!normalized2) issues2.push({ path, message: "A stable unique value is required." });
     else if (seen.has(normalized2)) issues2.push({ path, message: "Values must be unique." });
@@ -250925,12 +251014,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
       const coordinates = /* @__PURE__ */ new Set();
       for (const [index, round2] of rounds.entries()) {
         const path = `payload.rounds.${index}`;
-        unique$5(round2.id, `${path}.id`, ids2, issues2);
-        unique$5(round2.kana, `${path}.kana`, kana, issues2);
-        unique$5(round2.conceptId, `${path}.conceptId`, concepts, issues2);
-        unique$5(round2.reviewSeedId, `${path}.reviewSeedId`, reviews, issues2);
-        unique$5(round2.sourceCellId, `${path}.sourceCellId`, sourceCells, issues2);
-        unique$5(coordinate(round2.rowId, round2.vowelColumnId), `${path}.coordinate`, coordinates, issues2);
+        unique$4(round2.id, `${path}.id`, ids2, issues2);
+        unique$4(round2.kana, `${path}.kana`, kana, issues2);
+        unique$4(round2.conceptId, `${path}.conceptId`, concepts, issues2);
+        unique$4(round2.reviewSeedId, `${path}.reviewSeedId`, reviews, issues2);
+        unique$4(round2.sourceCellId, `${path}.sourceCellId`, sourceCells, issues2);
+        unique$4(coordinate(round2.rowId, round2.vowelColumnId), `${path}.coordinate`, coordinates, issues2);
         if (!["na", "ha"].includes(round2.rowId)) issues2.push({ path: `${path}.rowId`, message: "Every signal must identify the na or ha source row." });
         if (!["a", "i", "u", "e", "o"].includes(round2.vowelColumnId)) issues2.push({ path: `${path}.vowelColumnId`, message: "Every signal must identify a source vowel column." });
         if (!text$8(round2.errorTag)) issues2.push({ path: `${path}.errorTag`, message: "A deterministic error tag is required." });
@@ -250981,7 +251070,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function coordinate(rowId, vowelColumnId) {
     return `${rowId}:${vowelColumnId}`;
   }
-  function unique$5(value, path, seen, issues2) {
+  function unique$4(value, path, seen, issues2) {
     const normalized2 = text$8(value);
     if (!normalized2) issues2.push({ path, message: "A stable unique value is required." });
     else if (seen.has(normalized2)) issues2.push({ path, message: "Values must be unique." });
@@ -255528,10 +255617,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const reviews = /* @__PURE__ */ new Set();
     rounds.forEach((round2, index) => {
       const path = `payload.rounds.${index}`;
-      unique$4(round2.id, `${path}.id`, ids2, issues2);
-      unique$4(round2.kana, `${path}.kana`, kana, issues2);
-      unique$4(round2.conceptId, `${path}.conceptId`, concepts, issues2);
-      unique$4(round2.reviewSeedId, `${path}.reviewSeedId`, reviews, issues2);
+      unique$3(round2.id, `${path}.id`, ids2, issues2);
+      unique$3(round2.kana, `${path}.kana`, kana, issues2);
+      unique$3(round2.conceptId, `${path}.conceptId`, concepts, issues2);
+      unique$3(round2.reviewSeedId, `${path}.reviewSeedId`, reviews, issues2);
       if (!text$7(round2.sourceCellId)) issues2.push({ path: `${path}.sourceCellId`, message: "An exact Moodle chart cell id is required." });
       if (!text$7(round2.errorTag)) issues2.push({ path: `${path}.errorTag`, message: "A deterministic error tag is required." });
       if (!model2.conceptIds.includes(round2.conceptId)) {
@@ -255585,7 +255674,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       return { roundId: placement.roundId, kanaId: placement.kanaId };
     });
   }
-  function unique$4(value, path, seen, issues2) {
+  function unique$3(value, path, seen, issues2) {
     const normalized2 = text$7(value);
     if (!normalized2) issues2.push({ path, message: "A stable unique value is required." });
     else if (seen.has(normalized2)) issues2.push({ path, message: "Values must be unique." });
@@ -255820,13 +255909,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
       const coordinates = /* @__PURE__ */ new Set();
       for (const [index, round2] of rounds.entries()) {
         const path = `payload.rounds.${index}`;
-        unique$3(round2.id, `${path}.id`, ids2, issues2);
-        unique$3(round2.kana, `${path}.kana`, kana, issues2);
-        unique$3(round2.conceptId, `${path}.conceptId`, concepts, issues2);
-        unique$3(round2.reviewSeedId, `${path}.reviewSeedId`, reviews, issues2);
-        unique$3(round2.sourceCellId, `${path}.sourceCellId`, sourceCells, issues2);
+        unique$2(round2.id, `${path}.id`, ids2, issues2);
+        unique$2(round2.kana, `${path}.kana`, kana, issues2);
+        unique$2(round2.conceptId, `${path}.conceptId`, concepts, issues2);
+        unique$2(round2.reviewSeedId, `${path}.reviewSeedId`, reviews, issues2);
+        unique$2(round2.sourceCellId, `${path}.sourceCellId`, sourceCells, issues2);
         const coordinate2 = cellId(round2.rowId, round2.vowelColumnId);
-        unique$3(coordinate2, `${path}.coordinate`, coordinates, issues2);
+        unique$2(coordinate2, `${path}.coordinate`, coordinates, issues2);
         if (!["sa", "ta"].includes(round2.rowId)) issues2.push({ path: `${path}.rowId`, message: "Every signal must identify the sa or ta source row." });
         if (!["a", "i", "u", "e", "o"].includes(round2.vowelColumnId)) issues2.push({ path: `${path}.vowelColumnId`, message: "Every signal must identify a source vowel column." });
         if (!text$6(round2.errorTag)) issues2.push({ path: `${path}.errorTag`, message: "A deterministic error tag is required." });
@@ -255876,7 +255965,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function cellId(rowId, vowelColumnId) {
     return `${rowId}:${vowelColumnId}`;
   }
-  function unique$3(value, path, seen, issues2) {
+  function unique$2(value, path, seen, issues2) {
     const normalized2 = text$6(value);
     if (!normalized2) issues2.push({ path, message: "A stable unique value is required." });
     else if (seen.has(normalized2)) issues2.push({ path, message: "Values must be unique." });
@@ -269157,7 +269246,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     figure.append(image);
     const caption2 = documentRef.createElement("figcaption");
     caption2.className = "academy-vocabulary-pictograph__caption";
-    const expressions2 = unique$2(
+    const expressions2 = unique$1(
       group2.entries.map((entry2) => entry2.displayExpression)
     );
     appendCaptionPart(
@@ -269168,7 +269257,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       "expression"
     );
     if (options.showReading !== false) {
-      const readings = unique$2(group2.entries.map((entry2) => entry2.reading)).filter(
+      const readings = unique$1(group2.entries.map((entry2) => entry2.reading)).filter(
         (reading) => !expressions2.includes(reading)
       );
       if (readings.length)
@@ -269184,7 +269273,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       appendCaptionPart(
         documentRef,
         caption2,
-        unique$2(group2.entries.map((entry2) => entry2.englishSense)).join("; "),
+        unique$1(group2.entries.map((entry2) => entry2.englishSense)).join("; "),
         "en",
         "meaning"
       );
@@ -269199,7 +269288,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     span.textContent = value;
     caption2.append(span);
   }
-  function unique$2(values) {
+  function unique$1(values) {
     return [...new Set(values)];
   }
   function exactCounts(value, keys, label) {
@@ -281170,7 +281259,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function languagePod101RowKana(row2) {
     const kanaHtml = findHtmlElementByClass(row2, "span", "dc-vocab_kana");
-    return stripHtml$1(kanaHtml ?? "").trim();
+    return stripHtml(kanaHtml ?? "").trim();
   }
   async function getCommonsAudioUrls(term, source2, timeoutMs, proxyUrl = "") {
     const apiUrl = commonsSearchApiUrl(term, source2);
@@ -281276,7 +281365,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function decodeHtmlAttribute(value) {
     return value.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&#(\d+);/g, (_, code) => String.fromCodePoint(Number(code))).replace(/&#x([0-9a-f]+);/gi, (_, code) => String.fromCodePoint(parseInt(code, 16)));
   }
-  function stripHtml$1(value) {
+  function stripHtml(value) {
     return decodeHtmlAttribute(value.replace(/<[^>]+>/g, ""));
   }
   function isValidCommonsAudioFilename(filename, fileUser, term, source2) {
@@ -282626,56 +282715,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (note.renderedCards?.some((card) => card.question.trim() || card.answer.trim())) return true;
     return Object.values(note.fields).some((value) => value.trim());
   }
-  function unique$1(items) {
-    return [...new Set(items)];
-  }
-  const ankiFieldNames = (names) => names.split("|");
-  const ANKI_HEADWORD_FIELD_NAME_PREFIX = ankiFieldNames(
-    "Vocabulary-Kanji|Vocabulary Kanji|Vocab Kanji|Jlab-Kanji|Japanese_Word|Word|Word Kanji|Japanese Word|Headword|Headword Kanji|Term Kanji|Term Text|Expression Text|Base Form|Dictionary Form"
-  );
-  const ANKI_HEADWORD_FIELD_NAME_TAIL = ankiFieldNames(
-    "Learnable|Lemma|Primary|Search Term|Target Word|Term|Vocab|Vocabulary|Vocabulary Expression|Word Expression"
-  );
-  ankiFieldNames("Expression|Front|Japanese|Kanji|Katakana");
-  [
-    ...ANKI_HEADWORD_FIELD_NAME_PREFIX,
-    "Expression Reading",
-    "Japanese Expression",
-    ...ANKI_HEADWORD_FIELD_NAME_TAIL
-  ];
-  const ANKI_EXPRESSION_FIELD_NAMES = [
-    ...ANKI_HEADWORD_FIELD_NAME_PREFIX,
-    ...ankiFieldNames("Expression|Expression Reading|Front|Japanese|Japanese Expression|Kanji|Katakana"),
-    ...ANKI_HEADWORD_FIELD_NAME_TAIL
-  ];
-  const ANKI_READING_FIELD_NAMES = ankiFieldNames(
-    "Vocabulary-Kana|Vocabulary Kana|Vocabulary-Furigana|Vocabulary Furigana|Vocab Kana|Vocab Furigana|Jlab-Hiragana|Readings|Expression Reading|Furigana|Furigana Reading|Hiragana|Japanese Reading|Kana|Kana Reading|On|On Reading|Onyomi|Kun|Kun Reading|Kunyomi|Pronunciation|Reading|Ruby|Term Kana|Term Reading|Vocab Reading|Vocabulary Reading|Word Kana|Word Reading|Yomi"
-  );
-  const ANKI_MEANING_FIELD_NAMES = ankiFieldNames(
-    "Vocabulary-English|Vocabulary English|Vocabulary-Meaning|Vocabulary Meaning|Translation_1|Jlab-Translation|RemarksBack|Jlab-Remarks|Other-Back|Jlab-DictionaryLookup|Meaning|Def|Defs|Definition|Definition 1|Definition English|Definitions|English|English Definition|English Meaning|Gloss|Glosses|Glossary|Keyword|MainDefinition|Meanings|Mnemonic|Back|DictionaryDefinitions|Sense|Term Meaning|Translation|Translation 1|Vocab Def|Vocab Definition|Word Meaning"
-  );
-  const ANKI_SENTENCE_FIELD_NAMES = ankiFieldNames(
-    "Sentence|Example|Example Sentence|Example Sentence Text|Context|Context Sentence|Context Text|ExpressionSentence|Japanese Sentence|Mining Sentence|SentKanji|Sentence Furigana|Sentence Kanji|Sentence-Kanji|Sentence Text|Source Sentence|Source Text"
-  );
-  ankiFieldNames(
-    "Audio|Expression Audio|Term Audio|Vocab Audio|Vocabulary Audio|Word Audio|PronunciationAudio|Context Audio|Example Audio|SentAudio|Sentence Audio|Sentence Sound|SentenceAudio|Sound|Voice"
-  );
-  ankiFieldNames(
-    "Context Image|Example Image|Frame|Image|Image File|Photo|Picture|Snapshot|Screenshot|Sentence Image|Sentence Screenshot|SentencePicture|Still|Source Image|Term Image|Vocab Image|Vocabulary Image|Word Image"
-  );
-  function flattenNoteFields(fields) {
-    const out = {};
-    Object.entries(fields ?? {}).forEach(([name, value]) => {
-      out[name] = stripHtml(String(value?.value ?? ""));
-    });
-    return out;
-  }
-  function normalizeAnkiFieldName(value) {
-    return value.replace(/[_\s-]+/g, "").toLowerCase();
-  }
-  function stripHtml(value) {
-    return value.replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").trim();
-  }
   function ankiCardTemplateLabel(card) {
     const explicit = [card.cardName, card.card, card.template, card.name].map((value) => typeof value === "string" ? value.replace(/\s+/g, " ").trim() : "").find(Boolean);
     if (explicit) return explicit;
@@ -282921,7 +282960,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       exhaustWindow ? candidateCardIds.length : limit
     );
     if (!reviewCards.length) return [];
-    const noteIds = unique$1(reviewCards.map((cardInfo) => Number(cardInfo.note)).filter(Number.isFinite));
+    const noteIds = unique$f(reviewCards.map((cardInfo) => Number(cardInfo.note)).filter(Number.isFinite));
     const notesById = /* @__PURE__ */ new Map();
     for (const chunk2 of chunks(noteIds, ANKI_NOTE_INFO_CHUNK_SIZE)) {
       const notes = await client.invoke("notesInfo", { notes: chunk2 }).catch(() => []);
@@ -283069,7 +283108,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     ].filter(Boolean).join(" ");
   }
   function ankiCandidateIds(ids2) {
-    const uniqueIds2 = unique$1(ids2).filter((id2) => Number.isFinite(Number(id2)));
+    const uniqueIds2 = unique$f(ids2).filter((id2) => Number.isFinite(Number(id2)));
     return uniqueIds2;
   }
   function chunks(items, size) {
@@ -283155,7 +283194,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     for (const card of cards) {
       if (card.deckName) deckNames.push(card.deckName);
     }
-    return unique$1(deckNames);
+    return unique$f(deckNames);
   }
   function ankiPrimaryCardReps(card) {
     return card?.reps ?? 0;
@@ -283198,7 +283237,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     };
   }
   function ankiAudioFilenamesFromFields$1(fields) {
-    const filenames = unique$1(Object.values(fields).flatMap((value) => Array.from(value.matchAll(/\[sound:([^\]]+)]/gi), (match) => match[1]?.trim() ?? "")).filter(Boolean));
+    const filenames = unique$f(Object.values(fields).flatMap((value) => Array.from(value.matchAll(/\[sound:([^\]]+)]/gi), (match) => match[1]?.trim() ?? "")).filter(Boolean));
     return filenames.length ? filenames : void 0;
   }
   function classifyAnkiNoteCard(fields, spelling, modelName) {
@@ -303161,7 +303200,7 @@ ${key2}`] = { t: now, v: value };
     const matchingRoots = roots.filter((root) => jpdbVocabularyRootMatches(root, spelling, reading));
     const candidates = pitchCandidateRoots(doc, roots, matchingRoots, spelling, reading);
     const patterns = candidates.flatMap(readJpdbPitchPatterns).filter(Boolean);
-    return unique$1(patterns);
+    return unique$f(patterns);
   }
   function pitchCandidateRoots(doc, roots, matchingRoots, spelling, reading) {
     if (matchingRoots.length) return matchingRoots;
@@ -303239,7 +303278,7 @@ ${normalizedReading}`;
     }
     async fetchPitch(spelling, reading) {
       if (this.requestBackoff.isActive()) return [];
-      for (const query of unique$1([spelling, reading].filter(Boolean))) {
+      for (const query of unique$f([spelling, reading].filter(Boolean))) {
         const url = jpdbSearchUrl(query);
         const html = await requestText$2(url, this.getCorsProxyUrl()).catch((error) => {
           this.noteRequestFailure("Public JPDB pitch request failed", { query }, error);
@@ -303364,13 +303403,13 @@ ${normalizedReading}`;
     return canUseGenericVocabularyRoot(roots, spelling, reading) || jpdbDocumentMatchesVocabulary(doc, spelling, reading, cleanText);
   }
   function jpdbAudioIds(root) {
-    return unique$1(Array.from(root.querySelectorAll("[data-audio]")).flatMap((element2) => parseJpdbAudioData(element2.dataset.audio ?? "")));
+    return unique$f(Array.from(root.querySelectorAll("[data-audio]")).flatMap((element2) => parseJpdbAudioData(element2.dataset.audio ?? "")));
   }
   function jpdbVocabularyAudioIds(html, spelling, reading) {
     const doc = parseHtmlDocument(html);
     const root = vocabularyRoot(doc, spelling, reading);
     if (!root) return [];
-    return unique$1(Array.from(root.querySelectorAll("a.vocabulary-audio[data-audio], .subsection-headword [data-audio], .subsection-pitch-accent [data-audio]")).filter((element2) => !element2.closest(".subsection-used-in, .subsection-examples")).flatMap((element2) => parseJpdbAudioData(element2.dataset.audio ?? "")));
+    return unique$f(Array.from(root.querySelectorAll("a.vocabulary-audio[data-audio], .subsection-headword [data-audio], .subsection-pitch-accent [data-audio]")).filter((element2) => !element2.closest(".subsection-used-in, .subsection-examples")).flatMap((element2) => parseJpdbAudioData(element2.dataset.audio ?? "")));
   }
   function shouldRefreshVocabularyEntryAudio(entry2) {
     return Boolean(entry2.url && parseJpdbVocabularyUrl(entry2.url) && jpdbAudioVoiceCount(entry2.audioIds ?? []) < 2);
@@ -303494,8 +303533,8 @@ ${normalizedReading}`;
     if (vid > 0) {
       urls.push(`${JPDB_VOCABULARY_BASE_URL}/${vid}/${encodeURIComponent(spelling)}/${encodeURIComponent(reading || spelling)}`);
     }
-    unique$1([spelling, reading].filter(Boolean)).forEach((query) => urls.push(jpdbSearchUrl(query)));
-    return unique$1(urls);
+    unique$f([spelling, reading].filter(Boolean)).forEach((query) => urls.push(jpdbSearchUrl(query)));
+    return unique$f(urls);
   }
   function vocabularySupplementUrls(html, spelling, reading, currentUrl = "") {
     const doc = parseHtmlDocument(html);
@@ -303534,7 +303573,7 @@ ${normalizedReading}`;
   }
   function mergeVocabularyInfo(primary, supplemental) {
     return {
-      meanings: unique$1([...primary.meanings, ...supplemental.meanings]).slice(0, 8),
+      meanings: unique$f([...primary.meanings, ...supplemental.meanings]).slice(0, 8),
       compounds: mergeBy(primary.compounds, supplemental.compounds, (compound) => `${compound.term}	${compound.reading}`, JPDB_COMPOUND_LIMIT),
       usedInVocabulary: mergeBy(
         primary.usedInVocabulary ?? [],
@@ -303789,7 +303828,7 @@ ${normalizedReading}`;
     return JAPANESE_RE.test(reading) ? reading : "";
   }
   function extractPartOfSpeech(root) {
-    return unique$1(Array.from(root.querySelectorAll(".subsection-meanings .part-of-speech div")).map((element2) => cleanText(element2.textContent ?? "")).filter(Boolean));
+    return unique$f(Array.from(root.querySelectorAll(".subsection-meanings .part-of-speech div")).map((element2) => cleanText(element2.textContent ?? "")).filter(Boolean));
   }
   function extractFrequencyRank(root) {
     for (const tag of Array.from(root.querySelectorAll(".tags .tag, .tag"))) {
@@ -303802,7 +303841,7 @@ ${normalizedReading}`;
   }
   function extractMeanings(root, doc, spelling, reading) {
     const meanings = Array.from(root.querySelectorAll(".subsection-meanings .description")).map((element2) => cleanMeaning(element2.textContent ?? "")).filter(Boolean);
-    if (meanings.length) return unique$1(meanings).slice(0, 8);
+    if (meanings.length) return unique$f(meanings).slice(0, 8);
     return shouldReadMetaMeanings(spelling, reading) ? metaDescriptionMeanings(doc) : [];
   }
   function shouldReadMetaMeanings(spelling, reading) {
@@ -303922,7 +303961,7 @@ ${normalizedReading}`;
   function usedInRows(section2) {
     const rows = Array.from(section2.querySelectorAll(".used-in, .subsection > div"));
     const directLinks = Array.from(section2.children).filter((child) => child instanceof HTMLElement && vocabularyLink(child) !== null);
-    return unique$1([...rows, ...directLinks]);
+    return unique$f([...rows, ...directLinks]);
   }
   function vocabularyLink(root) {
     if (root instanceof HTMLAnchorElement && isVocabularyLink(root)) return root;
@@ -303953,7 +303992,7 @@ ${normalizedReading}`;
   function exampleSections(root) {
     const byClass = Array.from(root.querySelectorAll(".subsection-examples, .subsection-monolingual-examples"));
     const byLabel = Array.from(root.querySelectorAll(".subsection-label")).filter((label) => cleanText(label.textContent ?? "").toLowerCase().includes("examples")).map(exampleSectionFromLabel).filter((section2) => section2 !== null);
-    return unique$1([...byClass, ...byLabel]);
+    return unique$f([...byClass, ...byLabel]);
   }
   function exampleSectionFromLabel(label) {
     let current = label.parentElement;
@@ -335126,7 +335165,7 @@ ${entry2.url}`),
     const value = control2 instanceof HTMLSelectElement ? control2.value : form2.lang;
     return value === "auto" || value === "en" || value === "ja" ? value : "en";
   }
-  const ANKI_FIELD_MAPPING_ROLES$1 = ["expression", "reading", "meaning", "sentence", "audio", "image"];
+  const ANKI_FIELD_MAPPING_ROLES$1 = ["expression", "reading", "meaning", "sentence", "audio", "sentenceAudio", "image"];
   const ANKI_MOBILE_FALLBACK_DECK = "Default";
   function escapedUiText$2(language2, key2) {
     return escapeHtml$2(uiText(language2, key2));
@@ -335268,6 +335307,7 @@ ${entry2.url}`),
       meaning: uiText(language2, "ankiRoleMeaning"),
       sentence: uiText(language2, "ankiRoleSentence"),
       audio: uiText(language2, "ankiRoleAudio"),
+      sentenceAudio: uiText(language2, "ankiRoleSentenceAudio"),
       image: uiText(language2, "ankiRoleImage")
     }[role2];
   }
@@ -339426,7 +339466,7 @@ ${entry2.url}`),
   const JPDB_SETTINGS_URL = "https://jpdb.io/settings";
   const JITEN_SETTINGS_URL = "https://jiten.moe/settings";
   const AUTO_REPLACE_ANKI_DECK_NAMES = /* @__PURE__ */ new Set(["", "よむ", "Yomu"]);
-  const ANKI_FIELD_MAPPING_ROLES = /* @__PURE__ */ new Set(["expression", "reading", "meaning", "sentence", "audio", "image"]);
+  const ANKI_FIELD_MAPPING_ROLES = /* @__PURE__ */ new Set(["expression", "reading", "meaning", "sentence", "audio", "sentenceAudio", "image"]);
   const ANKI_SCAN_CONFIDENCE_VALUES = /* @__PURE__ */ new Set(["high", "medium", "low"]);
   const SETTINGS_FOCUSABLE_SELECTOR = [
     "button:not([disabled])",
