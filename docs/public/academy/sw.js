@@ -1,4 +1,4 @@
-const VERSION = 'yomu-academy-shell-s1-7e03e23c1998';
+const VERSION = 'yomu-academy-shell-s1-47a92d5b232e';
 const AUDIO_CACHE = 'yomu-academy-audio-v1-2c25b06f971c';
 const STORY_VOICE_CATALOG = '/academy/audio/story-voice-playback.json';
 const STORY_VOICE_ASSET = /^\/academy\/audio\/story-(?:pilot|lines)\/[a-z0-9][a-z0-9._-]*\.opus$/;
@@ -159,9 +159,13 @@ const RUNTIME_ART_PRECACHE = [
     '/academy/art/characters/shaun/shaun__neutral__halfbody__v001.png',
     '/academy/art/characters/shaun/shaun__standardized-encouraging-listening__front-near-front__halfbody__v001.png',
     '/academy/art/characters/shaun/shaun__standardized-happy__front-near-front__halfbody__v001.png',
-    '/academy/art/characters/shin/shin__standardized-determined__left-three-quarter__halfbody__v001.png',
-    '/academy/art/characters/shin/shin__standardized-encouraging-listening__front-near-front__halfbody__v001.png',
-    '/academy/art/characters/shin/shin__standardized-neutral__front-near-front__halfbody__v001.png',
+    '/academy/art/characters/shin/shin__determined-short-black-round-glasses-kanji-notebook__front-near-front__fullbody__v002.png',
+    '/academy/art/characters/shin/shin__encouraging-listening-short-black-round-glasses-kanji-notebook__right-three-quarter__fullbody__v002.png',
+    '/academy/art/characters/shin/shin__happy-short-black-round-glasses-kanji-notebook__front-near-front__fullbody__v002.png',
+    '/academy/art/characters/shin/shin__neutral-short-black-round-glasses-kanji-notebook__front-near-front__fullbody__v002.png',
+    '/academy/art/characters/shin/shin__sad-vulnerable-short-black-round-glasses-kanji-notebook__left-three-quarter__fullbody__v002.png',
+    '/academy/art/characters/shin/shin__surprised-shocked-short-black-round-glasses-kanji-notebook__right-three-quarter__fullbody__v002.png',
+    '/academy/art/characters/shin/shin__thoughtful-short-black-round-glasses-kanji-notebook__left-three-quarter__fullbody__v002.png',
     '/academy/art/characters/sophie/sophie__determined__left-three-quarter__halfbody__v004.png',
     '/academy/art/characters/sophie/sophie__encouraging-listening__right-three-quarter__halfbody__v004.png',
     '/academy/art/characters/sophie/sophie__happy__front-near-front__halfbody__v004.png',
@@ -391,8 +395,8 @@ const CORE = [
     '/yomu-icon.svg',
     '/academy/',
     '/academy/index.html',
-    '/academy/app.js?v=s1-7e03e23c1998',
-    '/academy/style.css?v=s1-7e03e23c1998',
+    '/academy/app.js?v=s1-47a92d5b232e',
+    '/academy/style.css?v=s1-47a92d5b232e',
     '/academy/manifest.webmanifest',
     ...RUNTIME_ART_PRECACHE,
     '/academy/content/vertical-slice/source-library.v1.json',

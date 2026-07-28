@@ -34,15 +34,15 @@
     "totalSlots": 630
   },
   "summary": {
-    "approved": 130,
+    "approved": 137,
     "reviewCandidates": 7,
-    "missing": 493,
-    "currentPhysicalRasters": 160,
-    "currentOffMatrixRasters": 23,
+    "missing": 486,
+    "currentPhysicalRasters": 164,
+    "currentOffMatrixRasters": 20,
     "historicalUniqueRasters": 469,
     "historicalOccurrences": 2016,
-    "charactersWithApprovedCoverage": 20,
-    "charactersWithAnyCurrentCoverage": 23
+    "charactersWithApprovedCoverage": 21,
+    "charactersWithAnyCurrentCoverage": 24
   },
   "migrations": [
     {
@@ -88,6 +88,15 @@
       "to": "/academy/art/characters/robert/robert__neutral-side-part-brown-square-glasses-folded-plan__front-near-front__fullbody__v002.png",
       "decision": "delete",
       "status": "Robert identity-locked v002 family bound to runtime; elderly round-glasses v001 stand-ins archived outside runtime.",
+      "runtimeReferencesAfterMigration": []
+    },
+    {
+      "id": "shin-glasses-free-v001-to-round-glasses-v002-family",
+      "character": "shin",
+      "from": "/academy/art/characters/shin/shin__standardized-neutral__front-near-front__halfbody__v001.png",
+      "to": "/academy/art/characters/shin/shin__neutral-short-black-round-glasses-kanji-notebook__front-near-front__fullbody__v002.png",
+      "decision": "delete",
+      "status": "Shin identity-locked v002 family bound to runtime; glasses-free partial v001 stand-ins archived outside runtime.",
       "runtimeReferencesAfterMigration": []
     },
     {
@@ -4451,35 +4460,36 @@
         "slots": 21
       },
       "progress": {
-        "approved": 0,
+        "approved": 7,
         "reviewCandidates": 0,
-        "missing": 21,
-        "deliveredPercent": 0,
-        "approvedPercent": 0
+        "missing": 14,
+        "deliveredPercent": 33.33,
+        "approvedPercent": 33.33
       },
       "currentAssets": [
         {
-          "path": "/academy/art/characters/shin/shin__standardized-determined__left-three-quarter__halfbody__v001.png",
-          "sha256": "694f116d7da78b9005a560970c85794ba058fce7a2800f4e8e4eff09e8c188d6",
+          "path": "/academy/art/characters/shin/shin__determined-short-black-round-glasses-kanji-notebook__front-near-front__fullbody__v002.png",
+          "sha256": "a997c59e360cbd9e5135a0805b1f73520adfaba40aa74328088f7c24d249652a",
           "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
-          "status": "review-candidate",
+          "status": "approved",
           "usage": {
             "runtime": [
               "journal:shin-expression-gallery",
+              "story:cast:shin:determined",
               "cast-standardization:shin"
             ],
             "review": [
               "cast-standardization-manifest",
-              "learner-journal-preview"
+              "identity-lock"
             ]
           },
-          "orphan": "review-bound",
+          "orphan": "active-runtime",
           "styleVersion": "current-review-family",
-          "fileVersion": "v001",
-          "pose": "off-contract standardized-determined pose",
-          "angle": null,
-          "expression": null,
+          "fileVersion": "v002",
+          "pose": "compact stance with a tablet angled outward beneath one wrist and a stylus held upright; front-near-front",
+          "angle": "front-near-front",
+          "expression": "determined",
           "dimensions": {
             "width": 1536,
             "height": 2048,
@@ -4489,38 +4499,40 @@
           },
           "runtimeUses": [
             "journal:shin-expression-gallery",
+            "story:cast:shin:determined",
             "cast-standardization:shin"
           ],
           "reviewUses": [
             "cast-standardization-manifest",
-            "learner-journal-preview"
+            "identity-lock"
           ],
           "decision": "keep",
-          "migrationStatus": "retained-off-matrix-review-evidence",
-          "coverageStatus": "off-matrix"
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
         },
         {
-          "path": "/academy/art/characters/shin/shin__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
-          "sha256": "d70bc512b5fb04590e70a1fee1f4ffba640fe623cb04ed2515e8e04d8f50d041",
+          "path": "/academy/art/characters/shin/shin__encouraging-listening-short-black-round-glasses-kanji-notebook__right-three-quarter__fullbody__v002.png",
+          "sha256": "0296e136a7e7d531d5ce82e689d885a0cca1161feaec47115fac771e7cd3d2b0",
           "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
-          "status": "review-candidate",
+          "status": "approved",
           "usage": {
             "runtime": [
               "journal:shin-expression-gallery",
+              "story:cast:shin:encouraging-listening",
               "cast-standardization:shin"
             ],
             "review": [
               "cast-standardization-manifest",
-              "learner-journal-preview"
+              "identity-lock"
             ]
           },
-          "orphan": "review-bound",
+          "orphan": "active-runtime",
           "styleVersion": "current-review-family",
-          "fileVersion": "v001",
-          "pose": "off-contract standardized-encouraging-listening pose",
-          "angle": null,
-          "expression": null,
+          "fileVersion": "v002",
+          "pose": "compact stance with a tablet angled outward beneath one wrist and a stylus held upright; right-three-quarter",
+          "angle": "right-three-quarter",
+          "expression": "encouraging-listening",
           "dimensions": {
             "width": 1536,
             "height": 2048,
@@ -4530,40 +4542,87 @@
           },
           "runtimeUses": [
             "journal:shin-expression-gallery",
+            "story:cast:shin:encouraging-listening",
             "cast-standardization:shin"
           ],
           "reviewUses": [
             "cast-standardization-manifest",
-            "learner-journal-preview"
+            "identity-lock"
           ],
           "decision": "keep",
-          "migrationStatus": "retained-off-matrix-review-evidence",
-          "coverageStatus": "off-matrix"
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
         },
         {
-          "path": "/academy/art/characters/shin/shin__standardized-neutral__front-near-front__halfbody__v001.png",
-          "sha256": "d70bc512b5fb04590e70a1fee1f4ffba640fe623cb04ed2515e8e04d8f50d041",
+          "path": "/academy/art/characters/shin/shin__happy-short-black-round-glasses-kanji-notebook__front-near-front__fullbody__v002.png",
+          "sha256": "6a96989ccb8912618bd619ed66ee3b1345db99e0278f4cd4bea7e9359fba4dfa",
           "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
-          "status": "review-candidate",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:shin-expression-gallery",
+              "story:cast:shin:happy",
+              "cast-standardization:shin"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "compact stance with a tablet angled outward beneath one wrist and a stylus held upright; front-near-front",
+          "angle": "front-near-front",
+          "expression": "happy",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:shin-expression-gallery",
+            "story:cast:shin:happy",
+            "cast-standardization:shin"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/shin/shin__neutral-short-black-round-glasses-kanji-notebook__front-near-front__fullbody__v002.png",
+          "sha256": "5d6293b6277e9c4b8d4a9fc58bf757b2608b8218ca8a438c0877a508b8c9a6be",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
           "usage": {
             "runtime": [
               "journal:shin",
-              "class:people-review",
-              "lesson-overview:roster-review",
+              "class:people",
+              "class:week-cast",
+              "lesson-overview:roster",
+              "world:person",
+              "story:cast:shin",
               "cast-standardization:shin"
             ],
             "review": [
               "cast-standardization-manifest",
-              "learner-journal-preview"
+              "identity-lock"
             ]
           },
-          "orphan": "review-bound",
+          "orphan": "active-runtime",
           "styleVersion": "current-review-family",
-          "fileVersion": "v001",
-          "pose": "off-contract standardized-neutral pose",
-          "angle": null,
-          "expression": null,
+          "fileVersion": "v002",
+          "pose": "compact stance with a tablet angled outward beneath one wrist and a stylus held upright; front-near-front",
+          "angle": "front-near-front",
+          "expression": "neutral",
           "dimensions": {
             "width": 1536,
             "height": 2048,
@@ -4573,17 +4632,149 @@
           },
           "runtimeUses": [
             "journal:shin",
-            "class:people-review",
-            "lesson-overview:roster-review",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "story:cast:shin",
             "cast-standardization:shin"
           ],
           "reviewUses": [
             "cast-standardization-manifest",
-            "learner-journal-preview"
+            "identity-lock"
           ],
           "decision": "keep",
-          "migrationStatus": "retained-off-matrix-review-evidence",
-          "coverageStatus": "off-matrix"
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/shin/shin__sad-vulnerable-short-black-round-glasses-kanji-notebook__left-three-quarter__fullbody__v002.png",
+          "sha256": "e889aad87927c5c54be3dfaed9b79a43c71e6f5d5fe9b38150e87560684b0c51",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:shin-expression-gallery",
+              "story:cast:shin:sad-vulnerable",
+              "cast-standardization:shin"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "compact stance with a tablet angled outward beneath one wrist and a stylus held upright; left-three-quarter",
+          "angle": "left-three-quarter",
+          "expression": "sad-vulnerable",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:shin-expression-gallery",
+            "story:cast:shin:sad-vulnerable",
+            "cast-standardization:shin"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/shin/shin__surprised-shocked-short-black-round-glasses-kanji-notebook__right-three-quarter__fullbody__v002.png",
+          "sha256": "d6d97a180a8519a8bfc68c6fae95f1aa9fff0ff6e0225798bc4de0bf74d0f6bf",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:shin-expression-gallery",
+              "story:cast:shin:surprised-shocked",
+              "cast-standardization:shin"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "compact stance with a tablet angled outward beneath one wrist and a stylus held upright; right-three-quarter",
+          "angle": "right-three-quarter",
+          "expression": "surprised-shocked",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:shin-expression-gallery",
+            "story:cast:shin:surprised-shocked",
+            "cast-standardization:shin"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/shin/shin__thoughtful-short-black-round-glasses-kanji-notebook__left-three-quarter__fullbody__v002.png",
+          "sha256": "c87e6ad3a851fb3ea0192b1ac4828bff75adaab5921be7d3509f0d7e45b14b3a",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:shin-expression-gallery",
+              "story:cast:shin:thoughtful",
+              "cast-standardization:shin"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "compact stance with a tablet angled outward beneath one wrist and a stylus held upright; left-three-quarter",
+          "angle": "left-three-quarter",
+          "expression": "thoughtful",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:shin-expression-gallery",
+            "story:cast:shin:thoughtful",
+            "cast-standardization:shin"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
         }
       ],
       "requiredVariants": [
@@ -4611,9 +4802,8 @@
         {
           "angle": "left-three-quarter",
           "expression": "thoughtful",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/shin/shin__thoughtful__left-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/shin/shin__thoughtful-short-black-round-glasses-kanji-notebook__left-three-quarter__fullbody__v002.png"
         },
         {
           "angle": "left-three-quarter",
@@ -4632,16 +4822,14 @@
         {
           "angle": "left-three-quarter",
           "expression": "sad-vulnerable",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/shin/shin__sad-vulnerable__left-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/shin/shin__sad-vulnerable-short-black-round-glasses-kanji-notebook__left-three-quarter__fullbody__v002.png"
         },
         {
           "angle": "front-near-front",
           "expression": "neutral",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/shin/shin__neutral__front-near-front__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/shin/shin__neutral-short-black-round-glasses-kanji-notebook__front-near-front__fullbody__v002.png"
         },
         {
           "angle": "front-near-front",
@@ -4653,9 +4841,8 @@
         {
           "angle": "front-near-front",
           "expression": "happy",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/shin/shin__happy__front-near-front__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/shin/shin__happy-short-black-round-glasses-kanji-notebook__front-near-front__fullbody__v002.png"
         },
         {
           "angle": "front-near-front",
@@ -4667,9 +4854,8 @@
         {
           "angle": "front-near-front",
           "expression": "determined",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/shin/shin__determined__front-near-front__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/shin/shin__determined-short-black-round-glasses-kanji-notebook__front-near-front__fullbody__v002.png"
         },
         {
           "angle": "front-near-front",
@@ -4695,9 +4881,8 @@
         {
           "angle": "right-three-quarter",
           "expression": "encouraging-listening",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/shin/shin__encouraging-listening__right-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/shin/shin__encouraging-listening-short-black-round-glasses-kanji-notebook__right-three-quarter__fullbody__v002.png"
         },
         {
           "angle": "right-three-quarter",
@@ -4723,9 +4908,8 @@
         {
           "angle": "right-three-quarter",
           "expression": "surprised-shocked",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/shin/shin__surprised-shocked__right-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/shin/shin__surprised-shocked-short-black-round-glasses-kanji-notebook__right-three-quarter__fullbody__v002.png"
         },
         {
           "angle": "right-three-quarter",
@@ -4759,13 +4943,6 @@
         },
         {
           "angle": "left-three-quarter",
-          "expression": "thoughtful",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/shin/shin__thoughtful__left-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "left-three-quarter",
           "expression": "determined",
           "status": "missing",
           "path": null,
@@ -4779,20 +4956,6 @@
           "plannedPath": "/academy/art/characters/shin/shin__surprised-shocked__left-three-quarter__halfbody__v001.png"
         },
         {
-          "angle": "left-three-quarter",
-          "expression": "sad-vulnerable",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/shin/shin__sad-vulnerable__left-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "front-near-front",
-          "expression": "neutral",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/shin/shin__neutral__front-near-front__halfbody__v001.png"
-        },
-        {
           "angle": "front-near-front",
           "expression": "encouraging-listening",
           "status": "missing",
@@ -4801,24 +4964,10 @@
         },
         {
           "angle": "front-near-front",
-          "expression": "happy",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/shin/shin__happy__front-near-front__halfbody__v001.png"
-        },
-        {
-          "angle": "front-near-front",
           "expression": "thoughtful",
           "status": "missing",
           "path": null,
           "plannedPath": "/academy/art/characters/shin/shin__thoughtful__front-near-front__halfbody__v001.png"
-        },
-        {
-          "angle": "front-near-front",
-          "expression": "determined",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/shin/shin__determined__front-near-front__halfbody__v001.png"
         },
         {
           "angle": "front-near-front",
@@ -4843,13 +4992,6 @@
         },
         {
           "angle": "right-three-quarter",
-          "expression": "encouraging-listening",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/shin/shin__encouraging-listening__right-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "right-three-quarter",
           "expression": "happy",
           "status": "missing",
           "path": null,
@@ -4868,13 +5010,6 @@
           "status": "missing",
           "path": null,
           "plannedPath": "/academy/art/characters/shin/shin__determined__right-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "right-three-quarter",
-          "expression": "surprised-shocked",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/shin/shin__surprised-shocked__right-three-quarter__halfbody__v001.png"
         },
         {
           "angle": "right-three-quarter",

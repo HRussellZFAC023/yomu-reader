@@ -29,10 +29,10 @@
     "cast": 30,
     "requiredPerformancesPerCast": 7,
     "requiredSlots": 210,
-    "integratedSlots": 128,
-    "missingSlots": 82,
+    "integratedSlots": 135,
+    "missingSlots": 75,
     "ownerCorrectionQueue": 26,
-    "storyCriticalQueue": 21,
+    "storyCriticalQueue": 14,
     "rosterCompletionQueue": 35
   },
   "cast": [
@@ -849,65 +849,97 @@
       "priority": "story-critical",
       "summary": {
         "required": 7,
-        "integrated": 0,
-        "missing": 7
+        "integrated": 7,
+        "missing": 0
       },
       "performances": [
         {
           "expression": "neutral",
           "preferredAngle": "front-near-front",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.shin.neutral-short-black-round-glasses-kanji-notebook-front-near-front-fullbody-v002",
+          "assetPath": "/academy/art/characters/shin/shin__neutral-short-black-round-glasses-kanji-notebook__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:shin",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "story:cast:shin",
+            "cast-standardization:shin"
+          ]
         },
         {
           "expression": "encouraging-listening",
           "preferredAngle": "right-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.shin.encouraging-listening-short-black-round-glasses-kanji-notebook-right-three-quarter-fullbody-v002",
+          "assetPath": "/academy/art/characters/shin/shin__encouraging-listening-short-black-round-glasses-kanji-notebook__right-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:shin-expression-gallery",
+            "story:cast:shin:encouraging-listening",
+            "cast-standardization:shin"
+          ]
         },
         {
           "expression": "happy",
           "preferredAngle": "front-near-front",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.shin.happy-short-black-round-glasses-kanji-notebook-front-near-front-fullbody-v002",
+          "assetPath": "/academy/art/characters/shin/shin__happy-short-black-round-glasses-kanji-notebook__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:shin-expression-gallery",
+            "story:cast:shin:happy",
+            "cast-standardization:shin"
+          ]
         },
         {
           "expression": "thoughtful",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.shin.thoughtful-short-black-round-glasses-kanji-notebook-left-three-quarter-fullbody-v002",
+          "assetPath": "/academy/art/characters/shin/shin__thoughtful-short-black-round-glasses-kanji-notebook__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:shin-expression-gallery",
+            "story:cast:shin:thoughtful",
+            "cast-standardization:shin"
+          ]
         },
         {
           "expression": "determined",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.shin.determined-short-black-round-glasses-kanji-notebook-front-near-front-fullbody-v002",
+          "assetPath": "/academy/art/characters/shin/shin__determined-short-black-round-glasses-kanji-notebook__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:shin-expression-gallery",
+            "story:cast:shin:determined",
+            "cast-standardization:shin"
+          ]
         },
         {
           "expression": "surprised-shocked",
           "preferredAngle": "right-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.shin.surprised-shocked-short-black-round-glasses-kanji-notebook-right-three-quarter-fullbody-v002",
+          "assetPath": "/academy/art/characters/shin/shin__surprised-shocked-short-black-round-glasses-kanji-notebook__right-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:shin-expression-gallery",
+            "story:cast:shin:surprised-shocked",
+            "cast-standardization:shin"
+          ]
         },
         {
           "expression": "sad-vulnerable",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.shin.sad-vulnerable-short-black-round-glasses-kanji-notebook-left-three-quarter-fullbody-v002",
+          "assetPath": "/academy/art/characters/shin/shin__sad-vulnerable-short-black-round-glasses-kanji-notebook__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:shin-expression-gallery",
+            "story:cast:shin:sad-vulnerable",
+            "cast-standardization:shin"
+          ]
         }
       ]
     },
@@ -3048,204 +3080,6 @@
     }
   ],
   "generationQueue": [
-    {
-      "key": "shin:neutral",
-      "castId": "shin",
-      "displayName": "Shin",
-      "identityKey": "shin-short-black-round-glasses",
-      "expression": "neutral",
-      "angle": "front-near-front",
-      "priority": "story-critical",
-      "storyLines": 11,
-      "visualLock": "East Asian man with short black hair, round glasses, and a precise but approachable expression.",
-      "wardrobeLock": "Simple smart-casual layers with a small menu or kanji notebook only when story-backed.",
-      "reject": [
-        "no glasses",
-        "long hair",
-        "caricatured features",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:shin",
-        "class:people",
-        "lesson-overview:roster",
-        "story:cast:shin"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "shin:encouraging-listening",
-      "castId": "shin",
-      "displayName": "Shin",
-      "identityKey": "shin-short-black-round-glasses",
-      "expression": "encouraging-listening",
-      "angle": "right-three-quarter",
-      "priority": "story-critical",
-      "storyLines": 11,
-      "visualLock": "East Asian man with short black hair, round glasses, and a precise but approachable expression.",
-      "wardrobeLock": "Simple smart-casual layers with a small menu or kanji notebook only when story-backed.",
-      "reject": [
-        "no glasses",
-        "long hair",
-        "caricatured features",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:shin-expression-gallery",
-        "story:cast:shin:encouraging-listening"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "shin:happy",
-      "castId": "shin",
-      "displayName": "Shin",
-      "identityKey": "shin-short-black-round-glasses",
-      "expression": "happy",
-      "angle": "front-near-front",
-      "priority": "story-critical",
-      "storyLines": 11,
-      "visualLock": "East Asian man with short black hair, round glasses, and a precise but approachable expression.",
-      "wardrobeLock": "Simple smart-casual layers with a small menu or kanji notebook only when story-backed.",
-      "reject": [
-        "no glasses",
-        "long hair",
-        "caricatured features",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:shin-expression-gallery",
-        "story:cast:shin:happy"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "shin:thoughtful",
-      "castId": "shin",
-      "displayName": "Shin",
-      "identityKey": "shin-short-black-round-glasses",
-      "expression": "thoughtful",
-      "angle": "left-three-quarter",
-      "priority": "story-critical",
-      "storyLines": 11,
-      "visualLock": "East Asian man with short black hair, round glasses, and a precise but approachable expression.",
-      "wardrobeLock": "Simple smart-casual layers with a small menu or kanji notebook only when story-backed.",
-      "reject": [
-        "no glasses",
-        "long hair",
-        "caricatured features",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:shin-expression-gallery",
-        "story:cast:shin:thoughtful"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "shin:determined",
-      "castId": "shin",
-      "displayName": "Shin",
-      "identityKey": "shin-short-black-round-glasses",
-      "expression": "determined",
-      "angle": "left-three-quarter",
-      "priority": "story-critical",
-      "storyLines": 11,
-      "visualLock": "East Asian man with short black hair, round glasses, and a precise but approachable expression.",
-      "wardrobeLock": "Simple smart-casual layers with a small menu or kanji notebook only when story-backed.",
-      "reject": [
-        "no glasses",
-        "long hair",
-        "caricatured features",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:shin-expression-gallery",
-        "story:cast:shin:determined"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "shin:surprised-shocked",
-      "castId": "shin",
-      "displayName": "Shin",
-      "identityKey": "shin-short-black-round-glasses",
-      "expression": "surprised-shocked",
-      "angle": "right-three-quarter",
-      "priority": "story-critical",
-      "storyLines": 11,
-      "visualLock": "East Asian man with short black hair, round glasses, and a precise but approachable expression.",
-      "wardrobeLock": "Simple smart-casual layers with a small menu or kanji notebook only when story-backed.",
-      "reject": [
-        "no glasses",
-        "long hair",
-        "caricatured features",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:shin-expression-gallery",
-        "story:cast:shin:surprised-shocked"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "shin:sad-vulnerable",
-      "castId": "shin",
-      "displayName": "Shin",
-      "identityKey": "shin-short-black-round-glasses",
-      "expression": "sad-vulnerable",
-      "angle": "left-three-quarter",
-      "priority": "story-critical",
-      "storyLines": 11,
-      "visualLock": "East Asian man with short black hair, round glasses, and a precise but approachable expression.",
-      "wardrobeLock": "Simple smart-casual layers with a small menu or kanji notebook only when story-backed.",
-      "reject": [
-        "no glasses",
-        "long hair",
-        "caricatured features",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:shin-expression-gallery",
-        "story:cast:shin:sad-vulnerable"
-      ],
-      "status": "queued"
-    },
     {
       "key": "christian:neutral",
       "castId": "christian",

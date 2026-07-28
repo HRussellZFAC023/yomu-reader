@@ -1,0 +1,102 @@
+{
+  "promotions": [
+    {
+      "castId": "shin",
+      "archiveLabel": "identity-and-style-superseded-20260728",
+      "archiveAllCurrent": true,
+      "replaceExpressions": [
+        "neutral",
+        "encouraging-listening",
+        "happy",
+        "thoughtful",
+        "determined",
+        "surprised-shocked",
+        "sad-vulnerable"
+      ],
+      "canonicalNeutralAssetId": "character.shin.neutral-short-black-round-glasses-kanji-notebook-front-near-front-fullbody-v002",
+      "slots": [
+        {
+          "assetId": "character.shin.neutral-short-black-round-glasses-kanji-notebook-front-near-front-fullbody-v002",
+          "expression": "neutral",
+          "angle": "front-near-front",
+          "assetPath": "/academy/art/characters/shin/shin__neutral-short-black-round-glasses-kanji-notebook__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:shin",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "story:cast:shin",
+            "cast-standardization:shin"
+          ]
+        },
+        {
+          "assetId": "character.shin.encouraging-listening-short-black-round-glasses-kanji-notebook-right-three-quarter-fullbody-v002",
+          "expression": "encouraging-listening",
+          "angle": "right-three-quarter",
+          "assetPath": "/academy/art/characters/shin/shin__encouraging-listening-short-black-round-glasses-kanji-notebook__right-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:shin-expression-gallery",
+            "story:cast:shin:encouraging-listening",
+            "cast-standardization:shin"
+          ]
+        },
+        {
+          "assetId": "character.shin.happy-short-black-round-glasses-kanji-notebook-front-near-front-fullbody-v002",
+          "expression": "happy",
+          "angle": "front-near-front",
+          "assetPath": "/academy/art/characters/shin/shin__happy-short-black-round-glasses-kanji-notebook__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:shin-expression-gallery",
+            "story:cast:shin:happy",
+            "cast-standardization:shin"
+          ]
+        },
+        {
+          "assetId": "character.shin.thoughtful-short-black-round-glasses-kanji-notebook-left-three-quarter-fullbody-v002",
+          "expression": "thoughtful",
+          "angle": "left-three-quarter",
+          "assetPath": "/academy/art/characters/shin/shin__thoughtful-short-black-round-glasses-kanji-notebook__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:shin-expression-gallery",
+            "story:cast:shin:thoughtful",
+            "cast-standardization:shin"
+          ]
+        },
+        {
+          "assetId": "character.shin.determined-short-black-round-glasses-kanji-notebook-front-near-front-fullbody-v002",
+          "expression": "determined",
+          "angle": "front-near-front",
+          "assetPath": "/academy/art/characters/shin/shin__determined-short-black-round-glasses-kanji-notebook__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:shin-expression-gallery",
+            "story:cast:shin:determined",
+            "cast-standardization:shin"
+          ]
+        },
+        {
+          "assetId": "character.shin.surprised-shocked-short-black-round-glasses-kanji-notebook-right-three-quarter-fullbody-v002",
+          "expression": "surprised-shocked",
+          "angle": "right-three-quarter",
+          "assetPath": "/academy/art/characters/shin/shin__surprised-shocked-short-black-round-glasses-kanji-notebook__right-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:shin-expression-gallery",
+            "story:cast:shin:surprised-shocked",
+            "cast-standardization:shin"
+          ]
+        },
+        {
+          "assetId": "character.shin.sad-vulnerable-short-black-round-glasses-kanji-notebook-left-three-quarter-fullbody-v002",
+          "expression": "sad-vulnerable",
+          "angle": "left-three-quarter",
+          "assetPath": "/academy/art/characters/shin/shin__sad-vulnerable-short-black-round-glasses-kanji-notebook__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:shin-expression-gallery",
+            "story:cast:shin:sad-vulnerable",
+            "cast-standardization:shin"
+          ]
+        }
+      ]
+    }
+  ]
+}

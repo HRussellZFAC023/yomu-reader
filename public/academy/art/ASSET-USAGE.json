@@ -18,8 +18,8 @@
     ]
   },
   "counts": {
-    "runtimeAssetHomes": 235,
-    "runtimeFiles": 341,
+    "runtimeAssetHomes": 239,
+    "runtimeFiles": 345,
     "nonRuntimeReviewFiles": 1734,
     "approvedReferenceOnly": 4,
     "explicitlyRejectedFamilies": 4,
@@ -1604,106 +1604,6 @@
         {
           "path": "/academy/art/characters/shaun/shaun__standardized-happy__front-near-front__halfbody__v001.png",
           "sha256": "9f08b56903329bab2a6af7bd35d55d4dad6a909dc57f32b3005503be1468c1a2"
-        }
-      ],
-      "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-    },
-    {
-      "id": "character-shin-standardized-determined-left-three-quarter-halfbody-v001",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "694f116d7da78b9005a560970c85794ba058fce7a2800f4e8e4eff09e8c188d6",
-      "provenance": "regenerated-standardized",
-      "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": [
-        "journal:shin-expression-gallery",
-        "cast-standardization:shin"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "learner-journal-preview"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:shin-expression-gallery",
-          "cast-standardization:shin"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/shin/shin__standardized-determined__left-three-quarter__halfbody__v001.png",
-          "sha256": "694f116d7da78b9005a560970c85794ba058fce7a2800f4e8e4eff09e8c188d6"
-        }
-      ],
-      "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-    },
-    {
-      "id": "character-shin-standardized-encouraging-listening-front-near-front-halfbody-v001",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "d70bc512b5fb04590e70a1fee1f4ffba640fe623cb04ed2515e8e04d8f50d041",
-      "provenance": "regenerated-standardized",
-      "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": [
-        "journal:shin-expression-gallery",
-        "cast-standardization:shin"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "learner-journal-preview"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:shin-expression-gallery",
-          "cast-standardization:shin"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/shin/shin__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
-          "sha256": "d70bc512b5fb04590e70a1fee1f4ffba640fe623cb04ed2515e8e04d8f50d041"
-        }
-      ],
-      "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-    },
-    {
-      "id": "character-shin-standardized-neutral-front-near-front-halfbody-v001",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "d70bc512b5fb04590e70a1fee1f4ffba640fe623cb04ed2515e8e04d8f50d041",
-      "provenance": "regenerated-standardized",
-      "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": [
-        "journal:shin",
-        "class:people-review",
-        "lesson-overview:roster-review",
-        "cast-standardization:shin"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "learner-journal-preview"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:shin",
-          "class:people-review",
-          "lesson-overview:roster-review",
-          "cast-standardization:shin"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/shin/shin__standardized-neutral__front-near-front__halfbody__v001.png",
-          "sha256": "d70bc512b5fb04590e70a1fee1f4ffba640fe623cb04ed2515e8e04d8f50d041"
         }
       ],
       "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
@@ -10907,7 +10807,7 @@
       "deliveries": [
         {
           "path": "/academy/art/SPRITE-BATCH-MANIFEST.json",
-          "sha256": "49397d185e27f7f005340938c978c733885af0c248a9509f27931351c6a10749"
+          "sha256": "da0d461092dd325589d64b3fb675c134dc1d3da0d7ca739fd4a7d96e13e1278e"
         }
       ],
       "status": "bound-and-schema-validated"
@@ -14811,6 +14711,252 @@
         {
           "path": "/academy/art/characters/robert/robert__sad-vulnerable-side-part-brown-square-glasses-folded-plan__left-three-quarter__fullbody__v002.png",
           "sha256": "30a0ac57ce846d9ace4b26ddfb24c68298c0869ea4ef8b54f8a6b9edd67426c7"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-shin-neutral-short-black-round-glasses-kanji-notebook-front-near-front-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "5d6293b6277e9c4b8d4a9fc58bf757b2608b8218ca8a438c0877a508b8c9a6be",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:shin",
+        "class:people",
+        "class:week-cast",
+        "lesson-overview:roster",
+        "world:person",
+        "story:cast:shin",
+        "cast-standardization:shin"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:shin",
+          "class:people",
+          "class:week-cast",
+          "lesson-overview:roster",
+          "world:person",
+          "story:cast:shin",
+          "cast-standardization:shin"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/shin/shin__neutral-short-black-round-glasses-kanji-notebook__front-near-front__fullbody__v002.png",
+          "sha256": "5d6293b6277e9c4b8d4a9fc58bf757b2608b8218ca8a438c0877a508b8c9a6be"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-shin-encouraging-listening-short-black-round-glasses-kanji-notebook-right-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "0296e136a7e7d531d5ce82e689d885a0cca1161feaec47115fac771e7cd3d2b0",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:shin-expression-gallery",
+        "story:cast:shin:encouraging-listening",
+        "cast-standardization:shin"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:shin-expression-gallery",
+          "story:cast:shin:encouraging-listening",
+          "cast-standardization:shin"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/shin/shin__encouraging-listening-short-black-round-glasses-kanji-notebook__right-three-quarter__fullbody__v002.png",
+          "sha256": "0296e136a7e7d531d5ce82e689d885a0cca1161feaec47115fac771e7cd3d2b0"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-shin-happy-short-black-round-glasses-kanji-notebook-front-near-front-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "6a96989ccb8912618bd619ed66ee3b1345db99e0278f4cd4bea7e9359fba4dfa",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:shin-expression-gallery",
+        "story:cast:shin:happy",
+        "cast-standardization:shin"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:shin-expression-gallery",
+          "story:cast:shin:happy",
+          "cast-standardization:shin"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/shin/shin__happy-short-black-round-glasses-kanji-notebook__front-near-front__fullbody__v002.png",
+          "sha256": "6a96989ccb8912618bd619ed66ee3b1345db99e0278f4cd4bea7e9359fba4dfa"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-shin-thoughtful-short-black-round-glasses-kanji-notebook-left-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "c87e6ad3a851fb3ea0192b1ac4828bff75adaab5921be7d3509f0d7e45b14b3a",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:shin-expression-gallery",
+        "story:cast:shin:thoughtful",
+        "cast-standardization:shin"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:shin-expression-gallery",
+          "story:cast:shin:thoughtful",
+          "cast-standardization:shin"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/shin/shin__thoughtful-short-black-round-glasses-kanji-notebook__left-three-quarter__fullbody__v002.png",
+          "sha256": "c87e6ad3a851fb3ea0192b1ac4828bff75adaab5921be7d3509f0d7e45b14b3a"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-shin-determined-short-black-round-glasses-kanji-notebook-front-near-front-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "a997c59e360cbd9e5135a0805b1f73520adfaba40aa74328088f7c24d249652a",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:shin-expression-gallery",
+        "story:cast:shin:determined",
+        "cast-standardization:shin"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:shin-expression-gallery",
+          "story:cast:shin:determined",
+          "cast-standardization:shin"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/shin/shin__determined-short-black-round-glasses-kanji-notebook__front-near-front__fullbody__v002.png",
+          "sha256": "a997c59e360cbd9e5135a0805b1f73520adfaba40aa74328088f7c24d249652a"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-shin-surprised-shocked-short-black-round-glasses-kanji-notebook-right-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "d6d97a180a8519a8bfc68c6fae95f1aa9fff0ff6e0225798bc4de0bf74d0f6bf",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:shin-expression-gallery",
+        "story:cast:shin:surprised-shocked",
+        "cast-standardization:shin"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:shin-expression-gallery",
+          "story:cast:shin:surprised-shocked",
+          "cast-standardization:shin"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/shin/shin__surprised-shocked-short-black-round-glasses-kanji-notebook__right-three-quarter__fullbody__v002.png",
+          "sha256": "d6d97a180a8519a8bfc68c6fae95f1aa9fff0ff6e0225798bc4de0bf74d0f6bf"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-shin-sad-vulnerable-short-black-round-glasses-kanji-notebook-left-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "e889aad87927c5c54be3dfaed9b79a43c71e6f5d5fe9b38150e87560684b0c51",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:shin-expression-gallery",
+        "story:cast:shin:sad-vulnerable",
+        "cast-standardization:shin"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:shin-expression-gallery",
+          "story:cast:shin:sad-vulnerable",
+          "cast-standardization:shin"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/shin/shin__sad-vulnerable-short-black-round-glasses-kanji-notebook__left-three-quarter__fullbody__v002.png",
+          "sha256": "e889aad87927c5c54be3dfaed9b79a43c71e6f5d5fe9b38150e87560684b0c51"
         }
       ],
       "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
