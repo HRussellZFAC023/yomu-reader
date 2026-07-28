@@ -201,6 +201,16 @@ async function assertDocsAccessibility(page, label) {
             clippedDeviceShots: [...document.querySelectorAll('.yomu-band-devices img')]
                 .map(img => ({ src: img.getAttribute('src'), left: Math.round(img.getBoundingClientRect().left), right: Math.round(img.getBoundingClientRect().right) }))
                 .filter(box => box.left < 0 || box.right > innerWidth + 2),
+            // The homepage's screenshots opt out of image OCR per-figure
+            // (data-yomu-ocr="ignore" — the reader's own page-side opt-out);
+            // the #manga panel alone stays readable, on purpose, as the live
+            // demonstration. Reading an image means uploading it, so a new
+            // screenshot added without the attribute silently starts sending
+            // the page's own imagery to an OCR provider on load. The reader
+            // also skips aria-hidden imagery, so decorative grounds are exempt.
+            ocrReadableImages: [...document.images]
+                .filter(img => !img.closest('[data-yomu-ocr="ignore"], [data-jpdb-reader-ocr="ignore"], [aria-hidden="true"]'))
+                .map(img => img.getAttribute('src')),
         };
     });
     assertAudit(!wcag.unnamedControls.length, `${label} has unnamed controls: ${JSON.stringify(wcag.unnamedControls)}`);
@@ -209,6 +219,16 @@ async function assertDocsAccessibility(page, label) {
     assertAudit(!wcag.brokenVideos.length, `${label} has video elements without sources: ${JSON.stringify(wcag.brokenVideos)}`);
     assertAudit(!wcag.missingAlt.length, `${label} has images without alt text: ${JSON.stringify(wcag.missingAlt)}`);
     assertAudit(!wcag.horizontalOverflow, `${label} has horizontal overflow`);
+    assertAudit(!wcag.clippedDeviceShots.length, `${label} has device screenshots cut by the viewport edge: ${JSON.stringify(wcag.clippedDeviceShots)}`);
+    // Only the homepage constrains its readable images: its stills are marketing
+    // screenshots, while a tool or guide page's images may legitimately be there
+    // to be read.
+    if (/^home /.test(label)) {
+        assertAudit(
+            wcag.ocrReadableImages.length === 1 && wcag.ocrReadableImages[0] === '/media/manga-ocr-sample.png',
+            `${label} must expose exactly the #manga panel to image OCR, got: ${JSON.stringify(wcag.ocrReadableImages)}`,
+        );
+    }
 }
 
 async function main() {

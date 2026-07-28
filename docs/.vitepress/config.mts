@@ -212,9 +212,13 @@ function jsonLdFor(pageData: PageDataLike, pageUrl: string): HeadConfig[] {
 }
 
 const siteNav = [
-    { text: 'Install', link: '/getting-started' },
+    // 'Get started' over 'Install': a visitor who has not decided yet is looking
+    // for what this is and how to begin, not for a package. 'Guides' over
+    // 'Learn': the pages behind it are task guides, and 'Learn' collided with
+    // Academy in meaning while describing neither.
+    { text: 'Get started', link: '/getting-started' },
+    { text: 'Guides', link: '/guides/' },
     { text: 'Tools', link: '/tools/' },
-    { text: 'Learn', link: '/guides/' },
     { text: 'Study', link: newTabLink, target: '_self' },
     { text: 'Academy', link: '/academy/', target: '_self' },
     { text: 'Support', link: '/support' },
@@ -383,21 +387,15 @@ export default defineConfig({
             /<link rel="preload stylesheet" href="([^"]+)" as="style">/g,
             '<link rel="stylesheet" href="$1">',
         );
-        if (!/(?:^|[\\/])index\.html$/.test(id)) return styled;
-        // Every picture on the homepage is a SCREENSHOT of Yomu, so each one is
-        // full of Japanese text and the reader treated all seven as pages to
-        // recognise: overlays appeared over the marketing stills unasked, and
-        // reading an image means uploading it to an OCR provider, so a visitor who
-        // had installed nothing had the page's own images sent to a third party.
-        //
-        // `data-yomu-ocr="ignore"` is the reader's existing page-side opt-out
-        // (isIgnoredOcrImage in src/reader/ocr/controller.ts), matched with
-        // closest(), so declaring it once on <body> covers every image on the page
-        // including ones added later. Stamped here rather than per-<img> so a new
-        // still cannot reintroduce this by being added without the attribute.
-        // Nothing about the reader changes: the hosted build stays byte-identical
-        // to the installed one and only this page opts out.
-        return styled.replace(/<body(?=[\s>])/, '<body data-yomu-ocr="ignore"');
+        // The homepage's screenshots opt out of image OCR per-figure in
+        // docs/index.md (`data-yomu-ocr="ignore"`, the reader's own page-side
+        // opt-out) rather than via a <body> stamp here: the #manga panel is the
+        // one deliberate live OCR surface, and a body-wide stamp would silence it
+        // too, since the reader matches the attribute with closest(). The docs
+        // a11y audit asserts the panel is the ONLY readable image, so a new
+        // screenshot added without the attribute fails the gate instead of
+        // silently re-enabling recognition.
+        return styled;
     },
     themeConfig: {
         logo: { src: '/yomu-icon.svg', alt: 'よむ app icon' },

@@ -1622,6 +1622,12 @@ body:has(.yomu-home) .jpdb-reader-fab {
   align-items: flex-end;
   gap: 6px;
   margin: 0 0 2px clamp(48px, 20%, 190px);
+  /* The arrow's tip deliberately dips into the sample slab below (the -6px on
+     .yomu-fold-arrow) — but the slab paints later in the DOM, so without a
+     stacking context the slab's fill amputates the arrowhead along its keyline
+     and the pointer reads as cut off. */
+  position: relative;
+  z-index: 2;
   /* Amber at 82% reads as lamplight but only reaches 2.9:1 on the cream fold;
      56% keeps the hue and clears 4.5:1 for this 13px uppercase label. */
   color: color-mix(in srgb, var(--lamp) 56%, var(--slab-ink));
@@ -2159,13 +2165,26 @@ body:has(.yomu-home) .jpdb-reader-fab {
 }
 
 /* The other bands bleed a single landscape frame off the edge, and losing a few
-   pixels of a screenshot there costs nothing. Here the first child is a narrow
-   phone, so the same negative margin cuts the device in half — and clipping does
-   NOT raise scrollWidth, so the audit's horizontal-overflow assertion passes
-   while the phone is visibly severed. Keep the rotation, drop the bleed. */
+   pixels of a screenshot there costs nothing. Here the frames ARE the evidence —
+   a severed phone or a severed manga page reads as a bug — and clipping does NOT
+   raise scrollWidth, so the audit's horizontal-overflow assertion passes while
+   the device is visibly cut. Keep the rotation, drop the bleed. */
 #mobile .yomu-band-frame {
+  margin-right: 0;
+  transform: rotate(var(--rot-3));
+}
+
+/* A manga page is portrait: at the band frame's full grid width it would tower
+   over the copy, so it is capped and centred in its half instead of bleeding. */
+#manga .yomu-band-frame {
   margin-left: 0;
-  transform: rotate(var(--rot-1));
+  max-width: min(420px, 86%);
+  justify-self: center;
+}
+
+#manga .yomu-band-frame img {
+  width: 100%;
+  height: auto;
 }
 
 /* --- §06 Install: hard cut to flat ink, no scene --- */
