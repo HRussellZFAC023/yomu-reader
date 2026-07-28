@@ -9,6 +9,9 @@ const CACHEABLE_PATH_SUFFIXES = [
   '/favicon-16x16.png',
   '/favicon-32x32.png',
   '/apple-touch-icon.png',
+  '/pwa-icon-192.png',
+  '/pwa-icon-512.png',
+  '/pwa-icon-maskable-512.png',
 ];
 
 self.addEventListener('install', event => {

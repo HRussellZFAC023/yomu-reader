@@ -34,7 +34,7 @@ On Chrome, Edge or Brave: press **Add よむ to Chrome** on the [homepage](/) �
 
 ### Does it work on my phone?
 
-Yes. On Android, install Firefox and add Yomu from its store. On iPhone and iPad, Yomu runs inside Safari — furigana, the popover, reviews, and manga reading all work by touch.
+Yes. On Android, install Firefox and add Yomu from its store. On iPhone and iPad, Yomu runs inside Safari — furigana, the popover, reviews, and manga reading all work by touch. [Study](/study/) installs to your home screen from your browser's menu. Once it is there it opens like any other app and works offline, so reviews still work on the train.
 
 ### Do I need to know kana or grammar first?
 
