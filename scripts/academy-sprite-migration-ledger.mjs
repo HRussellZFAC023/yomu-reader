@@ -311,6 +311,14 @@ const output = {
         status: 'Ruparna identity-locked full-body v003 family bound to runtime; partial v002 sprites archived outside runtime.',
         runtimeReferencesAfterMigration: [],
     }, {
+        id: 'stasi-partial-v001-to-illustrated-v002-family',
+        character: 'stasi',
+        from: '/academy/art/characters/stasi/stasi__standardized-neutral__front-near-front__halfbody__v001.png',
+        to: '/academy/art/characters/stasi/stasi__neutral-auburn-waves-round-glasses__front-near-front__fullbody__v002.png',
+        decision: 'delete',
+        status: 'Stasi identity-locked full-body v002 family bound to runtime; partial v001 sprites archived outside runtime.',
+        runtimeReferencesAfterMigration: [],
+    }, {
         id: 'rie-neutral-to-glasses-primary',
         character: 'rie',
         from: '/academy/art/characters/rie/rie__neutral__halfbody__v001.png',

@@ -1304,9 +1304,17 @@
         }
       ],
       "currentAsset": {
-        "status": "missing",
-        "paths": [],
-        "note": "No current Academy runtime or review-candidate sprite."
+        "status": "approved-performance-family",
+        "paths": [
+          "/academy/art/characters/stasi/stasi__neutral-auburn-waves-round-glasses__front-near-front__fullbody__v002.png",
+          "/academy/art/characters/stasi/stasi__encouraging-listening-auburn-waves-round-glasses__right-three-quarter__fullbody__v002.png",
+          "/academy/art/characters/stasi/stasi__happy-auburn-waves-round-glasses__front-near-front__fullbody__v002.png",
+          "/academy/art/characters/stasi/stasi__thoughtful-auburn-waves-round-glasses__left-three-quarter__fullbody__v002.png",
+          "/academy/art/characters/stasi/stasi__determined-auburn-waves-round-glasses__left-three-quarter__fullbody__v002.png",
+          "/academy/art/characters/stasi/stasi__surprised-shocked-auburn-waves-round-glasses__right-three-quarter__fullbody__v002.png",
+          "/academy/art/characters/stasi/stasi__sad-vulnerable-auburn-waves-round-glasses__left-three-quarter__fullbody__v002.png"
+        ],
+        "note": "Identity-locked, visually inspected house-style family; all seven canonical expressions are runtime-bound."
       },
       "generationPriority": {
         "tier": 1,

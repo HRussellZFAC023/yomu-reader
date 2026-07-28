@@ -29,9 +29,9 @@
     "cast": 30,
     "requiredPerformancesPerCast": 7,
     "requiredSlots": 210,
-    "integratedSlots": 140,
-    "missingSlots": 70,
-    "ownerCorrectionQueue": 21,
+    "integratedSlots": 147,
+    "missingSlots": 63,
+    "ownerCorrectionQueue": 14,
     "storyCriticalQueue": 14,
     "rosterCompletionQueue": 35
   },
@@ -1833,65 +1833,97 @@
       "priority": "owner-correction",
       "summary": {
         "required": 7,
-        "integrated": 0,
-        "missing": 7
+        "integrated": 7,
+        "missing": 0
       },
       "performances": [
         {
           "expression": "neutral",
           "preferredAngle": "front-near-front",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.stasi.neutral-auburn-waves-round-glasses-front-near-front-fullbody-v002",
+          "assetPath": "/academy/art/characters/stasi/stasi__neutral-auburn-waves-round-glasses__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:stasi",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "story:cast:stasi",
+            "cast-standardization:stasi"
+          ]
         },
         {
           "expression": "encouraging-listening",
           "preferredAngle": "right-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.stasi.encouraging-listening-auburn-waves-round-glasses-right-three-quarter-fullbody-v002",
+          "assetPath": "/academy/art/characters/stasi/stasi__encouraging-listening-auburn-waves-round-glasses__right-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:stasi-expression-gallery",
+            "story:cast:stasi:encouraging-listening",
+            "cast-standardization:stasi"
+          ]
         },
         {
           "expression": "happy",
           "preferredAngle": "front-near-front",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.stasi.happy-auburn-waves-round-glasses-front-near-front-fullbody-v002",
+          "assetPath": "/academy/art/characters/stasi/stasi__happy-auburn-waves-round-glasses__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:stasi-expression-gallery",
+            "story:cast:stasi:happy",
+            "cast-standardization:stasi"
+          ]
         },
         {
           "expression": "thoughtful",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.stasi.thoughtful-auburn-waves-round-glasses-left-three-quarter-fullbody-v002",
+          "assetPath": "/academy/art/characters/stasi/stasi__thoughtful-auburn-waves-round-glasses__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:stasi-expression-gallery",
+            "story:cast:stasi:thoughtful",
+            "cast-standardization:stasi"
+          ]
         },
         {
           "expression": "determined",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.stasi.determined-auburn-waves-round-glasses-left-three-quarter-fullbody-v002",
+          "assetPath": "/academy/art/characters/stasi/stasi__determined-auburn-waves-round-glasses__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:stasi-expression-gallery",
+            "story:cast:stasi:determined",
+            "cast-standardization:stasi"
+          ]
         },
         {
           "expression": "surprised-shocked",
           "preferredAngle": "right-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.stasi.surprised-shocked-auburn-waves-round-glasses-right-three-quarter-fullbody-v002",
+          "assetPath": "/academy/art/characters/stasi/stasi__surprised-shocked-auburn-waves-round-glasses__right-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:stasi-expression-gallery",
+            "story:cast:stasi:surprised-shocked",
+            "cast-standardization:stasi"
+          ]
         },
         {
           "expression": "sad-vulnerable",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.stasi.sad-vulnerable-auburn-waves-round-glasses-left-three-quarter-fullbody-v002",
+          "assetPath": "/academy/art/characters/stasi/stasi__sad-vulnerable-auburn-waves-round-glasses__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:stasi-expression-gallery",
+            "story:cast:stasi:sad-vulnerable",
+            "cast-standardization:stasi"
+          ]
         }
       ]
     },
@@ -3302,211 +3334,6 @@
       "runtimeHomes": [
         "journal:christian-expression-gallery",
         "story:cast:christian:sad-vulnerable"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "stasi:neutral",
-      "castId": "stasi",
-      "displayName": "Stasi",
-      "identityKey": "stasi-auburn-waves-round-glasses",
-      "expression": "neutral",
-      "angle": "front-near-front",
-      "priority": "owner-correction",
-      "storyLines": 9,
-      "visualLock": "Woman with red or auburn wavy hair, round glasses, and a visually expressive adult face.",
-      "wardrobeLock": "Artful layered outfit in rust, teal, charcoal, and cream.",
-      "reject": [
-        "straight black hair",
-        "no glasses",
-        "photographic face",
-        "caricature proportions",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:stasi",
-        "class:people",
-        "lesson-overview:roster",
-        "story:cast:stasi"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "stasi:encouraging-listening",
-      "castId": "stasi",
-      "displayName": "Stasi",
-      "identityKey": "stasi-auburn-waves-round-glasses",
-      "expression": "encouraging-listening",
-      "angle": "right-three-quarter",
-      "priority": "owner-correction",
-      "storyLines": 9,
-      "visualLock": "Woman with red or auburn wavy hair, round glasses, and a visually expressive adult face.",
-      "wardrobeLock": "Artful layered outfit in rust, teal, charcoal, and cream.",
-      "reject": [
-        "straight black hair",
-        "no glasses",
-        "photographic face",
-        "caricature proportions",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:stasi-expression-gallery",
-        "story:cast:stasi:encouraging-listening"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "stasi:happy",
-      "castId": "stasi",
-      "displayName": "Stasi",
-      "identityKey": "stasi-auburn-waves-round-glasses",
-      "expression": "happy",
-      "angle": "front-near-front",
-      "priority": "owner-correction",
-      "storyLines": 9,
-      "visualLock": "Woman with red or auburn wavy hair, round glasses, and a visually expressive adult face.",
-      "wardrobeLock": "Artful layered outfit in rust, teal, charcoal, and cream.",
-      "reject": [
-        "straight black hair",
-        "no glasses",
-        "photographic face",
-        "caricature proportions",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:stasi-expression-gallery",
-        "story:cast:stasi:happy"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "stasi:thoughtful",
-      "castId": "stasi",
-      "displayName": "Stasi",
-      "identityKey": "stasi-auburn-waves-round-glasses",
-      "expression": "thoughtful",
-      "angle": "left-three-quarter",
-      "priority": "owner-correction",
-      "storyLines": 9,
-      "visualLock": "Woman with red or auburn wavy hair, round glasses, and a visually expressive adult face.",
-      "wardrobeLock": "Artful layered outfit in rust, teal, charcoal, and cream.",
-      "reject": [
-        "straight black hair",
-        "no glasses",
-        "photographic face",
-        "caricature proportions",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:stasi-expression-gallery",
-        "story:cast:stasi:thoughtful"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "stasi:determined",
-      "castId": "stasi",
-      "displayName": "Stasi",
-      "identityKey": "stasi-auburn-waves-round-glasses",
-      "expression": "determined",
-      "angle": "left-three-quarter",
-      "priority": "owner-correction",
-      "storyLines": 9,
-      "visualLock": "Woman with red or auburn wavy hair, round glasses, and a visually expressive adult face.",
-      "wardrobeLock": "Artful layered outfit in rust, teal, charcoal, and cream.",
-      "reject": [
-        "straight black hair",
-        "no glasses",
-        "photographic face",
-        "caricature proportions",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:stasi-expression-gallery",
-        "story:cast:stasi:determined"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "stasi:surprised-shocked",
-      "castId": "stasi",
-      "displayName": "Stasi",
-      "identityKey": "stasi-auburn-waves-round-glasses",
-      "expression": "surprised-shocked",
-      "angle": "right-three-quarter",
-      "priority": "owner-correction",
-      "storyLines": 9,
-      "visualLock": "Woman with red or auburn wavy hair, round glasses, and a visually expressive adult face.",
-      "wardrobeLock": "Artful layered outfit in rust, teal, charcoal, and cream.",
-      "reject": [
-        "straight black hair",
-        "no glasses",
-        "photographic face",
-        "caricature proportions",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:stasi-expression-gallery",
-        "story:cast:stasi:surprised-shocked"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "stasi:sad-vulnerable",
-      "castId": "stasi",
-      "displayName": "Stasi",
-      "identityKey": "stasi-auburn-waves-round-glasses",
-      "expression": "sad-vulnerable",
-      "angle": "left-three-quarter",
-      "priority": "owner-correction",
-      "storyLines": 9,
-      "visualLock": "Woman with red or auburn wavy hair, round glasses, and a visually expressive adult face.",
-      "wardrobeLock": "Artful layered outfit in rust, teal, charcoal, and cream.",
-      "reject": [
-        "straight black hair",
-        "no glasses",
-        "photographic face",
-        "caricature proportions",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:stasi-expression-gallery",
-        "story:cast:stasi:sad-vulnerable"
       ],
       "status": "queued"
     },

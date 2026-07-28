@@ -34,15 +34,15 @@
     "totalSlots": 630
   },
   "summary": {
-    "approved": 143,
+    "approved": 150,
     "reviewCandidates": 7,
-    "missing": 480,
-    "currentPhysicalRasters": 169,
-    "currentOffMatrixRasters": 19,
+    "missing": 473,
+    "currentPhysicalRasters": 174,
+    "currentOffMatrixRasters": 17,
     "historicalUniqueRasters": 469,
     "historicalOccurrences": 2016,
-    "charactersWithApprovedCoverage": 21,
-    "charactersWithAnyCurrentCoverage": 24
+    "charactersWithApprovedCoverage": 22,
+    "charactersWithAnyCurrentCoverage": 25
   },
   "migrations": [
     {
@@ -106,6 +106,15 @@
       "to": "/academy/art/characters/ruparna/ruparna__neutral-long-dark-hair-subtitle-strips__front-near-front__fullbody__v003.png",
       "decision": "delete",
       "status": "Ruparna identity-locked full-body v003 family bound to runtime; partial v002 sprites archived outside runtime.",
+      "runtimeReferencesAfterMigration": []
+    },
+    {
+      "id": "stasi-partial-v001-to-illustrated-v002-family",
+      "character": "stasi",
+      "from": "/academy/art/characters/stasi/stasi__standardized-neutral__front-near-front__halfbody__v001.png",
+      "to": "/academy/art/characters/stasi/stasi__neutral-auburn-waves-round-glasses__front-near-front__fullbody__v002.png",
+      "decision": "delete",
+      "status": "Stasi identity-locked full-body v002 family bound to runtime; partial v001 sprites archived outside runtime.",
       "runtimeReferencesAfterMigration": []
     },
     {
@@ -9820,35 +9829,36 @@
         "slots": 21
       },
       "progress": {
-        "approved": 0,
+        "approved": 7,
         "reviewCandidates": 0,
-        "missing": 21,
-        "deliveredPercent": 0,
-        "approvedPercent": 0
+        "missing": 14,
+        "deliveredPercent": 33.33,
+        "approvedPercent": 33.33
       },
       "currentAssets": [
         {
-          "path": "/academy/art/characters/stasi/stasi__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
-          "sha256": "c8855b0c874f6e9f82f36e711bf2a936b9677c6fc1a79b74db239031d4c7d740",
+          "path": "/academy/art/characters/stasi/stasi__determined-auburn-waves-round-glasses__left-three-quarter__fullbody__v002.png",
+          "sha256": "23577af253f163710120b949713ad799d2e9fffbb679c1835cceea07b50a29b8",
           "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
-          "status": "review-candidate",
+          "status": "approved",
           "usage": {
             "runtime": [
               "journal:stasi-expression-gallery",
+              "story:cast:stasi:determined",
               "cast-standardization:stasi"
             ],
             "review": [
               "cast-standardization-manifest",
-              "learner-journal-preview"
+              "identity-lock"
             ]
           },
-          "orphan": "review-bound",
+          "orphan": "active-runtime",
           "styleVersion": "current-review-family",
-          "fileVersion": "v001",
-          "pose": "off-contract standardized-encouraging-listening pose",
-          "angle": null,
-          "expression": null,
+          "fileVersion": "v002",
+          "pose": "watering can hanging beside a straight posture while garden-gloved hands rest behind the back; left-three-quarter",
+          "angle": "left-three-quarter",
+          "expression": "determined",
           "dimensions": {
             "width": 1536,
             "height": 2048,
@@ -9858,40 +9868,130 @@
           },
           "runtimeUses": [
             "journal:stasi-expression-gallery",
+            "story:cast:stasi:determined",
             "cast-standardization:stasi"
           ],
           "reviewUses": [
             "cast-standardization-manifest",
-            "learner-journal-preview"
+            "identity-lock"
           ],
           "decision": "keep",
-          "migrationStatus": "retained-off-matrix-review-evidence",
-          "coverageStatus": "off-matrix"
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
         },
         {
-          "path": "/academy/art/characters/stasi/stasi__standardized-neutral__front-near-front__halfbody__v001.png",
-          "sha256": "bf4693693d669c42214e155bbeec094eee8e9b074a6a11e4a06de338c4f06fba",
+          "path": "/academy/art/characters/stasi/stasi__encouraging-listening-auburn-waves-round-glasses__right-three-quarter__fullbody__v002.png",
+          "sha256": "17d5ff59b2598f358af4a155b584434cede4394912cf92284e7e179883961028",
           "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
-          "status": "review-candidate",
+          "status": "approved",
           "usage": {
             "runtime": [
-              "journal:stasi",
-              "class:people-review",
-              "lesson-overview:roster-review",
+              "journal:stasi-expression-gallery",
+              "story:cast:stasi:encouraging-listening",
               "cast-standardization:stasi"
             ],
             "review": [
               "cast-standardization-manifest",
-              "learner-journal-preview"
+              "identity-lock"
             ]
           },
-          "orphan": "review-bound",
+          "orphan": "active-runtime",
           "styleVersion": "current-review-family",
-          "fileVersion": "v001",
-          "pose": "off-contract standardized-neutral pose",
-          "angle": null,
-          "expression": null,
+          "fileVersion": "v002",
+          "pose": "watering can hanging beside a straight posture while garden-gloved hands rest behind the back; right-three-quarter",
+          "angle": "right-three-quarter",
+          "expression": "encouraging-listening",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:stasi-expression-gallery",
+            "story:cast:stasi:encouraging-listening",
+            "cast-standardization:stasi"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/stasi/stasi__happy-auburn-waves-round-glasses__front-near-front__fullbody__v002.png",
+          "sha256": "4498d9f488b00a16ac660bac58856a14db244e727140d3708e42bc8f3540eebe",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:stasi-expression-gallery",
+              "story:cast:stasi:happy",
+              "cast-standardization:stasi"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "watering can hanging beside a straight posture while garden-gloved hands rest behind the back; front-near-front",
+          "angle": "front-near-front",
+          "expression": "happy",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:stasi-expression-gallery",
+            "story:cast:stasi:happy",
+            "cast-standardization:stasi"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/stasi/stasi__neutral-auburn-waves-round-glasses__front-near-front__fullbody__v002.png",
+          "sha256": "bbe9b0c624c587eede35bc8ef8ef0ea98436ee3d8207c71dada69f1ffe8439b2",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:stasi",
+              "class:people",
+              "class:week-cast",
+              "lesson-overview:roster",
+              "world:person",
+              "story:cast:stasi",
+              "cast-standardization:stasi"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "watering can hanging beside a straight posture while garden-gloved hands rest behind the back; front-near-front",
+          "angle": "front-near-front",
+          "expression": "neutral",
           "dimensions": {
             "width": 1536,
             "height": 2048,
@@ -9901,17 +10001,149 @@
           },
           "runtimeUses": [
             "journal:stasi",
-            "class:people-review",
-            "lesson-overview:roster-review",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "story:cast:stasi",
             "cast-standardization:stasi"
           ],
           "reviewUses": [
             "cast-standardization-manifest",
-            "learner-journal-preview"
+            "identity-lock"
           ],
           "decision": "keep",
-          "migrationStatus": "retained-off-matrix-review-evidence",
-          "coverageStatus": "off-matrix"
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/stasi/stasi__sad-vulnerable-auburn-waves-round-glasses__left-three-quarter__fullbody__v002.png",
+          "sha256": "6d6f8da8b257798ec1153c9b3233644b6bb7f62002f6ef0ecc3c958ed250740d",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:stasi-expression-gallery",
+              "story:cast:stasi:sad-vulnerable",
+              "cast-standardization:stasi"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "watering can hanging beside a straight posture while garden-gloved hands rest behind the back; left-three-quarter",
+          "angle": "left-three-quarter",
+          "expression": "sad-vulnerable",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:stasi-expression-gallery",
+            "story:cast:stasi:sad-vulnerable",
+            "cast-standardization:stasi"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/stasi/stasi__surprised-shocked-auburn-waves-round-glasses__right-three-quarter__fullbody__v002.png",
+          "sha256": "0580f9da6b224d9cb858c69ce7184caa8884fc405a6c219cbef8246baa1873d9",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:stasi-expression-gallery",
+              "story:cast:stasi:surprised-shocked",
+              "cast-standardization:stasi"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "watering can hanging beside a straight posture while garden-gloved hands rest behind the back; right-three-quarter",
+          "angle": "right-three-quarter",
+          "expression": "surprised-shocked",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:stasi-expression-gallery",
+            "story:cast:stasi:surprised-shocked",
+            "cast-standardization:stasi"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/stasi/stasi__thoughtful-auburn-waves-round-glasses__left-three-quarter__fullbody__v002.png",
+          "sha256": "42f4650842031da878243426aaace265106f642c8a7d1847d346b545f7ab91aa",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:stasi-expression-gallery",
+              "story:cast:stasi:thoughtful",
+              "cast-standardization:stasi"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "watering can hanging beside a straight posture while garden-gloved hands rest behind the back; left-three-quarter",
+          "angle": "left-three-quarter",
+          "expression": "thoughtful",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:stasi-expression-gallery",
+            "story:cast:stasi:thoughtful",
+            "cast-standardization:stasi"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
         }
       ],
       "requiredVariants": [
@@ -9939,16 +10171,14 @@
         {
           "angle": "left-three-quarter",
           "expression": "thoughtful",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/stasi/stasi__thoughtful__left-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/stasi/stasi__thoughtful-auburn-waves-round-glasses__left-three-quarter__fullbody__v002.png"
         },
         {
           "angle": "left-three-quarter",
           "expression": "determined",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/stasi/stasi__determined__left-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/stasi/stasi__determined-auburn-waves-round-glasses__left-three-quarter__fullbody__v002.png"
         },
         {
           "angle": "left-three-quarter",
@@ -9960,16 +10190,14 @@
         {
           "angle": "left-three-quarter",
           "expression": "sad-vulnerable",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/stasi/stasi__sad-vulnerable__left-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/stasi/stasi__sad-vulnerable-auburn-waves-round-glasses__left-three-quarter__fullbody__v002.png"
         },
         {
           "angle": "front-near-front",
           "expression": "neutral",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/stasi/stasi__neutral__front-near-front__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/stasi/stasi__neutral-auburn-waves-round-glasses__front-near-front__fullbody__v002.png"
         },
         {
           "angle": "front-near-front",
@@ -9981,9 +10209,8 @@
         {
           "angle": "front-near-front",
           "expression": "happy",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/stasi/stasi__happy__front-near-front__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/stasi/stasi__happy-auburn-waves-round-glasses__front-near-front__fullbody__v002.png"
         },
         {
           "angle": "front-near-front",
@@ -10023,9 +10250,8 @@
         {
           "angle": "right-three-quarter",
           "expression": "encouraging-listening",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/stasi/stasi__encouraging-listening__right-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/stasi/stasi__encouraging-listening-auburn-waves-round-glasses__right-three-quarter__fullbody__v002.png"
         },
         {
           "angle": "right-three-quarter",
@@ -10051,9 +10277,8 @@
         {
           "angle": "right-three-quarter",
           "expression": "surprised-shocked",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/stasi/stasi__surprised-shocked__right-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/stasi/stasi__surprised-shocked-auburn-waves-round-glasses__right-three-quarter__fullbody__v002.png"
         },
         {
           "angle": "right-three-quarter",
@@ -10087,38 +10312,10 @@
         },
         {
           "angle": "left-three-quarter",
-          "expression": "thoughtful",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/stasi/stasi__thoughtful__left-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "left-three-quarter",
-          "expression": "determined",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/stasi/stasi__determined__left-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "left-three-quarter",
           "expression": "surprised-shocked",
           "status": "missing",
           "path": null,
           "plannedPath": "/academy/art/characters/stasi/stasi__surprised-shocked__left-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "left-three-quarter",
-          "expression": "sad-vulnerable",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/stasi/stasi__sad-vulnerable__left-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "front-near-front",
-          "expression": "neutral",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/stasi/stasi__neutral__front-near-front__halfbody__v001.png"
         },
         {
           "angle": "front-near-front",
@@ -10126,13 +10323,6 @@
           "status": "missing",
           "path": null,
           "plannedPath": "/academy/art/characters/stasi/stasi__encouraging-listening__front-near-front__halfbody__v001.png"
-        },
-        {
-          "angle": "front-near-front",
-          "expression": "happy",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/stasi/stasi__happy__front-near-front__halfbody__v001.png"
         },
         {
           "angle": "front-near-front",
@@ -10171,13 +10361,6 @@
         },
         {
           "angle": "right-three-quarter",
-          "expression": "encouraging-listening",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/stasi/stasi__encouraging-listening__right-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "right-three-quarter",
           "expression": "happy",
           "status": "missing",
           "path": null,
@@ -10196,13 +10379,6 @@
           "status": "missing",
           "path": null,
           "plannedPath": "/academy/art/characters/stasi/stasi__determined__right-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "right-three-quarter",
-          "expression": "surprised-shocked",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/stasi/stasi__surprised-shocked__right-three-quarter__halfbody__v001.png"
         },
         {
           "angle": "right-three-quarter",

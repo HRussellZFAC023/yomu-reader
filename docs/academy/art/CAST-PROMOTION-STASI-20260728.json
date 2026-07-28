@@ -1,0 +1,102 @@
+{
+  "promotions": [
+    {
+      "castId": "stasi",
+      "archiveLabel": "identity-and-style-superseded-20260728",
+      "archiveAllCurrent": true,
+      "replaceExpressions": [
+        "neutral",
+        "encouraging-listening",
+        "happy",
+        "thoughtful",
+        "determined",
+        "surprised-shocked",
+        "sad-vulnerable"
+      ],
+      "canonicalNeutralAssetId": "character.stasi.neutral-auburn-waves-round-glasses-front-near-front-fullbody-v002",
+      "slots": [
+        {
+          "assetId": "character.stasi.neutral-auburn-waves-round-glasses-front-near-front-fullbody-v002",
+          "expression": "neutral",
+          "angle": "front-near-front",
+          "assetPath": "/academy/art/characters/stasi/stasi__neutral-auburn-waves-round-glasses__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:stasi",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "story:cast:stasi",
+            "cast-standardization:stasi"
+          ]
+        },
+        {
+          "assetId": "character.stasi.encouraging-listening-auburn-waves-round-glasses-right-three-quarter-fullbody-v002",
+          "expression": "encouraging-listening",
+          "angle": "right-three-quarter",
+          "assetPath": "/academy/art/characters/stasi/stasi__encouraging-listening-auburn-waves-round-glasses__right-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:stasi-expression-gallery",
+            "story:cast:stasi:encouraging-listening",
+            "cast-standardization:stasi"
+          ]
+        },
+        {
+          "assetId": "character.stasi.happy-auburn-waves-round-glasses-front-near-front-fullbody-v002",
+          "expression": "happy",
+          "angle": "front-near-front",
+          "assetPath": "/academy/art/characters/stasi/stasi__happy-auburn-waves-round-glasses__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:stasi-expression-gallery",
+            "story:cast:stasi:happy",
+            "cast-standardization:stasi"
+          ]
+        },
+        {
+          "assetId": "character.stasi.thoughtful-auburn-waves-round-glasses-left-three-quarter-fullbody-v002",
+          "expression": "thoughtful",
+          "angle": "left-three-quarter",
+          "assetPath": "/academy/art/characters/stasi/stasi__thoughtful-auburn-waves-round-glasses__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:stasi-expression-gallery",
+            "story:cast:stasi:thoughtful",
+            "cast-standardization:stasi"
+          ]
+        },
+        {
+          "assetId": "character.stasi.determined-auburn-waves-round-glasses-left-three-quarter-fullbody-v002",
+          "expression": "determined",
+          "angle": "left-three-quarter",
+          "assetPath": "/academy/art/characters/stasi/stasi__determined-auburn-waves-round-glasses__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:stasi-expression-gallery",
+            "story:cast:stasi:determined",
+            "cast-standardization:stasi"
+          ]
+        },
+        {
+          "assetId": "character.stasi.surprised-shocked-auburn-waves-round-glasses-right-three-quarter-fullbody-v002",
+          "expression": "surprised-shocked",
+          "angle": "right-three-quarter",
+          "assetPath": "/academy/art/characters/stasi/stasi__surprised-shocked-auburn-waves-round-glasses__right-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:stasi-expression-gallery",
+            "story:cast:stasi:surprised-shocked",
+            "cast-standardization:stasi"
+          ]
+        },
+        {
+          "assetId": "character.stasi.sad-vulnerable-auburn-waves-round-glasses-left-three-quarter-fullbody-v002",
+          "expression": "sad-vulnerable",
+          "angle": "left-three-quarter",
+          "assetPath": "/academy/art/characters/stasi/stasi__sad-vulnerable-auburn-waves-round-glasses__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:stasi-expression-gallery",
+            "story:cast:stasi:sad-vulnerable",
+            "cast-standardization:stasi"
+          ]
+        }
+      ]
+    }
+  ]
+}

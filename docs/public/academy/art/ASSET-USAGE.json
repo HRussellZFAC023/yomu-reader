@@ -18,8 +18,8 @@
     ]
   },
   "counts": {
-    "runtimeAssetHomes": 244,
-    "runtimeFiles": 350,
+    "runtimeAssetHomes": 249,
+    "runtimeFiles": 355,
     "nonRuntimeReviewFiles": 1734,
     "approvedReferenceOnly": 4,
     "explicitlyRejectedFamilies": 4,
@@ -1528,74 +1528,6 @@
         {
           "path": "/academy/art/characters/shaun/shaun__standardized-happy__front-near-front__halfbody__v001.png",
           "sha256": "9f08b56903329bab2a6af7bd35d55d4dad6a909dc57f32b3005503be1468c1a2"
-        }
-      ],
-      "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-    },
-    {
-      "id": "character-stasi-standardized-encouraging-listening-front-near-front-halfbody-v001",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "c8855b0c874f6e9f82f36e711bf2a936b9677c6fc1a79b74db239031d4c7d740",
-      "provenance": "regenerated-standardized",
-      "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": [
-        "journal:stasi-expression-gallery",
-        "cast-standardization:stasi"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "learner-journal-preview"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:stasi-expression-gallery",
-          "cast-standardization:stasi"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/stasi/stasi__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
-          "sha256": "c8855b0c874f6e9f82f36e711bf2a936b9677c6fc1a79b74db239031d4c7d740"
-        }
-      ],
-      "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-    },
-    {
-      "id": "character-stasi-standardized-neutral-front-near-front-halfbody-v001",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "bf4693693d669c42214e155bbeec094eee8e9b074a6a11e4a06de338c4f06fba",
-      "provenance": "regenerated-standardized",
-      "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": [
-        "journal:stasi",
-        "class:people-review",
-        "lesson-overview:roster-review",
-        "cast-standardization:stasi"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "learner-journal-preview"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:stasi",
-          "class:people-review",
-          "lesson-overview:roster-review",
-          "cast-standardization:stasi"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/stasi/stasi__standardized-neutral__front-near-front__halfbody__v001.png",
-          "sha256": "bf4693693d669c42214e155bbeec094eee8e9b074a6a11e4a06de338c4f06fba"
         }
       ],
       "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
@@ -10731,7 +10663,7 @@
       "deliveries": [
         {
           "path": "/academy/art/SPRITE-BATCH-MANIFEST.json",
-          "sha256": "9955dc0e00172754faed35b5eb7523da835f436fbcc10df1368963688b077fe6"
+          "sha256": "33ea59fdc02e052e317b3a50808af8af4413d63f8e898b3494989aafde4ec9be"
         }
       ],
       "status": "bound-and-schema-validated"
@@ -15127,6 +15059,252 @@
         {
           "path": "/academy/art/characters/ruparna/ruparna__sad-vulnerable-long-dark-hair-subtitle-strips__left-three-quarter__fullbody__v003.png",
           "sha256": "b88f2ab4b02c7186f670de3b92f82dbcf4a4b11c34cef022ae26371494c06348"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-stasi-neutral-auburn-waves-round-glasses-front-near-front-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "bbe9b0c624c587eede35bc8ef8ef0ea98436ee3d8207c71dada69f1ffe8439b2",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:stasi",
+        "class:people",
+        "class:week-cast",
+        "lesson-overview:roster",
+        "world:person",
+        "story:cast:stasi",
+        "cast-standardization:stasi"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:stasi",
+          "class:people",
+          "class:week-cast",
+          "lesson-overview:roster",
+          "world:person",
+          "story:cast:stasi",
+          "cast-standardization:stasi"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/stasi/stasi__neutral-auburn-waves-round-glasses__front-near-front__fullbody__v002.png",
+          "sha256": "bbe9b0c624c587eede35bc8ef8ef0ea98436ee3d8207c71dada69f1ffe8439b2"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-stasi-encouraging-listening-auburn-waves-round-glasses-right-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "17d5ff59b2598f358af4a155b584434cede4394912cf92284e7e179883961028",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:stasi-expression-gallery",
+        "story:cast:stasi:encouraging-listening",
+        "cast-standardization:stasi"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:stasi-expression-gallery",
+          "story:cast:stasi:encouraging-listening",
+          "cast-standardization:stasi"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/stasi/stasi__encouraging-listening-auburn-waves-round-glasses__right-three-quarter__fullbody__v002.png",
+          "sha256": "17d5ff59b2598f358af4a155b584434cede4394912cf92284e7e179883961028"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-stasi-happy-auburn-waves-round-glasses-front-near-front-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "4498d9f488b00a16ac660bac58856a14db244e727140d3708e42bc8f3540eebe",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:stasi-expression-gallery",
+        "story:cast:stasi:happy",
+        "cast-standardization:stasi"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:stasi-expression-gallery",
+          "story:cast:stasi:happy",
+          "cast-standardization:stasi"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/stasi/stasi__happy-auburn-waves-round-glasses__front-near-front__fullbody__v002.png",
+          "sha256": "4498d9f488b00a16ac660bac58856a14db244e727140d3708e42bc8f3540eebe"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-stasi-thoughtful-auburn-waves-round-glasses-left-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "42f4650842031da878243426aaace265106f642c8a7d1847d346b545f7ab91aa",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:stasi-expression-gallery",
+        "story:cast:stasi:thoughtful",
+        "cast-standardization:stasi"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:stasi-expression-gallery",
+          "story:cast:stasi:thoughtful",
+          "cast-standardization:stasi"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/stasi/stasi__thoughtful-auburn-waves-round-glasses__left-three-quarter__fullbody__v002.png",
+          "sha256": "42f4650842031da878243426aaace265106f642c8a7d1847d346b545f7ab91aa"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-stasi-determined-auburn-waves-round-glasses-left-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "23577af253f163710120b949713ad799d2e9fffbb679c1835cceea07b50a29b8",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:stasi-expression-gallery",
+        "story:cast:stasi:determined",
+        "cast-standardization:stasi"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:stasi-expression-gallery",
+          "story:cast:stasi:determined",
+          "cast-standardization:stasi"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/stasi/stasi__determined-auburn-waves-round-glasses__left-three-quarter__fullbody__v002.png",
+          "sha256": "23577af253f163710120b949713ad799d2e9fffbb679c1835cceea07b50a29b8"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-stasi-surprised-shocked-auburn-waves-round-glasses-right-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "0580f9da6b224d9cb858c69ce7184caa8884fc405a6c219cbef8246baa1873d9",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:stasi-expression-gallery",
+        "story:cast:stasi:surprised-shocked",
+        "cast-standardization:stasi"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:stasi-expression-gallery",
+          "story:cast:stasi:surprised-shocked",
+          "cast-standardization:stasi"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/stasi/stasi__surprised-shocked-auburn-waves-round-glasses__right-three-quarter__fullbody__v002.png",
+          "sha256": "0580f9da6b224d9cb858c69ce7184caa8884fc405a6c219cbef8246baa1873d9"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-stasi-sad-vulnerable-auburn-waves-round-glasses-left-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "6d6f8da8b257798ec1153c9b3233644b6bb7f62002f6ef0ecc3c958ed250740d",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:stasi-expression-gallery",
+        "story:cast:stasi:sad-vulnerable",
+        "cast-standardization:stasi"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:stasi-expression-gallery",
+          "story:cast:stasi:sad-vulnerable",
+          "cast-standardization:stasi"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/stasi/stasi__sad-vulnerable-auburn-waves-round-glasses__left-three-quarter__fullbody__v002.png",
+          "sha256": "6d6f8da8b257798ec1153c9b3233644b6bb7f62002f6ef0ecc3c958ed250740d"
         }
       ],
       "status": "identity-locked, visually inspected, runtime-bound house-style sprite"

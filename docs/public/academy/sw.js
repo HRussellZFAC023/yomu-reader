@@ -1,4 +1,4 @@
-const VERSION = 'yomu-academy-shell-s1-27ca2323c8f6';
+const VERSION = 'yomu-academy-shell-s1-b21c9b5b69c3';
 const AUDIO_CACHE = 'yomu-academy-audio-v1-2c25b06f971c';
 const STORY_VOICE_CATALOG = '/academy/audio/story-voice-playback.json';
 const STORY_VOICE_ASSET = /^\/academy\/audio\/story-(?:pilot|lines)\/[a-z0-9][a-z0-9._-]*\.opus$/;
@@ -178,8 +178,13 @@ const RUNTIME_ART_PRECACHE = [
     '/academy/art/characters/sophie/sophie__sad-vulnerable__left-three-quarter__halfbody__v004.png',
     '/academy/art/characters/sophie/sophie__surprised-shocked__right-three-quarter__halfbody__v004.png',
     '/academy/art/characters/sophie/sophie__thoughtful__left-three-quarter__halfbody__v004.png',
-    '/academy/art/characters/stasi/stasi__standardized-encouraging-listening__front-near-front__halfbody__v001.png',
-    '/academy/art/characters/stasi/stasi__standardized-neutral__front-near-front__halfbody__v001.png',
+    '/academy/art/characters/stasi/stasi__determined-auburn-waves-round-glasses__left-three-quarter__fullbody__v002.png',
+    '/academy/art/characters/stasi/stasi__encouraging-listening-auburn-waves-round-glasses__right-three-quarter__fullbody__v002.png',
+    '/academy/art/characters/stasi/stasi__happy-auburn-waves-round-glasses__front-near-front__fullbody__v002.png',
+    '/academy/art/characters/stasi/stasi__neutral-auburn-waves-round-glasses__front-near-front__fullbody__v002.png',
+    '/academy/art/characters/stasi/stasi__sad-vulnerable-auburn-waves-round-glasses__left-three-quarter__fullbody__v002.png',
+    '/academy/art/characters/stasi/stasi__surprised-shocked-auburn-waves-round-glasses__right-three-quarter__fullbody__v002.png',
+    '/academy/art/characters/stasi/stasi__thoughtful-auburn-waves-round-glasses__left-three-quarter__fullbody__v002.png',
     '/academy/art/characters/steve/steve__determined__left-three-quarter__halfbody__v001.png',
     '/academy/art/characters/steve/steve__happy__right-three-quarter__halfbody__v001.png',
     '/academy/art/characters/steve/steve__neutral__front-near-front__halfbody__v001.png',
@@ -400,8 +405,8 @@ const CORE = [
     '/yomu-icon.svg',
     '/academy/',
     '/academy/index.html',
-    '/academy/app.js?v=s1-27ca2323c8f6',
-    '/academy/style.css?v=s1-27ca2323c8f6',
+    '/academy/app.js?v=s1-b21c9b5b69c3',
+    '/academy/style.css?v=s1-b21c9b5b69c3',
     '/academy/manifest.webmanifest',
     ...RUNTIME_ART_PRECACHE,
     '/academy/content/vertical-slice/source-library.v1.json',
