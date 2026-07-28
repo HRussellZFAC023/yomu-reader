@@ -154,6 +154,26 @@ describe('release workflow safety', () => {
         expect(releaseGamingWorkflow).toContain('upload_release_assets "$TAG" release-assets/*');
     });
 
+    // v1.8.21, v1.8.22 and v1.8.23 each attached their desktop assets by hand: the
+    // gaming build finishes ~15 minutes into a tag push and then waited only 10 for
+    // the main Release — which gates on check:release + smoke:release and publishes
+    // at ~25-30 — so the push run always timed out and only a workflow_dispatch
+    // re-run succeeded. The wait has to outlast a slow main Release.
+    it('waits out the main Release before attaching desktop assets', () => {
+        const waitSeconds = Number(releaseGamingWorkflow.match(/publish_wait_seconds=(\d+)/)?.[1]);
+        const pollSeconds = Number(releaseGamingWorkflow.match(/poll_seconds=(\d+)/)?.[1]);
+        expect(waitSeconds).toBeGreaterThanOrEqual(2400);
+        expect(pollSeconds).toBeGreaterThan(0);
+
+        // The wait must stay inside the job's own budget, or the runner is killed
+        // mid-wait and the timeout diagnostics below never print.
+        const jobTimeoutMinutes = Number(releaseGamingWorkflow.match(/timeout-minutes: (\d+)\n {4}steps:/)?.[1]);
+        expect(jobTimeoutMinutes * 60).toBeGreaterThan(waitSeconds);
+
+        expect(releaseGamingWorkflow).toContain('exists but is still a draft');
+        expect(releaseGamingWorkflow).toContain('never created ${TAG}');
+    });
+
     it('retries release uploads per asset while failing closed on hard errors', () => {
         for (const workflow of [releaseWorkflow, releaseGamingWorkflow]) {
             expect(workflow).toContain('upload_release_assets()');
