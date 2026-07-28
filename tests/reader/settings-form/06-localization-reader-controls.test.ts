@@ -336,6 +336,7 @@ describe('settings form localization', () => {
         const form = document.createElement('form');
         form.innerHTML = renderSettingsForm({
             ...DEFAULT_SETTINGS,
+            apiKey: 'jpdb-key',
             wordTextColorSource: 'status',
         }, 'https://jpdb.io/settings');
 
@@ -364,6 +365,20 @@ describe('settings form localization', () => {
         expect(labelForControl(jitenForm, 'localDictionariesEnabled')).toBe('');
         expect(labelForControl(jitenForm, 'dictionarySourcesInitiallyExpanded')).toBe('');
         expect(labelForControl(jitenForm, 'localDictionaryMaxResults')).toBe('');
+
+        // A20: with no API key the state channel is fed by Yomu's own deck, so
+        // it is named after that deck instead of a product the learner lacks.
+        const academyForm = document.createElement('form');
+        academyForm.innerHTML = renderSettingsForm({
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            jitenApiKey: '',
+            yomuLocalSrsEnabled: true,
+            wordTextColorSource: 'status',
+        }, 'https://jpdb.io/settings');
+
+        expect(optionText(academyForm, 'wordHighlightColorSource', 'jpdb')).toBe('Academy status');
+        expect(optionText(academyForm, 'wordTextColorSource', 'status')).toBe('Academy + Anki status');
     });
 
     it('keeps subtitle preview color classes and status regions accessible', () => {

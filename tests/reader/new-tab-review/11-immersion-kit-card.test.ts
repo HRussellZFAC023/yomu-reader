@@ -459,7 +459,9 @@ describe('new tab review — Immersion Kit card & doodle strokes', () => {
             await navigateToNextImmersion(privateController, root);
 
             await waitForExpect(() => {
-                expect(meaning.textContent).toContain('中学生です。');
+                // Readings on every parsed word is the shipped default, so the
+                // annotated sentence carries its ruby text inline.
+                expect(meaning.textContent).toContain('中学生(ちゅうがくせい)です。');
                 expect(meaning.querySelector('.jpdb-reader-example-count')?.textContent).toBe('2/2');
                 expect(meaning.querySelector<HTMLElement>('.jpdb-reader-example-card')?.dataset.immersionSentence).toBe('中学生です。');
                 expect(meaning.querySelector<HTMLElement>('.jpdb-reader-example-card')?.dataset.immersionAudioUrls).toBe(JSON.stringify(['https://media.test/second.mp3']));

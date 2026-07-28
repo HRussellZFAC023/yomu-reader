@@ -272,6 +272,7 @@ const COPY = {
         showFurigana: 'Enable furigana annotations',
         furiganaMode: 'Furigana',
         wordColorStates: 'Color words',
+        appearancePreset: 'Quick setup',
         appearancePresetCustom: 'Keep current custom settings',
         appearancePresetBalanced: 'Balanced reading',
         appearancePresetNoColors: 'Plain text',
@@ -282,6 +283,8 @@ const COPY = {
         hideFuriganaFor: 'Hide furigana for',
         hideColorFor: 'Hide color for',
         furiganaDifficultKanji: 'Hard kanji only',
+        furiganaDifficultKanjiHelp: `${APP_NAME} keeps a fixed beginner kanji list and shows readings on everything outside it. A bare kanji means that character sits on the list.`,
+        statusColorNoSourceHelp: `Status colors read from a deck. Enable ${ACADEMY_SRS_LABEL} in Study, or add a JPDB, Jiten, or Anki source, and words take the color of their learning state.`,
         furiganaHideKnown: 'Hide familiar words',
         furiganaHoverOnly: 'Show on hover',
         furiganaAllParsed: 'Show on every parsed word',
@@ -1956,6 +1959,7 @@ autoplayAudioOffToast	音声の自動再生をミュートしました。
 showFurigana	ふりがな注釈を有効にする
 furiganaMode	ふりがな
 wordColorStates	色を付ける単語
+appearancePreset	かんたん設定
 appearancePresetCustom	現在のカスタム設定を保持
 appearancePresetBalanced	読みやすいバランス
 appearancePresetNoColors	プレーンテキスト
@@ -1966,6 +1970,8 @@ wordColorStatesNewOnly	新規・未追加のみ
 hideFuriganaFor	ふりがなを隠す対象
 hideColorFor	色を隠す対象
 furiganaDifficultKanji	難しい漢字のみ
+furiganaDifficultKanjiHelp	Yomuは初級漢字の固定リストを持ち、その外側の漢字にふりがなを表示します。ふりがなのない漢字は、そのリストに載っています。
+statusColorNoSourceHelp	学習状態の色はデッキから読み取ります。StudyでAcademyを有効にするか、JPDB・Jiten・Ankiのいずれかを追加すると、単語が学習状態の色になります。
 furiganaHideKnown	なじみのある語を非表示
 furiganaHoverOnly	ホバー時に表示
 furiganaAllParsed	解析済みの全単語に表示

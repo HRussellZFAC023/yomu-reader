@@ -323,7 +323,7 @@ describe('settings form localization', () => {
         expect(DEFAULT_SETTINGS.ankiMobileHandoff).toBe(false);
         expect(DEFAULT_SETTINGS.ankiMineWithJpdb).toBe(false);
         expect(DEFAULT_SETTINGS.popupMode).toBe('auto');
-        expect(DEFAULT_SETTINGS.furiganaMode).toBe('difficult-kanji');
+        expect(DEFAULT_SETTINGS.furiganaMode).toBe('all');
         expect(DEFAULT_SETTINGS.furiganaHiddenStateGroups).toEqual(['known', 'due', 'failed']);
         expect(DEFAULT_SETTINGS.wordColorStates).toBe('all');
         // Per-state colour opt-out defaults to empty (colour every state) so existing
@@ -331,7 +331,7 @@ describe('settings form localization', () => {
         expect(DEFAULT_SETTINGS.wordColorHiddenStateGroups).toEqual([]);
         expect(normalizeReaderSettings({}).wordColorHiddenStateGroups).toEqual([]);
         expect(normalizeReaderSettings({ wordColorHiddenStateGroups: ['known', 'known', 'bogus', 'due'] as never }).wordColorHiddenStateGroups).toEqual(['known', 'due']);
-        expect(effectiveFuriganaMode(DEFAULT_SETTINGS)).toBe('difficult-kanji');
+        expect(effectiveFuriganaMode(DEFAULT_SETTINGS)).toBe('all');
         expect(normalizeReaderSettings({ apiKey: '', jitenApiKey: 'ak_jiten-key', ankiEnabled: false, furiganaMode: 'auto' }).furiganaMode).toBe('known-status');
         expect(normalizeReaderSettings({}).ankiEnabled).toBe(false);
         expect(normalizeReaderSettings({}).ankiSectionEnabled).toBe(false);

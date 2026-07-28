@@ -1,9 +1,9 @@
 import { Logger } from '../app/logger';
-import { SETTINGS_CHANGE_EVENT, YOMU_HOSTED_AUDIO_URL } from '../app/constants';
+import { ACADEMY_SRS_LABEL, SETTINGS_CHANGE_EVENT, YOMU_HOSTED_AUDIO_URL } from '../app/constants';
 import { dispatchWindowEvent, createWindowCustomEvent } from '../platform/window-events';
 import { BRAND_COLOR_TOKENS, DEFAULT_PITCH_COLOR_TOKENS, DEFAULT_WORD_COLOR_TOKENS, OCR_OVERLAY_COLOR_TOKENS, OVERLAY_COLOR_TOKENS } from '../theme/color-tokens';
 import { migrateAnkiSentenceAudioMappings, normalizeAnkiFieldMappings } from './anki-field-mappings';
-import { hasBunproFrontendCredential, hasJitenApiCredential, hasJpdbApiCredential, isBunproFrontendCredentialExpired, isJitenApiCredential } from './api-credential';
+import { combinedApiCredentialLabel, hasBunproFrontendCredential, hasJitenApiCredential, hasJpdbApiCredential, isBunproFrontendCredentialExpired, isJitenApiCredential } from './api-credential';
 import { DEFAULT_DICTIONARY_LOOKUP_LINKS, normalizeDictionaryLookupLinkSettings, normalizeDictionaryPreferences } from './dictionary';
 import { hasOwn, stringValue, trimmedText } from './values';
 import { cacheManagedValueForHostedStartup, gmStorageDelete, gmStorageGet, gmStorageSet, hasAsyncGmStorageBackend, isHostedYomuOrigin, localFallbackStoredValue, storedValueExists, subscribeToStoredValueChanges, withGmStorageLease } from '../app/storage';
@@ -431,7 +431,11 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     manualScanEnabled: false,
     annotationsPaused: false,
     showFurigana: true,
-    furiganaMode: 'difficult-kanji',
+    // A11: 'difficult-kanji' hides readings by a fixed easy-kanji list
+    // (EASY_FURIGANA_KANJI), so a bare kanji told the learner nothing about
+    // their own knowledge and the page read as half-annotated. Every parsed
+    // word gets its reading until someone chooses otherwise.
+    furiganaMode: 'all',
     clampedRowReadings: 'show',
     puckFuriganaModeBeforeHide: '',
     furiganaHiddenStateGroups: ['known', 'due', 'failed'],
@@ -1552,8 +1556,12 @@ function normalizeFuriganaMode(value: unknown, settings: Partial<ReaderSettings>
     return DEFAULT_SETTINGS.furiganaMode;
 }
 
+// Legacy stored 'auto'. With a deck behind it, hiding readings on words the
+// learner has already answered is something the hidden-states fieldset spells
+// out. With no deck there is nothing to explain a missing reading, so show
+// every one.
 function effectiveLegacyAutoFuriganaMode(settings: Partial<ReaderSettings> | null | undefined): Exclude<FuriganaMode, 'auto'> {
-    return settings && hasPersonalizedFuriganaSource(settings) ? 'known-status' : 'difficult-kanji';
+    return settings && hasPersonalizedFuriganaSource(settings) ? 'known-status' : 'all';
 }
 
 function isFuriganaMode(value: unknown): value is FuriganaMode {
@@ -1586,12 +1594,16 @@ function normalizeDeckIdSetting(value: unknown, fallback: string): string {
     return typeof value === 'string' && value.trim() ? value.trim() : fallback;
 }
 
+// Any deck that can answer "have I answered this word before?" makes
+// knowledge-based furigana hiding legible: the hidden-states fieldset next to
+// the picker names the states it drops. Yomu's own deck counts, same as it
+// does for the status colour channel.
 function hasPersonalizedFuriganaSource(settings: Partial<ReaderSettings>): boolean {
     const credentials = {
         apiKey: settings.apiKey ?? '',
         jitenApiKey: settings.jitenApiKey ?? '',
     };
-    return Boolean(hasJpdbApiCredential(credentials) || hasJitenApiCredential(credentials) || settings.ankiEnabled);
+    return Boolean(hasJpdbApiCredential(credentials) || hasJitenApiCredential(credentials) || settings.ankiEnabled || settings.yomuLocalSrsEnabled);
 }
 
 export function shouldLookupAnkiStatus(settings: Partial<ReaderSettings>): boolean {
@@ -1651,7 +1663,7 @@ function effectiveAvailableColorSource(
     source: ConcreteReaderColorSource,
     fallback: ConcreteReaderColorSource = 'off',
 ): ConcreteReaderColorSource {
-    if (source === 'jpdb' && !hasJpdbStatusSource(settings)) {
+    if (source === 'jpdb' && !hasSrsStateColorSource(settings)) {
         return fallback === 'jpdb' ? 'off' : effectiveAvailableColorSource(settings, fallback, 'off');
     }
     if (source === 'anki' && !hasAnkiStatusSource(settings)) {
@@ -1663,12 +1675,45 @@ function effectiveAvailableColorSource(
 }
 
 function effectiveAvailableStatusSource(settings: LegacyReaderSettings, includeRequestedAnki = false): ConcreteReaderColorSource {
-    const hasJpdb = hasJpdbStatusSource(settings);
+    const hasStates = hasSrsStateColorSource(settings);
     const hasAnki = hasAnkiStatusSource(settings) || Boolean(includeRequestedAnki && settings.ankiEnabled && hasRequestedAnkiColorSource(settings));
-    if (hasJpdb && hasAnki) return 'status';
-    if (hasJpdb) return 'jpdb';
+    if (hasStates && hasAnki) return 'status';
+    if (hasStates) return 'jpdb';
     if (hasAnki) return 'anki';
     return 'off';
+}
+
+/**
+ * A20: the state colour channel used to follow a jpdb/jiten key alone, so a
+ * learner reviewing in Yomu's own deck saw flat text with nothing to explain
+ * it. The local deck writes the same five-state `cardState` taxonomy through
+ * hydrateYomuLocalSrsCardStates, so it drives the channel the same way.
+ */
+function hasLocalSrsStatusSource(settings: LegacyReaderSettings): boolean {
+    return settings.yomuLocalSrsEnabled === true;
+}
+
+function hasSrsStateColorSource(settings: LegacyReaderSettings): boolean {
+    return hasJpdbStatusSource(settings) || hasLocalSrsStatusSource(settings);
+}
+
+/**
+ * True when some deck can answer "do I know this word?". The settings form
+ * shows the no-source line when this is false, so an empty colour channel
+ * always comes with a reason.
+ */
+export function hasStatusColorSource(settings: LegacyReaderSettings): boolean {
+    return effectiveAvailableStatusSource(settings, true) !== 'off';
+}
+
+/** Names whichever deck feeds the state colour channel, for the picker labels. */
+export function statusColorSourceLabel(settings: LegacyReaderSettings): string {
+    const localOnly = !hasJpdbStatusSource(settings) && hasLocalSrsStatusSource(settings);
+    return localOnly ? ACADEMY_SRS_LABEL : combinedApiCredentialLabel(apiCredentials(settings));
+}
+
+function apiCredentials(settings: LegacyReaderSettings): { apiKey: string; jitenApiKey: string } {
+    return { apiKey: settings.apiKey ?? '', jitenApiKey: settings.jitenApiKey ?? '' };
 }
 
 function hasJpdbStatusSource(settings: LegacyReaderSettings): boolean {
@@ -1702,7 +1747,16 @@ const COLOR_STATUS_CHANNEL_KEYS: ReaderColorChannelKey[] = [
 export function effectiveFuriganaMode(settings: ReaderSettings): Exclude<FuriganaMode, 'auto'> {
     if (!settings.showFurigana || settings.furiganaMode === 'off') return 'off';
     if (isExplicitFuriganaMode(settings.furiganaMode)) return settings.furiganaMode;
-    return hasPersonalizedFuriganaSource(settings) ? 'known-status' : 'difficult-kanji';
+    return hasPersonalizedFuriganaSource(settings) ? 'known-status' : 'all';
+}
+
+/**
+ * A11: difficulty hiding drops readings by a fixed easy-kanji list, which the
+ * learner has no way to read off the page. The settings form shows the
+ * explanation whenever this is the chosen mode.
+ */
+export function furiganaModeNeedsDifficultyExplanation(settings: ReaderSettings): boolean {
+    return effectiveFuriganaMode(settings) === 'difficult-kanji';
 }
 
 function isExplicitFuriganaMode(value: FuriganaMode): value is Exclude<FuriganaMode, 'auto' | 'off'> {

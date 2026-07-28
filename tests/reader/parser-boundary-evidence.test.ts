@@ -7,6 +7,10 @@ import { ReaderParser } from '../../src/reader/lookup/parser';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 
 const SENTENCE = '2時間前';
+// Token boundaries are the subject here, so render without readings. The
+// shipped furigana default now annotates every parsed word, which would put
+// ruby text into the textContent assertion below.
+const BARE_RENDER_SETTINGS: ReaderSettings = { ...DEFAULT_SETTINGS, furiganaMode: 'off' };
 
 function card(spelling: string, reading: string, source: JPDBCard['source']): JPDBCard {
     return {
@@ -119,7 +123,7 @@ describe('exact local boundary evidence for remote parse fragments', () => {
 
         expectExactTimeBoundary(tokens, provider);
         const root = document.createElement('div');
-        root.innerHTML = renderTokensToHtml(SENTENCE, tokens, DEFAULT_SETTINGS);
+        root.innerHTML = renderTokensToHtml(SENTENCE, tokens, BARE_RENDER_SETTINGS);
         const word = root.querySelector<HTMLElement>('[data-expression="時間"]');
         expect(word?.dataset.surface).toBe('時間');
         expect(word?.dataset.tokenStart).toBe('1');

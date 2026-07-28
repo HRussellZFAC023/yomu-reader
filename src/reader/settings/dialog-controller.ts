@@ -1264,11 +1264,20 @@ export class SettingsDialogController {
             const fieldset = form.querySelector<HTMLElement>('[data-furigana-hide-groups]');
             const mode = form.querySelector<HTMLSelectElement>('select[name="furiganaMode"]')?.value;
             if (fieldset) fieldset.hidden = mode !== 'known-status';
+            // A11: difficulty hiding explains itself the moment it is chosen.
+            const difficultyNote = form.querySelector<HTMLElement>('[data-furigana-difficulty-note]');
+            if (difficultyNote) difficultyNote.hidden = mode !== 'difficult-kanji';
         };
+        // A11: quick setup used to land a keyless learner on 'difficult-kanji',
+        // which drops readings by a fixed easy-kanji list. A bare kanji then
+        // meant neither "you know this" nor "Yomu missed it", so the page read
+        // as broken. With a deck behind it, 'known-status' is explained by the
+        // hidden-states fieldset that appears next to it; with no deck, every
+        // parsed word keeps its reading.
         const smartFuriganaMode = (): ReaderSettings['furiganaMode'] =>
-            this.settings.apiKey.trim() || this.settings.jitenApiKey.trim() || this.settings.ankiEnabled
+            this.settings.apiKey.trim() || this.settings.jitenApiKey.trim() || this.settings.ankiEnabled || this.settings.yomuLocalSrsEnabled
                 ? 'known-status'
-                : 'difficult-kanji';
+                : 'all';
         form.querySelector<HTMLSelectElement>('select[name="furiganaMode"]')?.addEventListener('change', syncGroupVisibility);
         const preset = form.querySelector<HTMLSelectElement>('select[name="appearancePreset"]');
         preset?.addEventListener('change', () => {

@@ -1009,16 +1009,19 @@ describe('reader helpers', () => {
     });
 
     it('uses concrete color-channel defaults while preserving legacy automatic choices', () => {
-        expect(effectiveReaderColorSource(DEFAULT_SETTINGS, 'auto')).toBe('off');
-        expect(effectiveReaderColorSource(DEFAULT_SETTINGS, 'auto', 'pitch')).toBe('pitch');
-        expect(effectiveReaderColorSource({ ...DEFAULT_SETTINGS, wordHighlightMode: 'pitch' }, 'auto')).toBe('pitch');
+        // A20: Yomu's own deck feeds the state channel, so the "nothing can
+        // answer what I know" cases have to switch it off to stay about that.
+        const deckless = { ...DEFAULT_SETTINGS, yomuLocalSrsEnabled: false };
+        expect(effectiveReaderColorSource(deckless, 'auto')).toBe('off');
+        expect(effectiveReaderColorSource(deckless, 'auto', 'pitch')).toBe('pitch');
+        expect(effectiveReaderColorSource({ ...deckless, wordHighlightMode: 'pitch' }, 'auto')).toBe('pitch');
         expect(effectiveReaderColorSource({ ...DEFAULT_SETTINGS, apiKey: 'key', ankiEnabled: true, wordHighlightMode: 'status' }, 'auto')).toBe('jpdb');
-        expect(effectiveReaderColorSource({ ...DEFAULT_SETTINGS, wordHighlightMode: 'status' }, 'auto')).toBe('off');
-        expect(effectiveReaderColorSource({ ...DEFAULT_SETTINGS, wordHighlightMode: 'off' }, 'auto')).toBe('off');
+        expect(effectiveReaderColorSource({ ...deckless, wordHighlightMode: 'status' }, 'auto')).toBe('off');
+        expect(effectiveReaderColorSource({ ...deckless, wordHighlightMode: 'off' }, 'auto')).toBe('off');
         expect(effectiveReaderColorSource({ ...DEFAULT_SETTINGS, ankiEnabled: true }, 'anki')).toBe('anki');
-        expect(effectiveReaderColorSource(DEFAULT_SETTINGS, 'anki')).toBe('off');
+        expect(effectiveReaderColorSource(deckless, 'anki')).toBe('off');
         expect(effectiveSubtitleColorSource({ ...DEFAULT_SETTINGS, apiKey: 'key', wordHighlightMode: 'status' }, 'auto')).toBe('jpdb');
-        expect(effectiveSubtitleColorSource({ ...DEFAULT_SETTINGS, wordHighlightMode: 'pitch' }, 'auto')).toBe('pitch');
+        expect(effectiveSubtitleColorSource({ ...deckless, wordHighlightMode: 'pitch' }, 'auto')).toBe('pitch');
         expect(effectiveSubtitleColorSource(DEFAULT_SETTINGS, 'status')).toBe('status');
 
         const html = renderTokensToHtml('読む', [{
@@ -1043,7 +1046,9 @@ describe('reader helpers', () => {
 
     it('renders color-channel settings as concrete options and saves them back', () => {
         const form = document.createElement('form');
-        form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
+        // An API key so the status labels name JPDB; the keyless case names the
+        // local deck instead and is covered in the settings-form suite.
+        form.innerHTML = renderSettingsForm({ ...DEFAULT_SETTINGS, apiKey: 'jpdb-key' }, 'https://jpdb.io/settings');
         const expected = {
             wordHighlightColorSource: 'jpdb',
             wordUnderlineColorSource: 'pitch',
@@ -1067,10 +1072,13 @@ describe('reader helpers', () => {
         expect(saved).toMatchObject(expected);
     });
 
-    it('defaults furigana to difficult kanji and migrates legacy automatic mode to concrete behavior (UT-47)', () => {
-        expect(DEFAULT_SETTINGS.furiganaMode).toBe('difficult-kanji');
-        expect(effectiveFuriganaMode(DEFAULT_SETTINGS)).toBe('difficult-kanji');
-        expect(normalizeReaderSettings({ apiKey: '', ankiEnabled: false, furiganaMode: 'auto' }).furiganaMode).toBe('difficult-kanji');
+    // A11: the shipped default reads every parsed word, and legacy 'auto' lands
+    // on a mode the surrounding UI can explain.
+    it('defaults furigana to every parsed word and migrates legacy automatic mode to concrete behavior (UT-47)', () => {
+        expect(DEFAULT_SETTINGS.furiganaMode).toBe('all');
+        expect(effectiveFuriganaMode(DEFAULT_SETTINGS)).toBe('all');
+        expect(normalizeReaderSettings({ apiKey: '', ankiEnabled: false, yomuLocalSrsEnabled: false, furiganaMode: 'auto' }).furiganaMode).toBe('all');
+        expect(normalizeReaderSettings({ apiKey: '', ankiEnabled: false, yomuLocalSrsEnabled: true, furiganaMode: 'auto' }).furiganaMode).toBe('known-status');
         expect(normalizeReaderSettings({ apiKey: 'key', ankiEnabled: false, jpdbMiningEnabled: false, furiganaMode: 'auto' }).furiganaMode).toBe('known-status');
         expect(normalizeReaderSettings({ apiKey: '', jitenApiKey: 'jiten-key', ankiEnabled: false, furiganaMode: 'auto' }).furiganaMode).toBe('known-status');
         expect(normalizeReaderSettings({ apiKey: '', ankiEnabled: true, furiganaMode: 'auto' }).furiganaMode).toBe('known-status');
@@ -1097,13 +1105,15 @@ describe('reader helpers', () => {
             sentence: '鬱',
         };
 
-        expect(renderTokensToHtml('日本', [easyToken], { ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: false, furiganaMode: 'auto' }))
+        // A11: difficulty hiding is now something a learner picks, so this
+        // asks for it by name instead of reaching it through legacy 'auto'.
+        expect(renderTokensToHtml('日本', [easyToken], { ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: false, furiganaMode: 'difficult-kanji' }))
             .not.toContain('<rt');
         expect(renderTokensToHtml('日本', [easyToken], { ...DEFAULT_SETTINGS, apiKey: '', jitenApiKey: 'jiten-key', ankiEnabled: false, furiganaMode: 'auto' }))
             .toContain('<rt class="jpdb-reader-furi">にほん</rt>');
-        expect(renderTokensToHtml('鬱', [difficultToken], { ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: false, furiganaMode: 'auto' }))
+        expect(renderTokensToHtml('鬱', [difficultToken], { ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: false, furiganaMode: 'difficult-kanji' }))
             .toContain('<rt class="jpdb-reader-furi">うつ</rt>');
-        expect(renderTokensToHtml('鬱', [difficultToken], { ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: false, furiganaMode: 'auto' }))
+        expect(renderTokensToHtml('鬱', [difficultToken], { ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: false, furiganaMode: 'difficult-kanji' }))
             .toContain('jpdb-reader-has-furi');
         expect(renderTokensToHtml('日本', [easyToken], { ...DEFAULT_SETTINGS, furiganaMode: 'all' }))
             .toContain('<rt class="jpdb-reader-furi">にほん</rt>');

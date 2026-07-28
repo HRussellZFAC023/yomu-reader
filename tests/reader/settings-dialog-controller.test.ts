@@ -720,7 +720,9 @@ describe('settings dialog keyboard dismissal', () => {
         choosePreset('new-only');
 
         expect(selectValue('wordColorStates')).toBe('new-only');
-        expect(selectValue('furiganaMode')).toBe('difficult-kanji');
+        // A11: the default fixture has Academy on, so quick setup picks the
+        // status-driven mode whose hidden-states fieldset says what it drops.
+        expect(selectValue('furiganaMode')).toBe('known-status');
         expect(selectValue('wordHighlightColorSource')).toBe('jpdb');
         expect(selectValue('wordUnderlineColorSource')).toBe('pitch');
         expect(selectValue('wordTextColorSource')).toBe('anki');
@@ -750,6 +752,44 @@ describe('settings dialog keyboard dismissal', () => {
         expect(selectValue('subtitleUnderlineColorSource')).toBe('off');
         expect(selectValue('subtitleTextColorSource')).toBe('off');
         expect(dependencies.applyTheme).toHaveBeenCalled();
+    });
+
+    // A11: quick setup used to hand a learner with no deck the difficulty mode,
+    // which drops readings by a fixed easy-kanji list. Nothing on the page told
+    // them why, so a half-annotated line read as a broken scan.
+    it('keeps quick setup off difficulty-based furigana when no deck backs it', () => {
+        const settings: ReaderSettings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            jitenApiKey: '',
+            ankiEnabled: false,
+            yomuLocalSrsEnabled: false,
+        };
+        const { form } = createSettingsDialog({ getSettings: () => settings });
+        const preset = form.querySelector<HTMLSelectElement>('select[name="appearancePreset"]')!;
+        const mode = form.querySelector<HTMLSelectElement>('select[name="furiganaMode"]')!;
+
+        for (const value of ['balanced', 'new-only']) {
+            preset.value = value;
+            preset.dispatchEvent(new Event('change', { bubbles: true }));
+            expect(mode.value).toBe('all');
+        }
+    });
+
+    it('reveals the difficulty explanation only while that mode is selected', () => {
+        const { form } = createSettingsDialog();
+        const mode = form.querySelector<HTMLSelectElement>('select[name="furiganaMode"]')!;
+        const note = form.querySelector<HTMLElement>('[data-furigana-difficulty-note]')!;
+
+        expect(note.hidden).toBe(true);
+
+        mode.value = 'difficult-kanji';
+        mode.dispatchEvent(new Event('change', { bubbles: true }));
+        expect(note.hidden).toBe(false);
+
+        mode.value = 'all';
+        mode.dispatchEvent(new Event('change', { bubbles: true }));
+        expect(note.hidden).toBe(true);
     });
 
     it('refreshes the Anki template preview when front content toggles change', () => {

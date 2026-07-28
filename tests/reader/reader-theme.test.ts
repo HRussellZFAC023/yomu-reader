@@ -842,6 +842,9 @@ describe('reader theme', () => {
     it('falls back from unavailable JPDB color channels until an API key is available', () => {
         const withoutKey = applyReaderTheme({
             ...DEFAULT_SETTINGS,
+            // A20: the local deck now feeds the state channel too, so an
+            // "unavailable state source" case has to switch that deck off.
+            yomuLocalSrsEnabled: false,
             localDictionariesEnabled: true,
             wordHighlightColorSource: 'jpdb',
             wordUnderlineColorSource: 'jpdb',
@@ -924,6 +927,7 @@ describe('reader theme', () => {
     it('keeps explicit status channels off until Anki is enabled', () => {
         const none = applyReaderTheme({
             ...DEFAULT_SETTINGS,
+            yomuLocalSrsEnabled: false,
             wordHighlightColorSource: 'status',
             wordUnderlineColorSource: 'status',
             wordTextColorSource: 'status',
@@ -942,6 +946,7 @@ describe('reader theme', () => {
         const ankiOnly = applyReaderTheme({
             ...DEFAULT_SETTINGS,
             ankiEnabled: true,
+            yomuLocalSrsEnabled: false,
             wordHighlightColorSource: 'status',
             wordUnderlineColorSource: 'status',
             wordTextColorSource: 'status',
@@ -1359,6 +1364,7 @@ describe('reader theme', () => {
             apiKey: '',
             ankiEnabled: false,
             ankiSectionEnabled: false,
+            yomuLocalSrsEnabled: false,
             wordHighlightColorSource: 'pitch',
             wordUnderlineColorSource: 'pitch',
             subtitleHighlightColorSource: 'pitch',

@@ -153,6 +153,7 @@ export function updateRenderedPitch(popover: HTMLElement, card: JPDBCard, metaEn
 
 export function applyPublicVocabularyFurigana(word: HTMLElement, card: JPDBCard, settings: ReaderSettings): void {
     if (word.closest('ruby')) return;
+    if (rendersWholeCardReading(word, card)) return;
     const ocrLine = word.closest<HTMLElement>('.jpdb-ocr-line');
     const surface = readerWordSurfaceText(word).trim() || word.dataset.expression || card.spelling;
     const renderSettings = publicVocabularyFuriganaSettings(word, settings);
@@ -174,6 +175,26 @@ export function applyPublicVocabularyFurigana(word: HTMLElement, card: JPDBCard,
     if (!replaceRenderedWordFurigana(word, surface, token)) return;
     if (ocrLine) yomuNormalizeOcrRenderedText()?.(word, isPopupLookupEnabled(settings));
     if (ocrLine) ocrLine.dataset.hasFuri = 'true';
+}
+
+// A provider row can arrive with the reading already split per kanji, e.g.
+// JPDB's used-in compound 年下 as 年(とし) 下(した). Re-rendering it from
+// card.reading collapses both rubies into one としした blob over the whole
+// word. Difficulty-based hiding used to skip this pass for easy compounds,
+// which hid the overwrite; with readings on by default it fires everywhere,
+// so a rendered reading that already spells out the card reading stays put.
+function rendersWholeCardReading(word: HTMLElement, card: JPDBCard): boolean {
+    const rendered = Array.from(word.querySelectorAll('rt'))
+        .map(rt => rt.textContent ?? '')
+        .join('');
+    if (!rendered.trim()) return false;
+    return comparableReading(rendered) === comparableReading(card.reading);
+}
+
+function comparableReading(value: string): string {
+    return value
+        .replace(/\s+/g, '')
+        .replace(/[ァ-ヶ]/g, character => String.fromCharCode(character.charCodeAt(0) - 0x60));
 }
 
 function clearPublicVocabularyFurigana(

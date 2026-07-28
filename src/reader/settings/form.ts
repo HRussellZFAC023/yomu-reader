@@ -4,7 +4,7 @@ import { CARD_STATE_LABEL_KEYS, audioSourceLabel, formatUiText, resolveUiLanguag
 import { CURRENT_YOMU_VERSION } from '../app/version';
 import { detectYomuUpdateFlow, updateFlowNoteKey } from '../app/userscript-update';
 import { externalLinkIcon } from '../ui/icons';
-import { AUDIO_GUIDE_URL, DEFAULT_OVERLAY_BACKGROUND_COLOR, DEFAULT_OVERLAY_OUTLINE_COLOR, DEFAULT_OVERLAY_TEXT_COLOR, accentToRgba, effectiveFuriganaMode, formatShortcutEvent, isPopupLookupEnabled, sanitizeAccentColor } from './index';
+import { AUDIO_GUIDE_URL, DEFAULT_OVERLAY_BACKGROUND_COLOR, DEFAULT_OVERLAY_OUTLINE_COLOR, DEFAULT_OVERLAY_TEXT_COLOR, accentToRgba, effectiveFuriganaMode, formatShortcutEvent, furiganaModeNeedsDifficultyExplanation, hasStatusColorSource, isPopupLookupEnabled, sanitizeAccentColor, statusColorSourceLabel } from './index';
 import { SETTINGS_LABEL_TEXT_CLASS, checkbox, input, radioGroup, select, settingsTabButton, shortcutInput } from './form-controls';
 import { audioUrlPlaceholderKey, isAudioSourceTypeValue, renderAudioSourceEditor, renderDictionaryLookupLinkEditor } from './form-editors';
 import { combinedApiCredentialLabel, effectiveJitenApiKey, effectiveJpdbApiKey, hasJpdbApiCredential, mergeApiCredentialValues } from './api-credential';
@@ -794,6 +794,13 @@ function renderFuriganaHiddenStateGroupControls(settings: ReaderSettings): strin
     return `<fieldset class="jpdb-reader-radio-group" data-furigana-hide-groups${effectiveFuriganaMode(settings) === 'known-status' ? '' : ' hidden'}><legend>${escapedUiText(language, 'hideFuriganaFor')}</legend>${boxes}</fieldset>`;
 }
 
+// A11: "Hard kanji only" drops readings by a fixed easy-kanji list, so it needs
+// to say what a bare kanji means before anyone picks it.
+function renderFuriganaDifficultyNote(settings: ReaderSettings): string {
+    const hidden = furiganaModeNeedsDifficultyExplanation(settings) ? '' : ' hidden';
+    return `<div class="jpdb-reader-help" data-furigana-difficulty-note data-help-key="furiganaDifficultKanjiHelp"${hidden}>${escapedUiText(settings.interfaceLanguage, 'furiganaDifficultKanjiHelp')}</div>`;
+}
+
 function renderWordColorHiddenStateGroupControls(settings: ReaderSettings): string {
     // Per-state colour/highlight opt-out (e.g. "no highlight on known words"),
     // the colour analogue of the furigana hide groups. Always shown in the colour
@@ -835,13 +842,18 @@ function renderPitchColorSettingsSubsection(settings: ReaderSettings): string {
 
 function renderColorChannelSettingsSubsection(settings: ReaderSettings): string {
     const text = settingsText(settings.interfaceLanguage);
-    const options = colorSourceSelectOptions(text, combinedApiCredentialLabel(settings));
+    // A20: the status channels are named after whichever deck actually feeds
+    // them. A keyless learner reviewing in Yomu's own deck was offered "JPDB
+    // status", a product they do not have.
+    const options = colorSourceSelectOptions(text, statusColorSourceLabel(settings));
+    const noSourceHidden = hasStatusColorSource(settings) ? ' hidden' : '';
     return `
                 <div class="jpdb-reader-settings-subsection">
                     <div class="jpdb-reader-local-title">${escapeHtml(text('colorChannels'))}</div>
                     <div class="grid">
                         ${COLOR_CHANNEL_FIELDS.map(([name, key]) => select(name, text(key), settingsColorSourceValue(settings, name), options)).join('')}
                     </div>
+                    <div class="jpdb-reader-help" data-status-color-no-source data-help-key="statusColorNoSourceHelp"${noSourceHidden}>${escapeHtml(text('statusColorNoSourceHelp'))}</div>
                 </div>
     `;
 }
@@ -1007,8 +1019,9 @@ function renderReaderSettingsPanel(settings: ReaderSettings): string {
                     <div class="jpdb-reader-shortcut-group" data-page-scan-manual-shortcut ${pageScanMode === 'manual' ? '' : 'hidden'}>
                         <div data-manual-page-scan-shortcut-label>${shortcutInput('shortcuts.scanPage', text('manualPageScanShortcut'), settings.shortcuts.scanPage)}</div>
                     </div>
-                    ${select('appearancePreset', 'Quick setup', '', localizedOptions(text, APPEARANCE_PRESET_OPTIONS))}
+                    ${select('appearancePreset', text('appearancePreset'), '', localizedOptions(text, APPEARANCE_PRESET_OPTIONS))}
                     ${select('furiganaMode', text('furiganaMode'), effectiveFuriganaMode(settings), localizedOptions(text, FURIGANA_MODE_OPTIONS))}
+                    ${renderFuriganaDifficultyNote(settings)}
                     ${select('clampedRowReadings', text('clampedRowReadings'), settings.clampedRowReadings, localizedOptions(text, CLAMPED_ROW_READINGS_OPTIONS))}
                     ${renderFuriganaHiddenStateGroupControls(settings)}
                     ${select('wordColorStates', text('wordColorStates'), settings.wordColorStates, localizedOptions(text, WORD_COLOR_STATE_OPTIONS))}
@@ -2242,7 +2255,7 @@ const DIRECT_SETTINGS_CONTROL_LABEL_KEYS = [
     'wordColorIgnored', 'parserProvider', 'pitchColorHeiban', 'pitchColorAtamadaka', 'pitchColorNakadaka', 'pitchColorOdaka',
     'pitchColorUnknown', 'wordHighlightColorSource', 'wordUnderlineColorSource', 'wordTextColorSource',
     'subtitleHighlightColorSource', 'subtitleUnderlineColorSource', 'subtitleTextColorSource', 'lookupOnClick',
-    'popupLookupEnabled', 'lookupOnHover', 'lookupOnMiddleMouse', 'showFloatingButton', 'pageScanMode', 'furiganaMode', 'clampedRowReadings', 'wordColorStates', 'showPitchAccent', 'showLookupPillFrequency', 'suppressRedundantWordUi', 'sheetCloseButtonOnLeft',
+    'popupLookupEnabled', 'lookupOnHover', 'lookupOnMiddleMouse', 'showFloatingButton', 'pageScanMode', 'appearancePreset', 'furiganaMode', 'clampedRowReadings', 'wordColorStates', 'showPitchAccent', 'showLookupPillFrequency', 'suppressRedundantWordUi', 'sheetCloseButtonOnLeft',
     'audioEnabled', 'autoPlayAudio', 'suppressAutoAudioOnVideo', 'audioAutoPlayMode', 'audioEnableDefaultSources', 'audioFallbackChimeEnabled',
     'audioSelectionMode', 'audioTtsMode', 'audioTimeoutMs', 'immersionKitEnabled', 'immersionKitExampleSource',
     'nadeshikoApiKey', 'immersionKitShowTranslation', 'immersionKitRevealTranslationOnClick', 'immersionKitShowImages', 'immersionKitAutoPlayAudio',
