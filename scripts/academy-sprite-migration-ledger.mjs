@@ -271,6 +271,14 @@ const output = {
         status: 'Illustrated v010 family bound to runtime; superseded realistic and off-contract variants archived outside runtime.',
         runtimeReferencesAfterMigration: [],
     }, {
+        id: 'onke-generic-v001-to-illustrated-v002-family',
+        character: 'angel',
+        from: '/academy/art/characters/angel/angel__standardized-neutral__front-near-front__halfbody__v001.png',
+        to: '/academy/art/characters/angel/angel__neutral-long-dark-hair-project-notebook__front-near-front__fullbody__v002.png',
+        decision: 'delete',
+        status: 'Onke identity-locked v002 family bound to runtime; generic glossy v001 stand-ins archived outside runtime.',
+        runtimeReferencesAfterMigration: [],
+    }, {
         id: 'rie-neutral-to-glasses-primary',
         character: 'rie',
         from: '/academy/art/characters/rie/rie__neutral__halfbody__v001.png',

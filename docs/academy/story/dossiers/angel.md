@@ -1,4 +1,4 @@
-# Deep Character Dossier — Angel (In-world honorific: **Onke-san**)
+# Deep Character Dossier — Onke (stable internal save ID: `angel`)
 
 > Canon status: `continuity-only` (RELATIONSHIP-MATRIX). No `bond-authored` manifest
 > entry exists yet; the elective route in §4 is a **proposed** second-wave sketch,

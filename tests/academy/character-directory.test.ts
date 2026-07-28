@@ -161,7 +161,7 @@ describe('Academy character directory presentation', () => {
             ],
         });
         expect(xingyu.portrait).toContain('/characters/xingyu/xingyu__neutral-short-hair-round-glasses__front-near-front__fullbody__v002.png');
-        expect(peter.portrait).toContain('/characters/peter/peter__neutral__halfbody__v002.png');
+        expect(peter.portrait).toContain('/characters/peter/peter__neutral-quiet-observer__front-near-front__fullbody__v003.png');
         expect(felix.portrait).toContain('/characters/felix/felix__neutral__halfbody__v001.png');
 
         const entry = screen.querySelector<HTMLElement>('[data-character="xingyu"]')!;
@@ -187,7 +187,16 @@ describe('Academy character directory presentation', () => {
         screen.querySelector<HTMLButtonElement>('[data-character="peter"] button')?.click();
         const peterGallery = screen.querySelector<HTMLElement>('.academy-character-sprite-gallery[data-character="peter"]')!;
         const peterSprites = [...peterGallery.querySelectorAll<HTMLImageElement>('img')];
-        expect(peterSprites).toHaveLength(3);
+        expect(peterSprites).toHaveLength(7);
+        expect(new Set(peterSprites.map(sprite => sprite.dataset.expression))).toEqual(new Set([
+            'neutral',
+            'encouraging-listening',
+            'happy',
+            'thoughtful',
+            'determined',
+            'surprised-shocked',
+            'sad-vulnerable',
+        ]));
         expect(new Set(peterSprites.map(sprite => sprite.dataset.angle))).toEqual(new Set([
             'left-three-quarter',
             'front-near-front',

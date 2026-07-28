@@ -1215,9 +1215,17 @@
         }
       ],
       "currentAsset": {
-        "status": "privacy-blocked",
-        "paths": [],
-        "note": "No identified Onke likeness reference was supplied; no face may be fabricated for a named real classmate."
+        "status": "approved-performance-family",
+        "paths": [
+          "/academy/art/characters/angel/angel__neutral-long-dark-hair-project-notebook__front-near-front__fullbody__v002.png",
+          "/academy/art/characters/angel/angel__encouraging-listening-long-dark-hair-project-notebook__right-three-quarter__fullbody__v002.png",
+          "/academy/art/characters/angel/angel__happy-long-dark-hair-project-notebook__front-near-front__fullbody__v002.png",
+          "/academy/art/characters/angel/angel__thoughtful-long-dark-hair-project-notebook__left-three-quarter__fullbody__v002.png",
+          "/academy/art/characters/angel/angel__determined-long-dark-hair-project-notebook__front-near-front__fullbody__v002.png",
+          "/academy/art/characters/angel/angel__surprised-shocked-long-dark-hair-project-notebook__right-three-quarter__fullbody__v002.png",
+          "/academy/art/characters/angel/angel__sad-vulnerable-long-dark-hair-project-notebook__left-three-quarter__fullbody__v002.png"
+        ],
+        "note": "Identity-locked, visually inspected house-style family; all seven canonical expressions are runtime-bound."
       },
       "generationPriority": {
         "tier": 0,

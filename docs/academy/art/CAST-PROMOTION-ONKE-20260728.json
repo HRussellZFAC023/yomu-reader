@@ -1,0 +1,102 @@
+{
+  "promotions": [
+    {
+      "castId": "angel",
+      "archiveLabel": "identity-and-style-superseded-20260728",
+      "archiveAllCurrent": true,
+      "replaceExpressions": [
+        "neutral",
+        "encouraging-listening",
+        "happy",
+        "thoughtful",
+        "determined",
+        "surprised-shocked",
+        "sad-vulnerable"
+      ],
+      "canonicalNeutralAssetId": "character.angel.neutral-long-dark-hair-project-notebook-front-near-front-fullbody-v002",
+      "slots": [
+        {
+          "assetId": "character.angel.neutral-long-dark-hair-project-notebook-front-near-front-fullbody-v002",
+          "expression": "neutral",
+          "angle": "front-near-front",
+          "assetPath": "/academy/art/characters/angel/angel__neutral-long-dark-hair-project-notebook__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:angel",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "story:cast:angel",
+            "cast-standardization:angel"
+          ]
+        },
+        {
+          "assetId": "character.angel.encouraging-listening-long-dark-hair-project-notebook-right-three-quarter-fullbody-v002",
+          "expression": "encouraging-listening",
+          "angle": "right-three-quarter",
+          "assetPath": "/academy/art/characters/angel/angel__encouraging-listening-long-dark-hair-project-notebook__right-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:angel-expression-gallery",
+            "story:cast:angel:encouraging-listening",
+            "cast-standardization:angel"
+          ]
+        },
+        {
+          "assetId": "character.angel.happy-long-dark-hair-project-notebook-front-near-front-fullbody-v002",
+          "expression": "happy",
+          "angle": "front-near-front",
+          "assetPath": "/academy/art/characters/angel/angel__happy-long-dark-hair-project-notebook__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:angel-expression-gallery",
+            "story:cast:angel:happy",
+            "cast-standardization:angel"
+          ]
+        },
+        {
+          "assetId": "character.angel.thoughtful-long-dark-hair-project-notebook-left-three-quarter-fullbody-v002",
+          "expression": "thoughtful",
+          "angle": "left-three-quarter",
+          "assetPath": "/academy/art/characters/angel/angel__thoughtful-long-dark-hair-project-notebook__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:angel-expression-gallery",
+            "story:cast:angel:thoughtful",
+            "cast-standardization:angel"
+          ]
+        },
+        {
+          "assetId": "character.angel.determined-long-dark-hair-project-notebook-front-near-front-fullbody-v002",
+          "expression": "determined",
+          "angle": "front-near-front",
+          "assetPath": "/academy/art/characters/angel/angel__determined-long-dark-hair-project-notebook__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:angel-expression-gallery",
+            "story:cast:angel:determined",
+            "cast-standardization:angel"
+          ]
+        },
+        {
+          "assetId": "character.angel.surprised-shocked-long-dark-hair-project-notebook-right-three-quarter-fullbody-v002",
+          "expression": "surprised-shocked",
+          "angle": "right-three-quarter",
+          "assetPath": "/academy/art/characters/angel/angel__surprised-shocked-long-dark-hair-project-notebook__right-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:angel-expression-gallery",
+            "story:cast:angel:surprised-shocked",
+            "cast-standardization:angel"
+          ]
+        },
+        {
+          "assetId": "character.angel.sad-vulnerable-long-dark-hair-project-notebook-left-three-quarter-fullbody-v002",
+          "expression": "sad-vulnerable",
+          "angle": "left-three-quarter",
+          "assetPath": "/academy/art/characters/angel/angel__sad-vulnerable-long-dark-hair-project-notebook__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:angel-expression-gallery",
+            "story:cast:angel:sad-vulnerable",
+            "cast-standardization:angel"
+          ]
+        }
+      ]
+    }
+  ]
+}

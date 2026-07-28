@@ -34,15 +34,15 @@
     "totalSlots": 630
   },
   "summary": {
-    "approved": 109,
+    "approved": 116,
     "reviewCandidates": 7,
-    "missing": 514,
-    "currentPhysicalRasters": 145,
-    "currentOffMatrixRasters": 29,
+    "missing": 507,
+    "currentPhysicalRasters": 150,
+    "currentOffMatrixRasters": 27,
     "historicalUniqueRasters": 469,
     "historicalOccurrences": 2016,
-    "charactersWithApprovedCoverage": 17,
-    "charactersWithAnyCurrentCoverage": 20
+    "charactersWithApprovedCoverage": 18,
+    "charactersWithAnyCurrentCoverage": 21
   },
   "migrations": [
     {
@@ -61,6 +61,15 @@
       "to": "/academy/art/characters/aakash/aakash__neutral-route-map-burgundy-hoodie__front-near-front__fullbody__v010.png",
       "decision": "delete",
       "status": "Illustrated v010 family bound to runtime; superseded realistic and off-contract variants archived outside runtime.",
+      "runtimeReferencesAfterMigration": []
+    },
+    {
+      "id": "onke-generic-v001-to-illustrated-v002-family",
+      "character": "angel",
+      "from": "/academy/art/characters/angel/angel__standardized-neutral__front-near-front__halfbody__v001.png",
+      "to": "/academy/art/characters/angel/angel__neutral-long-dark-hair-project-notebook__front-near-front__fullbody__v002.png",
+      "decision": "delete",
+      "status": "Onke identity-locked v002 family bound to runtime; generic glossy v001 stand-ins archived outside runtime.",
       "runtimeReferencesAfterMigration": []
     },
     {
@@ -8710,35 +8719,36 @@
         "slots": 21
       },
       "progress": {
-        "approved": 0,
+        "approved": 7,
         "reviewCandidates": 0,
-        "missing": 21,
-        "deliveredPercent": 0,
-        "approvedPercent": 0
+        "missing": 14,
+        "deliveredPercent": 33.33,
+        "approvedPercent": 33.33
       },
       "currentAssets": [
         {
-          "path": "/academy/art/characters/angel/angel__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
-          "sha256": "c74fe7c0983bfe515fb787cb3688de5edcfef3b036e5c9f5e6c197e21548db30",
+          "path": "/academy/art/characters/angel/angel__determined-long-dark-hair-project-notebook__front-near-front__fullbody__v002.png",
+          "sha256": "5d6385881a92b929e48729dd12e7ff3c72a812e60579b1d7efe50d01b417b5f6",
           "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
-          "status": "review-candidate",
+          "status": "approved",
           "usage": {
             "runtime": [
               "journal:angel-expression-gallery",
+              "story:cast:angel:determined",
               "cast-standardization:angel"
             ],
             "review": [
               "cast-standardization-manifest",
-              "learner-journal-preview"
+              "identity-lock"
             ]
           },
-          "orphan": "review-bound",
+          "orphan": "active-runtime",
           "styleVersion": "current-review-family",
-          "fileVersion": "v001",
-          "pose": "off-contract standardized-encouraging-listening pose",
-          "angle": null,
-          "expression": null,
+          "fileVersion": "v002",
+          "pose": "poster tube angled across the torso while one hand opens in a precise planning gesture; front-near-front",
+          "angle": "front-near-front",
+          "expression": "determined",
           "dimensions": {
             "width": 1536,
             "height": 2048,
@@ -8748,40 +8758,130 @@
           },
           "runtimeUses": [
             "journal:angel-expression-gallery",
+            "story:cast:angel:determined",
             "cast-standardization:angel"
           ],
           "reviewUses": [
             "cast-standardization-manifest",
-            "learner-journal-preview"
+            "identity-lock"
           ],
           "decision": "keep",
-          "migrationStatus": "retained-off-matrix-review-evidence",
-          "coverageStatus": "off-matrix"
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
         },
         {
-          "path": "/academy/art/characters/angel/angel__standardized-neutral__front-near-front__halfbody__v001.png",
-          "sha256": "c74fe7c0983bfe515fb787cb3688de5edcfef3b036e5c9f5e6c197e21548db30",
+          "path": "/academy/art/characters/angel/angel__encouraging-listening-long-dark-hair-project-notebook__right-three-quarter__fullbody__v002.png",
+          "sha256": "1160d662c4aaf3953146e6ac2595225b894e24e16407b400e7600ac725acec97",
           "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
-          "status": "review-candidate",
+          "status": "approved",
           "usage": {
             "runtime": [
-              "journal:angel",
-              "class:people-review",
-              "lesson-overview:roster-review",
+              "journal:angel-expression-gallery",
+              "story:cast:angel:encouraging-listening",
               "cast-standardization:angel"
             ],
             "review": [
               "cast-standardization-manifest",
-              "learner-journal-preview"
+              "identity-lock"
             ]
           },
-          "orphan": "review-bound",
+          "orphan": "active-runtime",
           "styleVersion": "current-review-family",
-          "fileVersion": "v001",
-          "pose": "off-contract standardized-neutral pose",
-          "angle": null,
-          "expression": null,
+          "fileVersion": "v002",
+          "pose": "poster tube angled across the torso while one hand opens in a precise planning gesture; right-three-quarter",
+          "angle": "right-three-quarter",
+          "expression": "encouraging-listening",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:angel-expression-gallery",
+            "story:cast:angel:encouraging-listening",
+            "cast-standardization:angel"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/angel/angel__happy-long-dark-hair-project-notebook__front-near-front__fullbody__v002.png",
+          "sha256": "80bfaf71ff3c647e8d7881c581f7025d83bee5c5d3363fc155787bef16f21e87",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:angel-expression-gallery",
+              "story:cast:angel:happy",
+              "cast-standardization:angel"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "poster tube angled across the torso while one hand opens in a precise planning gesture; front-near-front",
+          "angle": "front-near-front",
+          "expression": "happy",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:angel-expression-gallery",
+            "story:cast:angel:happy",
+            "cast-standardization:angel"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/angel/angel__neutral-long-dark-hair-project-notebook__front-near-front__fullbody__v002.png",
+          "sha256": "ddbf880d80c8850565a5ea68a4a6f1fe9e010a24a86f9ff41bbe26c1d90aa921",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:angel",
+              "class:people",
+              "class:week-cast",
+              "lesson-overview:roster",
+              "world:person",
+              "story:cast:angel",
+              "cast-standardization:angel"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "poster tube angled across the torso while one hand opens in a precise planning gesture; front-near-front",
+          "angle": "front-near-front",
+          "expression": "neutral",
           "dimensions": {
             "width": 1536,
             "height": 2048,
@@ -8791,17 +8891,149 @@
           },
           "runtimeUses": [
             "journal:angel",
-            "class:people-review",
-            "lesson-overview:roster-review",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "story:cast:angel",
             "cast-standardization:angel"
           ],
           "reviewUses": [
             "cast-standardization-manifest",
-            "learner-journal-preview"
+            "identity-lock"
           ],
           "decision": "keep",
-          "migrationStatus": "retained-off-matrix-review-evidence",
-          "coverageStatus": "off-matrix"
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/angel/angel__sad-vulnerable-long-dark-hair-project-notebook__left-three-quarter__fullbody__v002.png",
+          "sha256": "43faf544465f8666d97d1cdc1b4b6bb07de163b762c37489a55b07b50feecd13",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:angel-expression-gallery",
+              "story:cast:angel:sad-vulnerable",
+              "cast-standardization:angel"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "poster tube angled across the torso while one hand opens in a precise planning gesture; left-three-quarter",
+          "angle": "left-three-quarter",
+          "expression": "sad-vulnerable",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:angel-expression-gallery",
+            "story:cast:angel:sad-vulnerable",
+            "cast-standardization:angel"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/angel/angel__surprised-shocked-long-dark-hair-project-notebook__right-three-quarter__fullbody__v002.png",
+          "sha256": "95ee54d0207883eee75ee78fdb93945d930053235f4906f82db03d18e71e9d8a",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:angel-expression-gallery",
+              "story:cast:angel:surprised-shocked",
+              "cast-standardization:angel"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "poster tube angled across the torso while one hand opens in a precise planning gesture; right-three-quarter",
+          "angle": "right-three-quarter",
+          "expression": "surprised-shocked",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:angel-expression-gallery",
+            "story:cast:angel:surprised-shocked",
+            "cast-standardization:angel"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/angel/angel__thoughtful-long-dark-hair-project-notebook__left-three-quarter__fullbody__v002.png",
+          "sha256": "65223ff29e1ee8865500f174731d2a3f7a710223c56f99eda438eeb45e1709b3",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:angel-expression-gallery",
+              "story:cast:angel:thoughtful",
+              "cast-standardization:angel"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "poster tube angled across the torso while one hand opens in a precise planning gesture; left-three-quarter",
+          "angle": "left-three-quarter",
+          "expression": "thoughtful",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:angel-expression-gallery",
+            "story:cast:angel:thoughtful",
+            "cast-standardization:angel"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
         }
       ],
       "requiredVariants": [
@@ -8829,9 +9061,8 @@
         {
           "angle": "left-three-quarter",
           "expression": "thoughtful",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/angel/angel__thoughtful__left-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/angel/angel__thoughtful-long-dark-hair-project-notebook__left-three-quarter__fullbody__v002.png"
         },
         {
           "angle": "left-three-quarter",
@@ -8850,16 +9081,14 @@
         {
           "angle": "left-three-quarter",
           "expression": "sad-vulnerable",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/angel/angel__sad-vulnerable__left-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/angel/angel__sad-vulnerable-long-dark-hair-project-notebook__left-three-quarter__fullbody__v002.png"
         },
         {
           "angle": "front-near-front",
           "expression": "neutral",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/angel/angel__neutral__front-near-front__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/angel/angel__neutral-long-dark-hair-project-notebook__front-near-front__fullbody__v002.png"
         },
         {
           "angle": "front-near-front",
@@ -8871,9 +9100,8 @@
         {
           "angle": "front-near-front",
           "expression": "happy",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/angel/angel__happy__front-near-front__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/angel/angel__happy-long-dark-hair-project-notebook__front-near-front__fullbody__v002.png"
         },
         {
           "angle": "front-near-front",
@@ -8885,9 +9113,8 @@
         {
           "angle": "front-near-front",
           "expression": "determined",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/angel/angel__determined__front-near-front__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/angel/angel__determined-long-dark-hair-project-notebook__front-near-front__fullbody__v002.png"
         },
         {
           "angle": "front-near-front",
@@ -8913,9 +9140,8 @@
         {
           "angle": "right-three-quarter",
           "expression": "encouraging-listening",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/angel/angel__encouraging-listening__right-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/angel/angel__encouraging-listening-long-dark-hair-project-notebook__right-three-quarter__fullbody__v002.png"
         },
         {
           "angle": "right-three-quarter",
@@ -8941,9 +9167,8 @@
         {
           "angle": "right-three-quarter",
           "expression": "surprised-shocked",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/angel/angel__surprised-shocked__right-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/angel/angel__surprised-shocked-long-dark-hair-project-notebook__right-three-quarter__fullbody__v002.png"
         },
         {
           "angle": "right-three-quarter",
@@ -8977,13 +9202,6 @@
         },
         {
           "angle": "left-three-quarter",
-          "expression": "thoughtful",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/angel/angel__thoughtful__left-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "left-three-quarter",
           "expression": "determined",
           "status": "missing",
           "path": null,
@@ -8997,20 +9215,6 @@
           "plannedPath": "/academy/art/characters/angel/angel__surprised-shocked__left-three-quarter__halfbody__v001.png"
         },
         {
-          "angle": "left-three-quarter",
-          "expression": "sad-vulnerable",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/angel/angel__sad-vulnerable__left-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "front-near-front",
-          "expression": "neutral",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/angel/angel__neutral__front-near-front__halfbody__v001.png"
-        },
-        {
           "angle": "front-near-front",
           "expression": "encouraging-listening",
           "status": "missing",
@@ -9019,24 +9223,10 @@
         },
         {
           "angle": "front-near-front",
-          "expression": "happy",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/angel/angel__happy__front-near-front__halfbody__v001.png"
-        },
-        {
-          "angle": "front-near-front",
           "expression": "thoughtful",
           "status": "missing",
           "path": null,
           "plannedPath": "/academy/art/characters/angel/angel__thoughtful__front-near-front__halfbody__v001.png"
-        },
-        {
-          "angle": "front-near-front",
-          "expression": "determined",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/angel/angel__determined__front-near-front__halfbody__v001.png"
         },
         {
           "angle": "front-near-front",
@@ -9061,13 +9251,6 @@
         },
         {
           "angle": "right-three-quarter",
-          "expression": "encouraging-listening",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/angel/angel__encouraging-listening__right-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "right-three-quarter",
           "expression": "happy",
           "status": "missing",
           "path": null,
@@ -9086,13 +9269,6 @@
           "status": "missing",
           "path": null,
           "plannedPath": "/academy/art/characters/angel/angel__determined__right-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "right-three-quarter",
-          "expression": "surprised-shocked",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/angel/angel__surprised-shocked__right-three-quarter__halfbody__v001.png"
         },
         {
           "angle": "right-three-quarter",

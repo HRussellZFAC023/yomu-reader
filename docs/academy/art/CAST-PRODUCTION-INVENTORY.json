@@ -29,9 +29,9 @@
     "cast": 30,
     "requiredPerformancesPerCast": 7,
     "requiredSlots": 210,
-    "integratedSlots": 107,
-    "missingSlots": 103,
-    "ownerCorrectionQueue": 40,
+    "integratedSlots": 114,
+    "missingSlots": 96,
+    "ownerCorrectionQueue": 33,
     "storyCriticalQueue": 28,
     "rosterCompletionQueue": 35
   },
@@ -1624,65 +1624,97 @@
       "priority": "owner-correction",
       "summary": {
         "required": 7,
-        "integrated": 0,
-        "missing": 7
+        "integrated": 7,
+        "missing": 0
       },
       "performances": [
         {
           "expression": "neutral",
           "preferredAngle": "front-near-front",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.angel.neutral-long-dark-hair-project-notebook-front-near-front-fullbody-v002",
+          "assetPath": "/academy/art/characters/angel/angel__neutral-long-dark-hair-project-notebook__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:angel",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "story:cast:angel",
+            "cast-standardization:angel"
+          ]
         },
         {
           "expression": "encouraging-listening",
           "preferredAngle": "right-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.angel.encouraging-listening-long-dark-hair-project-notebook-right-three-quarter-fullbody-v002",
+          "assetPath": "/academy/art/characters/angel/angel__encouraging-listening-long-dark-hair-project-notebook__right-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:angel-expression-gallery",
+            "story:cast:angel:encouraging-listening",
+            "cast-standardization:angel"
+          ]
         },
         {
           "expression": "happy",
           "preferredAngle": "front-near-front",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.angel.happy-long-dark-hair-project-notebook-front-near-front-fullbody-v002",
+          "assetPath": "/academy/art/characters/angel/angel__happy-long-dark-hair-project-notebook__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:angel-expression-gallery",
+            "story:cast:angel:happy",
+            "cast-standardization:angel"
+          ]
         },
         {
           "expression": "thoughtful",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.angel.thoughtful-long-dark-hair-project-notebook-left-three-quarter-fullbody-v002",
+          "assetPath": "/academy/art/characters/angel/angel__thoughtful-long-dark-hair-project-notebook__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:angel-expression-gallery",
+            "story:cast:angel:thoughtful",
+            "cast-standardization:angel"
+          ]
         },
         {
           "expression": "determined",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.angel.determined-long-dark-hair-project-notebook-front-near-front-fullbody-v002",
+          "assetPath": "/academy/art/characters/angel/angel__determined-long-dark-hair-project-notebook__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:angel-expression-gallery",
+            "story:cast:angel:determined",
+            "cast-standardization:angel"
+          ]
         },
         {
           "expression": "surprised-shocked",
           "preferredAngle": "right-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.angel.surprised-shocked-long-dark-hair-project-notebook-right-three-quarter-fullbody-v002",
+          "assetPath": "/academy/art/characters/angel/angel__surprised-shocked-long-dark-hair-project-notebook__right-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:angel-expression-gallery",
+            "story:cast:angel:surprised-shocked",
+            "cast-standardization:angel"
+          ]
         },
         {
           "expression": "sad-vulnerable",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.angel.sad-vulnerable-long-dark-hair-project-notebook-left-three-quarter-fullbody-v002",
+          "assetPath": "/academy/art/characters/angel/angel__sad-vulnerable-long-dark-hair-project-notebook__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:angel-expression-gallery",
+            "story:cast:angel:sad-vulnerable",
+            "cast-standardization:angel"
+          ]
         }
       ]
     },
@@ -3762,204 +3794,6 @@
       "runtimeHomes": [
         "journal:robert-expression-gallery",
         "story:cast:robert:sad-vulnerable"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "angel:neutral",
-      "castId": "angel",
-      "displayName": "Onke",
-      "identityKey": "onke-long-dark-hair-organised",
-      "expression": "neutral",
-      "angle": "front-near-front",
-      "priority": "owner-correction",
-      "storyLines": 15,
-      "visualLock": "East or Southeast Asian woman with long straight dark hair and an organised, generous presence.",
-      "wardrobeLock": "Clean practical layers with a project notebook or tablet only in planning scenes.",
-      "reject": [
-        "learner-facing name Angel",
-        "short blond hair",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:angel",
-        "class:people",
-        "lesson-overview:roster",
-        "story:cast:angel"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "angel:encouraging-listening",
-      "castId": "angel",
-      "displayName": "Onke",
-      "identityKey": "onke-long-dark-hair-organised",
-      "expression": "encouraging-listening",
-      "angle": "right-three-quarter",
-      "priority": "owner-correction",
-      "storyLines": 15,
-      "visualLock": "East or Southeast Asian woman with long straight dark hair and an organised, generous presence.",
-      "wardrobeLock": "Clean practical layers with a project notebook or tablet only in planning scenes.",
-      "reject": [
-        "learner-facing name Angel",
-        "short blond hair",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:angel-expression-gallery",
-        "story:cast:angel:encouraging-listening"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "angel:happy",
-      "castId": "angel",
-      "displayName": "Onke",
-      "identityKey": "onke-long-dark-hair-organised",
-      "expression": "happy",
-      "angle": "front-near-front",
-      "priority": "owner-correction",
-      "storyLines": 15,
-      "visualLock": "East or Southeast Asian woman with long straight dark hair and an organised, generous presence.",
-      "wardrobeLock": "Clean practical layers with a project notebook or tablet only in planning scenes.",
-      "reject": [
-        "learner-facing name Angel",
-        "short blond hair",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:angel-expression-gallery",
-        "story:cast:angel:happy"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "angel:thoughtful",
-      "castId": "angel",
-      "displayName": "Onke",
-      "identityKey": "onke-long-dark-hair-organised",
-      "expression": "thoughtful",
-      "angle": "left-three-quarter",
-      "priority": "owner-correction",
-      "storyLines": 15,
-      "visualLock": "East or Southeast Asian woman with long straight dark hair and an organised, generous presence.",
-      "wardrobeLock": "Clean practical layers with a project notebook or tablet only in planning scenes.",
-      "reject": [
-        "learner-facing name Angel",
-        "short blond hair",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:angel-expression-gallery",
-        "story:cast:angel:thoughtful"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "angel:determined",
-      "castId": "angel",
-      "displayName": "Onke",
-      "identityKey": "onke-long-dark-hair-organised",
-      "expression": "determined",
-      "angle": "left-three-quarter",
-      "priority": "owner-correction",
-      "storyLines": 15,
-      "visualLock": "East or Southeast Asian woman with long straight dark hair and an organised, generous presence.",
-      "wardrobeLock": "Clean practical layers with a project notebook or tablet only in planning scenes.",
-      "reject": [
-        "learner-facing name Angel",
-        "short blond hair",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:angel-expression-gallery",
-        "story:cast:angel:determined"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "angel:surprised-shocked",
-      "castId": "angel",
-      "displayName": "Onke",
-      "identityKey": "onke-long-dark-hair-organised",
-      "expression": "surprised-shocked",
-      "angle": "right-three-quarter",
-      "priority": "owner-correction",
-      "storyLines": 15,
-      "visualLock": "East or Southeast Asian woman with long straight dark hair and an organised, generous presence.",
-      "wardrobeLock": "Clean practical layers with a project notebook or tablet only in planning scenes.",
-      "reject": [
-        "learner-facing name Angel",
-        "short blond hair",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:angel-expression-gallery",
-        "story:cast:angel:surprised-shocked"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "angel:sad-vulnerable",
-      "castId": "angel",
-      "displayName": "Onke",
-      "identityKey": "onke-long-dark-hair-organised",
-      "expression": "sad-vulnerable",
-      "angle": "left-three-quarter",
-      "priority": "owner-correction",
-      "storyLines": 15,
-      "visualLock": "East or Southeast Asian woman with long straight dark hair and an organised, generous presence.",
-      "wardrobeLock": "Clean practical layers with a project notebook or tablet only in planning scenes.",
-      "reject": [
-        "learner-facing name Angel",
-        "short blond hair",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:angel-expression-gallery",
-        "story:cast:angel:sad-vulnerable"
       ],
       "status": "queued"
     },

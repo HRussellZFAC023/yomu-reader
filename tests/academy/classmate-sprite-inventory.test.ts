@@ -147,6 +147,7 @@ describe('Academy cast-wide sprite migration inventory', () => {
             ['jodi', 'v002'],
             ['nanako', 'v002'],
             ['aakash', 'v010'],
+            ['angel', 'v002'],
         ] as const) {
             const character = inventory.characters.find(candidate => candidate.id === castId)!;
 
@@ -168,7 +169,6 @@ describe('Academy cast-wide sprite migration inventory', () => {
         const rie = inventory.characters.find(character => character.id === 'rie')!;
         const tom2 = inventory.characters.find(character => character.id === 'tom2')!;
         const steve = inventory.characters.find(character => character.id === 'steve')!;
-        const onke = inventory.characters.find(character => character.id === 'angel')!;
 
         expect(rie.progress).toMatchObject({
             approved: SPRITE_EXPRESSIONS.length,
@@ -178,7 +178,6 @@ describe('Academy cast-wide sprite migration inventory', () => {
         expect(tom2.progress).toMatchObject({ approved: 0, reviewCandidates: 3, missing: 18 });
         expect(tom2.currentAssets.every(asset => asset.privacy.length > 0)).toBe(true);
         expect(steve.progress).toMatchObject({ approved: 3, reviewCandidates: 0, missing: 18 });
-        expect(onke).toMatchObject({ firstName: 'Onke', progress: { approved: 0, reviewCandidates: 0, missing: 21 } });
 
         const serialized = JSON.stringify(inventory);
         expect(serialized).not.toMatch(/\/var\/folders|\/Users\/|\.jpe?g\b|GPS|EXIF/i);

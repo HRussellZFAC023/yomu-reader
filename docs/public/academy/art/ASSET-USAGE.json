@@ -18,8 +18,8 @@
     ]
   },
   "counts": {
-    "runtimeAssetHomes": 220,
-    "runtimeFiles": 326,
+    "runtimeAssetHomes": 225,
+    "runtimeFiles": 331,
     "nonRuntimeReviewFiles": 1734,
     "approvedReferenceOnly": 4,
     "explicitlyRejectedFamilies": 4,
@@ -333,74 +333,6 @@
         }
       },
       "status": "restored-owner-preferred-class-ensemble-entrance; approved single-source mobile art direction; bound-to-access-route"
-    },
-    {
-      "id": "character-angel-standardized-encouraging-listening-front-near-front-halfbody-v001",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "c74fe7c0983bfe515fb787cb3688de5edcfef3b036e5c9f5e6c197e21548db30",
-      "provenance": "regenerated-standardized",
-      "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": [
-        "journal:angel-expression-gallery",
-        "cast-standardization:angel"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "learner-journal-preview"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:angel-expression-gallery",
-          "cast-standardization:angel"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/angel/angel__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
-          "sha256": "c74fe7c0983bfe515fb787cb3688de5edcfef3b036e5c9f5e6c197e21548db30"
-        }
-      ],
-      "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-    },
-    {
-      "id": "character-angel-standardized-neutral-front-near-front-halfbody-v001",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "c74fe7c0983bfe515fb787cb3688de5edcfef3b036e5c9f5e6c197e21548db30",
-      "provenance": "regenerated-standardized",
-      "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": [
-        "journal:angel",
-        "class:people-review",
-        "lesson-overview:roster-review",
-        "cast-standardization:angel"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "learner-journal-preview"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:angel",
-          "class:people-review",
-          "lesson-overview:roster-review",
-          "cast-standardization:angel"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/angel/angel__standardized-neutral__front-near-front__halfbody__v001.png",
-          "sha256": "c74fe7c0983bfe515fb787cb3688de5edcfef3b036e5c9f5e6c197e21548db30"
-        }
-      ],
-      "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
     },
     {
       "id": "character-christian-standardized-encouraging-listening-front-near-front-halfbody-v001",
@@ -11111,7 +11043,7 @@
       "deliveries": [
         {
           "path": "/academy/art/SPRITE-BATCH-MANIFEST.json",
-          "sha256": "b628d08ac9a165f2ea5a164617c488f5b6ed4534ca39884eda1937d0958dffdb"
+          "sha256": "ffbd6517568c1021426da36a999d42f45a491e82a434be148135486497d0b471"
         }
       ],
       "status": "bound-and-schema-validated"
@@ -14280,6 +14212,252 @@
         }
       ],
       "status": "lesson vocabulary visual-anchor family; learner-facing and hash-locked"
+    },
+    {
+      "id": "character-angel-neutral-long-dark-hair-project-notebook-front-near-front-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "ddbf880d80c8850565a5ea68a4a6f1fe9e010a24a86f9ff41bbe26c1d90aa921",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:angel",
+        "class:people",
+        "class:week-cast",
+        "lesson-overview:roster",
+        "world:person",
+        "story:cast:angel",
+        "cast-standardization:angel"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:angel",
+          "class:people",
+          "class:week-cast",
+          "lesson-overview:roster",
+          "world:person",
+          "story:cast:angel",
+          "cast-standardization:angel"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/angel/angel__neutral-long-dark-hair-project-notebook__front-near-front__fullbody__v002.png",
+          "sha256": "ddbf880d80c8850565a5ea68a4a6f1fe9e010a24a86f9ff41bbe26c1d90aa921"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-angel-encouraging-listening-long-dark-hair-project-notebook-right-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "1160d662c4aaf3953146e6ac2595225b894e24e16407b400e7600ac725acec97",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:angel-expression-gallery",
+        "story:cast:angel:encouraging-listening",
+        "cast-standardization:angel"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:angel-expression-gallery",
+          "story:cast:angel:encouraging-listening",
+          "cast-standardization:angel"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/angel/angel__encouraging-listening-long-dark-hair-project-notebook__right-three-quarter__fullbody__v002.png",
+          "sha256": "1160d662c4aaf3953146e6ac2595225b894e24e16407b400e7600ac725acec97"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-angel-happy-long-dark-hair-project-notebook-front-near-front-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "80bfaf71ff3c647e8d7881c581f7025d83bee5c5d3363fc155787bef16f21e87",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:angel-expression-gallery",
+        "story:cast:angel:happy",
+        "cast-standardization:angel"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:angel-expression-gallery",
+          "story:cast:angel:happy",
+          "cast-standardization:angel"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/angel/angel__happy-long-dark-hair-project-notebook__front-near-front__fullbody__v002.png",
+          "sha256": "80bfaf71ff3c647e8d7881c581f7025d83bee5c5d3363fc155787bef16f21e87"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-angel-thoughtful-long-dark-hair-project-notebook-left-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "65223ff29e1ee8865500f174731d2a3f7a710223c56f99eda438eeb45e1709b3",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:angel-expression-gallery",
+        "story:cast:angel:thoughtful",
+        "cast-standardization:angel"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:angel-expression-gallery",
+          "story:cast:angel:thoughtful",
+          "cast-standardization:angel"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/angel/angel__thoughtful-long-dark-hair-project-notebook__left-three-quarter__fullbody__v002.png",
+          "sha256": "65223ff29e1ee8865500f174731d2a3f7a710223c56f99eda438eeb45e1709b3"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-angel-determined-long-dark-hair-project-notebook-front-near-front-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "5d6385881a92b929e48729dd12e7ff3c72a812e60579b1d7efe50d01b417b5f6",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:angel-expression-gallery",
+        "story:cast:angel:determined",
+        "cast-standardization:angel"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:angel-expression-gallery",
+          "story:cast:angel:determined",
+          "cast-standardization:angel"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/angel/angel__determined-long-dark-hair-project-notebook__front-near-front__fullbody__v002.png",
+          "sha256": "5d6385881a92b929e48729dd12e7ff3c72a812e60579b1d7efe50d01b417b5f6"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-angel-surprised-shocked-long-dark-hair-project-notebook-right-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "95ee54d0207883eee75ee78fdb93945d930053235f4906f82db03d18e71e9d8a",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:angel-expression-gallery",
+        "story:cast:angel:surprised-shocked",
+        "cast-standardization:angel"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:angel-expression-gallery",
+          "story:cast:angel:surprised-shocked",
+          "cast-standardization:angel"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/angel/angel__surprised-shocked-long-dark-hair-project-notebook__right-three-quarter__fullbody__v002.png",
+          "sha256": "95ee54d0207883eee75ee78fdb93945d930053235f4906f82db03d18e71e9d8a"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-angel-sad-vulnerable-long-dark-hair-project-notebook-left-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "43faf544465f8666d97d1cdc1b4b6bb07de163b762c37489a55b07b50feecd13",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:angel-expression-gallery",
+        "story:cast:angel:sad-vulnerable",
+        "cast-standardization:angel"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:angel-expression-gallery",
+          "story:cast:angel:sad-vulnerable",
+          "cast-standardization:angel"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/angel/angel__sad-vulnerable-long-dark-hair-project-notebook__left-three-quarter__fullbody__v002.png",
+          "sha256": "43faf544465f8666d97d1cdc1b4b6bb07de163b762c37489a55b07b50feecd13"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
     }
   ]
 }
