@@ -1,0 +1,102 @@
+{
+  "promotions": [
+    {
+      "castId": "ruparna",
+      "archiveLabel": "identity-and-style-superseded-20260728",
+      "archiveAllCurrent": true,
+      "replaceExpressions": [
+        "neutral",
+        "encouraging-listening",
+        "happy",
+        "thoughtful",
+        "determined",
+        "surprised-shocked",
+        "sad-vulnerable"
+      ],
+      "canonicalNeutralAssetId": "character.ruparna.neutral-long-dark-hair-subtitle-strips-front-near-front-fullbody-v003",
+      "slots": [
+        {
+          "assetId": "character.ruparna.neutral-long-dark-hair-subtitle-strips-front-near-front-fullbody-v003",
+          "expression": "neutral",
+          "angle": "front-near-front",
+          "assetPath": "/academy/art/characters/ruparna/ruparna__neutral-long-dark-hair-subtitle-strips__front-near-front__fullbody__v003.png",
+          "runtimeHomes": [
+            "journal:ruparna",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "story:cast:ruparna",
+            "cast-standardization:ruparna"
+          ]
+        },
+        {
+          "assetId": "character.ruparna.encouraging-listening-long-dark-hair-subtitle-strips-right-three-quarter-fullbody-v003",
+          "expression": "encouraging-listening",
+          "angle": "right-three-quarter",
+          "assetPath": "/academy/art/characters/ruparna/ruparna__encouraging-listening-long-dark-hair-subtitle-strips__right-three-quarter__fullbody__v003.png",
+          "runtimeHomes": [
+            "journal:ruparna-expression-gallery",
+            "story:cast:ruparna:encouraging-listening",
+            "cast-standardization:ruparna"
+          ]
+        },
+        {
+          "assetId": "character.ruparna.happy-long-dark-hair-subtitle-strips-front-near-front-fullbody-v003",
+          "expression": "happy",
+          "angle": "front-near-front",
+          "assetPath": "/academy/art/characters/ruparna/ruparna__happy-long-dark-hair-subtitle-strips__front-near-front__fullbody__v003.png",
+          "runtimeHomes": [
+            "journal:ruparna-expression-gallery",
+            "story:cast:ruparna:happy",
+            "cast-standardization:ruparna"
+          ]
+        },
+        {
+          "assetId": "character.ruparna.thoughtful-long-dark-hair-subtitle-strips-left-three-quarter-fullbody-v003",
+          "expression": "thoughtful",
+          "angle": "left-three-quarter",
+          "assetPath": "/academy/art/characters/ruparna/ruparna__thoughtful-long-dark-hair-subtitle-strips__left-three-quarter__fullbody__v003.png",
+          "runtimeHomes": [
+            "journal:ruparna-expression-gallery",
+            "story:cast:ruparna:thoughtful",
+            "cast-standardization:ruparna"
+          ]
+        },
+        {
+          "assetId": "character.ruparna.determined-long-dark-hair-subtitle-strips-left-three-quarter-fullbody-v003",
+          "expression": "determined",
+          "angle": "left-three-quarter",
+          "assetPath": "/academy/art/characters/ruparna/ruparna__determined-long-dark-hair-subtitle-strips__left-three-quarter__fullbody__v003.png",
+          "runtimeHomes": [
+            "journal:ruparna-expression-gallery",
+            "story:cast:ruparna:determined",
+            "cast-standardization:ruparna"
+          ]
+        },
+        {
+          "assetId": "character.ruparna.surprised-shocked-long-dark-hair-subtitle-strips-right-three-quarter-fullbody-v003",
+          "expression": "surprised-shocked",
+          "angle": "right-three-quarter",
+          "assetPath": "/academy/art/characters/ruparna/ruparna__surprised-shocked-long-dark-hair-subtitle-strips__right-three-quarter__fullbody__v003.png",
+          "runtimeHomes": [
+            "journal:ruparna-expression-gallery",
+            "story:cast:ruparna:surprised-shocked",
+            "cast-standardization:ruparna"
+          ]
+        },
+        {
+          "assetId": "character.ruparna.sad-vulnerable-long-dark-hair-subtitle-strips-left-three-quarter-fullbody-v003",
+          "expression": "sad-vulnerable",
+          "angle": "left-three-quarter",
+          "assetPath": "/academy/art/characters/ruparna/ruparna__sad-vulnerable-long-dark-hair-subtitle-strips__left-three-quarter__fullbody__v003.png",
+          "runtimeHomes": [
+            "journal:ruparna-expression-gallery",
+            "story:cast:ruparna:sad-vulnerable",
+            "cast-standardization:ruparna"
+          ]
+        }
+      ]
+    }
+  ]
+}

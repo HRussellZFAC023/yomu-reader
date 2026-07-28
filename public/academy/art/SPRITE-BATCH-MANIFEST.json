@@ -1361,9 +1361,17 @@
         }
       ],
       "currentAsset": {
-        "status": "missing",
-        "paths": [],
-        "note": "No current Academy runtime or review-candidate sprite."
+        "status": "approved-performance-family",
+        "paths": [
+          "/academy/art/characters/ruparna/ruparna__neutral-long-dark-hair-subtitle-strips__front-near-front__fullbody__v003.png",
+          "/academy/art/characters/ruparna/ruparna__encouraging-listening-long-dark-hair-subtitle-strips__right-three-quarter__fullbody__v003.png",
+          "/academy/art/characters/ruparna/ruparna__happy-long-dark-hair-subtitle-strips__front-near-front__fullbody__v003.png",
+          "/academy/art/characters/ruparna/ruparna__thoughtful-long-dark-hair-subtitle-strips__left-three-quarter__fullbody__v003.png",
+          "/academy/art/characters/ruparna/ruparna__determined-long-dark-hair-subtitle-strips__left-three-quarter__fullbody__v003.png",
+          "/academy/art/characters/ruparna/ruparna__surprised-shocked-long-dark-hair-subtitle-strips__right-three-quarter__fullbody__v003.png",
+          "/academy/art/characters/ruparna/ruparna__sad-vulnerable-long-dark-hair-subtitle-strips__left-three-quarter__fullbody__v003.png"
+        ],
+        "note": "Identity-locked, visually inspected house-style family; all seven canonical expressions are runtime-bound."
       },
       "generationPriority": {
         "tier": 2,

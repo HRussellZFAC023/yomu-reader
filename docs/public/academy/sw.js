@@ -1,4 +1,4 @@
-const VERSION = 'yomu-academy-shell-s1-47a92d5b232e';
+const VERSION = 'yomu-academy-shell-s1-27ca2323c8f6';
 const AUDIO_CACHE = 'yomu-academy-audio-v1-2c25b06f971c';
 const STORY_VOICE_CATALOG = '/academy/audio/story-voice-playback.json';
 const STORY_VOICE_ASSET = /^\/academy\/audio\/story-(?:pilot|lines)\/[a-z0-9][a-z0-9._-]*\.opus$/;
@@ -147,8 +147,13 @@ const RUNTIME_ART_PRECACHE = [
     '/academy/art/characters/rose/rose__sad-vulnerable-auburn-headband-pink-cardigan__left-three-quarter__fullbody__v002.png',
     '/academy/art/characters/rose/rose__surprised-shocked-auburn-headband-pink-cardigan__right-three-quarter__fullbody__v002.png',
     '/academy/art/characters/rose/rose__thoughtful-auburn-headband-pink-cardigan__left-three-quarter__fullbody__v002.png',
-    '/academy/art/characters/ruparna/ruparna__neutral__front-near-front__halfbody__v002.png',
-    '/academy/art/characters/ruparna/ruparna__note-route__right-three-quarter__halfbody__v002.png',
+    '/academy/art/characters/ruparna/ruparna__determined-long-dark-hair-subtitle-strips__left-three-quarter__fullbody__v003.png',
+    '/academy/art/characters/ruparna/ruparna__encouraging-listening-long-dark-hair-subtitle-strips__right-three-quarter__fullbody__v003.png',
+    '/academy/art/characters/ruparna/ruparna__happy-long-dark-hair-subtitle-strips__front-near-front__fullbody__v003.png',
+    '/academy/art/characters/ruparna/ruparna__neutral-long-dark-hair-subtitle-strips__front-near-front__fullbody__v003.png',
+    '/academy/art/characters/ruparna/ruparna__sad-vulnerable-long-dark-hair-subtitle-strips__left-three-quarter__fullbody__v003.png',
+    '/academy/art/characters/ruparna/ruparna__surprised-shocked-long-dark-hair-subtitle-strips__right-three-quarter__fullbody__v003.png',
+    '/academy/art/characters/ruparna/ruparna__thoughtful-long-dark-hair-subtitle-strips__left-three-quarter__fullbody__v003.png',
     '/academy/art/characters/sam/sam__determined-close-cropped-chestnut__front-near-front__fullbody__v002.png',
     '/academy/art/characters/sam/sam__encouraging-listening-close-cropped-chestnut__right-three-quarter__fullbody__v002.png',
     '/academy/art/characters/sam/sam__happy-close-cropped-chestnut__front-near-front__fullbody__v002.png',
@@ -395,8 +400,8 @@ const CORE = [
     '/yomu-icon.svg',
     '/academy/',
     '/academy/index.html',
-    '/academy/app.js?v=s1-47a92d5b232e',
-    '/academy/style.css?v=s1-47a92d5b232e',
+    '/academy/app.js?v=s1-27ca2323c8f6',
+    '/academy/style.css?v=s1-27ca2323c8f6',
     '/academy/manifest.webmanifest',
     ...RUNTIME_ART_PRECACHE,
     '/academy/content/vertical-slice/source-library.v1.json',

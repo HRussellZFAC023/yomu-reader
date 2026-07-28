@@ -29,9 +29,9 @@
     "cast": 30,
     "requiredPerformancesPerCast": 7,
     "requiredSlots": 210,
-    "integratedSlots": 135,
-    "missingSlots": 75,
-    "ownerCorrectionQueue": 26,
+    "integratedSlots": 140,
+    "missingSlots": 70,
+    "ownerCorrectionQueue": 21,
     "storyCriticalQueue": 14,
     "rosterCompletionQueue": 35
   },
@@ -1913,16 +1913,16 @@
       "priority": "owner-correction",
       "summary": {
         "required": 7,
-        "integrated": 2,
-        "missing": 5
+        "integrated": 7,
+        "missing": 0
       },
       "performances": [
         {
           "expression": "neutral",
           "preferredAngle": "front-near-front",
           "status": "integrated",
-          "assetId": "character.ruparna.neutral-front-near-front-halfbody-v002",
-          "assetPath": "/academy/art/characters/ruparna/ruparna__neutral__front-near-front__halfbody__v002.png",
+          "assetId": "character.ruparna.neutral-long-dark-hair-subtitle-strips-front-near-front-fullbody-v003",
+          "assetPath": "/academy/art/characters/ruparna/ruparna__neutral-long-dark-hair-subtitle-strips__front-near-front__fullbody__v003.png",
           "runtimeHomes": [
             "journal:ruparna",
             "class:people",
@@ -1937,53 +1937,73 @@
           "expression": "encouraging-listening",
           "preferredAngle": "right-three-quarter",
           "status": "integrated",
-          "assetId": "character.ruparna.note-route-right-three-quarter-halfbody-v002",
-          "assetPath": "/academy/art/characters/ruparna/ruparna__note-route__right-three-quarter__halfbody__v002.png",
+          "assetId": "character.ruparna.encouraging-listening-long-dark-hair-subtitle-strips-right-three-quarter-fullbody-v003",
+          "assetPath": "/academy/art/characters/ruparna/ruparna__encouraging-listening-long-dark-hair-subtitle-strips__right-three-quarter__fullbody__v003.png",
           "runtimeHomes": [
             "journal:ruparna-expression-gallery",
-            "story:cast:ruparna:note-route",
+            "story:cast:ruparna:encouraging-listening",
             "cast-standardization:ruparna"
           ]
         },
         {
           "expression": "happy",
           "preferredAngle": "front-near-front",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.ruparna.happy-long-dark-hair-subtitle-strips-front-near-front-fullbody-v003",
+          "assetPath": "/academy/art/characters/ruparna/ruparna__happy-long-dark-hair-subtitle-strips__front-near-front__fullbody__v003.png",
+          "runtimeHomes": [
+            "journal:ruparna-expression-gallery",
+            "story:cast:ruparna:happy",
+            "cast-standardization:ruparna"
+          ]
         },
         {
           "expression": "thoughtful",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.ruparna.thoughtful-long-dark-hair-subtitle-strips-left-three-quarter-fullbody-v003",
+          "assetPath": "/academy/art/characters/ruparna/ruparna__thoughtful-long-dark-hair-subtitle-strips__left-three-quarter__fullbody__v003.png",
+          "runtimeHomes": [
+            "journal:ruparna-expression-gallery",
+            "story:cast:ruparna:thoughtful",
+            "cast-standardization:ruparna"
+          ]
         },
         {
           "expression": "determined",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.ruparna.determined-long-dark-hair-subtitle-strips-left-three-quarter-fullbody-v003",
+          "assetPath": "/academy/art/characters/ruparna/ruparna__determined-long-dark-hair-subtitle-strips__left-three-quarter__fullbody__v003.png",
+          "runtimeHomes": [
+            "journal:ruparna-expression-gallery",
+            "story:cast:ruparna:determined",
+            "cast-standardization:ruparna"
+          ]
         },
         {
           "expression": "surprised-shocked",
           "preferredAngle": "right-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.ruparna.surprised-shocked-long-dark-hair-subtitle-strips-right-three-quarter-fullbody-v003",
+          "assetPath": "/academy/art/characters/ruparna/ruparna__surprised-shocked-long-dark-hair-subtitle-strips__right-three-quarter__fullbody__v003.png",
+          "runtimeHomes": [
+            "journal:ruparna-expression-gallery",
+            "story:cast:ruparna:surprised-shocked",
+            "cast-standardization:ruparna"
+          ]
         },
         {
           "expression": "sad-vulnerable",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.ruparna.sad-vulnerable-long-dark-hair-subtitle-strips-left-three-quarter-fullbody-v003",
+          "assetPath": "/academy/art/characters/ruparna/ruparna__sad-vulnerable-long-dark-hair-subtitle-strips__left-three-quarter__fullbody__v003.png",
+          "runtimeHomes": [
+            "journal:ruparna-expression-gallery",
+            "story:cast:ruparna:sad-vulnerable",
+            "cast-standardization:ruparna"
+          ]
         }
       ]
     },
@@ -3487,146 +3507,6 @@
       "runtimeHomes": [
         "journal:stasi-expression-gallery",
         "story:cast:stasi:sad-vulnerable"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "ruparna:happy",
-      "castId": "ruparna",
-      "displayName": "Ruparna",
-      "identityKey": "ruparna-long-dark-hair-thoughtful",
-      "expression": "happy",
-      "angle": "front-near-front",
-      "priority": "owner-correction",
-      "storyLines": 10,
-      "visualLock": "South Asian woman with long dark hair and a thoughtful, perceptive presence.",
-      "wardrobeLock": "Elegant practical layers in plum, ink, and warm cream.",
-      "reject": [
-        "stale v1 caricature",
-        "short blond hair",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:ruparna-expression-gallery",
-        "story:cast:ruparna:happy"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "ruparna:thoughtful",
-      "castId": "ruparna",
-      "displayName": "Ruparna",
-      "identityKey": "ruparna-long-dark-hair-thoughtful",
-      "expression": "thoughtful",
-      "angle": "left-three-quarter",
-      "priority": "owner-correction",
-      "storyLines": 10,
-      "visualLock": "South Asian woman with long dark hair and a thoughtful, perceptive presence.",
-      "wardrobeLock": "Elegant practical layers in plum, ink, and warm cream.",
-      "reject": [
-        "stale v1 caricature",
-        "short blond hair",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:ruparna-expression-gallery",
-        "story:cast:ruparna:thoughtful"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "ruparna:determined",
-      "castId": "ruparna",
-      "displayName": "Ruparna",
-      "identityKey": "ruparna-long-dark-hair-thoughtful",
-      "expression": "determined",
-      "angle": "left-three-quarter",
-      "priority": "owner-correction",
-      "storyLines": 10,
-      "visualLock": "South Asian woman with long dark hair and a thoughtful, perceptive presence.",
-      "wardrobeLock": "Elegant practical layers in plum, ink, and warm cream.",
-      "reject": [
-        "stale v1 caricature",
-        "short blond hair",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:ruparna-expression-gallery",
-        "story:cast:ruparna:determined"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "ruparna:surprised-shocked",
-      "castId": "ruparna",
-      "displayName": "Ruparna",
-      "identityKey": "ruparna-long-dark-hair-thoughtful",
-      "expression": "surprised-shocked",
-      "angle": "right-three-quarter",
-      "priority": "owner-correction",
-      "storyLines": 10,
-      "visualLock": "South Asian woman with long dark hair and a thoughtful, perceptive presence.",
-      "wardrobeLock": "Elegant practical layers in plum, ink, and warm cream.",
-      "reject": [
-        "stale v1 caricature",
-        "short blond hair",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:ruparna-expression-gallery",
-        "story:cast:ruparna:surprised-shocked"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "ruparna:sad-vulnerable",
-      "castId": "ruparna",
-      "displayName": "Ruparna",
-      "identityKey": "ruparna-long-dark-hair-thoughtful",
-      "expression": "sad-vulnerable",
-      "angle": "left-three-quarter",
-      "priority": "owner-correction",
-      "storyLines": 10,
-      "visualLock": "South Asian woman with long dark hair and a thoughtful, perceptive presence.",
-      "wardrobeLock": "Elegant practical layers in plum, ink, and warm cream.",
-      "reject": [
-        "stale v1 caricature",
-        "short blond hair",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:ruparna-expression-gallery",
-        "story:cast:ruparna:sad-vulnerable"
       ],
       "status": "queued"
     },

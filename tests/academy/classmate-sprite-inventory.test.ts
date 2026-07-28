@@ -151,6 +151,7 @@ describe('Academy cast-wide sprite migration inventory', () => {
             ['francis', 'v002'],
             ['robert', 'v002'],
             ['shin', 'v002'],
+            ['ruparna', 'v003'],
         ] as const) {
             const character = inventory.characters.find(candidate => candidate.id === castId)!;
 

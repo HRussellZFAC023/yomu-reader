@@ -18,8 +18,8 @@
     ]
   },
   "counts": {
-    "runtimeAssetHomes": 239,
-    "runtimeFiles": 345,
+    "runtimeAssetHomes": 244,
+    "runtimeFiles": 350,
     "nonRuntimeReviewFiles": 1734,
     "approvedReferenceOnly": 4,
     "explicitlyRejectedFamilies": 4,
@@ -1434,82 +1434,6 @@
         {
           "path": "/academy/art/characters/rie/rie__thoughtful-glasses__left-three-quarter__halfbody__v002.png",
           "sha256": "ba9df46621afb9265549074ff7f2c8e6573c905a76612b0ad3964b3e31540d61"
-        }
-      ],
-      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
-    },
-    {
-      "id": "character-ruparna-neutral-front-near-front-halfbody-v002",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "909e5af42bb12f15a8cba9558ae2e29c5f763efad70a596f7751eb2d28613c1d",
-      "provenance": "regenerated-house-style",
-      "verdict": "approved-runtime",
-      "runtimeHome": [
-        "journal:ruparna",
-        "class:people",
-        "class:week-cast",
-        "lesson-overview:roster",
-        "world:person",
-        "story:cast:ruparna",
-        "cast-standardization:ruparna"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "identity-lock"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:ruparna",
-          "class:people",
-          "class:week-cast",
-          "lesson-overview:roster",
-          "world:person",
-          "story:cast:ruparna",
-          "cast-standardization:ruparna"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/ruparna/ruparna__neutral__front-near-front__halfbody__v002.png",
-          "sha256": "909e5af42bb12f15a8cba9558ae2e29c5f763efad70a596f7751eb2d28613c1d"
-        }
-      ],
-      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
-    },
-    {
-      "id": "character-ruparna-note-route-right-three-quarter-halfbody-v002",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "f221ee5008c9d2746eb2f1d6cae831556eaed83f3abac52a001aba5a46e82089",
-      "provenance": "regenerated-house-style",
-      "verdict": "approved-runtime",
-      "runtimeHome": [
-        "journal:ruparna-expression-gallery",
-        "story:cast:ruparna:note-route",
-        "cast-standardization:ruparna"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "identity-lock"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:ruparna-expression-gallery",
-          "story:cast:ruparna:note-route",
-          "cast-standardization:ruparna"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/ruparna/ruparna__note-route__right-three-quarter__halfbody__v002.png",
-          "sha256": "f221ee5008c9d2746eb2f1d6cae831556eaed83f3abac52a001aba5a46e82089"
         }
       ],
       "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
@@ -10807,7 +10731,7 @@
       "deliveries": [
         {
           "path": "/academy/art/SPRITE-BATCH-MANIFEST.json",
-          "sha256": "da0d461092dd325589d64b3fb675c134dc1d3da0d7ca739fd4a7d96e13e1278e"
+          "sha256": "9955dc0e00172754faed35b5eb7523da835f436fbcc10df1368963688b077fe6"
         }
       ],
       "status": "bound-and-schema-validated"
@@ -14957,6 +14881,252 @@
         {
           "path": "/academy/art/characters/shin/shin__sad-vulnerable-short-black-round-glasses-kanji-notebook__left-three-quarter__fullbody__v002.png",
           "sha256": "e889aad87927c5c54be3dfaed9b79a43c71e6f5d5fe9b38150e87560684b0c51"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-ruparna-neutral-long-dark-hair-subtitle-strips-front-near-front-fullbody-v003",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "20ec610fe17515956ed1a09e5ba24e6cd11de5dbc85004c6ffd3818165454e0e",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:ruparna",
+        "class:people",
+        "class:week-cast",
+        "lesson-overview:roster",
+        "world:person",
+        "story:cast:ruparna",
+        "cast-standardization:ruparna"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:ruparna",
+          "class:people",
+          "class:week-cast",
+          "lesson-overview:roster",
+          "world:person",
+          "story:cast:ruparna",
+          "cast-standardization:ruparna"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/ruparna/ruparna__neutral-long-dark-hair-subtitle-strips__front-near-front__fullbody__v003.png",
+          "sha256": "20ec610fe17515956ed1a09e5ba24e6cd11de5dbc85004c6ffd3818165454e0e"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-ruparna-encouraging-listening-long-dark-hair-subtitle-strips-right-three-quarter-fullbody-v003",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "55ea3c1a8067b34e4b5a8b2b1bd4cbc80433728f276c42bed105bd8055d01d51",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:ruparna-expression-gallery",
+        "story:cast:ruparna:encouraging-listening",
+        "cast-standardization:ruparna"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:ruparna-expression-gallery",
+          "story:cast:ruparna:encouraging-listening",
+          "cast-standardization:ruparna"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/ruparna/ruparna__encouraging-listening-long-dark-hair-subtitle-strips__right-three-quarter__fullbody__v003.png",
+          "sha256": "55ea3c1a8067b34e4b5a8b2b1bd4cbc80433728f276c42bed105bd8055d01d51"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-ruparna-happy-long-dark-hair-subtitle-strips-front-near-front-fullbody-v003",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "168bdb7370eb4a574ca457e7fc7f3ec84e12d7d469779b6d426a2e9b7552d2a8",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:ruparna-expression-gallery",
+        "story:cast:ruparna:happy",
+        "cast-standardization:ruparna"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:ruparna-expression-gallery",
+          "story:cast:ruparna:happy",
+          "cast-standardization:ruparna"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/ruparna/ruparna__happy-long-dark-hair-subtitle-strips__front-near-front__fullbody__v003.png",
+          "sha256": "168bdb7370eb4a574ca457e7fc7f3ec84e12d7d469779b6d426a2e9b7552d2a8"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-ruparna-thoughtful-long-dark-hair-subtitle-strips-left-three-quarter-fullbody-v003",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "65961e1f007b9f833a6237eb505732861e13ab366a44612095bef5bc3813b271",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:ruparna-expression-gallery",
+        "story:cast:ruparna:thoughtful",
+        "cast-standardization:ruparna"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:ruparna-expression-gallery",
+          "story:cast:ruparna:thoughtful",
+          "cast-standardization:ruparna"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/ruparna/ruparna__thoughtful-long-dark-hair-subtitle-strips__left-three-quarter__fullbody__v003.png",
+          "sha256": "65961e1f007b9f833a6237eb505732861e13ab366a44612095bef5bc3813b271"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-ruparna-determined-long-dark-hair-subtitle-strips-left-three-quarter-fullbody-v003",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "e8bdaa7bc88661f05bbce3e3c401c6a1dbec4f6f5294e64ff33ba077aa9267c0",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:ruparna-expression-gallery",
+        "story:cast:ruparna:determined",
+        "cast-standardization:ruparna"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:ruparna-expression-gallery",
+          "story:cast:ruparna:determined",
+          "cast-standardization:ruparna"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/ruparna/ruparna__determined-long-dark-hair-subtitle-strips__left-three-quarter__fullbody__v003.png",
+          "sha256": "e8bdaa7bc88661f05bbce3e3c401c6a1dbec4f6f5294e64ff33ba077aa9267c0"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-ruparna-surprised-shocked-long-dark-hair-subtitle-strips-right-three-quarter-fullbody-v003",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "853d464cb158b1ea2c9ee8434e18cb37b1de1f0007739b9c6add0e5e7999442b",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:ruparna-expression-gallery",
+        "story:cast:ruparna:surprised-shocked",
+        "cast-standardization:ruparna"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:ruparna-expression-gallery",
+          "story:cast:ruparna:surprised-shocked",
+          "cast-standardization:ruparna"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/ruparna/ruparna__surprised-shocked-long-dark-hair-subtitle-strips__right-three-quarter__fullbody__v003.png",
+          "sha256": "853d464cb158b1ea2c9ee8434e18cb37b1de1f0007739b9c6add0e5e7999442b"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-ruparna-sad-vulnerable-long-dark-hair-subtitle-strips-left-three-quarter-fullbody-v003",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "b88f2ab4b02c7186f670de3b92f82dbcf4a4b11c34cef022ae26371494c06348",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:ruparna-expression-gallery",
+        "story:cast:ruparna:sad-vulnerable",
+        "cast-standardization:ruparna"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:ruparna-expression-gallery",
+          "story:cast:ruparna:sad-vulnerable",
+          "cast-standardization:ruparna"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/ruparna/ruparna__sad-vulnerable-long-dark-hair-subtitle-strips__left-three-quarter__fullbody__v003.png",
+          "sha256": "b88f2ab4b02c7186f670de3b92f82dbcf4a4b11c34cef022ae26371494c06348"
         }
       ],
       "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
