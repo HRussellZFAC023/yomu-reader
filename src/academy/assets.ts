@@ -287,9 +287,9 @@ export const ACADEMY_APPROVED_CHARACTER_SPRITES = {
     ruparnaNoteRoute: ACADEMY_CAST_STANDARDIZATION_GALLERIES.ruparna['encouraging-listening:right-three-quarter'],
     samNeutral: ACADEMY_CAST_STANDARDIZATION_GALLERIES.sam['neutral:front-near-front'],
     samListening: ACADEMY_CAST_STANDARDIZATION_GALLERIES.sam['encouraging-listening:right-three-quarter'],
-    steve: assetFile('character.steve.neutral-front', 'default'),
-    steveHappy: assetFile('character.steve.happy-right', 'default'),
-    steveDetermined: assetFile('character.steve.determined-left', 'default'),
+    steve: ACADEMY_CAST_STANDARDIZATION_GALLERIES.steve['neutral:front-near-front'],
+    steveHappy: ACADEMY_CAST_STANDARDIZATION_GALLERIES.steve['happy:front-near-front'],
+    steveDetermined: ACADEMY_CAST_STANDARDIZATION_GALLERIES.steve['determined:left-three-quarter'],
 } as const;
 
 /**

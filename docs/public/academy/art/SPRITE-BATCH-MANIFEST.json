@@ -1734,13 +1734,17 @@
         }
       ],
       "currentAsset": {
-        "status": "approved-performance-trio",
+        "status": "approved-performance-family",
         "paths": [
-          "/academy/art/characters/steve/steve__determined__left-three-quarter__halfbody__v001.png",
-          "/academy/art/characters/steve/steve__neutral__front-near-front__halfbody__v001.png",
-          "/academy/art/characters/steve/steve__happy__right-three-quarter__halfbody__v001.png"
+          "/academy/art/characters/steve/steve__neutral-silver-hair-glasses-family-message__front-near-front__halfbody__v002.png",
+          "/academy/art/characters/steve/steve__encouraging-listening-silver-hair-glasses-family-message__right-three-quarter__halfbody__v002.png",
+          "/academy/art/characters/steve/steve__happy-silver-hair-glasses-family-message__front-near-front__halfbody__v002.png",
+          "/academy/art/characters/steve/steve__thoughtful-silver-hair-glasses-family-message__left-three-quarter__halfbody__v002.png",
+          "/academy/art/characters/steve/steve__determined-silver-hair-glasses-family-message__left-three-quarter__halfbody__v002.png",
+          "/academy/art/characters/steve/steve__surprised-shocked-silver-hair-glasses-family-message__right-three-quarter__halfbody__v002.png",
+          "/academy/art/characters/steve/steve__sad-vulnerable-silver-hair-glasses-family-message__left-three-quarter__halfbody__v002.png"
         ],
-        "note": "Original-description three-angle set is runtime-cleared and journal-bound."
+        "note": "Identity-locked, visually inspected house-style family; all seven canonical expressions are runtime-bound."
       },
       "generationPriority": {
         "tier": 0,

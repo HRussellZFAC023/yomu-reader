@@ -29,11 +29,11 @@
     "cast": 30,
     "requiredPerformancesPerCast": 7,
     "requiredSlots": 210,
-    "integratedSlots": 175,
-    "missingSlots": 35,
+    "integratedSlots": 182,
+    "missingSlots": 28,
     "ownerCorrectionQueue": 0,
     "storyCriticalQueue": 0,
-    "rosterCompletionQueue": 35
+    "rosterCompletionQueue": 28
   },
   "cast": [
     {
@@ -2651,65 +2651,97 @@
       "priority": "roster-completion",
       "summary": {
         "required": 7,
-        "integrated": 0,
-        "missing": 7
+        "integrated": 7,
+        "missing": 0
       },
       "performances": [
         {
           "expression": "neutral",
           "preferredAngle": "front-near-front",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.steve.neutral-silver-hair-glasses-family-message-front-near-front-halfbody-v002",
+          "assetPath": "/academy/art/characters/steve/steve__neutral-silver-hair-glasses-family-message__front-near-front__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:steve",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "story:cast:steve",
+            "cast-standardization:steve"
+          ]
         },
         {
           "expression": "encouraging-listening",
           "preferredAngle": "right-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.steve.encouraging-listening-silver-hair-glasses-family-message-right-three-quarter-halfbody-v002",
+          "assetPath": "/academy/art/characters/steve/steve__encouraging-listening-silver-hair-glasses-family-message__right-three-quarter__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:steve-expression-gallery",
+            "story:cast:steve:encouraging-listening",
+            "cast-standardization:steve"
+          ]
         },
         {
           "expression": "happy",
           "preferredAngle": "front-near-front",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.steve.happy-silver-hair-glasses-family-message-front-near-front-halfbody-v002",
+          "assetPath": "/academy/art/characters/steve/steve__happy-silver-hair-glasses-family-message__front-near-front__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:steve-expression-gallery",
+            "story:cast:steve:happy",
+            "cast-standardization:steve"
+          ]
         },
         {
           "expression": "thoughtful",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.steve.thoughtful-silver-hair-glasses-family-message-left-three-quarter-halfbody-v002",
+          "assetPath": "/academy/art/characters/steve/steve__thoughtful-silver-hair-glasses-family-message__left-three-quarter__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:steve-expression-gallery",
+            "story:cast:steve:thoughtful",
+            "cast-standardization:steve"
+          ]
         },
         {
           "expression": "determined",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.steve.determined-silver-hair-glasses-family-message-left-three-quarter-halfbody-v002",
+          "assetPath": "/academy/art/characters/steve/steve__determined-silver-hair-glasses-family-message__left-three-quarter__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:steve-expression-gallery",
+            "story:cast:steve:determined",
+            "cast-standardization:steve"
+          ]
         },
         {
           "expression": "surprised-shocked",
           "preferredAngle": "right-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.steve.surprised-shocked-silver-hair-glasses-family-message-right-three-quarter-halfbody-v002",
+          "assetPath": "/academy/art/characters/steve/steve__surprised-shocked-silver-hair-glasses-family-message__right-three-quarter__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:steve-expression-gallery",
+            "story:cast:steve:surprised-shocked",
+            "cast-standardization:steve"
+          ]
         },
         {
           "expression": "sad-vulnerable",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.steve.sad-vulnerable-silver-hair-glasses-family-message-left-three-quarter-halfbody-v002",
+          "assetPath": "/academy/art/characters/steve/steve__sad-vulnerable-silver-hair-glasses-family-message__left-three-quarter__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:steve-expression-gallery",
+            "story:cast:steve:sad-vulnerable",
+            "cast-standardization:steve"
+          ]
         }
       ]
     },
@@ -3260,204 +3292,6 @@
     }
   ],
   "generationQueue": [
-    {
-      "key": "steve:neutral",
-      "castId": "steve",
-      "displayName": "Steve",
-      "identityKey": "steve-older-family-writer",
-      "expression": "neutral",
-      "angle": "front-near-front",
-      "priority": "roster-completion",
-      "storyLines": 0,
-      "visualLock": "Older man with a warm family-minded presence and a face that reads clearly as older than the core class.",
-      "wardrobeLock": "Comfortable smart-casual layers suitable for everyday family life.",
-      "reject": [
-        "de-aged face",
-        "teenage proportions",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:steve",
-        "class:people",
-        "lesson-overview:roster",
-        "story:cast:steve"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "steve:encouraging-listening",
-      "castId": "steve",
-      "displayName": "Steve",
-      "identityKey": "steve-older-family-writer",
-      "expression": "encouraging-listening",
-      "angle": "right-three-quarter",
-      "priority": "roster-completion",
-      "storyLines": 0,
-      "visualLock": "Older man with a warm family-minded presence and a face that reads clearly as older than the core class.",
-      "wardrobeLock": "Comfortable smart-casual layers suitable for everyday family life.",
-      "reject": [
-        "de-aged face",
-        "teenage proportions",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:steve-expression-gallery",
-        "story:cast:steve:encouraging-listening"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "steve:happy",
-      "castId": "steve",
-      "displayName": "Steve",
-      "identityKey": "steve-older-family-writer",
-      "expression": "happy",
-      "angle": "front-near-front",
-      "priority": "roster-completion",
-      "storyLines": 0,
-      "visualLock": "Older man with a warm family-minded presence and a face that reads clearly as older than the core class.",
-      "wardrobeLock": "Comfortable smart-casual layers suitable for everyday family life.",
-      "reject": [
-        "de-aged face",
-        "teenage proportions",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:steve-expression-gallery",
-        "story:cast:steve:happy"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "steve:thoughtful",
-      "castId": "steve",
-      "displayName": "Steve",
-      "identityKey": "steve-older-family-writer",
-      "expression": "thoughtful",
-      "angle": "left-three-quarter",
-      "priority": "roster-completion",
-      "storyLines": 0,
-      "visualLock": "Older man with a warm family-minded presence and a face that reads clearly as older than the core class.",
-      "wardrobeLock": "Comfortable smart-casual layers suitable for everyday family life.",
-      "reject": [
-        "de-aged face",
-        "teenage proportions",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:steve-expression-gallery",
-        "story:cast:steve:thoughtful"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "steve:determined",
-      "castId": "steve",
-      "displayName": "Steve",
-      "identityKey": "steve-older-family-writer",
-      "expression": "determined",
-      "angle": "left-three-quarter",
-      "priority": "roster-completion",
-      "storyLines": 0,
-      "visualLock": "Older man with a warm family-minded presence and a face that reads clearly as older than the core class.",
-      "wardrobeLock": "Comfortable smart-casual layers suitable for everyday family life.",
-      "reject": [
-        "de-aged face",
-        "teenage proportions",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:steve-expression-gallery",
-        "story:cast:steve:determined"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "steve:surprised-shocked",
-      "castId": "steve",
-      "displayName": "Steve",
-      "identityKey": "steve-older-family-writer",
-      "expression": "surprised-shocked",
-      "angle": "right-three-quarter",
-      "priority": "roster-completion",
-      "storyLines": 0,
-      "visualLock": "Older man with a warm family-minded presence and a face that reads clearly as older than the core class.",
-      "wardrobeLock": "Comfortable smart-casual layers suitable for everyday family life.",
-      "reject": [
-        "de-aged face",
-        "teenage proportions",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:steve-expression-gallery",
-        "story:cast:steve:surprised-shocked"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "steve:sad-vulnerable",
-      "castId": "steve",
-      "displayName": "Steve",
-      "identityKey": "steve-older-family-writer",
-      "expression": "sad-vulnerable",
-      "angle": "left-three-quarter",
-      "priority": "roster-completion",
-      "storyLines": 0,
-      "visualLock": "Older man with a warm family-minded presence and a face that reads clearly as older than the core class.",
-      "wardrobeLock": "Comfortable smart-casual layers suitable for everyday family life.",
-      "reject": [
-        "de-aged face",
-        "teenage proportions",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:steve-expression-gallery",
-        "story:cast:steve:sad-vulnerable"
-      ],
-      "status": "queued"
-    },
     {
       "key": "miller:neutral",
       "castId": "miller",

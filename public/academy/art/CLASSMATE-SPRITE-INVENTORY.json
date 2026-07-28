@@ -34,11 +34,11 @@
     "totalSlots": 630
   },
   "summary": {
-    "approved": 178,
+    "approved": 182,
     "reviewCandidates": 0,
-    "missing": 452,
-    "currentPhysicalRasters": 189,
-    "currentOffMatrixRasters": 11,
+    "missing": 448,
+    "currentPhysicalRasters": 191,
+    "currentOffMatrixRasters": 9,
     "historicalUniqueRasters": 469,
     "historicalOccurrences": 2016,
     "charactersWithApprovedCoverage": 26,
@@ -14125,28 +14125,33 @@
         "slots": 21
       },
       "progress": {
-        "approved": 3,
+        "approved": 7,
         "reviewCandidates": 0,
-        "missing": 18,
-        "deliveredPercent": 14.29,
-        "approvedPercent": 14.29
+        "missing": 14,
+        "deliveredPercent": 33.33,
+        "approvedPercent": 33.33
       },
       "currentAssets": [
         {
-          "path": "/academy/art/characters/steve/steve__determined__left-three-quarter__halfbody__v001.png",
-          "sha256": "c673e40278296b6a656680cf135c89d29379422f322b66013c6c609cf5dc44b5",
+          "path": "/academy/art/characters/steve/steve__determined-silver-hair-glasses-family-message__left-three-quarter__halfbody__v002.png",
+          "sha256": "3657144d266546ee8f16d4d3aa83cfdad7c5663893ba647235148babad6ac606",
           "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
           "status": "approved",
           "usage": {
             "runtime": [
-              "journal:steve-expression-gallery"
+              "journal:steve-expression-gallery",
+              "story:cast:steve:determined",
+              "cast-standardization:steve"
             ],
-            "review": []
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
           },
           "orphan": "active-runtime",
           "styleVersion": "current-review-family",
-          "fileVersion": "v001",
+          "fileVersion": "v002",
           "pose": "steady older-learner stance with a smartphone and blank kana practice card, opening into a family-chat thumbs-up; left-three-quarter",
           "angle": "left-three-quarter",
           "expression": "determined",
@@ -14158,30 +14163,83 @@
             "transparency": "alpha-channel"
           },
           "runtimeUses": [
-            "journal:steve-expression-gallery"
+            "journal:steve-expression-gallery",
+            "story:cast:steve:determined",
+            "cast-standardization:steve"
           ],
-          "reviewUses": [],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
           "decision": "keep",
           "migrationStatus": "approved-and-registered",
           "coverageStatus": "approved"
         },
         {
-          "path": "/academy/art/characters/steve/steve__happy__right-three-quarter__halfbody__v001.png",
-          "sha256": "c972dfecab8e6720af12d44cfc98f80ed0d09789cca53958f32d3ad5eb810b07",
+          "path": "/academy/art/characters/steve/steve__encouraging-listening-silver-hair-glasses-family-message__right-three-quarter__halfbody__v002.png",
+          "sha256": "d2691b70f52a7e012ed6c54372d04d41defc68e38c7598a667f7f8d53660fbf3",
           "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
           "status": "approved",
           "usage": {
             "runtime": [
-              "journal:steve-expression-gallery"
+              "journal:steve-expression-gallery",
+              "story:cast:steve:encouraging-listening",
+              "cast-standardization:steve"
             ],
-            "review": []
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
           },
           "orphan": "active-runtime",
           "styleVersion": "current-review-family",
-          "fileVersion": "v001",
+          "fileVersion": "v002",
           "pose": "steady older-learner stance with a smartphone and blank kana practice card, opening into a family-chat thumbs-up; right-three-quarter",
           "angle": "right-three-quarter",
+          "expression": "encouraging-listening",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:steve-expression-gallery",
+            "story:cast:steve:encouraging-listening",
+            "cast-standardization:steve"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/steve/steve__happy-silver-hair-glasses-family-message__front-near-front__halfbody__v002.png",
+          "sha256": "66650f8157b94d319b7f680b74e3d83bc22a03e4a43cb870d8f2f93063bff745",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:steve-expression-gallery",
+              "story:cast:steve:happy",
+              "cast-standardization:steve"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "steady older-learner stance with a smartphone and blank kana practice card, opening into a family-chat thumbs-up; front-near-front",
+          "angle": "front-near-front",
           "expression": "happy",
           "dimensions": {
             "width": 1536,
@@ -14191,29 +14249,42 @@
             "transparency": "alpha-channel"
           },
           "runtimeUses": [
-            "journal:steve-expression-gallery"
+            "journal:steve-expression-gallery",
+            "story:cast:steve:happy",
+            "cast-standardization:steve"
           ],
-          "reviewUses": [],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
           "decision": "keep",
           "migrationStatus": "approved-and-registered",
           "coverageStatus": "approved"
         },
         {
-          "path": "/academy/art/characters/steve/steve__neutral__front-near-front__halfbody__v001.png",
-          "sha256": "f56758c5e8d968381cebc81cd21d776dd62941a2e9a3a9aacfc1286fb8ffd1ef",
+          "path": "/academy/art/characters/steve/steve__neutral-silver-hair-glasses-family-message__front-near-front__halfbody__v002.png",
+          "sha256": "089cee175b5022aefb01cfef26fa3784ab1d992d5ded816b390b6818b9f0c534",
           "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
           "status": "approved",
           "usage": {
             "runtime": [
               "journal:steve",
-              "scene:steve-introduction"
+              "class:people",
+              "class:week-cast",
+              "lesson-overview:roster",
+              "world:person",
+              "story:cast:steve",
+              "cast-standardization:steve"
             ],
-            "review": []
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
           },
           "orphan": "active-runtime",
           "styleVersion": "current-review-family",
-          "fileVersion": "v001",
+          "fileVersion": "v002",
           "pose": "steady older-learner stance with a smartphone and blank kana practice card, opening into a family-chat thumbs-up; front-near-front",
           "angle": "front-near-front",
           "expression": "neutral",
@@ -14226,35 +14297,44 @@
           },
           "runtimeUses": [
             "journal:steve",
-            "scene:steve-introduction"
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "story:cast:steve",
+            "cast-standardization:steve"
           ],
-          "reviewUses": [],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
           "decision": "keep",
           "migrationStatus": "approved-and-registered",
           "coverageStatus": "approved"
         },
         {
-          "path": "/academy/art/characters/steve/steve__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
-          "sha256": "705f314f90aadea87bb1cb3d5466c17cecacf77f8d64d3451d34221cca6b8710",
+          "path": "/academy/art/characters/steve/steve__sad-vulnerable-silver-hair-glasses-family-message__left-three-quarter__halfbody__v002.png",
+          "sha256": "0a7cb4d7f7b46475c18947f3707210a08a5fc04e5dacf03ff3107e01267419bf",
           "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
-          "status": "review-candidate",
+          "status": "approved",
           "usage": {
             "runtime": [
               "journal:steve-expression-gallery",
+              "story:cast:steve:sad-vulnerable",
               "cast-standardization:steve"
             ],
             "review": [
               "cast-standardization-manifest",
-              "learner-journal-preview"
+              "identity-lock"
             ]
           },
-          "orphan": "review-bound",
+          "orphan": "active-runtime",
           "styleVersion": "current-review-family",
-          "fileVersion": "v001",
-          "pose": "off-contract standardized-encouraging-listening pose",
-          "angle": null,
-          "expression": null,
+          "fileVersion": "v002",
+          "pose": "steady older-learner stance with a smartphone and blank kana practice card, opening into a family-chat thumbs-up; left-three-quarter",
+          "angle": "left-three-quarter",
+          "expression": "sad-vulnerable",
           "dimensions": {
             "width": 1536,
             "height": 2048,
@@ -14264,38 +14344,40 @@
           },
           "runtimeUses": [
             "journal:steve-expression-gallery",
+            "story:cast:steve:sad-vulnerable",
             "cast-standardization:steve"
           ],
           "reviewUses": [
             "cast-standardization-manifest",
-            "learner-journal-preview"
+            "identity-lock"
           ],
           "decision": "keep",
-          "migrationStatus": "retained-off-matrix-review-evidence",
-          "coverageStatus": "off-matrix"
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
         },
         {
-          "path": "/academy/art/characters/steve/steve__standardized-happy__front-near-front__halfbody__v001.png",
-          "sha256": "2769c2bfce3a0d1502e7fdd982d970f0cd37a1994a68074909000b1f40b0474b",
+          "path": "/academy/art/characters/steve/steve__surprised-shocked-silver-hair-glasses-family-message__right-three-quarter__halfbody__v002.png",
+          "sha256": "57f46f6498da42989a17b9f76d0b4489bafe4110725d632b128571156107a3c7",
           "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
-          "status": "review-candidate",
+          "status": "approved",
           "usage": {
             "runtime": [
               "journal:steve-expression-gallery",
+              "story:cast:steve:surprised-shocked",
               "cast-standardization:steve"
             ],
             "review": [
               "cast-standardization-manifest",
-              "learner-journal-preview"
+              "identity-lock"
             ]
           },
-          "orphan": "review-bound",
+          "orphan": "active-runtime",
           "styleVersion": "current-review-family",
-          "fileVersion": "v001",
-          "pose": "off-contract standardized-happy pose",
-          "angle": null,
-          "expression": null,
+          "fileVersion": "v002",
+          "pose": "steady older-learner stance with a smartphone and blank kana practice card, opening into a family-chat thumbs-up; right-three-quarter",
+          "angle": "right-three-quarter",
+          "expression": "surprised-shocked",
           "dimensions": {
             "width": 1536,
             "height": 2048,
@@ -14305,15 +14387,59 @@
           },
           "runtimeUses": [
             "journal:steve-expression-gallery",
+            "story:cast:steve:surprised-shocked",
             "cast-standardization:steve"
           ],
           "reviewUses": [
             "cast-standardization-manifest",
-            "learner-journal-preview"
+            "identity-lock"
           ],
           "decision": "keep",
-          "migrationStatus": "retained-off-matrix-review-evidence",
-          "coverageStatus": "off-matrix"
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/steve/steve__thoughtful-silver-hair-glasses-family-message__left-three-quarter__halfbody__v002.png",
+          "sha256": "9136a8cfeebf0ac82bb126baf44723ff9c06e442fb89ab2dc6dcade58171ea8c",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:steve-expression-gallery",
+              "story:cast:steve:thoughtful",
+              "cast-standardization:steve"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "steady older-learner stance with a smartphone and blank kana practice card, opening into a family-chat thumbs-up; left-three-quarter",
+          "angle": "left-three-quarter",
+          "expression": "thoughtful",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:steve-expression-gallery",
+            "story:cast:steve:thoughtful",
+            "cast-standardization:steve"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
         }
       ],
       "requiredVariants": [
@@ -14341,15 +14467,14 @@
         {
           "angle": "left-three-quarter",
           "expression": "thoughtful",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/steve/steve__thoughtful__left-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/steve/steve__thoughtful-silver-hair-glasses-family-message__left-three-quarter__halfbody__v002.png"
         },
         {
           "angle": "left-three-quarter",
           "expression": "determined",
           "status": "approved",
-          "path": "/academy/art/characters/steve/steve__determined__left-three-quarter__halfbody__v001.png"
+          "path": "/academy/art/characters/steve/steve__determined-silver-hair-glasses-family-message__left-three-quarter__halfbody__v002.png"
         },
         {
           "angle": "left-three-quarter",
@@ -14361,15 +14486,14 @@
         {
           "angle": "left-three-quarter",
           "expression": "sad-vulnerable",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/steve/steve__sad-vulnerable__left-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/steve/steve__sad-vulnerable-silver-hair-glasses-family-message__left-three-quarter__halfbody__v002.png"
         },
         {
           "angle": "front-near-front",
           "expression": "neutral",
           "status": "approved",
-          "path": "/academy/art/characters/steve/steve__neutral__front-near-front__halfbody__v001.png"
+          "path": "/academy/art/characters/steve/steve__neutral-silver-hair-glasses-family-message__front-near-front__halfbody__v002.png"
         },
         {
           "angle": "front-near-front",
@@ -14381,9 +14505,8 @@
         {
           "angle": "front-near-front",
           "expression": "happy",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/steve/steve__happy__front-near-front__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/steve/steve__happy-silver-hair-glasses-family-message__front-near-front__halfbody__v002.png"
         },
         {
           "angle": "front-near-front",
@@ -14423,15 +14546,15 @@
         {
           "angle": "right-three-quarter",
           "expression": "encouraging-listening",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/steve/steve__encouraging-listening__right-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/steve/steve__encouraging-listening-silver-hair-glasses-family-message__right-three-quarter__halfbody__v002.png"
         },
         {
           "angle": "right-three-quarter",
           "expression": "happy",
-          "status": "approved",
-          "path": "/academy/art/characters/steve/steve__happy__right-three-quarter__halfbody__v001.png"
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/steve/steve__happy__right-three-quarter__halfbody__v001.png"
         },
         {
           "angle": "right-three-quarter",
@@ -14450,9 +14573,8 @@
         {
           "angle": "right-three-quarter",
           "expression": "surprised-shocked",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/steve/steve__surprised-shocked__right-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/steve/steve__surprised-shocked-silver-hair-glasses-family-message__right-three-quarter__halfbody__v002.png"
         },
         {
           "angle": "right-three-quarter",
@@ -14486,24 +14608,10 @@
         },
         {
           "angle": "left-three-quarter",
-          "expression": "thoughtful",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/steve/steve__thoughtful__left-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "left-three-quarter",
           "expression": "surprised-shocked",
           "status": "missing",
           "path": null,
           "plannedPath": "/academy/art/characters/steve/steve__surprised-shocked__left-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "left-three-quarter",
-          "expression": "sad-vulnerable",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/steve/steve__sad-vulnerable__left-three-quarter__halfbody__v001.png"
         },
         {
           "angle": "front-near-front",
@@ -14511,13 +14619,6 @@
           "status": "missing",
           "path": null,
           "plannedPath": "/academy/art/characters/steve/steve__encouraging-listening__front-near-front__halfbody__v001.png"
-        },
-        {
-          "angle": "front-near-front",
-          "expression": "happy",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/steve/steve__happy__front-near-front__halfbody__v001.png"
         },
         {
           "angle": "front-near-front",
@@ -14556,10 +14657,10 @@
         },
         {
           "angle": "right-three-quarter",
-          "expression": "encouraging-listening",
+          "expression": "happy",
           "status": "missing",
           "path": null,
-          "plannedPath": "/academy/art/characters/steve/steve__encouraging-listening__right-three-quarter__halfbody__v001.png"
+          "plannedPath": "/academy/art/characters/steve/steve__happy__right-three-quarter__halfbody__v001.png"
         },
         {
           "angle": "right-three-quarter",
@@ -14574,13 +14675,6 @@
           "status": "missing",
           "path": null,
           "plannedPath": "/academy/art/characters/steve/steve__determined__right-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "right-three-quarter",
-          "expression": "surprised-shocked",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/steve/steve__surprised-shocked__right-three-quarter__halfbody__v001.png"
         },
         {
           "angle": "right-three-quarter",

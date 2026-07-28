@@ -340,9 +340,13 @@ describe('Academy runtime asset ledger', () => {
             'character-tom2-determined-reserved-dark-hair-notebook-left-three-quarter-halfbody-v002',
             'character-tom2-surprised-shocked-reserved-dark-hair-notebook-right-three-quarter-halfbody-v002',
             'character-tom2-sad-vulnerable-reserved-dark-hair-notebook-left-three-quarter-halfbody-v002',
-            'character-steve-neutral-front',
-            'character-steve-happy-right',
-            'character-steve-determined-left',
+            'character-steve-neutral-silver-hair-glasses-family-message-front-near-front-halfbody-v002',
+            'character-steve-encouraging-listening-silver-hair-glasses-family-message-right-three-quarter-halfbody-v002',
+            'character-steve-happy-silver-hair-glasses-family-message-front-near-front-halfbody-v002',
+            'character-steve-thoughtful-silver-hair-glasses-family-message-left-three-quarter-halfbody-v002',
+            'character-steve-determined-silver-hair-glasses-family-message-left-three-quarter-halfbody-v002',
+            'character-steve-surprised-shocked-silver-hair-glasses-family-message-right-three-quarter-halfbody-v002',
+            'character-steve-sad-vulnerable-silver-hair-glasses-family-message-left-three-quarter-halfbody-v002',
         ];
         for (const id of ids) {
             expect(ledger.assets.find(asset => asset.id === id)).toMatchObject({

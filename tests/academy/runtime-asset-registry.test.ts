@@ -95,9 +95,9 @@ describe('Academy runtime asset registry', () => {
             ruparnaNoteRoute: '/academy/art/characters/ruparna/ruparna__encouraging-listening-long-dark-hair-subtitle-strips__right-three-quarter__fullbody__v003.png',
             samNeutral: '/academy/art/characters/sam/sam__neutral-close-cropped-chestnut__front-near-front__fullbody__v002.png',
             samListening: '/academy/art/characters/sam/sam__encouraging-listening-close-cropped-chestnut__right-three-quarter__fullbody__v002.png',
-            steve: '/academy/art/characters/steve/steve__neutral__front-near-front__halfbody__v001.png',
-            steveHappy: '/academy/art/characters/steve/steve__happy__right-three-quarter__halfbody__v001.png',
-            steveDetermined: '/academy/art/characters/steve/steve__determined__left-three-quarter__halfbody__v001.png',
+            steve: '/academy/art/characters/steve/steve__neutral-silver-hair-glasses-family-message__front-near-front__halfbody__v002.png',
+            steveHappy: '/academy/art/characters/steve/steve__happy-silver-hair-glasses-family-message__front-near-front__halfbody__v002.png',
+            steveDetermined: '/academy/art/characters/steve/steve__determined-silver-hair-glasses-family-message__left-three-quarter__halfbody__v002.png',
         });
         expect(ACADEMY_ASSETS.characters.approved).toEqual({
             aakash: ACADEMY_APPROVED_CHARACTER_SPRITES.aakash,
@@ -137,9 +137,9 @@ describe('Academy runtime asset registry', () => {
             'character.jodi.encouraging-listening-silver-streaked-bob-plum-scarf-right-three-quarter-fullbody-v002',
             'character.nanako.neutral-teal-coat-coral-scarf-front-near-front-fullbody-v002',
             'character.nanako.encouraging-listening-teal-coat-coral-scarf-right-three-quarter-fullbody-v002',
-            'character.steve.neutral-front',
-            'character.steve.happy-right',
-            'character.steve.determined-left',
+            'character.steve.neutral-silver-hair-glasses-family-message-front-near-front-halfbody-v002',
+            'character.steve.happy-silver-hair-glasses-family-message-front-near-front-halfbody-v002',
+            'character.steve.determined-silver-hair-glasses-family-message-left-three-quarter-halfbody-v002',
         ] as const) {
             expect(ACADEMY_RUNTIME_ASSET_REGISTRY[id].status).toBe('approved');
         }

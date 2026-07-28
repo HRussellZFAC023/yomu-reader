@@ -18,8 +18,8 @@
     ]
   },
   "counts": {
-    "runtimeAssetHomes": 264,
-    "runtimeFiles": 370,
+    "runtimeAssetHomes": 266,
+    "runtimeFiles": 372,
     "nonRuntimeReviewFiles": 1734,
     "approvedReferenceOnly": 4,
     "explicitlyRejectedFamilies": 4,
@@ -1213,147 +1213,6 @@
         }
       ],
       "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
-    },
-    {
-      "id": "character-steve-determined-left",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "c673e40278296b6a656680cf135c89d29379422f322b66013c6c609cf5dc44b5",
-      "provenance": "retained-good",
-      "verdict": "approved-runtime",
-      "runtimeHome": [
-        "journal:steve-expression-gallery"
-      ],
-      "reviewHome": [],
-      "usage": {
-        "runtime": [
-          "journal:steve-expression-gallery"
-        ],
-        "review": []
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/steve/steve__determined__left-three-quarter__halfbody__v001.png",
-          "sha256": "c673e40278296b6a656680cf135c89d29379422f322b66013c6c609cf5dc44b5"
-        }
-      ],
-      "status": "retained approved cast runtime sprite"
-    },
-    {
-      "id": "character-steve-happy-right",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "c972dfecab8e6720af12d44cfc98f80ed0d09789cca53958f32d3ad5eb810b07",
-      "provenance": "retained-good",
-      "verdict": "approved-runtime",
-      "runtimeHome": [
-        "journal:steve-expression-gallery"
-      ],
-      "reviewHome": [],
-      "usage": {
-        "runtime": [
-          "journal:steve-expression-gallery"
-        ],
-        "review": []
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/steve/steve__happy__right-three-quarter__halfbody__v001.png",
-          "sha256": "c972dfecab8e6720af12d44cfc98f80ed0d09789cca53958f32d3ad5eb810b07"
-        }
-      ],
-      "status": "retained approved cast runtime sprite"
-    },
-    {
-      "id": "character-steve-neutral-front",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "f56758c5e8d968381cebc81cd21d776dd62941a2e9a3a9aacfc1286fb8ffd1ef",
-      "provenance": "retained-good",
-      "verdict": "approved-runtime",
-      "runtimeHome": [
-        "journal:steve",
-        "scene:steve-introduction"
-      ],
-      "reviewHome": [],
-      "usage": {
-        "runtime": [
-          "journal:steve",
-          "scene:steve-introduction"
-        ],
-        "review": []
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/steve/steve__neutral__front-near-front__halfbody__v001.png",
-          "sha256": "f56758c5e8d968381cebc81cd21d776dd62941a2e9a3a9aacfc1286fb8ffd1ef"
-        }
-      ],
-      "status": "retained approved cast runtime sprite"
-    },
-    {
-      "id": "character-steve-standardized-encouraging-listening-front-near-front-halfbody-v001",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "705f314f90aadea87bb1cb3d5466c17cecacf77f8d64d3451d34221cca6b8710",
-      "provenance": "regenerated-standardized",
-      "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": [
-        "journal:steve-expression-gallery",
-        "cast-standardization:steve"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "learner-journal-preview"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:steve-expression-gallery",
-          "cast-standardization:steve"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/steve/steve__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
-          "sha256": "705f314f90aadea87bb1cb3d5466c17cecacf77f8d64d3451d34221cca6b8710"
-        }
-      ],
-      "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-    },
-    {
-      "id": "character-steve-standardized-happy-front-near-front-halfbody-v001",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "2769c2bfce3a0d1502e7fdd982d970f0cd37a1994a68074909000b1f40b0474b",
-      "provenance": "regenerated-standardized",
-      "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": [
-        "journal:steve-expression-gallery",
-        "cast-standardization:steve"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "learner-journal-preview"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:steve-expression-gallery",
-          "cast-standardization:steve"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/steve/steve__standardized-happy__front-near-front__halfbody__v001.png",
-          "sha256": "2769c2bfce3a0d1502e7fdd982d970f0cd37a1994a68074909000b1f40b0474b"
-        }
-      ],
-      "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
     },
     {
       "id": "character-takeshi-standardized-encouraging-listening-front-near-front-halfbody-v001",
@@ -10253,7 +10112,7 @@
       "deliveries": [
         {
           "path": "/academy/art/SPRITE-BATCH-MANIFEST.json",
-          "sha256": "98672bba000c36958d9afee4f976b5973ae13ce98808b67092ac9615228b198a"
+          "sha256": "20663c60d7e155d512b0049e0daab061529c6cca200d26cab9167309bcc1fc4b"
         }
       ],
       "status": "bound-and-schema-validated"
@@ -15879,6 +15738,252 @@
         {
           "path": "/academy/art/characters/tom2/tom2__sad-vulnerable-reserved-dark-hair-notebook__left-three-quarter__halfbody__v002.png",
           "sha256": "f60075d0f4291108d22b7456fc4ade2a33becd6bbfb9a22a186e41e1eb8cc1a8"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-steve-neutral-silver-hair-glasses-family-message-front-near-front-halfbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "089cee175b5022aefb01cfef26fa3784ab1d992d5ded816b390b6818b9f0c534",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:steve",
+        "class:people",
+        "class:week-cast",
+        "lesson-overview:roster",
+        "world:person",
+        "story:cast:steve",
+        "cast-standardization:steve"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:steve",
+          "class:people",
+          "class:week-cast",
+          "lesson-overview:roster",
+          "world:person",
+          "story:cast:steve",
+          "cast-standardization:steve"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/steve/steve__neutral-silver-hair-glasses-family-message__front-near-front__halfbody__v002.png",
+          "sha256": "089cee175b5022aefb01cfef26fa3784ab1d992d5ded816b390b6818b9f0c534"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-steve-encouraging-listening-silver-hair-glasses-family-message-right-three-quarter-halfbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "d2691b70f52a7e012ed6c54372d04d41defc68e38c7598a667f7f8d53660fbf3",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:steve-expression-gallery",
+        "story:cast:steve:encouraging-listening",
+        "cast-standardization:steve"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:steve-expression-gallery",
+          "story:cast:steve:encouraging-listening",
+          "cast-standardization:steve"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/steve/steve__encouraging-listening-silver-hair-glasses-family-message__right-three-quarter__halfbody__v002.png",
+          "sha256": "d2691b70f52a7e012ed6c54372d04d41defc68e38c7598a667f7f8d53660fbf3"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-steve-happy-silver-hair-glasses-family-message-front-near-front-halfbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "66650f8157b94d319b7f680b74e3d83bc22a03e4a43cb870d8f2f93063bff745",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:steve-expression-gallery",
+        "story:cast:steve:happy",
+        "cast-standardization:steve"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:steve-expression-gallery",
+          "story:cast:steve:happy",
+          "cast-standardization:steve"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/steve/steve__happy-silver-hair-glasses-family-message__front-near-front__halfbody__v002.png",
+          "sha256": "66650f8157b94d319b7f680b74e3d83bc22a03e4a43cb870d8f2f93063bff745"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-steve-thoughtful-silver-hair-glasses-family-message-left-three-quarter-halfbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "9136a8cfeebf0ac82bb126baf44723ff9c06e442fb89ab2dc6dcade58171ea8c",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:steve-expression-gallery",
+        "story:cast:steve:thoughtful",
+        "cast-standardization:steve"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:steve-expression-gallery",
+          "story:cast:steve:thoughtful",
+          "cast-standardization:steve"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/steve/steve__thoughtful-silver-hair-glasses-family-message__left-three-quarter__halfbody__v002.png",
+          "sha256": "9136a8cfeebf0ac82bb126baf44723ff9c06e442fb89ab2dc6dcade58171ea8c"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-steve-determined-silver-hair-glasses-family-message-left-three-quarter-halfbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "3657144d266546ee8f16d4d3aa83cfdad7c5663893ba647235148babad6ac606",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:steve-expression-gallery",
+        "story:cast:steve:determined",
+        "cast-standardization:steve"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:steve-expression-gallery",
+          "story:cast:steve:determined",
+          "cast-standardization:steve"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/steve/steve__determined-silver-hair-glasses-family-message__left-three-quarter__halfbody__v002.png",
+          "sha256": "3657144d266546ee8f16d4d3aa83cfdad7c5663893ba647235148babad6ac606"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-steve-surprised-shocked-silver-hair-glasses-family-message-right-three-quarter-halfbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "57f46f6498da42989a17b9f76d0b4489bafe4110725d632b128571156107a3c7",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:steve-expression-gallery",
+        "story:cast:steve:surprised-shocked",
+        "cast-standardization:steve"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:steve-expression-gallery",
+          "story:cast:steve:surprised-shocked",
+          "cast-standardization:steve"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/steve/steve__surprised-shocked-silver-hair-glasses-family-message__right-three-quarter__halfbody__v002.png",
+          "sha256": "57f46f6498da42989a17b9f76d0b4489bafe4110725d632b128571156107a3c7"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-steve-sad-vulnerable-silver-hair-glasses-family-message-left-three-quarter-halfbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "0a7cb4d7f7b46475c18947f3707210a08a5fc04e5dacf03ff3107e01267419bf",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:steve-expression-gallery",
+        "story:cast:steve:sad-vulnerable",
+        "cast-standardization:steve"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:steve-expression-gallery",
+          "story:cast:steve:sad-vulnerable",
+          "cast-standardization:steve"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/steve/steve__sad-vulnerable-silver-hair-glasses-family-message__left-three-quarter__halfbody__v002.png",
+          "sha256": "0a7cb4d7f7b46475c18947f3707210a08a5fc04e5dacf03ff3107e01267419bf"
         }
       ],
       "status": "identity-locked, visually inspected, runtime-bound house-style sprite"

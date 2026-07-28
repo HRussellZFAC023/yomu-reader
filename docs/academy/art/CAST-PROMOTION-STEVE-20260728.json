@@ -1,0 +1,102 @@
+{
+  "promotions": [
+    {
+      "castId": "steve",
+      "archiveLabel": "partial-family-superseded-20260728",
+      "archiveAllCurrent": true,
+      "replaceExpressions": [
+        "neutral",
+        "encouraging-listening",
+        "happy",
+        "thoughtful",
+        "determined",
+        "surprised-shocked",
+        "sad-vulnerable"
+      ],
+      "canonicalNeutralAssetId": "character.steve.neutral-silver-hair-glasses-family-message-front-near-front-halfbody-v002",
+      "slots": [
+        {
+          "assetId": "character.steve.neutral-silver-hair-glasses-family-message-front-near-front-halfbody-v002",
+          "expression": "neutral",
+          "angle": "front-near-front",
+          "assetPath": "/academy/art/characters/steve/steve__neutral-silver-hair-glasses-family-message__front-near-front__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:steve",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "story:cast:steve",
+            "cast-standardization:steve"
+          ]
+        },
+        {
+          "assetId": "character.steve.encouraging-listening-silver-hair-glasses-family-message-right-three-quarter-halfbody-v002",
+          "expression": "encouraging-listening",
+          "angle": "right-three-quarter",
+          "assetPath": "/academy/art/characters/steve/steve__encouraging-listening-silver-hair-glasses-family-message__right-three-quarter__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:steve-expression-gallery",
+            "story:cast:steve:encouraging-listening",
+            "cast-standardization:steve"
+          ]
+        },
+        {
+          "assetId": "character.steve.happy-silver-hair-glasses-family-message-front-near-front-halfbody-v002",
+          "expression": "happy",
+          "angle": "front-near-front",
+          "assetPath": "/academy/art/characters/steve/steve__happy-silver-hair-glasses-family-message__front-near-front__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:steve-expression-gallery",
+            "story:cast:steve:happy",
+            "cast-standardization:steve"
+          ]
+        },
+        {
+          "assetId": "character.steve.thoughtful-silver-hair-glasses-family-message-left-three-quarter-halfbody-v002",
+          "expression": "thoughtful",
+          "angle": "left-three-quarter",
+          "assetPath": "/academy/art/characters/steve/steve__thoughtful-silver-hair-glasses-family-message__left-three-quarter__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:steve-expression-gallery",
+            "story:cast:steve:thoughtful",
+            "cast-standardization:steve"
+          ]
+        },
+        {
+          "assetId": "character.steve.determined-silver-hair-glasses-family-message-left-three-quarter-halfbody-v002",
+          "expression": "determined",
+          "angle": "left-three-quarter",
+          "assetPath": "/academy/art/characters/steve/steve__determined-silver-hair-glasses-family-message__left-three-quarter__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:steve-expression-gallery",
+            "story:cast:steve:determined",
+            "cast-standardization:steve"
+          ]
+        },
+        {
+          "assetId": "character.steve.surprised-shocked-silver-hair-glasses-family-message-right-three-quarter-halfbody-v002",
+          "expression": "surprised-shocked",
+          "angle": "right-three-quarter",
+          "assetPath": "/academy/art/characters/steve/steve__surprised-shocked-silver-hair-glasses-family-message__right-three-quarter__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:steve-expression-gallery",
+            "story:cast:steve:surprised-shocked",
+            "cast-standardization:steve"
+          ]
+        },
+        {
+          "assetId": "character.steve.sad-vulnerable-silver-hair-glasses-family-message-left-three-quarter-halfbody-v002",
+          "expression": "sad-vulnerable",
+          "angle": "left-three-quarter",
+          "assetPath": "/academy/art/characters/steve/steve__sad-vulnerable-silver-hair-glasses-family-message__left-three-quarter__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:steve-expression-gallery",
+            "story:cast:steve:sad-vulnerable",
+            "cast-standardization:steve"
+          ]
+        }
+      ]
+    }
+  ]
+}

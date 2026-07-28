@@ -140,7 +140,7 @@ export const ACADEMY_CAST = [
         visualEvidence: 'approved',
         eligibility: { story: true, lessons: true, likenessRuntime: true },
         nameEvidence: 'owner-named',
-        visualBrief: 'Older man; married to a Japanese wife; learning to write naturally in family group chats with his bilingual children.',
+        visualBrief: 'Older White man with silver side-swept hair, rectangular glasses, neat grey moustache and stubble, moss jacket and rust polo; phone and practice card connect his Japanese to family messages.',
     },
     {
         id: 'nanako',

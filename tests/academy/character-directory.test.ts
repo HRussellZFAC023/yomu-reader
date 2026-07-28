@@ -112,7 +112,7 @@ describe('Academy character directory presentation', () => {
             { onReplayRie: vi.fn(), onReplayAakash: vi.fn() },
         );
 
-        for (const [characterId, expectedCount] of [['tom2', 7], ['steve', 5]] as const) {
+        for (const [characterId, expectedCount] of [['tom2', 7], ['steve', 7]] as const) {
             screen.querySelector<HTMLButtonElement>(`[data-character="${characterId}"] button`)?.click();
             const gallery = screen.querySelector<HTMLElement>(`.academy-character-sprite-gallery[data-character="${characterId}"]`)!;
             expect(gallery.querySelectorAll('img')).toHaveLength(expectedCount);
