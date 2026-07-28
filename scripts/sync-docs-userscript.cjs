@@ -16,9 +16,12 @@ const {
   immutableReaderCssFileName,
 } = require('./lib/greasyfork-libraries.cjs');
 const { stampAppearanceBoot } = require('./lib/hosted-appearance-boot.cjs');
+const { stampSiteNav } = require('./lib/hosted-site-nav.cjs');
 
-// Standalone hosted pages that paint their own chrome and need the pre-paint
-// accent bootstrap stamped into their marked <head> block.
+// Standalone hosted pages that paint their own chrome, so they need both the
+// pre-paint accent bootstrap in their marked <head> block and the site
+// navigation in their marked overflow-menu block. Nothing in the VitePress
+// theme can reach them: they are served as plain files.
 const APPEARANCE_BOOT_PAGES = [
   join(root, 'docs', 'public', 'pdf-reader', 'index.html'),
   join(root, 'docs', 'public', 'video-player', 'index.html'),
@@ -60,10 +63,12 @@ function stampStandaloneAppearanceBoot() {
   for (const page of APPEARANCE_BOOT_PAGES) {
     if (!existsSync(page)) fail(`Missing hosted page: ${page}`);
     const source = readFileSync(page, 'utf8');
-    const stamped = stampAppearanceBoot(source, 'surface');
-    if (!stamped) fail(`Missing appearance-boot markers in ${page}`);
+    const booted = stampAppearanceBoot(source, 'surface');
+    if (!booted) fail(`Missing appearance-boot markers in ${page}`);
+    const stamped = stampSiteNav(booted);
+    if (!stamped) fail(`Missing site-nav markers in ${page}`);
     if (stamped !== source) writeFileSync(page, stamped);
-    console.log(`Stamped pre-paint appearance boot into ${page}`);
+    console.log(`Stamped pre-paint appearance boot and site nav into ${page}`);
   }
 }
 

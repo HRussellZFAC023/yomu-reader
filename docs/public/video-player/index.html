@@ -216,6 +216,13 @@
       display: none;
     }
 
+    .overflow-divider {
+      width: 100%;
+      margin: 4px 0;
+      border: 0;
+      border-top: 1px solid var(--line);
+    }
+
     .overflow-panel a,
     .overflow-panel button {
       display: flex;
@@ -827,16 +834,29 @@
           </summary>
           <div class="overflow-panel">
             <button type="button" data-settings-trigger>Settings</button>
-            <a href="../newtab/index.html" data-menu-study>Study</a>
-            <a href="../academy/" data-menu-academy>Academy</a>
-            <a href="../video-player/index.html" data-menu-video>Video Player</a>
-            <a href="../pdf-reader/index.html" data-menu-pdf-reader>PDF Reader</a>
-            <a href="../newtab/index.html?mode=stats" data-menu-stats>Stats</a>
-            <a href="../local-audio" data-menu-local-audio>Local Audio</a>
-            <a href="../changelog" data-menu-changelog>Changelog</a>
+            <!-- Site navigation, stamped from src/reader/app/site-nav.ts by
+                 scripts/sync-docs-userscript.cjs. Edit the list there. -->
+            <!-- yomu:site-nav:start -->
+            <a href="../getting-started" data-site-nav-item data-nav-ja="はじめる">Get started</a>
+            <a href="../guides/" data-site-nav-item data-nav-ja="ガイド">Guides</a>
+            <a href="../tools/" data-site-nav-item data-nav-ja="ツール">Tools</a>
+            <a href="../study/" target="_self" data-site-nav-item data-nav-ja="学習">Study</a>
+            <a href="../academy/" target="_self" data-site-nav-item data-nav-ja="アカデミー">Academy</a>
+            <a href="../support" data-site-nav-item data-nav-ja="ヘルプ">Help</a>
+            <a href="../membership" target="_self" data-site-nav-item data-nav-ja="メンバーシップ">Membership</a>
+            <a href="../video-player/index.html" target="_self" data-site-nav-item data-nav-ja="動画プレイヤー">Video Player</a>
+            <a href="../pdf-reader/index.html" target="_self" data-site-nav-item data-nav-ja="PDFリーダー">PDF Reader</a>
+            <a href="../study/?mode=stats" target="_self" data-site-nav-item data-nav-ja="統計">Stats</a>
+            <a href="../api/" target="_self" data-site-nav-item data-nav-ja="API">API</a>
+            <a href="../local-audio" data-site-nav-item data-nav-ja="ローカル音声">Local Audio</a>
+            <a href="../reference/settings" data-site-nav-item data-nav-ja="設定リファレンス">Settings reference</a>
+            <a href="../faq" data-site-nav-item data-nav-ja="よくある質問">FAQ</a>
+            <a href="../changelog" data-site-nav-item data-nav-ja="変更履歴">Changelog</a>
+            <a href="../privacy" data-site-nav-item data-nav-ja="プライバシー">Privacy</a>
+            <!-- yomu:site-nav:end -->
+            <hr class="overflow-divider">
             <a href="https://github.com/HRussellZFAC023/yomu-reader" target="_blank" rel="noopener" data-menu-github>GitHub</a>
             <a href="https://discord.gg/jD6NPURewD" target="_blank" rel="noopener" data-menu-discord>Discord</a>
-            <a href="../support" data-menu-support>Support</a>
           </div>
         </details>
         <button class="toolbar-button" type="button" data-subtitle-open>Subtitles</button>
@@ -955,16 +975,8 @@
           menu: 'Menu',
           settings: 'Settings',
           openSettings: 'Open settings',
-          study: 'Study',
-          academy: 'Academy',
-          videoPlayer: 'Video Player',
-          pdfReader: 'PDF Reader',
-          stats: 'Stats',
-          localAudio: 'Local Audio',
-          changelog: 'Changelog',
           github: 'GitHub',
           discord: 'Discord',
-          support: 'Support',
           switchToLightTheme: 'Switch to light theme',
           switchToDarkTheme: 'Switch to dark theme',
           switchToJapanese: 'Switch Yomu HUD to Japanese',
@@ -998,16 +1010,8 @@
           menu: 'メニュー',
           settings: '設定',
           openSettings: '設定を開く',
-          study: '学習',
-          academy: 'アカデミー',
-          videoPlayer: '動画プレイヤー',
-          pdfReader: 'PDFリーダー',
-          stats: '統計',
-          localAudio: 'ローカル音声',
-          changelog: '変更履歴',
           github: 'GitHub',
           discord: 'Discord',
-          support: 'サポート',
           switchToLightTheme: 'ライトテーマに切り替え',
           switchToDarkTheme: 'ダークテーマに切り替え',
           switchToJapanese: 'Yomu HUDを日本語に切り替え',
@@ -1183,16 +1187,15 @@
           settingsTrigger.textContent = text.settings;
           settingsTrigger.setAttribute('aria-label', text.openSettings);
         }
-        document.querySelector('[data-menu-study]')?.replaceChildren(text.study);
-        document.querySelector('[data-menu-academy]')?.replaceChildren(text.academy);
-        document.querySelector('[data-menu-video]')?.replaceChildren(text.videoPlayer);
-        document.querySelector('[data-menu-pdf-reader]')?.replaceChildren(text.pdfReader);
-        document.querySelector('[data-menu-stats]')?.replaceChildren(text.stats);
-        document.querySelector('[data-menu-local-audio]')?.replaceChildren(text.localAudio);
-        document.querySelector('[data-menu-changelog]')?.replaceChildren(text.changelog);
+        // The stamped site nav carries its own Japanese label per entry, so adding
+        // a route to src/reader/app/site-nav.ts needs no edit here.
+        for (const item of document.querySelectorAll('[data-site-nav-item]')) {
+          const japanese = item.dataset.navJa;
+          if (!item.dataset.navEn) item.dataset.navEn = item.textContent.trim();
+          item.replaceChildren(language === 'ja' && japanese ? japanese : item.dataset.navEn);
+        }
         document.querySelector('[data-menu-github]')?.replaceChildren(text.github);
         document.querySelector('[data-menu-discord]')?.replaceChildren(text.discord);
-        document.querySelector('[data-menu-support]')?.replaceChildren(text.support);
         if (!currentVideoName) setStatus(text.emptyStatus);
         if (languageToggle) {
           const next = nextInterfaceLanguage();

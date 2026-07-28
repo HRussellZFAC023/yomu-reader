@@ -37,9 +37,25 @@ import type {
     NewTabRenderedState,
     JPDBCard,
 } from './fixtures';
+import { DOCS_BASE_URL } from '../../../src/reader/app/constants';
+import { studyShellNavRoutes } from '../../../src/reader/app/site-nav';
 
 describe('new tab review — dictionary fallbacks, refresh & shared-URL history', () => {
     registerNewTabReviewCleanup();
+
+    it('keeps the extension Study and Stats routes on the extension origin', () => {
+        const extensionPage = 'moz-extension://yomu-test/newtab/index.html';
+        const links = studyShellNavRoutes(DOCS_BASE_URL, extensionPage);
+
+        for (const label of ['Study', 'Stats']) {
+            const link = links.find(candidate => candidate.text === label);
+            expect(link, `${label} is missing from the Study menu`).toBeDefined();
+            expect(new URL(link!.href, extensionPage).origin).toBe(new URL(extensionPage).origin);
+        }
+        expect(links.find(link => link.text === 'Study')?.href).toBe('./');
+        expect(links.find(link => link.text === 'Stats')?.href).toBe('./?mode=stats');
+        expect(links.find(link => link.text === 'Academy')?.href).toBe(`${DOCS_BASE_URL}academy/`);
+    });
 
 
     it('keeps new-tab word readings and meanings off the front side until reveal', async () => {

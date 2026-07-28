@@ -49,7 +49,12 @@ describe('hosted overflow menus', () => {
         const membership = readProjectFile('docs/membership.md');
         const popover = readProjectFile('docs/.vitepress/theme/membership-popover.ts');
 
-        expect(MEMBERSHIP_NAV).toEqual({ text: 'Membership', link: '/membership', target: '_self' });
+        expect(MEMBERSHIP_NAV).toEqual({
+            text: 'Membership',
+            ja: 'メンバーシップ',
+            link: '/membership',
+            target: '_self',
+        });
         expect(config).toContain("{ icon: 'github', link: `https://github.com/HRussellZFAC023/${repositoryName}` }");
         expect(config).toContain("{ icon: 'discord', link: 'https://discord.gg/jD6NPURewD' }");
         expect(config).not.toContain('...donationSocialLinks');

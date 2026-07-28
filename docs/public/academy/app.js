@@ -35910,11 +35910,7 @@ ${spelling}`);
       helpSupportCopyExtra: SUPPORT_COPY_EXTRA,
       videoPlayer: "Video Player",
       pdfReader: "PDF Reader",
-      academy: "Academy",
       newTabPage: "Study",
-      localAudio: "Local Audio",
-      changelog: "Changelog",
-      support: "Support",
       github: "GitHub",
       word: "Word",
       search: "Search",
@@ -37411,11 +37407,7 @@ helpSupportCopy	よむは検索、OCR、字幕、辞書、学習、Ankiをまと
 helpSupportCopyExtra	寄付は開発とサービス費用を支えます。
 videoPlayer	動画プレイヤー
 pdfReader	PDFリーダー
-academy	アカデミー
 newTabPage	学習
-localAudio	ローカル音声
-changelog	変更履歴
-support	サポート
 github	GitHub
 docs	ドキュメント
 factoryReset	初期状態に戻す
@@ -305608,6 +305600,58 @@ ${newTabCardReading(card)}`;
       context2.getSettings().interfaceLanguage
     ));
   }
+  const PRIMARY_NAV = Object.freeze([
+    { text: "Get started", ja: "はじめる", link: "/getting-started" },
+    { text: "Guides", ja: "ガイド", link: "/guides/" },
+    { text: "Tools", ja: "ツール", link: "/tools/" },
+    { text: "Study", ja: "学習", link: "/study/", target: "_self" },
+    { text: "Academy", ja: "アカデミー", link: "/academy/", target: "_self" },
+    // 'Help' rather than 'Support'. 'Support' answered two different questions at
+    // once — "get help with Yomu" and "give money to Yomu" — and a visitor could
+    // not tell which one the nav meant. Money now lives under MEMBERSHIP_NAV.
+    { text: "Help", ja: "ヘルプ", link: "/support" }
+  ]);
+  const OVERFLOW_NAV = Object.freeze([
+    { text: "Video Player", ja: "動画プレイヤー", link: "/video-player/index.html", hostedHref: "/video-player/index.html", target: "_self" },
+    { text: "PDF Reader", ja: "PDFリーダー", link: "/pdf-reader/index.html", hostedHref: "/pdf-reader/index.html", target: "_self" },
+    { text: "Stats", ja: "統計", link: "/study/?mode=stats", target: "_self" },
+    { text: "API", ja: "API", link: "/api/", target: "_self" },
+    { text: "Local Audio", ja: "ローカル音声", link: "/local-audio" },
+    // Generated from DEFAULT_SETTINGS by scripts/settings-reference.mjs. It
+    // stays in overflow because a learner reaches for it to find one control.
+    { text: "Settings reference", ja: "設定リファレンス", link: "/reference/settings" },
+    { text: "FAQ", ja: "よくある質問", link: "/faq" },
+    { text: "Changelog", ja: "変更履歴", link: "/changelog" },
+    { text: "Privacy", ja: "プライバシー", link: "/privacy" }
+  ]);
+  const MEMBERSHIP_NAV = Object.freeze({ text: "Membership", ja: "メンバーシップ", link: "/membership", target: "_self" });
+  function siteNavRoutes() {
+    return [...PRIMARY_NAV, MEMBERSHIP_NAV, ...OVERFLOW_NAV];
+  }
+  function hostedShellNavRoutes(base) {
+    return siteNavRoutes().map((route) => ({
+      text: route.text,
+      ja: route.ja,
+      href: `${base}${(route.hostedHref ?? route.link).replace(/^\//, "")}`,
+      ...route.target ? { target: route.target } : {}
+    }));
+  }
+  function studyShellNavRoutes(base, pageUrl) {
+    const links = hostedShellNavRoutes(base);
+    if (sameOrigin(base, pageUrl)) return links;
+    return links.map((link) => {
+      if (link.text === "Study") return { ...link, href: "./" };
+      if (link.text === "Stats") return { ...link, href: "./?mode=stats" };
+      return link;
+    });
+  }
+  function sameOrigin(left, right) {
+    try {
+      return new URL(left).origin === new URL(right).origin;
+    } catch {
+      return false;
+    }
+  }
   const SUPPORT_BANNER_DAY_MS = 24 * 60 * 60 * 1e3;
   const SUPPORT_BANNER_FIRST_QUIET_VISITS = 3;
   const SUPPORT_BANNER_VISIT_INTERVAL = 6;
@@ -313165,14 +313209,7 @@ ${entry2.url}`),
         this.renderOverflowMenuButton(newTabText(language2, "connectionsAndSettings"), "settings", language2, {
           description: newTabText(language2, "connectionsDescription")
         }),
-        this.renderOverflowMenuLink(uiText(language2, "academy"), `${DOCS_BASE_URL}academy/`, language2),
-        this.renderOverflowMenuLink(uiText(language2, "videoPlayer"), VIDEO_PLAYER_PAGE_URL, language2),
-        this.renderOverflowMenuLink(uiText(language2, "pdfReader"), PDF_READER_PAGE_URL, language2),
-        this.renderOverflowMenuButton(newTabText(language2, "stats"), "mode", language2, {
-          dataset: { mode: "stats" }
-        }),
-        this.renderOverflowMenuLink(uiText(language2, "localAudio"), `${DOCS_BASE_URL}local-audio`, language2),
-        this.renderOverflowMenuLink(uiText(language2, "changelog"), `${DOCS_BASE_URL}changelog`, language2),
+        ...studyShellNavRoutes(DOCS_BASE_URL, location.href).map((link) => this.renderSiteNavLink(link, language2)),
         this.renderOverflowMenuButton(newTabText(language2, "installStudyApp"), "install-app", language2, {
           className: "jpdb-reader-newtab-install-app",
           dataset: { newtabInstallApp: true, installPromptAvailable: false },
@@ -313188,9 +313225,25 @@ ${entry2.url}`),
         }),
         el("hr", { class: "jpdb-reader-newtab-more-divider" }),
         this.renderOverflowMenuLink(uiText(language2, "github"), GITHUB_REPOSITORY_URL, language2),
-        this.renderOverflowMenuLink(uiText(language2, "discord"), DISCORD_INVITE_URL, language2),
-        this.renderOverflowMenuLink(uiText(language2, "support"), `${DOCS_BASE_URL}support`, language2)
+        this.renderOverflowMenuLink(uiText(language2, "discord"), DISCORD_INVITE_URL, language2)
       );
+    }
+    /**
+     * A site-nav entry. Same tab, like the other two hosted shells, and the
+     * entry's own `target` when it carries one — Membership's `_self` is what
+     * keeps the docs membership popover from being hijacked by the VitePress
+     * router, and the markup is the same everywhere so it travels with it.
+     */
+    renderSiteNavLink(link, language2) {
+      const japanese2 = resolveUiLanguage(language2) === "ja";
+      return el("a", {
+        class: "jpdb-reader-newtab-menu-item jpdb-reader-parseable",
+        href: link.href,
+        ...link.target ? { target: link.target } : {},
+        dataset: { newtabAction: "site-nav" },
+        role: "menuitem",
+        lang: japanese2 ? "ja" : "en"
+      }, japanese2 ? link.ja : link.text);
     }
     renderAppNavigation(language2) {
       const item2 = (label, mark, action2, mode) => el(

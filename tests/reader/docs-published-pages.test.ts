@@ -8,6 +8,13 @@ import {
     sitemapItemsForRoutes,
     sitemapRouteKey,
 } from '../../config/docs/published-pages';
+import {
+    MEMBERSHIP_NAV,
+    docsNav,
+    hostedShellNavMarkup,
+    hostedShellNavRoutes,
+    siteNavRoutes,
+} from '../../src/reader/app/site-nav';
 
 const ROOT = process.cwd();
 const DOCS = path.join(ROOT, 'docs');
@@ -99,13 +106,13 @@ describe('published docs pages', () => {
     });
 
     it('links every published page from the site navigation', () => {
-        // The nav moved to docs/.vitepress/shared/nav.ts so the docs pages and the
-        // hosted Study/PDF/Video shells render one list instead of two that drift.
+        // The nav lives in src/reader/app/site-nav.ts so the docs pages and all
+        // three hosted shells render one list instead of four that drift.
         // Search both: config.mts still holds the sidebar, and a page reachable
         // from either counts as linked.
         const sources = [
             readProjectFile('docs/.vitepress/config.mts'),
-            readProjectFile('docs/.vitepress/shared/nav.ts'),
+            readProjectFile('src/reader/app/site-nav.ts'),
         ].join('\n');
 
         for (const route of PUBLIC_ROUTES) {
@@ -121,6 +128,56 @@ describe('published docs pages', () => {
         expect(config).toContain('srcExclude: internalDocsExcludeGlobs');
         expect(config).toContain('sitemapItemsForRoutes(items, linkedRoutes)');
         expect(internalDocsExcludeGlobs).toContain('academy/**/*.md');
+    });
+});
+
+describe('one navbar everywhere', () => {
+    const SHELLS = ['docs/public/pdf-reader/index.html', 'docs/public/video-player/index.html'];
+
+    it('stamps the same site nav into every standalone hosted shell', () => {
+        // The two static shells are served outside the VitePress theme, so their
+        // menus are stamped from the canonical list at build time. A list edit
+        // without a rebuild leaves them behind, which is how they ended up
+        // pointing Study and Stats at the retired /newtab/ route.
+        const expected = hostedShellNavMarkup('../', ' '.repeat(12));
+
+        for (const shell of SHELLS) {
+            const source = readProjectFile(shell);
+            const start = source.indexOf('<!-- yomu:site-nav:start -->');
+            const end = source.indexOf('<!-- yomu:site-nav:end -->');
+            expect(start, `${shell} has no site-nav markers`).toBeGreaterThan(0);
+            expect(end).toBeGreaterThan(start);
+            const stamped = source.slice(start + '<!-- yomu:site-nav:start -->'.length, end).trim();
+            expect(stamped, `${shell} is stamped from a stale nav — run scripts/sync-docs-userscript.cjs`)
+                .toBe(expected.trim());
+        }
+    });
+
+    it('keeps Membership carrying target="_self" on every surface', () => {
+        // VitePress's router claims in-site link clicks on window and skips any
+        // anchor with a target, which is the only reason the membership popover
+        // gets to open instead of the router navigating away.
+        expect(MEMBERSHIP_NAV.target).toBe('_self');
+        expect(docsNav()).toContainEqual({ text: 'Membership', link: '/membership', target: '_self' });
+
+        const membership = hostedShellNavRoutes('/').find(link => link.text === 'Membership');
+        expect(membership?.target).toBe('_self');
+        for (const shell of SHELLS) {
+            expect(readProjectFile(shell)).toContain('<a href="../membership" target="_self" data-site-nav-item');
+        }
+    });
+
+    it('keeps every nav label\'s Japanese in step with the docs copy map', () => {
+        // The static shells read data-nav-ja in applyInterfaceLanguage; Study's
+        // renderSiteNavLink chooses route.ja while rendering. The theme's map
+        // stays a flat object literal for its own i18n guards to parse, so this
+        // assertion stops either mechanism drifting from the docs navbar.
+        const themeSource = readProjectFile('docs/.vitepress/theme/index.ts');
+
+        for (const route of siteNavRoutes()) {
+            expect(themeSource, `${route.text} has no ja entry in the theme copy map`)
+                .toContain(`'${route.text}': '${route.ja}',`);
+        }
     });
 });
 

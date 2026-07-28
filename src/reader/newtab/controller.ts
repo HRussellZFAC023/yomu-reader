@@ -21,7 +21,8 @@ import { isJitenBackedCard } from '../cards/srs-providers';
 import type { CardRenderData, CardRenderDataLoadOptions } from '../cards/render-data';
 import { isCardHighlightWord } from '../cards/highlight';
 import { loadCachedParsedTokens, type ParsedTokenCacheEntry } from '../core/parsed-token-cache';
-import { ACADEMY_SRS_LABEL, APP_NAME, DISCORD_INVITE_URL, DOCS_BASE_URL, DONATE_URL, GITHUB_REPOSITORY_URL, IMMERSION_KIT_SOURCE_ID, JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, PDF_READER_PAGE_URL, SUPPORT_STATUS_URL, VIDEO_PLAYER_PAGE_URL } from '../app/constants';
+import { ACADEMY_SRS_LABEL, APP_NAME, DISCORD_INVITE_URL, DOCS_BASE_URL, DONATE_URL, GITHUB_REPOSITORY_URL, IMMERSION_KIT_SOURCE_ID, JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, SUPPORT_STATUS_URL } from '../app/constants';
+import { studyShellNavRoutes, type HostedShellNavLink } from '../app/site-nav';
 import { rememberSupportBannerDismissal, shouldShowSupportBannerImpression } from '../app/support-banner-policy';
 import { escapeHtml, htmlToFirstElement, setInnerHtml } from '../dom';
 import { el, fragment, replaceChildrenWith } from '../dom/builder';
@@ -1358,14 +1359,11 @@ export class NewTabController {
             this.renderOverflowMenuButton(newTabText(language, 'connectionsAndSettings'), 'settings', language, {
                 description: newTabText(language, 'connectionsDescription'),
             }),
-            this.renderOverflowMenuLink(uiText(language, 'academy'), `${DOCS_BASE_URL}academy/`, language),
-            this.renderOverflowMenuLink(uiText(language, 'videoPlayer'), VIDEO_PLAYER_PAGE_URL, language),
-            this.renderOverflowMenuLink(uiText(language, 'pdfReader'), PDF_READER_PAGE_URL, language),
-            this.renderOverflowMenuButton(newTabText(language, 'stats'), 'mode', language, {
-                dataset: { mode: 'stats' },
-            }),
-            this.renderOverflowMenuLink(uiText(language, 'localAudio'), `${DOCS_BASE_URL}local-audio`, language),
-            this.renderOverflowMenuLink(uiText(language, 'changelog'), `${DOCS_BASE_URL}changelog`, language),
+            // One route list, shared with the docs nav and the PDF Reader and
+            // Video Player shells. Study renders each route's English or
+            // Japanese label here; the two static shells localize stamped
+            // data-nav-ja attributes in their applyInterfaceLanguage loops.
+            ...studyShellNavRoutes(DOCS_BASE_URL, location.href).map(link => this.renderSiteNavLink(link, language)),
             this.renderOverflowMenuButton(newTabText(language, 'installStudyApp'), 'install-app', language, {
                 className: 'jpdb-reader-newtab-install-app',
                 dataset: { newtabInstallApp: true, installPromptAvailable: false },
@@ -1382,8 +1380,28 @@ export class NewTabController {
             el('hr', { class: 'jpdb-reader-newtab-more-divider' }),
             this.renderOverflowMenuLink(uiText(language, 'github'), GITHUB_REPOSITORY_URL, language),
             this.renderOverflowMenuLink(uiText(language, 'discord'), DISCORD_INVITE_URL, language),
-            this.renderOverflowMenuLink(uiText(language, 'support'), `${DOCS_BASE_URL}support`, language),
         );
+    }
+
+    /**
+     * A site-nav entry. Same tab, like the other two hosted shells, and the
+     * entry's own `target` when it carries one — Membership's `_self` is what
+     * keeps the docs membership popover from being hijacked by the VitePress
+     * router, and the markup is the same everywhere so it travels with it.
+     */
+    private renderSiteNavLink(
+        link: HostedShellNavLink,
+        language: ReaderSettings['interfaceLanguage'],
+    ): HTMLAnchorElement {
+        const japanese = resolveUiLanguage(language) === 'ja';
+        return el('a', {
+            class: 'jpdb-reader-newtab-menu-item jpdb-reader-parseable',
+            href: link.href,
+            ...(link.target ? { target: link.target } : {}),
+            dataset: { newtabAction: 'site-nav' },
+            role: 'menuitem',
+            lang: japanese ? 'ja' : 'en',
+        }, japanese ? link.ja : link.text);
     }
 
     private renderAppNavigation(language: ReaderSettings['interfaceLanguage']): HTMLElement {
