@@ -2158,7 +2158,13 @@ body:has(.yomu-home) .jpdb-reader-fab {
   flex: 0 0 100%;
 }
 
+/* The other bands bleed a single landscape frame off the edge, and losing a few
+   pixels of a screenshot there costs nothing. Here the first child is a narrow
+   phone, so the same negative margin cuts the device in half — and clipping does
+   NOT raise scrollWidth, so the audit's horizontal-overflow assertion passes
+   while the phone is visibly severed. Keep the rotation, drop the bleed. */
 #mobile .yomu-band-frame {
+  margin-left: 0;
   transform: rotate(var(--rot-1));
 }
 

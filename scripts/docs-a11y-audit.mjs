@@ -192,6 +192,15 @@ async function assertDocsAccessibility(page, label) {
             brokenVideos,
             missingAlt,
             horizontalOverflow: document.documentElement.scrollWidth > innerWidth + 2,
+            // horizontalOverflow cannot see a CLIPPED element: a negative margin
+            // pushes content past the left edge without growing scrollWidth, so
+            // the page measures clean while a device screenshot is cut in half.
+            // The landscape band frames bleed off the edge deliberately, but the
+            // device shots are the evidence that Yomu runs on a phone at all —
+            // half a phone is not that evidence.
+            clippedDeviceShots: [...document.querySelectorAll('.yomu-band-devices img')]
+                .map(img => ({ src: img.getAttribute('src'), left: Math.round(img.getBoundingClientRect().left), right: Math.round(img.getBoundingClientRect().right) }))
+                .filter(box => box.left < 0 || box.right > innerWidth + 2),
         };
     });
     assertAudit(!wcag.unnamedControls.length, `${label} has unnamed controls: ${JSON.stringify(wcag.unnamedControls)}`);

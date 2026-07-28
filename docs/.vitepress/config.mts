@@ -373,16 +373,31 @@ export default defineConfig({
         head.push(...jsonLdFor(pageData, pageUrl));
         return head;
     },
-    transformHtml(code) {
+    transformHtml(code, id) {
         // VitePress emits `rel="preload stylesheet"` for its main CSS chunks.
         // Chromium treats those as preload-only in the built preview, leaving the
         // homepage unstyled except for yomu.css. Emit normal stylesheet links so
         // every static page applies the theme CSS without relying on rel-token
         // interpretation.
-        return code.replace(
+        const styled = code.replace(
             /<link rel="preload stylesheet" href="([^"]+)" as="style">/g,
             '<link rel="stylesheet" href="$1">',
         );
+        if (!/(?:^|[\\/])index\.html$/.test(id)) return styled;
+        // Every picture on the homepage is a SCREENSHOT of Yomu, so each one is
+        // full of Japanese text and the reader treated all seven as pages to
+        // recognise: overlays appeared over the marketing stills unasked, and
+        // reading an image means uploading it to an OCR provider, so a visitor who
+        // had installed nothing had the page's own images sent to a third party.
+        //
+        // `data-yomu-ocr="ignore"` is the reader's existing page-side opt-out
+        // (isIgnoredOcrImage in src/reader/ocr/controller.ts), matched with
+        // closest(), so declaring it once on <body> covers every image on the page
+        // including ones added later. Stamped here rather than per-<img> so a new
+        // still cannot reintroduce this by being added without the attribute.
+        // Nothing about the reader changes: the hosted build stays byte-identical
+        // to the installed one and only this page opts out.
+        return styled.replace(/<body(?=[\s>])/, '<body data-yomu-ocr="ignore"');
     },
     themeConfig: {
         logo: { src: '/yomu-icon.svg', alt: 'よむ app icon' },
