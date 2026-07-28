@@ -76,6 +76,46 @@ run outside a fresh `origin/main` worktree is worthless. This pass ran in one.
       Gaming** (branch `gaming-remotion-video-20260727` exists, unmerged). No product page should show a
       capture of a docs page in place of the app — that was the Gaming page's defect.
 
+- [ ] **A15 — Finish "one navbar everywhere" (half done 2026-07-28).** DONE: the docs nav and the docs
+      overflow menu now build from one list, `docs/.vitepress/shared/nav.ts` (they were two hand-synced
+      copies; the second had already drifted — Stats pointed at `/newtab/` when the route is `/study/`,
+      and FAQ/Guides/Academy/Membership were missing). NOT DONE: the standalone shells. `docs/public/
+      study|pdf-reader|video-player` are static artifacts outside the VitePress theme, so they never
+      receive it — `pdf-reader`'s `<nav class="docbar">` is a *document toolbar*, not site nav, and
+      Study has no nav markup at all. To finish: move the canonical list somewhere `src/**` can import
+      (it currently lives under `docs/.vitepress/`), then have each shell render from it. One list,
+      three surfaces.
+- [ ] **A16 — The Study page is ALREADY an installable PWA and nothing says so.** `public/newtab/
+      manifest.webmanifest` + `sw.js` ship and deploy to `docs/public/study/`. **Backlog `D37` ("what is
+      missing is a PWA for the Study surface") is STALE.** Five defects suppress it: no PNG icon ≥192px
+      (SVG-only can fail Android installability outright), no `screenshots`, `theme_color` inconsistent
+      with the HTML meta and not stamped from the user's accent, app shortcuts pointing at a legacy
+      `?mode=` key matching no route, and no copy anywhere telling a user they can install it. This is
+      jpdb's entire mobile answer, already built — a repair, not a build.
+- [ ] **A17 — OPEN QUESTION for the owner: is Anki an export target or a peer?** The batch-mining brief
+      says "Anki becomes export, not source of record"; `backlog.md` rejects that in four places (`R11`,
+      Standing decisions, `U107`, `D44`) in favour of Yomu SRS as canonical with providers reconciled
+      bidirectionally. These specify different systems (export adapters vs a reconciliation engine) and
+      the Study/mobile plan followed the backlog. Needs one decision before slice work starts.
+- [ ] **A18 — Screenshot refresh must use the REAL products** (owner, 2026-07-28). Capture on actual
+      YouTube with the newest Yomu running, not a staged page; same for the video player, PDF reader,
+      Study and Gaming. Ties to A14. Note the plan's finding that a "product" page showing a capture of
+      a *docs* page is the defect to avoid.
+- [ ] **A19 — Streaks/JLPT bars have no backlog provenance.** They come from the owner's Bunpro
+      reference, not from user research; the only streak mention in research is a 678-point community
+      post *celebrating losing a 1,480-day streak*. Keep, but reshape the streak into an effort record
+      with no punishing chain mechanic. Decide deliberately rather than copying.
+- [ ] **A20 — Status colour silently absent for keyless learners.** `settings/index.ts:1665-1672` has
+      only two status-source predicates and no local-SRS branch, so a learner with no API key sees no
+      status colour and no explanation — the same class of defect as A11's furigana default. Verified by
+      hand at v1.8.23.
+
+**Study + mobile master plan:** `/Users/heru/Desktop/yomu-study-mobile-plan/PLAN.md` (15 ordered
+independently-shippable slices, 5 personas, journey defect register, configurability resolution, CI
+gates, 8 open questions) with 7 concept images. Slice 5 deliberately ships the new nav and fold
+*without* bands 4–6, because `U39` says every Study complaint is about density — so the extra bands can
+be judged or dropped on their own.
+
 ### A10 — COORDINATION with the parallel "Yomu Academy" thread (session `5dc579a6`)
 
 That thread has taken over **full Academy production** (story, art, engine, learning content, music,

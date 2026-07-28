@@ -28,6 +28,7 @@ const PUBLIC_ROUTES = [
     'guides/read-manga-in-japanese',
     'guides/study-setup',
     'local-audio',
+    'membership',
     'privacy/',
     'support',
     'tools/',
@@ -95,11 +96,18 @@ describe('published docs pages', () => {
     });
 
     it('links every published page from the site navigation', () => {
-        const config = readProjectFile('docs/.vitepress/config.mts');
+        // The nav moved to docs/.vitepress/shared/nav.ts so the docs pages and the
+        // hosted Study/PDF/Video shells render one list instead of two that drift.
+        // Search both: config.mts still holds the sidebar, and a page reachable
+        // from either counts as linked.
+        const sources = [
+            readProjectFile('docs/.vitepress/config.mts'),
+            readProjectFile('docs/.vitepress/shared/nav.ts'),
+        ].join('\n');
 
         for (const route of PUBLIC_ROUTES) {
             const bare = sitemapRouteKey(route);
-            const linked = config.includes(`link: '/${bare}'`) || config.includes(`link: '/${bare}/'`);
+            const linked = sources.includes(`link: '/${bare}'`) || sources.includes(`link: '/${bare}/'`);
             expect(linked, `/${bare} is published but nothing links to it`).toBe(true);
         }
     });

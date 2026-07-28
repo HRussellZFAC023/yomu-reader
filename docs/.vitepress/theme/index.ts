@@ -16,6 +16,7 @@ import { gmStorageGet, gmStorageSet } from '../../../src/reader/app/storage';
 import { HOSTED_DEMO_VIDEO_SETTINGS_PATCH } from '../../../src/reader/app/hosted-demo-settings';
 import { cleanupHostedDocsAnnotations } from './chrome-annotation-cleanup';
 import { syncHostedAcademyAccountControls } from './academy-account';
+import { hostedOverflowLinks } from '../shared/nav';
 import './custom.css';
 
 type InterfaceLanguage = 'en' | 'ja';
@@ -158,14 +159,12 @@ let hostedRuntimeHoverHandoffController: AbortController | undefined;
 let routeSyncBound = false;
 let localRuntimeCacheCleanupStarted = false;
 
-const HOSTED_OVERFLOW_LINKS = [
-    { text: 'Video Player', href: '/video-player/index.html', target: '_self' },
-    { text: 'PDF Reader', href: '/pdf-reader/index.html', target: '_self' },
-    { text: 'Stats', href: '/newtab/index.html?mode=stats', target: '_self' },
-    { text: 'Local Audio', href: '/local-audio' },
-    { text: 'Changelog', href: '/changelog' },
-    { text: 'Support', href: '/support' },
-] as const;
+// Built from docs/.vitepress/shared/nav.ts — the same list the docs nav uses.
+// This was a second hand-maintained copy that had already drifted from it: it
+// pointed Stats at /newtab/ (the route is /study/), and it was missing the FAQ,
+// Guides, Academy and Membership entirely, so the hosted Study, PDF Reader and
+// Video Player shells offered a menu the rest of the site did not have.
+const HOSTED_OVERFLOW_LINKS = hostedOverflowLinks();
 
 const HOSTED_LANGUAGE_TOGGLE_STATES: Record<InterfaceLanguage, { lang: InterfaceLanguage; text: string }> = {
     en: { lang: 'en', text: 'A' },
@@ -230,6 +229,46 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     // segmentation: a paragraph with inline links yields one key per text node,
     // punctuation retained, and the ja fragments are written so that DOM-order
     // concatenation reads as natural Japanese.
+    // Membership page (docs/membership.md). 'Membership' rather than 'Donate':
+    // contributing is planned to unlock Academy, so it is access, not charity.
+    'Membership': 'メンバーシップ',
+    'Permalink to "Membership"': '「メンバーシップ」への固定リンク',
+    'Help': 'ヘルプ',
+    'Yomu is free and stays free. If it has earned a place in your day, you can chip in through Ko-fi, Patreon or card — whichever you already use.': 'よむは無料で、これからも無料です。毎日の役に立っていると感じたら、Ko-fi、Patreon、カードのうち、使いやすい方法で支援できます。',
+    'Yomu is free, and the reader stays free.': 'よむは無料で、リーダーはこれからも無料です。',
+    'Everything on this site works without paying: reading, lookups, reviews, manga, subtitles, dictionaries.': 'このサイトのすべてが、支払いなしで使えます。読むこと、検索、復習、漫画、字幕、辞書。',
+    'Membership is for people who want to keep it being built — and it is how Academy will be funded, so members get access when it opens.': 'メンバーシップは、開発を続けてほしいと思う人のためのものです。アカデミーの費用もここから出るため、公開時にはメンバーが利用できます。',
+    'Pick whichever you already use': '使いやすい方法を選んでください',
+    'Permalink to "Pick whichever you already use"': '「使いやすい方法を選んでください」への固定リンク',
+    'All three go to the same place. Choose the one you find easiest — there is no better option, and no difference to what you get.': '3つとも同じ場所に届きます。いちばん簡単なものを選んでください。どれが優れているということはなく、得られるものも変わりません。',
+    'Ko-fi': 'Ko-fi',
+    'Patreon': 'Patreon',
+    'Ask about card payment': 'カード決済について問い合わせる',
+    'Ko-fi takes one-off or monthly. Patreon is monthly. Card payment is being set up —': 'Ko-fiは一回きりでも毎月でも使えます。Patreonは毎月です。カード決済は準備中です。',
+    'and it will be sorted for you.': 'に連絡いただければ対応します。',
+    'What members get': 'メンバーが得られるもの',
+    'Permalink to "What members get"': '「メンバーが得られるもの」への固定リンク',
+    'Academy access when it opens.': '公開時のアカデミー利用。',
+    'Academy teaches Japanese from zero, in order, and is in development. Members get in.': 'アカデミーはゼロから順番に日本語を教えるもので、現在開発中です。メンバーは利用できます。',
+    'A say in what gets built next.': '次に作るものへの発言権。',
+    "Members' reports and requests get answered first.": 'メンバーの報告や要望が先に対応されます。',
+    'The reader keeps improving for everyone.': 'リーダーは全員のために良くなり続けます。',
+    'Nothing in the reader gets locked behind this.': 'リーダーの機能がこれによって制限されることはありません。',
+    'What it does not do': 'これがしないこと',
+    'Permalink to "What it does not do"': '「これがしないこと」への固定リンク',
+    'It does not unlock reader features.': 'リーダーの機能を解除するものではありません。',
+    'No paywalled lookups, dictionaries, subtitles or reviews — now or later.': '検索、辞書、字幕、復習が有料の壁の向こうに行くことは、今も今後もありません。',
+    'It is not a subscription you have to keep.': '続けなければならない購読ではありません。',
+    'Stop whenever you like; nothing you saved is taken away.': 'いつでもやめられます。保存したものが失われることはありません。',
+    'Other ways to help, free': '無料で手伝えること',
+    'Permalink to "Other ways to help, free"': '「無料で手伝えること」への固定リンク',
+    'Money is not the only useful thing, and for a project this size it is not even the most useful.': '役に立つのはお金だけではありません。この規模のプロジェクトでは、いちばん役に立つものでもありません。',
+    'Tell one other learner.': 'ほかの学習者ひとりに伝える。',
+    "Yomu's biggest problem is that people who would like it have never heard of it.": 'よむの最大の課題は、気に入ってくれるはずの人に知られていないことです。',
+    'Report what broke.': '壊れているところを報告する。',
+    'A clear bug report is worth more than a month of coffee:': 'わかりやすい不具合報告は、1か月分のコーヒーより価値があります。',
+    'Rate it in the store.': 'ストアで評価する。',
+    'reviews are how new learners decide to trust it.': 'のレビューは、新しい学習者が信頼するかどうかを決める材料になります。',
     'Frequently asked questions': 'よくある質問',
     'What is Yomu?': 'よむとは？',
     'Permalink to "What is Yomu?"': '「よむとは？」への固定リンク',

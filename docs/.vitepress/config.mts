@@ -6,6 +6,7 @@ import {
     sitemapItemsForRoutes,
 } from '../../config/docs/published-pages';
 import { jpdbAudioDevProxyPlugin } from '../../config/vite/jpdb-audio-proxy';
+import { docsNav } from './shared/nav';
 import pkg from '../../package.json' with { type: 'json' };
 
 const { hostedAppearanceBootSnippet } = createRequire(import.meta.url)('../../scripts/lib/hosted-appearance-boot.cjs') as {
@@ -211,32 +212,12 @@ function jsonLdFor(pageData: PageDataLike, pageUrl: string): HeadConfig[] {
     ]);
 }
 
-const siteNav = [
-    // 'Get started' over 'Install': a visitor who has not decided yet is looking
-    // for what this is and how to begin, not for a package. 'Guides' over
-    // 'Learn': the pages behind it are task guides, and 'Learn' collided with
-    // Academy in meaning while describing neither.
-    { text: 'Get started', link: '/getting-started' },
-    { text: 'Guides', link: '/guides/' },
-    { text: 'Tools', link: '/tools/' },
-    { text: 'Study', link: newTabLink, target: '_self' },
-    { text: 'Academy', link: '/academy/', target: '_self' },
-    { text: 'Support', link: '/support' },
-    {
-        text: 'More',
-        items: [
-            { text: 'Video Player', link: videoPlayerLink, target: '_self' },
-            { text: 'PDF Reader', link: pdfReaderLink, target: '_self' },
-            { text: 'Stats', link: statsLink, target: '_self' },
-            { text: 'API', link: '/api/', target: '_self' },
-            { text: 'Local Audio', link: '/local-audio' },
-            { text: 'FAQ', link: '/faq' },
-            { text: 'Changelog', link: '/changelog' },
-            { text: 'Privacy', link: '/privacy' },
-            { text: 'Support', link: '/support' },
-        ],
-    },
-];
+// Defined in docs/.vitepress/shared/nav.ts so the hosted app shells (Study, PDF
+// Reader, Video Player) render the same menu from the same list — they used to
+// keep a second copy in theme/index.ts, and it drifted. 'Support' also appeared
+// twice here, once in the bar and once in More, which is how a nav entry stops
+// meaning anything.
+const siteNav = docsNav();
 
 const siteSidebar = [
     {
@@ -406,10 +387,15 @@ export default defineConfig({
         search: {
             provider: 'local',
         },
+        // Ko-fi, Patreon and Stripe used to sit here as three separate marks,
+        // one of them a payment processor's logo, each labelled "Donate to Yomu
+        // with <processor>". That named the plumbing instead of the choice and
+        // asked a learner to decide between icons they cannot tell apart. All
+        // three now live on /membership, reached from one nav entry, so this row
+        // is only the two places you can actually talk to the project.
         socialLinks: [
             { icon: 'github', link: `https://github.com/HRussellZFAC023/${repositoryName}` },
             { icon: 'discord', link: 'https://discord.gg/jD6NPURewD' },
-            ...donationSocialLinks,
         ],
         footer: {
             message: 'Free and open source. Install as a userscript, or as a Chrome or Firefox extension.',

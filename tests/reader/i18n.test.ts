@@ -184,6 +184,7 @@ describe('interface language resolution', () => {
         'docs/features.md',
         'docs/support.md',
         'docs/faq.md',
+        'docs/membership.md',
         'docs/tools/index.md',
         'docs/guides/index.md',
     ];
@@ -279,6 +280,8 @@ const HOSTED_DOCS_JA_COPY_VERBATIM = new Set([
     // literally 'OK' in the product (gradeOkayLabel in src/reader/app/i18n.ts).
     'Discord',
     'GitHub',
+    'Ko-fi',
+    'Patreon',
     'Okay',
     'https://yomureader.com/yomu.user.js',
     'yomureader.com',
