@@ -173,6 +173,18 @@ function sceneInventory(scene) {
 }
 
 function propInventory(sceneId, node) {
+    const promoted = promotedByNode.get(node.id);
+    if (promoted) {
+        return {
+            cueId: node.cueId ?? node.id,
+            nodeId: node.id,
+            description: node.description,
+            status: 'bound',
+            runtimeHome: sceneId,
+            runtimeRenderer: 'story-art-manifest',
+            candidatePaths: [promoted.wide, promoted.mobile],
+        };
+    }
     const runtimeProp = runtimePropByScene.get(sceneId);
     const coverage = runtimeProp?.stageCoverage;
     const covered = coverage === 'all'

@@ -483,6 +483,116 @@
           "Both viewports reserve enough quiet space for the actual choice controls and Rie performance."
         ]
       }
+    },
+    {
+      "assetId": "event.story.margin-map-private-cipher.cipher-route",
+      "chapterId": "s1e02-margin-map",
+      "sceneId": "scene:margin-map:the-private-cipher",
+      "nodeId": "node:margin-map:cipher-route",
+      "cueId": "cue:atlas-route-covered-in-private-marks",
+      "wide": "/academy/art/events/margin-map-private-cipher__cipher-route__wide__v001.webp",
+      "mobile": "/academy/art/events/margin-map-private-cipher__cipher-route__mobile__v001.webp",
+      "generationSources": [
+        "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/call_kSns1rLXbxRTlIAReLH9SJ3y.png",
+        "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/call_2KKEPkQnuLX9rAV7Y7cbtpTf.png"
+      ],
+      "qa": {
+        "verdict": "pass",
+        "inspected": true,
+        "notes": [
+          "Henry and Aakash retain their canonical faces, wardrobes, and adult proportions across both viewports.",
+          "The overwhelmingly private cipher reads from the atlas without relying on explanatory prose.",
+          "The mobile frame is independently composed around faces, hands, and the atlas rather than cropped from wide art."
+        ]
+      }
+    },
+    {
+      "assetId": "event.story.margin-map-private-cipher.relabel-repair",
+      "chapterId": "s1e02-margin-map",
+      "sceneId": "scene:margin-map:the-private-cipher",
+      "nodeId": "node:margin-map:relabel-repair",
+      "cueId": "cue:plain-label-and-reason-return",
+      "wide": "/academy/art/events/margin-map-private-cipher__relabel-repair__wide__v001.webp",
+      "mobile": "/academy/art/events/margin-map-private-cipher__relabel-repair__mobile__v001.webp",
+      "generationSources": [
+        "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/call_5p94GMD5TFCDe2C0G9qNyODV.png",
+        "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/call_td8bUDRHXmiJJnnOHwG2wW7K.png"
+      ],
+      "qa": {
+        "verdict": "pass",
+        "inspected": true,
+        "notes": [
+          "The retry state keeps Henry's dense marks intact while only the blank label and reason slip return.",
+          "No answer text, real script, person, or UI is baked into either image.",
+          "Both compositions reserve quiet space for accessible retry controls."
+        ]
+      }
+    },
+    {
+      "assetId": "event.story.margin-map-private-cipher.one-readable-point",
+      "chapterId": "s1e02-margin-map",
+      "sceneId": "scene:margin-map:the-private-cipher",
+      "nodeId": "node:margin-map:one-readable-point",
+      "cueId": "cue:single-plain-label-among-marks",
+      "wide": "/academy/art/events/margin-map-private-cipher__one-readable-point__wide__v001.webp",
+      "mobile": "/academy/art/events/margin-map-private-cipher__one-readable-point__mobile__v001.webp",
+      "generationSources": [
+        "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/call_gBafeXl2Cbwn5tSm952ryTCZ.png",
+        "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/call_Eplbd2hX8brDqBgZOP2Ud9G8.png"
+      ],
+      "qa": {
+        "verdict": "pass",
+        "inspected": true,
+        "notes": [
+          "Aakash's pointing hand and the single quiet marker make the readability payoff visible before dialogue.",
+          "Henry's sheepish relief and Aakash's encouragement preserve the chapter's human relationship beat.",
+          "The marker stays blank so the accessible runtime layer owns the learned Japanese."
+        ]
+      }
+    },
+    {
+      "assetId": "event.story.margin-map-readable-for-anyone.henry-toolbox",
+      "chapterId": "s1e02-margin-map",
+      "sceneId": "scene:margin-map:readable-for-anyone",
+      "nodeId": "node:margin-map:henry-toolbox",
+      "cueId": "cue:label-pen-and-fresh-card",
+      "wide": "/academy/art/events/margin-map-readable-for-anyone__henry-toolbox__wide__v001.webp",
+      "mobile": "/academy/art/events/margin-map-readable-for-anyone__henry-toolbox__mobile__v001.webp",
+      "generationSources": [
+        "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/call_IupNoOpwng2fJyl5lomMh8AU.png",
+        "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/call_tdTEVL9aN00zRGPTBP8khNrx.png"
+      ],
+      "qa": {
+        "verdict": "pass",
+        "inspected": true,
+        "notes": [
+          "Henry's over-organized pen case becomes a one-scene character prop rather than generic decoration.",
+          "Pens, abstract tags, and fresh blank cards remain readable at both viewport shapes.",
+          "The responsive pair keeps both faces and the reaching action intact without baked text."
+        ]
+      }
+    },
+    {
+      "assetId": "event.story.margin-map-readable-for-anyone.route-readable",
+      "chapterId": "s1e02-margin-map",
+      "sceneId": "scene:margin-map:readable-for-anyone",
+      "nodeId": "node:margin-map:route-readable",
+      "cueId": "cue:route-in-plain-kana-with-margin-key",
+      "wide": "/academy/art/events/margin-map-readable-for-anyone__route-readable__wide__v001.webp",
+      "mobile": "/academy/art/events/margin-map-readable-for-anyone__route-readable__mobile__v001.webp",
+      "generationSources": [
+        "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/call_i7PgQkF5U9Wt4UdpAL4rhMCA.png",
+        "/Users/heru/.codex/generated_images/019f3220-a107-7262-95f1-b8f7573a667f/call_p7ThQMDSfEC0KkIntInEsm86.png"
+      ],
+      "qa": {
+        "verdict": "pass",
+        "inspected": true,
+        "notes": [
+          "The clean route, blank physical labels, and folded cipher key show the system becoming shareable.",
+          "The pen handoff turns the learning payoff into a relationship beat between Henry and Aakash.",
+          "Wide and mobile art preserve the same identities, action, rain, and classroom continuity."
+        ]
+      }
     }
   ]
 }

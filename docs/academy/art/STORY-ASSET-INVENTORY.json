@@ -48,10 +48,10 @@
     ],
     "castCount": 24,
     "backgroundGaps": 24,
-    "openingImageGaps": 94,
-    "exitImageGaps": 94,
-    "propOrOverlayGaps": 69,
-    "generationQueue": 281
+    "openingImageGaps": 92,
+    "exitImageGaps": 92,
+    "propOrOverlayGaps": 68,
+    "generationQueue": 276
   },
   "chapters": [
     {
@@ -813,26 +813,35 @@
           "openingImage": {
             "cueId": "cue:atlas-route-covered-in-private-marks",
             "description": "Overnight the atlas's first route has been covered end to end in tiny hand-drawn marks: doubled strokes, small hooks, single and double circles. It is dense, even, and clearly a system. A folded slip in the corner is labelled KEY in the same unreadable hand.",
-            "status": "missing",
+            "status": "bound",
             "runtimeHome": "scene:margin-map:the-private-cipher",
-            "candidatePaths": []
+            "candidatePaths": [
+              "/academy/art/events/margin-map-private-cipher__cipher-route__wide__v001.webp",
+              "/academy/art/events/margin-map-private-cipher__cipher-route__mobile__v001.webp"
+            ]
           },
           "exitImage": {
             "cueId": "cue:single-plain-label-among-marks",
             "description": "One plain hiragana word — えき — now sits among Henry's dense marks, the first point on the route anyone can find. His cipher is untouched all around it; only one gap has been made legible.",
-            "status": "missing",
+            "status": "bound",
             "runtimeHome": "scene:margin-map:the-private-cipher",
-            "candidatePaths": []
+            "candidatePaths": [
+              "/academy/art/events/margin-map-private-cipher__one-readable-point__wide__v001.webp",
+              "/academy/art/events/margin-map-private-cipher__one-readable-point__mobile__v001.webp"
+            ]
           },
           "propCues": [
             {
               "cueId": "cue:plain-label-and-reason-return",
               "nodeId": "node:margin-map:relabel-repair",
               "description": "Only the plain-kana label and its reason clause return for another try. Henry's dense marks around the point stay exactly where they were — editing the point never rubs out his system.",
-              "status": "missing",
+              "status": "bound",
               "runtimeHome": "scene:margin-map:the-private-cipher",
-              "runtimeRenderer": null,
-              "candidatePaths": []
+              "runtimeRenderer": "story-art-manifest",
+              "candidatePaths": [
+                "/academy/art/events/margin-map-private-cipher__relabel-repair__wide__v001.webp",
+                "/academy/art/events/margin-map-private-cipher__relabel-repair__mobile__v001.webp"
+              ]
             }
           ]
         },
@@ -883,16 +892,22 @@
           "openingImage": {
             "cueId": "cue:label-pen-and-fresh-card",
             "description": "Beside the one readable point sits Henry's pen case, each pen tagged in his own marks, and a stack of blank label cards. He turns a fresh card over and half-reaches to draw the next point in cipher again.",
-            "status": "missing",
+            "status": "bound",
             "runtimeHome": "scene:margin-map:readable-for-anyone",
-            "candidatePaths": []
+            "candidatePaths": [
+              "/academy/art/events/margin-map-readable-for-anyone__henry-toolbox__wide__v001.webp",
+              "/academy/art/events/margin-map-readable-for-anyone__henry-toolbox__mobile__v001.webp"
+            ]
           },
           "exitImage": {
             "cueId": "cue:route-in-plain-kana-with-margin-key",
             "description": "The route now carries plain hiragana names along its line, and Henry's cipher is folded into a small labelled key in the corner. Anyone entering the room can read the route; nothing of the system has been thrown away.",
-            "status": "missing",
+            "status": "bound",
             "runtimeHome": "scene:margin-map:readable-for-anyone",
-            "candidatePaths": []
+            "candidatePaths": [
+              "/academy/art/events/margin-map-readable-for-anyone__route-readable__wide__v001.webp",
+              "/academy/art/events/margin-map-readable-for-anyone__route-readable__mobile__v001.webp"
+            ]
           },
           "propCues": []
         }
@@ -7759,91 +7774,6 @@
     }
   ],
   "generationQueue": [
-    {
-      "priority": "scene-critical",
-      "chapter": 2,
-      "chapterId": "s1e02-margin-map",
-      "sceneId": "scene:margin-map:the-private-cipher",
-      "cueId": "cue:atlas-route-covered-in-private-marks",
-      "kind": "opening-image",
-      "brief": "Overnight the atlas's first route has been covered end to end in tiny hand-drawn marks: doubled strokes, small hooks, single and double circles. It is dense, even, and clearly a system. A folded slip in the corner is labelled KEY in the same unreadable hand.",
-      "locationId": "location:classroom",
-      "timeState": "evening",
-      "castIds": [
-        "henry",
-        "aakash"
-      ],
-      "runtimeHome": "scene:margin-map:the-private-cipher",
-      "status": "queued"
-    },
-    {
-      "priority": "payoff-critical",
-      "chapter": 2,
-      "chapterId": "s1e02-margin-map",
-      "sceneId": "scene:margin-map:the-private-cipher",
-      "cueId": "cue:single-plain-label-among-marks",
-      "kind": "exit-image",
-      "brief": "One plain hiragana word — えき — now sits among Henry's dense marks, the first point on the route anyone can find. His cipher is untouched all around it; only one gap has been made legible.",
-      "locationId": "location:classroom",
-      "timeState": "evening",
-      "castIds": [
-        "henry",
-        "aakash"
-      ],
-      "runtimeHome": "scene:margin-map:the-private-cipher",
-      "status": "queued"
-    },
-    {
-      "priority": "supporting",
-      "chapter": 2,
-      "chapterId": "s1e02-margin-map",
-      "sceneId": "scene:margin-map:the-private-cipher",
-      "cueId": "cue:plain-label-and-reason-return",
-      "kind": "prop-or-overlay",
-      "brief": "Only the plain-kana label and its reason clause return for another try. Henry's dense marks around the point stay exactly where they were — editing the point never rubs out his system.",
-      "locationId": "location:classroom",
-      "timeState": "evening",
-      "castIds": [
-        "henry",
-        "aakash"
-      ],
-      "runtimeHome": "scene:margin-map:the-private-cipher",
-      "status": "queued"
-    },
-    {
-      "priority": "scene-critical",
-      "chapter": 2,
-      "chapterId": "s1e02-margin-map",
-      "sceneId": "scene:margin-map:readable-for-anyone",
-      "cueId": "cue:label-pen-and-fresh-card",
-      "kind": "opening-image",
-      "brief": "Beside the one readable point sits Henry's pen case, each pen tagged in his own marks, and a stack of blank label cards. He turns a fresh card over and half-reaches to draw the next point in cipher again.",
-      "locationId": "location:classroom",
-      "timeState": "evening",
-      "castIds": [
-        "henry",
-        "aakash"
-      ],
-      "runtimeHome": "scene:margin-map:readable-for-anyone",
-      "status": "queued"
-    },
-    {
-      "priority": "payoff-critical",
-      "chapter": 2,
-      "chapterId": "s1e02-margin-map",
-      "sceneId": "scene:margin-map:readable-for-anyone",
-      "cueId": "cue:route-in-plain-kana-with-margin-key",
-      "kind": "exit-image",
-      "brief": "The route now carries plain hiragana names along its line, and Henry's cipher is folded into a small labelled key in the corner. Anyone entering the room can read the route; nothing of the system has been thrown away.",
-      "locationId": "location:classroom",
-      "timeState": "evening",
-      "castIds": [
-        "henry",
-        "aakash"
-      ],
-      "runtimeHome": "scene:margin-map:readable-for-anyone",
-      "status": "queued"
-    },
     {
       "priority": "scene-critical",
       "chapter": 3,

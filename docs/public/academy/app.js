@@ -14888,6 +14888,46 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       "cueId": "cue:finish-break-context",
       "wide": "/academy/art/events/blank-atlas-close__finish-break-context__wide__v001.webp",
       "mobile": "/academy/art/events/blank-atlas-close__finish-break-context__mobile__v001.webp"
+    },
+    "node:margin-map:cipher-route": {
+      "assetId": "event.story.margin-map-private-cipher.cipher-route",
+      "sceneId": "scene:margin-map:the-private-cipher",
+      "nodeId": "node:margin-map:cipher-route",
+      "cueId": "cue:atlas-route-covered-in-private-marks",
+      "wide": "/academy/art/events/margin-map-private-cipher__cipher-route__wide__v001.webp",
+      "mobile": "/academy/art/events/margin-map-private-cipher__cipher-route__mobile__v001.webp"
+    },
+    "node:margin-map:relabel-repair": {
+      "assetId": "event.story.margin-map-private-cipher.relabel-repair",
+      "sceneId": "scene:margin-map:the-private-cipher",
+      "nodeId": "node:margin-map:relabel-repair",
+      "cueId": "cue:plain-label-and-reason-return",
+      "wide": "/academy/art/events/margin-map-private-cipher__relabel-repair__wide__v001.webp",
+      "mobile": "/academy/art/events/margin-map-private-cipher__relabel-repair__mobile__v001.webp"
+    },
+    "node:margin-map:one-readable-point": {
+      "assetId": "event.story.margin-map-private-cipher.one-readable-point",
+      "sceneId": "scene:margin-map:the-private-cipher",
+      "nodeId": "node:margin-map:one-readable-point",
+      "cueId": "cue:single-plain-label-among-marks",
+      "wide": "/academy/art/events/margin-map-private-cipher__one-readable-point__wide__v001.webp",
+      "mobile": "/academy/art/events/margin-map-private-cipher__one-readable-point__mobile__v001.webp"
+    },
+    "node:margin-map:henry-toolbox": {
+      "assetId": "event.story.margin-map-readable-for-anyone.henry-toolbox",
+      "sceneId": "scene:margin-map:readable-for-anyone",
+      "nodeId": "node:margin-map:henry-toolbox",
+      "cueId": "cue:label-pen-and-fresh-card",
+      "wide": "/academy/art/events/margin-map-readable-for-anyone__henry-toolbox__wide__v001.webp",
+      "mobile": "/academy/art/events/margin-map-readable-for-anyone__henry-toolbox__mobile__v001.webp"
+    },
+    "node:margin-map:route-readable": {
+      "assetId": "event.story.margin-map-readable-for-anyone.route-readable",
+      "sceneId": "scene:margin-map:readable-for-anyone",
+      "nodeId": "node:margin-map:route-readable",
+      "cueId": "cue:route-in-plain-kana-with-margin-key",
+      "wide": "/academy/art/events/margin-map-readable-for-anyone__route-readable__wide__v001.webp",
+      "mobile": "/academy/art/events/margin-map-readable-for-anyone__route-readable__mobile__v001.webp"
     }
   };
   const ACADEMY_STORY_ART_RUNTIME_ASSETS = {
@@ -15175,6 +15215,71 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       "files": {
         "wide": "/academy/art/events/blank-atlas-close__finish-break-context__wide__v001.webp",
         "mobile": "/academy/art/events/blank-atlas-close__finish-break-context__mobile__v001.webp"
+      }
+    },
+    "event.story.margin-map-private-cipher.cipher-route": {
+      "kind": "event-art",
+      "status": "approved",
+      "runtimeHomes": [
+        "node:margin-map:cipher-route",
+        "scene:margin-map:the-private-cipher"
+      ],
+      "provenance": "regenerated-house-style",
+      "files": {
+        "wide": "/academy/art/events/margin-map-private-cipher__cipher-route__wide__v001.webp",
+        "mobile": "/academy/art/events/margin-map-private-cipher__cipher-route__mobile__v001.webp"
+      }
+    },
+    "event.story.margin-map-private-cipher.relabel-repair": {
+      "kind": "event-art",
+      "status": "approved",
+      "runtimeHomes": [
+        "node:margin-map:relabel-repair",
+        "scene:margin-map:the-private-cipher"
+      ],
+      "provenance": "regenerated-house-style",
+      "files": {
+        "wide": "/academy/art/events/margin-map-private-cipher__relabel-repair__wide__v001.webp",
+        "mobile": "/academy/art/events/margin-map-private-cipher__relabel-repair__mobile__v001.webp"
+      }
+    },
+    "event.story.margin-map-private-cipher.one-readable-point": {
+      "kind": "event-art",
+      "status": "approved",
+      "runtimeHomes": [
+        "node:margin-map:one-readable-point",
+        "scene:margin-map:the-private-cipher"
+      ],
+      "provenance": "regenerated-house-style",
+      "files": {
+        "wide": "/academy/art/events/margin-map-private-cipher__one-readable-point__wide__v001.webp",
+        "mobile": "/academy/art/events/margin-map-private-cipher__one-readable-point__mobile__v001.webp"
+      }
+    },
+    "event.story.margin-map-readable-for-anyone.henry-toolbox": {
+      "kind": "event-art",
+      "status": "approved",
+      "runtimeHomes": [
+        "node:margin-map:henry-toolbox",
+        "scene:margin-map:readable-for-anyone"
+      ],
+      "provenance": "regenerated-house-style",
+      "files": {
+        "wide": "/academy/art/events/margin-map-readable-for-anyone__henry-toolbox__wide__v001.webp",
+        "mobile": "/academy/art/events/margin-map-readable-for-anyone__henry-toolbox__mobile__v001.webp"
+      }
+    },
+    "event.story.margin-map-readable-for-anyone.route-readable": {
+      "kind": "event-art",
+      "status": "approved",
+      "runtimeHomes": [
+        "node:margin-map:route-readable",
+        "scene:margin-map:readable-for-anyone"
+      ],
+      "provenance": "regenerated-house-style",
+      "files": {
+        "wide": "/academy/art/events/margin-map-readable-for-anyone__route-readable__wide__v001.webp",
+        "mobile": "/academy/art/events/margin-map-readable-for-anyone__route-readable__mobile__v001.webp"
       }
     }
   };
@@ -58507,7 +58612,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "node:margin-map:cipher-route",
           beatId: "beat:margin-map:arrival-image",
           cueId: "cue:atlas-route-covered-in-private-marks",
-          description: "Overnight the atlas's first route has been covered end to end in tiny hand-drawn marks: doubled strokes, small hooks, single and double circles. It is dense, even, and clearly a system. A folded slip in the corner is labelled KEY in the same unreadable hand."
+          description: "Henry has covered the route in tiny symbols. Even the key is written in code."
         },
         {
           kind: "line",
@@ -58673,13 +58778,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "node:margin-map:relabel-repair",
           beatId: "beat:margin-map:relabel-repair",
           cueId: "cue:plain-label-and-reason-return",
-          description: "Only the plain-kana label and its reason clause return for another try. Henry's dense marks around the point stay exactly where they were — editing the point never rubs out his system."
+          description: "The label comes off. Henry's careful code stays."
         },
         {
           kind: "checkpoint",
           id: "checkpoint:margin-map:after-relabel",
           beatId: "beat:margin-map:relabel-response",
-          resume: "One point on the route now carries a plain hiragana label with a reason. For the first time the station can be found without the key. Henry looks at the small legible word sitting among his marks."
+          resume: "The station has one plain label now: えき."
         },
         {
           kind: "line",
@@ -58731,7 +58836,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "node:margin-map:one-readable-point",
           beatId: "beat:margin-map:exit-image",
           cueId: "cue:single-plain-label-among-marks",
-          description: "One plain hiragana word — えき — now sits among Henry's dense marks, the first point on the route anyone can find. His cipher is untouched all around it; only one gap has been made legible."
+          description: "えき. One readable stop among the symbols."
         }
       ],
       exit: {
@@ -58758,7 +58863,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "node:margin-map:henry-toolbox",
           beatId: "beat:margin-map:regroup-image",
           cueId: "cue:label-pen-and-fresh-card",
-          description: "Beside the one readable point sits Henry's pen case, each pen tagged in his own marks, and a stack of blank label cards. He turns a fresh card over and half-reaches to draw the next point in cipher again."
+          description: "Henry reaches for another coded label. Aakash offers him a blank card."
         },
         {
           kind: "line",
@@ -58994,7 +59099,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
           id: "node:margin-map:route-readable",
           beatId: "beat:margin-map:exit-image",
           cueId: "cue:route-in-plain-kana-with-margin-key",
-          description: "The route now carries plain hiragana names along its line, and Henry's cipher is folded into a small labelled key in the corner. Anyone entering the room can read the route; nothing of the system has been thrown away."
+          description: "Now anyone can follow the route. Henry's key stays in the corner."
         }
       ],
       exit: {

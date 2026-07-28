@@ -173,6 +173,56 @@ describe('Academy Story screen', () => {
         expect(repair.querySelector<HTMLElement>('[data-character="aakash"]')).not.toBeNull();
     });
 
+    it('carries Chapter 2 through all five responsive Margin Map art states', () => {
+        const moments = [
+            {
+                sceneId: 'scene:margin-map:the-private-cipher',
+                nodeId: 'node:margin-map:cipher-route',
+                assetId: 'event.story.margin-map-private-cipher.cipher-route',
+                file: 'margin-map-private-cipher__cipher-route',
+            },
+            {
+                sceneId: 'scene:margin-map:the-private-cipher',
+                nodeId: 'node:margin-map:relabel-repair',
+                assetId: 'event.story.margin-map-private-cipher.relabel-repair',
+                file: 'margin-map-private-cipher__relabel-repair',
+            },
+            {
+                sceneId: 'scene:margin-map:the-private-cipher',
+                nodeId: 'node:margin-map:one-readable-point',
+                assetId: 'event.story.margin-map-private-cipher.one-readable-point',
+                file: 'margin-map-private-cipher__one-readable-point',
+            },
+            {
+                sceneId: 'scene:margin-map:readable-for-anyone',
+                nodeId: 'node:margin-map:henry-toolbox',
+                assetId: 'event.story.margin-map-readable-for-anyone.henry-toolbox',
+                file: 'margin-map-readable-for-anyone__henry-toolbox',
+            },
+            {
+                sceneId: 'scene:margin-map:readable-for-anyone',
+                nodeId: 'node:margin-map:route-readable',
+                assetId: 'event.story.margin-map-readable-for-anyone.route-readable',
+                file: 'margin-map-readable-for-anyone__route-readable',
+            },
+        ] as const;
+
+        for (const moment of moments) {
+            const screen = render(episodeCursor(
+                's1e02-margin-map',
+                moment.sceneId,
+                moment.nodeId,
+            )).screen;
+
+            expect(screen.querySelector<HTMLElement>('.academy-vn-stage')?.dataset.storyArt)
+                .toBe(moment.assetId);
+            expect(screen.querySelector<HTMLImageElement>('.academy-vn-plate img')?.src)
+                .toContain(`${moment.file}__wide__v001.webp`);
+            expect(screen.querySelector<HTMLSourceElement>('.academy-vn-plate source')?.srcset)
+                .toContain(`${moment.file}__mobile__v001.webp`);
+        }
+    });
+
     it('uses the shared VN Back control and keeps one readings control for the opening arc', () => {
         const onBack = vi.fn();
         const { screen } = render('s1e01-the-blank-atlas', { onBack });
@@ -271,8 +321,9 @@ describe('Academy Story screen', () => {
         const picture = ruparna.querySelector<HTMLPictureElement>('picture')!;
         expect(screen.querySelector('.academy-vn-speaker')?.textContent).toBe('Ruparna-san');
         expect(picture.dataset.expression).toBe('encouraging');
+        expect(picture.dataset.portraitFocus).toBe('cropped');
         expect(picture.querySelector('img')?.getAttribute('src')).toContain(
-            'ruparna__note-route__right-three-quarter__halfbody__v002.png',
+            'ruparna__encouraging-listening-long-dark-hair-subtitle-strips__right-three-quarter__fullbody__v003.png',
         );
     });
 
@@ -286,8 +337,9 @@ describe('Academy Story screen', () => {
         const picture = sam.querySelector<HTMLPictureElement>('picture')!;
         expect(screen.querySelector('.academy-vn-speaker')?.textContent).toBe('Sam-san');
         expect(picture.dataset.expression).toBe('encouraging');
+        expect(picture.dataset.portraitFocus).toBe('cropped');
         expect(picture.querySelector('img')?.getAttribute('src')).toContain(
-            'sam__standardized-encouraging-listening__front-near-front__halfbody__v001.png',
+            'sam__encouraging-listening-close-cropped-chestnut__right-three-quarter__fullbody__v002.png',
         );
     });
 

@@ -120,4 +120,20 @@ describe('Academy story art inventory', () => {
         expect(dayOne?.scenes.every(scene => scene.exitImage?.status === 'bound')).toBe(true);
         expect(inventory.generationQueue.some(item => item.chapterId === 's1e01-the-blank-atlas')).toBe(false);
     });
+
+    it('treats promoted middle-stage art as a bound story prop', () => {
+        const marginMap = inventory.chapters.find(chapter => chapter.id === 's1e02-margin-map');
+        const repair = marginMap?.scenes
+            .flatMap(scene => scene.propCues)
+            .find(cue => cue.nodeId === 'node:margin-map:relabel-repair');
+
+        expect(repair).toMatchObject({
+            status: 'bound',
+            runtimeRenderer: 'story-art-manifest',
+        });
+        expect(inventory.generationQueue.some(item =>
+            item.chapterId === 's1e02-margin-map'
+            && item.cueId === 'cue:plain-label-and-reason-return',
+        )).toBe(false);
+    });
 });

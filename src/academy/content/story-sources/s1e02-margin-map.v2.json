@@ -94,7 +94,7 @@
           "id": "node:margin-map:cipher-route",
           "beatId": "beat:margin-map:arrival-image",
           "cueId": "cue:atlas-route-covered-in-private-marks",
-          "description": "Overnight the atlas's first route has been covered end to end in tiny hand-drawn marks: doubled strokes, small hooks, single and double circles. It is dense, even, and clearly a system. A folded slip in the corner is labelled KEY in the same unreadable hand."
+          "description": "Henry has covered the route in tiny symbols. Even the key is written in code."
         },
         {
           "kind": "line",
@@ -260,13 +260,13 @@
           "id": "node:margin-map:relabel-repair",
           "beatId": "beat:margin-map:relabel-repair",
           "cueId": "cue:plain-label-and-reason-return",
-          "description": "Only the plain-kana label and its reason clause return for another try. Henry's dense marks around the point stay exactly where they were — editing the point never rubs out his system."
+          "description": "The label comes off. Henry's careful code stays."
         },
         {
           "kind": "checkpoint",
           "id": "checkpoint:margin-map:after-relabel",
           "beatId": "beat:margin-map:relabel-response",
-          "resume": "One point on the route now carries a plain hiragana label with a reason. For the first time the station can be found without the key. Henry looks at the small legible word sitting among his marks."
+          "resume": "The station has one plain label now: えき."
         },
         {
           "kind": "line",
@@ -318,7 +318,7 @@
           "id": "node:margin-map:one-readable-point",
           "beatId": "beat:margin-map:exit-image",
           "cueId": "cue:single-plain-label-among-marks",
-          "description": "One plain hiragana word — えき — now sits among Henry's dense marks, the first point on the route anyone can find. His cipher is untouched all around it; only one gap has been made legible."
+          "description": "えき. One readable stop among the symbols."
         }
       ],
       "exit": {
@@ -345,7 +345,7 @@
           "id": "node:margin-map:henry-toolbox",
           "beatId": "beat:margin-map:regroup-image",
           "cueId": "cue:label-pen-and-fresh-card",
-          "description": "Beside the one readable point sits Henry's pen case, each pen tagged in his own marks, and a stack of blank label cards. He turns a fresh card over and half-reaches to draw the next point in cipher again."
+          "description": "Henry reaches for another coded label. Aakash offers him a blank card."
         },
         {
           "kind": "line",
@@ -581,7 +581,7 @@
           "id": "node:margin-map:route-readable",
           "beatId": "beat:margin-map:exit-image",
           "cueId": "cue:route-in-plain-kana-with-margin-key",
-          "description": "The route now carries plain hiragana names along its line, and Henry's cipher is folded into a small labelled key in the corner. Anyone entering the room can read the route; nothing of the system has been thrown away."
+          "description": "Now anyone can follow the route. Henry's key stays in the corner."
         }
       ],
       "exit": {

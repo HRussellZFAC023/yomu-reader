@@ -187,6 +187,46 @@ export const ACADEMY_STORY_ART_BY_NODE = {
         "cueId": "cue:finish-break-context",
         "wide": "/academy/art/events/blank-atlas-close__finish-break-context__wide__v001.webp",
         "mobile": "/academy/art/events/blank-atlas-close__finish-break-context__mobile__v001.webp"
+    },
+    "node:margin-map:cipher-route": {
+        "assetId": "event.story.margin-map-private-cipher.cipher-route",
+        "sceneId": "scene:margin-map:the-private-cipher",
+        "nodeId": "node:margin-map:cipher-route",
+        "cueId": "cue:atlas-route-covered-in-private-marks",
+        "wide": "/academy/art/events/margin-map-private-cipher__cipher-route__wide__v001.webp",
+        "mobile": "/academy/art/events/margin-map-private-cipher__cipher-route__mobile__v001.webp"
+    },
+    "node:margin-map:relabel-repair": {
+        "assetId": "event.story.margin-map-private-cipher.relabel-repair",
+        "sceneId": "scene:margin-map:the-private-cipher",
+        "nodeId": "node:margin-map:relabel-repair",
+        "cueId": "cue:plain-label-and-reason-return",
+        "wide": "/academy/art/events/margin-map-private-cipher__relabel-repair__wide__v001.webp",
+        "mobile": "/academy/art/events/margin-map-private-cipher__relabel-repair__mobile__v001.webp"
+    },
+    "node:margin-map:one-readable-point": {
+        "assetId": "event.story.margin-map-private-cipher.one-readable-point",
+        "sceneId": "scene:margin-map:the-private-cipher",
+        "nodeId": "node:margin-map:one-readable-point",
+        "cueId": "cue:single-plain-label-among-marks",
+        "wide": "/academy/art/events/margin-map-private-cipher__one-readable-point__wide__v001.webp",
+        "mobile": "/academy/art/events/margin-map-private-cipher__one-readable-point__mobile__v001.webp"
+    },
+    "node:margin-map:henry-toolbox": {
+        "assetId": "event.story.margin-map-readable-for-anyone.henry-toolbox",
+        "sceneId": "scene:margin-map:readable-for-anyone",
+        "nodeId": "node:margin-map:henry-toolbox",
+        "cueId": "cue:label-pen-and-fresh-card",
+        "wide": "/academy/art/events/margin-map-readable-for-anyone__henry-toolbox__wide__v001.webp",
+        "mobile": "/academy/art/events/margin-map-readable-for-anyone__henry-toolbox__mobile__v001.webp"
+    },
+    "node:margin-map:route-readable": {
+        "assetId": "event.story.margin-map-readable-for-anyone.route-readable",
+        "sceneId": "scene:margin-map:readable-for-anyone",
+        "nodeId": "node:margin-map:route-readable",
+        "cueId": "cue:route-in-plain-kana-with-margin-key",
+        "wide": "/academy/art/events/margin-map-readable-for-anyone__route-readable__wide__v001.webp",
+        "mobile": "/academy/art/events/margin-map-readable-for-anyone__route-readable__mobile__v001.webp"
     }
 } as const satisfies Readonly<Record<string, AcademyStoryArtBinding>>;
 
@@ -476,6 +516,71 @@ export const ACADEMY_STORY_ART_RUNTIME_ASSETS = {
             "wide": "/academy/art/events/blank-atlas-close__finish-break-context__wide__v001.webp",
             "mobile": "/academy/art/events/blank-atlas-close__finish-break-context__mobile__v001.webp"
         }
+    },
+    "event.story.margin-map-private-cipher.cipher-route": {
+        "kind": "event-art",
+        "status": "approved",
+        "runtimeHomes": [
+            "node:margin-map:cipher-route",
+            "scene:margin-map:the-private-cipher"
+        ],
+        "provenance": "regenerated-house-style",
+        "files": {
+            "wide": "/academy/art/events/margin-map-private-cipher__cipher-route__wide__v001.webp",
+            "mobile": "/academy/art/events/margin-map-private-cipher__cipher-route__mobile__v001.webp"
+        }
+    },
+    "event.story.margin-map-private-cipher.relabel-repair": {
+        "kind": "event-art",
+        "status": "approved",
+        "runtimeHomes": [
+            "node:margin-map:relabel-repair",
+            "scene:margin-map:the-private-cipher"
+        ],
+        "provenance": "regenerated-house-style",
+        "files": {
+            "wide": "/academy/art/events/margin-map-private-cipher__relabel-repair__wide__v001.webp",
+            "mobile": "/academy/art/events/margin-map-private-cipher__relabel-repair__mobile__v001.webp"
+        }
+    },
+    "event.story.margin-map-private-cipher.one-readable-point": {
+        "kind": "event-art",
+        "status": "approved",
+        "runtimeHomes": [
+            "node:margin-map:one-readable-point",
+            "scene:margin-map:the-private-cipher"
+        ],
+        "provenance": "regenerated-house-style",
+        "files": {
+            "wide": "/academy/art/events/margin-map-private-cipher__one-readable-point__wide__v001.webp",
+            "mobile": "/academy/art/events/margin-map-private-cipher__one-readable-point__mobile__v001.webp"
+        }
+    },
+    "event.story.margin-map-readable-for-anyone.henry-toolbox": {
+        "kind": "event-art",
+        "status": "approved",
+        "runtimeHomes": [
+            "node:margin-map:henry-toolbox",
+            "scene:margin-map:readable-for-anyone"
+        ],
+        "provenance": "regenerated-house-style",
+        "files": {
+            "wide": "/academy/art/events/margin-map-readable-for-anyone__henry-toolbox__wide__v001.webp",
+            "mobile": "/academy/art/events/margin-map-readable-for-anyone__henry-toolbox__mobile__v001.webp"
+        }
+    },
+    "event.story.margin-map-readable-for-anyone.route-readable": {
+        "kind": "event-art",
+        "status": "approved",
+        "runtimeHomes": [
+            "node:margin-map:route-readable",
+            "scene:margin-map:readable-for-anyone"
+        ],
+        "provenance": "regenerated-house-style",
+        "files": {
+            "wide": "/academy/art/events/margin-map-readable-for-anyone__route-readable__wide__v001.webp",
+            "mobile": "/academy/art/events/margin-map-readable-for-anyone__route-readable__mobile__v001.webp"
+        }
     }
 } as const;
 
@@ -567,5 +672,25 @@ export const ACADEMY_STORY_ART_COVERAGE = {
     "event.story.blank-atlas-close.finish-break-context": {
         "purpose": "story-event",
         "primaryUse": "node:blank-atlas:close-room-repair"
+    },
+    "event.story.margin-map-private-cipher.cipher-route": {
+        "purpose": "story-event",
+        "primaryUse": "node:margin-map:cipher-route"
+    },
+    "event.story.margin-map-private-cipher.relabel-repair": {
+        "purpose": "story-event",
+        "primaryUse": "node:margin-map:relabel-repair"
+    },
+    "event.story.margin-map-private-cipher.one-readable-point": {
+        "purpose": "story-event",
+        "primaryUse": "node:margin-map:one-readable-point"
+    },
+    "event.story.margin-map-readable-for-anyone.henry-toolbox": {
+        "purpose": "story-event",
+        "primaryUse": "node:margin-map:henry-toolbox"
+    },
+    "event.story.margin-map-readable-for-anyone.route-readable": {
+        "purpose": "story-event",
+        "primaryUse": "node:margin-map:route-readable"
     }
 } as const;
