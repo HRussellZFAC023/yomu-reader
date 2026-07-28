@@ -18,8 +18,8 @@
     ]
   },
   "counts": {
-    "runtimeAssetHomes": 266,
-    "runtimeFiles": 372,
+    "runtimeAssetHomes": 286,
+    "runtimeFiles": 392,
     "nonRuntimeReviewFiles": 1734,
     "approvedReferenceOnly": 4,
     "explicitlyRejectedFamilies": 4,
@@ -335,74 +335,6 @@
       "status": "restored-owner-preferred-class-ensemble-entrance; approved single-source mobile art direction; bound-to-access-route"
     },
     {
-      "id": "character-mary-standardized-encouraging-listening-front-near-front-halfbody-v001",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "8b346903cffbc37c884a4a7f232f8913cfeb8e82adbfb21f714a4c9bcf81d7b2",
-      "provenance": "regenerated-standardized",
-      "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": [
-        "journal:mary-expression-gallery",
-        "cast-standardization:mary"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "learner-journal-preview"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:mary-expression-gallery",
-          "cast-standardization:mary"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/mary/mary__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
-          "sha256": "8b346903cffbc37c884a4a7f232f8913cfeb8e82adbfb21f714a4c9bcf81d7b2"
-        }
-      ],
-      "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-    },
-    {
-      "id": "character-mary-standardized-neutral-front-near-front-halfbody-v001",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "8b346903cffbc37c884a4a7f232f8913cfeb8e82adbfb21f714a4c9bcf81d7b2",
-      "provenance": "regenerated-standardized",
-      "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": [
-        "journal:mary",
-        "class:people-review",
-        "lesson-overview:roster-review",
-        "cast-standardization:mary"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "learner-journal-preview"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:mary",
-          "class:people-review",
-          "lesson-overview:roster-review",
-          "cast-standardization:mary"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/mary/mary__standardized-neutral__front-near-front__halfbody__v001.png",
-          "sha256": "8b346903cffbc37c884a4a7f232f8913cfeb8e82adbfb21f714a4c9bcf81d7b2"
-        }
-      ],
-      "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-    },
-    {
       "id": "character-mika-determined-headphones-left-three-quarter-fullbody-v002",
       "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
       "sourceSha256": "d46e4b87f5b5c0b7fbd6df3716b0e245e4660a5caff003e36a354639b3fba59f",
@@ -645,74 +577,6 @@
         }
       ],
       "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
-    },
-    {
-      "id": "character-miller-standardized-encouraging-listening-front-near-front-halfbody-v001",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "e3527b3c42cc6053bfcd235d24b9ef1c2cdee8bea5553ed54daa198f9953fa9c",
-      "provenance": "regenerated-standardized",
-      "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": [
-        "journal:miller-expression-gallery",
-        "cast-standardization:miller"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "learner-journal-preview"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:miller-expression-gallery",
-          "cast-standardization:miller"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/miller/miller__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
-          "sha256": "e3527b3c42cc6053bfcd235d24b9ef1c2cdee8bea5553ed54daa198f9953fa9c"
-        }
-      ],
-      "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-    },
-    {
-      "id": "character-miller-standardized-neutral-front-near-front-halfbody-v001",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "e9e9503bf183a8dfd897ac1653e73c4904bc8ae2967e08c486188639ef1db30d",
-      "provenance": "regenerated-standardized",
-      "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": [
-        "journal:miller",
-        "class:people-review",
-        "lesson-overview:roster-review",
-        "cast-standardization:miller"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "learner-journal-preview"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:miller",
-          "class:people-review",
-          "lesson-overview:roster-review",
-          "cast-standardization:miller"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/miller/miller__standardized-neutral__front-near-front__halfbody__v001.png",
-          "sha256": "e9e9503bf183a8dfd897ac1653e73c4904bc8ae2967e08c486188639ef1db30d"
-        }
-      ],
-      "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
     },
     {
       "id": "character-mira-determined-umbrella-left-three-quarter-fullbody-v002",
@@ -1213,142 +1077,6 @@
         }
       ],
       "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
-    },
-    {
-      "id": "character-takeshi-standardized-encouraging-listening-front-near-front-halfbody-v001",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "942eb86fe4f40e84bb79c2ca3d573107e070c985e9ebc693ebb814619a8febb1",
-      "provenance": "regenerated-standardized",
-      "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": [
-        "journal:takeshi-expression-gallery",
-        "cast-standardization:takeshi"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "learner-journal-preview"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:takeshi-expression-gallery",
-          "cast-standardization:takeshi"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/takeshi/takeshi__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
-          "sha256": "942eb86fe4f40e84bb79c2ca3d573107e070c985e9ebc693ebb814619a8febb1"
-        }
-      ],
-      "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-    },
-    {
-      "id": "character-takeshi-standardized-neutral-front-near-front-halfbody-v001",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "942eb86fe4f40e84bb79c2ca3d573107e070c985e9ebc693ebb814619a8febb1",
-      "provenance": "regenerated-standardized",
-      "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": [
-        "journal:takeshi",
-        "class:people-review",
-        "lesson-overview:roster-review",
-        "cast-standardization:takeshi"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "learner-journal-preview"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:takeshi",
-          "class:people-review",
-          "lesson-overview:roster-review",
-          "cast-standardization:takeshi"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/takeshi/takeshi__standardized-neutral__front-near-front__halfbody__v001.png",
-          "sha256": "942eb86fe4f40e84bb79c2ca3d573107e070c985e9ebc693ebb814619a8febb1"
-        }
-      ],
-      "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-    },
-    {
-      "id": "character-tawapon-standardized-encouraging-listening-front-near-front-halfbody-v001",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "7ccf2d30ca96bf35be6f83228349db668fa84635aa2fba581ff64c5f6d26d166",
-      "provenance": "regenerated-standardized",
-      "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": [
-        "journal:tawapon-expression-gallery",
-        "cast-standardization:tawapon"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "learner-journal-preview"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:tawapon-expression-gallery",
-          "cast-standardization:tawapon"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/tawapon/tawapon__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
-          "sha256": "7ccf2d30ca96bf35be6f83228349db668fa84635aa2fba581ff64c5f6d26d166"
-        }
-      ],
-      "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-    },
-    {
-      "id": "character-tawapon-standardized-neutral-front-near-front-halfbody-v001",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "7ccf2d30ca96bf35be6f83228349db668fa84635aa2fba581ff64c5f6d26d166",
-      "provenance": "regenerated-standardized",
-      "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": [
-        "journal:tawapon",
-        "class:people-review",
-        "lesson-overview:roster-review",
-        "cast-standardization:tawapon"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "learner-journal-preview"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:tawapon",
-          "class:people-review",
-          "lesson-overview:roster-review",
-          "cast-standardization:tawapon"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/tawapon/tawapon__standardized-neutral__front-near-front__halfbody__v001.png",
-          "sha256": "7ccf2d30ca96bf35be6f83228349db668fa84635aa2fba581ff64c5f6d26d166"
-        }
-      ],
-      "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
     },
     {
       "id": "character-xingyu-determined-short-hair-round-glasses-left-three-quarter-fullbody-v002",
@@ -10112,7 +9840,7 @@
       "deliveries": [
         {
           "path": "/academy/art/SPRITE-BATCH-MANIFEST.json",
-          "sha256": "20663c60d7e155d512b0049e0daab061529c6cca200d26cab9167309bcc1fc4b"
+          "sha256": "bd11135c27fdefe8c0498ceecd0a643ac237bc4653600ad3b742d769e3deeb11"
         }
       ],
       "status": "bound-and-schema-validated"
@@ -15984,6 +15712,990 @@
         {
           "path": "/academy/art/characters/steve/steve__sad-vulnerable-silver-hair-glasses-family-message__left-three-quarter__halfbody__v002.png",
           "sha256": "0a7cb4d7f7b46475c18947f3707210a08a5fc04e5dacf03ff3107e01267419bf"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-miller-standardized-neutral-front-near-front-halfbody-v001",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "e9e9503bf183a8dfd897ac1653e73c4904bc8ae2967e08c486188639ef1db30d",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:miller",
+        "class:people",
+        "class:week-cast",
+        "lesson-overview:roster",
+        "world:person",
+        "story:cast:miller",
+        "cast-standardization:miller"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:miller",
+          "class:people",
+          "class:week-cast",
+          "lesson-overview:roster",
+          "world:person",
+          "story:cast:miller",
+          "cast-standardization:miller"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/miller/miller__standardized-neutral__front-near-front__halfbody__v001.png",
+          "sha256": "e9e9503bf183a8dfd897ac1653e73c4904bc8ae2967e08c486188639ef1db30d"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-miller-standardized-encouraging-listening-front-near-front-halfbody-v001",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "e3527b3c42cc6053bfcd235d24b9ef1c2cdee8bea5553ed54daa198f9953fa9c",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:miller-expression-gallery",
+        "story:cast:miller:encouraging-listening",
+        "cast-standardization:miller"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:miller-expression-gallery",
+          "story:cast:miller:encouraging-listening",
+          "cast-standardization:miller"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/miller/miller__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
+          "sha256": "e3527b3c42cc6053bfcd235d24b9ef1c2cdee8bea5553ed54daa198f9953fa9c"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-miller-happy-front-near-front-halfbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "f1d4739708847f5ee4d1641704aafce021c938adf30b696905c813cb57800659",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:miller-expression-gallery",
+        "story:cast:miller:happy",
+        "cast-standardization:miller"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:miller-expression-gallery",
+          "story:cast:miller:happy",
+          "cast-standardization:miller"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/miller/miller__happy__front-near-front__halfbody__v002.png",
+          "sha256": "f1d4739708847f5ee4d1641704aafce021c938adf30b696905c813cb57800659"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-miller-thoughtful-left-three-quarter-halfbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "0b40ce983bd0ff8a69e0f71119c0f6a62014e1d6cfa22f15069e7d7a84d70c26",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:miller-expression-gallery",
+        "story:cast:miller:thoughtful",
+        "cast-standardization:miller"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:miller-expression-gallery",
+          "story:cast:miller:thoughtful",
+          "cast-standardization:miller"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/miller/miller__thoughtful__left-three-quarter__halfbody__v002.png",
+          "sha256": "0b40ce983bd0ff8a69e0f71119c0f6a62014e1d6cfa22f15069e7d7a84d70c26"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-miller-determined-left-three-quarter-halfbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "6182da65962d1e053355a0e28e346defdbe4722d68e594d20324ab231a00e039",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:miller-expression-gallery",
+        "story:cast:miller:determined",
+        "cast-standardization:miller"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:miller-expression-gallery",
+          "story:cast:miller:determined",
+          "cast-standardization:miller"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/miller/miller__determined__left-three-quarter__halfbody__v002.png",
+          "sha256": "6182da65962d1e053355a0e28e346defdbe4722d68e594d20324ab231a00e039"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-miller-surprised-shocked-right-three-quarter-halfbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "027f0a8bdb7fc78635d02a6ecf00cedb875f4046ae6c110ebe5f647be9024f42",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:miller-expression-gallery",
+        "story:cast:miller:surprised-shocked",
+        "cast-standardization:miller"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:miller-expression-gallery",
+          "story:cast:miller:surprised-shocked",
+          "cast-standardization:miller"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/miller/miller__surprised-shocked__right-three-quarter__halfbody__v002.png",
+          "sha256": "027f0a8bdb7fc78635d02a6ecf00cedb875f4046ae6c110ebe5f647be9024f42"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-miller-sad-vulnerable-left-three-quarter-halfbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "8e69e1d4c5ad783736b8af7b8e1a0a7826a420ba7d061f641cdb75ecad277223",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:miller-expression-gallery",
+        "story:cast:miller:sad-vulnerable",
+        "cast-standardization:miller"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:miller-expression-gallery",
+          "story:cast:miller:sad-vulnerable",
+          "cast-standardization:miller"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/miller/miller__sad-vulnerable__left-three-quarter__halfbody__v002.png",
+          "sha256": "8e69e1d4c5ad783736b8af7b8e1a0a7826a420ba7d061f641cdb75ecad277223"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-tawapon-standardized-neutral-front-near-front-halfbody-v001",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "7ccf2d30ca96bf35be6f83228349db668fa84635aa2fba581ff64c5f6d26d166",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:tawapon",
+        "class:people",
+        "class:week-cast",
+        "lesson-overview:roster",
+        "world:person",
+        "story:cast:tawapon",
+        "cast-standardization:tawapon"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:tawapon",
+          "class:people",
+          "class:week-cast",
+          "lesson-overview:roster",
+          "world:person",
+          "story:cast:tawapon",
+          "cast-standardization:tawapon"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/tawapon/tawapon__standardized-neutral__front-near-front__halfbody__v001.png",
+          "sha256": "7ccf2d30ca96bf35be6f83228349db668fa84635aa2fba581ff64c5f6d26d166"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-tawapon-standardized-encouraging-listening-front-near-front-halfbody-v001",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "7ccf2d30ca96bf35be6f83228349db668fa84635aa2fba581ff64c5f6d26d166",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:tawapon-expression-gallery",
+        "story:cast:tawapon:encouraging-listening",
+        "cast-standardization:tawapon"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:tawapon-expression-gallery",
+          "story:cast:tawapon:encouraging-listening",
+          "cast-standardization:tawapon"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/tawapon/tawapon__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
+          "sha256": "7ccf2d30ca96bf35be6f83228349db668fa84635aa2fba581ff64c5f6d26d166"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-tawapon-happy-front-near-front-halfbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "4a8809f4b0ccbcae1c522d4cc5ee71b6cf7e54a9ed33ee1fb2abaf957f1e0d23",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:tawapon-expression-gallery",
+        "story:cast:tawapon:happy",
+        "cast-standardization:tawapon"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:tawapon-expression-gallery",
+          "story:cast:tawapon:happy",
+          "cast-standardization:tawapon"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/tawapon/tawapon__happy__front-near-front__halfbody__v002.png",
+          "sha256": "4a8809f4b0ccbcae1c522d4cc5ee71b6cf7e54a9ed33ee1fb2abaf957f1e0d23"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-tawapon-thoughtful-left-three-quarter-halfbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "db5f273aa0775ff78123a65bbb7fc4903056bde72762238b9c51e84b2e08cc69",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:tawapon-expression-gallery",
+        "story:cast:tawapon:thoughtful",
+        "cast-standardization:tawapon"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:tawapon-expression-gallery",
+          "story:cast:tawapon:thoughtful",
+          "cast-standardization:tawapon"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/tawapon/tawapon__thoughtful__left-three-quarter__halfbody__v002.png",
+          "sha256": "db5f273aa0775ff78123a65bbb7fc4903056bde72762238b9c51e84b2e08cc69"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-tawapon-determined-left-three-quarter-halfbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "74d892a059a29c32ec894b40c23e38bc1f1cba0812c5af789a1b2cefa333293e",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:tawapon-expression-gallery",
+        "story:cast:tawapon:determined",
+        "cast-standardization:tawapon"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:tawapon-expression-gallery",
+          "story:cast:tawapon:determined",
+          "cast-standardization:tawapon"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/tawapon/tawapon__determined__left-three-quarter__halfbody__v002.png",
+          "sha256": "74d892a059a29c32ec894b40c23e38bc1f1cba0812c5af789a1b2cefa333293e"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-tawapon-surprised-shocked-right-three-quarter-halfbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "88d9fe1841e323ce9fb5272cf17c110038ea5f5c488e5433fcf45db1fbf12ba8",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:tawapon-expression-gallery",
+        "story:cast:tawapon:surprised-shocked",
+        "cast-standardization:tawapon"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:tawapon-expression-gallery",
+          "story:cast:tawapon:surprised-shocked",
+          "cast-standardization:tawapon"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/tawapon/tawapon__surprised-shocked__right-three-quarter__halfbody__v002.png",
+          "sha256": "88d9fe1841e323ce9fb5272cf17c110038ea5f5c488e5433fcf45db1fbf12ba8"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-tawapon-sad-vulnerable-left-three-quarter-halfbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "8a1da0c896e6af63870571e55431fb66048ef834b67234965e1295e63e8cef98",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:tawapon-expression-gallery",
+        "story:cast:tawapon:sad-vulnerable",
+        "cast-standardization:tawapon"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:tawapon-expression-gallery",
+          "story:cast:tawapon:sad-vulnerable",
+          "cast-standardization:tawapon"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/tawapon/tawapon__sad-vulnerable__left-three-quarter__halfbody__v002.png",
+          "sha256": "8a1da0c896e6af63870571e55431fb66048ef834b67234965e1295e63e8cef98"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-mary-standardized-neutral-front-near-front-halfbody-v001",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "8b346903cffbc37c884a4a7f232f8913cfeb8e82adbfb21f714a4c9bcf81d7b2",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:mary",
+        "class:people",
+        "class:week-cast",
+        "lesson-overview:roster",
+        "world:person",
+        "story:cast:mary",
+        "cast-standardization:mary"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:mary",
+          "class:people",
+          "class:week-cast",
+          "lesson-overview:roster",
+          "world:person",
+          "story:cast:mary",
+          "cast-standardization:mary"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/mary/mary__standardized-neutral__front-near-front__halfbody__v001.png",
+          "sha256": "8b346903cffbc37c884a4a7f232f8913cfeb8e82adbfb21f714a4c9bcf81d7b2"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-mary-standardized-encouraging-listening-front-near-front-halfbody-v001",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "8b346903cffbc37c884a4a7f232f8913cfeb8e82adbfb21f714a4c9bcf81d7b2",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:mary-expression-gallery",
+        "story:cast:mary:encouraging-listening",
+        "cast-standardization:mary"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:mary-expression-gallery",
+          "story:cast:mary:encouraging-listening",
+          "cast-standardization:mary"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/mary/mary__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
+          "sha256": "8b346903cffbc37c884a4a7f232f8913cfeb8e82adbfb21f714a4c9bcf81d7b2"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-mary-happy-front-near-front-halfbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "d42b244daedb0817c3255c8381b59e3380af7e9fc3dc442687a5c3bba5bbd7f1",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:mary-expression-gallery",
+        "story:cast:mary:happy",
+        "cast-standardization:mary"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:mary-expression-gallery",
+          "story:cast:mary:happy",
+          "cast-standardization:mary"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/mary/mary__happy__front-near-front__halfbody__v002.png",
+          "sha256": "d42b244daedb0817c3255c8381b59e3380af7e9fc3dc442687a5c3bba5bbd7f1"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-mary-thoughtful-left-three-quarter-halfbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "7202af54dc3c4e9b6d80663dd83b12e14f9c93b4187a79343a15aa41e6329af9",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:mary-expression-gallery",
+        "story:cast:mary:thoughtful",
+        "cast-standardization:mary"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:mary-expression-gallery",
+          "story:cast:mary:thoughtful",
+          "cast-standardization:mary"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/mary/mary__thoughtful__left-three-quarter__halfbody__v002.png",
+          "sha256": "7202af54dc3c4e9b6d80663dd83b12e14f9c93b4187a79343a15aa41e6329af9"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-mary-determined-left-three-quarter-halfbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "a2a81d623216eaa72ac1c9059b91d0c3cf9211b4284ef3c86da380368275185b",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:mary-expression-gallery",
+        "story:cast:mary:determined",
+        "cast-standardization:mary"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:mary-expression-gallery",
+          "story:cast:mary:determined",
+          "cast-standardization:mary"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/mary/mary__determined__left-three-quarter__halfbody__v002.png",
+          "sha256": "a2a81d623216eaa72ac1c9059b91d0c3cf9211b4284ef3c86da380368275185b"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-mary-surprised-shocked-right-three-quarter-halfbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "ace4267350544a45f07f1f9d4b1909c766f67a06d4d5c9bb9d07fa9f7f255ecd",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:mary-expression-gallery",
+        "story:cast:mary:surprised-shocked",
+        "cast-standardization:mary"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:mary-expression-gallery",
+          "story:cast:mary:surprised-shocked",
+          "cast-standardization:mary"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/mary/mary__surprised-shocked__right-three-quarter__halfbody__v002.png",
+          "sha256": "ace4267350544a45f07f1f9d4b1909c766f67a06d4d5c9bb9d07fa9f7f255ecd"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-mary-sad-vulnerable-left-three-quarter-halfbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "0161d58d1ac7f41aa15cbbabe2c75dc1df6b4c7fd4ca11cc69c31c779ee9e100",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:mary-expression-gallery",
+        "story:cast:mary:sad-vulnerable",
+        "cast-standardization:mary"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:mary-expression-gallery",
+          "story:cast:mary:sad-vulnerable",
+          "cast-standardization:mary"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/mary/mary__sad-vulnerable__left-three-quarter__halfbody__v002.png",
+          "sha256": "0161d58d1ac7f41aa15cbbabe2c75dc1df6b4c7fd4ca11cc69c31c779ee9e100"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-takeshi-standardized-neutral-front-near-front-halfbody-v001",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "942eb86fe4f40e84bb79c2ca3d573107e070c985e9ebc693ebb814619a8febb1",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:takeshi",
+        "class:people",
+        "class:week-cast",
+        "lesson-overview:roster",
+        "world:person",
+        "story:cast:takeshi",
+        "cast-standardization:takeshi"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:takeshi",
+          "class:people",
+          "class:week-cast",
+          "lesson-overview:roster",
+          "world:person",
+          "story:cast:takeshi",
+          "cast-standardization:takeshi"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/takeshi/takeshi__standardized-neutral__front-near-front__halfbody__v001.png",
+          "sha256": "942eb86fe4f40e84bb79c2ca3d573107e070c985e9ebc693ebb814619a8febb1"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-takeshi-standardized-encouraging-listening-front-near-front-halfbody-v001",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "942eb86fe4f40e84bb79c2ca3d573107e070c985e9ebc693ebb814619a8febb1",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:takeshi-expression-gallery",
+        "story:cast:takeshi:encouraging-listening",
+        "cast-standardization:takeshi"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:takeshi-expression-gallery",
+          "story:cast:takeshi:encouraging-listening",
+          "cast-standardization:takeshi"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/takeshi/takeshi__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
+          "sha256": "942eb86fe4f40e84bb79c2ca3d573107e070c985e9ebc693ebb814619a8febb1"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-takeshi-happy-front-near-front-halfbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "9825ddcdbbf341685e945bba682e9397ce7ca00d0586d62faaec3342d352e276",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:takeshi-expression-gallery",
+        "story:cast:takeshi:happy",
+        "cast-standardization:takeshi"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:takeshi-expression-gallery",
+          "story:cast:takeshi:happy",
+          "cast-standardization:takeshi"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/takeshi/takeshi__happy__front-near-front__halfbody__v002.png",
+          "sha256": "9825ddcdbbf341685e945bba682e9397ce7ca00d0586d62faaec3342d352e276"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-takeshi-thoughtful-left-three-quarter-halfbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "64758e920576248ec5d46a247e757393ed2e2dd3dc8b6d59a98e40c892884439",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:takeshi-expression-gallery",
+        "story:cast:takeshi:thoughtful",
+        "cast-standardization:takeshi"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:takeshi-expression-gallery",
+          "story:cast:takeshi:thoughtful",
+          "cast-standardization:takeshi"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/takeshi/takeshi__thoughtful__left-three-quarter__halfbody__v002.png",
+          "sha256": "64758e920576248ec5d46a247e757393ed2e2dd3dc8b6d59a98e40c892884439"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-takeshi-determined-left-three-quarter-halfbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "52201e8e6beb6d536d9865fbdcc758894cb73e825ccebac08b0c65ad4c65cda4",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:takeshi-expression-gallery",
+        "story:cast:takeshi:determined",
+        "cast-standardization:takeshi"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:takeshi-expression-gallery",
+          "story:cast:takeshi:determined",
+          "cast-standardization:takeshi"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/takeshi/takeshi__determined__left-three-quarter__halfbody__v002.png",
+          "sha256": "52201e8e6beb6d536d9865fbdcc758894cb73e825ccebac08b0c65ad4c65cda4"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-takeshi-surprised-shocked-right-three-quarter-halfbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "97acc5d1c00bbbc262c9d5ab45e029914f4a69fa53dfb04236e1ad225ae17014",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:takeshi-expression-gallery",
+        "story:cast:takeshi:surprised-shocked",
+        "cast-standardization:takeshi"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:takeshi-expression-gallery",
+          "story:cast:takeshi:surprised-shocked",
+          "cast-standardization:takeshi"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/takeshi/takeshi__surprised-shocked__right-three-quarter__halfbody__v002.png",
+          "sha256": "97acc5d1c00bbbc262c9d5ab45e029914f4a69fa53dfb04236e1ad225ae17014"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-takeshi-sad-vulnerable-left-three-quarter-halfbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "53665c60e3dcdbc022c3188d3359bed64b5787fe670011e969e9babeedafb4ce",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:takeshi-expression-gallery",
+        "story:cast:takeshi:sad-vulnerable",
+        "cast-standardization:takeshi"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:takeshi-expression-gallery",
+          "story:cast:takeshi:sad-vulnerable",
+          "cast-standardization:takeshi"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/takeshi/takeshi__sad-vulnerable__left-three-quarter__halfbody__v002.png",
+          "sha256": "53665c60e3dcdbc022c3188d3359bed64b5787fe670011e969e9babeedafb4ce"
         }
       ],
       "status": "identity-locked, visually inspected, runtime-bound house-style sprite"

@@ -17,9 +17,9 @@ wardrobe, and a single cool accent, never from a different render.
 
 The quality bar is the three likeness-approved casts — **Rie**, **Sophie**, **Steve**
 (`visualEvidence: 'approved'`, `eligibility.likenessRuntime: true` in the registry).
-Older sprites (Felix, Peter, Aakash, Shaun, Tom2, Mika, Mira, Xingyu) predate this spec
-and carry the exact defects the negative list bans; they get restyled to this doc, never
-used as the reference.
+Use only the production family selected by `CAST-PRODUCTION-INVENTORY.json` as a
+character identity reference. Retired or superseded versions remain historical evidence,
+never generation anchors.
 
 ---
 
@@ -33,7 +33,7 @@ master of each (measured below):
 |---|---|---|---|---|---|
 | **Rie** (teacher) | `public/academy/art/characters/rie/rie__neutral-glasses__front-near-front__halfbody__v001.png` | **1536 × 2048** | 69.6 % | 4.3 % | 0 % (bleeds off) |
 | **Sophie** (classmate) | `public/academy/art/characters/sophie/sophie__encouraging-listening__front-near-front__halfbody__v003.png` | 941 × 1672 | 96.4 % | 5.6 % | 0 % (bleeds off) |
-| **Steve** (classmate) | `public/academy/art/characters/steve/steve__neutral__front-near-front__halfbody__v001.png` | **1536 × 2048** | 76.1 % | 4.2 % | 0 % (bleeds off) |
+| **Steve** (classmate) | `public/academy/art/characters/steve/steve__neutral-silver-hair-glasses-family-message__front-near-front__halfbody__v002.png` | **1536 × 2048** | 76.1 % | 4.2 % | 0 % (bleeds off) |
 
 Rie and Steve are the **canonical `1536 × 2048` (3:4)** masters — new generation targets
 this canvas. Sophie's approved set is a narrower trimmed variant (`941 × 1672`, ≈9:16);
@@ -268,7 +268,7 @@ Negative — do NOT include: any background, studio backdrop, cream wash, gradie
 
 - Restyling **Rie** → `… -i <rie current best sprite> -i public/academy/art/characters/rie/rie__neutral-glasses__front-near-front__halfbody__v001.png`
 - Restyling **Sophie** → `… -i <sophie current best sprite> -i public/academy/art/characters/sophie/sophie__encouraging-listening__front-near-front__halfbody__v003.png`
-- Restyling **Steve** → `… -i <steve current best sprite> -i public/academy/art/characters/steve/steve__neutral__front-near-front__halfbody__v001.png`
+- Restyling **Steve** → `… -i <steve current best sprite> -i public/academy/art/characters/steve/steve__neutral-silver-hair-glasses-family-message__front-near-front__halfbody__v002.png`
 - Restyling **any other cast member** → their own likeness sprite as identity `-i`, then the
   nearest approved master above as the **final** `-i` style lock.
 

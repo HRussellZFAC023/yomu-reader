@@ -1904,9 +1904,17 @@
         }
       ],
       "currentAsset": {
-        "status": "missing",
-        "paths": [],
-        "note": "No current original Yomu sprite; retained as a deferred textbook legend."
+        "status": "approved-performance-family",
+        "paths": [
+          "/academy/art/characters/miller/miller__standardized-neutral__front-near-front__halfbody__v001.png",
+          "/academy/art/characters/miller/miller__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
+          "/academy/art/characters/miller/miller__happy__front-near-front__halfbody__v002.png",
+          "/academy/art/characters/miller/miller__thoughtful__left-three-quarter__halfbody__v002.png",
+          "/academy/art/characters/miller/miller__determined__left-three-quarter__halfbody__v002.png",
+          "/academy/art/characters/miller/miller__surprised-shocked__right-three-quarter__halfbody__v002.png",
+          "/academy/art/characters/miller/miller__sad-vulnerable__left-three-quarter__halfbody__v002.png"
+        ],
+        "note": "Identity-locked, visually inspected house-style family; all seven canonical expressions are runtime-bound."
       },
       "generationPriority": {
         "tier": 3,
@@ -1954,9 +1962,17 @@
         }
       ],
       "currentAsset": {
-        "status": "missing",
-        "paths": [],
-        "note": "No current original Yomu sprite; retained as a deferred textbook legend."
+        "status": "approved-performance-family",
+        "paths": [
+          "/academy/art/characters/tawapon/tawapon__standardized-neutral__front-near-front__halfbody__v001.png",
+          "/academy/art/characters/tawapon/tawapon__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
+          "/academy/art/characters/tawapon/tawapon__happy__front-near-front__halfbody__v002.png",
+          "/academy/art/characters/tawapon/tawapon__thoughtful__left-three-quarter__halfbody__v002.png",
+          "/academy/art/characters/tawapon/tawapon__determined__left-three-quarter__halfbody__v002.png",
+          "/academy/art/characters/tawapon/tawapon__surprised-shocked__right-three-quarter__halfbody__v002.png",
+          "/academy/art/characters/tawapon/tawapon__sad-vulnerable__left-three-quarter__halfbody__v002.png"
+        ],
+        "note": "Identity-locked, visually inspected house-style family; all seven canonical expressions are runtime-bound."
       },
       "generationPriority": {
         "tier": 3,
@@ -2004,9 +2020,17 @@
         }
       ],
       "currentAsset": {
-        "status": "missing",
-        "paths": [],
-        "note": "No current original Yomu sprite; retained as a deferred textbook legend."
+        "status": "approved-performance-family",
+        "paths": [
+          "/academy/art/characters/mary/mary__standardized-neutral__front-near-front__halfbody__v001.png",
+          "/academy/art/characters/mary/mary__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
+          "/academy/art/characters/mary/mary__happy__front-near-front__halfbody__v002.png",
+          "/academy/art/characters/mary/mary__thoughtful__left-three-quarter__halfbody__v002.png",
+          "/academy/art/characters/mary/mary__determined__left-three-quarter__halfbody__v002.png",
+          "/academy/art/characters/mary/mary__surprised-shocked__right-three-quarter__halfbody__v002.png",
+          "/academy/art/characters/mary/mary__sad-vulnerable__left-three-quarter__halfbody__v002.png"
+        ],
+        "note": "Identity-locked, visually inspected house-style family; all seven canonical expressions are runtime-bound."
       },
       "generationPriority": {
         "tier": 3,
@@ -2054,9 +2078,17 @@
         }
       ],
       "currentAsset": {
-        "status": "missing",
-        "paths": [],
-        "note": "No current original Yomu sprite; retained as a deferred textbook legend."
+        "status": "approved-performance-family",
+        "paths": [
+          "/academy/art/characters/takeshi/takeshi__standardized-neutral__front-near-front__halfbody__v001.png",
+          "/academy/art/characters/takeshi/takeshi__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
+          "/academy/art/characters/takeshi/takeshi__happy__front-near-front__halfbody__v002.png",
+          "/academy/art/characters/takeshi/takeshi__thoughtful__left-three-quarter__halfbody__v002.png",
+          "/academy/art/characters/takeshi/takeshi__determined__left-three-quarter__halfbody__v002.png",
+          "/academy/art/characters/takeshi/takeshi__surprised-shocked__right-three-quarter__halfbody__v002.png",
+          "/academy/art/characters/takeshi/takeshi__sad-vulnerable__left-three-quarter__halfbody__v002.png"
+        ],
+        "note": "Identity-locked, visually inspected house-style family; all seven canonical expressions are runtime-bound."
       },
       "generationPriority": {
         "tier": 3,

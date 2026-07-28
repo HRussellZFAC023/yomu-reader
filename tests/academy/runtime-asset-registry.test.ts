@@ -69,9 +69,10 @@ describe('Academy runtime asset registry', () => {
                 expect(authorizedVisualPaths.has(assetPath), `${id} is not runtime-authorized`).toBe(true);
                 expect(fs.existsSync(path.resolve('public', assetPath.slice(1))), `${id} is missing ${assetPath}`).toBe(true);
                 expect(ledgerAsset?.runtimeHome, `${id} runtime homes drifted`).toEqual(asset.runtimeHomes);
-                expect(asset.status === 'review-preview', `${id} preview status drifted`).toBe(
-                    ledgerAsset?.verdict.includes('preview') ?? false,
-                );
+                const expectedStatus = ledgerAsset?.verdict.includes('preview')
+                    ? 'review-preview'
+                    : 'approved';
+                expect(asset.status, `${id} preview status drifted`).toBe(expectedStatus);
             }
         }
     });

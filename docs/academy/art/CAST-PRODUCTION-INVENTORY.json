@@ -29,11 +29,11 @@
     "cast": 30,
     "requiredPerformancesPerCast": 7,
     "requiredSlots": 210,
-    "integratedSlots": 182,
-    "missingSlots": 28,
+    "integratedSlots": 210,
+    "missingSlots": 0,
     "ownerCorrectionQueue": 0,
     "storyCriticalQueue": 0,
-    "rosterCompletionQueue": 28
+    "rosterCompletionQueue": 0
   },
   "cast": [
     {
@@ -2988,65 +2988,97 @@
       "priority": "roster-completion",
       "summary": {
         "required": 7,
-        "integrated": 0,
-        "missing": 7
+        "integrated": 7,
+        "missing": 0
       },
       "performances": [
         {
           "expression": "neutral",
           "preferredAngle": "front-near-front",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.miller.standardized-neutral-front-near-front-halfbody-v001",
+          "assetPath": "/academy/art/characters/miller/miller__standardized-neutral__front-near-front__halfbody__v001.png",
+          "runtimeHomes": [
+            "journal:miller",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "story:cast:miller",
+            "cast-standardization:miller"
+          ]
         },
         {
           "expression": "encouraging-listening",
           "preferredAngle": "right-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.miller.standardized-encouraging-listening-front-near-front-halfbody-v001",
+          "assetPath": "/academy/art/characters/miller/miller__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
+          "runtimeHomes": [
+            "journal:miller-expression-gallery",
+            "story:cast:miller:encouraging-listening",
+            "cast-standardization:miller"
+          ]
         },
         {
           "expression": "happy",
           "preferredAngle": "front-near-front",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.miller.happy-front-near-front-halfbody-v002",
+          "assetPath": "/academy/art/characters/miller/miller__happy__front-near-front__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:miller-expression-gallery",
+            "story:cast:miller:happy",
+            "cast-standardization:miller"
+          ]
         },
         {
           "expression": "thoughtful",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.miller.thoughtful-left-three-quarter-halfbody-v002",
+          "assetPath": "/academy/art/characters/miller/miller__thoughtful__left-three-quarter__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:miller-expression-gallery",
+            "story:cast:miller:thoughtful",
+            "cast-standardization:miller"
+          ]
         },
         {
           "expression": "determined",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.miller.determined-left-three-quarter-halfbody-v002",
+          "assetPath": "/academy/art/characters/miller/miller__determined__left-three-quarter__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:miller-expression-gallery",
+            "story:cast:miller:determined",
+            "cast-standardization:miller"
+          ]
         },
         {
           "expression": "surprised-shocked",
           "preferredAngle": "right-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.miller.surprised-shocked-right-three-quarter-halfbody-v002",
+          "assetPath": "/academy/art/characters/miller/miller__surprised-shocked__right-three-quarter__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:miller-expression-gallery",
+            "story:cast:miller:surprised-shocked",
+            "cast-standardization:miller"
+          ]
         },
         {
           "expression": "sad-vulnerable",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.miller.sad-vulnerable-left-three-quarter-halfbody-v002",
+          "assetPath": "/academy/art/characters/miller/miller__sad-vulnerable__left-three-quarter__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:miller-expression-gallery",
+            "story:cast:miller:sad-vulnerable",
+            "cast-standardization:miller"
+          ]
         }
       ]
     },
@@ -3068,65 +3100,97 @@
       "priority": "roster-completion",
       "summary": {
         "required": 7,
-        "integrated": 0,
-        "missing": 7
+        "integrated": 7,
+        "missing": 0
       },
       "performances": [
         {
           "expression": "neutral",
           "preferredAngle": "front-near-front",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.tawapon.standardized-neutral-front-near-front-halfbody-v001",
+          "assetPath": "/academy/art/characters/tawapon/tawapon__standardized-neutral__front-near-front__halfbody__v001.png",
+          "runtimeHomes": [
+            "journal:tawapon",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "story:cast:tawapon",
+            "cast-standardization:tawapon"
+          ]
         },
         {
           "expression": "encouraging-listening",
           "preferredAngle": "right-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.tawapon.standardized-encouraging-listening-front-near-front-halfbody-v001",
+          "assetPath": "/academy/art/characters/tawapon/tawapon__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
+          "runtimeHomes": [
+            "journal:tawapon-expression-gallery",
+            "story:cast:tawapon:encouraging-listening",
+            "cast-standardization:tawapon"
+          ]
         },
         {
           "expression": "happy",
           "preferredAngle": "front-near-front",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.tawapon.happy-front-near-front-halfbody-v002",
+          "assetPath": "/academy/art/characters/tawapon/tawapon__happy__front-near-front__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:tawapon-expression-gallery",
+            "story:cast:tawapon:happy",
+            "cast-standardization:tawapon"
+          ]
         },
         {
           "expression": "thoughtful",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.tawapon.thoughtful-left-three-quarter-halfbody-v002",
+          "assetPath": "/academy/art/characters/tawapon/tawapon__thoughtful__left-three-quarter__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:tawapon-expression-gallery",
+            "story:cast:tawapon:thoughtful",
+            "cast-standardization:tawapon"
+          ]
         },
         {
           "expression": "determined",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.tawapon.determined-left-three-quarter-halfbody-v002",
+          "assetPath": "/academy/art/characters/tawapon/tawapon__determined__left-three-quarter__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:tawapon-expression-gallery",
+            "story:cast:tawapon:determined",
+            "cast-standardization:tawapon"
+          ]
         },
         {
           "expression": "surprised-shocked",
           "preferredAngle": "right-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.tawapon.surprised-shocked-right-three-quarter-halfbody-v002",
+          "assetPath": "/academy/art/characters/tawapon/tawapon__surprised-shocked__right-three-quarter__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:tawapon-expression-gallery",
+            "story:cast:tawapon:surprised-shocked",
+            "cast-standardization:tawapon"
+          ]
         },
         {
           "expression": "sad-vulnerable",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.tawapon.sad-vulnerable-left-three-quarter-halfbody-v002",
+          "assetPath": "/academy/art/characters/tawapon/tawapon__sad-vulnerable__left-three-quarter__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:tawapon-expression-gallery",
+            "story:cast:tawapon:sad-vulnerable",
+            "cast-standardization:tawapon"
+          ]
         }
       ]
     },
@@ -3148,65 +3212,97 @@
       "priority": "roster-completion",
       "summary": {
         "required": 7,
-        "integrated": 0,
-        "missing": 7
+        "integrated": 7,
+        "missing": 0
       },
       "performances": [
         {
           "expression": "neutral",
           "preferredAngle": "front-near-front",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.mary.standardized-neutral-front-near-front-halfbody-v001",
+          "assetPath": "/academy/art/characters/mary/mary__standardized-neutral__front-near-front__halfbody__v001.png",
+          "runtimeHomes": [
+            "journal:mary",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "story:cast:mary",
+            "cast-standardization:mary"
+          ]
         },
         {
           "expression": "encouraging-listening",
           "preferredAngle": "right-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.mary.standardized-encouraging-listening-front-near-front-halfbody-v001",
+          "assetPath": "/academy/art/characters/mary/mary__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
+          "runtimeHomes": [
+            "journal:mary-expression-gallery",
+            "story:cast:mary:encouraging-listening",
+            "cast-standardization:mary"
+          ]
         },
         {
           "expression": "happy",
           "preferredAngle": "front-near-front",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.mary.happy-front-near-front-halfbody-v002",
+          "assetPath": "/academy/art/characters/mary/mary__happy__front-near-front__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:mary-expression-gallery",
+            "story:cast:mary:happy",
+            "cast-standardization:mary"
+          ]
         },
         {
           "expression": "thoughtful",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.mary.thoughtful-left-three-quarter-halfbody-v002",
+          "assetPath": "/academy/art/characters/mary/mary__thoughtful__left-three-quarter__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:mary-expression-gallery",
+            "story:cast:mary:thoughtful",
+            "cast-standardization:mary"
+          ]
         },
         {
           "expression": "determined",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.mary.determined-left-three-quarter-halfbody-v002",
+          "assetPath": "/academy/art/characters/mary/mary__determined__left-three-quarter__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:mary-expression-gallery",
+            "story:cast:mary:determined",
+            "cast-standardization:mary"
+          ]
         },
         {
           "expression": "surprised-shocked",
           "preferredAngle": "right-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.mary.surprised-shocked-right-three-quarter-halfbody-v002",
+          "assetPath": "/academy/art/characters/mary/mary__surprised-shocked__right-three-quarter__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:mary-expression-gallery",
+            "story:cast:mary:surprised-shocked",
+            "cast-standardization:mary"
+          ]
         },
         {
           "expression": "sad-vulnerable",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.mary.sad-vulnerable-left-three-quarter-halfbody-v002",
+          "assetPath": "/academy/art/characters/mary/mary__sad-vulnerable__left-three-quarter__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:mary-expression-gallery",
+            "story:cast:mary:sad-vulnerable",
+            "cast-standardization:mary"
+          ]
         }
       ]
     },
@@ -3228,861 +3324,100 @@
       "priority": "roster-completion",
       "summary": {
         "required": 7,
-        "integrated": 0,
-        "missing": 7
+        "integrated": 7,
+        "missing": 0
       },
       "performances": [
         {
           "expression": "neutral",
           "preferredAngle": "front-near-front",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.takeshi.standardized-neutral-front-near-front-halfbody-v001",
+          "assetPath": "/academy/art/characters/takeshi/takeshi__standardized-neutral__front-near-front__halfbody__v001.png",
+          "runtimeHomes": [
+            "journal:takeshi",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "story:cast:takeshi",
+            "cast-standardization:takeshi"
+          ]
         },
         {
           "expression": "encouraging-listening",
           "preferredAngle": "right-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.takeshi.standardized-encouraging-listening-front-near-front-halfbody-v001",
+          "assetPath": "/academy/art/characters/takeshi/takeshi__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
+          "runtimeHomes": [
+            "journal:takeshi-expression-gallery",
+            "story:cast:takeshi:encouraging-listening",
+            "cast-standardization:takeshi"
+          ]
         },
         {
           "expression": "happy",
           "preferredAngle": "front-near-front",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.takeshi.happy-front-near-front-halfbody-v002",
+          "assetPath": "/academy/art/characters/takeshi/takeshi__happy__front-near-front__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:takeshi-expression-gallery",
+            "story:cast:takeshi:happy",
+            "cast-standardization:takeshi"
+          ]
         },
         {
           "expression": "thoughtful",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.takeshi.thoughtful-left-three-quarter-halfbody-v002",
+          "assetPath": "/academy/art/characters/takeshi/takeshi__thoughtful__left-three-quarter__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:takeshi-expression-gallery",
+            "story:cast:takeshi:thoughtful",
+            "cast-standardization:takeshi"
+          ]
         },
         {
           "expression": "determined",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.takeshi.determined-left-three-quarter-halfbody-v002",
+          "assetPath": "/academy/art/characters/takeshi/takeshi__determined__left-three-quarter__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:takeshi-expression-gallery",
+            "story:cast:takeshi:determined",
+            "cast-standardization:takeshi"
+          ]
         },
         {
           "expression": "surprised-shocked",
           "preferredAngle": "right-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.takeshi.surprised-shocked-right-three-quarter-halfbody-v002",
+          "assetPath": "/academy/art/characters/takeshi/takeshi__surprised-shocked__right-three-quarter__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:takeshi-expression-gallery",
+            "story:cast:takeshi:surprised-shocked",
+            "cast-standardization:takeshi"
+          ]
         },
         {
           "expression": "sad-vulnerable",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.takeshi.sad-vulnerable-left-three-quarter-halfbody-v002",
+          "assetPath": "/academy/art/characters/takeshi/takeshi__sad-vulnerable__left-three-quarter__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:takeshi-expression-gallery",
+            "story:cast:takeshi:sad-vulnerable",
+            "cast-standardization:takeshi"
+          ]
         }
       ]
     }
   ],
-  "generationQueue": [
-    {
-      "key": "miller:neutral",
-      "castId": "miller",
-      "displayName": "Miller",
-      "identityKey": "miller-textbook-legend-kobe",
-      "expression": "neutral",
-      "angle": "front-near-front",
-      "priority": "roster-completion",
-      "storyLines": 0,
-      "visualLock": "Original Yomu adult office-worker interpretation, immediately distinct from Mira and the real class.",
-      "wardrobeLock": "Practical business-casual travel clothes with a small Kobe-bound bag only in the recurring gag.",
-      "reject": [
-        "Mira cap and umbrella identity",
-        "copied textbook illustration",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:miller",
-        "class:people",
-        "lesson-overview:roster",
-        "story:cast:miller"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "miller:encouraging-listening",
-      "castId": "miller",
-      "displayName": "Miller",
-      "identityKey": "miller-textbook-legend-kobe",
-      "expression": "encouraging-listening",
-      "angle": "right-three-quarter",
-      "priority": "roster-completion",
-      "storyLines": 0,
-      "visualLock": "Original Yomu adult office-worker interpretation, immediately distinct from Mira and the real class.",
-      "wardrobeLock": "Practical business-casual travel clothes with a small Kobe-bound bag only in the recurring gag.",
-      "reject": [
-        "Mira cap and umbrella identity",
-        "copied textbook illustration",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:miller-expression-gallery",
-        "story:cast:miller:encouraging-listening"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "miller:happy",
-      "castId": "miller",
-      "displayName": "Miller",
-      "identityKey": "miller-textbook-legend-kobe",
-      "expression": "happy",
-      "angle": "front-near-front",
-      "priority": "roster-completion",
-      "storyLines": 0,
-      "visualLock": "Original Yomu adult office-worker interpretation, immediately distinct from Mira and the real class.",
-      "wardrobeLock": "Practical business-casual travel clothes with a small Kobe-bound bag only in the recurring gag.",
-      "reject": [
-        "Mira cap and umbrella identity",
-        "copied textbook illustration",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:miller-expression-gallery",
-        "story:cast:miller:happy"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "miller:thoughtful",
-      "castId": "miller",
-      "displayName": "Miller",
-      "identityKey": "miller-textbook-legend-kobe",
-      "expression": "thoughtful",
-      "angle": "left-three-quarter",
-      "priority": "roster-completion",
-      "storyLines": 0,
-      "visualLock": "Original Yomu adult office-worker interpretation, immediately distinct from Mira and the real class.",
-      "wardrobeLock": "Practical business-casual travel clothes with a small Kobe-bound bag only in the recurring gag.",
-      "reject": [
-        "Mira cap and umbrella identity",
-        "copied textbook illustration",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:miller-expression-gallery",
-        "story:cast:miller:thoughtful"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "miller:determined",
-      "castId": "miller",
-      "displayName": "Miller",
-      "identityKey": "miller-textbook-legend-kobe",
-      "expression": "determined",
-      "angle": "left-three-quarter",
-      "priority": "roster-completion",
-      "storyLines": 0,
-      "visualLock": "Original Yomu adult office-worker interpretation, immediately distinct from Mira and the real class.",
-      "wardrobeLock": "Practical business-casual travel clothes with a small Kobe-bound bag only in the recurring gag.",
-      "reject": [
-        "Mira cap and umbrella identity",
-        "copied textbook illustration",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:miller-expression-gallery",
-        "story:cast:miller:determined"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "miller:surprised-shocked",
-      "castId": "miller",
-      "displayName": "Miller",
-      "identityKey": "miller-textbook-legend-kobe",
-      "expression": "surprised-shocked",
-      "angle": "right-three-quarter",
-      "priority": "roster-completion",
-      "storyLines": 0,
-      "visualLock": "Original Yomu adult office-worker interpretation, immediately distinct from Mira and the real class.",
-      "wardrobeLock": "Practical business-casual travel clothes with a small Kobe-bound bag only in the recurring gag.",
-      "reject": [
-        "Mira cap and umbrella identity",
-        "copied textbook illustration",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:miller-expression-gallery",
-        "story:cast:miller:surprised-shocked"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "miller:sad-vulnerable",
-      "castId": "miller",
-      "displayName": "Miller",
-      "identityKey": "miller-textbook-legend-kobe",
-      "expression": "sad-vulnerable",
-      "angle": "left-three-quarter",
-      "priority": "roster-completion",
-      "storyLines": 0,
-      "visualLock": "Original Yomu adult office-worker interpretation, immediately distinct from Mira and the real class.",
-      "wardrobeLock": "Practical business-casual travel clothes with a small Kobe-bound bag only in the recurring gag.",
-      "reject": [
-        "Mira cap and umbrella identity",
-        "copied textbook illustration",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:miller-expression-gallery",
-        "story:cast:miller:sad-vulnerable"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "tawapon:neutral",
-      "castId": "tawapon",
-      "displayName": "Tawapon",
-      "identityKey": "tawapon-eternal-student",
-      "expression": "neutral",
-      "angle": "front-near-front",
-      "priority": "roster-completion",
-      "storyLines": 0,
-      "visualLock": "Original Yomu adult student who treats improbable exercises as ordinary life.",
-      "wardrobeLock": "Cheerful practical campus layers with a well-used workbook.",
-      "reject": [
-        "copied textbook illustration",
-        "child proportions",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:tawapon",
-        "class:people",
-        "lesson-overview:roster",
-        "story:cast:tawapon"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "tawapon:encouraging-listening",
-      "castId": "tawapon",
-      "displayName": "Tawapon",
-      "identityKey": "tawapon-eternal-student",
-      "expression": "encouraging-listening",
-      "angle": "right-three-quarter",
-      "priority": "roster-completion",
-      "storyLines": 0,
-      "visualLock": "Original Yomu adult student who treats improbable exercises as ordinary life.",
-      "wardrobeLock": "Cheerful practical campus layers with a well-used workbook.",
-      "reject": [
-        "copied textbook illustration",
-        "child proportions",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:tawapon-expression-gallery",
-        "story:cast:tawapon:encouraging-listening"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "tawapon:happy",
-      "castId": "tawapon",
-      "displayName": "Tawapon",
-      "identityKey": "tawapon-eternal-student",
-      "expression": "happy",
-      "angle": "front-near-front",
-      "priority": "roster-completion",
-      "storyLines": 0,
-      "visualLock": "Original Yomu adult student who treats improbable exercises as ordinary life.",
-      "wardrobeLock": "Cheerful practical campus layers with a well-used workbook.",
-      "reject": [
-        "copied textbook illustration",
-        "child proportions",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:tawapon-expression-gallery",
-        "story:cast:tawapon:happy"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "tawapon:thoughtful",
-      "castId": "tawapon",
-      "displayName": "Tawapon",
-      "identityKey": "tawapon-eternal-student",
-      "expression": "thoughtful",
-      "angle": "left-three-quarter",
-      "priority": "roster-completion",
-      "storyLines": 0,
-      "visualLock": "Original Yomu adult student who treats improbable exercises as ordinary life.",
-      "wardrobeLock": "Cheerful practical campus layers with a well-used workbook.",
-      "reject": [
-        "copied textbook illustration",
-        "child proportions",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:tawapon-expression-gallery",
-        "story:cast:tawapon:thoughtful"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "tawapon:determined",
-      "castId": "tawapon",
-      "displayName": "Tawapon",
-      "identityKey": "tawapon-eternal-student",
-      "expression": "determined",
-      "angle": "left-three-quarter",
-      "priority": "roster-completion",
-      "storyLines": 0,
-      "visualLock": "Original Yomu adult student who treats improbable exercises as ordinary life.",
-      "wardrobeLock": "Cheerful practical campus layers with a well-used workbook.",
-      "reject": [
-        "copied textbook illustration",
-        "child proportions",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:tawapon-expression-gallery",
-        "story:cast:tawapon:determined"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "tawapon:surprised-shocked",
-      "castId": "tawapon",
-      "displayName": "Tawapon",
-      "identityKey": "tawapon-eternal-student",
-      "expression": "surprised-shocked",
-      "angle": "right-three-quarter",
-      "priority": "roster-completion",
-      "storyLines": 0,
-      "visualLock": "Original Yomu adult student who treats improbable exercises as ordinary life.",
-      "wardrobeLock": "Cheerful practical campus layers with a well-used workbook.",
-      "reject": [
-        "copied textbook illustration",
-        "child proportions",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:tawapon-expression-gallery",
-        "story:cast:tawapon:surprised-shocked"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "tawapon:sad-vulnerable",
-      "castId": "tawapon",
-      "displayName": "Tawapon",
-      "identityKey": "tawapon-eternal-student",
-      "expression": "sad-vulnerable",
-      "angle": "left-three-quarter",
-      "priority": "roster-completion",
-      "storyLines": 0,
-      "visualLock": "Original Yomu adult student who treats improbable exercises as ordinary life.",
-      "wardrobeLock": "Cheerful practical campus layers with a well-used workbook.",
-      "reject": [
-        "copied textbook illustration",
-        "child proportions",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:tawapon-expression-gallery",
-        "story:cast:tawapon:sad-vulnerable"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "mary:neutral",
-      "castId": "mary",
-      "displayName": "Mary",
-      "identityKey": "mary-textbook-legend",
-      "expression": "neutral",
-      "angle": "front-near-front",
-      "priority": "roster-completion",
-      "storyLines": 0,
-      "visualLock": "Original Yomu adult exchange-student interpretation with bright, grounded confidence.",
-      "wardrobeLock": "Contemporary campus layers in cream, coral, navy, and moss.",
-      "reject": [
-        "copied textbook illustration",
-        "schoolchild proportions",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:mary",
-        "class:people",
-        "lesson-overview:roster",
-        "story:cast:mary"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "mary:encouraging-listening",
-      "castId": "mary",
-      "displayName": "Mary",
-      "identityKey": "mary-textbook-legend",
-      "expression": "encouraging-listening",
-      "angle": "right-three-quarter",
-      "priority": "roster-completion",
-      "storyLines": 0,
-      "visualLock": "Original Yomu adult exchange-student interpretation with bright, grounded confidence.",
-      "wardrobeLock": "Contemporary campus layers in cream, coral, navy, and moss.",
-      "reject": [
-        "copied textbook illustration",
-        "schoolchild proportions",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:mary-expression-gallery",
-        "story:cast:mary:encouraging-listening"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "mary:happy",
-      "castId": "mary",
-      "displayName": "Mary",
-      "identityKey": "mary-textbook-legend",
-      "expression": "happy",
-      "angle": "front-near-front",
-      "priority": "roster-completion",
-      "storyLines": 0,
-      "visualLock": "Original Yomu adult exchange-student interpretation with bright, grounded confidence.",
-      "wardrobeLock": "Contemporary campus layers in cream, coral, navy, and moss.",
-      "reject": [
-        "copied textbook illustration",
-        "schoolchild proportions",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:mary-expression-gallery",
-        "story:cast:mary:happy"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "mary:thoughtful",
-      "castId": "mary",
-      "displayName": "Mary",
-      "identityKey": "mary-textbook-legend",
-      "expression": "thoughtful",
-      "angle": "left-three-quarter",
-      "priority": "roster-completion",
-      "storyLines": 0,
-      "visualLock": "Original Yomu adult exchange-student interpretation with bright, grounded confidence.",
-      "wardrobeLock": "Contemporary campus layers in cream, coral, navy, and moss.",
-      "reject": [
-        "copied textbook illustration",
-        "schoolchild proportions",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:mary-expression-gallery",
-        "story:cast:mary:thoughtful"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "mary:determined",
-      "castId": "mary",
-      "displayName": "Mary",
-      "identityKey": "mary-textbook-legend",
-      "expression": "determined",
-      "angle": "left-three-quarter",
-      "priority": "roster-completion",
-      "storyLines": 0,
-      "visualLock": "Original Yomu adult exchange-student interpretation with bright, grounded confidence.",
-      "wardrobeLock": "Contemporary campus layers in cream, coral, navy, and moss.",
-      "reject": [
-        "copied textbook illustration",
-        "schoolchild proportions",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:mary-expression-gallery",
-        "story:cast:mary:determined"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "mary:surprised-shocked",
-      "castId": "mary",
-      "displayName": "Mary",
-      "identityKey": "mary-textbook-legend",
-      "expression": "surprised-shocked",
-      "angle": "right-three-quarter",
-      "priority": "roster-completion",
-      "storyLines": 0,
-      "visualLock": "Original Yomu adult exchange-student interpretation with bright, grounded confidence.",
-      "wardrobeLock": "Contemporary campus layers in cream, coral, navy, and moss.",
-      "reject": [
-        "copied textbook illustration",
-        "schoolchild proportions",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:mary-expression-gallery",
-        "story:cast:mary:surprised-shocked"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "mary:sad-vulnerable",
-      "castId": "mary",
-      "displayName": "Mary",
-      "identityKey": "mary-textbook-legend",
-      "expression": "sad-vulnerable",
-      "angle": "left-three-quarter",
-      "priority": "roster-completion",
-      "storyLines": 0,
-      "visualLock": "Original Yomu adult exchange-student interpretation with bright, grounded confidence.",
-      "wardrobeLock": "Contemporary campus layers in cream, coral, navy, and moss.",
-      "reject": [
-        "copied textbook illustration",
-        "schoolchild proportions",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:mary-expression-gallery",
-        "story:cast:mary:sad-vulnerable"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "takeshi:neutral",
-      "castId": "takeshi",
-      "displayName": "Takeshi",
-      "identityKey": "takeshi-textbook-legend",
-      "expression": "neutral",
-      "angle": "front-near-front",
-      "priority": "roster-completion",
-      "storyLines": 0,
-      "visualLock": "Original Yomu adult student interpretation with friendly, lightly comic confidence.",
-      "wardrobeLock": "Contemporary everyday Japanese campus layers.",
-      "reject": [
-        "copied textbook illustration",
-        "child proportions",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:takeshi",
-        "class:people",
-        "lesson-overview:roster",
-        "story:cast:takeshi"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "takeshi:encouraging-listening",
-      "castId": "takeshi",
-      "displayName": "Takeshi",
-      "identityKey": "takeshi-textbook-legend",
-      "expression": "encouraging-listening",
-      "angle": "right-three-quarter",
-      "priority": "roster-completion",
-      "storyLines": 0,
-      "visualLock": "Original Yomu adult student interpretation with friendly, lightly comic confidence.",
-      "wardrobeLock": "Contemporary everyday Japanese campus layers.",
-      "reject": [
-        "copied textbook illustration",
-        "child proportions",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:takeshi-expression-gallery",
-        "story:cast:takeshi:encouraging-listening"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "takeshi:happy",
-      "castId": "takeshi",
-      "displayName": "Takeshi",
-      "identityKey": "takeshi-textbook-legend",
-      "expression": "happy",
-      "angle": "front-near-front",
-      "priority": "roster-completion",
-      "storyLines": 0,
-      "visualLock": "Original Yomu adult student interpretation with friendly, lightly comic confidence.",
-      "wardrobeLock": "Contemporary everyday Japanese campus layers.",
-      "reject": [
-        "copied textbook illustration",
-        "child proportions",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:takeshi-expression-gallery",
-        "story:cast:takeshi:happy"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "takeshi:thoughtful",
-      "castId": "takeshi",
-      "displayName": "Takeshi",
-      "identityKey": "takeshi-textbook-legend",
-      "expression": "thoughtful",
-      "angle": "left-three-quarter",
-      "priority": "roster-completion",
-      "storyLines": 0,
-      "visualLock": "Original Yomu adult student interpretation with friendly, lightly comic confidence.",
-      "wardrobeLock": "Contemporary everyday Japanese campus layers.",
-      "reject": [
-        "copied textbook illustration",
-        "child proportions",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:takeshi-expression-gallery",
-        "story:cast:takeshi:thoughtful"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "takeshi:determined",
-      "castId": "takeshi",
-      "displayName": "Takeshi",
-      "identityKey": "takeshi-textbook-legend",
-      "expression": "determined",
-      "angle": "left-three-quarter",
-      "priority": "roster-completion",
-      "storyLines": 0,
-      "visualLock": "Original Yomu adult student interpretation with friendly, lightly comic confidence.",
-      "wardrobeLock": "Contemporary everyday Japanese campus layers.",
-      "reject": [
-        "copied textbook illustration",
-        "child proportions",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:takeshi-expression-gallery",
-        "story:cast:takeshi:determined"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "takeshi:surprised-shocked",
-      "castId": "takeshi",
-      "displayName": "Takeshi",
-      "identityKey": "takeshi-textbook-legend",
-      "expression": "surprised-shocked",
-      "angle": "right-three-quarter",
-      "priority": "roster-completion",
-      "storyLines": 0,
-      "visualLock": "Original Yomu adult student interpretation with friendly, lightly comic confidence.",
-      "wardrobeLock": "Contemporary everyday Japanese campus layers.",
-      "reject": [
-        "copied textbook illustration",
-        "child proportions",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:takeshi-expression-gallery",
-        "story:cast:takeshi:surprised-shocked"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "takeshi:sad-vulnerable",
-      "castId": "takeshi",
-      "displayName": "Takeshi",
-      "identityKey": "takeshi-textbook-legend",
-      "expression": "sad-vulnerable",
-      "angle": "left-three-quarter",
-      "priority": "roster-completion",
-      "storyLines": 0,
-      "visualLock": "Original Yomu adult student interpretation with friendly, lightly comic confidence.",
-      "wardrobeLock": "Contemporary everyday Japanese campus layers.",
-      "reject": [
-        "copied textbook illustration",
-        "child proportions",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:takeshi-expression-gallery",
-        "story:cast:takeshi:sad-vulnerable"
-      ],
-      "status": "queued"
-    }
-  ]
+  "generationQueue": []
 }

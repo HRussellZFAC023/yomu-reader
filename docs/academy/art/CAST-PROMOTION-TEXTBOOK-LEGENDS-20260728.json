@@ -1,0 +1,396 @@
+{
+  "promotions": [
+    {
+      "castId": "miller",
+      "archiveLabel": "partial-family-superseded-20260728",
+      "archiveAllCurrent": true,
+      "replaceExpressions": [
+        "neutral",
+        "encouraging-listening",
+        "happy",
+        "thoughtful",
+        "determined",
+        "surprised-shocked",
+        "sad-vulnerable"
+      ],
+      "canonicalNeutralAssetId": "character.miller.standardized-neutral-front-near-front-halfbody-v001",
+      "slots": [
+        {
+          "assetId": "character.miller.standardized-neutral-front-near-front-halfbody-v001",
+          "expression": "neutral",
+          "angle": "front-near-front",
+          "assetPath": "/academy/art/characters/miller/miller__standardized-neutral__front-near-front__halfbody__v001.png",
+          "runtimeHomes": [
+            "journal:miller",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "story:cast:miller",
+            "cast-standardization:miller"
+          ]
+        },
+        {
+          "assetId": "character.miller.standardized-encouraging-listening-front-near-front-halfbody-v001",
+          "expression": "encouraging-listening",
+          "angle": "front-near-front",
+          "assetPath": "/academy/art/characters/miller/miller__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
+          "runtimeHomes": [
+            "journal:miller-expression-gallery",
+            "story:cast:miller:encouraging-listening",
+            "cast-standardization:miller"
+          ]
+        },
+        {
+          "assetId": "character.miller.happy-front-near-front-halfbody-v002",
+          "expression": "happy",
+          "angle": "front-near-front",
+          "assetPath": "/academy/art/characters/miller/miller__happy__front-near-front__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:miller-expression-gallery",
+            "story:cast:miller:happy",
+            "cast-standardization:miller"
+          ]
+        },
+        {
+          "assetId": "character.miller.thoughtful-left-three-quarter-halfbody-v002",
+          "expression": "thoughtful",
+          "angle": "left-three-quarter",
+          "assetPath": "/academy/art/characters/miller/miller__thoughtful__left-three-quarter__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:miller-expression-gallery",
+            "story:cast:miller:thoughtful",
+            "cast-standardization:miller"
+          ]
+        },
+        {
+          "assetId": "character.miller.determined-left-three-quarter-halfbody-v002",
+          "expression": "determined",
+          "angle": "left-three-quarter",
+          "assetPath": "/academy/art/characters/miller/miller__determined__left-three-quarter__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:miller-expression-gallery",
+            "story:cast:miller:determined",
+            "cast-standardization:miller"
+          ]
+        },
+        {
+          "assetId": "character.miller.surprised-shocked-right-three-quarter-halfbody-v002",
+          "expression": "surprised-shocked",
+          "angle": "right-three-quarter",
+          "assetPath": "/academy/art/characters/miller/miller__surprised-shocked__right-three-quarter__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:miller-expression-gallery",
+            "story:cast:miller:surprised-shocked",
+            "cast-standardization:miller"
+          ]
+        },
+        {
+          "assetId": "character.miller.sad-vulnerable-left-three-quarter-halfbody-v002",
+          "expression": "sad-vulnerable",
+          "angle": "left-three-quarter",
+          "assetPath": "/academy/art/characters/miller/miller__sad-vulnerable__left-three-quarter__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:miller-expression-gallery",
+            "story:cast:miller:sad-vulnerable",
+            "cast-standardization:miller"
+          ]
+        }
+      ]
+    },
+    {
+      "castId": "tawapon",
+      "archiveLabel": "partial-family-superseded-20260728",
+      "archiveAllCurrent": true,
+      "replaceExpressions": [
+        "neutral",
+        "encouraging-listening",
+        "happy",
+        "thoughtful",
+        "determined",
+        "surprised-shocked",
+        "sad-vulnerable"
+      ],
+      "canonicalNeutralAssetId": "character.tawapon.standardized-neutral-front-near-front-halfbody-v001",
+      "slots": [
+        {
+          "assetId": "character.tawapon.standardized-neutral-front-near-front-halfbody-v001",
+          "expression": "neutral",
+          "angle": "front-near-front",
+          "assetPath": "/academy/art/characters/tawapon/tawapon__standardized-neutral__front-near-front__halfbody__v001.png",
+          "runtimeHomes": [
+            "journal:tawapon",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "story:cast:tawapon",
+            "cast-standardization:tawapon"
+          ]
+        },
+        {
+          "assetId": "character.tawapon.standardized-encouraging-listening-front-near-front-halfbody-v001",
+          "expression": "encouraging-listening",
+          "angle": "front-near-front",
+          "assetPath": "/academy/art/characters/tawapon/tawapon__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
+          "runtimeHomes": [
+            "journal:tawapon-expression-gallery",
+            "story:cast:tawapon:encouraging-listening",
+            "cast-standardization:tawapon"
+          ]
+        },
+        {
+          "assetId": "character.tawapon.happy-front-near-front-halfbody-v002",
+          "expression": "happy",
+          "angle": "front-near-front",
+          "assetPath": "/academy/art/characters/tawapon/tawapon__happy__front-near-front__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:tawapon-expression-gallery",
+            "story:cast:tawapon:happy",
+            "cast-standardization:tawapon"
+          ]
+        },
+        {
+          "assetId": "character.tawapon.thoughtful-left-three-quarter-halfbody-v002",
+          "expression": "thoughtful",
+          "angle": "left-three-quarter",
+          "assetPath": "/academy/art/characters/tawapon/tawapon__thoughtful__left-three-quarter__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:tawapon-expression-gallery",
+            "story:cast:tawapon:thoughtful",
+            "cast-standardization:tawapon"
+          ]
+        },
+        {
+          "assetId": "character.tawapon.determined-left-three-quarter-halfbody-v002",
+          "expression": "determined",
+          "angle": "left-three-quarter",
+          "assetPath": "/academy/art/characters/tawapon/tawapon__determined__left-three-quarter__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:tawapon-expression-gallery",
+            "story:cast:tawapon:determined",
+            "cast-standardization:tawapon"
+          ]
+        },
+        {
+          "assetId": "character.tawapon.surprised-shocked-right-three-quarter-halfbody-v002",
+          "expression": "surprised-shocked",
+          "angle": "right-three-quarter",
+          "assetPath": "/academy/art/characters/tawapon/tawapon__surprised-shocked__right-three-quarter__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:tawapon-expression-gallery",
+            "story:cast:tawapon:surprised-shocked",
+            "cast-standardization:tawapon"
+          ]
+        },
+        {
+          "assetId": "character.tawapon.sad-vulnerable-left-three-quarter-halfbody-v002",
+          "expression": "sad-vulnerable",
+          "angle": "left-three-quarter",
+          "assetPath": "/academy/art/characters/tawapon/tawapon__sad-vulnerable__left-three-quarter__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:tawapon-expression-gallery",
+            "story:cast:tawapon:sad-vulnerable",
+            "cast-standardization:tawapon"
+          ]
+        }
+      ]
+    },
+    {
+      "castId": "mary",
+      "archiveLabel": "partial-family-superseded-20260728",
+      "archiveAllCurrent": true,
+      "replaceExpressions": [
+        "neutral",
+        "encouraging-listening",
+        "happy",
+        "thoughtful",
+        "determined",
+        "surprised-shocked",
+        "sad-vulnerable"
+      ],
+      "canonicalNeutralAssetId": "character.mary.standardized-neutral-front-near-front-halfbody-v001",
+      "slots": [
+        {
+          "assetId": "character.mary.standardized-neutral-front-near-front-halfbody-v001",
+          "expression": "neutral",
+          "angle": "front-near-front",
+          "assetPath": "/academy/art/characters/mary/mary__standardized-neutral__front-near-front__halfbody__v001.png",
+          "runtimeHomes": [
+            "journal:mary",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "story:cast:mary",
+            "cast-standardization:mary"
+          ]
+        },
+        {
+          "assetId": "character.mary.standardized-encouraging-listening-front-near-front-halfbody-v001",
+          "expression": "encouraging-listening",
+          "angle": "front-near-front",
+          "assetPath": "/academy/art/characters/mary/mary__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
+          "runtimeHomes": [
+            "journal:mary-expression-gallery",
+            "story:cast:mary:encouraging-listening",
+            "cast-standardization:mary"
+          ]
+        },
+        {
+          "assetId": "character.mary.happy-front-near-front-halfbody-v002",
+          "expression": "happy",
+          "angle": "front-near-front",
+          "assetPath": "/academy/art/characters/mary/mary__happy__front-near-front__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:mary-expression-gallery",
+            "story:cast:mary:happy",
+            "cast-standardization:mary"
+          ]
+        },
+        {
+          "assetId": "character.mary.thoughtful-left-three-quarter-halfbody-v002",
+          "expression": "thoughtful",
+          "angle": "left-three-quarter",
+          "assetPath": "/academy/art/characters/mary/mary__thoughtful__left-three-quarter__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:mary-expression-gallery",
+            "story:cast:mary:thoughtful",
+            "cast-standardization:mary"
+          ]
+        },
+        {
+          "assetId": "character.mary.determined-left-three-quarter-halfbody-v002",
+          "expression": "determined",
+          "angle": "left-three-quarter",
+          "assetPath": "/academy/art/characters/mary/mary__determined__left-three-quarter__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:mary-expression-gallery",
+            "story:cast:mary:determined",
+            "cast-standardization:mary"
+          ]
+        },
+        {
+          "assetId": "character.mary.surprised-shocked-right-three-quarter-halfbody-v002",
+          "expression": "surprised-shocked",
+          "angle": "right-three-quarter",
+          "assetPath": "/academy/art/characters/mary/mary__surprised-shocked__right-three-quarter__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:mary-expression-gallery",
+            "story:cast:mary:surprised-shocked",
+            "cast-standardization:mary"
+          ]
+        },
+        {
+          "assetId": "character.mary.sad-vulnerable-left-three-quarter-halfbody-v002",
+          "expression": "sad-vulnerable",
+          "angle": "left-three-quarter",
+          "assetPath": "/academy/art/characters/mary/mary__sad-vulnerable__left-three-quarter__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:mary-expression-gallery",
+            "story:cast:mary:sad-vulnerable",
+            "cast-standardization:mary"
+          ]
+        }
+      ]
+    },
+    {
+      "castId": "takeshi",
+      "archiveLabel": "partial-family-superseded-20260728",
+      "archiveAllCurrent": true,
+      "replaceExpressions": [
+        "neutral",
+        "encouraging-listening",
+        "happy",
+        "thoughtful",
+        "determined",
+        "surprised-shocked",
+        "sad-vulnerable"
+      ],
+      "canonicalNeutralAssetId": "character.takeshi.standardized-neutral-front-near-front-halfbody-v001",
+      "slots": [
+        {
+          "assetId": "character.takeshi.standardized-neutral-front-near-front-halfbody-v001",
+          "expression": "neutral",
+          "angle": "front-near-front",
+          "assetPath": "/academy/art/characters/takeshi/takeshi__standardized-neutral__front-near-front__halfbody__v001.png",
+          "runtimeHomes": [
+            "journal:takeshi",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "story:cast:takeshi",
+            "cast-standardization:takeshi"
+          ]
+        },
+        {
+          "assetId": "character.takeshi.standardized-encouraging-listening-front-near-front-halfbody-v001",
+          "expression": "encouraging-listening",
+          "angle": "front-near-front",
+          "assetPath": "/academy/art/characters/takeshi/takeshi__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
+          "runtimeHomes": [
+            "journal:takeshi-expression-gallery",
+            "story:cast:takeshi:encouraging-listening",
+            "cast-standardization:takeshi"
+          ]
+        },
+        {
+          "assetId": "character.takeshi.happy-front-near-front-halfbody-v002",
+          "expression": "happy",
+          "angle": "front-near-front",
+          "assetPath": "/academy/art/characters/takeshi/takeshi__happy__front-near-front__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:takeshi-expression-gallery",
+            "story:cast:takeshi:happy",
+            "cast-standardization:takeshi"
+          ]
+        },
+        {
+          "assetId": "character.takeshi.thoughtful-left-three-quarter-halfbody-v002",
+          "expression": "thoughtful",
+          "angle": "left-three-quarter",
+          "assetPath": "/academy/art/characters/takeshi/takeshi__thoughtful__left-three-quarter__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:takeshi-expression-gallery",
+            "story:cast:takeshi:thoughtful",
+            "cast-standardization:takeshi"
+          ]
+        },
+        {
+          "assetId": "character.takeshi.determined-left-three-quarter-halfbody-v002",
+          "expression": "determined",
+          "angle": "left-three-quarter",
+          "assetPath": "/academy/art/characters/takeshi/takeshi__determined__left-three-quarter__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:takeshi-expression-gallery",
+            "story:cast:takeshi:determined",
+            "cast-standardization:takeshi"
+          ]
+        },
+        {
+          "assetId": "character.takeshi.surprised-shocked-right-three-quarter-halfbody-v002",
+          "expression": "surprised-shocked",
+          "angle": "right-three-quarter",
+          "assetPath": "/academy/art/characters/takeshi/takeshi__surprised-shocked__right-three-quarter__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:takeshi-expression-gallery",
+            "story:cast:takeshi:surprised-shocked",
+            "cast-standardization:takeshi"
+          ]
+        },
+        {
+          "assetId": "character.takeshi.sad-vulnerable-left-three-quarter-halfbody-v002",
+          "expression": "sad-vulnerable",
+          "angle": "left-three-quarter",
+          "assetPath": "/academy/art/characters/takeshi/takeshi__sad-vulnerable__left-three-quarter__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:takeshi-expression-gallery",
+            "story:cast:takeshi:sad-vulnerable",
+            "cast-standardization:takeshi"
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -34,15 +34,15 @@
     "totalSlots": 630
   },
   "summary": {
-    "approved": 182,
+    "approved": 202,
     "reviewCandidates": 0,
-    "missing": 448,
-    "currentPhysicalRasters": 191,
+    "missing": 428,
+    "currentPhysicalRasters": 211,
     "currentOffMatrixRasters": 9,
     "historicalUniqueRasters": 469,
     "historicalOccurrences": 2016,
-    "charactersWithApprovedCoverage": 26,
-    "charactersWithAnyCurrentCoverage": 26
+    "charactersWithApprovedCoverage": 30,
+    "charactersWithAnyCurrentCoverage": 30
   },
   "migrations": [
     {
@@ -15875,30 +15875,160 @@
         "slots": 21
       },
       "progress": {
-        "approved": 0,
+        "approved": 5,
         "reviewCandidates": 0,
-        "missing": 21,
-        "deliveredPercent": 0,
-        "approvedPercent": 0
+        "missing": 16,
+        "deliveredPercent": 23.81,
+        "approvedPercent": 23.81
       },
       "currentAssets": [
+        {
+          "path": "/academy/art/characters/miller/miller__determined__left-three-quarter__halfbody__v002.png",
+          "sha256": "6182da65962d1e053355a0e28e346defdbe4722d68e594d20324ab231a00e039",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:miller-expression-gallery",
+              "story:cast:miller:determined",
+              "cast-standardization:miller"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "crisp businesslike stance with a closed appointment book held vertically beside one hip; left-three-quarter",
+          "angle": "left-three-quarter",
+          "expression": "determined",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:miller-expression-gallery",
+            "story:cast:miller:determined",
+            "cast-standardization:miller"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/miller/miller__happy__front-near-front__halfbody__v002.png",
+          "sha256": "f1d4739708847f5ee4d1641704aafce021c938adf30b696905c813cb57800659",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:miller-expression-gallery",
+              "story:cast:miller:happy",
+              "cast-standardization:miller"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "crisp businesslike stance with a closed appointment book held vertically beside one hip; front-near-front",
+          "angle": "front-near-front",
+          "expression": "happy",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:miller-expression-gallery",
+            "story:cast:miller:happy",
+            "cast-standardization:miller"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/miller/miller__sad-vulnerable__left-three-quarter__halfbody__v002.png",
+          "sha256": "8e69e1d4c5ad783736b8af7b8e1a0a7826a420ba7d061f641cdb75ecad277223",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:miller-expression-gallery",
+              "story:cast:miller:sad-vulnerable",
+              "cast-standardization:miller"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "crisp businesslike stance with a closed appointment book held vertically beside one hip; left-three-quarter",
+          "angle": "left-three-quarter",
+          "expression": "sad-vulnerable",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:miller-expression-gallery",
+            "story:cast:miller:sad-vulnerable",
+            "cast-standardization:miller"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
         {
           "path": "/academy/art/characters/miller/miller__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
           "sha256": "e3527b3c42cc6053bfcd235d24b9ef1c2cdee8bea5553ed54daa198f9953fa9c",
           "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
-          "status": "review-candidate",
+          "status": "approved",
           "usage": {
             "runtime": [
               "journal:miller-expression-gallery",
+              "story:cast:miller:encouraging-listening",
               "cast-standardization:miller"
             ],
             "review": [
               "cast-standardization-manifest",
-              "learner-journal-preview"
+              "identity-lock"
             ]
           },
-          "orphan": "review-bound",
+          "orphan": "active-runtime",
           "styleVersion": "current-review-family",
           "fileVersion": "v001",
           "pose": "off-contract standardized-encouraging-listening pose",
@@ -15913,14 +16043,15 @@
           },
           "runtimeUses": [
             "journal:miller-expression-gallery",
+            "story:cast:miller:encouraging-listening",
             "cast-standardization:miller"
           ],
           "reviewUses": [
             "cast-standardization-manifest",
-            "learner-journal-preview"
+            "identity-lock"
           ],
           "decision": "keep",
-          "migrationStatus": "retained-off-matrix-review-evidence",
+          "migrationStatus": "approved-and-registered",
           "coverageStatus": "off-matrix"
         },
         {
@@ -15928,20 +16059,23 @@
           "sha256": "e9e9503bf183a8dfd897ac1653e73c4904bc8ae2967e08c486188639ef1db30d",
           "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
-          "status": "review-candidate",
+          "status": "approved",
           "usage": {
             "runtime": [
               "journal:miller",
-              "class:people-review",
-              "lesson-overview:roster-review",
+              "class:people",
+              "class:week-cast",
+              "lesson-overview:roster",
+              "world:person",
+              "story:cast:miller",
               "cast-standardization:miller"
             ],
             "review": [
               "cast-standardization-manifest",
-              "learner-journal-preview"
+              "identity-lock"
             ]
           },
-          "orphan": "review-bound",
+          "orphan": "active-runtime",
           "styleVersion": "current-review-family",
           "fileVersion": "v001",
           "pose": "off-contract standardized-neutral pose",
@@ -15956,17 +16090,106 @@
           },
           "runtimeUses": [
             "journal:miller",
-            "class:people-review",
-            "lesson-overview:roster-review",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "story:cast:miller",
             "cast-standardization:miller"
           ],
           "reviewUses": [
             "cast-standardization-manifest",
-            "learner-journal-preview"
+            "identity-lock"
           ],
           "decision": "keep",
-          "migrationStatus": "retained-off-matrix-review-evidence",
+          "migrationStatus": "approved-and-registered",
           "coverageStatus": "off-matrix"
+        },
+        {
+          "path": "/academy/art/characters/miller/miller__surprised-shocked__right-three-quarter__halfbody__v002.png",
+          "sha256": "027f0a8bdb7fc78635d02a6ecf00cedb875f4046ae6c110ebe5f647be9024f42",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:miller-expression-gallery",
+              "story:cast:miller:surprised-shocked",
+              "cast-standardization:miller"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "crisp businesslike stance with a closed appointment book held vertically beside one hip; right-three-quarter",
+          "angle": "right-three-quarter",
+          "expression": "surprised-shocked",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:miller-expression-gallery",
+            "story:cast:miller:surprised-shocked",
+            "cast-standardization:miller"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/miller/miller__thoughtful__left-three-quarter__halfbody__v002.png",
+          "sha256": "0b40ce983bd0ff8a69e0f71119c0f6a62014e1d6cfa22f15069e7d7a84d70c26",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:miller-expression-gallery",
+              "story:cast:miller:thoughtful",
+              "cast-standardization:miller"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "crisp businesslike stance with a closed appointment book held vertically beside one hip; left-three-quarter",
+          "angle": "left-three-quarter",
+          "expression": "thoughtful",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:miller-expression-gallery",
+            "story:cast:miller:thoughtful",
+            "cast-standardization:miller"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
         }
       ],
       "requiredVariants": [
@@ -15994,16 +16217,14 @@
         {
           "angle": "left-three-quarter",
           "expression": "thoughtful",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/miller/miller__thoughtful__left-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/miller/miller__thoughtful__left-three-quarter__halfbody__v002.png"
         },
         {
           "angle": "left-three-quarter",
           "expression": "determined",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/miller/miller__determined__left-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/miller/miller__determined__left-three-quarter__halfbody__v002.png"
         },
         {
           "angle": "left-three-quarter",
@@ -16015,9 +16236,8 @@
         {
           "angle": "left-three-quarter",
           "expression": "sad-vulnerable",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/miller/miller__sad-vulnerable__left-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/miller/miller__sad-vulnerable__left-three-quarter__halfbody__v002.png"
         },
         {
           "angle": "front-near-front",
@@ -16036,9 +16256,8 @@
         {
           "angle": "front-near-front",
           "expression": "happy",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/miller/miller__happy__front-near-front__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/miller/miller__happy__front-near-front__halfbody__v002.png"
         },
         {
           "angle": "front-near-front",
@@ -16106,9 +16325,8 @@
         {
           "angle": "right-three-quarter",
           "expression": "surprised-shocked",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/miller/miller__surprised-shocked__right-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/miller/miller__surprised-shocked__right-three-quarter__halfbody__v002.png"
         },
         {
           "angle": "right-three-quarter",
@@ -16142,31 +16360,10 @@
         },
         {
           "angle": "left-three-quarter",
-          "expression": "thoughtful",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/miller/miller__thoughtful__left-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "left-three-quarter",
-          "expression": "determined",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/miller/miller__determined__left-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "left-three-quarter",
           "expression": "surprised-shocked",
           "status": "missing",
           "path": null,
           "plannedPath": "/academy/art/characters/miller/miller__surprised-shocked__left-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "left-three-quarter",
-          "expression": "sad-vulnerable",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/miller/miller__sad-vulnerable__left-three-quarter__halfbody__v001.png"
         },
         {
           "angle": "front-near-front",
@@ -16181,13 +16378,6 @@
           "status": "missing",
           "path": null,
           "plannedPath": "/academy/art/characters/miller/miller__encouraging-listening__front-near-front__halfbody__v001.png"
-        },
-        {
-          "angle": "front-near-front",
-          "expression": "happy",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/miller/miller__happy__front-near-front__halfbody__v001.png"
         },
         {
           "angle": "front-near-front",
@@ -16251,13 +16441,6 @@
           "status": "missing",
           "path": null,
           "plannedPath": "/academy/art/characters/miller/miller__determined__right-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "right-three-quarter",
-          "expression": "surprised-shocked",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/miller/miller__surprised-shocked__right-three-quarter__halfbody__v001.png"
         },
         {
           "angle": "right-three-quarter",
@@ -16308,30 +16491,160 @@
         "slots": 21
       },
       "progress": {
-        "approved": 0,
+        "approved": 5,
         "reviewCandidates": 0,
-        "missing": 21,
-        "deliveredPercent": 0,
-        "approvedPercent": 0
+        "missing": 16,
+        "deliveredPercent": 23.81,
+        "approvedPercent": 23.81
       },
       "currentAssets": [
+        {
+          "path": "/academy/art/characters/tawapon/tawapon__determined__left-three-quarter__halfbody__v002.png",
+          "sha256": "74d892a059a29c32ec894b40c23e38bc1f1cba0812c5af789a1b2cefa333293e",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:tawapon-expression-gallery",
+              "story:cast:tawapon:determined",
+              "cast-standardization:tawapon"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "bright model-student stance with a satchel strap in one hand and the other palm raised to volunteer; left-three-quarter",
+          "angle": "left-three-quarter",
+          "expression": "determined",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:tawapon-expression-gallery",
+            "story:cast:tawapon:determined",
+            "cast-standardization:tawapon"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/tawapon/tawapon__happy__front-near-front__halfbody__v002.png",
+          "sha256": "4a8809f4b0ccbcae1c522d4cc5ee71b6cf7e54a9ed33ee1fb2abaf957f1e0d23",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:tawapon-expression-gallery",
+              "story:cast:tawapon:happy",
+              "cast-standardization:tawapon"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "bright model-student stance with a satchel strap in one hand and the other palm raised to volunteer; front-near-front",
+          "angle": "front-near-front",
+          "expression": "happy",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:tawapon-expression-gallery",
+            "story:cast:tawapon:happy",
+            "cast-standardization:tawapon"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/tawapon/tawapon__sad-vulnerable__left-three-quarter__halfbody__v002.png",
+          "sha256": "8a1da0c896e6af63870571e55431fb66048ef834b67234965e1295e63e8cef98",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:tawapon-expression-gallery",
+              "story:cast:tawapon:sad-vulnerable",
+              "cast-standardization:tawapon"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "bright model-student stance with a satchel strap in one hand and the other palm raised to volunteer; left-three-quarter",
+          "angle": "left-three-quarter",
+          "expression": "sad-vulnerable",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:tawapon-expression-gallery",
+            "story:cast:tawapon:sad-vulnerable",
+            "cast-standardization:tawapon"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
         {
           "path": "/academy/art/characters/tawapon/tawapon__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
           "sha256": "7ccf2d30ca96bf35be6f83228349db668fa84635aa2fba581ff64c5f6d26d166",
           "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
-          "status": "review-candidate",
+          "status": "approved",
           "usage": {
             "runtime": [
               "journal:tawapon-expression-gallery",
+              "story:cast:tawapon:encouraging-listening",
               "cast-standardization:tawapon"
             ],
             "review": [
               "cast-standardization-manifest",
-              "learner-journal-preview"
+              "identity-lock"
             ]
           },
-          "orphan": "review-bound",
+          "orphan": "active-runtime",
           "styleVersion": "current-review-family",
           "fileVersion": "v001",
           "pose": "off-contract standardized-encouraging-listening pose",
@@ -16346,14 +16659,15 @@
           },
           "runtimeUses": [
             "journal:tawapon-expression-gallery",
+            "story:cast:tawapon:encouraging-listening",
             "cast-standardization:tawapon"
           ],
           "reviewUses": [
             "cast-standardization-manifest",
-            "learner-journal-preview"
+            "identity-lock"
           ],
           "decision": "keep",
-          "migrationStatus": "retained-off-matrix-review-evidence",
+          "migrationStatus": "approved-and-registered",
           "coverageStatus": "off-matrix"
         },
         {
@@ -16361,20 +16675,23 @@
           "sha256": "7ccf2d30ca96bf35be6f83228349db668fa84635aa2fba581ff64c5f6d26d166",
           "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
-          "status": "review-candidate",
+          "status": "approved",
           "usage": {
             "runtime": [
               "journal:tawapon",
-              "class:people-review",
-              "lesson-overview:roster-review",
+              "class:people",
+              "class:week-cast",
+              "lesson-overview:roster",
+              "world:person",
+              "story:cast:tawapon",
               "cast-standardization:tawapon"
             ],
             "review": [
               "cast-standardization-manifest",
-              "learner-journal-preview"
+              "identity-lock"
             ]
           },
-          "orphan": "review-bound",
+          "orphan": "active-runtime",
           "styleVersion": "current-review-family",
           "fileVersion": "v001",
           "pose": "off-contract standardized-neutral pose",
@@ -16389,17 +16706,106 @@
           },
           "runtimeUses": [
             "journal:tawapon",
-            "class:people-review",
-            "lesson-overview:roster-review",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "story:cast:tawapon",
             "cast-standardization:tawapon"
           ],
           "reviewUses": [
             "cast-standardization-manifest",
-            "learner-journal-preview"
+            "identity-lock"
           ],
           "decision": "keep",
-          "migrationStatus": "retained-off-matrix-review-evidence",
+          "migrationStatus": "approved-and-registered",
           "coverageStatus": "off-matrix"
+        },
+        {
+          "path": "/academy/art/characters/tawapon/tawapon__surprised-shocked__right-three-quarter__halfbody__v002.png",
+          "sha256": "88d9fe1841e323ce9fb5272cf17c110038ea5f5c488e5433fcf45db1fbf12ba8",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:tawapon-expression-gallery",
+              "story:cast:tawapon:surprised-shocked",
+              "cast-standardization:tawapon"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "bright model-student stance with a satchel strap in one hand and the other palm raised to volunteer; right-three-quarter",
+          "angle": "right-three-quarter",
+          "expression": "surprised-shocked",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:tawapon-expression-gallery",
+            "story:cast:tawapon:surprised-shocked",
+            "cast-standardization:tawapon"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/tawapon/tawapon__thoughtful__left-three-quarter__halfbody__v002.png",
+          "sha256": "db5f273aa0775ff78123a65bbb7fc4903056bde72762238b9c51e84b2e08cc69",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:tawapon-expression-gallery",
+              "story:cast:tawapon:thoughtful",
+              "cast-standardization:tawapon"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "bright model-student stance with a satchel strap in one hand and the other palm raised to volunteer; left-three-quarter",
+          "angle": "left-three-quarter",
+          "expression": "thoughtful",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:tawapon-expression-gallery",
+            "story:cast:tawapon:thoughtful",
+            "cast-standardization:tawapon"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
         }
       ],
       "requiredVariants": [
@@ -16427,16 +16833,14 @@
         {
           "angle": "left-three-quarter",
           "expression": "thoughtful",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/tawapon/tawapon__thoughtful__left-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/tawapon/tawapon__thoughtful__left-three-quarter__halfbody__v002.png"
         },
         {
           "angle": "left-three-quarter",
           "expression": "determined",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/tawapon/tawapon__determined__left-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/tawapon/tawapon__determined__left-three-quarter__halfbody__v002.png"
         },
         {
           "angle": "left-three-quarter",
@@ -16448,9 +16852,8 @@
         {
           "angle": "left-three-quarter",
           "expression": "sad-vulnerable",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/tawapon/tawapon__sad-vulnerable__left-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/tawapon/tawapon__sad-vulnerable__left-three-quarter__halfbody__v002.png"
         },
         {
           "angle": "front-near-front",
@@ -16469,9 +16872,8 @@
         {
           "angle": "front-near-front",
           "expression": "happy",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/tawapon/tawapon__happy__front-near-front__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/tawapon/tawapon__happy__front-near-front__halfbody__v002.png"
         },
         {
           "angle": "front-near-front",
@@ -16539,9 +16941,8 @@
         {
           "angle": "right-three-quarter",
           "expression": "surprised-shocked",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/tawapon/tawapon__surprised-shocked__right-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/tawapon/tawapon__surprised-shocked__right-three-quarter__halfbody__v002.png"
         },
         {
           "angle": "right-three-quarter",
@@ -16575,31 +16976,10 @@
         },
         {
           "angle": "left-three-quarter",
-          "expression": "thoughtful",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/tawapon/tawapon__thoughtful__left-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "left-three-quarter",
-          "expression": "determined",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/tawapon/tawapon__determined__left-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "left-three-quarter",
           "expression": "surprised-shocked",
           "status": "missing",
           "path": null,
           "plannedPath": "/academy/art/characters/tawapon/tawapon__surprised-shocked__left-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "left-three-quarter",
-          "expression": "sad-vulnerable",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/tawapon/tawapon__sad-vulnerable__left-three-quarter__halfbody__v001.png"
         },
         {
           "angle": "front-near-front",
@@ -16614,13 +16994,6 @@
           "status": "missing",
           "path": null,
           "plannedPath": "/academy/art/characters/tawapon/tawapon__encouraging-listening__front-near-front__halfbody__v001.png"
-        },
-        {
-          "angle": "front-near-front",
-          "expression": "happy",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/tawapon/tawapon__happy__front-near-front__halfbody__v001.png"
         },
         {
           "angle": "front-near-front",
@@ -16684,13 +17057,6 @@
           "status": "missing",
           "path": null,
           "plannedPath": "/academy/art/characters/tawapon/tawapon__determined__right-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "right-three-quarter",
-          "expression": "surprised-shocked",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/tawapon/tawapon__surprised-shocked__right-three-quarter__halfbody__v001.png"
         },
         {
           "angle": "right-three-quarter",
@@ -16740,30 +17106,160 @@
         "slots": 21
       },
       "progress": {
-        "approved": 0,
+        "approved": 5,
         "reviewCandidates": 0,
-        "missing": 21,
-        "deliveredPercent": 0,
-        "approvedPercent": 0
+        "missing": 16,
+        "deliveredPercent": 23.81,
+        "approvedPercent": 23.81
       },
       "currentAssets": [
+        {
+          "path": "/academy/art/characters/mary/mary__determined__left-three-quarter__halfbody__v002.png",
+          "sha256": "a2a81d623216eaa72ac1c9059b91d0c3cf9211b4284ef3c86da380368275185b",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:mary-expression-gallery",
+              "story:cast:mary:determined",
+              "cast-standardization:mary"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "open conversational stance with a compact travel diary tucked beneath one elbow and one heel lifted; left-three-quarter",
+          "angle": "left-three-quarter",
+          "expression": "determined",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:mary-expression-gallery",
+            "story:cast:mary:determined",
+            "cast-standardization:mary"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/mary/mary__happy__front-near-front__halfbody__v002.png",
+          "sha256": "d42b244daedb0817c3255c8381b59e3380af7e9fc3dc442687a5c3bba5bbd7f1",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:mary-expression-gallery",
+              "story:cast:mary:happy",
+              "cast-standardization:mary"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "open conversational stance with a compact travel diary tucked beneath one elbow and one heel lifted; front-near-front",
+          "angle": "front-near-front",
+          "expression": "happy",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:mary-expression-gallery",
+            "story:cast:mary:happy",
+            "cast-standardization:mary"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/mary/mary__sad-vulnerable__left-three-quarter__halfbody__v002.png",
+          "sha256": "0161d58d1ac7f41aa15cbbabe2c75dc1df6b4c7fd4ca11cc69c31c779ee9e100",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:mary-expression-gallery",
+              "story:cast:mary:sad-vulnerable",
+              "cast-standardization:mary"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "open conversational stance with a compact travel diary tucked beneath one elbow and one heel lifted; left-three-quarter",
+          "angle": "left-three-quarter",
+          "expression": "sad-vulnerable",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:mary-expression-gallery",
+            "story:cast:mary:sad-vulnerable",
+            "cast-standardization:mary"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
         {
           "path": "/academy/art/characters/mary/mary__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
           "sha256": "8b346903cffbc37c884a4a7f232f8913cfeb8e82adbfb21f714a4c9bcf81d7b2",
           "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
-          "status": "review-candidate",
+          "status": "approved",
           "usage": {
             "runtime": [
               "journal:mary-expression-gallery",
+              "story:cast:mary:encouraging-listening",
               "cast-standardization:mary"
             ],
             "review": [
               "cast-standardization-manifest",
-              "learner-journal-preview"
+              "identity-lock"
             ]
           },
-          "orphan": "review-bound",
+          "orphan": "active-runtime",
           "styleVersion": "current-review-family",
           "fileVersion": "v001",
           "pose": "off-contract standardized-encouraging-listening pose",
@@ -16778,14 +17274,15 @@
           },
           "runtimeUses": [
             "journal:mary-expression-gallery",
+            "story:cast:mary:encouraging-listening",
             "cast-standardization:mary"
           ],
           "reviewUses": [
             "cast-standardization-manifest",
-            "learner-journal-preview"
+            "identity-lock"
           ],
           "decision": "keep",
-          "migrationStatus": "retained-off-matrix-review-evidence",
+          "migrationStatus": "approved-and-registered",
           "coverageStatus": "off-matrix"
         },
         {
@@ -16793,20 +17290,23 @@
           "sha256": "8b346903cffbc37c884a4a7f232f8913cfeb8e82adbfb21f714a4c9bcf81d7b2",
           "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
-          "status": "review-candidate",
+          "status": "approved",
           "usage": {
             "runtime": [
               "journal:mary",
-              "class:people-review",
-              "lesson-overview:roster-review",
+              "class:people",
+              "class:week-cast",
+              "lesson-overview:roster",
+              "world:person",
+              "story:cast:mary",
               "cast-standardization:mary"
             ],
             "review": [
               "cast-standardization-manifest",
-              "learner-journal-preview"
+              "identity-lock"
             ]
           },
-          "orphan": "review-bound",
+          "orphan": "active-runtime",
           "styleVersion": "current-review-family",
           "fileVersion": "v001",
           "pose": "off-contract standardized-neutral pose",
@@ -16821,17 +17321,106 @@
           },
           "runtimeUses": [
             "journal:mary",
-            "class:people-review",
-            "lesson-overview:roster-review",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "story:cast:mary",
             "cast-standardization:mary"
           ],
           "reviewUses": [
             "cast-standardization-manifest",
-            "learner-journal-preview"
+            "identity-lock"
           ],
           "decision": "keep",
-          "migrationStatus": "retained-off-matrix-review-evidence",
+          "migrationStatus": "approved-and-registered",
           "coverageStatus": "off-matrix"
+        },
+        {
+          "path": "/academy/art/characters/mary/mary__surprised-shocked__right-three-quarter__halfbody__v002.png",
+          "sha256": "ace4267350544a45f07f1f9d4b1909c766f67a06d4d5c9bb9d07fa9f7f255ecd",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:mary-expression-gallery",
+              "story:cast:mary:surprised-shocked",
+              "cast-standardization:mary"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "open conversational stance with a compact travel diary tucked beneath one elbow and one heel lifted; right-three-quarter",
+          "angle": "right-three-quarter",
+          "expression": "surprised-shocked",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:mary-expression-gallery",
+            "story:cast:mary:surprised-shocked",
+            "cast-standardization:mary"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/mary/mary__thoughtful__left-three-quarter__halfbody__v002.png",
+          "sha256": "7202af54dc3c4e9b6d80663dd83b12e14f9c93b4187a79343a15aa41e6329af9",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:mary-expression-gallery",
+              "story:cast:mary:thoughtful",
+              "cast-standardization:mary"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "open conversational stance with a compact travel diary tucked beneath one elbow and one heel lifted; left-three-quarter",
+          "angle": "left-three-quarter",
+          "expression": "thoughtful",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:mary-expression-gallery",
+            "story:cast:mary:thoughtful",
+            "cast-standardization:mary"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
         }
       ],
       "requiredVariants": [
@@ -16859,16 +17448,14 @@
         {
           "angle": "left-three-quarter",
           "expression": "thoughtful",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/mary/mary__thoughtful__left-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/mary/mary__thoughtful__left-three-quarter__halfbody__v002.png"
         },
         {
           "angle": "left-three-quarter",
           "expression": "determined",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/mary/mary__determined__left-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/mary/mary__determined__left-three-quarter__halfbody__v002.png"
         },
         {
           "angle": "left-three-quarter",
@@ -16880,9 +17467,8 @@
         {
           "angle": "left-three-quarter",
           "expression": "sad-vulnerable",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/mary/mary__sad-vulnerable__left-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/mary/mary__sad-vulnerable__left-three-quarter__halfbody__v002.png"
         },
         {
           "angle": "front-near-front",
@@ -16901,9 +17487,8 @@
         {
           "angle": "front-near-front",
           "expression": "happy",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/mary/mary__happy__front-near-front__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/mary/mary__happy__front-near-front__halfbody__v002.png"
         },
         {
           "angle": "front-near-front",
@@ -16971,9 +17556,8 @@
         {
           "angle": "right-three-quarter",
           "expression": "surprised-shocked",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/mary/mary__surprised-shocked__right-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/mary/mary__surprised-shocked__right-three-quarter__halfbody__v002.png"
         },
         {
           "angle": "right-three-quarter",
@@ -17007,31 +17591,10 @@
         },
         {
           "angle": "left-three-quarter",
-          "expression": "thoughtful",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/mary/mary__thoughtful__left-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "left-three-quarter",
-          "expression": "determined",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/mary/mary__determined__left-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "left-three-quarter",
           "expression": "surprised-shocked",
           "status": "missing",
           "path": null,
           "plannedPath": "/academy/art/characters/mary/mary__surprised-shocked__left-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "left-three-quarter",
-          "expression": "sad-vulnerable",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/mary/mary__sad-vulnerable__left-three-quarter__halfbody__v001.png"
         },
         {
           "angle": "front-near-front",
@@ -17046,13 +17609,6 @@
           "status": "missing",
           "path": null,
           "plannedPath": "/academy/art/characters/mary/mary__encouraging-listening__front-near-front__halfbody__v001.png"
-        },
-        {
-          "angle": "front-near-front",
-          "expression": "happy",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/mary/mary__happy__front-near-front__halfbody__v001.png"
         },
         {
           "angle": "front-near-front",
@@ -17116,13 +17672,6 @@
           "status": "missing",
           "path": null,
           "plannedPath": "/academy/art/characters/mary/mary__determined__right-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "right-three-quarter",
-          "expression": "surprised-shocked",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/mary/mary__surprised-shocked__right-three-quarter__halfbody__v001.png"
         },
         {
           "angle": "right-three-quarter",
@@ -17168,30 +17717,160 @@
         "slots": 21
       },
       "progress": {
-        "approved": 0,
+        "approved": 5,
         "reviewCandidates": 0,
-        "missing": 21,
-        "deliveredPercent": 0,
-        "approvedPercent": 0
+        "missing": 16,
+        "deliveredPercent": 23.81,
+        "approvedPercent": 23.81
       },
       "currentAssets": [
+        {
+          "path": "/academy/art/characters/takeshi/takeshi__determined__left-three-quarter__halfbody__v002.png",
+          "sha256": "52201e8e6beb6d536d9865fbdcc758894cb73e825ccebac08b0c65ad4c65cda4",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:takeshi-expression-gallery",
+              "story:cast:takeshi:determined",
+              "cast-standardization:takeshi"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "slight competitive forward lean with a folded timetable pinched between two fingers at shoulder height; left-three-quarter",
+          "angle": "left-three-quarter",
+          "expression": "determined",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:takeshi-expression-gallery",
+            "story:cast:takeshi:determined",
+            "cast-standardization:takeshi"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/takeshi/takeshi__happy__front-near-front__halfbody__v002.png",
+          "sha256": "9825ddcdbbf341685e945bba682e9397ce7ca00d0586d62faaec3342d352e276",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:takeshi-expression-gallery",
+              "story:cast:takeshi:happy",
+              "cast-standardization:takeshi"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "slight competitive forward lean with a folded timetable pinched between two fingers at shoulder height; front-near-front",
+          "angle": "front-near-front",
+          "expression": "happy",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:takeshi-expression-gallery",
+            "story:cast:takeshi:happy",
+            "cast-standardization:takeshi"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/takeshi/takeshi__sad-vulnerable__left-three-quarter__halfbody__v002.png",
+          "sha256": "53665c60e3dcdbc022c3188d3359bed64b5787fe670011e969e9babeedafb4ce",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:takeshi-expression-gallery",
+              "story:cast:takeshi:sad-vulnerable",
+              "cast-standardization:takeshi"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "slight competitive forward lean with a folded timetable pinched between two fingers at shoulder height; left-three-quarter",
+          "angle": "left-three-quarter",
+          "expression": "sad-vulnerable",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:takeshi-expression-gallery",
+            "story:cast:takeshi:sad-vulnerable",
+            "cast-standardization:takeshi"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
         {
           "path": "/academy/art/characters/takeshi/takeshi__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
           "sha256": "942eb86fe4f40e84bb79c2ca3d573107e070c985e9ebc693ebb814619a8febb1",
           "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
-          "status": "review-candidate",
+          "status": "approved",
           "usage": {
             "runtime": [
               "journal:takeshi-expression-gallery",
+              "story:cast:takeshi:encouraging-listening",
               "cast-standardization:takeshi"
             ],
             "review": [
               "cast-standardization-manifest",
-              "learner-journal-preview"
+              "identity-lock"
             ]
           },
-          "orphan": "review-bound",
+          "orphan": "active-runtime",
           "styleVersion": "current-review-family",
           "fileVersion": "v001",
           "pose": "off-contract standardized-encouraging-listening pose",
@@ -17206,14 +17885,15 @@
           },
           "runtimeUses": [
             "journal:takeshi-expression-gallery",
+            "story:cast:takeshi:encouraging-listening",
             "cast-standardization:takeshi"
           ],
           "reviewUses": [
             "cast-standardization-manifest",
-            "learner-journal-preview"
+            "identity-lock"
           ],
           "decision": "keep",
-          "migrationStatus": "retained-off-matrix-review-evidence",
+          "migrationStatus": "approved-and-registered",
           "coverageStatus": "off-matrix"
         },
         {
@@ -17221,20 +17901,23 @@
           "sha256": "942eb86fe4f40e84bb79c2ca3d573107e070c985e9ebc693ebb814619a8febb1",
           "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
-          "status": "review-candidate",
+          "status": "approved",
           "usage": {
             "runtime": [
               "journal:takeshi",
-              "class:people-review",
-              "lesson-overview:roster-review",
+              "class:people",
+              "class:week-cast",
+              "lesson-overview:roster",
+              "world:person",
+              "story:cast:takeshi",
               "cast-standardization:takeshi"
             ],
             "review": [
               "cast-standardization-manifest",
-              "learner-journal-preview"
+              "identity-lock"
             ]
           },
-          "orphan": "review-bound",
+          "orphan": "active-runtime",
           "styleVersion": "current-review-family",
           "fileVersion": "v001",
           "pose": "off-contract standardized-neutral pose",
@@ -17249,17 +17932,106 @@
           },
           "runtimeUses": [
             "journal:takeshi",
-            "class:people-review",
-            "lesson-overview:roster-review",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "story:cast:takeshi",
             "cast-standardization:takeshi"
           ],
           "reviewUses": [
             "cast-standardization-manifest",
-            "learner-journal-preview"
+            "identity-lock"
           ],
           "decision": "keep",
-          "migrationStatus": "retained-off-matrix-review-evidence",
+          "migrationStatus": "approved-and-registered",
           "coverageStatus": "off-matrix"
+        },
+        {
+          "path": "/academy/art/characters/takeshi/takeshi__surprised-shocked__right-three-quarter__halfbody__v002.png",
+          "sha256": "97acc5d1c00bbbc262c9d5ab45e029914f4a69fa53dfb04236e1ad225ae17014",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:takeshi-expression-gallery",
+              "story:cast:takeshi:surprised-shocked",
+              "cast-standardization:takeshi"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "slight competitive forward lean with a folded timetable pinched between two fingers at shoulder height; right-three-quarter",
+          "angle": "right-three-quarter",
+          "expression": "surprised-shocked",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:takeshi-expression-gallery",
+            "story:cast:takeshi:surprised-shocked",
+            "cast-standardization:takeshi"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/takeshi/takeshi__thoughtful__left-three-quarter__halfbody__v002.png",
+          "sha256": "64758e920576248ec5d46a247e757393ed2e2dd3dc8b6d59a98e40c892884439",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:takeshi-expression-gallery",
+              "story:cast:takeshi:thoughtful",
+              "cast-standardization:takeshi"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "slight competitive forward lean with a folded timetable pinched between two fingers at shoulder height; left-three-quarter",
+          "angle": "left-three-quarter",
+          "expression": "thoughtful",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:takeshi-expression-gallery",
+            "story:cast:takeshi:thoughtful",
+            "cast-standardization:takeshi"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
         }
       ],
       "requiredVariants": [
@@ -17287,16 +18059,14 @@
         {
           "angle": "left-three-quarter",
           "expression": "thoughtful",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/takeshi/takeshi__thoughtful__left-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/takeshi/takeshi__thoughtful__left-three-quarter__halfbody__v002.png"
         },
         {
           "angle": "left-three-quarter",
           "expression": "determined",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/takeshi/takeshi__determined__left-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/takeshi/takeshi__determined__left-three-quarter__halfbody__v002.png"
         },
         {
           "angle": "left-three-quarter",
@@ -17308,9 +18078,8 @@
         {
           "angle": "left-three-quarter",
           "expression": "sad-vulnerable",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/takeshi/takeshi__sad-vulnerable__left-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/takeshi/takeshi__sad-vulnerable__left-three-quarter__halfbody__v002.png"
         },
         {
           "angle": "front-near-front",
@@ -17329,9 +18098,8 @@
         {
           "angle": "front-near-front",
           "expression": "happy",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/takeshi/takeshi__happy__front-near-front__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/takeshi/takeshi__happy__front-near-front__halfbody__v002.png"
         },
         {
           "angle": "front-near-front",
@@ -17399,9 +18167,8 @@
         {
           "angle": "right-three-quarter",
           "expression": "surprised-shocked",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/takeshi/takeshi__surprised-shocked__right-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/takeshi/takeshi__surprised-shocked__right-three-quarter__halfbody__v002.png"
         },
         {
           "angle": "right-three-quarter",
@@ -17435,31 +18202,10 @@
         },
         {
           "angle": "left-three-quarter",
-          "expression": "thoughtful",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/takeshi/takeshi__thoughtful__left-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "left-three-quarter",
-          "expression": "determined",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/takeshi/takeshi__determined__left-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "left-three-quarter",
           "expression": "surprised-shocked",
           "status": "missing",
           "path": null,
           "plannedPath": "/academy/art/characters/takeshi/takeshi__surprised-shocked__left-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "left-three-quarter",
-          "expression": "sad-vulnerable",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/takeshi/takeshi__sad-vulnerable__left-three-quarter__halfbody__v001.png"
         },
         {
           "angle": "front-near-front",
@@ -17474,13 +18220,6 @@
           "status": "missing",
           "path": null,
           "plannedPath": "/academy/art/characters/takeshi/takeshi__encouraging-listening__front-near-front__halfbody__v001.png"
-        },
-        {
-          "angle": "front-near-front",
-          "expression": "happy",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/takeshi/takeshi__happy__front-near-front__halfbody__v001.png"
         },
         {
           "angle": "front-near-front",
@@ -17544,13 +18283,6 @@
           "status": "missing",
           "path": null,
           "plannedPath": "/academy/art/characters/takeshi/takeshi__determined__right-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "right-three-quarter",
-          "expression": "surprised-shocked",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/takeshi/takeshi__surprised-shocked__right-three-quarter__halfbody__v001.png"
         },
         {
           "angle": "right-three-quarter",
