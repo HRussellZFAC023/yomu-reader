@@ -12,6 +12,10 @@ const usageFiles = [
     path.join(repoRoot, 'public/academy/art/ASSET-USAGE.json'),
     path.join(repoRoot, 'docs/public/academy/art/ASSET-USAGE.json'),
 ];
+const batchManifestFiles = [
+    path.join(repoRoot, 'public/academy/art/SPRITE-BATCH-MANIFEST.json'),
+    path.join(repoRoot, 'docs/public/academy/art/SPRITE-BATCH-MANIFEST.json'),
+];
 const specFile = process.argv[2] ? path.resolve(process.argv[2]) : undefined;
 
 if (!specFile || !fs.existsSync(specFile)) {
@@ -31,13 +35,14 @@ const journalReview = readJsonConstant(source, 'ACADEMY_CAST_STANDARDIZATION_JOU
 const galleries = readJsonConstant(source, 'ACADEMY_CAST_STANDARDIZATION_GALLERIES');
 const summary = readJsonConstant(source, 'ACADEMY_CAST_STANDARDIZATION_SUMMARY');
 const usage = JSON.parse(fs.readFileSync(usageFiles[0], 'utf8'));
+const batchManifest = JSON.parse(fs.readFileSync(batchManifestFiles[0], 'utf8'));
 
 for (const promotion of spec.promotions) {
     validatePromotion(promotion);
     const expressions = new Set(promotion.replaceExpressions);
-    const replaced = manifest.filter(
-        slot => slot.castId === promotion.castId && expressions.has(slot.expression),
-    );
+    const replaced = manifest.filter(slot =>
+        slot.castId === promotion.castId
+        && (promotion.archiveAllCurrent === true || expressions.has(slot.expression)));
     const castIndexes = manifest
         .map((slot, index) => (slot.castId === promotion.castId ? index : -1))
         .filter(index => index >= 0);
@@ -94,6 +99,13 @@ for (const promotion of spec.promotions) {
     galleries[promotion.castId] = Object.fromEntries(
         castSlots.map(slot => [`${slot.expression}:${slot.angle}`, slot.assetPath]),
     );
+    const batchCharacter = batchManifest.characters.find(character => character.id === promotion.castId);
+    if (!batchCharacter) throw new Error(`${promotion.castId} is not present in the batch manifest.`);
+    batchCharacter.currentAsset = {
+        status: 'approved-performance-family',
+        paths: slots.map(slot => slot.assetPath),
+        note: 'Identity-locked, visually inspected house-style family; all seven canonical expressions are runtime-bound.',
+    };
 }
 
 assertUnique(manifest.map(slot => slot.assetId), 'asset id');
@@ -134,11 +146,24 @@ source = replaceJsonConstant(source, 'ACADEMY_CAST_STANDARDIZATION_SUMMARY', nex
 fs.writeFileSync(manifestFile, source);
 
 reconcileAcademyLessonCastBindings(usage, manifest);
+const serializedBatchManifest = `${JSON.stringify(batchManifest, null, 2)}\n`;
+const batchManifestAsset = usage.assets.find(asset => asset.id === 'sprite-batch-manifest-v1');
+const batchManifestDelivery = batchManifestAsset?.deliveries?.find(
+    delivery => delivery.path === '/academy/art/SPRITE-BATCH-MANIFEST.json',
+);
+if (!batchManifestDelivery) {
+    throw new Error('ASSET-USAGE is missing the public sprite batch manifest delivery.');
+}
+batchManifestDelivery.sha256 = sha256(Buffer.from(serializedBatchManifest));
 recountUsage(usage);
 const serializedUsage = `${JSON.stringify(usage, null, 2)}\n`;
 for (const usageFile of usageFiles) {
     fs.mkdirSync(path.dirname(usageFile), { recursive: true });
     fs.writeFileSync(usageFile, serializedUsage);
+}
+for (const batchManifestFile of batchManifestFiles) {
+    fs.mkdirSync(path.dirname(batchManifestFile), { recursive: true });
+    fs.writeFileSync(batchManifestFile, serializedBatchManifest);
 }
 await refreshAcademyRuntimeArtPrecache(repoRoot);
 
@@ -155,6 +180,9 @@ function validatePromotion(promotion) {
     }
     if (!Array.isArray(promotion.slots) || promotion.slots.length === 0) {
         throw new Error(`${promotion.castId} requires slots.`);
+    }
+    if (promotion.archiveAllCurrent !== undefined && typeof promotion.archiveAllCurrent !== 'boolean') {
+        throw new Error(`${promotion.castId} archiveAllCurrent must be a boolean.`);
     }
     assertUnique(promotion.replaceExpressions, `${promotion.castId} replacement expression`);
     assertUnique(

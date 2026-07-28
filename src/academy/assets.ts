@@ -8,8 +8,15 @@ import {
     ACADEMY_STORY_ART_COVERAGE,
     ACADEMY_STORY_ART_RUNTIME_ASSETS,
 } from './domain/story-art-manifest';
+import { ACADEMY_LEARNING_ART_RUNTIME_ASSETS } from './domain/learning-art-manifest';
 
-export type AcademyRuntimeAssetKind = 'background' | 'character-sprite' | 'event-art' | 'item-art' | 'protagonist-portrait';
+export type AcademyRuntimeAssetKind =
+    | 'background'
+    | 'character-sprite'
+    | 'event-art'
+    | 'item-art'
+    | 'learning-visual'
+    | 'protagonist-portrait';
 export type AcademyRuntimeAssetStatus = 'approved' | 'review-preview';
 
 export interface AcademyResponsivePresentation {
@@ -41,6 +48,7 @@ function runtimeAsset<const T extends AcademyRuntimeAssetRecord>(record: T): T {
 export const ACADEMY_RUNTIME_ASSET_REGISTRY = {
     ...ACADEMY_CAST_STANDARDIZATION_RUNTIME_ASSETS,
     ...ACADEMY_STORY_ART_RUNTIME_ASSETS,
+    ...ACADEMY_LEARNING_ART_RUNTIME_ASSETS,
     'portrait.quality-2': runtimeAsset({ kind: 'protagonist-portrait', status: 'approved', runtimeHomes: ['onboarding:portrait-choice-2', 'journal:player'], provenance: 'current-production', files: { default: '/academy/art/protagonists/quality-2__picker__v001.png' } }),
     'portrait.quality-3': runtimeAsset({ kind: 'protagonist-portrait', status: 'approved', runtimeHomes: ['onboarding:portrait-choice-3', 'journal:player'], provenance: 'current-production', files: { default: '/academy/art/protagonists/quality-3__picker__v001.png' } }),
     'portrait.quality-4': runtimeAsset({ kind: 'protagonist-portrait', status: 'approved', runtimeHomes: ['onboarding:portrait-choice-4', 'journal:player'], provenance: 'current-production', files: { default: '/academy/art/protagonists/quality-4__picker__v001.png' } }),
@@ -145,7 +153,10 @@ export const ACADEMY_LESSON_ASSET_BINDINGS = {
     'l1-l01': {
         sceneAssetId: 'location.classroom',
         sourceSceneReference: 'academy/art/scenes/classroom-first-evening-wide.webp',
-        approvedCastAssetIds: { rie: 'character.rie.neutral-glasses', aakash: 'character.aakash.neutral' },
+        approvedCastAssetIds: {
+            rie: 'character.rie.neutral-glasses',
+            aakash: 'character.aakash.neutral-route-map-burgundy-hoodie-front-near-front-fullbody-v010',
+        },
         reviewOnlyCastCandidates: {},
         itemAssetIds: ['item.classroom-belongings'],
         sourceMedia: [{
@@ -259,7 +270,7 @@ function assetFile(id: AcademyRuntimeAssetId, variant: string): `/academy/art/${
 }
 
 export const ACADEMY_APPROVED_CHARACTER_SPRITES = {
-    aakash: assetFile('character.aakash.neutral', 'default'),
+    aakash: ACADEMY_CAST_STANDARDIZATION_GALLERIES.aakash['neutral:front-near-front'],
     xingyuNeutral: ACADEMY_CAST_STANDARDIZATION_GALLERIES.xingyu['neutral:front-near-front'],
     xingyuListening: assetFile('character.xingyu.listening', 'default'),
     mikaSound: ACADEMY_CAST_STANDARDIZATION_GALLERIES.mika['encouraging-listening:right-three-quarter'],
@@ -300,7 +311,13 @@ const ACADEMY_APPROVED_CAST_SPRITES = {
 /** Approved expression and angle coverage that may follow a cast member into VN scenes. */
 const ACADEMY_APPROVED_CAST_PERFORMANCES = {
     aakash: {
-        neutral: ACADEMY_APPROVED_CHARACTER_SPRITES.aakash,
+        neutral: ACADEMY_CAST_STANDARDIZATION_GALLERIES.aakash['neutral:front-near-front'],
+        encouraging: ACADEMY_CAST_STANDARDIZATION_GALLERIES.aakash['encouraging-listening:right-three-quarter'],
+        happy: ACADEMY_CAST_STANDARDIZATION_GALLERIES.aakash['happy:front-near-front'],
+        thoughtful: ACADEMY_CAST_STANDARDIZATION_GALLERIES.aakash['thoughtful:left-three-quarter'],
+        determined: ACADEMY_CAST_STANDARDIZATION_GALLERIES.aakash['determined:front-near-front'],
+        surprised: ACADEMY_CAST_STANDARDIZATION_GALLERIES.aakash['surprised-shocked:right-three-quarter'],
+        'sad-vulnerable': ACADEMY_CAST_STANDARDIZATION_GALLERIES.aakash['sad-vulnerable:left-three-quarter'],
     },
     xingyu: {
         neutral: ACADEMY_CAST_STANDARDIZATION_GALLERIES.xingyu['neutral:front-near-front'],

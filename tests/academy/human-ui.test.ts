@@ -427,10 +427,14 @@ describe('Academy human interface', () => {
             expect(open.disabled).toBe(false);
             open.click();
             const page = screen.querySelector<HTMLElement>('.academy-character-page')!;
-            const portrait = page.querySelector<HTMLImageElement>('.academy-journal-portrait')!;
+            const gallery = page.querySelector<HTMLElement>('.academy-character-sprite-gallery')!;
+            const sprites = [...gallery.querySelectorAll<HTMLImageElement>('.academy-character-sprite-gallery-image')];
+            const neutral = sprites.find(sprite => sprite.dataset.expression === 'neutral')!;
 
-            expect(portrait.src).toContain('/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v009.png');
-            expect(portrait.alt).toBe('Aakash-san');
+            expect(gallery.dataset.character).toBe('aakash');
+            expect(sprites).toHaveLength(7);
+            expect(neutral.src).toContain('/academy/art/characters/aakash/aakash__neutral-route-map-burgundy-hoodie__front-near-front__fullbody__v010.png');
+            expect(neutral.dataset.angle).toBe('front-near-front');
             expect(page.querySelector('h2')?.textContent).toBe('Aakash-san');
             expect(directory.hidden).toBe(true);
             page.querySelector<HTMLButtonElement>('.academy-character-page-back')?.click();

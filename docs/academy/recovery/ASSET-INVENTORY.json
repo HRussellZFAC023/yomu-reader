@@ -19,287 +19,33 @@
     "deletion": "This audit never deletes, moves, or mutates Academy raster files."
   },
   "counts": {
-    "currentRasterFiles": 324,
-    "currentRasterFilesAccountedFor": 324,
-    "active": 271,
-    "orphaned": 53,
+    "currentRasterFiles": 319,
+    "currentRasterFilesAccountedFor": 319,
+    "active": 319,
+    "orphaned": 0,
     "deprecated": 10,
     "deprecatedPresent": 0,
-    "missingExpressionVariants": 521,
+    "missingExpressionVariants": 514,
     "expressionMatrixSlots": 630,
-    "approvedExpressionVariants": 96,
-    "reviewCandidateExpressionVariants": 13,
-    "deliveredMatrixExpressionVariants": 109,
-    "offMatrixDeliveredSprites": 36,
+    "approvedExpressionVariants": 109,
+    "reviewCandidateExpressionVariants": 7,
+    "deliveredMatrixExpressionVariants": 116,
+    "offMatrixDeliveredSprites": 29,
     "activeByKind": {
-      "character-sprite": 143,
+      "character-sprite": 138,
       "protagonist-portrait": 4,
       "scene-background": 68,
       "scene-event": 48,
-      "scene-item": 8
-    },
-    "orphanedByKind": {
+      "scene-item": 8,
       "unclassified-raster": 53
     },
+    "orphanedByKind": {},
     "deprecatedByKind": {
       "character-sprite": 10
     }
   },
   "assets": {
     "active": [
-      {
-        "id": "character-aakash-sprite-concerned-left-three-quarter-halfbody-v005",
-        "path": "/academy/art/characters/aakash/aakash__sprite__concerned__left-three-quarter__halfbody__v005.png",
-        "sha256": "144186dfcf47073831cd60265c6797d1a73b83ed641b5174801d9c0a4e5e78f4",
-        "ledgerSha256": "144186dfcf47073831cd60265c6797d1a73b83ed641b5174801d9c0a4e5e78f4",
-        "kind": "character-sprite",
-        "state": "active",
-        "present": true,
-        "runtimeAuthorized": true,
-        "runtimeHomes": [
-          "journal:aakash-expression-gallery",
-          "cast-standardization:aakash"
-        ],
-        "reviewHomes": [
-          "cast-standardization-manifest",
-          "learner-journal-preview"
-        ],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "review-candidate/runtime-preview",
-        "ledgerStatus": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-      },
-      {
-        "id": "character-aakash-sprite-determined-left-three-quarter-v005",
-        "path": "/academy/art/characters/aakash/aakash__sprite__determined__left-three-quarter__v005.png",
-        "sha256": "52f263a870ce403786da35c372acacb1a377dac2f74a1dacb8c802c2ba39911f",
-        "ledgerSha256": "52f263a870ce403786da35c372acacb1a377dac2f74a1dacb8c802c2ba39911f",
-        "kind": "character-sprite",
-        "state": "active",
-        "present": true,
-        "runtimeAuthorized": true,
-        "runtimeHomes": [
-          "journal:aakash-expression-gallery",
-          "cast-standardization:aakash"
-        ],
-        "reviewHomes": [
-          "cast-standardization-manifest",
-          "learner-journal-preview"
-        ],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "review-candidate/runtime-preview",
-        "ledgerStatus": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-      },
-      {
-        "id": "character-aakash-sprite-embarrassed-front-near-front-halfbody-v005",
-        "path": "/academy/art/characters/aakash/aakash__sprite__embarrassed__front-near-front__halfbody__v005.png",
-        "sha256": "bb6e1332eceaed396984a4aa2f76124c1967eb729b635cfef2b7f76fbf2ff617",
-        "ledgerSha256": "bb6e1332eceaed396984a4aa2f76124c1967eb729b635cfef2b7f76fbf2ff617",
-        "kind": "character-sprite",
-        "state": "active",
-        "present": true,
-        "runtimeAuthorized": true,
-        "runtimeHomes": [
-          "journal:aakash-expression-gallery",
-          "cast-standardization:aakash"
-        ],
-        "reviewHomes": [
-          "cast-standardization-manifest",
-          "learner-journal-preview"
-        ],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "review-candidate/runtime-preview",
-        "ledgerStatus": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-      },
-      {
-        "id": "character-aakash-sprite-happy-right-three-quarter-v005",
-        "path": "/academy/art/characters/aakash/aakash__sprite__happy__right-three-quarter__v005.png",
-        "sha256": "6669e161c487daea9d102b3571f34380f5dd857f2a7a6c965345cd9161f4f615",
-        "ledgerSha256": "6669e161c487daea9d102b3571f34380f5dd857f2a7a6c965345cd9161f4f615",
-        "kind": "character-sprite",
-        "state": "active",
-        "present": true,
-        "runtimeAuthorized": true,
-        "runtimeHomes": [
-          "journal:aakash-expression-gallery",
-          "cast-standardization:aakash"
-        ],
-        "reviewHomes": [
-          "cast-standardization-manifest",
-          "learner-journal-preview"
-        ],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "review-candidate/runtime-preview",
-        "ledgerStatus": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-      },
-      {
-        "id": "character-aakash-sprite-laughing-left-three-quarter-halfbody-v005",
-        "path": "/academy/art/characters/aakash/aakash__sprite__laughing__left-three-quarter__halfbody__v005.png",
-        "sha256": "b7b4fd1b259cc2ca36bbe9094a40e555741dc54098011252a819f98f0a040bdb",
-        "ledgerSha256": "b7b4fd1b259cc2ca36bbe9094a40e555741dc54098011252a819f98f0a040bdb",
-        "kind": "character-sprite",
-        "state": "active",
-        "present": true,
-        "runtimeAuthorized": true,
-        "runtimeHomes": [
-          "journal:aakash-expression-gallery",
-          "cast-standardization:aakash"
-        ],
-        "reviewHomes": [
-          "cast-standardization-manifest",
-          "learner-journal-preview"
-        ],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "review-candidate/runtime-preview",
-        "ledgerStatus": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-      },
-      {
-        "id": "character-aakash-sprite-listening-right-three-quarter-v005",
-        "path": "/academy/art/characters/aakash/aakash__sprite__listening__right-three-quarter__v005.png",
-        "sha256": "d6880e06dcec20f38f16493d115097ece2eb850a7be5270be32d31bd24feb6e8",
-        "ledgerSha256": "d6880e06dcec20f38f16493d115097ece2eb850a7be5270be32d31bd24feb6e8",
-        "kind": "character-sprite",
-        "state": "active",
-        "present": true,
-        "runtimeAuthorized": true,
-        "runtimeHomes": [
-          "journal:aakash-expression-gallery",
-          "cast-standardization:aakash"
-        ],
-        "reviewHomes": [
-          "cast-standardization-manifest",
-          "learner-journal-preview"
-        ],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "review-candidate/runtime-preview",
-        "ledgerStatus": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-      },
-      {
-        "id": "character-aakash-neutral",
-        "path": "/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v009.png",
-        "sha256": "cd74d5b4f3610a5d615bb4c097a63556a419555fed85933ae54ca3cddf186a65",
-        "ledgerSha256": "cd74d5b4f3610a5d615bb4c097a63556a419555fed85933ae54ca3cddf186a65",
-        "kind": "character-sprite",
-        "state": "active",
-        "present": true,
-        "runtimeAuthorized": true,
-        "runtimeHomes": [
-          "journal:aakash",
-          "class:people",
-          "class:week-cast",
-          "lesson-overview:roster",
-          "world:person",
-          "lesson:l1-l01:cast"
-        ],
-        "reviewHomes": [],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "approved-runtime",
-        "ledgerStatus": "retained approved cast runtime sprite"
-      },
-      {
-        "id": "character-aakash-sprite-surprised-right-three-quarter-halfbody-v005",
-        "path": "/academy/art/characters/aakash/aakash__sprite__surprised__right-three-quarter__halfbody__v005.png",
-        "sha256": "008eaea84946630f8434919120a57760813687743b574bee67f859e27b37d90a",
-        "ledgerSha256": "008eaea84946630f8434919120a57760813687743b574bee67f859e27b37d90a",
-        "kind": "character-sprite",
-        "state": "active",
-        "present": true,
-        "runtimeAuthorized": true,
-        "runtimeHomes": [
-          "journal:aakash-expression-gallery",
-          "cast-standardization:aakash"
-        ],
-        "reviewHomes": [
-          "cast-standardization-manifest",
-          "learner-journal-preview"
-        ],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "review-candidate/runtime-preview",
-        "ledgerStatus": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-      },
-      {
-        "id": "character-aakash-sprite-thoughtful-front-near-front-v005",
-        "path": "/academy/art/characters/aakash/aakash__sprite__thoughtful__front-near-front__v005.png",
-        "sha256": "38617e9adf93290f94077e14c1825531ed4585411180d96ede2532fe186f60b3",
-        "ledgerSha256": "38617e9adf93290f94077e14c1825531ed4585411180d96ede2532fe186f60b3",
-        "kind": "character-sprite",
-        "state": "active",
-        "present": true,
-        "runtimeAuthorized": true,
-        "runtimeHomes": [
-          "journal:aakash-expression-gallery",
-          "cast-standardization:aakash"
-        ],
-        "reviewHomes": [
-          "cast-standardization-manifest",
-          "learner-journal-preview"
-        ],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "review-candidate/runtime-preview",
-        "ledgerStatus": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-      },
-      {
-        "id": "character-aakash-standardized-determined-front-near-front-halfbody-v001",
-        "path": "/academy/art/characters/aakash/aakash__standardized-determined__front-near-front__halfbody__v001.png",
-        "sha256": "b8d3c8639b183a1a7db36d7c6b4f17e1cdc6389fe5b239c74e2393e278acbd73",
-        "ledgerSha256": "b8d3c8639b183a1a7db36d7c6b4f17e1cdc6389fe5b239c74e2393e278acbd73",
-        "kind": "character-sprite",
-        "state": "active",
-        "present": true,
-        "runtimeAuthorized": true,
-        "runtimeHomes": [
-          "journal:aakash-expression-gallery",
-          "cast-standardization:aakash"
-        ],
-        "reviewHomes": [
-          "cast-standardization-manifest",
-          "learner-journal-preview"
-        ],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "review-candidate/runtime-preview",
-        "ledgerStatus": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-      },
-      {
-        "id": "character-aakash-standardized-encouraging-listening-front-near-front-halfbody-v001",
-        "path": "/academy/art/characters/aakash/aakash__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
-        "sha256": "0aacde296b1f8abd300a872d2913df682ed6346e473892958e334bb3e969e166",
-        "ledgerSha256": "0aacde296b1f8abd300a872d2913df682ed6346e473892958e334bb3e969e166",
-        "kind": "character-sprite",
-        "state": "active",
-        "present": true,
-        "runtimeAuthorized": true,
-        "runtimeHomes": [
-          "journal:aakash-expression-gallery",
-          "cast-standardization:aakash"
-        ],
-        "reviewHomes": [
-          "cast-standardization-manifest",
-          "learner-journal-preview"
-        ],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "review-candidate/runtime-preview",
-        "ledgerStatus": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-      },
-      {
-        "id": "character-aakash-standardized-happy-front-near-front-halfbody-v001",
-        "path": "/academy/art/characters/aakash/aakash__standardized-happy__front-near-front__halfbody__v001.png",
-        "sha256": "a887c568cf48cb9e31454d40c201c57e8699dde41d8f1eaec187f8ea6d4fb540",
-        "ledgerSha256": "a887c568cf48cb9e31454d40c201c57e8699dde41d8f1eaec187f8ea6d4fb540",
-        "kind": "character-sprite",
-        "state": "active",
-        "present": true,
-        "runtimeAuthorized": true,
-        "runtimeHomes": [
-          "journal:aakash-expression-gallery",
-          "cast-standardization:aakash"
-        ],
-        "reviewHomes": [
-          "cast-standardization-manifest",
-          "learner-journal-preview"
-        ],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "review-candidate/runtime-preview",
-        "ledgerStatus": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-      },
       {
         "id": "character-alex-determined-short-brown-understated-front-near-front-fullbody-v002",
         "path": "/academy/art/characters/alex/alex__determined-short-brown-understated__front-near-front__fullbody__v002.png",
@@ -1560,6 +1306,164 @@
           "journal:mira-expression-gallery",
           "story:cast:mira:thoughtful",
           "cast-standardization:mira"
+        ],
+        "reviewHomes": [
+          "cast-standardization-manifest",
+          "identity-lock"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
+      },
+      {
+        "id": "character-nanako-determined-teal-coat-coral-scarf-front-near-front-fullbody-v002",
+        "path": "/academy/art/characters/nanako/nanako__determined-teal-coat-coral-scarf__front-near-front__fullbody__v002.png",
+        "sha256": "1c56a693f0c946ad9724042f20971bc38492883b746a4a0450a2a711fca3ea8f",
+        "ledgerSha256": "1c56a693f0c946ad9724042f20971bc38492883b746a4a0450a2a711fca3ea8f",
+        "kind": "character-sprite",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "journal:nanako-expression-gallery",
+          "story:cast:nanako:determined",
+          "cast-standardization:nanako"
+        ],
+        "reviewHomes": [
+          "cast-standardization-manifest",
+          "identity-lock"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
+      },
+      {
+        "id": "character-nanako-encouraging-listening-teal-coat-coral-scarf-right-three-quarter-fullbody-v002",
+        "path": "/academy/art/characters/nanako/nanako__encouraging-listening-teal-coat-coral-scarf__right-three-quarter__fullbody__v002.png",
+        "sha256": "1af29dd9502b2266ffa9175796245b6f057092f242fdf5f5caf23d58438699be",
+        "ledgerSha256": "1af29dd9502b2266ffa9175796245b6f057092f242fdf5f5caf23d58438699be",
+        "kind": "character-sprite",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "journal:nanako-expression-gallery",
+          "story:cast:nanako:encouraging-listening",
+          "cast-standardization:nanako"
+        ],
+        "reviewHomes": [
+          "cast-standardization-manifest",
+          "identity-lock"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
+      },
+      {
+        "id": "character-nanako-happy-teal-coat-coral-scarf-front-near-front-fullbody-v002",
+        "path": "/academy/art/characters/nanako/nanako__happy-teal-coat-coral-scarf__front-near-front__fullbody__v002.png",
+        "sha256": "951d055b16472384c48b5c4dca7251efc3aa0b907c249ef66f744b20fd815232",
+        "ledgerSha256": "951d055b16472384c48b5c4dca7251efc3aa0b907c249ef66f744b20fd815232",
+        "kind": "character-sprite",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "journal:nanako-expression-gallery",
+          "story:cast:nanako:happy",
+          "cast-standardization:nanako"
+        ],
+        "reviewHomes": [
+          "cast-standardization-manifest",
+          "identity-lock"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
+      },
+      {
+        "id": "character-nanako-neutral-teal-coat-coral-scarf-front-near-front-fullbody-v002",
+        "path": "/academy/art/characters/nanako/nanako__neutral-teal-coat-coral-scarf__front-near-front__fullbody__v002.png",
+        "sha256": "b9a76f588ef2d61e2b287e6f6120ae0375ba5d595ab701f37644dce73a85c4e4",
+        "ledgerSha256": "b9a76f588ef2d61e2b287e6f6120ae0375ba5d595ab701f37644dce73a85c4e4",
+        "kind": "character-sprite",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "journal:nanako",
+          "class:people",
+          "class:week-cast",
+          "lesson-overview:roster",
+          "world:person",
+          "story:cast:nanako",
+          "cast-standardization:nanako"
+        ],
+        "reviewHomes": [
+          "cast-standardization-manifest",
+          "identity-lock"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
+      },
+      {
+        "id": "character-nanako-sad-vulnerable-teal-coat-coral-scarf-left-three-quarter-fullbody-v002",
+        "path": "/academy/art/characters/nanako/nanako__sad-vulnerable-teal-coat-coral-scarf__left-three-quarter__fullbody__v002.png",
+        "sha256": "f300a5004691585ad36b0314a9671daafd576aa1080a62724002234eb1b4c220",
+        "ledgerSha256": "f300a5004691585ad36b0314a9671daafd576aa1080a62724002234eb1b4c220",
+        "kind": "character-sprite",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "journal:nanako-expression-gallery",
+          "story:cast:nanako:sad-vulnerable",
+          "cast-standardization:nanako"
+        ],
+        "reviewHomes": [
+          "cast-standardization-manifest",
+          "identity-lock"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
+      },
+      {
+        "id": "character-nanako-surprised-shocked-teal-coat-coral-scarf-right-three-quarter-fullbody-v002",
+        "path": "/academy/art/characters/nanako/nanako__surprised-shocked-teal-coat-coral-scarf__right-three-quarter__fullbody__v002.png",
+        "sha256": "055618981c7ef1db39e09dd178c14b54c79ceb62862d7b47d9829f5880c8749d",
+        "ledgerSha256": "055618981c7ef1db39e09dd178c14b54c79ceb62862d7b47d9829f5880c8749d",
+        "kind": "character-sprite",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "journal:nanako-expression-gallery",
+          "story:cast:nanako:surprised-shocked",
+          "cast-standardization:nanako"
+        ],
+        "reviewHomes": [
+          "cast-standardization-manifest",
+          "identity-lock"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
+      },
+      {
+        "id": "character-nanako-thoughtful-teal-coat-coral-scarf-left-three-quarter-fullbody-v002",
+        "path": "/academy/art/characters/nanako/nanako__thoughtful-teal-coat-coral-scarf__left-three-quarter__fullbody__v002.png",
+        "sha256": "0e1e2950026ace23c1d80ce69cac57aff2ed7a4edcd94bf4b8f06adb68e5258d",
+        "ledgerSha256": "0e1e2950026ace23c1d80ce69cac57aff2ed7a4edcd94bf4b8f06adb68e5258d",
+        "kind": "character-sprite",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "journal:nanako-expression-gallery",
+          "story:cast:nanako:thoughtful",
+          "cast-standardization:nanako"
         ],
         "reviewHomes": [
           "cast-standardization-manifest",
@@ -4327,6 +4231,926 @@
         "ledgerStatus": "manifest-hash-verified; no-cast-likeness; bound-to-open-street-directions-reward"
       },
       {
+        "id": "lesson-zero-hiragana-anchor-family-v001",
+        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-a.webp",
+        "sha256": "77a863f76cc763ccd659cdb926c0a5e9dcfbe5761028915bd6be7ee22e7ae6de",
+        "ledgerSha256": "77a863f76cc763ccd659cdb926c0a5e9dcfbe5761028915bd6be7ee22e7ae6de",
+        "kind": "unclassified-raster",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "lesson-zero:kana-practice",
+          "lesson-zero:hiragana-visual-anchor"
+        ],
+        "reviewHomes": [
+          "learning-art-inventory"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "complete gojuon visual-anchor family; learner-facing and hash-locked"
+      },
+      {
+        "id": "lesson-zero-hiragana-anchor-family-v001",
+        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-chi.webp",
+        "sha256": "7ce7a1b02e580fd8982e96a73cbd92f2083b6b71eaa24f526995ea64287c791a",
+        "ledgerSha256": "7ce7a1b02e580fd8982e96a73cbd92f2083b6b71eaa24f526995ea64287c791a",
+        "kind": "unclassified-raster",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "lesson-zero:kana-practice",
+          "lesson-zero:hiragana-visual-anchor"
+        ],
+        "reviewHomes": [
+          "learning-art-inventory"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "complete gojuon visual-anchor family; learner-facing and hash-locked"
+      },
+      {
+        "id": "lesson-zero-hiragana-anchor-family-v001",
+        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-e.webp",
+        "sha256": "fe54d8c945b6035e42eee28acc344c45c2c4129c24faf51c088f8afe4dc47b34",
+        "ledgerSha256": "fe54d8c945b6035e42eee28acc344c45c2c4129c24faf51c088f8afe4dc47b34",
+        "kind": "unclassified-raster",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "lesson-zero:kana-practice",
+          "lesson-zero:hiragana-visual-anchor"
+        ],
+        "reviewHomes": [
+          "learning-art-inventory"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "complete gojuon visual-anchor family; learner-facing and hash-locked"
+      },
+      {
+        "id": "lesson-zero-hiragana-anchor-family-v001",
+        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-fu.webp",
+        "sha256": "634c12b8353083eb0d210fbcea82718f6fc5ace006b5f0ee24a1d3f1ea77c59f",
+        "ledgerSha256": "634c12b8353083eb0d210fbcea82718f6fc5ace006b5f0ee24a1d3f1ea77c59f",
+        "kind": "unclassified-raster",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "lesson-zero:kana-practice",
+          "lesson-zero:hiragana-visual-anchor"
+        ],
+        "reviewHomes": [
+          "learning-art-inventory"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "complete gojuon visual-anchor family; learner-facing and hash-locked"
+      },
+      {
+        "id": "lesson-zero-hiragana-anchor-family-v001",
+        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-ha.webp",
+        "sha256": "607359bbf86cf8c6c1c000e12d91f5781da4b2e41d412314349a549a6971af8f",
+        "ledgerSha256": "607359bbf86cf8c6c1c000e12d91f5781da4b2e41d412314349a549a6971af8f",
+        "kind": "unclassified-raster",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "lesson-zero:kana-practice",
+          "lesson-zero:hiragana-visual-anchor"
+        ],
+        "reviewHomes": [
+          "learning-art-inventory"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "complete gojuon visual-anchor family; learner-facing and hash-locked"
+      },
+      {
+        "id": "lesson-zero-hiragana-anchor-family-v001",
+        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-he.webp",
+        "sha256": "ce6e561a5368a3b4544b91dc4088c66dc5c903fbe61c080a758f38bc72760ae7",
+        "ledgerSha256": "ce6e561a5368a3b4544b91dc4088c66dc5c903fbe61c080a758f38bc72760ae7",
+        "kind": "unclassified-raster",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "lesson-zero:kana-practice",
+          "lesson-zero:hiragana-visual-anchor"
+        ],
+        "reviewHomes": [
+          "learning-art-inventory"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "complete gojuon visual-anchor family; learner-facing and hash-locked"
+      },
+      {
+        "id": "lesson-zero-hiragana-anchor-family-v001",
+        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-hi.webp",
+        "sha256": "aae98a7d383c4dc2006a812435766bc14a08d9632b97f16860926c970c3b1e5d",
+        "ledgerSha256": "aae98a7d383c4dc2006a812435766bc14a08d9632b97f16860926c970c3b1e5d",
+        "kind": "unclassified-raster",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "lesson-zero:kana-practice",
+          "lesson-zero:hiragana-visual-anchor"
+        ],
+        "reviewHomes": [
+          "learning-art-inventory"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "complete gojuon visual-anchor family; learner-facing and hash-locked"
+      },
+      {
+        "id": "lesson-zero-hiragana-anchor-family-v001",
+        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-ho.webp",
+        "sha256": "e8d92927ac2b1356cdf7a6cfd4ea6d8a35c3a753fb544b32e9bcd27b2cd6aad2",
+        "ledgerSha256": "e8d92927ac2b1356cdf7a6cfd4ea6d8a35c3a753fb544b32e9bcd27b2cd6aad2",
+        "kind": "unclassified-raster",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "lesson-zero:kana-practice",
+          "lesson-zero:hiragana-visual-anchor"
+        ],
+        "reviewHomes": [
+          "learning-art-inventory"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "complete gojuon visual-anchor family; learner-facing and hash-locked"
+      },
+      {
+        "id": "lesson-zero-hiragana-anchor-family-v001",
+        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-i.webp",
+        "sha256": "55e938ff7fcb94bf3f3b8f57a7e81577b8d42de5cdd9d27525005c259c9d8d9a",
+        "ledgerSha256": "55e938ff7fcb94bf3f3b8f57a7e81577b8d42de5cdd9d27525005c259c9d8d9a",
+        "kind": "unclassified-raster",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "lesson-zero:kana-practice",
+          "lesson-zero:hiragana-visual-anchor"
+        ],
+        "reviewHomes": [
+          "learning-art-inventory"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "complete gojuon visual-anchor family; learner-facing and hash-locked"
+      },
+      {
+        "id": "lesson-zero-hiragana-anchor-family-v001",
+        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-ka.webp",
+        "sha256": "2f6aa19c05cb095234a245ac09db86158921692069aaed074b96a590a634b007",
+        "ledgerSha256": "2f6aa19c05cb095234a245ac09db86158921692069aaed074b96a590a634b007",
+        "kind": "unclassified-raster",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "lesson-zero:kana-practice",
+          "lesson-zero:hiragana-visual-anchor"
+        ],
+        "reviewHomes": [
+          "learning-art-inventory"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "complete gojuon visual-anchor family; learner-facing and hash-locked"
+      },
+      {
+        "id": "lesson-zero-hiragana-anchor-family-v001",
+        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-ke.webp",
+        "sha256": "acddc4689073bbbed75dc0526c7311b348f77256f0bfe3973441697987640b88",
+        "ledgerSha256": "acddc4689073bbbed75dc0526c7311b348f77256f0bfe3973441697987640b88",
+        "kind": "unclassified-raster",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "lesson-zero:kana-practice",
+          "lesson-zero:hiragana-visual-anchor"
+        ],
+        "reviewHomes": [
+          "learning-art-inventory"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "complete gojuon visual-anchor family; learner-facing and hash-locked"
+      },
+      {
+        "id": "lesson-zero-hiragana-anchor-family-v001",
+        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-ki.webp",
+        "sha256": "d078877728920e113710ea846de829494cdf1464dfb0f985776449b0701a5d29",
+        "ledgerSha256": "d078877728920e113710ea846de829494cdf1464dfb0f985776449b0701a5d29",
+        "kind": "unclassified-raster",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "lesson-zero:kana-practice",
+          "lesson-zero:hiragana-visual-anchor"
+        ],
+        "reviewHomes": [
+          "learning-art-inventory"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "complete gojuon visual-anchor family; learner-facing and hash-locked"
+      },
+      {
+        "id": "lesson-zero-hiragana-anchor-family-v001",
+        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-ko.webp",
+        "sha256": "387db5c98a3291f091ead84ba0458ffcf95c9aa5a20c95b0833a33ff5535b7c5",
+        "ledgerSha256": "387db5c98a3291f091ead84ba0458ffcf95c9aa5a20c95b0833a33ff5535b7c5",
+        "kind": "unclassified-raster",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "lesson-zero:kana-practice",
+          "lesson-zero:hiragana-visual-anchor"
+        ],
+        "reviewHomes": [
+          "learning-art-inventory"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "complete gojuon visual-anchor family; learner-facing and hash-locked"
+      },
+      {
+        "id": "lesson-zero-hiragana-anchor-family-v001",
+        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-ku.webp",
+        "sha256": "7c0b542f71d1de0812254be6fd300c0f298e586ce3f22d5cd9bf97c7fff25639",
+        "ledgerSha256": "7c0b542f71d1de0812254be6fd300c0f298e586ce3f22d5cd9bf97c7fff25639",
+        "kind": "unclassified-raster",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "lesson-zero:kana-practice",
+          "lesson-zero:hiragana-visual-anchor"
+        ],
+        "reviewHomes": [
+          "learning-art-inventory"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "complete gojuon visual-anchor family; learner-facing and hash-locked"
+      },
+      {
+        "id": "lesson-zero-hiragana-anchor-family-v001",
+        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-ma.webp",
+        "sha256": "f1d5bb9c64d2ebfceb59763e0e68b933779d89d937d247af8d569e40d9e652ab",
+        "ledgerSha256": "f1d5bb9c64d2ebfceb59763e0e68b933779d89d937d247af8d569e40d9e652ab",
+        "kind": "unclassified-raster",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "lesson-zero:kana-practice",
+          "lesson-zero:hiragana-visual-anchor"
+        ],
+        "reviewHomes": [
+          "learning-art-inventory"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "complete gojuon visual-anchor family; learner-facing and hash-locked"
+      },
+      {
+        "id": "lesson-zero-hiragana-anchor-family-v001",
+        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-me.webp",
+        "sha256": "94411e0c24f6c58ac36d1fcf18d55168f473a54980169c95b1557d2b2db9d6f3",
+        "ledgerSha256": "94411e0c24f6c58ac36d1fcf18d55168f473a54980169c95b1557d2b2db9d6f3",
+        "kind": "unclassified-raster",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "lesson-zero:kana-practice",
+          "lesson-zero:hiragana-visual-anchor"
+        ],
+        "reviewHomes": [
+          "learning-art-inventory"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "complete gojuon visual-anchor family; learner-facing and hash-locked"
+      },
+      {
+        "id": "lesson-zero-hiragana-anchor-family-v001",
+        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-mi.webp",
+        "sha256": "92d4ec1e1c778ecbeff61da2bdec90179530cd9b39368ac679cd72933782e383",
+        "ledgerSha256": "92d4ec1e1c778ecbeff61da2bdec90179530cd9b39368ac679cd72933782e383",
+        "kind": "unclassified-raster",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "lesson-zero:kana-practice",
+          "lesson-zero:hiragana-visual-anchor"
+        ],
+        "reviewHomes": [
+          "learning-art-inventory"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "complete gojuon visual-anchor family; learner-facing and hash-locked"
+      },
+      {
+        "id": "lesson-zero-hiragana-anchor-family-v001",
+        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-mo.webp",
+        "sha256": "2036d1e4a8328f8e61a85319a65b175aa71e30855b33daad156e2ce061d09d70",
+        "ledgerSha256": "2036d1e4a8328f8e61a85319a65b175aa71e30855b33daad156e2ce061d09d70",
+        "kind": "unclassified-raster",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "lesson-zero:kana-practice",
+          "lesson-zero:hiragana-visual-anchor"
+        ],
+        "reviewHomes": [
+          "learning-art-inventory"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "complete gojuon visual-anchor family; learner-facing and hash-locked"
+      },
+      {
+        "id": "lesson-zero-hiragana-anchor-family-v001",
+        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-mu.webp",
+        "sha256": "0e894594c51039e7fbb2d4d2b9b84c0283c4eb8c3effe8d38390016461fae076",
+        "ledgerSha256": "0e894594c51039e7fbb2d4d2b9b84c0283c4eb8c3effe8d38390016461fae076",
+        "kind": "unclassified-raster",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "lesson-zero:kana-practice",
+          "lesson-zero:hiragana-visual-anchor"
+        ],
+        "reviewHomes": [
+          "learning-art-inventory"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "complete gojuon visual-anchor family; learner-facing and hash-locked"
+      },
+      {
+        "id": "lesson-zero-hiragana-anchor-family-v001",
+        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-n.webp",
+        "sha256": "7aeafefdb4239b419f798058e6e19e59b5a1585b849e85ca216e941c817f5737",
+        "ledgerSha256": "7aeafefdb4239b419f798058e6e19e59b5a1585b849e85ca216e941c817f5737",
+        "kind": "unclassified-raster",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "lesson-zero:kana-practice",
+          "lesson-zero:hiragana-visual-anchor"
+        ],
+        "reviewHomes": [
+          "learning-art-inventory"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "complete gojuon visual-anchor family; learner-facing and hash-locked"
+      },
+      {
+        "id": "lesson-zero-hiragana-anchor-family-v001",
+        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-na.webp",
+        "sha256": "36f78283a6efc9bdf42f086fbde114ac19b2bd12e1a56bea6c808d00f81cfb61",
+        "ledgerSha256": "36f78283a6efc9bdf42f086fbde114ac19b2bd12e1a56bea6c808d00f81cfb61",
+        "kind": "unclassified-raster",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "lesson-zero:kana-practice",
+          "lesson-zero:hiragana-visual-anchor"
+        ],
+        "reviewHomes": [
+          "learning-art-inventory"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "complete gojuon visual-anchor family; learner-facing and hash-locked"
+      },
+      {
+        "id": "lesson-zero-hiragana-anchor-family-v001",
+        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-ne.webp",
+        "sha256": "484e5886e1a144cd907dc3fadec2f8d628c1c7fedf5671878778a8e8e967b08b",
+        "ledgerSha256": "484e5886e1a144cd907dc3fadec2f8d628c1c7fedf5671878778a8e8e967b08b",
+        "kind": "unclassified-raster",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "lesson-zero:kana-practice",
+          "lesson-zero:hiragana-visual-anchor"
+        ],
+        "reviewHomes": [
+          "learning-art-inventory"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "complete gojuon visual-anchor family; learner-facing and hash-locked"
+      },
+      {
+        "id": "lesson-zero-hiragana-anchor-family-v001",
+        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-ni.webp",
+        "sha256": "8413cae3c3998e1b50d14cd02b27feb2c00a9cc754b31aba0f6ac3653c132d27",
+        "ledgerSha256": "8413cae3c3998e1b50d14cd02b27feb2c00a9cc754b31aba0f6ac3653c132d27",
+        "kind": "unclassified-raster",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "lesson-zero:kana-practice",
+          "lesson-zero:hiragana-visual-anchor"
+        ],
+        "reviewHomes": [
+          "learning-art-inventory"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "complete gojuon visual-anchor family; learner-facing and hash-locked"
+      },
+      {
+        "id": "lesson-zero-hiragana-anchor-family-v001",
+        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-no.webp",
+        "sha256": "d1df5c671d0f8fbb968458bc5a249c7f5f3358331b18f56bc5a6d7b3d73ce7a4",
+        "ledgerSha256": "d1df5c671d0f8fbb968458bc5a249c7f5f3358331b18f56bc5a6d7b3d73ce7a4",
+        "kind": "unclassified-raster",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "lesson-zero:kana-practice",
+          "lesson-zero:hiragana-visual-anchor"
+        ],
+        "reviewHomes": [
+          "learning-art-inventory"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "complete gojuon visual-anchor family; learner-facing and hash-locked"
+      },
+      {
+        "id": "lesson-zero-hiragana-anchor-family-v001",
+        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-nu.webp",
+        "sha256": "d55dd59bca55dce1f356d0d08711eca03f5051abd04f7ed9f029c31ccd83765b",
+        "ledgerSha256": "d55dd59bca55dce1f356d0d08711eca03f5051abd04f7ed9f029c31ccd83765b",
+        "kind": "unclassified-raster",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "lesson-zero:kana-practice",
+          "lesson-zero:hiragana-visual-anchor"
+        ],
+        "reviewHomes": [
+          "learning-art-inventory"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "complete gojuon visual-anchor family; learner-facing and hash-locked"
+      },
+      {
+        "id": "lesson-zero-hiragana-anchor-family-v001",
+        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-o.webp",
+        "sha256": "6a15f28a06d429164dfd654ce56fe599c6bf8fbb6110d105ed430c77cfe44cf9",
+        "ledgerSha256": "6a15f28a06d429164dfd654ce56fe599c6bf8fbb6110d105ed430c77cfe44cf9",
+        "kind": "unclassified-raster",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "lesson-zero:kana-practice",
+          "lesson-zero:hiragana-visual-anchor"
+        ],
+        "reviewHomes": [
+          "learning-art-inventory"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "complete gojuon visual-anchor family; learner-facing and hash-locked"
+      },
+      {
+        "id": "lesson-zero-hiragana-anchor-family-v001",
+        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-ra.webp",
+        "sha256": "3ff7ec1318241cd239f788eaa5c949a624203db9d424cc1b0af21cd2f0c580e0",
+        "ledgerSha256": "3ff7ec1318241cd239f788eaa5c949a624203db9d424cc1b0af21cd2f0c580e0",
+        "kind": "unclassified-raster",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "lesson-zero:kana-practice",
+          "lesson-zero:hiragana-visual-anchor"
+        ],
+        "reviewHomes": [
+          "learning-art-inventory"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "complete gojuon visual-anchor family; learner-facing and hash-locked"
+      },
+      {
+        "id": "lesson-zero-hiragana-anchor-family-v001",
+        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-re.webp",
+        "sha256": "8b42f95a5381f4139196f03b517d82e3909df880946a0d1c18ecc104f830c199",
+        "ledgerSha256": "8b42f95a5381f4139196f03b517d82e3909df880946a0d1c18ecc104f830c199",
+        "kind": "unclassified-raster",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "lesson-zero:kana-practice",
+          "lesson-zero:hiragana-visual-anchor"
+        ],
+        "reviewHomes": [
+          "learning-art-inventory"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "complete gojuon visual-anchor family; learner-facing and hash-locked"
+      },
+      {
+        "id": "lesson-zero-hiragana-anchor-family-v001",
+        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-ri.webp",
+        "sha256": "cd16bfcf5a30e02b12560feadf09948a28e838ebbc8468c16503320b3700e303",
+        "ledgerSha256": "cd16bfcf5a30e02b12560feadf09948a28e838ebbc8468c16503320b3700e303",
+        "kind": "unclassified-raster",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "lesson-zero:kana-practice",
+          "lesson-zero:hiragana-visual-anchor"
+        ],
+        "reviewHomes": [
+          "learning-art-inventory"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "complete gojuon visual-anchor family; learner-facing and hash-locked"
+      },
+      {
+        "id": "lesson-zero-hiragana-anchor-family-v001",
+        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-ro.webp",
+        "sha256": "ebd02124882944df4fb2a2458e927dc103549db66f9435b29916d746ec981695",
+        "ledgerSha256": "ebd02124882944df4fb2a2458e927dc103549db66f9435b29916d746ec981695",
+        "kind": "unclassified-raster",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "lesson-zero:kana-practice",
+          "lesson-zero:hiragana-visual-anchor"
+        ],
+        "reviewHomes": [
+          "learning-art-inventory"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "complete gojuon visual-anchor family; learner-facing and hash-locked"
+      },
+      {
+        "id": "lesson-zero-hiragana-anchor-family-v001",
+        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-ru.webp",
+        "sha256": "8635ffce1eea7b92784c2067deb49ed969f4fe9932c88442dd5a77e3370da68f",
+        "ledgerSha256": "8635ffce1eea7b92784c2067deb49ed969f4fe9932c88442dd5a77e3370da68f",
+        "kind": "unclassified-raster",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "lesson-zero:kana-practice",
+          "lesson-zero:hiragana-visual-anchor"
+        ],
+        "reviewHomes": [
+          "learning-art-inventory"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "complete gojuon visual-anchor family; learner-facing and hash-locked"
+      },
+      {
+        "id": "lesson-zero-hiragana-anchor-family-v001",
+        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-sa.webp",
+        "sha256": "87dcd46ecac2ec3ec0eb47e2c933192982088bde8e0d777bf67104682d3e1170",
+        "ledgerSha256": "87dcd46ecac2ec3ec0eb47e2c933192982088bde8e0d777bf67104682d3e1170",
+        "kind": "unclassified-raster",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "lesson-zero:kana-practice",
+          "lesson-zero:hiragana-visual-anchor"
+        ],
+        "reviewHomes": [
+          "learning-art-inventory"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "complete gojuon visual-anchor family; learner-facing and hash-locked"
+      },
+      {
+        "id": "lesson-zero-hiragana-anchor-family-v001",
+        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-se.webp",
+        "sha256": "8239f0ed9db04052c053c092482cf84bbae30421d418cf0a8515b9c1019d08ff",
+        "ledgerSha256": "8239f0ed9db04052c053c092482cf84bbae30421d418cf0a8515b9c1019d08ff",
+        "kind": "unclassified-raster",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "lesson-zero:kana-practice",
+          "lesson-zero:hiragana-visual-anchor"
+        ],
+        "reviewHomes": [
+          "learning-art-inventory"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "complete gojuon visual-anchor family; learner-facing and hash-locked"
+      },
+      {
+        "id": "lesson-zero-hiragana-anchor-family-v001",
+        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-shi.webp",
+        "sha256": "cf6d4a48253607bf7ee3e5f805399a4ea4bedbdf1c1e408f25626601ca071f2f",
+        "ledgerSha256": "cf6d4a48253607bf7ee3e5f805399a4ea4bedbdf1c1e408f25626601ca071f2f",
+        "kind": "unclassified-raster",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "lesson-zero:kana-practice",
+          "lesson-zero:hiragana-visual-anchor"
+        ],
+        "reviewHomes": [
+          "learning-art-inventory"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "complete gojuon visual-anchor family; learner-facing and hash-locked"
+      },
+      {
+        "id": "lesson-zero-hiragana-anchor-family-v001",
+        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-so.webp",
+        "sha256": "c354736c6d7b6b6f60360fb62b5512006318a20abb45c0307e745633901d8ce4",
+        "ledgerSha256": "c354736c6d7b6b6f60360fb62b5512006318a20abb45c0307e745633901d8ce4",
+        "kind": "unclassified-raster",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "lesson-zero:kana-practice",
+          "lesson-zero:hiragana-visual-anchor"
+        ],
+        "reviewHomes": [
+          "learning-art-inventory"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "complete gojuon visual-anchor family; learner-facing and hash-locked"
+      },
+      {
+        "id": "lesson-zero-hiragana-anchor-family-v001",
+        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-su.webp",
+        "sha256": "30cf43e6e077ba6374e5288498a123da69cc68cc275263710d7c2d760c7e41c3",
+        "ledgerSha256": "30cf43e6e077ba6374e5288498a123da69cc68cc275263710d7c2d760c7e41c3",
+        "kind": "unclassified-raster",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "lesson-zero:kana-practice",
+          "lesson-zero:hiragana-visual-anchor"
+        ],
+        "reviewHomes": [
+          "learning-art-inventory"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "complete gojuon visual-anchor family; learner-facing and hash-locked"
+      },
+      {
+        "id": "lesson-zero-hiragana-anchor-family-v001",
+        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-ta.webp",
+        "sha256": "1d45e73fb7d842eacd107f7cec20dbe446e7da7a76c44ce50e45b4579b4c448d",
+        "ledgerSha256": "1d45e73fb7d842eacd107f7cec20dbe446e7da7a76c44ce50e45b4579b4c448d",
+        "kind": "unclassified-raster",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "lesson-zero:kana-practice",
+          "lesson-zero:hiragana-visual-anchor"
+        ],
+        "reviewHomes": [
+          "learning-art-inventory"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "complete gojuon visual-anchor family; learner-facing and hash-locked"
+      },
+      {
+        "id": "lesson-zero-hiragana-anchor-family-v001",
+        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-te.webp",
+        "sha256": "db762313a7bb3ce18d11053713d5ca405378a7c869285a987feb761ea208bd18",
+        "ledgerSha256": "db762313a7bb3ce18d11053713d5ca405378a7c869285a987feb761ea208bd18",
+        "kind": "unclassified-raster",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "lesson-zero:kana-practice",
+          "lesson-zero:hiragana-visual-anchor"
+        ],
+        "reviewHomes": [
+          "learning-art-inventory"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "complete gojuon visual-anchor family; learner-facing and hash-locked"
+      },
+      {
+        "id": "lesson-zero-hiragana-anchor-family-v001",
+        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-to.webp",
+        "sha256": "c120b1af5d9beb217582d8c05bd8f0efa094646f68b182a17632e31812dd572e",
+        "ledgerSha256": "c120b1af5d9beb217582d8c05bd8f0efa094646f68b182a17632e31812dd572e",
+        "kind": "unclassified-raster",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "lesson-zero:kana-practice",
+          "lesson-zero:hiragana-visual-anchor"
+        ],
+        "reviewHomes": [
+          "learning-art-inventory"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "complete gojuon visual-anchor family; learner-facing and hash-locked"
+      },
+      {
+        "id": "lesson-zero-hiragana-anchor-family-v001",
+        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-tsu.webp",
+        "sha256": "5459b5cd7bb691bb911f7d4f86c27674e2d1071555b7d08df38c20488b07ee0f",
+        "ledgerSha256": "5459b5cd7bb691bb911f7d4f86c27674e2d1071555b7d08df38c20488b07ee0f",
+        "kind": "unclassified-raster",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "lesson-zero:kana-practice",
+          "lesson-zero:hiragana-visual-anchor"
+        ],
+        "reviewHomes": [
+          "learning-art-inventory"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "complete gojuon visual-anchor family; learner-facing and hash-locked"
+      },
+      {
+        "id": "lesson-zero-hiragana-anchor-family-v001",
+        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-u.webp",
+        "sha256": "d6ac66a6984e2f0aaede5552e49a1083bf73870bb89fcdd21c95b6d519243ed4",
+        "ledgerSha256": "d6ac66a6984e2f0aaede5552e49a1083bf73870bb89fcdd21c95b6d519243ed4",
+        "kind": "unclassified-raster",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "lesson-zero:kana-practice",
+          "lesson-zero:hiragana-visual-anchor"
+        ],
+        "reviewHomes": [
+          "learning-art-inventory"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "complete gojuon visual-anchor family; learner-facing and hash-locked"
+      },
+      {
+        "id": "lesson-zero-hiragana-anchor-family-v001",
+        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-wa.webp",
+        "sha256": "3209abd9476e06b7b9a6c0e1fd480c8f05d691bb4310cb772fc408ba0b2a64ba",
+        "ledgerSha256": "3209abd9476e06b7b9a6c0e1fd480c8f05d691bb4310cb772fc408ba0b2a64ba",
+        "kind": "unclassified-raster",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "lesson-zero:kana-practice",
+          "lesson-zero:hiragana-visual-anchor"
+        ],
+        "reviewHomes": [
+          "learning-art-inventory"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "complete gojuon visual-anchor family; learner-facing and hash-locked"
+      },
+      {
+        "id": "lesson-zero-hiragana-anchor-family-v001",
+        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-wo.webp",
+        "sha256": "ae121ae2b8618082f8576b1f87f3d8e56c1ca21600594b9bc8e85266c07d0274",
+        "ledgerSha256": "ae121ae2b8618082f8576b1f87f3d8e56c1ca21600594b9bc8e85266c07d0274",
+        "kind": "unclassified-raster",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "lesson-zero:kana-practice",
+          "lesson-zero:hiragana-visual-anchor"
+        ],
+        "reviewHomes": [
+          "learning-art-inventory"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "complete gojuon visual-anchor family; learner-facing and hash-locked"
+      },
+      {
+        "id": "lesson-zero-hiragana-anchor-family-v001",
+        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-ya.webp",
+        "sha256": "ed31f30767c4713201b3e1a7d8c7547586ca6204a313dc785d75f29028ef05e9",
+        "ledgerSha256": "ed31f30767c4713201b3e1a7d8c7547586ca6204a313dc785d75f29028ef05e9",
+        "kind": "unclassified-raster",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "lesson-zero:kana-practice",
+          "lesson-zero:hiragana-visual-anchor"
+        ],
+        "reviewHomes": [
+          "learning-art-inventory"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "complete gojuon visual-anchor family; learner-facing and hash-locked"
+      },
+      {
+        "id": "lesson-zero-hiragana-anchor-family-v001",
+        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-yo.webp",
+        "sha256": "af6546f759d63a97f8209b4ad480995b35c7c3cf722c00709391644dbc5363b8",
+        "ledgerSha256": "af6546f759d63a97f8209b4ad480995b35c7c3cf722c00709391644dbc5363b8",
+        "kind": "unclassified-raster",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "lesson-zero:kana-practice",
+          "lesson-zero:hiragana-visual-anchor"
+        ],
+        "reviewHomes": [
+          "learning-art-inventory"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "complete gojuon visual-anchor family; learner-facing and hash-locked"
+      },
+      {
+        "id": "lesson-zero-hiragana-anchor-family-v001",
+        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-yu.webp",
+        "sha256": "5a82bd8a1077e2d68a6f3123b83dba30c7b37b36c3a1c40ee84366592bd1d913",
+        "ledgerSha256": "5a82bd8a1077e2d68a6f3123b83dba30c7b37b36c3a1c40ee84366592bd1d913",
+        "kind": "unclassified-raster",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "lesson-zero:kana-practice",
+          "lesson-zero:hiragana-visual-anchor"
+        ],
+        "reviewHomes": [
+          "learning-art-inventory"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "complete gojuon visual-anchor family; learner-facing and hash-locked"
+      },
+      {
         "id": "airport-evening-concourse",
         "path": "/academy/art/locations/mobile/airport__evening-concourse--mobile.webp",
         "sha256": "3e0c1fccf5fef63012dea5fd6d6894390c21a8bf1db39a727fae133b5106b5d7",
@@ -5628,809 +6452,153 @@
         "sourceLedger": "public/academy/art/ASSET-USAGE.json",
         "ledgerVerdict": "approved-runtime",
         "ledgerStatus": "clean-alpha-browser-reviewed"
-      }
-    ],
-    "orphaned": [
-      {
-        "id": "unregistered:/academy/art/lesson-zero/hiragana-anchors/hira-a.webp",
-        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-a.webp",
-        "sha256": "77a863f76cc763ccd659cdb926c0a5e9dcfbe5761028915bd6be7ee22e7ae6de",
-        "ledgerSha256": null,
-        "kind": "unclassified-raster",
-        "state": "orphaned",
-        "present": true,
-        "runtimeAuthorized": false,
-        "runtimeHomes": [],
-        "reviewHomes": [],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "unregistered",
-        "ledgerStatus": "No ASSET-USAGE entry exists for this raster."
       },
       {
-        "id": "unregistered:/academy/art/lesson-zero/hiragana-anchors/hira-chi.webp",
-        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-chi.webp",
-        "sha256": "7ce7a1b02e580fd8982e96a73cbd92f2083b6b71eaa24f526995ea64287c791a",
-        "ledgerSha256": null,
-        "kind": "unclassified-raster",
-        "state": "orphaned",
-        "present": true,
-        "runtimeAuthorized": false,
-        "runtimeHomes": [],
-        "reviewHomes": [],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "unregistered",
-        "ledgerStatus": "No ASSET-USAGE entry exists for this raster."
-      },
-      {
-        "id": "unregistered:/academy/art/lesson-zero/hiragana-anchors/hira-e.webp",
-        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-e.webp",
-        "sha256": "fe54d8c945b6035e42eee28acc344c45c2c4129c24faf51c088f8afe4dc47b34",
-        "ledgerSha256": null,
-        "kind": "unclassified-raster",
-        "state": "orphaned",
-        "present": true,
-        "runtimeAuthorized": false,
-        "runtimeHomes": [],
-        "reviewHomes": [],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "unregistered",
-        "ledgerStatus": "No ASSET-USAGE entry exists for this raster."
-      },
-      {
-        "id": "unregistered:/academy/art/lesson-zero/hiragana-anchors/hira-fu.webp",
-        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-fu.webp",
-        "sha256": "634c12b8353083eb0d210fbcea82718f6fc5ace006b5f0ee24a1d3f1ea77c59f",
-        "ledgerSha256": null,
-        "kind": "unclassified-raster",
-        "state": "orphaned",
-        "present": true,
-        "runtimeAuthorized": false,
-        "runtimeHomes": [],
-        "reviewHomes": [],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "unregistered",
-        "ledgerStatus": "No ASSET-USAGE entry exists for this raster."
-      },
-      {
-        "id": "unregistered:/academy/art/lesson-zero/hiragana-anchors/hira-ha.webp",
-        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-ha.webp",
-        "sha256": "607359bbf86cf8c6c1c000e12d91f5781da4b2e41d412314349a549a6971af8f",
-        "ledgerSha256": null,
-        "kind": "unclassified-raster",
-        "state": "orphaned",
-        "present": true,
-        "runtimeAuthorized": false,
-        "runtimeHomes": [],
-        "reviewHomes": [],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "unregistered",
-        "ledgerStatus": "No ASSET-USAGE entry exists for this raster."
-      },
-      {
-        "id": "unregistered:/academy/art/lesson-zero/hiragana-anchors/hira-he.webp",
-        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-he.webp",
-        "sha256": "ce6e561a5368a3b4544b91dc4088c66dc5c903fbe61c080a758f38bc72760ae7",
-        "ledgerSha256": null,
-        "kind": "unclassified-raster",
-        "state": "orphaned",
-        "present": true,
-        "runtimeAuthorized": false,
-        "runtimeHomes": [],
-        "reviewHomes": [],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "unregistered",
-        "ledgerStatus": "No ASSET-USAGE entry exists for this raster."
-      },
-      {
-        "id": "unregistered:/academy/art/lesson-zero/hiragana-anchors/hira-hi.webp",
-        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-hi.webp",
-        "sha256": "aae98a7d383c4dc2006a812435766bc14a08d9632b97f16860926c970c3b1e5d",
-        "ledgerSha256": null,
-        "kind": "unclassified-raster",
-        "state": "orphaned",
-        "present": true,
-        "runtimeAuthorized": false,
-        "runtimeHomes": [],
-        "reviewHomes": [],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "unregistered",
-        "ledgerStatus": "No ASSET-USAGE entry exists for this raster."
-      },
-      {
-        "id": "unregistered:/academy/art/lesson-zero/hiragana-anchors/hira-ho.webp",
-        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-ho.webp",
-        "sha256": "e8d92927ac2b1356cdf7a6cfd4ea6d8a35c3a753fb544b32e9bcd27b2cd6aad2",
-        "ledgerSha256": null,
-        "kind": "unclassified-raster",
-        "state": "orphaned",
-        "present": true,
-        "runtimeAuthorized": false,
-        "runtimeHomes": [],
-        "reviewHomes": [],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "unregistered",
-        "ledgerStatus": "No ASSET-USAGE entry exists for this raster."
-      },
-      {
-        "id": "unregistered:/academy/art/lesson-zero/hiragana-anchors/hira-i.webp",
-        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-i.webp",
-        "sha256": "55e938ff7fcb94bf3f3b8f57a7e81577b8d42de5cdd9d27525005c259c9d8d9a",
-        "ledgerSha256": null,
-        "kind": "unclassified-raster",
-        "state": "orphaned",
-        "present": true,
-        "runtimeAuthorized": false,
-        "runtimeHomes": [],
-        "reviewHomes": [],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "unregistered",
-        "ledgerStatus": "No ASSET-USAGE entry exists for this raster."
-      },
-      {
-        "id": "unregistered:/academy/art/lesson-zero/hiragana-anchors/hira-ka.webp",
-        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-ka.webp",
-        "sha256": "2f6aa19c05cb095234a245ac09db86158921692069aaed074b96a590a634b007",
-        "ledgerSha256": null,
-        "kind": "unclassified-raster",
-        "state": "orphaned",
-        "present": true,
-        "runtimeAuthorized": false,
-        "runtimeHomes": [],
-        "reviewHomes": [],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "unregistered",
-        "ledgerStatus": "No ASSET-USAGE entry exists for this raster."
-      },
-      {
-        "id": "unregistered:/academy/art/lesson-zero/hiragana-anchors/hira-ke.webp",
-        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-ke.webp",
-        "sha256": "acddc4689073bbbed75dc0526c7311b348f77256f0bfe3973441697987640b88",
-        "ledgerSha256": null,
-        "kind": "unclassified-raster",
-        "state": "orphaned",
-        "present": true,
-        "runtimeAuthorized": false,
-        "runtimeHomes": [],
-        "reviewHomes": [],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "unregistered",
-        "ledgerStatus": "No ASSET-USAGE entry exists for this raster."
-      },
-      {
-        "id": "unregistered:/academy/art/lesson-zero/hiragana-anchors/hira-ki.webp",
-        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-ki.webp",
-        "sha256": "d078877728920e113710ea846de829494cdf1464dfb0f985776449b0701a5d29",
-        "ledgerSha256": null,
-        "kind": "unclassified-raster",
-        "state": "orphaned",
-        "present": true,
-        "runtimeAuthorized": false,
-        "runtimeHomes": [],
-        "reviewHomes": [],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "unregistered",
-        "ledgerStatus": "No ASSET-USAGE entry exists for this raster."
-      },
-      {
-        "id": "unregistered:/academy/art/lesson-zero/hiragana-anchors/hira-ko.webp",
-        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-ko.webp",
-        "sha256": "387db5c98a3291f091ead84ba0458ffcf95c9aa5a20c95b0833a33ff5535b7c5",
-        "ledgerSha256": null,
-        "kind": "unclassified-raster",
-        "state": "orphaned",
-        "present": true,
-        "runtimeAuthorized": false,
-        "runtimeHomes": [],
-        "reviewHomes": [],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "unregistered",
-        "ledgerStatus": "No ASSET-USAGE entry exists for this raster."
-      },
-      {
-        "id": "unregistered:/academy/art/lesson-zero/hiragana-anchors/hira-ku.webp",
-        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-ku.webp",
-        "sha256": "7c0b542f71d1de0812254be6fd300c0f298e586ce3f22d5cd9bf97c7fff25639",
-        "ledgerSha256": null,
-        "kind": "unclassified-raster",
-        "state": "orphaned",
-        "present": true,
-        "runtimeAuthorized": false,
-        "runtimeHomes": [],
-        "reviewHomes": [],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "unregistered",
-        "ledgerStatus": "No ASSET-USAGE entry exists for this raster."
-      },
-      {
-        "id": "unregistered:/academy/art/lesson-zero/hiragana-anchors/hira-ma.webp",
-        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-ma.webp",
-        "sha256": "f1d5bb9c64d2ebfceb59763e0e68b933779d89d937d247af8d569e40d9e652ab",
-        "ledgerSha256": null,
-        "kind": "unclassified-raster",
-        "state": "orphaned",
-        "present": true,
-        "runtimeAuthorized": false,
-        "runtimeHomes": [],
-        "reviewHomes": [],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "unregistered",
-        "ledgerStatus": "No ASSET-USAGE entry exists for this raster."
-      },
-      {
-        "id": "unregistered:/academy/art/lesson-zero/hiragana-anchors/hira-me.webp",
-        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-me.webp",
-        "sha256": "94411e0c24f6c58ac36d1fcf18d55168f473a54980169c95b1557d2b2db9d6f3",
-        "ledgerSha256": null,
-        "kind": "unclassified-raster",
-        "state": "orphaned",
-        "present": true,
-        "runtimeAuthorized": false,
-        "runtimeHomes": [],
-        "reviewHomes": [],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "unregistered",
-        "ledgerStatus": "No ASSET-USAGE entry exists for this raster."
-      },
-      {
-        "id": "unregistered:/academy/art/lesson-zero/hiragana-anchors/hira-mi.webp",
-        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-mi.webp",
-        "sha256": "92d4ec1e1c778ecbeff61da2bdec90179530cd9b39368ac679cd72933782e383",
-        "ledgerSha256": null,
-        "kind": "unclassified-raster",
-        "state": "orphaned",
-        "present": true,
-        "runtimeAuthorized": false,
-        "runtimeHomes": [],
-        "reviewHomes": [],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "unregistered",
-        "ledgerStatus": "No ASSET-USAGE entry exists for this raster."
-      },
-      {
-        "id": "unregistered:/academy/art/lesson-zero/hiragana-anchors/hira-mo.webp",
-        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-mo.webp",
-        "sha256": "2036d1e4a8328f8e61a85319a65b175aa71e30855b33daad156e2ce061d09d70",
-        "ledgerSha256": null,
-        "kind": "unclassified-raster",
-        "state": "orphaned",
-        "present": true,
-        "runtimeAuthorized": false,
-        "runtimeHomes": [],
-        "reviewHomes": [],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "unregistered",
-        "ledgerStatus": "No ASSET-USAGE entry exists for this raster."
-      },
-      {
-        "id": "unregistered:/academy/art/lesson-zero/hiragana-anchors/hira-mu.webp",
-        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-mu.webp",
-        "sha256": "0e894594c51039e7fbb2d4d2b9b84c0283c4eb8c3effe8d38390016461fae076",
-        "ledgerSha256": null,
-        "kind": "unclassified-raster",
-        "state": "orphaned",
-        "present": true,
-        "runtimeAuthorized": false,
-        "runtimeHomes": [],
-        "reviewHomes": [],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "unregistered",
-        "ledgerStatus": "No ASSET-USAGE entry exists for this raster."
-      },
-      {
-        "id": "unregistered:/academy/art/lesson-zero/hiragana-anchors/hira-n.webp",
-        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-n.webp",
-        "sha256": "7aeafefdb4239b419f798058e6e19e59b5a1585b849e85ca216e941c817f5737",
-        "ledgerSha256": null,
-        "kind": "unclassified-raster",
-        "state": "orphaned",
-        "present": true,
-        "runtimeAuthorized": false,
-        "runtimeHomes": [],
-        "reviewHomes": [],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "unregistered",
-        "ledgerStatus": "No ASSET-USAGE entry exists for this raster."
-      },
-      {
-        "id": "unregistered:/academy/art/lesson-zero/hiragana-anchors/hira-na.webp",
-        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-na.webp",
-        "sha256": "36f78283a6efc9bdf42f086fbde114ac19b2bd12e1a56bea6c808d00f81cfb61",
-        "ledgerSha256": null,
-        "kind": "unclassified-raster",
-        "state": "orphaned",
-        "present": true,
-        "runtimeAuthorized": false,
-        "runtimeHomes": [],
-        "reviewHomes": [],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "unregistered",
-        "ledgerStatus": "No ASSET-USAGE entry exists for this raster."
-      },
-      {
-        "id": "unregistered:/academy/art/lesson-zero/hiragana-anchors/hira-ne.webp",
-        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-ne.webp",
-        "sha256": "484e5886e1a144cd907dc3fadec2f8d628c1c7fedf5671878778a8e8e967b08b",
-        "ledgerSha256": null,
-        "kind": "unclassified-raster",
-        "state": "orphaned",
-        "present": true,
-        "runtimeAuthorized": false,
-        "runtimeHomes": [],
-        "reviewHomes": [],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "unregistered",
-        "ledgerStatus": "No ASSET-USAGE entry exists for this raster."
-      },
-      {
-        "id": "unregistered:/academy/art/lesson-zero/hiragana-anchors/hira-ni.webp",
-        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-ni.webp",
-        "sha256": "8413cae3c3998e1b50d14cd02b27feb2c00a9cc754b31aba0f6ac3653c132d27",
-        "ledgerSha256": null,
-        "kind": "unclassified-raster",
-        "state": "orphaned",
-        "present": true,
-        "runtimeAuthorized": false,
-        "runtimeHomes": [],
-        "reviewHomes": [],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "unregistered",
-        "ledgerStatus": "No ASSET-USAGE entry exists for this raster."
-      },
-      {
-        "id": "unregistered:/academy/art/lesson-zero/hiragana-anchors/hira-no.webp",
-        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-no.webp",
-        "sha256": "d1df5c671d0f8fbb968458bc5a249c7f5f3358331b18f56bc5a6d7b3d73ce7a4",
-        "ledgerSha256": null,
-        "kind": "unclassified-raster",
-        "state": "orphaned",
-        "present": true,
-        "runtimeAuthorized": false,
-        "runtimeHomes": [],
-        "reviewHomes": [],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "unregistered",
-        "ledgerStatus": "No ASSET-USAGE entry exists for this raster."
-      },
-      {
-        "id": "unregistered:/academy/art/lesson-zero/hiragana-anchors/hira-nu.webp",
-        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-nu.webp",
-        "sha256": "d55dd59bca55dce1f356d0d08711eca03f5051abd04f7ed9f029c31ccd83765b",
-        "ledgerSha256": null,
-        "kind": "unclassified-raster",
-        "state": "orphaned",
-        "present": true,
-        "runtimeAuthorized": false,
-        "runtimeHomes": [],
-        "reviewHomes": [],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "unregistered",
-        "ledgerStatus": "No ASSET-USAGE entry exists for this raster."
-      },
-      {
-        "id": "unregistered:/academy/art/lesson-zero/hiragana-anchors/hira-o.webp",
-        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-o.webp",
-        "sha256": "6a15f28a06d429164dfd654ce56fe599c6bf8fbb6110d105ed430c77cfe44cf9",
-        "ledgerSha256": null,
-        "kind": "unclassified-raster",
-        "state": "orphaned",
-        "present": true,
-        "runtimeAuthorized": false,
-        "runtimeHomes": [],
-        "reviewHomes": [],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "unregistered",
-        "ledgerStatus": "No ASSET-USAGE entry exists for this raster."
-      },
-      {
-        "id": "unregistered:/academy/art/lesson-zero/hiragana-anchors/hira-ra.webp",
-        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-ra.webp",
-        "sha256": "3ff7ec1318241cd239f788eaa5c949a624203db9d424cc1b0af21cd2f0c580e0",
-        "ledgerSha256": null,
-        "kind": "unclassified-raster",
-        "state": "orphaned",
-        "present": true,
-        "runtimeAuthorized": false,
-        "runtimeHomes": [],
-        "reviewHomes": [],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "unregistered",
-        "ledgerStatus": "No ASSET-USAGE entry exists for this raster."
-      },
-      {
-        "id": "unregistered:/academy/art/lesson-zero/hiragana-anchors/hira-re.webp",
-        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-re.webp",
-        "sha256": "8b42f95a5381f4139196f03b517d82e3909df880946a0d1c18ecc104f830c199",
-        "ledgerSha256": null,
-        "kind": "unclassified-raster",
-        "state": "orphaned",
-        "present": true,
-        "runtimeAuthorized": false,
-        "runtimeHomes": [],
-        "reviewHomes": [],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "unregistered",
-        "ledgerStatus": "No ASSET-USAGE entry exists for this raster."
-      },
-      {
-        "id": "unregistered:/academy/art/lesson-zero/hiragana-anchors/hira-ri.webp",
-        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-ri.webp",
-        "sha256": "cd16bfcf5a30e02b12560feadf09948a28e838ebbc8468c16503320b3700e303",
-        "ledgerSha256": null,
-        "kind": "unclassified-raster",
-        "state": "orphaned",
-        "present": true,
-        "runtimeAuthorized": false,
-        "runtimeHomes": [],
-        "reviewHomes": [],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "unregistered",
-        "ledgerStatus": "No ASSET-USAGE entry exists for this raster."
-      },
-      {
-        "id": "unregistered:/academy/art/lesson-zero/hiragana-anchors/hira-ro.webp",
-        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-ro.webp",
-        "sha256": "ebd02124882944df4fb2a2458e927dc103549db66f9435b29916d746ec981695",
-        "ledgerSha256": null,
-        "kind": "unclassified-raster",
-        "state": "orphaned",
-        "present": true,
-        "runtimeAuthorized": false,
-        "runtimeHomes": [],
-        "reviewHomes": [],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "unregistered",
-        "ledgerStatus": "No ASSET-USAGE entry exists for this raster."
-      },
-      {
-        "id": "unregistered:/academy/art/lesson-zero/hiragana-anchors/hira-ru.webp",
-        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-ru.webp",
-        "sha256": "8635ffce1eea7b92784c2067deb49ed969f4fe9932c88442dd5a77e3370da68f",
-        "ledgerSha256": null,
-        "kind": "unclassified-raster",
-        "state": "orphaned",
-        "present": true,
-        "runtimeAuthorized": false,
-        "runtimeHomes": [],
-        "reviewHomes": [],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "unregistered",
-        "ledgerStatus": "No ASSET-USAGE entry exists for this raster."
-      },
-      {
-        "id": "unregistered:/academy/art/lesson-zero/hiragana-anchors/hira-sa.webp",
-        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-sa.webp",
-        "sha256": "87dcd46ecac2ec3ec0eb47e2c933192982088bde8e0d777bf67104682d3e1170",
-        "ledgerSha256": null,
-        "kind": "unclassified-raster",
-        "state": "orphaned",
-        "present": true,
-        "runtimeAuthorized": false,
-        "runtimeHomes": [],
-        "reviewHomes": [],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "unregistered",
-        "ledgerStatus": "No ASSET-USAGE entry exists for this raster."
-      },
-      {
-        "id": "unregistered:/academy/art/lesson-zero/hiragana-anchors/hira-se.webp",
-        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-se.webp",
-        "sha256": "8239f0ed9db04052c053c092482cf84bbae30421d418cf0a8515b9c1019d08ff",
-        "ledgerSha256": null,
-        "kind": "unclassified-raster",
-        "state": "orphaned",
-        "present": true,
-        "runtimeAuthorized": false,
-        "runtimeHomes": [],
-        "reviewHomes": [],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "unregistered",
-        "ledgerStatus": "No ASSET-USAGE entry exists for this raster."
-      },
-      {
-        "id": "unregistered:/academy/art/lesson-zero/hiragana-anchors/hira-shi.webp",
-        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-shi.webp",
-        "sha256": "cf6d4a48253607bf7ee3e5f805399a4ea4bedbdf1c1e408f25626601ca071f2f",
-        "ledgerSha256": null,
-        "kind": "unclassified-raster",
-        "state": "orphaned",
-        "present": true,
-        "runtimeAuthorized": false,
-        "runtimeHomes": [],
-        "reviewHomes": [],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "unregistered",
-        "ledgerStatus": "No ASSET-USAGE entry exists for this raster."
-      },
-      {
-        "id": "unregistered:/academy/art/lesson-zero/hiragana-anchors/hira-so.webp",
-        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-so.webp",
-        "sha256": "c354736c6d7b6b6f60360fb62b5512006318a20abb45c0307e745633901d8ce4",
-        "ledgerSha256": null,
-        "kind": "unclassified-raster",
-        "state": "orphaned",
-        "present": true,
-        "runtimeAuthorized": false,
-        "runtimeHomes": [],
-        "reviewHomes": [],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "unregistered",
-        "ledgerStatus": "No ASSET-USAGE entry exists for this raster."
-      },
-      {
-        "id": "unregistered:/academy/art/lesson-zero/hiragana-anchors/hira-su.webp",
-        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-su.webp",
-        "sha256": "30cf43e6e077ba6374e5288498a123da69cc68cc275263710d7c2d760c7e41c3",
-        "ledgerSha256": null,
-        "kind": "unclassified-raster",
-        "state": "orphaned",
-        "present": true,
-        "runtimeAuthorized": false,
-        "runtimeHomes": [],
-        "reviewHomes": [],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "unregistered",
-        "ledgerStatus": "No ASSET-USAGE entry exists for this raster."
-      },
-      {
-        "id": "unregistered:/academy/art/lesson-zero/hiragana-anchors/hira-ta.webp",
-        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-ta.webp",
-        "sha256": "1d45e73fb7d842eacd107f7cec20dbe446e7da7a76c44ce50e45b4579b4c448d",
-        "ledgerSha256": null,
-        "kind": "unclassified-raster",
-        "state": "orphaned",
-        "present": true,
-        "runtimeAuthorized": false,
-        "runtimeHomes": [],
-        "reviewHomes": [],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "unregistered",
-        "ledgerStatus": "No ASSET-USAGE entry exists for this raster."
-      },
-      {
-        "id": "unregistered:/academy/art/lesson-zero/hiragana-anchors/hira-te.webp",
-        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-te.webp",
-        "sha256": "db762313a7bb3ce18d11053713d5ca405378a7c869285a987feb761ea208bd18",
-        "ledgerSha256": null,
-        "kind": "unclassified-raster",
-        "state": "orphaned",
-        "present": true,
-        "runtimeAuthorized": false,
-        "runtimeHomes": [],
-        "reviewHomes": [],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "unregistered",
-        "ledgerStatus": "No ASSET-USAGE entry exists for this raster."
-      },
-      {
-        "id": "unregistered:/academy/art/lesson-zero/hiragana-anchors/hira-to.webp",
-        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-to.webp",
-        "sha256": "c120b1af5d9beb217582d8c05bd8f0efa094646f68b182a17632e31812dd572e",
-        "ledgerSha256": null,
-        "kind": "unclassified-raster",
-        "state": "orphaned",
-        "present": true,
-        "runtimeAuthorized": false,
-        "runtimeHomes": [],
-        "reviewHomes": [],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "unregistered",
-        "ledgerStatus": "No ASSET-USAGE entry exists for this raster."
-      },
-      {
-        "id": "unregistered:/academy/art/lesson-zero/hiragana-anchors/hira-tsu.webp",
-        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-tsu.webp",
-        "sha256": "5459b5cd7bb691bb911f7d4f86c27674e2d1071555b7d08df38c20488b07ee0f",
-        "ledgerSha256": null,
-        "kind": "unclassified-raster",
-        "state": "orphaned",
-        "present": true,
-        "runtimeAuthorized": false,
-        "runtimeHomes": [],
-        "reviewHomes": [],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "unregistered",
-        "ledgerStatus": "No ASSET-USAGE entry exists for this raster."
-      },
-      {
-        "id": "unregistered:/academy/art/lesson-zero/hiragana-anchors/hira-u.webp",
-        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-u.webp",
-        "sha256": "d6ac66a6984e2f0aaede5552e49a1083bf73870bb89fcdd21c95b6d519243ed4",
-        "ledgerSha256": null,
-        "kind": "unclassified-raster",
-        "state": "orphaned",
-        "present": true,
-        "runtimeAuthorized": false,
-        "runtimeHomes": [],
-        "reviewHomes": [],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "unregistered",
-        "ledgerStatus": "No ASSET-USAGE entry exists for this raster."
-      },
-      {
-        "id": "unregistered:/academy/art/lesson-zero/hiragana-anchors/hira-wa.webp",
-        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-wa.webp",
-        "sha256": "3209abd9476e06b7b9a6c0e1fd480c8f05d691bb4310cb772fc408ba0b2a64ba",
-        "ledgerSha256": null,
-        "kind": "unclassified-raster",
-        "state": "orphaned",
-        "present": true,
-        "runtimeAuthorized": false,
-        "runtimeHomes": [],
-        "reviewHomes": [],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "unregistered",
-        "ledgerStatus": "No ASSET-USAGE entry exists for this raster."
-      },
-      {
-        "id": "unregistered:/academy/art/lesson-zero/hiragana-anchors/hira-wo.webp",
-        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-wo.webp",
-        "sha256": "ae121ae2b8618082f8576b1f87f3d8e56c1ca21600594b9bc8e85266c07d0274",
-        "ledgerSha256": null,
-        "kind": "unclassified-raster",
-        "state": "orphaned",
-        "present": true,
-        "runtimeAuthorized": false,
-        "runtimeHomes": [],
-        "reviewHomes": [],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "unregistered",
-        "ledgerStatus": "No ASSET-USAGE entry exists for this raster."
-      },
-      {
-        "id": "unregistered:/academy/art/lesson-zero/hiragana-anchors/hira-ya.webp",
-        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-ya.webp",
-        "sha256": "ed31f30767c4713201b3e1a7d8c7547586ca6204a313dc785d75f29028ef05e9",
-        "ledgerSha256": null,
-        "kind": "unclassified-raster",
-        "state": "orphaned",
-        "present": true,
-        "runtimeAuthorized": false,
-        "runtimeHomes": [],
-        "reviewHomes": [],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "unregistered",
-        "ledgerStatus": "No ASSET-USAGE entry exists for this raster."
-      },
-      {
-        "id": "unregistered:/academy/art/lesson-zero/hiragana-anchors/hira-yo.webp",
-        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-yo.webp",
-        "sha256": "af6546f759d63a97f8209b4ad480995b35c7c3cf722c00709391644dbc5363b8",
-        "ledgerSha256": null,
-        "kind": "unclassified-raster",
-        "state": "orphaned",
-        "present": true,
-        "runtimeAuthorized": false,
-        "runtimeHomes": [],
-        "reviewHomes": [],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "unregistered",
-        "ledgerStatus": "No ASSET-USAGE entry exists for this raster."
-      },
-      {
-        "id": "unregistered:/academy/art/lesson-zero/hiragana-anchors/hira-yu.webp",
-        "path": "/academy/art/lesson-zero/hiragana-anchors/hira-yu.webp",
-        "sha256": "5a82bd8a1077e2d68a6f3123b83dba30c7b37b36c3a1c40ee84366592bd1d913",
-        "ledgerSha256": null,
-        "kind": "unclassified-raster",
-        "state": "orphaned",
-        "present": true,
-        "runtimeAuthorized": false,
-        "runtimeHomes": [],
-        "reviewHomes": [],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "unregistered",
-        "ledgerStatus": "No ASSET-USAGE entry exists for this raster."
-      },
-      {
-        "id": "unregistered:/academy/art/vocabulary-pictographs/class.webp",
+        "id": "academy-vocabulary-pictograph-family-v001",
         "path": "/academy/art/vocabulary-pictographs/class.webp",
         "sha256": "935437a6a705dd48b072ce8d990c683dea17134ae5888da503dd3ec19e2e137e",
-        "ledgerSha256": null,
+        "ledgerSha256": "935437a6a705dd48b072ce8d990c683dea17134ae5888da503dd3ec19e2e137e",
         "kind": "unclassified-raster",
-        "state": "orphaned",
+        "state": "active",
         "present": true,
-        "runtimeAuthorized": false,
-        "runtimeHomes": [],
-        "reviewHomes": [],
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "lesson:l1-l01:vocabulary-pictographs",
+          "lesson-zero:sentence-frames"
+        ],
+        "reviewHomes": [
+          "learning-art-inventory"
+        ],
         "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "unregistered",
-        "ledgerStatus": "No ASSET-USAGE entry exists for this raster."
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "lesson vocabulary visual-anchor family; learner-facing and hash-locked"
       },
       {
-        "id": "unregistered:/academy/art/vocabulary-pictographs/company-employee.webp",
+        "id": "academy-vocabulary-pictograph-family-v001",
         "path": "/academy/art/vocabulary-pictographs/company-employee.webp",
         "sha256": "15bb2b5e11e4ffd918066cebc368fc6020d066b326fc43af14fb85238d678485",
-        "ledgerSha256": null,
+        "ledgerSha256": "15bb2b5e11e4ffd918066cebc368fc6020d066b326fc43af14fb85238d678485",
         "kind": "unclassified-raster",
-        "state": "orphaned",
+        "state": "active",
         "present": true,
-        "runtimeAuthorized": false,
-        "runtimeHomes": [],
-        "reviewHomes": [],
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "lesson:l1-l01:vocabulary-pictographs",
+          "lesson-zero:sentence-frames"
+        ],
+        "reviewHomes": [
+          "learning-art-inventory"
+        ],
         "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "unregistered",
-        "ledgerStatus": "No ASSET-USAGE entry exists for this raster."
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "lesson vocabulary visual-anchor family; learner-facing and hash-locked"
       },
       {
-        "id": "unregistered:/academy/art/vocabulary-pictographs/country.webp",
+        "id": "academy-vocabulary-pictograph-family-v001",
         "path": "/academy/art/vocabulary-pictographs/country.webp",
         "sha256": "8b7fa9263db2f26e3766b25eb22a8e6cb8ecb7f614d15addd954d6ed0d75d993",
-        "ledgerSha256": null,
+        "ledgerSha256": "8b7fa9263db2f26e3766b25eb22a8e6cb8ecb7f614d15addd954d6ed0d75d993",
         "kind": "unclassified-raster",
-        "state": "orphaned",
+        "state": "active",
         "present": true,
-        "runtimeAuthorized": false,
-        "runtimeHomes": [],
-        "reviewHomes": [],
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "lesson:l1-l01:vocabulary-pictographs",
+          "lesson-zero:sentence-frames"
+        ],
+        "reviewHomes": [
+          "learning-art-inventory"
+        ],
         "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "unregistered",
-        "ledgerStatus": "No ASSET-USAGE entry exists for this raster."
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "lesson vocabulary visual-anchor family; learner-facing and hash-locked"
       },
       {
-        "id": "unregistered:/academy/art/vocabulary-pictographs/name.webp",
+        "id": "academy-vocabulary-pictograph-family-v001",
         "path": "/academy/art/vocabulary-pictographs/name.webp",
         "sha256": "a3d465f471a4c27c625ea39c548e3a7d7bf6d1620e04562a24e2479d244c953e",
-        "ledgerSha256": null,
+        "ledgerSha256": "a3d465f471a4c27c625ea39c548e3a7d7bf6d1620e04562a24e2479d244c953e",
         "kind": "unclassified-raster",
-        "state": "orphaned",
+        "state": "active",
         "present": true,
-        "runtimeAuthorized": false,
-        "runtimeHomes": [],
-        "reviewHomes": [],
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "lesson:l1-l01:vocabulary-pictographs",
+          "lesson-zero:sentence-frames"
+        ],
+        "reviewHomes": [
+          "learning-art-inventory"
+        ],
         "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "unregistered",
-        "ledgerStatus": "No ASSET-USAGE entry exists for this raster."
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "lesson vocabulary visual-anchor family; learner-facing and hash-locked"
       },
       {
-        "id": "unregistered:/academy/art/vocabulary-pictographs/person.webp",
+        "id": "academy-vocabulary-pictograph-family-v001",
         "path": "/academy/art/vocabulary-pictographs/person.webp",
         "sha256": "0c97fee654cce96b9dfb399bece19f88ca43f68d46a2d995c9009d423012d2b3",
-        "ledgerSha256": null,
+        "ledgerSha256": "0c97fee654cce96b9dfb399bece19f88ca43f68d46a2d995c9009d423012d2b3",
         "kind": "unclassified-raster",
-        "state": "orphaned",
+        "state": "active",
         "present": true,
-        "runtimeAuthorized": false,
-        "runtimeHomes": [],
-        "reviewHomes": [],
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "lesson:l1-l01:vocabulary-pictographs",
+          "lesson-zero:sentence-frames"
+        ],
+        "reviewHomes": [
+          "learning-art-inventory"
+        ],
         "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "unregistered",
-        "ledgerStatus": "No ASSET-USAGE entry exists for this raster."
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "lesson vocabulary visual-anchor family; learner-facing and hash-locked"
       },
       {
-        "id": "unregistered:/academy/art/vocabulary-pictographs/student.webp",
+        "id": "academy-vocabulary-pictograph-family-v001",
         "path": "/academy/art/vocabulary-pictographs/student.webp",
         "sha256": "5c5da28322bdd11a39ed26941ee7a503946265533d1b9af54289e9e502355f69",
-        "ledgerSha256": null,
+        "ledgerSha256": "5c5da28322bdd11a39ed26941ee7a503946265533d1b9af54289e9e502355f69",
         "kind": "unclassified-raster",
-        "state": "orphaned",
+        "state": "active",
         "present": true,
-        "runtimeAuthorized": false,
-        "runtimeHomes": [],
-        "reviewHomes": [],
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "lesson:l1-l01:vocabulary-pictographs",
+          "lesson-zero:sentence-frames"
+        ],
+        "reviewHomes": [
+          "learning-art-inventory"
+        ],
         "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "unregistered",
-        "ledgerStatus": "No ASSET-USAGE entry exists for this raster."
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "lesson vocabulary visual-anchor family; learner-facing and hash-locked"
       },
       {
-        "id": "unregistered:/academy/art/vocabulary-pictographs/teacher.webp",
+        "id": "academy-vocabulary-pictograph-family-v001",
         "path": "/academy/art/vocabulary-pictographs/teacher.webp",
         "sha256": "eaa8f3fd2ad20f78be65330da125ba4168640ac91fbc003674137baa719c2412",
-        "ledgerSha256": null,
+        "ledgerSha256": "eaa8f3fd2ad20f78be65330da125ba4168640ac91fbc003674137baa719c2412",
         "kind": "unclassified-raster",
-        "state": "orphaned",
+        "state": "active",
         "present": true,
-        "runtimeAuthorized": false,
-        "runtimeHomes": [],
-        "reviewHomes": [],
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "lesson:l1-l01:vocabulary-pictographs",
+          "lesson-zero:sentence-frames"
+        ],
+        "reviewHomes": [
+          "learning-art-inventory"
+        ],
         "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "unregistered",
-        "ledgerStatus": "No ASSET-USAGE entry exists for this raster."
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "lesson vocabulary visual-anchor family; learner-facing and hash-locked"
       }
     ],
+    "orphaned": [],
     "deprecated": [
       {
-        "id": "aakash-neutral-v005-to-owner-approved-v009",
-        "path": "/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v005.png",
+        "id": "aakash-neutral-v009-to-illustrated-v010-family",
+        "path": "/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v009.png",
         "sha256": null,
         "kind": "character-sprite",
         "state": "deprecated",
@@ -6438,10 +6606,10 @@
         "runtimeAuthorized": false,
         "runtimeHomes": [],
         "reviewHomes": [],
-        "replacementPath": "/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v009.png",
+        "replacementPath": "/academy/art/characters/aakash/aakash__neutral-route-map-burgundy-hoodie__front-near-front__fullbody__v010.png",
         "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json",
         "ledgerVerdict": "delete",
-        "ledgerStatus": "owner-approved v009 bound to runtime; superseded v005 archived outside runtime",
+        "ledgerStatus": "Illustrated v010 family bound to runtime; superseded realistic and off-contract variants archived outside runtime.",
         "noDeletionPerformedByAudit": true
       },
       {
@@ -6612,51 +6780,6 @@
     },
     "offMatrixDelivered": [
       {
-        "character": "aakash",
-        "path": "/academy/art/characters/aakash/aakash__sprite__embarrassed__front-near-front__halfbody__v005.png",
-        "sha256": "bb6e1332eceaed396984a4aa2f76124c1967eb729b635cfef2b7f76fbf2ff617",
-        "currentState": "active",
-        "coverageStatus": "off-matrix",
-        "migrationStatus": "retained-off-matrix-review-evidence",
-        "countsTowardExpressionMatrix": false
-      },
-      {
-        "character": "aakash",
-        "path": "/academy/art/characters/aakash/aakash__sprite__laughing__left-three-quarter__halfbody__v005.png",
-        "sha256": "b7b4fd1b259cc2ca36bbe9094a40e555741dc54098011252a819f98f0a040bdb",
-        "currentState": "active",
-        "coverageStatus": "off-matrix",
-        "migrationStatus": "retained-off-matrix-review-evidence",
-        "countsTowardExpressionMatrix": false
-      },
-      {
-        "character": "aakash",
-        "path": "/academy/art/characters/aakash/aakash__standardized-determined__front-near-front__halfbody__v001.png",
-        "sha256": "b8d3c8639b183a1a7db36d7c6b4f17e1cdc6389fe5b239c74e2393e278acbd73",
-        "currentState": "active",
-        "coverageStatus": "off-matrix",
-        "migrationStatus": "retained-off-matrix-review-evidence",
-        "countsTowardExpressionMatrix": false
-      },
-      {
-        "character": "aakash",
-        "path": "/academy/art/characters/aakash/aakash__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
-        "sha256": "0aacde296b1f8abd300a872d2913df682ed6346e473892958e334bb3e969e166",
-        "currentState": "active",
-        "coverageStatus": "off-matrix",
-        "migrationStatus": "retained-off-matrix-review-evidence",
-        "countsTowardExpressionMatrix": false
-      },
-      {
-        "character": "aakash",
-        "path": "/academy/art/characters/aakash/aakash__standardized-happy__front-near-front__halfbody__v001.png",
-        "sha256": "a887c568cf48cb9e31454d40c201c57e8699dde41d8f1eaec187f8ea6d4fb540",
-        "currentState": "active",
-        "coverageStatus": "off-matrix",
-        "migrationStatus": "retained-off-matrix-review-evidence",
-        "countsTowardExpressionMatrix": false
-      },
-      {
         "character": "angel",
         "path": "/academy/art/characters/angel/angel__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
         "sha256": "c74fe7c0983bfe515fb787cb3688de5edcfef3b036e5c9f5e6c197e21548db30",
@@ -6760,24 +6883,6 @@
         "path": "/academy/art/characters/miller/miller__standardized-neutral__front-near-front__halfbody__v001.png",
         "sha256": "e9e9503bf183a8dfd897ac1653e73c4904bc8ae2967e08c486188639ef1db30d",
         "currentState": "active",
-        "coverageStatus": "off-matrix",
-        "migrationStatus": "retained-off-matrix-review-evidence",
-        "countsTowardExpressionMatrix": false
-      },
-      {
-        "character": "nanako",
-        "path": "/academy/art/characters/nanako/nanako__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
-        "sha256": "3dd4997af1012c9cf7697e1510cc373c05f3420b8cd230dc2e400d2caaf3727f",
-        "currentState": "unaccounted",
-        "coverageStatus": "off-matrix",
-        "migrationStatus": "retained-off-matrix-review-evidence",
-        "countsTowardExpressionMatrix": false
-      },
-      {
-        "character": "nanako",
-        "path": "/academy/art/characters/nanako/nanako__standardized-neutral__front-near-front__halfbody__v001.png",
-        "sha256": "0d2a673aa9e33a218544da302461c10ad7b235016aaeab92919f19d58fb66d44",
-        "currentState": "unaccounted",
         "coverageStatus": "off-matrix",
         "migrationStatus": "retained-off-matrix-review-evidence",
         "countsTowardExpressionMatrix": false
@@ -6940,26 +7045,8 @@
       {
         "character": "aakash",
         "angle": "front-near-front",
-        "expression": "determined",
-        "plannedPath": "/academy/art/characters/aakash/aakash__determined__front-near-front__halfbody__v001.png",
-        "state": "missing-expression-variant",
-        "present": false,
-        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
-      },
-      {
-        "character": "aakash",
-        "angle": "front-near-front",
         "expression": "encouraging-listening",
         "plannedPath": "/academy/art/characters/aakash/aakash__encouraging-listening__front-near-front__halfbody__v001.png",
-        "state": "missing-expression-variant",
-        "present": false,
-        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
-      },
-      {
-        "character": "aakash",
-        "angle": "front-near-front",
-        "expression": "happy",
-        "plannedPath": "/academy/art/characters/aakash/aakash__happy__front-near-front__halfbody__v001.png",
         "state": "missing-expression-variant",
         "present": false,
         "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
@@ -6978,6 +7065,24 @@
         "angle": "front-near-front",
         "expression": "surprised-shocked",
         "plannedPath": "/academy/art/characters/aakash/aakash__surprised-shocked__front-near-front__halfbody__v001.png",
+        "state": "missing-expression-variant",
+        "present": false,
+        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
+      },
+      {
+        "character": "aakash",
+        "angle": "front-near-front",
+        "expression": "thoughtful",
+        "plannedPath": "/academy/art/characters/aakash/aakash__thoughtful__front-near-front__halfbody__v001.png",
+        "state": "missing-expression-variant",
+        "present": false,
+        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
+      },
+      {
+        "character": "aakash",
+        "angle": "left-three-quarter",
+        "expression": "determined",
+        "plannedPath": "/academy/art/characters/aakash/aakash__determined__left-three-quarter__halfbody__v001.png",
         "state": "missing-expression-variant",
         "present": false,
         "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
@@ -7020,9 +7125,9 @@
       },
       {
         "character": "aakash",
-        "angle": "left-three-quarter",
-        "expression": "thoughtful",
-        "plannedPath": "/academy/art/characters/aakash/aakash__thoughtful__left-three-quarter__halfbody__v001.png",
+        "angle": "right-three-quarter",
+        "expression": "determined",
+        "plannedPath": "/academy/art/characters/aakash/aakash__determined__right-three-quarter__halfbody__v001.png",
         "state": "missing-expression-variant",
         "present": false,
         "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
@@ -7030,8 +7135,8 @@
       {
         "character": "aakash",
         "angle": "right-three-quarter",
-        "expression": "determined",
-        "plannedPath": "/academy/art/characters/aakash/aakash__determined__right-three-quarter__halfbody__v001.png",
+        "expression": "happy",
+        "plannedPath": "/academy/art/characters/aakash/aakash__happy__right-three-quarter__halfbody__v001.png",
         "state": "missing-expression-variant",
         "present": false,
         "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
@@ -8929,35 +9034,8 @@
       {
         "character": "nanako",
         "angle": "front-near-front",
-        "expression": "determined",
-        "plannedPath": "/academy/art/characters/nanako/nanako__determined__front-near-front__halfbody__v001.png",
-        "state": "missing-expression-variant",
-        "present": false,
-        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
-      },
-      {
-        "character": "nanako",
-        "angle": "front-near-front",
         "expression": "encouraging-listening",
         "plannedPath": "/academy/art/characters/nanako/nanako__encouraging-listening__front-near-front__halfbody__v001.png",
-        "state": "missing-expression-variant",
-        "present": false,
-        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
-      },
-      {
-        "character": "nanako",
-        "angle": "front-near-front",
-        "expression": "happy",
-        "plannedPath": "/academy/art/characters/nanako/nanako__happy__front-near-front__halfbody__v001.png",
-        "state": "missing-expression-variant",
-        "present": false,
-        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
-      },
-      {
-        "character": "nanako",
-        "angle": "front-near-front",
-        "expression": "neutral",
-        "plannedPath": "/academy/art/characters/nanako/nanako__neutral__front-near-front__halfbody__v001.png",
         "state": "missing-expression-variant",
         "present": false,
         "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
@@ -9028,26 +9106,8 @@
       {
         "character": "nanako",
         "angle": "left-three-quarter",
-        "expression": "sad-vulnerable",
-        "plannedPath": "/academy/art/characters/nanako/nanako__sad-vulnerable__left-three-quarter__halfbody__v001.png",
-        "state": "missing-expression-variant",
-        "present": false,
-        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
-      },
-      {
-        "character": "nanako",
-        "angle": "left-three-quarter",
         "expression": "surprised-shocked",
         "plannedPath": "/academy/art/characters/nanako/nanako__surprised-shocked__left-three-quarter__halfbody__v001.png",
-        "state": "missing-expression-variant",
-        "present": false,
-        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
-      },
-      {
-        "character": "nanako",
-        "angle": "left-three-quarter",
-        "expression": "thoughtful",
-        "plannedPath": "/academy/art/characters/nanako/nanako__thoughtful__left-three-quarter__halfbody__v001.png",
         "state": "missing-expression-variant",
         "present": false,
         "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
@@ -9057,15 +9117,6 @@
         "angle": "right-three-quarter",
         "expression": "determined",
         "plannedPath": "/academy/art/characters/nanako/nanako__determined__right-three-quarter__halfbody__v001.png",
-        "state": "missing-expression-variant",
-        "present": false,
-        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
-      },
-      {
-        "character": "nanako",
-        "angle": "right-three-quarter",
-        "expression": "encouraging-listening",
-        "plannedPath": "/academy/art/characters/nanako/nanako__encouraging-listening__right-three-quarter__halfbody__v001.png",
         "state": "missing-expression-variant",
         "present": false,
         "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
@@ -9093,15 +9144,6 @@
         "angle": "right-three-quarter",
         "expression": "sad-vulnerable",
         "plannedPath": "/academy/art/characters/nanako/nanako__sad-vulnerable__right-three-quarter__halfbody__v001.png",
-        "state": "missing-expression-variant",
-        "present": false,
-        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
-      },
-      {
-        "character": "nanako",
-        "angle": "right-three-quarter",
-        "expression": "surprised-shocked",
-        "plannedPath": "/academy/art/characters/nanako/nanako__surprised-shocked__right-three-quarter__halfbody__v001.png",
         "state": "missing-expression-variant",
         "present": false,
         "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
@@ -11672,12 +11714,12 @@
           ]
         },
         "aakash": {
-          "assetId": "character-aakash-neutral",
+          "assetId": "character-aakash-neutral-route-map-burgundy-hoodie-front-near-front-fullbody-v010",
           "verdict": "approved-runtime",
           "deliveries": [
             {
-              "path": "/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v009.png",
-              "sha256": "cd74d5b4f3610a5d615bb4c097a63556a419555fed85933ae54ca3cddf186a65"
+              "path": "/academy/art/characters/aakash/aakash__neutral-route-map-burgundy-hoodie__front-near-front__fullbody__v010.png",
+              "sha256": "06470d67f53292a4db5c91b949fb0ee48bf23d4cd916148cf8d5d69552a28c76"
             }
           ]
         }

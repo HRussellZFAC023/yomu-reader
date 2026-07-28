@@ -29,9 +29,9 @@
     "cast": 30,
     "requiredPerformancesPerCast": 7,
     "requiredSlots": 210,
-    "integratedSlots": 100,
-    "missingSlots": 110,
-    "ownerCorrectionQueue": 47,
+    "integratedSlots": 107,
+    "missingSlots": 103,
+    "ownerCorrectionQueue": 40,
     "storyCriticalQueue": 28,
     "rosterCompletionQueue": 35
   },
@@ -285,65 +285,98 @@
       "priority": "owner-correction",
       "summary": {
         "required": 7,
-        "integrated": 0,
-        "missing": 7
+        "integrated": 7,
+        "missing": 0
       },
       "performances": [
         {
           "expression": "neutral",
           "preferredAngle": "front-near-front",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.aakash.neutral-route-map-burgundy-hoodie-front-near-front-fullbody-v010",
+          "assetPath": "/academy/art/characters/aakash/aakash__neutral-route-map-burgundy-hoodie__front-near-front__fullbody__v010.png",
+          "runtimeHomes": [
+            "journal:aakash",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "lesson:l1-l01:cast",
+            "story:cast:aakash",
+            "cast-standardization:aakash"
+          ]
         },
         {
           "expression": "encouraging-listening",
           "preferredAngle": "right-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.aakash.encouraging-listening-route-map-burgundy-hoodie-right-three-quarter-fullbody-v010",
+          "assetPath": "/academy/art/characters/aakash/aakash__encouraging-listening-route-map-burgundy-hoodie__right-three-quarter__fullbody__v010.png",
+          "runtimeHomes": [
+            "journal:aakash-expression-gallery",
+            "story:cast:aakash:encouraging-listening",
+            "cast-standardization:aakash"
+          ]
         },
         {
           "expression": "happy",
           "preferredAngle": "front-near-front",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.aakash.happy-route-map-burgundy-hoodie-front-near-front-fullbody-v010",
+          "assetPath": "/academy/art/characters/aakash/aakash__happy-route-map-burgundy-hoodie__front-near-front__fullbody__v010.png",
+          "runtimeHomes": [
+            "journal:aakash-expression-gallery",
+            "story:cast:aakash:happy",
+            "cast-standardization:aakash"
+          ]
         },
         {
           "expression": "thoughtful",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.aakash.thoughtful-route-map-burgundy-hoodie-left-three-quarter-fullbody-v010",
+          "assetPath": "/academy/art/characters/aakash/aakash__thoughtful-route-map-burgundy-hoodie__left-three-quarter__fullbody__v010.png",
+          "runtimeHomes": [
+            "journal:aakash-expression-gallery",
+            "story:cast:aakash:thoughtful",
+            "cast-standardization:aakash"
+          ]
         },
         {
           "expression": "determined",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.aakash.determined-route-map-burgundy-hoodie-front-near-front-fullbody-v010",
+          "assetPath": "/academy/art/characters/aakash/aakash__determined-route-map-burgundy-hoodie__front-near-front__fullbody__v010.png",
+          "runtimeHomes": [
+            "journal:aakash-expression-gallery",
+            "story:cast:aakash:determined",
+            "cast-standardization:aakash"
+          ]
         },
         {
           "expression": "surprised-shocked",
           "preferredAngle": "right-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.aakash.surprised-shocked-route-map-burgundy-hoodie-right-three-quarter-fullbody-v010",
+          "assetPath": "/academy/art/characters/aakash/aakash__surprised-shocked-route-map-burgundy-hoodie__right-three-quarter__fullbody__v010.png",
+          "runtimeHomes": [
+            "journal:aakash-expression-gallery",
+            "story:cast:aakash:surprised-shocked",
+            "cast-standardization:aakash"
+          ]
         },
         {
           "expression": "sad-vulnerable",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.aakash.sad-vulnerable-route-map-burgundy-hoodie-left-three-quarter-fullbody-v010",
+          "assetPath": "/academy/art/characters/aakash/aakash__sad-vulnerable-route-map-burgundy-hoodie__left-three-quarter__fullbody__v010.png",
+          "runtimeHomes": [
+            "journal:aakash-expression-gallery",
+            "story:cast:aakash:sad-vulnerable",
+            "cast-standardization:aakash"
+          ]
         }
       ]
     },
@@ -2919,211 +2952,6 @@
     }
   ],
   "generationQueue": [
-    {
-      "key": "aakash:neutral",
-      "castId": "aakash",
-      "displayName": "Aakash",
-      "identityKey": "aakash-short-black-hair-beard-indigo",
-      "expression": "neutral",
-      "angle": "front-near-front",
-      "priority": "owner-correction",
-      "storyLines": 15,
-      "visualLock": "South Asian man with short black hair, a neat beard, warm eyes, and a friendly broad smile.",
-      "wardrobeLock": "Burgundy hoodie under a dark indigo denim jacket; hat-free default; small cat pin may recur.",
-      "reject": [
-        "photographic skin",
-        "baseball cap by default",
-        "clean-shaven face",
-        "different face shape",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:aakash",
-        "class:people",
-        "lesson-overview:roster",
-        "story:cast:aakash"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "aakash:encouraging-listening",
-      "castId": "aakash",
-      "displayName": "Aakash",
-      "identityKey": "aakash-short-black-hair-beard-indigo",
-      "expression": "encouraging-listening",
-      "angle": "right-three-quarter",
-      "priority": "owner-correction",
-      "storyLines": 15,
-      "visualLock": "South Asian man with short black hair, a neat beard, warm eyes, and a friendly broad smile.",
-      "wardrobeLock": "Burgundy hoodie under a dark indigo denim jacket; hat-free default; small cat pin may recur.",
-      "reject": [
-        "photographic skin",
-        "baseball cap by default",
-        "clean-shaven face",
-        "different face shape",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:aakash-expression-gallery",
-        "story:cast:aakash:encouraging-listening"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "aakash:happy",
-      "castId": "aakash",
-      "displayName": "Aakash",
-      "identityKey": "aakash-short-black-hair-beard-indigo",
-      "expression": "happy",
-      "angle": "front-near-front",
-      "priority": "owner-correction",
-      "storyLines": 15,
-      "visualLock": "South Asian man with short black hair, a neat beard, warm eyes, and a friendly broad smile.",
-      "wardrobeLock": "Burgundy hoodie under a dark indigo denim jacket; hat-free default; small cat pin may recur.",
-      "reject": [
-        "photographic skin",
-        "baseball cap by default",
-        "clean-shaven face",
-        "different face shape",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:aakash-expression-gallery",
-        "story:cast:aakash:happy"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "aakash:thoughtful",
-      "castId": "aakash",
-      "displayName": "Aakash",
-      "identityKey": "aakash-short-black-hair-beard-indigo",
-      "expression": "thoughtful",
-      "angle": "left-three-quarter",
-      "priority": "owner-correction",
-      "storyLines": 15,
-      "visualLock": "South Asian man with short black hair, a neat beard, warm eyes, and a friendly broad smile.",
-      "wardrobeLock": "Burgundy hoodie under a dark indigo denim jacket; hat-free default; small cat pin may recur.",
-      "reject": [
-        "photographic skin",
-        "baseball cap by default",
-        "clean-shaven face",
-        "different face shape",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:aakash-expression-gallery",
-        "story:cast:aakash:thoughtful"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "aakash:determined",
-      "castId": "aakash",
-      "displayName": "Aakash",
-      "identityKey": "aakash-short-black-hair-beard-indigo",
-      "expression": "determined",
-      "angle": "left-three-quarter",
-      "priority": "owner-correction",
-      "storyLines": 15,
-      "visualLock": "South Asian man with short black hair, a neat beard, warm eyes, and a friendly broad smile.",
-      "wardrobeLock": "Burgundy hoodie under a dark indigo denim jacket; hat-free default; small cat pin may recur.",
-      "reject": [
-        "photographic skin",
-        "baseball cap by default",
-        "clean-shaven face",
-        "different face shape",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:aakash-expression-gallery",
-        "story:cast:aakash:determined"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "aakash:surprised-shocked",
-      "castId": "aakash",
-      "displayName": "Aakash",
-      "identityKey": "aakash-short-black-hair-beard-indigo",
-      "expression": "surprised-shocked",
-      "angle": "right-three-quarter",
-      "priority": "owner-correction",
-      "storyLines": 15,
-      "visualLock": "South Asian man with short black hair, a neat beard, warm eyes, and a friendly broad smile.",
-      "wardrobeLock": "Burgundy hoodie under a dark indigo denim jacket; hat-free default; small cat pin may recur.",
-      "reject": [
-        "photographic skin",
-        "baseball cap by default",
-        "clean-shaven face",
-        "different face shape",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:aakash-expression-gallery",
-        "story:cast:aakash:surprised-shocked"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "aakash:sad-vulnerable",
-      "castId": "aakash",
-      "displayName": "Aakash",
-      "identityKey": "aakash-short-black-hair-beard-indigo",
-      "expression": "sad-vulnerable",
-      "angle": "left-three-quarter",
-      "priority": "owner-correction",
-      "storyLines": 15,
-      "visualLock": "South Asian man with short black hair, a neat beard, warm eyes, and a friendly broad smile.",
-      "wardrobeLock": "Burgundy hoodie under a dark indigo denim jacket; hat-free default; small cat pin may recur.",
-      "reject": [
-        "photographic skin",
-        "baseball cap by default",
-        "clean-shaven face",
-        "different face shape",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:aakash-expression-gallery",
-        "story:cast:aakash:sad-vulnerable"
-      ],
-      "status": "queued"
-    },
     {
       "key": "francis:neutral",
       "castId": "francis",

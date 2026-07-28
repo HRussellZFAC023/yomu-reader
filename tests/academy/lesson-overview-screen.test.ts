@@ -67,7 +67,7 @@ describe('lesson overview screen', () => {
         expect(screen.querySelector('[data-cast-id="sophie"] img')).not.toBeNull();
         expect(screen.querySelector('[data-cast-id="aakash"]')?.getAttribute('data-portrait-status')).toBe('approved');
         expect(screen.querySelector<HTMLImageElement>('[data-cast-id="aakash"] img')?.src)
-            .toContain('/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v009.png');
+            .toContain('/academy/art/characters/aakash/aakash__neutral-route-map-burgundy-hoodie__front-near-front__fullbody__v010.png');
     });
 
     it('does not expose activity actions while academic grounding remains blocked', () => {

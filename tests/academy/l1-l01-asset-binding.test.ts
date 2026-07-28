@@ -56,7 +56,7 @@ describe('l1-l01 approved asset binding', () => {
             sourceSceneReference: 'academy/art/scenes/classroom-first-evening-wide.webp',
             approvedCastAssetIds: {
                 rie: 'character.rie.neutral-glasses',
-                aakash: 'character.aakash.neutral',
+                aakash: 'character.aakash.neutral-route-map-burgundy-hoodie-front-near-front-fullbody-v010',
             },
             reviewOnlyCastCandidates: {},
             itemAssetIds: ['item.classroom-belongings'],
@@ -78,8 +78,11 @@ describe('l1-l01 approved asset binding', () => {
             sourceSceneReferenceState: 'missing-source-reference-with-approved-registry-binding',
             approvedScene: { assetId: 'classroom-evening-lamplit', verdict: 'approved-runtime' },
             approvedCast: {
-                rie: { assetId: 'rie-neutral-glasses-front-near-front-halfbody-v001', verdict: 'approved-runtime' },
-                aakash: { assetId: 'aakash-neutral-front-near-front-v009', verdict: 'approved-runtime' },
+                rie: { assetId: 'character-rie-neutral-glasses', verdict: 'approved-runtime' },
+                aakash: {
+                    assetId: 'character-aakash-neutral-route-map-burgundy-hoodie-front-near-front-fullbody-v010',
+                    verdict: 'approved-runtime',
+                },
             },
             reviewOnlyCast: {},
             unboundNoApprovedAsset: ['henry', 'jenny', 'mika', 'stasi', 'tom'],
@@ -90,8 +93,11 @@ describe('l1-l01 approved asset binding', () => {
             lessonScene: ['rie', 'henry', 'aakash', 'jenny', 'tom'],
             storyContinuity: ['stasi', 'mika'],
         });
-        expect(ACADEMY_RUNTIME_ASSET_REGISTRY['character.aakash.neutral'].status).toBe('approved');
-        expect(Object.values(binding.approvedCastAssetIds)).toContain('character.aakash.neutral');
+        expect(ACADEMY_RUNTIME_ASSET_REGISTRY[
+            'character.aakash.neutral-route-map-burgundy-hoodie-front-near-front-fullbody-v010'
+        ].status).toBe('approved');
+        expect(Object.values(binding.approvedCastAssetIds))
+            .toContain('character.aakash.neutral-route-map-burgundy-hoodie-front-near-front-fullbody-v010');
         expect(fs.existsSync(path.resolve('public', binding.sourceSceneReference))).toBe(false);
     });
 
@@ -107,10 +113,13 @@ describe('l1-l01 approved asset binding', () => {
 
     it('keeps typed runtime homes in lockstep with the public ledger', () => {
         const ledgerById = new Map(usage.assets.map(asset => [asset.id, asset]));
-        expect(ledgerById.get('rie-neutral-glasses-front-near-front-halfbody-v001')?.runtimeHome)
+        expect(ledgerById.get('character-rie-neutral-glasses')?.runtimeHome)
             .toEqual(ACADEMY_RUNTIME_ASSET_REGISTRY['character.rie.neutral-glasses'].runtimeHomes);
-        expect(ledgerById.get('aakash-neutral-front-near-front-v009')?.runtimeHome)
-            .toEqual(ACADEMY_RUNTIME_ASSET_REGISTRY['character.aakash.neutral'].runtimeHomes);
+        expect(ledgerById.get(
+            'character-aakash-neutral-route-map-burgundy-hoodie-front-near-front-fullbody-v010',
+        )?.runtimeHome).toEqual(ACADEMY_RUNTIME_ASSET_REGISTRY[
+            'character.aakash.neutral-route-map-burgundy-hoodie-front-near-front-fullbody-v010'
+        ].runtimeHomes);
         expect(ledgerById.get('classroom-evening-lamplit')?.runtimeHome)
             .toEqual(ACADEMY_RUNTIME_ASSET_REGISTRY['location.classroom'].runtimeHomes);
         expect(ledgerById.get('classroom-belongings-v001')?.runtimeHome)

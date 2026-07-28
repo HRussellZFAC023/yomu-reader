@@ -37,6 +37,12 @@ describe('Academy VN sprite performance contract', () => {
         expect(status('rie', 'happy')).toBe('approved');
         expect(status('rie', 'encouraging-listening')).toBe('missing');
         expect(status('aakash', 'neutral')).toBe('approved');
+        expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.aakash.coverage)
+            .toEqual({ approved: 7, reviewCandidates: 0, missing: 14 });
+        expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.aakash.poses[0].expressions.thoughtful.status).toBe('approved');
+        expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.aakash.poses[1].expressions.neutral.status).toBe('approved');
+        expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.aakash.poses[2].expressions['encouraging-listening'].status)
+            .toBe('approved');
         expect(status('peter', 'neutral')).toBe('approved');
         expect(status('rose', 'neutral')).toBe('approved');
         expect(status('jodi', 'neutral')).toBe('approved');

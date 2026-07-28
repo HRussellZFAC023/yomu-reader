@@ -1,0 +1,103 @@
+{
+  "promotions": [
+    {
+      "castId": "aakash",
+      "archiveLabel": "identity-and-style-superseded-20260727",
+      "archiveAllCurrent": true,
+      "replaceExpressions": [
+        "neutral",
+        "encouraging-listening",
+        "happy",
+        "thoughtful",
+        "determined",
+        "surprised-shocked",
+        "sad-vulnerable"
+      ],
+      "canonicalNeutralAssetId": "character.aakash.neutral-route-map-burgundy-hoodie-front-near-front-fullbody-v010",
+      "slots": [
+        {
+          "assetId": "character.aakash.neutral-route-map-burgundy-hoodie-front-near-front-fullbody-v010",
+          "expression": "neutral",
+          "angle": "front-near-front",
+          "assetPath": "/academy/art/characters/aakash/aakash__neutral-route-map-burgundy-hoodie__front-near-front__fullbody__v010.png",
+          "runtimeHomes": [
+            "journal:aakash",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "lesson:l1-l01:cast",
+            "story:cast:aakash",
+            "cast-standardization:aakash"
+          ]
+        },
+        {
+          "assetId": "character.aakash.encouraging-listening-route-map-burgundy-hoodie-right-three-quarter-fullbody-v010",
+          "expression": "encouraging-listening",
+          "angle": "right-three-quarter",
+          "assetPath": "/academy/art/characters/aakash/aakash__encouraging-listening-route-map-burgundy-hoodie__right-three-quarter__fullbody__v010.png",
+          "runtimeHomes": [
+            "journal:aakash-expression-gallery",
+            "story:cast:aakash:encouraging-listening",
+            "cast-standardization:aakash"
+          ]
+        },
+        {
+          "assetId": "character.aakash.happy-route-map-burgundy-hoodie-front-near-front-fullbody-v010",
+          "expression": "happy",
+          "angle": "front-near-front",
+          "assetPath": "/academy/art/characters/aakash/aakash__happy-route-map-burgundy-hoodie__front-near-front__fullbody__v010.png",
+          "runtimeHomes": [
+            "journal:aakash-expression-gallery",
+            "story:cast:aakash:happy",
+            "cast-standardization:aakash"
+          ]
+        },
+        {
+          "assetId": "character.aakash.thoughtful-route-map-burgundy-hoodie-left-three-quarter-fullbody-v010",
+          "expression": "thoughtful",
+          "angle": "left-three-quarter",
+          "assetPath": "/academy/art/characters/aakash/aakash__thoughtful-route-map-burgundy-hoodie__left-three-quarter__fullbody__v010.png",
+          "runtimeHomes": [
+            "journal:aakash-expression-gallery",
+            "story:cast:aakash:thoughtful",
+            "cast-standardization:aakash"
+          ]
+        },
+        {
+          "assetId": "character.aakash.determined-route-map-burgundy-hoodie-front-near-front-fullbody-v010",
+          "expression": "determined",
+          "angle": "front-near-front",
+          "assetPath": "/academy/art/characters/aakash/aakash__determined-route-map-burgundy-hoodie__front-near-front__fullbody__v010.png",
+          "runtimeHomes": [
+            "journal:aakash-expression-gallery",
+            "story:cast:aakash:determined",
+            "cast-standardization:aakash"
+          ]
+        },
+        {
+          "assetId": "character.aakash.surprised-shocked-route-map-burgundy-hoodie-right-three-quarter-fullbody-v010",
+          "expression": "surprised-shocked",
+          "angle": "right-three-quarter",
+          "assetPath": "/academy/art/characters/aakash/aakash__surprised-shocked-route-map-burgundy-hoodie__right-three-quarter__fullbody__v010.png",
+          "runtimeHomes": [
+            "journal:aakash-expression-gallery",
+            "story:cast:aakash:surprised-shocked",
+            "cast-standardization:aakash"
+          ]
+        },
+        {
+          "assetId": "character.aakash.sad-vulnerable-route-map-burgundy-hoodie-left-three-quarter-fullbody-v010",
+          "expression": "sad-vulnerable",
+          "angle": "left-three-quarter",
+          "assetPath": "/academy/art/characters/aakash/aakash__sad-vulnerable-route-map-burgundy-hoodie__left-three-quarter__fullbody__v010.png",
+          "runtimeHomes": [
+            "journal:aakash-expression-gallery",
+            "story:cast:aakash:sad-vulnerable",
+            "cast-standardization:aakash"
+          ]
+        }
+      ]
+    }
+  ]
+}

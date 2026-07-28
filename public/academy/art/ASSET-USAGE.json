@@ -18,8 +18,8 @@
     ]
   },
   "counts": {
-    "runtimeAssetHomes": 223,
-    "runtimeFiles": 278,
+    "runtimeAssetHomes": 220,
+    "runtimeFiles": 326,
     "nonRuntimeReviewFiles": 1734,
     "approvedReferenceOnly": 4,
     "explicitlyRejectedFamilies": 4,
@@ -33,7 +33,7 @@
       "sceneAssetId": "classroom-evening-lamplit",
       "approvedCastAssetIds": {
         "rie": "character-rie-neutral-glasses",
-        "aakash": "character-aakash-neutral"
+        "aakash": "character-aakash-neutral-route-map-burgundy-hoodie-front-near-front-fullbody-v010"
       },
       "reviewOnlyCastCandidates": {},
       "itemAssetIds": [
@@ -333,393 +333,6 @@
         }
       },
       "status": "restored-owner-preferred-class-ensemble-entrance; approved single-source mobile art direction; bound-to-access-route"
-    },
-    {
-      "id": "character-aakash-neutral",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "cd74d5b4f3610a5d615bb4c097a63556a419555fed85933ae54ca3cddf186a65",
-      "provenance": "retained-good",
-      "verdict": "approved-runtime",
-      "runtimeHome": [
-        "journal:aakash",
-        "class:people",
-        "class:week-cast",
-        "lesson-overview:roster",
-        "world:person",
-        "lesson:l1-l01:cast"
-      ],
-      "reviewHome": [],
-      "usage": {
-        "runtime": [
-          "journal:aakash",
-          "class:people",
-          "class:week-cast",
-          "lesson-overview:roster",
-          "world:person",
-          "lesson:l1-l01:cast"
-        ],
-        "review": []
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v009.png",
-          "sha256": "cd74d5b4f3610a5d615bb4c097a63556a419555fed85933ae54ca3cddf186a65"
-        }
-      ],
-      "status": "retained approved cast runtime sprite"
-    },
-    {
-      "id": "character-aakash-sprite-concerned-left-three-quarter-halfbody-v005",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "144186dfcf47073831cd60265c6797d1a73b83ed641b5174801d9c0a4e5e78f4",
-      "provenance": "retained-legacy-review",
-      "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": [
-        "journal:aakash-expression-gallery",
-        "cast-standardization:aakash"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "learner-journal-preview"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:aakash-expression-gallery",
-          "cast-standardization:aakash"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/aakash/aakash__sprite__concerned__left-three-quarter__halfbody__v005.png",
-          "sha256": "144186dfcf47073831cd60265c6797d1a73b83ed641b5174801d9c0a4e5e78f4"
-        }
-      ],
-      "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-    },
-    {
-      "id": "character-aakash-sprite-determined-left-three-quarter-v005",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "52f263a870ce403786da35c372acacb1a377dac2f74a1dacb8c802c2ba39911f",
-      "provenance": "retained-legacy-review",
-      "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": [
-        "journal:aakash-expression-gallery",
-        "cast-standardization:aakash"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "learner-journal-preview"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:aakash-expression-gallery",
-          "cast-standardization:aakash"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/aakash/aakash__sprite__determined__left-three-quarter__v005.png",
-          "sha256": "52f263a870ce403786da35c372acacb1a377dac2f74a1dacb8c802c2ba39911f"
-        }
-      ],
-      "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-    },
-    {
-      "id": "character-aakash-sprite-embarrassed-front-near-front-halfbody-v005",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "bb6e1332eceaed396984a4aa2f76124c1967eb729b635cfef2b7f76fbf2ff617",
-      "provenance": "retained-legacy-review",
-      "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": [
-        "journal:aakash-expression-gallery",
-        "cast-standardization:aakash"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "learner-journal-preview"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:aakash-expression-gallery",
-          "cast-standardization:aakash"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/aakash/aakash__sprite__embarrassed__front-near-front__halfbody__v005.png",
-          "sha256": "bb6e1332eceaed396984a4aa2f76124c1967eb729b635cfef2b7f76fbf2ff617"
-        }
-      ],
-      "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-    },
-    {
-      "id": "character-aakash-sprite-happy-right-three-quarter-v005",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "6669e161c487daea9d102b3571f34380f5dd857f2a7a6c965345cd9161f4f615",
-      "provenance": "retained-legacy-review",
-      "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": [
-        "journal:aakash-expression-gallery",
-        "cast-standardization:aakash"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "learner-journal-preview"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:aakash-expression-gallery",
-          "cast-standardization:aakash"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/aakash/aakash__sprite__happy__right-three-quarter__v005.png",
-          "sha256": "6669e161c487daea9d102b3571f34380f5dd857f2a7a6c965345cd9161f4f615"
-        }
-      ],
-      "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-    },
-    {
-      "id": "character-aakash-sprite-laughing-left-three-quarter-halfbody-v005",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "b7b4fd1b259cc2ca36bbe9094a40e555741dc54098011252a819f98f0a040bdb",
-      "provenance": "retained-legacy-review",
-      "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": [
-        "journal:aakash-expression-gallery",
-        "cast-standardization:aakash"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "learner-journal-preview"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:aakash-expression-gallery",
-          "cast-standardization:aakash"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/aakash/aakash__sprite__laughing__left-three-quarter__halfbody__v005.png",
-          "sha256": "b7b4fd1b259cc2ca36bbe9094a40e555741dc54098011252a819f98f0a040bdb"
-        }
-      ],
-      "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-    },
-    {
-      "id": "character-aakash-sprite-listening-right-three-quarter-v005",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "d6880e06dcec20f38f16493d115097ece2eb850a7be5270be32d31bd24feb6e8",
-      "provenance": "retained-legacy-review",
-      "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": [
-        "journal:aakash-expression-gallery",
-        "cast-standardization:aakash"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "learner-journal-preview"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:aakash-expression-gallery",
-          "cast-standardization:aakash"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/aakash/aakash__sprite__listening__right-three-quarter__v005.png",
-          "sha256": "d6880e06dcec20f38f16493d115097ece2eb850a7be5270be32d31bd24feb6e8"
-        }
-      ],
-      "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-    },
-    {
-      "id": "character-aakash-sprite-surprised-right-three-quarter-halfbody-v005",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "008eaea84946630f8434919120a57760813687743b574bee67f859e27b37d90a",
-      "provenance": "retained-legacy-review",
-      "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": [
-        "journal:aakash-expression-gallery",
-        "cast-standardization:aakash"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "learner-journal-preview"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:aakash-expression-gallery",
-          "cast-standardization:aakash"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/aakash/aakash__sprite__surprised__right-three-quarter__halfbody__v005.png",
-          "sha256": "008eaea84946630f8434919120a57760813687743b574bee67f859e27b37d90a"
-        }
-      ],
-      "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-    },
-    {
-      "id": "character-aakash-sprite-thoughtful-front-near-front-v005",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "38617e9adf93290f94077e14c1825531ed4585411180d96ede2532fe186f60b3",
-      "provenance": "retained-legacy-review",
-      "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": [
-        "journal:aakash-expression-gallery",
-        "cast-standardization:aakash"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "learner-journal-preview"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:aakash-expression-gallery",
-          "cast-standardization:aakash"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/aakash/aakash__sprite__thoughtful__front-near-front__v005.png",
-          "sha256": "38617e9adf93290f94077e14c1825531ed4585411180d96ede2532fe186f60b3"
-        }
-      ],
-      "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-    },
-    {
-      "id": "character-aakash-standardized-determined-front-near-front-halfbody-v001",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "b8d3c8639b183a1a7db36d7c6b4f17e1cdc6389fe5b239c74e2393e278acbd73",
-      "provenance": "regenerated-standardized",
-      "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": [
-        "journal:aakash-expression-gallery",
-        "cast-standardization:aakash"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "learner-journal-preview"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:aakash-expression-gallery",
-          "cast-standardization:aakash"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/aakash/aakash__standardized-determined__front-near-front__halfbody__v001.png",
-          "sha256": "b8d3c8639b183a1a7db36d7c6b4f17e1cdc6389fe5b239c74e2393e278acbd73"
-        }
-      ],
-      "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-    },
-    {
-      "id": "character-aakash-standardized-encouraging-listening-front-near-front-halfbody-v001",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "0aacde296b1f8abd300a872d2913df682ed6346e473892958e334bb3e969e166",
-      "provenance": "regenerated-standardized",
-      "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": [
-        "journal:aakash-expression-gallery",
-        "cast-standardization:aakash"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "learner-journal-preview"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:aakash-expression-gallery",
-          "cast-standardization:aakash"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/aakash/aakash__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
-          "sha256": "0aacde296b1f8abd300a872d2913df682ed6346e473892958e334bb3e969e166"
-        }
-      ],
-      "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-    },
-    {
-      "id": "character-aakash-standardized-happy-front-near-front-halfbody-v001",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "a887c568cf48cb9e31454d40c201c57e8699dde41d8f1eaec187f8ea6d4fb540",
-      "provenance": "regenerated-standardized",
-      "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": [
-        "journal:aakash-expression-gallery",
-        "cast-standardization:aakash"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "learner-journal-preview"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:aakash-expression-gallery",
-          "cast-standardization:aakash"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/aakash/aakash__standardized-happy__front-near-front__halfbody__v001.png",
-          "sha256": "a887c568cf48cb9e31454d40c201c57e8699dde41d8f1eaec187f8ea6d4fb540"
-        }
-      ],
-      "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
     },
     {
       "id": "character-angel-standardized-encouraging-listening-front-near-front-halfbody-v001",
@@ -11498,7 +11111,7 @@
       "deliveries": [
         {
           "path": "/academy/art/SPRITE-BATCH-MANIFEST.json",
-          "sha256": "650881d5e25886334b9461969bd8a949f1530a51951b75844dec20918f824c1e"
+          "sha256": "b628d08ac9a165f2ea5a164617c488f5b6ed4534ca39884eda1937d0958dffdb"
         }
       ],
       "status": "bound-and-schema-validated"
@@ -14155,6 +13768,518 @@
         }
       ],
       "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-aakash-neutral-route-map-burgundy-hoodie-front-near-front-fullbody-v010",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "06470d67f53292a4db5c91b949fb0ee48bf23d4cd916148cf8d5d69552a28c76",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:aakash",
+        "class:people",
+        "class:week-cast",
+        "lesson-overview:roster",
+        "world:person",
+        "lesson:l1-l01:cast",
+        "story:cast:aakash",
+        "cast-standardization:aakash"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:aakash",
+          "class:people",
+          "class:week-cast",
+          "lesson-overview:roster",
+          "world:person",
+          "lesson:l1-l01:cast",
+          "story:cast:aakash",
+          "cast-standardization:aakash"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/aakash/aakash__neutral-route-map-burgundy-hoodie__front-near-front__fullbody__v010.png",
+          "sha256": "06470d67f53292a4db5c91b949fb0ee48bf23d4cd916148cf8d5d69552a28c76"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-aakash-encouraging-listening-route-map-burgundy-hoodie-right-three-quarter-fullbody-v010",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "459f611752c00438b37cbf121edaa671ded1397e128be57ca8c1978ec7b433ee",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:aakash-expression-gallery",
+        "story:cast:aakash:encouraging-listening",
+        "cast-standardization:aakash"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:aakash-expression-gallery",
+          "story:cast:aakash:encouraging-listening",
+          "cast-standardization:aakash"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/aakash/aakash__encouraging-listening-route-map-burgundy-hoodie__right-three-quarter__fullbody__v010.png",
+          "sha256": "459f611752c00438b37cbf121edaa671ded1397e128be57ca8c1978ec7b433ee"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-aakash-happy-route-map-burgundy-hoodie-front-near-front-fullbody-v010",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "234ba5d713a82edeaf05793c15580daabae869dc1daad6717665794d01565653",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:aakash-expression-gallery",
+        "story:cast:aakash:happy",
+        "cast-standardization:aakash"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:aakash-expression-gallery",
+          "story:cast:aakash:happy",
+          "cast-standardization:aakash"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/aakash/aakash__happy-route-map-burgundy-hoodie__front-near-front__fullbody__v010.png",
+          "sha256": "234ba5d713a82edeaf05793c15580daabae869dc1daad6717665794d01565653"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-aakash-thoughtful-route-map-burgundy-hoodie-left-three-quarter-fullbody-v010",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "9e2834e6e21404d57e5377c941afee3d2b7c69d21151122aa63d00d42b27849c",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:aakash-expression-gallery",
+        "story:cast:aakash:thoughtful",
+        "cast-standardization:aakash"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:aakash-expression-gallery",
+          "story:cast:aakash:thoughtful",
+          "cast-standardization:aakash"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/aakash/aakash__thoughtful-route-map-burgundy-hoodie__left-three-quarter__fullbody__v010.png",
+          "sha256": "9e2834e6e21404d57e5377c941afee3d2b7c69d21151122aa63d00d42b27849c"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-aakash-determined-route-map-burgundy-hoodie-front-near-front-fullbody-v010",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "6c4dcad4e9c7149fd9a4d5f6917182f25463e295cd4520470a63e1ea9ae68981",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:aakash-expression-gallery",
+        "story:cast:aakash:determined",
+        "cast-standardization:aakash"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:aakash-expression-gallery",
+          "story:cast:aakash:determined",
+          "cast-standardization:aakash"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/aakash/aakash__determined-route-map-burgundy-hoodie__front-near-front__fullbody__v010.png",
+          "sha256": "6c4dcad4e9c7149fd9a4d5f6917182f25463e295cd4520470a63e1ea9ae68981"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-aakash-surprised-shocked-route-map-burgundy-hoodie-right-three-quarter-fullbody-v010",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "406b795d62070956a835b0047ceed2d2a474dbfb6dcb02973dbf1bbeaa027211",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:aakash-expression-gallery",
+        "story:cast:aakash:surprised-shocked",
+        "cast-standardization:aakash"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:aakash-expression-gallery",
+          "story:cast:aakash:surprised-shocked",
+          "cast-standardization:aakash"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/aakash/aakash__surprised-shocked-route-map-burgundy-hoodie__right-three-quarter__fullbody__v010.png",
+          "sha256": "406b795d62070956a835b0047ceed2d2a474dbfb6dcb02973dbf1bbeaa027211"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-aakash-sad-vulnerable-route-map-burgundy-hoodie-left-three-quarter-fullbody-v010",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "55d280328131151264459aa6f4a9ecee127b41b961e8f9992a0fdd873522620f",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:aakash-expression-gallery",
+        "story:cast:aakash:sad-vulnerable",
+        "cast-standardization:aakash"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:aakash-expression-gallery",
+          "story:cast:aakash:sad-vulnerable",
+          "cast-standardization:aakash"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/aakash/aakash__sad-vulnerable-route-map-burgundy-hoodie__left-three-quarter__fullbody__v010.png",
+          "sha256": "55d280328131151264459aa6f4a9ecee127b41b961e8f9992a0fdd873522620f"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "lesson-zero-hiragana-anchor-family-v001",
+      "source": "repo-authored:public/academy/art/lesson-zero/hiragana-anchors",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "lesson-zero:kana-practice",
+        "lesson-zero:hiragana-visual-anchor"
+      ],
+      "reviewHome": [
+        "learning-art-inventory"
+      ],
+      "usage": {
+        "runtime": [
+          "lesson-zero:kana-practice",
+          "lesson-zero:hiragana-visual-anchor"
+        ],
+        "review": [
+          "learning-art-inventory"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/lesson-zero/hiragana-anchors/hira-a.webp",
+          "sha256": "77a863f76cc763ccd659cdb926c0a5e9dcfbe5761028915bd6be7ee22e7ae6de"
+        },
+        {
+          "path": "/academy/art/lesson-zero/hiragana-anchors/hira-chi.webp",
+          "sha256": "7ce7a1b02e580fd8982e96a73cbd92f2083b6b71eaa24f526995ea64287c791a"
+        },
+        {
+          "path": "/academy/art/lesson-zero/hiragana-anchors/hira-e.webp",
+          "sha256": "fe54d8c945b6035e42eee28acc344c45c2c4129c24faf51c088f8afe4dc47b34"
+        },
+        {
+          "path": "/academy/art/lesson-zero/hiragana-anchors/hira-fu.webp",
+          "sha256": "634c12b8353083eb0d210fbcea82718f6fc5ace006b5f0ee24a1d3f1ea77c59f"
+        },
+        {
+          "path": "/academy/art/lesson-zero/hiragana-anchors/hira-ha.webp",
+          "sha256": "607359bbf86cf8c6c1c000e12d91f5781da4b2e41d412314349a549a6971af8f"
+        },
+        {
+          "path": "/academy/art/lesson-zero/hiragana-anchors/hira-he.webp",
+          "sha256": "ce6e561a5368a3b4544b91dc4088c66dc5c903fbe61c080a758f38bc72760ae7"
+        },
+        {
+          "path": "/academy/art/lesson-zero/hiragana-anchors/hira-hi.webp",
+          "sha256": "aae98a7d383c4dc2006a812435766bc14a08d9632b97f16860926c970c3b1e5d"
+        },
+        {
+          "path": "/academy/art/lesson-zero/hiragana-anchors/hira-ho.webp",
+          "sha256": "e8d92927ac2b1356cdf7a6cfd4ea6d8a35c3a753fb544b32e9bcd27b2cd6aad2"
+        },
+        {
+          "path": "/academy/art/lesson-zero/hiragana-anchors/hira-i.webp",
+          "sha256": "55e938ff7fcb94bf3f3b8f57a7e81577b8d42de5cdd9d27525005c259c9d8d9a"
+        },
+        {
+          "path": "/academy/art/lesson-zero/hiragana-anchors/hira-ka.webp",
+          "sha256": "2f6aa19c05cb095234a245ac09db86158921692069aaed074b96a590a634b007"
+        },
+        {
+          "path": "/academy/art/lesson-zero/hiragana-anchors/hira-ke.webp",
+          "sha256": "acddc4689073bbbed75dc0526c7311b348f77256f0bfe3973441697987640b88"
+        },
+        {
+          "path": "/academy/art/lesson-zero/hiragana-anchors/hira-ki.webp",
+          "sha256": "d078877728920e113710ea846de829494cdf1464dfb0f985776449b0701a5d29"
+        },
+        {
+          "path": "/academy/art/lesson-zero/hiragana-anchors/hira-ko.webp",
+          "sha256": "387db5c98a3291f091ead84ba0458ffcf95c9aa5a20c95b0833a33ff5535b7c5"
+        },
+        {
+          "path": "/academy/art/lesson-zero/hiragana-anchors/hira-ku.webp",
+          "sha256": "7c0b542f71d1de0812254be6fd300c0f298e586ce3f22d5cd9bf97c7fff25639"
+        },
+        {
+          "path": "/academy/art/lesson-zero/hiragana-anchors/hira-ma.webp",
+          "sha256": "f1d5bb9c64d2ebfceb59763e0e68b933779d89d937d247af8d569e40d9e652ab"
+        },
+        {
+          "path": "/academy/art/lesson-zero/hiragana-anchors/hira-me.webp",
+          "sha256": "94411e0c24f6c58ac36d1fcf18d55168f473a54980169c95b1557d2b2db9d6f3"
+        },
+        {
+          "path": "/academy/art/lesson-zero/hiragana-anchors/hira-mi.webp",
+          "sha256": "92d4ec1e1c778ecbeff61da2bdec90179530cd9b39368ac679cd72933782e383"
+        },
+        {
+          "path": "/academy/art/lesson-zero/hiragana-anchors/hira-mo.webp",
+          "sha256": "2036d1e4a8328f8e61a85319a65b175aa71e30855b33daad156e2ce061d09d70"
+        },
+        {
+          "path": "/academy/art/lesson-zero/hiragana-anchors/hira-mu.webp",
+          "sha256": "0e894594c51039e7fbb2d4d2b9b84c0283c4eb8c3effe8d38390016461fae076"
+        },
+        {
+          "path": "/academy/art/lesson-zero/hiragana-anchors/hira-n.webp",
+          "sha256": "7aeafefdb4239b419f798058e6e19e59b5a1585b849e85ca216e941c817f5737"
+        },
+        {
+          "path": "/academy/art/lesson-zero/hiragana-anchors/hira-na.webp",
+          "sha256": "36f78283a6efc9bdf42f086fbde114ac19b2bd12e1a56bea6c808d00f81cfb61"
+        },
+        {
+          "path": "/academy/art/lesson-zero/hiragana-anchors/hira-ne.webp",
+          "sha256": "484e5886e1a144cd907dc3fadec2f8d628c1c7fedf5671878778a8e8e967b08b"
+        },
+        {
+          "path": "/academy/art/lesson-zero/hiragana-anchors/hira-ni.webp",
+          "sha256": "8413cae3c3998e1b50d14cd02b27feb2c00a9cc754b31aba0f6ac3653c132d27"
+        },
+        {
+          "path": "/academy/art/lesson-zero/hiragana-anchors/hira-no.webp",
+          "sha256": "d1df5c671d0f8fbb968458bc5a249c7f5f3358331b18f56bc5a6d7b3d73ce7a4"
+        },
+        {
+          "path": "/academy/art/lesson-zero/hiragana-anchors/hira-nu.webp",
+          "sha256": "d55dd59bca55dce1f356d0d08711eca03f5051abd04f7ed9f029c31ccd83765b"
+        },
+        {
+          "path": "/academy/art/lesson-zero/hiragana-anchors/hira-o.webp",
+          "sha256": "6a15f28a06d429164dfd654ce56fe599c6bf8fbb6110d105ed430c77cfe44cf9"
+        },
+        {
+          "path": "/academy/art/lesson-zero/hiragana-anchors/hira-ra.webp",
+          "sha256": "3ff7ec1318241cd239f788eaa5c949a624203db9d424cc1b0af21cd2f0c580e0"
+        },
+        {
+          "path": "/academy/art/lesson-zero/hiragana-anchors/hira-re.webp",
+          "sha256": "8b42f95a5381f4139196f03b517d82e3909df880946a0d1c18ecc104f830c199"
+        },
+        {
+          "path": "/academy/art/lesson-zero/hiragana-anchors/hira-ri.webp",
+          "sha256": "cd16bfcf5a30e02b12560feadf09948a28e838ebbc8468c16503320b3700e303"
+        },
+        {
+          "path": "/academy/art/lesson-zero/hiragana-anchors/hira-ro.webp",
+          "sha256": "ebd02124882944df4fb2a2458e927dc103549db66f9435b29916d746ec981695"
+        },
+        {
+          "path": "/academy/art/lesson-zero/hiragana-anchors/hira-ru.webp",
+          "sha256": "8635ffce1eea7b92784c2067deb49ed969f4fe9932c88442dd5a77e3370da68f"
+        },
+        {
+          "path": "/academy/art/lesson-zero/hiragana-anchors/hira-sa.webp",
+          "sha256": "87dcd46ecac2ec3ec0eb47e2c933192982088bde8e0d777bf67104682d3e1170"
+        },
+        {
+          "path": "/academy/art/lesson-zero/hiragana-anchors/hira-se.webp",
+          "sha256": "8239f0ed9db04052c053c092482cf84bbae30421d418cf0a8515b9c1019d08ff"
+        },
+        {
+          "path": "/academy/art/lesson-zero/hiragana-anchors/hira-shi.webp",
+          "sha256": "cf6d4a48253607bf7ee3e5f805399a4ea4bedbdf1c1e408f25626601ca071f2f"
+        },
+        {
+          "path": "/academy/art/lesson-zero/hiragana-anchors/hira-so.webp",
+          "sha256": "c354736c6d7b6b6f60360fb62b5512006318a20abb45c0307e745633901d8ce4"
+        },
+        {
+          "path": "/academy/art/lesson-zero/hiragana-anchors/hira-su.webp",
+          "sha256": "30cf43e6e077ba6374e5288498a123da69cc68cc275263710d7c2d760c7e41c3"
+        },
+        {
+          "path": "/academy/art/lesson-zero/hiragana-anchors/hira-ta.webp",
+          "sha256": "1d45e73fb7d842eacd107f7cec20dbe446e7da7a76c44ce50e45b4579b4c448d"
+        },
+        {
+          "path": "/academy/art/lesson-zero/hiragana-anchors/hira-te.webp",
+          "sha256": "db762313a7bb3ce18d11053713d5ca405378a7c869285a987feb761ea208bd18"
+        },
+        {
+          "path": "/academy/art/lesson-zero/hiragana-anchors/hira-to.webp",
+          "sha256": "c120b1af5d9beb217582d8c05bd8f0efa094646f68b182a17632e31812dd572e"
+        },
+        {
+          "path": "/academy/art/lesson-zero/hiragana-anchors/hira-tsu.webp",
+          "sha256": "5459b5cd7bb691bb911f7d4f86c27674e2d1071555b7d08df38c20488b07ee0f"
+        },
+        {
+          "path": "/academy/art/lesson-zero/hiragana-anchors/hira-u.webp",
+          "sha256": "d6ac66a6984e2f0aaede5552e49a1083bf73870bb89fcdd21c95b6d519243ed4"
+        },
+        {
+          "path": "/academy/art/lesson-zero/hiragana-anchors/hira-wa.webp",
+          "sha256": "3209abd9476e06b7b9a6c0e1fd480c8f05d691bb4310cb772fc408ba0b2a64ba"
+        },
+        {
+          "path": "/academy/art/lesson-zero/hiragana-anchors/hira-wo.webp",
+          "sha256": "ae121ae2b8618082f8576b1f87f3d8e56c1ca21600594b9bc8e85266c07d0274"
+        },
+        {
+          "path": "/academy/art/lesson-zero/hiragana-anchors/hira-ya.webp",
+          "sha256": "ed31f30767c4713201b3e1a7d8c7547586ca6204a313dc785d75f29028ef05e9"
+        },
+        {
+          "path": "/academy/art/lesson-zero/hiragana-anchors/hira-yo.webp",
+          "sha256": "af6546f759d63a97f8209b4ad480995b35c7c3cf722c00709391644dbc5363b8"
+        },
+        {
+          "path": "/academy/art/lesson-zero/hiragana-anchors/hira-yu.webp",
+          "sha256": "5a82bd8a1077e2d68a6f3123b83dba30c7b37b36c3a1c40ee84366592bd1d913"
+        }
+      ],
+      "status": "complete gojuon visual-anchor family; learner-facing and hash-locked"
+    },
+    {
+      "id": "academy-vocabulary-pictograph-family-v001",
+      "source": "repo-authored:public/academy/art/vocabulary-pictographs",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "lesson:l1-l01:vocabulary-pictographs",
+        "lesson-zero:sentence-frames"
+      ],
+      "reviewHome": [
+        "learning-art-inventory"
+      ],
+      "usage": {
+        "runtime": [
+          "lesson:l1-l01:vocabulary-pictographs",
+          "lesson-zero:sentence-frames"
+        ],
+        "review": [
+          "learning-art-inventory"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/vocabulary-pictographs/class.webp",
+          "sha256": "935437a6a705dd48b072ce8d990c683dea17134ae5888da503dd3ec19e2e137e"
+        },
+        {
+          "path": "/academy/art/vocabulary-pictographs/company-employee.webp",
+          "sha256": "15bb2b5e11e4ffd918066cebc368fc6020d066b326fc43af14fb85238d678485"
+        },
+        {
+          "path": "/academy/art/vocabulary-pictographs/country.webp",
+          "sha256": "8b7fa9263db2f26e3766b25eb22a8e6cb8ecb7f614d15addd954d6ed0d75d993"
+        },
+        {
+          "path": "/academy/art/vocabulary-pictographs/name.webp",
+          "sha256": "a3d465f471a4c27c625ea39c548e3a7d7bf6d1620e04562a24e2479d244c953e"
+        },
+        {
+          "path": "/academy/art/vocabulary-pictographs/person.webp",
+          "sha256": "0c97fee654cce96b9dfb399bece19f88ca43f68d46a2d995c9009d423012d2b3"
+        },
+        {
+          "path": "/academy/art/vocabulary-pictographs/student.webp",
+          "sha256": "5c5da28322bdd11a39ed26941ee7a503946265533d1b9af54289e9e502355f69"
+        },
+        {
+          "path": "/academy/art/vocabulary-pictographs/teacher.webp",
+          "sha256": "eaa8f3fd2ad20f78be65330da125ba4168640ac91fbc003674137baa719c2412"
+        }
+      ],
+      "status": "lesson vocabulary visual-anchor family; learner-facing and hash-locked"
     }
   ]
 }

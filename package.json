@@ -102,6 +102,7 @@
     "academy:cast:production-inventory": "vite-node scripts/academy-cast-production-inventory.ts",
     "academy:art:story-inventory": "node scripts/academy-story-art-inventory.mjs",
     "academy:art:story:promote": "node scripts/academy-story-art-promote.mjs",
+    "academy:art:learning:usage": "node scripts/academy-learning-art-usage.mjs",
     "academy:vocabulary:pictographs": "node scripts/academy-vocabulary-pictographs.mjs",
     "dictionaries:mirror:record": "node scripts/dictionaries/record-mirror-objects.mjs --write",
     "dev": "node scripts/dev-userscript.mjs",

@@ -220,7 +220,7 @@ async function verifyJourney(browser, viewport) {
             await aakash.waitFor();
             assert.match(
                 await aakash.getAttribute('src') ?? '',
-                /aakash__sprite__neutral__front-near-front__v009\.png$/u,
+                /aakash__neutral-route-map-burgundy-hoodie__front-near-front__fullbody__v010\.png$/u,
                 `${viewport.name} Speaking resolution must show Aakash's canonical sprite`,
             );
             assert.equal(

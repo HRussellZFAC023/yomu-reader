@@ -34,11 +34,11 @@
     "totalSlots": 630
   },
   "summary": {
-    "approved": 103,
-    "reviewCandidates": 13,
+    "approved": 109,
+    "reviewCandidates": 7,
     "missing": 514,
-    "currentPhysicalRasters": 150,
-    "currentOffMatrixRasters": 34,
+    "currentPhysicalRasters": 145,
+    "currentOffMatrixRasters": 29,
     "historicalUniqueRasters": 469,
     "historicalOccurrences": 2016,
     "charactersWithApprovedCoverage": 17,
@@ -55,12 +55,12 @@
       "runtimeReferencesAfterMigration": []
     },
     {
-      "id": "aakash-neutral-v005-to-owner-approved-v009",
+      "id": "aakash-neutral-v009-to-illustrated-v010-family",
       "character": "aakash",
-      "from": "/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v005.png",
-      "to": "/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v009.png",
+      "from": "/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v009.png",
+      "to": "/academy/art/characters/aakash/aakash__neutral-route-map-burgundy-hoodie__front-near-front__fullbody__v010.png",
       "decision": "delete",
-      "status": "owner-approved v009 bound to runtime; superseded v005 archived outside runtime",
+      "status": "Illustrated v010 family bound to runtime; superseded realistic and off-contract variants archived outside runtime.",
       "runtimeReferencesAfterMigration": []
     },
     {
@@ -1400,262 +1400,145 @@
         "slots": 21
       },
       "progress": {
-        "approved": 1,
-        "reviewCandidates": 6,
+        "approved": 7,
+        "reviewCandidates": 0,
         "missing": 14,
         "deliveredPercent": 33.33,
-        "approvedPercent": 4.76
+        "approvedPercent": 33.33
       },
       "currentAssets": [
         {
-          "path": "/academy/art/characters/aakash/aakash__sprite__concerned__left-three-quarter__halfbody__v005.png",
-          "sha256": "144186dfcf47073831cd60265c6797d1a73b83ed641b5174801d9c0a4e5e78f4",
+          "path": "/academy/art/characters/aakash/aakash__determined-route-map-burgundy-hoodie__front-near-front__fullbody__v010.png",
+          "sha256": "6c4dcad4e9c7149fd9a4d5f6917182f25463e295cd4520470a63e1ea9ae68981",
           "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
-          "status": "review-candidate",
+          "status": "approved",
           "usage": {
             "runtime": [
               "journal:aakash-expression-gallery",
+              "story:cast:aakash:determined",
               "cast-standardization:aakash"
             ],
             "review": [
               "cast-standardization-manifest",
-              "learner-journal-preview"
+              "identity-lock"
             ]
           },
-          "orphan": "review-bound",
+          "orphan": "active-runtime",
           "styleVersion": "current-review-family",
-          "fileVersion": "v005",
-          "pose": "map tucked under one arm with the free hand pointing outward from a relaxed city-guide stance; left-three-quarter",
-          "angle": "left-three-quarter",
-          "expression": "sad-vulnerable",
-          "dimensions": {
-            "width": 955,
-            "height": 1647,
-            "bitDepth": 8,
-            "colorType": 6,
-            "transparency": "alpha-channel"
-          },
-          "runtimeUses": [
-            "journal:aakash-expression-gallery",
-            "cast-standardization:aakash"
-          ],
-          "reviewUses": [
-            "cast-standardization-manifest",
-            "learner-journal-preview"
-          ],
-          "decision": "keep",
-          "migrationStatus": "retained-review-candidate-not-approved",
-          "coverageStatus": "review-candidate"
-        },
-        {
-          "path": "/academy/art/characters/aakash/aakash__sprite__determined__left-three-quarter__v005.png",
-          "sha256": "52f263a870ce403786da35c372acacb1a377dac2f74a1dacb8c802c2ba39911f",
-          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-          "privacy": "no-private-source-recorded",
-          "status": "review-candidate",
-          "usage": {
-            "runtime": [
-              "journal:aakash-expression-gallery",
-              "cast-standardization:aakash"
-            ],
-            "review": [
-              "cast-standardization-manifest",
-              "learner-journal-preview"
-            ]
-          },
-          "orphan": "review-bound",
-          "styleVersion": "current-review-family",
-          "fileVersion": "v005",
-          "pose": "map tucked under one arm with the free hand pointing outward from a relaxed city-guide stance; left-three-quarter",
-          "angle": "left-three-quarter",
+          "fileVersion": "v010",
+          "pose": "map tucked under one arm with the free hand pointing outward from a relaxed city-guide stance; front-near-front",
+          "angle": "front-near-front",
           "expression": "determined",
           "dimensions": {
-            "width": 929,
-            "height": 1692,
+            "width": 1536,
+            "height": 2048,
             "bitDepth": 8,
             "colorType": 6,
             "transparency": "alpha-channel"
           },
           "runtimeUses": [
             "journal:aakash-expression-gallery",
+            "story:cast:aakash:determined",
             "cast-standardization:aakash"
           ],
           "reviewUses": [
             "cast-standardization-manifest",
-            "learner-journal-preview"
+            "identity-lock"
           ],
           "decision": "keep",
-          "migrationStatus": "retained-review-candidate-not-approved",
-          "coverageStatus": "review-candidate"
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
         },
         {
-          "path": "/academy/art/characters/aakash/aakash__sprite__embarrassed__front-near-front__halfbody__v005.png",
-          "sha256": "bb6e1332eceaed396984a4aa2f76124c1967eb729b635cfef2b7f76fbf2ff617",
+          "path": "/academy/art/characters/aakash/aakash__encouraging-listening-route-map-burgundy-hoodie__right-three-quarter__fullbody__v010.png",
+          "sha256": "459f611752c00438b37cbf121edaa671ded1397e128be57ca8c1978ec7b433ee",
           "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
-          "status": "review-candidate",
+          "status": "approved",
           "usage": {
             "runtime": [
               "journal:aakash-expression-gallery",
+              "story:cast:aakash:encouraging-listening",
               "cast-standardization:aakash"
             ],
             "review": [
               "cast-standardization-manifest",
-              "learner-journal-preview"
+              "identity-lock"
             ]
           },
-          "orphan": "review-bound",
+          "orphan": "active-runtime",
           "styleVersion": "current-review-family",
-          "fileVersion": "v005",
-          "pose": "off-contract sprite pose",
-          "angle": null,
-          "expression": null,
-          "dimensions": {
-            "width": 941,
-            "height": 1672,
-            "bitDepth": 8,
-            "colorType": 6,
-            "transparency": "alpha-channel"
-          },
-          "runtimeUses": [
-            "journal:aakash-expression-gallery",
-            "cast-standardization:aakash"
-          ],
-          "reviewUses": [
-            "cast-standardization-manifest",
-            "learner-journal-preview"
-          ],
-          "decision": "keep",
-          "migrationStatus": "retained-off-matrix-review-evidence",
-          "coverageStatus": "off-matrix"
-        },
-        {
-          "path": "/academy/art/characters/aakash/aakash__sprite__happy__right-three-quarter__v005.png",
-          "sha256": "6669e161c487daea9d102b3571f34380f5dd857f2a7a6c965345cd9161f4f615",
-          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-          "privacy": "no-private-source-recorded",
-          "status": "review-candidate",
-          "usage": {
-            "runtime": [
-              "journal:aakash-expression-gallery",
-              "cast-standardization:aakash"
-            ],
-            "review": [
-              "cast-standardization-manifest",
-              "learner-journal-preview"
-            ]
-          },
-          "orphan": "review-bound",
-          "styleVersion": "current-review-family",
-          "fileVersion": "v005",
-          "pose": "map tucked under one arm with the free hand pointing outward from a relaxed city-guide stance; right-three-quarter",
-          "angle": "right-three-quarter",
-          "expression": "happy",
-          "dimensions": {
-            "width": 898,
-            "height": 1751,
-            "bitDepth": 8,
-            "colorType": 6,
-            "transparency": "alpha-channel"
-          },
-          "runtimeUses": [
-            "journal:aakash-expression-gallery",
-            "cast-standardization:aakash"
-          ],
-          "reviewUses": [
-            "cast-standardization-manifest",
-            "learner-journal-preview"
-          ],
-          "decision": "keep",
-          "migrationStatus": "retained-review-candidate-not-approved",
-          "coverageStatus": "review-candidate"
-        },
-        {
-          "path": "/academy/art/characters/aakash/aakash__sprite__laughing__left-three-quarter__halfbody__v005.png",
-          "sha256": "b7b4fd1b259cc2ca36bbe9094a40e555741dc54098011252a819f98f0a040bdb",
-          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-          "privacy": "no-private-source-recorded",
-          "status": "review-candidate",
-          "usage": {
-            "runtime": [
-              "journal:aakash-expression-gallery",
-              "cast-standardization:aakash"
-            ],
-            "review": [
-              "cast-standardization-manifest",
-              "learner-journal-preview"
-            ]
-          },
-          "orphan": "review-bound",
-          "styleVersion": "current-review-family",
-          "fileVersion": "v005",
-          "pose": "off-contract sprite pose",
-          "angle": null,
-          "expression": null,
-          "dimensions": {
-            "width": 941,
-            "height": 1672,
-            "bitDepth": 8,
-            "colorType": 6,
-            "transparency": "alpha-channel"
-          },
-          "runtimeUses": [
-            "journal:aakash-expression-gallery",
-            "cast-standardization:aakash"
-          ],
-          "reviewUses": [
-            "cast-standardization-manifest",
-            "learner-journal-preview"
-          ],
-          "decision": "keep",
-          "migrationStatus": "retained-off-matrix-review-evidence",
-          "coverageStatus": "off-matrix"
-        },
-        {
-          "path": "/academy/art/characters/aakash/aakash__sprite__listening__right-three-quarter__v005.png",
-          "sha256": "d6880e06dcec20f38f16493d115097ece2eb850a7be5270be32d31bd24feb6e8",
-          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-          "privacy": "no-private-source-recorded",
-          "status": "review-candidate",
-          "usage": {
-            "runtime": [
-              "journal:aakash-expression-gallery",
-              "cast-standardization:aakash"
-            ],
-            "review": [
-              "cast-standardization-manifest",
-              "learner-journal-preview"
-            ]
-          },
-          "orphan": "review-bound",
-          "styleVersion": "current-review-family",
-          "fileVersion": "v005",
+          "fileVersion": "v010",
           "pose": "map tucked under one arm with the free hand pointing outward from a relaxed city-guide stance; right-three-quarter",
           "angle": "right-three-quarter",
           "expression": "encouraging-listening",
           "dimensions": {
-            "width": 1023,
-            "height": 1537,
+            "width": 1536,
+            "height": 2048,
             "bitDepth": 8,
             "colorType": 6,
             "transparency": "alpha-channel"
           },
           "runtimeUses": [
             "journal:aakash-expression-gallery",
+            "story:cast:aakash:encouraging-listening",
             "cast-standardization:aakash"
           ],
           "reviewUses": [
             "cast-standardization-manifest",
-            "learner-journal-preview"
+            "identity-lock"
           ],
           "decision": "keep",
-          "migrationStatus": "retained-review-candidate-not-approved",
-          "coverageStatus": "review-candidate"
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
         },
         {
-          "path": "/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v009.png",
-          "sha256": "cd74d5b4f3610a5d615bb4c097a63556a419555fed85933ae54ca3cddf186a65",
+          "path": "/academy/art/characters/aakash/aakash__happy-route-map-burgundy-hoodie__front-near-front__fullbody__v010.png",
+          "sha256": "234ba5d713a82edeaf05793c15580daabae869dc1daad6717665794d01565653",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:aakash-expression-gallery",
+              "story:cast:aakash:happy",
+              "cast-standardization:aakash"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v010",
+          "pose": "map tucked under one arm with the free hand pointing outward from a relaxed city-guide stance; front-near-front",
+          "angle": "front-near-front",
+          "expression": "happy",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:aakash-expression-gallery",
+            "story:cast:aakash:happy",
+            "cast-standardization:aakash"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/aakash/aakash__neutral-route-map-burgundy-hoodie__front-near-front__fullbody__v010.png",
+          "sha256": "06470d67f53292a4db5c91b949fb0ee48bf23d4cd916148cf8d5d69552a28c76",
           "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
           "status": "approved",
@@ -1666,19 +1549,24 @@
               "class:week-cast",
               "lesson-overview:roster",
               "world:person",
-              "lesson:l1-l01:cast"
+              "lesson:l1-l01:cast",
+              "story:cast:aakash",
+              "cast-standardization:aakash"
             ],
-            "review": []
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
           },
           "orphan": "active-runtime",
           "styleVersion": "current-review-family",
-          "fileVersion": "v009",
+          "fileVersion": "v010",
           "pose": "map tucked under one arm with the free hand pointing outward from a relaxed city-guide stance; front-near-front",
           "angle": "front-near-front",
           "expression": "neutral",
           "dimensions": {
-            "width": 1086,
-            "height": 1448,
+            "width": 1536,
+            "height": 2048,
             "bitDepth": 8,
             "colorType": 6,
             "transparency": "alpha-channel"
@@ -1689,118 +1577,128 @@
             "class:week-cast",
             "lesson-overview:roster",
             "world:person",
-            "lesson:l1-l01:cast"
+            "lesson:l1-l01:cast",
+            "story:cast:aakash",
+            "cast-standardization:aakash"
           ],
-          "reviewUses": [],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
           "decision": "keep",
           "migrationStatus": "approved-and-registered",
           "coverageStatus": "approved"
         },
         {
-          "path": "/academy/art/characters/aakash/aakash__sprite__surprised__right-three-quarter__halfbody__v005.png",
-          "sha256": "008eaea84946630f8434919120a57760813687743b574bee67f859e27b37d90a",
+          "path": "/academy/art/characters/aakash/aakash__sad-vulnerable-route-map-burgundy-hoodie__left-three-quarter__fullbody__v010.png",
+          "sha256": "55d280328131151264459aa6f4a9ecee127b41b961e8f9992a0fdd873522620f",
           "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
-          "status": "review-candidate",
+          "status": "approved",
           "usage": {
             "runtime": [
               "journal:aakash-expression-gallery",
+              "story:cast:aakash:sad-vulnerable",
               "cast-standardization:aakash"
             ],
             "review": [
               "cast-standardization-manifest",
-              "learner-journal-preview"
+              "identity-lock"
             ]
           },
-          "orphan": "review-bound",
+          "orphan": "active-runtime",
           "styleVersion": "current-review-family",
-          "fileVersion": "v005",
+          "fileVersion": "v010",
+          "pose": "map tucked under one arm with the free hand pointing outward from a relaxed city-guide stance; left-three-quarter",
+          "angle": "left-three-quarter",
+          "expression": "sad-vulnerable",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:aakash-expression-gallery",
+            "story:cast:aakash:sad-vulnerable",
+            "cast-standardization:aakash"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/aakash/aakash__surprised-shocked-route-map-burgundy-hoodie__right-three-quarter__fullbody__v010.png",
+          "sha256": "406b795d62070956a835b0047ceed2d2a474dbfb6dcb02973dbf1bbeaa027211",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:aakash-expression-gallery",
+              "story:cast:aakash:surprised-shocked",
+              "cast-standardization:aakash"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v010",
           "pose": "map tucked under one arm with the free hand pointing outward from a relaxed city-guide stance; right-three-quarter",
           "angle": "right-three-quarter",
           "expression": "surprised-shocked",
           "dimensions": {
-            "width": 947,
-            "height": 1661,
+            "width": 1536,
+            "height": 2048,
             "bitDepth": 8,
             "colorType": 6,
             "transparency": "alpha-channel"
           },
           "runtimeUses": [
             "journal:aakash-expression-gallery",
+            "story:cast:aakash:surprised-shocked",
             "cast-standardization:aakash"
           ],
           "reviewUses": [
             "cast-standardization-manifest",
-            "learner-journal-preview"
+            "identity-lock"
           ],
           "decision": "keep",
-          "migrationStatus": "retained-review-candidate-not-approved",
-          "coverageStatus": "review-candidate"
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
         },
         {
-          "path": "/academy/art/characters/aakash/aakash__sprite__thoughtful__front-near-front__v005.png",
-          "sha256": "38617e9adf93290f94077e14c1825531ed4585411180d96ede2532fe186f60b3",
+          "path": "/academy/art/characters/aakash/aakash__thoughtful-route-map-burgundy-hoodie__left-three-quarter__fullbody__v010.png",
+          "sha256": "9e2834e6e21404d57e5377c941afee3d2b7c69d21151122aa63d00d42b27849c",
           "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
-          "status": "review-candidate",
+          "status": "approved",
           "usage": {
             "runtime": [
               "journal:aakash-expression-gallery",
+              "story:cast:aakash:thoughtful",
               "cast-standardization:aakash"
             ],
             "review": [
               "cast-standardization-manifest",
-              "learner-journal-preview"
+              "identity-lock"
             ]
           },
-          "orphan": "review-bound",
+          "orphan": "active-runtime",
           "styleVersion": "current-review-family",
-          "fileVersion": "v005",
-          "pose": "map tucked under one arm with the free hand pointing outward from a relaxed city-guide stance; front-near-front",
-          "angle": "front-near-front",
+          "fileVersion": "v010",
+          "pose": "map tucked under one arm with the free hand pointing outward from a relaxed city-guide stance; left-three-quarter",
+          "angle": "left-three-quarter",
           "expression": "thoughtful",
           "dimensions": {
-            "width": 933,
-            "height": 1686,
-            "bitDepth": 8,
-            "colorType": 6,
-            "transparency": "alpha-channel"
-          },
-          "runtimeUses": [
-            "journal:aakash-expression-gallery",
-            "cast-standardization:aakash"
-          ],
-          "reviewUses": [
-            "cast-standardization-manifest",
-            "learner-journal-preview"
-          ],
-          "decision": "keep",
-          "migrationStatus": "retained-review-candidate-not-approved",
-          "coverageStatus": "review-candidate"
-        },
-        {
-          "path": "/academy/art/characters/aakash/aakash__standardized-determined__front-near-front__halfbody__v001.png",
-          "sha256": "b8d3c8639b183a1a7db36d7c6b4f17e1cdc6389fe5b239c74e2393e278acbd73",
-          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-          "privacy": "no-private-source-recorded",
-          "status": "review-candidate",
-          "usage": {
-            "runtime": [
-              "journal:aakash-expression-gallery",
-              "cast-standardization:aakash"
-            ],
-            "review": [
-              "cast-standardization-manifest",
-              "learner-journal-preview"
-            ]
-          },
-          "orphan": "review-bound",
-          "styleVersion": "current-review-family",
-          "fileVersion": "v001",
-          "pose": "off-contract standardized-determined pose",
-          "angle": null,
-          "expression": null,
-          "dimensions": {
             "width": 1536,
             "height": 2048,
             "bitDepth": 8,
@@ -1809,97 +1707,16 @@
           },
           "runtimeUses": [
             "journal:aakash-expression-gallery",
+            "story:cast:aakash:thoughtful",
             "cast-standardization:aakash"
           ],
           "reviewUses": [
             "cast-standardization-manifest",
-            "learner-journal-preview"
+            "identity-lock"
           ],
           "decision": "keep",
-          "migrationStatus": "retained-off-matrix-review-evidence",
-          "coverageStatus": "off-matrix"
-        },
-        {
-          "path": "/academy/art/characters/aakash/aakash__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
-          "sha256": "0aacde296b1f8abd300a872d2913df682ed6346e473892958e334bb3e969e166",
-          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-          "privacy": "no-private-source-recorded",
-          "status": "review-candidate",
-          "usage": {
-            "runtime": [
-              "journal:aakash-expression-gallery",
-              "cast-standardization:aakash"
-            ],
-            "review": [
-              "cast-standardization-manifest",
-              "learner-journal-preview"
-            ]
-          },
-          "orphan": "review-bound",
-          "styleVersion": "current-review-family",
-          "fileVersion": "v001",
-          "pose": "off-contract standardized-encouraging-listening pose",
-          "angle": null,
-          "expression": null,
-          "dimensions": {
-            "width": 1536,
-            "height": 2048,
-            "bitDepth": 8,
-            "colorType": 6,
-            "transparency": "alpha-channel"
-          },
-          "runtimeUses": [
-            "journal:aakash-expression-gallery",
-            "cast-standardization:aakash"
-          ],
-          "reviewUses": [
-            "cast-standardization-manifest",
-            "learner-journal-preview"
-          ],
-          "decision": "keep",
-          "migrationStatus": "retained-off-matrix-review-evidence",
-          "coverageStatus": "off-matrix"
-        },
-        {
-          "path": "/academy/art/characters/aakash/aakash__standardized-happy__front-near-front__halfbody__v001.png",
-          "sha256": "a887c568cf48cb9e31454d40c201c57e8699dde41d8f1eaec187f8ea6d4fb540",
-          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-          "privacy": "no-private-source-recorded",
-          "status": "review-candidate",
-          "usage": {
-            "runtime": [
-              "journal:aakash-expression-gallery",
-              "cast-standardization:aakash"
-            ],
-            "review": [
-              "cast-standardization-manifest",
-              "learner-journal-preview"
-            ]
-          },
-          "orphan": "review-bound",
-          "styleVersion": "current-review-family",
-          "fileVersion": "v001",
-          "pose": "off-contract standardized-happy pose",
-          "angle": null,
-          "expression": null,
-          "dimensions": {
-            "width": 1536,
-            "height": 2048,
-            "bitDepth": 8,
-            "colorType": 6,
-            "transparency": "alpha-channel"
-          },
-          "runtimeUses": [
-            "journal:aakash-expression-gallery",
-            "cast-standardization:aakash"
-          ],
-          "reviewUses": [
-            "cast-standardization-manifest",
-            "learner-journal-preview"
-          ],
-          "decision": "keep",
-          "migrationStatus": "retained-off-matrix-review-evidence",
-          "coverageStatus": "off-matrix"
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
         }
       ],
       "requiredVariants": [
@@ -1927,15 +1744,15 @@
         {
           "angle": "left-three-quarter",
           "expression": "thoughtful",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/aakash/aakash__thoughtful__left-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/aakash/aakash__thoughtful-route-map-burgundy-hoodie__left-three-quarter__fullbody__v010.png"
         },
         {
           "angle": "left-three-quarter",
           "expression": "determined",
-          "status": "review-candidate",
-          "path": "/academy/art/characters/aakash/aakash__sprite__determined__left-three-quarter__v005.png"
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/aakash/aakash__determined__left-three-quarter__halfbody__v001.png"
         },
         {
           "angle": "left-three-quarter",
@@ -1947,14 +1764,14 @@
         {
           "angle": "left-three-quarter",
           "expression": "sad-vulnerable",
-          "status": "review-candidate",
-          "path": "/academy/art/characters/aakash/aakash__sprite__concerned__left-three-quarter__halfbody__v005.png"
+          "status": "approved",
+          "path": "/academy/art/characters/aakash/aakash__sad-vulnerable-route-map-burgundy-hoodie__left-three-quarter__fullbody__v010.png"
         },
         {
           "angle": "front-near-front",
           "expression": "neutral",
           "status": "approved",
-          "path": "/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v009.png"
+          "path": "/academy/art/characters/aakash/aakash__neutral-route-map-burgundy-hoodie__front-near-front__fullbody__v010.png"
         },
         {
           "angle": "front-near-front",
@@ -1966,22 +1783,21 @@
         {
           "angle": "front-near-front",
           "expression": "happy",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/aakash/aakash__happy__front-near-front__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/aakash/aakash__happy-route-map-burgundy-hoodie__front-near-front__fullbody__v010.png"
         },
         {
           "angle": "front-near-front",
           "expression": "thoughtful",
-          "status": "review-candidate",
-          "path": "/academy/art/characters/aakash/aakash__sprite__thoughtful__front-near-front__v005.png"
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/aakash/aakash__thoughtful__front-near-front__halfbody__v001.png"
         },
         {
           "angle": "front-near-front",
           "expression": "determined",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/aakash/aakash__determined__front-near-front__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/aakash/aakash__determined-route-map-burgundy-hoodie__front-near-front__fullbody__v010.png"
         },
         {
           "angle": "front-near-front",
@@ -2007,14 +1823,15 @@
         {
           "angle": "right-three-quarter",
           "expression": "encouraging-listening",
-          "status": "review-candidate",
-          "path": "/academy/art/characters/aakash/aakash__sprite__listening__right-three-quarter__v005.png"
+          "status": "approved",
+          "path": "/academy/art/characters/aakash/aakash__encouraging-listening-route-map-burgundy-hoodie__right-three-quarter__fullbody__v010.png"
         },
         {
           "angle": "right-three-quarter",
           "expression": "happy",
-          "status": "review-candidate",
-          "path": "/academy/art/characters/aakash/aakash__sprite__happy__right-three-quarter__v005.png"
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/aakash/aakash__happy__right-three-quarter__halfbody__v001.png"
         },
         {
           "angle": "right-three-quarter",
@@ -2033,8 +1850,8 @@
         {
           "angle": "right-three-quarter",
           "expression": "surprised-shocked",
-          "status": "review-candidate",
-          "path": "/academy/art/characters/aakash/aakash__sprite__surprised__right-three-quarter__halfbody__v005.png"
+          "status": "approved",
+          "path": "/academy/art/characters/aakash/aakash__surprised-shocked-route-map-burgundy-hoodie__right-three-quarter__fullbody__v010.png"
         },
         {
           "angle": "right-three-quarter",
@@ -2068,10 +1885,10 @@
         },
         {
           "angle": "left-three-quarter",
-          "expression": "thoughtful",
+          "expression": "determined",
           "status": "missing",
           "path": null,
-          "plannedPath": "/academy/art/characters/aakash/aakash__thoughtful__left-three-quarter__halfbody__v001.png"
+          "plannedPath": "/academy/art/characters/aakash/aakash__determined__left-three-quarter__halfbody__v001.png"
         },
         {
           "angle": "left-three-quarter",
@@ -2089,17 +1906,10 @@
         },
         {
           "angle": "front-near-front",
-          "expression": "happy",
+          "expression": "thoughtful",
           "status": "missing",
           "path": null,
-          "plannedPath": "/academy/art/characters/aakash/aakash__happy__front-near-front__halfbody__v001.png"
-        },
-        {
-          "angle": "front-near-front",
-          "expression": "determined",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/aakash/aakash__determined__front-near-front__halfbody__v001.png"
+          "plannedPath": "/academy/art/characters/aakash/aakash__thoughtful__front-near-front__halfbody__v001.png"
         },
         {
           "angle": "front-near-front",
@@ -2121,6 +1931,13 @@
           "status": "missing",
           "path": null,
           "plannedPath": "/academy/art/characters/aakash/aakash__neutral__right-three-quarter__halfbody__v001.png"
+        },
+        {
+          "angle": "right-three-quarter",
+          "expression": "happy",
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/aakash/aakash__happy__right-three-quarter__halfbody__v001.png"
         },
         {
           "angle": "right-three-quarter",

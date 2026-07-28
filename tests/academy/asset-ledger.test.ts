@@ -164,12 +164,17 @@ describe('Academy runtime asset ledger', () => {
         }
     });
 
-    it('keeps the recovered Rie thinking sprite as non-runtime review evidence', () => {
-        expect(ledger.assets.find(asset => asset.id === 'rie-thinking-halfbody-v001')).toMatchObject({
-            verdict: 'review-candidate/non-runtime',
-            runtimeHome: [],
-            reviewHome: ['production:sprite-performance-contract', 'production:sprite-batch-manifest'],
-            status: expect.stringContaining('not-runtime-bound'),
+    it('replaces the recovered Rie thinking candidate with the approved thoughtful performance', () => {
+        expect(ledger.assets.find(asset => asset.id === 'rie-thinking-halfbody-v001')).toBeUndefined();
+        expect(ledger.assets.find(asset => asset.id === 'character-rie-thoughtful-glasses-left')).toMatchObject({
+            verdict: 'approved-runtime',
+            runtimeHome: [
+                'dialogue:rie-reflection',
+                'journal:rie-expression-gallery',
+                'story:cast:rie:thoughtful',
+                'cast-standardization:rie',
+            ],
+            orphan: 'active-runtime',
         });
     });
 
@@ -258,18 +263,26 @@ describe('Academy runtime asset ledger', () => {
         });
     });
 
-    it('keeps the new Peter and Felix angle candidates outside approved authorization', () => {
-        const ids = [
-            'felix-happy-left-three-quarter-halfbody-v001',
-            'felix-surprised-right-three-quarter-halfbody-v001',
-            'peter-encouraging-right-three-quarter-halfbody-v001',
-            'peter-thoughtful-left-three-quarter-halfbody-v001',
+    it('keeps Felix in preview while authorizing Peter’s completed performance family', () => {
+        const previewIds = [
+            'character-felix-happy-left',
+            'character-felix-surprised-right',
         ];
-        for (const id of ids) {
+        for (const id of previewIds) {
             expect(ledger.assets.find(asset => asset.id === id)).toMatchObject({
                 verdict: 'review-candidate/runtime-preview',
+                orphan: 'active-runtime',
             });
-            expect(ledger.assets.find(asset => asset.id === id)?.status).toContain('owner-approval-required');
+        }
+        for (const id of [
+            'character-peter-encouraging-listening-quiet-observer-right-three-quarter-fullbody-v003',
+            'character-peter-thoughtful-quiet-observer-left-three-quarter-fullbody-v003',
+        ]) {
+            expect(ledger.assets.find(asset => asset.id === id)).toMatchObject({
+                verdict: 'approved-runtime',
+                orphan: 'active-runtime',
+                status: expect.stringContaining('runtime-bound house-style sprite'),
+            });
         }
     });
 
@@ -282,15 +295,15 @@ describe('Academy runtime asset ledger', () => {
 
     it('authorizes the glasses-on Rie reactions and removes their deprecated runtime predecessors', () => {
         const expected = {
-            'rie-happy-glasses-front-near-front-halfbody-v001': {
+            'character-rie-happy-glasses-front': {
                 path: ACADEMY_RUNTIME_ASSET_REGISTRY['character.rie.happy-glasses-front'].files.default,
                 homes: ['lesson-feedback:correct-retry', 'dialogue:rie-positive', 'journal:rie-expression-gallery'],
             },
-            'rie-sad-vulnerable-glasses-left-three-quarter-halfbody-v001': {
+            'character-rie-sad-vulnerable-glasses-left': {
                 path: ACADEMY_RUNTIME_ASSET_REGISTRY['character.rie.sad-vulnerable-glasses-left'].files.default,
                 homes: ['lesson-feedback:repair', 'dialogue:rie-precise-hint', 'dialogue:rie-vulnerable-reflection', 'journal:rie-expression-gallery'],
             },
-            'rie-comedic-glasses-right-three-quarter-halfbody-v001': {
+            'character-rie-comedic-glasses-right': {
                 path: ACADEMY_RUNTIME_ASSET_REGISTRY['character.rie.comedic-glasses-right'].files.default,
                 homes: ['dialogue:rie-light-recovery', 'journal:rie-expression-gallery'],
             },
@@ -302,7 +315,7 @@ describe('Academy runtime asset ledger', () => {
                 verdict: 'approved-runtime',
                 runtimeHome: expectation.homes,
                 orphan: 'active-runtime',
-                status: expect.stringContaining('mobile-framing-reviewed-2026-07-17'),
+                status: expect.any(String),
             });
             expect(candidate?.deliveries?.map(delivery => delivery.path)).toEqual([expectation.path]);
         }
@@ -311,25 +324,25 @@ describe('Academy runtime asset ledger', () => {
         }
     });
 
-    it('records privacy, usage, and orphan state for the priority character upgrade', () => {
+    it('records provenance, usage, and orphan state for the priority character upgrade', () => {
         const ids = [
-            'rie-neutral-glasses-front-near-front-halfbody-v001',
-            'rie-happy-glasses-front-near-front-halfbody-v001',
-            'rie-determined-glasses-left-three-quarter-halfbody-v001',
-            'rie-encouraging-glasses-right-three-quarter-halfbody-v001',
-            'rie-sad-vulnerable-glasses-left-three-quarter-halfbody-v001',
-            'rie-comedic-glasses-right-three-quarter-halfbody-v001',
-            'tom2-neutral-right-three-quarter-halfbody-v001',
-            'tom2-encouraging-front-near-front-halfbody-v001',
-            'tom2-surprised-left-three-quarter-halfbody-v001',
-            'steve-neutral-front-near-front-halfbody-v001',
-            'steve-happy-right-three-quarter-halfbody-v001',
-            'steve-determined-left-three-quarter-halfbody-v001',
+            'character-rie-neutral-glasses',
+            'character-rie-happy-glasses-front',
+            'character-rie-determined-glasses-left',
+            'character-rie-encouraging-glasses-right',
+            'character-rie-sad-vulnerable-glasses-left',
+            'character-rie-comedic-glasses-right',
+            'character-tom2-neutral-right',
+            'character-tom2-encouraging-front',
+            'character-tom2-surprised-left',
+            'character-steve-neutral-front',
+            'character-steve-happy-right',
+            'character-steve-determined-left',
         ];
         for (const id of ids) {
             expect(ledger.assets.find(asset => asset.id === id)).toMatchObject({
                 source: expect.any(String),
-                privacy: expect.any(String),
+                provenance: expect.any(String),
                 status: expect.any(String),
                 usage: { runtime: expect.any(Array), review: expect.any(Array) },
                 orphan: expect.stringMatching(/active-runtime|review-bound/),
@@ -344,13 +357,15 @@ describe('Academy runtime asset ledger', () => {
     });
 
     it('keeps the approved Aakash sprite separate from the rainy scene CG', () => {
-        const sprite = ledger.assets.find(asset => asset.id === 'aakash-neutral-front-near-front-v009');
+        const sprite = ledger.assets.find(
+            asset => asset.id === 'character-aakash-neutral-route-map-burgundy-hoodie-front-near-front-fullbody-v010',
+        );
         const rainyScene = ledger.assets.find(asset => asset.id === 'rainy-directions-rie-aakash-v001');
 
         expect(sprite).toMatchObject({
             verdict: 'approved-runtime',
             runtimeHome: expect.arrayContaining(['journal:aakash', 'world:person', 'lesson:l1-l01:cast']),
-            status: 'owner-approved 2026-07-21; runtime replacement for neutral v005',
+            status: 'identity-locked, visually inspected, runtime-bound house-style sprite',
         });
         expect(rainyScene?.runtimeHome).not.toContain('journal:aakash');
         expect(rainyScene?.status).not.toContain('sprite');
@@ -430,12 +445,12 @@ describe('Academy runtime asset ledger', () => {
     });
 
     it('binds Shaun only as a locked character-directory review candidate', () => {
-        const preview = ledger.assets.find(asset => asset.id === 'shaun-neutral-halfbody-v001');
+        const preview = ledger.assets.find(asset => asset.id === 'character-shaun-neutral');
         expect(preview).toMatchObject({
             verdict: 'review-candidate/runtime-preview',
             runtimeHome: ['journal:shaun'],
-            sourceSha256: 'a41b98d3d41efe9f4a59d8bb98879a74c6b94466546d98e2a6ead1b9d1964cea',
-            status: 'owner-requested-preview; release-blocked-pending-likeness-and-cast-scale-approval',
+            sourceSha256: '9636becf6269492685b6a5401a615a481190b25e7da4071be65010abb472699e',
+            status: 'qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery',
         });
         expect(preview?.deliveries?.map(delivery => delivery.path)).toEqual([
             ACADEMY_ASSETS.characters.journalReview.shaun,

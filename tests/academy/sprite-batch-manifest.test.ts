@@ -51,8 +51,8 @@ describe('Academy sprite batch manifest', () => {
             character.currentAsset.status,
         ]));
 
-        expect(status.rie).toBe('approved-glasses-primary-performance-family');
-        expect(status.aakash).toBe('approved-neutral-runtime');
+        expect(status.rie).toBe('approved-performance-family');
+        expect(status.aakash).toBe('approved-performance-family');
         expect(status.peter).toBe('unapproved-performance-candidates');
         expect(status.felix).toBe('unapproved-performance-candidates');
         expect(status.shaun).toBe('unapproved-neutral-candidate');
@@ -62,7 +62,15 @@ describe('Academy sprite batch manifest', () => {
         expect(ACADEMY_SPRITE_BATCH_MANIFEST.characters.find(character => character.id === 'sophie')?.currentAsset.paths
             .every(assetPath => assetPath.endsWith('__v003.png'))).toBe(true);
         expect(ACADEMY_SPRITE_BATCH_MANIFEST.characters.find(character => character.id === 'aakash')?.currentAsset.paths)
-            .toEqual(['/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v009.png']);
+            .toEqual([
+                '/academy/art/characters/aakash/aakash__neutral-route-map-burgundy-hoodie__front-near-front__fullbody__v010.png',
+                '/academy/art/characters/aakash/aakash__encouraging-listening-route-map-burgundy-hoodie__right-three-quarter__fullbody__v010.png',
+                '/academy/art/characters/aakash/aakash__happy-route-map-burgundy-hoodie__front-near-front__fullbody__v010.png',
+                '/academy/art/characters/aakash/aakash__thoughtful-route-map-burgundy-hoodie__left-three-quarter__fullbody__v010.png',
+                '/academy/art/characters/aakash/aakash__determined-route-map-burgundy-hoodie__front-near-front__fullbody__v010.png',
+                '/academy/art/characters/aakash/aakash__surprised-shocked-route-map-burgundy-hoodie__right-three-quarter__fullbody__v010.png',
+                '/academy/art/characters/aakash/aakash__sad-vulnerable-route-map-burgundy-hoodie__left-three-quarter__fullbody__v010.png',
+            ]);
         expect(ACADEMY_SPRITE_BATCH_MANIFEST.approvalPolicy).toMatchObject({
             generationDoesNotApprove: true,
             bindOnlyApprovedAssets: true,
@@ -70,14 +78,18 @@ describe('Academy sprite batch manifest', () => {
         });
     });
 
-    it('keeps the recovered Rie thinking preview in the offline manifest without approving it', () => {
+    it('keeps Rie current metadata aligned with the complete runtime family', () => {
         const rie = ACADEMY_SPRITE_BATCH_MANIFEST.characters.find(character => character.id === 'rie');
 
         expect(rie?.currentAsset).toMatchObject({
-            status: 'approved-glasses-primary-performance-family',
-            paths: expect.arrayContaining(['/academy/art/characters/rie/rie__thinking__halfbody__v001.png']),
+            status: 'approved-performance-family',
+            paths: expect.arrayContaining([
+                '/academy/art/characters/rie/rie__thoughtful-glasses__left-three-quarter__halfbody__v002.png',
+                '/academy/art/characters/rie/rie__surprised-shocked-glasses__right-three-quarter__halfbody__v002.png',
+            ]),
         });
-        expect(rie?.currentAsset.note).toMatch(/thinking remains non-runtime review evidence/i);
+        expect(rie?.currentAsset.paths).toHaveLength(8);
+        expect(rie?.currentAsset.note).toMatch(/seven-expression.*one extra comedic reaction/i);
     });
 
     it('prepares an exact three-angle coverage batch without treating generation as approval', () => {

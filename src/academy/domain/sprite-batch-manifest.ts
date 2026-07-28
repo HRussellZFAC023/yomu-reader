@@ -9,6 +9,7 @@ import {
 } from './sprite-performance-contract';
 
 export type SpriteBatchAssetStatus =
+    | 'approved-performance-family'
     | 'approved-runtime-neutral'
     | 'approved-neutral-with-unapproved-expression-candidates'
     | 'approved-performance-trio-with-unapproved-legacy-expression-candidates'

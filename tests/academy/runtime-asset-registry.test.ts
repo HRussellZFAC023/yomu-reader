@@ -78,7 +78,7 @@ describe('Academy runtime asset registry', () => {
 
     it('wires only likeness-cleared cast performances into the approved sprite map', () => {
         expect(ACADEMY_APPROVED_CHARACTER_SPRITES).toEqual({
-            aakash: '/academy/art/characters/aakash/aakash__sprite__neutral__front-near-front__v009.png',
+            aakash: '/academy/art/characters/aakash/aakash__neutral-route-map-burgundy-hoodie__front-near-front__fullbody__v010.png',
             xingyuNeutral: '/academy/art/characters/xingyu/xingyu__neutral-short-hair-round-glasses__front-near-front__fullbody__v002.png',
             xingyuListening: '/academy/art/characters/xingyu/xingyu__encouraging-listening-short-hair-round-glasses__right-three-quarter__fullbody__v002.png',
             mikaSound: '/academy/art/characters/mika/mika__encouraging-listening-headphones__right-three-quarter__fullbody__v002.png',
@@ -110,7 +110,8 @@ describe('Academy runtime asset registry', () => {
             steve: ACADEMY_APPROVED_CHARACTER_SPRITES.steve,
         });
         for (const id of [
-            'character.aakash.neutral',
+            'character.aakash.neutral-route-map-burgundy-hoodie-front-near-front-fullbody-v010',
+            'character.aakash.encouraging-listening-route-map-burgundy-hoodie-right-three-quarter-fullbody-v010',
             'character.xingyu.listening',
             'character.mika.encouraging-listening-headphones-right-three-quarter-fullbody-v002',
             'character.sophie.neutral-front-near-front-halfbody-v004',
@@ -144,6 +145,7 @@ describe('Academy runtime asset registry', () => {
         expect('character.rose.neutral' in ACADEMY_RUNTIME_ASSET_REGISTRY).toBe(false);
         expect('character.jodi.neutral' in ACADEMY_RUNTIME_ASSET_REGISTRY).toBe(false);
         expect('character.nanako.neutral' in ACADEMY_RUNTIME_ASSET_REGISTRY).toBe(false);
+        expect('character.aakash.neutral' in ACADEMY_RUNTIME_ASSET_REGISTRY).toBe(false);
         expect(ACADEMY_RUNTIME_ASSET_REGISTRY['character.felix.neutral'].status).toBe('review-preview');
         expect(ACADEMY_RUNTIME_ASSET_REGISTRY['character.tom2.neutral-right'].status).toBe('review-preview');
     });
