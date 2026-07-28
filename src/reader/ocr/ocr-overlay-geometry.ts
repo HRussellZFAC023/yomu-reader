@@ -189,6 +189,8 @@ interface OcrLineLayoutInput {
     fontScale: number;
     /** The face the lines are set in, read once for the whole layer. See ocrLayerTypeface(). */
     typeface?: string;
+    /** The transform the layer itself carries. See paintedElementBox(). */
+    layerTransform?: OcrLinearTransform | null;
 }
 
 // The single place an OCR line element is sized and placed. Both the reader's image
@@ -216,7 +218,7 @@ function layoutOcrLineElement(element: HTMLElement, input: OcrLineLayoutInput): 
         box.height,
         vertical,
         input.fontScale,
-        measureOcrLineExtent(element, textElement, vertical, input.typeface ?? ocrLayerTypeface(element)),
+        measureOcrLineExtent(element, textElement, vertical, input.typeface ?? ocrLayerTypeface(element), input.layerTransform),
     );
     element.style.fontSize = `${fontSize}px`;
     element.dataset.hasFuri = String(hasFurigana);
@@ -224,7 +226,7 @@ function layoutOcrLineElement(element: HTMLElement, input: OcrLineLayoutInput): 
     // The padding has to be on the element before the text is measured: it drives the
     // line box the re-typeset glyphs lay out inside.
     applyOcrLinePadding(element, padding);
-    const contentRect = textElement.getBoundingClientRect();
+    const content = paintedElementBox(textElement, input.layerTransform);
     const placed = ocrLineFrame({
         text: input.text,
         box,
@@ -232,8 +234,8 @@ function layoutOcrLineElement(element: HTMLElement, input: OcrLineLayoutInput): 
         vertical,
         hasFurigana,
         fontSize,
-        contentWidth: contentRect.width,
-        contentHeight: contentRect.height,
+        contentWidth: content.width,
+        contentHeight: content.height,
     });
     element.style.left = `${placed.left}px`;
     element.style.top = `${placed.top}px`;
@@ -246,7 +248,12 @@ function layoutOcrLineElement(element: HTMLElement, input: OcrLineLayoutInput): 
 // fraction of the rendered frame (data-box-*), so the same markup re-fits itself
 // against whatever the frame currently measures — a scrolled image in the reader, a
 // resized window in the gaming overlay.
-export function layoutOcrOverlayLines(layer: ParentNode, frame: OcrOverlayFrame, fontScale: number): void {
+export function layoutOcrOverlayLines(
+    layer: ParentNode,
+    frame: OcrOverlayFrame,
+    fontScale: number,
+    layerTransform: OcrLinearTransform | null = null,
+): void {
     const lines = layer.querySelectorAll<HTMLElement>('.jpdb-ocr-line');
     const typeface = lines.length > 0 ? ocrLayerTypeface(lines[0]) : '';
     lines.forEach(element => {
@@ -262,6 +269,7 @@ export function layoutOcrOverlayLines(layer: ParentNode, frame: OcrOverlayFrame,
             vertical: element.dataset.vertical === 'true',
             fontScale,
             typeface,
+            layerTransform,
         });
     });
 }
@@ -320,20 +328,36 @@ function measureOcrLineExtent(
     textElement: HTMLElement,
     vertical: boolean,
     typeface: string,
+    layerTransform: OcrLinearTransform | null | undefined,
 ): OcrTextMeasurement | undefined {
     const signature = `${vertical ? 'vertical' : 'horizontal'}|${typeface}|${textElement.innerHTML}`;
     const remembered = rememberedLineExtents.get(line);
     if (remembered?.signature === signature) return remembered.measurement;
     line.style.fontSize = `${OCR_FIT_MEASURE_PX}px`;
-    const length = axisLength(textElement.getBoundingClientRect(), vertical);
+    const length = axisLength(paintedElementBox(textElement, layerTransform), vertical);
     if (!(length > 0)) return undefined;
     const measurement = { fontSize: OCR_FIT_MEASURE_PX, length };
     rememberedLineExtents.set(line, { signature, measurement });
     return measurement;
 }
 
-function axisLength(rect: DOMRect, vertical: boolean): number {
-    return vertical ? rect.height : rect.width;
+function axisLength(box: OcrLayoutSize, vertical: boolean): number {
+    return vertical ? box.height : box.width;
+}
+
+// How big a line's type actually is, in the layer's own space.
+//
+// A23.1, one level down: once the layer carries the surface's transform, every rect read
+// INSIDE it is a bounding box too — at 90 degrees a line's rect reports its height as its
+// width, which sized the widest line to the whole layer and shoved it against the edge.
+// The layer's transform is known exactly, so the box is taken back out of its bounding box
+// the same way the layer's own was. With no transform the arithmetic is the identity and
+// the rect is returned to the last bit, which is what keeps untransformed surfaces still.
+function paintedElementBox(element: HTMLElement, layerTransform: OcrLinearTransform | null | undefined): OcrLayoutSize {
+    const rect = element.getBoundingClientRect();
+    if (!layerTransform) return { width: rect.width, height: rect.height };
+    return untransformedBoxSize(rect, layerTransform, { width: element.offsetWidth, height: element.offsetHeight })
+        ?? { width: rect.width, height: rect.height };
 }
 
 function applyOcrLinePadding(element: HTMLElement, padding: OcrLinePadding): void {
@@ -346,10 +370,23 @@ function clampNumber(value: number, min: number, max: number): number {
     return Math.min(max, Math.max(min, value));
 }
 
+/**
+ * The part of a rect this module reads. DOMRect satisfies it, and so does the
+ * untransformed border box recovered by ocrOverlayLayerPlacement — which is the box the
+ * frame math has to run in once the layer carries the surface's own transform.
+ */
+export interface OcrSurfaceRect {
+    left: number;
+    top: number;
+    bottom: number;
+    width: number;
+    height: number;
+}
+
 export interface OcrPaintedImage {
     image: HTMLImageElement;
     /** Border-box rect of the element showing the picture. */
-    rect: DOMRect;
+    rect: OcrSurfaceRect;
     style: CSSStyleDeclaration;
     objectFit: string;
     objectPosition: string;
@@ -378,7 +415,7 @@ export function paintedImageFrame(input: OcrPaintedImage): OcrOverlayFrame {
     };
 }
 
-export function imageContentBox(image: HTMLImageElement, rect: DOMRect, style: CSSStyleDeclaration): OcrRect {
+export function imageContentBox(image: HTMLImageElement, rect: OcrSurfaceRect, style: CSSStyleDeclaration): OcrRect {
     const scaleX = rectScale(rect.width, image.offsetWidth);
     const scaleY = rectScale(rect.height, image.offsetHeight);
     const left = scaledBoxEdge(style.borderLeftWidth, scaleX) + scaledBoxEdge(style.paddingLeft, scaleX);
@@ -522,4 +559,291 @@ function isHorizontalPositionKeyword(token: string | undefined): token is string
 
 function isVerticalPositionKeyword(token: string | undefined): token is string {
     return token === 'top' || token === 'bottom';
+}
+
+// ─── The surface's own transform ─────────────────────────────────────────────────────
+//
+// A23.1. getBoundingClientRect answers the AXIS-ALIGNED BOUNDING BOX of a transformed
+// element, not the box the picture is painted in. For an image under rotate(-3deg) that
+// box measured 444.25 x 609.66 against a layout box of 414 x 589 — inflated by 1.073 in x
+// and 1.035 in y, so laying lines out linearly inside it stretched the whole grid
+// ANISOTROPICALLY and walked each reading off its glyphs (~20px on a 30px column).
+//
+// The layer is therefore sized as the surface's UNTRANSFORMED border box and given the
+// surface's own transform to carry, so line geometry stays in the one space OCR boxes were
+// ever expressed in — fractions of the painted picture — and the compositor rotates the
+// finished layer exactly as it rotates the picture. The alternative was mounting the layer
+// inside the transformed element to inherit the transform for free, which this codebase
+// cannot do: an <img> takes no children, so it would mean wrapping host DOM on
+// BookWalker/MangaFire (clipping, stacking and scroll containers all change under the
+// wrapper), and the canvas/background/video paths overlay a synthesized <img> appended to
+// document.body that has no host parent to mount into at all.
+//
+// Only the linear part of the transform is read. The translation is recovered from the
+// measured rect below, which is what makes this correct through scroll containers, sticky
+// and fixed ancestors, and nested transforms without reimplementing any of it.
+export interface OcrLinearTransform {
+    a: number;
+    b: number;
+    c: number;
+    d: number;
+}
+
+interface OcrLayoutSize {
+    width: number;
+    height: number;
+}
+
+export interface OcrLayerPlacement {
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+    /** Value for the layer's `transform`; '' when the layer must stay axis-aligned. */
+    transform: string;
+    /**
+     * The transform the layer ends up carrying, or null when it carries none. Line layout
+     * needs it as well: every rect measured inside a transformed layer is a bounding box.
+     */
+    linear: OcrLinearTransform | null;
+}
+
+const IDENTITY_TRANSFORM: OcrLinearTransform = { a: 1, b: 0, c: 0, d: 1 };
+const TRANSFORM_EPSILON = 1e-6;
+// Below this the bounding box stops carrying two independent extents (at 45 degrees both
+// extents are the same sum of the two sides), so the box cannot be inverted and the
+// element's own layout box has to answer instead.
+const MIN_INVERTIBLE_DETERMINANT = 0.05;
+// The bounding box of a rotated or skewed box is larger than the box on at least one axis,
+// which is the whole defect — so a rect that agrees with the layout box to within a pixel
+// of rounding is evidence enough that nothing above the element rotates it, and the
+// ancestor walk can be skipped on the hot path.
+const LAYOUT_SIZE_AGREEMENT_PX = 1;
+
+/**
+ * The transform between the surface's own box and the space the OCR layer is positioned
+ * in, or null when there is nothing to apply.
+ *
+ * `mountParent` is where the layer is appended: the layer already inherits everything
+ * above that, so counting it again would transform the layer twice.
+ */
+export function composedOcrSurfaceTransform(
+    element: HTMLElement,
+    mountParent: Element | null,
+    rect: OcrSurfaceRect,
+): OcrLinearTransform | null {
+    const view = element.ownerDocument.defaultView;
+    if (!view) return null;
+    const own = parseCssTransformLinear(view.getComputedStyle(element).transform);
+    if (own && isIdentityTransform(own) && agreesWithLayoutBox(rect, elementLayoutSize(element))) return null;
+    const stop = mountParent?.contains(element) ? mountParent : element.ownerDocument.body;
+    let composed = own;
+    for (let node = element.parentElement; node && node !== stop && composed; node = node.parentElement) {
+        composed = multiplyTransforms(parseCssTransformLinear(view.getComputedStyle(node).transform), composed);
+    }
+    return composed && !isIdentityTransform(composed) ? composed : null;
+}
+
+/**
+ * Where the OCR layer goes, and what transform it carries.
+ *
+ * An untransformed surface — every BookWalker page, MangaFire image and paused YouTube
+ * frame — returns the measured rect verbatim and no transform, so nothing on those
+ * surfaces moves. An upright scale or translation is left on that same path deliberately:
+ * its bounding box IS the painted box, so the shipped arithmetic is already right there
+ * and re-deriving it would only introduce rounding.
+ */
+export function ocrOverlayLayerPlacement(
+    rect: OcrSurfaceRect,
+    linear: OcrLinearTransform | null,
+    layout: OcrLayoutSize,
+): OcrLayerPlacement {
+    const axisAligned = {
+        left: rect.left,
+        top: rect.top,
+        width: rect.width,
+        height: rect.height,
+        transform: '',
+        linear: null,
+    };
+    if (!linear || isUprightTransform(linear)) return axisAligned;
+    const size = untransformedBoxSize(rect, linear, layout);
+    if (!size) return axisAligned;
+    const { a, b, c, d } = linear;
+    const spanX = a * size.width;
+    const spanY = c * size.height;
+    return {
+        // The rect's origin is the least corner of the transformed box, so the box's own
+        // origin sits back along whichever corners the transform pushed out first.
+        left: rect.left - Math.min(0, spanX, spanY, spanX + spanY),
+        top: rect.top - Math.min(0, b * size.width, d * size.height, b * size.width + d * size.height),
+        width: size.width,
+        height: size.height,
+        transform: `matrix(${a}, ${b}, ${c}, ${d}, 0, 0)`,
+        linear,
+    };
+}
+
+// The measured bounding box carries the box it came from: its extents are
+// |a|w + |c|h and |b|w + |d|h, two equations in the two sides. Solving them is better
+// than reading offsetWidth/offsetHeight, which is rounded to whole pixels and answers in
+// unzoomed units — this inversion is exact to the rect and stays in the rect's own units,
+// so a page zoom under a rotation comes out right as well.
+function untransformedBoxSize(
+    rect: OcrSurfaceRect,
+    linear: OcrLinearTransform,
+    layout: OcrLayoutSize,
+): OcrLayoutSize | null {
+    const a = Math.abs(linear.a);
+    const b = Math.abs(linear.b);
+    const c = Math.abs(linear.c);
+    const d = Math.abs(linear.d);
+    const determinant = a * d - c * b;
+    if (Math.abs(determinant) >= MIN_INVERTIBLE_DETERMINANT) {
+        const width = (d * rect.width - c * rect.height) / determinant;
+        const height = (a * rect.height - b * rect.width) / determinant;
+        if (width > 0 && height > 0) return { width, height };
+    }
+    return layout.width > 0 && layout.height > 0 ? layout : null;
+}
+
+function elementLayoutSize(element: HTMLElement): OcrLayoutSize {
+    return { width: element.offsetWidth, height: element.offsetHeight };
+}
+
+function agreesWithLayoutBox(rect: OcrSurfaceRect, layout: OcrLayoutSize): boolean {
+    if (!(layout.width > 0) || !(layout.height > 0)) return true;
+    return Math.abs(rect.width - layout.width) <= LAYOUT_SIZE_AGREEMENT_PX
+        && Math.abs(rect.height - layout.height) <= LAYOUT_SIZE_AGREEMENT_PX;
+}
+
+function isIdentityTransform(linear: OcrLinearTransform): boolean {
+    return Math.abs(linear.a - 1) < TRANSFORM_EPSILON
+        && Math.abs(linear.d - 1) < TRANSFORM_EPSILON
+        && Math.abs(linear.b) < TRANSFORM_EPSILON
+        && Math.abs(linear.c) < TRANSFORM_EPSILON;
+}
+
+// Upright: axes still map to axes, the same way round. A flip counts as rotated — its
+// bounding box is the right size but the picture inside it is mirrored, so lines have to
+// be mirrored with it to stay on their glyphs.
+function isUprightTransform(linear: OcrLinearTransform): boolean {
+    return Math.abs(linear.b) < TRANSFORM_EPSILON
+        && Math.abs(linear.c) < TRANSFORM_EPSILON
+        && linear.a > 0
+        && linear.d > 0;
+}
+
+function multiplyTransforms(
+    outer: OcrLinearTransform | null,
+    inner: OcrLinearTransform,
+): OcrLinearTransform | null {
+    if (!outer) return null;
+    return {
+        a: outer.a * inner.a + outer.c * inner.b,
+        b: outer.b * inner.a + outer.d * inner.b,
+        c: outer.a * inner.c + outer.c * inner.d,
+        d: outer.b * inner.c + outer.d * inner.d,
+    };
+}
+
+/**
+ * The linear part of a computed `transform`, or null for anything a 2D placement cannot
+ * honestly represent (perspective, out-of-plane rotation) — those keep the shipped
+ * axis-aligned behaviour rather than a guessed projection.
+ *
+ * Real engines always answer in matrix form. The function list is parsed because jsdom
+ * hands back the authored string, and because a userscript can be running against an
+ * engine that has not normalized it yet.
+ */
+export function parseCssTransformLinear(value: string): OcrLinearTransform | null {
+    const trimmed = value.trim();
+    if (!trimmed || trimmed === 'none') return IDENTITY_TRANSFORM;
+    let composed = IDENTITY_TRANSFORM;
+    for (const [name, args] of transformFunctions(trimmed)) {
+        const step = transformFunctionLinear(name, args);
+        if (!step) return null;
+        composed = multiplyTransforms(composed, step) ?? IDENTITY_TRANSFORM;
+    }
+    return composed;
+}
+
+function transformFunctions(value: string): Array<[string, string[]]> {
+    const functions: Array<[string, string[]]> = [];
+    const pattern = /([a-zA-Z0-9]+)\(([^)]*)\)/g;
+    for (let match = pattern.exec(value); match; match = pattern.exec(value)) {
+        functions.push([match[1].toLowerCase(), match[2].split(',').map(part => part.trim())]);
+    }
+    return functions;
+}
+
+function transformFunctionLinear(name: string, args: Array<number | string>): OcrLinearTransform | null {
+    const numbers = args.map(arg => Number.parseFloat(String(arg)));
+    switch (name) {
+        case 'matrix':
+            return numbers.length >= 4 && numbers.slice(0, 4).every(Number.isFinite)
+                ? { a: numbers[0], b: numbers[1], c: numbers[2], d: numbers[3] }
+                : null;
+        case 'matrix3d':
+            return flatMatrix3dLinear(numbers);
+        // Translation moves the box without reshaping it, and the move is already in the
+        // measured rect.
+        case 'translate':
+        case 'translatex':
+        case 'translatey':
+        case 'translatez':
+        case 'translate3d':
+        case 'none':
+            return IDENTITY_TRANSFORM;
+        case 'scale':
+        case 'scale3d': {
+            const scaleX = Number.isFinite(numbers[0]) ? numbers[0] : 1;
+            const scaleY = Number.isFinite(numbers[1]) ? numbers[1] : scaleX;
+            return { a: scaleX, b: 0, c: 0, d: scaleY };
+        }
+        case 'scalex':
+            return { a: numbers[0], b: 0, c: 0, d: 1 };
+        case 'scaley':
+            return { a: 1, b: 0, c: 0, d: numbers[0] };
+        case 'rotate':
+        case 'rotatez': {
+            const radians = cssAngleRadians(String(args[0] ?? ''));
+            return radians === null ? null : {
+                a: Math.cos(radians),
+                b: Math.sin(radians),
+                c: -Math.sin(radians),
+                d: Math.cos(radians),
+            };
+        }
+        case 'skew':
+        case 'skewx':
+        case 'skewy': {
+            const first = cssAngleRadians(String(args[0] ?? '0deg'));
+            const second = args.length > 1 ? cssAngleRadians(String(args[1])) : 0;
+            if (first === null || second === null) return null;
+            if (name === 'skewy') return { a: 1, b: Math.tan(first), c: 0, d: 1 };
+            return { a: 1, b: Math.tan(second ?? 0), c: Math.tan(first), d: 1 };
+        }
+        default:
+            return null;
+    }
+}
+
+// A matrix3d is usable exactly when it is a 2D affine matrix wearing four rows: no
+// out-of-plane term, no perspective.
+function flatMatrix3dLinear(numbers: number[]): OcrLinearTransform | null {
+    if (numbers.length < 16 || !numbers.every(Number.isFinite)) return null;
+    const flat = [2, 3, 6, 7, 8, 9, 11, 14].every(index => Math.abs(numbers[index]) < TRANSFORM_EPSILON)
+        && Math.abs(numbers[10] - 1) < TRANSFORM_EPSILON
+        && Math.abs(numbers[15] - 1) < TRANSFORM_EPSILON;
+    return flat ? { a: numbers[0], b: numbers[1], c: numbers[4], d: numbers[5] } : null;
+}
+
+function cssAngleRadians(value: string): number | null {
+    const amount = Number.parseFloat(value);
+    if (!Number.isFinite(amount)) return null;
+    if (value.endsWith('rad')) return amount;
+    if (value.endsWith('turn')) return amount * 2 * Math.PI;
+    if (value.endsWith('grad')) return amount * Math.PI / 200;
+    return amount * Math.PI / 180;
 }

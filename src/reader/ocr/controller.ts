@@ -12,7 +12,18 @@ import {
     offsetOcrResult,
     splitImageIntoPageColumns,
 } from './image-preprocess';
-import { fittedObjectSize, imageContentBox, layoutOcrOverlayLines, objectPositionOffset, paintedImageFrame, type OcrOverlayFrame } from './ocr-overlay-geometry';
+import {
+    composedOcrSurfaceTransform,
+    fittedObjectSize,
+    imageContentBox,
+    layoutOcrOverlayLines,
+    objectPositionOffset,
+    ocrOverlayLayerPlacement,
+    paintedImageFrame,
+    type OcrLayerPlacement,
+    type OcrOverlayFrame,
+    type OcrSurfaceRect,
+} from './ocr-overlay-geometry';
 import { isOcrProviderConfigured, ocrRecognizer, requestBlob, type OcrRecognizer } from './ocr-providers';
 import { imageCacheKey, isOcrRequestTimeout, localOcrEndpointUrl, ocrAttemptTimeoutMs } from './ocr-shared';
 import { normalizeOcrRenderedText } from './rendered-text';
@@ -3274,14 +3285,44 @@ export class ImageOcrController {
         state.overlay.hidden = !visible;
         setOcrOverlayAccessibility(state.overlay, visible);
         if (!visible) return;
-        setOcrArtifactPosition(state.overlay, rect.left, rect.top);
-        state.overlay.style.width = `${rect.width}px`;
-        state.overlay.style.height = `${rect.height}px`;
+        // A23.1. The layer takes the surface's own transform and is sized as the box that
+        // transform is applied TO, so lines keep being placed in the space OCR boxes are
+        // expressed in. An untransformed surface returns the measured rect unchanged.
+        const placement = this.ocrLayerPlacement(image, rect, state.overlay);
+        setOcrArtifactPosition(state.overlay, placement.left, placement.top);
+        state.overlay.style.width = `${placement.width}px`;
+        state.overlay.style.height = `${placement.height}px`;
+        setOcrLayerTransform(state.overlay, placement.transform);
         layoutOcrOverlayLines(
             state.overlay,
-            this.renderedOcrImageFrameForState(image, rect, state.result),
+            this.renderedOcrImageFrameForState(image, ocrPlacedSurfaceRect(rect, placement), state.result),
             this.options.getSettings().ocrFontScale,
+            placement.linear,
         );
+    }
+
+    private ocrLayerPlacement(image: HTMLImageElement, rect: DOMRect, overlay: HTMLElement): OcrLayerPlacement {
+        const surface = this.ocrLayerTransformSurface(image);
+        const linear = surface ? composedOcrSurfaceTransform(surface, overlay.parentElement, rect) : null;
+        return ocrOverlayLayerPlacement(rect, linear, { width: surface?.offsetWidth ?? 0, height: surface?.offsetHeight ?? 0 });
+    }
+
+    // Whose transform the layer has to carry: whatever is PAINTING the pixels the lines sit
+    // on. For a canvas or background surface that is the host element, not the frame image
+    // the capture went through — those are opacity:0 and exist only to carry pixels, and the
+    // OCR boxes come back in the surface's own unrotated space, which is exactly the space a
+    // rotated layer maps from. A paused video's frame image IS visible, and it is
+    // axis-aligned wherever it was put, so the layer follows it and stays in step.
+    //
+    // The exception is a canvas frame measured against a REGION of its canvas: that rect is
+    // a sub-box picked out by fractions rather than an element's own box, and taking a box
+    // back out of a bounding box only says anything about a whole element box.
+    private ocrLayerTransformSurface(image: HTMLImageElement): HTMLElement | null {
+        const canvas = this.canvasFrameSources.get(image);
+        if (canvas) {
+            return this.canvasFrameRegionFractions.has(image) || this.canvasFrameStaticRects.has(image) ? null : canvas;
+        }
+        return this.backgroundFrameSources.get(image) ?? image;
     }
 
     private readerRasterSourceRect(image: HTMLImageElement): DOMRect | undefined {
@@ -3299,7 +3340,7 @@ export class ImageOcrController {
     // furniture at the true viewport bottom under a reader raster surface. Player
     // chrome inside the page never qualifies — the OCR layer paints above it, and
     // a video's own subtitles live in exactly that bottom strip.
-    private renderedOcrImageFrameForState(image: HTMLImageElement, rect: DOMRect, result: OcrResult | undefined): OcrRenderedImageFrame {
+    private renderedOcrImageFrameForState(image: HTMLImageElement, rect: OcrSurfaceRect, result: OcrResult | undefined): OcrRenderedImageFrame {
         const frame = this.canvasFrameSources.has(image)
             ? renderedCanvasReaderFrame(rect)
             : renderedOcrImageFrame(image, rect, result);
@@ -3830,7 +3871,7 @@ function setOcrLinePosition(element: HTMLElement, result: OcrResult, line: OcrLi
     element.style.height = `${100 * line.box.height / result.height}%`;
 }
 
-function renderedOcrImageFrame(image: HTMLImageElement, rect: DOMRect, result: OcrResult | undefined): OcrRenderedImageFrame {
+function renderedOcrImageFrame(image: HTMLImageElement, rect: OcrSurfaceRect, result: OcrResult | undefined): OcrRenderedImageFrame {
     const pausedVideoFrame = renderedPausedVideoFrame(image, rect);
     if (pausedVideoFrame) return pausedVideoFrame;
     const style = getComputedStyle(image);
@@ -3847,7 +3888,7 @@ function renderedOcrImageFrame(image: HTMLImageElement, rect: DOMRect, result: O
     });
 }
 
-function renderedPausedVideoFrame(image: HTMLImageElement, rect: DOMRect): OcrRenderedImageFrame | null {
+function renderedPausedVideoFrame(image: HTMLImageElement, rect: OcrSurfaceRect): OcrRenderedImageFrame | null {
     if (image.dataset.yomuVideoFrame !== 'true') return null;
     return {
         imageLeft: 0,
@@ -3857,7 +3898,7 @@ function renderedPausedVideoFrame(image: HTMLImageElement, rect: DOMRect): OcrRe
     };
 }
 
-function renderedCanvasReaderFrame(rect: DOMRect): OcrRenderedImageFrame {
+function renderedCanvasReaderFrame(rect: OcrSurfaceRect): OcrRenderedImageFrame {
     return {
         imageLeft: 0,
         imageTop: 0,
@@ -3868,7 +3909,7 @@ function renderedCanvasReaderFrame(rect: DOMRect): OcrRenderedImageFrame {
 
 function ocrSourceDimensions(
     image: HTMLImageElement,
-    rect: DOMRect,
+    rect: OcrSurfaceRect,
     content: OcrRect,
     result: OcrResult | undefined,
 ): { sourceWidth: number; sourceHeight: number } {
@@ -4544,6 +4585,29 @@ function positionOcrImageStatus(status: HTMLElement, rect: DOMRect): void {
     const maxWidth = Math.max(96, Math.min(Math.max(96, rect.width - 24), 320));
     setOcrArtifactPosition(status, Math.max(8, rect.left + 12), Math.max(8, rect.top + 12));
     status.style.maxWidth = `${maxWidth}px`;
+}
+
+// The layer is written to on every animation frame while the page scrolls, so the
+// transform is only touched when it actually changes: an identical style write still
+// invalidates the compositor's cached layer.
+function setOcrLayerTransform(overlay: HTMLElement, transform: string): void {
+    if (overlay.style.transform === transform) return;
+    overlay.style.transform = transform;
+    overlay.style.transformOrigin = transform ? '0 0' : '';
+}
+
+// The frame math answers in the layer's own space, so it has to be handed the box the
+// layer actually covers. Everything else about the rect (where it sits against the
+// viewport bottom, in particular) still comes from the measurement.
+function ocrPlacedSurfaceRect(rect: DOMRect, placement: OcrLayerPlacement): OcrSurfaceRect {
+    if (placement.width === rect.width && placement.height === rect.height) return rect;
+    return {
+        left: rect.left,
+        top: rect.top,
+        bottom: rect.bottom,
+        width: placement.width,
+        height: placement.height,
+    };
 }
 
 function setOcrArtifactPosition(element: HTMLElement, viewportLeft: number, viewportTop: number): void {
