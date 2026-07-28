@@ -120,13 +120,20 @@ learner's first ten minutes.
       Study has no nav markup at all. To finish: move the canonical list somewhere `src/**` can import
       (it currently lives under `docs/.vitepress/`), then have each shell render from it. One list,
       three surfaces.
-- [ ] **A16 — The Study page is ALREADY an installable PWA and nothing says so.** `public/newtab/
-      manifest.webmanifest` + `sw.js` ship and deploy to `docs/public/study/`. **Backlog `D37` ("what is
-      missing is a PWA for the Study surface") is STALE.** Five defects suppress it: no PNG icon ≥192px
-      (SVG-only can fail Android installability outright), no `screenshots`, `theme_color` inconsistent
-      with the HTML meta and not stamped from the user's accent, app shortcuts pointing at a legacy
-      `?mode=` key matching no route, and no copy anywhere telling a user they can install it. This is
-      jpdb's entire mobile answer, already built — a repair, not a build.
+- [x] **A16 — The Study page is ALREADY an installable PWA and nothing says so.** DONE 2026-07-28.
+      `public/newtab/manifest.webmanifest` + `sw.js` ship and deploy to `docs/public/study/`; `D37` is
+      corrected above. Three of the five suspected defects were real and are fixed: no PNG icon ≥192px
+      (now 192, 512, and an inset maskable 512 rasterized from `public/yomu-icon.svg` by
+      `scripts/generate-favicons.mjs`), no `screenshots` (now one narrow and one wide, captured from the
+      real built app by `scripts/manual/study-pwa-screenshots.mjs`), and `theme_color` disagreeing with
+      the HTML meta (both `#181b20` now; per-user accent stamping is deliberately NOT done — a static
+      manifest is served to everyone, and `hosted-appearance-boot.ts` documents that standalone surfaces
+      keep the page-background colour). Two were REFUTED: the `?mode=word|search|stats` shortcuts
+      resolve fine (`NEW_TAB_ROUTE_NAMES` in `src/reader/newtab/controller.ts` still accepts all three,
+      and the shipped `docs/public/study/app.js` carries the same set), and install copy already existed
+      on `docs/features.md`, `docs/tools/study-page.md`, and as an "Install app" overflow-menu button in
+      the client. The real hole was the FAQ's "Does it work on my phone?" answer, which is jpdb's mobile
+      question and said nothing about installing; it does now.
 - [x] **A17 — RESOLVED 2026-07-28 by the owner: Anki is a PEER, and the sync is BIDIRECTIONAL.** Verbatim: *"ANKI MUST BE BIDIRECTIONAL"* and *"YOU MUST INTEGRATE ANKI ETC INTO THE STUDY"*. So the backlog's position wins (`R11`, Standing decisions, `U107`, `D44`) and the batch-mining brief's *"Anki becomes export, not source of record"* is overruled. This is a reconciliation engine, not an export adapter: Yomu SRS is canonical locally, providers reconcile both ways, and provider decks are first-class inside the study loop rather than beside it. **Study slice work is unblocked.** The batch-mining brief
       says "Anki becomes export, not source of record"; `backlog.md` rejects that in four places (`R11`,
       Standing decisions, `U107`, `D44`) in favour of Yomu SRS as canonical with providers reconciled
@@ -877,11 +884,11 @@ The measured picture, all re-verified this pass:
       Shortcuts screen translator** modelled on Tap Translate, to read any app and not just Safari;
       React Native so web/Android/iOS share one build; offline SRS on a train. **Gated on U4** — the
       Safari OOM, the copy/paste interference, the startup overlay on every site, and per-site settings.
-- [x] **D37 — CORRECTED 2026-07-28. The Study PWA is not missing; it ships.** This entry said "what is
-      missing is a PWA for the Study/newtab surface". Wrong: `public/newtab/manifest.webmanifest` and
-      `sw.js` both ship and deploy to `docs/public/study/`, so Study is installable today alongside the
-      video player. The real work is a repair of five defects that suppress installability and discovery,
-      tracked as **A16**. Superseded, not open.
+- [x] **D37 — the Study PWA already existed; the install path is now repaired.** The old wording ("what
+      is missing is a PWA for the Study/newtab surface") was STALE: `public/newtab/manifest.webmanifest`
+      + `sw.js` have been shipping and deploying to `docs/public/study/` alongside the video player's.
+      Fixed under A16 (2026-07-28): 192/512/maskable-512 PNG icons, `screenshots` for both form factors,
+      `theme_color` in step with the HTML meta, and the FAQ now says Study installs to a home screen.
 - [ ] **U41 / U92 — gaming: the target is capture-anything, not a game client.** Much of the mechanical
       work landed in 1.8.16/1.8.17 (see the ledger) and the app is materially better, but the two
       structural asks are open: route inline lookup through the reader's own `boot` +
@@ -3055,11 +3062,17 @@ so users skip userscripts (blocked on the £100 Apple fee, which the owner said 
 Native for web/Android/iOS parity (25/07). vvvvtk: "if there was a magic way to work on the entire
 phone… it would be life changin". Ties U95, A6.
 
-## D37. PWA  [PARTIAL — verified 2026-07-26: it EXISTS for the video player]
-`docs/public/video-player/` already ships `manifest.webmanifest` AND `sw.js`. So the video player is
-installable; what is missing is a PWA for the Study/newtab surface, which is what vvvvtk actually
-wanted (offline reviews on a train). Rescope: not "add a PWA", but "extend the existing one to Study",
-which makes it the cheap front half of D35 (offline SRS) rather than new work.
+## D37. PWA  [DONE — 2026-07-28]
+The 2026-07-26 note claimed the video player was installable and "what is missing is a PWA for the
+Study/newtab surface". The second half was WRONG: `public/newtab/manifest.webmanifest` and
+`public/newtab/sw.js` were already in the tree, `scripts/sync-docs-userscript.cjs` was already
+deploying both to `docs/public/study/`, and the Study client already had an "Install app" button in
+its overflow menu. What was actually missing was installability plumbing and discovery, repaired under
+A16: PNG icons at 192/512 plus an inset maskable 512 (no raster icon reached 192px before, which can
+fail Android installability outright), a `screenshots` member for narrow and wide, `theme_color`
+matching the HTML meta, and a line in the FAQ's "Does it work on my phone?" answer. The `?mode=`
+shortcuts were NOT broken — `newTabRoute()` still reads `mode` and accepts word/search/stats — and a
+test now checks them against the shipped route set instead of a second copy of the list.
 Original triage follows.
 25/06 22:50, vvvvtk; owner agreed it is the cheap version of D36 ("ok that is easy… pwa"). Nothing
 matching a webmanifest found in `src/` this session. **Lowest-cost step toward the mobile

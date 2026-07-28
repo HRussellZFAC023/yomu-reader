@@ -349,6 +349,7 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     'walks through it step by step.': 'が一歩ずつ案内します。',
     'Does it work on my phone?': 'スマートフォンでも使えますか？',
     'Yes. On Android, install Firefox and add Yomu from its store. On iPhone and iPad, Yomu runs inside Safari — furigana, the popover, reviews, and manga reading all work by touch.': 'はい。AndroidではFirefoxを入れて、そのストアからよむを追加します。iPhoneとiPadではSafariの中で動き、ふりがな、ポップオーバー、復習、漫画の読み取りまで、すべてタッチで使えます。',
+    "installs to your home screen from your browser's menu. Once it is there it opens like any other app and works offline, so reviews still work on the train.": 'はブラウザーのメニューからホーム画面に追加できます。追加すると他のアプリと同じように開き、オフラインでも動くので、電車の中でも復習できます。',
     'Do I need to know kana or grammar first?': 'かなや文法を先に知っておく必要はありますか？',
     'No. Every word Yomu annotates carries furigana, so you can start pressing words from day one. Reading real pages is the study.': 'いいえ。よむが注釈する単語にはすべてふりがなが付くので、初日から単語を押しはじめられます。実際のページを読むこと自体が学習です。',
     "I'm a complete beginner. Can Yomu teach me Japanese from zero?": 'まったくの初心者です。よむはゼロから日本語を教えてくれますか？',
