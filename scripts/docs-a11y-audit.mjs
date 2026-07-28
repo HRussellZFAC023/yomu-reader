@@ -293,7 +293,12 @@ async function assertHomepageDemo(page, label) {
             lookupBlocked: Boolean(sample?.closest('[data-jpdb-reader-surface-ignore]')),
             localizeOff: attr('.yomu-try-me-sample', 'data-yomu-localize') === 'off',
             promptFallbackShown: Boolean(document.querySelector('[data-yomu-fold-prompt][data-yomu-runtime-missing]')),
-            installCta: [...document.querySelectorAll('.yomu-fold-cta')].map(link => link.getAttribute('href')),
+            // The fold now carries all three install routes at once and promotes
+            // the installable one with CSS, so .yomu-install-route is where the
+            // action lives; .yomu-fold-cta stays matched for the other bands and
+            // for any page still on the single-button shape.
+            installCta: [...document.querySelectorAll('.yomu-fold .yomu-install-route, .yomu-fold-cta')]
+                .map(link => link.getAttribute('href')),
             legendSwatches: document.querySelectorAll('.yomu-fold-legend .yomu-dot').length,
             // Every pitch class the fold paints must appear in the legend that
             // claims to explain the colours.
@@ -315,6 +320,17 @@ async function assertHomepageDemo(page, label) {
     assertAudit(!fold.rubyBasesWithKana.length, `${label} fold ruby should only sit over kanji bases: ${JSON.stringify(fold.rubyBasesWithKana)}`);
     assertAudit(!fold.promptFallbackShown, `${label} fold prompt fell back to the static link while the runtime was live`);
     assertAudit(fold.installCta.some(href => href?.endsWith('.user.js')), `${label} fold install action missing: ${JSON.stringify(fold.installCta)}`);
+    // Detection promotes one route with CSS, so a visitor whose detection never
+    // ran or guessed wrong reaches the others only if they are all really here.
+    // Losing a store route silently sends every store-capable visitor down the
+    // path that needs a manager installed first, which is the friction the
+    // store CTAs exist to remove.
+    for (const store of ['chromewebstore.google.com', 'addons.mozilla.org']) {
+        assertAudit(
+            fold.installCta.some(href => href?.includes(store)),
+            `${label} fold lost its ${store} install route: ${JSON.stringify(fold.installCta)}`,
+        );
+    }
     assertAudit(
         fold.samplePitchClasses.every(name => fold.legendPitchClasses.includes(name)),
         `${label} fold paints pitch colours the legend does not explain: ${JSON.stringify(fold)}`,
