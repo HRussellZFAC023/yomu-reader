@@ -29,10 +29,10 @@
     "cast": 30,
     "requiredPerformancesPerCast": 7,
     "requiredSlots": 210,
-    "integratedSlots": 114,
-    "missingSlots": 96,
+    "integratedSlots": 121,
+    "missingSlots": 89,
     "ownerCorrectionQueue": 33,
-    "storyCriticalQueue": 28,
+    "storyCriticalQueue": 21,
     "rosterCompletionQueue": 35
   },
   "cast": [
@@ -737,65 +737,97 @@
       "priority": "story-critical",
       "summary": {
         "required": 7,
-        "integrated": 0,
-        "missing": 7
+        "integrated": 7,
+        "missing": 0
       },
       "performances": [
         {
           "expression": "neutral",
           "preferredAngle": "front-near-front",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.francis.neutral-soft-sand-hair-manga-volume-front-near-front-fullbody-v002",
+          "assetPath": "/academy/art/characters/francis/francis__neutral-soft-sand-hair-manga-volume__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:francis",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "story:cast:francis",
+            "cast-standardization:francis"
+          ]
         },
         {
           "expression": "encouraging-listening",
           "preferredAngle": "right-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.francis.encouraging-listening-soft-sand-hair-manga-volume-right-three-quarter-fullbody-v002",
+          "assetPath": "/academy/art/characters/francis/francis__encouraging-listening-soft-sand-hair-manga-volume__right-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:francis-expression-gallery",
+            "story:cast:francis:encouraging-listening",
+            "cast-standardization:francis"
+          ]
         },
         {
           "expression": "happy",
           "preferredAngle": "front-near-front",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.francis.happy-soft-sand-hair-manga-volume-front-near-front-fullbody-v002",
+          "assetPath": "/academy/art/characters/francis/francis__happy-soft-sand-hair-manga-volume__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:francis-expression-gallery",
+            "story:cast:francis:happy",
+            "cast-standardization:francis"
+          ]
         },
         {
           "expression": "thoughtful",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.francis.thoughtful-soft-sand-hair-manga-volume-left-three-quarter-fullbody-v002",
+          "assetPath": "/academy/art/characters/francis/francis__thoughtful-soft-sand-hair-manga-volume__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:francis-expression-gallery",
+            "story:cast:francis:thoughtful",
+            "cast-standardization:francis"
+          ]
         },
         {
           "expression": "determined",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.francis.determined-soft-sand-hair-manga-volume-front-near-front-fullbody-v002",
+          "assetPath": "/academy/art/characters/francis/francis__determined-soft-sand-hair-manga-volume__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:francis-expression-gallery",
+            "story:cast:francis:determined",
+            "cast-standardization:francis"
+          ]
         },
         {
           "expression": "surprised-shocked",
           "preferredAngle": "right-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.francis.surprised-shocked-soft-sand-hair-manga-volume-right-three-quarter-fullbody-v002",
+          "assetPath": "/academy/art/characters/francis/francis__surprised-shocked-soft-sand-hair-manga-volume__right-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:francis-expression-gallery",
+            "story:cast:francis:surprised-shocked",
+            "cast-standardization:francis"
+          ]
         },
         {
           "expression": "sad-vulnerable",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.francis.sad-vulnerable-soft-sand-hair-manga-volume-left-three-quarter-fullbody-v002",
+          "assetPath": "/academy/art/characters/francis/francis__sad-vulnerable-soft-sand-hair-manga-volume__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:francis-expression-gallery",
+            "story:cast:francis:sad-vulnerable",
+            "cast-standardization:francis"
+          ]
         }
       ]
     },
@@ -2984,211 +3016,6 @@
     }
   ],
   "generationQueue": [
-    {
-      "key": "francis:neutral",
-      "castId": "francis",
-      "displayName": "Francis",
-      "identityKey": "francis-soft-sand-hair-no-glasses",
-      "expression": "neutral",
-      "angle": "front-near-front",
-      "priority": "story-critical",
-      "storyLines": 14,
-      "visualLock": "Gentle White man with soft sand-brown hair, a calm rounded face, and no glasses.",
-      "wardrobeLock": "Soft knit layers in tea, sage, and navy tones.",
-      "reject": [
-        "Tom identity",
-        "glasses",
-        "hard angular face",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:francis",
-        "class:people",
-        "lesson-overview:roster",
-        "story:cast:francis"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "francis:encouraging-listening",
-      "castId": "francis",
-      "displayName": "Francis",
-      "identityKey": "francis-soft-sand-hair-no-glasses",
-      "expression": "encouraging-listening",
-      "angle": "right-three-quarter",
-      "priority": "story-critical",
-      "storyLines": 14,
-      "visualLock": "Gentle White man with soft sand-brown hair, a calm rounded face, and no glasses.",
-      "wardrobeLock": "Soft knit layers in tea, sage, and navy tones.",
-      "reject": [
-        "Tom identity",
-        "glasses",
-        "hard angular face",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:francis-expression-gallery",
-        "story:cast:francis:encouraging-listening"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "francis:happy",
-      "castId": "francis",
-      "displayName": "Francis",
-      "identityKey": "francis-soft-sand-hair-no-glasses",
-      "expression": "happy",
-      "angle": "front-near-front",
-      "priority": "story-critical",
-      "storyLines": 14,
-      "visualLock": "Gentle White man with soft sand-brown hair, a calm rounded face, and no glasses.",
-      "wardrobeLock": "Soft knit layers in tea, sage, and navy tones.",
-      "reject": [
-        "Tom identity",
-        "glasses",
-        "hard angular face",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:francis-expression-gallery",
-        "story:cast:francis:happy"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "francis:thoughtful",
-      "castId": "francis",
-      "displayName": "Francis",
-      "identityKey": "francis-soft-sand-hair-no-glasses",
-      "expression": "thoughtful",
-      "angle": "left-three-quarter",
-      "priority": "story-critical",
-      "storyLines": 14,
-      "visualLock": "Gentle White man with soft sand-brown hair, a calm rounded face, and no glasses.",
-      "wardrobeLock": "Soft knit layers in tea, sage, and navy tones.",
-      "reject": [
-        "Tom identity",
-        "glasses",
-        "hard angular face",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:francis-expression-gallery",
-        "story:cast:francis:thoughtful"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "francis:determined",
-      "castId": "francis",
-      "displayName": "Francis",
-      "identityKey": "francis-soft-sand-hair-no-glasses",
-      "expression": "determined",
-      "angle": "left-three-quarter",
-      "priority": "story-critical",
-      "storyLines": 14,
-      "visualLock": "Gentle White man with soft sand-brown hair, a calm rounded face, and no glasses.",
-      "wardrobeLock": "Soft knit layers in tea, sage, and navy tones.",
-      "reject": [
-        "Tom identity",
-        "glasses",
-        "hard angular face",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:francis-expression-gallery",
-        "story:cast:francis:determined"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "francis:surprised-shocked",
-      "castId": "francis",
-      "displayName": "Francis",
-      "identityKey": "francis-soft-sand-hair-no-glasses",
-      "expression": "surprised-shocked",
-      "angle": "right-three-quarter",
-      "priority": "story-critical",
-      "storyLines": 14,
-      "visualLock": "Gentle White man with soft sand-brown hair, a calm rounded face, and no glasses.",
-      "wardrobeLock": "Soft knit layers in tea, sage, and navy tones.",
-      "reject": [
-        "Tom identity",
-        "glasses",
-        "hard angular face",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:francis-expression-gallery",
-        "story:cast:francis:surprised-shocked"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "francis:sad-vulnerable",
-      "castId": "francis",
-      "displayName": "Francis",
-      "identityKey": "francis-soft-sand-hair-no-glasses",
-      "expression": "sad-vulnerable",
-      "angle": "left-three-quarter",
-      "priority": "story-critical",
-      "storyLines": 14,
-      "visualLock": "Gentle White man with soft sand-brown hair, a calm rounded face, and no glasses.",
-      "wardrobeLock": "Soft knit layers in tea, sage, and navy tones.",
-      "reject": [
-        "Tom identity",
-        "glasses",
-        "hard angular face",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:francis-expression-gallery",
-        "story:cast:francis:sad-vulnerable"
-      ],
-      "status": "queued"
-    },
     {
       "key": "shin:neutral",
       "castId": "shin",

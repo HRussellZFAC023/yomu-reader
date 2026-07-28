@@ -1,4 +1,4 @@
-const VERSION = 'yomu-academy-shell-s1-bea8e83e1d17';
+const VERSION = 'yomu-academy-shell-s1-9ef232140131';
 const AUDIO_CACHE = 'yomu-academy-audio-v1-2c25b06f971c';
 const STORY_VOICE_CATALOG = '/academy/audio/story-voice-playback.json';
 const STORY_VOICE_ASSET = /^\/academy\/audio\/story-(?:pilot|lines)\/[a-z0-9][a-z0-9._-]*\.opus$/;
@@ -65,8 +65,13 @@ const RUNTIME_ART_PRECACHE = [
     '/academy/art/characters/felix/felix__neutral__halfbody__v001.png',
     '/academy/art/characters/felix/felix__standardized-encouraging-listening__left-three-quarter__halfbody__v001.png',
     '/academy/art/characters/felix/felix__surprised__right-three-quarter__halfbody__v001.png',
-    '/academy/art/characters/francis/francis__standardized-encouraging-listening__front-near-front__halfbody__v001.png',
-    '/academy/art/characters/francis/francis__standardized-neutral__front-near-front__halfbody__v001.png',
+    '/academy/art/characters/francis/francis__determined-soft-sand-hair-manga-volume__front-near-front__fullbody__v002.png',
+    '/academy/art/characters/francis/francis__encouraging-listening-soft-sand-hair-manga-volume__right-three-quarter__fullbody__v002.png',
+    '/academy/art/characters/francis/francis__happy-soft-sand-hair-manga-volume__front-near-front__fullbody__v002.png',
+    '/academy/art/characters/francis/francis__neutral-soft-sand-hair-manga-volume__front-near-front__fullbody__v002.png',
+    '/academy/art/characters/francis/francis__sad-vulnerable-soft-sand-hair-manga-volume__left-three-quarter__fullbody__v002.png',
+    '/academy/art/characters/francis/francis__surprised-shocked-soft-sand-hair-manga-volume__right-three-quarter__fullbody__v002.png',
+    '/academy/art/characters/francis/francis__thoughtful-soft-sand-hair-manga-volume__left-three-quarter__fullbody__v002.png',
     '/academy/art/characters/henry/henry__determined__left-three-quarter__halfbody__v002.png',
     '/academy/art/characters/henry/henry__encouraging-listening__right-three-quarter__halfbody__v002.png',
     '/academy/art/characters/henry/henry__happy__front-near-front__halfbody__v002.png',
@@ -381,8 +386,8 @@ const CORE = [
     '/yomu-icon.svg',
     '/academy/',
     '/academy/index.html',
-    '/academy/app.js?v=s1-bea8e83e1d17',
-    '/academy/style.css?v=s1-bea8e83e1d17',
+    '/academy/app.js?v=s1-9ef232140131',
+    '/academy/style.css?v=s1-9ef232140131',
     '/academy/manifest.webmanifest',
     ...RUNTIME_ART_PRECACHE,
     '/academy/content/vertical-slice/source-library.v1.json',

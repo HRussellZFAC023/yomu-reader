@@ -699,9 +699,17 @@
         }
       ],
       "currentAsset": {
-        "status": "missing",
-        "paths": [],
-        "note": "No current Academy runtime or review-candidate sprite."
+        "status": "approved-performance-family",
+        "paths": [
+          "/academy/art/characters/francis/francis__neutral-soft-sand-hair-manga-volume__front-near-front__fullbody__v002.png",
+          "/academy/art/characters/francis/francis__encouraging-listening-soft-sand-hair-manga-volume__right-three-quarter__fullbody__v002.png",
+          "/academy/art/characters/francis/francis__happy-soft-sand-hair-manga-volume__front-near-front__fullbody__v002.png",
+          "/academy/art/characters/francis/francis__thoughtful-soft-sand-hair-manga-volume__left-three-quarter__fullbody__v002.png",
+          "/academy/art/characters/francis/francis__determined-soft-sand-hair-manga-volume__front-near-front__fullbody__v002.png",
+          "/academy/art/characters/francis/francis__surprised-shocked-soft-sand-hair-manga-volume__right-three-quarter__fullbody__v002.png",
+          "/academy/art/characters/francis/francis__sad-vulnerable-soft-sand-hair-manga-volume__left-three-quarter__fullbody__v002.png"
+        ],
+        "note": "Identity-locked, visually inspected house-style family; all seven canonical expressions are runtime-bound."
       },
       "generationPriority": {
         "tier": 2,

@@ -18,8 +18,8 @@
     ]
   },
   "counts": {
-    "runtimeAssetHomes": 225,
-    "runtimeFiles": 331,
+    "runtimeAssetHomes": 230,
+    "runtimeFiles": 336,
     "nonRuntimeReviewFiles": 1734,
     "approvedReferenceOnly": 4,
     "explicitlyRejectedFamilies": 4,
@@ -554,74 +554,6 @@
         {
           "path": "/academy/art/characters/felix/felix__surprised__right-three-quarter__halfbody__v001.png",
           "sha256": "39ad04b91509cc3a1876b8144ca5583af14c738c8e9068be698e3ed99eedef2e"
-        }
-      ],
-      "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-    },
-    {
-      "id": "character-francis-standardized-encouraging-listening-front-near-front-halfbody-v001",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "0307f241e8e0b82b9d20ae9e39d36dce22091743520a330d35ec556890fc1100",
-      "provenance": "regenerated-standardized",
-      "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": [
-        "journal:francis-expression-gallery",
-        "cast-standardization:francis"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "learner-journal-preview"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:francis-expression-gallery",
-          "cast-standardization:francis"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/francis/francis__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
-          "sha256": "0307f241e8e0b82b9d20ae9e39d36dce22091743520a330d35ec556890fc1100"
-        }
-      ],
-      "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-    },
-    {
-      "id": "character-francis-standardized-neutral-front-near-front-halfbody-v001",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "f4d339165bc50aafbea39ca01049ee3246b3c37453bce58fef5818c66d0f71c7",
-      "provenance": "regenerated-standardized",
-      "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": [
-        "journal:francis",
-        "class:people-review",
-        "lesson-overview:roster-review",
-        "cast-standardization:francis"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "learner-journal-preview"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:francis",
-          "class:people-review",
-          "lesson-overview:roster-review",
-          "cast-standardization:francis"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/francis/francis__standardized-neutral__front-near-front__halfbody__v001.png",
-          "sha256": "f4d339165bc50aafbea39ca01049ee3246b3c37453bce58fef5818c66d0f71c7"
         }
       ],
       "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
@@ -11043,7 +10975,7 @@
       "deliveries": [
         {
           "path": "/academy/art/SPRITE-BATCH-MANIFEST.json",
-          "sha256": "ffbd6517568c1021426da36a999d42f45a491e82a434be148135486497d0b471"
+          "sha256": "a5ba997144b37ea75b5cb006e98d261db568903564e344aeb78e5c6e265dca4e"
         }
       ],
       "status": "bound-and-schema-validated"
@@ -14455,6 +14387,252 @@
         {
           "path": "/academy/art/characters/angel/angel__sad-vulnerable-long-dark-hair-project-notebook__left-three-quarter__fullbody__v002.png",
           "sha256": "43faf544465f8666d97d1cdc1b4b6bb07de163b762c37489a55b07b50feecd13"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-francis-neutral-soft-sand-hair-manga-volume-front-near-front-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "930d8e9c9df28246f6dffad43476acd25f3db5fff58218ff461f51d23da8cdd1",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:francis",
+        "class:people",
+        "class:week-cast",
+        "lesson-overview:roster",
+        "world:person",
+        "story:cast:francis",
+        "cast-standardization:francis"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:francis",
+          "class:people",
+          "class:week-cast",
+          "lesson-overview:roster",
+          "world:person",
+          "story:cast:francis",
+          "cast-standardization:francis"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/francis/francis__neutral-soft-sand-hair-manga-volume__front-near-front__fullbody__v002.png",
+          "sha256": "930d8e9c9df28246f6dffad43476acd25f3db5fff58218ff461f51d23da8cdd1"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-francis-encouraging-listening-soft-sand-hair-manga-volume-right-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "5e792fe30da735b1ff0981c3c7f353ea78db733b6d433868cbf3e3bf289cf2ed",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:francis-expression-gallery",
+        "story:cast:francis:encouraging-listening",
+        "cast-standardization:francis"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:francis-expression-gallery",
+          "story:cast:francis:encouraging-listening",
+          "cast-standardization:francis"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/francis/francis__encouraging-listening-soft-sand-hair-manga-volume__right-three-quarter__fullbody__v002.png",
+          "sha256": "5e792fe30da735b1ff0981c3c7f353ea78db733b6d433868cbf3e3bf289cf2ed"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-francis-happy-soft-sand-hair-manga-volume-front-near-front-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "9309638abf9b9b5526d81e262be713940565eca8ab48842b0f168c1cfac37e25",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:francis-expression-gallery",
+        "story:cast:francis:happy",
+        "cast-standardization:francis"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:francis-expression-gallery",
+          "story:cast:francis:happy",
+          "cast-standardization:francis"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/francis/francis__happy-soft-sand-hair-manga-volume__front-near-front__fullbody__v002.png",
+          "sha256": "9309638abf9b9b5526d81e262be713940565eca8ab48842b0f168c1cfac37e25"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-francis-thoughtful-soft-sand-hair-manga-volume-left-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "1a4f854a0dd66d2ab1be30c9dc1b2d1c2b75dea75640e98c47a81412ace348ea",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:francis-expression-gallery",
+        "story:cast:francis:thoughtful",
+        "cast-standardization:francis"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:francis-expression-gallery",
+          "story:cast:francis:thoughtful",
+          "cast-standardization:francis"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/francis/francis__thoughtful-soft-sand-hair-manga-volume__left-three-quarter__fullbody__v002.png",
+          "sha256": "1a4f854a0dd66d2ab1be30c9dc1b2d1c2b75dea75640e98c47a81412ace348ea"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-francis-determined-soft-sand-hair-manga-volume-front-near-front-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "675606c764d5d9969f6be2fa449949fd22d723e0db7cdb2ad46d2e1fe64c03b1",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:francis-expression-gallery",
+        "story:cast:francis:determined",
+        "cast-standardization:francis"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:francis-expression-gallery",
+          "story:cast:francis:determined",
+          "cast-standardization:francis"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/francis/francis__determined-soft-sand-hair-manga-volume__front-near-front__fullbody__v002.png",
+          "sha256": "675606c764d5d9969f6be2fa449949fd22d723e0db7cdb2ad46d2e1fe64c03b1"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-francis-surprised-shocked-soft-sand-hair-manga-volume-right-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "c11b6b8048126ad97eb54f7a1b79849ebbf3abee6f3002abe297a74a014bbbc0",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:francis-expression-gallery",
+        "story:cast:francis:surprised-shocked",
+        "cast-standardization:francis"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:francis-expression-gallery",
+          "story:cast:francis:surprised-shocked",
+          "cast-standardization:francis"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/francis/francis__surprised-shocked-soft-sand-hair-manga-volume__right-three-quarter__fullbody__v002.png",
+          "sha256": "c11b6b8048126ad97eb54f7a1b79849ebbf3abee6f3002abe297a74a014bbbc0"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-francis-sad-vulnerable-soft-sand-hair-manga-volume-left-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "7b06313123a5c3c14838dbab658e196c6d8f898e5565952708916ac460834630",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:francis-expression-gallery",
+        "story:cast:francis:sad-vulnerable",
+        "cast-standardization:francis"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:francis-expression-gallery",
+          "story:cast:francis:sad-vulnerable",
+          "cast-standardization:francis"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/francis/francis__sad-vulnerable-soft-sand-hair-manga-volume__left-three-quarter__fullbody__v002.png",
+          "sha256": "7b06313123a5c3c14838dbab658e196c6d8f898e5565952708916ac460834630"
         }
       ],
       "status": "identity-locked, visually inspected, runtime-bound house-style sprite"

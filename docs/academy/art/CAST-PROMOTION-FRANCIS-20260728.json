@@ -1,0 +1,102 @@
+{
+  "promotions": [
+    {
+      "castId": "francis",
+      "archiveLabel": "identity-and-style-superseded-20260728",
+      "archiveAllCurrent": true,
+      "replaceExpressions": [
+        "neutral",
+        "encouraging-listening",
+        "happy",
+        "thoughtful",
+        "determined",
+        "surprised-shocked",
+        "sad-vulnerable"
+      ],
+      "canonicalNeutralAssetId": "character.francis.neutral-soft-sand-hair-manga-volume-front-near-front-fullbody-v002",
+      "slots": [
+        {
+          "assetId": "character.francis.neutral-soft-sand-hair-manga-volume-front-near-front-fullbody-v002",
+          "expression": "neutral",
+          "angle": "front-near-front",
+          "assetPath": "/academy/art/characters/francis/francis__neutral-soft-sand-hair-manga-volume__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:francis",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "story:cast:francis",
+            "cast-standardization:francis"
+          ]
+        },
+        {
+          "assetId": "character.francis.encouraging-listening-soft-sand-hair-manga-volume-right-three-quarter-fullbody-v002",
+          "expression": "encouraging-listening",
+          "angle": "right-three-quarter",
+          "assetPath": "/academy/art/characters/francis/francis__encouraging-listening-soft-sand-hair-manga-volume__right-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:francis-expression-gallery",
+            "story:cast:francis:encouraging-listening",
+            "cast-standardization:francis"
+          ]
+        },
+        {
+          "assetId": "character.francis.happy-soft-sand-hair-manga-volume-front-near-front-fullbody-v002",
+          "expression": "happy",
+          "angle": "front-near-front",
+          "assetPath": "/academy/art/characters/francis/francis__happy-soft-sand-hair-manga-volume__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:francis-expression-gallery",
+            "story:cast:francis:happy",
+            "cast-standardization:francis"
+          ]
+        },
+        {
+          "assetId": "character.francis.thoughtful-soft-sand-hair-manga-volume-left-three-quarter-fullbody-v002",
+          "expression": "thoughtful",
+          "angle": "left-three-quarter",
+          "assetPath": "/academy/art/characters/francis/francis__thoughtful-soft-sand-hair-manga-volume__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:francis-expression-gallery",
+            "story:cast:francis:thoughtful",
+            "cast-standardization:francis"
+          ]
+        },
+        {
+          "assetId": "character.francis.determined-soft-sand-hair-manga-volume-front-near-front-fullbody-v002",
+          "expression": "determined",
+          "angle": "front-near-front",
+          "assetPath": "/academy/art/characters/francis/francis__determined-soft-sand-hair-manga-volume__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:francis-expression-gallery",
+            "story:cast:francis:determined",
+            "cast-standardization:francis"
+          ]
+        },
+        {
+          "assetId": "character.francis.surprised-shocked-soft-sand-hair-manga-volume-right-three-quarter-fullbody-v002",
+          "expression": "surprised-shocked",
+          "angle": "right-three-quarter",
+          "assetPath": "/academy/art/characters/francis/francis__surprised-shocked-soft-sand-hair-manga-volume__right-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:francis-expression-gallery",
+            "story:cast:francis:surprised-shocked",
+            "cast-standardization:francis"
+          ]
+        },
+        {
+          "assetId": "character.francis.sad-vulnerable-soft-sand-hair-manga-volume-left-three-quarter-fullbody-v002",
+          "expression": "sad-vulnerable",
+          "angle": "left-three-quarter",
+          "assetPath": "/academy/art/characters/francis/francis__sad-vulnerable-soft-sand-hair-manga-volume__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:francis-expression-gallery",
+            "story:cast:francis:sad-vulnerable",
+            "cast-standardization:francis"
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -34,15 +34,15 @@
     "totalSlots": 630
   },
   "summary": {
-    "approved": 116,
+    "approved": 123,
     "reviewCandidates": 7,
-    "missing": 507,
-    "currentPhysicalRasters": 150,
-    "currentOffMatrixRasters": 27,
+    "missing": 500,
+    "currentPhysicalRasters": 155,
+    "currentOffMatrixRasters": 25,
     "historicalUniqueRasters": 469,
     "historicalOccurrences": 2016,
-    "charactersWithApprovedCoverage": 18,
-    "charactersWithAnyCurrentCoverage": 21
+    "charactersWithApprovedCoverage": 19,
+    "charactersWithAnyCurrentCoverage": 22
   },
   "migrations": [
     {
@@ -70,6 +70,15 @@
       "to": "/academy/art/characters/angel/angel__neutral-long-dark-hair-project-notebook__front-near-front__fullbody__v002.png",
       "decision": "delete",
       "status": "Onke identity-locked v002 family bound to runtime; generic glossy v001 stand-ins archived outside runtime.",
+      "runtimeReferencesAfterMigration": []
+    },
+    {
+      "id": "francis-glasses-v001-to-illustrated-v002-family",
+      "character": "francis",
+      "from": "/academy/art/characters/francis/francis__standardized-neutral__front-near-front__halfbody__v001.png",
+      "to": "/academy/art/characters/francis/francis__neutral-soft-sand-hair-manga-volume__front-near-front__fullbody__v002.png",
+      "decision": "delete",
+      "status": "Francis identity-locked v002 family bound to runtime; glasses-on v001 stand-ins archived outside runtime.",
       "runtimeReferencesAfterMigration": []
     },
     {
@@ -3829,35 +3838,36 @@
         "slots": 21
       },
       "progress": {
-        "approved": 0,
+        "approved": 7,
         "reviewCandidates": 0,
-        "missing": 21,
-        "deliveredPercent": 0,
-        "approvedPercent": 0
+        "missing": 14,
+        "deliveredPercent": 33.33,
+        "approvedPercent": 33.33
       },
       "currentAssets": [
         {
-          "path": "/academy/art/characters/francis/francis__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
-          "sha256": "0307f241e8e0b82b9d20ae9e39d36dce22091743520a330d35ec556890fc1100",
+          "path": "/academy/art/characters/francis/francis__determined-soft-sand-hair-manga-volume__front-near-front__fullbody__v002.png",
+          "sha256": "675606c764d5d9969f6be2fa449949fd22d723e0db7cdb2ad46d2e1fe64c03b1",
           "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
-          "status": "review-candidate",
+          "status": "approved",
           "usage": {
             "runtime": [
               "journal:francis-expression-gallery",
+              "story:cast:francis:determined",
               "cast-standardization:francis"
             ],
             "review": [
               "cast-standardization-manifest",
-              "learner-journal-preview"
+              "identity-lock"
             ]
           },
-          "orphan": "review-bound",
+          "orphan": "active-runtime",
           "styleVersion": "current-review-family",
-          "fileVersion": "v001",
-          "pose": "off-contract standardized-encouraging-listening pose",
-          "angle": null,
-          "expression": null,
+          "fileVersion": "v002",
+          "pose": "music folder opened toward the learner with one elbow low and shoulders softly rounded; front-near-front",
+          "angle": "front-near-front",
+          "expression": "determined",
           "dimensions": {
             "width": 1536,
             "height": 2048,
@@ -3867,40 +3877,130 @@
           },
           "runtimeUses": [
             "journal:francis-expression-gallery",
+            "story:cast:francis:determined",
             "cast-standardization:francis"
           ],
           "reviewUses": [
             "cast-standardization-manifest",
-            "learner-journal-preview"
+            "identity-lock"
           ],
           "decision": "keep",
-          "migrationStatus": "retained-off-matrix-review-evidence",
-          "coverageStatus": "off-matrix"
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
         },
         {
-          "path": "/academy/art/characters/francis/francis__standardized-neutral__front-near-front__halfbody__v001.png",
-          "sha256": "f4d339165bc50aafbea39ca01049ee3246b3c37453bce58fef5818c66d0f71c7",
+          "path": "/academy/art/characters/francis/francis__encouraging-listening-soft-sand-hair-manga-volume__right-three-quarter__fullbody__v002.png",
+          "sha256": "5e792fe30da735b1ff0981c3c7f353ea78db733b6d433868cbf3e3bf289cf2ed",
           "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
-          "status": "review-candidate",
+          "status": "approved",
           "usage": {
             "runtime": [
-              "journal:francis",
-              "class:people-review",
-              "lesson-overview:roster-review",
+              "journal:francis-expression-gallery",
+              "story:cast:francis:encouraging-listening",
               "cast-standardization:francis"
             ],
             "review": [
               "cast-standardization-manifest",
-              "learner-journal-preview"
+              "identity-lock"
             ]
           },
-          "orphan": "review-bound",
+          "orphan": "active-runtime",
           "styleVersion": "current-review-family",
-          "fileVersion": "v001",
-          "pose": "off-contract standardized-neutral pose",
-          "angle": null,
-          "expression": null,
+          "fileVersion": "v002",
+          "pose": "music folder opened toward the learner with one elbow low and shoulders softly rounded; right-three-quarter",
+          "angle": "right-three-quarter",
+          "expression": "encouraging-listening",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:francis-expression-gallery",
+            "story:cast:francis:encouraging-listening",
+            "cast-standardization:francis"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/francis/francis__happy-soft-sand-hair-manga-volume__front-near-front__fullbody__v002.png",
+          "sha256": "9309638abf9b9b5526d81e262be713940565eca8ab48842b0f168c1cfac37e25",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:francis-expression-gallery",
+              "story:cast:francis:happy",
+              "cast-standardization:francis"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "music folder opened toward the learner with one elbow low and shoulders softly rounded; front-near-front",
+          "angle": "front-near-front",
+          "expression": "happy",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:francis-expression-gallery",
+            "story:cast:francis:happy",
+            "cast-standardization:francis"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/francis/francis__neutral-soft-sand-hair-manga-volume__front-near-front__fullbody__v002.png",
+          "sha256": "930d8e9c9df28246f6dffad43476acd25f3db5fff58218ff461f51d23da8cdd1",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:francis",
+              "class:people",
+              "class:week-cast",
+              "lesson-overview:roster",
+              "world:person",
+              "story:cast:francis",
+              "cast-standardization:francis"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "music folder opened toward the learner with one elbow low and shoulders softly rounded; front-near-front",
+          "angle": "front-near-front",
+          "expression": "neutral",
           "dimensions": {
             "width": 1536,
             "height": 2048,
@@ -3910,17 +4010,149 @@
           },
           "runtimeUses": [
             "journal:francis",
-            "class:people-review",
-            "lesson-overview:roster-review",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "story:cast:francis",
             "cast-standardization:francis"
           ],
           "reviewUses": [
             "cast-standardization-manifest",
-            "learner-journal-preview"
+            "identity-lock"
           ],
           "decision": "keep",
-          "migrationStatus": "retained-off-matrix-review-evidence",
-          "coverageStatus": "off-matrix"
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/francis/francis__sad-vulnerable-soft-sand-hair-manga-volume__left-three-quarter__fullbody__v002.png",
+          "sha256": "7b06313123a5c3c14838dbab658e196c6d8f898e5565952708916ac460834630",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:francis-expression-gallery",
+              "story:cast:francis:sad-vulnerable",
+              "cast-standardization:francis"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "music folder opened toward the learner with one elbow low and shoulders softly rounded; left-three-quarter",
+          "angle": "left-three-quarter",
+          "expression": "sad-vulnerable",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:francis-expression-gallery",
+            "story:cast:francis:sad-vulnerable",
+            "cast-standardization:francis"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/francis/francis__surprised-shocked-soft-sand-hair-manga-volume__right-three-quarter__fullbody__v002.png",
+          "sha256": "c11b6b8048126ad97eb54f7a1b79849ebbf3abee6f3002abe297a74a014bbbc0",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:francis-expression-gallery",
+              "story:cast:francis:surprised-shocked",
+              "cast-standardization:francis"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "music folder opened toward the learner with one elbow low and shoulders softly rounded; right-three-quarter",
+          "angle": "right-three-quarter",
+          "expression": "surprised-shocked",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:francis-expression-gallery",
+            "story:cast:francis:surprised-shocked",
+            "cast-standardization:francis"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/francis/francis__thoughtful-soft-sand-hair-manga-volume__left-three-quarter__fullbody__v002.png",
+          "sha256": "1a4f854a0dd66d2ab1be30c9dc1b2d1c2b75dea75640e98c47a81412ace348ea",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:francis-expression-gallery",
+              "story:cast:francis:thoughtful",
+              "cast-standardization:francis"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "music folder opened toward the learner with one elbow low and shoulders softly rounded; left-three-quarter",
+          "angle": "left-three-quarter",
+          "expression": "thoughtful",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:francis-expression-gallery",
+            "story:cast:francis:thoughtful",
+            "cast-standardization:francis"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
         }
       ],
       "requiredVariants": [
@@ -3948,9 +4180,8 @@
         {
           "angle": "left-three-quarter",
           "expression": "thoughtful",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/francis/francis__thoughtful__left-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/francis/francis__thoughtful-soft-sand-hair-manga-volume__left-three-quarter__fullbody__v002.png"
         },
         {
           "angle": "left-three-quarter",
@@ -3969,16 +4200,14 @@
         {
           "angle": "left-three-quarter",
           "expression": "sad-vulnerable",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/francis/francis__sad-vulnerable__left-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/francis/francis__sad-vulnerable-soft-sand-hair-manga-volume__left-three-quarter__fullbody__v002.png"
         },
         {
           "angle": "front-near-front",
           "expression": "neutral",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/francis/francis__neutral__front-near-front__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/francis/francis__neutral-soft-sand-hair-manga-volume__front-near-front__fullbody__v002.png"
         },
         {
           "angle": "front-near-front",
@@ -3990,9 +4219,8 @@
         {
           "angle": "front-near-front",
           "expression": "happy",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/francis/francis__happy__front-near-front__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/francis/francis__happy-soft-sand-hair-manga-volume__front-near-front__fullbody__v002.png"
         },
         {
           "angle": "front-near-front",
@@ -4004,9 +4232,8 @@
         {
           "angle": "front-near-front",
           "expression": "determined",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/francis/francis__determined__front-near-front__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/francis/francis__determined-soft-sand-hair-manga-volume__front-near-front__fullbody__v002.png"
         },
         {
           "angle": "front-near-front",
@@ -4032,9 +4259,8 @@
         {
           "angle": "right-three-quarter",
           "expression": "encouraging-listening",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/francis/francis__encouraging-listening__right-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/francis/francis__encouraging-listening-soft-sand-hair-manga-volume__right-three-quarter__fullbody__v002.png"
         },
         {
           "angle": "right-three-quarter",
@@ -4060,9 +4286,8 @@
         {
           "angle": "right-three-quarter",
           "expression": "surprised-shocked",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/francis/francis__surprised-shocked__right-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/francis/francis__surprised-shocked-soft-sand-hair-manga-volume__right-three-quarter__fullbody__v002.png"
         },
         {
           "angle": "right-three-quarter",
@@ -4096,13 +4321,6 @@
         },
         {
           "angle": "left-three-quarter",
-          "expression": "thoughtful",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/francis/francis__thoughtful__left-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "left-three-quarter",
           "expression": "determined",
           "status": "missing",
           "path": null,
@@ -4116,20 +4334,6 @@
           "plannedPath": "/academy/art/characters/francis/francis__surprised-shocked__left-three-quarter__halfbody__v001.png"
         },
         {
-          "angle": "left-three-quarter",
-          "expression": "sad-vulnerable",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/francis/francis__sad-vulnerable__left-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "front-near-front",
-          "expression": "neutral",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/francis/francis__neutral__front-near-front__halfbody__v001.png"
-        },
-        {
           "angle": "front-near-front",
           "expression": "encouraging-listening",
           "status": "missing",
@@ -4138,24 +4342,10 @@
         },
         {
           "angle": "front-near-front",
-          "expression": "happy",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/francis/francis__happy__front-near-front__halfbody__v001.png"
-        },
-        {
-          "angle": "front-near-front",
           "expression": "thoughtful",
           "status": "missing",
           "path": null,
           "plannedPath": "/academy/art/characters/francis/francis__thoughtful__front-near-front__halfbody__v001.png"
-        },
-        {
-          "angle": "front-near-front",
-          "expression": "determined",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/francis/francis__determined__front-near-front__halfbody__v001.png"
         },
         {
           "angle": "front-near-front",
@@ -4180,13 +4370,6 @@
         },
         {
           "angle": "right-three-quarter",
-          "expression": "encouraging-listening",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/francis/francis__encouraging-listening__right-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "right-three-quarter",
           "expression": "happy",
           "status": "missing",
           "path": null,
@@ -4205,13 +4388,6 @@
           "status": "missing",
           "path": null,
           "plannedPath": "/academy/art/characters/francis/francis__determined__right-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "right-three-quarter",
-          "expression": "surprised-shocked",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/francis/francis__surprised-shocked__right-three-quarter__halfbody__v001.png"
         },
         {
           "angle": "right-three-quarter",
