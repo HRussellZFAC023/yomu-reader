@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.8.22] - 2026-07-28
+
+### Fixed
+
+- Turning off Show native subtitles now stays off across reloads. Yomu shows a native subtitle overlay when it picks a track for you, and that reveal also wrote the setting back on, so the switch returned every time a video's tracks were discovered again. Yomu now remembers that the switch is yours once you set it and leaves it alone, while choosing a native track from the track panel still turns the overlay on. Show subtitle overlay keeps its setting the same way, including the eye button on the subtitle rail and its keyboard shortcut.
+
 ## [1.8.21] - 2026-07-27
 
 ### Fixed

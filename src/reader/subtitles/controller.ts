@@ -4838,7 +4838,7 @@ export class SubtitlePlayerController {
         const loaded = await this.loadPrimaryTrackSelection(id, requestId);
         if (!loaded) return;
         if (options.auto && this.revertSingleCueAutoSelection('primary', loaded)) return;
-        if (options.auto) this.revealPrimarySubtitleOverlay();
+        if (options.auto) this.revealPrimarySubtitleOverlay({ auto: true });
         this.applyPrimaryTrackSelection(loaded);
         this.finishPrimaryTrackSelection(id, loaded.track);
     }
@@ -4884,13 +4884,26 @@ export class SubtitlePlayerController {
         this.secondaryCue = undefined;
     }
 
-    private revealPrimarySubtitleOverlay(): void {
-        const settings = this.options.getSettings();
-        if (!settings.subtitleOverlayVisible) {
-            settings.subtitleOverlayVisible = true;
-            this.options.onSettingsChange();
-        }
+    private revealPrimarySubtitleOverlay(options: { auto?: boolean } = {}): void {
+        this.revealSubtitleOverlay('subtitleOverlayVisible', 'subtitleOverlayVisibleChosen', Boolean(options.auto));
+        if (!this.options.getSettings().subtitleOverlayVisible) return;
         this.root?.classList.remove('jpdb-subtitle-hidden');
+    }
+
+    // Selecting a track shows its overlay, but an automatic pick must never
+    // overrule a visibility the user chose: writing the setting back to true
+    // from here is what made an unchecked overlay switch itself on again on
+    // the next page load.
+    private revealSubtitleOverlay(
+        visibleKey: 'subtitleOverlayVisible' | 'subtitleSecondaryVisible',
+        chosenKey: 'subtitleOverlayVisibleChosen' | 'subtitleSecondaryVisibleChosen',
+        auto: boolean,
+    ): void {
+        const settings = this.options.getSettings();
+        if (settings[visibleKey]) return;
+        if (auto && settings[chosenKey]) return;
+        settings[visibleKey] = true;
+        this.options.onSettingsChange();
     }
 
     private async loadPrimaryTrackSelection(id: string, requestId: number): Promise<LoadedSubtitleTrackSelection | null> {
@@ -4978,7 +4991,7 @@ export class SubtitlePlayerController {
         const loaded = await this.loadSecondaryTrackSelection(id, requestId);
         if (!loaded) return;
         if (options.auto && this.revertSingleCueAutoSelection('secondary', loaded)) return;
-        if (options.auto) this.revealSecondarySubtitleOverlay();
+        if (options.auto) this.revealSecondarySubtitleOverlay({ auto: true });
         this.applySecondaryTrackSelection(loaded);
         this.finishSecondaryTrackSelection(id, loaded.track);
     }
@@ -5005,12 +5018,8 @@ export class SubtitlePlayerController {
         return requestId;
     }
 
-    private revealSecondarySubtitleOverlay(): void {
-        const settings = this.options.getSettings();
-        if (!settings.subtitleSecondaryVisible) {
-            settings.subtitleSecondaryVisible = true;
-            this.options.onSettingsChange();
-        }
+    private revealSecondarySubtitleOverlay(options: { auto?: boolean } = {}): void {
+        this.revealSubtitleOverlay('subtitleSecondaryVisible', 'subtitleSecondaryVisibleChosen', Boolean(options.auto));
     }
 
     private async loadSecondaryTrackSelection(id: string, requestId: number): Promise<LoadedSubtitleTrackSelection | null> {
@@ -5163,12 +5172,12 @@ export class SubtitlePlayerController {
         const autoSecondaryTrack = this.findAutoSecondaryYouTubeTrack(autoPrimaryTrack?.id);
         const primaryTrackId = autoPrimaryTrack?.id || (this.shouldReloadUpdatedSelectedTrack(updatedSelectedTrack) ? this.selectedTrackId : '');
         if (primaryTrackId) {
-            void this.selectTrack(primaryTrackId);
-            if (autoSecondaryTrack) void this.selectSecondaryTrack(autoSecondaryTrack.id);
+            void this.selectTrack(primaryTrackId, { auto: true });
+            if (autoSecondaryTrack) void this.selectSecondaryTrack(autoSecondaryTrack.id, { auto: true });
             return;
         }
         if (autoSecondaryTrack) {
-            void this.selectSecondaryTrack(autoSecondaryTrack.id);
+            void this.selectSecondaryTrack(autoSecondaryTrack.id, { auto: true });
             return;
         }
         if (!added && !generated) return;
@@ -5262,6 +5271,7 @@ export class SubtitlePlayerController {
     private toggleOverlayVisibility(): void {
         const settings = this.options.getSettings();
         settings.subtitleOverlayVisible = !settings.subtitleOverlayVisible;
+        settings.subtitleOverlayVisibleChosen = true;
         this.options.onSettingsChange();
         this.refresh();
     }

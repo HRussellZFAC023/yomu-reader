@@ -650,11 +650,18 @@ function readOcrFormSettings(reader: SettingsFormReader, current: ReaderSettings
 
 function readSubtitleFormSettings(reader: SettingsFormReader, current: ReaderSettings): Partial<ReaderSettings> {
     const { get, has, clamped } = reader;
+    const overlayVisible = has('subtitleOverlayVisible');
+    const secondaryVisible = has('subtitleSecondaryVisible');
     return {
         subtitlePlayerEnabled: has('subtitlePlayerEnabled'),
         subtitleAutoDetect: has('subtitleAutoDetect'),
-        subtitleOverlayVisible: has('subtitleOverlayVisible'),
-        subtitleSecondaryVisible: has('subtitleSecondaryVisible'),
+        subtitleOverlayVisible: overlayVisible,
+        subtitleSecondaryVisible: secondaryVisible,
+        // Only a flip is a deliberate choice: saving the dialog after editing
+        // something unrelated must not freeze an overlay the user never touched
+        // out of the automatic reveal that first shows it.
+        subtitleOverlayVisibleChosen: current.subtitleOverlayVisibleChosen || overlayVisible !== current.subtitleOverlayVisible,
+        subtitleSecondaryVisibleChosen: current.subtitleSecondaryVisibleChosen || secondaryVisible !== current.subtitleSecondaryVisible,
         subtitleNativeBlurred: has('subtitleNativeBlurred'),
         subtitleKaraokeMode: has('subtitleKaraokeMode'),
         subtitleTranscriptVisible: has('subtitleTranscriptVisible'),

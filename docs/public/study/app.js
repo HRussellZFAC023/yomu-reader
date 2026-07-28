@@ -12142,6 +12142,8 @@ ${spelling}`);
     "dictionarySourcesInitiallyExpanded"
   ];
   const SUBTITLE_BOOLEAN_SETTING_KEYS = [
+    "subtitleOverlayVisibleChosen",
+    "subtitleSecondaryVisibleChosen",
     "subtitleNativeBlurred",
     "subtitleKaraokeMode",
     "subtitlePausePanel",
@@ -12415,6 +12417,8 @@ ${spelling}`);
     subtitleAutoDetect: true,
     subtitleOverlayVisible: false,
     subtitleSecondaryVisible: false,
+    subtitleOverlayVisibleChosen: false,
+    subtitleSecondaryVisibleChosen: false,
     subtitleNativeBlurred: true,
     subtitleKaraokeMode: true,
     subtitleTranscriptVisible: false,
@@ -53180,7 +53184,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.8.21".trim() ? "1.8.21".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.8.22".trim() ? "1.8.22".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record2 = value;
@@ -65803,11 +65807,18 @@ ${spelling}`);
   }
   function readSubtitleFormSettings(reader, current) {
     const { get, has, clamped } = reader;
+    const overlayVisible = has("subtitleOverlayVisible");
+    const secondaryVisible = has("subtitleSecondaryVisible");
     return {
       subtitlePlayerEnabled: has("subtitlePlayerEnabled"),
       subtitleAutoDetect: has("subtitleAutoDetect"),
-      subtitleOverlayVisible: has("subtitleOverlayVisible"),
-      subtitleSecondaryVisible: has("subtitleSecondaryVisible"),
+      subtitleOverlayVisible: overlayVisible,
+      subtitleSecondaryVisible: secondaryVisible,
+      // Only a flip is a deliberate choice: saving the dialog after editing
+      // something unrelated must not freeze an overlay the user never touched
+      // out of the automatic reveal that first shows it.
+      subtitleOverlayVisibleChosen: current.subtitleOverlayVisibleChosen || overlayVisible !== current.subtitleOverlayVisible,
+      subtitleSecondaryVisibleChosen: current.subtitleSecondaryVisibleChosen || secondaryVisible !== current.subtitleSecondaryVisible,
       subtitleNativeBlurred: has("subtitleNativeBlurred"),
       subtitleKaraokeMode: has("subtitleKaraokeMode"),
       subtitleTranscriptVisible: has("subtitleTranscriptVisible"),
@@ -86297,7 +86308,7 @@ ${reading}`);
       const loaded = await this.loadPrimaryTrackSelection(id, requestId);
       if (!loaded) return;
       if (options.auto && this.revertSingleCueAutoSelection("primary", loaded)) return;
-      if (options.auto) this.revealPrimarySubtitleOverlay();
+      if (options.auto) this.revealPrimarySubtitleOverlay({ auto: true });
       this.applyPrimaryTrackSelection(loaded);
       this.finishPrimaryTrackSelection(id, loaded.track);
     }
@@ -86339,13 +86350,21 @@ ${reading}`);
       this.secondaryCues = [];
       this.secondaryCue = void 0;
     }
-    revealPrimarySubtitleOverlay() {
-      const settings = this.options.getSettings();
-      if (!settings.subtitleOverlayVisible) {
-        settings.subtitleOverlayVisible = true;
-        this.options.onSettingsChange();
-      }
+    revealPrimarySubtitleOverlay(options = {}) {
+      this.revealSubtitleOverlay("subtitleOverlayVisible", "subtitleOverlayVisibleChosen", Boolean(options.auto));
+      if (!this.options.getSettings().subtitleOverlayVisible) return;
       this.root?.classList.remove("jpdb-subtitle-hidden");
+    }
+    // Selecting a track shows its overlay, but an automatic pick must never
+    // overrule a visibility the user chose: writing the setting back to true
+    // from here is what made an unchecked overlay switch itself on again on
+    // the next page load.
+    revealSubtitleOverlay(visibleKey, chosenKey, auto) {
+      const settings = this.options.getSettings();
+      if (settings[visibleKey]) return;
+      if (auto && settings[chosenKey]) return;
+      settings[visibleKey] = true;
+      this.options.onSettingsChange();
     }
     async loadPrimaryTrackSelection(id, requestId) {
       return this.loadTrackSelection({ id, requestId, role: "primary", transcriptEligible: true });
@@ -86409,7 +86428,7 @@ ${reading}`);
       const loaded = await this.loadSecondaryTrackSelection(id, requestId);
       if (!loaded) return;
       if (options.auto && this.revertSingleCueAutoSelection("secondary", loaded)) return;
-      if (options.auto) this.revealSecondarySubtitleOverlay();
+      if (options.auto) this.revealSecondarySubtitleOverlay({ auto: true });
       this.applySecondaryTrackSelection(loaded);
       this.finishSecondaryTrackSelection(id, loaded.track);
     }
@@ -86434,12 +86453,8 @@ ${reading}`);
       this.lastShadowSignature = "";
       return requestId;
     }
-    revealSecondarySubtitleOverlay() {
-      const settings = this.options.getSettings();
-      if (!settings.subtitleSecondaryVisible) {
-        settings.subtitleSecondaryVisible = true;
-        this.options.onSettingsChange();
-      }
+    revealSecondarySubtitleOverlay(options = {}) {
+      this.revealSubtitleOverlay("subtitleSecondaryVisible", "subtitleSecondaryVisibleChosen", Boolean(options.auto));
     }
     async loadSecondaryTrackSelection(id, requestId) {
       return this.loadTrackSelection({ id, requestId, role: "secondary", transcriptEligible: false });
@@ -86572,12 +86587,12 @@ ${reading}`);
       const autoSecondaryTrack = this.findAutoSecondaryYouTubeTrack(autoPrimaryTrack?.id);
       const primaryTrackId = autoPrimaryTrack?.id || (this.shouldReloadUpdatedSelectedTrack(updatedSelectedTrack) ? this.selectedTrackId : "");
       if (primaryTrackId) {
-        void this.selectTrack(primaryTrackId);
-        if (autoSecondaryTrack) void this.selectSecondaryTrack(autoSecondaryTrack.id);
+        void this.selectTrack(primaryTrackId, { auto: true });
+        if (autoSecondaryTrack) void this.selectSecondaryTrack(autoSecondaryTrack.id, { auto: true });
         return;
       }
       if (autoSecondaryTrack) {
-        void this.selectSecondaryTrack(autoSecondaryTrack.id);
+        void this.selectSecondaryTrack(autoSecondaryTrack.id, { auto: true });
         return;
       }
       if (!added && !generated) return;
@@ -86652,6 +86667,7 @@ ${reading}`);
     toggleOverlayVisibility() {
       const settings = this.options.getSettings();
       settings.subtitleOverlayVisible = !settings.subtitleOverlayVisible;
+      settings.subtitleOverlayVisibleChosen = true;
       this.options.onSettingsChange();
       this.refresh();
     }

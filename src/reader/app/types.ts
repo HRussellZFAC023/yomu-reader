@@ -505,6 +505,12 @@ export interface ReaderSettings {
     subtitleAutoDetect: boolean;
     subtitleOverlayVisible: boolean;
     subtitleSecondaryVisible: boolean;
+    // Set once the user picks an overlay's visibility themselves (settings
+    // checkbox, rail eye, shortcut). Automatic track selection may only reveal
+    // an overlay while the marker is false, so an explicit "off" survives the
+    // next auto-selected track instead of being written back to true.
+    subtitleOverlayVisibleChosen: boolean;
+    subtitleSecondaryVisibleChosen: boolean;
     subtitleNativeBlurred: boolean;
     subtitleKaraokeMode: boolean;
     subtitleTranscriptVisible: boolean;
