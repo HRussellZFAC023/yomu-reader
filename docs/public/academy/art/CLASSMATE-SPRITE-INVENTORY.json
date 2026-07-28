@@ -34,14 +34,14 @@
     "totalSlots": 630
   },
   "summary": {
-    "approved": 157,
-    "reviewCandidates": 4,
-    "missing": 469,
-    "currentPhysicalRasters": 177,
-    "currentOffMatrixRasters": 16,
+    "approved": 164,
+    "reviewCandidates": 3,
+    "missing": 463,
+    "currentPhysicalRasters": 181,
+    "currentOffMatrixRasters": 14,
     "historicalUniqueRasters": 469,
     "historicalOccurrences": 2016,
-    "charactersWithApprovedCoverage": 23,
+    "charactersWithApprovedCoverage": 24,
     "charactersWithAnyCurrentCoverage": 25
   },
   "migrations": [
@@ -124,6 +124,15 @@
       "to": "/academy/art/characters/felix/felix__neutral-curly-dark-blond-glasses-paper-cat__front-near-front__fullbody__v002.png",
       "decision": "delete",
       "status": "Felix identity-locked full-body v002 family bound to runtime; mixed-angle partial v001 sprites archived outside runtime.",
+      "runtimeReferencesAfterMigration": []
+    },
+    {
+      "id": "shaun-partial-v001-to-illustrated-v002-family",
+      "character": "shaun",
+      "from": "/academy/art/characters/shaun/shaun__neutral__halfbody__v001.png",
+      "to": "/academy/art/characters/shaun/shaun__neutral-layered-light-brown-round-glasses-beige-fleece__front-near-front__fullbody__v002.png",
+      "decision": "delete",
+      "status": "Shaun identity-locked full-body v002 family bound to runtime; partial v001 sprites archived outside runtime.",
       "runtimeReferencesAfterMigration": []
     },
     {
@@ -12820,31 +12829,166 @@
         "slots": 21
       },
       "progress": {
-        "approved": 0,
-        "reviewCandidates": 1,
-        "missing": 20,
-        "deliveredPercent": 4.76,
-        "approvedPercent": 0
+        "approved": 7,
+        "reviewCandidates": 0,
+        "missing": 14,
+        "deliveredPercent": 33.33,
+        "approvedPercent": 33.33
       },
       "currentAssets": [
         {
-          "path": "/academy/art/characters/shaun/shaun__neutral__halfbody__v001.png",
-          "sha256": "9636becf6269492685b6a5401a615a481190b25e7da4071be65010abb472699e",
+          "path": "/academy/art/characters/shaun/shaun__determined-layered-light-brown-round-glasses-beige-fleece__left-three-quarter__fullbody__v002.png",
+          "sha256": "d96001280843b1c2892212b5f9a56921f6f6e1ba8540499b8afc2cb372a8b99e",
           "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
-          "status": "review-candidate",
+          "status": "approved",
           "usage": {
             "runtime": [
-              "journal:shaun"
+              "journal:shaun-expression-gallery",
+              "story:cast:shaun:determined",
+              "cast-standardization:shaun"
             ],
             "review": [
               "cast-standardization-manifest",
-              "learner-journal-preview"
+              "identity-lock"
             ]
           },
-          "orphan": "review-bound",
+          "orphan": "active-runtime",
           "styleVersion": "current-review-family",
-          "fileVersion": "v001",
+          "fileVersion": "v002",
+          "pose": "quiet departure stance with both hands resting in jacket pockets and the jacket line pulled to one side; left-three-quarter",
+          "angle": "left-three-quarter",
+          "expression": "determined",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:shaun-expression-gallery",
+            "story:cast:shaun:determined",
+            "cast-standardization:shaun"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/shaun/shaun__encouraging-listening-layered-light-brown-round-glasses-beige-fleece__right-three-quarter__fullbody__v002.png",
+          "sha256": "44e5ccc555248e7bf7dbaaa7906bfeb28d941c39b85be9548b0ffe236fcc2e02",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:shaun-expression-gallery",
+              "story:cast:shaun:encouraging-listening",
+              "cast-standardization:shaun"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "quiet departure stance with both hands resting in jacket pockets and the jacket line pulled to one side; right-three-quarter",
+          "angle": "right-three-quarter",
+          "expression": "encouraging-listening",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:shaun-expression-gallery",
+            "story:cast:shaun:encouraging-listening",
+            "cast-standardization:shaun"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/shaun/shaun__happy-layered-light-brown-round-glasses-beige-fleece__front-near-front__fullbody__v002.png",
+          "sha256": "167836873cb657271c091a13903c252292694d53b317d639b1df290313378360",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:shaun-expression-gallery",
+              "story:cast:shaun:happy",
+              "cast-standardization:shaun"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "quiet departure stance with both hands resting in jacket pockets and the jacket line pulled to one side; front-near-front",
+          "angle": "front-near-front",
+          "expression": "happy",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:shaun-expression-gallery",
+            "story:cast:shaun:happy",
+            "cast-standardization:shaun"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/shaun/shaun__neutral-layered-light-brown-round-glasses-beige-fleece__front-near-front__fullbody__v002.png",
+          "sha256": "53762d1ad6ba73aeca6ed510900e5ff46d8f71d59eb0311eeec26bae6a271ae6",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:shaun",
+              "class:people",
+              "class:week-cast",
+              "lesson-overview:roster",
+              "world:person",
+              "story:cast:shaun",
+              "cast-standardization:shaun"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
           "pose": "quiet departure stance with both hands resting in jacket pockets and the jacket line pulled to one side; front-near-front",
           "angle": "front-near-front",
           "expression": "neutral",
@@ -12856,38 +13000,45 @@
             "transparency": "alpha-channel"
           },
           "runtimeUses": [
-            "journal:shaun"
+            "journal:shaun",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "story:cast:shaun",
+            "cast-standardization:shaun"
           ],
           "reviewUses": [
             "cast-standardization-manifest",
-            "learner-journal-preview"
+            "identity-lock"
           ],
           "decision": "keep",
-          "migrationStatus": "retained-review-candidate-not-approved",
-          "coverageStatus": "review-candidate"
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
         },
         {
-          "path": "/academy/art/characters/shaun/shaun__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
-          "sha256": "8bed22bc2c84f558d24d64e82bce4763109850250d77d386102002fb0072030c",
+          "path": "/academy/art/characters/shaun/shaun__sad-vulnerable-layered-light-brown-round-glasses-beige-fleece__left-three-quarter__fullbody__v002.png",
+          "sha256": "c2403cb0fbef0f5c14236a0b0fd3e7e8b5a96211d6d7eba8fbc2bc2968c2d71f",
           "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
-          "status": "review-candidate",
+          "status": "approved",
           "usage": {
             "runtime": [
               "journal:shaun-expression-gallery",
+              "story:cast:shaun:sad-vulnerable",
               "cast-standardization:shaun"
             ],
             "review": [
               "cast-standardization-manifest",
-              "learner-journal-preview"
+              "identity-lock"
             ]
           },
-          "orphan": "review-bound",
+          "orphan": "active-runtime",
           "styleVersion": "current-review-family",
-          "fileVersion": "v001",
-          "pose": "off-contract standardized-encouraging-listening pose",
-          "angle": null,
-          "expression": null,
+          "fileVersion": "v002",
+          "pose": "quiet departure stance with both hands resting in jacket pockets and the jacket line pulled to one side; left-three-quarter",
+          "angle": "left-three-quarter",
+          "expression": "sad-vulnerable",
           "dimensions": {
             "width": 1536,
             "height": 2048,
@@ -12897,38 +13048,40 @@
           },
           "runtimeUses": [
             "journal:shaun-expression-gallery",
+            "story:cast:shaun:sad-vulnerable",
             "cast-standardization:shaun"
           ],
           "reviewUses": [
             "cast-standardization-manifest",
-            "learner-journal-preview"
+            "identity-lock"
           ],
           "decision": "keep",
-          "migrationStatus": "retained-off-matrix-review-evidence",
-          "coverageStatus": "off-matrix"
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
         },
         {
-          "path": "/academy/art/characters/shaun/shaun__standardized-happy__front-near-front__halfbody__v001.png",
-          "sha256": "9f08b56903329bab2a6af7bd35d55d4dad6a909dc57f32b3005503be1468c1a2",
+          "path": "/academy/art/characters/shaun/shaun__surprised-shocked-layered-light-brown-round-glasses-beige-fleece__right-three-quarter__fullbody__v002.png",
+          "sha256": "94358b929744e0b72c30564f0d3df329f910fee0df4dd083a757d69f809167c3",
           "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
-          "status": "review-candidate",
+          "status": "approved",
           "usage": {
             "runtime": [
               "journal:shaun-expression-gallery",
+              "story:cast:shaun:surprised-shocked",
               "cast-standardization:shaun"
             ],
             "review": [
               "cast-standardization-manifest",
-              "learner-journal-preview"
+              "identity-lock"
             ]
           },
-          "orphan": "review-bound",
+          "orphan": "active-runtime",
           "styleVersion": "current-review-family",
-          "fileVersion": "v001",
-          "pose": "off-contract standardized-happy pose",
-          "angle": null,
-          "expression": null,
+          "fileVersion": "v002",
+          "pose": "quiet departure stance with both hands resting in jacket pockets and the jacket line pulled to one side; right-three-quarter",
+          "angle": "right-three-quarter",
+          "expression": "surprised-shocked",
           "dimensions": {
             "width": 1536,
             "height": 2048,
@@ -12938,15 +13091,59 @@
           },
           "runtimeUses": [
             "journal:shaun-expression-gallery",
+            "story:cast:shaun:surprised-shocked",
             "cast-standardization:shaun"
           ],
           "reviewUses": [
             "cast-standardization-manifest",
-            "learner-journal-preview"
+            "identity-lock"
           ],
           "decision": "keep",
-          "migrationStatus": "retained-off-matrix-review-evidence",
-          "coverageStatus": "off-matrix"
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/shaun/shaun__thoughtful-layered-light-brown-round-glasses-beige-fleece__left-three-quarter__fullbody__v002.png",
+          "sha256": "7c30c5d3fa38a7e3a977b7d15c8cf387802f886372b3a5f6af60703b5591f5f6",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:shaun-expression-gallery",
+              "story:cast:shaun:thoughtful",
+              "cast-standardization:shaun"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "quiet departure stance with both hands resting in jacket pockets and the jacket line pulled to one side; left-three-quarter",
+          "angle": "left-three-quarter",
+          "expression": "thoughtful",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:shaun-expression-gallery",
+            "story:cast:shaun:thoughtful",
+            "cast-standardization:shaun"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
         }
       ],
       "requiredVariants": [
@@ -12974,16 +13171,14 @@
         {
           "angle": "left-three-quarter",
           "expression": "thoughtful",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/shaun/shaun__thoughtful__left-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/shaun/shaun__thoughtful-layered-light-brown-round-glasses-beige-fleece__left-three-quarter__fullbody__v002.png"
         },
         {
           "angle": "left-three-quarter",
           "expression": "determined",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/shaun/shaun__determined__left-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/shaun/shaun__determined-layered-light-brown-round-glasses-beige-fleece__left-three-quarter__fullbody__v002.png"
         },
         {
           "angle": "left-three-quarter",
@@ -12995,15 +13190,14 @@
         {
           "angle": "left-three-quarter",
           "expression": "sad-vulnerable",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/shaun/shaun__sad-vulnerable__left-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/shaun/shaun__sad-vulnerable-layered-light-brown-round-glasses-beige-fleece__left-three-quarter__fullbody__v002.png"
         },
         {
           "angle": "front-near-front",
           "expression": "neutral",
-          "status": "review-candidate",
-          "path": "/academy/art/characters/shaun/shaun__neutral__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/shaun/shaun__neutral-layered-light-brown-round-glasses-beige-fleece__front-near-front__fullbody__v002.png"
         },
         {
           "angle": "front-near-front",
@@ -13015,9 +13209,8 @@
         {
           "angle": "front-near-front",
           "expression": "happy",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/shaun/shaun__happy__front-near-front__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/shaun/shaun__happy-layered-light-brown-round-glasses-beige-fleece__front-near-front__fullbody__v002.png"
         },
         {
           "angle": "front-near-front",
@@ -13057,9 +13250,8 @@
         {
           "angle": "right-three-quarter",
           "expression": "encouraging-listening",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/shaun/shaun__encouraging-listening__right-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/shaun/shaun__encouraging-listening-layered-light-brown-round-glasses-beige-fleece__right-three-quarter__fullbody__v002.png"
         },
         {
           "angle": "right-three-quarter",
@@ -13085,9 +13277,8 @@
         {
           "angle": "right-three-quarter",
           "expression": "surprised-shocked",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/shaun/shaun__surprised-shocked__right-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/shaun/shaun__surprised-shocked-layered-light-brown-round-glasses-beige-fleece__right-three-quarter__fullbody__v002.png"
         },
         {
           "angle": "right-three-quarter",
@@ -13121,31 +13312,10 @@
         },
         {
           "angle": "left-three-quarter",
-          "expression": "thoughtful",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/shaun/shaun__thoughtful__left-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "left-three-quarter",
-          "expression": "determined",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/shaun/shaun__determined__left-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "left-three-quarter",
           "expression": "surprised-shocked",
           "status": "missing",
           "path": null,
           "plannedPath": "/academy/art/characters/shaun/shaun__surprised-shocked__left-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "left-three-quarter",
-          "expression": "sad-vulnerable",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/shaun/shaun__sad-vulnerable__left-three-quarter__halfbody__v001.png"
         },
         {
           "angle": "front-near-front",
@@ -13153,13 +13323,6 @@
           "status": "missing",
           "path": null,
           "plannedPath": "/academy/art/characters/shaun/shaun__encouraging-listening__front-near-front__halfbody__v001.png"
-        },
-        {
-          "angle": "front-near-front",
-          "expression": "happy",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/shaun/shaun__happy__front-near-front__halfbody__v001.png"
         },
         {
           "angle": "front-near-front",
@@ -13198,13 +13361,6 @@
         },
         {
           "angle": "right-three-quarter",
-          "expression": "encouraging-listening",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/shaun/shaun__encouraging-listening__right-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "right-three-quarter",
           "expression": "happy",
           "status": "missing",
           "path": null,
@@ -13223,13 +13379,6 @@
           "status": "missing",
           "path": null,
           "plannedPath": "/academy/art/characters/shaun/shaun__determined__right-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "right-three-quarter",
-          "expression": "surprised-shocked",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/shaun/shaun__surprised-shocked__right-three-quarter__halfbody__v001.png"
         },
         {
           "angle": "right-three-quarter",

@@ -1610,11 +1610,17 @@
         }
       ],
       "currentAsset": {
-        "status": "unapproved-neutral-candidate",
+        "status": "approved-performance-family",
         "paths": [
-          "/academy/art/characters/shaun/shaun__neutral__halfbody__v001.png"
+          "/academy/art/characters/shaun/shaun__neutral-layered-light-brown-round-glasses-beige-fleece__front-near-front__fullbody__v002.png",
+          "/academy/art/characters/shaun/shaun__encouraging-listening-layered-light-brown-round-glasses-beige-fleece__right-three-quarter__fullbody__v002.png",
+          "/academy/art/characters/shaun/shaun__happy-layered-light-brown-round-glasses-beige-fleece__front-near-front__fullbody__v002.png",
+          "/academy/art/characters/shaun/shaun__thoughtful-layered-light-brown-round-glasses-beige-fleece__left-three-quarter__fullbody__v002.png",
+          "/academy/art/characters/shaun/shaun__determined-layered-light-brown-round-glasses-beige-fleece__left-three-quarter__fullbody__v002.png",
+          "/academy/art/characters/shaun/shaun__surprised-shocked-layered-light-brown-round-glasses-beige-fleece__right-three-quarter__fullbody__v002.png",
+          "/academy/art/characters/shaun/shaun__sad-vulnerable-layered-light-brown-round-glasses-beige-fleece__left-three-quarter__fullbody__v002.png"
         ],
-        "note": "Owner-requested preview; release blocked pending likeness and whole-cast scale approval."
+        "note": "Identity-locked, visually inspected house-style family; all seven canonical expressions are runtime-bound."
       },
       "generationPriority": {
         "tier": 2,

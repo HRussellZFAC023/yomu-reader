@@ -327,6 +327,14 @@ const output = {
         status: 'Felix identity-locked full-body v002 family bound to runtime; mixed-angle partial v001 sprites archived outside runtime.',
         runtimeReferencesAfterMigration: [],
     }, {
+        id: 'shaun-partial-v001-to-illustrated-v002-family',
+        character: 'shaun',
+        from: '/academy/art/characters/shaun/shaun__neutral__halfbody__v001.png',
+        to: '/academy/art/characters/shaun/shaun__neutral-layered-light-brown-round-glasses-beige-fleece__front-near-front__fullbody__v002.png',
+        decision: 'delete',
+        status: 'Shaun identity-locked full-body v002 family bound to runtime; partial v001 sprites archived outside runtime.',
+        runtimeReferencesAfterMigration: [],
+    }, {
         id: 'rie-neutral-to-glasses-primary',
         character: 'rie',
         from: '/academy/art/characters/rie/rie__neutral__halfbody__v001.png',

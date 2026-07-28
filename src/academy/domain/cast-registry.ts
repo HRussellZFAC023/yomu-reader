@@ -115,9 +115,10 @@ export const ACADEMY_CAST = [
         id: 'shaun',
         firstName: 'Shaun',
         category: 'classmate',
-        visualEvidence: 'reference-confirmed-neutral-pending',
-        eligibility: { story: true, lessons: false, likenessRuntime: false },
+        visualEvidence: 'approved',
+        eligibility: { story: true, lessons: false, likenessRuntime: true },
         nameEvidence: 'owner-named',
+        visualBrief: 'Light-brown layered hair; round glasses; warm smile; beige zip fleece; dark trousers; backpack straps.',
     },
     {
         id: 'tom2',

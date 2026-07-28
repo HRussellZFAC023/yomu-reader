@@ -18,8 +18,8 @@
     ]
   },
   "counts": {
-    "runtimeAssetHomes": 252,
-    "runtimeFiles": 358,
+    "runtimeAssetHomes": 256,
+    "runtimeFiles": 362,
     "nonRuntimeReviewFiles": 1734,
     "approvedReferenceOnly": 4,
     "explicitlyRejectedFamilies": 4,
@@ -1313,100 +1313,6 @@
         }
       ],
       "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
-    },
-    {
-      "id": "character-shaun-neutral",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "9636becf6269492685b6a5401a615a481190b25e7da4071be65010abb472699e",
-      "provenance": "retained-current-review",
-      "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": [
-        "journal:shaun"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "learner-journal-preview"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:shaun"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/shaun/shaun__neutral__halfbody__v001.png",
-          "sha256": "9636becf6269492685b6a5401a615a481190b25e7da4071be65010abb472699e"
-        }
-      ],
-      "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-    },
-    {
-      "id": "character-shaun-standardized-encouraging-listening-front-near-front-halfbody-v001",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "8bed22bc2c84f558d24d64e82bce4763109850250d77d386102002fb0072030c",
-      "provenance": "regenerated-standardized",
-      "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": [
-        "journal:shaun-expression-gallery",
-        "cast-standardization:shaun"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "learner-journal-preview"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:shaun-expression-gallery",
-          "cast-standardization:shaun"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/shaun/shaun__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
-          "sha256": "8bed22bc2c84f558d24d64e82bce4763109850250d77d386102002fb0072030c"
-        }
-      ],
-      "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-    },
-    {
-      "id": "character-shaun-standardized-happy-front-near-front-halfbody-v001",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "9f08b56903329bab2a6af7bd35d55d4dad6a909dc57f32b3005503be1468c1a2",
-      "provenance": "regenerated-standardized",
-      "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": [
-        "journal:shaun-expression-gallery",
-        "cast-standardization:shaun"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "learner-journal-preview"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:shaun-expression-gallery",
-          "cast-standardization:shaun"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/shaun/shaun__standardized-happy__front-near-front__halfbody__v001.png",
-          "sha256": "9f08b56903329bab2a6af7bd35d55d4dad6a909dc57f32b3005503be1468c1a2"
-        }
-      ],
-      "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
     },
     {
       "id": "character-steve-determined-left",
@@ -10539,7 +10445,7 @@
       "deliveries": [
         {
           "path": "/academy/art/SPRITE-BATCH-MANIFEST.json",
-          "sha256": "a91adc937b4ac5d0e6618db70890df18d078feed35849c6143b41fbe49b27460"
+          "sha256": "1c7b0b24c51506e2978cc5fe942e0e1ac1787de74b4f8db22ba903574ea99115"
         }
       ],
       "status": "bound-and-schema-validated"
@@ -15427,6 +15333,252 @@
         {
           "path": "/academy/art/characters/felix/felix__sad-vulnerable-curly-dark-blond-glasses-paper-cat__left-three-quarter__fullbody__v002.png",
           "sha256": "b88c7c92af03604c9a041c9af729cfb3c7d10ee0f7e1e951675a8929b06c4888"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-shaun-neutral-layered-light-brown-round-glasses-beige-fleece-front-near-front-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "53762d1ad6ba73aeca6ed510900e5ff46d8f71d59eb0311eeec26bae6a271ae6",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:shaun",
+        "class:people",
+        "class:week-cast",
+        "lesson-overview:roster",
+        "world:person",
+        "story:cast:shaun",
+        "cast-standardization:shaun"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:shaun",
+          "class:people",
+          "class:week-cast",
+          "lesson-overview:roster",
+          "world:person",
+          "story:cast:shaun",
+          "cast-standardization:shaun"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/shaun/shaun__neutral-layered-light-brown-round-glasses-beige-fleece__front-near-front__fullbody__v002.png",
+          "sha256": "53762d1ad6ba73aeca6ed510900e5ff46d8f71d59eb0311eeec26bae6a271ae6"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-shaun-encouraging-listening-layered-light-brown-round-glasses-beige-fleece-right-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "44e5ccc555248e7bf7dbaaa7906bfeb28d941c39b85be9548b0ffe236fcc2e02",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:shaun-expression-gallery",
+        "story:cast:shaun:encouraging-listening",
+        "cast-standardization:shaun"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:shaun-expression-gallery",
+          "story:cast:shaun:encouraging-listening",
+          "cast-standardization:shaun"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/shaun/shaun__encouraging-listening-layered-light-brown-round-glasses-beige-fleece__right-three-quarter__fullbody__v002.png",
+          "sha256": "44e5ccc555248e7bf7dbaaa7906bfeb28d941c39b85be9548b0ffe236fcc2e02"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-shaun-happy-layered-light-brown-round-glasses-beige-fleece-front-near-front-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "167836873cb657271c091a13903c252292694d53b317d639b1df290313378360",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:shaun-expression-gallery",
+        "story:cast:shaun:happy",
+        "cast-standardization:shaun"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:shaun-expression-gallery",
+          "story:cast:shaun:happy",
+          "cast-standardization:shaun"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/shaun/shaun__happy-layered-light-brown-round-glasses-beige-fleece__front-near-front__fullbody__v002.png",
+          "sha256": "167836873cb657271c091a13903c252292694d53b317d639b1df290313378360"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-shaun-thoughtful-layered-light-brown-round-glasses-beige-fleece-left-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "7c30c5d3fa38a7e3a977b7d15c8cf387802f886372b3a5f6af60703b5591f5f6",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:shaun-expression-gallery",
+        "story:cast:shaun:thoughtful",
+        "cast-standardization:shaun"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:shaun-expression-gallery",
+          "story:cast:shaun:thoughtful",
+          "cast-standardization:shaun"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/shaun/shaun__thoughtful-layered-light-brown-round-glasses-beige-fleece__left-three-quarter__fullbody__v002.png",
+          "sha256": "7c30c5d3fa38a7e3a977b7d15c8cf387802f886372b3a5f6af60703b5591f5f6"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-shaun-determined-layered-light-brown-round-glasses-beige-fleece-left-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "d96001280843b1c2892212b5f9a56921f6f6e1ba8540499b8afc2cb372a8b99e",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:shaun-expression-gallery",
+        "story:cast:shaun:determined",
+        "cast-standardization:shaun"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:shaun-expression-gallery",
+          "story:cast:shaun:determined",
+          "cast-standardization:shaun"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/shaun/shaun__determined-layered-light-brown-round-glasses-beige-fleece__left-three-quarter__fullbody__v002.png",
+          "sha256": "d96001280843b1c2892212b5f9a56921f6f6e1ba8540499b8afc2cb372a8b99e"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-shaun-surprised-shocked-layered-light-brown-round-glasses-beige-fleece-right-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "94358b929744e0b72c30564f0d3df329f910fee0df4dd083a757d69f809167c3",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:shaun-expression-gallery",
+        "story:cast:shaun:surprised-shocked",
+        "cast-standardization:shaun"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:shaun-expression-gallery",
+          "story:cast:shaun:surprised-shocked",
+          "cast-standardization:shaun"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/shaun/shaun__surprised-shocked-layered-light-brown-round-glasses-beige-fleece__right-three-quarter__fullbody__v002.png",
+          "sha256": "94358b929744e0b72c30564f0d3df329f910fee0df4dd083a757d69f809167c3"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-shaun-sad-vulnerable-layered-light-brown-round-glasses-beige-fleece-left-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "c2403cb0fbef0f5c14236a0b0fd3e7e8b5a96211d6d7eba8fbc2bc2968c2d71f",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:shaun-expression-gallery",
+        "story:cast:shaun:sad-vulnerable",
+        "cast-standardization:shaun"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:shaun-expression-gallery",
+          "story:cast:shaun:sad-vulnerable",
+          "cast-standardization:shaun"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/shaun/shaun__sad-vulnerable-layered-light-brown-round-glasses-beige-fleece__left-three-quarter__fullbody__v002.png",
+          "sha256": "c2403cb0fbef0f5c14236a0b0fd3e7e8b5a96211d6d7eba8fbc2bc2968c2d71f"
         }
       ],
       "status": "identity-locked, visually inspected, runtime-bound house-style sprite"

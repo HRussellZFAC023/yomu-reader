@@ -55,7 +55,7 @@ describe('Academy sprite batch manifest', () => {
         expect(status.aakash).toBe('approved-performance-family');
         expect(status.peter).toBe('unapproved-performance-candidates');
         expect(status.felix).toBe('approved-performance-family');
-        expect(status.shaun).toBe('unapproved-neutral-candidate');
+        expect(status.shaun).toBe('approved-performance-family');
         expect(status.sophie).toBe('approved-performance-trio');
         expect(ACADEMY_SPRITE_BATCH_MANIFEST.characters.find(character => character.id === 'sophie')?.currentAsset.paths)
             .toHaveLength(3);

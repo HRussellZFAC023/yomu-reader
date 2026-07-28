@@ -1,0 +1,102 @@
+{
+  "promotions": [
+    {
+      "castId": "shaun",
+      "archiveLabel": "identity-and-style-superseded-20260728",
+      "archiveAllCurrent": true,
+      "replaceExpressions": [
+        "neutral",
+        "encouraging-listening",
+        "happy",
+        "thoughtful",
+        "determined",
+        "surprised-shocked",
+        "sad-vulnerable"
+      ],
+      "canonicalNeutralAssetId": "character.shaun.neutral-layered-light-brown-round-glasses-beige-fleece-front-near-front-fullbody-v002",
+      "slots": [
+        {
+          "assetId": "character.shaun.neutral-layered-light-brown-round-glasses-beige-fleece-front-near-front-fullbody-v002",
+          "expression": "neutral",
+          "angle": "front-near-front",
+          "assetPath": "/academy/art/characters/shaun/shaun__neutral-layered-light-brown-round-glasses-beige-fleece__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:shaun",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "story:cast:shaun",
+            "cast-standardization:shaun"
+          ]
+        },
+        {
+          "assetId": "character.shaun.encouraging-listening-layered-light-brown-round-glasses-beige-fleece-right-three-quarter-fullbody-v002",
+          "expression": "encouraging-listening",
+          "angle": "right-three-quarter",
+          "assetPath": "/academy/art/characters/shaun/shaun__encouraging-listening-layered-light-brown-round-glasses-beige-fleece__right-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:shaun-expression-gallery",
+            "story:cast:shaun:encouraging-listening",
+            "cast-standardization:shaun"
+          ]
+        },
+        {
+          "assetId": "character.shaun.happy-layered-light-brown-round-glasses-beige-fleece-front-near-front-fullbody-v002",
+          "expression": "happy",
+          "angle": "front-near-front",
+          "assetPath": "/academy/art/characters/shaun/shaun__happy-layered-light-brown-round-glasses-beige-fleece__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:shaun-expression-gallery",
+            "story:cast:shaun:happy",
+            "cast-standardization:shaun"
+          ]
+        },
+        {
+          "assetId": "character.shaun.thoughtful-layered-light-brown-round-glasses-beige-fleece-left-three-quarter-fullbody-v002",
+          "expression": "thoughtful",
+          "angle": "left-three-quarter",
+          "assetPath": "/academy/art/characters/shaun/shaun__thoughtful-layered-light-brown-round-glasses-beige-fleece__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:shaun-expression-gallery",
+            "story:cast:shaun:thoughtful",
+            "cast-standardization:shaun"
+          ]
+        },
+        {
+          "assetId": "character.shaun.determined-layered-light-brown-round-glasses-beige-fleece-left-three-quarter-fullbody-v002",
+          "expression": "determined",
+          "angle": "left-three-quarter",
+          "assetPath": "/academy/art/characters/shaun/shaun__determined-layered-light-brown-round-glasses-beige-fleece__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:shaun-expression-gallery",
+            "story:cast:shaun:determined",
+            "cast-standardization:shaun"
+          ]
+        },
+        {
+          "assetId": "character.shaun.surprised-shocked-layered-light-brown-round-glasses-beige-fleece-right-three-quarter-fullbody-v002",
+          "expression": "surprised-shocked",
+          "angle": "right-three-quarter",
+          "assetPath": "/academy/art/characters/shaun/shaun__surprised-shocked-layered-light-brown-round-glasses-beige-fleece__right-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:shaun-expression-gallery",
+            "story:cast:shaun:surprised-shocked",
+            "cast-standardization:shaun"
+          ]
+        },
+        {
+          "assetId": "character.shaun.sad-vulnerable-layered-light-brown-round-glasses-beige-fleece-left-three-quarter-fullbody-v002",
+          "expression": "sad-vulnerable",
+          "angle": "left-three-quarter",
+          "assetPath": "/academy/art/characters/shaun/shaun__sad-vulnerable-layered-light-brown-round-glasses-beige-fleece__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:shaun-expression-gallery",
+            "story:cast:shaun:sad-vulnerable",
+            "cast-standardization:shaun"
+          ]
+        }
+      ]
+    }
+  ]
+}

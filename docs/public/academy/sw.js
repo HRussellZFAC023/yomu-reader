@@ -1,4 +1,4 @@
-const VERSION = 'yomu-academy-shell-s1-56c2feba0e52';
+const VERSION = 'yomu-academy-shell-s1-a4f2ad9237de';
 const AUDIO_CACHE = 'yomu-academy-audio-v1-2c25b06f971c';
 const STORY_VOICE_CATALOG = '/academy/audio/story-voice-playback.json';
 const STORY_VOICE_ASSET = /^\/academy\/audio\/story-(?:pilot|lines)\/[a-z0-9][a-z0-9._-]*\.opus$/;
@@ -164,9 +164,13 @@ const RUNTIME_ART_PRECACHE = [
     '/academy/art/characters/sam/sam__sad-vulnerable-close-cropped-chestnut__left-three-quarter__fullbody__v002.png',
     '/academy/art/characters/sam/sam__surprised-shocked-close-cropped-chestnut__right-three-quarter__fullbody__v002.png',
     '/academy/art/characters/sam/sam__thoughtful-close-cropped-chestnut__left-three-quarter__fullbody__v002.png',
-    '/academy/art/characters/shaun/shaun__neutral__halfbody__v001.png',
-    '/academy/art/characters/shaun/shaun__standardized-encouraging-listening__front-near-front__halfbody__v001.png',
-    '/academy/art/characters/shaun/shaun__standardized-happy__front-near-front__halfbody__v001.png',
+    '/academy/art/characters/shaun/shaun__determined-layered-light-brown-round-glasses-beige-fleece__left-three-quarter__fullbody__v002.png',
+    '/academy/art/characters/shaun/shaun__encouraging-listening-layered-light-brown-round-glasses-beige-fleece__right-three-quarter__fullbody__v002.png',
+    '/academy/art/characters/shaun/shaun__happy-layered-light-brown-round-glasses-beige-fleece__front-near-front__fullbody__v002.png',
+    '/academy/art/characters/shaun/shaun__neutral-layered-light-brown-round-glasses-beige-fleece__front-near-front__fullbody__v002.png',
+    '/academy/art/characters/shaun/shaun__sad-vulnerable-layered-light-brown-round-glasses-beige-fleece__left-three-quarter__fullbody__v002.png',
+    '/academy/art/characters/shaun/shaun__surprised-shocked-layered-light-brown-round-glasses-beige-fleece__right-three-quarter__fullbody__v002.png',
+    '/academy/art/characters/shaun/shaun__thoughtful-layered-light-brown-round-glasses-beige-fleece__left-three-quarter__fullbody__v002.png',
     '/academy/art/characters/shin/shin__determined-short-black-round-glasses-kanji-notebook__front-near-front__fullbody__v002.png',
     '/academy/art/characters/shin/shin__encouraging-listening-short-black-round-glasses-kanji-notebook__right-three-quarter__fullbody__v002.png',
     '/academy/art/characters/shin/shin__happy-short-black-round-glasses-kanji-notebook__front-near-front__fullbody__v002.png',
@@ -408,8 +412,8 @@ const CORE = [
     '/yomu-icon.svg',
     '/academy/',
     '/academy/index.html',
-    '/academy/app.js?v=s1-56c2feba0e52',
-    '/academy/style.css?v=s1-56c2feba0e52',
+    '/academy/app.js?v=s1-a4f2ad9237de',
+    '/academy/style.css?v=s1-a4f2ad9237de',
     '/academy/manifest.webmanifest',
     ...RUNTIME_ART_PRECACHE,
     '/academy/content/vertical-slice/source-library.v1.json',

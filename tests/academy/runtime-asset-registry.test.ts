@@ -129,6 +129,8 @@ describe('Academy runtime asset registry', () => {
             'character.sam.encouraging-listening-close-cropped-chestnut-right-three-quarter-fullbody-v002',
             'character.peter.neutral-quiet-observer-front-near-front-fullbody-v003',
             'character.peter.encouraging-listening-quiet-observer-right-three-quarter-fullbody-v003',
+            'character.shaun.neutral-layered-light-brown-round-glasses-beige-fleece-front-near-front-fullbody-v002',
+            'character.shaun.encouraging-listening-layered-light-brown-round-glasses-beige-fleece-right-three-quarter-fullbody-v002',
             'character.rose.neutral-auburn-headband-pink-cardigan-front-near-front-fullbody-v002',
             'character.rose.encouraging-listening-auburn-headband-pink-cardigan-right-three-quarter-fullbody-v002',
             'character.jodi.neutral-silver-streaked-bob-plum-scarf-front-near-front-fullbody-v002',

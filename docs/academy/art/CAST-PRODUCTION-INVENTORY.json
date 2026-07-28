@@ -29,10 +29,10 @@
     "cast": 30,
     "requiredPerformancesPerCast": 7,
     "requiredSlots": 210,
-    "integratedSlots": 154,
-    "missingSlots": 56,
+    "integratedSlots": 161,
+    "missingSlots": 49,
     "ownerCorrectionQueue": 14,
-    "storyCriticalQueue": 7,
+    "storyCriticalQueue": 0,
     "rosterCompletionQueue": 35
   },
   "cast": [
@@ -2394,65 +2394,97 @@
       "priority": "story-critical",
       "summary": {
         "required": 7,
-        "integrated": 0,
-        "missing": 7
+        "integrated": 7,
+        "missing": 0
       },
       "performances": [
         {
           "expression": "neutral",
           "preferredAngle": "front-near-front",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.shaun.neutral-layered-light-brown-round-glasses-beige-fleece-front-near-front-fullbody-v002",
+          "assetPath": "/academy/art/characters/shaun/shaun__neutral-layered-light-brown-round-glasses-beige-fleece__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:shaun",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "story:cast:shaun",
+            "cast-standardization:shaun"
+          ]
         },
         {
           "expression": "encouraging-listening",
           "preferredAngle": "right-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.shaun.encouraging-listening-layered-light-brown-round-glasses-beige-fleece-right-three-quarter-fullbody-v002",
+          "assetPath": "/academy/art/characters/shaun/shaun__encouraging-listening-layered-light-brown-round-glasses-beige-fleece__right-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:shaun-expression-gallery",
+            "story:cast:shaun:encouraging-listening",
+            "cast-standardization:shaun"
+          ]
         },
         {
           "expression": "happy",
           "preferredAngle": "front-near-front",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.shaun.happy-layered-light-brown-round-glasses-beige-fleece-front-near-front-fullbody-v002",
+          "assetPath": "/academy/art/characters/shaun/shaun__happy-layered-light-brown-round-glasses-beige-fleece__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:shaun-expression-gallery",
+            "story:cast:shaun:happy",
+            "cast-standardization:shaun"
+          ]
         },
         {
           "expression": "thoughtful",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.shaun.thoughtful-layered-light-brown-round-glasses-beige-fleece-left-three-quarter-fullbody-v002",
+          "assetPath": "/academy/art/characters/shaun/shaun__thoughtful-layered-light-brown-round-glasses-beige-fleece__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:shaun-expression-gallery",
+            "story:cast:shaun:thoughtful",
+            "cast-standardization:shaun"
+          ]
         },
         {
           "expression": "determined",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.shaun.determined-layered-light-brown-round-glasses-beige-fleece-left-three-quarter-fullbody-v002",
+          "assetPath": "/academy/art/characters/shaun/shaun__determined-layered-light-brown-round-glasses-beige-fleece__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:shaun-expression-gallery",
+            "story:cast:shaun:determined",
+            "cast-standardization:shaun"
+          ]
         },
         {
           "expression": "surprised-shocked",
           "preferredAngle": "right-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.shaun.surprised-shocked-layered-light-brown-round-glasses-beige-fleece-right-three-quarter-fullbody-v002",
+          "assetPath": "/academy/art/characters/shaun/shaun__surprised-shocked-layered-light-brown-round-glasses-beige-fleece__right-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:shaun-expression-gallery",
+            "story:cast:shaun:surprised-shocked",
+            "cast-standardization:shaun"
+          ]
         },
         {
           "expression": "sad-vulnerable",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.shaun.sad-vulnerable-layered-light-brown-round-glasses-beige-fleece-left-three-quarter-fullbody-v002",
+          "assetPath": "/academy/art/characters/shaun/shaun__sad-vulnerable-layered-light-brown-round-glasses-beige-fleece__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:shaun-expression-gallery",
+            "story:cast:shaun:sad-vulnerable",
+            "cast-standardization:shaun"
+          ]
         }
       ]
     },
@@ -3366,204 +3398,6 @@
       "runtimeHomes": [
         "journal:christian-expression-gallery",
         "story:cast:christian:sad-vulnerable"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "shaun:neutral",
-      "castId": "shaun",
-      "displayName": "Shaun",
-      "identityKey": "shaun-established-neutral",
-      "expression": "neutral",
-      "angle": "front-near-front",
-      "priority": "story-critical",
-      "storyLines": 8,
-      "visualLock": "Adult male classmate whose current approved identity silhouette remains the anchor while the rendering is harmonised.",
-      "wardrobeLock": "Unshowy modern casual layers in ink, slate, and cream.",
-      "reject": [
-        "pixel filter",
-        "photographic face",
-        "identity drift from the locked neutral",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:shaun",
-        "class:people",
-        "lesson-overview:roster",
-        "story:cast:shaun"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "shaun:encouraging-listening",
-      "castId": "shaun",
-      "displayName": "Shaun",
-      "identityKey": "shaun-established-neutral",
-      "expression": "encouraging-listening",
-      "angle": "right-three-quarter",
-      "priority": "story-critical",
-      "storyLines": 8,
-      "visualLock": "Adult male classmate whose current approved identity silhouette remains the anchor while the rendering is harmonised.",
-      "wardrobeLock": "Unshowy modern casual layers in ink, slate, and cream.",
-      "reject": [
-        "pixel filter",
-        "photographic face",
-        "identity drift from the locked neutral",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:shaun-expression-gallery",
-        "story:cast:shaun:encouraging-listening"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "shaun:happy",
-      "castId": "shaun",
-      "displayName": "Shaun",
-      "identityKey": "shaun-established-neutral",
-      "expression": "happy",
-      "angle": "front-near-front",
-      "priority": "story-critical",
-      "storyLines": 8,
-      "visualLock": "Adult male classmate whose current approved identity silhouette remains the anchor while the rendering is harmonised.",
-      "wardrobeLock": "Unshowy modern casual layers in ink, slate, and cream.",
-      "reject": [
-        "pixel filter",
-        "photographic face",
-        "identity drift from the locked neutral",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:shaun-expression-gallery",
-        "story:cast:shaun:happy"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "shaun:thoughtful",
-      "castId": "shaun",
-      "displayName": "Shaun",
-      "identityKey": "shaun-established-neutral",
-      "expression": "thoughtful",
-      "angle": "left-three-quarter",
-      "priority": "story-critical",
-      "storyLines": 8,
-      "visualLock": "Adult male classmate whose current approved identity silhouette remains the anchor while the rendering is harmonised.",
-      "wardrobeLock": "Unshowy modern casual layers in ink, slate, and cream.",
-      "reject": [
-        "pixel filter",
-        "photographic face",
-        "identity drift from the locked neutral",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:shaun-expression-gallery",
-        "story:cast:shaun:thoughtful"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "shaun:determined",
-      "castId": "shaun",
-      "displayName": "Shaun",
-      "identityKey": "shaun-established-neutral",
-      "expression": "determined",
-      "angle": "left-three-quarter",
-      "priority": "story-critical",
-      "storyLines": 8,
-      "visualLock": "Adult male classmate whose current approved identity silhouette remains the anchor while the rendering is harmonised.",
-      "wardrobeLock": "Unshowy modern casual layers in ink, slate, and cream.",
-      "reject": [
-        "pixel filter",
-        "photographic face",
-        "identity drift from the locked neutral",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:shaun-expression-gallery",
-        "story:cast:shaun:determined"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "shaun:surprised-shocked",
-      "castId": "shaun",
-      "displayName": "Shaun",
-      "identityKey": "shaun-established-neutral",
-      "expression": "surprised-shocked",
-      "angle": "right-three-quarter",
-      "priority": "story-critical",
-      "storyLines": 8,
-      "visualLock": "Adult male classmate whose current approved identity silhouette remains the anchor while the rendering is harmonised.",
-      "wardrobeLock": "Unshowy modern casual layers in ink, slate, and cream.",
-      "reject": [
-        "pixel filter",
-        "photographic face",
-        "identity drift from the locked neutral",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:shaun-expression-gallery",
-        "story:cast:shaun:surprised-shocked"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "shaun:sad-vulnerable",
-      "castId": "shaun",
-      "displayName": "Shaun",
-      "identityKey": "shaun-established-neutral",
-      "expression": "sad-vulnerable",
-      "angle": "left-three-quarter",
-      "priority": "story-critical",
-      "storyLines": 8,
-      "visualLock": "Adult male classmate whose current approved identity silhouette remains the anchor while the rendering is harmonised.",
-      "wardrobeLock": "Unshowy modern casual layers in ink, slate, and cream.",
-      "reject": [
-        "pixel filter",
-        "photographic face",
-        "identity drift from the locked neutral",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:shaun-expression-gallery",
-        "story:cast:shaun:sad-vulnerable"
       ],
       "status": "queued"
     },

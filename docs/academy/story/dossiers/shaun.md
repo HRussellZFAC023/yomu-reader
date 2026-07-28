@@ -13,7 +13,7 @@
 
 Shaun is the classmate who joined **after the discovery dossier had already frozen** — the person who slides into a group that has half-formed its in-jokes and just... fits, without needing a backstory reintroduction for everyone. In the real class he's a first-term face **paired with Peter**, and that pairing is the truest thing about him: two people who say little, whose few words land, and who don't compete for the floor. The canon keeps them adjacent on purpose (VOICE-AND-DIALOGUE pairs them directly).
 
-**Likeness lock (canon, do not drift):** light-brown layered hair, round glasses, a warm smile, a beige zip fleece, dark trousers, backpack straps. He has **exactly one sprite** so far — so scenes must be stageable with a single pose and expression range. Don't script him needing a costume change or a second look; write him for the sprite that exists.
+**Likeness lock (canon, do not drift):** light-brown layered hair, round glasses, a warm smile, a beige zip fleece, dark trousers, backpack straps. His approved v002 family carries all seven core performances in that same outfit; the pastry bag and folded cue page appear only where those immediate scene beats call for them.
 
 His comedy is physical and gentle: **he arrives late, and a pastry collapses.** That's the whole gag and it's enough — the croissant/pastry that doesn't survive the journey, produced apologetically as he takes the last chair a beat after the scene has started. It reads as endearing, never as irresponsibility. In a class where **lateness is the group's signature comedic engine** ("Late is just a mindset"), Shaun is the quiet variation on the theme: not defiantly late like the running bit, just... *arrives*, slightly rumpled, bearing a snack that has seen better days.
 
@@ -120,6 +120,6 @@ This is his one seed worth tracking as a **new relationship callback, `callback:
 - **Do not expand his register observation into a grammarian identity.** He makes *one* bounded observation per scene; he is not Sophie (calibration) or Shin (form decomposition), and his few words "must not imply a hidden biography" (VOICE-AND-DIALOGUE).
 - **Do not play the pastry/late gag over his Ch 34 refusal** — comedy is suspended from the first boundary beat until the other party changes behavior.
 - **Do not treat his "no" to the microphone as a flaw to fix.** Quiet participation is full participation; the Return beat proves the class heard him, it does not "cure" him.
-- **Do not drift the likeness.** Light-brown layered hair, round glasses, warm smile, beige zip fleece, dark trousers, backpack straps — and **one sprite**; don't script beats that need poses/costumes he doesn't have.
+- **Do not drift the likeness.** Light-brown layered hair, round glasses, warm smile, beige zip fleece, dark trousers, backpack straps. Keep new expressions and scene art consistent with the approved v002 family; do not invent costume changes.
 - **Do not separate him from Peter carelessly, or make either eclipse the other.** They are canon-adjacent sparse voices; keep the balance (Peter reframes via question, Shaun stays on the register/social beat).
 - **Do not give him a graduation set-piece.** His Future is one open possibility in a controlled montage or a quiet journal line — not a speech.
