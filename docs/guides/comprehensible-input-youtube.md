@@ -27,7 +27,7 @@ YouTube's homepage keeps serving whatever you usually watch. よむ's **YouTube 
 
 <figure class="yomu-feature-shot"><img :src="'/screenshots/real-youtube-filter.png'" alt="YouTube homepage with non-Japanese video cards filtered out by よむ"><figcaption>The immersion filter keeps Japanese and comprehensible-input videos and hides the rest.</figcaption></figure>
 
-<figure class="yomu-feature-shot"><img :src="'/screenshots/real-youtube-cij.png'" alt="A Comprehensible Japanese video playing with the よむ subtitle overlay"><figcaption>A beginner CI video with the lookup-ready subtitle overlay running.</figcaption></figure>
+<figure class="yomu-feature-shot"><img :src="'/screenshots/real-youtube-subtitles.webp'" alt="A beginner Japanese conversation video playing with the よむ subtitle overlay"><figcaption>A beginner video with the lookup-ready subtitle overlay running.</figcaption></figure>
 
 It also ships a dismissible **starter guide of about 100 curated Japanese channels** with quick subscribe links and a **JLPT-level filter**. The list below is a representative subset.
 

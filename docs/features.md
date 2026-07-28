@@ -58,7 +58,7 @@ For your own video files, open the [Yomu video player](/video-player/index.html)
 [More about video →](/tools/japanese-subtitle-reader)
 
 <figure class="yomu-feature-shot">
-  <img :src="'/screenshots/store-02-youtube-subtitles.png'" alt="The Yomu subtitle line and transcript panel open on a Japanese YouTube video.">
+  <img :src="'/screenshots/real-youtube-subtitles.webp'" alt="The Yomu subtitle line and transcript panel open on a Japanese YouTube video.">
   <figcaption>Subtitles and the transcript panel, on a real video.</figcaption>
 </figure>
 
@@ -110,7 +110,7 @@ Study works offline once it has loaded, so it is usable on the train. Add it to 
 [More about Study →](/tools/study-page)
 
 <figure class="yomu-feature-shot">
-  <img :src="'/screenshots/real-newtab.png'" alt="The Yomu study page with an example sentence and the target word blanked out.">
+  <img :src="'/screenshots/real-study-review.webp'" alt="The Yomu Study page on the Type step, with the answer typed in and marked correct.">
   <figcaption>One card, one short run of steps.</figcaption>
 </figure>
 

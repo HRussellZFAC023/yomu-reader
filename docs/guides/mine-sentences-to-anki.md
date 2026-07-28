@@ -40,7 +40,7 @@ The fastest place to start, with nothing to download.
 3. Hit **mine**. Yomu captures the whole subtitle line as the source sentence, pulls the word and reading, and — if you've enabled it — grabs the audio and a screenshot of the frame.
 4. If you would rather stay immersed, watch first and open **Batch Mine** at the end. It scans the loaded transcript, compares words against your current study states, preselects i+1 not-in-deck candidates, and lets you add, grade, or copy the batch after review.
 
-<figure class="yomu-feature-shot"><img :src="'/screenshots/store-02-youtube-subtitles.png'" alt="Japanese subtitle overlay on a YouTube video with lookup-ready words"><figcaption>Choose an unknown word in the subtitle overlay, then mine the whole line.</figcaption></figure>
+<figure class="yomu-feature-shot"><img :src="'/screenshots/real-youtube-subtitles.webp'" alt="Japanese subtitle overlay on a YouTube video with lookup-ready words"><figcaption>Choose an unknown word in the subtitle overlay, then mine the whole line.</figcaption></figure>
 
 ## Workflow on your own video files
 
