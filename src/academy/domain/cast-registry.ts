@@ -128,10 +128,10 @@ export const ACADEMY_CAST = [
         id: 'tom2',
         firstName: 'Tom',
         category: 'classmate',
-        visualEvidence: 'reference-confirmed-neutral-pending',
-        eligibility: { story: true, lessons: true, likenessRuntime: false },
+        visualEvidence: 'approved',
+        eligibility: { story: true, lessons: true, likenessRuntime: true },
         nameEvidence: 'owner-named',
-        visualBrief: 'Tall; average build; dark-brown hair; reserved and a little mysterious.',
+        visualBrief: 'The second Tom: tall adult White man with short dark-brown hair, clean-shaven, reserved and observant; navy practical layers and a black notebook; never blond Tom.',
     },
     {
         id: 'steve',

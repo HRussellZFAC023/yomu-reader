@@ -29,9 +29,9 @@
     "cast": 30,
     "requiredPerformancesPerCast": 7,
     "requiredSlots": 210,
-    "integratedSlots": 168,
-    "missingSlots": 42,
-    "ownerCorrectionQueue": 7,
+    "integratedSlots": 175,
+    "missingSlots": 35,
+    "ownerCorrectionQueue": 0,
     "storyCriticalQueue": 0,
     "rosterCompletionQueue": 35
   },
@@ -2539,65 +2539,97 @@
       "priority": "owner-correction",
       "summary": {
         "required": 7,
-        "integrated": 0,
-        "missing": 7
+        "integrated": 7,
+        "missing": 0
       },
       "performances": [
         {
           "expression": "neutral",
           "preferredAngle": "front-near-front",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.tom2.neutral-reserved-dark-hair-notebook-front-near-front-halfbody-v002",
+          "assetPath": "/academy/art/characters/tom2/tom2__neutral-reserved-dark-hair-notebook__front-near-front__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:tom2",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "story:cast:tom2",
+            "cast-standardization:tom2"
+          ]
         },
         {
           "expression": "encouraging-listening",
           "preferredAngle": "right-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.tom2.encouraging-listening-reserved-dark-hair-notebook-right-three-quarter-halfbody-v002",
+          "assetPath": "/academy/art/characters/tom2/tom2__encouraging-listening-reserved-dark-hair-notebook__right-three-quarter__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:tom2-expression-gallery",
+            "story:cast:tom2:encouraging-listening",
+            "cast-standardization:tom2"
+          ]
         },
         {
           "expression": "happy",
           "preferredAngle": "front-near-front",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.tom2.happy-reserved-dark-hair-notebook-front-near-front-halfbody-v002",
+          "assetPath": "/academy/art/characters/tom2/tom2__happy-reserved-dark-hair-notebook__front-near-front__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:tom2-expression-gallery",
+            "story:cast:tom2:happy",
+            "cast-standardization:tom2"
+          ]
         },
         {
           "expression": "thoughtful",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.tom2.thoughtful-reserved-dark-hair-notebook-left-three-quarter-halfbody-v002",
+          "assetPath": "/academy/art/characters/tom2/tom2__thoughtful-reserved-dark-hair-notebook__left-three-quarter__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:tom2-expression-gallery",
+            "story:cast:tom2:thoughtful",
+            "cast-standardization:tom2"
+          ]
         },
         {
           "expression": "determined",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.tom2.determined-reserved-dark-hair-notebook-left-three-quarter-halfbody-v002",
+          "assetPath": "/academy/art/characters/tom2/tom2__determined-reserved-dark-hair-notebook__left-three-quarter__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:tom2-expression-gallery",
+            "story:cast:tom2:determined",
+            "cast-standardization:tom2"
+          ]
         },
         {
           "expression": "surprised-shocked",
           "preferredAngle": "right-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.tom2.surprised-shocked-reserved-dark-hair-notebook-right-three-quarter-halfbody-v002",
+          "assetPath": "/academy/art/characters/tom2/tom2__surprised-shocked-reserved-dark-hair-notebook__right-three-quarter__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:tom2-expression-gallery",
+            "story:cast:tom2:surprised-shocked",
+            "cast-standardization:tom2"
+          ]
         },
         {
           "expression": "sad-vulnerable",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.tom2.sad-vulnerable-reserved-dark-hair-notebook-left-three-quarter-halfbody-v002",
+          "assetPath": "/academy/art/characters/tom2/tom2__sad-vulnerable-reserved-dark-hair-notebook__left-three-quarter__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:tom2-expression-gallery",
+            "story:cast:tom2:sad-vulnerable",
+            "cast-standardization:tom2"
+          ]
         }
       ]
     },
@@ -3228,211 +3260,6 @@
     }
   ],
   "generationQueue": [
-    {
-      "key": "tom2:neutral",
-      "castId": "tom2",
-      "displayName": "Tom",
-      "identityKey": "second-tom-tall-dark-brown-reserved",
-      "expression": "neutral",
-      "angle": "front-near-front",
-      "priority": "owner-correction",
-      "storyLines": 0,
-      "visualLock": "The second Tom: tall adult White man with dark-brown hair, average build, and a reserved, slightly mysterious expression.",
-      "wardrobeLock": "Dark practical layers and a black notebook; visually distinct from blond Tom.",
-      "reject": [
-        "blond Tom identity",
-        "photographic face",
-        "generic model pose",
-        "beard unless locked later",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:tom2",
-        "class:people",
-        "lesson-overview:roster",
-        "story:cast:tom2"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "tom2:encouraging-listening",
-      "castId": "tom2",
-      "displayName": "Tom",
-      "identityKey": "second-tom-tall-dark-brown-reserved",
-      "expression": "encouraging-listening",
-      "angle": "right-three-quarter",
-      "priority": "owner-correction",
-      "storyLines": 0,
-      "visualLock": "The second Tom: tall adult White man with dark-brown hair, average build, and a reserved, slightly mysterious expression.",
-      "wardrobeLock": "Dark practical layers and a black notebook; visually distinct from blond Tom.",
-      "reject": [
-        "blond Tom identity",
-        "photographic face",
-        "generic model pose",
-        "beard unless locked later",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:tom2-expression-gallery",
-        "story:cast:tom2:encouraging-listening"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "tom2:happy",
-      "castId": "tom2",
-      "displayName": "Tom",
-      "identityKey": "second-tom-tall-dark-brown-reserved",
-      "expression": "happy",
-      "angle": "front-near-front",
-      "priority": "owner-correction",
-      "storyLines": 0,
-      "visualLock": "The second Tom: tall adult White man with dark-brown hair, average build, and a reserved, slightly mysterious expression.",
-      "wardrobeLock": "Dark practical layers and a black notebook; visually distinct from blond Tom.",
-      "reject": [
-        "blond Tom identity",
-        "photographic face",
-        "generic model pose",
-        "beard unless locked later",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:tom2-expression-gallery",
-        "story:cast:tom2:happy"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "tom2:thoughtful",
-      "castId": "tom2",
-      "displayName": "Tom",
-      "identityKey": "second-tom-tall-dark-brown-reserved",
-      "expression": "thoughtful",
-      "angle": "left-three-quarter",
-      "priority": "owner-correction",
-      "storyLines": 0,
-      "visualLock": "The second Tom: tall adult White man with dark-brown hair, average build, and a reserved, slightly mysterious expression.",
-      "wardrobeLock": "Dark practical layers and a black notebook; visually distinct from blond Tom.",
-      "reject": [
-        "blond Tom identity",
-        "photographic face",
-        "generic model pose",
-        "beard unless locked later",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:tom2-expression-gallery",
-        "story:cast:tom2:thoughtful"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "tom2:determined",
-      "castId": "tom2",
-      "displayName": "Tom",
-      "identityKey": "second-tom-tall-dark-brown-reserved",
-      "expression": "determined",
-      "angle": "left-three-quarter",
-      "priority": "owner-correction",
-      "storyLines": 0,
-      "visualLock": "The second Tom: tall adult White man with dark-brown hair, average build, and a reserved, slightly mysterious expression.",
-      "wardrobeLock": "Dark practical layers and a black notebook; visually distinct from blond Tom.",
-      "reject": [
-        "blond Tom identity",
-        "photographic face",
-        "generic model pose",
-        "beard unless locked later",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:tom2-expression-gallery",
-        "story:cast:tom2:determined"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "tom2:surprised-shocked",
-      "castId": "tom2",
-      "displayName": "Tom",
-      "identityKey": "second-tom-tall-dark-brown-reserved",
-      "expression": "surprised-shocked",
-      "angle": "right-three-quarter",
-      "priority": "owner-correction",
-      "storyLines": 0,
-      "visualLock": "The second Tom: tall adult White man with dark-brown hair, average build, and a reserved, slightly mysterious expression.",
-      "wardrobeLock": "Dark practical layers and a black notebook; visually distinct from blond Tom.",
-      "reject": [
-        "blond Tom identity",
-        "photographic face",
-        "generic model pose",
-        "beard unless locked later",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:tom2-expression-gallery",
-        "story:cast:tom2:surprised-shocked"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "tom2:sad-vulnerable",
-      "castId": "tom2",
-      "displayName": "Tom",
-      "identityKey": "second-tom-tall-dark-brown-reserved",
-      "expression": "sad-vulnerable",
-      "angle": "left-three-quarter",
-      "priority": "owner-correction",
-      "storyLines": 0,
-      "visualLock": "The second Tom: tall adult White man with dark-brown hair, average build, and a reserved, slightly mysterious expression.",
-      "wardrobeLock": "Dark practical layers and a black notebook; visually distinct from blond Tom.",
-      "reject": [
-        "blond Tom identity",
-        "photographic face",
-        "generic model pose",
-        "beard unless locked later",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:tom2-expression-gallery",
-        "story:cast:tom2:sad-vulnerable"
-      ],
-      "status": "queued"
-    },
     {
       "key": "steve:neutral",
       "castId": "steve",

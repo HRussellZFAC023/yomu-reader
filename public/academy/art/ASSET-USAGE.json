@@ -18,8 +18,8 @@
     ]
   },
   "counts": {
-    "runtimeAssetHomes": 260,
-    "runtimeFiles": 366,
+    "runtimeAssetHomes": 264,
+    "runtimeFiles": 370,
     "nonRuntimeReviewFiles": 1734,
     "approvedReferenceOnly": 4,
     "explicitlyRejectedFamilies": 4,
@@ -1487,98 +1487,6 @@
         {
           "path": "/academy/art/characters/tawapon/tawapon__standardized-neutral__front-near-front__halfbody__v001.png",
           "sha256": "7ccf2d30ca96bf35be6f83228349db668fa84635aa2fba581ff64c5f6d26d166"
-        }
-      ],
-      "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-    },
-    {
-      "id": "character-tom2-encouraging-front",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "e649084f2d3c07782c45d4acfa8cd64ce68ab6a6ed332abbdf1336b29b2b6635",
-      "provenance": "retained-current-review",
-      "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": [
-        "journal:tom2-expression-gallery"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "learner-journal-preview"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:tom2-expression-gallery"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/tom2/tom2__encouraging-listening__front-near-front__halfbody__v001.png",
-          "sha256": "e649084f2d3c07782c45d4acfa8cd64ce68ab6a6ed332abbdf1336b29b2b6635"
-        }
-      ],
-      "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-    },
-    {
-      "id": "character-tom2-neutral-right",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "bed3c072bcee6953d825ae67ab0e7f576bda625c03ad7d11060fed667e95a41c",
-      "provenance": "retained-current-review",
-      "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": [
-        "journal:tom2",
-        "journal:tom2-expression-gallery"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "learner-journal-preview"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:tom2",
-          "journal:tom2-expression-gallery"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/tom2/tom2__neutral__right-three-quarter__halfbody__v001.png",
-          "sha256": "bed3c072bcee6953d825ae67ab0e7f576bda625c03ad7d11060fed667e95a41c"
-        }
-      ],
-      "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-    },
-    {
-      "id": "character-tom2-surprised-left",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "f0253f17a7a73bbe4b84c41630cfd1418fb244cc2397fe46af84ae19c6293eee",
-      "provenance": "retained-current-review",
-      "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": [
-        "journal:tom2-expression-gallery"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "learner-journal-preview"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:tom2-expression-gallery"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/tom2/tom2__surprised-shocked__left-three-quarter__halfbody__v001.png",
-          "sha256": "f0253f17a7a73bbe4b84c41630cfd1418fb244cc2397fe46af84ae19c6293eee"
         }
       ],
       "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
@@ -10345,7 +10253,7 @@
       "deliveries": [
         {
           "path": "/academy/art/SPRITE-BATCH-MANIFEST.json",
-          "sha256": "dd242a5bba8334bc229fd19a8ff867a5e074645d67be4c2adceb10f598b3bf50"
+          "sha256": "98672bba000c36958d9afee4f976b5973ae13ce98808b67092ac9615228b198a"
         }
       ],
       "status": "bound-and-schema-validated"
@@ -15725,6 +15633,252 @@
         {
           "path": "/academy/art/characters/christian/christian__sad-vulnerable-athletic-topknot-teal-track__left-three-quarter__halfbody__v002.png",
           "sha256": "d206359facb56e3e80aa926a681d2bed5be3b36d2b7fac02d1ee802c1a825cc5"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-tom2-neutral-reserved-dark-hair-notebook-front-near-front-halfbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "c8e26b26fed7d5ae6ac227afec455766deff8e678eef93726f7eb00622693d2f",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:tom2",
+        "class:people",
+        "class:week-cast",
+        "lesson-overview:roster",
+        "world:person",
+        "story:cast:tom2",
+        "cast-standardization:tom2"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:tom2",
+          "class:people",
+          "class:week-cast",
+          "lesson-overview:roster",
+          "world:person",
+          "story:cast:tom2",
+          "cast-standardization:tom2"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/tom2/tom2__neutral-reserved-dark-hair-notebook__front-near-front__halfbody__v002.png",
+          "sha256": "c8e26b26fed7d5ae6ac227afec455766deff8e678eef93726f7eb00622693d2f"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-tom2-encouraging-listening-reserved-dark-hair-notebook-right-three-quarter-halfbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "2ba8ee72288667b3e1025f32b8334d23c9874e827b8365eadc87898791c8fc99",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:tom2-expression-gallery",
+        "story:cast:tom2:encouraging-listening",
+        "cast-standardization:tom2"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:tom2-expression-gallery",
+          "story:cast:tom2:encouraging-listening",
+          "cast-standardization:tom2"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/tom2/tom2__encouraging-listening-reserved-dark-hair-notebook__right-three-quarter__halfbody__v002.png",
+          "sha256": "2ba8ee72288667b3e1025f32b8334d23c9874e827b8365eadc87898791c8fc99"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-tom2-happy-reserved-dark-hair-notebook-front-near-front-halfbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "1e4d98b6f647b71e3ea6454ba70247114e94e4e2f1c4695f663808780504f533",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:tom2-expression-gallery",
+        "story:cast:tom2:happy",
+        "cast-standardization:tom2"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:tom2-expression-gallery",
+          "story:cast:tom2:happy",
+          "cast-standardization:tom2"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/tom2/tom2__happy-reserved-dark-hair-notebook__front-near-front__halfbody__v002.png",
+          "sha256": "1e4d98b6f647b71e3ea6454ba70247114e94e4e2f1c4695f663808780504f533"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-tom2-thoughtful-reserved-dark-hair-notebook-left-three-quarter-halfbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "676a6aab2cfd5c147e1b78fcda489001bc035352b0c91aaa8666905755418083",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:tom2-expression-gallery",
+        "story:cast:tom2:thoughtful",
+        "cast-standardization:tom2"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:tom2-expression-gallery",
+          "story:cast:tom2:thoughtful",
+          "cast-standardization:tom2"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/tom2/tom2__thoughtful-reserved-dark-hair-notebook__left-three-quarter__halfbody__v002.png",
+          "sha256": "676a6aab2cfd5c147e1b78fcda489001bc035352b0c91aaa8666905755418083"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-tom2-determined-reserved-dark-hair-notebook-left-three-quarter-halfbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "688c0f21d9d1c7e0ed495b267dd48effc43d02f531061cb4a4d9c383169abe7e",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:tom2-expression-gallery",
+        "story:cast:tom2:determined",
+        "cast-standardization:tom2"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:tom2-expression-gallery",
+          "story:cast:tom2:determined",
+          "cast-standardization:tom2"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/tom2/tom2__determined-reserved-dark-hair-notebook__left-three-quarter__halfbody__v002.png",
+          "sha256": "688c0f21d9d1c7e0ed495b267dd48effc43d02f531061cb4a4d9c383169abe7e"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-tom2-surprised-shocked-reserved-dark-hair-notebook-right-three-quarter-halfbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "61f2713dbc7d04f5e1240b938c9731c810e2b839980d9f90800d136a5773d1db",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:tom2-expression-gallery",
+        "story:cast:tom2:surprised-shocked",
+        "cast-standardization:tom2"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:tom2-expression-gallery",
+          "story:cast:tom2:surprised-shocked",
+          "cast-standardization:tom2"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/tom2/tom2__surprised-shocked-reserved-dark-hair-notebook__right-three-quarter__halfbody__v002.png",
+          "sha256": "61f2713dbc7d04f5e1240b938c9731c810e2b839980d9f90800d136a5773d1db"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-tom2-sad-vulnerable-reserved-dark-hair-notebook-left-three-quarter-halfbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "f60075d0f4291108d22b7456fc4ade2a33becd6bbfb9a22a186e41e1eb8cc1a8",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:tom2-expression-gallery",
+        "story:cast:tom2:sad-vulnerable",
+        "cast-standardization:tom2"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:tom2-expression-gallery",
+          "story:cast:tom2:sad-vulnerable",
+          "cast-standardization:tom2"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/tom2/tom2__sad-vulnerable-reserved-dark-hair-notebook__left-three-quarter__halfbody__v002.png",
+          "sha256": "f60075d0f4291108d22b7456fc4ade2a33becd6bbfb9a22a186e41e1eb8cc1a8"
         }
       ],
       "status": "identity-locked, visually inspected, runtime-bound house-style sprite"

@@ -1,4 +1,4 @@
-const VERSION = 'yomu-academy-shell-s1-1a42bf5bbaa2';
+const VERSION = 'yomu-academy-shell-s1-cdd3fc3412b3';
 const AUDIO_CACHE = 'yomu-academy-audio-v1-2c25b06f971c';
 const STORY_VOICE_CATALOG = '/academy/audio/story-voice-playback.json';
 const STORY_VOICE_ASSET = /^\/academy\/audio\/story-(?:pilot|lines)\/[a-z0-9][a-z0-9._-]*\.opus$/;
@@ -212,9 +212,13 @@ const RUNTIME_ART_PRECACHE = [
     '/academy/art/characters/tom/tom__sad-vulnerable-blond-clean-shaven__left-three-quarter__fullbody__v002.png',
     '/academy/art/characters/tom/tom__surprised-shocked-blond-clean-shaven__right-three-quarter__fullbody__v002.png',
     '/academy/art/characters/tom/tom__thoughtful-blond-clean-shaven__left-three-quarter__fullbody__v002.png',
-    '/academy/art/characters/tom2/tom2__encouraging-listening__front-near-front__halfbody__v001.png',
-    '/academy/art/characters/tom2/tom2__neutral__right-three-quarter__halfbody__v001.png',
-    '/academy/art/characters/tom2/tom2__surprised-shocked__left-three-quarter__halfbody__v001.png',
+    '/academy/art/characters/tom2/tom2__determined-reserved-dark-hair-notebook__left-three-quarter__halfbody__v002.png',
+    '/academy/art/characters/tom2/tom2__encouraging-listening-reserved-dark-hair-notebook__right-three-quarter__halfbody__v002.png',
+    '/academy/art/characters/tom2/tom2__happy-reserved-dark-hair-notebook__front-near-front__halfbody__v002.png',
+    '/academy/art/characters/tom2/tom2__neutral-reserved-dark-hair-notebook__front-near-front__halfbody__v002.png',
+    '/academy/art/characters/tom2/tom2__sad-vulnerable-reserved-dark-hair-notebook__left-three-quarter__halfbody__v002.png',
+    '/academy/art/characters/tom2/tom2__surprised-shocked-reserved-dark-hair-notebook__right-three-quarter__halfbody__v002.png',
+    '/academy/art/characters/tom2/tom2__thoughtful-reserved-dark-hair-notebook__left-three-quarter__halfbody__v002.png',
     '/academy/art/characters/xingyu/xingyu__determined-short-hair-round-glasses__left-three-quarter__fullbody__v002.png',
     '/academy/art/characters/xingyu/xingyu__encouraging-listening-short-hair-round-glasses__right-three-quarter__fullbody__v002.png',
     '/academy/art/characters/xingyu/xingyu__happy-short-hair-round-glasses__front-near-front__fullbody__v002.png',
@@ -416,8 +420,8 @@ const CORE = [
     '/yomu-icon.svg',
     '/academy/',
     '/academy/index.html',
-    '/academy/app.js?v=s1-1a42bf5bbaa2',
-    '/academy/style.css?v=s1-1a42bf5bbaa2',
+    '/academy/app.js?v=s1-cdd3fc3412b3',
+    '/academy/style.css?v=s1-cdd3fc3412b3',
     '/academy/manifest.webmanifest',
     ...RUNTIME_ART_PRECACHE,
     '/academy/content/vertical-slice/source-library.v1.json',

@@ -151,7 +151,9 @@ describe('Academy runtime asset registry', () => {
         expect(ACADEMY_RUNTIME_ASSET_REGISTRY[
             'character.felix.neutral-curly-dark-blond-glasses-paper-cat-front-near-front-fullbody-v002'
         ].status).toBe('approved');
-        expect(ACADEMY_RUNTIME_ASSET_REGISTRY['character.tom2.neutral-right'].status).toBe('review-preview');
+        expect(ACADEMY_RUNTIME_ASSET_REGISTRY[
+            'character.tom2.neutral-reserved-dark-hair-notebook-front-near-front-halfbody-v002'
+        ].status).toBe('approved');
     });
 
     it('covers every cast cutout with an explicit presentation gate and runtime home', () => {

@@ -119,7 +119,7 @@ describe('Academy VN sprite performance contract', () => {
         expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.nanako.poses[2].expressions['encouraging-listening'].status)
             .toBe('approved');
         expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.tom2.coverage)
-            .toEqual({ approved: 0, reviewCandidates: 3, missing: 18 });
+            .toEqual({ approved: 7, reviewCandidates: 0, missing: 14 });
         expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.steve.coverage)
             .toEqual({ approved: 3, reviewCandidates: 2, missing: 16 });
         expect(ACADEMY_SPRITE_PERFORMANCE_CONTRACT.xingyu.coverage)

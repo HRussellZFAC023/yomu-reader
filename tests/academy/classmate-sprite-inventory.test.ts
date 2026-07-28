@@ -182,7 +182,7 @@ describe('Academy cast-wide sprite migration inventory', () => {
             reviewCandidates: 0,
             missing: inventory.target.slotsPerCharacter - SPRITE_EXPRESSIONS.length,
         });
-        expect(tom2.progress).toMatchObject({ approved: 0, reviewCandidates: 3, missing: 18 });
+        expect(tom2.progress).toMatchObject({ approved: 7, reviewCandidates: 0, missing: 14 });
         expect(tom2.currentAssets.every(asset => asset.privacy.length > 0)).toBe(true);
         expect(steve.progress).toMatchObject({ approved: 3, reviewCandidates: 0, missing: 18 });
 

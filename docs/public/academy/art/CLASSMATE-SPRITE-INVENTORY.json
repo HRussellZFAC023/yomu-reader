@@ -34,14 +34,14 @@
     "totalSlots": 630
   },
   "summary": {
-    "approved": 171,
-    "reviewCandidates": 3,
-    "missing": 456,
-    "currentPhysicalRasters": 185,
+    "approved": 178,
+    "reviewCandidates": 0,
+    "missing": 452,
+    "currentPhysicalRasters": 189,
     "currentOffMatrixRasters": 11,
     "historicalUniqueRasters": 469,
     "historicalOccurrences": 2016,
-    "charactersWithApprovedCoverage": 25,
+    "charactersWithApprovedCoverage": 26,
     "charactersWithAnyCurrentCoverage": 26
   },
   "migrations": [
@@ -13541,33 +13541,78 @@
         "slots": 21
       },
       "progress": {
-        "approved": 0,
-        "reviewCandidates": 3,
-        "missing": 18,
-        "deliveredPercent": 14.29,
-        "approvedPercent": 0
+        "approved": 7,
+        "reviewCandidates": 0,
+        "missing": 14,
+        "deliveredPercent": 33.33,
+        "approvedPercent": 33.33
       },
       "currentAssets": [
         {
-          "path": "/academy/art/characters/tom2/tom2__encouraging-listening__front-near-front__halfbody__v001.png",
-          "sha256": "e649084f2d3c07782c45d4acfa8cd64ce68ab6a6ed332abbdf1336b29b2b6635",
+          "path": "/academy/art/characters/tom2/tom2__determined-reserved-dark-hair-notebook__left-three-quarter__halfbody__v002.png",
+          "sha256": "688c0f21d9d1c7e0ed495b267dd48effc43d02f531061cb4a4d9c383169abe7e",
           "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
-          "status": "review-candidate",
+          "status": "approved",
           "usage": {
             "runtime": [
-              "journal:tom2-expression-gallery"
+              "journal:tom2-expression-gallery",
+              "story:cast:tom2:determined",
+              "cast-standardization:tom2"
             ],
             "review": [
               "cast-standardization-manifest",
-              "learner-journal-preview"
+              "identity-lock"
             ]
           },
-          "orphan": "review-bound",
+          "orphan": "active-runtime",
           "styleVersion": "current-review-family",
-          "fileVersion": "v001",
-          "pose": "reserved three-quarter stance with a black notebook held low, opening into a careful listening gesture; front-near-front",
-          "angle": "front-near-front",
+          "fileVersion": "v002",
+          "pose": "reserved three-quarter stance with a black notebook held low, opening into a careful listening gesture; left-three-quarter",
+          "angle": "left-three-quarter",
+          "expression": "determined",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:tom2-expression-gallery",
+            "story:cast:tom2:determined",
+            "cast-standardization:tom2"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/tom2/tom2__encouraging-listening-reserved-dark-hair-notebook__right-three-quarter__halfbody__v002.png",
+          "sha256": "2ba8ee72288667b3e1025f32b8334d23c9874e827b8365eadc87898791c8fc99",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:tom2-expression-gallery",
+              "story:cast:tom2:encouraging-listening",
+              "cast-standardization:tom2"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "reserved three-quarter stance with a black notebook held low, opening into a careful listening gesture; right-three-quarter",
+          "angle": "right-three-quarter",
           "expression": "encouraging-listening",
           "dimensions": {
             "width": 1536,
@@ -13577,37 +13622,87 @@
             "transparency": "alpha-channel"
           },
           "runtimeUses": [
-            "journal:tom2-expression-gallery"
+            "journal:tom2-expression-gallery",
+            "story:cast:tom2:encouraging-listening",
+            "cast-standardization:tom2"
           ],
           "reviewUses": [
             "cast-standardization-manifest",
-            "learner-journal-preview"
+            "identity-lock"
           ],
           "decision": "keep",
-          "migrationStatus": "retained-review-candidate-not-approved",
-          "coverageStatus": "review-candidate"
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
         },
         {
-          "path": "/academy/art/characters/tom2/tom2__neutral__right-three-quarter__halfbody__v001.png",
-          "sha256": "bed3c072bcee6953d825ae67ab0e7f576bda625c03ad7d11060fed667e95a41c",
+          "path": "/academy/art/characters/tom2/tom2__happy-reserved-dark-hair-notebook__front-near-front__halfbody__v002.png",
+          "sha256": "1e4d98b6f647b71e3ea6454ba70247114e94e4e2f1c4695f663808780504f533",
           "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
-          "status": "review-candidate",
+          "status": "approved",
           "usage": {
             "runtime": [
-              "journal:tom2",
-              "journal:tom2-expression-gallery"
+              "journal:tom2-expression-gallery",
+              "story:cast:tom2:happy",
+              "cast-standardization:tom2"
             ],
             "review": [
               "cast-standardization-manifest",
-              "learner-journal-preview"
+              "identity-lock"
             ]
           },
-          "orphan": "review-bound",
+          "orphan": "active-runtime",
           "styleVersion": "current-review-family",
-          "fileVersion": "v001",
-          "pose": "reserved three-quarter stance with a black notebook held low, opening into a careful listening gesture; right-three-quarter",
-          "angle": "right-three-quarter",
+          "fileVersion": "v002",
+          "pose": "reserved three-quarter stance with a black notebook held low, opening into a careful listening gesture; front-near-front",
+          "angle": "front-near-front",
+          "expression": "happy",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:tom2-expression-gallery",
+            "story:cast:tom2:happy",
+            "cast-standardization:tom2"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/tom2/tom2__neutral-reserved-dark-hair-notebook__front-near-front__halfbody__v002.png",
+          "sha256": "c8e26b26fed7d5ae6ac227afec455766deff8e678eef93726f7eb00622693d2f",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:tom2",
+              "class:people",
+              "class:week-cast",
+              "lesson-overview:roster",
+              "world:person",
+              "story:cast:tom2",
+              "cast-standardization:tom2"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "reserved three-quarter stance with a black notebook held low, opening into a careful listening gesture; front-near-front",
+          "angle": "front-near-front",
           "expression": "neutral",
           "dimensions": {
             "width": 1536,
@@ -13618,36 +13713,86 @@
           },
           "runtimeUses": [
             "journal:tom2",
-            "journal:tom2-expression-gallery"
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "story:cast:tom2",
+            "cast-standardization:tom2"
           ],
           "reviewUses": [
             "cast-standardization-manifest",
-            "learner-journal-preview"
+            "identity-lock"
           ],
           "decision": "keep",
-          "migrationStatus": "retained-review-candidate-not-approved",
-          "coverageStatus": "review-candidate"
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
         },
         {
-          "path": "/academy/art/characters/tom2/tom2__surprised-shocked__left-three-quarter__halfbody__v001.png",
-          "sha256": "f0253f17a7a73bbe4b84c41630cfd1418fb244cc2397fe46af84ae19c6293eee",
+          "path": "/academy/art/characters/tom2/tom2__sad-vulnerable-reserved-dark-hair-notebook__left-three-quarter__halfbody__v002.png",
+          "sha256": "f60075d0f4291108d22b7456fc4ade2a33becd6bbfb9a22a186e41e1eb8cc1a8",
           "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
-          "status": "review-candidate",
+          "status": "approved",
           "usage": {
             "runtime": [
-              "journal:tom2-expression-gallery"
+              "journal:tom2-expression-gallery",
+              "story:cast:tom2:sad-vulnerable",
+              "cast-standardization:tom2"
             ],
             "review": [
               "cast-standardization-manifest",
-              "learner-journal-preview"
+              "identity-lock"
             ]
           },
-          "orphan": "review-bound",
+          "orphan": "active-runtime",
           "styleVersion": "current-review-family",
-          "fileVersion": "v001",
+          "fileVersion": "v002",
           "pose": "reserved three-quarter stance with a black notebook held low, opening into a careful listening gesture; left-three-quarter",
           "angle": "left-three-quarter",
+          "expression": "sad-vulnerable",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:tom2-expression-gallery",
+            "story:cast:tom2:sad-vulnerable",
+            "cast-standardization:tom2"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/tom2/tom2__surprised-shocked-reserved-dark-hair-notebook__right-three-quarter__halfbody__v002.png",
+          "sha256": "61f2713dbc7d04f5e1240b938c9731c810e2b839980d9f90800d136a5773d1db",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:tom2-expression-gallery",
+              "story:cast:tom2:surprised-shocked",
+              "cast-standardization:tom2"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "reserved three-quarter stance with a black notebook held low, opening into a careful listening gesture; right-three-quarter",
+          "angle": "right-three-quarter",
           "expression": "surprised-shocked",
           "dimensions": {
             "width": 1536,
@@ -13657,15 +13802,60 @@
             "transparency": "alpha-channel"
           },
           "runtimeUses": [
-            "journal:tom2-expression-gallery"
+            "journal:tom2-expression-gallery",
+            "story:cast:tom2:surprised-shocked",
+            "cast-standardization:tom2"
           ],
           "reviewUses": [
             "cast-standardization-manifest",
-            "learner-journal-preview"
+            "identity-lock"
           ],
           "decision": "keep",
-          "migrationStatus": "retained-review-candidate-not-approved",
-          "coverageStatus": "review-candidate"
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/tom2/tom2__thoughtful-reserved-dark-hair-notebook__left-three-quarter__halfbody__v002.png",
+          "sha256": "676a6aab2cfd5c147e1b78fcda489001bc035352b0c91aaa8666905755418083",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:tom2-expression-gallery",
+              "story:cast:tom2:thoughtful",
+              "cast-standardization:tom2"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "reserved three-quarter stance with a black notebook held low, opening into a careful listening gesture; left-three-quarter",
+          "angle": "left-three-quarter",
+          "expression": "thoughtful",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:tom2-expression-gallery",
+            "story:cast:tom2:thoughtful",
+            "cast-standardization:tom2"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
         }
       ],
       "requiredVariants": [
@@ -13693,49 +13883,46 @@
         {
           "angle": "left-three-quarter",
           "expression": "thoughtful",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/tom2/tom2__thoughtful__left-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/tom2/tom2__thoughtful-reserved-dark-hair-notebook__left-three-quarter__halfbody__v002.png"
         },
         {
           "angle": "left-three-quarter",
           "expression": "determined",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/tom2/tom2__determined__left-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/tom2/tom2__determined-reserved-dark-hair-notebook__left-three-quarter__halfbody__v002.png"
         },
         {
           "angle": "left-three-quarter",
           "expression": "surprised-shocked",
-          "status": "review-candidate",
-          "path": "/academy/art/characters/tom2/tom2__surprised-shocked__left-three-quarter__halfbody__v001.png"
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/tom2/tom2__surprised-shocked__left-three-quarter__halfbody__v001.png"
         },
         {
           "angle": "left-three-quarter",
           "expression": "sad-vulnerable",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/tom2/tom2__sad-vulnerable__left-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/tom2/tom2__sad-vulnerable-reserved-dark-hair-notebook__left-three-quarter__halfbody__v002.png"
         },
         {
           "angle": "front-near-front",
           "expression": "neutral",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/tom2/tom2__neutral__front-near-front__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/tom2/tom2__neutral-reserved-dark-hair-notebook__front-near-front__halfbody__v002.png"
         },
         {
           "angle": "front-near-front",
           "expression": "encouraging-listening",
-          "status": "review-candidate",
-          "path": "/academy/art/characters/tom2/tom2__encouraging-listening__front-near-front__halfbody__v001.png"
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/tom2/tom2__encouraging-listening__front-near-front__halfbody__v001.png"
         },
         {
           "angle": "front-near-front",
           "expression": "happy",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/tom2/tom2__happy__front-near-front__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/tom2/tom2__happy-reserved-dark-hair-notebook__front-near-front__halfbody__v002.png"
         },
         {
           "angle": "front-near-front",
@@ -13768,15 +13955,15 @@
         {
           "angle": "right-three-quarter",
           "expression": "neutral",
-          "status": "review-candidate",
-          "path": "/academy/art/characters/tom2/tom2__neutral__right-three-quarter__halfbody__v001.png"
+          "status": "missing",
+          "path": null,
+          "plannedPath": "/academy/art/characters/tom2/tom2__neutral__right-three-quarter__halfbody__v001.png"
         },
         {
           "angle": "right-three-quarter",
           "expression": "encouraging-listening",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/tom2/tom2__encouraging-listening__right-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/tom2/tom2__encouraging-listening-reserved-dark-hair-notebook__right-three-quarter__halfbody__v002.png"
         },
         {
           "angle": "right-three-quarter",
@@ -13802,9 +13989,8 @@
         {
           "angle": "right-three-quarter",
           "expression": "surprised-shocked",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/tom2/tom2__surprised-shocked__right-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/tom2/tom2__surprised-shocked-reserved-dark-hair-notebook__right-three-quarter__halfbody__v002.png"
         },
         {
           "angle": "right-three-quarter",
@@ -13838,38 +14024,17 @@
         },
         {
           "angle": "left-three-quarter",
-          "expression": "thoughtful",
+          "expression": "surprised-shocked",
           "status": "missing",
           "path": null,
-          "plannedPath": "/academy/art/characters/tom2/tom2__thoughtful__left-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "left-three-quarter",
-          "expression": "determined",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/tom2/tom2__determined__left-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "left-three-quarter",
-          "expression": "sad-vulnerable",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/tom2/tom2__sad-vulnerable__left-three-quarter__halfbody__v001.png"
+          "plannedPath": "/academy/art/characters/tom2/tom2__surprised-shocked__left-three-quarter__halfbody__v001.png"
         },
         {
           "angle": "front-near-front",
-          "expression": "neutral",
+          "expression": "encouraging-listening",
           "status": "missing",
           "path": null,
-          "plannedPath": "/academy/art/characters/tom2/tom2__neutral__front-near-front__halfbody__v001.png"
-        },
-        {
-          "angle": "front-near-front",
-          "expression": "happy",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/tom2/tom2__happy__front-near-front__halfbody__v001.png"
+          "plannedPath": "/academy/art/characters/tom2/tom2__encouraging-listening__front-near-front__halfbody__v001.png"
         },
         {
           "angle": "front-near-front",
@@ -13901,10 +14066,10 @@
         },
         {
           "angle": "right-three-quarter",
-          "expression": "encouraging-listening",
+          "expression": "neutral",
           "status": "missing",
           "path": null,
-          "plannedPath": "/academy/art/characters/tom2/tom2__encouraging-listening__right-three-quarter__halfbody__v001.png"
+          "plannedPath": "/academy/art/characters/tom2/tom2__neutral__right-three-quarter__halfbody__v001.png"
         },
         {
           "angle": "right-three-quarter",
@@ -13926,13 +14091,6 @@
           "status": "missing",
           "path": null,
           "plannedPath": "/academy/art/characters/tom2/tom2__determined__right-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "right-three-quarter",
-          "expression": "surprised-shocked",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/tom2/tom2__surprised-shocked__right-three-quarter__halfbody__v001.png"
         },
         {
           "angle": "right-three-quarter",

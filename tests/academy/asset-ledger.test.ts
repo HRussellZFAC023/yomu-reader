@@ -263,15 +263,16 @@ describe('Academy runtime asset ledger', () => {
         });
     });
 
-    it('keeps Felix in preview while authorizing Peter’s completed performance family', () => {
-        const previewIds = [
-            'character-felix-happy-left',
-            'character-felix-surprised-right',
+    it('authorizes the completed Felix and Peter performance families', () => {
+        const felixIds = [
+            'character-felix-happy-curly-dark-blond-glasses-paper-cat-front-near-front-fullbody-v002',
+            'character-felix-surprised-shocked-curly-dark-blond-glasses-paper-cat-right-three-quarter-fullbody-v002',
         ];
-        for (const id of previewIds) {
+        for (const id of felixIds) {
             expect(ledger.assets.find(asset => asset.id === id)).toMatchObject({
-                verdict: 'review-candidate/runtime-preview',
+                verdict: 'approved-runtime',
                 orphan: 'active-runtime',
+                status: expect.stringContaining('runtime-bound house-style sprite'),
             });
         }
         for (const id of [
@@ -332,9 +333,13 @@ describe('Academy runtime asset ledger', () => {
             'character-rie-encouraging-glasses-right',
             'character-rie-sad-vulnerable-glasses-left',
             'character-rie-comedic-glasses-right',
-            'character-tom2-neutral-right',
-            'character-tom2-encouraging-front',
-            'character-tom2-surprised-left',
+            'character-tom2-neutral-reserved-dark-hair-notebook-front-near-front-halfbody-v002',
+            'character-tom2-encouraging-listening-reserved-dark-hair-notebook-right-three-quarter-halfbody-v002',
+            'character-tom2-happy-reserved-dark-hair-notebook-front-near-front-halfbody-v002',
+            'character-tom2-thoughtful-reserved-dark-hair-notebook-left-three-quarter-halfbody-v002',
+            'character-tom2-determined-reserved-dark-hair-notebook-left-three-quarter-halfbody-v002',
+            'character-tom2-surprised-shocked-reserved-dark-hair-notebook-right-three-quarter-halfbody-v002',
+            'character-tom2-sad-vulnerable-reserved-dark-hair-notebook-left-three-quarter-halfbody-v002',
             'character-steve-neutral-front',
             'character-steve-happy-right',
             'character-steve-determined-left',
@@ -444,15 +449,17 @@ describe('Academy runtime asset ledger', () => {
         expect(serializedReview).not.toMatch(/"prompt":/i);
     });
 
-    it('binds Shaun only as a locked character-directory review candidate', () => {
-        const preview = ledger.assets.find(asset => asset.id === 'character-shaun-neutral');
-        expect(preview).toMatchObject({
-            verdict: 'review-candidate/runtime-preview',
-            runtimeHome: ['journal:shaun'],
-            sourceSha256: '9636becf6269492685b6a5401a615a481190b25e7da4071be65010abb472699e',
-            status: 'qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery',
+    it('binds Shaun’s approved family to the character directory and story runtime', () => {
+        const neutral = ledger.assets.find(
+            asset => asset.id === 'character-shaun-neutral-layered-light-brown-round-glasses-beige-fleece-front-near-front-fullbody-v002',
+        );
+        expect(neutral).toMatchObject({
+            verdict: 'approved-runtime',
+            runtimeHome: expect.arrayContaining(['journal:shaun', 'class:people', 'story:cast:shaun']),
+            sourceSha256: expect.stringMatching(/^[a-f0-9]{64}$/),
+            status: expect.stringContaining('runtime-bound house-style sprite'),
         });
-        expect(preview?.deliveries?.map(delivery => delivery.path)).toEqual([
+        expect(neutral?.deliveries?.map(delivery => delivery.path)).toEqual([
             ACADEMY_ASSETS.characters.journalReview.shaun,
         ]);
     });

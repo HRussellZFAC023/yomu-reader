@@ -40,7 +40,7 @@ The following corrections are fixed and may not be inferred from filenames:
 | `stasi` | Stasi | auburn wavy hair, round glasses, expressive illustrated face |
 | `ruparna` | Ruparna | South Asian woman with long dark hair; never the stale v1 caricature |
 | `rose` | Rose | restore the original auburn headband and pink-cardigan identity; never use a held rose as her identity |
-| `tom2` | the second Tom | tall, dark-brown hair, reserved, black notebook; clearly distinct from blond Tom |
+| `tom2` | the second Tom | tall, short dark-brown hair, clean-shaven, reserved, navy practical layers and black notebook; clearly distinct from blond Tom |
 | `nanako` | Nanako | distinct from Rose and Mira |
 | `mira` | Mira | warm-blond hair, black cap, oversized blue hoodie, cream trousers, clear umbrella |
 | `miller` | Miller | original textbook-legend office worker; never Mira |

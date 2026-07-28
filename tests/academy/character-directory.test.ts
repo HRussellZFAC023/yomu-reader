@@ -96,7 +96,7 @@ describe('Academy character directory presentation', () => {
         expect(new Set(sprites.map(sprite => sprite.src)).size).toBe(sprites.length);
     });
 
-    it('wires Tom 2 review art and Steve approved art into unlocked character pages', async () => {
+    it('wires the complete Tom 2 family and Steve art into unlocked character pages', async () => {
         const record = createLearnerRecord();
         await record.record({
             kind: 'characters-encountered',
@@ -112,7 +112,7 @@ describe('Academy character directory presentation', () => {
             { onReplayRie: vi.fn(), onReplayAakash: vi.fn() },
         );
 
-        for (const [characterId, expectedCount] of [['tom2', 3], ['steve', 5]] as const) {
+        for (const [characterId, expectedCount] of [['tom2', 7], ['steve', 5]] as const) {
             screen.querySelector<HTMLButtonElement>(`[data-character="${characterId}"] button`)?.click();
             const gallery = screen.querySelector<HTMLElement>(`.academy-character-sprite-gallery[data-character="${characterId}"]`)!;
             expect(gallery.querySelectorAll('img')).toHaveLength(expectedCount);
