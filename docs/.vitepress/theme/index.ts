@@ -65,6 +65,12 @@ const HOSTED_DOCS_LOCALE_META: Record<InterfaceLanguage, string> = {
 const HOSTED_OVERFLOW_SELECTOR = '[data-yomu-hosted-overflow]';
 const HOSTED_MOBILE_SETTINGS_SELECTOR = '[data-yomu-hosted-mobile-settings]';
 const HOSTED_RUNTIME_SCROLL_MARGIN_PX = 160;
+// The fold promises "press a word". 2.5s is long enough for a cold runtime on a
+// slow connection to boot and short enough that nobody presses a dead sample
+// first; after 15s a runtime that has not arrived is not going to.
+const HOSTED_FOLD_WATCHDOG_TICK_MS = 500;
+const HOSTED_FOLD_WATCHDOG_MS = 2500;
+const HOSTED_FOLD_WATCHDOG_GIVE_UP_MS = 15000;
 const HOSTED_JAPANESE_TEXT_RE = /[\u3040-\u30ff\u3400-\u9fff]/u;
 const HOSTED_DOCS_TRANSLATED_ATTRIBUTES = ['aria-label', 'title', 'alt', 'placeholder'] as const;
 type HostedDocsTranslatedAttribute = typeof HOSTED_DOCS_TRANSLATED_ATTRIBUTES[number];
@@ -178,39 +184,98 @@ const HOSTED_LANGUAGE_TOGGLE_LABELS: Record<InterfaceLanguage, Record<InterfaceL
 };
 
 const HOSTED_THEME_PREFERENCES = new Set<HostedThemePreference>(['auto', 'dark', 'light']);
-const HOSTED_MANGA_OCR_VOCABULARY = [
-    { surface: 'ファントムハイヴ', spelling: 'ファントムハイヴ', reading: 'ファントムハイヴ', pitchPosition: 1 },
-    { surface: '家', spelling: '家', reading: 'け', pitchPosition: 1 },
-    { surface: '執事', spelling: '執事', reading: 'しつじ', pitchPosition: 2 },
-    { surface: 'たる', spelling: 'たる', reading: 'たる', pitchPosition: 0 },
-    { surface: 'もの', spelling: 'もの', reading: 'もの', pitchPosition: 0 },
-    { surface: 'この', spelling: 'この', reading: 'この', pitchPosition: 0 },
-    { surface: '程度', spelling: '程度', reading: 'ていど', pitchPosition: 1 },
-    { surface: '技', spelling: '技', reading: 'わざ', pitchPosition: 1 },
-    { surface: '使え', spelling: '使える', reading: 'つかえる', pitchPosition: 0 },
-    { surface: 'なくて', spelling: 'ない', reading: 'ない', pitchPosition: 1 },
-    { surface: 'どうします', spelling: 'どうする', reading: 'どうする', pitchPosition: 2 },
-    { surface: 'セバスチャン', spelling: 'セバスチャン', reading: 'セバスチャン', pitchPosition: 2 },
-    { surface: 'ミカエリス', spelling: 'ミカエリス', reading: 'ミカエリス' },
-    { surface: '訳', spelling: '訳', reading: 'わけ', pitchPosition: 1 },
-    { surface: '坊ちゃん', spelling: '坊ちゃん', reading: 'ぼっちゃん', pitchPosition: 1 },
-    { surface: '私', spelling: '私', reading: 'わたし', pitchPosition: 0 },
-    { surface: '勝ち', spelling: '勝ち', reading: 'かち', pitchPosition: 2 },
-    { surface: '約束', spelling: '約束', reading: 'やくそく', pitchPosition: 0 },
-    { surface: '通り', spelling: '通り', reading: 'とおり', pitchPosition: 3 },
-    { surface: 'これから', spelling: 'これから', reading: 'これから', pitchPosition: 0 },
-    { surface: '晩餐', spelling: '晩餐', reading: 'ばんさん', pitchPosition: 0 },
-    { surface: '本日', spelling: '本日', reading: 'ほんじつ', pitchPosition: 1 },
-    { surface: '復習', spelling: '復習', reading: 'ふくしゅう', pitchPosition: 0 },
-    { surface: '明日', spelling: '明日', reading: 'あした', pitchPositions: [0, 3] },
-    { surface: '予習', spelling: '予習', reading: 'よしゅう', pitchPosition: 0 },
-    { surface: '下さいね', spelling: '下さい', reading: 'ください', pitchPosition: 3 },
-    { surface: '当主', spelling: '当主', reading: 'とうしゅ', pitchPosition: 1 },
-] as const;
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
+    "Text Yomu reads from a paused YouTube video now sits on the words it was read from, including the subtitles along the bottom of the picture. To keep its reading boxes clear of the player's own controls, Yomu held a strip along the bottom of every paused frame, so a line inside that strip, which is where burned-in subtitles almost always sit, was pushed up off its own words by as much as the height of the strip. A reading box now stays on its line and moves only when it would otherwise fall outside the picture, and resuming playback is still one press of Yomu's own play button. Image-based manga readers keep the small bottom clearance they need, where a browser's own furniture covers the page.": "よむが一時停止したYouTubeの映像から読み取った文字が、画面下部の字幕も含めて、読み取り元の語の上に重なって表示されるようになりました。よむは読み取り用のボックスがプレーヤー自体の操作ボタンに重ならないように、一時停止したフレームの下端に帯状の余白を確保していたため、焼き付けの字幕がほぼ必ず置かれるその帯の中にある行が、余白の高さの分だけ本来の語より上へ押し上げられていました。読み取りボックスは自分の行の上にとどまり、映像の外にはみ出す場合にだけ移動します。再生の再開は、これまでどおりよむ自身の再生ボタンを押すだけです。画像ベースのマンガビューアーでは、ブラウザ自体の表示がページを覆う下端の小さな余白をこれまでどおり確保します。",
+    "Anki note types that have a word audio field and a sentence audio field now receive each clip in its own field. Yomu recognized only one audio field, so the word's pronunciation and the sentence clip from an example were both written into whichever audio field Yomu matched first: on note types such as Lapis and jp-mining-note one field held both clips and the other stayed empty. Word audio and sentence audio are now matched separately, the Anki field mapping editor offers a row for each, and a note type with only one audio field still receives both clips there. A saved mapping that pointed the word audio row at a sentence audio field moves to the new row once, and a choice you make there afterwards is kept.": "単語音声のフィールドと文音声のフィールドを持つAnkiのノートタイプで、それぞれのクリップが自分のフィールドに入るようになりました。よむは音声フィールドを1つしか認識していなかったため、単語の発音と例文の文音声のどちらも、よむが最初に一致させた音声フィールドへ書き込まれていました。Lapisやjp-mining-noteのようなノートタイプでは、片方のフィールドに両方のクリップが入り、もう片方は空のままになっていました。単語音声と文音声はそれぞれ個別に一致させるようになり、Ankiのフィールド対応の編集画面にはそれぞれの行が表示されます。音声フィールドが1つだけのノートタイプでは、これまでどおり両方のクリップがそこに入ります。単語音声の行が文音声のフィールドを指していた保存済みの対応は一度だけ新しい行へ移され、その後に利用者が選んだ内容はそのまま保たれます。",
     "Turning off Show native subtitles now stays off across reloads. Yomu shows a native subtitle overlay when it picks a track for you, and that reveal also wrote the setting back on, so the switch returned every time a video's tracks were discovered again. Yomu now remembers that the switch is yours once you set it and leaves it alone, while choosing a native track from the track panel still turns the overlay on. Show subtitle overlay keeps its setting the same way, including the eye button on the subtitle rail and its keyboard shortcut.": "「母語字幕を表示」をオフにすると、再読み込みしてもオフのまま維持されるようになりました。よむは字幕トラックを自動で選んだときに母語字幕の表示を開きますが、その処理が設定自体もオンに書き戻していたため、動画の字幕トラックが再検出されるたびにスイッチが元に戻っていました。よむは、利用者が自分でスイッチを操作したことを記憶してその設定に触れないようになり、字幕トラックのパネルから母語トラックを選んだときは今までどおり表示がオンになります。「字幕を表示」も同じように設定を保ち、字幕レール上の目のボタンとそのキーボードショートカットにも適用されます。",
     "Turning off Prefer Japanese sites now stays off on every site and takes effect before the page can snapshot a Japanese locale. A per-site startup cache, a late shared-settings read, a delayed redirect or page injection, and an unrelated save of an older settings object could each turn the preference back on after the user had disabled it. Yomu now keeps that opt-out in its own shared authoritative setting, ignores obsolete startup work, and cancels an armed redirect immediately. It also removes the Japanese URL and cookie markers Yomu added and reloads a Google or YouTube response once when its old preference cookie had already made the current page Japanese.": "「日本語サイトを優先」をオフにすると、どのサイトでもオフのまま維持され、ページが日本語ロケールを読み取る前に反映されるようになりました。サイトごとの起動キャッシュ、遅れて返る共有設定の読み込み、遅延したリダイレクトやページ注入、古い設定オブジェクトによる無関係な保存のいずれでも、利用者が無効にした後に設定が再びオンになる可能性がありました。よむは、このオプトアウトを専用の共有された正規設定として保持し、古くなった起動処理を無視し、予約済みのリダイレクトを直ちに取り消します。また、よむが追加した日本語向けのURLとCookieの印を取り除き、以前の設定Cookieによって現在のGoogleまたはYouTubeページがすでに日本語になっていた場合は、その応答を一度だけ再読み込みします。",
     "Tapping text that Yomu recognized on image-based manga readers such as MangaFire now opens Yomu's own lookup sheet instead of a dark card from another dictionary extension. Yomitan listens for touch at the window before a userscript's document handler and treated Yomu's generated OCR characters as ordinary page text, so it could claim a recognized compound such as 秘密 before Yomu received the tap. When Yomu popup lookup has at least one enabled trigger, the OCR glyphs are now painted without adding caret-scannable text to the page while retaining the exact word targets, furigana, pitch, keyboard label and image geometry. Turning Yomu popup lookup off — including disabling every trigger — still leaves OCR text available to another reader by design.": "MangaFireのような画像型マンガリーダーで、よむが認識した文字をタップすると、別の辞書拡張機能の暗いカードではなく、よむ自身の検索シートが開くようになりました。Yomitanはユーザースクリプトのdocumentハンドラーより先にwindowでタッチを監視し、よむが生成したOCR文字を通常のページ本文として扱っていたため、よむへタップが届く前に「秘密」のような認識済み複合語を取得できていました。よむのポップアップ検索に少なくとも1つの有効な起動方法があるときは、OCRの字形をページへキャレット走査可能な文字を追加せず描画し、正確な単語のタップ対象、ふりがな、ピッチ、キーボード用ラベル、画像上の位置を保ちます。すべての起動方法を無効にした場合を含め、よむのポップアップ検索をオフにすると、設計どおり他のリーダーがOCR文字を利用できます。",
+    // Homepage (docs/index.md): fold, proof bands, install band, footer nav.
+    'よむ - Any page becomes a Japanese lesson': 'よむ - どのページも日本語のレッスンになる',
+    'Press a word on any Japanese page, video, manga panel or PDF for its reading, meaning and sound, then keep it. Free browser add-on for Chrome, Firefox, Safari and iPad.': 'どの日本語のページ、動画、漫画のコマ、PDFでも、単語を押せば読み・意味・音が出て、そのまま保存できます。Chrome、Firefox、Safari、iPadで使える無料のブラウザーアドオンです。',
+    'Any page becomes a Japanese lesson.': 'どのページも日本語のレッスンになる。',
+    'Press a word for its reading, meaning, sound — and keep it.': '単語を押せば、読み、意味、音がわかる。そのまま保存できます。',
+    'press a word': '単語を押す',
+    'see it working below': '下で動きを見る',
+    'Add よむ to your browser': 'よむをブラウザーに追加',
+    'Free. Chrome, Firefox, Safari and iPad.': '無料。Chrome、Firefox、Safari、iPadに対応。',
+    'The よむ lookup popover for 季語, showing pitch accent, audio, a dictionary definition and example sentences.': 'ピッチアクセント、音声、辞書の意味、例文を表示した「季語」のよむポップオーバー。',
+    'Colours are pitch accent': '色はピッチアクセント',
+    'Pitch accent colours': 'ピッチアクセントの色',
+    'Heiban': '平板',
+    'Atamadaka': '頭高',
+    'Nakadaka': '中高',
+    'Pages': 'ページ',
+    'Read the Japanese web at full speed.': '日本語のウェブを止まらずに読む。',
+    'Readings, meanings, pitch and audio arrive the moment you press a word. Your place on the page stays exactly where it was.': '単語を押した瞬間に、読み、意味、ピッチ、音声が出ます。ページの読んでいた位置はそのままです。',
+    'Japanese Wikipedia, read in place.': '日本語版Wikipediaを、そのページのまま読む。',
+    'Japanese Wikipedia with furigana above the kanji, coloured underlines on every word, and the よむ popover open.': '漢字の上にふりがなが付き、すべての単語に色付きの下線が引かれ、よむのポップオーバーが開いた日本語版Wikipedia。',
+    'Subtitles you can hold onto.': '手元に残せる字幕。',
+    'Pause on a line, press a word, keep watching.': '一行で止めて、単語を押して、そのまま見続ける。',
+    'YouTube, with the Japanese track open.': '日本語字幕を開いたYouTube。',
+    'A YouTube video with the Japanese subtitle annotated on the picture and the full subtitle list open beside it.': '映像の上に日本語字幕が注釈付きで表示され、横に字幕一覧が開いたYouTubeの動画。',
+    'Keep': '保存',
+    'One press, and the word is yours.': 'ひと押しで、その単語は自分のものになる。',
+    'The sentence, the audio and the picture go with it — into your reviews, and into Anki when you want them there.': '例文も音声も画像も一緒に付いてきます。あなたの復習へ、必要ならAnkiへも送れます。',
+    'Sentence': '例文',
+    'One press in the popover, and the word is waiting on your new tab.': 'ポップオーバーでひと押しすれば、その単語は新しいタブで待っています。',
+    'Press a word in the subtitle line. This player is running the real reader.': '字幕の行にある単語を押してみてください。このプレーヤーは本物のリーダーで動いています。',
+    'Example sentences with audio inside the よむ popover, above the grading buttons that keep the word.': 'よむのポップオーバー内の音声付き例文と、その下にある単語を保存するための評価ボタン。',
+    'The よむ Study page reviewing a saved word in a sentence.': '保存した単語を例文の中で復習しているよむの学習ページ。',
+    'Ready in about a minute.': '約1分で準備完了。',
+    'Pick a manager, add よむ, open a Japanese page.': '管理拡張を選び、よむを追加して、日本語のページを開きます。',
+    'Already installed?': 'もうインストール済みですか？',
+    'Open a video with Japanese subtitles.': '日本語字幕付きの動画を開きます。',
+    // Phone and iPad band (docs/index.md). iOS has no store build, so the copy
+    // says userscript manager and a couple of minutes rather than one click.
+    'Phone and iPad': 'スマートフォンとiPad',
+    'The same reading, in your hand.': '同じ読書体験を、手のなかで。',
+    'Press a word on a phone or an iPad and everything comes with it: the furigana, the pitch colours, the popover and the grading buttons. On iPhone and iPad, Yomu runs in Safari through a free userscript manager — a couple of minutes to set up, and then it reads everywhere you do.': 'スマートフォンやiPadで単語を押すと、ふりがな、ピッチの色、ポップオーバー、評価ボタンがそのまま付いてきます。iPhoneとiPadでは、よむは無料のユーザースクリプトマネージャーを通してSafariの中で動きます。設定は数分で終わり、あとはあなたが読む場所すべてで読み取ります。',
+    'よむ on a phone, showing Japanese Wikipedia with furigana above the kanji and the lookup popover open on コーヒー with its pitch accent, meaning and grading buttons.': 'スマートフォンで動作しているよむ。漢字の上にふりがなが付いた日本語版Wikipediaと、「コーヒー」のピッチアクセント、意味、評価ボタンを表示した検索ポップオーバーが開いています。',
+    'よむ on an iPad, showing a Japanese Wikipedia article with furigana and the 喫茶店 popover open with two pitch accent patterns, the dictionary meaning and example sentences.': 'iPadで動作しているよむ。ふりがなの付いた日本語版Wikipediaの記事と、2つのピッチアクセント型、辞書の意味、例文を表示した「喫茶店」のポップオーバーが開いています。',
+    'The same reader, the same popover, on the device you already read on.': '同じリーダー、同じポップオーバーが、いつも読んでいる端末で動きます。',
+    // Store install routes 2026-07-27 (docs/index.md fold + install band,
+    // docs/getting-started.md). The homepage carries all three routes at once
+    // and promotes one, so every label here is rendered on the ja site whatever
+    // the visitor's browser turns out to be.
+    'Add よむ to Chrome': 'よむをChromeに追加',
+    'Add よむ to Firefox': 'よむをFirefoxに追加',
+    'Also available:': 'ほかの方法：',
+    'Add よむ, open a Japanese page, press a word.': 'よむを追加して、日本語のページを開き、単語を押します。',
+    'Userscript downloaded a file instead of installing?': 'ユーザースクリプトがインストールされずにファイルとして保存されましたか？',
+    'Add Yomu to Chrome or Firefox in one click, then look up your first Japanese word. Free, no account needed, and it works on Safari, iPhone, and iPad too.': 'ワンクリックでYomuをChromeまたはFirefoxに追加して、最初の日本語の単語を調べましょう。無料でアカウントは不要、Safari、iPhone、iPadでも使えます。',
+    'On Chrome and Firefox it is one click from the store. On Safari, iPhone and iPad it takes a couple of minutes. It is free either way, and you do not need an account.': 'ChromeとFirefoxならストアからワンクリックです。Safari、iPhone、iPadでは数分かかります。どちらも無料で、アカウントは必要ありません。',
+    'Step 1: Add Yomu to your browser': 'ステップ1：Yomuをブラウザーに追加する',
+    'Permalink to "Step 1: Add Yomu to your browser"': '「ステップ1：Yomuをブラウザーに追加する」への固定リンク',
+    'Chrome, Edge, Brave, or Opera': 'Chrome、Edge、Brave、Opera',
+    'Permalink to "Chrome, Edge, Brave, or Opera"': '「Chrome、Edge、Brave、Opera」への固定リンク',
+    ', then choose': 'を開き、',
+    'Add extension': '拡張機能を追加',
+    'Add': '追加',
+    '. That is the whole install.': 'を選びます。インストールはこれだけです。',
+    '. That is the whole install, and it is the same on Firefox for Android.': 'を選びます。インストールはこれだけで、Android版Firefoxでも同じです。',
+    'Safari, iPhone, and iPad': 'Safari、iPhone、iPad',
+    'Permalink to "Safari, iPhone, and iPad"': '「Safari、iPhone、iPad」への固定リンク',
+    'Safari has no store version yet, so Yomu arrives here as a': 'Safari向けのストア版はまだないため、ここではYomuは',
+    '— one small file that runs inside a free app called a userscript manager.': 'として届きます。ユーザースクリプトマネージャーという無料のアプリの中で動く、小さなファイル1つです。',
+    'In Safari, open': 'Safariで',
+    'the Yomu userscript': 'Yomuのユーザースクリプト',
+    '. You will see Yomu\'s source code — leave that tab open, because Userscripts reads it.': 'を開きます。Yomuのソースコードが表示されます。Userscriptsがそれを読むので、そのタブは開いたままにしてください。',
+    'Until Userscripts is turned on and allowed, it will not appear in Safari and step 5 has nothing to work with. This is the most common reason an install seems to do nothing.': 'Userscriptsをオンにして許可するまでSafariのメニューには現れず、ステップ5で使うものがありません。インストールしても何も起きないように見える原因は、たいていこれです。',
+    'It isn\'t turned on yet. Go back to step 3, turn Userscripts on, and allow it on All Websites. Then reload the page and open the menu again.': 'まだオンになっていません。ステップ3に戻ってUserscriptsをオンにし、すべてのWebサイトで許可してください。そのあとページを再読み込みして、もう一度メニューを開きます。',
+    'Any other browser': 'そのほかのブラウザー',
+    'Permalink to "Any other browser"': '「そのほかのブラウザー」への固定リンク',
+    'Every other browser takes the userscript. See': 'そのほかのブラウザーではユーザースクリプトを使います。詳しくは下の',
+    'Prefer the userscript?': 'ユーザースクリプトのほうがよいですか？',
+    'below.': 'をご覧ください。',
+    'Step 2: Look up your first word': 'ステップ2：最初の単語を調べる',
+    'Permalink to "Step 2: Look up your first word"': '「ステップ2：最初の単語を調べる」への固定リンク',
+    'Permalink to "Prefer the userscript?"': '「ユーザースクリプトのほうがよいですか？」への固定リンク',
+    'The userscript is the same Yomu, installed through a userscript manager instead of a store. It runs in any browser that has a manager, and it updates itself from one link.': 'ユーザースクリプトは同じYomuを、ストアではなくユーザースクリプトマネージャー経由でインストールしたものです。マネージャーが使えるブラウザーならどれでも動き、1つのリンクから自動で更新されます。',
+    'In your browser, open': 'ブラウザーで',
+    '. Tampermonkey opens an install screen. Choose': 'を開きます。Tampermonkeyのインストール画面が開くので、',
+    'On Chrome and Firefox the store version is the shortest path and keeps itself updated, so it is the default recommendation. The store listings are published at each feature release, so the userscript link is the one that carries every patch as it ships. On Safari, iPhone and iPad the userscript is the only option.': 'ChromeとFirefoxではストア版がいちばん近道で、更新も自動なので、まずはこちらをおすすめします。ストアへの公開は機能リリースごとなので、パッチを出るたびに受け取れるのはユーザースクリプトのリンクのほうです。Safari、iPhone、iPadではユーザースクリプトが唯一の方法です。',
+    '— check that Yomu is allowed on that site in your browser\'s extensions menu, or in your userscript manager, then refresh.': '— ブラウザーの拡張機能メニュー、またはユーザースクリプトマネージャーで、そのサイトでYomuが許可されているか確認し、ページを再読み込みします。',
     // Release 1.8.18: figure alt text on docs/features.md.
     "A Yomu word panel open on a Japanese Wikipedia article, showing 日本 with its reading and pitch, a speaker to hear it, the meaning, other words that use it, and a row of buttons to say how well you knew it.": "日本語版ウィキペディアの記事の上に開いたよむの単語パネル。「日本」の読みとピッチ、音声を聞くスピーカー、語義、その語を使った他の単語、そしてどれくらい知っていたかを答えるボタンの列が表示されています。",
     "A Yomu kanji panel open on 日, showing what it means and a pad with its four strokes traced in order.": "「日」を開いたよむの漢字パネル。その意味と、4画を順になぞった練習マスが表示されています。",
@@ -4823,6 +4888,42 @@ function installHostedHomepageInteractions(): void {
     armHostedRevealElements();
     bindHostedYouTubeLiteEmbeds();
     bindHostedDemoVideos();
+    watchHostedFoldRuntime();
+}
+
+// The fold's live line is pre-annotated static markup, so it still looks
+// correct when the reader never executes — but the "press a word" prompt would
+// then be a lie. Poll for a reader that has both booted and will actually
+// answer a press on the sample; if it has not, swap the prompt for a quiet link
+// to the section that shows the same thing working.
+function watchHostedFoldRuntime(): void {
+    const prompt = document.querySelector<HTMLElement>('[data-yomu-fold-prompt]:not([data-yomu-fold-watched])');
+    if (!prompt) return;
+    prompt.dataset.yomuFoldWatched = 'true';
+    let elapsed = 0;
+    const timer = window.setInterval(() => {
+        elapsed += HOSTED_FOLD_WATCHDOG_TICK_MS;
+        if (isHostedFoldSampleLive()) {
+            prompt.removeAttribute('data-yomu-runtime-missing');
+            window.clearInterval(timer);
+            return;
+        }
+        if (elapsed >= HOSTED_FOLD_WATCHDOG_MS) prompt.setAttribute('data-yomu-runtime-missing', '');
+        if (elapsed >= HOSTED_FOLD_WATCHDOG_GIVE_UP_MS) window.clearInterval(timer);
+    }, HOSTED_FOLD_WATCHDOG_TICK_MS);
+}
+
+// A booted runtime is necessary but not sufficient. The reader refuses every
+// lookup inside [data-jpdb-reader-surface-ignore] (its own document-click
+// ignore list), so a sample marked that way leaves __yomuReaderAppInitialized
+// true while pressing a word does nothing at all — the exact failure the prompt
+// exists to disclose. Treat a sample the reader will not serve as no runtime.
+function isHostedFoldSampleLive(): boolean {
+    if (!hostedYomuRuntimeWindow().__yomuReaderAppInitialized) return false;
+    const sample = document.querySelector<HTMLElement>('.yomu-try-me-text');
+    return Boolean(sample)
+        && !sample?.closest('[data-jpdb-reader-surface-ignore]')
+        && !sample?.querySelector('[data-jpdb-reader-surface-ignore]');
 }
 
 function bindHostedDemoVideos(): void {
@@ -4930,7 +5031,6 @@ function armHostedRevealElements(): void {
 
 function prepareHostedYomuRuntime(): void {
     const forceLocalRuntime = isLocalHostedRuntime();
-    prepareHostedMangaOcrDemo();
     if (!shouldInstallHostedReaderRuntime(forceLocalRuntime)) {
         clearHostedYomuRuntimeIntent();
         clearHostedRuntimeHoverHandoff();
@@ -5136,12 +5236,6 @@ function prepareHostedDemoVideoSettings(): void {
     if (!document.querySelector('[data-yomu-demo-player]')) return;
     // Demo-player staging only: never replicate these into the shared GM store.
     writeStoredSettingsPatch(HOSTED_DEMO_VIDEO_SETTINGS_PATCH, { shared: false });
-}
-
-function prepareHostedMangaOcrDemo(): void {
-    const image = document.querySelector<HTMLImageElement>('.yomu-manga-image[src*="manga-ocr-sample"]');
-    if (!image) return;
-    image.dataset.ocrVocabulary = JSON.stringify(HOSTED_MANGA_OCR_VOCABULARY);
 }
 
 function hostedYomuRuntimeWindow(): HostedYomuRuntimeWindow {

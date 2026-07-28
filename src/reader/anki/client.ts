@@ -1996,7 +1996,7 @@ export class AnkiConnectClient {
     private async invokeWithTimeout<T>(action: string, params: Record<string, unknown>, timeoutMs: number): Promise<T> {
         const settings = this.getSettings();
         const url = settings.ankiConnectUrl || 'http://127.0.0.1:8765';
-        const body = JSON.stringify({ action, version: ANKI_VERSION, params });
+        const body = JSON.stringify({ action, version: ANKI_VERSION, params }, omitInternalAnkiMediaKeys);
         const response = await postAnkiJson<AnkiResponse<T>>(url, body, timeoutMs).catch(error => {
             if (isAnkiConnectAvailabilityError(error)) this.unavailableUntil = Date.now() + ANKI_BACKGROUND_UNAVAILABLE_COOLDOWN_MS;
             throw this.localizedConnectError(error);
@@ -2074,6 +2074,14 @@ function lookupResultFromExistingNotes(existing: AnkiExistingNote[], empty: Anki
         notes: existing,
         primary: pickPrimaryExistingNote(existing),
     } : empty;
+}
+
+// yomuAudioKind is internal routing metadata on media files (which audio slot a
+// clip belongs to). It has to survive until the retarget pass picks a field, but
+// must never appear in an AnkiConnect payload — every action serialises through
+// invokeWithTimeout, so drop it here rather than at each of the write paths.
+function omitInternalAnkiMediaKeys(key: string, value: unknown): unknown {
+    return key === 'yomuAudioKind' ? undefined : value;
 }
 
 export function captureActiveVideoFrame(): string | undefined {

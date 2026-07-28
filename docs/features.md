@@ -41,10 +41,11 @@ The same thing works on screenshots, image-only pages, and anywhere else the Jap
 
 [More about reading images →](/tools/japanese-ocr)
 
-<figure class="yomu-feature-shot">
-  <img :src="'/media/manga-ocr-sample.png'" alt="A Japanese manga page with each word in the panel ready to look up.">
-  <figcaption>Every word in the panel becomes a word you can press.</figcaption>
-</figure>
+<!-- No figure here. The only manga still we hold is a licensed page with no
+     product anywhere on it, captioned as though it showed every word ready to
+     press. A picture that does not show the claim is worse than no picture.
+     Restore a figure here when there is a real capture of Yomu reading a
+     panel. -->
 
 ## Read the subtitles while you watch
 

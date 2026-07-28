@@ -32,10 +32,10 @@ When OCR text is available, よむ lays lightweight lookup targets over the imag
 - **Screenshots & game lines** — use Yomu Gaming for first-party PC capture, then look up recognized text without retyping.
 - **Image-heavy pages** — sites that render Japanese as pictures instead of selectable text.
 
-<figure class="yomu-feature-shot">
-  <img :src="'/media/manga-ocr-sample.png'" alt="A Japanese manga page with text regions detected for よむ OCR lookup.">
-  <figcaption>Image text becomes a lookup-ready reading surface.</figcaption>
-</figure>
+<!-- No figure here. The only manga still we hold is a licensed page with no
+     product anywhere on it, captioned as though it showed image text turning
+     into a reading surface. Restore a figure here when there is a real capture
+     of Yomu reading a panel. -->
 
 ## Privacy
 

@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.8.23] - 2026-07-28
+
+### Fixed
+
+- Text Yomu reads from a paused YouTube video now sits on the words it was read from, including the subtitles along the bottom of the picture. To keep its reading boxes clear of the player's own controls, Yomu held a strip along the bottom of every paused frame, so a line inside that strip, which is where burned-in subtitles almost always sit, was pushed up off its own words by as much as the height of the strip. A reading box now stays on its line and moves only when it would otherwise fall outside the picture, and resuming playback is still one press of Yomu's own play button. Image-based manga readers keep the small bottom clearance they need, where a browser's own furniture covers the page.
+
 ## [1.8.22] - 2026-07-28
 
 ### Fixed

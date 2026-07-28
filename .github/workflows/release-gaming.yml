@@ -85,6 +85,9 @@ jobs:
     name: Checksums and release
     needs: build
     runs-on: ubuntu-latest
+    # Backstop for the publish wait below (45 min) plus the asset uploads, so a
+    # main Release that never publishes cannot hold a runner for the 6-hour default.
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v6
 
@@ -157,13 +160,31 @@ jobs:
             gh release create "$TAG" --title "$TAG" --notes-file release-notes-gaming.md --verify-tag
             upload_release_assets "$TAG" release-assets/*
           else
-            for attempt in $(seq 1 30); do
-              sleep 20
+            # The main Release workflow gates on check:release + smoke:release +
+            # smoke:gaming before it creates the release, so the tag's release
+            # object lands ~25-30 minutes after the push while these builds finish
+            # in ~15. A 10-minute wait therefore expired before every tag push
+            # could attach its desktop assets (v1.8.21, v1.8.22, v1.8.23 all timed
+            # out here and were repaired by hand with a workflow_dispatch re-run).
+            # Budget for a slow main Release instead; the job's timeout-minutes is
+            # the real backstop.
+            publish_wait_seconds=2700
+            poll_seconds=20
+            waited=0
+            while [ "$waited" -lt "$publish_wait_seconds" ]; do
+              sleep "$poll_seconds"
+              waited=$((waited + poll_seconds))
               if release_is_published; then
+                echo "Main Release published ${TAG} after ${waited}s; uploading desktop assets."
                 upload_release_assets "$TAG" release-assets/*
                 exit 0
               fi
+              [ $((waited % 300)) -eq 0 ] && echo "Waiting for the main Release workflow to publish ${TAG} (${waited}s of ${publish_wait_seconds}s)."
             done
-            echo "Timed out waiting for the main Release workflow to publish ${TAG}." >&2
+            if gh release view "$TAG" >/dev/null 2>&1; then
+              echo "Timed out after ${publish_wait_seconds}s: ${TAG} exists but is still a draft, so the main Release workflow never finished publishing it." >&2
+            else
+              echo "Timed out after ${publish_wait_seconds}s: the main Release workflow never created ${TAG}. Fix that run, then re-run this workflow with workflow_dispatch to attach the desktop assets." >&2
+            fi
             exit 1
           fi

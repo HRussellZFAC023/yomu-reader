@@ -2,7 +2,7 @@ import { Logger } from '../app/logger';
 import { SETTINGS_CHANGE_EVENT, YOMU_HOSTED_AUDIO_URL } from '../app/constants';
 import { dispatchWindowEvent, createWindowCustomEvent } from '../platform/window-events';
 import { BRAND_COLOR_TOKENS, DEFAULT_PITCH_COLOR_TOKENS, DEFAULT_WORD_COLOR_TOKENS, OCR_OVERLAY_COLOR_TOKENS, OVERLAY_COLOR_TOKENS } from '../theme/color-tokens';
-import { normalizeAnkiFieldMappings } from './anki-field-mappings';
+import { migrateAnkiSentenceAudioMappings, normalizeAnkiFieldMappings } from './anki-field-mappings';
 import { hasBunproFrontendCredential, hasJitenApiCredential, hasJpdbApiCredential, isBunproFrontendCredentialExpired, isJitenApiCredential } from './api-credential';
 import { DEFAULT_DICTIONARY_LOOKUP_LINKS, normalizeDictionaryLookupLinkSettings, normalizeDictionaryPreferences } from './dictionary';
 import { hasOwn, stringValue, trimmedText } from './values';
@@ -534,6 +534,9 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     ankiMineWithJpdb: false,
     ankiCaptureScreenshot: true,
     ankiFieldMappings: {},
+    // Default TRUE: only stored records that PREDATE this key had a single
+    // audio role and can hold a sentence-audio field in the word-audio slot.
+    ankiSentenceAudioMappingMigrated: true,
     theme: 'light',
     popupMode: 'auto',
     hoverPopupMode: 'popover',
@@ -610,8 +613,10 @@ const LEGACY_DEFAULT_ANKI_STRING_SETTINGS = [
 ] as const satisfies readonly (readonly [keyof ReaderSettings, string])[];
 
 function mergeSettings(value: LegacyReaderSettings | null): ReaderSettings {
-    const settingsValue = migratePinnedOcrLanguage(
-        migrateHiddenFilterNotice(migrateLegacyDefaultMobileSettings(value)),
+    const settingsValue = migrateSentenceAudioFieldMappings(
+        migratePinnedOcrLanguage(
+            migrateHiddenFilterNotice(migrateLegacyDefaultMobileSettings(value)),
+        ),
     );
     const audio = normalizeAudioSettings(settingsValue);
     const supportedSettings = stripUnsupportedSettings(settingsValue);
@@ -836,6 +841,21 @@ function migrateHiddenFilterNotice(value: LegacyReaderSettings | null): LegacyRe
 function migratePinnedOcrLanguage(value: LegacyReaderSettings | null): LegacyReaderSettings | null {
     if (!value || !isTargetDefaultOcrLanguageTag(stringValue(value.ocrLanguage))) return value;
     return { ...value, ocrLanguage: '' };
+}
+
+// Word audio and sentence audio shared one field role until the sentenceAudio
+// role landed, so saved mappings can point the word-audio role at a
+// sentence-audio field. Move it ONCE (marker-gated) — the mapping editor now
+// offers both rows, and a later deliberate choice there must not be undone.
+function migrateSentenceAudioFieldMappings(value: LegacyReaderSettings | null): LegacyReaderSettings | null {
+    if (!value) return value;
+    if (value.ankiSentenceAudioMappingMigrated) return value;
+    const migrated: LegacyReaderSettings = { ...value, ankiSentenceAudioMappingMigrated: true };
+    if (!value.ankiFieldMappings) return migrated;
+    const { mappings, movedModels } = migrateAnkiSentenceAudioMappings(value.ankiFieldMappings);
+    if (!movedModels.length) return migrated;
+    log.info('Moved Anki sentence-audio field mappings off the word-audio role', { models: movedModels });
+    return { ...migrated, ankiFieldMappings: mappings };
 }
 
 function migrateLegacyDefaultMobileSettings(value: LegacyReaderSettings | null): LegacyReaderSettings | null {

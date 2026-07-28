@@ -1,4 +1,10 @@
 #!/usr/bin/env node
+// Cast sprite framing: cut a dialogue halfbody out of a fullbody render by scaling 1.6x
+// and extracting a 1536x2048 window centred on the subject's ink, with the head held
+// TARGET_CONTENT_TOP below the top edge. This writes PIXELS; academy:cast:portrait-focus
+// writes the focus METADATA the runtime uses to frame an already-cropped sprite.
+//
+//   npm run academy:cast:dialogue-crop -- <fullbody.png> <halfbody.png>
 
 import fs from 'node:fs';
 import path from 'node:path';

@@ -163,7 +163,12 @@ describe('paused-video OCR frames', () => {
         expect(resume.classList.contains('jpdb-ocr-video-frame-pending')).toBe(false);
     });
 
-    it('keeps YouTube paused-frame OCR hitboxes above the native control strip', async () => {
+    // A burned-in subtitle sits in the bottom strip of the frame — exactly the
+    // band a "keep clear of the native controls" reserve used to push OCR lines
+    // out of, so every YouTube subtitle rendered a chunk above the words it was
+    // read from. The snapshot is the only thing the reader can see there, so the
+    // line stays on its own text and only the frame edge clamps it.
+    it('keeps YouTube paused-frame OCR text on the subtitle it was read from', async () => {
         const originalLocation = window.location;
         Object.defineProperty(window, 'location', {
             configurable: true,
@@ -187,7 +192,12 @@ describe('paused-video OCR frames', () => {
                 const line = document.querySelector<HTMLElement>('.jpdb-ocr-line');
                 expect(line).not.toBeNull();
                 const bottom = Number.parseFloat(line!.style.top) + Number.parseFloat(line!.style.height);
-                expect(bottom).toBeLessThanOrEqual(296);
+                // Line geometry is layer-relative: the recognized text ends at
+                // 326 + 30 = 356 and the frame at 360, so the highlight sits on
+                // the subtitle (plus its own bottom padding) instead of the 296
+                // the control-strip reserve used to force.
+                expect(bottom).toBeGreaterThanOrEqual(356);
+                expect(bottom).toBeLessThanOrEqual(360);
             });
         } finally {
             Object.defineProperty(window, 'location', {

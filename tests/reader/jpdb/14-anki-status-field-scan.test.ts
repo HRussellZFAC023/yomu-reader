@@ -257,7 +257,12 @@ describe('reader helpers', () => {
                 { role: 'reading', fieldName: 'Vocabulary-Kana', confidence: 'high' },
                 { role: 'meaning', fieldName: 'Glossary', confidence: 'high' },
                 { role: 'sentence', fieldName: null, confidence: 'low' },
-                { role: 'audio', fieldName: 'SentenceAudio', confidence: 'high' },
+                // SentenceAudio belongs to the sentenceAudio role, not the
+                // word-audio one. This note type has no word-audio field, so
+                // that role stays unmapped and mergeAudioFilesForNote collapses
+                // word audio onto SentenceAudio rather than claiming it here.
+                { role: 'audio', fieldName: null, confidence: 'low' },
+                { role: 'sentenceAudio', fieldName: 'SentenceAudio', confidence: 'high' },
                 { role: 'image', fieldName: 'Picture', confidence: 'high' },
             ]));
             const simple = scan.models.find(model => model.modelName === 'Simple Model');

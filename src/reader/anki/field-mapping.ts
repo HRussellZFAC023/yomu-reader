@@ -47,8 +47,16 @@ export const ANKI_SENTENCE_FIELD_NAMES = ankiFieldNames(
     'Sentence|Example|Example Sentence|Example Sentence Text|Context|Context Sentence|Context Text|ExpressionSentence|Japanese Sentence|Mining Sentence|SentKanji|Sentence Furigana|Sentence Kanji|Sentence-Kanji|Sentence Text|Source Sentence|Source Text',
 );
 
+// Word-audio names only. The sentence/context names moved to
+// ANKI_SENTENCE_AUDIO_FIELD_NAMES: while both lived here, a note type exposing
+// WordAudio *and* SentenceAudio got whichever matched first for both kinds, so
+// word audio could be written into the sentence-audio field.
 const ANKI_AUDIO_FIELD_NAMES = ankiFieldNames(
-    'Audio|Expression Audio|Term Audio|Vocab Audio|Vocabulary Audio|Word Audio|PronunciationAudio|Context Audio|Example Audio|SentAudio|Sentence Audio|Sentence Sound|SentenceAudio|Sound|Voice',
+    'Audio|Expression Audio|Term Audio|Vocab Audio|Vocabulary Audio|Word Audio|PronunciationAudio|Sound|Voice',
+);
+
+const ANKI_SENTENCE_AUDIO_FIELD_NAMES = ankiFieldNames(
+    'SentenceAudio|Sentence Audio|SentAudio|Sentence Sound|Context Audio|Example Audio',
 );
 
 const ANKI_IMAGE_FIELD_NAMES = ankiFieldNames(
@@ -61,8 +69,15 @@ const ANKI_FIELD_ROLE_CANDIDATES: Record<AnkiFieldRole, string[]> = {
     meaning: ANKI_MEANING_FIELD_NAMES,
     sentence: ANKI_SENTENCE_FIELD_NAMES,
     audio: ANKI_AUDIO_FIELD_NAMES,
+    sentenceAudio: ANKI_SENTENCE_AUDIO_FIELD_NAMES,
     image: ANKI_IMAGE_FIELD_NAMES,
 };
+
+const ANKI_AUDIO_ROLES = new Set<AnkiFieldRole>(['audio', 'sentenceAudio']);
+
+function isAnkiAudioRole(role: AnkiFieldRole): boolean {
+    return ANKI_AUDIO_ROLES.has(role);
+}
 
 export function scanAnkiModelFields(modelName: string, fields: string[], sampleNotes: AnkiNoteInfo[] = []): AnkiModelScanResult {
     const usedFields = new Set<string>();
@@ -199,6 +214,10 @@ export function yomuFieldForRole(role: AnkiFieldRole): string {
         meaning: 'Meaning',
         sentence: 'Sentence',
         audio: 'Audio',
+        // Yomu's own note type has a single Audio field, so the sentence-audio
+        // role maps onto it: buildYomuAnkiFields never emits a SentenceAudio
+        // value, and media routing collapses through mergeAudioFilesForNote.
+        sentenceAudio: 'Audio',
         image: 'Image',
     }[role];
 }
@@ -352,7 +371,7 @@ const ANKI_TEXT_ROLE_SCORERS: Record<AnkiTextRole, (metrics: AnkiTextRoleMetrics
 function ankiFieldContentSampleRoleScore(role: AnkiFieldRole, sample: AnkiFieldContentSample): number {
     const raw = sample.raw.trim();
     const text = normalizeFieldValue(sample.text);
-    if (role === 'audio') return ankiAudioFieldContentScore(raw, text);
+    if (isAnkiAudioRole(role)) return ankiAudioFieldContentScore(raw, text);
     if (role === 'image') return ankiImageFieldContentScore(raw, text);
     if (ankiAudioFieldContentScore(raw, text) || ankiImageFieldContentScore(raw, text)) return 0;
     if (!text) return 0;
@@ -417,15 +436,27 @@ function ankiFieldAllowedForRole(fieldName: string, role: AnkiFieldRole): boolea
     const normalized = normalizeAnkiFieldName(fieldName);
     const audioLike = /(?:audio|sound|voice)/.test(normalized);
     const imageLike = /(?:image|picture|screenshot|snapshot|photo|frame|still)/.test(normalized);
-    if (role === 'audio') return audioLike && !imageLike;
+    if (isAnkiAudioRole(role)) return audioLike && !imageLike;
     if (role === 'image') return imageLike && !audioLike && !/^frame(?:id|no|num|number|v?\d)/.test(normalized);
     return !audioLike && !imageLike;
 }
 
 function ankiFieldDisallowedForRole(fieldName: string, role: AnkiFieldRole): boolean {
-    if (role === 'audio' || role === 'image') return false;
+    // The word-audio role must never claim a sentence-audio field: every
+    // sentence-audio name contains "audio"/"sound", so the fuzzy pass would
+    // otherwise match them and swallow the field sentenceAudio needs. When a
+    // note type exposes only one of the two, mergeAudioFilesForNote collapses
+    // onto whichever field exists, so nothing is dropped by being strict here.
+    if (role === 'audio') return isSentenceAudioFieldName(fieldName);
+    if (role === 'sentenceAudio' || role === 'image') return false;
     const normalized = normalizeAnkiFieldName(fieldName);
     return /^(?:source|sourceurl|url|origin|originurl|link|deck|deckname|model|modelname|tags?|remarksfront|frontremarks)$/.test(normalized);
+}
+
+const NORMALIZED_SENTENCE_AUDIO_FIELD_NAMES = new Set(ANKI_SENTENCE_AUDIO_FIELD_NAMES.map(normalizeAnkiFieldName));
+
+export function isSentenceAudioFieldName(fieldName: string): boolean {
+    return NORMALIZED_SENTENCE_AUDIO_FIELD_NAMES.has(normalizeAnkiFieldName(fieldName));
 }
 
 function firstMatchingAnkiField(fields: string[], names: readonly string[]): string {
