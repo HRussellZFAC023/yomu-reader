@@ -30,9 +30,9 @@ list somewhere `src/**` can import and rendering it in the three hosted shells.
 **PRIORITY ORDER (owner asked for a ranked backlog, 2026-07-28).** Ties break toward whatever touches a
 learner's first ten minutes.
 
-1. **P0 — in flight now:** A5 sign-in (codex) · A28 homepage reimagining (workflow) · A27.1 verify-only
-   pass on the five shipped fixes (codex, queued behind A5) · T0 paid-and-got-nothing · R2 dictionary
-   edge cache (shipped 2026-07-28).
+1. **P0 — in flight now:** A28 homepage reimagining (workflow) · A27.1 verify-only pass on the five
+   shipped fixes (codex, next in queue) · T0 historical recovery cases (delivery itself fixed by codex
+   in 1.8.24, see U52) · A5 shipped 1.8.24 · R2 dictionary edge cache (shipped 2026-07-28).
 2. **P1 — builds the product:** A7/T4 dictionary generation + upload for all 32 targets · A25 + A26
    Study redesign (research + spec landing this session) · A3 docs rewritten as ONE learning narrative
    (owner: DJT / "A Year to Learn Japanese" tone, not a tools catalogue) · A16 follow-through.
@@ -59,8 +59,10 @@ learner's first ten minutes.
       missing the deeper understanding"; audit remaining "random choices" against the five-rule grammar
       and the recovered design spec. (Arrow clip, device-list copy, manga try-me band, nav renames
       already shipped 2026-07-28.)
-- [ ] **A5 — Production sign-in is broken. ASSIGNED to codex (gpt-5.6-sol, ultra, computer use) 2026-07-28.** `/academy/api/account` and `/academy/api/session` return 401 on yomureader.com (confirmed live). Server side is `workers/yomu-academy/src/index.ts` and `sessions.ts`, with account tables in `migrations/0002_accounts.sql` and `0003_profile_sync.sql`; the client is `src/academy/account/sync-client.ts` behind `src/academy/access/gateway.ts`. It gates account sync here and Academy sign-up plus payments in the parallel thread, so it is fixed once, not twice. (Previously marked a blocker with no owner; unowned is not blocked.) `/academy/api/account` and `/academy/api/session` return
-      401 on yomureader.com (confirmed live 2026-07-28). Blocks account sync and Academy sign-up.
+- [x] **A5 — Production sign-in probe fixed in 1.8.24 (codex):** protected `/academy/api/account` and
+      `/academy/api/session` reads correctly return 401 without a session. The hosted account control
+      called both on every signed-out page load and attempted a resume with no cookie. It now uses a
+      read-only 200 status probe and preserves an existing paid or invite session through Google sign-in.
 - [ ] **A6 — SEO next step is D42 query research, not technical fixes.** The 2026-07-28 Search Console
       email was verified benign: all 21 sitemap URLs 200; noindex only on utility stubs; the 404s are
       the deliberately unpublished internal notes deindexing.
@@ -473,14 +475,15 @@ this thread are recorded here.
       `headwordLanguages` instead. Cross-check against the required shelf in memory
       `yomu-recommended-dictionary-set`, whose known gaps are Kanjium pitch and WTY JA-JA offered but not
       hosted, 13 dead Drive source URLs, and `languages.json` falsely claiming all 32 ready.
-- [ ] **A22.2 — Ko-fi/Patreon codes were never delivered, because no bridge exists.** BLOCKS: the Membership page's promise of Academy access for two of its three payment methods, so either the bridge gets built or the copy stops implying it.
-      `workers/yomu-support` counts donations and `workers/yomu-academy` mints codes (Stripe only). There
-      is **no webhook bridge and no email sender wired at all**. That makes the Membership work I just
-      shipped a promise the backend cannot yet keep for Ko-fi or Patreon buyers — the page must not
-      claim instant access until this is built. Suggested skill: `cloudflare-email-service`.
+- [x] **A22.2 — CORRECTED 2026-07-28 (codex): the payment bridge existed; automatic provider delivery did not.**
+      Code and history review found the signed webhook bridge, deterministic paid invites, and
+      owner/admin invite endpoints already in place. Ko-fi and Patreon could mint an entitlement and
+      code, but neither path sent that code to the payer. The fix sends the code to the verified
+      provider email, keeps only opaque delivery state in Academy D1, and raises an alert for
+      missing or stalled delivery. A missing provider email enters manual recovery.
 - [ ] **A22.3 — `U42`: the Study and Academy account redesign is ONE job**, per the unmerged
       `backlog-reconcile-20260727`. It sits across both threads' territory; whoever takes it announces it.
-      Related: A5's live 401 on `/academy/api/{account,session}` blocks both of us.
+      (A5's 401 was resolved in 1.8.24; this seam is no longer blocked on it.)
 - [x] **A22.4 — Licensing is CLOSED. Never raise it again.** Owner, 2026-07-28: full permission granted,
       licences and approvals held for all 24 dictionaries, the Persona OST, all downloaded study resources,
       and anything downloaded from here. Every "waiting on a licence / approval / redistribution review"
@@ -518,16 +521,15 @@ website and extensions is more important"* (E2). Academy is last and stays postp
 
 ## T0 — People paid and got nothing  [the only thing above bug-fixing]
 
-- [ ] **U52 / U47 / U55 — sign-up and donation do not deliver an Academy code.** Signing up delivers
-      nothing at all; some donors received no key. Probable root cause is recorded and unverified:
-      entitlement binds to the **Google** identity (`linkGoogleSubject`,
-      `workers/yomu-academy/src/oauth.ts`) while money arrives through Patreon/Ko-fi/Stripe carrying
-      whatever email *that* platform holds. **Cheapest first move: take one donor known to have
-      received nothing and compare the donation email to their Google email.** One case confirms or
-      kills it. Then: issue the code through the payment platform's own channel at the moment of
-      payment; redeem rather than match; owner-grantable codes; a detector so a completed payment with
-      no issued code raises an alert instead of failing silently. **Still in scope despite the Academy
-      postponement — the owner said so explicitly.**
+- [ ] **U52 / U47 / U55 — PARTIALLY REPRODUCIBLE; payment delivery fixed 2026-07-28 (codex).** Plain Google or
+      Reader signup creates an account; it does not purchase Academy access. The email-matching theory
+      was refuted: provider identities are HMACed, and the paid code binds to a Google account only
+      when its holder redeems it. Live aggregate evidence before the fix showed one active paid
+      Patreon member, one code minted, and zero redemptions. The existing bridge and minting machinery
+      had worked; automatic delivery had not. Stripe, Ko-fi, and Patreon now send through the
+      verified provider email, Stripe keeps its same-browser claim as a fallback, and a PII-free
+      ledger alerts on missing delivery. Historical unredeemed rows and missing-recipient cases
+      remain visible for owner/admin recovery.
 - [ ] **U48 — sign-in, in the leg nobody has tested.** The 2026-07-26 investigation proved only that
       everything *up to* Google consent is healthy (36/36 tests, worker live, OAuth start returns a
       valid Google redirect); it could not test anything after consent because completing consent
