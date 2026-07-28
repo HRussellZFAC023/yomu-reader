@@ -125,6 +125,26 @@ describe('Yomu dictionary distribution Worker', () => {
         expect(edge.put).toHaveBeenCalledTimes(1);
     });
 
+    it('restores the canonical Cache-Control on a hit even when the zone rewrote the stored copy', async () => {
+        const harness = dictionaryStore({ 'v1/languages.json': '{}' });
+        const edge = edgeCache();
+        const url = 'https://dictionaries.yomureader.com/v1/languages.json';
+
+        const primed = await handleDictionaryRequest(new Request(url), harness.store, edge.cache);
+        await primed.text();
+        // Simulate the zone's Browser Cache TTL mutating the stored response,
+        // the way production measurably did (300s became 14400s).
+        const stored = edge.entries.get(url)!;
+        const mutated = new Headers(stored.headers);
+        mutated.set('cache-control', 'public, max-age=14400, must-revalidate');
+        edge.entries.set(url, new Response('{}', { status: 200, headers: mutated }));
+
+        const hit = await handleDictionaryRequest(new Request(url), harness.store, edge.cache);
+
+        expect(hit.headers.get('x-yomu-edge-cache')).toBe('hit');
+        expect(hit.headers.get('cache-control')).toBe('public, max-age=300, must-revalidate');
+    });
+
     it('answers a conditional request from the cached ETag with a 304 and no R2 operation', async () => {
         const harness = dictionaryStore({ 'v1/catalog.json': '{"schemaVersion":1}' });
         const edge = edgeCache();

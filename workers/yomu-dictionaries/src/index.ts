@@ -153,6 +153,10 @@ function edgeCacheHit(request: Request, key: string, hit: Response): Response {
     return revalidated;
   }
   const headers = new Headers(hit.headers);
+  // The zone rewrites Cache-Control on stored copies (Browser Cache TTL turned
+  // a 5-minute manifest into a 4-hour one, measured 2026-07-28). The key, not
+  // the cache, decides how long a browser may keep the object.
+  headers.set('cache-control', key.startsWith('objects/sha256/') ? IMMUTABLE_CACHE_CONTROL : MANIFEST_CACHE_CONTROL);
   headers.set(EDGE_CACHE_HEADER, 'hit');
   return new Response(hit.body, { status: hit.status, statusText: hit.statusText, headers });
 }
