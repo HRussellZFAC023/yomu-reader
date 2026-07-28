@@ -208,8 +208,13 @@ async function assertDocsAccessibility(page, label) {
             // screenshot added without the attribute silently starts sending
             // the page's own imagery to an OCR provider on load. The reader
             // also skips aria-hidden imagery, so decorative grounds are exempt.
+            // Mirrors isIgnoredOcrImage in src/reader/ocr/controller.ts: the
+            // reader also skips brand imagery by name (icon/logo/favicon…) and
+            // header/nav chrome, so the site logo is not a readable image even
+            // though nothing marks it data-yomu-ocr="ignore".
             ocrReadableImages: [...document.images]
-                .filter(img => !img.closest('[data-yomu-ocr="ignore"], [data-jpdb-reader-ocr="ignore"], [aria-hidden="true"]'))
+                .filter(img => !img.closest('[data-yomu-ocr="ignore"], [data-jpdb-reader-ocr="ignore"], [aria-hidden="true"], header, nav'))
+                .filter(img => !/(^|[\s/_.?#&=-])(?:app-?icon|apple-touch-icon|avatar|badge|brand|favicon|icon|logo|site-icon|touch-icon|yomu-icon)(?=$|[\s/_.?#&=-])/iu.test(img.currentSrc || img.src || ''))
                 .map(img => img.getAttribute('src')),
         };
     });
