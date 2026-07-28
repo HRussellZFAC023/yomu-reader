@@ -1,7 +1,7 @@
 "openapi": "3.1.0"
 "info":
   "title": "Yomu Academy API"
-  "version": "1.8.24"
+  "version": "1.8.25"
   "description": "Accounts, secure browser sessions, Reader device pairing, encrypted SRS sync, class progress, learning feedback, and protected Academy media. Browser mutations marked `x-yomu-same-origin` also require an Origin header matching https://yomureader.com."
   "contact":
     "name": "Yomu"
@@ -145,6 +145,57 @@
             "application/json":
               "schema":
                 "$ref": "#/components/schemas/Session"
+        "400":
+          "description": "The request was malformed."
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/Error"
+        "401":
+          "description": "Authentication is required or invalid."
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/Error"
+        "403":
+          "description": "The authenticated caller is not permitted to perform this operation."
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/Error"
+        "409":
+          "description": "The request conflicts with current server state."
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/Error"
+        "429":
+          "description": "The caller exceeded a rate limit."
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/Error"
+        "500":
+          "description": "The service could not complete the request."
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/Error"
+  "/academy/api/session/status":
+    "get":
+      "operationId": "getAcademySessionStatus"
+      "tags":
+        - "Sessions"
+      "summary": "Check browser session state"
+      "description": "Returns a state-only, non-mutating account-shell projection. Missing, malformed, revoked, unknown, and elapsed cookies all return signed-out with status 200."
+      "security": []
+      "responses":
+        "200":
+          "description": "Successful response."
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/SessionStatus"
         "400":
           "description": "The request was malformed."
           "content":
@@ -349,19 +400,25 @@
       "x-yomu-same-origin": true
   "/academy/api/auth/google/reader":
     "post":
-      "operationId": "createReaderAccountSession"
+      "operationId": "ensureReaderAccountSession"
       "tags":
         - "Authentication"
-      "summary": "Start Reader account sign-in"
-      "description": "Creates a free Reader account session without granting Academy curriculum access."
+      "summary": "Prepare Reader account sign-in"
+      "description": "Keeps an active or resumable paid, invite, Reader, or linked recovery session. Converts an unlinked recovery session to Reader, and creates a free Reader session only when the request carries no usable session family."
       "security": []
       "responses":
-        "201":
-          "description": "Successful response."
+        "200":
+          "description": "The existing session was kept or resumed."
           "content":
             "application/json":
               "schema":
-                "$ref": "#/components/schemas/Session"
+                "$ref": "#/components/schemas/ReaderAuthSession"
+        "201":
+          "description": "A free Reader auth session was created."
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ReaderAuthSession"
         "400":
           "description": "The request was malformed."
           "content":
@@ -369,19 +426,19 @@
               "schema":
                 "$ref": "#/components/schemas/Error"
         "401":
-          "description": "Authentication is required or invalid."
+          "description": "A concurrent rotation consumed the presented token."
           "content":
             "application/json":
               "schema":
                 "$ref": "#/components/schemas/Error"
         "403":
-          "description": "The authenticated caller is not permitted to perform this operation."
+          "description": "The request was not same-origin."
           "content":
             "application/json":
               "schema":
                 "$ref": "#/components/schemas/Error"
         "409":
-          "description": "The request conflicts with current server state."
+          "description": "The presented session family changed in another request."
           "content":
             "application/json":
               "schema":
@@ -393,7 +450,7 @@
               "schema":
                 "$ref": "#/components/schemas/Error"
         "500":
-          "description": "The service could not complete the request."
+          "description": "The service could not prepare sign-in."
           "content":
             "application/json":
               "schema":
@@ -2826,6 +2883,48 @@
         "accountRequired":
           "type": "boolean"
           "const": true
+      "additionalProperties": false
+    "SessionStatus":
+      "type": "object"
+      "required":
+        - "state"
+      "properties":
+        "state":
+          "type": "string"
+          "enum":
+            - "signed-out"
+            - "active-unlinked"
+            - "resumable"
+            - "linked"
+      "additionalProperties": false
+    "ReaderAuthSession":
+      "type": "object"
+      "required":
+        - "sessionId"
+        - "expiresAt"
+        - "offlineResumeUntil"
+        - "accountRequired"
+        - "state"
+      "properties":
+        "sessionId":
+          "type": "string"
+          "format": "uuid"
+        "expiresAt":
+          "type": "integer"
+          "format": "int64"
+          "description": "Unix time in milliseconds."
+        "offlineResumeUntil":
+          "type": "integer"
+          "format": "int64"
+          "description": "Unix time in milliseconds."
+        "accountRequired":
+          "type": "boolean"
+          "const": true
+        "state":
+          "type": "string"
+          "enum":
+            - "active-unlinked"
+            - "linked"
       "additionalProperties": false
     "AccountPatch":
       "type": "object"

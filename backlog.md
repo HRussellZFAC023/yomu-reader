@@ -37,8 +37,10 @@ run outside a fresh `origin/main` worktree is worthless. This pass ran in one.
       missing the deeper understanding"; audit remaining "random choices" against the five-rule grammar
       and the recovered design spec. (Arrow clip, device-list copy, manga try-me band, nav renames
       already shipped 2026-07-28.)
-- [ ] **A5 — Production sign-in is broken:** `/academy/api/account` and `/academy/api/session` return
-      401 on yomureader.com (confirmed live 2026-07-28). Blocks account sync and Academy sign-up.
+- [x] **A5 — Production sign-in probe fixed in 1.8.24:** protected `/academy/api/account` and
+      `/academy/api/session` reads correctly return 401 without a session. The hosted account control
+      called both on every signed-out page load and attempted a resume with no cookie. It now uses a
+      read-only 200 status probe and preserves an existing paid or invite session through Google sign-in.
 - [ ] **A6 — SEO next step is D42 query research, not technical fixes.** The 2026-07-28 Search Console
       email was verified benign: all 21 sitemap URLs 200; noindex only on utility stubs; the 404s are
       the deliberately unpublished internal notes deindexing.

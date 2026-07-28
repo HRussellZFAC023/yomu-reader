@@ -31,6 +31,23 @@ export interface ActiveSession {
     readonly offline_resume_until: number;
 }
 
+export type SessionStatus =
+    | { readonly state: 'signed-out' }
+    | { readonly state: 'active-unlinked' }
+    | { readonly state: 'resumable' }
+    | { readonly state: 'linked' };
+
+type UsableSessionRow = Pick<
+    ActiveSession,
+    'public_id' | 'invite_id' | 'account_id' | 'expires_at' | 'offline_resume_until'
+>;
+
+interface UsableSession {
+    readonly credential: SessionCookieParts;
+    readonly tokenHash: string;
+    readonly row: UsableSessionRow;
+}
+
 /**
  * Exact client contract (`src/academy/access/gateway.ts`): epoch milliseconds.
  * Every invite requires an authenticated account, so `accountRequired` is a
@@ -154,24 +171,49 @@ export async function handleCreateSession(request: Request, env: Env, clock: Clo
  * exchangeable through the public session endpoint.
  */
 export async function handleCreateRecoverySession(request: Request, env: Env, clock: Clock): Promise<Response> {
-    return handleCreateSystemAccountSession(request, env, clock, {
+    const now = await authorizeSystemAccountSessionRequest(request, env, clock);
+    const issued = await createSystemAccountSession(env, now, {
         inviteId: ACCOUNT_RECOVERY_INVITE_ID,
         invitePreimage: RECOVERY_INVITE_PREIMAGE,
         failureMessage: 'Account recovery could not be started.',
     });
+    return jsonResponse(sessionContract(issued.row), 201, { 'set-cookie': issued.cookie });
 }
 
 /**
- * POST /academy/api/auth/google/reader — issue a free Reader account session.
- * It may create or recover a Google-bound identity and its encrypted-sync
- * profile, but it is deliberately not an Academy curriculum entitlement.
+ * POST /academy/api/auth/google/reader — ensure Google sign-in has a session.
+ * An existing paid, invite, Reader, or linked recovery session wins. An
+ * unlinked recovery session becomes a Reader session so an unknown Google
+ * subject is not trapped in recovery. A new Reader session is created only
+ * when the request carries no usable credential.
  */
 export async function handleCreateReaderAccountSession(request: Request, env: Env, clock: Clock): Promise<Response> {
-    return handleCreateSystemAccountSession(request, env, clock, {
+    const now = await authorizeSystemAccountSessionRequest(request, env, clock);
+    let current = await usableSession(request, env, now);
+    if (
+        current?.row.invite_id === ACCOUNT_RECOVERY_INVITE_ID
+        && current.row.account_id === null
+    ) {
+        current = await convertUnlinkedRecoveryToReader(env, current, now);
+    }
+    if (current) {
+        if (current.row.expires_at > now) {
+            return jsonResponse(readerAuthSessionContract(current.row));
+        }
+        const rotated = await rotateUsableSession(env, current, now);
+        return jsonResponse(readerAuthSessionContract(rotated.row), 200, { 'set-cookie': rotated.cookie });
+    }
+    if (await hasUsableSessionFamily(request, env, now)) {
+        // Another tab rotated this family after the request captured its
+        // cookie. Never replace that newer paid/invite session with Reader.
+        throw new HttpError(409, 'Session changed. Try again.');
+    }
+    const issued = await createSystemAccountSession(env, now, {
         inviteId: READER_ACCOUNT_INVITE_ID,
         invitePreimage: READER_INVITE_PREIMAGE,
         failureMessage: 'Reader account sign-in could not be started.',
     });
+    return jsonResponse(readerAuthSessionContract(issued.row), 201, { 'set-cookie': issued.cookie });
 }
 
 interface SystemAccountSessionOptions {
@@ -180,28 +222,33 @@ interface SystemAccountSessionOptions {
     readonly failureMessage: string;
 }
 
-async function handleCreateSystemAccountSession(
+async function authorizeSystemAccountSessionRequest(
     request: Request,
     env: Env,
     clock: Clock,
-    options: SystemAccountSessionOptions,
-): Promise<Response> {
+): Promise<number> {
     requireSameOriginMutation(request, env.ACADEMY_ORIGIN);
     const now = clock();
     await enforceRateLimit(env, await clientSubject(request, env), OAUTH_RATE, now);
     const body = await readJsonBody(request, 256);
-    if (Object.keys(body).length !== 0) throw new HttpError(400, 'Recovery request must be empty.');
+    if (Object.keys(body).length !== 0) throw new HttpError(400, 'Account session request must be empty.');
+    return now;
+}
 
+async function createSystemAccountSession(
+    env: Env,
+    now: number,
+    options: SystemAccountSessionOptions,
+): Promise<{ readonly row: UsableSessionRow; readonly cookie: string }> {
     const credential = createSessionCookie();
-    const row = {
+    const row: UsableSessionRow = {
         public_id: crypto.randomUUID(),
+        invite_id: options.inviteId,
+        account_id: null,
         expires_at: now + SESSION_TTL_MS,
         offline_resume_until: now + OFFLINE_RESUME_MS,
     };
-    await env.ACADEMY_DB.prepare(
-        'INSERT INTO invites (id, code_hash, uses_remaining, kind, created_at, expires_at, purchase_id, account_required) '
-        + "VALUES (?1, ?2, 100000, 'seed', ?3, NULL, NULL, 1) ON CONFLICT(id) DO NOTHING",
-    ).bind(options.inviteId, await inviteCodeHash(env, options.invitePreimage), now).run();
+    await ensureSystemAccountInvite(env, now, options);
     const inserted = await env.ACADEMY_DB.prepare(
         'INSERT INTO sessions (token_hash, public_id, invite_id, created_at, expires_at, offline_resume_until) '
         + 'VALUES (?1, ?2, ?3, ?4, ?5, ?6) RETURNING public_id',
@@ -209,9 +256,62 @@ async function handleCreateSystemAccountSession(
         await storedTokenHash(env, credential.parts), row.public_id, options.inviteId, now, row.expires_at, row.offline_resume_until,
     ).run();
     if ((inserted.meta.changes ?? 0) !== 1) throw new HttpError(500, options.failureMessage);
-    return jsonResponse(sessionContract(row), 201, {
-        'set-cookie': hostCookie(SESSION_COOKIE, credential.value, OFFLINE_RESUME_MS / 1000),
-    });
+    return {
+        row,
+        cookie: hostCookie(SESSION_COOKIE, credential.value, OFFLINE_RESUME_MS / 1000),
+    };
+}
+
+async function ensureSystemAccountInvite(
+    env: Env,
+    now: number,
+    options: SystemAccountSessionOptions,
+): Promise<void> {
+    await env.ACADEMY_DB.prepare(
+        'INSERT INTO invites (id, code_hash, uses_remaining, kind, created_at, expires_at, purchase_id, account_required) '
+        + "VALUES (?1, ?2, 100000, 'seed', ?3, NULL, NULL, 1) ON CONFLICT(id) DO NOTHING",
+    ).bind(options.inviteId, await inviteCodeHash(env, options.invitePreimage), now).run();
+}
+
+async function convertUnlinkedRecoveryToReader(
+    env: Env,
+    current: UsableSession,
+    now: number,
+): Promise<UsableSession> {
+    const options: SystemAccountSessionOptions = {
+        inviteId: READER_ACCOUNT_INVITE_ID,
+        invitePreimage: READER_INVITE_PREIMAGE,
+        failureMessage: 'Reader account sign-in could not be started.',
+    };
+    await ensureSystemAccountInvite(env, now, options);
+    const row = await env.ACADEMY_DB.prepare(
+        'UPDATE sessions SET invite_id = ?1 WHERE token_hash = ?2 '
+        + 'AND invite_id = ?3 AND account_id IS NULL AND revoked_at IS NULL '
+        + 'AND offline_resume_until > ?4 '
+        + 'RETURNING public_id, invite_id, account_id, expires_at, offline_resume_until',
+    ).bind(
+        READER_ACCOUNT_INVITE_ID,
+        current.tokenHash,
+        ACCOUNT_RECOVERY_INVITE_ID,
+        now,
+    ).first<UsableSessionRow>();
+    if (row) return { ...current, row };
+
+    const refreshed = await env.ACADEMY_DB.prepare(
+        'SELECT public_id, invite_id, account_id, expires_at, offline_resume_until FROM sessions '
+        + 'WHERE token_hash = ?1 AND revoked_at IS NULL AND offline_resume_until > ?2',
+    ).bind(current.tokenHash, now).first<UsableSessionRow>();
+    if (!refreshed) throw new HttpError(409, 'Session changed. Try again.');
+    return { ...current, row: refreshed };
+}
+
+function readerAuthSessionContract(
+    row: UsableSessionRow,
+): ReturnType<typeof sessionContract> & { readonly state: 'active-unlinked' | 'linked' } {
+    return {
+        ...sessionContract(row),
+        state: row.account_id === null ? 'active-unlinked' : 'linked',
+    };
 }
 
 /** GET /academy/api/session — report the live session bound to the cookie. */
@@ -222,42 +322,86 @@ export async function handleGetSession(request: Request, env: Env, clock: Clock)
 }
 
 /**
+ * GET /academy/api/session/status — passive browser-shell probe. Protected
+ * account and session reads keep their 401 contract; this route collapses
+ * every unusable cookie to the same state and exposes no identifiers.
+ */
+export async function handleGetSessionStatus(request: Request, env: Env, clock: Clock): Promise<Response> {
+    const now = clock();
+    const current = await usableSession(request, env, now);
+    if (!current) return jsonResponse({ state: 'signed-out' } satisfies SessionStatus);
+    if (current.row.expires_at <= now) return jsonResponse({ state: 'resumable' } satisfies SessionStatus);
+    return jsonResponse({
+        state: current.row.account_id === null ? 'active-unlinked' : 'linked',
+    } satisfies SessionStatus);
+}
+
+/**
  * POST /academy/api/session/resume — rotate an expired or active cookie while
  * its fixed 30-day offline-resume window is still valid. No invite is spent.
  */
 export async function handleResumeSession(request: Request, env: Env, clock: Clock): Promise<Response> {
     requireSameOriginMutation(request, env.ACADEMY_ORIGIN);
     const now = clock();
-    const current = parseSessionCookie(readCookie(request, SESSION_COOKIE));
+    const current = await usableSession(request, env, now);
     if (!current) return rejectInvalidResume(request, env, now);
-    const currentHash = await storedTokenHash(env, current);
-    const resumable = await env.ACADEMY_DB.prepare(
-        'SELECT public_id, expires_at, offline_resume_until FROM sessions '
-        + 'WHERE token_hash = ?1 AND revoked_at IS NULL AND offline_resume_until > ?2',
-    ).bind(currentHash, now).first<Pick<ActiveSession, 'public_id' | 'expires_at' | 'offline_resume_until'>>();
-    if (!resumable) return rejectInvalidResume(request, env, now);
+    const rotated = await rotateUsableSession(env, current, now);
+    return jsonResponse(sessionContract(rotated.row), 200, { 'set-cookie': rotated.cookie });
+}
 
-    await enforceRateLimit(env, await familyRateSubject(env, current.familySecret), RESUME_RATE, now);
+async function usableSession(request: Request, env: Env, now: number): Promise<UsableSession | null> {
+    const credential = parseSessionCookie(readCookie(request, SESSION_COOKIE));
+    if (!credential) return null;
+    const tokenHash = await storedTokenHash(env, credential);
+    const row = await env.ACADEMY_DB.prepare(
+        'SELECT public_id, invite_id, account_id, expires_at, offline_resume_until FROM sessions '
+        + 'WHERE token_hash = ?1 AND revoked_at IS NULL AND offline_resume_until > ?2',
+    ).bind(tokenHash, now).first<UsableSessionRow>();
+    return row ? { credential, tokenHash, row } : null;
+}
+
+async function hasUsableSessionFamily(request: Request, env: Env, now: number): Promise<boolean> {
+    const credential = parseSessionCookie(readCookie(request, SESSION_COOKIE));
+    if (!credential) return false;
+    const row = await env.ACADEMY_DB.prepare(
+        'SELECT public_id FROM sessions WHERE revoked_at IS NULL AND offline_resume_until > ?1 '
+        + "AND length(token_hash) = 129 AND substr(token_hash, 65, 1) = '.' "
+        + 'AND substr(token_hash, 1, 64) = ?2 LIMIT 1',
+    ).bind(now, await familyHash(env, credential.familySecret)).first<Pick<ActiveSession, 'public_id'>>();
+    return row !== null;
+}
+
+async function rotateUsableSession(
+    env: Env,
+    current: UsableSession,
+    now: number,
+): Promise<{ readonly row: UsableSessionRow; readonly cookie: string }> {
+    await enforceRateLimit(env, await familyRateSubject(env, current.credential.familySecret), RESUME_RATE, now);
     const nextToken = randomToken(32);
-    const next: SessionCookieParts = { familySecret: current.familySecret, token: nextToken, legacy: false };
+    const next: SessionCookieParts = {
+        familySecret: current.credential.familySecret,
+        token: nextToken,
+        legacy: false,
+    };
     const row = await env.ACADEMY_DB.prepare(
         'UPDATE sessions SET token_hash = ?1, expires_at = MIN(?2, offline_resume_until) '
         + 'WHERE token_hash = ?3 AND revoked_at IS NULL AND offline_resume_until > ?4 '
-        + 'RETURNING public_id, expires_at, offline_resume_until',
+        + 'RETURNING public_id, invite_id, account_id, expires_at, offline_resume_until',
     ).bind(
         await storedTokenHash(env, next),
         now + SESSION_TTL_MS,
-        currentHash,
+        current.tokenHash,
         now,
-    ).first<Pick<ActiveSession, 'public_id' | 'expires_at' | 'offline_resume_until'>>();
+    ).first<UsableSessionRow>();
     if (!row) throw new HttpError(401, 'No resumable session.');
-    return jsonResponse(sessionContract(row), 200, {
-        'set-cookie': hostCookie(
+    return {
+        row,
+        cookie: hostCookie(
             SESSION_COOKIE,
-            `${SESSION_COOKIE_VERSION}${current.familySecret}${nextToken}`,
+            `${SESSION_COOKIE_VERSION}${current.credential.familySecret}${nextToken}`,
             (row.offline_resume_until - now) / 1000,
         ),
-    });
+    };
 }
 
 /** POST /academy/api/logout — revoke the session and clear the cookie. */

@@ -87,11 +87,14 @@ logged, or exposed as a client-controlled grant request.
    an unknown Google subject cannot use recovery to bypass an Academy code.
 
 Local-only Study remains accountless. `POST /academy/api/auth/google/reader`
-creates a free auth-only Reader session for website sign-up. It can own a
-profile, encrypted Reader SRS history, and devices, but it cannot access
-Academy curriculum, media, learner-event, progress, or class routes. Academy
-access is the exact union of a permanent seed/legacy grant and a currently
-active paid entitlement, never the account label alone.
+keeps an active or resumable session for website sign-up, including paid and
+invite sessions. It converts an unlinked recovery session to Reader so a new
+Google subject can sign up, and creates a free auth-only Reader session only
+when no usable session family is present. A Reader account can own a profile,
+encrypted Reader SRS history, and devices, but it cannot access Academy
+curriculum, media, learner-event, progress, or class routes. Academy access is
+the exact union of a permanent seed/legacy grant and a currently active paid
+entitlement, never the account label alone.
 
 ## API contract
 
@@ -102,9 +105,10 @@ the `__Host-academy_session` cookie.
 | Method | Route | Contract |
 |---|---|---|
 | `POST` | `/academy/api/session` | Invite exchange; `accountRequired` is always `true` |
+| `GET` | `/academy/api/session/status` | Passive state-only shell probe; every signed-out or unusable cookie returns `200 {"state":"signed-out"}` without changing cookies, sessions, or rate limits |
 | `POST` | `/academy/api/session/resume` | Rotate a resumable session cookie |
 | `POST` | `/academy/api/auth/google/recovery` | Create an auth-only recovery session from `{}` |
-| `POST` | `/academy/api/auth/google/reader` | Create a free Reader-account auth session from `{}` |
+| `POST` | `/academy/api/auth/google/reader` | Keep or resume paid, invite, Reader, or linked recovery access; convert unlinked recovery to Reader; otherwise create a free Reader-account auth session from `{}` |
 | `GET` | `/academy/api/auth/google/start` | Start state + nonce + S256 PKCE OIDC for the current session |
 | `GET` | `/academy/api/auth/google/callback` | Verify one-time state and signed Google ID token, then link; every success or failure returns to an allowlisted, code-free Academy URL |
 | `GET` | `/academy/api/profile` | Authorized profile id, device id, key version |

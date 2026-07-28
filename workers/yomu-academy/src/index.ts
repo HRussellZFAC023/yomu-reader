@@ -4,7 +4,15 @@ import { errorResponse, HttpError, jsonResponse } from './http';
 import { handleAdminCreateInvite } from './invites';
 import { handleMedia } from './media';
 import { pruneRateWindows } from './rate-limit';
-import { handleCreateReaderAccountSession, handleCreateRecoverySession, handleCreateSession, handleGetSession, handleLogout, handleResumeSession } from './sessions';
+import {
+    handleCreateReaderAccountSession,
+    handleCreateRecoverySession,
+    handleCreateSession,
+    handleGetSession,
+    handleGetSessionStatus,
+    handleLogout,
+    handleResumeSession,
+} from './sessions';
 import { handleGetAccount, handlePatchAccount } from './accounts';
 import { handleAdminClass, handleAdminRole, handleClassRoute } from './classes';
 import {
@@ -73,6 +81,8 @@ export default {
                     return await handleCreateSession(request, env, clock);
                 case 'GET /academy/api/session':
                     return await handleGetSession(request, env, clock);
+                case 'GET /academy/api/session/status':
+                    return await handleGetSessionStatus(request, env, clock);
                 case 'POST /academy/api/session/resume':
                     return await handleResumeSession(request, env, clock);
                 case 'POST /academy/api/logout':

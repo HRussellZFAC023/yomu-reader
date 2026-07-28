@@ -22,17 +22,17 @@ describe('hosted Academy account client', () => {
     });
 
     it('resumes an expired session once before retrying account status', async () => {
-        let accountRequests = 0;
+        let statusRequests = 0;
         const calls: Array<{ path: string; init?: RequestInit }> = [];
         const request = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
             const path = String(input);
             calls.push({ path, init });
-            if (path === '/academy/api/account') {
-                accountRequests++;
-                return accountRequests === 1 ? response({}, 401) : response(account('Aakash'));
+            if (path === '/academy/api/session/status') {
+                statusRequests++;
+                return response({ state: statusRequests === 1 ? 'resumable' : 'linked' });
             }
-            if (path === '/academy/api/session') return response({}, 401);
             if (path === '/academy/api/session/resume') return response({ ok: true });
+            if (path === '/academy/api/account') return response(account('Aakash'));
             return response({}, 404);
         });
         const client = new HostedAcademyAccountClient({ request });
@@ -43,49 +43,41 @@ describe('hosted Academy account client', () => {
         });
 
         expect(calls.map(call => call.path)).toEqual([
-            '/academy/api/account',
-            '/academy/api/session',
+            '/academy/api/session/status',
             '/academy/api/session/resume',
+            '/academy/api/session/status',
             '/academy/api/account',
         ]);
         expect(calls[0]?.init).toMatchObject({ credentials: 'same-origin', cache: 'no-store' });
-        expect(calls[2]?.init).toMatchObject({ method: 'POST', credentials: 'same-origin', cache: 'no-store' });
+        expect(calls[1]?.init).toMatchObject({ method: 'POST', credentials: 'same-origin', cache: 'no-store' });
     });
 
-    it('does not resume a healthy unlinked session or loop after a refused resume', async () => {
+    it('keeps signed-out and active-unlinked visitors quiet without protected requests or resume attempts', async () => {
+        const anonymousRequest = vi.fn(async () => response({ state: 'signed-out' }));
+        const anonymous = new HostedAcademyAccountClient({ request: anonymousRequest });
+        await expect(anonymous.ensureLoaded()).resolves.toMatchObject({ phase: 'signed-out' });
+        expect(anonymousRequest).toHaveBeenCalledOnce();
+        expect(anonymousRequest).toHaveBeenCalledWith(
+            '/academy/api/session/status',
+            expect.objectContaining({ credentials: 'same-origin', cache: 'no-store' }),
+        );
+
         const healthyCalls: string[] = [];
         const healthy = new HostedAcademyAccountClient({
             request: vi.fn(async input => {
                 const path = String(input);
                 healthyCalls.push(path);
-                return response({}, path === '/academy/api/session' ? 200 : 401);
+                return response({ state: 'active-unlinked' });
             }),
         });
         await healthy.ensureLoaded();
         expect(healthy.state.phase).toBe('signed-out');
-        expect(healthyCalls).toEqual(['/academy/api/account', '/academy/api/session']);
-
-        const refusedCalls: string[] = [];
-        const refused = new HostedAcademyAccountClient({
-            request: vi.fn(async input => {
-                const path = String(input);
-                refusedCalls.push(path);
-                return response({}, 401);
-            }),
-        });
-        await refused.ensureLoaded();
-        await refused.ensureLoaded();
-        expect(refused.state.phase).toBe('signed-out');
-        expect(refusedCalls).toEqual([
-            '/academy/api/account',
-            '/academy/api/session',
-            '/academy/api/session/resume',
-        ]);
+        expect(healthyCalls).toEqual(['/academy/api/session/status']);
     });
 
     it('creates a reader session before Google navigation', async () => {
         const navigate = vi.fn();
-        const request = vi.fn(async () => response({}, 201));
+        const request = vi.fn(async () => response({ state: 'active-unlinked' }, 201));
         const client = new HostedAcademyAccountClient({ request, navigate });
 
         await client.beginReaderAuth();
@@ -101,10 +93,154 @@ describe('hosted Academy account client', () => {
         expect(navigate).toHaveBeenCalledWith('/academy/api/auth/google/start');
     });
 
+    it('delegates invite-session preservation to the atomic Reader auth request', async () => {
+        const navigate = vi.fn();
+        const request = vi.fn(async () => response({ state: 'active-unlinked' }));
+        const client = new HostedAcademyAccountClient({ request, navigate });
+
+        await client.beginReaderAuth();
+
+        expect(request).toHaveBeenCalledOnce();
+        expect(request).toHaveBeenCalledWith(
+            '/academy/api/auth/google/reader',
+            expect.objectContaining({ method: 'POST', credentials: 'same-origin', cache: 'no-store' }),
+        );
+        expect(navigate).toHaveBeenCalledWith('/academy/api/auth/google/start');
+    });
+
+    it('refreshes a linked account at click time instead of starting Google again', async () => {
+        const navigate = vi.fn();
+        const calls: string[] = [];
+        const request = vi.fn(async (input: RequestInfo | URL) => {
+            const path = String(input);
+            calls.push(path);
+            if (path === '/academy/api/auth/google/reader') return response({ state: 'linked' });
+            if (path === '/academy/api/session/status') return response({ state: 'linked' });
+            if (path === '/academy/api/account') return response(account('Aakash'));
+            return response({}, 404);
+        });
+        const client = new HostedAcademyAccountClient({ request, navigate });
+
+        await client.beginReaderAuth();
+
+        expect(navigate).not.toHaveBeenCalled();
+        expect(client.state).toMatchObject({ phase: 'signed-in', displayName: 'Aakash' });
+        expect(calls).toEqual([
+            '/academy/api/auth/google/reader',
+            '/academy/api/session/status',
+            '/academy/api/account',
+        ]);
+    });
+
+    it('accepts a concurrent tab winning session rotation after this tab receives 401', async () => {
+        let statusRequests = 0;
+        const calls: string[] = [];
+        const request = vi.fn(async (input: RequestInfo | URL) => {
+            const path = String(input);
+            calls.push(path);
+            if (path === '/academy/api/session/status') {
+                statusRequests++;
+                return response({ state: statusRequests === 1 ? 'resumable' : 'linked' });
+            }
+            if (path === '/academy/api/session/resume') return response({}, 401);
+            if (path === '/academy/api/account') return response(account('Aakash'));
+            return response({}, 404);
+        });
+        const client = new HostedAcademyAccountClient({ request });
+
+        await expect(client.ensureLoaded()).resolves.toMatchObject({
+            phase: 'signed-in',
+            displayName: 'Aakash',
+        });
+        expect(calls).toEqual([
+            '/academy/api/session/status',
+            '/academy/api/session/resume',
+            '/academy/api/session/status',
+            '/academy/api/account',
+        ]);
+    });
+
+    it('bounds an account-read expiry race to one status re-resolution', async () => {
+        let statusRequests = 0;
+        const calls: string[] = [];
+        const request = vi.fn(async (input: RequestInfo | URL) => {
+            const path = String(input);
+            calls.push(path);
+            if (path === '/academy/api/session/status') {
+                statusRequests++;
+                return response({ state: statusRequests === 1 ? 'linked' : 'signed-out' });
+            }
+            if (path === '/academy/api/account') return response({}, 401);
+            return response({}, 404);
+        });
+        const client = new HostedAcademyAccountClient({ request });
+
+        await expect(client.ensureLoaded()).resolves.toMatchObject({ phase: 'signed-out' });
+        expect(calls).toEqual([
+            '/academy/api/session/status',
+            '/academy/api/account',
+            '/academy/api/session/status',
+        ]);
+    });
+
+    it('treats a malformed status contract as unavailable, not signed out', async () => {
+        const client = new HostedAcademyAccountClient({
+            request: vi.fn(async () => response({ state: 'mystery' })),
+        });
+
+        await expect(client.ensureLoaded()).resolves.toMatchObject({
+            phase: 'error',
+            error: true,
+        });
+    });
+
+    it('surfaces a same-origin resume rejection instead of treating it as a rotation race', async () => {
+        const calls: string[] = [];
+        const client = new HostedAcademyAccountClient({
+            request: vi.fn(async (input: RequestInfo | URL) => {
+                const path = String(input);
+                calls.push(path);
+                return path === '/academy/api/session/status'
+                    ? response({ state: 'resumable' })
+                    : response({}, 403);
+            }),
+        });
+
+        await expect(client.ensureLoaded()).resolves.toMatchObject({ phase: 'error', error: true });
+        expect(calls).toEqual(['/academy/api/session/status', '/academy/api/session/resume']);
+    });
+
+    it('stops after a Reader ensure conflict instead of retrying into session creation', async () => {
+        const navigate = vi.fn();
+        const calls: string[] = [];
+        const request = vi.fn(async (input: RequestInfo | URL) => {
+            const path = String(input);
+            calls.push(path);
+            return path === '/academy/api/session/status'
+                ? response({ state: 'signed-out' })
+                : response({}, 409);
+        });
+        const client = new HostedAcademyAccountClient({ request, navigate });
+
+        await client.ensureLoaded();
+        await client.beginReaderAuth();
+
+        expect(calls).toEqual([
+            '/academy/api/session/status',
+            '/academy/api/auth/google/reader',
+        ]);
+        expect(navigate).not.toHaveBeenCalled();
+        expect(client.state).toMatchObject({ phase: 'signed-out', busy: false, error: true });
+    });
+
     it('posts logout and clears the visible account state', async () => {
-        const request = vi.fn(async (input: RequestInfo | URL) => (
-            String(input) === '/academy/api/account' ? response(account('Aakash')) : response({ ok: true })
-        ));
+        const request = vi.fn(async (input: RequestInfo | URL) => {
+            const path = String(input);
+            if (path === '/academy/api/session/status') {
+                return response({ state: 'linked' });
+            }
+            return path === '/academy/api/account' ? response(account('Aakash')) : response({ ok: true });
+        });
         const client = new HostedAcademyAccountClient({ request });
         await client.ensureLoaded();
 
@@ -123,7 +259,9 @@ describe('hosted Academy account controls', () => {
     it('mounts desktop and mobile controls idempotently without exposing the discriminator', async () => {
         hostedNavShell();
         const client = new HostedAcademyAccountClient({
-            request: vi.fn(async () => response(account('Aakash'))),
+            request: vi.fn(async input => String(input) === '/academy/api/session/status'
+                ? response({ state: 'linked' })
+                : response(account('Aakash'))),
         });
         const controls = new HostedAcademyAccountControls({ client, document });
 
@@ -159,7 +297,9 @@ describe('hosted Academy account controls', () => {
         group.append(appearance);
         target.append(group);
         const controls = new HostedAcademyAccountControls({
-            client: new HostedAcademyAccountClient({ request: vi.fn(async () => response({}, 401)) }),
+            client: new HostedAcademyAccountClient({
+                request: vi.fn(async () => response({ state: 'signed-out' })),
+            }),
             document,
         });
 
@@ -172,9 +312,7 @@ describe('hosted Academy account controls', () => {
 
     it('renders both signed-out account actions in English and Japanese', async () => {
         hostedNavShell();
-        const request = vi.fn(async (input: RequestInfo | URL) => (
-            response({}, String(input) === '/academy/api/session' ? 200 : 401)
-        ));
+        const request = vi.fn(async () => response({ state: 'signed-out' }));
         const client = new HostedAcademyAccountClient({ request });
         const controls = new HostedAcademyAccountControls({ client, document });
         controls.sync('en');
@@ -198,8 +336,8 @@ describe('hosted Academy account controls', () => {
         const navigate = vi.fn();
         const request = vi.fn(async (input: RequestInfo | URL) => {
             const path = String(input);
-            if (path === '/academy/api/session') return response({}, 200);
-            if (path === '/academy/api/auth/google/reader') return response({}, 201);
+            if (path === '/academy/api/session/status') return response({ state: 'signed-out' });
+            if (path === '/academy/api/auth/google/reader') return response({ state: 'active-unlinked' }, 201);
             return response({}, 401);
         });
         const client = new HostedAcademyAccountClient({ request, navigate });

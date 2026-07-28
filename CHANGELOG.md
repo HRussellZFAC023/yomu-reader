@@ -1,11 +1,18 @@
 # Changelog
 
+## [1.8.25] - 2026-07-28
+
+### Fixed
+
+- Account checks on the homepage are quiet now. The protected account and session endpoints correctly return 401 for signed-out visitors, but calling them on every page made an ordinary signed-out state look like a fault in the browser console. The homepage now uses a passive account-status check and resumes an expired session only when one is present. Starting Google sign-in keeps the existing paid or invite session in place.
+
 ## [1.8.24] - 2026-07-28
 
 ### Fixed
 
 - After a verified Academy payment, the code is sent to the email address supplied by the provider. If no valid address is present, the payment stays in a recovery queue until the owner receives a manual-delivery notice. The code is entered within 30 days, and access stays with the Google account that redeems it. Patreon free trials and future pledge amounts do not grant access.
 - Card in the Membership chooser now opens the live checkout and lists its accepted currencies.
+- Anki note types that have a word audio field and a sentence audio field now receive each clip in its own field. Yomu recognized only one audio field, so the word's pronunciation and the sentence clip from an example were both written into whichever audio field Yomu matched first: on note types such as Lapis and jp-mining-note one field held both clips and the other stayed empty. Word audio and sentence audio are now matched separately, the Anki field mapping editor offers a row for each, and a note type with only one audio field still receives both clips there. A saved mapping that pointed the word audio row at a sentence audio field moves to the new row once, and a choice you make there afterwards is kept.
 
 ## [1.8.23] - 2026-07-28
 

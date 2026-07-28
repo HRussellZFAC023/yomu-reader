@@ -1,8 +1,14 @@
 // @vitest-environment node
 import worker from '../../workers/yomu-academy/src/index';
+import { linkGoogleSubject } from '../../workers/yomu-academy/src/accounts';
 import { hmacSha256Hex } from '../../workers/yomu-academy/src/crypto';
 import { inviteCodeHash } from '../../workers/yomu-academy/src/invites';
 import type { Env } from '../../workers/yomu-academy/src/env';
+import {
+    ACCOUNT_RECOVERY_INVITE_ID,
+    READER_ACCOUNT_INVITE_ID,
+    activeSession,
+} from '../../workers/yomu-academy/src/sessions';
 import { createFakeAcademy, jsonRequest, type FakeAcademy } from './helpers/fake-academy-env';
 import { createSqliteAcademy } from './helpers/sqlite-academy-env';
 
@@ -100,6 +106,284 @@ describe('Academy Worker sessions', () => {
         const response = await dispatch(academy.env, jsonRequest('/academy/api/session', { code: 'STAFF2026' }));
         expect(response.status).toBe(200);
         expect(await response.json()).toMatchObject({ accountRequired: true });
+    });
+
+    it('reports anonymous, active, linked, and resumable status without a failing or mutating probe', async () => {
+        const academy = createSqliteAcademy();
+        try {
+            const statusRequest = (cookie?: string) => new Request(
+                'https://yomureader.com/academy/api/session/status',
+                cookie ? { headers: { cookie } } : undefined,
+            );
+
+            const anonymous = await dispatch(academy.env, statusRequest());
+            expect(anonymous.status).toBe(200);
+            expect(anonymous.headers.get('cache-control')).toBe('no-store');
+            expect(anonymous.headers.get('set-cookie')).toBeNull();
+            expect(await anonymous.json()).toEqual({ state: 'signed-out' });
+            expect(await (await dispatch(
+                academy.env,
+                statusRequest('__Host-academy_session=malformed'),
+            )).json()).toEqual({ state: 'signed-out' });
+            expect(await (await dispatch(
+                academy.env,
+                statusRequest(`__Host-academy_session=v2${'A'.repeat(86)}`),
+            )).json()).toEqual({ state: 'signed-out' });
+            expect(academy.db.rows<{ count: number }>(
+                'SELECT COUNT(*) AS count FROM rate_limits',
+            )).toEqual([{ count: 0 }]);
+
+            await seedSqliteInvite(academy);
+            const created = await dispatch(academy.env, jsonRequest('/academy/api/session', { code: 'OPEN2026' }));
+            const cookie = sessionCookie(created);
+            const rateWindowsBeforeStatus = academy.db.rows<{ count: number }>(
+                'SELECT COUNT(*) AS count FROM rate_limits',
+            );
+            const tokenHashBeforeStatus = academy.db.rows<{ token_hash: string }>(
+                'SELECT token_hash FROM sessions',
+            );
+            const active = await dispatch(academy.env, statusRequest(cookie));
+            expect(active.status).toBe(200);
+            expect(await active.json()).toEqual({ state: 'active-unlinked' });
+            expect(academy.db.rows<{ count: number }>(
+                'SELECT COUNT(*) AS count FROM rate_limits',
+            )).toEqual(rateWindowsBeforeStatus);
+            expect(academy.db.rows<{ token_hash: string }>(
+                'SELECT token_hash FROM sessions',
+            )).toEqual(tokenHashBeforeStatus);
+
+            const now = Date.now();
+            const accountId = crypto.randomUUID();
+            academy.db.rows(
+                'INSERT INTO accounts (id, public_id, google_sub_hash, discriminator, created_at, updated_at) '
+                + 'VALUES (?, ?, ?, ?, ?, ?) RETURNING id',
+                accountId, crypto.randomUUID(), 'google-sub-hash', '419213', now, now,
+            );
+            academy.db.rows(
+                'UPDATE sessions SET account_id = ? RETURNING public_id',
+                accountId,
+            );
+            const linked = await dispatch(academy.env, statusRequest(cookie));
+            expect(linked.status).toBe(200);
+            expect(await linked.json()).toEqual({ state: 'linked' });
+
+            academy.db.rows(
+                'UPDATE sessions SET expires_at = ? WHERE account_id = ? RETURNING public_id',
+                now - 1, accountId,
+            );
+            const resumable = await dispatch(academy.env, statusRequest(cookie));
+            expect(resumable.status).toBe(200);
+            expect(await resumable.json()).toEqual({ state: 'resumable' });
+
+            academy.db.rows(
+                'UPDATE sessions SET offline_resume_until = ? WHERE account_id = ? RETURNING public_id',
+                now - 1, accountId,
+            );
+            const elapsed = await dispatch(academy.env, statusRequest(cookie));
+            expect(elapsed.status).toBe(200);
+            expect(await elapsed.json()).toEqual({ state: 'signed-out' });
+
+            academy.db.rows(
+                'UPDATE sessions SET expires_at = ?, offline_resume_until = ?, revoked_at = ? '
+                + 'WHERE account_id = ? RETURNING public_id',
+                now + 60_000, now + 120_000, now, accountId,
+            );
+            const revoked = await dispatch(academy.env, statusRequest(cookie));
+            expect(revoked.status).toBe(200);
+            expect(await revoked.json()).toEqual({ state: 'signed-out' });
+        } finally {
+            academy.close();
+        }
+    });
+
+    it('atomically preserves active and resumable invite sessions when Reader sign-in starts', async () => {
+        const academy = createSqliteAcademy();
+        try {
+            await seedSqliteInvite(academy);
+            const created = await dispatch(academy.env, jsonRequest('/academy/api/session', { code: 'OPEN2026' }));
+            const cookie = sessionCookie(created);
+            const original = academy.db.rows<{ public_id: string; invite_id: string }>(
+                'SELECT public_id, invite_id FROM sessions',
+            )[0]!;
+
+            const active = await dispatch(academy.env, jsonRequest(
+                '/academy/api/auth/google/reader', {}, { cookie },
+            ));
+            expect(active.status).toBe(200);
+            expect(active.headers.get('set-cookie')).toBeNull();
+            expect(await active.json()).toMatchObject({ state: 'active-unlinked' });
+            expect(academy.db.rows<{ public_id: string; invite_id: string }>(
+                'SELECT public_id, invite_id FROM sessions',
+            )).toEqual([original]);
+
+            const now = Date.now();
+            const accountId = crypto.randomUUID();
+            academy.db.rows(
+                'INSERT INTO accounts (id, public_id, google_sub_hash, discriminator, created_at, updated_at) '
+                + 'VALUES (?, ?, ?, ?, ?, ?) RETURNING id',
+                accountId, crypto.randomUUID(), 'reader-ensure-google-sub-hash', '517204', now, now,
+            );
+            academy.db.rows(
+                'UPDATE sessions SET account_id = ? RETURNING public_id',
+                accountId,
+            );
+            const linked = await dispatch(academy.env, jsonRequest(
+                '/academy/api/auth/google/reader', {}, { cookie },
+            ));
+            expect(linked.status).toBe(200);
+            expect(linked.headers.get('set-cookie')).toBeNull();
+            expect(await linked.json()).toMatchObject({ state: 'linked' });
+
+            academy.db.rows(
+                'UPDATE sessions SET created_at = ?, expires_at = ? RETURNING public_id',
+                now - 10_000, now - 1,
+            );
+            const resumed = await dispatch(academy.env, jsonRequest(
+                '/academy/api/auth/google/reader', {}, { cookie },
+            ));
+            expect(resumed.status).toBe(200);
+            expect(await resumed.json()).toMatchObject({ state: 'linked' });
+            expect(sessionCookie(resumed)).not.toBe(cookie);
+            expect(academy.db.rows<{ public_id: string; invite_id: string }>(
+                'SELECT public_id, invite_id FROM sessions',
+            )).toEqual([original]);
+        } finally {
+            academy.close();
+        }
+    });
+
+    it('converts an unlinked recovery session so a new Google subject can create a Reader account', async () => {
+        const academy = createSqliteAcademy();
+        try {
+            const recovery = await dispatch(
+                academy.env,
+                jsonRequest('/academy/api/auth/google/recovery', {}),
+            );
+            expect(recovery.status).toBe(201);
+            const cookie = sessionCookie(recovery);
+            expect(academy.db.rows<{ invite_id: string }>(
+                'SELECT invite_id FROM sessions',
+            )).toEqual([{ invite_id: ACCOUNT_RECOVERY_INVITE_ID }]);
+
+            const ensured = await dispatch(
+                academy.env,
+                jsonRequest('/academy/api/auth/google/reader', {}, { cookie }),
+            );
+            expect(ensured.status).toBe(200);
+            expect(ensured.headers.get('set-cookie')).toBeNull();
+            expect(await ensured.json()).toMatchObject({ state: 'active-unlinked' });
+            expect(academy.db.rows<{ invite_id: string }>(
+                'SELECT invite_id FROM sessions',
+            )).toEqual([{ invite_id: READER_ACCOUNT_INVITE_ID }]);
+
+            const now = Date.now();
+            const session = await activeSession(
+                new Request('https://yomureader.com/academy/api/session', { headers: { cookie } }),
+                academy.env,
+                now,
+            );
+            expect(session).not.toBeNull();
+            const account = await linkGoogleSubject(
+                academy.env,
+                session!,
+                'new-reader-google-subject',
+                now,
+            );
+            expect(account.access_tier).toBe('reader');
+        } finally {
+            academy.close();
+        }
+    });
+
+    it('keeps a recovery session after it is linked to an account', async () => {
+        const academy = createSqliteAcademy();
+        try {
+            const recovery = await dispatch(
+                academy.env,
+                jsonRequest('/academy/api/auth/google/recovery', {}),
+            );
+            expect(recovery.status).toBe(201);
+            const cookie = sessionCookie(recovery);
+            const body = await recovery.json() as { sessionId: string };
+            const now = Date.now();
+            const accountId = crypto.randomUUID();
+            academy.db.rows(
+                'INSERT INTO accounts '
+                + '(id, public_id, google_sub_hash, discriminator, recovery_bound_at, created_at, updated_at) '
+                + 'VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id',
+                accountId,
+                crypto.randomUUID(),
+                'linked-recovery-google-sub-hash',
+                '871204',
+                now,
+                now,
+                now,
+            );
+            academy.db.rows(
+                'UPDATE sessions SET account_id = ? WHERE public_id = ? RETURNING public_id',
+                accountId,
+                body.sessionId,
+            );
+
+            const ensured = await dispatch(
+                academy.env,
+                jsonRequest('/academy/api/auth/google/reader', {}, { cookie }),
+            );
+            expect(ensured.status).toBe(200);
+            expect(ensured.headers.get('set-cookie')).toBeNull();
+            expect(await ensured.json()).toMatchObject({ state: 'linked' });
+            expect(academy.db.rows<{ invite_id: string }>(
+                'SELECT invite_id FROM sessions',
+            )).toEqual([{ invite_id: ACCOUNT_RECOVERY_INVITE_ID }]);
+            expect(academy.db.rows<{ count: number }>(
+                'SELECT COUNT(*) AS count FROM invites WHERE id = ?',
+                READER_ACCOUNT_INVITE_ID,
+            )).toEqual([{ count: 0 }]);
+        } finally {
+            academy.close();
+        }
+    });
+
+    it('never creates a Reader session when another request has rotated the presented family', async () => {
+        const academy = createSqliteAcademy();
+        try {
+            await seedSqliteInvite(academy);
+            const created = await dispatch(academy.env, jsonRequest('/academy/api/session', { code: 'OPEN2026' }));
+            const oldCookie = sessionCookie(created);
+            const originalInviteId = academy.db.rows<{ invite_id: string }>(
+                'SELECT invite_id FROM sessions',
+            )[0]!.invite_id;
+            const now = Date.now();
+            academy.db.rows(
+                'UPDATE sessions SET created_at = ?, expires_at = ? RETURNING public_id',
+                now - 10_000, now - 1,
+            );
+
+            const attempts = await Promise.all([
+                dispatch(academy.env, jsonRequest('/academy/api/auth/google/reader', {}, { cookie: oldCookie })),
+                dispatch(academy.env, jsonRequest('/academy/api/auth/google/reader', {}, { cookie: oldCookie })),
+            ]);
+            const statuses = attempts.map(response => response.status).sort((left, right) => left - right);
+            expect(statuses[0]).toBe(200);
+            expect([401, 409]).toContain(statuses[1]);
+
+            const staleRetry = await dispatch(academy.env, jsonRequest(
+                '/academy/api/auth/google/reader', {}, { cookie: oldCookie },
+            ));
+            expect(staleRetry.status).toBe(409);
+            expect(academy.db.rows<{ count: number }>(
+                'SELECT COUNT(*) AS count FROM sessions',
+            )).toEqual([{ count: 1 }]);
+            expect(academy.db.rows<{ invite_id: string }>(
+                'SELECT invite_id FROM sessions',
+            )).toEqual([{ invite_id: originalInviteId }]);
+            expect(academy.db.rows<{ count: number }>(
+                'SELECT COUNT(*) AS count FROM invites WHERE id = ?',
+                READER_ACCOUNT_INVITE_ID,
+            )).toEqual([{ count: 0 }]);
+        } finally {
+            academy.close();
+        }
     });
 
     it('never persists a plaintext invite code anywhere in D1', async () => {

@@ -12,6 +12,11 @@ export interface HostedAcademyAccountState {
 
 type HostedAcademyAccountListener = (state: HostedAcademyAccountState) => void;
 type HostedAcademyAccountRequest = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+type HostedAcademySessionStatus =
+    | { readonly state: 'signed-out' }
+    | { readonly state: 'active-unlinked' }
+    | { readonly state: 'resumable' }
+    | { readonly state: 'linked' };
 
 interface HostedAcademyAccountClientOptions {
     readonly request?: HostedAcademyAccountRequest;
@@ -24,7 +29,7 @@ interface HostedAcademyAccountControlsOptions {
 }
 
 const ACCOUNT_PATH = '/academy/api/account';
-const SESSION_PATH = '/academy/api/session';
+const SESSION_STATUS_PATH = '/academy/api/session/status';
 const SESSION_RESUME_PATH = '/academy/api/session/resume';
 const READER_AUTH_PATH = '/academy/api/auth/google/reader';
 const GOOGLE_START_PATH = '/academy/api/auth/google/start';
@@ -79,7 +84,6 @@ export class HostedAcademyAccountClient {
     private currentState = INITIAL_STATE;
     private loadPromise: Promise<HostedAcademyAccountState> | null = null;
     private loaded = false;
-    private sessionResumeRefused = false;
 
     constructor(options: HostedAcademyAccountClientOptions = {}) {
         this.request = options.request ?? defaultHostedAcademyAccountRequest;
@@ -109,9 +113,17 @@ export class HostedAcademyAccountClient {
     async beginReaderAuth(): Promise<void> {
         this.setState({ ...this.currentState, busy: true, error: false });
         try {
+            // The Worker owns the read-or-create decision in one request. A
+            // separate browser preflight could go stale and replace an invite
+            // session established by another tab before this POST arrived.
             const response = await this.request(READER_AUTH_PATH, mutationInit(true));
             if (!response.ok) throw new Error('Reader account authorization failed.');
-            this.sessionResumeRefused = false;
+            const session = parseHostedAcademySessionStatus(await response.json());
+            if (session.state === 'linked') {
+                await this.loadAccountStatus();
+                return;
+            }
+            if (session.state !== 'active-unlinked') throw new Error('Reader account authorization failed.');
             this.navigate(GOOGLE_START_PATH);
         } catch {
             this.setState({ ...this.currentState, busy: false, error: true });
@@ -123,7 +135,6 @@ export class HostedAcademyAccountClient {
         try {
             const response = await this.request(LOGOUT_PATH, mutationInit(false));
             if (!response.ok) throw new Error('Reader account sign-out failed.');
-            this.sessionResumeRefused = true;
             this.setState({ phase: 'signed-out', displayName: null, busy: false, error: false });
         } catch {
             this.setState({ ...this.currentState, busy: false, error: true });
@@ -133,16 +144,25 @@ export class HostedAcademyAccountClient {
     private async loadAccountStatus(): Promise<HostedAcademyAccountState> {
         this.setState(INITIAL_STATE);
         try {
-            let response = await this.accountRequest();
-            if (response.status === 401 && !this.sessionResumeRefused) {
-                response = await this.retryAfterSessionResume(response);
-            }
-            if (response.status === 401) {
+            let session = await this.resolveSessionStatus();
+            if (session.state !== 'linked') {
                 return this.setState({ phase: 'signed-out', displayName: null, busy: false, error: false });
+            }
+            let response = await this.accountRequest();
+            if (response.status === 401) {
+                // Session expiry or a logout in another tab can race the
+                // protected read. Resolve once more, then stop.
+                session = await this.resolveSessionStatus();
+                if (session.state !== 'linked') {
+                    return this.setState({ phase: 'signed-out', displayName: null, busy: false, error: false });
+                }
+                response = await this.accountRequest();
+                if (response.status === 401) {
+                    return this.setState({ phase: 'signed-out', displayName: null, busy: false, error: false });
+                }
             }
             if (!response.ok) throw new Error('Reader account status failed.');
             const account = parseAcademyAccountView(await response.json());
-            this.sessionResumeRefused = false;
             return this.setState({
                 phase: 'signed-in',
                 displayName: account.identity.displayName,
@@ -158,17 +178,22 @@ export class HostedAcademyAccountClient {
         return this.request(ACCOUNT_PATH, readInit());
     }
 
-    private async retryAfterSessionResume(original: Response): Promise<Response> {
-        const session = await this.request(SESSION_PATH, readInit());
-        // A healthy session may intentionally have no linked account yet.
-        if (session.ok || session.status !== 401) return original;
+    private async readSessionStatus(): Promise<HostedAcademySessionStatus> {
+        const response = await this.request(SESSION_STATUS_PATH, readInit());
+        if (!response.ok) throw new Error('Reader session status failed.');
+        return parseHostedAcademySessionStatus(await response.json());
+    }
+
+    private async resolveSessionStatus(): Promise<HostedAcademySessionStatus> {
+        const session = await this.readSessionStatus();
+        if (session.state !== 'resumable') return session;
         const resumed = await this.request(SESSION_RESUME_PATH, mutationInit(false));
-        if (!resumed.ok) {
-            if (resumed.status === 401 || resumed.status === 403) this.sessionResumeRefused = true;
-            return original;
+        if (!resumed.ok && resumed.status !== 401) {
+            throw new Error('Reader account session resume failed.');
         }
-        this.sessionResumeRefused = false;
-        return this.accountRequest();
+        // Always read again. A concurrent tab can win rotation, update the
+        // shared cookie, and leave this request holding the expected 401.
+        return this.readSessionStatus();
     }
 
     private setState(state: HostedAcademyAccountState): HostedAcademyAccountState {
@@ -183,10 +208,26 @@ function defaultHostedAcademyAccountRequest(input: RequestInfo | URL, init?: Req
     // Worker. Keep the static shell signed out there instead of issuing noisy
     // 404s; production remains an exact same-origin request.
     if (typeof location === 'undefined' || location.origin !== 'https://yomureader.com') {
-        const status = String(input) === SESSION_PATH ? 200 : 401;
-        return Promise.resolve(new Response(null, { status }));
+        if (String(input) === SESSION_STATUS_PATH) {
+            return Promise.resolve(new Response(JSON.stringify({ state: 'signed-out' }), {
+                status: 200,
+                headers: { 'content-type': 'application/json' },
+            }));
+        }
+        return Promise.resolve(new Response(null, { status: 404 }));
     }
     return fetch(input, init);
+}
+
+function parseHostedAcademySessionStatus(value: unknown): HostedAcademySessionStatus {
+    if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+        throw new TypeError('Academy session status is invalid.');
+    }
+    const state = (value as { readonly state?: unknown }).state;
+    if (state !== 'signed-out' && state !== 'active-unlinked' && state !== 'resumable' && state !== 'linked') {
+        throw new TypeError('Academy session status is invalid.');
+    }
+    return { state };
 }
 
 /** Idempotently owns the desktop and mobile VitePress account controls. */

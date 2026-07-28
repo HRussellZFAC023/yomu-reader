@@ -14,6 +14,7 @@ loading before login.
 | --- | --- |
 | `POST /academy/api/session` | Exchange `{code}` for a session. Exact same-origin only, rate-limited per HMACed client subject, invite consumed atomically (`UPDATE … RETURNING`). Sets `__Host-academy_session` (Secure/HttpOnly/SameSite=Lax) and returns the client contract `{sessionId, expiresAt, offlineResumeUntil}` in epoch ms. |
 | `GET /academy/api/session` | Report the live session bound to the cookie. |
+| `GET /academy/api/session/status` | Read a state-only shell projection without changing D1, cookies, or rate limits. Signed-out, malformed, unknown, revoked, and elapsed cookies all return `200 {"state":"signed-out"}`. |
 | `POST /academy/api/logout` | Revoke the session, clear the cookie. |
 | `POST /academy/api/admin/invites` | Bearer-authenticated (timing-safe) invite creation. Send `{code}` to seed a known code (e.g. `<PRIVATE_CLASS_INVITE>`) — only its HMAC persists; omit `code` to have a random one generated and returned exactly once. |
 | `POST /academy/api/checkout` | Donation Checkout: a donor-chosen whole-pence amount (`{amountGbp}`, £5–£500), `submit_type=donate`, pinned `Stripe-Version: 2026-02-25.clover`, idempotency key, success/cancel URLs under `ACADEMY_ORIGIN` (success carries `session_id={CHECKOUT_SESSION_ID}`). Returns only a validated `https://checkout.stripe.com/…` URL after linking the returned `cs_…` id to the purchase, and sets the `__Host-academy_claim` cookie. No publishable key anywhere. |
