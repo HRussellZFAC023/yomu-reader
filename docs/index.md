@@ -36,11 +36,11 @@ description: Press a word on any Japanese page, video, manga panel or PDF for it
       <a class="yomu-install-route" data-yomu-route="chrome" href="https://chromewebstore.google.com/detail/%E3%82%88%E3%82%80/bbaickgfdgnecdnkcplaoiopnfghlkna">Add よむ to Chrome</a>
       <a class="yomu-install-route" data-yomu-route="firefox" href="https://addons.mozilla.org/en-US/firefox/addon/yomu-reader/">Add よむ to Firefox</a>
       <a class="yomu-install-route" data-yomu-route="userscript" href="https://yomureader.com/yomu.user.js">Install the よむ userscript</a>
-      <p class="yomu-fold-micro">Free. Chrome, Firefox, Safari and iPad.</p>
+      <p class="yomu-fold-micro">Free, on your computer and your phone.</p>
       <p class="yomu-install-routes-note">Also available:</p>
     </div>
   </div>
-  <figure class="yomu-fold-card">
+  <figure class="yomu-fold-card" data-yomu-ocr="ignore">
     <img src="/home/popover.webp" width="840" height="864" fetchpriority="high" decoding="async" alt="The よむ lookup popover for 季語, showing pitch accent, audio, a dictionary definition and example sentences." />
   </figure>
   <div class="yomu-fold-legend-wrap">
@@ -61,7 +61,10 @@ description: Press a word on any Japanese page, video, manga panel or PDF for it
     <h2 id="yomu-band-pages">Read the Japanese web at full speed.</h2>
     <p class="yomu-band-lead">Readings, meanings, pitch and audio arrive the moment you press a word. Your place on the page stays exactly where it was.</p>
   </div>
-  <figure class="yomu-band-frame">
+  <!-- data-yomu-ocr="ignore": this is a screenshot, not reading material. The
+       ONE image the reader may recognise on this page is the manga panel in
+       #manga — everything else opts out so no still is read or uploaded. -->
+  <figure class="yomu-band-frame" data-yomu-ocr="ignore">
     <img src="/home/wikipedia.webp" width="1600" height="1000" loading="lazy" decoding="async" alt="Japanese Wikipedia with furigana above the kanji, coloured underlines on every word, and the よむ popover open." />
     <figcaption>Japanese Wikipedia, read in place.</figcaption>
   </figure>
@@ -90,7 +93,7 @@ description: Press a word on any Japanese page, video, manga panel or PDF for it
       <figcaption>Press a word in the subtitle line. This player is running the real reader.</figcaption>
     </figure>
   </div>
-  <figure class="yomu-band-frame">
+  <figure class="yomu-band-frame" data-yomu-ocr="ignore">
     <img src="/home/youtube.webp" width="1280" height="900" loading="lazy" decoding="async" alt="A YouTube video with the Japanese subtitle annotated on the picture and the full subtitle list open beside it." />
     <figcaption>YouTube, with the Japanese track open.</figcaption>
   </figure>
@@ -105,7 +108,7 @@ description: Press a word on any Japanese page, video, manga panel or PDF for it
     <p class="yomu-band-lead">The sentence, the audio and the picture go with it — into your reviews, and into Anki when you want them there.</p>
     <ul class="yomu-band-chips"><li><span>Word</span></li><li><span>Sentence</span></li><li><span>Audio</span></li><li><span>Image</span></li></ul>
   </div>
-  <figure class="yomu-band-frame yomu-band-pair">
+  <figure class="yomu-band-frame yomu-band-pair" data-yomu-ocr="ignore">
     <img class="yomu-pair-a" src="/home/keep-press.webp" width="1034" height="562" loading="lazy" decoding="async" alt="Example sentences with audio inside the よむ popover, above the grading buttons that keep the word." />
     <svg class="yomu-pair-arrow" viewBox="0 0 120 60" aria-hidden="true" focusable="false"><path d="M4 12 L 84 12 L 84 46" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="square"/><path d="M74 36 L 84 50 L 94 36" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="square" stroke-linejoin="miter"/></svg>
     <img class="yomu-pair-b" src="/home/study.webp" width="1300" height="813" loading="lazy" decoding="async" alt="The よむ Study page reviewing a saved word in a sentence." />
@@ -113,14 +116,32 @@ description: Press a word on any Japanese page, video, manga panel or PDF for it
   </figure>
 </section>
 
-<section class="yomu-band yomu-reveal" id="mobile" data-bleed="left" aria-labelledby="yomu-band-mobile">
+<section class="yomu-band yomu-reveal" id="manga" data-bleed="left" aria-labelledby="yomu-band-manga">
+  <img class="yomu-band-ground" src="/home/ground-manga.webp" width="1600" height="900" alt="" aria-hidden="true" loading="lazy" decoding="async" />
+  <p class="yomu-band-numeral" aria-hidden="true" lang="ja" data-yomu-localize="off">漫</p>
+  <div class="yomu-band-copy">
+    <p class="yomu-band-kicker">Manga</p>
+    <h2 id="yomu-band-manga">Manga reads back.</h2>
+    <p class="yomu-band-lead">Tap a panel and every word inside it becomes pressable — on a laptop, or with a thumb on an iPad.</p>
+  </div>
+  <!-- The ONE live OCR surface on this page, on purpose. No data-yomu-ocr="ignore"
+       here: the reader recognises this panel for real, exactly as it would on a
+       manga site, because a claim about reading pictures should be demonstrated
+       by reading a picture. Every other image on the page opts out. -->
+  <figure class="yomu-band-frame yomu-manga-figure" data-yomu-runtime-surface>
+    <img src="/media/manga-ocr-sample.png" width="900" height="1280" loading="lazy" decoding="async" alt="Japanese manga page with text detected by よむ OCR" />
+    <figcaption>This panel is live — よむ is reading the words in it.</figcaption>
+  </figure>
+</section>
+
+<section class="yomu-band yomu-reveal" id="mobile" data-bleed="right" aria-labelledby="yomu-band-mobile">
   <p class="yomu-band-numeral" aria-hidden="true" lang="ja" data-yomu-localize="off">手</p>
   <div class="yomu-band-copy">
-    <p class="yomu-band-kicker">Phone and iPad</p>
+    <p class="yomu-band-kicker">Mobile</p>
     <h2 id="yomu-band-mobile">The same reading, in your hand.</h2>
-    <p class="yomu-band-lead">Press a word on a phone or an iPad and everything comes with it: the furigana, the pitch colours, the popover and the grading buttons. On iPhone and iPad, Yomu runs in Safari through a free userscript manager — a couple of minutes to set up, and then it reads everywhere you do.</p>
+    <p class="yomu-band-lead">Press a word on your phone or tablet and everything comes with it: the furigana, the pitch colours, the popover and the grading buttons. On Android, よむ is one click from the Firefox store; on iPhone and iPad it runs in Safari through a free userscript manager.</p>
   </div>
-  <figure class="yomu-band-frame yomu-band-devices">
+  <figure class="yomu-band-frame yomu-band-devices" data-yomu-ocr="ignore">
     <img class="yomu-device-phone" src="/home/phone.webp" width="390" height="844" loading="lazy" decoding="async" alt="よむ on a phone, showing Japanese Wikipedia with furigana above the kanji and the lookup popover open on コーヒー with its pitch accent, meaning and grading buttons." />
     <img class="yomu-device-tablet" src="/home/ipad.webp" width="820" height="1180" loading="lazy" decoding="async" alt="よむ on an iPad, showing a Japanese Wikipedia article with furigana and the 喫茶店 popover open with two pitch accent patterns, the dictionary meaning and example sentences." />
     <figcaption>The same reader, the same popover, on the device you already read on.</figcaption>
@@ -139,7 +160,7 @@ description: Press a word on any Japanese page, video, manga panel or PDF for it
       <a class="yomu-install-route" data-yomu-route="chrome" href="https://chromewebstore.google.com/detail/%E3%82%88%E3%82%80/bbaickgfdgnecdnkcplaoiopnfghlkna">Add よむ to Chrome</a>
       <a class="yomu-install-route" data-yomu-route="firefox" href="https://addons.mozilla.org/en-US/firefox/addon/yomu-reader/">Add よむ to Firefox</a>
       <a class="yomu-install-route" data-yomu-route="userscript" href="https://yomureader.com/yomu.user.js">Install the よむ userscript</a>
-      <p class="yomu-fold-micro">Free. Chrome, Firefox, Safari and iPad.</p>
+      <p class="yomu-fold-micro">Free, on your computer and your phone.</p>
       <p class="yomu-install-routes-note">Also available:</p>
     </div>
     <!-- The userscript installs by the manager INTERCEPTING navigation to the .user.js URL.

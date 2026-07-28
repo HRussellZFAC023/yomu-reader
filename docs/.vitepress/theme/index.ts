@@ -226,8 +226,16 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     'Pick a manager, add よむ, open a Japanese page.': '管理拡張を選び、よむを追加して、日本語のページを開きます。',
     'Already installed?': 'もうインストール済みですか？',
     'Open a video with Japanese subtitles.': '日本語字幕付きの動画を開きます。',
-    // Phone and iPad band (docs/index.md). iOS has no store build, so the copy
-    // says userscript manager and a couple of minutes rather than one click.
+    // Mobile band + manga band (docs/index.md). iOS has no store build, so the
+    // copy says userscript manager rather than one click; Android is a real
+    // one-click store install via Firefox.
+    'Mobile': 'モバイル',
+    'Get started': 'はじめる',
+    'Free, on your computer and your phone.': '無料。パソコンでもスマートフォンでも。',
+    'Press a word on your phone or tablet and everything comes with it: the furigana, the pitch colours, the popover and the grading buttons. On Android, よむ is one click from the Firefox store; on iPhone and iPad it runs in Safari through a free userscript manager.': 'スマートフォンやタブレットで単語を押すと、ふりがな、ピッチの色、ポップオーバー、評価ボタンがそのまま付いてきます。Androidでは、よむはFirefoxのストアからワンクリックで入ります。iPhoneとiPadでは、無料のユーザースクリプトマネージャーを通してSafariの中で動きます。',
+    'Manga reads back.': '漫画が読み返してくる。',
+    'Tap a panel and every word inside it becomes pressable — on a laptop, or with a thumb on an iPad.': 'コマをタップすると、その中のすべての単語が押せるようになります。パソコンでも、iPadの親指でも。',
+    'This panel is live — よむ is reading the words in it.': 'このコマは本物です — よむがいま中の単語を読み取っています。',
     'Phone and iPad': 'スマートフォンとiPad',
     'The same reading, in your hand.': '同じ読書体験を、手のなかで。',
     'Press a word on a phone or an iPad and everything comes with it: the furigana, the pitch colours, the popover and the grading buttons. On iPhone and iPad, Yomu runs in Safari through a free userscript manager — a couple of minutes to set up, and then it reads everywhere you do.': 'スマートフォンやiPadで単語を押すと、ふりがな、ピッチの色、ポップオーバー、評価ボタンがそのまま付いてきます。iPhoneとiPadでは、よむは無料のユーザースクリプトマネージャーを通してSafariの中で動きます。設定は数分で終わり、あとはあなたが読む場所すべてで読み取ります。',

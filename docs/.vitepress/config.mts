@@ -212,9 +212,13 @@ function jsonLdFor(pageData: PageDataLike, pageUrl: string): HeadConfig[] {
 }
 
 const siteNav = [
-    { text: 'Install', link: '/getting-started' },
+    // 'Get started' over 'Install': a visitor who has not decided yet is looking
+    // for what this is and how to begin, not for a package. 'Guides' over
+    // 'Learn': the pages behind it are task guides, and 'Learn' collided with
+    // Academy in meaning while describing neither.
+    { text: 'Get started', link: '/getting-started' },
+    { text: 'Guides', link: '/guides/' },
     { text: 'Tools', link: '/tools/' },
-    { text: 'Learn', link: '/guides/' },
     { text: 'Study', link: newTabLink, target: '_self' },
     { text: 'Academy', link: '/academy/', target: '_self' },
     { text: 'Support', link: '/support' },
@@ -373,16 +377,25 @@ export default defineConfig({
         head.push(...jsonLdFor(pageData, pageUrl));
         return head;
     },
-    transformHtml(code) {
+    transformHtml(code, id) {
         // VitePress emits `rel="preload stylesheet"` for its main CSS chunks.
         // Chromium treats those as preload-only in the built preview, leaving the
         // homepage unstyled except for yomu.css. Emit normal stylesheet links so
         // every static page applies the theme CSS without relying on rel-token
         // interpretation.
-        return code.replace(
+        const styled = code.replace(
             /<link rel="preload stylesheet" href="([^"]+)" as="style">/g,
             '<link rel="stylesheet" href="$1">',
         );
+        // The homepage's screenshots opt out of image OCR per-figure in
+        // docs/index.md (`data-yomu-ocr="ignore"`, the reader's own page-side
+        // opt-out) rather than via a <body> stamp here: the #manga panel is the
+        // one deliberate live OCR surface, and a body-wide stamp would silence it
+        // too, since the reader matches the attribute with closest(). The docs
+        // a11y audit asserts the panel is the ONLY readable image, so a new
+        // screenshot added without the attribute fails the gate instead of
+        // silently re-enabling recognition.
+        return styled;
     },
     themeConfig: {
         logo: { src: '/yomu-icon.svg', alt: 'よむ app icon' },
