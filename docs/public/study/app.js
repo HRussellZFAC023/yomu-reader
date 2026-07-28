@@ -49331,7 +49331,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   const READER_RASTER_FRAME_SIZE_CHANGE_PX = 2;
   const READER_RASTER_REGION_MIN_SIZE_PX = 96;
   const READER_RASTER_REGION_FULL_PAGE_FRACTION = 0.88;
-  const YOUTUBE_VIDEO_FRAME_BOTTOM_CHROME_RESERVE_PX = 64;
   const MIRROR_IMAGE_FETCH_TIMEOUT_MS = 8e3;
   const MAX_CLEAN_MIRROR_IMAGE_CACHE_ITEMS = 48;
   const BOOKWALKER_SPREAD_MIN_ASPECT = 1.15;
@@ -51810,20 +51809,18 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       const surface = this.backgroundFrameSources.get(image);
       return surface?.getBoundingClientRect();
     }
+    // A bottom inset moves recognized text off the pixels it was read from, so it
+    // is reserved for chrome the overlay cannot paint over: the browser/reader
+    // furniture at the true viewport bottom under a reader raster surface. Player
+    // chrome inside the page never qualifies — the OCR layer paints above it, and
+    // a video's own subtitles live in exactly that bottom strip.
     renderedOcrImageFrameForState(image, rect, result) {
       const frame = this.canvasFrameSources.has(image) ? renderedCanvasReaderFrame(rect) : renderedOcrImageFrame(image, rect, result);
-      let reserve = 0;
-      if (image.dataset.yomuVideoFrame === "true" && isYouTubePageForOcr()) {
-        reserve = Math.max(reserve, YOUTUBE_VIDEO_FRAME_BOTTOM_CHROME_RESERVE_PX);
-      }
-      if (this.canvasFrameSources.has(image) || this.backgroundFrameSources.has(image)) {
-        const viewportHeight2 = window.innerHeight || document.documentElement.clientHeight || 0;
-        if (viewportHeight2 && rect.bottom >= viewportHeight2 - 2) {
-          reserve = Math.max(reserve, READER_RASTER_BOTTOM_CHROME_RESERVE_PX);
-        }
-      }
-      if (!reserve) return frame;
-      return { ...frame, safeBottomInset: Math.max(0, Math.min(reserve, frame.imageHeight - 1)) };
+      if (!this.canvasFrameSources.has(image) && !this.backgroundFrameSources.has(image)) return frame;
+      const viewportHeight2 = window.innerHeight || document.documentElement.clientHeight || 0;
+      if (!viewportHeight2 || rect.bottom < viewportHeight2 - 2) return frame;
+      const reserved = Math.max(0, Math.min(READER_RASTER_BOTTOM_CHROME_RESERVE_PX, frame.imageHeight - 1));
+      return reserved ? { ...frame, safeBottomInset: reserved } : frame;
     }
     clear() {
       this.observer?.disconnect();
@@ -53184,7 +53181,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.8.22".trim() ? "1.8.22".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.8.23".trim() ? "1.8.23".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record2 = value;
