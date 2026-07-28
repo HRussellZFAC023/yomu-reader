@@ -257,6 +257,7 @@ const siteSidebar = [
         text: 'Project',
         items: [
             { text: 'Support', link: '/support' },
+            { text: 'Settings reference', link: '/reference/settings' },
             { text: 'API', link: '/api/', target: '_self' },
             { text: 'Local Audio', link: '/local-audio' },
             { text: 'Changelog', link: '/changelog' },

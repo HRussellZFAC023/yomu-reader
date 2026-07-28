@@ -51,6 +51,10 @@ export const OVERFLOW_NAV: readonly NavRoute[] = Object.freeze([
     { text: 'Stats', link: '/study/?mode=stats', target: '_self' },
     { text: 'API', link: '/api/', target: '_self' },
     { text: 'Local Audio', link: '/local-audio' },
+    // Generated from DEFAULT_SETTINGS by scripts/settings-reference.mjs. It lives
+    // here rather than in the primary bar because a learner reaches for it when
+    // hunting one control, not daily.
+    { text: 'Settings reference', link: '/reference/settings' },
     { text: 'FAQ', link: '/faq' },
     { text: 'Changelog', link: '/changelog' },
     { text: 'Privacy', link: '/privacy' },
