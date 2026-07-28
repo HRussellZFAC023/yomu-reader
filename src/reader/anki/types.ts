@@ -25,12 +25,21 @@ export interface AnkiNote {
 
 export type AnkiPicture = NonNullable<AnkiNote['picture']>[number];
 
+// Which audio slot a mined media file belongs to. Word audio is the term
+// pronunciation; context audio is the sentence/example clip. Note types that
+// expose both (Lapis, jp-mining-note) must not collapse them into one field.
+export type AnkiAudioKind = 'word' | 'context';
+
 export interface AnkiMediaFile {
     filename: string;
     fields: string[];
     data?: string;
     url?: string;
     skipHash?: string;
+    // Internal routing metadata only: the note is built before the target
+    // model's field names are known, so the kind has to survive until the
+    // retarget pass picks a field. Stripped before it reaches AnkiConnect.
+    yomuAudioKind?: AnkiAudioKind;
 }
 
 export interface AnkiNoteInfo {
@@ -115,9 +124,12 @@ export interface AnkiLookupResult {
     trusted?: boolean;
 }
 
-export type AnkiFieldRole = 'expression' | 'reading' | 'meaning' | 'sentence' | 'audio' | 'image';
+export type AnkiFieldRole = 'expression' | 'reading' | 'meaning' | 'sentence' | 'audio' | 'sentenceAudio' | 'image';
 
-export const ANKI_FIELD_ROLES: AnkiFieldRole[] = ['expression', 'reading', 'meaning', 'sentence', 'audio', 'image'];
+// Order matters: scanAnkiModelFields claims fields role by role, so `audio`
+// (word audio) resolves before `sentenceAudio` and the two cannot both land on
+// the same field of a note type that exposes one of each.
+export const ANKI_FIELD_ROLES: AnkiFieldRole[] = ['expression', 'reading', 'meaning', 'sentence', 'audio', 'sentenceAudio', 'image'];
 
 export interface AnkiFieldSuggestion {
     role: AnkiFieldRole;

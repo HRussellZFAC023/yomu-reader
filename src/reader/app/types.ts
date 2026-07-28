@@ -75,7 +75,7 @@ export type ImmersionKitSort = 'sentence_length:asc' | 'sentence_length:desc' | 
 export type ImmersionExampleSource = 'immersion-kit' | 'nadeshiko' | 'combined';
 
 export type AnkiTemplateMode = 'recognition' | 'context';
-export type AnkiFieldMappingRole = 'expression' | 'reading' | 'meaning' | 'sentence' | 'audio' | 'image';
+export type AnkiFieldMappingRole = 'expression' | 'reading' | 'meaning' | 'sentence' | 'audio' | 'sentenceAudio' | 'image';
 export type AnkiFieldMapping = Partial<Record<AnkiFieldMappingRole, string>>;
 export type AnkiFieldMappings = Record<string, AnkiFieldMapping>;
 
@@ -550,6 +550,10 @@ export interface ReaderSettings {
     ankiMineWithJpdb: boolean;
     ankiCaptureScreenshot: boolean;
     ankiFieldMappings: AnkiFieldMappings;
+    // Marker for the one-time move of sentence-audio field mappings off the
+    // word-audio role (see migrateAnkiSentenceAudioMappings). Deliberate later
+    // choices in the mapping editor must stick, so this only ever runs once.
+    ankiSentenceAudioMappingMigrated: boolean;
     ankiTemplateMode: AnkiTemplateMode;
     ankiFrontReading: boolean;
     ankiFrontSentence: boolean;

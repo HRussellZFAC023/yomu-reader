@@ -531,7 +531,8 @@ const COPY = {
         ankiRoleReading: 'Reading',
         ankiRoleMeaning: 'Meaning',
         ankiRoleSentence: 'Sentence',
-        ankiRoleAudio: 'Audio',
+        ankiRoleAudio: 'Word audio',
+        ankiRoleSentenceAudio: 'Sentence audio',
         ankiRoleImage: 'Image',
         testAnki: 'Check AnkiConnect',
         prepareAnki: 'Set up Yomu note type',
@@ -2198,7 +2199,8 @@ ankiRoleExpression	表記
 ankiRoleReading	読み
 ankiRoleMeaning	意味
 ankiRoleSentence	文
-ankiRoleAudio	音声
+ankiRoleAudio	単語音声
+ankiRoleSentenceAudio	文音声
 ankiRoleImage	画像
 testAnki	AnkiConnectを確認
 prepareAnki	よむノートタイプを準備

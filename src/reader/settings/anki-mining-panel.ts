@@ -6,7 +6,7 @@ import { renderAnkiTagsEditor } from './form-tags';
 import type { AnkiModelUpdatePlan } from '../anki/types';
 import type { AnkiFieldMappingRole, InterfaceLanguage, JPDBDeck, ReaderSettings } from '../app/types';
 
-const ANKI_FIELD_MAPPING_ROLES: AnkiFieldMappingRole[] = ['expression', 'reading', 'meaning', 'sentence', 'audio', 'image'];
+const ANKI_FIELD_MAPPING_ROLES: AnkiFieldMappingRole[] = ['expression', 'reading', 'meaning', 'sentence', 'audio', 'sentenceAudio', 'image'];
 const ANKI_MOBILE_FALLBACK_DECK = 'Default';
 
 type AnkiMappingConfidence = 'high' | 'medium' | 'low';
@@ -189,6 +189,7 @@ function ankiFieldMappingRoleLabel(role: AnkiFieldMappingRole, language: Interfa
         meaning: uiText(language, 'ankiRoleMeaning'),
         sentence: uiText(language, 'ankiRoleSentence'),
         audio: uiText(language, 'ankiRoleAudio'),
+        sentenceAudio: uiText(language, 'ankiRoleSentenceAudio'),
         image: uiText(language, 'ankiRoleImage'),
     }[role];
 }

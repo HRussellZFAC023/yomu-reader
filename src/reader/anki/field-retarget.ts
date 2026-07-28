@@ -5,14 +5,14 @@ import {
     mappedRoleForField,
     yomuFieldForRole,
 } from './field-mapping';
-import { retargetMediaFiles } from './media-files';
+import { ankiAudioFieldTargets, retargetAudioFilesByKind, retargetMediaFiles } from './media-files';
 import { yomuFieldAlias } from './model-fields';
 import { ANKI_FIELD_ROLES, type AnkiFieldRole, type AnkiNote } from './types';
 
 export function retargetAnkiNoteToExistingModel(note: AnkiNote, fieldNames: string[], settings: ReaderSettings): AnkiNote {
     const mapping = ankiFieldMappingForModel(settings, note.modelName, fieldNames);
     const fields = retargetYomuFieldsToExistingModel(note.fields, fieldNames, mapping);
-    const audioField = fieldNameForRole(fieldNames, 'audio', mapping);
+    const audioTargets = ankiAudioFieldTargets(fieldNames, mapping);
     const imageField = fieldNameForRole(fieldNames, 'image', mapping);
     return {
         deckName: note.deckName,
@@ -20,7 +20,7 @@ export function retargetAnkiNoteToExistingModel(note: AnkiNote, fieldNames: stri
         fields,
         tags: note.tags,
         options: note.options,
-        ...(audioField && note.audio?.length ? { audio: retargetMediaFiles(note.audio, audioField) } : {}),
+        ...(audioTargets && note.audio?.length ? { audio: retargetAudioFilesByKind(note.audio, audioTargets) } : {}),
         ...(imageField && note.picture?.length ? { picture: retargetMediaFiles(note.picture, imageField) } : {}),
     };
 }
@@ -62,9 +62,15 @@ function mobileHandoffFieldsWithMappings(yomuFields: Record<string, string>, map
 
 function retargetMobileHandoffMedia(note: AnkiNote, mapping: AnkiFieldMapping): Partial<Pick<AnkiNote, 'audio' | 'picture'>> {
     const media: Partial<Pick<AnkiNote, 'audio' | 'picture'>> = {};
-    const audioField = mobileMappedFieldName(mapping, 'audio');
+    const wordAudioField = mobileMappedFieldName(mapping, 'audio');
+    const sentenceAudioField = mobileMappedFieldName(mapping, 'sentenceAudio');
     const imageField = mobileMappedFieldName(mapping, 'image');
-    if (audioField && note.audio?.length) media.audio = retargetMediaFiles(note.audio, audioField);
+    if ((wordAudioField || sentenceAudioField) && note.audio?.length) {
+        media.audio = retargetAudioFilesByKind(note.audio, {
+            word: wordAudioField || sentenceAudioField,
+            context: sentenceAudioField || wordAudioField,
+        });
+    }
     if (imageField && note.picture?.length) media.picture = retargetMediaFiles(note.picture, imageField);
     return media;
 }

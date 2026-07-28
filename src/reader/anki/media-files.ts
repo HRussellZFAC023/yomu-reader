@@ -1,6 +1,7 @@
 import type { AnkiWordAudioMedia } from './audio';
 import { fieldNameForRole } from './field-mapping';
 import type {
+    AnkiAudioKind,
     AnkiAudioMergeMode,
     AnkiCardContext,
     AnkiMediaFile,
@@ -24,9 +25,35 @@ export function imageFromDataUrl(dataUrl: string, card: JPDBCard): AnkiPicture |
 
 export function mergeAudioFilesForNote(fieldNames: string[], options: AnkiCardContext & { audioMergeMode?: AnkiAudioMergeMode }, card: JPDBCard, mapping?: AnkiFieldMapping): AnkiMediaFile[] {
     if (options.audioMergeMode === 'theirs') return [];
-    const fieldName = fieldNameForRole(fieldNames, 'audio', mapping) || mediaFieldName(fieldNames, ANKI_PRONUNCIATION_AUDIO_FIELD_NAMES);
-    if (!fieldName) return [];
-    return retargetMediaFiles(audioFilesFromContext(options, card), fieldName);
+    const targets = ankiAudioFieldTargets(fieldNames, mapping);
+    if (!targets) return [];
+    return retargetAudioFilesByKind(audioFilesFromContext(options, card), targets);
+}
+
+export interface AnkiAudioFieldTargets {
+    word: string;
+    context: string;
+}
+
+// Resolves the field each audio kind is written to. Note types that expose only
+// one audio field collapse onto it in BOTH directions, so splitting the roles
+// never drops audio that used to be written.
+export function ankiAudioFieldTargets(fieldNames: string[], mapping?: AnkiFieldMapping): AnkiAudioFieldTargets | null {
+    const word = fieldNameForRole(fieldNames, 'audio', mapping) || mediaFieldName(fieldNames, ANKI_PRONUNCIATION_AUDIO_FIELD_NAMES);
+    const context = fieldNameForRole(fieldNames, 'sentenceAudio', mapping);
+    if (!word && !context) return null;
+    return { word: word || context, context: context || word };
+}
+
+export function retargetAudioFilesByKind(files: AnkiMediaFile[], targets: AnkiAudioFieldTargets): AnkiMediaFile[] {
+    return files.map(file => {
+        const { yomuAudioKind: _kind, ...rest } = file;
+        return { ...rest, fields: [ankiAudioFieldForKind(file.yomuAudioKind, targets)] };
+    });
+}
+
+function ankiAudioFieldForKind(kind: AnkiAudioKind | undefined, targets: AnkiAudioFieldTargets): string {
+    return kind === 'context' ? targets.context : targets.word;
 }
 
 export function mergePictureFilesForNote(
@@ -51,7 +78,12 @@ export function applyMediaFieldClears(
     audioMergeMode: AnkiAudioMergeMode | undefined,
     canOwnYomuFields: boolean,
 ): void {
-    if (audio.length && audioMergeMode === 'ours') fields[audio[0].fields[0]] = '';
+    // Word and sentence audio can now target different fields, so clear every
+    // field the write touches — clearing only the first left stale audio in the
+    // other one and appended the new clip after it.
+    if (audioMergeMode === 'ours') {
+        for (const fieldName of new Set(audio.map(file => file.fields[0]).filter(Boolean))) fields[fieldName] = '';
+    }
     if (picture.length && canOwnYomuFields) fields[picture[0].fields[0]] = '';
 }
 
@@ -74,29 +106,31 @@ export function audioFilesFromContext(options: AnkiCardContext, card: JPDBCard):
     return uniqueAnkiAudioFiles(files);
 }
 
-function audioFromMedia(media: AnkiWordAudioMedia & { kind: string }, card: JPDBCard): AnkiMediaFile | null {
+function audioFromMedia(media: AnkiWordAudioMedia & { kind: AnkiAudioKind }, card: JPDBCard): AnkiMediaFile | null {
     const fromData = media.dataUrl ? audioFromDataUrl(media.dataUrl, card, media.kind) : null;
     if (fromData) return fromData;
     return media.url ? audioFromUrl(media.url, card, media.kind) : null;
 }
 
-function audioFromDataUrl(dataUrl: string, card: JPDBCard, kind: string): AnkiMediaFile | null {
+function audioFromDataUrl(dataUrl: string, card: JPDBCard, kind: AnkiAudioKind): AnkiMediaFile | null {
     const parsed = parseAnkiAudioDataUrl(dataUrl);
     if (!parsed) return null;
     return {
         filename: `yomu_${safeAnkiMediaName(card)}_${kind}_${Date.now()}.${parsed.extension}`,
         data: parsed.data,
         fields: ['Audio'],
+        yomuAudioKind: kind,
     };
 }
 
-function audioFromUrl(url: string, card: JPDBCard, kind: string): AnkiMediaFile | null {
+function audioFromUrl(url: string, card: JPDBCard, kind: AnkiAudioKind): AnkiMediaFile | null {
     const cleanUrl = url.trim();
     if (!/^https?:\/\//i.test(cleanUrl)) return null;
     return {
         filename: `yomu_${safeAnkiMediaName(card)}_${kind}_${Date.now()}${audioUrlExtension(cleanUrl)}`,
         url: cleanUrl,
         fields: ['Audio'],
+        yomuAudioKind: kind,
     };
 }
 
