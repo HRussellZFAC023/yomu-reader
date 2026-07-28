@@ -2124,6 +2124,44 @@ body:has(.yomu-home) .jpdb-reader-fab {
   color: var(--lamp);
 }
 
+/* Phone + iPad band. Both captures are PORTRAIT, so they sit side by side
+   instead of stacking with an offset like .yomu-band-pair's landscape frames —
+   stacked portraits would make the band taller than the viewport on every
+   breakpoint. Widths are percentages of the figure, so neither image can exceed
+   its grid column however narrow the page gets. */
+.yomu-band-devices {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0 4%;
+  border: 0;
+  background: none;
+  box-shadow: none;
+}
+
+.yomu-band-devices img {
+  border: var(--keyline-w) solid var(--paper);
+  border-radius: 2px;
+  background: var(--night-2);
+  box-shadow: 10px 10px 0 rgba(0, 0, 0, 0.6);
+}
+
+.yomu-band-devices .yomu-device-tablet {
+  width: 56%;
+}
+
+.yomu-band-devices .yomu-device-phone {
+  width: 30%;
+}
+
+.yomu-band-devices figcaption {
+  flex: 0 0 100%;
+}
+
+#mobile .yomu-band-frame {
+  transform: rotate(var(--rot-1));
+}
+
 /* --- §06 Install: hard cut to flat ink, no scene --- */
 .yomu-install {
   padding: clamp(4rem, 8vh, 7rem) var(--gutter);

@@ -113,6 +113,20 @@ description: Press a word on any Japanese page, video, manga panel or PDF for it
   </figure>
 </section>
 
+<section class="yomu-band yomu-reveal" id="mobile" data-bleed="left" aria-labelledby="yomu-band-mobile">
+  <p class="yomu-band-numeral" aria-hidden="true" lang="ja" data-yomu-localize="off">手</p>
+  <div class="yomu-band-copy">
+    <p class="yomu-band-kicker">Phone and iPad</p>
+    <h2 id="yomu-band-mobile">The same reading, in your hand.</h2>
+    <p class="yomu-band-lead">Press a word on a phone or an iPad and everything comes with it: the furigana, the pitch colours, the popover and the grading buttons. On iPhone and iPad, Yomu runs in Safari through a free userscript manager — a couple of minutes to set up, and then it reads everywhere you do.</p>
+  </div>
+  <figure class="yomu-band-frame yomu-band-devices">
+    <img class="yomu-device-phone" src="/home/phone.webp" width="390" height="844" loading="lazy" decoding="async" alt="よむ on a phone, showing Japanese Wikipedia with furigana above the kanji and the lookup popover open on コーヒー with its pitch accent, meaning and grading buttons." />
+    <img class="yomu-device-tablet" src="/home/ipad.webp" width="820" height="1180" loading="lazy" decoding="async" alt="よむ on an iPad, showing a Japanese Wikipedia article with furigana and the 喫茶店 popover open with two pitch accent patterns, the dictionary meaning and example sentences." />
+    <figcaption>The same reader, the same popover, on the device you already read on.</figcaption>
+  </figure>
+</section>
+
 <section class="yomu-install" id="install" aria-labelledby="yomu-install-title">
   <div class="yomu-install-inner">
     <h2 id="yomu-install-title">Ready in about a minute.</h2>
