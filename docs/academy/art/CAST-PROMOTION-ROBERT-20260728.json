@@ -1,0 +1,102 @@
+{
+  "promotions": [
+    {
+      "castId": "robert",
+      "archiveLabel": "identity-and-style-superseded-20260728",
+      "archiveAllCurrent": true,
+      "replaceExpressions": [
+        "neutral",
+        "encouraging-listening",
+        "happy",
+        "thoughtful",
+        "determined",
+        "surprised-shocked",
+        "sad-vulnerable"
+      ],
+      "canonicalNeutralAssetId": "character.robert.neutral-side-part-brown-square-glasses-folded-plan-front-near-front-fullbody-v002",
+      "slots": [
+        {
+          "assetId": "character.robert.neutral-side-part-brown-square-glasses-folded-plan-front-near-front-fullbody-v002",
+          "expression": "neutral",
+          "angle": "front-near-front",
+          "assetPath": "/academy/art/characters/robert/robert__neutral-side-part-brown-square-glasses-folded-plan__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:robert",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "story:cast:robert",
+            "cast-standardization:robert"
+          ]
+        },
+        {
+          "assetId": "character.robert.encouraging-listening-side-part-brown-square-glasses-folded-plan-right-three-quarter-fullbody-v002",
+          "expression": "encouraging-listening",
+          "angle": "right-three-quarter",
+          "assetPath": "/academy/art/characters/robert/robert__encouraging-listening-side-part-brown-square-glasses-folded-plan__right-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:robert-expression-gallery",
+            "story:cast:robert:encouraging-listening",
+            "cast-standardization:robert"
+          ]
+        },
+        {
+          "assetId": "character.robert.happy-side-part-brown-square-glasses-folded-plan-front-near-front-fullbody-v002",
+          "expression": "happy",
+          "angle": "front-near-front",
+          "assetPath": "/academy/art/characters/robert/robert__happy-side-part-brown-square-glasses-folded-plan__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:robert-expression-gallery",
+            "story:cast:robert:happy",
+            "cast-standardization:robert"
+          ]
+        },
+        {
+          "assetId": "character.robert.thoughtful-side-part-brown-square-glasses-folded-plan-left-three-quarter-fullbody-v002",
+          "expression": "thoughtful",
+          "angle": "left-three-quarter",
+          "assetPath": "/academy/art/characters/robert/robert__thoughtful-side-part-brown-square-glasses-folded-plan__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:robert-expression-gallery",
+            "story:cast:robert:thoughtful",
+            "cast-standardization:robert"
+          ]
+        },
+        {
+          "assetId": "character.robert.determined-side-part-brown-square-glasses-folded-plan-front-near-front-fullbody-v002",
+          "expression": "determined",
+          "angle": "front-near-front",
+          "assetPath": "/academy/art/characters/robert/robert__determined-side-part-brown-square-glasses-folded-plan__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:robert-expression-gallery",
+            "story:cast:robert:determined",
+            "cast-standardization:robert"
+          ]
+        },
+        {
+          "assetId": "character.robert.surprised-shocked-side-part-brown-square-glasses-folded-plan-right-three-quarter-fullbody-v002",
+          "expression": "surprised-shocked",
+          "angle": "right-three-quarter",
+          "assetPath": "/academy/art/characters/robert/robert__surprised-shocked-side-part-brown-square-glasses-folded-plan__right-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:robert-expression-gallery",
+            "story:cast:robert:surprised-shocked",
+            "cast-standardization:robert"
+          ]
+        },
+        {
+          "assetId": "character.robert.sad-vulnerable-side-part-brown-square-glasses-folded-plan-left-three-quarter-fullbody-v002",
+          "expression": "sad-vulnerable",
+          "angle": "left-three-quarter",
+          "assetPath": "/academy/art/characters/robert/robert__sad-vulnerable-side-part-brown-square-glasses-folded-plan__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:robert-expression-gallery",
+            "story:cast:robert:sad-vulnerable",
+            "cast-standardization:robert"
+          ]
+        }
+      ]
+    }
+  ]
+}

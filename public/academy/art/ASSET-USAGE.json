@@ -18,8 +18,8 @@
     ]
   },
   "counts": {
-    "runtimeAssetHomes": 230,
-    "runtimeFiles": 336,
+    "runtimeAssetHomes": 235,
+    "runtimeFiles": 341,
     "nonRuntimeReviewFiles": 1734,
     "approvedReferenceOnly": 4,
     "explicitlyRejectedFamilies": 4,
@@ -1437,74 +1437,6 @@
         }
       ],
       "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
-    },
-    {
-      "id": "character-robert-standardized-encouraging-listening-front-near-front-halfbody-v001",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "b50cce4b73fd75b01a623165614fcba1c9298accc596f23c81430d62f48c9382",
-      "provenance": "regenerated-standardized",
-      "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": [
-        "journal:robert-expression-gallery",
-        "cast-standardization:robert"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "learner-journal-preview"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:robert-expression-gallery",
-          "cast-standardization:robert"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/robert/robert__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
-          "sha256": "b50cce4b73fd75b01a623165614fcba1c9298accc596f23c81430d62f48c9382"
-        }
-      ],
-      "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-    },
-    {
-      "id": "character-robert-standardized-neutral-front-near-front-halfbody-v001",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "b50cce4b73fd75b01a623165614fcba1c9298accc596f23c81430d62f48c9382",
-      "provenance": "regenerated-standardized",
-      "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": [
-        "journal:robert",
-        "class:people-review",
-        "lesson-overview:roster-review",
-        "cast-standardization:robert"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "learner-journal-preview"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:robert",
-          "class:people-review",
-          "lesson-overview:roster-review",
-          "cast-standardization:robert"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/robert/robert__standardized-neutral__front-near-front__halfbody__v001.png",
-          "sha256": "b50cce4b73fd75b01a623165614fcba1c9298accc596f23c81430d62f48c9382"
-        }
-      ],
-      "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
     },
     {
       "id": "character-ruparna-neutral-front-near-front-halfbody-v002",
@@ -10975,7 +10907,7 @@
       "deliveries": [
         {
           "path": "/academy/art/SPRITE-BATCH-MANIFEST.json",
-          "sha256": "a5ba997144b37ea75b5cb006e98d261db568903564e344aeb78e5c6e265dca4e"
+          "sha256": "49397d185e27f7f005340938c978c733885af0c248a9509f27931351c6a10749"
         }
       ],
       "status": "bound-and-schema-validated"
@@ -14633,6 +14565,252 @@
         {
           "path": "/academy/art/characters/francis/francis__sad-vulnerable-soft-sand-hair-manga-volume__left-three-quarter__fullbody__v002.png",
           "sha256": "7b06313123a5c3c14838dbab658e196c6d8f898e5565952708916ac460834630"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-robert-neutral-side-part-brown-square-glasses-folded-plan-front-near-front-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "f045e6424fd272248acc2142a0fa1becf9e8d82c07b898528e93e98e7c790eff",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:robert",
+        "class:people",
+        "class:week-cast",
+        "lesson-overview:roster",
+        "world:person",
+        "story:cast:robert",
+        "cast-standardization:robert"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:robert",
+          "class:people",
+          "class:week-cast",
+          "lesson-overview:roster",
+          "world:person",
+          "story:cast:robert",
+          "cast-standardization:robert"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/robert/robert__neutral-side-part-brown-square-glasses-folded-plan__front-near-front__fullbody__v002.png",
+          "sha256": "f045e6424fd272248acc2142a0fa1becf9e8d82c07b898528e93e98e7c790eff"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-robert-encouraging-listening-side-part-brown-square-glasses-folded-plan-right-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "3ddaec223e50afdf75cbd4e83ee0c43558cd50acb9f140e317f19c81c01ff5b9",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:robert-expression-gallery",
+        "story:cast:robert:encouraging-listening",
+        "cast-standardization:robert"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:robert-expression-gallery",
+          "story:cast:robert:encouraging-listening",
+          "cast-standardization:robert"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/robert/robert__encouraging-listening-side-part-brown-square-glasses-folded-plan__right-three-quarter__fullbody__v002.png",
+          "sha256": "3ddaec223e50afdf75cbd4e83ee0c43558cd50acb9f140e317f19c81c01ff5b9"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-robert-happy-side-part-brown-square-glasses-folded-plan-front-near-front-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "d93f5d1effad39bbf1275b6369bfb53788ed2022d81e51365d18f7f48df8d7ce",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:robert-expression-gallery",
+        "story:cast:robert:happy",
+        "cast-standardization:robert"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:robert-expression-gallery",
+          "story:cast:robert:happy",
+          "cast-standardization:robert"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/robert/robert__happy-side-part-brown-square-glasses-folded-plan__front-near-front__fullbody__v002.png",
+          "sha256": "d93f5d1effad39bbf1275b6369bfb53788ed2022d81e51365d18f7f48df8d7ce"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-robert-thoughtful-side-part-brown-square-glasses-folded-plan-left-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "28947a5cd7961de5d3ff53e4956de9b2c616e48676579509916dd20cac0c5112",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:robert-expression-gallery",
+        "story:cast:robert:thoughtful",
+        "cast-standardization:robert"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:robert-expression-gallery",
+          "story:cast:robert:thoughtful",
+          "cast-standardization:robert"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/robert/robert__thoughtful-side-part-brown-square-glasses-folded-plan__left-three-quarter__fullbody__v002.png",
+          "sha256": "28947a5cd7961de5d3ff53e4956de9b2c616e48676579509916dd20cac0c5112"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-robert-determined-side-part-brown-square-glasses-folded-plan-front-near-front-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "dbfe10d4d7a43ba01cb42a8832dd34deb048594e559fb9d070f32d9113cbb54c",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:robert-expression-gallery",
+        "story:cast:robert:determined",
+        "cast-standardization:robert"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:robert-expression-gallery",
+          "story:cast:robert:determined",
+          "cast-standardization:robert"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/robert/robert__determined-side-part-brown-square-glasses-folded-plan__front-near-front__fullbody__v002.png",
+          "sha256": "dbfe10d4d7a43ba01cb42a8832dd34deb048594e559fb9d070f32d9113cbb54c"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-robert-surprised-shocked-side-part-brown-square-glasses-folded-plan-right-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "d7e6e50c22fa99b1654dd9e4284abd9ae28e43fa417c32de35cef04f2acb2ae9",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:robert-expression-gallery",
+        "story:cast:robert:surprised-shocked",
+        "cast-standardization:robert"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:robert-expression-gallery",
+          "story:cast:robert:surprised-shocked",
+          "cast-standardization:robert"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/robert/robert__surprised-shocked-side-part-brown-square-glasses-folded-plan__right-three-quarter__fullbody__v002.png",
+          "sha256": "d7e6e50c22fa99b1654dd9e4284abd9ae28e43fa417c32de35cef04f2acb2ae9"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-robert-sad-vulnerable-side-part-brown-square-glasses-folded-plan-left-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "30a0ac57ce846d9ace4b26ddfb24c68298c0869ea4ef8b54f8a6b9edd67426c7",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:robert-expression-gallery",
+        "story:cast:robert:sad-vulnerable",
+        "cast-standardization:robert"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:robert-expression-gallery",
+          "story:cast:robert:sad-vulnerable",
+          "cast-standardization:robert"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/robert/robert__sad-vulnerable-side-part-brown-square-glasses-folded-plan__left-three-quarter__fullbody__v002.png",
+          "sha256": "30a0ac57ce846d9ace4b26ddfb24c68298c0869ea4ef8b54f8a6b9edd67426c7"
         }
       ],
       "status": "identity-locked, visually inspected, runtime-bound house-style sprite"

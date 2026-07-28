@@ -1,4 +1,4 @@
-const VERSION = 'yomu-academy-shell-s1-9ef232140131';
+const VERSION = 'yomu-academy-shell-s1-7e03e23c1998';
 const AUDIO_CACHE = 'yomu-academy-audio-v1-2c25b06f971c';
 const STORY_VOICE_CATALOG = '/academy/audio/story-voice-playback.json';
 const STORY_VOICE_ASSET = /^\/academy\/audio\/story-(?:pilot|lines)\/[a-z0-9][a-z0-9._-]*\.opus$/;
@@ -133,8 +133,13 @@ const RUNTIME_ART_PRECACHE = [
     '/academy/art/characters/rie/rie__sad-vulnerable-glasses__left-three-quarter__halfbody__v001.png',
     '/academy/art/characters/rie/rie__surprised-shocked-glasses__right-three-quarter__halfbody__v002.png',
     '/academy/art/characters/rie/rie__thoughtful-glasses__left-three-quarter__halfbody__v002.png',
-    '/academy/art/characters/robert/robert__standardized-encouraging-listening__front-near-front__halfbody__v001.png',
-    '/academy/art/characters/robert/robert__standardized-neutral__front-near-front__halfbody__v001.png',
+    '/academy/art/characters/robert/robert__determined-side-part-brown-square-glasses-folded-plan__front-near-front__fullbody__v002.png',
+    '/academy/art/characters/robert/robert__encouraging-listening-side-part-brown-square-glasses-folded-plan__right-three-quarter__fullbody__v002.png',
+    '/academy/art/characters/robert/robert__happy-side-part-brown-square-glasses-folded-plan__front-near-front__fullbody__v002.png',
+    '/academy/art/characters/robert/robert__neutral-side-part-brown-square-glasses-folded-plan__front-near-front__fullbody__v002.png',
+    '/academy/art/characters/robert/robert__sad-vulnerable-side-part-brown-square-glasses-folded-plan__left-three-quarter__fullbody__v002.png',
+    '/academy/art/characters/robert/robert__surprised-shocked-side-part-brown-square-glasses-folded-plan__right-three-quarter__fullbody__v002.png',
+    '/academy/art/characters/robert/robert__thoughtful-side-part-brown-square-glasses-folded-plan__left-three-quarter__fullbody__v002.png',
     '/academy/art/characters/rose/rose__determined-auburn-headband-pink-cardigan__front-near-front__fullbody__v002.png',
     '/academy/art/characters/rose/rose__encouraging-listening-auburn-headband-pink-cardigan__right-three-quarter__fullbody__v002.png',
     '/academy/art/characters/rose/rose__happy-auburn-headband-pink-cardigan__front-near-front__fullbody__v002.png',
@@ -386,8 +391,8 @@ const CORE = [
     '/yomu-icon.svg',
     '/academy/',
     '/academy/index.html',
-    '/academy/app.js?v=s1-9ef232140131',
-    '/academy/style.css?v=s1-9ef232140131',
+    '/academy/app.js?v=s1-7e03e23c1998',
+    '/academy/style.css?v=s1-7e03e23c1998',
     '/academy/manifest.webmanifest',
     ...RUNTIME_ART_PRECACHE,
     '/academy/content/vertical-slice/source-library.v1.json',

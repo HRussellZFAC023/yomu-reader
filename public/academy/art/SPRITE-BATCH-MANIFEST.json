@@ -992,9 +992,17 @@
         }
       ],
       "currentAsset": {
-        "status": "missing",
-        "paths": [],
-        "note": "No current Academy runtime or review-candidate sprite."
+        "status": "approved-performance-family",
+        "paths": [
+          "/academy/art/characters/robert/robert__neutral-side-part-brown-square-glasses-folded-plan__front-near-front__fullbody__v002.png",
+          "/academy/art/characters/robert/robert__encouraging-listening-side-part-brown-square-glasses-folded-plan__right-three-quarter__fullbody__v002.png",
+          "/academy/art/characters/robert/robert__happy-side-part-brown-square-glasses-folded-plan__front-near-front__fullbody__v002.png",
+          "/academy/art/characters/robert/robert__thoughtful-side-part-brown-square-glasses-folded-plan__left-three-quarter__fullbody__v002.png",
+          "/academy/art/characters/robert/robert__determined-side-part-brown-square-glasses-folded-plan__front-near-front__fullbody__v002.png",
+          "/academy/art/characters/robert/robert__surprised-shocked-side-part-brown-square-glasses-folded-plan__right-three-quarter__fullbody__v002.png",
+          "/academy/art/characters/robert/robert__sad-vulnerable-side-part-brown-square-glasses-folded-plan__left-three-quarter__fullbody__v002.png"
+        ],
+        "note": "Identity-locked, visually inspected house-style family; all seven canonical expressions are runtime-bound."
       },
       "generationPriority": {
         "tier": 2,

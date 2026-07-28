@@ -34,15 +34,15 @@
     "totalSlots": 630
   },
   "summary": {
-    "approved": 123,
+    "approved": 130,
     "reviewCandidates": 7,
-    "missing": 500,
-    "currentPhysicalRasters": 155,
-    "currentOffMatrixRasters": 25,
+    "missing": 493,
+    "currentPhysicalRasters": 160,
+    "currentOffMatrixRasters": 23,
     "historicalUniqueRasters": 469,
     "historicalOccurrences": 2016,
-    "charactersWithApprovedCoverage": 19,
-    "charactersWithAnyCurrentCoverage": 22
+    "charactersWithApprovedCoverage": 20,
+    "charactersWithAnyCurrentCoverage": 23
   },
   "migrations": [
     {
@@ -79,6 +79,15 @@
       "to": "/academy/art/characters/francis/francis__neutral-soft-sand-hair-manga-volume__front-near-front__fullbody__v002.png",
       "decision": "delete",
       "status": "Francis identity-locked v002 family bound to runtime; glasses-on v001 stand-ins archived outside runtime.",
+      "runtimeReferencesAfterMigration": []
+    },
+    {
+      "id": "robert-elderly-v001-to-illustrated-v002-family",
+      "character": "robert",
+      "from": "/academy/art/characters/robert/robert__standardized-neutral__front-near-front__halfbody__v001.png",
+      "to": "/academy/art/characters/robert/robert__neutral-side-part-brown-square-glasses-folded-plan__front-near-front__fullbody__v002.png",
+      "decision": "delete",
+      "status": "Robert identity-locked v002 family bound to runtime; elderly round-glasses v001 stand-ins archived outside runtime.",
       "runtimeReferencesAfterMigration": []
     },
     {
@@ -6623,35 +6632,36 @@
         "slots": 21
       },
       "progress": {
-        "approved": 0,
+        "approved": 7,
         "reviewCandidates": 0,
-        "missing": 21,
-        "deliveredPercent": 0,
-        "approvedPercent": 0
+        "missing": 14,
+        "deliveredPercent": 33.33,
+        "approvedPercent": 33.33
       },
       "currentAssets": [
         {
-          "path": "/academy/art/characters/robert/robert__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
-          "sha256": "b50cce4b73fd75b01a623165614fcba1c9298accc596f23c81430d62f48c9382",
+          "path": "/academy/art/characters/robert/robert__determined-side-part-brown-square-glasses-folded-plan__front-near-front__fullbody__v002.png",
+          "sha256": "dbfe10d4d7a43ba01cb42a8832dd34deb048594e559fb9d070f32d9113cbb54c",
           "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
-          "status": "review-candidate",
+          "status": "approved",
           "usage": {
             "runtime": [
               "journal:robert-expression-gallery",
+              "story:cast:robert:determined",
               "cast-standardization:robert"
             ],
             "review": [
               "cast-standardization-manifest",
-              "learner-journal-preview"
+              "identity-lock"
             ]
           },
-          "orphan": "review-bound",
+          "orphan": "active-runtime",
           "styleVersion": "current-review-family",
-          "fileVersion": "v001",
-          "pose": "off-contract standardized-encouraging-listening pose",
-          "angle": null,
-          "expression": null,
+          "fileVersion": "v002",
+          "pose": "tall chair-back lean with a folded worksheet held loosely below one square-glasses profile; front-near-front",
+          "angle": "front-near-front",
+          "expression": "determined",
           "dimensions": {
             "width": 1536,
             "height": 2048,
@@ -6661,40 +6671,130 @@
           },
           "runtimeUses": [
             "journal:robert-expression-gallery",
+            "story:cast:robert:determined",
             "cast-standardization:robert"
           ],
           "reviewUses": [
             "cast-standardization-manifest",
-            "learner-journal-preview"
+            "identity-lock"
           ],
           "decision": "keep",
-          "migrationStatus": "retained-off-matrix-review-evidence",
-          "coverageStatus": "off-matrix"
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
         },
         {
-          "path": "/academy/art/characters/robert/robert__standardized-neutral__front-near-front__halfbody__v001.png",
-          "sha256": "b50cce4b73fd75b01a623165614fcba1c9298accc596f23c81430d62f48c9382",
+          "path": "/academy/art/characters/robert/robert__encouraging-listening-side-part-brown-square-glasses-folded-plan__right-three-quarter__fullbody__v002.png",
+          "sha256": "3ddaec223e50afdf75cbd4e83ee0c43558cd50acb9f140e317f19c81c01ff5b9",
           "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
-          "status": "review-candidate",
+          "status": "approved",
           "usage": {
             "runtime": [
-              "journal:robert",
-              "class:people-review",
-              "lesson-overview:roster-review",
+              "journal:robert-expression-gallery",
+              "story:cast:robert:encouraging-listening",
               "cast-standardization:robert"
             ],
             "review": [
               "cast-standardization-manifest",
-              "learner-journal-preview"
+              "identity-lock"
             ]
           },
-          "orphan": "review-bound",
+          "orphan": "active-runtime",
           "styleVersion": "current-review-family",
-          "fileVersion": "v001",
-          "pose": "off-contract standardized-neutral pose",
-          "angle": null,
-          "expression": null,
+          "fileVersion": "v002",
+          "pose": "tall chair-back lean with a folded worksheet held loosely below one square-glasses profile; right-three-quarter",
+          "angle": "right-three-quarter",
+          "expression": "encouraging-listening",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:robert-expression-gallery",
+            "story:cast:robert:encouraging-listening",
+            "cast-standardization:robert"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/robert/robert__happy-side-part-brown-square-glasses-folded-plan__front-near-front__fullbody__v002.png",
+          "sha256": "d93f5d1effad39bbf1275b6369bfb53788ed2022d81e51365d18f7f48df8d7ce",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:robert-expression-gallery",
+              "story:cast:robert:happy",
+              "cast-standardization:robert"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "tall chair-back lean with a folded worksheet held loosely below one square-glasses profile; front-near-front",
+          "angle": "front-near-front",
+          "expression": "happy",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:robert-expression-gallery",
+            "story:cast:robert:happy",
+            "cast-standardization:robert"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/robert/robert__neutral-side-part-brown-square-glasses-folded-plan__front-near-front__fullbody__v002.png",
+          "sha256": "f045e6424fd272248acc2142a0fa1becf9e8d82c07b898528e93e98e7c790eff",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:robert",
+              "class:people",
+              "class:week-cast",
+              "lesson-overview:roster",
+              "world:person",
+              "story:cast:robert",
+              "cast-standardization:robert"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "tall chair-back lean with a folded worksheet held loosely below one square-glasses profile; front-near-front",
+          "angle": "front-near-front",
+          "expression": "neutral",
           "dimensions": {
             "width": 1536,
             "height": 2048,
@@ -6704,17 +6804,149 @@
           },
           "runtimeUses": [
             "journal:robert",
-            "class:people-review",
-            "lesson-overview:roster-review",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "story:cast:robert",
             "cast-standardization:robert"
           ],
           "reviewUses": [
             "cast-standardization-manifest",
-            "learner-journal-preview"
+            "identity-lock"
           ],
           "decision": "keep",
-          "migrationStatus": "retained-off-matrix-review-evidence",
-          "coverageStatus": "off-matrix"
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/robert/robert__sad-vulnerable-side-part-brown-square-glasses-folded-plan__left-three-quarter__fullbody__v002.png",
+          "sha256": "30a0ac57ce846d9ace4b26ddfb24c68298c0869ea4ef8b54f8a6b9edd67426c7",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:robert-expression-gallery",
+              "story:cast:robert:sad-vulnerable",
+              "cast-standardization:robert"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "tall chair-back lean with a folded worksheet held loosely below one square-glasses profile; left-three-quarter",
+          "angle": "left-three-quarter",
+          "expression": "sad-vulnerable",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:robert-expression-gallery",
+            "story:cast:robert:sad-vulnerable",
+            "cast-standardization:robert"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/robert/robert__surprised-shocked-side-part-brown-square-glasses-folded-plan__right-three-quarter__fullbody__v002.png",
+          "sha256": "d7e6e50c22fa99b1654dd9e4284abd9ae28e43fa417c32de35cef04f2acb2ae9",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:robert-expression-gallery",
+              "story:cast:robert:surprised-shocked",
+              "cast-standardization:robert"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "tall chair-back lean with a folded worksheet held loosely below one square-glasses profile; right-three-quarter",
+          "angle": "right-three-quarter",
+          "expression": "surprised-shocked",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:robert-expression-gallery",
+            "story:cast:robert:surprised-shocked",
+            "cast-standardization:robert"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/robert/robert__thoughtful-side-part-brown-square-glasses-folded-plan__left-three-quarter__fullbody__v002.png",
+          "sha256": "28947a5cd7961de5d3ff53e4956de9b2c616e48676579509916dd20cac0c5112",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:robert-expression-gallery",
+              "story:cast:robert:thoughtful",
+              "cast-standardization:robert"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "tall chair-back lean with a folded worksheet held loosely below one square-glasses profile; left-three-quarter",
+          "angle": "left-three-quarter",
+          "expression": "thoughtful",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:robert-expression-gallery",
+            "story:cast:robert:thoughtful",
+            "cast-standardization:robert"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
         }
       ],
       "requiredVariants": [
@@ -6742,9 +6974,8 @@
         {
           "angle": "left-three-quarter",
           "expression": "thoughtful",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/robert/robert__thoughtful__left-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/robert/robert__thoughtful-side-part-brown-square-glasses-folded-plan__left-three-quarter__fullbody__v002.png"
         },
         {
           "angle": "left-three-quarter",
@@ -6763,16 +6994,14 @@
         {
           "angle": "left-three-quarter",
           "expression": "sad-vulnerable",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/robert/robert__sad-vulnerable__left-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/robert/robert__sad-vulnerable-side-part-brown-square-glasses-folded-plan__left-three-quarter__fullbody__v002.png"
         },
         {
           "angle": "front-near-front",
           "expression": "neutral",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/robert/robert__neutral__front-near-front__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/robert/robert__neutral-side-part-brown-square-glasses-folded-plan__front-near-front__fullbody__v002.png"
         },
         {
           "angle": "front-near-front",
@@ -6784,9 +7013,8 @@
         {
           "angle": "front-near-front",
           "expression": "happy",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/robert/robert__happy__front-near-front__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/robert/robert__happy-side-part-brown-square-glasses-folded-plan__front-near-front__fullbody__v002.png"
         },
         {
           "angle": "front-near-front",
@@ -6798,9 +7026,8 @@
         {
           "angle": "front-near-front",
           "expression": "determined",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/robert/robert__determined__front-near-front__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/robert/robert__determined-side-part-brown-square-glasses-folded-plan__front-near-front__fullbody__v002.png"
         },
         {
           "angle": "front-near-front",
@@ -6826,9 +7053,8 @@
         {
           "angle": "right-three-quarter",
           "expression": "encouraging-listening",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/robert/robert__encouraging-listening__right-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/robert/robert__encouraging-listening-side-part-brown-square-glasses-folded-plan__right-three-quarter__fullbody__v002.png"
         },
         {
           "angle": "right-three-quarter",
@@ -6854,9 +7080,8 @@
         {
           "angle": "right-three-quarter",
           "expression": "surprised-shocked",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/robert/robert__surprised-shocked__right-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/robert/robert__surprised-shocked-side-part-brown-square-glasses-folded-plan__right-three-quarter__fullbody__v002.png"
         },
         {
           "angle": "right-three-quarter",
@@ -6890,13 +7115,6 @@
         },
         {
           "angle": "left-three-quarter",
-          "expression": "thoughtful",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/robert/robert__thoughtful__left-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "left-three-quarter",
           "expression": "determined",
           "status": "missing",
           "path": null,
@@ -6910,20 +7128,6 @@
           "plannedPath": "/academy/art/characters/robert/robert__surprised-shocked__left-three-quarter__halfbody__v001.png"
         },
         {
-          "angle": "left-three-quarter",
-          "expression": "sad-vulnerable",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/robert/robert__sad-vulnerable__left-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "front-near-front",
-          "expression": "neutral",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/robert/robert__neutral__front-near-front__halfbody__v001.png"
-        },
-        {
           "angle": "front-near-front",
           "expression": "encouraging-listening",
           "status": "missing",
@@ -6932,24 +7136,10 @@
         },
         {
           "angle": "front-near-front",
-          "expression": "happy",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/robert/robert__happy__front-near-front__halfbody__v001.png"
-        },
-        {
-          "angle": "front-near-front",
           "expression": "thoughtful",
           "status": "missing",
           "path": null,
           "plannedPath": "/academy/art/characters/robert/robert__thoughtful__front-near-front__halfbody__v001.png"
-        },
-        {
-          "angle": "front-near-front",
-          "expression": "determined",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/robert/robert__determined__front-near-front__halfbody__v001.png"
         },
         {
           "angle": "front-near-front",
@@ -6974,13 +7164,6 @@
         },
         {
           "angle": "right-three-quarter",
-          "expression": "encouraging-listening",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/robert/robert__encouraging-listening__right-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "right-three-quarter",
           "expression": "happy",
           "status": "missing",
           "path": null,
@@ -6999,13 +7182,6 @@
           "status": "missing",
           "path": null,
           "plannedPath": "/academy/art/characters/robert/robert__determined__right-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "right-three-quarter",
-          "expression": "surprised-shocked",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/robert/robert__surprised-shocked__right-three-quarter__halfbody__v001.png"
         },
         {
           "angle": "right-three-quarter",

@@ -29,9 +29,9 @@
     "cast": 30,
     "requiredPerformancesPerCast": 7,
     "requiredSlots": 210,
-    "integratedSlots": 121,
-    "missingSlots": 89,
-    "ownerCorrectionQueue": 33,
+    "integratedSlots": 128,
+    "missingSlots": 82,
+    "ownerCorrectionQueue": 26,
     "storyCriticalQueue": 21,
     "rosterCompletionQueue": 35
   },
@@ -1237,65 +1237,97 @@
       "priority": "owner-correction",
       "summary": {
         "required": 7,
-        "integrated": 0,
-        "missing": 7
+        "integrated": 7,
+        "missing": 0
       },
       "performances": [
         {
           "expression": "neutral",
           "preferredAngle": "front-near-front",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.robert.neutral-side-part-brown-square-glasses-folded-plan-front-near-front-fullbody-v002",
+          "assetPath": "/academy/art/characters/robert/robert__neutral-side-part-brown-square-glasses-folded-plan__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:robert",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "story:cast:robert",
+            "cast-standardization:robert"
+          ]
         },
         {
           "expression": "encouraging-listening",
           "preferredAngle": "right-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.robert.encouraging-listening-side-part-brown-square-glasses-folded-plan-right-three-quarter-fullbody-v002",
+          "assetPath": "/academy/art/characters/robert/robert__encouraging-listening-side-part-brown-square-glasses-folded-plan__right-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:robert-expression-gallery",
+            "story:cast:robert:encouraging-listening",
+            "cast-standardization:robert"
+          ]
         },
         {
           "expression": "happy",
           "preferredAngle": "front-near-front",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.robert.happy-side-part-brown-square-glasses-folded-plan-front-near-front-fullbody-v002",
+          "assetPath": "/academy/art/characters/robert/robert__happy-side-part-brown-square-glasses-folded-plan__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:robert-expression-gallery",
+            "story:cast:robert:happy",
+            "cast-standardization:robert"
+          ]
         },
         {
           "expression": "thoughtful",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.robert.thoughtful-side-part-brown-square-glasses-folded-plan-left-three-quarter-fullbody-v002",
+          "assetPath": "/academy/art/characters/robert/robert__thoughtful-side-part-brown-square-glasses-folded-plan__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:robert-expression-gallery",
+            "story:cast:robert:thoughtful",
+            "cast-standardization:robert"
+          ]
         },
         {
           "expression": "determined",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.robert.determined-side-part-brown-square-glasses-folded-plan-front-near-front-fullbody-v002",
+          "assetPath": "/academy/art/characters/robert/robert__determined-side-part-brown-square-glasses-folded-plan__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:robert-expression-gallery",
+            "story:cast:robert:determined",
+            "cast-standardization:robert"
+          ]
         },
         {
           "expression": "surprised-shocked",
           "preferredAngle": "right-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.robert.surprised-shocked-side-part-brown-square-glasses-folded-plan-right-three-quarter-fullbody-v002",
+          "assetPath": "/academy/art/characters/robert/robert__surprised-shocked-side-part-brown-square-glasses-folded-plan__right-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:robert-expression-gallery",
+            "story:cast:robert:surprised-shocked",
+            "cast-standardization:robert"
+          ]
         },
         {
           "expression": "sad-vulnerable",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.robert.sad-vulnerable-side-part-brown-square-glasses-folded-plan-left-three-quarter-fullbody-v002",
+          "assetPath": "/academy/art/characters/robert/robert__sad-vulnerable-side-part-brown-square-glasses-folded-plan__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:robert-expression-gallery",
+            "story:cast:robert:sad-vulnerable",
+            "cast-standardization:robert"
+          ]
         }
       ]
     },
@@ -3416,211 +3448,6 @@
       "runtimeHomes": [
         "journal:christian-expression-gallery",
         "story:cast:christian:sad-vulnerable"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "robert:neutral",
-      "castId": "robert",
-      "displayName": "Robert",
-      "identityKey": "robert-brown-side-part-square-glasses",
-      "expression": "neutral",
-      "angle": "front-near-front",
-      "priority": "owner-correction",
-      "storyLines": 13,
-      "visualLock": "White man with side-parted brown hair, square glasses, and a hospitable adult presence.",
-      "wardrobeLock": "Smart-casual restaurant-ready layers without looking corporate.",
-      "reject": [
-        "round glasses",
-        "wild hair",
-        "photographic face",
-        "caricature",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:robert",
-        "class:people",
-        "lesson-overview:roster",
-        "story:cast:robert"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "robert:encouraging-listening",
-      "castId": "robert",
-      "displayName": "Robert",
-      "identityKey": "robert-brown-side-part-square-glasses",
-      "expression": "encouraging-listening",
-      "angle": "right-three-quarter",
-      "priority": "owner-correction",
-      "storyLines": 13,
-      "visualLock": "White man with side-parted brown hair, square glasses, and a hospitable adult presence.",
-      "wardrobeLock": "Smart-casual restaurant-ready layers without looking corporate.",
-      "reject": [
-        "round glasses",
-        "wild hair",
-        "photographic face",
-        "caricature",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:robert-expression-gallery",
-        "story:cast:robert:encouraging-listening"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "robert:happy",
-      "castId": "robert",
-      "displayName": "Robert",
-      "identityKey": "robert-brown-side-part-square-glasses",
-      "expression": "happy",
-      "angle": "front-near-front",
-      "priority": "owner-correction",
-      "storyLines": 13,
-      "visualLock": "White man with side-parted brown hair, square glasses, and a hospitable adult presence.",
-      "wardrobeLock": "Smart-casual restaurant-ready layers without looking corporate.",
-      "reject": [
-        "round glasses",
-        "wild hair",
-        "photographic face",
-        "caricature",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:robert-expression-gallery",
-        "story:cast:robert:happy"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "robert:thoughtful",
-      "castId": "robert",
-      "displayName": "Robert",
-      "identityKey": "robert-brown-side-part-square-glasses",
-      "expression": "thoughtful",
-      "angle": "left-three-quarter",
-      "priority": "owner-correction",
-      "storyLines": 13,
-      "visualLock": "White man with side-parted brown hair, square glasses, and a hospitable adult presence.",
-      "wardrobeLock": "Smart-casual restaurant-ready layers without looking corporate.",
-      "reject": [
-        "round glasses",
-        "wild hair",
-        "photographic face",
-        "caricature",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:robert-expression-gallery",
-        "story:cast:robert:thoughtful"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "robert:determined",
-      "castId": "robert",
-      "displayName": "Robert",
-      "identityKey": "robert-brown-side-part-square-glasses",
-      "expression": "determined",
-      "angle": "left-three-quarter",
-      "priority": "owner-correction",
-      "storyLines": 13,
-      "visualLock": "White man with side-parted brown hair, square glasses, and a hospitable adult presence.",
-      "wardrobeLock": "Smart-casual restaurant-ready layers without looking corporate.",
-      "reject": [
-        "round glasses",
-        "wild hair",
-        "photographic face",
-        "caricature",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:robert-expression-gallery",
-        "story:cast:robert:determined"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "robert:surprised-shocked",
-      "castId": "robert",
-      "displayName": "Robert",
-      "identityKey": "robert-brown-side-part-square-glasses",
-      "expression": "surprised-shocked",
-      "angle": "right-three-quarter",
-      "priority": "owner-correction",
-      "storyLines": 13,
-      "visualLock": "White man with side-parted brown hair, square glasses, and a hospitable adult presence.",
-      "wardrobeLock": "Smart-casual restaurant-ready layers without looking corporate.",
-      "reject": [
-        "round glasses",
-        "wild hair",
-        "photographic face",
-        "caricature",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:robert-expression-gallery",
-        "story:cast:robert:surprised-shocked"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "robert:sad-vulnerable",
-      "castId": "robert",
-      "displayName": "Robert",
-      "identityKey": "robert-brown-side-part-square-glasses",
-      "expression": "sad-vulnerable",
-      "angle": "left-three-quarter",
-      "priority": "owner-correction",
-      "storyLines": 13,
-      "visualLock": "White man with side-parted brown hair, square glasses, and a hospitable adult presence.",
-      "wardrobeLock": "Smart-casual restaurant-ready layers without looking corporate.",
-      "reject": [
-        "round glasses",
-        "wild hair",
-        "photographic face",
-        "caricature",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:robert-expression-gallery",
-        "story:cast:robert:sad-vulnerable"
       ],
       "status": "queued"
     },
