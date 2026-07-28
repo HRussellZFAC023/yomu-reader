@@ -1,0 +1,102 @@
+{
+  "promotions": [
+    {
+      "castId": "christian",
+      "archiveLabel": "fullbody-dialogue-framing-superseded-20260728",
+      "archiveAllCurrent": true,
+      "replaceExpressions": [
+        "neutral",
+        "encouraging-listening",
+        "happy",
+        "thoughtful",
+        "determined",
+        "surprised-shocked",
+        "sad-vulnerable"
+      ],
+      "canonicalNeutralAssetId": "character.christian.neutral-athletic-topknot-teal-track-front-near-front-halfbody-v002",
+      "slots": [
+        {
+          "assetId": "character.christian.neutral-athletic-topknot-teal-track-front-near-front-halfbody-v002",
+          "expression": "neutral",
+          "angle": "front-near-front",
+          "assetPath": "/academy/art/characters/christian/christian__neutral-athletic-topknot-teal-track__front-near-front__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:christian",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "story:cast:christian",
+            "cast-standardization:christian"
+          ]
+        },
+        {
+          "assetId": "character.christian.encouraging-listening-athletic-topknot-teal-track-right-three-quarter-halfbody-v002",
+          "expression": "encouraging-listening",
+          "angle": "right-three-quarter",
+          "assetPath": "/academy/art/characters/christian/christian__encouraging-listening-athletic-topknot-teal-track__right-three-quarter__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:christian-expression-gallery",
+            "story:cast:christian:encouraging-listening",
+            "cast-standardization:christian"
+          ]
+        },
+        {
+          "assetId": "character.christian.happy-athletic-topknot-teal-track-front-near-front-halfbody-v002",
+          "expression": "happy",
+          "angle": "front-near-front",
+          "assetPath": "/academy/art/characters/christian/christian__happy-athletic-topknot-teal-track__front-near-front__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:christian-expression-gallery",
+            "story:cast:christian:happy",
+            "cast-standardization:christian"
+          ]
+        },
+        {
+          "assetId": "character.christian.thoughtful-athletic-topknot-teal-track-left-three-quarter-halfbody-v002",
+          "expression": "thoughtful",
+          "angle": "left-three-quarter",
+          "assetPath": "/academy/art/characters/christian/christian__thoughtful-athletic-topknot-teal-track__left-three-quarter__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:christian-expression-gallery",
+            "story:cast:christian:thoughtful",
+            "cast-standardization:christian"
+          ]
+        },
+        {
+          "assetId": "character.christian.determined-athletic-topknot-teal-track-left-three-quarter-halfbody-v002",
+          "expression": "determined",
+          "angle": "left-three-quarter",
+          "assetPath": "/academy/art/characters/christian/christian__determined-athletic-topknot-teal-track__left-three-quarter__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:christian-expression-gallery",
+            "story:cast:christian:determined",
+            "cast-standardization:christian"
+          ]
+        },
+        {
+          "assetId": "character.christian.surprised-shocked-athletic-topknot-teal-track-right-three-quarter-halfbody-v002",
+          "expression": "surprised-shocked",
+          "angle": "right-three-quarter",
+          "assetPath": "/academy/art/characters/christian/christian__surprised-shocked-athletic-topknot-teal-track__right-three-quarter__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:christian-expression-gallery",
+            "story:cast:christian:surprised-shocked",
+            "cast-standardization:christian"
+          ]
+        },
+        {
+          "assetId": "character.christian.sad-vulnerable-athletic-topknot-teal-track-left-three-quarter-halfbody-v002",
+          "expression": "sad-vulnerable",
+          "angle": "left-three-quarter",
+          "assetPath": "/academy/art/characters/christian/christian__sad-vulnerable-athletic-topknot-teal-track__left-three-quarter__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:christian-expression-gallery",
+            "story:cast:christian:sad-vulnerable",
+            "cast-standardization:christian"
+          ]
+        }
+      ]
+    }
+  ]
+}

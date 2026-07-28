@@ -4,6 +4,7 @@
 **Canonical role:** lead of `s1e10-instructions-for-a-cloud`; continuity beats at chapters **10 / 16 / 30 / 34 / 45**.
 **Voice anchor (canon):** action-first instructions and energetic practical tests; *learns to guide without turning every shared problem into his project.* Learning/callback homes: routines, movement, health, instructions; the elaborate hot-room solution.
 **Contrast partner (canon):** Christian / Jenny — both solve practical problems, but Christian **acts outwardly** in imperative sequences while Jenny tries privately and asks with one precise request.
+**Visual lock:** athletic Black man; dark hair tied into a compact topknot; strong brows; subtle close-trimmed facial hair; teal training shirt and charcoal track jacket. His duffel, desk fan, and recorder are story props, not substitute identity markers.
 
 > All of this is affectionate AI-framed fiction under Rie's opening disclaimer. Real texture is owner-authorized; the only line is warmth — never turn a benign detail into something embarrassing.
 

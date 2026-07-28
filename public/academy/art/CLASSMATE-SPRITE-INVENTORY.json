@@ -34,15 +34,15 @@
     "totalSlots": 630
   },
   "summary": {
-    "approved": 164,
+    "approved": 171,
     "reviewCandidates": 3,
-    "missing": 463,
-    "currentPhysicalRasters": 181,
-    "currentOffMatrixRasters": 14,
+    "missing": 456,
+    "currentPhysicalRasters": 185,
+    "currentOffMatrixRasters": 11,
     "historicalUniqueRasters": 469,
     "historicalOccurrences": 2016,
-    "charactersWithApprovedCoverage": 24,
-    "charactersWithAnyCurrentCoverage": 25
+    "charactersWithApprovedCoverage": 25,
+    "charactersWithAnyCurrentCoverage": 26
   },
   "migrations": [
     {
@@ -5712,35 +5712,36 @@
         "slots": 21
       },
       "progress": {
-        "approved": 0,
+        "approved": 7,
         "reviewCandidates": 0,
-        "missing": 21,
-        "deliveredPercent": 0,
-        "approvedPercent": 0
+        "missing": 14,
+        "deliveredPercent": 33.33,
+        "approvedPercent": 33.33
       },
       "currentAssets": [
         {
-          "path": "/academy/art/characters/christian/christian__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
-          "sha256": "0c5aef4ae7d40a9f4666e975bf6126c1a55100c8c090a6be5d07562f2d40cfe2",
+          "path": "/academy/art/characters/christian/christian__determined-athletic-topknot-teal-track__left-three-quarter__halfbody__v002.png",
+          "sha256": "3216c91a37b016b8a192b0aefe153ecfeeac0756b8d87aaf4a50efd13f0970c1",
           "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
-          "status": "review-candidate",
+          "status": "approved",
           "usage": {
             "runtime": [
               "journal:christian-expression-gallery",
+              "story:cast:christian:determined",
               "cast-standardization:christian"
             ],
             "review": [
               "cast-standardization-manifest",
-              "learner-journal-preview"
+              "identity-lock"
             ]
           },
-          "orphan": "review-bound",
+          "orphan": "active-runtime",
           "styleVersion": "current-review-family",
-          "fileVersion": "v001",
-          "pose": "off-contract standardized-encouraging-listening pose",
-          "angle": null,
-          "expression": null,
+          "fileVersion": "v002",
+          "pose": "broad steady stance with rolled sleeves, one forearm braced, and a workbook carried low; left-three-quarter",
+          "angle": "left-three-quarter",
+          "expression": "determined",
           "dimensions": {
             "width": 1536,
             "height": 2048,
@@ -5750,38 +5751,40 @@
           },
           "runtimeUses": [
             "journal:christian-expression-gallery",
+            "story:cast:christian:determined",
             "cast-standardization:christian"
           ],
           "reviewUses": [
             "cast-standardization-manifest",
-            "learner-journal-preview"
+            "identity-lock"
           ],
           "decision": "keep",
-          "migrationStatus": "retained-off-matrix-review-evidence",
-          "coverageStatus": "off-matrix"
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
         },
         {
-          "path": "/academy/art/characters/christian/christian__standardized-happy__front-near-front__halfbody__v001.png",
-          "sha256": "0c5aef4ae7d40a9f4666e975bf6126c1a55100c8c090a6be5d07562f2d40cfe2",
+          "path": "/academy/art/characters/christian/christian__encouraging-listening-athletic-topknot-teal-track__right-three-quarter__halfbody__v002.png",
+          "sha256": "9782810db2d9df69c173f4191c87581137b181a731e48a5ac0f9855f45962442",
           "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
-          "status": "review-candidate",
+          "status": "approved",
           "usage": {
             "runtime": [
               "journal:christian-expression-gallery",
+              "story:cast:christian:encouraging-listening",
               "cast-standardization:christian"
             ],
             "review": [
               "cast-standardization-manifest",
-              "learner-journal-preview"
+              "identity-lock"
             ]
           },
-          "orphan": "review-bound",
+          "orphan": "active-runtime",
           "styleVersion": "current-review-family",
-          "fileVersion": "v001",
-          "pose": "off-contract standardized-happy pose",
-          "angle": null,
-          "expression": null,
+          "fileVersion": "v002",
+          "pose": "broad steady stance with rolled sleeves, one forearm braced, and a workbook carried low; right-three-quarter",
+          "angle": "right-three-quarter",
+          "expression": "encouraging-listening",
           "dimensions": {
             "width": 1536,
             "height": 2048,
@@ -5791,40 +5794,87 @@
           },
           "runtimeUses": [
             "journal:christian-expression-gallery",
+            "story:cast:christian:encouraging-listening",
             "cast-standardization:christian"
           ],
           "reviewUses": [
             "cast-standardization-manifest",
-            "learner-journal-preview"
+            "identity-lock"
           ],
           "decision": "keep",
-          "migrationStatus": "retained-off-matrix-review-evidence",
-          "coverageStatus": "off-matrix"
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
         },
         {
-          "path": "/academy/art/characters/christian/christian__standardized-neutral__front-near-front__halfbody__v001.png",
-          "sha256": "c3610651c1c5b79cef75582482f2b18efa91a3c6f153cb0c3a1d4507c9dc1e3c",
+          "path": "/academy/art/characters/christian/christian__happy-athletic-topknot-teal-track__front-near-front__halfbody__v002.png",
+          "sha256": "bfb3ceeaafb7d29de68573927aac9f54b15750b6a3ea29334476819ea7609408",
           "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
-          "status": "review-candidate",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:christian-expression-gallery",
+              "story:cast:christian:happy",
+              "cast-standardization:christian"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "broad steady stance with rolled sleeves, one forearm braced, and a workbook carried low; front-near-front",
+          "angle": "front-near-front",
+          "expression": "happy",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:christian-expression-gallery",
+            "story:cast:christian:happy",
+            "cast-standardization:christian"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/christian/christian__neutral-athletic-topknot-teal-track__front-near-front__halfbody__v002.png",
+          "sha256": "5585fc500fe349e784a6e23e3eeaa1ff726b88df732c58ca8dcecbf4038ff241",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
           "usage": {
             "runtime": [
               "journal:christian",
-              "class:people-review",
-              "lesson-overview:roster-review",
+              "class:people",
+              "class:week-cast",
+              "lesson-overview:roster",
+              "world:person",
+              "story:cast:christian",
               "cast-standardization:christian"
             ],
             "review": [
               "cast-standardization-manifest",
-              "learner-journal-preview"
+              "identity-lock"
             ]
           },
-          "orphan": "review-bound",
+          "orphan": "active-runtime",
           "styleVersion": "current-review-family",
-          "fileVersion": "v001",
-          "pose": "off-contract standardized-neutral pose",
-          "angle": null,
-          "expression": null,
+          "fileVersion": "v002",
+          "pose": "broad steady stance with rolled sleeves, one forearm braced, and a workbook carried low; front-near-front",
+          "angle": "front-near-front",
+          "expression": "neutral",
           "dimensions": {
             "width": 1536,
             "height": 2048,
@@ -5834,17 +5884,149 @@
           },
           "runtimeUses": [
             "journal:christian",
-            "class:people-review",
-            "lesson-overview:roster-review",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "story:cast:christian",
             "cast-standardization:christian"
           ],
           "reviewUses": [
             "cast-standardization-manifest",
-            "learner-journal-preview"
+            "identity-lock"
           ],
           "decision": "keep",
-          "migrationStatus": "retained-off-matrix-review-evidence",
-          "coverageStatus": "off-matrix"
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/christian/christian__sad-vulnerable-athletic-topknot-teal-track__left-three-quarter__halfbody__v002.png",
+          "sha256": "d206359facb56e3e80aa926a681d2bed5be3b36d2b7fac02d1ee802c1a825cc5",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:christian-expression-gallery",
+              "story:cast:christian:sad-vulnerable",
+              "cast-standardization:christian"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "broad steady stance with rolled sleeves, one forearm braced, and a workbook carried low; left-three-quarter",
+          "angle": "left-three-quarter",
+          "expression": "sad-vulnerable",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:christian-expression-gallery",
+            "story:cast:christian:sad-vulnerable",
+            "cast-standardization:christian"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/christian/christian__surprised-shocked-athletic-topknot-teal-track__right-three-quarter__halfbody__v002.png",
+          "sha256": "f5cd0d7bfc7d22a92b4b7f179995b3751b7496fe52da08298d95c1d7434c7825",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:christian-expression-gallery",
+              "story:cast:christian:surprised-shocked",
+              "cast-standardization:christian"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "broad steady stance with rolled sleeves, one forearm braced, and a workbook carried low; right-three-quarter",
+          "angle": "right-three-quarter",
+          "expression": "surprised-shocked",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:christian-expression-gallery",
+            "story:cast:christian:surprised-shocked",
+            "cast-standardization:christian"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/christian/christian__thoughtful-athletic-topknot-teal-track__left-three-quarter__halfbody__v002.png",
+          "sha256": "2e2cc03d70ff667a6d61dfdf2ab363aa37531940ac592d163271603337d0b901",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:christian-expression-gallery",
+              "story:cast:christian:thoughtful",
+              "cast-standardization:christian"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "broad steady stance with rolled sleeves, one forearm braced, and a workbook carried low; left-three-quarter",
+          "angle": "left-three-quarter",
+          "expression": "thoughtful",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:christian-expression-gallery",
+            "story:cast:christian:thoughtful",
+            "cast-standardization:christian"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
         }
       ],
       "requiredVariants": [
@@ -5872,16 +6054,14 @@
         {
           "angle": "left-three-quarter",
           "expression": "thoughtful",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/christian/christian__thoughtful__left-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/christian/christian__thoughtful-athletic-topknot-teal-track__left-three-quarter__halfbody__v002.png"
         },
         {
           "angle": "left-three-quarter",
           "expression": "determined",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/christian/christian__determined__left-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/christian/christian__determined-athletic-topknot-teal-track__left-three-quarter__halfbody__v002.png"
         },
         {
           "angle": "left-three-quarter",
@@ -5893,16 +6073,14 @@
         {
           "angle": "left-three-quarter",
           "expression": "sad-vulnerable",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/christian/christian__sad-vulnerable__left-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/christian/christian__sad-vulnerable-athletic-topknot-teal-track__left-three-quarter__halfbody__v002.png"
         },
         {
           "angle": "front-near-front",
           "expression": "neutral",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/christian/christian__neutral__front-near-front__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/christian/christian__neutral-athletic-topknot-teal-track__front-near-front__halfbody__v002.png"
         },
         {
           "angle": "front-near-front",
@@ -5914,9 +6092,8 @@
         {
           "angle": "front-near-front",
           "expression": "happy",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/christian/christian__happy__front-near-front__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/christian/christian__happy-athletic-topknot-teal-track__front-near-front__halfbody__v002.png"
         },
         {
           "angle": "front-near-front",
@@ -5956,9 +6133,8 @@
         {
           "angle": "right-three-quarter",
           "expression": "encouraging-listening",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/christian/christian__encouraging-listening__right-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/christian/christian__encouraging-listening-athletic-topknot-teal-track__right-three-quarter__halfbody__v002.png"
         },
         {
           "angle": "right-three-quarter",
@@ -5984,9 +6160,8 @@
         {
           "angle": "right-three-quarter",
           "expression": "surprised-shocked",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/christian/christian__surprised-shocked__right-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/christian/christian__surprised-shocked-athletic-topknot-teal-track__right-three-quarter__halfbody__v002.png"
         },
         {
           "angle": "right-three-quarter",
@@ -6020,38 +6195,10 @@
         },
         {
           "angle": "left-three-quarter",
-          "expression": "thoughtful",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/christian/christian__thoughtful__left-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "left-three-quarter",
-          "expression": "determined",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/christian/christian__determined__left-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "left-three-quarter",
           "expression": "surprised-shocked",
           "status": "missing",
           "path": null,
           "plannedPath": "/academy/art/characters/christian/christian__surprised-shocked__left-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "left-three-quarter",
-          "expression": "sad-vulnerable",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/christian/christian__sad-vulnerable__left-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "front-near-front",
-          "expression": "neutral",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/christian/christian__neutral__front-near-front__halfbody__v001.png"
         },
         {
           "angle": "front-near-front",
@@ -6059,13 +6206,6 @@
           "status": "missing",
           "path": null,
           "plannedPath": "/academy/art/characters/christian/christian__encouraging-listening__front-near-front__halfbody__v001.png"
-        },
-        {
-          "angle": "front-near-front",
-          "expression": "happy",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/christian/christian__happy__front-near-front__halfbody__v001.png"
         },
         {
           "angle": "front-near-front",
@@ -6104,13 +6244,6 @@
         },
         {
           "angle": "right-three-quarter",
-          "expression": "encouraging-listening",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/christian/christian__encouraging-listening__right-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "right-three-quarter",
           "expression": "happy",
           "status": "missing",
           "path": null,
@@ -6129,13 +6262,6 @@
           "status": "missing",
           "path": null,
           "plannedPath": "/academy/art/characters/christian/christian__determined__right-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "right-three-quarter",
-          "expression": "surprised-shocked",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/christian/christian__surprised-shocked__right-three-quarter__halfbody__v001.png"
         },
         {
           "angle": "right-three-quarter",

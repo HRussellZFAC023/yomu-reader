@@ -29,9 +29,9 @@
     "cast": 30,
     "requiredPerformancesPerCast": 7,
     "requiredSlots": 210,
-    "integratedSlots": 161,
-    "missingSlots": 49,
-    "ownerCorrectionQueue": 14,
+    "integratedSlots": 168,
+    "missingSlots": 42,
+    "ownerCorrectionQueue": 7,
     "storyCriticalQueue": 0,
     "rosterCompletionQueue": 35
   },
@@ -1074,65 +1074,97 @@
       "priority": "owner-correction",
       "summary": {
         "required": 7,
-        "integrated": 0,
-        "missing": 7
+        "integrated": 7,
+        "missing": 0
       },
       "performances": [
         {
           "expression": "neutral",
           "preferredAngle": "front-near-front",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.christian.neutral-athletic-topknot-teal-track-front-near-front-halfbody-v002",
+          "assetPath": "/academy/art/characters/christian/christian__neutral-athletic-topknot-teal-track__front-near-front__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:christian",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "story:cast:christian",
+            "cast-standardization:christian"
+          ]
         },
         {
           "expression": "encouraging-listening",
           "preferredAngle": "right-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.christian.encouraging-listening-athletic-topknot-teal-track-right-three-quarter-halfbody-v002",
+          "assetPath": "/academy/art/characters/christian/christian__encouraging-listening-athletic-topknot-teal-track__right-three-quarter__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:christian-expression-gallery",
+            "story:cast:christian:encouraging-listening",
+            "cast-standardization:christian"
+          ]
         },
         {
           "expression": "happy",
           "preferredAngle": "front-near-front",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.christian.happy-athletic-topknot-teal-track-front-near-front-halfbody-v002",
+          "assetPath": "/academy/art/characters/christian/christian__happy-athletic-topknot-teal-track__front-near-front__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:christian-expression-gallery",
+            "story:cast:christian:happy",
+            "cast-standardization:christian"
+          ]
         },
         {
           "expression": "thoughtful",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.christian.thoughtful-athletic-topknot-teal-track-left-three-quarter-halfbody-v002",
+          "assetPath": "/academy/art/characters/christian/christian__thoughtful-athletic-topknot-teal-track__left-three-quarter__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:christian-expression-gallery",
+            "story:cast:christian:thoughtful",
+            "cast-standardization:christian"
+          ]
         },
         {
           "expression": "determined",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.christian.determined-athletic-topknot-teal-track-left-three-quarter-halfbody-v002",
+          "assetPath": "/academy/art/characters/christian/christian__determined-athletic-topknot-teal-track__left-three-quarter__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:christian-expression-gallery",
+            "story:cast:christian:determined",
+            "cast-standardization:christian"
+          ]
         },
         {
           "expression": "surprised-shocked",
           "preferredAngle": "right-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.christian.surprised-shocked-athletic-topknot-teal-track-right-three-quarter-halfbody-v002",
+          "assetPath": "/academy/art/characters/christian/christian__surprised-shocked-athletic-topknot-teal-track__right-three-quarter__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:christian-expression-gallery",
+            "story:cast:christian:surprised-shocked",
+            "cast-standardization:christian"
+          ]
         },
         {
           "expression": "sad-vulnerable",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.christian.sad-vulnerable-athletic-topknot-teal-track-left-three-quarter-halfbody-v002",
+          "assetPath": "/academy/art/characters/christian/christian__sad-vulnerable-athletic-topknot-teal-track__left-three-quarter__halfbody__v002.png",
+          "runtimeHomes": [
+            "journal:christian-expression-gallery",
+            "story:cast:christian:sad-vulnerable",
+            "cast-standardization:christian"
+          ]
         }
       ]
     },
@@ -3196,211 +3228,6 @@
     }
   ],
   "generationQueue": [
-    {
-      "key": "christian:neutral",
-      "castId": "christian",
-      "displayName": "Christian",
-      "identityKey": "christian-black-ponytail-athletic",
-      "expression": "neutral",
-      "angle": "front-near-front",
-      "priority": "owner-correction",
-      "storyLines": 5,
-      "visualLock": "Black man with tied-back hair, an athletic presence, and an easy expressive face.",
-      "wardrobeLock": "Practical athletic layers; recorder or small desk fan only in their specific scenes.",
-      "reject": [
-        "short blond hair",
-        "different ethnicity",
-        "photographic face",
-        "formal suit",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:christian",
-        "class:people",
-        "lesson-overview:roster",
-        "story:cast:christian"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "christian:encouraging-listening",
-      "castId": "christian",
-      "displayName": "Christian",
-      "identityKey": "christian-black-ponytail-athletic",
-      "expression": "encouraging-listening",
-      "angle": "right-three-quarter",
-      "priority": "owner-correction",
-      "storyLines": 5,
-      "visualLock": "Black man with tied-back hair, an athletic presence, and an easy expressive face.",
-      "wardrobeLock": "Practical athletic layers; recorder or small desk fan only in their specific scenes.",
-      "reject": [
-        "short blond hair",
-        "different ethnicity",
-        "photographic face",
-        "formal suit",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:christian-expression-gallery",
-        "story:cast:christian:encouraging-listening"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "christian:happy",
-      "castId": "christian",
-      "displayName": "Christian",
-      "identityKey": "christian-black-ponytail-athletic",
-      "expression": "happy",
-      "angle": "front-near-front",
-      "priority": "owner-correction",
-      "storyLines": 5,
-      "visualLock": "Black man with tied-back hair, an athletic presence, and an easy expressive face.",
-      "wardrobeLock": "Practical athletic layers; recorder or small desk fan only in their specific scenes.",
-      "reject": [
-        "short blond hair",
-        "different ethnicity",
-        "photographic face",
-        "formal suit",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:christian-expression-gallery",
-        "story:cast:christian:happy"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "christian:thoughtful",
-      "castId": "christian",
-      "displayName": "Christian",
-      "identityKey": "christian-black-ponytail-athletic",
-      "expression": "thoughtful",
-      "angle": "left-three-quarter",
-      "priority": "owner-correction",
-      "storyLines": 5,
-      "visualLock": "Black man with tied-back hair, an athletic presence, and an easy expressive face.",
-      "wardrobeLock": "Practical athletic layers; recorder or small desk fan only in their specific scenes.",
-      "reject": [
-        "short blond hair",
-        "different ethnicity",
-        "photographic face",
-        "formal suit",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:christian-expression-gallery",
-        "story:cast:christian:thoughtful"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "christian:determined",
-      "castId": "christian",
-      "displayName": "Christian",
-      "identityKey": "christian-black-ponytail-athletic",
-      "expression": "determined",
-      "angle": "left-three-quarter",
-      "priority": "owner-correction",
-      "storyLines": 5,
-      "visualLock": "Black man with tied-back hair, an athletic presence, and an easy expressive face.",
-      "wardrobeLock": "Practical athletic layers; recorder or small desk fan only in their specific scenes.",
-      "reject": [
-        "short blond hair",
-        "different ethnicity",
-        "photographic face",
-        "formal suit",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:christian-expression-gallery",
-        "story:cast:christian:determined"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "christian:surprised-shocked",
-      "castId": "christian",
-      "displayName": "Christian",
-      "identityKey": "christian-black-ponytail-athletic",
-      "expression": "surprised-shocked",
-      "angle": "right-three-quarter",
-      "priority": "owner-correction",
-      "storyLines": 5,
-      "visualLock": "Black man with tied-back hair, an athletic presence, and an easy expressive face.",
-      "wardrobeLock": "Practical athletic layers; recorder or small desk fan only in their specific scenes.",
-      "reject": [
-        "short blond hair",
-        "different ethnicity",
-        "photographic face",
-        "formal suit",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:christian-expression-gallery",
-        "story:cast:christian:surprised-shocked"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "christian:sad-vulnerable",
-      "castId": "christian",
-      "displayName": "Christian",
-      "identityKey": "christian-black-ponytail-athletic",
-      "expression": "sad-vulnerable",
-      "angle": "left-three-quarter",
-      "priority": "owner-correction",
-      "storyLines": 5,
-      "visualLock": "Black man with tied-back hair, an athletic presence, and an easy expressive face.",
-      "wardrobeLock": "Practical athletic layers; recorder or small desk fan only in their specific scenes.",
-      "reject": [
-        "short blond hair",
-        "different ethnicity",
-        "photographic face",
-        "formal suit",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:christian-expression-gallery",
-        "story:cast:christian:sad-vulnerable"
-      ],
-      "status": "queued"
-    },
     {
       "key": "tom2:neutral",
       "castId": "tom2",

@@ -70,6 +70,7 @@ const REAL_CLASS_MEMBERS = REAL_CLASS_NAMES.map(([id, firstName]) => {
         id === 'rose' ||
         id === 'ruparna' ||
         id === 'stasi' ||
+        id === 'christian' ||
         id === 'angel';
     return {
         id,
@@ -77,6 +78,9 @@ const REAL_CLASS_MEMBERS = REAL_CLASS_NAMES.map(([id, firstName]) => {
         ...(id === 'angel' ? { preferredName: 'Onke' } : {}),
         ...(id === 'sam' ? {
             visualBrief: 'Relaxed athletic White man with a very close-cropped chestnut crew cut and minimal crown or side volume.',
+        } : {}),
+        ...(id === 'christian' ? {
+            visualBrief: 'Athletic Black man with dark hair tied into a compact topknot, strong brows, subtle close-trimmed facial hair, teal training shirt, charcoal track jacket, gym duffel, desk fan, and recorder.',
         } : {}),
         category: 'classmate' as const,
         visualEvidence: likenessApproved ? 'approved' as const : 'candidate-needs-owner' as const,

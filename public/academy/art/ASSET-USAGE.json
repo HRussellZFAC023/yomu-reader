@@ -18,8 +18,8 @@
     ]
   },
   "counts": {
-    "runtimeAssetHomes": 256,
-    "runtimeFiles": 362,
+    "runtimeAssetHomes": 260,
+    "runtimeFiles": 366,
     "nonRuntimeReviewFiles": 1734,
     "approvedReferenceOnly": 4,
     "explicitlyRejectedFamilies": 4,
@@ -333,106 +333,6 @@
         }
       },
       "status": "restored-owner-preferred-class-ensemble-entrance; approved single-source mobile art direction; bound-to-access-route"
-    },
-    {
-      "id": "character-christian-standardized-encouraging-listening-front-near-front-halfbody-v001",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "0c5aef4ae7d40a9f4666e975bf6126c1a55100c8c090a6be5d07562f2d40cfe2",
-      "provenance": "regenerated-standardized",
-      "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": [
-        "journal:christian-expression-gallery",
-        "cast-standardization:christian"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "learner-journal-preview"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:christian-expression-gallery",
-          "cast-standardization:christian"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/christian/christian__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
-          "sha256": "0c5aef4ae7d40a9f4666e975bf6126c1a55100c8c090a6be5d07562f2d40cfe2"
-        }
-      ],
-      "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-    },
-    {
-      "id": "character-christian-standardized-happy-front-near-front-halfbody-v001",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "0c5aef4ae7d40a9f4666e975bf6126c1a55100c8c090a6be5d07562f2d40cfe2",
-      "provenance": "regenerated-standardized",
-      "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": [
-        "journal:christian-expression-gallery",
-        "cast-standardization:christian"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "learner-journal-preview"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:christian-expression-gallery",
-          "cast-standardization:christian"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/christian/christian__standardized-happy__front-near-front__halfbody__v001.png",
-          "sha256": "0c5aef4ae7d40a9f4666e975bf6126c1a55100c8c090a6be5d07562f2d40cfe2"
-        }
-      ],
-      "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-    },
-    {
-      "id": "character-christian-standardized-neutral-front-near-front-halfbody-v001",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "c3610651c1c5b79cef75582482f2b18efa91a3c6f153cb0c3a1d4507c9dc1e3c",
-      "provenance": "regenerated-standardized",
-      "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": [
-        "journal:christian",
-        "class:people-review",
-        "lesson-overview:roster-review",
-        "cast-standardization:christian"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "learner-journal-preview"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:christian",
-          "class:people-review",
-          "lesson-overview:roster-review",
-          "cast-standardization:christian"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/christian/christian__standardized-neutral__front-near-front__halfbody__v001.png",
-          "sha256": "c3610651c1c5b79cef75582482f2b18efa91a3c6f153cb0c3a1d4507c9dc1e3c"
-        }
-      ],
-      "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
     },
     {
       "id": "character-mary-standardized-encouraging-listening-front-near-front-halfbody-v001",
@@ -10445,7 +10345,7 @@
       "deliveries": [
         {
           "path": "/academy/art/SPRITE-BATCH-MANIFEST.json",
-          "sha256": "1c7b0b24c51506e2978cc5fe942e0e1ac1787de74b4f8db22ba903574ea99115"
+          "sha256": "dd242a5bba8334bc229fd19a8ff867a5e074645d67be4c2adceb10f598b3bf50"
         }
       ],
       "status": "bound-and-schema-validated"
@@ -15579,6 +15479,252 @@
         {
           "path": "/academy/art/characters/shaun/shaun__sad-vulnerable-layered-light-brown-round-glasses-beige-fleece__left-three-quarter__fullbody__v002.png",
           "sha256": "c2403cb0fbef0f5c14236a0b0fd3e7e8b5a96211d6d7eba8fbc2bc2968c2d71f"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-christian-neutral-athletic-topknot-teal-track-front-near-front-halfbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "5585fc500fe349e784a6e23e3eeaa1ff726b88df732c58ca8dcecbf4038ff241",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:christian",
+        "class:people",
+        "class:week-cast",
+        "lesson-overview:roster",
+        "world:person",
+        "story:cast:christian",
+        "cast-standardization:christian"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:christian",
+          "class:people",
+          "class:week-cast",
+          "lesson-overview:roster",
+          "world:person",
+          "story:cast:christian",
+          "cast-standardization:christian"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/christian/christian__neutral-athletic-topknot-teal-track__front-near-front__halfbody__v002.png",
+          "sha256": "5585fc500fe349e784a6e23e3eeaa1ff726b88df732c58ca8dcecbf4038ff241"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-christian-encouraging-listening-athletic-topknot-teal-track-right-three-quarter-halfbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "9782810db2d9df69c173f4191c87581137b181a731e48a5ac0f9855f45962442",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:christian-expression-gallery",
+        "story:cast:christian:encouraging-listening",
+        "cast-standardization:christian"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:christian-expression-gallery",
+          "story:cast:christian:encouraging-listening",
+          "cast-standardization:christian"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/christian/christian__encouraging-listening-athletic-topknot-teal-track__right-three-quarter__halfbody__v002.png",
+          "sha256": "9782810db2d9df69c173f4191c87581137b181a731e48a5ac0f9855f45962442"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-christian-happy-athletic-topknot-teal-track-front-near-front-halfbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "bfb3ceeaafb7d29de68573927aac9f54b15750b6a3ea29334476819ea7609408",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:christian-expression-gallery",
+        "story:cast:christian:happy",
+        "cast-standardization:christian"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:christian-expression-gallery",
+          "story:cast:christian:happy",
+          "cast-standardization:christian"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/christian/christian__happy-athletic-topknot-teal-track__front-near-front__halfbody__v002.png",
+          "sha256": "bfb3ceeaafb7d29de68573927aac9f54b15750b6a3ea29334476819ea7609408"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-christian-thoughtful-athletic-topknot-teal-track-left-three-quarter-halfbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "2e2cc03d70ff667a6d61dfdf2ab363aa37531940ac592d163271603337d0b901",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:christian-expression-gallery",
+        "story:cast:christian:thoughtful",
+        "cast-standardization:christian"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:christian-expression-gallery",
+          "story:cast:christian:thoughtful",
+          "cast-standardization:christian"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/christian/christian__thoughtful-athletic-topknot-teal-track__left-three-quarter__halfbody__v002.png",
+          "sha256": "2e2cc03d70ff667a6d61dfdf2ab363aa37531940ac592d163271603337d0b901"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-christian-determined-athletic-topknot-teal-track-left-three-quarter-halfbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "3216c91a37b016b8a192b0aefe153ecfeeac0756b8d87aaf4a50efd13f0970c1",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:christian-expression-gallery",
+        "story:cast:christian:determined",
+        "cast-standardization:christian"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:christian-expression-gallery",
+          "story:cast:christian:determined",
+          "cast-standardization:christian"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/christian/christian__determined-athletic-topknot-teal-track__left-three-quarter__halfbody__v002.png",
+          "sha256": "3216c91a37b016b8a192b0aefe153ecfeeac0756b8d87aaf4a50efd13f0970c1"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-christian-surprised-shocked-athletic-topknot-teal-track-right-three-quarter-halfbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "f5cd0d7bfc7d22a92b4b7f179995b3751b7496fe52da08298d95c1d7434c7825",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:christian-expression-gallery",
+        "story:cast:christian:surprised-shocked",
+        "cast-standardization:christian"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:christian-expression-gallery",
+          "story:cast:christian:surprised-shocked",
+          "cast-standardization:christian"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/christian/christian__surprised-shocked-athletic-topknot-teal-track__right-three-quarter__halfbody__v002.png",
+          "sha256": "f5cd0d7bfc7d22a92b4b7f179995b3751b7496fe52da08298d95c1d7434c7825"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-christian-sad-vulnerable-athletic-topknot-teal-track-left-three-quarter-halfbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "d206359facb56e3e80aa926a681d2bed5be3b36d2b7fac02d1ee802c1a825cc5",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:christian-expression-gallery",
+        "story:cast:christian:sad-vulnerable",
+        "cast-standardization:christian"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:christian-expression-gallery",
+          "story:cast:christian:sad-vulnerable",
+          "cast-standardization:christian"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/christian/christian__sad-vulnerable-athletic-topknot-teal-track__left-three-quarter__halfbody__v002.png",
+          "sha256": "d206359facb56e3e80aa926a681d2bed5be3b36d2b7fac02d1ee802c1a825cc5"
         }
       ],
       "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
