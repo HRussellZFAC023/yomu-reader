@@ -154,9 +154,11 @@ learner's first ten minutes.
 - [ ] **A27.3 — Extension-store builds are stale.** Verified 2026-07-28 from the official distribution
       endpoints: Greasy Fork serves 1.8.25 and its executable body matches `dist/yomu.user.js`; the
       Chrome Web Store update endpoint and AMO API both serve 1.8.2. The A27 verification brief said
-      the stores served 1.8.15, which is wrong. Publish a current extension package before treating the
-      fixes below as available to store users. This is a distribution defect, not five reopened core
-      bugs.
+      the stores served 1.8.15, which is wrong. This is a distribution defect, not five reopened core
+      bugs. **OWNER RULING 2026-07-28: no store dispatch for a patch build — keep bumping patches until
+      the multilingual rewrite ships as 1.9.0, and the stores update then.** So the multilingual rewrite
+      (T4/A7 + the 1.9.0 code work) is the active priority; store users stay on 1.8.2 until it lands,
+      which is the cost the owner accepted. BLOCKED BY: A8.
 
 **Study + mobile master plan:** `/Users/heru/Desktop/yomu-study-mobile-plan/PLAN.md` (15 ordered
 independently-shippable slices, 5 personas, journey defect register, configurability resolution, CI
