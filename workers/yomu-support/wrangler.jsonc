@@ -35,9 +35,29 @@
     "enabled": true,
     "head_sampling_rate": 1
   },
-  // Dormant until PAYMENT_INGRESS_TOKEN is installed in this Worker and the
-  // Academy Worker. Requests still require that bearer credential even though
-  // transport uses a private Service binding.
+  "secrets": {
+    "required": [
+      "STRIPE_SECRET_KEY",
+      "STRIPE_WEBHOOK_SECRET",
+      "KOFI_WEBHOOK_SECRET",
+      "PATREON_WEBHOOK_SECRET",
+      "PAYMENT_INGRESS_TOKEN",
+      "ACADEMY_DELIVERY_ALERT_EMAIL"
+    ]
+  },
+  "triggers": {
+    // A PII-free reconciliation check reports paid events whose Academy code
+    // was not delivered. Webhook failures are still reported immediately.
+    "crons": ["*/15 * * * *"]
+  },
+  "send_email": [
+    {
+      "name": "ACADEMY_CODE_EMAIL",
+      "allowed_sender_addresses": ["academy@notifications.yomureader.com"]
+    }
+  ],
+  // Requests still require the shared bearer credential even though transport
+  // uses a private Service binding.
   "services": [
     {
       "binding": "ACADEMY_PAYMENT_INGRESS",

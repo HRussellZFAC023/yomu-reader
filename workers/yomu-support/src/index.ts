@@ -10,9 +10,14 @@ import {
   claimAcademyPayment,
   forwardAcademyPayment,
   stablePatreonEventId,
-  type AcademyBridgeEnv,
   type AcademyPaymentEnvelope,
+  type AcademyPaymentIngressResult,
 } from "./academy-bridge";
+import {
+  deliverAcademyCode,
+  reconcileAcademyCodeDeliveries,
+  type AcademyCodeDeliveryEnv,
+} from "./academy-code-delivery";
 
 const DEFAULT_DAILY_BUDGET_GBP = 10;
 const DEFAULT_MONTHLY_DONATION_FLOOR_GBP = 10;
@@ -54,12 +59,17 @@ interface ExecutionContext {
   waitUntil(promise: Promise<unknown>): void;
 }
 
+interface ScheduledController {
+  readonly scheduledTime: number;
+  readonly cron: string;
+}
+
 interface KVNamespace {
   get(key: string): Promise<string | null>;
   put(key: string, value: string, options?: { expirationTtl?: number }): Promise<void>;
 }
 
-interface Env extends AcademyBridgeEnv {
+interface Env extends AcademyCodeDeliveryEnv {
   SUPPORT_DB?: D1Database;
   SUPPORT_KV?: KVNamespace;
   STRIPE_SECRET_KEY?: string;
@@ -231,6 +241,9 @@ export default {
       }));
       return textResponse("Support service unavailable.", 500);
     }
+  },
+  async scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+    ctx.waitUntil(reconcileAcademyCodeDeliveries(env));
   },
 };
 
@@ -807,7 +820,7 @@ function renderDonationClaim(status: number, payload: unknown): Response {
       "cache-control": "no-store",
     });
   }
-  return new Response(`Your permanent Yomu Academy code is: ${code}`, {
+  return new Response(`Your よむ Academy code is: ${code}\nEnter it within 30 days of payment.`, {
     status: 200,
     headers: {
       "content-type": "text/plain; charset=utf-8",
@@ -842,7 +855,8 @@ async function handleStripeWebhook(request: Request, env: Env): Promise<Response
 
   const academyEnvelope = stripeAcademyEnvelope(event, donation);
   if (!academyEnvelope) return textResponse("Stripe donation identity is incomplete.", 422);
-  await forwardAcademyPayment(env, academyEnvelope);
+  const ingress = await forwardAcademyPayment(env, academyEnvelope);
+  await deliverPaymentCode(env, academyEnvelope.provider, ingress, stripeDeliveryEmail(event));
   await recordDonationEvent(env.SUPPORT_DB, donation);
   return jsonResponse(request, { received: true, recorded: true }, 200);
 }
@@ -882,7 +896,8 @@ async function handleVerifiedKofiWebhook(
   if (amountMinor <= 0) return jsonResponse(request, { received: true, recorded: false }, 200);
   const academyEnvelope = kofiAcademyEnvelope(verified, amountMinor);
   if (!academyEnvelope) return textResponse("Ko-fi donation identity is incomplete.", 422);
-  await forwardAcademyPayment(env, academyEnvelope);
+  const ingress = await forwardAcademyPayment(env, academyEnvelope);
+  await deliverPaymentCode(env, academyEnvelope.provider, ingress, deliveryEmail(verified.email));
   await recordProviderDonationEvent(db, {
     provider: "kofi",
     eventId: academyEnvelope.eventId,
@@ -942,7 +957,8 @@ async function handleVerifiedPatreonWebhook(request: Request, env: Env, db: D1Da
   // A real event without enough verified membership data cannot grant access,
   // but retrying the same immutable payload cannot make it complete either.
   if (!academyEnvelope) return jsonResponse(request, { received: true, recorded: false }, 200);
-  await forwardAcademyPayment(env, academyEnvelope);
+  const ingress = await forwardAcademyPayment(env, academyEnvelope);
+  await deliverPaymentCode(env, academyEnvelope.provider, ingress, patreonDeliveryEmail(parsed));
   if (!isPatreonIncomeTrigger(trigger)) {
     return jsonResponse(request, { received: true, recorded: false }, 200);
   }
@@ -973,9 +989,25 @@ function patreonPledgeMinor(payload: unknown): number {
   // Patreon amounts are integer cents in the pledge/member currency. We treat
   // the value as GBP-equivalent; the owner keeps a single Patreon currency.
   const cents = numberField(attributes, "amount_cents")
-    ?? numberField(attributes, "currently_entitled_amount_cents")
-    ?? numberField(attributes, "will_pay_amount_cents");
+    ?? numberField(attributes, "currently_entitled_amount_cents");
   return typeof cents === "number" && cents > 0 ? Math.round(cents) : 0;
+}
+
+function patreonPaidEntitlementMinor(payload: unknown): number {
+  const record = objectRecord(payload);
+  const data = objectRecord(record?.data);
+  const attributes = objectRecord(data?.attributes);
+  if (!attributes || attributes.is_free_trial === true) return 0;
+  const lifetimeSupport = numberField(attributes, "campaign_lifetime_support_cents");
+  const currentlyEntitled = numberField(attributes, "currently_entitled_amount_cents")
+    ?? numberField(attributes, "amount_cents");
+  if (
+    typeof lifetimeSupport !== "number"
+    || lifetimeSupport <= 0
+    || typeof currentlyEntitled !== "number"
+    || currentlyEntitled <= 0
+  ) return 0;
+  return Math.round(currentlyEntitled);
 }
 
 function stripeAcademyEnvelope(event: unknown, donation: StripeDonationEvent): AcademyPaymentEnvelope | null {
@@ -1016,6 +1048,11 @@ function stripeSessionRecord(event: unknown): Record<string, unknown> | null {
   return objectRecord(objectRecord(record?.data)?.object);
 }
 
+function stripeDeliveryEmail(event: unknown): string | null {
+  const customerDetails = objectRecord(stripeSessionRecord(event)?.customer_details);
+  return deliveryEmail(customerDetails?.email);
+}
+
 function kofiAcademyEnvelope(record: Record<string, unknown>, amountMinor: number): AcademyPaymentEnvelope | null {
   if (!isAcademyAmount(amountMinor)) return null;
   const eventId = providerReference(record.message_id);
@@ -1045,6 +1082,31 @@ async function patreonAcademyEnvelope(
     return patreonRevocationEnvelope(eventId, context);
   }
   return patreonActiveEnvelope(eventId, context, payload);
+}
+
+function patreonDeliveryEmail(payload: unknown): string | null {
+  const record = objectRecord(payload);
+  const data = childRecord(record, "data");
+  const attributes = childRecord(data, "attributes");
+  return deliveryEmail(attributes?.email);
+}
+
+async function deliverPaymentCode(
+  env: Env,
+  provider: AcademyPaymentEnvelope["provider"],
+  ingress: AcademyPaymentIngressResult | null,
+  email: string | null,
+): Promise<void> {
+  if (!ingress?.deliveryId) return;
+  await deliverAcademyCode(env, {
+    provider,
+    deliveryId: ingress.deliveryId,
+    email,
+  });
+}
+
+function deliveryEmail(value: unknown): string | null {
+  return typeof value === "string" ? value : null;
 }
 
 interface PatreonContext {
@@ -1109,11 +1171,10 @@ function patreonActiveEnvelope(
   payload: unknown,
 ): AcademyPaymentEnvelope | null {
   if (context.status !== "active_patron") return null;
-  const qualifyingAmountMinor = patreonPledgeMinor(payload);
+  const qualifyingAmountMinor = patreonPaidEntitlementMinor(payload);
   const expiresAt = providerTimestamp(context.attributes.next_charge_date);
   if (!isAcademyAmount(qualifyingAmountMinor)) return null;
-  if (expiresAt === null) return null;
-  if (expiresAt <= context.occurredAt) return null;
+  if (expiresAt === null || expiresAt <= context.occurredAt) return null;
   return {
     schemaVersion: 1,
     provider: "patreon",

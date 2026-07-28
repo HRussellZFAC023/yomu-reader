@@ -40,7 +40,11 @@ Discord is the fastest way to get an answer. File bugs on GitHub so they do not 
 
 Reading, dictionaries you keep on your device, study, and saving cards stay free.
 
-Donations are optional and cover hosting, test devices, and the time it takes to keep Yomu improving. Any one-time amount from £5 to £500 works, and every donation includes permanent Yomu Academy access.
+Donations are optional and cover hosting, test devices, and the time it takes to keep Yomu improving. Card checkout accepts GBP, USD, EUR, CAD, AUD, and JPY. Every verified donation creates one Yomu Academy code. Enter it within 30 days. Once redeemed, Academy access stays with that Google account.
+
+The code is sent to the email in the provider's verified payment notice. Card payments can also show it when the same browser returns from checkout. If a provider omits the email, the payment is flagged for manual delivery. Reader signup creates your account; Academy access starts when you redeem a donation code or one issued by the owner. Your Google account can use a different email.
+
+If a code does not arrive, ask on Discord with the provider name and receipt reference. Keep card details out of the message. The owner can recover the payment code or issue a separate code.
 
 <div class="yomu-cta-grid">
   <a class="yomu-cta-button primary" href="https://support.yomureader.com/donate">Donate</a>

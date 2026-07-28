@@ -16,10 +16,10 @@ All three go to the same place. Choose the one you find easiest — there is no 
 <div class="yomu-cta-grid yomu-membership-options">
   <a class="yomu-cta-button primary" href="https://ko-fi.com/yomureader">Ko-fi</a>
   <a class="yomu-cta-button" href="https://www.patreon.com/yomureader">Patreon</a>
-  <a class="yomu-cta-button" href="/support">Ask about card payment</a>
+  <a class="yomu-cta-button" href="https://support.yomureader.com/donate">Card</a>
 </div>
 
-Ko-fi takes one-off or monthly. Patreon is monthly. Card payment is being set up — [ask on Discord](https://discord.gg/jD6NPURewD) and it will be sorted for you.
+Ko-fi takes one-off or monthly payments. Patreon is monthly. Card checkout accepts GBP, USD, EUR, CAD, AUD, and JPY. A verified payment creates one Academy code. Enter it within 30 days. Once redeemed, access stays with the Google account you choose.
 
 ## What members get
 

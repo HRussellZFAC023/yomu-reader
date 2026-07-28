@@ -32,14 +32,21 @@ Routes:
 - `/stripe/webhook` accepts signed Stripe Checkout donation webhooks and records
   the exact native amount and currency in D1. Public goal progress converts
   supported native totals to an estimated GBP value using the cached daily FX
-  feed; missing FX never blocks Academy entitlement delivery.
+  feed; missing FX never blocks Academy entitlement delivery. The verified
+  Checkout `customer_details.email` receives the code, while the existing
+  same-browser `/claim` route remains a fallback.
 - `/webhooks/kofi` accepts Ko-fi webhooks (shared verification token, GBP only),
-  recording each stable provider event exactly once in D1.
+  recording each stable provider event exactly once in D1. The verified
+  top-level `email` receives the code.
 - `/webhooks/patreon` accepts Patreon webhooks (HMAC-MD5 signature over the raw
-  body). The first verified positive active-membership event grants permanent
-  Academy access. Later decline/delete events are audited but never revoke that
-  grant; only current `members:pledge:create` receipts create unique
-  support-income rows in D1. Deprecated v1 `pledges:*` events are ignored.
+  body). The first verified active-membership event with positive lifetime
+  support, a current paid entitlement, and a future membership boundary grants
+  permanent Academy access. Free trials and future pledge amounts do not grant
+  access. Later decline/delete events are audited but never revoke that grant;
+  only current `members:pledge:create` receipts create unique support-income
+  rows in D1. Deprecated v1 `pledges:*` events are ignored. A verified member
+  email receives the code when Patreon includes it; otherwise the payment
+  enters owner-assisted delivery.
 
 Local currency: FX rates come from the free, key-less, ECB-backed
 `frankfurter.dev` endpoint (`GET /v1/latest?base=GBP`) and are cached in KV for
@@ -92,17 +99,33 @@ webhook authentication. Academy ingestion runs before support accounting so a
 failure returns 5xx and asks the provider to retry without double-counting the
 support ledger on that attempt.
 
-Only native provider identifiers cross the binding. Every verified positive GBP
-Stripe support or Ko-fi donation grants a permanent entitlement; Academy-owned
+Only native provider identifiers cross the payment binding. Academy HMACs those
+identifiers before storing them. It does not compare a provider email with a
+Google email. Every verified positive Stripe donation or Ko-fi GBP payment
+grants a permanent entitlement. Academy-owned
 Stripe Checkout still has the stronger exact pending-purchase/session/amount
-match. Patreon remains membership state rather than fictional cash receipts,
-but its first positive active event grants the same permanent entitlement.
-Provider cancellation, expiry, or refund notifications never revoke access.
-No payer names, email addresses, bank data, or invite codes are forwarded.
+match. Patreon remains membership state rather than fictional cash receipts.
+Its signed member state must show paid history, current entitlement, and a
+future membership boundary before the same permanent entitlement is granted.
+Provider cancellation, expiry, or refund notifications do not revoke access.
 
-Ko-fi and Patreon do not provide the support site with a same-origin browser
-return secret, so code delivery for those providers remains admin-mediated.
-Their transaction/member identifiers are deliberately not accepted as public
-bearer credentials. PayPal.me is link-only: automatic Academy access requires a
+Provider email stays in the verified webhook request and outbound message. It
+does not enter Academy or D1. The deterministic code is leased to the support
+Worker for the send and is not stored in plaintext. Academy keeps one opaque
+delivery row per paid purchase, so webhook retries do not run concurrent sends.
+A scheduled audit sends the owner a PII-free alert for pending, retry, stale, or
+manual-required delivery. Missing or invalid provider email enters manual
+recovery; the admin payment-code route can recover the code from a provider
+reference, and the owner invite route can issue a separate code.
+
+The code must be redeemed within 30 days. The resulting entitlement stays with
+the Google account that redeemed it, regardless of the provider email. Stripe
+retains its same-browser claim flow. PayPal.me remains link-only: automatic Academy access requires a
 PayPal REST-app Checkout webhook with cryptographic verification; a browser
 success callback or PayPal.me reference is not sufficient proof.
+
+Delivery is at-least-once across the Email Sending and Academy services. A
+failure after the email service accepts a message but before Academy records
+that acceptance can send the same single-use code again after the five-minute
+lease expires. This favors a duplicate message over silent non-delivery; one
+successful redemption still consumes the code.

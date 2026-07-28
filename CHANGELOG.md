@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.8.24] - 2026-07-28
+
+### Fixed
+
+- After a verified Academy payment, the code is sent to the email address supplied by the provider. If no valid address is present, the payment stays in a recovery queue until the owner receives a manual-delivery notice. The code is entered within 30 days, and access stays with the Google account that redeems it. Patreon free trials and future pledge amounts do not grant access.
+- Card in the Membership chooser now opens the live checkout and lists its accepted currencies.
+
 ## [1.8.23] - 2026-07-28
 
 ### Fixed

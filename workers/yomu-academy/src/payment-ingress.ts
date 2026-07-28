@@ -2,6 +2,7 @@ import { derivePaidInviteCode, hmacSha256Hex, sha256Hex, timingSafeEqual } from 
 import type { Env } from './env';
 import { HttpError, jsonResponse, readJsonBody } from './http';
 import { mintPaidInvite, requireAdmin } from './invites';
+import { projectPaymentDelivery, requirePaymentService } from './payment-delivery';
 import { isDonationCurrency, type DonationCurrency } from '../../shared/donation-currencies';
 
 type Provider = 'stripe' | 'kofi' | 'patreon';
@@ -23,7 +24,7 @@ interface IngressEnvelope {
         readonly amountMinor: number;
     };
     readonly purchaseId?: string;
-    readonly entitlement?: { readonly expiresAt: number | null; readonly qualifyingAmountMinor?: number };
+    readonly entitlement?: { readonly expiresAt: number; readonly qualifyingAmountMinor?: number };
 }
 
 interface CanonicalIds {
@@ -47,7 +48,7 @@ const MAX_REFERENCE_LENGTH = 255;
  * public route accidentally attached to this Worker must still fail closed.
  */
 export async function handlePaymentIngress(request: Request, env: Env, now: number): Promise<Response> {
-    await requireIngress(request, env);
+    await requirePaymentService(request, env);
     const body = await readJsonBody(request, 16 * 1024);
     const envelope = parseEnvelope(body);
     const ids = await canonicalIds(env, envelope);
@@ -55,17 +56,25 @@ export async function handlePaymentIngress(request: Request, env: Env, now: numb
         'SELECT id FROM payment_events WHERE provider = ?1 AND provider_event_hash = ?2',
     ).bind(envelope.provider, ids.eventHash).first<{ id: string }>();
     if (eventAlreadyExists) {
-        await repairInviteProjection(env, ids.purchaseId, now);
-        return jsonResponse({ received: true, duplicate: true });
+        if (envelope.eventType === 'membership.revoked') {
+            return jsonResponse({ received: true, duplicate: true, deliveryStatus: 'not_applicable' });
+        }
+        return grantResponse(env, ids.purchaseId, envelope.occurredAt, now, 'duplicate');
     }
 
-    const result = envelope.eventType === 'membership.revoked'
-        ? await auditMembershipRevocation(env, envelope, ids, now)
-        : await applyGrant(env, envelope, ids, now);
-    if (result === 'duplicate') return jsonResponse({ received: true, duplicate: true });
+    if (envelope.eventType === 'membership.revoked') {
+        const result = await auditMembershipRevocation(env, envelope, ids, now);
+        return jsonResponse({
+            received: true,
+            ...(result === 'duplicate' ? { duplicate: true } : { applied: true }),
+            deliveryStatus: 'not_applicable',
+        });
+    }
+
+    const result = await applyGrant(env, envelope, ids, now);
+    if (result === 'duplicate') return grantResponse(env, ids.purchaseId, envelope.occurredAt, now, 'duplicate');
     if (result === 'stale') return jsonResponse({ received: true, applied: false, reason: 'stale' }, 202);
-    await repairInviteProjection(env, ids.purchaseId, now);
-    return jsonResponse({ received: true, applied: true });
+    return grantResponse(env, ids.purchaseId, envelope.occurredAt, now, 'applied');
 }
 
 /**
@@ -98,10 +107,9 @@ export async function handleAdminPaymentCode(request: Request, env: Env, now: nu
     if (row.redeemed_at !== null) throw new HttpError(409, 'Provider entitlement code was already redeemed.');
     const expiryCap = paidInviteExpiryCap(now, row.expires_at);
     const redeemable = await env.ACADEMY_DB.prepare(
-        'UPDATE invites SET expires_at = CASE WHEN expires_at IS NULL OR expires_at > ?1 THEN ?1 ELSE expires_at END '
-        + 'WHERE id = ?2 AND revoked_at IS NULL '
-        + 'AND uses_remaining > 0 AND (expires_at IS NULL OR expires_at > ?3) RETURNING id',
-    ).bind(expiryCap, row.invite_id, now).first<{ id: string }>();
+        'UPDATE invites SET expires_at = ?1 WHERE id = ?2 '
+        + 'AND kind = \'paid\' AND revoked_at IS NULL AND uses_remaining > 0 RETURNING id',
+    ).bind(expiryCap, row.invite_id).first<{ id: string }>();
     if (!redeemable) throw new HttpError(409, 'Provider entitlement code is no longer redeemable.');
     return jsonResponse({
         provider,
@@ -114,7 +122,7 @@ export async function handleAdminPaymentCode(request: Request, env: Env, now: nu
  * useful only when its SHA-256 commitment arrived inside a verified payment.
  */
 export async function handlePaymentClaim(request: Request, env: Env, now: number): Promise<Response> {
-    await requireIngress(request, env);
+    await requirePaymentService(request, env);
     const body = await readJsonBody(request, 2048);
     if (Object.keys(body).some(key => !['provider', 'transactionReference', 'claimToken'].includes(key))) {
         throw new HttpError(400, 'Payment claim contains unknown fields.');
@@ -307,6 +315,29 @@ async function repairInviteProjection(env: Env, purchaseId: string, now: number)
     ]);
 }
 
+async function grantResponse(
+    env: Env,
+    purchaseId: string,
+    occurredAt: number,
+    now: number,
+    result: 'applied' | 'duplicate',
+): Promise<Response> {
+    await repairInviteProjection(env, purchaseId, now);
+    const delivery = await projectPaymentDelivery(env, purchaseId, occurredAt, now);
+    if (
+        delivery.deliveryStatus === 'expired'
+        || delivery.deliveryStatus === 'redeemed'
+        || delivery.deliveryStatus === 'revoked'
+        || delivery.deliveryStatus === 'stale'
+    ) {
+        if (result === 'duplicate' || delivery.deliveryStatus === 'redeemed') {
+            return jsonResponse({ received: true, [result]: true, deliveryStatus: delivery.deliveryStatus });
+        }
+        throw new HttpError(500, 'Paid invite projection is not redeemable.');
+    }
+    return jsonResponse({ received: true, [result]: true, ...delivery });
+}
+
 function paidInviteExpiryCap(now: number, entitlementExpiresAt: number | null): number {
     return Math.min(now + CODE_TTL_MS, entitlementExpiresAt ?? Number.MAX_SAFE_INTEGER);
 }
@@ -388,7 +419,7 @@ function validateMembershipShape(
     if (provider !== 'patreon' || transaction) {
         throw new HttpError(422, 'Membership events are Patreon state, not charge transactions.');
     }
-    if (eventType === 'membership.active' && (!entitlement || entitlement.expiresAt === null)) {
+    if (eventType === 'membership.active' && !entitlement) {
         throw new HttpError(422, 'Active membership expiry is required.');
     }
 }
@@ -481,8 +512,8 @@ function readEntitlement(value: unknown, occurredAt: number): NonNullable<Ingres
     if (!isRecord(value) || Object.keys(value).some(key => !['expiresAt', 'qualifyingAmountMinor'].includes(key))) {
         throw new HttpError(400, 'Payment entitlement is malformed.');
     }
-    const expiresAt = value.expiresAt === null ? null : readTimestamp(value.expiresAt, 'expiresAt');
-    if (expiresAt !== null && expiresAt <= occurredAt) throw new HttpError(422, 'Entitlement expiry must follow the event.');
+    const expiresAt = readTimestamp(value.expiresAt, 'expiresAt');
+    if (expiresAt <= occurredAt) throw new HttpError(422, 'Entitlement expiry must follow the event.');
     const qualifyingAmountMinor = value.qualifyingAmountMinor;
     if (!Number.isSafeInteger(qualifyingAmountMinor) || (qualifyingAmountMinor as number) <= 0) {
         throw new HttpError(422, 'Membership amount must be a positive whole minor-unit value.');
@@ -514,15 +545,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 async function sourceHash(env: Env, provider: Provider, kind: string, reference: string): Promise<string> {
     return hmacSha256Hex(env.ACADEMY_INVITE_HMAC_KEY, `payment:${provider}:${kind}:${reference}`);
-}
-
-async function requireIngress(request: Request, env: Env): Promise<void> {
-    const configured = env.PAYMENT_INGRESS_TOKEN ?? '';
-    const header = request.headers.get('authorization') ?? '';
-    const supplied = header.startsWith('Bearer ') ? header.slice(7).trim() : '';
-    if (!configured || !supplied || !(await timingSafeEqual(supplied, configured))) {
-        throw new HttpError(401, 'Payment ingress authorization required.');
-    }
 }
 
 interface EntitlementLookup {

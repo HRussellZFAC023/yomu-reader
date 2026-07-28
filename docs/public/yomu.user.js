@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.8.23
+// @version 1.8.24
 // @author Henry Russell
 // @description Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and a study page.
 // @license MIT
@@ -17,7 +17,7 @@
 // @require https://yomureader.com/greasyfork/yomu-kanji-study.d189c7a03196.user.js#sha256=0YnHoDGWDZa5WdJQ67KCh0QL5hUYyZA5xGKYoR2wIxU=
 // @require https://yomureader.com/greasyfork/yomu-ocr-manga.aa2be83f504c.user.js#sha256=qivoP1BMw7IJM1z+qxvGmfAhQr6pOPeK2qlUL2E5QbA=
 // @require https://yomureader.com/greasyfork/yomu-ui-copy.a7ff2d0c0862.user.js#sha256=p/8tDAhiboQDp4roSyAuK2SNnwnFO5b2B3rJmMIgcAA=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.294187d7d9e9.user.js#sha256=KUGH19nppEFQdd7aIMgScIChua65lqUfypkZb/nyWzA=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.1b9d350d8a03.user.js#sha256=G501DYoDlSYN19JAOyN+/+jcTXKz28u5PgiXZljUP3I=
 // @require https://yomureader.com/greasyfork/yomu-bunpro.58f6ca7a2ced.user.js#sha256=WPbKeiztniDHv2AxDFRAkHRXISD8nEvMZvGn+XApDMY=
 // @require https://yomureader.com/greasyfork/yomu-jpdb.c48570de51b9.user.js#sha256=xIVw3lG50zihCSXrEmPg6LFcyZeTh5wTh22E/rxauBM=
 // @require https://yomureader.com/greasyfork/yomu-jiten.323e81dde85b.user.js#sha256=Mj6B3ehbH1eazHBybrlkaJHIVPlb9T5vfblXPTmphQ8=
@@ -30752,8 +30752,8 @@ function collapseWhitespace(value) {
   return value.replace(/\/\*[\s\S]*?\*\//gu, " ").replace(/\s+/gu, " ").trim();
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.23"}`;
-const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.23"}`;
+const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.24"}`;
+const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.24"}`;
 const READER_CSS_CACHE_KEY = "yomu:reader-css-cache:v3";
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
@@ -30896,7 +30896,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.8.23"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.8.24"}`;
   } catch {
   return null;
   }

@@ -51,6 +51,24 @@ export interface AcademyPaymentClaim {
   readonly claimToken: string;
 }
 
+export type AcademyPaymentDeliveryStatus =
+  | "pending"
+  | "leased"
+  | "retry"
+  | "email_accepted"
+  | "manual_required"
+  | "not_applicable"
+  | "expired"
+  | "redeemed"
+  | "revoked"
+  | "stale";
+
+export interface AcademyPaymentIngressResult {
+  readonly outcome: "applied" | "duplicate" | "stale";
+  readonly deliveryStatus: AcademyPaymentDeliveryStatus;
+  readonly deliveryId: string | null;
+}
+
 /**
  * The bridge fails closed until both the private Service binding and its
  * independent bearer credential are configured. Provider handlers call this
@@ -59,8 +77,8 @@ export interface AcademyPaymentClaim {
 export async function forwardAcademyPayment(
   env: AcademyBridgeEnv,
   envelope: AcademyPaymentEnvelope | null,
-): Promise<"irrelevant" | "accepted"> {
-  if (!envelope) return "irrelevant";
+): Promise<AcademyPaymentIngressResult | null> {
+  if (!envelope) return null;
   const service = env.ACADEMY_PAYMENT_INGRESS;
   const token = env.PAYMENT_INGRESS_TOKEN?.trim();
   if (!service || !token) throw new Error("Academy payment ingestion is not configured.");
@@ -85,16 +103,17 @@ export async function forwardAcademyPayment(
   }
 
   const result = await response.json().catch(() => null);
-  if (response.status === 202 && isStaleIngressResult(result)) {
+  const parsedResult = parseIngressResult(response.status, result);
+  if (parsedResult?.outcome === "stale") {
     console.warn(JSON.stringify({
       event: "yomu_support_academy_ingress_stale",
       provider: envelope.provider,
       status: response.status,
-      reason: result.reason,
+      reason: "stale",
     }));
-    return "accepted";
+    return parsedResult;
   }
-  if (response.status === 200 && isAcceptedIngressResult(result)) return "accepted";
+  if (parsedResult) return parsedResult;
 
   console.error(JSON.stringify({
     event: "yomu_support_academy_ingress_rejected",
@@ -123,9 +142,34 @@ export async function claimAcademyPayment(
   }));
 }
 
-function isAcceptedIngressResult(value: unknown): boolean {
-  if (!isRecord(value) || value.received !== true) return false;
-  return value.applied === true || value.duplicate === true;
+function parseIngressResult(status: number, value: unknown): AcademyPaymentIngressResult | null {
+  if (!isRecord(value) || value.received !== true || "code" in value) return null;
+  if (status === 202 && isStaleIngressResult(value)) {
+    return { outcome: "stale", deliveryStatus: "stale", deliveryId: null };
+  }
+  if (status !== 200) return null;
+
+  const outcome = value.applied === true && value.duplicate !== true
+    ? "applied"
+    : value.duplicate === true && value.applied !== true
+      ? "duplicate"
+      : null;
+  const deliveryStatus = readDeliveryStatus(value.deliveryStatus);
+  if (!outcome || !deliveryStatus) return null;
+
+  const needsDeliveryId = new Set<AcademyPaymentDeliveryStatus>([
+    "pending",
+    "leased",
+    "retry",
+    "email_accepted",
+    "manual_required",
+  ]).has(deliveryStatus);
+  const deliveryId = typeof value.deliveryId === "string"
+    && /^paydel_[a-f0-9]{40}$/u.test(value.deliveryId)
+    ? value.deliveryId
+    : null;
+  if (needsDeliveryId !== (deliveryId !== null)) return null;
+  return { outcome, deliveryStatus, deliveryId };
 }
 
 function isStaleIngressResult(value: unknown): value is { readonly reason: "stale" } {
@@ -133,6 +177,22 @@ function isStaleIngressResult(value: unknown): value is { readonly reason: "stal
     && value.received === true
     && value.applied === false
     && value.reason === "stale";
+}
+
+function readDeliveryStatus(value: unknown): AcademyPaymentDeliveryStatus | null {
+  if (
+    value === "pending"
+    || value === "leased"
+    || value === "retry"
+    || value === "email_accepted"
+    || value === "manual_required"
+    || value === "not_applicable"
+    || value === "expired"
+    || value === "redeemed"
+    || value === "revoked"
+    || value === "stale"
+  ) return value;
+  return null;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

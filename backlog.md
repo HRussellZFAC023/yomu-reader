@@ -249,11 +249,12 @@ this thread are recorded here.
       `headwordLanguages` instead. Cross-check against the required shelf in memory
       `yomu-recommended-dictionary-set`, whose known gaps are Kanjium pitch and WTY JA-JA offered but not
       hosted, 13 dead Drive source URLs, and `languages.json` falsely claiming all 32 ready.
-- [ ] **A22.2 — Ko-fi/Patreon codes were never delivered, because no bridge exists.**
-      `workers/yomu-support` counts donations and `workers/yomu-academy` mints codes (Stripe only). There
-      is **no webhook bridge and no email sender wired at all**. That makes the Membership work I just
-      shipped a promise the backend cannot yet keep for Ko-fi or Patreon buyers — the page must not
-      claim instant access until this is built. Suggested skill: `cloudflare-email-service`.
+- [x] **A22.2 — CORRECTED 2026-07-28: the payment bridge existed; automatic provider delivery did not.**
+      Code and history review found the signed webhook bridge, deterministic paid invites, and
+      owner/admin invite endpoints already in place. Ko-fi and Patreon could mint an entitlement and
+      code, but neither path sent that code to the payer. The fix sends the code to the verified
+      provider email, keeps only opaque delivery state in Academy D1, and raises an alert for
+      missing or stalled delivery. A missing provider email enters manual recovery.
 - [ ] **A22.3 — `U42`: the Study and Academy account redesign is ONE job**, per the unmerged
       `backlog-reconcile-20260727`. It sits across both threads' territory; whoever takes it announces it.
       Related: A5's live 401 on `/academy/api/{account,session}` blocks both of us.
@@ -292,16 +293,15 @@ website and extensions is more important"* (E2). Academy is last and stays postp
 
 ## T0 — People paid and got nothing  [the only thing above bug-fixing]
 
-- [ ] **U52 / U47 / U55 — sign-up and donation do not deliver an Academy code.** Signing up delivers
-      nothing at all; some donors received no key. Probable root cause is recorded and unverified:
-      entitlement binds to the **Google** identity (`linkGoogleSubject`,
-      `workers/yomu-academy/src/oauth.ts`) while money arrives through Patreon/Ko-fi/Stripe carrying
-      whatever email *that* platform holds. **Cheapest first move: take one donor known to have
-      received nothing and compare the donation email to their Google email.** One case confirms or
-      kills it. Then: issue the code through the payment platform's own channel at the moment of
-      payment; redeem rather than match; owner-grantable codes; a detector so a completed payment with
-      no issued code raises an alert instead of failing silently. **Still in scope despite the Academy
-      postponement — the owner said so explicitly.**
+- [ ] **U52 / U47 / U55 — PARTIALLY REPRODUCIBLE; payment delivery fixed 2026-07-28.** Plain Google or
+      Reader signup creates an account; it does not purchase Academy access. The email-matching theory
+      was refuted: provider identities are HMACed, and the paid code binds to a Google account only
+      when its holder redeems it. Live aggregate evidence before the fix showed one active paid
+      Patreon member, one code minted, and zero redemptions. The existing bridge and minting machinery
+      had worked; automatic delivery had not. Stripe, Ko-fi, and Patreon now send through the
+      verified provider email, Stripe keeps its same-browser claim as a fallback, and a PII-free
+      ledger alerts on missing delivery. Historical unredeemed rows and missing-recipient cases
+      remain visible for owner/admin recovery.
 - [ ] **U48 — sign-in, in the leg nobody has tested.** The 2026-07-26 investigation proved only that
       everything *up to* Google consent is healthy (36/36 tests, worker live, OAuth start returns a
       valid Google redirect); it could not test anything after consent because completing consent
@@ -1552,21 +1552,26 @@ explicit list of targets with NO usable source, so the affordance can degrade vi
 [owner 2026-07-26] "for academy - keep it gated by donation but also have codes I can give them.
 Also for some of our current donators they didn't even get keys despite donating."
 
-Corrects A8's note: the donation gate is INTENTIONAL and stays. Two things are missing.
+Corrects A8's note: the donation gate is INTENTIONAL and stays. Verification on 2026-07-28 found
+that both supporting mechanisms already existed, while automatic Ko-fi/Patreon delivery did not.
 
 **a) OWNER-GRANTABLE CODES.** Henry needs to hand access to people directly — he has already promised
 it publicly in Discord ("anyone in the discord I will give access to the academy", and to the first
-Patreon subscriber "it will give you access to the academy once it's ready"). Needs a way to mint
-and issue codes outside the donation flow, and to see who holds what.
+Patreon subscriber "it will give you access to the academy once it's ready"). **Already present:**
+the admin invite endpoint mints owner-issued codes, and the admin payment-code endpoint recovers the
+deterministic code for a verified provider reference. Provider references stay admin-only.
 
-**b) BUG — PAYING DONORS RECEIVED NO KEY.** Some people donated and never got access. That is the
-worst class of bug in the product: they paid, and nothing arrived. Investigate the donation →
-entitlement → code-issue path end to end (`support.yomureader.com/donate`, the entitlement gate at
-`/academy/`, migrations `0007_invite_account_requirement` / `0008_all_invites_require_account`), find
-where issuance drops, and **reconcile retroactively** — identify every donor without a key and issue
-one. Then add a check so a completed donation without an issued key is detectable rather than silent.
-Note the related unknown from A8: the leg AFTER Google consent is untested, and that is exactly where
-account linking and entitlement would fail quietly.
+**b) BUG — PAYING DONORS RECEIVED NO KEY.** **PARTIALLY REPRODUCIBLE; delivery fixed 2026-07-28.**
+The live aggregate showed one active Patreon entitlement with one code minted and zero redemptions.
+The canonical payment bridge had succeeded. Ko-fi and Patreon had no automatic delivery step, while
+Stripe required the paying browser to keep its claim cookie and return through `/claim`.
+
+The provider webhook now sends the code to the verified payment email. Academy D1 keeps the opaque
+delivery id, state, and attempts; it does not keep the recipient or redeemable code.
+Missing recipients enter a manual-required state and the scheduled audit reports count-only alerts.
+Historical unredeemed purchases enter the same recovery queue. Codes retain the existing 30-day
+redemption window; the redeemed entitlement is permanent. Owner/admin recovery remains available
+when a provider cannot supply an address.
 
 Also still true and worth fixing alongside: **there is no account control on `/academy/` or `/study/`
 at all** (U42) — so even a donor with a valid key has nowhere to sign in on the surfaces that need it.
@@ -1678,31 +1683,24 @@ Signed in with Google, the account control says **"Signed in as Learner"** and t
 falling back to a generic role label rather than the Google account's name or email. After signing in
 with Google, a user should see themselves — this alone makes a working sign-in feel broken.
 
-## U52. USERS WHO SIGNED UP ARE NOT RECEIVING CODES — BLOCKER, fix before anything else
+## U52. USERS WHO SIGNED UP ARE NOT RECEIVING CODES — PARTIALLY REPRODUCIBLE; PAYMENT DELIVERY FIXED
 [owner 2026-07-26] "also users are not getting codes even if they did sign up"
 
-Broader than U47 (which was donors specifically). **Signing up does not deliver a code at all.**
-So the funnel is: user signs up → receives nothing → cannot access Academy → the product looks dead.
-The owner's own screenshot corroborates it: signed in, and `Academy access: No paid code`.
+**Verification 2026-07-28:** the ticket mixed two flows. Plain Google or Reader signup creates an
+account. A verified payment or owner-issued invite creates Academy access. Seeing `No paid code`
+after signup alone does not prove that payment issuance failed.
 
-This is the top of the queue, above every UX and multilanguage item. Sequence:
-1. **Trace the issuance path end to end** — sign-up/donation → entitlement → code minted → code
-   DELIVERED (email? on-screen? Patreon message?). Establish which step drops it, and whether a code
-   is even generated. Note nobody has confirmed the delivery CHANNEL exists — when the owner asked
-   the first Patreon subscriber "what happened when you subscribed on patreon, did it give you an
-   email or anything?", the answer was only "Yes I got it… nothing personalized". That is not
-   confirmation a code was sent.
-2. **Reconcile retroactively** — list every account that signed up or donated and has no code, and
-   issue one. These are real people who already paid or joined.
-3. **Add owner-grantable codes** (U47a) so Henry can hand access out directly, as he has already
-   promised publicly in Discord.
-4. **Add a detector** — a completed sign-up or donation with no issued code must raise an alert, not
-   fail silently. This has now gone unnoticed long enough to affect multiple users.
-5. **Make it visible in the UI** — `Academy access: No paid code` tells the user nothing about what
-   to do. It should say how to get one, and whether one is already owed to them.
+The paid case did reproduce at the delivery boundary. Live D1 aggregates showed one active paid
+Patreon member, one code minted, and zero redemptions. Current code and history contradicted the
+recorded cause: a signed webhook bridge, permanent provider entitlement, deterministic code, and
+owner/admin grant path already existed. No code path joins a payment email to a Google email.
 
-Related and probably the same root cause: U47 (donors with no keys), U48 (post-consent leg untested —
-`handleGoogleCallback` → `linkGoogleSubject` → entitlement is exactly where issuance would sit).
+The fix keeps those identities separate. Academy HMACs the provider subject, creates one redeemable
+code, and binds it to the Google account that later redeems it. Stripe, Ko-fi, and Patreon use the
+verified provider email as a delivery address only. Stripe keeps the same-browser `/claim` flow as a
+fallback. A leased, PII-free delivery ledger prevents concurrent sends and a scheduled audit reports
+pending, retry, stale, or manual-required rows. The historical unredeemed row remains recoverable
+through the owner/admin path until delivery and redemption are observed.
 
 ## U53. BACK BUTTON DOES NOT WORK on the Academy profile/sync view
 [owner 2026-07-26] Browser Back from `https://yomureader.com/academy/?view=profile-sync` does not
@@ -1744,30 +1742,19 @@ localized surface, and `tests/reader/settings-form/07-localization-mining-japane
 any English leaking into the ja rendering. Doing it half-way would leave the tree red. It needs a
 session with room to run the localization gate after each edit.
 
-## U55. DONATION EMAIL ≠ GOOGLE EMAIL — the probable ROOT CAUSE of U47/U52
+## U55. DONATION EMAIL ≠ GOOGLE EMAIL — ROOT-CAUSE THEORY REFUTED
 [owner 2026-07-26] "also what if they donate with a different email to their gmail"
 
-**This is very likely why donors and sign-ups get no code.** Entitlement is bound to the GOOGLE
-identity (`linkGoogleSubject`, `workers/yomu-academy/src/oauth.ts:154-160`), while the money arrives
-through Patreon / Ko-fi / Stripe carrying **whatever email that platform holds**. Patreon accounts are
-routinely not Gmail; Stripe uses the card's billing email; Ko-fi its own. If issuance matches on
-email, every mismatched donor silently gets nothing — which is exactly the reported symptom, and it
-explains why it affects *some* donors and not others.
+The concern was reasonable, but the implementation does not match accounts by email. Provider
+subjects and transactions cross the private bridge, then Academy stores HMACed identifiers. The
+deterministic code becomes account access only when its holder redeems it after Google sign-in.
+A different Google email therefore cannot block entitlement creation or redemption.
 
-Verify first (cheap): take a donor known to have received nothing and compare the donation email
-against their Google account email. One case confirms or kills the theory.
-
-Fix direction — do NOT keep email as the join key:
-1. **Issue the code to the PAYMENT platform's own channel** — the Patreon/Ko-fi/Stripe receipt or DM,
-   at the moment of payment. Then it reaches them regardless of which email they use, and does not
-   depend on a later Google link. This alone fixes the funnel.
-2. **Redeem, don't match.** The user activates the code against whichever Google account they sign in
-   with. Entitlement then belongs to the account that redeemed it, and email never has to agree.
-3. **Fallback for the already-affected:** owner-grantable codes (U47a) plus a way to look up a
-   donation by email OR platform handle and issue a code manually.
-4. Support **multiple emails per account** so a donation email can be attached after the fact.
-Note the same class of problem exists for Patreon-tier → entitlement generally: no linkage exists
-between "supporter on Patreon" and "account in Yomu".
+The provider email now serves one purpose: the support Worker sends the code there after a signed
+webhook is accepted. The address and code stay out of the delivery ledger. If the provider omits or
+supplies an invalid address, the row enters manual recovery and raises a PII-free alert. Henry can
+recover the deterministic payment code by admin-only provider reference or issue a separate owner
+code. Multiple-email account matching is not part of this fix because no email join is needed.
 
 ## U56. SUPPORT USERNAMES
 [owner 2026-07-26] "and can you support usernames"

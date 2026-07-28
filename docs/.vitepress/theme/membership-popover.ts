@@ -29,15 +29,16 @@ interface MembershipMethod {
     detail: string;
 }
 
-/**
- * Ko-fi and Patreon are the two that work today. Card payment is not wired yet,
- * so it routes to Help rather than a dead checkout — saying so is better than a
- * button that fails after someone has decided to pay.
- */
+/** Each option hands off to the same live payment destination as /membership. */
 const METHODS: readonly MembershipMethod[] = Object.freeze([
     { id: 'kofi', name: 'Ko-fi', href: 'https://ko-fi.com/yomureader', detail: 'One-off or monthly.' },
     { id: 'patreon', name: 'Patreon', href: 'https://www.patreon.com/yomureader', detail: 'Monthly.' },
-    { id: 'card', name: 'Card', href: '/support', detail: 'Being set up. Ask and it gets sorted.' },
+    {
+        id: 'card',
+        name: 'Card',
+        href: 'https://support.yomureader.com/donate',
+        detail: 'One-off in GBP, USD, EUR, CAD, AUD or JPY.',
+    },
 ]);
 
 let dialog: HTMLElement | undefined;

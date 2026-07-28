@@ -584,7 +584,10 @@ describe("Yomu support Worker", () => {
       { waitUntil: vi.fn() },
     );
     expect(claimed.status).toBe(200);
-    await expect(claimed.text()).resolves.toContain("YOMU-PAID-CODE");
+    const claimText = await claimed.text();
+    expect(claimText).toContain("Your よむ Academy code is: YOMU-PAID-CODE");
+    expect(claimText).toContain("Enter it within 30 days of payment.");
+    expect(claimText).not.toContain("permanent");
     expect(claimed.headers.get("set-cookie")).toBeNull();
     await expect(academy.requests[0]!.json()).resolves.toEqual({
       provider: "stripe",
@@ -683,6 +686,92 @@ describe("Yomu support Worker", () => {
       donationGoalGbp: 10,
       goalMet: false,
     });
+  });
+
+  it("emails a verified Stripe recipient exactly once across a duplicate webhook", async () => {
+    const db = mockSupportDb();
+    const academy = mockDeliverableAcademy();
+    const email = mockEmailBinding();
+    const timestamp = Math.floor(Date.now() / 1000);
+    const payload = stripeCheckoutEventPayload({
+      eventId: "evt_delivery_once",
+      sessionId: "cs_live_delivery_once",
+      timestamp,
+      customerDetailsEmail: "donor@example.test",
+    });
+    const request = await signedSupportStripeWebhook(payload, "whsec_test", timestamp);
+    const env = withAcademyIngress({
+      STRIPE_WEBHOOK_SECRET: "whsec_test",
+      SUPPORT_DB: db,
+      ACADEMY_CODE_EMAIL: email,
+    }, academy);
+
+    expect((await SupportWorker.fetch(request.clone(), env, { waitUntil: vi.fn() })).status).toBe(200);
+    expect((await SupportWorker.fetch(request.clone(), env, { waitUntil: vi.fn() })).status).toBe(200);
+
+    expect(email.send).toHaveBeenCalledTimes(1);
+    expect(email.messages[0]).toMatchObject({
+      to: "donor@example.test",
+      subject: "Your よむ Academy code / よむ Academy コード",
+    });
+    expect(email.messages[0]!.text).toContain(academy.code);
+    expect(academy.state()).toBe("email_accepted");
+    expect(academy.ingressRequests).toHaveLength(2);
+    expect(db.rows).toHaveLength(1);
+  });
+
+  it("does not trust Stripe customer_email or a malformed customer-details address", async () => {
+    const db = mockSupportDb();
+    const academy = mockDeliverableAcademy();
+    const email = mockEmailBinding();
+    const timestamp = Math.floor(Date.now() / 1000);
+    const payload = stripeCheckoutEventPayload({
+      eventId: "evt_delivery_manual",
+      sessionId: "cs_live_delivery_manual",
+      timestamp,
+      customerDetailsEmail: "Donor <donor@example.test>",
+      customerEmail: "fallback@example.test",
+    });
+    const request = await signedSupportStripeWebhook(payload, "whsec_test", timestamp);
+    const response = await SupportWorker.fetch(request, withAcademyIngress({
+      STRIPE_WEBHOOK_SECRET: "whsec_test",
+      SUPPORT_DB: db,
+      ACADEMY_CODE_EMAIL: email,
+      ACADEMY_DELIVERY_ALERT_EMAIL: "owner@example.test",
+    }, academy), { waitUntil: vi.fn() });
+
+    expect(response.status).toBe(200);
+    expect(email.send).toHaveBeenCalledTimes(1);
+    expect(email.messages[0]?.to).toBe("owner@example.test");
+    expect(email.messages[0]?.to).not.toBe("fallback@example.test");
+    expect(academy.state()).toBe("manual_required");
+    expect(db.rows).toHaveLength(1);
+  });
+
+  it("returns 5xx for a transient email failure so Stripe can retry", async () => {
+    const db = mockSupportDb();
+    const academy = mockDeliverableAcademy();
+    const email = mockEmailBinding(async () => {
+      throw Object.assign(new Error("temporary"), { code: "E_INTERNAL_SERVER_ERROR" });
+    });
+    const timestamp = Math.floor(Date.now() / 1000);
+    const payload = stripeCheckoutEventPayload({
+      eventId: "evt_delivery_retry",
+      sessionId: "cs_live_delivery_retry",
+      timestamp,
+      customerDetailsEmail: "donor@example.test",
+    });
+    const request = await signedSupportStripeWebhook(payload, "whsec_test", timestamp);
+    const response = await SupportWorker.fetch(request, withAcademyIngress({
+      STRIPE_WEBHOOK_SECRET: "whsec_test",
+      SUPPORT_DB: db,
+      ACADEMY_CODE_EMAIL: email,
+    }, academy), { waitUntil: vi.fn() });
+
+    expect(response.status).toBe(500);
+    expect(email.send).toHaveBeenCalledTimes(1);
+    expect(academy.state()).toBe("retry");
+    expect(db.rows).toHaveLength(0);
   });
 
   it("rejects Stripe webhooks with invalid signatures before recording", async () => {
@@ -903,9 +992,15 @@ describe("Yomu support Worker", () => {
     warning.mockRestore();
   });
 
-  it("rejects malformed success bodies from Academy before support accounting", async () => {
+  it("rejects an Academy ingress response that exposes a delivery code", async () => {
     const db = mockSupportDb();
-    const academy = mockAcademyIngress(() => Response.json({ received: true }, { status: 202 }));
+    const academy = mockAcademyIngress(() => Response.json({
+      received: true,
+      applied: true,
+      deliveryStatus: "pending",
+      deliveryId: `paydel_${"b".repeat(40)}`,
+      code: "ABCD-EFGH-IJKL-MNOP",
+    }));
     const timestamp = Math.floor(Date.now() / 1000);
     const response = await postStripeCheckoutEvent({
         eventId: "evt_bad_academy_ack",
@@ -981,6 +1076,36 @@ describe("Yomu support Worker", () => {
     expect(db.rows[0]).toMatchObject({ provider: "kofi", id: "message-42", amountMinor: 100 });
   });
 
+  it("uses only Ko-fi's verified top-level email for code delivery", async () => {
+    const db = mockSupportDb();
+    const academy = mockDeliverableAcademy();
+    const email = mockEmailBinding();
+    const donationPayload = JSON.stringify({
+      verification_token: "kofi_secret",
+      message_id: "message-email",
+      transaction_id: "transaction-email",
+      timestamp: "2026-07-20T01:02:03.000Z",
+      type: "Donation",
+      amount: "5.00",
+      currency: "GBP",
+      email: "kofi-donor@example.test",
+      customer: { email: "nested@example.test" },
+    });
+    const response = await SupportWorker.fetch(
+      supportKofiWebhook(donationPayload),
+      withAcademyIngress({
+        KOFI_WEBHOOK_SECRET: "kofi_secret",
+        SUPPORT_DB: db,
+        ACADEMY_CODE_EMAIL: email,
+      }, academy),
+      { waitUntil: vi.fn() },
+    );
+
+    expect(response.status).toBe(200);
+    expect(email.send).toHaveBeenCalledTimes(1);
+    expect(email.messages[0]?.to).toBe("kofi-donor@example.test");
+  });
+
   it("acknowledges a signed Patreon test event without granting or recording it", async () => {
     const db = mockSupportDb();
     const academy = mockAcademyIngress();
@@ -1026,6 +1151,7 @@ describe("Yomu support Worker", () => {
         attributes: {
           patron_status: "active_patron",
           currently_entitled_amount_cents: 500,
+          campaign_lifetime_support_cents: 500,
           last_charge_date: "2026-07-01T00:00:00.000Z",
           next_charge_date: "2026-08-01T00:00:00.000Z",
         },
@@ -1074,6 +1200,7 @@ describe("Yomu support Worker", () => {
         attributes: {
           patron_status: "active_patron",
           amount_cents: 500,
+          campaign_lifetime_support_cents: 500,
           last_charge_date: "2026-07-20T02:00:00.000Z",
           next_charge_date: "2026-08-20T02:00:00.000Z",
         },
@@ -1086,6 +1213,136 @@ describe("Yomu support Worker", () => {
     expect(db.rows).toHaveLength(1);
     expect(db.rows[0]).toMatchObject({ provider: "patreon", amountMinor: 500 });
     expect(academy.fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([
+    {
+      label: "free trial",
+      attributes: {
+        currently_entitled_amount_cents: 500,
+        campaign_lifetime_support_cents: 500,
+        is_free_trial: true,
+      },
+    },
+    {
+      label: "future pledge without paid history",
+      attributes: {
+        will_pay_amount_cents: 500,
+        campaign_lifetime_support_cents: 0,
+        is_free_trial: false,
+      },
+    },
+  ])("does not grant Academy access for a Patreon $label", async ({ attributes }) => {
+    const db = mockSupportDb();
+    const academy = mockAcademyIngress();
+    const payload = JSON.stringify({
+      data: {
+        id: `member-${attributes.is_free_trial ? "trial" : "future"}`,
+        attributes: {
+          patron_status: "active_patron",
+          ...attributes,
+          last_charge_date: "2026-07-20T02:00:00.000Z",
+          next_charge_date: "2026-08-20T02:00:00.000Z",
+        },
+      },
+    });
+
+    const response = await postPatreonEvent(payload, "members:pledge:create", db, academy);
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ received: true, recorded: false });
+    expect(academy.fetch).not.toHaveBeenCalled();
+    expect(db.rows).toHaveLength(0);
+  });
+
+  it("uses only the signed Patreon member attribute email for code delivery", async () => {
+    const db = mockSupportDb();
+    const academy = mockDeliverableAcademy();
+    const email = mockEmailBinding();
+    const payload = JSON.stringify({
+      data: {
+        id: "member-email",
+        attributes: {
+          patron_status: "active_patron",
+          email: "patron@example.test",
+          amount_cents: 500,
+          campaign_lifetime_support_cents: 500,
+          last_charge_date: "2026-07-20T02:00:00.000Z",
+          next_charge_date: "2026-08-20T02:00:00.000Z",
+        },
+      },
+      included: [{ type: "user", attributes: { email: "included@example.test" } }],
+    });
+    const request = await signedSupportPatreonWebhook(payload, "members:pledge:create", "patreon_secret");
+    const response = await SupportWorker.fetch(request, withAcademyIngress({
+      PATREON_WEBHOOK_SECRET: "patreon_secret",
+      SUPPORT_DB: db,
+      ACADEMY_CODE_EMAIL: email,
+    }, academy), { waitUntil: vi.fn() });
+
+    expect(response.status).toBe(200);
+    expect(email.send).toHaveBeenCalledTimes(1);
+    expect(email.messages[0]?.to).toBe("patron@example.test");
+    await expect(academy.ingressRequests[0]!.json()).resolves.toMatchObject({
+      entitlement: {
+        expiresAt: Date.parse("2026-08-20T02:00:00.000Z"),
+        qualifyingAmountMinor: 500,
+      },
+    });
+  });
+
+  it("does not use an included Patreon user email as a delivery fallback", async () => {
+    const db = mockSupportDb();
+    const academy = mockDeliverableAcademy();
+    const email = mockEmailBinding();
+    const payload = JSON.stringify({
+      data: {
+        id: "member-no-verified-email",
+        attributes: {
+          patron_status: "active_patron",
+          amount_cents: 500,
+          campaign_lifetime_support_cents: 500,
+          last_charge_date: "2026-07-20T02:00:00.000Z",
+          next_charge_date: "2026-08-20T02:00:00.000Z",
+        },
+      },
+      included: [{ type: "user", attributes: { email: "included@example.test" } }],
+    });
+    const request = await signedSupportPatreonWebhook(payload, "members:pledge:create", "patreon_secret");
+    const response = await SupportWorker.fetch(request, withAcademyIngress({
+      PATREON_WEBHOOK_SECRET: "patreon_secret",
+      SUPPORT_DB: db,
+      ACADEMY_CODE_EMAIL: email,
+      ACADEMY_DELIVERY_ALERT_EMAIL: "owner@example.test",
+    }, academy), { waitUntil: vi.fn() });
+
+    expect(response.status).toBe(200);
+    expect(email.send).toHaveBeenCalledTimes(1);
+    expect(email.messages[0]?.to).toBe("owner@example.test");
+    expect(email.messages[0]?.to).not.toBe("included@example.test");
+    expect(academy.state()).toBe("manual_required");
+  });
+
+  it("runs the stale-delivery detector from the scheduled handler", async () => {
+    const academy = mockDeliverableAcademy({ includePendingDelivery: true });
+    const email = mockEmailBinding();
+    const pending: Promise<unknown>[] = [];
+
+    await SupportWorker.scheduled(
+      { scheduledTime: Date.now(), cron: "*/15 * * * *" },
+      withAcademyIngress({
+        ACADEMY_CODE_EMAIL: email,
+        ACADEMY_DELIVERY_ALERT_EMAIL: "owner@example.test",
+      }, academy),
+      { waitUntil: promise => pending.push(promise) },
+    );
+    await Promise.all(pending);
+
+    expect(email.messages.map(message => message.subject)).toEqual([
+      "よむ Academy code needs manual delivery / コードの手動送信",
+    ]);
+    expect(email.messages.every(message => message.to === "owner@example.test")).toBe(true);
+    expect(academy.state()).toBe("manual_required");
   });
 
   it("forwards Patreon revocation state even when there is no cash amount to count", async () => {
@@ -1136,8 +1393,105 @@ function mockKv(initial: Record<string, string> = {}) {
   };
 }
 
+function mockEmailBinding(
+  responder: (message: {
+    to: string;
+    from: { email: string; name: string };
+    subject: string;
+    text: string;
+    html: string;
+  }) => Promise<unknown> = async () => undefined,
+) {
+  const messages: Array<{
+    to: string;
+    from: { email: string; name: string };
+    subject: string;
+    text: string;
+    html: string;
+  }> = [];
+  return {
+    messages,
+    send: vi.fn(async (message: typeof messages[number]) => {
+      messages.push(message);
+      return responder(message);
+    }),
+  };
+}
+
+function mockDeliverableAcademy(options: { includePendingDelivery?: boolean } = {}) {
+  const deliveryId = `paydel_${"a".repeat(40)}`;
+  const leaseToken = "l".repeat(43);
+  const code = "ABCD-EFGH-IJKL-MNOP";
+  const ingressRequests: Request[] = [];
+  const deliveryRequests: Request[] = [];
+  let deliveryState: "pending" | "leased" | "retry" | "email_accepted" | "manual_required" = "pending";
+  let ingressCount = 0;
+  const fetch = vi.fn(async (request: Request) => {
+    const path = new URL(request.url).pathname;
+    if (path === "/academy/internal/payment-ingress") {
+      ingressRequests.push(request.clone());
+      ingressCount += 1;
+      return Response.json({
+        received: true,
+        ...(ingressCount === 1 ? { applied: true } : { duplicate: true }),
+        deliveryStatus: deliveryState,
+        deliveryId,
+      });
+    }
+
+    deliveryRequests.push(request.clone());
+    if (path === "/academy/internal/payment-delivery-claim") {
+      if (deliveryState === "email_accepted" || deliveryState === "manual_required") {
+        return Response.json({ status: deliveryState, deliveryId });
+      }
+      if (deliveryState === "leased") {
+        return Response.json({ status: "leased", deliveryId }, { status: 202 });
+      }
+      deliveryState = "leased";
+      return Response.json({ status: "claimed", deliveryId, leaseToken, code });
+    }
+    if (path === "/academy/internal/payment-delivery-complete") {
+      const body = await request.json() as { outcome?: unknown };
+      if (
+        body.outcome !== "email_accepted"
+        && body.outcome !== "manual_required"
+        && body.outcome !== "retry"
+      ) return Response.json({ error: "bad outcome" }, { status: 422 });
+      deliveryState = body.outcome;
+      return Response.json({ status: deliveryState, deliveryId });
+    }
+    if (path === "/academy/internal/payment-delivery-pending") {
+      const now = Date.now();
+      const deliveries = options.includePendingDelivery && deliveryState !== "email_accepted"
+        ? [{
+            deliveryId,
+            provider: "stripe",
+            status: deliveryState === "leased" ? "leased" : deliveryState,
+            attemptCount: 0,
+            availableAt: now - 60 * 60_000,
+            updatedAt: now - 60 * 60_000,
+          }]
+        : [];
+      const body = await request.json() as { staleBefore: number };
+      return Response.json({ staleBefore: body.staleBefore, count: deliveries.length, deliveries });
+    }
+    return Response.json({ error: "unexpected path" }, { status: 404 });
+  });
+  return {
+    fetch,
+    ingressRequests,
+    deliveryRequests,
+    code,
+    state: () => deliveryState,
+  };
+}
+
 function mockAcademyIngress(
-  responder: (request: Request) => Response = () => Response.json({ received: true, applied: true }),
+  responder: (request: Request) => Response = () => Response.json({
+    received: true,
+    applied: true,
+    deliveryStatus: "redeemed",
+  }),
 ) {
   const requests: Request[] = [];
   return {
@@ -1149,7 +1503,10 @@ function mockAcademyIngress(
   };
 }
 
-function withAcademyIngress<T extends object>(env: T, academy: ReturnType<typeof mockAcademyIngress>) {
+function withAcademyIngress<T extends object, A extends { fetch(request: Request): Promise<Response> }>(
+  env: T,
+  academy: A,
+) {
   return {
     ...env,
     ACADEMY_PAYMENT_INGRESS: academy,
@@ -1221,6 +1578,8 @@ function stripeCheckoutEventPayload(input: {
   currency?: string;
   eventLivemode?: boolean;
   supportService?: string | null;
+  customerDetailsEmail?: string;
+  customerEmail?: string;
 }): string {
   const metadata = {
     ...(input.supportService === null ? {} : { yomu_service: input.supportService ?? "support" }),
@@ -1237,6 +1596,10 @@ function stripeCheckoutEventPayload(input: {
         amount_total: input.amountMinor ?? 500,
         currency: input.currency ?? "gbp",
         payment_status: "paid",
+        ...(input.customerDetailsEmail === undefined
+          ? {}
+          : { customer_details: { email: input.customerDetailsEmail } }),
+        ...(input.customerEmail === undefined ? {} : { customer_email: input.customerEmail }),
         ...(Object.keys(metadata).length > 0 ? { metadata } : {}),
       },
     },

@@ -19,6 +19,33 @@ and install it as the `PAYMENT_INGRESS_TOKEN` Wrangler secret on both
 private Worker-to-Worker transport; the bearer token is a second guard against
 an accidental public route.
 
+Payment delivery also needs Cloudflare Email Sending for
+`notifications.yomureader.com`. The checked-in `ACADEMY_CODE_EMAIL` binding
+allows only `academy@notifications.yomureader.com` as the sender. Enable the
+domain in the owner-supervised Cloudflare account, then confirm it appears:
+
+```bash
+npx wrangler email sending enable notifications.yomureader.com
+npx wrangler email sending list
+```
+
+Install the owner's alert destination as a secret. This address receives
+manual-delivery and stale-delivery notices:
+
+```bash
+npx wrangler secret put ACADEMY_DELIVERY_ALERT_EMAIL --config workers/yomu-support/wrangler.jsonc
+```
+
+Apply the Academy delivery schema before deploying either Worker:
+
+```bash
+npx wrangler d1 migrations apply yomu-academy --config wrangler.academy.jsonc --remote
+```
+
+The Academy delivery table contains opaque ids, status, and attempt timestamps.
+Recipient addresses and redeemable codes stay in the verified webhook request
+and outbound email.
+
 ## 0. Prerequisites (once)
 
 The `SUPPORT_KV` namespace that stores the FX-rate cache was created on
@@ -78,9 +105,8 @@ Events: `checkout.session.completed`, `checkout.session.async_payment_succeeded`
 
 Notes: Ko-fi posts `application/x-www-form-urlencoded` with a single `data`
 field (JSON). Every verified positive **GBP** donation with stable message and
-transaction IDs grants permanent Academy access. Other currencies are ignored
-(they still return `200`). Code delivery remains admin-mediated because Ko-fi
-does not return the donor to Yomu with a secret that can safely prove ownership.
+transaction IDs grants permanent Academy access. The code is sent to the
+top-level `email`. Other currencies are ignored and still return `200`.
 
 ## 3. Buy Me a Coffee (link only)
 
@@ -136,16 +162,23 @@ canonical private ingress is called.
    then deploy.
 
 Notes: Patreon signs the raw body with **HMAC-MD5** in the `X-Patreon-Signature`
-header; the Worker verifies it in constant time. The first positive active
-membership event grants permanent Academy access. Declines and deletes are
-audited but never revoke it. Only pledge-create webhooks increment the support
-income total; other membership updates are not counted as new receipts. A
-signed skeletal event from Patreon's webhook tester is acknowledged without
-granting access or recording income. Pledge
-amounts are read from
-`data.attributes.amount_cents` (falling back to
-`currently_entitled_amount_cents` / `will_pay_amount_cents`) and treated as
-GBP-equivalent minor units — keep the Patreon page currency in GBP.
+header; the Worker verifies it in constant time. Academy access requires a
+positive current entitlement, positive lifetime support, a future
+`next_charge_date`, and no free-trial flag. A future
+`will_pay_amount_cents` value is not paid evidence. Declines and deletes are
+audited but never revoke access already granted. Only pledge-create webhooks
+increment the support income total; other membership updates are not counted
+as new receipts. A signed skeletal event from Patreon's webhook tester is
+acknowledged without granting access or recording income. Pledge amounts are
+read from `data.attributes.amount_cents`, falling back to
+`currently_entitled_amount_cents`, and treated as GBP-equivalent minor units.
+Keep the Patreon page currency in GBP.
+
+The Worker sends the code to the email in the verified member payload. Patreon
+may omit that field. The payment still grants permanent access. A missing or
+invalid email records `manual_required` only after the owner notice is accepted.
+Recover the code through the admin-only payment-code route and send it through
+Patreon's member message channel.
 
 ## 6. Where each value goes (summary)
 
@@ -155,11 +188,13 @@ GBP-equivalent minor units — keep the Patreon page currency in GBP.
 | `STRIPE_WEBHOOK_SECRET` | secret | `wrangler secret put` |
 | `KOFI_WEBHOOK_SECRET` | secret | `wrangler secret put` (Ko-fi verification token) |
 | `PATREON_WEBHOOK_SECRET` | secret | `wrangler secret put` (Patreon webhook secret) |
+| `ACADEMY_DELIVERY_ALERT_EMAIL` | secret | `wrangler secret put` (owner alert destination) |
 | `SUPPORT_PROVIDER_KOFI_URL` | public var | `wrangler.jsonc` `vars` |
 | `SUPPORT_PROVIDER_BMAC_URL` | public var | `wrangler.jsonc` `vars` |
 | `SUPPORT_PROVIDER_PAYPAL_URL` | public var | `wrangler.jsonc` `vars` |
 | `SUPPORT_PROVIDER_PATREON_URL` | public var | `wrangler.jsonc` `vars` |
 | `SUPPORT_KV` id | binding | `wrangler.jsonc` `kv_namespaces[0].id` |
+| `ACADEMY_CODE_EMAIL` | Email Sending binding | `wrangler.jsonc` `send_email` |
 
 Public `vars` are safe to commit. Secrets are **never** committed — they live
 only in Cloudflare via `wrangler secret put`.
@@ -181,6 +216,13 @@ curl -s "https://support.yomureader.com/status?currency=USD" | jq '.display, .pr
 
 The homepage bar at https://yomureader.com updates automatically from `/status`
 — provider buttons appear once their URL var is set and deployed.
+
+After a supervised provider test, inspect Workers logs for delivery errors and
+stale-delivery alerts. These events contain opaque delivery state, not recipient
+addresses or codes. A successful first payment should leave one
+`email_accepted` delivery row. The code must be redeemed within 30 days. Use
+the admin payment-code endpoint or an owner-issued invite when the provider
+cannot supply a recipient.
 
 ## 8. Adjusting the goal
 

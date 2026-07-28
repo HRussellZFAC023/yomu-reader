@@ -40,12 +40,18 @@ describe('support donation to Academy access', () => {
             fetch: (request: Request) => academyPaymentWorker.fetch(request, academyEnv, executionContext()),
         };
         const supportDb = supportDonationDb();
+        const acceptedEmails: Array<{ to: string; subject: string; text: string }> = [];
         const supportEnv = {
             STRIPE_SECRET_KEY: 'sk_live_e2e',
             STRIPE_WEBHOOK_SECRET: 'whsec_e2e',
             SUPPORT_DB: supportDb,
             ACADEMY_PAYMENT_INGRESS: bridge,
             PAYMENT_INGRESS_TOKEN: 'end-to-end-ingress-token',
+            ACADEMY_CODE_EMAIL: {
+                async send(message: { to: string; subject: string; text: string }) {
+                    acceptedEmails.push(message);
+                },
+            },
         };
 
         const checkout = await SupportWorker.fetch(
@@ -68,12 +74,14 @@ describe('support donation to Academy access', () => {
                     amount_total: amountMinor,
                     currency,
                     payment_status: 'paid',
+                    customer_details: { email: 'donor@example.test' },
                     metadata: { yomu_service: 'support', yomu_academy_claim_hash: claimHash },
                 },
             },
         });
         const webhook = await signedStripeWebhook(event, timestamp, 'whsec_e2e');
-        expect((await SupportWorker.fetch(webhook, supportEnv, executionContext())).status).toBe(200);
+        expect((await SupportWorker.fetch(webhook.clone(), supportEnv, executionContext())).status).toBe(200);
+        expect((await SupportWorker.fetch(webhook.clone(), supportEnv, executionContext())).status).toBe(200);
 
         expect(academy.db.rows<{ claim_hash: string }>('SELECT claim_hash FROM purchases')).toEqual([
             { claim_hash: claimHash },
@@ -84,6 +92,15 @@ describe('support donation to Academy access', () => {
         expect(academy.db.rows<{ state: string; expires_at: number | null }>(
             'SELECT state, expires_at FROM payment_entitlements',
         )).toEqual([{ state: 'active', expires_at: null }]);
+        expect(academy.db.rows<{ status: string; attempt_count: number }>(
+            'SELECT status, attempt_count FROM payment_code_deliveries',
+        )).toEqual([{ status: 'email_accepted', attempt_count: 1 }]);
+        expect(acceptedEmails).toHaveLength(1);
+        expect(acceptedEmails[0]).toMatchObject({
+            to: 'donor@example.test',
+            subject: 'Your よむ Academy code / よむ Academy コード',
+        });
+        expect(acceptedEmails[0]!.text).toMatch(/\b[A-Z0-9]{4}(?:-[A-Z0-9]{4}){3}\b/u);
 
         const claimRequest = new Request(`https://support.yomureader.com/claim?session_id=${sessionId}`, {
             headers: { cookie: `__Host-yomu_support_claim=${claimToken}` },
@@ -92,7 +109,7 @@ describe('support donation to Academy access', () => {
         const refreshedClaim = await SupportWorker.fetch(claimRequest.clone(), supportEnv, executionContext());
         expect(firstClaim.status).toBe(200);
         const firstCode = await firstClaim.text();
-        expect(firstCode).toMatch(/permanent Yomu Academy code is: [A-Z0-9-]+/u);
+        expect(firstCode).toMatch(/Your よむ Academy code is: [A-Z0-9-]+\nEnter it within 30 days of payment\./u);
         expect(firstClaim.headers.get('set-cookie')).toBeNull();
         expect(await refreshedClaim.text()).toBe(firstCode);
     });

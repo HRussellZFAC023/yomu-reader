@@ -42,15 +42,23 @@ Academy-owned purchase envelopes still require their exact pre-created purchase,
 Checkout session, and amount. Support Stripe sessions use a transaction subject and are
 accepted only after the support Worker has verified Stripe's raw-body HMAC.
 
-Code delivery for Ko-fi and Patreon remains manual and admin-only at
-`POST /academy/api/admin/payment-code`. It accepts an existing admin bearer plus
-`{provider, referenceType, reference}` and re-derives the deterministic code;
-provider subject data is never linked to a Google/email identity automatically.
-Stripe support Checkout also has a donor self-claim: the support Worker commits
-a random browser token hash into Checkout metadata, the signed webhook stores
-that commitment, and private `POST /academy/internal/payment-claim` releases the
-code only when the same HttpOnly-cookie token and settled session match. The raw
-token is never stored, logged, or exposed as a client-controlled grant request.
+Migration `0017_payment_code_deliveries.sql` adds one PII-free delivery row per
+paid purchase. Payment ingress returns its opaque delivery id, not the code.
+The support Worker uses private claim and completion routes to lease the
+deterministic code, send it to a provider-authenticated email address, and
+record `email_accepted`, `manual_required`, or `retry`. The row stores neither
+the address nor the code. A stale-delivery route returns countable opaque state
+for the scheduled owner alert.
+
+Admin recovery remains available at `POST /academy/api/admin/payment-code`. It
+accepts an existing admin bearer plus `{provider, referenceType, reference}` and
+re-derives the deterministic code; provider subject data is not linked to a
+Google/email identity. Stripe support Checkout also keeps a donor self-claim:
+the support Worker commits a random browser token hash into Checkout metadata,
+the signed webhook stores that commitment, and private
+`POST /academy/internal/payment-claim` releases the code only when the same
+HttpOnly-cookie token and settled session match. The raw token is not stored,
+logged, or exposed as a client-controlled grant request.
 
 ## Identity ladder
 
@@ -209,18 +217,23 @@ every destructive statement a no-op.
    amount, and a browser claim commitment. Academy accepts only GBP, USD, EUR,
    CAD, AUD, or JPY and mints one deterministic HMAC-backed paid code; plaintext
    code is never stored.
-3. The support return page combines its HttpOnly browser token with the settled
+3. Academy creates one delivery projection in the payment path. Support leases
+   the code for a provider-email send and records mail-service acceptance,
+   manual delivery, or a retry. A five-minute lease prevents concurrent sends.
+   The 15-minute scheduled check surfaces stale and historical rows without
+   returning payment identity.
+4. The support return page combines its HttpOnly browser token with the settled
    transaction reference through private `POST /academy/internal/payment-claim`.
    Pending payment returns `202`; fulfilled payment returns the same code on
    retries. Reading the claim and creating paid auth sessions do not consume it.
-4. Redemption happens only after verified Google OIDC, or through the explicit
+5. Redemption happens only after verified Google OIDC, or through the explicit
    redeem route from an already signed-in session. OIDC account creation,
    redemption, encrypted-profile attachment, session/membership binding, and
    recovery binding share one D1 transaction with a must-succeed final
    invariant. A profile conflict or injected later failure rolls the entire
    transaction back. A partial unique index remains the concurrency backstop.
    Same-account retries are idempotent.
-5. Account deletion revokes the paid invite, clears the Checkout session link,
+6. Account deletion revokes the paid invite, clears the Checkout session link,
    nulls the account foreign key, and retains `redeemed_at` as a non-identifying
    tombstone. The code cannot be recovered, transferred, or redeemed again.
 
@@ -402,6 +415,8 @@ export finite while learners sharing a school/workplace NAT remain isolated.
   export traversal plus the 90-day deletion-receipt pruning deadline.
 - `0016_lifecycle_proof_grants.sql`: HMAC-only, single-use production proof
   authorization bound to one account, environment, and run nonce.
+- `0017_payment_code_deliveries.sql`: PII-free paid-code delivery projection,
+  short leases, retry state, and historical unredeemed-payment backfill.
 
 Apply pending D1 migrations before deploying code that reads their columns or
 tables; `wrangler deploy` does not apply them automatically.

@@ -192,6 +192,11 @@ https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.use
 - Support on Patreon: https://patreon.com/yomureader
 - Support on Ko-fi: https://ko-fi.com/yomureader
 
+Each verified payment creates one よむ Academy code. It is sent to the email in
+the provider's verified payment notice; card payments also keep the
+same-browser claim page as a fallback. Enter the code within 30 days with the
+Google account you choose.
+
 If よむ helps you read more Japanese, a star makes it easier for other learners to find.
 
 <a href="https://star-history.com/#HRussellZFAC023/yomu-reader&Date">

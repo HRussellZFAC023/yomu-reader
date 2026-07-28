@@ -1,6 +1,13 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import {
+    docsNav,
+    hostedOverflowLinks,
+    MEMBERSHIP_NAV,
+    OVERFLOW_NAV,
+    PRIMARY_NAV,
+} from '../../docs/.vitepress/shared/nav';
 
 const ROOT = process.cwd();
 
@@ -9,39 +16,51 @@ function readProjectFile(file: string): string {
 }
 
 describe('hosted overflow menus', () => {
-    it('keeps the homepage overflow link set complete', () => {
+    it('keeps every shared navigation route in the docs and hosted menus', () => {
         const theme = readProjectFile('docs/.vitepress/theme/index.ts');
         const config = readProjectFile('docs/.vitepress/config.mts');
+        const docsEntries = docsNav() as Array<{
+            text: string;
+            link?: string;
+            items?: Array<{ text: string; link: string }>;
+        }>;
+        const docsLinks = docsEntries.flatMap(entry => entry.items ?? [entry]);
+        const hostedLinks = hostedOverflowLinks();
+        const expectedRoutes = [...PRIMARY_NAV, MEMBERSHIP_NAV, ...OVERFLOW_NAV];
 
-        for (const label of ['Video Player', 'PDF Reader', 'Stats', 'Local Audio', 'Changelog', 'Support']) {
-            expect(theme).toContain(`text: '${label}'`);
-            expect(config).toContain(`text: '${label}'`);
+        for (const route of expectedRoutes) {
+            expect(docsLinks).toContainEqual(expect.objectContaining({ text: route.text, link: route.link }));
+            if (route.text !== 'Study') {
+                expect(hostedLinks).toContainEqual(expect.objectContaining({
+                    text: route.text,
+                    href: route.hostedHref ?? route.link,
+                }));
+            }
         }
-        expect(theme).toContain("href: '/pdf-reader/index.html'");
-        expect(config).toContain("const pdfReaderLink = '/pdf-reader/index.html';");
+
+        expect(theme).toContain("import { hostedOverflowLinks } from '../shared/nav';");
+        expect(theme).toContain('const HOSTED_OVERFLOW_LINKS = hostedOverflowLinks();');
+        expect(config).toContain("import { docsNav } from './shared/nav';");
+        expect(config).toContain('const siteNav = docsNav();');
     });
 
-    it('places verified donation providers beside the GitHub and Discord navbar links', () => {
+    it('keeps one Membership route beside the GitHub and Discord navbar links', () => {
         const config = readProjectFile('docs/.vitepress/config.mts');
-        const workflow = readProjectFile('.github/workflows/deploy-pages.yml');
+        const membership = readProjectFile('docs/membership.md');
+        const popover = readProjectFile('docs/.vitepress/theme/membership-popover.ts');
 
-        expect(config).toContain("{ icon: stripeDonationIcon, link: stripeDonationLink, ariaLabel: 'Donate to Yomu with Stripe' }");
-        expect(config).toContain('<title>Stripe</title>');
-        expect(config).toContain('<title>Patreon</title>');
-        expect(config).toContain('<title>Ko-fi</title>');
+        expect(MEMBERSHIP_NAV).toEqual({ text: 'Membership', link: '/membership', target: '_self' });
         expect(config).toContain("{ icon: 'github', link: `https://github.com/HRussellZFAC023/${repositoryName}` }");
         expect(config).toContain("{ icon: 'discord', link: 'https://discord.gg/jD6NPURewD' }");
-        expect(config).toContain('...donationSocialLinks');
-        expect(config).toContain("process.env.YOMU_PATREON_ENABLED === '1'");
-        expect(config).toContain('process.env.YOMU_PATREON_URL');
-        expect(config).toContain('process.env.YOMU_KOFI_URL');
-        expect(config).toContain('? [{ icon: patreonDonationIcon, link: patreonDonationLink');
-        expect(config).toContain('? [{ icon: kofiDonationIcon, link: kofiDonationLink');
-        expect(config).toContain("'https://www.patreon.com/yomureader'");
-        expect(config).not.toMatch(/ko-fi\.com\/(?:yomu|Yomu)/);
-        expect(workflow).toContain('YOMU_PATREON_ENABLED: ${{ vars.YOMU_PATREON_ENABLED }}');
-        expect(workflow).toContain('YOMU_PATREON_URL: ${{ vars.YOMU_PATREON_URL }}');
-        expect(workflow).toContain('YOMU_KOFI_URL: ${{ vars.YOMU_KOFI_URL }}');
+        expect(config).not.toContain('...donationSocialLinks');
+        for (const providerUrl of [
+            'https://support.yomureader.com/donate',
+            'https://www.patreon.com/yomureader',
+            'https://ko-fi.com/yomureader',
+        ]) {
+            expect(membership).toContain(providerUrl);
+            expect(popover).toContain(providerUrl);
+        }
     });
 
     it('renders every live donation provider in the README badge row', () => {
