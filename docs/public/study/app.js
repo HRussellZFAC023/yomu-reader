@@ -3160,7 +3160,8 @@
       ankiRoleReading: "Reading",
       ankiRoleMeaning: "Meaning",
       ankiRoleSentence: "Sentence",
-      ankiRoleAudio: "Audio",
+      ankiRoleAudio: "Word audio",
+      ankiRoleSentenceAudio: "Sentence audio",
       ankiRoleImage: "Image",
       testAnki: "Check AnkiConnect",
       prepareAnki: "Set up Yomu note type",
@@ -4821,7 +4822,8 @@ ankiRoleExpression	表記
 ankiRoleReading	読み
 ankiRoleMeaning	意味
 ankiRoleSentence	文
-ankiRoleAudio	音声
+ankiRoleAudio	単語音声
+ankiRoleSentenceAudio	文音声
 ankiRoleImage	画像
 testAnki	AnkiConnectを確認
 prepareAnki	よむノートタイプを準備
@@ -6664,7 +6666,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function resolvedAnkiModelName(settings) {
     return settings.ankiModel || "よむ Japanese";
   }
-  const ANKI_FIELD_ROLES = ["expression", "reading", "meaning", "sentence", "audio", "image"];
+  const ANKI_FIELD_ROLES = ["expression", "reading", "meaning", "sentence", "audio", "sentenceAudio", "image"];
   const ankiFieldNames = (names) => names.split("|");
   const ANKI_HEADWORD_FIELD_NAME_PREFIX = ankiFieldNames(
     "Vocabulary-Kanji|Vocabulary Kanji|Vocab Kanji|Jlab-Kanji|Japanese_Word|Word|Word Kanji|Japanese Word|Headword|Headword Kanji|Term Kanji|Term Text|Expression Text|Base Form|Dictionary Form"
@@ -6694,7 +6696,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
     "Sentence|Example|Example Sentence|Example Sentence Text|Context|Context Sentence|Context Text|ExpressionSentence|Japanese Sentence|Mining Sentence|SentKanji|Sentence Furigana|Sentence Kanji|Sentence-Kanji|Sentence Text|Source Sentence|Source Text"
   );
   const ANKI_AUDIO_FIELD_NAMES = ankiFieldNames(
-    "Audio|Expression Audio|Term Audio|Vocab Audio|Vocabulary Audio|Word Audio|PronunciationAudio|Context Audio|Example Audio|SentAudio|Sentence Audio|Sentence Sound|SentenceAudio|Sound|Voice"
+    "Audio|Expression Audio|Term Audio|Vocab Audio|Vocabulary Audio|Word Audio|PronunciationAudio|Sound|Voice"
+  );
+  const ANKI_SENTENCE_AUDIO_FIELD_NAMES = ankiFieldNames(
+    "SentenceAudio|Sentence Audio|SentAudio|Sentence Sound|Context Audio|Example Audio"
   );
   const ANKI_IMAGE_FIELD_NAMES = ankiFieldNames(
     "Context Image|Example Image|Frame|Image|Image File|Photo|Picture|Snapshot|Screenshot|Sentence Image|Sentence Screenshot|SentencePicture|Still|Source Image|Term Image|Vocab Image|Vocabulary Image|Word Image"
@@ -6705,8 +6710,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
     meaning: ANKI_MEANING_FIELD_NAMES,
     sentence: ANKI_SENTENCE_FIELD_NAMES,
     audio: ANKI_AUDIO_FIELD_NAMES,
+    sentenceAudio: ANKI_SENTENCE_AUDIO_FIELD_NAMES,
     image: ANKI_IMAGE_FIELD_NAMES
   };
+  const ANKI_AUDIO_ROLES = /* @__PURE__ */ new Set(["audio", "sentenceAudio"]);
+  function isAnkiAudioRole(role) {
+    return ANKI_AUDIO_ROLES.has(role);
+  }
   function scanAnkiModelFields(modelName, fields, sampleNotes = []) {
     const usedFields = /* @__PURE__ */ new Set();
     const samples = ankiFieldContentSamples(fields, sampleNotes);
@@ -6809,6 +6819,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
       meaning: "Meaning",
       sentence: "Sentence",
       audio: "Audio",
+      // Yomu's own note type has a single Audio field, so the sentence-audio
+      // role maps onto it: buildYomuAnkiFields never emits a SentenceAudio
+      // value, and media routing collapses through mergeAudioFilesForNote.
+      sentenceAudio: "Audio",
       image: "Image"
     }[role];
   }
@@ -6906,7 +6920,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function ankiFieldContentSampleRoleScore(role, sample) {
     const raw = sample.raw.trim();
     const text2 = normalizeFieldValue(sample.text);
-    if (role === "audio") return ankiAudioFieldContentScore(raw, text2);
+    if (isAnkiAudioRole(role)) return ankiAudioFieldContentScore(raw, text2);
     if (role === "image") return ankiImageFieldContentScore(raw, text2);
     if (ankiAudioFieldContentScore(raw, text2) || ankiImageFieldContentScore(raw, text2)) return 0;
     if (!text2) return 0;
@@ -6962,14 +6976,19 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const normalized = normalizeAnkiFieldName(fieldName);
     const audioLike = /(?:audio|sound|voice)/.test(normalized);
     const imageLike = /(?:image|picture|screenshot|snapshot|photo|frame|still)/.test(normalized);
-    if (role === "audio") return audioLike && !imageLike;
+    if (isAnkiAudioRole(role)) return audioLike && !imageLike;
     if (role === "image") return imageLike && !audioLike && !/^frame(?:id|no|num|number|v?\d)/.test(normalized);
     return !audioLike && !imageLike;
   }
   function ankiFieldDisallowedForRole(fieldName, role) {
-    if (role === "audio" || role === "image") return false;
+    if (role === "audio") return isSentenceAudioFieldName(fieldName);
+    if (role === "sentenceAudio" || role === "image") return false;
     const normalized = normalizeAnkiFieldName(fieldName);
     return /^(?:source|sourceurl|url|origin|originurl|link|deck|deckname|model|modelname|tags?|remarksfront|frontremarks)$/.test(normalized);
+  }
+  const NORMALIZED_SENTENCE_AUDIO_FIELD_NAMES = new Set(ANKI_SENTENCE_AUDIO_FIELD_NAMES.map(normalizeAnkiFieldName));
+  function isSentenceAudioFieldName(fieldName) {
+    return NORMALIZED_SENTENCE_AUDIO_FIELD_NAMES.has(normalizeAnkiFieldName(fieldName));
   }
   function firstMatchingAnkiField(fields, names) {
     const fieldByName = /* @__PURE__ */ new Map();
@@ -7123,9 +7142,24 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function mergeAudioFilesForNote(fieldNames, options, card, mapping) {
     if (options.audioMergeMode === "theirs") return [];
-    const fieldName = fieldNameForRole(fieldNames, "audio", mapping) || mediaFieldName(fieldNames, ANKI_PRONUNCIATION_AUDIO_FIELD_NAMES);
-    if (!fieldName) return [];
-    return retargetMediaFiles(audioFilesFromContext(options, card), fieldName);
+    const targets = ankiAudioFieldTargets(fieldNames, mapping);
+    if (!targets) return [];
+    return retargetAudioFilesByKind(audioFilesFromContext(options, card), targets);
+  }
+  function ankiAudioFieldTargets(fieldNames, mapping) {
+    const word = fieldNameForRole(fieldNames, "audio", mapping) || mediaFieldName(fieldNames, ANKI_PRONUNCIATION_AUDIO_FIELD_NAMES);
+    const context = fieldNameForRole(fieldNames, "sentenceAudio", mapping);
+    if (!word && !context) return null;
+    return { word: word || context, context: context || word };
+  }
+  function retargetAudioFilesByKind(files, targets) {
+    return files.map((file) => {
+      const { yomuAudioKind: _kind, ...rest } = file;
+      return { ...rest, fields: [ankiAudioFieldForKind(file.yomuAudioKind, targets)] };
+    });
+  }
+  function ankiAudioFieldForKind(kind, targets) {
+    return kind === "context" ? targets.context : targets.word;
   }
   function mergePictureFilesForNote(fieldNames, existingFields, options, card, canOwnYomuFields, mapping) {
     const fieldName = fieldNameForRole(fieldNames, "image", mapping);
@@ -7135,7 +7169,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return image ? [{ ...image, fields: [fieldName] }] : [];
   }
   function applyMediaFieldClears(fields, audio, picture, audioMergeMode, canOwnYomuFields) {
-    if (audio.length && audioMergeMode === "ours") fields[audio[0].fields[0]] = "";
+    if (audioMergeMode === "ours") {
+      for (const fieldName of new Set(audio.map((file) => file.fields[0]).filter(Boolean))) fields[fieldName] = "";
+    }
     if (picture.length && canOwnYomuFields) fields[picture[0].fields[0]] = "";
   }
   function mediaFieldName(fieldNames, preferredNames) {
@@ -7165,7 +7201,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return {
       filename: `yomu_${safeAnkiMediaName(card)}_${kind}_${Date.now()}.${parsed.extension}`,
       data: parsed.data,
-      fields: ["Audio"]
+      fields: ["Audio"],
+      yomuAudioKind: kind
     };
   }
   function audioFromUrl(url, card, kind) {
@@ -7174,7 +7211,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return {
       filename: `yomu_${safeAnkiMediaName(card)}_${kind}_${Date.now()}${audioUrlExtension(cleanUrl)}`,
       url: cleanUrl,
-      fields: ["Audio"]
+      fields: ["Audio"],
+      yomuAudioKind: kind
     };
   }
   function uniqueAnkiAudioFiles(files) {
@@ -7233,7 +7271,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function retargetAnkiNoteToExistingModel(note, fieldNames, settings) {
     const mapping = ankiFieldMappingForModel(settings, note.modelName, fieldNames);
     const fields = retargetYomuFieldsToExistingModel(note.fields, fieldNames, mapping);
-    const audioField = fieldNameForRole(fieldNames, "audio", mapping);
+    const audioTargets = ankiAudioFieldTargets(fieldNames, mapping);
     const imageField = fieldNameForRole(fieldNames, "image", mapping);
     return {
       deckName: note.deckName,
@@ -7241,7 +7279,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       fields,
       tags: note.tags,
       options: note.options,
-      ...audioField && note.audio?.length ? { audio: retargetMediaFiles(note.audio, audioField) } : {},
+      ...audioTargets && note.audio?.length ? { audio: retargetAudioFilesByKind(note.audio, audioTargets) } : {},
       ...imageField && note.picture?.length ? { picture: retargetMediaFiles(note.picture, imageField) } : {}
     };
   }
@@ -7278,9 +7316,15 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function retargetMobileHandoffMedia(note, mapping) {
     const media = {};
-    const audioField = mobileMappedFieldName(mapping, "audio");
+    const wordAudioField = mobileMappedFieldName(mapping, "audio");
+    const sentenceAudioField = mobileMappedFieldName(mapping, "sentenceAudio");
     const imageField = mobileMappedFieldName(mapping, "image");
-    if (audioField && note.audio?.length) media.audio = retargetMediaFiles(note.audio, audioField);
+    if ((wordAudioField || sentenceAudioField) && note.audio?.length) {
+      media.audio = retargetAudioFilesByKind(note.audio, {
+        word: wordAudioField || sentenceAudioField,
+        context: sentenceAudioField || wordAudioField
+      });
+    }
     if (imageField && note.picture?.length) media.picture = retargetMediaFiles(note.picture, imageField);
     return media;
   }
@@ -10392,7 +10436,7 @@ ${spelling}`);
     const end = Math.min(sentence.length, start + MAX_CONTEXT_SENTENCE_LENGTH);
     return sentence.slice(start, end).trim();
   }
-  const ANKI_FIELD_MAPPING_ROLES$2 = ["expression", "reading", "meaning", "sentence", "audio", "image"];
+  const ANKI_FIELD_MAPPING_ROLES$2 = ["expression", "reading", "meaning", "sentence", "audio", "sentenceAudio", "image"];
   function normalizeAnkiFieldMappings(value) {
     if (!value || typeof value !== "object" || Array.isArray(value)) return {};
     const out = {};
@@ -10409,6 +10453,21 @@ ${spelling}`);
       if (Object.keys(normalizedMapping).length) out[normalizedModelName] = normalizedMapping;
     });
     return out;
+  }
+  function migrateAnkiSentenceAudioMappings(mappings) {
+    const out = {};
+    const movedModels = [];
+    for (const [modelName, mapping] of Object.entries(mappings)) {
+      const audioField = mapping.audio?.trim() ?? "";
+      if (!audioField || mapping.sentenceAudio?.trim() || !isSentenceAudioFieldName(audioField)) {
+        out[modelName] = mapping;
+        continue;
+      }
+      const { audio: _audio, ...rest } = mapping;
+      out[modelName] = { ...rest, sentenceAudio: audioField };
+      movedModels.push(modelName);
+    }
+    return { mappings: out, movedModels };
   }
   function hasOwn(value, key) {
     return Boolean(value) && Object.prototype.hasOwnProperty.call(value, key);
@@ -12470,6 +12529,9 @@ ${spelling}`);
     ankiMineWithJpdb: false,
     ankiCaptureScreenshot: true,
     ankiFieldMappings: {},
+    // Default TRUE: only stored records that PREDATE this key had a single
+    // audio role and can hold a sentence-audio field in the word-audio slot.
+    ankiSentenceAudioMappingMigrated: true,
     theme: "light",
     popupMode: "auto",
     hoverPopupMode: "popover",
@@ -12544,8 +12606,10 @@ ${spelling}`);
     ["ankiTags", DEFAULT_SETTINGS.ankiTags]
   ];
   function mergeSettings(value) {
-    const settingsValue = migratePinnedOcrLanguage(
-      migrateHiddenFilterNotice(migrateLegacyDefaultMobileSettings(value))
+    const settingsValue = migrateSentenceAudioFieldMappings(
+      migratePinnedOcrLanguage(
+        migrateHiddenFilterNotice(migrateLegacyDefaultMobileSettings(value))
+      )
     );
     const audio = normalizeAudioSettings(settingsValue);
     const supportedSettings = stripUnsupportedSettings(settingsValue);
@@ -12691,6 +12755,16 @@ ${spelling}`);
   function migratePinnedOcrLanguage(value) {
     if (!value || !isTargetDefaultOcrLanguageTag(stringValue$4(value.ocrLanguage))) return value;
     return { ...value, ocrLanguage: "" };
+  }
+  function migrateSentenceAudioFieldMappings(value) {
+    if (!value) return value;
+    if (value.ankiSentenceAudioMappingMigrated) return value;
+    const migrated = { ...value, ankiSentenceAudioMappingMigrated: true };
+    if (!value.ankiFieldMappings) return migrated;
+    const { mappings, movedModels } = migrateAnkiSentenceAudioMappings(value.ankiFieldMappings);
+    if (!movedModels.length) return migrated;
+    log$K.info("Moved Anki sentence-audio field mappings off the word-audio role", { models: movedModels });
+    return { ...migrated, ankiFieldMappings: mappings };
   }
   function migrateLegacyDefaultMobileSettings(value) {
     if (!value) return value;
@@ -24454,7 +24528,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     async invokeWithTimeout(action, params, timeoutMs) {
       const settings = this.getSettings();
       const url = settings.ankiConnectUrl || "http://127.0.0.1:8765";
-      const body = JSON.stringify({ action, version: ANKI_VERSION, params });
+      const body = JSON.stringify({ action, version: ANKI_VERSION, params }, omitInternalAnkiMediaKeys);
       const response = await postAnkiJson(url, body, timeoutMs).catch((error) => {
         if (isAnkiConnectAvailabilityError$1(error)) this.unavailableUntil = Date.now() + ANKI_BACKGROUND_UNAVAILABLE_COOLDOWN_MS;
         throw this.localizedConnectError(error);
@@ -24517,6 +24591,9 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       notes: existing,
       primary: pickPrimaryExistingNote(existing)
     } : empty;
+  }
+  function omitInternalAnkiMediaKeys(key, value) {
+    return key === "yomuAudioKind" ? void 0 : value;
   }
   function captureActiveVideoFrame() {
     const video = Array.from(document.querySelectorAll("video")).filter((item) => item.readyState >= 2 && item.videoWidth > 0 && item.videoHeight > 0).sort((a, b) => visibleArea(b) - visibleArea(a))[0];
@@ -67360,7 +67437,7 @@ ${spelling}`);
     const value = control instanceof HTMLSelectElement ? control.value : form.lang;
     return value === "auto" || value === "en" || value === "ja" ? value : "en";
   }
-  const ANKI_FIELD_MAPPING_ROLES$1 = ["expression", "reading", "meaning", "sentence", "audio", "image"];
+  const ANKI_FIELD_MAPPING_ROLES$1 = ["expression", "reading", "meaning", "sentence", "audio", "sentenceAudio", "image"];
   const ANKI_MOBILE_FALLBACK_DECK = "Default";
   function escapedUiText$2(language2, key) {
     return escapeHtml$2(uiText(language2, key));
@@ -67502,6 +67579,7 @@ ${spelling}`);
       meaning: uiText(language2, "ankiRoleMeaning"),
       sentence: uiText(language2, "ankiRoleSentence"),
       audio: uiText(language2, "ankiRoleAudio"),
+      sentenceAudio: uiText(language2, "ankiRoleSentenceAudio"),
       image: uiText(language2, "ankiRoleImage")
     }[role];
   }
@@ -72394,7 +72472,7 @@ ${spelling}`);
   const JPDB_SETTINGS_URL = "https://jpdb.io/settings";
   const JITEN_SETTINGS_URL = "https://jiten.moe/settings";
   const AUTO_REPLACE_ANKI_DECK_NAMES = /* @__PURE__ */ new Set(["", "よむ", "Yomu"]);
-  const ANKI_FIELD_MAPPING_ROLES = /* @__PURE__ */ new Set(["expression", "reading", "meaning", "sentence", "audio", "image"]);
+  const ANKI_FIELD_MAPPING_ROLES = /* @__PURE__ */ new Set(["expression", "reading", "meaning", "sentence", "audio", "sentenceAudio", "image"]);
   const ANKI_SCAN_CONFIDENCE_VALUES = /* @__PURE__ */ new Set(["high", "medium", "low"]);
   const SETTINGS_FOCUSABLE_SELECTOR = [
     "button:not([disabled])",

@@ -12,17 +12,17 @@
 // @match *://*/*
 // @match file:///*
 // @require https://yomureader.com/greasyfork/yomu-annotations.f86d865dfe5f.user.js#sha256=+G2GXf5f1AbXQ+5fLFyFi+mGtZeKCThOx3MA9wTeHJA=
-// @require https://yomureader.com/greasyfork/yomu-anki.aab07f79705c.user.js#sha256=qrB/eXBcDZ1CAtmMPE1UusesS13dAXRYl5fPeYNTuP4=
-// @require https://yomureader.com/greasyfork/yomu-audio.a521d32d29b0.user.js#sha256=pSHTLSmwFfUnm2TDaGeE3xlbpk3B4L2ctttyh4HIwqE=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.eb361d096dfe.user.js#sha256=6zYdCW3+o8K1t4/Lpu5JVAxD4Urs4LuSTvrim+awjDE=
-// @require https://yomureader.com/greasyfork/yomu-ocr-manga.d326f7b47fe1.user.js#sha256=0yb3tH/hCJcFIf3o9GYGjJ5ORx6fN1AY3zfYyAQyxlY=
-// @require https://yomureader.com/greasyfork/yomu-ui-copy.4a28175bf045.user.js#sha256=SigXW/BFi4724aLylfUOsJu6kSPrJLpVJbsbno/xd5Y=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.6f275a3ffdd7.user.js#sha256=bydaP/3XobaDP5meGKhlNoupEOjvuG8FTo49K1sm86k=
-// @require https://yomureader.com/greasyfork/yomu-bunpro.ed6f0a80fc18.user.js#sha256=7W8KgPwYxsHfeSwDT+nlI6AOum4rF09KnspCasnr2hU=
-// @require https://yomureader.com/greasyfork/yomu-jpdb.9b9f9210b91a.user.js#sha256=m5+SELkaWw6/08p5fXclLIoVnp19JOjdJWRyugMHzaw=
-// @require https://yomureader.com/greasyfork/yomu-jiten.eb55e358c388.user.js#sha256=61XjWMOIhfNgRBqYcqqpWJJvSh6MzYDON7rDVVMaQzI=
-// @require https://yomureader.com/greasyfork/yomu-wanikani.5cad49b05a48.user.js#sha256=XK1JsFpIF1l7krzTfuLsxxGg91bPIFjSTBRyUOC70ts=
-// @require https://yomureader.com/greasyfork/yomu-video.82a41cfd0e4f.user.js#sha256=gqQc/Q5P+y0hwHaohQYhw2lwY/0boqa0l+471KiBlb4=
+// @require https://yomureader.com/greasyfork/yomu-anki.a5bf2897c37d.user.js#sha256=pb8ol8N9eKlIupWiRQqktSPh36mMd0fDYbFEceUMBbs=
+// @require https://yomureader.com/greasyfork/yomu-audio.15ae80329bf7.user.js#sha256=Fa6AMpv3adtRK9Po4cg/kFTMeZH8zxe/xPthoABpXHE=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.d189c7a03196.user.js#sha256=0YnHoDGWDZa5WdJQ67KCh0QL5hUYyZA5xGKYoR2wIxU=
+// @require https://yomureader.com/greasyfork/yomu-ocr-manga.aa2be83f504c.user.js#sha256=qivoP1BMw7IJM1z+qxvGmfAhQr6pOPeK2qlUL2E5QbA=
+// @require https://yomureader.com/greasyfork/yomu-ui-copy.a7ff2d0c0862.user.js#sha256=p/8tDAhiboQDp4roSyAuK2SNnwnFO5b2B3rJmMIgcAA=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.294187d7d9e9.user.js#sha256=KUGH19nppEFQdd7aIMgScIChua65lqUfypkZb/nyWzA=
+// @require https://yomureader.com/greasyfork/yomu-bunpro.58f6ca7a2ced.user.js#sha256=WPbKeiztniDHv2AxDFRAkHRXISD8nEvMZvGn+XApDMY=
+// @require https://yomureader.com/greasyfork/yomu-jpdb.c48570de51b9.user.js#sha256=xIVw3lG50zihCSXrEmPg6LFcyZeTh5wTh22E/rxauBM=
+// @require https://yomureader.com/greasyfork/yomu-jiten.323e81dde85b.user.js#sha256=Mj6B3ehbH1eazHBybrlkaJHIVPlb9T5vfblXPTmphQ8=
+// @require https://yomureader.com/greasyfork/yomu-wanikani.648ff3c6533c.user.js#sha256=ZI/zxlM8Qs9e4X2fkxqYi7t2/LGqHEscZQm+poSFohc=
+// @require https://yomureader.com/greasyfork/yomu-video.155b22496852.user.js#sha256=FVsiSWhSxtd+NqeOSZy8LZFvd8sldCj6LRpogAF8980=
 // @resource yomuCss  https://yomureader.com/yomu.edbe1dbd1762.css#sha256=7b4dvRdiI6B29BxB73+fT5kP+IAbrgJpdh4fHwCUjiY=
 // @connect api.jiten.moe
 // @connect jpdb.io
@@ -5318,7 +5318,51 @@ if (typeof window !== "undefined") {
   window.__YOMU_LOGGER__ = Logger;
   window.YomuLogger = Logger;
 }
-const ANKI_FIELD_MAPPING_ROLES = ["expression", "reading", "meaning", "sentence", "audio", "image"];
+const ankiFieldNames = (names) => names.split("|");
+const ANKI_HEADWORD_FIELD_NAME_PREFIX = ankiFieldNames(
+  "Vocabulary-Kanji|Vocabulary Kanji|Vocab Kanji|Jlab-Kanji|Japanese_Word|Word|Word Kanji|Japanese Word|Headword|Headword Kanji|Term Kanji|Term Text|Expression Text|Base Form|Dictionary Form"
+);
+const ANKI_HEADWORD_FIELD_NAME_TAIL = ankiFieldNames(
+  "Learnable|Lemma|Primary|Search Term|Target Word|Term|Vocab|Vocabulary|Vocabulary Expression|Word Expression"
+);
+ankiFieldNames("Expression|Front|Japanese|Kanji|Katakana");
+[
+  ...ANKI_HEADWORD_FIELD_NAME_PREFIX,
+  "Expression Reading",
+  "Japanese Expression",
+  ...ANKI_HEADWORD_FIELD_NAME_TAIL
+];
+[
+  ...ANKI_HEADWORD_FIELD_NAME_PREFIX,
+  ...ankiFieldNames("Expression|Expression Reading|Front|Japanese|Japanese Expression|Kanji|Katakana"),
+  ...ANKI_HEADWORD_FIELD_NAME_TAIL
+];
+ankiFieldNames(
+  "Vocabulary-Kana|Vocabulary Kana|Vocabulary-Furigana|Vocabulary Furigana|Vocab Kana|Vocab Furigana|Jlab-Hiragana|Readings|Expression Reading|Furigana|Furigana Reading|Hiragana|Japanese Reading|Kana|Kana Reading|On|On Reading|Onyomi|Kun|Kun Reading|Kunyomi|Pronunciation|Reading|Ruby|Term Kana|Term Reading|Vocab Reading|Vocabulary Reading|Word Kana|Word Reading|Yomi"
+);
+ankiFieldNames(
+  "Vocabulary-English|Vocabulary English|Vocabulary-Meaning|Vocabulary Meaning|Translation_1|Jlab-Translation|RemarksBack|Jlab-Remarks|Other-Back|Jlab-DictionaryLookup|Meaning|Def|Defs|Definition|Definition 1|Definition English|Definitions|English|English Definition|English Meaning|Gloss|Glosses|Glossary|Keyword|MainDefinition|Meanings|Mnemonic|Back|DictionaryDefinitions|Sense|Term Meaning|Translation|Translation 1|Vocab Def|Vocab Definition|Word Meaning"
+);
+ankiFieldNames(
+  "Sentence|Example|Example Sentence|Example Sentence Text|Context|Context Sentence|Context Text|ExpressionSentence|Japanese Sentence|Mining Sentence|SentKanji|Sentence Furigana|Sentence Kanji|Sentence-Kanji|Sentence Text|Source Sentence|Source Text"
+);
+ankiFieldNames(
+  "Audio|Expression Audio|Term Audio|Vocab Audio|Vocabulary Audio|Word Audio|PronunciationAudio|Sound|Voice"
+);
+const ANKI_SENTENCE_AUDIO_FIELD_NAMES = ankiFieldNames(
+  "SentenceAudio|Sentence Audio|SentAudio|Sentence Sound|Context Audio|Example Audio"
+);
+ankiFieldNames(
+  "Context Image|Example Image|Frame|Image|Image File|Photo|Picture|Snapshot|Screenshot|Sentence Image|Sentence Screenshot|SentencePicture|Still|Source Image|Term Image|Vocab Image|Vocabulary Image|Word Image"
+);
+function normalizeAnkiFieldName(value) {
+  return value.replace(/[_\s-]+/g, "").toLowerCase();
+}
+const NORMALIZED_SENTENCE_AUDIO_FIELD_NAMES = new Set(ANKI_SENTENCE_AUDIO_FIELD_NAMES.map(normalizeAnkiFieldName));
+function isSentenceAudioFieldName(fieldName) {
+  return NORMALIZED_SENTENCE_AUDIO_FIELD_NAMES.has(normalizeAnkiFieldName(fieldName));
+}
+const ANKI_FIELD_MAPPING_ROLES = ["expression", "reading", "meaning", "sentence", "audio", "sentenceAudio", "image"];
 function normalizeAnkiFieldMappings(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
   const out = {};
@@ -5335,6 +5379,21 @@ function normalizeAnkiFieldMappings(value) {
   if (Object.keys(normalizedMapping).length) out[normalizedModelName] = normalizedMapping;
   });
   return out;
+}
+function migrateAnkiSentenceAudioMappings(mappings) {
+  const out = {};
+  const movedModels = [];
+  for (const [modelName, mapping] of Object.entries(mappings)) {
+  const audioField = mapping.audio?.trim() ?? "";
+  if (!audioField || mapping.sentenceAudio?.trim() || !isSentenceAudioFieldName(audioField)) {
+    out[modelName] = mapping;
+    continue;
+  }
+  const { audio: _audio, ...rest } = mapping;
+  out[modelName] = { ...rest, sentenceAudio: audioField };
+  movedModels.push(modelName);
+  }
+  return { mappings: out, movedModels };
 }
 function hasOwn(value, key) {
   return Boolean(value) && Object.prototype.hasOwnProperty.call(value, key);
@@ -6981,6 +7040,7 @@ const DEFAULT_SETTINGS = {
   ankiMineWithJpdb: false,
   ankiCaptureScreenshot: true,
   ankiFieldMappings: {},
+  ankiSentenceAudioMappingMigrated: true,
   theme: "light",
   popupMode: "auto",
   hoverPopupMode: "popover",
@@ -7053,8 +7113,10 @@ const LEGACY_DEFAULT_ANKI_STRING_SETTINGS = [
   ["ankiTags", DEFAULT_SETTINGS.ankiTags]
 ];
 function mergeSettings(value) {
-  const settingsValue = migratePinnedOcrLanguage(
-  migrateHiddenFilterNotice(migrateLegacyDefaultMobileSettings(value))
+  const settingsValue = migrateSentenceAudioFieldMappings(
+  migratePinnedOcrLanguage(
+    migrateHiddenFilterNotice(migrateLegacyDefaultMobileSettings(value))
+  )
   );
   const audio = normalizeAudioSettings(settingsValue);
   const supportedSettings = stripUnsupportedSettings(settingsValue);
@@ -7194,6 +7256,16 @@ function migrateHiddenFilterNotice(value) {
 function migratePinnedOcrLanguage(value) {
   if (!value || !isTargetDefaultOcrLanguageTag(stringValue(value.ocrLanguage))) return value;
   return { ...value, ocrLanguage: "" };
+}
+function migrateSentenceAudioFieldMappings(value) {
+  if (!value) return value;
+  if (value.ankiSentenceAudioMappingMigrated) return value;
+  const migrated = { ...value, ankiSentenceAudioMappingMigrated: true };
+  if (!value.ankiFieldMappings) return migrated;
+  const { mappings, movedModels } = migrateAnkiSentenceAudioMappings(value.ankiFieldMappings);
+  if (!movedModels.length) return migrated;
+  log$7.info("Moved Anki sentence-audio field mappings off the word-audio role", { models: movedModels });
+  return { ...migrated, ankiFieldMappings: mappings };
 }
 function migrateLegacyDefaultMobileSettings(value) {
   if (!value) return value;
