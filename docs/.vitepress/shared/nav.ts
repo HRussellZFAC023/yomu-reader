@@ -66,7 +66,14 @@ export const OVERFLOW_NAV: readonly NavRoute[] = Object.freeze([
  * Not "Donate": the plan is that contributing unlocks Academy, so it is not
  * charity and calling it charity would misdescribe what you get.
  */
-export const MEMBERSHIP_NAV: NavRoute = Object.freeze({ text: 'Membership', link: '/membership' });
+// target:'_self' is load-bearing, not decoration. VitePress's SPA router claims
+// every in-site link click (window listener in dist/client/app/router.js) and
+// calls preventDefault to route itself — which raced the popover and navigated
+// away from the page it was meant to open over. That router explicitly skips any
+// anchor carrying a `target`, so this is its own documented escape hatch: the
+// entry stays a real link for no-JS and middle-click, and the popover handler is
+// the only thing that acts on a plain press.
+export const MEMBERSHIP_NAV: NavRoute = Object.freeze({ text: 'Membership', link: '/membership', target: '_self' });
 
 /** The docs nav: primary entries, then Membership, then one 'More' dropdown. */
 export function docsNav(): unknown[] {

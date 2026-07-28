@@ -197,6 +197,22 @@ describe('interface language resolution', () => {
         expect(copy.filter(value => !hasHostedDocsJaCopy(themeSource, value))).toEqual([]);
     });
 
+    it('keeps the fold runtime marker id in step with the reader', () => {
+        // The theme copies this id instead of importing it, because its home
+        // module drags the companion registry into the docs bundle. The fold's
+        // "press a word" prompt depends on finding the marker: if the id drifts,
+        // the prompt silently claims the runtime is missing for every visitor
+        // whose Yomu is an extension or userscript (their realm never sets the
+        // window flag), and tells them to go look at a section further down.
+        const health = readFileSync('src/reader/app/runtime-health.ts', 'utf8');
+        const owner = health.match(/READER_RUNTIME_MARKER_ID\s*=\s*'([^']+)'/);
+        const theme = readFileSync('docs/.vitepress/theme/index.ts', 'utf8');
+        const copy = theme.match(/const READER_RUNTIME_MARKER_ID = '([^']+)'/);
+
+        expect(owner?.[1]).toBeTruthy();
+        expect(copy?.[1]).toBe(owner?.[1]);
+    });
+
     it('keeps hosted docs Japanese copy keys unique', () => {
         const themeSource = readFileSync('docs/.vitepress/theme/index.ts', 'utf8');
         const { entries, unparsed } = hostedDocsJaCopyEntries(themeSource);

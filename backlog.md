@@ -116,6 +116,103 @@ gates, 8 open questions) with 7 concept images. Slice 5 deliberately ships the n
 *without* bands 4–6, because `U39` says every Study complaint is about density — so the extra bands can
 be judged or dropped on their own.
 
+### A21 — USER FEEDBACK, Discord, 25–28 July 2026 (verbatim reports → tickets)
+
+Reporters: **blurvy** (new user, Edge Canary + userscript, Android, MangaFire, YouTube), **noteliana**
+(jiten power user), **coffeentacos** (post-college learner). Three of these contradict entries that
+memory records as FIXED — check the reporter's version before assuming a regression.
+
+- [ ] **A21.1 — "Show native subtitles" toggle still does not stick.** blurvy, 28/07 03:58: *"When I
+      disable it in setting and save then refresh the page it turns it self back on."* Memory
+      `yomu-auto-select-overwrites-user-settings` records this fixed in **1.8.22** via `*Chosen` intent
+      markers. Either the fix is incomplete, or the reporter is on an older build — **establish which
+      before touching code**, then close the gap.
+- [ ] **A21.2 — Words carrying furigana do not look up.** blurvy, 27/07 23:26–23:27: *"I think the
+      problem is the words that have furigana"* / *"I turned off annotations and all lookups are
+      working."* That isolates it cleanly: the ruby markup Yomu itself adds blocks the lookup path. High
+      severity — it breaks the core gesture on exactly the words a learner most needs.
+- [ ] **A21.3 — Tapping outside the popup does not close it.** blurvy, 27/07 23:34: the popup stays and
+      the text stays selected. Basic dismissal contract, and it strands the selection too.
+- [ ] **A21.4 — Subtitle size will not hold.** blurvy, 27/07 07:42–07:51: moving the slider sizes the
+      *next* subtitle, then it *"goes tiny again and stays tiny"*; fullscreen and returning from another
+      tab reset it; vertical-without-zoom is the only stable case. Size must survive track changes,
+      fullscreen, and tab focus.
+- [ ] **A21.5 — 秘密 and other words fail to look up on MangaFire.** blurvy, 27/07 09:18 + 10:16 (only
+      tested MangaFire). Yomitan conflict was diagnosed and `mangafire-popover-20260727` exists —
+      confirm whether that branch actually closes this and land it.
+- [ ] **A21.6 — Userscript does not boot on YouTube in Edge Canary.** blurvy, 27/07 07:15: no puck
+      bottom-right; then *"I loaded yt a couple mins later and the popup showed up"* after disable /
+      re-enable did nothing. A boot that succeeds only after minutes is a race, not a fix.
+- [ ] **A21.7 — OCR box for bottom-of-screen text sits too high.** blurvy, 28/07 00:12. Memory
+      `yomu-ocr-safe-inset-register` records the root cause fixed in **1.8.23** (safeBottomInset moved
+      text off its glyphs). Verify against the reporter's build. Note their follow-up muddies it —
+      *"This isn't happening on yt tho, might be a quirk of the website"* — so confirm the surface.
+- [ ] **A21.8 — Local/faster OCR on Android.** blurvy, 28/07 00:09 wants something faster than Google
+      Lens; owner's read is that Lens is currently the fastest. Deliverable is a measured comparison, not
+      a guess: candidate on-device engines, latency, and whether the local-service provider path already
+      covers it.
+- [ ] **A21.9 — Sentence audio mining.** blurvy, 28/07 03:46: *"Is it possible to add sentence audio
+      mining? That's all I'm missing in my life."* A separate Claude session ("Plan sentence audio mining
+      feature") is already on this — coordinate, do not duplicate.
+- [ ] **A21.10 — Study is too busy; jiten's review loop is the bar.** noteliana, 25/07 16:36–16:38:
+      jiten is *"compact, and the reviews are crazy fast especially on laptop"*; owner's own read is
+      *"there is too much going on rn"*. This is the same signal as `U39` (every Study complaint is
+      density) and it is the reason the Study plan's slice 5 ships the nav and fold alone.
+- [ ] **A21.11 — Let a learner switch off card types they do not want.** noteliana: *"I don't care about
+      kanji cards even though we can turn it off"* — so the control exists but is not discoverable
+      enough to count. Surface it in the review setup, not deep in settings.
+- [ ] **A21.12 — Explain the 5-point scale against jiten's 4.** noteliana: *"yomu uses a five point
+      scale when jiten has a 4 so I'm unsure how that will affect things."* Document the mapping and show
+      it where a jiten user grades, not only in the FAQ.
+- [ ] **A21.13 — Choose which audio source answers, Yomitan-style.** noteliana, 25/07 16:27: *"when
+      several audio sources exist, I think it's better if like yomitan you can check which one you
+      want."* Memory `yomu-audio-subsources-1-8-5` records per-provider toggles shipped in 1.8.5/1.8.6 —
+      verify the reporter can find them; if they cannot, it is a discoverability defect, not a feature.
+- [ ] **A21.14 — Use your own local audio files.** noteliana runs downloaded audio via AnkiConnect on
+      phone and wants it inside the review loop. Ties to the existing Local Audio surface.
+- [ ] **A21.15 — Offline SRS app for iPhone/iPad and Android.** Owner's stated intent: React Native, one
+      experience across website, Android and iOS, fully offline, *"just nice to use"*. Feeds the Study +
+      mobile plan; note the plan's finding that the Study page is ALREADY an installable PWA (A16), which
+      may satisfy much of this without a native build.
+- [ ] **A21.16 — Positioning evidence, keep it.** coffeentacos: *"the amount of things this lets you do
+      that you'd need multiple other things has been really nice"* and *"Reduced friction makes it so
+      much easier to focus on learning"*; noteliana: *"it's all about reducing friction"*. Friction
+      reduction and one-tool-instead-of-five are the claims users make unprompted — the homepage should
+      make them, and A14's product clarity should be built on them.
+
+### A22 — Academy takeover handoff (session `5dc579a6`) — what it changes for THIS thread
+
+Full handoff lives with that session; plan of record is `~/Desktop/yomu-academy-goldenpath/GOLDEN-PATH.md`,
+canonical Academy tickets are `docs/academy/BACKLOG.md` (127 tickets, 20 done). Only the parts that bind
+this thread are recorded here.
+
+- [ ] **A22.1 — The R2 audit is a SHARED job and it is half-done.** Measured there: `yomu-audio` 7.08 GB,
+      **`yomu-dictionaries` 6.55 GB**, `yomu-academy-archive` 1.69 GB, `asmr-semantic-index` 0.10 GB with
+      **no binding in this repo** (confirm before touching — likely another project). Total R2 cost is
+      about **$0.08/month**, so cleanup is hygiene, not spend. Open threads that are mine: local
+      `mirror-objects.v1.json` records **167 objects / 6.13 GB** against a bucket reporting 6.55 GB, so
+      **~0.42 GB is unaccounted**; the live catalog at `dictionaries.yomureader.com/v1/catalog.json`
+      serves **186 entries**; `wrangler r2 object` has **no `list`** subcommand, so enumeration needs a
+      temporary Worker calling `env.BUCKET.list()` or S3 keys. Also carry their correction: earlier
+      parsing printed `targetLanguage: '?'` per entry — it is a **top-level** catalog key; group by
+      `headwordLanguages` instead. Cross-check against the required shelf in memory
+      `yomu-recommended-dictionary-set`, whose known gaps are Kanjium pitch and WTY JA-JA offered but not
+      hosted, 13 dead Drive source URLs, and `languages.json` falsely claiming all 32 ready.
+- [ ] **A22.2 — Ko-fi/Patreon codes were never delivered, because no bridge exists.**
+      `workers/yomu-support` counts donations and `workers/yomu-academy` mints codes (Stripe only). There
+      is **no webhook bridge and no email sender wired at all**. That makes the Membership work I just
+      shipped a promise the backend cannot yet keep for Ko-fi or Patreon buyers — the page must not
+      claim instant access until this is built. Suggested skill: `cloudflare-email-service`.
+- [ ] **A22.3 — `U42`: the Study and Academy account redesign is ONE job**, per the unmerged
+      `backlog-reconcile-20260727`. It sits across both threads' territory; whoever takes it announces it.
+      Related: A5's live 401 on `/academy/api/{account,session}` blocks both of us.
+- [ ] **A22.4 — Do not re-raise licensing.** Owner's ruling is settled: real textbook sources used in
+      full, with a two-tier model — `INTEGRATION_READY` (local, non-blocking) vs
+      `PUBLIC_DISTRIBUTION_VERIFIED` (asserted separately, only for what ships).
+- [ ] **A22.5 — Cast likeness pages stay LOCAL (`file://`).** They contain real classmates' likenesses
+      and private class reference photos. Never publish them as an Artifact or anything network-reachable.
+      Cast are first-name only; no surnames, employers, relationships or sensitive traits ever ship.
+
 ### A10 — COORDINATION with the parallel "Yomu Academy" thread (session `5dc579a6`)
 
 That thread has taken over **full Academy production** (story, art, engine, learning content, music,

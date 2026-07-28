@@ -2187,6 +2187,183 @@ body:has(.yomu-home) .jpdb-reader-fab {
   height: auto;
 }
 
+/* --- Membership: a support letter, in the living-paper grammar ---------------
+   Tokens and geometry come from docs/academy/VISUAL-SYSTEM.md, not from this
+   page's flat-ink fold: warm charcoal ink (never cold navy or pure black),
+   #f1ead9 paper over #ddd0b7 folded paper, pencil-grey secondary copy, 3-15px
+   ASYMMETRIC corners, a slightly offset shadow, and exactly one folded corner
+   plus one tape strip. Accent inherits the reader's own accent so a learner who
+   has set theirs sees it here, with the system's #5ea780 fallback.
+   Behaviour follows the W3C modal pattern the bible binds us to; see
+   membership-popover.ts. Motion uses the bible's 150ms response step. */
+:root {
+  --paper-letter: #f1ead9;
+  --paper-folded: #ddd0b7;
+  --paper-ink: #29271f;
+  --paper-pencil: #655f51;
+  --world-ink: #181b18;
+  --letter-accent: var(--jpdb-reader-accent, #5ea780);
+}
+
+.yomu-membership-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: color-mix(in srgb, var(--world-ink) 62%, transparent);
+}
+
+.yomu-membership-backdrop[hidden] {
+  display: none;
+}
+
+.yomu-membership-panel {
+  position: relative;
+  width: min(420px, 100%);
+  /* Asymmetric corners are the paper grammar; a uniform radius reads as a card. */
+  border-radius: 3px 14px 4px 12px;
+  padding: 30px 28px 26px;
+  background: var(--paper-letter);
+  color: var(--paper-ink);
+  box-shadow: 7px 8px 0 color-mix(in srgb, var(--world-ink) 42%, transparent);
+  transform: rotate(-0.6deg);
+}
+
+/* The folded corner and the tape strip: one of each, per the component grammar. */
+.yomu-membership-panel::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 0 0 4px 0;
+  background: linear-gradient(315deg, var(--paper-folded) 50%, transparent 50%);
+}
+
+.yomu-membership-panel::before {
+  content: '';
+  position: absolute;
+  top: -11px;
+  left: 34px;
+  width: 84px;
+  height: 22px;
+  background: color-mix(in srgb, var(--letter-accent) 34%, var(--paper-folded));
+  opacity: 0.9;
+  transform: rotate(-2.5deg);
+}
+
+.yomu-membership-title {
+  margin: 0;
+  border: 0;
+  padding: 0;
+  color: var(--paper-ink);
+  font-size: clamp(1.5rem, 4vw, 1.9rem);
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.yomu-membership-title::after {
+  content: '';
+  display: block;
+  width: 62px;
+  margin-top: 7px;
+  border-top: 2px solid var(--letter-accent);
+}
+
+.yomu-membership-lead {
+  margin: 14px 0 20px;
+  color: var(--paper-pencil);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.yomu-membership-methods {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 10px;
+}
+
+/* Every method is presented identically. None is promoted, because the visitor
+   is choosing the service they already have an account with, not a better deal. */
+.yomu-membership-method {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+  /* 44px minimum touch target, from the bible's spacing rules. */
+  min-height: 44px;
+  border: 2px solid color-mix(in srgb, var(--world-ink) 26%, transparent);
+  border-radius: 3px 9px 3px 9px;
+  padding: 11px 15px;
+  background: color-mix(in srgb, var(--paper-letter) 70%, #fff);
+  color: var(--paper-ink);
+  font-weight: 600;
+  text-decoration: none;
+  transition: border-color 150ms ease, transform 150ms ease;
+}
+
+.yomu-membership-method:hover,
+.yomu-membership-method:focus-visible {
+  border-color: var(--letter-accent);
+  transform: translate(-1px, -1px);
+}
+
+.yomu-membership-method span {
+  color: var(--paper-pencil);
+  font-size: 0.84rem;
+  font-weight: 400;
+  text-align: right;
+}
+
+.yomu-membership-more {
+  display: inline-block;
+  margin-top: 18px;
+  color: var(--paper-pencil);
+  font-size: 0.86rem;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.yomu-membership-close {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  min-height: 44px;
+  border: 0;
+  padding: 6px 8px;
+  background: none;
+  color: var(--paper-pencil);
+  font: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.yomu-membership-close:hover,
+.yomu-membership-close:focus-visible {
+  color: var(--paper-ink);
+}
+
+/* The bible's reduced-motion contract: travel collapses, state remains. */
+@media (prefers-reduced-motion: reduce) {
+  .yomu-membership-panel {
+    transform: none;
+  }
+
+  .yomu-membership-method {
+    transition: none;
+  }
+
+  .yomu-membership-method:hover,
+  .yomu-membership-method:focus-visible {
+    transform: none;
+  }
+}
+
 /* --- §06 Install: hard cut to flat ink, no scene --- */
 .yomu-install {
   padding: clamp(4rem, 8vh, 7rem) var(--gutter);

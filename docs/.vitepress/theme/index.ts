@@ -17,6 +17,7 @@ import { HOSTED_DEMO_VIDEO_SETTINGS_PATCH } from '../../../src/reader/app/hosted
 import { cleanupHostedDocsAnnotations } from './chrome-annotation-cleanup';
 import { syncHostedAcademyAccountControls } from './academy-account';
 import { hostedOverflowLinks } from '../shared/nav';
+import { installMembershipPopover } from './membership-popover';
 import './custom.css';
 
 type InterfaceLanguage = 'en' | 'ja';
@@ -5112,12 +5113,42 @@ function watchHostedFoldRuntime(): void {
 // true while pressing a word does nothing at all — the exact failure the prompt
 // exists to disclose. Treat a sample the reader will not serve as no runtime.
 function isHostedFoldSampleLive(): boolean {
-    if (!hostedYomuRuntimeWindow().__yomuReaderAppInitialized) return false;
+    if (!isAnyYomuRuntimeClaimed()) return false;
     const sample = document.querySelector<HTMLElement>('.yomu-try-me-text');
     return Boolean(sample)
         && !sample?.closest('[data-jpdb-reader-surface-ignore]')
         && !sample?.querySelector('[data-jpdb-reader-surface-ignore]');
 }
+
+/**
+ * Whether ANY Yomu runtime owns this page — the hosted copy, an installed
+ * extension, or a userscript.
+ *
+ * `__yomuReaderAppInitialized` is written to the runtime's OWN `window`
+ * (`bootWindow = window` in src/reader/app/boot.ts), so it is realm-local. An
+ * extension content script runs in an isolated world and a userscript manager
+ * may hand the script a sandboxed window, and in both cases the page's `window`
+ * never receives the flag. Checking only the flag therefore reported "no
+ * runtime" to visitors who had Yomu installed and working, and the fold swapped
+ * its live "press a word" prompt for "see it working below" — telling someone to
+ * go look elsewhere at the exact moment the thing was working in front of them.
+ *
+ * The runtime also claims the page with a `<meta id="jpdb-reader-runtime-owner">`
+ * carrying `data-yomu-runtime-owner` (runtime-claim in boot.ts). The DOM is the
+ * one thing every realm shares, so that marker is the honest signal. The window
+ * flag stays as a fast path for the hosted runtime's own boot.
+ */
+function isAnyYomuRuntimeClaimed(): boolean {
+    if (hostedYomuRuntimeWindow().__yomuReaderAppInitialized) return true;
+    const marker = document.getElementById(READER_RUNTIME_MARKER_ID);
+    return Boolean(marker?.dataset.yomuRuntimeOwner);
+}
+
+// Copied rather than imported: the id's home, src/reader/app/runtime-health.ts,
+// pulls in the whole companion registry, and the docs bundle must not carry the
+// reader's companions to read one string. tests/reader/i18n.test.ts asserts this
+// literal still equals READER_RUNTIME_MARKER_ID, so the copy cannot drift.
+const READER_RUNTIME_MARKER_ID = 'jpdb-reader-runtime-owner';
 
 function bindHostedDemoVideos(): void {
     document.querySelectorAll<HTMLVideoElement>('.yomu-demo-video:not([data-yomu-demo-video-bound])').forEach(video => {
@@ -5630,5 +5661,9 @@ export default {
     Layout: YomuLayout,
     enhanceApp(ctx) {
         DefaultTheme.enhanceApp?.(ctx);
+        // Delegated from document, so it survives VitePress's client-side route
+        // changes without re-binding per page. Guarded because enhanceApp also
+        // runs during SSR, where there is no document to listen on.
+        if (typeof document !== 'undefined') installMembershipPopover();
     },
 } satisfies Theme;
