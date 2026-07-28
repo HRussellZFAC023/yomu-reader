@@ -114,9 +114,10 @@ describe('Academy canonical cast registry', () => {
         expect(getAcademyCastMember('nanako')).toMatchObject({
             firstName: 'Nanako',
             category: 'extended-member',
-            visualEvidence: 'candidate-needs-owner',
-            eligibility: { story: true, lessons: true, likenessRuntime: false },
+            visualEvidence: 'approved',
+            eligibility: { story: true, lessons: true, likenessRuntime: true },
         });
+        expect(canRenderAcademyCastPortrait('nanako', 'story-runtime')).toBe(true);
         expect(getAcademyCastMember('mira')).toMatchObject({
             firstName: 'Mira',
             category: 'extended-member',

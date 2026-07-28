@@ -57,4 +57,45 @@ describe('Academy cast background extraction', () => {
             fs.rmSync(temporaryDirectory, { recursive: true, force: true });
         }
     });
+
+    it('preserves green-dominant clothing enclosed by the subject silhouette', async () => {
+        const temporaryDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'academy-cast-chroma-teal-'));
+        const inputPath = path.join(temporaryDirectory, 'green-source.png');
+        const outputPath = path.join(temporaryDirectory, 'cutout.png');
+        const width = 64;
+        const height = 64;
+        const pixels = Buffer.alloc(width * height * 4);
+        const clothing = [28, 120, 82, 255] as const;
+
+        for (let y = 0; y < height; y += 1) {
+            for (let x = 0; x < width; x += 1) {
+                const offset = (y * width + x) * 4;
+                const subject = x >= 18 && x < 46 && y >= 8 && y < 60;
+                pixels[offset] = subject ? clothing[0] : 0;
+                pixels[offset + 1] = subject ? clothing[1] : 255;
+                pixels[offset + 2] = subject ? clothing[2] : 0;
+                pixels[offset + 3] = 255;
+            }
+        }
+
+        try {
+            await sharp(pixels, { raw: { width, height, channels: 4 } }).png().toFile(inputPath);
+            execFileSync(
+                process.execPath,
+                ['scripts/academy-cast-chroma.mjs', inputPath, outputPath],
+                { cwd: path.resolve('.'), stdio: 'pipe' },
+            );
+
+            const image = sharp(outputPath);
+            const { data, info } = await image.ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+            const centerOffset = (
+                Math.floor(info.height / 2) * info.width + Math.floor(info.width / 2)
+            ) * info.channels;
+
+            expect([...data.subarray(centerOffset, centerOffset + info.channels)]).toEqual(clothing);
+            expect(data[3]).toBe(0);
+        } finally {
+            fs.rmSync(temporaryDirectory, { recursive: true, force: true });
+        }
+    });
 });

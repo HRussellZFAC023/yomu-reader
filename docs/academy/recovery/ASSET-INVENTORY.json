@@ -19,20 +19,20 @@
     "deletion": "This audit never deletes, moves, or mutates Academy raster files."
   },
   "counts": {
-    "currentRasterFiles": 319,
-    "currentRasterFilesAccountedFor": 319,
-    "active": 266,
+    "currentRasterFiles": 324,
+    "currentRasterFilesAccountedFor": 324,
+    "active": 271,
     "orphaned": 53,
     "deprecated": 10,
     "deprecatedPresent": 0,
-    "missingExpressionVariants": 528,
+    "missingExpressionVariants": 521,
     "expressionMatrixSlots": 630,
-    "approvedExpressionVariants": 89,
+    "approvedExpressionVariants": 96,
     "reviewCandidateExpressionVariants": 13,
-    "deliveredMatrixExpressionVariants": 102,
-    "offMatrixDeliveredSprites": 38,
+    "deliveredMatrixExpressionVariants": 109,
+    "offMatrixDeliveredSprites": 36,
     "activeByKind": {
-      "character-sprite": 138,
+      "character-sprite": 143,
       "protagonist-portrait": 4,
       "scene-background": 68,
       "scene-event": 48,
@@ -1010,6 +1010,164 @@
         "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
       },
       {
+        "id": "character-jodi-determined-silver-streaked-bob-plum-scarf-front-near-front-fullbody-v002",
+        "path": "/academy/art/characters/jodi/jodi__determined-silver-streaked-bob-plum-scarf__front-near-front__fullbody__v002.png",
+        "sha256": "4c7f11aa43f4811c0c83e42044fd8cf016cdf4e6b78e55b735454e84ca20c329",
+        "ledgerSha256": "4c7f11aa43f4811c0c83e42044fd8cf016cdf4e6b78e55b735454e84ca20c329",
+        "kind": "character-sprite",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "journal:jodi-expression-gallery",
+          "story:cast:jodi:determined",
+          "cast-standardization:jodi"
+        ],
+        "reviewHomes": [
+          "cast-standardization-manifest",
+          "identity-lock"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
+      },
+      {
+        "id": "character-jodi-encouraging-listening-silver-streaked-bob-plum-scarf-right-three-quarter-fullbody-v002",
+        "path": "/academy/art/characters/jodi/jodi__encouraging-listening-silver-streaked-bob-plum-scarf__right-three-quarter__fullbody__v002.png",
+        "sha256": "3fa675d6f4556b263d4e6d13a9a801e8c24d7e5f93e768130114a03b1a93105e",
+        "ledgerSha256": "3fa675d6f4556b263d4e6d13a9a801e8c24d7e5f93e768130114a03b1a93105e",
+        "kind": "character-sprite",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "journal:jodi-expression-gallery",
+          "story:cast:jodi:encouraging-listening",
+          "cast-standardization:jodi"
+        ],
+        "reviewHomes": [
+          "cast-standardization-manifest",
+          "identity-lock"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
+      },
+      {
+        "id": "character-jodi-happy-silver-streaked-bob-plum-scarf-front-near-front-fullbody-v002",
+        "path": "/academy/art/characters/jodi/jodi__happy-silver-streaked-bob-plum-scarf__front-near-front__fullbody__v002.png",
+        "sha256": "d356ce5791b6143b58ed5a2369b88c7a0dff5e628621149c4d428e673746b924",
+        "ledgerSha256": "d356ce5791b6143b58ed5a2369b88c7a0dff5e628621149c4d428e673746b924",
+        "kind": "character-sprite",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "journal:jodi-expression-gallery",
+          "story:cast:jodi:happy",
+          "cast-standardization:jodi"
+        ],
+        "reviewHomes": [
+          "cast-standardization-manifest",
+          "identity-lock"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
+      },
+      {
+        "id": "character-jodi-neutral-silver-streaked-bob-plum-scarf-front-near-front-fullbody-v002",
+        "path": "/academy/art/characters/jodi/jodi__neutral-silver-streaked-bob-plum-scarf__front-near-front__fullbody__v002.png",
+        "sha256": "91c93591fdf49dec989b52f866ed568ca306ce999d10f436ffbb12a558e89e26",
+        "ledgerSha256": "91c93591fdf49dec989b52f866ed568ca306ce999d10f436ffbb12a558e89e26",
+        "kind": "character-sprite",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "journal:jodi",
+          "class:people",
+          "class:week-cast",
+          "lesson-overview:roster",
+          "world:person",
+          "story:cast:jodi",
+          "cast-standardization:jodi"
+        ],
+        "reviewHomes": [
+          "cast-standardization-manifest",
+          "identity-lock"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
+      },
+      {
+        "id": "character-jodi-sad-vulnerable-silver-streaked-bob-plum-scarf-left-three-quarter-fullbody-v002",
+        "path": "/academy/art/characters/jodi/jodi__sad-vulnerable-silver-streaked-bob-plum-scarf__left-three-quarter__fullbody__v002.png",
+        "sha256": "ca8f282465ca85450d63e63719e302ee6a0b2ba9eccacc206381f272bbdbc661",
+        "ledgerSha256": "ca8f282465ca85450d63e63719e302ee6a0b2ba9eccacc206381f272bbdbc661",
+        "kind": "character-sprite",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "journal:jodi-expression-gallery",
+          "story:cast:jodi:sad-vulnerable",
+          "cast-standardization:jodi"
+        ],
+        "reviewHomes": [
+          "cast-standardization-manifest",
+          "identity-lock"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
+      },
+      {
+        "id": "character-jodi-surprised-shocked-silver-streaked-bob-plum-scarf-right-three-quarter-fullbody-v002",
+        "path": "/academy/art/characters/jodi/jodi__surprised-shocked-silver-streaked-bob-plum-scarf__right-three-quarter__fullbody__v002.png",
+        "sha256": "21524a18773cc1a77c61f528283fbf4492af418b201fecec9b33ddd44331bc31",
+        "ledgerSha256": "21524a18773cc1a77c61f528283fbf4492af418b201fecec9b33ddd44331bc31",
+        "kind": "character-sprite",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "journal:jodi-expression-gallery",
+          "story:cast:jodi:surprised-shocked",
+          "cast-standardization:jodi"
+        ],
+        "reviewHomes": [
+          "cast-standardization-manifest",
+          "identity-lock"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
+      },
+      {
+        "id": "character-jodi-thoughtful-silver-streaked-bob-plum-scarf-left-three-quarter-fullbody-v002",
+        "path": "/academy/art/characters/jodi/jodi__thoughtful-silver-streaked-bob-plum-scarf__left-three-quarter__fullbody__v002.png",
+        "sha256": "5c83fe01f1cd57c7916f87cd97847015956de1b02b3ecbf5827bac8b84b72bd0",
+        "ledgerSha256": "5c83fe01f1cd57c7916f87cd97847015956de1b02b3ecbf5827bac8b84b72bd0",
+        "kind": "character-sprite",
+        "state": "active",
+        "present": true,
+        "runtimeAuthorized": true,
+        "runtimeHomes": [
+          "journal:jodi-expression-gallery",
+          "story:cast:jodi:thoughtful",
+          "cast-standardization:jodi"
+        ],
+        "reviewHomes": [
+          "cast-standardization-manifest",
+          "identity-lock"
+        ],
+        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
+        "ledgerVerdict": "approved-runtime",
+        "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
+      },
+      {
         "id": "character-mary-standardized-encouraging-listening-front-near-front-halfbody-v001",
         "path": "/academy/art/characters/mary/mary__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
         "sha256": "8b346903cffbc37c884a4a7f232f8913cfeb8e82adbfb21f714a4c9bcf81d7b2",
@@ -1410,50 +1568,6 @@
         "sourceLedger": "public/academy/art/ASSET-USAGE.json",
         "ledgerVerdict": "approved-runtime",
         "ledgerStatus": "identity-locked, visually inspected, runtime-bound house-style sprite"
-      },
-      {
-        "id": "character-nanako-standardized-encouraging-listening-front-near-front-halfbody-v001",
-        "path": "/academy/art/characters/nanako/nanako__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
-        "sha256": "3dd4997af1012c9cf7697e1510cc373c05f3420b8cd230dc2e400d2caaf3727f",
-        "ledgerSha256": "3dd4997af1012c9cf7697e1510cc373c05f3420b8cd230dc2e400d2caaf3727f",
-        "kind": "character-sprite",
-        "state": "active",
-        "present": true,
-        "runtimeAuthorized": true,
-        "runtimeHomes": [
-          "journal:nanako-expression-gallery",
-          "cast-standardization:nanako"
-        ],
-        "reviewHomes": [
-          "cast-standardization-manifest",
-          "learner-journal-preview"
-        ],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "review-candidate/runtime-preview",
-        "ledgerStatus": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-      },
-      {
-        "id": "character-nanako-standardized-neutral-front-near-front-halfbody-v001",
-        "path": "/academy/art/characters/nanako/nanako__standardized-neutral__front-near-front__halfbody__v001.png",
-        "sha256": "0d2a673aa9e33a218544da302461c10ad7b235016aaeab92919f19d58fb66d44",
-        "ledgerSha256": "0d2a673aa9e33a218544da302461c10ad7b235016aaeab92919f19d58fb66d44",
-        "kind": "character-sprite",
-        "state": "active",
-        "present": true,
-        "runtimeAuthorized": true,
-        "runtimeHomes": [
-          "journal:nanako",
-          "class:people-review",
-          "lesson-overview:roster-review",
-          "cast-standardization:nanako"
-        ],
-        "reviewHomes": [
-          "cast-standardization-manifest",
-          "learner-journal-preview"
-        ],
-        "sourceLedger": "public/academy/art/ASSET-USAGE.json",
-        "ledgerVerdict": "review-candidate/runtime-preview",
-        "ledgerStatus": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
       },
       {
         "id": "character-peter-determined-quiet-observer-front-near-front-fullbody-v003",
@@ -6615,24 +6729,6 @@
         "countsTowardExpressionMatrix": false
       },
       {
-        "character": "jodi",
-        "path": "/academy/art/characters/jodi/jodi__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
-        "sha256": "0002290f455bfb033e85e921e267d97f015117fdddc381a0b089bf04768eceaa",
-        "currentState": "unaccounted",
-        "coverageStatus": "off-matrix",
-        "migrationStatus": "retained-off-matrix-review-evidence",
-        "countsTowardExpressionMatrix": false
-      },
-      {
-        "character": "jodi",
-        "path": "/academy/art/characters/jodi/jodi__standardized-neutral__front-near-front__halfbody__v001.png",
-        "sha256": "c155476807db7875b85a0436fec7d78bb565c065e5d25d184b7bfead1ca80d3b",
-        "currentState": "unaccounted",
-        "coverageStatus": "off-matrix",
-        "migrationStatus": "retained-off-matrix-review-evidence",
-        "countsTowardExpressionMatrix": false
-      },
-      {
         "character": "mary",
         "path": "/academy/art/characters/mary/mary__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
         "sha256": "8b346903cffbc37c884a4a7f232f8913cfeb8e82adbfb21f714a4c9bcf81d7b2",
@@ -6672,7 +6768,7 @@
         "character": "nanako",
         "path": "/academy/art/characters/nanako/nanako__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
         "sha256": "3dd4997af1012c9cf7697e1510cc373c05f3420b8cd230dc2e400d2caaf3727f",
-        "currentState": "active",
+        "currentState": "unaccounted",
         "coverageStatus": "off-matrix",
         "migrationStatus": "retained-off-matrix-review-evidence",
         "countsTowardExpressionMatrix": false
@@ -6681,7 +6777,7 @@
         "character": "nanako",
         "path": "/academy/art/characters/nanako/nanako__standardized-neutral__front-near-front__halfbody__v001.png",
         "sha256": "0d2a673aa9e33a218544da302461c10ad7b235016aaeab92919f19d58fb66d44",
-        "currentState": "active",
+        "currentState": "unaccounted",
         "coverageStatus": "off-matrix",
         "migrationStatus": "retained-off-matrix-review-evidence",
         "countsTowardExpressionMatrix": false
@@ -8077,35 +8173,8 @@
       {
         "character": "jodi",
         "angle": "front-near-front",
-        "expression": "determined",
-        "plannedPath": "/academy/art/characters/jodi/jodi__determined__front-near-front__halfbody__v001.png",
-        "state": "missing-expression-variant",
-        "present": false,
-        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
-      },
-      {
-        "character": "jodi",
-        "angle": "front-near-front",
         "expression": "encouraging-listening",
         "plannedPath": "/academy/art/characters/jodi/jodi__encouraging-listening__front-near-front__halfbody__v001.png",
-        "state": "missing-expression-variant",
-        "present": false,
-        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
-      },
-      {
-        "character": "jodi",
-        "angle": "front-near-front",
-        "expression": "happy",
-        "plannedPath": "/academy/art/characters/jodi/jodi__happy__front-near-front__halfbody__v001.png",
-        "state": "missing-expression-variant",
-        "present": false,
-        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
-      },
-      {
-        "character": "jodi",
-        "angle": "front-near-front",
-        "expression": "neutral",
-        "plannedPath": "/academy/art/characters/jodi/jodi__neutral__front-near-front__halfbody__v001.png",
         "state": "missing-expression-variant",
         "present": false,
         "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
@@ -8176,26 +8245,8 @@
       {
         "character": "jodi",
         "angle": "left-three-quarter",
-        "expression": "sad-vulnerable",
-        "plannedPath": "/academy/art/characters/jodi/jodi__sad-vulnerable__left-three-quarter__halfbody__v001.png",
-        "state": "missing-expression-variant",
-        "present": false,
-        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
-      },
-      {
-        "character": "jodi",
-        "angle": "left-three-quarter",
         "expression": "surprised-shocked",
         "plannedPath": "/academy/art/characters/jodi/jodi__surprised-shocked__left-three-quarter__halfbody__v001.png",
-        "state": "missing-expression-variant",
-        "present": false,
-        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
-      },
-      {
-        "character": "jodi",
-        "angle": "left-three-quarter",
-        "expression": "thoughtful",
-        "plannedPath": "/academy/art/characters/jodi/jodi__thoughtful__left-three-quarter__halfbody__v001.png",
         "state": "missing-expression-variant",
         "present": false,
         "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
@@ -8205,15 +8256,6 @@
         "angle": "right-three-quarter",
         "expression": "determined",
         "plannedPath": "/academy/art/characters/jodi/jodi__determined__right-three-quarter__halfbody__v001.png",
-        "state": "missing-expression-variant",
-        "present": false,
-        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
-      },
-      {
-        "character": "jodi",
-        "angle": "right-three-quarter",
-        "expression": "encouraging-listening",
-        "plannedPath": "/academy/art/characters/jodi/jodi__encouraging-listening__right-three-quarter__halfbody__v001.png",
         "state": "missing-expression-variant",
         "present": false,
         "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
@@ -8241,15 +8283,6 @@
         "angle": "right-three-quarter",
         "expression": "sad-vulnerable",
         "plannedPath": "/academy/art/characters/jodi/jodi__sad-vulnerable__right-three-quarter__halfbody__v001.png",
-        "state": "missing-expression-variant",
-        "present": false,
-        "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"
-      },
-      {
-        "character": "jodi",
-        "angle": "right-three-quarter",
-        "expression": "surprised-shocked",
-        "plannedPath": "/academy/art/characters/jodi/jodi__surprised-shocked__right-three-quarter__halfbody__v001.png",
         "state": "missing-expression-variant",
         "present": false,
         "sourceLedger": "public/academy/art/CLASSMATE-SPRITE-INVENTORY.json"

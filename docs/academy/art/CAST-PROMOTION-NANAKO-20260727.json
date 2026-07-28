@@ -1,0 +1,101 @@
+{
+  "promotions": [
+    {
+      "castId": "nanako",
+      "archiveLabel": "identity-and-style-superseded-20260727",
+      "replaceExpressions": [
+        "neutral",
+        "encouraging-listening",
+        "happy",
+        "thoughtful",
+        "determined",
+        "surprised-shocked",
+        "sad-vulnerable"
+      ],
+      "canonicalNeutralAssetId": "character.nanako.neutral-teal-coat-coral-scarf-front-near-front-fullbody-v002",
+      "slots": [
+        {
+          "assetId": "character.nanako.neutral-teal-coat-coral-scarf-front-near-front-fullbody-v002",
+          "expression": "neutral",
+          "angle": "front-near-front",
+          "assetPath": "/academy/art/characters/nanako/nanako__neutral-teal-coat-coral-scarf__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:nanako",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "story:cast:nanako",
+            "cast-standardization:nanako"
+          ]
+        },
+        {
+          "assetId": "character.nanako.encouraging-listening-teal-coat-coral-scarf-right-three-quarter-fullbody-v002",
+          "expression": "encouraging-listening",
+          "angle": "right-three-quarter",
+          "assetPath": "/academy/art/characters/nanako/nanako__encouraging-listening-teal-coat-coral-scarf__right-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:nanako-expression-gallery",
+            "story:cast:nanako:encouraging-listening",
+            "cast-standardization:nanako"
+          ]
+        },
+        {
+          "assetId": "character.nanako.happy-teal-coat-coral-scarf-front-near-front-fullbody-v002",
+          "expression": "happy",
+          "angle": "front-near-front",
+          "assetPath": "/academy/art/characters/nanako/nanako__happy-teal-coat-coral-scarf__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:nanako-expression-gallery",
+            "story:cast:nanako:happy",
+            "cast-standardization:nanako"
+          ]
+        },
+        {
+          "assetId": "character.nanako.thoughtful-teal-coat-coral-scarf-left-three-quarter-fullbody-v002",
+          "expression": "thoughtful",
+          "angle": "left-three-quarter",
+          "assetPath": "/academy/art/characters/nanako/nanako__thoughtful-teal-coat-coral-scarf__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:nanako-expression-gallery",
+            "story:cast:nanako:thoughtful",
+            "cast-standardization:nanako"
+          ]
+        },
+        {
+          "assetId": "character.nanako.determined-teal-coat-coral-scarf-front-near-front-fullbody-v002",
+          "expression": "determined",
+          "angle": "front-near-front",
+          "assetPath": "/academy/art/characters/nanako/nanako__determined-teal-coat-coral-scarf__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:nanako-expression-gallery",
+            "story:cast:nanako:determined",
+            "cast-standardization:nanako"
+          ]
+        },
+        {
+          "assetId": "character.nanako.surprised-shocked-teal-coat-coral-scarf-right-three-quarter-fullbody-v002",
+          "expression": "surprised-shocked",
+          "angle": "right-three-quarter",
+          "assetPath": "/academy/art/characters/nanako/nanako__surprised-shocked-teal-coat-coral-scarf__right-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:nanako-expression-gallery",
+            "story:cast:nanako:surprised-shocked",
+            "cast-standardization:nanako"
+          ]
+        },
+        {
+          "assetId": "character.nanako.sad-vulnerable-teal-coat-coral-scarf-left-three-quarter-fullbody-v002",
+          "expression": "sad-vulnerable",
+          "angle": "left-three-quarter",
+          "assetPath": "/academy/art/characters/nanako/nanako__sad-vulnerable-teal-coat-coral-scarf__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:nanako-expression-gallery",
+            "story:cast:nanako:sad-vulnerable",
+            "cast-standardization:nanako"
+          ]
+        }
+      ]
+    }
+  ]
+}

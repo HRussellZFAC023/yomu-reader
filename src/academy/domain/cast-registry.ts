@@ -136,8 +136,8 @@ export const ACADEMY_CAST = [
         id: 'nanako',
         firstName: 'Nanako',
         category: 'extended-member',
-        visualEvidence: 'candidate-needs-owner',
-        eligibility: ELIGIBLE_WITH_PENDING_LIKENESS,
+        visualEvidence: 'approved',
+        eligibility: { story: true, lessons: true, likenessRuntime: true },
     },
     {
         id: 'mira',

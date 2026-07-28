@@ -34,15 +34,15 @@
     "totalSlots": 630
   },
   "summary": {
-    "approved": 96,
+    "approved": 103,
     "reviewCandidates": 13,
-    "missing": 521,
-    "currentPhysicalRasters": 145,
-    "currentOffMatrixRasters": 36,
+    "missing": 514,
+    "currentPhysicalRasters": 150,
+    "currentOffMatrixRasters": 34,
     "historicalUniqueRasters": 469,
     "historicalOccurrences": 2016,
-    "charactersWithApprovedCoverage": 16,
-    "charactersWithAnyCurrentCoverage": 19
+    "charactersWithApprovedCoverage": 17,
+    "charactersWithAnyCurrentCoverage": 20
   },
   "migrations": [
     {
@@ -13224,35 +13224,36 @@
         "slots": 21
       },
       "progress": {
-        "approved": 0,
+        "approved": 7,
         "reviewCandidates": 0,
-        "missing": 21,
-        "deliveredPercent": 0,
-        "approvedPercent": 0
+        "missing": 14,
+        "deliveredPercent": 33.33,
+        "approvedPercent": 33.33
       },
       "currentAssets": [
         {
-          "path": "/academy/art/characters/nanako/nanako__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
-          "sha256": "3dd4997af1012c9cf7697e1510cc373c05f3420b8cd230dc2e400d2caaf3727f",
+          "path": "/academy/art/characters/nanako/nanako__determined-teal-coat-coral-scarf__front-near-front__fullbody__v002.png",
+          "sha256": "1c56a693f0c946ad9724042f20971bc38492883b746a4a0450a2a711fca3ea8f",
           "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
-          "status": "review-candidate",
+          "status": "approved",
           "usage": {
             "runtime": [
               "journal:nanako-expression-gallery",
+              "story:cast:nanako:determined",
               "cast-standardization:nanako"
             ],
             "review": [
               "cast-standardization-manifest",
-              "learner-journal-preview"
+              "identity-lock"
             ]
           },
-          "orphan": "review-bound",
+          "orphan": "active-runtime",
           "styleVersion": "current-review-family",
-          "fileVersion": "v001",
-          "pose": "off-contract standardized-encouraging-listening pose",
-          "angle": null,
-          "expression": null,
+          "fileVersion": "v002",
+          "pose": "sketchbook opened across a low angled arm with a pencil held away from the page in conversation; front-near-front",
+          "angle": "front-near-front",
+          "expression": "determined",
           "dimensions": {
             "width": 1536,
             "height": 2048,
@@ -13262,40 +13263,130 @@
           },
           "runtimeUses": [
             "journal:nanako-expression-gallery",
+            "story:cast:nanako:determined",
             "cast-standardization:nanako"
           ],
           "reviewUses": [
             "cast-standardization-manifest",
-            "learner-journal-preview"
+            "identity-lock"
           ],
           "decision": "keep",
-          "migrationStatus": "retained-off-matrix-review-evidence",
-          "coverageStatus": "off-matrix"
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
         },
         {
-          "path": "/academy/art/characters/nanako/nanako__standardized-neutral__front-near-front__halfbody__v001.png",
-          "sha256": "0d2a673aa9e33a218544da302461c10ad7b235016aaeab92919f19d58fb66d44",
+          "path": "/academy/art/characters/nanako/nanako__encouraging-listening-teal-coat-coral-scarf__right-three-quarter__fullbody__v002.png",
+          "sha256": "1af29dd9502b2266ffa9175796245b6f057092f242fdf5f5caf23d58438699be",
           "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
           "privacy": "no-private-source-recorded",
-          "status": "review-candidate",
+          "status": "approved",
           "usage": {
             "runtime": [
-              "journal:nanako",
-              "class:people-review",
-              "lesson-overview:roster-review",
+              "journal:nanako-expression-gallery",
+              "story:cast:nanako:encouraging-listening",
               "cast-standardization:nanako"
             ],
             "review": [
               "cast-standardization-manifest",
-              "learner-journal-preview"
+              "identity-lock"
             ]
           },
-          "orphan": "review-bound",
+          "orphan": "active-runtime",
           "styleVersion": "current-review-family",
-          "fileVersion": "v001",
-          "pose": "off-contract standardized-neutral pose",
-          "angle": null,
-          "expression": null,
+          "fileVersion": "v002",
+          "pose": "sketchbook opened across a low angled arm with a pencil held away from the page in conversation; right-three-quarter",
+          "angle": "right-three-quarter",
+          "expression": "encouraging-listening",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:nanako-expression-gallery",
+            "story:cast:nanako:encouraging-listening",
+            "cast-standardization:nanako"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/nanako/nanako__happy-teal-coat-coral-scarf__front-near-front__fullbody__v002.png",
+          "sha256": "951d055b16472384c48b5c4dca7251efc3aa0b907c249ef66f744b20fd815232",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:nanako-expression-gallery",
+              "story:cast:nanako:happy",
+              "cast-standardization:nanako"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "sketchbook opened across a low angled arm with a pencil held away from the page in conversation; front-near-front",
+          "angle": "front-near-front",
+          "expression": "happy",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:nanako-expression-gallery",
+            "story:cast:nanako:happy",
+            "cast-standardization:nanako"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/nanako/nanako__neutral-teal-coat-coral-scarf__front-near-front__fullbody__v002.png",
+          "sha256": "b9a76f588ef2d61e2b287e6f6120ae0375ba5d595ab701f37644dce73a85c4e4",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:nanako",
+              "class:people",
+              "class:week-cast",
+              "lesson-overview:roster",
+              "world:person",
+              "story:cast:nanako",
+              "cast-standardization:nanako"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "sketchbook opened across a low angled arm with a pencil held away from the page in conversation; front-near-front",
+          "angle": "front-near-front",
+          "expression": "neutral",
           "dimensions": {
             "width": 1536,
             "height": 2048,
@@ -13305,17 +13396,149 @@
           },
           "runtimeUses": [
             "journal:nanako",
-            "class:people-review",
-            "lesson-overview:roster-review",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "story:cast:nanako",
             "cast-standardization:nanako"
           ],
           "reviewUses": [
             "cast-standardization-manifest",
-            "learner-journal-preview"
+            "identity-lock"
           ],
           "decision": "keep",
-          "migrationStatus": "retained-off-matrix-review-evidence",
-          "coverageStatus": "off-matrix"
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/nanako/nanako__sad-vulnerable-teal-coat-coral-scarf__left-three-quarter__fullbody__v002.png",
+          "sha256": "f300a5004691585ad36b0314a9671daafd576aa1080a62724002234eb1b4c220",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:nanako-expression-gallery",
+              "story:cast:nanako:sad-vulnerable",
+              "cast-standardization:nanako"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "sketchbook opened across a low angled arm with a pencil held away from the page in conversation; left-three-quarter",
+          "angle": "left-three-quarter",
+          "expression": "sad-vulnerable",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:nanako-expression-gallery",
+            "story:cast:nanako:sad-vulnerable",
+            "cast-standardization:nanako"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/nanako/nanako__surprised-shocked-teal-coat-coral-scarf__right-three-quarter__fullbody__v002.png",
+          "sha256": "055618981c7ef1db39e09dd178c14b54c79ceb62862d7b47d9829f5880c8749d",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:nanako-expression-gallery",
+              "story:cast:nanako:surprised-shocked",
+              "cast-standardization:nanako"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "sketchbook opened across a low angled arm with a pencil held away from the page in conversation; right-three-quarter",
+          "angle": "right-three-quarter",
+          "expression": "surprised-shocked",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:nanako-expression-gallery",
+            "story:cast:nanako:surprised-shocked",
+            "cast-standardization:nanako"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
+        },
+        {
+          "path": "/academy/art/characters/nanako/nanako__thoughtful-teal-coat-coral-scarf__left-three-quarter__fullbody__v002.png",
+          "sha256": "0e1e2950026ace23c1d80ce69cac57aff2ed7a4edcd94bf4b8f06adb68e5258d",
+          "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+          "privacy": "no-private-source-recorded",
+          "status": "approved",
+          "usage": {
+            "runtime": [
+              "journal:nanako-expression-gallery",
+              "story:cast:nanako:thoughtful",
+              "cast-standardization:nanako"
+            ],
+            "review": [
+              "cast-standardization-manifest",
+              "identity-lock"
+            ]
+          },
+          "orphan": "active-runtime",
+          "styleVersion": "current-review-family",
+          "fileVersion": "v002",
+          "pose": "sketchbook opened across a low angled arm with a pencil held away from the page in conversation; left-three-quarter",
+          "angle": "left-three-quarter",
+          "expression": "thoughtful",
+          "dimensions": {
+            "width": 1536,
+            "height": 2048,
+            "bitDepth": 8,
+            "colorType": 6,
+            "transparency": "alpha-channel"
+          },
+          "runtimeUses": [
+            "journal:nanako-expression-gallery",
+            "story:cast:nanako:thoughtful",
+            "cast-standardization:nanako"
+          ],
+          "reviewUses": [
+            "cast-standardization-manifest",
+            "identity-lock"
+          ],
+          "decision": "keep",
+          "migrationStatus": "approved-and-registered",
+          "coverageStatus": "approved"
         }
       ],
       "requiredVariants": [
@@ -13343,9 +13566,8 @@
         {
           "angle": "left-three-quarter",
           "expression": "thoughtful",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/nanako/nanako__thoughtful__left-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/nanako/nanako__thoughtful-teal-coat-coral-scarf__left-three-quarter__fullbody__v002.png"
         },
         {
           "angle": "left-three-quarter",
@@ -13364,16 +13586,14 @@
         {
           "angle": "left-three-quarter",
           "expression": "sad-vulnerable",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/nanako/nanako__sad-vulnerable__left-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/nanako/nanako__sad-vulnerable-teal-coat-coral-scarf__left-three-quarter__fullbody__v002.png"
         },
         {
           "angle": "front-near-front",
           "expression": "neutral",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/nanako/nanako__neutral__front-near-front__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/nanako/nanako__neutral-teal-coat-coral-scarf__front-near-front__fullbody__v002.png"
         },
         {
           "angle": "front-near-front",
@@ -13385,9 +13605,8 @@
         {
           "angle": "front-near-front",
           "expression": "happy",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/nanako/nanako__happy__front-near-front__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/nanako/nanako__happy-teal-coat-coral-scarf__front-near-front__fullbody__v002.png"
         },
         {
           "angle": "front-near-front",
@@ -13399,9 +13618,8 @@
         {
           "angle": "front-near-front",
           "expression": "determined",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/nanako/nanako__determined__front-near-front__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/nanako/nanako__determined-teal-coat-coral-scarf__front-near-front__fullbody__v002.png"
         },
         {
           "angle": "front-near-front",
@@ -13427,9 +13645,8 @@
         {
           "angle": "right-three-quarter",
           "expression": "encouraging-listening",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/nanako/nanako__encouraging-listening__right-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/nanako/nanako__encouraging-listening-teal-coat-coral-scarf__right-three-quarter__fullbody__v002.png"
         },
         {
           "angle": "right-three-quarter",
@@ -13455,9 +13672,8 @@
         {
           "angle": "right-three-quarter",
           "expression": "surprised-shocked",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/nanako/nanako__surprised-shocked__right-three-quarter__halfbody__v001.png"
+          "status": "approved",
+          "path": "/academy/art/characters/nanako/nanako__surprised-shocked-teal-coat-coral-scarf__right-three-quarter__fullbody__v002.png"
         },
         {
           "angle": "right-three-quarter",
@@ -13491,13 +13707,6 @@
         },
         {
           "angle": "left-three-quarter",
-          "expression": "thoughtful",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/nanako/nanako__thoughtful__left-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "left-three-quarter",
           "expression": "determined",
           "status": "missing",
           "path": null,
@@ -13511,20 +13720,6 @@
           "plannedPath": "/academy/art/characters/nanako/nanako__surprised-shocked__left-three-quarter__halfbody__v001.png"
         },
         {
-          "angle": "left-three-quarter",
-          "expression": "sad-vulnerable",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/nanako/nanako__sad-vulnerable__left-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "front-near-front",
-          "expression": "neutral",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/nanako/nanako__neutral__front-near-front__halfbody__v001.png"
-        },
-        {
           "angle": "front-near-front",
           "expression": "encouraging-listening",
           "status": "missing",
@@ -13533,24 +13728,10 @@
         },
         {
           "angle": "front-near-front",
-          "expression": "happy",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/nanako/nanako__happy__front-near-front__halfbody__v001.png"
-        },
-        {
-          "angle": "front-near-front",
           "expression": "thoughtful",
           "status": "missing",
           "path": null,
           "plannedPath": "/academy/art/characters/nanako/nanako__thoughtful__front-near-front__halfbody__v001.png"
-        },
-        {
-          "angle": "front-near-front",
-          "expression": "determined",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/nanako/nanako__determined__front-near-front__halfbody__v001.png"
         },
         {
           "angle": "front-near-front",
@@ -13575,13 +13756,6 @@
         },
         {
           "angle": "right-three-quarter",
-          "expression": "encouraging-listening",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/nanako/nanako__encouraging-listening__right-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "right-three-quarter",
           "expression": "happy",
           "status": "missing",
           "path": null,
@@ -13600,13 +13774,6 @@
           "status": "missing",
           "path": null,
           "plannedPath": "/academy/art/characters/nanako/nanako__determined__right-three-quarter__halfbody__v001.png"
-        },
-        {
-          "angle": "right-three-quarter",
-          "expression": "surprised-shocked",
-          "status": "missing",
-          "path": null,
-          "plannedPath": "/academy/art/characters/nanako/nanako__surprised-shocked__right-three-quarter__halfbody__v001.png"
         },
         {
           "angle": "right-three-quarter",

@@ -1,4 +1,4 @@
-const VERSION = 'yomu-academy-shell-s1-6cf2d614c013';
+const VERSION = 'yomu-academy-shell-s1-f36e4a27dcf3';
 const AUDIO_CACHE = 'yomu-academy-audio-v1-2c25b06f971c';
 const STORY_VOICE_CATALOG = '/academy/audio/story-voice-playback.json';
 const STORY_VOICE_ASSET = /^\/academy\/audio\/story-(?:pilot|lines)\/[a-z0-9][a-z0-9._-]*\.opus$/;
@@ -106,8 +106,13 @@ const RUNTIME_ART_PRECACHE = [
     '/academy/art/characters/mira/mira__sad-vulnerable-umbrella__left-three-quarter__fullbody__v002.png',
     '/academy/art/characters/mira/mira__surprised-shocked-umbrella__right-three-quarter__fullbody__v002.png',
     '/academy/art/characters/mira/mira__thoughtful-umbrella__left-three-quarter__fullbody__v002.png',
-    '/academy/art/characters/nanako/nanako__standardized-encouraging-listening__front-near-front__halfbody__v001.png',
-    '/academy/art/characters/nanako/nanako__standardized-neutral__front-near-front__halfbody__v001.png',
+    '/academy/art/characters/nanako/nanako__determined-teal-coat-coral-scarf__front-near-front__fullbody__v002.png',
+    '/academy/art/characters/nanako/nanako__encouraging-listening-teal-coat-coral-scarf__right-three-quarter__fullbody__v002.png',
+    '/academy/art/characters/nanako/nanako__happy-teal-coat-coral-scarf__front-near-front__fullbody__v002.png',
+    '/academy/art/characters/nanako/nanako__neutral-teal-coat-coral-scarf__front-near-front__fullbody__v002.png',
+    '/academy/art/characters/nanako/nanako__sad-vulnerable-teal-coat-coral-scarf__left-three-quarter__fullbody__v002.png',
+    '/academy/art/characters/nanako/nanako__surprised-shocked-teal-coat-coral-scarf__right-three-quarter__fullbody__v002.png',
+    '/academy/art/characters/nanako/nanako__thoughtful-teal-coat-coral-scarf__left-three-quarter__fullbody__v002.png',
     '/academy/art/characters/peter/peter__determined-quiet-observer__front-near-front__fullbody__v003.png',
     '/academy/art/characters/peter/peter__encouraging-listening-quiet-observer__right-three-quarter__fullbody__v003.png',
     '/academy/art/characters/peter/peter__happy-quiet-observer__front-near-front__fullbody__v003.png',
@@ -323,8 +328,8 @@ const CORE = [
     '/yomu-icon.svg',
     '/academy/',
     '/academy/index.html',
-    '/academy/app.js?v=s1-6cf2d614c013',
-    '/academy/style.css?v=s1-6cf2d614c013',
+    '/academy/app.js?v=s1-f36e4a27dcf3',
+    '/academy/style.css?v=s1-f36e4a27dcf3',
     '/academy/manifest.webmanifest',
     ...RUNTIME_ART_PRECACHE,
     '/academy/content/vertical-slice/source-library.v1.json',

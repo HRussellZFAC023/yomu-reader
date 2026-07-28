@@ -27,7 +27,7 @@ describe('lesson overview model', () => {
             title: { en: 'Lesson 0', ja: 'レッスン0' },
             peopleIds: ['rie', 'xingyu', 'mika', 'sophie', 'ruparna', 'aakash', 'sam'],
         });
-        expect(model.presentation.goals).toHaveLength(5);
+        expect(model.presentation.goals).toHaveLength(6);
         expect(model.presentation.materials.filter(material => material.state === 'ready')).toHaveLength(4);
         expect(model.releaseStatus).toBe('review-blocked');
         expect(model.blockerIds).toContain('blocker:lesson-runtime-bindings');

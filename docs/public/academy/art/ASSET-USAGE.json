@@ -18,8 +18,8 @@
     ]
   },
   "counts": {
-    "runtimeAssetHomes": 218,
-    "runtimeFiles": 273,
+    "runtimeAssetHomes": 223,
+    "runtimeFiles": 278,
     "nonRuntimeReviewFiles": 1734,
     "approvedReferenceOnly": 4,
     "explicitlyRejectedFamilies": 4,
@@ -1704,74 +1704,6 @@
         }
       ],
       "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
-    },
-    {
-      "id": "character-nanako-standardized-encouraging-listening-front-near-front-halfbody-v001",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "3dd4997af1012c9cf7697e1510cc373c05f3420b8cd230dc2e400d2caaf3727f",
-      "provenance": "regenerated-standardized",
-      "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": [
-        "journal:nanako-expression-gallery",
-        "cast-standardization:nanako"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "learner-journal-preview"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:nanako-expression-gallery",
-          "cast-standardization:nanako"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/nanako/nanako__standardized-encouraging-listening__front-near-front__halfbody__v001.png",
-          "sha256": "3dd4997af1012c9cf7697e1510cc373c05f3420b8cd230dc2e400d2caaf3727f"
-        }
-      ],
-      "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
-    },
-    {
-      "id": "character-nanako-standardized-neutral-front-near-front-halfbody-v001",
-      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
-      "sourceSha256": "0d2a673aa9e33a218544da302461c10ad7b235016aaeab92919f19d58fb66d44",
-      "provenance": "regenerated-standardized",
-      "verdict": "review-candidate/runtime-preview",
-      "runtimeHome": [
-        "journal:nanako",
-        "class:people-review",
-        "lesson-overview:roster-review",
-        "cast-standardization:nanako"
-      ],
-      "reviewHome": [
-        "cast-standardization-manifest",
-        "learner-journal-preview"
-      ],
-      "usage": {
-        "runtime": [
-          "journal:nanako",
-          "class:people-review",
-          "lesson-overview:roster-review",
-          "cast-standardization:nanako"
-        ],
-        "review": [
-          "cast-standardization-manifest"
-        ]
-      },
-      "orphan": "active-runtime",
-      "deliveries": [
-        {
-          "path": "/academy/art/characters/nanako/nanako__standardized-neutral__front-near-front__halfbody__v001.png",
-          "sha256": "0d2a673aa9e33a218544da302461c10ad7b235016aaeab92919f19d58fb66d44"
-        }
-      ],
-      "status": "qa-passed cast-standardization preview; runtime-mapped to learner journal/gallery"
     },
     {
       "id": "character-rie-comedic-glasses-right",
@@ -13974,6 +13906,252 @@
         {
           "path": "/academy/art/characters/jodi/jodi__sad-vulnerable-silver-streaked-bob-plum-scarf__left-three-quarter__fullbody__v002.png",
           "sha256": "ca8f282465ca85450d63e63719e302ee6a0b2ba9eccacc206381f272bbdbc661"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-nanako-neutral-teal-coat-coral-scarf-front-near-front-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "b9a76f588ef2d61e2b287e6f6120ae0375ba5d595ab701f37644dce73a85c4e4",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:nanako",
+        "class:people",
+        "class:week-cast",
+        "lesson-overview:roster",
+        "world:person",
+        "story:cast:nanako",
+        "cast-standardization:nanako"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:nanako",
+          "class:people",
+          "class:week-cast",
+          "lesson-overview:roster",
+          "world:person",
+          "story:cast:nanako",
+          "cast-standardization:nanako"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/nanako/nanako__neutral-teal-coat-coral-scarf__front-near-front__fullbody__v002.png",
+          "sha256": "b9a76f588ef2d61e2b287e6f6120ae0375ba5d595ab701f37644dce73a85c4e4"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-nanako-encouraging-listening-teal-coat-coral-scarf-right-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "1af29dd9502b2266ffa9175796245b6f057092f242fdf5f5caf23d58438699be",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:nanako-expression-gallery",
+        "story:cast:nanako:encouraging-listening",
+        "cast-standardization:nanako"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:nanako-expression-gallery",
+          "story:cast:nanako:encouraging-listening",
+          "cast-standardization:nanako"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/nanako/nanako__encouraging-listening-teal-coat-coral-scarf__right-three-quarter__fullbody__v002.png",
+          "sha256": "1af29dd9502b2266ffa9175796245b6f057092f242fdf5f5caf23d58438699be"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-nanako-happy-teal-coat-coral-scarf-front-near-front-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "951d055b16472384c48b5c4dca7251efc3aa0b907c249ef66f744b20fd815232",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:nanako-expression-gallery",
+        "story:cast:nanako:happy",
+        "cast-standardization:nanako"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:nanako-expression-gallery",
+          "story:cast:nanako:happy",
+          "cast-standardization:nanako"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/nanako/nanako__happy-teal-coat-coral-scarf__front-near-front__fullbody__v002.png",
+          "sha256": "951d055b16472384c48b5c4dca7251efc3aa0b907c249ef66f744b20fd815232"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-nanako-thoughtful-teal-coat-coral-scarf-left-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "0e1e2950026ace23c1d80ce69cac57aff2ed7a4edcd94bf4b8f06adb68e5258d",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:nanako-expression-gallery",
+        "story:cast:nanako:thoughtful",
+        "cast-standardization:nanako"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:nanako-expression-gallery",
+          "story:cast:nanako:thoughtful",
+          "cast-standardization:nanako"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/nanako/nanako__thoughtful-teal-coat-coral-scarf__left-three-quarter__fullbody__v002.png",
+          "sha256": "0e1e2950026ace23c1d80ce69cac57aff2ed7a4edcd94bf4b8f06adb68e5258d"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-nanako-determined-teal-coat-coral-scarf-front-near-front-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "1c56a693f0c946ad9724042f20971bc38492883b746a4a0450a2a711fca3ea8f",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:nanako-expression-gallery",
+        "story:cast:nanako:determined",
+        "cast-standardization:nanako"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:nanako-expression-gallery",
+          "story:cast:nanako:determined",
+          "cast-standardization:nanako"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/nanako/nanako__determined-teal-coat-coral-scarf__front-near-front__fullbody__v002.png",
+          "sha256": "1c56a693f0c946ad9724042f20971bc38492883b746a4a0450a2a711fca3ea8f"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-nanako-surprised-shocked-teal-coat-coral-scarf-right-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "055618981c7ef1db39e09dd178c14b54c79ceb62862d7b47d9829f5880c8749d",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:nanako-expression-gallery",
+        "story:cast:nanako:surprised-shocked",
+        "cast-standardization:nanako"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:nanako-expression-gallery",
+          "story:cast:nanako:surprised-shocked",
+          "cast-standardization:nanako"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/nanako/nanako__surprised-shocked-teal-coat-coral-scarf__right-three-quarter__fullbody__v002.png",
+          "sha256": "055618981c7ef1db39e09dd178c14b54c79ceb62862d7b47d9829f5880c8749d"
+        }
+      ],
+      "status": "identity-locked, visually inspected, runtime-bound house-style sprite"
+    },
+    {
+      "id": "character-nanako-sad-vulnerable-teal-coat-coral-scarf-left-three-quarter-fullbody-v002",
+      "source": "manifest:src/academy/domain/cast-standardization-manifest.ts",
+      "sourceSha256": "f300a5004691585ad36b0314a9671daafd576aa1080a62724002234eb1b4c220",
+      "provenance": "regenerated-house-style",
+      "verdict": "approved-runtime",
+      "runtimeHome": [
+        "journal:nanako-expression-gallery",
+        "story:cast:nanako:sad-vulnerable",
+        "cast-standardization:nanako"
+      ],
+      "reviewHome": [
+        "cast-standardization-manifest",
+        "identity-lock"
+      ],
+      "usage": {
+        "runtime": [
+          "journal:nanako-expression-gallery",
+          "story:cast:nanako:sad-vulnerable",
+          "cast-standardization:nanako"
+        ],
+        "review": [
+          "cast-standardization-manifest"
+        ]
+      },
+      "orphan": "active-runtime",
+      "deliveries": [
+        {
+          "path": "/academy/art/characters/nanako/nanako__sad-vulnerable-teal-coat-coral-scarf__left-three-quarter__fullbody__v002.png",
+          "sha256": "f300a5004691585ad36b0314a9671daafd576aa1080a62724002234eb1b4c220"
         }
       ],
       "status": "identity-locked, visually inspected, runtime-bound house-style sprite"

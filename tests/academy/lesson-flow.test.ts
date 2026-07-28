@@ -415,7 +415,7 @@ describe('Academy lesson flow', () => {
         expect(route.shell.current?.dataset.academyScreen).toBe('lesson-zero-mission');
         clickButton(route.shell.current!, 'の');
         clickButton(route.shell.current!, 'も');
-        clickButton(route.shell.current!, 'Check the note');
+        clickButton(route.shell.current!, 'Check');
         await vi.waitFor(() => expect(recordActivity).toHaveBeenCalledWith(
             expect.objectContaining({
                 attempt: expect.objectContaining({

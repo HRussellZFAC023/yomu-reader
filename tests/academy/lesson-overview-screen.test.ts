@@ -47,7 +47,7 @@ describe('lesson overview screen', () => {
         expect(screen.textContent).not.toContain('blocker:');
     });
 
-    it('uses only approved likeness art and keeps pending classmates visibly rostered', () => {
+    it('uses only approved likeness art for the complete lesson roster', () => {
         const screen = renderLessonOverviewScreen({
             language: 'en',
             model: overview(),
@@ -59,7 +59,7 @@ describe('lesson overview screen', () => {
             .toBe('/academy/art/characters/rie/rie__neutral-glasses__front-near-front__halfbody__v001.png');
         expect(screen.querySelector('[data-cast-id="rie"] picture.academy-sprite')).not.toBeNull();
         expect(screen.querySelector('[data-cast-id="rie"]')?.getAttribute('data-portrait-status')).toBe('approved');
-        expect(screen.querySelectorAll('[data-portrait-status="unavailable"]')).toHaveLength(2);
+        expect(screen.querySelectorAll('[data-portrait-status="unavailable"]')).toHaveLength(0);
         expect(screen.querySelector<HTMLImageElement>('[data-cast-id="xingyu"] img')?.src)
             .toContain('/academy/art/characters/xingyu/xingyu__neutral-short-hair-round-glasses__front-near-front__fullbody__v002.png');
         expect(screen.querySelector<HTMLImageElement>('[data-cast-id="mika"] img')?.src)

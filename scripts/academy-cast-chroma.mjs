@@ -70,6 +70,12 @@ function isChromaCandidate(pixelIndex) {
         return Math.min(red, green, blue) >= 208
             && Math.max(red, green, blue) - Math.min(red, green, blue) <= 18;
     }
+    const backdropDistance = Math.max(
+        Math.abs(red - cornerMean.red),
+        Math.abs(green - cornerMean.green),
+        Math.abs(blue - cornerMean.blue),
+    );
+    if (backdropDistance > 96) return false;
     return chromaMode === 'green'
         ? green >= 72
             && dominance >= 12
@@ -106,57 +112,12 @@ while (queueHead < queueTail) {
 }
 
 for (let pixelIndex = 0; pixelIndex < visited.length; pixelIndex += 1) {
+    if (!visited[pixelIndex]) continue;
     const offset = pixelIndex * channels;
-    const red = data[offset];
-    const green = data[offset + 1];
-    const blue = data[offset + 2];
-    const alpha = data[offset + 3];
-    const dominance = chromaDominance(red, green, blue);
-    const strongChroma = chromaMode === 'green'
-        ? green >= 100 && dominance >= 28
-        : chromaMode === 'magenta'
-            ? red >= 150 && blue >= 150 && dominance >= 70
-            : Math.min(red, green, blue) >= 224
-                && Math.max(red, green, blue) - Math.min(red, green, blue) <= 14;
-    if (!visited[pixelIndex] && !strongChroma) continue;
-    if (chromaMode === 'checker') {
-        data[offset] = 0;
-        data[offset + 1] = 0;
-        data[offset + 2] = 0;
-        data[offset + 3] = 0;
-        continue;
-    }
-    const fullMatteDominance = chromaMode === 'green' ? 28 : 70;
-    const featherDominance = chromaMode === 'green' ? 10 : 28;
-    const matte = dominance >= fullMatteDominance
-        ? 1
-        : Math.min(
-            1,
-            Math.max(0, (dominance - featherDominance) / (fullMatteDominance - featherDominance)),
-        );
-    const coverage = 1 - matte;
-
-    if (coverage <= 0.02) {
-        data[offset] = 0;
-        data[offset + 1] = 0;
-        data[offset + 2] = 0;
-        data[offset + 3] = 0;
-        continue;
-    }
-
-    if (chromaMode === 'green') {
-        data[offset] = Math.min(255, Math.round(red / coverage));
-        data[offset + 1] = Math.min(
-            255,
-            Math.max(0, Math.round((green - matte * 255) / coverage)),
-        );
-        data[offset + 2] = Math.min(255, Math.round(blue / coverage));
-    } else {
-        data[offset] = Math.min(255, Math.max(0, Math.round((red - matte * 255) / coverage)));
-        data[offset + 1] = Math.min(255, Math.round(green / coverage));
-        data[offset + 2] = Math.min(255, Math.max(0, Math.round((blue - matte * 255) / coverage)));
-    }
-    data[offset + 3] = Math.round(alpha * coverage);
+    data[offset] = 0;
+    data[offset + 1] = 0;
+    data[offset + 2] = 0;
+    data[offset + 3] = 0;
 }
 
 const keyedPixels = Buffer.from(data);
@@ -168,9 +129,9 @@ function residualChromaDominance(red, green, blue) {
 function hasStrongResidualChroma(red, green, blue) {
     const dominance = residualChromaDominance(red, green, blue);
     return chromaMode === 'green'
-        ? green >= 72 && dominance >= 12
+        ? green >= 140 && dominance >= 40
         : chromaMode === 'magenta'
-            ? red >= 100 && blue >= 100 && dominance >= 24
+            ? red >= 150 && blue >= 150 && dominance >= 60
             : Math.min(red, green, blue) >= 205
                 && Math.max(red, green, blue) - Math.min(red, green, blue) <= 22;
 }

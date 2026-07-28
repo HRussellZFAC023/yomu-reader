@@ -29,9 +29,9 @@
     "cast": 30,
     "requiredPerformancesPerCast": 7,
     "requiredSlots": 210,
-    "integratedSlots": 93,
-    "missingSlots": 117,
-    "ownerCorrectionQueue": 54,
+    "integratedSlots": 100,
+    "missingSlots": 110,
+    "ownerCorrectionQueue": 47,
     "storyCriticalQueue": 28,
     "rosterCompletionQueue": 35
   },
@@ -2391,65 +2391,97 @@
       "priority": "owner-correction",
       "summary": {
         "required": 7,
-        "integrated": 0,
-        "missing": 7
+        "integrated": 7,
+        "missing": 0
       },
       "performances": [
         {
           "expression": "neutral",
           "preferredAngle": "front-near-front",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.nanako.neutral-teal-coat-coral-scarf-front-near-front-fullbody-v002",
+          "assetPath": "/academy/art/characters/nanako/nanako__neutral-teal-coat-coral-scarf__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:nanako",
+            "class:people",
+            "class:week-cast",
+            "lesson-overview:roster",
+            "world:person",
+            "story:cast:nanako",
+            "cast-standardization:nanako"
+          ]
         },
         {
           "expression": "encouraging-listening",
           "preferredAngle": "right-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.nanako.encouraging-listening-teal-coat-coral-scarf-right-three-quarter-fullbody-v002",
+          "assetPath": "/academy/art/characters/nanako/nanako__encouraging-listening-teal-coat-coral-scarf__right-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:nanako-expression-gallery",
+            "story:cast:nanako:encouraging-listening",
+            "cast-standardization:nanako"
+          ]
         },
         {
           "expression": "happy",
           "preferredAngle": "front-near-front",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.nanako.happy-teal-coat-coral-scarf-front-near-front-fullbody-v002",
+          "assetPath": "/academy/art/characters/nanako/nanako__happy-teal-coat-coral-scarf__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:nanako-expression-gallery",
+            "story:cast:nanako:happy",
+            "cast-standardization:nanako"
+          ]
         },
         {
           "expression": "thoughtful",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.nanako.thoughtful-teal-coat-coral-scarf-left-three-quarter-fullbody-v002",
+          "assetPath": "/academy/art/characters/nanako/nanako__thoughtful-teal-coat-coral-scarf__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:nanako-expression-gallery",
+            "story:cast:nanako:thoughtful",
+            "cast-standardization:nanako"
+          ]
         },
         {
           "expression": "determined",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.nanako.determined-teal-coat-coral-scarf-front-near-front-fullbody-v002",
+          "assetPath": "/academy/art/characters/nanako/nanako__determined-teal-coat-coral-scarf__front-near-front__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:nanako-expression-gallery",
+            "story:cast:nanako:determined",
+            "cast-standardization:nanako"
+          ]
         },
         {
           "expression": "surprised-shocked",
           "preferredAngle": "right-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.nanako.surprised-shocked-teal-coat-coral-scarf-right-three-quarter-fullbody-v002",
+          "assetPath": "/academy/art/characters/nanako/nanako__surprised-shocked-teal-coat-coral-scarf__right-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:nanako-expression-gallery",
+            "story:cast:nanako:surprised-shocked",
+            "cast-standardization:nanako"
+          ]
         },
         {
           "expression": "sad-vulnerable",
           "preferredAngle": "left-three-quarter",
-          "status": "missing",
-          "assetId": null,
-          "assetPath": null,
-          "runtimeHomes": []
+          "status": "integrated",
+          "assetId": "character.nanako.sad-vulnerable-teal-coat-coral-scarf-left-three-quarter-fullbody-v002",
+          "assetPath": "/academy/art/characters/nanako/nanako__sad-vulnerable-teal-coat-coral-scarf__left-three-quarter__fullbody__v002.png",
+          "runtimeHomes": [
+            "journal:nanako-expression-gallery",
+            "story:cast:nanako:sad-vulnerable",
+            "cast-standardization:nanako"
+          ]
         }
       ]
     },
@@ -5244,211 +5276,6 @@
       "runtimeHomes": [
         "journal:steve-expression-gallery",
         "story:cast:steve:sad-vulnerable"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "nanako:neutral",
-      "castId": "nanako",
-      "displayName": "Nanako",
-      "identityKey": "nanako-warm-native-speaker",
-      "expression": "neutral",
-      "angle": "front-near-front",
-      "priority": "owner-correction",
-      "storyLines": 16,
-      "visualLock": "Japanese woman with concise warmth, gentle humour, and a clearly distinct identity from Rose and Mira.",
-      "wardrobeLock": "Relaxed contemporary layers suitable for travel, reading, and group-chat reunion scenes.",
-      "reject": [
-        "Rose headband identity",
-        "Mira cap and umbrella",
-        "duplicate face fragment",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:nanako",
-        "class:people",
-        "lesson-overview:roster",
-        "story:cast:nanako"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "nanako:encouraging-listening",
-      "castId": "nanako",
-      "displayName": "Nanako",
-      "identityKey": "nanako-warm-native-speaker",
-      "expression": "encouraging-listening",
-      "angle": "right-three-quarter",
-      "priority": "owner-correction",
-      "storyLines": 16,
-      "visualLock": "Japanese woman with concise warmth, gentle humour, and a clearly distinct identity from Rose and Mira.",
-      "wardrobeLock": "Relaxed contemporary layers suitable for travel, reading, and group-chat reunion scenes.",
-      "reject": [
-        "Rose headband identity",
-        "Mira cap and umbrella",
-        "duplicate face fragment",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:nanako-expression-gallery",
-        "story:cast:nanako:encouraging-listening"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "nanako:happy",
-      "castId": "nanako",
-      "displayName": "Nanako",
-      "identityKey": "nanako-warm-native-speaker",
-      "expression": "happy",
-      "angle": "front-near-front",
-      "priority": "owner-correction",
-      "storyLines": 16,
-      "visualLock": "Japanese woman with concise warmth, gentle humour, and a clearly distinct identity from Rose and Mira.",
-      "wardrobeLock": "Relaxed contemporary layers suitable for travel, reading, and group-chat reunion scenes.",
-      "reject": [
-        "Rose headband identity",
-        "Mira cap and umbrella",
-        "duplicate face fragment",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:nanako-expression-gallery",
-        "story:cast:nanako:happy"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "nanako:thoughtful",
-      "castId": "nanako",
-      "displayName": "Nanako",
-      "identityKey": "nanako-warm-native-speaker",
-      "expression": "thoughtful",
-      "angle": "left-three-quarter",
-      "priority": "owner-correction",
-      "storyLines": 16,
-      "visualLock": "Japanese woman with concise warmth, gentle humour, and a clearly distinct identity from Rose and Mira.",
-      "wardrobeLock": "Relaxed contemporary layers suitable for travel, reading, and group-chat reunion scenes.",
-      "reject": [
-        "Rose headband identity",
-        "Mira cap and umbrella",
-        "duplicate face fragment",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:nanako-expression-gallery",
-        "story:cast:nanako:thoughtful"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "nanako:determined",
-      "castId": "nanako",
-      "displayName": "Nanako",
-      "identityKey": "nanako-warm-native-speaker",
-      "expression": "determined",
-      "angle": "left-three-quarter",
-      "priority": "owner-correction",
-      "storyLines": 16,
-      "visualLock": "Japanese woman with concise warmth, gentle humour, and a clearly distinct identity from Rose and Mira.",
-      "wardrobeLock": "Relaxed contemporary layers suitable for travel, reading, and group-chat reunion scenes.",
-      "reject": [
-        "Rose headband identity",
-        "Mira cap and umbrella",
-        "duplicate face fragment",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:nanako-expression-gallery",
-        "story:cast:nanako:determined"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "nanako:surprised-shocked",
-      "castId": "nanako",
-      "displayName": "Nanako",
-      "identityKey": "nanako-warm-native-speaker",
-      "expression": "surprised-shocked",
-      "angle": "right-three-quarter",
-      "priority": "owner-correction",
-      "storyLines": 16,
-      "visualLock": "Japanese woman with concise warmth, gentle humour, and a clearly distinct identity from Rose and Mira.",
-      "wardrobeLock": "Relaxed contemporary layers suitable for travel, reading, and group-chat reunion scenes.",
-      "reject": [
-        "Rose headband identity",
-        "Mira cap and umbrella",
-        "duplicate face fragment",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:nanako-expression-gallery",
-        "story:cast:nanako:surprised-shocked"
-      ],
-      "status": "queued"
-    },
-    {
-      "key": "nanako:sad-vulnerable",
-      "castId": "nanako",
-      "displayName": "Nanako",
-      "identityKey": "nanako-warm-native-speaker",
-      "expression": "sad-vulnerable",
-      "angle": "left-three-quarter",
-      "priority": "owner-correction",
-      "storyLines": 16,
-      "visualLock": "Japanese woman with concise warmth, gentle humour, and a clearly distinct identity from Rose and Mira.",
-      "wardrobeLock": "Relaxed contemporary layers suitable for travel, reading, and group-chat reunion scenes.",
-      "reject": [
-        "Rose headband identity",
-        "Mira cap and umbrella",
-        "duplicate face fragment",
-        "photographic face",
-        "photorealism or uncanny skin texture",
-        "3D-rendered lighting",
-        "generic fashion-catalogue posing",
-        "baked checkerboard or background plate",
-        "cropped hands or feet when the pose needs them",
-        "text, labels, signatures, or watermarks"
-      ],
-      "runtimeHomes": [
-        "journal:nanako-expression-gallery",
-        "story:cast:nanako:sad-vulnerable"
       ],
       "status": "queued"
     },
