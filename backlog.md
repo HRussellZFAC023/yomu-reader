@@ -54,6 +54,28 @@ run outside a fresh `origin/main` worktree is worthless. This pass ran in one.
       logged"); no device/SKU lists where a promise belongs; sentence-case authored copy with CSS doing
       the uppercasing. Deliverable is a diff per surface, not a style essay.
 
+- [ ] **A11 — Quick setup's partial-furigana default is worse than no quick setup (owner, 2026-07-28,
+      verbatim: "currently the 'quick setup' which automatically has furi off for some kanji is more
+      confusing that not hainving it at all").** A learner cannot tell whether a bare kanji means
+      "you know this" or "Yomu missed it", so the page reads as broken. Default to furigana on
+      everything, and make the difficulty-based hiding an explicit opt-in the learner chooses once they
+      understand it (`furiganaDifficultKanji` is the setting). Principle this establishes: **a default
+      that requires explanation is not a default.** Audit every other "smart" default against it.
+- [ ] **A12 — Settings: one simple menu, full customisation still reachable.** Owner wants the surface
+      simplified without removing power. Approach: a short first screen of the few settings that change
+      the experience, everything else behind progressive disclosure, per-surface presets, and search.
+      Target from earlier research: ≤60% of rows visible at rest. Must not become a second settings
+      dialect — one source of truth for defaults.
+- [ ] **A13 — In-product user suggestions + onboarding flows** (owner added to scope 2026-07-28). A way
+      for users to send suggestions from inside Yomu (routing to the single support entry point), and
+      first-run onboarding flows that carry a learner from install to first kept word without a settings
+      detour. Onboarding designs were already generated and judged — see `wxaeknmvm` output.
+- [ ] **A14 — Product/service clarity + fresh media.** Owner: make it unambiguous what Yomu's products
+      and services actually are (reader, Study, Academy, Gaming, OCR, PDF/video tools — which are live,
+      which are in development). Refresh every stale screenshot, and finish the **Remotion clip for Yomu
+      Gaming** (branch `gaming-remotion-video-20260727` exists, unmerged). No product page should show a
+      capture of a docs page in place of the app — that was the Gaming page's defect.
+
 ### A10 — COORDINATION with the parallel "Yomu Academy" thread (session `5dc579a6`)
 
 That thread has taken over **full Academy production** (story, art, engine, learning content, music,

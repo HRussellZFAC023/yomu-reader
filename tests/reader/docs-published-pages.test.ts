@@ -19,6 +19,7 @@ const PUBLIC_ROUTES = [
     '',
     'api/',
     'changelog',
+    'faq',
     'features',
     'getting-started',
     'guides/',
