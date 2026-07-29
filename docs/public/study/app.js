@@ -10142,18 +10142,6 @@ ${spelling}`);
       return learnerLanguageById("sh");
     return learnerLanguageById("en");
   }
-  const SCRIPT_PROPERTY_NAMES = Object.freeze({
-    Arab: "Arabic",
-    Cyrl: "Cyrillic",
-    Grek: "Greek",
-    Hans: "Han",
-    Hant: "Han",
-    Khmr: "Khmer",
-    Laoo: "Lao",
-    Latn: "Latin",
-    Mong: "Mongolian",
-    Thai: "Thai"
-  });
   const GENERIC_ROSTER_LEARNING_TARGETS = Object.freeze(
     LEARNER_LANGUAGES.filter((language2) => language2.id !== "ko").map((language2) => createLearningTargetModule({
       id: `${language2.id}-roster-v1`,
@@ -10175,14 +10163,13 @@ ${spelling}`);
     }))
   );
   function scriptDetector(scripts) {
-    const properties = [...new Set(scripts.map((script) => SCRIPT_PROPERTY_NAMES[script]).filter((script) => Boolean(script)))];
-    if (!properties.length) return /\p{Letter}/u;
-    return new RegExp(properties.map((script) => `\\p{Script=${script}}`).join("|"), "u");
+    return new RegExp(
+      scripts.map((script) => `\\p{Script=${script === "Hans" || script === "Hant" ? "Han" : script}}`).join("|"),
+      "u"
+    );
   }
   const DEFAULT_LEARNING_TARGET_LANGUAGE = "ja";
-  const MODULES_BY_LANGUAGE = /* @__PURE__ */ new Map();
   const MODULE_STACKS_BY_LANGUAGE = /* @__PURE__ */ new Map();
-  const BUILT_IN_MODULES_BY_LANGUAGE = /* @__PURE__ */ new Map();
   let registryRevision = 0;
   function learningTargetRegistryRevision() {
     return registryRevision;
@@ -10198,28 +10185,25 @@ ${spelling}`);
     const stack = MODULE_STACKS_BY_LANGUAGE.get(base) ?? [];
     stack.push(module);
     MODULE_STACKS_BY_LANGUAGE.set(base, stack);
-    MODULES_BY_LANGUAGE.set(base, module);
     registryRevision++;
     return module;
   }
   function learningTargetModuleFor(language2) {
     const canonical = canonicalLanguageTag(language2);
     const base = languageSubtag(canonical);
-    return base ? MODULES_BY_LANGUAGE.get(base) ?? null : null;
+    return base ? MODULE_STACKS_BY_LANGUAGE.get(base)?.at(-1) ?? null : null;
   }
   function normalizeLearningTargetLanguage(value) {
     return learningTargetModuleFor(value)?.language ?? defaultLearningTargetModule().language;
   }
   function registeredLearningTargetModules() {
-    return Object.freeze([...MODULES_BY_LANGUAGE.values()]);
+    return [...MODULE_STACKS_BY_LANGUAGE.values()].flatMap((stack) => stack.at(-1) ?? []);
   }
   function defaultLearningTargetModule() {
-    return MODULES_BY_LANGUAGE.get(DEFAULT_LEARNING_TARGET_LANGUAGE) ?? JAPANESE_LEARNING_TARGET;
+    return learningTargetModuleFor(DEFAULT_LEARNING_TARGET_LANGUAGE) ?? JAPANESE_LEARNING_TARGET;
   }
   function registerBuiltInLearningTargetModule(module) {
     registerLearningTargetModule(module);
-    const base = languageSubtag(module.language);
-    if (base) BUILT_IN_MODULES_BY_LANGUAGE.set(base, module);
   }
   registerBuiltInLearningTargetModule(JAPANESE_LEARNING_TARGET);
   registerBuiltInLearningTargetModule(KOREAN_LEARNING_TARGET);
@@ -11596,7 +11580,7 @@ ${spelling}`);
     };
   }
   function resolveLanguageProfile(value) {
-    if (isRecord$6(value) && value.schemaVersion === LANGUAGE_PROFILE_SCHEMA_VERSION) {
+    if (isRecord$5(value) && value.schemaVersion === LANGUAGE_PROFILE_SCHEMA_VERSION) {
       const normalized2 = normalizeLanguageProfiles([value], value.id, {
         learnerLanguage: value.learnerLanguage,
         uiLocale: value.uiLocale,
@@ -11604,7 +11588,7 @@ ${spelling}`);
       });
       return normalized2.profiles[0];
     }
-    const source = isRecord$6(value) ? value : {};
+    const source = isRecord$5(value) ? value : {};
     const normalized = normalizeLanguageProfiles(
       source.languageProfiles,
       source.activeLanguageProfileId,
@@ -11620,7 +11604,7 @@ ${spelling}`);
     return resolveLanguageProfile(value).learnerLanguage;
   }
   function normalizeLanguageProfile(value, index, defaults) {
-    if (!isRecord$6(value)) return null;
+    if (!isRecord$5(value)) return null;
     if (value.schemaVersion !== LANGUAGE_PROFILE_SCHEMA_VERSION) return null;
     return {
       schemaVersion: LANGUAGE_PROFILE_SCHEMA_VERSION,
@@ -11657,7 +11641,7 @@ ${spelling}`);
     return PARSER_PROVIDERS.has(value) ? value : fallback;
   }
   function normalizeProfileDictionaries(value) {
-    if (!isRecord$6(value)) return emptyProfileDictionaries();
+    if (!isRecord$5(value)) return emptyProfileDictionaries();
     const enabled = normalizeStringIds(value.enabled);
     const order = normalizeStringIds(value.order);
     const installed = normalizeStringIds([
@@ -11698,7 +11682,7 @@ ${spelling}`);
     }
     return result;
   }
-  function isRecord$6(value) {
+  function isRecord$5(value) {
     return Boolean(value) && typeof value === "object" && !Array.isArray(value);
   }
   function targetOcrLanguageTag(configured) {
@@ -19036,7 +19020,7 @@ ${item.sequence ?? ""}`;
       return url;
     }
   }
-  function isRecord$5(value) {
+  function isRecord$4(value) {
     return typeof value === "object" && value !== null && !Array.isArray(value);
   }
   function isNonNullObject(value) {
@@ -19065,7 +19049,7 @@ ${item.sequence ?? ""}`;
     if (Array.isArray(value)) {
       return value.map((child) => glossaryValueToProfileText(child, options)).filter(Boolean).join(" ");
     }
-    return isRecord$5(value) ? glossaryRecordToText(value, options) : "";
+    return isRecord$4(value) ? glossaryRecordToText(value, options) : "";
   }
   function primitiveGlossaryText(value) {
     if (value == null) return "";
@@ -19159,7 +19143,7 @@ ${item.sequence ?? ""}`;
     if (value == null) return "";
     if (isStructuredPrimitive(value)) return escapeHtml$1(String(value));
     if (Array.isArray(value)) return renderGlossaryArray(value, context);
-    if (!isRecord$5(value)) return "";
+    if (!isRecord$4(value)) return "";
     return renderGlossaryRecord(value, context);
   }
   function isStructuredPrimitive(value) {
@@ -37781,7 +37765,7 @@ ${normalizedReading}`;
     return !requiresSurfaceMatch(query) || sentenceContainsQuery(example.sentence, query);
   }
   function normalizeExample(value, provider = "immersion-kit") {
-    return isRecord$5(value) ? normalizeExampleRecord(value, provider) : null;
+    return isRecord$4(value) ? normalizeExampleRecord(value, provider) : null;
   }
   function normalizeExampleRecord(record2, provider = "immersion-kit") {
     const id = text$3(record2.id);
@@ -37822,18 +37806,18 @@ ${normalizedReading}`;
   }
   function nadeshikoResponseRecord(data) {
     if (Array.isArray(data)) return { segments: data };
-    return isRecord$5(data) ? data : null;
+    return isRecord$4(data) ? data : null;
   }
   function nadeshikoSegments(response) {
     return firstArrayField(response, ["segments", "examples", "results", "data"]);
   }
   function nadeshikoMediaMap(response) {
     const includes = response.includes;
-    const media = isRecord$5(includes) ? includes.media : void 0;
-    return isRecord$5(media) ? media : {};
+    const media = isRecord$4(includes) ? includes.media : void 0;
+    return isRecord$4(media) ? media : {};
   }
   function normalizeNadeshikoExample(value, mediaById) {
-    if (!isRecord$5(value)) return null;
+    if (!isRecord$4(value)) return null;
     const sentence = nadeshikoSentence(value);
     if (!sentence) return null;
     const ids = nadeshikoExampleIds(value);
@@ -37870,7 +37854,7 @@ ${normalizedReading}`;
     return recordField(mediaById[mediaPublicId]);
   }
   function recordField(value) {
-    return isRecord$5(value) ? value : {};
+    return isRecord$4(value) ? value : {};
   }
   function nadeshikoSourceTitle(record2, media) {
     return firstText(media, ["nameRomaji", "name_romaji", "titleRomaji", "title_romaji", "name", "title", "nameJa"]) || firstText(record2, ["mediaName", "sourceTitle", "source", "title"]) || "Nadeshiko";
@@ -37889,7 +37873,7 @@ ${normalizedReading}`;
   }
   function nestedText(record2, key, fields) {
     const value = record2[key];
-    return isRecord$5(value) ? firstText(value, fields) : "";
+    return isRecord$4(value) ? firstText(value, fields) : "";
   }
   function directMediaUrl(example, kind) {
     return kind === "image" ? example.imageUrl : example.soundUrl;
@@ -53988,7 +53972,7 @@ ${spelling}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.8.32".trim() ? "1.8.32".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.8.33".trim() ? "1.8.33".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record2 = value;
@@ -66618,8 +66602,8 @@ ${spelling}`);
   }
   const KNOWN_SUBSCRIPTION_TYPES = /* @__PURE__ */ new Set(["free", "recurring", "lifetime"]);
   function parseWanikaniUser(raw) {
-    const record2 = isRecord$4(raw) ? isRecord$4(raw.data) ? raw.data : raw : {};
-    const subscriptionRaw = isRecord$4(record2.subscription) ? record2.subscription : {};
+    const record2 = isRecord$3(raw) ? isRecord$3(raw.data) ? raw.data : raw : {};
+    const subscriptionRaw = isRecord$3(record2.subscription) ? record2.subscription : {};
     return {
       id: typeof record2.id === "string" ? record2.id : "",
       level: typeof record2.level === "number" ? record2.level : 0,
@@ -66663,7 +66647,7 @@ ${spelling}`);
     return error instanceof WanikaniApiError && error.status === 429 || /\(429\)|rate limit/i.test(error.message);
   }
   function rawSubjectLevel(value) {
-    if (!isRecord$4(value) || !isRecord$4(value.data)) return Number.POSITIVE_INFINITY;
+    if (!isRecord$3(value) || !isRecord$3(value.data)) return Number.POSITIVE_INFINITY;
     return typeof value.data.level === "number" ? value.data.level : Number.POSITIVE_INFINITY;
   }
   function stableOptionsKey(options) {
@@ -66672,7 +66656,7 @@ ${spelling}`);
   function trimBaseUrl(value) {
     return value.replace(/\/+$/u, "");
   }
-  function isRecord$4(value) {
+  function isRecord$3(value) {
     return typeof value === "object" && value !== null;
   }
   const SETTINGS_LABEL_TEXT_CLASS = "jpdb-reader-settings-label-text";
@@ -67450,9 +67434,9 @@ ${spelling}`);
       q: `name = '${SETTINGS_FILE_NAME.replace(/'/g, "\\'")}'`
     });
     const body = await driveRequestJson(`/drive/v3/files?${params.toString()}`);
-    const files = isRecord$5(body) && Array.isArray(body.files) ? body.files : [];
+    const files = isRecord$4(body) && Array.isArray(body.files) ? body.files : [];
     const first2 = files[0];
-    return isRecord$5(first2) && typeof first2.id === "string" ? first2 : null;
+    return isRecord$4(first2) && typeof first2.id === "string" ? first2 : null;
   }
   async function createSettingsFile(serialized) {
     const boundary = `yomu_drive_sync_${randomBoundary()}`;
@@ -67594,7 +67578,7 @@ ${spelling}`);
   function parseOAuthWindowName(value) {
     try {
       const parsed = JSON.parse(value);
-      return isRecord$5(parsed) ? parsed : null;
+      return isRecord$4(parsed) ? parsed : null;
     } catch {
       return null;
     }
@@ -67604,7 +67588,7 @@ ${spelling}`);
     if (!encoded) return null;
     try {
       const parsed = JSON.parse(encoded);
-      return isRecord$5(parsed) ? parsed : null;
+      return isRecord$4(parsed) ? parsed : null;
     } catch {
       return null;
     }
@@ -67684,12 +67668,12 @@ ${spelling}`);
     } catch {
       return null;
     }
-    if (!isRecord$5(parsed) || parsed.formatName !== "yomu-google-drive-settings-sync") return null;
-    if (!isRecord$5(parsed.settings)) return null;
+    if (!isRecord$4(parsed) || parsed.formatName !== "yomu-google-drive-settings-sync") return null;
+    if (!isRecord$4(parsed.settings)) return null;
     return parsed;
   }
   function driveFileFromResponse(value) {
-    if (isRecord$5(value) && typeof value.id === "string") return value;
+    if (isRecord$4(value) && typeof value.id === "string") return value;
     throw new Error("Google Drive did not return the saved file.");
   }
   function isUnauthorized(error) {
@@ -68578,6 +68562,11 @@ ${spelling}`);
   function languageOptionLabel(language2) {
     return language2.nativeName === language2.englishName ? language2.nativeName : `${language2.nativeName} — ${language2.englishName}`;
   }
+  function renderLanguageOptions(languages2, selected) {
+    return languages2.map((item) => `
+        <option value="${escapeHtml$2(item.id)}" lang="${escapeHtml$2(item.runtimeLocale)}" dir="${item.direction}" ${item.id === selected ? "selected" : ""}>${escapeHtml$2(languageOptionLabel(item))}</option>
+    `).join("");
+  }
   function renderLanguageProfileControls(settings) {
     const copy2 = multilingualSettingsCopy(settings.interfaceLanguage);
     const learnerLanguage2 = activeLearnerLanguageId(settings);
@@ -68589,21 +68578,13 @@ ${spelling}`);
                         <label>
                             <span class="${SETTINGS_LABEL_TEXT_CLASS}" data-multilingual-copy="learnerLanguage">${escapeHtml$2(copy2.learnerLanguage)}</span>
                             <select name="learnerLanguage" autocomplete="language">
-                                ${LEARNER_LANGUAGES.map(
-      (item) => `
-                                    <option value="${escapeHtml$2(item.id)}" lang="${escapeHtml$2(item.runtimeLocale)}" dir="${item.direction}" ${item.id === learnerLanguage2 ? "selected" : ""}>${escapeHtml$2(languageOptionLabel(item))}</option>
-                                `
-    ).join("")}
+                                ${renderLanguageOptions(LEARNER_LANGUAGES, learnerLanguage2)}
                             </select>
                         </label>
                         <label>
                             <span class="${SETTINGS_LABEL_TEXT_CLASS}" data-multilingual-copy="targetLanguage">${escapeHtml$2(copy2.targetLanguage)}</span>
                             <select name="targetLanguage" autocomplete="language">
-                                ${LEARNING_TARGET_ROSTER.map(
-      (item) => `
-                                    <option value="${escapeHtml$2(item.id)}" lang="${escapeHtml$2(item.runtimeLocale)}" dir="${item.direction}" ${item.id === targetLanguage2 ? "selected" : ""}>${escapeHtml$2(languageOptionLabel(item))}</option>
-                                `
-    ).join("")}
+                                ${renderLanguageOptions(LEARNING_TARGET_ROSTER, targetLanguage2)}
                             </select>
                         </label>
                         ${select("interfaceLanguage", uiText(settings.interfaceLanguage, "settingsLanguage"), settings.interfaceLanguage, localizedOptions(settingsText(settings.interfaceLanguage), INTERFACE_LANGUAGE_OPTIONS))}
@@ -71479,18 +71460,16 @@ ${spelling}`);
     return acquirableHeadwordLanguages(await requester(PUBLISHED_DICTIONARY_CATALOG_URL));
   }
   function acquirableHeadwordLanguages(value) {
-    const entries2 = isRecord$3(value) && Array.isArray(value.entries) ? value.entries : [];
-    const languages2 = /* @__PURE__ */ new Set();
-    for (const entry of entries2) {
-      if (!isRecord$3(entry) || !isAcquirableDistribution(entry.distribution)) continue;
-      if (!Array.isArray(entry.headwordLanguages)) continue;
-      for (const language2 of entry.headwordLanguages) {
-        if (typeof language2 === "string" && language2.trim()) {
-          languages2.add(language2.trim().toLowerCase().split("-")[0]);
-        }
-      }
-    }
-    return languages2;
+    const entries2 = value?.entries;
+    if (!Array.isArray(entries2)) return /* @__PURE__ */ new Set();
+    return new Set(
+      entries2.flatMap((entry) => {
+        const candidate = entry;
+        const state2 = candidate?.distribution?.state;
+        if (state2 !== "published" && state2 !== "upstream" || !Array.isArray(candidate?.headwordLanguages)) return [];
+        return candidate.headwordLanguages.filter((language2) => typeof language2 === "string" && Boolean(language2.trim())).map((language2) => language2.trim().toLowerCase().split("-")[0]);
+      })
+    );
   }
   function requestPublishedCatalog(url) {
     return requestJson$3(url, {
@@ -71499,12 +71478,6 @@ ${spelling}`);
       preferFetch: true,
       timeoutMs: 15e3
     });
-  }
-  function isAcquirableDistribution(value) {
-    return isRecord$3(value) && (value.state === "published" || value.state === "upstream");
-  }
-  function isRecord$3(value) {
-    return Boolean(value && typeof value === "object" && !Array.isArray(value));
   }
   function parseAcademyPairingTicket(value) {
     const record2 = object(value, "Academy pairing ticket");
@@ -71794,7 +71767,7 @@ ${spelling}`);
     });
   }
   function normalizeStoredYomuSrsDeck(value) {
-    if (!isRecord$5(value) || value.version !== 1 || !isRecord$5(value.cards)) return { version: 1, cards: {} };
+    if (!isRecord$4(value) || value.version !== 1 || !isRecord$4(value.cards)) return { version: 1, cards: {} };
     const cards = {};
     for (const candidate of Object.values(value.cards)) {
       const normalized = normalizeStoredCard(candidate);
@@ -71802,7 +71775,7 @@ ${spelling}`);
       cards[normalized.id] = cards[normalized.id] ? mergeStoredYomuSrsCards(cards[normalized.id], normalized) : normalized;
     }
     const tombstones = {};
-    if (isRecord$5(value.tombstones)) {
+    if (isRecord$4(value.tombstones)) {
       for (const [id, timestamp] of Object.entries(value.tombstones)) {
         if (typeof timestamp !== "number" || !Number.isSafeInteger(timestamp) || timestamp < 0) continue;
         const card = cards[id];
@@ -71944,7 +71917,7 @@ ${spelling}`);
     return { card: updated, provenanceRemoved: true, cardDeleted: false, reason };
   }
   function normalizeStoredCard(value) {
-    if (!isRecord$5(value) || typeof value.expression !== "string") return null;
+    if (!isRecord$4(value) || typeof value.expression !== "string") return null;
     let identity;
     try {
       identity = canonicalStudyCardIdentity(
@@ -72014,10 +71987,10 @@ ${spelling}`);
     };
   }
   function normalizeProvenanceRecord(value, fallbackAt) {
-    if (!isRecord$5(value)) return {};
+    if (!isRecord$4(value)) return {};
     const result = {};
     for (const candidate of Object.values(value)) {
-      if (!isRecord$5(candidate)) continue;
+      if (!isRecord$4(candidate)) continue;
       try {
         const normalized = normalizeProvenance({
           id: String(candidate.id ?? ""),
@@ -73875,38 +73848,31 @@ ${spelling}`);
       const requestId = ++this.targetDictionaryAvailabilityRequestId;
       const status = form.querySelector("[data-target-dictionary-state]");
       const content = form.querySelector("[data-target-dictionary-content]");
-      if (status) {
-        status.hidden = false;
-        status.textContent = uiText(this.settings.interfaceLanguage, "checkingDictionaries");
-      }
-      if (content) content.hidden = true;
+      const showAvailability = (message) => {
+        if (status) {
+          status.hidden = !message;
+          status.textContent = message ?? "";
+        }
+        if (content) content.hidden = Boolean(message);
+      };
+      showAvailability(uiText(this.settings.interfaceLanguage, "checkingDictionaries"));
       try {
         this.publishedDictionaryLanguagesPromise ??= this.dependencies.publishedDictionaryLanguages?.() ?? publishedDictionaryHeadwordLanguages();
         const languages2 = await this.publishedDictionaryLanguagesPromise;
         if (requestId !== this.targetDictionaryAvailabilityRequestId || !form.isConnected) return;
         if (selectedTargetLanguage(form, this.settings) !== selected) return;
         if (languages2.has(selected)) {
-          if (status) {
-            status.hidden = true;
-            status.textContent = "";
-          }
-          if (content) content.hidden = false;
+          showAvailability();
           return;
         }
-        if (status) {
-          status.hidden = false;
-          status.textContent = formatUiTemplate(
-            uiText(this.settings.interfaceLanguage, "targetDictionaryUnavailable"),
-            { language: targetLanguageDisplayName(selected, this.settings.interfaceLanguage) }
-          );
-        }
+        showAvailability(formatUiTemplate(
+          uiText(this.settings.interfaceLanguage, "targetDictionaryUnavailable"),
+          { language: targetLanguageDisplayName(selected, this.settings.interfaceLanguage) }
+        ));
       } catch (error) {
         log$f.warn("Published dictionary coverage check failed", error);
         if (requestId !== this.targetDictionaryAvailabilityRequestId || !form.isConnected) return;
-        if (status) {
-          status.hidden = false;
-          status.textContent = uiText(this.settings.interfaceLanguage, "targetDictionaryAvailabilityUnavailable");
-        }
+        showAvailability(uiText(this.settings.interfaceLanguage, "targetDictionaryAvailabilityUnavailable"));
       }
     }
     bindEditorControls(form) {
@@ -102007,13 +101973,13 @@ ${entry.url}`),
   }
   function jpdbReviewCards(value) {
     if (Array.isArray(value)) return value;
-    if (!isRecord$5(value)) return [];
+    if (!isRecord$4(value)) return [];
     const cards = Object.entries(value).filter(([key, item]) => key.startsWith("cards_") && Array.isArray(item)).flatMap(([, item]) => item);
     if (cards.length) return cards;
     return Array.isArray(value.cards) ? value.cards : [];
   }
   function normalizeJpdbReviewEntries(card) {
-    if (!isRecord$5(card) || !Array.isArray(card.reviews)) return [];
+    if (!isRecord$4(card) || !Array.isArray(card.reviews)) return [];
     return card.reviews.map(normalizeJpdbReview).filter((review) => review !== null).sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
   }
   function normalizeJpdbReview(value) {
@@ -102026,7 +101992,7 @@ ${entry.url}`),
         minutes: numberValue(value[5]) / 6e4
       };
     }
-    if (!isRecord$5(value)) return null;
+    if (!isRecord$4(value)) return null;
     const timestamp = reviewTimestamp(value.timestamp ?? value.time ?? value.date);
     if (!timestamp) return null;
     return {
@@ -105657,14 +105623,14 @@ ${entry.url}`),
   }
   function structuredExampleTexts(value) {
     if (Array.isArray(value)) return value.flatMap(structuredExampleTexts);
-    if (!isRecord$5(value)) return [];
+    if (!isRecord$4(value)) return [];
     if (isExampleRecord(value)) return structuredLeafTexts(value.text ?? value.content);
     return Object.values(value).flatMap(structuredExampleTexts);
   }
   function structuredLeafTexts(value) {
     if (typeof value === "string") return [value];
     if (Array.isArray(value)) return value.flatMap(structuredLeafTexts);
-    if (!isRecord$5(value)) return [];
+    if (!isRecord$4(value)) return [];
     if (typeof value.text === "string") return [value.text];
     return "content" in value ? structuredLeafTexts(value.content) : [];
   }

@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.8.33] - 2026-07-29
+
+### Fixed
+
+- Reduced duplicate target-language registry and settings code so the Firefox extension package remains within AMO's content-script parse limit.
+
 ## [1.8.32] - 2026-07-29
 
 ### Fixed

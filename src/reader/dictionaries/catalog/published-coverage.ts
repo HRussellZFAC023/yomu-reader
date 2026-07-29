@@ -15,18 +15,24 @@ export async function publishedDictionaryHeadwordLanguages(
 }
 
 export function acquirableHeadwordLanguages(value: unknown): ReadonlySet<string> {
-    const entries = isRecord(value) && Array.isArray(value.entries) ? value.entries : [];
-    const languages = new Set<string>();
-    for (const entry of entries) {
-        if (!isRecord(entry) || !isAcquirableDistribution(entry.distribution)) continue;
-        if (!Array.isArray(entry.headwordLanguages)) continue;
-        for (const language of entry.headwordLanguages) {
-            if (typeof language === 'string' && language.trim()) {
-                languages.add(language.trim().toLowerCase().split('-')[0]!);
-            }
-        }
-    }
-    return languages;
+    const entries = (value as { entries?: unknown } | null)?.entries;
+    if (!Array.isArray(entries)) return new Set();
+    return new Set(
+        entries.flatMap(entry => {
+            const candidate = entry as {
+                distribution?: { state?: unknown };
+                headwordLanguages?: unknown;
+            } | null;
+            const state = candidate?.distribution?.state;
+            if (
+                (state !== 'published' && state !== 'upstream')
+                || !Array.isArray(candidate?.headwordLanguages)
+            ) return [];
+            return candidate.headwordLanguages
+                .filter((language): language is string => typeof language === 'string' && Boolean(language.trim()))
+                .map(language => language.trim().toLowerCase().split('-')[0]!);
+        }),
+    );
 }
 
 function requestPublishedCatalog(url: string): Promise<unknown> {
@@ -36,12 +42,4 @@ function requestPublishedCatalog(url: string): Promise<unknown> {
         preferFetch: true,
         timeoutMs: 15_000,
     });
-}
-
-function isAcquirableDistribution(value: unknown): boolean {
-    return isRecord(value) && (value.state === 'published' || value.state === 'upstream');
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-    return Boolean(value && typeof value === 'object' && !Array.isArray(value));
 }

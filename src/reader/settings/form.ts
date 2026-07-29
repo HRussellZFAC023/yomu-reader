@@ -135,6 +135,15 @@ function languageOptionLabel(language: { nativeName: string; englishName: string
     return language.nativeName === language.englishName ? language.nativeName : `${language.nativeName} — ${language.englishName}`;
 }
 
+function renderLanguageOptions(
+    languages: readonly { id: string; runtimeLocale: string; direction: string; nativeName: string; englishName: string }[],
+    selected: string,
+): string {
+    return languages.map(item => `
+        <option value="${escapeHtml(item.id)}" lang="${escapeHtml(item.runtimeLocale)}" dir="${item.direction}" ${item.id === selected ? 'selected' : ''}>${escapeHtml(languageOptionLabel(item))}</option>
+    `).join('');
+}
+
 function renderLanguageProfileControls(settings: ReaderSettings): string {
     const copy = multilingualSettingsCopy(settings.interfaceLanguage);
     const learnerLanguage = activeLearnerLanguageId(settings);
@@ -146,21 +155,13 @@ function renderLanguageProfileControls(settings: ReaderSettings): string {
                         <label>
                             <span class="${SETTINGS_LABEL_TEXT_CLASS}" data-multilingual-copy="learnerLanguage">${escapeHtml(copy.learnerLanguage)}</span>
                             <select name="learnerLanguage" autocomplete="language">
-                                ${LEARNER_LANGUAGES.map(
-                                    (item) => `
-                                    <option value="${escapeHtml(item.id)}" lang="${escapeHtml(item.runtimeLocale)}" dir="${item.direction}" ${item.id === learnerLanguage ? 'selected' : ''}>${escapeHtml(languageOptionLabel(item))}</option>
-                                `,
-                                ).join('')}
+                                ${renderLanguageOptions(LEARNER_LANGUAGES, learnerLanguage)}
                             </select>
                         </label>
                         <label>
                             <span class="${SETTINGS_LABEL_TEXT_CLASS}" data-multilingual-copy="targetLanguage">${escapeHtml(copy.targetLanguage)}</span>
                             <select name="targetLanguage" autocomplete="language">
-                                ${LEARNING_TARGET_ROSTER.map(
-                                    (item) => `
-                                    <option value="${escapeHtml(item.id)}" lang="${escapeHtml(item.runtimeLocale)}" dir="${item.direction}" ${item.id === targetLanguage ? 'selected' : ''}>${escapeHtml(languageOptionLabel(item))}</option>
-                                `,
-                                ).join('')}
+                                ${renderLanguageOptions(LEARNING_TARGET_ROSTER, targetLanguage)}
                             </select>
                         </label>
                         ${select('interfaceLanguage', uiText(settings.interfaceLanguage, 'settingsLanguage'), settings.interfaceLanguage, localizedOptions(settingsText(settings.interfaceLanguage), INTERFACE_LANGUAGE_OPTIONS))}

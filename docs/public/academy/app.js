@@ -550,7 +550,7 @@
       const body = await this.json("/academy/api/account/devices");
       if (!Array.isArray(body.devices)) throw new Error("Reader device list was malformed.");
       return body.devices.map((value) => {
-        if (!isRecord$g(value) || typeof value.deviceId !== "string" || !Number.isSafeInteger(value.createdAt) || !Number.isSafeInteger(value.lastSeenAt) || value.revokedAt !== null && !Number.isSafeInteger(value.revokedAt)) {
+        if (!isRecord$f(value) || typeof value.deviceId !== "string" || !Number.isSafeInteger(value.createdAt) || !Number.isSafeInteger(value.lastSeenAt) || value.revokedAt !== null && !Number.isSafeInteger(value.revokedAt)) {
           throw new Error("Reader device list was malformed.");
         }
         return value;
@@ -641,7 +641,7 @@
           });
           if (!response.ok) throw await responseError$1(response);
           const body = await response.json();
-          if (!isRecord$g(body)) throw new Error("Academy export response was malformed.");
+          if (!isRecord$f(body)) throw new Error("Academy export response was malformed.");
           const page = parseAcademyExportBundle(body);
           if (!wroteHeader) {
             const {
@@ -1178,7 +1178,7 @@
   function parseAcademyExportBundle(value) {
     const eventPage = parseAcademySyncPage(value.eventPage);
     const readerSrsEventPage = value.readerSrsEventPage === void 0 ? { events: [], nextCursor: 0, hasMore: false } : parseAcademySyncPage(value.readerSrsEventPage);
-    const eventRecord = isRecord$g(value.eventPage) ? value.eventPage : {};
+    const eventRecord = isRecord$f(value.eventPage) ? value.eventPage : {};
     const exportCursor = eventRecord.exportCursor;
     const hasMore = eventPage.hasMore || readerSrsEventPage.hasMore;
     if (hasMore) {
@@ -1207,7 +1207,7 @@
       const parsed = JSON.parse(value);
       const profile2 = parseAcademyProfileView(parsed.profile);
       const account = parsed.account === void 0 ? void 0 : parseStoredAccountView(parsed.account);
-      if (typeof parsed.key !== "string" || decodedLength(parsed.key) !== 32 || !Number.isSafeInteger(parsed.cursor) || (parsed.cursor ?? -1) < 0 || !isRecord$g(parsed.envelopes) || !isRecord$g(parsed.eventSyncIds) || parsed.lastSyncAt !== null && parsed.lastSyncAt !== void 0 && (!Number.isSafeInteger(parsed.lastSyncAt) || parsed.lastSyncAt < 0)) return null;
+      if (typeof parsed.key !== "string" || decodedLength(parsed.key) !== 32 || !Number.isSafeInteger(parsed.cursor) || (parsed.cursor ?? -1) < 0 || !isRecord$f(parsed.envelopes) || !isRecord$f(parsed.eventSyncIds) || parsed.lastSyncAt !== null && parsed.lastSyncAt !== void 0 && (!Number.isSafeInteger(parsed.lastSyncAt) || parsed.lastSyncAt < 0)) return null;
       const envelopes = parsed.envelopes;
       if (Object.entries(envelopes).some(([id2, envelope]) => !storedEnvelopeIsValid(id2, envelope, profile2.keyVersion))) return null;
       if (Object.entries(parsed.eventSyncIds).some(([eventId, id2]) => !eventId || typeof id2 !== "string" || !UUID_V4.test(id2))) return null;
@@ -1225,7 +1225,7 @@
     }
   }
   function parseStoredAccountView(value) {
-    if (!isRecord$g(value) || !isRecord$g(value.identity)) throw new TypeError("Stored Academy account is malformed.");
+    if (!isRecord$f(value) || !isRecord$f(value.identity)) throw new TypeError("Stored Academy account is malformed.");
     const parsed = parseAcademyAccountView({
       accountId: value.accountId,
       displayName: value.identity.displayName,
@@ -1244,7 +1244,7 @@
   }
   const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
   function storedEnvelopeIsValid(id2, value, keyVersion) {
-    if (!isRecord$g(value) || value.id !== id2 || !UUID_V4.test(id2) || !Number.isSafeInteger(value.occurredAt) || value.occurredAt < 0 || value.keyVersion !== keyVersion || typeof value.nonce !== "string" || decodedLength(value.nonce) !== 12 || typeof value.ciphertext !== "string") return false;
+    if (!isRecord$f(value) || value.id !== id2 || !UUID_V4.test(id2) || !Number.isSafeInteger(value.occurredAt) || value.occurredAt < 0 || value.keyVersion !== keyVersion || typeof value.nonce !== "string" || decodedLength(value.nonce) !== 12 || typeof value.ciphertext !== "string") return false;
     const ciphertextLength = decodedLength(value.ciphertext);
     return ciphertextLength >= 17 && ciphertextLength <= 16 * 1024;
   }
@@ -1256,7 +1256,7 @@
       return -1;
     }
   }
-  function isRecord$g(value) {
+  function isRecord$f(value) {
     return Boolean(value) && typeof value === "object" && !Array.isArray(value);
   }
   async function encryptEvent(key2, keyVersion, id2, event) {
@@ -1447,7 +1447,7 @@
     return normalized2;
   }
   function normalizeSession(value, source2) {
-    if (!isRecord$f(value)) throw new AccessError("malformed", "Invitation response is malformed.");
+    if (!isRecord$e(value)) throw new AccessError("malformed", "Invitation response is malformed.");
     const sessionId = typeof value.sessionId === "string" ? value.sessionId.trim() : "";
     const expiresAt = readTimestamp(value.expiresAt);
     const offlineResumeUntil = readTimestamp(value.offlineResumeUntil);
@@ -1465,7 +1465,7 @@
     }
     return 0;
   }
-  function isRecord$f(value) {
+  function isRecord$e(value) {
     return typeof value === "object" && value !== null && !Array.isArray(value);
   }
   class BrowserMediaBus {
@@ -1700,7 +1700,7 @@
     if (!storage) return cloneDefaults();
     try {
       const value = JSON.parse(storage.getItem(ACADEMY_AUDIO_SETTINGS_KEY) ?? "null");
-      if (!isRecord$e(value) || !isRecord$e(value.volumes)) return cloneDefaults();
+      if (!isRecord$d(value) || !isRecord$d(value.volumes)) return cloneDefaults();
       return {
         muted: typeof value.muted === "boolean" ? value.muted : false,
         volumes: {
@@ -1732,7 +1732,7 @@
   function cloneDefaults() {
     return { muted: DEFAULT_AUDIO_SETTINGS.muted, volumes: { ...DEFAULT_AUDIO_SETTINGS.volumes } };
   }
-  function isRecord$e(value) {
+  function isRecord$d(value) {
     return typeof value === "object" && value !== null;
   }
   class AudioDirector {
@@ -2638,7 +2638,7 @@
     "camera.capture"
   ]);
   function parseAudioManifest(value) {
-    if (!isRecord$d(value) || value.version !== 1) throw new TypeError("Audio manifest must declare version 1.");
+    if (!isRecord$c(value) || value.version !== 1) throw new TypeError("Audio manifest must declare version 1.");
     if (!Array.isArray(value.themes) || !Array.isArray(value.sfx)) {
       throw new TypeError("Audio manifest needs themes and sfx arrays.");
     }
@@ -2705,7 +2705,7 @@
     return sources;
   }
   function parseThemeEntry(value) {
-    if (!isRecord$d(value)) throw new TypeError("Theme entry must be an object.");
+    if (!isRecord$c(value)) throw new TypeError("Theme entry must be an object.");
     const { slot, bus, trackId, title: title2, mediaKey, loop, gain } = value;
     if (typeof slot !== "string" || !THEME_SLOTS.has(slot) || typeof trackId !== "string" || !trackId.trim() || typeof title2 !== "string" || !title2.trim()) {
       throw new TypeError("Theme entry needs slot, trackId, and title.");
@@ -2723,7 +2723,7 @@
     };
   }
   function parseSfxEntry(value) {
-    if (!isRecord$d(value) || typeof value.cue !== "string" || !SFX_CUES.has(value.cue)) {
+    if (!isRecord$c(value) || typeof value.cue !== "string" || !SFX_CUES.has(value.cue)) {
       throw new TypeError("SFX entry needs a cue name.");
     }
     return {
@@ -2756,12 +2756,12 @@
     return value;
   }
   function parseRights(value, owner) {
-    if (!isRecord$d(value) || typeof value.owner !== "string" || !value.owner.trim() || typeof value.licence !== "string" || !value.licence.trim() || typeof value.source !== "string" || !value.source.trim() || value.reviewed !== true || value.scope !== "private-prototype" && value.scope !== "release") {
+    if (!isRecord$c(value) || typeof value.owner !== "string" || !value.owner.trim() || typeof value.licence !== "string" || !value.licence.trim() || typeof value.source !== "string" || !value.source.trim() || value.reviewed !== true || value.scope !== "private-prototype" && value.scope !== "release") {
       throw new TypeError(`Entry ${owner} is missing a complete reviewed rights block.`);
     }
     return { owner: value.owner, licence: value.licence, source: value.source, reviewed: true, scope: value.scope };
   }
-  function isRecord$d(value) {
+  function isRecord$c(value) {
     return typeof value === "object" && value !== null && !Array.isArray(value);
   }
   function assertUnique$2(values, label) {
@@ -3086,7 +3086,7 @@
     return parseLearningVoiceCatalog(await response.json(), { invalidEntry: "skip" });
   }
   function parseLearningVoiceCatalog(value, options = {}) {
-    if (!isRecord$c(value) || value.schema !== LEARNING_VOICE_SCHEMA || typeof value.batchId !== "string" || !LINE_ID$1.test(value.batchId) || !isLearningVoiceQualityApproval(value.qualityApproval) || !isLearningVoiceAcceptancePolicy(value.acceptancePolicy) || !isRecord$c(value.engine) || value.engine.name !== "AivisSpeech Engine" || typeof value.engine.version !== "string" || typeof value.engine.versionResponseSha256 !== "string" || !SHA256$3.test(value.engine.versionResponseSha256) || !isRecord$c(value.encoder) || value.encoder.name !== "ffmpeg/libopus" || typeof value.encoder.version !== "string" || value.encoder.bitrateKbps !== 64 || value.encoder.application !== "voip" || !Array.isArray(value.entries)) {
+    if (!isRecord$b(value) || value.schema !== LEARNING_VOICE_SCHEMA || typeof value.batchId !== "string" || !LINE_ID$1.test(value.batchId) || !isLearningVoiceQualityApproval(value.qualityApproval) || !isLearningVoiceAcceptancePolicy(value.acceptancePolicy) || !isRecord$b(value.engine) || value.engine.name !== "AivisSpeech Engine" || typeof value.engine.version !== "string" || typeof value.engine.versionResponseSha256 !== "string" || !SHA256$3.test(value.engine.versionResponseSha256) || !isRecord$b(value.encoder) || value.encoder.name !== "ffmpeg/libopus" || typeof value.encoder.version !== "string" || value.encoder.bitrateKbps !== 64 || value.encoder.application !== "voip" || !Array.isArray(value.entries)) {
       throw new TypeError("Invalid learning voice playback catalog.");
     }
     const assetLineIds = /* @__PURE__ */ new Set();
@@ -3360,19 +3360,19 @@
     });
   }
   function isLearningVoiceEntry(value) {
-    if (!isRecord$c(value) || !isRecord$c(value.queryOverrides) || !Array.isArray(value.bindings) || !Array.isArray(value.moraOverrides)) return false;
+    if (!isRecord$b(value) || !isRecord$b(value.queryOverrides) || !Array.isArray(value.bindings) || !Array.isArray(value.moraOverrides)) return false;
     const queryOverrides = Object.entries(value.queryOverrides);
     const moraOverrides = value.moraOverrides;
     return typeof value.lineId === "string" && LINE_ID$1.test(value.lineId) && value.bindings.length > 0 && value.bindings.every(isLearningVoiceBinding) && typeof value.speakerId === "string" && LINE_ID$1.test(value.speakerId) && (value.role === "learning-ui" || value.role === "textbook-character" || value.role === "academy-character") && typeof value.intent === "string" && value.intent.trim() === value.intent && value.intent.length > 0 && value.locale === "ja-JP" && value.band === "native" && typeof value.surface === "string" && SURFACE_ID.test(value.surface) && typeof value.japanese === "string" && value.japanese.trim() === value.japanese && value.japanese.length > 0 && typeof value.sourceSha256 === "string" && SHA256$3.test(value.sourceSha256) && value.sourceRevision === value.sourceSha256 && typeof value.cacheKey === "string" && SHA256$3.test(value.cacheKey) && typeof value.audioQuerySha256 === "string" && SHA256$3.test(value.audioQuerySha256) && typeof value.assetSha256 === "string" && SHA256$3.test(value.assetSha256) && Number.isInteger(value.bytes) && Number(value.bytes) > 0 && typeof value.durationSeconds === "number" && value.durationSeconds > 0 && typeof value.url === "string" && isConfinedLearningUrl(value.url) && typeof value.modelUuid === "string" && MODEL_UUID.test(value.modelUuid) && typeof value.modelName === "string" && value.modelName.length > 0 && typeof value.modelVersion === "string" && value.modelVersion.length > 0 && typeof value.modelSourceUrl === "string" && value.modelSourceUrl === `https://hub.aivis-project.com/aivm-models/${value.modelUuid}` && (value.modelLicense === "ACML-1.0" || value.modelLicense === "CC-BY-SA-4.0") && typeof value.modelPayloadSha256 === "string" && SHA256$3.test(value.modelPayloadSha256) && Number.isInteger(value.styleId) && typeof value.styleName === "string" && value.styleName.length > 0 && queryOverrides.length === QUERY_FIELDS.size && queryOverrides.every(([field2, amount]) => QUERY_FIELDS.has(field2) && typeof amount === "number" && Number.isFinite(amount)) && moraOverrides.every(isLearningVoiceMoraOverride) && value.reviewStatus === "accepted" && value.qualityApprovalStatus === "codex-accepted" && isLearningVoiceReview(value.review) && isLearningVoiceDisclosure(value.disclosure) && value.provenance === "Yomu-authored";
   }
   function isLearningVoiceDisclosure(value) {
-    return isRecord$c(value) && Object.keys(value).sort().join(",") === "livingPersonSource,officialCharacterVoice,synthetic" && value.synthetic === true && value.officialCharacterVoice === false && typeof value.livingPersonSource === "boolean";
+    return isRecord$b(value) && Object.keys(value).sort().join(",") === "livingPersonSource,officialCharacterVoice,synthetic" && value.synthetic === true && value.officialCharacterVoice === false && typeof value.livingPersonSource === "boolean";
   }
   function isLearningVoiceQualityApproval(value) {
-    return isRecord$c(value) && Object.keys(value).sort().join(",") === "codexQualityAccepted,humanReviewed,ownerLineByLineReviewed,scope" && value.codexQualityAccepted === true && typeof value.scope === "string" && value.scope.trim() === value.scope && value.scope.length > 0 && value.ownerLineByLineReviewed === false && value.humanReviewed === false;
+    return isRecord$b(value) && Object.keys(value).sort().join(",") === "codexQualityAccepted,humanReviewed,ownerLineByLineReviewed,scope" && value.codexQualityAccepted === true && typeof value.scope === "string" && value.scope.trim() === value.scope && value.scope.length > 0 && value.ownerLineByLineReviewed === false && value.humanReviewed === false;
   }
   function isLearningVoiceAcceptancePolicy(value) {
-    return isRecord$c(value) && Object.keys(value).sort().join(",") === [
+    return isRecord$b(value) && Object.keys(value).sort().join(",") === [
       "acceptedBy",
       "blanketCharacterErrorRateAllowed",
       "criticalMorphemeNumeralParticleMismatch",
@@ -3382,18 +3382,18 @@
     ].sort().join(",") && value.acceptedBy === "Codex" && value.humanReviewed === false && value.ownerLineByLineReviewed === false && value.independentAudioReviewRequired === true && value.blanketCharacterErrorRateAllowed === false && value.criticalMorphemeNumeralParticleMismatch === "hard-fail";
   }
   function isLearningVoiceBinding(value) {
-    if (!isRecord$c(value) || !isRecord$c(value.accessibleReplayLabel)) return false;
+    if (!isRecord$b(value) || !isRecord$b(value.accessibleReplayLabel)) return false;
     const labels = value.accessibleReplayLabel;
     return typeof value.lineId === "string" && LINE_ID$1.test(value.lineId) && typeof value.surface === "string" && SURFACE_ID.test(value.surface) && Object.keys(labels).length === 2 && isAccessibleLabel(labels.en) && isAccessibleLabel(labels.ja);
   }
   function isLearningVoiceReview(value) {
-    if (!isRecord$c(value) || !isRecord$c(value.naturalness) || !isRecord$c(value.accent) || !isRecord$c(value.pause) || !isRecord$c(value.listening)) return false;
+    if (!isRecord$b(value) || !isRecord$b(value.naturalness) || !isRecord$b(value.accent) || !isRecord$b(value.pause) || !isRecord$b(value.listening)) return false;
     const common = value.naturalness.status === "reviewed-text" && value.accent.status === "validated-query-plan" && value.pause.status === "validated-query-plan";
     if (!common) return false;
     return value.listening.status === "codex-accepted-objective-and-independent-audio-review" && value.listening.codexAccepted === true && value.listening.ownerLineByLineReviewed === false && typeof value.listening.audioModelReviewed === "boolean" && value.listening.humanReviewed === false && Number.isInteger(value.listening.independentAudioModelReviews) && Number(value.listening.independentAudioModelReviews) >= 0 && (value.listening.audioModelReviewed === true && Number(value.listening.independentAudioModelReviews) >= 1 || value.listening.audioModelReviewed === false && Number(value.listening.independentAudioModelReviews) === 0);
   }
   function isLearningVoiceMoraOverride(value) {
-    if (!isRecord$c(value)) return false;
+    if (!isRecord$b(value)) return false;
     const keys = Object.keys(value);
     return keys.length >= 3 && keys.every((key2) => MORA_OVERRIDE_FIELDS.has(key2)) && Number.isInteger(value.accentPhrase) && Number(value.accentPhrase) >= 0 && Number.isInteger(value.mora) && Number(value.mora) >= 0 && ["pitch", "vowel_length", "consonant_length"].some((field2) => typeof value[field2] === "number" && Number.isFinite(value[field2])) && Object.entries(value).every(([field2, amount]) => field2 === "accentPhrase" || field2 === "mora" ? Number.isInteger(amount) : typeof amount === "number" && Number.isFinite(amount));
   }
@@ -3403,7 +3403,7 @@
   function isConfinedLearningUrl(value) {
     return typeof value === "string" && LEARNING_URL.test(value) && value.split("/").every((segment2) => segment2 !== "." && segment2 !== "..");
   }
-  function isRecord$c(value) {
+  function isRecord$b(value) {
     return typeof value === "object" && value !== null && !Array.isArray(value);
   }
   function deepFreeze(value) {
@@ -3411,7 +3411,7 @@
       value.forEach((item2) => deepFreeze(item2));
       return Object.freeze(value);
     }
-    if (isRecord$c(value)) {
+    if (isRecord$b(value)) {
       Object.values(value).forEach((item2) => deepFreeze(item2));
       return Object.freeze(value);
     }
@@ -7898,7 +7898,7 @@
   const SHA256$2 = /^[a-f0-9]{64}$/;
   const SAFE_WORKER_ASSET_ID = /^[a-z0-9][a-z0-9-]{0,127}$/;
   function parseListeningCrosswalk(value) {
-    if (!isRecord$b(value) || value.schema !== "yomu-academy.listening-crosswalk.v1" || !Array.isArray(value.entries)) {
+    if (!isRecord$a(value) || value.schema !== "yomu-academy.listening-crosswalk.v1" || !Array.isArray(value.entries)) {
       throw new TypeError("Listening crosswalk must declare the v1 schema and an entries array.");
     }
     const entries2 = value.entries.map(parseEntry$2);
@@ -7929,7 +7929,7 @@
     return { status: "ready", entry: resolved.entry, url: resolved.entry.delivery.url };
   }
   function parseEntry$2(value) {
-    if (!isRecord$b(value)) throw new TypeError("Listening crosswalk entry must be an object.");
+    if (!isRecord$a(value)) throw new TypeError("Listening crosswalk entry must be an object.");
     const locator = requiredText$4(value.locator, "locator");
     const authoredAssetId = requiredText$4(value.authoredAssetId, `${locator}.authoredAssetId`);
     const provenance2 = stringArray$7(value.provenance, `${locator}.provenance`);
@@ -7950,7 +7950,7 @@
         provenance: provenance2
       };
     }
-    if (value.availability !== "source-verified" || !isRecord$b(value.source) || !isRecord$b(value.worker)) {
+    if (value.availability !== "source-verified" || !isRecord$a(value.source) || !isRecord$a(value.worker)) {
       throw new TypeError(`Listening entry ${locator} has invalid availability or missing source delivery data.`);
     }
     const workerAssetId = requiredText$4(value.worker.assetId, `${locator}.worker.assetId`);
@@ -7981,7 +7981,7 @@
     };
   }
   function parsePackagedDelivery(value, owner) {
-    if (!isRecord$b(value) || value.mode !== "packaged-static") {
+    if (!isRecord$a(value) || value.mode !== "packaged-static") {
       throw new TypeError(`Listening entry ${owner} has an invalid packaged delivery.`);
     }
     const url = requiredText$4(value.url, `${owner}.delivery.url`);
@@ -8017,7 +8017,7 @@
     if (!Number.isInteger(result2)) throw new TypeError(`${label} must be an integer.`);
     return result2;
   }
-  function isRecord$b(value) {
+  function isRecord$a(value) {
     return typeof value === "object" && value !== null && !Array.isArray(value);
   }
   const SHA256$1 = /^[a-f0-9]{64}$/;
@@ -8031,7 +8031,7 @@
     return delivery.url;
   }
   function parseListeningTaskBindings(value) {
-    if (!isRecord$a(value) || value.schema !== "yomu-academy.listening-task-bindings/v1" || !Array.isArray(value.entries)) {
+    if (!isRecord$9(value) || value.schema !== "yomu-academy.listening-task-bindings/v1" || !Array.isArray(value.entries)) {
       throw new TypeError("Listening task bindings must declare the v1 schema and entries array.");
     }
     const entries2 = value.entries.map((entry2, index) => parseEntry$1(entry2, `entries[${index}]`));
@@ -8040,7 +8040,7 @@
     return { schema: "yomu-academy.listening-task-bindings/v1", entries: entries2 };
   }
   function parseEntry$1(value, owner) {
-    if (!isRecord$a(value) || !isRecord$a(value.source) || !isRecord$a(value.verification) || !isRecord$a(value.learnerContract) || !isRecord$a(value.delivery)) {
+    if (!isRecord$9(value) || !isRecord$9(value.source) || !isRecord$9(value.verification) || !isRecord$9(value.learnerContract) || !isRecord$9(value.delivery)) {
       throw new TypeError(`Listening task binding ${owner} is invalid.`);
     }
     const packageId = text$n(value.packageId, `${owner}.packageId`);
@@ -8114,7 +8114,7 @@
     if (typeof value !== "string" || !value.trim()) throw new TypeError(`${label} must be non-empty text.`);
     return value;
   }
-  function isRecord$a(value) {
+  function isRecord$9(value) {
     return typeof value === "object" && value !== null && !Array.isArray(value);
   }
   const ROMAJI_RUN_RE = /[a-z]+(?:'[a-z]+)*/giu;
@@ -29337,14 +29337,14 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function uniqueTrimmedStrings(values) {
     return uniqueStrings(values, { trim: true, dropEmpty: true });
   }
-  function isRecord$9(value) {
+  function isRecord$8(value) {
     return typeof value === "object" && value !== null && !Array.isArray(value);
   }
   function isNonNullObject(value) {
     return typeof value === "object" && value !== null;
   }
   function normalizeStoredYomuSrsDeck(value) {
-    if (!isRecord$9(value) || value.version !== 1 || !isRecord$9(value.cards)) return { version: 1, cards: {} };
+    if (!isRecord$8(value) || value.version !== 1 || !isRecord$8(value.cards)) return { version: 1, cards: {} };
     const cards = {};
     for (const candidate2 of Object.values(value.cards)) {
       const normalized2 = normalizeStoredCard(candidate2);
@@ -29352,7 +29352,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       cards[normalized2.id] = cards[normalized2.id] ? mergeStoredYomuSrsCards(cards[normalized2.id], normalized2) : normalized2;
     }
     const tombstones = {};
-    if (isRecord$9(value.tombstones)) {
+    if (isRecord$8(value.tombstones)) {
       for (const [id2, timestamp] of Object.entries(value.tombstones)) {
         if (typeof timestamp !== "number" || !Number.isSafeInteger(timestamp) || timestamp < 0) continue;
         const card = cards[id2];
@@ -29494,7 +29494,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return { card: updated, provenanceRemoved: true, cardDeleted: false, reason };
   }
   function normalizeStoredCard(value) {
-    if (!isRecord$9(value) || typeof value.expression !== "string") return null;
+    if (!isRecord$8(value) || typeof value.expression !== "string") return null;
     let identity2;
     try {
       identity2 = canonicalStudyCardIdentity(
@@ -29564,10 +29564,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     };
   }
   function normalizeProvenanceRecord(value, fallbackAt) {
-    if (!isRecord$9(value)) return {};
+    if (!isRecord$8(value)) return {};
     const result2 = {};
     for (const candidate2 of Object.values(value)) {
-      if (!isRecord$9(candidate2)) continue;
+      if (!isRecord$8(candidate2)) continue;
       try {
         const normalized2 = normalizeProvenance({
           id: String(candidate2.id ?? ""),
@@ -32756,18 +32756,6 @@ ${spelling}`);
   function isLearnerLanguageId(value) {
     return LEARNER_LANGUAGE_IDS.includes(value);
   }
-  const SCRIPT_PROPERTY_NAMES = Object.freeze({
-    Arab: "Arabic",
-    Cyrl: "Cyrillic",
-    Grek: "Greek",
-    Hans: "Han",
-    Hant: "Han",
-    Khmr: "Khmer",
-    Laoo: "Lao",
-    Latn: "Latin",
-    Mong: "Mongolian",
-    Thai: "Thai"
-  });
   const GENERIC_ROSTER_LEARNING_TARGETS = Object.freeze(
     LEARNER_LANGUAGES.filter((language2) => language2.id !== "ko").map((language2) => createLearningTargetModule({
       id: `${language2.id}-roster-v1`,
@@ -32789,14 +32777,13 @@ ${spelling}`);
     }))
   );
   function scriptDetector(scripts) {
-    const properties = [...new Set(scripts.map((script) => SCRIPT_PROPERTY_NAMES[script]).filter((script) => Boolean(script)))];
-    if (!properties.length) return /\p{Letter}/u;
-    return new RegExp(properties.map((script) => `\\p{Script=${script}}`).join("|"), "u");
+    return new RegExp(
+      scripts.map((script) => `\\p{Script=${script === "Hans" || script === "Hant" ? "Han" : script}}`).join("|"),
+      "u"
+    );
   }
   const DEFAULT_LEARNING_TARGET_LANGUAGE = "ja";
-  const MODULES_BY_LANGUAGE = /* @__PURE__ */ new Map();
   const MODULE_STACKS_BY_LANGUAGE = /* @__PURE__ */ new Map();
-  const BUILT_IN_MODULES_BY_LANGUAGE = /* @__PURE__ */ new Map();
   let registryRevision = 0;
   function learningTargetRegistryRevision() {
     return registryRevision;
@@ -32812,28 +32799,25 @@ ${spelling}`);
     const stack = MODULE_STACKS_BY_LANGUAGE.get(base) ?? [];
     stack.push(module);
     MODULE_STACKS_BY_LANGUAGE.set(base, stack);
-    MODULES_BY_LANGUAGE.set(base, module);
     registryRevision++;
     return module;
   }
   function learningTargetModuleFor(language2) {
     const canonical = canonicalLanguageTag(language2);
     const base = languageSubtag(canonical);
-    return base ? MODULES_BY_LANGUAGE.get(base) ?? null : null;
+    return base ? MODULE_STACKS_BY_LANGUAGE.get(base)?.at(-1) ?? null : null;
   }
   function normalizeLearningTargetLanguage(value) {
     return learningTargetModuleFor(value)?.language ?? defaultLearningTargetModule().language;
   }
   function registeredLearningTargetModules() {
-    return Object.freeze([...MODULES_BY_LANGUAGE.values()]);
+    return [...MODULE_STACKS_BY_LANGUAGE.values()].flatMap((stack) => stack.at(-1) ?? []);
   }
   function defaultLearningTargetModule() {
-    return MODULES_BY_LANGUAGE.get(DEFAULT_LEARNING_TARGET_LANGUAGE) ?? JAPANESE_LEARNING_TARGET;
+    return learningTargetModuleFor(DEFAULT_LEARNING_TARGET_LANGUAGE) ?? JAPANESE_LEARNING_TARGET;
   }
   function registerBuiltInLearningTargetModule(module) {
     registerLearningTargetModule(module);
-    const base = languageSubtag(module.language);
-    if (base) BUILT_IN_MODULES_BY_LANGUAGE.set(base, module);
   }
   registerBuiltInLearningTargetModule(JAPANESE_LEARNING_TARGET);
   registerBuiltInLearningTargetModule(KOREAN_LEARNING_TARGET);
@@ -34630,7 +34614,7 @@ ${spelling}`);
     };
   }
   function resolveLanguageProfile(value) {
-    if (isRecord$8(value) && value.schemaVersion === LANGUAGE_PROFILE_SCHEMA_VERSION) {
+    if (isRecord$7(value) && value.schemaVersion === LANGUAGE_PROFILE_SCHEMA_VERSION) {
       const normalized22 = normalizeLanguageProfiles([value], value.id, {
         learnerLanguage: value.learnerLanguage,
         uiLocale: value.uiLocale,
@@ -34638,7 +34622,7 @@ ${spelling}`);
       });
       return normalized22.profiles[0];
     }
-    const source2 = isRecord$8(value) ? value : {};
+    const source2 = isRecord$7(value) ? value : {};
     const normalized2 = normalizeLanguageProfiles(
       source2.languageProfiles,
       source2.activeLanguageProfileId,
@@ -34654,7 +34638,7 @@ ${spelling}`);
     return resolveLanguageProfile(value).learnerLanguage;
   }
   function normalizeLanguageProfile(value, index, defaults) {
-    if (!isRecord$8(value)) return null;
+    if (!isRecord$7(value)) return null;
     if (value.schemaVersion !== LANGUAGE_PROFILE_SCHEMA_VERSION) return null;
     return {
       schemaVersion: LANGUAGE_PROFILE_SCHEMA_VERSION,
@@ -34691,7 +34675,7 @@ ${spelling}`);
     return PARSER_PROVIDERS.has(value) ? value : fallback;
   }
   function normalizeProfileDictionaries(value) {
-    if (!isRecord$8(value)) return emptyProfileDictionaries();
+    if (!isRecord$7(value)) return emptyProfileDictionaries();
     const enabled = normalizeStringIds(value.enabled);
     const order2 = normalizeStringIds(value.order);
     const installed = normalizeStringIds([
@@ -34732,7 +34716,7 @@ ${spelling}`);
     }
     return result2;
   }
-  function isRecord$8(value) {
+  function isRecord$7(value) {
     return Boolean(value) && typeof value === "object" && !Array.isArray(value);
   }
   function isTargetDefaultOcrLanguageTag(value) {
@@ -47625,23 +47609,23 @@ recommendedJiten	Jiten由来の頻度バッジです。
     };
   }
   function placementMockProgressShapeIsValid(value) {
-    if (!isRecord$7(value) || value.schemaVersion !== 1 || !Number.isSafeInteger(value.step) || Number(value.step) < 0 || Number(value.step) > 8 || typeof value.submitted !== "boolean") return false;
+    if (!isRecord$6(value) || value.schemaVersion !== 1 || !Number.isSafeInteger(value.step) || Number(value.step) < 0 || Number(value.step) > 8 || typeof value.submitted !== "boolean") return false;
     const draft = value.draft;
-    if (!isRecord$7(draft) || !isJlptBand$1(draft.targetBand) || !stringRecord(draft.responses)) return false;
-    if (!isRecord$7(draft.listeningModes) || Object.entries(draft.listeningModes).some(([key2, mode]) => !key2.trim() || mode !== "audio" && mode !== "transcript-alternative")) return false;
-    if (!isRecord$7(draft.production)) return false;
+    if (!isRecord$6(draft) || !isJlptBand$1(draft.targetBand) || !stringRecord(draft.responses)) return false;
+    if (!isRecord$6(draft.listeningModes) || Object.entries(draft.listeningModes).some(([key2, mode]) => !key2.trim() || mode !== "audio" && mode !== "transcript-alternative")) return false;
+    if (!isRecord$6(draft.production)) return false;
     return productionAttemptIsValid(draft.production.speaking, ["aloud", "typed-alternative"]) && productionAttemptIsValid(draft.production.writing, ["typed", "paper-alternative"]);
   }
   function productionAttemptIsValid(value, modes) {
-    return isRecord$7(value) && typeof value.mode === "string" && modes.includes(value.mode) && typeof value.completed === "boolean" && typeof value.response === "string" && value.response.length <= 2e3 && typeof value.confidence === "number" && Number.isFinite(value.confidence) && value.confidence >= 0 && value.confidence <= 1 && typeof value.rated === "boolean";
+    return isRecord$6(value) && typeof value.mode === "string" && modes.includes(value.mode) && typeof value.completed === "boolean" && typeof value.response === "string" && value.response.length <= 2e3 && typeof value.confidence === "number" && Number.isFinite(value.confidence) && value.confidence >= 0 && value.confidence <= 1 && typeof value.rated === "boolean";
   }
   function stringRecord(value) {
-    return isRecord$7(value) && Object.entries(value).every(([key2, entry2]) => key2.trim() && typeof entry2 === "string");
+    return isRecord$6(value) && Object.entries(value).every(([key2, entry2]) => key2.trim() && typeof entry2 === "string");
   }
   function isJlptBand$1(value) {
     return value === "n5" || value === "n4" || value === "n3" || value === "n2" || value === "n1";
   }
-  function isRecord$7(value) {
+  function isRecord$6(value) {
     return Boolean(value) && typeof value === "object" && !Array.isArray(value);
   }
   const ACADEMY_ROUTE_DEFINITIONS = {
@@ -88048,7 +88032,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return parseStoryVoicePlaybackCatalog(await response.json());
   }
   function parseStoryVoicePlaybackCatalog(value) {
-    if (!isRecord$6(value) || value.schema !== STORY_VOICE_PLAYBACK_SCHEMA || !Array.isArray(value.entries)) {
+    if (!isRecord$5(value) || value.schema !== STORY_VOICE_PLAYBACK_SCHEMA || !Array.isArray(value.entries)) {
       throw new TypeError("Invalid story voice playback catalog.");
     }
     const seen = /* @__PURE__ */ new Set();
@@ -88214,10 +88198,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
     };
   }
   function isPlaybackEntry(value) {
-    if (!isRecord$6(value)) return false;
+    if (!isRecord$5(value)) return false;
     return typeof value.lineId === "string" && value.lineId.startsWith("line:") && typeof value.speakerId === "string" && value.speakerId !== "learner" && value.speakerId !== "narrator" && typeof value.japanese === "string" && value.japanese.length > 0 && typeof value.band === "string" && SHA256.test(String(value.sourceSha256)) && SHA256.test(String(value.assetSha256)) && typeof value.bytes === "number" && Number.isSafeInteger(value.bytes) && value.bytes > 0 && typeof value.url === "string" && LOCKED_STORY_URL.test(value.url) && value.reviewStatus === "locked";
   }
-  function isRecord$6(value) {
+  function isRecord$5(value) {
     return typeof value === "object" && value !== null;
   }
   const SUPPORT_DONATION_URL = "https://support.yomureader.com/donate";
@@ -123315,7 +123299,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     };
   }
   function parseKanjiWritingResponse(value) {
-    if (!isRecord$5(value)) throw new TypeError("A Kanji writing response is required.");
+    if (!isRecord$4(value)) throw new TypeError("A Kanji writing response is required.");
     if (value.phase === "writing") {
       if (value.inputMode !== "doodle") {
         throw new TypeError("Handwriting evidence must come from the Yomu Doodle canvas.");
@@ -123333,7 +123317,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     throw new TypeError("Kanji response phase must be writing or reading.");
   }
   function parseStrokeAssessment(value) {
-    if (!isRecord$5(value) || typeof value.passed !== "boolean" || !finiteNumber(value.score) || !finiteNumber(value.expectedStrokes) || !finiteNumber(value.actualStrokes) || typeof value.message !== "string") {
+    if (!isRecord$4(value) || typeof value.passed !== "boolean" || !finiteNumber(value.score) || !finiteNumber(value.expectedStrokes) || !finiteNumber(value.actualStrokes) || typeof value.message !== "string") {
       throw new TypeError("A valid Yomu Doodle stroke assessment is required.");
     }
     if (value.score < 0 || value.score > 100 || value.expectedStrokes < 1 || !Number.isInteger(value.expectedStrokes) || value.actualStrokes < 0 || !Number.isInteger(value.actualStrokes) || value.shapeScore !== void 0 && !finiteNumber(value.shapeScore)) {
@@ -123348,7 +123332,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       message: value.message
     };
   }
-  function isRecord$5(value) {
+  function isRecord$4(value) {
     return Boolean(value) && typeof value === "object" && !Array.isArray(value);
   }
   function finiteNumber(value) {
@@ -287854,7 +287838,7 @@ ${item2.sequence ?? ""}`;
     if (Array.isArray(value)) {
       return value.map((child) => glossaryValueToProfileText(child, options)).filter(Boolean).join(" ");
     }
-    return isRecord$9(value) ? glossaryRecordToText(value, options) : "";
+    return isRecord$8(value) ? glossaryRecordToText(value, options) : "";
   }
   function primitiveGlossaryText(value) {
     if (value == null) return "";
@@ -287948,7 +287932,7 @@ ${item2.sequence ?? ""}`;
     if (value == null) return "";
     if (isStructuredPrimitive(value)) return escapeHtml$1(String(value));
     if (Array.isArray(value)) return renderGlossaryArray(value, context2);
-    if (!isRecord$9(value)) return "";
+    if (!isRecord$8(value)) return "";
     return renderGlossaryRecord(value, context2);
   }
   function isStructuredPrimitive(value) {
@@ -298707,10 +298691,10 @@ ${component.reading}`;
     return `definition-source:${sourceId2}`;
   }
   function parseWanikaniSubject(raw) {
-    if (!isRecord$4(raw)) return null;
+    if (!isRecord$3(raw)) return null;
     const type = typeof raw.object === "string" ? raw.object : "";
     if (!isSubjectType(type)) return null;
-    const data = isRecord$4(raw.data) ? raw.data : {};
+    const data = isRecord$3(raw.data) ? raw.data : {};
     const id2 = typeof raw.id === "number" ? raw.id : Number(raw.id);
     if (!Number.isFinite(id2)) return null;
     return {
@@ -298749,7 +298733,7 @@ ${component.reading}`;
   }
   function parseMeanings(raw) {
     if (!Array.isArray(raw)) return [];
-    return raw.filter(isRecord$4).map((item2) => ({
+    return raw.filter(isRecord$3).map((item2) => ({
       meaning: typeof item2.meaning === "string" ? item2.meaning : "",
       primary: item2.primary === true,
       acceptedAsCorrect: item2.accepted_answer === true || item2.accepted_as_correct === true
@@ -298757,14 +298741,14 @@ ${component.reading}`;
   }
   function parseAuxiliaryMeanings(raw) {
     if (!Array.isArray(raw)) return [];
-    return raw.filter(isRecord$4).map((item2) => ({
+    return raw.filter(isRecord$3).map((item2) => ({
       meaning: typeof item2.meaning === "string" ? item2.meaning : "",
       type: item2.type === "whitelist" || item2.type === "blacklist" ? item2.type : "unknown"
     })).filter((item2) => item2.meaning);
   }
   function parseReadings(raw) {
     if (!Array.isArray(raw)) return [];
-    return raw.filter(isRecord$4).map((item2) => {
+    return raw.filter(isRecord$3).map((item2) => {
       const type = item2.type === "onyomi" || item2.type === "kunyomi" || item2.type === "nanori" ? item2.type : void 0;
       return {
         reading: typeof item2.reading === "string" ? item2.reading : "",
@@ -298780,15 +298764,15 @@ ${component.reading}`;
   }
   function parseContextSentences(raw) {
     if (!Array.isArray(raw)) return [];
-    return raw.filter(isRecord$4).map((item2) => ({
+    return raw.filter(isRecord$3).map((item2) => ({
       en: typeof item2.en === "string" ? item2.en : "",
       ja: typeof item2.ja === "string" ? item2.ja : ""
     })).filter((item2) => item2.en || item2.ja);
   }
   function parseAudio(raw) {
     if (!Array.isArray(raw)) return [];
-    return raw.filter(isRecord$4).map((item2) => {
-      const metadata2 = isRecord$4(item2.metadata) ? item2.metadata : {};
+    return raw.filter(isRecord$3).map((item2) => {
+      const metadata2 = isRecord$3(item2.metadata) ? item2.metadata : {};
       return {
         url: typeof item2.url === "string" ? item2.url : "",
         contentType: typeof item2.content_type === "string" ? item2.content_type : "",
@@ -298800,7 +298784,7 @@ ${component.reading}`;
       };
     }).filter((item2) => item2.url);
   }
-  function isRecord$4(value) {
+  function isRecord$3(value) {
     return typeof value === "object" && value !== null;
   }
   const KNOWN_TAGS = /* @__PURE__ */ new Set(["radical", "kanji", "vocabulary", "reading", "meaning", "ja"]);
@@ -299739,7 +299723,7 @@ ${component.reading}`;
     return !requiresSurfaceMatch(query) || sentenceContainsQuery(example.sentence, query);
   }
   function normalizeExample(value, provider = "immersion-kit") {
-    return isRecord$9(value) ? normalizeExampleRecord(value, provider) : null;
+    return isRecord$8(value) ? normalizeExampleRecord(value, provider) : null;
   }
   function normalizeExampleRecord(record2, provider = "immersion-kit") {
     const id2 = text$1(record2.id);
@@ -299780,18 +299764,18 @@ ${component.reading}`;
   }
   function nadeshikoResponseRecord(data) {
     if (Array.isArray(data)) return { segments: data };
-    return isRecord$9(data) ? data : null;
+    return isRecord$8(data) ? data : null;
   }
   function nadeshikoSegments(response) {
     return firstArrayField(response, ["segments", "examples", "results", "data"]);
   }
   function nadeshikoMediaMap(response) {
     const includes = response.includes;
-    const media = isRecord$9(includes) ? includes.media : void 0;
-    return isRecord$9(media) ? media : {};
+    const media = isRecord$8(includes) ? includes.media : void 0;
+    return isRecord$8(media) ? media : {};
   }
   function normalizeNadeshikoExample(value, mediaById) {
-    if (!isRecord$9(value)) return null;
+    if (!isRecord$8(value)) return null;
     const sentence = nadeshikoSentence(value);
     if (!sentence) return null;
     const ids2 = nadeshikoExampleIds(value);
@@ -299828,7 +299812,7 @@ ${component.reading}`;
     return recordField(mediaById[mediaPublicId]);
   }
   function recordField(value) {
-    return isRecord$9(value) ? value : {};
+    return isRecord$8(value) ? value : {};
   }
   function nadeshikoSourceTitle(record2, media) {
     return firstText(media, ["nameRomaji", "name_romaji", "titleRomaji", "title_romaji", "name", "title", "nameJa"]) || firstText(record2, ["mediaName", "sourceTitle", "source", "title"]) || "Nadeshiko";
@@ -299847,7 +299831,7 @@ ${component.reading}`;
   }
   function nestedText(record2, key2, fields) {
     const value = record2[key2];
-    return isRecord$9(value) ? firstText(value, fields) : "";
+    return isRecord$8(value) ? firstText(value, fields) : "";
   }
   function directMediaUrl(example, kind) {
     return kind === "image" ? example.imageUrl : example.soundUrl;
@@ -307648,13 +307632,13 @@ ${entry2.url}`),
   }
   function jpdbReviewCards(value) {
     if (Array.isArray(value)) return value;
-    if (!isRecord$9(value)) return [];
+    if (!isRecord$8(value)) return [];
     const cards = Object.entries(value).filter(([key2, item2]) => key2.startsWith("cards_") && Array.isArray(item2)).flatMap(([, item2]) => item2);
     if (cards.length) return cards;
     return Array.isArray(value.cards) ? value.cards : [];
   }
   function normalizeJpdbReviewEntries(card) {
-    if (!isRecord$9(card) || !Array.isArray(card.reviews)) return [];
+    if (!isRecord$8(card) || !Array.isArray(card.reviews)) return [];
     return card.reviews.map(normalizeJpdbReview).filter((review2) => review2 !== null).sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
   }
   function normalizeJpdbReview(value) {
@@ -307667,7 +307651,7 @@ ${entry2.url}`),
         minutes: numberValue$1(value[5]) / 6e4
       };
     }
-    if (!isRecord$9(value)) return null;
+    if (!isRecord$8(value)) return null;
     const timestamp = reviewTimestamp(value.timestamp ?? value.time ?? value.date);
     if (!timestamp) return null;
     return {
@@ -311072,14 +311056,14 @@ ${entry2.url}`),
   }
   function structuredExampleTexts(value) {
     if (Array.isArray(value)) return value.flatMap(structuredExampleTexts);
-    if (!isRecord$9(value)) return [];
+    if (!isRecord$8(value)) return [];
     if (isExampleRecord(value)) return structuredLeafTexts(value.text ?? value.content);
     return Object.values(value).flatMap(structuredExampleTexts);
   }
   function structuredLeafTexts(value) {
     if (typeof value === "string") return [value];
     if (Array.isArray(value)) return value.flatMap(structuredLeafTexts);
-    if (!isRecord$9(value)) return [];
+    if (!isRecord$8(value)) return [];
     if (typeof value.text === "string") return [value.text];
     return "content" in value ? structuredLeafTexts(value.content) : [];
   }
@@ -312080,8 +312064,8 @@ ${entry2.url}`),
   }
   const KNOWN_SUBSCRIPTION_TYPES = /* @__PURE__ */ new Set(["free", "recurring", "lifetime"]);
   function parseWanikaniUser(raw) {
-    const record2 = isRecord$3(raw) ? isRecord$3(raw.data) ? raw.data : raw : {};
-    const subscriptionRaw = isRecord$3(record2.subscription) ? record2.subscription : {};
+    const record2 = isRecord$2(raw) ? isRecord$2(raw.data) ? raw.data : raw : {};
+    const subscriptionRaw = isRecord$2(record2.subscription) ? record2.subscription : {};
     return {
       id: typeof record2.id === "string" ? record2.id : "",
       level: typeof record2.level === "number" ? record2.level : 0,
@@ -312125,7 +312109,7 @@ ${entry2.url}`),
     return error instanceof WanikaniApiError && error.status === 429 || /\(429\)|rate limit/i.test(error.message);
   }
   function rawSubjectLevel(value) {
-    if (!isRecord$3(value) || !isRecord$3(value.data)) return Number.POSITIVE_INFINITY;
+    if (!isRecord$2(value) || !isRecord$2(value.data)) return Number.POSITIVE_INFINITY;
     return typeof value.data.level === "number" ? value.data.level : Number.POSITIVE_INFINITY;
   }
   function stableOptionsKey(options) {
@@ -312134,7 +312118,7 @@ ${entry2.url}`),
   function trimBaseUrl$1(value) {
     return value.replace(/\/+$/u, "");
   }
-  function isRecord$3(value) {
+  function isRecord$2(value) {
     return typeof value === "object" && value !== null;
   }
   const UCHISEN_PAYWALL_STORY_RE = /\bplease\s+subscribe\s+to\s+uchisen\s*pro\b/i;
@@ -336519,6 +336503,11 @@ ${entry2.url}`),
   function languageOptionLabel(language2) {
     return language2.nativeName === language2.englishName ? language2.nativeName : `${language2.nativeName} — ${language2.englishName}`;
   }
+  function renderLanguageOptions(languages2, selected2) {
+    return languages2.map((item2) => `
+        <option value="${escapeHtml$2(item2.id)}" lang="${escapeHtml$2(item2.runtimeLocale)}" dir="${item2.direction}" ${item2.id === selected2 ? "selected" : ""}>${escapeHtml$2(languageOptionLabel(item2))}</option>
+    `).join("");
+  }
   function renderLanguageProfileControls(settings) {
     const copy2 = multilingualSettingsCopy(settings.interfaceLanguage);
     const learnerLanguage2 = activeLearnerLanguageId(settings);
@@ -336530,21 +336519,13 @@ ${entry2.url}`),
                         <label>
                             <span class="${SETTINGS_LABEL_TEXT_CLASS}" data-multilingual-copy="learnerLanguage">${escapeHtml$2(copy2.learnerLanguage)}</span>
                             <select name="learnerLanguage" autocomplete="language">
-                                ${LEARNER_LANGUAGES.map(
-      (item2) => `
-                                    <option value="${escapeHtml$2(item2.id)}" lang="${escapeHtml$2(item2.runtimeLocale)}" dir="${item2.direction}" ${item2.id === learnerLanguage2 ? "selected" : ""}>${escapeHtml$2(languageOptionLabel(item2))}</option>
-                                `
-    ).join("")}
+                                ${renderLanguageOptions(LEARNER_LANGUAGES, learnerLanguage2)}
                             </select>
                         </label>
                         <label>
                             <span class="${SETTINGS_LABEL_TEXT_CLASS}" data-multilingual-copy="targetLanguage">${escapeHtml$2(copy2.targetLanguage)}</span>
                             <select name="targetLanguage" autocomplete="language">
-                                ${LEARNING_TARGET_ROSTER.map(
-      (item2) => `
-                                    <option value="${escapeHtml$2(item2.id)}" lang="${escapeHtml$2(item2.runtimeLocale)}" dir="${item2.direction}" ${item2.id === targetLanguage2 ? "selected" : ""}>${escapeHtml$2(languageOptionLabel(item2))}</option>
-                                `
-    ).join("")}
+                                ${renderLanguageOptions(LEARNING_TARGET_ROSTER, targetLanguage2)}
                             </select>
                         </label>
                         ${select("interfaceLanguage", uiText(settings.interfaceLanguage, "settingsLanguage"), settings.interfaceLanguage, localizedOptions(settingsText(settings.interfaceLanguage), INTERFACE_LANGUAGE_OPTIONS))}
@@ -339420,18 +339401,16 @@ ${entry2.url}`),
     return acquirableHeadwordLanguages(await requester(PUBLISHED_DICTIONARY_CATALOG_URL));
   }
   function acquirableHeadwordLanguages(value) {
-    const entries2 = isRecord$2(value) && Array.isArray(value.entries) ? value.entries : [];
-    const languages2 = /* @__PURE__ */ new Set();
-    for (const entry2 of entries2) {
-      if (!isRecord$2(entry2) || !isAcquirableDistribution(entry2.distribution)) continue;
-      if (!Array.isArray(entry2.headwordLanguages)) continue;
-      for (const language2 of entry2.headwordLanguages) {
-        if (typeof language2 === "string" && language2.trim()) {
-          languages2.add(language2.trim().toLowerCase().split("-")[0]);
-        }
-      }
-    }
-    return languages2;
+    const entries2 = value?.entries;
+    if (!Array.isArray(entries2)) return /* @__PURE__ */ new Set();
+    return new Set(
+      entries2.flatMap((entry2) => {
+        const candidate2 = entry2;
+        const state = candidate2?.distribution?.state;
+        if (state !== "published" && state !== "upstream" || !Array.isArray(candidate2?.headwordLanguages)) return [];
+        return candidate2.headwordLanguages.filter((language2) => typeof language2 === "string" && Boolean(language2.trim())).map((language2) => language2.trim().toLowerCase().split("-")[0]);
+      })
+    );
   }
   function requestPublishedCatalog(url) {
     return requestJson$1(url, {
@@ -339440,12 +339419,6 @@ ${entry2.url}`),
       preferFetch: true,
       timeoutMs: 15e3
     });
-  }
-  function isAcquirableDistribution(value) {
-    return isRecord$2(value) && (value.state === "published" || value.state === "upstream");
-  }
-  function isRecord$2(value) {
-    return Boolean(value && typeof value === "object" && !Array.isArray(value));
   }
   async function requestPrivateApi(url, init = {}) {
     let userscriptRequest = getUserscriptHttpRequest();
@@ -340874,38 +340847,31 @@ ${entry2.url}`),
       const requestId = ++this.targetDictionaryAvailabilityRequestId;
       const status2 = form2.querySelector("[data-target-dictionary-state]");
       const content = form2.querySelector("[data-target-dictionary-content]");
-      if (status2) {
-        status2.hidden = false;
-        status2.textContent = uiText(this.settings.interfaceLanguage, "checkingDictionaries");
-      }
-      if (content) content.hidden = true;
+      const showAvailability = (message) => {
+        if (status2) {
+          status2.hidden = !message;
+          status2.textContent = message ?? "";
+        }
+        if (content) content.hidden = Boolean(message);
+      };
+      showAvailability(uiText(this.settings.interfaceLanguage, "checkingDictionaries"));
       try {
         this.publishedDictionaryLanguagesPromise ??= this.dependencies.publishedDictionaryLanguages?.() ?? publishedDictionaryHeadwordLanguages();
         const languages2 = await this.publishedDictionaryLanguagesPromise;
         if (requestId !== this.targetDictionaryAvailabilityRequestId || !form2.isConnected) return;
         if (selectedTargetLanguage(form2, this.settings) !== selected2) return;
         if (languages2.has(selected2)) {
-          if (status2) {
-            status2.hidden = true;
-            status2.textContent = "";
-          }
-          if (content) content.hidden = false;
+          showAvailability();
           return;
         }
-        if (status2) {
-          status2.hidden = false;
-          status2.textContent = formatUiTemplate(
-            uiText(this.settings.interfaceLanguage, "targetDictionaryUnavailable"),
-            { language: targetLanguageDisplayName(selected2, this.settings.interfaceLanguage) }
-          );
-        }
+        showAvailability(formatUiTemplate(
+          uiText(this.settings.interfaceLanguage, "targetDictionaryUnavailable"),
+          { language: targetLanguageDisplayName(selected2, this.settings.interfaceLanguage) }
+        ));
       } catch (error) {
         log$2.warn("Published dictionary coverage check failed", error);
         if (requestId !== this.targetDictionaryAvailabilityRequestId || !form2.isConnected) return;
-        if (status2) {
-          status2.hidden = false;
-          status2.textContent = uiText(this.settings.interfaceLanguage, "targetDictionaryAvailabilityUnavailable");
-        }
+        showAvailability(uiText(this.settings.interfaceLanguage, "targetDictionaryAvailabilityUnavailable"));
       }
     }
     bindEditorControls(form2) {

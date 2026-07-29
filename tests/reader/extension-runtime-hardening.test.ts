@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 // @ts-expect-error The packaging hardener is a Node ESM script exercised directly by the build.
-import { deterministicExtensionTimestamp, hardenExtensionBackgroundSource, hardenExtensionContentSource, hardenExtensionManifest, hardenExtensionPopupSource, hardenExtensionSubmissionGuide, reconcilePackageValidationAudit, unindentContentScriptBody } from '../../scripts/lib/extension-runtime-hardening.mjs';
+import { deterministicExtensionTimestamp, hardenExtensionBackgroundSource, hardenExtensionContentSource, hardenExtensionManifest, hardenExtensionPopupSource, hardenExtensionSubmissionGuide, reconcilePackageValidationAudit, splitFirefoxContentScript, unindentContentScriptBody } from '../../scripts/lib/extension-runtime-hardening.mjs';
 
 describe('extension runtime hardening', () => {
     it('uses SOURCE_DATE_EPOCH with a deterministic Git commit fallback', () => {
@@ -128,6 +128,10 @@ describe('extension runtime hardening', () => {
         expect(unindented).toContain('const template = `line one\nline two`;');
         expect(unindented).not.toContain('    const greeting');
         expect(unindented.length).toBe(wrapped.length - 4 * body.length);
+        expect(splitFirefoxContentScript(unindented)).toEqual({
+            runtime: '/* UserScript Compiler GM compatibility runtime. */\n(() => {})();\n\n',
+            content: unindented.slice(unindented.indexOf('Promise.resolve(globalThis.__USC_READY)')),
+        });
         // Idempotence would silently eat a real indent level, so it must refuse.
         expect(() => unindentContentScriptBody(unindented)).toThrow(/uniformly indented/);
     });
@@ -204,6 +208,9 @@ describe('extension runtime hardening', () => {
 
         expect(hardenExtensionManifest(manifest, { target: 'safari' }).content_scripts).toEqual([{ matches: ['*://*/*'], js: ['content.js'] }]);
         expect(hardenExtensionManifest(manifest, { target: 'chrome' }).content_scripts).toEqual([{ matches: ['*://*/*', 'file:///*'], js: ['content.js'] }]);
+        expect(hardenExtensionManifest(manifest, { target: 'firefox' }).content_scripts).toEqual([
+            { matches: ['*://*/*', 'file:///*'], js: ['gm-runtime.js', 'content.js'] },
+        ]);
     });
 
     it('does not offer Safari injection on unsupported file pages', () => {

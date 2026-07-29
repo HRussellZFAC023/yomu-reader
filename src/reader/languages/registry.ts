@@ -12,9 +12,7 @@ import {
 /** The target Yomu falls back to when nothing else has been selected. */
 export const DEFAULT_LEARNING_TARGET_LANGUAGE: LanguageTag = 'ja';
 
-const MODULES_BY_LANGUAGE = new Map<string, LearningTargetModule>();
 const MODULE_STACKS_BY_LANGUAGE = new Map<string, LearningTargetModule[]>();
-const BUILT_IN_MODULES_BY_LANGUAGE = new Map<string, LearningTargetModule>();
 
 let registryRevision = 0;
 
@@ -44,7 +42,6 @@ export function registerLearningTargetModule(module: LearningTargetModule): Lear
     const stack = MODULE_STACKS_BY_LANGUAGE.get(base) ?? [];
     stack.push(module);
     MODULE_STACKS_BY_LANGUAGE.set(base, stack);
-    MODULES_BY_LANGUAGE.set(base, module);
     registryRevision++;
     return module;
 }
@@ -58,15 +55,16 @@ export function unregisterLearningTargetModule(language: unknown): boolean {
     if (!base) return false;
     const stack = MODULE_STACKS_BY_LANGUAGE.get(base);
     if (!stack?.length) return false;
-    const builtIn = BUILT_IN_MODULES_BY_LANGUAGE.get(base);
-    if (stack.length === 1 && stack[0] === builtIn) return false;
+    if (
+        stack.length === 1
+        && (
+            stack[0] === JAPANESE_LEARNING_TARGET
+            || stack[0] === KOREAN_LEARNING_TARGET
+            || GENERIC_ROSTER_LEARNING_TARGETS.includes(stack[0]!)
+        )
+    ) return false;
     stack.pop();
-    const previous = stack.at(-1);
-    if (previous) MODULES_BY_LANGUAGE.set(base, previous);
-    else {
-        MODULE_STACKS_BY_LANGUAGE.delete(base);
-        MODULES_BY_LANGUAGE.delete(base);
-    }
+    if (!stack.length) MODULE_STACKS_BY_LANGUAGE.delete(base);
     registryRevision++;
     return true;
 }
@@ -74,7 +72,7 @@ export function unregisterLearningTargetModule(language: unknown): boolean {
 export function learningTargetModuleFor(language: unknown): LearningTargetModule | null {
     const canonical = canonicalLanguageTag(language);
     const base = languageSubtag(canonical);
-    return base ? MODULES_BY_LANGUAGE.get(base) ?? null : null;
+    return base ? MODULE_STACKS_BY_LANGUAGE.get(base)?.at(-1) ?? null : null;
 }
 
 /**
@@ -89,7 +87,7 @@ export function normalizeLearningTargetLanguage(value: unknown): LanguageTag {
 }
 
 export function supportedLearningTargetLanguages(): readonly string[] {
-    return Object.freeze([...MODULES_BY_LANGUAGE.keys()]);
+    return Object.freeze([...MODULE_STACKS_BY_LANGUAGE.keys()]);
 }
 
 /**
@@ -99,7 +97,7 @@ export function supportedLearningTargetLanguages(): readonly string[] {
  * checking it against all of them, not just the active one.
  */
 export function registeredLearningTargetModules(): readonly LearningTargetModule[] {
-    return Object.freeze([...MODULES_BY_LANGUAGE.values()]);
+    return [...MODULE_STACKS_BY_LANGUAGE.values()].flatMap(stack => stack.at(-1) ?? []);
 }
 
 /**
@@ -107,13 +105,11 @@ export function registeredLearningTargetModules(): readonly LearningTargetModule
  * callers can resolve a module without a null branch at every call site.
  */
 export function defaultLearningTargetModule(): LearningTargetModule {
-    return MODULES_BY_LANGUAGE.get(DEFAULT_LEARNING_TARGET_LANGUAGE) ?? JAPANESE_LEARNING_TARGET;
+    return learningTargetModuleFor(DEFAULT_LEARNING_TARGET_LANGUAGE) ?? JAPANESE_LEARNING_TARGET;
 }
 
 function registerBuiltInLearningTargetModule(module: LearningTargetModule): void {
     registerLearningTargetModule(module);
-    const base = languageSubtag(module.language);
-    if (base) BUILT_IN_MODULES_BY_LANGUAGE.set(base, module);
 }
 
 registerBuiltInLearningTargetModule(JAPANESE_LEARNING_TARGET);

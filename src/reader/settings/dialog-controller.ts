@@ -1122,11 +1122,14 @@ export class SettingsDialogController {
         const requestId = ++this.targetDictionaryAvailabilityRequestId;
         const status = form.querySelector<HTMLElement>('[data-target-dictionary-state]');
         const content = form.querySelector<HTMLElement>('[data-target-dictionary-content]');
-        if (status) {
-            status.hidden = false;
-            status.textContent = uiText(this.settings.interfaceLanguage, 'checkingDictionaries');
-        }
-        if (content) content.hidden = true;
+        const showAvailability = (message?: string): void => {
+            if (status) {
+                status.hidden = !message;
+                status.textContent = message ?? '';
+            }
+            if (content) content.hidden = Boolean(message);
+        };
+        showAvailability(uiText(this.settings.interfaceLanguage, 'checkingDictionaries'));
 
         try {
             this.publishedDictionaryLanguagesPromise ??= (
@@ -1137,27 +1140,17 @@ export class SettingsDialogController {
             if (requestId !== this.targetDictionaryAvailabilityRequestId || !form.isConnected) return;
             if (selectedTargetLanguage(form, this.settings) !== selected) return;
             if (languages.has(selected)) {
-                if (status) {
-                    status.hidden = true;
-                    status.textContent = '';
-                }
-                if (content) content.hidden = false;
+                showAvailability();
                 return;
             }
-            if (status) {
-                status.hidden = false;
-                status.textContent = formatUiTemplate(
-                    uiText(this.settings.interfaceLanguage, 'targetDictionaryUnavailable'),
-                    { language: targetLanguageDisplayName(selected, this.settings.interfaceLanguage) },
-                );
-            }
+            showAvailability(formatUiTemplate(
+                uiText(this.settings.interfaceLanguage, 'targetDictionaryUnavailable'),
+                { language: targetLanguageDisplayName(selected, this.settings.interfaceLanguage) },
+            ));
         } catch (error) {
             log.warn('Published dictionary coverage check failed', error);
             if (requestId !== this.targetDictionaryAvailabilityRequestId || !form.isConnected) return;
-            if (status) {
-                status.hidden = false;
-                status.textContent = uiText(this.settings.interfaceLanguage, 'targetDictionaryAvailabilityUnavailable');
-            }
+            showAvailability(uiText(this.settings.interfaceLanguage, 'targetDictionaryAvailabilityUnavailable'));
         }
     }
 

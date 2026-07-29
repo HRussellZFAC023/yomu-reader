@@ -4,6 +4,7 @@ import { strToU8, unzipSync, zipSync } from 'fflate';
 
 const BACKGROUND_FILE = 'background.js';
 const CONTENT_FILE = 'content.js';
+const CONTENT_RUNTIME_FILE = 'gm-runtime.js';
 const POPUP_FILE = 'popup.js';
 const MANIFEST_FILE = 'manifest.json';
 const READER_CSS_FILE = 'yomu.css';
@@ -185,7 +186,9 @@ export function hardenExtensionManifest(manifest, options = {}) {
         : manifest.browser_specific_settings;
     const contentScripts = target === 'safari'
         ? safariCompatibleContentScripts(manifest.content_scripts)
-        : manifest.content_scripts;
+        : target === 'firefox'
+            ? firefoxSplitContentScripts(manifest.content_scripts)
+            : manifest.content_scripts;
     const withPermissions = {
         ...manifestWithoutNewTabOverride,
         permissions,
@@ -382,7 +385,11 @@ async function hardenGeneratedReleaseArchives(root, packageAssets, archiveTimest
                 let content = hardenExtensionContentSource(new TextDecoder().decode(bytes));
                 if (target === 'firefox') {
                     content = unindentContentScriptBody(content);
-                    assertFirefoxContentScriptFitsAmo(content, file);
+                    const split = splitFirefoxContentScript(content);
+                    assertFirefoxContentScriptFitsAmo(split.runtime, CONTENT_RUNTIME_FILE);
+                    assertFirefoxContentScriptFitsAmo(split.content, file);
+                    entries[CONTENT_RUNTIME_FILE] = strToU8(split.runtime);
+                    content = split.content;
                 }
                 entries[name] = strToU8(content);
             } else if (name === MANIFEST_FILE) {
@@ -421,7 +428,11 @@ async function hardenGeneratedExtensionContentScripts(root) {
         // are left exactly as they are.
         if (extensionTargetFromPath(file, root) === 'firefox') {
             hardened = unindentContentScriptBody(hardened);
-            assertFirefoxContentScriptFitsAmo(hardened, file);
+            const split = splitFirefoxContentScript(hardened);
+            assertFirefoxContentScriptFitsAmo(split.runtime, CONTENT_RUNTIME_FILE);
+            assertFirefoxContentScriptFitsAmo(split.content, file);
+            await writeFile(path.join(path.dirname(file), CONTENT_RUNTIME_FILE), split.runtime);
+            hardened = split.content;
         }
         if (hardened !== source) await writeFile(file, hardened);
     }
@@ -450,6 +461,17 @@ export function unindentContentScriptBody(source) {
     return source.slice(0, bodyStart) + unindented.join('\n') + source.slice(end);
 }
 
+export function splitFirefoxContentScript(source) {
+    const bodyStart = source.indexOf(CONTENT_BODY_PREFIX);
+    if (bodyStart <= 0) {
+        throw new Error('Generated content.js no longer separates the GM runtime from the userscript body.');
+    }
+    return {
+        runtime: source.slice(0, bodyStart),
+        content: source.slice(bodyStart),
+    };
+}
+
 function assertFirefoxContentScriptFitsAmo(source, file) {
     const bytes = Buffer.byteLength(source, 'utf8');
     if (bytes <= AMO_FILE_SIZE_LIMIT) return;
@@ -458,6 +480,15 @@ function assertFirefoxContentScriptFitsAmo(source, file) {
         'web-ext lint fails this as FILE_TOO_LARGE, so the Firefox submission would be rejected before review.',
         'Move code out of the content script (ADR-0003 companions) or split the packaged script.',
     ].join('\n'));
+}
+
+function firefoxSplitContentScripts(contentScripts = []) {
+    return contentScripts.map(contentScript => ({
+        ...contentScript,
+        js: (contentScript.js ?? []).flatMap(file => (
+            file === CONTENT_FILE ? [CONTENT_RUNTIME_FILE, CONTENT_FILE] : [file]
+        )),
+    }));
 }
 
 async function stageGeneratedExtensionAssets(root, packageAssets) {
