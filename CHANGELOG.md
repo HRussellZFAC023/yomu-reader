@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.8.32] - 2026-07-29
+
+### Fixed
+
+- Academy deck writes can no longer report success after browser storage rejects them. Cards are stored separately instead of rewriting one growing deck value, existing decks migrate safely, and Study shows a clear error if browser storage is full.
+
 ## [1.8.31] - 2026-07-29
 
 ### Fixed
