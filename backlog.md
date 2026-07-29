@@ -44,6 +44,20 @@ learner's first ten minutes.
    research · T6/T7 residuals.
 5. **P4 — owner-postponed:** T8 Academy content.
 
+**LANDED 2026-07-29 (verified on main, releases v1.8.26–v1.8.29, zero unreleased commits):**
+`A5` sign-in · `A22.2`/`T0` payment-code delivery · R2 dictionary **edge cache** (`cf-cache-status: HIT`,
+repeat reads no longer touch R2) · `A16` Study PWA · `A3b` settings reference **live at
+`/reference/settings`, 280 keys** · `A18` real product screenshots · `A23.1` OCR transform geometry ·
+`A11`/`A20` settings defaults · `A15` one-nav across all four surfaces · `A28` the homepage rebuild ·
+`A34` the donation banner (**£15 now counted, goal £10, goalMet true**, banner static with zero nav
+overlap) · **`U44`/`U97` language-aware card identity (`eb1271571`)** — the 1.9.0 blocker, landed with a
+4-slot key that elides `ja` so existing Japanese keys stay byte-identical and no E2EE migration is needed.
+
+**STILL THE 1.9.0 GATE:** `T4`/`A7` dictionary supply for the 32 targets (catalogue is still at 221 entries
+across 10 headword languages; the mirror job is running), then `U61`/`U79` the target picker and CSS gating,
+then `U105`/`D43`/`U46` per the plan in `scratchpad/ml-tiers-localisation-sources-plan.md` (11 sequenced
+slices). Until 1.9.0 ships, the Chrome and Firefox stores stay on **1.8.2** — owner ruling, `A27.3`.
+
 - [ ] **A1 — Bunpro-style IA for the signed-in surfaces (owner: "Bunpro is the best reference").**
       Navbar carries learner VERBS with due-count badges (`Review [23]`-style, fed by the local deck),
       a Content dropdown grouping the library, account/search/help as icons, socials demoted to the
@@ -280,7 +294,7 @@ numbers reproduced to the pixel:
   top-left. (A quoted "22px left and 15px above" was refuted; 15.41 is an intermediate term.)
 - `ocr-overlay-geometry.ts` contains **zero** transform handling (`grep -Ec 'transform|rotate|matrix|DOMMatrix'` → 0),
   and **no test covers** `paintedImageFrame`, `imageContentBox`, `fittedObjectSize` or `objectPositionOffset`.
-- [ ] **A23.1 — Fix it generically.** Write the four missing geometry tests as step one, then fix: read the image's computed transform, size the layer from the untransformed box, and apply the same matrix and transform-origin to the layer. (Earlier marked BLOCKED BY the missing coverage. That was wrong — absent tests are the first task, not a blocker. Corrected 2026-07-28 on the owner's instruction: *"just write the tests if needed"*.): read the image's computed transform, size the layer from the
+- [x] **A23.1 — SHIPPED (`c97c9fa62`/`d9698f195`): −3° error 15.62px → 2.24px, 90° 283.98px → 2.23px, 0° byte-identical, 11/11 hit-tests unambiguous. — Fix it generically.** Write the four missing geometry tests as step one, then fix: read the image's computed transform, size the layer from the untransformed box, and apply the same matrix and transform-origin to the layer. (Earlier marked BLOCKED BY the missing coverage. That was wrong — absent tests are the first task, not a blocker. Corrected 2026-07-28 on the owner's instruction: *"just write the tests if needed"*.): read the image's computed transform, size the layer from the
       untransformed box, and apply the same matrix and `transform-origin` to the layer. Not a per-site
       patch — this serves BookWalker, MangaFire and YouTube paused frames, so it needs the missing unit
       tests first plus the `scripts/ocr-line-register-smoke.mjs` real-engine guard.
@@ -350,7 +364,15 @@ post-release regressions.
 - **Method:** `grep -in "<distinctive phrase>" CHANGELOG.md`, then read the release heading above the hit.
   Match on the user-visible symptom, not on a filename, because entries are written for learners.
 
-### A28 — Homepage reimagined to the owner's full spec (owner verbatim, 2026-07-28). Supersedes what
+### A28 — SHIPPED 2026-07-29 (`8ee1ef4ed`). Homepage reimagined to the owner's full spec. Supersedes what
+
+**Verified live:** all five owner-rejected strings gone, **zero figcaptions**, the hero cycles the study
+targets with a static Japanese fallback for reduced-motion and no-JS, "Apps" replaces the rejected "Tools"
+category across VitePress + Study + PDF Reader + Video Player, both `/pdf-reader/` routes return 200, and
+the no-install claim ships as *"Study, the video player, the PDF reader and the live OCR panel all run here
+with nothing installed."* The live try-me paragraph and the single live OCR manga panel are untouched. The
+original spec follows for provenance.
+
 remains open of A24 and A4. IN FLIGHT this session as a workflow.
 
 The owner dictated the page: hero **"A complete system for learning ⟨language⟩"** with the language word
