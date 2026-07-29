@@ -119,6 +119,8 @@ describe('published docs pages', () => {
             'multilingual/README.md',
             'multilingual/roster-source.md',
             'nuclear-backlog-2026-07-16.md',
+            'operations/cloudflare-data-recovery.md',
+            'operations/cloudflare-data-recovery-drill-2026-07-29.md',
             'public/academy/vendor/kanjivg/ATTRIBUTION.md',
             'qa/ANNOTATION-FIX-PROBE-20260715.md',
             'store-review-notes.md',

@@ -29,6 +29,9 @@ export const internalDocsExcludeGlobs = [
     'dev/**/*.md',
     // Multilingual delivery workspace: coordinator rules, ledgers, and prompts.
     'multilingual/**/*.md',
+    // Cloud and release operations runbooks can contain resource names and
+    // incident evidence. Keep them versioned without routing them as pages.
+    'operations/**/*.md',
     // QA probe plans and audits, written against specific commits.
     'qa/**/*.md',
     // docs/public is copied to the site root verbatim by Vite. Routing the

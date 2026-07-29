@@ -484,7 +484,7 @@ false claim on a live page, then a defect a learner hits, then engineering risk,
 
 **Money and data loss**
 
-- [ ] **A35.1 — CRITICAL: no backup and no restore path for either D1 database or any R2 bucket.** The
+- [x] **A35.1 — CRITICAL: no backup and no restore path for either D1 database or any R2 bucket.** The
       donation ledger is a single unbacked copy. `workers/yomu-support/wrangler.jsonc` binds D1
       `yomu-support` (`c39e8f5c-e6fc-44e0-9b0c-987cde5bcd3c`), which holds `donation_events` — the only
       record of money received (`workers/yomu-support/src/index.ts:1505-1526`; live

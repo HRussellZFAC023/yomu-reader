@@ -1,0 +1,128 @@
+name: Cloudflare Data Backup
+
+on:
+  schedule:
+    # D1 export blocks database requests while it runs. Use the quietest part
+    # of the day and keep this job separate from release workflows.
+    - cron: "43 2 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cloudflare-data-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.R2_BACKUP_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_BACKUP_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: auto
+      AWS_EC2_METADATA_DISABLED: "true"
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22.22.3
+          cache: npm
+
+      - run: npm ci
+
+      - name: Check remote backup resources
+        run: |
+          npx wrangler d1 info yomu-support --config workers/yomu-support/wrangler.jsonc
+          npx wrangler d1 info yomu-academy --config wrangler.academy.jsonc
+          npx wrangler r2 bucket info yomu-durability-backups
+          npx wrangler r2 bucket info yomu-dictionaries
+          npx wrangler r2 bucket info yomu-dictionaries-backup
+          aws --version
+
+      - name: Export both remote D1 databases to R2
+        shell: bash
+        run: |
+          set -euo pipefail
+          backup_dir="${RUNNER_TEMP}/yomu-durability"
+          backup_stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+          mkdir -p "${backup_dir}"
+
+          for database in yomu-support yomu-academy
+          do
+            if [[ "${database}" == "yomu-support" ]]; then
+              config="workers/yomu-support/wrangler.jsonc"
+            else
+              config="wrangler.academy.jsonc"
+            fi
+            npx wrangler d1 export "${database}" \
+              --config "${config}" \
+              --remote \
+              --skip-confirmation \
+              --no-data \
+              --output "${backup_dir}/${database}.schema.sql"
+            npx wrangler d1 export "${database}" \
+              --config "${config}" \
+              --remote \
+              --skip-confirmation \
+              --no-schema \
+              --output "${backup_dir}/${database}.data.unordered.sql"
+            node scripts/order-d1-restore-data.mjs \
+              "${backup_dir}/${database}.schema.sql" \
+              "${backup_dir}/${database}.data.unordered.sql" \
+              "${backup_dir}/${database}.data.sql"
+          done
+
+          gzip -9 \
+            "${backup_dir}/yomu-support.schema.sql" \
+            "${backup_dir}/yomu-support.data.sql" \
+            "${backup_dir}/yomu-academy.schema.sql" \
+            "${backup_dir}/yomu-academy.data.sql"
+          export BACKUP_DIR="${backup_dir}"
+          export BACKUP_STAMP="${backup_stamp}"
+          export BACKUP_COMMIT="${GITHUB_SHA}"
+          node scripts/cloudflare-backup-manifest.mjs
+
+          for backup_file in \
+            "${backup_dir}/yomu-support.schema.sql.gz" \
+            "${backup_dir}/yomu-support.data.sql.gz" \
+            "${backup_dir}/yomu-academy.schema.sql.gz" \
+            "${backup_dir}/yomu-academy.data.sql.gz" \
+            "${backup_dir}/manifest.json"
+          do
+            npx wrangler r2 object put \
+              "yomu-durability-backups/d1/${backup_stamp}/$(basename "${backup_file}")" \
+              --remote \
+              --file "${backup_file}"
+          done
+          npx wrangler r2 object put \
+            "yomu-durability-backups/d1/latest.json" \
+            --remote \
+            --file "${backup_dir}/manifest.json"
+
+      - name: Mirror the remote dictionary bucket
+        shell: bash
+        run: |
+          set -euo pipefail
+          r2_endpoint="https://${CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          aws s3 sync \
+            s3://yomu-dictionaries/ \
+            s3://yomu-dictionaries-backup/ \
+            --endpoint-url "${r2_endpoint}" \
+            --only-show-errors
+          aws s3api list-objects-v2 \
+            --bucket yomu-dictionaries \
+            --endpoint-url "${r2_endpoint}" \
+            --output json > "${RUNNER_TEMP}/dictionary-source.json"
+          aws s3api list-objects-v2 \
+            --bucket yomu-dictionaries-backup \
+            --endpoint-url "${r2_endpoint}" \
+            --output json > "${RUNNER_TEMP}/dictionary-backup.json"
+          node scripts/verify-r2-mirror.mjs \
+            "${RUNNER_TEMP}/dictionary-source.json" \
+            "${RUNNER_TEMP}/dictionary-backup.json"
