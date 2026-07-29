@@ -93,8 +93,13 @@ describe('a stored learning target survives normalization', () => {
         // An unsupported tag must never leave the reader with a target that
         // resolves to nothing — it degrades, it does not strand.
         expect(settingsStoringTarget('qqq').languageProfiles[0]?.targetLanguage).toBe('ja');
-        expect(settingsStoringTarget('en').languageProfiles[0]?.targetLanguage).toBe('ja');
         expect(settingsStoringTarget('').languageProfiles[0]?.targetLanguage).toBe('ja');
+    });
+
+    it('keeps every picker target because each roster language has a module', () => {
+        expect(settingsStoringTarget('en').languageProfiles[0]?.targetLanguage).toBe('en');
+        expect(settingsStoringTarget('ar').languageProfiles[0]?.targetLanguage).toBe('ar');
+        expect(settingsStoringTarget('zh').languageProfiles[0]?.targetLanguage).toBe('zh-Hans');
     });
 
     it('defaults a profile with no stored target to Japanese', () => {

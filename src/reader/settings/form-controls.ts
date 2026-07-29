@@ -21,9 +21,9 @@ export function checkbox(name: string, label: string, checked: boolean, attribut
     return `<label class="inline"><input name="${name}" type="checkbox" ${checked ? 'checked' : ''}${booleanAttributeHtml(attributes)}>${label}</label>`;
 }
 
-export function select(name: string, label: string, value: string, options: [string, string][]): string {
-    return `<label>${label}<select name="${name}">${options.map(([optionValue, text]) =>
-        `<option value="${escapeHtml(optionValue)}" ${optionValue === value ? 'selected' : ''}>${escapeHtml(text)}</option>`,
+export function select(name: string, label: string, value: string, options: Array<[string, string, string?]>): string {
+    return `<label>${label}<select name="${name}">${options.map(([optionValue, text, className]) =>
+        `<option value="${escapeHtml(optionValue)}"${className ? ` class="${escapeHtml(className)}"` : ''} ${optionValue === value ? 'selected' : ''}>${escapeHtml(text)}</option>`,
     ).join('')}</select></label>`;
 }
 

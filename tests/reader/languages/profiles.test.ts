@@ -58,7 +58,7 @@ describe('language profile normalization', () => {
         expect(normalized.profiles.map(profile => profile.id)).toEqual(['work', 'work-2']);
         expect(normalized.profiles[0]).toMatchObject({
             learnerLanguage: 'pt-BR',
-            targetLanguage: 'ja',
+            targetLanguage: 'en',
             uiLocale: 'pt-BR',
             parserProvider: 'jiten',
             dictionaries: {

@@ -40,6 +40,7 @@ export interface ActivatedLanguageProfile {
 export interface NewLanguageProfileValues {
     uiLocale?: LocalePreference;
     parserProvider?: ParserProvider;
+    targetLanguage?: LanguageTag;
     dictionaries?: LanguageProfileDictionaries;
     definitionTranslationProviderIds?: string[];
 }
@@ -129,7 +130,7 @@ export function activateLanguageProfileForLearner(
         learnerLanguage: canonicalLearnerLanguage,
         // A new learner profile inherits what the person is already studying.
         // Switching definition language is not a decision about the target.
-        targetLanguage: normalizeLearningTargetLanguage(base.targetLanguage),
+        targetLanguage: normalizeLearningTargetLanguage(initial.targetLanguage ?? base.targetLanguage),
         uiLocale: initial.uiLocale ?? base.uiLocale,
         parserProvider: initial.parserProvider ?? base.parserProvider,
         dictionaries: cloneProfileDictionaries(initial.dictionaries ?? base.dictionaries),

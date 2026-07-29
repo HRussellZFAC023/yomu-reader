@@ -88,7 +88,7 @@ describe('Reader settings language-profile migration', () => {
         expect(settings.activeLanguageProfileId).toBe('korean-ja');
         expect(settings.languageProfiles[0]).toMatchObject({
             learnerLanguage: 'ko-KR',
-            targetLanguage: 'ja',
+            targetLanguage: 'en',
             uiLocale: 'ja',
             parserProvider: 'local',
         });

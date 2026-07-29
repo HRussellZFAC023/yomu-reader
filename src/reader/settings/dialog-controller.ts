@@ -27,6 +27,7 @@ import { exportManagedStoredValues, gmStorageDelete, gmStorageGet, gmStorageSet,
 import {
     activateSettingsPanel,
     activeLearnerLanguageId,
+    activeTargetLanguageId,
     applySettingsSearch,
     ankiStatusLineForSettings,
     getFormInterfaceLanguage,
@@ -76,6 +77,13 @@ import type { AnkiLibraryScanResult, AnkiModelUpdatePlan } from '../anki/types';
 import type { AnkiFieldMappingRole, InterfaceLanguage, ReaderSettings } from '../app/types';
 import { isLearnerLanguageId, type LearnerLanguageId } from '../locales';
 import { formatUiText, uiText } from '../app/i18n';
+import {
+    LEARNING_TARGET_ROSTER,
+    isLearningTargetRosterId,
+    type LearningTargetRosterId,
+} from '../languages';
+import { syncLanguageFamilyDom } from './language-gating';
+import { publishedDictionaryHeadwordLanguages } from '../dictionaries/catalog/published-coverage';
 import { YomitanDictionaryStore, parseYomitanSettingsExport, type ImportSummary } from '../dictionaries/yomitan';
 import { dispatchWindowEvent, createWindowCustomEvent } from '../platform/window-events';
 import { AcademyAccountSyncSettingsController } from './academy-account-sync';
@@ -128,6 +136,7 @@ interface SettingsDialogDependencies {
     resetAllData: () => void | Promise<void>;
     beginSettingsPreview: (accent: string, language: InterfaceLanguage, theme: ReaderSettings['theme']) => void;
     clearSettingsPreview: () => void;
+    publishedDictionaryLanguages?: () => Promise<ReadonlySet<string>>;
 }
 
 type SettingsStatusSetter = (message: string) => void;
@@ -565,6 +574,23 @@ function selectedLearnerLanguage(form: HTMLFormElement, settings: ReaderSettings
     return value && isLearnerLanguageId(value) ? value : activeLearnerLanguageId(settings);
 }
 
+function selectedTargetLanguage(
+    form: HTMLFormElement,
+    settings: ReaderSettings,
+): LearningTargetRosterId {
+    const value = form.querySelector<HTMLSelectElement>('select[name="targetLanguage"]')?.value;
+    return value && isLearningTargetRosterId(value) ? value : activeTargetLanguageId(settings);
+}
+
+function targetLanguageDisplayName(
+    id: LearningTargetRosterId,
+    interfaceLanguage: InterfaceLanguage,
+): string {
+    const target = LEARNING_TARGET_ROSTER.find(language => language.id === id);
+    if (!target) return id;
+    return interfaceLanguage === 'ja' ? target.nativeName : target.englishName;
+}
+
 function dictionaryStatusText(summary: DictionarySummary, language: InterfaceLanguage): string {
     if (summary.dictionaries.length) {
         return formatUiTemplate(uiText(language, 'dictionaryStatusSummary'), {
@@ -608,6 +634,8 @@ export class SettingsDialogController {
     private ankiLibraryScanId = 0;
     private ankiModelUpdatePromptId = 0;
     private yomuUpdateCheckId = 0;
+    private targetDictionaryAvailabilityRequestId = 0;
+    private publishedDictionaryLanguagesPromise?: Promise<ReadonlySet<string>>;
     private readonly academyAccountSync: AcademyAccountSyncSettingsController;
     private settingsJapaneseParseRefreshFrame: number | undefined;
     private settingsJapaneseParseRefreshTimer: number | undefined;
@@ -631,6 +659,7 @@ export class SettingsDialogController {
         this.bindSettingsTabs(form);
         this.bindLivePreview(form);
         this.bindEditorControls(form);
+        syncLanguageFamilyDom(form, activeTargetLanguageId(this.settings));
         this.currentForm = form;
         this.dependencies.mountDialog(backdrop, form);
         this.hideBackgroundForModal(backdrop);
@@ -644,6 +673,8 @@ export class SettingsDialogController {
         if (!firefoxAuthenticationInfoRequiresExtensionPage()) void this.refreshJpdbConnectionStatus(form);
         if (!firefoxAuthenticationInfoRequiresExtensionPage()) void this.refreshWanikaniConnectionStatus(form);
         void this.refreshDictionaryStatus(form);
+        this.publishedDictionaryLanguagesPromise = undefined;
+        void this.refreshTargetDictionaryAvailability(form);
         if (!firefoxAuthenticationInfoRequiresExtensionPage()) void this.refreshDeckControls(form);
         if (panel === 'help') void this.refreshYomuUpdateStatus(form);
         this.refreshSettingsJapaneseParse(form);
@@ -660,6 +691,7 @@ export class SettingsDialogController {
         void this.refreshAnkiConnectionStatus(form);
         syncSubtitlePreview(form);
         this.refreshSettingsJapaneseParse(form);
+        void this.refreshTargetDictionaryAvailability(form);
     }
 
     async resumePendingCloudSettingsSync(): Promise<boolean> {
@@ -728,6 +760,7 @@ export class SettingsDialogController {
         const form = document.createElement('form');
         form.className = 'jpdb-reader-settings';
         form.dataset.jpdbReaderRoot = 'true';
+        form.dataset.language = activeTargetLanguageId(this.settings);
         form.setAttribute('role', 'dialog');
         form.setAttribute('aria-modal', 'true');
         form.setAttribute('aria-label', SETTINGS_TITLE);
@@ -1016,6 +1049,14 @@ export class SettingsDialogController {
         form.querySelector<HTMLSelectElement>('select[name="learnerLanguage"]')?.addEventListener('change', () => {
             void this.refreshDictionaryStatus(form);
         });
+        form.querySelector<HTMLSelectElement>('select[name="targetLanguage"]')?.addEventListener('change', event => {
+            const value = (event.currentTarget as HTMLSelectElement).value;
+            if (!isLearningTargetRosterId(value)) return;
+            syncLanguageFamilyDom(form, value);
+            localizeSettingsForm(form, this.settings.interfaceLanguage);
+            void this.refreshTargetDictionaryAvailability(form, value);
+            if (value === 'ja') void this.refreshDictionaryStatus(form);
+        });
         this.bindAppearancePresets(form, applyThemePreview);
         form.querySelector<HTMLSelectElement>('select[name="popupMode"]')?.addEventListener('change', () => syncStickyBottomSheetAvailability(form));
         syncStickyBottomSheetAvailability(form);
@@ -1072,6 +1113,52 @@ export class SettingsDialogController {
             input.addEventListener('change', () => syncPageScanModeControls(form));
         });
         syncPageScanModeControls(form);
+    }
+
+    private async refreshTargetDictionaryAvailability(
+        form: HTMLFormElement,
+        selected = selectedTargetLanguage(form, this.settings),
+    ): Promise<void> {
+        const requestId = ++this.targetDictionaryAvailabilityRequestId;
+        const status = form.querySelector<HTMLElement>('[data-target-dictionary-state]');
+        const content = form.querySelector<HTMLElement>('[data-target-dictionary-content]');
+        if (status) {
+            status.hidden = false;
+            status.textContent = uiText(this.settings.interfaceLanguage, 'checkingDictionaries');
+        }
+        if (content) content.hidden = true;
+
+        try {
+            this.publishedDictionaryLanguagesPromise ??= (
+                this.dependencies.publishedDictionaryLanguages?.()
+                ?? publishedDictionaryHeadwordLanguages()
+            );
+            const languages = await this.publishedDictionaryLanguagesPromise;
+            if (requestId !== this.targetDictionaryAvailabilityRequestId || !form.isConnected) return;
+            if (selectedTargetLanguage(form, this.settings) !== selected) return;
+            if (languages.has(selected)) {
+                if (status) {
+                    status.hidden = true;
+                    status.textContent = '';
+                }
+                if (content) content.hidden = false;
+                return;
+            }
+            if (status) {
+                status.hidden = false;
+                status.textContent = formatUiTemplate(
+                    uiText(this.settings.interfaceLanguage, 'targetDictionaryUnavailable'),
+                    { language: targetLanguageDisplayName(selected, this.settings.interfaceLanguage) },
+                );
+            }
+        } catch (error) {
+            log.warn('Published dictionary coverage check failed', error);
+            if (requestId !== this.targetDictionaryAvailabilityRequestId || !form.isConnected) return;
+            if (status) {
+                status.hidden = false;
+                status.textContent = uiText(this.settings.interfaceLanguage, 'targetDictionaryAvailabilityUnavailable');
+            }
+        }
     }
 
     private bindEditorControls(form: HTMLFormElement): void {

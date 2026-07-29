@@ -36,7 +36,13 @@ import { applyCatalogBrowseFilter, normalizeSearchQuery } from './catalog-browse
 import type { DictionaryCategory } from '../dictionaries/catalog';
 import { definitionSourceRows, kanjiSourceRows } from '../sources/sections';
 import type { YomitanDictionaryInfo } from '../dictionaries/yomitan';
-import { activeLanguageProfile, slice1LanguageIdForTag, SLICE1_TARGET_LANGUAGE } from '../languages';
+import {
+    LEARNING_TARGET_ROSTER,
+    activeLanguageProfile,
+    learningTargetRosterIdForTag,
+    slice1LanguageIdForTag,
+    type LearningTargetRosterId,
+} from '../languages';
 import { LEARNER_LANGUAGES, LOCALE_CATALOGS, learnerLanguageById, type LearnerLanguageId } from '../locales';
 import { dictionaryDefinitionLanguage } from '../dictionaries/definition-language';
 import { googleTranslationLanguageCapability } from '../translation/google';
@@ -95,7 +101,7 @@ function multilingualSettingsCopy(language: InterfaceLanguage): MultilingualSett
               languageProfileTitle: '言語プロフィール',
               learnerLanguage: 'あなたの言語（辞書の定義）',
               targetLanguage: '学習する言語',
-              languageProfileHelp: '辞書の定義言語と画面の表示言語は別々に選べます。Slice 1 の学習言語は日本語です。',
+              languageProfileHelp: '学習する言語は、辞書の定義言語や画面の表示言語とは別に選べます。',
               translationTitle: '定義の自動翻訳',
               translationHelp: '有効にすると、選んだ情報源の定義テキストだけが Google 翻訳に送信されます。元の定義も保持されます。',
               translationEmpty: '現在の情報源はすでにあなたの言語で定義されています。',
@@ -106,7 +112,7 @@ function multilingualSettingsCopy(language: InterfaceLanguage): MultilingualSett
               languageProfileTitle: 'Language profile',
               learnerLanguage: 'Your language (dictionary definitions)',
               targetLanguage: 'Language you are learning',
-              languageProfileHelp: 'Dictionary definitions and the interface language are independent. Slice 1 teaches Japanese.',
+              languageProfileHelp: 'Choose the language you are learning separately from dictionary definitions and the interface.',
               translationTitle: 'Automatic definition translation',
               translationHelp: 'When enabled, only definition text from the sources you select is sent to Google Translate. The original definition remains available.',
               translationEmpty: 'Your current definition sources already use your language.',
@@ -120,13 +126,19 @@ export function activeLearnerLanguageId(settings: ReaderSettings): LearnerLangua
     return slice1LanguageIdForTag(profile?.learnerLanguage) ?? 'en';
 }
 
-function learnerLanguageOptionLabel(language: { nativeName: string; englishName: string }): string {
+export function activeTargetLanguageId(settings: ReaderSettings): LearningTargetRosterId {
+    const profile = activeLanguageProfile(settings.languageProfiles, settings.activeLanguageProfileId);
+    return learningTargetRosterIdForTag(profile?.targetLanguage) ?? 'ja';
+}
+
+function languageOptionLabel(language: { nativeName: string; englishName: string }): string {
     return language.nativeName === language.englishName ? language.nativeName : `${language.nativeName} — ${language.englishName}`;
 }
 
 function renderLanguageProfileControls(settings: ReaderSettings): string {
     const copy = multilingualSettingsCopy(settings.interfaceLanguage);
     const learnerLanguage = activeLearnerLanguageId(settings);
+    const targetLanguage = activeTargetLanguageId(settings);
     return `
                 <div class="jpdb-reader-settings-subsection jpdb-reader-language-profile" data-language-profile-controls>
                     <div class="jpdb-reader-local-title" data-multilingual-copy="languageProfileTitle">${escapeHtml(copy.languageProfileTitle)}</div>
@@ -136,19 +148,25 @@ function renderLanguageProfileControls(settings: ReaderSettings): string {
                             <select name="learnerLanguage" autocomplete="language">
                                 ${LEARNER_LANGUAGES.map(
                                     (item) => `
-                                    <option value="${escapeHtml(item.id)}" lang="${escapeHtml(item.runtimeLocale)}" dir="${item.direction}" ${item.id === learnerLanguage ? 'selected' : ''}>${escapeHtml(learnerLanguageOptionLabel(item))}</option>
+                                    <option value="${escapeHtml(item.id)}" lang="${escapeHtml(item.runtimeLocale)}" dir="${item.direction}" ${item.id === learnerLanguage ? 'selected' : ''}>${escapeHtml(languageOptionLabel(item))}</option>
                                 `,
                                 ).join('')}
                             </select>
                         </label>
                         <label>
                             <span class="${SETTINGS_LABEL_TEXT_CLASS}" data-multilingual-copy="targetLanguage">${escapeHtml(copy.targetLanguage)}</span>
-                            <span class="jpdb-reader-language-target" lang="ja">日本語 — Japanese</span>
-                            <input type="hidden" name="targetLanguage" value="${SLICE1_TARGET_LANGUAGE}">
+                            <select name="targetLanguage" autocomplete="language">
+                                ${LEARNING_TARGET_ROSTER.map(
+                                    (item) => `
+                                    <option value="${escapeHtml(item.id)}" lang="${escapeHtml(item.runtimeLocale)}" dir="${item.direction}" ${item.id === targetLanguage ? 'selected' : ''}>${escapeHtml(languageOptionLabel(item))}</option>
+                                `,
+                                ).join('')}
+                            </select>
                         </label>
                         ${select('interfaceLanguage', uiText(settings.interfaceLanguage, 'settingsLanguage'), settings.interfaceLanguage, localizedOptions(settingsText(settings.interfaceLanguage), INTERFACE_LANGUAGE_OPTIONS))}
                     </div>
                     <div class="jpdb-reader-help" data-multilingual-copy="languageProfileHelp">${escapeHtml(copy.languageProfileHelp)}</div>
+                    <div class="jpdb-reader-help jpdb-reader-target-dictionary-state" data-target-dictionary-state role="status" aria-live="polite" hidden></div>
                 </div>
     `;
 }
@@ -184,7 +202,7 @@ function ocrEngineOptions(text: SettingsText): [ReaderSettings['ocrEngine'], str
     ];
 }
 
-function colorSourceSelectOptions(text: SettingsText, statusSourceLabel: string): [string, string][] {
+function colorSourceSelectOptions(text: SettingsText, statusSourceLabel: string): Array<[string, string, string?]> {
     const sourceStatus = statusSourceLabel
         ? text('colorSourceJpdb').replace('JPDB', statusSourceLabel)
         : text('colorSourceDeck');
@@ -197,7 +215,7 @@ function colorSourceSelectOptions(text: SettingsText, statusSourceLabel: string)
         ['status', combinedStatus],
         ['jpdb', sourceStatus],
         ['anki', text('colorSourceAnki')],
-        ['pitch', text('colorSourcePitch')],
+        ['pitch', text('colorSourcePitch'), 'jp-only'],
         ['off', text('colorSourceNone')],
     ];
 }
@@ -826,7 +844,7 @@ function renderWordColorHiddenStateGroupControls(settings: ReaderSettings): stri
 // unwrapReaderWords pass from stripping the sample word spans.
 function renderAppearancePreview(language: InterfaceLanguage): string {
     return `
-                <div class="jpdb-reader-settings-subsection jpdb-reader-settings-preview-section">
+                <div class="jpdb-reader-settings-subsection jpdb-reader-settings-preview-section jp-only" data-language-family="pitch-legend">
                     <div class="jpdb-reader-local-title" data-settings-preview-title>${escapedUiText(language, 'preview')}</div>
                     <div class="jpdb-reader-settings-appearance-preview" data-yomu-appearance-preview data-settings-preview-lookup lang="ja" aria-hidden="true">${appearancePreviewContentHtml()}</div>
                 </div>`;
@@ -845,7 +863,7 @@ export function appearancePreviewHtml(): string {
 }
 
 function renderPitchColorSettingsSubsection(settings: ReaderSettings): string {
-    return renderColorSettingsSubsection('pitchAccentColors', PITCH_COLOR_FIELDS, settings);
+    return `<div class="jp-only" data-language-family="pitch-colouring">${renderColorSettingsSubsection('pitchAccentColors', PITCH_COLOR_FIELDS, settings)}</div>`;
 }
 
 function renderColorChannelSettingsSubsection(settings: ReaderSettings): string {
@@ -1028,13 +1046,17 @@ function renderReaderSettingsPanel(settings: ReaderSettings): string {
                         <div data-manual-page-scan-shortcut-label>${shortcutInput('shortcuts.scanPage', text('manualPageScanShortcut'), settings.shortcuts.scanPage)}</div>
                     </div>
                     ${select('appearancePreset', text('appearancePreset'), '', localizedOptions(text, APPEARANCE_PRESET_OPTIONS))}
-                    ${select('furiganaMode', text('furiganaMode'), effectiveFuriganaMode(settings), localizedOptions(text, FURIGANA_MODE_OPTIONS))}
-                    ${renderFuriganaDifficultyNote(settings)}
-                    ${select('clampedRowReadings', text('clampedRowReadings'), settings.clampedRowReadings, localizedOptions(text, CLAMPED_ROW_READINGS_OPTIONS))}
-                    ${renderFuriganaHiddenStateGroupControls(settings)}
+                    <div class="jp-only" data-language-family="reading-annotation">
+                        ${select('furiganaMode', text('furiganaMode'), effectiveFuriganaMode(settings), localizedOptions(text, FURIGANA_MODE_OPTIONS))}
+                        ${renderFuriganaDifficultyNote(settings)}
+                        ${select('clampedRowReadings', text('clampedRowReadings'), settings.clampedRowReadings, localizedOptions(text, CLAMPED_ROW_READINGS_OPTIONS))}
+                        ${renderFuriganaHiddenStateGroupControls(settings)}
+                    </div>
                     ${select('wordColorStates', text('wordColorStates'), settings.wordColorStates, localizedOptions(text, WORD_COLOR_STATE_OPTIONS))}
                     ${renderWordColorHiddenStateGroupControls(settings)}
-                    ${checkbox('showPitchAccent', text('showPitchAccent'), settings.showPitchAccent)}
+                    <div class="jp-only" data-language-family="pitch-colouring">
+                        ${checkbox('showPitchAccent', text('showPitchAccent'), settings.showPitchAccent)}
+                    </div>
                     ${checkbox('suppressRedundantWordUi', text('suppressRedundantWordUi'), settings.suppressRedundantWordUi)}
                     ${checkbox('sheetCloseButtonOnLeft', text('sheetCloseButtonOnLeft'), settings.sheetCloseButtonOnLeft)}
                 </div>
@@ -1218,8 +1240,9 @@ function renderDictionariesSettingsPanel(settings: ReaderSettings): string {
     return `
             <fieldset id="jpdb-reader-settings-panel-dictionaries" role="tabpanel" data-settings-panel="dictionaries" data-legend-key="sources" hidden>
                 <legend>${escapedUiText(language, 'sources')}</legend>
+                <div data-target-dictionary-content hidden>
                 <div class="jpdb-reader-dictionary-status" data-dictionary-status role="status" aria-live="polite">${escapedUiText(language, 'checkingDictionaries')}</div>
-                <div class="jpdb-reader-settings-subsection">
+                <div class="jpdb-reader-settings-subsection jp-only" data-language-family="provider-pills">
                     <div class="jpdb-reader-help" data-help-key="parserProviderHelp">${escapedUiText(language, 'parserProviderHelp')}</div>
                     ${select('parserProvider', text('parserProvider'), settings.parserProvider, localizedOptions(text, PARSER_PROVIDER_OPTIONS))}
                 </div>
@@ -1239,6 +1262,7 @@ function renderDictionariesSettingsPanel(settings: ReaderSettings): string {
                 </div>
                 <div class="jpdb-reader-help" data-import-status hidden></div>
                 <div class="jpdb-reader-help" data-help-key="backupMovedHelp">${escapedUiText(language, 'backupMovedHelp')}</div>
+                </div>
             </fieldset>
     `;
 }
@@ -2487,7 +2511,11 @@ function setRadioLabel(form: HTMLFormElement, name: string, value: string, label
     if (labelElement) setInlineLabelText(labelElement, label);
 }
 
-function setSelectOptionLabels(form: HTMLFormElement, name: string, options: Array<[string, string]>): void {
+function setSelectOptionLabels(
+    form: HTMLFormElement,
+    name: string,
+    options: Array<[string, string, string?]>,
+): void {
     const selectElement = namedFormControls(form, name).find((element): element is HTMLSelectElement =>
         element instanceof HTMLSelectElement,
     ) ?? null;

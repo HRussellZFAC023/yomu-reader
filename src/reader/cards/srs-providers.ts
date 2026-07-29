@@ -8,6 +8,7 @@ import type { ApiDeck, CardState, JPDBCard, JPDBDeck, JPDBGrade, ReaderSettings 
 import type { YomuSrsAdapter, YomuSrsMiningRequest, YomuSrsReviewable, YomuSrsReviewableKind } from '../srs';
 import { applyYomuLocalReviewableToCard } from '../srs/local-yomu-state';
 import { ACADEMY_SRS_LABEL } from '../app/constants';
+import { activeLearningTargetLanguage } from '../languages';
 
 export type ApiSrsProviderId = 'jpdb' | 'jiten' | 'bunpro' | 'wanikani' | 'yomu-local';
 export type ApiSrsDeckSource = ApiSrsProviderId;
@@ -530,7 +531,7 @@ function yomuLocalReviewableFromCard(card: JPDBCard): YomuSrsReviewable {
         kind: 'vocabulary',
         expression,
         reading,
-        language: card.language,
+        language: card.language ?? activeLearningTargetLanguage(),
         meanings: card.meanings,
         state: card.cardState,
         dueAt: card.dueAt,
@@ -543,7 +544,7 @@ function yomuLocalMiningRequestFromCard(card: JPDBCard, sentence: string | undef
     return {
         expression: card.spelling,
         reading: card.reading,
-        language: card.language,
+        language: card.language ?? activeLearningTargetLanguage(),
         meaning: card.meanings.flatMap(meaning => meaning.glosses).join('; '),
         sentence,
         sourceTitle: context?.sourceTitle,

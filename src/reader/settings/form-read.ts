@@ -8,9 +8,12 @@ import { ocrInteractionModeFromSettings } from '../ocr/mode';
 import {
     activateLanguageProfileForLearner,
     activeLanguageProfile,
+    canonicalTagForLearningTarget,
     canonicalTagForSlice1Language,
+    isLearningTargetRosterId,
+    learningTargetRosterIdForTag,
     slice1LanguageIdForTag,
-    SLICE1_TARGET_LANGUAGE,
+    type LearningTargetRosterId,
 } from '../languages';
 import { isLearnerLanguageId, type LearnerLanguageId } from '../locales';
 
@@ -171,6 +174,7 @@ export function readFormSettings(data: FormData, current: ReaderSettings): Reade
         ...readMiningFormSettings(reader, current),
         shortcuts: readShortcutFormSettings(reader, current),
     };
+    preserveDetachedJapaneseSettings(settings, current, data);
     const normalized = normalizeReaderSettings(settings);
     log.info('Read settings form data', {
         enableLogging: normalized.enableLogging,
@@ -203,6 +207,9 @@ function readLanguageProfileFormSettings(
     const learnerLanguageTag = learnerLanguage === fallbackLearnerLanguage
         ? active.learnerLanguage
         : canonicalTagForSlice1Language(learnerLanguage);
+    const fallbackTargetLanguage = learningTargetRosterIdForTag(active.targetLanguage) ?? 'ja';
+    const targetLanguageId = readTargetLanguage(data, fallbackTargetLanguage);
+    const targetLanguage = canonicalTagForLearningTarget(targetLanguageId);
     const parserProvider = readOption(
         String(data.get('parserProvider') ?? ''),
         ['local', 'jiten', 'jpdb', 'auto'] as const,
@@ -221,6 +228,7 @@ function readLanguageProfileFormSettings(
             {
                 uiLocale: interfaceLanguage,
                 parserProvider,
+                targetLanguage,
                 dictionaries,
                 definitionTranslationProviderIds,
             },
@@ -238,7 +246,7 @@ function readLanguageProfileFormSettings(
                 // Keep an existing supported script/region variant when the
                 // roster selection did not change (zh-Hant-TW, pt-BR, ko-KR).
                 learnerLanguage: learnerLanguageTag,
-                targetLanguage: SLICE1_TARGET_LANGUAGE,
+                targetLanguage,
                 uiLocale: interfaceLanguage,
                 parserProvider,
                 dictionaries,
@@ -263,6 +271,33 @@ function languageProfileDictionariesFromPreferences(
 function readLearnerLanguage(data: FormData, fallback: LearnerLanguageId): LearnerLanguageId {
     const value = String(data.get('learnerLanguage') ?? '');
     return isLearnerLanguageId(value) ? value : fallback;
+}
+
+function readTargetLanguage(data: FormData, fallback: LearningTargetRosterId): LearningTargetRosterId {
+    const value = String(data.get('targetLanguage') ?? '');
+    return isLearningTargetRosterId(value) ? value : fallback;
+}
+
+function preserveDetachedJapaneseSettings(
+    settings: ReaderSettings,
+    current: ReaderSettings,
+    data: FormData,
+): void {
+    if (data.has('furiganaMode')) return;
+    settings.furiganaMode = current.furiganaMode;
+    settings.clampedRowReadings = current.clampedRowReadings;
+    settings.furiganaHiddenStateGroups = [...current.furiganaHiddenStateGroups];
+    settings.showPitchAccent = current.showPitchAccent;
+    settings.pitchColorHeiban = current.pitchColorHeiban;
+    settings.pitchColorAtamadaka = current.pitchColorAtamadaka;
+    settings.pitchColorNakadaka = current.pitchColorNakadaka;
+    settings.pitchColorOdaka = current.pitchColorOdaka;
+    settings.pitchColorUnknown = current.pitchColorUnknown;
+    settings.showLookupPillFrequency = current.showLookupPillFrequency;
+    settings.dictionaryLookupLinks = current.dictionaryLookupLinks.map(link => ({ ...link }));
+    for (const name of COLOR_SOURCE_SETTING_NAMES) {
+        if (current[name] === 'pitch') settings[name] = current[name];
+    }
 }
 
 function normalizedStringIds(values: FormDataEntryValue[]): string[] {

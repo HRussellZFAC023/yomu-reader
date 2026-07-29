@@ -652,6 +652,8 @@ const COPY = {
         download: 'Download',
         update: 'Update',
         checkingDictionaries: 'Checking imported dictionaries...',
+        targetDictionaryUnavailable: 'Dictionaries for {language} are not available yet.',
+        targetDictionaryAvailabilityUnavailable: 'Dictionary availability could not be checked.',
         dictionaryDownloading: 'Downloading',
         dictionaryReadingZip: 'Reading dictionary ZIP...',
         dictionaryCheckingIndex: 'Checking index...',
@@ -1348,6 +1350,8 @@ dictionaryTotal	合計
 dictionaryDownloadProgress	辞書をダウンロード中
 dictionaryStatusSummary	辞書{dictionaries}、語{terms}、漢字{kanji}、メタ{metadata}
 dictionaryStatusUnavailable	辞書状態を取得不可。
+targetDictionaryUnavailable	{language}の辞書はまだ利用できません。
+targetDictionaryAvailabilityUnavailable	辞書の提供状況を確認できませんでした。
 noLocalDictionariesImported	辞書は未追加です。まず定義用の語句辞書を追加してください。
 dictionaryDownloadFailed	辞書のダウンロードに失敗しました。
 dictionaryDownloadTimedOut	辞書のダウンロードがタイムアウトしました。

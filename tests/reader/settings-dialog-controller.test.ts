@@ -92,6 +92,7 @@ function createSettingsDialog(overrides: Record<string, unknown> = {}): {
         resetAllData: vi.fn(),
         beginSettingsPreview: vi.fn(),
         clearSettingsPreview: vi.fn(),
+        publishedDictionaryLanguages: vi.fn().mockResolvedValue(new Set(['ja'])),
         ...overrides,
     };
     const controller = new (SettingsDialogController as unknown as SettingsDialogControllerConstructor)(dependencies);
@@ -421,6 +422,42 @@ describe('settings dialog keyboard dismissal', () => {
 
         expect(backward.defaultPrevented).toBe(true);
         expect(document.activeElement).toBe(last);
+    });
+
+    it('shows the live-catalogue empty state and restores Japanese-only controls', async () => {
+        const publishedDictionaryLanguages = vi.fn().mockResolvedValue(new Set(['ja']));
+        const { form } = createSettingsDialog({ publishedDictionaryLanguages });
+        const picker = form.querySelector<HTMLSelectElement>('select[name="targetLanguage"]')!;
+
+        await waitForCondition(() =>
+            form.querySelector<HTMLElement>('[data-target-dictionary-content]')?.hidden === false);
+        expect(form.dataset.language).toBe('ja');
+        expect(form.querySelector('select[name="furiganaMode"]')).not.toBeNull();
+
+        picker.value = 'ko';
+        picker.dispatchEvent(new Event('change', { bubbles: true }));
+        await waitForCondition(() =>
+            form.querySelector<HTMLElement>('[data-target-dictionary-state]')?.textContent
+                === 'Dictionaries for Korean are not available yet.');
+
+        expect(form.dataset.language).toBe('ko');
+        expect(form.querySelector('select[name="furiganaMode"]')).toBeNull();
+        expect(form.querySelector('[data-language-family="pitch-colouring"]')).toBeNull();
+        expect(form.querySelector('[data-language-family="pitch-legend"]')).toBeNull();
+        expect(form.querySelector('[data-language-family="provider-pills"]')).toBeNull();
+        expect(form.querySelector<HTMLElement>('[data-target-dictionary-content]')?.hidden).toBe(true);
+
+        picker.value = 'ja';
+        picker.dispatchEvent(new Event('change', { bubbles: true }));
+        await waitForCondition(() =>
+            form.querySelector<HTMLElement>('[data-target-dictionary-content]')?.hidden === false);
+
+        expect(form.dataset.language).toBe('ja');
+        expect(form.querySelector('select[name="furiganaMode"]')).not.toBeNull();
+        expect(form.querySelector('[data-language-family="pitch-colouring"]')).not.toBeNull();
+        expect(form.querySelector('[data-language-family="pitch-legend"]')).not.toBeNull();
+        expect(form.querySelector('[data-language-family="provider-pills"]')).not.toBeNull();
+        expect(publishedDictionaryLanguages).toHaveBeenCalledOnce();
     });
 
     it('scrolls focused settings controls above the mobile keyboard and footer', () => {

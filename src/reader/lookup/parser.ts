@@ -8,6 +8,7 @@ import {
     normalizeFallbackTerm,
 } from './japanese-segments';
 import { segmentTargetLanguageText } from './target-text';
+import { activeLearningTargetLanguage } from '../languages';
 import { splitReadingAcrossKanji } from './kanji-ruby-split';
 import { getPitchClass } from '../jpdb/jpdb-parser';
 import { inferredInflectedSurfaceRubies, nonOverlappingTokens } from '../dom';
@@ -331,6 +332,7 @@ export class ReaderParser {
             rid: 0,
             spelling: entry.expression,
             reading: entry.reading || entry.expression,
+            language: activeLearningTargetLanguage(),
             frequencyRank: entry.jpdbFrequency ?? null,
             partOfSpeech: [],
             meanings: [{

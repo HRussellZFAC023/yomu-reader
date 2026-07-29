@@ -1,6 +1,7 @@
 import { canonicalLanguageTag, languageSubtag } from './locale';
 import { JAPANESE_LEARNING_TARGET } from './japanese';
 import { KOREAN_LEARNING_TARGET } from './korean';
+import { GENERIC_ROSTER_LEARNING_TARGETS } from './roster-targets';
 import {
     isSupportedLearningTargetModuleInterfaceVersion,
     SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS,
@@ -92,3 +93,4 @@ export function defaultLearningTargetModule(): LearningTargetModule {
 
 registerLearningTargetModule(JAPANESE_LEARNING_TARGET);
 registerLearningTargetModule(KOREAN_LEARNING_TARGET);
+GENERIC_ROSTER_LEARNING_TARGETS.forEach(registerLearningTargetModule);

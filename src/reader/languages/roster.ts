@@ -5,6 +5,7 @@ import {
 } from '../locales/roster';
 import {
     LEARNER_LANGUAGE_IDS,
+    type LearnerLanguage,
     type LearnerLanguageId,
 } from '../locales/types';
 import { canonicalLanguageTag, languageSubtag } from './locale';
@@ -20,6 +21,30 @@ export type Slice1LearnerLanguageId = LearnerLanguageId;
 
 export const SLICE1_TARGET_LANGUAGE = 'ja' as const;
 export const DEFAULT_SLICE1_LEARNER_LANGUAGE = 'en' as const;
+export type LearningTargetRosterId = typeof SLICE1_TARGET_LANGUAGE | LearnerLanguageId;
+export type LearningTargetRosterEntry = Omit<LearnerLanguage, 'id'> & {
+    id: LearningTargetRosterId;
+};
+
+const JAPANESE_TARGET_ROSTER_ENTRY: LearningTargetRosterEntry = Object.freeze({
+    id: 'ja',
+    runtimeLocale: 'ja',
+    englishName: 'Japanese',
+    nativeName: '日本語',
+    defaultScript: 'Jpan',
+    scripts: Object.freeze(['Jpan']),
+    direction: 'ltr',
+});
+
+/**
+ * The target picker is Japanese plus the frozen 32-language catalogue roster.
+ * Japanese is not itself a learner/definition language in Slice 1, so this
+ * view adds it without duplicating the other 32 rows or changing their IDs.
+ */
+export const LEARNING_TARGET_ROSTER: readonly LearningTargetRosterEntry[] = Object.freeze([
+    JAPANESE_TARGET_ROSTER_ENTRY,
+    ...LEARNER_LANGUAGES,
+]);
 
 const RUNTIME_BASE_TO_CATALOGUE_ID = new Map<string, Slice1LearnerLanguageId>(
     LEARNER_LANGUAGES.map(language => [
@@ -35,6 +60,22 @@ export const SLICE1_LEARNER_LANGUAGE_TAGS: readonly LanguageTag[] = Object.freez
 export function canonicalTagForSlice1Language(id: Slice1LearnerLanguageId): LanguageTag {
     const runtimeLocale = learnerLanguageById(id).runtimeLocale;
     return canonicalLanguageTag(runtimeLocale) ?? runtimeLocale;
+}
+
+export function canonicalTagForLearningTarget(id: LearningTargetRosterId): LanguageTag {
+    return id === SLICE1_TARGET_LANGUAGE
+        ? SLICE1_TARGET_LANGUAGE
+        : canonicalTagForSlice1Language(id);
+}
+
+export function learningTargetRosterIdForTag(value: unknown): LearningTargetRosterId | null {
+    const canonical = canonicalLanguageTag(value);
+    if (languageSubtag(canonical) === SLICE1_TARGET_LANGUAGE) return SLICE1_TARGET_LANGUAGE;
+    return slice1LanguageIdForTag(value);
+}
+
+export function isLearningTargetRosterId(value: string): value is LearningTargetRosterId {
+    return value === SLICE1_TARGET_LANGUAGE || isLearnerLanguageId(value);
 }
 
 export function slice1LanguageIdForTag(value: unknown): Slice1LearnerLanguageId | null {

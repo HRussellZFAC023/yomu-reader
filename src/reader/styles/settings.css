@@ -595,6 +595,10 @@
   align-items: stretch;
   gap: 14px 16px;
 }
+
+.jpdb-reader-settings .grid > [data-language-family] {
+  display: contents;
+}
 .jpdb-reader-settings .grid > * {
   min-width: 0;
 }
