@@ -1,4 +1,5 @@
 import { SLICE1_LEARNER_LANGUAGES } from '../../../src/reader/dictionaries/catalog/types';
+import { withWorkerSecurityHeaders } from '../../shared/security-headers';
 
 const READ_METHODS = new Set(['GET', 'HEAD']);
 const IMMUTABLE_CACHE_CONTROL = 'public, max-age=31536000, immutable';
@@ -59,14 +60,16 @@ interface RequestedRange {
 export default {
   async fetch(request: Request, env: DictionaryWorkerEnv, ctx?: DictionaryExecutionContext): Promise<Response> {
     try {
-      return await handleDictionaryRequest(
-        request,
-        {
-          head: key => env.DICTIONARY_BUCKET.head(key),
-          get: (key, options) => env.DICTIONARY_BUCKET.get(key, options),
-        },
-        edgeCache(),
-        promise => ctx?.waitUntil?.(promise),
+      return withWorkerSecurityHeaders(
+        await handleDictionaryRequest(
+          request,
+          {
+            head: key => env.DICTIONARY_BUCKET.head(key),
+            get: (key, options) => env.DICTIONARY_BUCKET.get(key, options),
+          },
+          edgeCache(),
+          promise => ctx?.waitUntil?.(promise),
+        ),
       );
     } catch (error) {
       console.error(JSON.stringify({
@@ -74,10 +77,12 @@ export default {
         path: new URL(request.url).pathname,
         message: error instanceof Error ? error.message : String(error),
       }));
-      return responseWithCors(request, 'Dictionary service error.', {
-        status: 500,
-        headers: { 'cache-control': 'no-store' },
-      });
+      return withWorkerSecurityHeaders(
+        responseWithCors(request, 'Dictionary service error.', {
+          status: 500,
+          headers: { 'cache-control': 'no-store' },
+        }),
+      );
     }
   },
 } satisfies {

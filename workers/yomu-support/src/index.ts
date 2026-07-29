@@ -18,6 +18,7 @@ import {
   reconcileAcademyCodeDeliveries,
   type AcademyCodeDeliveryEnv,
 } from "./academy-code-delivery";
+import { withWorkerSecurityHeaders } from "../../shared/security-headers";
 
 const DEFAULT_DAILY_BUDGET_GBP = 10;
 const DEFAULT_MONTHLY_DONATION_FLOOR_GBP = 10;
@@ -257,14 +258,16 @@ const FORECAST = operatingForecast as OperatingForecast;
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     try {
-      return await handleRequest(request, env, ctx);
+      return withWorkerSecurityHeaders(await handleRequest(request, env, ctx));
     } catch (error) {
       console.error(JSON.stringify({
         event: "yomu_support_error",
         message: error instanceof Error ? error.message : "unknown",
         path: safePath(request),
       }));
-      return textResponse("Support service unavailable.", 500);
+      return withWorkerSecurityHeaders(
+        textResponse("Support service unavailable.", 500),
+      );
     }
   },
   async scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {

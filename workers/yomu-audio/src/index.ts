@@ -1,4 +1,5 @@
 import { handleWordTts, handleLineTts, ttsEnabled, type TtsEnv } from "./tts";
+import { withWorkerSecurityHeaders } from "../../shared/security-headers";
 const READ_METHODS = new Set(["GET", "HEAD"]);
 const DEFAULT_EMPTY_AUDIO_RESPONSE: AudioSourceListResponse = { type: "audioSourceList", audioSources: [] };
 const DEFAULT_AUDIO_MANIFEST_KEY = "index/audio-index.json";
@@ -111,16 +112,18 @@ const cachedShards = new Map<string, { key: string; expiresAt: number; index: Au
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     try {
-      return await handleRequest(request, env, ctx);
+      return withWorkerSecurityHeaders(await handleRequest(request, env, ctx));
     } catch (error) {
       console.error(JSON.stringify({
         event: "yomu_audio_error",
         message: error instanceof Error ? error.message : "unknown",
         path: safePath(request),
       }));
-      return jsonResponse(request, DEFAULT_EMPTY_AUDIO_RESPONSE, 200, {
-        "x-yomu-audio-error": "upstream",
-      });
+      return withWorkerSecurityHeaders(
+        jsonResponse(request, DEFAULT_EMPTY_AUDIO_RESPONSE, 200, {
+          "x-yomu-audio-error": "upstream",
+        }),
+      );
     }
   },
 };

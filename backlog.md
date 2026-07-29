@@ -685,8 +685,20 @@ false claim on a live page, then a defect a learner hits, then engineering risk,
 
 **Engineering risk**
 
-- [ ] **A35.14 — HIGH: no security headers on the origin or on four of five Workers, so the http→https
-      redirect is strippable.** Header dumps on 2026-07-29: `https://yomureader.com/` returns
+- [x] **A35.14 — CLOSED 2026-07-29: the static origin now has an active Cloudflare response-header
+      rule, and all five Workers apply the same security baseline at their response boundary.**
+      Static pages receive two-year preload-ready HSTS, nosniff, strict-origin referrer handling,
+      and a frame-only CSP that does not constrain Reader/Study/Academy resources. Worker API and
+      media responses use a strict `default-src 'none'` CSP, no-referrer, nosniff, and HSTS; the
+      support donation form preserves its narrower route-specific CSP. The Cloudflare rule excludes
+      Academy Worker routes so it cannot replace their stricter policy. `Permissions-Policy` is
+      deliberately omitted because Reader and Academy have optional microphone recording;
+      `X-Frame-Options` is omitted in favour of the single `frame-ancestors` source of truth; and
+      cross-origin isolation/resource headers are omitted because the userscript intentionally
+      consumes these services from other origins. The apex passed the preload eligibility check and
+      is pending inclusion after submission to `hstspreload.org`. See `docs/dev/security-headers.md`.
+      **Original finding: no security headers on the origin or on four of five Workers, so the http→https
+      redirect was strippable.** Header dumps on 2026-07-29: `https://yomureader.com/` returns
       `access-control-allow-origin: *` and cache/CDN plumbing and nothing else. Absent on every host
       tested: `strict-transport-security`, `content-security-policy`, `referrer-policy`,
       `x-frame-options`, `permissions-policy`. `x-content-type-options: nosniff` exists on exactly one

@@ -4,6 +4,7 @@ import { errorResponse } from './http';
 import academy from './index';
 import { handlePaymentRoute } from './payment-routes';
 import { runScheduledLifecycleMaintenance } from './lifecycle';
+import { withWorkerSecurityHeaders } from '../../shared/security-headers';
 
 const clock = (): number => Date.now();
 
@@ -12,10 +13,12 @@ export default {
     async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
         const route = `${request.method} ${new URL(request.url).pathname}`;
         try {
-            return await handlePaymentRoute(route, request, env, clock)
-                ?? await academy.fetch(request, env, ctx);
+            return withWorkerSecurityHeaders(
+                await handlePaymentRoute(route, request, env, clock)
+                    ?? await academy.fetch(request, env, ctx),
+            );
         } catch (error) {
-            return errorResponse(error);
+            return withWorkerSecurityHeaders(errorResponse(error));
         }
     },
     async scheduled(_controller: ScheduledController, env: Env, _ctx: ExecutionContext): Promise<void> {

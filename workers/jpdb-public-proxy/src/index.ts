@@ -1,4 +1,5 @@
 import { isPrivateOrLocalHostname } from "../../../src/reader/network/private-host";
+import { withWorkerSecurityHeaders } from "../../shared/security-headers";
 
 const JPDB_AUDIO_ACCESS_HEADER = "please don't steal these files";
 const FALLBACK_CORS_HEADERS =
@@ -29,7 +30,7 @@ interface ExecutionContext {
   waitUntil(promise: Promise<unknown>): void;
 }
 
-export default {
+const proxyWorker = {
   async fetch(
     request: Request,
     env: Env,
@@ -113,6 +114,18 @@ export default {
     const proxied = withCors(request, response, target);
     maybeRecordProxyAnalytics(ctx, env, request, target, policy.targetKind, proxied.status, "origin", budget);
     return proxied;
+  },
+};
+
+export default {
+  async fetch(
+    request: Request,
+    env: Env,
+    ctx: ExecutionContext,
+  ): Promise<Response> {
+    return withWorkerSecurityHeaders(
+      await proxyWorker.fetch(request, env, ctx),
+    );
   },
 };
 
