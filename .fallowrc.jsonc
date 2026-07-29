@@ -122,6 +122,10 @@
     "src/reader/wanikani/wanikani-companion.ts",
     "src/reader/wanikani/wanikani-lookup-companion.ts",
     "src/reader/wanikani/wanikani-source-companion.ts",
+    // Extension builds substitute these catalogue loaders through Vite aliases.
+    // They are real browser entry seams, but no static import names them.
+    "src/reader/dictionaries/catalog/runtime-catalog-extension-content.ts",
+    "src/reader/dictionaries/catalog/runtime-catalog-extension-page.ts",
     // Deliberately parked seams (headers document the wiring plan): story
     // voice-line resolution awaits a public cached-line worker endpoint, and
     // the overflow-destination contract awaits the world-screen overflow menu.
